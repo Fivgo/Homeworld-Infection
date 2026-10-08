@@ -1,0 +1,13 @@
+# Copyrighted game binaries and extracted game data: never commit
+original/
+# Third-party reference clones (separate repos)
+reference/
+# Ghidra projects and exports
+ghidra/*.rep/
+ghidra/*.gpr
+ghidra/*.lock
+ghidra/exports/
+# Wine prefix and build output
+prefix/
+build/
+*.log
