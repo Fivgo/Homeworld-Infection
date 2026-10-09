@@ -19,10 +19,14 @@ Subcommands:
   status            limit window, GPU gate, queue progress
   export            write ghidra/proposals/qwen-naming.json in the binary-map contract
 """
-import argparse, csv, datetime as dt, fcntl, json, os, re, subprocess, sys, time, urllib.request
+import argparse, csv, datetime as dt, fcntl, glob, json, os, re, subprocess, sys, time, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EXP = os.path.join(ROOT, "ghidra/exports/cataclysm_gog")
+def _newest_export():
+    base = os.path.join(ROOT, "ghidra/exports")
+    cands = [d for d in glob.glob(os.path.join(base, "cataclysm_gog*")) if os.path.exists(os.path.join(d, "decompiled_index.csv"))]
+    return max(cands, key=os.path.getmtime) if cands else os.path.join(base, "cataclysm_gog")
+EXP = os.environ.get("HWI_EXPORT_DIR") or _newest_export()
 HW1M = os.path.join(ROOT, "ghidra/exports/cataclysm_gog_hw1match/hw1_string_matches.csv")
 OUTDIR = os.path.join(ROOT, "ghidra/proposals/qwen")
 OUT = os.path.join(OUTDIR, "naming.jsonl")
