@@ -19,3 +19,5 @@ __pycache__/
 docs/screenshots/
 ghidra/proposals/qwen/.worker.lock
 *.pyc
+# Claude Code worktrees (round branches live here until merged)
+.claude/
