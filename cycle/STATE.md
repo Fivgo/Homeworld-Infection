@@ -40,7 +40,7 @@ Scripts are copied in `cycle/workflows/` so a new session can relaunch them. Res
 
 | workflow | run id | state at last checkpoint | next |
 |---|---|---|---|
-| dissect-public | `wf_05709792-47f` | all 7 docs written; hw1-core/gameplay/presentation verified; cet-knowledge, ghidra, runbook, port-lessons verifiers and `synthesize:plan` (PLAN.md, README.md) cut off by the limit | resume: 4 verifiers + plan |
+| dissect-public | `wf_05709792-47f` | COMPLETE 2026-10-08 20:12: 7 docs, all 7 verified (two docs carry two verification rounds). The planner agent stopped on a denied file read, so PLAN.md and README.md were written by the lead instead. | nothing; do not resume |
 | binary-map-r1 | `wf_0c18f70b-e23` | producers cut off by the limit; `lib-strings.json` and `missions.json` already on disk; a null guard now stops it before Apply if reconcile fails | resume: producers → audits → reconcile → Ghidra apply |
 
 ## Next steps after the workflows land

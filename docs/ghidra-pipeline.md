@@ -62,13 +62,14 @@ ghidra/scripts/ImportSymbolsJson.py   -preScript phase=pre, -postScript phase=po
 ghidra/scripts/MatchHW1Strings.py     -postScript (opt-in): HW1-source string matching
 ghidra/scripts/ExportAnalysis.py      -postScript : flat-file exports
 ghidra/cet_symbols.json               produced by another agent from CET (optional; absent = skipped)
-ghidra/projects/<project>.gpr|.rep    Ghidra projects            (NOT covered by .gitignore yet, see below)
+ghidra/projects/<project>.gpr|.rep    Ghidra projects            (gitignored: ghidra/projects/, .gitignore:16)
 ghidra/exports/<pe-basename>/         exports + logs/            (gitignored: ghidra/exports/)
 ```
 
-`.gitignore` currently ignores `ghidra/*.rep/`, `ghidra/*.gpr`, `ghidra/*.lock`. Those patterns miss
-`ghidra/projects/*.rep`. **Add `ghidra/projects/` and `__pycache__/` to `.gitignore`** before committing: a project DB
-contains the copyrighted program bytes. The stand-in project created by the smoke test (`standin-d3d8`, 6 MB)
+`.gitignore` originally ignored only `ghidra/*.rep/`, `ghidra/*.gpr`, `ghidra/*.lock`, which miss
+`ghidra/projects/*.rep`. It **now** also has `ghidra/projects/` (`.gitignore:16`), `__pycache__/` (`:17`) and `*.pyc`
+(`:21`); `git check-ignore -v ghidra/projects/cataclysm_gog.rep ghidra/scripts/__pycache__` confirms both (second verification
+pass). Keep it that way: a project DB contains the copyrighted program bytes. The stand-in project created by the smoke test (`standin-d3d8`, 6 MB)
 was moved out of the repo to `/tmp/claude-1000/ghidra-standin-projects/`. Its exports stay in `ghidra/exports/d3d8.dll/`
 (gitignored) for inspection; they were regenerated on 2026-10-08 14:02 (fresh `--reimport` + fixture, 17.9 s) with the scripts as they stood then, i.e. **before** the 14:05 `WindowsResourceReference` edit to `ConfigureAnalysis.py`: their `logs/headless.out` shows `applied=20` and `program.json` still has `WindowsResourceReference`=`true`. **`ghidra/projects/` is no
 longer empty**: the parallel real-exe run left `cataclysm_gog.gpr` + `cataclysm_gog.rep/` (81 MB) there (§6.7).
@@ -93,7 +94,7 @@ tools/ghidra_headless.sh [options] <pe-file> [project-name]
 | `--max-cpu N` | analyzeHeadless `-max-cpu` |
 | `--symbols FILE` | CET JSON (default `ghidra/cet_symbols.json`, env `CET_SYMBOLS`) |
 | `--profile msvc6\|fast\|default` | `ConfigureAnalysis.py` profile (import only, like `--noexec-sections`) |
-| `--export-name X` | export directory name (default: the PE basename). Needed when two inputs share a basename (the original `rgl.dll` vs CET's hw_rgl `rgl.dll`) and for side-by-side projects (§8.0 steps 4 and 7) |
+| `--export-name X` | export directory name (default: the PE basename). Needed when two inputs share a basename (the original `rgl.dll` vs CET's hw_rgl `rgl.dll`) and for side-by-side projects (§8.0 steps 4 and 7). It does **not** separate projects: give such inputs distinct project names too (G22) |
 | `--noexec-sections .cms_t[,…]` | import-time only: clear the execute flag of the named blocks and set program option `Disassembler` → `Restrict Disassembly to Executable Memory`=true before analysis (§4, §6.5). An unknown block name is a logged warning, not an error. In reuse mode the wrapper prints `WARNING: --noexec-sections/--profile apply only on import` and goes on without them (tested on a copy of the d3d8 stand-in project); add `--reimport` |
 | `--hw1-match` / `--hw1-apply` / `--hw1-validate` / `--hw1-src DIRS` | run `MatchHW1Strings.py`: propose / apply / score against existing names / pick source dirs |
 | more than 2 positional args | exit 2, `too many arguments (did a glob match several files?)`. Without this guard, a glob that matched two files would make the second one the project name (§8.0 step 7) |
@@ -102,15 +103,23 @@ tools/ghidra_headless.sh [options] <pe-file> [project-name]
 Script order on a fresh import: `ConfigureAnalysis` → `ImportSymbolsJson phase=pre` → auto-analysis →
 `ImportSymbolsJson phase=post report=<out>/cet_apply_report.csv` → [`MatchHW1Strings`] → `ExportAnalysis`.
 Exit code: analyzeHeadless returns **0 even when a Python script raises** (§7 G4). The wrapper greps
-`logs/headless.out` for `ERROR <x>.py>`, `Traceback`, `Import failed`, `program file(s) not found` and
-`Unable to lock project`, and then exits 5. Logs: `ghidra/exports/<name>/logs/{headless.out,application.log,script.log}`.
+`logs/headless.out` for `ERROR <x>.py>`, `Traceback`, `REPORT: Import failed`, `program file(s) not found` and
+`Unable to lock project`, and then exits 5. It then compares the sha256 of the input file with the `sha256` that
+`ExportAnalysis` wrote into `program.json` during this run, and exits **6** if they differ (G22: reuse mode silently
+processed a different file that has the same basename; added in the second verification pass and tested on stand-ins).
+Exit codes: 2 usage, 3 GOG Galaxy stub, 4 Ghidra/JDK missing, 5 script/import error, 6 wrong program in project, otherwise
+analyzeHeadless's own code. Logs: `ghidra/exports/<name>/logs/{headless.out,application.log,script.log}`.
 
 ---
 
 ## 4. Analysis options (`ConfigureAnalysis.py`, profile `msvc6`)
 
 Every option name was checked against `getCurrentAnalysisOptionsAndValues()` on Ghidra 12.1.4 (127
-options on a PE32). The script reads each value back after setting it and warns on any mismatch. None occurred.
+options on the d3d8 and SMACKW32 PE32 stand-ins; 132 on `cataclysm.exe`, `ghidra/exports/cataclysm_gog/program.json`
+`analysis_options`, because more analyzers register for an MSVC-identified PE). The script reads each value back after setting it and warns on any mismatch. None occurred.
+The **Default** column was re-checked in the second verification pass with a `--profile default` import of the SMACKW32 stand-in
+(`/tmp/claude-1000/ghidra-verify2/exports/smack-default/program.json`): every entry matches, except that the RTTI/EH
+analyzers are not registered there (SMACKW32 is not identified as MSVC: `applied=21` in §6.5), so their default stays unknown.
 
 | Option | Value | Default | Why |
 |---|---|---|---|
@@ -122,7 +131,7 @@ options on a PE32). The script reads each value back after setting it and warns 
 | Create Address Tables, {Data,}Reference.Switch Table References | true | true/false | jump and pointer tables |
 | ASCII Strings min length / {Data,}Reference min string length | LEN_4 / 4 | LEN_5 / 5 | more anchors for string matching |
 | Stack.Create Param Variables | true | false | better decompiler output |
-| Variadic Function Signature Override | true | false | printf-style call sites decompile correctly. Side effect: USER_DEFINED `prt_<addr>_<hash>` labels in `<func>::override` namespaces (1,041 on MCX.EXE) |
+| Variadic Function Signature Override | true | false | printf-style call sites decompile correctly. Side effect: USER_DEFINED `prt_<addr>_<hash>` labels in `<func>::override` namespaces (979 in MCX.EXE's `symbols.csv`; 1,041 is MCX's total of USER_DEFINED symbols in `program.json`, not the label count). On `cataclysm.exe` (§6.7) it ran 0.67 s and created **0** override labels, and no printf-family function was named by FID or CET, so it is inert there until such functions get varargs prototypes (then `--reanalyze`; effect UNVERIFIED) |
 | Windows x86 PE RTTI Analyzer, Windows x86 PE Exception Handling | true | — | Registered only when Ghidra identifies an MSVC/Clang PE: both `canAnalyze` methods return `PEUtil.isVisualStudioOrClangPe(program)` (`javap -c` on `Ghidra/Features/MicrosoftCodeAnalyzer/lib/MicrosoftCodeAnalyzer.jar`). Registration therefore says nothing about RTTI being present. Skipped on the MinGW d3d8.dll; applied on MCX.EXE and cataclysm.exe |
 | PDB Universal.Search untrusted symbol servers | false | false | no network |
 | WindowsResourceReference | **false** (`resref=1` re-enables) | true | On the real `cataclysm.exe` run (§6.7) this one analyzer took **199.8 s of the 347 s** auto-analysis and produced 2 bookmarks; the `.rsrc` holds a single icon. Off-state verified by read-back on the SMACKW32 stand-in (`/tmp/claude-1000/ghidra-smack/exports-noexec2/`, 14:05: `applied=21`, `program.json` → `false`). The repo's d3d8 stand-in exports predate this edit (§2) |
@@ -154,7 +163,7 @@ A bare top-level list is also accepted. Args: `json=` `phase=pre|post|all` `repo
 | `function` | Sorted by address and created first, so an enclosing function exists before any address inside it. Pre-analysis it disassembles and runs `CreateFunctionCmd(IMPORTED)`. It **refuses to create a function inside an existing body** (`label-only`, detail `inside:<fn>@<entry>`; tested). Otherwise it renames (a USER_DEFINED name is kept and ours added as a secondary label), adds tag `CET` and a `[CET]` plate comment, flags `overlaps:` when another function's body covers the entry, and, **in the post/all phase only**, applies `type` as a prototype via `CParserUtils.parseSignature` + `ApplyFunctionSignatureCmd`. `WINAPI`/`CALLBACK` become `__stdcall`, and a leading `ret name(` is handled. If analysis (e.g. the demangler) took over the name, the stale label is deleted and the name re-asserted (G16). Accepted forms: a full prototype, `ret (args)` or `ret (*)(args)` (tested: `int __stdcall (void *iface, int a, int b, int c)` and `void (int)` applied). If the prototype names types Ghidra does not know, it falls back to a **degraded prototype**: HW1/CET typedefs map to built-ins (`udword`→`uint`, `sdword`→`int`, `real32`→`float`, `bool32`→`int`, … from CET `game/Game/TYPES.h:11-24`), unknown pointers become `void *`, unknown by-value types become `undefined4`, and `T x[N]` becomes `T *x`. This keeps the parameter count and pointer-ness (detail `proto-applied-degraded`; tested: `bool32 (Player* player, ShipType type, int p3)` → `int f(void * player, undefined4 type, int p3)`; `void (const char CommandMessage[MAX_MESSAGE_LENGTH], udword flags)` → `void f(char * CommandMessage, uint flags)`). A prototype with no calling-convention keyword **keeps the function's analysed convention** (verified: `ApplyFunctionSignatureCmd` with convention `unknown` left `__stdcall`/purge 16 unchanged; an explicit `__cdecl` overrides it). |
 | `data` | label (made primary when the existing primary is DEFAULT/ANALYSIS) + PRE comment. `type` is cleaned first: trailing `(…)` annotations dropped, HW1 typedefs mapped, `T[NAME=60]` → `T[60]`, unknown pointee → `void *`. `T[]`, `[512?]`, `end of …` and unknown by-value structs give `type-unknown` (label only). The result goes through `DataTypeParser`, and data is created with `CLEAR_ALL_CONFLICT_DATA`, but only in non-executable blocks. Tested: `real32 (constant 240.0f)`→`float`, `Ship* (pointer variable)`→`void *`, `udword[TOTAL_STD_SHIPS=60]`→`uint[60]`. |
 | `vtable`, `string` | label + PRE comment |
-| `patch_site` | Label in the containing function's namespace (moved there in the post phase if pre-analysis created it as global), PRE comment and a `Note/CET` bookmark. It is **never disassembled**, because CET can patch operand bytes. Report columns `containing_function`, `proposed_container_name` (from `hw1_equivalent`, else the `prefix_` of names like `utyGameSystemsInit_UNIVERSE_UPDATE_PERIOD`). `hw1_equivalent` may be `HomeworldSDL/src/Game/ETG.c:etgAtDefine` (the producer's format); the part after the last `:` is used. With `apply_proposals=1` (default), a DEFAULT/ANALYSIS-named container whose patch sites agree on `hw1_equivalent` is renamed (source ANALYSIS, tag `CET_container`). Disagreements get a plate comment, and a name already used by another function is not applied (`name … already used`) (tested: `FUN_10005a60` → `vbGetDescHW1`). |
+| `patch_site` | Label in the containing function's namespace (moved there in the post phase if pre-analysis created it as global), PRE comment and a `Note/CET` bookmark. Caveat: `hw1_equivalent` names the HW1 function the instruction came from, which is not always the binary function that contains it. When MSVC inlined that HW1 function, the container gets the inlined callee's name (`InitWindow` 0x005631f0 is really WinMain, §6.8). It is **never disassembled**, because CET can patch operand bytes. Report columns `containing_function`, `proposed_container_name` (from `hw1_equivalent`, else the `prefix_` of names like `utyGameSystemsInit_UNIVERSE_UPDATE_PERIOD`). `hw1_equivalent` may be `HomeworldSDL/src/Game/ETG.c:etgAtDefine` (the producer's format); the part after the last `:` is used. With `apply_proposals=1` (default), a DEFAULT/ANALYSIS-named container whose patch sites agree on `hw1_equivalent` is renamed (source ANALYSIS, tag `CET_container`). Disagreements get a plate comment, and a name already used by another function is not applied (`name … already used`) (tested: `FUN_10005a60` → `vbGetDescHW1`). |
 | idempotency | comments are de-duplicated on the `[CET] …` line. Re-running `phase=all` on the same DB changed nothing (tested). |
 
 Report: `ghidra/exports/<name>/cet_apply_report.csv`, with columns `address,name,kind,status,function_at,containing_function,container_entry,proposed_container_name,detail`.
@@ -195,6 +204,10 @@ runs in parallel: on MCX.EXE, 5,596 functions took 72.8 s on 1 thread and 33.0 s
   - A whitespace- or case-normalised match counts half.
 - **Proposal rule:** score ≥ 1, margin ≥ 0.5 over the runner-up, and either one fully specific string that is unique on both sides or ≥3 strings. Proposals are one-to-one: if several binary functions want the same name, the best score wins and the rest are marked `dup`.
 - **`apply=1`** renames only DEFAULT (`FUN_*`) functions, with source ANALYSIS and tag `HW1_STR`. CET names (IMPORTED) and hand-typed names therefore always win.
+  Gap: the one-to-one rule only compares `proposed` rows with each other (`MatchHW1Strings.py:371-379`). It does not
+  check whether another function already carries the name, for example a CET name on a function whose own row is `weak`.
+  On the §6.8 run, none of the 120 proposals names a different function's existing name (checked against `functions.csv`).
+  What Ghidra does on such a clash (duplicate name, or `apply-failed:`) is UNVERIFIED.
 
 ---
 
@@ -308,7 +321,7 @@ Run: `--profile fast --no-decompile --hw1-validate`, project in `/tmp/claude-100
 
 Caveats:
 - This is HW1 matched against HW1: gcc `-O0`, no inlining, the same strings. Cataclysm will score lower (changed text, MSVC inlining, Cataclysm-only code).
-- The 99.9% precision is the property that transfers: with these thresholds, wrong names come almost only from code missing from the index. **This transfers only partly (§6.8).** On `cataclysm.exe`, 2 of the 4 proposals that could be checked against CET names disagreed. The causes were MSVC inlining and SDL-port restructuring, and an HW1-vs-HW1 test cannot show either.
+- The 99.9% precision is the property that transfers: with these thresholds, wrong names come almost only from code missing from the index. **This transfers only partly (§6.8).** On `cataclysm.exe`, 2 of the 4 proposals that could be checked against CET names disagreed. The causes were MSVC inlining and SDL-port restructuring, and an HW1-vs-HW1 test cannot show either. One of the two (0x005631f0) turned out to be a wrong CET-container name, with the matcher closer to the truth (§6.8).
 - Coverage is bounded by how many functions use strings at all. 1,246 HW1 functions own a unique string of 4+ characters.
 
 ### 6.5 Section quarantine (`--noexec-sections`) on a stand-in with a second code section
@@ -342,8 +355,8 @@ Result: rc=0, 7 s, and the same `cet_apply_report.csv` statuses as §6.2 (`same-
 Provenance: `ghidra/exports/cataclysm_gog/logs/headless.out`. Scripts were run from
 `/tmp/claude-1000/…/scratchpad/snap/`, which is byte-identical to this pipeline's 09:54 wrapper, i.e. **before** this
 round's `noexec=`, `WindowsResourceReference` and per-block-count edits. The profile was `msvc6`, with the CET JSON snapshot of
-`ghidra/cet_symbols.json` (184 entries). The project DB is 81 MB and sits in `ghidra/projects/cataclysm_gog.rep`, **inside
-the repo and not gitignored** (§2).
+`ghidra/cet_symbols.json` (184 entries). The project DB is 81 MB and sits in `ghidra/projects/cataclysm_gog.rep`, inside
+the repo tree. It is now gitignored (`.gitignore:16`, §2).
 
 | Metric | Value |
 |---|---|
@@ -353,7 +366,7 @@ the repo and not gitignored** (§2).
 | functions | **11,194**: `.text` 10,980 (8,205 `FUN_*`), `.cms_t` 172 (152 `FUN_*`), `.data` 42 (all `FUN_*`, all size 1, at 0x00891a1c–0x00892114). Thunks 86. Name sources: DEFAULT 8,399, ANALYSIS 2,715, IMPORTED 74, USER_DEFINED 6 (`lpStartAddress_*`, `lpLocaleEnumProc_*`, `lpTopLevelExceptionFilter_*`: callback names from external-parameter propagation) |
 | call edges | 29,405: `.text`→`.text` 28,056, `.text`→external 1,012, `.cms_t`→`.cms_t` 263, `.cms_t`→`.data` 74. **Zero edges between `.text` and `.cms_t` in either direction** |
 | Function ID | **254 hits** (+38 `Function ID Conflict`), against 2 on MCX.EXE. The bundled DBs do cover part of this exe's CRT |
-| strings / imports / exports | 13,094 strings (9,397 with xrefs). 257 import symbols in 11 DLLs; the fingerprint counted 263, one more in each of 6 DLLs, cause not checked. **17 named exports** + entry: `opendir`/`readdir`/`seekdir`/`telldir`/`closedir`, `mmap`/`munmap`, `NTElapsedTime`, `NTErrorHandler`, `NTSystemCommand`, `NTTemporaryFilename`, `NTUserTime`, `NTWarningHandler`, `IsWindows95`, `Exit`, `SetClientName`, `ImageFormatConflict` (INFERENCE from the names: an ImageMagick-style `nt.c` port layer, i.e. another statically linked library. The 23 `Magick::` RTTI classes in the `ConfigureAnalysis` row corroborate it) |
+| strings / imports / exports | 13,094 strings (9,397 with xrefs). 257 import symbols in 11 DLLs. The fingerprint counted 263, one more in each of 6 DLLs (binkw32, GDI32, DDRAW, comdlg32, SHELL32, ole32). Ghidra's 257 is self-consistent: the `iat=` slots in `imports.txt` fill 0x0072a000–0x0072a428 contiguously, one DLL after another, with exactly one null terminator between DLLs. That is 257 + 11 = 268 slots = 0x42c/4 + 1, so there is no free slot for 6 more imports. The fingerprint's 263 is therefore the suspect figure. Its method is not documented in `docs/binary-fingerprint.md:33`, so the cause is UNVERIFIED. **17 named exports** + entry: `opendir`/`readdir`/`seekdir`/`telldir`/`closedir`, `mmap`/`munmap`, `NTElapsedTime`, `NTErrorHandler`, `NTSystemCommand`, `NTTemporaryFilename`, `NTUserTime`, `NTWarningHandler`, `IsWindows95`, `Exit`, `SetClientName`, `ImageFormatConflict` (INFERENCE from the names: an ImageMagick-style `nt.c` port layer, i.e. another statically linked library. The 23 `Magick::` RTTI classes in the `ConfigureAnalysis` row corroborate it) |
 | decompile | 11,105 ok, 3 failed (`0x00671da2` in `.text`, plus 2 of the size-1 `.data` stubs), 86 thunks, **16.2 s** on 16 threads. The many `pcode error … Unable to resolve constructor` warnings are all at `.data` 0x0089xxxx or `.cms_t` 0x00c5xxxx addresses |
 | bookmarks | Found Code 3,564, Address Table 1,058, AIF 866, Error/Bad Instruction 13 |
 | memory map | the 7 PE sections plus a `tdb` block at 0xffdff000–0xffdfffff (rw, 4 KB) that is not in the PE section table. Ghidra adds it; it is absent from the d3d8 and SMACKW32 stand-ins |
@@ -376,9 +389,21 @@ create a function at its `lpfnWndProc` value. Then create `ActivateMe` from its 
 (`phase=all`). The containers will then resolve. Ideally the producer adds both as `function` entries in
 `cet_symbols.json` once their addresses are confirmed.
 
+**WindowProc located (second verification pass, from this run's `decompiled.c`):** `RegisterClassA` has 2 code refs
+(`imports.txt`). `FUN_005602f0` (95 bytes, called from 0x005631f0) fills a `WNDCLASSA` with `lpszClassName = "Emergence"`,
+`style = 0xb`, `hIcon = LoadIconA(…, 0x67)` and **`lpfnWndProc = &DAT_00561f10`**. 0x00561f10 lies inside the gap
+(0x00561eed–0x005631a0), and the `DAT_` prefix means Ghidra kept the pointer as a data reference and never disassembled the target.
+That address is the game window's `WindowProc`, and both `WindowProc_*` patch sites lie after it. The other
+`RegisterClassA` (`FUN_00556120`) registers `"HW_DebugWindow"` with `LAB_00555d70`. To close the gate, add
+`{"address":"0x00561f10","name":"WindowProc","kind":"function","type":"LRESULT __stdcall (HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)"}`
+to `cet_symbols.json` (owned by its producer), or create it by hand, then re-run. The pre phase creates functions only at
+addresses outside existing bodies, which holds here. It is UNVERIFIED whether the ActivateMe sites (0x00562084/0x0056208e) then
+fall inside WindowProc's body (inlined) or need a separate `ActivateMe` function. In HW1 `ActivateMe` is non-static
+(`SDL/main.c:1154`) and is called from the event handler (`:1709`, `HandleEvent` in the SDL port).
+
 Also on this run (`cet_apply_report.csv`, `logs/headless.out`):
 - `data` typing: 54 typed (51 `type-same`, 3 `type-applied`) and 24 `type-unknown` (game structs, pending the `.gdt`).
-- Container naming: `container names applied=12 conflicts=0`. The 12 `CET_container` functions are `etgAtDefine` 0x0046de60, `gunShipFirePower` 0x0048cb60, `nisUpdateTask` 0x004cc600, `nisStartup` 0x004cc8f0, `partRenderBillSystem` 0x004dc6f0, `CollectResources` 0x004f17a0, `taskCallBackInit` 0x0052af00, `universeUpdateTask` 0x0053e460, `CheckPlayerWin` 0x005485e0, `InitWindow` 0x005631f0 (disputed, §6.8), `utyGameSystemsPreInit` 0x005ab810 and `utyGameSystemsInit` 0x005abe70. They are ANALYSIS-sourced, so later evidence can rename them.
+- Container naming: `container names applied=12 conflicts=0`. The 12 `CET_container` functions are `etgAtDefine` 0x0046de60, `gunShipFirePower` 0x0048cb60, `nisUpdateTask` 0x004cc600, `nisStartup` 0x004cc8f0, `partRenderBillSystem` 0x004dc6f0, `CollectResources` 0x004f17a0, `taskCallBackInit` 0x0052af00, `universeUpdateTask` 0x0053e460, `CheckPlayerWin` 0x005485e0, `InitWindow` 0x005631f0 (a misnomer: really WinMain with `InitWindow` inlined, §6.8), `utyGameSystemsPreInit` 0x005ab810 and `utyGameSystemsInit` 0x005abe70. They are ANALYSIS-sourced, so later evidence can rename them.
 - None of the 50 patch sites is a function entry. `target check: file name differs (informational)` is cosmetic: the JSON's `target.exe` holds a description (`cataclysm.exe (GOG "Homeworld: Emergence"; …)`), not a bare file name.
 
 **`.cms_t` verdict from this run:** it is a closed island, as noted in the call-edge row (internal calls, 74 calls into encrypted-looking `.data` stubs, nothing
@@ -388,7 +413,10 @@ UNVERIFIED until §8.0 step 3 runs. Note that the restrict option is **program-w
 That is wanted here.
 
 ### 6.8 HW1 string matcher on `cataclysm.exe` (reuse pass with the current scripts; read from its exports)
-Provenance: `ghidra/exports/cataclysm_gog_hw1match/logs/headless.out`, 14:05:10–14:05:20 (`application.log`). This was a reuse-mode pass on the
+Provenance: `ghidra/exports/cataclysm_gog_hw1match/logs/headless.out`, 14:05:10–14:05:20 (`application.log`). **The files now on disk come
+from a second, identical pass at 14:26:23–14:26:34** (`application.log` appends both runs). That pass read `ghidra/cet_symbols.json` as edited at 14:15. It
+reproduced every figure below. The only differences are in `cet_apply_report.csv`: `data` typing is now 53 `type-same` + 1
+`type-applied` (`ETG_UpdateRoundOff`), and patch-site `containing_function` reads the CET_container names instead of `FUN_*`. This was a reuse-mode pass on the
 `cataclysm_gog` project (`-process`, no analysis) with the repo's current scripts: `ImportSymbolsJson phase=all`, then
 `MatchHW1Strings src=reference/HomeworldSDL/src apply=0 validate=0`, then `ExportAnalysis decompile=0`. It is the only run of the current
 `ExportAnalysis.py` on the real exe, and its `symbols_summary.txt` is the source of §6.7's per-block counts. It saved into the
@@ -407,15 +435,16 @@ project DB, but `apply=0` means it renamed nothing, and the `[CET]` re-assertion
 |---|---|---|---|
 | 0x00527820 | `scriptSetTweakableGlobals` (IMPORTED) | same | agrees (score 23.0, 24 strings) |
 | 0x005abe70 | `utyGameSystemsInit` (ANALYSIS, CET_container) | same | agrees |
-| 0x005197d0 | `singlePlayerGameUpdate` (IMPORTED; CET hooks this address, `Cataclysm.h:169`, `PatchUniverse.cpp:339`) | `singlePlayerKasMissionStart` (9.33, 16 strings `mission16`, `mission15`, …) | **wrong**: in HW1, `singlePlayerKasMissionStart` is `static` (`SinglePlayer.c:220`) and is called from `singlePlayerGameUpdate` (`:2648`). MSVC inlined it, so its strings moved into the caller (§8 b iii) |
-| 0x005631f0 | `InitWindow` (ANALYSIS, CET_container) | `main_postinit` (`\r\nProgram already running.\r\n`, `LSMap`) | **disputed**: the strings belong to HW1 `main` (`SDL/main.c:2135`). The index names it `main_postinit` because `main.c:2033` opens `#ifdef __EMSCRIPTEN__`, and the first-arm rule (§5.3) keeps that arm (`main_postinit`, `:2101`) and blanks `#else int main` (`:2106`). UNVERIFIED which of two things is true: 0x005631f0 is Cataclysm's `WinMain` with `InitWindow` inlined, or the container name is wrong |
+| 0x005197d0 | `singlePlayerGameUpdate` (IMPORTED; CET hooks this address, `Cataclysm.h:169`, `PatchUniverse.cpp:339`) | `singlePlayerKasMissionStart` (9.33, 16 strings `mission16`, `mission15`, …) | **wrong**: in HW1, `singlePlayerKasMissionStart` is `static` (`SinglePlayer.c:220`) and is called from `singlePlayerGameUpdate` (`:2648`) and twice from `singlePlayerStartGame` (`:3830`, `:3849`). INFERENCE: MSVC inlined it, so its strings moved into the caller (§8 b iii). Caveat: in the binary, `mission01`…`mission17` are each referenced by **one** function, 0x005197d0 (`strings.csv`). With three HW1 call sites, inlining alone does not explain that. Either Cataclysm restructured the callers or only one site survives. UNVERIFIED. The runner-up is `singlePlayerGameUpdate` itself (score 1.0) |
+| 0x005631f0 | `InitWindow` (ANALYSIS, CET_container) | `main_postinit` (`\r\nProgram already running.\r\n`, `LSMap`) | **The matcher is right in substance; the container name is the artefact.** The strings belong to HW1 `main` (`SDL/main.c:2135`). The index names it `main_postinit` because `main.c:2033` opens `#ifdef __EMSCRIPTEN__`, and the first-arm rule (§5.3) keeps that arm (`main_postinit`, `:2101`) and blanks `#else int main` (`:2106`). Second-pass evidence (`call_graph.csv`): 0x005631f0 is called directly by `entry` 0x0067bbe0, the CRT start-up that also calls `GetCommandLineA`/`GetStartupInfoA`/`GetModuleHandleA`/`GetVersion`. It calls `FindWindowA` (HW1 `main.c:2132`), the `RegisterClassA` wrapper `FUN_005602f0` and `CreateWindowExA`. HW1's `InitWindow` is `static` (`main.c:1948`) with a single call site in `main` (`:2195`). So 0x005631f0 is **WinMain** with `InitWindow` inlined (INFERENCE from the call graph). The `InitWindow` name came from the `InitWindow_DeviceCrcCheck` patch sites' `hw1_equivalent` |
 
 Among `weak` rows on already-named functions, 5 of 8 top candidates agree (`etgAtDefine`, `mgResourceInjectionInterval`,
 `mgResourceLumpSumInterval`, `mgGameTypesOtherButtonPressed`, `utyGameSystemsPreInit`). Three do not:
 `opOptionsAccept` (score 0.008), `univUpdate` (0.208), and the FID-named `_strerror` → `rgluErrorString` (0.5).
 
-Reading: 2 of the 4 proposals that could be checked disagreed. Both causes, inlining and port restructuring, are invisible in §6.4's
-HW1-vs-HW1 test. On Cataclysm, treat `proposed` as a review queue, not as ground truth. Review before `--hw1-apply` (§8.0 step 6).
+Reading: 2 of the 4 proposals that could be checked disagreed with the existing name. On a closer look (second pass), one of them
+(0x005631f0) is a wrong *container* name, and the matcher's `main` is the better name, so the matcher's own score is 3 of 4. Both causes, inlining and port restructuring, are invisible in §6.4's
+HW1-vs-HW1 test, and inlining also misleads the CET container naming (§5.1). On Cataclysm, treat `proposed` as a review queue, not as ground truth. Review before `--hw1-apply` (§8.0 step 6).
 The sample is 4 rows, so the error rate on the 116 `FUN_*` proposals is unmeasured.
 
 ---
@@ -441,10 +470,11 @@ The sample is 4 rows, so the error rate on the 116 `FUN_*` proposals is unmeasur
 | G15 | Bundled FID DBs (vs2012…2019, vsOlder) gave 2 hits on MCX.EXE's VC6 static CRT, but 254 (+38 conflicts) on `cataclysm.exe` (§6.7) | coverage depends on the CRT build. A VC6 FID DB (§8 c) is still worthwhile for the remainder |
 | G16 | An IMPORTED function name is **not** safe from every analyzer. On d3d8.dll the demangler made its ANALYSIS-sourced name primary over our pre-created `sub_53F9F0` and left ours as a label, so `setName` then threw `DuplicateNameException` | post phase deletes our stale label and re-asserts the name (Cataclysm is C with no exports, so the demangler should not fire there) |
 | G17 | A prototype applied **before** analysis (function convention still `unknown`) stays `unknown`. Applied after analysis without a convention keyword, `ApplyFunctionSignatureCmd` keeps the analysed convention and purge. | prototypes are applied in the post/all phase only |
-| G18 | PyGhidra leaves `ghidra/scripts/__pycache__/*.cpython-312.pyc` behind | wrapper exports `PYTHONDONTWRITEBYTECODE=1` (verified: no `__pycache__` after 3 runs); still add `__pycache__/` to `.gitignore` for hand-run scripts |
+| G18 | PyGhidra leaves `ghidra/scripts/__pycache__/*.cpython-312.pyc` behind | wrapper exports `PYTHONDONTWRITEBYTECODE=1` (verified: no `__pycache__` after 3 runs); `__pycache__/` and `*.pyc` are now in `.gitignore` (`:17`, `:21`) for hand-run scripts |
 | G19 | Clearing a block's execute flag alone does not stop disassembly (tested: `noexec=_UNSTEXT restrict=0` on SMACKW32 still gave 17 functions with full bodies there, the same as the plain run). The program option `Disassembler` → `Restrict Disassembly to Executable Memory` (default false) must be set too. Even then, call targets inside the block still become **size-1 placeholder functions**, and the decompiler still decompiles them from raw bytes | `ConfigureAnalysis noexec=` does both. Treat size-1 functions in a quarantined block as "called-into-protection" markers (§6.5) |
 | G20 | `WindowsResourceReference` can be pathological: 199.8 s of 347 s on `cataclysm.exe` (4.4 s on MCX.EXE) for 2 bookmarks | off in profile `msvc6` (`resref=1` to re-enable) |
 | G21 | `Restrict Disassembly to Executable Memory` is **program-wide**: `getInitializedMemory(program, true)` keeps only blocks with `isInitialized() && isExecute()` (`javap -c` on `Disassembler`). Every non-exec block (`.data`, `.rdata`, `.cms_d`) becomes non-disassemblable, not just the quarantined one | intended for cataclysm.exe (the only out-of-`.text` code is reached from `.cms_t`, §6.7). Re-check on any other binary before using `--noexec-sections` |
+| G22 | Reuse mode is keyed on project name + PE **basename** (`grep -F` on `~index.dat`). A different file with the same basename in an existing project is not imported: the run silently processes and exports the program already there, rc=0. Tested on stand-ins: project `collide` imported SMACKW32.DLL, then a d3d8.dll copied to `b/SMACKW32.DLL` gave exports with SMACKW32's sha256 (`/tmp/claude-1000/ghidra-verify2/`) | the wrapper now compares the input's sha256 with `program.json` and exits 6 (tested: same file → rc=0, other file → rc=6). Give the original and CET `rgl.dll` (or two `cataclysm.exe` builds) distinct **project** names, not just `--export-name` (§8.0 step 7) |
 
 ---
 
@@ -464,9 +494,9 @@ Inputs: the sha256 values are from `original/game/MANIFEST.sha256`, re-hashed 20
 Not targets: `CataclysmEngineTweaks.dll` and `cataclysm_loader.exe` (CET, source in `reference/`), `binkw32.dll`
 (RAD Bink), `glide*.dll`, `3DfxSpl*.dll` and `nglide_config.exe` (GOG's 2017 nGlide wrapper), and `goggame-*.dll`.
 
-0. **Keep the DB out of git.** `.gitignore` does not cover `ghidra/projects/` yet (§2), and a project DB contains the game's bytes.
-   Either the synthesis agent adds `ghidra/projects/` first, or every real run sets
-   `GHIDRA_PROJECTS_DIR=$HOME/ghidra-projects/homeworld-infection` (an env override; tested with `/tmp` paths in §6).
+0. **Keep the DB out of git.** A project DB contains the game's bytes. `.gitignore:16` now covers `ghidra/projects/` (§2;
+   it did not when this runbook was first written). Check with `git check-ignore ghidra/projects/x.rep` before any `git add ghidra/`.
+   Alternatively, set `GHIDRA_PROJECTS_DIR=$HOME/ghidra-projects/homeworld-infection` (an env override; tested with `/tmp` paths in §6).
 1. Integrity: `(cd original/game && grep ' ./cataclysm.exe$' MANIFEST.sha256 | sha256sum -c)`.
 2. Ask the producer of `ghidra/cet_symbols.json` to add `"sha256": "f03d9a3ef26f74c04916b8d17d344cdcf0b5acd040dd2924cd7499af6eef3ed4"`
    to `target`. The importer then refuses any other build (§5.1). Today `target` has only `exe`/`image_base`/`notes`.
@@ -482,21 +512,44 @@ Not targets: `CataclysmEngineTweaks.dll` and `cataclysm_loader.exe` (CET, source
    (`tools/ghidra_headless.sh --export-name cataclysm.exe-noq original/game/cataclysm.exe cataclysm-noq`) and compare.
    Still open: whether the 1,309 `.text` dwords that point into the `.cms_*` range (fingerprint byte scan) are live **data**
    references. §6.7 shows no call edges either way, and data references were not counted.
+   Check commands (tested on the §6.8 `symbols_summary.txt`, which has the per-block lines, and the §6.7 `call_graph.csv`: they print 10,980 / 172 / 42 functions and 28056):
+   ```bash
+   E=ghidra/exports/cataclysm.exe
+   grep -E '^  (\.text|\.cms_t|\.data) ' $E/symbols_summary.txt
+   python3 -I -c 'import csv,sys
+   t=lambda a: bool(a) and 0x401000 <= int(a,16) <= 0x729fff
+   r=list(csv.DictReader(open(sys.argv[1])))
+   print(".text->.text edges:", sum(1 for x in r if t(x["caller_address"]) and t(x["callee_address"])))' $E/call_graph.csv
+   ```
 5. **CET gate.** In `cet_apply_report.csv`, all 56 `function` rows must have status `function` with no `inside:`/`overlaps:`
    detail, and all 50 `patch_site` rows must have a `containing_function`. Any `label-only`, `not-in-memory` or
    container-less row means a wrong JSON entry, a different build, or a function Ghidra did not find. Fix it before
    trusting any other name. In §6.7 everything passed except the 4 `WindowProc`/`ActivateMe` patch sites, which are a
-   missing-function case with a known remedy (§6.7).
+   missing-function case with a known remedy (§6.7: create `WindowProc` at 0x00561f10).
+   Gate check (tested on `ghidra/exports/cataclysm_gog/cet_apply_report.csv`: lists exactly the 4 rows, `FAIL (4 rows)`):
+   ```bash
+   python3 -I -c 'import csv,sys
+   bad=[r for r in csv.DictReader(open(sys.argv[1]))
+        if (r["kind"]=="function" and (r["status"]!="function" or "inside:" in r["detail"] or "overlaps:" in r["detail"]))
+        or (r["kind"]=="patch_site" and not r["containing_function"])
+        or (r["kind"]=="data" and r["status"]!="label")
+        or r["kind"] not in ("function","patch_site","data","vtable","string")]
+   for r in bad: print(r["address"], r["name"], r["kind"], r["status"], r["detail"])
+   print("CET gate:", "PASS" if not bad else "FAIL (%d rows)" % len(bad))' ghidra/exports/cataclysm.exe/cet_apply_report.csv
+   ```
+   (The script prints the verdict and always exits 0; read the last line.)
 6. Review `hw1_string_matches.csv` (`proposed` first, then `weak` rows whose top candidate is plausible), then re-run
    with `--hw1-apply` (reuse mode, under a minute on MCX-sized programs; the §6.8 pass on cataclysm.exe took 10 s).
    On Cataclysm, a `proposed` row can be an inlining artefact (§6.8: `singlePlayerGameUpdate` was proposed as
    `singlePlayerKasMissionStart`). If the proposed HW1 function is `static` and has few HW1 callers, check whether the
    binary function is really one of those callers before accepting the name.
 7. The rGL DLLs, one project each, with no CET JSON (`--symbols none` is just a missing path, which is skipped):
-   `tools/ghidra_headless.sh --symbols none --export-name rgl-orig original/game/.cet-backup/20261008-135434/rgl.dll rgl`,
-   and the same for `rgld3d.dll`, `rglsw.dll` and `rglfx3.dll`. Use the explicit timestamp directory, not a `*` glob:
+   `tools/ghidra_headless.sh --symbols none --export-name rgl-orig original/game/.cet-backup/20261008-135434/rgl.dll rgl-orig`,
+   and the same for `rgld3d.dll` (`rgld3d-orig`). `rglsw.dll` and `rglfx3.dll` were not replaced, so their default names are fine. Use the explicit timestamp directory, not a `*` glob:
    `tools/install_cet.sh` makes a new `.cet-backup/<ts>/` on every run, and the wrapper now refuses more than two positional
-   arguments (exit 2). `--export-name rgl-orig` keeps these exports apart from any later run on CET's own `rgl.dll`.
+   arguments (exit 2). Both `--export-name rgl-orig` **and the project name `rgl-orig`** are needed to keep the original apart from any later run on CET's own `rgl.dll`.
+   With project `rgl`, a later `tools/ghidra_headless.sh original/game/rgl.dll` (default project `rgl`) would silently
+   re-export the *original* (G22). The wrapper now catches that case with exit 6. The first version of this step used project `rgl` (fixed in the second verification pass).
    Check the backups first with `(cd original/game/.cet-backup/20261008-135434 && sha256sum -c BACKUP_MANIFEST.sha256)`
    (verified OK); `original/game/MANIFEST.sha256:50-51` holds the same pre-CET hashes. `reference/hw_rgl` reimplements the
    rGL export interface (`reference/hw_rgl/draw.def`: `LIBRARY rgl`, `EXPORTS glAlphaFunc=_glAlphaFunc@8`, …), so its export names
@@ -507,6 +560,18 @@ Not targets: `CataclysmEngineTweaks.dll` and `cataclysm_loader.exe` (CET, source
 - **What CET gives us:** `Cataclysm.h` defines **55** `DEFINE_FUNCTION` entries in `namespace Functions` (`:125`). `grep -c 'DEFINE_FUNCTION('` gives 56 only because it also counts the `#define` at `:17`. The JSON's 56th `function` is `sub_53F9F0`, named in a comment at `game/Game/AISkirmish.h:105`. These are exact entry points with C prototypes, e.g. `:128 aisRequestShip, void, (Player* player, ShipType shipType, sdword buildCost), 0x00431510`.
 - It also has **44** `DEFINE_ADDRESS` entries (the 45th grep hit is the `#define` at `:14`), all in `namespace Instructions` (`:38`–`:124`). All are mid-function instruction addresses, and none coincides with a function entry on the §6.7 run. Three of them (`:98`, `:109`, `:110`) fall in the function-less `WindowProc`/`ActivateMe` gap (§6.7). They are named `<hw1Function>_<what>`, e.g. `utyGameSystemsInit_UNIVERSE_UPDATE_PERIOD 0x005AC174`.
 - `namespace Globals` (`:185`) holds typed globals, e.g. `HYPERSPACE_SLICE_RATE (float*)0x0089410C`, plus 3 `GamePointer<>` pointer-to-struct globals (`:250-252`).
+- **16 Hz sim tick anchors** (added in the second verification pass). HW1's `UNIVERSE_UPDATE_RATE_ORIG` is 16 and `UNIVERSE_UPDATE_PERIOD` is `1.0f/RATE`
+  (`HomeworldSDL/src/Game/Universe.h:44-49`). The SDL port multiplies the rate by `1<<UNIVERSE_UPDATE_RATE_SHIFT`, set to 2 at `Universe.c:75` (64 Hz), so do not copy its period.
+  Cataclysm retail runs at 16 Hz = 0.0625 s (float bits 0x3D800000). CET rewrites the period at 18 `Instructions` sites:
+  `univUpdate1-5` (`Cataclysm.h:41-49`), `utyGameSystemsInit`/`nisStartup`/`nisUpdateTask_1,_2`/`BabyTasksStartup`/`univUpdateReset`
+  `_UNIVERSE_UPDATE_PERIOD` (`:52-66`), `gunShipFirePower_UniverseUpdatePeriod1,2` (`:84-85`), `nisUpdateTask_UniverseUpdatePeriod1-4`
+  (`:91-94`) and `allianceFormWith_UniverseUpdatePeriod` (`:112`). It also replaces the global `ETG_UpdateRoundOff` 0x0072A818 = period/2 = 0.03125 (`:194`): it redirects the three ETG
+  loads of it (`etgDefineAt_UpdateRate1-3`, `:87-89`, `fcom`/`fsub`/`fld dword ptr ds:[…]`). The patch code is at `PatchUniverse.cpp:359-416`. Cross-check against the §6.7 `decompiled.c`: the literal `0.0625`/`0x3d800000` occurs in code in exactly
+  9 functions, and all 9 contain CET sites: `gunShipFirePower`, `nisUpdateTask`, `nisStartup`, `FUN_00524790`, `FUN_00525640`,
+  `taskCallBackInit`, `universeUpdateTask`, `univUpdateReset`, `utyGameSystemsInit` (e.g. `FUN_0052a5f0(s_UnivUpdateTask…, universeUpdateTask, 0x3d800000, 0)`,
+  the task-start call with its period). So CET's list covers every place the decompiler shows the period as a literal. Uses through a
+  data load (`ETG_UpdateRoundOff`-style) or as an integer 16 were not searched. After the quarantine run, repeat with
+  `grep -n '0\.0625\|0x3d800000' ghidra/exports/cataclysm.exe/decompiled.c` (skip comment lines: CET notes in plate comments also contain the constant).
 - Outside `Cataclysm.h` there are only **10** image-range address literals:
   - `PatchRGL.cpp:29,93,98,99`;
   - `GameHooks.cpp:158` (on a commented-out line) and `:166`;
@@ -566,22 +631,25 @@ Not targets: `CataclysmEngineTweaks.dll` and `cataclysm_loader.exe` (CET, source
 ---
 
 ## 9. Open items
-- `.gitignore`: add `ghidra/projects/` and `__pycache__/` (the synthesis agent owns that file).
+- ~~`.gitignore`: add `ghidra/projects/` and `__pycache__/`~~ Done: `.gitignore:16-17` (+ `*.pyc` `:21`), verified with `git check-ignore` in the second verification pass.
 - `ExportSymbolsJson.py` and `PropagateCallGraph.py` are proposed, not written.
 - CET header → `.gdt` import not done; prototypes with game types apply only in degraded form (`void *`/`undefined4`) until it is.
 - `data` types: the annotated forms in the real JSON (`real32 (constant 240.0f)`, `Ship* (pointer variable)`, `udword[TOTAL_STD_SHIPS=60]`) are handled. The 25 struct-typed globals (`Universe`, `CaptainGameInfo`, …) stay untyped labels until the `.gdt` exists. Avoid C++ declarators such as `GamePointer<Ship>` in the JSON (emit `Ship *`).
 - **Next round: run §8.0 on `original/game/cataclysm.exe`** with the current scripts (quarantine and WindowsResourceReference off). §6.7 came from the pre-edit snapshot, so re-measure wall time, per-block `FUN_*` counts and the CET gate.
-- Create `WindowProc` / `ActivateMe` (§6.7) so the last 4 CET patch sites get containers.
-- `ghidra/projects/cataclysm_gog.rep` (81 MB of program DB) is in the repo tree **now**: `.gitignore` must gain `ghidra/projects/` before any `git add` of `ghidra/`.
+- Create `WindowProc` at **0x00561f10** (found from `FUN_005602f0`'s `RegisterClassA("Emergence")`, §6.7) and, if needed, `ActivateMe`, so the last 4 CET patch sites get containers.
+- Rename the CET_container `InitWindow` 0x005631f0 to `WinMain` (or HW1 `main`) once reviewed: it is called by the CRT `entry`, and HW1's `static InitWindow` is inlined into it (§6.8).
+- `ghidra/projects/cataclysm_gog.rep` (81 MB of program DB) is in the repo tree; it is now covered by `.gitignore:16`.
 - `ghidra/cet_symbols.json` `target` should gain the exe's `sha256` (§8.0 step 2), so the importer's build guard is active.
 - `.cms_t` quarantine stays opt-in in the wrapper. §8.0 passes it explicitly for cataclysm.exe, based on §6.7.
 - Retail HW1 exe for BSim/VT (§8 c): not on this machine.
 - `MatchHW1Strings.py` first-arm rule: `SDL/main.c:2033 #ifdef __EMSCRIPTEN__` makes HW1 `main` index as `main_postinit` (§6.8). Fix: treat `__EMSCRIPTEN__` arms as dead in `first_arm_only`, then re-measure §5.3 and §6.4. This round did not change it, so the measured numbers stay valid for the script as it is.
-- `ghidra/scripts/__pycache__/MatchHW1Strings.cpython-312.pyc` appeared at 14:14:02. It did not come from the wrapper: a 14:16 wrapper reuse run left nothing new there. It is probably a hand import by another agent. Delete it, and add `__pycache__/` to `.gitignore`.
+- `ghidra/scripts/__pycache__/MatchHW1Strings.cpython-312.pyc` appeared at 14:14:02. It did not come from the wrapper: a 14:16 wrapper reuse run left nothing new there. It is probably a hand import by another agent. Delete it (it is now gitignored by `__pycache__/` and `*.pyc`). Three wrapper runs in the second verification pass added nothing there.
+- `MatchHW1Strings.py apply=1` does not check whether a proposed name is already used by another function (§5.3). There are 0 such clashes on the §6.8 run.
+- `docs/binary-fingerprint.md` import count (263) disagrees with the IAT layout (257, §6.7); its table should be re-derived by whoever owns that doc.
 
 ---
 
-## Verification
+## Verification (round 1)
 
 Skeptical re-check on 2026-10-08, about 14:10–14:20. Every check was made against the files on disk: the scripts, `reference/` clones,
 the Ghidra 12.1.4 install (`javap`), `ghidra/exports/{d3d8.dll,cataclysm_gog,cataclysm_gog_hw1match}/` and the `/tmp/claude-1000/ghidra-*`
@@ -619,8 +687,54 @@ exit 2, unknown option exit 2), and one reuse pass on a scratch **copy** of the 
 
 **Remaining issues (not fixed here):**
 - The `__EMSCRIPTEN__` first-arm defect in `MatchHW1Strings.py` (§6.8, §9) is documented, not patched, because a patch would invalidate the measured §5.3/§6.4 figures.
-- Matcher precision on Cataclysm is unmeasured beyond the 4-row spot check. Whether 0x005631f0 is `InitWindow` or an inlined `WinMain` is UNVERIFIED.
-- §4 "Default" column entries other than Decompiler Parameter ID (60 s, PE under 2 MiB) and the string-length minimums (`OPTION_DEFAULT_MIN_STRING_LENGTH = 5`) were not checked against Ghidra code: AIF, Propagate External Parameters, Stack Create Param Variables, Variadic Override, Function Start *, Switch Table References.
+- Matcher precision on Cataclysm is unmeasured beyond the 4-row spot check. Whether 0x005631f0 is `InitWindow` or an inlined `WinMain` is UNVERIFIED. *(Second pass: the call graph says WinMain, §6.8.)*
+- §4 "Default" column entries other than Decompiler Parameter ID (60 s, PE under 2 MiB) and the string-length minimums (`OPTION_DEFAULT_MIN_STRING_LENGTH = 5`) were not checked against Ghidra code: AIF, Propagate External Parameters, Stack Create Param Variables, Variadic Override, Function Start *, Switch Table References. *(Resolved in the second pass: all match a `--profile default` run.)*
 - The quarantine's effect on the real exe (§8.0 steps 3–4) is still an expectation. The 4 container-less CET patch sites still need `WindowProc`/`ActivateMe` functions.
-- `.gitignore` still lacks `ghidra/projects/` (81 MB `cataclysm_gog.rep` in the tree) and `__pycache__/`; a stray `ghidra/scripts/__pycache__/MatchHW1Strings.cpython-312.pyc` (14:14, not from the wrapper) is present.
-- The import-count gap (257 Ghidra vs 263 fingerprint) is still unexplained.
+- `.gitignore` still lacks `ghidra/projects/` (81 MB `cataclysm_gog.rep` in the tree) and `__pycache__/`; a stray `ghidra/scripts/__pycache__/MatchHW1Strings.cpython-312.pyc` (14:14, not from the wrapper) is present. *(Second pass: `.gitignore` now has both; the stray `.pyc` is still there.)*
+- The import-count gap (257 Ghidra vs 263 fingerprint) is still unexplained. *(Second pass: the IAT layout supports 257; see §6.7.)*
+
+## Verification (round 2)
+
+Second skeptical pass on 2026-10-08, about 20:00. Evidence came from the scripts, the `reference/` clones, `ghidra/exports/{d3d8.dll,cataclysm_gog,cataclysm_gog_hw1match}/`,
+the `/tmp/claude-1000/ghidra-{mcx,smack}` stand-in exports and `original/game/` manifests. Four new wrapper runs were made, all on stand-ins
+in `/tmp/claude-1000/ghidra-verify2/` (a `--profile default` import of SMACKW32, then the G22 collision run before and after the fix, and a same-file reuse run).
+Nothing was run on, or disassembled from, `cataclysm.exe`: real-exe facts are read from the parallel agent's exports.
+
+**41 claims checked. 7 were wrong or stale and are fixed:**
+
+| # | Claim (where) | Finding | Fix |
+|---|---|---|---|
+| 1 | `.gitignore` does not cover `ghidra/projects/` / `__pycache__/` (§2, §6.7, §8.0 step 0, §9, first Verification) | Stale: `.gitignore:16,17,21` now have `ghidra/projects/`, `__pycache__/`, `*.pyc`; `git check-ignore -v` confirms | text updated; old bullets annotated, not deleted |
+| 2 | `--export-name rgl-orig` "keeps these exports apart from any later run on CET's own `rgl.dll`" (§8.0 step 7) | Wrong: reuse mode is keyed on project name + basename. Tested: a different file named `SMACKW32.DLL` in project `collide` silently re-exported the first file, rc=0 | step 7 uses project `rgl-orig`/`rgld3d-orig`; new G22; **wrapper now exits 6** on a sha256 mismatch (tested: rc=6 for the other file, rc=0 for the same file); exit codes listed in §3 and the script header (`--help` range moved to `2,38p`) |
+| 3 | Variadic override created "1,041" `prt_` labels on MCX.EXE (§4) | 979 labels in all 3 MCX `symbols.csv`; 1,041 is MCX's total USER_DEFINED symbol count. Also 0 on `cataclysm.exe` | corrected; the cataclysm.exe observation added |
+| 4 | `ConfigureAnalysis.py:68` comment "default true for PE" | Contradicts §4 (true only below 2 MiB) | comment fixed (`ast.parse` OK) |
+| 5 | 127 analysis options "on a PE32" (§4) | True for d3d8/SMACKW32; `cataclysm.exe` has 132 | clarified |
+| 6 | §6.8 provenance "14:05:10–14:05:20" | The files on disk are from an identical re-run at 14:26:23–14:26:34 with the 14:15 `cet_symbols.json`. Headline numbers are the same; data typing reads 53/1/24 | provenance and differences noted |
+| 7 | `singlePlayerKasMissionStart` "is called from `singlePlayerGameUpdate` (:2648). MSVC inlined it" (§6.8) | Incomplete and stated as fact: there are also 2 calls in `singlePlayerStartGame` (`:3830`, `:3849`), and in the binary `mission01`…`mission17` have a single referencing function | marked INFERENCE + caveat |
+
+**Verified correct (new in this pass):** §6.8 counts (355 / 120 = 116+2+2 / 232 / 3 dup), the spot-check scores (23.0/24, 9.333/16) and the
+5-of-8 weak agreement with its 0.008/0.208/0.5 scores. `main.c:2033/2101/2106/2135`, `SinglePlayer.c:220/2648`, `Cataclysm.h:169`, `PatchUniverse.cpp:339`.
+§6.7: the `.data` stubs (42, size 1, 0x00891a1c–0x00892114), `FUN_00561e80` 109 B, the gap to `FUN_005631a0`, the 12 CET_container names and addresses,
+data typing 51/3/24, 17 exports + entry, 266 RTTI descriptors with the namespace split, 1 `vftable`, and the 6 USER_DEFINED callback names. The §4 Default column
+(all 12 checkable rows, `--profile default` run); DPID's "~9 MB" (block sizes sum to 8,995,224 B). §6.1 d3d8 figures (469 / 445 / 1,168 /
+884 / 670 / 172 / 6 / 468 ok, `applied=20`, WRR `true`). §6.2 report statuses. §6.3 MCX figures (5,596 / 262 / 8 / 17,858 / 5,465 / 4,263 / 204 /
+5,585+3 / 33.0 vs 72.8 s / FID 2). `Cataclysm.h` line refs (`:14,:17,:38,:98,:109,:110,:125,:128,:185,:250-252`) and grep counts 56/45.
+The 10 outside literals. `TYPES.h:11-24`, `Task.h:149`, `region.h:124`, `spaceobj.h:1173`, `AISkirmish.h:105,134`, `hw_rgl/draw.def`, `MANIFEST.sha256:50-51`.
+The §8.0 step 1 and backup `sha256sum -c` (both OK), the 6 rGL sizes, 36 generated mission `.c` files, ghidriff 1.0.0 + pyghidra 3.1.0, and the FID script paths.
+Wrapper safe paths: `bash -n`, `--help`, no args → 2, GOG stub → 3, 3 positional args → 2. 3 wrapper runs created no new `.pyc`.
+
+**Missing content that was added:**
+- `WindowProc` = **0x00561f10**, from `FUN_005602f0`'s `RegisterClassA("Emergence")`, with a ready JSON entry to close the CET gate (§6.7).
+- 0x005631f0 is **WinMain** (called by CRT `entry`; calls `FindWindowA`, the RegisterClass wrapper and `CreateWindowExA`). The `InitWindow` container name is an inlining artefact, so the matcher scores 3 of 4 on the spot check (§6.8, §5.1 caveat, §9).
+- The 16 Hz tick anchors: 18 CET period sites + 3 `ETG_UpdateRoundOff` loads, cross-checked against the 9 functions holding the literal 0.0625 (§8 a).
+- Tested check commands for §8.0 steps 4 (per-block counts, `.text`→`.text` edges) and 5 (the CET gate).
+- The IAT-layout explanation of the 257-vs-263 import gap (§6.7).
+- The `apply=1` name-clash gap in `MatchHW1Strings` (§5.3).
+
+**Remaining issues:**
+- Whether the ActivateMe sites fall inside `WindowProc` once it exists is UNVERIFIED. So is the true reason the mission strings sit in one function.
+- The G22 guard is post-hoc. In reuse mode the wrong program has already been processed, and CET symbols re-applied if a JSON was given, before exit 6. Adding `target.sha256` to `cet_symbols.json` (§8.0 step 2) also blocks the symbol writes.
+- `MatchHW1Strings` still has the `__EMSCRIPTEN__` first-arm defect and no clash guard on apply (documented only, so the measured figures stay valid).
+- The stray `ghidra/scripts/__pycache__/MatchHW1Strings.cpython-312.pyc` was not deleted (outside this pass's write scope; gitignored).
+- `docs/binary-fingerprint.md`'s 263 imports needs re-deriving by its owner. The RTTI/EH defaults remain unknown.
+- The current `ConfigureAnalysis.py` (quarantine, WRR off) has still never run on the real exe (§8.0 step 3).

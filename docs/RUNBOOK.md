@@ -2,7 +2,7 @@
 
 From "installer downloaded" to "game window on screen", plus the same for Windows 11.
 Machine: Pop!_OS 24.04, COSMIC on Wayland (Xwayland `:1`), RTX 5090 (driver 580-open),
-GE-Proton10-34, gamescope 3.14.24 (`/usr/local/bin`). Written 2026-10-08 09:58, updated 14:05 after the first real game run, verified + corrected 14:20 (see Verification at the end).
+GE-Proton10-34, gamescope 3.14.24 (`/usr/local/bin`). Written 2026-10-08 09:58, updated 14:05 after the first real game run, verified + corrected 14:20, re-verified 20:00-20:15 (second pass; see both Verification sections at the end).
 
 ## Status (2026-10-08 14:05)
 
@@ -26,9 +26,11 @@ tools/run_game.sh --kill     # from another terminal: wineserver -k, gamescope e
 
 From a fresh extraction run `tools/install_cet.sh --no-download` first. Other window sizes: `tools/run_game.sh --size 1280x960 --sync-res` (section 4).
 
-All scripts: bash, `set -euo pipefail`, `PROJECT_ROOT` = parent of `tools/`, `--help`, `--dry-run`
+The five runbook scripts (`extract_installer.sh`, `setup_prefix.sh`, `install_cet.sh`, `run_game.sh`, `screenshot.sh`): bash, `set -euo pipefail`, `PROJECT_ROOT` = parent of `tools/`, `--help`, `--dry-run`
 (except screenshot.sh, which has no `--dry-run`: it always writes a PNG + log), log to `logs/<script>-<timestamp>.log` (screenshot.sh: one log per day).
-`.gitignore` covers `original/`, `reference/`, `prefix/`, `build/`, `*.log` and (uncommitted edit, `.gitignore:14`) `logs/`, so `logs/screenshots/*.png` are ignored. **Not ignored: `docs/screenshots/*.png`** (the first-run main-menu frames = copyrighted game art) - decide before committing
+`original/`, `original/game/` and the installer file itself may be symlinks (e.g. to another disk): since the second verification pass the installer search uses `find -L` (`extract_installer.sh:155,158,188`), every `find` on the game dir uses `find -H`, and `extract_installer.sh` resolves the game dir with `readlink -f` (`:17`) so `--force` moves the real directory aside instead of only the link. Before, a symlinked `original/` or installer made `extract_installer.sh` report "no setup_homeworld_emergence*.exe" and a symlinked `original/game` made `run_game.sh`/`install_cet.sh` report no game directory (reproduced in a scratch tree, then re-tested OK).
+Other files in `tools/` are **not** covered here: `ghidra_headless.sh` (Ghidra, `docs/ghidra-pipeline.md`), `bigfile.py`, and the rate-limit cycle `checkpoint.sh` / `qwen_worker.py` / `systemd/hwi-qwen-worker.{service,timer}` (`cycle/STATE.md`).
+`.gitignore` (committed in `5334201`) covers `original/`, `reference/`, `prefix/`, `build/`, `*.log`, `logs/` (`.gitignore:14`, so `logs/screenshots/*.png` are ignored) and `docs/screenshots/` (`.gitignore:19`, verified with `git check-ignore -v`): the first-run main-menu frames (copyrighted game art) stay on this machine only
 (captures can contain the user's desktop or copyrighted game frames).
 
 ---
@@ -100,7 +102,7 @@ How to run Proton without Steam - options evaluated on this box:
 | Method | Result | Why |
 |---|---|---|
 | `pip install --user umu-launcher` | **fails** | Pop!_OS Python 3.12 is PEP 668 "externally-managed-environment"; umu-launcher is also not on PyPI (`pip index versions` -> no distribution) |
-| **umu-launcher 1.4.4 zipapp** (GitHub release `umu-launcher-1.4.4-zipapp.tar`, sha256 `eb590691...c48cc851`) | **chosen, works** | self-contained Python zipapp; installed to `~/.local/share/umu-launcher/1.4.4/umu-run`, symlink `~/.local/bin/umu-run` (on PATH). Downloads Steam Linux Runtime 3.0 "sniper" itself to `~/.local/share/umu/steamrt3` (803 MB, depot 3.0.20260928.262393, pressure-vessel 0.20260925.0) - GE-Proton10-34's `toolmanifest.vdf` requires it (`"require_tool_appid" "1628350"`). With `UMU_ID` set, GE's `proton` launches via `umu.exe`, not `steam.exe` ("Don't use steam if it's not a steam game", `proton` ~l.2335-2350): no Steam client involved |
+| **umu-launcher 1.4.4 zipapp** (GitHub release `umu-launcher-1.4.4-zipapp.tar`, sha256 `eb590691...c48cc851`) | **chosen, works** | self-contained Python zipapp; installed to `~/.local/share/umu-launcher/1.4.4/umu-run`, symlink `~/.local/bin/umu-run` (on PATH). Downloads Steam Linux Runtime 3.0 "sniper" itself to `~/.local/share/umu/steamrt3` (803 MB, depot 3.0.20260928.262393, pressure-vessel 0.20260925.0) - GE-Proton10-34's `toolmanifest.vdf` requires it (`"require_tool_appid" "1628350"`). With `UMU_ID` set, GE's `proton` never uses `steam.exe` ("Don't use steam if it's not a steam game", `proton:2335-2350`): a unix-path exe (what run_game.sh passes) goes through `c:\windows\system32\umu.exe` (`:2345-2347`, log line `Proton: Executable a unix path, launching with /unix option.`), a prefix-internal program (`cmd`, `notepad`) is started by `wine64` directly (`:2348-2350`, `Executable is inside wine prefix, launching normally.`); `steam.exe` only with `UMU_USE_STEAM=1` (`:2342-2344`). No Steam client involved |
 | `proton waitforexitandrun` directly (`--direct-proton`) with `STEAM_COMPAT_CLIENT_INSTALL_PATH=~/.local/share/Steam STEAM_COMPAT_DATA_PATH=prefix` | works, fallback | runs on host libraries (no sniper container) and goes through `steam.exe`; console output of the child is **not** relayed (verified by a registry write instead). Shares the same prefix: the script keeps umu's `pfx -> .` layout |
 
 Environment used everywhere (setup_prefix.sh, run_game.sh):
@@ -227,7 +229,8 @@ cd original/game && env SDL_VIDEODRIVER=x11 HWC_STATE=logs/run_game.state \
 | `SDL_VIDEODRIVER=x11` + `--backend sdl` | COSMIC 150 % fractional scale crashes gamescope's Wayland path (user's standing note); the SDL/X11 path also restores refresh on refocus |
 | `--prefer-vk-device 10de:2b85` | otherwise gamescope can pick the AMD iGPU (user's standing note); log shows `selecting physical device 'NVIDIA GeForce RTX 5090'` |
 | `/noswddraw` | GOG's own play task: `goggame-1766413869.info` -> `"path": "cataclysm.exe", "arguments": "/noswddraw"` |
-| `/window` added with `--no-gamescope` | stock HWC defaults to exclusive fullscreen (`HomeworldSDL/src/SDL/main.c:690-691`); inside gamescope that stays inside the window |
+| `/window` added with `--no-gamescope` (not with `--virtual-desktop`) | stock HWC defaults to exclusive fullscreen (`HomeworldSDL/src/SDL/main.c:690-691`); inside gamescope that stays inside the window. Under CET it is redundant (`BorderlessWindow=true` already sets `fullScreen=FALSE`, `Main.cpp:21-25`); it matters for `--original` |
+| **user ruling: gamescope is a test harness only** | `docs/CONSTRAINTS.md` rule 1: the user saw frame-rate drift after ~1 h under gamescope, so **long play-tests of the GOG build use `--no-gamescope --virtual-desktop WxH`**; the gamescope default is for short runs + screenshots. With a virtual desktop, CET's first-run size comes from `GetClientRect(GetDesktopWindow())` (`PatchRGL.cpp:18-27`), presumably the virtual-desktop size (UNVERIFIED), and COSMIC may resize the desktop window (test table below) |
 | `cd` into the game dir | CET loader checks the cwd (`loader/Main.cpp:13-23`) |
 | `Cataclysm.cfg` seeded from `__support/app/` if absent | what GOG's installer leaves in the root (`language=0`); observed in the 13:54 run log (`seeded .../Cataclysm.cfg`, `logs/run_game-20261008-135450.log:2`) |
 | report the **saved video mode** before every game launch | read as text from `prefix/system.reg`, no Wine started; WARNING when it differs from `--size` |
@@ -245,7 +248,7 @@ Saved video mode. The GOG game (Relic's Win32 code; HomeworldSDL moved these set
 (32-bit view, i.e. `[Software\\Wow6432Node\\Sierra On-Line\\Cataclysm]` in `prefix/system.reg`). Values seen after
 the first run: `CmdLine="/noswddraw "`, `d3dToSelect=""`, `deviceToSelect=""`, `glToSelect="opengl32.dll"`,
 `deviceCRC=0x329d5947`, `deviceIndex=0xffffffff`, `deviceCaps=deviceCaps2=0x00f9ff30`, `screenWidth=0x780`,
-`screenHeight=0x438`, `screenDepth=0x20`, `HW_Language=""`, `"D657E436967616D4"=dword:0` (`prefix/system.reg:91053-91067`). All 12 value names and the key path `SOFTWARE\Sierra On-Line\Cataclysm` are plain strings in `cataclysm.exe` (`strings` hits next to each other). `D657E436967616D4` is HW1's `REG_MAGIC_STR` "used for CD-checking code" (`HomeworldSDL/src/SDL/utility.c:146`, commented out there; read backwards it is hex for `MagicNum`); `CmdLine` is HW1's `RegisterCommandLine()` (`HomeworldSDL/src/SDL/main.c:291`, called at `:2155`, `#if 0` in the SDL port), so Cataclysm still runs that Win32 registry code.
+`screenHeight=0x438`, `screenDepth=0x20`, `HW_Language=""`, `"D657E436967616D4"=dword:0` (`prefix/system.reg:91053-91067`). All **13** value names (the list above, `deviceCaps` and `deviceCaps2` being two values; second pass corrected "12") and the key path `SOFTWARE\Sierra On-Line\Cataclysm` are plain strings in `cataclysm.exe`'s `.data` (file offset = RVA there; `.data` raw 0x34a000 = VA 0x34a000): `CmdLine` 0x008B9BD0 directly followed by the key path 0x008B9BD8; the other 12 names in one block 0x008C2D94 (`D657E436967616D4`) ... 0x008C2E28 (`deviceCRC`), e.g. `screenWidth` 0x008C2DD0, `glToSelect` 0x008C2DE8 (`strings -t x` + section table, second pass). `D657E436967616D4` is HW1's `REG_MAGIC_STR` "used for CD-checking code" (`HomeworldSDL/src/SDL/utility.c:146`, commented out there; read backwards it is hex for `MagicNum`); `CmdLine` is HW1's `RegisterCommandLine()` (`HomeworldSDL/src/SDL/main.c:291`, called at `:2155`, `#if 0` in the SDL port), so Cataclysm still runs that Win32 registry code.
 `--sync-res` writes `screenWidth/screenHeight/screenDepth=32` with `reg import` of a temporary
 `C:\hwc-video-mode.reg` (merge: other values stay; ~3 s; then polls `system.reg` until the values show,
 else exits with an error). Tested on a scratch prefix: 1280x960 -> 1600x900 -> 1920x1080 with a
@@ -270,7 +273,7 @@ Live tests:
 |---|---|
 | `--exe notepad --size 800x600` (gamescope) | window inside gamescope `:2`, `WM_CLASS steam_app_1766413869`; host window class `gamescope`, title = inner window title; `--kill` cleaned up, nothing left running |
 | `--exe nglide_config.exe --size 1024x768` (32-bit, unix path -> `Proton: Executable a unix path, launching with /unix option`) | dialog visible and captured (gamescope upscales a small window to fill), `logs/run_game-20261008-094931.log` |
-| `--no-gamescope --exe notepad` | Xwayland window `steam_app_1766413869`, but COSMIC resized it to 2045x1329; a Wine virtual desktop requested at 640x360 came up 2559x1329 -> on this desktop, window sizes are not under the game's control without gamescope |
+| `--no-gamescope --exe notepad` | Xwayland window `steam_app_1766413869`, but COSMIC resized it to 2045x1329 (`logs/screenshot-20261008.log:46-51`); a Wine virtual desktop requested at 640x360 came up 2559x1329 (no log kept: UNVERIFIED) -> on this desktop, window sizes are not under the game's control without gamescope |
 | `--no-gamescope --exe cmd -- /c cd` | prints `Z:\...\game-test` = Windows cwd is the game dir |
 | SIGINT to run_game.sh | `caught SIGINT`, wineserver killed, gamescope gone, `exit status: 0` |
 | **the game** (`run_game.sh --size 1920x1080`, CET, by a parallel agent 13:54:50) | CET log complete 7 s after start (13:54:57), main menu captured 13:55:46; see Status |
@@ -280,8 +283,10 @@ Live tests:
 Window size rules: the game's saved video mode must equal `--size` (else gamescope letter-/pillarboxes or
 upscales; the user's SPAZ note says a mismatch also caused stutter there). Use `--sync-res`, change the
 mode in-game, or change `--size` to what the game saved. For a bigger window at low game
-res: `--size 1280x960 --window 2560x1920 --scaler integer`. gamescope makes the window 1 px wider for some
-sizes (observed 641x360 for 640x360, 1025x768 for 1024x768).
+res: `--size 1280x960 --window 2560x1920 --scaler integer`. Without gamescope the mismatch WARNING is not printed
+(`run_game.sh:265` checks it only with gamescope) and `--sync-res` writes `--size`, not the `--virtual-desktop` size: pass both
+with the same value (e.g. `--no-gamescope --virtual-desktop 1600x900 --size 1600x900 --sync-res`). gamescope makes the window 1 px wider for some
+sizes (observed 641x360 for 640x360 - evidence gone, UNVERIFIED; 1025x768 for 1024x768 - `logs/screenshot-20261008.log:63`, `logs/run_game-20261008-094931.log:146`).
 
 ## 5. `tools/screenshot.sh` - capture without input injection
 
@@ -316,7 +321,8 @@ Output: `logs/screenshots/<mode>-<YYYYmmdd-HHMMSS-mmm>.png` (milliseconds, so tw
    applied` / `DSound init OK`; intro movies are skipped (CET `DisableIntroMovies=true`).
 6. `tools/screenshot.sh` -> non-black 1920x1080 PNG of the front end (menu centred at 640x480 size).
 7. Still to do: select the D3D9 renderer in Options -> Video (DXVK path), play a mission, check audio/speech, then
-   `--no-dxvk` for comparison.
+   `--no-dxvk` for comparison; a long play-test the way the user ruled (`docs/CONSTRAINTS.md` rule 1):
+   `tools/run_game.sh --no-gamescope --virtual-desktop 1920x1080` (never tried with the game yet; stop the Qwen timer first, section 7).
 
 ## 7. Troubleshooting
 
@@ -341,6 +347,8 @@ Output: `logs/screenshots/<mode>-<YYYYmmdd-HHMMSS-mmm>.png` (milliseconds, so tw
 | innoextract format warnings | `tools/extract_installer.sh --build-innoextract`, then rerun |
 | first umu run hangs ~40 s | downloading the sniper runtime (803 MB) |
 | game opens on the wrong monitor (no gamescope) | Xwayland primary is the HP; user's fix `cosmic-randr xwayland --primary DP-4` |
+| GPU/VRAM busy while the game runs (stutter) | the local Qwen worker (`hwi-qwen-worker.timer`, `cycle/STATE.md`) runs Ollama `qwen3.6:27b` (~28 GB VRAM incl. desktop). It yields when `pgrep` sees a `.exe`/`gamescope` process (`tools/qwen_worker.py:115-127`, checked before a batch and every 10 functions, `:240-243,255-262`), but each request sets `keep_alive: "5m"` (`:215`), so the model can stay resident up to 5 min after it yields. Before a long play-test: `systemctl --user stop hwi-qwen-worker.timer` (and `ollama stop qwen3.6:27b` to free VRAM at once) |
+| "no setup_homeworld_emergence*.exe" / "no game directory" although the files exist | `original/` or `original/game` is a symlink and an old copy of the scripts is in use (plain `find` does not enter a symlinked start dir); current scripts use `find -H` |
 | multiplayer | WON/Titan lobby code is dead (`docs/binary-fingerprint.md`); out of scope |
 
 ## 8. Windows 11 side
@@ -375,9 +383,11 @@ Output: `logs/screenshots/<mode>-<YYYYmmdd-HHMMSS-mmm>.png` (milliseconds, so tw
   | `rglfx3.dll` 94,208 B | `fxclose.c fxdriver.c fxtmg.c` | **none** in any reference clone |
 
 - The game window class under Proton is `steam_app_1766413869`, title `Emergence`; the host gamescope window takes the game's title with class `gamescope`.
-- Video/renderer settings live in `HKLM\SOFTWARE\Sierra On-Line\Cataclysm` (values in section 4), not in `Cataclysm.cfg` as in HomeworldSDL (`utility.c:644-660`); HW1 used `HKLM\SOFTWARE\Sierra On-Line\Homeworld` (`HomeworldSDL/src/SDL/regkey.h:29`). CET's `glToSelect` global is at `0x008B8644` (`Cataclysm.h:227`). The game writes `Cataclysm.cfg` (94 lines, options: `effectsLevel` ... `DifficultySetting`, HW1-style `name    value` lines), `keys.cfg` (byte-identical copy of the shipped `default_keys.cfg`, 6,150 B) and an empty `AutoLock.txt` into the game folder on first start (mtimes 13:54:57.36-.84).
-- Video-mode / renderer-selection globals CET touches (`reference/CataclysmEngineTweaks/Cataclysm.h`): `MAIN_WindowWidth/Height/Depth` 0x008B85E8/0x008B85EC/0x008B85F0 (:228-230) = registry `screenWidth/screenHeight/screenDepth`; `opDeviceCRC` 0x00A4CC20 (:222) = `deviceCRC`; `glToSelect` 0x008B8644 (:227); `rinDeviceCRC()` 0x0057DCF0 (:155); `rinSortModes` 0x0057DE00, `rinEnumDisplayModes_cb` 0x0057E5C0, `rinEnumPrimaryDisplayModes_cb` 0x0057E710 (:156-158); `mainRescaleMainWindow()` 0x0055FC70 (:146); hook site `InitWindow_DeviceCrcCheck` 0x00563563 (:96) resuming at 0x00563645 (`PatchRGL.cpp:29`); `ActivateMe_ReInitRenderer` 0x00562084 (:98); `glCapNT` 0x00559AC0 / `glCapStartup` 0x00559BE0 (:143-144).
-- Every run so far used CET defaults, i.e. a **64 Hz** universe (`UpdateRateShift=2`, log line "Update rate patches applied"), CET's rebuilt `rgl.dll`, and `Update102.big` data. A behavioural reference for the 1:1 port (stock 16 Hz = HW1 `UNIVERSE_UPDATE_RATE_ORIG`, `HomeworldSDL/src/Game/Universe.h:44`; note HomeworldSDL itself defaults to shift 2 = 64 Hz, `:45-47`, `/legacy` restores 16; stock data) needs `UpdateRateShift=0` in the ini, or better `tools/install_cet.sh --restore` + `tools/run_game.sh --original` (note `--original` is stock exclusive fullscreen inside gamescope, no CET borderless/renderer fixes).
+- Video/renderer settings live in `HKLM\SOFTWARE\Sierra On-Line\Cataclysm` (values in section 4), not in the game's `Cataclysm.cfg` (second pass: the game-written file has no `screen*`/`device*` keys). HomeworldSDL instead moved them into its own `Homeworld.cfg` (`UTY_CONFIG_FILENAME`, `utility.c:150`; option table `utility.c:644-660`); HW1 used `HKLM\SOFTWARE\Sierra On-Line\Homeworld` (`HomeworldSDL/src/SDL/regkey.h:29`). CET's `glToSelect` global is at `0x008B8644` (`Cataclysm.h:227`). The game writes `Cataclysm.cfg` (94 lines, options: `effectsLevel` ... `DifficultySetting`, HW1-style `name    value` lines), `keys.cfg` (byte-identical copy of the shipped `default_keys.cfg`, 6,150 B) and an empty `AutoLock.txt` into the game folder on first start (mtimes 13:54:57.36-.84).
+- Video-mode / renderer-selection globals CET touches (`reference/CataclysmEngineTweaks/Cataclysm.h`): `MAIN_WindowWidth/Height/Depth` 0x008B85E8/0x008B85EC/0x008B85F0 (:228-230) = registry `screenWidth/screenHeight/screenDepth`; `opDeviceCRC` 0x00A4CC20 (:222) = `deviceCRC`; `glToSelect` 0x008B8644 (:227); `rinDeviceCRC()` 0x0057DCF0 (:155); `rinSortModes` 0x0057DE00, `rinEnumDisplayModes_cb` 0x0057E5C0, `rinEnumPrimaryDisplayModes_cb` 0x0057E710 (:156-158); `mainRescaleMainWindow()` 0x0055FC70 (:146); hook site `InitWindow_DeviceCrcCheck` 0x00563563 (:96) resuming at 0x00563645 (`PatchRGL.cpp:29`); `ActivateMe_ReInitRenderer` 0x00562084 (:98); `glCapNT` 0x00559AC0 / `glCapStartup` 0x00559BE0 (:143-144); `rndAspectRatio` 0x00B377A4 (:231). Command-line globals CET overwrites at startup: `showBorder` 0x008B8628, `fullScreen` 0x008B8638, `enableAVI` 0x008B8610 (:202-204; `Main.cpp:21-30`). The stock render-task frame limiter is at 0x0057B78B / 0x0057B7A1 (CET `DisableFramerateLimit`, default false, NOPs 8 bytes at each, `PatchRGL.cpp:96-100`) - keep it for a 1:1 port. CET hooks `soundStartDSound` 0x005808E0 (:170) unless `ForceWaveOut=true` (`PatchSound.cpp:14-16`).
+- Stock `cataclysm.exe` import table (`objdump -p`, second pass): `WINMM WSOCK32 KERNEL32 USER32 GDI32 comdlg32 ADVAPI32 SHELL32 binkw32 DDRAW ole32`. **No `DSOUND.dll` import and no `dsound` DLL-name string; no OpenGL import.** `DDRAW` supplies only `DirectDrawEnumerateA` + `DirectDrawCreate` (display-mode enumeration, cf. CET's `rinEnumDisplayModes_cb`), `ole32` only `CoCreateGuid`; renderers are loaded at run time by name (strings `rgl.dll`, `opengl32.dll`, `glide2x.dll`). The help text strings `/dsound`, `/dsoundCoop` exist. So the log line `DSound init OK` comes from CET's replacement `soundStartDSound` (`game/Win32/soundlow.cpp:24` `DirectSoundCreate` via CET's own DSOUND import, `:87`); how (or whether) the stock code reaches DirectSound is UNVERIFIED (needs disassembly of 0x005808E0).
+- CET's `update102.big` redirect is confirmed in the real exe (byte check, second pass): 0x005ABB21, 0x005ABB3E and 0x005ABB5C each hold `68 38 0F 8C 00` = `push 0x008C0F38`, and 0x008C0F38 is the string `Update.big` (the shipped file is `update.big`, 244,405 B; Wine/Windows open it case-insensitively). Those are the `utyGameSystemsPreInit_UpdateBigFileName1-3` sites of `Cataclysm.h:119-121`.
+- Every run so far used CET defaults, i.e. a **64 Hz** universe (`UpdateRateShift=2`, log line "Update rate patches applied"), CET's rebuilt `rgl.dll`, and `Update102.big` data. A behavioural reference for the 1:1 port (stock 16 Hz = HW1 `UNIVERSE_UPDATE_RATE_ORIG`, `HomeworldSDL/src/Game/Universe.h:44`; note HomeworldSDL itself defaults to shift 2 = 64 Hz, `Universe.h:45-48` + `Game/Universe.c:75`, and its **`/vanilla`** switch restores 16 Hz (`SDL/main.c:848`, applied at `:2166-2169`; the `/legacy` named in the `Universe.h:46` comment does not exist in either HW1 port - second pass corrected); stock data) needs `UpdateRateShift=0` in the ini, or better `tools/install_cet.sh --restore` + `tools/run_game.sh --original` (note `--original` is stock exclusive fullscreen inside gamescope, no CET borderless/renderer fixes).
 
 ## 10. Open items / UNVERIFIED
 
@@ -389,7 +399,7 @@ Output: `logs/screenshots/<mode>-<YYYYmmdd-HHMMSS-mmm>.png` (milliseconds, so tw
 - `--wine-install` GUI mode not exercised (needs clicks); silent mode proven to abort.
 - `--virtual-desktop`: Wine honoured the desktop but COSMIC resized the window (observed 2559x1329 for a 640x360 request).
 
-## Verification
+## Verification (round 1)
 
 Skeptical pass 2026-10-08 14:08-14:20. Method: re-read every cited source line (CET, hw_rgl, HomeworldSDL, GE-Proton10-34 `proton`, umu 1.4.4 zipapp, gamescope `~/build/gamescope` 3.14.24), re-hashed/`objdump -p`/`strings` the files in `original/`, read `prefix/system.reg`, the logs, and the screenshots; ran the scripts' safe paths (`bash -n`, `--help`, `run_game.sh --dry-run` incl. size mismatch / `--sync-res` / `--exe --sync-res-only`, `install_cet.sh --dry-run --no-download`, `extract_installer.sh --verify`) from a scratch copy of `tools/` with `original/` + `prefix/` symlinked, so `logs/` was not polluted. Nothing was launched; no game window.
 
@@ -419,9 +429,35 @@ Added (grounded): `__support/add/` nGlide 1.05 vs root 1.04 and the `goggame-*.s
 
 Remaining issues:
 
-- UNVERIFIED (evidence gone): innoextract git `6e9e34e` results, the `7BF20000`/`0x7BF90000` relocation addresses, "641x360"/"1025x768" gamescope widths, the loader-gone/`umu.exe`-waiting process tree, `--direct-proton` not relaying output.
+- UNVERIFIED (evidence gone): innoextract git `6e9e34e` results, the `7BF20000`/`0x7BF90000` relocation addresses, "641x360"/"1025x768" gamescope widths (second pass: 1025x768 found in `logs/screenshot-20261008.log:63`), the loader-gone/`umu.exe`-waiting process tree, `--direct-proton` not relaying output.
 - `--sync-res` is still unproven against a real game start (it writes the key; whether the game honours it before CET's CRC check is untested).
-- `docs/screenshots/*.png` hold copyrighted game frames and are not git-ignored: the committer must decide.
+- `docs/screenshots/*.png` hold copyrighted game frames and are not git-ignored: the committer must decide. (Resolved before the second pass: `.gitignore:19` `docs/screenshots/`, committed in `5334201`.)
 - `__support/add/` (nGlide 1.05) and the Galaxy install action are not applied by `extract_installer.sh`; impact on the 3dfx path is unknown.
 - `tools/ghidra_headless.sh` is not covered by this runbook.
 
+
+## Verification (round 2)
+
+Method: re-read every cited CET / hw_rgl / HomeworldSDL / gardens-of-kadesh / GE-Proton `proton` / Proton Experimental / umu 1.4.4 zipapp / gamescope 3.14.24 line; `sha256sum`, `objdump -p`, `strings -t x` + section table, and 5-byte reads at the three CET push sites of `cataclysm.exe` (no disassembly); `innoextract --info/--list` for three languages; a **fresh re-extraction** of the installer into a scratch dir with `extract_installer.sh` (15.7 s) compared against `original/game/MANIFEST.*`; `prefix/system.reg`, `git show HEAD:.gitignore`, `git check-ignore -v`, all logs cited above, the 1920x1080 main-menu frame. Scripts run from a scratch copy of `tools/` with `original/` + `prefix/` symlinked (project `logs/` untouched): `bash -n` + `--help` (all 5), `run_game.sh --dry-run` (default, `--size 1280x960` mismatch WARNING, `--sync-res`, `--sync-res-only`, `--exe notepad --sync-res` refused, `--no-gamescope` adds `/window`, `--virtual-desktop`), `run_game.sh --kill` against a fake state file (prefix taken from the state), `install_cet.sh --dry-run --no-download` ("already installed") and `--dry-run --restore`, `extract_installer.sh --verify` (2 FAILED, 2 SIZE CHANGED, 8 EXTRA, exit 1), `--report`, `--info`, stub refusal by name and by VERSIONINFO (renamed copy; both exit 3). Nothing was launched in Wine; no game window.
+
+**52 claims checked; 7 wrong or stale + 1 script defect, all fixed in place; 3 newly marked UNVERIFIED.** Confirmed (sample): installer 360,195,200 B / sha256 `9e39851e...ba335ee` / Inno 5.5.7 / 68 `app/` entries in english, german, chinese / installer PE flags `0x818f`+`0x8140`; stub VERSIONINFO + 2020-04-09; `cataclysm.exe` sha256 `f03d9a3e...6eef3ed4`, `0x3a4265aa`, base/entry/SizeOfImage/7 sections, no `DYNAMIC_BASE`; `MANIFEST.sha256` **byte-identical** on re-extraction (66 files, 404,999,701 B), `MANIFEST.sizes` differing only by the stale `0  ./MANIFEST.sizes` line; CET zip + 6 entry hashes + imports; every CET ref (`loader/Main.cpp:9-26,28-38,66,91,96-120`, `dllmain.cpp:7,11-14`, `PatchRGL.cpp:13,18-29,40-54,110`, `Config.cpp:5,15-16`, ini `:11,22,27,30,33`, `Main.cpp:21-25,42-48`, `PatchUniverse.cpp:45,428-431,457`, `soundlow.cpp:87`, `GameHooks.cpp:12,108-116,129`, `Compress-Release.ps1:4-11`, all `Cataclysm.h` addresses in section 9); hw_rgl `kgl.c:2810-2816`, `d3driver.cpp:89,2293`, both `TargetName rgld3d`; Intel C/C++ 4.5 stamps + per-DLL source sets, no public `swdriver.c`/`fxdriver.c`; HW1 `main.c:682-692,291,2155`, `utility.c:146,644-660`, `regkey.h:29`, `FEFlow.c:1546-1561`, `Universe.h:44`; `D657E436967616D4` reversed = hex `MagicNum`; proton `:45` (Experimental), `:910-926,1221-1238,1254,1874,1882,1940,2037,2335-2350`; umu `umu_run.py:278-281`, no `DLL_COPY`; sniper 803 MB / depot 3.0.20260928.262393; gamescope `steamcompmgr.cpp:971-990`; registry key lines `91053-91067`; CET log lines; `keys.cfg` = `default_keys.cfg`; `Cataclysm.cfg` 94 lines; prefix 729 MB, 624/627 copied DLLs, `pfx -> .`; title `Emergence` (`logs/screenshot-20261008-firstrun.log:4,6`).
+
+| # | Was | Now |
+|---|---|---|
+| 1 | "All 12 value names" of the Cataclysm registry key | 13 (`deviceCaps` + `deviceCaps2`); string VAs added |
+| 2 | HomeworldSDL "`/legacy` restores 16 Hz" | the switch is `/vanilla` (`SDL/main.c:848`, `:2166-2169`, both HW1 ports); `/legacy` exists only in the `Universe.h:46` comment |
+| 3 | `.gitignore:14` `logs/` is an "uncommitted edit"; "**Not ignored: `docs/screenshots/*.png`**" | committed in `5334201`; `docs/screenshots/` ignored by `.gitignore:19` |
+| 4 | settings "not in `Cataclysm.cfg` as in HomeworldSDL" | HomeworldSDL's file is `Homeworld.cfg` (`utility.c:150`); the game's `Cataclysm.cfg` has no `screen*`/`device*` keys |
+| 5 | "With `UMU_ID` set, proton launches via `umu.exe`" | only for unix-path exes (`proton:2345-2347`); prefix programs go straight to `wine64` (`:2348-2350`) |
+| 6 | "All scripts: ... `--help`, `--dry-run`" | scoped to the five runbook scripts (`checkpoint.sh` etc. have neither) |
+| 7 | "1025x768" gamescope width listed as UNVERIFIED (evidence gone) | in `logs/screenshot-20261008.log:63` + `logs/run_game-20261008-094931.log:146`; 2045x1329 COSMIC resize in `:46-51` |
+
+Script fix: `extract_installer.sh`, `run_game.sh`, `install_cet.sh` used plain `find` on `original/`/`original/game`, which does not enter a symlinked start directory or match a symlinked installer: a symlinked `original/game` made `run_game.sh` fall back to "no game directory" (reproduced with the pre-fix copy). Now `find -L` for the installer search, `find -H` for game-dir searches, and `readlink -f` on the game dir so `--force` moves the real directory. Re-tested: `bash -n`, `--help`, dry-runs, `--verify`, `--report`, `install_cet.sh` "already installed" on a symlinked tree.
+
+Added (grounded): user ruling `docs/CONSTRAINTS.md` rule 1 (long play-tests via `--no-gamescope --virtual-desktop`, section 4 + checklist 7); `--virtual-desktop` needs `--size` + `--sync-res` with the same value; Qwen worker VRAM coexistence (troubleshooting); stock `cataclysm.exe` import table (no DSOUND, no OpenGL); `Update.big` push sites byte-checked in the real exe (`push 0x008C0F38`); registry value-name string addresses; frame limiter 0x0057B78B/0x0057B7A1, `soundStartDSound` 0x005808E0, startup globals, `rndAspectRatio`; tools not covered by the runbook.
+
+Remaining issues:
+- UNVERIFIED: how the stock exe reaches DirectSound without a DSOUND import (needs disassembly of 0x005808E0); the virtual-desktop size CET picks on first start; "2559x1329" virtual desktop and "641x360" (no logs); Windows default install folder (innoextract 1.9 shows no `DefaultDirName`; `strings` on the compressed setup data finds nothing).
+- `--no-gamescope --virtual-desktop` (the user's long-play path) has never been run with the game.
+- `original/game/` has no `EXTRACT_INFO.txt` (the 09:30 extraction predates the script); harmless.
+- `docs/screenshots/*.png` are now git-ignored, so the frames cited in Status exist only on this machine.

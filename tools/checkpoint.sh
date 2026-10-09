@@ -19,5 +19,5 @@ if git diff --cached --name-only | grep -E '^(original|reference|prefix)/|^ghidr
   echo "REFUSING: forbidden path staged (see above)"; git reset -q; exit 1
 fi
 if git diff --cached --quiet; then echo "nothing to checkpoint"; exit 0; fi
-git -c user.name=evanmedinger -c user.email=thefiveegos@gmail.com commit -q -m "$MSG" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+git -c user.name=evanmedinger -c user.email=thefiveegos@gmail.com commit -q -m "$MSG" -m "${CHECKPOINT_COAUTHOR:-Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>}"
 git log --oneline -1
