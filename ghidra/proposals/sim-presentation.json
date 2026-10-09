@@ -1,13 +1,14 @@
 {
  "source": "sim-presentation",
- "method": "Presentation/network naming pass over cataclysm.exe. The exe keeps an alphabetical per-directory link order (Game/*.c then Win32/*.c), so each HW1 source file maps to a contiguous address window bounded by already-proposed neighbours; inside a window I aligned the binary functions with the ORIGINAL 2003 Relic source (GoK root ad1bb82, Game/ and Win32/) in source order and confirmed every pick by reading the Ghidra decompile against the source body: string literals, packet/command constants (e.g. 0xcccc COMMAND + COMMANDTYPE_n, 0xca00, 0xa1a1), struct sizes (CaptainGameInfo 0x2b0), globals shared with CET-named or already-verified functions, and caller/callee agreement with HW1 call sites (a confirmed function names its callees). The WON glue was named from TitanInterface's own debug strings (\"TitanInterface::X ...\", first string in decompile order = the method) plus the C wrappers that call each method. Front-end callbacks were named from the exe's {function, \"FE_Name\"} callback tables in .data matched to the HW1 tables. Inlined/merged HW1 functions are noted in the evidence; Cataclysm-only functions use the cat_ prefix. Only functions present in functions.csv are proposed (many FE callbacks are referenced only from data tables and have no Ghidra function yet).",
+ "method": "Presentation/network naming pass over cataclysm.exe. The exe keeps an alphabetical per-directory link order (Game/*.c then Win32/*.c), so each HW1 source file maps to a contiguous address window bounded by already-proposed neighbours; inside a window I aligned the binary functions with the ORIGINAL 2003 Relic source (GoK root ad1bb82, Game/ and Win32/) in source order and confirmed every pick by reading the Ghidra decompile against the source body: string literals, packet/command constants (e.g. 0xcccc COMMAND + COMMANDTYPE_n, 0xca00, 0xa1a1), struct sizes (CaptainGameInfo 0x2b0), globals shared with CET-named or already-verified functions, and caller/callee agreement with HW1 call sites (a confirmed function names its callees). The WON glue was named from TitanInterface's own debug strings (\"TitanInterface::X ...\", first string in decompile order = the method) plus the C wrappers that call each method. Front-end callbacks were named from the exe's {function, \"FE_Name\"} callback tables in .data matched to the HW1 tables. Inlined/merged HW1 functions are noted in the evidence; Cataclysm-only functions use the cat_ prefix. Only functions present in functions.csv are proposed (many FE callbacks are referenced only from data tables and have no Ghidra function yet). Front-end pass (resumed session): same window method applied to the FEMan-built screens and their glue - ConsMgr/LaunchMgr/ResearchGUI/TradeMgr managers, ShipView, PiePlate, Tactical, Tutor, GamePick/ScenPick/ColPick/FEReg leftovers and the mainrgn/SinglePlayer lockout and manager-launch callbacks - each pick confirmed against the ORIG (ad1bb82) body: kasf* sole callers for tut*/tm* wrappers, Save/LoadGame callers plus chunk sizes and the 0xb11db11d flag for save code, render-restart callers for texture load/free pairs, and literal strings; Cataclysm-only screens (dev console FEMan\\console.fib, OverlayIcons) got cat_ names at medium.",
  "done_subsystems": [
   "network",
   "sound",
   "rgl",
   "etg",
   "nis",
-  "sensors"
+  "sensors",
+  "frontend"
  ],
  "proposals": [
   {
@@ -8669,6 +8670,1376 @@
    "evidence": "kbKeyListFont = frFontRegister(\"hw_eurosecond_11.hff\") (first line of ORIG KeyBindings.c:709); called from utyGameSystemsInit; Cataclysm drops the kbCanMapKey table init",
    "hw1_equivalent": "HomeworldSDL/src/Game/KeyBindings.c:kbInitKeyBindings",
    "signature": "void kbInitKeyBindings(void)"
+  },
+  {
+   "address": "0x00454550",
+   "name": "cmDirtyShipInfo",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "medium",
+   "evidence": "ORs RSF_DrawThisFrame(8) into status of 7 cm*Region handles + carrier-region array (ORIG consMgr.c:813); Cataclysm adds cmUpdateShipAvailable call first",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmDirtyShipInfo",
+   "signature": "void cmDirtyShipInfo(void)"
+  },
+  {
+   "address": "0x00455040",
+   "name": "cmLoadTextures",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "loops races x icons: strcpy(FEMan\\Construction_Manager\\Build_raceN)+strcat(icon), trLIFFileLoad, trRGB/PalettedTextureCreate; called by cmStartup (ORIG consMgr.c:1338)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmLoadTextures",
+   "signature": "void cmLoadTextures(void)"
+  },
+  {
+   "address": "0x004551e0",
+   "name": "cmCloseTextures",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "memFree LIFs + trRGBTextureDelete on the same tables cmLoadTextures fills; called by cmShutdown and renderer restart paths (ORIG consMgr.c:1410)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmCloseTextures",
+   "signature": "void cmCloseTextures(void)"
+  },
+  {
+   "address": "0x00455410",
+   "name": "cmUpdateShipAvailable",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "walks cmShipsAvailable until nJobs==-1, rmCanBuildShip + IF_InfoLoaded(infoFlags&2) -> STAT_CANBUILD, counts NUMBER_SHIPS_AVAILABLE, reverse class pass (ORIG consMgr.c:1562)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmUpdateShipAvailable",
+   "signature": "void cmUpdateShipAvailable(void)"
+  },
+  {
+   "address": "0x00455920",
+   "name": "cmForceBuildShipType",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "inlined cmFindFactory(curPlayer->PlayerMothership) then progress[type].timeLeft=0 (stride 0x30); sole caller kasfForceBuildShipType (ORIG consMgr.c:1730)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmForceBuildShipType",
+   "signature": "void cmForceBuildShipType(ShipType type)"
+  },
+  {
+   "address": "0x00456430",
+   "name": "cmSelectShipType",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "medium",
+   "evidence": "(region,yClicked): fontMakeCurrent, skips cmUpperIndex rows, steps fontHeight+2 per printable row, returns row index or -1 (ORIG consMgr.c:2103)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmSelectShipType",
+   "signature": "sdword cmSelectShipType(regionhandle region, sdword yClicked)"
+  },
+  {
+   "address": "0x004565a0",
+   "name": "cmIncrement",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "(factory,index): unitCapCanCreateShip check, ++nJobs or progress->nJobs/nJobsTotal + clWrapDeterministicBuild(1,..,1,..) in MP, svSelectShip, cmUpdateShipAvailable (ORIG consMgr.c:2282)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmIncrement",
+   "signature": "bool cmIncrement(shipsinprogress *factory, uword index)"
+  },
+  {
+   "address": "0x00456760",
+   "name": "cmDecrement",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "(factory,index): --nJobs or progress->nJobs-- with clWrapDeterministicBuild(..,0x4001,..) in MP, svSelectShip, cmUpdateShipAvailable; called with cmIncrement from cmBuildHotKey (ORIG :2339)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmDecrement",
+   "signature": "bool cmDecrement(shipsinprogress *factory, uword index)"
+  },
+  {
+   "address": "0x00456ca0",
+   "name": "cmDrawArrow",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "(region,leftArrow): sole callee of cmLeftArrowDraw/cmRightArrowDraw; fontMakeCurrent, walks visible cmShipsAvailable rows drawing per-row arrows (ORIG consMgr.c:2697)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmDrawArrow",
+   "signature": "void cmDrawArrow(regionhandle region, bool leftArrow)"
+  },
+  {
+   "address": "0x00457fc0",
+   "name": "cmUpdateFactoryNoReset",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "falls back to PlayerMothership if !canBuildShips, cmFindFactory, picks cmShipsAvailable table by race and canBuildBigShips; sole caller cmUpdateShipsAvailable (ORIG :3533)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmUpdateFactoryNoReset",
+   "signature": "sdword cmUpdateFactoryNoReset(Ship *shipfactory)"
+  },
+  {
+   "address": "0x00458150",
+   "name": "cmUpdateShipsAvailable",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "cmCurrentSelect==0 ? cmUpdateFactoryNoReset(PlayerMothership) : cmUpdateFactoryNoReset(cmCarrierX[sel]); callers kasfEnableShipConstruction, rmUpdateResearch (ORIG :3615)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmUpdateShipsAvailable",
+   "signature": "void cmUpdateShipsAvailable(void)"
+  },
+  {
+   "address": "0x00458180",
+   "name": "cmUpdateFactory",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "same race/canBuildBigShips table pick as cmUpdateFactoryNoReset plus per-entry nJobs=0 and GetShipStaticInfo; sole caller cmConstructionBegin (ORIG consMgr.c:3634)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmUpdateFactory",
+   "signature": "sdword cmUpdateFactory(Ship *shipfactory)"
+  },
+  {
+   "address": "0x004586c0",
+   "name": "cmBuildJobsAdd",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "progress=&factory->progress[info->shiptype]; if nJobs==0 timeLeft=timeStart=buildTime; nJobs/nJobsTotal+=n; MP clWrapDeterministicBuild(1,..,total|0x8000,..) (ORIG :3884)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmBuildJobsAdd",
+   "signature": "void cmBuildJobsAdd(shipsinprogress *factory, ShipStaticInfo *info, sdword nJobs)"
+  },
+  {
+   "address": "0x004589c0",
+   "name": "cmDrawShipImage",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "medium",
+   "evidence": "ferDrawFocusWindow + glcRectSolidTexturedScaled2 / trRGBTextureMakeCurrent+primRectSolidTextured2 of the race build-icon textures; called by cmCarrierXDraw (ORIG :4011)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmDrawShipImage",
+   "signature": ""
+  },
+  {
+   "address": "0x00458bf0",
+   "name": "cmCarrierXDraw",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "medium",
+   "evidence": "stores region in cmCarrierRegions[x], finds x-th carrier owned by curPlayer, regFunctionSet(cmSelectCarrier1/2) on first draw, then cmDrawShipImage (ORIG consMgr.c:4110)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmCarrierXDraw",
+   "signature": "void cmCarrierXDraw(featom *atom, regionhandle region, udword x)"
+  },
+  {
+   "address": "0x00458cf0",
+   "name": "cmShipTypeToKey",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "linear search of cmShipTypes {key,ship} table until key==-1, returns key for ship; caller in ShipView.c (ORIG shipview.c:882 calls cmShipTypeToKey) (ORIG consMgr.c:4179)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmShipTypeToKey",
+   "signature": "uword cmShipTypeToKey(ShipType ship)"
+  },
+  {
+   "address": "0x00458d40",
+   "name": "cmBuildHotKey",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "key filter A-Z minus B/P/C, F1-F12 (0x70-0x7b), 1-3; shift|0x100; inlined cmKeyToShipType; cmIncrement+cmDecrement+cmBuildJobsAdd(..,1); caller keyPressDown (ORIG :4201)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmBuildHotKey",
+   "signature": "bool cmBuildHotKey(keyindex key, bool shift)"
+  },
+  {
+   "address": "0x00458e60",
+   "name": "cmDeterministicReset",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "medium",
+   "evidence": "body is listDeleteAll(&cmDetermProgress) (same list Save/LoadConsMgrDetermOptional use); called from gameStart (ORIG consMgr.c:4277)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmDeterministicReset",
+   "signature": "void cmDeterministicReset(void)"
+  },
+  {
+   "address": "0x00459780",
+   "name": "SaveConsMgr",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "SaveInfoNumber(listofShipsInProgress.num), per-factory CreateChunk(..,0x1b48) with ship->ID and staticinfo->race<<16|type, then cmNumCarriers chunk; caller SaveGame (ORIG :4705)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:SaveConsMgr",
+   "signature": "void SaveConsMgr(void)"
+  },
+  {
+   "address": "0x004598a0",
+   "name": "LoadConsMgr",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "LoadInfoNumber, listInit(&listofShipsInProgress), LoadNextChunk + memcpy 0x1b48 per factory, GetShipStaticInfo remap of 0x91 progress slots; caller LoadGame (ORIG consMgr.c:4769)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:LoadConsMgr",
+   "signature": "void LoadConsMgr(void)"
+  },
+  {
+   "address": "0x00459ee0",
+   "name": "SaveConsMgrDetermOptional",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "if cmDetermProgress.num: SaveInfoNumber(0xb11db11d BUILD_OPTIONAL_FLAG) + SaveLinkedListOfStuff; caller SaveGame (ORIG consMgr.c:4829)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:SaveConsMgrDetermOptional",
+   "signature": "void SaveConsMgrDetermOptional(void)"
+  },
+  {
+   "address": "0x00459f10",
+   "name": "LoadConsMgrDetermOptional",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "LoadInfoNumberOptional==0xb11db11d ? LoadLinkedListOfStuff(&cmDetermProgress) : listInit; caller LoadGame (ORIG consMgr.c:4841)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:LoadConsMgrDetermOptional",
+   "signature": "void LoadConsMgrDetermOptional(void)"
+  },
+  {
+   "address": "0x0045a250",
+   "name": "cat_cmIsOpen",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "returns cmBaseRegion!=NULL (same global cmClose feScreenDeleteFlags/NULLs, cmCloseIfOpen tests); tail of ConsMgr.c; callers subTitlesDraw, kasfTutRemovePointer",
+   "hw1_equivalent": "",
+   "signature": "bool cat_cmIsOpen(void)"
+  },
+  {
+   "address": "0x0045a260",
+   "name": "cat_consoleStartup",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "dev console init: allocs 28-line history + input buffers, frFontRegister(\"Arial_12.hff\"), feDrawCallbackAddMultiple, feScreensLoad(\"FEMan\\\\console.fib\"); caller gameStart",
+   "hw1_equivalent": "",
+   "signature": "void cat_consoleStartup(void)"
+  },
+  {
+   "address": "0x0045a3d0",
+   "name": "cat_consoleShutdown",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "frees the console history/input buffers allocated by cat_consoleStartup, feScreenDeleteFlags(consoleRegion,1); caller utyGameSystemsShutdown",
+   "hw1_equivalent": "",
+   "signature": "void cat_consoleShutdown(void)"
+  },
+  {
+   "address": "0x0045a460",
+   "name": "cat_consoleOpen",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "if no console region: feScreenStart(ghMainRegion,\"console\") + regRegionScroll(-height); sets console-active flags; caller console key handler",
+   "hw1_equivalent": "",
+   "signature": "void cat_consoleOpen(void)"
+  },
+  {
+   "address": "0x0045a4d0",
+   "name": "cat_consoleClose",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "clears console-active flags, feScreenDeleteFlags(consoleRegion,1), NULLs it; inverse of cat_consoleOpen (same globals 0xa2dcd4/0xa2dcfc)",
+   "hw1_equivalent": "",
+   "signature": "void cat_consoleClose(void)"
+  },
+  {
+   "address": "0x0045a590",
+   "name": "cat_consoleExecuteCommand",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "memStringDupe input line, split at first space, strcmp \"PROF\", else dispatch to variable/KAS handler (-> cat_consoleKasCommand) or \"Not a command\"",
+   "hw1_equivalent": "",
+   "signature": "void cat_consoleExecuteCommand(char *line)"
+  },
+  {
+   "address": "0x0049d980",
+   "name": "lmDrawShipImage",
+   "kind": "function",
+   "class": "hw1:LaunchMgr.c",
+   "confidence": "medium",
+   "evidence": "ferDrawFocusWindow + race build-icon texture (glcRectSolidTexturedScaled2 or trRGBTextureMakeCurrent/primRectSolidTextured2) inset by 4; sole caller lmCarrierXDraw (ORIG launchMgr.c:1145)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LaunchMgr.c:lmDrawShipImage",
+   "signature": ""
+  },
+  {
+   "address": "0x0049dbb0",
+   "name": "lmCarrierXDraw",
+   "kind": "function",
+   "class": "hw1:LaunchMgr.c",
+   "confidence": "medium",
+   "evidence": "finds x-th cmCarriers entry owned by curPlayer, stores lmCarrierX[x], regFunctionSet(lmSelectCarrier1/2) on first draw, then lmDrawShipImage (ORIG launchMgr.c:1245)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LaunchMgr.c:lmCarrierXDraw",
+   "signature": "void lmCarrierXDraw(featom *atom, regionhandle region, udword x)"
+  },
+  {
+   "address": "0x0049dd60",
+   "name": "lmLoadTextures",
+   "kind": "function",
+   "class": "hw1:LaunchMgr.c",
+   "confidence": "high",
+   "evidence": "strcpy(lmShipImagePaths[race])+strcat(icon) \"FEMan\\Construction_Manager\\Build_raceN\", trLIFFileLoad, TRF_Paletted -> lmPaletted; caller lmStartup + render restarts (ORIG :1381)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LaunchMgr.c:lmLoadTextures",
+   "signature": "void lmLoadTextures(void)"
+  },
+  {
+   "address": "0x0049df00",
+   "name": "lmFreeTextures",
+   "kind": "function",
+   "class": "hw1:LaunchMgr.c",
+   "confidence": "high",
+   "evidence": "memFree lmShipImage[race][j] + trRGBTextureDelete lmShipTexture; caller lmShutdown and renderer shutdown paths (ORIG launchMgr.c:1432)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LaunchMgr.c:lmFreeTextures",
+   "signature": "void lmFreeTextures(void)"
+  },
+  {
+   "address": "0x0049e520",
+   "name": "lmReLaunch",
+   "kind": "function",
+   "class": "hw1:LaunchMgr.c",
+   "confidence": "high",
+   "evidence": "launchship=newship; shipsin=ship->shipsInsideMe(+0x4b4); zero shipsavailable[] incl bSelected; count inside ships; rebuild lmListWindow via uicListCleanUp/uicListAddItem (ORIG :1750)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LaunchMgr.c:lmReLaunch",
+   "signature": "void lmReLaunch(Ship *newship)"
+  },
+  {
+   "address": "0x004f5100",
+   "name": "rmDrawLabButton",
+   "kind": "function",
+   "class": "hw1:ResearchGUI.c",
+   "confidence": "high",
+   "evidence": "shared body of rmLab2Draw..rmLab5Draw (each passes &labbuttons[n], region) (ORIG researchgui.c:780; callers :1205-1309)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchGUI.c:rmDrawLabButton",
+   "signature": "void rmDrawLabButton(LabPrintList *labprint, regionhandle region)"
+  },
+  {
+   "address": "0x004f5e10",
+   "name": "getWord",
+   "kind": "function",
+   "class": "hw1:ResearchGUI.c",
+   "confidence": "high",
+   "evidence": "strlen(dest) then copies leading ' '/'-' then chars until ' ','-',0,'\\n'; callers poPopupTextDraw (Objectives.c extern 'defined in researchgui.c') (ORIG researchgui.c:1391)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchGUI.c:getWord",
+   "signature": "char *getWord(char *dest, char *source)"
+  },
+  {
+   "address": "0x004f5e70",
+   "name": "getShipBuild",
+   "kind": "function",
+   "class": "hw1:ResearchGUI.c",
+   "confidence": "medium",
+   "evidence": "copies curPlayer researchinfo (+0x2a4, 42 dwords), adds techinfo bit, walks ships whose TechNeededToBuildShip becomes satisfied appending names; sole caller rmTechInfoDraw (ORIG :1414)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchGUI.c:getShipBuild",
+   "signature": "char *getShipBuild(char *dest)"
+  },
+  {
+   "address": "0x004f60b0",
+   "name": "rmTechInfoDraw",
+   "kind": "function",
+   "class": "hw1:ResearchGUI.c",
+   "confidence": "high",
+   "evidence": "(region): returns if techinfo==-1; fontMakeCurrent(rmTechInfoFont); race-specific tech text into 650-byte buffer, getShipBuild, inlined getWord word-wrap + fontPrintf (ORIG researchgui.c:1504)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchGUI.c:rmTechInfoDraw",
+   "signature": "void rmTechInfoDraw(regionhandle region)"
+  },
+  {
+   "address": "0x004f6d30",
+   "name": "rmUpdateTechList",
+   "kind": "function",
+   "class": "hw1:ResearchGUI.c",
+   "confidence": "high",
+   "evidence": "rebuilds the tech list from curPlayer researchinfo; callers rmUpdateResearch, rmResearchGUIBegin, research API grant/clear paths (ORIG researchapi.c:420-644 call rmUpdateTechList) (ORIG :2083)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchGUI.c:rmUpdateTechList",
+   "signature": "void rmUpdateTechList(void)"
+  },
+  {
+   "address": "0x004f75f0",
+   "name": "rmSetPrintList",
+   "kind": "function",
+   "class": "hw1:ResearchGUI.c",
+   "confidence": "medium",
+   "evidence": "switch(whichlist) copies the static tech print list (terminated by -1) into the per-race/mode list; callers rmAPIStartup and the research reset (ORIG researchapi.c:1004-1009) (ORIG :2328)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchGUI.c:rmSetPrintList",
+   "signature": "void rmSetPrintList(sdword whichlist, TechStatics *techstat)"
+  },
+  {
+   "address": "0x004f76f0",
+   "name": "rmGUIStartup",
+   "kind": "function",
+   "class": "hw1:ResearchGUI.c",
+   "confidence": "high",
+   "evidence": "inits pictures[] (techImage NULL, tech/race -1), loads ResearchGUI\\Race1\\ / Race2\\ lab textures + fonts; callers rmAPIStartup and renderer restart paths (ORIG researchgui.c:2452)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchGUI.c:rmGUIStartup",
+   "signature": "void rmGUIStartup(void)"
+  },
+  {
+   "address": "0x004f7970",
+   "name": "rmGUIShutdown",
+   "kind": "function",
+   "class": "hw1:ResearchGUI.c",
+   "confidence": "high",
+   "evidence": "feScreensDelete(rmScreensHandle), memFree pictures[].techImage + trRGBTextureDelete, frees lab textures; reached from utyGameSystemsShutdown via rmAPIShutdown thunk (ORIG researchgui.c:2523)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchGUI.c:rmGUIShutdown",
+   "signature": "void rmGUIShutdown(void)"
+  },
+  {
+   "address": "0x004f3c90",
+   "name": "rmAPIShutdown",
+   "kind": "function",
+   "class": "hw1:ResearchAPI.c",
+   "confidence": "high",
+   "evidence": "5-byte thunk jumping to rmGUIShutdown, called from utyGameSystemsShutdown; ORIG rmAPIShutdown body is exactly rmGUIShutdown() (researchapi.c:1022)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmAPIShutdown",
+   "signature": "void rmAPIShutdown(void)"
+  },
+  {
+   "address": "0x0052d770",
+   "name": "tmClearTechs",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "zeroes tmTechResearchable (uword[50] @0xba4680) and tmTechForSale (sdword[50] @0xba4300) - the arrays tmSave/tmLoad persist; caller gameStart (ORIG TradeMgr.c:264)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmClearTechs",
+   "signature": "void tmClearTechs(void)"
+  },
+  {
+   "address": "0x0052e980",
+   "name": "tmTechInit",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "sets every tmTechForSale entry to TM_TECH_IS_NOT_FOR_SALE(0); caller in SinglePlayer.c (ORIG singleplayer.c:3615 calls tmTechInit) (ORIG TradeMgr.c:1243)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmTechInit",
+   "signature": "void tmTechInit(void)"
+  },
+  {
+   "address": "0x0052e9a0",
+   "name": "AllowPlayerToResearch",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "StrToTechType; if rmGUIActive && !tmTechResearchable[t] set + rmUpdateTechList else set; sole caller kasfAllowPlayerToResearch (ORIG TradeMgr.c:1261)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:AllowPlayerToResearch",
+   "signature": "void AllowPlayerToResearch(char *techname)"
+  },
+  {
+   "address": "0x0052e9e0",
+   "name": "AllowPlayerToPurchase",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "StrToTechType; tmTechForSale[t]=1 unless already 2 (owned); sole caller kasfAllowPlayerToPurchase (ORIG TradeMgr.c:1274)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:AllowPlayerToPurchase",
+   "signature": "void AllowPlayerToPurchase(char *techname)"
+  },
+  {
+   "address": "0x0052ea10",
+   "name": "PlayerAcquiredTechnology",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "StrToTechType; tmTechForSale[t]=2 (owned); rmAddTechToPlayer(curPlayer,t); sole caller kasfPlayerAcquiredTechnology (ORIG TradeMgr.c:1280)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:PlayerAcquiredTechnology",
+   "signature": "void PlayerAcquiredTechnology(char *techname)"
+  },
+  {
+   "address": "0x0052ea40",
+   "name": "CanPlayerResearch",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "returns tmTechResearchable[StrToTechType(name)]; sole caller kasfCanPlayerResearch (ORIG TradeMgr.c:1287)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:CanPlayerResearch",
+   "signature": "sdword CanPlayerResearch(char *techname)"
+  },
+  {
+   "address": "0x0052ea60",
+   "name": "CanPlayerPurchase",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "returns tmTechForSale[StrToTechType(name)]==1 (FOR_SALE); sole caller kasfCanPlayerPurchase (ORIG TradeMgr.c:1293)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:CanPlayerPurchase",
+   "signature": "sdword CanPlayerPurchase(char *techname)"
+  },
+  {
+   "address": "0x0052ea80",
+   "name": "DoesPlayerHave",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "returns tmTechForSale[StrToTechType(name)]==2 (ALREADY_OWNED); sole caller kasfDoesPlayerHave (ORIG TradeMgr.c:1299)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:DoesPlayerHave",
+   "signature": "sdword DoesPlayerHave(char *techname)"
+  },
+  {
+   "address": "0x0052eaa0",
+   "name": "GetBaseTechnologyCost",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "returns tmTechPrice[StrToTechType(name)] (@0x8ab020, saved by tmSave); sole caller kasfGetBaseTechnologyCost (ORIG TradeMgr.c:1305)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:GetBaseTechnologyCost",
+   "signature": "sdword GetBaseTechnologyCost(char *techname)"
+  },
+  {
+   "address": "0x0052eac0",
+   "name": "SetBaseTechnologyCost",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "tmTechPrice[StrToTechType(name)]=cost; sole caller kasfSetBaseTechnologyCost (ORIG TradeMgr.c:1311)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:SetBaseTechnologyCost",
+   "signature": "void SetBaseTechnologyCost(char *techname, sdword cost)"
+  },
+  {
+   "address": "0x0052eae0",
+   "name": "tmEnableTraderGUI",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "body is a single call to mrTradeStuff (0x564a70, the mainrgn handler that calls tmTradeBegin) (ORIG TradeMgr.c:1319, called from KASFunc.c:3657)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmEnableTraderGUI",
+   "signature": "void tmEnableTraderGUI(void)"
+  },
+  {
+   "address": "0x0052eaf0",
+   "name": "tmTraderGUIActive",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "returns tmTradeActive; sole caller kasfTraderGUIActive (ORIG TradeMgr.c:1324)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmTraderGUIActive",
+   "signature": "bool tmTraderGUIActive(void)"
+  },
+  {
+   "address": "0x0052eb00",
+   "name": "tmSetDialog",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "memFree(tmKASDialog[n]) if set, then tmKASDialog[n]=memStringDupe(sentence); sole caller kasfSetTraderDialog (ORIG TradeMgr.c:1329)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmSetDialog",
+   "signature": "void tmSetDialog(sdword phrasenum, char *sentence)"
+  },
+  {
+   "address": "0x0052eb40",
+   "name": "tmSetPriceScale",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "stores uword tmPriceScale (0x8aaff2); sole caller kasfSetTraderPriceScale (ORIG TradeMgr.c:1339)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmSetPriceScale",
+   "signature": "void tmSetPriceScale(udword percent)"
+  },
+  {
+   "address": "0x0052eb50",
+   "name": "tmGetPriceScale",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "returns uword tmPriceScale (0x8aaff2); sole caller kasfGetTraderPriceScale (ORIG TradeMgr.c:1344)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmGetPriceScale",
+   "signature": "uword tmGetPriceScale(void)"
+  },
+  {
+   "address": "0x0052eb60",
+   "name": "tmSetTradeDisabled",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "tmTradeDisabled=arg (0xa6bb6c, the value tmSave writes last); sole caller kasfSetTraderDisabled (ORIG TradeMgr.c:1349)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmSetTradeDisabled",
+   "signature": "void tmSetTradeDisabled(bool trade)"
+  },
+  {
+   "address": "0x0052eb70",
+   "name": "wkTradeControl",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "arrow/alt key state -> wkTradeControlShip controlrot(+0x38)/controlstrafe(+0x36) = -1/0/1; sole caller wkTradeUpdate (ORIG TradeMgr.c:1476)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:wkTradeControl",
+   "signature": "void wkTradeControl(void)"
+  },
+  {
+   "address": "0x0052eec0",
+   "name": "tmSave",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "SaveStructureOfSize(tmTechResearchable,100), (tmTechForSale,200), (tmTechPrice,200), Save_String x NUM_KAS_DIALOGS, SaveInfoNumber(tmTradeDisabled); caller SaveGame (ORIG :1706)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmSave",
+   "signature": "void tmSave(void)"
+  },
+  {
+   "address": "0x0052ef20",
+   "name": "tmLoad",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "LoadStructureOfSizeToAddress of the same three arrays, Load_String dialogs, tmTradeDisabled=LoadInfoNumber; caller LoadGame (ORIG TradeMgr.c:1729)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmLoad",
+   "signature": "void tmLoad(void)"
+  },
+  {
+   "address": "0x00528aa0",
+   "name": "toAllShipsDraw",
+   "kind": "function",
+   "class": "hw1:Tactical.c",
+   "confidence": "high",
+   "evidence": "zeroes toClassUsed, rndTextureEnable(0)/rndLightingEnable(0), walks ship list skipping dead/selCircleRadius<=0, primLineLoop per toicon; caller smViewportRender (ORIG tactical.c:181)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tactical.c:toAllShipsDraw",
+   "signature": "void toAllShipsDraw(void)"
+  },
+  {
+   "address": "0x00514c20",
+   "name": "svSelectShip",
+   "kind": "function",
+   "class": "hw1:ShipView.c",
+   "confidence": "high",
+   "evidence": "svShipType=type, ReZoom=TRUE (Cataclysm also restarts the zoom timer when type changes); called by cmIncrement/cmDecrement as in ORIG consMgr.c:2330/2371 (ORIG shipview.c:504)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipView.c:svSelectShip",
+   "signature": "void svSelectShip(ShipType type)"
+  },
+  {
+   "address": "0x00514c70",
+   "name": "svClose",
+   "kind": "function",
+   "class": "hw1:ShipView.c",
+   "confidence": "high",
+   "evidence": "NULLs svShipViewRegion and sets svShipType=DefaultShip (0x91); callers cmClose, lmCloseIfOpen as ORIG consMgr.c:1653 / launchMgr.c:592 (ORIG shipview.c:518)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipView.c:svClose",
+   "signature": "void svClose(void)"
+  },
+  {
+   "address": "0x00515010",
+   "name": "svShipViewRender",
+   "kind": "function",
+   "class": "hw1:ShipView.c",
+   "confidence": "high",
+   "evidence": "region draw callback: rgluPerspective ship preview, then if cmPrintHotKey cmShipTypeToKey(svShipType) -> \"[SHIFT-%s]\"/\"[%s]\" fontPrintf (ORIG shipview.c:604, :882-900)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipView.c:svShipViewRender",
+   "signature": "void svShipViewRender(featom *atom, regionhandle region)"
+  },
+  {
+   "address": "0x00514dd0",
+   "name": "cat_svShipDescriptionDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "fontMakeCurrent(svFont); copies per-shiptype description string (table 0xbb3fbc, svShipType) and word-wraps it like getWord; sole caller svShipViewRender",
+   "hw1_equivalent": "",
+   "signature": "void cat_svShipDescriptionDraw(rectangle *rect, sdword y)"
+  },
+  {
+   "address": "0x004e5c60",
+   "name": "pieCircleSegmentsCompute",
+   "kind": "function",
+   "class": "hw1:PiePlate.c",
+   "confidence": "high",
+   "evidence": "(screenRadius): scans piePlaneCircleSegments {screenRadius,nSegments} LOD table, returns first nSegments whose radius < arg (ORIG pieplate.c:137)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PiePlate.c:pieCircleSegmentsCompute",
+   "signature": "sdword pieCircleSegmentsCompute(real32 screenRadius)"
+  },
+  {
+   "address": "0x004e5e70",
+   "name": "piePointModePause",
+   "kind": "function",
+   "class": "hw1:PiePlate.c",
+   "confidence": "high",
+   "evidence": "(bPause): saves piePointSpecMode to pieOldPointSpecMode and sets PSM_Waiting(1); unpause restores it and sets piePointSpecMouseReset; callers in mainrgn (ORIG pieplate.c:215)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PiePlate.c:piePointModePause",
+   "signature": "void piePointModePause(sdword bPause)"
+  },
+  {
+   "address": "0x004e5ec0",
+   "name": "pieMousePosSet3D",
+   "kind": "function",
+   "class": "hw1:PiePlate.c",
+   "confidence": "high",
+   "evidence": "(modelView,projection,mouse3D): two hmatMultiplyHMatByHVec, z>0 check, GL->screen x/y, on-screen bounds then mousePositionSet; caller piePointSpecDraw (ORIG pieplate.c:242)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PiePlate.c:pieMousePosSet3D",
+   "signature": "sdword pieMousePosSet3D(hmatrix *modelView, hmatrix *projection, vector *mouse3D)"
+  },
+  {
+   "address": "0x004e5fc0",
+   "name": "pieSameOnScreenPoint",
+   "kind": "function",
+   "class": "hw1:PiePlate.c",
+   "confidence": "high",
+   "evidence": "(modelView,projection,p1,p2): projects both points like pieMousePosSet3D and compares screen coords; caller piePointSpecDraw (ORIG pieplate.c:278)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PiePlate.c:pieSameOnScreenPoint",
+   "signature": "bool pieSameOnScreenPoint(hmatrix *modelView, hmatrix *projection, vector *p1, vector *p2)"
+  },
+  {
+   "address": "0x004e61b0",
+   "name": "pieDistanceReadoutDraw",
+   "kind": "function",
+   "class": "hw1:PiePlate.c",
+   "confidence": "high",
+   "evidence": "sprintf \"%i RU's\" cost readout and \"%i m\" distance (Cataclysm adds \"%i km\" and \"%i %%\"); caller piePointSpecDraw (ORIG pieplate.c:371, strings :406-428)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PiePlate.c:pieDistanceReadoutDraw",
+   "signature": ""
+  },
+  {
+   "address": "0x004e6b90",
+   "name": "pieWorldLocationCompute",
+   "kind": "function",
+   "class": "hw1:PiePlate.c",
+   "confidence": "high",
+   "evidence": "(world0,world1,eyeMag): world0=mrCamera->eyeposition, eyeMag=fsqrt(mag^2), cameraRayCast at mouse x/y, scale by eyeMag and add world0 (ORIG pieplate.c:635)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PiePlate.c:pieWorldLocationCompute",
+   "signature": "void pieWorldLocationCompute(vector *world0, vector *world1, real32 *eyeMag)"
+  },
+  {
+   "address": "0x004e6c50",
+   "name": "pieMovementCursorDraw",
+   "kind": "function",
+   "class": "hw1:PiePlate.c",
+   "confidence": "high",
+   "evidence": "glCapFastFeature(GL_LINE_STIPPLE 0xb24); if abs(piePointSpecZ)<pieDottedDistance stippled primLine3 planePoint->selCentre else height->centre + height->plane; installed as callback (ORIG :728)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PiePlate.c:pieMovementCursorDraw",
+   "signature": ""
+  },
+  {
+   "address": "0x004e76b0",
+   "name": "pieMovePointClipToLimits",
+   "kind": "function",
+   "class": "hw1:PiePlate.c",
+   "confidence": "medium",
+   "evidence": "clips a move point to the world box; callers smPan, univObjectOutsideWorld, crates, piePointSpecDraw as in ORIG (sensors.c:2912, univupdate.c:4992); Cataclysm drops the size args (ORIG :917)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PiePlate.c:pieMovePointClipToLimits",
+   "signature": ""
+  },
+  {
+   "address": "0x004e7a70",
+   "name": "piePointSpecDraw",
+   "kind": "function",
+   "class": "hw1:PiePlate.c",
+   "confidence": "high",
+   "evidence": "move-mechanism draw: pieMousePosSet3D, pieSameOnScreenPoint, pieWorldLocationCompute, pieMovePointClipToLimits, pieDistanceReadoutDraw, plane+cursor callbacks; caller smViewportRender (ORIG :1016)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PiePlate.c:piePointSpecDraw",
+   "signature": "void piePointSpecDraw(void)"
+  },
+  {
+   "address": "0x004e8440",
+   "name": "pieShipDied",
+   "kind": "function",
+   "class": "hw1:PiePlate.c",
+   "confidence": "high",
+   "evidence": "if pieLastClosestShip==ship NULL it; if no selection and point mode active piePointModeOnOff; callers univDeleteDeadShip, univRemoveShipReferences (ORIG pieplate.c:1322)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PiePlate.c:pieShipDied",
+   "signature": "void pieShipDied(Ship *ship)"
+  },
+  {
+   "address": "0x004e8480",
+   "name": "piePointModeToggle",
+   "kind": "function",
+   "class": "hw1:PiePlate.c",
+   "confidence": "medium",
+   "evidence": "(bOn): PSM_XY(2)->PSM_Z(4) seeding pieHeightPoint from piePlanePoint when Z unset; !bOn PSM_Z->PSM_XY; always sets piePointSpecMouseReset (ORIG pieplate.c:1342)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PiePlate.c:piePointModeToggle",
+   "signature": "void piePointModeToggle(sdword bOn)"
+  },
+  {
+   "address": "0x00476920",
+   "name": "nextLog2",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "(n): returns 2/4/8/16/32/64/128/256 for n<=each (Cataclysm adds -1 above 256); sits between ferShutdown and ferDraw as in ORIG FeReg.c:1081 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:nextLog2",
+   "signature": "sdword nextLog2(sdword n)"
+  },
+  {
+   "address": "0x0052f600",
+   "name": "tutPreInitTutorial",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "sprintf \"Tutorials\\\\%s\\\\\" and \"%s.mission\", inlined tutEnableEverything (sets all 64 tutEnable bits), levelPreInit(dir,file); caller gameStart (ORIG Tutor.c:503)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutPreInitTutorial",
+   "signature": "void tutPreInitTutorial(char *dirfile, char *levelfile)"
+  },
+  {
+   "address": "0x0052f6d0",
+   "name": "tutSaveLesson",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "collUpdateCollBlobs+collUpdateObjsInCollBlobs, strcpy(tutLastLessonName,tutCurrLessonName), sprintf \"%s%s\" SavedGames\\\\Training\\\\ + name, SaveGame; caller kasfTutSaveLesson (ORIG Tutor.c:529)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSaveLesson",
+   "signature": "void tutSaveLesson(sdword Num, char *pName)"
+  },
+  {
+   "address": "0x0052ff70",
+   "name": "tutSetPointerTargetXY",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "tutPointerAllocate inlined (strcmp name over tutPointer[] stride 0x68) then x*MAIN_WindowWidth / y*MAIN_WindowHeight scaling; sole caller kasfTutSetPointerTargetXY (ORIG Tutor.c:676)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetPointerTargetXY",
+   "signature": "void tutSetPointerTargetXY(char *name, sdword x, sdword y)"
+  },
+  {
+   "address": "0x00530120",
+   "name": "tutSetPointerTargetXYRight",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "same tutPointer allocate pattern; sole caller kasfTutSetPointerTargetXYRight (ORIG Tutor.c:684)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetPointerTargetXYRight",
+   "signature": ""
+  },
+  {
+   "address": "0x005301e0",
+   "name": "tutSetPointerTargetXYBottomRight",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "same tutPointer allocate pattern; sole caller kasfTutSetPointerTargetXYBottomRight (ORIG Tutor.c:690)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetPointerTargetXYBottomRight",
+   "signature": ""
+  },
+  {
+   "address": "0x005302b0",
+   "name": "tutSetPointerTargetXYTaskbar",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "tutPointer allocate + feResRepositionX scaling; sole caller kasfTutSetPointerTargetXYTaskbar (ORIG Tutor.c:695)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetPointerTargetXYTaskbar",
+   "signature": ""
+  },
+  {
+   "address": "0x00530380",
+   "name": "tutSetPointerTargetXYFE",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "tutPointer allocate + feResRepositionX/Y scaling; sole caller kasfTutSetPointerTargetXYFE (ORIG Tutor.c:700)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetPointerTargetXYFE",
+   "signature": ""
+  },
+  {
+   "address": "0x00530450",
+   "name": "tutSetPointerTargetShip",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "tutPointer allocate with ship target; callers kasfTutSetPointerTargetShip and kasfTutSetObjPointerTargetShip (ORIG Tutor.c:705)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetPointerTargetShip",
+   "signature": ""
+  },
+  {
+   "address": "0x00530500",
+   "name": "tutSetPointerTargetShipSelection",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "tutPointer allocate with selection target; callers kasfTutSetPointerTargetShipSelection and the Obj variant (ORIG Tutor.c:711)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetPointerTargetShipSelection",
+   "signature": ""
+  },
+  {
+   "address": "0x005305b0",
+   "name": "tutSetPointerTargetShipHealth",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "tutPointer allocate, sets tutPointerShip/health rect; sole caller kasfTutSetPointerTargetShipHealth (ORIG Tutor.c:717)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetPointerTargetShipHealth",
+   "signature": ""
+  },
+  {
+   "address": "0x00530660",
+   "name": "tutSetPointerTargetShipGroup",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "tutPointer allocate, sets tutPointerShip/group rect; sole caller kasfTutSetPointerTargetShipGroup (ORIG Tutor.c:725)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetPointerTargetShipGroup",
+   "signature": ""
+  },
+  {
+   "address": "0x00530710",
+   "name": "tutPlayerShipDied",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "clears every tutPointer[] whose ship==arg (type=None), and if ship==tutPointerShip NULLs it and the group/health rects; callers univDeleteDeadShip, univRemoveShipReferences (ORIG :733)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutPlayerShipDied",
+   "signature": "void tutPlayerShipDied(Ship *ship)"
+  },
+  {
+   "address": "0x00530750",
+   "name": "tutSetPointerTargetFERegion",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "regFindChildByAtomName then pointer rect = region rect adjusted; sole caller kasfTutSetPointerTargetFERegion (ORIG Tutor.c:753)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetPointerTargetFERegion",
+   "signature": "void tutSetPointerTargetFERegion(char *name, char *pAtomName)"
+  },
+  {
+   "address": "0x00530840",
+   "name": "tutSetPointerTargetRect",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "tutPointer allocate type Region with x0,y0,x1,y1; sole caller kasfTutSetPointerTargetRect (ORIG Tutor.c:769)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetPointerTargetRect",
+   "signature": "void tutSetPointerTargetRect(char *name, sdword x0, sdword y0, sdword x1, sdword y1)"
+  },
+  {
+   "address": "0x005308f0",
+   "name": "tutSetPointerTargetAIVolume",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "if volume!=NULL tutPointer allocate type AIVolume; callers kasfTutSetPointerTargetAIVolume and Obj variant (ORIG Tutor.c:778)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetPointerTargetAIVolume",
+   "signature": "void tutSetPointerTargetAIVolume(char *name, Volume *volume)"
+  },
+  {
+   "address": "0x005309a0",
+   "name": "tutRemovePointerByName",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "strcmp over tutPointer[] names, clears match; else dbgMessagef \"\\ntutRemovePointerByName: '%s' not found\"; caller kasfTutRemovePointer (ORIG Tutor.c:794)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutRemovePointerByName",
+   "signature": "void tutRemovePointerByName(char *name)"
+  },
+  {
+   "address": "0x00530a20",
+   "name": "tutRemoveAllPointers",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "clears every active tutPointer and resets tutPointerShip + group/health rects; callers kasfTutRemoveAllPointers, gameEnd (ORIG Tutor.c:823)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutRemoveAllPointers",
+   "signature": "void tutRemoveAllPointers(void)"
+  },
+  {
+   "address": "0x00530a60",
+   "name": "tutSetTextDisplayBox",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "(x,y,w,h,bScale): scaled by 640x480 or centred via (MAIN_WindowWidth-640)/2; tutTextPos=x+5, size=w-10, tutTextRect; callers kasfTutSetTextDisplayBoxGame/FE (ORIG :842)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetTextDisplayBox",
+   "signature": "void tutSetTextDisplayBox(sdword x, sdword y, sdword width, sdword height, bool bScale)"
+  },
+  {
+   "address": "0x00530b10",
+   "name": "tutSetTextDisplayBoxToSubtitleRegion",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "copies a subtitle region rect (4 dwords) into tutTextRect, the same globals tutSetTextDisplayBox writes (ORIG Tutor.c:873)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetTextDisplayBoxToSubtitleRegion",
+   "signature": "void tutSetTextDisplayBoxToSubtitleRegion(void)"
+  },
+  {
+   "address": "0x00530b40",
+   "name": "tutRootDrawFunction",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "walks feStack comparing screen names \"Construction_manager\",\"Launch_Manager\",\"Research_Manager\",\"Sensors_manager\" (ORIG Tutor.c:878-905); installed by tutAllocateRootRegion",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutRootDrawFunction",
+   "signature": "void tutRootDrawFunction(regionhandle reg)"
+  },
+  {
+   "address": "0x00530c00",
+   "name": "tutAllocateRootRegion",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "if count==0 regChildAlloc(ghMainRegion,&tutRootAtom,...,RPE_DrawEveryFrame) + regDrawFunctionSet(tutRootDrawFunction); count++ (ORIG Tutor.c:907)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutAllocateRootRegion",
+   "signature": "void tutAllocateRootRegion(void)"
+  },
+  {
+   "address": "0x00530ef0",
+   "name": "tutHideText",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "regRegionDelete(tutTextRegion)+inlined tutDeallocateRootRegion, clears tutTextVisible, inlined tutRemoveAllPointers, speechEventActorStop(ACTOR_FLEETCOMMAND_FLAG 0x1000) (ORIG Tutor.c:992)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutHideText",
+   "signature": "void tutHideText(void)"
+  },
+  {
+   "address": "0x00530f90",
+   "name": "tutGetNextTextLine",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "(dest,src,width): builds one wrapped line into dest and returns the rest of src; sole caller tutShowText (ORIG Tutor.c:1030; tutShowText loop :955)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutGetNextTextLine",
+   "signature": "char *tutGetNextTextLine(char *pDest, char *pString, sdword Width)"
+  },
+  {
+   "address": "0x00532a90",
+   "name": "tutNextButtonClicked",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "returns tutNextButtonState and clears it; sole caller kasfTutNextTextButtonClicked (ORIG Tutor.c:1510)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutNextButtonClicked",
+   "signature": "sdword tutNextButtonClicked(void)"
+  },
+  {
+   "address": "0x00533630",
+   "name": "tutSetEnableFlags",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "parses comma-delimited flag names (e.g. \"GameRunning\",\"KASFrame\") into the tutEnable bitfield; callers kasfTutEnableFlags and kasfTutDisableFlags (ORIG Tutor.c:1947)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetEnableFlags",
+   "signature": "void tutSetEnableFlags(char *pFlags, bool bEnable)"
+  },
+  {
+   "address": "0x00533790",
+   "name": "tutBuilderSetRestrictions",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "sets tutBuildRestrict[] per ship type token (\"BuildArrows\" flag handling); callers kasfBuilderRestrictShipTypes / kasfBuilderUnrestrictShipTypes (ORIG Tutor.c:1961)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutBuilderSetRestrictions",
+   "signature": "void tutBuilderSetRestrictions(char *pShipTypes, bool bRestrict)"
+  },
+  {
+   "address": "0x00533c90",
+   "name": "tutIsBuildShipRestricted",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "returns (sdword)tutBuildRestrict[shipType] (byte array 0xba2e60); caller cmSelectShipType (ORIG Tutor.c:2001)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutIsBuildShipRestricted",
+   "signature": "sdword tutIsBuildShipRestricted(sdword shipType)"
+  },
+  {
+   "address": "0x00533e80",
+   "name": "tutGameSentMessage",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "tokenizes comma list, stricmp vs tutGameMessageList[0..index), resets tutGameMessageIndex; sole caller kasfTutGameSentMessage (ORIG Tutor.c:2051)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutGameSentMessage",
+   "signature": "sdword tutGameSentMessage(char *commandNames)"
+  },
+  {
+   "address": "0x00533fb0",
+   "name": "tutResetGameMessageQueue",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "tutGameMessageIndex=0 (same global tutGameMessage/tutGameSentMessage use); sits between them as in ORIG Tutor.c:2073",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutResetGameMessageQueue",
+   "signature": "void tutResetGameMessageQueue(void)"
+  },
+  {
+   "address": "0x00533fc0",
+   "name": "tutContextMenuDisplayedForShipType",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "StrToShipType(name)==tutFEContextMenuShipType; sole caller kasfTutContextMenuDisplayedForShipType (ORIG Tutor.c:2078)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutContextMenuDisplayedForShipType",
+   "signature": "sdword tutContextMenuDisplayedForShipType(char *pShipType)"
+  },
+  {
+   "address": "0x00533fe0",
+   "name": "tutResetContextMenuShipTypeTest",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "tutFEContextMenuShipType=-1 (same global tutContextMenuDisplayedForShipType reads) (ORIG Tutor.c:2086)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutResetContextMenuShipTypeTest",
+   "signature": "void tutResetContextMenuShipTypeTest(void)"
+  },
+  {
+   "address": "0x00533ff0",
+   "name": "tutBuildManagerShipTypeInBatchQueue",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "sole caller kasfBuildManagerShipTypeInBatchQueue; StrToShipType then cmShipsAvailable scan (ORIG Tutor.c:2092)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutBuildManagerShipTypeInBatchQueue",
+   "signature": "sdword tutBuildManagerShipTypeInBatchQueue(char *pShipType)"
+  },
+  {
+   "address": "0x00534040",
+   "name": "tutBuildManagerShipTypeInBuildQueue",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "sole caller kasfBuildManagerShipTypeInBuildQueue; StrToShipType then factory progress scan (ORIG Tutor.c:2107)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutBuildManagerShipTypeInBuildQueue",
+   "signature": "sdword tutBuildManagerShipTypeInBuildQueue(char *pShipType)"
+  },
+  {
+   "address": "0x005340a0",
+   "name": "tutBuildManagerShipTypeSelected",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "StrToShipType then cmSIP-style progress lookup ->selected (+0x14) !=0; sole caller kasfBuildManagerShipTypeSelected (ORIG Tutor.c:2149)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutBuildManagerShipTypeSelected",
+   "signature": "sdword tutBuildManagerShipTypeSelected(char *pShipType)"
+  },
+  {
+   "address": "0x005340c0",
+   "name": "tutCameraFocusedOnShipType",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "sole caller kasfTutCameraFocusedOnShipType; counts camera-focus ships of the named type (ORIG Tutor.c:2186)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutCameraFocusedOnShipType",
+   "signature": "sdword tutCameraFocusedOnShipType(char *pShipTypes)"
+  },
+  {
+   "address": "0x005332c0",
+   "name": "tutUnInitialize",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "inlined tutHideText + hide image/next/back regions, then memFree tutImage[] + trRGBTextureDelete tutTexture[] over tutImageList (\"Tut_NextLesson_On\"...); caller gameEnd (ORIG Tutor.c:1881)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutUnInitialize",
+   "signature": "void tutUnInitialize(void)"
+  },
+  {
+   "address": "0x00487380",
+   "name": "gpCountTrainingSavegames",
+   "kind": "function",
+   "class": "hw1:GamePick.c",
+   "confidence": "high",
+   "evidence": "strcpy(TutorialSavedGamesPath \"SavedGames\\\\Training\\\\\")+strcat \"*.*\", FindFirst/Next counting non-dot entries; callers utySinglePlayerGameStart, utyNewGameStart (ORIG gamepick.c:219)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/GamePick.c:gpCountTrainingSavegames",
+   "signature": "sdword gpCountTrainingSavegames(void)"
+  },
+  {
+   "address": "0x00487440",
+   "name": "gpTitleListLoad",
+   "kind": "function",
+   "class": "hw1:GamePick.c",
+   "confidence": "high",
+   "evidence": "frees gpGames[] title/filename pairs and gpNumberGames, then rescans the current saved-games dir (\".pkts\" for recordings) refilling gpGames; precedes gpStartup as in ORIG gamepick.c:254",
+   "hw1_equivalent": "HomeworldSDL/src/Game/GamePick.c:gpTitleListLoad",
+   "signature": "void gpTitleListLoad(void)"
+  },
+  {
+   "address": "0x0043efb0",
+   "name": "cpPreviewImageDelete",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "inlined cpDirtyPreviewImage (regRecursiveSetDirty on 15 cpRegion[], RSF_DrawThisFrame on value/hue-sat regions), trRGBTextureDelete(cpPreviewTexture), memFree image+palette (ORIG colpick.c:728)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpPreviewImageDelete",
+   "signature": "void cpPreviewImageDelete(void)"
+  },
+  {
+   "address": "0x00503ed0",
+   "name": "spTitleFind",
+   "kind": "function",
+   "class": "hw1:ScenPick.c",
+   "confidence": "high",
+   "evidence": "(directory,fileName): memStrncpy(fullName,dir,_MAX_PATH-1) + strcat name\\\\name.level, reads lines for a [Title] header; sole caller spTitleListLoad (ORIG scenpick.c:231)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ScenPick.c:spTitleFind",
+   "signature": "char *spTitleFind(char *directory, char *fileName)"
+  },
+  {
+   "address": "0x00563cc0",
+   "name": "mrHarvestResources",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "medium",
+   "evidence": "playPackets/pause/mrDisabled + tutEnable.bHarvest guard, tutGameMessage(\"KB_Harvest\"), MakeShipsHarvestCapable, clWrapCollectResource; Cataclysm adds a target-resource arg (ORIG Win32/mainrgn.c:657)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrHarvestResources",
+   "signature": ""
+  },
+  {
+   "address": "0x005649b0",
+   "name": "mrBuildShips",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "pause/mrDisabled + tutEnable.bBuildManager guard, soundEvent(UI_Click), cmConstructionBegin(ghMainRegion, single selected factory or 0) (ORIG Win32/mainrgn.c:693)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrBuildShips",
+   "signature": "void mrBuildShips(char *string, featom *atom)"
+  },
+  {
+   "address": "0x00564a70",
+   "name": "mrTradeStuff",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "body is tmTradeBegin(ghMainRegion,...); sole caller tmEnableTraderGUI as in ORIG TradeMgr.c:1321 (ORIG Win32/mainrgn.c:722)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrTradeStuff",
+   "signature": "void mrTradeStuff(char *string, featom *atom)"
+  },
+  {
+   "address": "0x005653b0",
+   "name": "mrRetire",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "tutEnable.bRetire guard; MP MG_CaptureCapitalShip -> MakeShipsNonCapital + battleChatterAttempt(BCE_CannotComply 0x26); makeShipsRetireable, clWrapDock(DOCK_FOR_RETIRE 7) (ORIG :881)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrRetire",
+   "signature": "void mrRetire(char *string, featom *atom)"
+  },
+  {
+   "address": "0x005654b0",
+   "name": "mrLaunch",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "pause/mrDisabled guard, soundEvent(UI_Click), lmLaunchBegin(ghMainRegion, single selected ship or 0), dbgMessagef(\"\\nLaunch Ships.\") (ORIG Win32/mainrgn.c:945)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrLaunch",
+   "signature": "void mrLaunch(char *string, featom *atom)"
+  },
+  {
+   "address": "0x00565530",
+   "name": "mrResearch",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "pause/mrDisabled guard, soundEvent(UI_Click), rmResearchGUIBegin(ghMainRegion,...) (ORIG Win32/mainrgn.c:970)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrResearch",
+   "signature": "void mrResearch(char *string, featom *atom)"
+  },
+  {
+   "address": "0x00569fd0",
+   "name": "mrNISStarting",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "clears mrHoldLeft/mrHoldRight selection state, mrSaveTactical=mrDrawTactical, mrDrawTactical=FALSE; sole caller nisStart (ORIG Win32/mainrgn.c:5714)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrNISStarting",
+   "signature": "void mrNISStarting(void)"
+  },
+  {
+   "address": "0x0056a020",
+   "name": "mrNISStopping",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "clears mrHoldLeft/mrHoldRight, mrDrawTactical=mrSaveTactical; sole caller nisStop (ORIG Win32/mainrgn.c:5739)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrNISStopping",
+   "signature": "void mrNISStopping(void)"
+  },
+  {
+   "address": "0x0056a060",
+   "name": "mrShipDied",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "if (mrMothershipPtr==ship) mrMothershipPtr=NULL; caller univRemoveShipReferences (ORIG Win32/mainrgn.c:5762)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrShipDied",
+   "signature": "void mrShipDied(Ship *ship)"
+  },
+  {
+   "address": "0x004dbf80",
+   "name": "cat_overlayIconsStartup",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "scriptSet(\"OverlayIcons\\\\\",\"OverlayIcons.script\", tweak table starting \"PopupMenu_BorderCorner_TopLeft\"); caller utyGameSystemsInit",
+   "hw1_equivalent": "",
+   "signature": "void cat_overlayIconsStartup(void)"
+  },
+  {
+   "address": "0x004dbfa0",
+   "name": "cat_overlayIconsDiscardGL",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "for each loaded overlay icon (stride 0x108) calls the GL delete-textures pointer (n=1,&handle) and zeroes it; callers mainResetRender/mainOpenRender/renderer restart paths",
+   "hw1_equivalent": "",
+   "signature": "void cat_overlayIconsDiscardGL(void)"
+  },
+  {
+   "address": "0x004dbb70",
+   "name": "cat_overlayIconTextureCreate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "pads icon image to nextLog2 width/height, flips rows (glCapTexSupport(GL_RGBA8 0x805b) branch), uploads texture; sole caller cat_overlayIconDraw (lazy create)",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x004dbfe0",
+   "name": "cat_overlayIconDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "lazily creates the icon texture (cat_overlayIconTextureCreate) then draws a screen-space textured quad with blend state save/restore; callers MainOverlay/sensors draw code",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x00563a40",
+   "name": "mrDisable",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "if !mrDisabled: originalMrFilter=ghMainRegion->flags, regFilterSet(ghMainRegion,RPM_MouseEvents 0x7ffff), mrDisabled=TRUE; callers spLockout, kasfDisablePlayer (ORIG Win32/mainrgn.c:326)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrDisable",
+   "signature": "void mrDisable(void)"
+  },
+  {
+   "address": "0x00563a70",
+   "name": "mrEnable",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "if mrDisabled: regFilterSet(ghMainRegion,originalMrFilter), mrDisabled=FALSE; callers spUnlockout, kasfDisablePlayer (ORIG Win32/mainrgn.c:338)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrEnable",
+   "signature": "void mrEnable(void)"
+  },
+  {
+   "address": "0x00563aa0",
+   "name": "mrRemoveDerelictsAndAllPlayerShipsFromSelecting",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "medium",
+   "evidence": "walks selSelecting targets removing derelicts other than HyperspaceGate(7) and own/allied ships (allianceIsShipAlly) by swap-with-last; precedes mrStartup as in ORIG Win32/mainrgn.c:431",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrRemoveDerelictsAndAllPlayerShipsFromSelecting",
+   "signature": "void mrRemoveDerelictsAndAllPlayerShipsFromSelecting(void)"
+  },
+  {
+   "address": "0x00518db0",
+   "name": "spLockout",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "spLockoutFlags=flags; DESELECT(4) clears selection, smSensorsDisable=TRUE, MR(2) -> mrDisable + cursor hide, MOUSE(1) -> mouse disable; unlocks a prior lock first (ORIG singleplayer.c:1890)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:spLockout",
+   "signature": "void spLockout(udword flags)"
+  },
+  {
+   "address": "0x00518e10",
+   "name": "spMainScreenAndLockout",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "medium",
+   "evidence": "inlined spMainScreen (smSensorsCloseForGood if active, cm/rm/lmCloseIfOpen, feAllMenusDelete) followed by inlined spLockout(flags); caller kasfLockoutMainRegion (ORIG singleplayer.c:1917)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:spMainScreenAndLockout",
+   "signature": "void spMainScreenAndLockout(udword flags)"
+  },
+  {
+   "address": "0x00518f00",
+   "name": "spUnlockout",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "smSensorsDisable=FALSE; clears DESELECT; MR -> mrEnable + mouseCursorShow; MOUSE -> mouse enable; spLockoutFlags=0; callers cmClose, rmCloseIfOpen, singlePlayerGameUpdate (ORIG :1923)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:spUnlockout",
+   "signature": "void spUnlockout(void)"
   }
  ]
 }
