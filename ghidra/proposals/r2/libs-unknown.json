@@ -1,0 +1,4543 @@
+{
+ "source": "libs-unknown",
+ "method": "call graph + strings.csv + decompiled.c of r1 export, raw exe bytes for 0x5c9da0 and FE table 0x8c1028, struct-offset matching against IJG v6 jpeglib.h layout, HomeworldSDL utility.c/Memory.c, CET Cataclysm.h; suffix groups from symbols_round1.json",
+ "done_subsystems": [
+  "magick",
+  "ijg",
+  "cms",
+  "compromises",
+  "suffixes"
+ ],
+ "proposals": [
+  {
+   "address": "0x006e3de0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e3ec0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e3f30",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4010",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4080",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4160",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e41c0",
+   "name": "Magick__Image__Image_spec",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "Magick++ Image(const std::string&): default-init then read() 0x6e4510 (Options::fileName + ReadImage 0x6e7b20 + replaceImage); AdApi 0x6dbce0 loads ad image",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4250",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4270",
+   "name": "Magick__Image__Image",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "Magick++ Image() default ctor: new ImageRef(0x10), init lock at +8, vtable 0x731f30; WON AdApi lib_won_006db460 calls it",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e42e0",
+   "name": "Magick__Image__dtor",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "Magick++ ~Image: restores vtable, locks ImageRef, refcount-1, frees at 0; called by 6 WON Unwind funclets and AdApi locals",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4370",
+   "name": "Magick__Image__composite",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "Magick++ Image::composite(img,x,y,op): modifyImage, columns/rows, Geometry, GetGeometry 0x6f6cf0, CompositeImage 0x6e56a0, throwImageException",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e44a0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e44b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e44e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e44f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4510",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4540",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e45a0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e45e0",
+   "name": "Magick__Image__isValid",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "Magick++ Image::isValid(): returns rows()!=0 && columns()!=0 (0x6e4600 reads +0xd30, 0x6e4540 reads +0xd2c); AdApi 0x6db9a0 tests before DispatchImage",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4600",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4610",
+   "name": "Magick__Image__size",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "Magick++ Image::size(): returns Geometry(columns +0xd2c, rows +0xd30, 0,0,0,0) via Geometry ctor 0x6eaab0; called by AdApi 0x6db9a0",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4650",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e46d0",
+   "name": "Magick__Image__operator_assign",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "Magick++ Image operator=(const Image&): ref+1 on source, ref-1/free own ImageRef, share ref, returns copy via copy ctor 0x6e4650",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4760",
+   "name": "Magick__Image__Image_ref",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "Magick++ Image(MagickLib::Image*,Options*): new ImageRef(image,options) 0x6e4970; called by AdApi 0x6dbe40 to wrap next frame",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e47e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4910",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4960",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4970",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e49f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4ab0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4b40",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4b50",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4ba0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e50f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e51f0",
+   "name": "CloneImage",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick C CloneImage(image,columns,rows,orphan): allocs 0x1568-byte Image, copies, resets blob/pixel cache; 4 args, no ExceptionInfo (pre-5.0 API); AdApi caller",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e5500",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e56a0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e68b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e6a20",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e6b80",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e6bd0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e6d70",
+   "name": "GetNextImage",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick C GetNextImage(image): copies blob info (+0x152c, 6 dwords, +0x68c) into image->next (+0x1560) and returns it; AdApi animated-ad caller",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e6db0",
+   "name": "GetNumberScenes",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick C GetNumberScenes(image): walks ->previous (+0x1558) to head, counts ->next (+0x1560); AdApi 0x6dbce0 stores frame count",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e6de0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e6e00",
+   "name": "DispatchImage",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick C DispatchImage(image,x,y,cols,rows,map,type,pixels): 'Invalid pixel map'/'Invalid pixel type', CMYK map -> RGBTransformImage; AdApi extracts ad pixels",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e7550",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e7570",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e75d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e7640",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e7700",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e7780",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e7b20",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e8030",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e81c0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e91c0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e9920",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e99d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ea820",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006eaab0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006eaaf0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ead70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ead80",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006eadb0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006eadc0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f13e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f13f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f1400",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f1420",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f1470",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f14d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f14f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f1c70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f1c90",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f1ca0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f1ce0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f1d10",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f1d40",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f1d70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f1ef0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f2070",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f2080",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f2120",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f21d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f21e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f21f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f2540",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f2db0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f2e00",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f2f70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f30d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f3230",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f33a0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f3510",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f3680",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f37f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f3960",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f3ad0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f3c40",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f3db0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f3f20",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f4090",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f41f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f4360",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f44d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f4640",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f47b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f4920",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f4a90",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f4c00",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f4d70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f4ee0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f4f40",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f4f50",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f4f80",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f4f90",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5000",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5010",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5020",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5030",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5110",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f51d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5290",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5380",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5390",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5420",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5540",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5630",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f56d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f56f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f58f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5950",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5a10",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5a60",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5c10",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5cb0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5e50",
+   "name": "SetClientName",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f5eb0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f6120",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f6490",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f6540",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f6590",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f65a0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f6cf0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f6d60",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f6d70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f6da0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f6db0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f6dd0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f6e70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f74d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f7630",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f76f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f7de0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f7e30",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f7e40",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f7e60",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f81e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f8560",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f8620",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f86d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f8740",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f87c0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f8b00",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f8cf0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f8d90",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f8fd0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9030",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f90b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f92e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9400",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f95e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9660",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f96f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9730",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9790",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f97d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9830",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9840",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9870",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9880",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f98d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9980",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f99b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f99d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9a30",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9a60",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9aa0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9ad0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9b50",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f9b90",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa000",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa080",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa0b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa0f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa150",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa170",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa190",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa1d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa2a0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa2c0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa480",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa4b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa550",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa580",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa5d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa5f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa620",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa680",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa7b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fa8e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006faa20",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fab50",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fab60",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fab70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006faba0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fabf0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fad90",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fae20",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fae90",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006faf30",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fb140",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fb230",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fb260",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fb6e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fb790",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fba60",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fbaa0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fbbb0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fbc20",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fbc70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fbcf0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fbdd0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fc260",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fc5e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fc700",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fc740",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fc8f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fccd0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fcdc0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fd5a0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fd730",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fd760",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fd7a0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fd7b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fd7c0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fd880",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fd8e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fd910",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fd930",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fd940",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fd950",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fdbc0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe070",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe2c0",
+   "name": "closedir",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe2e0",
+   "name": "Exit",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe310",
+   "name": "ImageFormatConflict",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe350",
+   "name": "IsWindows95",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe390",
+   "name": "mmap",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe450",
+   "name": "munmap",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe470",
+   "name": "NTElapsedTime",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe4a0",
+   "name": "NTErrorHandler",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe5b0",
+   "name": "NTSystemCommand",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe700",
+   "name": "NTTemporaryFilename",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe7a0",
+   "name": "NTUserTime",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe830",
+   "name": "NTWarningHandler",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe8b0",
+   "name": "opendir",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe940",
+   "name": "readdir",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "ImageMagick nt.c MagickExport (PE export) kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fe9b0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "not ImageMagick: finds default .html handler (HKCR shell\\open\\command via 0x6feae0) and CreateProcessA's it; sole caller WON AdApi 0x6ecd90 (ad click -> browser)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006feae0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "not ImageMagick: reads registry '.html' -> '\\shell\\open\\command' for 0x6fe9b0 browser launch; only caller 0x6fe9b0 (WON AdApi path)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fed10",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fee80",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006feea0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006feec0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006feee0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fef00",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fef20",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fef40",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fef60",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fef80",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fefa0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fefc0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006fefe0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ff000",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ff020",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ff040",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ff060",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ff080",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ff0a0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ff0c0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ff0e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ff100",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ff120",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00702e70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00703ec0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00705150",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00705bb0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727050",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0072705b",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727070",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727090",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007270b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007270b8",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007270d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007270f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727110",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727130",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0072713b",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727150",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0072715b",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727166",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727180",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007271a0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007271ab",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007271b6",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727710",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727770",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727778",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727790",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727798",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007277b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007277b8",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007277d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007277f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007277fb",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727806",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727811",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0072781c",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727827",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727832",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0072783d",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727848",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727853",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727870",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727890",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007278b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007278d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007278f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727910",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727930",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727950",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727970",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727990",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007279b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007279d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x007279f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727a10",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727a30",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727a50",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727a70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727a90",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727ab0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727ad0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727af0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727b10",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727b30",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727b50",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727b70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727b90",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727bb0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00727bd0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "ImageMagick/Magick++ internal; cluster strings 'ImageMagick Error', c:\\ImageMagick\\rgb.txt, delegates.mgk, RTTI Magick::Error*/Warning*; entered only from WON AdApi",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c9cd0",
+   "name": "JpegInfo",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "low",
+   "evidence": "JPEG header probe: jpeg_std_error+setjmp, create_decompress, stdio_src(+0x10 FILE), read_header, start_decompress; writes width +4/height +8/components +0x30, status +0x2c",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c9dc0",
+   "name": "JpegWrite",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "low",
+   "evidence": "JPEG encode, sole caller ssSaveScreenshot: stdio_dest(+0xc),RGB 3ch,set_defaults,arith +0x14,CCIR +0x18,smooth +0x1c,set_quality(+0x20),scanline loop",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c9f80",
+   "name": "JpegRead",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "low",
+   "evidence": "JPEG decode: as JpegInfo then read_scanlines row loop into buf +0, SendMessageA(hWnd +0x24,msg +0x28) progress, finish/destroy; callers hrInitBackground, FUN_004e9ec0",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c9da0",
+   "name": "JpegErrorExit",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "low",
+   "evidence": "not a Ghidra function yet: bytes mov eax,[esp+4];mov ecx,[eax];push 1;add ecx,0x84;push ecx;call longjmp = longjmp(err->setjmp_buf,1); stored as err->error_exit by Jpeg*",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ca100",
+   "name": "jpeg_create_compress",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ca170",
+   "name": "jpeg_suppress_tables",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jcapimin.c public API: called by jpeg_start_compress(cinfo,0) when write_all_tables",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ca1c0",
+   "name": "jpeg_finish_compress",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jcapimin.c: state 0x65/0x66/0x67, finishes passes, marker->write_file_trailer, dest->term_destination, jpeg_abort; JpegWrite",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ca2c0",
+   "name": "jpeg_start_compress",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jcapistd.c: state 100 check, suppress_tables(FALSE) if write_all, err->reset, dest->init, jinit_compress_master, state 0x65/0x66; JpegWrite",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ca340",
+   "name": "jpeg_write_scanlines",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jcapistd.c: state 0x65 check, next_scanline +0xd8 vs image_height, progress hook, main->process_data; JpegWrite row loop",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ca410",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005caac0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cacf0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cb120",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cb330",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cb430",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cba30",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cbb50",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cbd70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cc290",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cc6b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cc770",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cc850",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cc900",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cc970",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ccaa0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ccd90",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ccdd0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cced0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cd0d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cd330",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cd650",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cd850",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cd9f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cdc70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cdf60",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ce130",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ce1e0",
+   "name": "jpeg_abort",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ce210",
+   "name": "jpeg_destroy",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ce230",
+   "name": "jpeg_alloc_quant_table",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ce250",
+   "name": "jpeg_alloc_huff_table",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ce270",
+   "name": "jpeg_add_quant_table",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jcparam.c public API: called twice by jpeg_set_quality and jpeg_set_defaults (tbl 0/1, std tables 0x72c0fc/0x72c1fc, scale, force_baseline)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ce330",
+   "name": "jpeg_set_quality",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jcparam.c: quality clamp 1..100, 5000/q or 200-2q scaling, two jpeg_add_quant_table calls (std lum/chrom tables); called by JpegWrite",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ce3a0",
+   "name": "jpeg_set_defaults",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jcparam.c: state 100 check, data_precision=8, add_quant_table x2 scale 50, std Huffman tables, clears arith/optimize/CCIR/smoothing; JpegWrite",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ce680",
+   "name": "jpeg_default_colorspace",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jcparam.c: switch in_color_space 0..5 -> jpeg_set_colorspace 0x5ce700 (RGB/YCbCr->YCbCr), else ERREXIT 7; called by JpegWrite",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ce700",
+   "name": "jpeg_set_colorspace",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jcparam.c public API: called only by jpeg_default_colorspace with JCS ids 0/1/3/4/5",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ce9e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cece0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cf2b0",
+   "name": "jpeg_create_decompress",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cf330",
+   "name": "jpeg_destroy_decompress",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cf340",
+   "name": "jpeg_read_header",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jdapi.c: checks global_state 200/201, calls jpeg_consume_input 0x5cf3b0, maps JPEG_REACHED_SOS/EOI; called (cinfo,TRUE) by JpegInfo/JpegRead",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cf3b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cf640",
+   "name": "jpeg_finish_decompress",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jdapi.c: state 0xcd/0xce/0xcf/0xd2 checks, drains inputctl until EOI, then jpeg_abort; called by JpegRead",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cf700",
+   "name": "jpeg_start_decompress",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jdapi.c: global_state 0xca/0xcb/0xcc, loops inputctl, sets state 0xcd/0xce (buffered_image +0x40); called by JpegInfo/JpegRead",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cf800",
+   "name": "jpeg_read_scanlines",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jdapi.c: state 0xcd check, output_scanline +0x88 vs output_height +0x70, progress hook, main->process_data; JpegRead row loop",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cf8a0",
+   "name": "jpeg_stdio_dest",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jdatadst.c: allocs dest mgr 0x1c, sets init/empty/term methods, outfile at +0x14; called by JpegWrite with FILE*",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cf960",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cf9d0",
+   "name": "jpeg_stdio_src",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG jdatasrc.c: allocs source mgr 0x28 + 4096-byte (INPUT_BUF_SIZE) buffer via mem->alloc_small, sets 5 methods, infile; called by JpegInfo/JpegRead with FILE*",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cfb80",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005cff30",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d00f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d02e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d0510",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d0790",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d0980",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d0a80",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d0b70",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d11a0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d1820",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d19d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d1a20",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d1d50",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d21c0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d22d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d27f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d2e90",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d31c0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d34e0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d3830",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d3aa0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d3b90",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d3c60",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d3cf0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d3f10",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d4090",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d4200",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d4950",
+   "name": "jpeg_std_error",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d49a0",
+   "name": "error_exit",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d62b0",
+   "name": "jinit_memory_mgr",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d63f0",
+   "name": "alloc_small",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6540",
+   "name": "alloc_large",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6600",
+   "name": "alloc_sarray",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d66b0",
+   "name": "alloc_barray",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6760",
+   "name": "request_virt_sarray",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d67d0",
+   "name": "request_virt_barray",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6840",
+   "name": "realize_virt_arrays",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6b20",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6d10",
+   "name": "",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "medium",
+   "evidence": "IJG libjpeg v6 internal (cluster 0x5ca100-0x5d6fdf, entered only via JpegInfo/JpegRead/JpegWrite); version string '6  2-Aug-95'",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6db0",
+   "name": "free_pool",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6ef0",
+   "name": "jpeg_get_small",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6f00",
+   "name": "jpeg_free_small",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6f10",
+   "name": "jpeg_mem_available",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6f20",
+   "name": "jpeg_open_backing_store",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6f40",
+   "name": "jdiv_round_up",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6f50",
+   "name": "jround_up",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6f70",
+   "name": "jcopy_sample_rows",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005d6fc0",
+   "name": "jzero_far",
+   "kind": "function",
+   "class": "lib:libjpeg",
+   "confidence": "high",
+   "evidence": "IJG libjpeg v6 ('6  2-Aug-95', 'Copyright (C) 1995, Thomas G. Lane'); r1 IJG API name kept",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c55000",
+   "name": "",
+   "kind": "function",
+   "class": "lib:securom",
+   "confidence": "low",
+   "evidence": ".cms_t protection stub (80 KB, entropy 7.26, own CRT, zero .text<->.cms_t edges, not on start-up path); no colour-management strings; SecuROM inferred from .cms_t/.cms_d names",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c55080",
+   "name": "",
+   "kind": "function",
+   "class": "lib:securom",
+   "confidence": "low",
+   "evidence": ".cms_t protection stub (80 KB, entropy 7.26, own CRT, zero .text<->.cms_t edges, not on start-up path); no colour-management strings; SecuROM inferred from .cms_t/.cms_d names",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c550b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:securom",
+   "confidence": "low",
+   "evidence": ".cms_t protection stub (80 KB, entropy 7.26, own CRT, zero .text<->.cms_t edges, not on start-up path); no colour-management strings; SecuROM inferred from .cms_t/.cms_d names",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c550c0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:securom",
+   "confidence": "low",
+   "evidence": ".cms_t protection stub (80 KB, entropy 7.26, own CRT, zero .text<->.cms_t edges, not on start-up path); no colour-management strings; SecuROM inferred from .cms_t/.cms_d names",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c55480",
+   "name": "",
+   "kind": "function",
+   "class": "lib:securom",
+   "confidence": "low",
+   "evidence": ".cms_t protection stub (80 KB, entropy 7.26, own CRT, zero .text<->.cms_t edges, not on start-up path); no colour-management strings; SecuROM inferred from .cms_t/.cms_d names",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c554a0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:securom",
+   "confidence": "low",
+   "evidence": ".cms_t protection stub (80 KB, entropy 7.26, own CRT, zero .text<->.cms_t edges, not on start-up path); no colour-management strings; SecuROM inferred from .cms_t/.cms_d names",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c554c0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:securom",
+   "confidence": "low",
+   "evidence": ".cms_t protection stub (80 KB, entropy 7.26, own CRT, zero .text<->.cms_t edges, not on start-up path); no colour-management strings; SecuROM inferred from .cms_t/.cms_d names",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c55af0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:securom",
+   "confidence": "low",
+   "evidence": ".cms_t protection stub (80 KB, entropy 7.26, own CRT, zero .text<->.cms_t edges, not on start-up path); no colour-management strings; SecuROM inferred from .cms_t/.cms_d names",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c5a630",
+   "name": "",
+   "kind": "function",
+   "class": "lib:securom",
+   "confidence": "low",
+   "evidence": "stub main (only caller its own CRT 0xc6110d): decrypts API names in loops, resolves via GetProcAddress, overlapping insns; MessageBoxA/GetDriveTypeA/CreateMutexA; SecuROM by section name only",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c604d0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:securom",
+   "confidence": "low",
+   "evidence": ".cms_t protection stub (80 KB, entropy 7.26, own CRT, zero .text<->.cms_t edges, not on start-up path); no colour-management strings; SecuROM inferred from .cms_t/.cms_d names",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c60510",
+   "name": "",
+   "kind": "function",
+   "class": "lib:securom",
+   "confidence": "low",
+   "evidence": ".cms_t protection stub (80 KB, entropy 7.26, own CRT, zero .text<->.cms_t edges, not on start-up path); no colour-management strings; SecuROM inferred from .cms_t/.cms_d names",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c60540",
+   "name": "",
+   "kind": "function",
+   "class": "lib:securom",
+   "confidence": "low",
+   "evidence": ".cms_t protection stub (80 KB, entropy 7.26, own CRT, zero .text<->.cms_t edges, not on start-up path); no colour-management strings; SecuROM inferred from .cms_t/.cms_d names",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00673080",
+   "name": "_free",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "high",
+   "evidence": "CET anchor renamed on high-confidence evidence: body is _free_dbg(p,_NORMAL_BLOCK=1) = MSVC debug-CRT free. CET Cataclysm.h:148 labels it memFree (keep as CET alias)",
+   "hw1_equivalent": "",
+   "signature": "void __cdecl _free(void *ptr)"
+  },
+  {
+   "address": "0x006725d0",
+   "name": "_malloc",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "high",
+   "evidence": "CET anchor renamed on high-confidence evidence: body is _nh_malloc_dbg(size,_newmode,1,0,0) = MSVC debug-CRT malloc. CET Cataclysm.h:147 labels it memAlloc (keep alias)",
+   "hw1_equivalent": "",
+   "signature": "void * __cdecl _malloc(size_t size)"
+  },
+  {
+   "address": "0x00c60751",
+   "name": "_malloc_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "2nd static CRT copy inside .cms_t stub (calls __nh_malloc_2 0xc60763); renamed so the game CRT malloc 0x6725d0 owns _malloc",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ae130",
+   "name": "memFree",
+   "kind": "function",
+   "class": "hw1:Memory.c",
+   "confidence": "high",
+   "evidence": "real HW1 memFree (406 callers): owning-pool lookup, SBH listRemoveNode/listAddNode, memFreeNV coalesce = Memory.c memFree. Note: CET's label 'memFree' is on CRT free 0x673080",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Memory.c:memFree",
+   "signature": "void memFree(void *pointer)"
+  },
+  {
+   "address": "0x005ab5b0",
+   "name": "cat_utyGameQuitToMainOrStats",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE table 0x8c1028 {0x5ab5b0,'QuitToMain'}; if !singlePlayerGame: delete screens, stop music, FUN_00489e90 ('TerryStats' MP stats screen); else HW1 quit-to-main body",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyGameQuitToMain"
+  },
+  {
+   "address": "0x00c60690",
+   "name": "_memset_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c60763",
+   "name": "__nh_malloc_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c60960",
+   "name": "_strcmp_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c60e20",
+   "name": "_strncmp_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c60f90",
+   "name": "_strlen_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c61049",
+   "name": "__exit_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c611ec",
+   "name": "__amsg_exit_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c6276f",
+   "name": "__fassign_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c62a74",
+   "name": "__cfltcvt_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c63c34",
+   "name": "__global_unwind2_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c63c76",
+   "name": "__local_unwind2_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c641c0",
+   "name": "_strchr_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c64280",
+   "name": "_strstr_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c65240",
+   "name": "__aulldiv_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c652b0",
+   "name": "__aullrem_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c65cf0",
+   "name": "_strncpy_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c66273",
+   "name": "___add_12_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00c67314",
+   "name": "__mbsnbicoll_cms",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "duplicate is the 2nd static CRT linked into the .cms_t protection stub; base name stays on the game CRT copy in .text; _cms says why it is a duplicate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006c2210",
+   "name": "std___Construct_Integer",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "r1 _Construct<EGPublicKey> is wrong (shape match, relocs masked; same name as 0x6b3410): body placement-copies via CryptoPP Integer copy ctor 0x6c7260; callers in crypt block",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b8010",
+   "name": "std__locale__locale_2",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "medium",
+   "evidence": "class fix only: std::locale copy ctor (??0locale@std@@QAE@ABV01@@Z) is a std COMDAT; base 0x6b7d80 is crt and reconcile rule puts std COMDATs in crt",
+   "hw1_equivalent": ""
+  }
+ ]
+}

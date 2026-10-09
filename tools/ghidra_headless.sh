@@ -36,6 +36,9 @@
 #                     address of FILE ([{address,name,reason}]) that has none, name it, then
 #                     auto-analyse only the new code (reuse mode; on import the full analysis
 #                     follows anyway); report -> FILE minus .json + .report.csv
+#   --post-script "S.py [k=v ...]"  run ghidra/scripts/S.py with those args as an extra
+#                     post-script after the symbol pass and before the export (repeatable;
+#                     e.g. "ImportHeaders.py decls=ghidra/exports/headers_r2b/decls.json")
 #
 # Env: GHIDRA_HOME (default ~/Applications/ghidra_12.1.4_PUBLIC), PYGHIDRA_VENV, GHIDRA_MAXMEM (8G),
 #      GHIDRA_PROJECTS_DIR / GHIDRA_EXPORTS_DIR (override ghidra/projects, ghidra/exports; e.g. for
@@ -52,6 +55,7 @@ REIMPORT=0; REANALYZE=0; DECOMPILE=1; THREADS=16; TIMEOUT=60; MAXCPU=""; PROFILE
 SYMBOLS="${CET_SYMBOLS:-$ROOT/ghidra/cet_symbols.json}"; EXPORT_NAME=""
 HW1=0; HW1_APPLY=0; HW1_VALIDATE=0; HW1_SRC="$ROOT/reference/HomeworldSDL/src"
 CREATE_FUNCS=""
+EXTRA_POST=()
 POS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -70,13 +74,14 @@ while [[ $# -gt 0 ]]; do
     --hw1-validate) HW1=1; HW1_VALIDATE=1 ;;
     --hw1-src) HW1_SRC="$2"; shift ;;
     --create-functions) CREATE_FUNCS="$(readlink -f "$2")"; shift ;;
-    -h|--help) sed -n '2,42p' "$0"; exit 0 ;;
+    --post-script) read -r -a _ps <<< "$2"; EXTRA_POST+=(-postScript "${_ps[@]}"); shift ;;
+    -h|--help) sed -n '2,45p' "$0"; exit 0 ;;
     -*) echo "unknown option $1" >&2; exit 2 ;;
     *) POS+=("$1") ;;
   esac
   shift
 done
-[[ ${#POS[@]} -ge 1 ]] || { sed -n '2,42p' "$0"; exit 2; }
+[[ ${#POS[@]} -ge 1 ]] || { sed -n '2,45p' "$0"; exit 2; }
 if [[ -n "$CREATE_FUNCS" && ! -f "$CREATE_FUNCS" ]]; then
   echo "no such --create-functions file: $CREATE_FUNCS" >&2; exit 2
 fi
@@ -140,6 +145,7 @@ CREATE_ARGS=()
 if [[ -n "$CREATE_FUNCS" ]]; then
   CREATE_ARGS=(-preScript CreateFunctions.py "json=$CREATE_FUNCS" "report=${CREATE_FUNCS%.json}.report.csv")
 fi
+EXPORT_ARGS+=(${EXTRA_POST[@]+"${EXTRA_POST[@]}"})
 [[ $HW1 -eq 1 ]] && EXPORT_ARGS+=(-postScript MatchHW1Strings.py "src=$HW1_SRC" "out=$OUT/hw1_string_matches.csv" "apply=$HW1_APPLY" "validate=$HW1_VALIDATE")
 EXPORT_ARGS+=(-postScript ExportAnalysis.py "outdir=$OUT" "decompile=$DECOMPILE" "threads=$THREADS" "timeout=$TIMEOUT")
 

@@ -1,0 +1,4394 @@
+{
+ "source": "gaps-render-fe",
+ "method": "Read-only walk of ghidra/exports/cataclysm_gog_r2a (functions.csv, call_graph.csv, decompiled.c, strings.csv): alphabetical-module address clustering, call-graph neighbours of named functions, struct-offset matching against CET game/Game/*.h layouts, and line-by-line comparison with reference/HomeworldSDL/src/Game/*.c",
+ "done_subsystems": [
+  "particle",
+  "render-cluster",
+  "meshanim",
+  "fe-print",
+  "camera",
+  "btg",
+  "etg"
+ ],
+ "proposals": [
+  {
+   "address": "0x00428260",
+   "name": "btgStartup",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "medium",
+   "evidence": "5-byte thunk to btgReset; callers utyGameSystemsInit and utyGameSystemsShutdown (btgStartup/btgShutdown both just call btgReset and were folded by the linker)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgStartup"
+  },
+  {
+   "address": "0x00428270",
+   "name": "btgReset",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "rndSetClearColor + memFree_2 of background data; callers btgLoad, gameEnd, btgStartup thunk",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgReset"
+  },
+  {
+   "address": "0x00428440",
+   "name": "btgSetTheta",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "13-byte float setter; first of the theta/phi set/get quartet; callers LoadGame, nisStop",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgSetTheta"
+  },
+  {
+   "address": "0x00428450",
+   "name": "btgGetTheta",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "9-byte float getter; callers SaveGame, NIS",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgGetTheta"
+  },
+  {
+   "address": "0x00428460",
+   "name": "btgSetPhi",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "13-byte float setter; callers LoadGame, nisStop",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgSetPhi"
+  },
+  {
+   "address": "0x00428470",
+   "name": "btgGetPhi",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "9-byte float getter; callers SaveGame, NIS",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgGetPhi"
+  },
+  {
+   "address": "0x00428480",
+   "name": "btgGetTexture",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "(filename,thandle*,width*,height*), fileExists/fileLoadAlloc, assert path 'C:\\Cataclysm\\src\\game\\btg.c'; sole caller btgLoad",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgGetTexture"
+  },
+  {
+   "address": "0x00428670",
+   "name": "btgCloseTextures",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "medium",
+   "evidence": "63 bytes, no callees (inlined glDeleteTextures loop); callers mainRestoreSoftware and renderer-restart paths 0x560ba0/0x561260/0x561570/0x561920",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgCloseTextures"
+  },
+  {
+   "address": "0x004286b0",
+   "name": "btgLoadTextures",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "33 bytes calling btgLoad(lastBackground); callers mainOpenRender, LoadGame, renderer restarts",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgLoadTextures"
+  },
+  {
+   "address": "0x004286e0",
+   "name": "btgLoad",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "(filename): fileLoadAlloc, btgReset, btgGetTexture, btgConvertVerts, btg.c assert path; callers btgRender, btgLoadTextures, nisStop",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgLoad"
+  },
+  {
+   "address": "0x00428a40",
+   "name": "btgZip",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "medium",
+   "evidence": "sole caller btgConvertVerts; sorts left/right edge lists with qsort 0x671060 (inlined btgSortByY)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgZip"
+  },
+  {
+   "address": "0x00428b80",
+   "name": "btgConvertAVert",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "medium",
+   "evidence": "converts (x,y) background coords to a vector; callers btgConvertStar and btgConvertVerts",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgConvertAVert"
+  },
+  {
+   "address": "0x00428c20",
+   "name": "btgConvertStar",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "medium",
+   "evidence": "calls btgConvertAVert for the star quad corners; sole caller btgConvertVerts",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgConvertStar"
+  },
+  {
+   "address": "0x00428d10",
+   "name": "btgConvertVerts",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "calls btgZip, memAllocFunction, btgConvertAVert (inlined btgConvertVert) and btgConvertStar; sole caller btgLoad",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgConvertVerts"
+  },
+  {
+   "address": "0x00428e60",
+   "name": "btgColorVertices",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "medium",
+   "evidence": "per-vertex colour update (ranRandomFn in Cataclysm); sole caller btgRender",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgColorVertices"
+  },
+  {
+   "address": "0x00429220",
+   "name": "btgSetColourMultiplier",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "(t) float setter with __ftol; callers smZoomUpdate, smSensorsCloseForGood, NIS fade code",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgSetColourMultiplier"
+  },
+  {
+   "address": "0x00429280",
+   "name": "btgRender",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "string 'BTG\\default.btg' passed to btgLoad, rgluOrtho2D, rndPerspectiveCorrection, btgColorVertices; caller rndBackgroundRender",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgRender"
+  },
+  {
+   "address": "0x0042b650",
+   "name": "cameraSetEyePosition",
+   "kind": "function",
+   "class": "hw1:Camera.c",
+   "confidence": "high",
+   "evidence": "matMakeRotAboutY(declination)+matMakeRotAboutZ(angle), 2x matMultiplyMatByVec, eye=lookat+rot; 16 callers incl. kasfCameraSetAngleDeg/Distance, ccFocusOnMyMothership",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Camera.c:cameraSetEyePosition"
+  },
+  {
+   "address": "0x0042b760",
+   "name": "cameraCopyPositionInfo",
+   "kind": "function",
+   "class": "hw1:Camera.c",
+   "confidence": "high",
+   "evidence": "copies angle,declination,distance,eyeposition,lookatpoint,oldlookatpoint (+4..+0x30) from src to dst camera; callers smViewportRender, smSensorsBegin, ccCopyCamera",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Camera.c:cameraCopyPositionInfo"
+  },
+  {
+   "address": "0x0042b7d0",
+   "name": "cameraInit",
+   "kind": "function",
+   "class": "hw1:Camera.c",
+   "confidence": "high",
+   "evidence": "(camera,distance); inlined cameraSetEyePosition math; callers universeInit, smStartup, svStartup, nisStart, ccInit, ccReset",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Camera.c:cameraInit"
+  },
+  {
+   "address": "0x0042b940",
+   "name": "cat_cameraSetAngle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "sets camera->angle (+4) and wraps into [0,2pi] (inlined camAngleVerify); caller svShipViewRender",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042b9a0",
+   "name": "cameraMinimumZoom",
+   "kind": "function",
+   "class": "hw1:Camera.c",
+   "confidence": "medium",
+   "evidence": "returns float; walks focus ships for max minimumZoomDistance (static info via 0x5b95c0), clamps to closestZoom; callers cameraZoom, cameraControl, KAS zoom",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Camera.c:cameraMinimumZoom"
+  },
+  {
+   "address": "0x0042ba50",
+   "name": "cameraZoom",
+   "kind": "function",
+   "class": "hw1:Camera.c",
+   "confidence": "high",
+   "evidence": "(camera,zoomfactor,EnforceShipDistances): distance*=factor, clamp to farthestZoom, then cameraMinimumZoom; caller svShipViewRender",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Camera.c:cameraZoom"
+  },
+  {
+   "address": "0x0042bab0",
+   "name": "cameraControl",
+   "kind": "function",
+   "class": "hw1:Camera.c",
+   "confidence": "high",
+   "evidence": "(camera,EnforceShipDistances) per-frame key handling via key-binding test 0x54ec60 and cameraMinimumZoom; callers ccControl, smViewportRender, svShipViewRender",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Camera.c:cameraControl"
+  },
+  {
+   "address": "0x0042beb0",
+   "name": "cameraSensitivitySet",
+   "kind": "function",
+   "class": "hw1:Camera.c",
+   "confidence": "high",
+   "evidence": "(sens100) computes scale with pow(); callers opRestoreSavedSettings, utyOptionsFileRead",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Camera.c:cameraSensitivitySet"
+  },
+  {
+   "address": "0x0042bee0",
+   "name": "cameraRayCast",
+   "kind": "function",
+   "class": "hw1:Camera.c",
+   "confidence": "high",
+   "evidence": "(dest,cam,screenX,screenY,screenWidth,screenHeight) 6 args + vecNormalize; caller pieWorldLocationCompute (mouse ray)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Camera.c:cameraRayCast"
+  },
+  {
+   "address": "0x0042c090",
+   "name": "cat_mcSetMode",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "sets motion-cue mode (+0x74) and resets scale (+0x8d24=1.0); callers kasfSetMotionCues, utyNewGameStart, smSensorsCloseForGood",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042c0b0",
+   "name": "cat_mcResetRequest",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "sets byte +0x7c=1, which cat_mcRender checks to call cat_mcpReset; callers kasfSetMotionCues, singlePlayerGameUpdate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042c0c0",
+   "name": "cat_mcpReset",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "debug string 'mcpReset: No camera specified, assuming eyeposition = (0, 0, 0)'; scatters cue points with ranRandomFn",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042c450",
+   "name": "cat_mcNormalScalar",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "debug string 'mcNormalScalar: universe.phystimeelapsed is 0'; caller cat_mcRender",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042c630",
+   "name": "cat_mcRender",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "motion cues per frame: optional cat_mcpReset, cat_mcNormalScalar, wraps cue points into a box around the camera, draws with lighting/texture off; caller rndMainViewRenderFunction",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042cc80",
+   "name": "cat_ccChaseCamFromShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "sets eye/lookat/up of a camera from ship position, coordsys and static-info offset +0x440; sole caller CameraChase",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042cd40",
+   "name": "cat_ccShipIsLegalToFocusOn",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "single-ship test: ally (0x420ec0) or visible (0x47e810) or special modes; callers mainrgn click/focus 0x566b60/0x56a610",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042cdd0",
+   "name": "ccFocusIsLegalToFocusOn",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "medium",
+   "evidence": "checks focus ships / universe ships with ally test 0x420ec0 and FOW test 0x47e810; callers ccCancelFocus, ccForwardFocus, ccControl as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccFocusIsLegalToFocusOn"
+  },
+  {
+   "address": "0x0042cf30",
+   "name": "ccGetShipCollCenter",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "(ship,pos,rad): pos=ship+0xe0 collision centre, rad=staticinfo+0x4c; callers nisStart, nisFocusPointCompute",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccGetShipCollCenter"
+  },
+  {
+   "address": "0x0042cf60",
+   "name": "NewSetFocusPoint",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "(curentry,targetDistance*) 7 callers in ccFocusGeneral/ccFocusFar/ccCancelFocus/ccForwardFocus/ccFocusOnFleet/ccControl",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:NewSetFocusPoint"
+  },
+  {
+   "address": "0x0042d310",
+   "name": "EvalCubic",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "(y0*,m0*,y1,t) cubic Hermite step updating position and slope: exact HW1 EvalCubic math",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:EvalCubic"
+  },
+  {
+   "address": "0x0042d380",
+   "name": "CubicLogUnsigned",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "medium",
+   "evidence": "6 float args (pos*,speed*,targ,threshold,step,logBase) using pow(); sole caller CameraChase",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:CubicLogUnsigned"
+  },
+  {
+   "address": "0x0042d4a0",
+   "name": "cat_ccEvalCubicVel",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "5-arg Hermite step like EvalCubic with an explicit target slope; caller cat_smShipsDraw",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042d510",
+   "name": "CameraChase",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "(cameracommand,zoomfactor): univUpdateRenderList/univUpdateMinorRenderList, cameraSetEyePosition, CubicLogUnsigned; caller ccControl",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:CameraChase"
+  },
+  {
+   "address": "0x0042da90",
+   "name": "GetDistanceAngleDeclination",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "medium",
+   "evidence": "(camera,distvec) uses atan2-family 0x6760f0 to recover angle/declination; caller smZoomUpdate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:GetDistanceAngleDeclination"
+  },
+  {
+   "address": "0x0042db30",
+   "name": "ccInit",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "listInit camerastack, memAllocFunction entry, cameraInit, listAddNode; caller universeInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccInit"
+  },
+  {
+   "address": "0x0042dbb0",
+   "name": "ccClearModeFlag",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "modeflags(+0x8c) &= ~flag",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccClearModeFlag"
+  },
+  {
+   "address": "0x0042dc30",
+   "name": "ccFocusOnPlayersMothership",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "medium",
+   "evidence": "(cameracommand,playerindex); atan2 (inlined GetObjAngle), spFindCameraAttitude, ccFocusGeneral; callers singlePlayerGameUpdate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccFocusOnPlayersMothership"
+  },
+  {
+   "address": "0x0042de10",
+   "name": "ccClose",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "listDeleteAll(&camerastack); caller universeClose",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccClose"
+  },
+  {
+   "address": "0x0042de20",
+   "name": "ccReset",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "listDeleteAll then listInit/memAlloc/cameraInit/listAddNode (inlined ccClose+ccInit)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccReset"
+  },
+  {
+   "address": "0x0042deb0",
+   "name": "ccFocusGeneral",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "(cameracommand,focuscom,bCloseUp) 3 args; called by ccFocus(...,0) and ccFocusClose(...,1) wrappers, ccFocusOnMyMothership",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccFocusGeneral"
+  },
+  {
+   "address": "0x0042e100",
+   "name": "ccFocus",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "21 bytes: ccFocusGeneral(cc,focus,FALSE)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccFocus"
+  },
+  {
+   "address": "0x0042e120",
+   "name": "ccFocusClose",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "21 bytes: ccFocusGeneral(cc,focus,TRUE); callers mainrgn alt-focus 0x566b60/0x56a610",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccFocusClose"
+  },
+  {
+   "address": "0x0042e140",
+   "name": "cat_ccFocusCloseScripted",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "ccFocusGeneral(cc,focus,TRUE) then sets flag +0x69; sole caller kasfCameraFocusClose",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042e160",
+   "name": "cat_ccFocusScripted",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "ccFocusGeneral(cc,focus,FALSE) then sets flag +0x69; sole caller kasfCameraFocus",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042e180",
+   "name": "cat_ccSetDistanceScripted",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "sets current entry + actual camera distance and flag +0x69; sole caller kasfCameraDistance",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042e1a0",
+   "name": "cat_ccZoomScripted",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "zoom using cameraMinimumZoom; sole caller kasfCameraZoom",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042e1f0",
+   "name": "ccChangeAngleDeclination",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "sets remembercam angle/declination of current entry and actualcamera angle/declination",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccChangeAngleDeclination"
+  },
+  {
+   "address": "0x0042e210",
+   "name": "cat_ccSetDistance",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "sets current entry and actual camera distance; sole caller kasfCameraSetDistance",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0042e230",
+   "name": "ccFocusFar",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "(cameracommand,focuscom,currentCamera); callers kasfTutCameraFocusFar, smViewportRender",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccFocusFar"
+  },
+  {
+   "address": "0x0042e310",
+   "name": "ccCopyCamera",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "atan2 (inlined GetDistanceAngleDeclination) then cameraCopyPositionInfo into remembercam; callers nisStop",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccCopyCamera"
+  },
+  {
+   "address": "0x0042e3d0",
+   "name": "ccCancelFocus",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "pops camera stack entries while !ccFocusIsLegalToFocusOn; caller kasfTutCameraFocusCancel",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccCancelFocus"
+  },
+  {
+   "address": "0x0042e4c0",
+   "name": "ccForwardFocus",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "medium",
+   "evidence": "same structure as ccCancelFocus walking forward; no direct callers (key handler table)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccForwardFocus"
+  },
+  {
+   "address": "0x0042e580",
+   "name": "ccFocusOnFleet",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "medium",
+   "evidence": "returns bool; builds focus via ccFocusCullRadiusMean, NewSetFocusPoint; callers ccControl, ccFocusOnFleetSmooth",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccFocusOnFleet"
+  },
+  {
+   "address": "0x0042e6d0",
+   "name": "ccFocusOnFleetSmooth",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "calls ccCancelFocus then ccFocusOnFleet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccFocusOnFleetSmooth"
+  },
+  {
+   "address": "0x0042e7c0",
+   "name": "ccControl",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "per-frame: ccFocusIsLegalToFocusOn, NewSetFocusPoint, CameraChase, cameraControl, smSensorsBegin",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccControl"
+  },
+  {
+   "address": "0x0042e990",
+   "name": "ccLockOnTargetNow",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "medium",
+   "evidence": "NewSetFocusPoint + cameraSetEyePosition then copies actual camera; caller smSensorsClose",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccLockOnTargetNow"
+  },
+  {
+   "address": "0x0042ea50",
+   "name": "ccFocusCullRadiusGeneral",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "(out,in,radiusSqr,centre) 4 args; sole caller ccFocusCullRadiusMean",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccFocusCullRadiusGeneral"
+  },
+  {
+   "address": "0x0042eb00",
+   "name": "ccFocusCullRadiusMean",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "(selection,radiusSqr,centreDest): selSelectionCopy + ccFocusCullRadiusGeneral; callers ccFocusGeneral, smCullAndFocusSelecting",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccFocusCullRadiusMean"
+  },
+  {
+   "address": "0x00468fb0",
+   "name": "etgEffectLoadVoid",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"LoadEffect\" -> 0x468fb0, as HW1 ETG.c:732-748 scriptEntry list NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffectLoadVoid"
+  },
+  {
+   "address": "0x00469030",
+   "name": "etgSoftwareEffect",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"SoftwareVersion\" -> 0x469030, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSoftwareEffect"
+  },
+  {
+   "address": "0x00469140",
+   "name": "etgSetBigDeathFactor",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"bigBoomFactor\" -> 0x469140, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSetBigDeathFactor"
+  },
+  {
+   "address": "0x004691c0",
+   "name": "etgNumberEffectsParse",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"NumberEffects\" -> 0x4691c0, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNumberEffectsParse"
+  },
+  {
+   "address": "0x004691e0",
+   "name": "etgDeathEventSet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"setDeathEvent\" -> 0x4691e0, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgDeathEventSet"
+  },
+  {
+   "address": "0x004694a0",
+   "name": "etgFireEventSet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"setFireEvent\" -> 0x4694a0, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgFireEventSet"
+  },
+  {
+   "address": "0x00469610",
+   "name": "etgHitEventSet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"setHitEvent\" -> 0x469610, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgHitEventSet"
+  },
+  {
+   "address": "0x00469780",
+   "name": "etgBulletEffectSet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"setBulletEffect\" -> 0x469780, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgBulletEffectSet"
+  },
+  {
+   "address": "0x004698f0",
+   "name": "etgBulletDestroyEffectSet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"setBulletDestroyEvent\" -> 0x4698f0, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgBulletDestroyEffectSet"
+  },
+  {
+   "address": "0x00469a60",
+   "name": "etgResourceEffectSet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"setAsteroidEffect/setGaseousEffect\" -> 0x469a60, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgResourceEffectSet"
+  },
+  {
+   "address": "0x00469c70",
+   "name": "etgTractorBeamEffectSet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"setTractorBeamEffect\" -> 0x469c70, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgTractorBeamEffectSet"
+  },
+  {
+   "address": "0x00469d90",
+   "name": "etgDamageEventSet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"setDamageEvent\" -> 0x469d90, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgDamageEventSet"
+  },
+  {
+   "address": "0x00469f50",
+   "name": "etgHyperspaceEventSet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"setHyperspaceEvent\" -> 0x469f50, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgHyperspaceEventSet"
+  },
+  {
+   "address": "0x0046a070",
+   "name": "etgSpecialPurposeEffectSet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"setSpecialPurposeEffect\" -> 0x46a070, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSpecialPurposeEffectSet"
+  },
+  {
+   "address": "0x0046a190",
+   "name": "etgBulletColorSet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ETG script table 0x87ab40.. entry \"setBulletColor\" -> 0x46a190, as HW1 ETG.c:732-748 scriptEntry list",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgBulletColorSet"
+  },
+  {
+   "address": "0x0046ae90",
+   "name": "etgLoadErrorf",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "_vsprintf then dbgFatal; no direct callers (error path); sits between etgEffectDraw and etgLineRead as in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgLoadErrorf"
+  },
+  {
+   "address": "0x0046aed0",
+   "name": "etgLineRead",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "fileLineRead + strstr/strncpy comment and #define handling; sole caller etgEffectCodeLoad",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgLineRead"
+  },
+  {
+   "address": "0x0046b140",
+   "name": "etgOpcodeScan",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "medium",
+   "evidence": "identifier charset string, strncmp against table names; between etgEffectStaticFind and etgColorScan; callers etgEffectCodeLoad, etgNewEventParse",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgOpcodeScan"
+  },
+  {
+   "address": "0x0046b9c0",
+   "name": "etgVariableTableProcess",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "memAlloc(5*etgVariableIndex) temp block, frees each variable name (0x14-byte entries), builds final init block: exact HW1 etgVariableTableProcess",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgVariableTableProcess"
+  },
+  {
+   "address": "0x0046c370",
+   "name": "etgLineNumberUpdate",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"#line\" @0x8797d4; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgLineNumberUpdate"
+  },
+  {
+   "address": "0x0046c3c0",
+   "name": "etgNOPCreate",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"nop\" @0x879600; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNOPCreate"
+  },
+  {
+   "address": "0x0046c3d0",
+   "name": "etgBlockOpen",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"{\" @0x879648; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgBlockOpen"
+  },
+  {
+   "address": "0x0046c420",
+   "name": "etgBlockClose",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"}\" @0x879654; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgBlockClose"
+  },
+  {
+   "address": "0x0046c490",
+   "name": "etgParseModeRestore",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "pointer stored by etgVariableBlockOpen (0x46c4ff) as its nest callback, as HW1 etgNestFunctionSet(NULL,etgParseModeRestore,...) NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgParseModeRestore"
+  },
+  {
+   "address": "0x0046c4a0",
+   "name": "etgCodeBlockEnd",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "pointer stored by the startup/eachFrame/timeIndex block-open parsers (0x46c560/0x46c5b0/0x46c610) as nest callback, as HW1 NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCodeBlockEnd"
+  },
+  {
+   "address": "0x0046c4e0",
+   "name": "etgVariableBlockOpen",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"variable\" @0x87963c; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgVariableBlockOpen"
+  },
+  {
+   "address": "0x0046c530",
+   "name": "etgStartupBlockOpen",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"startup\" @0x879660; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgStartupBlockOpen"
+  },
+  {
+   "address": "0x0046c580",
+   "name": "etgEachFrameBlockOpen",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"eachFrame\" @0x87966c; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEachFrameBlockOpen"
+  },
+  {
+   "address": "0x0046c5e0",
+   "name": "etgTimeIndexBlockOpen",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"timeIndex\" @0x879678; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgTimeIndexBlockOpen"
+  },
+  {
+   "address": "0x0046c640",
+   "name": "etgWorldRenderSet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"worldRender\" @0x87969c; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgWorldRenderSet"
+  },
+  {
+   "address": "0x0046c650",
+   "name": "etgNewInteger",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"int\" @0x8796a8; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNewInteger"
+  },
+  {
+   "address": "0x0046c810",
+   "name": "etgNewRGB",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"RGB\" @0x8796c0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNewRGB"
+  },
+  {
+   "address": "0x0046c980",
+   "name": "etgNewRGBA",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"RGBA\" @0x8796cc; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNewRGBA"
+  },
+  {
+   "address": "0x0046caf0",
+   "name": "etgSubTextureDWORD",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"subTextureDWORD\" @0x8796d8; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSubTextureDWORD"
+  },
+  {
+   "address": "0x0046cba0",
+   "name": "etgMorphAnimDWORD",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"morphAnimDWORD\" @0x8796e4; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgMorphAnimDWORD"
+  },
+  {
+   "address": "0x0046cc60",
+   "name": "etgSetTextureParse",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"setTexture\" @0x8796f0; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSetTextureParse"
+  },
+  {
+   "address": "0x0046cdf0",
+   "name": "etgSetMeshParse",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"setMesh\" @0x879708; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSetMeshParse"
+  },
+  {
+   "address": "0x0046ceb0",
+   "name": "etgNewFloat",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"float\" @0x8796b4; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNewFloat"
+  },
+  {
+   "address": "0x0046d070",
+   "name": "etgConditionalComplete",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "pointer stored inside etgConditional (0x46d326) as nest callback, as HW1 etgNestFunctionSet(NULL,etgConditionalComplete,...) NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgConditionalComplete"
+  },
+  {
+   "address": "0x0046d0a0",
+   "name": "etgConditional",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"if\" @0x87960c; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgConditional"
+  },
+  {
+   "address": "0x0046d350",
+   "name": "etgElseComplete",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "pointer stored inside etgElse (0x46d40b) as nest callback NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgElseComplete"
+  },
+  {
+   "address": "0x0046d3d0",
+   "name": "etgElse",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"else\" @0x879618; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgElse"
+  },
+  {
+   "address": "0x0046d440",
+   "name": "etgLabelGoto",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"goto\" @0x879768; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgLabelGoto"
+  },
+  {
+   "address": "0x0046d4d0",
+   "name": "etgLabelCall",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"call\" @0x879774; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgLabelCall"
+  },
+  {
+   "address": "0x0046d560",
+   "name": "etgReturn",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"return\" @0x879780; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgReturn"
+  },
+  {
+   "address": "0x0046d580",
+   "name": "etgNewLocalLabel",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"label\" @0x879624; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNewLocalLabel"
+  },
+  {
+   "address": "0x0046d6a0",
+   "name": "etgNewEventParse",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"eventStart\" @0x879630; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNewEventParse"
+  },
+  {
+   "address": "0x0046d7a0",
+   "name": "etgEndOpcode",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"end\" @0x87978c; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEndOpcode"
+  },
+  {
+   "address": "0x0046d7b0",
+   "name": "etgYeildOpcode",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"yield\" @0x8797a4; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgYeildOpcode"
+  },
+  {
+   "address": "0x0046d7c0",
+   "name": "etgDeleteOpcode",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"delete\" @0x879798; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgDeleteOpcode"
+  },
+  {
+   "address": "0x0046d7e0",
+   "name": "etgAlternateComplete",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "pointer stored inside etgAternateStart (0x46d902) as nest callback NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAlternateComplete"
+  },
+  {
+   "address": "0x0046d890",
+   "name": "etgAternateStart",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"alternate\" @0x8797b0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAternateStart"
+  },
+  {
+   "address": "0x0046d940",
+   "name": "etgAternateSet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"alt\" @0x8797bc; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAternateSet"
+  },
+  {
+   "address": "0x0046d9e0",
+   "name": "etgTimeBlockComplete",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "pointer stored inside etgTimeBlockOpen (0x46daa0) as nest callback NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgTimeBlockComplete"
+  },
+  {
+   "address": "0x0046d9f0",
+   "name": "etgTimeBlockOpen",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"timeBlock\" @0x879750; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgTimeBlockOpen"
+  },
+  {
+   "address": "0x0046daf0",
+   "name": "etgTimeIndexDefine",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"time\" @0x87975c; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgTimeIndexDefine"
+  },
+  {
+   "address": "0x0046dce0",
+   "name": "etgAtComplete",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "pointer stored inside etgAtDefine (0x46e0cd) as nest callback NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAtComplete"
+  },
+  {
+   "address": "0x0046dd00",
+   "name": "etgBetweenComplete",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "pointer stored inside etgBetweenDefine (0x46de34) as nest callback NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgBetweenComplete"
+  },
+  {
+   "address": "0x0046dd20",
+   "name": "etgBetweenDefine",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"between\" @0x879744; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgBetweenDefine"
+  },
+  {
+   "address": "0x0046e130",
+   "name": "etgNHistorySet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"maxFrequency\" @0x879690; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNHistorySet"
+  },
+  {
+   "address": "0x0046e150",
+   "name": "etgSpawnParse",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"spawn\" @0x8797e0; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSpawnParse"
+  },
+  {
+   "address": "0x0046e2e0",
+   "name": "etgCreationCallback",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "pushed by etgCreateCallbackSetup (0x46e39b) as partCreateCallbackSet callback, as HW1 NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCreationCallback"
+  },
+  {
+   "address": "0x0046e390",
+   "name": "etgCreateCallbackSetup",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "stored as call->function by etgCallbackOpen (0x46e3ca), as HW1 NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCreateCallbackSetup"
+  },
+  {
+   "address": "0x0046e3b0",
+   "name": "etgCallbackOpen",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "passed by etgCreationResolve (0x46e4a7) to etgNestFunctionSet as open callback NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCallbackOpen"
+  },
+  {
+   "address": "0x0046e450",
+   "name": "etgCallbackClose",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "passed by etgCreationResolve (0x46e4b1) to etgNestFunctionSet as close callback NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCallbackClose"
+  },
+  {
+   "address": "0x0046e490",
+   "name": "etgCreationResolve",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "resolve slot of every create* entry in function table (+0xc), HW1 funcEntryR(...,etgCreationResolve); same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCreationResolve"
+  },
+  {
+   "address": "0x0046e4e0",
+   "name": "etgDepthWriteResolve",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "resolve slot of setDepthWrite entry @0x879f78 (+0xc), HW1 etgDepthWriteResolve; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgDepthWriteResolve"
+  },
+  {
+   "address": "0x0046e500",
+   "name": "etgCreateEffectsParse",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "parse table \"createEffects\" @0x8797ec; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCreateEffectsParse"
+  },
+  {
+   "address": "0x0046e760",
+   "name": "etgNOP",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #0 @0x8793a0; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNOP"
+  },
+  {
+   "address": "0x0046e770",
+   "name": "etgVarCopy",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #70 @0x8795d0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgVarCopy"
+  },
+  {
+   "address": "0x0046e790",
+   "name": "etgVarAssign",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #71 @0x8795d8; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgVarAssign"
+  },
+  {
+   "address": "0x0046e870",
+   "name": "etgEnd",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #35 @0x8794b8; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEnd"
+  },
+  {
+   "address": "0x0046e880",
+   "name": "etgDelete",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #34 @0x8794b0; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgDelete"
+  },
+  {
+   "address": "0x0046e890",
+   "name": "etgCompareVCI",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #42 @0x8794f0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCompareVCI"
+  },
+  {
+   "address": "0x0046e8c0",
+   "name": "etgNotEqualVCI",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #43 @0x8794f8; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNotEqualVCI"
+  },
+  {
+   "address": "0x0046e8f0",
+   "name": "etgGreaterVCI",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #44 @0x879500; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgGreaterVCI"
+  },
+  {
+   "address": "0x0046e920",
+   "name": "etgGreaterEqualVCI",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #45 @0x879508; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgGreaterEqualVCI"
+  },
+  {
+   "address": "0x0046e950",
+   "name": "etgLessVCI",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #46 @0x879510; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgLessVCI"
+  },
+  {
+   "address": "0x0046e980",
+   "name": "etgLessEqualVCI",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #47 @0x879518; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgLessEqualVCI"
+  },
+  {
+   "address": "0x0046e9b0",
+   "name": "etgCompareVCF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #54 @0x879550; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCompareVCF"
+  },
+  {
+   "address": "0x0046e9e0",
+   "name": "etgNotEqualVCF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #55 @0x879558; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNotEqualVCF"
+  },
+  {
+   "address": "0x0046ea10",
+   "name": "etgGreaterVCF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #56 @0x879560; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgGreaterVCF"
+  },
+  {
+   "address": "0x0046ea40",
+   "name": "etgGreaterEqualVCF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #57 @0x879568; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgGreaterEqualVCF"
+  },
+  {
+   "address": "0x0046ea70",
+   "name": "etgLessVCF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #58 @0x879570; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgLessVCF"
+  },
+  {
+   "address": "0x0046eaa0",
+   "name": "etgLessEqualVCF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #59 @0x879578; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgLessEqualVCF"
+  },
+  {
+   "address": "0x0046ead0",
+   "name": "etgEqualVVI",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #48 @0x879520; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEqualVVI"
+  },
+  {
+   "address": "0x0046eb00",
+   "name": "etgNotEqualVVI",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #49 @0x879528; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNotEqualVVI"
+  },
+  {
+   "address": "0x0046eb30",
+   "name": "etgGreaterVVI",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #50 @0x879530; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgGreaterVVI"
+  },
+  {
+   "address": "0x0046eb60",
+   "name": "etgGreaterEqualVVI",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #51 @0x879538; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgGreaterEqualVVI"
+  },
+  {
+   "address": "0x0046eb90",
+   "name": "etgLessVVI",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #52 @0x879540; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgLessVVI"
+  },
+  {
+   "address": "0x0046ebc0",
+   "name": "etgLessEqualVVI",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #53 @0x879548; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgLessEqualVVI"
+  },
+  {
+   "address": "0x0046ebf0",
+   "name": "etgEqualVVF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #60 @0x879580; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEqualVVF"
+  },
+  {
+   "address": "0x0046ec20",
+   "name": "etgNotEqualVVF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #61 @0x879588; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNotEqualVVF"
+  },
+  {
+   "address": "0x0046ec50",
+   "name": "etgGreaterVVF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #62 @0x879590; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgGreaterVVF"
+  },
+  {
+   "address": "0x0046ec80",
+   "name": "etgGreaterEqualVVF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #63 @0x879598; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgGreaterEqualVVF"
+  },
+  {
+   "address": "0x0046ecb0",
+   "name": "etgLessVVF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #64 @0x8795a0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgLessVVF"
+  },
+  {
+   "address": "0x0046ece0",
+   "name": "etgLessEqualVVF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #65 @0x8795a8; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgLessEqualVVF"
+  },
+  {
+   "address": "0x0046ed10",
+   "name": "etgBranchTo",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #37 @0x8794c8; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgBranchTo"
+  },
+  {
+   "address": "0x0046ed30",
+   "name": "etgCallTo",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #38 @0x8794d0; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCallTo"
+  },
+  {
+   "address": "0x0046ed80",
+   "name": "etgReturnTo",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #39 @0x8794d8; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgReturnTo"
+  },
+  {
+   "address": "0x0046edb0",
+   "name": "etgAlternate",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #73 @0x8795e8; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAlternate"
+  },
+  {
+   "address": "0x0046ee20",
+   "name": "etgBetween",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #7 @0x8793d8; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgBetween"
+  },
+  {
+   "address": "0x0046ee90",
+   "name": "etgAt",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #5 @0x8793c8; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAt"
+  },
+  {
+   "address": "0x0046eed0",
+   "name": "etgAtVar",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #6 @0x8793d0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAtVar"
+  },
+  {
+   "address": "0x0046ef20",
+   "name": "etgBefore",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #1 @0x8793a8; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgBefore"
+  },
+  {
+   "address": "0x0046ef40",
+   "name": "etgBeforeVar",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #2 @0x8793b0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgBeforeVar"
+  },
+  {
+   "address": "0x0046ef70",
+   "name": "etgAfter",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #3 @0x8793b8; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAfter"
+  },
+  {
+   "address": "0x0046ef90",
+   "name": "etgAfterVar",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #4 @0x8793c0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAfterVar"
+  },
+  {
+   "address": "0x0046efc0",
+   "name": "etgEvery",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #8 @0x8793e0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEvery"
+  },
+  {
+   "address": "0x0046f020",
+   "name": "etgEveryVar",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #9 @0x8793e8; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEveryVar"
+  },
+  {
+   "address": "0x0046f090",
+   "name": "etgEffectorCI",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP_EffectorCI slot @0x879490; contains CET fmul site 0x46f0e0 (etgEffectorCI_UniverseUpdateRate, CET hw1_equivalent ETG.c:etgEffectorCI)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffectorCI"
+  },
+  {
+   "address": "0x0046f110",
+   "name": "etgEffectorCF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #31 @0x879498; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffectorCF"
+  },
+  {
+   "address": "0x0046f180",
+   "name": "etgEffectorVF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #27 @0x879478; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffectorVF"
+  },
+  {
+   "address": "0x0046f1f0",
+   "name": "etgEffectorCCo",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #32 @0x8794a0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffectorCCo"
+  },
+  {
+   "address": "0x0046f470",
+   "name": "etgEffectorVCo",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #28 @0x879480; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffectorVCo"
+  },
+  {
+   "address": "0x0046f700",
+   "name": "etgEffectorCCa",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #33 @0x8794a8; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffectorCCa"
+  },
+  {
+   "address": "0x0046fa30",
+   "name": "etgEffectorVCa",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "handler table EOP #29 @0x879488; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffectorVCa"
+  },
+  {
+   "address": "0x0046fd70",
+   "name": "etgInc",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"inc\" @0x87a464; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgInc"
+  },
+  {
+   "address": "0x0046fd80",
+   "name": "etgDec",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"dec\" @0x87a480; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgDec"
+  },
+  {
+   "address": "0x0046fd90",
+   "name": "etgFmult",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"fmult\" @0x87a4b8; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgFmult"
+  },
+  {
+   "address": "0x0046fdb0",
+   "name": "cat_etgFdegsin",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table \"fdegsin\" @0x87a4d4 -> 0x46fdb0 (sin of degrees); Cataclysm-only",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0046fdd0",
+   "name": "etgFdiv",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"fdiv\" @0x87a49c; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgFdiv"
+  },
+  {
+   "address": "0x0046fdf0",
+   "name": "etgFadd",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"fadd\" @0x87a4f0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgFadd"
+  },
+  {
+   "address": "0x0046fe10",
+   "name": "etgFsub",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"fsub\" @0x87a50c; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgFsub"
+  },
+  {
+   "address": "0x0046fe30",
+   "name": "etgAdd",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"add\" @0x87a560; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAdd"
+  },
+  {
+   "address": "0x0046fe40",
+   "name": "etgSub",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"sub\" @0x87a57c; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSub"
+  },
+  {
+   "address": "0x0046fe50",
+   "name": "etgMult",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"mult\" @0x87a544; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgMult"
+  },
+  {
+   "address": "0x0046fe60",
+   "name": "etgDiv",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"div\" @0x87a528; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgDiv"
+  },
+  {
+   "address": "0x0046fe70",
+   "name": "etgSin",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"sin\" @0x87a598; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSin"
+  },
+  {
+   "address": "0x0046fe90",
+   "name": "etgCos",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"cos\" @0x87a5b4; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCos"
+  },
+  {
+   "address": "0x0046ff30",
+   "name": "etgParentShipDelete",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"deleteParentShip\" @0x87a640; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgParentShipDelete"
+  },
+  {
+   "address": "0x004700d0",
+   "name": "etgDamageDone",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"damageDone\" @0x87a720; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgDamageDone"
+  },
+  {
+   "address": "0x00470100",
+   "name": "etgOwnerColorSchemeGet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"getColorScheme\" @0x87a6e8; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgOwnerColorSchemeGet"
+  },
+  {
+   "address": "0x00470120",
+   "name": "etgEffectVelocityGet",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"getEffectVelocity\" @0x87a704; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffectVelocityGet"
+  },
+  {
+   "address": "0x00470170",
+   "name": "etgParentShipHide",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"hideParentShip\" @0x87a65c; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgParentShipHide"
+  },
+  {
+   "address": "0x00470190",
+   "name": "cat_etgParentShipOmitFromRenderList",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table \"omitParentShipFromRenderList\" @0x87a678 -> 0x470190; Cataclysm-only",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004701b0",
+   "name": "etgChatterEventPlay",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"playChatter\" @0x87a6b0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgChatterEventPlay"
+  },
+  {
+   "address": "0x004701f0",
+   "name": "etgDeathCriesPlay",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"deathCries\" @0x87a6cc; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgDeathCriesPlay"
+  },
+  {
+   "address": "0x00470210",
+   "name": "etgCreateSprites",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"createSprites\" @0x87a3a0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCreateSprites"
+  },
+  {
+   "address": "0x00470270",
+   "name": "etgCreateCircles",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"createCircles\" @0x87a3bc; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCreateCircles"
+  },
+  {
+   "address": "0x00470300",
+   "name": "etgCreatePoints",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"createPoints\" @0x87a3d8; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCreatePoints"
+  },
+  {
+   "address": "0x00470360",
+   "name": "etgCreateMeshes",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"createMeshes\" @0x87a410; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCreateMeshes"
+  },
+  {
+   "address": "0x004703c0",
+   "name": "etgCreateLines",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"createLines\" @0x87a3f4; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCreateLines"
+  },
+  {
+   "address": "0x00470420",
+   "name": "cat_etgCreateEBolts",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table \"createEBolts\" @0x87a42c -> 0x470420; partSetWorldVel/Position/CoordSys + partCreateSystemWithDelta like etgCreate*",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00470480",
+   "name": "cat_etgCreateLensFlares",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table \"createLensFlares\" @0x87a448 -> 0x470480; same shape as etgCreateSprites",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004704e0",
+   "name": "etgCreateEffects",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "stored as the function pointer of the createEffects opcode by etgCreateEffectsParse (0x46e60c) NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCreateEffects"
+  },
+  {
+   "address": "0x00470c50",
+   "name": "etgSpawnNewEffect",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "stored as the function pointer of the spawn opcode by etgSpawnParse (0x46e192) NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSpawnNewEffect"
+  },
+  {
+   "address": "0x00471030",
+   "name": "etgEffOffsetLOF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setEffOffsetLOF\" @0x87a73c; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffOffsetLOF"
+  },
+  {
+   "address": "0x00471040",
+   "name": "etgEffChangeLOF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setEffChangeLOF\" @0x87a758; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffChangeLOF"
+  },
+  {
+   "address": "0x00471060",
+   "name": "etgEffOffsetR",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setEffOffsetR\" @0x87a774; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffOffsetR"
+  },
+  {
+   "address": "0x00471080",
+   "name": "etgEffOffsetXYZ",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setEffOffsetXYZ\" @0x87a790; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffOffsetXYZ"
+  },
+  {
+   "address": "0x004710b0",
+   "name": "etgEffOffsetVelLOF",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setEffOffsetVelLOF\" @0x87a7ac; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffOffsetVelLOF"
+  },
+  {
+   "address": "0x004710c0",
+   "name": "etgEffOffsetSpin",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setEffOffsetSpin\" @0x87a7c8; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffOffsetSpin"
+  },
+  {
+   "address": "0x004710d0",
+   "name": "etgEffOffsetTime",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setEffOffsetTime\" @0x87a7e4; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffOffsetTime"
+  },
+  {
+   "address": "0x004710e0",
+   "name": "etgEffOffsetDrag",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setEffOffsetDrag\" @0x87a800; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffOffsetDrag"
+  },
+  {
+   "address": "0x00471100",
+   "name": "etgEffDrag",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setEffDrag\" @0x87a81c; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffDrag"
+  },
+  {
+   "address": "0x00471120",
+   "name": "etgEffAttachParent",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setEffAttachParent\" @0x87a854; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffAttachParent"
+  },
+  {
+   "address": "0x00471130",
+   "name": "etgEffSpin",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setEffSpin\" @0x87a870; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffSpin"
+  },
+  {
+   "address": "0x00471140",
+   "name": "etgEffDeltaSpin",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setEffDeltaSpin\" @0x87a88c; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffDeltaSpin"
+  },
+  {
+   "address": "0x00471150",
+   "name": "etgEffDefaults",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setEffDefaults\" @0x87a838; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffDefaults"
+  },
+  {
+   "address": "0x00471170",
+   "name": "etgThisOffsetXYZ",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"effModifyXYZ\" @0x87a8a8; same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgThisOffsetXYZ"
+  },
+  {
+   "address": "0x00471180",
+   "name": "etgThisScaleVelocity",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"effScaleVelocity\" @0x87a8c4; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgThisScaleVelocity"
+  },
+  {
+   "address": "0x004711b0",
+   "name": "etgThisOffsetSpin",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"effModifySpin\" @0x87a8e0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgThisOffsetSpin"
+  },
+  {
+   "address": "0x004711c0",
+   "name": "etgThisOffsetDeltaSpin",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"effModifyDeltaSpin\" @0x87a8fc; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgThisOffsetDeltaSpin"
+  },
+  {
+   "address": "0x004711d0",
+   "name": "etgThisOffsetTime",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"effModifyOffsetTime\" @0x87a918; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgThisOffsetTime"
+  },
+  {
+   "address": "0x004711f0",
+   "name": "etgThisSetDrag",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"effModifyDrag\" @0x87a934; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgThisSetDrag"
+  },
+  {
+   "address": "0x00471210",
+   "name": "etgSetDefaults",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setDefaults\" @0x879808; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSetDefaults"
+  },
+  {
+   "address": "0x00471230",
+   "name": "etgSetDrag",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setDrag\" @0x879824; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSetDrag"
+  },
+  {
+   "address": "0x00471250",
+   "name": "etgSetDepthWrite",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setDepthWrite\" @0x879f78; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSetDepthWrite"
+  },
+  {
+   "address": "0x00471270",
+   "name": "etgModifyDrag",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"modifyDrag\" @0x879fcc; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgModifyDrag"
+  },
+  {
+   "address": "0x00471290",
+   "name": "etgSetColorA",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setColorA\" @0x879ba4; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSetColorA"
+  },
+  {
+   "address": "0x00471310",
+   "name": "etgSetColor",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setColor\" @0x879b34; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSetColor"
+  },
+  {
+   "address": "0x004713b0",
+   "name": "etgSetMorphAnimation",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setMeshAnimation\" @0x879e60; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSetMorphAnimation"
+  },
+  {
+   "address": "0x004713e0",
+   "name": "etgSetSpecular",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"setSpecular\" @0x879f08; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgSetSpecular"
+  },
+  {
+   "address": "0x004714b0",
+   "name": "etgIRandom",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"irandom\" @0x87a5ec; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgIRandom"
+  },
+  {
+   "address": "0x004714e0",
+   "name": "etgCRandom",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"crandom\" @0x87a608; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCRandom"
+  },
+  {
+   "address": "0x00471580",
+   "name": "etgCARandom",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"carandom\" @0x87a624; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgCARandom"
+  },
+  {
+   "address": "0x00471630",
+   "name": "etgFloat2Int",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"float2Int\" @0x87a950; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgFloat2Int"
+  },
+  {
+   "address": "0x00471640",
+   "name": "etgInt2Float",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"int2Float\" @0x87a96c; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgInt2Float"
+  },
+  {
+   "address": "0x00471650",
+   "name": "cat_etgColRed",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table \"colRed\" @0x87a9f8 -> 0x471650 (red byte of a color as float)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00471680",
+   "name": "cat_etgColGreen",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table \"colGreen\" @0x87aa14 -> 0x471680",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004716b0",
+   "name": "cat_etgColBlue",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table \"colBlue\" @0x87aa30 -> 0x4716b0",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004716e0",
+   "name": "etgInts2Color",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"int2Color\" @0x87a988; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgInts2Color"
+  },
+  {
+   "address": "0x00471710",
+   "name": "etgInts2ColorA",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"int2ColorA\" @0x87a9a4; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgInts2ColorA"
+  },
+  {
+   "address": "0x00471730",
+   "name": "etgFloats2Color",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"floats2Color\" @0x87a9c0; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgFloats2Color"
+  },
+  {
+   "address": "0x00471810",
+   "name": "etgFloats2ColorA",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "functable \"floats2ColorA\" @0x87a9dc; same slot/name as HW1 ETG.c table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgFloats2ColorA"
+  },
+  {
+   "address": "0x004a5e40",
+   "name": "cat_moPrintOptionsDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "reads every MAINPRINT flag (+0x0..+0x4c of print-options block 0xa46f70 SP / 0xa46c80 MP, stride 0x50) and prints '(%c) %s %s' lines; shown when key binding 0x62 held; caller cat_moRender",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a6af0",
+   "name": "cat_moPrintWithBox",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "fontPrint helper that also grows a background rect (int[4]) to the printed text extent; callers the Selected/Selecting/PlayerNames/Construction/Research draw functions",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a6bb0",
+   "name": "cat_moSelectedDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "gated by print-option +0x00, which the MAINPRINT toggle (0x4aa4f0, key '1') reports as bSelected; prints '%i x %s'/'1 x %s' per ship type; +0x04 adds a translucent box",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a6ff0",
+   "name": "cat_moSelectingDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "gated by print-option +0x08 = bSelecting (toggle key '2'); counts entries of 3 ship-type tables and prints '%i x %s'; +0x0c background box",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a76b0",
+   "name": "cat_moObjectivesDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "gated by print-option +0x10 = bObjectives; iterates objective list 0xa46da4 (count 0xa4b8f0) printing '%s - %s', special-cases 'hyperspace'; +0x14 background box",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a7980",
+   "name": "cat_moClickedFlagConsume",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "returns flag 0xa4b8a0 and clears it; sole caller 0x56f3b0 (called from rndRenderTask)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a7990",
+   "name": "cat_moMouseOverObjective",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "TRUE if mouse (0xb38bd8,0xb38bd0) lies inside any objective line rect (0xa46d94.., stride 0x18, count 0xa4b8f0)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a79d0",
+   "name": "cat_moTooltipDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "gated by print-option +0x18 = bTooltips; describes the ship under the cursor (0xa75800) with '%s (%s)'/'%s (%d)' after a hover delay",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a83b0",
+   "name": "cat_moObjectivesFrameDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "sizes a centred frame from objective titles ('INCOMPLETE - %s') when option +0x10 set and draws it via the popup-frame helper 0x489470 with icon ids 0x13-0x18",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a8650",
+   "name": "cat_moGameMessagesDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "gated by print-option +0x30 = bGameMessage; draws message-list scroll icons (cat_overlayIconDraw) with mouse hover, uses message indices 0xa4b8f4/f8/fc and LockMutex",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a8b20",
+   "name": "cat_moPlayerNamesDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "gated by print-option +0x38 = bPlayerNames; loops universe_players printing '%s..%d' / ' ( %d )' coloured by alliance (0x420f20); +0x3c background box",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a90f0",
+   "name": "cat_moBoxLayout",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "computes 6 layout coordinates inside a rect for mode 0/1 using margin 0x72adcc; callers cat_moConstructionDraw and cat_moResearchDraw",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a91c0",
+   "name": "cat_moConstructionDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "gated by print-option +0x40 = bConstruction (+0x44 box); prints build queue '%s (%d)', '%s (%d/%d/%d/%d)'; uses 0x459ce0 (construction manager)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a9a00",
+   "name": "cat_moResearchDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "gated by print-option +0x48 = bResearch (+0x4c box); progress from 0x4f4380 (ResearchAPI region), triangles/rects like cat_moConstructionDraw",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004aa080",
+   "name": "cat_moAltPrintOptionsActive",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "returns (print-options page index 0xa4b944 != 0); caller 0x5086a0 (sensors manager draw)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004aa0a0",
+   "name": "cat_moDebugKeyLineDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "prints one key binding line (cat_kbBindingToString, fontPrintf); sole caller cat_moDebugKeysDraw",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004aa2a0",
+   "name": "cat_moDebugKeysDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "string 'DEBUG KEYS ON'; translucent box + per-binding lines via 0x4aa0a0; caller cat_moRender",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004aa4f0",
+   "name": "cat_moPrintOptionToggle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "strings 'Unrecognized MAINPRINT_XXX toggle key' + 'GetCurrentPrintOptions()->bX turned %s'; disasm: key '1'..'9' flips +0x00 bSelected,+08 bSelecting,+10 bObjectives..+0x48 bResearch",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004aac70",
+   "name": "cat_moButtonsDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "draws 4 hover/click icon buttons at bottom centre (key bindings 0x41-0x44) and latches clicks into 0xa4b984/988/980/97c",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004aaf70",
+   "name": "cat_moButton1Clicked",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "returns 0xa4b984 (first button latch set by cat_moButtonsDraw); caller smViewportRender",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004aaf80",
+   "name": "cat_moButton2Clicked",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "returns 0xa4b988 (second button latch); caller smViewportRender",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004aaf90",
+   "name": "cat_moButton3Clicked",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "returns 0xa4b980 (button latch); caller smViewportRender",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004aafa0",
+   "name": "cat_moButton4Clicked",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "returns 0xa4b97c (button latch); caller smViewportRender",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004aafb0",
+   "name": "cat_moRender",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "main overlay draw: calls every cat_mo*Draw incl. existing cat_moSupportUnitsDraw, prints 'End of Recording', fontShadowSet; file MainOverlay sits alphabetically between MadLinkIn.c and Matrix.c",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004acbe0",
+   "name": "hmatMakeHMatFromMat",
+   "kind": "function",
+   "class": "hw1:Matrix.c",
+   "confidence": "high",
+   "evidence": "first function of Matrix.c (before matCreateCoordSysFromHeading run); 2 args; used where HW1 calls hmatMakeHMatFromMat (calcPseudoBillboardMatrix*, partMeshOrient)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Matrix.c:hmatMakeHMatFromMat"
+  },
+  {
+   "address": "0x004acc40",
+   "name": "hmatMakeHMatFromMatAndVec",
+   "kind": "function",
+   "class": "hw1:Matrix.c",
+   "confidence": "medium",
+   "evidence": "3 args, follows hmatMakeHMatFromMat; called by madAnimBindingUpdate where HW1 calls hmatMakeHMatFromMatAndVec",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Matrix.c:hmatMakeHMatFromMatAndVec"
+  },
+  {
+   "address": "0x004accb0",
+   "name": "hmatMultiplyHMatByHMat",
+   "kind": "function",
+   "class": "hw1:Matrix.c",
+   "confidence": "high",
+   "evidence": "called by meshConcatByUserData/meshFindHierarchyMatrixByUserData exactly where HW1 calls hmatMultiplyHMatByHMat",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Matrix.c:hmatMultiplyHMatByHMat"
+  },
+  {
+   "address": "0x004acd60",
+   "name": "hmatMultiplyHMatByHVec",
+   "kind": "function",
+   "class": "hw1:Matrix.c",
+   "confidence": "medium",
+   "evidence": "called by partMakeSPos where HW1 calls hmatMultiplyHMatByHVec; 3 pointer args",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Matrix.c:hmatMultiplyHMatByHVec"
+  },
+  {
+   "address": "0x004acee0",
+   "name": "hmatMakeRotAboutZ",
+   "kind": "function",
+   "class": "hw1:Matrix.c",
+   "confidence": "high",
+   "evidence": "first of 3 equal-size (77/80/79 B) rot builders in HW1 order Z,X,Y; partMakeSPos uses Z then X like HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Matrix.c:hmatMakeRotAboutZ"
+  },
+  {
+   "address": "0x004acf30",
+   "name": "hmatMakeRotAboutX",
+   "kind": "function",
+   "class": "hw1:Matrix.c",
+   "confidence": "high",
+   "evidence": "second of the Z,X,Y rot builders; used by partMakeSPos and partMeshOrient (HW1 hmatMakeRotAboutX)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Matrix.c:hmatMakeRotAboutX"
+  },
+  {
+   "address": "0x004acf80",
+   "name": "hmatMakeRotAboutY",
+   "kind": "function",
+   "class": "hw1:Matrix.c",
+   "confidence": "medium",
+   "evidence": "third of the Z,X,Y rot builders (HW1 Matrix.c order)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Matrix.c:hmatMakeRotAboutY"
+  },
+  {
+   "address": "0x004acfd0",
+   "name": "matGetMatFromHMat",
+   "kind": "function",
+   "class": "hw1:Matrix.c",
+   "confidence": "medium",
+   "evidence": "2 args, directly after the hmat rot builders and before matCreateCoordSysFromHeading 0x4ad010, matching HW1 Matrix.c order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Matrix.c:matGetMatFromHMat"
+  },
+  {
+   "address": "0x004ae700",
+   "name": "meshSetFade",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "medium",
+   "evidence": "Mesh.c slot after meshStartup; stores 1-fade into an 8-slot fade table 0xa4c3d8 and recomputes the product 0x885d30; Cataclysm adds a slot index arg; callers rndMainViewRenderFunction, cat_rndRenderOb",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshSetFade"
+  },
+  {
+   "address": "0x004ae760",
+   "name": "meshSetSpecular",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "(mode,r,g,b,a) 5 args; called by partRenderMeshSystem exactly where HW1 calls meshSetSpecular(0,..)/(-1,0,0,0,0); sits before meshNameToStaticInfo as in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshSetSpecular"
+  },
+  {
+   "address": "0x004ae910",
+   "name": "meshTextureRegisterAllPlayers",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "called by meshLoad(0x4aec90) and meshRecolorize; meshNameToStaticInfo + memAllocFunction + trRegister-family call 0x585760; follows meshNameToStaticInfo as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshTextureRegisterAllPlayers"
+  },
+  {
+   "address": "0x004ae9c0",
+   "name": "meshPagedVersionExists",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "strtok on '\\\\/', period test, builds paged name in 1 KB buffer, then fileExists: HW1 meshPagedVersionExists with inlined meshPagedName/meshStringContainsPeriod",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshPagedVersionExists"
+  },
+  {
+   "address": "0x004aeb10",
+   "name": "meshFixupPacoUV",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "medium",
+   "evidence": "(mesh-object list, on) called once per object by meshRender(0x4b4280) and meshRenderShipHierarchy(0x4b4520) when filtering flag 0x8bb69c changes, as HW1 meshFixupPacoUV(mesh,texLinearFiltering)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshFixupPacoUV"
+  },
+  {
+   "address": "0x004aec90",
+   "name": "meshLoad",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "string 'RMF99ba' (mesh file id), fileOpen/fileBlockRead/crc16Compute, memStringDupe, calls meshTextureRegisterAllPlayers; callers universeStaticInit, trailStartup, LOD loader",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshLoad"
+  },
+  {
+   "address": "0x004af220",
+   "name": "meshObjectFixupUV",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "sole callee of meshFixupUV(0x4af370), per-object UV fixup using trStructureGet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshObjectFixupUV"
+  },
+  {
+   "address": "0x004af710",
+   "name": "meshFree",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "memFree_2 + texture unregister 0x5860d0; callers etgShutdown, trailShutdown, LOD free; sits after meshRecolorize as in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshFree"
+  },
+  {
+   "address": "0x004af790",
+   "name": "meshCurrentMaterialDefault",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "default target of material fn ptr 0x885d38 (reset there by meshRender); MDF_2Sided flag 8 -> face 0x408 vs 0x404 + rndBackFaceCullEnable + glLightModel(0xb52) as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshCurrentMaterialDefault"
+  },
+  {
+   "address": "0x004afcb0",
+   "name": "cat_meshCurrentMaterialAlt",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "alternate material setter called directly by meshObjectRender when mode byte 0xc32c09==1: forces 2-sided, fixed ambient (0,0,0.75,1); no HW1 counterpart",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b0020",
+   "name": "meshAlmostCurrentMaterial",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "medium",
+   "evidence": "assigned to meshCurrentMaterial in meshRender when flag 0xa4c454 (g_NoMatSwitch) set; NOT yet a Ghidra function entry (label)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshAlmostCurrentMaterial"
+  },
+  {
+   "address": "0x004b00c0",
+   "name": "meshSpecColour",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "called only by meshSpecObjectRender(0x4b1d40); calls shSpecularColour-like 0x50e280 with vertex/normal/colour then glColor4ub: HW1 meshSpecColour",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshSpecColour"
+  },
+  {
+   "address": "0x004b0170",
+   "name": "meshObjectRender",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "default branch of MESH_OBJECT_RENDER dispatch in meshObjectRenderR; callers partRenderMeshSystem (via meshObjectRenderTex), rndRenderAHomeworld; calls material fn ptr 0x885d38",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshObjectRender"
+  },
+  {
+   "address": "0x004b0970",
+   "name": "meshObjectRenderLit",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "medium",
+   "evidence": "shader-lit branch of meshObjectRenderR; glEnableClientState(0x8074 GL_VERTEX_ARRAY)+glVertexPointer+glArrayElement = HW1 meshObjectRenderLit with inlined meshEnable/DisableVertexArrays",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshObjectRenderLit"
+  },
+  {
+   "address": "0x004b0fe0",
+   "name": "cat_meshObjectRenderLitImmediate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "third lit branch of meshObjectRenderR (when vertex-array flag 0xb3a6d8 set and glIsEnabled(0x3000) true); immediate-mode glVertex3fv variant of meshObjectRenderLit",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b1610",
+   "name": "cat_meshObjectRenderLitTransformed",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "lit branch of meshObjectRenderR when glIsEnabled(0x3000) false: reads projection/modelview (0xba7/0xba6), loads identity and transforms vertices in software via Transformer helpers 0x52f170/0x52f340",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b1d40",
+   "name": "meshSpecObjectRender",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "g_SpecHack branch (flag 0xa4c457) of meshObjectRenderR; calls meshSpecColour and spec helpers 0x50e280/0x50e640",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshSpecObjectRender"
+  },
+  {
+   "address": "0x004b34f0",
+   "name": "meshMorphedObjectRender",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "called by meshMorphedObjectRenderTex(0x4b40a0) and partRenderMeshSystem (morph path), uses morph spec helpers 0x50e640/0x50e280",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshMorphedObjectRender"
+  },
+  {
+   "address": "0x004b40a0",
+   "name": "meshMorphedObjectRenderTex",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "56-byte wrapper: swaps material fn ptr and calls meshMorphedObjectRender; caller partRenderMeshSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshMorphedObjectRenderTex"
+  },
+  {
+   "address": "0x004b40e0",
+   "name": "meshObjectRenderTex",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "46-byte wrapper: swaps material fn ptr and calls meshObjectRender; caller partRenderMeshSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshObjectRenderTex"
+  },
+  {
+   "address": "0x004b4110",
+   "name": "meshObjectRenderR",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "recursive over pDaughter(+0x2c)/pSister(+0x30), glPushMatrix+glMultMatrixf(object+0x34)+shPushLightMatrix, MESH_OBJECT_RENDER dispatch, shPopLightMatrix",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshObjectRenderR"
+  },
+  {
+   "address": "0x004b4280",
+   "name": "meshRender",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "meshFixupPacoUV per object, sets material ptr 0x885d38 to meshAlmostCurrentMaterial/meshCurrentMaterialDefault, loops meshObjectRenderR over sisters; callers svShipViewRender, cat_smShipMeshDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshRender"
+  },
+  {
+   "address": "0x004b4370",
+   "name": "meshObjectRenderHierarchy",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "recursive binding walk: binding->function call, glMultMatrixf, shPush/PopLightMatrix, same MESH_OBJECT_RENDER dispatch; returns next binding",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshObjectRenderHierarchy"
+  },
+  {
+   "address": "0x004b4520",
+   "name": "meshRenderShipHierarchy",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "(bindings,currentLOD,mesh,colorScheme): meshFixupPacoUV, localBinding[LOD], meshObjectRenderHierarchy loop, postCallback; callers cat_rndRenderObjectList, cat_smShipMeshDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshRenderShipHierarchy"
+  },
+  {
+   "address": "0x004b4640",
+   "name": "meshConcatByUserData",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "recursive; hmatMultiplyHMatByHMat(0x4accb0) with object+0x34, compares binding userData, copies 16-dword matrices: exact HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshConcatByUserData"
+  },
+  {
+   "address": "0x004b46e0",
+   "name": "meshFindHierarchyMatrixByUserData",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "starts from identity hmatrix 0x72aed8, loops sisters calling meshConcatByUserData; caller InitStatShipInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshFindHierarchyMatrixByUserData"
+  },
+  {
+   "address": "0x004b47b0",
+   "name": "meshBindingListRecurse",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "recursive: bindingList[index].object=object, function=0, index++ over daughters (Cataclysm also stores a parent index byte)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshBindingListRecurse"
+  },
+  {
+   "address": "0x004b4800",
+   "name": "cat_meshBindingListDeleteR",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "empty recursive walk over daughters returning index count (release-stripped check), called only by meshBindingListDelete",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b4840",
+   "name": "meshBindingListCreate",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "memAllocFunction(nPolygonObjects*0x18) then meshBindingListRecurse over sister objects",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshBindingListCreate"
+  },
+  {
+   "address": "0x004b48b0",
+   "name": "meshBindingListDelete",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "walks hierarchy via 0x4b4800 then memFree_2(list)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshBindingListDelete"
+  },
+  {
+   "address": "0x004b4900",
+   "name": "meshBindingFindByName",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "(startBinding,list,mesh,name): count -= (start+1-list), strcmp(object->pName,name) over 0x18-byte bindings: exact HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshBindingFindByName"
+  },
+  {
+   "address": "0x004b4970",
+   "name": "meshHierarchyWalkR",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "recursive pre/post callback walk over daughters returning TRUE to stop",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshHierarchyWalkR"
+  },
+  {
+   "address": "0x004b49f0",
+   "name": "meshHierarchyWalk",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "loops sister objects from mesh+0x20 calling pre-callback, meshHierarchyWalkR, post-callback; caller madAnimBindingsDupe",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshHierarchyWalk"
+  },
+  {
+   "address": "0x004b4a60",
+   "name": "cat_meshObjectRenderEdgeEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Cataclysm-only: walks polygon edges by time (universe_totaltimeelapsed) and draws each segment via cat_partRenderUnk1System; called by the 2 hierarchy walkers below",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b4d60",
+   "name": "cat_meshObjectRenderEdgeEffectHierarchy",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "recursive binding-matrix walk (like meshObjectRenderHierarchy) calling cat_meshObjectRenderEdgeEffect",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b4dc0",
+   "name": "cat_meshObjectRenderEdgeEffectR",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "recursive object walk (like meshObjectRenderR) calling cat_meshObjectRenderEdgeEffect",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b4e00",
+   "name": "cat_meshRenderShipHierarchyEdgeEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "entry from cat_rndRenderObjectList when ship has bindings (+0x4b8); walks with cat_meshObjectRenderEdgeEffectHierarchy",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b4e90",
+   "name": "cat_meshRenderEdgeEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "entry from cat_rndRenderObjectList when ship has no bindings; walks with cat_meshObjectRenderEdgeEffectR",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b4ef0",
+   "name": "cat_meshObjectNearestVertex",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "returns index of the vertex (stride 0x10 at object+0x18, count +8) closest to a point, -1 if none; caller 0x5c32f0 (repair droid code)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b4f80",
+   "name": "cat_meshObjectNearestVertexToHit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "reads GL modelview (0xba6), transforms hit point into object space (matMultiplyVecByMat) and keeps the nearest vertex in a result record",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b5110",
+   "name": "cat_meshObjectNearestVertexToHitR",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "recursive daughter walk calling 0x4b4f80",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b5190",
+   "name": "cat_meshObjectForVerticesInRadius",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "calls a callback for every vertex within a squared radius of a point",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b5240",
+   "name": "cat_meshObjectForVerticesInRadiusR",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "recursive daughter walk calling 0x4b5190",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b52d0",
+   "name": "cat_meshApplyBulletHit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "sole caller univBulletCollidedWithTarget; per LOD: nearest-vertex pass then callback over vertices in radius, using GL modelview stack",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b5520",
+   "name": "cat_meshMatrixStackMult",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "multiplies the software matrix 0xa4c400 in place by a 4x4 (glMultMatrix emulation for collision walk)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b55c0",
+   "name": "cat_meshObjectLineIntersect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "per-object segment-vs-polygon test via 0x43a6b0 (also used by collCheckMissileShipColl) keeping the closest hit",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b5860",
+   "name": "cat_meshObjectLineIntersectR",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "recursive daughter walk with matrix push into 0xa4b9d8 stack, calls cat_meshObjectLineIntersect",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b5910",
+   "name": "cat_meshLineIntersect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "callers collCheckBeamCollWithTargetsInBlob/collCheckBulletTargetColl/collCheckMissileShipColl: per-polygon line hit on the ship mesh with a 40-deep software matrix stack",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b5aa0",
+   "name": "cat_meshWarpVertex",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "moves a vertex along its offset from a centre by a factor (sqrt via 0x472860); helper of 0x4b5c90",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b5b70",
+   "name": "cat_meshWarpNormal",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "blends a normal toward the centre direction and vecNormalize; helper of 0x4b5c90",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b5c90",
+   "name": "cat_meshObjectRenderWarped",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "object renderer with per-vertex warp (0x4b5aa0/0x4b5b70) called from cat_rndRenderObjectList and its hierarchy walker 0x4b6330",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b6330",
+   "name": "cat_meshObjectRenderWarpedHierarchy",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "recursive binding walk with shPush/PopLightMatrix calling cat_meshObjectRenderWarped",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b6400",
+   "name": "cat_meshRenderShipHierarchyWarped",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "like meshRenderShipHierarchy (sets material ptr, localBinding[LOD], postCallback) but renders via cat_meshObjectRenderWarpedHierarchy",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b64c0",
+   "name": "cat_madAnimSoundTableInit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "sole caller soundEventInit; fills 360-dword table 0xc32660 with -1 then sets sound ids (0x405/0x406, 0x81a-0x823) per entry; sits at start of MeshAnim.c, used by madAnimationUpdate's soundEventPlay (g",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b65c0",
+   "name": "madFileLoad",
+   "kind": "function",
+   "class": "hw1:MeshAnim.c",
+   "confidence": "high",
+   "evidence": "fileOpen/fileSizeGet/fileBlockRead/crc16Compute/memAllocFunction/fileClose on a char* name; callers static-info loaders 0x539e40/0x53a000; first MeshAnim.c function after Mesh.c",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MeshAnim.c:madFileLoad"
+  },
+  {
+   "address": "0x004b6700",
+   "name": "madHeaderDelete",
+   "kind": "function",
+   "class": "hw1:MeshAnim.c",
+   "confidence": "high",
+   "evidence": "if (header+0x10 stringBlock) memFree_2 it, then memFree_2(header): exact HW1 madHeaderDelete",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MeshAnim.c:madHeaderDelete"
+  },
+  {
+   "address": "0x004b6720",
+   "name": "madAnimBindingUpdate",
+   "kind": "function",
+   "class": "hw1:MeshAnim.c",
+   "confidence": "high",
+   "evidence": "5-arg binding fn (flags,startMatrix,dest,ship,ID): fmod loop restart, bsCurveUpdate-family 0x423040, nisObjectEulerToMatrix, hmatMakeHMatFromMatAndVec: HW1 madAnimBindingUpdate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MeshAnim.c:madAnimBindingUpdate"
+  },
+  {
+   "address": "0x004b68d0",
+   "name": "madBindingsPost",
+   "kind": "function",
+   "class": "hw1:MeshAnim.c",
+   "confidence": "medium",
+   "evidence": "stored by madAnimBindingsDupe as bindings.postCallback (+0x34); NOT yet a Ghidra function entry (label LAB_004b68d0)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MeshAnim.c:madBindingsPost"
+  },
+  {
+   "address": "0x004b68f0",
+   "name": "madBindingListCallback",
+   "kind": "function",
+   "class": "hw1:MeshAnim.c",
+   "confidence": "medium",
+   "evidence": "passed by madAnimBindingsDupe to meshHierarchyWalk as pre-callback; NOT yet a Ghidra function entry (label LAB_004b68f0)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MeshAnim.c:madBindingListCallback"
+  },
+  {
+   "address": "0x004b69d0",
+   "name": "cat_madAnimClear",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "caller univCreateShip; zeroes a 14-dword madanim block with nCurrentAnim(+0xc)/saved anim(+0x10) = -1",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004b6a10",
+   "name": "madAnimBindingsDupe",
+   "kind": "function",
+   "class": "hw1:MeshAnim.c",
+   "confidence": "high",
+   "evidence": "(ship,staticInfo,LoadingGame): sets curves/bindings in ship+0x4bc madanim, postCallback=madBindingsPost, meshHierarchyWalk per mesh LOD, bsCurveStartPrealloced 0x423010 x6 when !LoadingGame",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MeshAnim.c:madAnimBindingsDupe"
+  },
+  {
+   "address": "0x004b6b90",
+   "name": "madAnimationStart",
+   "kind": "function",
+   "class": "hw1:MeshAnim.c",
+   "confidence": "high",
+   "evidence": "(ship,animNumber,rate) 25 callers (ship HouseKeep/dock code); nCurrentAnim=+0xc, anim[n].startTime from header+0x2c+n*0x10, per-object animationBits test, curve reset",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MeshAnim.c:madAnimationStart"
+  },
+  {
+   "address": "0x004b6ce0",
+   "name": "madAnimationUpdate",
+   "kind": "function",
+   "class": "hw1:MeshAnim.c",
+   "confidence": "high",
+   "evidence": "(ship,timeElapsed) callers univUpdateAllPosVelShips, madLinkInUpdateMeshAnimations; plays anim sounds via soundEventPlay (Cataclysm)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MeshAnim.c:madAnimationUpdate"
+  },
+  {
+   "address": "0x004b6e70",
+   "name": "madAnimationStop",
+   "kind": "function",
+   "class": "hw1:MeshAnim.c",
+   "confidence": "medium",
+   "evidence": "1-arg (ship); callers cat_beastInfectShip and dock/launch code; calls madAnimationPause",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MeshAnim.c:madAnimationStop"
+  },
+  {
+   "address": "0x004b6ed0",
+   "name": "madAnimIndexFindByName",
+   "kind": "function",
+   "class": "hw1:MeshAnim.c",
+   "confidence": "high",
+   "evidence": "strcmp over header anim[] names (count +0x24, 0x10-byte entries at +0x28), returns index or -1; 7 callers in ship static init",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MeshAnim.c:madAnimIndexFindByName"
+  },
+  {
+   "address": "0x004b6f20",
+   "name": "madAnimationPause",
+   "kind": "function",
+   "class": "hw1:MeshAnim.c",
+   "confidence": "high",
+   "evidence": "(ship,bFreeze): bFreeze=1 runs madAnimBindingUpdate once and swaps binding fn to nullsubReturnFalse (madAnimBindingPause), 0 restores; sets bPaused +0x14",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MeshAnim.c:madAnimationPause"
+  },
+  {
+   "address": "0x004b6fb0",
+   "name": "PreFix_madBindings",
+   "kind": "function",
+   "class": "hw1:MeshAnim.c",
+   "confidence": "high",
+   "evidence": "sole caller SaveShip; subtracts the madanim base from curve point pointers (pointer->offset) as HW1 PreFix_madBindings(ship,fixcontents)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MeshAnim.c:PreFix_madBindings"
+  },
+  {
+   "address": "0x004b7000",
+   "name": "Fix_madBindings",
+   "kind": "function",
+   "class": "hw1:MeshAnim.c",
+   "confidence": "high",
+   "evidence": "sole caller FixShip; madAnimBindingsDupe(ship,info,TRUE) then re-adds base to curve pointers and relinks ship bindings (+0x4b8)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MeshAnim.c:Fix_madBindings"
+  },
+  {
+   "address": "0x004b7090",
+   "name": "cat_madAnimationFinished",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "returns 0 while anim (+0xc != -1) is running before its end time and not paused, else 1; callers AcolyteFire, AcolyteHouseKeep, CarrierHouseKeep",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004dc3a0",
+   "name": "partSetDefaults",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "copies 0x72 dwords (456 B = sizeof(particleAttribs), CET static_assert) from 0x88d300 to pat 0xa50410; caller in ETG; matches HW1 memcpy(&pat,&defaultParticleAttribs)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDefaults"
+  },
+  {
+   "address": "0x004dc3c0",
+   "name": "partCircleSolid3",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "glBegin(6=GL_TRIANGLE_FAN) + sin/cos loop over nSlices, color unpacked from udword; 4 args (centre,radius,nSlices,c); sole caller partRenderBillSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partCircleSolid3"
+  },
+  {
+   "address": "0x004dc4a0",
+   "name": "partFilter",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "bool arg selects GL_TEXTURE_MIN/MAG_FILTER (0x2801/0x2800) = GL_LINEAR 0x2601 vs GL_NEAREST 0x2600 via glTexParameteri slot 0xb3a444; HW1 partFilter(on)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partFilter"
+  },
+  {
+   "address": "0x004dc500",
+   "name": "partBindAlternate",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "searches alternates table 0xa50010 (count 0xa50b18), flushes at 0x80 (PART_NUM_ALTERNATES=128), builds grey 200 texture with glTexImage2D; trStructureGet flag 8; caller partRenderBillSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partBindAlternate"
+  },
+  {
+   "address": "0x004dd480",
+   "name": "partMeshMaterialPrepare",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "4 args; rndTextureEnable, trMakeCurrent, trStructureGet, rndAdditiveBlends, glMaterialfv via rndMaterialfv, rndLightingEnable; called from partRenderMeshSystem (HW1 Particle.c:935)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partMeshMaterialPrepare"
+  },
+  {
+   "address": "0x004dd650",
+   "name": "calcPseudoBillboardMatrixWorld",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "medium",
+   "evidence": "called by partRenderMeshSystem; vecNormalize + hmatMakeHMatFromMat(0x4acbe0) only, no inverse transform -> the world-space variant (HW1 Particle.c:1018)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:calcPseudoBillboardMatrixWorld"
+  },
+  {
+   "address": "0x004dd840",
+   "name": "calcPseudoBillboardMatrixNotWorld",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "medium",
+   "evidence": "called by partRenderMeshSystem; matMultiplyMatByVec then matMultiplyVecByMat (= inlined partInverselyTransform) + vecNormalize, as HW1 Particle.c:1074",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:calcPseudoBillboardMatrixNotWorld"
+  },
+  {
+   "address": "0x004ddad0",
+   "name": "partMeshOrient",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "medium",
+   "evidence": "called by partRenderMeshSystem; matCreateCoordSysFromHeading + hmat rot-about-X (0x4acf30) + vecNormalize = HW1 partMeshOrient (velocity heading, XYZSCALE 180deg X rot)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partMeshOrient"
+  },
+  {
+   "address": "0x004df490",
+   "name": "partRealDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ranRandomFn(0x19 particle stream) %1000000 * 1e-6, random sign forced -1 when d<0, returns n+sign*r*d: exact HW1 partRealDist",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partRealDist"
+  },
+  {
+   "address": "0x004df520",
+   "name": "partColorDelta",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "(c,d,flags,dt): per channel if d!=0 c+=d*dt clamped 0..1; alpha only when flags&2 (PART_ALPHA): exact HW1 partColorDelta; caller partUpdateSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partColorDelta"
+  },
+  {
+   "address": "0x004df660",
+   "name": "partColorDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "medium",
+   "evidence": "(out,c,dr,dg,db) 5 args, ranRandomFn per channel (inlined partRealDist), clamp; sole caller partFillGenericParticles",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partColorDist"
+  },
+  {
+   "address": "0x004df8b0",
+   "name": "partAdvanceMeshMorph",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "walks 8-byte meshAnim {mesh,flags} at particle+0xec (mstruct), flag 2=PART_LOOP, loopCount byte +0xf9 decremented; callers partRenderMeshSystem (inlined partMeshNextMesh) and partUpdateSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partAdvanceMeshMorph"
+  },
+  {
+   "address": "0x004df940",
+   "name": "partAdvanceTexAnim",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "walks 12-byte texAnim {tex,uv,flags} at particle+0xbc (tstruct), loop byte +0xc4, -1 terminator; caller partUpdateSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partAdvanceTexAnim"
+  },
+  {
+   "address": "0x004e00e0",
+   "name": "partMakeSPos",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "sole caller partFillGenericParticles; ranRandomFn angles + hmat rot about Z (0x4acee0) and X (0x4acf30), hmat*hvec (0x4acd60), vecNormalize: HW1 partMakeSPos",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partMakeSPos"
+  },
+  {
+   "address": "0x004e03f0",
+   "name": "partMakePosition",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "sole caller partFillGenericParticles; matMakeRotAboutZ + matMultiplyMatByVec twice, ranRandomFn: HW1 partMakePosition (cylindrical)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partMakePosition"
+  },
+  {
+   "address": "0x004e0640",
+   "name": "partFillGenericParticles",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "6.7 KB, sole caller partCreationHelper; calls partMakeSPos/partMakePosition/partRealDist/partColorDist, memAllocFunction, matMultiplyMatByVec: HW1 partCreationHelper->partFillGenericParticles",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partFillGenericParticles"
+  },
+  {
+   "address": "0x004e2080",
+   "name": "partCreateSystemWithDelta",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ranRandomFn x2 (inlined partRealDist on n), __ftol, then partCreationHelper(t,n,1=PART_CYLINDER); called from 7 ETG create-system handlers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partCreateSystemWithDelta"
+  },
+  {
+   "address": "0x004e24e0",
+   "name": "partCreateSystem",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "21 bytes: partCreationHelper(t,n,1=PART_CYLINDER), exactly HW1 partCreateSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partCreateSystem"
+  },
+  {
+   "address": "0x004e2500",
+   "name": "cat_partSystemFreeAttachments",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "walks particles; for type 6 (CET PART_UNK2) unlinks (listRemoveNode via 0x57ba90) and memFree_2s the per-particle pointer at +0x7c; callers etgEffectDelete, etgDeleteEffectsOwnedBy",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004e25a0",
+   "name": "partHeaderSize",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "switch on system type: 0/1/2/6->0x1c, 3(mesh)->0x30, 4(billboard)->0x50, 5->0x24 (CET PART_UNK1 0x24/PART_UNK2 0x1c): HW1 partHeaderSize + 2 Cataclysm types",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partHeaderSize"
+  },
+  {
+   "address": "0x004e25f0",
+   "name": "partModifyTumble",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "pointer-table entry; writes 3 floats at particle+0xcc..0xd4 (tumble, HW1 0xac + 0x20 Cataclysm shift seen in partUpdateSystem) for every particle",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyTumble"
+  },
+  {
+   "address": "0x004e2690",
+   "name": "partModifyExponent",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"modifySpecular\" -> 0x4e2690 (HW1 maps it to partModifyExponent); NOT yet a Ghidra function entry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyExponent"
+  },
+  {
+   "address": "0x004e27b0",
+   "name": "partModifyMesh",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "pointer-table entry; writes particle+0xe4 (mesh) for every particle; between partModifyDrag and partModifyLighting as in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyMesh"
+  },
+  {
+   "address": "0x004e2830",
+   "name": "partModifyLighting",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"modifyLighting\" -> here (HW1 table maps it to partModifyLighting); writes byte particle+0x5c (lit, used as bool gate for illum update in partUpdateSystem)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyLighting"
+  },
+  {
+   "address": "0x004e28b0",
+   "name": "partModifyIllum",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes particle+0x60 (illum; partUpdateSystem clamps it when lit)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyIllum"
+  },
+  {
+   "address": "0x004e2930",
+   "name": "partModifyDeltaIllum",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes particle+0x64 (deltaIllum; partUpdateSystem illum += dt*[+0x64])",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyDeltaIllum"
+  },
+  {
+   "address": "0x004e2ac0",
+   "name": "partModifyScale",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"modifyScale\" -> here (HW1 table maps it to partModifyScale); writes particle+0x50 and +0x54 (Cataclysm has two scale fields, both advanced by deltaScale +0x58 in partUpdateSystem); first mo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyScale"
+  },
+  {
+   "address": "0x004e2b40",
+   "name": "cat_partModifyScaleX",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table entry 0x87a34c \"modifyScaleX\" -> 0x4e2b40; NOT yet a Ghidra function entry (pointer-table target missed by r2 create pass)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004e2bc0",
+   "name": "cat_partModifyScaleY",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table entry 0x87a368 \"modifyScaleY\" -> 0x4e2bc0; writes particle+0x54 (Y scale); Cataclysm-only script function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004e2c40",
+   "name": "partModifyDeltaScale",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"modifyDeltaScale\" -> here (HW1 table maps it to partModifyDeltaScale); writes particle+0x58 (deltaScale: partUpdateSystem scale += dt*[+0x58])",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyDeltaScale"
+  },
+  {
+   "address": "0x004e2cc0",
+   "name": "partModifyDeltaLength",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"modifyDeltaLength\" -> here (HW1 table maps it to partModifyDeltaLength); writes particle+0x6c (deltaLength: length +0x68 += dt*[+0x6c]) and Cataclysm field +0x70; HW1 order after DeltaScale",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyDeltaLength"
+  },
+  {
+   "address": "0x004e2d50",
+   "name": "partModifyLifespan",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes particle+0x00 (lifespan, decremented by dt in partUpdateSystem)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyLifespan"
+  },
+  {
+   "address": "0x004e2dd0",
+   "name": "partModifyLength",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes particle+0x68 (length)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyLength"
+  },
+  {
+   "address": "0x004e2e50",
+   "name": "partModifyVelLOF",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes particle+0x08 (velLOF)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyVelLOF"
+  },
+  {
+   "address": "0x004e2ed0",
+   "name": "partModifyDeltaVelLOF",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes particle+0x10 (deltaVelLOF)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyDeltaVelLOF"
+  },
+  {
+   "address": "0x004e2f50",
+   "name": "partModifyVelR",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes particle+0x0c (velR)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyVelR"
+  },
+  {
+   "address": "0x004e2fd0",
+   "name": "cat_partModifyRotAngle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table entry 0x87a330 \"modifyRotAngle\" -> 0x4e2fd0; writes particle+0x84 (rot)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004e3050",
+   "name": "partModifyDeltaVelR",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"modifyDeltaVelR\" -> 0x4e3050 (HW1 partModifyDeltaVelR); NOT yet a Ghidra function entry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyDeltaVelR"
+  },
+  {
+   "address": "0x004e30d0",
+   "name": "cat_partModifyAlphaValue",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table entry 0x87a2c0 \"modifyAlphaValue\" -> 0x4e30d0; writes icolor[3] (+0x3c) and toggles PART_ALPHA",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004e3170",
+   "name": "partModifyColorC",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"modifyColor/modifyColorA\" -> here (HW1 table maps it to partModifyColorC); unpacks color bytes *1/255 into icolor[0..3] (particle+0x30..0x3c), alpha flag via inlined partSetSystemAlphaFlag:",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyColorC"
+  },
+  {
+   "address": "0x004e3290",
+   "name": "partModifyDeltaColor",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"modifyDeltaColor\" -> here (HW1 table maps it to partModifyDeltaColor); writes 4 floats to deltaColor particle+0x40..0x4c (partColorDelta(+0x30,+0x40) in partUpdateSystem)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyDeltaColor"
+  },
+  {
+   "address": "0x004e3340",
+   "name": "partModifyAnimation",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "string 'partModifyAnimation needs a PART_BILLBOARD or PART_MESH'",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyAnimation"
+  },
+  {
+   "address": "0x004e33d0",
+   "name": "partModifyMorph",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"modifyMeshAnimation\" -> 0x4e33d0 (HW1 partModifyMorph); NOT yet a Ghidra function entry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyMorph"
+  },
+  {
+   "address": "0x004e3420",
+   "name": "partModifyFramerate",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "string 'partModifyFramerate needs a PART_BILLBOARD'",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyFramerate"
+  },
+  {
+   "address": "0x004e3470",
+   "name": "partModifyMorphFramerate",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "string 'partModifyMorphFramerate needs a PART_MESH'",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyMorphFramerate"
+  },
+  {
+   "address": "0x004e34f0",
+   "name": "partModifyColorBias",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes 3 floats at particle+0xb0..0xb8 (bias, HW1 0x90+0x20); follows partModifyBillPosition as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyColorBias"
+  },
+  {
+   "address": "0x004e3590",
+   "name": "partModifyAddColor",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "unpacks r,g,b of a color *1/255 into bias particle+0xb0..0xb8: HW1 partModifyAddColor",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyAddColor"
+  },
+  {
+   "address": "0x004e3670",
+   "name": "partModifyPseudoBillboard",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"modifyTrueBillboard\"/\"modifyPseudoBillboard\" -> 0x4e3670 (HW1 partModifyPseudoBillboard for both); NOT yet a Ghidra function entry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyPseudoBillboard"
+  },
+  {
+   "address": "0x004e3710",
+   "name": "partModifyColorScheme",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"modifyColorScheme\" -> 0x4e3710; NOT yet a Ghidra function entry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyColorScheme"
+  },
+  {
+   "address": "0x004e3790",
+   "name": "partModifyAlphaMode",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "mode 1/2/default toggles flag bits 8 (PART_ADDITIVE) and 2 (PART_STIPPLE) at particle+0xfc; calls partHeaderSize: HW1 partModifyAlphaMode with inlined helpers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partModifyAlphaMode"
+  },
+  {
+   "address": "0x004e39b0",
+   "name": "partSetIsWorldspace",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"setIsWorldSpace\" -> 0x4e39b0; NOT yet a Ghidra function entry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetIsWorldspace"
+  },
+  {
+   "address": "0x004e39d0",
+   "name": "partSetVelocityInWorldSpace",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "sets/clears bit 8 (PART_WORLDSPACEVELOCITY) of pat.flags 0xa50428 (pat 0xa50410 + 0x18)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetVelocityInWorldSpace"
+  },
+  {
+   "address": "0x004e3a80",
+   "name": "partSetMeshStartFrame",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.startMeshFrame (pat+0x160 per CET particleAttribs layout)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetMeshStartFrame"
+  },
+  {
+   "address": "0x004e3ab0",
+   "name": "partSetStartFrame",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes uword pat.startFrame (pat+0x166)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetStartFrame"
+  },
+  {
+   "address": "0x004e3ad0",
+   "name": "partSetTumble",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.tumble[0..2] (pat+0x168)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetTumble"
+  },
+  {
+   "address": "0x004e3b00",
+   "name": "partSetDeltaTumble",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaTumble[0..2] (pat+0x180)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaTumble"
+  },
+  {
+   "address": "0x004e3b30",
+   "name": "partSetSlices",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "string 'insane number of slices, using default of 8'; writes pat.slices",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetSlices"
+  },
+  {
+   "address": "0x004e3be0",
+   "name": "partSetXYZScale",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"setXYZScale\" -> 0x4e3be0; NOT yet a Ghidra function entry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetXYZScale"
+  },
+  {
+   "address": "0x004e3c20",
+   "name": "partSetScale",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.scale (pat+0x20)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetScale"
+  },
+  {
+   "address": "0x004e3c30",
+   "name": "partSetScaleDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.scaleDist and sets PART_MONOSCALE (1) in pat.flags when 0: exact HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetScaleDist"
+  },
+  {
+   "address": "0x004e3c60",
+   "name": "partSetDeltaScale",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaScale (pat+0x34)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaScale"
+  },
+  {
+   "address": "0x004e3c70",
+   "name": "partSetDeltaScaleDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaScaleDist (pat+0x38)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaScaleDist"
+  },
+  {
+   "address": "0x004e3c80",
+   "name": "partSetOffsetLOF",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.offsetLOF (pat+0x3c)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetOffsetLOF"
+  },
+  {
+   "address": "0x004e3c90",
+   "name": "partSetOffsetR",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.offsetR (pat+0x40)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetOffsetR"
+  },
+  {
+   "address": "0x004e3ca0",
+   "name": "partSetOffsetTheta",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.offsetTheta (pat+0x44)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetOffsetTheta"
+  },
+  {
+   "address": "0x004e3cb0",
+   "name": "partSetOffsetArray",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.offsetArray (pat+0x48)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetOffsetArray"
+  },
+  {
+   "address": "0x004e3cc0",
+   "name": "cat_partSetRandomOffsetArray",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table entry 0x87993c \"setRandomOffsetArray\" -> 0x4e3cc0; fills static vector array 0xa505e8 with random points in a box, stores in pat.offsetArray",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004e3e20",
+   "name": "partSetDeltaLOF",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaLOF (pat+0x4c)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaLOF"
+  },
+  {
+   "address": "0x004e3e30",
+   "name": "partSetDeltaLOFDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaLOFDist (pat+0x50)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaLOFDist"
+  },
+  {
+   "address": "0x004e3e40",
+   "name": "partSetDeltaR",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaR[0..1] (pat+0x54)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaR"
+  },
+  {
+   "address": "0x004e3e60",
+   "name": "partSetDeltaRDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaRDist[0..1] (pat+0x5c)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaRDist"
+  },
+  {
+   "address": "0x004e3e90",
+   "name": "partSetVelLOF",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.velLOF (pat+0x64)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetVelLOF"
+  },
+  {
+   "address": "0x004e3ea0",
+   "name": "partSetVelLOFDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.velLOFDist (pat+0x68)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetVelLOFDist"
+  },
+  {
+   "address": "0x004e3eb0",
+   "name": "partSetVelR",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.velR (pat+0x6c)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetVelR"
+  },
+  {
+   "address": "0x004e3ec0",
+   "name": "partSetVelRDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.velRDist (pat+0x70)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetVelRDist"
+  },
+  {
+   "address": "0x004e3ed0",
+   "name": "partSetDeltaVelLOF",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaVelLOF (pat+0x74)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaVelLOF"
+  },
+  {
+   "address": "0x004e3ee0",
+   "name": "partSetDeltaVelLOFDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaVelLOFDist (pat+0x78)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaVelLOFDist"
+  },
+  {
+   "address": "0x004e3ef0",
+   "name": "partSetDeltaVelR",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaVelR (pat+0x7c)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaVelR"
+  },
+  {
+   "address": "0x004e3f00",
+   "name": "partSetDeltaVelRDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaVelRDist (pat+0x80)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaVelRDist"
+  },
+  {
+   "address": "0x004e3f10",
+   "name": "partSetAng",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.ang (pat+0x84)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetAng"
+  },
+  {
+   "address": "0x004e3f20",
+   "name": "partSetAngDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.angDist (pat+0x88)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetAngDist"
+  },
+  {
+   "address": "0x004e3f30",
+   "name": "partSetAngDelta",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.angDelta (pat+0x8c)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetAngDelta"
+  },
+  {
+   "address": "0x004e3f40",
+   "name": "partSetAngDeltaDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.angDeltaDist (pat+0x90)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetAngDeltaDist"
+  },
+  {
+   "address": "0x004e3f50",
+   "name": "partSetColor",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.icolor[0..2] (pat+0xb0) and clears PART_ALPHA: HW1 partSetColor",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetColor"
+  },
+  {
+   "address": "0x004e3f80",
+   "name": "partSetColorDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.colorDist[0..2], colorDist[3]=0, clears PART_ALPHA: exact HW1 partSetColorDist",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetColorDist"
+  },
+  {
+   "address": "0x004e3fc0",
+   "name": "partSetColorA",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.icolor[0..3] and sets PART_ALPHA: exact HW1 partSetColorA",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetColorA"
+  },
+  {
+   "address": "0x004e4000",
+   "name": "partSetColorADist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"setColorADist\" -> 0x4e4000; NOT yet a Ghidra function entry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetColorADist"
+  },
+  {
+   "address": "0x004e4050",
+   "name": "partSetDeltaColor",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaColor[0..2], deltaColor[3]=1.0f, clears PART_ALPHA: exact HW1 partSetDeltaColor",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaColor"
+  },
+  {
+   "address": "0x004e4090",
+   "name": "partSetDeltaColorDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaColorDist[0..2], [3]=0, clears PART_ALPHA: exact HW1 partSetDeltaColorDist",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaColorDist"
+  },
+  {
+   "address": "0x004e40d0",
+   "name": "partSetDeltaColorA",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"setDeltaColorA\" -> 0x4e40d0; NOT yet a Ghidra function entry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaColorA"
+  },
+  {
+   "address": "0x004e4120",
+   "name": "partSetDeltaColorADist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "ETG table \"setDeltaColorADist\" -> 0x4e4120; NOT yet a Ghidra function entry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaColorADist"
+  },
+  {
+   "address": "0x004e4170",
+   "name": "partSetLighting",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes byte pat.lit (pat+0xf0)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetLighting"
+  },
+  {
+   "address": "0x004e4180",
+   "name": "partSetIllum",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.illum (pat+0xf4)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetIllum"
+  },
+  {
+   "address": "0x004e4190",
+   "name": "partSetIllumDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.illumDist (pat+0xf8)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetIllumDist"
+  },
+  {
+   "address": "0x004e41a0",
+   "name": "partSetDeltaIllum",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaIllum (pat+0xfc)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaIllum"
+  },
+  {
+   "address": "0x004e41b0",
+   "name": "partSetDeltaIllumDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaIllumDist (pat+0x100)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaIllumDist"
+  },
+  {
+   "address": "0x004e41c0",
+   "name": "partSetLifespan",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.lifespan (pat+0x104)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetLifespan"
+  },
+  {
+   "address": "0x004e41d0",
+   "name": "partSetLifespanDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.lifespanDist (pat+0x108)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetLifespanDist"
+  },
+  {
+   "address": "0x004e41e0",
+   "name": "partSetWaitspan",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.waitspan (pat+0x10c)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetWaitspan"
+  },
+  {
+   "address": "0x004e41f0",
+   "name": "partSetWaitspanDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.waitspanDist (pat+0x110)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetWaitspanDist"
+  },
+  {
+   "address": "0x004e4200",
+   "name": "partSetLength",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.length (pat+0x94)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetLength"
+  },
+  {
+   "address": "0x004e4210",
+   "name": "cat_partSetTurbulance",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table entry 0x879f94 \"setTurbulance\" (sic) -> 0x4e4210; writes CET particleAttribs.unknown[1] (pat+0xa8)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004e4220",
+   "name": "cat_partSetSegments",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ETG function table entry 0x879fb0 \"setSegments\" -> 0x4e4220; writes uword CET particleAttribs.unknown[2] (pat+0xac)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004e4230",
+   "name": "partSetLengthDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.lengthDist (pat+0x98)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetLengthDist"
+  },
+  {
+   "address": "0x004e4240",
+   "name": "partSetDeltaLength",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaLength (pat+0x9c) and zeroes CET unknown[0] (pat+0xa4)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaLength"
+  },
+  {
+   "address": "0x004e4260",
+   "name": "partSetDeltaLengthDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.deltaLengthDist (pat+0xa0)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetDeltaLengthDist"
+  },
+  {
+   "address": "0x004e4270",
+   "name": "partSetColorBias",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.rbias/gbias/bbias (pat+0x198)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetColorBias"
+  },
+  {
+   "address": "0x004e42a0",
+   "name": "partSetColorBiasDist",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.rbiasDist/gbiasDist/bbiasDist (pat+0x1a4)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetColorBiasDist"
+  },
+  {
+   "address": "0x004e42d0",
+   "name": "partSetSpecular",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.specularOnly (pat+0x1b0)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetSpecular"
+  },
+  {
+   "address": "0x004e42e0",
+   "name": "partSetNoDepthWrite",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.noDepthWrite (pat+0x1b8)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetNoDepthWrite"
+  },
+  {
+   "address": "0x004e42f0",
+   "name": "partSetPseudoBillboard",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.pseudoBillboard (pat+0x1c0)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetPseudoBillboard"
+  },
+  {
+   "address": "0x004e4300",
+   "name": "partSetTrueBillboard",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.trueBillboard (pat+0x1c4)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetTrueBillboard"
+  },
+  {
+   "address": "0x004e4310",
+   "name": "partSetColorScheme",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes byte pat.colorScheme (pat+0x120)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetColorScheme"
+  },
+  {
+   "address": "0x004e4320",
+   "name": "partSetAlphaMode",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "writes pat.additiveBlends and pat.stippleAlpha from mode: HW1 partSetAlphaMode with inlined setters",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partSetAlphaMode"
+  },
+  {
+   "address": "0x004e4370",
+   "name": "partCreateCallbackSet",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "stores 3 args to globals 0xa50b1c/20/24 (callback,userValue,userData); last function of Particle.c as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partCreateCallbackSet"
+  },
+  {
+   "address": "0x005216b0",
+   "name": "soundEffect",
+   "kind": "function",
+   "class": "hw1:SoundEventPlay.c",
+   "confidence": "medium",
+   "evidence": "functable \"playSound\" @0x87a694; 22-byte wrapper around soundEventPlay(effect,event)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SoundEventPlay.c:soundEffect"
+  },
+  {
+   "address": "0x008793a0",
+   "name": "etgHandleTable",
+   "kind": "data",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "ophandleentry[] {size,handler}: 76 entries, NULL slots and etgFunctionCall 0x46e7b0 at EOP_Function exactly as HW1 ETG.c:127",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgHandleTable"
+  },
+  {
+   "address": "0x00879600",
+   "name": "etgParseTable",
+   "kind": "data",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "opparseentry[] {name,flags,fn}: \"nop\",\"if\",\"else\",\"label\",... \"createEffects\" as HW1 ETG.c:258",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgParseTable"
+  },
+  {
+   "address": "0x00879808",
+   "name": "etgFunctionTable",
+   "kind": "data",
+   "class": "hw1:ETG.c",
+   "confidence": "medium",
+   "evidence": "opfunctionentry[] (0x1c bytes) {name,fn,ret,..,resolve,...}: \"setDefaults\" .. \"colBlue\", 167 entries; HW1 ETG.c:501 plus Cataclysm additions",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgFunctionTable"
+  },
+  {
+   "address": "0x0087ab40",
+   "name": "etgScriptTable",
+   "kind": "data",
+   "class": "hw1:ETG.c",
+   "confidence": "medium",
+   "evidence": "scriptEntry[] {name,fn,data}: \"LoadEffect\",\"SoftwareVersion\",\"setDeathEvent\"... as HW1 ETG.c:732",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgScriptTable"
+  },
+  {
+   "address": "0x00885d38",
+   "name": "meshCurrentMaterial",
+   "kind": "data",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "function pointer called per material in meshObjectRender; meshRender sets it to 0x4b0020 or meshCurrentMaterialDefault and restores the default",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshCurrentMaterial"
+  },
+  {
+   "address": "0x0088d300",
+   "name": "defaultParticleAttribs",
+   "kind": "data",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "456-byte source of partSetDefaults memcpy (HW1 static defaultParticleAttribs)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:defaultParticleAttribs"
+  },
+  {
+   "address": "0x00a46c80",
+   "name": "cat_moPrintOptionsMP",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "MAINPRINT option block used in multiplayer; same layout as cat_moPrintOptionsSP",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00a46f70",
+   "name": "cat_moPrintOptionsSP",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "MAINPRINT option block used when singlePlayerGame==1; pages of 0x50 bytes indexed by 0xa4b944; flags at +0x00..+0x48 with box flags at +4",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00a50010",
+   "name": "alternates",
+   "kind": "data",
+   "class": "hw1:Particle.c",
+   "confidence": "medium",
+   "evidence": "partBindAlternate/partFreeAlternates table of {trhandle,glhandle} pairs, 128 entries",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:alternates"
+  },
+  {
+   "address": "0x00a50410",
+   "name": "pat",
+   "kind": "data",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "particleAttribs target of partSetDefaults; every partSet* writes pat+<CET particleAttribs offset> (verified on 70+ setters)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:pat"
+  },
+  {
+   "address": "0x00a50b18",
+   "name": "alternateIndex",
+   "kind": "data",
+   "class": "hw1:Particle.c",
+   "confidence": "medium",
+   "evidence": "count of alternates used by partBindAlternate, reset at 0x80",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:alternateIndex"
+  }
+ ],
+ "audit": {
+  "sampled": 30,
+  "correct": 29,
+  "wrong": 1,
+  "unverifiable": 0,
+  "precision": 0.9667,
+  "sample_seed": 11,
+  "sample_strata": {
+   "high": 14,
+   "medium": 10,
+   "low": 6
+  },
+  "sampled_addresses": [
+   "0x004af220",
+   "0x004e2c40",
+   "0x004b40a0",
+   "0x004b6fb0",
+   "0x004e3420",
+   "0x0046e2e0",
+   "0x0046dd20",
+   "0x004dc3a0",
+   "0x004b4520",
+   "0x004e3cb0",
+   "0x004e3be0",
+   "0x0046e130",
+   "0x00469d90",
+   "0x004ae910",
+   "0x0042e990",
+   "0x0042c0c0",
+   "0x00428e60",
+   "0x004acc40",
+   "0x004ddad0",
+   "0x004b68d0",
+   "0x004b0020",
+   "0x00428a40",
+   "0x004ae700",
+   "0x004a76b0",
+   "0x004b4f80",
+   "0x004b64c0",
+   "0x004b6330",
+   "0x004a8f00",
+   "0x00a46c80",
+   "0x0042c090"
+  ],
+  "wrong_addresses": [
+   "0x004a8f00"
+  ],
+  "action": "keep (precision >= 0.9); dropped 1 sampled-wrong proposal; confidences unchanged",
+  "dropped": 1,
+  "notes": [
+   "0x004a8f00 proposed cat_moShipOutlinesDraw (cat-new) is WRONG: it is the HW1 Tactical.c toLegendDraw. It is gated by 0xa75290, the same flag that gates toAllShipsDraw in smViewportRender (mrDrawTactical). It loops over ship classes, checks toClassUsed[class][8 players] (0xbb3588, 8 bytes each), draws toClassIcon[class] (0xbb3544) with primLineLoopStart2/Point3F/End2 in a halved colour (TO_IconColorFade), then fontPrints the class name from 0x4d6b70 (ShipClassToNiceStr) in 0xffff4040. Cataclysm passes and returns y. Suggested replacement: toLegendDraw (medium).",
+   "Verified table claims independently from the exe bytes. Parse table entries are {name,flags,fn}, matching the HW1 parseEntry macro: 'between'->0x46dd20 and 'maxFrequency'->0x46e130. Function-table entries are {name,fn,...}: modifyDeltaScale->0x4e2c40, setXYZScale->0x4e3be0, setOffsetArray->0x4e3cb0, modifyFramerate->0x4e3420. Script table: setDamageEvent->0x469d90. 0x46e39b pushes 0x46e2e0 as the partCreateCallbackSet callback.",
+   "pat layout checks against CET particle.h: 0x4e3be0 ORs flags (pat+0x18) with 0x40 (PART_XYZSCALE) and stores x/y/z at pat+0x24..0x2c; 0x4e3cb0 writes pat+0x48 (offsetArray); 0x4dc3a0 copies 0x72 dwords from 0x88d300 to 0xa50410.",
+   "Medium/low entries were confirmed structurally against HW1: ccLockOnTargetNow, btgZip, hmatMakeHMatFromMatAndVec, partMeshOrient, madBindingsPost, meshAlmostCurrentMaterial (the 0x4b0020-vs-0x4af790 g_NoMatSwitch selection at 3 sites) and meshSetFade. The Cataclysm-only cat_* names match the decompiled behaviour: mcpReset string xref, objective list fed by objectiveAndFleetIntelligenceCreate, sound table read as [shipType*6+i] then soundEventPlay, and a per-vertex warp helper.",
+   "btgColorVertices 0x428e60 (medium) was accepted. It copies per-vertex RGB into the trans-vertex array and is called from btgRender 0x429280. Cataclysm adds 3 random brightness-flicker bands that HW1 lacks, so medium is the right confidence."
+  ],
+  "suggested_corrections": [
+   {
+    "address": "0x004a8f00",
+    "name": "toLegendDraw",
+    "kind": "function",
+    "class": "hw1:Tactical.c",
+    "confidence": "medium",
+    "evidence": "mrDrawTactical-gated (0xa75290 also gates toAllShipsDraw); toClassUsed loop, toClassIcon line loops, ShipClassToNiceStr labels; Cataclysm takes/returns y",
+    "hw1_equivalent": "HomeworldSDL/src/Game/Tactical.c:toLegendDraw"
+   }
+  ]
+ }
+}

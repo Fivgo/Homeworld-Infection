@@ -1,0 +1,2134 @@
+{
+ "source": "gaps-input-save-sp",
+ "method": "Read decompiled.c/call_graph.csv/strings.csv from ghidra/exports/cataclysm_gog_r2a; matched by call order, string refs, global use and control flow against HomeworldSDL + gardens-of-kadesh source and CET headers/docs/cet-knowledge.md",
+ "done_subsystems": [
+  "input",
+  "eval",
+  "savegame",
+  "singleplayer",
+  "cet-recheck"
+ ],
+ "proposals": [
+  {
+   "address": "0x00566b60",
+   "name": "mrObjectClick",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "medium",
+   "evidence": "Called by 0x56ad50 with selSelectionClick result or mouseCursorObjLast, as HW1 plainOldClickAction; per-modifier guard/attack/focus/special branches; ClickAttack/AltFocus strings",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrObjectClick",
+   "signature": "void mrObjectClick(Ship *ship)",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056a610",
+   "name": "cat_mrBandBoxRelease",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Cataclysm split of HW1 mrRegionProcess RPE_ReleaseLeft band-box branch: calls mrSelectHold then per-key attack/guard/special/focus/select; Game_BandBoxSelect/BandAttack strings; returns handled flag",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrRegionProcess",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056a1e0",
+   "name": "mrSelectHold",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "medium",
+   "evidence": "Anchor-vs-cursor >= click box test (DAT_00892a20/24), builds rect, per-modifier selRectDrag variants; called from hold-left handler 0x56aee0 and band release; HW1 mainrgn.c:1204",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrSelectHold",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056ad50",
+   "name": "cat_mrClickRelease",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Body of HW1 plainOldClickAction: selSelectionClick at cursor -> mrObjectClick; else recent mouseCursorObjLast within time/px -> mrObjectClick; else select none unless shift (key 0x4e)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrRegionProcess",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056af60",
+   "name": "cat_mrReleaseLeft",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "RPE_ReleaseLeft handler: if band-boxing (DAT_00a75284==1) cat_mrBandBoxRelease else cat_mrClickRelease, then clears band flag and piePointModePause(0) as HW1 endReleaseButtonLogic",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrRegionProcess",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056af10",
+   "name": "cat_mrPressLeft",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "RPE_PressLeft handler: stores anchor DAT_00b39b90/94 = mouse x/y and sets band-select state 1, as HW1 mrOldMouseX/Y + mrHoldLeft=mrSelectHold",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrRegionProcess",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056aee0",
+   "name": "cat_mrHoldLeft",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "RPE_HoldLeft handler: if not disabled and band state==1 call mrSelectHold(camera,arg); replaces HW1 mrHoldLeft function pointer",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrRegionProcess",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056afe0",
+   "name": "cat_mrPressRight",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "RPE_PressRight: cancels band select, piePointModePause(1), camera-motion state 2, saves mouse pos, mouseCursorHide, mousePositionSet(width/2,height/2) as HW1 mainrgn.c RPE_PressRight",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrRegionProcess",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056b0b0",
+   "name": "cat_mrReleaseRight",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "RPE_ReleaseRight: piePointModePause(0), restores mouse pos, mouseCursorShow, mouseClipToRect(NULL); then Cataclysm right-click context action on picked ship (harvest/dock/attack switch)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrRegionProcess",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056ac00",
+   "name": "cat_mrSelectRectDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Draws band-box rectangle (primRectOutline2) between anchor and cursor, color chosen by modifier key; part of HW1 mrRegionDraw selection-rect drawing",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrRegionDraw",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0054ec60",
+   "name": "kbCommandKeyIsHit",
+   "kind": "function",
+   "class": "hw1:KeyBindings.c",
+   "confidence": "medium",
+   "evidence": "Takes command index, walks a 0x34-byte binding row (count + 16-byte key combos), tests key state &1 per combo; used for every mainrgn modifier test where HW1 uses kbCommandKeyIsHit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/KeyBindings.c:kbCommandKeyIsHit",
+   "signature": "bool32 kbCommandKeyIsHit(udword command)",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00505ed0",
+   "name": "selSelectionClick",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "medium",
+   "evidence": "Called (renderList, &camera, mouseX, mouseY, 1, 1, ...) exactly as HW1 selSelectionClick(listHead,camera,x,y,TRUE,TRUE); walks Node list returning closest ship",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelectionClick",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00511830",
+   "name": "clRemoveShipFromSelection",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "medium",
+   "evidence": "Removes ship from selection by swap-with-last, returns TRUE if found; called by mouseClickShipDied on mouseCursorSelect as HW1 mouse.c:789; 47 callers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:clRemoveShipFromSelection",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056d4b0",
+   "name": "mouseMirrorBitmap",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Vertical flip of width*height dword bitmap via stack buffer; sole caller mouseStartup, as HW1 mouse.c:195",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseMirrorBitmap",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056d560",
+   "name": "mouseCreateGLHandle",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Called 31x by mouseInitGL with (lif, &tex); allocs/frees temp buffer; HW1 mouse.c:220",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseCreateGLHandle",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056e400",
+   "name": "mouseInitGL",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Sequence of mouseCreateGLHandle(cursorBitmap[i], &tex[i]) for each cursor (31 in Cataclysm vs 18 in HW1); called from mouseDraw",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseInitGL",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056e620",
+   "name": "mouseReset",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "If GL-initialized flag: glDeleteTextures(1,&tex) per cursor via GL pointer, zero all handles, clear flag; HW1 mouse.c:365",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseReset",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056e890",
+   "name": "mouseShutdown",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "medium",
+   "evidence": "Thunk (jmp) to mouseReset; HW1 mouseShutdown() body is only mouseReset()",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseShutdown",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056e8c0",
+   "name": "mouseCursorDelayShow",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Stores (short)param+1 to a word global right after mouseCursorShow; HW1 mouseWillBeVisible = delay+1 (mouse.c:449)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseCursorDelayShow",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056e8d0",
+   "name": "mousePositionSet",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "utyClientRectGet, clamp x/y to client, store mouse x/y globals, SetCursorPos(client+x,y): HW1 Win32 mousePositionSet (commented code in GoK mouse.c:462)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mousePositionSet",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056e940",
+   "name": "mouseClipToRect",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "NULL -> clip flag 0; else flag 1 and copy 4-int rect; HW1 mouse.c:511",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseClipToRect",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056e980",
+   "name": "mouseClickShipDied",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "clRemoveShipFromSelection(&mouseCursorSelect, ship), null mouseCursorObjPtr / mouseCursorObjLast if equal; HW1 mouse.c:787 line for line",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseClickShipDied",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056e9c0",
+   "name": "mouseGetLIF",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "switch on cursor type returning cursor bitmap pointer, cases 0/5 share normal bitmap, default NULL; HW1 mouse.c:843",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseGetLIF",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056eb40",
+   "name": "cat_mouseRestoreCursorUnder",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "If feShouldSaveMouseCursor: restore saved rect via rgl fn ptr or glcCursorUnder(...,0); pairs with 0x56ebb0 (saves). Win32 rglRestoreCursorUnder path",
+   "hw1_equivalent": "",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056ebb0",
+   "name": "cat_mouseSaveCursorUnder",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "If feShouldSaveMouseCursor: mouseGetLIF size+2 at cursor pos, save via rgl fn ptr or glcCursorUnder(...,1); else zero buffer",
+   "hw1_equivalent": "",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056ec50",
+   "name": "mouseDraw",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "medium",
+   "evidence": "Callers glcPageFlip and rndRenderTask; calls mouseInitGL lazily, rndTextureEnable, primTriSolid2/primTriOutline2 (cursor triangle); HW1 mouse.c:909",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseDraw",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056f370",
+   "name": "mouseCursorSet",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "mode global |= param; HW1 bitSet(mouseCursorMode, mode)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseCursorSet",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056f390",
+   "name": "mouseCursorClear",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "same global &= ~param; HW1 bitClear(mouseCursorMode, mode)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseCursorClear",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056f3b0",
+   "name": "mouseSetCursorSetting",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "low",
+   "evidence": "Called by rndRenderTask; picks cursor type (DAT_00a757f4) from selected ships, ship under cursor and modifier keys; may merge HW1 mouseSelectCursorSetting+mouseSetCursorSetting",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseSetCursorSetting",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056f750",
+   "name": "mousePoll",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "If not disabled: GetCursorPos minus client rect -> mouse x/y, clip to clip rect with SetCursorPos, ShowCursor toggle when leaving/entering window; HW1 mouse.c:1829",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mousePoll",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056f8d0",
+   "name": "mouseDisable",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "mouseIsVisible=0 (inlined mouseCursorHide) and disabled flag=1; callers include spLockout, matching HW1 SinglePlayer.c:1997",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseDisable",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056f8e0",
+   "name": "mouseEnable",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "mouseIsVisible=1 and disabled flag=0; caller spUnlockout, matching HW1 SinglePlayer.c:2023",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseEnable",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x0056f8f0",
+   "name": "cat_mouseGetContextAction",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Takes (selected, under-cursor sel, &selSelected, ship) and returns an action code; result drives right-click switch in cat_mrReleaseRight (1=harvest, 2/3 attack paths) and cursor choice",
+   "hw1_equivalent": "",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00b38bd8",
+   "name": "mouseCursorXPosition",
+   "kind": "data",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Written by mousePositionSet/mousePoll as client-relative x; read as cursor x by all mainrgn handlers",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseCursorXPosition",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00b38bd0",
+   "name": "mouseCursorYPosition",
+   "kind": "data",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Written by mousePositionSet/mousePoll as client-relative y",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseCursorYPosition",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x008ba738",
+   "name": "mouseIsVisible",
+   "kind": "data",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Set 0 by mouseCursorHide, 1 by mouseCursorShow (both already named)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseIsVisible",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00a757f0",
+   "name": "mouseDisabled",
+   "kind": "data",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Set 1 by mouseDisable, 0 by mouseEnable; mousePoll skips when set",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseDisabled",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00a757f8",
+   "name": "mouseCursorMode",
+   "kind": "data",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Bit set/cleared by mouseCursorSet/mouseCursorClear",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseCursorMode",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00a757f4",
+   "name": "mouseCursorType",
+   "kind": "data",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Switch variable of mouseGetLIF; written by mouseSetCursorSetting",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseCursorType",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00a757ec",
+   "name": "mouseClip",
+   "kind": "data",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Flag set by mouseClipToRect; tested by mousePoll before clamping",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseClip",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00b38bc0",
+   "name": "mouseClipRect",
+   "kind": "data",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "4-int rect copied by mouseClipToRect, used as clamp bounds in mousePoll",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseClipRect",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00a75800",
+   "name": "mouseCursorObjPtr",
+   "kind": "data",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Cleared in mouseClickShipDied when == dead ship (HW1 mouseCursorObjPtr branch)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseCursorObjPtr",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00a75804",
+   "name": "mouseCursorObjLast",
+   "kind": "data",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Cleared in mouseClickShipDied; used by cat_mrClickRelease fast-move click fallback as HW1 mouseCursorObjLast",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseCursorObjLast",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00b38be0",
+   "name": "mouseCursorSelect",
+   "kind": "data",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Selection passed to clRemoveShipFromSelection in mouseClickShipDied",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseCursorSelect",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00a757e8",
+   "name": "mouseGLInitialized",
+   "kind": "data",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "Tested and cleared by mouseReset",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseGLInitialized",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00c0ab20",
+   "name": "selSelected",
+   "kind": "data",
+   "class": "hw1:Select.c",
+   "confidence": "medium",
+   "evidence": "MaxSelection used as the selected-ships operand of clWrapAttack/clWrapProtect and MakeShipsAttackCapable in mrObjectClick and band release",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelected",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x00c0bb00",
+   "name": "selSelecting",
+   "kind": "data",
+   "class": "hw1:Select.c",
+   "confidence": "medium",
+   "evidence": "Band/click target list (numTargets, ptrs at +8) filled by mrSelectHold and passed as targets to clWrapAttack/Protect, zeroed after use as HW1 selSelecting.numTargets=0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelecting",
+   "subsystem": "input"
+  },
+  {
+   "address": "0x004719c0",
+   "name": "evalEvaluate",
+   "kind": "function",
+   "class": "hw1:Eval.c",
+   "confidence": "high",
+   "evidence": "strupr(str)=init_str, read_token, expression loop over LT..NEQ tokens 8-13 (logical_expression inlined); *err=SYNTAX(3) if token!=EOL(0x29) else exiterr; HW1 Eval.c:703",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Eval.c:evalEvaluate",
+   "signature": "double evalEvaluate(char *str, ERR_TYPE *err)",
+   "subsystem": "eval"
+  },
+  {
+   "address": "0x00471b90",
+   "name": "read_token",
+   "kind": "function",
+   "class": "hw1:Eval.c",
+   "confidence": "high",
+   "evidence": "Skips spaces via ctype table, sets cur_token per char (')'->5, '!='->NEQ 0xd, bad char -> _ERROR 0x28 with exiterr=SYNTAX); called by all eval parse levels",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Eval.c:read_token",
+   "subsystem": "eval"
+  },
+  {
+   "address": "0x00472110",
+   "name": "expression",
+   "kind": "function",
+   "class": "hw1:Eval.c",
+   "confidence": "high",
+   "evidence": "Unary minus on token 1, then loop over PLUS(0)/MINUS(1) calling multiply; returns 0 on _ERROR; HW1 Eval.c:365",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Eval.c:expression",
+   "subsystem": "eval"
+  },
+  {
+   "address": "0x004721b0",
+   "name": "multiply",
+   "kind": "function",
+   "class": "hw1:Eval.c",
+   "confidence": "high",
+   "evidence": "Loop over MULT(2)/DIV(3) calling factor; divide by 0 sets _ERROR and exiterr=DIV_ZERO(1); HW1 Eval.c:409",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Eval.c:multiply",
+   "subsystem": "eval"
+  },
+  {
+   "address": "0x00472260",
+   "name": "factor",
+   "kind": "function",
+   "class": "hw1:Eval.c",
+   "confidence": "high",
+   "evidence": "Only user of 'C:\\Cataclysm\\src\\game\\eval.c' assert path; dispatches math fns (pow, CRT trig, ranRandomFn for RAND/RND), recurses into expression; HW1 Eval.c:449",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Eval.c:factor",
+   "subsystem": "eval"
+  },
+  {
+   "address": "0x004727b0",
+   "name": "evalNum2Str",
+   "kind": "function",
+   "class": "hw1:Eval.c",
+   "confidence": "high",
+   "evidence": "n>1E12 -> sprintf %f, else sprintf '%12.12f' and strip trailing zeros and '.', strdel inlined; HW1 Eval.c:943",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Eval.c:evalNum2Str",
+   "signature": "char *evalNum2Str(double n, char *s)",
+   "subsystem": "eval"
+  },
+  {
+   "address": "0x00a2e140",
+   "name": "cur_token",
+   "kind": "data",
+   "class": "hw1:Eval.c",
+   "confidence": "high",
+   "evidence": "Token global written by read_token, tested against 0x28 _ERROR / 0x29 EOL in every parse level",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Eval.c:cur_token",
+   "subsystem": "eval"
+  },
+  {
+   "address": "0x00a2e038",
+   "name": "exiterr",
+   "kind": "data",
+   "class": "hw1:Eval.c",
+   "confidence": "high",
+   "evidence": "Zeroed in evalEvaluate, set 1 (DIV_ZERO) in multiply and 3 (SYNTAX) in read_token, copied to *err",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Eval.c:exiterr",
+   "subsystem": "eval"
+  },
+  {
+   "address": "0x0087bc78",
+   "name": "func_vector",
+   "kind": "data",
+   "class": "hw1:Eval.c",
+   "confidence": "medium",
+   "evidence": "12-byte {int id; char name[8]} rows: ASIN @0x87bc88, ATAN @0x87bc94, FACT @0x87bce8, RAND @0x87bd48 = HW1 alphabetical func_vector (ACOS first)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Eval.c:func_vector",
+   "subsystem": "eval"
+  },
+  {
+   "address": "0x005178a0",
+   "name": "CalculateHyperspaceTimeForShip",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "ranRandomFn wait time + shipHasJustDisappeared; called by spHyperspaceSelectionOut(Static), singlePlayerGameUpdate, LoadNewLevel as HW1 SinglePlayer.c:967/1167/1826",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:CalculateHyperspaceTimeForShip",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00517a10",
+   "name": "AddShipToHyperspace",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "medium",
+   "evidence": "listAddNode onto ShipsInHyperspace; called by UpdateHyperspacingShip, spHyperspaceSelectionOut(Static) and level load paths, as HW1 SinglePlayer.c:1043",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:AddShipToHyperspace",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00517af0",
+   "name": "UpdateHyperspacingShip",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "medium",
+   "evidence": "Callers UpdateMidLevelHyperspacingShips and singlePlayerGameUpdate; stops hyperspace sounds, univRemoveShipFromOutside, AddShipToHyperspace; HW1 SinglePlayer.c:1179",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:UpdateHyperspacingShip",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x005180a0",
+   "name": "PutShipOutsideAt",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "medium",
+   "evidence": "Re-inserts ship: univRotateObjYaw, univAddObjToRenderList, bobAddObjToNearestBlob, listAddNode; called by UpdateArrivingShip, as HW1 SinglePlayer.c:1424/1516",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:PutShipOutsideAt",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00518170",
+   "name": "UpdateArrivingShip",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "medium",
+   "evidence": "Callers UpdateMidLevelHyperspacingShips and singlePlayerGameUpdate; computes arrival position (matMultiplyMatByVec, ranRandomFn) and calls PutShipOutsideAt; HW1 SinglePlayer.c:1478",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:UpdateArrivingShip",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x005186c0",
+   "name": "spHyperspaceSelectionIn",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "Recursive with growSelectInit/AddShip/Close for clamped ships; callers kasfShipsHyperspaceIn/kasfTeamHyperspaceIn and processMpHyperspaceingToDo as HW1 KASFunc.c:1135, CommandLayer.c:2590",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:spHyperspaceSelectionIn",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x005187c0",
+   "name": "spHyperspaceSelectionInStatic",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "Sole caller kasfGateShipsIn; per ship sets ssinfo midlevelHyperspaceIn=1, staticHyperspaceGate=1, midlevelHyperspaceTo=*dest (HW1 SinglePlayer.c:1747 field for field)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:spHyperspaceSelectionInStatic",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00518940",
+   "name": "spHyperspaceSelectionOut",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "Recursive over clamped ships; CalculateHyperspaceTimeForShip, AddShipToHyperspace, univRemoveShipFromOutside; callers kasfShipsHyperspaceOut, processMpHyperspaceingToDo as HW1 KASFunc.c:1173",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:spHyperspaceSelectionOut",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00518af0",
+   "name": "spHyperspaceSelectionOutStatic",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "Recursive static-gate variant; caller kasfGateShipsOut as HW1 KASFunc.c:3774",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:spHyperspaceSelectionOutStatic",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00518880",
+   "name": "cat_spPrepareShipHyperspaceOut",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller spHyperspaceSelectionOut; RemoveShipsFromDoingStuff, unClampObj, cat_salvageDetach on a ship before it leaves",
+   "hw1_equivalent": "",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00518c50",
+   "name": "singlePlayerInit",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "medium",
+   "evidence": "scriptSet of SP tweak table, listInit of hyperspace lists, growSelectInit, smUpdateHyperspaceStatus, objectiveStartup, kasInit; HW1 SinglePlayer.c:1915",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerInit",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00518e90",
+   "name": "cat_spMainScreenAndLockoutKeepSensors",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "spMainScreenAndLockout body without smSensorsCloseForGood (rm/lm/cm close, feAllMenusDelete, mrDisable, mouseDisable); caller 0x4973d0",
+   "hw1_equivalent": "",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00518820",
+   "name": "cat_spConsoleWarpMission",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Pointer-table callback: if SP and 0<n<20 closes console, spHyperspaceButtonPushed, currentMission=n-1 (Cataclysm debug/console warp)",
+   "hw1_equivalent": "",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x005193d0",
+   "name": "singlePlayerPostInit",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "if (!loadingSaveGame && currentMission==1) animBinkPlay(0,1): HW1 SinglePlayer.c:2109 with animAviPlay replaced by Bink",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerPostInit",
+   "signature": "void singlePlayerPostInit(bool32 loadingSaveGame)",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x005193f0",
+   "name": "singlePlayerClose",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "Caller gameEnd; kasClose, feScreensDelete(rollcall handle)+NULL, smSensorWeirdness=0, clears debug draw flags: HW1 SinglePlayer.c:2124",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerClose",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00519440",
+   "name": "singlePlayerSetMissionAttributes",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "medium",
+   "evidence": "scriptSet(directory, filename, table) then helper; callers are the two level-load paths (0x4a3a10, 0x4a3c80) as HW1 LevelLoad.c:2337/2383",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerSetMissionAttributes",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00519490",
+   "name": "cat_spForgetDamageEffects",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Recursive over shipsInsideMe (+0x4b4) calling dmgForgetEffects; per-ship form of HW1 CleanupDamageEffects (SinglePlayer.c:2195)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:CleanupDamageEffects",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x005194d0",
+   "name": "singlePlayerShipDied",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "Callers univDeleteDeadShip and univRemoveShipReferences, as HW1 UnivUpdate.c:4070/6523; removes ship from SP lists (listDeleteNode)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerShipDied",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00519510",
+   "name": "singlePlayerGameCleanup",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "Caller univupdateCloseAllObjectsAndMissionSpheres as HW1 UnivUpdate.c:6672; objectiveDestroyAll, kasLabelledEntitiesDestroy, spUnlockout",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerGameCleanup",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x0051ab50",
+   "name": "SetOnMissionCompleteInfo",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "medium",
+   "evidence": "Script callback (no direct callers) using RemoveCommasFromString + sscanf, placed after singlePlayerGameUpdate as HW1 static SetOnMissionCompleteInfo (SinglePlayer.c:2688)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:SetOnMissionCompleteInfo",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x0051abb0",
+   "name": "cat_spDeleteLeftBehindShips",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Called by singlePlayerLoadNewLevel; walks ShipsInHyperspace, sets howDidIDie and univDeleteWipeInsideShipOutOfExistence for filtered ship types; cf HW1 DeleteAnyMidLevelHyperspacingShips",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:DeleteAnyMidLevelHyperspacingShips",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x0051bdb0",
+   "name": "singlePlayerStartGame",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "medium",
+   "evidence": "Caller gameStart; warp path (universeSwitchToPlayer + 0x51b9c0) else tmTechInit ... singlePlayerStartNis, as HW1 SinglePlayer.c:3800",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerStartGame",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x0051b9c0",
+   "name": "cat_spWarpToLevel",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller singlePlayerStartGame (warp branch): singlePlayerLoadNewLevel, univCreateShip/unitCapCreateShip, research upgrades; Cataclysm form of HW1 warpLevel branch + WarpInFleet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:WarpInFleet",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x0051be40",
+   "name": "singlePlayerMissionCompleteCB",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "selSelected.numShips=0; ioUpdateShipTotals; mrRenderMainScreen=0; quittime=elapsed; credits flag=1: HW1 SinglePlayer.c:3892 line for line; caller kasfMissionCompleted",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerMissionCompleteCB",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x0051be70",
+   "name": "singlePlayerMissionFailedCB",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "univKillPlayer(0, 2=PLAYERKILLED_LOSTMISSION); CheckPlayerWin(); plus a speech event: HW1 SinglePlayer.c:3902",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerMissionFailedCB",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x0051bee0",
+   "name": "SaveSinglePlayerGame",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "Called in SaveGame after aiplayerSave as HW1 SaveGame.c:708; SaveStructureOfSize + SaveGrowSelection + SaveLinkedListOfInsideShips; HW1 SinglePlayer.c:4050",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:SaveSinglePlayerGame",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x0051bf90",
+   "name": "LoadSinglePlayerGame",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "Called in LoadGame after aiplayerLoad; LoadStructureOfSizeToAddress, LoadGrowSelectionAndFix, Load/FixLinkedListOfInsideShips, re-applies lockout; HW1 SinglePlayer.c:4060",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:LoadSinglePlayerGame",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00517770",
+   "name": "TellHyperspacingShipsToReady",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "selectAll hyperspacing ships, set specialFlags 0x80/0x8080 by shipInMilitaryParade, drop launching ships (inlined), RemoveShipsFromDoingStuff, clSetMilitaryParade: HW1 SinglePlayer.c:903",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:TellHyperspacingShipsToReady",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00512f80",
+   "name": "selectAllCurrentPlayersHyperspacingShips",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "Returns allocated selection iterated and memFree'd by TellHyperspacingShipsToReady, as HW1 ShipSelect.c:1544",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:selectAllCurrentPlayersHyperspacingShips",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00512f00",
+   "name": "selectAllCurrentPlayersNonHyperspacingShips",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "118-byte twin of 0x512f80 adjacent to it; spHyperspaceButtonPushed calls it before clDock (TellShipsToDockForHyperspace inlined, HW1 SinglePlayer.c:834)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:selectAllCurrentPlayersNonHyperspacingShips",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x004ab650",
+   "name": "ioUpdateShipTotals",
+   "kind": "function",
+   "class": "hw1:InfoOverlay.c",
+   "confidence": "medium",
+   "evidence": "singlePlayerMissionCompleteCB does selSelected.numShips=0 then this, as HW1 SinglePlayer.c:3894; same pattern after every selection change in mainrgn handlers; 66 callers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/InfoOverlay.c:ioUpdateShipTotals",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00462660",
+   "name": "dmgForgetEffects",
+   "kind": "function",
+   "class": "hw1:Damage.c",
+   "confidence": "medium",
+   "evidence": "Zeroes the per-ship damage effect slots (+0x3ac, counts table 0x8790d0) without deleting, beside dmgStopEffect which deletes them; HW1 CleanupDamageEffects calls dmgForgetEffects",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Damage.c:dmgForgetEffects",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00a6ad9c",
+   "name": "spHyperspaceRollCallHandle",
+   "kind": "data",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "medium",
+   "evidence": "Screen handle passed to feScreensDelete and zeroed in singlePlayerClose",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:spHyperspaceRollCallHandle",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x00a5b220",
+   "name": "smSensorWeirdness",
+   "kind": "data",
+   "class": "hw1:Sensors.c",
+   "confidence": "low",
+   "evidence": "Zeroed in singlePlayerClose at the place of HW1 smSensorWeirdness = FALSE",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smSensorWeirdness",
+   "subsystem": "singleplayer"
+  },
+  {
+   "address": "0x004fd7c0",
+   "name": "SaveThisChunk",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "fwrite(chunk, contentsSize+8, 1, fileStream(savefile)); on !=1 sets savefilestatus=1; follows every CreateChunk in SaveGame; HW1 SaveGame.c:312",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveThisChunk",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004fd6e0",
+   "name": "SpaceObjRegistryObjPresent",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Linear search of SpaceObjRegistry.selection (DAT_00c16764) returning index or -1, no NULL test; HW1 SaveGame.c:122",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SpaceObjRegistryObjPresent",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004fd710",
+   "name": "SpaceObjRegistryGetID",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "NULL -> -1 else same registry search; 51 call sites in Save* writers (pingSave, SaveShip); HW1 SaveGame.c:152",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SpaceObjRegistryGetID",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004fd740",
+   "name": "SpaceObjRegistryGetObj",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "id==-1 -> NULL else registry ShipPtr[id]; used by Fix*/LoadUniverse mothership fix. HW1 GetShip/GetResource/GetBullet/GetTarget are identical and likely COMDAT-folded here",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SpaceObjRegistryGetObj",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004fd760",
+   "name": "BlobRegistryBlobPresent",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Linear search of BlobRegistry.selection (DAT_00c1676c) returning index or -1; HW1 SaveGame.c:244",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:BlobRegistryBlobPresent",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004fd790",
+   "name": "BlobRegistryGetID",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "NULL -> -1 else blob registry search (BlobRegistryGetIDWrapper inlined, asserts stripped so GetIDNoBlobOkay is identical); used by SaveAllSpaceObjs for obj->collMyBlob",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:BlobRegistryGetID",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004fe400",
+   "name": "RegisterAllSpaceObjsInsideMe",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Recursive: walks shipsInsideMe list (+0x4b4), growSelectAddShip(&SpaceObjRegistry, ship), recurses; called by RegisterAllSpaceObjs; HW1 SaveGame.c:899",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:RegisterAllSpaceObjsInsideMe",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004fe470",
+   "name": "RegisterAllSpaceObjs",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Called in SaveGame right after registry init; registers SpaceObjList entries (skips effects type 7, univRemoveShipReferences on dead), inside-ships and other lists; HW1 SaveGame.c:917",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:RegisterAllSpaceObjs",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004fe6e0",
+   "name": "SaveAllBlobs",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Writes count chunk (0x20000000) of BlobRegistry then SaveBlob for each; HW1 SaveGame.c:986",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveAllBlobs",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004fe770",
+   "name": "LoadAllBlobs",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadGame callee: LoadNextChunk count, LoadBlob each, growSelectAddShip(&BlobRegistry); HW1 SaveGame.c:1005",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadAllBlobs",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004fe7a0",
+   "name": "FixAllBlobs",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadGame callee after FixAllSpaceObjs; loops BlobRegistry calling FixBlob; HW1 SaveGame.c:1026",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:FixAllBlobs",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004fe7d0",
+   "name": "SaveBlob",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Sole caller SaveAllBlobs; CreateChunk of blob, ids via SpaceObjRegistryObjPresent, SaveSelection of blob members; HW1 SaveGame.c:1037",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveBlob",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004feb30",
+   "name": "LoadBlob",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Sole caller LoadAllBlobs; LoadNextChunk + LoadSelection; HW1 SaveGame.c:1068",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadBlob",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004fee50",
+   "name": "FixBlob",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Sole caller FixAllBlobs; HW1 SaveGame.c:1099",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:FixBlob",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004ff080",
+   "name": "SaveAllSpaceObjs",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Loops registry; objtype switch: 0 SaveShip, 1 bullet, 2/3/5 inlined asteroid/nebula/dust, 4 'Saving Gas clouds not supported yet', 6 derelict, 8 missile = SaveSpaceObj inlined",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveAllSpaceObjs",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004ff3b0",
+   "name": "LoadAllSpaceObjs",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "First LoadGame loader after registries: count chunk, LoadSpaceObj each, growSelectAddShip(&SpaceObjRegistry); HW1 SaveGame.c:1133",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadAllSpaceObjs",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004ff3e0",
+   "name": "FixAllSpaceObjs",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadGame callee after LoadConsMgrDetermOptional; objtype switch: FixShip, registry/list id fixups, gas-cloud dbgFatal, FixMissile (FixSpaceObj inlined); HW1 SaveGame.c:1154",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:FixAllSpaceObjs",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004ffa30",
+   "name": "Save_String",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Chunk 0x40000d00 of strlen+1 bytes (size 0 for NULL); saves btgLastBackground/lightCurrentLighting in SaveGame, also objectiveSave/tmSave; HW1 SaveGame.c:1428",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:Save_String",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004ffad0",
+   "name": "Load_String",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "LoadNextChunk returning allocated string; callers objectiveLoad, tmLoad (pair of Save_String users); HW1 SaveGame.c:1445",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:Load_String",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004ffb30",
+   "name": "Load_StringToAddress",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "53-byte LoadNextChunk+copy to caller buffer, placed between Load_String and SaveStructureOfSize as HW1 SaveGame.c:1470",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:Load_StringToAddress",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004ffb70",
+   "name": "SaveStructureOfSize",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Builds chunk with contentsSize=size, memcpy(ptr,size), SaveThisChunk; used for playerNames 0x90, tpGameCreated 0x2b0, ranSave streams 0x14; HW1 SaveGame.c:1486",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveStructureOfSize",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004ffbf0",
+   "name": "LoadStructureOfSize",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "LoadNextChunk returning copied contents; callers kasLoad, LoadHyperspaceGates (counterparts of SaveStructureOfSize users); HW1 SaveGame.c:1495",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadStructureOfSize",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004ffc30",
+   "name": "LoadStructureOfSizeToAddress",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadNextChunk + copy to address; callers include ranLoad (0x4efb70) and tmLoad/kasLoad; HW1 ranLoad uses LoadStructureOfSizeToAddress (Randy.c)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadStructureOfSizeToAddress",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004ffc60",
+   "name": "CopyPointersFromRealShipStaticInfo",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "Only caller LoadShip; copies header LOD/pMexData plus a run of pointer fields from real to dynamic static info, no calls; HW1 SaveGame.c:1655 (used in LoadShip:1923)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:CopyPointersFromRealShipStaticInfo",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00500d60",
+   "name": "SaveCloudSystem",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "Called from SaveAllSpaceObjs dust-cloud case (objtype 5) after the 0x1a4 DustCloud chunk; HW1 SaveDustCloud calls SaveCloudSystem (SaveGame.c:2186)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveCloudSystem",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00500df0",
+   "name": "LoadDustCloud",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadSpaceObj case 5 (OBJ_DustType) with the chunk; HW1 SaveGame.c:2258",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadDustCloud",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00500f00",
+   "name": "SaveBullet",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "SaveAllSpaceObjs objtype 1 (OBJ_BulletType) case; HW1 SaveGame.c:2354",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveBullet",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501050",
+   "name": "SaveDerelict",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "SaveAllSpaceObjs objtype 6 (OBJ_DerelictType) case; HW1 SaveGame.c:2421",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveDerelict",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x005012c0",
+   "name": "SaveMissile",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "SaveAllSpaceObjs objtype 8 (OBJ_MissileType) case; calls saveEtglodGunEventToIndex as HW1 SaveMissile; SaveGame.c:2502",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveMissile",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501540",
+   "name": "FixMissile",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "FixAllSpaceObjs objtype 8 case; calls saveIndexToEtglodGunEvent as HW1 FixMissile; SaveGame.c:2564",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:FixMissile",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501660",
+   "name": "LoadSpaceObj",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Sole caller LoadAllSpaceObjs; LoadNextChunk then switch on chunk type&0xf: LoadShip, ..., gas-cloud dbgFatal, LoadDustCloud; HW1 SaveGame.c:2680",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadSpaceObj",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x005019c0",
+   "name": "SaveLinkedListOfSpaceObjs",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "SaveUniverse calls it on ShipList and the next 5 universe lists in HW1 order; writes count + registry ids; HW1 SaveGame.c:2733",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveLinkedListOfSpaceObjs",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501a70",
+   "name": "LoadLinkedListOfSpaceObjs",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadUniverse calls (list, xxxListAddCB) for the last 3 universe lists; listInit + LoadNextChunk; HW1 SaveGame.c:2810",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadLinkedListOfSpaceObjs",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501b30",
+   "name": "SaveSelection",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Chunk type 0x900 (SELECTION) {num, ids via SpaceObjRegistry}; used for selSelected and the hot-key groups in SaveGame (SaveMaxSelection folded in); HW1 SaveGame.c:2925",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveSelection",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501bf0",
+   "name": "SaveGrowSelection",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Same SELECTION chunk but from grow->selection (+4); callers kasSave, SaveSinglePlayerGame; HW1 SaveGame.c:2953",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveGrowSelection",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501cb0",
+   "name": "LoadSelection",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadNextChunk, alloc num*4+8, copy raw ids (unfixed); callers LoadShip, LoadBlob, LoadSpaceObj; HW1 SaveGame.c:2958",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadSelection",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501d00",
+   "name": "LoadGrowSelection",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadSelection inlined then grow->selection=sel, grow->maxNumShips=num; HW1 SaveGame.c:2988",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadGrowSelection",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501d60",
+   "name": "FixSelection",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "47-byte loop over selection ids mapping through registry; caller FixShip; HW1 SaveGame.c:2994",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:FixSelection",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501d90",
+   "name": "LoadSelectionAndFix",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadNextChunk, ids -> SpaceObjRegistry ptrs (-1 -> NULL), returns new selection; used for LoadGame hot-key groups and pingLoad; HW1 SaveGame.c:3011",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadSelectionAndFix",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501df0",
+   "name": "LoadMaxSelectionAndFix",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadSelectionAndFix inlined then memcpy into caller MaxSelection and free; HW1 SaveGame.c:3041",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadMaxSelectionAndFix",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501e70",
+   "name": "cat_saveLoadMaxSelection",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Like LoadMaxSelectionAndFix but copies raw ids without registry fix (fixed later); sole caller Leech_Load; no HW1 equivalent",
+   "hw1_equivalent": "",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501ee0",
+   "name": "LoadGrowSelectionAndFix",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadSelectionAndFix inlined, then grow->selection / maxNumShips set; callers kasLoad, LoadSinglePlayerGame; HW1 SaveGame.c:3048",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadGrowSelectionAndFix",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501f50",
+   "name": "SaveLinkedListOfStuff",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "(list, cb): SaveUniverse passes ResourceVolumeList + SaveResourceVolumeCB; also SaveConsMgrDetermOptional, objectiveSave; HW1 SaveGame.c:3054",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveLinkedListOfStuff",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00501fe0",
+   "name": "LoadLinkedListOfStuff",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "(list, cb): listInit, LoadInfoNumber count, cb per item; LoadUniverse passes LoadResourceVolumeCB; HW1 SaveGame.c:3068",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadLinkedListOfStuff",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00502010",
+   "name": "FixLinkedListOfStuff",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "for node in list: cb(node->structptr); HW1 SaveGame.c:3083 line for line",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:FixLinkedListOfStuff",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x005022d0",
+   "name": "Save_CommandToDo",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "SaveUniverse calls it per node of universe.mainCommandLayer todolist (Save_CommandLayer inlined); writes command chunk + SaveSelection; HW1 SaveGame.c:3205",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:Save_CommandToDo",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00502910",
+   "name": "Load_CameraStackEntry",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "Sole caller Load_CameraCommand; LoadNextChunk + listAddNode; HW1 SaveGame.c:3515",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:Load_CameraStackEntry",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x005029c0",
+   "name": "ConvertPointerInListToNum",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "NULL -> -1, else node index of entry in list or -1; HW1 SaveGame.c:3548 line for line",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:ConvertPointerInListToNum",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x005029f0",
+   "name": "ConvertNumToPointerInList",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "-1 -> NULL else walk num nodes and return struct; HW1 SaveGame.c:3572",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:ConvertNumToPointerInList",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00502a10",
+   "name": "Save_CameraCommand",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "SaveUniverse calls it with &universe.mainCameraCommand (0x00b62a0c, also passed to Load_CameraCommand) after the command layer; HW1 SaveGame.c:3595",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:Save_CameraCommand",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00502c40",
+   "name": "Load_CameraCommand",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadUniverse calls it with 0x00b62a0c; listInit + Load_CameraStackEntry loop; HW1 SaveGame.c:3634",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:Load_CameraCommand",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00502d00",
+   "name": "SaveLinkedListOfInsideShips",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "Callers SaveShip and SaveSinglePlayerGame, pairs with 0x502db0 (LoadSinglePlayerGame) and 0x502e10 (FixShip+LoadSinglePlayerGame); HW1 SaveGame.c:3671",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveLinkedListOfInsideShips",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00502db0",
+   "name": "LoadLinkedListOfInsideShips",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "listInit + LoadNextChunk + listAddNode; caller LoadSinglePlayerGame; HW1 SaveGame.c:3704",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadLinkedListOfInsideShips",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00502e10",
+   "name": "FixLinkedListOfInsideShips",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "Callers FixShip and LoadSinglePlayerGame, no callees (registry lookups inlined); HW1 SaveGame.c:3735",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:FixLinkedListOfInsideShips",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00502e40",
+   "name": "Save_PlayerResearchInfo",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "SaveUniverse per-player loop on player research info; HW1 SaveUniverse ends with Save_PlayerResearchInfo per player (SaveGame.c:3820)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:Save_PlayerResearchInfo",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00502f20",
+   "name": "Load_PlayerResearchInfo",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "LoadUniverse per-player (player, &researchinfo); listInit+listAddNode research topics, cat_playerUpdateUpgradesFromResearch; HW1 SaveGame.c:3825",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:Load_PlayerResearchInfo",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00502ff0",
+   "name": "SaveMineFormationList",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "SaveUniverse on 0x00b62b38 right after the SpaceObj lists, as HW1 SaveMineFormationList(&universe.MineFormationList) SaveGame.c:3883",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveMineFormationList",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x005031a0",
+   "name": "LoadMineFormationList",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadUniverse on 0x00b62b38 after LoadLinkedListOfSpaceObjs; listInit + listAddNode; HW1 SaveGame.c:3907",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadMineFormationList",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00503290",
+   "name": "SaveRetreatAtom",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "SaveUniverse: SaveInfoNumber(list count @0x00b62b88) then this per node (SaveRetreatList inlined); load side 0x503380 refills list 0x00b62b80; HW1 SaveGame.c:3930",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveRetreatAtom",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00503380",
+   "name": "LoadRetreatAtom",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "LoadUniverse: listInit(0x00b62b80), LoadInfoNumber, loop LoadRetreatAtom + listAddNode (LoadRetreatList inlined); HW1 SaveGame.c:3964",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadRetreatAtom",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00503410",
+   "name": "SaveResourceVolumeCB",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "low",
+   "evidence": "Code address passed with ResourceVolumeList to SaveLinkedListOfStuff in SaveUniverse (no function entry yet, may need creating); HW1 SaveGame.c:4091",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveResourceVolumeCB",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00503480",
+   "name": "LoadResourceVolumeCB",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Passed as cb with list 0x00b62b8c to LoadLinkedListOfStuff in LoadUniverse; LoadNextChunk + listAddNode; HW1 SaveGame.c:4096",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadResourceVolumeCB",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x005034c0",
+   "name": "SaveUniverse",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "SaveGame callee after SaveAllBlobs; universe chunk, command layer, camera, SpaceObj lists, mine formations, univDeleteDead*, ResourceVolume list, per-player research; HW1 SaveGame.c:4103",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveUniverse",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x005038d0",
+   "name": "FillOutCollBlobList",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadUniverse on collBlobList 0x00b62b74: listInit + listAddNode of each BlobRegistry entry; HW1 SaveGame.c:4164",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:FillOutCollBlobList",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00503910",
+   "name": "LoadUniverse",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadGame callee: star3dClose, universe chunk, Load_CommandLayer, Load_CameraCommand, list loads, FillOutCollBlobList, star3dInit(n, radius-1, radius); HW1 SaveGame.c:4178",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadUniverse",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004fda00",
+   "name": "cat_saveGamePreGameTable",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Packs {ptr,size}[3] table at 0x00892660 (incl. SongNumber, CET SongNumberLoadGameOffset) into one chunk 0x80004000; LoadGame copies it back; per docs/cet-knowledge.md 3d",
+   "hw1_equivalent": "",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00513440",
+   "name": "growSelectInit",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "maxNumShips=16, selection=memAlloc(0x48), numShips=0; called on SpaceObjRegistry/BlobRegistry at start of SaveGame and LoadGame (SpaceObjRegistryInit/BlobRegistryInit inlined)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:growSelectInit",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00513350",
+   "name": "growSelectAddShip",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "If full grow by 8 via memRealloc, append ship, ++numShips; used by registry register paths (SpaceObjRegistryRegister/BlobRegistryRegister inlined)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:growSelectAddShip",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004626a0",
+   "name": "dmgStopEffect",
+   "kind": "function",
+   "class": "hw1:Damage.c",
+   "confidence": "medium",
+   "evidence": "Called (ship, 3=DMG_All) for every ship before registry init in SaveGame/LoadGame, as HW1 SpaceObjRegistryInit; deletes per-ship damage effects (etgEffectDelete+univDeleteEffect)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Damage.c:dmgStopEffect",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x0053ce80",
+   "name": "universeSaveEverythingNeeded",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "medium",
+   "evidence": "Called in SaveGame pre-game section only when tutorial (DAT_00a43ca0) != 1 (TUTORIAL_ONLY), as HW1 SavePreGameInfo SaveGame.c:619",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:universeSaveEverythingNeeded",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004cb560",
+   "name": "nebSave_Nebula",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "SaveGame: called right after the 4 SaveIDToPtrTable calls, before SaveConsMgr, as HW1 SaveGame.c:705; in Nebulae.c address range",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebSave_Nebula",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004cb7f0",
+   "name": "nebLoad_Nebula",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "LoadGame: after the 4 LoadIDToPtrTable calls, before LoadConsMgr, as HW1 SaveGame.c:842",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebLoad_Nebula",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004e96f0",
+   "name": "pingSave",
+   "kind": "function",
+   "class": "hw1:Ping.c",
+   "confidence": "high",
+   "evidence": "Counts pings whose evaluate==anomaly-timeout fn, SaveInfoNumber(count), chunk per ping; called after tmSave in SaveGame; HW1 Ping.c:1134",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Ping.c:pingSave",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004e9790",
+   "name": "pingLoad",
+   "kind": "function",
+   "class": "hw1:Ping.c",
+   "confidence": "high",
+   "evidence": "Called after tmLoad in LoadGame, uses LoadSelectionAndFix; HW1 LoadGame order kasLoad/objectiveLoad/tmLoad/pingLoad",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Ping.c:pingLoad",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004efb50",
+   "name": "ranSave",
+   "kind": "function",
+   "class": "hw1:Randy.c",
+   "confidence": "high",
+   "evidence": "Loop SaveStructureOfSize(&ranStream[i], 0x14) over stream array; after smSave in SaveGame; HW1 Randy.c:279",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Randy.c:ranSave",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004efb70",
+   "name": "ranLoad",
+   "kind": "function",
+   "class": "hw1:Randy.c",
+   "confidence": "high",
+   "evidence": "After smLoad in LoadGame; LoadStructureOfSizeToAddress loop; HW1 Randy.c:289",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Randy.c:ranLoad",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x0052f750",
+   "name": "tutSaveTutorialGame",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "Called in SaveGame only when tutorial==1 (TUTORIAL_ONLY); uses Save_String; HW1 SaveGame.c:719",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSaveTutorialGame",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x0052f8b0",
+   "name": "tutLoadTutorialGame",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "Called in LoadGame only when tutorial==1; uses Load_StringToAddress; HW1 SaveGame.c:853",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutLoadTutorialGame",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00428440",
+   "name": "btgSetTheta",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "btgThetaOffset = -theta; called in LoadGame background restore; HW1 BTG.c:240",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgSetTheta",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00428450",
+   "name": "btgGetTheta",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "return -btgThetaOffset; SaveGame background section; HW1 BTG.c:244",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgGetTheta",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00428460",
+   "name": "btgSetPhi",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "btgPhiOffset = -phi; HW1 BTG.c:256",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgSetPhi",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00428470",
+   "name": "btgGetPhi",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "return -btgPhiOffset; HW1 BTG.c:260",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgGetPhi",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004286b0",
+   "name": "btgLoadTextures",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "if btgLastBackground[0]: btgLoad(btgLastBackground); btgFade=-1; HW1 BTG.c:505 line for line",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgLoadTextures",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x004286e0",
+   "name": "btgLoad",
+   "kind": "function",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "Called by btgLoadTextures with btgLastBackground as HW1 BTG.c:509",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgLoad",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00523f50",
+   "name": "star3dInit",
+   "kind": "function",
+   "class": "hw1:Star3d.c",
+   "confidence": "high",
+   "evidence": "(n, inner, outer): alloc n*0x18+0xc, store n/inner/outer, init each star; LoadUniverse calls (NUM_STARS, radius-1, radius) as HW1 SaveGame.c:4230",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Star3d.c:star3dInit",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00a578f0",
+   "name": "savefile",
+   "kind": "data",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "fileOpen result in SaveGame, fileStream arg of every chunk write, zeroed after fileClose",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:savefile",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00a578f4",
+   "name": "savefilestatus",
+   "kind": "data",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Set 1 on fwrite!=1 in SaveThisChunk; SaveGame deletes file and returns FALSE when set",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:savefilestatus",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00c16760",
+   "name": "SpaceObjRegistry",
+   "kind": "data",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "GrowSelection passed to growSelectInit/growSelectAddShip/growSelectClose in SaveGame; selection ptr at +4 (0x00c16764) searched by SpaceObjRegistryObjPresent",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SpaceObjRegistry",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00c16768",
+   "name": "BlobRegistry",
+   "kind": "data",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "Second GrowSelection: blobs from collBlobList registered here; selection at +4 (0x00c1676c) searched by BlobRegistryBlobPresent",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:BlobRegistry",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00b3a860",
+   "name": "ShipIDToPtr",
+   "kind": "data",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "1st SaveIDToPtrTable/LoadIDToPtrTable arg, HW1 order Ship, Resource, Derelict, Missile",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:ShipIDToPtr",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00b3a878",
+   "name": "ResourceIDToPtr",
+   "kind": "data",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "2nd SaveIDToPtrTable/LoadIDToPtrTable arg",
+   "hw1_equivalent": "",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00b3a868",
+   "name": "DerelictIDToPtr",
+   "kind": "data",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "3rd SaveIDToPtrTable/LoadIDToPtrTable arg",
+   "hw1_equivalent": "",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00b3a858",
+   "name": "MissileIDToPtr",
+   "kind": "data",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "4th SaveIDToPtrTable/LoadIDToPtrTable arg",
+   "hw1_equivalent": "",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x008dfaf8",
+   "name": "btgLastBackground",
+   "kind": "data",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "Save_String arg after btg theta/phi in SaveGame; tested and passed to btgLoad in btgLoadTextures",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgLastBackground",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00b3a2c0",
+   "name": "lightCurrentLighting",
+   "kind": "data",
+   "class": "hw1:Light.c",
+   "confidence": "high",
+   "evidence": "Save_String arg after background; LoadGame passes it to lightParseHSF or lightDefaultLightSet when empty (HW1 LoadLighting)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Light.c:lightCurrentLighting",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x008dfa58",
+   "name": "btgThetaOffset",
+   "kind": "data",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "Negated by btgSetTheta/btgGetTheta",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgThetaOffset",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x008dfae4",
+   "name": "btgPhiOffset",
+   "kind": "data",
+   "class": "hw1:BTG.c",
+   "confidence": "high",
+   "evidence": "Negated by btgSetPhi/btgGetPhi",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BTG.c:btgPhiOffset",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x008954c0",
+   "name": "actorFlagsEnabled",
+   "kind": "data",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "Saved/loaded as an info number after ranSave/ranLoad, as HW1 SaveInfoNumber(actorFlagsEnabled)",
+   "hw1_equivalent": "",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00a5b1e0",
+   "name": "smGhostMode",
+   "kind": "data",
+   "class": "hw1:Sensors.c",
+   "confidence": "medium",
+   "evidence": "Saved/loaded right after actorFlagsEnabled and before SaveConsMgrDetermOptional, as HW1 SaveGame.c:731",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smGhostMode",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00a6ac78",
+   "name": "CurrentLevelName",
+   "kind": "data",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "medium",
+   "evidence": "SP-only string saved as chunk 0x40000d00 (Save_String inlined) after pingSave, as HW1 Save_String(CurrentLevelName)",
+   "hw1_equivalent": "",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00c0cac0",
+   "name": "selHotKeyGroup",
+   "kind": "data",
+   "class": "hw1:Select.c",
+   "confidence": "medium",
+   "evidence": "Array (stride 0xfa8) saved with SaveSelection after selSelected, loaded with LoadSelectionAndFix, as HW1 selHotKeyGroup[SEL_NumberHotKeyGroups]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selHotKeyGroup",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x00a43ca0",
+   "name": "tutorial",
+   "kind": "data",
+   "class": "hw1:Tutor.c",
+   "confidence": "medium",
+   "evidence": "==1 gates tutSaveTutorialGame/tutLoadTutorialGame and !=1 gates universeSaveEverythingNeeded, matching HW1 tutorial==TUTORIAL_ONLY tests",
+   "hw1_equivalent": "",
+   "subsystem": "savegame"
+  },
+  {
+   "address": "0x0046de60",
+   "name": "etgAtDefine",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "CONFIRMED (CET anchor kept): opcode by name at/before/after/else every (5/1/3/8), number via sscanf, 'at' time rounded by fmod vs ETG_UpdateRoundOff/2 @0x72a810 = HW1 ETG.c:5210",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAtDefine",
+   "subsystem": "cet-recheck"
+  },
+  {
+   "address": "0x0048cb60",
+   "name": "gunShipFirePower",
+   "kind": "function",
+   "class": "hw1:Gun.c",
+   "confidence": "high",
+   "evidence": "CONFIRMED: memchr(gunInterceptorTypes, info->shiptype, 3) split, per-gun fireTime=0.0625 if 0, sum dmg/fireTime (Gun.c:1686). decomp: site 0x48CC57 in non-interceptor loop, 0x48CBD0 interceptor",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Gun.c:gunShipFirePower",
+   "subsystem": "cet-recheck"
+  },
+  {
+   "address": "0x004cc600",
+   "name": "nisUpdateTask",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "CONFIRMED: task body passed to taskStart('NisUpdateTask', fn, 0.0625) in nisStartup; calls nisUpdate, nisStop, nisDelete, nisPause, nisCameraFlyCompute as HW1 NIS.c nisUpdateTask",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisUpdateTask",
+   "subsystem": "cet-recheck"
+  },
+  {
+   "address": "0x004cc8f0",
+   "name": "nisStartup",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "CONFIRMED: nisTaskHandle=taskStart(nisUpdateTask, 0.0625, 0); taskPause(handle) (+ cat_taskTimeCompressionReset); caller utyGameSystemsInit; HW1 NIS.c nisStartup line for line",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStartup",
+   "subsystem": "cet-recheck"
+  },
+  {
+   "address": "0x004dc6f0",
+   "name": "partRenderBillSystem",
+   "kind": "function",
+   "class": "hw1:Particle.c",
+   "confidence": "high",
+   "evidence": "CONFIRMED: sole caller partRenderSystem (HW1 Particle.c:1745 PART_BILLBOARD case); uses rndBillboardEnable/Disable, trMakeCurrent, rndAdditiveBlends",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partRenderBillSystem",
+   "subsystem": "cet-recheck"
+  },
+  {
+   "address": "0x004f17a0",
+   "name": "CollectResources",
+   "kind": "function",
+   "class": "hw1:ResCollect.c",
+   "confidence": "high",
+   "evidence": "CONFIRMED: (ship, resource): max-RU check, harvestRate&univUpdateCounter, take min(rate,resourcevalue), AddResourceToDeleteResourceList, dust/gas cloud shrink = HW1 ResCollect.c:575",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResCollect.c:CollectResources",
+   "signature": "bool32 CollectResources(Ship *ship, Resource *resource)",
+   "subsystem": "cet-recheck"
+  },
+  {
+   "address": "0x0052af00",
+   "name": "taskCallBackInit",
+   "kind": "function",
+   "class": "hw1:Task.c",
+   "confidence": "high",
+   "evidence": "CONFIRMED: listInit(&callbacks.babies); babyTaskHandle=taskStart('BabyTasks', taskCallBackProcess, 0.0625, 0); caller utyGameSystemsInit; HW1 Task.c taskCallBackInit line for line",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Task.c:taskCallBackInit",
+   "subsystem": "cet-recheck"
+  },
+  {
+   "address": "0x0053e460",
+   "name": "universeUpdateTask",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "CONFIRMED: task with checkPlayersReady, chatClose, autodownloadmap*, horseRaceInit, gameStart, univUpdate, kasExecute = HW1 Universe.c:3784; CET push sites 0x53E8A5/8DB/9B5 lie inside it",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:universeUpdateTask",
+   "subsystem": "cet-recheck"
+  },
+  {
+   "address": "0x005485e0",
+   "name": "CheckPlayerWin",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "high",
+   "evidence": "CONFIRMED: callers clProcessSyncPacket, univKillOtherPlayersIfDead and singlePlayerMissionFailedCB (HW1 SinglePlayer.c:3905); per-player dead scan by game type as HW1 UnivUpdate.c:4150",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:CheckPlayerWin",
+   "subsystem": "cet-recheck"
+  },
+  {
+   "address": "0x005ab810",
+   "name": "utyGameSystemsPreInit",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "CONFIRMED: sole caller WinMain; memStartup heap, bigOpen Cataclysm.big/Update.big, CD check, fmathInit, keyInit, globalsInit, scriptSetTweakableGlobals = HW1 utility.c utyGameSystemsPreInit",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyGameSystemsPreInit",
+   "subsystem": "cet-recheck"
+  },
+  {
+   "address": "0x00c30e84",
+   "name": "nisTaskHandle",
+   "kind": "data",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "Stores taskStart result for nisUpdateTask in nisStartup and is passed to taskPause, as HW1 nisTaskHandle",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTaskHandle",
+   "subsystem": "cet-recheck"
+  },
+  {
+   "address": "0x008aa6fc",
+   "name": "babyTaskHandle",
+   "kind": "data",
+   "class": "hw1:Task.c",
+   "confidence": "high",
+   "evidence": "Stores taskStart('BabyTasks', taskCallBackProcess) result in taskCallBackInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Task.c:babyTaskHandle",
+   "subsystem": "cet-recheck"
+  },
+  {
+   "address": "0x00c52d80",
+   "name": "callbacks",
+   "kind": "data",
+   "class": "hw1:Task.c",
+   "confidence": "medium",
+   "evidence": "listInit target in taskCallBackInit = &callbacks.babies (babies list is the first member)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Task.c:callbacks",
+   "subsystem": "cet-recheck"
+  }
+ ],
+ "audit": {
+  "sampled": 30,
+  "correct": 29,
+  "wrong": 1,
+  "unverifiable": 0,
+  "precision": 0.9667,
+  "sample_seed": 11,
+  "sample_strata": {
+   "high": 14,
+   "medium": 10,
+   "low": 6
+  },
+  "sampled_addresses": [
+   "0x008dfaf8",
+   "0x0046de60",
+   "0x008aa6fc",
+   "0x004fd7c0",
+   "0x00517770",
+   "0x004cc600",
+   "0x00b38be0",
+   "0x00c16768",
+   "0x00501d00",
+   "0x005187c0",
+   "0x00a75804",
+   "0x0056f390",
+   "0x004efb70",
+   "0x005193f0",
+   "0x00502910",
+   "0x00566b60",
+   "0x00b3a858",
+   "0x004ffbf0",
+   "0x0056af60",
+   "0x0056ad50",
+   "0x0056a1e0",
+   "0x0056e890",
+   "0x00c0bb00",
+   "0x005025e0",
+   "0x0056ac00",
+   "0x00a5b220",
+   "0x00518820",
+   "0x00518880",
+   "0x00501e70",
+   "0x0051abb0"
+  ],
+  "wrong_addresses": [
+   "0x005025e0"
+  ],
+  "action": "keep (precision >= 0.9); dropped 1 sampled-wrong proposal; confidences unchanged",
+  "dropped": 1,
+  "notes": [
+   "0x005025e0 proposed Load_CommandLayer is WRONG: it loads ONE 0x330-byte CommandToDo chunk, fixes ship/selection ids per order type and does listAddNode(list,todo,todo) once; the num-loop (LoadNextChunk info, listInit(&universe), for i<num call 0x5025e0) is inlined in LoadUniverse 0x00503910. It is HW1 SaveGame.c:3323 Load_CommandToDo(LinkedList*), mirroring the producer's own Save_CommandToDo 0x005022d0 finding. Suggested replacement: Load_CommandToDo (medium).",
+   "0x00b3a858 MissileIDToPtr name correct (missileShoot IDToPtrTableAdd, MissileIDtoMissilePtr, 4th Save/LoadIDToPtrTable) but class should be hw1:UnivUpdate.c (defined UnivUpdate.c:74), hw1_equivalent left empty by producer."
+  ],
+  "suggested_corrections": [
+   {
+    "address": "0x005025e0",
+    "name": "Load_CommandToDo",
+    "kind": "function",
+    "class": "hw1:SaveGame.c",
+    "confidence": "medium",
+    "evidence": "Loads one 0x330 CommandToDo chunk, fixes ship ids via SpaceObjRegistry per order type, listAddNode once; LoadUniverse 0x503910 loops it (Load_CommandLayer inlined)",
+    "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:Load_CommandToDo"
+   }
+  ]
+ }
+}

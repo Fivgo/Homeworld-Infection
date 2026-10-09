@@ -1,0 +1,3173 @@
+{
+ "source": "gaps-ai-flight",
+ "method": "Neighbour/layout analysis in ghidra/exports/cataclysm_gog_r2a: MSVC keeps per-object function order, so unnamed functions between round-1 anchors are matched to the HW1 source file in source order; each candidate's decompiled body compared with the HW1 function (move-type constants, function-pointer triples written to AITeamMove+0x154/0x158/0x15c, callees, string literals). Identical-code folding (/OPT:ICF) is noted where one body serves several HW1 functions; LAB_ targets are proposed as function entries and flagged as such.",
+ "done_subsystems": [
+  "aimoves",
+  "aiorders",
+  "flightman",
+  "channelfsm",
+  "dock",
+  "movement-cluster",
+  "ships-c"
+ ],
+ "proposals": [
+  {
+   "address": "0x00406e90",
+   "name": "aimProcessGuardShips",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] processFunction set by aimCreateGuardShips (0x406f20, type 1=MOVE_GUARDSHIPS) and aimFix_GuardShips; first body of AIMoves block",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessGuardShips"
+  },
+  {
+   "address": "0x00406f00",
+   "name": "aimShipDiedGuardShips",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "[LAB_, not yet a function entry] moveShipDiedFunction of GuardShips (0x406f20/0x406fb0); ICF-folded body also used by Attack/Special/Kamikaze/FlankAttack/Support moves",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimShipDiedGuardShips"
+  },
+  {
+   "address": "0x00406f20",
+   "name": "aimCreateGuardShips",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 1 (MOVE_GUARDSHIPS), ptrs 0x406e90/0x406f00/0x40d950, listAddNode team+0x30, alloc 0x170 = HW1 aimCreateGuardShips",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateGuardShips"
+  },
+  {
+   "address": "0x00406fb0",
+   "name": "aimFix_GuardShips",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(aimProcessGuardShips 0x406e90, died 0x406f00, close 0x40d950); follows aimCreateGuardShips as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_GuardShips"
+  },
+  {
+   "address": "0x00406fe0",
+   "name": "aimProcessGetShips",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "[LAB_, not yet a function entry] processFunction set by aimFix_GetShips 0x4072a0; sits between GuardShips and GetShips creators as HW1 line 120",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessGetShips"
+  },
+  {
+   "address": "0x004070d0",
+   "name": "aimCreateGetShipsNoAdd",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "two memAlloc(0x170) (own alloc + inlined aimCreateFancyGetShipsNoAdd, type 0x16 FancyGetShips), no listAddNode: HW1 aimCreateGetShipsNoAdd",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateGetShipsNoAdd"
+  },
+  {
+   "address": "0x004072a0",
+   "name": "aimFix_GetShips",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "sets process 0x406fe0, died NULL, close 0x40da30 (aimCloseGetShips ICF-folded with aimCloseFancyGetShips) + NumberToAIVar(+0x1c)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_GetShips"
+  },
+  {
+   "address": "0x004072e0",
+   "name": "aimProcessVarWait",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] processFunction of type 0x1d (MOVE_VARWAIT, HW1 32 minus 3 removed swarm moves) set by 0x407330/0x4073d0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessVarWait"
+  },
+  {
+   "address": "0x00407330",
+   "name": "aimCreateVarWait",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0x1d (VarWait), process 0x4072e0, listAddNode; callers are AIOrders-region functions",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateVarWait"
+  },
+  {
+   "address": "0x004073d0",
+   "name": "aimFix_VarWait",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x4072e0,NULL,NULL) right after aimCreateVarWait, HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_VarWait"
+  },
+  {
+   "address": "0x004073f0",
+   "name": "aimProcessVarDec",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] processFunction of type 0x1c (MOVE_VARDEC) created by 0x407440",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessVarDec"
+  },
+  {
+   "address": "0x00407440",
+   "name": "aimCreateVarDec",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0x1c (VarDec), process 0x4073f0, listAddNode; HW1 order VarWait, VarDec, VarInc",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateVarDec"
+  },
+  {
+   "address": "0x004074e0",
+   "name": "aimFix_VarDec",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x4073f0,NULL,NULL) after aimCreateVarDec",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_VarDec"
+  },
+  {
+   "address": "0x00407500",
+   "name": "aimProcessVarInc",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "[LAB_, not yet a function entry] process set by aimFix_VarInc 0x407550; between VarDec and VarSet as HW1 (aimCreateVarInc not linked)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessVarInc"
+  },
+  {
+   "address": "0x00407550",
+   "name": "aimFix_VarInc",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "FixMoveFuncPtrs(0x407500,NULL,NULL) between aimFix_VarDec and aimProcessVarSet, HW1 source order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_VarInc"
+  },
+  {
+   "address": "0x00407570",
+   "name": "aimProcessVarSet",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x1a (MOVE_VARSET) created by 0x4075b0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessVarSet"
+  },
+  {
+   "address": "0x004075b0",
+   "name": "aimCreateVarSet",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0x1a (VarSet), process 0x407570, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateVarSet"
+  },
+  {
+   "address": "0x00407650",
+   "name": "aimFix_VarSet",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x407570,NULL,NULL) after aimCreateVarSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_VarSet"
+  },
+  {
+   "address": "0x00407670",
+   "name": "aimProcessVarDestroy",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x1e (MOVE_VARDESTROY) created by 0x4076b0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessVarDestroy"
+  },
+  {
+   "address": "0x004076b0",
+   "name": "aimCreateVarDestroy",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0x1e (VarDestroy), process 0x407670, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateVarDestroy"
+  },
+  {
+   "address": "0x00407750",
+   "name": "aimFix_VarDestroy",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x407670,NULL,NULL) after aimCreateVarDestroy",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_VarDestroy"
+  },
+  {
+   "address": "0x00407770",
+   "name": "aimInsertMove",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "if team->curMove==NULL listAddNode+listMoveNodeToHead else clear processing unless GETSHIPS(4)/FANCYGETSHIPS(0x16) then aitAddmoveBeforeAndMakeCurrent = HW1 aimInsertMove",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimInsertMove"
+  },
+  {
+   "address": "0x004077d0",
+   "name": "aimMoveSplitShipDied",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "moveShipDiedFunction for MoveTeamSplit in aimFix_MoveTeamSplit 0x40bb10; HW1 line 504 position after aimInsertMove",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimMoveSplitShipDied"
+  },
+  {
+   "address": "0x00407860",
+   "name": "aimMoveSplitClose",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "moveCloseFunction for MoveTeamSplit in 0x40bb10; follows aimMoveSplitShipDied as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimMoveSplitClose"
+  },
+  {
+   "address": "0x004078a0",
+   "name": "aimAdvancedAttackShipDied",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "moveShipDiedFunction of type 0x12 (MOVE_ADVANCEDATTACK) in aimCreateAdvancedAttackNoAdd 0x40bf10 and aimFix_AdvancedAttack 0x40c040",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimAdvancedAttackShipDied"
+  },
+  {
+   "address": "0x004078d0",
+   "name": "aimMoveAttackShipDied",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "moveShipDiedFunction of type 0x14 (MOVE_MOVEATTACK) in aimCreateMoveAttack/aimFix_MoveAttack",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimMoveAttackShipDied"
+  },
+  {
+   "address": "0x00407900",
+   "name": "aimHarassAttackShipDied",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "moveShipDiedFunction of type 0x15 (MOVE_HARASSATTACK) in aimCreateHarassAttack/aimFix_HarassAttack",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimHarassAttackShipDied"
+  },
+  {
+   "address": "0x00407960",
+   "name": "aimDockClose",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "moveCloseFunction of aimCreateDock (type 0x17) and aimFix_Dock; HW1 aimDockClose precedes aimDockShipDied",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimDockClose"
+  },
+  {
+   "address": "0x00407990",
+   "name": "aimDockShipDied",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "moveShipDiedFunction of aimCreateDock and aimFix_Dock",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimDockShipDied"
+  },
+  {
+   "address": "0x004079c0",
+   "name": "aimDefendMothershipShipDied",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "moveShipDiedFunction of type 2 (MOVE_DEFMOSHIP) in aimCreateDefendMothership(NoAdd) and aimFix_DefMoship",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimDefendMothershipShipDied"
+  },
+  {
+   "address": "0x00407a10",
+   "name": "aimPatrolMoveClose",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "moveCloseFunction of aimCreatePatrolMove (type 0xb) and aimFix_PatrolMove",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimPatrolMoveClose"
+  },
+  {
+   "address": "0x00407a30",
+   "name": "aimShipReconShipDied",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "moveShipDiedFunction of type 0xe (MOVE_SHIPRECON) in 0x40c9c0/0x40ca50",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimShipReconShipDied"
+  },
+  {
+   "address": "0x00407a80",
+   "name": "aimShipReconClose",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "moveCloseFunction of type 0xe (ShipRecon) in 0x40c9c0/0x40ca50",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimShipReconClose"
+  },
+  {
+   "address": "0x00407ac0",
+   "name": "aimResourceVolumeResourceDied",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] stored at move+0x160 (moveResourceDiedFunction) by aimFix_ResourceVolume 0x40cbf0, exactly as HW1 aimFix_ResourceVolume",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimResourceVolumeResourceDied"
+  },
+  {
+   "address": "0x00407b80",
+   "name": "aimResourceVolumeShipDied",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] moveShipDiedFunction set by aimFix_ResourceVolume 0x40cbf0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimResourceVolumeShipDied"
+  },
+  {
+   "address": "0x00407bc0",
+   "name": "aimResourceVolumeClose",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "moveCloseFunction set by aimFix_ResourceVolume 0x40cbf0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimResourceVolumeClose"
+  },
+  {
+   "address": "0x00407c00",
+   "name": "aimCaptureShipDied",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "[LAB_, not yet a function entry] died ptr of aimFix_Capture 0x40cdf0 and of Intercept (ICF-folded with aimInterceptShipDied); position just before aimProcessMove as HW1 line 1133",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCaptureShipDied"
+  },
+  {
+   "address": "0x00407c20",
+   "name": "aimProcessMove",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] processFunction of type 6 (MOVE_MOVETEAM) in aimCreateMoveTeam(NoAdd); HW1 line 1170 first process function",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessMove"
+  },
+  {
+   "address": "0x00407cc0",
+   "name": "aimProcessMoveSplit",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process set by aimFix_MoveTeamSplit 0x40bb10 with aimMoveSplitShipDied/Close",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessMoveSplit"
+  },
+  {
+   "address": "0x00407dd0",
+   "name": "aimProcessHyperspace",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "[LAB_, not yet a function entry] process set by aimFix_Hyperspace 0x40bba0; between ProcessMoveSplit and ProcessIntercept as HW1 1273",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessHyperspace"
+  },
+  {
+   "address": "0x00407fe0",
+   "name": "aimProcessIntercept",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] processFunction of type 9 (MOVE_INTERCEPT) in aimCreateIntercept 0x40bbc0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessIntercept"
+  },
+  {
+   "address": "0x004082a0",
+   "name": "aimProcessMoveTo",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "[LAB_, not yet a function entry] process set by aimFix_MoveTo 0x40bca0 (between Fix_Intercept and CreateCountShips, HW1 order); creator not linked",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessMoveTo"
+  },
+  {
+   "address": "0x004083f0",
+   "name": "aimProcessFlankAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x13 FlankAttack in aimCreateFlankAttack 0x40bd70 / aimFix_FlankAttack",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessFlankAttack"
+  },
+  {
+   "address": "0x00408840",
+   "name": "aimProcessMoveAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x14 (MOVE_MOVEATTACK) in aimCreateMoveAttack",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessMoveAttack"
+  },
+  {
+   "address": "0x00408ca0",
+   "name": "aimProcessAdvancedAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x12 (MOVE_ADVANCEDATTACK) in 0x40bf10 and aimFix_AdvancedAttack",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessAdvancedAttack"
+  },
+  {
+   "address": "0x00408d30",
+   "name": "aimProcessHarassAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x15 in aimCreateHarassAttack",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessHarassAttack"
+  },
+  {
+   "address": "0x00409350",
+   "name": "aimProcessDock",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x17 (MOVE_DOCK) in aimCreateDock",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessDock"
+  },
+  {
+   "address": "0x004094c0",
+   "name": "aimProcessDefendMothership",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "process of type 2 (MOVE_DEFMOSHIP); body creates Attack/AdvancedAttack moves for enemies near mothership as HW1 1900",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessDefendMothership"
+  },
+  {
+   "address": "0x00409760",
+   "name": "aimProcessPatrolMove",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0xb (MOVE_PATROLMOVE) in aimCreatePatrolMove",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessPatrolMove"
+  },
+  {
+   "address": "0x00409af0",
+   "name": "aimProcessActivePatrol",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0xc in aimCreateActivePatrol",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessActivePatrol"
+  },
+  {
+   "address": "0x00409c50",
+   "name": "aimProcessTempGuard",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 3 (MOVE_TEMPGUARD) in aimCreateTempGuard 0x40c6a0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessTempGuard"
+  },
+  {
+   "address": "0x00409ff0",
+   "name": "aimProcessReinforce",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x19 (MOVE_REINFORCE) in aimCreateReinforce",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessReinforce"
+  },
+  {
+   "address": "0x0040a1c0",
+   "name": "aimProcessSupport",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x20 (MOVE_SUPPORT) in aimCreateSupport 0x40c840",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessSupport"
+  },
+  {
+   "address": "0x0040a440",
+   "name": "aimProcessActiveRecon",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0xd (MOVE_ACTIVERECON) in aimCreateActiveRecon 0x40c900",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessActiveRecon"
+  },
+  {
+   "address": "0x0040a790",
+   "name": "aimProcessShipRecon",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0xe (MOVE_SHIPRECON) in aimCreateShipReconNoAdd 0x40c9c0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessShipRecon"
+  },
+  {
+   "address": "0x0040a910",
+   "name": "aimProcessArmada",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x21 (MOVE_ARMADA) in aimCreateArmada 0x40ca80",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessArmada"
+  },
+  {
+   "address": "0x0040abb0",
+   "name": "aimProcessControlResources",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x22 (MOVE_CONTROLRESOURCES) in 0x40cb30",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessControlResources"
+  },
+  {
+   "address": "0x0040ad00",
+   "name": "aimProcessResourceVolume",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process set by aimFix_ResourceVolume 0x40cbf0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessResourceVolume"
+  },
+  {
+   "address": "0x0040aee0",
+   "name": "aimProcessActiveResource",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x29 (MOVE_ACTIVERES) in 0x40cc80",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessActiveResource"
+  },
+  {
+   "address": "0x0040b000",
+   "name": "aimProcessMothershipMove",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x2a (MOVE_MOTHERSHIP) in 0x40cd30",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessMothershipMove"
+  },
+  {
+   "address": "0x0040b3f0",
+   "name": "aimProcessActiveCapture",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x25 (MOVE_ACTIVECAPTURE) in 0x40ce20",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessActiveCapture"
+  },
+  {
+   "address": "0x0040b4b0",
+   "name": "aimProcessActiveMine",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x26 (MOVE_ACTIVEMINE) in 0x40ced0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessActiveMine"
+  },
+  {
+   "address": "0x0040b5e0",
+   "name": "aimProcessMineVolume",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "[LAB_, not yet a function entry] process set by aimFix_MineVolume 0x40cf80 (between ActiveMine and SpecialDefense, HW1 order)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessMineVolume"
+  },
+  {
+   "address": "0x0040b890",
+   "name": "aimProcessSpecialDefense",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "process of type 0x28; body = HW1: aitFindGoodCoopTeam, CloakGen check, inlined aimCreateGuardCooperatingTeamNoAdd (type 0x1f), events copy, aitAddmoveBeforeAndMakeCurrent",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessSpecialDefense"
+  },
+  {
+   "address": "0x0040b9b0",
+   "name": "aimCreateMoveTeamNoAdd",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "same body as aimCreateMoveTeam (type 6, process 0x407c20) without listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateMoveTeamNoAdd"
+  },
+  {
+   "address": "0x0040baf0",
+   "name": "aimFix_MoveTeam",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(aimProcessMove 0x407c20,NULL,NULL) right after aimCreateMoveTeam",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_MoveTeam"
+  },
+  {
+   "address": "0x0040bb10",
+   "name": "aimFix_MoveTeamSplit",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x407cc0,0x4077d0,0x407860) = aimProcessMoveSplit/aimMoveSplitShipDied/aimMoveSplitClose",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_MoveTeamSplit"
+  },
+  {
+   "address": "0x0040bb40",
+   "name": "aimSave_MoveTeamSplit",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "SaveSelection(+0x14 ships) then SavePath(+0x18 destinations) = HW1 aimSave_MoveTeamSplit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimSave_MoveTeamSplit"
+  },
+  {
+   "address": "0x0040bb70",
+   "name": "aimLoad_MoveTeamSplit",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "LoadSelectionAndFix(+0x14) and LoadPath(+0x18) = HW1 aimLoad_MoveTeamSplit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimLoad_MoveTeamSplit"
+  },
+  {
+   "address": "0x0040bba0",
+   "name": "aimFix_Hyperspace",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "FixMoveFuncPtrs(0x407dd0,NULL,NULL) in the Hyperspace slot of HW1 order (MoveTeamSplit, Hyperspace, Intercept)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_Hyperspace"
+  },
+  {
+   "address": "0x0040bc60",
+   "name": "aimFix_Intercept",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(aimProcessIntercept 0x407fe0, died 0x407c00, NULL) plus ship pointer fix, after aimCreateIntercept",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_Intercept"
+  },
+  {
+   "address": "0x0040bca0",
+   "name": "aimFix_MoveTo",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "FixMoveFuncPtrs(0x4082a0,NULL,NULL) between aimFix_Intercept and aimCreateCountShips (HW1 MoveTo slot)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_MoveTo"
+  },
+  {
+   "address": "0x0040bcc0",
+   "name": "aimCreateCountShips",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0xf (MOVE_COUNTSHIPS), process 0x497db0 (return TRUE; ICF-folded with CET kasfSpecialOff, left unrenamed), listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateCountShips"
+  },
+  {
+   "address": "0x0040bd50",
+   "name": "aimFix_CountShips",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x497db0 return-TRUE,NULL,NULL) after aimCreateCountShips",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_CountShips"
+  },
+  {
+   "address": "0x0040bea0",
+   "name": "aimFix_FlankAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(aimProcessFlankAttack 0x4083f0, 0x406f00, 0x40d950) after aimCreateFlankAttack",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_FlankAttack"
+  },
+  {
+   "address": "0x0040bed0",
+   "name": "aimSave_FlankAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "if(+0x14 targets) SaveSelection; follows aimFix_FlankAttack; ICF-shared by other aimSave_* with targets at +0x14",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimSave_FlankAttack"
+  },
+  {
+   "address": "0x0040bef0",
+   "name": "aimLoad_FlankAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "if(+0x14) +0x14=LoadSelectionAndFix(); follows aimSave_FlankAttack; ICF-shared by other aimLoad_*",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimLoad_FlankAttack"
+  },
+  {
+   "address": "0x0040bf10",
+   "name": "aimCreateAdvancedAttackNoAdd",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "if !(team+0xc feature bit) inline aimCreateAttackNoAdd (type 0x11) else type 0x12 with 0x408ca0/0x4078a0/0x40d950, target_ship=NULL: HW1 body",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateAdvancedAttackNoAdd"
+  },
+  {
+   "address": "0x0040c020",
+   "name": "aimPreFix_AdvancedAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "+0x18 target_ship = SpaceObjRegistryGetID; between AdvancedAttack creator and aimFix_AdvancedAttack (also serves PreFix_MoveAttack/Dock via ICF)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimPreFix_AdvancedAttack"
+  },
+  {
+   "address": "0x0040c040",
+   "name": "aimFix_AdvancedAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "target_ship=SpaceObjRegistryGetShip(+0x18) then FixMoveFuncPtrs(0x408ca0,0x4078a0,0x40d950) = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_AdvancedAttack"
+  },
+  {
+   "address": "0x0040c130",
+   "name": "aimFix_MoveAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(aimProcessMoveAttack 0x408840, 0x4078d0, 0x40d950) after aimCreateMoveAttack",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_MoveAttack"
+  },
+  {
+   "address": "0x0040c160",
+   "name": "aimLoad_MoveAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "target_ship=SpaceObjRegistryGetShip(+0x18); if(+0x14) LoadSelectionAndFix = HW1 aimLoad_MoveAttack",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimLoad_MoveAttack"
+  },
+  {
+   "address": "0x0040c220",
+   "name": "aimFix_HarassAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x408d30,0x407900,NULL) + target=SpaceObjRegistryGetShip = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_HarassAttack"
+  },
+  {
+   "address": "0x0040c260",
+   "name": "aimPreFix_HarassAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "+0x14 target = SpaceObjRegistryGetID, after aimFix_HarassAttack as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimPreFix_HarassAttack"
+  },
+  {
+   "address": "0x0040c330",
+   "name": "aimFix_Dock",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(aimProcessDock 0x409350, aimDockShipDied 0x407990, aimDockClose 0x407960) + dockAt=SpaceObjRegistryGetShip(+0x18)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_Dock"
+  },
+  {
+   "address": "0x0040c370",
+   "name": "aimCreateDefendMothershipNoAdd",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "type 2 (MOVE_DEFMOSHIP), process 0x4094c0, died 0x4079c0, no listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateDefendMothershipNoAdd"
+  },
+  {
+   "address": "0x0040c480",
+   "name": "aimFix_DefMoship",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x4094c0,0x4079c0,nullsub) after aimCreateDefendMothership",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_DefMoship"
+  },
+  {
+   "address": "0x0040c550",
+   "name": "aimFix_PatrolMove",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x409760,NULL,0x407a10) + loopMove=ConvertNumToPointerInList(&savingThisAITeam->moves,..) = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_PatrolMove"
+  },
+  {
+   "address": "0x0040c5b0",
+   "name": "aimSave_PatrolMove",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "if(+0x14 path) SavePath = HW1 aimSave_PatrolMove",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimSave_PatrolMove"
+  },
+  {
+   "address": "0x0040c5d0",
+   "name": "aimLoad_PatrolMove",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "if(+0x14) path=LoadPath() = HW1 aimLoad_PatrolMove",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimLoad_PatrolMove"
+  },
+  {
+   "address": "0x0040c680",
+   "name": "aimFix_ActivePatrol",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x409af0,NULL,NULL) after aimCreateActivePatrol",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_ActivePatrol"
+  },
+  {
+   "address": "0x0040c6a0",
+   "name": "aimCreateTempGuard",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 3 (MOVE_TEMPGUARD), process 0x409c50, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateTempGuard"
+  },
+  {
+   "address": "0x0040c730",
+   "name": "aimFix_TempGuard",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x409c50,NULL,NULL) after aimCreateTempGuard",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_TempGuard"
+  },
+  {
+   "address": "0x0040c7e0",
+   "name": "aimFix_Reinforce",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x409ff0,NULL,NULL) + reinforceteam index->team, after aimCreateReinforce",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_Reinforce"
+  },
+  {
+   "address": "0x0040c820",
+   "name": "aimPreFix_Reinforce",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "+0x14 reinforceteam = AITeamToTeamIndex(0x411b60) = HW1 aimPreFix_Reinforce",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimPreFix_Reinforce"
+  },
+  {
+   "address": "0x0040c840",
+   "name": "aimCreateSupport",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0x20 (MOVE_SUPPORT), process 0x40a1c0, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateSupport"
+  },
+  {
+   "address": "0x0040c8d0",
+   "name": "aimFix_Support",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40a1c0,0x406f00,0x40d950) after aimCreateSupport",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_Support"
+  },
+  {
+   "address": "0x0040c900",
+   "name": "aimCreateActiveRecon",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0xd (MOVE_ACTIVERECON), process 0x40a440, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateActiveRecon"
+  },
+  {
+   "address": "0x0040c9a0",
+   "name": "aimFix_ActiveRecon",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40a440,NULL,NULL) after aimCreateActiveRecon",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_ActiveRecon"
+  },
+  {
+   "address": "0x0040c9c0",
+   "name": "aimCreateShipReconNoAdd",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "type 0xe (MOVE_SHIPRECON), ptrs 0x40a790/0x407a30/0x407a80, no listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateShipReconNoAdd"
+  },
+  {
+   "address": "0x0040ca50",
+   "name": "aimFix_ShipRecon",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40a790,0x407a30,0x407a80)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_ShipRecon"
+  },
+  {
+   "address": "0x0040ca80",
+   "name": "aimCreateArmada",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0x21 (MOVE_ARMADA), process 0x40a910, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateArmada"
+  },
+  {
+   "address": "0x0040cb10",
+   "name": "aimFix_Armada",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40a910,NULL,NULL) after aimCreateArmada",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_Armada"
+  },
+  {
+   "address": "0x0040cb30",
+   "name": "aimCreateControlResources",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0x22 (MOVE_CONTROLRESOURCES), process 0x40abb0, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateControlResources"
+  },
+  {
+   "address": "0x0040cbc0",
+   "name": "aimFix_ControlResources",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40abb0,nullsub,NULL) after aimCreateControlResources",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_ControlResources"
+  },
+  {
+   "address": "0x0040cbf0",
+   "name": "aimFix_ResourceVolume",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40ad00,0x407b80,0x407bc0) + moveResourceDiedFunction(+0x160)=0x407ac0 = HW1 aimFix_ResourceVolume",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_ResourceVolume"
+  },
+  {
+   "address": "0x0040cc20",
+   "name": "aimSave_ResourceVolume",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "SaveSelection(+0x30 volResources) and SaveSelection(+0x34 takenResources) = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimSave_ResourceVolume"
+  },
+  {
+   "address": "0x0040cc50",
+   "name": "aimLoad_ResourceVolume",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "LoadSelectionAndFix for +0x30 and +0x34 = HW1 aimLoad_ResourceVolume",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimLoad_ResourceVolume"
+  },
+  {
+   "address": "0x0040cc80",
+   "name": "aimCreateActiveResource",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0x29 (MOVE_ACTIVERES), process 0x40aee0, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateActiveResource"
+  },
+  {
+   "address": "0x0040cd10",
+   "name": "aimFix_ActiveResource",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40aee0,NULL,NULL)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_ActiveResource"
+  },
+  {
+   "address": "0x0040cd30",
+   "name": "aimCreateMothershipMove",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0x2a (MOVE_MOTHERSHIP), process 0x40b000, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateMothershipMove"
+  },
+  {
+   "address": "0x0040cdc0",
+   "name": "aimFix_MothershipMove",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40b000,nullsub,NULL)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_MothershipMove"
+  },
+  {
+   "address": "0x0040cdf0",
+   "name": "aimFix_Capture",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "FixMoveFuncPtrs(0x497db0 return-TRUE, aimCaptureShipDied 0x407c00, NULL) in HW1 Capture slot (MothershipMove..ActiveCapture)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_Capture"
+  },
+  {
+   "address": "0x0040ce20",
+   "name": "aimCreateActiveCapture",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0x25 (MOVE_ACTIVECAPTURE), process 0x40b3f0, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateActiveCapture"
+  },
+  {
+   "address": "0x0040ceb0",
+   "name": "aimFix_ActiveCapture",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40b3f0,NULL,NULL)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_ActiveCapture"
+  },
+  {
+   "address": "0x0040ced0",
+   "name": "aimCreateActiveMine",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0x26 (MOVE_ACTIVEMINE), process 0x40b4b0, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateActiveMine"
+  },
+  {
+   "address": "0x0040cf60",
+   "name": "aimFix_ActiveMine",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40b4b0,NULL,NULL)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_ActiveMine"
+  },
+  {
+   "address": "0x0040cf80",
+   "name": "aimFix_MineVolume",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "FixMoveFuncPtrs(0x40b5e0,NULL,NULL) between aimFix_ActiveMine and aimCreateSpecialDefense (HW1 MineVolume slot)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_MineVolume"
+  },
+  {
+   "address": "0x0040cfa0",
+   "name": "aimCreateSpecialDefense",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 0x28 (MOVE_SPECIALDEFENSE), process 0x40b890, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateSpecialDefense"
+  },
+  {
+   "address": "0x0040d030",
+   "name": "aimFix_SpecialDefense",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40b890,NULL,NULL)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_SpecialDefense"
+  },
+  {
+   "address": "0x0040d0c0",
+   "name": "aimFix_DeleteTeam",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(NULL,NULL,NULL) after aimCreateDeleteTeam (type 0x2d)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_DeleteTeam"
+  },
+  {
+   "address": "0x0040d0e0",
+   "name": "aimProcessGuardCooperatingTeam",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x1f (MOVE_GUARDCOOPTEAM) in 0x40d130/0x40d1b0 and the inlined create in aimProcessSpecialDefense",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessGuardCooperatingTeam"
+  },
+  {
+   "address": "0x0040d130",
+   "name": "aimCreateGuardCooperatingTeamNoAdd",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "type 0x1f, process 0x40d0e0, no listAddNode; called from 0x416a10 (AITeam special-defense coop CB)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateGuardCooperatingTeamNoAdd"
+  },
+  {
+   "address": "0x0040d1b0",
+   "name": "aimCreateGuardCooperatingTeam",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "type 0x1f, process 0x40d0e0, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateGuardCooperatingTeam"
+  },
+  {
+   "address": "0x0040d240",
+   "name": "aimFix_GuardCoopTeam",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40d0e0,NULL,NULL)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_GuardCoopTeam"
+  },
+  {
+   "address": "0x0040d260",
+   "name": "aimProcessLaunch",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "process of aimCreateLaunch (type 0x18); univFindShipIAmInside, univAmIInsideThisShip filter, clWrapLaunchMultipleShips = HW1 aimProcessLaunch",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessLaunch"
+  },
+  {
+   "address": "0x0040d400",
+   "name": "aimFix_Launch",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(aimProcessLaunch 0x40d260,NULL,NULL)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_Launch"
+  },
+  {
+   "address": "0x0040d420",
+   "name": "aimProcessFormation",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 5 (MOVE_FORMATION) in 0x40d460",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessFormation"
+  },
+  {
+   "address": "0x0040d460",
+   "name": "aimCreateFormation",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "InitNewMove type 5 (MOVE_FORMATION), process 0x40d420, listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateFormation"
+  },
+  {
+   "address": "0x0040d4f0",
+   "name": "aimFix_Formation",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40d420,NULL,NULL)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_Formation"
+  },
+  {
+   "address": "0x0040d510",
+   "name": "aimCreateMoveDone",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "type 0 (MOVE_DONE), process nullsubReturnFalse (= aimProcessMoveDone folded, CET anchor kept), listAddNode; 22 callers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateMoveDone"
+  },
+  {
+   "address": "0x0040d590",
+   "name": "aimFix_MoveDone",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(nullsubReturnFalse,NULL,NULL) after aimCreateMoveDone",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_MoveDone"
+  },
+  {
+   "address": "0x0040d5b0",
+   "name": "aimProcessAttack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x11 (MOVE_ATTACK) in aimCreateAttack(NoAdd)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessAttack"
+  },
+  {
+   "address": "0x0040d630",
+   "name": "aimCreateAttackNoAdd",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "type 0x11, ptrs 0x40d5b0/0x406f00/0x40d950, no listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateAttackNoAdd"
+  },
+  {
+   "address": "0x0040d750",
+   "name": "aimFix_Attack",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40d5b0,0x406f00,0x40d950) after aimCreateAttack",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_Attack"
+  },
+  {
+   "address": "0x0040d780",
+   "name": "aimProcessSpecial",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x10 (MOVE_SPECIAL) in aimCreateSpecial",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessSpecial"
+  },
+  {
+   "address": "0x0040d890",
+   "name": "aimFix_Special",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40d780,0x406f00,0x40d950) after aimCreateSpecial",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_Special"
+  },
+  {
+   "address": "0x0040d8c0",
+   "name": "aimProcessKamikaze",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x2b (MOVE_KAMIKAZE) in aimCreateKamikaze",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessKamikaze"
+  },
+  {
+   "address": "0x0040d950",
+   "name": "aimCloseKamikaze",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "medium",
+   "evidence": "memFree(+0x14) close; sits between ProcessKamikaze and CreateKamikaze; ICF-folded close used by GuardShips/Attack/Special/FlankAttack/Advanced/MoveAttack/Support",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCloseKamikaze"
+  },
+  {
+   "address": "0x0040da00",
+   "name": "aimFix_Kamikaze",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40d8c0,0x406f00,0x40d950) after aimCreateKamikaze",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_Kamikaze"
+  },
+  {
+   "address": "0x0040da30",
+   "name": "aimCloseFancyGetShips",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "if(+0x1c doneVar) aivarDestroy; NULL; close of type 0x16 FancyGetShips; precedes aimProcessFancyGetShips as HW1 5751",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCloseFancyGetShips"
+  },
+  {
+   "address": "0x0040da50",
+   "name": "aimProcessFancyGetShips",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] process of type 0x16 (MOVE_FANCYGETSHIPS) in 0x40df90/0x40e040",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimProcessFancyGetShips"
+  },
+  {
+   "address": "0x0040df90",
+   "name": "aimCreateFancyGetShipsNoAdd",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "type 0x16, ptrs 0x40da50/NULL/0x40da30, no listAddNode",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateFancyGetShipsNoAdd"
+  },
+  {
+   "address": "0x0040e040",
+   "name": "aimCreateFancyGetShips",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "type 0x16, ptrs 0x40da50/NULL/0x40da30, listAddNode; 12 callers in AIOrders region",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimCreateFancyGetShips"
+  },
+  {
+   "address": "0x0040e100",
+   "name": "aimFix_FancyGetShips",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "FixMoveFuncPtrs(0x40da50,NULL,0x40da30) + doneVar=NumberToAIVar",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimFix_FancyGetShips"
+  },
+  {
+   "address": "0x0040e140",
+   "name": "aimPreFix_FancyGetShips",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "+0x1c doneVar = AIVarToNumber(0x420620); last AIMoves function as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimPreFix_FancyGetShips"
+  },
+  {
+   "address": "0x00501b30",
+   "name": "SaveSelection",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "chunk 0x00090000 of numShips*4+4, each ship mapped to SpaceObjRegistry index (DAT_00c16764); called by aimSave_* as HW1 SaveSelection",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveSelection"
+  },
+  {
+   "address": "0x00501d90",
+   "name": "LoadSelectionAndFix",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadNextChunk, alloc numShips*4+8, index -1->NULL else registry[i]; called by aimLoad_* as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadSelectionAndFix"
+  },
+  {
+   "address": "0x004fd710",
+   "name": "SpaceObjRegistryGetID",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "NULL->-1 else linear search of registry DAT_00c16764 = HW1 SpaceObjRegistryGetID; used by aimPreFix_*",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SpaceObjRegistryGetID"
+  },
+  {
+   "address": "0x004fd740",
+   "name": "SpaceObjRegistryGetShip",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "-1->NULL else registry[id] = HW1 SpaceObjRegistryGetShip; used by aimFix_* target fixes",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SpaceObjRegistryGetShip"
+  },
+  {
+   "address": "0x00411ae0",
+   "name": "SavePath",
+   "kind": "function",
+   "class": "hw1:AIPlayer.c",
+   "confidence": "high",
+   "evidence": "CreateChunk(0x80000c00, numPoints*0xc+8, path) save+free; called by aimSave_PatrolMove/aimSave_MoveTeamSplit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIPlayer.c:SavePath"
+  },
+  {
+   "address": "0x00411b10",
+   "name": "LoadPath",
+   "kind": "function",
+   "class": "hw1:AIPlayer.c",
+   "confidence": "medium",
+   "evidence": "LoadNextChunk, copy numPoints*0xc+8 bytes into new alloc; pair of SavePath, used by aimLoad_PatrolMove",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIPlayer.c:LoadPath"
+  },
+  {
+   "address": "0x00411b60",
+   "name": "AITeamToTeamIndex",
+   "kind": "function",
+   "class": "hw1:AIPlayer.c",
+   "confidence": "high",
+   "evidence": "search team->aiplayerowner(+0x18) team array(+0x1d0c,count +0x1d14) for team; used by aimPreFix_Reinforce",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIPlayer.c:AITeamToTeamIndex"
+  },
+  {
+   "address": "0x00420560",
+   "name": "aivarDestroy",
+   "kind": "function",
+   "class": "hw1:AIVar.c",
+   "confidence": "medium",
+   "evidence": "called by aimCloseFancyGetShips on doneVar exactly as HW1 aimCloseFancyGetShips -> aivarDestroy",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIVar.c:aivarDestroy"
+  },
+  {
+   "address": "0x00420620",
+   "name": "AIVarToNumber",
+   "kind": "function",
+   "class": "hw1:AIVar.c",
+   "confidence": "medium",
+   "evidence": "called by aimPreFix_FancyGetShips on doneVar as HW1 AIVarToNumber",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIVar.c:AIVarToNumber"
+  },
+  {
+   "address": "0x005029f0",
+   "name": "ConvertNumToPointerInList",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "called by aimFix_PatrolMove with (&savingThisAITeam->moves, loopMove) exactly as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:ConvertNumToPointerInList"
+  },
+  {
+   "address": "0x00417ba0",
+   "name": "aitFindGoodCoopTeam",
+   "kind": "function",
+   "class": "hw1:AITeam.c",
+   "confidence": "high",
+   "evidence": "called by aimProcessSpecialDefense with team ship[0]->shiptype; result stored in team->cooperatingTeam(+0x48) as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AITeam.c:aitFindGoodCoopTeam"
+  },
+  {
+   "address": "0x00416a10",
+   "name": "aitSpecialDefenseCoopTeamDiedCB",
+   "kind": "function",
+   "class": "hw1:AITeam.c",
+   "confidence": "high",
+   "evidence": "stored at team->cooperatingTeamDiedCB(+0x4c) by aimProcessSpecialDefense; calls aimCreateGuardCooperatingTeamNoAdd",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AITeam.c:aitSpecialDefenseCoopTeamDiedCB"
+  },
+  {
+   "address": "0x00416b80",
+   "name": "GenericCooperatingTeamDiedCB",
+   "kind": "function",
+   "class": "hw1:AITeam.c",
+   "confidence": "medium",
+   "evidence": "[LAB_ entry] stored as coop team DiedCB when shiptype is CloakGenerator (0x3f/0x4d) in aimProcessSpecialDefense, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AITeam.c:GenericCooperatingTeamDiedCB"
+  },
+  {
+   "address": "0x0040e160",
+   "name": "aioCreateGuardShips",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "high",
+   "evidence": "first fn after AIMoves block; calls aimCreateGuardShips, aimCreateFormation, aimCreateFancyGetShips, aimCreateMoveDone = HW1 aioCreateGuardShips (line 29)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateGuardShips"
+  },
+  {
+   "address": "0x0040e3a0",
+   "name": "aioCreateReconaissance",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "high",
+   "evidence": "calls aimCreateCountShips/aimCreateActiveRecon/aimCreateMoveTeam/FancyGetShips; callers aiaAttackManager/aiaProcessSpecialTeams = HW1 aioCreateReconaissance",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateReconaissance"
+  },
+  {
+   "address": "0x0040e740",
+   "name": "aioCreateHarass",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "high",
+   "evidence": "calls aimCreateHarassAttack, aimCreateMoveTeam, FancyGetShips, MoveDone; callers aiaProcessSpecialTeams; HW1 order 3rd",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateHarass"
+  },
+  {
+   "address": "0x0040e950",
+   "name": "aioCreateDefendMothership",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "high",
+   "evidence": "30-byte body: aimCreateDefendMothership(team,..) + aimCreateMoveDone = HW1 aioCreateDefendMothership",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateDefendMothership"
+  },
+  {
+   "address": "0x0040e970",
+   "name": "aioCreateFastRovingDefense",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "medium",
+   "evidence": "called by aidDefenseManager; FancyGetShips + aimCreateActivePatrol + MoveDone; first of the two roving-defense orders in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateFastRovingDefense"
+  },
+  {
+   "address": "0x0040eb40",
+   "name": "aioCreateSlowRovingDefense",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "medium",
+   "evidence": "called by aidDefenseManager; FancyGetShips + aimCreateActivePatrol + MoveDone; second roving-defense order (HW1 line 319)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateSlowRovingDefense"
+  },
+  {
+   "address": "0x0040ed80",
+   "name": "aioCreateActiveSupport",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "high",
+   "evidence": "3 branches: aimCreateSupport / aimCreateGetShips+aimCreateControlResources / aimCreateMothershipMove, then MoveDone = HW1 aioCreateActiveSupport",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateActiveSupport"
+  },
+  {
+   "address": "0x0040ee70",
+   "name": "aioCreateFighterStrike",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "medium",
+   "evidence": "FancyGetShips, VarDec(attackVar), TempGuard, Armada, MoveDone; first of three strike orders in HW1 order (Fighter, Corvette, Frigate)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateFighterStrike"
+  },
+  {
+   "address": "0x0040f110",
+   "name": "aioCreateCorvetteStrike",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "medium",
+   "evidence": "second strike order (same move sequence, two FancyGetShips), HW1 order line 488",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateCorvetteStrike"
+  },
+  {
+   "address": "0x0040f3a0",
+   "name": "aioCreateFrigateStrike",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "medium",
+   "evidence": "third strike order (same move sequence), HW1 order line 530",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateFrigateStrike"
+  },
+  {
+   "address": "0x0040f530",
+   "name": "aioCreateResourcer",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "high",
+   "evidence": "30-byte body: aimCreateActiveResource + aimCreateMoveDone = HW1 aioCreateResourcer",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateResourcer"
+  },
+  {
+   "address": "0x0040f550",
+   "name": "aioCreateCapture",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "high",
+   "evidence": "ranRandom, aimCreateGetShips, aimCreateActiveCapture, MoveDone = HW1 aioCreateCapture",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateCapture"
+  },
+  {
+   "address": "0x0040f5d0",
+   "name": "aioCreateMine",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "high",
+   "evidence": "ranRandom, aimCreateGetShips, aimCreateActiveMine, MoveDone = HW1 aioCreateMine",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateMine"
+  },
+  {
+   "address": "0x0040f620",
+   "name": "aioCreateSpecialDefense",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "high",
+   "evidence": "GetShipStaticInfo(type), aimCreateGetShips, aimCreateSpecialDefense, MoveDone = HW1 aioCreateSpecialDefense(team,type)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateSpecialDefense"
+  },
+  {
+   "address": "0x0040f6b0",
+   "name": "aioCreateTakeoutMothershipFast",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "medium",
+   "evidence": "after special defense (swarm orders unlinked): one FancyGetShips with 11 random alternatives (0xb), VarDec, TempGuard, Armada = HW1 Fast",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateTakeoutMothershipFast"
+  },
+  {
+   "address": "0x0040f9c0",
+   "name": "aioCreateTakeoutMothershipBig",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "medium",
+   "evidence": "two FancyGetShips, VarDec, TempGuard, Armada; follows Fast as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateTakeoutMothershipBig"
+  },
+  {
+   "address": "0x0040fbc0",
+   "name": "aioCreateTakeoutMothershipHuge",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "medium",
+   "evidence": "aitCreate secondary team, aivar create/set, VarSet/VarWait/VarDestroy, Formation, GuardCooperatingTeam, Armada = HW1 Huge; precedes Guard variant",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateTakeoutMothershipHuge"
+  },
+  {
+   "address": "0x0040ff90",
+   "name": "aioCreateTakeoutMothershipGuard",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "medium",
+   "evidence": "same coop-team sequence as Huge plus mothership-type alternative branches (larger body, 1745 B) = HW1 aioCreateTakeoutMothershipGuard",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateTakeoutMothershipGuard"
+  },
+  {
+   "address": "0x00410670",
+   "name": "aioCreateTakeoutTargetsWithCurrentTeam",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "high",
+   "evidence": "54 B: aimCreateAttack(team,targets,..) + MoveDone = HW1 aioCreateTakeoutTargetsWithCurrentTeam",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateTakeoutTargetsWithCurrentTeam"
+  },
+  {
+   "address": "0x004106b0",
+   "name": "aioCreateTakeoutTargetWithCurrentTeam",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "high",
+   "evidence": "allocs 1-ship selection then aimCreateAttack + MoveDone = HW1 aioCreateTakeoutTargetWithCurrentTeam",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateTakeoutTargetWithCurrentTeam"
+  },
+  {
+   "address": "0x00410700",
+   "name": "aioCreateTakeoutTarget",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "medium",
+   "evidence": "GetShipStaticInfo, aimCreateGetShips, VarDec, TempGuard, aimCreateAttack, aitAddShip; HW1 order before FancyTakeoutTarget",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateTakeoutTarget"
+  },
+  {
+   "address": "0x00410920",
+   "name": "aioCreateFancyTakeoutTarget",
+   "kind": "function",
+   "class": "hw1:AIOrders.c",
+   "confidence": "medium",
+   "evidence": "largest takeout order, aitCreate coop team + Var moves + Attack; last AIOrders fn before AIPlayer block (0x410d20) as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIOrders.c:aioCreateFancyTakeoutTarget"
+  },
+  {
+   "address": "0x0047af60",
+   "name": "flightmanPitchUp",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "medium",
+   "evidence": "rotspeed(+0xc0)*phystime accumulate, TRUE when >= degrees else physApplyRotToObj(axis 2=ROT_PITCHUP) = HW1 flightmanPitchUp; first FlightMan fn after File.c",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanPitchUp"
+  },
+  {
+   "address": "0x0047afc0",
+   "name": "flightmanFlipTurnInit",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificInitTable 0x87ea90[2]=FLIGHTMAN_FLIPTURN (exe bytes); HW1 table order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanFlipTurnInit"
+  },
+  {
+   "address": "0x0047b010",
+   "name": "flightmanFlipTurnExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[2]=FLIGHTMAN_FLIPTURN",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanFlipTurnExecute"
+  },
+  {
+   "address": "0x0047b290",
+   "name": "flightmanCorkscrewInit",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificInitTable 0x87ea90[6]=FLIGHTMAN_CORKSCREW",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanCorkscrewInit"
+  },
+  {
+   "address": "0x0047b2f0",
+   "name": "flightmanCorkscrewExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[6]=FLIGHTMAN_CORKSCREW",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanCorkscrewExecute"
+  },
+  {
+   "address": "0x0047b3c0",
+   "name": "flightmanImmelmanInit",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificInitTable 0x87ea90[4]=FLIGHTMAN_IMMELMAN",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanImmelmanInit"
+  },
+  {
+   "address": "0x0047b410",
+   "name": "flightmanImmelmanExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[4]=FLIGHTMAN_IMMELMAN",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanImmelmanExecute"
+  },
+  {
+   "address": "0x0047b6b0",
+   "name": "flightmanSplitSInit",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificInitTable 0x87ea90[5]=FLIGHTMAN_SPLIT_S",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSplitSInit"
+  },
+  {
+   "address": "0x0047b710",
+   "name": "flightmanSplitSExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[5]=FLIGHTMAN_SPLIT_S",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSplitSExecute"
+  },
+  {
+   "address": "0x0047b980",
+   "name": "flightmanHardBankExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[3]=FLIGHTMAN_HARDBANK",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanHardBankExecute"
+  },
+  {
+   "address": "0x0047bba0",
+   "name": "flightmanSoftBankExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[16]=FLIGHTMAN_SOFTBANK",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSoftBankExecute"
+  },
+  {
+   "address": "0x0047bdc0",
+   "name": "flightmanSlalomInit",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificInitTable 0x87ea90[18]=FLIGHTMAN_SLALOM",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSlalomInit"
+  },
+  {
+   "address": "0x0047c000",
+   "name": "flightmanSlalomExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] flightmanSpecificExecuteTable 0x87eaf8[18]=FLIGHTMAN_SLALOM",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSlalomExecute"
+  },
+  {
+   "address": "0x0047c0a0",
+   "name": "flightmanSandwichInit",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificInitTable 0x87ea90[23]=FLIGHTMAN_SANDWICH",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSandwichInit"
+  },
+  {
+   "address": "0x0047c180",
+   "name": "flightmanSandwichExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] flightmanSpecificExecuteTable 0x87eaf8[23]=FLIGHTMAN_SANDWICH",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSandwichExecute"
+  },
+  {
+   "address": "0x0047c1f0",
+   "name": "flightmanBarrelRollExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[9]=FLIGHTMAN_BARREL_ROLL",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanBarrelRollExecute"
+  },
+  {
+   "address": "0x0047c2e0",
+   "name": "flightmanSwarmerBRollExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[13]=FLIGHTMAN_SWARMER_BARRELROLL",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSwarmerBRollExecute"
+  },
+  {
+   "address": "0x0047c3d0",
+   "name": "flightmanRoll180Init",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "medium",
+   "evidence": "flightmanSpecificInitTable 0x87ea90[9],[13],[14] (ICF-folded BarrelRoll/SwarmerBRoll/Roll180 init); physically before Roll180Execute",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanRoll180Init"
+  },
+  {
+   "address": "0x0047c410",
+   "name": "flightmanRoll180Execute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[14]=FLIGHTMAN_ROLL180",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanRoll180Execute"
+  },
+  {
+   "address": "0x0047c500",
+   "name": "flightmanBRollOutExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[12]=FLIGHTMAN_BARRELROLL_OUT",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanBRollOutExecute"
+  },
+  {
+   "address": "0x0047c590",
+   "name": "flightmanEndoverInit",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificInitTable 0x87ea90[7]=FLIGHTMAN_ENDOVER",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanEndoverInit"
+  },
+  {
+   "address": "0x0047c620",
+   "name": "flightmanEndoverExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[7]=FLIGHTMAN_ENDOVER",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanEndoverExecute"
+  },
+  {
+   "address": "0x0047c720",
+   "name": "flightmanCelebFlipInit",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "medium",
+   "evidence": "[LAB_, not yet a function entry] flightmanSpecificInitTable 0x87ea90[11],[12] (ICF-folded CelebFlip/BRollOut init); physically before CelebFlipExecute",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanCelebFlipInit"
+  },
+  {
+   "address": "0x0047c750",
+   "name": "flightmanCelebFlipExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[11]=FLIGHTMAN_CELEB_FLIP",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanCelebFlipExecute"
+  },
+  {
+   "address": "0x0047c7d0",
+   "name": "flightmanWhipStrafeInit",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] flightmanSpecificInitTable 0x87ea90[10]=FLIGHTMAN_WHIP_STRAFE",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanWhipStrafeInit"
+  },
+  {
+   "address": "0x0047c800",
+   "name": "flightmanWhipStrafeExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[10]=FLIGHTMAN_WHIP_STRAFE",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanWhipStrafeExecute"
+  },
+  {
+   "address": "0x0047c8e0",
+   "name": "flightmanRollAwayInit",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificInitTable 0x87ea90[15]=FLIGHTMAN_ROLLAWAY",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanRollAwayInit"
+  },
+  {
+   "address": "0x0047c930",
+   "name": "flightmanRollAwayExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[15]=FLIGHTMAN_ROLLAWAY",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanRollAwayExecute"
+  },
+  {
+   "address": "0x0047cc20",
+   "name": "flightmanSplitSEvasiveInit",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "medium",
+   "evidence": "flightmanSpecificInitTable 0x87ea90[3],[16],[17] (ICF-folded HardBank/SoftBank/SplitSEvasive init); physically before SplitSEvasiveExecute",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSplitSEvasiveInit"
+  },
+  {
+   "address": "0x0047cc70",
+   "name": "flightmanSplitSEvasiveExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[17]=FLIGHTMAN_SPLITS_EVASIVE; calls flightmanPitchUp",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSplitSEvasiveExecute"
+  },
+  {
+   "address": "0x0047d130",
+   "name": "flightmanHiYoYoExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[21]=FLIGHTMAN_HIYOYO",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanHiYoYoExecute"
+  },
+  {
+   "address": "0x0047d4c0",
+   "name": "flightmanLoYoYoInit",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "medium",
+   "evidence": "[LAB_, not yet a function entry] flightmanSpecificInitTable 0x87ea90[20],[21] (ICF-folded LoYoYo/HiYoYo init); physically before LoYoYoExecute",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanLoYoYoInit"
+  },
+  {
+   "address": "0x0047d4f0",
+   "name": "flightmanLoYoYoExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificExecuteTable 0x87eaf8[20]=FLIGHTMAN_LOYOYO",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanLoYoYoExecute"
+  },
+  {
+   "address": "0x0047d890",
+   "name": "flightmanSideStepInit",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "flightmanSpecificInitTable 0x87ea90[19]=FLIGHTMAN_SIDESTEP",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSideStepInit"
+  },
+  {
+   "address": "0x0047d8e0",
+   "name": "flightmanSideStepExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] flightmanSpecificExecuteTable 0x87eaf8[19]=FLIGHTMAN_SIDESTEP",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSideStepExecute"
+  },
+  {
+   "address": "0x0047dde0",
+   "name": "flightmanInitFunc",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "closes current flightman (+0x364) via close table 0xa3e18c/memFree info(+0x368), sets flightman, calls init table 0x87ea90[n], sets shipisattacking + wingman = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanInitFunc"
+  },
+  {
+   "address": "0x0047de90",
+   "name": "flightmanClose",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "close table 0xa3e18c[flightman], memFree flightmanInfo, flightman=NULL, tacticsNeedToFlightMan/tacticsTalk=0 = HW1 flightmanClose",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanClose"
+  },
+  {
+   "address": "0x0047dee0",
+   "name": "flightmanExecute",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "refs \"\\nWarning: tried to execute NULL flightman\"; calls execute table 0x87eaf8 then inlined flightmanClose = HW1 flightmanExecute",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanExecute"
+  },
+  {
+   "address": "0x0047df70",
+   "name": "flightmanGetRandom",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "switch on subtype 1..5 over FlightManProb cum arrays (+0x1c/+0x58/+0x98/+0xdc/+0x120) with ranRandom = HW1 flightmanGetRandom",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanGetRandom"
+  },
+  {
+   "address": "0x0047e0d0",
+   "name": "flightmanTestRandom",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "switch subtype: ranRandom % sum < prob[flightman] over FlightManProb = HW1 flightmanTestRandom; caller GenericInterceptorAttack",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanTestRandom"
+  },
+  {
+   "address": "0x0047e210",
+   "name": "scriptSetFlightManTurnaroundCB",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "sscanf \"%s %s %s\", strcmp \"Default\", fills FlightManProb Turnaround block (offset 0); first of five CBs in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:scriptSetFlightManTurnaroundCB"
+  },
+  {
+   "address": "0x0047e330",
+   "name": "scriptSetFlightManAIPCB",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "same CB body writing AIP block +0x3c..+0x74, valid +0x144",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:scriptSetFlightManAIPCB"
+  },
+  {
+   "address": "0x0047e460",
+   "name": "scriptSetFlightManEvasiveBehindCB",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "same CB body writing EvasiveBehind block +0x78..+0xb8",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:scriptSetFlightManEvasiveBehindCB"
+  },
+  {
+   "address": "0x0047e590",
+   "name": "scriptSetFlightManEvasiveFrontCB",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "same CB body writing EvasiveFront block +0xbc..+0xfc",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:scriptSetFlightManEvasiveFrontCB"
+  },
+  {
+   "address": "0x0047e6c0",
+   "name": "scriptSetFlightManEvasivePureCB",
+   "kind": "function",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "same CB body writing EvasivePure block +0x100..+0x140",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:scriptSetFlightManEvasivePureCB"
+  },
+  {
+   "address": "0x0087ea90",
+   "name": "flightmanSpecificInitTable",
+   "kind": "data",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "26-entry table indexed by ship->flightman in flightmanInitFunc; contents match HW1 table slots (NULL at 0,1,8,22,24,25)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSpecificInitTable"
+  },
+  {
+   "address": "0x0087eaf8",
+   "name": "flightmanSpecificExecuteTable",
+   "kind": "data",
+   "class": "hw1:FlightMan.c",
+   "confidence": "high",
+   "evidence": "26-entry table indexed in flightmanExecute; [1]=return-TRUE stub (DoNothing, ICF with CET kasfSpecialOff), NULL at 0,8,22,24,25",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSpecificExecuteTable"
+  },
+  {
+   "address": "0x00a3e18c",
+   "name": "flightmanSpecificCloseTable",
+   "kind": "data",
+   "class": "hw1:FlightMan.c",
+   "confidence": "medium",
+   "evidence": "table indexed in flightmanClose/flightmanInitFunc; all-NULL (HW1 close table is all NULL), lives in bss",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FlightMan.c:flightmanSpecificCloseTable"
+  },
+  {
+   "address": "0x00434140",
+   "name": "cCreateChannel",
+   "kind": "function",
+   "class": "hw1:ChannelFSM.c",
+   "confidence": "high",
+   "evidence": "SetChannel(name,desc); state=7 (CS_RoomCreate); inlined state machine: titanStartChatServer(protected?pw:NULL), fail->-1; mgDisplayMessage; return 0 = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ChannelFSM.c:cCreateChannel"
+  },
+  {
+   "address": "0x004341a0",
+   "name": "cJoinChannelRequest",
+   "kind": "function",
+   "class": "hw1:ChannelFSM.c",
+   "confidence": "high",
+   "evidence": "SetChannel; if state!=-1 return 1; state=3 (CS_IsRoomThere); mgDisplayMessage(QueryingChat); titanRefreshRequest(0) = HW1; callers mgListOfChannelsInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ChannelFSM.c:cJoinChannelRequest"
+  },
+  {
+   "address": "0x004341f0",
+   "name": "cJoinADefaultRoom",
+   "kind": "function",
+   "class": "hw1:ChannelFSM.c",
+   "confidence": "high",
+   "evidence": "ChannelPassword[0]=0; if state!=-1 return 1; state=8 (CS_IsADefaultRoomThere); titanRefreshRequest(0) = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ChannelFSM.c:cJoinADefaultRoom"
+  },
+  {
+   "address": "0x00434230",
+   "name": "cResetFSM",
+   "kind": "function",
+   "class": "hw1:ChannelFSM.c",
+   "confidence": "high",
+   "evidence": "cChannelFSMState = -1 (CS_Idle), sits between cJoinADefaultRoom and FindADefaultRoom as HW1 (cCreateGame/cStartTitan unlinked)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ChannelFSM.c:cResetFSM"
+  },
+  {
+   "address": "0x00434240",
+   "name": "FindADefaultRoom",
+   "kind": "function",
+   "class": "hw1:ChannelFSM.c",
+   "confidence": "high",
+   "evidence": "3 tries with language/someone criteria arrays {1,1,0}/{1,0,0}; roomflags&0x300==0x200, fullness thresholds; returns index or -1 = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ChannelFSM.c:FindADefaultRoom"
+  },
+  {
+   "address": "0x004342e0",
+   "name": "cNotifyRoomListPresent",
+   "kind": "function",
+   "class": "hw1:ChannelFSM.c",
+   "confidence": "high",
+   "evidence": "if state==8: tpLockChannelList, FindADefaultRoom, SetChannel or ResetChannel, tpUnLockChannelList = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ChannelFSM.c:cNotifyRoomListPresent"
+  },
+  {
+   "address": "0x00434320",
+   "name": "cNotifyCurrentRoomPresent",
+   "kind": "function",
+   "class": "hw1:ChannelFSM.c",
+   "confidence": "high",
+   "evidence": "state 3/8 branches: chatConnect / titanStartChatServer / SetChannel(L\"Default\",L\"Default\") + titanRefreshRequest = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ChannelFSM.c:cNotifyCurrentRoomPresent"
+  },
+  {
+   "address": "0x004343d0",
+   "name": "titanStartChatReplyReceivedCB",
+   "kind": "function",
+   "class": "hw1:ChannelFSM.c",
+   "confidence": "high",
+   "evidence": "status 0 or -0x4b3 (ServiceExists) with state 7 -> state 4 + chatConnect; else ResetChannel + FailedToCreateChat msg = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ChannelFSM.c:titanStartChatReplyReceivedCB"
+  },
+  {
+   "address": "0x00434430",
+   "name": "cNotifyChatConnected",
+   "kind": "function",
+   "class": "hw1:ChannelFSM.c",
+   "confidence": "high",
+   "evidence": "state 4 -> -1 (connected, inlined), mgDisplayMessage, wcslen(RemoveGameRequest) -> titanRemoveGame = HW1; caller chatReceiveUserJoinReply",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ChannelFSM.c:cNotifyChatConnected"
+  },
+  {
+   "address": "0x00434480",
+   "name": "cNotifyGameCreationStatus",
+   "kind": "function",
+   "class": "hw1:ChannelFSM.c",
+   "confidence": "high",
+   "evidence": "if !LANGame: -0x7dd -> mgGameAlreadyExists, 0 -> mgCreateGameConfirmed = HW1; caller TitanInterface_HandleRoutingStatusReply",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ChannelFSM.c:cNotifyGameCreationStatus"
+  },
+  {
+   "address": "0x004344b0",
+   "name": "cNotifyChatConnectFailed",
+   "kind": "function",
+   "class": "hw1:ChannelFSM.c",
+   "confidence": "high",
+   "evidence": "ResetChannel; state==4 ? mgFailedToConnectToChannel : mgChatConnectionFailed; state=-1 = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ChannelFSM.c:cNotifyChatConnectFailed"
+  },
+  {
+   "address": "0x004344f0",
+   "name": "cNotifyChatBadResponse",
+   "kind": "function",
+   "class": "hw1:ChannelFSM.c",
+   "confidence": "high",
+   "evidence": "ResetChannel(); state=-1 = HW1 cNotifyChatBadResponse",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ChannelFSM.c:cNotifyChatBadResponse"
+  },
+  {
+   "address": "0x007525e8",
+   "name": "cChannelFSMState",
+   "kind": "data",
+   "class": "hw1:ChannelFSM.c",
+   "confidence": "high",
+   "evidence": "global initialised -1, compared with 3/4/7/8 by every ChannelFSM function = HW1 sdword cChannelFSMState=-1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ChannelFSM.c:cChannelFSMState"
+  },
+  {
+   "address": "0x00434500",
+   "name": "recievedChatPacketCB",
+   "kind": "function",
+   "class": "hw1:Chatting.c",
+   "confidence": "high",
+   "evidence": "messageType(+0x1e)<3: wcstombs+strcpy then hr/mg/lg/gcProcessGameChatPacket by running flag; 3 -> alliance CB; caller ReceivedPacketCB = HW1 Chatting.c",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Chatting.c:recievedChatPacketCB"
+  },
+  {
+   "address": "0x0043453b",
+   "name": "",
+   "kind": "function",
+   "class": "unknown",
+   "confidence": "high",
+   "evidence": "spurious function entry at odd address inside recievedChatPacketCB (0x434500, truncated to 59 B); body is its CHAT_PACKET tail; should be removed",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004345e0",
+   "name": "sendChatMessage",
+   "kind": "function",
+   "class": "hw1:Chatting.c",
+   "confidence": "high",
+   "evidence": "mbstowcs message, header type 0xb1ab, frame=player_index, users, SendChatPacketPacket(pkt, len) = HW1 Chatting.c sendChatMessage (Cataclysm adds a type flag arg)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Chatting.c:sendChatMessage"
+  },
+  {
+   "address": "0x00434680",
+   "name": "sendAllianceRequest",
+   "kind": "function",
+   "class": "hw1:Chatting.c",
+   "confidence": "high",
+   "evidence": "header 0xb1ab, users, type, message[0]=data, SendChatPacketPacket size 0x129; caller allianceFormWith = HW1 sendAllianceRequest",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Chatting.c:sendAllianceRequest"
+  },
+  {
+   "address": "0x00420960",
+   "name": "allianceFormRequestRecievedCB",
+   "kind": "function",
+   "class": "hw1:Alliance.c",
+   "confidence": "medium",
+   "evidence": "called by recievedChatPacketCB for messageType 3 (ALLIANCE_PACKET) exactly as HW1 Chatting.c",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Alliance.c:allianceFormRequestRecievedCB"
+  },
+  {
+   "address": "0x004631f0",
+   "name": "GetDirectionVectorOfShip",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "high",
+   "evidence": "switch(direction&3) copies coordsys column 0/1/2, negates if direction&4 = HW1 GetDirectionVectorOfShip (Cataclysm passes &ship->rotinfo.coordsys); used by dockPutShipOutside",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:GetDirectionVectorOfShip"
+  },
+  {
+   "address": "0x00463350",
+   "name": "dockPutShipOutside",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "high",
+   "evidence": "(ship,creator,createat,heading,up): blob add (specific/nearest), SpaceObj/Ship/Impactable lists, univAddObjToRenderListIf, pos/vel copy, 2x GetDirectionVectorOfShip, matCreateMatFromVecs = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:dockPutShipOutside"
+  },
+  {
+   "address": "0x00463bb0",
+   "name": "cat_dockInitShipDockInfo",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "called by univCreateShip: allocs ship->dockInfo(+0x4a8) = numDockPoints*4+0x24 and zeroes it; HW1 does this inline in univCreateShip (UnivUpdate.c:1530)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univCreateShip"
+  },
+  {
+   "address": "0x00463c40",
+   "name": "InitializeDockVars",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "high",
+   "evidence": "(ship,dockship,dockType): dockship(+0x494)=dockship, DOCK type 1/9 flags, type 2 -> launch state 10, else dockstate 0, reserveddocking(+0x4a0)=-1 = HW1 InitializeDockVars",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:InitializeDockVars"
+  },
+  {
+   "address": "0x00463d00",
+   "name": "cat_dockFindDockStaticPoint",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "strcmp name over dockstaticinfo points (stride 0x4c, name +0x38), falls back to \"center\"; returns point ptr. HW1 dockFindDockIndex returns an index",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:dockFindDockIndex"
+  },
+  {
+   "address": "0x00464290",
+   "name": "ThisShipCanDockWith",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "medium",
+   "evidence": "(ship,dockwith,dockType,..): dock-class lookup via 0x463d70, rejects same shiptype, dead/hyperspace flags, ally checks; callers FindNearestShipToDockAt and clDock = HW1 role",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:ThisShipCanDockWith"
+  },
+  {
+   "address": "0x004644c0",
+   "name": "dockChangeSingleShipToDock",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "medium",
+   "evidence": "called by processCollectResource; ClearProtecting/ClearPassiveAttacking, InitShipsForAI/PrepareShipsForCommand style calls to turn one ship into COMMAND_DOCK = HW1 dockChangeSingleShipToDock",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:dockChangeSingleShipToDock"
+  },
+  {
+   "address": "0x004645e0",
+   "name": "ClampToWithin",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "high",
+   "evidence": "returns number clamped to [min,max] (3 floats) = HW1 ClampToWithin",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:ClampToWithin"
+  },
+  {
+   "address": "0x00464610",
+   "name": "dockReserveDockPoint",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "medium",
+   "evidence": "ship->reserveddocking(+0x4a0)=index, dockwith->dockInfo busy[index]=1, class count++ = HW1 static dockReserveDockPoint; callers nisNewObjectCreate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:dockReserveDockPoint"
+  },
+  {
+   "address": "0x00465590",
+   "name": "RemoveShipFromLaunching",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "medium",
+   "evidence": "frees reserved dock point (busy=0, count--), reserveddocking=-1, dockship=NULL, clears launch flags; callers RemoveShipsFromDoingStuff, clCancelAllLaunchOrdersFromPlayer = HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:RemoveShipFromLaunching"
+  },
+  {
+   "address": "0x00465750",
+   "name": "FindNearestShipToDockAt",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "high",
+   "evidence": "(ship,dockType) returns dock host; called by processDockToDo when dockship==NULL (as HW1 :6489), by clDock, processCollectResource, LeechHouseKeep",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:FindNearestShipToDockAt"
+  },
+  {
+   "address": "0x004667f0",
+   "name": "cat_dockFinishedDocking",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "processDockToDo finish branch split out: RemoveShipFromDocking, GroupShip, aiplayerShipDied, univDeleteWipeInsideShipOutOfExistence (HW1 retire/permanent-dock tail)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:processDockToDo"
+  },
+  {
+   "address": "0x00467970",
+   "name": "DockCleanup",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "high",
+   "evidence": "for each ship RemoveShipFromDocking, then 0x4a57c0 (madLinkInPostDocking); callers FreeCommandToDoContents/FreeLastOrder = HW1 DockCleanup",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:DockCleanup"
+  },
+  {
+   "address": "0x004679b0",
+   "name": "LaunchCleanup",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "high",
+   "evidence": "first ship of launchtodo: inlined RemoveShipFromLaunching (free dock point, clear flags); callers FreeCommandToDoContents/FreeLastOrder = HW1 LaunchCleanup",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:LaunchCleanup"
+  },
+  {
+   "address": "0x00467a60",
+   "name": "ShipIsWaitingForSoftLaunch",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "high",
+   "evidence": "dockship!=NULL && dockstate in {8,9}; called by aimProcessLaunch after SPECIAL_STAY_TILL_EXPLICITLAUNCH test exactly as HW1 AIMoves.c:5269",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:ShipIsWaitingForSoftLaunch"
+  },
+  {
+   "address": "0x00467a90",
+   "name": "ShipIsRefuelingAtCarrierMother",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "high",
+   "evidence": "dockship type in carrier/mothership set {0xc,0x2f,0x4c,0x3e} && state 8/9; called by kasfTeamDockedReadyForLaunch as HW1 KASFunc.c:1835",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:ShipIsRefuelingAtCarrierMother"
+  },
+  {
+   "address": "0x00468f80",
+   "name": "cat_dockShipIsInsideHost",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "walks host->shipsInsideMe(+0x4b4) list for ship; caller kasfGetDockHost",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00463d70",
+   "name": "cat_dockGetDockClass",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "switch on (shipclass, shiptype, dockType, host) returning dock-slot class index or -1; used by ThisShipCanDockWith and dock-point pickers (HW1 ThisShipIs role)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:ThisShipIs"
+  },
+  {
+   "address": "0x00464910",
+   "name": "cat_dockHasFreeSlotForShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "callers cmCanBuildShipType/cmDeterministicBuildProcess: compares host dockInfo slot counts with static capacity for the class from cat_dockGetDockClass",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00441000",
+   "name": "PrepareShipsForCommand",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "high",
+   "evidence": "(command,1) after InitShipsForAI in clDock; CommandLayer.c order 0x441000 < 0x4410c0 < 0x441190 matches HW1 lines 182/224/292",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:PrepareShipsForCommand"
+  },
+  {
+   "address": "0x004410c0",
+   "name": "InitShipsForAI",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "high",
+   "evidence": "(selection,TRUE) in clDock before PrepareShipsForCommand as HW1 clDock; HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:InitShipsForAI"
+  },
+  {
+   "address": "0x00441190",
+   "name": "InitShipAI",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "high",
+   "evidence": "(ship,TRUE) in processDockToDo after a new dock host is found, exactly as HW1 processDockToDo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:InitShipAI"
+  },
+  {
+   "address": "0x00444780",
+   "name": "ClearPassiveAttacking",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "high",
+   "evidence": "called in clDock when command attributes&4 (COMMAND_MASK_PASSIVE_ATTACKING); sits between FreeLastOrder 0x444490 and RemoveShipsFromDoingStuff 0x444810 as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:ClearPassiveAttacking"
+  },
+  {
+   "address": "0x004447b0",
+   "name": "ClearProtecting",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "high",
+   "evidence": "called in clDock when attributes&2 (COMMAND_MASK_PROTECTING); follows ClearPassiveAttacking as HW1 3162/3192",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:ClearProtecting"
+  },
+  {
+   "address": "0x004477c0",
+   "name": "RemoveShipFromAttacking",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "medium",
+   "evidence": "processDockToDo: attributes&4 -> (ship) then RemoveShipReferencesFromExtraAttackInfo as HW1; order 5114 < 5212 < 5352",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:RemoveShipFromAttacking"
+  },
+  {
+   "address": "0x00447950",
+   "name": "RemoveShipFromFormation",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "medium",
+   "evidence": "processDockToDo: attributes&1 (formation) -> (ship) then formationContentHasChanged(docktodo) as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:RemoveShipFromFormation"
+  },
+  {
+   "address": "0x004479f0",
+   "name": "RemoveShipReferencesFromExtraAttackInfo",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "medium",
+   "evidence": "(ship,docktodo) after RemoveShipFromAttacking in processDockToDo as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:RemoveShipReferencesFromExtraAttackInfo"
+  },
+  {
+   "address": "0x00483390",
+   "name": "formationContentHasChanged",
+   "kind": "function",
+   "class": "hw1:Formation.c",
+   "confidence": "medium",
+   "evidence": "(docktodo) after RemoveShipFromFormation when ships remain, as HW1 processDockToDo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Formation.c:formationContentHasChanged"
+  },
+  {
+   "address": "0x00529130",
+   "name": "tacticsReportMove",
+   "kind": "function",
+   "class": "hw1:Tactics.c",
+   "confidence": "low",
+   "evidence": "called by clDock with comlayer before IsSelectionAlreadyDoingSomething, as HW1 clDock; in Tactics.c range 0x5290b0-0x529450",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tactics.c:tacticsReportMove"
+  },
+  {
+   "address": "0x00465860",
+   "name": "cat_dockShipDocksAtShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "per-ship dock/launch state machine on ship+0x49c (fly in, reserve point, dockPutShipInside, cmAddFactory, launch=type 2); called by processDockToDo and processLaunchShipToDo; HW1 ShipDocksAtShip role",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:ShipDocksAtShip"
+  },
+  {
+   "address": "0x00467b80",
+   "name": "cat_processLinkToDo",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "clProcess case order 0xb; order set by cat_clLink 0x44d3b0 (refs \"No Ships To Link With\"); pairs via ship+0x650, aligns, creates merged ship (univCreateShip/unitCapCreateShip)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00468650",
+   "name": "cat_processUnlinkToDo",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "clProcess case order 0xc; order set by cat_clUnlink 0x44d7a0; splits linked ship back (univCreateShip, univReallyDeleteThisShipRightNow, timers)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0044d3b0",
+   "name": "cat_clLink",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "builds CommandToDo order 0xb, pairs nearest same-type linkable ships (cat_shipHasUpgrade 8) via 0x467ae0; refs \"\\nNo Ships To Link With\"; callers clProcessSyncPacket, cat_clWrapLink",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0044d7a0",
+   "name": "cat_clUnlink",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "builds CommandToDo order 0xc for ships with static flag 0x40, prepares each via 0x468580; refs \"No Ships To Link With\"; callers clProcessSyncPacket, MimicHouseKeep, cat_clWrapUnlink",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0044d2e0",
+   "name": "cat_clFindLinkPartner",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nearest ship in universe ShipList with cat_shipHasUpgrade(8), same shiptype, unlinked (+0x650==0), in selection; caller cat_clLink only",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00453940",
+   "name": "cat_clWrapLink",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "clWrap pattern: clFlashShips, SP -> cat_clLink(comlayer,sel) else clSendMisc(...,5,0)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004539a0",
+   "name": "cat_clWrapUnlink",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "clWrap pattern: clFlashShips, SP -> cat_clUnlink(comlayer,sel) else clSendMisc(...,6,0)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00467ae0",
+   "name": "cat_linkPairShips",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "sets both ships +0x650 to each other, link roles 2/5 at +0x654, speech 0x400089c; caller cat_clLink",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00468580",
+   "name": "cat_unlinkPrepareShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "ship+0x650=self, role 0, speech 0x400089d, sets split direction vectors via GetDirectionVectorOfShip; caller cat_clUnlink",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004675c0",
+   "name": "cat_linkFlyIntoPosition",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "refs \"\\nLinking ships arent oriented properly!! - DS\"; aligns heading/up and flies partner into link position; callers cat_dockShipDocksAtShip, cat_salvageSpecialTarget",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00463840",
+   "name": "cat_matCoordSysAligned",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "TRUE when all three column dot products of two 3x3 matrices >= tolerance; used by link alignment (0x4675c0, cat_processLinkToDo)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004671d0",
+   "name": "cat_dockFlyToConeInside",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "dock-point cone test (dot vs coneangle at +0x20, conenormal +0x14) then aishipFlyToPointAvoidingObjsFunc; HW1 dockFlyToConeInside shape; also used by salvage",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:dockFlyToConeInside"
+  },
+  {
+   "address": "0x004673c0",
+   "name": "cat_dockFlyToConeOrigin",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "fly to dock point + conenormal*clamped dist until MoveReachedDestinationVariable; HW1 dockFlyToConeOrigin shape; also used by salvage",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:dockFlyToConeOrigin"
+  },
+  {
+   "address": "0x005b0420",
+   "name": "DefenseFighterStaticInit",
+   "kind": "function",
+   "class": "hw1:DefenseFighter.c",
+   "confidence": "high",
+   "evidence": "header 0x8c3d2c slot2; header has Close==Died (same fn 0x5b0610) exactly as HW1 DefenseFighterHeader; block sits between DefaultShip.c and DFGFrigate.c",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefenseFighter.c:DefenseFighterStaticInit"
+  },
+  {
+   "address": "0x005b0470",
+   "name": "DefenseFighterInit",
+   "kind": "function",
+   "class": "hw1:DefenseFighter.c",
+   "confidence": "high",
+   "evidence": "header 0x8c3d2c slot4 (Init); listInit(spec list)+flag, HW1 order after StaticInit",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefenseFighter.c:DefenseFighterInit"
+  },
+  {
+   "address": "0x005b0490",
+   "name": "DefenseFighterHouseKeep",
+   "kind": "function",
+   "class": "hw1:DefenseFighter.c",
+   "confidence": "medium",
+   "evidence": "[LAB_, not yet a function entry] header 0x8c3d2c slot11 (Housekeep)",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefenseFighter.c:DefenseFighterHouseKeep"
+  },
+  {
+   "address": "0x005b0610",
+   "name": "DefenseFighterDied",
+   "kind": "function",
+   "class": "hw1:DefenseFighter.c",
+   "confidence": "high",
+   "evidence": "header 0x8c3d2c slots 5 and 16 (Close and Died) both = this fn, as HW1 header lists DefenseFighterDied twice",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefenseFighter.c:DefenseFighterDied"
+  },
+  {
+   "address": "0x005b0690",
+   "name": "DefenseFighterSpecialActivate",
+   "kind": "function",
+   "class": "hw1:DefenseFighter.c",
+   "confidence": "high",
+   "evidence": "header 0x8c3d2c slot8 (SpecialActivate); HW1 order Died, SpecialActivate, Attack",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefenseFighter.c:DefenseFighterSpecialActivate"
+  },
+  {
+   "address": "0x005b06e0",
+   "name": "DefenseFighterAttack",
+   "kind": "function",
+   "class": "hw1:DefenseFighter.c",
+   "confidence": "high",
+   "evidence": "header 0x8c3d2c slot22 (Cataclysm Attack slot)",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefenseFighter.c:DefenseFighterAttack"
+  },
+  {
+   "address": "0x005b0770",
+   "name": "DefenseFighterPassiveAttack",
+   "kind": "function",
+   "class": "hw1:DefenseFighter.c",
+   "confidence": "high",
+   "evidence": "header 0x8c3d2c slot7 (AttackPassive)",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefenseFighter.c:DefenseFighterPassiveAttack"
+  },
+  {
+   "address": "0x005b07d0",
+   "name": "DefenseFighter_Save",
+   "kind": "function",
+   "class": "hw1:DefenseFighter.c",
+   "confidence": "high",
+   "evidence": "header 0x8c3d2c slot18 (Save)",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefenseFighter.c:DefenseFighter_Save"
+  },
+  {
+   "address": "0x005b0840",
+   "name": "DefenseFighter_Load",
+   "kind": "function",
+   "class": "hw1:DefenseFighter.c",
+   "confidence": "high",
+   "evidence": "[LAB_, not yet a function entry] header 0x8c3d2c slot19 (Load)",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefenseFighter.c:DefenseFighter_Load"
+  },
+  {
+   "address": "0x005b08b0",
+   "name": "DefenseFighter_Fix",
+   "kind": "function",
+   "class": "hw1:DefenseFighter.c",
+   "confidence": "high",
+   "evidence": "header 0x8c3d2c slot20 (Fix); last DefenseFighter fn as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefenseFighter.c:DefenseFighter_Fix"
+  },
+  {
+   "address": "0x005b0360",
+   "name": "MiningBaseInit",
+   "kind": "function",
+   "class": "hw1:DefaultShip.c",
+   "confidence": "high",
+   "evidence": "spec(+0x638)->dontRecurseKill=0; between DefaultShipAttack and MiningBaseDied as HW1 DefaultShip.c; Init slot of header 0x8c6374 via ICF",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefaultShip.c:MiningBaseInit"
+  },
+  {
+   "address": "0x005b0940",
+   "name": "univDFGFieldEffect",
+   "kind": "function",
+   "class": "hw1:DFGFrigate.c",
+   "confidence": "medium",
+   "evidence": "between DFGFrigateStaticInit and DFGFrigateAttack (HW1 order); called from bullet update 0x43cd10; deletes/deflects bullets with etgEffectCreate",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DFGFrigate.c:univDFGFieldEffect"
+  },
+  {
+   "address": "0x005b3720",
+   "name": "CloakedFighterSpecialActivate",
+   "kind": "function",
+   "class": "hw1:GenericInterceptor.c",
+   "confidence": "medium",
+   "evidence": "SpecialActivate slot of CloakedFighter header 0x8c44d4 (shared via ICF with P1IonArrayFrigate); in CloakedFighter block",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericInterceptor.c:CloakedFighterSpecialActivate"
+  },
+  {
+   "address": "0x005b3840",
+   "name": "CloakedFighterHouseKeep",
+   "kind": "function",
+   "class": "hw1:GenericInterceptor.c",
+   "confidence": "medium",
+   "evidence": "Housekeep slot of CloakedFighter header 0x8c44d4; follows CloakedFighterFire as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericInterceptor.c:CloakedFighterHouseKeep"
+  },
+  {
+   "address": "0x005b4130",
+   "name": "runShipEffect",
+   "kind": "function",
+   "class": "hw1:GravWellGenerator.c",
+   "confidence": "medium",
+   "evidence": "between GravWellGeneratorInit and Died (HW1 line 87); called by GravWellGeneratorHouseKeep; etgEffectCreate with frequency check",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GravWellGenerator.c:runShipEffect"
+  },
+  {
+   "address": "0x005b4260",
+   "name": "gravwellIsShipStuckForHyperspaceing",
+   "kind": "function",
+   "class": "hw1:GravWellGenerator.c",
+   "confidence": "medium",
+   "evidence": "after GravWellGeneratorDied (HW1 153); no callees, callers in hyperspace code 0x48fb60/0x518170",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GravWellGenerator.c:gravwellIsShipStuckForHyperspaceing"
+  },
+  {
+   "address": "0x005b42f0",
+   "name": "turnoffGravwell",
+   "kind": "function",
+   "class": "hw1:GravWellGenerator.c",
+   "confidence": "high",
+   "evidence": "HW1 185 slot before SpecialActivate; called by GravWellGeneratorSpecialActivate and CommandLayer 0x4472a0; listDeleteAll + sound/effect",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GravWellGenerator.c:turnoffGravwell"
+  },
+  {
+   "address": "0x005b4550",
+   "name": "GravWellGeneratorJustDisabled",
+   "kind": "function",
+   "class": "hw1:GravWellGenerator.c",
+   "confidence": "high",
+   "evidence": "22 B, caller shipHasJustBeenDisabled, calls GravWellGeneratorSpecialActivate = HW1 GravWellGeneratorJustDisabled",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GravWellGenerator.c:GravWellGeneratorJustDisabled"
+  },
+  {
+   "address": "0x005b4570",
+   "name": "GravWellGeneratorAddObj",
+   "kind": "function",
+   "class": "hw1:GravWellGenerator.c",
+   "confidence": "medium",
+   "evidence": "memAlloc+listAddNode of tracked ship (ShipInGravField inlined); caller GravAddObjectsInProximity; HW1 order 348",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GravWellGenerator.c:GravWellGeneratorAddObj"
+  },
+  {
+   "address": "0x005b46c0",
+   "name": "GravAddObjectsInProximity",
+   "kind": "function",
+   "class": "hw1:GravWellGenerator.c",
+   "confidence": "medium",
+   "evidence": "caller GravWellGeneratorHouseKeep, calls GravWellGeneratorAddObj; precedes RemoveShipReferences as HW1 398",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GravWellGenerator.c:GravAddObjectsInProximity"
+  },
+  {
+   "address": "0x005b47c0",
+   "name": "GravWellClose",
+   "kind": "function",
+   "class": "hw1:GravWellGenerator.c",
+   "confidence": "high",
+   "evidence": "listDeleteAll(&spec->GravList +0x640); Close slot of GravWellGenerator header 0x8c4864 = HW1 GravWellClose",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GravWellGenerator.c:GravWellClose"
+  },
+  {
+   "address": "0x005b5100",
+   "name": "doBurstFire",
+   "kind": "function",
+   "class": "hw1:HeavyCorvette.c",
+   "confidence": "low",
+   "evidence": "between HeavyCorvetteSpecialTarget and HeavyCorvetteHouseKeep; gunShootGunsAtTarget + aitrackHeading; caller HeavyCorvetteSpecialTarget (HW1 burst helpers)",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/HeavyCorvette.c:doBurstFire"
+  },
+  {
+   "address": "0x005ba440",
+   "name": "SetAIVecHeading",
+   "kind": "function",
+   "class": "hw1:MinelayerCorvette.c",
+   "confidence": "medium",
+   "evidence": "after MinelayerCorvetteFire (HW1 185); caller MineLayerAttackRun; ranRandom + matMakeRotAboutZ + fly",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/MinelayerCorvette.c:SetAIVecHeading"
+  },
+  {
+   "address": "0x005ba6e0",
+   "name": "MineLayerAttackRun",
+   "kind": "function",
+   "class": "hw1:MinelayerCorvette.c",
+   "confidence": "high",
+   "evidence": "caller MinelayerCorvetteAttack; calls SetAIVecHeading, MinelayerCorvetteFire, MinelayerCorvetteStaticMineDrop = HW1 MineLayerAttackRun",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/MinelayerCorvette.c:MineLayerAttackRun"
+  },
+  {
+   "address": "0x005bab20",
+   "name": "MinelayerCorvetteStaticMineDrop",
+   "kind": "function",
+   "class": "hw1:MinelayerCorvette.c",
+   "confidence": "high",
+   "evidence": "callers MineLayerAttackRun and MinelayerCorvetteSpecialActivate; aitrackZeroVelocity, mine list alloc, MinelayerCorvetteFire = HW1 StaticMineDrop",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/MinelayerCorvette.c:MinelayerCorvetteStaticMineDrop"
+  },
+  {
+   "address": "0x005bb3e0",
+   "name": "MissileDestroyerAttack",
+   "kind": "function",
+   "class": "hw1:MissileDestroyer.c",
+   "confidence": "high",
+   "evidence": "attackStraightForward(gunRange[tactics], tooCloseRange[tactics]) from custstat; between MissileDestroyerInit/HouseKeep; ICF-shared Attack slot of many capital headers",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/MissileDestroyer.c:MissileDestroyerAttack"
+  },
+  {
+   "address": "0x005bcdb0",
+   "name": "Mothership_PreFix",
+   "kind": "function",
+   "class": "hw1:Mothership.c",
+   "confidence": "medium",
+   "evidence": "PreFix slot (17) of Mothership/Carrier/P1Mothership headers; sits between Mothership_Load and Mothership_Fix",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/Mothership.c:Mothership_PreFix"
+  },
+  {
+   "address": "0x005be540",
+   "name": "P1MothershipAttackPassive",
+   "kind": "function",
+   "class": "hw1:P1Mothership.c",
+   "confidence": "high",
+   "evidence": "rotate&&rotateToRetaliate ? attackPassiveRotate : attackPassive = HW1 body; in P1Mothership block; ICF-shared AttackPassive (also DefaultShipAttackPassive)",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/P1Mothership.c:P1MothershipAttackPassive"
+  },
+  {
+   "address": "0x005bf440",
+   "name": "DetectShips",
+   "kind": "function",
+   "class": "hw1:ProximitySensor.c",
+   "confidence": "low",
+   "evidence": "between ProximitySensorInit and ProximitySensorHouseKeep; only caller HouseKeep (HW1 DetectShips called from HouseKeep)",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/ProximitySensor.c:DetectShips"
+  },
+  {
+   "address": "0x005c79b0",
+   "name": "SwarmerAttack",
+   "kind": "function",
+   "class": "hw1:P2Swarmer.c",
+   "confidence": "medium",
+   "evidence": "attackSideStep(ship,target,&spec,custstat) body = HW1 P2SwarmerAttack/HeavyCorvetteAttack; in Swarmer block; Attack slot for HeavyCorvette/MultiGun/Swarmer (ICF)",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/P2Swarmer.c:P2SwarmerAttack"
+  },
+  {
+   "address": "0x00421fa0",
+   "name": "attackSideStep",
+   "kind": "function",
+   "class": "hw1:Attack.c",
+   "confidence": "high",
+   "evidence": "callers ACVAttack, P1StandardCorvetteAttack, P1MissileCorvetteAttack, SwarmerAttack (HW1 corvette attacks call attackSideStep); gunShootGunsAtTarget, aishipFly",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Attack.c:attackSideStep"
+  },
+  {
+   "address": "0x005c59a0",
+   "name": "cat_rkoAttackPassive",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "body attackPassive(ship,target) (= HW1 MothershipAttackPassive); AttackPassive slot of Mothership/Processor/RKO headers; located in RKO block",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/Mothership.c:MothershipAttackPassive"
+  },
+  {
+   "address": "0x005b7b70",
+   "name": "cat_leechClose",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Close slot (5) of Leech header 0x8c4c5c: memFree spec(+0x640)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c0a60",
+   "name": "cat_rammingFrigateClose",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Close slot (5) of RammingFrigate header 0x8c5e34",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c7620",
+   "name": "cat_slipgateClose",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Close and Died slots of Slipgate header 0x8c68bc: etgEffectDelete/remove render, growSelectClose",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005adc40",
+   "name": "cat_acvClose",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Close and Died slots of ACV header 0x8c3324: growSelectClose(spec+0x6e4)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005b8210",
+   "name": "cat_mcvAttackPassive",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "AttackPassive slot of MCV and P1StandardCorvette headers; linked-state check then attackPassive(Rotate); in MCV block",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005b82e0",
+   "name": "cat_mcvHaltCommand",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "HaltCommand slot (28) of MCV and P1StandardCorvette headers; in MCV block after MCVDied",
+   "hw1_equivalent": ""
+  }
+ ],
+ "audit": {
+  "sampled": 30,
+  "seed": 11,
+  "strata": {
+   "high": 15,
+   "medium": 12,
+   "low": 3
+  },
+  "correct": 29,
+  "wrong": 1,
+  "unverifiable": 0,
+  "precision": 0.9667,
+  "action": "keep (precision >= 0.9); dropped the 1 sampled-wrong entry (0x00464660 dockFindNearestDockPoint)",
+  "dropped": 1,
+  "method": "Independent check against exports/cataclysm_gog_r2a decompiled.c, functions.csv and call_graph.csv, plus raw bytes of original/game/cataclysm.exe (ship headers 0x8c3d2c/0x8c44d4/0x8c3324, flightman tables 0x87ea90/0x87eaf8 used by flightmanInit/flightmanExecute via ship+0x364, x86 disassembly of LAB_ entries 0x5b0840/0x40a790/0x40a910/0x407dd0, which all start with a prologue after nop padding), and the named HomeworldSDL functions (AIMoves.c, AIOrders.c, AIVar.c, CommandLayer.c, Formation.c, SaveGame.c, ChannelFSM.c, Chatting.c, Alliance.c, FlightMan.c/FlightManDefs.h, Dock.c, UnivUpdate.c, GenericInterceptor.c, DefenseFighter.c). The strike orders were checked by formation arguments (Fighter DELTA/CLAW, Corvette DELTA3D/WALL, Frigate WALL/CLAW) and main ship types from shiptypeinfo 0x889530.",
+  "verdicts": [
+   {
+    "address": "0x0040d510",
+    "name": "aimCreateMoveDone",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x004447b0",
+    "name": "ClearProtecting",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0040f530",
+    "name": "aioCreateResourcer",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00441190",
+    "name": "InitShipAI",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x005b0840",
+    "name": "DefenseFighter_Load",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00434430",
+    "name": "cNotifyChatConnected",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0040d750",
+    "name": "aimFix_Attack",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00501b30",
+    "name": "SaveSelection",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x004410c0",
+    "name": "InitShipsForAI",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0047b010",
+    "name": "flightmanFlipTurnExecute",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0040a910",
+    "name": "aimProcessArmada",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0040a790",
+    "name": "aimProcessShipRecon",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0043453b",
+    "name": "",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00501d90",
+    "name": "LoadSelectionAndFix",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0040d890",
+    "name": "aimFix_Special",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0040ee70",
+    "name": "aioCreateFighterStrike",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0040c020",
+    "name": "aimPreFix_AdvancedAttack",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x005b3720",
+    "name": "CloakedFighterSpecialActivate",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00420960",
+    "name": "allianceFormRequestRecievedCB",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00420620",
+    "name": "AIVarToNumber",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0040bef0",
+    "name": "aimLoad_FlankAttack",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00407dd0",
+    "name": "aimProcessHyperspace",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00483390",
+    "name": "formationContentHasChanged",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x005adc40",
+    "name": "cat_acvClose",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00464290",
+    "name": "ThisShipCanDockWith",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x004477c0",
+    "name": "RemoveShipFromAttacking",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00463bb0",
+    "name": "cat_dockInitShipDockInfo",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00464660",
+    "name": "dockFindNearestDockPoint",
+    "confidence": "low",
+    "verdict": "wrong"
+   },
+   {
+    "address": "0x00463d70",
+    "name": "cat_dockGetDockClass",
+    "confidence": "low",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00464910",
+    "name": "cat_dockHasFreeSlotForShip",
+    "confidence": "low",
+    "verdict": "correct"
+   }
+  ],
+  "notes": [
+   "0x00464660 dockFindNearestDockPoint is WRONG as an hw1 identity. The Cataclysm body is (ship,dockwith,dockType)->bool. It picks the nearest free point in the dock class and then RESERVES it itself: it writes ship+0x4a0, sets dockInfo+0x24+i*4 busy and increments the per-class count. The evidence says it runs \"before reserving\", which is false. HW1 dockFindNearestDockPoint(dockpointindices,ship,dockwith,out*) returns an index and has no side effects. A better name is cat_dockReserveNearestDockPoint (find + dockReserveDockPoint). Dropped.",
+   "Cross-file name conflicts for the reconciler, all at the same address. Against ships-r2.verified.json: 0x5adc40 cat_acvClose vs ACVDied; 0x5b7b70 cat_leechClose vs LeechClose; 0x5b8210 cat_mcvAttackPassive vs MCVAttackPassive; 0x5b82e0 cat_mcvHaltCommand vs MCVHaltCommand; 0x5c0a60 cat_rammingFrigateClose vs RammingFrigateClose; 0x5c59a0 cat_rkoAttackPassive vs RKOAttackPassive; 0x5c7620 cat_slipgateClose vs SlipgateDied. Against gaps-input-save-sp.json: 0x4fd740 SpaceObjRegistryGetShip vs SpaceObjRegistryGetObj. 0x4fd740 is an ICF-folded registry[id] lookup and HW1 defines GetObj first, so either name fits. ships-r2 was already audited at 1.0, so prefer its header-slot names.",
+   "0x00464290 ThisShipCanDockWith is heavily rewritten in Cataclysm: it takes an extra capacity-check argument, uses dock-class counts and has single-player mission special cases. It keeps the HW1 role (same-shiptype rejection, ally checks, callers clDock and FindNearestShipToDockAt 0x465750, verified), so it is counted correct at medium.",
+   "0x005b3720 CloakedFighterSpecialActivate is a 14-byte wrapper around the shared cloak helper FUN_00435f50 (shiptype switch 0x24 bCloakedFighter / 0x2c bIonArrayFrigate / 0x5e). It sits at header slot 8 (SpecialActivate), so the slot identity is correct.",
+   "0x0040bba0 aimFix_Hyperspace has no Hyperspace creator in the binary, and only this fix function references LAB_00407dd0. The process name rests on HW1 source order: MoveTeamIndex fix, MoveTeamSplit fix/save/load, Hyperspace fix, then Intercept. That order matches exactly.",
+   "Enum caveat: Cataclysm AI move-type numbers diverge from HW1 after MOVE_COUNTSHIPS. For example, ActiveResource is 0x29 and Armada 0x21 here, against 44 and 36 in HW1. Evidence that cites HW1 MOVE_* names for such numbers is labelling, not proof. Creator identity was verified by the process pointers and the order calls instead."
+  ]
+ }
+}

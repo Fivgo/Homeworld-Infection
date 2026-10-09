@@ -1,0 +1,737 @@
+[
+ {
+  "address": "0x00406e90",
+  "name": "aimProcessGuardShips",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] processFunction set by aimCreateGuardShips (0x406f20, type 1=MOVE_GUARDSHIPS) and aimFix_GuardShips, first body of AIMoves block"
+ },
+ {
+  "address": "0x00406f00",
+  "name": "aimShipDiedGuardShips",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "medium",
+  "evidence": "[LAB_, not yet a function entry] moveShipDiedFunction of GuardShips (0x406f20/0x406fb0), ICF-folded body also used by Attack/Special/Kamikaze/FlankAttack/Support moves"
+ },
+ {
+  "address": "0x00406fe0",
+  "name": "aimProcessGetShips",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "medium",
+  "evidence": "[LAB_, not yet a function entry] processFunction set by aimFix_GetShips 0x4072a0, sits between GuardShips and GetShips creators as HW1 line 120"
+ },
+ {
+  "address": "0x004072e0",
+  "name": "aimProcessVarWait",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] processFunction of type 0x1d (MOVE_VARWAIT, HW1 32 minus 3 removed swarm moves) set by 0x407330/0x4073d0"
+ },
+ {
+  "address": "0x004073f0",
+  "name": "aimProcessVarDec",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] processFunction of type 0x1c (MOVE_VARDEC) created by 0x407440"
+ },
+ {
+  "address": "0x00407500",
+  "name": "aimProcessVarInc",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "medium",
+  "evidence": "[LAB_, not yet a function entry] process set by aimFix_VarInc 0x407550, between VarDec and VarSet as HW1 (aimCreateVarInc not linked)"
+ },
+ {
+  "address": "0x00407570",
+  "name": "aimProcessVarSet",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x1a (MOVE_VARSET) created by 0x4075b0"
+ },
+ {
+  "address": "0x00407670",
+  "name": "aimProcessVarDestroy",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x1e (MOVE_VARDESTROY) created by 0x4076b0"
+ },
+ {
+  "address": "0x00407ac0",
+  "name": "aimResourceVolumeResourceDied",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] stored at move+0x160 (moveResourceDiedFunction) by aimFix_ResourceVolume 0x40cbf0, exactly as HW1 aimFix_ResourceVolume"
+ },
+ {
+  "address": "0x00407b80",
+  "name": "aimResourceVolumeShipDied",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] moveShipDiedFunction set by aimFix_ResourceVolume 0x40cbf0"
+ },
+ {
+  "address": "0x00407c00",
+  "name": "aimCaptureShipDied",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "medium",
+  "evidence": "[LAB_, not yet a function entry] died ptr of aimFix_Capture 0x40cdf0 and of Intercept (ICF-folded with aimInterceptShipDied), position just before aimProcessMove as HW1 line 1133"
+ },
+ {
+  "address": "0x00407c20",
+  "name": "aimProcessMove",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] processFunction of type 6 (MOVE_MOVETEAM) in aimCreateMoveTeam(NoAdd), HW1 line 1170 first process function"
+ },
+ {
+  "address": "0x00407cc0",
+  "name": "aimProcessMoveSplit",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process set by aimFix_MoveTeamSplit 0x40bb10 with aimMoveSplitShipDied/Close"
+ },
+ {
+  "address": "0x00407dd0",
+  "name": "aimProcessHyperspace",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "medium",
+  "evidence": "[LAB_, not yet a function entry] process set by aimFix_Hyperspace 0x40bba0, between ProcessMoveSplit and ProcessIntercept as HW1 1273"
+ },
+ {
+  "address": "0x00407fe0",
+  "name": "aimProcessIntercept",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] processFunction of type 9 (MOVE_INTERCEPT) in aimCreateIntercept 0x40bbc0"
+ },
+ {
+  "address": "0x004082a0",
+  "name": "aimProcessMoveTo",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "medium",
+  "evidence": "[LAB_, not yet a function entry] process set by aimFix_MoveTo 0x40bca0 (between Fix_Intercept and CreateCountShips, HW1 order), creator not linked"
+ },
+ {
+  "address": "0x004083f0",
+  "name": "aimProcessFlankAttack",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x13 FlankAttack in aimCreateFlankAttack 0x40bd70 / aimFix_FlankAttack"
+ },
+ {
+  "address": "0x00408840",
+  "name": "aimProcessMoveAttack",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x14 (MOVE_MOVEATTACK) in aimCreateMoveAttack"
+ },
+ {
+  "address": "0x00408ca0",
+  "name": "aimProcessAdvancedAttack",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x12 (MOVE_ADVANCEDATTACK) in 0x40bf10 and aimFix_AdvancedAttack"
+ },
+ {
+  "address": "0x00408d30",
+  "name": "aimProcessHarassAttack",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x15 in aimCreateHarassAttack"
+ },
+ {
+  "address": "0x00409350",
+  "name": "aimProcessDock",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x17 (MOVE_DOCK) in aimCreateDock"
+ },
+ {
+  "address": "0x00409760",
+  "name": "aimProcessPatrolMove",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0xb (MOVE_PATROLMOVE) in aimCreatePatrolMove"
+ },
+ {
+  "address": "0x00409af0",
+  "name": "aimProcessActivePatrol",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0xc in aimCreateActivePatrol"
+ },
+ {
+  "address": "0x00409c50",
+  "name": "aimProcessTempGuard",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 3 (MOVE_TEMPGUARD) in aimCreateTempGuard 0x40c6a0"
+ },
+ {
+  "address": "0x00409ff0",
+  "name": "aimProcessReinforce",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x19 (MOVE_REINFORCE) in aimCreateReinforce"
+ },
+ {
+  "address": "0x0040a1c0",
+  "name": "aimProcessSupport",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x20 (MOVE_SUPPORT) in aimCreateSupport 0x40c840"
+ },
+ {
+  "address": "0x0040a440",
+  "name": "aimProcessActiveRecon",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0xd (MOVE_ACTIVERECON) in aimCreateActiveRecon 0x40c900"
+ },
+ {
+  "address": "0x0040a790",
+  "name": "aimProcessShipRecon",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0xe (MOVE_SHIPRECON) in aimCreateShipReconNoAdd 0x40c9c0"
+ },
+ {
+  "address": "0x0040a910",
+  "name": "aimProcessArmada",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x21 (MOVE_ARMADA) in aimCreateArmada 0x40ca80"
+ },
+ {
+  "address": "0x0040abb0",
+  "name": "aimProcessControlResources",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x22 (MOVE_CONTROLRESOURCES) in 0x40cb30"
+ },
+ {
+  "address": "0x0040ad00",
+  "name": "aimProcessResourceVolume",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process set by aimFix_ResourceVolume 0x40cbf0"
+ },
+ {
+  "address": "0x0040aee0",
+  "name": "aimProcessActiveResource",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x29 (MOVE_ACTIVERES) in 0x40cc80"
+ },
+ {
+  "address": "0x0040b000",
+  "name": "aimProcessMothershipMove",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x2a (MOVE_MOTHERSHIP) in 0x40cd30"
+ },
+ {
+  "address": "0x0040b3f0",
+  "name": "aimProcessActiveCapture",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x25 (MOVE_ACTIVECAPTURE) in 0x40ce20"
+ },
+ {
+  "address": "0x0040b4b0",
+  "name": "aimProcessActiveMine",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x26 (MOVE_ACTIVEMINE) in 0x40ced0"
+ },
+ {
+  "address": "0x0040b5e0",
+  "name": "aimProcessMineVolume",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "medium",
+  "evidence": "[LAB_, not yet a function entry] process set by aimFix_MineVolume 0x40cf80 (between ActiveMine and SpecialDefense, HW1 order)"
+ },
+ {
+  "address": "0x0040d0e0",
+  "name": "aimProcessGuardCooperatingTeam",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x1f (MOVE_GUARDCOOPTEAM) in 0x40d130/0x40d1b0 and the inlined create in aimProcessSpecialDefense"
+ },
+ {
+  "address": "0x0040d420",
+  "name": "aimProcessFormation",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 5 (MOVE_FORMATION) in 0x40d460"
+ },
+ {
+  "address": "0x0040d5b0",
+  "name": "aimProcessAttack",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x11 (MOVE_ATTACK) in aimCreateAttack(NoAdd)"
+ },
+ {
+  "address": "0x0040d780",
+  "name": "aimProcessSpecial",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x10 (MOVE_SPECIAL) in aimCreateSpecial"
+ },
+ {
+  "address": "0x0040d8c0",
+  "name": "aimProcessKamikaze",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x2b (MOVE_KAMIKAZE) in aimCreateKamikaze"
+ },
+ {
+  "address": "0x0040da50",
+  "name": "aimProcessFancyGetShips",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] process of type 0x16 (MOVE_FANCYGETSHIPS) in 0x40df90/0x40e040"
+ },
+ {
+  "address": "0x00416b80",
+  "name": "GenericCooperatingTeamDiedCB",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "medium",
+  "evidence": "[LAB_ entry] stored as coop team DiedCB when shiptype is CloakGenerator (0x3f/0x4d) in aimProcessSpecialDefense, as HW1"
+ },
+ {
+  "address": "0x00468fb0",
+  "name": "etgEffectLoadVoid",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "ETG script table 0x87ab40.. entry \"LoadEffect\" -> 0x468fb0, as HW1 ETG.c:732-748 scriptEntry list NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046c3d0",
+  "name": "etgBlockOpen",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"{\" @0x879648, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046c420",
+  "name": "etgBlockClose",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"}\" @0x879654, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046c490",
+  "name": "etgParseModeRestore",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "pointer stored by etgVariableBlockOpen (0x46c4ff) as its nest callback, as HW1 etgNestFunctionSet(NULL,etgParseModeRestore,...) NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046c4a0",
+  "name": "etgCodeBlockEnd",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "pointer stored by the startup/eachFrame/timeIndex block-open parsers (0x46c560/0x46c5b0/0x46c610) as nest callback, as HW1 NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046c4e0",
+  "name": "etgVariableBlockOpen",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"variable\" @0x87963c, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046c530",
+  "name": "etgStartupBlockOpen",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"startup\" @0x879660, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046c580",
+  "name": "etgEachFrameBlockOpen",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"eachFrame\" @0x87966c, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046c5e0",
+  "name": "etgTimeIndexBlockOpen",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"timeIndex\" @0x879678, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046c650",
+  "name": "etgNewInteger",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"int\" @0x8796a8, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046caf0",
+  "name": "etgSubTextureDWORD",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"subTextureDWORD\" @0x8796d8, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046cc60",
+  "name": "etgSetTextureParse",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"setTexture\" @0x8796f0, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046ceb0",
+  "name": "etgNewFloat",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"float\" @0x8796b4, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046d070",
+  "name": "etgConditionalComplete",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "pointer stored inside etgConditional (0x46d326) as nest callback, as HW1 etgNestFunctionSet(NULL,etgConditionalComplete,...) NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046d350",
+  "name": "etgElseComplete",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "pointer stored inside etgElse (0x46d40b) as nest callback NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046d440",
+  "name": "etgLabelGoto",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"goto\" @0x879768, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046d4d0",
+  "name": "etgLabelCall",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"call\" @0x879774, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046d7e0",
+  "name": "etgAlternateComplete",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "pointer stored inside etgAternateStart (0x46d902) as nest callback NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046d9e0",
+  "name": "etgTimeBlockComplete",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "pointer stored inside etgTimeBlockOpen (0x46daa0) as nest callback NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046d9f0",
+  "name": "etgTimeBlockOpen",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"timeBlock\" @0x879750, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046dce0",
+  "name": "etgAtComplete",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "pointer stored inside etgAtDefine (0x46e0cd) as nest callback NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046dd00",
+  "name": "etgBetweenComplete",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "pointer stored inside etgBetweenDefine (0x46de34) as nest callback NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046e150",
+  "name": "etgSpawnParse",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "parse table \"spawn\" @0x8797e0, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046e2e0",
+  "name": "etgCreationCallback",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "pushed by etgCreateCallbackSetup (0x46e39b) as partCreateCallbackSet callback, as HW1 NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046e390",
+  "name": "etgCreateCallbackSetup",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "stored as call->function by etgCallbackOpen (0x46e3ca), as HW1 NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046e3b0",
+  "name": "etgCallbackOpen",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "passed by etgCreationResolve (0x46e4a7) to etgNestFunctionSet as open callback NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046e450",
+  "name": "etgCallbackClose",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "passed by etgCreationResolve (0x46e4b1) to etgNestFunctionSet as close callback NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046e490",
+  "name": "etgCreationResolve",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "resolve slot of every create* entry in function table (+0xc), HW1 funcEntryR(...,etgCreationResolve), same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046e760",
+  "name": "etgNOP",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "handler table EOP #0 @0x8793a0, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046e870",
+  "name": "etgEnd",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "handler table EOP #35 @0x8794b8, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046e880",
+  "name": "etgDelete",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "handler table EOP #34 @0x8794b0, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046ed30",
+  "name": "etgCallTo",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "handler table EOP #38 @0x8794d0, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046ed80",
+  "name": "etgReturnTo",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "handler table EOP #39 @0x8794d8, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046edb0",
+  "name": "etgAlternate",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "handler table EOP #73 @0x8795e8, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0046ee90",
+  "name": "etgAt",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "handler table EOP #5 @0x8793c8, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x004704e0",
+  "name": "etgCreateEffects",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "stored as the function pointer of the createEffects opcode by etgCreateEffectsParse (0x46e60c) NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x00470c50",
+  "name": "etgSpawnNewEffect",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "stored as the function pointer of the spawn opcode by etgSpawnParse (0x46e192) NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x00471170",
+  "name": "etgThisOffsetXYZ",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "functable \"effModifyXYZ\" @0x87a8a8, same slot/name as HW1 ETG.c table NOT yet a Ghidra function entry."
+ },
+ {
+  "address": "0x0047c000",
+  "name": "flightmanSlalomExecute",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] flightmanSpecificExecuteTable 0x87eaf8[18]=FLIGHTMAN_SLALOM"
+ },
+ {
+  "address": "0x0047c180",
+  "name": "flightmanSandwichExecute",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] flightmanSpecificExecuteTable 0x87eaf8[23]=FLIGHTMAN_SANDWICH"
+ },
+ {
+  "address": "0x0047c720",
+  "name": "flightmanCelebFlipInit",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "medium",
+  "evidence": "[LAB_, not yet a function entry] flightmanSpecificInitTable 0x87ea90[11],[12] (ICF-folded CelebFlip/BRollOut init), physically before CelebFlipExecute"
+ },
+ {
+  "address": "0x0047c7d0",
+  "name": "flightmanWhipStrafeInit",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] flightmanSpecificInitTable 0x87ea90[10]=FLIGHTMAN_WHIP_STRAFE"
+ },
+ {
+  "address": "0x0047d4c0",
+  "name": "flightmanLoYoYoInit",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "medium",
+  "evidence": "[LAB_, not yet a function entry] flightmanSpecificInitTable 0x87ea90[20],[21] (ICF-folded LoYoYo/HiYoYo init), physically before LoYoYoExecute"
+ },
+ {
+  "address": "0x0047d8e0",
+  "name": "flightmanSideStepExecute",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] flightmanSpecificExecuteTable 0x87eaf8[19]=FLIGHTMAN_SIDESTEP"
+ },
+ {
+  "address": "0x004b0020",
+  "name": "meshAlmostCurrentMaterial",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "medium",
+  "evidence": "assigned to meshCurrentMaterial in meshRender when flag 0xa4c454 (g_NoMatSwitch) set, NOT yet a Ghidra function entry (label)"
+ },
+ {
+  "address": "0x004b68d0",
+  "name": "madBindingsPost",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "medium",
+  "evidence": "stored by madAnimBindingsDupe as bindings.postCallback (+0x34), NOT yet a Ghidra function entry (label LAB_004b68d0)"
+ },
+ {
+  "address": "0x004b68f0",
+  "name": "madBindingListCallback",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "medium",
+  "evidence": "passed by madAnimBindingsDupe to meshHierarchyWalk as pre-callback, NOT yet a Ghidra function entry (label LAB_004b68f0)"
+ },
+ {
+  "address": "0x004e2690",
+  "name": "partModifyExponent",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "ETG table \"modifySpecular\" -> 0x4e2690 (HW1 maps it to partModifyExponent), NOT yet a Ghidra function entry"
+ },
+ {
+  "address": "0x004e2b40",
+  "name": "cat_partModifyScaleX",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "ETG function table entry 0x87a34c \"modifyScaleX\" -> 0x4e2b40, NOT yet a Ghidra function entry (pointer-table target missed by r2 create pass)"
+ },
+ {
+  "address": "0x004e3050",
+  "name": "partModifyDeltaVelR",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "ETG table \"modifyDeltaVelR\" -> 0x4e3050 (HW1 partModifyDeltaVelR), NOT yet a Ghidra function entry"
+ },
+ {
+  "address": "0x004e33d0",
+  "name": "partModifyMorph",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "ETG table \"modifyMeshAnimation\" -> 0x4e33d0 (HW1 partModifyMorph), NOT yet a Ghidra function entry"
+ },
+ {
+  "address": "0x004e3670",
+  "name": "partModifyPseudoBillboard",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "ETG table \"modifyTrueBillboard\"/\"modifyPseudoBillboard\" -> 0x4e3670 (HW1 partModifyPseudoBillboard for both), NOT yet a Ghidra function entry"
+ },
+ {
+  "address": "0x004e3710",
+  "name": "partModifyColorScheme",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "ETG table \"modifyColorScheme\" -> 0x4e3710, NOT yet a Ghidra function entry"
+ },
+ {
+  "address": "0x004e39b0",
+  "name": "partSetIsWorldspace",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "ETG table \"setIsWorldSpace\" -> 0x4e39b0, NOT yet a Ghidra function entry"
+ },
+ {
+  "address": "0x004e3be0",
+  "name": "partSetXYZScale",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "ETG table \"setXYZScale\" -> 0x4e3be0, NOT yet a Ghidra function entry"
+ },
+ {
+  "address": "0x004e4000",
+  "name": "partSetColorADist",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "ETG table \"setColorADist\" -> 0x4e4000, NOT yet a Ghidra function entry"
+ },
+ {
+  "address": "0x004e40d0",
+  "name": "partSetDeltaColorA",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "ETG table \"setDeltaColorA\" -> 0x4e40d0, NOT yet a Ghidra function entry"
+ },
+ {
+  "address": "0x004e4120",
+  "name": "partSetDeltaColorADist",
+  "reason": "r2-deferred:gaps-render-fe",
+  "confidence": "high",
+  "evidence": "ETG table \"setDeltaColorADist\" -> 0x4e4120, NOT yet a Ghidra function entry"
+ },
+ {
+  "address": "0x00503410",
+  "name": "SaveResourceVolumeCB",
+  "reason": "r2-deferred:gaps-input-save-sp",
+  "confidence": "low",
+  "evidence": "Code address passed with ResourceVolumeList to SaveLinkedListOfStuff in SaveUniverse (no function entry yet, may need creating), HW1 SaveGame.c:4091"
+ },
+ {
+  "address": "0x005b0490",
+  "name": "DefenseFighterHouseKeep",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "medium",
+  "evidence": "[LAB_, not yet a function entry] header 0x8c3d2c slot11 (Housekeep)"
+ },
+ {
+  "address": "0x005b0840",
+  "name": "DefenseFighter_Load",
+  "reason": "r2-deferred:gaps-ai-flight",
+  "confidence": "high",
+  "evidence": "[LAB_, not yet a function entry] header 0x8c3d2c slot19 (Load)"
+ },
+ {
+  "address": "0x005c9da0",
+  "name": "JpegErrorExit",
+  "reason": "r2-deferred:libs-unknown",
+  "confidence": "low",
+  "evidence": "not a Ghidra function yet: bytes mov eax,[esp+4],mov ecx,[eax],push 1,add ecx,0x84,push ecx,call longjmp = longjmp(err->setjmp_buf,1), stored as err->error_exit by Jpeg*"
+ }
+]
