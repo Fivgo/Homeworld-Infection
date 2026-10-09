@@ -1,0 +1,4015 @@
+{
+ "source": "game-render-ui",
+ "method": "Read-only walk of ghidra/exports/cataclysm_gog_r3a (functions.csv, call_graph.csv, decompiled.c): alphabetical-module address clustering around applied HW1 names, call-graph neighbours of named functions, and line-by-line body comparison with reference/HomeworldSDL/src/Game/*.c (constants, struct strides, callee sequence, string literals). Inlined HW1 helpers are noted in evidence.",
+ "done_subsystems": [
+  "clouds-nebulae",
+  "mainview",
+  "nis",
+  "options",
+  "shipselect",
+  "mainrgn",
+  "utility",
+  "console",
+  "zero-match-files"
+ ],
+ "proposals": [
+  {
+   "address": "0x00434c10",
+   "name": "clipViewclipLine",
+   "kind": "function",
+   "class": "hw1:Clipper.c",
+   "confidence": "high",
+   "evidence": "Clipper.c block after Clamp.c; (vectors,i,j) 6-plane homogeneous clip, Free=2 start, returns 0 when both outside; only caller clipLineToScreen 0x435bd0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clipper.c:clipViewclipLine"
+  },
+  {
+   "address": "0x004352b0",
+   "name": "clipTransformPoints",
+   "kind": "function",
+   "class": "hw1:Clipper.c",
+   "confidence": "high",
+   "evidence": "(n,vObj,vEye,m) loop vEye=m*vObj with m[0],m[4],m[8],m[12] pattern, stride 16; called by clipPointToScreen/BBox/Line helpers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clipper.c:clipTransformPoints"
+  },
+  {
+   "address": "0x00435350",
+   "name": "clipProjectPoints",
+   "kind": "function",
+   "class": "hw1:Clipper.c",
+   "confidence": "high",
+   "evidence": "7 params (n,vEye,vClip,clipmask,ormask,andmask,m); inlined clipIsPerspective test m[11]==-1 m[15]==0, two loops computing clip masks",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clipper.c:clipProjectPoints"
+  },
+  {
+   "address": "0x004356c0",
+   "name": "clipViewportMap",
+   "kind": "function",
+   "class": "hw1:Clipper.c",
+   "confidence": "high",
+   "evidence": "(n,vClip,clipmask,vWin,viewportS,viewportT,force); w==0 -> zero, else 1/w*s+t, stride 4->3 floats, two branches on clipmask&&!force",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clipper.c:clipViewportMap"
+  },
+  {
+   "address": "0x00435810",
+   "name": "clipPointToScreenWithMatrices",
+   "kind": "function",
+   "class": "hw1:Clipper.c",
+   "confidence": "medium",
+   "evidence": "glGetIntegerv(0xBA2 GL_VIEWPORT), w=1, transform+project+viewportMap of 1 point, screen zeroed first; caller btgRender. clipPointToScreen wrapper not separate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clipper.c:clipPointToScreenWithMatrices"
+  },
+  {
+   "address": "0x00435980",
+   "name": "clipBBoxIsClipped",
+   "kind": "function",
+   "class": "hw1:Clipper.c",
+   "confidence": "high",
+   "evidence": "(collrectoffset,up,right,forward) 8 corner bbox, transform+project only; callers rndShipVisible (HW1 render.c) and cloudRenderSystem (HW1 Clouds.c:1274)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clipper.c:clipBBoxIsClipped"
+  },
+  {
+   "address": "0x00435bd0",
+   "name": "clipLineToScreen",
+   "kind": "function",
+   "class": "hw1:Clipper.c",
+   "confidence": "high",
+   "evidence": "2-point transform/project/viewportMap and calls clipViewclipLine (inlined _lineinside path); caller piePointSpecDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clipper.c:clipLineToScreen"
+  },
+  {
+   "address": "0x004363c0",
+   "name": "cloudGetFreshLightningHandle",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "loop i=1.. over 0x28-byte _lightnings at 0xc46b88 flags&1 (LIGHTNING_ACTIVE) clear -> return i, else 0; callers cloudZapLoop/cloudUpdateSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudGetFreshLightningHandle"
+  },
+  {
+   "address": "0x004363e0",
+   "name": "cloudInitLightning",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "zeroes pals (+0x24..0x27), pointA/pointB, distance, parent, countdown of a 0x28-byte lightning; caller cloudUpdateSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudInitLightning"
+  },
+  {
+   "address": "0x00436440",
+   "name": "cloudKillLightning",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "l->flags=0 then for 3 pals at +0x24 clears _lightnings[pal].flags (0xc46b60 + pal*0x28); same body as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudKillLightning"
+  },
+  {
+   "address": "0x00436490",
+   "name": "SetV",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "ranRandom(4=RANDOM_CLOUDS)%10*DUSTCLOUD_RAN_MULTIPLIER, sign flip on &1, zero if g_NoBumpy, writes p+rand and n; caller ellipsoid_seq",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:SetV"
+  },
+  {
+   "address": "0x00436520",
+   "name": "ellipsoid_render",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "alodIncPolys(nf/2), rndLightingEnable(FALSE), shInvertMatrix + shSpecularColour per vertex; caller cloudRenderSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:ellipsoid_render"
+  },
+  {
+   "address": "0x004367e0",
+   "name": "ellipsoid_free",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "only caller cloudShutdown (HW1 cloudShutdown = cloudReset + ellipsoid_free); frees table/octant/LOD arrays",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:ellipsoid_free"
+  },
+  {
+   "address": "0x004368b0",
+   "name": "ellipsoid_init",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "caller cloudStartup, memAlloc/memFree of slot table and octant (n_max growth), sin/cos table fill",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:ellipsoid_init"
+  },
+  {
+   "address": "0x00436aa0",
+   "name": "ellipsoid_seq",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "(ellipsoid,n,a,b,c) caller cloudStartup x9; allocs verts/faces, SetV per octant, fsqrt (ellipsoid_octant inlined), face generation",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:ellipsoid_seq"
+  },
+  {
+   "address": "0x00437800",
+   "name": "cloudRealDist",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "(n,d): ranRandom(4)%1000000*1e-6, sign from ranRandom&1, forced -1 if d<0, returns n+sign*r*d",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudRealDist"
+  },
+  {
+   "address": "0x004379e0",
+   "name": "cloudReset",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "caller gameEnd; inlined _clearcolorUniverse (if !smSensorsActive rndSetClearColor(universe.backgroundColor)), clears rndFogOn and dontNebulate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudReset"
+  },
+  {
+   "address": "0x00437a40",
+   "name": "cloudCreateSystem",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "caller univAddDustCloud; memAlloc 0x24, radius, healthFactor=1.0, colRGB of 3 cloudRealDist*255 (__ftol), bursts zeroed",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudCreateSystem"
+  },
+  {
+   "address": "0x00437c50",
+   "name": "cloudDeleteSystem",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "kills lightning of 3 bursts (+0x20, inlined cloudKillLightning) then memFree; callers univFreeResourceContents, univupdateCloseAll...",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudDeleteSystem"
+  },
+  {
+   "address": "0x00437ce0",
+   "name": "cloudRandomSphericalPoint",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "unit x vector rotated by random %360 deg about Z then X (hmatMakeRotAboutZ/X), homogenize; callers cloudZapLoop, cloudUpdateSystem, nebSetFog, nebGo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudRandomSphericalPoint"
+  },
+  {
+   "address": "0x00437e50",
+   "name": "cloudPointInSphere",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "medium",
+   "evidence": "(point,radius) scales by cloudRealDist(0.75r,0.4r) (inlined, per component in this build); caller cloudUpdateSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudPointInSphere"
+  },
+  {
+   "address": "0x00437fe0",
+   "name": "cloudGetVcross",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "veye=from-mrCamera->eyeposition(+0x10), vseg=to-from, normalize both, cross, normalize; callers cloudRenderSystem, cloudRenderAndUpdateLightning",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudGetVcross"
+  },
+  {
+   "address": "0x00438090",
+   "name": "cloudRenderLightning",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "(pa,pb,depth,lod,vcross) recursive self-calls for depth-1 halves, ranRandom midpoint deviation; callers cloudRenderSystem, cloudRenderAndUpdateLightning",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudRenderLightning"
+  },
+  {
+   "address": "0x00438640",
+   "name": "cloudRenderSystem",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "caller cat_rndRenderObjectList; clipBBoxIsClipped, ellipsoid_render, cloudGetVcross, cloudRenderLightning, rndAdditiveBlends, glCapFastFeature",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudRenderSystem"
+  },
+  {
+   "address": "0x00438a00",
+   "name": "cloudRenderAndUpdateLightning",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "distance -> depth 3/2/1, rndTextureEnable/rndLightingEnable(FALSE), cloudGetVcross then cloudRenderLightning; caller cat_rndRenderObjectList",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudRenderAndUpdateLightning"
+  },
+  {
+   "address": "0x00438b10",
+   "name": "cloudLightningDistance",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "fsqrt(",
+   "hw1_equivalent": "pointB(+0x10)-pointA(+4)",
+   "signature": "^2) of a lightning; callers cloudZapLoop, cloudUpdateSystem"
+  },
+  {
+   "address": "0x00438b50",
+   "name": "cloudCapLightningDistance",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "if dist>CLOUD_LIGHTNING_MAXDIST pointB=pointA+normalize(diff)*MAXDIST (global named CLOUD_LIGHTNING_MAXDIST in body)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudCapLightningDistance"
+  },
+  {
+   "address": "0x00438c30",
+   "name": "cloudZapLoop",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "ApplyDamageToTarget (cloudApplyDamage inlined) on ships in radius, then 2 new lightnings per ship (cloudNewLightning inlined: fresh handle, random sphere points); caller cloudUpdateSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudZapLoop"
+  },
+  {
+   "address": "0x00439130",
+   "name": "cloudUpdateSystem",
+   "kind": "function",
+   "class": "hw1:Clouds.c",
+   "confidence": "high",
+   "evidence": "caller cloudSetFog (HW1 cloudSetFog calls cloudUpdateSystem per dust cloud); calls cloudZapLoop, cloudCapLightningDistance, cloudInitLightning, fresh handles",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clouds.c:cloudUpdateSystem"
+  },
+  {
+   "address": "0x00472860",
+   "name": "fsqrt",
+   "kind": "function",
+   "class": "hw1:fastmath.c",
+   "confidence": "medium",
+   "evidence": "table-driven sqrt (exponent halving + mantissa table 0xa2e144) next to fmathInit 0x4728c0; 141 callers incl. vecNormalize, cloudLightningDistance",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00422e70",
+   "name": "alodIncPolys",
+   "kind": "function",
+   "class": "hw1:AutoLOD.c",
+   "confidence": "high",
+   "evidence": "if (alodEnabled) alodPolys += n; AutoLOD.c block after alodShutdown 0x422e50; callers meshObjectRender, ellipsoid_render, nebula draws",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AutoLOD.c:alodIncPolys"
+  },
+  {
+   "address": "0x0050e280",
+   "name": "shSpecularColour",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "medium",
+   "evidence": "9-arg per-vertex specular: shTransformNormal, pow (__CIpow) exponent, colour clamp; callers meshSpecObjectRender, ellipsoid_render, nebDrawChunk2",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shSpecularColour"
+  },
+  {
+   "address": "0x0050e640",
+   "name": "shInvertMatrix",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "(out,in) affine fast path when m[3],m[7],m[11]==0 and m[15]==1 (cofactor/det), identity copy on det==0; callers meshSpecObjectRender, ellipsoid_render",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shInvertMatrix"
+  },
+  {
+   "address": "0x004c78a0",
+   "name": "navLightStaticInfoDelete",
+   "kind": "function",
+   "class": "hw1:NavLights.c",
+   "confidence": "high",
+   "evidence": "loops numNAVLights entries (stride 0x48) calling texture unregister when handle != -1, then memFree(staticInfo); NavLights.c block just before nebStartup",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NavLights.c:navLightStaticInfoDelete"
+  },
+  {
+   "address": "0x004c78e0",
+   "name": "RenderNAVLights",
+   "kind": "function",
+   "class": "hw1:NavLights.c",
+   "confidence": "high",
+   "evidence": "blinks navlights on universe.totaltimeelapsed, rndBillboardEnable, primCircleSolid3Fade or primSolidTexture3Fade, rndAdditiveBlends; caller cat_rndRenderObjectList",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NavLights.c:RenderNAVLights"
+  },
+  {
+   "address": "0x004c7ba0",
+   "name": "nebReset",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "ranParametersReset, inlined nebShutdown (nebFreeTendrils + memFree chunks), inlined _clearcolorUniverse rndSetClearColor; callers gameEnd, singlePlayerSetMissionAttributes",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebReset"
+  },
+  {
+   "address": "0x004c7cb0",
+   "name": "nebFreeTendrils",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "for each tendril, 2 LODs: memFree vertices/normals/faces and zero counts, then memFree(tendrilTable); callers nebShutdown, nebReset, nebGo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebFreeTendrils"
+  },
+  {
+   "address": "0x004c7d50",
+   "name": "nebInitTendril",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "medium",
+   "evidence": "ranRandom/__ftol colour from nebRealDist(NEB_FOG_*), clamps 0..255, zeroes LOD pointers; callers nebAttachTendrils, nebGo (inlined nebAllocateTendrils/nebGetFreshTendril)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebInitTendril"
+  },
+  {
+   "address": "0x004c7f90",
+   "name": "nebAngularDeviation",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "medium",
+   "evidence": "two chunk-delta vectors normalized, acos of dot (lib_crt_006760f0); only caller nebPickChunk",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebAngularDeviation"
+  },
+  {
+   "address": "0x004c8030",
+   "name": "nebPickChunk",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "medium",
+   "evidence": "calls nebAngularDeviation and fsqrt distance per chunk; only caller nebAttachTendrils",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebPickChunk"
+  },
+  {
+   "address": "0x004c8390",
+   "name": "nebAttachTendrils",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "medium",
+   "evidence": "calls nebPickChunk, nebInitTendril (nebGetFreshTendril inlined), vecNormalize tendril direction; caller nebGo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebAttachTendrils"
+  },
+  {
+   "address": "0x004c8650",
+   "name": "nebGo",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "medium",
+   "evidence": "allocates chunks/tendrils (memAlloc, nebFreeTendrils), distributes chunks with cloudRandomSphericalPoint velocity, nebAttachTendrils, nebDeactivateEmptyChunksAndFixup",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebGo"
+  },
+  {
+   "address": "0x004c8940",
+   "name": "nebDeactivateEmptyChunksAndFixup",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "counts chunks with tendrils, memAlloc new table, fixes tendril a/b, univAddNebula per chunk, memFree old table; caller nebGo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebDeactivateEmptyChunksAndFixup"
+  },
+  {
+   "address": "0x004c8b00",
+   "name": "nebDrawChunk2",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "medium",
+   "evidence": "alodIncPolys + shInvertMatrix + shSpecularColour sphere draw; only caller nebRenderChunk",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebDrawChunk2"
+  },
+  {
+   "address": "0x004c9290",
+   "name": "nebRenderChunk",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "medium",
+   "evidence": "frame-counter check then nebDrawChunk2; caller nebRenderNebula",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebRenderChunk"
+  },
+  {
+   "address": "0x004c9430",
+   "name": "nebDrawTendril",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "medium",
+   "evidence": "alodIncPolys + shader per-vertex colour over tendril LOD faces; only caller nebRenderTendril",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebDrawTendril"
+  },
+  {
+   "address": "0x004c9cc0",
+   "name": "nebTendrilBounds",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "medium",
+   "evidence": "min/max span + bounding-sphere growth with fsqrt over tendril verts; only caller nebCreateCylinder",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebTendrilBounds"
+  },
+  {
+   "address": "0x004ca0d0",
+   "name": "nebCreateCylinder",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "medium",
+   "evidence": "memAlloc verts/normals/faces, hmatMultiplyHMatByHVec, ranRandom, calls nebTendrilBounds; caller nebRenderTendril",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebCreateCylinder"
+  },
+  {
+   "address": "0x004ca730",
+   "name": "nebNewNeb",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "chunk=neb->stub(+0x1a0); chunk->spaceobj=neb; neb->nebNebulaeIndex = index of chunk->nebulae in nebNebulae[8] (inlined nebIndexOfNeb); caller univAddNebula",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebNewNeb"
+  },
+  {
+   "address": "0x004ca770",
+   "name": "nebRenderTendril",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "shuffle endpoints, fsqrt length, ranRandom radius, two nebCreateCylinder calls (lods), then nebDrawTendril; caller nebRenderNebula",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebRenderTendril"
+  },
+  {
+   "address": "0x004caa60",
+   "name": "nebColorDarkenAndDesaturate",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "(c,dark,desat): RGB->HSV (0x554cd0), v-=dark/255, s-=desat/255 clamp 0, HSV->RGB (0x554e30), repack keeping alpha",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebColorDarkenAndDesaturate"
+  },
+  {
+   "address": "0x004cac30",
+   "name": "nebColourTendril",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "camera distance of tendril a and b (fsqrt, mrCamera eyeposition), nebColorDarkenAndDesaturate(realColour +0xf0) stored to colour +0xec, alpha re-packed via __ftol",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebColourTendril"
+  },
+  {
+   "address": "0x004cad80",
+   "name": "nebRender",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "43-byte loop over numNebulae calling nebRenderNebula; caller rndMainViewRenderFunction",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebRender"
+  },
+  {
+   "address": "0x004cadb0",
+   "name": "nebRenderNebula",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "glCapFastFeature/rndLightingEnable/rndTextureEnable/rndAdditiveBlends state, univSpaceObjInRenderList (nebLOD inlined), nebColourTendril, nebRenderChunk, nebRenderTendril",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebRenderNebula"
+  },
+  {
+   "address": "0x004cb160",
+   "name": "nebDeleteChunk",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "if numNebulae && neb->numChunks: chunk flags",
+   "hw1_equivalent": "=DEAD(4), per tendril set INACTIVE, prev TRAILING, next LEADING (inlined nebRemoveTendril); caller univFreeResourceContents",
+   "signature": "HomeworldSDL/src/Game/Nebulae.c:nebDeleteChunk"
+  },
+  {
+   "address": "0x004cb510",
+   "name": "nebChunkPtrToNum",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "index of chunk ptr in chunkTable (stride 0x58) else -1; caller SaveAllSpaceObjs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebChunkPtrToNum"
+  },
+  {
+   "address": "0x004cb540",
+   "name": "nebNumToChunkPtr",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "-1 -> NULL else chunkTable + n*0x58; caller FixAllSpaceObjs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebNumToChunkPtr"
+  },
+  {
+   "address": "0x0057a410",
+   "name": "rndDrawScissorBars",
+   "kind": "function",
+   "class": "hw1:render.c",
+   "confidence": "high",
+   "evidence": "caller rndRenderTask when nisScissorFade!=0; glColor3f 0 or 0.5 grey, GL_QUADS(7) letterbox bars from MAIN_WindowWidth/Height, blend glColor4f(0,0,0,fade)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/render.c:rndDrawScissorBars"
+  },
+  {
+   "address": "0x005312b0",
+   "name": "tutDrawTextPointers",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "rndRenderTask calls it with &subRegion[1].rect (0xabb900+0x884 stride) when pointers not drawn (HW1 render.c:3851); Tutor.c block after tutGetNextTextLine; primLine2, pie circle",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutDrawTextPointers"
+  },
+  {
+   "address": "0x00531070",
+   "name": "tutClipSegToTextBox",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "low",
+   "evidence": "only callee-helper of tutDrawTextPointers, sits between tutGetNextTextLine and it as HW1 PulseVal/tutClipSeg* do; float clip math with __ftol",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutClipSegToTextBox"
+  },
+  {
+   "address": "0x005753d0",
+   "name": "rndFade",
+   "kind": "function",
+   "class": "hw1:render.c",
+   "confidence": "medium",
+   "evidence": "(spaceobj,camera) camera distance via fsqrt then meshSetFade; called in rndMainViewRenderFunction render-list loop and cat_rndRenderObjectList like HW1 rndFade",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/render.c:rndFade"
+  },
+  {
+   "address": "0x005a7310",
+   "name": "trailDraw",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "high",
+   "evidence": "caller rndMainViewRenderFunction per ship trail; tacticsGetShipsMaxVelocity, cat_shipGetSpeedMultiplier, capital glow, billboard squares, trailLineSequence/trailLine; Trails.c before trailSegmentsRead",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailDraw"
+  },
+  {
+   "address": "0x005a7120",
+   "name": "mistrailDraw",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "high",
+   "evidence": "caller rndMainViewRenderFunction for missiles (+0x1c4,+0x1c0 trail); rndLightingEnable/TextureEnable(FALSE), rndAdditiveBlends, loop calling mistrailDrawLine",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:mistrailDraw"
+  },
+  {
+   "address": "0x005a7050",
+   "name": "mistrailDrawLine",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "high",
+   "evidence": "only caller mistrailDraw; alpha=255*(1-seg/n) via __ftol, two coloured vertices",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:mistrailDrawLine"
+  },
+  {
+   "address": "0x005a6f20",
+   "name": "trailLine",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "high",
+   "evidence": "switch on LOD calling trailLineBillboard plus trailLinePyramid or trailLineFuzzySheath (0x5a67e0/0x5a5f90/0x5a6530); caller trailDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailLine"
+  },
+  {
+   "address": "0x005a6e30",
+   "name": "trailLineSequence",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "calls trailSurpriseColorAdjust per vertex (line strip), sits between it and trailLine as in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailLineSequence"
+  },
+  {
+   "address": "0x005a6c30",
+   "name": "trailSurpriseColorAdjust",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "(i,n,c) callers trailLineSequence and trailDraw as HW1; scales colour by (n-i)/n with ranRandom flicker",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailSurpriseColorAdjust"
+  },
+  {
+   "address": "0x005a67e0",
+   "name": "trailLineBillboard",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "called only by trailLine; third of the three LOD line helpers in HW1 source order (Pyramid, FuzzySheath, Billboard)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailLineBillboard"
+  },
+  {
+   "address": "0x005a6530",
+   "name": "trailLineFuzzySheath",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "called only by trailLine; second LOD line helper in HW1 source order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailLineFuzzySheath"
+  },
+  {
+   "address": "0x005a5f90",
+   "name": "trailLinePyramid",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "called only by trailLine; calls trailColorDesaturate 0x5a5210; first LOD line helper in HW1 source order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailLinePyramid"
+  },
+  {
+   "address": "0x005a5210",
+   "name": "trailColorDesaturate",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "(c,amount): colRGBToHSV, s -= amount/255 clamp 0, colHSVToRGB, repack; caller trailLinePyramid",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailColorDesaturate"
+  },
+  {
+   "address": "0x005a53c0",
+   "name": "trailColorSaturate",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "low",
+   "evidence": "same 424-byte HSV shape as trailColorDesaturate, directly after it as in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailColorSaturate"
+  },
+  {
+   "address": "0x005a5570",
+   "name": "trailDrawCapitalGlow",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "hmatMakeHMatFromMat + meshRender + rndAdditiveBlends glow; called only from trailDraw, after trailUpdate in source order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailDrawCapitalGlow"
+  },
+  {
+   "address": "0x005a5be0",
+   "name": "trailDrawBillboardedSquareThingz",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "rndBillboardEnable/Disable + rndTextureEnvironment; called from trailDraw, follows trailDrawCapitalGlow as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailDrawBillboardedSquareThingz"
+  },
+  {
+   "address": "0x005a5e90",
+   "name": "trailPositions",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "low",
+   "evidence": "(n,vectors,...,trail) copies segment positions walking iHead backwards (stride 0x64); caller trailDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailPositions"
+  },
+  {
+   "address": "0x005a4cb0",
+   "name": "trailDelete",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "12-byte memFree wrapper after trailNew; callers univFreeShipContents and DeleteDeadMissile (trailDelete and mistrailDelete folded to one body)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailDelete"
+  },
+  {
+   "address": "0x0057b7b0",
+   "name": "cat_rndFogLayerTextureUnload",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "unregisters texture handle 0xa75d50 (loaded from race_derelict\\dplasmacloud\\...\\cloud); callers mainResetRender, levelPreInit, nisStop",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057b7d0",
+   "name": "cat_rndFogLayerTextureLoad",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "registers texture race_derelict\\dplasmacloud\\rl0\\lod0\\cloud into 0xa75d50 if absent; caller LoadGame",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057b800",
+   "name": "cat_rndLensFlareTextureUnload",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "unregisters lens-flare texture handle 0xa75d4c (set from LensFlares\\ path); callers mainResetRender, levelPreInit",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057b820",
+   "name": "cat_rndLensFlareTextureSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "script callback (A1 pointer-table target): sscanf name, __makepath(LensFlares\\\\name), re-registers 0xa75d4c",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057b970",
+   "name": "cat_rndLensFlareElementSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "script callback: sscanf \"%f %f %d %d %d %d\" appends element (pos, scale, size, RGB) to 16-byte table 0xa75ad0, count 0xa75dd0, read by lens flare render",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057ba00",
+   "name": "cat_rndLensFlareColourSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "script callback: sscanf \"%d %d %d %d\" /255 into 16-byte float table 0xa759b8, count 0xa75dcc",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057ba90",
+   "name": "cat_rndLensFlareSourceRemove",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "listRemoveNode(source+0x2c) from flare source list 0xb37880; caller cat_partSystemFreeAttachments",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057baa0",
+   "name": "cat_rndLensFlareSourceAdd",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "listAddNode(0xb37880, source+0x2c) and resets state; caller partFillGenericParticles; list walked by lens flare render",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057bad0",
+   "name": "cat_rndLensFlareSourceVisibility",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "per flare source: camera distance (getVectDistSloppy), keeps 8 nearest in 0xb37820, occlusion via collCheckRectLine; caller lens flare render",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057bec0",
+   "name": "cat_rndLensFlaresRender",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "caller rndMainViewRenderFunction after nebRender; walks source list 0xb37880, draws flare elements (table 0xa75ad0) at screen offsets with lens-flare texture 0xa75d4c",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057cac0",
+   "name": "cat_rndLensFlareNISSourceAdd",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "adds static flare source 0xb37b60 to list 0xb37880 with scale 1.0; caller nisStart",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057cb10",
+   "name": "cat_rndLensFlareNISSourceRemove",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "listRemoveNode of static source 0xb37b8c; caller nisStop",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057cb20",
+   "name": "cat_rndLensFlareNISSourceSetPosition",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "copies vector into static flare source 0xb37b60; caller nisUpdate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057cb40",
+   "name": "cat_rndLensFlareNISSourceEnable",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "sets 0xb37b70=1, 0xb37b71=!param when flares enabled; callers two NIS event handlers 0x4cf470/0x4cf5d0",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057cb70",
+   "name": "cat_rndFogLayerSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "script callback: sscanf \"%d,%d,%d,%d,%d,%d,%f,%f\" two colours + speed + density; loads/unloads dplasmacloud texture; btgSetColourMultiplier",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057cd20",
+   "name": "cat_rndFogLayerOff",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "clears overlay flag 0xc32c14 and btgSetColourMultiplier(1,1.0); callers levelPreInit, nisStart, nisStop",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057cd40",
+   "name": "cat_rndFogLayerFadeTo",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "(time,c0,c1,speed,density) lerp targets with end time universe.totaltimeelapsed+time, or immediate set; callers nisStop, 0x4d08f0",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057ce00",
+   "name": "cat_rndFogLayerUpdate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "caller rndMainViewRenderFunction before stars; NIS \"fog\" event cat_nisFog 0x4d08f0 drives it; interpolates colours/density toward fade target and sets btgSetColourMultiplier",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057d2c0",
+   "name": "cat_rndFogLayerRender",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "caller rndMainViewRenderFunction after nebRender; scrolls two texture layers by time*speed, trMakeCurrent(0xa75d50), full-screen blended quad",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00554cd0",
+   "name": "colRGBToHSV",
+   "kind": "function",
+   "class": "hw1:Color.c",
+   "confidence": "high",
+   "evidence": "(H*,S*,V*,R,G,B) max/min, s=(max-min)/max, hue sectors; callers nebColorDarkenAndDesaturate, trailColorDesaturate, cpColorsUpdate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Color.c:colRGBToHSV"
+  },
+  {
+   "address": "0x00554e30",
+   "name": "colHSVToRGB",
+   "kind": "function",
+   "class": "hw1:Color.c",
+   "confidence": "high",
+   "evidence": "(R*,G*,B*,H,S,V) floor of hue sector (lib floor) and 6-way switch; paired with colRGBToHSV in every caller",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Color.c:colHSVToRGB"
+  },
+  {
+   "address": "0x00554fd0",
+   "name": "colRGBToHLS",
+   "kind": "function",
+   "class": "hw1:Color.c",
+   "confidence": "medium",
+   "evidence": "third Color.c function in source and address order, 408 bytes, float-only like colRGBToHSV; caller 0x52b890",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Color.c:colRGBToHLS"
+  },
+  {
+   "address": "0x00555170",
+   "name": "colHLSToRGB",
+   "kind": "function",
+   "class": "hw1:Color.c",
+   "confidence": "medium",
+   "evidence": "follows colRGBToHLS, 626 bytes (colHLSValue inlined 3x); callers nisStaticDraw, nisStaticOnExp",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Color.c:colHLSToRGB"
+  },
+  {
+   "address": "0x005553f0",
+   "name": "colMultiply",
+   "kind": "function",
+   "class": "hw1:Color.c",
+   "confidence": "high",
+   "evidence": "(c,factor): intFactor=colRealToUbyte(factor) clamp 255, each channel *intFactor>>8, alpha 0xff",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Color.c:colMultiply"
+  },
+  {
+   "address": "0x00555490",
+   "name": "colBlend",
+   "kind": "function",
+   "class": "hw1:Color.c",
+   "confidence": "high",
+   "evidence": "(c0,c1,factor): c0*f + c1*(255-f) >>8 per channel, alpha 0xff, same as HW1 colBlend",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Color.c:colBlend"
+  },
+  {
+   "address": "0x00555560",
+   "name": "cat_colBlendRGBA",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "colBlend variant that also blends the alpha byte (>>0x18), directly after colBlend; callers cat_moGameMessagesDraw, 0x5c60a0",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00555640",
+   "name": "colMultiplyClamped",
+   "kind": "function",
+   "class": "hw1:Color.c",
+   "confidence": "high",
+   "evidence": "factor<0 ->0, >1 ->255 else __ftol(f*255); channels *f>>8; callers piePointSpecDraw, smViewportRender, smZoomUpdate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Color.c:colMultiplyClamped"
+  },
+  {
+   "address": "0x004d1350",
+   "name": "nisCurrentObjectSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'with' -> 0x4d1350; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCurrentObjectSet"
+  },
+  {
+   "address": "0x004d1380",
+   "name": "nisCurrentTimeSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'at' -> 0x4d1380; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCurrentTimeSet"
+  },
+  {
+   "address": "0x004d1370",
+   "name": "nisCurrentObjectClear",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row '}' -> 0x4d1370; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCurrentObjectClear"
+  },
+  {
+   "address": "0x004d0f10",
+   "name": "nisDeathDamageSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'deathDamage' -> 0x4d0f10; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisDeathDamageSet"
+  },
+  {
+   "address": "0x004d0fb0",
+   "name": "nisDeathProjectileSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'deathProjectile' -> 0x4d0fb0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisDeathProjectileSet"
+  },
+  {
+   "address": "0x004d1050",
+   "name": "nisDeathBeamSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'deathBeam' -> 0x4d1050; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisDeathBeamSet"
+  },
+  {
+   "address": "0x004d10f0",
+   "name": "nisAttackSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'attack' -> 0x4d10f0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisAttackSet"
+  },
+  {
+   "address": "0x004d11a0",
+   "name": "cat_nisRepairSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'repair' -> 0x4d11a0; Cataclysm-only keyword [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d1250",
+   "name": "nisHaltAttackSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'haltAttack' -> 0x4d1250; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisHaltAttackSet"
+  },
+  {
+   "address": "0x004d12d0",
+   "name": "nisFireSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'fire' -> 0x4d12d0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFireSet"
+  },
+  {
+   "address": "0x004d1460",
+   "name": "nisCurrentObjectHide",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'hide' -> 0x4d1460; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCurrentObjectHide"
+  },
+  {
+   "address": "0x004d13e0",
+   "name": "nisCurrentObjectShow",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'show' -> 0x4d13e0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCurrentObjectShow"
+  },
+  {
+   "address": "0x004d14e0",
+   "name": "nisInvincibleSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'invincible' -> 0x4d14e0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisInvincibleSet"
+  },
+  {
+   "address": "0x004d1560",
+   "name": "nisVincibleSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'vincible' -> 0x4d1560; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisVincibleSet"
+  },
+  {
+   "address": "0x004d15e0",
+   "name": "nisSoundEventSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'soundEvent' -> 0x4d15e0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSoundEventSet"
+  },
+  {
+   "address": "0x004d1b00",
+   "name": "nisSpeechEventSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'speechEvent' -> 0x4d1b00; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSpeechEventSet"
+  },
+  {
+   "address": "0x004d1e10",
+   "name": "nisFleetSpeechEventSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'fleetSpeechEvent' -> 0x4d1e10; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFleetSpeechEventSet"
+  },
+  {
+   "address": "0x004d1f60",
+   "name": "nisAnimaticSpeechEventSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'animaticSpeechEvent' -> 0x4d1f60; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisAnimaticSpeechEventSet"
+  },
+  {
+   "address": "0x004d2dd0",
+   "name": "nisMusicStartSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'startMusic' -> 0x4d2dd0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMusicStartSet"
+  },
+  {
+   "address": "0x004d2e80",
+   "name": "nisMusicStopSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'stopMusic' -> 0x4d2e80; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMusicStopSet"
+  },
+  {
+   "address": "0x004d20b0",
+   "name": "nisRemainAtEndSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'remainAtEnd' -> 0x4d20b0; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisRemainAtEndSet"
+  },
+  {
+   "address": "0x004d2290",
+   "name": "nisCameraFOVSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'cameraFOV' -> 0x4d2290; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCameraFOVSet"
+  },
+  {
+   "address": "0x004d2330",
+   "name": "cat_nisCameraClipNearSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'cameraClipNear' -> 0x4d2330; Cataclysm-only keyword [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d23d0",
+   "name": "cat_nisCameraClipFarSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'cameraClipFar' -> 0x4d23d0; Cataclysm-only keyword [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d2470",
+   "name": "nisRaceSwap",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'swapRaces' -> 0x4d2470; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisRaceSwap"
+  },
+  {
+   "address": "0x004d24d0",
+   "name": "nisCameraCutSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'cameraCut' -> 0x4d24d0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCameraCutSet"
+  },
+  {
+   "address": "0x004d2fa0",
+   "name": "nisFadeSetSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'fadeSet' -> 0x4d2fa0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFadeSetSet"
+  },
+  {
+   "address": "0x004d30b0",
+   "name": "nisFadeToSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'fadeTo' -> 0x4d30b0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFadeToSet"
+  },
+  {
+   "address": "0x004d31e0",
+   "name": "nisColorSchemeSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'colorScheme' -> 0x4d31e0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisColorSchemeSet"
+  },
+  {
+   "address": "0x004d25c0",
+   "name": "nisTextFontSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'textFont' -> 0x4d25c0; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextFontSet"
+  },
+  {
+   "address": "0x004d25e0",
+   "name": "nisTextColorSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'textColor' -> 0x4d25e0; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextColorSet"
+  },
+  {
+   "address": "0x004d2640",
+   "name": "nisTextPositionSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'textPosition' -> 0x4d2640; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextPositionSet"
+  },
+  {
+   "address": "0x004d2800",
+   "name": "nisTextMarginSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'textMargin' -> 0x4d2800; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextMarginSet"
+  },
+  {
+   "address": "0x004d2820",
+   "name": "nisTextDurationSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'textDuration' -> 0x4d2820; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextDurationSet"
+  },
+  {
+   "address": "0x004d2680",
+   "name": "nisTextScrollSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'textScroll' -> 0x4d2680; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextScrollSet"
+  },
+  {
+   "address": "0x004d2790",
+   "name": "nisTextFadeSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'textFadeIn/textFadeOut' -> 0x4d2790; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextFadeSet"
+  },
+  {
+   "address": "0x004d2890",
+   "name": "nisTextCardSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'textCard' -> 0x4d2890; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextCardSet"
+  },
+  {
+   "address": "0x004d2ac0",
+   "name": "nisCameraBlendInSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'cameraBlendIn' -> 0x4d2ac0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCameraBlendInSet"
+  },
+  {
+   "address": "0x004d2bd0",
+   "name": "nisScissorBlendSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'wideScreenIn/wideScreenOut' -> 0x4d2bd0; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisScissorBlendSet"
+  },
+  {
+   "address": "0x004d2cd0",
+   "name": "nisFocusAtEndSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'focusAtEnd' -> 0x4d2cd0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFocusAtEndSet"
+  },
+  {
+   "address": "0x004d2d50",
+   "name": "nisFocusSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'focus' -> 0x4d2d50; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFocusSet"
+  },
+  {
+   "address": "0x004d2f70",
+   "name": "nisCentreShipSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'centreShip' -> 0x4d2f70; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCentreShipSet"
+  },
+  {
+   "address": "0x004d3290",
+   "name": "nisMeshAnimationStartSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'meshAnimStart' -> 0x4d3290; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMeshAnimationStartSet"
+  },
+  {
+   "address": "0x004d35d0",
+   "name": "nisMeshAnimationStopSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'meshAnimStop' -> 0x4d35d0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMeshAnimationStopSet"
+  },
+  {
+   "address": "0x004d3650",
+   "name": "nisMeshAnimationPauseSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'meshAnimPause' -> 0x4d3650; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMeshAnimationPauseSet"
+  },
+  {
+   "address": "0x004d36d0",
+   "name": "nisMeshAnimationSeekSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'meshAnimSeek' -> 0x4d36d0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMeshAnimationSeekSet"
+  },
+  {
+   "address": "0x004d37d0",
+   "name": "nisBlendCameraToFocusSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'blendCameraToFocus' -> 0x4d37d0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisBlendCameraToFocusSet"
+  },
+  {
+   "address": "0x004d3850",
+   "name": "nisVolumesSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'musicVolume/speechVolume/SFXVolume' -> 0x4d3850; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisVolumesSet"
+  },
+  {
+   "address": "0x004d3980",
+   "name": "nisTrailMoveSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'trailMove' -> 0x4d3980; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTrailMoveSet"
+  },
+  {
+   "address": "0x004d3900",
+   "name": "nisTrailZeroSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'trailZero' -> 0x4d3900; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTrailZeroSet"
+  },
+  {
+   "address": "0x004d3a00",
+   "name": "nisUniversePauseSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'pauseUniverseToggle' -> 0x4d3a00; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisUniversePauseSet"
+  },
+  {
+   "address": "0x004d3a80",
+   "name": "nisUniverseHideSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'hideUniverseToggle' -> 0x4d3a80; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisUniverseHideSet"
+  },
+  {
+   "address": "0x004d3b00",
+   "name": "nisNewEnvironmentSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'environment' -> 0x4d3b00; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisNewEnvironmentSet"
+  },
+  {
+   "address": "0x004d3c10",
+   "name": "nisLookyObjectSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'midPointLookAt' -> 0x4d3c10; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisLookyObjectSet"
+  },
+  {
+   "address": "0x004d3c20",
+   "name": "nisSMPTEOnSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'SMPTEOn' -> 0x4d3c20; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSMPTEOnSet"
+  },
+  {
+   "address": "0x004d3ed0",
+   "name": "nisSMPTEOffSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'SMPTEOff' -> 0x4d3ed0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSMPTEOffSet"
+  },
+  {
+   "address": "0x004d2190",
+   "name": "cat_nisOpenSlipgateSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'openSlipgate' -> 0x4d2190; Cataclysm-only keyword [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d2210",
+   "name": "cat_nisCloseSlipgateSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'closeSlipgate' -> 0x4d2210; Cataclysm-only keyword [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d3f50",
+   "name": "nisStaticOnSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'staticOn' -> 0x4d3f50; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStaticOnSet"
+  },
+  {
+   "address": "0x004d4230",
+   "name": "nisStaticOffSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'staticOff' -> 0x4d4230; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStaticOffSet"
+  },
+  {
+   "address": "0x004d42d0",
+   "name": "nisHideDerelictSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'hideDerelict/showDerelict' -> 0x4d42d0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisHideDerelictSet"
+  },
+  {
+   "address": "0x004d4380",
+   "name": "nisNewNISSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'newNIS' -> 0x4d4380; same keyword->handler pairing as HW1 nisScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisNewNISSet"
+  },
+  {
+   "address": "0x004d44f0",
+   "name": "nisAttributesSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'attributes' -> 0x4d44f0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisAttributesSet"
+  },
+  {
+   "address": "0x004d45a0",
+   "name": "nisAttackKasSelectionSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'attackKasSelection' -> 0x4d45a0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisAttackKasSelectionSet"
+  },
+  {
+   "address": "0x004d4650",
+   "name": "nisKeepMovingAtEndSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'keepMovingAtEnd' -> 0x4d4650; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisKeepMovingAtEndSet"
+  },
+  {
+   "address": "0x004d46d0",
+   "name": "nisMinimumLODSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'numberLODs' -> 0x4d46d0; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMinimumLODSet"
+  },
+  {
+   "address": "0x004d4770",
+   "name": "nisDamageLevelSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisScriptTable 0x888a60 row 'health' -> 0x4d4770; same keyword->handler pairing as HW1 nisScriptTable [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisDamageLevelSet"
+  },
+  {
+   "address": "0x004d1690",
+   "name": "cat_nisLightAmbientSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'lightAmbient' -> 0x4d1690; Cataclysm-only keyword [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d1790",
+   "name": "cat_nisLightDiffuseSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'lightDiffuse' -> 0x4d1790; Cataclysm-only keyword [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d1890",
+   "name": "cat_nisGlobalAmbientSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'globalAmbient' -> 0x4d1890; Cataclysm-only keyword [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d1960",
+   "name": "cat_nisNumberLightsSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'numberLights' -> 0x4d1960; Cataclysm-only keyword [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d1a10",
+   "name": "cat_nisMimicSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'mimic' -> 0x4d1a10; Cataclysm-only keyword [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d3490",
+   "name": "cat_nisFogSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'fog' -> 0x4d3490; Cataclysm-only keyword [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d3330",
+   "name": "cat_nisEboltsSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'ebolts' -> 0x4d3330; Cataclysm-only keyword [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d33e0",
+   "name": "cat_nisBeastEffectSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'beastEffect' -> 0x4d33e0; Cataclysm-only keyword [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d1cc0",
+   "name": "cat_nisSubtitleSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisScriptTable 0x888a60 row 'subtitle' -> 0x4d1cc0; Cataclysm-only keyword",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004cf240",
+   "name": "nisDeathAnything",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[0-2 NEO_DeathDamage/Projectile/Beam]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisDeathAnything"
+  },
+  {
+   "address": "0x004cf2c0",
+   "name": "nisAttack",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[4 NEO_Attack]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisAttack"
+  },
+  {
+   "address": "0x004cf370",
+   "name": "cat_nisRepair",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[5 (cat) Repair]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004cf400",
+   "name": "nisHaltAttack",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[6 NEO_HaltAttack]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisHaltAttack"
+  },
+  {
+   "address": "0x004cf440",
+   "name": "nisFire",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[7 NEO_Fire]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFire"
+  },
+  {
+   "address": "0x004cf470",
+   "name": "nisObjectShow",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[8 NEO_Show]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisObjectShow"
+  },
+  {
+   "address": "0x004cf5d0",
+   "name": "nisObjectHide",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[9 NEO_Hide]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisObjectHide"
+  },
+  {
+   "address": "0x004cf6c0",
+   "name": "nisInvincible",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[10 NEO_Invincible]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisInvincible"
+  },
+  {
+   "address": "0x004cf6e0",
+   "name": "nisVincible",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[11 NEO_Vincible]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisVincible"
+  },
+  {
+   "address": "0x004cf710",
+   "name": "nisSoundEvent",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[12 NEO_SoundEvent]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align) [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSoundEvent"
+  },
+  {
+   "address": "0x004cf840",
+   "name": "nisSpeechEvent",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[13 NEO_SpeechEvent]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSpeechEvent"
+  },
+  {
+   "address": "0x004d0050",
+   "name": "nisRemainAtEnd",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[19 NEO_RemainAtEnd]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisRemainAtEnd"
+  },
+  {
+   "address": "0x004cf8b0",
+   "name": "nisFleetSpeechEvent",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[20 NEO_FleetSpeechEvent]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align) [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFleetSpeechEvent"
+  },
+  {
+   "address": "0x004d00f0",
+   "name": "nisCameraFOV",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[21 NEO_CameraFOV]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCameraFOV"
+  },
+  {
+   "address": "0x004d0110",
+   "name": "cat_nisCameraClipNear",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[22 (cat) CameraClipNear]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d0140",
+   "name": "cat_nisCameraClipFar",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[23 (cat) CameraClipFar]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d0170",
+   "name": "nisCameraCut",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[24 NEO_CameraCut]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCameraCut"
+  },
+  {
+   "address": "0x004d0240",
+   "name": "nisTextCard",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[27 NEO_TextCard]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align) [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextCard"
+  },
+  {
+   "address": "0x004d0290",
+   "name": "nisTextScroll",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[28 NEO_TextScroll]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align) [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextScroll"
+  },
+  {
+   "address": "0x004d02d0",
+   "name": "nisScissorOut",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[29 NEO_ScissorOut]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align) [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisScissorOut"
+  },
+  {
+   "address": "0x004d0460",
+   "name": "nisFocus",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[30 NEO_Focus]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFocus"
+  },
+  {
+   "address": "0x004d0300",
+   "name": "nisFocusAtEnd",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[31 NEO_FocusAtEnd]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFocusAtEnd"
+  },
+  {
+   "address": "0x004d0710",
+   "name": "nisMusicStart",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[32 NEO_StartMusic]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align) [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMusicStart"
+  },
+  {
+   "address": "0x004d0750",
+   "name": "nisMusicStop",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[33 NEO_StopMusic]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMusicStop"
+  },
+  {
+   "address": "0x004d0770",
+   "name": "nisBlackFadeSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[34 NEO_BlackFadeSet]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisBlackFadeSet"
+  },
+  {
+   "address": "0x004d0790",
+   "name": "nisBlackFadeTo",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[35 NEO_BlackFadeTo]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisBlackFadeTo"
+  },
+  {
+   "address": "0x004d07b0",
+   "name": "nisColorScheme",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[36 NEO_ColorScheme]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisColorScheme"
+  },
+  {
+   "address": "0x004d0800",
+   "name": "nisMeshAnimationStart",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[37 NEO_MeshAnimationStart]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMeshAnimationStart"
+  },
+  {
+   "address": "0x004d0920",
+   "name": "nisMeshAnimationStop",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[38 NEO_MeshAnimationStop]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMeshAnimationStop"
+  },
+  {
+   "address": "0x004d0950",
+   "name": "nisMeshAnimationPause",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[39 NEO_MeshAnimationPause]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMeshAnimationPause"
+  },
+  {
+   "address": "0x004d0990",
+   "name": "nisMeshAnimationSeek",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[40 NEO_MeshAnimationSeek]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMeshAnimationSeek"
+  },
+  {
+   "address": "0x004d09e0",
+   "name": "nisBlendCameraEndPoint",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[41 NEO_BlendCameraEndPoint]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align) [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisBlendCameraEndPoint"
+  },
+  {
+   "address": "0x004d0ca0",
+   "name": "nisVolumeSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[42-44 NEO_Music/Speech/SFXVolume]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisVolumeSet"
+  },
+  {
+   "address": "0x004d0ce0",
+   "name": "nisTrailMove",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[45 NEO_TrailMove]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTrailMove"
+  },
+  {
+   "address": "0x004d0de0",
+   "name": "nisTrailZero",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[46 NEO_TrailZeroLength]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTrailZero"
+  },
+  {
+   "address": "0x004d0e20",
+   "name": "nisUniversePauseToggle",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[47 NEO_UniversePauseToggle]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align) [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisUniversePauseToggle"
+  },
+  {
+   "address": "0x004d0ef0",
+   "name": "nisUniverseHideToggle",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[48 NEO_UniverseHideToggle]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align) [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisUniverseHideToggle"
+  },
+  {
+   "address": "0x004d0e30",
+   "name": "nisNewEnvironment",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[49 NEO_NewEnvironment]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisNewEnvironment"
+  },
+  {
+   "address": "0x004cf8f0",
+   "name": "nisAnimaticSpeechEvent",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[51 NEO_AnimaticSpeechEvent]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align) [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisAnimaticSpeechEvent"
+  },
+  {
+   "address": "0x004cfa20",
+   "name": "nisSMPTEOn",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[52 NEO_SMPTEOn]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSMPTEOn"
+  },
+  {
+   "address": "0x004cfa30",
+   "name": "nisSMPTEOff",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[53 NEO_SMPTEOff]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align) [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSMPTEOff"
+  },
+  {
+   "address": "0x004d00b0",
+   "name": "cat_nisOpenSlipgate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[54 (cat) OpenSlipgate]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d00d0",
+   "name": "cat_nisCloseSlipgate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[55 (cat) CloseSlipgate]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004cfe20",
+   "name": "nisStaticOn",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[56 NEO_StaticOn]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStaticOn"
+  },
+  {
+   "address": "0x004cfe30",
+   "name": "nisStaticOff",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[57 NEO_StaticOff]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStaticOff"
+  },
+  {
+   "address": "0x004cfe70",
+   "name": "nisHideDerelict",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[58-59 NEO_Hide/ShowDerelict]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align) [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisHideDerelict"
+  },
+  {
+   "address": "0x004cff00",
+   "name": "nisNewNIS",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[60 NEO_StartNewNIS]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align) [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisNewNIS"
+  },
+  {
+   "address": "0x004cff80",
+   "name": "nisAttributes",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[61 NEO_Attributes]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisAttributes"
+  },
+  {
+   "address": "0x004cffa0",
+   "name": "nisAttackKasSelection",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[62 NEO_AttackKasSelection]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisAttackKasSelection"
+  },
+  {
+   "address": "0x004cffe0",
+   "name": "nisKeepMovingAtEnd",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[63 NEO_KeepMovingAtEnd]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisKeepMovingAtEnd"
+  },
+  {
+   "address": "0x004d0020",
+   "name": "nisDamageLevel",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[64 NEO_DamageLevel]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisDamageLevel"
+  },
+  {
+   "address": "0x004d0000",
+   "name": "nisMinimumLOD",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c[65 NEO_MinimumLOD]; slot order = HW1 nisEventDispatch (5 NULLs at 14-18, 2 at 25-26 align)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMinimumLOD"
+  },
+  {
+   "address": "0x004cf920",
+   "name": "cat_nisLightAmbient",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[66 (cat) LightAmbient]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004cf970",
+   "name": "cat_nisLightDiffuse",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[67 (cat) LightDiffuse]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004cf9c0",
+   "name": "cat_nisGlobalAmbient",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[68 (cat) GlobalAmbient]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004cfa10",
+   "name": "cat_nisNumberLights",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[69 (cat) NumberLights]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d5fa0",
+   "name": "cat_nisMimic",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[70 (cat) Mimic]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d08f0",
+   "name": "cat_nisFog",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[71 (cat) Fog]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d0850",
+   "name": "cat_nisEbolts",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[72 (cat) Ebolts]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d08b0",
+   "name": "cat_nisBeastEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[73 (cat) BeastEffect]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004cf740",
+   "name": "cat_nisSubtitle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "nisEventDispatch 0x88888c[74 (cat) Subtitle]; Cataclysm-only slot, matches script keyword order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004db6c0",
+   "name": "opTroubleShoot",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4db6c0, \"OP_TroubleShoot\"}; HW1 utility.c pairs it with opTroubleShoot [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opTroubleShoot"
+  },
+  {
+   "address": "0x004d9250",
+   "name": "opOptionsStart",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9250, \"OP_Options_Start\"}; HW1 utility.c pairs it with opOptionsStart [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opOptionsStart"
+  },
+  {
+   "address": "0x004d8370",
+   "name": "opOptionsCancel",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d8370, \"OP_Options_Cancel\"}; HW1 utility.c pairs it with opOptionsCancel [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opOptionsCancel"
+  },
+  {
+   "address": "0x004d9280",
+   "name": "opInGameOptionsStart",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9280, \"OP_InGameOptions_Start\"}; HW1 utility.c pairs it with opInGameOptionsStart [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opInGameOptionsStart"
+  },
+  {
+   "address": "0x004d83a0",
+   "name": "opInGameOptionsCancel",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d83a0, \"OP_InGameOptions_Cancel\"}; HW1 utility.c pairs it with opInGameOptionsCancel [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opInGameOptionsCancel"
+  },
+  {
+   "address": "0x004d7e50",
+   "name": "opInGameOptionsAccept",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d7e50, \"OP_InGameOptions_Accept\"}; HW1 utility.c pairs it with opInGameOptionsAccept",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opInGameOptionsAccept"
+  },
+  {
+   "address": "0x004d8480",
+   "name": "opEqualizerToAudioCancel",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d8480, \"OP_Equalizer_To_Audio_Cancel\"}; HW1 utility.c pairs it with opEqualizerToAudioCancel [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opEqualizerToAudioCancel"
+  },
+  {
+   "address": "0x004d8400",
+   "name": "opEqualizerToAudioAccept",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d8400, \"OP_Equalizer_To_Audio_Accept\"}; HW1 utility.c pairs it with opEqualizerToAudioAccept [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opEqualizerToAudioAccept"
+  },
+  {
+   "address": "0x004d8570",
+   "name": "opEqualizerToInGameAudioCancel",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d8570, \"OP_Equalizer_To_InGameAudio_Cancel\"}; HW1 utility.c pairs it with opEqualizerToInGameAudioCancel [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opEqualizerToInGameAudioCancel"
+  },
+  {
+   "address": "0x004d84f0",
+   "name": "opEqualizerToInGameAudioAccept",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d84f0, \"OP_Equalizer_To_InGameAudio_Accept\"}; HW1 utility.c pairs it with opEqualizerToInGameAudioAccept [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opEqualizerToInGameAudioAccept"
+  },
+  {
+   "address": "0x004d8690",
+   "name": "opAdvancedToAudioCancel",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d8690, \"OP_Advanced_To_Audio_Cancel\"}; HW1 utility.c pairs it with opAdvancedToAudioCancel [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAdvancedToAudioCancel"
+  },
+  {
+   "address": "0x004d85e0",
+   "name": "opAdvancedToAudioAccept",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d85e0, \"OP_Advanced_To_Audio_Accept\"}; HW1 utility.c pairs it with opAdvancedToAudioAccept [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAdvancedToAudioAccept"
+  },
+  {
+   "address": "0x004d87f0",
+   "name": "opAdvancedToInGameAudioCancel",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d87f0, \"OP_Advanced_To_InGameAudio_Cancel\"}; HW1 utility.c pairs it with opAdvancedToInGameAudioCancel [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAdvancedToInGameAudioCancel"
+  },
+  {
+   "address": "0x004d8740",
+   "name": "opAdvancedToInGameAudioAccept",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d8740, \"OP_Advanced_To_InGameAudio_Accept\"}; HW1 utility.c pairs it with opAdvancedToInGameAudioAccept [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAdvancedToInGameAudioAccept"
+  },
+  {
+   "address": "0x004d8990",
+   "name": "opEffectsToVideoCancel",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d8990, \"OP_Effects_To_Video_Cancel\"}; HW1 utility.c pairs it with opEffectsToVideoCancel [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opEffectsToVideoCancel"
+  },
+  {
+   "address": "0x004d88a0",
+   "name": "opEffectsToVideoAccept",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d88a0, \"OP_Effects_To_Video_Accept\"}; HW1 utility.c pairs it with opEffectsToVideoAccept [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opEffectsToVideoAccept"
+  },
+  {
+   "address": "0x004d8b60",
+   "name": "opEffectsToInGameVideoCancel",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d8b60, \"OP_Effects_To_InGameVideo_Cancel\"}; HW1 utility.c pairs it with opEffectsToInGameVideoCancel [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opEffectsToInGameVideoCancel"
+  },
+  {
+   "address": "0x004d8a70",
+   "name": "opEffectsToInGameVideoAccept",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d8a70, \"OP_Effects_To_InGameVideo_Accept\"}; HW1 utility.c pairs it with opEffectsToInGameVideoAccept [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opEffectsToInGameVideoAccept"
+  },
+  {
+   "address": "0x004d92e0",
+   "name": "opKeyCancel",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d92e0, \"OP_Key_Cancel\"}; HW1 utility.c pairs it with opKeyCancel [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opKeyCancel"
+  },
+  {
+   "address": "0x0049be80",
+   "name": "kbKeyResetToDefault",
+   "kind": "function",
+   "class": "hw1:KeyBindings.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x49be80, \"OP_KeyResetToDefault\"}; HW1 utility.c pairs it with kbKeyResetToDefault [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/KeyBindings.c:kbKeyResetToDefault"
+  },
+  {
+   "address": "0x004d9570",
+   "name": "opNumberChannels",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9570, \"OP_Num_Channels\"}; HW1 utility.c pairs it with opNumberChannels",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opNumberChannels"
+  },
+  {
+   "address": "0x004d96b0",
+   "name": "opAutoChannels",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d96b0, \"OP_AutoChannels\"}; HW1 utility.c pairs it with opAutoChannels",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAutoChannels"
+  },
+  {
+   "address": "0x004d9a10",
+   "name": "opSpeaker",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9a10, \"OP_Speaker\"}; HW1 utility.c pairs it with opSpeaker",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opSpeaker"
+  },
+  {
+   "address": "0x004d9ab0",
+   "name": "opSoundQualitySet",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9ab0, \"OP_DCTQuality\"}; HW1 utility.c pairs it with opSoundQualitySet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opSoundQualitySet"
+  },
+  {
+   "address": "0x004d9b00",
+   "name": "opEqualizerButton",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9b00, \"OP_Equalizer_Button\"}; HW1 utility.c pairs it with opEqualizerButton [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opEqualizerButton"
+  },
+  {
+   "address": "0x004da710",
+   "name": "opCustomEffects",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da710, \"OP_Custom_Effects\"}; HW1 utility.c pairs it with opCustomEffects [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opCustomEffects"
+  },
+  {
+   "address": "0x004da9a0",
+   "name": "opResolution",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da9a0, \"OP_Resolution\"}; HW1 utility.c pairs it with opResolution [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opResolution"
+  },
+  {
+   "address": "0x004dada0",
+   "name": "opRender",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4dada0, \"OP_Render\"}; HW1 utility.c pairs it with opRender [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opRender"
+  },
+  {
+   "address": "0x004db130",
+   "name": "opVoiceCommands",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4db130, \"OP_Voice_Commands\"}; HW1 utility.c pairs it with opVoiceCommands",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opVoiceCommands"
+  },
+  {
+   "address": "0x004db190",
+   "name": "opVoiceStatus",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4db190, \"OP_Voice_Status\"}; HW1 utility.c pairs it with opVoiceStatus",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opVoiceStatus"
+  },
+  {
+   "address": "0x004db1f0",
+   "name": "opVoiceChatter",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4db1f0, \"OP_Voice_Chatter\"}; HW1 utility.c pairs it with opVoiceChatter",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opVoiceChatter"
+  },
+  {
+   "address": "0x004db480",
+   "name": "opInfoOverlay",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4db480, \"OP_Info_Overlay\"}; HW1 utility.c pairs it with opInfoOverlay",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opInfoOverlay"
+  },
+  {
+   "address": "0x004db4c0",
+   "name": "opAutodockHealth",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4db4c0, \"OP_Autodock_Health\"}; HW1 utility.c pairs it with opAutodockHealth",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAutodockHealth"
+  },
+  {
+   "address": "0x004db4f0",
+   "name": "opAutodockFuel",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4db4f0, \"OP_Autodock_Fuel\"}; HW1 utility.c pairs it with opAutodockFuel",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAutodockFuel"
+  },
+  {
+   "address": "0x004db520",
+   "name": "opAutodockHealthValue",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4db520, \"OP_Autodock_Health_Value\"}; HW1 utility.c pairs it with opAutodockHealthValue",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAutodockHealthValue"
+  },
+  {
+   "address": "0x004db5f0",
+   "name": "opAutodockFuelValue",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4db5f0, \"OP_Autodock_Fuel_Value\"}; HW1 utility.c pairs it with opAutodockFuelValue",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAutodockFuelValue"
+  },
+  {
+   "address": "0x004d9d60",
+   "name": "opNoLOD",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9d60, \"OP_NoLOD\"}; HW1 utility.c pairs it with opNoLOD",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opNoLOD"
+  },
+  {
+   "address": "0x004d7430",
+   "name": "opCountdownYes",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d7430, \"OP_Countdown_Yes\"}; HW1 utility.c pairs it with opCountdownYes [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opCountdownYes"
+  },
+  {
+   "address": "0x004d74a0",
+   "name": "opCountdownNo",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d74a0, \"OP_Countdown_No\"}; HW1 utility.c pairs it with opCountdownNo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opCountdownNo"
+  },
+  {
+   "address": "0x004d9df0",
+   "name": "cat_opSmallFonts",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9df0, \"OP_SmallFonts\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da2c0",
+   "name": "cat_opHomeworldClassic",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da2c0, \"OP_HomeworldClassic\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da460",
+   "name": "cat_opCataclysmDefault",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da460, \"OP_CataclysmDefault\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9e30",
+   "name": "cat_opHWTaskbar",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9e30, \"OP_HWTaskbar\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9e70",
+   "name": "cat_opTaskbarButtons",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9e70, \"OP_TaskbarButtons\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9eb0",
+   "name": "cat_opTaskbarBackdrop",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9eb0, \"OP_TaskbarBackdrop\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9f30",
+   "name": "cat_opHomeworldCSA",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9f30, \"OP_HomeworldCSA\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9f80",
+   "name": "cat_opRightClickCSA",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9f80, \"OP_RightClickCSA\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9fd0",
+   "name": "cat_opAutoFocusOnWaypoints",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9fd0, \"OP_AutoFocusOnWaypoints\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9ef0",
+   "name": "cat_opExperienceMessages",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4d9ef0, \"OP_ExperienceMessages\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da010",
+   "name": "cat_opAreaExplored",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da010, \"OP_AreaExplored\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da050",
+   "name": "cat_opSensorsSphere",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da050, \"OP_SensorsSphere\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da0d0",
+   "name": "cat_opSensorsWireframe",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da0d0, \"OP_SensorsWireframe\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da110",
+   "name": "cat_opResources",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da110, \"OP_Resources\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da180",
+   "name": "cat_opDust",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da180, \"OP_Dust\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da1c0",
+   "name": "cat_opBackground",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da1c0, \"OP_Background\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da090",
+   "name": "cat_opCompass",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da090, \"OP_Compass\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da200",
+   "name": "cat_opObjectivePointers",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da200, \"OP_ObjectivePointers\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da240",
+   "name": "cat_opSlipgatePaths",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da240, \"OP_SlipgatePaths\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da280",
+   "name": "cat_opCapitalShipOverlay",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4da280, \"OP_CapitalShipOverlay\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004db760",
+   "name": "cat_opSpeechTest",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4db760, \"OP_Speech_Test\"}; FE callback name absent from HW1 utility.c (Cataclysm option) [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004db790",
+   "name": "cat_opSoundFXTest",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4db790, \"OP_SoundFX_Test\"}; FE callback name absent from HW1 utility.c (Cataclysm option) [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004dbb30",
+   "name": "cat_opCataclysmFramerate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x4dbb30, \"OP_CataclysmFramerate\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9630",
+   "name": "opDrawNumChannels",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyDrawCallbacks 0x8c1448 row {0x4d9630, \"OP_NumChannels\"}; HW1 utility.c pairs it with opDrawNumChannels",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opDrawNumChannels"
+  },
+  {
+   "address": "0x004d75e0",
+   "name": "opCountdownBoxDraw",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "utyDrawCallbacks 0x8c1448 row {0x4d75e0, \"OP_DrawCountdownBox\"}; HW1 utility.c pairs it with opCountdownBoxDraw [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opCountdownBoxDraw"
+  },
+  {
+   "address": "0x005117e0",
+   "name": "RemoveSpaceObjFromSelectionPreserveOrder",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "find obj, shift the rest down one, numSpaceObjs--; first ShipSelect.c body after Select.c block, same loop as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:RemoveSpaceObjFromSelectionPreserveOrder"
+  },
+  {
+   "address": "0x005118a0",
+   "name": "ShipInSelection",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "(selection,ship) linear scan of ShipPtr[] returning TRUE/FALSE; 30+ callers (ACVHouseKeep, aimResourceVolumeShipDied ...)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:ShipInSelection"
+  },
+  {
+   "address": "0x00511900",
+   "name": "FindFirstInstanceOfShipType",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "(selection,type) returns first ShipPtr[i] with shiptype(+0x2b0)==type else NULL",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:FindFirstInstanceOfShipType"
+  },
+  {
+   "address": "0x00511940",
+   "name": "MakeShipsNotIncludeTheseShips",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "(selection,theseships) swap-remove each of theseships (inlined clRemoveShipFromSelection), then ioUpdateShipTotals; callers clAttack, clMove, clHalt, mrObjectClick",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:MakeShipsNotIncludeTheseShips"
+  },
+  {
+   "address": "0x00511990",
+   "name": "AnyOfTheseShipsAreInSelection",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "nested loops returning TRUE on first common ship; callers kasfShipsUnderAttackElsewhere, kasfIsGuarding",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:AnyOfTheseShipsAreInSelection"
+  },
+  {
+   "address": "0x005119e0",
+   "name": "TheseShipsAreInSelection",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "numShips==0 -> FALSE, every ship of first must be in second (inlined ShipInSelection); callers clAttack, clMove, clHalt",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:TheseShipsAreInSelection"
+  },
+  {
+   "address": "0x00511a40",
+   "name": "SelectionsAreEquivalent",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "counts differ -> FALSE, then order-independent membership loop; callers clProtect, clSpecial, ccFocusGeneral",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:SelectionsAreEquivalent"
+  },
+  {
+   "address": "0x00511a90",
+   "name": "SelectionsAreTotallyEquivalent",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "counts differ -> FALSE, then ShipPtr[i]==ShipPtr[i] in order; directly after SelectionsAreEquivalent as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:SelectionsAreTotallyEquivalent"
+  },
+  {
+   "address": "0x00511be0",
+   "name": "MakeShipsHarvestCapable",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "(dest,source,..) copies ships whose static class==7 with maxresources>0 into dest; callers kasfHarvest, mrHarvestResources (HW1 mainrgn.c harvest path)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:MakeShipsHarvestCapable"
+  },
+  {
+   "address": "0x00512020",
+   "name": "makeShipsControllable",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "returns if playPackets or newCommand==8 (HALT); getShipAndItsCommand, order DOCK/LAUNCH with dockingship -> battle chatter 0x26 CannotComply, swap-remove; callers clWrap*",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:makeShipsControllable"
+  },
+  {
+   "address": "0x005120d0",
+   "name": "makeSelectionHyperspaceCapable",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "callers clMpHyperspace, aimProcessHyperspace; filters selection before MP hyperspace (Cataclysm adds attached-ship and big-gun checks)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:makeSelectionHyperspaceCapable"
+  },
+  {
+   "address": "0x00513010",
+   "name": "MakeShipsNotHidden",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "(dest,source) copies ships without hide flag (flags byte +0x15 & 0x80) and returns count; caller smHotkeyGroupsDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:MakeShipsNotHidden"
+  },
+  {
+   "address": "0x00513060",
+   "name": "selectSelectionIntersection",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "swaps so second is smaller, memAlloc dup of it then keeps ships present in both; caller aimProcessShipRecon",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:selectSelectionIntersection"
+  },
+  {
+   "address": "0x00513130",
+   "name": "selectMergeTwoSelections",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "(dest,source,memflags) NULL dest -> memAlloc copy of source, else realloc and append ships not already present, memFree; AI callers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:selectMergeTwoSelections"
+  },
+  {
+   "address": "0x005132d0",
+   "name": "selectMemDupSelection",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "memAlloc(num*4+8) then copy whole selection; 20+ AI callers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:selectMemDupSelection"
+  },
+  {
+   "address": "0x00513310",
+   "name": "MothershipOrCarrierIndexInSelection",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "returns index of class 0 (mothership) immediately, else last class 2 (carrier) index, else -1; caller clSetMilitaryParade",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:MothershipOrCarrierIndexInSelection"
+  },
+  {
+   "address": "0x00513390",
+   "name": "growSelectRemoveShip",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "(grow,ship) swap-remove in grow->selection(+4), returns TRUE if found; directly after growSelectAddShip; AI ship-died callers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:growSelectRemoveShip"
+  },
+  {
+   "address": "0x00513420",
+   "name": "growSelectRemoveShipIndex",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "(grow,index) selection->ShipPtr[index]=ShipPtr[--numShips]; sits before growSelectInit as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:growSelectRemoveShipIndex"
+  },
+  {
+   "address": "0x00513470",
+   "name": "growSelectReset",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "grow->selection->numShips=0; callers SlipgateHouseKeep, univSetupShipsForControl",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:growSelectReset"
+  },
+  {
+   "address": "0x00513480",
+   "name": "growSelectAddShipNoDuplication",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "returns if ship already present, else grows (memRealloc) and appends; callers kasfShipsAdd, kasfGetTargets, aitDestroy",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:growSelectAddShipNoDuplication"
+  },
+  {
+   "address": "0x005134e0",
+   "name": "MakeSelectionKamikazeCapable",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "keeps ships of static class 5/6/7 only, swap-removes others, returns numShips; last ShipSelect.c function after growSelect* as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:MakeSelectionKamikazeCapable"
+  },
+  {
+   "address": "0x00565860",
+   "name": "mrCameraMotion",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "medium",
+   "evidence": "mousePositionSet + mouseClipToRect pair exactly as HW1 mrCameraMotion (mainrgn.c:1316-1336); mainrgn.c block between mrResearch and mrSelectHold",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrCameraMotion"
+  },
+  {
+   "address": "0x005659d0",
+   "name": "mrSetTheFormation",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "medium",
+   "evidence": "clWrapFormation, MothershipOrCarrierIndexInSelection then clWrapSetMilitaryParade (HW1 mainrgn.c:1434), clCommandMessage, speech + tutGameMessage",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrSetTheFormation"
+  },
+  {
+   "address": "0x00565da0",
+   "name": "mrNextMothershipPtr",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "NULL -> start at PlayerMothership(+0x23c) link or ShipList.head; loop with memchr(mrMothershipShipTypes 0x8ba39c, shiptype, 8), owner==curPlayer, selectable flag, count vs ShipList.num",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrNextMothershipPtr"
+  },
+  {
+   "address": "0x00567750",
+   "name": "mrDockingOrders",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "low",
+   "evidence": "clWrapDock on the selection after docking-capable filters (0x513710/0x513800), clCommandMessage; callers mrObjectClick, cat_mrReleaseRight (HW1 mainrgn.c:545)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrDockingOrders"
+  },
+  {
+   "address": "0x00568e30",
+   "name": "toMoveLineDraw",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "caller toAllShipsDraw; TW_MOVETO_LINE/PULSE_COLOR vs TW_ATTMOVETO_* when command order==2, then move-to line and move circle helpers, primMode save/restore",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:toMoveLineDraw"
+  },
+  {
+   "address": "0x00568100",
+   "name": "toDrawMoveToLine",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "medium",
+   "evidence": "(ship,linecolor,pulsecolor) only caller toMoveLineDraw (HW1 calls toDrawMoveToLine then toDrawMoveCircle); primCircleOutline3, vecNormalize, fsqrt",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:toDrawMoveToLine"
+  },
+  {
+   "address": "0x00568d60",
+   "name": "toDrawMoveCircle",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "medium",
+   "evidence": "(ship,scale,color) second helper of toMoveLineDraw: hmatMakeHMatFromMat + primCircleOutline3 around ship",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:toDrawMoveCircle"
+  },
+  {
+   "address": "0x00567d40",
+   "name": "toDrawPulsedLine",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "low",
+   "evidence": "only callee-helper of toDrawMoveToLine with fsqrt/vecNormalize pulse stepping, HW1 toDrawMoveToLine->toDrawPulsedLine",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:toDrawPulsedLine"
+  },
+  {
+   "address": "0x00568f00",
+   "name": "toFieldSphereDraw",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "medium",
+   "evidence": "(ship,radius,scale,colour) identity hmat at ship position, three primCircleOutline3 (axes 2,0,1); caller toAllShipsDraw as HW1 Tactical.c:372",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:toFieldSphereDraw"
+  },
+  {
+   "address": "0x008ba39c",
+   "name": "mrMothershipShipTypes",
+   "kind": "data",
+   "class": "hw1:mainrgn.c",
+   "confidence": "medium",
+   "evidence": "8-byte table passed to memchr(...,shiptype,8) in mrNextMothershipPtr 0x565da0 as HW1 memchr(mrMothershipShipTypes, ship->shiptype, MR_NumberMothershipTypes)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrMothershipShipTypes"
+  },
+  {
+   "address": "0x005aabb0",
+   "name": "utyStartTutorial",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5aabb0, \"TA_StartTutorial\"}; HW1 utility.c pairs it with utyStartTutorial",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyStartTutorial"
+  },
+  {
+   "address": "0x005aad80",
+   "name": "utyStartSinglePlayer",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5aad80, \"TA_StartSinglePlayer\"}; HW1 utility.c pairs it with utyStartSinglePlayer",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyStartSinglePlayer"
+  },
+  {
+   "address": "0x005aaf50",
+   "name": "utyStartSkirmish",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5aaf50, \"TA_StartSkirmish\"}; HW1 utility.c pairs it with utyStartSkirmish",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyStartSkirmish"
+  },
+  {
+   "address": "0x005a81a0",
+   "name": "utyVideoPlay",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a81a0, \"VideoPlay\"}; HW1 utility.c pairs it with utyVideoPlay [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyVideoPlay"
+  },
+  {
+   "address": "0x005a8200",
+   "name": "utyTutorialAlertCancel",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8200, \"TutorialAlertCancel\"}; HW1 utility.c pairs it with utyTutorialAlertCancel [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyTutorialAlertCancel"
+  },
+  {
+   "address": "0x00488150",
+   "name": "spRestartLevel",
+   "kind": "function",
+   "class": "hw1:GamePick.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x488150, \"SP_Restart_Level\"}; HW1 utility.c pairs it with spRestartLevel",
+   "hw1_equivalent": "HomeworldSDL/src/Game/GamePick.c:spRestartLevel"
+  },
+  {
+   "address": "0x005aa580",
+   "name": "utySinglePlayerOptions",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5aa580, \"SinglePlayerOptions\"}; HW1 utility.c pairs it with utySinglePlayerOptions",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySinglePlayerOptions"
+  },
+  {
+   "address": "0x005aa5c0",
+   "name": "utySinglePlayerGame",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5aa5c0, \"SinglePlayerGame\"}; HW1 utility.c pairs it with utySinglePlayerGame [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySinglePlayerGame"
+  },
+  {
+   "address": "0x005aa5e0",
+   "name": "utySelectSinglePlayerGame",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5aa5e0, \"SelectSinglePlayerGame\"}; HW1 utility.c pairs it with utySelectSinglePlayerGame [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySelectSinglePlayerGame"
+  },
+  {
+   "address": "0x005aa730",
+   "name": "utyLoadMultiSinglePlayerGame",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5aa730, \"LoadMultiSinglePlayerGameFromMain\"}; HW1 utility.c pairs it with utyLoadMultiSinglePlayerGame [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyLoadMultiSinglePlayerGame"
+  },
+  {
+   "address": "0x005aaa40",
+   "name": "utySelectMultiPlayerGame",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5aaa40, \"SelectMultiPlayerGame\"}; HW1 utility.c pairs it with utySelectMultiPlayerGame [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySelectMultiPlayerGame"
+  },
+  {
+   "address": "0x005ab150",
+   "name": "utyBackFromSinglePlayer",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5ab150, \"BackFromSinglePlayer\"}; HW1 utility.c pairs it with utyBackFromSinglePlayer [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyBackFromSinglePlayer"
+  },
+  {
+   "address": "0x005aab80",
+   "name": "utyBackFromSinglePlayerOptions",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5aab80, \"BackFromSinglePlayerOptions\"}; HW1 utility.c pairs it with utyBackFromSinglePlayerOptions [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyBackFromSinglePlayerOptions"
+  },
+  {
+   "address": "0x005aa140",
+   "name": "utyMultiplayerGameStart",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5aa140, \"FE_Multiplayer_Game\"}; HW1 utility.c pairs it with utyMultiplayerGameStart [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyMultiplayerGameStart"
+  },
+  {
+   "address": "0x005aa160",
+   "name": "utyShowCredits",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5aa160, \"FE_SHOWCREDITS\"}; HW1 utility.c pairs it with utyShowCredits [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyShowCredits"
+  },
+  {
+   "address": "0x005ab570",
+   "name": "utyGameQuit",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5ab570, \"QuitGame\"}; HW1 utility.c pairs it with utyGameQuit [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyGameQuit"
+  },
+  {
+   "address": "0x005ab780",
+   "name": "utyInGameCancel",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5ab780, \"IG_Cancel\"}; HW1 utility.c pairs it with utyInGameCancel [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyInGameCancel"
+  },
+  {
+   "address": "0x005a86d0",
+   "name": "utyFilterToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a86d0, \"VO_Filter\"}; HW1 utility.c pairs it with utyFilterToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyFilterToggle"
+  },
+  {
+   "address": "0x005a8670",
+   "name": "utyMagFilterToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8670, \"VO_MagFilter\"}; HW1 utility.c pairs it with utyMagFilterToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyMagFilterToggle"
+  },
+  {
+   "address": "0x005a8740",
+   "name": "utyFilterBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8740, \"VO_BitmapFilter\"}; HW1 utility.c pairs it with utyFilterBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyFilterBitmapToggle"
+  },
+  {
+   "address": "0x005a8790",
+   "name": "utyBackgroundToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8790, \"VO_Background\"}; HW1 utility.c pairs it with utyBackgroundToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyBackgroundToggle"
+  },
+  {
+   "address": "0x005a87f0",
+   "name": "utyBackgroundBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a87f0, \"VO_BitmapBackground\"}; HW1 utility.c pairs it with utyBackgroundBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyBackgroundBitmapToggle"
+  },
+  {
+   "address": "0x005a88f0",
+   "name": "utySmoothingToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a88f0, \"VO_Smoothing\"}; HW1 utility.c pairs it with utySmoothingToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySmoothingToggle"
+  },
+  {
+   "address": "0x005a8950",
+   "name": "utySmoothingBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8950, \"VO_BitmapSmoothing\"}; HW1 utility.c pairs it with utySmoothingBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySmoothingBitmapToggle"
+  },
+  {
+   "address": "0x005a89a0",
+   "name": "utyStippleToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a89a0, \"VO_Stipple\"}; HW1 utility.c pairs it with utyStippleToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyStippleToggle"
+  },
+  {
+   "address": "0x005a8a30",
+   "name": "utyStippleBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8a30, \"VO_BitmapStipple\"}; HW1 utility.c pairs it with utyStippleBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyStippleBitmapToggle"
+  },
+  {
+   "address": "0x005a8aa0",
+   "name": "utyTrailsToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8aa0, \"VO_Trails\"}; HW1 utility.c pairs it with utyTrailsToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyTrailsToggle"
+  },
+  {
+   "address": "0x005a8b00",
+   "name": "utyTrailsBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8b00, \"VO_BitmapTrails\"}; HW1 utility.c pairs it with utyTrailsBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyTrailsBitmapToggle"
+  },
+  {
+   "address": "0x005a8b50",
+   "name": "utyHitToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8b50, \"VO_Hit\"}; HW1 utility.c pairs it with utyHitToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyHitToggle"
+  },
+  {
+   "address": "0x005a8bb0",
+   "name": "utyHitBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8bb0, \"VO_BitmapHitEffects\"}; HW1 utility.c pairs it with utyHitBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyHitBitmapToggle"
+  },
+  {
+   "address": "0x005a8c00",
+   "name": "utyDamageToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8c00, \"VO_Damage\"}; HW1 utility.c pairs it with utyDamageToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyDamageToggle"
+  },
+  {
+   "address": "0x005a8c60",
+   "name": "utyDamageBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8c60, \"VO_BitmapDamage\"}; HW1 utility.c pairs it with utyDamageBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyDamageBitmapToggle"
+  },
+  {
+   "address": "0x005a8f10",
+   "name": "utyMuzzleToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8f10, \"VO_Muzzle\"}; HW1 utility.c pairs it with utyMuzzleToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyMuzzleToggle"
+  },
+  {
+   "address": "0x005a8f70",
+   "name": "utyMuzzleBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8f70, \"VO_BitmapMuzzle\"}; HW1 utility.c pairs it with utyMuzzleBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyMuzzleBitmapToggle"
+  },
+  {
+   "address": "0x005a8fc0",
+   "name": "utyBulletToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8fc0, \"VO_Bullet\"}; HW1 utility.c pairs it with utyBulletToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyBulletToggle"
+  },
+  {
+   "address": "0x005a9020",
+   "name": "utyBulletBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a9020, \"VO_BitmapBullet\"}; HW1 utility.c pairs it with utyBulletBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyBulletBitmapToggle"
+  },
+  {
+   "address": "0x005a9070",
+   "name": "utySensorsBlobsToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a9070, \"VO_SensorsBlobs\"}; HW1 utility.c pairs it with utySensorsBlobsToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySensorsBlobsToggle"
+  },
+  {
+   "address": "0x005a90d0",
+   "name": "utySensorsBlobsBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a90d0, \"VO_BitmapSensorsBlobs\"}; HW1 utility.c pairs it with utySensorsBlobsBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySensorsBlobsBitmapToggle"
+  },
+  {
+   "address": "0x005a8cb0",
+   "name": "cat_utyDynamicCPVToggle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8cb0, \"VO_DynamicCPV\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a8d40",
+   "name": "cat_utyDynamicCPVBitmapToggle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8d40, \"VO_BitmapDynamicCPV\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a8db0",
+   "name": "cat_utyLensFlareToggle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8db0, \"VO_LensFlare\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a8e10",
+   "name": "cat_utyLensFlareBitmapToggle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8e10, \"VO_BitmapLensFlare\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a8e60",
+   "name": "cat_utyRepairbotsToggle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8e60, \"VO_Repairbots\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a8ec0",
+   "name": "cat_utyRepairbotsBitmapToggle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8ec0, \"VO_BitmapRepairbots\"}; FE callback name absent from HW1 utility.c (Cataclysm option)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0052b3f0",
+   "name": "tbSensorsBegin",
+   "kind": "function",
+   "class": "hw1:TaskBar.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x52b3f0, \"TB_SensorsManager\"}; HW1 utility.c pairs it with tbSensorsBegin",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TaskBar.c:tbSensorsBegin"
+  },
+  {
+   "address": "0x005a8650",
+   "name": "utyPickColors",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8650, \"NewGameSelectColour\"}; HW1 utility.c pairs it with utyPickColors [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyPickColors"
+  },
+  {
+   "address": "0x005a9190",
+   "name": "utyHideMenuOrGotoQuitGame",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a9190, \"FE_HideMenuOrGotoQuitGame\"}; HW1 utility.c pairs it with utyHideMenuOrGotoQuitGame [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyHideMenuOrGotoQuitGame"
+  },
+  {
+   "address": "0x005a8840",
+   "name": "utyInstantTransitionToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a8840, \"VO_InstantTransition\"}; HW1 utility.c pairs it with utyInstantTransitionToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyInstantTransitionToggle"
+  },
+  {
+   "address": "0x005a88a0",
+   "name": "utyInstantTransitionBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5a88a0, \"VO_BitmapInstantTransition\"}; HW1 utility.c pairs it with utyInstantTransitionBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyInstantTransitionBitmapToggle"
+  },
+  {
+   "address": "0x005ad1b0",
+   "name": "utyYesDropPlayer",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5ad1b0, \"UTY_DropPlayer\"}; HW1 utility.c pairs it with utyYesDropPlayer [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyYesDropPlayer"
+  },
+  {
+   "address": "0x005ad1e0",
+   "name": "utyDontDropPlayer",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyCallbacks 0x8c0f80 row {0x5ad1e0, \"UTY_DontDropPlayer\"}; HW1 utility.c pairs it with utyDontDropPlayer [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyDontDropPlayer"
+  },
+  {
+   "address": "0x005a8250",
+   "name": "versionNumDraw",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyDrawCallbacks 0x8c1448 row {0x5a8250, \"FE_DrawVersionNum\"}; HW1 utility.c pairs it with versionNumDraw",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:versionNumDraw"
+  },
+  {
+   "address": "0x005ad210",
+   "name": "utyDrawDroppedPlayer",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "utyDrawCallbacks 0x8c1448 row {0x5ad210, \"UTY_PlayerDropped\"}; HW1 utility.c pairs it with utyDrawDroppedPlayer",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyDrawDroppedPlayer"
+  },
+  {
+   "address": "0x005a8060",
+   "name": "utyBrowserExec",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "first function of the utility.c block after Trails.c: reads http handler from registry (RegOpenKeyExA/RegQueryValueExA), strstr, ShellExecuteA; HW1 SDL port stubs it out",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyBrowserExec"
+  },
+  {
+   "address": "0x005a91b0",
+   "name": "utyCloseOK",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "PostMessageA(ghMainWindow, WM_COMMAND 0x111, CID_ExitOK 0x65, 0) and return 0; between utyLanguageToggle and utyFatalErrorWaitLoop as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyCloseOK"
+  },
+  {
+   "address": "0x005aa0f0",
+   "name": "cat_utyMultiplayerQuitNotify",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "body equals the multiPlayerGame block of HW1 gameEnd (SendInGameQuittingPacket, TransferCaptaincyGameEnded, titanPumpEngine, Sleep(100), titanGameEnded) split out; caller 0x489e90",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005aa5f0",
+   "name": "utyLoadSinglePlayerGameGivenFilename",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "medium",
+   "evidence": "gameEnd, feAllScreensDelete, singlePlayerInit/PostInit, gameStart, horseRace init/shutdown; caller spRestartLevel (restart reloads the level save)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyLoadSinglePlayerGameGivenFilename"
+  },
+  {
+   "address": "0x005aaa50",
+   "name": "utyLoadMultiPlayerGameGivenFilename",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "medium",
+   "evidence": "same shape as the single-player loader but mgShutdownMultiPlayerGameScreens/mgStart...; directly follows it as in HW1 order (2558 then 2654)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyLoadMultiPlayerGameGivenFilename"
+  },
+  {
+   "address": "0x005a7a40",
+   "name": "trailMakeWobbly",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "high",
+   "evidence": "sets trail[i]->wobbly(+0x20) for 4 trails at ship+0x42c, HW1 body; just before trailSegmentsRead (HW1 order trailMakeWobbly 2123, trailSegmentsRead 2148); callers dmgShipThink, dmgStopEffect",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailMakeWobbly"
+  },
+  {
+   "address": "0x005a7ad0",
+   "name": "trailGranularityRead",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "script reader with one sscanf, follows trailSegmentsRead as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailGranularityRead"
+  },
+  {
+   "address": "0x005a7af0",
+   "name": "trailColorRead",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "script reader (sscanf of colour) after trailGranularityRead as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailColorRead"
+  },
+  {
+   "address": "0x005a7b60",
+   "name": "trailStaticInfoParse",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "high",
+   "evidence": "memAlloc trailstatic, scriptSet with the trail script table, memFree; callers InitStatShipInfo and ship static loader 0x53b400",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailStaticInfoParse"
+  },
+  {
+   "address": "0x005a7de0",
+   "name": "trailRecolorize",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "called only by the two list walkers below (trailsRecolorize / mistrailsRecolorize)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailRecolorize"
+  },
+  {
+   "address": "0x005a7f70",
+   "name": "trailsRecolorize",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "GetShipStaticInfo loop calling trailRecolorize; callers gameStart, singlePlayerLoadNewLevel",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailsRecolorize"
+  },
+  {
+   "address": "0x005a7fd0",
+   "name": "mistrailsRecolorize",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "second recolor walker after trailsRecolorize; callers gameStart, singlePlayerLoadNewLevel",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:mistrailsRecolorize"
+  },
+  {
+   "address": "0x005a8000",
+   "name": "trailZeroLength",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "high",
+   "evidence": "19-byte trail reset; callers AddShipToHyperspace, PutShipOutsideAt, dockPutShipOutside, nisUpdate and NIS TrailZero event 0x4d0de0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailZeroLength"
+  },
+  {
+   "address": "0x005a8020",
+   "name": "trailMove",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "high",
+   "evidence": "only caller is the NIS TrailMove event handler 0x4d0ce0 (HW1 nisTrailMove -> trailMove); last Trails.c function",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailMove"
+  },
+  {
+   "address": "0x0045a700",
+   "name": "cat_consoleKeyPress",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "dev console key handler: returns unless console open; backspace, TAB completion (0x45b420), ESC clears, Up/Down cycle 8 history lines, Enter -> cat_consoleExecuteCommand, cat_consoleOpen",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0045a520",
+   "name": "cat_consoleAddChar",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "appends one char to the current input line (history[cur] + len) and re-terminates; only caller the console key handler (space key path)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0045a560",
+   "name": "cat_consoleOutputScroll",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "rotates the 28-entry output line pointer array at 0xa2dce0 by one (first becomes last); caller console key handler",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0045b1c0",
+   "name": "cat_consoleDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "FE draw callback (A1 pointer-table target registered by cat_consoleStartup): slide-in scroll via regRegionScroll, closes screen + spUnlockout when retracted, fontPrintf of lines",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0045b420",
+   "name": "cat_consoleTabComplete",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "case-insensitive prefix match of the input against command names in table 0x8783c8 ('loadConfig','saveConfig',...), returns next match + index; caller key handler TAB",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0045b520",
+   "name": "cat_consoleRunCommand",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "looks the word up in command table 0x8783c8 (5-dword rows: type, id, var ptr, name, fn), switch on type to set variable or call fn, else cat_consoleKasCommand; caller cat_consoleExecuteCommand",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0045f110",
+   "name": "cat_consoleShowVariable",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "same table lookup, sprintf \"%s = %d\"-style value or 'This command has no variable sta...'; else cat_consoleKasCommand; caller cat_consoleExecuteCommand",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0045faf0",
+   "name": "cat_consoleConfigFileLoad",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "fopen of the console config file (string 'og.cfg'), fgetc/fread parse into memory; caller loadConfig command 0x460160",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0045fec0",
+   "name": "cat_consoleConfigFileSave",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "fopen/fputc writer of the same config file ('og.cfg'); caller saveConfig command 0x460180",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00460160",
+   "name": "cat_consoleLoadConfig",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "console command table 0x8783c8 row 'loadConfig' -> 0x460160; calls the config file loader then memFree",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00460180",
+   "name": "cat_consoleSaveConfig",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "console command table 0x8783c8 row 'saveConfig' -> 0x460180; calls the config file writer then memFree",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004601a0",
+   "name": "cat_consoleConfigStartup",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "memStringDupe of the config path ('\\\\cataclysm\\\\exe'); caller cat_consoleStartup",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004601c0",
+   "name": "cat_consoleConfigShutdown",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "memFree of the config path; caller cat_consoleShutdown",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054d080",
+   "name": "cat_consoleAddResources",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "console command table 0x8783c8 row 'addResources' -> 0x54d080 (cheat command handler)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004f4350",
+   "name": "cat_consoleAllTech",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "console command table 0x8783c8 row 'alltech' -> 0x4f4350 [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054d0e0",
+   "name": "cat_consoleUpgradeShips",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "console command table 0x8783c8 row 'upgradeships' -> 0x54d0e0 [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054d1c0",
+   "name": "cat_consoleExperienceShips",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "console command table 0x8783c8 row 'experienceships' -> 0x54d1c0 [create: no function entry yet]",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x008783c8",
+   "name": "cat_consoleCommandTable",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "5-dword rows {type,id,varptr,name,fn} 'loadConfig'..'experienceships', -1 terminated; read by cat_consoleRunCommand/TabComplete",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00422e90",
+   "name": "alodEnable",
+   "kind": "function",
+   "class": "hw1:AutoLOD.c",
+   "confidence": "high",
+   "evidence": "10-byte setter (alodEnabled = enable) of the flag 0x8df9a8 that alodIncPolys 0x422e70 tests; AutoLOD.c block right after alodIncPolys; caller partRenderSystem",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AutoLOD.c:alodEnable"
+  },
+  {
+   "address": "0x00422ea0",
+   "name": "bsCurveStart",
+   "kind": "function",
+   "class": "hw1:B-Spline.c",
+   "confidence": "high",
+   "evidence": "B-Spline.c follows AutoLOD.c ('-' sorts first); memAlloc of splinecurve + arrays when bAlloc, currentPoint=1; caller nisStart (camera path splines)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/B-Spline.c:bsCurveStart"
+  },
+  {
+   "address": "0x00423010",
+   "name": "bsCurveStartPrealloced",
+   "kind": "function",
+   "class": "hw1:B-Spline.c",
+   "confidence": "high",
+   "evidence": "(curve,n,values,times,params): sets points/times/params, timeElapsed=0, currentPoint=1, nPoints; callers madAnimBindingsDupe, nisSeek, nisStart",
+   "hw1_equivalent": "HomeworldSDL/src/Game/B-Spline.c:bsCurveStartPrealloced"
+  },
+  {
+   "address": "0x00423040",
+   "name": "bsCurveUpdate",
+   "kind": "function",
+   "class": "hw1:B-Spline.c",
+   "confidence": "high",
+   "evidence": "594-byte Hermite blend (bsHermiteCompute inlined) advancing currentPoint by time; callers nisUpdate, nisCamPathUpdate, nisCameraFlyCompute, madAnimBindingUpdate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/B-Spline.c:bsCurveUpdate"
+  },
+  {
+   "address": "0x004232a0",
+   "name": "bsCurveRestart",
+   "kind": "function",
+   "class": "hw1:B-Spline.c",
+   "confidence": "high",
+   "evidence": "18 bytes: timeElapsed=0, currentPoint=1; caller nisSeek",
+   "hw1_equivalent": "HomeworldSDL/src/Game/B-Spline.c:bsCurveRestart"
+  },
+  {
+   "address": "0x00427f60",
+   "name": "bmpFileOpen",
+   "kind": "function",
+   "class": "hw1:BMP.c",
+   "confidence": "high",
+   "evidence": "BMP.c block right after Blobs.c: fileOpen + fileBlockRead of the header; caller spNewItem (HW1 ScenPick.c:1007 bmpFileOpen)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BMP.c:bmpFileOpen"
+  },
+  {
+   "address": "0x00427fb0",
+   "name": "bmpBodyRead",
+   "kind": "function",
+   "class": "hw1:BMP.c",
+   "confidence": "high",
+   "evidence": "fileBlockRead of the pixel rows then fileClose; caller spNewItem (HW1 ScenPick.c:1028 bmpBodyRead)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BMP.c:bmpBodyRead"
+  },
+  {
+   "address": "0x00550da0",
+   "name": "volPointInside",
+   "kind": "function",
+   "class": "hw1:Volume.c",
+   "confidence": "high",
+   "evidence": "Volume.c block after Vector.c, before bink: box/sphere containment with aiuFindDistanceSquared; callers kasfPointInside, kasfFindShipsInside, kasfShipsInVolume",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Volume.c:volPointInside"
+  },
+  {
+   "address": "0x00550e70",
+   "name": "volSphereIntersection",
+   "kind": "function",
+   "class": "hw1:Volume.c",
+   "confidence": "medium",
+   "evidence": "second Volume.c function, box/sphere vs sphere tests with aiuFindDistanceSquared; caller AI 0x41dc50",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Volume.c:volSphereIntersection"
+  },
+  {
+   "address": "0x00551140",
+   "name": "volFindCenter",
+   "kind": "function",
+   "class": "hw1:Volume.c",
+   "confidence": "high",
+   "evidence": "switch vol->type: 0 sphere centre, 1 AA box (x0+x1)/2... (z bug fixed), else zero; callers tutDrawTextPointers (HW1 Tutor.c:1387), kasVolumeVectorPtr",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Volume.c:volFindCenter"
+  },
+  {
+   "address": "0x005511e0",
+   "name": "volFindRadius",
+   "kind": "function",
+   "class": "hw1:Volume.c",
+   "confidence": "high",
+   "evidence": "sphere -> radius, AA box -> ((x1-x0)+(y1-y0)+(z1-z0))/3/2, else 0; caller tutDrawTextPointers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Volume.c:volFindRadius"
+  },
+  {
+   "address": "0x00534770",
+   "name": "scriptSetBarsToDo",
+   "kind": "function",
+   "class": "hw1:Tweak.c",
+   "confidence": "high",
+   "evidence": "strtok + sscanf \"%d\" count then \"%f\" per bar, dbgFatalf 'Invalid specification in tweak.script'; Tweak.c block after Tutor.c",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tweak.c:scriptSetBarsToDo"
+  },
+  {
+   "address": "0x00534800",
+   "name": "scriptSetBlobPropertyOverlap",
+   "kind": "function",
+   "class": "hw1:Tweak.c",
+   "confidence": "high",
+   "evidence": "sscanf \"%f\" into +0x18 then +0x1c = sqrt(+0x18) (bobOverlapFactor / bobSqrtOverlapFactor)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tweak.c:scriptSetBlobPropertyOverlap"
+  },
+  {
+   "address": "0x00534830",
+   "name": "scriptSetBlobBiggestRadius",
+   "kind": "function",
+   "class": "hw1:Tweak.c",
+   "confidence": "high",
+   "evidence": "sscanf \"%f\" into +0x10 then copies to +0x14 (bobBiggestRadius / Default)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tweak.c:scriptSetBlobBiggestRadius"
+  },
+  {
+   "address": "0x00534860",
+   "name": "bitNumberSet",
+   "kind": "function",
+   "class": "hw1:Twiddle.c",
+   "confidence": "high",
+   "evidence": "(target,nBits) counts set bits in the low nBits; Twiddle.c after Tweak.c; caller trImageScale",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Twiddle.c:bitNumberSet"
+  },
+  {
+   "address": "0x00534880",
+   "name": "bitHighExponent2",
+   "kind": "function",
+   "class": "hw1:Twiddle.c",
+   "confidence": "high",
+   "evidence": "smallest power of two >= number over 31 steps else 0xffffffff; callers glfontCreate, glfontRecreate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Twiddle.c:bitHighExponent2"
+  },
+  {
+   "address": "0x004e9ec0",
+   "name": "psImageLoad",
+   "kind": "function",
+   "class": "hw1:PlugScreen.c",
+   "confidence": "medium",
+   "evidence": "PlugScreen.c block after Ping.c: localized path ('English\\\\'), fileOpen, JpegInfo/JpegRead, trRGBTextureCreate quilt; caller psImageSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PlugScreen.c:psImageLoad"
+  },
+  {
+   "address": "0x004ea200",
+   "name": "psImageSet",
+   "kind": "function",
+   "class": "hw1:PlugScreen.c",
+   "confidence": "medium",
+   "evidence": "script callback: RemoveCommasFromString, sscanf \"%f%s\", then psImageLoad",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PlugScreen.c:psImageSet"
+  },
+  {
+   "address": "0x004ea240",
+   "name": "psPlugLinkSet",
+   "kind": "function",
+   "class": "hw1:PlugScreen.c",
+   "confidence": "medium",
+   "evidence": "script callback: sscanf \"%d%d%s%s%s\", 'https:' URL check, regChildAlloc link region with draw/process functions, trLIFFileLoad images",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PlugScreen.c:psPlugLinkSet"
+  },
+  {
+   "address": "0x004ea470",
+   "name": "psTimeoutSet",
+   "kind": "function",
+   "class": "hw1:PlugScreen.c",
+   "confidence": "medium",
+   "evidence": "script callback: RemoveCommasFromString + sscanf \"%f%s\" (timeout seconds and target); follows psPlugLinkSet as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PlugScreen.c:psTimeoutSet"
+  },
+  {
+   "address": "0x004ea700",
+   "name": "psModeBegin",
+   "kind": "function",
+   "class": "hw1:PlugScreen.c",
+   "confidence": "high",
+   "evidence": "stores mode flags, inlined psStartup resets, taskPause(utyRenderTask), taskStart(... 'PlugRenderTask'); callers utyNewGameStart, utyGameQuitToMain",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PlugScreen.c:psModeBegin"
+  },
+  {
+   "address": "0x004ea7c0",
+   "name": "psScreenStart",
+   "kind": "function",
+   "class": "hw1:PlugScreen.c",
+   "confidence": "high",
+   "evidence": "regChildAlloc base + child region, regFunctionSet/regDrawFunctionSet, skip keys via regKeyChildAlloc, mouseEnable/mouseDisable, 'Image' script",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PlugScreen.c:psScreenStart"
+  },
+  {
+   "address": "0x004ea960",
+   "name": "psCurrentScreenDelete",
+   "kind": "function",
+   "class": "hw1:PlugScreen.c",
+   "confidence": "high",
+   "evidence": "for link regions whose drawFunction==0x4e9850: memFree on/off images + trRGBTextureDelete, regRegionDelete(base), delete quilt textures (64x64 pieces)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PlugScreen.c:psCurrentScreenDelete"
+  },
+  {
+   "address": "0x004e9850",
+   "name": "psLinkDraw",
+   "kind": "function",
+   "class": "hw1:PlugScreen.c",
+   "confidence": "medium",
+   "evidence": "address compared against reg->drawFunction in psCurrentScreenDelete exactly as HW1 'reg->drawFunction == psLinkDraw' [create: no function entry yet]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PlugScreen.c:psLinkDraw"
+  }
+ ]
+}

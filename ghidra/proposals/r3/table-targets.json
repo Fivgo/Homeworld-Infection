@@ -1,0 +1,5019 @@
+{
+ "source": "table-targets",
+ "method": "Target set: functions in cataclysm_gog_r2 functions.csv absent from cataclysm_gog_r1 and still FUN_* (548; 543 create_functions_r2.json reason=pointer-table, 5 found by analysis), all still FUN_* in cataclysm_gog_r3a. Every dword equal to a target was located in raw cataclysm.exe .rdata/.data (and imm32 in .text); each reference was read with +-8 dwords of context annotated with r3a function/data/string names. C++ tables resolved through RTTI CompleteObjectLocators (vtable class + slot), slot meaning taken from Titan headers (gardens-of-kadesh original-release-snapshot/src/Titan) and from already-named sibling slots; game tables identified by their named members, string columns and the code that indexes them (call_graph/decompiled.c of r3a), then each body read in decompiled.c. HW1 names only where the table and body match HomeworldSDL. B1 (fix_bodies_r3.report.csv) created no uncovered-run functions, so mission-uncovered has no targets.",
+ "done_subsystems": [
+  "won-magick",
+  "mission-uncovered",
+  "fe-tables",
+  "chat",
+  "ship-ai-tables",
+  "other-tables"
+ ],
+ "proposals": [
+  {
+   "address": "0x00405d40",
+   "name": "aihHarassNumbersLowHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "AI handler table 0x74a3a4 after aieHandlerToNum/aieNumToHandler = AIHandler.c handlerTable; slot 0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihHarassNumbersLowHandler"
+  },
+  {
+   "address": "0x00405fa0",
+   "name": "aihHarassDisengageSingleShipHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "AI handler table 0x74a3a4 after aieHandlerToNum/aieNumToHandler = AIHandler.c handlerTable; slot 2; body aiuWrapFormation(sel,curMove->formation), firing.triggered=0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihHarassDisengageSingleShipHandler"
+  },
+  {
+   "address": "0x00405fd0",
+   "name": "aihKamikazeHealthLowHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "AI handler table 0x74a3a4 after aieHandlerToNum/aieNumToHandler = AIHandler.c handlerTable; slot 3; body picks class 5/6 ships under health watch % then kamikaze",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihKamikazeHealthLowHandler"
+  },
+  {
+   "address": "0x00406070",
+   "name": "aihFastDefenseNumbersLowHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "AI handler table 0x74a3a4 after aieHandlerToNum/aieNumToHandler = AIHandler.c handlerTable; slot 4",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihFastDefenseNumbersLowHandler"
+  },
+  {
+   "address": "0x004062d0",
+   "name": "aihSlowDefenseNumbersLowHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "AI handler table 0x74a3a4 after aieHandlerToNum/aieNumToHandler = AIHandler.c handlerTable; slot 5",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihSlowDefenseNumbersLowHandler"
+  },
+  {
+   "address": "0x004065a0",
+   "name": "aihGenericGettingRockedHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "AI handler table 0x74a3a4 after aieHandlerToNum/aieNumToHandler = AIHandler.c handlerTable; slot 6; creates attack move",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihGenericGettingRockedHandler"
+  },
+  {
+   "address": "0x00406830",
+   "name": "aihGravWellEnemyNotNearbyHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "AI handler table 0x74a3a4 after aieHandlerToNum/aieNumToHandler = AIHandler.c handlerTable; slot 9; aiuWrapSpecial(sel,NULL), handler=NULL, re-arm enemyNearby at radius*0.8",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihGravWellEnemyNotNearbyHandler"
+  },
+  {
+   "address": "0x00406d80",
+   "name": "aihFastDefenseTeamDiedHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "AI handler table 0x74a3a4 after aieHandlerToNum/aieNumToHandler = AIHandler.c handlerTable; slot 12; aioCreateFastRovingDefense",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihFastDefenseTeamDiedHandler"
+  },
+  {
+   "address": "0x00406da0",
+   "name": "aihSlowDefenseTeamDiedHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "AI handler table 0x74a3a4 after aieHandlerToNum/aieNumToHandler = AIHandler.c handlerTable; slot 13; aioCreateSlowRovingDefense",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihSlowDefenseTeamDiedHandler"
+  },
+  {
+   "address": "0x00406dc0",
+   "name": "aihGuardShipsTeamDiedHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "AI handler table 0x74a3a4 after aieHandlerToNum/aieNumToHandler = AIHandler.c handlerTable; slot 14; aioCreateGuardShips",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihGuardShipsTeamDiedHandler"
+  },
+  {
+   "address": "0x00406e10",
+   "name": "aihReconaissanceTeamDiedHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "AI handler table 0x74a3a4 after aieHandlerToNum/aieNumToHandler = AIHandler.c handlerTable; slots 15+16; aioCreateReconaissance",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihReconaissanceTeamDiedHandler"
+  },
+  {
+   "address": "0x00406e30",
+   "name": "aihHarassTeamDiedHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "AI handler table 0x74a3a4 after aieHandlerToNum/aieNumToHandler = AIHandler.c handlerTable; slot 17; aioCreateHarass",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihHarassTeamDiedHandler"
+  },
+  {
+   "address": "0x00406e80",
+   "name": "aihPatrolTeamDiedHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "medium",
+   "evidence": "AI handler table 0x74a3a4 after aieHandlerToNum/aieNumToHandler = AIHandler.c handlerTable; slots 18+19 (ICF-folded with aihRemoveTeamDiedHandler); 9-byte body",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihPatrolTeamDiedHandler"
+  },
+  {
+   "address": "0x00414090",
+   "name": "rowSetDetails",
+   "kind": "function",
+   "class": "hw1:AIShip.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x74da00: entry \"rowDetails\" -> AIShip.c:194 rowSetDetails",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIShip.c:rowSetDetails"
+  },
+  {
+   "address": "0x004232c0",
+   "name": "batRandomWeightSetCB",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x75075c: entry \"randomWeight\" -> Battle.c:574 batRandomWeightSetCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:batRandomWeightSetCB"
+  },
+  {
+   "address": "0x00423330",
+   "name": "batMaxDistanceSetCB",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x750768: entry \"maxDistance\" -> Battle.c:575 batMaxDistanceSetCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:batMaxDistanceSetCB"
+  },
+  {
+   "address": "0x004233b0",
+   "name": "batDistanceExponentSetCB",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x750774: entry \"expDistance\" -> Battle.c:576 batDistanceExponentSetCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:batDistanceExponentSetCB"
+  },
+  {
+   "address": "0x00423420",
+   "name": "batMinWavelengthSetCB",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x750780: entry \"minWavelength\" -> Battle.c:577 batMinWavelengthSetCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:batMinWavelengthSetCB"
+  },
+  {
+   "address": "0x00423490",
+   "name": "batWavelengthExponentSetCB",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x75078c: entry \"expWavelength\" -> Battle.c:578 batWavelengthExponentSetCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:batWavelengthExponentSetCB"
+  },
+  {
+   "address": "0x00423500",
+   "name": "batMinRepeatProximitySetCB",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x750798: entry \"minRepeatProximity\" -> Battle.c:579 batMinRepeatProximitySetCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:batMinRepeatProximitySetCB"
+  },
+  {
+   "address": "0x00423580",
+   "name": "batRepeatProximityExponentSetCB",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x7507a4: entry \"expRepeatProximity\" -> Battle.c:580 batRepeatProximityExponentSetCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:batRepeatProximityExponentSetCB"
+  },
+  {
+   "address": "0x004235f0",
+   "name": "cat_batStatusUpdateSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Battle.c script struct entry \"battleStatusUpdate\" @0x7507b0 next to bat*SetCB entries",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00423680",
+   "name": "cat_batStatusSuppressSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Battle.c script entry \"battleStatusSuppress\" @0x7507bc",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00423710",
+   "name": "batGlobalFrequencyModifierSet",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x7507c8: entry \"batGlobalFrequencyModifier\" -> Battle.c:584 batGlobalFrequencyModifierSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:batGlobalFrequencyModifierSet"
+  },
+  {
+   "address": "0x0043dea0",
+   "name": "colPickScalarScan",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x752df4: entry \"baseScalar\" -> ColPick.c:151 colPickScalarScan; 2 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:colPickScalarScan"
+  },
+  {
+   "address": "0x0043eb70",
+   "name": "cpBaseColor",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752ca0: entry \"CP_BaseColor\" -> ColPick.c:42 cpBaseColor",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpBaseColor"
+  },
+  {
+   "address": "0x0043eee0",
+   "name": "cpStripeColor",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752ca8: entry \"CP_StripeColor\" -> ColPick.c:43 cpStripeColor",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpStripeColor"
+  },
+  {
+   "address": "0x0043f160",
+   "name": "cpDefault",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752cb0: entry \"CP_Default\" -> ColPick.c:44 cpDefault",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpDefault"
+  },
+  {
+   "address": "0x0043f620",
+   "name": "cpBaseRedDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752cf8: entry \"CP_BaseRed\" -> ColPick.c:79 cpBaseRedDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpBaseRedDraw"
+  },
+  {
+   "address": "0x0043f700",
+   "name": "cpBaseGreenDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d00: entry \"CP_BaseGreen\" -> ColPick.c:80 cpBaseGreenDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpBaseGreenDraw"
+  },
+  {
+   "address": "0x0043f7e0",
+   "name": "cpBaseBlueDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d08: entry \"CP_BaseBlue\" -> ColPick.c:81 cpBaseBlueDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpBaseBlueDraw"
+  },
+  {
+   "address": "0x0043f8c0",
+   "name": "cpBaseHueDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d10: entry \"CP_BaseHue\" -> ColPick.c:82 cpBaseHueDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpBaseHueDraw"
+  },
+  {
+   "address": "0x0043f9a0",
+   "name": "cpBaseSaturationDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d18: entry \"CP_BaseSaturation\" -> ColPick.c:83 cpBaseSaturationDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpBaseSaturationDraw"
+  },
+  {
+   "address": "0x0043fa80",
+   "name": "cpBaseValueDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d20: entry \"CP_BaseValue\" -> ColPick.c:84 cpBaseValueDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpBaseValueDraw"
+  },
+  {
+   "address": "0x0043fb60",
+   "name": "cpStripeRedDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d28: entry \"CP_StripeRed\" -> ColPick.c:85 cpStripeRedDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpStripeRedDraw"
+  },
+  {
+   "address": "0x0043fc40",
+   "name": "cpStripeGreenDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d30: entry \"CP_StripeGreen\" -> ColPick.c:86 cpStripeGreenDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpStripeGreenDraw"
+  },
+  {
+   "address": "0x0043fd20",
+   "name": "cpStripeBlueDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d38: entry \"CP_StripeBlue\" -> ColPick.c:87 cpStripeBlueDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpStripeBlueDraw"
+  },
+  {
+   "address": "0x0043fe00",
+   "name": "cpStripeHueDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d40: entry \"CP_StripeHue\" -> ColPick.c:88 cpStripeHueDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpStripeHueDraw"
+  },
+  {
+   "address": "0x0043fee0",
+   "name": "cpStripeSaturationDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d48: entry \"CP_StripeSaturation\" -> ColPick.c:89 cpStripeSaturationDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpStripeSaturationDraw"
+  },
+  {
+   "address": "0x0043ffc0",
+   "name": "cpStripeValueDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d50: entry \"CP_StripeValue\" -> ColPick.c:90 cpStripeValueDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpStripeValueDraw"
+  },
+  {
+   "address": "0x004402a0",
+   "name": "cpHueSaturationDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d70: entry \"CP_HueSaturation\" -> ColPick.c:95 cpHueSaturationDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpHueSaturationDraw"
+  },
+  {
+   "address": "0x00440450",
+   "name": "cpValueDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d78: entry \"CP_Value\" -> ColPick.c:96 cpValueDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpValueDraw"
+  },
+  {
+   "address": "0x00440600",
+   "name": "cpPreviousDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x752d80: entry \"CP_PreviousDraw0\" -> ColPick.c:97 cpPreviousDraw; 5 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpPreviousDraw"
+  },
+  {
+   "address": "0x00453f30",
+   "name": "cmScroller",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x753a38: entry \"CM_Scroller\" -> ConsMgr.c:184 cmScroller",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmScroller"
+  },
+  {
+   "address": "0x00456f00",
+   "name": "cmShipNumbersDraw",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x753a78: entry \"CM_ShipNumbers\" -> ConsMgr.c:192 cmShipNumbersDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmShipNumbersDraw"
+  },
+  {
+   "address": "0x004573d0",
+   "name": "cmShipInfoDraw",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x753a70: entry \"CM_Ships\" -> ConsMgr.c:191 cmShipInfoDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmShipInfoDraw"
+  },
+  {
+   "address": "0x004578e0",
+   "name": "cmNumberRUsDraw",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x753a60: entry \"CM_RUs\" -> ConsMgr.c:189 cmNumberRUsDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmNumberRUsDraw"
+  },
+  {
+   "address": "0x00457a00",
+   "name": "cmTotalRUsDraw",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x753a80: entry \"CM_TotalCost\" -> ConsMgr.c:193 cmTotalRUsDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmTotalRUsDraw"
+  },
+  {
+   "address": "0x00457d00",
+   "name": "cmTotalShipsDraw",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x753a88: entry \"CM_TotalShips\" -> ConsMgr.c:194 cmTotalShipsDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmTotalShipsDraw"
+  },
+  {
+   "address": "0x00458cb0",
+   "name": "cmCarrier1Draw",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x753a98: entry \"CM_Carrier1Draw\" -> ConsMgr.c:197 cmCarrier1Draw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmCarrier1Draw"
+  },
+  {
+   "address": "0x00458cd0",
+   "name": "cmCarrier2Draw",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x753aa0: entry \"CM_Carrier2Draw\" -> ConsMgr.c:198 cmCarrier2Draw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmCarrier2Draw"
+  },
+  {
+   "address": "0x00459f50",
+   "name": "cat_cmSUBarDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"CM_SUBarDraw\"} @0x753ab8 in ConsMgr table; calls cmQueuedSupportUnits",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0045b1c0",
+   "name": "cat_conTextDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "FE {fn,\"CON_TextDraw\"} @0x754fa8 (dev console); fontPrintf/regRegionScroll",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00460180",
+   "name": "cat_consoleSaveConfig",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "console command table entry \"saveConfig\" @0x8783ec (after \"loadConfig\" FUN_00460160); 26-byte body (memFree)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004789f0",
+   "name": "ferDrawHorizSlider",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "FEReg.c order ferDrawRadioButton < this < ferDrawVertSlider < ferDrawScrollbar; sole caller uicHorizSliderDraw 0x5369f0 (A1 analysis-created)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawHorizSlider"
+  },
+  {
+   "address": "0x00478bd0",
+   "name": "ferDrawVertSlider",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "FEReg.c order; sole caller uicVertSliderDraw 0x536a40 (A1 analysis-created)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawVertSlider"
+  },
+  {
+   "address": "0x00486a40",
+   "name": "gcChatTextDraw",
+   "kind": "function",
+   "class": "hw1:GameChat.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x880fe8: entry \"ChatTextDraw\" -> GameChat.c:137 gcChatTextDraw; 2 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/GameChat.c:gcChatTextDraw"
+  },
+  {
+   "address": "0x00487670",
+   "name": "gpTextEntryWindowInit",
+   "kind": "function",
+   "class": "hw1:GamePick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x881118: entry \"IG_TextEntryWindowInit\" -> GamePick.c:106 gpTextEntryWindowInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/GamePick.c:gpTextEntryWindowInit"
+  },
+  {
+   "address": "0x004877d0",
+   "name": "gpGameWindowInit",
+   "kind": "function",
+   "class": "hw1:GamePick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x881100: entry \"FE_RecordedGameWindowInit\" -> GamePick.c:103 gpGameWindowInit; 3 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/GamePick.c:gpGameWindowInit"
+  },
+  {
+   "address": "0x00488150",
+   "name": "spRestartLevel",
+   "kind": "function",
+   "class": "hw1:GamePick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c0fb8: entry \"SP_Restart_Level\" -> utility_mac.c:416 spRestartLevel",
+   "hw1_equivalent": "HomeworldSDL/src/Game/GamePick.c:spRestartLevel"
+  },
+  {
+   "address": "0x0048cf30",
+   "name": "hrDrawPlayersProgress",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x881678: entry \"HR_DrawPlayersProgress\" -> HorseRace.c:173 hrDrawPlayersProgress",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:hrDrawPlayersProgress"
+  },
+  {
+   "address": "0x0048d410",
+   "name": "hrDrawChatBox",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x881680: entry \"HR_DrawChatBox\" -> HorseRace.c:174 hrDrawChatBox",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:hrDrawChatBox"
+  },
+  {
+   "address": "0x0048e150",
+   "name": "hrChatTextEntry",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x881690: entry \"HR_ChatTextEntry\" -> HorseRace.c:180 hrChatTextEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:hrChatTextEntry"
+  },
+  {
+   "address": "0x0049d140",
+   "name": "lmAutoLaunchC1",
+   "kind": "function",
+   "class": "hw1:LaunchMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8833b0: entry \"LM_AutoLaunchC1\" -> LaunchMgr.c:140 lmAutoLaunchC1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LaunchMgr.c:lmAutoLaunchC1"
+  },
+  {
+   "address": "0x0049d160",
+   "name": "lmAutoLaunchC2",
+   "kind": "function",
+   "class": "hw1:LaunchMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8833b8: entry \"LM_AutoLaunchC2\" -> LaunchMgr.c:141 lmAutoLaunchC2",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LaunchMgr.c:lmAutoLaunchC2"
+  },
+  {
+   "address": "0x0049d180",
+   "name": "lmAutoLaunchC3",
+   "kind": "function",
+   "class": "hw1:LaunchMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8833c0: entry \"LM_AutoLaunchC3\" -> LaunchMgr.c:142 lmAutoLaunchC3",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LaunchMgr.c:lmAutoLaunchC3"
+  },
+  {
+   "address": "0x0049f050",
+   "name": "cat_lmModuleSlot1Draw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "FE {fn,\"LM_Module_Slot1\"} @LaunchMgr table 0x883438+; same 361-byte body pattern per slot",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0049f1c0",
+   "name": "cat_lmModuleSlot2Draw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "FE {fn,\"LM_Module_Slot2\"} @LaunchMgr table 0x883438+; same 361-byte body pattern per slot",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0049f330",
+   "name": "cat_lmModuleSlot3Draw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "FE {fn,\"LM_Module_Slot3\"} @LaunchMgr table 0x883438+; same 361-byte body pattern per slot",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0049f4a0",
+   "name": "cat_lmModuleSlot4Draw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "FE {fn,\"LM_Module_Slot4\"} @LaunchMgr table 0x883438+; same 361-byte body pattern per slot",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0049f610",
+   "name": "cat_lmModuleSlot5Draw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "FE {fn,\"LM_Module_Slot5\"} @LaunchMgr table 0x883438+; same 361-byte body pattern per slot",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0049f780",
+   "name": "cat_lmModuleSlot6Draw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "FE {fn,\"LM_Module_Slot6\"} @LaunchMgr table 0x883438+; same 361-byte body pattern per slot",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0049f8f0",
+   "name": "cat_lmModuleSlot7Draw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "FE {fn,\"LM_Module_Slot7\"} @LaunchMgr table 0x883438+; same 361-byte body pattern per slot",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0049fc80",
+   "name": "scriptSetUword2CB",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x88396c: entry \"Asteroid0\" -> LevelLoad.c:82 scriptSetUword2CB; 11 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptSetUword2CB"
+  },
+  {
+   "address": "0x004a07b0",
+   "name": "scriptSetResourcesCB",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883a9c: entry \"Resources\" -> LevelLoad.c:116 scriptSetResourcesCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptSetResourcesCB"
+  },
+  {
+   "address": "0x004a0d10",
+   "name": "cat_scriptSetMeteorStormCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "MissionSphere struct table 0x883aa8 {\"MeteorStorm\",cb,0,0}; \"Invalid meteorstorm layout\"",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a1020",
+   "name": "cat_scriptSetSlipgateCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "MissionSphere struct table {\"Slipgate\",cb,0,0} @0x883acc; \"Bad Slipgate point definition\", univCreateShip",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004a11e0",
+   "name": "scriptSetDerelictCB",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883adc: entry \"Derelict\" -> LevelLoad.c:117 scriptSetDerelictCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptSetDerelictCB"
+  },
+  {
+   "address": "0x004a13f0",
+   "name": "scriptSetShipsCB",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883a4c: entry \"Ships\" -> LevelLoad.c:111 scriptSetShipsCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptSetShipsCB"
+  },
+  {
+   "address": "0x004a1d90",
+   "name": "scriptSetAIPointCB",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883a5c: entry \"AIPoint\" -> LevelLoad.c:112 scriptSetAIPointCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptSetAIPointCB"
+  },
+  {
+   "address": "0x004a1e20",
+   "name": "scriptSetAIPathCB",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883a6c: entry \"AIPath\" -> LevelLoad.c:113 scriptSetAIPathCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptSetAIPathCB"
+  },
+  {
+   "address": "0x004a1f00",
+   "name": "scriptSetAIBoxCB",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883a7c: entry \"AIBox\" -> LevelLoad.c:114 scriptSetAIBoxCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptSetAIBoxCB"
+  },
+  {
+   "address": "0x004a1ff0",
+   "name": "scriptSetAISphereCB",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883a8c: entry \"AISphere\" -> LevelLoad.c:115 scriptSetAISphereCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptSetAISphereCB"
+  },
+  {
+   "address": "0x004a2090",
+   "name": "scriptSetLightingCB",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883b94: entry \"Lighting\" -> LevelLoad.c:141 scriptSetLightingCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptSetLightingCB"
+  },
+  {
+   "address": "0x004a2230",
+   "name": "scriptSetBackgroundCB",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883ba4: entry \"Background\" -> LevelLoad.c:142 scriptSetBackgroundCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptSetBackgroundCB"
+  },
+  {
+   "address": "0x004a2420",
+   "name": "scriptSetMissionSphereCB",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883b84: entry \"MissionSphere\" -> LevelLoad.c:140 scriptSetMissionSphereCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptSetMissionSphereCB"
+  },
+  {
+   "address": "0x004a2820",
+   "name": "scriptPreMissionSphereCB",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "sole entry of 2nd \"MissionSphere\" table 0x883cb4 = MissionPreloadScriptTablePass2 (LevelLoad.c:186); first table 0x883b84 is MissionScriptTable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptPreMissionSphereCB"
+  },
+  {
+   "address": "0x004a2a80",
+   "name": "llExcludeShip",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883c08: entry \"ExcludeShips\" -> LevelLoad.c:169 llExcludeShip; 2 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:llExcludeShip"
+  },
+  {
+   "address": "0x004a2ba0",
+   "name": "llExcludeAsteroid",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883c20: entry \"ExcludeAsteroid\" -> LevelLoad.c:171 llExcludeAsteroid; 2 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:llExcludeAsteroid"
+  },
+  {
+   "address": "0x004a2bf0",
+   "name": "llExcludeDustCloud",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883c38: entry \"ExcludeDustCloud\" -> LevelLoad.c:173 llExcludeDustCloud; 2 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:llExcludeDustCloud"
+  },
+  {
+   "address": "0x004a2c20",
+   "name": "llExcludeGasCloud",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883c50: entry \"ExcludeGasCloud\" -> LevelLoad.c:175 llExcludeGasCloud; 2 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:llExcludeGasCloud"
+  },
+  {
+   "address": "0x004a2c50",
+   "name": "llExcludeNebula",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883c68: entry \"ExcludeNebula\" -> LevelLoad.c:177 llExcludeNebula; 2 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:llExcludeNebula"
+  },
+  {
+   "address": "0x004a2cf0",
+   "name": "llAvailableColorScheme",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883c98: entry \"AvailableColorSchemes\" -> LevelLoad.c:181 llAvailableColorScheme",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:llAvailableColorScheme"
+  },
+  {
+   "address": "0x004a2f30",
+   "name": "scriptSetShipsToBeNeeded",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "\"Ships\" in 2-entry struct table 0x883cc4 {Ships,Derelict} = MissionPreloadMissphereTable (LevelLoad.c:196)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptSetShipsToBeNeeded"
+  },
+  {
+   "address": "0x004a31c0",
+   "name": "scriptSetDerelictToBeNeeded",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "\"Derelict\" in 2-entry struct table 0x883cc4 = MissionPreloadMissphereTable (LevelLoad.c:196)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:scriptSetDerelictToBeNeeded"
+  },
+  {
+   "address": "0x004a48c0",
+   "name": "lodColorScalarRead",
+   "kind": "function",
+   "class": "hw1:LOD.c",
+   "confidence": "high",
+   "evidence": "LOD.c lodStaticInfo table {\"baseScalar\",cb,0,0}/{\"stripeScalar\",cb,2,1} at 0x88482c matches LOD.c:80-81 exactly (ColPick uses NULL/0xffffffff)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LOD.c:lodColorScalarRead"
+  },
+  {
+   "address": "0x004a49f0",
+   "name": "lodMeshFileLoad",
+   "kind": "function",
+   "class": "hw1:LOD.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x88476c: entry \"pMeshFile0\" -> LOD.c:68 lodMeshFileLoad; 6 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LOD.c:lodMeshFileLoad"
+  },
+  {
+   "address": "0x004b8140",
+   "name": "mgProcessIgnore",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x88667c: entry \"Ignore\" -> MultiplayerGame.c:356 mgProcessIgnore; 5 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgProcessIgnore"
+  },
+  {
+   "address": "0x004b81f0",
+   "name": "mgProcessKick",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x886694: entry \"Kick\" -> MultiplayerGame.c:357 mgProcessKick; 5 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgProcessKick"
+  },
+  {
+   "address": "0x004b8280",
+   "name": "mgProcessBan",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8866ac: entry \"Ban\" -> MultiplayerGame.c:358 mgProcessBan; 5 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgProcessBan"
+  },
+  {
+   "address": "0x004b8370",
+   "name": "mgProcessLimit",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8866c4: entry \"Limit\" -> MultiplayerGame.c:359 mgProcessLimit; 5 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgProcessLimit"
+  },
+  {
+   "address": "0x004b9440",
+   "name": "mgSkirmish",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886930: entry \"MG_Skirmish\" -> MultiplayerGame.c:688 mgSkirmish",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgSkirmish"
+  },
+  {
+   "address": "0x004b9480",
+   "name": "mgInternetWON",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886940: entry \"MG_InternetWON\" -> MultiplayerGame.c:690 mgInternetWON",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgInternetWON"
+  },
+  {
+   "address": "0x004b9520",
+   "name": "mgLANIPX",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886938: entry \"MG_LANIPX\" -> MultiplayerGame.c:689 mgLANIPX",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgLANIPX"
+  },
+  {
+   "address": "0x004b95e0",
+   "name": "mgFirewallButton",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886968: entry \"MG_FirewallButton\" -> MultiplayerGame.c:697 mgFirewallButton",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgFirewallButton"
+  },
+  {
+   "address": "0x004b9610",
+   "name": "mgNameEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886970: entry \"MG_NameEntry\" -> MultiplayerGame.c:700 mgNameEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgNameEntry"
+  },
+  {
+   "address": "0x004b97c0",
+   "name": "mgPasswordEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886948: entry \"MG_PasswordEntry\" -> MultiplayerGame.c:693 mgPasswordEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgPasswordEntry"
+  },
+  {
+   "address": "0x004b9920",
+   "name": "mgLaunchWON",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886960: entry \"MG_LaunchWON\" -> MultiplayerGame.c:696 mgLaunchWON",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgLaunchWON"
+  },
+  {
+   "address": "0x004b9b20",
+   "name": "mgOldPasswordChangeEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886980: entry \"MG_OldPasswordChangeEntry\" -> MultiplayerGame.c:704 mgOldPasswordChangeEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgOldPasswordChangeEntry"
+  },
+  {
+   "address": "0x004b9b50",
+   "name": "mgNewPasswordChangeEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886988: entry \"MG_NewPasswordChangeEntry\" -> MultiplayerGame.c:705 mgNewPasswordChangeEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgNewPasswordChangeEntry"
+  },
+  {
+   "address": "0x004b9b80",
+   "name": "mgConfirmPasswordChangeEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886990: entry \"MG_ConfirmPasswordChangeEntry\" -> MultiplayerGame.c:706 mgConfirmPasswordChangeEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgConfirmPasswordChangeEntry"
+  },
+  {
+   "address": "0x004b9bf0",
+   "name": "mgChangePasswordNow",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8869a0: entry \"MG_ChangePasswordNow\" -> MultiplayerGame.c:708 mgChangePasswordNow",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgChangePasswordNow"
+  },
+  {
+   "address": "0x004b9df0",
+   "name": "mgNewAccountPassword",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8869a8: entry \"MG_NewAccountPassword\" -> MultiplayerGame.c:711 mgNewAccountPassword",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgNewAccountPassword"
+  },
+  {
+   "address": "0x004b9e20",
+   "name": "mgNewAccountConfirm",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8869b0: entry \"MG_NewAccountConfirm\" -> MultiplayerGame.c:712 mgNewAccountConfirm",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgNewAccountConfirm"
+  },
+  {
+   "address": "0x004b9ff0",
+   "name": "mgCreateNewAccountNow",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8869c0: entry \"MG_CreateNewAccountNow\" -> MultiplayerGame.c:714 mgCreateNewAccountNow",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgCreateNewAccountNow"
+  },
+  {
+   "address": "0x004ba280",
+   "name": "mgChatTextEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8869c8: entry \"MG_ChatTextEntry\" -> MultiplayerGame.c:717 mgChatTextEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgChatTextEntry"
+  },
+  {
+   "address": "0x004bb1b0",
+   "name": "mgChannelNameEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886a28: entry \"MG_ChannelNameEntry\" -> MultiplayerGame.c:733 mgChannelNameEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgChannelNameEntry"
+  },
+  {
+   "address": "0x004bb1e0",
+   "name": "mgChannelDescriptionEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886a30: entry \"MG_ChannelDescriptionEntry\" -> MultiplayerGame.c:734 mgChannelDescriptionEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgChannelDescriptionEntry"
+  },
+  {
+   "address": "0x004bb210",
+   "name": "mgChannelProtected",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886a38: entry \"MG_ChannelProtected\" -> MultiplayerGame.c:735 mgChannelProtected",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgChannelProtected"
+  },
+  {
+   "address": "0x004bb250",
+   "name": "mgChannelPasswordEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886a40: entry \"MG_ChannelPasswordEntry\" -> MultiplayerGame.c:736 mgChannelPasswordEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgChannelPasswordEntry"
+  },
+  {
+   "address": "0x004bb280",
+   "name": "mgChannelConfirmEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886a48: entry \"MG_ChannelConfirmEntry\" -> MultiplayerGame.c:737 mgChannelConfirmEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgChannelConfirmEntry"
+  },
+  {
+   "address": "0x004bc540",
+   "name": "mgGameChatWindowInit",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886a88: entry \"MG_GameChatWindow\" -> MultiplayerGame.c:749 mgGameChatWindowInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgGameChatWindowInit"
+  },
+  {
+   "address": "0x004bca00",
+   "name": "mgGameChatTextEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886ab8: entry \"MG_GameChatTextEntry\" -> MultiplayerGame.c:755 mgGameChatTextEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgGameChatTextEntry"
+  },
+  {
+   "address": "0x004bd370",
+   "name": "mgGameNameTextEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886ac8: entry \"MG_GameNameTextEntry\" -> MultiplayerGame.c:759 mgGameNameTextEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgGameNameTextEntry"
+  },
+  {
+   "address": "0x004bd830",
+   "name": "mgStartingFleet",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886ae0: entry \"MG_StartingFleet\" -> MultiplayerGame.c:762 mgStartingFleet; 2 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgStartingFleet"
+  },
+  {
+   "address": "0x004bd870",
+   "name": "mgStartShip",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886ae8: entry \"MG_StartShip\" -> MultiplayerGame.c:763 mgStartShip",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgStartShip"
+  },
+  {
+   "address": "0x004bd8c0",
+   "name": "mgGameType",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886af0: entry \"MG_GameType\" -> MultiplayerGame.c:764 mgGameType",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgGameType"
+  },
+  {
+   "address": "0x004bd980",
+   "name": "mgLastMotherShip",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b08: entry \"MG_LastMotherShip\" -> MultiplayerGame.c:772 mgLastMotherShip",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgLastMotherShip"
+  },
+  {
+   "address": "0x004bd9d0",
+   "name": "mgHyperspace",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886af8: entry \"MG_Hyperspace\" -> MultiplayerGame.c:770 mgHyperspace",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgHyperspace"
+  },
+  {
+   "address": "0x004bda20",
+   "name": "mgAlliedVictory",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b00: entry \"MG_AlliedVictory\" -> MultiplayerGame.c:771 mgAlliedVictory",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgAlliedVictory"
+  },
+  {
+   "address": "0x004bda70",
+   "name": "cat_mgAllowAllies",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"MG_AllowAllies\"} @0x886b50 in MultiplayerGame table",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004bdac0",
+   "name": "mgResearchEnabled",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b10: entry \"MG_ResearchEnabled\" -> MultiplayerGame.c:774 mgResearchEnabled",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgResearchEnabled"
+  },
+  {
+   "address": "0x004bdb10",
+   "name": "mgBountySize",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b18: entry \"MG_BountySize\" -> MultiplayerGame.c:776 mgBountySize",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgBountySize"
+  },
+  {
+   "address": "0x004bdb50",
+   "name": "mgPasswordProtected",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b20: entry \"MG_PasswordProtected\" -> MultiplayerGame.c:777 mgPasswordProtected",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgPasswordProtected"
+  },
+  {
+   "address": "0x004bdb90",
+   "name": "mgGamePassword",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b28: entry \"MG_GamePassword\" -> MultiplayerGame.c:778 mgGamePassword",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgGamePassword"
+  },
+  {
+   "address": "0x004bdc00",
+   "name": "mgGamePasswordConfirm",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b30: entry \"MG_GamePasswordConfirm\" -> MultiplayerGame.c:779 mgGamePasswordConfirm",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgGamePasswordConfirm"
+  },
+  {
+   "address": "0x004bdce0",
+   "name": "mgUnitCapsEnabled",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b38: entry \"MG_UnitCapsEnabled\" -> MultiplayerGame.c:780 mgUnitCapsEnabled",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgUnitCapsEnabled"
+  },
+  {
+   "address": "0x004bdd00",
+   "name": "mgFuelBurnEnabled",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b40: entry \"MG_NoFuelBurn\" -> MultiplayerGame.c:781 mgFuelBurnEnabled",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgFuelBurnEnabled"
+  },
+  {
+   "address": "0x004bdd50",
+   "name": "mgCratesEnabled",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b48: entry \"MG_CratesEnabled\" -> MultiplayerGame.c:782 mgCratesEnabled",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgCratesEnabled"
+  },
+  {
+   "address": "0x004bdda0",
+   "name": "mgHarvestingEnabled",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b58: entry \"MG_HarvestingEnabled\" -> MultiplayerGame.c:785 mgHarvestingEnabled",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgHarvestingEnabled"
+  },
+  {
+   "address": "0x004bddf0",
+   "name": "mgStartingResources",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b60: entry \"MG_StartingResources\" -> MultiplayerGame.c:786 mgStartingResources",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgStartingResources"
+  },
+  {
+   "address": "0x004bde30",
+   "name": "mgResourceInjections",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b68: entry \"MG_ResourceInjections\" -> MultiplayerGame.c:787 mgResourceInjections",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgResourceInjections"
+  },
+  {
+   "address": "0x004bdf70",
+   "name": "mgResourceInjectionAmount",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b78: entry \"MG_ResourceInjectionAmount\" -> MultiplayerGame.c:789 mgResourceInjectionAmount",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgResourceInjectionAmount"
+  },
+  {
+   "address": "0x004be040",
+   "name": "mgResourceLumpSum",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b80: entry \"MG_ResourceLumpSum\" -> MultiplayerGame.c:790 mgResourceLumpSum",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgResourceLumpSum"
+  },
+  {
+   "address": "0x004be180",
+   "name": "mgResourceLumpSumAmount",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886b90: entry \"MG_ResourceLumpSumAmount\" -> MultiplayerGame.c:792 mgResourceLumpSumAmount",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgResourceLumpSumAmount"
+  },
+  {
+   "address": "0x004be590",
+   "name": "mgGamePasswordEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886be8: entry \"MG_GamePasswordEntry\" -> MultiplayerGame.c:814 mgGamePasswordEntry; 3 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgGamePasswordEntry"
+  },
+  {
+   "address": "0x004c0c60",
+   "name": "mgDrawPatchProgress",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886cf0: entry \"MG_DrawPatchProgress\" -> MultiplayerGame.c:854 mgDrawPatchProgress",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgDrawPatchProgress"
+  },
+  {
+   "address": "0x004c1010",
+   "name": "mgYesDownloadPatch",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x886c30: entry \"MG_YesDownloadPatch\" -> MultiplayerGame.c:830 mgYesDownloadPatch",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgYesDownloadPatch"
+  },
+  {
+   "address": "0x004c3020",
+   "name": "cat_mgAgeRange",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"MG_AgeRange\"} @0x886c58 (registration screen)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004c3050",
+   "name": "cat_mgEMail",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"MG_EMail\"} @0x886c60",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004c3170",
+   "name": "cat_mgZip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"MG_Zip\"} @0x886c68",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004c3420",
+   "name": "cat_mgGender",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"MG_Gender\"} @0x886c78",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004c3450",
+   "name": "cat_mgSendInformation",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"MG_SendInformation\"} @0x886c80",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004c3bf0",
+   "name": "lgDrawProtocal",
+   "kind": "function",
+   "class": "hw1:MultiplayerLANGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x888120: entry \"LG_Protocal\" -> MultiplayerLANGame.c:434 lgDrawProtocal",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerLANGame.c:lgDrawProtocal"
+  },
+  {
+   "address": "0x004c4020",
+   "name": "lgNameEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerLANGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x887fe0: entry \"LG_NameEntry\" -> MultiplayerLANGame.c:361 lgNameEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerLANGame.c:lgNameEntry"
+  },
+  {
+   "address": "0x004c41c0",
+   "name": "lgChatTextEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerLANGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x887ff8: entry \"LG_ChatTextEntry\" -> MultiplayerLANGame.c:369 lgChatTextEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerLANGame.c:lgChatTextEntry"
+  },
+  {
+   "address": "0x004c4760",
+   "name": "lgDrawChatWindowItem",
+   "kind": "function",
+   "class": "hw1:MultiplayerLANGame.c",
+   "confidence": "high",
+   "evidence": "item-draw arg of uicListWindowInit in lgChatWindowInit 0x4c4930 (MultiplayerLANGame.c:1004)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerLANGame.c:lgDrawChatWindowItem"
+  },
+  {
+   "address": "0x004c4930",
+   "name": "lgChatWindowInit",
+   "kind": "function",
+   "class": "hw1:MultiplayerLANGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x888018: entry \"LG_ChatHistoryWindow\" -> MultiplayerLANGame.c:373 lgChatWindowInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerLANGame.c:lgChatWindowInit"
+  },
+  {
+   "address": "0x004c5650",
+   "name": "lgGameChatWindowInit",
+   "kind": "function",
+   "class": "hw1:MultiplayerLANGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x888040: entry \"LG_GameChatWindow\" -> MultiplayerLANGame.c:380 lgGameChatWindowInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerLANGame.c:lgGameChatWindowInit"
+  },
+  {
+   "address": "0x004c5b00",
+   "name": "lgGameChatTextEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerLANGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x888070: entry \"LG_GameChatTextEntry\" -> MultiplayerLANGame.c:386 lgGameChatTextEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerLANGame.c:lgGameChatTextEntry"
+  },
+  {
+   "address": "0x004c60e0",
+   "name": "lgGameNameTextEntry",
+   "kind": "function",
+   "class": "hw1:MultiplayerLANGame.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x888098: entry \"LG_GameNameTextEntry\" -> MultiplayerLANGame.c:395 lgGameNameTextEntry",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerLANGame.c:lgGameNameTextEntry"
+  },
+  {
+   "address": "0x004cf240",
+   "name": "nisDeathAnything",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) DeathDamage/DeathProjectile/DeathBeam; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisDeathAnything"
+  },
+  {
+   "address": "0x004cf2c0",
+   "name": "nisAttack",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) Attack; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisAttack"
+  },
+  {
+   "address": "0x004cf370",
+   "name": "cat_nisRepair",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) Repair*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004cf400",
+   "name": "nisHaltAttack",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) HaltAttack; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisHaltAttack"
+  },
+  {
+   "address": "0x004cf440",
+   "name": "nisFire",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) Fire; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFire"
+  },
+  {
+   "address": "0x004cf470",
+   "name": "nisObjectShow",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) Show; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisObjectShow"
+  },
+  {
+   "address": "0x004cf5d0",
+   "name": "nisObjectHide",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) Hide; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisObjectHide"
+  },
+  {
+   "address": "0x004cf6c0",
+   "name": "nisInvincible",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) Invincible; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisInvincible"
+  },
+  {
+   "address": "0x004cf6e0",
+   "name": "nisVincible",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) Vincible; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisVincible"
+  },
+  {
+   "address": "0x004cf740",
+   "name": "cat_nisSubtitle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) Subtitle*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004cf840",
+   "name": "nisSpeechEvent",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) SpeechEvent; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSpeechEvent"
+  },
+  {
+   "address": "0x004cf920",
+   "name": "cat_nisLightAmbient",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) LightAmbient*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004cf970",
+   "name": "cat_nisLightDiffuse",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) LightDiffuse*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004cf9c0",
+   "name": "cat_nisGlobalAmbient",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) GlobalAmbient*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004cfa10",
+   "name": "cat_nisNumberLights",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) NumberLights*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004cfa20",
+   "name": "nisSMPTEOn",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) SMPTEOn; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSMPTEOn"
+  },
+  {
+   "address": "0x004cfe20",
+   "name": "nisStaticOn",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) StaticOn; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStaticOn"
+  },
+  {
+   "address": "0x004cfe30",
+   "name": "nisStaticOff",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) StaticOff; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStaticOff"
+  },
+  {
+   "address": "0x004cff80",
+   "name": "nisAttributes",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) Attributes; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisAttributes"
+  },
+  {
+   "address": "0x004cffa0",
+   "name": "nisAttackKasSelection",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) AttackKasSelection; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisAttackKasSelection"
+  },
+  {
+   "address": "0x004cffe0",
+   "name": "nisKeepMovingAtEnd",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) KeepMovingAtEnd; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisKeepMovingAtEnd"
+  },
+  {
+   "address": "0x004d0000",
+   "name": "nisMinimumLOD",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) MinimumLOD; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMinimumLOD"
+  },
+  {
+   "address": "0x004d0020",
+   "name": "nisDamageLevel",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) DamageLevel; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisDamageLevel"
+  },
+  {
+   "address": "0x004d0050",
+   "name": "nisRemainAtEnd",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) RemainAtEnd; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisRemainAtEnd"
+  },
+  {
+   "address": "0x004d00b0",
+   "name": "cat_nisOpenSlipgate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) OpenSlipgate*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d00d0",
+   "name": "cat_nisCloseSlipgate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) CloseSlipgate*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d00f0",
+   "name": "nisCameraFOV",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) CameraFOV; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCameraFOV"
+  },
+  {
+   "address": "0x004d0110",
+   "name": "cat_nisCameraClipNear",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) CameraClipNear*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d0140",
+   "name": "cat_nisCameraClipFar",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) CameraClipFar*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d0300",
+   "name": "nisFocusAtEnd",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) FocusAtEnd; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFocusAtEnd"
+  },
+  {
+   "address": "0x004d0460",
+   "name": "nisFocus",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) Focus; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFocus"
+  },
+  {
+   "address": "0x004d0750",
+   "name": "nisMusicStop",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) StopMusic; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMusicStop"
+  },
+  {
+   "address": "0x004d0770",
+   "name": "nisBlackFadeSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) BlackFadeSet; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisBlackFadeSet"
+  },
+  {
+   "address": "0x004d0790",
+   "name": "nisBlackFadeTo",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) BlackFadeTo; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisBlackFadeTo"
+  },
+  {
+   "address": "0x004d07b0",
+   "name": "nisColorScheme",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) ColorScheme; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisColorScheme"
+  },
+  {
+   "address": "0x004d0800",
+   "name": "nisMeshAnimationStart",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) MeshAnimationStart; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMeshAnimationStart"
+  },
+  {
+   "address": "0x004d0850",
+   "name": "cat_nisEbolts",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) Ebolts*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d08b0",
+   "name": "cat_nisBeastEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) BeastEffect*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d08f0",
+   "name": "cat_nisFog",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) Fog*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d0920",
+   "name": "nisMeshAnimationStop",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) MeshAnimationStop; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMeshAnimationStop"
+  },
+  {
+   "address": "0x004d0950",
+   "name": "nisMeshAnimationPause",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) MeshAnimationPause; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMeshAnimationPause"
+  },
+  {
+   "address": "0x004d0990",
+   "name": "nisMeshAnimationSeek",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) MeshAnimationSeek; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisMeshAnimationSeek"
+  },
+  {
+   "address": "0x004d0ca0",
+   "name": "nisVolumeSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) MusicVolume/SpeechVolume/SFXVolume; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisVolumeSet"
+  },
+  {
+   "address": "0x004d0ce0",
+   "name": "nisTrailMove",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) TrailMove; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTrailMove"
+  },
+  {
+   "address": "0x004d0de0",
+   "name": "nisTrailZero",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) TrailZeroLength; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTrailZero"
+  },
+  {
+   "address": "0x004d0e30",
+   "name": "nisNewEnvironment",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) NewEnvironment; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisNewEnvironment"
+  },
+  {
+   "address": "0x004d1350",
+   "name": "nisCurrentObjectSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888a64: entry \"with\" -> NIS.c:4385 nisCurrentObjectSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCurrentObjectSet"
+  },
+  {
+   "address": "0x004d1380",
+   "name": "nisCurrentTimeSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888a70: entry \"at\" -> NIS.c:4386 nisCurrentTimeSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCurrentTimeSet"
+  },
+  {
+   "address": "0x004d1b00",
+   "name": "nisSpeechEventSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888b18: entry \"speechEvent\" -> NIS.c:4399 nisSpeechEventSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSpeechEventSet"
+  },
+  {
+   "address": "0x004d1cc0",
+   "name": "cat_nisSubtitleSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "NIS script table entry \"subtitle\" @0x888e20; creates event code 0x4a (handled by cat_nisSubtitle)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d1e10",
+   "name": "nisFleetSpeechEventSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888b24: entry \"fleetSpeechEvent\" -> NIS.c:4400 nisFleetSpeechEventSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFleetSpeechEventSet"
+  },
+  {
+   "address": "0x004d1f60",
+   "name": "nisAnimaticSpeechEventSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888b30: entry \"animaticSpeechEvent\" -> NIS.c:4401 nisAnimaticSpeechEventSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisAnimaticSpeechEventSet"
+  },
+  {
+   "address": "0x004d20b0",
+   "name": "nisRemainAtEndSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888b54: entry \"remainAtEnd\" -> NIS.c:4404 nisRemainAtEndSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisRemainAtEndSet"
+  },
+  {
+   "address": "0x004d25c0",
+   "name": "nisTextFontSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888bc0: entry \"textFont\" -> NIS.c:4413 nisTextFontSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextFontSet"
+  },
+  {
+   "address": "0x004d25e0",
+   "name": "nisTextColorSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888bcc: entry \"textColor\" -> NIS.c:4414 nisTextColorSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextColorSet"
+  },
+  {
+   "address": "0x004d2790",
+   "name": "nisTextFadeSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888c08: entry \"textFadeIn\" -> NIS.c:4419 nisTextFadeSet; 2 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextFadeSet"
+  },
+  {
+   "address": "0x004d2800",
+   "name": "nisTextMarginSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888be4: entry \"textMargin\" -> NIS.c:4416 nisTextMarginSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextMarginSet"
+  },
+  {
+   "address": "0x004d2820",
+   "name": "nisTextDurationSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888bf0: entry \"textDuration\" -> NIS.c:4417 nisTextDurationSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextDurationSet"
+  },
+  {
+   "address": "0x004d2890",
+   "name": "nisTextCardSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888c20: entry \"textCard\" -> NIS.c:4421 nisTextCardSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextCardSet"
+  },
+  {
+   "address": "0x004d2bd0",
+   "name": "nisScissorBlendSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888c38: entry \"wideScreenIn\" -> NIS.c:4424 nisScissorBlendSet; 2 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisScissorBlendSet"
+  },
+  {
+   "address": "0x004d3c20",
+   "name": "nisSMPTEOnSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888d1c: entry \"SMPTEOn\" -> NIS.c:4443 nisSMPTEOnSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSMPTEOnSet"
+  },
+  {
+   "address": "0x004d3f50",
+   "name": "nisStaticOnSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888d4c: entry \"staticOn\" -> NIS.c:4445 nisStaticOnSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStaticOnSet"
+  },
+  {
+   "address": "0x004d4380",
+   "name": "nisNewNISSet",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x888d7c: entry \"newNIS\" -> NIS.c:4449 nisNewNISSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisNewNISSet"
+  },
+  {
+   "address": "0x004d5fa0",
+   "name": "cat_nisMimic",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "nisEventDispatch 0x88888c slot(s) Mimic*; Cataclysm NEO codes recovered from the NIS script Set CBs (remainAtEnd stores 0x13, subtitle 0x4a)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d6800",
+   "name": "poTextDraw",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x889490: entry \"PO_TextDraw\" -> Objectives.c:74 poTextDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:poTextDraw"
+  },
+  {
+   "address": "0x004d74a0",
+   "name": "opCountdownNo",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1358: entry \"OP_Countdown_No\" -> utility_mac.c:581 opCountdownNo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opCountdownNo"
+  },
+  {
+   "address": "0x004d7e50",
+   "name": "opInGameOptionsAccept",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1170: entry \"OP_InGameOptions_Accept\" -> utility_mac.c:512 opInGameOptionsAccept",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opInGameOptionsAccept"
+  },
+  {
+   "address": "0x004d9570",
+   "name": "opNumberChannels",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1200: entry \"OP_Num_Channels\" -> utility_mac.c:530 opNumberChannels",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opNumberChannels"
+  },
+  {
+   "address": "0x004d9630",
+   "name": "opDrawNumChannels",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1448: entry \"OP_NumChannels\" -> utility_mac.c:588 opDrawNumChannels",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opDrawNumChannels"
+  },
+  {
+   "address": "0x004d96b0",
+   "name": "opAutoChannels",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1208: entry \"OP_AutoChannels\" -> utility_mac.c:531 opAutoChannels",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAutoChannels"
+  },
+  {
+   "address": "0x004d9a10",
+   "name": "opSpeaker",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1210: entry \"OP_Speaker\" -> utility_mac.c:532 opSpeaker",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opSpeaker"
+  },
+  {
+   "address": "0x004d9ab0",
+   "name": "opSoundQualitySet",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1218: entry \"OP_DCTQuality\" -> utility_mac.c:533 opSoundQualitySet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opSoundQualitySet"
+  },
+  {
+   "address": "0x004d9d60",
+   "name": "opNoLOD",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1330: entry \"OP_NoLOD\" -> utility_mac.c:575 opNoLOD",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opNoLOD"
+  },
+  {
+   "address": "0x004d9df0",
+   "name": "cat_opSmallFonts",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_SmallFonts\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9e30",
+   "name": "cat_opHWTaskbar",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_HWTaskbar\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9e70",
+   "name": "cat_opTaskbarButtons",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_TaskbarButtons\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9eb0",
+   "name": "cat_opTaskbarBackdrop",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_TaskbarBackdrop\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9ef0",
+   "name": "cat_opExperienceMessages",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_ExperienceMessages\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9f30",
+   "name": "cat_opHomeworldCSA",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_HomeworldCSA\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9f80",
+   "name": "cat_opRightClickCSA",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_RightClickCSA\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004d9fd0",
+   "name": "cat_opAutoFocusOnWaypoints",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_AutoFocusOnWaypoints\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da010",
+   "name": "cat_opAreaExplored",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_AreaExplored\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da050",
+   "name": "cat_opSensorsSphere",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_SensorsSphere\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da090",
+   "name": "cat_opCompass",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_Compass\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da0d0",
+   "name": "cat_opSensorsWireframe",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_SensorsWireframe\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da110",
+   "name": "cat_opResources",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_Resources\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da180",
+   "name": "cat_opDust",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_Dust\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da1c0",
+   "name": "cat_opBackground",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_Background\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da200",
+   "name": "cat_opObjectivePointers",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_ObjectivePointers\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da240",
+   "name": "cat_opSlipgatePaths",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_SlipgatePaths\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da280",
+   "name": "cat_opCapitalShipOverlay",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_CapitalShipOverlay\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da2c0",
+   "name": "cat_opHomeworldClassic",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_HomeworldClassic\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da460",
+   "name": "cat_opCataclysmDefault",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_CataclysmDefault\"} in Options table 0x8c1360-0x8c1400 (not in HW1 table)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004db130",
+   "name": "opVoiceCommands",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c12a8: entry \"OP_Voice_Commands\" -> utility_mac.c:558 opVoiceCommands",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opVoiceCommands"
+  },
+  {
+   "address": "0x004db190",
+   "name": "opVoiceStatus",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c12b0: entry \"OP_Voice_Status\" -> utility_mac.c:559 opVoiceStatus",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opVoiceStatus"
+  },
+  {
+   "address": "0x004db1f0",
+   "name": "opVoiceChatter",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c12b8: entry \"OP_Voice_Chatter\" -> utility_mac.c:560 opVoiceChatter",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opVoiceChatter"
+  },
+  {
+   "address": "0x004db480",
+   "name": "opInfoOverlay",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c12e8: entry \"OP_Info_Overlay\" -> utility_mac.c:566 opInfoOverlay",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opInfoOverlay"
+  },
+  {
+   "address": "0x004db4c0",
+   "name": "opAutodockHealth",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1310: entry \"OP_Autodock_Health\" -> utility_mac.c:571 opAutodockHealth",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAutodockHealth"
+  },
+  {
+   "address": "0x004db4f0",
+   "name": "opAutodockFuel",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1318: entry \"OP_Autodock_Fuel\" -> utility_mac.c:572 opAutodockFuel",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAutodockFuel"
+  },
+  {
+   "address": "0x004db520",
+   "name": "opAutodockHealthValue",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1320: entry \"OP_Autodock_Health_Value\" -> utility_mac.c:573 opAutodockHealthValue",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAutodockHealthValue"
+  },
+  {
+   "address": "0x004db5f0",
+   "name": "opAutodockFuelValue",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1328: entry \"OP_Autodock_Fuel_Value\" -> utility_mac.c:574 opAutodockFuelValue",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opAutodockFuelValue"
+  },
+  {
+   "address": "0x004dbb30",
+   "name": "cat_opCataclysmFramerate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"OP_CataclysmFramerate\"} @0x8c1430",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004dbda0",
+   "name": "cat_feOverlayIconTextureSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "53 script entries \"PopupMenu_BorderCorner_*\" etc from 0x88cb4c; trLIFFileLoad \"OverlayIcons\\\\%s.lif\", \"OverlayIcon texture already registered\"",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ea200",
+   "name": "psCrossFadeLinkSet",
+   "kind": "function",
+   "class": "hw1:PlugScreen.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x88dcf0: entry \"CrossFadeLink\" -> PlugScreen.c:74 psCrossFadeLinkSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PlugScreen.c:psCrossFadeLinkSet"
+  },
+  {
+   "address": "0x004ea240",
+   "name": "psPlugLinkSet",
+   "kind": "function",
+   "class": "hw1:PlugScreen.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x88dcfc: entry \"ScreenLink\" -> PlugScreen.c:75 psPlugLinkSet; 4 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PlugScreen.c:psPlugLinkSet"
+  },
+  {
+   "address": "0x004ea470",
+   "name": "psTimeoutSet",
+   "kind": "function",
+   "class": "hw1:PlugScreen.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x88dd2c: entry \"TimeOut\" -> PlugScreen.c:79 psTimeoutSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/PlugScreen.c:psTimeoutSet"
+  },
+  {
+   "address": "0x004f3dc0",
+   "name": "cat_rsShipDependSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "script entries \"SPRSShipDepend\"/\"MPRSShipDepend\" @0x88fb9c/0x88fda0; StrToShipType+StrToNum",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004f3ec0",
+   "name": "cat_rsTechDependSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "script entries \"SPRSTechDepend\"/\"MPRSTechDepend\"/\"MPRBTechDepend\"; StrToNum",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004f4430",
+   "name": "cat_rsMPRBShipDependSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "script entry \"MPRBShipDepend\" @0x88ffa4; StrToShipType+StrToNum",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004f5c90",
+   "name": "cat_rmPussyBlobDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "FE {fn,\"RM_PussyBlob\"} @0x8913b0 in ResearchGUI table; draw (primRectSolidTextured2)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004f6380",
+   "name": "rmTechImageDraw",
+   "kind": "function",
+   "class": "hw1:ResearchGUI.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8913a0: entry \"RM_TechImageDraw\" -> ResearchGUI.c:206 rmTechImageDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchGUI.c:rmTechImageDraw"
+  },
+  {
+   "address": "0x004f6ae0",
+   "name": "rmTechListWindow",
+   "kind": "function",
+   "class": "hw1:ResearchGUI.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x891350: entry \"RM_TechListWindow\" -> ResearchGUI.c:185 rmTechListWindow",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchGUI.c:rmTechListWindow"
+  },
+  {
+   "address": "0x00504a00",
+   "name": "spDescriptionFontSet",
+   "kind": "function",
+   "class": "hw1:ScenPick.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8927a8: entry \"Font\" -> ScenPick.c:120 spDescriptionFontSet; 5 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ScenPick.c:spDescriptionFontSet"
+  },
+  {
+   "address": "0x00504fe0",
+   "name": "spScenarioBitmap",
+   "kind": "function",
+   "class": "hw1:ScenPick.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x892758: entry \"CS_ScenarioBitmap\" -> ScenPick.c:70 spScenarioBitmap",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ScenPick.c:spScenarioBitmap"
+  },
+  {
+   "address": "0x00507f10",
+   "name": "",
+   "kind": "function",
+   "class": "unknown",
+   "confidence": "low",
+   "evidence": "3 consecutive slots of fn table 0x892ac8 {T,T,T,0x508480,0x508590,nullsub}; same caller-less float(param) shape; role not identified",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005080f0",
+   "name": "",
+   "kind": "function",
+   "class": "unknown",
+   "confidence": "low",
+   "evidence": "3 consecutive slots of fn table 0x892ac8 {T,T,T,0x508480,0x508590,nullsub}; same caller-less float(param) shape; role not identified",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005082c0",
+   "name": "",
+   "kind": "function",
+   "class": "unknown",
+   "confidence": "low",
+   "evidence": "3 consecutive slots of fn table 0x892ac8 {T,T,T,0x508480,0x508590,nullsub}; same caller-less float(param) shape; role not identified",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050dad0",
+   "name": "shGammaUp",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "Shader.c order shShutdown < this; body gammaAdjust += step; brightness = adj*k (Shader.c:152); A1 analysis-created",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shGammaUp"
+  },
+  {
+   "address": "0x0050daf0",
+   "name": "shGammaDown",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "Shader.c:159 body: adj -= step, clamp at 0, brightness = adj*k; A1 analysis-created",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shGammaDown"
+  },
+  {
+   "address": "0x0050ee70",
+   "name": "cat_shipNamesSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ShipNamesScriptTable 0x8935a0 \"ShipName\" entry; \"shipnames.script\", \"To many ship names\"",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00517060",
+   "name": "cat_spWarpLevelSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "SinglePlayer script entry \"Level\" @0x89436c; \"Invalid Level specified in warp\"",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005172d0",
+   "name": "SetBaseFleetStrCB",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x894338: entry \"BaseFleetStrengthForLevel\" -> SinglePlayer.c:277 SetBaseFleetStrCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:SetBaseFleetStrCB"
+  },
+  {
+   "address": "0x00523fb0",
+   "name": "StatsForRaceCB",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x896278: entry \"StatsForRace\" -> Stats.c:192 StatsForRaceCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:StatsForRaceCB"
+  },
+  {
+   "address": "0x00524030",
+   "name": "StatsForCB",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x896284: entry \"StatsFor\" -> Stats.c:193 StatsForCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:StatsForCB"
+  },
+  {
+   "address": "0x005243e0",
+   "name": "SetFlightEntrysCB",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8962a8: entry \"DoStatsFor\" -> Stats.c:744 SetFlightEntrysCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:SetFlightEntrysCB"
+  },
+  {
+   "address": "0x005245b0",
+   "name": "SetFlightEntrysPreLoadCB",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "high",
+   "evidence": "\"DoStatsFor\" in 1-entry table 0x8962c0 (passed to scriptSet, preload pass) = FancyFightPreLoadScriptTable (Stats.c:749); 0x5243e0 is the other",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:SetFlightEntrysPreLoadCB"
+  },
+  {
+   "address": "0x00525920",
+   "name": "scriptSetRGBCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c CB block 0x525920-0x5260d0 is in HW1 source order (Real32CB 0x5259d0, UdwordCB 0x525c20 named); script {name,cb,..} table @0x752e24: entry \"cpValueArrowColor\" -> ColPick.c:155 scriptSetRG",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetRGBCB"
+  },
+  {
+   "address": "0x00525980",
+   "name": "scriptSetRGBACB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c CB block 0x525920-0x5260d0 is in HW1 source order (Real32CB 0x5259d0, UdwordCB 0x525c20 named); script {name,cb,..} table @0x8c5c5c: entry \"blipColor\" -> ProximitySensor.c:40 scriptSetRGB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetRGBACB"
+  },
+  {
+   "address": "0x005259f0",
+   "name": "scriptSetReal32CB_ARRAY",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c CB block 0x525920-0x5260d0 is in HW1 source order (Real32CB 0x5259d0, UdwordCB 0x525c20 named); script {name,cb,..} table @0x8c43dc: entry \"maxFlyAwayDist\" -> GenericInterceptor.c:148 scr",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetReal32CB_ARRAY"
+  },
+  {
+   "address": "0x00525a90",
+   "name": "scriptSetShipProbCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c CB block 0x525920-0x5260d0 is in HW1 source order (Real32CB 0x5259d0, UdwordCB 0x525c20 named); script {name,cb,..} table @0x878914: entry \"shipProbability\" -> Crates.c:82 scriptSetShipPr",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetShipProbCB"
+  },
+  {
+   "address": "0x00525ad0",
+   "name": "scriptSetHyperspaceCostCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c CB block 0x525920-0x5260d0 is in HW1 source order (Real32CB 0x5259d0, UdwordCB 0x525c20 named); script {name,cb,..} table @0x8ad6ac: entry \"hyperspace\" -> Tweak.c:895 scriptSetHyperspaceC",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetHyperspaceCostCB"
+  },
+  {
+   "address": "0x00525b50",
+   "name": "scriptSetShipGroupSizeCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c CB block 0x525920-0x5260d0 is in HW1 source order (Real32CB 0x5259d0, UdwordCB 0x525c20 named); script {name,cb,..} table @0x878920: entry \"shipGroupSize\" -> Crates.c:83 scriptSetShipGrou",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetShipGroupSizeCB"
+  },
+  {
+   "address": "0x00525b90",
+   "name": "scriptSetReal32SqrCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c CB block 0x525920-0x5260d0 is in HW1 source order (Real32CB 0x5259d0, UdwordCB 0x525c20 named); script {name,cb,..} table @0x8a80e0: entry \"RetreatGetAwayDistance[CLASS_Mothership]\" -> Ta",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetReal32SqrCB"
+  },
+  {
+   "address": "0x00525bc0",
+   "name": "scriptSetUbyteCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "medium",
+   "evidence": "StatScript.c CB block order (Real32Sqr 0x525b90 < this < Udword 0x525c20); sscanf + byte store; AIF_RESEARCH_DELAY etc use Ubyte in AIPlayer.c:219; ICF-folded with scriptSetSbyteCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetUbyteCB"
+  },
+  {
+   "address": "0x00525bf0",
+   "name": "scriptSetUwordCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "medium",
+   "evidence": "StatScript.c CB order after the byte CB; sscanf + word store; FLIGHTMAN_NUM_EVASIVEPURE_MANEUVERS uses Uword (FlightMan.c:290); ICF-folded with scriptSetSwordCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetUwordCB"
+  },
+  {
+   "address": "0x00525de0",
+   "name": "scriptSetStringCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c order BitUword 0x525d90 < this < StringPtr; ROUTING_SERVER_NAME (char array) etc, 31 refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetStringCB"
+  },
+  {
+   "address": "0x00525e10",
+   "name": "scriptSetStringPtrCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c order StringCB 0x525de0 < this; body memStringDupe(field); selFontName0..3 use scriptSetStringPtrCB (Tweak.c:924)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetStringPtrCB"
+  },
+  {
+   "address": "0x00525e30",
+   "name": "scriptSetCosAngCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c order StringPtr < this < CosAngSqr; FLYSHIP_HEADINGACCURACY etc (13 refs) use scriptSetCosAngCB in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetCosAngCB"
+  },
+  {
+   "address": "0x00525e60",
+   "name": "scriptSetCosAngSqrCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c order CosAng 0x525e30 < this < CosAng_ARRAY; USE_PASS_RIGHT_ANGLE uses scriptSetCosAngSqrCB (AIShip.c:191)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetCosAngSqrCB"
+  },
+  {
+   "address": "0x00525e90",
+   "name": "scriptSetCosAngCB_ARRAY",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c CB block 0x525920-0x5260d0 is in HW1 source order (Real32CB 0x5259d0, UdwordCB 0x525c20 named); script {name,cb,..} table @0x8c440c: entry \"triggerHappy\" -> GenericInterceptor.c:151 scrip",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetCosAngCB_ARRAY"
+  },
+  {
+   "address": "0x00525f40",
+   "name": "scriptSetSinAngCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c order; CORVETTE/FRIGATE/DESTROYER/MASSIVESHIP/NOSHIP_BANK use scriptSetSinAngCB (AIShip.c:162)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetSinAngCB"
+  },
+  {
+   "address": "0x00525f70",
+   "name": "scriptSetTanAngCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c order; MIN_ANGLE_FOR_FANCY_DESCEND/MAX_ANGLE_FOR_TRACK_HEADING use scriptSetTanAngCB (AIShip.c:179)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetTanAngCB"
+  },
+  {
+   "address": "0x00525fa0",
+   "name": "scriptSetAngCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c order TanAng 0x525f70 < this < GunType; *_TURNPITCH/CAMERA_*_ROT entries (23 refs) are scriptSetAngCB in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetAngCB"
+  },
+  {
+   "address": "0x00525fd0",
+   "name": "scriptSetGunTypeCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c order AngCB < this < cat_scriptSetWeaponTypeCB; gun struct table \"Type\" entry 0x897624; body *data = StrToGunType(field)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetGunTypeCB"
+  },
+  {
+   "address": "0x00526090",
+   "name": "scriptSetShipRaceCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c CB block 0x525920-0x5260d0 is in HW1 source order (Real32CB 0x5259d0, UdwordCB 0x525c20 named); script {name,cb,..} table @0x8943d0: entry \"MissionStartEnemyRace\" -> SinglePlayer.c:310 sc",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetShipRaceCB"
+  },
+  {
+   "address": "0x005260b0",
+   "name": "scriptSetFormationCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "StatScript.c order ShipRace 0x526090 < this; 35 *_FORMATION refs; AIT_DEFAULT_FORMATION uses scriptSetFormationCB (AIPlayer.c:344)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetFormationCB"
+  },
+  {
+   "address": "0x005260d0",
+   "name": "scriptSetTacticsCB",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "follows scriptSetFormationCB; 7 *_TACTICS refs; AIO_TOUT_MSHIP_FAST_TGRD_TACTICS uses scriptSetTacticsCB (AIPlayer.c:362)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetTacticsCB"
+  },
+  {
+   "address": "0x005289a0",
+   "name": "toNewClassSet",
+   "kind": "function",
+   "class": "hw1:Tactical.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8a7f2c: entry \"IconClass\" -> Tactical.c:73 toNewClassSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tactical.c:toNewClassSet"
+  },
+  {
+   "address": "0x005289e0",
+   "name": "toNumberPointsSet",
+   "kind": "function",
+   "class": "hw1:Tactical.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8a7f38: entry \"nPoints\" -> Tactical.c:74 toNumberPointsSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tactical.c:toNumberPointsSet"
+  },
+  {
+   "address": "0x0052b3f0",
+   "name": "tbSensorsBegin",
+   "kind": "function",
+   "class": "hw1:TaskBar.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1120: entry \"TB_SensorsManager\" -> utility_mac.c:488 tbSensorsBegin",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TaskBar.c:tbSensorsBegin"
+  },
+  {
+   "address": "0x0052b6d0",
+   "name": "teTrailColorSet",
+   "kind": "function",
+   "class": "hw1:Teams.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883be4: entry \"TrailColor\" -> LevelLoad.c:162 teTrailColorSet; 2 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Teams.c:teTrailColorSet"
+  },
+  {
+   "address": "0x0052b750",
+   "name": "teColorSet",
+   "kind": "function",
+   "class": "hw1:Teams.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x883bf0: entry \"BaseColor\" -> LevelLoad.c:166 teColorSet; 4 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Teams.c:teColorSet"
+  },
+  {
+   "address": "0x0052b7c0",
+   "name": "teColorFactorsSet",
+   "kind": "function",
+   "class": "hw1:Teams.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8aa80c: entry \"BaseToTrailFactors0\" -> Teams.c:63 teColorFactorsSet; 4 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Teams.c:teColorFactorsSet"
+  },
+  {
+   "address": "0x0052dc70",
+   "name": "tmTechListDraw",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8aafb8: entry \"TM_TechList\" -> TradeMgr.c:151 tmTechListDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmTechListDraw"
+  },
+  {
+   "address": "0x0052ded0",
+   "name": "tmNumberRUsDraw",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8aafb0: entry \"TM_XRUs\" -> TradeMgr.c:149 tmNumberRUsDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmNumberRUsDraw"
+  },
+  {
+   "address": "0x0052dff0",
+   "name": "tmDialogDraw",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8aafd0: entry \"TM_Dialog\" -> TradeMgr.c:154 tmDialogDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmDialogDraw"
+  },
+  {
+   "address": "0x0052e1f0",
+   "name": "tmTechInfoDraw",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8aafc0: entry \"TM_TechInfo\" -> TradeMgr.c:152 tmTechInfoDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmTechInfoDraw"
+  },
+  {
+   "address": "0x0052e620",
+   "name": "tmTechImageDraw",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8aafc8: entry \"TM_TechImage\" -> TradeMgr.c:153 tmTechImageDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmTechImageDraw"
+  },
+  {
+   "address": "0x00534770",
+   "name": "scriptSetBarsToDo",
+   "kind": "function",
+   "class": "hw1:Tweak.c",
+   "confidence": "high",
+   "evidence": "Tweak.c makeEntry(horseTotalNumBars, scriptSetBarsToDo) (Tweak.c:762) = entry @0x8ad1e4; Tweak.c order BarsToDo < BlobPropertyOverlap 0x534800 < BlobBiggestRadius 0x534830",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tweak.c:scriptSetBarsToDo"
+  },
+  {
+   "address": "0x00534800",
+   "name": "scriptSetBlobPropertyOverlap",
+   "kind": "function",
+   "class": "hw1:Tweak.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x88d9bc: entry \"pingBobOverlapFactor\" -> Ping.c:114 scriptSetBlobPropertyOverlap; 3 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tweak.c:scriptSetBlobPropertyOverlap"
+  },
+  {
+   "address": "0x00534830",
+   "name": "scriptSetBlobBiggestRadius",
+   "kind": "function",
+   "class": "hw1:Tweak.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x88d9d4: entry \"pingBobBiggestRadius\" -> Ping.c:116 scriptSetBlobBiggestRadius; 3 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tweak.c:scriptSetBlobBiggestRadius"
+  },
+  {
+   "address": "0x005349a0",
+   "name": "uicButtonProcess",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "uicControlFunctions table (UIControls.c:109) {process,draw,filter}; FA_Button slot 0x8b0bc4; also set as reg.processFunction in 9 tutorial button setups (Tutor.c:1485 pattern)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicButtonProcess"
+  },
+  {
+   "address": "0x00534dc0",
+   "name": "uicRadioButtonProcess",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "uicControlFunctions table (UIControls.c:109) {process,draw,filter}; FA_RadioButton {fn,draw} 0x8b0c30; follows uicToggleProcess in source order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicRadioButtonProcess"
+  },
+  {
+   "address": "0x00536700",
+   "name": "uicHorizSliderProcess",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "uicControlFunctions table (UIControls.c:109) {process,draw,filter}; FA_HorizSlider 0x8b0c78",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicHorizSliderProcess"
+  },
+  {
+   "address": "0x00536880",
+   "name": "uicVertSliderProcess",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "uicControlFunctions table (UIControls.c:109) {process,draw,filter}; FA_VertSlider 0x8b0c84",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicVertSliderProcess"
+  },
+  {
+   "address": "0x005369f0",
+   "name": "uicHorizSliderDraw",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "uicControlFunctions table (UIControls.c:109) {process,draw,filter}; FA_HorizSlider draw 0x8b0c7c; calls ferDrawHorizSlider",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicHorizSliderDraw"
+  },
+  {
+   "address": "0x00536a40",
+   "name": "uicVertSliderDraw",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "uicControlFunctions table (UIControls.c:109) {process,draw,filter}; FA_VertSlider draw 0x8b0c88",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicVertSliderDraw"
+  },
+  {
+   "address": "0x00537e00",
+   "name": "uicDragButtonProcess",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "uicControlFunctions table (UIControls.c:109) {process,draw,filter}; FA_DragButton 0x8b0c90 (filter 0x12427 = UIF_DragButton)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicDragButtonProcess"
+  },
+  {
+   "address": "0x00539c80",
+   "name": "setGunBindInfo",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b2f5c: entry \"BindGun\" -> Universe.c:671 setGunBindInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:setGunBindInfo"
+  },
+  {
+   "address": "0x00539e40",
+   "name": "cat_madNumberOfAnimsSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Universe.c script entry \"NUMBER_OF_ANIMS\" @0x8b2fdc; madFileLoad, memAllocFunction",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00539f70",
+   "name": "cat_madAnimSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Universe.c script entry \"ANIM\" @0x8b2fec; madAnimIndexFindByName",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0053a000",
+   "name": "setAnimationBindInfo",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b2f6c: entry \"BindAnimations\" -> Universe.c:672 setAnimationBindInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:setAnimationBindInfo"
+  },
+  {
+   "address": "0x0053a090",
+   "name": "setMadStartInfo",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b2f8c: entry \"MadStartInfo\" -> Universe.c:679 setMadStartInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:setMadStartInfo"
+  },
+  {
+   "address": "0x0053a150",
+   "name": "setGunAnimInfo",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b2f9c: entry \"MadGunAnims\" -> Universe.c:680 setGunAnimInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:setGunAnimInfo"
+  },
+  {
+   "address": "0x0053a410",
+   "name": "setDockAnimInfo",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b2fac: entry \"MadDockAnims\" -> Universe.c:681 setDockAnimInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:setDockAnimInfo"
+  },
+  {
+   "address": "0x0053a6d0",
+   "name": "setMothershipDoorAnimInfo",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b2fbc: entry \"MadMothershipDockingAnims\" -> Universe.c:682 setMothershipDoorAnimInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:setMothershipDoorAnimInfo"
+  },
+  {
+   "address": "0x0053a850",
+   "name": "setSpecialCaseAnimInfo",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b2fcc: entry \"MadSpecialCaseAnims\" -> Universe.c:683 setSpecialCaseAnimInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:setSpecialCaseAnimInfo"
+  },
+  {
+   "address": "0x0053ab50",
+   "name": "loadMexDataCB",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b243c: entry \"pMexData\" -> Universe.c:501 loadMexDataCB; 8 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:loadMexDataCB"
+  },
+  {
+   "address": "0x0053ac30",
+   "name": "setClassCB",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b25ec: entry \"shipclass\" -> Universe.c:530 setClassCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:setClassCB"
+  },
+  {
+   "address": "0x0053ac50",
+   "name": "cat_scriptSetBeastAttackConvertToCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "ship static entry \"beastAttackConvertTo\" @0x8b2efc; *data = StrToShipType(field)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054d080",
+   "name": "cat_spConsoleAddResources",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "console command table \"addResources\" @0x878504 next to cat_spConsoleWarpMission (\"warpTo\"); \"Added Resources to current player\"",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054d460",
+   "name": "cat_kbKeySetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "keys.cfg scriptEntry {\"key\",cb} at 0x8b6a4c passed to scriptSetFileSystem by cat_kbLoadKeyBindings; parses CTRL+/SHIFT+/ALT+ bindings",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054eff0",
+   "name": "",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "key-command table 0x8b6310; filters selection by flag 0x40, MakeShipsSpecialActivateCapable, then a 0x4ecxxx command",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054f0d0",
+   "name": "",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "key-command table 0x8b6310; filters selection by flag 0x20, MakeShipsSpecialActivateCapable, then a 0x4ecxxx command",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054f130",
+   "name": "",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "key-command table 0x8b6310; filters selection by flag 0x20, MakeShipsSpecialActivateCapable, then a 0x4ecxxx command",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054f2c0",
+   "name": "cat_kbFocus",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "key-command table 0x8b6310; tutGameMessage(\"KB_Focus\"), ccFocus on selection / smCullAndFocusSelecting",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054f530",
+   "name": "cat_kbSensorsManager",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "key-command table 0x8b6310; tutGameMessage(\"KB_Sensors\"), smSensorsBegin/smSensorsClose toggle",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054fe20",
+   "name": "cat_kbSelectHotKeyGroup1",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310 {fn,0}; wrapper FUN_0054fe30(arg,1): select selHotKeyGroup[1], focus on repeat",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054ffc0",
+   "name": "cat_kbSelectHotKeyGroup2",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310 {fn,0}; wrapper FUN_0054fe30(arg,2): select selHotKeyGroup[2], focus on repeat",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054ffd0",
+   "name": "cat_kbSelectHotKeyGroup3",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310 {fn,0}; wrapper FUN_0054fe30(arg,3): select selHotKeyGroup[3], focus on repeat",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054ffe0",
+   "name": "cat_kbSelectHotKeyGroup4",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310 {fn,0}; wrapper FUN_0054fe30(arg,4): select selHotKeyGroup[4], focus on repeat",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054fff0",
+   "name": "cat_kbSelectHotKeyGroup5",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310 {fn,0}; wrapper FUN_0054fe30(arg,5): select selHotKeyGroup[5], focus on repeat",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00550000",
+   "name": "cat_kbSelectHotKeyGroup6",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310 {fn,0}; wrapper FUN_0054fe30(arg,6): select selHotKeyGroup[6], focus on repeat",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00550010",
+   "name": "cat_kbSelectHotKeyGroup7",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310 {fn,0}; wrapper FUN_0054fe30(arg,7): select selHotKeyGroup[7], focus on repeat",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00550020",
+   "name": "cat_kbSelectHotKeyGroup8",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310 {fn,0}; wrapper FUN_0054fe30(arg,8): select selHotKeyGroup[8], focus on repeat",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00550030",
+   "name": "cat_kbSelectHotKeyGroup9",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310 {fn,0}; wrapper FUN_0054fe30(arg,9): select selHotKeyGroup[9], focus on repeat",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00550040",
+   "name": "cat_kbSelectHotKeyGroup10",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310 {fn,0}; wrapper FUN_0054fe30(arg,10): select selHotKeyGroup[10], focus on repeat",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00550050",
+   "name": "cat_kbAddHotKeyGroup1",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310; wrapper FUN_00550060(arg,1) = add hot key group 1 to selection (\"KB_GroupAddSelect\")",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00550150",
+   "name": "cat_kbAddHotKeyGroup2",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310; wrapper FUN_00550060(arg,2) = add hot key group 2 to selection (\"KB_GroupAddSelect\")",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00550160",
+   "name": "cat_kbAddHotKeyGroup3",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310; wrapper FUN_00550060(arg,3) = add hot key group 3 to selection (\"KB_GroupAddSelect\")",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00550170",
+   "name": "cat_kbAddHotKeyGroup4",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310; wrapper FUN_00550060(arg,4) = add hot key group 4 to selection (\"KB_GroupAddSelect\")",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00550180",
+   "name": "cat_kbAddHotKeyGroup5",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310; wrapper FUN_00550060(arg,5) = add hot key group 5 to selection (\"KB_GroupAddSelect\")",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00550190",
+   "name": "cat_kbAddHotKeyGroup6",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310; wrapper FUN_00550060(arg,6) = add hot key group 6 to selection (\"KB_GroupAddSelect\")",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005501a0",
+   "name": "cat_kbAddHotKeyGroup7",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310; wrapper FUN_00550060(arg,7) = add hot key group 7 to selection (\"KB_GroupAddSelect\")",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005501b0",
+   "name": "cat_kbAddHotKeyGroup8",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310; wrapper FUN_00550060(arg,8) = add hot key group 8 to selection (\"KB_GroupAddSelect\")",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005501c0",
+   "name": "cat_kbAddHotKeyGroup9",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310; wrapper FUN_00550060(arg,9) = add hot key group 9 to selection (\"KB_GroupAddSelect\")",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005501d0",
+   "name": "cat_kbAddHotKeyGroup10",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "key-command table 0x8b6310; wrapper FUN_00550060(arg,10) = add hot key group 10 to selection (\"KB_GroupAddSelect\")",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00551dc0",
+   "name": "ClientCDKey_STRINGKEY_LEN_init",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": ".data initializer list 0x74a020 ($E fn): STRINGKEY_LEN = strlen(STRINGKEY_MAP \"...VCNC...\") per ClientCDKey.cpp:44",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00552950",
+   "name": "ClientCDKey__Init_int64",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "ClientCDKey vtable slot 5 = Init(const __int64&) by MSVC reverse overload order",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/ClientCDKey.cpp:ClientCDKey::Init"
+  },
+  {
+   "address": "0x00552ae0",
+   "name": "ClientCDKey__Init_string",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "ClientCDKey vtable 0x72bd8c slot 4; string \"ClientCDKey::Init(string) Unknown char\" + ClientCDKey.cpp path",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/ClientCDKey.cpp:ClientCDKey::Init"
+  },
+  {
+   "address": "0x00552e30",
+   "name": "ClientCDKey__Init_RawBuffer",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "ClientCDKey vtable slot 3 = Init(RawBuffer) by MSVC reverse order of the 3 Init overloads (ClientCDKey.h:59-69)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/ClientCDKey.cpp:ClientCDKey::Init"
+  },
+  {
+   "address": "0x0055ea60",
+   "name": "lightPositionRead",
+   "kind": "function",
+   "class": "hw1:Light.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b8434: entry \"position\" -> Light.c:78 lightPositionRead",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Light.c:lightPositionRead"
+  },
+  {
+   "address": "0x0055eb10",
+   "name": "lightPropertiesRead",
+   "kind": "function",
+   "class": "hw1:Light.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b8410: entry \"ambient\" -> Light.c:75 lightPropertiesRead; 3 table refs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Light.c:lightPropertiesRead"
+  },
+  {
+   "address": "0x0055f390",
+   "name": "HeapSizeSet",
+   "kind": "function",
+   "class": "hw1:main.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b88d8: entry \"/heap\" -> main.c:632 HeapSizeSet",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:HeapSizeSet"
+  },
+  {
+   "address": "0x0055f3d0",
+   "name": "cat_mainPrependPathSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "cmdline entry \"/prepath\" @0x8b88f0; calls filePrependPathSet",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0055f3f0",
+   "name": "cat_mainCDROMPathSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "\"/CDpath\" cmdline entry 0x8b8908; wraps fileCDROMPathSet (named 0x0047ad80) with GetDriveTypeA check + \"Invalid CD-ROM path\" MessageBox; HW1 table calls fileCDROMPathSet directly",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0055f450",
+   "name": "SelectDevice",
+   "kind": "function",
+   "class": "hw1:main.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b8cb0: entry \"/device\" -> main.c:704 SelectDevice",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:SelectDevice"
+  },
+  {
+   "address": "0x0055f4d0",
+   "name": "SpecifyLogFilePath",
+   "kind": "function",
+   "class": "hw1:main.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b8db8: entry \"/logFilePath\" -> main.c:777 SpecifyLogFilePath",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:SpecifyLogFilePath"
+  },
+  {
+   "address": "0x0055f500",
+   "name": "cat_mainLoadMPGameSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "cmdline entry \"/LoadMPGame\" @0x8b8d58; \"savedGames\\\\multiplayer\\\\\"",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0055f550",
+   "name": "EnablePacketPlay",
+   "kind": "function",
+   "class": "hw1:main.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8b8de8: entry \"/packetPlay\" -> main.c:816 EnablePacketPlay",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:EnablePacketPlay"
+  },
+  {
+   "address": "0x00573af0",
+   "name": "WONCommon__RegKey__GetSubKey_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "game-side RegKey vtable 0x72be20 (no RTTI), order per Titan common/RegKey.h; slot 4 (GetSubKey); byte-identical to 0x6e3a30",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00573b30",
+   "name": "WONCommon__RegKey__DeleteSubKey",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "game-side RegKey vtable 0x72be20 (no RTTI), order per Titan common/RegKey.h; slot 10 DeleteSubKey(const string&): RegDeleteKeyA; shared by the WON RegKey vtable 0x731ed8 (ICF)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00573b70",
+   "name": "WONCommon__RegKey__DeleteSubKey_3",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "game-side RegKey vtable 0x72be20 (no RTTI), order per Titan common/RegKey.h; slot 9 DeleteSubKey(RegKey&) (MSVC reverse overload order); RegCloseKey then delete",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00573bc0",
+   "name": "WONCommon__RegKey__GetFirstSubKey_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "game-side RegKey vtable 0x72be20 (no RTTI), order per Titan common/RegKey.h; slot 5; keyIndex=0 then vcall +0x18 GetNextSubKey",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00573d10",
+   "name": "WONCommon__RegKey__GetFirstValueName_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "game-side RegKey vtable 0x72be20 (no RTTI), order per Titan common/RegKey.h; slot 7; valueIndex=0 then vcall +0x20",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00573d40",
+   "name": "WONCommon__RegKey__GetNextValueName_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "game-side RegKey vtable 0x72be20 (no RTTI), order per Titan common/RegKey.h; slot 8; RegEnumValueA",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057b820",
+   "name": "cat_lfTextureFileSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "LensFlares script entry \"TextureFile\" @0x8babd8; \"LensFlares\\\\\" path",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057b970",
+   "name": "cat_lfElementSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "LensFlares script entry \"Element\" @0x8babb4; sscanf \"%f %f %d %d %d %d\"",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057ba00",
+   "name": "cat_lfTextureSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "LensFlares script entry \"Texture\" @0x8babcc; sscanf \"%d %d %d %d\"",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057cb70",
+   "name": "cat_scriptSetFogCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "MissionScriptTable {\"Fog\",cb,0,0} @0x883bc4 (after LensFlare); btgSetColourMultiplier",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005832d0",
+   "name": "subThemeColorSet",
+   "kind": "function",
+   "class": "hw1:Subtitle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8bb434: entry \"themeColor\" -> Subtitle.c:116 subThemeColorSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Subtitle.c:subThemeColorSet"
+  },
+  {
+   "address": "0x00583340",
+   "name": "subThemeDropshadowSet",
+   "kind": "function",
+   "class": "hw1:Subtitle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8bb440: entry \"themeDropshadow\" -> Subtitle.c:117 subThemeDropshadowSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Subtitle.c:subThemeDropshadowSet"
+  },
+  {
+   "address": "0x00583390",
+   "name": "subThemeCentredSet",
+   "kind": "function",
+   "class": "hw1:Subtitle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8bb488: entry \"themeCentred\" -> Subtitle.c:123 subThemeCentredSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Subtitle.c:subThemeCentredSet"
+  },
+  {
+   "address": "0x005833e0",
+   "name": "subThemePictureSet",
+   "kind": "function",
+   "class": "hw1:Subtitle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8bb47c: entry \"themePicture\" -> Subtitle.c:122 subThemePictureSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Subtitle.c:subThemePictureSet"
+  },
+  {
+   "address": "0x005835a0",
+   "name": "subThemeFontSet",
+   "kind": "function",
+   "class": "hw1:Subtitle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8bb458: entry \"themeFont\" -> Subtitle.c:119 subThemeFontSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Subtitle.c:subThemeFontSet"
+  },
+  {
+   "address": "0x005835f0",
+   "name": "subRegionBoundsSet",
+   "kind": "function",
+   "class": "hw1:Subtitle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8bb494: entry \"regionBounds\" -> Subtitle.c:126 subRegionBoundsSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Subtitle.c:subRegionBoundsSet"
+  },
+  {
+   "address": "0x00583660",
+   "name": "subRegionScaleRezSet",
+   "kind": "function",
+   "class": "hw1:Subtitle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8bb4a0: entry \"regionScaleRez\" -> Subtitle.c:127 subRegionScaleRezSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Subtitle.c:subRegionScaleRezSet"
+  },
+  {
+   "address": "0x00583740",
+   "name": "subRegionIconOffsetSet",
+   "kind": "function",
+   "class": "hw1:Subtitle.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8bb4b8: entry \"regionIconOffset\" -> Subtitle.c:129 subRegionIconOffsetSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Subtitle.c:subRegionIconOffsetSet"
+  },
+  {
+   "address": "0x005a7ad0",
+   "name": "trailGranularityRead",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8c0a70: entry \"trailGranularity\" -> Trails.c:209 trailGranularityRead",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailGranularityRead"
+  },
+  {
+   "address": "0x005a7af0",
+   "name": "trailColorRead",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "high",
+   "evidence": "script {name,cb,..} table @0x8c0a7c: entry \"trailColor\" -> Trails.c:210 trailColorRead",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailColorRead"
+  },
+  {
+   "address": "0x005a8250",
+   "name": "versionNumDraw",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1450: entry \"FE_DrawVersionNum\" -> utility_mac.c:589 versionNumDraw",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:versionNumDraw"
+  },
+  {
+   "address": "0x005a8670",
+   "name": "utyMagFilterToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1040: entry \"VO_MagFilter\" -> utility_mac.c:461 utyMagFilterToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyMagFilterToggle"
+  },
+  {
+   "address": "0x005a86d0",
+   "name": "utyFilterToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1038: entry \"VO_Filter\" -> utility_mac.c:460 utyFilterToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyFilterToggle"
+  },
+  {
+   "address": "0x005a8740",
+   "name": "utyFilterBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1048: entry \"VO_BitmapFilter\" -> utility_mac.c:462 utyFilterBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyFilterBitmapToggle"
+  },
+  {
+   "address": "0x005a8790",
+   "name": "utyBackgroundToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1050: entry \"VO_Background\" -> utility_mac.c:463 utyBackgroundToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyBackgroundToggle"
+  },
+  {
+   "address": "0x005a87f0",
+   "name": "utyBackgroundBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1058: entry \"VO_BitmapBackground\" -> utility_mac.c:464 utyBackgroundBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyBackgroundBitmapToggle"
+  },
+  {
+   "address": "0x005a8840",
+   "name": "utyInstantTransitionToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1138: entry \"VO_InstantTransition\" -> utility_mac.c:491 utyInstantTransitionToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyInstantTransitionToggle"
+  },
+  {
+   "address": "0x005a88a0",
+   "name": "utyInstantTransitionBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1140: entry \"VO_BitmapInstantTransition\" -> utility_mac.c:492 utyInstantTransitionBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyInstantTransitionBitmapToggle"
+  },
+  {
+   "address": "0x005a88f0",
+   "name": "utySmoothingToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1060: entry \"VO_Smoothing\" -> utility_mac.c:465 utySmoothingToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySmoothingToggle"
+  },
+  {
+   "address": "0x005a8950",
+   "name": "utySmoothingBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1068: entry \"VO_BitmapSmoothing\" -> utility_mac.c:466 utySmoothingBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySmoothingBitmapToggle"
+  },
+  {
+   "address": "0x005a89a0",
+   "name": "utyStippleToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1070: entry \"VO_Stipple\" -> utility_mac.c:467 utyStippleToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyStippleToggle"
+  },
+  {
+   "address": "0x005a8a30",
+   "name": "utyStippleBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1078: entry \"VO_BitmapStipple\" -> utility_mac.c:468 utyStippleBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyStippleBitmapToggle"
+  },
+  {
+   "address": "0x005a8aa0",
+   "name": "utyTrailsToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1080: entry \"VO_Trails\" -> utility_mac.c:469 utyTrailsToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyTrailsToggle"
+  },
+  {
+   "address": "0x005a8b00",
+   "name": "utyTrailsBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1088: entry \"VO_BitmapTrails\" -> utility_mac.c:470 utyTrailsBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyTrailsBitmapToggle"
+  },
+  {
+   "address": "0x005a8b50",
+   "name": "utyHitToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1090: entry \"VO_Hit\" -> utility_mac.c:472 utyHitToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyHitToggle"
+  },
+  {
+   "address": "0x005a8bb0",
+   "name": "utyHitBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1098: entry \"VO_BitmapHitEffects\" -> utility_mac.c:473 utyHitBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyHitBitmapToggle"
+  },
+  {
+   "address": "0x005a8c00",
+   "name": "utyDamageToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c10a0: entry \"VO_Damage\" -> utility_mac.c:475 utyDamageToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyDamageToggle"
+  },
+  {
+   "address": "0x005a8c60",
+   "name": "utyDamageBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c10a8: entry \"VO_BitmapDamage\" -> utility_mac.c:476 utyDamageBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyDamageBitmapToggle"
+  },
+  {
+   "address": "0x005a8cb0",
+   "name": "cat_utyDynamicCPVToggle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"VO_DynamicCPV\"} in utility video-options table 0x8c10e8+; pairs with HW1 uty*Toggle/uty*BitmapToggle pattern (87/67-byte bodies)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a8d40",
+   "name": "cat_utyDynamicCPVBitmapToggle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"VO_BitmapDynamicCPV\"} in utility video-options table 0x8c10e8+; pairs with HW1 uty*Toggle/uty*BitmapToggle pattern (87/67-byte bodies)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a8db0",
+   "name": "cat_utyLensFlareToggle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"VO_LensFlare\"} in utility video-options table 0x8c10e8+; pairs with HW1 uty*Toggle/uty*BitmapToggle pattern (87/67-byte bodies)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a8e10",
+   "name": "cat_utyLensFlareBitmapToggle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"VO_BitmapLensFlare\"} in utility video-options table 0x8c10e8+; pairs with HW1 uty*Toggle/uty*BitmapToggle pattern (87/67-byte bodies)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a8e60",
+   "name": "cat_utyRepairbotsToggle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"VO_Repairbots\"} in utility video-options table 0x8c10e8+; pairs with HW1 uty*Toggle/uty*BitmapToggle pattern (87/67-byte bodies)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a8ec0",
+   "name": "cat_utyRepairbotsBitmapToggle",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "FE {fn,\"VO_BitmapRepairbots\"} in utility video-options table 0x8c10e8+; pairs with HW1 uty*Toggle/uty*BitmapToggle pattern (87/67-byte bodies)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a8f10",
+   "name": "utyMuzzleToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c10b0: entry \"VO_Muzzle\" -> utility_mac.c:478 utyMuzzleToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyMuzzleToggle"
+  },
+  {
+   "address": "0x005a8f70",
+   "name": "utyMuzzleBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c10b8: entry \"VO_BitmapMuzzle\" -> utility_mac.c:479 utyMuzzleBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyMuzzleBitmapToggle"
+  },
+  {
+   "address": "0x005a8fc0",
+   "name": "utyBulletToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c10c0: entry \"VO_Bullet\" -> utility_mac.c:481 utyBulletToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyBulletToggle"
+  },
+  {
+   "address": "0x005a9020",
+   "name": "utyBulletBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c10c8: entry \"VO_BitmapBullet\" -> utility_mac.c:482 utyBulletBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyBulletBitmapToggle"
+  },
+  {
+   "address": "0x005a9070",
+   "name": "utySensorsBlobsToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c10d8: entry \"VO_SensorsBlobs\" -> utility_mac.c:485 utySensorsBlobsToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySensorsBlobsToggle"
+  },
+  {
+   "address": "0x005a90d0",
+   "name": "utySensorsBlobsBitmapToggle",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c10e0: entry \"VO_BitmapSensorsBlobs\" -> utility_mac.c:486 utySensorsBlobsBitmapToggle",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySensorsBlobsBitmapToggle"
+  },
+  {
+   "address": "0x005aa580",
+   "name": "utySinglePlayerOptions",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c0fc0: entry \"SinglePlayerOptions\" -> utility_mac.c:417 utySinglePlayerOptions",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySinglePlayerOptions"
+  },
+  {
+   "address": "0x005aabb0",
+   "name": "utyStartTutorial",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c0f88: entry \"TA_StartTutorial\" -> utility_mac.c:410 utyStartTutorial",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyStartTutorial"
+  },
+  {
+   "address": "0x005aad80",
+   "name": "utyStartSinglePlayer",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c0f90: entry \"TA_StartSinglePlayer\" -> utility_mac.c:411 utyStartSinglePlayer",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyStartSinglePlayer"
+  },
+  {
+   "address": "0x005aaf50",
+   "name": "utyStartSkirmish",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c0f98: entry \"TA_StartSkirmish\" -> utility_mac.c:412 utyStartSkirmish",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyStartSkirmish"
+  },
+  {
+   "address": "0x005ad210",
+   "name": "utyDrawDroppedPlayer",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "FE {fn,name} table @0x8c1458: entry \"UTY_PlayerDropped\" -> utility_mac.c:593 utyDrawDroppedPlayer",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyDrawDroppedPlayer"
+  },
+  {
+   "address": "0x005af4a0",
+   "name": "",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "StaticInit (+0x04) of CustShipHeader 0x8c3560 (sizeof 4) not referenced by shipHeaders[]; sets statinfo->custstatinfo; ship unknown",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005b3850",
+   "name": "",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "StaticInit (+0x04) of CustShipHeader 0x8c4718 (sizeof 4) not referenced by shipHeaders[]; sets statinfo->custstatinfo; ship unknown",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005be5d0",
+   "name": "",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "StaticInit (+0x04) of CustShipHeader 0x8c59f8 (sizeof 4) not referenced by shipHeaders[]; sets statinfo->custstatinfo; ship unknown",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c21e0",
+   "name": "RepairCorvetteStaticInit",
+   "kind": "function",
+   "class": "hw1:RepairCorvette.c",
+   "confidence": "high",
+   "evidence": "unreferenced CustShipHeader 0x8c6000 (sizeof 0x18) +0x04; scriptSetStruct with \"repairApproachDistance\" table (RepairCorvette.c:51); slot pattern = RepairCorvetteHeader",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/RepairCorvette.c:RepairCorvetteStaticInit"
+  },
+  {
+   "address": "0x005c2240",
+   "name": "RepairCorvetteInit",
+   "kind": "function",
+   "class": "hw1:RepairCorvette.c",
+   "confidence": "high",
+   "evidence": "header 0x8c6000 +0x0C Init; clears ship+0x640..0x648",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/RepairCorvette.c:RepairCorvetteInit"
+  },
+  {
+   "address": "0x005c2260",
+   "name": "RepairCorvetteRemoveShipReferences",
+   "kind": "function",
+   "class": "hw1:RepairCorvette.c",
+   "confidence": "high",
+   "evidence": "header 0x8c6000 +0x2C/+0x30; clears target if ==shiptoremove",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/RepairCorvette.c:RepairCorvetteRemoveShipReferences"
+  },
+  {
+   "address": "0x005c2280",
+   "name": "RepairCorvetteDied",
+   "kind": "function",
+   "class": "hw1:RepairCorvette.c",
+   "confidence": "high",
+   "evidence": "header 0x8c6000 +0x3C Died; releases target flags",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/RepairCorvette.c:RepairCorvetteDied"
+  },
+  {
+   "address": "0x005c2990",
+   "name": "RepairCorvetteSpecialTarget",
+   "kind": "function",
+   "class": "hw1:RepairCorvette.c",
+   "confidence": "medium",
+   "evidence": "header 0x8c6000 +0x20 SpecialTarget; thunk to 0x5c24e0 with statics +0xc",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/RepairCorvette.c:RepairCorvetteSpecialTarget"
+  },
+  {
+   "address": "0x0067b680",
+   "name": "longjmp",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "high",
+   "evidence": "B1 analysis-created (not mission): compares jmp_buf+0x18 to fs:0, _global_unwind2, VC20 cookie 0x56433230 at +0x20, _local_unwind2, jumps to +0x14; sole caller JpegErrorExit; pairs __setjmp3",
+   "hw1_equivalent": "",
+   "signature": "void longjmp(int *env, int value)"
+  },
+  {
+   "address": "0x00695aa0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72e880 slot 2 (RTTI COL .?AVbad_cast@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006967a0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72e89c slot 5 (RTTI COL .?AV?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00696850",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72e898 slot 4 (RTTI COL .?AV?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00696900",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72e894 slot 3 (RTTI COL .?AV?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006969f0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72e890 slot 2 (RTTI COL .?AV?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00696ae0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72e88c slot 1 (RTTI COL .?AV?$num_put@DV?$ostreambuf_iterator@DU?$char_traits@D@std@@@std@@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006981a0",
+   "name": "WONMsg__SMsgProfile2SetReply__Pack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72e924 slot 3 (RTTI COL .?AVSMsgProfile2SetReply@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0069ae30",
+   "name": "WONMsg__SMsgCommRegisterRequest__PackExtended",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "SMsgCommRegisterRequest vtable slot 22; slots 18/19/21 are named AddDirServerAddress/SetDisplayName/SetPath, header order puts PackExtended next",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0069d3b0",
+   "name": "WONMsg__MMsgRoutingDisconnectClient__Dump",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72ed14 slot 17 (RTTI COL .?AVMMsgRoutingDisconnectClient@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0069d480",
+   "name": "WONMsg__MMsgRoutingDisconnectClient__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72ecd8 slot 2 (RTTI COL .?AVMMsgRoutingDisconnectClient@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0069d8a0",
+   "name": "WONMsg__MMsgRoutingGetClientInfo__Dump",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72edac slot 17 (RTTI COL .?AVMMsgRoutingGetClientInfo@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0069d960",
+   "name": "WONMsg__MMsgRoutingGetClientInfo__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72ed70 slot 2 (RTTI COL .?AVMMsgRoutingGetClientInfo@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0069db10",
+   "name": "WONMsg__MMsgRoutingGetClientList__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72edbc slot 2 (RTTI COL .?AVMMsgRoutingGetClientList@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0069e110",
+   "name": "WONMsg__MMsgRoutingGetClientListReply__Pack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72ee0c slot 3 (RTTI COL .?AVMMsgRoutingGetClientListReply@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0069ef20",
+   "name": "WONMsg__MMsgRoutingPeerChat__Dump",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72ef94 slot 17 (RTTI COL .?AVMMsgRoutingPeerChat@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0069f9c0",
+   "name": "WONMsg__MMsgRoutingPeerDataMultiple__Dump",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f02c slot 17 (RTTI COL .?AVMMsgRoutingPeerDataMultiple@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a0140",
+   "name": "WONMsg__MMsgRoutingReadDataObjectReply__Dump",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f078 slot 17 (RTTI COL .?AVMMsgRoutingReadDataObjectReply@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a0200",
+   "name": "WONMsg__MMsgRoutingReadDataObjectReply__Pack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f040 slot 3 (RTTI COL .?AVMMsgRoutingReadDataObjectReply@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a0800",
+   "name": "WONMsg__MMsgRoutingReconnectClient__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f098 slot 2 (RTTI COL .?AVMMsgRoutingReconnectClient@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a0b50",
+   "name": "WONMsg__MMsgRoutingRegisterClient__Dump",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f120 slot 17 (RTTI COL .?AVMMsgRoutingRegisterClient@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a0e30",
+   "name": "WONMsg__MMsgRoutingRegisterClient__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f0e4 slot 2 (RTTI COL .?AVMMsgRoutingRegisterClient@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a1850",
+   "name": "WONMsg__MMsgRoutingReplaceDataObject__Dump",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f1b8 slot 17 (RTTI COL .?AVMMsgRoutingReplaceDataObject@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a1c10",
+   "name": "WONMsg__MMsgRoutingSendChat__Dump",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f20c slot 17 (RTTI COL .?AVMMsgRoutingSendChat@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a1d50",
+   "name": "WONMsg__MMsgRoutingSendChat__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f1d0 slot 2 (RTTI COL .?AVMMsgRoutingSendChat@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a2390",
+   "name": "WONMsg__MMsgRoutingSendData__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f224 slot 2 (RTTI COL .?AVMMsgRoutingSendData@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a27a0",
+   "name": "WONMsg__MMsgRoutingSendDataBroadcast__Dump",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f2ac slot 17 (RTTI COL .?AVMMsgRoutingSendDataBroadcast@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a2930",
+   "name": "WONMsg__MMsgRoutingSendDataBroadcast__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f270 slot 2 (RTTI COL .?AVMMsgRoutingSendDataBroadcast@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a2f70",
+   "name": "WONMsg__MMsgRoutingSubscribeDataObject__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f308 slot 2 (RTTI COL .?AVMMsgRoutingSubscribeDataObject@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a31b0",
+   "name": "WONMsg__MMsgRoutingRenewDataObject__Dump",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f390 slot 17 (RTTI COL .?AVMMsgRoutingRenewDataObject@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a32b0",
+   "name": "WONMsg__MMsgRoutingRenewDataObject__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f354 slot 2 (RTTI COL .?AVMMsgRoutingRenewDataObject@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a38a0",
+   "name": "WONMsg__RoutingServerClientIdFlagMessage__Dump",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable slot 17 (Dump) shared by RoutingServerClientIdFlagMessage, MMsgRoutingBecomeModerator, MuteClient (RTTI); body streams 'ClientId='",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a5590",
+   "name": "WONMsg__SMsgFactStatusReply__SetProcessPortIDSet",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "SMsgFactStatusReply vtable slot 19 = 2nd new virtual after SmallMessage Dump (SetProcessStatus, SetProcessPortIDSet in SMsgFactStatusReply.h)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a65c0",
+   "name": "WONMsg__SMsgFactStartProcessUnicode__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f534 slot 2 (RTTI COL .?AVSMsgFactStartProcessUnicode@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a79b0",
+   "name": "WONMsg__SMsgFirewallDetect__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f588 slot 2 (RTTI COL .?AVSMsgFirewallDetect@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a7d80",
+   "name": "WONMsg__TMsgAuth1GetPubKeys__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f620 slot 2 (RTTI COL .?AVTMsgAuth1GetPubKeys@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a9440",
+   "name": "WONMsg__TMsgAuth1Request__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f704 slot 2 (RTTI COL .?AVTMsgAuth1Request@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006a99d0",
+   "name": "WONMsg__TMsgAuth1Challenge2__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f79c slot 2 (RTTI COL .?AVTMsgAuth1Challenge2@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006aafb0",
+   "name": "WONMsg__TMsgAuth1LoginRequestHW__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f8cc slot 2 (RTTI COL .?AVTMsgAuth1LoginRequestHW@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ab2c0",
+   "name": "WONMsg__TMsgAuth1ConfirmHW__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f964 slot 2 (RTTI COL .?AVTMsgAuth1ConfirmHW@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ab470",
+   "name": "WONMsg__TMsgAuth1RefreshHW__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f9b0 slot 2 (RTTI COL .?AVTMsgAuth1RefreshHW@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ad410",
+   "name": "WONMsg__SMsgEventRecordEvent__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72f9fc slot 2 (RTTI COL .?AVSMsgEventRecordEvent@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ae160",
+   "name": "WONMsg__SMsgEventTaggedRecordEvent__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fa70 slot 2 (RTTI COL .?AVSMsgEventTaggedRecordEvent@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ae1d0",
+   "name": "WONMsg__SMsgEventTaggedRecordEvent__Dump",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72faac slot 17 (RTTI COL .?AVSMsgEventTaggedRecordEvent@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006aed10",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "shared vtable slot: std__std__D__DU?$char_traits__?$basic_st slot 8; WONCommon__wonstringstream__wonstringstr slot 8",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006aed40",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "shared vtable slot: std__std__D__DU?$char_traits__?$basic_st slot 9; WONCommon__wonstringstream__wonstringstr slot 9",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006aeda0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fb08 slot 1 (RTTI COL .?AV?$basic_stringbuf@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006aefd0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fb14 slot 4 (RTTI COL .?AV?$basic_stringbuf@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006af1a0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fb28 slot 9 (RTTI COL .?AV?$basic_stringbuf@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006af280",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fabc slot 0 (RTTI COL .?AV?$basic_ostream@DU?$char_traits@D@std@@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006af2d0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fab4 slot 0 (RTTI COL .?AV?$basic_istream@DU?$char_traits@D@std@@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006af370",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fac4 slot 0 (RTTI COL .?AV?$basic_iostream@DU?$char_traits@D@std@@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006af3a0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fa40 slot 0 (RTTI COL .?AV?$basic_stringstream@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b0630",
+   "name": "WONMsg__SMsgDirG2GetEntity__Unpack",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fc7c slot 2 (RTTI COL .?AVSMsgDirG2GetEntity@WONMsg@@); slot order from named siblings: 1 Duplicate, 2 Unpack, 3 Pack, 17 Dump",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b0980",
+   "name": "WONMsg__SMsgDirG2KeyedBase__PackKey",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "slot 1 of SMsgDirG2KeyedBase secondary vtable (5 classes), slot 2 is named UnpackKey; body appends key strings to TRawData (SMsgDirG2KeyedBase.h)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b11e0",
+   "name": "WONMsg__SMsgDirG2QueryExtendBase__PackExtended",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "slot 18 after Dump in QueryExtendBase/QueryGetBase/GetEntity vtables (first new virtual PackExtended, SMsgDirG2QueryExtendBase.h); body appends",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b3d00",
+   "name": "WONCommon__WONException__Raise",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "slot 2 shared by WONException/BadMsgException/CryptException vtables; WONException.h virtual order dtor, what, Raise, SetLog, SetState",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b41e0",
+   "name": "WONCommon__WONException__SetState",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "slot 4 shared by WONException/BadMsgException/CryptException vtables (WONException.h: dtor, what, Raise, SetLog, SetState); 10-byte setter",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b41f0",
+   "name": "WONCommon__MemoryException__Raise",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "MemoryException vtable slot 2 (dtor, what, Raise, BuildText); body copy-constructs MemoryException and __CxxThrowException",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b4210",
+   "name": "WONCommon__MemoryException__BuildText",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "MemoryException vtable slot 3 (BuildText per WONException.h); body sprintf's the 'Exception: ' text",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b6280",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fe68 slot 0 (RTTI COL .?AVwonstringstream@WONCommon@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b7330",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fecc slot 1 (RTTI COL .?AV?$basic_filebuf@DU?$char_traits@D@std@@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b7510",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fed0 slot 2 (RTTI COL .?AV?$basic_filebuf@DU?$char_traits@D@std@@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b76c0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fedc slot 5 (RTTI COL .?AV?$basic_filebuf@DU?$char_traits@D@std@@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b78b0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fee8 slot 8 (RTTI COL .?AV?$basic_filebuf@DU?$char_traits@D@std@@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b7ae0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72fec0 slot 0 (RTTI COL .?AV?$basic_ofstream@DU?$char_traits@D@std@@@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b8240",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "shared vtable slot: std__DDH__?$codecvt slot 4; std__DDH__?$codecvt slot 5",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b8260",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72ff20 slot 6 (RTTI COL .?AV?$codecvt@DDH@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b8f00",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "shared vtable slot: CryptoPP__BlowfishEncryption slot 2; CryptoPP__BlowfishDecryption slot 2; CryptoPP__Blowfish slot 2",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b9080",
+   "name": "WONCrypt__CryptException__CryptException_copy",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "copyFunction of a CatchableType at 0x740988; body calls WONException copy ctor then sets vtable 0x72ff68 (RTTI CryptException)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006bd720",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "shared vtable slot: WONCrypt__EGPublicKey slot 2; WONCrypt__PublicKey slot 2",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006be3d0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730be4 slot 5 (RTTI COL .?AVRandomNumberGenerator@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006be470",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730c1c slot 2 (RTTI COL .?AVStreamCipher@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006be4b0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730c20 slot 3 (RTTI COL .?AVStreamCipher@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006bee30",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "shared vtable slot: CryptoPP__ByteQueue slot 9; CryptoPP__DERSequenceEncoder slot 9",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006c1ab0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "shared vtable slot: CryptoPP__MontgomeryRepresentation slot 1; CryptoPP__ModularArithmetic slot 1; CryptoPP__CryptoPP__VInteger__?$Euclidea slot 1",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006c2380",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "shared vtable slot: CryptoPP__CryptoPP__VMontgomeryRepresent slot 1; CryptoPP__CryptoPP__CryptoPP__VInteger__ slot 1",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006c44b0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "shared vtable slot: CryptoPP__CBCPaddedEncryptor slot 5; CryptoPP__CBCPaddedDecryptor slot 5; CryptoPP__BERSequenceDecoder slot 5; CryptoPP__Filter slot 5",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006c51e0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x7308d4 slot 0 (RTTI COL .?AVElGamalEncryptor@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cad80",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "shared vtable slot: CryptoPP__MontgomeryRepresentation slot 7; CryptoPP__ModularArithmetic slot 7",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cb760",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730af4 slot 7 (RTTI COL .?AV?$EuclideanDomainOf@VInteger@CryptoPP@@@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cb7d0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730af8 slot 8 (RTTI COL .?AV?$EuclideanDomainOf@VInteger@CryptoPP@@@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cb8b0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730b04 slot 11 (RTTI COL .?AV?$EuclideanDomainOf@VInteger@CryptoPP@@@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cb940",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730b24 slot 19 (RTTI COL .?AV?$EuclideanDomainOf@VInteger@CryptoPP@@@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cbc40",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730b50 slot 1 (RTTI COL .?AVMD5@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cc470",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "shared vtable slot: CryptoPP__MD5 slot 4; CryptoPP__HashModule slot 4; CryptoPP__K__?$IteratedHash slot 4",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cc5a0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "shared vtable slot: CryptoPP__RandomPool slot 4; CryptoPP__RandomNumberGenerator slot 4",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cc610",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730bc8 slot 5 (RTTI COL .?AVRandomPool@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cc630",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730bc0 slot 3 (RTTI COL .?AVRandomPool@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cc9d0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730b7c slot 1 (RTTI COL .?AVRandomPool@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cca80",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730b8c slot 5 (RTTI COL .?AVRandomPool@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ccb60",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730c04 slot 1 (RTTI COL .?AV?$MDC@VMD5@CryptoPP@@@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ccda0",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x730bf4 slot 2 (RTTI COL .?AVCFBEncryption@CryptoPP@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006d5680",
+   "name": "WONAuth__Auth1PublicKeyBlock__ComputeBufSize",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "Auth1PublicKeyBlock vtable slot 5 = ComputeBufSize (AuthFamilyBuffer.h order; same slot named in AuthFamilyBuffer/AuthPublicKeyBlockBase)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006d56c0",
+   "name": "WONAuth__Auth1PublicKeyBlock__PackData",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "Auth1PublicKeyBlock vtable slot 6 = PackData (AuthFamilyBuffer.h order, Auth1PublicKeyBlock.h overrides PackData)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006d5980",
+   "name": "WONAuth__Auth1PublicKeyBlock__Compare",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "Auth1PublicKeyBlock vtable slot 1 (Compare, AuthFamilyBuffer order); body calls AuthPublicKeyBlockBase::Compare then dynamic_casts",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006d5fa0",
+   "name": "WONAuth__Auth1Certificate__ComputeBufSize",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "Auth1Certificate vtable slot 5 = ComputeBufSize (AuthFamilyBuffer.h order)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006d5fd0",
+   "name": "WONAuth__Auth1Certificate__PackData",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "Auth1Certificate vtable slot 6 = PackData (AuthFamilyBuffer.h order)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006d6220",
+   "name": "WONAuth__Auth1Certificate__Compare",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "Auth1Certificate vtable slot 1 = Compare (AuthFamilyBuffer order; Auth1Certificate.h overrides Compare)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006d6610",
+   "name": "WONAuth__AuthFamilyBuffer__Sign",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "slot 8 (Sign) shared by AuthFamilyBuffer and all 4 derived Auth vtables (AuthFamilyBuffer.h order dtor..Sign)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006d8870",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x731e88 slot 15 (RTTI COL .?AVAuthCertificateBase@WONAuth@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006dbc50",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "slot in .rdata table 0x731edc just after the WONAuth vtables (no COL); WON Titan region; body thread loop WaitForMultipleObjects",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e3a30",
+   "name": "WONCommon__RegKey__GetSubKey",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "WON RegKey vtable (no RTTI) slot 4 @0x731ec0; slot 6 is named WONCommon__RegKey__GetNextSubKey; calls subkey.OpenNewKey; order per Titan common/RegKey.h",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e3a70",
+   "name": "WONCommon__RegKey__DeleteSubKey_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "RegKey vtable slot 9 @0x731ed4 = DeleteSubKey(RegKey&) (MSVC reverse overload order); slot 10 = DeleteSubKey(string) 0x573b30 (ICF)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e3ac0",
+   "name": "WONCommon__RegKey__GetFirstSubKey",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "RegKey vtable slot 5 @0x731ec4: keyIndex=0 then vcall +0x18 (GetNextSubKey); RegKey.h order",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e3c10",
+   "name": "WONCommon__RegKey__GetFirstValueName",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "RegKey vtable slot 7 @0x731ecc: valueIndex=0 then vcall +0x20 (GetNextValueName)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e3c40",
+   "name": "WONCommon__RegKey__GetNextValueName",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "RegKey vtable slot 8 @0x731ed0: RegEnumValueA on mKey/mValueIndex",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4580",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "high",
+   "evidence": "vtable 0x7341f4 slot 2 (RTTI COL .?AVbad_alloc@std@@)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006eed00",
+   "name": "",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "slot in .rdata vtable 0x7324f8 among lib_won_ AdApi slots; body thread loop WaitForMultipleObjects; AdApi range 0x6eae30-0x6f139d",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f15b0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "slot in .rdata table 0x732510 next to lib_magick_006f14d0/lib_magick_006f1c70; ImageMagick range 0x6f13e0-0x705c81",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f16f0",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "slot in .rdata table 0x732518 next to lib_magick_006f14d0/lib_magick_006f1c70; ImageMagick range 0x6f13e0-0x705c81",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f1710",
+   "name": "",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "slot in .rdata table 0x732520 next to lib_magick_006f14d0/lib_magick_006f1c70; ImageMagick range 0x6f13e0-0x705c81",
+   "hw1_equivalent": ""
+  }
+ ]
+}

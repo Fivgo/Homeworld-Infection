@@ -4,6 +4,15 @@
     python3 -I tools/binary_map_coverage.py --export ghidra/exports/cataclysm_gog_r2 \
         --before ghidra/exports/cataclysm_gog_r1 [--mid ghidra/exports/cataclysm_gog_r2a] --out /tmp/bmap_r2
 
+Round 3 (labels and extra history columns are options; defaults reproduce round 2):
+
+    python3 -I tools/binary_map_coverage.py --export ghidra/exports/cataclysm_gog_r3 \
+        --history "round 1=ghidra/exports/cataclysm_gog_r1" --before ghidra/exports/cataclysm_gog_r2 \
+        --before-label "round 2" --mid ghidra/exports/cataclysm_gog_r3a --mid-label "after B1" \
+        --label "round 3" --new-tag "r3" \
+        --symbols ghidra/symbols_round1.json ghidra/symbols_round2.json ghidra/symbols_round3.json \
+        --props ghidra/proposals/r2/*.verified.json ghidra/proposals/r3/*.verified.json --out /tmp/bmap_r3
+
 Relative paths resolve against the main checkout (the one holding ghidra/exports and reference/,
 also when this runs from a linked git worktree).
 
@@ -141,6 +150,23 @@ def coverage(funcs, lo=None, hi=None):
     return c, b
 
 
+def body_union(funcs, lo, hi):
+    """Bytes of [lo, hi] inside some function's [address, address+size) (round-3 B1 metric)."""
+    iv = sorted((a, a + f["size"]) for a, f in funcs.items() if f["size"] and a <= hi and a + f["size"] > lo)
+    tot, cur_s, cur_e = 0, None, None
+    for s, e in iv:
+        s, e = max(s, lo), min(e, hi + 1)
+        if cur_e is None or s > cur_e:
+            if cur_e is not None:
+                tot += cur_e - cur_s
+            cur_s, cur_e = s, e
+        else:
+            cur_e = max(cur_e, e)
+    if cur_e is not None:
+        tot += cur_e - cur_s
+    return tot
+
+
 def hw1_defs():
     """basename -> (relpath under src/, set(definition names))."""
     src = os.path.join(ROOT, "reference", "HomeworldSDL", "src")
@@ -195,16 +221,23 @@ def main():
     ap.add_argument("--before", required=True)
     ap.add_argument("--baseline", default="ghidra/exports/cataclysm_gog")
     ap.add_argument("--mid", default="", help="optional intermediate export (e.g. after A1)")
+    ap.add_argument("--history", nargs="*", default=[],
+                    help="extra earlier columns LABEL=EXPORT between baseline and --before (e.g. 'round 1=ghidra/exports/cataclysm_gog_r1')")
+    ap.add_argument("--label", default="round 2", help="column label of --export")
+    ap.add_argument("--before-label", default="round 1", help="column label of --before")
+    ap.add_argument("--mid-label", default="after A1", help="column label of --mid")
     ap.add_argument("--symbols", nargs="+", default=["ghidra/symbols_round1.json", "ghidra/symbols_round2.json"])
     ap.add_argument("--props", nargs="*", default=None)
     ap.add_argument("--cet", default=os.path.join(HERE, "ghidra/cet_symbols.json"))
     ap.add_argument("--out", required=True)
     ap.add_argument("--top", type=int, default=60)
+    ap.add_argument("--new-tag", default="A1", help="tag for top-unnamed functions absent from --before")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     symfiles = [p if os.path.isabs(p) else (os.path.join(HERE, p) if os.path.isfile(os.path.join(HERE, p)) else rp(p))
                 for p in a.symbols]
     props = a.props if a.props is not None else sorted(glob.glob(os.path.join(HERE, "ghidra/proposals/r2/*.verified.json")))
+    L, BL = a.label, a.before_label
 
     now, before, base = load_funcs(rp(a.export)), load_funcs(rp(a.before)), load_funcs(rp(a.baseline))
     mid = load_funcs(rp(a.mid)) if a.mid else None
@@ -213,7 +246,8 @@ def main():
     res = {"export": a.export, "before": a.before}
     md = []
 
-    cols = [("baseline", base), ("round 1", before)] + ([("after A1", mid)] if mid else []) + [("round 2", now)]
+    hist = [(h.split("=", 1)[0], load_funcs(rp(h.split("=", 1)[1]))) for h in a.history]
+    cols = [("baseline", base)] + hist + [(BL, before)] + ([(a.mid_label, mid)] if mid else []) + [(L, now)]
     tot = {}
     for label, fs in cols:
         c, b = coverage(fs)
@@ -221,11 +255,11 @@ def main():
                       "bytes_by_tier": dict(b)}
     res["overall"] = tot
     md.append("### Overall\n")
-    md.append("| tier | " + " | ".join("%s functions | %s bytes" % (l, l) for l, _ in cols) + " | round 2 % of bytes |")
+    md.append("| tier | " + " | ".join("%s functions | %s bytes" % (l, l) for l, _ in cols) + " | %s %% of bytes |" % L)
     md.append("|---|" + "---:|---:|" * len(cols) + "---:|")
     for t, lab in (("real", "real name"), ("class-only", "class-only"), ("unnamed", "unnamed `FUN_*`")):
         md.append("| %s | " % lab + " | ".join("%s | %s" % (fmt(tot[l]["count"].get(t, 0)), fmt(tot[l]["bytes_by_tier"].get(t, 0)))
-                                             for l, _ in cols) + " | %s |" % pct(tot["round 2"]["bytes_by_tier"].get(t, 0), tot["round 2"]["bytes"]))
+                                             for l, _ in cols) + " | %s |" % pct(tot[L]["bytes_by_tier"].get(t, 0), tot[L]["bytes"]))
     md.append("| **all functions** | " + " | ".join("%s | %s" % (fmt(tot[l]["functions"]), fmt(tot[l]["bytes"])) for l, _ in cols) + " | 100% |")
     md.append("")
 
@@ -237,10 +271,12 @@ def main():
             res[key][label] = {"functions": sum(c.values()), "bytes": allb, "count": dict(c), "bytes_by_tier": dict(b),
                                "real_pct_bytes": round(100.0 * b.get("real", 0) / allb, 2) if allb else 0.0,
                                "region_bytes": hi - lo + 1,
-                               "real_pct_region": round(100.0 * b.get("real", 0) / (hi - lo + 1), 2)}
+                               "real_pct_region": round(100.0 * b.get("real", 0) / (hi - lo + 1), 2),
+                               "body_bytes_union": body_union(fs, lo, hi),
+                               "body_pct_region": round(100.0 * body_union(fs, lo, hi) / (hi - lo + 1), 2)}
 
     md.append("### Per address region\n")
-    md.append("| region | round 1 functions | round 2 functions | real | class-only | `FUN_*` | `FUN_*` bytes | real % of function bytes, round 2 (round 1) |")
+    md.append("| region | %s functions | %s functions | real | class-only | `FUN_*` | `FUN_*` bytes | real %% of function bytes, %s (%s) |" % (BL, L, L, BL))
     md.append("|---|---:|---:|---:|---:|---:|---:|---|")
     res["regions"] = []
     for name, lo, hi in REGIONS:
@@ -358,7 +394,7 @@ def main():
                 callers[ce].add(r["caller"])
     un = sorted(((ad, f) for ad, f in now.items() if tier(f["name"]) == "unnamed"), key=lambda kv: (-kv[1]["size"], kv[0]))
     md.append("### Largest still-unnamed functions\n")
-    md.append("| # | address | size | calls in | strings | named callers | named callees | in round 1 |")
+    md.append("| # | address | size | calls in | strings | named callers | named callees | in %s |" % BL)
     md.append("|---:|---|---:|---:|---|---|---|---|")
     res["top_unnamed"] = []
     for i, (ad, f) in enumerate(un[:a.top], 1):
@@ -368,7 +404,7 @@ def main():
             if s not in ss:
                 ss.append(s)
         cr, ce = sorted(callers.get(ad, [])), sorted(callees.get(ad, []))
-        was = "new (A1)" if ad not in before else ("yes" if before[ad]["name"] == f["name"] else before[ad]["name"])
+        was = ("new (%s)" % a.new_tag) if ad not in before else ("yes" if before[ad]["name"] == f["name"] else before[ad]["name"])
         md.append("| %d | 0x%08x | %s | %d | %s | %s | %s | %s |" % (
             i, ad, fmt(f["size"]), f["calls_in"], "; ".join("`%s`" % s for s in ss[:3]) or "-",
             ", ".join(cr[:3]) or "-", ", ".join(ce[:3]) or "-", was))
@@ -390,7 +426,7 @@ def main():
             mv["new function -> " + tier(f["name"])] += 1
         elif before[ad]["name"] != f["name"]:
             mv["%s -> %s" % (tier(before[ad]["name"]), tier(f["name"]))] += 1
-    mv["round-1 functions gone"] = len([ad for ad in before if ad not in now])
+    mv["%s functions gone" % BL] = len([ad for ad in before if ad not in now])
     res["movement"] = dict(mv)
     json.dump(res, open(os.path.join(a.out, "coverage.json"), "w"), indent=1)
     open(os.path.join(a.out, "tables.md"), "w").write("\n".join(md) + "\n")

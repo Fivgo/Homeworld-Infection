@@ -1,0 +1,527 @@
+[
+ {
+  "address": "0x00406e90",
+  "name": "aimProcessGuardShips",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00406f00",
+  "name": "aimShipDiedGuardShips",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00406fe0",
+  "name": "aimProcessGetShips",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004072e0",
+  "name": "aimProcessVarWait",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004073f0",
+  "name": "aimProcessVarDec",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00407500",
+  "name": "aimProcessVarInc",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00407570",
+  "name": "aimProcessVarSet",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00407670",
+  "name": "aimProcessVarDestroy",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00407ac0",
+  "name": "aimResourceVolumeResourceDied",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00407b80",
+  "name": "aimResourceVolumeShipDied",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00407c00",
+  "name": "aimCaptureShipDied",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00407c20",
+  "name": "aimProcessMove",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00407cc0",
+  "name": "aimProcessMoveSplit",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00407dd0",
+  "name": "aimProcessHyperspace",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00407fe0",
+  "name": "aimProcessIntercept",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004082a0",
+  "name": "aimProcessMoveTo",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004083f0",
+  "name": "aimProcessFlankAttack",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00408840",
+  "name": "aimProcessMoveAttack",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00408ca0",
+  "name": "aimProcessAdvancedAttack",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00408d30",
+  "name": "aimProcessHarassAttack",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00409350",
+  "name": "aimProcessDock",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00409760",
+  "name": "aimProcessPatrolMove",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00409af0",
+  "name": "aimProcessActivePatrol",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00409c50",
+  "name": "aimProcessTempGuard",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00409ff0",
+  "name": "aimProcessReinforce",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040a1c0",
+  "name": "aimProcessSupport",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040a440",
+  "name": "aimProcessActiveRecon",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040a790",
+  "name": "aimProcessShipRecon",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040a910",
+  "name": "aimProcessArmada",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040abb0",
+  "name": "aimProcessControlResources",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040ad00",
+  "name": "aimProcessResourceVolume",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040aee0",
+  "name": "aimProcessActiveResource",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040b000",
+  "name": "aimProcessMothershipMove",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040b3f0",
+  "name": "aimProcessActiveCapture",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040b4b0",
+  "name": "aimProcessActiveMine",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040b5e0",
+  "name": "aimProcessMineVolume",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040d0e0",
+  "name": "aimProcessGuardCooperatingTeam",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040d420",
+  "name": "aimProcessFormation",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040d5b0",
+  "name": "aimProcessAttack",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040d780",
+  "name": "aimProcessSpecial",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040d8c0",
+  "name": "aimProcessKamikaze",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0040da50",
+  "name": "aimProcessFancyGetShips",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00416b80",
+  "name": "GenericCooperatingTeamDiedCB",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00468fb0",
+  "name": "etgEffectLoadVoid",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046c3d0",
+  "name": "etgBlockOpen",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046c420",
+  "name": "etgBlockClose",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046c490",
+  "name": "etgParseModeRestore",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046c4a0",
+  "name": "etgCodeBlockEnd",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046c4e0",
+  "name": "etgVariableBlockOpen",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046c530",
+  "name": "etgStartupBlockOpen",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046c580",
+  "name": "etgEachFrameBlockOpen",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046c5e0",
+  "name": "etgTimeIndexBlockOpen",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046c650",
+  "name": "etgNewInteger",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046caf0",
+  "name": "etgSubTextureDWORD",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046cc60",
+  "name": "etgSetTextureParse",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046ceb0",
+  "name": "etgNewFloat",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046d070",
+  "name": "etgConditionalComplete",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046d350",
+  "name": "etgElseComplete",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046d440",
+  "name": "etgLabelGoto",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046d4d0",
+  "name": "etgLabelCall",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046d7e0",
+  "name": "etgAlternateComplete",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046d9e0",
+  "name": "etgTimeBlockComplete",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046d9f0",
+  "name": "etgTimeBlockOpen",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046dce0",
+  "name": "etgAtComplete",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046dd00",
+  "name": "etgBetweenComplete",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046e150",
+  "name": "etgSpawnParse",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046e2e0",
+  "name": "etgCreationCallback",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046e390",
+  "name": "etgCreateCallbackSetup",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046e3b0",
+  "name": "etgCallbackOpen",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046e450",
+  "name": "etgCallbackClose",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046e490",
+  "name": "etgCreationResolve",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046e760",
+  "name": "etgNOP",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046e870",
+  "name": "etgEnd",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046e880",
+  "name": "etgDelete",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046ed30",
+  "name": "etgCallTo",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046ed80",
+  "name": "etgReturnTo",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046edb0",
+  "name": "etgAlternate",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0046ee90",
+  "name": "etgAt",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004704e0",
+  "name": "etgCreateEffects",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00470c50",
+  "name": "etgSpawnNewEffect",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00471170",
+  "name": "etgThisOffsetXYZ",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0047c000",
+  "name": "flightmanSlalomExecute",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0047c180",
+  "name": "flightmanSandwichExecute",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0047c720",
+  "name": "flightmanCelebFlipInit",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0047c7d0",
+  "name": "flightmanWhipStrafeInit",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0047d4c0",
+  "name": "flightmanLoYoYoInit",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x0047d8e0",
+  "name": "flightmanSideStepExecute",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004b0020",
+  "name": "meshAlmostCurrentMaterial",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004b68d0",
+  "name": "madBindingsPost",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004b68f0",
+  "name": "madBindingListCallback",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004e2690",
+  "name": "partModifyExponent",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004e2b40",
+  "name": "cat_partModifyScaleX",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004e3050",
+  "name": "partModifyDeltaVelR",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004e33d0",
+  "name": "partModifyMorph",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004e3670",
+  "name": "partModifyPseudoBillboard",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004e3710",
+  "name": "partModifyColorScheme",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004e39b0",
+  "name": "partSetIsWorldspace",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004e3be0",
+  "name": "partSetXYZScale",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004e4000",
+  "name": "partSetColorADist",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004e40d0",
+  "name": "partSetDeltaColorA",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x004e4120",
+  "name": "partSetDeltaColorADist",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x00503410",
+  "name": "SaveResourceVolumeCB",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x005b0490",
+  "name": "DefenseFighterHouseKeep",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x005b0840",
+  "name": "DefenseFighter_Load",
+  "reason": "r2-deferred"
+ },
+ {
+  "address": "0x005c9da0",
+  "name": "JpegErrorExit",
+  "reason": "r2-deferred"
+ }
+]
