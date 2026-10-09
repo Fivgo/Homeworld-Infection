@@ -1,0 +1,1665 @@
+{
+ "target": {
+  "exe": "cataclysm.exe (GOG \"Homeworld: Emergence\"; CET loader hard-codes this name)",
+  "image_base": "0x00400000",
+  "notes": "Source: CataclysmEngineTweaks commit 19a08c3 + hw_rgl 41ff3c3. All addresses are absolute VAs in the GOG build; CET performs NO version/hash/size/timestamp check, only GetModuleHandle(NULL)==0x400000 (dllmain.cpp:11-17) and never rebases. \"patch_site\" = instruction address CET overwrites (Keystone) or detours mid-function (MinHook); \"data\" entries named universe_* / *_hyperspaceState / tpGameCreated_* are DERIVED from global base + struct offset. Expected original bytes are inferred, not checked by CET. Verify every entry against the real exe before trusting it. Byte check vs GOG build 12948 (cataclysm.exe sha256 f03d9a3e...) on 2026-10-08: notes tagged [exe 12948] were read from the real exe; see docs/cet-knowledge.md \"## Verification\"."
+ },
+ "symbols": [
+  {
+   "address": "0x00420880",
+   "name": "allianceFormWith",
+   "kind": "function",
+   "type": "void allianceFormWith(udword playerindex)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:129",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Alliance.c:allianceFormWith",
+   "notes": "Declared, unused."
+  },
+  {
+   "address": "0x0042090D",
+   "name": "allianceFormWith_UniverseUpdatePeriod",
+   "kind": "patch_site",
+   "type": "UNIVERSE_UPDATE_RATE use in alliance-timeout computation",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:112",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Alliance.c:allianceFormWith",
+   "notes": "Defined but NOT patched by CET (alliance proposal timeout stays in 16Hz frames -> expires 4x faster at 64Hz). HW1 Alliance.c:57 `univUpdateCounter + UNIVERSE_UPDATE_RATE * 90`. [exe 12948] bytes `8B 0D AC 2B B6 00 81 C1 A0 05 00 00` = mov ecx,[0x00B62BAC] (univUpdateCounter); add ecx,1440 (=16*90): confirmed."
+  },
+  {
+   "address": "0x00431510",
+   "name": "aisRequestShip",
+   "kind": "function",
+   "type": "void aisRequestShip(Player*, ShipType, sdword buildCost)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:128",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm-only; declared but unused by CET."
+  },
+  {
+   "address": "0x00431750",
+   "name": "aisFleetUpdate",
+   "kind": "function",
+   "type": "void aisFleetUpdate(void)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:127",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm skirmish-AI build planner. Replaced wholesale by CET AISkirmish.cpp reimplementation when [AI] EnableNewAI=true (no trampoline)."
+  },
+  {
+   "address": "0x00452F30",
+   "name": "clWrapCreateShip",
+   "kind": "function",
+   "type": "void clWrapCreateShip(CommandLayer*, ShipType, ShipRace, uword playerIndex, Ship* creator)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:133",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandWrap.c:clWrapCreateShip",
+   "notes": "Used by CET AI for external/module construction."
+  },
+  {
+   "address": "0x00452FA0",
+   "name": "clWrapBuildShip",
+   "kind": "function",
+   "type": "void clWrapBuildShip(CommandLayer*, ShipType, ShipRace, uword playerIndex, Ship* creator)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:132",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandWrap.c:clWrapBuildShip",
+   "notes": ""
+  },
+  {
+   "address": "0x00453390",
+   "name": "clWrapScuttle",
+   "kind": "function",
+   "type": "void clWrapScuttle(CommandLayer*, SelectCommand*)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:134",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandWrap.c:clWrapScuttle",
+   "notes": ""
+  },
+  {
+   "address": "0x00453820",
+   "name": "clWrapSetKamikaze",
+   "kind": "function",
+   "type": "void clWrapSetKamikaze(CommandLayer*, SelectCommand*)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:135",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandWrap.c:clWrapSetKamikaze",
+   "notes": ""
+  },
+  {
+   "address": "0x0046A6F0",
+   "name": "etgEffectDelete",
+   "kind": "function",
+   "type": "void etgEffectDelete(Effect*)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:136",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffectDelete",
+   "notes": "Debug hook only (#if 0)."
+  },
+  {
+   "address": "0x0046E042",
+   "name": "etgDefineAt_UpdateRate1",
+   "kind": "patch_site",
+   "type": "fcom dword ptr [abs32] (ETG_UpdateRoundOff/2 operand)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:87",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAtDefine",
+   "notes": "CET writes 6B fcom m32 pointing at its own static (period/4). [exe 12948] original operand = 0x0072A810 (.rdata, float 0.015625), shared with 3 `fmul dword` sites at 0x0055A9E2/0x0055AF0A/0x0055B2B6, which is why CET redirects the operand instead of rewriting the constant. HW1 ETG.c:5255-5262."
+  },
+  {
+   "address": "0x0046E04F",
+   "name": "etgDefineAt_UpdateRate2",
+   "kind": "patch_site",
+   "type": "fsub dword ptr [abs32] (ETG_UpdateRoundOff/2 operand)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:88",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAtDefine",
+   "notes": "CET writes 6B fsub m32 pointing at its own static (period/4). [exe 12948] original operand = 0x0072A810 (.rdata, float 0.015625), shared with 3 `fmul dword` sites at 0x0055A9E2/0x0055AF0A/0x0055B2B6, which is why CET redirects the operand instead of rewriting the constant. HW1 ETG.c:5255-5262."
+  },
+  {
+   "address": "0x0046E05B",
+   "name": "etgDefineAt_UpdateRate3",
+   "kind": "patch_site",
+   "type": "fld dword ptr [abs32] (ETG_UpdateRoundOff/2 operand)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:89",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgAtDefine",
+   "notes": "CET writes 6B fld m32 pointing at its own static (period/4). [exe 12948] original operand = 0x0072A810 (.rdata, float 0.015625), shared with 3 `fmul dword` sites at 0x0055A9E2/0x0055AF0A/0x0055B2B6, which is why CET redirects the operand instead of rewriting the constant. HW1 ETG.c:5255-5262."
+  },
+  {
+   "address": "0x0046E110",
+   "name": "etgNParticleBlocksSet",
+   "kind": "function",
+   "type": "sdword etgNParticleBlocksSet(etgeffectstatic*, ubyte* dest, char* opcodeString, char* params, char* ret)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:139",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgNParticleBlocksSet",
+   "notes": "Replaced (only when HighDetailMode): nParticleBlocks <<= UpdateRateShift."
+  },
+  {
+   "address": "0x0046E7B0",
+   "name": "etgFunctionCall",
+   "kind": "function",
+   "type": "sdword etgFunctionCall(Effect*, etgeffectstatic*, ubyte* opcode)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:138",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgFunctionCall",
+   "notes": "Debug hook only (#if 0)."
+  },
+  {
+   "address": "0x00470BD0",
+   "name": "etgFrequencyExceeded",
+   "kind": "function",
+   "type": "bool32 etgFrequencyExceeded(etgeffectstatic*)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:137",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgFrequencyExceeded",
+   "notes": "HighDetailMode: replaced by `return FALSE` (no effect cap)."
+  },
+  {
+   "address": "0x00475990",
+   "name": "feToggleButtonSet",
+   "kind": "function",
+   "type": "void feToggleButtonSet(char* name, sdword bPressed)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:140",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feToggleButtonSet",
+   "notes": ""
+  },
+  {
+   "address": "0x0048CBD0",
+   "name": "gunShipFirePower_UniverseUpdatePeriod1",
+   "kind": "patch_site",
+   "type": "mov dword ptr [esp+0x1C], imm32 (*fireTime = UNIVERSE_UPDATE_PERIOD)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:84",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Gun.c:gunShipFirePower",
+   "notes": "CET writes 8B C7 44 24 1C <imm32> (Keystone drops the redundant SS prefix). HW1 gunFirePower Gun.c:1657, inlined into gunShipFirePower (Gun.c:1686). [exe 12948] original `C7 44 24 1C 00 00 80 3D` (imm 0.0625f) confirmed; same length as CET's write."
+  },
+  {
+   "address": "0x0048CC57",
+   "name": "gunShipFirePower_UniverseUpdatePeriod2",
+   "kind": "patch_site",
+   "type": "mov dword ptr [esp+0x1C], imm32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:85",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Gun.c:gunShipFirePower",
+   "notes": "Second inlined copy (interceptor path, Gun.c:1700ff) - UNVERIFIED. [exe 12948] original `C7 44 24 1C 00 00 80 3D` (imm 0.0625f) confirmed; same length as CET's write."
+  },
+  {
+   "address": "0x004A4D70",
+   "name": "lodLevelGet",
+   "kind": "function",
+   "type": "int lodLevelGet(void* spaceObj, vector* camera, vector* ship)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:145",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LOD.c:lodLevelGet",
+   "notes": "HW1 returns lod*; Cataclysm returns int level. HighDetailMode replacement forces currentLOD=0 and sets cameraDistanceVector/Squared (SpaceObj+0x44/+0x40)."
+  },
+  {
+   "address": "0x004AC820",
+   "name": "clCommandMessage",
+   "kind": "function",
+   "type": "void clCommandMessage(const char msg[100], udword flags)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:131",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandWrap.c:clCommandMessage",
+   "notes": "HW1 has 1 arg; Cataclysm adds flags (CET passes -1). Used for \"Game Autosaved\"."
+  },
+  {
+   "address": "0x004BDE80",
+   "name": "mgResourceInjectionInterval",
+   "kind": "function",
+   "type": "void mgResourceInjectionInterval(char* name, featom* atom)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:150",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgResourceInjectionInterval",
+   "notes": "Replaced by CET copy (MultiplayerGame.cpp) that converts minutes <-> frames with the new rate. Always hooked when shift>0."
+  },
+  {
+   "address": "0x004BE090",
+   "name": "mgResourceLumpSumInterval",
+   "kind": "function",
+   "type": "void mgResourceLumpSumInterval(char* name, featom* atom)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:151",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgResourceLumpSumInterval",
+   "notes": "Replaced likewise."
+  },
+  {
+   "address": "0x004C2590",
+   "name": "mgGameTypesOtherButtonPressed",
+   "kind": "function",
+   "type": "void mgGameTypesOtherButtonPressed(void)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:149",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgGameTypesOtherButtonPressed",
+   "notes": ""
+  },
+  {
+   "address": "0x004CC634",
+   "name": "nisUpdateTask_UniverseUpdatePeriod1",
+   "kind": "patch_site",
+   "type": "fadd dword ptr [abs32] (UNIVERSE_UPDATE_PERIOD operand)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:91",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisUpdateTask",
+   "notes": "CET writes 6B fadd m32 -> &s_UniverseUpdatePeriod. Plausible HW1 line NIS.c:438 by op sequence - UNVERIFIED. [exe 12948] original operand = 0x0072AAE8 (.rdata, float 0.0625), a pooled constant with 11 code refs."
+  },
+  {
+   "address": "0x004CC701",
+   "name": "nisUpdateTask_UniverseUpdatePeriod2",
+   "kind": "patch_site",
+   "type": "fcomp dword ptr [abs32] (UNIVERSE_UPDATE_PERIOD operand)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:92",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisUpdateTask",
+   "notes": "CET writes 6B fcomp m32 -> &s_UniverseUpdatePeriod. Plausible HW1 line NIS.c:457 by op sequence - UNVERIFIED. [exe 12948] original operand = 0x0072AAE8 (.rdata, float 0.0625), a pooled constant with 11 code refs."
+  },
+  {
+   "address": "0x004CC72C",
+   "name": "nisUpdateTask_UniverseUpdatePeriod3",
+   "kind": "patch_site",
+   "type": "fmul dword ptr [abs32] (UNIVERSE_UPDATE_PERIOD operand)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:93",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisUpdateTask",
+   "notes": "CET writes 6B fmul m32 -> &s_UniverseUpdatePeriod. Plausible HW1 line NIS.c:464 by op sequence - UNVERIFIED. [exe 12948] original operand = 0x0072AAE8 (.rdata, float 0.0625), a pooled constant with 11 code refs."
+  },
+  {
+   "address": "0x004CC7B8",
+   "name": "nisUpdateTask_UniverseUpdatePeriod4",
+   "kind": "patch_site",
+   "type": "fadd dword ptr [abs32] (UNIVERSE_UPDATE_PERIOD operand)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:94",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisUpdateTask",
+   "notes": "CET writes 6B fadd m32 -> &s_UniverseUpdatePeriod. Plausible HW1 line NIS.c:483 by op sequence - UNVERIFIED. [exe 12948] original operand = 0x0072AAE8 (.rdata, float 0.0625), a pooled constant with 11 code refs."
+  },
+  {
+   "address": "0x004CC801",
+   "name": "nisUpdateTask_UNIVERSE_UPDATE_PERIOD_2",
+   "kind": "patch_site",
+   "type": "push imm32 (dt arg of nisUpdate)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:60",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisUpdateTask",
+   "notes": "CET writes `push <period imm32>` (5B: 68 xx xx xx xx; 64Hz=68 00 00 80 3C). [exe 12948] original `68 00 00 80 3D` (push 0.0625f) confirmed. HW1 NIS.c:494/525/546 nisUpdate(..., UNIVERSE_UPDATE_PERIOD)."
+  },
+  {
+   "address": "0x004CC8BE",
+   "name": "nisUpdateTask_UNIVERSE_UPDATE_PERIOD_1",
+   "kind": "patch_site",
+   "type": "mov dword ptr [0x00A4CAB4], imm32 (timeElapsed = UNIVERSE_UPDATE_PERIOD)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:58",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisUpdateTask",
+   "notes": "CET writes 10B C7 05 B4 CA A4 00 <imm32>. HW1 NIS.c:516 `timeElapsed = UNIVERSE_UPDATE_PERIOD;` (timeElapsed is a static at 0x00A4CAB4 in Cataclysm). [exe 12948] original `C7 05 B4 CA A4 00 00 00 80 3D` (imm 0.0625f) confirmed; same length as CET's write."
+  },
+  {
+   "address": "0x004CC8F2",
+   "name": "nisStartup_UNIVERSE_UPDATE_PERIOD",
+   "kind": "patch_site",
+   "type": "push imm32 (task period for nisUpdateTask)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:55",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStartup",
+   "notes": "CET writes `push <period imm32>` (5B: 68 xx xx xx xx; 64Hz=68 00 00 80 3C). [exe 12948] original `68 00 00 80 3D` (push 0.0625f) confirmed. HW1 NIS.c:580."
+  },
+  {
+   "address": "0x004D6BC0",
+   "name": "ShipTypeToStr",
+   "kind": "function",
+   "type": "char* ShipTypeToStr(ShipType)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:168",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ObjTypes.c:ShipTypeToStr",
+   "notes": ""
+  },
+  {
+   "address": "0x004D7E30",
+   "name": "opOptionsAccept",
+   "kind": "function",
+   "type": "void opOptionsAccept(char* name, featom* atom)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:153",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opOptionsAccept",
+   "notes": "Hooked: after original, rndAspectRatio = W/H."
+  },
+  {
+   "address": "0x004DD43E",
+   "name": "partRenderBillSystem_SetPointFiltering",
+   "kind": "patch_site",
+   "type": "buggy texture-filter change",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:103",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partRenderBillSystem",
+   "notes": "CET writes `jmp 0x004DD468` (2B EB 28), skipping 0x2A bytes that switched non-particle textures to point filtering. HW1 Particle.c:703. [exe 12948] the 0x2A skipped bytes are 2x (`push 0x2600; push 0x2801` / `0x2800`; `push 0x0DE1; call [0x00B3A444]`) = glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER / MAG_FILTER, GL_NEAREST) through the GL function-pointer slot 0x00B3A444."
+  },
+  {
+   "address": "0x004DD468",
+   "name": "partRenderBillSystem_AfterSetPointFiltering",
+   "kind": "patch_site",
+   "type": "jump target",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:104",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Particle.c:partRenderBillSystem",
+   "notes": ""
+  },
+  {
+   "address": "0x004EF860",
+   "name": "ranRandomFn",
+   "kind": "function",
+   "type": "udword ranRandomFn(sdword ranIndex)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:154",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Randy.c:ranRandomFn",
+   "notes": "Release signature (HW1 debug has file,line). CET uses ranRandomFn(6)."
+  },
+  {
+   "address": "0x004F17C9",
+   "name": "CollectResources_HarvestRateCheck",
+   "kind": "patch_site",
+   "type": "MinHook mid-function hook; ECX = ShipStaticInfo*",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:69",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResCollect.c:CollectResources",
+   "notes": "Detour CollectResourcesHarvestRateCheck reads [ecx+0x25C]=harvestRate, applies UNIVERSE_WOODPECKER(harvestRate,0), jumps to 0x004F17D5 (collect) or 0x004F1A46 (skip). HW1 ResCollect.c:596. [exe 12948] original `85 81 5C 02 00 00 0F 85 71 02 00 00` = test [ecx+0x25C],eax (eax = univUpdateCounter, loaded at 0x004F17C2); jne 0x004F1A46. Confirms harvestRate @+0x25C, ECX = ShipStaticInfo*, and both jump targets."
+  },
+  {
+   "address": "0x004F17D5",
+   "name": "collectResources",
+   "kind": "patch_site",
+   "type": "jump target: add resources to worker",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:81",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResCollect.c:CollectResources",
+   "notes": "Taken branch of the harvest-rate check."
+  },
+  {
+   "address": "0x004F1A46",
+   "name": "skipCollectResources",
+   "kind": "patch_site",
+   "type": "jump target: skip adding resources",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:82",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResCollect.c:CollectResources",
+   "notes": "Not-taken branch of the harvest-rate check."
+  },
+  {
+   "address": "0x004F2630",
+   "name": "rmCanBuildShip",
+   "kind": "function",
+   "type": "bool32 rmCanBuildShip(Player*, ShipType, int p3)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:159",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmCanBuildShip",
+   "notes": "Cataclysm adds a 3rd int (CET passes 1 or 0); meaning UNVERIFIED."
+  },
+  {
+   "address": "0x004F2A20",
+   "name": "rmUpdateResearch",
+   "kind": "function",
+   "type": "void rmUpdateResearch(void)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:160",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmUpdateResearch",
+   "notes": ""
+  },
+  {
+   "address": "0x004FDAF0",
+   "name": "SaveGame",
+   "kind": "function",
+   "type": "bool32 SaveGame(const char* filename)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:161",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveGame",
+   "notes": "CET autosave: SaveGame(\"SavedGames\\\\{SinglePlayer|MultiPlayer}\\\\Autosave\")."
+  },
+  {
+   "address": "0x0050A43B",
+   "name": "SensorHack_site",
+   "kind": "patch_site",
+   "type": "2-byte instruction (jle short, 7E 0A)",
+   "source": "CataclysmEngineTweaks/GameHooks.cpp:166",
+   "hw1_equivalent": "",
+   "notes": "Debug builds only, [Debug] SensorHack: `nop; nop`. Purpose undocumented (name suggests sensors/fog-of-war visibility). UNVERIFIED. [exe 12948] original `7E 0A` = jle 0x0050A447. Ghidra container FUN_0050A310."
+  },
+  {
+   "address": "0x005118D0",
+   "name": "selNumShipsInSelection",
+   "kind": "function",
+   "type": "int selNumShipsInSelection(MaxSelection*, ShipType)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:167",
+   "hw1_equivalent": "",
+   "notes": "Not in HW1 (closest: Select.c selShipsInSelection)."
+  },
+  {
+   "address": "0x00519700",
+   "name": "UpdateMidLevelHyperspacingShips",
+   "kind": "function",
+   "type": "void UpdateMidLevelHyperspacingShips(void)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:181",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:UpdateMidLevelHyperspacingShips",
+   "notes": "Declared, unused."
+  },
+  {
+   "address": "0x005197D0",
+   "name": "singlePlayerGameUpdate",
+   "kind": "function",
+   "type": "void singlePlayerGameUpdate(void)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:169",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerGameUpdate",
+   "notes": "Hooked (pass-through; debug tick logging only)."
+  },
+  {
+   "address": "0x00522560",
+   "name": "speechEventQueue",
+   "kind": "function",
+   "type": "sdword speechEventQueue(void* obj, sdword event, sdword var, sdword variation, sdword actornum, sdword playernum, sdword linkto, real32 timeout, sword volume)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:171",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SpeechEvent.c:speechEventQueue",
+   "notes": "Declared, unused."
+  },
+  {
+   "address": "0x00524841",
+   "name": "univUpdate1",
+   "kind": "patch_site",
+   "type": "push imm32 (real32 phystimeelapsed arg of univUpdate)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:41",
+   "hw1_equivalent": "",
+   "notes": "CET writes `push <period imm32>` (5B: 68 xx xx xx xx; 64Hz=68 00 00 80 3C). [exe 12948] original `68 00 00 80 3D` (push 0.0625f) confirmed. Caller unidentified: lies between speechEventQueue 0x00522560 and scriptSetReal32CB 0x005259D0; HW1 non-Universe callers of univUpdate(UNIVERSE_UPDATE_PERIOD) are Stats.c:434 and NIS.c:543 - UNVERIFIED. [exe 12948] Ghidra container FUN_00524790 (unnamed); the push feeds `call 0x0054C3F0` (univUpdate)."
+  },
+  {
+   "address": "0x005256B7",
+   "name": "univUpdate2",
+   "kind": "patch_site",
+   "type": "push imm32 (phystimeelapsed)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:43",
+   "hw1_equivalent": "",
+   "notes": "CET writes `push <period imm32>` (5B: 68 xx xx xx xx; 64Hz=68 00 00 80 3C). [exe 12948] original `68 00 00 80 3D` (push 0.0625f) confirmed. Same caller cluster as univUpdate1 - UNVERIFIED. [exe 12948] Ghidra container FUN_00525640 (unnamed)."
+  },
+  {
+   "address": "0x005259D0",
+   "name": "scriptSetReal32CB",
+   "kind": "function",
+   "type": "void scriptSetReal32CB(char* dir, char* field, void* data)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:164",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetReal32CB",
+   "notes": ""
+  },
+  {
+   "address": "0x00525C20",
+   "name": "scriptSetUdwordCB",
+   "kind": "function",
+   "type": "void scriptSetUdwordCB(char* dir, char* field, void* data)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:166",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetUdwordCB",
+   "notes": ""
+  },
+  {
+   "address": "0x00526420",
+   "name": "scriptSet",
+   "kind": "function",
+   "type": "void scriptSet(const char* directory, const char* filename, scriptEntry info[])",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:162",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSet",
+   "notes": ""
+  },
+  {
+   "address": "0x00527820",
+   "name": "scriptSetTweakableGlobals",
+   "kind": "function",
+   "type": "void scriptSetTweakableGlobals(void)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:165",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetTweakableGlobals",
+   "notes": "Hooked: also parses aiskirmish.script when EnableNewAI."
+  },
+  {
+   "address": "0x0052AF12",
+   "name": "BabyTasksStartup_UNIVERSE_UPDATE_PERIOD",
+   "kind": "patch_site",
+   "type": "push imm32 (baby-callback task period)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:63",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Task.c:taskCallBackInit",
+   "notes": "CET writes `push <period imm32>` (5B: 68 xx xx xx xx; 64Hz=68 00 00 80 3C). [exe 12948] original `68 00 00 80 3D` (push 0.0625f) confirmed. HW1 Task.c:539 taskStart(taskCallBackProcess, BABY_CallBackPeriod=1/16 (Task.h:90), 0)."
+  },
+  {
+   "address": "0x005388F0",
+   "name": "uicTextBufferResize",
+   "kind": "function",
+   "type": "void uicTextBufferResize(textentryhandle, sdword size)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:174",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicTextBufferResize",
+   "notes": ""
+  },
+  {
+   "address": "0x00538980",
+   "name": "uicTextEntrySet",
+   "kind": "function",
+   "type": "void uicTextEntrySet(textentryhandle, char* text, sdword cursorPos)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:176",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicTextEntrySet",
+   "notes": ""
+  },
+  {
+   "address": "0x00538A30",
+   "name": "uicTextEntryInit",
+   "kind": "function",
+   "type": "void uicTextEntryInit(textentryhandle, udword flags)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:175",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicTextEntryInit",
+   "notes": ""
+  },
+  {
+   "address": "0x0053AC70",
+   "name": "scriptSetFramesCB",
+   "kind": "function",
+   "type": "void scriptSetFramesCB(char* dir, char* field, void* data)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:163",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:scriptSetFramesCB",
+   "notes": "Replaced: value * new rate (HW1 * UNIVERSE_UPDATE_RATE). Used for buildTime."
+  },
+  {
+   "address": "0x0053E8A5",
+   "name": "univUpdate3",
+   "kind": "patch_site",
+   "type": "push imm32 (phystimeelapsed)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:45",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:universeUpdateTask",
+   "notes": "CET writes `push <period imm32>` (5B: 68 xx xx xx xx; 64Hz=68 00 00 80 3C). [exe 12948] original `68 00 00 80 3D` (push 0.0625f) confirmed. Mapping by address: three sites within 0x110 bytes just below GetShipStaticInfo 0x0053EA50; HW1 universeUpdateTask (Universe.c:3784) calls univUpdate(UNIVERSE_UPDATE_PERIOD) at 3971/3984/4026/4035 - UNVERIFIED."
+  },
+  {
+   "address": "0x0053E8DB",
+   "name": "univUpdate4",
+   "kind": "patch_site",
+   "type": "push imm32 (phystimeelapsed)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:47",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:universeUpdateTask",
+   "notes": "CET writes `push <period imm32>` (5B: 68 xx xx xx xx; 64Hz=68 00 00 80 3C). [exe 12948] original `68 00 00 80 3D` (push 0.0625f) confirmed. Mapping by address: three sites within 0x110 bytes just below GetShipStaticInfo 0x0053EA50; HW1 universeUpdateTask (Universe.c:3784) calls univUpdate(UNIVERSE_UPDATE_PERIOD) at 3971/3984/4026/4035 - UNVERIFIED."
+  },
+  {
+   "address": "0x0053E9B5",
+   "name": "univUpdate5",
+   "kind": "patch_site",
+   "type": "push imm32 (phystimeelapsed)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:49",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:universeUpdateTask",
+   "notes": "CET writes `push <period imm32>` (5B: 68 xx xx xx xx; 64Hz=68 00 00 80 3C). [exe 12948] original `68 00 00 80 3D` (push 0.0625f) confirmed. Mapping by address: three sites within 0x110 bytes just below GetShipStaticInfo 0x0053EA50; HW1 universeUpdateTask (Universe.c:3784) calls univUpdate(UNIVERSE_UPDATE_PERIOD) at 3971/3984/4026/4035 - UNVERIFIED."
+  },
+  {
+   "address": "0x0053EA50",
+   "name": "GetShipStaticInfo",
+   "kind": "function",
+   "type": "ShipStaticInfo* GetShipStaticInfo(ShipType)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:142",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:GetShipStaticInfo",
+   "notes": "Cataclysm drops the ShipRace parameter (HW1: (ShipType, ShipRace))."
+  },
+  {
+   "address": "0x0053F9F0",
+   "name": "sub_53F9F0",
+   "kind": "function",
+   "type": "",
+   "source": "CataclysmEngineTweaks/game/Game/AISkirmish.h:105",
+   "hw1_equivalent": "",
+   "notes": "IDA-style name in a comment: decides which enemy team (TEAM_MimicEnemy1/2) a mimic group is assigned to. Cataclysm-only."
+  },
+  {
+   "address": "0x00543F48",
+   "name": "aiUpdateExternalShipBuild_CalculateTimerDuration",
+   "kind": "patch_site",
+   "type": "MinHook mid-function hook; EAX = ShipStaticInfo->buildTime (frames)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:115",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm-only (external construction). Detour: EAX = EAX / s_UniverseUpdateRate (unsigned div), jmp 0x00543F51. [exe 12948] original 9 bytes `99 83 E2 0F 03 C2 C1 F8 04` = cdq; and edx,15; add eax,edx; sar eax,4 (SIGNED buildTime/16), preceded by `mov eax,[eax+0x23C]` (ShipStaticInfo.buildTime). The result (seconds) goes as a float to FUN_00528410(&ship->buildTimer @+0x5B4, secs) (ghidra/exports/cataclysm_gog/decompiled.c:210779). CET's detour uses unsigned div and clobbers ECX, which is dead there (next use is `lea ecx,[edi+0x5B4]`)."
+  },
+  {
+   "address": "0x00543F51",
+   "name": "aiUpdateExternalShipBuild_SetTimerDuration",
+   "kind": "patch_site",
+   "type": "resume address",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:116",
+   "hw1_equivalent": "",
+   "notes": ""
+  },
+  {
+   "address": "0x00546A20",
+   "name": "univBulletCollidedWithTarget",
+   "kind": "function",
+   "type": "void univBulletCollidedWithTarget(int unknown, SpaceObjRotImpTarg* target, StaticHeader* targetstaticheader, Bullet* bullet, real32 collideLineDist, sdword collSide)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:177",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univBulletCollidedWithTarget",
+   "notes": "Cataclysm adds a leading int. Hooked: skip own-mothership-module friendly fire; beams only collide every factor-th frame."
+  },
+  {
+   "address": "0x0054860C",
+   "name": "CheckPlayerWin_GameTypeCheck",
+   "kind": "patch_site",
+   "type": "MinHook mid-function hook (trampoline kept)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:100",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:CheckPlayerWin",
+   "notes": "Skirmish fix: if !multiPlayerGame && !singlePlayerGame jump to MP branch 0x00548619, else run original bytes via trampoline. HW1 UnivUpdate.c:4150 (`if (!singlePlayerGame)` 4158). [exe 12948] original `A1 94 3C A4 00 85 C0 0F 84 CC 00 00 00` = if (!multiPlayerGame) goto 0x005486E5; 0x00548619 is the fall-through (MP) branch. Cataclysm tests multiPlayerGame where HW1 tests !singlePlayerGame, so skirmish (both FALSE) took the non-MP path at 0x005486E5."
+  },
+  {
+   "address": "0x00548619",
+   "name": "CheckPlayerWin_IsMultiplayerGame",
+   "kind": "patch_site",
+   "type": "jump target: multiplayer win-condition branch",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:101",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:CheckPlayerWin",
+   "notes": ""
+  },
+  {
+   "address": "0x0054ACD0",
+   "name": "univUpdateReset",
+   "kind": "function",
+   "type": "void univUpdateReset(void)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:180",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univupdateReset",
+   "notes": "Hooked (when shift>0): rewrites HS slice rate, RU regen rate, ETG constants; resets autosave timer."
+  },
+  {
+   "address": "0x0054ACDB",
+   "name": "univUpdateReset_UNIVERSE_UPDATE_PERIOD",
+   "kind": "patch_site",
+   "type": "mov dword ptr [0x00B62ABC], imm32 (universe.phystimeelapsed = UNIVERSE_UPDATE_PERIOD)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:66",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univupdateReset",
+   "notes": "CET writes 10B C7 05 BC 2A B6 00 <imm32>. univUpdateReset fn = 0x0054ACD0 (+0xB). HW1 UnivUpdate.c:6224. [exe 12948] original `C7 05 BC 2A B6 00 00 00 80 3D` (imm 0.0625f) confirmed; same length as CET's write."
+  },
+  {
+   "address": "0x0054C270",
+   "name": "univCheckRegrowResources",
+   "kind": "function",
+   "type": "void univCheckRegrowResources(void)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:178",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univCheckRegrowResources",
+   "notes": ""
+  },
+  {
+   "address": "0x0054C3F0",
+   "name": "univUpdate",
+   "kind": "function",
+   "type": "bool32 univUpdate(real32 phystimeelapsed)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:179",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univUpdate",
+   "notes": "Hooked always: autosave timer decremented by phystimeelapsed."
+  },
+  {
+   "address": "0x0054C83D",
+   "name": "startRmUpdateResearch",
+   "kind": "patch_site",
+   "type": "MinHook mid-function hook in univUpdate",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:78",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univUpdate",
+   "notes": "Replaced by WOODPECKER(15,13) -> rmUpdateResearch(); resumes at 0x0054C859. HW1 UnivUpdate.c:7462 (REFRESH_RESEARCH_RATE/FRAME 15/13 also in tweak.script). [exe 12948] original: (univUpdateCounter & [0x008AC5C4]=15) == [0x008AC5C8]=13 -> call 0x004F2A20, i.e. mask/frame come from tweakable globals; CET hard-codes 15/13, so any script override is ignored."
+  },
+  {
+   "address": "0x0054C859",
+   "name": "endRmUpdateResearch",
+   "kind": "patch_site",
+   "type": "resume address after research update",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:79",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univUpdate",
+   "notes": ""
+  },
+  {
+   "address": "0x0054CD73",
+   "name": "startUnivCheckRegrowResources",
+   "kind": "patch_site",
+   "type": "MinHook mid-function hook in univUpdate",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:74",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univUpdate",
+   "notes": "Replaced by WOODPECKER(255,86) -> univCheckRegrowResources(); resumes at 0x0054CD8F. HW1 UnivUpdate.c:7588 (REGROW_RESOURCES_CHECK_RATE/FRAME = 255/86, ResCollect.c:60-61). [exe 12948] original: (univUpdateCounter & [0x0088F558]=255) == [0x0088F55C]=86 -> call 0x0054C270; globals, CET hard-codes 255/86."
+  },
+  {
+   "address": "0x0054CD8F",
+   "name": "endUnivCheckRegrowResources",
+   "kind": "patch_site",
+   "type": "resume address after regrow check",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:75",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univUpdate",
+   "notes": ""
+  },
+  {
+   "address": "0x00558F20",
+   "name": "fqEqualize",
+   "kind": "function",
+   "type": "int fqEqualize(float* aBlock, float* aEq)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:141",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/fqeffect.c:fqEqualize",
+   "notes": "[Audio] DisableEqualizer: first byte overwritten with `ret` (C3) via Keystone. [exe 12948] entry bytes `51 53 8B 5C 24 0C` (push ecx; push ebx; mov ebx,[esp+0xC]): cdecl stack args, so a bare `ret` leaves the stack balanced."
+  },
+  {
+   "address": "0x00559AC0",
+   "name": "glCapNT",
+   "kind": "function",
+   "type": "bool32 glCapNT(void)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:143",
+   "hw1_equivalent": "",
+   "notes": "Relic Win32 glcaps.c (not in HomeworldSDL; port only has `extern glCapNT` in SDL/rinit.c:43). Replaced: returns TRUE when [OpenGL] FixWindowsNTBug."
+  },
+  {
+   "address": "0x00559BE0",
+   "name": "glCapStartup",
+   "kind": "function",
+   "type": "void glCapStartup(void)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:144",
+   "hw1_equivalent": "",
+   "notes": "Relic Win32 glcaps.c. Hooked: after original, clears glCapCompiledVertexArray if NoCompiledVertexArrays."
+  },
+  {
+   "address": "0x0055FC70",
+   "name": "mainRescaleMainWindow",
+   "kind": "function",
+   "type": "void mainRescaleMainWindow(void)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:146",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:mainRescaleMainWindow",
+   "notes": ""
+  },
+  {
+   "address": "0x00562084",
+   "name": "ActivateMe_ReInitRenderer",
+   "kind": "patch_site",
+   "type": "10-byte global write on WM_ACTIVATE (windowed)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:98",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:ActivateMe",
+   "notes": "CET writes `jmp 0x0056208E` (2B EB 08) when not fullscreen, skipping 10 bytes. [exe 12948] the skipped 10 bytes are `C7 05 50 4D A7 00 02 00 00 00` = mov dword [0x00A74D50], 2: a global set to 2 (presumably a deferred renderer re-init request; meaning UNVERIFIED), not a call. Nothing equivalent in the SDL port ActivateMe (main.c:1154). Ghidra finds no containing function."
+  },
+  {
+   "address": "0x0056208E",
+   "name": "ActivateMe_AfterReInitRenderer",
+   "kind": "patch_site",
+   "type": "jump target",
+   "source": "CataclysmEngineTweaks/PatchRGL.cpp:93",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:ActivateMe",
+   "notes": "Literal in PatchRGL.cpp."
+  },
+  {
+   "address": "0x00562401",
+   "name": "WindowProc_JumpIfF12KeyUp",
+   "kind": "patch_site",
+   "type": "Jcc in WM_KEYUP handling (F12 -> debug key handler)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:109",
+   "hw1_equivalent": "",
+   "notes": "CET writes `je 0x00562943` (6B 0F 84 3C 05 00 00). [exe 12948] original `0F 84 D9 00 00 00` = je 0x005624E0 (debug-key path): same 6-byte length. Win32 WindowProc is not in HomeworldSDL (SDL event loop, main.c ~1939)."
+  },
+  {
+   "address": "0x00562943",
+   "name": "WindowProc_NormalKeyUpEvent",
+   "kind": "patch_site",
+   "type": "jump target: normal key-up handling",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:110",
+   "hw1_equivalent": "",
+   "notes": ""
+  },
+  {
+   "address": "0x00563563",
+   "name": "InitWindow_DeviceCrcCheck",
+   "kind": "patch_site",
+   "type": "MinHook mid-function hook (NewRendererSelection only)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:96",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:InitWindow",
+   "notes": "Detour: if opDeviceCRC != rinDeviceCRC(): save CRC, set MAIN_Window* = desktop size/32bpp, mainRescaleMainWindow(), glToSelect=\"opengl32.dll\"; then jmp 0x00563645. HW1 main.c:1979-1996 (forces software renderer instead)."
+  },
+  {
+   "address": "0x00563645",
+   "name": "InitWindow_DeviceCrcCheck_Continue",
+   "kind": "patch_site",
+   "type": "resume address after device-CRC block",
+   "source": "CataclysmEngineTweaks/PatchRGL.cpp:29",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:InitWindow",
+   "notes": "Hard-coded in PatchRGL.cpp, not in Cataclysm.h."
+  },
+  {
+   "address": "0x0057B78B",
+   "name": "rndRenderTask_FrameLimiter1",
+   "kind": "patch_site",
+   "type": "8 bytes of framerate-limiter code",
+   "source": "CataclysmEngineTweaks/PatchRGL.cpp:98",
+   "hw1_equivalent": "",
+   "notes": "DisableFramerateLimit: 8x NOP (90). Limiter is not present in HW1 render.c rndRenderTask; [exe 12948] original `6A 01 FF 15 18 A2 72 00` = push 1; call [0x0072A218] (KERNEL32!Sleep IAT slot, ghidra/exports/cataclysm_gog/imports.txt), i.e. Sleep(1). Ghidra container FUN_0057B760 (proposed rndRenderTask)."
+  },
+  {
+   "address": "0x0057B7A1",
+   "name": "rndRenderTask_FrameLimiter2",
+   "kind": "patch_site",
+   "type": "8 bytes of framerate-limiter code",
+   "source": "CataclysmEngineTweaks/PatchRGL.cpp:99",
+   "hw1_equivalent": "",
+   "notes": "DisableFramerateLimit: 8x NOP. [exe 12948] original: a second `push 1; call [Sleep]` (same 8 bytes)."
+  },
+  {
+   "address": "0x0057DCF0",
+   "name": "rinDeviceCRC",
+   "kind": "function",
+   "type": "udword rinDeviceCRC(void)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:155",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/rinit.c:rinDeviceCRC",
+   "notes": ""
+  },
+  {
+   "address": "0x0057DE00",
+   "name": "rinSortModes",
+   "kind": "function",
+   "type": "void rinSortModes(rdevice*)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:158",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/rinit.c:rinSortModes",
+   "notes": "Replaced: keeps only 32-bit modes, no 4:3 filtering."
+  },
+  {
+   "address": "0x0057E5C0",
+   "name": "rinEnumDisplayModes_cb",
+   "kind": "function",
+   "type": "HRESULT WINAPI rinEnumDisplayModes_cb(LPDDSURFACEDESC2, LPVOID ctx)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:156",
+   "hw1_equivalent": "",
+   "notes": "DirectDraw7 EnumDisplayModes callback (Relic Win32 rinit.c; removed from SDL port). Replaced: 32bpp >=640x480 only. Cataclysm.h typedef lacks WINAPI."
+  },
+  {
+   "address": "0x0057E710",
+   "name": "rinEnumPrimaryDisplayModes_cb",
+   "kind": "function",
+   "type": "HRESULT WINAPI rinEnumPrimaryDisplayModes_cb(LPDDSURFACEDESC, LPVOID ctx)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:157",
+   "hw1_equivalent": "",
+   "notes": "Old-DDraw primary enum callback. Replaced: 16/32bpp >=640x480."
+  },
+  {
+   "address": "0x005808E0",
+   "name": "soundStartDSound",
+   "kind": "function",
+   "type": "sdword soundStartDSound(HWND)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:170",
+   "hw1_equivalent": "",
+   "notes": "Relic Win32 soundlow.c (SDL port has no DirectSound). Replaced unless ForceWaveOut: skips DSCAPS_CERTIFIED check."
+  },
+  {
+   "address": "0x00589115",
+   "name": "texreg_unknown_push0_site",
+   "kind": "patch_site",
+   "type": "push imm8 (6A 28)",
+   "source": "CataclysmEngineTweaks/GameHooks.cpp:158",
+   "hw1_equivalent": "",
+   "notes": "Commented-out experiment `push 0`; not applied. Just below trCramRAMComputeAndScale 0x00589A50. [exe 12948] original `6A 28` = push 0x28; CET's `push 0` (6A 00) would be the same length. Ghidra container FUN_005890C0."
+  },
+  {
+   "address": "0x00589A50",
+   "name": "trCramRAMComputeAndScale",
+   "kind": "function",
+   "type": "void trCramRAMComputeAndScale(void)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:173",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trCramRAMScaleCompute",
+   "notes": "Declared, unused. Likely merges HW1 trCramRAMScaleCompute+trCramIntoRAM - UNVERIFIED. Contains LoadMission_AdjustTextureMemoryLimit (+0x9A)."
+  },
+  {
+   "address": "0x00589AEA",
+   "name": "LoadMission_AdjustTextureMemoryLimit",
+   "kind": "patch_site",
+   "type": "MinHook mid-function hook; [esp+0x18] = texture RAM pool limit local",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:106",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trCramRAMScaleCompute",
+   "notes": "Always installed. Detour sets [esp+0x18]=INT32_MAX if UnlimitedVideoMemory, then ALWAYS jmp 0x00589B1F (mission-17 pool reduction skipped unconditionally). Lies 0x9A into trCramRAMComputeAndScale (0x00589A50); [exe 12948] original: `74 33` je 0x00589B1F; `83 3D C0 A5 C0 00 11` cmp [singlePlayerGameInfo.currentMission],17; `75 2A` jne 0x00589B1F; then pool = max(0x100000, int64 * 0.3f [0x0072B064]) stored at [esp+0x18]. Confirms the mission-17 shrink and the [esp+0x18] local. HW1 mapping still UNVERIFIED."
+  },
+  {
+   "address": "0x00589B1F",
+   "name": "LoadMission_AfterTextureMemoryLimitAdjustment",
+   "kind": "patch_site",
+   "type": "resume address",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:107",
+   "hw1_equivalent": "",
+   "notes": ""
+  },
+  {
+   "address": "0x005A4D90",
+   "name": "mistrailUpdate",
+   "kind": "function",
+   "type": "void mistrailUpdate(missiletrail*, vector* position)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:152",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:mistrailUpdate",
+   "notes": "Hooked: original only every factor-th universe frame."
+  },
+  {
+   "address": "0x005A7A70",
+   "name": "trailSegmentsRead",
+   "kind": "function",
+   "type": "void trailSegmentsRead(char* dir, char* field, void* data)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:172",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailSegmentsRead",
+   "notes": "Hooked: segment count << shift before calling original."
+  },
+  {
+   "address": "0x005ABB21",
+   "name": "utyGameSystemsPreInit_UpdateBigFileName1",
+   "kind": "patch_site",
+   "type": "push imm32 (char* update bigfile name)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:119",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyGameSystemsPreInit",
+   "notes": "CET writes `push &\"Update102.big\"` (5B 68 <addr in CET DLL>). Original pushes the exe string for the update bigfile (HW1 BigFile.c:74 \"Update.big\"; [exe 12948] original `68 38 0F 8C 00` = push 0x008C0F38 -> \"Update.big\")."
+  },
+  {
+   "address": "0x005ABB3E",
+   "name": "utyGameSystemsPreInit_UpdateBigFileName2",
+   "kind": "patch_site",
+   "type": "push imm32 (char* update bigfile name)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:120",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyGameSystemsPreInit",
+   "notes": "CET writes `push &\"Update102.big\"` (5B 68 <addr in CET DLL>). Original pushes the exe string for the update bigfile (HW1 BigFile.c:74 \"Update.big\"; [exe 12948] original `68 38 0F 8C 00` = push 0x008C0F38 -> \"Update.big\")."
+  },
+  {
+   "address": "0x005ABB5C",
+   "name": "utyGameSystemsPreInit_UpdateBigFileName3",
+   "kind": "patch_site",
+   "type": "push imm32 (char* update bigfile name)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:121",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyGameSystemsPreInit",
+   "notes": "CET writes `push &\"Update102.big\"` (5B 68 <addr in CET DLL>). Original pushes the exe string for the update bigfile (HW1 BigFile.c:74 \"Update.big\"; [exe 12948] original `68 38 0F 8C 00` = push 0x008C0F38 -> \"Update.big\")."
+  },
+  {
+   "address": "0x005ABF68",
+   "name": "utyGameSystemsInit_TimerResolutionMax",
+   "kind": "patch_site",
+   "type": "push imm32 (task-timer frequency)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:71",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyGameSystemsInit",
+   "notes": "CET writes `push 15*rate` (64Hz: 68 C0 03 00 00). Original presumably push 0xF0 (240 = UTY_TimerResolutionMax, HW1 utility.h:39; taskStartup at utility.c:3940): [exe 12948] confirmed by bytes `68 F0 00 00 00`."
+  },
+  {
+   "address": "0x005AC174",
+   "name": "utyGameSystemsInit_UNIVERSE_UPDATE_PERIOD",
+   "kind": "patch_site",
+   "type": "push imm32 (task period for universeUpdateTask)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:52",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyGameSystemsInit",
+   "notes": "CET writes `push <period imm32>` (5B: 68 xx xx xx xx; 64Hz=68 00 00 80 3C). [exe 12948] original `68 00 00 80 3D` (push 0.0625f) confirmed. HW1 utility.c:4071 taskStart(universeUpdateTask, UNIVERSE_UPDATE_PERIOD, 0)."
+  },
+  {
+   "address": "0x005BC900",
+   "name": "beastMothershipSelfDamage",
+   "kind": "function",
+   "type": "void beastMothershipSelfDamage(ShipStaticInfo*)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:130",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm-only (Beast mothership infection self-damage). Hooked: only called when univUpdateCounter % factor == 0."
+  },
+  {
+   "address": "0x006725D0",
+   "name": "memAlloc",
+   "kind": "function",
+   "type": "void* memAlloc(size_t size)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:147",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/rinit.c:rinMemAlloc",
+   "notes": "CET calls it with 1 arg, only from its rinAddMode replacement (game/Game/rinit.cpp:27). [exe 12948] NOT Relic's memAllocFunction: it is the statically linked MSVC debug-CRT malloc (38-byte body calling the _nh_malloc_dbg-style FUN_00672650(size, [0x00A78F14], 1=_NORMAL_BLOCK, 0, 0); FID-matched __malloc_dbg follows at 0x00672600; only 39 call sites). This matches HW1 rinit.c, whose rinMemAlloc/rinMemFree wrap CRT malloc/free (SDL/rinit.c:45-58). Relic's release memAllocFunction(length, flags) (HW1 Memory.h:309,375) is a different function, probably FUN_004ADEE0 (849 call sites, 2 args; UNVERIFIED)."
+  },
+  {
+   "address": "0x00673080",
+   "name": "memFree",
+   "kind": "function",
+   "type": "void memFree(void* ptr)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:148",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/rinit.c:rinMemFree",
+   "notes": "[exe 12948] CRT free: 19-byte body = __free_dbg(ptr, 1) (FID-matched __free_dbg at 0x006730A0). Pairs with the CRT malloc above, as in HW1 rinit.c:55-58. Relic's memFree is probably FUN_004AE130 (1066 call sites; UNVERIFIED)."
+  },
+  {
+   "address": "0x0072A614",
+   "name": "TimerResolutionMax",
+   "kind": "data",
+   "type": "real32 (constant 240.0f)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:190",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.h:UTY_TimerResolutionMax",
+   "notes": "CET writes 15*rate without VirtualProtect. [exe 12948] value 240.0f confirmed; it sits in .rdata, which this exe flags writable (0xC0000040). POOLED constant: 8 `fmul dword` refs in FUN_0042ED90, FUN_0042F1C0, FUN_0042F270 (x3), FUN_0052EC50 (x2), FUN_0058A000, so CET's write rescales all of them (presumably all seconds->timer-tick conversions as in HW1 TimeoutTimer.c:95 / Captaincy.c:211, e.g. decompiled.c:196735; UNVERIFIED)."
+  },
+  {
+   "address": "0x0072A818",
+   "name": "ETG_UpdateRoundOff",
+   "kind": "data",
+   "type": "real64 (double constant 0.03125; CET declares it float*)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:194",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.h:ETG_UpdateRoundOff",
+   "notes": "(double)ETG_UpdateRoundOff, the fmod divisor of HW1 ETG.c:5255. CET writes period/2 through a float*. [exe 12948] bytes `00 00 00 00 00 00 A0 3F` = DOUBLE 0.03125; sole code ref is `fld qword [0x0072A818]` (DD 05) at 0x0046E037 in etgAtDefine. CET's 4-byte float store (64Hz: 0x3C000000) lands in the LOW dword only, so the double stays ~0.03125: the write is ineffective (CET bug, see docs/cet-knowledge.md section 9)."
+  },
+  {
+   "address": "0x0072A82C",
+   "name": "etgEffectorCI_UniverseUpdateRate",
+   "kind": "data",
+   "type": "real32 (constant -16.0f)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:193",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffectorCI",
+   "notes": "CET writes -rate. [exe 12948] value -16.0f confirmed; only 1 code ref (`fmul dword` at 0x0046F0E0), so the write affects only this use."
+  },
+  {
+   "address": "0x0087922C",
+   "name": "dbgInt3Enabled",
+   "kind": "data",
+   "type": "sdword",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:246",
+   "hw1_equivalent": "",
+   "notes": "Relic Debug.c (not in port). CET clears it unless a debugger is attached so assertion dialogs show. [exe 12948] initial value 1 (TRUE) confirmed."
+  },
+  {
+   "address": "0x00886028",
+   "name": "tpGameCreated",
+   "kind": "data",
+   "type": "CaptainGameInfo (688 bytes in Cataclysm per CET)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:199",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterfaceC.c:tpGameCreated",
+   "notes": "CET reads resourceInjectionInterval @+0xB0 and resourceLumpSumTime @+0xB8 (HW1 layout; not asserted)."
+  },
+  {
+   "address": "0x008860D8",
+   "name": "tpGameCreated_resourceInjectionInterval",
+   "kind": "data",
+   "type": "udword (frames)",
+   "source": "CataclysmEngineTweaks/game/Game/MultiplayerGame.cpp:31",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterfaceC.h:CaptainGameInfo.resourceInjectionInterval",
+   "notes": "Derived from HW1 layout used by CET (+0xB0); Cataclysm struct changed (688 B) so UNVERIFIED but exercised by CET release code."
+  },
+  {
+   "address": "0x008860E0",
+   "name": "tpGameCreated_resourceLumpSumTime",
+   "kind": "data",
+   "type": "udword (frames)",
+   "source": "CataclysmEngineTweaks/game/Game/MultiplayerGame.cpp:69",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterfaceC.h:CaptainGameInfo.resourceLumpSumTime",
+   "notes": "Derived (+0xB8); UNVERIFIED."
+  },
+  {
+   "address": "0x0088F580",
+   "name": "RegenerateRURate",
+   "kind": "data",
+   "type": "sdword",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:188",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResCollect.c:regenerateRUrate",
+   "notes": "HW1 255 (mask, WOODPECKER(regenerateRUrate,0) UnivUpdate.c:7405). CET sets 16*rate-1. [exe 12948] initial value 255 confirmed."
+  },
+  {
+   "address": "0x00892670",
+   "name": "SongNumberLoadGameOffset",
+   "kind": "data",
+   "type": "sdword* (ptr field of entry 2 of a {void* ptr; udword size}[3] table at 0x00892660)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:233",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:SMMissionTweaks",
+   "notes": "CET redirects slot to a dummy. [exe 12948] NOT an HW1 SMMissionTweaks scriptEntry (0x008925FC is ASCII text). It is the ptr of the 3rd {ptr,size} pair in a 3-entry table at 0x00892660 = {0x00A6B204,4},{0x00A6B20C,4},{0x00883960,4}, summed and packed by FUN_004FDA00 (decompiled.c:159117-159140) and copied back over each ptr by FUN_004FE0E0 (decompiled.c:159505-159525). 0x00883960 = SongNumber: loaded by FUN_004FDFC0 (decompiled.c:159414, cf. HW1 SaveGame.c:640) and reset to -1 by FUN_004A3A10 (decompiled.c:105708, cf. HW1 LevelLoad.c:236). SongNumber var: LevelLoad.c:49."
+  },
+  {
+   "address": "0x0089410C",
+   "name": "HYPERSPACE_SLICE_RATE",
+   "kind": "data",
+   "type": "real32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:187",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:HYPERSPACE_SLICE_RATE",
+   "notes": "HW1 default 0.075f; Cataclysm scripts use 0.025. CET sets 1/(rate*2.5) in univUpdateReset hook. [exe 12948] initial value 0.075f confirmed."
+  },
+  {
+   "address": "0x008B2428",
+   "name": "ShipStaticScriptTable",
+   "kind": "data",
+   "type": "scriptStructEntry[] (16-byte entries)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:224",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:ShipStaticScriptTable",
+   "notes": "Declared, unused directly; NLIPS/trail entries patched by slot address."
+  },
+  {
+   "address": "0x008B2B9C",
+   "name": "shipNLipsRead",
+   "kind": "data",
+   "type": "setVarCback (ShipStaticScriptTable[119].setVarCB)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:261",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:ShipStaticScriptTable",
+   "notes": "(0x008B2B9C-0x008B2428)/16 = 119 r4. HW1 key \"N-LIPS\" (entry 106) fills scaleCap; Cataclysm fills ShipStaticInfo.nlips @0x30C ([exe 12948] entry 119 = {\"N-LIPS\", 0x005259D0 scriptSetReal32CB, 0x00B3B72C, dummy base 0x00B3B420} -> +0x30C confirmed; the table has 178 named entries). Replaced by CET callback (writes 0 if DisableNLips)."
+  },
+  {
+   "address": "0x008B2C0C",
+   "name": "trailScaleCapRead",
+   "kind": "data",
+   "type": "setVarCback (ShipStaticScriptTable[126].setVarCB)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:262",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:ShipStaticScriptTable",
+   "notes": "\"trailScaleCap\"; entries 7 apart per trail as in HW1. [exe 12948] entry name \"trailScaleCap\", setVarCB 0x005259D0, field offset +0x384 confirmed."
+  },
+  {
+   "address": "0x008B2C7C",
+   "name": "trailScaleCapRead2",
+   "kind": "data",
+   "type": "setVarCback (ShipStaticScriptTable[133].setVarCB)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:263",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:ShipStaticScriptTable",
+   "notes": "\"trailScaleCap2\". [exe 12948] entry name \"trailScaleCap2\", setVarCB 0x005259D0, field offset +0x388 confirmed."
+  },
+  {
+   "address": "0x008B2CEC",
+   "name": "trailScaleCapRead3",
+   "kind": "data",
+   "type": "setVarCback (ShipStaticScriptTable[140].setVarCB)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:264",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:ShipStaticScriptTable",
+   "notes": "\"trailScaleCap3\". [exe 12948] entry name \"trailScaleCap3\", setVarCB 0x005259D0, field offset +0x38C confirmed."
+  },
+  {
+   "address": "0x008B2D5C",
+   "name": "trailScaleCapRead4",
+   "kind": "data",
+   "type": "setVarCback (ShipStaticScriptTable[147].setVarCB)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:265",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:ShipStaticScriptTable",
+   "notes": "\"trailScaleCap4\". [exe 12948] entry name \"trailScaleCap4\", setVarCB 0x005259D0, field offset +0x390 confirmed."
+  },
+  {
+   "address": "0x008B85E8",
+   "name": "MAIN_WindowWidth",
+   "kind": "data",
+   "type": "sdword",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:228",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:MAIN_WindowWidth",
+   "notes": ""
+  },
+  {
+   "address": "0x008B85EC",
+   "name": "MAIN_WindowHeight",
+   "kind": "data",
+   "type": "sdword",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:229",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:MAIN_WindowHeight",
+   "notes": ""
+  },
+  {
+   "address": "0x008B85F0",
+   "name": "MAIN_WindowDepth",
+   "kind": "data",
+   "type": "sdword",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:230",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:MAIN_WindowDepth",
+   "notes": ""
+  },
+  {
+   "address": "0x008B8610",
+   "name": "enableAVI",
+   "kind": "data",
+   "type": "bool32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:204",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:enableAVI",
+   "notes": "CET DisableIntroMovies -> FALSE (= /disableAVI). [exe 12948] initial value 1 (TRUE) confirmed."
+  },
+  {
+   "address": "0x008B8628",
+   "name": "showBorder",
+   "kind": "data",
+   "type": "bool32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:202",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:showBorder",
+   "notes": "CET BorderlessWindow -> FALSE (= /noBorder). [exe 12948] initial value 1 (TRUE) confirmed."
+  },
+  {
+   "address": "0x008B8638",
+   "name": "fullScreen",
+   "kind": "data",
+   "type": "bool32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:203",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:fullScreen",
+   "notes": "CET BorderlessWindow -> FALSE (= /window). [exe 12948] initial value 1 (TRUE) confirmed."
+  },
+  {
+   "address": "0x008B8644",
+   "name": "glToSelect",
+   "kind": "data",
+   "type": "char[512?]",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:227",
+   "hw1_equivalent": "",
+   "notes": "GL DLL name the game will load (\"rgl.dll\"/\"opengl32.dll\"); CET strcpy_s(...,512,\"opengl32.dll\"). Relic Win32 main.c; not in port. [exe 12948] initial contents \"rgl.dll\"."
+  },
+  {
+   "address": "0x008B8850",
+   "name": "networkVersion",
+   "kind": "data",
+   "type": "char[16]",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:243",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:networkVersion",
+   "notes": "CET writes \"v1.02\". 16 bytes before minorBuildVersion matches MAX_NETWORKVERSION_STRING_LEN=16 (SDL/TitanInterfaceC.h:29). [exe 12948] original contents \"Emergence 1\"."
+  },
+  {
+   "address": "0x008B8860",
+   "name": "minorBuildVersion",
+   "kind": "data",
+   "type": "char[]",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:244",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:minorBuildVersion",
+   "notes": "CET writes \"0\". [exe 12948] original contents \"01\"."
+  },
+  {
+   "address": "0x008DF604",
+   "name": "aiCurrentAIPlayer",
+   "kind": "data",
+   "type": "AIPlayer* (pointer variable)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:252",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIPlayer.c:aiCurrentAIPlayer",
+   "notes": ""
+  },
+  {
+   "address": "0x008DFC38",
+   "name": "aiCarrier1Ship",
+   "kind": "data",
+   "type": "Ship* (pointer variable)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:250",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm AI."
+  },
+  {
+   "address": "0x008DFC3C",
+   "name": "aiCarrier2Ship",
+   "kind": "data",
+   "type": "Ship* (pointer variable)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:251",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm AI."
+  },
+  {
+   "address": "0x008DFC64",
+   "name": "aiBuildingShip",
+   "kind": "data",
+   "type": "udword[TOTAL_STD_SHIPS=60]",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:249",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm skirmish AI: ships queued per type."
+  },
+  {
+   "address": "0x008DFD60",
+   "name": "aisTeams",
+   "kind": "data",
+   "type": "AISTeamEntry[34] (0x9D10 each)",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:253",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm AI team table; ends at 0x00A2D980 (static_assert AISkirmish.h:134)."
+  },
+  {
+   "address": "0x00A2D980",
+   "name": "aisTeams_end",
+   "kind": "data",
+   "type": "end of AISTeamEntry[34]",
+   "source": "CataclysmEngineTweaks/game/Game/AISkirmish.h:134",
+   "hw1_equivalent": "",
+   "notes": "sizeof(AISTeamEntry)*34 == 0x00A2D980-0x008DFD60 = 0x14DC20."
+  },
+  {
+   "address": "0x00A2D984",
+   "name": "aiHasExternalConstruction",
+   "kind": "data",
+   "type": "bool32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:254",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm AI."
+  },
+  {
+   "address": "0x00A2D98C",
+   "name": "aiHasCarrier1ModuleQueued",
+   "kind": "data",
+   "type": "bool32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:255",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm AI."
+  },
+  {
+   "address": "0x00A2D994",
+   "name": "aiHasSupportModuleQueued",
+   "kind": "data",
+   "type": "bool32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:256",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm AI."
+  },
+  {
+   "address": "0x00A2D9A8",
+   "name": "aiHasCarrier2ModuleQueued",
+   "kind": "data",
+   "type": "bool32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:257",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm AI."
+  },
+  {
+   "address": "0x00A2D9B4",
+   "name": "aiSupportUnitsPending",
+   "kind": "data",
+   "type": "sdword",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:258",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm AI (support units)."
+  },
+  {
+   "address": "0x00A43C94",
+   "name": "multiPlayerGame",
+   "kind": "data",
+   "type": "bool32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:207",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Globals.c:multiPlayerGame",
+   "notes": "Skirmish: both this and singlePlayerGame are FALSE."
+  },
+  {
+   "address": "0x00A43C9C",
+   "name": "singlePlayerGame",
+   "kind": "data",
+   "type": "bool32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:208",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Globals.c:singlePlayerGame",
+   "notes": ""
+  },
+  {
+   "address": "0x00A4C6C4",
+   "name": "mgResourceInjectionIntervalEntryBox",
+   "kind": "data",
+   "type": "textentryhandle",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:196",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgResourceInjectionIntervalEntryBox",
+   "notes": ""
+  },
+  {
+   "address": "0x00A4C6CC",
+   "name": "mgResourceLumpSumIntervalEntryBox",
+   "kind": "data",
+   "type": "textentryhandle",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:197",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgResourceLumpSumIntervalEntryBox",
+   "notes": ""
+  },
+  {
+   "address": "0x00A4CAB4",
+   "name": "nisUpdateTask_timeElapsed",
+   "kind": "data",
+   "type": "real32 (static)",
+   "source": "CataclysmEngineTweaks/PatchUniverse.cpp:393",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisUpdateTask",
+   "notes": "Literal in PatchUniverse.cpp; HW1 local `timeElapsed`."
+  },
+  {
+   "address": "0x00A4CC20",
+   "name": "opDeviceCRC",
+   "kind": "data",
+   "type": "udword",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:222",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opDeviceCRC",
+   "notes": "Saved renderer-device CRC (registry option)."
+  },
+  {
+   "address": "0x00A6D9A0",
+   "name": "realtimeremainder",
+   "kind": "data",
+   "type": "LARGE_INTEGER",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:216",
+   "hw1_equivalent": "",
+   "notes": "Cataclysm QPC-based universe timer remainder (Win32 utility.c). Declared, unused."
+  },
+  {
+   "address": "0x00A72548",
+   "name": "glCapCompiledVertexArray",
+   "kind": "data",
+   "type": "bool32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:205",
+   "hw1_equivalent": "",
+   "notes": "Relic Win32 glcaps.c (GL_EXT_compiled_vertex_array). CET NoCompiledVertexArrays -> FALSE."
+  },
+  {
+   "address": "0x00A74DC8",
+   "name": "coopDSound",
+   "kind": "data",
+   "type": "bool32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:240",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:coopDSound",
+   "notes": "Command-line DSound cooperative mode."
+  },
+  {
+   "address": "0x00A75F28",
+   "name": "lpDirectSound",
+   "kind": "data",
+   "type": "LPDIRECTSOUND",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:236",
+   "hw1_equivalent": "",
+   "notes": "Relic Win32 soundlow.c."
+  },
+  {
+   "address": "0x00A75F2C",
+   "name": "lpPrimaryBuffer",
+   "kind": "data",
+   "type": "LPDIRECTSOUNDBUFFER",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:237",
+   "hw1_equivalent": "",
+   "notes": "Relic Win32 soundlow.c."
+  },
+  {
+   "address": "0x00A75F3C",
+   "name": "bDirectSoundCertified",
+   "kind": "data",
+   "type": "bool32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:238",
+   "hw1_equivalent": "",
+   "notes": "Relic Win32 soundlow.c."
+  },
+  {
+   "address": "0x00AB7520",
+   "name": "utyTimerDivisor",
+   "kind": "data",
+   "type": "LONGLONG",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:218",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyTimerDivisor",
+   "notes": "64-bit in Cataclysm (QPC ticks per timer tick); Uint32 ms in SDL port. Declared, unused."
+  },
+  {
+   "address": "0x00B06C80",
+   "name": "waveFormatEX",
+   "kind": "data",
+   "type": "WAVEFORMATEX",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:239",
+   "hw1_equivalent": "",
+   "notes": "Primary-buffer format."
+  },
+  {
+   "address": "0x00B377A4",
+   "name": "rndAspectRatio",
+   "kind": "data",
+   "type": "real32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:231",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/render.c:rndAspectRatio",
+   "notes": ""
+  },
+  {
+   "address": "0x00B62A00",
+   "name": "universe",
+   "kind": "data",
+   "type": "Universe",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:210",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:universe",
+   "notes": "Layout partially reversed (see universe.h asserts)."
+  },
+  {
+   "address": "0x00B62AB8",
+   "name": "universe_unknown1",
+   "kind": "data",
+   "type": "sdword",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:159",
+   "hw1_equivalent": "",
+   "notes": "Derived: universe 0x00B62A00 + 0xB8 (NOT asserted; CET comment says position uncertain). Cataclysm-only field before phystimeelapsed"
+  },
+  {
+   "address": "0x00B62ABC",
+   "name": "universe_phystimeelapsed",
+   "kind": "data",
+   "type": "real32",
+   "source": "CataclysmEngineTweaks/PatchUniverse.cpp:416",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.phystimeelapsed",
+   "notes": "= universe+0xBC (asserted universe.h:234)."
+  },
+  {
+   "address": "0x00B62AC0",
+   "name": "universe_totaltimeelapsed",
+   "kind": "data",
+   "type": "real32",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:235",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.totaltimeelapsed",
+   "notes": "Derived: universe 0x00B62A00 + 0xC0 (asserted offset)."
+  },
+  {
+   "address": "0x00B62AC4",
+   "name": "universe_realtimeelapsed",
+   "kind": "data",
+   "type": "real32",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:236",
+   "hw1_equivalent": "",
+   "notes": "Derived: universe 0x00B62A00 + 0xC4 (asserted). Cataclysm-new field (no HW1 twin; CET universe.h:162 '@CATA: New timer keyed off QueryPerformanceCounter')."
+  },
+  {
+   "address": "0x00B62AC8",
+   "name": "universe_radius",
+   "kind": "data",
+   "type": "real32",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:237",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.radius",
+   "notes": "Derived: universe 0x00B62A00 + 0xC8 (asserted offset)."
+  },
+  {
+   "address": "0x00B62AE4",
+   "name": "universe_effectList",
+   "kind": "data",
+   "type": "LinkedList",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:238",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.effectList",
+   "notes": "Derived: universe 0x00B62A00 + 0xE4 (asserted offset)."
+  },
+  {
+   "address": "0x00B62AF0",
+   "name": "universe_ShipList",
+   "kind": "data",
+   "type": "LinkedList",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:239",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.ShipList",
+   "notes": "Derived: universe 0x00B62A00 + 0xF0 (asserted offset)."
+  },
+  {
+   "address": "0x00B62B98",
+   "name": "universe_HousekeepShipList",
+   "kind": "data",
+   "type": "GrowSelection",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:240",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.HousekeepShipList",
+   "notes": "Derived: universe 0x00B62A00 + 0x198 (asserted offset)."
+  },
+  {
+   "address": "0x00B62BA0",
+   "name": "universe_unk1",
+   "kind": "data",
+   "type": "GrowSelection",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:241",
+   "hw1_equivalent": "",
+   "notes": "Derived: universe 0x00B62A00 + 0x1A0 (asserted offset). Cataclysm-only"
+  },
+  {
+   "address": "0x00B62BA8",
+   "name": "universe_star3dinfo",
+   "kind": "data",
+   "type": "Star3dInfo*",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:242",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.star3dinfo",
+   "notes": "Derived: universe 0x00B62A00 + 0x1A8 (asserted offset)."
+  },
+  {
+   "address": "0x00B62BAC",
+   "name": "universe_univUpdateCounter",
+   "kind": "data",
+   "type": "udword",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:189",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.univUpdateCounter",
+   "notes": "= universe+0x1AC (asserted)."
+  },
+  {
+   "address": "0x00B62BBC",
+   "name": "universe_wintime",
+   "kind": "data",
+   "type": "real32",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:244",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.wintime",
+   "notes": "Derived: universe 0x00B62A00 + 0x1BC (asserted offset)."
+  },
+  {
+   "address": "0x00B62BC0",
+   "name": "universe_quittime",
+   "kind": "data",
+   "type": "real32",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:245",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.quittime",
+   "notes": "Derived: universe 0x00B62A00 + 0x1C0 (asserted offset)."
+  },
+  {
+   "address": "0x00B62BC4",
+   "name": "universe_lasttimeadded",
+   "kind": "data",
+   "type": "udword",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:246",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.lasttimeadded",
+   "notes": "Derived: universe 0x00B62A00 + 0x1C4 (asserted offset)."
+  },
+  {
+   "address": "0x00B62CEA",
+   "name": "universe_aiplayerEnemy",
+   "kind": "data",
+   "type": "sbyte[8]",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:247",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.aiplayerEnemy",
+   "notes": "Derived: universe 0x00B62A00 + 0x2EA (asserted offset)."
+  },
+  {
+   "address": "0x00B62CF4",
+   "name": "universe_aiplayerProcessing",
+   "kind": "data",
+   "type": "bool32",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:248",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.aiplayerProcessing",
+   "notes": "Derived: universe 0x00B62A00 + 0x2F4 (asserted offset)."
+  },
+  {
+   "address": "0x00B62CF8",
+   "name": "universe_CapitalShipCaptured",
+   "kind": "data",
+   "type": "sdword",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:249",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.CapitalShipCaptured",
+   "notes": "Derived: universe 0x00B62A00 + 0x2F8 (asserted offset)."
+  },
+  {
+   "address": "0x00B62D00",
+   "name": "universe_bounties",
+   "kind": "data",
+   "type": "sdword",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:251",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.bounties",
+   "notes": "Derived: universe 0x00B62A00 + 0x300 (asserted offset)."
+  },
+  {
+   "address": "0x00B62D08",
+   "name": "universe_gameStats",
+   "kind": "data",
+   "type": "GameStats",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:253",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.gameStats",
+   "notes": "Derived: universe 0x00B62A00 + 0x308 (asserted offset)."
+  },
+  {
+   "address": "0x00B674F0",
+   "name": "universe_numCratesInWorld",
+   "kind": "data",
+   "type": "udword",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:255",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.numCratesInWorld",
+   "notes": "Derived: universe 0x00B62A00 + 0x4AF0 (asserted offset)."
+  },
+  {
+   "address": "0x00B674F8",
+   "name": "universe_numPlayers",
+   "kind": "data",
+   "type": "uword",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:256",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.numPlayers",
+   "notes": "Derived: universe 0x00B62A00 + 0x4AF8 (asserted offset)."
+  },
+  {
+   "address": "0x00B67500",
+   "name": "universe_players",
+   "kind": "data",
+   "type": "Player[9] (Cataclysm Player size unknown, larger than HW1)",
+   "source": "CataclysmEngineTweaks/game/Game/universe.h:257",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.players",
+   "notes": "Derived: universe 0x00B62A00 + 0x4B00 (asserted offset)."
+  },
+  {
+   "address": "0x00BB3260",
+   "name": "taskFrequency",
+   "kind": "data",
+   "type": "real32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:212",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Task.c:taskFrequency",
+   "notes": "Declared, unused by CET."
+  },
+  {
+   "address": "0x00C0A5C0",
+   "name": "singlePlayerGameInfo",
+   "kind": "data",
+   "type": "SinglePlayerGameInfo",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:214",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerGameInfo",
+   "notes": "Declared, unused. hyperspaceState @+0x10 asserted."
+  },
+  {
+   "address": "0x00C0A5D0",
+   "name": "singlePlayerGameInfo_hyperspaceState",
+   "kind": "data",
+   "type": "HyperspaceState",
+   "source": "CataclysmEngineTweaks/game/Game/singleplayer.h:137",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.h:SinglePlayerGameInfo.hyperspaceState",
+   "notes": "Derived: 0x00C0A5C0 + 0x10 (asserted)."
+  },
+  {
+   "address": "0x00C41C74",
+   "name": "etgTotalTimeElapsed",
+   "kind": "data",
+   "type": "real32",
+   "source": "CataclysmEngineTweaks/Cataclysm.h:220",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgTotalTimeElapsed",
+   "notes": "Declared, unused."
+  }
+ ]
+}

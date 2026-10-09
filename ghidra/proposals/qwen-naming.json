@@ -1,0 +1,126 @@
+{
+ "source": "qwen-naming",
+ "method": "Local qwen3.6:27b via Ollama, one call per unnamed function with decompiled C, referenced strings, callers/callees and the HW1 string-match candidate; JSON-schema constrained output; unaudited until Opus samples it.",
+ "proposals": [
+  {
+   "address": "0x00560ba0",
+   "name": "mainLoadGL",
+   "kind": "function",
+   "class": "hw1:src/SDL/main.c",
+   "confidence": "low",
+   "evidence": "[dup x2: audit which address owns this name] String \"\\n-- load OpenGL --\" and \"\\n-- load rGL device %s --\" match mainLoadGL in HW1 source.",
+   "hw1_equivalent": "src/SDL/main.c:mainLoadGL",
+   "signature": ""
+  },
+  {
+   "address": "0x00551840",
+   "name": "PlayIntroVideo",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Calls _BinkOpen, _BinkService, _BinkClose; loops on GetMessage/PeekMessage; string 'HW_Data'.",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x0048e6c0",
+   "name": "horseRaceRender",
+   "kind": "function",
+   "class": "hw1:src/Game/HorseRace.c",
+   "confidence": "high",
+   "evidence": "String 'AbortLoadConfirm' and candidate match score 1.000.",
+   "hw1_equivalent": "src/Game/HorseRace.c:horseRaceRender",
+   "signature": ""
+  },
+  {
+   "address": "0x005605f0",
+   "name": "mainLoadParticularRGL",
+   "kind": "function",
+   "class": "hw1:src/SDL/main.c",
+   "confidence": "low",
+   "evidence": "[dup x2: audit which address owns this name] String \"\\n-- load rGL device %s --\" and candidate match.",
+   "hw1_equivalent": "src/SDL/main.c:mainLoadParticularRGL",
+   "signature": ""
+  },
+  {
+   "address": "0x00561920",
+   "name": "mainLoadParticularRGL",
+   "kind": "function",
+   "class": "hw1:src/SDL/main.c",
+   "confidence": "low",
+   "evidence": "[dup x2: audit which address owns this name] String '\\n-- load rGL device %s --' and logic matching HW1 candidate mainLoadParticularRGL.",
+   "hw1_equivalent": "src/SDL/main.c:mainLoadParticularRGL",
+   "signature": ""
+  },
+  {
+   "address": "0x00556120",
+   "name": "dbwStart",
+   "kind": "function",
+   "class": "hw1:src/SDL/debugwnd.c",
+   "confidence": "high",
+   "evidence": "Candidate match dbwStart; strings 'HW_DebugWindow', 'Cataclysm Debug Window', 'Font', 'Pane'.",
+   "hw1_equivalent": "src/SDL/debugwnd.c:dbwStart",
+   "signature": ""
+  },
+  {
+   "address": "0x00561570",
+   "name": "mainLoadGL",
+   "kind": "function",
+   "class": "hw1:src/SDL/main.c",
+   "confidence": "low",
+   "evidence": "[dup x2: audit which address owns this name] String \"\\n-- load OpenGL --\" and candidate match mainLoadGL.",
+   "hw1_equivalent": "src/SDL/main.c:mainLoadGL",
+   "signature": ""
+  },
+  {
+   "address": "0x00561260",
+   "name": "mainShutdownRenderer",
+   "kind": "function",
+   "class": "hw1:src/SDL/main.c",
+   "confidence": "high",
+   "evidence": "String literal \"\\nmainShutdownRenderer\" and logic matches HW1 main.c shutdown sequence.",
+   "hw1_equivalent": "src/SDL/main.c:mainShutdownRenderer",
+   "signature": ""
+  },
+  {
+   "address": "0x005747d0",
+   "name": "rndInit",
+   "kind": "function",
+   "class": "hw1:src/SDL/render.c",
+   "confidence": "high",
+   "evidence": "Strings '\\nrndInit: GL couldn't setupPalette' and '\\nrndInit: GL couldn't setupPixelFormat' match candidate exactly.",
+   "hw1_equivalent": "src/SDL/render.c:rndInit",
+   "signature": ""
+  },
+  {
+   "address": "0x005776f0",
+   "name": "rndMainViewRenderFunction",
+   "kind": "function",
+   "class": "hw1:src/SDL/render.c",
+   "confidence": "high",
+   "evidence": "Strings 'Undefined object type %d' and 'Unsupported LOD type 0x%x' match HW1 candidate exactly.",
+   "hw1_equivalent": "src/SDL/render.c:rndMainViewRenderFunction",
+   "signature": ""
+  },
+  {
+   "address": "0x005a9290",
+   "name": "gameStart",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "Strings '.level', 'MultiPlayer\\\\' and caller 'universeUpdateTask' match HW1 gameStart logic.",
+   "hw1_equivalent": "utility.c:gameStart",
+   "signature": ""
+  },
+  {
+   "address": "0x004a3230",
+   "name": "SetTeamColorForShipAndRelatedStaticInfo",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "String 'Warning: not setting team color for type %d race %d' and candidate match.",
+   "hw1_equivalent": "LevelLoad.c:SetTeamColorForShipAndRelatedStaticInfo",
+   "signature": ""
+  }
+ ]
+}

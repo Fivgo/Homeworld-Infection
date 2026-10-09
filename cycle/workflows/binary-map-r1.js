@@ -1,0 +1,122 @@
+export const meta = {
+  name: 'homeworld-infection-binary-map-r1',
+  description: 'Opus agents name and classify the 11k functions of the GOG cataclysm.exe from the Ghidra exports (library carving, HW1 string matching, ship tables, mission code, subsystems), each adversarially verified, then merge and apply the symbols in one Ghidra run and write docs/binary-map.md',
+  phases: [
+    { title: 'Propose', detail: 'seven Opus producers, each writing a proposals JSON', model: 'opus' },
+    { title: 'Verify', detail: 'one adversarial auditor per producer: 30-sample check against the decompiled C and HW1 source', model: 'opus' },
+    { title: 'Reconcile', detail: 'merge verified proposals, resolve conflicts, emit symbols JSON', model: 'opus' },
+    { title: 'Apply', detail: 'single headless Ghidra apply + re-export, coverage report, checkpoint commit', model: 'opus' },
+  ],
+}
+
+const ROOT = '/home/evanmedinger/Documents/GameDev/Homeworld-Infection'
+const REF = ROOT + '/reference'
+const EXP = ROOT + '/ghidra/exports/cataclysm_gog'
+const PROP = ROOT + '/ghidra/proposals'
+
+const COMMON = `
+PROJECT: Homeworld-Infection at ${ROOT}: a 1-to-1 recreation of Homeworld: Cataclysm (GOG "Homeworld: Emergence", build 12948 = retail 1.01) for Windows 11 and Linux. Cataclysm's source is lost; it is a fork of Homeworld 1, whose 2003 Relic source is at ${REF}/HomeworldSDL/src (and the continuation ${REF}/gardens-of-kadesh). Cataclysm Engine Tweaks (CET) at ${REF}/CataclysmEngineTweaks already reversed 184 anchors in this exact exe.
+
+READ FIRST (skim, they are long): ${ROOT}/docs/binary-fingerprint.md (what is in the exe: MSVC6, CRT + WON SDK statically linked, source paths), ${ROOT}/docs/cet-knowledge.md (addresses, structs, hooks), ${ROOT}/docs/hw1-engine-core.md, ${ROOT}/docs/hw1-engine-gameplay.md, ${ROOT}/docs/hw1-engine-presentation.md (the HW1 maps, with "strings to search for" sections), ${ROOT}/docs/big-archive-contents.md (data side), ${ROOT}/docs/ghidra-pipeline.md (export formats).
+
+GHIDRA EXPORTS of original/game/cataclysm.exe (image base 0x400000, 11,194 functions, 2,828 already named by CET + Ghidra FID/imports, 8,313 still FUN_*): under ${EXP}/
+  functions.csv  address,name,size,calls_in,calls_out,call_sites_in,is_thunk,thunk_target,source,calling_convention,param_count,varargs,no_return,section,strings_referenced,tags,signature
+  strings.csv    address,string,xref_count,first_xref_function,section,datatype,length,xref_functions(FUN@addr|...),data_refs,indirect_functions
+  symbols.csv    address,name,namespace,type,source,primary   (27k rows incl. labels, FID names, CET names)
+  call_graph.csv caller_address,caller,callee_address,callee   (29k edges)
+  cet_apply_report.csv  how each of CET's 184 symbols was applied
+  imports.txt, exports.txt, datatypes.h, and the decompiled C dump (decompiled.c or a decompiled/ directory; see docs/ghidra-pipeline.md "exports").
+BEFORE READING EXPORTS, WAIT for the export job to finish: run  until ! pgrep -f 'tools/ghidra_headless.sh' >/dev/null; do sleep 15; done  (it is finishing the decompile dump right now).
+
+OUTPUT CONTRACT: proposals go to ${PROP}/<your-key>.json with EXACTLY this shape:
+{"source":"<your-key>","method":"one paragraph","proposals":[{"address":"0x00xxxxxx","name":"identifierOrEmpty","kind":"function|data","class":"crt|won|bink|rgl|hw1:<File.c>|cat-new|unknown","confidence":"high|medium|low","evidence":"<= 200 chars citing strings/callers/HW1 file:line","hw1_equivalent":"HomeworldSDL/src/Game/File.c:funcName or empty","signature":"optional C signature or empty"}]}
+Rules for proposals: addresses must be function entry addresses from functions.csv (for kind=function) or data addresses from symbols.csv/strings.csv (kind=data); names are valid C identifiers, HW1 names reused verbatim when the function is the HW1 one (e.g. univUpdate, taskStart, bigOpen), Cataclysm-only functions get a descriptive name with prefix by subsystem (e.g. cat_siegeCannonFire); never rename something CET already named unless you give high-confidence evidence; class 'hw1:<File.c>' means "this is the compiled form of that HW1 source file's function". A proposal with name "" is allowed when only the class is known (library carving). Validate your JSON with python3 (json.load) before finishing. Prefer precision over volume: every entry you emit will be audited and a low precision score discredits the whole file.
+
+HARD RULES: read-only on ${EXP} and the reference clones; do NOT run Ghidra yourself (one project lock; only the designated stages run it); do not git commit; write only your proposals file and, if your task says so, one doc under ${ROOT}/docs/. Ground claims in files you read; label guesses "low". Your final text is a return value, not a message.
+`
+
+const PROP_SCHEMA = {
+  type: 'object',
+  properties: {
+    proposals_path: { type: 'string' },
+    count: { type: 'number' },
+    by_confidence: { type: 'object', properties: { high: { type: 'number' }, medium: { type: 'number' }, low: { type: 'number' } } },
+    summary: { type: 'string' },
+    key_findings: { type: 'array', items: { type: 'string' } },
+    open_questions: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['proposals_path', 'count', 'summary', 'key_findings', 'open_questions'],
+}
+
+const VERIFY_SCHEMA = {
+  type: 'object',
+  properties: {
+    verified_path: { type: 'string' },
+    sampled: { type: 'number' },
+    wrong: { type: 'number' },
+    precision: { type: 'number' },
+    dropped: { type: 'number' },
+    notes: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['verified_path', 'sampled', 'wrong', 'precision', 'dropped', 'notes'],
+}
+
+const TASKS = [
+  { key: 'lib-strings', label: 'propose:lib-carve-strings', prompt: `TASK (key lib-strings): carve the statically linked LIBRARY code out of the game code using string and symbol evidence. The exe embeds MSVC6 CRT source names (fopen.c, printf.c, dbgheap.c, ...) and WON/Titan SDK names (MMsgRouting*.cpp, SMsg*.cpp, TMsgAuth1*.cpp, tmessage.cpp, BFSymmetricKey.cpp, EGPrivateKey.cpp...) as assert strings, Ghidra FID already named some CRT functions, and binkw32 is imported. For every function: decide class crt / won / bink / rgl (rGL loader glue that talks to rgl.dll) / unknown, using string xrefs (strings.csv xref_functions), the names already in functions.csv/symbols.csv, and the callers/callees in call_graph.csv (a function called only by WON message-class code is WON). Emit a proposal for EVERY function you can classify as library (name may be empty; add a name when the FID/assert evidence gives one, e.g. _fopen, __filbuf, MMsgRoutingSendData::Pack). Report counts and total bytes per class in your summary. Address-range observations (e.g. "WON SDK occupies 0x6c0000-0x71ffff") are valuable: include them in the method paragraph.` },
+  { key: 'lib-graph', label: 'propose:lib-carve-graph', prompt: `TASK (key lib-graph): carve the statically linked LIBRARY code out of the game code using CALL-GRAPH STRUCTURE, independently of string evidence (another agent does strings; you are the second lens). Load call_graph.csv and functions.csv in Python; find the connected clusters, the functions reachable from the CRT entry (0x0067bbe0, WinMainCRTStartup) before WinMain, the clusters hanging off WSOCK32 imports and the WON exported entry points (exports.txt: SetClientName etc.), and functions whose only callers are already-named library functions. Also use linker layout: MSVC6 lays out object files contiguously in link order, so library code forms contiguous address ranges; find the boundaries where the "game" naming density (CET names, HW1-like strings) stops. Emit a proposal per function you classify (name may be empty), confidence by how many independent signals agree. In the method paragraph give the inferred address ranges with class and the WinMain address you found (a function called from the CRT start that then calls the game's main init).` },
+  { key: 'hw1-match', label: 'propose:hw1-string-match', prompt: `TASK (key hw1-match): run the Homeworld 1 STRING-XREF MATCHER and calibrate it. The pipeline has it built in: ${ROOT}/tools/ghidra_headless.sh --hw1-match (script ghidra/scripts/MatchHW1Strings.py; read docs/ghidra-pipeline.md section on --hw1-match / MatchHW1Strings for its output location and format). You are the ONLY agent allowed to run Ghidra in this phase. Steps: (1) wait until no 'tools/ghidra_headless.sh' process exists; (2) run: cd ${ROOT} && GHIDRA_PROJECTS_DIR=${ROOT}/ghidra/projects GHIDRA_EXPORTS_DIR=${ROOT}/ghidra/exports tools/ghidra_headless.sh --hw1-match --no-decompile --export-name cataclysm_gog_hw1match original/game/cataclysm.exe cataclysm_gog   (this re-processes the existing project; do NOT pass --reimport; if it fails with a project lock, wait 60 s and retry up to 10 times; never delete the project); (3) read the matcher's proposal output; (4) AUDIT 40 proposals chosen at random with python random.seed(1): for each, open the decompiled C of that function and the proposed HW1 function in ${REF}/HomeworldSDL/src (or gardens-of-kadesh), and judge same-function / different / unsure; compute precision; (5) convert the matcher's proposals into the output contract with confidence calibrated by its score and your audit (high only where the audited precision in that score band was >= 90%). Also emit proposals for functions you personally confirmed during the audit. Do not apply names into the project (--hw1-apply is forbidden here); the Apply stage does that. Report precision per score band and the matcher's weaknesses in the summary.` },
+  { key: 'ships', label: 'propose:ship-tables', prompt: `TASK (key ships): recover the SHIP TYPE TABLES and per-ship functions. Homeworld 1 registers each ship type as a CustShipHeader struct of function pointers (see HomeworldSDL src/Game/ShipDefs.h, src/Ships/*.c, the ship-name string table ShipNames.c / ShipDefs.c, and docs/hw1-engine-gameplay.md). Cataclysm has 145 ship types (CET game/Game/ShipDefs.h lists them; docs/big-archive-contents.md lists the race folders) and the exe embeds ShipNames.c. Find: the ship-name string array and its order; the table of CustShipHeader pointers (data xrefs from the strings/ship-type enum users; CET anchors in cet-knowledge.md help); each per-ship header (function pointers for CustShipInit, AttackShip, AttackPassive, SpecialActivate, SpecialTarget, etc.: list the slots from HW1's ShipDefs.h and map Cataclysm's layout, which may have more slots); and name every function pointed to as <ShipName><Slot> following HW1's naming (e.g. HeavyCorvetteAttack). Also name the ship static-info parsers if they are per-ship. Emit proposals (kind data for the tables/arrays, function for the handlers). In the summary state the table address, entry size, slot layout, and which ship types have custom code vs defaults.` },
+  { key: 'missions', label: 'propose:missions-kas', prompt: `TASK (key missions): recover the compiled MISSION CODE. In HW1, single-player missions are written in KAS, compiled by kas2c into C (see HomeworldSDL: the kas2c tool, src/Game/KAS.c, KASFunc.c, and docs/hw1-engine-gameplay.md "mission system"), and linked into the exe: each mission yields Init/Watch functions per FSM and state (names like Init_Mission01, Watch_Mission01_Main_State...), driven by a small runtime (kasInit, kasFSMCreate, kasStateChange, kasfXXX library). Cataclysm ships 17 missions, 11 NIS staging levels and a tutorial (docs/big-archive-contents.md). Find in the exe: the KAS runtime functions (match against HW1 KAS.c/KASFunc.c by string xrefs: FSM/state name strings are passed as literals, e.g. "Mission01" or level names from the archive's mission folders), the kasf* library (each kasf function wraps engine calls: name them from the HW1 KASFunc.c list), and the per-mission generated functions (recognisable by their uniform shape: a switch on state, calls to kasfXXX, string literals of FSM/state names). Emit proposals naming the runtime, every kasf wrapper you can identify, and every mission Init/Watch function with its mission and FSM (names in HW1 kas2c style). Write ${ROOT}/docs/mission-code-map.md: per mission, the function addresses, FSM names, state names, and size; and what a kas2c-style regeneration would need. Note any Cataclysm-only kasf functions (not in HW1's list) as cat-new.` },
+  { key: 'core', label: 'propose:core-subsystems', prompt: `TASK (key core): name the CORE/PLATFORM subsystems by evidence. Using docs/hw1-engine-core.md as the checklist (it lists the HW1 functions, their strings and constants, and CET anchors), identify in the exe: program start (WinMain, the main loop, utyGameSystemsInit/Shutdown chains), the task scheduler (taskStart/taskExecuteAllTasks/taskYield and the 240 Hz timer math; Cataclysm passes task NAME strings, which are excellent anchors), memory (memAlloc/memFree/memInit, the cookie checks), file I/O + .big (bigOpen, bigFind, fileOpen/fileLoad, the "RBF1.23" users), the .script config system (scriptSet*, the tweak tables: every .script name string in the big archive is loaded by a function), string tables, options/registry (the HKLM Sierra On-Line key users, "screenWidth" etc.), save/load (SaveVersionInfo, the 0x10ad0027 version users), demo record, logging/debug window, key bindings (default_keys.cfg parser), and the front-end screen registry (FEFlow: .fib names, feScreenStart users). For each identified function emit a proposal with the HW1 name and hw1_equivalent, plus proposals for the important globals (data) such as universe, taskTable, the registry option list. Aim for breadth with evidence; record the task table layout and the universe update rate sites you can confirm in your summary.` },
+  { key: 'sim', label: 'propose:sim-subsystems', prompt: `TASK (key sim): name the SIMULATION and PRESENTATION subsystems by evidence. Using docs/hw1-engine-gameplay.md and docs/hw1-engine-presentation.md as checklists, identify: univUpdate and the per-tick order (CET's universe update anchors are a start), the command layer (clWrap* are CET-named: extend to cl* internals), ship/bullet/effect creation and death, physics/collision/blobs, formations, docking, construction/research (the tech tree: 41 techs), AI player/fleet/team modules, multiplayer sync and the network layer (LAN path, the dead WON glue: titan*), sound/speech events (soundevent.c and speechevent.c paths are embedded), the rGL render glue (rgl*.dll loading, rndXXX, texreg.c, font.c, render.c paths are embedded), ETG effects, NIS player, sensors manager, and the Cataclysm-only mechanics (Beast infection/subversion, support units, modules, weapon upgrades, Siege Cannon, time compression, fog of war, waypoints): find them by their string literals (english.script keys, tweak names from docs/big-archive-contents.md, error messages) and name them cat_*. Emit proposals with evidence; in the summary list the Cataclysm-only subsystems you located with addresses and sizes.` },
+]
+
+function verifyPrompt(t, r) {
+  return `${COMMON}
+TASK: you are an ADVERSARIAL AUDITOR for the proposals file ${PROP}/${t.key}.json (producer's summary: ${JSON.stringify(r && r.summary || '')}). Your job is to catch wrong names/classes, not to add new ones.
+1. Load the file. Sample 30 proposals (python random.seed(7); if fewer than 30, take all), stratified so that each confidence level is represented proportionally and at least 10 are 'high'.
+2. For each sampled proposal, independently establish the truth from the decompiled C of that address, its strings (strings.csv), its callers/callees (call_graph.csv), and, for hw1 claims, the HW1 source function named in hw1_equivalent (read it). Verdict: correct / wrong / unverifiable. "Wrong" includes: right family but wrong specific function, a class that contradicts the evidence, a name CET already assigned differently, an address that is not a function entry.
+3. Precision = correct / (correct + wrong). Then: if precision >= 0.9, keep the file, dropping only the sampled-wrong entries; if 0.7 <= precision < 0.9, downgrade every 'high' to 'medium' and drop the wrong ones; if < 0.7, drop all 'medium'/'low' entries and keep only 'high' entries you personally verified (verify up to 40 more 'high' entries for that purpose).
+4. Write the result to ${PROP}/${t.key}.verified.json (same shape; add top-level "audit": {"sampled":N,"wrong":M,"precision":P,"action":"..."}). Never edit the producer's original file. Validate JSON.
+Rules: read-only everywhere else; do not run Ghidra; do not commit.`
+}
+
+phase('Propose')
+log(`Binary map round 1: ${TASKS.length} Opus producers over ${EXP}, each audited`)
+
+const results = await pipeline(
+  TASKS,
+  t => agent(COMMON + '\n' + t.prompt + `\nWrite ${PROP}/${t.key}.json (mkdir -p ${PROP}). Return via StructuredOutput with proposals_path=${PROP}/${t.key}.json.`,
+             { label: t.label, phase: 'Propose', schema: PROP_SCHEMA, model: 'opus' }),
+  (r, t) => agent(verifyPrompt(t, r), { label: 'audit:' + t.key, phase: 'Verify', schema: VERIFY_SCHEMA, model: 'opus' })
+             .then(v => ({ key: t.key, produced: r, audit: v })),
+)
+
+const done = results.filter(Boolean)
+log(`${done.length}/${TASKS.length} proposal sets produced and audited; reconciling`)
+
+phase('Reconcile')
+const digest = JSON.stringify(done.map(d => ({ key: d.key, produced: d.produced, audit: d.audit }))).slice(0, 24000)
+const merged = await agent(`${COMMON}
+TASK: RECONCILE the verified proposal sets in ${PROP}/*.verified.json into one symbols file the Ghidra importer can apply: ${ROOT}/ghidra/symbols_round1.json in the cet_symbols.json schema ({"target":{...},"symbols":[{"address","name","kind":"function|data","type","source","hw1_equivalent","notes"}]}; read ${ROOT}/ghidra/cet_symbols.json for the exact field conventions and ${ROOT}/ghidra/scripts/ImportSymbolsJson.py for what the importer accepts; class information goes into "notes" as "class=<class>" so the exporter can tabulate it). Rules: (1) include only entries with a non-empty name OR a library class (for class-only entries, synthesize a name like lib_crt_<addr>, lib_won_<addr> so the function is visibly carved out; ImportSymbolsJson must accept it as a function label); (2) when two sets name the same address differently, prefer: CET's existing name > an audited-high hw1 name with hw1_equivalent > higher confidence > the more specific name; record every conflict you resolved in ${ROOT}/ghidra/proposals/reconcile_report.md with both candidates and the reason; (3) never override an existing CET name (cet_symbols.json) unless two independent sets agree with high confidence, and list those overrides separately in the report; (4) names must be unique C identifiers (suffix _2, _3 on collisions, report them); (5) drop entries whose address is not in functions.csv (kind function) or symbols.csv/strings.csv (kind data), report the count. Validate JSON. Digest of producers and audits: ${digest}
+Return via StructuredOutput: {symbols_path, total, by_class: object, conflicts: number, cet_overrides: number, dropped: number, report_path}`,
+  { label: 'reconcile:merge', phase: 'Reconcile', model: 'opus', effort: 'high',
+    schema: { type: 'object', properties: { symbols_path: { type: 'string' }, total: { type: 'number' }, by_class: { type: 'object' }, conflicts: { type: 'number' }, cet_overrides: { type: 'number' }, dropped: { type: 'number' }, report_path: { type: 'string' } }, required: ['symbols_path', 'total', 'conflicts', 'cet_overrides', 'dropped', 'report_path'] } })
+
+if (!merged || !merged.symbols_path) {
+  log('reconcile did not complete; stopping before Apply so it can be resumed')
+  return { producers: done.map(d => ({ key: d.key, count: d.produced && d.produced.count, precision: d.audit && d.audit.precision })), merged: null, applied: null }
+}
+phase('Apply')
+const applied = await agent(`${COMMON}
+TASK: APPLY the reconciled symbols and write the binary map. You are the only agent allowed to run Ghidra now.
+1. Wait until no 'tools/ghidra_headless.sh' process exists. Then run ONE headless pass that applies ${merged.symbols_path} to the existing project and re-exports with decompile:  cd ${ROOT} && GHIDRA_PROJECTS_DIR=${ROOT}/ghidra/projects GHIDRA_EXPORTS_DIR=${ROOT}/ghidra/exports tools/ghidra_headless.sh --symbols ${merged.symbols_path} --export-name cataclysm_gog_r1 original/game/cataclysm.exe cataclysm_gog   (no --reimport; on a project-lock error wait 60 s and retry up to 10 times). Read the apply report it writes and the headless log; fix nothing silently: if entries failed to apply, say how many and why.
+2. From the new exports compute coverage: functions and bytes named vs FUN_* overall and per section; per class (crt/won/bink/rgl/hw1/cat-new) using the class=... notes; per HW1 source file (hw1:<File.c>) the number of functions matched vs the number of functions that file defines in ${REF}/HomeworldSDL/src (count 'name(' definitions roughly); the 60 largest still-unnamed functions with their string hints (first 3 strings referenced) as next-round targets; and CET anchors that ended up inside a now-named HW1 function (confirmation).
+3. Write ${ROOT}/docs/binary-map.md: method (one paragraph per producer, from the digest below), the coverage tables, the per-HW1-file table, the mission and ship-table findings (link docs/mission-code-map.md), library ranges, next-round targets, and known weaknesses. Keep it tabular and cite addresses.
+4. Checkpoint commit: cd ${ROOT} && git add docs ghidra/proposals ghidra/symbols_round1.json ghidra/cet_symbols.json ghidra/scripts tools .gitignore README.md 2>/dev/null; check 'git status --porcelain' shows nothing from original/ or reference/ or ghidra/projects or ghidra/exports; commit with: git -c user.name=evanmedinger -c user.email=thefiveegos@gmail.com commit -m "Binary map round 1: library carving, HW1 string matching, ship tables, mission code, subsystems" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"   (if another workflow committed meanwhile, just commit on top).
+Digest: ${digest} Reconcile result: ${JSON.stringify(merged)}
+Return via StructuredOutput: {commit, map_path, named_functions, total_functions, named_bytes_pct, per_class: object, apply_failures: number, top_gaps: [string]}`,
+  { label: 'apply:ghidra+map', phase: 'Apply', model: 'opus', effort: 'high',
+    schema: { type: 'object', properties: { commit: { type: 'string' }, map_path: { type: 'string' }, named_functions: { type: 'number' }, total_functions: { type: 'number' }, named_bytes_pct: { type: 'number' }, per_class: { type: 'object' }, apply_failures: { type: 'number' }, top_gaps: { type: 'array', items: { type: 'string' } } }, required: ['commit', 'map_path', 'named_functions', 'total_functions', 'apply_failures', 'top_gaps'] } })
+
+return { producers: done.map(d => ({ key: d.key, count: d.produced && d.produced.count, precision: d.audit && d.audit.precision, dropped: d.audit && d.audit.dropped })), merged, applied }

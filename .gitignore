@@ -11,3 +11,11 @@ ghidra/exports/
 prefix/
 build/
 *.log
+logs/
+# Ghidra project DBs contain the game's program bytes (docs/ghidra-pipeline.md §2, §9)
+ghidra/projects/
+__pycache__/
+# Game frames are copyrighted art and may show the desktop; keep captures local (docs/RUNBOOK.md Status)
+docs/screenshots/
+ghidra/proposals/qwen/.worker.lock
+*.pyc

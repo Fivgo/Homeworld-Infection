@@ -1,0 +1,11 @@
+[Unit]
+Description=Homeworld-Infection: poll for a Claude rate-limit window and hand bulk naming to local Qwen
+
+[Timer]
+OnBootSec=5min
+# re-fire 2 min after the previous run FINISHES (runs never overlap; flock is a second guard)
+OnUnitInactiveSec=2min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

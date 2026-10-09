@@ -1,0 +1,13 @@
+[Unit]
+Description=Homeworld-Infection: local Qwen naming worker (acts only while Claude is rate-limited)
+Documentation=file:%h/Documents/GameDev/Homeworld-Infection/cycle/STATE.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+# --auto: exits immediately unless a genuine five_hour rate-limit window is active,
+# and yields whenever a game is running or the GPU is busy with something else.
+ExecStart=/usr/bin/python3 %h/Documents/GameDev/Homeworld-Infection/tools/qwen_worker.py run --auto --max-minutes 10
+Nice=10
+IOSchedulingClass=idle
+TimeoutStartSec=15min

@@ -1,0 +1,11 @@
+{
+  "source": "lib-graph",
+  "method": "Audit could not run: the producer's file ghidra/proposals/lib-graph.json does not exist. The producer said its write was declined, and a filesystem-wide search on 2026-10-08 found no lib-graph* file anywhere. No proposals were sampled, verified or carried forward. Nothing in this file should be read as an audited lib-graph entry. Re-run this audit once the producer writes lib-graph.json.",
+  "proposals": [],
+  "audit": {
+    "sampled": 0,
+    "wrong": 0,
+    "precision": null,
+    "action": "NOT AUDITED: input lib-graph.json missing; zero proposals emitted. Spot checks of the producer's summary claims: WinMain=0x005631f0 is supported (called only by CRT entry 0x0067bbe0; WinMain-shaped args; calls utyGameSystemsInit plus PeekMessage/DispatchMessage), but it conflicts with CET's patch-site-derived name InitWindow (HW1 SDL/main.c:1948 static InitWindow is inlined into it). _Xlen 0x00693dc7 ('string too long') and _Xran 0x00693ff3 ('invalid string position') are supported. Zero functions exist in the claimed KAS zone 0x5d6fe0-0x670a0f. Zone counts match functions.csv (jpeg 105, crt 569, won 1711, magick 392, iostream 691, crt2 48, eh 2343). The layering premise ('library only calls library') is leaky: _Xlen/_Xran call std::string helpers FUN_00554760/FUN_00554150 in the game zone, which are COMDAT template instantiations. 214 functions in .cms_t/.data (0x891a1c-0xc67ca0) fall outside every claimed zone."
+  }
+}
