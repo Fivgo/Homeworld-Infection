@@ -32,6 +32,10 @@
 #   --hw1-apply       ... and rename FUN_* functions with the proposals (ANALYSIS source)
 #   --hw1-validate    ... treat existing names as ground truth (for symbolised HW1 builds)
 #   --hw1-src DIRS    comma-separated HW1 source dirs (default reference/HomeworldSDL/src)
+#   --create-functions FILE  run CreateFunctions.py first (pre-script): create a function at each
+#                     address of FILE ([{address,name,reason}]) that has none, name it, then
+#                     auto-analyse only the new code (reuse mode; on import the full analysis
+#                     follows anyway); report -> FILE minus .json + .report.csv
 #
 # Env: GHIDRA_HOME (default ~/Applications/ghidra_12.1.4_PUBLIC), PYGHIDRA_VENV, GHIDRA_MAXMEM (8G),
 #      GHIDRA_PROJECTS_DIR / GHIDRA_EXPORTS_DIR (override ghidra/projects, ghidra/exports; e.g. for
@@ -47,6 +51,7 @@ EXPORTS="${GHIDRA_EXPORTS_DIR:-$ROOT/ghidra/exports}"
 REIMPORT=0; REANALYZE=0; DECOMPILE=1; THREADS=16; TIMEOUT=60; MAXCPU=""; PROFILE=msvc6; NOEXEC=""
 SYMBOLS="${CET_SYMBOLS:-$ROOT/ghidra/cet_symbols.json}"; EXPORT_NAME=""
 HW1=0; HW1_APPLY=0; HW1_VALIDATE=0; HW1_SRC="$ROOT/reference/HomeworldSDL/src"
+CREATE_FUNCS=""
 POS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -64,13 +69,17 @@ while [[ $# -gt 0 ]]; do
     --hw1-apply) HW1=1; HW1_APPLY=1 ;;
     --hw1-validate) HW1=1; HW1_VALIDATE=1 ;;
     --hw1-src) HW1_SRC="$2"; shift ;;
-    -h|--help) sed -n '2,38p' "$0"; exit 0 ;;
+    --create-functions) CREATE_FUNCS="$(readlink -f "$2")"; shift ;;
+    -h|--help) sed -n '2,42p' "$0"; exit 0 ;;
     -*) echo "unknown option $1" >&2; exit 2 ;;
     *) POS+=("$1") ;;
   esac
   shift
 done
-[[ ${#POS[@]} -ge 1 ]] || { sed -n '2,38p' "$0"; exit 2; }
+[[ ${#POS[@]} -ge 1 ]] || { sed -n '2,42p' "$0"; exit 2; }
+if [[ -n "$CREATE_FUNCS" && ! -f "$CREATE_FUNCS" ]]; then
+  echo "no such --create-functions file: $CREATE_FUNCS" >&2; exit 2
+fi
 # A glob such as original/game/.cet-backup/*/rgl.dll that matches several files would otherwise
 # silently turn the second match into the project name.
 [[ ${#POS[@]} -le 2 ]] || { echo "too many arguments (did a glob match several files?): ${POS[*]}" >&2; exit 2; }
@@ -127,6 +136,10 @@ fi
 COMMON=(-scriptPath "$SCRIPTS" -log "$LOGDIR/application.log" -scriptlog "$LOGDIR/script.log")
 [[ -n "$MAXCPU" ]] && COMMON+=(-max-cpu "$MAXCPU")
 EXPORT_ARGS=()
+CREATE_ARGS=()
+if [[ -n "$CREATE_FUNCS" ]]; then
+  CREATE_ARGS=(-preScript CreateFunctions.py "json=$CREATE_FUNCS" "report=${CREATE_FUNCS%.json}.report.csv")
+fi
 [[ $HW1 -eq 1 ]] && EXPORT_ARGS+=(-postScript MatchHW1Strings.py "src=$HW1_SRC" "out=$OUT/hw1_string_matches.csv" "apply=$HW1_APPLY" "validate=$HW1_VALIDATE")
 EXPORT_ARGS+=(-postScript ExportAnalysis.py "outdir=$OUT" "decompile=$DECOMPILE" "threads=$THREADS" "timeout=$TIMEOUT")
 
@@ -147,6 +160,7 @@ if [[ $EXISTS -eq 0 || $REIMPORT -eq 1 ]]; then
       "${COMMON[@]}" \
       -preScript ConfigureAnalysis.py "profile=$PROFILE" "noexec=$NOEXEC" \
       -preScript ImportSymbolsJson.py "json=$SYMBOLS" phase=pre \
+      ${CREATE_ARGS[@]+"${CREATE_ARGS[@]}"} ${CREATE_ARGS[@]+analyze=0} \
       -postScript ImportSymbolsJson.py "json=$SYMBOLS" phase=post "report=$OUT/cet_apply_report.csv" \
       "${EXPORT_ARGS[@]}" 2>&1 | tee "$LOGDIR/headless.out"
   RC=${PIPESTATUS[0]}
@@ -160,6 +174,7 @@ else
   fi
   run_headless "$PROJECTS" "$PROJECT" -process "$PE_BASE" "${ANALYSIS[@]}" \
       "${COMMON[@]}" \
+      ${CREATE_ARGS[@]+"${CREATE_ARGS[@]}"} \
       -preScript ImportSymbolsJson.py "json=$SYMBOLS" phase=all "report=$OUT/cet_apply_report.csv" \
       "${EXPORT_ARGS[@]}" 2>&1 | tee "$LOGDIR/headless.out"
   RC=${PIPESTATUS[0]}

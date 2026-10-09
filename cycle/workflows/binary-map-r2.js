@@ -43,7 +43,7 @@ const GHIDRA_SCHEMA = { type: 'object', properties: {
 phase('Ghidra prep')
 log('Ghidra prep A1: create the missing function entries (mission region, ship slot targets, pointer-table targets)')
 const a1 = await agent(`${COMMON}
-TASK (Ghidra stage A1, you may run Ghidra): make Ghidra know the functions it missed, then re-export.
+TASK (Ghidra stage A1, you may run Ghidra): make Ghidra know the functions it missed, then re-export. RESUME FIRST: if ${ROOT}/ghidra/create_functions_r2.json and ${ROOT}/ghidra/scripts/CreateFunctions.py already exist (a previous attempt was cut off), reuse them; if ${EXP2}/decompiled_index.csv exists and ${EXP2}/logs/headless.out ends with the export 'done' line, the headless pass already completed: skip to step 4 and report from the export and ${ROOT}/ghidra/create_functions_r2.report.csv (if the report is missing, derive counts by comparing ${EXP1}/functions.csv with ${EXP2}/functions.csv).
 1. Build ${ROOT}/ghidra/create_functions_r2.json = [{"address":"0x...","name":"<name or empty>","reason":"mission-init|mission-watch|ship-slot|pointer-table|prologue-scan"}]:
    a. every mission Init/Watch address listed in ${ROOT}/docs/mission-code-map.md (2,085 names; parse its tables; keep the documented names);
    b. every ship-header function-slot target: read the ship header tables described in ${ROOT}/ghidra/proposals/ships.verified.json (data entries) by reading the raw bytes of ${ROOT}/original/game/cataclysm.exe (.data VA 0x74a000 = file offset 0x34a000, .rdata VA 0x72a000 = offset 0x32a000, .text VA 0x401000 = offset 0x1000); a slot target is a dword inside 0x401000-0x72a000;
