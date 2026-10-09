@@ -44,6 +44,7 @@ Scripts are copied in `cycle/workflows/` so a new session can relaunch them. Res
 |---|---|---|---|
 | dissect-public | `wf_05709792-47f` | COMPLETE 2026-10-08 20:12: 7 docs, all 7 verified (two docs carry two verification rounds). The planner agent stopped on a denied file read, so PLAN.md and README.md were written by the lead instead. | nothing; do not resume |
 | binary-map-r1 | `wf_0c18f70b-e23` | COMPLETE 2026-10-09 08:40 (commit 139d7ac): 8,312 symbols applied, 0 failures; real names on 3,867 functions = 46.4% of function bytes; game region 55.3% named (was 2.8%); docs/binary-map.md | round 2 (binary-map-r2.js): create the 2,085 mission functions + ship slot targets, re-admit 925 data names, import struct headers, fill the ranked gaps |
+| binary-map-r2 | `wf_2d9d668a-e53` | launched 2026-10-09 08:48 from cycle/workflows/binary-map-r2.js: A1 create functions (mission region + ship slots + pointer tables) → A2 data names + struct headers → 6 incremental producers → audits → reconcile → apply | if cut off: relaunch with resumeFromRunId wf_2d9d668a-e53 (A1/A2 are Ghidra stages; their exports on disk are the checkpoint) |
 
 ## Next steps after the workflows land
 1. Opus audit of `ghidra/proposals/qwen-naming.json` (30-sample precision) → `qwen-naming.verified.json`, so the next reconcile includes it.
