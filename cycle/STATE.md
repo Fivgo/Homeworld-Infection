@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-09 01:53
+Last checkpoint: 2026-10-09 03:54
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -35,6 +35,8 @@ Claude Code records no "approaching limit" signal: across a week of transcripts 
 <!-- /qwen-status -->
 
 ## Opus workflows in flight
+
+**Observed 2026-10-09:** the session restarts roughly hourly (00:53, 03:53 restarts logged), which kills any agent that has not written its file yet. The sim-subsystems producer ran 36 min and was lost twice. Rule for every long producer: write its output file incrementally per subsystem (the binary-map script now does this and splits sim into three producers).
 
 Scripts are copied in `cycle/workflows/` so a new session can relaunch them. Resume a run (same session) with `Workflow({scriptPath, resumeFromRunId})`; in a fresh session, relaunch the script and the finished stages' files on disk are reused.
 
