@@ -89,7 +89,7 @@ log(`Binary map round 1: ${TASKS.length} Opus producers over ${EXP}, each audite
 
 const results = await pipeline(
   TASKS,
-  t => agent(COMMON + '\n' + t.prompt + `\nWrite ${PROP}/${t.key}.json (mkdir -p ${PROP}). RESUME RULE: if ${PROP}/${t.key}.json already exists and parses as JSON with a non-empty proposals array, do NOT redo the work: read it, count it, and return its stats immediately. Return via StructuredOutput with proposals_path=${PROP}/${t.key}.json.`,
+  t => agent(COMMON + '\n' + t.prompt + `\nWrite ${PROP}/${t.key}.json (mkdir -p ${PROP}). RESUME RULE: if ${PROP}/${t.key}.json already exists and parses as JSON with a non-empty proposals array, do NOT redo finished work: read it; if it has a "done_subsystems" list and your task names subsystems not in that list, finish ONLY those (appending to the file) and then return; otherwise return its stats immediately. Return via StructuredOutput with proposals_path=${PROP}/${t.key}.json.`,
              { label: t.label, phase: 'Propose', schema: PROP_SCHEMA, model: 'opus' }),
   (r, t) => agent(verifyPrompt(t, r), { label: 'audit:' + t.key, phase: 'Verify', schema: VERIFY_SCHEMA, model: 'opus' })
              .then(v => ({ key: t.key, produced: r, audit: v })),
