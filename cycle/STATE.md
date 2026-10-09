@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-09 11:17
+Last checkpoint: 2026-10-09 11:49
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -33,6 +33,19 @@ Claude Code records no "approaching limit" signal: across a week of transcripts 
     progress       : 12/3078 functions proposed -> /home/evanmedinger/Documents/GameDev/Homeworld-Infection/ghidra/proposals/qwen/naming.jsonl
 ```
 <!-- /qwen-status -->
+
+
+## PAUSED 2026-10-09 12:05 — needs a decision from the user
+
+Nothing is running. The in-session round-2 workflow was stopped on purpose (to hand off to a background orchestrator), the auto-mode classifier then refused to start that background session AND refused to relaunch the in-session workflow ("Create Unsafe Agents"). The IDE session also tears down background work after 15-35 idle minutes, which is what kept killing runs. Two ways forward (user's choice):
+
+A. Allow the Workflow tool in Claude Code settings (permission rule for Workflow) and keep using in-session workflows plus a 10-minute relaunch cron.
+B. Run the orchestrator yourself, once, from a terminal (lives in the CLI, survives IDE restarts):
+   cd ~/Documents/GameDev/Homeworld-Infection && claude --bg --name homeworld-orchestrator --model opus --permission-mode auto --effort high --add-dir "$PWD" "$(cat cycle/ORCHESTRATOR.md)"
+   Watch: claude agents   |   claude logs homeworld-orchestrator   |   stop: claude stop homeworld-orchestrator
+   If B is chosen, no in-session crons must launch anything (set "orchestrator: active" here).
+
+Round-2 state on disk: A1 complete (r2a export, 13,440 functions); A2 (data names + struct types), producers, audits, reconcile, apply not started. Relaunch = Workflow resumeFromRunId wf_2d9d668a-e53.
 
 ## Opus workflows in flight
 
