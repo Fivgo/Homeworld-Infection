@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-08 22:11
+Last checkpoint: 2026-10-08 23:53
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -27,7 +27,7 @@ Claude Code records no "approaching limit" signal: across a week of transcripts 
 
 <!-- qwen-status -->
 ```
-    claude limited : False (reset 18:50, seen 14:30)
+    claude limited : False (reset 23:50, seen 22:17)
     gpu gate       : BLOCKED (a game is running)
     model          : qwen3.6:27b ctx=8192
     progress       : 12/8310 functions proposed -> /home/evanmedinger/Documents/GameDev/Homeworld-Infection/ghidra/proposals/qwen/naming.jsonl
@@ -41,7 +41,7 @@ Scripts are copied in `cycle/workflows/` so a new session can relaunch them. Res
 | workflow | run id | state at last checkpoint | next |
 |---|---|---|---|
 | dissect-public | `wf_05709792-47f` | COMPLETE 2026-10-08 20:12: 7 docs, all 7 verified (two docs carry two verification rounds). The planner agent stopped on a denied file read, so PLAN.md and README.md were written by the lead instead. | nothing; do not resume |
-| binary-map-r1 | `wf_0c18f70b-e23` | producers cut off by the limit; `lib-strings.json` and `missions.json` already on disk; a null guard now stops it before Apply if reconcile fails | resume: producers → audits → reconcile → Ghidra apply |
+| binary-map-r1 | `wf_0c18f70b-e23` | 6 of 7 producers done (lib-strings 5232, lib-graph 5596, hw1-match 189, ships 159, missions 538, core 1228 proposals); audits done for lib-graph + missions (precision 1.0); sim-subsystems, 5 audits, reconcile, apply cut off by the limit at 22:5x (resets 23:50) | relaunch from cycle/workflows/binary-map-r1.js (resume guards: finished agents return instantly) |
 
 ## Next steps after the workflows land
 1. Opus audit of `ghidra/proposals/qwen-naming.json` (30-sample precision) → `qwen-naming.verified.json`, so the next reconcile includes it.

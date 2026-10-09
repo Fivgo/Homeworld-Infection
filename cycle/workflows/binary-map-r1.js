@@ -73,6 +73,7 @@ const TASKS = [
 
 function verifyPrompt(t, r) {
   return `${COMMON}
+RESUME RULE: if ${PROP}/${t.key}.verified.json already exists and parses with an "audit" object, do NOT redo the audit: read it and return its numbers immediately.
 TASK: you are an ADVERSARIAL AUDITOR for the proposals file ${PROP}/${t.key}.json (producer's summary: ${JSON.stringify(r && r.summary || '')}). Your job is to catch wrong names/classes, not to add new ones.
 1. Load the file. Sample 30 proposals (python random.seed(7); if fewer than 30, take all), stratified so that each confidence level is represented proportionally and at least 10 are 'high'.
 2. For each sampled proposal, independently establish the truth from the decompiled C of that address, its strings (strings.csv), its callers/callees (call_graph.csv), and, for hw1 claims, the HW1 source function named in hw1_equivalent (read it). Verdict: correct / wrong / unverifiable. "Wrong" includes: right family but wrong specific function, a class that contradicts the evidence, a name CET already assigned differently, an address that is not a function entry.
@@ -86,7 +87,7 @@ log(`Binary map round 1: ${TASKS.length} Opus producers over ${EXP}, each audite
 
 const results = await pipeline(
   TASKS,
-  t => agent(COMMON + '\n' + t.prompt + `\nWrite ${PROP}/${t.key}.json (mkdir -p ${PROP}). Return via StructuredOutput with proposals_path=${PROP}/${t.key}.json.`,
+  t => agent(COMMON + '\n' + t.prompt + `\nWrite ${PROP}/${t.key}.json (mkdir -p ${PROP}). RESUME RULE: if ${PROP}/${t.key}.json already exists and parses as JSON with a non-empty proposals array, do NOT redo the work: read it, count it, and return its stats immediately. Return via StructuredOutput with proposals_path=${PROP}/${t.key}.json.`,
              { label: t.label, phase: 'Propose', schema: PROP_SCHEMA, model: 'opus' }),
   (r, t) => agent(verifyPrompt(t, r), { label: 'audit:' + t.key, phase: 'Verify', schema: VERIFY_SCHEMA, model: 'opus' })
              .then(v => ({ key: t.key, produced: r, audit: v })),
