@@ -35,7 +35,11 @@ Claude Code records no "approaching limit" signal: across a week of transcripts 
 <!-- /qwen-status -->
 
 
-## PAUSED 2026-10-09 12:05 — needs a decision from the user
+## Orchestrator: ACTIVE since 2026-10-09 12:29 (user chose option B)
+
+A background CLI session `homeworld-orchestrator` (claude --bg, Opus, auto permissions, brief in cycle/ORCHESTRATOR.md) now owns relaunching and chaining the workflows. The IDE session must NOT launch workflows while it is active. Watch: `claude agents`, `claude logs homeworld-orchestrator`; stop: `claude stop homeworld-orchestrator`.
+
+### (history) PAUSED 2026-10-09 12:05
 
 Nothing is running. The in-session round-2 workflow was stopped on purpose (to hand off to a background orchestrator), the auto-mode classifier then refused to start that background session AND refused to relaunch the in-session workflow ("Create Unsafe Agents"). The IDE session also tears down background work after 15-35 idle minutes, which is what kept killing runs. Two ways forward (user's choice):
 
