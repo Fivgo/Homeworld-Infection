@@ -79,6 +79,8 @@ def claude_limit_state(lookback_h=6):
     cutoff = time.time() - lookback_h * 3600
     now = time.time()
     best = None  # (resetsAt, seen_ts)
+    marker = None  # epoch of the newest '[Usage limit reached' marker
+    last_ok = None  # epoch of the newest real assistant message
     for dirpath, _dirs, files in os.walk(PROJECTS):
         for fn in files:
             if not fn.endswith(".jsonl"):
@@ -93,27 +95,58 @@ def claude_limit_state(lookback_h=6):
             except OSError:
                 continue
             for line in tail.splitlines():
-                if "isApiErrorMessage" not in line or "quotaLimits" not in line:
+                # (a) hard 429 with an exact reset time
+                if "isApiErrorMessage" in line and "quotaLimits" in line:
+                    try:
+                        o = json.loads(line)
+                    except ValueError:
+                        continue
+                    q = o.get("quotaLimits")
+                    if (o.get("isApiErrorMessage") is True and isinstance(q, dict)
+                            and q.get("status") == "rejected" and isinstance(q.get("resetsAt"), (int, float))):
+                        if best is None or q["resetsAt"] > best[0]:
+                            best = (q["resetsAt"], o.get("timestamp", ""))
                     continue
-                try:
-                    o = json.loads(line)
-                except ValueError:
+                # (b) the in-turn marker Claude Code injects as a user message when a session runs dry
+                #     ("[Usage limit reached; a short grace allowance remains, then this turn is cut ...]");
+                #     no reset time is given, so treat it as "limited" until a later REAL assistant message appears.
+                if '"[Usage limit reached' in line and '"type": "user"' in line or ('"type":"user"' in line and '"[Usage limit reached' in line):
+                    ts = _ts(line)
+                    if ts and (marker is None or ts > marker):
+                        marker = ts
                     continue
-                q = o.get("quotaLimits")
-                if not (o.get("isApiErrorMessage") is True and isinstance(q, dict)
-                        and q.get("status") == "rejected" and isinstance(q.get("resetsAt"), (int, float))):
-                    continue
-                if best is None or q["resetsAt"] > best[0]:
-                    best = (q["resetsAt"], o.get("timestamp", ""))
-    if best is None:
-        return False, None, None
-    reset = dt.datetime.fromtimestamp(best[0]).astimezone()
+                if '"type": "assistant"' in line or '"type":"assistant"' in line:
+                    if '"<synthetic>"' in line or '"isApiErrorMessage": true' in line or '"isApiErrorMessage":true' in line:
+                        continue
+                    ts = _ts(line)
+                    if ts and (last_ok is None or ts > last_ok):
+                        last_ok = ts
+    limited_429 = best is not None and now < best[0]
+    limited_marker = marker is not None and (last_ok is None or marker > last_ok) and (now - marker) < 5 * 3600
+    reset = dt.datetime.fromtimestamp(best[0]).astimezone() if best else None
     seen = None
+    src = best[1] if best else None
+    if marker and (best is None or marker > _epoch(best[1])):
+        seen = dt.datetime.fromtimestamp(marker).astimezone()
+        reset = reset if limited_429 else None
+    elif src:
+        try:
+            seen = dt.datetime.fromisoformat(src.replace("Z", "+00:00")).astimezone()
+        except ValueError:
+            pass
+    return (limited_429 or limited_marker), reset, seen
+
+
+def _ts(line):
+    m = re.search(r'"timestamp"\s*:\s*"([^"]+)"', line)
+    return _epoch(m.group(1)) if m else None
+
+
+def _epoch(iso):
     try:
-        seen = dt.datetime.fromisoformat(best[1].replace("Z", "+00:00")).astimezone()
-    except ValueError:
-        pass
-    return now < best[0], reset, seen
+        return dt.datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
+    except Exception:
+        return None
 
 # ---------------------------------------------------------------- GPU gate
 def game_running():
