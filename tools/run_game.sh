@@ -172,7 +172,7 @@ fi
 
 # --- game dir / exe ----------------------------------------------------------------------
 if [[ -z "$GAME_DIR" ]]; then
-  exe0="$(find "$GAME_ROOT" -maxdepth 4 -type f -iname 'cataclysm.exe' ! -path '*/.cet-backup/*' -print -quit 2>/dev/null || true)"
+  exe0="$(find -H "$GAME_ROOT" -maxdepth 4 -type f -iname 'cataclysm.exe' ! -path '*/.cet-backup/*' -print -quit 2>/dev/null || true)"
   [[ -n "$exe0" ]] && GAME_DIR="$(dirname -- "$exe0")"
 fi
 if [[ -z "$GAME_DIR" || ! -d "$GAME_DIR" ]]; then
@@ -184,7 +184,7 @@ GAME_DIR="$(cd -- "$GAME_DIR" 2>/dev/null && pwd || echo "$GAME_DIR")"
 
 need() {  # need FILE HINT
   [[ $SYNC_RES -eq 2 ]] && return 0   # --sync-res-only touches the registry, not the game files
-  if [[ -z "$(find "$GAME_DIR" -maxdepth 1 -iname "$1" -print -quit 2>/dev/null)" ]]; then
+  if [[ -z "$(find -H "$GAME_DIR" -maxdepth 1 -iname "$1" -print -quit 2>/dev/null)" ]]; then
     if [[ $DRY_RUN -eq 1 ]]; then log "dry run: WARNING missing $GAME_DIR/$1 ($2)"; else die "missing $GAME_DIR/$1 ($2)"; fi
   fi
 }
@@ -376,7 +376,7 @@ if [[ $USE_GAMESCOPE -eq 1 ]]; then
 fi
 log "exit status: $rc"
 for f in CataclysmEngineTweaks.log rgld3d9.log; do   # CET dllmain.cpp LOG_FILE_NAME, hw_rgl D3D9 d3driver.cpp
-  p="$(find "$GAME_DIR" -maxdepth 1 -iname "$f" -newer "$START_MARK" -print -quit 2>/dev/null || true)"
+  p="$(find -H "$GAME_DIR" -maxdepth 1 -iname "$f" -newer "$START_MARK" -print -quit 2>/dev/null || true)"
   if [[ -n "$p" ]]; then
     log "---- tail of $f ----"
     tail -n 60 -- "$p" | sed 's/^/    /'

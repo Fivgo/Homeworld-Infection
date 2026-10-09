@@ -13,6 +13,8 @@
 #      later runs (program already in the project): -process, no re-analysis unless --reanalyze,
 #        re-applies symbols (phase=all) and re-exports
 #   4. exports to ghidra/exports/<export-name>/   (export-name defaults to the PE basename)
+#   Exit codes: 2 usage, 3 GOG Galaxy stub, 4 Ghidra/JDK missing, 5 script/import error in the
+#   log, 6 the project already held a different file with this basename; else analyzeHeadless's rc
 #
 # Options:
 #   --reimport        delete and re-import the program (fresh analysis)
@@ -62,13 +64,13 @@ while [[ $# -gt 0 ]]; do
     --hw1-apply) HW1=1; HW1_APPLY=1 ;;
     --hw1-validate) HW1=1; HW1_VALIDATE=1 ;;
     --hw1-src) HW1_SRC="$2"; shift ;;
-    -h|--help) sed -n '2,36p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,38p' "$0"; exit 0 ;;
     -*) echo "unknown option $1" >&2; exit 2 ;;
     *) POS+=("$1") ;;
   esac
   shift
 done
-[[ ${#POS[@]} -ge 1 ]] || { sed -n '2,36p' "$0"; exit 2; }
+[[ ${#POS[@]} -ge 1 ]] || { sed -n '2,38p' "$0"; exit 2; }
 # A glob such as original/game/.cet-backup/*/rgl.dll that matches several files would otherwise
 # silently turn the second match into the project name.
 [[ ${#POS[@]} -le 2 ]] || { echo "too many arguments (did a glob match several files?): ${POS[*]}" >&2; exit 2; }
@@ -170,6 +172,21 @@ END=$(date +%s)
 if grep -qE "^ERROR .*\.py> |Traceback \(most recent|REPORT: Import failed|program file\(s\) not found|Unable to lock project" "$LOGDIR/headless.out"; then
   echo "[pipeline] WARNING: errors in $LOGDIR/headless.out" >&2
   [[ $RC -eq 0 ]] && RC=5
+fi
+
+# Reuse mode is keyed on the project name + PE basename only, so a DIFFERENT file with the same
+# basename (CET's rgl.dll vs the original rgl.dll, another cataclysm.exe build) silently processes
+# the program already in the project (gotcha G22). ExportAnalysis records the analysed program's
+# sha256 in program.json: compare it with the file we were given.
+if [[ -f "$OUT/program.json" && "$(stat -c %Y "$OUT/program.json")" -ge $START ]]; then
+  PE_SHA="$(sha256sum "$PE" | cut -d' ' -f1)"
+  PROG_SHA="$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1])).get("sha256") or "")' \
+              "$OUT/program.json" 2>/dev/null || true)"
+  if [[ -n "$PROG_SHA" && "${PROG_SHA,,}" != "$PE_SHA" ]]; then
+    echo "[pipeline] ERROR: project '$PROJECT' holds a different $PE_BASE (sha256 $PROG_SHA) than $PE ($PE_SHA)." >&2
+    echo "[pipeline]        The exports in $OUT describe the project's program, not this file. Use another project name, or --reimport." >&2
+    [[ $RC -eq 0 ]] && RC=6
+  fi
 fi
 echo "[pipeline] rc=$RC wall=$((END-START))s  exports: $OUT"
 ls -la "$OUT" | sed 's/^/[pipeline]   /'

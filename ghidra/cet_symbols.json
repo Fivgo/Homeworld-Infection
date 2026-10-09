@@ -21,7 +21,7 @@
    "type": "UNIVERSE_UPDATE_RATE use in alliance-timeout computation",
    "source": "CataclysmEngineTweaks/Cataclysm.h:112",
    "hw1_equivalent": "HomeworldSDL/src/Game/Alliance.c:allianceFormWith",
-   "notes": "Defined but NOT patched by CET (alliance proposal timeout stays in 16Hz frames -> expires 4x faster at 64Hz). HW1 Alliance.c:57 `univUpdateCounter + UNIVERSE_UPDATE_RATE * 90`. [exe 12948] bytes `8B 0D AC 2B B6 00 81 C1 A0 05 00 00` = mov ecx,[0x00B62BAC] (univUpdateCounter); add ecx,1440 (=16*90): confirmed."
+   "notes": "Defined but NOT patched by CET (alliance proposal timeout stays in 16Hz frames -> expires 4x faster at 64Hz). HW1 Alliance.c:57 `univUpdateCounter + UNIVERSE_UPDATE_RATE * 90`. [exe 12948] the instruction AT this VA is `81 C1 A0 05 00 00` = add ecx,1440 (=16*90; imm32 at 0x0042090F). It is preceded at 0x00420907 by `8B 0D AC 2B B6 00` = mov ecx,[0x00B62BAC] (univUpdateCounter) and followed at 0x00420913 by `89 88 F8 D9 B6 00` = mov [eax+0x00B6D9F8],ecx, i.e. players[sigsPlayerIndex].AllianceProposalsTimeout with a Player stride of 0x6530 (ghidra/exports/cataclysm_gog/decompiled.c:18570): confirmed. A CET-style fix would rewrite the imm32 to 1440<<shift (same 6-byte length)."
   },
   {
    "address": "0x00431510",
@@ -1620,10 +1620,10 @@
    "address": "0x00B67500",
    "name": "universe_players",
    "kind": "data",
-   "type": "Player[9] (Cataclysm Player size unknown, larger than HW1)",
+   "type": "Player[9] (Cataclysm sizeof(Player) = 0x6530 per exe stride; CET's 0x2F8 copy is asserted only up to 0x2A4)",
    "source": "CataclysmEngineTweaks/game/Game/universe.h:257",
    "hw1_equivalent": "HomeworldSDL/src/Game/Universe.h:Universe.players",
-   "notes": "Derived: universe 0x00B62A00 + 0x4B00 (asserted offset)."
+   "notes": "Derived: universe 0x00B62A00 + 0x4B00 (asserted offset). [exe 12948] players[] stride is 0x6530 (= the size CET comments out at universe.h:136): allianceFormWith indexes players[i].AllianceProposals as (&0x00B6D9F6)[i*0x3298] (uword) and .AllianceProposalsTimeout as (&0x00B6D9F8)[i*0x194C] (udword) (decompiled.c:18561,18570), and two player loops start at &players[0]+0x27 (0x00B67527) and step `p += 0x6530` (decompiled.c:64101-64121, 189024-189027). So players[1] starts at 0x00B6DA30 and everything CET places after players[0] (world @+0x65B8) is wrong; real world[] would be at universe+0x3DA30 (derived, UNVERIFIED)."
   },
   {
    "address": "0x00BB3260",

@@ -64,7 +64,9 @@ if noexec:
 WANT = [
     # find code the entry-point/call-graph walk misses (MSVC6 switch tables, callbacks, vtables)
     ("Aggressive Instruction Finder", "true"),
-    # recover params/returns via decompiler (default true for PE, set explicitly)
+    # recover params/returns via decompiler. Ghidra enables it by default only for a PE with
+    # fewer than 2 MiB of addresses (DecompilerFunctionAnalyzer.getDefaultEnablement); cataclysm.exe
+    # has ~9 MB of blocks, so without this line it would be off (docs/ghidra-pipeline.md 4)
     ("Decompiler Parameter ID", "true"),
     ("Decompiler Parameter ID.Analysis Decompiler Timeout (sec)", "90"),
     # function-start byte patterns (x86win_patterns.xml), incl. after code/data

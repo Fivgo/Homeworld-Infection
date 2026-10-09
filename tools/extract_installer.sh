@@ -12,6 +12,9 @@ PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 # HWC_ORIG_DIR / HWC_GAME_ROOT exist only so the script can be tested on fixtures.
 ORIG_DIR="${HWC_ORIG_DIR:-$PROJECT_ROOT/original}"
 GAME_ROOT="${HWC_GAME_ROOT:-$ORIG_DIR/game}"
+# original/ or original/game may be symlinks to another disk: work on the real directory, so
+# --force moves the real game dir aside (not just the link) and re-extracts on that disk.
+GAME_ROOT="$(readlink -f -- "$GAME_ROOT" 2>/dev/null || printf '%s' "$GAME_ROOT")"
 # innoextract built from git master (Inno Setup 6.3/6.4.0 + 2025 GOG Galaxy fixes) lives here:
 IE_BUILD_ROOT="${HWC_IE_BUILD_ROOT:-$PROJECT_ROOT/build/innoextract-git}"
 INNOEXTRACT="${HWC_INNOEXTRACT:-}"
@@ -149,10 +152,10 @@ find_installer() {
   fi
   local cands=()
   while IFS= read -r -d '' f; do cands+=("$f"); done < <(
-    find "$ORIG_DIR" -maxdepth 1 -type f -iname 'setup_homeworld_emergence*.exe' -print0 2>/dev/null | sort -z)
+    find -L "$ORIG_DIR" -maxdepth 1 -type f -iname 'setup_homeworld_emergence*.exe' -print0 2>/dev/null | sort -z)
   if [[ ${#cands[@]} -eq 0 ]]; then
     local stub
-    stub="$(find "$ORIG_DIR" -maxdepth 1 -type f -iname 'GOG_Galaxy_*.exe' -print -quit 2>/dev/null || true)"
+    stub="$(find -L "$ORIG_DIR" -maxdepth 1 -type f -iname 'GOG_Galaxy_*.exe' -print -quit 2>/dev/null || true)"
     if [[ -n "$stub" ]]; then refuse_stub "$stub"; fi
     log "no setup_homeworld_emergence*.exe in $ORIG_DIR"
     log "files present:"; ls -la "$ORIG_DIR" || true
@@ -182,7 +185,7 @@ describe_installer() {
   fi
   local parts=()
   while IFS= read -r -d '' p; do parts+=("$p"); done < <(
-    find "$(dirname -- "$INSTALLER")" -maxdepth 1 -type f -iname "${stem}-*.bin" -print0 2>/dev/null | sort -z)
+    find -L "$(dirname -- "$INSTALLER")" -maxdepth 1 -type f -iname "${stem}-*.bin" -print0 2>/dev/null | sort -z)
   if [[ ${#parts[@]} -gt 0 ]]; then
     log "  .bin parts (innoextract picks these up automatically from the same directory):"
     local p; for p in "${parts[@]}"; do log "    $(basename -- "$p")  $(stat -c %s -- "$p") bytes"; done
@@ -255,7 +258,7 @@ PY
 exe_report() {
   [[ -d "$GAME_ROOT" ]] || die "$GAME_ROOT does not exist (extract first)"
   local exes=()
-  while IFS= read -r -d '' f; do exes+=("$f"); done < <(find "$GAME_ROOT" -type f -iname '*.exe' -print0 | sort -z)
+  while IFS= read -r -d '' f; do exes+=("$f"); done < <(find -H "$GAME_ROOT" -type f -iname '*.exe' -print0 | sort -z)
   log "executables under original/game/: ${#exes[@]}"
   local f
   for f in "${exes[@]}"; do
@@ -264,13 +267,13 @@ exe_report() {
     pe_report "$f" | sed '1d'
   done
   local dlls=()
-  while IFS= read -r -d '' f; do dlls+=("$f"); done < <(find "$GAME_ROOT" -type f -iname '*.dll' -print0 | sort -z)
+  while IFS= read -r -d '' f; do dlls+=("$f"); done < <(find -H "$GAME_ROOT" -type f -iname '*.dll' -print0 | sort -z)
   if [[ ${#dlls[@]} -gt 0 ]]; then
     printf '\nDLLs (%d):\n' "${#dlls[@]}"
     for f in "${dlls[@]}"; do printf '   %-60s %10s bytes  %s\n' "${f#"$GAME_ROOT"/}" "$(stat -c %s -- "$f")" "$(file -b -- "$f" | cut -c1-60)"; done
   fi
   local main
-  main="$(find "$GAME_ROOT" -maxdepth 4 -type f -iname 'cataclysm.exe' -print -quit)"
+  main="$(find -H "$GAME_ROOT" -maxdepth 4 -type f -iname 'cataclysm.exe' -print -quit)"
   if [[ -n "$main" ]]; then
     log "game directory (contains cataclysm.exe): ${main%/*}"
   else
@@ -431,7 +434,7 @@ if [[ "$MODE" == wine-install ]]; then
   wrc=$?
   set -e
   [[ $DRY_RUN -eq 1 ]] && { log "dry run: stopping"; exit 0; }
-  if [[ $wrc -ne 0 || -z "$(find "$GAME_ROOT" -maxdepth 2 -iname 'cataclysm.exe' -print -quit)" ]]; then
+  if [[ $wrc -ne 0 || -z "$(find -H "$GAME_ROOT" -maxdepth 2 -iname 'cataclysm.exe' -print -quit)" ]]; then
     log "installer exit code $wrc (Inno: 1 init failed, 2/5 cancelled/aborted, 3/4 fatal error)"
     [[ -f "$GAME_ROOT/inno_install.log" ]] && tail -n 8 "$GAME_ROOT/inno_install.log" | sed 's/^/    /'
     die "Wine install did not produce cataclysm.exe"
@@ -462,7 +465,7 @@ if [[ -d "$GAME_ROOT/app" && ! -e "$GAME_ROOT/cataclysm.exe" ]]; then
   shopt -u dotglob
   rmdir -- "$GAME_ROOT/app" || log "WARNING: $GAME_ROOT/app not empty after flatten (name clash?)"
 fi
-other_top="$(find "$GAME_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name __support ! -name 3Dfx ! -name credits ! -name feman ! -name Movies ! -name MultiPlayer ! -name SavedGames ! -name ScreenShots -printf '%f ' || true)"
+other_top="$(find -H "$GAME_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name __support ! -name 3Dfx ! -name credits ! -name feman ! -name Movies ! -name MultiPlayer ! -name SavedGames ! -name ScreenShots -printf '%f ' || true)"
 [[ -z "$other_top" ]] || log "note: other top-level dirs from the installer: $other_top"
 
 INST_SHA="$(sha256sum -- "$INSTALLER" | cut -d' ' -f1)"

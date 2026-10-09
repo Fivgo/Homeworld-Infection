@@ -1,0 +1,1596 @@
+{
+ "source": "ships",
+ "method": "Read the exe bytes (original/game/cataclysm.exe, PE sections parsed in Python) plus the Ghidra exports. ShipTypeToStr (CET 0x4D6BC0) led to the shiptypeinfo name table; InitStatShipInfo (found via its index into PTR_DAT_008b1938) copies 0x23 dwords from shipHeaders[type] into ShipStaticInfo+0x108, which fixes the Cataclysm CustShipHeader at 0x8C bytes: sizeofShipSpecifics + 34 function slots, no leading shiptype field. Every slot read through ship->staticinfo (+0x20) was located with objdump (mov reg,[x+0x20]; mov reg,[reg+0x10C..0x190]; call reg) and each call site was matched to its HW1 caller (InitStatShipInfo, univCreateShip, univFreeShipContents, processSpecialToDo, univDeleteDeadShip, SaveShip/LoadShip/FixShip, ShipSelect checks, clHalt/clDock/move). The 51 distinct headers were attributed to modules by the ship types that use them, the alphabetical object-file order of .data/.text, the per-module script-key strings and debug strings, and by comparing each header non-NULL slot set with the HW1 initializers parsed from HomeworldSDL/src/Ships/*.c (exact matches for GravWellGenerator, MissileDestroyer, GenericInterceptor, AttackBomber, CloakedFighter, ProximitySensor, IonCannonFrigate, etc.). Functions are named <Module><Slot> (HW1 names verbatim where HW1 had that slot). Only 72 of the 324 distinct slot targets are Ghidra functions; the other 252 are listed in the run summary, not proposed. Shared addresses are identical-code folds (a RET stub 0x49AE30, a return-0 stub 0x6FE9A0 and the return-1 stub 0x497DB0, which missions.json names kasfSpecialOff, carry many slots); 0x497DB0 is left to that file.",
+ "proposals": [
+  {
+   "address": "0x00889530",
+   "name": "shiptypeinfo",
+   "kind": "data",
+   "class": "hw1:ObjTypes.c",
+   "confidence": "high",
+   "evidence": "ShipTypeToStr 0x4D6BC0 (CET) walks 8-byte {type,char*name} rows here: 145 rows sRecon(0)..nisLensflareSource1(144), NULL-terminated at 0x8899B8; order == CET ShipDefs.h",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ObjTypes.c:shiptypeinfo",
+   "signature": ""
+  },
+  {
+   "address": "0x008894e8",
+   "name": "FirstShipTypeOfRace",
+   "kind": "data",
+   "class": "hw1:ObjTypes.c",
+   "confidence": "high",
+   "evidence": "ShipType[7]={0,33,60,74,92,98,109} (Sect,Beast,Kushan,Taiidan,P1,Traders,Derelict); 0x53D2A0 load loop pairs it with LastShipTypeOfRace to call InitStatShipInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ObjTypes.c:FirstShipTypeOfRace",
+   "signature": ""
+  },
+  {
+   "address": "0x00889504",
+   "name": "LastShipTypeOfRace",
+   "kind": "data",
+   "class": "hw1:ObjTypes.c",
+   "confidence": "high",
+   "evidence": "ShipType[7]={32,59,73,91,97,108,144}; used with FirstShipTypeOfRace (0x8894E8) in the static-info load loop of 0x53D2A0 (decompiled.c:205248-205271)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ObjTypes.c:LastShipTypeOfRace",
+   "signature": ""
+  },
+  {
+   "address": "0x008b1938",
+   "name": "shipHeaders",
+   "kind": "data",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader*[145] indexed by ShipType; InitStatShipInfo 0x53BAB0 copies 0x23 dwords of *shipHeaders[type] to statinfo+0x108 (decompiled.c:203941); k/tCloakGenerator entries are NULL",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:shipHeaders",
+   "signature": ""
+  },
+  {
+   "address": "0x00b3b420",
+   "name": "ShipStaticInfos",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "ShipStaticInfo[145], stride 0x458: GetShipStaticInfo(type) 0x53EA50 returns 0xB3B420+type*0x458; also the base of ShipStaticScriptTable entries; replaces HW1 per-race arrays",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:ShipStaticInfoR1",
+   "signature": ""
+  },
+  {
+   "address": "0x008935a0",
+   "name": "ShipNamesScriptTable",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "scriptStructEntry[] {\"ShipName\", cb 0x50EE70,...} passed to scriptSet(NULL,\"shipnames.script\",...) by 0x50EFD0; ShipNames.c is the only Cataclysm-only source path in the exe",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c3260",
+   "name": "AcolyteHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x5c, 14 non-NULL slots) used by shipHeaders[] for sAcolyte,bAcolyte,dAcolyte",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c3328",
+   "name": "ACVHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0xd4, 19 non-NULL slots) used by shipHeaders[] for sACV,bACV",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c3408",
+   "name": "AdvanceSupportFrigateHeader",
+   "kind": "data",
+   "class": "hw1:AdvanceSupportFrigate.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x4, 6 non-NULL slots) used by shipHeaders[] for kAdvanceSupportFrigate,tAdvanceSupportFrigate",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/AdvanceSupportFrigate.c:AdvanceSupportFrigateHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c34d0",
+   "name": "CarrierHeader",
+   "kind": "data",
+   "class": "hw1:Carrier.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x168, 17 non-NULL slots) used by shipHeaders[] for sCarrier,bCarrier,kCarrier,tCarrier,dKushanCarrier",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/Carrier.c:CarrierHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c3720",
+   "name": "ModuleShipHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x3c, 5 non-NULL slots) used by shipHeaders[] for sDreadnoughtCannon,sCarrierSupport,sMothershipSpecial,sMothershipEngineering,...(19 types)",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c37b0",
+   "name": "CruiseMissileHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x4, 5 non-NULL slots) used by shipHeaders[] for bCruiseMissile",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c3860",
+   "name": "CrystalHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0xc, 3 non-NULL slots) used by shipHeaders[] for dCrystal0,dCrystal1",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c3920",
+   "name": "dBeastMothershipHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x18, 13 non-NULL slots) used by shipHeaders[] for dBeastMothership",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c39b0",
+   "name": "DefaultShipHeader",
+   "kind": "data",
+   "class": "hw1:DefaultShip.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x4, 3 non-NULL slots) used by shipHeaders[] for trCargoBarge,trResearchStation",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefaultShip.c:DefaultShipHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c3a40",
+   "name": "DoNothingShipHeader",
+   "kind": "data",
+   "class": "hw1:DefaultShip.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x4, 0 non-NULL slots) used by shipHeaders[] for p1Outpost,trJunkYardDawg,trJunkYardHQ,trResearchStationBridge,...(28 types)",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefaultShip.c:DoNothingShipHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c3ad0",
+   "name": "MiningBaseHeader",
+   "kind": "data",
+   "class": "hw1:DefaultShip.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x4, 2 non-NULL slots) used by shipHeaders[] for trMiningBase",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefaultShip.c:MiningBaseHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c3b60",
+   "name": "StationaryGunHeader",
+   "kind": "data",
+   "class": "hw1:DefaultShip.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x4, 2 non-NULL slots) used by shipHeaders[] for trJunk_LGun,trJunk_SGun",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefaultShip.c:StationaryGunHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c3ff8",
+   "name": "DFGFrigateHeader",
+   "kind": "data",
+   "class": "hw1:DFGFrigate.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x4, 3 non-NULL slots) used by shipHeaders[] for bDFGFrigate,tDFGFrigate",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DFGFrigate.c:DFGFrigateHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c4130",
+   "name": "DreadnoughtHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0xd68, 13 non-NULL slots) used by shipHeaders[] for sDreadnought",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c4200",
+   "name": "FloatingCityHeader",
+   "kind": "data",
+   "class": "hw1:FloatingCity.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x4, 4 non-NULL slots) used by shipHeaders[] for trFloatingCity",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/FloatingCity.c:FloatingCityHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c42d8",
+   "name": "GenericDefenderHeader",
+   "kind": "data",
+   "class": "hw1:GenericDefender.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x4, 4 non-NULL slots) used by shipHeaders[] for kHeavyDefender,tHeavyDefender",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericDefender.c:GenericDefenderHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c4448",
+   "name": "GenericInterceptorHeader",
+   "kind": "data",
+   "class": "hw1:GenericInterceptor.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x18, 6 non-NULL slots) used by shipHeaders[] for sRecon,bRecon,bInterceptor,kHeavyInterceptor,...(6 types)",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericInterceptor.c:GenericInterceptorHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c44d8",
+   "name": "CloakedFighterHeader",
+   "kind": "data",
+   "class": "hw1:GenericInterceptor.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x50, 7 non-NULL slots) used by shipHeaders[] for bCloakedFighter",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericInterceptor.c:CloakedFighterHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c4568",
+   "name": "AttackBomberHeader",
+   "kind": "data",
+   "class": "hw1:GenericInterceptor.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x38, 6 non-NULL slots) used by shipHeaders[] for bAttackBomber,kAttackBomber,tAttackBomber",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericInterceptor.c:AttackBomberHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c4868",
+   "name": "GravWellGeneratorHeader",
+   "kind": "data",
+   "class": "hw1:GravWellGenerator.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x28, 13 non-NULL slots) used by shipHeaders[] for kGravWellGenerator,tGravWellGenerator",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GravWellGenerator.c:GravWellGeneratorHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c4998",
+   "name": "HeavyCorvetteHeader",
+   "kind": "data",
+   "class": "hw1:HeavyCorvette.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x2c, 9 non-NULL slots) used by shipHeaders[] for bHeavyCorvette,kHeavyCorvette",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/HeavyCorvette.c:HeavyCorvetteHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c4ab0",
+   "name": "HeavyCruiserHeader",
+   "kind": "data",
+   "class": "hw1:HeavyCruiser.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x15c, 16 non-NULL slots) used by shipHeaders[] for bHeavyCruiser,kHeavyCruiser,tHeavyCruiser",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/HeavyCruiser.c:HeavyCruiserHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c4b40",
+   "name": "HiveFrigateHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0xfd8, 17 non-NULL slots) used by shipHeaders[] for sHiveFrigate,bHiveFrigate",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c4bd0",
+   "name": "IonCannonFrigateHeader",
+   "kind": "data",
+   "class": "hw1:IonCannonFrigate.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x4, 4 non-NULL slots) used by shipHeaders[] for kIonCannonFrigate,tIonCannonFrigate,dIonArrayFrigate,dIonCannonFrigate",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/IonCannonFrigate.c:IonCannonFrigateHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c4c60",
+   "name": "LeechHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x4c, 13 non-NULL slots) used by shipHeaders[] for sLeech",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c4d10",
+   "name": "MCVHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x13c, 14 non-NULL slots) used by shipHeaders[] for sMCV",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c4df0",
+   "name": "MimicHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x13c, 15 non-NULL slots) used by shipHeaders[] for sMimic",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c5040",
+   "name": "MinelayerCorvetteHeader",
+   "kind": "data",
+   "class": "hw1:MinelayerCorvette.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x88, 10 non-NULL slots) used by shipHeaders[] for tMinelayerCorvette",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/MinelayerCorvette.c:MinelayerCorvetteHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c5320",
+   "name": "MissileDestroyerHeader",
+   "kind": "data",
+   "class": "hw1:MissileDestroyer.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x14, 7 non-NULL slots) used by shipHeaders[] for tMissileDestroyer",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/MissileDestroyer.c:MissileDestroyerHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c53e8",
+   "name": "MothershipHeader",
+   "kind": "data",
+   "class": "hw1:Mothership.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x1f0, 20 non-NULL slots) used by shipHeaders[] for sMothership,bMothership,trGhostship",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/Mothership.c:MothershipHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c55a8",
+   "name": "MultiBeamFrigateHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x28, 6 non-NULL slots) used by shipHeaders[] for sMultiBeamFrigate,bMultiBeamFrigate",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c5648",
+   "name": "MultiGunCorvetteHeader",
+   "kind": "data",
+   "class": "hw1:MultiGunCorvette.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x8, 5 non-NULL slots) used by shipHeaders[] for bMultiGunCorvette,kMultiGunCorvette,tMultiGunCorvette",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/MultiGunCorvette.c:MultiGunCorvetteHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c56e8",
+   "name": "NomadMoonHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x1c, 9 non-NULL slots) used by shipHeaders[] for dNomadMoon",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c5778",
+   "name": "NomadFieldEmitterHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x4, 2 non-NULL slots) used by shipHeaders[] for dNomadFieldEmitter",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c5808",
+   "name": "P1IonArrayFrigateHeader",
+   "kind": "data",
+   "class": "hw1:P1IonArrayFrigate.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x38, 7 non-NULL slots) used by shipHeaders[] for bIonArrayFrigate,p1IonArrayFrigate",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/P1IonArrayFrigate.c:P1IonArrayFrigateHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c58d8",
+   "name": "P1MissileCorvetteHeader",
+   "kind": "data",
+   "class": "hw1:P1MissileCorvette.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x18, 7 non-NULL slots) used by shipHeaders[] for bMissileCorvette,p1MissileCorvette",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/P1MissileCorvette.c:P1MissileCorvetteHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c5968",
+   "name": "P1MothershipHeader",
+   "kind": "data",
+   "class": "hw1:P1Mothership.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x144, 11 non-NULL slots) used by shipHeaders[] for p1Mothership",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/P1Mothership.c:P1MothershipHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c5a88",
+   "name": "P1StandardCorvetteHeader",
+   "kind": "data",
+   "class": "hw1:P1StandardCorvette.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x168, 15 non-NULL slots) used by shipHeaders[] for p1StandardCorvette",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/P1StandardCorvette.c:P1StandardCorvetteHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c5b60",
+   "name": "ProcessorHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x1c8, 11 non-NULL slots) used by shipHeaders[] for sProcessor,bProcessor",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c5c88",
+   "name": "ProximitySensorHeader",
+   "kind": "data",
+   "class": "hw1:ProximitySensor.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x10, 3 non-NULL slots) used by shipHeaders[] for kProximitySensor,tProximitySensor",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/ProximitySensor.c:ProximitySensorHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c5e38",
+   "name": "RammingFrigateHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0xa4, 17 non-NULL slots) used by shipHeaders[] for sRammingFrigate,bRammingFrigate",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c6170",
+   "name": "RepairDroidHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x8, 1 non-NULL slots) used by shipHeaders[] for sRepairDroid,bRepairDroid",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c6378",
+   "name": "ResourceCollectorHeader",
+   "kind": "data",
+   "class": "hw1:ResourceCollector.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x4, 3 non-NULL slots) used by shipHeaders[] for tResourceCollector",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/ResourceCollector.c:ResourceCollectorHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c6458",
+   "name": "RKOHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0xd0, 10 non-NULL slots) used by shipHeaders[] for dRKO",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c6698",
+   "name": "SalCapCorvetteHeader",
+   "kind": "data",
+   "class": "hw1:SalCapCorvette.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x30, 10 non-NULL slots) used by shipHeaders[] for kSalCapCorvette,tSalCapCorvette",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/SalCapCorvette.c:SalCapCorvetteHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c6830",
+   "name": "SentinelHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x350, 13 non-NULL slots) used by shipHeaders[] for sSentinel,bSentinel",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c68c0",
+   "name": "SlipgateHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x30, 12 non-NULL slots) used by shipHeaders[] for dSlipgateSmall,dSlipgateMedium,dSlipgateLarge",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c6990",
+   "name": "StandardDestroyerHeader",
+   "kind": "data",
+   "class": "hw1:StandardDestroyer.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0xd30, 5 non-NULL slots) used by shipHeaders[] for sDestroyer,kStandardDestroyer,tStandardDestroyer",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/StandardDestroyer.c:StandardDestroyerHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c6a20",
+   "name": "StandardFrigateHeader",
+   "kind": "data",
+   "class": "hw1:StandardFrigate.c",
+   "confidence": "high",
+   "evidence": "CustShipHeader (0x8C B, sizeofShipSpecifics=0x4, 4 non-NULL slots) used by shipHeaders[] for tStandardFrigate",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/StandardFrigate.c:StandardFrigateHeader",
+   "signature": ""
+  },
+  {
+   "address": "0x008c6ab0",
+   "name": "SwarmerHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x20, 8 non-NULL slots) used by shipHeaders[] for sSwarmer,bSwarmer",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x008c6b50",
+   "name": "WorkerHeader",
+   "kind": "data",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Cataclysm CustShipHeader (0x8C B, sizeofShipSpecifics=0x48, 12 non-NULL slots) used by shipHeaders[] for sWorker,bWorker",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x005ad400",
+   "name": "AcolyteFire",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "AcolyteHeader 0x8C3260 slot+0x14 (statinfo+0x11C) Fire",
+   "hw1_equivalent": "",
+   "signature": "void AcolyteFire(Ship *ship, SpaceObjRotImpTarg *target)"
+  },
+  {
+   "address": "0x005aeb90",
+   "name": "ACVFire",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "ACVHeader 0x8C3328 slot+0x14 (statinfo+0x11C) Fire",
+   "hw1_equivalent": "",
+   "signature": "void ACVFire(Ship *ship, SpaceObjRotImpTarg *target)"
+  },
+  {
+   "address": "0x005aec20",
+   "name": "ACVAttack",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "ACVHeader 0x8C3328 slot+0x54 (statinfo+0x15C), called (ship,target,bulletRange[tactics]) at 0x442621",
+   "hw1_equivalent": "",
+   "signature": "bool32 ACVAttack(Ship *ship, SpaceObjRotImpTarg *target, real32 maxdist)"
+  },
+  {
+   "address": "0x005aee20",
+   "name": "ACV_PreFix",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "ACVHeader 0x8C3328 slot+0x40, called by SaveShip 0x500186; refs \"LINKING: ACV linking effect not being saved.\"",
+   "hw1_equivalent": "",
+   "signature": "void ACV_PreFix(Ship *ship)"
+  },
+  {
+   "address": "0x005af170",
+   "name": "CarrierOrderChanged",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "CarrierHeader 0x8C34D0 slot+0x24 (new), called (ship) when a SPECIAL order is cleaned up (0x4443B6); generalises HW1 RemoveShipFromSpecial",
+   "hw1_equivalent": "",
+   "signature": "void CarrierOrderChanged(Ship *ship)"
+  },
+  {
+   "address": "0x005af360",
+   "name": "CarrierRemoveShipReferences",
+   "kind": "function",
+   "class": "hw1:Carrier.c",
+   "confidence": "high",
+   "evidence": "CarrierHeader 0x8C34D0 slots+0x2C/+0x30, +0x2C called by univRemoveAllShipReferencesFromSpecialShip 0x5476D5",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/Carrier.c:CarrierRemoveShipReferences",
+   "signature": "void CarrierRemoveShipReferences(Ship *ship, Ship *shiptoremove)"
+  },
+  {
+   "address": "0x005af390",
+   "name": "CarrierBulletRemoval",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "CarrierHeader 0x8C34D0 slot+0x38 (new), called (ship,bullet) for all ships when a bullet dies in univUpdateAllPosVelBullets 0x543248; also HeavyCruiser/Mothership hdrs",
+   "hw1_equivalent": "",
+   "signature": "void CarrierBulletRemoval(Ship *ship, Bullet *bullet)"
+  },
+  {
+   "address": "0x005af3c0",
+   "name": "Carrier_Fix",
+   "kind": "function",
+   "class": "hw1:Carrier.c",
+   "confidence": "high",
+   "evidence": "CarrierHeader 0x8C34D0 slot+0x4C, called by FixShip 0x500CBE",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/Carrier.c:Carrier_Fix",
+   "signature": "void Carrier_Fix(Ship *ship)"
+  },
+  {
+   "address": "0x005af3f0",
+   "name": "CarrierDied",
+   "kind": "function",
+   "class": "hw1:Carrier.c",
+   "confidence": "high",
+   "evidence": "CarrierHeader 0x8C34D0 slot+0x3C, called by univDeleteDeadShip 0x547D60",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/Carrier.c:CarrierDied",
+   "signature": "void CarrierDied(Ship *ship)"
+  },
+  {
+   "address": "0x005af5e0",
+   "name": "ModuleShipStaticInit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "ModuleShipHeader 0x8C3720 slot+0x04 (statinfo+0x10C), called (dir,file,statinfo) at InitStatShipInfo 0x53C3AA; hdr shared by 19 module/attachment types",
+   "hw1_equivalent": "",
+   "signature": "void ModuleShipStaticInit(char *directory, char *filename, ShipStaticInfo *statinfo)"
+  },
+  {
+   "address": "0x005b0180",
+   "name": "dBeastMothershipRemoveShipReferences",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "dBeastMothershipHeader 0x8C3920 slots+0x2C/+0x30, +0x2C called by univRemoveAllShipReferencesFromSpecialShip 0x5476D5",
+   "hw1_equivalent": "",
+   "signature": "void dBeastMothershipRemoveShipReferences(Ship *ship, Ship *shiptoremove)"
+  },
+  {
+   "address": "0x005b01e0",
+   "name": "dBeastMothershipHouseKeep",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "dBeastMothershipHeader 0x8C3920 slot+0x28, called over HousekeepShipList at 0x54A3BB",
+   "hw1_equivalent": "",
+   "signature": "void dBeastMothershipHouseKeep(Ship *ship)"
+  },
+  {
+   "address": "0x005b0260",
+   "name": "DefaultShipFire",
+   "kind": "function",
+   "class": "hw1:DefaultShip.c",
+   "confidence": "high",
+   "evidence": "DefaultShipHeader 0x8C39B0 slot+0x14 (statinfo+0x11C) Fire; loops gunInfo(+0x490) guns, missileShoot/gunShoot; in 22 hdrs",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefaultShip.c:DefaultShipFire",
+   "signature": "void DefaultShipFire(Ship *ship, SpaceObjRotImpTarg *target)"
+  },
+  {
+   "address": "0x005b0370",
+   "name": "MiningBaseDied",
+   "kind": "function",
+   "class": "hw1:DefaultShip.c",
+   "confidence": "high",
+   "evidence": "MiningBaseHeader 0x8C3AD0 slot+0x3C, called by univDeleteDeadShip 0x547D60; tests shiptype==100 trMiningBase, calls univDeleteDeadShip",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/DefaultShip.c:MiningBaseDied",
+   "signature": "void MiningBaseDied(Ship *ship)"
+  },
+  {
+   "address": "0x005b1160",
+   "name": "DreadnoughtSpecialActivate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "DreadnoughtHeader 0x8C4130 slot+0x1C, called by processSpecialToDo 0x441942",
+   "hw1_equivalent": "",
+   "signature": "bool32 DreadnoughtSpecialActivate(Ship *ship)"
+  },
+  {
+   "address": "0x005b1e70",
+   "name": "GenericInterceptorStaticInit",
+   "kind": "function",
+   "class": "hw1:GenericInterceptor.c",
+   "confidence": "high",
+   "evidence": "GenericInterceptorHeader 0x8C4448 slot+0x04 (statinfo+0x10C), called (dir,file,statinfo) at InitStatShipInfo 0x53C3AA; switch on statinfo->shiptype, sets custstatinfo(+0x194)",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericInterceptor.c:GenericInterceptorStaticInit",
+   "signature": "void GenericInterceptorStaticInit(char *directory, char *filename, ShipStaticInfo *statinfo)"
+  },
+  {
+   "address": "0x005b2110",
+   "name": "GenericInterceptorInit",
+   "kind": "function",
+   "class": "hw1:GenericInterceptor.c",
+   "confidence": "high",
+   "evidence": "GenericInterceptorHeader 0x8C4448 slot+0x0C, called by univCreateShip 0x542A75; also AttackBomberHeader",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericInterceptor.c:GenericInterceptorInit",
+   "signature": "void GenericInterceptorInit(Ship *ship)"
+  },
+  {
+   "address": "0x005b22c0",
+   "name": "GenericInterceptorFire",
+   "kind": "function",
+   "class": "hw1:GenericInterceptor.c",
+   "confidence": "high",
+   "evidence": "GenericInterceptorHeader 0x8C4448 slot+0x14 (statinfo+0x11C) Fire; also AttackBomber/MCV/Mimic",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericInterceptor.c:GenericInterceptorFire",
+   "signature": "void GenericInterceptorFire(Ship *ship, SpaceObjRotImpTarg *target)"
+  },
+  {
+   "address": "0x005b2470",
+   "name": "GenericInterceptorPassiveAttack",
+   "kind": "function",
+   "class": "hw1:GenericInterceptor.c",
+   "confidence": "high",
+   "evidence": "GenericInterceptorHeader 0x8C4448 slot+0x18 (statinfo+0x120), called (ship,target,TRUE) in attack code 0x4427A0; also Acolyte/AttackBomber",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericInterceptor.c:GenericInterceptorPassiveAttack",
+   "signature": "void GenericInterceptorPassiveAttack(Ship *ship, Ship *target, bool32 rotate)"
+  },
+  {
+   "address": "0x005b2620",
+   "name": "GenericInterceptorAttack",
+   "kind": "function",
+   "class": "hw1:GenericInterceptor.c",
+   "confidence": "high",
+   "evidence": "GenericInterceptorHeader 0x8C4448 slot+0x54 (statinfo+0x15C), called (ship,target,bulletRange[tactics]) at 0x442621; refs \"Warning: Whip strafe cancelled\"",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericInterceptor.c:GenericInterceptorAttack",
+   "signature": "bool32 GenericInterceptorAttack(Ship *ship, SpaceObjRotImpTarg *target, real32 maxdist)"
+  },
+  {
+   "address": "0x005b4430",
+   "name": "GravWellGeneratorSpecialActivate",
+   "kind": "function",
+   "class": "hw1:GravWellGenerator.c",
+   "confidence": "high",
+   "evidence": "GravWellGeneratorHeader 0x8C4868 slot+0x1C, called by processSpecialToDo 0x441942; hdr slot set == HW1 GravWellGeneratorHeader",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GravWellGenerator.c:GravWellGeneratorSpecialActivate",
+   "signature": "bool32 GravWellGeneratorSpecialActivate(Ship *ship)"
+  },
+  {
+   "address": "0x005b53c0",
+   "name": "HeavyCruiserHouseKeep",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "HeavyCruiserHeader 0x8C4AB0 slot+0x28, called over HousekeepShipList at 0x54A3BB",
+   "hw1_equivalent": "",
+   "signature": "void HeavyCruiserHouseKeep(Ship *ship)"
+  },
+  {
+   "address": "0x005b53f0",
+   "name": "HeavyCruiserRemoveShipReferences",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "HeavyCruiserHeader 0x8C4AB0 slots+0x2C/+0x30, +0x2C called by univRemoveAllShipReferencesFromSpecialShip 0x5476D5",
+   "hw1_equivalent": "",
+   "signature": "void HeavyCruiserRemoveShipReferences(Ship *ship, Ship *shiptoremove)"
+  },
+  {
+   "address": "0x005b5430",
+   "name": "HeavyCruiserDied",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "HeavyCruiserHeader 0x8C4AB0 slot+0x3C, called by univDeleteDeadShip 0x547D60",
+   "hw1_equivalent": "",
+   "signature": "void HeavyCruiserDied(Ship *ship)"
+  },
+  {
+   "address": "0x005b5480",
+   "name": "HeavyCruiser_Fix",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "HeavyCruiserHeader 0x8C4AB0 slot+0x4C, called by FixShip 0x500CBE",
+   "hw1_equivalent": "",
+   "signature": "void HeavyCruiser_Fix(Ship *ship)"
+  },
+  {
+   "address": "0x005b55e0",
+   "name": "HiveFrigateDied",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "HiveFrigateHeader 0x8C4B40 slot+0x3C, called by univDeleteDeadShip 0x547D60",
+   "hw1_equivalent": "",
+   "signature": "void HiveFrigateDied(Ship *ship)"
+  },
+  {
+   "address": "0x005b5730",
+   "name": "HiveFrigateAttack",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "HiveFrigateHeader 0x8C4B40 slot+0x54 (statinfo+0x15C), called (ship,target,bulletRange[tactics]) at 0x442621",
+   "hw1_equivalent": "",
+   "signature": "bool32 HiveFrigateAttack(Ship *ship, SpaceObjRotImpTarg *target, real32 maxdist)"
+  },
+  {
+   "address": "0x005b5770",
+   "name": "HiveFrigateAttackPassive",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "HiveFrigateHeader 0x8C4B40 slot+0x18 (statinfo+0x120), called (ship,target,TRUE) in attack code 0x4427A0",
+   "hw1_equivalent": "",
+   "signature": "void HiveFrigateAttackPassive(Ship *ship, Ship *target, bool32 rotate)"
+  },
+  {
+   "address": "0x005b57c0",
+   "name": "HiveFrigateSpecialActivate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "HiveFrigateHeader 0x8C4B40 slot+0x1C, called by processSpecialToDo 0x441942",
+   "hw1_equivalent": "",
+   "signature": "bool32 HiveFrigateSpecialActivate(Ship *ship)"
+  },
+  {
+   "address": "0x005b5950",
+   "name": "HiveFrigateFire",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "HiveFrigateHeader 0x8C4B40 slot+0x14 (statinfo+0x11C) Fire",
+   "hw1_equivalent": "",
+   "signature": "void HiveFrigateFire(Ship *ship, SpaceObjRotImpTarg *target)"
+  },
+  {
+   "address": "0x005b6670",
+   "name": "HiveFrigateDockCommand",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "HiveFrigateHeader 0x8C4B40 slot+0x58 (new), per-ship accept filter called (ship,dockType,dockwith) by clDock 0x466D29",
+   "hw1_equivalent": "",
+   "signature": "bool32 HiveFrigateDockCommand(Ship *ship, sdword dockType, Ship *dockwith)"
+  },
+  {
+   "address": "0x005b67a0",
+   "name": "HiveFrigate_Fix",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "HiveFrigateHeader 0x8C4B40 slot+0x4C, called by FixShip 0x500CBE",
+   "hw1_equivalent": "",
+   "signature": "void HiveFrigate_Fix(Ship *ship)"
+  },
+  {
+   "address": "0x005b7ba0",
+   "name": "LeechDied",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "LeechHeader 0x8C4C60 slot+0x3C, called by univDeleteDeadShip 0x547D60",
+   "hw1_equivalent": "",
+   "signature": "void LeechDied(Ship *ship)"
+  },
+  {
+   "address": "0x005b7c90",
+   "name": "LeechRemoveShipReferences",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "LeechHeader 0x8C4C60 slots+0x2C/+0x30, +0x2C called by univRemoveAllShipReferencesFromSpecialShip 0x5476D5",
+   "hw1_equivalent": "",
+   "signature": "void LeechRemoveShipReferences(Ship *ship, Ship *shiptoremove)"
+  },
+  {
+   "address": "0x005b8000",
+   "name": "Leech_PreFix",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "LeechHeader 0x8C4C60 slot+0x40, called by SaveShip 0x500186",
+   "hw1_equivalent": "",
+   "signature": "void Leech_PreFix(Ship *ship)"
+  },
+  {
+   "address": "0x005b8050",
+   "name": "Leech_Load",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "LeechHeader 0x8C4C60 slot+0x48, called by LoadShip 0x500936",
+   "hw1_equivalent": "",
+   "signature": "void Leech_Load(Ship *ship)"
+  },
+  {
+   "address": "0x005b8820",
+   "name": "MimicSpecialActivate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "MimicHeader 0x8C4DF0 slot+0x1C, called by processSpecialToDo 0x441942",
+   "hw1_equivalent": "",
+   "signature": "bool32 MimicSpecialActivate(Ship *ship)"
+  },
+  {
+   "address": "0x005b8dd0",
+   "name": "MimicSpecialTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "MimicHeader 0x8C4DF0 slot+0x20, called (ship,specialtargets) by processSpecialToDo 0x441908",
+   "hw1_equivalent": "",
+   "signature": "bool32 MimicSpecialTarget(Ship *ship, void *custom)"
+  },
+  {
+   "address": "0x005b8f30",
+   "name": "MimicHouseKeep",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "MimicHeader 0x8C4DF0 slot+0x28, called over HousekeepShipList at 0x54A3BB",
+   "hw1_equivalent": "",
+   "signature": "void MimicHouseKeep(Ship *ship)"
+  },
+  {
+   "address": "0x005b9460",
+   "name": "MimicDied",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "MimicHeader 0x8C4DF0 slot+0x3C, called by univDeleteDeadShip 0x547D60",
+   "hw1_equivalent": "",
+   "signature": "void MimicDied(Ship *ship)"
+  },
+  {
+   "address": "0x005b99e0",
+   "name": "MimicHaltCommand",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "MimicHeader 0x8C4DF0 slot+0x6C (new), per-ship filter called by clHalt 0x449F6F",
+   "hw1_equivalent": "",
+   "signature": "bool32 MimicHaltCommand(Ship *ship)"
+  },
+  {
+   "address": "0x005b9a50",
+   "name": "Mimic_Fix",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "MimicHeader 0x8C4DF0 slot+0x4C, called by FixShip 0x500CBE",
+   "hw1_equivalent": "",
+   "signature": "void Mimic_Fix(Ship *ship)"
+  },
+  {
+   "address": "0x005b9b90",
+   "name": "Mimic_PreFix",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "MimicHeader 0x8C4DF0 slot+0x40, called by SaveShip 0x500186; refs \"LINKING: Mimic/MCV linking effect not being saved.\"",
+   "hw1_equivalent": "",
+   "signature": "void Mimic_PreFix(Ship *ship)"
+  },
+  {
+   "address": "0x005b9bf0",
+   "name": "MimicRemoveShipReferences",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "MimicHeader 0x8C4DF0 slots+0x2C/+0x30, +0x2C called by univRemoveAllShipReferencesFromSpecialShip 0x5476D5",
+   "hw1_equivalent": "",
+   "signature": "void MimicRemoveShipReferences(Ship *ship, Ship *shiptoremove)"
+  },
+  {
+   "address": "0x005ba330",
+   "name": "MinelayerCorvetteFire",
+   "kind": "function",
+   "class": "hw1:MinelayerCorvette.c",
+   "confidence": "high",
+   "evidence": "MinelayerCorvetteHeader 0x8C5040 slot+0x14 (statinfo+0x11C) Fire",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/MinelayerCorvette.c:MinelayerCorvetteFire",
+   "signature": "void MinelayerCorvetteFire(Ship *ship, SpaceObjRotImpTarg *target)"
+  },
+  {
+   "address": "0x005bb9c0",
+   "name": "MothershipDied",
+   "kind": "function",
+   "class": "hw1:Mothership.c",
+   "confidence": "high",
+   "evidence": "MothershipHeader 0x8C53E8 slot+0x3C, called by univDeleteDeadShip 0x547D60",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/Mothership.c:MothershipDied",
+   "signature": "void MothershipDied(Ship *ship)"
+  },
+  {
+   "address": "0x005bba70",
+   "name": "MothershipRemoveShipReferences",
+   "kind": "function",
+   "class": "hw1:Mothership.c",
+   "confidence": "high",
+   "evidence": "MothershipHeader 0x8C53E8 slots+0x2C/+0x30, +0x2C called by univRemoveAllShipReferencesFromSpecialShip 0x5476D5",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/Mothership.c:MothershipRemoveShipReferences",
+   "signature": "void MothershipRemoveShipReferences(Ship *ship, Ship *shiptoremove)"
+  },
+  {
+   "address": "0x005bbbd0",
+   "name": "MothershipMoveCommand",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "MothershipHeader 0x8C53E8 slot+0x50 (new), per-ship accept filter called by the move command 0x446D90; checks shiptype==18 sMothership",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x005bbc50",
+   "name": "MothershipAttack",
+   "kind": "function",
+   "class": "hw1:Mothership.c",
+   "confidence": "high",
+   "evidence": "MothershipHeader 0x8C53E8 slot+0x54 (statinfo+0x15C), called (ship,target,bulletRange[tactics]) at 0x442621",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/Mothership.c:MothershipAttack",
+   "signature": "bool32 MothershipAttack(Ship *ship, SpaceObjRotImpTarg *target, real32 maxdist)"
+  },
+  {
+   "address": "0x005bc200",
+   "name": "MothershipSpecialTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "MothershipHeader 0x8C53E8 slot+0x20, called (ship,specialtargets) by processSpecialToDo 0x441908; also HeavyCruiser/dBeastMothership",
+   "hw1_equivalent": "",
+   "signature": "bool32 MothershipSpecialTarget(Ship *ship, void *custom)"
+  },
+  {
+   "address": "0x005bc230",
+   "name": "MothershipOrderChanged",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "MothershipHeader 0x8C53E8 slot+0x24 (new), called (ship) when a SPECIAL order is cleaned up (0x4443B6); generalises HW1 RemoveShipFromSpecial; also HeavyCruiser/dBeastMothership",
+   "hw1_equivalent": "",
+   "signature": "void MothershipOrderChanged(Ship *ship)"
+  },
+  {
+   "address": "0x005bcd70",
+   "name": "Mothership_Save",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "MothershipHeader 0x8C53E8 slot+0x44, called by SaveShip 0x50046A; also Carrier/HeavyCruiser",
+   "hw1_equivalent": "",
+   "signature": "void Mothership_Save(Ship *ship)"
+  },
+  {
+   "address": "0x005bcd90",
+   "name": "Mothership_Load",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "MothershipHeader 0x8C53E8 slot+0x48, called by LoadShip 0x500936; also Carrier/HeavyCruiser",
+   "hw1_equivalent": "",
+   "signature": "void Mothership_Load(Ship *ship)"
+  },
+  {
+   "address": "0x005bcdc0",
+   "name": "Mothership_Fix",
+   "kind": "function",
+   "class": "hw1:Mothership.c",
+   "confidence": "high",
+   "evidence": "MothershipHeader 0x8C53E8 slot+0x4C, called by FixShip 0x500CBE",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/Mothership.c:Mothership_Fix",
+   "signature": "void Mothership_Fix(Ship *ship)"
+  },
+  {
+   "address": "0x005be2e0",
+   "name": "P1MissileCorvetteStaticInit",
+   "kind": "function",
+   "class": "hw1:P1MissileCorvette.c",
+   "confidence": "high",
+   "evidence": "P1MissileCorvetteHeader 0x8C58D8 slot+0x04 (statinfo+0x10C), called (dir,file,statinfo) at InitStatShipInfo 0x53C3AA; Missile*Time script keys",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/P1MissileCorvette.c:P1MissileCorvetteStaticInit",
+   "signature": "void P1MissileCorvetteStaticInit(char *directory, char *filename, ShipStaticInfo *statinfo)"
+  },
+  {
+   "address": "0x005be7c0",
+   "name": "P1StandardCorvetteSpecialTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "P1StandardCorvetteHeader 0x8C5A88 slot+0x20, called (ship,specialtargets) by processSpecialToDo 0x441908; refs \"PIRATE: Pirate standard corvette doesn't have role set\"",
+   "hw1_equivalent": "",
+   "signature": "bool32 P1StandardCorvetteSpecialTarget(Ship *ship, void *custom)"
+  },
+  {
+   "address": "0x005be830",
+   "name": "P1StandardCorvetteOrderChanged",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "P1StandardCorvetteHeader 0x8C5A88 slot+0x24 (new), called (ship) when a SPECIAL order is cleaned up (0x4443B6); generalises HW1 RemoveShipFromSpecial",
+   "hw1_equivalent": "",
+   "signature": "void P1StandardCorvetteOrderChanged(Ship *ship)"
+  },
+  {
+   "address": "0x005be850",
+   "name": "P1StandardCorvetteHouseKeep",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "P1StandardCorvetteHeader 0x8C5A88 slot+0x28, called over HousekeepShipList at 0x54A3BB",
+   "hw1_equivalent": "",
+   "signature": "void P1StandardCorvetteHouseKeep(Ship *ship)"
+  },
+  {
+   "address": "0x005be870",
+   "name": "P1StandardCorvetteRemoveShipReferences",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "P1StandardCorvetteHeader 0x8C5A88 slots+0x2C/+0x30, +0x2C called by univRemoveAllShipReferencesFromSpecialShip 0x5476D5",
+   "hw1_equivalent": "",
+   "signature": "void P1StandardCorvetteRemoveShipReferences(Ship *ship, Ship *shiptoremove)"
+  },
+  {
+   "address": "0x005bf0b0",
+   "name": "ProcessorHouseKeep",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "ProcessorHeader 0x8C5B60 slot+0x28, called over HousekeepShipList at 0x54A3BB",
+   "hw1_equivalent": "",
+   "signature": "void ProcessorHouseKeep(Ship *ship)"
+  },
+  {
+   "address": "0x005bfe60",
+   "name": "RammingFrigateRemoveShipReferences",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "RammingFrigateHeader 0x8C5E38 slots+0x2C/+0x30, +0x2C called by univRemoveAllShipReferencesFromSpecialShip 0x5476D5",
+   "hw1_equivalent": "",
+   "signature": "void RammingFrigateRemoveShipReferences(Ship *ship, Ship *shiptoremove)"
+  },
+  {
+   "address": "0x005c0990",
+   "name": "RammingFrigate_Fix",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "RammingFrigateHeader 0x8C5E38 slot+0x4C, called by FixShip 0x500CBE",
+   "hw1_equivalent": "",
+   "signature": "void RammingFrigate_Fix(Ship *ship)"
+  },
+  {
+   "address": "0x005c74d0",
+   "name": "SlipgateHouseKeep",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "SlipgateHeader 0x8C68C0 slot+0x28, called over HousekeepShipList at 0x54A3BB",
+   "hw1_equivalent": "",
+   "signature": "void SlipgateHouseKeep(Ship *ship)"
+  },
+  {
+   "address": "0x005c76f0",
+   "name": "Slipgate_PreFix",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "SlipgateHeader 0x8C68C0 slot+0x40, called by SaveShip 0x500186",
+   "hw1_equivalent": "",
+   "signature": "void Slipgate_PreFix(Ship *ship)"
+  },
+  {
+   "address": "0x005c7760",
+   "name": "Slipgate_Fix",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "SlipgateHeader 0x8C68C0 slot+0x4C, called by FixShip 0x500CBE",
+   "hw1_equivalent": "",
+   "signature": "void Slipgate_Fix(Ship *ship)"
+  },
+  {
+   "address": "0x005c9770",
+   "name": "WorkerSpecialTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "WorkerHeader 0x8C6B50 slot+0x20, called (ship,specialtargets) by processSpecialToDo 0x441908",
+   "hw1_equivalent": "",
+   "signature": "bool32 WorkerSpecialTarget(Ship *ship, void *custom)"
+  },
+  {
+   "address": "0x005c97d0",
+   "name": "WorkerOrderChanged",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "WorkerHeader 0x8C6B50 slot+0x24 (new), called (ship) when a SPECIAL order is cleaned up (0x4443B6); generalises HW1 RemoveShipFromSpecial",
+   "hw1_equivalent": "",
+   "signature": "void WorkerOrderChanged(Ship *ship)"
+  },
+  {
+   "address": "0x005c99f0",
+   "name": "WorkerRemoveShipReferences",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "WorkerHeader 0x8C6B50 slots+0x2C/+0x30, +0x2C called by univRemoveAllShipReferencesFromSpecialShip 0x5476D5",
+   "hw1_equivalent": "",
+   "signature": "void WorkerRemoveShipReferences(Ship *ship, Ship *shiptoremove)"
+  },
+  {
+   "address": "0x0049ae30",
+   "name": "nullsub",
+   "kind": "function",
+   "class": "unknown",
+   "confidence": "medium",
+   "evidence": "lone RET, 138 call sites; fills empty header slots (CruiseMissile Init/AttackPassive/HouseKeep, Swarmer HouseKeep, Nomad*). FID \"seekdir\" is a false match (no seekdir in MSVC6 CRT)",
+   "hw1_equivalent": "",
+   "signature": "void nullsub(void)"
+  },
+  {
+   "address": "0x006fe9a0",
+   "name": "nullsubReturnFalse",
+   "kind": "function",
+   "class": "unknown",
+   "confidence": "medium",
+   "evidence": "body is XOR EAX,EAX; RET (485 call sites incl. the stripped dbgMessagef call in DefaultShipAttack 0x5B0313); Carrier SpecialActivate and Dreadnought SpecialTarget slots. FID \"telldir\" is a false match",
+   "hw1_equivalent": "",
+   "signature": "sdword nullsubReturnFalse(void)"
+  },
+  {
+   "address": "0x005bc430",
+   "name": "SectMothershipHouseKeep",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "refs \"SectMothershipHouseKeep: Invalid bigGunState (%i)\"; called from MothershipHeader HouseKeep slot target 0x5BCAD0 (which also calls beastMothershipSelfDamage 0x5BC900)",
+   "hw1_equivalent": "",
+   "signature": "void SectMothershipHouseKeep(Ship *ship)"
+  },
+  {
+   "address": "0x005c2fd0",
+   "name": "droidIsValidPredockPos",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "refs \"droidIsValidPredockPos: NULL dock\" (Relic debug prefix = function name); code sits in the RepairDroid module (RepairDroidHeader 0x8C6170), sole caller 0x5C32F0",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x005b1a50",
+   "name": "doKamikazeAttack",
+   "kind": "function",
+   "class": "hw1:GenericDefender.c",
+   "confidence": "high",
+   "evidence": "attack code 0x4427A0 calls it (ship,target) instead of CustShipAttack when specialFlags(+0x1C8)&SPECIAL_Kamikaze, as CommandLayer.c:1386; lies in GenericDefender.c code",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericDefender.c:doKamikazeAttack",
+   "signature": "void doKamikazeAttack(Ship *ship, SpaceObjRotImpTarg *target)"
+  },
+  {
+   "address": "0x005b25c0",
+   "name": "GenericInterceptorGetFlightManProb",
+   "kind": "function",
+   "class": "hw1:GenericInterceptor.c",
+   "confidence": "high",
+   "evidence": "returns custstatinfo(+0x194)+0x448+(tacticstype*13+targetclass|12)*0x148 (flightman table, default row NUM_CLASSES=12); HW1 GenericInterceptor.c:505",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericInterceptor.c:GenericInterceptorGetFlightManProb",
+   "signature": "FlightManProb *GenericInterceptorGetFlightManProb(Ship *ship, SpaceObjRotImpTarg *target)"
+  },
+  {
+   "address": "0x005b2120",
+   "name": "GenericInterceptorCanFire",
+   "kind": "function",
+   "class": "hw1:GenericInterceptor.c",
+   "confidence": "medium",
+   "evidence": "between GenericInterceptorInit 0x5B2110 and Fire 0x5B22C0 as in HW1 order (:243,:250,:363); callers PassiveAttack 0x5B2470, Attack 0x5B2620, doKamikazeAttack 0x5B1A50",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericInterceptor.c:GenericInterceptorCanFire",
+   "signature": ""
+  },
+  {
+   "address": "0x005b2350",
+   "name": "setupWhipStrafe",
+   "kind": "function",
+   "class": "hw1:GenericInterceptor.c",
+   "confidence": "medium",
+   "evidence": "between GenericInterceptorFire 0x5B22C0 and PassiveAttack 0x5B2470 exactly as HW1 GenericInterceptor.c:381; only caller GenericInterceptorAttack 0x5B2620",
+   "hw1_equivalent": "HomeworldSDL/src/Ships/GenericInterceptor.c:setupWhipStrafe",
+   "signature": ""
+  },
+  {
+   "address": "0x0050efd0",
+   "name": "cat_shipNamesInit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "clears a 100x0x70 name pool at 0xA5B640, scriptSet(NULL,\"shipnames.script\",ShipNamesScriptTable 0x8935A0), then fatal \"Not enough names for sMothership/bMothership/sCarrier/bCarrier\"",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipNamesInit(void)"
+  },
+  {
+   "address": "0x0053bab0",
+   "name": "InitStatShipInfo",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "(statinfo,type,race): writes type/race at +0x1E0/+0x1E4, copies *shipHeaders[type] (0x23 dwords) to +0x108, ShipTypeToStr, \"SHP file loaded: %s\", calls CustShipStaticInit near the end",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:InitStatShipInfo",
+   "signature": "void InitStatShipInfo(ShipStaticInfo *statinfo, ShipType type, ShipRace race)"
+  },
+  {
+   "address": "0x00542320",
+   "name": "univCreateShip",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "high",
+   "evidence": "GetShipStaticInfo(type), allocates the ship, shipID from universe.shipNumber (0xB62BB8) post-increment, calls CustShipInit via statinfo+0x114 (0x542A75); 14 callers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univCreateShip",
+   "signature": ""
+  },
+  {
+   "address": "0x0054b550",
+   "name": "univFreeShipContents",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "medium",
+   "evidence": "frees the ship-owned allocations (+0x84,+0x374,+0x4C4,+0x234...) then calls CustShipClose via statinfo+0x118 (0x54B724), as HW1 UnivUpdate.c:6633",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univFreeShipContents",
+   "signature": "void univFreeShipContents(Ship *ship)"
+  },
+  {
+   "address": "0x00547d00",
+   "name": "univDeleteDeadShip",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "high",
+   "evidence": "calls CustShipDied via statinfo+0x144 (0x547D60) as UnivUpdate.c:3945; called by MiningBaseDied 0x5B0370 exactly like HW1 MiningBaseDied",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univDeleteDeadShip",
+   "signature": ""
+  },
+  {
+   "address": "0x00547640",
+   "name": "univRemoveAllShipReferencesFromSpecialShip",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "high",
+   "evidence": "(shiptoremove,ship): clears recentAttacker +0x344, firingAtUs +0x348, gettingrocked +0x340, rowGetOutOfWay +0x294, then CustShipRemoveShipReferences (statinfo+0x134)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univRemoveAllShipReferencesFromSpecialShip",
+   "signature": "void univRemoveAllShipReferencesFromSpecialShip(Ship *shiptoremove, Ship *ship)"
+  },
+  {
+   "address": "0x004453c0",
+   "name": "RemoveShipFromBeingTargeted",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "medium",
+   "evidence": "walks the command list with REMOVE_* flag bits (1,2,4,8,0x10 hyperspacing->dock orders) and calls CustShipRemoveShipReferences via statinfo+0x134 (0x4454EC); Cataclysm adds a 4th arg",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:RemoveShipFromBeingTargeted",
+   "signature": ""
+  },
+  {
+   "address": "0x004418c0",
+   "name": "processSpecialToDo",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "high",
+   "evidence": "per ship: CustShipSpecialTarget(ship,todo->specialtargets +0x2BC) via statinfo+0x128, else CustShipSpecialActivate via +0x124, ANDing results, as CommandLayer.c:757-805",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:processSpecialToDo",
+   "signature": "bool32 processSpecialToDo(CommandToDo *todo)"
+  },
+  {
+   "address": "0x004492c0",
+   "name": "clSpecial",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "medium",
+   "evidence": "(comlayer,selectcom,targets); calls CustShipSpecialActivate via statinfo+0x124 (0x4493DB) as CommandLayer.c:6485; callers incl. net dispatcher 0x450910",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:clSpecial",
+   "signature": ""
+  },
+  {
+   "address": "0x00449e80",
+   "name": "clHalt",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "medium",
+   "evidence": "sets passiveAttackCancelTimer (+0x3E4) only for ships whose order is NULL/HALT(8)/PARADE(9), as clHalt CommandLayer.c:6850-6870; then per-ship filter statinfo+0x174",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:clHalt",
+   "signature": ""
+  },
+  {
+   "address": "0x00466c70",
+   "name": "clDock",
+   "kind": "function",
+   "class": "hw1:Dock.c",
+   "confidence": "medium",
+   "evidence": "(comlayer,selectcom,dockType,dockwith): filters ships via statinfo+0x160, builds a CommandToDo with order 3 (COMMAND_DOCK); sits in the Dock.c code range next to 0x465860",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Dock.c:clDock",
+   "signature": ""
+  },
+  {
+   "address": "0x00543030",
+   "name": "univUpdateAllPosVelBullets",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "medium",
+   "evidence": "walks universe.BulletList (0xB62AFC), on bullet death deletes its effect, burst explosion, then calls statinfo+0x140 for every ship (replaces DefenseFighterBulletRemoval); caller univUpdate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univUpdateAllPosVelBullets",
+   "signature": "void univUpdateAllPosVelBullets(void)"
+  },
+  {
+   "address": "0x004ffd70",
+   "name": "SaveShip",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "reads sizeofShipSpecifics (statinfo+0x108), calls CustShip_PreFix (+0x148) on the save copy and CustShip_Save (+0x14C) after writing, as SaveGame.c:1718-1896",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:SaveShip",
+   "signature": "void SaveShip(Ship *ship)"
+  },
+  {
+   "address": "0x00500490",
+   "name": "LoadShip",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "allocates chunk->contentsSize (+4) and copies the chunk body (+8), calls CustShip_Load via statinfo+0x150 (0x500936), as SaveGame.c:2000-2032",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:LoadShip",
+   "signature": ""
+  },
+  {
+   "address": "0x00500950",
+   "name": "FixShip",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "medium",
+   "evidence": "converts saved indices back to pointers and calls CustShip_Fix via statinfo+0x154 (0x500CBE), as SaveGame.c:2114-2118",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:FixShip",
+   "signature": "void FixShip(Ship *ship)"
+  },
+  {
+   "address": "0x00511ad0",
+   "name": "AreAllShipsAttackCapable",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "high",
+   "evidence": "returns FALSE if any selected ship has a NULL statinfo+0x15C (CustShipAttack) slot, else TRUE: same body as HW1 ShipSelect.c AreAllShipsAttackCapable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:AreAllShipsAttackCapable",
+   "signature": "bool32 AreAllShipsAttackCapable(SelectCommand *selection)"
+  },
+  {
+   "address": "0x00511b10",
+   "name": "isShipPassiveAttackCapable",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "returns statinfo+0x120 (CustShipAttackPassive) != NULL, with Cataclysm extra rejects (formation command type 9/10, ship+0x1CC bit 8); HW1 ShipSelect.c:424",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:isShipPassiveAttackCapable",
+   "signature": ""
+  },
+  {
+   "address": "0x00511b60",
+   "name": "MakeShipsAttackCapable",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "(dest,source,..): copies ships whose statinfo+0x15C (CustShipAttack) is non-NULL into dest and sets dest->numShips, as ShipSelect.c:495-525 (Cataclysm adds a 3rd arg)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:MakeShipsAttackCapable",
+   "signature": ""
+  },
+  {
+   "address": "0x00512250",
+   "name": "MakeShipsSpecialActivateCapable",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "removes ships whose statinfo+0x124 (CustShipSpecialActivate) is NULL by swapping in the last entry, as ShipSelect.c:808-826; Cataclysm adds a 2nd filter arg",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:MakeShipsSpecialActivateCapable",
+   "signature": ""
+  },
+  {
+   "address": "0x005122c0",
+   "name": "MakeShipsSpecialTargetCapable",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "(selection,..,bFriendlies): removes ships whose statinfo+0x128 (CustShipSpecialTarget) is NULL, swap-with-last as ShipSelect.c:841-870; follows MakeShipsSpecialActivateCapable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:MakeShipsSpecialTargetCapable",
+   "signature": ""
+  },
+  {
+   "address": "0x00421af0",
+   "name": "attackPassiveRotate",
+   "kind": "function",
+   "class": "hw1:Attack.c",
+   "confidence": "high",
+   "evidence": "generic AttackPassive slot fn 0x5BE540 calls it (ship,target) when rotate & statinfo->rotateToRetaliate(+0x204), else attackPassive 0x421C30: DefaultShipAttackPassive body",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Attack.c:attackPassiveRotate",
+   "signature": "void attackPassiveRotate(Ship *ship, Ship *target)"
+  },
+  {
+   "address": "0x00421c30",
+   "name": "attackPassive",
+   "kind": "function",
+   "class": "hw1:Attack.c",
+   "confidence": "high",
+   "evidence": "else-branch callee of the generic AttackPassive slot fn 0x5BE540 (DefaultShipAttackPassive body, DefaultShip.c); follows attackPassiveRotate as in Attack.c:85/:200",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Attack.c:attackPassive",
+   "signature": "void attackPassive(Ship *ship, Ship *target)"
+  },
+  {
+   "address": "0x00421cf0",
+   "name": "attackStraightForward",
+   "kind": "function",
+   "class": "hw1:Attack.c",
+   "confidence": "high",
+   "evidence": "DefaultShipAttack 0x5B02F0 calls it (ship,target,bulletRange[tactics] +0x1A4,minBulletRange[tactics] +0x1B0 * 0.9f) exactly as DefaultShip.c DefaultShipAttack",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Attack.c:attackStraightForward",
+   "signature": "void attackStraightForward(Ship *ship, SpaceObjRotImpTarg *target, real32 gunRange, real32 tooCloseRange)"
+  },
+  {
+   "address": "0x0048a1c0",
+   "name": "gunCanShoot",
+   "kind": "function",
+   "class": "hw1:Gun.c",
+   "confidence": "medium",
+   "evidence": "DefaultShipFire 0x5B0260 calls it (ship,gun,1) per gun before dispatching on gunstatic->guntype, as DefaultShip.c; Cataclysm adds a 3rd argument",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Gun.c:gunCanShoot",
+   "signature": ""
+  },
+  {
+   "address": "0x0048aac0",
+   "name": "missileShoot",
+   "kind": "function",
+   "class": "hw1:Gun.c",
+   "confidence": "medium",
+   "evidence": "DefaultShipFire 0x5B0260 calls it (ship,gun,target) for launcher gun types when gun->numMissiles(+0x68)>0 (gunHasMissiles inlined), as DefaultShip.c DefaultShipFire",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Gun.c:missileShoot",
+   "signature": "void missileShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)"
+  },
+  {
+   "address": "0x0048b5b0",
+   "name": "gunShoot",
+   "kind": "function",
+   "class": "hw1:Gun.c",
+   "confidence": "medium",
+   "evidence": "DefaultShipFire 0x5B0260 calls it (ship,gun,target) for the gimbal gun types, as DefaultShip.c DefaultShipFire; Gun.c order gunCanShoot<missileShoot<gunShoot matches addresses",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Gun.c:gunShoot",
+   "signature": "void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)"
+  }
+ ]
+}

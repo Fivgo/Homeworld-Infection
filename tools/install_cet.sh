@@ -79,11 +79,11 @@ find_game_dir() {
     GAME_DIR="$(cd -- "$GAME_DIR" && pwd)"
   else
     local exe
-    exe="$(find "$GAME_ROOT" -maxdepth 4 -type f -iname 'cataclysm.exe' ! -path '*/.cet-backup/*' -print -quit 2>/dev/null || true)"
+    exe="$(find -H "$GAME_ROOT" -maxdepth 4 -type f -iname 'cataclysm.exe' ! -path '*/.cet-backup/*' -print -quit 2>/dev/null || true)"
     [[ -n "$exe" ]] || die "no cataclysm.exe under $GAME_ROOT - run tools/extract_installer.sh first"
     GAME_DIR="$(dirname -- "$exe")"
   fi
-  [[ -n "$(find "$GAME_DIR" -maxdepth 1 -iname 'cataclysm.exe' -print -quit)" ]] \
+  [[ -n "$(find -H "$GAME_DIR" -maxdepth 1 -iname 'cataclysm.exe' -print -quit)" ]] \
     || die "$GAME_DIR has no cataclysm.exe (CET's loader needs it in the same directory: loader/Main.cpp:19)"
   log "game dir: $GAME_DIR"
 }
@@ -194,7 +194,7 @@ BACKED=()
 for e in "${ENTRIES[@]}"; do
   # Wine resolves names case-insensitively; catch e.g. RGL.DLL vs rgl.dll so we never end up
   # with two copies that differ only in case.
-  existing="$(find "$GAME_DIR" -maxdepth 1 -iname "$(basename -- "$e")" -print -quit 2>/dev/null || true)"
+  existing="$(find -H "$GAME_DIR" -maxdepth 1 -iname "$(basename -- "$e")" -print -quit 2>/dev/null || true)"
   if [[ -n "$existing" ]]; then
     run cp -p -- "$existing" "$BK/$(basename -- "$existing")"
     BACKED+=("$(basename -- "$existing" | tr '[:upper:]' '[:lower:]')")
@@ -208,7 +208,7 @@ for e in "${ENTRIES[@]}"; do
 done
 for must in rgl.dll rgld3d.dll; do   # CET README step 2
   if [[ " ${BACKED[*]} " != *" $must "* ]]; then
-    src="$(find "$GAME_DIR" -maxdepth 1 -iname "$must" -print -quit)"
+    src="$(find -H "$GAME_DIR" -maxdepth 1 -iname "$must" -print -quit)"
     [[ -n "$src" ]] && run cp -p -- "$src" "$BK/"
   fi
 done

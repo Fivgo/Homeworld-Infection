@@ -1,0 +1,1896 @@
+{
+ "source": "hw1-match",
+ "method": "placeholder",
+ "proposals": [
+  {
+   "address": "0x00405ce0",
+   "name": "aieHandlerToNum",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "[audit] NULL->-1, scan handlerTable, 'Save Game: Unknown Handler'; AIHandler.c:48",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aieHandlerToNum",
+   "signature": ""
+  },
+  {
+   "address": "0x00420f50",
+   "name": "animStartup",
+   "kind": "function",
+   "class": "hw1:Animatic.c",
+   "confidence": "high",
+   "evidence": "[audit] memset animlisting, fileExists/fileOpen 'Movies\\\\animatics.lst', sscanf '%d %s', memStrncpy 31; Animatic.c:628",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Animatic.c:animStartup",
+   "signature": ""
+  },
+  {
+   "address": "0x00421860",
+   "name": "animAviPlay",
+   "kind": "function",
+   "class": "hw1:Animatic.c",
+   "confidence": "high",
+   "evidence": "[audit] (a,b) 'Movies\\\\%s.bik/.script', animLoadNISScript, stop music, aviInit, clear, volume save/restore; Animatic.c:769",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Animatic.c:animAviPlay",
+   "signature": ""
+  },
+  {
+   "address": "0x00422940",
+   "name": "autodownloadmapSendAFile",
+   "kind": "function",
+   "class": "hw1:AutoDownloadMap.c",
+   "confidence": "high",
+   "evidence": "[audit] matcher said SendFile (WRONG); bool(void), numFilesSent>=numFilesOfMap, builds packet (CreateFilePacket+SendFile inlined), numFilesSent++; AutoDownloadMap.c:262",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AutoDownloadMap.c:autodownloadmapSendAFile",
+   "signature": ""
+  },
+  {
+   "address": "0x00423740",
+   "name": "battleChatterStartup",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "[review] single scriptSet(NULL,'BattleChatter.script',battleTweaks); Battle.c:728",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:battleChatterStartup",
+   "signature": ""
+  },
+  {
+   "address": "0x004254b0",
+   "name": "bigFileLoadAlloc",
+   "kind": "function",
+   "class": "hw1:BigFile.c",
+   "confidence": "high",
+   "evidence": "[review] 5 args, fseek offset+nameLength+1, memAllocAttempt, 'couldn't allocate', compressed path; BigFile.c:2580",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BigFile.c:bigFileLoadAlloc",
+   "signature": ""
+  },
+  {
+   "address": "0x00425560",
+   "name": "bigFileLoad",
+   "kind": "function",
+   "class": "hw1:BigFile.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (toc,fp,idx,addr) in fileLoad after the bigfile lookup (File.c:935); fseek offset+nameLength+1 like bigFileLoadAlloc; BigFile.c:2638",
+   "hw1_equivalent": "HomeworldSDL/src/Game/BigFile.c:bigFileLoad",
+   "signature": ""
+  },
+  {
+   "address": "0x0042dbd0",
+   "name": "ccFocusOnMyMothership",
+   "kind": "function",
+   "class": "hw1:CameraCommand.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (&universe.mainCameraCommand): spHyperspaceButtonPushed (SinglePlayer.c:2057), smSensorsCloseForGood focus-on-close branch; CameraCommand.c:866",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CameraCommand.c:ccFocusOnMyMothership",
+   "signature": ""
+  },
+  {
+   "address": "0x0042ec90",
+   "name": "captaincyLog",
+   "kind": "function",
+   "class": "hw1:Captaincy.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (echo,fmt,...): 'Cap:*' strings in captaincy code, 'Player %d dropped out'/'was dropped' in CommandNetwork.c callers; Captaincy.c:104",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Captaincy.c:captaincyLog",
+   "signature": ""
+  },
+  {
+   "address": "0x0042ede0",
+   "name": "ProcessTransferCaptaincyPacket",
+   "kind": "function",
+   "class": "hw1:Captaincy.c",
+   "confidence": "high",
+   "evidence": "[callee] sole call in TransferCaptaincyUpdate dequeue loop between memcpy and memFree (Captaincy.c:332); Captaincy.c:258",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Captaincy.c:ProcessTransferCaptaincyPacket",
+   "signature": ""
+  },
+  {
+   "address": "0x0042eef0",
+   "name": "TransferCaptaincyUpdate",
+   "kind": "function",
+   "class": "hw1:Captaincy.c",
+   "confidence": "high",
+   "evidence": "[review] matcher said TimeoutTimerTimedOut (WRONG); (void) guard disabled/numPlayers<2, 4-timer loop (TimeoutTimerUpdateAll+TimedOut inlined), packet queue drain; Captaincy.c:305",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Captaincy.c:TransferCaptaincyUpdate",
+   "signature": ""
+  },
+  {
+   "address": "0x0042f100",
+   "name": "SendSyncPacketsToAllOtherPlayersTillCaughtUp",
+   "kind": "function",
+   "class": "hw1:Captaincy.c",
+   "confidence": "high",
+   "evidence": "[review] per-player loop skipping self/0, GetSyncPktFromLastSyncPktsQ, 'Cap:Sending sync pkt', titanAnyoneSendPointMessage; Captaincy.c:429",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Captaincy.c:SendSyncPacketsToAllOtherPlayersTillCaughtUp",
+   "signature": ""
+  },
+  {
+   "address": "0x0042f1c0",
+   "name": "TransferCaptaincyGameStarted",
+   "kind": "function",
+   "class": "hw1:Captaincy.c",
+   "confidence": "high",
+   "evidence": "[audit] 'Cap:I Am %d in %d-player game', TimeoutTimerInitAll + TransitionToSTATE_NORMAL inlined; Captaincy.c:532",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Captaincy.c:TransferCaptaincyGameStarted",
+   "signature": ""
+  },
+  {
+   "address": "0x0042f270",
+   "name": "TransferCaptaincyStateMachine",
+   "kind": "function",
+   "class": "hw1:Captaincy.c",
+   "confidence": "high",
+   "evidence": "[review] (event,from,misc,info), disabled/<2 guard, 'Cap:Received event', nested state/event switch, 6 shared strings; Captaincy.c:541",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Captaincy.c:TransferCaptaincyStateMachine",
+   "signature": ""
+  },
+  {
+   "address": "0x004401b0",
+   "name": "cpPreviewImageDraw",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "[review] matcher said cpPreviewImagePrepare (WRONG); (atom,rect) draw callback; FELASTCALL flag, lazy Race1/Race2.lif load (cpPreviewImagePrepare inlined), outline w/ atom border; ColPick.c:929",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpPreviewImageDraw",
+   "signature": ""
+  },
+  {
+   "address": "0x00440690",
+   "name": "cpStartup",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "[review] (base,stripe) clear 15 cpRegion, cpColorsUpdate, callbacks, Arial_12.hff, scriptSet colPick.script, scalar-curve fixup; ColPick.c:1085",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpStartup",
+   "signature": ""
+  },
+  {
+   "address": "0x00440ba0",
+   "name": "cpColorsPick",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "[audit] stores base/stripe ptrs then feScreenStart(ghMainRegion,'Select_colour'); ColPick.c:1197",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpColorsPick",
+   "signature": ""
+  },
+  {
+   "address": "0x00448ce0",
+   "name": "clPassiveAttack",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "high",
+   "evidence": "[audit] (comlayer,sel,attack), passiveAttackCancelTimer ratio, CommandToDo alloc, PASSIVE strings; CommandLayer.c:6247 (Cataclysm pre-filter)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:clPassiveAttack",
+   "signature": ""
+  },
+  {
+   "address": "0x0044d150",
+   "name": "getShipAndItsCommandSelection",
+   "kind": "function",
+   "class": "hw1:CommandLayer.c",
+   "confidence": "high",
+   "evidence": "[callee] first call of mrFormationShips (&universe.mainCommandLayer, ship, &parade), result memFree'd (mainrgn.c:3271); CommandLayer.c:9122",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandLayer.c:getShipAndItsCommandSelection",
+   "signature": ""
+  },
+  {
+   "address": "0x0044e200",
+   "name": "ReceivedRequestSyncPacketsPacketCB",
+   "kind": "function",
+   "class": "hw1:CommandNetwork.c",
+   "confidence": "high",
+   "evidence": "[review] from..to loop, resend sync pkt via titanSendPointMessage, fake last pkt frame -1, 'Do not have sync pkt'; CommandNetwork.c:182",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandNetwork.c:ReceivedRequestSyncPacketsPacketCB",
+   "signature": ""
+  },
+  {
+   "address": "0x0044e310",
+   "name": "PlayerDroppedOut",
+   "kind": "function",
+   "class": "hw1:CommandNetwork.c",
+   "confidence": "high",
+   "evidence": "[audit] player<sigsNumPlayers, PLAYER_DROPPED_OUT/QUIT, captainIndex rotate; CommandNetwork.c:265",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandNetwork.c:PlayerDroppedOut",
+   "signature": ""
+  },
+  {
+   "address": "0x00451c60",
+   "name": "netCheck",
+   "kind": "function",
+   "class": "hw1:CommandNetwork.c",
+   "confidence": "high",
+   "evidence": "[review] unknownPackets/sync/cmd counters + overrun change prints (dbgMessagef stubbed); CommandNetwork.c:2440",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandNetwork.c:netCheck",
+   "signature": ""
+  },
+  {
+   "address": "0x00451e70",
+   "name": "KeepAliveDropPlayerCB",
+   "kind": "function",
+   "class": "hw1:CommandNetwork.c",
+   "confidence": "high",
+   "evidence": "[audit] 'Player %d was dropped' via captaincyLog; AliveStatuses!=DROPPEDOUT check, mutex lock/unlock match CommandNetwork.c:2571",
+   "hw1_equivalent": "HomeworldSDL/src/Game/CommandNetwork.c:KeepAliveDropPlayerCB",
+   "signature": ""
+  },
+  {
+   "address": "0x00458390",
+   "name": "cmConstructionBegin",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "[review] (region,ID) playPackets/pause/tutorial/mothership guards, carrier list fill, Construction_Manager.fib + 'Start_BuildManager'; ConsMgr.c:3484",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmConstructionBegin",
+   "signature": ""
+  },
+  {
+   "address": "0x00459170",
+   "name": "cmDeterministicBuild",
+   "kind": "function",
+   "class": "hw1:ConsMgr.c",
+   "confidence": "high",
+   "evidence": "[review] 6 args, switch START/CANCEL/PAUSE/UNPAUSE (Pause inlined), 'unknown dbuild command: %u'; ConsMgr.c:4225",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ConsMgr.c:cmDeterministicBuild",
+   "signature": ""
+  },
+  {
+   "address": "0x00460d60",
+   "name": "cratesPlayerFoundACrate",
+   "kind": "function",
+   "class": "hw1:Crates.c",
+   "confidence": "high",
+   "evidence": "[review] (crate,player) numCratesInWorld--, cratesRewardPlayer, UI_CrateFound sound, type switch + speech, 'Unknown crate contents!'; Crates.c:184",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Crates.c:cratesPlayerFoundACrate",
+   "signature": ""
+  },
+  {
+   "address": "0x00462080",
+   "name": "crateInit",
+   "kind": "function",
+   "class": "hw1:Crates.c",
+   "confidence": "high",
+   "evidence": "[review] NUM_IN_GROUPS=1/SHIP_PROBS=0 loops, scriptSet 'Crates.script', NUM_IN_CLASSES constants; Crates.c:765",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Crates.c:crateInit",
+   "signature": ""
+  },
+  {
+   "address": "0x00462a90",
+   "name": "dbgFatal",
+   "kind": "function",
+   "class": "hw1:Debug.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (file,line,str) called (0,0,str) exactly where HW1 has dbgFatal(DBG_Loc,..): 'Sphere formation too big', 'g_Entry is NULL in ferDraw', 'numChunks == 0'; Debug.c:183",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Debug.c:dbgFatal",
+   "signature": ""
+  },
+  {
+   "address": "0x00462ae0",
+   "name": "dbgFatalf",
+   "kind": "function",
+   "class": "hw1:Debug.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (file,line,fmt,...) (0,0,fmt,arg) where HW1 has dbgFatalf: 'Save Game: Unknown Handler', 'Bad stats index %d', 'Error %d loading game %s'; Debug.c:216",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Debug.c:dbgFatalf",
+   "signature": ""
+  },
+  {
+   "address": "0x0046a780",
+   "name": "etgEffectCodeDelete",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "[review] (stat,bFullDelete) free name, nParticleBlocks==-1 warning path, frees variableInitData/constData/decisions...; ETG.c:2118",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffectCodeDelete",
+   "signature": ""
+  },
+  {
+   "address": "0x0046bb00",
+   "name": "etgEffectCodeLoad",
+   "kind": "function",
+   "class": "hw1:ETG.c",
+   "confidence": "high",
+   "evidence": "[review] etgEffectStaticFind(name,TRUE), HorseRaceNext progress, defaults, fileOpen text, memStringDupe, parser state reset; ETG.c:3426",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ETG.c:etgEffectCodeLoad",
+   "signature": ""
+  },
+  {
+   "address": "0x00472ab0",
+   "name": "feAtomFindInScreen",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (screen,name): spNewItem CS_ScenarioBitmap, mgInvalidGameName MG_GameNameTextEntry (+retry), GoNowHyperspace/EmergencyHyperspace; FEFlow.c:208",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feAtomFindInScreen",
+   "signature": ""
+  },
+  {
+   "address": "0x00474130",
+   "name": "feStartup",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "[review] 3 memAlloc callback/draw/screen lists, feStack[0]=ghMainRegion, feCallbackAdd 'Disappear'/'SCREEN_Disappear' (inlined); FEFlow.c:1472",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feStartup",
+   "signature": ""
+  },
+  {
+   "address": "0x004744e0",
+   "name": "feScreensLoad",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "[review] fileLoadAlloc(name,&addr,NonVolatile), pointer fix-ups per screen/atoms/links, 'atoms %s not byte aligned'; FEFlow.c:1839",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feScreensLoad",
+   "signature": ""
+  },
+  {
+   "address": "0x00474880",
+   "name": "feCallbackAddMultiple",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "[callee] callback-table registration before feScreensLoad in mgStartup, lgStart..Screens, gcStartup, cpStartup, spScenarioPick, rmResearchGUIBegin; FEFlow.c:2068",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feCallbackAddMultiple",
+   "signature": ""
+  },
+  {
+   "address": "0x00474a00",
+   "name": "feDrawCallbackAddMultiple",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "[callee] draw-callback table registration, always right after feCallbackAddMultiple (mgStartup, lgStart, gcStartup, tmTradeBegin, rmResearchGUIBegin); FEFlow.c:2117",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feDrawCallbackAddMultiple",
+   "signature": ""
+  },
+  {
+   "address": "0x00474d80",
+   "name": "feScreenStart",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (region,name): Select_colour, In_game_esc_menu*, Invalid_Key, Research_Manager, Trader_Interface, Load_a_scenario, SP_Game_Over; FEFlow.c:2301",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feScreenStart",
+   "signature": ""
+  },
+  {
+   "address": "0x00475300",
+   "name": "feScreenFind",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "[callee] callee name->screen: gcStartup 'Say_Chatting_Screen' then atoms[0] x/y read; spHyperspaceButtonPushed 'HyperspaceRollCall' then atom lookup; FEFlow.c:2961",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feScreenFind",
+   "signature": ""
+  },
+  {
+   "address": "0x00476990",
+   "name": "ferDraw",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "[audit] (x,y,lif) 'g_Entry is NULL in ferDraw', nextLog2 sizes, texture upload, glcActive path; FEReg.c:1044",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDraw",
+   "signature": ""
+  },
+  {
+   "address": "0x004794b0",
+   "name": "ferDrawBitmapButton",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "[audit] strcpy atom->attribs + _off/_off_mouse/_on/_on_mouse.lif switch, texture register, ferDraw; FEReg.c:2797",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawBitmapButton",
+   "signature": ""
+  },
+  {
+   "address": "0x00479590",
+   "name": "fileLoadAlloc",
+   "kind": "function",
+   "class": "hw1:File.c",
+   "confidence": "high",
+   "evidence": "[review] (name,&addr,flags) bigfile path -> bigFileLoadAlloc(toc,fp,name,idx,addr), FileLoads.log, fs fallback w/ 3 fileLoadAlloc strings; File.c:821",
+   "hw1_equivalent": "HomeworldSDL/src/Game/File.c:fileLoadAlloc",
+   "signature": ""
+  },
+  {
+   "address": "0x004798e0",
+   "name": "fileLoad",
+   "kind": "function",
+   "class": "hw1:File.c",
+   "confidence": "high",
+   "evidence": "[audit] (name,addr,flags), bigfile lookup unless IgnoreBigfiles/flags, 'FileLoads.log' logging, fopen/fread path; File.c:918",
+   "hw1_equivalent": "HomeworldSDL/src/Game/File.c:fileLoad",
+   "signature": ""
+  },
+  {
+   "address": "0x00479c60",
+   "name": "fileExists",
+   "kind": "function",
+   "class": "hw1:File.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (name,0): animStartup 'Movies\\\\animatics.lst', InitStatNebulaInfo .shp check, hrChooseSinglePlayerBitmap loading.jpg; File.c:1051",
+   "hw1_equivalent": "HomeworldSDL/src/Game/File.c:fileExists",
+   "signature": ""
+  },
+  {
+   "address": "0x00479dc0",
+   "name": "fileSizeGet",
+   "kind": "function",
+   "class": "hw1:File.c",
+   "confidence": "high",
+   "evidence": "[review] (name,flags) bigfile TOC realLength (+0x10), else path prepend + fopen, \"fileSizeGet: can't find file\"; File.c:1082",
+   "hw1_equivalent": "HomeworldSDL/src/Game/File.c:fileSizeGet",
+   "signature": ""
+  },
+  {
+   "address": "0x00479fd0",
+   "name": "fileOpen",
+   "kind": "function",
+   "class": "hw1:File.c",
+   "confidence": "high",
+   "evidence": "[review] (name,flags) scan filesOpen slots (MAX 32), 'too many files open', bigfile/compressed paths, 7 shared strings; File.c:1139",
+   "hw1_equivalent": "HomeworldSDL/src/Game/File.c:fileOpen",
+   "signature": ""
+  },
+  {
+   "address": "0x0047a8a0",
+   "name": "fileClose",
+   "kind": "function",
+   "class": "hw1:File.c",
+   "confidence": "high",
+   "evidence": "[callee] closes fileOpen handle after fileLineRead loop in animStartup and hrChooseRandomBitmap (ShotList.script); File.c:1372",
+   "hw1_equivalent": "HomeworldSDL/src/Game/File.c:fileClose",
+   "signature": ""
+  },
+  {
+   "address": "0x0047ab30",
+   "name": "fileLineRead",
+   "kind": "function",
+   "class": "hw1:File.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (fh,buf,n) looped until -12 (FR_EndOfFile): animStartup (127), mgGameTypeScriptInit, hrChooseRandomBitmap; File.c:1562",
+   "hw1_equivalent": "HomeworldSDL/src/Game/File.c:fileLineRead",
+   "signature": ""
+  },
+  {
+   "address": "0x0047aeb0",
+   "name": "logfileClear",
+   "kind": "function",
+   "class": "hw1:File.c",
+   "confidence": "high",
+   "evidence": "[callee] titanLogFileOpen logfileClear('titanlog.txt'), dbwStart 'debugMessages.txt'; File.c:1968",
+   "hw1_equivalent": "HomeworldSDL/src/Game/File.c:logfileClear",
+   "signature": ""
+  },
+  {
+   "address": "0x0047af00",
+   "name": "logfileLogf",
+   "kind": "function",
+   "class": "hw1:File.c",
+   "confidence": "high",
+   "evidence": "[callee] fileLoad/fileLoadAlloc logfileLogf('FileLoads.log', fmt, ...) under LogFileLoads; File.c:2003",
+   "hw1_equivalent": "HomeworldSDL/src/Game/File.c:logfileLogf",
+   "signature": ""
+  },
+  {
+   "address": "0x00480e20",
+   "name": "frFontRegister",
+   "kind": "function",
+   "class": "hw1:FontReg.c",
+   "confidence": "high",
+   "evidence": "[callee] takes .hff names (tutShowText SimplixSSK_13/ScrollingText.hff, mgStartup 13 fonts, gcStartup, spNewItem default.hff), returns handle; FontReg.c:116",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FontReg.c:frFontRegister",
+   "signature": ""
+  },
+  {
+   "address": "0x00481880",
+   "name": "formationSpecificsSphere",
+   "kind": "function",
+   "class": "hw1:Formation.c",
+   "confidence": "high",
+   "evidence": "[audit] matcher said findSphereTableEntry (WRONG); 1647 B; protect/attack centreship pick, 'Sphere formation too big' table scan inlined (findSphereTableEntry); Formation.c:487 (+1 Cataclysm param)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Formation.c:formationSpecificsSphere",
+   "signature": ""
+  },
+  {
+   "address": "0x004850d0",
+   "name": "paradeSetTweakables",
+   "kind": "function",
+   "class": "hw1:Formation.c",
+   "confidence": "high",
+   "evidence": "[review] memset paradeTypeInfos x N, scriptSetStruct Parade_*.script per type; Formation.c:2748",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Formation.c:paradeSetTweakables",
+   "signature": ""
+  },
+  {
+   "address": "0x00487020",
+   "name": "gcStartup",
+   "kind": "function",
+   "class": "hw1:GameChat.c",
+   "confidence": "high",
+   "evidence": "[audit] frFontRegister, listInit, 2 dummy nodes (BUFFERSTART/END), mutex, regChildInsert else feScreensLoad Game_Chat.FIB; GameChat.c:893",
+   "hw1_equivalent": "HomeworldSDL/src/Game/GameChat.c:gcStartup",
+   "signature": ""
+  },
+  {
+   "address": "0x004887c0",
+   "name": "gpStartInGameEscapeMenu",
+   "kind": "function",
+   "class": "hw1:GamePick.c",
+   "confidence": "high",
+   "evidence": "[review] matcher said gpBackToInGameEscapeMenu (WRONG); (void) sets escapemenu by tutorial/SP/play/record/MP, mrReset, then inlined gpBackToInGameEscapeMenu (real one = undefined c...; GamePick.c:1222",
+   "hw1_equivalent": "HomeworldSDL/src/Game/GamePick.c:gpStartInGameEscapeMenu",
+   "signature": ""
+  },
+  {
+   "address": "0x0048d500",
+   "name": "hrChooseSinglePlayerBitmap",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "[review] (buf) memset pos, sprintf 'SinglePlayer\\\\mission%02d\\\\loading.jpg' (+tutorial/NIS variants), fileExists, strcpy, layout read; HorseRace.c:408",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:hrChooseSinglePlayerBitmap",
+   "signature": ""
+  },
+  {
+   "address": "0x0048d730",
+   "name": "hrChooseRandomBitmap",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "[review] (buf) GetCurrentDirectory, filePathPrepend('ScreenShots'), chdir, _findfirst/_findnext '*.jpg' count+pick, restore dir; HorseRace.c:472",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:hrChooseRandomBitmap",
+   "signature": ""
+  },
+  {
+   "address": "0x0048e2b0",
+   "name": "horseGetNumBars",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "[review] (bars) per-bar enable switch (autodownloadmapRequired, etgHasBeenStarted...), 'You must specify whether or not to load bar'; HorseRace.c:989",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:horseGetNumBars",
+   "signature": ""
+  },
+  {
+   "address": "0x0048e3c0",
+   "name": "horseRaceInit",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "[review] horseGetNumBars first, per-player status reset + TTimerStart, chat clear, feScreensLoad HR FIB, Horse_Race(_NonNetwork) screens; HorseRace.c:1057",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:horseRaceInit",
+   "signature": ""
+  },
+  {
+   "address": "0x0048e6c0",
+   "name": "horseRaceRender",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "[audit] hrBackgroundReinit/Dirty handling, ferDrawDecorative region scan, message pump; HorseRace.c:1196",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:horseRaceRender",
+   "signature": ""
+  },
+  {
+   "address": "0x0048ec80",
+   "name": "HorseRaceNext",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (real32 pct): universeStaticInit count/max per object, etgEffectCodeLoad loaded/expected (ETG.c:3444); HorseRace.c:1416",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:HorseRaceNext",
+   "signature": ""
+  },
+  {
+   "address": "0x0048eff0",
+   "name": "recievedHorsePacketCB",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "[review] playerindex, MP titanDebug 'hr: recv hrpacket', dropout check + TTimerReset, dirty bar, barnum/percent store; HorseRace.c:1565",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:recievedHorsePacketCB",
+   "signature": ""
+  },
+  {
+   "address": "0x0048f400",
+   "name": "hsContinue",
+   "kind": "function",
+   "class": "hw1:HS.c",
+   "confidence": "high",
+   "evidence": "[review] (ship,displayEffect) clampInfo host clip-plane GL path, hsGetEquation, matrix push/scale, 'unknown hyperspace state'; HS.c:272",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsContinue",
+   "signature": ""
+  },
+  {
+   "address": "0x00491c70",
+   "name": "kasfMissionCompleted",
+   "kind": "function",
+   "class": "hw1:KASFunc.c",
+   "confidence": "high",
+   "evidence": "[review] tutorial->tutorialdone, clCommandMessage 'MISSION COMPLETED', speechEventCleanup, missionCompleteCB, animAviPlay(cur,next); KASFunc.c:115",
+   "hw1_equivalent": "HomeworldSDL/src/Game/KASFunc.c:kasfMissionCompleted",
+   "signature": ""
+  },
+  {
+   "address": "0x00494ca0",
+   "name": "kasfPopupTextDraw",
+   "kind": "function",
+   "class": "hw1:KASFunc.c",
+   "confidence": "high",
+   "evidence": "[review] gameIsRunning/numLines guard, font save, 320-width/2 layout, beveled rect + round rects, 'FLEET INTELLIGENCE', line loop; KASFunc.c:2056",
+   "hw1_equivalent": "HomeworldSDL/src/Game/KASFunc.c:kasfPopupTextDraw",
+   "signature": ""
+  },
+  {
+   "address": "0x0049bca0",
+   "name": "kbListWindowCB",
+   "kind": "function",
+   "class": "hw1:KeyBindings.c",
+   "confidence": "high",
+   "evidence": "[review] matcher said kbSetNewKey (WRONG); (string,atom) FEFIRSTCALL font+uicListWindowInit+150 uicListAddItem, FELASTCALL clear, message switch; CM_KeyCaptured inlines kbSetNewK...; KeyBindings.c:300",
+   "hw1_equivalent": "HomeworldSDL/src/Game/KeyBindings.c:kbListWindowCB",
+   "signature": ""
+  },
+  {
+   "address": "0x0049e1e0",
+   "name": "lmLaunchBegin",
+   "kind": "function",
+   "class": "hw1:LaunchMgr.c",
+   "confidence": "high",
+   "evidence": "[review] (region,ID) playPackets/tutorial/mothership guards, lmFillInCarrierXs inlined, Launch_Manager.fib + screen start; LaunchMgr.c:1579",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LaunchMgr.c:lmLaunchBegin",
+   "signature": ""
+  },
+  {
+   "address": "0x0049e690",
+   "name": "lmLaunchCapableShipDied",
+   "kind": "function",
+   "class": "hw1:LaunchMgr.c",
+   "confidence": "high",
+   "evidence": "[review] (ship) lmFillInCarrierXs inlined, launchship==ship -> lmCurrentSelect-- walk, LM_AutoLaunchC1/C2 atoms; LaunchMgr.c:1826",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LaunchMgr.c:lmLaunchCapableShipDied",
+   "signature": ""
+  },
+  {
+   "address": "0x0049fcf0",
+   "name": "AddResourceToVolumeAtPosition",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "[audit] switch resourceObjType, AnyShipOverlapsAsteroid, univAddAsteroid, attributes copy, 'TowardsVector'; LevelLoad.c:361",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:AddResourceToVolumeAtPosition",
+   "signature": ""
+  },
+  {
+   "address": "0x004a0c50",
+   "name": "GetResourceDistribution",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "[audit] memset, switch Asteroid/GasCloud/DustCloud scriptSetStruct, cum loop x2, 'No distribution set for %s'; LevelLoad.c:244",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:GetResourceDistribution",
+   "signature": ""
+  },
+  {
+   "address": "0x004a3230",
+   "name": "levelPreInit",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "[review] matcher said SetTeamColorForShipAndRelatedStaticInfo (WRONG); (dir,mission) inlined isLevelMissionManGenerated ('; MissionMan' strncmp 12), universeFlagEverythingNeeded...; LevelLoad.c:2191",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:levelPreInit",
+   "signature": ""
+  },
+  {
+   "address": "0x004a4250",
+   "name": "listInit",
+   "kind": "function",
+   "class": "hw1:LinkedList.c",
+   "confidence": "high",
+   "evidence": "[callee] gcStartup listInit(&chathistorylist), tacticsStartUp listInit(&universe.RetreatList); 15-byte zeroing body; LinkedList.c:85",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LinkedList.c:listInit",
+   "signature": ""
+  },
+  {
+   "address": "0x004a4290",
+   "name": "listDeleteAll",
+   "kind": "function",
+   "class": "hw1:LinkedList.c",
+   "confidence": "high",
+   "evidence": "[callee] lgStartMultiPlayerLANGameScreens' seven consecutive listDeleteAll(&listof...) (MultiplayerLANGame.c:2812); LinkedList.c:125",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LinkedList.c:listDeleteAll",
+   "signature": ""
+  },
+  {
+   "address": "0x004a42d0",
+   "name": "listAddNode",
+   "kind": "function",
+   "class": "hw1:LinkedList.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (list,node,struct): gcStartup dummy nodes, mgProcessGameListGameAdded listAddNode(&listofgames,&g->link,g); LinkedList.c:150",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LinkedList.c:listAddNode",
+   "signature": ""
+  },
+  {
+   "address": "0x004a44c0",
+   "name": "listDeleteNode",
+   "kind": "function",
+   "class": "hw1:LinkedList.c",
+   "confidence": "high",
+   "evidence": "[callee] mgProcessGameListGameRemoved uicListRemoveItem then listDeleteNode(walk) (MultiplayerGame.c:5804); LinkedList.c:341",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LinkedList.c:listDeleteNode",
+   "signature": ""
+  },
+  {
+   "address": "0x004a4910",
+   "name": "lodTypeRead",
+   "kind": "function",
+   "class": "hw1:LOD.c",
+   "confidence": "high",
+   "evidence": "[review] (dir,field,data) strupr then strstr INVALID/MESH/TINYSPRITE/SUBPIXEL/FUNCTION setting LM_LODType bits; LOD.c:176 (static)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LOD.c:lodTypeRead",
+   "signature": ""
+  },
+  {
+   "address": "0x004a51a0",
+   "name": "madLinkInUpdateMeshAnimations",
+   "kind": "function",
+   "class": "hw1:MadLinkIn.c",
+   "confidence": "high",
+   "evidence": "[review] (ship) NEED_TO_START_NEW_ANIMATION: start cued anim + soundEvent + flag clear, madAnimationUpdate, cuedAnimationType switch; MadLinkIn.c:41",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MadLinkIn.c:madLinkInUpdateMeshAnimations",
+   "signature": ""
+  },
+  {
+   "address": "0x004adc60",
+   "name": "memAllocFunctionA",
+   "kind": "function",
+   "class": "hw1:Memory.c",
+   "confidence": "medium",
+   "evidence": "[callee] (len,flags,pool) called by memAllocFunction/memAllocAttemptFunction first with main pool then each growth pool; Memory.c:932",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Memory.c:memAllocFunctionA",
+   "signature": ""
+  },
+  {
+   "address": "0x004addd0",
+   "name": "memAllocAttemptFunction",
+   "kind": "function",
+   "class": "hw1:Memory.c",
+   "confidence": "high",
+   "evidence": "[callee] (len,flags) same pool walk w/o fatal; bigFileLoadAlloc calls it then NULL-checks with 'couldn't allocate' (BigFile.c:2609); Memory.c:1180",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Memory.c:memAllocAttemptFunction",
+   "signature": ""
+  },
+  {
+   "address": "0x004adee0",
+   "name": "memAllocFunction",
+   "kind": "function",
+   "class": "hw1:Memory.c",
+   "confidence": "high",
+   "evidence": "[callee] release memAlloc(l,n,f) -> memAllocFunction(l,f) (Memory.h:309); pool + growth-heap alloc, 'memAlloc: failed to allocate %d bytes'; 427 callers; Memory.c:1249",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Memory.c:memAllocFunction",
+   "signature": ""
+  },
+  {
+   "address": "0x004ae130",
+   "name": "memFree",
+   "kind": "function",
+   "class": "hw1:Memory.c",
+   "confidence": "high",
+   "evidence": "[callee] frees memAlloc cookies (hdr p-0x20, pool/growth-heap lookup); memFree(formSelection) in mrFormationShips, memFree(copypacket) in TransferCaptaincyUpdate; NB CET memFree@0x00673080=CRT free",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Memory.c:memFree",
+   "signature": ""
+  },
+  {
+   "address": "0x004ae6c0",
+   "name": "memStrncpy",
+   "kind": "function",
+   "class": "hw1:Memory.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (dest,src,n): animStartup memStrncpy(animlisting[l].filename,temp,31) (Animatic.c:662); WinMain copies with 0xf/0x3f/0x1ff; Memory.c:2197",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Memory.c:memStrncpy",
+   "signature": ""
+  },
+  {
+   "address": "0x004ae7b0",
+   "name": "meshNameToStaticInfo",
+   "kind": "function",
+   "class": "hw1:Mesh.c",
+   "confidence": "high",
+   "evidence": "[review] (fileName) strchr('\\\\') race/type split, NULL if no 2nd sep, Derelicts/MINE handling, team-colorize warning; Mesh.c:219",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mesh.c:meshNameToStaticInfo",
+   "signature": ""
+  },
+  {
+   "address": "0x004b73c0",
+   "name": "mexGetGunStaticInfo",
+   "kind": "function",
+   "class": "hw1:MEX.c",
+   "confidence": "high",
+   "evidence": "[review] null-mex warning, per-gun sprintf 'Gun%d' + chunk scan (mexGetChunk inlined), position/normal/cos angles copy; MEX.c:307",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MEX.c:mexGetGunStaticInfo",
+   "signature": ""
+  },
+  {
+   "address": "0x004b8690",
+   "name": "mgShowScreen",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "[audit] (screennum,disappear), 38 shared screen-name strings incl 'Unknown MultiplayerGame screen to display'; MultiplayerGame.c:1432",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgShowScreen",
+   "signature": ""
+  },
+  {
+   "address": "0x004b8f90",
+   "name": "LockMutex",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "[callee] WaitForSingleObject(m,INFINITE) (SDL port: SDL_mutexP); KeepAliveDropPlayerCB LockMutex(AliveTimeoutStatusesMutex) (CommandNetwork.c:2573); sits right after mgShowS...; MultiplayerGame.c:1612",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:LockMutex",
+   "signature": ""
+  },
+  {
+   "address": "0x004b8fa0",
+   "name": "UnLockMutex",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "[callee] ReleaseMutex(m) (SDL port: SDL_mutexV); paired UnLockMutex in KeepAliveDropPlayerCB (CommandNetwork.c:2582); MultiplayerGame.c:1624",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:UnLockMutex",
+   "signature": ""
+  },
+  {
+   "address": "0x004bceb0",
+   "name": "mgInvalidGameName",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "[review] wcslen(tpGameCreated.Name)<2, feAtomFindInScreen 'MG_GameNameTextEntry' (retry after mgShowScreen(0xd)), uicClear/SetCurrent, msg box; MultiplayerGame.c:4117",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgInvalidGameName",
+   "signature": ""
+  },
+  {
+   "address": "0x004bf020",
+   "name": "mgProcessGameListGameAdded",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "[audit] wcscmp walk 'Game %s already present', memAlloc+copy, pingtime=-1, listAddNode; MultiplayerGame.c:5723",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgProcessGameListGameAdded",
+   "signature": ""
+  },
+  {
+   "address": "0x004bf0e0",
+   "name": "mgProcessGameListGameRemoved",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "[review] walk listofgames wcscmp, uicListRemoveItem + listDeleteNode, 'Told to remove game %s'; MultiplayerGame.c:5768",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgProcessGameListGameRemoved",
+   "signature": ""
+  },
+  {
+   "address": "0x004bf150",
+   "name": "mgProcessGameListGameChanged",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "[review] walk listofgames wcscmp, copy game struct, GAME_IN_PROGRESS -> UICLI_CanSelect toggle, redraw, 'Told to change game'; MultiplayerGame.c:5808",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgProcessGameListGameChanged",
+   "signature": ""
+  },
+  {
+   "address": "0x004c0300",
+   "name": "mgStartup",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "[audit] 13 frFontRegister, feScreensLoad Multiplayer_Game/Choose_Server FIB, InitQueue, 3 mutexes, taskStart; MultiplayerGame.c:6455",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgStartup",
+   "signature": ""
+  },
+  {
+   "address": "0x004c2250",
+   "name": "mgGameStartReceivedCB",
+   "kind": "function",
+   "class": "hw1:MultiplayerGame.c",
+   "confidence": "high",
+   "evidence": "[review] (blob,len) mgBackuptpGameCreated inlined, memcpy tpGameCreated, find myAddress -> sigsPlayerIndex, 4 shared strings; MultiplayerGame.c:7214",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerGame.c:mgGameStartReceivedCB",
+   "signature": ""
+  },
+  {
+   "address": "0x004c7150",
+   "name": "lgStartMultiPlayerLANGameScreens",
+   "kind": "function",
+   "class": "hw1:MultiplayerLANGame.c",
+   "confidence": "high",
+   "evidence": "[audit] FEFIRSTCALL, feScreensLoad LAN FIB, 7 listDeleteAll, Lock/Reset/UnLockQueue, multiPlayerGame=1; MultiplayerLANGame.c:2792",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerLANGame.c:lgStartMultiPlayerLANGameScreens",
+   "signature": ""
+  },
+  {
+   "address": "0x004c7440",
+   "name": "titanReceivedLanBroadcastCB",
+   "kind": "function",
+   "class": "hw1:MultiplayerLANGame.c",
+   "confidence": "high",
+   "evidence": "[audit] gameIsRunning/startingGame guard, LockQueue, high-water mark, 3 advert types by size; MultiplayerLANGame.c:2905",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MultiplayerLANGame.c:titanReceivedLanBroadcastCB",
+   "signature": ""
+  },
+  {
+   "address": "0x004cb1c0",
+   "name": "nebFadeAttachedTendrils",
+   "kind": "function",
+   "class": "hw1:Nebulae.c",
+   "confidence": "high",
+   "evidence": "[review] (chunk,factor) neb->numChunks==0 dbgFatal string, loop tendrils fadeFactor=factor; Nebulae.c:2221",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Nebulae.c:nebFadeAttachedTendrils",
+   "signature": ""
+  },
+  {
+   "address": "0x004cbf00",
+   "name": "recPackPlayGetNextPacket",
+   "kind": "function",
+   "class": "hw1:NetCheck.c",
+   "confidence": "high",
+   "evidence": "[review] fread validcheck, skip 'HEAD' blocks, 'PACK' check else 'Bad packet recording', fread size + memAlloc packet; NetCheck.c:657",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NetCheck.c:recPackPlayGetNextPacket",
+   "signature": ""
+  },
+  {
+   "address": "0x004cc400",
+   "name": "netcheckShow",
+   "kind": "function",
+   "class": "hw1:NetCheck.c",
+   "confidence": "high",
+   "evidence": "[review] (packet) univGetChecksum, statsGetStatChecksum, gamerand, store in netsyncchecksums[frame&0x7f], netcheckCheckChecksum, netlog fprintf; NetCheck.c:918",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NetCheck.c:netcheckShow",
+   "signature": ""
+  },
+  {
+   "address": "0x004cd2b0",
+   "name": "nisStart",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "[review] (header,position,coordSystem) unitCapDisable, mrNISStarting, memAlloc NISPlaying sized by obj/camera paths, matrix/position copy, spline pool; NIS.c:906",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStart",
+   "signature": ""
+  },
+  {
+   "address": "0x004d76d0",
+   "name": "opOptionsAcceptHelper",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "[review] matcher said opCountdownBoxStart (WRONG); (name,atom,linkName) key table hex save (Upper/LowerHex2Char), res/render list selection, feScreenDisappear + feScreenStart(linkNa...; Options.c:1191",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opOptionsAcceptHelper",
+   "signature": ""
+  },
+  {
+   "address": "0x004f7140",
+   "name": "rmResearchGUIBegin",
+   "kind": "function",
+   "class": "hw1:ResearchGUI.c",
+   "confidence": "high",
+   "evidence": "[audit] lab check, rndClear, spLockout, feScreensLoad Research_Manager.fib (+Beast variant), 'Start_ResearchManager'; ResearchGUI.c:2127",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchGUI.c:rmResearchGUIBegin",
+   "signature": ""
+  },
+  {
+   "address": "0x004fdfc0",
+   "name": "PreLoadGame",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "[review] (filename) fileOpen, version magic fread (LoadVersionInfo inlined), LoadPreGameInfo inlined, 'Error %d loading game %s'; SaveGame.c:796",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:PreLoadGame",
+   "signature": ""
+  },
+  {
+   "address": "0x005046c0",
+   "name": "spScenarioPick",
+   "kind": "function",
+   "class": "hw1:ScenPick.c",
+   "confidence": "high",
+   "evidence": "[review] feCallbackAddMultiple, feScreenStart(ghMainRegion,'Load_a_scenario'), spNewItem (0x00504a20), spPickerStarted=TRUE; ScenPick.c:740",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ScenPick.c:spScenarioPick",
+   "signature": ""
+  },
+  {
+   "address": "0x00504a20",
+   "name": "spNewItem",
+   "kind": "function",
+   "class": "hw1:ScenPick.c",
+   "confidence": "high",
+   "evidence": "[audit] feAtomFindInScreen 'CS_ScenarioBitmap', texture delete, bmp size checks match ScenPick.c:973; spDescriptionDefaultsAndFreeText inlined (default.hff)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ScenPick.c:spNewItem",
+   "signature": ""
+  },
+  {
+   "address": "0x00505e00",
+   "name": "selShipInSelection",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "[callee] mrFormationShips (selSelected.ShipPtr, numShips, ship) && SHIFT -> numShips=0 (mainrgn.c:3298); Select.c:403",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selShipInSelection",
+   "signature": ""
+  },
+  {
+   "address": "0x00508e70",
+   "name": "selSelectionCopy",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "[callee] mrFormationShips non-parade branch copy(selection,formSel) + copy(&inForm,&selSelected) (mainrgn.c:3287); Select.c:2264",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelectionCopy",
+   "signature": ""
+  },
+  {
+   "address": "0x00508f40",
+   "name": "selSelectionCopyByType",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "[callee] mrFormationShips parade branch (dest, src, ship->shiptype / staticinfo->shiptype) (mainrgn.c:3277); Select.c:2376",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelectionCopyByType",
+   "signature": ""
+  },
+  {
+   "address": "0x00508fb0",
+   "name": "selSelectionCompare",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "[callee] mrFormationShips compare(selection,&selectedInFormation)==0 -> numShips=0 (mainrgn.c:3293); Select.c:2429",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelectionCompare",
+   "signature": ""
+  },
+  {
+   "address": "0x0050ba90",
+   "name": "smSensorsCloseForGood",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "[review] tutorial 'Game_SensorsClose', mrRenderMainScreen=1, feScreenDelete, rndSetClearColor(bg), smSensorsActive=0, mouseCursorShow...; Sensors.c:2244",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smSensorsCloseForGood",
+   "signature": ""
+  },
+  {
+   "address": "0x0050ccc0",
+   "name": "smStartup",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "[review] scriptSet 'sensors.script', feDrawCallbackAdd('SM_ViewPort',smViewportRender), cameraInit, smUpdateParameters inlined; Sensors.c:3930",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smStartup",
+   "signature": ""
+  },
+  {
+   "address": "0x00518f50",
+   "name": "spHyperspaceButtonPushed",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "[audit] matcher said HyperspaceRollCallBegin (WRONG); playerCanHyperspace/override, smUpdateHyperspaceStatus(0), state=WAITINGROLLCALL, clAutoLaunch, roll-call screen inlined; SinglePlayer.c:2028",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:spHyperspaceButtonPushed",
+   "signature": ""
+  },
+  {
+   "address": "0x005197d0",
+   "name": "singlePlayerGameUpdate",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "[review] matcher said singlePlayerKasMissionStart (WRONG); keeps CET name (IMPORTED, hooked Cataclysm.h:169); 4883 B; mission16.. strings are from static singlePlayerKasMission...; SinglePlayer.c:2399",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerGameUpdate",
+   "signature": ""
+  },
+  {
+   "address": "0x0051b670",
+   "name": "singlePlayerStartNis",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "[audit] nisLoad, 'NisCentreShip' grow sel, 'G_NisCentreDerelict/Instance' aivars, nisStart; SinglePlayer.c:3334 (+StartPointPlayer default)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerStartNis",
+   "signature": ""
+  },
+  {
+   "address": "0x0051bea0",
+   "name": "spFindCameraAttitude",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "[review] kasVectorPtrIfExists('StartCameraPosition'), NULL->FALSE, copy x/y/z; SinglePlayer.c:4032",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:spFindCameraAttitude",
+   "signature": ""
+  },
+  {
+   "address": "0x005200c0",
+   "name": "SEloadbank",
+   "kind": "function",
+   "class": "hw1:SoundEvent.c",
+   "confidence": "high",
+   "evidence": "[review] GunEvents/ShipCmnEvents/... .lut fileLoadAlloc + Ships.bnk/SpecialEffects.bnk loads + checksum warnings, 11 shared strings; SoundEvent.c:2680",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SoundEvent.c:SEloadbank",
+   "signature": ""
+  },
+  {
+   "address": "0x005209f0",
+   "name": "soundEventPlay",
+   "kind": "function",
+   "class": "hw1:SoundEventPlay.c",
+   "confidence": "high",
+   "evidence": "[callee] soundEvent(a,b) macro target (SoundEvent.h:70): (NULL,UI_Click) mrScuttle, (NULL,UI_CrateFound) crates, (ship,animflag) madLinkIn; SoundEventPlay.c:66",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SoundEventPlay.c:soundEventPlay",
+   "signature": ""
+  },
+  {
+   "address": "0x00521a40",
+   "name": "speechEventInit",
+   "kind": "function",
+   "class": "hw1:SpeechEvent.c",
+   "confidence": "high",
+   "evidence": "[review] matcher said SEloadscripts (WRONG); soundstreamquery->SOUND_ERR, streamer alloc+init, buffers, music header (Music4Cat.wxh) checksum, SEloadscripts inlined (eq_fleet/eq_...; SpeechEvent.c:423",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SpeechEvent.c:speechEventInit",
+   "signature": ""
+  },
+  {
+   "address": "0x00524690",
+   "name": "FancyFightPrepareFightStats",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "high",
+   "evidence": "[review] matcher said ConvertStatIndexToShipRaceType (WRONG); reads fancyFightEntry[currentFancyFightEntry], ConvertStatIndexToShipRaceType inlined twice, numShips + showStatsFightF/T...; Stats.c:808",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:FancyFightPrepareFightStats",
+   "signature": ""
+  },
+  {
+   "address": "0x00526120",
+   "name": "parseLine",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "[callee] callee parseLine(line,&name,&value) then strcmp(name,'numGames') in mgGameTypeScriptInit (StatScript.c:1951); StatScript.c:692",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:parseLine",
+   "signature": ""
+  },
+  {
+   "address": "0x00526260",
+   "name": "scriptSetStruct",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (dir,file,table,struct): GetResourceDistribution dist tables, InitStat*Info .shp, speechEventInit eq_fleet/eq_intel.script; StatScript.c:783",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetStruct",
+   "signature": ""
+  },
+  {
+   "address": "0x00526790",
+   "name": "scriptSetGunStatics",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "[review] (dir,file,statinfo) path build, fileOpen/fileLineRead/parseLine state machine on NUMBER_OF_GUNS; StatScript.c:951",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetGunStatics",
+   "signature": ""
+  },
+  {
+   "address": "0x00526dc0",
+   "name": "scriptSetNAVLightStatics",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "[audit] (dir,file,statinfo), navlightStaticInfo=0, strcpy/strcat path, NUMBER_OF_NAV_LIGHTS parse; StatScript.c:1199",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetNAVLightStatics",
+   "signature": ""
+  },
+  {
+   "address": "0x005270c0",
+   "name": "scriptSetDockStatics",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "[review] (dir,file,statinfo) same parser shape keyed on NUMBER_OF_DOCK_POINTS; StatScript.c:1319",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetDockStatics",
+   "signature": ""
+  },
+  {
+   "address": "0x005275a0",
+   "name": "scriptSetDockOverideStatics",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "[review] (dir,file,statinfo) same parser shape keyed on NUMBER_OF_DOCK_OVERIDES; StatScript.c:1460",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetDockOverideStatics",
+   "signature": ""
+  },
+  {
+   "address": "0x00527820",
+   "name": "scriptSetTweakableGlobals",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "[review] confirms CET name (IMPORTED); TW_HyperSpaceCostStruct reset loop then scriptSet AIShip/AITrack/Camera... 24 shared .script strings; StatScript.c:1856",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:scriptSetTweakableGlobals",
+   "signature": ""
+  },
+  {
+   "address": "0x00527df0",
+   "name": "mgGameTypeScriptInit",
+   "kind": "function",
+   "class": "hw1:StatScript.c",
+   "confidence": "high",
+   "evidence": "[audit] fileOpen('gametypes.script'), fileLineRead/parseLine, 'numGames' state machine; StatScript.c:1920",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StatScript.c:mgGameTypeScriptInit",
+   "signature": ""
+  },
+  {
+   "address": "0x005285f0",
+   "name": "strLoadLanguage",
+   "kind": "function",
+   "class": "hw1:StringSupport.c",
+   "confidence": "high",
+   "evidence": "[review] (language) fill MessageStrings with crapMessage, GetKeyboardLayout PRIMARYLANGID switch, per-language .script load; StringSupport.c:721",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StringSupport.c:strLoadLanguage",
+   "signature": ""
+  },
+  {
+   "address": "0x00528920",
+   "name": "toStartup",
+   "kind": "function",
+   "class": "hw1:Tactical.c",
+   "confidence": "high",
+   "evidence": "[audit] two primScreenToGLScaleX, 13 default icons, scriptSet(NULL,'Tactical.script',...); Tactical.c:105",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tactical.c:toStartup",
+   "signature": ""
+  },
+  {
+   "address": "0x005290b0",
+   "name": "tacticsStartUp",
+   "kind": "function",
+   "class": "hw1:Tactics.c",
+   "confidence": "high",
+   "evidence": "[review] tacticsInfo init, scriptSet(NULL,'Tactics.script',...), guard-distance square, 1/burstSpeed, listInit; Tactics.c:473 (Cataclysm init loops differ)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tactics.c:tacticsStartUp",
+   "signature": ""
+  },
+  {
+   "address": "0x0052b800",
+   "name": "teReset",
+   "kind": "function",
+   "class": "hw1:Teams.c",
+   "confidence": "high",
+   "evidence": "[review] scriptSet 'TeamColors.script', race defaults copy, swap schemes 0/1 when whichRaceSelected==R2 (MP); Teams.c:157; called from levelPreInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Teams.c:teReset",
+   "signature": ""
+  },
+  {
+   "address": "0x0052d380",
+   "name": "titanSendBroadcastMessage",
+   "kind": "function",
+   "class": "hw1:TitanNet.c",
+   "confidence": "high",
+   "evidence": "[audit] titanDebug 'bw: broadcast gamepkt' + titanBroadcastPacket(TITANMSGTYPE_GAME,pkt,size); TitanNet.c:732",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TitanNet.c:titanSendBroadcastMessage",
+   "signature": ""
+  },
+  {
+   "address": "0x0052d3b0",
+   "name": "titanSendPointMessage",
+   "kind": "function",
+   "class": "hw1:TitanNet.c",
+   "confidence": "high",
+   "evidence": "[review] titanDebug 'bw: pointmsg', titanSendPacketTo(&playerInfo[i].address, GAME,pkt,size); TitanNet.c:740",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TitanNet.c:titanSendPointMessage",
+   "signature": ""
+  },
+  {
+   "address": "0x0052d3f0",
+   "name": "titanAnyoneSendBroadcastMessage",
+   "kind": "function",
+   "class": "hw1:TitanNet.c",
+   "confidence": "high",
+   "evidence": "[review] titanDebug 'bw: broadcastany', titanAnyoneBroadcastPacket(GAME,pkt,size); TitanNet.c:748",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TitanNet.c:titanAnyoneSendBroadcastMessage",
+   "signature": ""
+  },
+  {
+   "address": "0x0052d420",
+   "name": "titanAnyoneSendPointMessage",
+   "kind": "function",
+   "class": "hw1:TitanNet.c",
+   "confidence": "high",
+   "evidence": "[review] titanDebug 'bw: pointmsgany', titanAnyoneSendPacketTo(&playerInfo[i].address,...); TitanNet.c:756",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TitanNet.c:titanAnyoneSendPointMessage",
+   "signature": ""
+  },
+  {
+   "address": "0x0052e480",
+   "name": "tmTradeBegin",
+   "kind": "function",
+   "class": "hw1:TradeMgr.c",
+   "confidence": "high",
+   "evidence": "[review] (region) disabled/playPackets/pause/active guards, rndClear, 2 frFontRegister, piePointModeOnOff, Trader_Interface.fib + screen; TradeMgr.c:990",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TradeMgr.c:tmTradeBegin",
+   "signature": ""
+  },
+  {
+   "address": "0x00530c80",
+   "name": "tutShowText",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "[audit] font by MAIN_WindowWidth<1024 SimplixSSK_13/ScrollingText.hff, tutGetNextTextLine loop; tutHideText inlined; Tutor.c:955",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutShowText",
+   "signature": ""
+  },
+  {
+   "address": "0x00533190",
+   "name": "tutInitialize",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "[review] loop tutImageList, invalid texture -> 'feman\\\\texdecorative\\\\' + per-language (en/fr/ger) image name, register; Tutor.c:1844",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutInitialize",
+   "signature": ""
+  },
+  {
+   "address": "0x00533e20",
+   "name": "tutGameMessage",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "[callee] callee taking the tutorial event names at every HW1 tutGameMessage site: Game_ScuttleConfirm, KB_Tactics*, Game_BandBox*, Game_ClickSelectGroup, Start_ResearchManager; Tutor.c:2067",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutGameMessage",
+   "signature": ""
+  },
+  {
+   "address": "0x00538380",
+   "name": "uicListWindowInit",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "[callee] callee 7 args (lw, titleDraw, NULL, titleH, itemDraw, itemH, flags) in kbListWindowCB FEFIRSTCALL path (KeyBindings.c:311); UIControls.c:4459",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListWindowInit",
+   "signature": ""
+  },
+  {
+   "address": "0x00538450",
+   "name": "uicListAddItem",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (lw,data,flags,where): kbListWindowCB fill loop; mgProcessGameListGameAdded adds gameinfo with CanSelect by GAME_IN_PROGRESS; UIControls.c:4492",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListAddItem",
+   "signature": ""
+  },
+  {
+   "address": "0x005386c0",
+   "name": "uicListRemoveItem",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "[callee] mgProcessGameListGameRemoved if (window && gameinfo->item) uicListRemoveItem(window,item) before listDeleteNode (MultiplayerGame.c:5800); UIControls.c:4683",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListRemoveItem",
+   "signature": ""
+  },
+  {
+   "address": "0x0053ae00",
+   "name": "InitStatDustCloudInfo",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "[review] (info,type) store type, DustCloudTypeToStr, 'Resources\\\\DustClouds\\\\' + .shp, fileExists, scriptSetStruct; Universe.c:1601",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:InitStatDustCloudInfo",
+   "signature": ""
+  },
+  {
+   "address": "0x0053afd0",
+   "name": "InitStatNebulaInfo",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "[audit] nebulatype store, NebulaTypeToStr, 'Resources\\\\Nebulae\\\\' + .shp, fileExists, scriptSetStruct; Universe.c:1698",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:InitStatNebulaInfo",
+   "signature": ""
+  },
+  {
+   "address": "0x0053d2a0",
+   "name": "universeStaticInit",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "[audit] sphereStaticInfo/defaultmesh/lod/mex 'DefaultShip\\\\', HorseRaceBeginBar/Next per race loop; Universe.c:3032",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:universeStaticInit",
+   "signature": ""
+  },
+  {
+   "address": "0x0053ec00",
+   "name": "unitCapDeleteShip",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "[audit] cdEnabled && SPECIAL_2_InUnitCaps; totalships/shiptotals/classtotals decrement-clamp; bitClear; Universe.c:4253",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:unitCapDeleteShip",
+   "signature": ""
+  },
+  {
+   "address": "0x0053f020",
+   "name": "unitCapInitStatics",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "[review] sprintf 'UnitLimitCaps%i.script' + scriptSet(NULL,temp,ShipStaticCapLimits); Universe.c:4422",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:unitCapInitStatics",
+   "signature": ""
+  },
+  {
+   "address": "0x0053f290",
+   "name": "gameStatsShipDied",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "[review] (ship) playerowner NULL fatal string, howDidIDie switch, totalRUsKilled += buildCost, totalKills++, per-player tallies; Universe.c:4561",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:gameStatsShipDied",
+   "signature": ""
+  },
+  {
+   "address": "0x00556120",
+   "name": "dbwStart",
+   "kind": "function",
+   "class": "hw1:debugwnd.c",
+   "confidence": "high",
+   "evidence": "[review] (hInstance,hWndParent) LOGBRUSH COLOR_WINDOW, debug file clear, cfg Location/Size sprintf/sscanf, RegisterClass 'HW_DebugWindow', Font/Pane; debugwnd.c:398",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/debugwnd.c:dbwStart",
+   "signature": ""
+  },
+  {
+   "address": "0x005580d0",
+   "name": "fontMakeCurrent",
+   "kind": "function",
+   "class": "hw1:font.c",
+   "confidence": "high",
+   "evidence": "[callee] callee returning previous font: tutShowText, kbListWindowCB save/restore around list init, kasfPopupTextDraw; font.c:919",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/font.c:fontMakeCurrent",
+   "signature": ""
+  },
+  {
+   "address": "0x00558240",
+   "name": "fontPrint",
+   "kind": "function",
+   "class": "hw1:font.c",
+   "confidence": "high",
+   "evidence": "[callee] callee kasfPopupTextDraw fontPrint(x,y,color,'FLEET INTELLIGENCE') then one call per popup line (KASFunc.c:2099); font.c:1012",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/font.c:fontPrint",
+   "signature": ""
+  },
+  {
+   "address": "0x005631f0",
+   "name": "WinMain",
+   "kind": "function",
+   "class": "hw1:main.c",
+   "confidence": "high",
+   "evidence": "[audit] matcher said main_postinit (WRONG); sole callee of CRT entry 0x0067bbe0 (GetModuleHandle(NULL)), LSMap mapping + 'Program already running' (main.c:2123-2135), InitWindow body i...; main.c:2106",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:main",
+   "signature": ""
+  },
+  {
+   "address": "0x00565210",
+   "name": "mrScuttle",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "[audit] lockout guards, capture-capital check, reconfirm timer, 'Game_ScuttleConfirm/Request', clWrapScuttle; mainrgn.c:828",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrScuttle",
+   "signature": ""
+  },
+  {
+   "address": "0x00566a00",
+   "name": "mrFormationShips",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "[audit] getShipAndItsCommandSelection, MakeShipsSelectable, selSelectionCopy(ByType) x2, compare, 'Game_ClickSelectGroup', memFree; mainrgn.c:3257",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrFormationShips",
+   "signature": ""
+  },
+  {
+   "address": "0x0056e8a0",
+   "name": "mouseCursorHide",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "medium",
+   "evidence": "[callee] animAviPlay hides cursor after rndClear before playback (Animatic.c:827); 8-byte flag setter beside mouseCursorShow; mouse.c:431",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseCursorHide",
+   "signature": ""
+  },
+  {
+   "address": "0x0056e8b0",
+   "name": "mouseCursorShow",
+   "kind": "function",
+   "class": "hw1:mouse.c",
+   "confidence": "high",
+   "evidence": "[callee] smSensorsCloseForGood right after ignoreZoom=FALSE (Sensors.c:2268); animAviPlay restore; 8-byte setter; mouse.c:444",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mouse.c:mouseCursorShow",
+   "signature": ""
+  },
+  {
+   "address": "0x00573100",
+   "name": "ResetQueue",
+   "kind": "function",
+   "class": "hw1:Queue.c",
+   "confidence": "high",
+   "evidence": "[callee] LockQueue; ResetQueue; UnLockQueue sequence on lgThreadTransfer in lgStartMultiPlayerLANGameScreens (MultiplayerLANGame.c:2821); Queue.c:17",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/Queue.c:ResetQueue",
+   "signature": ""
+  },
+  {
+   "address": "0x00573120",
+   "name": "InitQueue",
+   "kind": "function",
+   "class": "hw1:Queue.c",
+   "confidence": "high",
+   "evidence": "[callee] mgStartup InitQueue(&mgThreadTransfer, 50000) right before the three mutex creations (MultiplayerGame.c:6485); Queue.c:34",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/Queue.c:InitQueue",
+   "signature": ""
+  },
+  {
+   "address": "0x00573190",
+   "name": "LockQueue",
+   "kind": "function",
+   "class": "hw1:Queue.c",
+   "confidence": "high",
+   "evidence": "[callee] Lock/Reset/UnLock in lgStartMultiPlayerLANGameScreens, LockQueue in titanReceivedLanBroadcastCB, lock around HWDequeue in TransferCaptaincyUpdate; Queue.c:65",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/Queue.c:LockQueue",
+   "signature": ""
+  },
+  {
+   "address": "0x005731a0",
+   "name": "UnLockQueue",
+   "kind": "function",
+   "class": "hw1:Queue.c",
+   "confidence": "high",
+   "evidence": "[callee] pairs with LockQueue (lgStart..Screens Lock/Reset/UnLock, TransferCaptaincyUpdate dequeue loop); Queue.c:77",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/Queue.c:UnLockQueue",
+   "signature": ""
+  },
+  {
+   "address": "0x005731b0",
+   "name": "HWEnqueue",
+   "kind": "function",
+   "class": "hw1:Queue.c",
+   "confidence": "high",
+   "evidence": "[callee] callee (queue,pkt,size): titanReceivedLanBroadcastCB enqueues userhere/gamehere/chat items after size check; Queue.c:89",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/Queue.c:HWEnqueue",
+   "signature": ""
+  },
+  {
+   "address": "0x00573250",
+   "name": "HWDequeue",
+   "kind": "function",
+   "class": "hw1:Queue.c",
+   "confidence": "high",
+   "evidence": "[callee] TransferCaptaincyUpdate size=HWDequeue(&q,&packet) then memAlloc+memcpy+UnLockQueue (Captaincy.c:325); Queue.c:138",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/Queue.c:HWDequeue",
+   "signature": ""
+  },
+  {
+   "address": "0x005764e0",
+   "name": "rndMainViewRenderFunction",
+   "kind": "function",
+   "class": "hw1:render.c",
+   "confidence": "high",
+   "evidence": "[review] matcher said rndMainViewRenderFunction (WRONG); assigned to rndMainViewRender ptr (PTR_008baac4) 4x and compared like render.c:4007; 1 param camera; MinorRenderList string...; render.c:2386",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/render.c:rndMainViewRenderFunction",
+   "signature": ""
+  },
+  {
+   "address": "0x0057b1a0",
+   "name": "rndSetClearColor",
+   "kind": "function",
+   "class": "hw1:render.c",
+   "confidence": "high",
+   "evidence": "[callee] animAviPlay (0xff000000=colBlack), smSensorsCloseForGood (backgroundColor rgb + alpha 255); render.c:4379",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/render.c:rndSetClearColor",
+   "signature": ""
+  },
+  {
+   "address": "0x0057b6e0",
+   "name": "rndClear",
+   "kind": "function",
+   "class": "hw1:render.c",
+   "confidence": "high",
+   "evidence": "[callee] rmResearchGUIBegin/tmTradeBegin rndClear after guards; animAviPlay rndSetClearColor(colBlack); rndClear(); render.c:4620",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/render.c:rndClear",
+   "signature": ""
+  },
+  {
+   "address": "0x005838a0",
+   "name": "subStartup",
+   "kind": "function",
+   "class": "hw1:Subtitle.c",
+   "confidence": "high",
+   "evidence": "[review] subNumberNewSubtitles=0, semaphore create, memset subRegion/subTheme, scriptSet 'Subtitle.script', subRegionsRescale, card memAlloc per region; Subtitle.c:563",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Subtitle.c:subStartup",
+   "signature": ""
+  },
+  {
+   "address": "0x00586500",
+   "name": "trPalettedTextureCreate",
+   "kind": "function",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "[review] glGenTextures, trClearCurrent, bind, WRAP_S/T REPEAT, filter by mode, aspect-overflow warning, upload; texreg.c:1168",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trPalettedTextureCreate",
+   "signature": ""
+  },
+  {
+   "address": "0x005866a0",
+   "name": "trRGBTextureCreate",
+   "kind": "function",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "[review] (data,w,h,useAlpha) glGenTextures, bind, wrap/filter params, aspect-overflow warning, RGBA upload; texreg.c:1247",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trRGBTextureCreate",
+   "signature": ""
+  },
+  {
+   "address": "0x00586880",
+   "name": "trRGBTextureDelete",
+   "kind": "function",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "[callee] spNewItem if scenarioTexture valid -> trRGBTextureDelete(tex), handle=-1, memFree(spTextureData) (ScenPick.c:992); texreg.c:1339",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trRGBTextureDelete",
+   "signature": ""
+  },
+  {
+   "address": "0x00589fc0",
+   "name": "TTimerReset",
+   "kind": "function",
+   "class": "hw1:TimeoutTimer.c",
+   "confidence": "high",
+   "evidence": "[callee] recievedHorsePacketCB TTimerReset(&hrPlayerDropoutTimers[i]); body re-reads QPC only if enabled; TimeoutTimer.c:71",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TimeoutTimer.c:TTimerReset",
+   "signature": ""
+  },
+  {
+   "address": "0x0058a000",
+   "name": "TTimerStart",
+   "kind": "function",
+   "class": "hw1:TimeoutTimer.c",
+   "confidence": "high",
+   "evidence": "[callee] QPC timer start (enabled=1): horseRaceInit per-player dropout timers, lgStart advertise timer (MultiplayerLANGame.c:2831); TimeoutTimer.c:86",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TimeoutTimer.c:TTimerStart",
+   "signature": ""
+  },
+  {
+   "address": "0x0058a050",
+   "name": "titanDebug",
+   "kind": "function",
+   "class": "hw1:Titan.c",
+   "confidence": "high",
+   "evidence": "[callee] callee printf-style log: 'bw: ... gamepkt', 'hr: recv hrpacket', 'Todays date is: %s', 'Game %s already present'; 176 callers; Titan.c:26",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/Titan.c:titanDebug",
+   "signature": ""
+  },
+  {
+   "address": "0x0058a0f0",
+   "name": "titanLogFileOpen",
+   "kind": "function",
+   "class": "hw1:Titan.c",
+   "confidence": "high",
+   "evidence": "[audit] logEnable -> logfileClear('titanlog.txt'), time/gmtime/strftime '%a %b %d %Y', 'Todays date is: %s'; Titan.c:62",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/Titan.c:titanLogFileOpen",
+   "signature": ""
+  },
+  {
+   "address": "0x0058ae90",
+   "name": "titanSendPacketTo",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "[callee] titanSendPointMessage -> (&tpGameCreated.playerInfo[i].address, 0x60, pkt, size) (TitanNet.c:745); TitanInterface.cpp:406",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:titanSendPacketTo",
+   "signature": ""
+  },
+  {
+   "address": "0x0058aec0",
+   "name": "titanBroadcastPacket",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "[callee] titanSendBroadcastMessage -> (TITANMSGTYPE_GAME 0x60, pkt, size) (TitanNet.c:737); TitanInterface.cpp:420",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:titanBroadcastPacket",
+   "signature": ""
+  },
+  {
+   "address": "0x0058aee0",
+   "name": "titanAnyoneSendPacketTo",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "[callee] titanAnyoneSendPointMessage -> (&playerInfo[i].address, 0x60, pkt, size) (TitanNet.c:761); TitanInterface.cpp:426",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:titanAnyoneSendPacketTo",
+   "signature": ""
+  },
+  {
+   "address": "0x0058af20",
+   "name": "titanAnyoneBroadcastPacket",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "[callee] titanAnyoneSendBroadcastMessage -> (0x60, pkt, size) (TitanNet.c:753); TitanInterface.cpp:442",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:titanAnyoneBroadcastPacket",
+   "signature": ""
+  },
+  {
+   "address": "0x005a49d0",
+   "name": "trailStartup",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "high",
+   "evidence": "[review] trTextureRegister('etg\\\\textures\\\\glow32'), loop meshLoad('misc\\\\EngineGlows\\\\'+name+'.geo'); Trails.c:225",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailStartup",
+   "signature": ""
+  },
+  {
+   "address": "0x005aaf80",
+   "name": "utySinglePlayerGameStart",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "[review] (name,atom) cpResetRegions, strcasecmp 'Tutorial1' forceSP, gpCountTrainingSavegames + 'Tutorial_Alert', feAllScreensDelete, numPlayers=2, 'Player'; utility.c:2780",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utySinglePlayerGameStart",
+   "signature": ""
+  },
+  {
+   "address": "0x005ab180",
+   "name": "utyNewGameStart",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "[review] (name,atom) FEFIRSTCALL, 'Tutorial_Skirmish_Alert', playPackets netcheckInit/recPackPlayInit, numPlayers=1+numComputers loop; utility.c:2854",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyNewGameStart",
+   "signature": ""
+  },
+  {
+   "address": "0x005abe70",
+   "name": "utyGameSystemsInit",
+   "kind": "function",
+   "class": "hw1:utility.c",
+   "confidence": "high",
+   "evidence": "[review] confirms CET_container name; toggle-key save, strLoadLanguage (0x005285f0), 'Unable to start front end/mouse', 'Main_game_screen'; utility.c:3866",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyGameSystemsInit",
+   "signature": ""
+  },
+  {
+   "address": "0x00670b30",
+   "name": "sprintf",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "high",
+   "evidence": "[callee] debug CRT sprintf: asserts 'string != NULL'/'format != NULL', _IOWRT|_IOSTRG (0x42) string FILE; used for 'Movies\\\\%s.bik', 'UnitLimitCaps%i.script'",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x00670d30",
+   "name": "sscanf",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "high",
+   "evidence": "[callee] debug CRT sscanf: string/format asserts, _IOREAD|_IOSTRG (0x49); used for '%d %s' (animStartup) and '%d, %d' (dbwStart)",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x00671360",
+   "name": "_findfirst",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "high",
+   "evidence": "[callee] FindFirstFileA + errno mapping (ENOENT/EINVAL), fills finddata; hrChooseRandomBitmap '*.jpg' (HorseRace.c:500)",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x006714a0",
+   "name": "_findnext",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "high",
+   "evidence": "[callee] FindNextFileA + errno mapping; paired with _findfirst in hrChooseRandomBitmap loop",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x006715d0",
+   "name": "_findclose",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "high",
+   "evidence": "[callee] FindClose with errno EINVAL/-1 on failure; closes the hrChooseRandomBitmap search handle",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x00672430",
+   "name": "fseek",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "high",
+   "evidence": "[callee] debug assert 'stream != NULL', lock/_fseek_lk/unlock; bigFileLoad/bigFileLoadAlloc fseek(fp, offset+nameLength+1, SEEK_SET)",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x006742d0",
+   "name": "fread",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "high",
+   "evidence": "[callee] lock stream, inner read(buf,size,count,stream), unlock; recPackPlayGetNextPacket fread(&x,4,1,fp) (NetCheck.c:665), PreLoadGame version read",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x00674eb0",
+   "name": "strftime",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "high",
+   "evidence": "[callee] thin wrapper -> _Strftime(...,NULL); titanLogFileOpen strftime(datestring,16,'%a %b %d %Y',gmtime(&now))",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x00678610",
+   "name": "wcscmp",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "high",
+   "evidence": "[callee] ushort compare loop returning -1/0/1; mgProcessGameListGame* compare gameinfo->game.Name with wide names (MultiplayerGame.c:5736)",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x0067a3c0",
+   "name": "time",
+   "kind": "function",
+   "class": "crt",
+   "confidence": "high",
+   "evidence": "[callee] MSVC time(): GetLocalTime/GetSystemTime/GetTimeZoneInformation -> time_t; titanLogFileOpen now=time(NULL) (Titan.c:70)",
+   "hw1_equivalent": "",
+   "signature": ""
+  }
+ ]
+}
