@@ -5,7 +5,9 @@
   "network",
   "sound",
   "rgl",
-  "etg"
+  "etg",
+  "nis",
+  "sensors"
  ],
  "proposals": [
   {
@@ -6707,6 +6709,1966 @@
    "evidence": "FE callback table slot 0x8c1028 binds \"QuitToMain\" to this entry; HW1 table entry {utyGameQuitToMain, \"QuitToMain\"} (Win32/utility.c)",
    "hw1_equivalent": "HomeworldSDL/src/SDL/utility.c:utyGameQuitToMain",
    "signature": ""
+  },
+  {
+   "address": "0x004cc4c0",
+   "name": "nisCameraFlyCompute",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "9x bsCurveUpdate(nisCameraCurve[i],t); on REALlyBig sets nisPaused=0, cutTime=0, cutStage2=-1.0; vecNormalize(up); called by nisUpdateTask; ORIG nis.c:373",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCameraFlyCompute",
+   "signature": "void nisCameraFlyCompute(real32 timeElapsed)"
+  },
+  {
+   "address": "0x004cc920",
+   "name": "nisTaskResume",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "sets flag 0xa4cae0=1, the flag nisTaskPauseOrResume (0x4cc930) turns into taskResume(nisTaskHandle); ORIG nis.c:610",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTaskResume",
+   "signature": "void nisTaskResume(void)"
+  },
+  {
+   "address": "0x004cc930",
+   "name": "nisTaskPauseOrResume",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "if toPause: taskPause(nisTaskHandle 0xc30e84),clear; if toResume: taskResume(same),clear; exact ORIG nis.c:623 body; handle set by nisStartup",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTaskPauseOrResume",
+   "signature": "void nisTaskPauseOrResume(void)"
+  },
+  {
+   "address": "0x004cc980",
+   "name": "nisRotateAboutVector",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "sin/cos of radians, one_c=1-c, fills 3x3 axis-angle matrix exactly as ORIG nis.c:645; callee of both Euler-to-matrix helpers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisRotateAboutVector",
+   "signature": "void nisRotateAboutVector(real32 *m, vector *axis, real32 radians)"
+  },
+  {
+   "address": "0x004cca90",
+   "name": "nisShipEulerToMatrix",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "copies HPBIdentityShip {0,0,1,-1,0,0,0,-1,0} at 0x8889c0 (right after nisEventDispatch), 3 rotations about {0,0,1}/col3/col2 (-h,+p,-b); ORIG nis.c:693",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisShipEulerToMatrix",
+   "signature": "void nisShipEulerToMatrix(matrix *coordsys, vector *rotVector)"
+  },
+  {
+   "address": "0x004ccba0",
+   "name": "nisObjectEulerToMatrix",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "twin of nisShipEulerToMatrix but starts from IdentityMatrix (.rdata 0x72af18) and axis {1,0,0}; ORIG nis.c:723",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisObjectEulerToMatrix",
+   "signature": "void nisObjectEulerToMatrix(matrix *coordsys, vector *rotVector)"
+  },
+  {
+   "address": "0x004cccb0",
+   "name": "nisNewObjectCreate",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "switch on objectPath race: univCreateShip/univAddAsteroid/DustCloud/GasCloud/Derelict/Missile, effect SpaceObjRot memAlloc 0xd4; flags|=0x80 NISShip; one-keyframe pose; ORIG nis.c:754",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisNewObjectCreate",
+   "signature": "Ship *nisNewObjectCreate(nisplaying *NIS, sdword index, nisheader *header, spaceobjpath *path, nisplaying *newHeader, vector *position)"
+  },
+  {
+   "address": "0x004cd260",
+   "name": "nisScissorBarsReset",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "zeroes the 7 globals nisUpdateTask uses as BlackFade/BlackFadeDest/FullyScissored/ScissorFadeIn/Out/Time/Fade; ORIG nis.c:862",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisScissorBarsReset",
+   "signature": "void nisScissorBarsReset(void)"
+  },
+  {
+   "address": "0x004cdd60",
+   "name": "nisStop",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "called by nisUpdateTask when nisUpdate returns REALlyBig (then nisDelete); walks objectsInMotion, RemainAtEnd ships get unitCapCreateShip, else deleted; ORIG nis.c:1173",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStop",
+   "signature": "void nisStop(nisplaying *NIS)"
+  },
+  {
+   "address": "0x004ce2e0",
+   "name": "nisSeek",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "seekRelative=(t>NIS->timeElapsed); 6 curves per object/camera bsCurveRestart+bsCurveUpdate; re-creates objects via nisNewObjectCreate; sets timeElapsed; ORIG nis.c:1438",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSeek",
+   "signature": "void nisSeek(nisplaying *NIS, real32 seekTime)"
+  },
+  {
+   "address": "0x004ce5d0",
+   "name": "nisGoToEnd",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "single call nisSeek(NIS, header->length - UNIVERSE_UPDATE_PERIOD); ORIG nis.c:1610",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisGoToEnd",
+   "signature": "void nisGoToEnd(nisplaying *NIS)"
+  },
+  {
+   "address": "0x004ce5f0",
+   "name": "nisPause",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisPaused(0xa4cac8)=bPause; nisUpdateTask calls it with TRUE while nisCameraCutTime!=0, as ORIG nis.c:1646/479",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisPause",
+   "signature": "void nisPause(bool bPause)"
+  },
+  {
+   "address": "0x004ce600",
+   "name": "nisCamPathUpdate",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "6 bsCurveUpdate on camPath->curve[0..5], -Z,X,Y remap, matMultiplyMatByVec(nisMatrix), nisShipEulerToMatrix, look=eye+col2*NIS_LookScalar; ORIG nis.c:1660",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisCamPathUpdate",
+   "signature": "void nisCamPathUpdate(nisplaying *NIS, cameramotion *camPath, real32 timeElapsed)"
+  },
+  {
+   "address": "0x004ce780",
+   "name": "nisUpdate",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "nisUpdateTask calls it with (thisNisPlaying, 0.0625) and stops the NIS when it returns 1e21 (REALlyBig), exactly ORIG nis.c:484/1714",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisUpdate",
+   "signature": "real32 nisUpdate(nisplaying *NIS, real32 timeElapsed)"
+  },
+  {
+   "address": "0x004ced60",
+   "name": "nisFindObjectByName",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "strchr '(' + sscanf \"(%d)\" instance, race prefix before \\\\ or /, NHF_RacesSwapped flip, \"Missile\" -> NSR_Missile, per-race TypeToStr compare; ORIG nis.c:2034",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFindObjectByName",
+   "signature": "sdword nisFindObjectByName(nisheader *header, char *name)"
+  },
+  {
+   "address": "0x004cf150",
+   "name": "nisRemoveMissileReference",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "for testPlaying(0xa4cad8) then thisNisPlaying(0xa4cae4): matching spaceobj -> clear 6 curves, flags|=ObjectDied, ptr=NULL (FromPlaying inlined); ORIG nis.c:2213-2240",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisRemoveMissileReference",
+   "signature": "void nisRemoveMissileReference(Missile *missile)"
+  },
+  {
+   "address": "0x004cfa40",
+   "name": "nisStaticOnExp",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "if bTextured: hue/sat/lum/alpha ranges, 0x200 random texels via colHLSToRGB, trRGBTextureCreate(64x8) else -1; nisStatic[index]=newStatic (0xa4cb70); ORIG nis.c:2466",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStaticOnExp",
+   "signature": "void nisStaticOnExp(nisstatic *newStatic)"
+  },
+  {
+   "address": "0x004cfde0",
+   "name": "nisStaticOffExp",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "if nisStatic[index]: trRGBTextureDelete(texture), texture=-1, nisStatic[index]=NULL; ORIG nis.c:2517",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStaticOffExp",
+   "signature": "void nisStaticOffExp(sdword index)"
+  },
+  {
+   "address": "0x004d0320",
+   "name": "nisFocusPointCompute",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "ccGetShipCollCenter over selection->ShipPtr[], min/max per axis, centre=(min+max)*0.5; ORIG nis.c:2787",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisFocusPointCompute",
+   "signature": "void nisFocusPointCompute(vector *centre, MaxSelection *selection)"
+  },
+  {
+   "address": "0x004d48a0",
+   "name": "nisGenericObjectRegister",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "strcmp search of header->genericObject[], memRealloc list, name+\".shp\", InitStatDerelictInfoByPath(...,NUM_DERELICTTYPES+i,\"Misc\\\\\",file); ORIG nis.c:4447",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisGenericObjectRegister",
+   "signature": "sdword nisGenericObjectRegister(nisheader *header, char *name)"
+  },
+  {
+   "address": "0x004d4a00",
+   "name": "nisLoad",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "fileOpen, fileBlockRead header 0x84, body + string block, qsort objectPaths (nisCompareFunc), \"Missile\", sprintf \"ETG\\\\%s.ebg\", script table \"with\"; ORIG nis.c:4482",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisLoad",
+   "signature": "nisheader *nisLoad(char *fileName, char *scriptName)"
+  },
+  {
+   "address": "0x004d4fe0",
+   "name": "nisDelete",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "frees stringBlock, event params by opcode, genericObject staticInfo+names, then header; called by nisUpdateTask after nisStop; ORIG nis.c:4722",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisDelete",
+   "signature": "void nisDelete(nisheader *header)"
+  },
+  {
+   "address": "0x004d50f0",
+   "name": "nisShipStartPosition",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "finds first objectPath matching race/type/instance, returns -Z,X,Y first key + nisShipEulerToMatrix, else zero vector + IdentityMatrix, returns bool; ORIG nis.c:4777",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisShipStartPosition",
+   "signature": "bool nisShipStartPosition(vector *destVector, matrix *destMatrix, nisheader *header, ShipRace race, ShipType type, sdword instance)"
+  },
+  {
+   "address": "0x004d51f0",
+   "name": "nisTextCardListDraw",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "fontCurrentGet/fontMakeCurrent per card, (W-640)/2 centring, fade-in/out alpha scaling, strstr line split + fontPrintN/fontPrint, expired cards compacted; ORIG nis.c:4826",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisTextCardListDraw",
+   "signature": "void nisTextCardListDraw(void)"
+  },
+  {
+   "address": "0x004d5520",
+   "name": "nisSMPTECounterDraw",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "ftol time -> hours/min/sec via %60 and /60, builds digits from a string table into a char buffer for the SMPTE counter; ORIG nis.c:4930",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisSMPTECounterDraw",
+   "signature": "void nisSMPTECounterDraw(nisplaying *NIS, nisSMPTE *SMPTE)"
+  },
+  {
+   "address": "0x004d5a30",
+   "name": "nisStaticDraw",
+   "kind": "function",
+   "class": "hw1:NIS.c",
+   "confidence": "high",
+   "evidence": "random line count/width per snow channel, rndTextureEnable(TRUE)+trRGBTextureMakeCurrent(snow->texture @+0x40), HLS colour lines, rndTextureEnable(FALSE); ORIG nis.c:5026",
+   "hw1_equivalent": "HomeworldSDL/src/Game/NIS.c:nisStaticDraw",
+   "signature": "void nisStaticDraw(nisstatic *snow)"
+  },
+  {
+   "address": "0x00509490",
+   "name": "smStrchr",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "exact body of ORIG sensors.c:524 smStrchr (walk string, return ptr to first char==c else NULL); first function of the Sensors.c window",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smStrchr",
+   "signature": "void *smStrchr(char *string, char character)"
+  },
+  {
+   "address": "0x005094b0",
+   "name": "smWorldPlaneDraw",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "rndTextureEnable(0); primCircleOutlineZ ring (smZoomMin+smZoomMax)/2*factor; radial ticks sin/cos; 4 spokes + smTickMarkInfo LOD ticks via primLine3; ORIG sensors.c:567",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smWorldPlaneDraw",
+   "signature": "void smWorldPlaneDraw(vector *centre, bool bDrawSpokes, color c)"
+  },
+  {
+   "address": "0x005097a0",
+   "name": "smHorizonLineDraw",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "only user of \"00%.0f\"/\"0%.0f\"/\"%.0f\" compass tick text, primLine3 horizon ticks, depth-test toggle; called by smViewportRender path; ORIG sensors.c:675",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smHorizonLineDraw",
+   "signature": "void smHorizonLineDraw(void *voidCam, hmatrix *modelView, hmatrix *projection, real32 distance)"
+  },
+  {
+   "address": "0x00509b50",
+   "name": "smTickTextDraw",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "fontCurrentGet, fontMakeCurrent(mouseCursorFont), for(smTickTextIndex--;>=0;) fontPrint(x,y,smCurrentWorldPlaneColor,text), restore font; ORIG sensors.c:780",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smTickTextDraw",
+   "signature": "void smTickTextDraw(void)"
+  },
+  {
+   "address": "0x00509be0",
+   "name": "cat_smSensorRangeBlobsDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "per own ship: cat_shipGetFOWRadius circle, culls circles inside bigger ones, qsort by eye distance, colour blend, smFuzzyBlobs ? blurry point : solid circle (HW1 blob idiom)",
+   "hw1_equivalent": "",
+   "signature": "void cat_smSensorRangeBlobsDraw(hmatrix *modelView, hmatrix *projection)"
+  },
+  {
+   "address": "0x0050a0d0",
+   "name": "cat_smShipMeshDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "factored-out SM_Mesh block of HW1 smBlobDrawClear (sensors.c:900ff): lodLevelGet LT_Mesh, glMultMatrixf, shPushLightMatrix, rndShipVisible, meshRender/meshRenderShipHierarchy (+attached)",
+   "hw1_equivalent": "",
+   "signature": "bool cat_smShipMeshDraw(Ship *ship)"
+  },
+  {
+   "address": "0x0050a310",
+   "name": "cat_smShipsDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "walks universe.ShipList: selCircleCompute, fmod flash vs smSelectedFlashSpeed, allianceIsShipAlly + fog-of-war (fowIsValidW/UsageCount, CET SensorHack site), mesh via cat_smShipMeshDraw else dots",
+   "hw1_equivalent": "",
+   "signature": "void cat_smShipsDraw(hmatrix *modelView, hmatrix *projection)"
+  },
+  {
+   "address": "0x0050ab50",
+   "name": "cat_smShipHotkeyNumbersDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "for each selHotKeyGroup (0xc0cac0, stride 0xfa8) ship in the visible list: fontPrint group string (table 0x892a90, same as smHotkeyGroupsDraw) at selCircle x/y, skipping overlapping labels",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x0050ae00",
+   "name": "cat_smResourcesDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "walks universe.ResourceList (0xb62b08): selCircleCompute, fog-of-war visited test, glPointSize 1/2 by radius, primPoint3 with per-kind colours (0x893070/74/78)",
+   "hw1_equivalent": "",
+   "signature": "void cat_smResourcesDraw(hmatrix *modelView, hmatrix *projection)"
+  },
+  {
+   "address": "0x0050b090",
+   "name": "cat_smBoundsEdgeDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "draws two primLine3-style segments from each end of edge p0-p1 toward the middle (fraction const 0x72b0cc); only caller cat_smUniverseBoundsDraw (12 calls)",
+   "hw1_equivalent": "",
+   "signature": "void cat_smBoundsEdgeDraw(vector *p0, vector *p1, color c)"
+  },
+  {
+   "address": "0x0050b150",
+   "name": "cat_smUniverseBoundsDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "builds the 8 corners of the +-smUniverseSizeX/Y/Z box and draws its 12 edges via 0x50b090, colour faded by smZoomTime/smCurrentZoomLength; called from the SM scene render",
+   "hw1_equivalent": "",
+   "signature": "void cat_smUniverseBoundsDraw(void)"
+  },
+  {
+   "address": "0x0050b380",
+   "name": "cat_smMinesDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "walks universe.MissileList (0xb62b2c) for missileType(+0x1e0)==1 (MISSILE_Mine): selCircleCompute, fog test, glPointSize, primPoint3 colour 0x89307c",
+   "hw1_equivalent": "",
+   "signature": "void cat_smMinesDraw(hmatrix *modelView, hmatrix *projection)"
+  },
+  {
+   "address": "0x0050b4b0",
+   "name": "cat_smViewportRenderScene",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "smViewportRender calls it where HW1 calls smBlobsDraw (rndCameraMatrix,rndProjectionMatrix): bg, homeworlds, range blobs, bounds, fowRender, mines, resources, ships, world plane, horizon",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smBlobsDraw",
+   "signature": "void cat_smViewportRenderScene(hmatrix *modelView, hmatrix *projection)"
+  },
+  {
+   "address": "0x0050b8d0",
+   "name": "smZoomUpdate",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "colMultiplyClamped of smBackgroundColor/smBlobColor/High/Low, rndSetClearColor, btgSetColourMultiplier, vecVectorsBlend look/eye, GetDistanceAngleDeclination; args (smZoomTime,len,TRUE); ORIG :2179",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smZoomUpdate",
+   "signature": "void smZoomUpdate(real32 current, real32 range, bool bUpdateCamera)"
+  },
+  {
+   "address": "0x0050bba0",
+   "name": "smHotkeyGroupsDraw",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "for each of 10 selHotKeyGroups: centre point, selCircleComputeGeneral(rndCameraMatrix,rndProjectionMatrix), fontPrint(+smHotKeyOffsetX/Y, selHotKeyString[i]); ORIG sensors.c:2849",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smHotkeyGroupsDraw",
+   "signature": "void smHotkeyGroupsDraw(void)"
+  },
+  {
+   "address": "0x0050bcd0",
+   "name": "smPan",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "uicDragX/Y==0 -> recentre smCameraLookatPoint; else pan by smPanSpeedMultiplier*distance and pieMovePointClipToLimits; called from smViewportRender arrow-key path; ORIG :2883",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smPan",
+   "signature": "void smPan(char *name, featom *atom)"
+  },
+  {
+   "address": "0x0050be70",
+   "name": "smViewportRender",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "FE draw callback (no direct callers): smCamera update, smZoomUpdate, smSensorsCloseForGood, smPan on arrows, rgluPerspective/LookAt, piePointSpecDraw, smHotkeyGroupsDraw, nisStaticDraw; ORIG :2926",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smViewportRender",
+   "signature": "void smViewportRender(featom *atom, regionhandle region)"
+  },
+  {
+   "address": "0x0050c580",
+   "name": "smCullAndFocusSelecting",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "ccFocusCullRadiusMean(&selSelecting, smFocusRadius^2, &centre), memAlloc focus cmd, exit sound, eye=centre-CAMERA_FOCUSFAR_DISTANCE*dir, smInitialDistance, univUpdateRenderList; ORIG :3216",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smCullAndFocusSelecting",
+   "signature": "void smCullAndFocusSelecting(void)"
+  },
+  {
+   "address": "0x0050c920",
+   "name": "smUpdateHyperspaceStatus",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "calls empty mrUpdateHyperspaceStatus (ICF-folded stub 0x49ae30) then toggles RSF_RegionDisabled bit 4 on smHyperspaceRegion by goForLaunch; ORIG sensors.c:3632",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smUpdateHyperspaceStatus",
+   "signature": "void smUpdateHyperspaceStatus(bool goForLaunch)"
+  },
+  {
+   "address": "0x0050c950",
+   "name": "smSensorsClose",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "returns if zooming; ccFocusOnMyMothership, ccLockOnTargetNow, eye/look from main camera, smZoomingIn=1, exit sound, mrNeedProbeHack (folded 'return 0' stub) + MAX_MOVE_DISTANCE pie check; ORIG :3785",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smSensorsClose",
+   "signature": "void smSensorsClose(char *name, featom *atom)"
+  },
+  {
+   "address": "0x0050cc60",
+   "name": "smSensorsSkip",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "subMessageEnded=2; speechEventActorStop(ACTOR_ALL_ACTORS 0x3ff800, smSkipFadeoutTime); subTitlesFadeOut(&subRegion[..], smSkipFadeoutTime); ORIG sensors.c:3869",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smSensorsSkip",
+   "signature": "void smSensorsSkip(char *name, featom *atom)"
+  },
+  {
+   "address": "0x0050cd50",
+   "name": "smUpdateParameters",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "smCamera clipNear=smZoomMin/smZoomMinFactor, clipFar=smZoomMaxFactor*smZoomMax, closest/farthest zoom, distance=smInitialDistance, smCircleBorder=SM_CircleBorder; ORIG :3964",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smUpdateParameters",
+   "signature": "void smUpdateParameters(void)"
+  },
+  {
+   "address": "0x0050d200",
+   "name": "smSave",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "12x SaveInfoNumber: smDepthCueRadius..smUniverseSizeZ then smSensorWeirdness, called from SaveGame; ORIG sensors.c:4302",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smSave",
+   "signature": "void smSave(void)"
+  },
+  {
+   "address": "0x0050d290",
+   "name": "smLoad",
+   "kind": "function",
+   "class": "hw1:Sensors.c",
+   "confidence": "high",
+   "evidence": "12x LoadInfoNumber in smSave order then inlined smUpdateParameters; called from the load-game routine; ORIG sensors.c:4319",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Sensors.c:smLoad",
+   "signature": "void smLoad(void)"
+  },
+  {
+   "address": "0x0050eca0",
+   "name": "shPushLightMatrix",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "shLightMatStackPos++ (0xa5b630), new 0x40-byte hmatrix = cur x pMat rotation, then inverse light positions for 2 lights (stride 0x70); used by cat_smShipMeshDraw; ORIG shader.c:1176",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shPushLightMatrix",
+   "signature": "void shPushLightMatrix(hmatrix *pMat)"
+  },
+  {
+   "address": "0x0050ee00",
+   "name": "shPopLightMatrix",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "shLightMatStackPos-- then shUpdateLightsFromMatrix(&shLightMatStack[pos]) inlined over the 2 lights; ORIG shader.c:1192",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shPopLightMatrix",
+   "signature": "void shPopLightMatrix(void)"
+  },
+  {
+   "address": "0x00472950",
+   "name": "feShouldSaveMouseCursor",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "RGLtype!=SW -> inlined glcfeShouldSaveMouseCursor: glcActive, hrRunning/feRenderEverything/nisIsRunning/smSensorsActive, glCapFeatureExists(0xffe01 GL_SWAPFRIENDLY); ORIG FeFlow.c:170",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feShouldSaveMouseCursor",
+   "signature": "bool feShouldSaveMouseCursor(void)"
+  },
+  {
+   "address": "0x00472a00",
+   "name": "feFunctionExecute",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "strcmp over feCallback[] (0xa3e148, count 0xc40480); firstcall sets FAS_OnCreate (4); tutGameMessage(name); call fn(name,atom); clear bit; ORIG FeFlow.c:225",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feFunctionExecute",
+   "signature": "void feFunctionExecute(char *name, featom *atom, bool firstcall)"
+  },
+  {
+   "address": "0x00472b30",
+   "name": "feAtomFindNextInScreen",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "walks screen->atoms (stride 0x4c, nAtoms @+10) to the reference atom, then returns next atom whose name matches; ORIG FeFlow.c:311",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feAtomFindNextInScreen",
+   "signature": "featom *feAtomFindNextInScreen(fescreen *screen, featom *atom, char *atomName)"
+  },
+  {
+   "address": "0x00472bd0",
+   "name": "feStandardScrollBarFunction",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "registered by feStartup as \"feStandardScrollBarFunction\" (push at 0x474340); holds \"\\nunhandled List Window scroll event %d\" as ORIG FeFlow.c:570",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feStandardScrollBarFunction",
+   "signature": "void feStandardScrollBarFunction(char *string, featom *atom)"
+  },
+  {
+   "address": "0x004735d0",
+   "name": "feStaticRectangleDraw",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "FAF_ContentsVisible(0x40) -> primRectSolid2(rect, contentColor); FAF_BorderVisible(0x800) -> ferDrawBoxRegion(rect, drawstyle[0..1], &cutouts, FAS_UseAlpha); ORIG :821",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feStaticRectangleDraw",
+   "signature": "void feStaticRectangleDraw(regionhandle region)"
+  },
+  {
+   "address": "0x00473640",
+   "name": "feBaseRegionDraw",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "ContentsVisible -> primBeveledRectSolid; BorderVisible -> ferDrawBoxRegion (Cataclysm adds Sleep(0)); ORIG FeFlow.c:874",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feBaseRegionDraw",
+   "signature": "void feBaseRegionDraw(regionhandle region)"
+  },
+  {
+   "address": "0x004736b0",
+   "name": "feFindCutoutRegion",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "walks cutouts list, skips FAF_DontCutoutBase(0x2000), 4-corner IS_IN_RECT tests vs base and later regions, memAlloc(0x2c) + listAddNode; ORIG FeFlow.c:942",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feFindCutoutRegion",
+   "signature": "void feFindCutoutRegion(LinkedList *cutouts, regionhandle BaseRegion)"
+  },
+  {
+   "address": "0x00473850",
+   "name": "feFindChildren",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "userID>255 && feCanStack[atom->type] (0x87be20), regRegionInside(child,region) -> unlink sibling, append as child, re-parent, goto RESTART; ORIG FeFlow.c:1128",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feFindChildren",
+   "signature": "void feFindChildren(regionhandle baseRegion)"
+  },
+  {
+   "address": "0x00473a30",
+   "name": "feRegionsAdd",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "builds one region per atom; only other user of the \"feStandardScrollBarFunction\" literal (scrollbar atom name, ORIG FeFlow.c:1449); called from feScreenStart; ORIG :1269",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feRegionsAdd",
+   "signature": "regionhandle feRegionsAdd(regionhandle parent, fescreen *screen, bool moveToFront)"
+  },
+  {
+   "address": "0x00474050",
+   "name": "feAllCallOnCreate",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "from last atom backwards, FAF_CallOnCreate(0x20) -> inlined feFunctionExecute(name, atom, TRUE); ORIG FeFlow.c:1545",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feAllCallOnCreate",
+   "signature": "void feAllCallOnCreate(fescreen *screen)"
+  },
+  {
+   "address": "0x00474410",
+   "name": "feResRescaleBackground",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "offsets atom x/y by (W-640)/2,(H-480)/2 (feResReposition inlined) and stretches edges to 0 / MAIN_WindowWidth-1 / MAIN_WindowHeight-1; ORIG FeFlow.c:1679",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feResRescaleBackground",
+   "signature": "void feResRescaleBackground(featom *atom)"
+  },
+  {
+   "address": "0x004751a0",
+   "name": "feMenuDisappear",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "feStartup registers it as \"Disappear\"; feMenuLevel--, feCurrentScreenDelete, frees feTempMenuScreen atoms/links when level 0; ORIG FeFlow.c:2565",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feMenuDisappear",
+   "signature": "void feMenuDisappear(char *string, featom *atom)"
+  },
+  {
+   "address": "0x00475200",
+   "name": "feScreenDisappear",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "5-byte jmp feCurrentScreenDelete; feStartup registers it as \"SCREEN_Disappear\" (pushes at 0x4742b3/0x474307); ORIG FeFlow.c:2593",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feScreenDisappear",
+   "signature": "void feScreenDisappear(char *string, featom *atom)"
+  },
+  {
+   "address": "0x00475210",
+   "name": "feAcceleratorSet",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "HKM ctrl/shift/alt -> keys 0x11/0x10/0x12 + atom->hotKey[strCurLanguage]; regFilterSet(|RPE_KeyDown 0x80000) + regKeysSet, else clear; ORIG FeFlow.c:2718",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feAcceleratorSet",
+   "signature": "void feAcceleratorSet(regionhandle reg, featom *atom)"
+  },
+  {
+   "address": "0x004752c0",
+   "name": "feScreenAllHotKeysUpdate",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "for atoms 1..nAtoms with region!=NULL calls feAcceleratorSet(region, atom); ORIG FeFlow.c:2761",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feScreenAllHotKeysUpdate",
+   "signature": "void feScreenAllHotKeysUpdate(fescreen *screen)"
+  },
+  {
+   "address": "0x00475be0",
+   "name": "feFindRadioButtonRegion",
+   "kind": "function",
+   "class": "hw1:FEFlow.c",
+   "confidence": "high",
+   "evidence": "atom by name in feStack[feStackIndex].screen (0xc40300/0xc40484), walks same-name atoms until FECHECKED (status&2) matches 'selected', returns atom->region; ORIG :3259",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEFlow.c:feFindRadioButtonRegion",
+   "signature": "regionhandle feFindRadioButtonRegion(regionhandle temp, bool selected)"
+  },
+  {
+   "address": "0x00475e20",
+   "name": "ferMirrorBitmapVert",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "swaps row i with row height-1-i (width udwords) through a stack row buffer, height/2 times; ORIG FeReg.c:530",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferMirrorBitmapVert",
+   "signature": "void ferMirrorBitmapVert(udword *bitmap, sdword width, sdword height)"
+  },
+  {
+   "address": "0x00475ed0",
+   "name": "ferFindCutoutType",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "cuts==NULL -> FALSE; scan 8 (NUM_CUTS) entries for 'find'; caller ferDrawBoxSides; ORIG FeReg.c:584",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferFindCutoutType",
+   "signature": "bool ferFindCutoutType(textype cuts[8], textype find)"
+  },
+  {
+   "address": "0x00475f00",
+   "name": "ferGetCutoutDimensions",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "walks globalCutouts list for element->type==cutout, returns its rect else {-1,-1,-1,-1} (hidden return ptr); ORIG FeReg.c:612",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferGetCutoutDimensions",
+   "signature": "rectangle ferGetCutoutDimensions(textype cutout)"
+  },
+  {
+   "address": "0x00476050",
+   "name": "ferTextureRegisterType",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "only caller ferTextureRegister; allocates a 100-byte registry element + rotated/mirrored texture copy, listAddNodeAfter into the element's list; ORIG FeReg.c:736",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferTextureRegisterType",
+   "signature": "lifheader *ferTextureRegisterType(textureregistry *element, textype newtype, textype origtype)"
+  },
+  {
+   "address": "0x004765d0",
+   "name": "ferTextureRegister",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "holder indexes the FeMan\\Textures\\*.lif name table (0x87bfa8), trLIFFileLoad on first use, listAddNode into ferTextureRegistry[holder], then ferTextureRegisterType; ORIG :822",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferTextureRegister",
+   "signature": "lifheader *ferTextureRegister(tex_holder holder, textype newtype, textype origtype)"
+  },
+  {
+   "address": "0x00476760",
+   "name": "ferTextureRegisterSpecial",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "takes a file name: trLIFFileLoad(name), memStrncpy name (0x40) into element, appends to a free ferTextureRegistry slot; caller ferDrawBitmapButton; ORIG FeReg.c:908",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferTextureRegisterSpecial",
+   "signature": "lifheader *ferTextureRegisterSpecial(char *fileName, textype newtype, textype origtype)"
+  },
+  {
+   "address": "0x00476ee0",
+   "name": "ferDrawCorner",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "(x,y,texture,curve,corner): per corner type 5-8 and convex/concave (+-8 FER_CCBM offset) one ferDraw call; callers ferDrawBoxCorners/ferDrawCutout; ORIG FeReg.c:1230",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawCorner",
+   "signature": "void ferDrawCorner(sdword x, sdword y, lifheader *texture, curvetype curve, textype corner)"
+  },
+  {
+   "address": "0x00477030",
+   "name": "ferDrawBoxLine",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "8 args (x0,y0,x1,y1,corner_offset,corner_width,texture,kludgyflag): tiles side texture with ferDraw along the edge; callers ferDrawBoxSides/ferDrawCutout; ORIG FeReg.c:1289",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawBoxLine",
+   "signature": "void ferDrawBoxLine(sdword x0, sdword y0, sdword x1, sdword y1, sdword corner_offset, sdword corner_width, lifheader *texture, udword kludgyflag)"
+  },
+  {
+   "address": "0x00477200",
+   "name": "ferDrawBoxCorners",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "ferTextureRegister(corner,5..8,5) + ferDrawCorner for the 4 corners of the rect, returns corner width; only caller ferDrawBox; ORIG FeReg.c:1385",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawBoxCorners",
+   "signature": "udword ferDrawBoxCorners(rectangle dimensions, tex_holder cornerName, textype cuts[8])"
+  },
+  {
+   "address": "0x00477300",
+   "name": "ferDrawBoxSides",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "side textures 1..4 via ferTextureRegister, ferDrawBoxLine per side, cutout gaps via ferFindCutoutType/ferGetCutoutDimensions; only caller ferDrawBox; ORIG FeReg.c:1432",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawBoxSides",
+   "signature": "void ferDrawBoxSides(rectangle dimensions, tex_holder sideName, udword corner_width, textype cuts[8], udword kludgyflag)"
+  },
+  {
+   "address": "0x00477960",
+   "name": "ferDrawCutout",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "12 dword args (2 rects + outer/inner corner + side + flag); draws cutout corners (ferDrawCorner) and edges (ferDrawBoxLine); only caller ferDrawBox; ORIG FeReg.c:1563",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawCutout",
+   "signature": "textype ferDrawCutout(rectangle dimensions, rectangle cutDimensions, tex_holder outerCornerName, tex_holder innerCornerName, tex_holder sideName, udword kludgyflag)"
+  },
+  {
+   "address": "0x004781a0",
+   "name": "ferDrawBox",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "primModeSetFunction2 if needed, ferDrawCutout per cutout, ferDrawBoxCorners, ferDrawBoxSides, primModeClearFunction2; ORIG FeReg.c:1823",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawBox",
+   "signature": "void ferDrawBox(rectangle dimensions, tex_holder outerCornerName, tex_holder innerCornerName, tex_holder sideName, udword kludgyflag)"
+  },
+  {
+   "address": "0x004782f0",
+   "name": "ferDrawBoxRegion",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "8 args (rect, textures, glow, cutouts, bUseAlpha) -> ferDrawBox; callers feStaticRectangleDraw and feBaseRegionDraw exactly as ORIG FeFlow.c:839/899; ORIG FeReg.c:1891",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawBoxRegion",
+   "signature": "void ferDrawBoxRegion(rectangle dimensions, drawtype textures, drawtype glow, LinkedList *cutouts, bool bUseAlpha)"
+  },
+  {
+   "address": "0x00478440",
+   "name": "ferDrawLine",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "(x0,y0,x1,y1,corner_width,texture): tiles a texture between two endpoints with ferDraw; callers ferDrawButton/ferDrawScrollbar/ferDrawFocusWindow; ORIG FeReg.c:2025",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawLine",
+   "signature": "void ferDrawLine(sdword x0, sdword y0, sdword x1, sdword y1, sdword corner_width, lifheader *texture, udword kludgyflag)"
+  },
+  {
+   "address": "0x00478580",
+   "name": "ferDrawButton",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "switch on ferbuttonstate picks left/mid/right triples 0x10-0x12.. (button_off_left_endcap.lif, ...), ferDraw caps + ferDrawLine middle; ORIG FeReg.c:2175",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawButton",
+   "signature": "void ferDrawButton(rectangle dimensions, ferbuttonstate state)"
+  },
+  {
+   "address": "0x00478850",
+   "name": "ferDrawCheckbox",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "state 0x16..0x1f -> textures 0x52..0x5b (checkbox_on.lif .. checkbox_disabled_off.lif), one ferDraw inside alpha-test (0xbc0) enable/disable; ORIG FeReg.c:2331",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawCheckbox",
+   "signature": "void ferDrawCheckbox(rectangle dimensions, ferbuttonstate state)"
+  },
+  {
+   "address": "0x00478920",
+   "name": "ferDrawRadioButton",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "twin of ferDrawCheckbox using textures 0x5c..0x65 (radio_on.lif .. radio_disabled_off.lif); ORIG FeReg.c:2388",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawRadioButton",
+   "signature": "void ferDrawRadioButton(rectangle dimensions, ferbuttonstate state)"
+  },
+  {
+   "address": "0x00478de0",
+   "name": "ferDrawScrollbar",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "textures 0x66-0x68 vscrollbar_topcap/mid/botcap + vscrolltab_* for the thumb, ferDraw + ferDrawLine; ORIG FeReg.c:2586",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawScrollbar",
+   "signature": "void ferDrawScrollbar(scrollbarhandle shandle, ferscrollbarstate state)"
+  },
+  {
+   "address": "0x00479000",
+   "name": "ferDrawScrollbarButton",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "state picks textures 0x72-0x77 (vscrollbar_off/mouse/on_up/down.lif), single ferDraw; ORIG FeReg.c:2774",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawScrollbarButton",
+   "signature": "void ferDrawScrollbarButton(regionhandle region, ferscrollbarbuttonstate state)"
+  },
+  {
+   "address": "0x00479130",
+   "name": "ferDrawFocusWindow",
+   "kind": "function",
+   "class": "hw1:FEReg.c",
+   "confidence": "high",
+   "evidence": "info_nw/ne/se/sw corners + n/e/s/w straights (0x78-0x7f) or info_focus_* (0x81-0x88), ferDraw + ferDrawLine; callers ConsMgr/LaunchMgr/ResearchGUI/ShipView; ORIG :2844",
+   "hw1_equivalent": "HomeworldSDL/src/Game/FEReg.c:ferDrawFocusWindow",
+   "signature": "void ferDrawFocusWindow(regionhandle region, ferfocuswindowstate state)"
+  },
+  {
+   "address": "0x004efb90",
+   "name": "regFunctionCall",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "if !(status&0x44) && (flags & *mask & event)==event: call processFunction(reg,userID,event,data); RPR_Redraw(0x2000) sets RSF_DrawThisFrame(8); ORIG region.c:107",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regFunctionCall",
+   "signature": "sdword regFunctionCall(regionhandle reg, udword event, udword data, udword *maskPointer)"
+  },
+  {
+   "address": "0x004efbe0",
+   "name": "regKeysUnstick",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "for each of reg->nKeys (+0x2e) keys (+0x30): inlined keyClearSticky/keyClearRepeat on keyScanCode/keySaveScan bytes; ORIG region.c:192",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regKeysUnstick",
+   "signature": "void regKeysUnstick(regionhandle reg)"
+  },
+  {
+   "address": "0x004efc90",
+   "name": "regDrawFunctionAddPossibly",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "lastframedrawn < regRegionFrameDrawCount -> inlined regDrawFunctionAdd with its \"Tried to add render function 0x%x...\" dbgFatalf; ORIG region.c:211",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regDrawFunctionAddPossibly",
+   "signature": "void regDrawFunctionAddPossibly(regionhandle region)"
+  },
+  {
+   "address": "0x004efcf0",
+   "name": "regDirtyChildren",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "recursive over child list: inlined regDrawFunctionAddPossibly (same fatal string) then regDirtyChildren(child->child); ORIG region.c:227",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regDirtyChildren",
+   "signature": "void regDirtyChildren(regionhandle reg)"
+  },
+  {
+   "address": "0x004efd70",
+   "name": "regRecursiveSetDirty",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "sets status |= RSF_DrawThisFrame (8) on every child recursively, then on reg; ORIG region.c:249",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regRecursiveSetDirty",
+   "signature": "void regRecursiveSetDirty(regionhandle reg)"
+  },
+  {
+   "address": "0x004efda0",
+   "name": "regRecursiveSetReallyDirty",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "children get RSF_ReallyDirty (1) plus inlined regRecursiveSetDirty, then reg |= 1; ORIG region.c:277",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regRecursiveSetReallyDirty",
+   "signature": "void regRecursiveSetReallyDirty(regionhandle reg)"
+  },
+  {
+   "address": "0x004efdf0",
+   "name": "regRegionInside",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "needle/haystack rect test with the 2/3-width horizontal overlap rule (TOTALLY_INSIDE 0 branch); called by feFindChildren as in ORIG FeFlow.c; ORIG region.c:324",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regRegionInside",
+   "signature": "bool regRegionInside(regionhandle needle, regionhandle haystack)"
+  },
+  {
+   "address": "0x004efe80",
+   "name": "regDirtyEverythingUpwardsSelectively",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "from region->parent along next: primRectUnion2 overlap test (inlined regDoRegionsOverlap) sets bit 8, recurses when parent!=NULL; ORIG region.c:445",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regDirtyEverythingUpwardsSelectively",
+   "signature": "void regDirtyEverythingUpwardsSelectively(regionhandle region, regionhandle overlap)"
+  },
+  {
+   "address": "0x004efee0",
+   "name": "regDirtyEverythingUpwards",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "from region->parent along next: set RSF_DrawThisFrame, recurse when parent!=NULL; ORIG region.c:482",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regDirtyEverythingUpwards",
+   "signature": "void regDirtyEverythingUpwards(regionhandle region)"
+  },
+  {
+   "address": "0x004eff10",
+   "name": "regDirtyScreensAboveRegion",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "finds feStack[i].baseRegion==region->parent (0xc40304 stride 12, feStackIndex 0xc40484), regRecursiveSetDirty on every screen above; ORIG region.c:516",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regDirtyScreensAboveRegion",
+   "signature": "void regDirtyScreensAboveRegion(regionhandle region)"
+  },
+  {
+   "address": "0x004eff90",
+   "name": "regRegionProcess",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "recursive event processor holding \"\\nSecond of double click in new region\" (ORIG region.c:615); called by regProcessTask; ORIG region.c:552",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regRegionProcess",
+   "signature": "udword regRegionProcess(regionhandle reg, udword mask)"
+  },
+  {
+   "address": "0x004f0ae0",
+   "name": "regFunctionsDraw",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "calls regRenderEvent[i].function(reg) from last to first (0xc2fd70, count 0xc2fd64), then regRegionFrameDrawCount++; ORIG region.c:1098",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regFunctionsDraw",
+   "signature": "void regFunctionsDraw(void)"
+  },
+  {
+   "address": "0x004f0b10",
+   "name": "regChildAlloc",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "memAlloc(extra+0x58), rect from x,y,w,h, flags, NULL draw/process = ICF-folded regNULL stubs, parent defaults to regRootRegion (0x88f428), append as last child; ORIG :1120",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regChildAlloc",
+   "signature": "regionhandle regChildAlloc(regionhandle parent, sdword ID, sdword x, sdword y, sdword width, sdword height, sdword extra, udword flags)"
+  },
+  {
+   "address": "0x004f0bd0",
+   "name": "regSiblingMoveToFront",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "unlinks region and reinserts it before the first sibling not flagged always-on-top (status 0x100), returns old front; ORIG region.c:1223",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regSiblingMoveToFront",
+   "signature": "regionhandle regSiblingMoveToFront(regionhandle region)"
+  },
+  {
+   "address": "0x004f0c50",
+   "name": "regKeyChildAlloc",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "regChildAlloc(parent,ID,0,0,0,0,0,filter), processFunction=function, nKeys + varargs copied to key[] (+0x30); ORIG region.c:1286",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regKeyChildAlloc",
+   "signature": "regionhandle regKeyChildAlloc(regionhandle parent, sdword ID, udword filter, regionfunction function, sdword nKeys, ...)"
+  },
+  {
+   "address": "0x004f0ca0",
+   "name": "regRegionScroll",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "recurses into children, marks dirty (8), adds scrollX to x0/x1 and scrollY to y0/y1; used by smZoomUpdate-style scrolling; ORIG region.c:1343",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regRegionScroll",
+   "signature": "void regRegionScroll(regionhandle reg, sdword scrollX, sdword scrollY)"
+  },
+  {
+   "address": "0x004f0cf0",
+   "name": "regLinkRemove",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "fixes parent->child / previous->next / next->previous, clears links, clears regClicked (0xc2fd68) if it was this region; ORIG region.c:1371",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regLinkRemove",
+   "signature": "void regLinkRemove(regionhandle region)"
+  },
+  {
+   "address": "0x004f0d40",
+   "name": "regMoveLinkChild",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "inlined regLinkRemove then appends as last child of newParent (regChildInsert body); ORIG region.c:1411",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regMoveLinkChild",
+   "signature": "void regMoveLinkChild(regionhandle regionToMove, regionhandle newParent)"
+  },
+  {
+   "address": "0x004f0de0",
+   "name": "regRecursiveDisable",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "flags &= 0xfe000000 (bitClear RPM_AllEvents) then recurse over children; ORIG region.c:1434",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regRecursiveDisable",
+   "signature": "void regRecursiveDisable(regionhandle reg)"
+  },
+  {
+   "address": "0x004f0e10",
+   "name": "regRegionDelete",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "listDeleteAll(cutouts), dirty overlapping parents, deferred-delete flag path (0x40 + regRecursiveDisable), else recurse children, unlink, NULL its render events, memFree; ORIG :1454",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regRegionDelete",
+   "signature": "void regRegionDelete(regionhandle region)"
+  },
+  {
+   "address": "0x004f0f90",
+   "name": "regChildInsert",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "clears parent/previous/next, appends regionToInsert after the last child of parent, sets parent; ORIG region.c:1524",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regChildInsert",
+   "signature": "void regChildInsert(regionhandle regionToInsert, regionhandle parent)"
+  },
+  {
+   "address": "0x004f0fe0",
+   "name": "regDrawFunctionSet",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "returns old drawFunction (+0x10); NULL maps to regNULLRenderFunction (ICF-folded empty stub 0x49ae30); ORIG region.c:1590",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regDrawFunctionSet",
+   "signature": "regiondrawfunction regDrawFunctionSet(regionhandle region, regiondrawfunction function)"
+  },
+  {
+   "address": "0x004f1000",
+   "name": "regFunctionSet",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "swap processFunction (+0x14), return old; ORIG region.c:1615",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regFunctionSet",
+   "signature": "regionfunction regFunctionSet(regionhandle region, regionfunction function)"
+  },
+  {
+   "address": "0x004f1010",
+   "name": "regKeysSet",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "nKeys -> +0x2e, varargs keys -> +0x30..; caller feAcceleratorSet; ORIG region.c:1636",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regKeysSet",
+   "signature": "void regKeysSet(regionhandle region, sdword nKeys, ...)"
+  },
+  {
+   "address": "0x004f1040",
+   "name": "regFilterSet",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "swap flags (+0x28), return old; 22 callers incl. feAcceleratorSet; ORIG region.c:1662",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regFilterSet",
+   "signature": "udword regFilterSet(regionhandle region, udword filter)"
+  },
+  {
+   "address": "0x004f1050",
+   "name": "regTabstopSet",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "swap tabstop (+0x38, the field uicFindTabstop compares), return old; ORIG region.c:1679",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regTabstopSet",
+   "signature": "udword regTabstopSet(regionhandle region, udword tabstop)"
+  },
+  {
+   "address": "0x004f1060",
+   "name": "regSiblingFindByFunction",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "walks reg->parent->child siblings for processFunction (+0x14) == find; ORIG region.c:1718",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regSiblingFindByFunction",
+   "signature": "regionhandle regSiblingFindByFunction(regionhandle reg, regionfunction find)"
+  },
+  {
+   "address": "0x004f1090",
+   "name": "regFindChildByAtomName",
+   "kind": "function",
+   "class": "hw1:Region.c",
+   "confidence": "high",
+   "evidence": "recursive child walk, _stricmp(atom->name, pAtomName) on child->atom (+0x54); ORIG region.c:1743",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Region.c:regFindChildByAtomName",
+   "signature": "regionhandle regFindChildByAtomName(regionhandle reg, char *pAtomName)"
+  },
+  {
+   "address": "0x00534c00",
+   "name": "uicToggleProcess",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "PressLeft: uicClearCurrent+uicSetCurrent+click sound (Cataclysm picks per-race sound for CP_RaceOne/CP_RaceTwo); Release/KeyDown toggle FAS_Checked + CM_ButtonClick; ORIG :1858",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicToggleProcess",
+   "signature": "udword uicToggleProcess(regionhandle region, sdword ID, udword event, udword data)"
+  },
+  {
+   "address": "0x005353f0",
+   "name": "uicListWindowViewSelection",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "relpos = CurLineSelected->index - topitem->index; scrolls topitem prev/next with UpperIndex--/++ and the scrollbar adjust until visible; ORIG UIcontrols.c:2315",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListWindowViewSelection",
+   "signature": "void uicListWindowViewSelection(listwindowhandle listhandle)"
+  },
+  {
+   "address": "0x00535500",
+   "name": "uicListWindowUpArrow",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "!UICLW_CanSelect: topitem=prev, UpperIndex--; else select previous UICLI_CanSelect item and uicListWindowViewSelection; ORIG UIcontrols.c:2374",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListWindowUpArrow",
+   "signature": "void uicListWindowUpArrow(listwindowhandle listhandle)"
+  },
+  {
+   "address": "0x00535600",
+   "name": "uicListWindowDownArrow",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "mirror of the up-arrow handler: UpperIndex < ListTotal-MaxIndex -> topitem=next; or select next selectable item + view selection; ORIG UIcontrols.c:2440",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListWindowDownArrow",
+   "signature": "void uicListWindowDownArrow(listwindowhandle listhandle)"
+  },
+  {
+   "address": "0x00535710",
+   "name": "uicListWindowEnd",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "walks back MaxIndex-1 from tail for topitem, UpperIndex=ListTotal-MaxIndex, then selects last UICLI_CanSelect item; ORIG UIcontrols.c:2524",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListWindowEnd",
+   "signature": "void uicListWindowEnd(listwindowhandle listhandle)"
+  },
+  {
+   "address": "0x005358d0",
+   "name": "uicListWindowPageUp",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "moves topitem back up to MaxIndex times while UpperIndex>=0 with scrollbar adjust, then reselects; ORIG UIcontrols.c:2594",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListWindowPageUp",
+   "signature": "void uicListWindowPageUp(listwindowhandle listhandle)"
+  },
+  {
+   "address": "0x00535ad0",
+   "name": "uicListWindowPageDown",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "moves topitem forward up to MaxIndex times while UpperIndex < ListTotal-MaxIndex, then reselects; follows PageUp as in ORIG UIcontrols.c:2683",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListWindowPageDown",
+   "signature": "void uicListWindowPageDown(listwindowhandle listhandle)"
+  },
+  {
+   "address": "0x00535e10",
+   "name": "uicListWindowProcess",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "installed by uicChildListWindowAlloc via regFunctionSet; holds \"\\nDouble click\"; dispatches to the list-window arrow/page handlers; ORIG UIcontrols.c:2799",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListWindowProcess",
+   "signature": "udword uicListWindowProcess(regionhandle region, sdword ID, udword event, udword data)"
+  },
+  {
+   "address": "0x00536a80",
+   "name": "uicRepositionText",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "fontMakeCurrent(entry->currentFont), iCharacter<iVisible -> iVisible=iCharacter; else fontWidthN loop iVisible++ until text fits textRect; ORIG UIcontrols.c:3483",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicRepositionText",
+   "signature": "bool uicRepositionText(textentryhandle entry, bool jumpReposition)"
+  },
+  {
+   "address": "0x00536b10",
+   "name": "uicInsertCharacter",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "UICTE_FileName (0x100) rejects chars in \"\\\\/:*?\\\"<>|\"; buffer-length check, shift right, insert at iCharacter, uicRepositionText; ORIG UIcontrols.c:3521",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicInsertCharacter",
+   "signature": "bool uicInsertCharacter(textentryhandle entry, udword character)"
+  },
+  {
+   "address": "0x00536bb0",
+   "name": "uicBackspaceCharacter",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "iCharacter==0 -> FALSE; shift buffer left over the char before the cursor, iCharacter--, uicRepositionText; ORIG UIcontrols.c:3557",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicBackspaceCharacter",
+   "signature": "bool uicBackspaceCharacter(textentryhandle entry)"
+  },
+  {
+   "address": "0x00538050",
+   "name": "uicChildButtonAlloc",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "regChildAlloc(...,extra 0xac, filter from per-type table 0x8b0ba8), process/draw from tables 0x8b0ba0/0x8b0ba4 unless FAF_Hidden; Disabled -> status 4; ORIG UIcontrols.c:4325",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicChildButtonAlloc",
+   "signature": "buttonhandle uicChildButtonAlloc(controlhandle parent, sdword ID, sdword x, sdword y, sdword width, sdword height, uicfunction function, udword flags)"
+  },
+  {
+   "address": "0x005380f0",
+   "name": "uicChildScrollBarAlloc",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "main thumb region plus up/down button children (IDs 2/3, 0x14 high) when vertical, scrollbar process/draw callbacks; ORIG UIcontrols.c:4382",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicChildScrollBarAlloc",
+   "signature": ""
+  },
+  {
+   "address": "0x005382b0",
+   "name": "uicChildListWindowAlloc",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "regChildAlloc extra 0xac, regFunctionSet(uicListWindowProcess 0x535e10), draw fn unless hidden, zeroes indices, listInit(listofitems @+0x88); ORIG UIcontrols.c:4454",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicChildListWindowAlloc",
+   "signature": ""
+  },
+  {
+   "address": "0x00538660",
+   "name": "uicListFindItemByData",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "walks listofitems (+0x88) for item->data (+0x18) == data, returns item or NULL; ORIG UIcontrols.c:4653",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListFindItemByData",
+   "signature": "listitemhandle uicListFindItemByData(listwindowhandle listwindow, ubyte *data)"
+  },
+  {
+   "address": "0x00538690",
+   "name": "uicListRemoveAllItems",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "while head != NULL: uicListRemoveItem(listwindow, head item); ORIG UIcontrols.c:4715",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListRemoveAllItems",
+   "signature": "void uicListRemoveAllItems(listwindowhandle listwindow)"
+  },
+  {
+   "address": "0x005387e0",
+   "name": "uicListCleanUp",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "listDeleteAll(listofitems), zero topitem, ListTotal, UpperIndex, CurLineSelected; ORIG UIcontrols.c:4823",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListCleanUp",
+   "signature": "void uicListCleanUp(listwindowhandle listwindow)"
+  },
+  {
+   "address": "0x00538810",
+   "name": "uicListSort",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "listMergeSortGeneral(listofitems, compare), renumber items, topitem=head, UpperIndex=0, scrollbar adjust; ORIG UIcontrols.c:4839",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListSort",
+   "signature": "void uicListSort(listwindowhandle listwindow, MergeSortCompareCb compare)"
+  },
+  {
+   "address": "0x005388b0",
+   "name": "uicListWindowSetCurItem",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "clear UICLI_Selected on old CurLineSelected, set new, set its flag and uicListWindowViewSelection; ORIG UIcontrols.c:4870",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListWindowSetCurItem",
+   "signature": "void uicListWindowSetCurItem(listwindowhandle listhandle, listitemhandle item)"
+  },
+  {
+   "address": "0x00538960",
+   "name": "uicTextEntryCleanUp",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "memFree(entry->textBuffer @+0x6c) and NULL it; sits between CET uicTextBufferResize and uicTextEntrySet as in ORIG UIcontrols.c:4924",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicTextEntryCleanUp",
+   "signature": "void uicTextEntryCleanUp(textentryhandle entry)"
+  },
+  {
+   "address": "0x00538a50",
+   "name": "uicChildTextEntryAlloc",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "regChildAlloc extra 0xac, text-entry process/draw, 0x400 text buffer, frFontRegister(\"default.hff\"), utyCaretBlinkRate, border inset; ORIG UIcontrols.c:5003",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicChildTextEntryAlloc",
+   "signature": "textentryhandle uicChildTextEntryAlloc(controlhandle parent, featom *atom, sdword x, sdword y, sdword width, sdword height, udword filter)"
+  },
+  {
+   "address": "0x00538b70",
+   "name": "uicFindFlag",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "over current feStack screen atoms: type 0 tests atom->flags & flag, type 1 tests region->status & flag; returns atom->region; ORIG UIcontrols.c:5070",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicFindFlag",
+   "signature": "regionhandle uicFindFlag(regionhandle find, udword flag, uword type)"
+  },
+  {
+   "address": "0x00538c00",
+   "name": "uicFindTabstop",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "atom whose tabstop == current tabstop (0x87be1c); radio button (type 12) resolved with feFindRadioButtonRegion(region,TRUE); ORIG UIcontrols.c:5175",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicFindTabstop",
+   "signature": "regionhandle uicFindTabstop(regionhandle find)"
+  },
+  {
+   "address": "0x00538c70",
+   "name": "uicClearCurrent",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "inlined uicFindFlagGetAtom(RSF_CurrentSelected 0x200) over the current screen, clears it (all same-name radio buttons), text-entry/list-window lose-focus callbacks; ORIG :5241",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicClearCurrent",
+   "signature": "bool uicClearCurrent(regionhandle reg)"
+  },
+  {
+   "address": "0x00538dc0",
+   "name": "uicSetCurrent",
+   "kind": "function",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "returns on RSF_CantFocusTo (status 2); sets RSF_CurrentSelected (0x200), feTabStop = reg->tabstop, regRecursiveSetDirty; called by uicToggleProcess after uicClearCurrent; ORIG :5324",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicSetCurrent",
+   "signature": "void uicSetCurrent(regionhandle reg, bool bUserInput)"
+  },
+  {
+   "address": "0x0043f310",
+   "name": "cpResetRegions",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "cpRegion[0..14]=NULL then cpHueSaturationRegion=cpValueRegion=NULL (15 dwords + 2); ORIG colpick.c:788",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpResetRegions",
+   "signature": "void cpResetRegions(void)"
+  },
+  {
+   "address": "0x00440940",
+   "name": "cpColorsUpdate",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "splits stripe then base colour into R/G/B globals, colRGBToHSV each, stores clamped ubyte H/S/V; ORIG colpick.c:1290",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpColorsUpdate",
+   "signature": "void cpColorsUpdate(color base, color stripe)"
+  },
+  {
+   "address": "0x00440bd0",
+   "name": "cpSetColorsToModify",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "cpPBaseColor=base, cpPStripeColor=stripe, cpColorsUpdate(*base,*stripe); ORIG colpick.c:1332",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpSetColorsToModify",
+   "signature": "void cpSetColorsToModify(color *base, color *stripe)"
+  },
+  {
+   "address": "0x00440c00",
+   "name": "cpAcceptColors",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "Teams.c reset (0x52b800) then rebuilds base/stripe; differs from teColorSchemes[0] or originals -> cpColorsPicked=TRUE; writes *cpPBaseColor/*cpPStripeColor; ORIG :1346",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpAcceptColors",
+   "signature": "void cpAcceptColors(void)"
+  },
+  {
+   "address": "0x00440cb0",
+   "name": "cpTexturesPurge",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "frees hue/sat image, trRGBTextureDelete of hue/sat, value and preview textures (-1 sentinels), dirties picker regions; ORIG colpick.c:1383",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpTexturesPurge",
+   "signature": "void cpTexturesPurge(void)"
+  },
+  {
+   "address": "0x00440da0",
+   "name": "cpScalarFromCurveGet",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "hue outside [0,1] -> 0; scans curve->hue[] pairs for the bracketing segment (lerp result returned on x87); callee of cpTeamEffectScalars; ORIG colpick.c:1409",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpScalarFromCurveGet",
+   "signature": "real32 cpScalarFromCurveGet(colpickcurve *curve, real32 hue, real32 sat, real32 val)"
+  },
+  {
+   "address": "0x00440e40",
+   "name": "cpTeamEffectScalars",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "colRGBToHSV of c0 and c1, cpScalarFromCurveGet(&colPickScalarCurve[race*2(+1)]) -> *scalar0/*scalar1; ORIG colpick.c:1442",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpTeamEffectScalars",
+   "signature": "void cpTeamEffectScalars(real32 *scalar0, real32 *scalar1, color c0, color c1, ShipRace race)"
+  },
+  {
+   "address": "0x00440f70",
+   "name": "cpColorsAddToPreviousList",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "colPreviousColors[] (0x752e38): existing pair swapped to front, else list shifted down and pair inserted at [0]; ORIG colpick.c:1466",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpColorsAddToPreviousList",
+   "signature": "void cpColorsAddToPreviousList(color base, color stripe)"
+  },
+  {
+   "address": "0x005050a0",
+   "name": "scThumbRelativeX",
+   "kind": "function",
+   "class": "hw1:Scroller.c",
+   "confidence": "high",
+   "evidence": "mouseCursorX (0xb38bd8) - shandle->thumb.x0 (+0x84; uicscrollbar thumb follows thumbreg @+0x74); ORIG scroller.c:30",
+   "hw1_equivalent": "",
+   "signature": "uword scThumbRelativeX(scrollbarhandle shandle)"
+  },
+  {
+   "address": "0x005050b0",
+   "name": "scThumbRelativeY",
+   "kind": "function",
+   "class": "hw1:Scroller.c",
+   "confidence": "high",
+   "evidence": "mouseCursorY (0xb38bd0) - shandle->thumb.y0 (+0x88); ORIG scroller.c:35",
+   "hw1_equivalent": "",
+   "signature": "uword scThumbRelativeY(scrollbarhandle shandle)"
+  },
+  {
+   "address": "0x005050c0",
+   "name": "scRelativeX",
+   "kind": "function",
+   "class": "hw1:Scroller.c",
+   "confidence": "high",
+   "evidence": "mouseCursorX - shandle->thumbreg.x0 (+0x74); ORIG scroller.c:40",
+   "hw1_equivalent": "",
+   "signature": "uword scRelativeX(scrollbarhandle shandle)"
+  },
+  {
+   "address": "0x005050d0",
+   "name": "scRelativeY",
+   "kind": "function",
+   "class": "hw1:Scroller.c",
+   "confidence": "high",
+   "evidence": "mouseCursorY - shandle->thumbreg.y0 (+0x78); ORIG scroller.c:45",
+   "hw1_equivalent": "",
+   "signature": "uword scRelativeY(scrollbarhandle shandle)"
+  },
+  {
+   "address": "0x005050e0",
+   "name": "scAdjustThumbwheel",
+   "kind": "function",
+   "class": "hw1:Scroller.c",
+   "confidence": "high",
+   "evidence": "(shandle, up, maxDisp, max) recomputes thumb rect; 13 callers incl. every uicListWindow up/down/page/end handler and uicListSort; ORIG scroller.c:96",
+   "hw1_equivalent": "",
+   "signature": "void scAdjustThumbwheel(scrollbarhandle shandle, uword up, uword maxDisp, uword max)"
+  },
+  {
+   "address": "0x005052a0",
+   "name": "scSetupThumbwheel",
+   "kind": "function",
+   "class": "hw1:Scroller.c",
+   "confidence": "high",
+   "evidence": "shandle = atom->pData (+0x28); scAdjustThumbwheel(shandle, up, max, maxDisp); return shandle; ORIG scroller.c:157",
+   "hw1_equivalent": "",
+   "signature": "scrollbarhandle scSetupThumbwheel(uword up, uword max, uword maxDisp, featom *atom)"
+  },
+  {
+   "address": "0x005045d0",
+   "name": "spScenarioWindowInit",
+   "kind": "function",
+   "class": "hw1:ScenPick.c",
+   "confidence": "high",
+   "evidence": "FEFIRSTCALL: uicListWindowInit(..spScenarioItemDraw..) + uicListAddItem per scenario (selected flag for spCurrentSelected); else double-click/enter -> spNewItem/spDonePicking; ORIG :568",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ScenPick.c:spScenarioWindowInit",
+   "signature": "void spScenarioWindowInit(char *name, featom *atom)"
+  },
+  {
+   "address": "0x00504900",
+   "name": "spFindMap",
+   "kind": "function",
+   "class": "hw1:ScenPick.c",
+   "confidence": "high",
+   "evidence": "_stricmp(spScenarios[i].title, MapName) over spNumberScenarios (stride 0x14); match -> spCurrentSelected=i; ORIG scenpick.c:766",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ScenPick.c:spFindMap",
+   "signature": "void spFindMap(char *MapName)"
+  },
+  {
+   "address": "0x00487760",
+   "name": "gpReset",
+   "kind": "function",
+   "class": "hw1:GamePick.c",
+   "confidence": "high",
+   "evidence": "SavedGamesPath (0xa4372c) = NULL; sits between gpStartup and gpShutdown as ORIG gamepick.c:391",
+   "hw1_equivalent": "HomeworldSDL/src/Game/GamePick.c:gpReset",
+   "signature": "void gpReset(void)"
+  },
+  {
+   "address": "0x004879c0",
+   "name": "gpGamePick",
+   "kind": "function",
+   "class": "hw1:GamePick.c",
+   "confidence": "high",
+   "evidence": "dest[0]=='S' -> gpLoadSinglePlayerGame, SavedGamesPath = \"SavedGames\\\\SinglePlayer\\\\\" or MultiPlayer, feScreenStart(ghMainRegion,\"Load_game\"); ORIG :613",
+   "hw1_equivalent": "HomeworldSDL/src/Game/GamePick.c:gpGamePick",
+   "signature": "void gpGamePick(char *dest)"
+  },
+  {
+   "address": "0x004885e0",
+   "name": "gpGetGameName",
+   "kind": "function",
+   "class": "hw1:GamePick.c",
+   "confidence": "high",
+   "evidence": "gpNumberGames>0: inlined gpDonePicking (current list item -> gpCurrentSelected), strcpy(filename,SavedGamesPath)+strcat(title), TRUE; ORIG gamepick.c:1058",
+   "hw1_equivalent": "HomeworldSDL/src/Game/GamePick.c:gpGetGameName",
+   "signature": "bool gpGetGameName(char *name, featom *atom, char *filename)"
+  },
+  {
+   "address": "0x0048d9e0",
+   "name": "hrGetInterpPixel",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "(pSrcImg, XSize, Xf, Yf): gathers the 2x2 RGB quad at floor(X,Y), modf fractions, inlined hrBilinear per channel, packs 0xff<<24|BGR; caller hrInitBackground; ORIG :548",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:hrGetInterpPixel",
+   "signature": "unsigned long hrGetInterpPixel(unsigned char *pSrcImg, long XSize, float Xf, float Yf)"
+  },
+  {
+   "address": "0x0048dc00",
+   "name": "hrInitBackground",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "hrChooseRandomBitmap/hrChooseSinglePlayerBitmap, fileOpen + JPEG decode, inlined hrDrawPixelsSupported (\"Matrox\"/\"atrox \"), hrGetInterpPixel rescale; ORIG HorseRace.c:694",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:hrInitBackground",
+   "signature": "void hrInitBackground(void)"
+  },
+  {
+   "address": "0x0048e0c0",
+   "name": "hrShutdownBackground",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "memFree(hrBackgroundImage) if set, NULL it, zero its width/height; same block is inlined in horseRaceShutdown; ORIG HorseRace.c:946",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:hrShutdownBackground",
+   "signature": "void hrShutdownBackground(void)"
+  },
+  {
+   "address": "0x0048e530",
+   "name": "horseRaceShutdown",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "mouseCursorShow, TTimerInit over the per-player timers, feScreenDeleteFlags on the horse-race screens, background freed, rglFeature(0x4601) on RGL; follows horseRaceInit; ORIG :1171",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:horseRaceShutdown",
+   "signature": "void horseRaceShutdown(void)"
+  },
+  {
+   "address": "0x0048e5f0",
+   "name": "HorseRaceBeginBar",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "advances the current bar, builds a 0x911 HorseRace packet with summed bar percent; multiPlayerGame -> SendHorseRacePacket(pkt,0x24) else updates local progress; ORIG :1218",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:HorseRaceBeginBar",
+   "signature": "void HorseRaceBeginBar(uword barnum)"
+  },
+  {
+   "address": "0x0048eef0",
+   "name": "hrProcessPacket",
+   "kind": "function",
+   "class": "hw1:HorseRace.c",
+   "confidence": "high",
+   "evidence": "finds first empty chathistory[] slot (stride 0x228) for the chat message, else scrolls the history up and appends; ORIG HorseRace.c:1632",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HorseRace.c:hrProcessPacket",
+   "signature": "void hrProcessPacket(struct ChatPacket *packet)"
+  },
+  {
+   "address": "0x004d5ff0",
+   "name": "fleetIntelligenceCreate",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "high",
+   "evidence": "memAlloc(0x18), showOnce/showNow, memStringDupe(description), listAddNode(&poFleetIntelligence); showOnce -> inlined poPlayerObjectivesBegin (\"Single_Player_Objective\"); ORIG :81",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:fleetIntelligenceCreate",
+   "signature": "FleetIntelligence *fleetIntelligenceCreate(char *description, bool8 showOnce)"
+  },
+  {
+   "address": "0x004d6080",
+   "name": "objectiveAndFleetIntelligenceCreate",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "high",
+   "evidence": "memAlloc(0x34), memStrncpy label 0x20, \"hyperspace\" -> smUpdateHyperspaceStatus(TRUE), else fleet intel; grows objectives[] by 8; taskbar list add; ORIG Objectives.c:102",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:objectiveAndFleetIntelligenceCreate",
+   "signature": "Objective *objectiveAndFleetIntelligenceCreate(char *label, char *briefDescription, char *fullDescription, bool8 showOnce, bool primary)"
+  },
+  {
+   "address": "0x004d6260",
+   "name": "objectiveStartup",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "high",
+   "evidence": "objectives=NULL, allocated=used=0, feCallbackAddMultiple(poCallback), listInit(&poFleetIntelligence); ORIG Objectives.c:191",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:objectiveStartup",
+   "signature": "void objectiveStartup(void)"
+  },
+  {
+   "address": "0x004d6290",
+   "name": "objectiveSet",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "high",
+   "evidence": "strncmp(label,0x20) search of objectives[] then objective->status (+0x2c) = status; ORIG Objectives.c:213",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:objectiveSet",
+   "signature": "void objectiveSet(char *label, sdword status)"
+  },
+  {
+   "address": "0x004d62e0",
+   "name": "objectiveGet",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "high",
+   "evidence": "same strncmp search, returns objective->status or 0; ORIG Objectives.c:230",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:objectiveGet",
+   "signature": "sdword objectiveGet(char *label)"
+  },
+  {
+   "address": "0x004d6330",
+   "name": "objectiveGetAll",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "high",
+   "evidence": "returns FALSE if any objectives[i]->status == 0 else TRUE; ORIG Objectives.c:247",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:objectiveGetAll",
+   "signature": "sdword objectiveGetAll(void)"
+  },
+  {
+   "address": "0x004d63a0",
+   "name": "objectiveDestroy",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "high",
+   "evidence": "find by label, taskbar list remove, fleet intel destroy (clears current if same), free description + objective, memmove objectives[] down; ORIG Objectives.c:264",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:objectiveDestroy",
+   "signature": "void objectiveDestroy(char *label)"
+  },
+  {
+   "address": "0x004d6480",
+   "name": "objectiveDestroyAll",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "high",
+   "evidence": "taskbar list cleanup, inlined fleetIntelligenceDestroyAll over poFleetIntelligence, frees every objective and the array, zero counts; ORIG Objectives.c:305",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:objectiveDestroyAll",
+   "signature": "void objectiveDestroyAll(void)"
+  },
+  {
+   "address": "0x004d6530",
+   "name": "poPopupTextDraw",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "medium",
+   "evidence": "FE draw callback (no callers): frFontRegister heading/text fonts, word-wrap of the fleet-intel text by fontWidth, fontPrintf lines; slot after objectiveDestroyAll like ORIG :361",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:poPopupTextDraw",
+   "signature": "void poPopupTextDraw(rectangle *rect)"
+  },
+  {
+   "address": "0x004d66f0",
+   "name": "poPopupFleetIntelligence",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "high",
+   "evidence": "poCurFleetIntelligence = objective->fleetIntelligence (+0x28) then inlined poPlayerObjectivesBegin (spMainScreen, \"Single_Player_Objective\"); Cataclysm MP adds a \"G_CLICK_\" KAS var; ORIG :475",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:poPopupFleetIntelligence",
+   "signature": "void poPopupFleetIntelligence(Objective *objective)"
+  },
+  {
+   "address": "0x004d6880",
+   "name": "SaveFleetIntelligence",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "high",
+   "evidence": "SaveStructureOfSize(stuff,0x18) + SaveString(description @+0x14); passed as the per-node saver by objectiveSave; ORIG Objectives.c:590",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:SaveFleetIntelligence",
+   "signature": "void SaveFleetIntelligence(void *stuff)"
+  },
+  {
+   "address": "0x004d68d0",
+   "name": "objectiveSave",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "high",
+   "evidence": "SaveLinkedListOfStuff(&poFleetIntelligence, SaveFleetIntelligence), SaveInfoNumber used/allocated, CreateChunk(0x34) per objective with its fleet-intel index; ORIG Objectives.c:604",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:objectiveSave",
+   "signature": "void objectiveSave(void)"
+  },
+  {
+   "address": "0x004d6960",
+   "name": "objectiveLoad",
+   "kind": "function",
+   "class": "hw1:Objectives.c",
+   "confidence": "high",
+   "evidence": "LoadLinkedListOfStuff(&poFleetIntelligence,..), LoadInfoNumber x2, LoadNextChunk per objective, \"hyperspace\" label routed to the hyperspace slot; ORIG Objectives.c:621",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Objectives.c:objectiveLoad",
+   "signature": "void objectiveLoad(void)"
+  },
+  {
+   "address": "0x0052b100",
+   "name": "tbBumperProcess",
+   "kind": "function",
+   "class": "hw1:TaskBar.c",
+   "confidence": "high",
+   "evidence": "region process: RPE_Enter(1) slides the taskbar in (regMoveLinkChild + regRegionScroll by height), tbCalcTotalShipCommands, TB_Tactics_A/N/E checkboxes; RPE_Exit(2) slides out; ORIG :179",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TaskBar.c:tbBumperProcess",
+   "signature": "udword tbBumperProcess(regionhandle region, sdword ID, udword event, udword data)"
+  },
+  {
+   "address": "0x0052b3b0",
+   "name": "tbForceTaskbar",
+   "kind": "function",
+   "class": "hw1:TaskBar.c",
+   "confidence": "high",
+   "evidence": "sets the force flag, then tbBumperProcess(tbRegion,0, On ? RPE_Enter : RPE_Exit); ORIG TaskBar.c:277",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TaskBar.c:tbForceTaskbar",
+   "signature": "void tbForceTaskbar(bool On)"
+  },
+  {
+   "address": "0x0052b410",
+   "name": "tbCalcTotalShipCommands",
+   "kind": "function",
+   "class": "hw1:TaskBar.c",
+   "confidence": "high",
+   "evidence": "zeroes move/guard/dock/attack/other + tactics counters, then counts command->ordertype (+0x370->+0x14) and tactics (+0x2b8) over the selection; ORIG TaskBar.c:1253",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TaskBar.c:tbCalcTotalShipCommands",
+   "signature": "void tbCalcTotalShipCommands(void)"
+  },
+  {
+   "address": "0x0052b540",
+   "name": "tbSetupHyperspace",
+   "kind": "function",
+   "class": "hw1:TaskBar.c",
+   "confidence": "high",
+   "evidence": "inlined tbFindRegion(\"CSM_Hyperspace\") and (\"TB_ObjectivesWindowInit\"), swaps their visibility with regRegionScroll(+-800) by tbHypObjState; ORIG TaskBar.c:1517",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TaskBar.c:tbSetupHyperspace",
+   "signature": "void tbSetupHyperspace(void)"
+  },
+  {
+   "address": "0x0052b690",
+   "name": "feToggleButtonSetFromScreen",
+   "kind": "function",
+   "class": "hw1:TaskBar.c",
+   "confidence": "high",
+   "evidence": "feAtomFindInScreen(screen,name); set/clear FAS_Checked (2) and RSF_DrawThisFrame on atom->region; used for \"TB_Tactics_E\"; ORIG TaskBar.c:1709",
+   "hw1_equivalent": "HomeworldSDL/src/Game/TaskBar.c:feToggleButtonSetFromScreen",
+   "signature": "void feToggleButtonSetFromScreen(char *name, sdword bPressed, fescreen *screen)"
+  },
+  {
+   "address": "0x004d7240",
+   "name": "opDefineThisKey",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "ESCKEY(0x1b) -> inlined opCancelKeyDetour + feCurrentScreenDelete; KeyNames lookup (opValidKey) -> opKeyAssign; taskCallBackRegister(opHighlightBabyFunction,0.8); keyboardregion dirty; ORIG :781",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opDefineThisKey",
+   "signature": "void opDefineThisKey(keyindex key)"
+  },
+  {
+   "address": "0x004d72e0",
+   "name": "opKeyAssign",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "finds old owner of key in TempKeyTranslations (key1/key2, 8-byte rows @0x88ba08), primary/secondary swap rules, highlight=1; ORIG options.c:843",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opKeyAssign",
+   "signature": "void opKeyAssign(uword func, keyindex key)"
+  },
+  {
+   "address": "0x004d73f0",
+   "name": "opKeyToNiceString",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "key==0 -> \"---\" literal; scans KeyNames[] (0x88bb38, 8-byte {key,name}) for the key name, else \"[ERR]\"; ORIG options.c:946",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opKeyToNiceString",
+   "signature": "char *opKeyToNiceString(keyindex key)"
+  },
+  {
+   "address": "0x004d7f40",
+   "name": "normalizeSmoothie",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "(real32)val * 1.025f / 100 clamped to [0,1]; used by opRestoreSavedSettings for SFX/speech volumes; ORIG options.c:1505",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:normalizeSmoothie",
+   "signature": "real32 normalizeSmoothie(sdword val)"
+  },
+  {
+   "address": "0x004d7f80",
+   "name": "opRestoreSavedSettings",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "copies opSave* audio back, speaker EQ preset -> opEQReal, inlined opUpdateAudioSettings (soundEventMasterEQ/VocalSettings/MusicMasterVol/SFXMasterVol...); ORIG :1568",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opRestoreSavedSettings",
+   "signature": "void opRestoreSavedSettings(void)"
+  },
+  {
+   "address": "0x004d8c40",
+   "name": "opOptionsSaveCustomEffectsSettings",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "save* = opEffectsVal, texLinearFiltering, showBackgrounds, smInstantTransition, enableSmoothing/Stipple/Trails, smFuzzyBlobs, etgHit/Damage/Fire/BulletEffects; ORIG :1826",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opOptionsSaveCustomEffectsSettings",
+   "signature": "void opOptionsSaveCustomEffectsSettings(void)"
+  },
+  {
+   "address": "0x004d9870",
+   "name": "opNumChannelsProcess",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "opNumChannels = slider value (atom->region->value), dirty drawnumchannels, soundGetVoiceLimits + soundSetNumVoices(opNumChannels+min, opAutoChannel), return 0; ORIG :2201",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opNumChannelsProcess",
+   "signature": "udword opNumChannelsProcess(regionhandle reg, sdword ID, udword event, udword data)"
+  },
+  {
+   "address": "0x004d9b90",
+   "name": "opEffectsHelper",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "switch opEffectsVal: 0 (hi) / 1 (lo) set texLinearFiltering, showBackgrounds, enableSmoothing/Stipple/Trails, smFuzzyBlobs, etg*EffectsEnabled, opNumEffects=256-etgHistoryScalarMin; ORIG :2395",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opEffectsHelper",
+   "signature": "void opEffectsHelper(void)"
+  },
+  {
+   "address": "0x004da860",
+   "name": "opResListSet",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "counts dev->modes, memAlloc(n*0xc) opres array, finds current width/height/depth, uicListRemoveAllItems + uicListAddItem per mode (selected flag); ORIG options.c:2666",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opResListSet",
+   "signature": "void opResListSet(rdevice *dev)"
+  },
+  {
+   "address": "0x004dac00",
+   "name": "opRenderListLoad",
+   "kind": "function",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "counts rinGetDeviceList(), memAlloc(n*0x88), memStrncpy device name/data, picks current device by mainActiveRenderer / opDeviceIndex; ORIG options.c:2888",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opRenderListLoad",
+   "signature": "void opRenderListLoad(void)"
+  },
+  {
+   "address": "0x004db7b0",
+   "name": "cat_opSetAllDefaults",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "arg 0: every audio/video/detail option to high defaults (8 channels, voices on, effects hi, trails), else low-spec values; feToggleButtonSet on OP_CapitalShipOverlay/OP_SlipgatePaths/OP_Compass",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x0049bea0",
+   "name": "kbInitKeyBindings",
+   "kind": "function",
+   "class": "hw1:KeyBindings.c",
+   "confidence": "medium",
+   "evidence": "kbKeyListFont = frFontRegister(\"hw_eurosecond_11.hff\") (first line of ORIG KeyBindings.c:709); called from utyGameSystemsInit; Cataclysm drops the kbCanMapKey table init",
+   "hw1_equivalent": "HomeworldSDL/src/Game/KeyBindings.c:kbInitKeyBindings",
+   "signature": "void kbInitKeyBindings(void)"
   }
  ]
 }

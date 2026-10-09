@@ -1,6 +1,6 @@
 {
  "source": "sim-universe",
- "method": "Sim-core naming by evidence (sim-universe pass). Anchored on CET univUpdate 0x54C3F0: walked its decompile line-by-line against HomeworldSDL/src/Game/UnivUpdate.c univUpdate (:7292) to name every per-tick callee by call slot, gating globals (universe struct offsets from CET asserts, woodpecker tweak globals) and argument shape; then aligned each source file's HW1 function order with the binary address order (MSVC6 keeps per-file source order) using those anchors, confirming each candidate from its decompile (list heads used, flags, strings, param counts, callers/callees). Command layer: clWrap* (CET) -> SP cl* / MP clSend* pairs, clProcess switch cases -> process*ToDo. Cross-checked against other passes' proposals (core/ships/missions/hw1-match) to avoid conflicts. Cataclysm-only functions are skipped unless behaviour was clear.",
+ "method": "Sim-core naming by evidence (sim-universe pass). Anchored on CET univUpdate 0x54C3F0: walked its decompile line-by-line against HomeworldSDL/src/Game/UnivUpdate.c univUpdate (:7292) to name every per-tick callee by call slot, gating globals (universe struct offsets from CET asserts, woodpecker tweak globals) and argument shape; then aligned each source file's HW1 function order with the binary address order (MSVC6 keeps per-file source order) using those anchors, confirming each candidate from its decompile (list heads used, flags, strings, param counts, callers/callees). Command layer: clWrap* (CET) -> SP cl* / MP clSend* pairs, clProcess switch cases -> process*ToDo. Cross-checked against other passes' proposals (core/ships/missions/hw1-match) to avoid conflicts. Cataclysm-only functions are skipped unless behaviour was clear. Creation/death pass: univCreateShip helpers (bindings, trails, navlights, modules), gun fire drivers (gunShootGunsAt*), bullet/resource free paths and clamp updates named from decompile + HW1 order; several HW1 helpers (univUpdateAllPosVelMinorObjs/Missiles/Derelicts/Effects, univPausedUpdateAllPosVelShips, univDeleteDeadResources body) are inlined into univUpdate and have no entry.",
  "done_subsystems": [
   "univupdate",
   "collision",
@@ -10,7 +10,8 @@
   "formation_dock",
   "construction_research",
   "ai",
-  "tactics_effects"
+  "tactics_effects",
+  "creation_death"
  ],
  "proposals": [
   {
@@ -4472,6 +4473,296 @@
    "evidence": "Cataclysm twin of TechTypeToString: NumToStr over a 5-entry table at 0x8902f8 holding MODULE_Hangar..MODULE_Weapon",
    "hw1_equivalent": "",
    "signature": "char *cat_ModuleTypeToString(sdword module)"
+  },
+  {
+   "address": "0x005407e0",
+   "name": "univFindShipIAmInside",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "high",
+   "evidence": "walks ShipList, scans each ship->shipsInsideMe(+0x4b4)->insideList for me, returns host or 0; sits between ShipIDtoShip and univAmIInsideThisShip as HW1 :466",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univFindShipIAmInside",
+   "signature": "Ship *univFindShipIAmInside(Ship *me)"
+  },
+  {
+   "address": "0x00540820",
+   "name": "univAmIInsideThisShip",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "high",
+   "evidence": "(me,ship): scans ship->shipsInsideMe(+0x4b4) insideList for me, returns TRUE/FALSE; body = HW1 :508; next to univFindShipIAmInside, before ResourceIDtoResourcePtr",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univAmIInsideThisShip",
+   "signature": "bool32 univAmIInsideThisShip(Ship *me,Ship *ship)"
+  },
+  {
+   "address": "0x00540600",
+   "name": "growSelectClose",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "memFree(p[1]);p[1]=0;p[0]=0. ICF-folded with identical IDToPtrTableClose (UnivUpdate.c:264 slot); callers aiplayerClose/aitDestroy/univupdateCloseAll match growSelectClose",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:growSelectClose",
+   "signature": "void growSelectClose(GrowSelection *growSelect)"
+  },
+  {
+   "address": "0x005419d0",
+   "name": "univMeshBindingsDupe",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "high",
+   "evidence": "(statinfo,newShip): if hierarchySize(+0x310) allocs per-LOD local bindings, copies function, userData=&ship->gunInfo(+0x490)->guns[userID], userID=ship; called by univCreateShip+LoadShip",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univMeshBindingsDupe",
+   "signature": "shipbindings *univMeshBindingsDupe(ShipStaticInfo *shipstaticinfo, Ship *newShip)"
+  },
+  {
+   "address": "0x00541f40",
+   "name": "InitializeEngineTrails",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "high",
+   "evidence": "\"EngX\" (0x8b5d10) digit-patched and mexGetChunk(pMexData,\"Eng\",..) counts trails, zeroes ship->trail[4]@0x42c, trailNew per trail (2/3 glow); callers univCreateShip, LoadShip",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:InitializeEngineTrails",
+   "signature": "void InitializeEngineTrails(Ship *newship)"
+  },
+  {
+   "address": "0x00542040",
+   "name": "InitializeNavLights",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "high",
+   "evidence": "statinfo->navlightStaticInfo(+0x104): memAlloc(n*12+4) into ship+0x234, per light {static,state=0,lastTimeFlashed=startdelay}; else NULL. Callers univCreateShip/LoadShip/univAddDerelictByStatInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:InitializeNavLights",
+   "signature": "void InitializeNavLights(Ship *newship)"
+  },
+  {
+   "address": "0x005418f0",
+   "name": "cat_univMeshBindingsDupeNoGuns",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "same layout/size as univMeshBindingsDupe 0x5419d0 but zero-filled with function=NULL (only object copied), then 0x541ae0; callers FixShip, cat_beastInfectShip, salvage depot, Mimic_Fix",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x00541ae0",
+   "name": "cat_univMeshBindingsLinkParents",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "per mesh LOD, per object: binding+0x54 = &bindings[parentIndex] (0x58-byte entries, parent byte 0xff = none); called by univMeshBindingsDupe and 0x5418f0",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x00541cd0",
+   "name": "cat_univShipMeshStateCreate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "ships only (objtype 0), gated by 0xc5236c: per-LOD array at obj+0x80, LT_Mesh levels get per-object state via recursive 0x541b80; called by univCreateShip/etgEffectCreate/missileShoot",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x00541df0",
+   "name": "cat_univMeshStateFree",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "frees obj+0x80 per-LOD state built by 0x541cd0 (recursive 0x541c70); called by every free/delete path: univFreeShipContents, DeleteDeadMissile/Derelict, bullet death, closeAll",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x005420b0",
+   "name": "cat_univCreateMothershipModules",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "only from univCreateShip: for sMothership(0x12)/bMothership(0x35) creates module ships via univCreateShip and clampObjToObj onto parent; MP default modules 0x13-0x18 (sMothershipSpecial..DockingBay)",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x00545540",
+   "name": "ApplyDamageToCollidingObjects",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "medium",
+   "evidence": "callers = HW1 :948/:1260/:1423 sites (collCheckShipShipColl/BigShipSmallShip/ShipResource); killer-coll attribute XOR -> ApplyDamageToTarget(min health,..,99); Cataclysm drops dist args",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:ApplyDamageToCollidingObjects",
+   "signature": "void ApplyDamageToCollidingObjects(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *obj2)"
+  },
+  {
+   "address": "0x00549bb0",
+   "name": "univObjectOutsideWorld",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "high",
+   "evidence": "copies obj position, clips it with zero offset via 0x4e76b0 (pieMovePointClipToLimits), returns pos changed; called by processCollectResource as HW1 ResCollect.c:1102; slot :4907",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univObjectOutsideWorld",
+   "signature": "bool32 univObjectOutsideWorld(SpaceObj *obj)"
+  },
+  {
+   "address": "0x00549230",
+   "name": "cat_univRemoveTargetFromRammingFrigates",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "loops ShipList, for shiptype 6 sRammingFrigate / 0x30 bRammingFrigate calls RammingFrigateRemoveShipReferences(ship,obj); in resource delete path (univUpdate inline, univDeleteDeadResources)",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x0054b1a0",
+   "name": "cat_univRemoveBulletReferencesFromShips",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "loops ShipList calling ShipStaticInfo+0x140 custom fn(ship,bullet); replaces HW1 DefenseFighterBulletRemoval at :1809; univupdateCloseAll calls it for OBJ_BulletType",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x0054b1d0",
+   "name": "univFreeBulletContents",
+   "kind": "function",
+   "class": "hw1:UnivUpdate.c",
+   "confidence": "medium",
+   "evidence": "between univFreeResourceContents and univRemoveShipReferences (HW1 :6426 order); ship +0x140 bullet-ref loop, mesh-state free, memFree(+0x84); same body inlined in bullet case of univupdateCloseAll",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UnivUpdate.c:univFreeBulletContents",
+   "signature": "void univFreeBulletContents(Bullet *bullet)"
+  },
+  {
+   "address": "0x00548750",
+   "name": "cat_DeclarePlayerWinReportResults",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "only caller DeclarePlayerWin: builds per-player {playerState==0 flag, score, index} for numPlayers and passes it to 0x58b420 -> cat_TitanInterface_ContestRecordResult (WON)",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x005447b0",
+   "name": "cat_univShipDeferredUpdate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "run for each ship queued in list 0xb62ba0 (filled by univSetupShipForControl) after the clamp pass in univUpdateAllPosVelShips; beast infection, upgrades, cat_shipUpdateExternalBuildAndAI",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x00434940",
+   "name": "updateClampedObject",
+   "kind": "function",
+   "class": "hw1:Clamp.c",
+   "confidence": "high",
+   "evidence": "after unClampObj in Clamp.c order; phys update by objtype (Ship/Derelict/Basic), pos=host pos+host coordsys*offset, coordsys=host*clamp, univUpdateObjRotInfo; clamped-list loop in 0x544f40",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Clamp.c:updateClampedObject",
+   "signature": "void updateClampedObject(SpaceObjRotImpTargGuidance *obj)"
+  },
+  {
+   "address": "0x00434ab0",
+   "name": "cat_updateClampedObjectNoPhysics",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "updateClampedObject 0x434940 without the physics step: decodes position/coordsys from clamp host; called for clamped ships in the SOF_DontApplyPhysics branch of univUpdateAllPosVelShips",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x0048c2e0",
+   "name": "gunShootGunsAtTarget",
+   "kind": "function",
+   "class": "hw1:Gun.c",
+   "confidence": "high",
+   "evidence": "(ship,target,range,trajectory): per gun (0x88) of gunInfo+0x490, NIS triggerHappy 0.7071, madOpenGunsShip, range<bulletrange, guntype 0 gunShoot,1/2 orient+gunShoot,3/4 missileShoot",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Gun.c:gunShootGunsAtTarget",
+   "signature": "bool32 gunShootGunsAtTarget(Ship *ship,SpaceObjRotImpTarg *target,real32 range,vector *trajectory)"
+  },
+  {
+   "address": "0x0048c690",
+   "name": "gunShootGunsAtMultipleTargets",
+   "kind": "function",
+   "class": "hw1:Gun.c",
+   "confidence": "high",
+   "evidence": "1 param; walks gunInfo guns in step with attackvars.multipleAttackTargets(+0x374) target per gun, same guntype switch to gunShoot/missileShoot; callers attackPassive/attackStraightForward",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Gun.c:gunShootGunsAtMultipleTargets",
+   "signature": "bool32 gunShootGunsAtMultipleTargets(Ship *ship)"
+  },
+  {
+   "address": "0x0048a5e0",
+   "name": "gunOrientGimbleGun",
+   "kind": "function",
+   "class": "hw1:Gun.c",
+   "confidence": "high",
+   "evidence": "(ship,gun,target) gate for guntype 1/2 before gunShoot in gunShootGunsAt*; aishipGetTrajectoryWithVelPrediction, matMakeRotAboutX/Y, soundEventPlay/Stop gimble sound as HW1 Gun.c:257",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Gun.c:gunOrientGimbleGun",
+   "signature": "bool32 gunOrientGimbleGun(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)"
+  },
+  {
+   "address": "0x0048bb00",
+   "name": "cat_gunCreateBullet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "tail of gunShoot split out (gunShoot passes computed damage): memAlloc bullet, list adds, bobAddObjToNearestBlob, univAddObjToRenderListIf, muzzle etgEffectCreate, soundEventPlay; also beast weapon",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x004a5560",
+   "name": "madOpenGunsShip",
+   "kind": "function",
+   "class": "hw1:MadLinkIn.c",
+   "confidence": "high",
+   "evidence": "if madStatic(+0x314) has gun-open anims and status!=OPEN/OPENING: random index from damaged/normal list by health, status=OPENING(3); called by gunShootGunsAt* and madLinkIn update",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MadLinkIn.c:madOpenGunsShip",
+   "signature": "void madOpenGunsShip(Ship *ship)"
+  },
+  {
+   "address": "0x005a4af0",
+   "name": "mistrailNew",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "high",
+   "evidence": "memAlloc(nSegments*12+0x2c), staticInfo, vmissile, zero head/tail/len/grain, width/height from missile staticinfo; callers missileShoot, univAddMissile; just after trailShutdown",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:mistrailNew",
+   "signature": "missiletrail *mistrailNew(trailstatic *staticInfo, void *vmissile)"
+  },
+  {
+   "address": "0x005a4b40",
+   "name": "trailNew",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "high",
+   "evidence": "4 params (static, ship, second, index) called per engine nozzle by InitializeEngineTrails 0x541f40; follows mistrailNew in Trails.c order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailNew",
+   "signature": "shiptrail *trailNew(trailstatic *staticInfo, void *vship, bool8 second, ubyte trailNum)"
+  },
+  {
+   "address": "0x005a4e10",
+   "name": "trailUpdate",
+   "kind": "function",
+   "class": "hw1:Trails.c",
+   "confidence": "medium",
+   "evidence": "per ship->trail[0..3]@0x42c from univSetupShipForControl and the paused-ship path of univUpdate (HW1 univMinorSetupShipForControl); follows CET mistrailUpdate; position arg dropped",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Trails.c:trailUpdate",
+   "signature": "void trailUpdate(shiptrail *trail)"
+  },
+  {
+   "address": "0x004b7130",
+   "name": "mexGetChunk",
+   "kind": "function",
+   "class": "hw1:Mex.c",
+   "confidence": "high",
+   "evidence": "walks mex chunk table (count +0xa, entries from +0xc, stride size+0x10) comparing type then name strings; InitializeEngineTrails calls it with \"Eng\"/\"EngX\"; also InitStatShipInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Mex.c:mexGetChunk",
+   "signature": "void *mexGetChunk(void *mex, char *type, char *name)"
   }
  ]
 }
