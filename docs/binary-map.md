@@ -1,5 +1,7 @@
 # Binary map, rounds 1-5: cataclysm.exe (GOG build 12948)
 
+> **M2-R3 name fixes (2026-10-10)** is the "M2-R3 name fixes" section at the end: 3 audited renames, no other change. The newest export is `ghidra/exports/cataclysm_gog_r6/`; it supersedes `cataclysm_gog_r5` for these 3 names and otherwise has the same functions, sizes and call edges.
+
 > **Round 5 (2026-10-09)** is the "Round 5" section at the end. 14,705 functions; 9,590 have real names, covering 83.0% of function bytes. No `FUN_*` function is left anywhere. The game region is 99.1% real-named by function bytes (91.1% of all region bytes); the rest of the region is padding, about 70 KB of pointer-only code that Ghidra never made functions of (R5.5), and 140 class-only library/funclet entries. R5.7 gives the verdict: naming is saturated, so stop the naming rounds; R5.6 lists the remaining gaps. Where round 5 changed a fact, the Round 5 section is authoritative over the earlier ones.
 
 > **Round 4 (2026-10-09)** is the "Round 4" section at the end. 14,679 functions; 9,049 have real names, covering 79.5% of function bytes (96.7% are not `FUN_*`). The game region is 93.1% real-named with 458 `FUN_*` left (99,908 bytes); all 2,085 mission functions have a name and an applied prototype. The round-5 targets are in R4.6. Where round 4 changed a fact, the Round 4 section is authoritative over the earlier ones.
@@ -2248,3 +2250,22 @@ Ranked by bytes and by how directly the fix follows from data already on disk. U
    - a reasons table for the 28 zero-match HW1 files, which M1's exit criterion requires.
 2. **Then M2, per `docs/PLAN.md`.** The user owns two decisions first: approve Option A and sign off M0. M2 starts from the HW1 source tree and decompiles only the Cataclysm delta, and the binary map now gives every function a name and a class for that.
    - **First target:** the version-0x500 mesh / `.peo` loader (PLAN step 3: "nothing renders until it is understood").
+
+## M2-R3 name fixes
+
+Applied 2026-10-10 from `ghidra/symbols_m2r2_namefix.json` (3 symbols, cet_symbols schema). The source is the audited M2-R2 proposal file `ghidra/proposals/m2-r2-name-fixes.json`: the M2-R2 re-read compared each body with HW1 ad1bb82 and found the binary-map name pointed at the wrong HW1 function. The new export is **`ghidra/exports/cataclysm_gog_r6/`**, now the newest; read it in place of `cataclysm_gog_r5`.
+
+| address | old name | new name | prototype applied | HW1 (ad1bb82) |
+|---|---|---|---|---|
+| 0x00404090 | `aieCheckEnemyNearby` | `aieCheckHealthLow` | `sdword __cdecl aieCheckHealthLow(AITeam *team)` | `Game/AIEvents.c:465` |
+| 0x00404150 | `aieCheckEnemyNotNearby` | `aieCheckHealthHigh` | `sdword __cdecl aieCheckHealthHigh(AITeam *team)` | `Game/AIEvents.c:499` |
+| 0x004aeb10 | `meshFixupPacoUV` | `meshObjectFixupPacoUV` | `void __cdecl meshObjectFixupPacoUV(polygonobject *object, sdword on)` | `Game/mesh.c:430` |
+
+- **Why.** The two `aieCheck*` names were assigned in round 3 by call order only. Their bodies are HW1's health-low/high watchers: one parameter, the `+0x100`/`+0x10c` watchIndividual flags, no `aiuFindNearbyEnemyShips` call. HW1's enemy-nearby checks are inlined in `aieExecute` 0x00403a70. The body at 0x004aeb10 is the per-object polygon loop (PAC_FIXED 0x1000, 0.6/width nudge); the meshdata-level `meshFixupPacoUV` is inlined into `meshRender` 0x004b4280 and `meshRenderShipHierarchy` 0x004b4520. The objdump checks agree with the prototypes: each function ends in a plain `ret`, and the callers clean 4 bytes (`aieExecute`) or push 2 arguments (the two mesh callers).
+- **Pass.** One headless pass on project `ghidra/projects/cataclysm_gog`. It ran in reuse mode with `-noanalysis` and no re-import. ImportSymbolsJson (phase=all) read only the 3-symbol file, so nothing from earlier rounds was re-applied. A `DropStaleComments.py` post-script removed the old names' `[CET]` plate lines, as round 5 did (4 lines at the 3 addresses). ExportAnalysis ran with decompile on. The pass was detached with `setsid nohup`, logged to `ghidra/exports/r6_headless.log`, and finished with `rc=0` in 62 s on the first attempt. The log has 0 `ERROR`/Traceback/lock lines. It has 7 decompiler `WARN` lines, the same 2 "Unable to read bytes" + 5 `.cms_t` p-code lines as round 5.
+- **Result.** The apply report `cataclysm_gog_r6/cet_apply_report.csv` gives **3 / 3** `renamed;proto-applied`, with 0 failed, 0 degraded and 0 `kept-user-name`.
+  - `functions.csv` r5 vs r6: 14,705 functions in both. Exactly 3 rows differ (name and signature at the 3 addresses). No size changed and no other name changed.
+  - `symbols.csv`: exactly the 3 rows differ.
+  - `call_graph.csv` (sorted): only the 4 edges into the 3 functions changed, and only in the callee name.
+  - Decompile: ok 14,618, thunk 86, failed 1 (`lib_crt_00671da2`, as in every round), error 0. These are the same counts as r5.
+- **Tracked references updated:** `ghidra/delta_map.json` (`name`, `hw1_func` and `hw1_src` for the 3 entries; classes kept; the review notes say the features were still scored against the old HW1 function), the matching notes in `ghidra/delta_map_review.json`, `docs/m2-r1-function-deltas.md`, `docs/m2-r1-summary.md`, `docs/m2-r2-mesh.md` and `docs/m2-r2-reread.md`. Earlier symbol files and proposal sets keep the old names as history. The latest applied entry wins in the project, so a full re-apply of rounds 1-5 must be followed by `symbols_m2r2_namefix.json`.

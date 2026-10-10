@@ -86,14 +86,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "binary-map name wrong: the body is HW1 aieCheckHealthLow (AIEvents.c:465), identical; HW1 aieCheckEnemyNearby is inlined in aieExecute. Proposal in ghidra/proposals/m2-r2-name-fixes.json",
+  "note": "binary-map name wrong: the body is HW1 aieCheckHealthLow (AIEvents.c:465), identical; HW1 aieCheckEnemyNearby is inlined in aieExecute. Proposal in ghidra/proposals/m2-r2-name-fixes.json; renamed from aieCheckEnemyNearby in M2-R3 (export cataclysm_gog_r6); features still scored against the old HW1 function",
   "sample": "audit-R2"
  },
  "0x00404150": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "binary-map name wrong: the body is HW1 aieCheckHealthHigh (AIEvents.c:499), identical; HW1 aieCheckEnemyNotNearby is inlined in aieExecute. Proposal in ghidra/proposals/m2-r2-name-fixes.json",
+  "note": "binary-map name wrong: the body is HW1 aieCheckHealthHigh (AIEvents.c:499), identical; HW1 aieCheckEnemyNotNearby is inlined in aieExecute. Proposal in ghidra/proposals/m2-r2-name-fixes.json; renamed from aieCheckEnemyNotNearby in M2-R3 (export cataclysm_gog_r6); features still scored against the old HW1 function",
   "sample": "audit-R2"
  },
  "0x00404410": {
@@ -3736,7 +3736,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "the body is HW1 meshObjectFixupPacoUV (per-object polygon loop, PAC_FIXED 0x1000, 0.6/width); the caller holds the inlined meshFixupPacoUV (localSize test and object loop). Binary-map name wrong: proposal in ghidra/proposals/m2-r2-name-fixes.json",
+  "note": "the body is HW1 meshObjectFixupPacoUV (per-object polygon loop, PAC_FIXED 0x1000, 0.6/width); the caller holds the inlined meshFixupPacoUV (localSize test and object loop). Binary-map name wrong: proposal in ghidra/proposals/m2-r2-name-fixes.json; renamed from meshFixupPacoUV in M2-R3 (export cataclysm_gog_r6); features still scored against the old HW1 function",
   "sample": "reread-R2"
  },
  "0x004b40a0": {

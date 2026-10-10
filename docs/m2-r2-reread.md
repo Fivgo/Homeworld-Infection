@@ -74,7 +74,7 @@ Each item from `docs/audits/m2-r1-function-deltas.md` was checked against both b
 - **The two suspect binary-map names, re-checked:**
   - `aieCheckEnemyNearby` 0x00404090 is HW1 `aieCheckHealthLow`. Its twin, 0x00404150 `aieCheckEnemyNotNearby`, is `aieCheckHealthHigh`. Both are IDENTICAL to those functions, and HW1's enemy-nearby checks are inlined in `aieExecute`.
   - `RemoveShipFromFormation` 0x00447950 is named right. The same body is inlined in `RemoveShipsFromDoingStuff`, right after `ship->command = NULL`, where HW1 CommandLayer.c:3271-3272 calls it. Cataclysm replaced HW1's `formationcommand = NULL` with a disable-reason and unclamp routine, so it is REWRITTEN/high.
-- **Name-fix proposals:** `ghidra/proposals/m2-r2-name-fixes.json`, in the binary-map proposal schema, with no Ghidra run. It holds 0x00404090 → `aieCheckHealthLow`, 0x00404150 → `aieCheckHealthHigh` and 0x004aeb10 → `meshObjectFixupPacoUV`.
+- **Name-fix proposals:** `ghidra/proposals/m2-r2-name-fixes.json`, in the binary-map proposal schema, with no Ghidra run. It holds 0x00404090 → `aieCheckHealthLow`, 0x00404150 → `aieCheckHealthHigh` and 0x004aeb10 → `meshObjectFixupPacoUV`. [M2-R3: all 3 applied in Ghidra, export `cataclysm_gog_r6`; `docs/binary-map.md` "M2-R3 name fixes".]
 
 ## Tool fixes (step 3)
 
