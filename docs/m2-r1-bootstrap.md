@@ -8,7 +8,7 @@ Date: 2026-10-10. Worktree `.claude/worktrees/m2`, branch `m2` (HEAD `4363dff` w
 | | Debug | Release |
 |---|---|---|
 | Command | `tools/build.sh --debug --clean` | `tools/build.sh --release --clean` |
-| meson options | `--buildtype=debug -Db_sanitize=address,undefined` (`-O0 -g`, `HW_BUILD_FOR_DEBUGGING`) | `--buildtype=release -Db_sanitize=none` (`-O3`, `HW_BUILD_FOR_DISTRIBUTION`) |
+| meson options | `--buildtype=debug -Db_sanitize=address,undefined` (`-O0 -g`, `HW_BUILD_FOR_DEBUGGING`) | `--buildtype=release -Db_sanitize=none` (`-O3`, `HW_BUILD_FOR_DISTRIBUTION`) [M2-R2 oracle: `--release` is now `-Doptimization=2 -Ddebug=false -Db_sanitize=none` (`-O2`), and every build type adds `-fno-strict-aliasing -ffp-contract=off -fno-fast-math`; docs/m2-r2-oracle.md "flags"] |
 | Output | `build/debug/hwi-engine` | `build/release/hwi-engine` |
 | Size | **74,870,832 B** (`size`: text 41,178,013, data 23,887,008, bss 2,225,120) | **5,157,976 B** (text 4,193,125, data 232,408, bss 1,685,376) |
 | `file` | ELF 64-bit LSB pie, x86-64, dynamically linked, with debug_info, not stripped | ELF 64-bit LSB pie, x86-64, dynamically linked, not stripped |
@@ -25,7 +25,7 @@ Cross-check: the release size equals the GoK release build in `docs/hw1-port-les
 
 1. **GoK's whole `src/` at `3af31fb` was imported, not `ad1bb82` plus hand-picked portability hunks.** Measured first (`tools/bootstrap/hunks.py`, below): Relic's `src/Game` + `src/Ships` against GoK's, 361 files matched case-insensitively, differ in 360 files, in **14,257 diff hunks** (+39,685 / -37,078 lines after normalising CRLF and trailing whitespace). [audit: these "hunks" are zero-context difflib change blocks, as `hunks.py` counts them. GNU `diff` on the same normalised files gives 14,273 hunks with `-U0` and 7,039 with the usual `-U3` (+39,374 / -36,771). The conclusion stands either way.] The original also cannot compile outside MSVC at all: `ad1bb82:src/Game/TYPES.H:11-13` is `#if defined(_WIN32) && defined(_M_IX86)` ... `#error Use of types.h for compiler other than Microsoft C`. And the SDL layer needs GoK's reworked headers. This is far past the brief's "hundreds of hunks" threshold. `ad1bb82` stays the licence and comparison base (diffstat in `src/PROVENANCE.md`).
 2. **So "unmodified" means "no Cataclysm changes", not "Relic 2003 behaviour".** The tree carries GoK's non-portability changes. The ones that matter for 1:1 work, verified in `src/`:
-   - The universe runs at 64 Hz by default (`Game/Universe.c:75` `UNIVERSE_UPDATE_RATE_SHIFT = 2`). `/vanilla` gives 16 Hz (`SDL/main.c:848,2195`).
+   - The universe runs at 64 Hz by default (`Game/Universe.c:75` `UNIVERSE_UPDATE_RATE_SHIFT = 2`). `/vanilla` gives 16 Hz (`SDL/main.c:848,2195`). [M2-R2 oracle: 16 Hz is now the default; GoK's 64 Hz only with the new `/gok64Hz` switch; docs/m2-r2-oracle.md "flags"]
    - Saves use the portable `0x10ad0029` format (`Game/SaveGame.h:16-22`).
    - `turboTimeCompressionFactor = 8` (`Game/Universe.c:102`).
    - The numerics differ: SSE, truncating float-to-int, and a millisecond task tick (`docs/hw1-port-lessons.md` A3, A7).
@@ -162,7 +162,7 @@ The start test prints `Invalid or unrecognised command line option: '/hwi-usage'
 
 ## Open points
 
-- **Fidelity flags.** meson's `release` is `-O3`, and the tree has `TreatAs*` pointer-pun sites without `-fno-strict-aliasing` (`docs/hw1-port-lessons.md` A5b). The determinism work (PLAN risk table) should pin `-O2 -fno-strict-aliasing` and no fast-math before the checksum oracle compares anything. Not changed here, to keep the build equal to GoK's.
+- **Fidelity flags.** meson's `release` is `-O3`, and the tree has `TreatAs*` pointer-pun sites without `-fno-strict-aliasing` (`docs/hw1-port-lessons.md` A5b). The determinism work (PLAN risk table) should pin `-O2 -fno-strict-aliasing` and no fast-math before the checksum oracle compares anything. Not changed here, to keep the build equal to GoK's. [M2-R2 oracle: done, see docs/m2-r2-oracle.md "flags".]
 - **Not attempted:** a Windows build (meson on Windows or a mingw cross build; no mingw-w64 is installed) and a 32-bit build.
 - `tools/bootstrap/` holds the measurement and import scripts so the lists can be regenerated. They read `reference/` and the `ad1bb82` export and write only where told.
 - The full clone `original/scratch-m2/gok-hist-bootstrap` (all GoK history) is available to other R1 items. This session could not run git in it: the harness refuses git commands that target paths in the main checkout.

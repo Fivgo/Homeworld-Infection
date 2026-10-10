@@ -25,3 +25,10 @@ option(
 	type: 'boolean',
 	value: true,
 )
+
+option(
+	'oracle',
+	description: 'Compile in the checksum-oracle stream (src/Game/OracleDump.c; /oracleDump, /oracleSelfTest; docs/m2-r2-oracle.md). It is inert unless one of those switches is given, so the default keeps it in the shipping binary, as the oracle design asks. false compiles it out.',
+	type: 'boolean',
+	value: true,
+)

@@ -100,6 +100,7 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 #include "Mesh.h"           // CAT: /catMeshLoadTest (port diagnostic)
+#include "OracleDump.h"     // HWI-ORACLE: gameStart exit record, /oracleSelfTest
 
 #include "main.h"
 #include "avi.h"
@@ -1993,6 +1994,11 @@ abortloading:
     cameraJoystickReset();
 
     gameIsRunning = TRUE;
+
+#if HWI_ORACLE
+    // HWI-ORACLE: 'E' + tick-0 'T' record of the state right after start/load (hook H7 samples gameStart's exit)
+    oracleEmitGameStart(loadfilename);
+#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -4288,6 +4294,16 @@ DONE_INTROS:
         utyGameQuit(NULL, NULL);
         return(NULL);
     }
+
+#if HWI_ORACLE
+    // HWI-ORACLE: /oracleSelfTest <ticks>: the oracle's scripted lockstep start (OracleDump.c), then quit
+    if (oracleSelfTestRequested())
+    {
+        oracleRunSelfTest();
+        utyGameQuit(NULL, NULL);
+        return(NULL);
+    }
+#endif
 
     // when we want to take debug screenshots directly start the singleplayer campaing
     if (debugScreenshots)

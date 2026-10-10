@@ -2073,9 +2073,11 @@ udword statsGetStatChecksum(void)
         shiptotals = crc32Compute((ubyte *)&universe.players[i].shiptotals, TOTAL_NUM_SHIPS*sizeof(sdword));
         intCheck += shiptotals;
 
-        // add the player's shipcount for each shipclass
-        classtotals = crc32Compute((ubyte *)&universe.players[i].shiptotals, NUM_CLASSES*sizeof(sdword));
-        intCheck += classtotals;
+        // CAT: one CRC only, over the 145-entry shiptotals (crc32Compute(player+0x30, 0x244) in statsGetStatChecksum
+        //      0x00525170); Relic's second CRC (meant for classtotals, it hashed shiptotals again) is gone. The exe
+        //      also adds Player +0x4 (resourceUnits), +0x2C (totalships), +0xC and +0x35C; the last two are kept as
+        //      HW1's HasTechnology / listoftopics.num until the stage-2 Player layout names them (UNVERIFIED).
+        classtotals = 0;
 
         // add the player's research information
         //intCheck += crc32Compute(&universe.players[i].researchinfo, sizeof(PlayerResearchInfo));

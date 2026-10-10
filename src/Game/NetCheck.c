@@ -10,6 +10,7 @@
 #include "Globals.h"
 #include "Memory.h"
 #include "NetCheck.h"
+#include "OracleDump.h"     // HWI-ORACLE: oracleEmitPacket at the end of netcheckShow (hook H2)
 #include "Randy.h"
 #include "SaveGame.h"
 #include "SpaceObj.h"
@@ -962,6 +963,11 @@ void netcheckShow(HWPacketHeader *packet)
 #endif
             fprintf(netlogfile,"Packet:%d Rand:%d Checksum:%f %d CDET:%d\n",packetnum,randcheck,univcheck,numShipsInChecksum,blobcheck);
     }
+
+#if HWI_ORACLE
+    // HWI-ORACLE: the 'P' record (hook H2 samples the same values on netcheckShow's exit)
+    oracleEmitPacket(packet, packetnum, randcheck, univcheck, blobcheck);
+#endif
 }
 
 

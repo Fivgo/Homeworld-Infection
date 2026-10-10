@@ -53,6 +53,7 @@
 #include "Tutor.h"
 #include "Tweak.h"
 #include "UnivUpdate.h"
+#include "OracleDump.h"     // HWI-ORACLE: ORACLE_UNIV_UPDATE at the 4 univUpdate call sites of universeUpdateTask (hook H1)
 #include "utility.h"
 
 #ifdef _MSC_VER
@@ -72,7 +73,9 @@ extern real32 GLOBAL_SHIP_SPEED_MODIFIER;
     Public Data:
 =============================================================================*/
 
-ubyte UNIVERSE_UPDATE_RATE_SHIFT = 2;
+// CAT: 16 Hz universe by default (universeUpdateTask 0x0053e460 calls univUpdate(0.0625f), push 0x3D800000 at
+//      0x0053e8a5, 0x0053e8db, 0x0053e9b5; user decision 2 of 2026-10-10). GoK defaults to 2 (64 Hz); /gok64Hz restores it.
+ubyte UNIVERSE_UPDATE_RATE_SHIFT = 0;
 
 Universe universe;
 AsteroidStaticInfo asteroidStaticInfos[NUM_ASTEROIDTYPES];
@@ -4689,7 +4692,7 @@ processtextures:
 
                         netCheck();
 
-                        if (univUpdate(UNIVERSE_UPDATE_PERIOD))
+                        if (ORACLE_UNIV_UPDATE(UNIVERSE_UPDATE_PERIOD))
                         {
                             goto alldone;
                         }
@@ -4702,7 +4705,7 @@ processtextures:
                         {
                             goto alldone;
                         }
-                        if (univUpdate(UNIVERSE_UPDATE_PERIOD))
+                        if (ORACLE_UNIV_UPDATE(UNIVERSE_UPDATE_PERIOD))
                         {
                             goto alldone;
                         }
@@ -4744,7 +4747,7 @@ processtextures:
                 {
                     for (repeatuniv=0;repeatuniv<(turboTimeCompressionFactor-1);repeatuniv++)
                     {
-                        if (univUpdate(UNIVERSE_UPDATE_PERIOD))
+                        if (ORACLE_UNIV_UPDATE(UNIVERSE_UPDATE_PERIOD))
                         {
                             goto alldone2;
                         }
@@ -4753,7 +4756,7 @@ processtextures:
 #endif
                     }
                 }
-                univUpdate(UNIVERSE_UPDATE_PERIOD);
+                ORACLE_UNIV_UPDATE(UNIVERSE_UPDATE_PERIOD);
 alldone2:;
 #ifdef HW_BUILD_FOR_DEBUGGING
                 if (ShowFancyFights) statsShowFancyFightUpdate();

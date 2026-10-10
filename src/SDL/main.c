@@ -61,6 +61,7 @@
 #include "Universe.h"
 #include "Mesh.h"           // CAT: /catMeshLoadTest (port diagnostic)
 #include "texreg.h"         // CAT: /catTexturesTest (port diagnostic)
+#include "OracleDump.h"     // HWI-ORACLE: /oracleDump, /oracleSelfTest
 
 #ifdef _WIN32
     #define strcasecmp _stricmp
@@ -282,6 +283,8 @@ bool32 pilotView = FALSE;
 
 bool32 debugScreenshots = FALSE;
 bool32 vanillaMode = FALSE;
+// CAT: the universe runs at 16 Hz by default (Universe.c UNIVERSE_UPDATE_RATE_SHIFT); GoK's 64 Hz only with /gok64Hz
+bool32 gok64HzMode = FALSE;
 extern ubyte UNIVERSE_UPDATE_RATE_SHIFT;
 
 /*=============================================================================
@@ -351,6 +354,28 @@ bool32 CatMeshLoadTestSet(char *string)
     catMeshSelfTestList[FL_Path - 1] = '\0';
     return TRUE;
 }
+
+#if HWI_ORACLE
+// HWI-ORACLE: /oracleDump <file>, /oracleSelfTest <ticks>, /oracleSelfTestPerturb <tick> (Game/OracleDump.c,
+// docs/m2-r2-oracle.md): checksum-oracle instrumentation, not a Cataclysm option
+bool32 OracleDumpSet(char *string)
+{
+    oracleSetDumpFile(string);
+    return TRUE;
+}
+
+bool32 OracleSelfTestSet(char *string)
+{
+    oracleSetSelfTest(string);
+    return TRUE;
+}
+
+bool32 OracleSelfTestPerturbSet(char *string)
+{
+    oracleSetSelfTestPerturb(string);
+    return TRUE;
+}
+#endif
 
 bool32 HeapSizeSet(char *string)
 {
@@ -874,7 +899,9 @@ commandoption commandOptions[] =
     entryVr("/pilotView",           pilotView, TRUE, " - enable pilot view.  Focus on single ship and hit Q to toggle."),
 
     entryVr("/debugScreenshots",    debugScreenshots, TRUE, " - take screenshots from all single-player missions for render debugging then exit."),
-    entryVr("/vanilla",              vanillaMode, TRUE, " - restore original engine behaviour (Universe update rate)."),
+    entryVr("/vanilla",              vanillaMode, TRUE, " - restore original engine behaviour (gun gimbals; the universe runs at the original 16 Hz unless /gok64Hz)."),
+    // CAT: 16 Hz universe by default (Universe.c); GoK's 64 Hz only behind this switch (user decision 2, docs/m2-r2-oracle.md)
+    entryVr("/gok64Hz",             gok64HzMode, TRUE, " - run the universe at 64 Hz (Gardens of Kadesh default) instead of the original 16 Hz."),
     // CAT: port diagnostic, not a Cataclysm option (Universe.c catShipStaticsRunSelfTest)
     entryVr("/catShipStaticsTest",  catShipStaticsSelfTest, TRUE, " - load the .shp of every ship type, log one line per file, then exit."),
     entryFnParam("/catShipStaticsSkip", CatShipStaticsSkipSet, " <n,n,...> - ship types /catShipStaticsTest leaves out."),
@@ -882,6 +909,12 @@ commandoption commandOptions[] =
     entryFnParam("/catMeshLoadTest",    CatMeshLoadTestSet, " <listfile> - load every mesh named in listfile, log one line per file, then exit."),
     // CAT: port diagnostic, not a Cataclysm option (texreg.c catTexturesRunSelfTest)
     entryVr("/catTexturesTest",     catTexturesSelfTest, TRUE, " - load textures.ll and register/load every texture it lists, then exit."),
+#if HWI_ORACLE
+    // HWI-ORACLE: checksum-oracle stream (Game/OracleDump.c, docs/m2-r2-oracle.md), not a Cataclysm option
+    entryFnParam("/oracleDump",     OracleDumpSet, " <file> - write the checksum-oracle stream (.hwo) to file."),
+    entryFnParam("/oracleSelfTest", OracleSelfTestSet, " <ticks> - run the oracle's scripted lockstep start for <ticks> universe ticks, then exit."),
+    entryFnParam("/oracleSelfTestPerturb", OracleSelfTestPerturbSet, " <tick> - oracle self-test only: draw one extra gamerand() at <tick>."),
+#endif
 
     END_COMMAND_OPTION,
 };
@@ -2225,6 +2258,12 @@ int main (int argc, char* argv[])
     if (ProcessCommandLine(argc, argv) != OKAY)
     {
         return 0;
+    }
+
+    // CAT: 16 Hz is the default (Universe.c); GoK's 64 Hz universe only on request, never together with /vanilla
+    if (gok64HzMode && !vanillaMode)
+    {
+        UNIVERSE_UPDATE_RATE_SHIFT = 2;
     }
 
     // set everything back to original behaviour

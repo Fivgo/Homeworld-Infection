@@ -5005,8 +5005,6 @@ real32 univGetChecksum(sdword *numShipsInChecksum)
 {
     Node *objnode = universe.ShipList.head;
     Ship *ship;
-    Derelict *derelict;
-    Resource *resource;
 #if BINNETLOG
     Bullet   *bullet;
 #endif
@@ -5205,72 +5203,16 @@ real32 univGetChecksum(sdword *numShipsInChecksum)
     }
 #endif
 
-    objnode = universe.DerelictList.head;
-    while (objnode != NULL)
-    {
-        derelict = (Derelict *)listGetStructOfNode(objnode);
-        if ((derelict->header.flags & SOF_Dead) == 0)
-        {
-            x += derelict->obj.posinfo.position.x;
-            y += derelict->obj.posinfo.position.y;
-            z += derelict->obj.posinfo.position.z;
-
-            if ((netlogfile) && (logEnable == LOG_VERBOSE))
-            {
-#if BINNETLOG
-                binnetDerelictInfo di;
-                di.header = makenetcheckHeader('D','D','D','D');
-                di.derelictid = derelict->derelictID.derelictNumber;
-                di.derelicttype = derelict->derelicttype;
-                di.health = derelict->targetable.health;
-                di.x = derelict->obj.posinfo.position.x; di.y = derelict->obj.posinfo.position.y; di.z = derelict->obj.posinfo.position.z;
-                di.vx = derelict->obj.posinfo.velocity.x; di.vy = derelict->obj.posinfo.velocity.y; di.vz = derelict->obj.posinfo.velocity.z;
-                fwrite(&di,sizeof(di),1,netlogfile);
-#else
-                fprintf(netlogfile,"  Derelict:%d %s (%f %f %f)\n",derelict->derelictID.derelictNumber,DerelictTypeToStr(derelict->derelicttype),
-                        derelict->obj.posinfo.position.x,derelict->obj.posinfo.position.y,derelict->obj.posinfo.position.z);
-#endif
-            }
-
-            countShips++;
-        }
-        objnode = objnode->next;
-    }
-
-    objnode = universe.ResourceList.head;
-    while (objnode != NULL)
-    {
-        resource = (Resource *)listGetStructOfNode(objnode);
-
-        x += resource->obj.posinfo.position.x;
-        y += resource->obj.posinfo.position.y;
-        z += resource->obj.posinfo.position.z;
-
-#if BINNETLOG
-        if ((netlogfile) && (logEnable == LOG_VERBOSE))
-        {
-        binnetResourceInfo ri;
-        ri.header = makenetcheckHeader('R','R','R','R');
-        ri.resourceid = resource->resourceID.resourceNumber;
-        ri.resourcetype = resource->header.objtype;
-        ri.resourceValue = resource->resourcevalue;
-        ri.health = resource->targetable.health;
-        ri.x = resource->obj.posinfo.position.x; ri.y = resource->obj.posinfo.position.y; ri.z = resource->obj.posinfo.position.z;
-        ri.vx = resource->obj.posinfo.velocity.x; ri.vy = resource->obj.posinfo.velocity.y; ri.vz = resource->obj.posinfo.velocity.z;
-        fwrite(&ri,sizeof(ri),1,netlogfile);
-        }
-#endif
-
-        countShips++;
-
-        objnode = objnode->next;
-    }
+    // CAT: the universe checksum sums live ships only (univGetChecksum 0x00549f50 has no derelict or resource loop;
+    //      docs/m2-checksum-oracle.md 2.2). GoK summed derelicts and all resources here in debug builds only.
 
 #endif
 
     *numShipsInChecksum = countShips;
 
-    return (x+y+z);
+    // CAT: fld z; fadd y; fadd x on the x87 stack, rounded to float once by the caller's fstp (univGetChecksum
+    //      0x0054a210, netcheckShow 0x004cc411); at 53-bit precision control this is the double sum below
+    return (real32)(((real64)z + (real64)y) + (real64)x);
 }
 
 /*-----------------------------------------------------------------------------

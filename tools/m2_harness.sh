@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures
+#   --mode sp|fe|statics|meshes|textures|oracle
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -14,7 +14,12 @@
 #                    cataclysm.big TOC, or the files of an /ignoreBigfiles --data tree) once at start-up, one
 #                    "meshtest:" log line per file (docs/m2-r2-mesh.md), and quits;
 #                    textures: /catTexturesTest, loads textures.ll and registers + loads every texture it lists in
-#                    batches (docs/m2-r2-startup.md), "texturetest:" summary lines, and quits
+#                    batches (docs/m2-r2-startup.md), "texturetest:" summary lines, and quits;
+#                    oracle: /oracleSelfTest <ticks>, the checksum oracle's scripted lockstep start (2 players, no
+#                    ships; docs/m2-r2-oracle.md), writes <run>/run.hwo and quits
+#   --oracle-ticks N oracle mode: universe ticks to run (default 512)
+#   --perturb T      oracle mode: one extra gamerand() before tick T (/oracleSelfTestPerturb; tests the compare tool)
+#   --hwo            any other mode: also write the oracle stream to <run>/run.hwo (/oracleDump)
 #   --timeout N      seconds (default 60)
 #   --driver D       offscreen (default; falls back to dummy if the offscreen driver cannot set a video mode) | dummy
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
@@ -68,13 +73,17 @@ fi
 label=${1:?usage: m2_harness.sh <label> [--mode sp|fe] [--timeout N] [--driver D] [--data DIR] [-- engine args]}
 shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
+oticks=512; perturb=""; hwo=0
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
 		--timeout) tmo=$2; shift ;;
 		--driver) drv=$2; shift ;;
 		--data) data=$2; shift ;;
-		--bin) bin=$2; shift ;;
+		--bin) bin=$(realpath -- "$2"); shift ;;
+		--oracle-ticks) oticks=$2; shift ;;
+		--perturb) perturb=$2; shift ;;
+		--hwo) hwo=1 ;;
 		--) shift; extra=("$@"); break ;;
 		*) echo "m2_harness: unknown option $1" >&2; exit 2 ;;
 	esac
@@ -88,9 +97,17 @@ rm -rf -- "$out"; mkdir -p "$out/settings"
 cp -r "$HARNESS/home-template" "$out/home"
 
 args=(/window /nodebugInt /logFileLoads /settingspath "$out/settings")
+# a release binary (tools/build.sh --release, the build oracle runs use) has no /logFileLoads switch and rejects it
+grep -q -a "/logFileLoads" "$bin" || args=(/window /nodebugInt /settingspath "$out/settings")
 [[ "$mode" == sp ]] && args+=(/debugScreenshots)
 [[ "$mode" == statics ]] && args+=(/catShipStaticsTest)
 [[ "$mode" == textures ]] && args+=(/catTexturesTest)
+if [[ "$mode" == oracle ]]; then
+	args+=(/oracleSelfTest "$oticks" /oracleDump "$out/run.hwo")
+	[[ -n "$perturb" ]] && args+=(/oracleSelfTestPerturb "$perturb")
+elif [[ $hwo -eq 1 ]]; then
+	args+=(/oracleDump "$out/run.hwo")
+fi
 if [[ "$mode" == meshes ]]; then
 	# every .geo/.peo the install has: the cataclysm.big TOC (tools/bigfile.py), or for an /ignoreBigfiles data tree
 	# the files themselves; paths as the archive names them (backslashes)
@@ -143,6 +160,7 @@ grep -q "debugScreenshots univUpdateCounter" "$L" && milestone="universe running
 grep -q "shipstatic: self-test done" "$L" && milestone="ship statics self-test done"
 grep -q "meshtest: self-test done" "$L" && milestone="mesh self-test done"
 grep -q "texturetest: self-test done" "$L" && milestone="texture self-test done"
+grep -q "oracle: self-test done" "$L" && milestone="oracle self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately, except the misaligned-access reports on the packed sound-bank and front-end
@@ -155,7 +173,7 @@ if [[ -z "$stop" ]]; then
 fi
 asan_n=$(cat "$out"/asan.* 2>/dev/null | grep -c "ERROR: AddressSanitizer")
 ubsan_kinds=$(cat "$L" "$out"/ubsan.* 2>/dev/null | grep "runtime error" | sed -E 's/^.*src\///; s/:[0-9]+:[0-9]+: runtime error:/: /; s/0x[0-9a-f]+/X/g' | sort | uniq -c | sort -rn | head -8)
-nload=$(wc -l < "$out/FileLoads.log" 2>/dev/null || echo 0)
+nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/null first: a release run has no FileLoads.log]
 
 {
 	echo "label=$label mode=$mode driver=$drv timeout=$tmo rc=$rc wall=${wall}s"
@@ -168,6 +186,7 @@ nload=$(wc -l < "$out/FileLoads.log" 2>/dev/null || echo 0)
 	echo "file loads: $nload; ASan errors: $asan_n"
 	echo "ship statics: $(grep -c 'shipstatic: loaded' "$L") loaded, $(grep -c 'shipstatic: .* not found' "$L") not found (disabled), $(grep -c 'shipstatic: other' "$L") other .shp; $(grep -h 'shipstatic: self-test done' "$L" | sed 's/^.*shipstatic: //' | head -n 1)"
 	[[ "$mode" == meshes ]] && echo "meshes: $(grep -c . "$out/meshes.list" 2>/dev/null) listed, $(grep -c 'meshtest: loaded' "$L") .geo/.peo loaded, $(grep -c 'meshtest: mad loaded' "$L") .mad loaded, $(grep 'meshtest: .*loaded' "$L" | grep -c -v ' bad=0$') with bad=; $(grep -h 'meshtest: self-test done' "$L" | sed 's/^.*meshtest: //' | head -n 1)"
+	[[ -f "$out/run.hwo" ]] && echo "oracle: $(grep -h 'oracle: self-test done' "$L" | sed 's/^.*oracle: //' | head -n 1); run.hwo $(stat -c %s "$out/run.hwo") bytes, sha256 $(sha256sum "$out/run.hwo" | cut -c1-16)"
 	[[ "$mode" == textures ]] && echo "textures: $(grep -h 'texturetest: listing lookups\|texturetest: self-test done' "$L" | sed 's/^.*texturetest: //' | paste -sd';')"
 	echo "engine glows:$(grep -c -i 'engineglows' "$out/FileLoads.log" 2>/dev/null) mesh/mex loads from misc\\EngineGlows in FileLoads.log"
 	echo "UBSan report kinds (count, site):"; echo "$ubsan_kinds"

@@ -42,8 +42,9 @@
 =============================================================================*/
 
 #define UNIVERSE_UPDATE_RATE_ORIG   16          // original update rate
-extern ubyte UNIVERSE_UPDATE_RATE_SHIFT;          // define multiplier in shift values (e.g. 2^n) to preserve original timing, set to 2 in universe.c
-                                                // original behaviour with 16 updates per second (shift=0) can be restored with /legacy command line option.
+extern ubyte UNIVERSE_UPDATE_RATE_SHIFT;          // define multiplier in shift values (e.g. 2^n) to preserve original timing
+                                                // CAT: 0 (16 updates per second, as Relic HW1 and Cataclysm) by default, see Universe.c;
+                                                // GoK's 2 (64 Hz) only with the /gok64Hz command line option.
 #define UNIVERSE_UPDATE_RATE_FACTOR (1<<UNIVERSE_UPDATE_RATE_SHIFT)
 #define UNIVERSE_UPDATE_RATE (UNIVERSE_UPDATE_RATE_ORIG*UNIVERSE_UPDATE_RATE_FACTOR)
 #define UNIVERSE_UPDATE_PERIOD (1.0f/(real32)UNIVERSE_UPDATE_RATE)

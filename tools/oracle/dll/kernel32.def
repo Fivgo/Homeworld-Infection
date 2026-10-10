@@ -1,0 +1,29 @@
+; kernel32 imports of hwi_oracle.dll and hwi_oracle_loader.exe (i386 __stdcall names, @n = argument bytes).
+; tools/oracle/dll/build.sh turns this into an import library with llvm-dlltool -k (the DLL exports undecorated names).
+LIBRARY kernel32.dll
+EXPORTS
+CloseHandle@4
+CreateFileA@28
+CreateProcessA@40
+CreateRemoteThread@28
+ExitProcess@4
+FlushFileBuffers@4
+FlushInstructionCache@12
+GetCommandLineA@0
+GetCurrentProcess@0
+GetEnvironmentVariableA@12
+GetExitCodeProcess@8
+GetExitCodeThread@8
+GetModuleFileNameA@12
+GetModuleHandleA@4
+GetProcAddress@8
+OutputDebugStringA@4
+ResumeThread@4
+TerminateProcess@8
+VirtualAlloc@16
+VirtualAllocEx@20
+VirtualFreeEx@16
+VirtualProtect@16
+WaitForSingleObject@8
+WriteFile@20
+WriteProcessMemory@20

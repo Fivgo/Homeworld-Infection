@@ -305,7 +305,7 @@ File header, 64 bytes:
 | 12 | u32 | options bitmask: bit0 `clock=virtual`, bit1 `rng0=split`, bit2 `determCompPlayer` |
 | 16 | u32 | exe `TimeDateStamp` (GOG) or `hwi-engine` git hash prefix |
 | 20 | u32 | exe `SizeOfImage` (GOG) or build flags hash |
-| 24 | u16 | x87 control word at attach (GOG) or MXCSR low 16 bits (`hwi-engine`) |
+| 24 | u16 | x87 control word at attach (GOG) or MXCSR low 16 bits (`hwi-engine`) [audit, M2-R2 oracle: MXCSR `& 0xFFC0`, the control bits only; bits 0-5 are sticky status flags, not control] |
 | 26 | u16 | ticks per second (16) |
 | 28 | char[36] | run tag (recording name), NUL-padded |
 

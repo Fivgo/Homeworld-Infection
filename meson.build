@@ -70,6 +70,22 @@ c_base_args = [
 	'-D_REENTRANT',
 ]
 
+# Determinism flags (M2-R2, user decision 2 of 2026-10-10; docs/m2-r2-oracle.md "flags"), pinned for every build
+# type before any checksum comparison: no type-based alias analysis, no fused multiply-add contraction (the exe
+# never fuses a*b+c), no fast-math. The optimisation level of the release build used for oracle runs, -O2, comes
+# from tools/build.sh --release. Anything that re-enables fast-math through -Dc_args is refused.
+determinism_args = [
+	'-fno-strict-aliasing',
+	'-ffp-contract=off',
+	'-fno-fast-math',
+]
+foreach a : get_option('c_args')
+	if a.contains('fast-math') or a == '-Ofast' or a.contains('fp-contract=fast') or a.contains('unsafe-math')
+		error('c_args ' + a + ' breaks the pinned floating-point flags (docs/m2-r2-oracle.md "flags")')
+	endif
+endforeach
+c_base_args += determinism_args
+
 # Existing issues in the legacy codebase (GoK's list, verbatim order).
 warning_suppressions = [
 	'-Wno-address',
@@ -152,9 +168,42 @@ endif
 c_base_args += ['-DHW_GAME_HOMEWORLD']
 
 if get_option('debug') and get_option('debug_asserts')
-	c_args = c_base_args + '-DHW_BUILD_FOR_DEBUGGING'
+	hw_build_define = '-DHW_BUILD_FOR_DEBUGGING'
 else
-	c_args = c_base_args + '-DHW_BUILD_FOR_DISTRIBUTION'
+	hw_build_define = '-DHW_BUILD_FOR_DISTRIBUTION'
+endif
+c_args = c_base_args + hw_build_define
+
+# Checksum oracle (docs/m2-r2-oracle.md): src/Game/OracleDump.c writes the .hwo stream; tools/oracle/hwo_format.h is
+# the record layout it shares with the GOG-side DLL; hwi_oracle_build.h (generated) identifies the build in the
+# stream header: the commit and an FNV-1a-32 of the flags that decide the floating-point results.
+inc_oracle = include_directories('.', 'tools/oracle')
+if get_option('oracle')
+	c_args += ['-DHWI_ORACLE=1']
+	git_hash = '0'
+	git_prog = find_program('git', required: false)
+	if git_prog.found()
+		git_rev = run_command(git_prog, '-C', meson.project_source_root(), 'rev-parse', '--short=8', 'HEAD', check: false)
+		if git_rev.returncode() == 0
+			git_hash = git_rev.stdout().strip()
+		endif
+	endif
+	oracle_flags = ' '.join([
+		cc.get_id(), cc.version(), host_machine.cpu_family(),
+		'optimization=' + get_option('optimization'),
+		'debug=' + get_option('debug').to_string(),
+		'sanitize=' + get_option('b_sanitize'),
+	] + determinism_args + get_option('c_args') + [hw_build_define])
+	oracle_conf = configuration_data()
+	oracle_conf.set('HWI_GIT_HASH', '0x' + git_hash + 'u')
+	oracle_conf.set_quoted('HWI_BUILD_FLAGS', oracle_flags)
+	configure_file(output: 'hwi_oracle_build.h', configuration: oracle_conf)
+	message('Oracle build identity: ' + git_hash + ' / ' + oracle_flags)
+	if not get_option('debug') and get_option('optimization') != '2'
+		warning('oracle reference streams are taken from the -O2 release build: use tools/build.sh --release')
+	endif
+else
+	c_args += ['-DHWI_ORACLE=0']
 endif
 
 if get_option('movies')
@@ -173,7 +222,7 @@ subdir('src')
 executable(
 	'hwi-engine',
 	src,
-	include_directories: inc_src,
+	include_directories: [inc_src, inc_oracle],
 	link_with: [lib_sdl],
 	dependencies: base_deps,
 	c_args: c_args,

@@ -3,7 +3,7 @@
 #
 # Usage: tools/build.sh [--debug|--release] [--clean] [-- extra meson setup args]
 #   --debug    (default) debug build with ASan/UBSan, HW_BUILD_FOR_DEBUGGING -> build/debug/
-#   --release  optimised build, no sanitizers, HW_BUILD_FOR_DISTRIBUTION     -> build/release/
+#   --release  optimised build (-O2, the build oracle runs use), no sanitizers, HW_BUILD_FOR_DISTRIBUTION -> build/release/
 #   --clean    delete that build directory first
 # Output: build/<type>/hwi-engine. build/ is gitignored.
 # Prerequisites (Ubuntu/Pop!_OS 24.04 package names): see docs/m2-r1-bootstrap.md.
@@ -32,7 +32,9 @@ fi
 
 case "$type" in
 	debug)   setup_args=(--buildtype=debug -Db_sanitize=address,undefined) ;;
-	release) setup_args=(--buildtype=release -Db_sanitize=none) ;;
+	# release: -O2 pinned for oracle runs (docs/m2-r2-oracle.md "flags"). Not --buildtype=release, which forces -O3 over
+	# -Doptimization; meson then labels the buildtype "debug" or "custom", but debug=false and optimization=2 are what count.
+	release) setup_args=(-Doptimization=2 -Ddebug=false -Db_sanitize=none) ;;
 esac
 
 if [[ -f "$builddir/build.ninja" ]]; then
