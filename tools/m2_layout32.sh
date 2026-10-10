@@ -8,7 +8,10 @@
 #   0x20, docs/m2-r2-mesh.md), texreg.h (texreg 0x34) and SoundStructs.h (SENTENCELUT header 0x10,
 #   docs/m2-r2-startup.md); since M2-R3 also AITeam.h (AlternativeShips 0xA8), Formation.h (MilitaryParadeCommand
 #   0x104), Randy.h (ranstream 0x14), SaveGame.h (SaveChunk 8) and SpaceObj.h's ClampInfo 0x38 / StaticCollInfo 0x70
-#   (docs/m2-r3-closeout-headers.md). Prints the ILP32 sizes on success.
+#   (docs/m2-r3-closeout-headers.md); since M2-R3 etg-particles also Particle.h (particle 0x100,
+#   point/mesh/billboard/electric-bolt system headers 0x1c/0x30/0x50/0x24, lens flare source within 0x40;
+#   docs/m2-r3-etg-particles.md) [audit: the etg-particles lines had split the closeout sentence]. Prints the ILP32
+#   sizes on success.
 #   No 32-bit libc is needed: an empty gnu/stubs-32.h shim is created in a temporary directory.
 # Exit status: 0 if every assert holds, 1 otherwise.
 set -euo pipefail
@@ -27,6 +30,7 @@ cat > "$tmp/layout.c" <<'EOF'
 #include "Formation.h"
 #include "Randy.h"
 #include "SaveGame.h"
+#include "Particle.h"
 char (*cat_ssi)[sizeof(ShipStaticInfo)] = 1;
 char (*cat_gs)[sizeof(GunStatic)] = 1;
 char (*cat_csh)[sizeof(CustShipHeader)] = 1;
@@ -39,6 +43,8 @@ char (*cat_alt)[sizeof(AlternativeShips)] = 1;
 char (*cat_mpc)[sizeof(MilitaryParadeCommand)] = 1;
 char (*cat_rs)[sizeof(ranstream)] = 1;
 char (*cat_sc)[sizeof(SaveChunk)] = 1;
+char (*cat_pt)[sizeof(particle)] = 1;
+char (*cat_eb)[sizeof(eboltSystem)] = 1;
 EOF
 cc=(clang -m32 -fsyntax-only -std=gnu11 -D_X86 -malign-double -DHW_GAME_HOMEWORLD -DHW_BUILD_FOR_DISTRIBUTION
 	-D_LINUX_FIX_ME -D_GNU_SOURCE -I"$root/src/Game" -I"$root/src/SDL" -I"$root/src/Ships"
@@ -51,5 +57,5 @@ if grep -q "error" <<<"$out"; then
 	exit 1
 fi
 "${cc[@]}" -Wint-conversion "$tmp/layout.c" 2>&1 | grep -o "'char (\*)\[[0-9]*\]'" | tr -d "'" |
-	paste -sd' ' | sed 's/^/ILP32 sizes (ShipStaticInfo GunStatic CustShipHeader polygonobject texreg SENTENCELUT ClampInfo StaticCollInfo AlternativeShips MilitaryParadeCommand ranstream SaveChunk): /'
+	paste -sd' ' | sed 's/^/ILP32 sizes (ShipStaticInfo GunStatic CustShipHeader polygonobject texreg SENTENCELUT ClampInfo StaticCollInfo AlternativeShips MilitaryParadeCommand ranstream SaveChunk particle eboltSystem): /'
 echo "m2_layout32: OK (all ILP32 layout asserts hold)"

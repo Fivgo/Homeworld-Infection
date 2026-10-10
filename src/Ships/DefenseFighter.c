@@ -308,7 +308,10 @@ void defensefightertargetbullet(Ship *ship, Bullet *bullettotarget)
         newEffect->rotatable.rotinfo.coordsys = bullettotarget->rotatable.rotinfo.coordsys;
         newEffect->obj.posinfo.position = bullettotarget->obj.posinfo.position; //start at same spot as bullet
         newEffect->obj.posinfo.velocity = bullettotarget->obj.posinfo.velocity; //start at same spot as bullet
-        etgEffectCodeStart(stat, newEffect, 1, intDamage);//get the code a-runnin'
+        {   // CAT: etgEffectCodeStart takes the parameters as an array (ETG.c)
+            etgarg damageArg = intDamage;
+            etgEffectCodeStart(stat, newEffect, 1, &damageArg);//get the code a-runnin'
+        }
         SET_MOVING_IMMOBILE(newEffect->obj.posinfo.isMoving);
         newEffect->obj.posinfo.haventCalculatedDist = TRUE;
         univUpdateObjRotInfo((SpaceObjRot *)newEffect);

@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle
+#   --mode sp|fe|statics|meshes|textures|oracle|etg
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -16,8 +16,14 @@
 #                    textures: /catTexturesTest, loads textures.ll and registers + loads every texture it lists in
 #                    batches (docs/m2-r2-startup.md), "texturetest:" summary lines, and quits;
 #                    oracle: /oracleSelfTest <ticks>, the checksum oracle's scripted lockstep start (2 players, no
-#                    ships; docs/m2-r2-oracle.md), writes <run>/run.hwo and quits
+#                    ships; docs/m2-r2-oracle.md), writes <run>/run.hwo and quits;
+#                    etg: /catEtgParseTest <run>/etg.list (M2-R3, docs/m2-r3-etg-particles.md): starts the effects
+#                    module (the exe's 8 etg\*.script files and every effect they load), then loads every other
+#                    etg\*.script and etg\*.ebg of the cataclysm.big TOC, "etgtest:" log lines; with --etg-ticks N > 0
+#                    also /catEtgEffectTest N (a sample of the loaded effects, created with the parameters the game
+#                    passes, run for N universe ticks); quits
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
+#   --etg-ticks N    etg mode: ticks of the effect self-test (default 128; 0 = parse test only)
 #   --perturb T      oracle mode: one extra gamerand() before tick T (/oracleSelfTestPerturb; tests the compare tool)
 #   --hwo            any other mode: also write the oracle stream to <run>/run.hwo (/oracleDump)
 #   --timeout N      seconds (default 60)
@@ -73,7 +79,7 @@ fi
 label=${1:?usage: m2_harness.sh <label> [--mode sp|fe] [--timeout N] [--driver D] [--data DIR] [-- engine args]}
 shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
-oticks=512; perturb=""; hwo=0
+oticks=512; perturb=""; hwo=0; etgticks=128
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -82,6 +88,7 @@ while [[ $# -gt 0 ]]; do
 		--data) data=$2; shift ;;
 		--bin) bin=$(realpath -- "$2"); shift ;;
 		--oracle-ticks) oticks=$2; shift ;;
+		--etg-ticks) etgticks=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
 		--) shift; extra=("$@"); break ;;
@@ -119,6 +126,19 @@ if [[ "$mode" == meshes ]]; then
 			| sort > "$out/meshes.list"
 	fi
 	args+=(/catMeshLoadTest "$out/meshes.list")
+fi
+if [[ "$mode" == etg ]]; then
+	# every etg\*.script and etg\*.ebg of the install (the cataclysm.big TOC; update.big has none), or of an
+	# /ignoreBigfiles data tree; the engine loads the exe's 8 scripts first, then the rest of the list
+	if [[ -e "$data/cataclysm.big" ]]; then
+		python3 "$root/tools/bigfile.py" list "$data/cataclysm.big" | awk -F'\t' 'NR > 1 {print $5}' \
+			| grep -i -E '^etg\\[^\\]*\.(script|ebg)$' | sort > "$out/etg.list"
+	else
+		(cd "$data" && find -L . -maxdepth 2 -type f \( -iname '*.script' -o -iname '*.ebg' \) -ipath './etg/*') \
+			| sed 's|^\./||; s|/|\\|g' | sort > "$out/etg.list"
+	fi
+	args+=(/catEtgParseTest "$out/etg.list")
+	[[ "$etgticks" -gt 0 ]] && args+=(/catEtgEffectTest "$etgticks")
 fi
 args+=("${extra[@]}")
 
@@ -164,17 +184,21 @@ grep -q "shipstatic: self-test done" "$L" && milestone="ship statics self-test d
 grep -q "meshtest: self-test done" "$L" && milestone="mesh self-test done"
 grep -q "texturetest: self-test done" "$L" && milestone="texture self-test done"
 grep -q "oracle: self-test done" "$L" && milestone="oracle self-test done"
+grep -q "etgtest: self-test done" "$L" && milestone="etg parse self-test done"
+grep -q "etgtest: effect self-test done" "$L" && milestone="etg effect self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately, except the misaligned-access reports on the packed sound-bank and front-end
 # structs that every run prints (GoK 64-bit artefacts, docs/m2-r1-data-deltas.md 5.4)
-stop=$(grep -h -E "Fatal error|Fatal Error|ERROR: AddressSanitizer|AddressSanitizer:DEADLYSIGNAL|Unable to open file|SUMMARY: AddressSanitizer|Assertion of" "$L" "$out"/asan.* 2>/dev/null | head -n 1)
+# [M2-R3 etg-particles: an ASan report can land in the ubsan.* log (UBSan's log_path wins when both sanitizers write,
+# the same as the LeakSanitizer report below); the stop and the ASan count read both logs]
+stop=$(grep -h -E "Fatal error|Fatal Error|ERROR: AddressSanitizer|AddressSanitizer:DEADLYSIGNAL|Unable to open file|SUMMARY: AddressSanitizer: [a-z-]+ |Assertion of" "$L" "$out"/asan.* "$out"/ubsan.* 2>/dev/null | grep -v "SUMMARY: AddressSanitizer: .* leaked" | head -n 1)
 ubsan1=$(grep -h "runtime error" "$L" "$out"/ubsan.* 2>/dev/null \
 	| grep -v -E "misaligned address .* type '(struct PATCH|struct fescreen|struct featom|struct fibfileheader)'" | head -n 1)
 if [[ -z "$stop" ]]; then
 	if [[ $rc -eq 124 || $rc -eq 137 ]]; then stop="none: still running at the ${tmo}s timeout"; else stop="none found in the log (rc=$rc)"; fi
 fi
-asan_n=$(cat "$out"/asan.* 2>/dev/null | grep -c "ERROR: AddressSanitizer")
+asan_n=$(cat "$out"/asan.* "$out"/ubsan.* 2>/dev/null | grep -c "ERROR: AddressSanitizer")
 leak_sum=$(cat "$out"/asan.* "$out"/ubsan.* 2>/dev/null | grep -h "SUMMARY: AddressSanitizer: .* leaked" | head -n 1)
 ubsan_kinds=$(cat "$L" "$out"/ubsan.* 2>/dev/null | grep "runtime error" | sed -E 's/^.*src\///; s/:[0-9]+:[0-9]+: runtime error:/: /; s/0x[0-9a-f]+/X/g' | sort | uniq -c | sort -rn | head -8)
 nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/null first: a release run has no FileLoads.log]
@@ -192,6 +216,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == meshes ]] && echo "meshes: $(grep -c . "$out/meshes.list" 2>/dev/null) listed, $(grep -c 'meshtest: loaded' "$L") .geo/.peo loaded, $(grep -c 'meshtest: mad loaded' "$L") .mad loaded, $(grep 'meshtest: .*loaded' "$L" | grep -c -v ' bad=0$') with bad=; $(grep -h 'meshtest: self-test done' "$L" | sed 's/^.*meshtest: //' | head -n 1)"
 	[[ -f "$out/run.hwo" ]] && echo "oracle: $(grep -h 'oracle: self-test done' "$L" | sed 's/^.*oracle: //' | head -n 1); run.hwo $(stat -c %s "$out/run.hwo") bytes, sha256 $(sha256sum "$out/run.hwo" | cut -c1-16)"
 	[[ "$mode" == textures ]] && echo "textures: $(grep -h 'texturetest: listing lookups\|texturetest: self-test done' "$L" | sed 's/^.*texturetest: //' | paste -sd';')"
+	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"
 	echo "engine glows:$(grep -c -i 'engineglows' "$out/FileLoads.log" 2>/dev/null) mesh/mex loads from misc\\EngineGlows in FileLoads.log"
 	echo "UBSan report kinds (count, site):"; echo "$ubsan_kinds"
 	echo "log tail:"; grep -v '^    #\|^ *$' "$L" | tail -n 8

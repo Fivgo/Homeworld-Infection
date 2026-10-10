@@ -8,6 +8,8 @@
 #ifndef ___PARTICLE_H
 #define ___PARTICLE_H
 
+#include <stddef.h>
+
 #include "Color.h"
 #include "Mesh.h"
 #include "SpaceObj.h"
@@ -32,7 +34,12 @@ void partFilter(bool32 on);
 #define PART_WORLDSPACE         0x4             //world space motion updating
 #define PART_WORLDSPACEVELOCITY 0x8             //if the particle is in worldspace, use it's velocity in local space for heading
 
-typedef enum {PART_POINTS, PART_CUBES, PART_LINES, PART_MESH, PART_BILLBOARD} particleType;
+// CAT: two new particle system types (partHeaderSize 0x004e25a0 and partCreationHelper 0x004e2150 know 7 types):
+//      5 = electric bolts (createEBolts, cat_etgCreateEBolts 0x00470420; 0x24-byte header with turbulance and
+//      segments, rendered by cat_partRenderUnk1System 0x004de880), 6 = lens flares (createLensFlares,
+//      cat_etgCreateLensFlares 0x00470480; point-system header, one lens flare source per particle). The names are
+//      ours; Ghidra and CET call them PART_UNK1/PART_UNK2.
+typedef enum {PART_POINTS, PART_CUBES, PART_LINES, PART_MESH, PART_BILLBOARD, PART_EBOLTS, PART_LENSFLARES} particleType;
 
 #define partTypeof(p)   ((pointSystem*)(p))->t
 #define partNumberof(p) ((pointSystem*)(p))->n
@@ -74,42 +81,70 @@ typedef struct
     udword    flags;        //LOOPSTART = 1, LOOP = 2
 } meshAnim;
 
+// CAT: a lens flare source (cat_rndLensFlareSourceAdd 0x0057baa0 / cat_rndLensFlareSourceRemove 0x0057ba90 keep them
+//      on one list, rendered by cat_rndLensFlaresRender 0x0057bec0). Each particle of a PART_LENSFLARES system owns
+//      one (partFillGenericParticles 0x004e0640 allocates 0x40 bytes, partUpdateSystem copies the particle position
+//      into it, cat_partSystemFreeAttachments 0x004e2500 removes and frees it). Fields after the position are named
+//      by their initial values only; their use is in the lens flare renderer (stage 3).
+typedef struct catlensflaresource
+{
+    vector position;                //+0x00 world position of the source
+    real32 brightness;              //+0x0c 1.0 at creation
+    ubyte  enabled;                 //+0x10 1 at creation
+    ubyte  state;                   //+0x11 1 at creation, 2 once on the list
+    ubyte  visible;                 //+0x12 1 at creation
+    ubyte  pad0;
+    udword unknown14;               //+0x14
+    udword visibility;              //+0x18 0 when added to the list
+    udword unknown1c[4];            //+0x1c
+    Node   link;                    //+0x2c link in the lens flare source list
+} catlensflaresource;
+
 //generic particle type.
 //this is way too big
+// CAT: Cataclysm's particle is 0x100 bytes (HW1 0xE0; every partModify* steps by 0x100). New: scaleY (+0x54, a second
+//      scale for X/Y-scaled sprites), lengthClamp (+0x70), turbulance (+0x74) and segments (+0x78) for electric
+//      bolts, lensFlare (+0x7c), effectVel (+0x98). Offsets in the comments are the exe's (ILP32), pinned below.
 typedef struct
 {
     //lifespan
-    real32 lifespan;
+    real32 lifespan;                //0x00
     real32 waitspan;        //this decs before lifespan
     //velocity
-    real32 velLOF;
+    real32 velLOF;                  //0x08
     real32 velR;
     real32 deltaVelLOF;
     real32 deltaVelR;
     //position
-    vector rvec;
+    vector rvec;                    //0x18
     vector position;        //next to icolor, better for interleaved vertex lists
     //appearance
-    real32 icolor[4];
-    real32 deltaColor[4];
-    real32 scale;
-    real32 deltaScale;
-    bool8  lit;
-    real32 illum;
+    real32 icolor[4];               //0x30
+    real32 deltaColor[4];           //0x40
+    real32 scale;                   //0x50 (CAT: X scale; modifyScaleX)
+    real32 scaleY;                  //0x54 CAT: Y scale (modifyScaleY; partModifyScale sets both)
+    real32 deltaScale;              //0x58
+    bool8  lit;                     //0x5c
+    real32 illum;                   //0x60
     real32 deltaIllum;
     //line-specifics
-    real32 length;
-    real32 deltaLength;
+    real32 length;                  //0x68
+    real32 deltaLength;             //0x6c
+    bool32 lengthClamp;             //0x70 CAT: length stops at 0 (modifyDeltaLength's 3rd argument; partUpdateSystem)
+    real32 turbulance;              //0x74 CAT: electric-bolt turbulance (setTurbulance)
+    uword  segments;                //0x78 CAT: electric-bolt segments (setSegments)
+    struct catlensflaresource *lensFlare;   //0x7c CAT: PART_LENSFLARES only
     //sprite-specifics
-    trhandle tex;
-    real32 rot;
+    trhandle tex;                   //0x80
+    real32 rot;                     //0x84
     real32 deltaRot;
 
     //worldspace particle stuff
     //render only uses position, so only
     //creationhelper and updatesystem need this
-    vector wVel;        //LOFvel + Rvel
-    vector wAccel;      //LOFaccel + Rvel
+    vector wVel;        //LOFvel + Rvel                     0x8c
+    vector effectVel;   //CAT: effect velocity at creation  0x98 (partFillGenericParticles, worldspace systems)
+    vector wAccel;      //LOFaccel + Rvel                   0xa4
 
     //color bias
     real32 bias[3];
@@ -132,8 +167,23 @@ typedef struct
     sbyte loopCount;
 
     //flags
-    udword flags;
+    udword flags;                   //0xfc
 } particle;
+#if defined(__i386__)
+// CAT: exe layout of a particle (tools/m2_layout32.sh evaluates these)
+_Static_assert(sizeof(particle) == 0x100, "CAT: particle is 0x100 bytes in the exe");
+_Static_assert(offsetof(particle, scaleY) == 0x54, "CAT: particle.scaleY at +0x54");
+_Static_assert(offsetof(particle, lengthClamp) == 0x70, "CAT: particle.lengthClamp at +0x70");
+_Static_assert(offsetof(particle, lensFlare) == 0x7c, "CAT: particle.lensFlare at +0x7c");
+_Static_assert(offsetof(particle, tex) == 0x80, "CAT: particle.tex at +0x80");
+_Static_assert(offsetof(particle, effectVel) == 0x98, "CAT: particle.effectVel at +0x98");
+_Static_assert(offsetof(particle, bias) == 0xb0, "CAT: particle.bias at +0xb0");
+_Static_assert(offsetof(particle, tstruct) == 0xbc, "CAT: particle.tstruct at +0xbc");
+_Static_assert(offsetof(particle, mesh) == 0xe4, "CAT: particle.mesh at +0xe4");
+_Static_assert(offsetof(particle, exponent) == 0xf4, "CAT: particle.exponent at +0xf4");
+_Static_assert(offsetof(particle, flags) == 0xfc, "CAT: particle.flags at +0xfc");
+_Static_assert(sizeof(catlensflaresource) == 0x3c, "CAT: lens flare source fits the exe's 0x40-byte allocation");
+#endif
 
 //common params to all particles in a point system
 typedef struct
@@ -206,11 +256,32 @@ typedef struct
     matrix* partMat;
 } billSystem;
 
+// CAT: header of an electric-bolt system (PART_EBOLTS; partCreationHelper 0x004e2150 case 5: the common point-system
+//      header, then pat.turbulance at +0x1c and pat.segments at +0x20; 0x24 bytes in all)
+typedef struct
+{
+    particleType t;
+    udword flags;
+    bool8 isAlive;
+    uword n;
+    real32 lastUpdated;             //task time it was last updated
+    real32 drag;
+    real32 ang, angDelta;
+    real32 turbulance;
+    uword  segments;
+} eboltSystem;
+
+#if defined(__i386__)
+_Static_assert(sizeof(pointSystem) == 0x1c, "CAT: point/cube/line/lens-flare header 0x1c (partHeaderSize)");
+_Static_assert(sizeof(meshSystem) == 0x30, "CAT: mesh system header 0x30 (partHeaderSize)");
+_Static_assert(sizeof(billSystem) == 0x50, "CAT: billboard system header 0x50 (partHeaderSize)");
+_Static_assert(sizeof(eboltSystem) == 0x24, "CAT: electric-bolt system header 0x24 (partHeaderSize)");
+#endif
+
 extern matrix partEffectOwnerSystem;
 extern vector partEffectOwnerPosition;
 extern color  partEffectColor;
 extern real32 partNLips;
-
 //functions
 void partStartup(void);
 void partShutdown(void);
@@ -223,82 +294,92 @@ psysPtr partCreateSystemWithDelta(particleType t, udword n, udword delta);
 psysPtr partCreateSphericalSystem(particleType t, udword n);
 psysPtr partCreateSphericalSystemWithDelta(particleType t, udword n, udword delta);
 udword partHeaderSize(psysPtr psys);
+// CAT: removes and frees the lens flare sources of a PART_LENSFLARES system (cat_partSystemFreeAttachments 0x004e2500;
+//      etgEffectDelete and etgDeleteEffectsOwnedBy call it before freeing a particle block)
+void cat_partSystemFreeAttachments(psysPtr psys);
 
+/*-----------------------------------------------------------------------------
+    CAT: ETG callables. Cataclysm's ETG calls every function of its function table with ONE pointer to an argument
+    array (etgFunctionCall 0x0046e7b0; ETG.h etgarg/etgcallable). These are those functions: args[0] is the first
+    argument as the script wrote it (a particle system pointer for the modify* family), a float sits in the low
+    4 bytes of its slot. They return 0 (the exe's are void; returning memsize makes the call through etgcallable
+    well-defined). Value-argument functions below them (partSetColor, partSetDrag, ...) are not in the table and keep
+    HW1's convention, as in the exe.
+-----------------------------------------------------------------------------*/
 //system modifiers
-void partModifyTumble(psysPtr psys, vector* t);
-void partModifyDeltaTumble(psysPtr psys, vector* dt);
-void partModifyExponent(psysPtr psys, real32 exponent);
-
-void partModifyDrag(psysPtr psys, real32 d);
-void partModifyMesh(psysPtr psys, meshdata *mesh);
-void partModifyLighting(psysPtr psys, bool32 lit);
-void partModifyIllum(psysPtr psys, real32 illum);
-void partModifyDeltaIllum(psysPtr psys, real32 deltaIllum);
-void partModifyTexture(psysPtr psys, trhandle tex,
-                       udword u0, udword v0, udword u1, udword v1);
-void partModifyScale(psysPtr psys, real32 s);
-void partModifyDeltaScale(psysPtr psys, real32 d);
-void partModifyDeltaLength(psysPtr psys, real32 d);
-void partModifyLifespan(psysPtr psys, real32 l);
-void partModifyLength(psysPtr psys, real32 l);
-void partModifyVelLOF(psysPtr psys, real32 v);
-void partModifyDeltaVelLOF(psysPtr psys, real32 d);
-void partModifyVelR(psysPtr psys, real32 v);
-void partModifyDeltaVelR(psysPtr psys, real32 d);
-void partModifyDeltaColorC(psysPtr psys, color c);
-void partModifyColorC(psysPtr psys, color c);
-void partModifyColor(psysPtr psys,
-                     real32 r, real32 g, real32 b, real32 a);
-void partModifyDeltaColor(psysPtr psys,
-                          real32 dr, real32 dg, real32 db, real32 da);
-void partModifyColorBias(psysPtr psys, real32 rb, real32 gb, real32 bb);
-void partModifyAddColor(psysPtr psys, color c);
+memsize partModifyTumble(memsize *args);            //psys, x, y, z (CAT: 0x004e25f0, MESH systems)
+memsize partModifyExponent(memsize *args);          //psys, exponent
+memsize partModifyMesh(memsize *args);              //psys, mesh
+memsize partModifyLighting(memsize *args);          //psys, lit
+memsize partModifyIllum(memsize *args);             //psys, illum
+memsize partModifyDeltaIllum(memsize *args);        //psys, deltaIllum
+memsize partModifyTexture(memsize *args);           //psys, tex, u0, v0, u1, v1
+memsize partModifyScale(memsize *args);             //psys, scale (CAT: X and Y scale)
+memsize cat_partModifyScaleX(memsize *args);        //psys, scale (CAT: 0x004e2b40)
+memsize cat_partModifyScaleY(memsize *args);        //psys, scale (CAT: 0x004e2bc0)
+memsize partModifyDeltaScale(memsize *args);        //psys, deltaScale
+memsize partModifyDeltaLength(memsize *args);       //psys, deltaLength, lengthClamp (CAT: 3rd argument)
+memsize partModifyLifespan(memsize *args);          //psys, lifespan
+memsize partModifyLength(memsize *args);            //psys, length
+memsize partModifyVelLOF(memsize *args);            //psys, velLOF
+memsize partModifyDeltaVelLOF(memsize *args);       //psys, deltaVelLOF
+memsize partModifyVelR(memsize *args);              //psys, velR
+memsize cat_partModifyRotAngle(memsize *args);      //psys, rot (CAT: 0x004e2fd0)
+memsize partModifyDeltaVelR(memsize *args);         //psys, deltaVelR
+memsize cat_partModifyAlphaValue(memsize *args);    //psys, alpha (CAT: 0x004e30d0)
+memsize partModifyColorC(memsize *args);            //psys, color
+memsize partModifyDeltaColor(memsize *args);        //psys, dr, dg, db, da
+memsize partModifyColorBias(memsize *args);         //psys, rb, gb, bb
+memsize partModifyAddColor(memsize *args);          //psys, color
 
 //for billboard systems
-void partModifyAnimation(psysPtr psys, void* tstruct);
-void partModifyFramerate(psysPtr psys, real32 rate);
+memsize partModifyAnimation(memsize *args);         //psys, tstruct
+memsize partModifyFramerate(memsize *args);         //psys, rate
+memsize partModifyMorph(memsize *args);             //psys, mstruct
+memsize partModifyMorphFramerate(memsize *args);    //psys, meshRate
 void partModifyLoopFlag(psysPtr psys, bool8 willLoop);
 void partModifyBillPosition(psysPtr psys, vector* pos);
 
 //flag modifiers
+void partModifyDrag(psysPtr psys, real32 d);
 void partModifySpecular(psysPtr psys, bool32 spec);
 void partModifyStipple(psysPtr psys, bool32 stip);
 void partModifyNoDepthWrite(psysPtr psys, bool32 noWrite);
 void partModifyAdditiveBlends(psysPtr psys, bool32 add);
-void partModifyPseudoBillboard(psysPtr psys, bool32 bill);
+memsize partModifyPseudoBillboard(memsize *args);   //psys, bill (also the table's modifyTrueBillboard, as HW1)
 void partModifyTrueBillboard(psysPtr psys, bool32 bill);
 //0 - normal, 1 - additive, 2 - stipple
-void partModifyAlphaMode(psysPtr psys, udword mode);
-void partModifyColorScheme(psysPtr psys, sdword colorScheme);
+memsize partModifyAlphaMode(memsize *args);         //psys, mode
+memsize partModifyColorScheme(memsize *args);       //psys, colorScheme
 
 //callbacks
 //delta values are assumed to be + or - the given delta,
 //unless the given is -ve which implies a strictly -ve delta
 
-void partSetIsWorldspace(bool8 isWorldspace);
-void partSetVelocityInWorldSpace(bool8 isLocalSpace);
+memsize partSetIsWorldspace(memsize *args);
+memsize partSetVelocityInWorldSpace(memsize *args);
 void partSetWorldVel(vector* worldVel);
 
 //these only make sense for billboard systems
 void partSetAnimation(void* tstruct);
 void partSetFramerate(real32 rate);
-void partSetLoopFlag(bool8 willLoop);
-void partSetStartFrame(udword frame);
+memsize partSetLoopFlag(memsize *args);
+memsize partSetStartFrame(memsize *args);
 
 void partSetCoordSys(matrix* mat);
 
-void partSetSlices(udword s);       //for circles
+memsize partSetSlices(memsize *args);       //for circles
 
 void partSetPosition(vector *pos);  //used by PART_BILLBOARD systems
 
-void partSetMeshdata(meshdata *m);  //used by PART_MESH systems
+memsize partSetMeshdata(memsize *args);     //used by PART_MESH systems (CAT: 0x004e3b80, setMesh's callable)
 //used by PART_BILLBOARD systems
-void partSetTrHandle(trhandle t, udword u0, udword v0, udword u1, udword v1);
+memsize partSetTrHandle(memsize *args);     //tex, u0, v0, u1, v1 (CAT: setTexture's callable)
 
 //PART_MESH systems use this, vals are angles in radians (default 0,0,0)
-void partSetTumble(real32 x, real32 y, real32 z);
+memsize partSetTumble(memsize *args);
 void partSetTumbleDist(real32 dx, real32 dy, real32 dz);
-void partSetDeltaTumble(real32 x, real32 y, real32 z);          //rads/s
+memsize partSetDeltaTumble(memsize *args);  //rads/s
 void partSetDeltaTumbleDist(real32 dx, real32 dy, real32 dz);
 
 void partSetExponent(real32 exponent);
@@ -307,74 +388,75 @@ void partSetExponent(real32 exponent);
 void partSetMorph(void* mstruct);
 void partSetMorphFramerate(real32 meshRate);
 void partSetMorphLoopCount(sdword loopCount);
-void partSetMeshStartFrame(real32 frame);
-void partModifyMorph(psysPtr psys, void* mstruct);
-void partModifyMorphFramerate(psysPtr psys, real32 meshRate);
+memsize partSetMeshStartFrame(memsize *args);
 
 void partSetDrag(real32 n);
-void partSetXYZScale(real32 x, real32 y, real32 z);
-void partSetScale(real32 n);        //scale refers to linewidth with PART_LINES
-void partSetScaleDist(real32 d);
-void partSetDeltaScale(real32 n);
-void partSetDeltaScaleDist(real32 d);
-void partSetOffsetLOF(real32 n);        //starting offset along lof
-void partSetOffsetR(real32 n);          //starting offset along r
-void partSetOffsetTheta(real32 n);      //ditto
-void partSetOffsetArray(vector *offsets);//array of offset positions
-void partSetDeltaLOF(real32 n);         //modifies offsetLOF (nothing to do with velocity)
-void partSetDeltaLOFDist(real32 n);
-void partSetDeltaR(real32 r, real32 t);
-void partSetDeltaRDist(real32 r, real32 t);
-void partSetVelLOF(real32 v);           //velocity along lof
-void partSetVelLOFDist(real32 d);       //distribution of vel along lof
-void partSetVelR(real32 v);             //velocity along r
-void partSetVelRDist(real32 d);         //velRDist
-void partSetDeltaVelLOF(real32 d);      //acceleration
-void partSetDeltaVelLOFDist(real32 d);
-void partSetDeltaVelR(real32 v);
-void partSetDeltaVelRDist(real32 v);
+memsize partSetXYZScale(memsize *args);
+memsize partSetScale(memsize *args);        //scale refers to linewidth with PART_LINES
+memsize partSetScaleDist(memsize *args);
+memsize partSetDeltaScale(memsize *args);
+memsize partSetDeltaScaleDist(memsize *args);
+memsize partSetOffsetLOF(memsize *args);        //starting offset along lof
+memsize partSetOffsetR(memsize *args);          //starting offset along r
+memsize partSetOffsetTheta(memsize *args);      //ditto
+memsize partSetOffsetArray(memsize *args);      //array of offset positions
+memsize cat_partSetRandomOffsetArray(memsize *args);    //CAT: 0x004e3cc0, random offsets in a box
+memsize partSetDeltaLOF(memsize *args);         //modifies offsetLOF (nothing to do with velocity)
+memsize partSetDeltaLOFDist(memsize *args);
+memsize partSetDeltaR(memsize *args);
+memsize partSetDeltaRDist(memsize *args);
+memsize partSetVelLOF(memsize *args);           //velocity along lof
+memsize partSetVelLOFDist(memsize *args);       //distribution of vel along lof
+memsize partSetVelR(memsize *args);             //velocity along r
+memsize partSetVelRDist(memsize *args);         //velRDist
+memsize partSetDeltaVelLOF(memsize *args);      //acceleration
+memsize partSetDeltaVelLOFDist(memsize *args);
+memsize partSetDeltaVelR(memsize *args);
+memsize partSetDeltaVelRDist(memsize *args);
 
 //angles in radians
-void partSetAng(real32 a);
-void partSetAngDist(real32 d);
-void partSetAngDelta(real32 d);
-void partSetAngDeltaDist(real32 d);
+memsize partSetAng(memsize *args);
+memsize partSetAngDist(memsize *args);
+memsize partSetAngDelta(memsize *args);
+memsize partSetAngDeltaDist(memsize *args);
 
 void partSetColorA(real32 r, real32 g, real32 b, real32 a);
 void partSetColor(real32 r, real32 g, real32 b);
-void partSetColorDist(real32 r, real32 g, real32 b);
-void partSetColorADist(real32 r, real32 g, real32 b, real32 a);
-void partSetDeltaColor(real32 r, real32 g, real32 b);
-void partSetDeltaColorDist(real32 r, real32 g, real32 b);
-void partSetDeltaColorA(real32 r, real32 g, real32 b, real32 a);
-void partSetDeltaColorADist(real32 r, real32 g, real32 b, real32 a);
+memsize partSetColorDist(memsize *args);
+memsize partSetColorADist(memsize *args);
+memsize partSetDeltaColor(memsize *args);
+memsize partSetDeltaColorDist(memsize *args);
+memsize partSetDeltaColorA(memsize *args);
+memsize partSetDeltaColorADist(memsize *args);
 
-void partSetLighting(bool32 l);
-void partSetIllum(real32 n);
-void partSetIllumDist(real32 n);
-void partSetDeltaIllum(real32 n);
-void partSetDeltaIllumDist(real32 n);
-void partSetLifespan(real32 t);
-void partSetLifespanDist(real32 d);
-void partSetWaitspan(real32 t);
-void partSetWaitspanDist(real32 d);
+memsize partSetLighting(memsize *args);
+memsize partSetIllum(memsize *args);
+memsize partSetIllumDist(memsize *args);
+memsize partSetDeltaIllum(memsize *args);
+memsize partSetDeltaIllumDist(memsize *args);
+memsize partSetLifespan(memsize *args);
+memsize partSetLifespanDist(memsize *args);
+memsize partSetWaitspan(memsize *args);
+memsize partSetWaitspanDist(memsize *args);
 
-void partSetLength(real32 l);
-void partSetLengthDist(real32 d);
-void partSetDeltaLength(real32 d);
-void partSetDeltaLengthDist(real32 d);
+memsize partSetLength(memsize *args);
+memsize cat_partSetTurbulance(memsize *args);   //CAT: 0x004e4210, electric bolts
+memsize cat_partSetSegments(memsize *args);     //CAT: 0x004e4220, electric bolts
+memsize partSetLengthDist(memsize *args);
+memsize partSetDeltaLength(memsize *args);
+memsize partSetDeltaLengthDist(memsize *args);
 
-void partSetColorBias(real32 rb, real32 gb, real32 bb);
-void partSetColorBiasDist(real32 drb, real32 dgb, real32 dbb);
+memsize partSetColorBias(memsize *args);
+memsize partSetColorBiasDist(memsize *args);
 
 void partSetSpecular(bool32 spec);
 void partSetStipple(bool32 stip);
 void partSetNoDepthWrite(bool32 noWrite);
 void partSetAdditiveBlends(bool32 add);
-void partSetPseudoBillboard(bool32 bill);
-void partSetTrueBillboard(bool32 bill);
-void partSetAlphaMode(udword mode);     //0 - normal, 1 - additive, 2 - stippled
-void partSetColorScheme(sdword colorScheme);
+memsize partSetPseudoBillboard(memsize *args);
+memsize partSetTrueBillboard(memsize *args);
+memsize partSetAlphaMode(memsize *args);        //0 - normal, 1 - additive, 2 - stippled
+memsize partSetColorScheme(memsize *args);
 
 void partCreateCallbackSet(void (*function)(sdword userValue, ubyte *userData), sdword userValue, ubyte *userData);
 

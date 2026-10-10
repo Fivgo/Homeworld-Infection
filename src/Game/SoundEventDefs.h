@@ -122,6 +122,10 @@
 #define Hit_Mine						(5 + Hit_Flag)
 #define Hit_IonCarving					(6 + Hit_Flag)
 
-#define NUM_HIT_EVENTS					(Hit_IonCarving - Hit_Flag + 1)
+// CAT: an eighth hit event (the exe's effectHandle table holds 8 entries: SEinitHandles 0x005209b0 fills
+//      0x00c0a120-0x00c0a180; defensefielddeflect.ebg plays (7 + Hit_Flag)); its name is not known
+#define Hit_Cat7						(7 + Hit_Flag)
+
+#define NUM_HIT_EVENTS					(Hit_Cat7 - Hit_Flag + 1)
 
 #endif

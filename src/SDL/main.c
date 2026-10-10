@@ -59,6 +59,7 @@
 #include "TitanNet.h"
 #include "utility.h"
 #include "Universe.h"
+#include "ETG.h"            // CAT: /catEtgParseTest, /catEtgEffectTest (port diagnostics)
 #include "Mesh.h"           // CAT: /catMeshLoadTest (port diagnostic)
 #include "texreg.h"         // CAT: /catTexturesTest (port diagnostic)
 #include "OracleDump.h"     // HWI-ORACLE: /oracleDump, /oracleSelfTest
@@ -352,6 +353,21 @@ bool32 CatMeshLoadTestSet(char *string)
 {
     strncpy(catMeshSelfTestList, string, FL_Path - 1);
     catMeshSelfTestList[FL_Path - 1] = '\0';
+    return TRUE;
+}
+
+// CAT: port diagnostic: /catEtgParseTest <listfile> (ETG.c catEtgRunParseSelfTest)
+bool32 CatEtgParseTestSet(char *string)
+{
+    strncpy(catEtgSelfTestList, string, PATH_MAX - 1);
+    catEtgSelfTestList[PATH_MAX - 1] = '\0';
+    return TRUE;
+}
+
+// CAT: port diagnostic: /catEtgEffectTest <ticks> (ETG.c catEtgRunEffectSelfTest, after the parse test)
+bool32 CatEtgEffectTestSet(char *string)
+{
+    catEtgEffectSelfTestTicks = (sdword)strtol(string, NULL, 10);
     return TRUE;
 }
 
@@ -907,6 +923,9 @@ commandoption commandOptions[] =
     entryFnParam("/catShipStaticsSkip", CatShipStaticsSkipSet, " <n,n,...> - ship types /catShipStaticsTest leaves out."),
     // CAT: port diagnostic, not a Cataclysm option (Mesh.c catMeshRunSelfTest)
     entryFnParam("/catMeshLoadTest",    CatMeshLoadTestSet, " <listfile> - load every mesh named in listfile, log one line per file, then exit."),
+    // CAT: port diagnostics, not Cataclysm options (ETG.c catEtgRunParseSelfTest, catEtgRunEffectSelfTest)
+    entryFnParam("/catEtgParseTest",    CatEtgParseTestSet, " <listfile> - start the effects module and load every etg script and effect named in listfile, then exit."),
+    entryFnParam("/catEtgEffectTest",   CatEtgEffectTestSet, " <ticks> - with /catEtgParseTest: create a sample of the effects and run them for <ticks> universe ticks."),
     // CAT: port diagnostic, not a Cataclysm option (texreg.c catTexturesRunSelfTest)
     entryVr("/catTexturesTest",     catTexturesSelfTest, TRUE, " - load textures.ll and register/load every texture it lists, then exit."),
 #if HWI_ORACLE

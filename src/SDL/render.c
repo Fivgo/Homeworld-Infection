@@ -48,6 +48,7 @@
 #include "NetCheck.h"
 #include "NIS.h"
 #include "Objectives.h"
+#include "Particle.h"           // CAT: lens flare sources (catlensflaresource)
 #include "PiePlate.h"
 #include "prim2d.h"
 #include "prim3d.h"
@@ -4656,4 +4657,36 @@ void rndFlush(void)
 #else
     SDL_GL_SwapWindow(sdlwindow);
 #endif
+}
+
+/*-----------------------------------------------------------------------------
+    CAT: lens flare source list (new in Cataclysm). The exe keeps every source on one list at 0x00b37880;
+    cat_rndLensFlaresRender 0x0057bec0 (stage 3, not ported yet) walks it.
+-----------------------------------------------------------------------------*/
+LinkedList catRndLensFlareSourceList;
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndLensFlareSourceAdd
+    Description : CAT: new (0x0057baa0). Puts a lens flare source on the list, visibility 0, state 2.
+    Inputs      : source - source to add (owned by a PART_LENSFLARES particle)
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_rndLensFlareSourceAdd(struct catlensflaresource *source)
+{
+    listAddNode(&catRndLensFlareSourceList, &source->link, source);
+    source->visibility = 0;
+    source->state = 2;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndLensFlareSourceRemove
+    Description : CAT: new (0x0057ba90). Takes a lens flare source off the list.
+    Inputs      : source - source to remove
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_rndLensFlareSourceRemove(struct catlensflaresource *source)
+{
+    listRemoveNode(&source->link);
 }

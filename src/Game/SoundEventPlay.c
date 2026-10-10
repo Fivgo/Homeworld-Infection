@@ -393,9 +393,9 @@ sdword soundEventPlay(void *object, sdword event, Gun *gun)
     Outputs     :
     Return      :   handle to the sound, this can be used to turn off the sound later
 ----------------------------------------------------------------------------*/
-sdword soundEffect(void *effect, sdword event)
+memsize soundEffect(memsize *args)     // CAT: an ETG callable (0x005216b0), args[0] effect, args[1] event
 {
-    return (soundEventPlay(effect, event, NULL));
+    return ((udword)soundEventPlay((void *)args[0], (sdword)args[1], NULL));
 }
 
 

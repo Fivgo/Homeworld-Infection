@@ -68,9 +68,13 @@ ubyte *partCreateUserData = NULL;
 sdword partAdvanceMeshMorph(meshSystem* psys, particle* p);
 meshdata* partMeshNextMesh(meshSystem* psys, particle* p);
 
+// CAT: the exe's particle template is 0x1C8 bytes at 0x00a50410 (partSetDefaults 0x004dc3a0 copies 0x72 dwords from
+//      0x0088d300). New against HW1: effectVelocity (+0x0c, replaces HW1's retained partEffectVelocity pointer;
+//      partSetWorldVel 0x004e3a00 copies the vector into both), lengthClamp/turbulance/segments (+0xa4..+0xac).
 typedef struct
 {
     vector  worldVel;
+    vector  effectVelocity;     //CAT: velocity of the effect that creates the particles (copied into particle.effectVel)
     //misc
     udword  flags;
     real32  drag;
@@ -106,6 +110,9 @@ typedef struct
     real32  lengthDist;
     real32  deltaLength;
     real32  deltaLengthDist;
+    bool32  lengthClamp;        //CAT: +0xa4, copied into particle.lengthClamp; partSetDeltaLength clears it
+    real32  turbulance;         //CAT: +0xa8, electric bolts (setTurbulance)
+    uword   segments;           //CAT: +0xac, electric bolts (setSegments)
     //appearance
     real32  icolor[4];             // RGBA
     real32  colorDist[4];
@@ -165,6 +172,7 @@ typedef struct
 particleAttribs defaultParticleAttribs =
 {
     {0.0f, 0.0f, 0.0f}, //worldVel
+    {0.0f, 0.0f, 0.0f}, //CAT: effectVelocity
     0,                  //flags.
     1.0f,               //drag
     5.0f,               //scale [3]
@@ -198,6 +206,9 @@ particleAttribs defaultParticleAttribs =
     0.0f,               //lengthDist
     0.0f,               //deltaLength
     0.0f,               //deltaLengthDist
+    FALSE,              //CAT: lengthClamp
+    0.8f,               //CAT: turbulance (exe default 0.8, 0x0088d3a8) [audit: was 0x0088d3b8]
+    16,                 //CAT: segments (exe default 16, 0x0088d3ac) [audit: was 0x0088d3bc]
 
     {1.0f, 1.0f, 1.0f, 1.0f},       //icolor
     {0.0f, 0.0f, 0.0f, 0.0f},       //colorDist
@@ -334,7 +345,8 @@ void partSetDefaults(void)
 static hmatrix particleHMatrix;
 static matrix  shiprotmatrix;
 static vector  shipposition;
-static vector  *partEffectVelocity;              //retained pointer to velocity of effect which spawned said particles
+// CAT: HW1 kept a pointer to the creating effect's velocity here (partEffectVelocity); Cataclysm copies the vector into
+//      pat.effectVelocity and every particle (particle.effectVel), and the renderers read the particle's copy
 
 matrix partEffectOwnerSystem;
 vector partEffectOwnerPosition;
@@ -828,7 +840,9 @@ udword partRenderBillSystem(udword n, particle* p, udword flags,
             cosTheta = (real32)cos((real64)p->rot);
             sinTheta = (real32)sin((real64)p->rot);
 
-            sx = sy = p->scale * 0.5f;
+            // CAT: separate X and Y scales (partRenderBillSystem 0x004dcbf7: scale * 0.5 and scaleY * 0.5)
+            sx = p->scale * 0.5f;
+            sy = p->scaleY * 0.5f;
 
             if (p->rot == 0.0f)
             {
@@ -1027,7 +1041,7 @@ void calcPseudoBillboardMatrixWorld(matrix* mat, vector* pos, particle* p, meshS
     velocity = p->wVel;
     if (!bitTest(meshPart->flags, PART_WORLDSPACEVELOCITY))
     {
-        vecSub(velocity, velocity, *partEffectVelocity);
+        vecSub(velocity, velocity, p->effectVel);       // CAT: the particle keeps the effect velocity (exe [esi+0x98], 0x004dd69a/0x004dd890/0x004ddbd0)
     }
     if (velocity.x == 0.0f && velocity.y == 0.0f && velocity.z == 0.0f)
     {
@@ -1085,7 +1099,7 @@ void calcPseudoBillboardMatrixNotWorld(matrix* mat, vector* pos, particle* p, me
     vecScalarMultiply(velocity, p->rvec, p->velR);
     if (!bitTest(meshPart->flags, PART_WORLDSPACEVELOCITY))
     {
-        vecSub(velocity, velocity, *partEffectVelocity);
+        vecSub(velocity, velocity, p->effectVel);       // CAT: the particle keeps the effect velocity (exe [esi+0x98], 0x004dd69a/0x004dd890/0x004ddbd0)
     }
     if (velocity.x == 0.0f && velocity.y == 0.0f && velocity.z == 0.0f)
     {
@@ -1179,7 +1193,7 @@ void partMeshOrient(particle* p, bool32 bRescaleNormal, meshSystem* meshPart)
             velocity = p->wVel;
             if (!bitTest(meshPart->flags, PART_WORLDSPACEVELOCITY))
             {
-                vecSub(velocity, velocity, *partEffectVelocity);
+                vecSub(velocity, velocity, p->effectVel);       // CAT: the particle keeps the effect velocity (exe [esi+0x98], 0x004dd69a/0x004dd890/0x004ddbd0)
             }
             if (velocity.x == 0.0f && velocity.y == 0.0f && velocity.z == 0.0f)
             {
@@ -1709,6 +1723,113 @@ udword partRenderPointSystem(udword n, particle *p, udword flags)
     Outputs     : sets psys->isAlive to FALSE if no particle is left alive
     Return      :
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : cat_partRenderEBoltSystem
+    Description : CAT: new (cat_partRenderUnk1System 0x004de880). Renders an electric-bolt system: each particle is
+                  a line strip of p->segments segments along its direction (wVel for worldspace systems, rvec * velR
+                  + velLOF otherwise), each segment p->length / p->segments long; every inner vertex is moved by a
+                  random offset in [-a, a] per axis, a = |turbulance * step| / 2, drawn from RNG stream 0 (the exe's
+                  ranRandomFn(0) at 0x004decf6). Line width is p->scale.
+    Inputs      : n - number of particles
+                  p - pointer to first particle
+                  flags - system flags
+    Outputs     :
+    Return      : number of live particles; kill the system if 0
+----------------------------------------------------------------------------*/
+udword cat_partRenderEBoltSystem(udword n, particle *p, udword flags)
+{
+    udword i, hits = 0;
+    sdword j;
+    bool32 alpha, texEnabled, lightEnabled, additive;
+    vector step, pos, vertex, t;
+    real32 amplitude, low, scale;
+
+    glPushAttrib(GL_LINE_BIT);
+    alpha = bitTest(flags, PART_ALPHA) ? TRUE : FALSE;
+    texEnabled = rndTextureEnable(FALSE);
+    lightEnabled = rndLightingEnable(FALSE);
+    additive = rndAdditiveBlends(p->flags & PART_ADDITIVE);    //the first particle's blend mode for all
+
+    for (i = 0; i < n; i++, p++)
+    {
+        if (p->lifespan < 0.0f)
+        {
+            continue;
+        }
+        hits++;
+        if (p->waitspan > 0.0f)
+        {
+            continue;
+        }
+        //direction of the bolt
+        if (bitTest(flags, PART_WORLDSPACE))
+        {
+            step = p->wVel;
+            vecNormalize(&step);
+            if (isnan((double)step.x) || isnan((double)step.y) || isnan((double)step.z) ||
+                (ABS(step.x) < REALlySmall && ABS(step.y) <= REALlySmall && ABS(step.z) <= REALlySmall))
+            {
+                step.z = 1.0f;
+            }
+        }
+        else
+        {
+            step = p->rvec;
+            vecMultiplyByScalar(step, p->velR);
+            step.z += p->velLOF;
+            if (isnan((double)step.x) || isnan((double)step.y) || isnan((double)step.z) ||
+                (ABS(step.x) < REALlySmall && ABS(step.y) <= REALlySmall && ABS(step.z) <= REALlySmall))
+            {
+                step.z = 1.0f;
+            }
+            vecNormalize(&step);
+        }
+        if (!isnan((double)(p->length / (real32)p->segments)))
+        {                                                   //one segment's worth of the bolt
+            vecMultiplyByScalar(step, p->length / (real32)p->segments);
+        }
+        //jitter amplitude
+        t.x = p->turbulance * step.x;
+        t.y = p->turbulance * step.y;
+        t.z = p->turbulance * step.z;
+        amplitude = fsqrt(t.x * t.x + t.y * t.y + t.z * t.z) * 0.5f;
+
+        glBegin(GL_LINE_STRIP);
+        glLineWidth(p->scale);
+        if (alpha)
+        {
+            glColor4f(p->icolor[0], p->icolor[1], p->icolor[2], p->icolor[3]);
+        }
+        else
+        {
+            glColor3f(p->icolor[0], p->icolor[1], p->icolor[2]);
+        }
+        pos = p->position;
+        glVertex3f(pos.x, pos.y, pos.z);
+        for (j = 0; j < (sdword)p->segments; j++)
+        {
+            vecAddTo(pos, step);
+            vertex = pos;
+            if (j < (sdword)p->segments - 1)
+            {                                               //every vertex but the end point jitters
+                low = -amplitude;
+                scale = (amplitude - low) * (1.0f / 4294967296.0f);
+                vertex.x = (real32)((long double)ranRandom(RANDOM_STREAM_0) * scale + low + pos.x);
+                vertex.y = (real32)((long double)ranRandom(RANDOM_STREAM_0) * scale + low + pos.y);
+                vertex.z = (real32)((long double)ranRandom(RANDOM_STREAM_0) * scale + low + pos.z);
+            }
+            glVertex3f(vertex.x, vertex.y, vertex.z);
+        }
+        glEnd();
+    }
+
+    rndLightingEnable(lightEnabled);
+    rndTextureEnable(texEnabled);
+    rndAdditiveBlends(additive);
+    glPopAttrib();
+    return hits;
+}
+
 void partRenderSystem(psysPtr psys)
 {
     pointSystem *pp;
@@ -1768,6 +1889,20 @@ void partRenderSystem(psysPtr psys)
 
     case PART_POINTS:
         hits = partRenderPointSystem(pp->n, p, pp->flags);
+        break;
+
+    case PART_EBOLTS:                                       // CAT: partRenderSystem 0x004df3b2
+        hits = cat_partRenderEBoltSystem(pp->n, p, pp->flags);
+        break;
+
+    case PART_LENSFLARES:
+        // CAT: nothing is drawn here (the lens flare renderer draws the sources); the first particle's source is
+        //      marked (state 0) and the system stays alive (0x004df3c5)
+        if (p->lensFlare != NULL)
+        {
+            p->lensFlare->state = 0;
+        }
+        hits = 1;
         break;
 
     default:
@@ -2150,12 +2285,18 @@ void partSetTexFromAnimation(psysPtr bsys, particle* part)
 {
     texAnim* animblock;
     texAnim* frame;
+    memsize args[6];
 
     animblock = (texAnim*)part->tstruct;
     frame = animblock + (sdword)part->currentFrame;
-    partModifyTexture(bsys, frame->tex,
-                      (udword)frame->uv[0][0], (udword)frame->uv[0][1],
-                      (udword)frame->uv[1][0], (udword)frame->uv[1][1]);
+    // CAT: partModifyTexture takes the ETG argument array (partUpdateSystem 0x004dfbf9 builds it on its stack)
+    args[0] = (memsize)bsys;
+    args[1] = (memsize)frame->tex;
+    args[2] = (memsize)frame->uv[0][0];
+    args[3] = (memsize)frame->uv[0][1];
+    args[4] = (memsize)frame->uv[1][0];
+    args[5] = (memsize)frame->uv[1][1];
+    partModifyTexture(args);
 }
 
 /*-----------------------------------------------------------------------------
@@ -2276,6 +2417,11 @@ bool8 partUpdateSystem(psysPtr psys, real32 dt, vector* velvec)
             {
                 p->length = 1.0f;
             }
+            // CAT: a clamped length stops at zero (partUpdateSystem 0x004dfdb5)
+            if (p->lengthClamp && p->length < 0.0f)
+            {
+                p->length = 0.0f;
+            }
         }
 
         //kinematics
@@ -2319,6 +2465,12 @@ bool8 partUpdateSystem(psysPtr psys, real32 dt, vector* velvec)
             }
         }
 
+        // CAT: a lens flare source follows its particle (0x004dffaa)
+        if (p->lensFlare != NULL)
+        {
+            p->lensFlare->position = p->position;
+        }
+
         //appearance
         if (p->deltaScale != 0.0f)
         {                                                   //scale the particle
@@ -2326,6 +2478,12 @@ bool8 partUpdateSystem(psysPtr psys, real32 dt, vector* velvec)
             if (p->scale < 0.0f)
             {                                               //clamp at zero
                 p->scale = 0.0f;
+            }
+            // CAT: the Y scale grows the same way (0x004dfff1)
+            p->scaleY += dt * p->deltaScale;
+            if (p->scaleY < 0.0f)
+            {
+                p->scaleY = 0.0f;
             }
         }
 
@@ -2582,6 +2740,7 @@ void partFillGenericParticles(udword n, psysPtr psys,
         p->velR = partRealDist(pat.velR, pat.velRDist);
         //appearance
         p->scale = partRealDist(pat.scale, pat.scaleDist);
+        p->scaleY = p->scale;                               // CAT: both scales start equal (0x004e0cea fst/fstp +0x50/+0x54)
         p->deltaScale = partRealDist(pat.deltaScale, pat.deltaScaleDist);
         if (alpha)
         {
@@ -2610,6 +2769,24 @@ void partFillGenericParticles(udword n, psysPtr psys,
         //line-specifics
         p->length = partRealDist(pat.length, pat.lengthDist);
         p->deltaLength = partRealDist(pat.deltaLength, pat.deltaLengthDist);
+        // CAT: new particle fields copied from the template (partFillGenericParticles 0x004e175c-0x004e17bd)
+        p->lengthClamp = pat.lengthClamp;
+        p->turbulance = pat.turbulance;
+        p->segments = pat.segments;
+        if (partTypeof(psys) == PART_LENSFLARES)
+        {                                                   //each lens-flare particle owns a lens flare source
+            p->lensFlare = memAlloc(sizeof(catlensflaresource), "LensFlareSrc", Pyrophoric);  //exe: 0x40 bytes, flags 4 (0x004e1789)
+            memset(p->lensFlare, 0, sizeof(catlensflaresource));   //HWI-FIX: the exe leaves the unset fields as allocated
+            p->lensFlare->enabled = 1;
+            p->lensFlare->brightness = 1.0f;
+            p->lensFlare->state = 1;
+            p->lensFlare->visible = 1;
+            cat_rndLensFlareSourceAdd(p->lensFlare);
+        }
+        else
+        {
+            p->lensFlare = NULL;
+        }
 
         p->bias[0] = partRealDist(pat.rbias, pat.rbiasDist);
         p->bias[1] = partRealDist(pat.gbias, pat.gbiasDist);
@@ -2681,6 +2858,7 @@ void partFillGenericParticles(udword n, psysPtr psys,
             matMultiplyMatByVec(&newVector, &coordSys, &velVec);
             vecAddTo(newVector, pat.worldVel);
             p->wVel = newVector;
+            p->effectVel = pat.effectVelocity;              // CAT: 0x004e1fd1, the effect's velocity at creation
             //transform acceleration
             matMultiplyMatByVec(&newVector, &coordSys, &accelVec);
             p->wAccel = newVector;
@@ -2688,6 +2866,13 @@ void partFillGenericParticles(udword n, psysPtr psys,
             matMultiplyMatByVec(&newVector, &coordSys, &p->rvec);
 
             vecNormalize(&p->rvec);
+        }
+        else
+        {
+            // HWI-FIX: the exe writes effectVel only for worldspace systems, but its non-worldspace pseudo-billboard
+            //          renderer (calcPseudoBillboardMatrixNotWorld 0x004dd890) reads it; start it at zero instead of
+            //          leaving the allocation's previous contents there
+            vecZeroVector(p->effectVel);
         }
     }
     partCreateCallback = NULL;
@@ -2806,6 +2991,42 @@ psysPtr partCreationHelper(particleType t, udword n, udword dist)
         point->angDelta = pat.angDelta;
         partFillGenericParticles(n, p, sizeof(pointSystem), dist, isWorldspace);
         break;
+    case PART_EBOLTS:
+        // CAT: electric bolts (partCreationHelper 0x004e2150 case 5): the point-system header plus the template's
+        //      turbulance and segments
+        {
+            eboltSystem *ebolt;
+            len = sizeof(eboltSystem) + n*sizeof(particle);
+            p = memAlloc(len, "ps(partsys)", Pyrophoric);
+            ebolt = (eboltSystem*)p;
+            ebolt->t = t;
+            ebolt->n = (uword)n;
+            ebolt->lastUpdated = universe.totaltimeelapsed;
+            ebolt->drag = pat.drag;
+            ebolt->isAlive = TRUE;
+            ebolt->flags = pat.flags;
+            ebolt->ang = pat.ang;
+            ebolt->angDelta = pat.angDelta;
+            ebolt->turbulance = pat.turbulance;
+            ebolt->segments = pat.segments;
+            partFillGenericParticles(n, p, sizeof(eboltSystem), dist, isWorldspace);
+        }
+        break;
+    case PART_LENSFLARES:
+        // CAT: lens flares (case 6): a point-system header; partFillGenericParticles gives every particle a source
+        len = sizeof(pointSystem) + n*sizeof(particle);
+        p = memAlloc(len, "ps(partsys)", Pyrophoric);
+        point = (pointSystem*)p;
+        point->t = t;
+        point->n = (uword)n;
+        point->lastUpdated = universe.totaltimeelapsed;
+        point->drag = pat.drag;
+        point->isAlive = TRUE;
+        point->flags = pat.flags;
+        point->ang = pat.ang;
+        point->angDelta = pat.angDelta;
+        partFillGenericParticles(n, p, sizeof(pointSystem), dist, isWorldspace);
+        break;
     default:
 #if PART_Verbose > 0
         dbgMessagef("unknown particle system type %d", (udword)t);
@@ -2869,14 +3090,57 @@ udword partHeaderSize(psysPtr psys)
         return sizeof(meshSystem);
     case PART_BILLBOARD:
         return sizeof(billSystem);
+    case PART_EBOLTS:                                       // CAT: partHeaderSize 0x004e25a0 case 5 (0x24)
+        return sizeof(eboltSystem);
+    case PART_LENSFLARES:                                   // CAT: case 6 (0x1c)
+        return sizeof(pointSystem);
     default:
         return 0;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_partSystemFreeAttachments
+    Description : CAT: new (0x004e2500). Removes the lens flare source of every particle of a PART_LENSFLARES
+                  system from the lens flare list and frees it; other systems have no attachments.
+    Inputs      : psys - particle system about to be freed
+    Outputs     : particle.lensFlare cleared
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_partSystemFreeAttachments(psysPtr psys)
+{
+    udword i;
+    particle *p;
+
+    for (i = 0; i < partNumberof(psys); i++)
+    {
+        p = (particle*)(psys + partHeaderSize(psys)) + i;
+        if (partTypeof(psys) == PART_LENSFLARES)
+        {
+            if (p->lensFlare != NULL)
+            {
+                cat_rndLensFlareSourceRemove(p->lensFlare);
+                memFree(p->lensFlare);
+            }
+            p->lensFlare = NULL;
+        }
     }
 }
 
 /*============================
   modifiers
  ============================*/
+/*-----------------------------------------------------------------------------
+    CAT: the modify* functions of the ETG function table take one argument array (Particle.h): args[0] is the
+    particle system, the rest are the script's arguments. Each loops over the 0x100-byte particles as the exe does
+    (partHeaderSize inlined, the HW1 bodies otherwise unless a comment says so).
+-----------------------------------------------------------------------------*/
+#define CAT_PART_ARGSYS(args)       ((psysPtr)(args)[0])
+#define CAT_PART_ARGF(args, i)      MemsizeToReal32((args)[i])
+#define CAT_PART_ARGU(args, i)      ((udword)(args)[i])
+// CAT: the exe converts colour bytes with a multiplication by the float 1/255 (0x0072a6ac), HW1 divides by 255.0f
+#define CAT_PART_UB2R(b)            ((real32)(b) * (1.0f / 255.0f))
+
 void partSetSystemAlphaFlag(psysPtr psys, real32 a)
 {
     pointSystem* sys = (pointSystem*)psys;
@@ -2891,22 +3155,22 @@ void partSetSystemAlphaFlag(psysPtr psys, real32 a)
     }
 }
 
-void partModifyTumble(psysPtr psys, vector* t)
+// CAT: partModifyTumble 0x004e25f0: args psys, x, y, z; sets the tumble of every particle of any system type (HW1
+//      took a vector pointer and refused anything but PART_MESH with a debug message; the exe has no such test).
+memsize partModifyTumble(memsize *args)
 {
-    if (partTypeof(psys) == PART_MESH)
-    {
-        udword i;
-        particle *p = (particle*)(psys + partHeaderSize(psys));
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 x = CAT_PART_ARGF(args, 1), y = CAT_PART_ARGF(args, 2), z = CAT_PART_ARGF(args, 3);
+    udword i;
+    particle *p = (particle*)(psys + partHeaderSize(psys));
 
-        for (i = 0; i < partNumberof(psys); i++, p++)
-        {
-            memcpy(p->tumble, t, sizeof(vector));
-        }
-    }
-    else
+    for (i = 0; i < partNumberof(psys); i++, p++)
     {
-        dbgMessage("particle system is not of type PART_MESH");
+        p->tumble[0] = x;
+        p->tumble[1] = y;
+        p->tumble[2] = z;
     }
+    return 0;
 }
 
 void partModifyDeltaTumble(psysPtr psys, vector* dt)
@@ -2927,8 +3191,10 @@ void partModifyDeltaTumble(psysPtr psys, vector* dt)
     }
 }
 
-void partModifyExponent(psysPtr psys, real32 exponent)
+memsize partModifyExponent(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 exponent = CAT_PART_ARGF(args, 1);
     udword i;
     udword fSpec = (exponent == 0.0f) ? 0 : PART_SPECULAR;
 
@@ -2938,6 +3204,7 @@ void partModifyExponent(psysPtr psys, real32 exponent)
         p->exponent = exponent;
         p->flags = ((p->flags & (~PART_SPECULAR)) | fSpec);
     }
+    return 0;
 }
 
 void partModifyDrag(psysPtr psys, real32 d)
@@ -2951,8 +3218,10 @@ void partModifyDrag(psysPtr psys, real32 d)
         p->drag = d;
 }
 
-void partModifyMesh(psysPtr psys, meshdata *mesh)
+memsize partModifyMesh(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    meshdata *mesh = (meshdata *)args[1];
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
 
@@ -2960,35 +3229,49 @@ void partModifyMesh(psysPtr psys, meshdata *mesh)
     {
         p->mesh = mesh;
     }
+    return 0;
 }
 
-void partModifyLighting(psysPtr psys, bool32 lit)
+memsize partModifyLighting(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    bool8 lit = (bool8)args[1];                             //the exe stores the low byte (0x004e2875)
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
-        p->lit = (bool8)lit;
+        p->lit = lit;
+    return 0;
 }
 
-void partModifyIllum(psysPtr psys, real32 illum)
+memsize partModifyIllum(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 illum = CAT_PART_ARGF(args, 1);
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
         p->illum = illum;
+    return 0;
 }
 
-void partModifyDeltaIllum(psysPtr psys, real32 deltaIllum)
+memsize partModifyDeltaIllum(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 deltaIllum = CAT_PART_ARGF(args, 1);
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
         p->deltaIllum = deltaIllum;
+    return 0;
 }
 
-void partModifyTexture(psysPtr psys, trhandle tex,
-                       udword u0, udword v0, udword u1, udword v1)
+// CAT: partModifyTexture 0x004e29b0: args psys, tex, u0, v0, u1, v1 (setTexture/modifyTexture callable and
+//      partUpdateSystem's texture animation)
+memsize partModifyTexture(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    trhandle tex = (trhandle)args[1];
+    udword u0 = CAT_PART_ARGU(args, 2), v0 = CAT_PART_ARGU(args, 3), u1 = CAT_PART_ARGU(args, 4), v1 = CAT_PART_ARGU(args, 5);
     billSystem *m = (billSystem*)psys;
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
@@ -3004,7 +3287,7 @@ void partModifyTexture(psysPtr psys, trhandle tex,
     }
     else if (m->t == PART_MESH)
     {
-        m->tex = tex;
+        ((meshSystem *)psys)->tex = tex;
         for (i = 0; i < partNumberof(psys); i++, p++)
             p->tex = tex;
     }
@@ -3012,78 +3295,168 @@ void partModifyTexture(psysPtr psys, trhandle tex,
     {
         dbgMessage("particle system is not of type PART_BILLBOARD");
     }
+    return 0;
 }
 
-void partModifyScale(psysPtr psys, real32 s)
+// CAT: partModifyScale 0x004e2ac0 sets both the X scale (+0x50) and the new Y scale (+0x54)
+memsize partModifyScale(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 s = CAT_PART_ARGF(args, 1);
+    udword i;
+    particle *p = (particle*)(psys + partHeaderSize(psys));
+    for (i = 0; i < partNumberof(psys); i++, p++)
+    {
+        p->scale = s;
+        p->scaleY = s;
+    }
+    return 0;
+}
+
+// CAT: new, cat_partModifyScaleX 0x004e2b40 (modifyScaleX): the X scale only
+memsize cat_partModifyScaleX(memsize *args)
+{
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 s = CAT_PART_ARGF(args, 1);
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
         p->scale = s;
+    return 0;
 }
 
-void partModifyDeltaScale(psysPtr psys, real32 d)
+// CAT: new, cat_partModifyScaleY 0x004e2bc0 (modifyScaleY): the Y scale only
+memsize cat_partModifyScaleY(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 s = CAT_PART_ARGF(args, 1);
+    udword i;
+    particle *p = (particle*)(psys + partHeaderSize(psys));
+    for (i = 0; i < partNumberof(psys); i++, p++)
+        p->scaleY = s;
+    return 0;
+}
+
+memsize partModifyDeltaScale(memsize *args)
+{
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 d = CAT_PART_ARGF(args, 1);
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
         p->deltaScale = d;
+    return 0;
 }
 
-void partModifyDeltaLength(psysPtr psys, real32 d)
+// CAT: partModifyDeltaLength 0x004e2cc0 takes a 3rd argument (table types int, float, int) that it stores in the new
+//      particle.lengthClamp (+0x70); partUpdateSystem stops the length at 0 when it is set
+memsize partModifyDeltaLength(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 d = CAT_PART_ARGF(args, 1);
+    bool32 clamp = (bool32)CAT_PART_ARGU(args, 2);
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
+    {
         p->deltaLength = d;
+        p->lengthClamp = clamp;
+    }
+    return 0;
 }
 
-void partModifyLifespan(psysPtr psys, real32 l)
+memsize partModifyLifespan(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 l = CAT_PART_ARGF(args, 1);
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
         p->lifespan = l;
+    return 0;
 }
 
-void partModifyLength(psysPtr psys, real32 l)
+memsize partModifyLength(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 l = CAT_PART_ARGF(args, 1);
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
         p->length = l;
+    return 0;
 }
 
-void partModifyVelLOF(psysPtr psys, real32 v)
+memsize partModifyVelLOF(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 v = CAT_PART_ARGF(args, 1);
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
         p->velLOF = v;
+    return 0;
 }
 
-void partModifyDeltaVelLOF(psysPtr psys, real32 d)
+memsize partModifyDeltaVelLOF(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 d = CAT_PART_ARGF(args, 1);
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
         p->deltaVelLOF = d;
+    return 0;
 }
 
-void partModifyVelR(psysPtr psys, real32 v)
+memsize partModifyVelR(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 v = CAT_PART_ARGF(args, 1);
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
         p->velR = v;
+    return 0;
 }
 
-void partModifyDeltaVelR(psysPtr psys, real32 d)
+// CAT: new, cat_partModifyRotAngle 0x004e2fd0 (modifyRotAngle): the sprite rotation (+0x84) of every particle
+memsize cat_partModifyRotAngle(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 rot = CAT_PART_ARGF(args, 1);
+    udword i;
+    particle *p = (particle*)(psys + partHeaderSize(psys));
+    for (i = 0; i < partNumberof(psys); i++, p++)
+        p->rot = rot;
+    return 0;
+}
+
+memsize partModifyDeltaVelR(memsize *args)
+{
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 d = CAT_PART_ARGF(args, 1);
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
         p->deltaVelR = d;
+    return 0;
+}
+
+// CAT: new, cat_partModifyAlphaValue 0x004e30d0 (modifyAlphaValue): the alpha (+0x3c) of every particle; the system's
+//      PART_ALPHA flag follows the alpha as in partSetSystemAlphaFlag (0x004e310e: alpha <= 0.996 (0x0072afc0) sets
+//      it, else it is cleared) [audit: the clear jumps past the "or 2" (0x004e3121), so the flag is not always set]
+memsize cat_partModifyAlphaValue(memsize *args)
+{
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 a = CAT_PART_ARGF(args, 1);
+    udword i;
+    particle *p = (particle*)(psys + partHeaderSize(psys));
+
+    partSetSystemAlphaFlag(psys, a);
+    for (i = 0; i < partNumberof(psys); i++, p++)
+        p->icolor[3] = a;
+    return 0;
 }
 
 void partModifyColor(psysPtr psys, real32 r, real32 g, real32 b, real32 a)
@@ -3102,8 +3475,12 @@ void partModifyColor(psysPtr psys, real32 r, real32 g, real32 b, real32 a)
     }
 }
 
-void partModifyColorC(psysPtr psys, color c)
+// CAT: partModifyColorC 0x004e3170 (modifyColor, modifyColorA): args psys, color; PART_ALPHA follows the alpha as in
+//      HW1 (0x004e3212-0x004e3227) [audit: not always set; the clear jumps past the "or 2" (0x004e3225)]
+memsize partModifyColorC(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    color c = (color)args[1];
     udword i;
     real32 r, g, b, a;
 
@@ -3113,10 +3490,10 @@ void partModifyColorC(psysPtr psys, color c)
 
     particle *p = (particle*)(psys + partHeaderSize(psys));
 
-    r = colUbyteToReal(colRed(c));
-    g = colUbyteToReal(colGreen(c));
-    b = colUbyteToReal(colBlue(c));
-    a = colUbyteToReal(colAlpha(c));
+    r = CAT_PART_UB2R(colRed(c));
+    g = CAT_PART_UB2R(colGreen(c));
+    b = CAT_PART_UB2R(colBlue(c));
+    a = CAT_PART_UB2R(colAlpha(c));
 
     partSetSystemAlphaFlag(psys, a);
 
@@ -3127,6 +3504,7 @@ void partModifyColorC(psysPtr psys, color c)
         p->icolor[2] = b;
         p->icolor[3] = a;
     }
+    return 0;
 }
 
 void partModifyDeltaColorC(psysPtr psys, color c)
@@ -3154,9 +3532,10 @@ void partModifyDeltaColorC(psysPtr psys, color c)
     }
 }
 
-void partModifyDeltaColor(psysPtr psys, real32 dr, real32 dg,
-                          real32 db, real32 da)
+memsize partModifyDeltaColor(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 dr = CAT_PART_ARGF(args, 1), dg = CAT_PART_ARGF(args, 2), db = CAT_PART_ARGF(args, 3), da = CAT_PART_ARGF(args, 4);
     udword i;
     particle *p = (particle*)(psys + partHeaderSize(psys));
 
@@ -3167,10 +3546,14 @@ void partModifyDeltaColor(psysPtr psys, real32 dr, real32 dg,
         p->deltaColor[2] = db;
         p->deltaColor[3] = da;
     }
+    return 0;
 }
 
-void partModifyAnimation(psysPtr psys, void* tstruct)
+memsize partModifyAnimation(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    void *tstruct = (void *)args[1];
+
     if (partTypeof(psys) == PART_BILLBOARD ||
         partTypeof(psys) == PART_MESH)
     {
@@ -3185,10 +3568,14 @@ void partModifyAnimation(psysPtr psys, void* tstruct)
     {
         dbgMessage("partModifyAnimation needs a PART_BILLBOARD or PART_MESH");
     }
+    return 0;
 }
 
-void partModifyMorph(psysPtr psys, void* mstruct)
+memsize partModifyMorph(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    void *mstruct = (void *)args[1];
+
     if (partTypeof(psys) == PART_MESH)
     {
         udword i;
@@ -3202,10 +3589,14 @@ void partModifyMorph(psysPtr psys, void* mstruct)
     {
         dbgMessage("partModifyMorph needs a PART_MESH");
     }
+    return 0;
 }
 
-void partModifyFramerate(psysPtr psys, real32 rate)
+memsize partModifyFramerate(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 rate = CAT_PART_ARGF(args, 1);
+
     if (partTypeof(psys) == PART_BILLBOARD)
     {
         udword i;
@@ -3219,10 +3610,14 @@ void partModifyFramerate(psysPtr psys, real32 rate)
     {
         dbgMessage("partModifyFramerate needs a PART_BILLBOARD");
     }
+    return 0;
 }
 
-void partModifyMorphFramerate(psysPtr psys, real32 meshRate)
+memsize partModifyMorphFramerate(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 meshRate = CAT_PART_ARGF(args, 1);
+
     if (partTypeof(psys) == PART_MESH)
     {
         udword i;
@@ -3236,6 +3631,7 @@ void partModifyMorphFramerate(psysPtr psys, real32 meshRate)
     {
         dbgMessage("partModifyMorphFramerate needs a PART_MESH");
     }
+    return 0;
 }
 
 void partModifyBillPosition(psysPtr psys, vector* pos)
@@ -3251,9 +3647,10 @@ void partModifyBillPosition(psysPtr psys, vector* pos)
     }
 }
 
-void partModifyColorBias(
-    psysPtr psys, real32 rb, real32 gb, real32 bb)
+memsize partModifyColorBias(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    real32 rb = CAT_PART_ARGF(args, 1), gb = CAT_PART_ARGF(args, 2), bb = CAT_PART_ARGF(args, 3);
     udword i;
     particle* p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
@@ -3262,19 +3659,22 @@ void partModifyColorBias(
         p->bias[1] = gb;
         p->bias[2] = bb;
     }
+    return 0;
 }
 
-void partModifyAddColor(psysPtr psys, color c)
+memsize partModifyAddColor(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    color c = (color)args[1];
     udword i;
 
 #if FIX_ENDIAN
     c = FIX_ENDIAN_INT_32(c);
 #endif
 
-    real32 r = colUbyteToReal(colRed(c));
-    real32 g = colUbyteToReal(colGreen(c));
-    real32 b = colUbyteToReal(colBlue(c));
+    real32 r = CAT_PART_UB2R(colRed(c));
+    real32 g = CAT_PART_UB2R(colGreen(c));
+    real32 b = CAT_PART_UB2R(colBlue(c));
     particle* p = (particle*)(psys + partHeaderSize(psys));
     for (i = 0; i < partNumberof(psys); i++, p++)
     {
@@ -3282,6 +3682,7 @@ void partModifyAddColor(psysPtr psys, color c)
         p->bias[1] = g;
         p->bias[2] = b;
     }
+    return 0;
 }
 
 void partModifyLoopFlag(psysPtr psys, bool8 willLoop)
@@ -3393,8 +3794,10 @@ void partModifyAdditiveBlends(psysPtr psys, bool32 add)
     }
 }
 
-void partModifyPseudoBillboard(psysPtr psys, bool32 bill)
+memsize partModifyPseudoBillboard(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    bool32 bill = (bool32)CAT_PART_ARGU(args, 1);
     udword i;
     particle* p;
 
@@ -3414,6 +3817,7 @@ void partModifyPseudoBillboard(psysPtr psys, bool32 bill)
             bitClear(p->flags, PART_PSEUDOBILLBOARD);
         }
     }
+    return 0;
 }
 
 void partModifyTrueBillboard(psysPtr psys, bool32 bill)
@@ -3439,8 +3843,10 @@ void partModifyTrueBillboard(psysPtr psys, bool32 bill)
     }
 }
 
-void partModifyColorScheme(psysPtr psys, sdword colorScheme)
+memsize partModifyColorScheme(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    sdword colorScheme = (sdword)args[1];
     udword i;
     particle* p;
 
@@ -3449,11 +3855,15 @@ void partModifyColorScheme(psysPtr psys, sdword colorScheme)
     {
         p->colorScheme = (ubyte)(uword)(udword)colorScheme;
     }
+    return 0;
 }
 
 //0 - normal, 1 - additive, 2 - stipple
-void partModifyAlphaMode(psysPtr psys, udword mode)
+memsize partModifyAlphaMode(memsize *args)
 {
+    psysPtr psys = CAT_PART_ARGSYS(args);
+    udword mode = CAT_PART_ARGU(args, 1);
+
     switch (mode)
     {
     case 1:
@@ -3468,14 +3878,20 @@ void partModifyAlphaMode(psysPtr psys, udword mode)
         partModifyAdditiveBlends(psys, FALSE);
         partModifyStipple(psys, FALSE);
     }
+    return 0;
 }
 
 
 /*============================
   callbacks
  ============================*/
-void partSetIsWorldspace(bool8 isWorldspace)
+/*-----------------------------------------------------------------------------
+    CAT: the set* functions of the ETG function table take one argument array (Particle.h); the others keep their
+    values. Each stores into the particle template as HW1's did (exe 0x004e39b0-0x004e4362).
+-----------------------------------------------------------------------------*/
+memsize partSetIsWorldspace(memsize *args)
 {
+    bool8 isWorldspace = (bool8)args[0];                    //the exe tests the low byte (0x004e39b4)
     if (isWorldspace)
     {
         bitSet(pat.flags, PART_WORLDSPACE);
@@ -3484,10 +3900,12 @@ void partSetIsWorldspace(bool8 isWorldspace)
     {
         bitClear(pat.flags, PART_WORLDSPACE);
     }
+    return 0;
 }
 
-void partSetVelocityInWorldSpace(bool8 isLocalSpace)
+memsize partSetVelocityInWorldSpace(memsize *args)
 {
+    bool8 isLocalSpace = (bool8)args[0];
     if (isLocalSpace)
     {
         bitSet(pat.flags, PART_WORLDSPACEVELOCITY);
@@ -3496,6 +3914,7 @@ void partSetVelocityInWorldSpace(bool8 isLocalSpace)
     {
         bitClear(pat.flags, PART_WORLDSPACEVELOCITY);
     }
+    return 0;
 }
 
 void partSetExponent(real32 exponent)
@@ -3508,10 +3927,12 @@ void patSetExponentDist(real32 exponentDist)
     pat.exponentDist = exponentDist;
 }
 
+// CAT: partSetWorldVel 0x004e3a00 copies the velocity into worldVel and effectVelocity; HW1 kept a pointer to it in
+//      partEffectVelocity for the pseudo-billboard renderers, which now read particle.effectVel instead
 void partSetWorldVel(vector* worldVel)
 {
     memcpy(&pat.worldVel, worldVel, sizeof(vector));
-    partEffectVelocity = worldVel;
+    memcpy(&pat.effectVelocity, worldVel, sizeof(vector));
 }
 
 void partSetAnimation(void* tstruct)
@@ -3534,9 +3955,10 @@ void partSetMorphLoopCount(sdword loopCount)
     pat.loopCount = loopCount;
 }
 
-void partSetMeshStartFrame(real32 frame)
+memsize partSetMeshStartFrame(memsize *args)
 {
-    pat.startMeshFrame = frame;
+    pat.startMeshFrame = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
 void partSetFramerate(real32 rate)
@@ -3544,14 +3966,16 @@ void partSetFramerate(real32 rate)
     pat.rate = rate;
 }
 
-void partSetLoopFlag(bool8 willLoop)
+memsize partSetLoopFlag(memsize *args)
 {
-    pat.loop = willLoop;
+    pat.loop = (bool8)args[0];
+    return 0;
 }
 
-void partSetStartFrame(udword frame)
+memsize partSetStartFrame(memsize *args)
 {
-    pat.startFrame = (uword)frame;
+    pat.startFrame = (uword)args[0];
+    return 0;
 }
 
 void partSetCoordSys(matrix* mat)
@@ -3559,11 +3983,12 @@ void partSetCoordSys(matrix* mat)
     pat.mat = mat;
 }
 
-void partSetTumble(real32 x, real32 y, real32 z)
+memsize partSetTumble(memsize *args)
 {
-    pat.tumble[0] = x;
-    pat.tumble[1] = y;
-    pat.tumble[2] = z;
+    pat.tumble[0] = CAT_PART_ARGF(args, 0);
+    pat.tumble[1] = CAT_PART_ARGF(args, 1);
+    pat.tumble[2] = CAT_PART_ARGF(args, 2);
+    return 0;
 }
 
 void partSetTumbleDist(real32 dx, real32 dy, real32 dz)
@@ -3573,11 +3998,12 @@ void partSetTumbleDist(real32 dx, real32 dy, real32 dz)
     pat.tumbleDist[2] = dz;
 }
 
-void partSetDeltaTumble(real32 x, real32 y, real32 z)
+memsize partSetDeltaTumble(memsize *args)
 {
-    pat.deltaTumble[0] = x;
-    pat.deltaTumble[1] = y;
-    pat.deltaTumble[2] = z;
+    pat.deltaTumble[0] = CAT_PART_ARGF(args, 0);
+    pat.deltaTumble[1] = CAT_PART_ARGF(args, 1);
+    pat.deltaTumble[2] = CAT_PART_ARGF(args, 2);
+    return 0;
 }
 
 void partSetDeltaTumbleDist(real32 dx, real32 dy, real32 dz)
@@ -3587,8 +4013,9 @@ void partSetDeltaTumbleDist(real32 dx, real32 dy, real32 dz)
     pat.deltaTumbleDist[2] = dz;
 }
 
-void partSetSlices(udword s)
+memsize partSetSlices(memsize *args)
 {
+    udword s = CAT_PART_ARGU(args, 0);
     if (s < 2 || s > 64)
     {
         dbgMessage("insane number of slices, using default of 8");
@@ -3596,6 +4023,7 @@ void partSetSlices(udword s)
     }
     else
         pat.slices = s;
+    return 0;
 }
 
 void partSetPosition(vector *pos)
@@ -3603,18 +4031,22 @@ void partSetPosition(vector *pos)
     memcpy(pat.position, pos, sizeof(vector));
 }
 
-void partSetMeshdata(meshdata *m)
+// CAT: setMesh's callable (0x004e3b80, etgSetMeshParse 0x0046cdf0): args[0] is the mesh
+memsize partSetMeshdata(memsize *args)
 {
-    pat.mesh = m;
+    pat.mesh = (meshdata *)args[0];
+    return 0;
 }
 
-void partSetTrHandle(trhandle t, udword u0, udword v0, udword u1, udword v1)
+// CAT: setTexture's callable (partSetTrHandle 0x004e3b90): args tex, u0, v0, u1, v1
+memsize partSetTrHandle(memsize *args)
 {
-    pat.tex = t;
-    pat.uv[0][0] = u0;
-    pat.uv[0][1] = v0;
-    pat.uv[1][0] = u1;
-    pat.uv[1][1] = v1;
+    pat.tex = (trhandle)args[0];
+    pat.uv[0][0] = CAT_PART_ARGU(args, 1);
+    pat.uv[0][1] = CAT_PART_ARGU(args, 2);
+    pat.uv[1][0] = CAT_PART_ARGU(args, 3);
+    pat.uv[1][1] = CAT_PART_ARGU(args, 4);
+    return 0;
 }
 
 void partSetDrag(real32 n)
@@ -3622,138 +4054,196 @@ void partSetDrag(real32 n)
     pat.drag = n;
 }
 
-void partSetXYZScale(real32 x, real32 y, real32 z)
+memsize partSetXYZScale(memsize *args)
 {
     bitSet(pat.flags, PART_XYZSCALE);
-    pat.xScale = x;
-    pat.yScale = y;
-    pat.zScale = z;
+    pat.xScale = CAT_PART_ARGF(args, 0);
+    pat.yScale = CAT_PART_ARGF(args, 1);
+    pat.zScale = CAT_PART_ARGF(args, 2);
+    return 0;
 }
 
-void partSetScale(real32 n)
+memsize partSetScale(memsize *args)
 {
-    pat.scale = n;
+    pat.scale = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetScaleDist(real32 d)
+memsize partSetScaleDist(memsize *args)
 {
+    real32 d = CAT_PART_ARGF(args, 0);
     pat.scaleDist = d;
     if (d == 0.0f)
         bitSet(pat.flags, PART_MONOSCALE);
     else
         bitClear(pat.flags, PART_MONOSCALE);
+    return 0;
 }
 
-void partSetDeltaScale(real32 n)
+memsize partSetDeltaScale(memsize *args)
 {
-    pat.deltaScale = n;
+    pat.deltaScale = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetDeltaScaleDist(real32 d)
+memsize partSetDeltaScaleDist(memsize *args)
 {
-    pat.deltaScaleDist = d;
+    pat.deltaScaleDist = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetOffsetLOF(real32 n)
+memsize partSetOffsetLOF(memsize *args)
 {
-    pat.offsetLOF = n;
+    pat.offsetLOF = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetOffsetR(real32 n)
+memsize partSetOffsetR(memsize *args)
 {
-    pat.offsetR = n;
+    pat.offsetR = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetOffsetTheta(real32 n)
+memsize partSetOffsetTheta(memsize *args)
 {
-    pat.offsetTheta = n;
+    pat.offsetTheta = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetOffsetArray(vector *offsets)
+memsize partSetOffsetArray(memsize *args)
 {
-    pat.offsetArray = offsets;
+    pat.offsetArray = (vector *)args[0];
+    return 0;
 }
 
-void partSetDeltaLOF(real32 n)
+// CAT: new, cat_partSetRandomOffsetArray 0x004e3cc0 (setRandomOffsetArray): args x0, y0, z0, x1, y1, z1 bound a box
+//      (each pair is ordered first); 100 offsets inside it are drawn from RNG stream 0 (x, y, z per entry:
+//      lo + rand * (hi - lo) / 2^32) into a static array at 0x00a505e8, which becomes pat.offsetArray
+#define CAT_PART_RANDOM_OFFSETS     100
+static vector catPartRandomOffsets[CAT_PART_RANDOM_OFFSETS];
+memsize cat_partSetRandomOffsetArray(memsize *args)
 {
-    pat.deltaLOF = n;
+    real32 lo[3], hi[3], scale[3], t;
+    sdword i, j;
+
+    for (j = 0; j < 3; j++)
+    {
+        lo[j] = CAT_PART_ARGF(args, j);
+        hi[j] = CAT_PART_ARGF(args, j + 3);
+        if (hi[j] < lo[j])
+        {
+            t = hi[j]; hi[j] = lo[j]; lo[j] = t;
+        }
+        scale[j] = (hi[j] - lo[j]) * (1.0f / 4294967296.0f);    //the exe's constant 2^-32 (0x0072a4e0)
+    }
+    for (i = 0; i < CAT_PART_RANDOM_OFFSETS; i++)
+    {
+        //x87: fild of the unsigned draw, fmul by the float scale, fadd the float low bound, one rounding to float
+        catPartRandomOffsets[i].x = (real32)((long double)ranRandom(RANDOM_STREAM_0) * scale[0] + lo[0]);
+        catPartRandomOffsets[i].y = (real32)((long double)ranRandom(RANDOM_STREAM_0) * scale[1] + lo[1]);
+        catPartRandomOffsets[i].z = (real32)((long double)ranRandom(RANDOM_STREAM_0) * scale[2] + lo[2]);
+    }
+    pat.offsetArray = catPartRandomOffsets;
+    return 0;
 }
 
-void partSetDeltaLOFDist(real32 n)
+memsize partSetDeltaLOF(memsize *args)
 {
-    pat.deltaLOFDist = n;
+    pat.deltaLOF = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetDeltaR(real32 r, real32 t)
+memsize partSetDeltaLOFDist(memsize *args)
 {
-    pat.deltaR[0] = r;
-    pat.deltaR[1] = t;
+    pat.deltaLOFDist = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetDeltaRDist(real32 r, real32 t)
+memsize partSetDeltaR(memsize *args)
 {
-    pat.deltaRDist[0] = r;
+    pat.deltaR[0] = CAT_PART_ARGF(args, 0);
+    pat.deltaR[1] = CAT_PART_ARGF(args, 1);
+    return 0;
+}
+
+memsize partSetDeltaRDist(memsize *args)
+{
+    real32 t = CAT_PART_ARGF(args, 1);
+    pat.deltaRDist[0] = CAT_PART_ARGF(args, 0);
     pat.deltaRDist[1] = (t == 0.0f) ? 6.28f : t;
+    return 0;
 }
 
-void partSetVelLOF(real32 v)
+memsize partSetVelLOF(memsize *args)
 {
-    pat.velLOF = v;
+    pat.velLOF = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetVelLOFDist(real32 d)
+memsize partSetVelLOFDist(memsize *args)
 {
-    pat.velLOFDist = d;
+    pat.velLOFDist = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetVelR(real32 v)
+memsize partSetVelR(memsize *args)
 {
-    pat.velR = v;
+    pat.velR = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetVelRDist(real32 d)
+memsize partSetVelRDist(memsize *args)
 {
-    pat.velRDist = d;
+    pat.velRDist = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetDeltaVelLOF(real32 d)
+memsize partSetDeltaVelLOF(memsize *args)
 {
-    pat.deltaVelLOF = d;
+    pat.deltaVelLOF = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetDeltaVelLOFDist(real32 d)
+memsize partSetDeltaVelLOFDist(memsize *args)
 {
-    pat.deltaVelLOFDist = d;
+    pat.deltaVelLOFDist = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetDeltaVelR(real32 v)
+memsize partSetDeltaVelR(memsize *args)
 {
-    pat.deltaVelR = v;
+    pat.deltaVelR = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetDeltaVelRDist(real32 v)
+memsize partSetDeltaVelRDist(memsize *args)
 {
-    pat.deltaVelRDist = v;
+    pat.deltaVelRDist = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetAng(real32 a)
+memsize partSetAng(memsize *args)
 {
-    pat.ang = a;
+    pat.ang = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetAngDist(real32 d)
+memsize partSetAngDist(memsize *args)
 {
-    pat.angDist = d;
+    pat.angDist = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetAngDelta(real32 d)
+memsize partSetAngDelta(memsize *args)
 {
-    pat.angDelta = d;
+    pat.angDelta = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetAngDeltaDist(real32 d)
+memsize partSetAngDeltaDist(memsize *args)
 {
-    pat.angDeltaDist = d;
+    pat.angDeltaDist = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
 void partSetColor(real32 r, real32 g, real32 b)
@@ -3765,13 +4255,14 @@ void partSetColor(real32 r, real32 g, real32 b)
     bitClear(pat.flags, PART_ALPHA);
 }
 
-void partSetColorDist(real32 r, real32 g, real32 b)
+memsize partSetColorDist(memsize *args)
 {
-    pat.colorDist[0] = r;
-    pat.colorDist[1] = g;
-    pat.colorDist[2] = b;
+    pat.colorDist[0] = CAT_PART_ARGF(args, 0);
+    pat.colorDist[1] = CAT_PART_ARGF(args, 1);
+    pat.colorDist[2] = CAT_PART_ARGF(args, 2);
     pat.colorDist[3] = 0.0f;
     bitClear(pat.flags, PART_ALPHA);
+    return 0;
 }
 
 void partSetColorA(real32 r, real32 g, real32 b, real32 a)
@@ -3783,128 +4274,164 @@ void partSetColorA(real32 r, real32 g, real32 b, real32 a)
     bitSet(pat.flags, PART_ALPHA);
 }
 
-void partSetColorADist(real32 r, real32 g, real32 b, real32 a)
+memsize partSetColorADist(memsize *args)
 {
-    pat.colorDist[0] = r;
-    pat.colorDist[1] = g;
-    pat.colorDist[2] = b;
-    pat.colorDist[3] = a;
+    pat.colorDist[0] = CAT_PART_ARGF(args, 0);
+    pat.colorDist[1] = CAT_PART_ARGF(args, 1);
+    pat.colorDist[2] = CAT_PART_ARGF(args, 2);
+    pat.colorDist[3] = CAT_PART_ARGF(args, 3);
     bitSet(pat.flags, PART_ALPHA);
+    return 0;
 }
 
-void partSetDeltaColor(real32 r, real32 g, real32 b)
+memsize partSetDeltaColor(memsize *args)
 {
-    pat.deltaColor[0] = r;
-    pat.deltaColor[1] = g;
-    pat.deltaColor[2] = b;
+    pat.deltaColor[0] = CAT_PART_ARGF(args, 0);
+    pat.deltaColor[1] = CAT_PART_ARGF(args, 1);
+    pat.deltaColor[2] = CAT_PART_ARGF(args, 2);
     pat.deltaColor[3] = 1.0f;
     bitClear(pat.flags, PART_ALPHA);
+    return 0;
 }
 
-void partSetDeltaColorDist(real32 r, real32 g, real32 b)
+memsize partSetDeltaColorDist(memsize *args)
 {
-    pat.deltaColorDist[0] = r;
-    pat.deltaColorDist[1] = g;
-    pat.deltaColorDist[2] = b;
+    pat.deltaColorDist[0] = CAT_PART_ARGF(args, 0);
+    pat.deltaColorDist[1] = CAT_PART_ARGF(args, 1);
+    pat.deltaColorDist[2] = CAT_PART_ARGF(args, 2);
     pat.deltaColorDist[3] = 0.0f;
     bitClear(pat.flags, PART_ALPHA);
+    return 0;
 }
 
-void partSetDeltaColorA(real32 r, real32 g, real32 b, real32 a)
+memsize partSetDeltaColorA(memsize *args)
 {
-    pat.deltaColor[0] = r;
-    pat.deltaColor[1] = g;
-    pat.deltaColor[2] = b;
-    pat.deltaColor[3] = a;
+    pat.deltaColor[0] = CAT_PART_ARGF(args, 0);
+    pat.deltaColor[1] = CAT_PART_ARGF(args, 1);
+    pat.deltaColor[2] = CAT_PART_ARGF(args, 2);
+    pat.deltaColor[3] = CAT_PART_ARGF(args, 3);
     bitSet(pat.flags, PART_ALPHA);
+    return 0;
 }
 
-void partSetDeltaColorADist(real32 r, real32 g, real32 b, real32 a)
+memsize partSetDeltaColorADist(memsize *args)
 {
-    pat.deltaColorDist[0] = r;
-    pat.deltaColorDist[1] = g;
-    pat.deltaColorDist[2] = b;
-    pat.deltaColorDist[3] = a;
+    pat.deltaColorDist[0] = CAT_PART_ARGF(args, 0);
+    pat.deltaColorDist[1] = CAT_PART_ARGF(args, 1);
+    pat.deltaColorDist[2] = CAT_PART_ARGF(args, 2);
+    pat.deltaColorDist[3] = CAT_PART_ARGF(args, 3);
     bitSet(pat.flags, PART_ALPHA);
+    return 0;
 }
 
-void partSetLighting(bool32 l)
+memsize partSetLighting(memsize *args)
 {
-    pat.lit = (bool8)l;
+    pat.lit = (bool8)args[0];
+    return 0;
 }
 
-void partSetIllum(real32 n)
+memsize partSetIllum(memsize *args)
 {
-    pat.illum = n;
+    pat.illum = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetIllumDist(real32 n)
+memsize partSetIllumDist(memsize *args)
 {
-    pat.illumDist = n;
+    pat.illumDist = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetDeltaIllum(real32 n)
+memsize partSetDeltaIllum(memsize *args)
 {
-    pat.deltaIllum = n;
+    pat.deltaIllum = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetDeltaIllumDist(real32 n)
+memsize partSetDeltaIllumDist(memsize *args)
 {
-    pat.deltaIllumDist = n;
+    pat.deltaIllumDist = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetLifespan(real32 t)
+memsize partSetLifespan(memsize *args)
 {
-    pat.lifespan = t;
+    pat.lifespan = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetLifespanDist(real32 d)
+memsize partSetLifespanDist(memsize *args)
 {
-    pat.lifespanDist = d;
+    pat.lifespanDist = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetWaitspan(real32 t)
+memsize partSetWaitspan(memsize *args)
 {
-    pat.waitspan = t;
+    pat.waitspan = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetWaitspanDist(real32 d)
+memsize partSetWaitspanDist(memsize *args)
 {
-    pat.waitspanDist = d;
+    pat.waitspanDist = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetLength(real32 l)
+memsize partSetLength(memsize *args)
 {
-    pat.length = l;
+    pat.length = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetLengthDist(real32 d)
+// CAT: new, cat_partSetTurbulance 0x004e4210 (setTurbulance): electric-bolt turbulance
+memsize cat_partSetTurbulance(memsize *args)
 {
-    pat.lengthDist = d;
+    pat.turbulance = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetDeltaLength(real32 d)
+// CAT: new, cat_partSetSegments 0x004e4220 (setSegments): electric-bolt segment count (a word)
+memsize cat_partSetSegments(memsize *args)
 {
-    pat.deltaLength = d;
+    pat.segments = (uword)args[0];
+    return 0;
 }
 
-void partSetDeltaLengthDist(real32 d)
+memsize partSetLengthDist(memsize *args)
 {
-    pat.deltaLengthDist = d;
+    pat.lengthDist = CAT_PART_ARGF(args, 0);
+    return 0;
 }
 
-void partSetColorBias(real32 rb, real32 gb, real32 bb)
+// CAT: partSetDeltaLength 0x004e4240 also clears pat.lengthClamp (0x00a504b4)
+memsize partSetDeltaLength(memsize *args)
 {
-    pat.rbias = rb;
-    pat.gbias = gb;
-    pat.bbias = bb;
+    pat.deltaLength = CAT_PART_ARGF(args, 0);
+    pat.lengthClamp = FALSE;
+    return 0;
 }
 
-void partSetColorBiasDist(real32 drb, real32 dgb, real32 dbb)
+memsize partSetDeltaLengthDist(memsize *args)
 {
-    pat.rbiasDist = drb;
-    pat.gbiasDist = dgb;
-    pat.bbiasDist = dbb;
+    pat.deltaLengthDist = CAT_PART_ARGF(args, 0);
+    return 0;
+}
+
+memsize partSetColorBias(memsize *args)
+{
+    pat.rbias = CAT_PART_ARGF(args, 0);
+    pat.gbias = CAT_PART_ARGF(args, 1);
+    pat.bbias = CAT_PART_ARGF(args, 2);
+    return 0;
+}
+
+memsize partSetColorBiasDist(memsize *args)
+{
+    pat.rbiasDist = CAT_PART_ARGF(args, 0);
+    pat.gbiasDist = CAT_PART_ARGF(args, 1);
+    pat.bbiasDist = CAT_PART_ARGF(args, 2);
+    return 0;
 }
 
 void partSetSpecular(bool32 spec)
@@ -3927,25 +4454,28 @@ void partSetAdditiveBlends(bool32 add)
     pat.additiveBlends = add;
 }
 
-void partSetPseudoBillboard(bool32 bill)
+memsize partSetPseudoBillboard(memsize *args)
 {
-    pat.pseudoBillboard = bill;
+    pat.pseudoBillboard = (bool32)CAT_PART_ARGU(args, 0);
+    return 0;
 }
 
-void partSetTrueBillboard(bool32 bill)
+memsize partSetTrueBillboard(memsize *args)
 {
-    pat.trueBillboard = bill;
+    pat.trueBillboard = (bool32)CAT_PART_ARGU(args, 0);
+    return 0;
 }
 
-void partSetColorScheme(sdword colorScheme)
+memsize partSetColorScheme(memsize *args)
 {
-    pat.colorScheme = colorScheme;
+    pat.colorScheme = (ubyte)args[0];
+    return 0;
 }
 
 //0 - normal, 1 - additive, 2 - stipple
-void partSetAlphaMode(udword mode)
+memsize partSetAlphaMode(memsize *args)
 {
-    switch (mode)
+    switch (CAT_PART_ARGU(args, 0))
     {
     case 1:
         partSetAdditiveBlends(TRUE);
@@ -3959,6 +4489,7 @@ void partSetAlphaMode(udword mode)
         partSetAdditiveBlends(FALSE);
         partSetStipple(FALSE);
     }
+    return 0;
 }
 
 void partCreateCallbackSet(void (*function)(sdword userValue, ubyte *userData), sdword userValue, ubyte *userData)

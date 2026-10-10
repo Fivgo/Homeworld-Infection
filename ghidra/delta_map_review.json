@@ -1684,6 +1684,55 @@
   "note": "void wrapper of etgEffectLoad (GoK spelling); etgEffectLoad inlined (strcpy/strcat, etgErrorRecoverable = FALSE, etgEffectCodeLoad)",
   "sample": "reread-R2"
  },
+ "0x004691e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "death-type keywords and the \"NULL\" test compared with _stricmp (0x00676c90), race/class/derelict lookups as HW1",
+  "note": "HW1 strcmp; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x004694a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "\"NULL\" test with _stricmp",
+  "note": "HW1 strcmp; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x00469610": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "\"NULL\" test with _stricmp",
+  "note": "HW1 strcmp; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x00469780": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "\"NULL\" test with _stricmp",
+  "note": "HW1 strcmp; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x004698f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "\"NULL\" test with _stricmp",
+  "note": "HW1 strcmp; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x00469d90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "damage-type keywords and the \"NULL\" test with _stricmp",
+  "note": "HW1 strcmp; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x00469f50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "\"NULL\" test with _stricmp",
+  "note": "HW1 strcmp; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x0046a580": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -1692,11 +1741,11 @@
   "sample": "uniform/IDENTICAL"
  },
  "0x0046a5b0": {
-  "class": "IDENTICAL",
-  "confidence": "medium",
-  "change": "",
-  "note": "variable/rate/effectID layout and memsets as HW1; \"LoF\" is a Ghidra field-name artefact of the mistyped Effect",
-  "sample": "MODIFIED/medium"
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "user parameters arrive as an array through a 4th argument (0x0046a68e), not as variable arguments",
+  "note": "the variable/rate/effectID layout is as HW1 (earlier review); callers etgEffectCreate/etgSpawnNewEffect/etgCreateEffects pass the array; was IDENTICAL/medium",
+  "sample": "port-R3"
  },
  "0x0046ac20": {
   "class": "IDENTICAL",
@@ -1711,6 +1760,20 @@
   "change": "",
   "note": "colRealToUbyte inlined x4; ETG_ERROR_CHECKING off",
   "sample": "reread-R2"
+ },
+ "0x0046b440": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "inlined variable lookup is case-insensitive (_stricmp)",
+  "note": "HW1 etgVariableFind strcmp; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x0046bb00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "forward-reference label lookups case-insensitive (_stricmp)",
+  "note": "was IDENTICAL/medium",
+  "sample": "port-R3"
  },
  "0x0046c3c0": {
   "class": "IDENTICAL",
@@ -1775,6 +1838,20 @@
   "note": "ETG_ERROR_CHECKING off",
   "sample": "reread-R2"
  },
+ "0x0046d440": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "label lookup case-insensitive (_stricmp)",
+  "note": "was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x0046d4d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "label lookup case-insensitive (_stricmp)",
+  "note": "was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x0046d560": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -1809,6 +1886,20 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x0046d9f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "inlined variable lookup case-insensitive",
+  "note": "was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x0046daf0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "inlined variable lookup case-insensitive",
+  "note": "the HW1 debug range check (time <= 200) is compiled out in both; was IDENTICAL/medium",
+  "sample": "port-R3"
  },
  "0x0046dce0": {
   "class": "IDENTICAL",
@@ -1845,6 +1936,20 @@
   "note": "Ghidra drops the sscanf out-argument",
   "sample": "reread-R2"
  },
+ "0x0046e150": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "inlined variable lookup case-insensitive; the call's function is the argument-array etgSpawnNewEffect",
+  "note": "was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x0046e500": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "inlined variable lookup case-insensitive; the call's function is the argument-array etgCreateEffects",
+  "note": "was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x0046e760": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -1865,6 +1970,13 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x0046e7b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "builds a 10-slot argument array (this first when passThis, then each parameter resolved by type; EVT_Label passes its value) and calls function(args) with that one pointer",
+  "note": "HW1 pushed the values and called function(); docs/m2-r3-etg-particles.md section 1; was IDENTICAL/medium",
+  "sample": "port-R3"
  },
  "0x0046e870": {
   "class": "IDENTICAL",
@@ -2248,6 +2360,27 @@
   "note": "systemic ETG change, missed by the tool because HW1 has one parameter",
   "sample": "reread-R2"
  },
+ "0x00471420": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "argument array; lo + rand * (hi - lo) / 2^32 in x87 precision, clamped to [lo, hi]",
+  "note": "was MODIFIED/low",
+  "sample": "port-R3"
+ },
+ "0x004714e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "argument array; a high bound becomes low + 1 when low <= high (HW1's test reversed); green uses the blue high bound (args[3] never read); draws blue, green, red",
+  "note": "was MODIFIED/low",
+  "sample": "port-R3"
+ },
+ "0x00471580": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "argument array; same bound rule; green uses the blue high bound; draws alpha, green, blue, red; channels ORed unmasked",
+  "note": "was MODIFIED/low",
+  "sample": "port-R3"
+ },
  "0x00471630": {
   "class": "MODIFIED",
   "confidence": "high",
@@ -2261,6 +2394,20 @@
   "change": "ETG argument-array convention: the script-callable takes a pointer to its argument slot (args[0]) instead of the value",
   "note": "systemic ETG change, missed by the tool because HW1 has one parameter",
   "sample": "reread-R2"
+ },
+ "0x00471730": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "argument array; channels round(x * 256) clamped to 255, low byte",
+  "note": "was MODIFIED/low",
+  "sample": "port-R3"
+ },
+ "0x00471810": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "argument array; channels round(x * 256) clamped to 255, low byte",
+  "note": "was MODIFIED/low",
+  "sample": "port-R3"
  },
  "0x00471910": {
   "class": "IDENTICAL",
@@ -4600,6 +4747,41 @@
   "note": "FEFIRSTCALL/FECHECKED macros (the fuel option survives)",
   "sample": "reread-R2"
  },
+ "0x004dc3a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "header-level: the particle template is 0x1C8 bytes (0x72 dwords from 0x0088d300) with effectVelocity, lengthClamp, turbulance (default 0.8), segments (default 16)",
+  "sample": "port-R3"
+ },
+ "0x004dc6f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "separate X/Y half sizes (scale, scaleY at +0x54); rndBillboardEnable/Disable; colour bias through glPixelTransferf when the 0x9004 capability exists; per-particle fog toggle; one glColor per particle",
+  "note": "only the Y scale is ported (docs/m2-r3-etg-particles.md section 4); was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x004dd650": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "subtracts the particle's effect velocity (+0x98) instead of the global partEffectVelocity",
+  "note": "was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x004dd840": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "subtracts the particle's effect velocity (+0x98)",
+  "note": "was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x004ddad0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "subtracts the particle's effect velocity (+0x98)",
+  "note": "was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x004df1d0": {
   "class": "MODIFIED",
   "confidence": "high",
@@ -4628,12 +4810,26 @@
   "note": "same loop/end tests; ftol of currentFrame",
   "sample": "reread-R2"
  },
+ "0x004df9c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the Y scale grows with deltaScale and clamps at 0; a clamped length (particle +0x70) stops at 0; a lens flare source (+0x7c) follows the particle position; stride 0x100",
+  "note": "was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x004e2080": {
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
   "note": "partRealDist and partCreateSystem inlined; the two random draws use stream 25 (HW1 RAN_ParticleStream 0): header-level renumbering or particles moved off stream 0, checksum-relevant (docs/m2-checksum-oracle.md 4.4)",
   "sample": "reread-R2"
+ },
+ "0x004e2150": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "two new particle system types: 5 (electric bolts, 0x24-byte header with pat turbulance/segments) and 6 (lens flares, point header); particle stride 0x100",
+  "note": "was IDENTICAL/medium",
+  "sample": "port-R3"
  },
  "0x004e24e0": {
   "class": "IDENTICAL",
@@ -4648,6 +4844,20 @@
   "change": "two new particle system types: type 5 returns a 0x24-byte header and type 6 the point-system size; HW1 knows PART_POINTS..PART_BILLBOARD (0-4)",
   "note": "sizes of the old five types as HW1 (point/cube/line 0x1c merged by the compiler)",
   "sample": "reread-R2"
+ },
+ "0x004e25f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "argument array (sys, x, y, z); sets the tumble of every particle of any system type, no PART_MESH test or message",
+  "note": "was REWRITTEN/medium",
+  "sample": "port-R3"
+ },
+ "0x004e3170": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "argument array; bytes x 1/255 (0x0072a6ac); PART_ALPHA set when alpha <= 0.996 (0x0072afc0), else cleared, as HW1's partSetSystemAlphaFlag",
+  "note": "was MODIFIED/medium; [audit: not 'always PART_ALPHA': the clear at 0x004e3222 jumps past the or 2]",
+  "sample": "port-R3"
  },
  "0x004e39b0": {
   "class": "MODIFIED",
@@ -4747,6 +4957,13 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x004e3b90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "setTexture's callable: reads tex/u0/v0/u1/v1 through one argument pointer",
+  "note": "was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x004e3bd0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -4795,6 +5012,13 @@
   "change": "ETG argument-array convention: the script-callable takes a pointer to its argument slot instead of the value",
   "note": "systemic ETG/particle change, missed by the tool because HW1 has one parameter",
   "sample": "reread-R2"
+ },
+ "0x004e3cb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ETG argument-array convention: the script-callable takes a pointer to its argument slot (pat.offsetArray = args[0])",
+  "note": "systemic ETG/particle change; edited by M2-R3 etg-particles, left IDENTICAL/medium (audit)",
+  "sample": "audit-R3"
  },
  "0x004e3e20": {
   "class": "MODIFIED",
@@ -6035,10 +6259,10 @@
  },
  "0x005209b0": {
   "class": "IDENTICAL",
-  "confidence": "medium",
+  "confidence": "high",
   "change": "",
-  "note": "max 1/2 and two SOUND_NOTINITED handles per hit event; Ghidra resolves the Hit_Nick/Hit_Ricochet entry addresses outside the array",
-  "sample": "reread-R2"
+  "note": "header-level: the exe's table has 8 hit events (0x00c0a120-0x00c0a180; HW1 7); the Hit_Nick/Hit_Ricochet test compares the index with the event value as HW1 does (never true)",
+  "sample": "port-R3"
  },
  "0x005216d0": {
   "class": "IDENTICAL",

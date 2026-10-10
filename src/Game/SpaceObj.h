@@ -1349,6 +1349,12 @@ typedef struct
     Node objlink;
     ObjType objtype;        // object type (ship or bullet, etc)
     udword flags;           // flags whether the object is rotatable, etc.
+    // CAT: two new header dwords before staticinfo (the exe's objects have staticinfo at +0x20, HW1 +0x18):
+    //      +0x18 is cleared by etgEffectCreate 0x004709ed (meaning not known yet); +0x1c is set to 1 by the ETG
+    //      callable omitParentShipFromRenderList (cat_etgParentShipOmitFromRenderList 0x00470190) and cleared for
+    //      world-rendered effects (0x00470ba3); its reader is the render list builder (not ported yet)
+    udword catHeader18;
+    udword catOmitFromRenderList;
 } SpaceObjHeader;
 
 typedef struct

@@ -122,7 +122,8 @@ void runShipEffect(Ship *ship)
 			 {
 				real32 realtemp;
 				udword temp;
-				temp = etgFRandom(gravwellEffectLifeLow,gravwellEffectLifeHigh);
+				etgarg randomArgs[2] = {Real32ToUdword(gravwellEffectLifeLow), Real32ToUdword(gravwellEffectLifeHigh)};   // CAT: etgFRandom takes the ETG argument array
+				temp = (udword)etgFRandom(randomArgs);
 				realtemp = UdwordToReal32(temp);
 				ship->gravwellTimeEffect = universe.totaltimeelapsed + realtemp;
 			 }

@@ -170,6 +170,14 @@ bool32 rndShipVisible(SpaceObj* spaceobj, Camera* camera);
 bool32 rndShipVisibleUsingCoordSys(SpaceObj* spaceobj, Camera* camera);
 void rndDrawScissorBars(bool32 scissorEnabled);
 
+// CAT: lens flare sources (particle systems of type PART_LENSFLARES own one per particle; Particle.h). The list and
+//      its add/remove are ported with the particles; the lens flare renderer (cat_rndLensFlaresRender 0x0057bec0)
+//      and its scripts are stage 3.
+struct catlensflaresource;
+extern LinkedList catRndLensFlareSourceList;
+void cat_rndLensFlareSourceAdd(struct catlensflaresource *source);
+void cat_rndLensFlareSourceRemove(struct catlensflaresource *source);
+
 #if RND_GL_STATE_DEBUG
 extern bool32 rndGLStateSaving;
 void rndGLStateLogFunction(char *location);

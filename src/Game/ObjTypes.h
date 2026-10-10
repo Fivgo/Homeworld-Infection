@@ -135,6 +135,8 @@ typedef enum
     GS_VeryLargeIonCannon,
     GS_VeryLargePlasmaBomb,
     GS_Laser,
+    GS_BigGun,                  // CAT: new (gunsoundtypeinfo 0x00889da0 row 18)
+    GS_BeastWeapon,             // CAT: new (row 19)
     NUM_GUN_SOUND_TYPES
 } GunSoundType;
 
@@ -375,7 +377,32 @@ typedef udword SpecialEffectType;
 #define EGT_CRATE_TIME_OUT         17
 #define EGT_REPAIR_BEAM            18
 #define EGT_CAUGHT_GRAVWELL        19
-#define EGT_NumberOfSpecialEffects 20
+// CAT: Cataclysm's special-purpose effects (StrToEffectNum table 0x0088a048, 43 rows; etgStartup 0x0046a260 clears
+//      0x2B table entries). Values are the exe's.
+#define EGT_WELDING_EFFECT                  20
+#define EGT_RESOURCE_SOLID                  21
+#define EGT_VORTEX_EFFECT                   22
+#define EGT_ELECTRO_MAGNETIC_PULSE          23
+#define EGT_LEECH_COLLECT_EFFECT            24
+#define EGT_LEECH_VENT_EFFECT               25
+#define EGT_LINKING_EFFECT                  26
+#define EGT_BIG_GUN_BULLET_EXPLOSION        27
+#define EGT_BIG_GUN_CHARGING                28
+#define EGT_SLIPGATE_OPENING_EFFECT         29
+#define EGT_SLIPGATE_CLOSING_EFFECT         30
+#define EGT_SLIPGATE_PERMANENT_EFFECT       31
+#define EGT_RAMMING_FRIGATE_IMPACT_EFFECT   32
+#define EGT_SHOCKWAVE_STAR                  33
+#define EGT_SUCK_SHIP                       34
+#define EGT_RESOURCE_SHIP                   35
+#define EGT_CRYSTAL_SHOCK_WAVE              36
+#define EGT_BULLET_CUTTING_BEAM             37
+#define EGT_WORKER_RESOURCE_SOLID           38
+#define EGT_DISTORTION_FIELD                39
+#define EGT_AFTER_BURNER                    40
+#define EGT_RAM_VENT                        41
+#define EGT_MOTHER_EXPLOSION_SHOCKWAVE      42
+#define EGT_NumberOfSpecialEffects          43      // CAT: HW1 20
 
 /*=============================================================================
     Data:

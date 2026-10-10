@@ -137,9 +137,7 @@ src_game = files('AIAttackMan.c',
                  'Vector.c',
                  'Volume.c')
 
-src_game += custom_target('wrapped_functions.h',
-                          input: ['functions.h', 'wrap.h', 'wrap_types.h'],
-                          output: 'wrapped_functions.h',
-                          command: [meson.get_compiler('c').cmd_array(), '-E', '-o', '@OUTPUT@', '@INPUT0@'])
+# CAT: GoK's generated ETG wrappers (wrapped_functions.h from functions.h/wrap.h/wrap_types.h) are gone: Cataclysm's
+#      ETG callables take one argument-array pointer (ETG.h etgcallable), docs/m2-r3-etg-particles.md
 
 inc_src_game = include_directories('.')

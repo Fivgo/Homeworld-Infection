@@ -201,7 +201,7 @@ etgopcode;
 #define ETG_NestStackDepth          10          //max depth of nesting stack
 #define ETG_EventListLength         256         //max number of effect events
 #define ETG_DecisionMax             128         //max size of an alternate opcode's offset table
-#define ETG_NumberMeshes            128         //number of ETG-specific meshes
+#define ETG_NumberMeshes            150         //number of ETG-specific meshes (CAT: HW1 128; etgStartup 0x0046a260 clears 300 dwords of the registry)
 
 //etg script file
 #ifdef _WIN32
@@ -398,14 +398,23 @@ typedef struct
 }
 etgvariablecopy;
 //EOP_Function
+// CAT: Cataclysm's ETG callables take ONE pointer to an argument array (etgFunctionCall 0x0046e7b0 fills it on its
+//      stack: the effect first when passThis is set, then each parameter as resolved, and calls function(args)). HW1
+//      pushed the arguments and called function() without a prototype; GoK replaced that with one generated wrapper
+//      per callable (wrap.h, now gone). A slot is 4 bytes in the exe and a memsize here, so a pointer fits on 64-bit
+//      hosts; a float sits in the low 4 bytes of its slot (MemsizeToReal32), as the variable block stores it.
+typedef memsize etgarg;
+typedef memsize (*etgcallable)(etgarg *args);
+#define etgArgInt(args, i)          ((sdword)(args)[i])
+#define etgArgUdword(args, i)       ((udword)(args)[i])
+#define etgArgFloat(args, i)        MemsizeToReal32((args)[i])
+#define etgArgPtr(args, i, type)    ((type)(args)[i])
+#define etgArgColor(args, i)        ((color)(args)[i])
 typedef struct _etgfunctioncall_
 {
     etgopcode opcode;
-    memsize (*function)(void);                   //function to call
-#ifdef GENERIC_ETGCALLFUNCTION
-    memsize (*wrap_function)(struct Effect *, struct etgeffectstatic *,struct _etgfunctioncall_ *);  //wrap function to call
-#endif
-    udword nParameters;                         //number of parameters to pass
+    etgcallable function;                       //function to call (CAT: takes the argument array)
+    udword nParameters;                        //number of parameters to pass
     memsize returnValue;                         //variable to assign return value to, if any
     bool32 passThis;                              //shall we pass a reference to this effect?
     struct
@@ -453,11 +462,8 @@ typedef void (*etgresolvefunction)(struct etgeffectstatic *stat, etgfunctioncall
 typedef struct
 {
     char *name;                                 //name of function
-    void *function;                             //function pointer
-#ifdef GENERIC_ETGCALLFUNCTION
-    memsize (*wrap_function)(struct Effect *, struct etgeffectstatic *,etgfunctioncall *);  //wrap function to call
-#endif
-    ubyte returnType;                           //return value type, if any
+    etgcallable function;                       //function pointer (CAT: one argument-array pointer)
+    ubyte returnType;                          //return value type, if any
     ubyte passThis;
     etgresolvefunction resolve;
     ubyte nParams;                              //number of parameters to this function
@@ -661,7 +667,8 @@ etgeffectstatic *etgEffectStaticFind(char *name, bool32 bRegister);
 void etgEffectCodeDelete(etgeffectstatic *stat, bool32 bFullDelete);
 
 //create effects
-void etgEffectCodeStart(struct etgeffectstatic *stat, struct Effect *effect, sdword nParams, ...);
+// CAT: the user parameters come as an array (etgEffectCodeStart 0x0046a5b0 reads them through its 4th argument)
+void etgEffectCodeStart(struct etgeffectstatic *stat, struct Effect *effect, sdword nParams, etgarg *params);
 void etgEffectDelete(struct Effect *effect);
 struct Effect* etgEffectCreate(etgeffectstatic* stat, struct Ship* owner, vector* pos, vector* vel, matrix* coordsys,
                                real32 nLips, udword flags, sdword nParams, ...);
@@ -672,6 +679,8 @@ void etgHistoryRegisterFunction(etgeffectstatic *stat);
 bool32 etgEffectUpdate(struct Effect *effect, real32 timeElapsed);
 void etgEffectDraw(struct Effect *effect);
 void etgShipDied(struct Ship *deadDuck);
+// CAT: ships drop references to a deleted effect (exe 0x005475e0; ETG.c)
+void cat_univRemoveEffectReferencesFromShips(struct Effect *effect);
 sdword etgDeleteEffectsOwnedBy(struct Ship *owner);
 
 //mesh registry stuff
@@ -679,7 +688,14 @@ meshdata *etgMeshRegister(char *filename);
 void etgMeshRegistryReset(void);
 
 //etg random stream
-extern udword etgFRandom(real32 low, real32 high);
+// CAT: an ETG callable: args[0] low, args[1] high (etgFRandom 0x00471420)
+extern memsize etgFRandom(etgarg *args);
+
+// CAT: port diagnostics, not in the exe (/catEtgParseTest <listfile>, /catEtgEffectTest <ticks>; ETG.c)
+extern char catEtgSelfTestList[];
+extern sdword catEtgEffectSelfTestTicks;
+void catEtgRunParseSelfTest(void);
+void catEtgRunEffectSelfTest(sdword ticks);
 
 // Save Game stuff
 sdword saveEtglodGunEventToIndex(etglod *lod);

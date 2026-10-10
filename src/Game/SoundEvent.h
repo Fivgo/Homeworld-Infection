@@ -76,7 +76,9 @@ sdword soundEventPlay(void *object, sdword event, Gun *gun);
 #define soundEventStartEngine(a)		soundEventPlay(a, ShipCmn_Engine, NULL)
 #define soundEventBurstFire(a,b)		soundEventPlay(a, Gun_WeaponFireLooped, b)
 
-sdword soundEffect(void *effect, sdword event);
+// CAT: the ETG callable for playSound takes one argument array: args[0] the effect, args[1] the event (soundEffect
+//      0x005216b0 = soundEventPlay(args[0], args[1], NULL)); ETG.h etgcallable
+memsize soundEffect(memsize *args);
 sdword soundEffectType(Effect *effect, sdword event, sdword objecttype);
 
 sdword soundEventStopSound(sdword soundhandle, sdword numblocks);

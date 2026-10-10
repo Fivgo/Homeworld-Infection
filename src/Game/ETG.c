@@ -31,6 +31,7 @@
 #include "Randy.h"
 #include "render.h"
 #include "Select.h"
+#include "SinglePlayer.h"     // CAT: cat_univRemoveEffectReferencesFromShips walks the hyperspace ether
 #include "SoundEvent.h"
 #include "StatScript.h"
 #include "Task.h"
@@ -41,10 +42,8 @@
 #include "UnivUpdate.h"
 #include "utility.h"
 
-#ifdef GENERIC_ETGCALLFUNCTION
-#include "functions.h"
-#include "wrapped_unlisted_functions.h"
-#endif
+// CAT: GoK's generated per-callable wrappers (functions.h, wrap.h, wrap_types.h, wrapped_unlisted_functions.h) are
+//      gone: Cataclysm's callables take one argument-array pointer, which etgFunctionCall can call on any host
 
 #ifdef _WIN32
     #include <windows.h>
@@ -333,142 +332,85 @@ opparseentry etgParseTable[] =
 };
 
 //master function parsing table
-void etgSetDefaults(void);
-udword etgInc(udword value);
-udword etgDec(udword value);
-udword etgFdiv(real32 numer, real32 denom);
-udword etgFmult(real32 numer, real32 denom);
-udword etgFadd(real32 numer, real32 denom);
-udword etgFsub(real32 numer, real32 denom);
-sdword etgAdd(sdword numer, sdword denom);
-sdword etgSub(sdword numer, sdword denom);
-sdword etgMult(sdword numer, sdword denom);
-sdword etgDiv(sdword numer, sdword denom);
-udword etgSin(real32 ang);
-udword etgCos(real32 ang);
-ubyte *etgCreateCircles(Effect *effect, sdword number, sdword dist);
-ubyte *etgCreateSprites(Effect *effect, sdword number, sdword dist);
-ubyte *etgCreatePoints(Effect *effect, sdword number, sdword dist);
-ubyte *etgCreateMeshes(Effect *effect, sdword number, sdword dist);
-ubyte *etgCreateLines(Effect *effect, sdword number, sdword dist);
-void etgCreateEffects(Effect *effect, etgeffectstatic *stat, sdword number, sdword dist, sdword nParams, ...);
-void etgParentShipDelete(Effect *effect);
-void etgParentShipHide(Effect *effect);
-void etgChatterEventPlay(Effect *effect, battlechatterevent event);
-void etgDeathCriesPlay(Effect *effect);
-void etgDamageDone(Effect *effect);
-memsize etgSpawnNewEffect(Effect *effect, etgeffectstatic *stat, sdword nParams, ...);
-void etgEffOffsetLOF(real32 newVal);
-void etgEffChangeLOF(real32 newTheta, real32 newMu);
-void etgEffOffsetR(real32 newR, real32 newTheta);
-void etgEffOffsetXYZ(real32 x, real32 y, real32 z);
-void etgEffOffsetVelLOF(real32 newVal);
-void etgEffOffsetSpin(real32 newVal);
-void etgEffOffsetTime(real32 newVal);
-void etgEffOffsetDrag(Effect *effect, real32 newVal);
-void etgEffDrag(real32 newDrag);
-void etgEffAttachParent(bool32 attach);
-void etgEffSpin(real32 spin);
-void etgEffDeltaSpin(real32 deltaSpin);
-void etgEffDefaults(void);
-/*
-void etgThisChangeLOF(Effect *effect, real32 theta, real32 mu);
-void etgThisOffsetLOF(Effect *effect, real32 offset);
-void etgThisOffsetR(Effect *effect, real32 R, real32 theta);
-*/
-void etgThisOffsetXYZ(Effect *effect, real32 x, real32 y, real32 z);
-//void etgThisOffsetVelLOF(Effect *effect, real32 vel);
-//void etgThisOffsetVelR(Effect *effect, real32 R, real32 theta);
-void etgThisSetDrag(Effect *effect, real32 drag);
-void etgThisScaleVelocity(Effect *effect, real32 factor);
-void etgThisOffsetSpin(Effect *effect, real32 spin);
-void etgThisOffsetDeltaSpin(Effect *effect, real32 spin);
-void etgThisOffsetTime(Effect *effect, real32 time);
-void etgSetDrag(real32 n);
-void etgModifyDrag(ubyte *sys, real32 drag);
-void etgSetDepthWrite(udword write);
-void etgModifyDepthWrite(ubyte *sys, udword write);
-void etgSetColorA(color c);
-void etgSetColor(color c);
-void etgSetAnimation(void *animation, real32 frameRate, sdword loopCount);
-void etgSetMorphAnimation(void *animation, real32 frameRate, sdword loopCount);
-udword etgIRandom(udword low, udword high);
-udword etgFRandom(real32 low, real32 high);
-udword etgCRandom(udword loR, udword hiR, udword loG, udword hiG, udword loB, udword hiB);
-udword etgCARandom(udword loR, udword hiR, udword loG, udword hiG, udword loB, udword hiB, udword loA, udword hiA);
-udword etgFloat2Int(real32 f);
-udword etgInt2Float(sdword f);
-udword etgInts2Color(sdword red, sdword green, sdword blue);
-udword etgInts2ColorA(sdword red, sdword green, sdword blue, sdword alpha);
-udword etgFloats2Color(real32 red, real32 green, real32 blue);
-udword etgFloats2ColorA(real32 red, real32 green, real32 blue, real32 alpha);
-void etgSetSpecular(real32 exponent);
-udword etgOwnerColorSchemeGet(Effect *effect);
-udword etgEffectVelocityGet(Effect *effect);
+// CAT: every callable below takes one pointer to the argument array (ETG.h etgarg; etgFunctionCall 0x0046e7b0).
+//      The exe's void callables return memsize 0 here so the call through etgcallable is well-defined.
+memsize etgSetDefaults(etgarg *args);
+memsize etgInc(etgarg *args);
+memsize etgDec(etgarg *args);
+memsize etgFdiv(etgarg *args);
+memsize etgFmult(etgarg *args);
+memsize cat_etgFdegsin(etgarg *args);
+memsize etgFadd(etgarg *args);
+memsize etgFsub(etgarg *args);
+memsize etgAdd(etgarg *args);
+memsize etgSub(etgarg *args);
+memsize etgMult(etgarg *args);
+memsize etgDiv(etgarg *args);
+memsize etgSin(etgarg *args);
+memsize etgCos(etgarg *args);
+memsize etgCreateCircles(etgarg *args);
+memsize etgCreateSprites(etgarg *args);
+memsize etgCreatePoints(etgarg *args);
+memsize etgCreateMeshes(etgarg *args);
+memsize etgCreateLines(etgarg *args);
+memsize cat_etgCreateEBolts(etgarg *args);
+memsize cat_etgCreateLensFlares(etgarg *args);
+memsize etgCreateEffects(etgarg *args);
+memsize etgParentShipDelete(etgarg *args);
+memsize etgParentShipHide(etgarg *args);
+memsize cat_etgParentShipOmitFromRenderList(etgarg *args);
+memsize etgChatterEventPlay(etgarg *args);
+memsize etgDeathCriesPlay(etgarg *args);
+memsize etgDamageDone(etgarg *args);
+memsize etgSpawnNewEffect(etgarg *args);
+memsize etgEffOffsetLOF(etgarg *args);
+memsize etgEffChangeLOF(etgarg *args);
+memsize etgEffOffsetR(etgarg *args);
+memsize etgEffOffsetXYZ(etgarg *args);
+memsize etgEffOffsetVelLOF(etgarg *args);
+memsize etgEffOffsetSpin(etgarg *args);
+memsize etgEffOffsetTime(etgarg *args);
+memsize etgEffOffsetDrag(etgarg *args);
+memsize etgEffDrag(etgarg *args);
+memsize etgEffAttachParent(etgarg *args);
+memsize etgEffSpin(etgarg *args);
+memsize etgEffDeltaSpin(etgarg *args);
+memsize etgEffDefaults(etgarg *args);
+memsize etgThisOffsetXYZ(etgarg *args);
+memsize etgThisSetDrag(etgarg *args);
+memsize etgThisScaleVelocity(etgarg *args);
+memsize etgThisOffsetSpin(etgarg *args);
+memsize etgThisOffsetDeltaSpin(etgarg *args);
+memsize etgThisOffsetTime(etgarg *args);
+memsize etgSetDrag(etgarg *args);
+memsize etgModifyDrag(etgarg *args);
+memsize etgSetDepthWrite(etgarg *args);
+memsize etgSetColorA(etgarg *args);
+memsize etgSetColor(etgarg *args);
+memsize etgSetAnimation(etgarg *args);
+memsize etgSetMorphAnimation(etgarg *args);
+memsize etgIRandom(etgarg *args);
+memsize etgCRandom(etgarg *args);
+memsize etgCARandom(etgarg *args);
+memsize etgFloat2Int(etgarg *args);
+memsize etgInt2Float(etgarg *args);
+memsize cat_etgColRed(etgarg *args);
+memsize cat_etgColGreen(etgarg *args);
+memsize cat_etgColBlue(etgarg *args);
+memsize etgInts2Color(etgarg *args);
+memsize etgInts2ColorA(etgarg *args);
+memsize etgFloats2Color(etgarg *args);
+memsize etgFloats2ColorA(etgarg *args);
+memsize etgSetSpecular(etgarg *args);
+memsize etgOwnerColorSchemeGet(etgarg *args);
+memsize etgEffectVelocityGet(etgarg *args);
+memsize cat_etgNullsub(etgarg *args);
+memsize etgCreateCallbackSetup(etgarg *args);
 //resolve functions:
 void etgCreationResolve(etgeffectstatic *stat, etgfunctioncall *call);
 void etgDepthWriteResolve(struct etgeffectstatic *stat, etgfunctioncall *call);
 
-
-#ifdef GENERIC_ETGCALLFUNCTION
-#undef funcEntryn
-#undef funcEntry0
-#undef funcEntry1
-#undef funcEntry2
-#undef funcEntry3
-#undef funcEntry4
-#undef funcEntry5
-#undef funcEntry6
-#undef funcEntry7
-#undef funcEntry8
-
-#define funcEntryn(name, ret, function)                                      {name, function, wrap_##function, ret, (ubyte)FALSE, ETG_VariableParams}
-#define funcEntry0(name, ret, function)                                      {name, function, wrap_##function, ret, (ubyte)FALSE, NULL, 0, {0,0,0,0,0,0,0,0,0}}
-#define funcEntry1(name, ret, function, p0)                                  {name, function, wrap_##function, ret, (ubyte)FALSE, NULL, 1, {p0}}
-#define funcEntry2(name, ret, function, p0, p1)                              {name, function, wrap_##function, ret, (ubyte)FALSE, NULL, 2, {p0, p1}}
-#define funcEntry3(name, ret, function, p0, p1, p2)                          {name, function, wrap_##function, ret, (ubyte)FALSE, NULL, 3, {p0, p1, p2}}
-#define funcEntry4(name, ret, function, p0, p1, p2, p3)                      {name, function, wrap_##function, ret, (ubyte)FALSE, NULL, 4, {p0, p1, p2, p3}}
-#define funcEntry5(name, ret, function, p0, p1, p2, p3, p4)                  {name, function, wrap_##function, ret, (ubyte)FALSE, NULL, 5, {p0, p1, p2, p3, p4}}
-#define funcEntry6(name, ret, function, p0, p1, p2, p3, p4, p5)              {name, function, wrap_##function, ret, (ubyte)FALSE, NULL, 6, {p0, p1, p2, p3, p4, p5}}
-#define funcEntry7(name, ret, function, p0, p1, p2, p3, p4, p5, p6)          {name, function, wrap_##function, ret, (ubyte)FALSE, NULL, 7, {p0, p1, p2, p3, p4, p5, p6}}
-#define funcEntry8(name, ret, function, p0, p1, p2, p3, p4, p5, p6, p7)      {name, function, wrap_##function, ret, (ubyte)FALSE, NULL, 7, {p0, p1, p2, p3, p4, p5, p6, p7}}
-
-#undef funcEntryThisn
-#undef funcEntryThis0
-#undef funcEntryThis1
-#undef funcEntryThis2
-#undef funcEntryThis3
-#undef funcEntryThis4
-#undef funcEntryThis5
-#undef funcEntryThis6
-#undef funcEntryThis7
-#undef funcEntryThis8
-
-#define funcEntryThisn(name, ret, function)                                  {name, function, wrap_##function, ret, (ubyte)TRUE,  ETG_VariableParams}
-#define funcEntryThis0(name, ret, function)                                  {name, function, wrap_##function, ret, (ubyte)TRUE,  NULL, 0, {0,0,0,0,0,0,0,0,0}}
-#define funcEntryThis1(name, ret, function, p0)                              {name, function, wrap_##function, ret, (ubyte)TRUE,  NULL, 1, {p0}}
-#define funcEntryThis2(name, ret, function, p0, p1)                          {name, function, wrap_##function, ret, (ubyte)TRUE,  NULL, 2, {p0, p1}}
-#define funcEntryThis3(name, ret, function, p0, p1, p2)                      {name, function, wrap_##function, ret, (ubyte)TRUE,  NULL, 3, {p0, p1, p2}}
-#define funcEntryThis4(name, ret, function, p0, p1, p2, p3)                  {name, function, wrap_##function, ret, (ubyte)TRUE,  NULL, 4, {p0, p1, p2, p3}}
-#define funcEntryThis5(name, ret, function, p0, p1, p2, p3, p4)              {name, function, wrap_##function, ret, (ubyte)TRUE,  NULL, 5, {p0, p1, p2, p3, p4}}
-#define funcEntryThis6(name, ret, function, p0, p1, p2, p3, p4, p5)          {name, function, wrap_##function, ret, (ubyte)TRUE,  NULL, 6, {p0, p1, p2, p3, p4, p5}}
-#define funcEntryThis7(name, ret, function, p0, p1, p2, p3, p4, p5, p6)      {name, function, wrap_##function, ret, (ubyte)TRUE,  NULL, 7, {p0, p1, p2, p3, p4, p5, p6}}
-#define funcEntryThis8(name, ret, function, p0, p1, p2, p3, p4, p5, p6, p7)  {name, function, wrap_##function, ret, (ubyte)TRUE,  NULL, 7, {p0, p1, p2, p3, p4, p5, p6, p7}}
-
-#undef funcEntryR1
-#undef funcEntryR2
-
-#define funcEntryR1(name, ret, function, p0, resolve)                        {name, function, wrap_##function, ret, (ubyte)FALSE, resolve, 1, {p0}}
-#define funcEntryR2(name, ret, function, p0, p1, resolve)                    {name, function, wrap_##function, ret, (ubyte)FALSE, resolve, 2, {p0, p1}}
-
-#undef funcEntryThisR1
-#undef funcEntryThisR2
-
-#define funcEntryThisR1(name, ret, function, p0, resolve)                    {name, function, wrap_##function, ret, (ubyte)TRUE,  resolve, 1, {p0}}
-#define funcEntryThisR2(name, ret, function, p0, p1, resolve)                {name, function, wrap_##function, ret, (ubyte)TRUE,  resolve, 2, {p0, p1}}
-
-#else
-
+// CAT: one entry layout for every callable (GoK's GENERIC_ETGCALLFUNCTION wrap_ variants are gone)
 #define funcEntryn(name, ret, function)                                      {name, function, ret, (ubyte)FALSE, ETG_VariableParams}
 #define funcEntry0(name, ret, function)                                      {name, function, ret, (ubyte)FALSE, NULL, 0, {0,0,0,0,0,0,0,0,0}}
 #define funcEntry1(name, ret, function, p0)                                  {name, function, ret, (ubyte)FALSE, NULL, 1, {p0}}
@@ -485,19 +427,19 @@ void etgDepthWriteResolve(struct etgeffectstatic *stat, etgfunctioncall *call);
 #define funcEntryThis1(name, ret, function, p0)                              {name, function, ret, (ubyte)TRUE,  NULL, 1, {p0}}
 #define funcEntryThis2(name, ret, function, p0, p1)                          {name, function, ret, (ubyte)TRUE,  NULL, 2, {p0, p1}}
 #define funcEntryThis3(name, ret, function, p0, p1, p2)                      {name, function, ret, (ubyte)TRUE,  NULL, 3, {p0, p1, p2}}
-#define funcEntryThis4(name, ret, function, p0, p1, p2, p3)                  {name, function, ret, (ubyte)TRUE,  NULL, 4, {p0, p1, p2, p3}}
-#define funcEntryThis5(name, ret, function, p0, p1, p2, p3, p4)              {name, function, ret, (ubyte)TRUE,  NULL, 5, {p0, p1, p2, p3, p4}}
-#define funcEntryThis6(name, ret, function, p0, p1, p2, p3, p4, p5)          {name, function, ret, (ubyte)TRUE,  NULL, 6, {p0, p1, p2, p3, p4, p5}}
-#define funcEntryThis7(name, ret, function, p0, p1, p2, p3, p4, p5, p6)      {name, function, ret, (ubyte)TRUE,  NULL, 7, {p0, p1, p2, p3, p4, p5, p6}}
-#define funcEntryThis8(name, ret, function, p0, p1, p2, p3, p4, p5, p6, p7)  {name, function, ret, (ubyte)TRUE,  NULL, 7, {p0, p1, p2, p3, p4, p5, p6, p7}}
 
 #define funcEntryR1(name, ret, function, p0, resolve)                        {name, function, ret, (ubyte)FALSE, resolve, 1, {p0}}
-#define funcEntryR2(name, ret, function, p0, p1, resolve)                    {name, function, ret, (ubyte)FALSE, resolve, 2, {p0, p1}}
-
-#define funcEntryThisR1(name, ret, function, p0, resolve)                    {name, function, ret, (ubyte)TRUE,  resolve, 1, {p0}}
 #define funcEntryThisR2(name, ret, function, p0, p1, resolve)                {name, function, ret, (ubyte)TRUE,  resolve, 2, {p0, p1}}
 
-#endif
+/*-----------------------------------------------------------------------------
+    CAT: the exe's function table (etgFunctionTable 0x00879808, 167 rows of 0x1C bytes, dumped from the exe), in its
+    order and with its argument types. Against HW1/GoK: new rows setRandomOffsetArray, setTurbulance, setSegments,
+    print, modifyAlphaValue, modifyBackgroundColor, modifyRotAngle, modifyScaleX, modifyScaleY, modifyTumble,
+    createEBolts, createLensFlares, fdegsin, omitParentShipFromRenderList, colRed/colGreen/colBlue;
+    modifyDeltaLength takes a third (int) argument; HW1's duplicate setSpriteDeltaRot/modifyAlphaMode rows are gone.
+    The exe's setFramerate row points at partSetLoopFlag (0x004e3aa0, as setLoopFlag does), not partSetFramerate;
+    kept. print and modifyBackgroundColor point at the exe's empty nullsub (0x0049ae30).
+-----------------------------------------------------------------------------*/
 opfunctionentry etgFunctionTable[] =
 {
     //set properties of particle systems to be created
@@ -512,6 +454,7 @@ opfunctionentry etgFunctionTable[] =
     funcEntry1("setOffsetR", EVT_Void, partSetOffsetR, EVT_Float),
     funcEntry1("setOffsetTheta", EVT_Void, partSetOffsetTheta, EVT_Float),
     funcEntry1("setOffsetArray", EVT_Void, partSetOffsetArray, EVT_ConstLabel),
+    funcEntry6("setRandomOffsetArray", EVT_Void, cat_partSetRandomOffsetArray, EVT_Float, EVT_Float, EVT_Float, EVT_Float, EVT_Float, EVT_Float),
     funcEntry1("setDeltaLOF", EVT_Void, partSetDeltaLOF, EVT_Float),
     funcEntry1("setDeltaLOFDist", EVT_Void, partSetDeltaLOFDist, EVT_Float),
     funcEntry2("setDeltaR", EVT_Void, partSetDeltaR, EVT_Float, EVT_Float),
@@ -528,7 +471,6 @@ opfunctionentry etgFunctionTable[] =
     funcEntry1("setDeltaVelR", EVT_Void, partSetDeltaVelR, EVT_Float),
     funcEntry1("setDeltaVelRDist", EVT_Void, partSetDeltaVelRDist, EVT_Float),
     funcEntry1("setSpriteRotDist", EVT_Void, partSetAngDist, EVT_Float),
-    funcEntry1("setSpriteDeltaRot", EVT_Void, partSetAngDelta, EVT_Float),
     funcEntry1("setSpriteDeltaRotDist", EVT_Void, partSetAngDeltaDist, EVT_Float),
     funcEntry1("setColor", EVT_Void, etgSetColor, EVT_RGB),
     funcEntry3("setColorDist", EVT_Void, partSetColorDist, EVT_Float, EVT_Float, EVT_Float),
@@ -561,7 +503,7 @@ opfunctionentry etgFunctionTable[] =
     funcEntry3("setAnimation", EVT_Void, etgSetAnimation, EVT_ConstLabel, EVT_Float, EVT_Int),
     funcEntry3("setMeshAnimation", EVT_Void, etgSetMorphAnimation, EVT_ConstLabel, EVT_Float, EVT_Int),
     funcEntry1("setMeshStartFrame", EVT_Void, partSetMeshStartFrame, EVT_Float),
-    funcEntry1("setFramerate", EVT_Void, partSetFramerate, EVT_Float),
+    funcEntry1("setFramerate", EVT_Void, partSetLoopFlag, EVT_Float),          //exe: partSetLoopFlag 0x004e3aa0
     funcEntry1("setLoopFlag", EVT_Void, partSetLoopFlag, EVT_Int),
     funcEntry1("setStartFrame", EVT_Void, partSetStartFrame, EVT_Int),
     funcEntry1("setAlphaMode", EVT_Void, partSetAlphaMode, EVT_Int),
@@ -570,14 +512,15 @@ opfunctionentry etgFunctionTable[] =
     funcEntry1("setTrueBillboard", EVT_Void, partSetTrueBillboard, EVT_Int),
     funcEntry1("setPseudoBillboard", EVT_Void, partSetPseudoBillboard, EVT_Int),
     funcEntryR1("setDepthWrite", EVT_Void, etgSetDepthWrite, EVT_Int, etgDepthWriteResolve),
-//    funcEntryR1("setForceVisible", EVT_Void, etgSetDepthWrite, EVT_Int, etgDepthWriteResolve),
-    //funcEntry1("", EVT_Void, , EVT_Float),
+    funcEntry1("setTurbulance", EVT_Void, cat_partSetTurbulance, EVT_Float),
+    funcEntry1("setSegments", EVT_Void, cat_partSetSegments, EVT_Int),
 
     //modify a current particle system
     funcEntry2("modifyDrag", EVT_Void, etgModifyDrag, EVT_Int, EVT_Float),
     funcEntry2("modifyScale", EVT_Void, partModifyScale, EVT_Int, EVT_Float),
+    funcEntry1("print", EVT_Void, cat_etgNullsub, EVT_Float),
     funcEntry2("modifyDeltaScale", EVT_Void, partModifyDeltaScale, EVT_Int, EVT_Float),
-    funcEntry2("modifyDeltaLength", EVT_Void, partModifyDeltaLength, EVT_Int, EVT_Float),
+    funcEntry3("modifyDeltaLength", EVT_Void, partModifyDeltaLength, EVT_Int, EVT_Float, EVT_Int),
     funcEntry2("modifyColorA", EVT_Void, partModifyColorC, EVT_Int, EVT_RGBA),
     funcEntry2("modifyColor", EVT_Void, partModifyColorC, EVT_Int, EVT_RGB),
     funcEntry4("modifyColorBias", EVT_Void, partModifyColorBias, EVT_Int, EVT_Float, EVT_Float, EVT_Float),
@@ -600,37 +543,30 @@ opfunctionentry etgFunctionTable[] =
     funcEntry2("modifyAlphaMode", EVT_Void, partModifyAlphaMode, EVT_Int, EVT_Int),
     funcEntry2("modifySpecular", EVT_Void, partModifyExponent, EVT_Int, EVT_Float),
     funcEntry2("modifyColorScheme", EVT_Void, partModifyColorScheme, EVT_Int, EVT_Int),
-    funcEntry2("modifyAlphaMode", EVT_Void, partModifyAlphaMode, EVT_Int, EVT_Int),
+    funcEntry2("modifyAlphaValue", EVT_Void, cat_partModifyAlphaValue, EVT_Int, EVT_Float),
     funcEntry2("modifyTrueBillboard", EVT_Void, partModifyPseudoBillboard, EVT_Int, EVT_Int),
     funcEntry2("modifyPseudoBillboard", EVT_Void, partModifyPseudoBillboard, EVT_Int, EVT_Int),
-//    funcEntry2("modifyDepthWrite", EVT_Void, etgModifyDepthWrite, EVT_Int, EVT_Int),
-/*
-    funcEntry2("modifyMesh", EVT_Void, partModifyMesh, EVT_Int, EVT_Float),
-//    funcEntry2("modifyMorphTarget", EVT_Void, , EVT_Int, EVT_Float),
-//    funcEntry2("modifyMorphTime", EVT_Void, , EVT_Int, EVT_Float),
-//    funcEntry2("modifyTumbleSpeed", EVT_Void, , EVT_Int, EVT_Float),
-//    funcEntry2("modifyAnimation", EVT_Void, , EVT_Int, EVT_Float),
-//    funcEntry2("modifyAnimFrame", EVT_Void, , EVT_Int, EVT_Float),
-*/
-/*
-//    funcEntry2("modifyVelocity", EVT_Void, , EVT_Int, EVT_Float),
-//    funcEntry2("modifyDeltaVelocity", EVT_Void, , EVT_Int, EVT_Float),
-//    funcEntry2("modifyRotAngle", EVT_Void, , EVT_Int, EVT_Float),
-//    funcEntry2("modifyRotAngleDelta", EVT_Void, , EVT_Int, EVT_Float),
-*/
+    funcEntry1("modifyBackgroundColor", EVT_Void, cat_etgNullsub, EVT_RGB),
+    funcEntry2("modifyRotAngle", EVT_Void, cat_partModifyRotAngle, EVT_Int, EVT_Float),
+    funcEntry2("modifyScaleX", EVT_Void, cat_partModifyScaleX, EVT_Int, EVT_Float),
+    funcEntry2("modifyScaleY", EVT_Void, cat_partModifyScaleY, EVT_Int, EVT_Float),
+    funcEntry4("modifyTumble", EVT_Void, partModifyTumble, EVT_Int, EVT_Float, EVT_Float, EVT_Float),
+
     //create particles
     funcEntryThisR2("createSprites", EVT_Int, etgCreateSprites, EVT_Int, EVT_Int, etgCreationResolve),
     funcEntryThisR2("createCircles", EVT_Int, etgCreateCircles, EVT_Int, EVT_Int, etgCreationResolve),
     funcEntryThisR2("createPoints", EVT_Int, etgCreatePoints, EVT_Int, EVT_Int, etgCreationResolve),
     funcEntryThisR2("createLines", EVT_Int, etgCreateLines, EVT_Int, EVT_Int, etgCreationResolve),
     funcEntryThisR2("createMeshes", EVT_Int, etgCreateMeshes, EVT_Int, EVT_Int, etgCreationResolve),
-    //funcEntryThis2("createEffects", EVT_Int, etgCreateEffects, EVT_Int, EVT_Int),
+    funcEntryThisR2("createEBolts", EVT_Int, cat_etgCreateEBolts, EVT_Int, EVT_Int, etgCreationResolve),
+    funcEntryThisR2("createLensFlares", EVT_Int, cat_etgCreateLensFlares, EVT_Int, EVT_Int, etgCreationResolve),
 
     //Basic mathematics.  Need more?
     funcEntry1("inc", EVT_Int, etgInc, EVT_Int),
     funcEntry1("dec", EVT_Int, etgDec, EVT_Int),
     funcEntry2("fdiv", EVT_Float, etgFdiv, EVT_Float, EVT_Float),
     funcEntry2("fmult", EVT_Float, etgFmult, EVT_Float, EVT_Float),
+    funcEntry1("fdegsin", EVT_Float, cat_etgFdegsin, EVT_Float),
     funcEntry2("fadd", EVT_Float, etgFadd, EVT_Float, EVT_Float),
     funcEntry2("fsub", EVT_Float, etgFsub, EVT_Float, EVT_Float),
     funcEntry2("div", EVT_Int, etgDiv, EVT_Int, EVT_Int),
@@ -647,6 +583,7 @@ opfunctionentry etgFunctionTable[] =
     //special-case functions
     funcEntryThis0("deleteParentShip", EVT_Int, etgParentShipDelete),
     funcEntryThis0("hideParentShip", EVT_Int, etgParentShipHide),
+    funcEntryThis0("omitParentShipFromRenderList", EVT_Int, cat_etgParentShipOmitFromRenderList),
     funcEntryThis1("playSound", EVT_Int, soundEffect, EVT_Int),
     funcEntryThis1("playChatter", EVT_Int, etgChatterEventPlay, EVT_Int),
     funcEntryThis0("deathCries", EVT_Int, etgDeathCriesPlay),
@@ -670,12 +607,7 @@ opfunctionentry etgFunctionTable[] =
     funcEntry1("setEffDeltaSpin",EVT_Void, etgEffDeltaSpin, EVT_Int),
 
     //adjust parameters of current effect
-//    funcEntryThis2("effChangeLOF",  EVT_Void,    etgThisChangeLOF, EVT_Float, EVT_Float),
-//    funcEntryThis1("effOffsetLOF",  EVT_Void,    etgThisOffsetLOF, EVT_Float),
-//    funcEntryThis2("effOffsetR",  EVT_Void,      etgThisOffsetR, EVT_Float, EVT_Float),
     funcEntryThis3("effModifyXYZ",  EVT_Void,    etgThisOffsetXYZ, EVT_Float, EVT_Float, EVT_Float),
-//    funcEntryThis1("effModifyVelLOF",  EVT_Void, etgThisOffsetVelLOF, EVT_Float),
-//    funcEntryThis2("effModifyVelR",  EVT_Void,   etgThisOffsetVelR, EVT_Float, EVT_Float),
     funcEntryThis1("effScaleVelocity",  EVT_Void,etgThisScaleVelocity, EVT_Float),
     funcEntryThis1("effModifySpin",  EVT_Void,   etgThisOffsetSpin, EVT_Float),
     funcEntryThis1("effModifyDeltaSpin",  EVT_Void,   etgThisOffsetDeltaSpin, EVT_Float),
@@ -689,6 +621,9 @@ opfunctionentry etgFunctionTable[] =
     funcEntry4("int2ColorA",  EVT_RGB,    etgInts2ColorA, EVT_Int, EVT_Int, EVT_Int, EVT_Int),
     funcEntry3("floats2Color",  EVT_RGB,    etgFloats2Color, EVT_Float, EVT_Float, EVT_Float),
     funcEntry4("floats2ColorA",  EVT_RGB,    etgFloats2ColorA, EVT_Float, EVT_Float, EVT_Float, EVT_Float),
+    funcEntry1("colRed",  EVT_Float,    cat_etgColRed, EVT_RGBA),
+    funcEntry1("colGreen",  EVT_Float,    cat_etgColGreen, EVT_RGBA),
+    funcEntry1("colBlue",  EVT_Float,    cat_etgColBlue, EVT_RGBA),
 
     END_OP_FUNCTION_ENTRY,
 };
@@ -746,7 +681,7 @@ scriptEntry etgScriptParseTable[] =
     {"setDamageEvent",              etgDamageEventSet, NULL},
     {"setHyperspaceEvent",          etgHyperspaceEventSet, NULL},
     {"NumberEffects",               etgNumberEffectsParse, NULL},
-    {"etgHistoryScalarMin",         scriptSetSdwordCB, &etgHistoryScalarMin},
+    {"etgHistoryScalarMin",         scriptSetUdwordCB, &etgHistoryScalarMin},  // CAT: the exe's table uses scriptSetUdwordCB (0x0087ac00)
     {"etgSoftwareScalarDamage",     scriptSetReal32CB, &etgSoftwareScalarDamage},
     {"etgSoftwareScalarHit",        scriptSetReal32CB, &etgSoftwareScalarHit},
     {"etgSoftwareScalarFire",       scriptSetReal32CB, &etgSoftwareScalarFire},
@@ -759,15 +694,17 @@ scriptEntry etgScriptParseTable[] =
 sdword etgNumberEffectsExpected = -1;
 sdword etgNumberEffectsLoaded = 0;
 //list of script files to load
+// CAT: the exe's list (0x0087ac40): general.script, then one script per Cataclysm race (etg\race_*.script)
 char *etgScriptFilename[] =
 {
     "general.script",
-    "R1.script",
-    "R2.script",
-    "P1.script",
-    "P2.script",
-    "P3.script",
-    "Traders.script",
+    "RACE_SECT.script",
+    "RACE_BEAST.script",
+    "RACE_KUSHAN.script",
+    "RACE_TAIDAN.script",
+    "RACE_P1.script",
+    "RACE_TRADERS.script",
+    "RACE_DERELICT.script",
     NULL
 };
 #if ETG_TESTING
@@ -1022,8 +959,8 @@ scanTheFactor:
 ----------------------------------------------------------------------------*/
 void etgNumberEffectsParse(char *directory,char *field,void *dataToFillIn)
 {
-    scriptSetSdwordCB(directory, field, &etgNumberEffectsExpected);
-    dbgAssertOrIgnore(etgNumberEffectsExpected > 0 && etgNumberEffectsExpected < 2000);
+    // CAT: scriptSetUdwordCB and no range assert (etgNumberEffectsParse 0x004691c0)
+    scriptSetUdwordCB(directory, field, &etgNumberEffectsExpected);
     HorseRaceBeginBar(ETG_BAR);
 }
 
@@ -1042,23 +979,23 @@ sdword etgTokTheType(void)
 
     param = strtok(NULL, ETG_TokenDelimiters);
     dbgAssertOrIgnore(param);
-    if (strcmp(param, "damage") == 0)
+    if (strcasecmp(param, "damage") == 0)          // CAT: the exe compares these keywords with _stricmp (etgDeathEventSet 0x004691e0, etgDamageEventSet 0x00469d90, the *EventSet "NULL" tests)
     {
         exType = EDT_AccumDamage;
     }
-    else if (strcmp(param, "projectile") == 0)
+    else if (strcasecmp(param, "projectile") == 0)
     {
         exType = EDT_ProjectileHit;
     }
-    else if (strcmp(param, "beam") == 0)
+    else if (strcasecmp(param, "beam") == 0)
     {
         exType = EDT_BeamHit;
     }
-    else if (strcmp(param, "collision") == 0)
+    else if (strcasecmp(param, "collision") == 0)
     {
         exType = EDT_Collision;
     }
-    else if (strcmp(param, "special") == 0)
+    else if (strcasecmp(param, "special") == 0)
     {
         exType = EDT_Special;
     }
@@ -1112,7 +1049,7 @@ void etgDeathEventSet(char *directory,char *field,void *dataToFillIn)
 loadTheEffect:
     param = strtok(NULL, ETG_TokenDelimiters);
     dbgAssertOrIgnore(param);
-    if (strcmp(param, "NULL") == 0)
+    if (strcasecmp(param, "NULL") == 0)
     {
         //!!! notice the potential memory leak here?  There could be valid effects assigned to this pointer and then this pointer is set to NULL.
         *whereToLoad = NULL;
@@ -1163,7 +1100,7 @@ void etgFireEventSet(char *directory,char *field,void *dataToFillIn)
 
     etgParseRaceSoundParam(field, &racerX, &gunSound, &param);
 
-    if (strcmp(param, "NULL") == 0)
+    if (strcasecmp(param, "NULL") == 0)
     {
         etgGunEventTable[racerX][gunSound][EGT_GunFire] = NULL;
     }
@@ -1181,7 +1118,7 @@ void etgHitEventSet(char *directory,char *field,void *dataToFillIn)
 
     etgParseRaceSoundParam(field, &racerX, &gunSound, &param);
 
-    if (strcmp(param, "NULL") == 0)
+    if (strcasecmp(param, "NULL") == 0)
     {
         etgGunEventTable[racerX][gunSound][EGT_GunFire] = NULL;
     }
@@ -1199,7 +1136,7 @@ void etgBulletEffectSet(char *directory,char *field,void *dataToFillIn)
 
     etgParseRaceSoundParam(field, &racerX, &gunSound, &param);
 
-    if (strcmp(param, "NULL") == 0)
+    if (strcasecmp(param, "NULL") == 0)
     {
         etgGunEventTable[racerX][gunSound][EGT_GunBullet] = NULL;
     }
@@ -1217,7 +1154,7 @@ void etgBulletDestroyEffectSet(char *directory,char *field,void *dataToFillIn)
 
     etgParseRaceSoundParam(field, &racerX, &gunSound, &param);
 
-    if (strcmp(param, "NULL") == 0)
+    if (strcasecmp(param, "NULL") == 0)
     {
         etgGunEventTable[racerX][gunSound][EGT_BulletDestroyed] = NULL;
     }
@@ -1235,7 +1172,7 @@ void etgBulletDeflectEffectSet(char *directory,char *field,void *dataToFillIn)
 
     etgParseRaceSoundParam(field, &racerX, &gunSound, &param);
 
-    if (strcmp(param, "NULL") == 0)
+    if (strcasecmp(param, "NULL") == 0)
     {
         etgGunEventTable[racerX][gunSound][EGT_BulletDeflected] = NULL;
     }
@@ -1297,15 +1234,15 @@ void etgDamageEventSet(char *directory,char *field,void *dataToFillIn)
 
     param = strtok(NULL, ETG_TokenDelimiters);
     dbgAssertOrIgnore(param);
-    if (strcmp(param, "light") == 0)
+    if (strcasecmp(param, "light") == 0)
     {
         exType = DMG_Light;
     }
-    else if (strcmp(param, "heavy") == 0)
+    else if (strcasecmp(param, "heavy") == 0)
     {
         exType = DMG_Heavy;
     }
-    else if (strcmp(param, "dying") == 0)
+    else if (strcasecmp(param, "dying") == 0)
     {
         exType = DMG_Dying;
     }
@@ -1316,7 +1253,7 @@ void etgDamageEventSet(char *directory,char *field,void *dataToFillIn)
 
     param = strtok(NULL, ETG_TokenDelimiters);
     dbgAssertOrIgnore(param);
-    if (strcmp(param, "NULL") == 0)
+    if (strcasecmp(param, "NULL") == 0)
     {
         etgDamageEffectTable[classy][exType] = NULL;
     }
@@ -1332,7 +1269,7 @@ void etgHyperspaceEventSet(char *directory,char *field,void *dataToFillIn)
 
     param = strtok(field, ETG_TokenDelimiters);
     dbgAssertOrIgnore(param);
-    if (strcmp(param, "NULL") == 0)
+    if (strcasecmp(param, "NULL") == 0)
     {
         etgHyperspaceEffect = NULL;
     }
@@ -1473,7 +1410,7 @@ udword etgEffectTest(regionhandle reg, sdword ID, udword event, udword data)
 //    vecAdd(newEffect->obj.posinfo.position, position, ship->obj.posinfo.position);
     newEffect->obj.posinfo.position = ship->obj.posinfo.position;
     vecAddToScalarMultiply(newEffect->obj.posinfo.position, ship->obj.posinfo.velocity, universe.phystimeelapsed);
-    etgEffectCodeStart(stat, newEffect, 0);                 //get the code a-runnin'
+    etgEffectCodeStart(stat, newEffect, 0, NULL);           //get the code a-runnin' (CAT: parameter array)
     if (bitTest(stat->specialOps, ESO_SortForward))
     {                                                       //make it sort forward, if applicable
         bitSet(newEffect->header.flags, SOF_AlwaysSortFront);
@@ -2027,13 +1964,14 @@ void etgCodeMakeCurrent(etgeffectstatic *stat)
     Description : Starts up the code, variables etc. of an effect in a useable form.
     Inputs      : effect - effect we're starting up
                   nParams - number of user parameters
+                  params - CAT: the user parameters as an array (etgEffectCodeStart 0x0046a5b0 reads them through its
+                    4th argument; HW1 took them as variable arguments)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void etgEffectCodeStart(etgeffectstatic *stat, Effect *effect, sdword nParams, ...)
+void etgEffectCodeStart(etgeffectstatic *stat, Effect *effect, sdword nParams, etgarg *params)
 {
     sdword index;
-    va_list marker;
 
 
 #if ETG_ERROR_CHECKING
@@ -2068,12 +2006,10 @@ void etgEffectCodeStart(etgeffectstatic *stat, Effect *effect, sdword nParams, .
             stat->variableInitData[index];
     }
     //init the user parameters, if any
-    va_start(marker, nParams);
     for (index = 0; index < nParams; index++)
     {
-        ((memsize *)effect->variable)[index] = va_arg(marker, memsize);
+        ((memsize *)effect->variable)[index] = params[index];
     }
-    va_end(marker);
     //clear out the flags list
     effect->effectFlags = 0;
     //no spin yet
@@ -2092,11 +2028,19 @@ void etgEffectCodeStart(etgeffectstatic *stat, Effect *effect, sdword nParams, .
 void etgEffectDelete(Effect *effect)
 {
     sdword index;
+
+    // CAT: ships drop their references to the effect (cat_univRemoveEffectReferencesFromShips 0x005475e0, called by
+    //      etgEffectDelete 0x0046a6f0 and etgDeleteEffectsOwnedBy 0x0046fff0)
+    cat_univRemoveEffectReferencesFromShips(effect);
     for (index = 0; index < effect->iParticleBlock; index++)
     {
         if (effect->particleBlock[index] != NULL)
         {
+            // CAT: lens flare sources go first (cat_partSystemFreeAttachments 0x004e2500), and the block pointer is
+            //      cleared after the free (0x0046a746)
+            cat_partSystemFreeAttachments((psysPtr)effect->particleBlock[index]);
             memFree(effect->particleBlock[index]);
+            effect->particleBlock[index] = NULL;
         }
     }
     if (bitTest(effect->staticinfo->specialOps, ESO_WorldRender))
@@ -2121,7 +2065,8 @@ void etgEffectCodeDelete(etgeffectstatic *stat, bool32 bFullDelete)
     {
         memFree(stat->name);
     }
-#if ETG_ERROR_CHECKING
+    // CAT: the test is in the exe's release build too (etgEffectCodeDelete 0x0046a79e), not only under
+    //      ETG_ERROR_CHECKING: a placeholder static (named by a spawn, never loaded) has nothing else to free
     if (stat->nParticleBlocks == 0xffffffff)
     {
         dbgWarningf(DBG_Loc, "etgEffectCodeDelete: Effect '%s' not loaded properly", stat->name);
@@ -2131,7 +2076,6 @@ void etgEffectCodeDelete(etgeffectstatic *stat, bool32 bFullDelete)
         }
         return;
     }
-#endif
 //    memFree(stat->variableOffsets);
     if (stat->variableInitData)
     {
@@ -2171,6 +2115,7 @@ void etgEffectCodeDelete(etgeffectstatic *stat, bool32 bFullDelete)
     if (stat->nHistoryList > 0)
     {
         memFree(stat->historyList);
+        stat->historyList = NULL;                           // CAT: cleared (0x0046a861)
     }
     stat->nParticleBlocks = 0xffffffff;
     if (bFullDelete)
@@ -2455,7 +2400,9 @@ sdword etgLoadErrorf(char *file, sdword line, char *format, ...)
     vsprintf(error, format, argList);                       //prepare output string
     va_end(argList);
 
-    etgLoadError(file, line, error);                        //print the message
+    // CAT: always fatal (etgLoadErrorf 0x0046ae90 calls dbgFatal directly; HW1's recoverable path through
+    //      etgLoadError, used by the effects reload key, is gone from it)
+    dbgFatal(file, line, error);                            //print the message
     return(0);
 }
 
@@ -2649,7 +2596,7 @@ etgeffectstatic *etgEffectStaticFind(char *name, bool32 bRegister)
         }
         else
         {
-            if (strcmp(etgEventTable[index].effectStatic->name, name) == 0)
+            if (strcasecmp(etgEventTable[index].effectStatic->name, name) == 0)    // CAT: _stricmp (etgEffectStaticFind 0x0046b090)
             {                                                   //if names match
                 return(etgEventTable[index].effectStatic);
             }
@@ -2675,7 +2622,7 @@ etgeffectstatic *etgEffectStaticFind(char *name, bool32 bRegister)
     */
 #endif
     newStatic = memAlloc(sizeof(etgeffectstatic), "EffectStatic", NonVolatile);
-    newStatic->name = memStringDupeNV(name);
+    newStatic->name = memStringDupe(name);                  // CAT: memStringDupe (etgEffectStaticFind 0x0046b090), HW1 memStringDupeNV
     newStatic->nParticleBlocks = 0xffffffff;                //mark as not yet allocated
     free->effectStatic = newStatic;                         //store the effect reference
     free->loadCount = etgEventLoadCount;                    //store the effect load counter
@@ -2802,7 +2749,7 @@ etgvarentry *etgVariableFind(char *name)
 
     for (index = 0; index < etgVariableIndex; index++)
     {
-        if (strcmp(etgVariableTable[index].name, name) == 0)//if found a matching variable
+        if (strcasecmp(etgVariableTable[index].name, name) == 0)//if found a matching variable (CAT: case-insensitive, _stricmp in every exe lookup of the variable table)
         {
             return(&etgVariableTable[index]);               //return the variable found
         }
@@ -4055,12 +4002,9 @@ sdword etgSetTextureParse(struct etgeffectstatic *stat, ubyte *dest, char *opcod
         return(0);
     }
 #endif
-    if (strcmp(opcode, "setTexture") == 0)
+    if (strcasecmp(opcode, "setTexture") == 0)
     {
-        function->function = (memsize (*)(void))partSetTrHandle;
-#ifdef GENERIC_ETGCALLFUNCTION
-	function->wrap_function = (memsize (*)(struct Effect *, struct etgeffectstatic *,etgfunctioncall *)) wrap_partSetTrHandle;
-#endif
+        function->function = partSetTrHandle;                 // CAT: an argument-array callable
     }
     else
     {
@@ -4084,10 +4028,7 @@ sdword etgSetTextureParse(struct etgeffectstatic *stat, ubyte *dest, char *opcod
 #endif
         function->parameter[function->nParameters].type = EVT_Int;//first param is the texture handle
         function->parameter[function->nParameters].param = lVar->offset;
-        function->function = (memsize (*)(void))partModifyTexture;
-#ifdef GENERIC_ETGCALLFUNCTION
-	function->wrap_function = (memsize (*)(struct Effect *, struct etgeffectstatic *,etgfunctioncall *)) wrap_partModifyTexture;
-#endif
+        function->function = partModifyTexture;                 // CAT: an argument-array callable
         function->nParameters++;
         param = strtok(NULL, ETG_TokenDelimiters);
     }
@@ -4176,7 +4117,7 @@ meshdata *etgMeshRegister(char *filename)
         dbgFatalf(DBG_Loc, "All %d slots in mesh registry used when loading '%s'", ETG_NumberMeshes, filename);
     }
 #endif
-    free->filename = memStringDupeNV(filename);
+    free->filename = memStringDupe(filename);               // CAT: memStringDupe (etgSetMeshParse 0x0046cdf0, etgMorphAnimDWORD 0x0046cba0), HW1 memStringDupeNV
     free->mesh = meshLoad(filename);
     return(free->mesh);
 }
@@ -4232,10 +4173,7 @@ sdword etgSetMeshParse(struct etgeffectstatic *stat, ubyte *dest, char *opcode, 
 */
 #endif
     function->opcode = EOP_Function;
-    function->function = (memsize (*)(void))partSetMeshdata;
-#ifdef GENERIC_ETGCALLFUNCTION
-    function->wrap_function = (memsize (*)(struct Effect *, struct etgeffectstatic *,etgfunctioncall *))wrap_partSetMeshdata;
-#endif
+    function->function = partSetMeshdata;                 // CAT: an argument-array callable
     function->nParameters = 1;
     function->returnValue = MINUS1;
     function->passThis = FALSE;
@@ -4999,7 +4937,9 @@ sdword etgTimeIndexDefine(struct etgeffectstatic *stat, ubyte *dest, char *opcod
         etgLoadErrorf(ETG, "Error scanning time from '%s''", params);
         return(0);
     }
-    if (time < 0.0f || time > 200.0)
+    // CAT: no upper bound (HW1's debug check capped the time at 200 s; the exe has no such check, and Cataclysm's
+    //      slipgateOpening.ebg uses time(86400, 86400) as a "never" key)
+    if (time < 0.0f)
     {
         etgLoadErrorf(ETG, "Invalid time-index in '%s'", params);
         return(0);
@@ -5152,7 +5092,7 @@ sdword etgBetweenDefine(struct etgeffectstatic *stat, ubyte *dest, char *opcodeS
                 etgLoadErrorf(ETG, "Error scanning '%s' for time.", param);
                 return(0);
             }
-            if (time < 0 || time > 1000)
+            if (time < 0)                                   // CAT: no upper bound (see etgTimeIndexDefine)
             {
                 etgLoadErrorf(ETG, "Invalid time '%f' for '%s'.", time, opcodeString);
                 return(0);
@@ -5244,7 +5184,7 @@ sdword etgAtDefine(struct etgeffectstatic *stat, ubyte *dest, char *opcodeString
             etgLoadErrorf(ETG, "Error scanning '%s' for time.", params);
             return(0);
         }
-        if (opcode->time < 0 || opcode->time > 1000)
+        if (opcode->time < 0)                               // CAT: no upper bound (see etgTimeIndexDefine)
         {
             etgLoadErrorf(ETG, "Invalid time '%f' for '%s'.", opcode->time, opcodeString);
             return(0);
@@ -5345,10 +5285,7 @@ sdword etgSpawnParse(struct etgeffectstatic *stat, ubyte *dest, char *opcodeStri
     call->parameter[0].param = (memsize)spawnEffect;
 
     call->opcode = EOP_Function;
-    call->function = (memsize (*)(void))etgSpawnNewEffect;
-#ifdef GENERIC_ETGCALLFUNCTION
-    call->wrap_function = (memsize (*)(struct Effect *, struct etgeffectstatic *,etgfunctioncall *))wrap_etgSpawnNewEffect;
-#endif
+    call->function = etgSpawnNewEffect;                 // CAT: an argument-array callable
     call->returnValue = MINUS1;
     call->passThis = TRUE;
     while((param = strtok(NULL, ETG_TokenDelimiters)) != NULL)
@@ -5465,13 +5402,14 @@ void etgCreationCallback(sdword userValue, ubyte *userData)
     Name        : etgCreateCallbackSetup
     Description : Called just before a particle creation, sets the particle-
                     creation callback.
-    Inputs      : codeOffset - offset to p-code to execute
+    Inputs      : CAT: an ETG callable (0x0046e390): args[0] effect, args[1] offset to p-code to execute
     Outputs     : just sets callback to the correct p-code
     Return      : void
 ----------------------------------------------------------------------------*/
-void etgCreateCallbackSetup(Effect *effect, sdword codeOffset)
+memsize etgCreateCallbackSetup(etgarg *args)
 {
-    partCreateCallbackSet(etgCreationCallback, codeOffset, (ubyte *)effect  );
+    partCreateCallbackSet(etgCreationCallback, etgArgInt(args, 1), etgArgPtr(args, 0, ubyte *));
+    return 0;
 }
 
 /*-----------------------------------------------------------------------------
@@ -5504,10 +5442,7 @@ void etgCallbackOpen(sdword codeBlock, sdword offset, ubyte *userData)
     //set up the call to partCreateCallbackSet()
     call = (etgfunctioncall *)userData;
     call->opcode = EOP_Function;
-    call->function = (memsize (*)(void))etgCreateCallbackSetup;
-#ifdef GENERIC_ETGCALLFUNCTION
-    call->wrap_function = (memsize (*)(struct Effect *, struct etgeffectstatic *,etgfunctioncall *))wrap_etgCreateCallbackSetup;
-#endif
+    call->function = etgCreateCallbackSetup;                 // CAT: an argument-array callable
     call->passThis = TRUE;
     call->returnValue = MINUS1;
     call->nParameters = 1;
@@ -5636,10 +5571,7 @@ sdword etgCreateEffectsParse(struct etgeffectstatic *stat, ubyte *dest, char *op
         }
     }
     call->opcode = EOP_Function;
-    call->function = (memsize (*)(void))etgCreateEffects;
-#ifdef GENERIC_ETGCALLFUNCTION
-    call->wrap_function = (memsize (*)(struct Effect *, struct etgeffectstatic *,etgfunctioncall *))wrap_etgCreateEffects;
-#endif
+    call->function = etgCreateEffects;                 // CAT: an argument-array callable
     call->returnValue = MINUS1;
     call->passThis = TRUE;
     while((param = strtok(NULL, ETG_TokenDelimiters)) != NULL)
@@ -5736,282 +5668,61 @@ sdword etgVarAssign(Effect *effect, struct etgeffectstatic *stat, ubyte *opcode)
     return(sizeof(etgvariablecopy));
 }
 
-#if defined GENERIC_ETGCALLFUNCTION
-
+/*-----------------------------------------------------------------------------
+    Name        : etgFunctionCall
+    Description : handle function calls
+    Inputs      : effect, stat, opcode - standard opcode handler parameters
+    Outputs     : CAT: builds the argument array the exe builds (etgFunctionCall 0x0046e7b0): the effect first when
+                  passThis is set, then every parameter resolved by type (constant and label as given, ConstLabel
+                  and VarLabel as pointers into the constant/variable blocks, a variable by its value), and calls
+                  the function with that one pointer. HW1 pushed the same values on the stack (x86 only); GoK
+                  called a generated wrapper per function.
+    Return      : size of the opcode
+    Note        : the exe's array holds 10 slots; here it holds 1 + ETG_FunctionCallParams so the longest
+                  createEffects/spawn call fits (a call longer than the exe's array overruns its stack there).
+----------------------------------------------------------------------------*/
+#define ETG_FunctionCallParams      (4 + ETG_NumberParameters)  //createEffects: stat, number, dist, nParams + user params
 sdword etgFunctionCall(Effect *effect, struct etgeffectstatic *stat, ubyte *opcode)
 {
-    memsize param = 0;
     etgfunctioncall *opptr = (etgfunctioncall *)opcode;
-
-    udword nParams = opptr->nParameters;
+    etgarg args[1 + ETG_FunctionCallParams];
+    etgarg *arg = args;
+    memsize param;
+    udword index, nParams = opptr->nParameters;
     memsize returnValue = opptr->returnValue;
 
-    opfunctionentry *entry = NULL;
-    udword currEntry = 0;
-    while ((entry = &etgFunctionTable[currEntry++])->name != NULL)
-    {
-        if (entry->function == opptr->function)
-        {
-            break;
-        }
+    dbgAssertOrIgnore(nParams <= ETG_FunctionCallParams);
+    if (opptr->passThis)
+    {                                                       //pass a 'this' pointer first
+        *arg++ = (etgarg)effect;
     }
-
-	if (entry->name == NULL)
-	{
-		entry = NULL;
-	}
-
-    if (entry)
-        param = entry->wrap_function(effect, stat, opptr);		//call the function
-    else
-        param = opptr->wrap_function(effect, stat, opptr);
-
-    if (returnValue != MINUS1)                           //if a return value is desired
-    {
-        *((memsize *)(effect->variable + returnValue)) = param;//set the return parameter
-    }
-
-    return(etgFunctionSize(nParams));
-}
-
-#elif defined HW_PTR_64
-/* handle function calls
-
-This function causes error during compilation of ETG.c with optimization on, and still
-needs to be fixed. It works (or seems to work) in debug mode, though. It simply calls other
-functions, but in relly messed way. (etgfunctioncall *)opcode contains a table of paramaters
-and a pointer to function to call. Number of params can vary from function to function, so 
-on x86 they simply push every parameter to the stack and then call function without any params.
-On x86_64 however, parameters are passed using registers (starting from rdi or xmm0 for floats),
-that's why I have to iterate trough etgFunctionTable to check types of each param - thanks for
-that I know what register to use. I'm still not sure if all functions called here are in this
-table... Second thing is that I have to use^H^H^Hsteal this ugly if-else block to put params in right 
-registers (and I assumed there are max. 8 params, which also may not be true). Anyway, when
-using optimizatons, compiling stops because of float-handling part of function.
-*/
-sdword etgFunctionCall(Effect *effect, struct etgeffectstatic *stat, ubyte *opcode)
-{
-    udword index       = 0,
-           currEntry   = 0,
-           currParam   = 0,
-           currParamF  = 0,
-           isLabel     = 0,
-           nParams     = ((etgfunctioncall *)opcode)->nParameters;
-
-   memsize param       = 0;
-   memsize intParam[8] = {0,0,0,0,0,0,0,0};
-   memsize returnValue = ((etgfunctioncall *)opcode)->returnValue;
-           
-	opfunctionentry *entry;
-
-	while ((entry = &etgFunctionTable[currEntry++])->name != NULL)
-	{
-		if (entry->function == ((etgfunctioncall *)opcode)->function)
-        {
-			break;
-        }
-	}
-
-	if (entry->name == NULL)
-	{
-		entry = NULL;
-	}
-
-    if (((etgfunctioncall *)opcode)->passThis)
-	{                                                       //pass a 'this' pointer
-        intParam[currParam] = (memsize)effect;
-		currParam++;
-	}
-
-	for (index = 0; index < nParams; index++)
+    for (index = 0; index < nParams; index++)
     {                                                       //for each parameter
-        param = ((etgfunctioncall *)opcode)->parameter[index].param;
-        switch (((etgfunctioncall *)opcode)->parameter[index].type)
+        param = opptr->parameter[index].param;
+        switch (opptr->parameter[index].type)
         {
             case EVT_Constant:
-                isLabel = 0;
-                break;
             case EVT_Label:
-                dbgAssertOrIgnore(FALSE);
-                isLabel = 0;
                 break;
             case EVT_ConstLabel:
                 param = (memsize)stat->constData + param;
-                isLabel = 1;
                 break;
             case EVT_VarLabel:
-                param = (memsize) effect->variable + param;
-                isLabel = 1;
+                param = (memsize)effect->variable + param;
                 break;
             default:
                 param = *((memsize *)(effect->variable + param));
-                isLabel = 0;
                 break;
         }
-
-        // floats are treated differently due to the way registers work on PPC
-        // (see main comment before function declaration)
-		if (entry != NULL
-        &&  entry->type[index] == EVT_Float)
-        {
-            // now it *really* shouldn't be necessary to do this but for some reason
-            // gcc 4.0 simply will not allow direct references to 'param' with the
-            // address operator (&), or indeed whatever the variable is called in the
-            // 'else' clause's assembly (sic). To get around this we copy the value to a
-            // temporary variable and do the float conversion on that.  
-            memsize param_copy = param;
-            float paramf = *((float *)&param_copy);
-            #define XMM_COUNT 8
-            float xmm_registers[XMM_COUNT];
-            if (currParamF >= 0 && currParamF < XMM_COUNT) {
-                    xmm_registers[currParamF] = paramf;
-                    currParamF++;
-        }
-		else
-		{
-            intParam[currParam]=param;
-            currParam++;
-        }
-	}
-
-    if ((memsize)((etgfunctioncall *)opcode)->function == (memsize) etgSpawnNewEffect){
-
-        switch  (nParams+((etgfunctioncall *)opcode)->passThis){
-            case 4: 
-                etgSpawnNewEffect(effect, (etgeffectstatic *) intParam[1],1,intParam[3]);
-                return (etgFunctionSize(nParams));
-                break;
-            case 5: 
-                etgSpawnNewEffect(effect, (etgeffectstatic *) intParam[1],2,intParam[3],intParam[4]);
-                return (etgFunctionSize(nParams));
-                break;
-            case 6: 
-                etgSpawnNewEffect(effect, (etgeffectstatic *) intParam[1],3,intParam[3],intParam[4],intParam[5]);
-                return (etgFunctionSize(nParams));
-                break;
-
-            case 7:
-            case 8:
-            case 9:
-                return (etgFunctionSize(nParams));
-                break;
-
-            default: 
-                break;
-        }
-    } 
-    if ((memsize)((etgfunctioncall *)opcode)->function == (memsize) etgCreateEffects){
-        switch  (nParams+((etgfunctioncall *)opcode)->passThis){
-            case 6: 
-                etgCreateEffects(effect, (etgeffectstatic *) intParam[1],intParam[2],intParam[3],1, intParam[5]);
-                return (etgFunctionSize(nParams));
-                break;
-            case 7: 
-                etgCreateEffects(effect, (etgeffectstatic *) intParam[1],intParam[2],intParam[3],2, intParam[5], intParam[6]);
-                return (etgFunctionSize(nParams));
-                break;
-            case 8: 
-                etgCreateEffects(effect, (etgeffectstatic *) intParam[1],intParam[2],intParam[3],3, intParam[5], intParam[6],intParam[7]);
-                return (etgFunctionSize(nParams));
-                break;
-
-            case 9:
-            case 10:
-            case 11:
-                return (etgFunctionSize(nParams));
-                break;
-
-            default: 
-                break;
-        }
-    } 
-    switch (currParam) {
-        case 8:
-            *(intParam + 7) = *(intParam + 7);
-            break;
-        case 7:
-            *(intParam + 6) = *(intParam + 6);
-            break;
-        case 6:
-            r9 = *(intParam + 5);
-            break;
-        case 5:
-            r8 = *(intParam + 4);
-            break;
-        case 4:
-            rcx = *(intParam + 3);
-            break;
-        case 3:
-            rdx = *(intParam + 2);
-            break;
-        case 2:
-            rsi = *(intParam + 1);
-            break;
-        case 1:
-            rdi = *intParam;
-            break;
-        default:
-            break;
+        *arg++ = (etgarg)param;
     }
-
-	param = ((etgfunctioncall *)opcode)->function();            // call the function
-    if (returnValue != MINUS1)                              // if a return value is desired
+    param = opptr->function(args);                          //call the function
+    if (returnValue != MINUS1)                              //if a return value is desired
     {
-            *((memsize*)(effect->variable + returnValue)) = param;  // set the return parameter
+        *((memsize *)(effect->variable + returnValue)) = param;//set the return parameter
     }
-    
-    return (etgFunctionSize(nParams));
-}
-
-#else // for lucky so and so's with x86 processors...
-
-//handle function calls
-sdword etgFunctionCall(Effect *effect, struct etgeffectstatic *stat, ubyte *opcode)
-{
-    udword param, nParams, returnType;
-    sdword index;
-	etgfunctioncall *opptr = (etgfunctioncall *)opcode; //opcode pointer
-
-	
-    nParams = opptr->nParameters;
-    returnType = opptr->returnValue;
-    for (index = (sdword)nParams - 1; index >= 0; index--) {		//for each parameter
-		param = opptr->parameter[index].param;
-        switch (opptr->parameter[index].type)	
-        {
-            case EVT_Constant:
-                break;
-            case EVT_Label:
-                dbgAssertOrIgnore(FALSE);
-                break;
-            case EVT_ConstLabel:
-                param = (udword)stat->constData + param;
-                break;
-            case EVT_VarLabel:
-                param = (udword)effect->variable + param;
-                break;
-            default:
-                param = *((udword *)(effect->variable + param));
-                break;
-        }
-
-        (void)param;
-    }// end of above for loop
-	
-	
-    if (opptr->passThis) {                                  
-        (void)effect;
-    }
-    param = opptr->function();								//call the function
-    if (returnType != 0xffffffff)                           //if a return value is desired
-    {
-        *((udword *)(effect->variable + returnType)) = param;//set the return parameter
-    }
-	
     return(etgFunctionSize(nParams));
 }
-
-#endif // __ppc__, HW_PTR_64, Other x86
 
 //handle 'end'
 sdword etgEnd(Effect *effect, struct etgeffectstatic *stat, ubyte *opcode)
@@ -6451,12 +6162,8 @@ sdword etgAtVar(Effect *effect, struct etgeffectstatic *stat, ubyte *opcode)
     real32 variable;
 
     variable = *((real32 *)(effect->variable + ((etgbeforeafteratvar *)opcode)->variable));
-#if ETG_ERROR_CHECKING
-    if (variable < 0.0f || variable > 10000.0f)
-    {
-        dbgFatalf(DBG_Loc, "Invalid 'at' variable set to %.4f", variable);
-    }
-#endif
+    // CAT: no range check (etgAtVar 0x0046eed0 has none; Cataclysm effects set an 'at' variable to 1e8 for "never",
+    //      which HW1's debug check rejected)
     timeDiff = etgTotalTimeElapsed - variable;
 
     if (timeDiff >= 0.0000005f && timeDiff < etgTimeElapsed + 0.0000005f)
@@ -6480,12 +6187,7 @@ sdword etgBeforeVar(Effect *effect, struct etgeffectstatic *stat, ubyte *opcode)
     real32 variable;
 
     variable = *((real32 *)(effect->variable + ((etgbeforeafteratvar *)opcode)->variable));
-#if ETG_ERROR_CHECKING
-    if (variable <= 0.0f || variable > 10000.0f)
-    {
-        dbgFatalf(DBG_Loc, "Invalid 'at' variable set to %.4f", variable);
-    }
-#endif
+    // CAT: no range check (etgBeforeVar 0x0046ef40, etgAfterVar 0x0046ef90 have none)
     if (variable > etgTotalTimeElapsed)
     {                                                       //if it is before
         return(sizeof(etgbeforeafterat));                   //just skip over this opcode
@@ -6507,12 +6209,6 @@ sdword etgAfterVar(Effect *effect, struct etgeffectstatic *stat, ubyte *opcode)
     real32 variable;
 
     variable = *((real32 *)(effect->variable + ((etgbeforeafteratvar *)opcode)->variable));
-#if ETG_ERROR_CHECKING
-    if (variable <= 0.0f || variable > 10000.0f)
-    {
-        dbgFatalf(DBG_Loc, "Invalid 'at' variable set to %.4f", variable);
-    }
-#endif
     if (variable <= etgTotalTimeElapsed)
     {                                                       //if it is before
         return(sizeof(etgbeforeafterat));                   //just skip over this opcode
@@ -6531,6 +6227,10 @@ sdword etgEvery(Effect *effect, struct etgeffectstatic *stat, ubyte *opcode)
     timeElapsed = (udword)(etgTimeElapsed * ETG_FrameScale);
     totalTime = (udword)(etgTotalTimeElapsed * ETG_FrameScale);
 
+    if (time == 0)
+    {                                                       // CAT: a zero period runs the block every frame (etgEvery 0x0046efd6) instead of dividing by zero
+        return(sizeof(etgbeforeafterat));
+    }
     if (totalTime % time < timeElapsed)
     {                                                       //if this is the frame
         return(sizeof(etgbeforeafterat));                   //just skip over this opcode
@@ -6543,16 +6243,15 @@ sdword etgEveryVar(Effect *effect, struct etgeffectstatic *stat, ubyte *opcode)
     real32 variable;
 
     variable = *((real32 *)(effect->variable + ((etgbeforeafteratvar *)opcode)->variable));
-#if ETG_ERROR_CHECKING
-    if (variable <= 0 || variable > 10)
-    {
-        dbgFatalf(DBG_Loc, "Invalid 'at' variable set to %.4f", variable);
-    }
-#endif
+    // CAT: no range check (etgEveryVar 0x0046f020 has none)
     time = (udword)(variable * ETG_FrameScale);
     timeElapsed = (udword)(etgTimeElapsed * ETG_FrameScale);
     totalTime = (udword)(etgTotalTimeElapsed * ETG_FrameScale);
 
+    if (time == 0)
+    {                                                       // CAT: a zero period runs the block every frame (etgEveryVar 0x0046f043) instead of dividing by zero
+        return(sizeof(etgbeforeafterat));
+    }
     if (totalTime % time <= timeElapsed + 1)
     {                                                       //if this is the frame
         return(sizeof(etgbeforeafterat));                   //just skip over this opcode
@@ -6863,89 +6562,99 @@ sdword etgEffectorVCa(Effect *effect, struct etgeffectstatic *stat, ubyte *opcod
 
 /*-----------------------------------------------------------------------------
     Actual p-code function functions, as opposed to p-code functions.
+    CAT: each takes the argument array (ETG.h etgarg). Integer and float results come back in the low 32 bits, as
+    the exe returns them in eax (etgInc 0x0046fd70 ... etgCos 0x0046fe90).
 -----------------------------------------------------------------------------*/
 
 //handle 'inc'
-udword etgInc(udword value)
+memsize etgInc(etgarg *args)
 {
-    return(value + 1);
+    return((udword)(etgArgUdword(args, 0) + 1));
 }
 
 //handle 'dec'
-udword etgDec(udword value)
+memsize etgDec(etgarg *args)
 {
-    return(value - 1);
+    return((udword)(etgArgUdword(args, 0) - 1));
 }
 
 //handle 'fmult'
-udword etgFmult(real32 numer, real32 denom)
+memsize etgFmult(etgarg *args)
 {
     real32 value;
-    value = numer * denom;
+    value = etgArgFloat(args, 0) * etgArgFloat(args, 1);
+    return(Real32ToUdword(value));
+}
+
+// CAT: new, cat_etgFdegsin 0x0046fdb0 ('fdegsin'): sine of an angle in degrees (x * 6.283185307 * (1/360), x87 fsin)
+memsize cat_etgFdegsin(etgarg *args)
+{
+    real32 value;
+    value = (real32)sin((real64)etgArgFloat(args, 0) * 6.283185307 * (1.0 / 360.0));
     return(Real32ToUdword(value));
 }
 
 //handle 'fdiv'
-udword etgFdiv(real32 numer, real32 denom)
+memsize etgFdiv(etgarg *args)
 {
     real32 value;
-    value = numer / denom;
+    value = etgArgFloat(args, 0) / etgArgFloat(args, 1);
     return(Real32ToUdword(value));
 }
 
 //handle 'fadd'
-udword etgFadd(real32 numer, real32 denom)
+memsize etgFadd(etgarg *args)
 {
     real32 value;
-    value = numer + denom;
+    value = etgArgFloat(args, 0) + etgArgFloat(args, 1);
     return(Real32ToUdword(value));
 }
 
 //handle 'fsub'
-udword etgFsub(real32 numer, real32 denom)
+memsize etgFsub(etgarg *args)
 {
     real32 value;
-    value = numer - denom;
+    value = etgArgFloat(args, 0) - etgArgFloat(args, 1);
     return(Real32ToUdword(value));
 }
 
 //handle 'add'
-sdword etgAdd(sdword numer, sdword denom)
+memsize etgAdd(etgarg *args)
 {
-    return (numer + denom);
+    return((udword)(etgArgInt(args, 0) + etgArgInt(args, 1)));
 }
 
 //handle 'sub'
-sdword etgSub(sdword numer, sdword denom)
+memsize etgSub(etgarg *args)
 {
-    return (numer - denom);
+    return((udword)(etgArgInt(args, 0) - etgArgInt(args, 1)));
 }
 
 //handle 'mult'
-sdword etgMult(sdword numer, sdword denom)
+memsize etgMult(etgarg *args)
 {
-    return (numer * denom);
+    return((udword)(etgArgInt(args, 0) * etgArgInt(args, 1)));
 }
 
 //handle 'div'
-sdword etgDiv(sdword numer, sdword denom)
+memsize etgDiv(etgarg *args)
 {
-    return (numer / denom);
+    return((udword)(etgArgInt(args, 0) / etgArgInt(args, 1)));
 }
 
 //handle 'sin'
-udword etgSin(real32 ang)
+memsize etgSin(etgarg *args)
 {
     real32 value;
-    value = sin(ang);
+    value = sin(etgArgFloat(args, 0));
     return(Real32ToUdword(value));
 }
 
 //handle 'cos'
-udword etgCos(real32 ang)
+memsize etgCos(etgarg *args)
 {
     real32 value;
-    value = cos(ang);
+    value = cos(etgArgFloat(args, 0));
     return(Real32ToUdword(value));
 }
 
@@ -7033,8 +6742,11 @@ sdword etgDetatchThisOwner(Effect *effect, Ship *owner, sdword nToFind)
 
 //handle the 'deleteParentShip' command
 //extern void univWipeShipOutOfExistence(void *ship);                  // totally deletes ship, frees memory
-void etgParentShipDelete(Effect *effect)
+// CAT: an ETG callable: args[0] is the effect (etgParentShipDelete 0x0046ff30 takes a pointer to its 'this' slot)
+memsize etgParentShipDelete(etgarg *args)
 {
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+
     if (effect->owner != NULL)
     {                                                       //if properly attached
         if (effect->owner->header.objtype == OBJ_ShipType)
@@ -7062,6 +6774,7 @@ void etgParentShipDelete(Effect *effect)
         dbgMessagef("Effect '%s' tried to delete ship more than once.", effect->staticinfo->name);
 #endif
     }
+    return 0;
 }
 
 /*-----------------------------------------------------------------------------
@@ -7088,11 +6801,46 @@ void etgShipDied(Ship *deadDuck)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_univRemoveEffectReferencesFromShips
+    Description : CAT: new (0x005475e0, in the exe's universe code; only the ETG calls it). Gives every ship in
+                  the universe and in the hyperspace ether a chance to drop its references to an effect that is
+                  going away: CustShipHeader slot 13, CustShipEffectRemoval (statinfo + 0x13C), when set. The
+                  slot bodies are ship code (M2-R3 #4 and M2-R4 #4); every header of this tree leaves it NULL.
+    Inputs      : effect - the effect being deleted
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_univRemoveEffectReferencesFromShips(Effect *effect)
+{
+    Node *node;
+    Ship *ship;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if (ship->staticinfo->custshipheader.CustShipEffectRemoval != NULL)
+        {
+            ship->staticinfo->custshipheader.CustShipEffectRemoval(ship, effect);
+        }
+    }
+    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
+    {
+        ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+        if (ship->staticinfo->custshipheader.CustShipEffectRemoval != NULL)
+        {
+            ship->staticinfo->custshipheader.CustShipEffectRemoval(ship, effect);
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
     Name        : etgDeleteEffectsOwnedBy
     Description : Delete all effects that have the specified ship as their owner.
     Inputs      : owner - ship that may be owner of one or more effects
     Outputs     :
     Return      : Number of effects deleted
+    Note        : CAT: the exe (0x0046fff0) inlines etgEffectDelete here, with its new steps (ship effect references,
+                  particle attachments); calling etgEffectDelete does the same.
 ----------------------------------------------------------------------------*/
 sdword etgDeleteEffectsOwnedBy(Ship *owner)
 {
@@ -7117,8 +6865,10 @@ sdword etgDeleteEffectsOwnedBy(Ship *owner)
 
 //handle the 'damageDone' command (callback)
 //extern void dmgStopSingleEffect(Effect* effect)
-void etgDamageDone(Effect *effect)
+memsize etgDamageDone(etgarg *args)
 {
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+
     if (effect->owner != NULL)
     {
         dmgStopSingleEffect(effect);
@@ -7130,11 +6880,14 @@ void etgDamageDone(Effect *effect)
 #endif
     }
     etgExecStack.etgDeleteFlag = TRUE;
+    return 0;
 }
 
 //handle 'getColorScheme' function
-udword etgOwnerColorSchemeGet(Effect *effect)
+memsize etgOwnerColorSchemeGet(etgarg *args)
 {
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+
     if (effect->owner != NULL)
     {
         return(effect->owner->colorScheme);
@@ -7143,8 +6896,9 @@ udword etgOwnerColorSchemeGet(Effect *effect)
 }
 
 //handle the 'getEffectVelocity' function
-udword etgEffectVelocityGet(Effect *effect)
+memsize etgEffectVelocityGet(etgarg *args)
 {
+    Effect *effect = etgArgPtr(args, 0, Effect *);
     vector *velVector;
     real32 velocity;
     udword intVelocity;
@@ -7164,8 +6918,10 @@ udword etgEffectVelocityGet(Effect *effect)
 }
 
 //handle the 'hideParentShip' function
-void etgParentShipHide(Effect *effect)
+memsize etgParentShipHide(etgarg *args)
 {
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+
     if (effect->owner != NULL)
     {
         univHideShipFromSpheres(effect->owner);
@@ -7176,19 +6932,43 @@ void etgParentShipHide(Effect *effect)
         dbgMessagef("Effect '%s' at 0x%x tried to hide ship which was deleted.", effect->staticinfo->name, effect);
 #endif
     }
+    return 0;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_etgParentShipOmitFromRenderList
+    Description : CAT: new (0x00470190, 'omitParentShipFromRenderList'). Sets the owner's word at +0x1c to 1; the
+                  render list builder leaves such objects out (the field is a Cataclysm addition to the object
+                  header; its name and its reader belong to the render list port).
+    Inputs      : args[0] - the effect
+    Outputs     :
+    Return      : 0 (the exe returns the owner pointer or 0 in eax; no script uses the value)
+----------------------------------------------------------------------------*/
+memsize cat_etgParentShipOmitFromRenderList(etgarg *args)
+{
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+
+    if (effect->owner != NULL)
+    {
+        effect->owner->header.catOmitFromRenderList = 1;
+    }
+    return 0;
 }
 
 /*-----------------------------------------------------------------------------
     Name        : etgChatterEventPlay
     Description : Play a speech event on the effect's owner object
-    Inputs      : effect - what effect to play the event on
-                  event - what battle chatter event to play
+    Inputs      : args[0] - what effect to play the event on
+                  args[1] - what battle chatter event to play
     Outputs     : set's the ship's EAF_PlayingSpeech bit which can later be
                     used to turn the speech event off when the ship is killed.
     Return      :
 ----------------------------------------------------------------------------*/
-void etgChatterEventPlay(Effect *effect, battlechatterevent event)
+memsize etgChatterEventPlay(etgarg *args)
 {
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+    battlechatterevent event = (battlechatterevent)etgArgInt(args, 1);
+
     if (effect->owner != NULL)
     {                                                       //if this effect has an owner
         dbgAssertOrIgnore(event >= 0 && event < BCE_LastBCE);
@@ -7197,142 +6977,117 @@ void etgChatterEventPlay(Effect *effect, battlechatterevent event)
             bitSet(effect->effectFlags, EAF_PlayingSpeech);     //note that we are playing some speech
         }
     }
+    return 0;
 }
 
 /*-----------------------------------------------------------------------------
     Name        : etgDeathCriesPlay
     Description : Play death cry battle chatter for a dying ship
-    Inputs      : effect - effect who's ship is blowing up
+    Inputs      : args[0] - effect who's ship is blowing up
     Outputs     : will play a variety of different battle chatter events based
                     on ship class and whatnot.
     Return      :
 ----------------------------------------------------------------------------*/
-void etgDeathCriesPlay(Effect *effect)
+memsize etgDeathCriesPlay(etgarg *args)
 {
+    Effect *effect = etgArgPtr(args, 0, Effect *);
     Ship *owner = effect->owner;
 
     if (owner != NULL)
     {
         battleShipDyingWithTimeToScream(owner);
     }
+    return 0;
+}
+
+/*-----------------------------------------------------------------------------
+    CAT: the create* callables (etgCreateSprites 0x00470210 ... cat_etgCreateLensFlares 0x00470480): args[0] is the
+    effect, args[1] the number of particles, args[2] the distribution. They return the new particle block.
+-----------------------------------------------------------------------------*/
+static memsize etgCreateParticleSystem(etgarg *args, particleType type)
+{
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+    sdword number = etgArgInt(args, 1), dist = etgArgInt(args, 2);
+
+#if ETG_VERBOSE_LEVEL >= 2
+    dbgMessagef("Creating %d +- %d particles of type %d for 0x%x", number, dist, type, effect);
+#endif
+#if ETG_ERROR_CHECKING
+    if (effect->iParticleBlock >= effect->nParticleBlocks)
+    {
+        dbgFatalf(DBG_Loc, "etgCreateCircles: exceeded %d particle blocks", effect->iParticleBlock);
+    }
+#endif
+    partSetPosition(&effect->obj.posinfo.position);
+    partSetCoordSys(&effect->rotatable.rotinfo.coordsys);
+    partSetWorldVel(&effect->obj.posinfo.velocity);
+    effect->particleBlock[effect->iParticleBlock] =
+        (ubyte *)partCreateSystemWithDelta(type, number, dist);
+    effect->iParticleBlock++;
+    return((memsize)effect->particleBlock[effect->iParticleBlock - 1]);
 }
 
 //handle creation of sprite-particles
-ubyte *etgCreateSprites(Effect *effect, sdword number, sdword dist)
+memsize etgCreateSprites(etgarg *args)
 {
-#if ETG_VERBOSE_LEVEL >= 2
-    dbgMessagef("Creating %d +- %d sprite sprite-particles for 0x%x", number, dist, effect);
-#endif
-#if ETG_ERROR_CHECKING
-    if (effect->iParticleBlock >= effect->nParticleBlocks)
-    {
-        dbgFatalf(DBG_Loc, "etgCreateCircles: exceeded %d particle blocks", effect->iParticleBlock);
-    }
-#endif
-    partSetPosition(&effect->obj.posinfo.position);
-    partSetCoordSys(&effect->rotatable.rotinfo.coordsys);
-    partSetWorldVel(&effect->obj.posinfo.velocity);
-    effect->particleBlock[effect->iParticleBlock] =
-        (ubyte *)partCreateSystemWithDelta(PART_BILLBOARD, number, dist);
-    effect->iParticleBlock++;
-    return(effect->particleBlock[effect->iParticleBlock - 1]);
+    return(etgCreateParticleSystem(args, PART_BILLBOARD));
 }
 
 //handle creation of circle-particles
-ubyte *etgCreateCircles(Effect *effect, sdword number, sdword dist)
+memsize etgCreateCircles(etgarg *args)
 {
-#if ETG_VERBOSE_LEVEL >= 2
-    dbgMessagef("Creating %d +- %d circle-particles for 0x%x", number, dist, effect);
-#endif
-#if ETG_ERROR_CHECKING
-    if (effect->iParticleBlock >= effect->nParticleBlocks)
-    {
-        dbgFatalf(DBG_Loc, "etgCreateCircles: exceeded %d particle blocks", effect->iParticleBlock);
-    }
-#endif
-    partSetTrHandle(TR_Invalid, 0, 0, 0, 0);
-    partSetPosition(&effect->obj.posinfo.position);
-    partSetCoordSys(&effect->rotatable.rotinfo.coordsys);
-    partSetWorldVel(&effect->obj.posinfo.velocity);
-    effect->particleBlock[effect->iParticleBlock] =
-        (ubyte *)partCreateSystemWithDelta(PART_BILLBOARD, number, dist);
-    effect->iParticleBlock++;
-    return(effect->particleBlock[effect->iParticleBlock - 1]);
+    memsize trArgs[5] = {(memsize)TR_Invalid, 0, 0, 0, 0};
+
+    partSetTrHandle(trArgs);                                //CAT: an argument-array callable now
+    return(etgCreateParticleSystem(args, PART_BILLBOARD));
 }
 
 //handle creation of point-particles
-ubyte *etgCreatePoints(Effect *effect, sdword number, sdword dist)
+memsize etgCreatePoints(etgarg *args)
 {
-#if ETG_VERBOSE_LEVEL >= 2
-    dbgMessagef("Creating %d +- %d point-particles for 0x%x", number, dist, effect);
-#endif
-#if ETG_ERROR_CHECKING
-    if (effect->iParticleBlock >= effect->nParticleBlocks)
-    {
-        dbgFatalf(DBG_Loc, "etgCreateCircles: exceeded %d particle blocks", effect->iParticleBlock);
-    }
-#endif
-    partSetPosition(&effect->obj.posinfo.position);
-    partSetCoordSys(&effect->rotatable.rotinfo.coordsys);
-    partSetWorldVel(&effect->obj.posinfo.velocity);
-    effect->particleBlock[effect->iParticleBlock] =
-        (ubyte *)partCreateSystemWithDelta(PART_POINTS, number, dist);
-    effect->iParticleBlock++;
-    return(effect->particleBlock[effect->iParticleBlock - 1]);
+    return(etgCreateParticleSystem(args, PART_POINTS));
 }
 
 //handle creation of mesh-particles
-ubyte *etgCreateMeshes(Effect *effect, sdword number, sdword dist)
+memsize etgCreateMeshes(etgarg *args)
 {
-#if ETG_VERBOSE_LEVEL >= 2
-    dbgMessagef("Creating %d +- %d mesh-particles for 0x%x", number, dist, effect);
-#endif
-#if ETG_ERROR_CHECKING
-    if (effect->iParticleBlock >= effect->nParticleBlocks)
-    {
-        dbgFatalf(DBG_Loc, "etgCreateCircles: exceeded %d particle blocks", effect->iParticleBlock);
-    }
-#endif
-    partSetPosition(&effect->obj.posinfo.position);
-    partSetCoordSys(&effect->rotatable.rotinfo.coordsys);
-    partSetWorldVel(&effect->obj.posinfo.velocity);
-    effect->particleBlock[effect->iParticleBlock] =
-        (ubyte*)partCreateSystemWithDelta(PART_MESH, number, dist);
-    effect->iParticleBlock++;
-    return(effect->particleBlock[effect->iParticleBlock - 1]);
+    return(etgCreateParticleSystem(args, PART_MESH));
 }
 
 //handle creation of line-particles
-ubyte *etgCreateLines(Effect *effect, sdword number, sdword dist)
+memsize etgCreateLines(etgarg *args)
 {
-#if ETG_VERBOSE_LEVEL >= 2
-    dbgMessagef("Creating %d +- %d line-particles for 0x%x", number, dist, effect);
-#endif
-#if ETG_ERROR_CHECKING
-    if (effect->iParticleBlock >= effect->nParticleBlocks)
-    {
-        dbgFatalf(DBG_Loc, "etgCreateCircles: exceeded %d particle blocks", effect->iParticleBlock);
-    }
-#endif
-    partSetPosition(&effect->obj.posinfo.position);
-    partSetCoordSys(&effect->rotatable.rotinfo.coordsys);
-    partSetWorldVel(&effect->obj.posinfo.velocity);
-    effect->particleBlock[effect->iParticleBlock] =
-        (ubyte *)partCreateSystemWithDelta(PART_LINES, number, dist);
-    effect->iParticleBlock++;
-    return(effect->particleBlock[effect->iParticleBlock - 1]);
+    return(etgCreateParticleSystem(args, PART_LINES));
+}
+
+// CAT: new, cat_etgCreateEBolts 0x00470420 ('createEBolts'): electric-bolt particles
+memsize cat_etgCreateEBolts(etgarg *args)
+{
+    return(etgCreateParticleSystem(args, PART_EBOLTS));
+}
+
+// CAT: new, cat_etgCreateLensFlares 0x00470480 ('createLensFlares'): lens-flare particles
+memsize cat_etgCreateLensFlares(etgarg *args)
+{
+    return(etgCreateParticleSystem(args, PART_LENSFLARES));
 }
 
 //handle the creation of effect-particles
-void etgCreateEffects(Effect *effect, etgeffectstatic *stat, sdword number, sdword dist, sdword nParams, ...)
+// CAT: an ETG callable (etgCreateEffects 0x004704e0): args[0] effect, [1] effect static, [2] number, [3] distribution,
+//      [4] number of user parameters, [5...] the user parameters (etgCreateEffectsParse builds the call)
+memsize etgCreateEffects(etgarg *args)
 {
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+    etgeffectstatic *stat = etgArgPtr(args, 1, etgeffectstatic *);
+    sdword number = etgArgInt(args, 2);
+    sdword dist = etgArgInt(args, 3);
+    sdword nParams = etgArgInt(args, 4);
+    etgarg *userParams = args + 5;
     psysPtr system;
     particle *part;
-    sdword index, size, j;
+    sdword index, size;
     vector up, right, LOF, tempVector;
     Effect *newEffect;
-    smemsize arg[ETG_NumberParameters];
-    va_list argList;
 
     matGetVectFromMatrixCol1(up, effect->rotatable.rotinfo.coordsys);
 
@@ -7358,6 +7113,7 @@ void etgCreateEffects(Effect *effect, etgeffectstatic *stat, sdword number, sdwo
         newEffect = memAlloc(size, "Ef(Effect)", Pyrophoric);   //allocate the new effect
         newEffect->header.objtype = OBJ_EffectType;
         newEffect->header.flags = SOF_Rotatable;
+        newEffect->header.catHeader18 = 0;                  // CAT: cleared as the exe does (0x00470669)
         newEffect->staticinfo = stat;
         ClearNode(newEffect->obj.renderlink);
         newEffect->obj.currentLOD = effect->obj.currentLOD;
@@ -7406,16 +7162,7 @@ void etgCreateEffects(Effect *effect, etgeffectstatic *stat, sdword number, sdwo
         }
 
         dbgAssertOrIgnore(nParams >= 0 && nParams <= ETG_NumberParameters);
-        va_start(argList, nParams);
-
-        for (j = 0; j < nParams; j++)
-        {
-            arg[j] = va_arg(argList, memsize);
-        }
-        va_end(argList);                                    //pass all possible parameters
-
-        etgEffectCodeStart(stat, newEffect, nParams, arg[0], arg[1], arg[2],
-            arg[3], arg[4], arg[5], arg[6], arg[7]);        //get the code a-runnin'
+        etgEffectCodeStart(stat, newEffect, nParams, userParams);//get the code a-runnin'
 
         if (bitTest(stat->specialOps, ESO_SortForward))
         {                                                   //make it sort forward, if applicable
@@ -7431,6 +7178,7 @@ void etgCreateEffects(Effect *effect, etgeffectstatic *stat, sdword number, sdwo
         if (bitTest(stat->specialOps, ESO_WorldRender))
         {
             bitSet(newEffect->header.flags, SOF_Hide);
+            newEffect->header.catOmitFromRenderList = 0;    // CAT: 0x00470930
             univAddToWorldList((Derelict *)newEffect);
         }
         else
@@ -7439,6 +7187,7 @@ void etgCreateEffects(Effect *effect, etgeffectstatic *stat, sdword number, sdwo
         }
     }
     memFree(system);
+    return 0;
 }
 
 /*-----------------------------------------------------------------------------
@@ -7460,7 +7209,7 @@ Effect* etgEffectCreate(etgeffectstatic* stat, Ship* owner, vector* pos, vector*
                         udword flags, sdword nParams, ...) {
     sdword index;
     va_list argList;
-    smemsize arg[ETG_NumberParameters];
+    etgarg arg[ETG_NumberParameters];
     Effect *newEffect;
 
     newEffect = memAlloc(stat->effectSize, "GE(GenEffect)", Pyrophoric);//allocate the new effect
@@ -7474,6 +7223,7 @@ Effect* etgEffectCreate(etgeffectstatic* stat, Ship* owner, vector* pos, vector*
     {
         bitSet(newEffect->header.flags, SOF_OwnerCoordSys);
     }
+    newEffect->header.catHeader18 = 0;                      // CAT: cleared (0x004709ea)
     newEffect->staticinfo = stat;             //save static info
     ClearNode(newEffect->obj.renderlink);                       //no in render list
     newEffect->obj.currentLOD = 0;//owner ? ((Ship *)owner)->obj.currentLOD : 0;
@@ -7531,6 +7281,7 @@ Effect* etgEffectCreate(etgeffectstatic* stat, Ship* owner, vector* pos, vector*
     newEffect->magnitudeSquared = nLips;                    //set initial nLips value
 
     //prepare to pass the parameters through
+    // CAT: the exe copies the variable arguments into an array and passes its address (0x00470b16-0x00470b3c)
     dbgAssertOrIgnore(nParams >= 0 && nParams <= ETG_NumberParameters);
     va_start(argList, nParams);
     for (index = 0; index < nParams; index++)
@@ -7539,10 +7290,7 @@ Effect* etgEffectCreate(etgeffectstatic* stat, Ship* owner, vector* pos, vector*
     }
     va_end(argList);                                        //pass all possible parameters
 
-    //!!! note: if this is general enough, may be able to unroll etgEffectCodeStart
-    //right in this function.  Would save us some parameter voodoo.
-    etgEffectCodeStart(stat, newEffect, nParams,            //get the code a-runnin'
-            arg[0], arg[1], arg[2], arg[3], arg[4], arg[5], arg[6], arg[7]);
+    etgEffectCodeStart(stat, newEffect, nParams, arg);      //get the code a-runnin'
     if (bitTest(stat->specialOps, ESO_SortForward))
     {                                                       //make it sort forward, if applicable
         bitSet(newEffect->header.flags, SOF_AlwaysSortFront);
@@ -7554,6 +7302,7 @@ Effect* etgEffectCreate(etgeffectstatic* stat, Ship* owner, vector* pos, vector*
         if (bitTest(stat->specialOps, ESO_WorldRender))
         {
             bitSet(newEffect->header.flags, SOF_Hide);
+            newEffect->header.catOmitFromRenderList = 0;    // CAT: 0x00470ba3
             univAddToWorldList((Derelict *)newEffect);
         }
         else
@@ -7566,6 +7315,7 @@ Effect* etgEffectCreate(etgeffectstatic* stat, Ship* owner, vector* pos, vector*
         if (bitTest(stat->specialOps, ESO_WorldRender))
         {
             bitSet(newEffect->header.flags, SOF_Hide);
+            newEffect->header.catOmitFromRenderList = 0;    // CAT: 0x00470ba3
             univAddToWorldList((Derelict *)newEffect);
         }
         else
@@ -7656,22 +7406,23 @@ bool32 etgFrequencyExceeded(etgeffectstatic *stat)
 /*-----------------------------------------------------------------------------
     Name        : etgSpawnNewEffect
     Description : handle spawning new effects
-    Inputs      : effect - effect which is spawning new effect
-                  stat - static info of new effect to create
-                  ... user parameters
+    Inputs      : CAT: an ETG callable (etgSpawnNewEffect 0x00470c50): args[0] effect which is spawning the new
+                  effect, [1] static info of the new effect, [2] number of user parameters, [3...] the user
+                  parameters (etgSpawnParse builds the call)
     Outputs     : Creates a new effect using the location, velocity, etc. of
                     the specified effect and using the new effect offsets.
     Return      : pointer to newly created effect, or NULL if not created
 ----------------------------------------------------------------------------*/
-memsize etgSpawnNewEffect(Effect *effect, etgeffectstatic *stat, sdword nParams, ...)
+memsize etgSpawnNewEffect(etgarg *args)
 {
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+    etgeffectstatic *stat = etgArgPtr(args, 1, etgeffectstatic *);
+    sdword nParams = etgArgInt(args, 2);
     Effect *newEffect;
-    sdword size, index;
+    sdword size;
     vector position, newPos;
     matrix rotTheta, rotMu, tempMatrix;
     real32 sinTheta, cosTheta, sinMu, cosMu;
-    va_list argList;
-    memsize arg[ETG_NumberParameters];
 
 
     if (etgFrequencyExceeded(stat))
@@ -7683,6 +7434,7 @@ memsize etgSpawnNewEffect(Effect *effect, etgeffectstatic *stat, sdword nParams,
     size = stat->effectSize;
     newEffect = memAlloc(size, "Ef(Effect)", Pyrophoric);       //allocate the new effect
     newEffect->header.objtype = OBJ_EffectType;
+    newEffect->header.catHeader18 = 0;                      // CAT: cleared as the exe does
     if (etgEffOffset.attachParent && effect->owner != NULL)
     {
         newEffect->header.flags = SOF_Rotatable | SOF_AttachPosition | SOF_AttachVelocity;
@@ -7753,14 +7505,7 @@ memsize etgSpawnNewEffect(Effect *effect, etgeffectstatic *stat, sdword nParams,
 
     //get the parameters
     dbgAssertOrIgnore(nParams >= 0 && nParams <= ETG_NumberParameters);
-    va_start(argList, nParams);
-    for (index = 0; index < nParams; index++)
-    {
-        arg[index] = va_arg(argList, memsize);
-    }
-    va_end(argList);                                        //pass all possible parameters
-    etgEffectCodeStart(stat, newEffect, nParams, arg[0], arg[1], arg[2],
-        arg[3], arg[4], arg[5], arg[6], arg[7]);            //get the code a-runnin'
+    etgEffectCodeStart(stat, newEffect, nParams, args + 3); //get the code a-runnin'
 
     if (bitTest(stat->specialOps, ESO_SortForward))
     {                                                       //make it sort forward, if applicable
@@ -7778,132 +7523,142 @@ memsize etgSpawnNewEffect(Effect *effect, etgeffectstatic *stat, sdword nParams,
     return((memsize)newEffect);                              //return pointer to ETG code
 }
 
-//adjust parameters of effects to be spawned
-void etgEffOffsetLOF(real32 newVal)
+/*-----------------------------------------------------------------------------
+    adjust parameters of effects to be spawned
+    CAT: ETG callables (etgEffOffsetLOF 0x00471030 ... etgEffDefaults 0x00471150); args as the script wrote them
+-----------------------------------------------------------------------------*/
+memsize etgEffOffsetLOF(etgarg *args)
 {
-    etgEffOffset.offsetLOF = newVal;
+    etgEffOffset.offsetLOF = etgArgFloat(args, 0);
+    return 0;
 }
-void etgEffChangeLOF(real32 newTheta, real32 newMu)
+memsize etgEffChangeLOF(etgarg *args)
 {
-    etgEffOffset.changeLOFTheta = newTheta;
-    etgEffOffset.changeLOFMu = newMu;
+    etgEffOffset.changeLOFTheta = etgArgFloat(args, 0);
+    etgEffOffset.changeLOFMu = etgArgFloat(args, 1);
+    return 0;
 }
-void etgEffOffsetR(real32 newR, real32 newTheta)
+memsize etgEffOffsetR(etgarg *args)
 {
-    etgEffOffset.offsetR = newR;
-    etgEffOffset.offsetTheta = newTheta;
+    etgEffOffset.offsetR = etgArgFloat(args, 0);
+    etgEffOffset.offsetTheta = etgArgFloat(args, 1);
 //    etgEffOffset.offsetMu = newMu;
+    return 0;
 }
-void etgEffOffsetXYZ(real32 x, real32 y, real32 z)
+memsize etgEffOffsetXYZ(etgarg *args)
 {
-    etgEffOffset.offsetXYZ.x = x;
-    etgEffOffset.offsetXYZ.y = y;
-    etgEffOffset.offsetXYZ.z = z;
+    etgEffOffset.offsetXYZ.x = etgArgFloat(args, 0);
+    etgEffOffset.offsetXYZ.y = etgArgFloat(args, 1);
+    etgEffOffset.offsetXYZ.z = etgArgFloat(args, 2);
+    return 0;
 }
-void etgEffOffsetVelLOF(real32 newVal)
+memsize etgEffOffsetVelLOF(etgarg *args)
 {
-    etgEffOffset.offsetVelLOF = newVal;
+    etgEffOffset.offsetVelLOF = etgArgFloat(args, 0);
+    return 0;
 }
-void etgEffOffsetSpin(real32 newVal)
+memsize etgEffOffsetSpin(etgarg *args)
 {
-    etgEffOffset.offsetSpin = newVal;
+    etgEffOffset.offsetSpin = etgArgFloat(args, 0);
+    return 0;
 }
-void etgEffOffsetTime(real32 newVal)
+memsize etgEffOffsetTime(etgarg *args)
 {
-    etgEffOffset.offsetTime = newVal;
+    etgEffOffset.offsetTime = etgArgFloat(args, 0);
+    return 0;
 }
-void etgEffOffsetDrag(Effect *effect, real32 newVal)
+// CAT: 'this' first (args[0] effect, args[1] value)
+memsize etgEffOffsetDrag(etgarg *args)
 {
-    etgEffOffset.drag = effect->drag + 1.0f - newVal;
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+    etgEffOffset.drag = effect->drag + 1.0f - etgArgFloat(args, 1);
+    return 0;
 }
-void etgEffDrag(real32 newDrag)
+memsize etgEffDrag(etgarg *args)
 {
-    etgEffOffset.drag = 1.0f - newDrag;
+    etgEffOffset.drag = 1.0f - etgArgFloat(args, 0);
+    return 0;
 }
-void etgEffAttachParent(bool32 attach)
+memsize etgEffAttachParent(etgarg *args)
 {
-    etgEffOffset.attachParent = attach;
+    etgEffOffset.attachParent = (bool32)etgArgUdword(args, 0);
+    return 0;
 }
-void etgEffSpin(real32 spin)
+// setEffSpin/setEffDeltaSpin are declared EVT_Int in the table but read their slot as a float, as HW1 and the exe do
+memsize etgEffSpin(etgarg *args)
 {
-    etgEffOffset.spin = spin;
+    etgEffOffset.spin = etgArgFloat(args, 0);
+    return 0;
 }
-void etgEffDeltaSpin(real32 deltaSpin)
+memsize etgEffDeltaSpin(etgarg *args)
 {
-    etgEffOffset.deltaSpin = deltaSpin;
+    etgEffOffset.deltaSpin = etgArgFloat(args, 0);
+    return 0;
 }
-void etgEffDefaults(void)
+memsize etgEffDefaults(etgarg *args)
 {
     memset(&etgEffOffset, 0, sizeof(etgEffOffset));
+    return 0;
 }
-//functions for modifying the current effect
-/*
-void etgThisChangeLOF(Effect *effect, real32 theta, real32 mu)
-{
-    dbgMessagef("etgThisChangeLOF not implemented yet!");
-}
-void etgThisOffsetLOF(Effect *effect, real32 offset)
-{
-    dbgMessagef("etgThisOffsetLOF not implemented yet!");
-}
-void etgThisOffsetR(Effect *effect, real32 R, real32 theta)
-{
-    dbgMessagef("etgThisOffsetR not implemented yet!");
-}
-*/
-void etgThisOffsetXYZ(Effect *effect, real32 x, real32 y, real32 z)
+//functions for modifying the current effect ('this' first)
+memsize etgThisOffsetXYZ(etgarg *args)
 {
     dbgMessagef("etgThisOffsetXYZ not implemented yet!");
+    return 0;
 }
-/*
-void etgThisOffsetVelLOF(Effect *effect, real32 vel)
+memsize etgThisScaleVelocity(etgarg *args)
 {
-    dbgMessagef("etgThisOffsetVelLOF not implemented yet!");
-}
-void etgThisOffsetVelR(Effect *effect, real32 R, real32 theta)
-{
-    dbgMessagef("etgThisOffsetVelR not implemented yet!");
-}
-*/
-void etgThisScaleVelocity(Effect *effect, real32 factor)
-{
-    vecMultiplyByScalar(effect->obj.posinfo.velocity, factor);
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+    vecMultiplyByScalar(effect->obj.posinfo.velocity, etgArgFloat(args, 1));
     dbgMessagef("etgThisScaleVelocity not implemented yet!");
+    return 0;
 }
 //spin an effect about it's axis
-void etgThisOffsetSpin(Effect *effect, real32 spin)
+memsize etgThisOffsetSpin(etgarg *args)
 {
-    effect->spin = spin;
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+    effect->spin = etgArgFloat(args, 1);
+    return 0;
 }
-void etgThisOffsetDeltaSpin(Effect *effect, real32 spinDelta)
+memsize etgThisOffsetDeltaSpin(etgarg *args)
 {
-    effect->deltaSpin = spinDelta;
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+    effect->deltaSpin = etgArgFloat(args, 1);
+    return 0;
 }
-void etgThisOffsetTime(Effect *effect, real32 time)
+memsize etgThisOffsetTime(etgarg *args)
 {
-    effect->timeElapsed -= time;
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+    effect->timeElapsed -= etgArgFloat(args, 1);
+    return 0;
 }
-void etgThisSetDrag(Effect *effect, real32 drag)
+memsize etgThisSetDrag(etgarg *args)
 {
-    effect->drag = 1.0f - drag;
+    Effect *effect = etgArgPtr(args, 0, Effect *);
+    effect->drag = 1.0f - etgArgFloat(args, 1);
+    return 0;
 }
-void etgSetDefaults(void)
+memsize etgSetDefaults(etgarg *args)
 {
-    etgEffDefaults();
+    etgEffDefaults(NULL);
     partSetDefaults();
+    return 0;
 }
-void etgSetDrag(real32 n)
+memsize etgSetDrag(etgarg *args)
 {
-    partSetDrag(1.0f - n);
+    partSetDrag(1.0f - etgArgFloat(args, 0));
+    return 0;
 }
-void etgSetDepthWrite(udword write)
+memsize etgSetDepthWrite(etgarg *args)
 {
-    partSetNoDepthWrite(!write);
+    partSetNoDepthWrite(etgArgUdword(args, 0) == 0);
+    return 0;
 }
 
-void etgModifyDrag(ubyte *sys, real32 drag)
+memsize etgModifyDrag(etgarg *args)
 {
-    partModifyDrag((psysPtr)sys, 1.0f - drag);
+    partModifyDrag(etgArgPtr(args, 0, psysPtr), 1.0f - etgArgFloat(args, 1));
+    return 0;
 }
 
 void etgModifyDepthWrite(ubyte *sys, udword write)
@@ -7911,8 +7666,12 @@ void etgModifyDepthWrite(ubyte *sys, udword write)
     partModifyNoDepthWrite((psysPtr)sys, !write);
 }
 
-void etgSetColorA(color c) 
+// CAT: the exe converts colour bytes with a multiplication by the float 1/255 (0x0072a6ac), HW1 divides by 255.0f
+#define CAT_ETG_UB2R(b)     ((real32)(b) * (1.0f / 255.0f))
+
+memsize etgSetColorA(etgarg *args)
 {
+    color c = etgArgColor(args, 0);
 #if FIX_ENDIAN
     // color c is actually a numerically calculated RGBA udword
     // rather than properly constructed from its constituents
@@ -7920,15 +7679,17 @@ void etgSetColorA(color c)
 #endif
 
     partSetColorA(
-        colUbyteToReal(colRed  (c)),
-        colUbyteToReal(colGreen(c)),
-        colUbyteToReal(colBlue (c)),
-        colUbyteToReal(colAlpha(c))
+        CAT_ETG_UB2R(colRed  (c)),
+        CAT_ETG_UB2R(colGreen(c)),
+        CAT_ETG_UB2R(colBlue (c)),
+        CAT_ETG_UB2R(colAlpha(c))
     );
+    return 0;
 }
 
-void etgSetColor(color c)
+memsize etgSetColor(etgarg *args)
 {
+    color c = etgArgColor(args, 0);
 #if FIX_ENDIAN
     // color c is actually a numerically calculated RGBA udword
     // rather than properly constructed from its constituents
@@ -7936,28 +7697,36 @@ void etgSetColor(color c)
 #endif
 
     partSetColor(
-        colUbyteToReal(colRed  (c)),
-        colUbyteToReal(colGreen(c)),
-        colUbyteToReal(colBlue (c))
+        CAT_ETG_UB2R(colRed  (c)),
+        CAT_ETG_UB2R(colGreen(c)),
+        CAT_ETG_UB2R(colBlue (c))
     );
+    return 0;
 }
 
-void etgSetAnimation(void *animation, real32 frameRate, sdword loopCount)
+// CAT: args animation, frame rate, loop count (etgSetAnimation 0x00471370; partSetLoopFlag takes its argument array)
+memsize etgSetAnimation(etgarg *args)
 {
-    partSetAnimation(animation);
-    partSetFramerate(frameRate);
-    partSetLoopFlag((bool8)(loopCount != 0));
+    memsize loop = (etgArgInt(args, 2) != 0);
+
+    partSetAnimation(etgArgPtr(args, 0, void *));
+    partSetFramerate(etgArgFloat(args, 1));
+    partSetLoopFlag(&loop);
+    return 0;
 }
 
-void etgSetMorphAnimation(void *animation, real32 frameRate, sdword loopCount)
+memsize etgSetMorphAnimation(etgarg *args)
 {
-    partSetMorph(animation);
-    partSetMorphFramerate(frameRate);
-    partSetMorphLoopCount(loopCount);
+    partSetMorph(etgArgPtr(args, 0, void *));
+    partSetMorphFramerate(etgArgFloat(args, 1));
+    partSetMorphLoopCount(etgArgInt(args, 2));
+    return 0;
 }
 
-void etgSetSpecular(real32 exponent)
+memsize etgSetSpecular(etgarg *args)
 {
+    real32 exponent = etgArgFloat(args, 0);
+
     if (exponent == 0.0f)
     {
         partSetSpecular(FALSE);
@@ -7967,28 +7736,39 @@ void etgSetSpecular(real32 exponent)
         partSetSpecular(TRUE);
         partSetExponent(exponent);
     }
+    return 0;
 }
 
-udword etgFRandom(real32 low, real32 high)
+// CAT: etgFRandom 0x00471420: lo + rand * (hi - lo) / 2^32, clamped to [lo, hi] (x87, one rounding to float); HW1
+//      computed in float precision and divided by UDWORD_Max
+memsize etgFRandom(etgarg *args)
 {
-    udword valueInt;
+    real32 low = etgArgFloat(args, 0), high = etgArgFloat(args, 1);
     real32 value;
 
     if (high <= low)
     {
         return(Real32ToUdword(low));
     }
-//    dbgAssertOrIgnore(high > low);
-    valueInt = ranRandom(RANDOM_ETG);
-    value = (real32)valueInt * (high - low) / (real32)UDWORD_Max + low;
+    value = (real32)((long double)ranRandom(RANDOM_ETG) * (long double)(high - low) * (1.0L / 4294967296.0L) + low);
+    if (value < low)
+    {
+        value = low;
+    }
+    else if (value > high)
+    {
+        value = high;
+    }
 #if ETG_VERBOSE_LEVEL >= 2
     dbgMessagef("frandom(%f, %f) = %f", low, high, value);
 #endif
     return(Real32ToUdword(value));
 }
 
-udword etgIRandom(udword low, udword high)
+memsize etgIRandom(etgarg *args)
 {
+    udword low = etgArgUdword(args, 0), high = etgArgUdword(args, 1);
+
     if (high <= low)
     {
         return(low);
@@ -7997,87 +7777,132 @@ udword etgIRandom(udword low, udword high)
     return(ranRandom(RANDOM_ETG) % (high - low) + low);
 }
 
-udword etgCRandom(udword loR, udword hiR, udword loG, udword hiG, udword loB, udword hiB)
+/*-----------------------------------------------------------------------------
+    CAT: etgCRandom 0x004714e0 / etgCARandom 0x00471580, as the exe computes them: a high bound is replaced by
+    low + 1 whenever low <= high (HW1's test reversed, kept by GoK); the green high bound is never read, green uses
+    the (replaced) blue high bound; the channels are drawn blue, green, red (etgCRandom) and alpha, green, blue, red
+    (etgCARandom), each low + rand % (high - low + 1). etgCRandom masks each channel to a byte and sets alpha 0xff;
+    etgCARandom ORs the channels unmasked.
+-----------------------------------------------------------------------------*/
+memsize etgCRandom(etgarg *args)
 {
-    if (loR <= hiR)
-    {
-        hiR = loR + 1;
-    }
-
-    if (loG <= hiG)
-    {
-        hiG = loG + 1;
-    }
+    udword loR = etgArgUdword(args, 0), hiR = etgArgUdword(args, 1), loG = etgArgUdword(args, 2);
+    udword loB = etgArgUdword(args, 4), hiB = etgArgUdword(args, 5);
+    udword b, g, r;
 
     if (loB <= hiB)
     {
         hiB = loB + 1;
     }
-
-    return colRGB(randyrandombetween(RANDOM_ETG, loR, hiR),
-                  randyrandombetween(RANDOM_ETG, loG, hiG),
-                  randyrandombetween(RANDOM_ETG, loB, hiB));
+    if (loR <= hiR)
+    {
+        hiR = loR + 1;
+    }
+    b = ranRandom(RANDOM_ETG) % (hiB - loB + 1) + loB;
+    g = ranRandom(RANDOM_ETG) % (hiB - loG + 1) + loG;
+    r = ranRandom(RANDOM_ETG) % (hiR - loR + 1) + loR;
+    return((udword)(0xff000000 | ((b & 0xff) << 16) | ((g & 0xff) << 8) | (r & 0xff)));
 }
 
-udword etgCARandom(udword loR, udword hiR, udword loG, udword hiG, udword loB, udword hiB, udword loA, udword hiA)
+memsize etgCARandom(etgarg *args)
 {
-    if (loR <= hiR)
-    {
-        hiR = loR + 1;
-    }
-    
-    if (loG <= hiG)
-    {
-        hiG = loG + 1;
-    }
-    
-    if (loB <= hiB)
-    {
-        hiB = loB + 1;
-    }
-    
+    udword loR = etgArgUdword(args, 0), hiR = etgArgUdword(args, 1), loG = etgArgUdword(args, 2);
+    udword loB = etgArgUdword(args, 4), hiB = etgArgUdword(args, 5), loA = etgArgUdword(args, 6), hiA = etgArgUdword(args, 7);
+    udword a, g, b, r;
+
     if (loA <= hiA)
     {
         hiA = loA + 1;
     }
-    
-    return colRGBA(randyrandombetween(RANDOM_ETG, loR, hiR),
-                   randyrandombetween(RANDOM_ETG, loG, hiG),
-                   randyrandombetween(RANDOM_ETG, loB, hiB),
-                   randyrandombetween(RANDOM_ETG, loA, hiA));
+    if (loB <= hiB)
+    {
+        hiB = loB + 1;
+    }
+    if (loR <= hiR)
+    {
+        hiR = loR + 1;
+    }
+    a = ranRandom(RANDOM_ETG) % (hiA - loA + 1) + loA;
+    g = ranRandom(RANDOM_ETG) % (hiB - loG + 1) + loG;
+    b = ranRandom(RANDOM_ETG) % (hiB - loB + 1) + loB;
+    r = ranRandom(RANDOM_ETG) % (hiR - loR + 1) + loR;
+    return((udword)((a << 24) | (b << 16) | (g << 8) | r));
 }
 
 //convert data types
-udword etgFloat2Int(real32 f)
+memsize etgFloat2Int(etgarg *args)
 {
-    return((udword)(sdword)f);
+    return((udword)(sdword)etgArgFloat(args, 0));
 }
 
-udword etgInt2Float(sdword f)
+memsize etgInt2Float(etgarg *args)
 {
-    real32 retVal = (real32)f;
+    real32 retVal = (real32)etgArgInt(args, 0);
     return Real32ToUdword(retVal);
 }
 
-udword etgInts2Color(sdword red, sdword green, sdword blue)
+// CAT: new, cat_etgColRed/Green/Blue 0x00471650/0x00471680/0x004716b0 ('colRed', 'colGreen', 'colBlue'): one channel
+//      of a colour as a float in [0, 1] (byte * 1/255)
+memsize cat_etgColRed(etgarg *args)
 {
-    return(colRGB(red, green, blue));
+    real32 value = CAT_ETG_UB2R(etgArgUdword(args, 0) & 0xff);
+    return(Real32ToUdword(value));
 }
 
-udword etgInts2ColorA(sdword red, sdword green, sdword blue, sdword alpha)
+memsize cat_etgColGreen(etgarg *args)
 {
-    return(colRGBA(red, green, blue, alpha));
+    real32 value = CAT_ETG_UB2R((etgArgUdword(args, 0) >> 8) & 0xff);
+    return(Real32ToUdword(value));
 }
 
-udword etgFloats2Color(real32 red, real32 green, real32 blue)
+memsize cat_etgColBlue(etgarg *args)
 {
-    return(colRGB(colRealToUbyte(red), colRealToUbyte(green), colRealToUbyte(blue)));
+    real32 value = CAT_ETG_UB2R((etgArgUdword(args, 0) >> 16) & 0xff);
+    return(Real32ToUdword(value));
 }
 
-udword etgFloats2ColorA(real32 red, real32 green, real32 blue, real32 alpha)
+memsize etgInts2Color(etgarg *args)
 {
-    return(colRGBA(colRealToUbyte(red), colRealToUbyte(green), colRealToUbyte(blue), colRealToUbyte(alpha)));
+    return(colRGB(etgArgInt(args, 0), etgArgInt(args, 1), etgArgInt(args, 2)));
 }
+
+memsize etgInts2ColorA(etgarg *args)
+{
+    return((udword)colRGBA(etgArgInt(args, 0), etgArgInt(args, 1), etgArgInt(args, 2), etgArgInt(args, 3)));
+}
+
+// CAT: the exe converts a float channel by rounding x * 256 to the nearest integer (0x0072a6a8 = 256.0, then the
+//      1.5 * 2^52 rounding constant 0x0072a458), clamps it to 255 from above and keeps the low byte (etgFloats2Color
+//      0x00471730, etgFloats2ColorA 0x00471810); HW1's colRealToUbyte truncated x * 255
+static udword catEtgFloatToUbyte(real32 x)
+{
+    sdword v = (sdword)llrintl((long double)x * 256.0L);
+    return (v > 0xff) ? 0xff : ((udword)v & 0xff);
+}
+
+memsize etgFloats2Color(etgarg *args)
+{
+    udword r = catEtgFloatToUbyte(etgArgFloat(args, 0));
+    udword g = catEtgFloatToUbyte(etgArgFloat(args, 1));
+    udword b = catEtgFloatToUbyte(etgArgFloat(args, 2));
+    return((udword)(0xff000000 | (b << 16) | (g << 8) | r));
+}
+
+memsize etgFloats2ColorA(etgarg *args)
+{
+    udword r = catEtgFloatToUbyte(etgArgFloat(args, 0));
+    udword g = catEtgFloatToUbyte(etgArgFloat(args, 1));
+    udword b = catEtgFloatToUbyte(etgArgFloat(args, 2));
+    udword a = catEtgFloatToUbyte(etgArgFloat(args, 3));
+    return((udword)((a << 24) | (b << 16) | (g << 8) | r));
+}
+
+// CAT: the exe's empty function (nullsub 0x0049ae30), the table's 'print' and 'modifyBackgroundColor'
+memsize cat_etgNullsub(etgarg *args)
+{
+    return 0;
+}
+
 /*
 "ETG Fixes: Following modify functions would be very useful if added to the ETG:
 X modifyVelLOF
@@ -8089,6 +7914,352 @@ X modifyDeltaVelR
 X modifyMesh(ObHandle, Handle)
 X modifyLength(ObHandle, Handle)"
 */
+
+/*=============================================================================
+    CAT: port diagnostics, not in the exe (docs/m2-r3-etg-particles.md):
+    /catEtgParseTest <listfile>   etgStartup (the exe's 8 scripts and every effect they load), then every other
+                                  etg\*.script and etg\*.ebg named in listfile; one "etgtest:" log line each
+    /catEtgEffectTest <ticks>     after the parse test: create every effect of the event tables the scripts fill,
+                                  with the parameters each declares, and run them for <ticks> universe ticks (code, spawned
+                                  effects, particle updates; no rendering)
+    The engine quits after the test (SDL/utility.c).
+=============================================================================*/
+char catEtgSelfTestList[PATH_MAX] = "";
+sdword catEtgEffectSelfTestTicks = 0;
+
+static bool32 catEtgSelfTestIsListedScript(char *name)
+{
+    sdword index;
+
+    for (index = 0; etgScriptFilename[index] != NULL; index++)
+    {
+        if (strcasecmp(etgScriptFilename[index], name) == 0)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+static sdword catEtgSelfTestCountStatics(sdword *nPlaceholders)
+{
+    sdword index, nLoaded = 0;
+
+    *nPlaceholders = 0;
+    for (index = 0; index < ETG_EventListLength; index++)
+    {
+        if (etgEventTable[index].effectStatic != NULL)
+        {
+            if (etgEventTable[index].effectStatic->nParticleBlocks == 0xffffffff)
+            {                                               //named by a spawn/createEffects, never loaded
+                (*nPlaceholders)++;
+                dbgMessagef("etgtest: referenced but not loaded: %s", etgEventTable[index].effectStatic->name);
+            }
+            else
+            {
+                nLoaded++;
+            }
+        }
+    }
+    return nLoaded;
+}
+
+void catEtgRunParseSelfTest(void)
+{
+    FILE *list;
+    char line[PATH_MAX];
+    char *end, *name;
+    sdword nScripts = 0, nEffects = 0, nLoadedHere = 0, nLoaded, nPlaceholders;
+    etgeffectstatic *stat;
+
+    list = fopen(catEtgSelfTestList, "rt");
+    if (list == NULL)
+    {
+        dbgMessagef("etgtest: cannot open list file %s", catEtgSelfTestList);
+        return;
+    }
+    dbgMessagef("etgtest: self-test start, list %s", catEtgSelfTestList);
+
+    //the scripts the exe loads, in its order (etgStartup 0x0046a260)
+    for (nScripts = 0; etgScriptFilename[nScripts] != NULL; nScripts++)
+    {
+        dbgMessagef("etgtest: startup script %s", etgScriptFilename[nScripts]);
+    }
+    etgStartup();
+    nLoaded = catEtgSelfTestCountStatics(&nPlaceholders);
+    dbgMessagef("etgtest: etgStartup done, %d scripts, %d effects loaded, %d referenced but not loaded", nScripts, nLoaded, nPlaceholders);
+
+    //every other script and effect file of the install
+    while (fgets(line, sizeof(line), list) != NULL)
+    {
+        for (end = line + strlen(line); end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' '); end--)
+        {
+            end[-1] = '\0';
+        }
+        if (line[0] == '\0' || line[0] == '#')
+        {
+            continue;
+        }
+        for (name = line + strlen(line); name > line && name[-1] != '\\' && name[-1] != '/'; name--)
+        {                                                   //strip the etg\ directory
+        }
+        if (strlen(name) > 7 && strcasecmp(name + strlen(name) - 7, ".script") == 0)
+        {
+            if (!catEtgSelfTestIsListedScript(name))
+            {
+                dbgMessagef("etgtest: extra script %s (not loaded by the exe)", name);
+                scriptSet(ETG_Directory, name, etgScriptParseTable);
+                nScripts++;
+            }
+            continue;
+        }
+        if (strlen(name) > 4 && strcasecmp(name + strlen(name) - 4, ".ebg") == 0)
+        {
+            nEffects++;
+            stat = etgEffectStaticFind(name, FALSE);
+            if (stat == NULL || stat->nParticleBlocks == 0xffffffff)
+            {                                               //not loaded by any script: the exe never reads it
+                nLoadedHere++;                              //(some of these do not compile, e.g. an undefined label)
+                dbgMessagef("etgtest: unused %s (no script loads it; not parsed)", name);
+            }
+            else
+            {
+                dbgMessagef("etgtest: ok %s blocks=%d variables=%d", name, stat->nParticleBlocks, stat->variableSize);
+            }
+        }
+    }
+    fclose(list);
+    nLoaded = catEtgSelfTestCountStatics(&nPlaceholders);
+    dbgMessagef("etgtest: self-test done, %d scripts parsed, %d .ebg listed, %d unused (no script loads them), %d effects loaded, %d referenced but not loaded",
+                nScripts, nEffects, nLoadedHere, nLoaded, nPlaceholders);
+}
+
+/*-----------------------------------------------------------------------------
+    The effect self-test passes every parameter an effect declares in its eventStart(...) line: the declared default
+    where there is one, otherwise 1 (int), 10.0 (float) or white (RGB/RGBA). The effect statics keep no parameter
+    types, so the declaration is read from the effect file again (test only). Up to ETG_NumberParameters.
+-----------------------------------------------------------------------------*/
+static sdword catEtgSelfTestParams(etgeffectstatic *stat, etgarg *params)
+{
+    char path[PATH_MAX], *text, *start, *end, *param, *eq, *type;
+    void *buffer;
+    sdword length, nParams = 0;
+    real32 valueReal;
+    sdword valueInt;
+
+    sprintf(path, "%s%s", ETG_Directory, stat->name);
+    length = fileLoadAlloc(path, &buffer, 0);
+    text = memAlloc(length + 1, "etgtestText", 0);
+    memcpy(text, buffer, length);
+    text[length] = '\0';
+    memFree(buffer);
+    start = strstr(text, "eventStart(");
+    if (start != NULL)
+    {
+        start += strlen("eventStart(");
+        end = strchr(start, ')');
+        if (end != NULL)
+        {
+            *end = '\0';
+            for (param = strtok(start, ","); param != NULL && nParams < ETG_NumberParameters; param = strtok(NULL, ","))
+            {
+                while (*param == ' ' || *param == '\t')
+                {
+                    param++;
+                }
+                type = param;
+                eq = strchr(param, '=');
+                if (strncasecmp(type, "int", 3) == 0)
+                {
+                    valueInt = 1;
+                    if (eq != NULL)
+                    {
+                        sscanf(eq + 1, "%d", &valueInt);
+                    }
+                    params[nParams++] = (udword)valueInt;
+                }
+                else if (strncasecmp(type, "float", 5) == 0)
+                {
+                    valueReal = 10.0f;
+                    if (eq != NULL)
+                    {
+                        sscanf(eq + 1, "%f", &valueReal);
+                    }
+                    params[nParams++] = Real32ToUdword(valueReal);
+                }
+                else if (strncasecmp(type, "RGB", 3) == 0)
+                {
+                    params[nParams++] = (udword)colRGBA(255, 255, 255, 255);
+                }
+            }
+        }
+    }
+    memFree(text);
+    return nParams;
+}
+
+//create one effect of a lod table entry (first level, as the game does at full detail)
+static sdword catEtgSelfTestCreate(etglod *lod)
+{
+    static vector pos = {0.0f, 0.0f, 0.0f}, vel = {0.0f, 0.0f, 100.0f};
+    etgarg p[ETG_NumberParameters];
+    sdword n;
+
+    if (lod == NULL || lod->nLevels < 1 || lod->level[0] == NULL || lod->level[0]->nParticleBlocks == 0xffffffff)
+    {
+        return 0;
+    }
+    memset(p, 0, sizeof(p));
+    n = catEtgSelfTestParams(lod->level[0], p);
+    etgEffectCreate(lod->level[0], NULL, &pos, &vel, (matrix *)&IdentityMatrix, 1.0f, 0, n,
+                    p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
+    return 1;
+}
+
+//the update half of etgEffectDraw: tick the particle systems of an effect (no rendering)
+static void catEtgSelfTestParticles(Effect *effect)
+{
+    sdword index;
+    matrix scaledEffectSys;
+    pointSystem *part;
+    real32 timeElapsed;
+    vector velInverse;
+
+    if (effect->timeElapsed < 0.0f)
+    {
+        return;
+    }
+    matCopyAndScale(&scaledEffectSys, &effect->rotatable.rotinfo.coordsys, effect->magnitudeSquared);
+    matMultiplyVecByMat(&velInverse, &effect->obj.posinfo.velocity, &scaledEffectSys);
+    for (index = 0; index < effect->iParticleBlock; index++)
+    {
+        if (effect->particleBlock[index] != NULL)
+        {
+            part = (pointSystem *)effect->particleBlock[index];
+            timeElapsed = universe.totaltimeelapsed - part->lastUpdated;
+            if (timeElapsed >= 0)
+            {
+                partUpdateSystem((psysPtr)effect->particleBlock[index], timeElapsed, &velInverse);
+                part->lastUpdated = universe.totaltimeelapsed;
+            }
+        }
+    }
+    bitSet(effect->effectFlags, EF_Rendered);
+}
+
+void catEtgRunEffectSelfTest(sdword ticks)
+{
+    sdword race, gun, cls, type, tick, created = 0, deleted = 0, alive, peak = 0, nParticles, peakParticles = 0;
+    sdword typeSeen[PART_LENSFLARES + 1] = {0}, block;
+    Node *node, *next;
+    Effect *effect;
+    real32 dt = UNIVERSE_UPDATE_PERIOD;
+    static Camera catEtgTestCamera;
+    Camera *savedCamera = mrCamera;
+
+    dbgMessagef("etgtest: effect self-test start, %d ticks", ticks);
+    //effect sounds (playSound) pan against the main-view camera, which exists only in a game
+    cameraInit(&catEtgTestCamera, 5000.0f);
+    mrCamera = &catEtgTestCamera;
+    //every effect of the event tables the scripts fill (each table entry once), with its declared parameters
+    for (race = 0; race < NUM_RACES; race++)
+    {
+        for (gun = 0; gun < NUM_GUN_SOUND_TYPES; gun++)
+        {
+            created += catEtgSelfTestCreate(etgGunEventTable[race][gun][EGT_GunFire]);
+            created += catEtgSelfTestCreate(etgGunEventTable[race][gun][EGT_GunHit]);
+            created += catEtgSelfTestCreate(etgGunEventTable[race][gun][EGT_GunBullet]);
+            created += catEtgSelfTestCreate(etgGunEventTable[race][gun][EGT_BulletDestroyed]);
+        }
+        for (cls = 0; cls < NUM_CLASSES; cls++)
+        {
+            for (type = 0; type < EDT_NumberExplosionTypes; type++)
+            {
+                created += catEtgSelfTestCreate(etgDeathEventTable[race][cls][type]);
+            }
+        }
+        for (type = 0; type < ETG_NumberResourceTypes; type++)
+        {
+            created += catEtgSelfTestCreate(etgResourceEffectTable[race][type]);
+        }
+        created += catEtgSelfTestCreate(etgTractorBeamEffectTable[race]);
+    }
+    for (type = 0; type < NUM_DERELICTTYPES; type++)
+    {
+        for (cls = 0; cls < EDT_NumberExplosionTypes; cls++)
+        {
+            created += catEtgSelfTestCreate(etgDeathEventTableDerelict[type][cls]);
+        }
+    }
+    for (cls = 0; cls < NUM_CLASSES; cls++)
+    {
+        for (type = 0; type < DMG_NumberDamageTypes; type++)
+        {
+            created += catEtgSelfTestCreate(etgDamageEffectTable[cls][type]);
+        }
+    }
+    for (type = 0; type < EGT_NumberOfSpecialEffects; type++)
+    {
+        created += catEtgSelfTestCreate(etgSpecialPurposeEffectTable[type]);
+    }
+    created += catEtgSelfTestCreate(etgHyperspaceEffect);
+    dbgMessagef("etgtest: created %d effects", created);
+
+    //run them as univUpdate does (UnivUpdate.c), plus the particle update of etgEffectDraw
+    for (tick = 0; tick < ticks; tick++)
+    {
+        universe.totaltimeelapsed += dt;
+        universe.phystimeelapsed = dt;
+        alive = nParticles = 0;
+        for (node = universe.effectList.head; node != NULL; node = next)
+        {
+            next = node->next;
+            effect = (Effect *)listGetStructOfNode(node);
+            if (etgEffectUpdate(effect, dt))
+            {
+                etgEffectDelete(effect);
+                univRemoveObjFromRenderList((SpaceObj *)effect);
+                listDeleteNode(&effect->header.objlink);
+                deleted++;
+                continue;
+            }
+            catEtgSelfTestParticles(effect);
+            alive++;
+            nParticles += effect->iParticleBlock;
+            for (block = 0; block < effect->iParticleBlock; block++)
+            {                                               //tally the particle system types seen
+                if (effect->particleBlock[block] != NULL && partTypeof(effect->particleBlock[block]) <= PART_LENSFLARES)
+                {
+                    typeSeen[partTypeof(effect->particleBlock[block])]++;
+                }
+            }
+        }
+        peak = max(peak, alive);
+        peakParticles = max(peakParticles, nParticles);
+        if (tick % 16 == 0 || tick == ticks - 1)
+        {
+            dbgMessagef("etgtest: tick %d effects alive %d particle blocks %d deleted %d", tick, alive, nParticles, deleted);
+        }
+    }
+
+    //clean up what is left
+    alive = 0;
+    for (node = universe.effectList.head; node != NULL; node = next)
+    {
+        next = node->next;
+        effect = (Effect *)listGetStructOfNode(node);
+        etgEffectDelete(effect);
+        univRemoveObjFromRenderList((SpaceObj *)effect);
+        listDeleteNode(&effect->header.objlink);
+        alive++;
+    }
+    mrCamera = savedCamera;
+    dbgMessagef("etgtest: particle-system ticks by type: points %d cubes %d lines %d meshes %d billboards %d ebolts %d lensflares %d (lens flare sources on the list at the end: %d)",
+                typeSeen[PART_POINTS], typeSeen[PART_CUBES], typeSeen[PART_LINES], typeSeen[PART_MESH],
+                typeSeen[PART_BILLBOARD], typeSeen[PART_EBOLTS], typeSeen[PART_LENSFLARES], catRndLensFlareSourceList.num);
+    dbgMessagef("etgtest: effect self-test done, %d created, %d deleted while running, %d left at the end, peak %d effects, peak %d particle blocks",
+                created, deleted, alive, peak, peakParticles);
+}
 
 /*=============================================================================
     Save Game Stuff

@@ -474,6 +474,8 @@ static NumStrXlate gunsoundtypeinfo[] =
     { (uword)GS_VeryLargeIonCannon, strdollar(GS_VeryLargeIonCannon) },
     { (uword)GS_VeryLargePlasmaBomb, strdollar(GS_VeryLargePlasmaBomb) },
     { (uword)GS_Laser, strdollar(GS_Laser) },
+    { (uword)GS_BigGun, strdollar(GS_BigGun) },                 // CAT: the exe's table 0x00889da0 has 20 rows
+    { (uword)GS_BeastWeapon, strdollar(GS_BeastWeapon) },
     { 0,NULL }
 };
 
@@ -527,6 +529,31 @@ static NumStrXlate SpecialEffectinfo[] =
     { (uword)EGT_CRATE_TIME_OUT, "EGT_CRATE_TIME_OUT"},
     { (uword)EGT_REPAIR_BEAM, "EGT_REPAIR_BEAM"},
     { (uword)EGT_CAUGHT_GRAVWELL, "EGT_CAUGHT_GRAVWELL"},
+    // CAT: the exe's rows 19-42 in its order (0x0088a0e0-0x0088a198); EGT_LINKING_EFFECT is listed twice there
+    { (uword)EGT_WELDING_EFFECT, "EGT_WELDING_EFFECT"},
+    { (uword)EGT_LINKING_EFFECT, "EGT_LINKING_EFFECT"},
+    { (uword)EGT_RESOURCE_SOLID, "EGT_RESOURCE_SOLID"},
+    { (uword)EGT_VORTEX_EFFECT, "EGT_VORTEX_EFFECT"},
+    { (uword)EGT_BIG_GUN_BULLET_EXPLOSION, "EGT_BIG_GUN_BULLET_EXPLOSION"},
+    { (uword)EGT_BIG_GUN_CHARGING, "EGT_BIG_GUN_CHARGING"},
+    { (uword)EGT_ELECTRO_MAGNETIC_PULSE, "EGT_ELECTRO_MAGNETIC_PULSE"},
+    { (uword)EGT_SUCK_SHIP, "EGT_SUCK_SHIP"},
+    { (uword)EGT_MOTHER_EXPLOSION_SHOCKWAVE, "EGT_MOTHER_EXPLOSION_SHOCKWAVE"},
+    { (uword)EGT_DISTORTION_FIELD, "EGT_DISTORTION_FIELD"},
+    { (uword)EGT_AFTER_BURNER, "EGT_AFTER_BURNER"},
+    { (uword)EGT_RAM_VENT, "EGT_RAM_VENT"},
+    { (uword)EGT_CRYSTAL_SHOCK_WAVE, "EGT_CRYSTAL_SHOCK_WAVE"},
+    { (uword)EGT_BULLET_CUTTING_BEAM, "EGT_BULLET_CUTTING_BEAM"},
+    { (uword)EGT_RESOURCE_SHIP, "EGT_RESOURCE_SHIP"},
+    { (uword)EGT_SHOCKWAVE_STAR, "EGT_SHOCKWAVE_STAR"},
+    { (uword)EGT_LEECH_COLLECT_EFFECT, "EGT_LEECH_COLLECT_EFFECT"},
+    { (uword)EGT_LEECH_VENT_EFFECT, "EGT_LEECH_VENT_EFFECT"},
+    { (uword)EGT_LINKING_EFFECT, "EGT_LINKING_EFFECT"},
+    { (uword)EGT_SLIPGATE_OPENING_EFFECT, "EGT_SLIPGATE_OPENING_EFFECT"},
+    { (uword)EGT_SLIPGATE_CLOSING_EFFECT, "EGT_SLIPGATE_CLOSING_EFFECT"},
+    { (uword)EGT_SLIPGATE_PERMANENT_EFFECT, "EGT_SLIPGATE_PERMANENT_EFFECT"},
+    { (uword)EGT_RAMMING_FRIGATE_IMPACT_EFFECT, "EGT_RAMMING_FRIGATE_IMPACT_EFFECT"},
+    { (uword)EGT_WORKER_RESOURCE_SOLID, "EGT_WORKER_RESOURCE_SOLID"},
 
     { 0,NULL }
 };

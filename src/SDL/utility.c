@@ -4327,6 +4327,23 @@ DONE_INTROS:
         return(NULL);
     }
 
+    // CAT: /catEtgParseTest (port diagnostic): start the effects module (the exe's 8 scripts), load every other etg
+    //      script and effect of the list, optionally run a sample of effects (/catEtgEffectTest), and quit
+    if (catEtgSelfTestList[0] != '\0')
+    {
+        horseRaceInit();                                    //the effects load under the loading screen, as in gameStart
+        catEtgRunParseSelfTest();                           //calls etgStartup
+        horseRaceShutdown();
+        utySet(SSA_Effect);                                 //so the quit runs etgShutdown, as after a game
+        etgHasBeenStarted = TRUE;
+        if (catEtgEffectSelfTestTicks > 0)
+        {
+            catEtgRunEffectSelfTest(catEtgEffectSelfTestTicks);
+        }
+        utyGameQuit(NULL, NULL);
+        return(NULL);
+    }
+
     // CAT: /catTexturesTest (port diagnostic): load textures.ll, register and load every listed texture, and quit
     if (catTexturesSelfTest)
     {
