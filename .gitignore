@@ -1,7 +1,7 @@
 # Copyrighted game binaries and extracted game data: never commit
 original/
 # Third-party reference clones (separate repos)
-reference/
+/reference/
 # Ghidra projects and exports
 ghidra/*.rep/
 ghidra/*.gpr
