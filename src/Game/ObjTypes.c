@@ -20,127 +20,237 @@
     #include <strings.h>
 #endif
 
+// CAT: the enum sizes the exe's tables are built for (shiptypeinfo 0x00889530 has 145 rows, shipraceinfo 0x008899c0 7,
+//      shipclassinfo 0x00889a80 12; LastShipTypeOfRace 0x00889504 = {32,59,73,91,97,108,144})
+_Static_assert(TOTAL_NUM_SHIPS == 145, "Cataclysm has 145 ship types");
+_Static_assert(NUM_RACES == 7, "Cataclysm has 7 races");
+_Static_assert(NUM_CLASSES == 12, "Cataclysm has 12 ship classes");
+_Static_assert(SECT_LAST_SHIP == 32 && BEAST_LAST_SHIP == 59 && KUSHAN_LAST_SHIP == 73 && TAIIDAN_LAST_SHIP == 91 &&
+               P1_LAST_SHIP == 97 && TRADERS_LAST_SHIP == 108 && DERELICT_LAST_SHIP == 144,
+               "race ranges as LastShipTypeOfRace 0x00889504");
+_Static_assert(NSR_Asteroid == 7 && NSR_Missile == 14, "NIS object races as nisraceinfo 0x00889a00");
+_Static_assert(HW1LEGACY_FIRST_SHIP > TOTAL_NUM_SHIPS + 2 && HW1LEGACY_LAST_SHIP < 256,
+               "HW1-only type ids stay outside every type table and fit in a ubyte");
+
 /*=============================================================================
     Public Data:
 =============================================================================*/
 
+// CAT: per-race ship-type ranges of the 145-type enum, in Cataclysm race order (FirstShipTypeOfRace 0x008894e8 =
+//      {0,33,60,74,92,98,109}, LastShipTypeOfRace 0x00889504 = {32,59,73,91,97,108,144})
 ShipType FirstShipTypeOfRace[NUM_RACES] =
 {
-    STD_FIRST_SHIP,
-    STD_FIRST_SHIP,
+    SECT_FIRST_SHIP,
+    BEAST_FIRST_SHIP,
+    KUSHAN_FIRST_SHIP,
+    TAIIDAN_FIRST_SHIP,
     P1_FIRST_SHIP,
-    P2_FIRST_SHIP,
-    P3_FIRST_SHIP,
-    TRADERS_FIRST_SHIP
+    TRADERS_FIRST_SHIP,
+    DERELICT_FIRST_SHIP
 };
 
 ShipType LastShipTypeOfRace[NUM_RACES] =
 {
-    STD_LAST_SHIP,
-    STD_LAST_SHIP,
+    SECT_LAST_SHIP,
+    BEAST_LAST_SHIP,
+    KUSHAN_LAST_SHIP,
+    TAIIDAN_LAST_SHIP,
     P1_LAST_SHIP,
-    P2_LAST_SHIP,
-    P3_LAST_SHIP,
-    TRADERS_LAST_SHIP
+    TRADERS_LAST_SHIP,
+    DERELICT_LAST_SHIP
 };
 
 uword NumShipTypesInRace[NUM_RACES] =
 {
-    TOTAL_STD_SHIPS,
-    TOTAL_STD_SHIPS,
+    SECT_LAST_SHIP - SECT_FIRST_SHIP + 1,
+    BEAST_LAST_SHIP - BEAST_FIRST_SHIP + 1,
+    KUSHAN_LAST_SHIP - KUSHAN_FIRST_SHIP + 1,
+    TAIIDAN_LAST_SHIP - TAIIDAN_FIRST_SHIP + 1,
     TOTAL_P1_SHIPS,
-    TOTAL_P2_SHIPS,
-    TOTAL_P3_SHIPS,
-    TOTAL_TRADERS_SHIPS
+    TOTAL_TRADERS_SHIPS,
+    DERELICT_LAST_SHIP - DERELICT_FIRST_SHIP + 1
 };
 
 /*=============================================================================
     Private Data:
 =============================================================================*/
 
+// CAT: the 145 Cataclysm ship names in id order (shiptypeinfo 0x00889530, read by StrToShipType 0x004d6e30 and
+//      ShipTypeToStr 0x004d6bc0)
 static NumStrXlate shiptypeinfo[] =
 {
-    { (uword)AdvanceSupportFrigate, strdollar(AdvanceSupportFrigate) },
-    { (uword)AttackBomber, strdollar(AttackBomber) },
-    { (uword)Carrier, strdollar(Carrier) },
-    { (uword)CloakedFighter, strdollar(CloakedFighter) },
-    { (uword)CloakGenerator, strdollar(CloakGenerator) },
-    { (uword)DDDFrigate, strdollar(DDDFrigate) },
-    { (uword)DefenseFighter, strdollar(DefenseFighter) },
-    { (uword)DFGFrigate, strdollar(DFGFrigate) },
-    { (uword)GravWellGenerator, strdollar(GravWellGenerator) },
-    { (uword)HeavyCorvette, strdollar(HeavyCorvette) },
-    { (uword)HeavyCruiser, strdollar(HeavyCruiser) },
-    { (uword)HeavyDefender, strdollar(HeavyDefender) },
-    { (uword)HeavyInterceptor, strdollar(HeavyInterceptor) },
-    { (uword)IonCannonFrigate, strdollar(IonCannonFrigate) },
-    { (uword)LightCorvette, strdollar(LightCorvette) },
-    { (uword)LightDefender, strdollar(LightDefender) },
-    { (uword)LightInterceptor, strdollar(LightInterceptor) },
-    { (uword)MinelayerCorvette, strdollar(MinelayerCorvette) },
-    { (uword)MissileDestroyer, strdollar(MissileDestroyer) },
-    { (uword)Mothership, strdollar(Mothership) },
-    { (uword)MultiGunCorvette, strdollar(MultiGunCorvette) },
-    { (uword)Probe, strdollar(Probe) },
-    { (uword)ProximitySensor, strdollar(ProximitySensor) },
-    { (uword)RepairCorvette, strdollar(RepairCorvette) },
-    { (uword)ResearchShip, strdollar(ResearchShip) },
-    { (uword)ResourceCollector, strdollar(ResourceCollector) },
-    { (uword)ResourceController, strdollar(ResourceController) },
-    { (uword)SalCapCorvette, strdollar(SalCapCorvette) },
-    { (uword)SensorArray, strdollar(SensorArray) },
-    { (uword)StandardDestroyer, strdollar(StandardDestroyer) },
-    { (uword)StandardFrigate, strdollar(StandardFrigate) },
-    { (uword)Drone, strdollar(Drone) },
-    { (uword)TargetDrone, strdollar(TargetDrone) },
-    { (uword)HeadShotAsteroid, strdollar(HeadShotAsteroid) },
-    { (uword)CryoTray, strdollar(CryoTray) },
-    { (uword)P1Fighter, strdollar(P1Fighter) },
-    { (uword)P1IonArrayFrigate, strdollar(P1IonArrayFrigate) },
-    { (uword)P1MissileCorvette, strdollar(P1MissileCorvette) },
-    { (uword)P1Mothership, strdollar(P1Mothership) },
-    { (uword)P1StandardCorvette, strdollar(P1StandardCorvette) },
-    { (uword)P2AdvanceSwarmer, strdollar(P2AdvanceSwarmer) },
-    { (uword)P2FuelPod, strdollar(P2FuelPod) },
-    { (uword)P2Mothership, strdollar(P2Mothership) },
-    { (uword)P2MultiBeamFrigate, strdollar(P2MultiBeamFrigate) },
-    { (uword)P2Swarmer, strdollar(P2Swarmer) },
-    { (uword)P3Destroyer, strdollar(P3Destroyer) },
-    { (uword)P3Frigate, strdollar(P3Frigate) },
-    { (uword)P3Megaship, strdollar(P3Megaship) },
-    { (uword)FloatingCity, strdollar(FloatingCity) },
-    { (uword)CargoBarge, strdollar(CargoBarge) },
-    { (uword)MiningBase, strdollar(MiningBase) },
-    { (uword)ResearchStation, strdollar(ResearchStation) },
-    { (uword)JunkYardDawg, strdollar(JunkYardDawg) },
-    { (uword)JunkYardHQ, strdollar(JunkYardHQ) },
-    { (uword)Ghostship,  strdollar(Ghostship)},
-    { (uword)Junk_LGun,  strdollar(Junk_LGun)},
-    { (uword)Junk_SGun,  strdollar(Junk_SGun)},
-    { (uword)ResearchStationBridge,  strdollar(ResearchStationBridge)},
-    { (uword)ResearchStationTower,  strdollar(ResearchStationTower)},
+    { (uword)sRecon, strdollar(sRecon) },
+    { (uword)sAcolyte, strdollar(sAcolyte) },
+    { (uword)sMimic, strdollar(sMimic) },
+    { (uword)sLeech, strdollar(sLeech) },
+    { (uword)sACV, strdollar(sACV) },
+    { (uword)sMCV, strdollar(sMCV) },
+    { (uword)sRammingFrigate, strdollar(sRammingFrigate) },
+    { (uword)sMultiBeamFrigate, strdollar(sMultiBeamFrigate) },
+    { (uword)sHiveFrigate, strdollar(sHiveFrigate) },
+    { (uword)sSwarmer, strdollar(sSwarmer) },
+    { (uword)sDreadnought, strdollar(sDreadnought) },
+    { (uword)sDreadnoughtCannon, strdollar(sDreadnoughtCannon) },
+    { (uword)sCarrier, strdollar(sCarrier) },
+    { (uword)sCarrierSupport, strdollar(sCarrierSupport) },
+    { (uword)sWorker, strdollar(sWorker) },
+    { (uword)sRepairDroid, strdollar(sRepairDroid) },
+    { (uword)sProcessor, strdollar(sProcessor) },
+    { (uword)sSentinel, strdollar(sSentinel) },
+    { (uword)sMothership, strdollar(sMothership) },
+    { (uword)sMothershipSpecial, strdollar(sMothershipSpecial) },
+    { (uword)sMothershipEngineering, strdollar(sMothershipEngineering) },
+    { (uword)sMothershipArmour, strdollar(sMothershipArmour) },
+    { (uword)sMothershipMicro, strdollar(sMothershipMicro) },
+    { (uword)sMothershipWeapons, strdollar(sMothershipWeapons) },
+    { (uword)sMothershipDockingBay, strdollar(sMothershipDockingBay) },
+    { (uword)sDestroyer, strdollar(sDestroyer) },
+    { (uword)sMothershipSupport, strdollar(sMothershipSupport) },
+    { (uword)sMothershipCommand, strdollar(sMothershipCommand) },
+    { (uword)sMothershipEnginesLower, strdollar(sMothershipEnginesLower) },
+    { (uword)sMothershipEnginesUpper, strdollar(sMothershipEnginesUpper) },
+    { (uword)sMothershipLowerSpine, strdollar(sMothershipLowerSpine) },
+    { (uword)sMothershipBigGun, strdollar(sMothershipBigGun) },
+    { (uword)sMothershipOreCanArmour, strdollar(sMothershipOreCanArmour) },
+    { (uword)bRecon, strdollar(bRecon) },
+    { (uword)bAcolyte, strdollar(bAcolyte) },
+    { (uword)bInterceptor, strdollar(bInterceptor) },
+    { (uword)bCloakedFighter, strdollar(bCloakedFighter) },
+    { (uword)bAttackBomber, strdollar(bAttackBomber) },
+    { (uword)bACV, strdollar(bACV) },
+    { (uword)bMultiGunCorvette, strdollar(bMultiGunCorvette) },
+    { (uword)bHeavyCorvette, strdollar(bHeavyCorvette) },
+    { (uword)bMultiBeamFrigate, strdollar(bMultiBeamFrigate) },
+    { (uword)bHiveFrigate, strdollar(bHiveFrigate) },
+    { (uword)bSwarmer, strdollar(bSwarmer) },
+    { (uword)bIonArrayFrigate, strdollar(bIonArrayFrigate) },
+    { (uword)bDFGFrigate, strdollar(bDFGFrigate) },
+    { (uword)bHeavyCruiser, strdollar(bHeavyCruiser) },
+    { (uword)bCarrier, strdollar(bCarrier) },
+    { (uword)bRammingFrigate, strdollar(bRammingFrigate) },
+    { (uword)bWorker, strdollar(bWorker) },
+    { (uword)bRepairDroid, strdollar(bRepairDroid) },
+    { (uword)bProcessor, strdollar(bProcessor) },
+    { (uword)bSentinel, strdollar(bSentinel) },
+    { (uword)bMothership, strdollar(bMothership) },
+    { (uword)bMothershipDockingBay, strdollar(bMothershipDockingBay) },
+    { (uword)bMothershipEnginesLower, strdollar(bMothershipEnginesLower) },
+    { (uword)bSectMoship, strdollar(bSectMoship) },
+    { (uword)bMothershipSupport, strdollar(bMothershipSupport) },
+    { (uword)bCruiseMissile, strdollar(bCruiseMissile) },
+    { (uword)bMissileCorvette, strdollar(bMissileCorvette) },
+    { (uword)kAdvanceSupportFrigate, strdollar(kAdvanceSupportFrigate) },
+    { (uword)kAttackBomber, strdollar(kAttackBomber) },
+    { (uword)kCarrier, strdollar(kCarrier) },
+    { (uword)kCloakGenerator, strdollar(kCloakGenerator) },
+    { (uword)kGravWellGenerator, strdollar(kGravWellGenerator) },
+    { (uword)kHeavyCorvette, strdollar(kHeavyCorvette) },
+    { (uword)kHeavyCruiser, strdollar(kHeavyCruiser) },
+    { (uword)kHeavyDefender, strdollar(kHeavyDefender) },
+    { (uword)kHeavyInterceptor, strdollar(kHeavyInterceptor) },
+    { (uword)kIonCannonFrigate, strdollar(kIonCannonFrigate) },
+    { (uword)kMultiGunCorvette, strdollar(kMultiGunCorvette) },
+    { (uword)kProximitySensor, strdollar(kProximitySensor) },
+    { (uword)kSalCapCorvette, strdollar(kSalCapCorvette) },
+    { (uword)kStandardDestroyer, strdollar(kStandardDestroyer) },
+    { (uword)tAdvanceSupportFrigate, strdollar(tAdvanceSupportFrigate) },
+    { (uword)tAttackBomber, strdollar(tAttackBomber) },
+    { (uword)tCarrier, strdollar(tCarrier) },
+    { (uword)tCloakGenerator, strdollar(tCloakGenerator) },
+    { (uword)tDFGFrigate, strdollar(tDFGFrigate) },
+    { (uword)tGravWellGenerator, strdollar(tGravWellGenerator) },
+    { (uword)tHeavyCruiser, strdollar(tHeavyCruiser) },
+    { (uword)tHeavyDefender, strdollar(tHeavyDefender) },
+    { (uword)tHeavyInterceptor, strdollar(tHeavyInterceptor) },
+    { (uword)tIonCannonFrigate, strdollar(tIonCannonFrigate) },
+    { (uword)tMinelayerCorvette, strdollar(tMinelayerCorvette) },
+    { (uword)tMissileDestroyer, strdollar(tMissileDestroyer) },
+    { (uword)tMultiGunCorvette, strdollar(tMultiGunCorvette) },
+    { (uword)tProximitySensor, strdollar(tProximitySensor) },
+    { (uword)tResourceCollector, strdollar(tResourceCollector) },
+    { (uword)tSalCapCorvette, strdollar(tSalCapCorvette) },
+    { (uword)tStandardDestroyer, strdollar(tStandardDestroyer) },
+    { (uword)tStandardFrigate, strdollar(tStandardFrigate) },
+    { (uword)p1Outpost, strdollar(p1Outpost) },
+    { (uword)p1Fighter, strdollar(p1Fighter) },
+    { (uword)p1IonArrayFrigate, strdollar(p1IonArrayFrigate) },
+    { (uword)p1MissileCorvette, strdollar(p1MissileCorvette) },
+    { (uword)p1Mothership, strdollar(p1Mothership) },
+    { (uword)p1StandardCorvette, strdollar(p1StandardCorvette) },
+    { (uword)trFloatingCity, strdollar(trFloatingCity) },
+    { (uword)trCargoBarge, strdollar(trCargoBarge) },
+    { (uword)trMiningBase, strdollar(trMiningBase) },
+    { (uword)trResearchStation, strdollar(trResearchStation) },
+    { (uword)trJunkYardDawg, strdollar(trJunkYardDawg) },
+    { (uword)trJunkYardHQ, strdollar(trJunkYardHQ) },
+    { (uword)trGhostship, strdollar(trGhostship) },
+    { (uword)trJunk_LGun, strdollar(trJunk_LGun) },
+    { (uword)trJunk_SGun, strdollar(trJunk_SGun) },
+    { (uword)trResearchStationBridge, strdollar(trResearchStationBridge) },
+    { (uword)trResearchStationTower, strdollar(trResearchStationTower) },
+    { (uword)dRKO, strdollar(dRKO) },
+    { (uword)dBigGun, strdollar(dBigGun) },
+    { (uword)dBigGunUnit, strdollar(dBigGunUnit) },
+    { (uword)dSlipgateSmall, strdollar(dSlipgateSmall) },
+    { (uword)dSlipgateMedium, strdollar(dSlipgateMedium) },
+    { (uword)dSlipgateLarge, strdollar(dSlipgateLarge) },
+    { (uword)dCrate, strdollar(dCrate) },
+    { (uword)dJunk1PartA, strdollar(dJunk1PartA) },
+    { (uword)dJunk1Shell, strdollar(dJunk1Shell) },
+    { (uword)dJunk1Strut, strdollar(dJunk1Strut) },
+    { (uword)dJunk2Shipwreck, strdollar(dJunk2Shipwreck) },
+    { (uword)dJunk3Boiler, strdollar(dJunk3Boiler) },
+    { (uword)dJunk3BoilerCasing, strdollar(dJunk3BoilerCasing) },
+    { (uword)dMessagePod, strdollar(dMessagePod) },
+    { (uword)dBuoy, strdollar(dBuoy) },
+    { (uword)dFirstPlanet, strdollar(dFirstPlanet) },
+    { (uword)dDeadPlanet, strdollar(dDeadPlanet) },
+    { (uword)dCrystal0, strdollar(dCrystal0) },
+    { (uword)dCrystal1, strdollar(dCrystal1) },
+    { (uword)dBeastDockingBay, strdollar(dBeastDockingBay) },
+    { (uword)dNISBuoy, strdollar(dNISBuoy) },
+    { (uword)dBeastMothership, strdollar(dBeastMothership) },
+    { (uword)dNomadMoon, strdollar(dNomadMoon) },
+    { (uword)dNomadFieldEmitter, strdollar(dNomadFieldEmitter) },
+    { (uword)dAcolyte, strdollar(dAcolyte) },
+    { (uword)dPrisonShip, strdollar(dPrisonShip) },
+    { (uword)dPrisonShipInfected, strdollar(dPrisonShipInfected) },
+    { (uword)dSlipgateNode, strdollar(dSlipgateNode) },
+    { (uword)dKushanCarrier, strdollar(dKushanCarrier) },
+    { (uword)dIonArrayFrigate, strdollar(dIonArrayFrigate) },
+    { (uword)dIonCannonFrigate, strdollar(dIonCannonFrigate) },
+    { (uword)dEcclesiam, strdollar(dEcclesiam) },
+    { (uword)dEcclesiamInfected, strdollar(dEcclesiamInfected) },
+    { (uword)nisLightSource1, strdollar(nisLightSource1) },
+    { (uword)nisLightSource2, strdollar(nisLightSource2) },
+    { (uword)nisLensflareSource1, strdollar(nisLensflareSource1) },
     { 0,NULL }
 };
 
+// CAT: race names are the RACE_* strings (shipraceinfo 0x008899c0, StrToShipRace 0x004d6db0, ShipRaceToStr
+//      0x004d6b90); they are also the race directory names (race_sect\, ...). Note the exe's spelling "RACE_TAIDAN".
 static NumStrXlate shipraceinfo[] =
 {
-    { (uword)R1, strdollar(R1) },
-    { (uword)R2, strdollar(R2) },
-    { (uword)P1, strdollar(P1) },
-    { (uword)P2, strdollar(P2) },
-    { (uword)P3, strdollar(P3) },
-    { (uword)Traders, strdollar(Traders) },
+    { (uword)RACE_Sect,     "RACE_SECT" },
+    { (uword)RACE_Beast,    "RACE_BEAST" },
+    { (uword)RACE_Kushan,   "RACE_KUSHAN" },
+    { (uword)RACE_Taiidan,  "RACE_TAIDAN" },
+    { (uword)RACE_P1,       "RACE_P1" },
+    { (uword)RACE_Traders,  "RACE_TRADERS" },
+    { (uword)RACE_Derelict, "RACE_DERELICT" },
     { 0,NULL }
 };
 
+// CAT: NIS object races (nisraceinfo 0x00889a00, StrToNisRace 0x004d6bf0): the 7 RACE_* names, then the NSR_* rows
 static NumStrXlate nisraceinfo[] =
 {
-    { (uword)R1, strdollar(R1) },
-    { (uword)R2, strdollar(R2) },
-    { (uword)P1, strdollar(P1) },
-    { (uword)P2, strdollar(P2) },
-    { (uword)P3, strdollar(P3) },
-    { (uword)Traders, strdollar(Traders) },
+    { (uword)RACE_Sect,     "RACE_SECT" },
+    { (uword)RACE_Beast,    "RACE_BEAST" },
+    { (uword)RACE_Kushan,   "RACE_KUSHAN" },
+    { (uword)RACE_Taiidan,  "RACE_TAIDAN" },
+    { (uword)RACE_P1,       "RACE_P1" },
+    { (uword)RACE_Traders,  "RACE_TRADERS" },
+    { (uword)RACE_Derelict, "RACE_DERELICT" },
     { (uword)NSR_Asteroid , "Asteroids" },
     { (uword)NSR_DustCloud, "DustClouds" },
     { (uword)NSR_GasCloud , "GasClouds" },
@@ -151,6 +261,7 @@ static NumStrXlate nisraceinfo[] =
     { (uword)NSR_Missile  , "Missile" },
     { 0,NULL }
 };
+// CAT: 12 classes (shipclassinfo 0x00889a80, StrToShipClass 0x004d6d70, ShipClassToStr 0x004d6b40)
 static NumStrXlate shipclassinfo[] =
 {
     { (uword)CLASS_Mothership,     strdollar(CLASS_Mothership) },
@@ -162,6 +273,9 @@ static NumStrXlate shipclassinfo[] =
     { (uword)CLASS_Fighter,        strdollar(CLASS_Fighter) },
     { (uword)CLASS_Resource,       strdollar(CLASS_Resource) },
     { (uword)CLASS_NonCombat,      strdollar(CLASS_NonCombat) },
+    { (uword)CLASS_MonsterShip,    strdollar(CLASS_MonsterShip) },
+    { (uword)CLASS_Component,      strdollar(CLASS_Component) },
+    { (uword)CLASS_Micro,          strdollar(CLASS_Micro) },
     { 0,NULL }
 };
 

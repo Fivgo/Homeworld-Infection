@@ -48,7 +48,7 @@ Corrected by the 168 hand reviews, the split is about 58% / 41% / 0.5% of bytes.
 - the new salvage system;
 - renumbered race and ship-type enums.
 
-386 non-identical functions call Cataclysm-only code. Audit: **PASS-WITH-FIXES**. The tables, totals and the estimate reproduce exactly from the JSON, and the tool reproduces its own classes. But the random 40-function sample agrees only **31/40 (0.775)**. The misses are linker-folded names, the hash-keyed `kasfTimer*` family, callee arity and deletions counted as REWRITTEN. Unbiased IDENTICAL agreement is 12/15 (80%). Treat each class as an estimate: IDENTICAL means "port verbatim, then let the oracle check it".
+[M2-R2: after the re-read of all 1,013 IDENTICAL/low functions (143 changed class), the audit reclassifications and the tool fixes, the split is 3,175 / 1,168 / 77 functions, 51.1% / 48.1% / 0.8% of bytes; see `docs/m2-r2-reread.md`.] 386 non-identical functions call Cataclysm-only code. Audit: **PASS-WITH-FIXES**. The tables, totals and the estimate reproduce exactly from the JSON, and the tool reproduces its own classes. But the random 40-function sample agrees only **31/40 (0.775)**. The misses are linker-folded names, the hash-keyed `kasfTimer*` family, callee arity and deletions counted as REWRITTEN. Unbiased IDENTICAL agreement is 12/15 (80%). Treat each class as an estimate: IDENTICAL means "port verbatim, then let the oracle check it".
 
 **4. Source-tree bootstrap.**
 - **Contents of `src/`:** 603 imported files, byte-identical to their sources except one build-file line. GoK `3af31fb` provides `Game/` (303), `Ships/` (83), `SDL/` (70), `Missions/` (23), `ThirdParty/` (14) and `tools/kas2c/` (6). Relic's `Win32/` at `ad1bb82` (103 files) is kept as reference and not built. The REULA notice is in `src/COPYING.REULA`, `src/README.md`, `src/PROVENANCE.md` and the root README.
@@ -66,17 +66,21 @@ Audit: **PASS-WITH-FIXES, precision 0.901** (82/91). Every address and hook prol
 
 ## Delta counts per M2-R2 stage
 
-HW1-matched functions come from `ghidra/delta_map.json`, by HW1 source file. Cataclysm-only (`cat-new`, 3,789 functions / 1,036,252 B, the binary-map round-5 class) were assigned to stages as follows: the 2,085 kas2c mission functions by address region; 297 by name prefix (`kas*`, `ai*`, `mg*`/`titan*`...); the other 1,407 **by nearest HW1-matched neighbour in address order**. That last rule is a GUESS: the game objects link roughly in source-file order, but a Cataclysm-only source file inherits its neighbour's stage. Script: `/tmp/hwi-integrate/stages.py` (outside git), which reproduces the totals 3,357 / 983 / 80 and 3,789 exactly. The 121 functions of `MEX.c`, `Trails.c`, `Titan.c` and `utility.c` were placed by group (Game → stage 2, other → stage 3).
+Recomputed in M2-R2 after the re-read of the 1,013 IDENTICAL/low functions, the audit reclassifications and the `tools/delta_map.py` fixes (`docs/m2-r2-reread.md`). Script: `tools/m2_stage_counts.py` (`--md` prints this table). Run on the M2-R1 delta map (`git show 13723dd:ghidra/delta_map.json`), it reproduces the M2-R1 table exactly: 3,357 / 983 / 80 HW1-matched and 3,789 cat-new functions.
+
+HW1-matched functions come from `ghidra/delta_map.json`, by HW1 source file. Cataclysm-only (`cat-new`, 3,789 functions / 1,036,252 B, the binary-map round-5 class) were assigned to stages as follows: the 2,085 kas2c mission functions by address region; 297 by name prefix (`kas*`, `ai*`, `mg*`/`titan*`...); the other 1,407 **by nearest HW1-matched neighbour in address order**. That last rule is a GUESS: the game objects link roughly in source-file order, but a Cataclysm-only source file inherits its neighbour's stage. The 121 functions of `MEX.c`, `Trails.c`, `Titan.c` and `utility.c` were placed by group (Game → stage 2, other → stage 3). The cat-new column is unchanged from M2-R1.
 
 | stage | HW1 files (main ones) | IDENTICAL fn / B | MODIFIED fn / B | REWRITTEN fn / B | cat-new fn / B (est.) |
 |---|---|---:|---:|---:|---:|
-| 1 file formats + data load | Mesh, MeshAnim, texreg, LOD, StatScript, SaveGame, BigFile, File, ObjTypes, StringSupport, Tweak, LZSS/BitIO/CRC32 | 236 / 50,910 | 79 / 44,334 | 0 / 0 | 76 / 27,383 |
-| 2 universe and ships | Universe, UnivUpdate, CommandLayer, Collision, Physics, Gun, Dock, Formation, ETG, Particle, Select/ShipSelect, Stats, ResearchAPI, Ships/* | 971 / 195,981 | 401 / 205,267 | 30 / 4,501 | 829 / 187,242 |
-| 3 UI and presentation | FEFlow/FEReg, UIControls, ConsMgr, ResearchGUI, Options, NIS, sound/speech, render/GL, main/mainrgn, mouse | 958 / 222,114 | 233 / 168,373 | 7 / 2,355 | 429 / 132,822 |
-| 4 AI | AI*.c | 404 / 80,807 | 72 / 42,717 | 3 / 348 | 23 / 14,404 |
-| 5 LAN networking | CommandNetwork, MultiplayerGame, MultiplayerLANGame, TitanNet, NetCheck, ChannelFSM, chat | 411 / 72,656 | 108 / 72,557 | 13 / 1,677 | 67 / 17,483 |
-| 6 missions | KAS, KASFunc, Timer, Objectives, LevelLoad, SinglePlayer, Tutor + kas2c mission code | 377 / 35,921 | 90 / 36,705 | 27 / 1,624 | 2,365 / 656,918 (2,085 / 612,687 B are kas2c mission functions) |
-| **total** | | **3,357 / 658,389** | **983 / 569,953** | **80 / 10,505** | **3,789 / 1,036,252** |
+| 1 file formats + data load | Mesh, MeshAnim, texreg, LOD, StatScript, SaveGame, BigFile, File, ObjTypes, StringSupport, Tweak, LZSS/BitIO/CRC32 | 220 / 45,966 | 95 / 49,278 | 0 / 0 | 76 / 27,383 |
+| 2 universe and ships | Universe, UnivUpdate, CommandLayer, Collision, Physics, Gun, Dock, Formation, ETG, Particle, Select/ShipSelect, Stats, ResearchAPI, Ships/* | 860 / 184,562 | 512 / 216,998 | 30 / 4,189 | 829 / 187,242 |
+| 3 UI and presentation | FEFlow/FEReg, UIControls, ConsMgr, ResearchGUI, Options, NIS, sound/speech, render/GL, main/mainrgn, mouse | 938 / 218,233 | 253 / 172,254 | 7 / 2,355 | 429 / 132,822 |
+| 4 AI | AI*.c | 403 / 80,590 | 74 / 43,113 | 2 / 169 | 23 / 14,404 |
+| 5 LAN networking | CommandNetwork, MultiplayerGame, MultiplayerLANGame, TitanNet, NetCheck, ChannelFSM, chat | 406 / 70,863 | 114 / 74,848 | 12 / 1,179 | 67 / 17,483 |
+| 6 missions | KAS, KASFunc, Timer, Objectives, LevelLoad, SinglePlayer, Tutor + kas2c mission code | 348 / 33,203 | 120 / 39,482 | 26 / 1,565 | 2,365 / 656,918 (2,085 / 612,687 B are kas2c mission functions) |
+| **total** | | **3,175 / 633,417** | **1,168 / 595,973** | **77 / 9,457** | **3,789 / 1,036,252** |
+
+Against M2-R1, HW1-matched IDENTICAL went from 3,357 to 3,175 functions and MODIFIED from 983 to 1,168; REWRITTEN went from 80 to 77. Most of the shift is in stage 2 (IDENTICAL 971 → 860; of the 112 functions that left IDENTICAL there, 70 are ETG/particle callables that take a pointer to their argument slot, and 74 are in Particle.c and ETG.c) and stage 6 (MODIFIED 90 → 120, mostly KASFunc.c and Tutor.c, among them the hash-keyed `kasfTimer*` family).
 
 ## M2-R2 plan
 
@@ -104,7 +108,7 @@ After stage 1: stage 2 universe and ships (1,402 HW1-matched + about 829 cat-new
 1. **src/ is GoK's whole tree, not ad1bb82 plus minimal hunks** (14,257 change blocks measured). Accept, or ask for a different base.
 2. **GoK behaviour changes in `src/`**: 64 Hz universe (16 Hz with `/vanilla`), save version 0x10ad0029, turbo factor 8, SSE numerics. Proposal: decide per item as each subsystem is ported, and make 16 Hz the default once Cataclysm timing lands.
 3. **Relic's original `Game/` and `Ships/` in-tree** as `src/reference/hw1-ad1bb82/` (about 10 MB of REULA text), or rely on any GoK clone.
-4. **Function-delta follow-up.** 1,013 IDENTICAL/low functions were sampled (51 read, 86% identical), not all read. Should a round read the rest? The audit also proposes reclassifying the `kasfTimer*` family to MODIFIED and the 10 `SpaceObjRegistryGetShip` callers to IDENTICAL, and flags 2 suspect binary-map names (`aieCheckEnemyNearby` 0x00404090, `RemoveShipFromFormation` 0x00447950).
+4. **Function-delta follow-up.** [M2-R2: decided yes and done; all 1,013 read (85.9% identical), audit reclassifications applied, both suspect names re-checked: `docs/m2-r2-reread.md`.] 1,013 IDENTICAL/low functions were sampled (51 read, 86% identical), not all read. Should a round read the rest? The audit also proposes reclassifying the `kasfTimer*` family to MODIFIED and the 10 `SpaceObjRegistryGetShip` callers to IDENTICAL, and flags 2 suspect binary-map names (`aieCheckEnemyNearby` 0x00404090, `RemoveShipFromFormation` 0x00447950).
 5. **Oracle and rule 2.** May the oracle DLL call the game's own functions (`recPackInGameStartCB`, `recPackPlayInGameInit`, `utyLoadMultiPlayerGameGivenFilename`) to start recording or playback? No OS input is synthesised. The alternative is one click on "Load recorded game" per run.
 6. **One recording by the user**: which skirmish map and player setup becomes the first reference scenario (the recording needs menu clicks once).
 7. **DLL toolchain**: the installed `clang-18` + `lld-link` (untried for this), or install `gcc-mingw-w64-i686`.

@@ -38,146 +38,164 @@ bool32 ShowFancyFights = FALSE;
 static CommandToDo *attackcommands[2];
 
 FightStats FightStatsTable[NUM_SHIPS_TO_GATHER_STATS_FOR][NUM_SHIPS_TO_GATHER_STATS_FOR];
+// CAT: statfile.bin must be 98*98*28 = 0x41a70 bytes (statsLoadFightStats 0x00524a50)
+_Static_assert(NUM_SHIPS_TO_GATHER_STATS_FOR == 98, "98 stat indices, sRecon..p1StandardCorvette");
+_Static_assert(sizeof(FightStats) == 28, "FightStats is 28 bytes in statfile.bin");
 
 FightStatsSum FightStatsColumnSum[NUM_SHIPS_TO_GATHER_STATS_FOR];
 FightStatsSum FightStatsRowSum[NUM_SHIPS_TO_GATHER_STATS_FOR];
 
-// R1,R2,P1-3
+// CAT: stats are gathered for Cataclysm's first 5 races, Sect, Beast, Kushan, Taiidan and P1 (StatsForRaceCB 0x00523fb0
+//      fills a 5x5 table; gatherstatsfor.script names them RACE_SECT..RACE_P1). The stat index of a ship is its type id
+//      (StatIndexRaceOffsets 0x008961b8 = {0,33,60,74,92} = FirstShipTypeOfRace), 98 indices in all.
 #define NUM_RACES_TO_GATHER_STATS_FOR     5
 
 sdword StatIndexRaceOffsets[NUM_RACES_TO_GATHER_STATS_FOR] =
 {
-    0,
-    TOTAL_STD_SHIPS,
-    TOTAL_STD_SHIPS+TOTAL_STD_SHIPS,
-    TOTAL_STD_SHIPS+TOTAL_STD_SHIPS+TOTAL_P1_SHIPS,
-    TOTAL_STD_SHIPS+TOTAL_STD_SHIPS+TOTAL_P1_SHIPS+TOTAL_P2_SHIPS
+    SECT_FIRST_SHIP,
+    BEAST_FIRST_SHIP,
+    KUSHAN_FIRST_SHIP,
+    TAIIDAN_FIRST_SHIP,
+    P1_FIRST_SHIP
 };
 
+// CAT: initial values from the exe (0x008961cc); gatherstatsfor.script overrides them
 static sbyte CalcFightStatsForRaces[NUM_RACES_TO_GATHER_STATS_FOR][NUM_RACES_TO_GATHER_STATS_FOR] =
-{   //  R1   R2    P1    P2    P3
-    { TRUE, TRUE, TRUE, TRUE, TRUE },    // R1
-    { TRUE, TRUE, TRUE, TRUE, TRUE },    // R2
-    { TRUE, TRUE, TRUE, FALSE,FALSE},    // P1
-    { TRUE, TRUE, FALSE,TRUE, FALSE},    // P2
-    { TRUE, TRUE, FALSE,FALSE,TRUE },    // P3
+{   // Sect  Beast  Kushan Taiidan P1
+    { TRUE , TRUE , FALSE, FALSE, FALSE },    // Sect
+    { TRUE , TRUE , FALSE, FALSE, FALSE },    // Beast
+    { FALSE, FALSE, FALSE, FALSE, FALSE },    // Kushan
+    { FALSE, FALSE, FALSE, FALSE, FALSE },    // Taiidan
+    { FALSE, FALSE, FALSE, FALSE, FALSE },    // P1
 };
 
-static sbyte R1CalcFightStatsFor[TOTAL_STD_SHIPS] =
+// CAT: per-race "gather stats for this type" flags, initial values from the exe (0x008961e8, 0x0089620c, 0x00896228,
+//      0x00896238, 0x0089624c); gatherstatsfor.script overrides them
+static sbyte SectCalcFightStatsFor[SECT_LAST_SHIP - SECT_FIRST_SHIP + 1] =
 {
-    /* R1 */
-    TRUE,   //AdvanceSupportFrigate
-    TRUE,   //AttackBomber
-    TRUE,   //Carrier
-    TRUE,   //CloakedFighter
-    FALSE,  //CloakGenerator
-    TRUE,   //DDDFrigate
-    FALSE,  //DefenseFighter
-    FALSE,  //DFGFrigate
-    FALSE,  //GravWellGenerator
-    TRUE,   //HeavyCorvette
-    TRUE,   //HeavyCruiser
-    TRUE,   //HeavyDefender
-    TRUE,   //HeavyInterceptor
-    TRUE,   //IonCannonFrigate
-    TRUE,   //LightCorvette
-    FALSE,  //LightDefender
-    TRUE,   //LightInterceptor
-    TRUE,   //MinelayerCorvette
-    TRUE,   //MissileDestroyer
-    TRUE,   //Mothership
-    TRUE,   //MultiGunCorvette
-    FALSE,  //Probe
-    FALSE,  //ProximitySensor
-    TRUE,   //RepairCorvette
-    FALSE,  //ResearchShip
-    FALSE,  //ResourceCollector
-    FALSE,  //ResourceController
-    FALSE,  //SalCapCorvette
-    FALSE,  //SensorArray
-    TRUE,   //StandardDestroyer
-    TRUE,   //StandardFrigate
-    FALSE,  //Drone
-    FALSE,  //TargetDrone
-    FALSE,  //HeadShotAsteroid
-    FALSE   //CryoTray
+    TRUE,   //sRecon
+    TRUE,   //sAcolyte
+    TRUE,   //sMimic
+    TRUE,   //sLeech
+    TRUE,   //sACV
+    TRUE,   //sMCV
+    TRUE,   //sRammingFrigate
+    TRUE,   //sMultiBeamFrigate
+    TRUE,   //sHiveFrigate
+    TRUE,   //sSwarmer
+    TRUE,   //sDreadnought
+    FALSE,  //sDreadnoughtCannon
+    TRUE,   //sCarrier
+    FALSE,  //sCarrierSupport
+    FALSE,  //sWorker
+    FALSE,  //sRepairDroid
+    FALSE,  //sProcessor
+    TRUE,   //sSentinel
+    TRUE,   //sMothership
+    FALSE,  //sMothershipSpecial
+    FALSE,  //sMothershipEngineering
+    FALSE,  //sMothershipArmour
+    FALSE,  //sMothershipMicro
+    FALSE,  //sMothershipWeapons
+    FALSE,  //sMothershipDockingBay
+    TRUE,   //sDestroyer
+    FALSE,  //sMothershipSupport
+    FALSE,  //sMothershipCommand
+    FALSE,  //sMothershipEnginesLower
+    FALSE,  //sMothershipEnginesUpper
+    FALSE,  //sMothershipLowerSpine
+    FALSE,  //sMothershipBigGun
+    FALSE   //sMothershipOreCanArmour
 };
 
-static sbyte R2CalcFightStatsFor[TOTAL_STD_SHIPS] =
+static sbyte BeastCalcFightStatsFor[BEAST_LAST_SHIP - BEAST_FIRST_SHIP + 1] =
 {
-    /* R2 */
-    TRUE,   //AdvanceSupportFrigate
-    TRUE,   //AttackBomber
-    TRUE,   //Carrier
-    FALSE,  //CloakedFighter
-    FALSE,  //CloakGenerator
-    FALSE,  //DDDFrigate
-    FALSE,  //DefenseFighter
-    FALSE,  //DFGFrigate
-    FALSE,  //GravWellGenerator
-    TRUE,   //HeavyCorvette
-    TRUE,   //HeavyCruiser
-    TRUE,   //HeavyDefender
-    TRUE,   //HeavyInterceptor
-    TRUE,   //IonCannonFrigate
-    TRUE,   //LightCorvette
-    FALSE,  //LightDefender
-    TRUE,   //LightInterceptor
-    TRUE,   //MinelayerCorvette
-    TRUE,   //MissileDestroyer
-    TRUE,   //Mothership
-    TRUE,   //MultiGunCorvette
-    FALSE,  //Probe
-    FALSE,  //ProximitySensor
-    TRUE,   //RepairCorvette
-    FALSE,  //ResearchShip
-    FALSE,  //ResourceCollector
-    FALSE,  //ResourceController
-    FALSE,  //SalCapCorvette
-    FALSE,  //SensorArray
-    TRUE,   //StandardDestroyer
-    TRUE,   //StandardFrigate
-    FALSE,  //Drone
-    FALSE,  //TargetDrone
-    FALSE,  //HeadShotAsteroid
-    FALSE
+    TRUE,   //bRecon
+    TRUE,   //bAcolyte
+    TRUE,   //bInterceptor
+    TRUE,   //bCloakedFighter
+    TRUE,   //bAttackBomber
+    TRUE,   //bACV
+    TRUE,   //bMultiGunCorvette
+    TRUE,   //bHeavyCorvette
+    TRUE,   //bMultiBeamFrigate
+    TRUE,   //bHiveFrigate
+    TRUE,   //bSwarmer
+    TRUE,   //bIonArrayFrigate
+    FALSE,  //bDFGFrigate
+    TRUE,   //bHeavyCruiser
+    TRUE,   //bCarrier
+    TRUE,   //bRammingFrigate
+    FALSE,  //bWorker
+    FALSE,  //bRepairDroid
+    FALSE,  //bProcessor
+    TRUE,   //bSentinel
+    TRUE,   //bMothership
+    FALSE,  //bMothershipDockingBay
+    FALSE,  //bMothershipEnginesLower
+    FALSE,  //bSectMoship
+    FALSE,  //bMothershipSupport
+    TRUE,   //bCruiseMissile
+    TRUE    //bMissileCorvette
 };
 
-static sbyte P1CalcFightStatsFor[TOTAL_P1_SHIPS] =
+static sbyte KushanCalcFightStatsFor[KUSHAN_LAST_SHIP - KUSHAN_FIRST_SHIP + 1] =
 {
-    /* P1 */
-    TRUE,  //P1Fighter
-    TRUE,  //P1IonArrayFrigate
-    TRUE,  //P1MissileCorvette
-    TRUE,  //P1Mothership
-    TRUE   //P1StandardCorvette
+    TRUE,   //kAdvanceSupportFrigate
+    TRUE,   //kAttackBomber
+    TRUE,   //kCarrier
+    FALSE,  //kCloakGenerator
+    FALSE,  //kGravWellGenerator
+    TRUE,   //kHeavyCorvette
+    TRUE,   //kHeavyCruiser
+    TRUE,   //kHeavyDefender
+    TRUE,   //kHeavyInterceptor
+    TRUE,   //kIonCannonFrigate
+    TRUE,   //kMultiGunCorvette
+    FALSE,  //kProximitySensor
+    FALSE,  //kSalCapCorvette
+    TRUE    //kStandardDestroyer
 };
 
-static sbyte P2CalcFightStatsFor[TOTAL_P2_SHIPS] =
+static sbyte TaiidanCalcFightStatsFor[TAIIDAN_LAST_SHIP - TAIIDAN_FIRST_SHIP + 1] =
 {
-    /* P2 */
-    TRUE,   //P2AdvanceSwarmer
-    FALSE,  //P2FuelPod
-    TRUE,   //P2Mothership
-    TRUE,   //P2MultiBeamFrigate
-    TRUE,   //P2Swarmer
+    FALSE,  //tAdvanceSupportFrigate
+    TRUE,   //tAttackBomber
+    TRUE,   //tCarrier
+    FALSE,  //tCloakGenerator
+    FALSE,  //tDFGFrigate
+    FALSE,  //tGravWellGenerator
+    TRUE,   //tHeavyCruiser
+    TRUE,   //tHeavyDefender
+    TRUE,   //tHeavyInterceptor
+    TRUE,   //tIonCannonFrigate
+    TRUE,   //tMinelayerCorvette
+    TRUE,   //tMissileDestroyer
+    TRUE,   //tMultiGunCorvette
+    FALSE,  //tProximitySensor
+    FALSE,  //tResourceCollector
+    FALSE,  //tSalCapCorvette
+    TRUE,   //tStandardDestroyer
+    TRUE    //tStandardFrigate
 };
 
-static sbyte P3CalcFightStatsFor[TOTAL_P3_SHIPS] =
+static sbyte P1CalcFightStatsFor[P1_LAST_SHIP - P1_FIRST_SHIP + 1] =
 {
-    /* P3 */
-    TRUE,   //P3Destroyer
-    TRUE,   //P3Frigate
-    TRUE,   //P3Megaship
+    TRUE,   //p1Outpost
+    TRUE,   //p1Fighter
+    TRUE,   //p1IonArrayFrigate
+    TRUE,   //p1MissileCorvette
+    TRUE,   //p1Mothership
+    TRUE    //p1StandardCorvette
 };
 
 static sbyte *RaceCalcFightStatsFor[NUM_RACES_TO_GATHER_STATS_FOR] =
 {
-    R1CalcFightStatsFor,
-    R2CalcFightStatsFor,
-    P1CalcFightStatsFor,
-    P2CalcFightStatsFor,
-    P3CalcFightStatsFor
+    SectCalcFightStatsFor,
+    BeastCalcFightStatsFor,
+    KushanCalcFightStatsFor,
+    TaiidanCalcFightStatsFor,
+    P1CalcFightStatsFor
 };
 
 bool32 ForceTotalRefresh = FALSE;

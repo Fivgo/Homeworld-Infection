@@ -157,6 +157,7 @@ static scriptEntry colPickScriptTable[] =
     END_SCRIPT_ENTRY
 };
 //hue-specific scalar tables
+// CAT: 14 curves, two for each of the 7 races (cpStartup 0x00440690 walks 0x00a2daa0..0x00a2db4c, 14 x 12 bytes)
 colpickcurve colPickScalarCurve[NUM_RACES * 2] =//two for each race
 {
     {0, NULL, NULL},
@@ -190,8 +191,18 @@ void colPickScalarScan(char *directory,char *field,void *dataToFillIn)
     {
         add = 1;
     }
-    sscanf(field, "%2s,%f,%f", raceString, &hue, &val);
+    // CAT: whitespace-separated "RACE_xxx hue scalar" lines, and the Kushan/Taiidan curves are stored as the
+    //      Sect/Beast ones (colPickScalarScan 0x0043dea0: sscanf "%s%f%f"; race 2 or 0 -> 0, race 3 or 1 -> 1)
+    sscanf(field, "%s%f%f", raceString, &hue, &val);
     race = StrToShipRace(raceString);
+    if (race == RACE_Kushan || race == RACE_Sect)
+    {
+        race = RACE_Sect;
+    }
+    else if (race == RACE_Taiidan || race == RACE_Beast)
+    {
+        race = RACE_Beast;
+    }
     dbgAssertOrIgnore(race >= 0 && race < NUM_RACES);
     dbgAssertOrIgnore(hue >= 0.0f && hue <= 1.0f);
     dbgAssertOrIgnore(val >= 0.0f && val <= 2.0f);

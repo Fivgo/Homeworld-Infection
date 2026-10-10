@@ -228,67 +228,155 @@ udword   smSensorWeirdness=0;
 regionhandle smHyperspaceRegion = NULL;
 
 //what ships have a TO in the SM
+// CAT-PROVISIONAL: re-keyed to the 145 Cataclysm types. The exe copy of this table was not located. The values are the HW1 values of each type's HW1
+//      counterpart (same ship, any race); Cataclysm-only types get the default. Stage 3 replaces this table.
 ubyte smShipTypeRenderFlags[TOTAL_NUM_SHIPS] =
 {
-    SM_TO,                                      //AdvanceSupportFrigate
-    0,                                          //AttackBomber
-    SM_TO | SM_Mesh,                            //Carrier
-    0,                                          //CloakedFighter
-    SM_TO,                                      //CloakGenerator
-    SM_TO,                                      //DDDFrigate
-    0,                                          //DefenseFighter
-    SM_TO,                                      //DFGFrigate
-    SM_TO,                                      //GravWellGenerator
-    0,                                          //HeavyCorvette
-    SM_TO | SM_Mesh,                            //HeavyCruiser
-    0,                                          //HeavyDefender
-    0,                                          //HeavyInterceptor
-    SM_TO,                                      //IonCannonFrigate
-    0,                                          //LightCorvette
-    0,                                          //LightDefender
-    0,                                          //LightInterceptor
-    0,                                          //MinelayerCorvette
-    SM_TO,                                      //MissileDestroyer
-    SM_Mesh | SM_Exclude,                       //Mothership
-    0,                                          //MultiGunCorvette
-    SM_Exclude,                                 //Probe
-    SM_Exclude,                                 //ProximitySensor
-    0,                                          //RepairCorvette
-    SM_TO,                                      //ResearchShip
-    SM_TO,                                      //ResourceCollector
-    SM_TO,                                      //ResourceController
-    0,                                          //SalCapCorvette
-    SM_TO,                                      //SensorArray
-    SM_TO,                                      //StandardDestroyer
-    SM_TO,                                      //StandardFrigate
-    SM_Exclude,                                 //Drone
-    SM_Exclude,                                 //TargetDrone
-    SM_Mesh,                                    //HeadShotAsteroid
-    SM_Mesh | SM_Exclude,                       //CryoTray
-    0,                                          //P1Fighter
-    SM_TO,                                      //P1IonArrayFrigate
-    0,                                          //P1MissileCorvette
-    SM_TO | SM_Mesh,                            //P1Mothership
-    0,                                          //P1StandardCorvette
-    0,                                          //P2AdvanceSwarmer
-    SM_TO,                                      //P2FuelPod
-    SM_TO | SM_Mesh,                            //P2Mothership
-    SM_TO,                                      //P2MultiBeamFrigate
-    0,                                          //P2Swarmer
-    SM_TO,                                      //P3Destroyer
-    SM_TO,                                      //P3Frigate
-    SM_TO | SM_Mesh,                            //P3Megaship
-    SM_TO | SM_Mesh,                            //FloatingCity
-    SM_TO,                                      //CargoBarge
-    SM_TO | SM_Mesh,                            //MiningBase
-    SM_TO | SM_Mesh,                            //ResearchStation
-    0,                                          //JunkYardDawg
-    SM_TO,                                      //JunkYardHQ
-    0,                                          //Ghostship
-    0,                                          //Junk_LGun
-    0,                                          //Junk_SGun
-    0,                                          //ResearchStationBridge
-    0                                           //ResearchStationTower
+    0,                                                 //sRecon (Cataclysm-only: default)
+    0,                                                 //sAcolyte (Cataclysm-only: default)
+    0,                                                 //sMimic (Cataclysm-only: default)
+    0,                                                 //sLeech (Cataclysm-only: default)
+    0,                                                 //sACV (Cataclysm-only: default)
+    0,                                                 //sMCV (Cataclysm-only: default)
+    0,                                                 //sRammingFrigate (Cataclysm-only: default)
+    0,                                                 //sMultiBeamFrigate (Cataclysm-only: default)
+    0,                                                 //sHiveFrigate (Cataclysm-only: default)
+    0,                                                 //sSwarmer (Cataclysm-only: default)
+    0,                                                 //sDreadnought (Cataclysm-only: default)
+    0,                                                 //sDreadnoughtCannon (Cataclysm-only: default)
+    SM_TO | SM_Mesh,                                   //sCarrier (HW1 Carrier)
+    0,                                                 //sCarrierSupport (Cataclysm-only: default)
+    0,                                                 //sWorker (Cataclysm-only: default)
+    0,                                                 //sRepairDroid (Cataclysm-only: default)
+    0,                                                 //sProcessor (Cataclysm-only: default)
+    0,                                                 //sSentinel (Cataclysm-only: default)
+    SM_Mesh | SM_Exclude,                              //sMothership (HW1 Mothership)
+    0,                                                 //sMothershipSpecial (Cataclysm-only: default)
+    0,                                                 //sMothershipEngineering (Cataclysm-only: default)
+    0,                                                 //sMothershipArmour (Cataclysm-only: default)
+    0,                                                 //sMothershipMicro (Cataclysm-only: default)
+    0,                                                 //sMothershipWeapons (Cataclysm-only: default)
+    0,                                                 //sMothershipDockingBay (Cataclysm-only: default)
+    0,                                                 //sDestroyer (Cataclysm-only: default)
+    0,                                                 //sMothershipSupport (Cataclysm-only: default)
+    0,                                                 //sMothershipCommand (Cataclysm-only: default)
+    0,                                                 //sMothershipEnginesLower (Cataclysm-only: default)
+    0,                                                 //sMothershipEnginesUpper (Cataclysm-only: default)
+    0,                                                 //sMothershipLowerSpine (Cataclysm-only: default)
+    0,                                                 //sMothershipBigGun (Cataclysm-only: default)
+    0,                                                 //sMothershipOreCanArmour (Cataclysm-only: default)
+    0,                                                 //bRecon (Cataclysm-only: default)
+    0,                                                 //bAcolyte (Cataclysm-only: default)
+    0,                                                 //bInterceptor (Cataclysm-only: default)
+    0,                                                 //bCloakedFighter (HW1 CloakedFighter)
+    0,                                                 //bAttackBomber (HW1 AttackBomber)
+    0,                                                 //bACV (Cataclysm-only: default)
+    0,                                                 //bMultiGunCorvette (HW1 MultiGunCorvette)
+    0,                                                 //bHeavyCorvette (HW1 HeavyCorvette)
+    0,                                                 //bMultiBeamFrigate (Cataclysm-only: default)
+    0,                                                 //bHiveFrigate (Cataclysm-only: default)
+    0,                                                 //bSwarmer (Cataclysm-only: default)
+    0,                                                 //bIonArrayFrigate (Cataclysm-only: default)
+    SM_TO,                                             //bDFGFrigate (HW1 DFGFrigate)
+    SM_TO | SM_Mesh,                                   //bHeavyCruiser (HW1 HeavyCruiser)
+    SM_TO | SM_Mesh,                                   //bCarrier (HW1 Carrier)
+    0,                                                 //bRammingFrigate (Cataclysm-only: default)
+    0,                                                 //bWorker (Cataclysm-only: default)
+    0,                                                 //bRepairDroid (Cataclysm-only: default)
+    0,                                                 //bProcessor (Cataclysm-only: default)
+    0,                                                 //bSentinel (Cataclysm-only: default)
+    SM_Mesh | SM_Exclude,                              //bMothership (HW1 Mothership)
+    0,                                                 //bMothershipDockingBay (Cataclysm-only: default)
+    0,                                                 //bMothershipEnginesLower (Cataclysm-only: default)
+    0,                                                 //bSectMoship (Cataclysm-only: default)
+    0,                                                 //bMothershipSupport (Cataclysm-only: default)
+    0,                                                 //bCruiseMissile (Cataclysm-only: default)
+    0,                                                 //bMissileCorvette (Cataclysm-only: default)
+    SM_TO,                                             //kAdvanceSupportFrigate (HW1 AdvanceSupportFrigate)
+    0,                                                 //kAttackBomber (HW1 AttackBomber)
+    SM_TO | SM_Mesh,                                   //kCarrier (HW1 Carrier)
+    SM_TO,                                             //kCloakGenerator (HW1 CloakGenerator)
+    SM_TO,                                             //kGravWellGenerator (HW1 GravWellGenerator)
+    0,                                                 //kHeavyCorvette (HW1 HeavyCorvette)
+    SM_TO | SM_Mesh,                                   //kHeavyCruiser (HW1 HeavyCruiser)
+    0,                                                 //kHeavyDefender (HW1 HeavyDefender)
+    0,                                                 //kHeavyInterceptor (HW1 HeavyInterceptor)
+    SM_TO,                                             //kIonCannonFrigate (HW1 IonCannonFrigate)
+    0,                                                 //kMultiGunCorvette (HW1 MultiGunCorvette)
+    SM_Exclude,                                        //kProximitySensor (HW1 ProximitySensor)
+    0,                                                 //kSalCapCorvette (HW1 SalCapCorvette)
+    SM_TO,                                             //kStandardDestroyer (HW1 StandardDestroyer)
+    SM_TO,                                             //tAdvanceSupportFrigate (HW1 AdvanceSupportFrigate)
+    0,                                                 //tAttackBomber (HW1 AttackBomber)
+    SM_TO | SM_Mesh,                                   //tCarrier (HW1 Carrier)
+    SM_TO,                                             //tCloakGenerator (HW1 CloakGenerator)
+    SM_TO,                                             //tDFGFrigate (HW1 DFGFrigate)
+    SM_TO,                                             //tGravWellGenerator (HW1 GravWellGenerator)
+    SM_TO | SM_Mesh,                                   //tHeavyCruiser (HW1 HeavyCruiser)
+    0,                                                 //tHeavyDefender (HW1 HeavyDefender)
+    0,                                                 //tHeavyInterceptor (HW1 HeavyInterceptor)
+    SM_TO,                                             //tIonCannonFrigate (HW1 IonCannonFrigate)
+    0,                                                 //tMinelayerCorvette (HW1 MinelayerCorvette)
+    SM_TO,                                             //tMissileDestroyer (HW1 MissileDestroyer)
+    0,                                                 //tMultiGunCorvette (HW1 MultiGunCorvette)
+    SM_Exclude,                                        //tProximitySensor (HW1 ProximitySensor)
+    SM_TO,                                             //tResourceCollector (HW1 ResourceCollector)
+    0,                                                 //tSalCapCorvette (HW1 SalCapCorvette)
+    SM_TO,                                             //tStandardDestroyer (HW1 StandardDestroyer)
+    SM_TO,                                             //tStandardFrigate (HW1 StandardFrigate)
+    0,                                                 //p1Outpost (Cataclysm-only: default)
+    0,                                                 //p1Fighter (HW1 P1Fighter)
+    SM_TO,                                             //p1IonArrayFrigate (HW1 P1IonArrayFrigate)
+    0,                                                 //p1MissileCorvette (HW1 P1MissileCorvette)
+    SM_TO | SM_Mesh,                                   //p1Mothership (HW1 P1Mothership)
+    0,                                                 //p1StandardCorvette (HW1 P1StandardCorvette)
+    SM_TO | SM_Mesh,                                   //trFloatingCity (HW1 FloatingCity)
+    SM_TO,                                             //trCargoBarge (HW1 CargoBarge)
+    SM_TO | SM_Mesh,                                   //trMiningBase (HW1 MiningBase)
+    SM_TO | SM_Mesh,                                   //trResearchStation (HW1 ResearchStation)
+    0,                                                 //trJunkYardDawg (HW1 JunkYardDawg)
+    SM_TO,                                             //trJunkYardHQ (HW1 JunkYardHQ)
+    0,                                                 //trGhostship (HW1 Ghostship)
+    0,                                                 //trJunk_LGun (HW1 Junk_LGun)
+    0,                                                 //trJunk_SGun (HW1 Junk_SGun)
+    0,                                                 //trResearchStationBridge (HW1 ResearchStationBridge)
+    0,                                                 //trResearchStationTower (HW1 ResearchStationTower)
+    0,                                                 //dRKO (Cataclysm-only: default)
+    0,                                                 //dBigGun (Cataclysm-only: default)
+    0,                                                 //dBigGunUnit (Cataclysm-only: default)
+    0,                                                 //dSlipgateSmall (Cataclysm-only: default)
+    0,                                                 //dSlipgateMedium (Cataclysm-only: default)
+    0,                                                 //dSlipgateLarge (Cataclysm-only: default)
+    0,                                                 //dCrate (Cataclysm-only: default)
+    0,                                                 //dJunk1PartA (Cataclysm-only: default)
+    0,                                                 //dJunk1Shell (Cataclysm-only: default)
+    0,                                                 //dJunk1Strut (Cataclysm-only: default)
+    0,                                                 //dJunk2Shipwreck (Cataclysm-only: default)
+    0,                                                 //dJunk3Boiler (Cataclysm-only: default)
+    0,                                                 //dJunk3BoilerCasing (Cataclysm-only: default)
+    0,                                                 //dMessagePod (Cataclysm-only: default)
+    0,                                                 //dBuoy (Cataclysm-only: default)
+    0,                                                 //dFirstPlanet (Cataclysm-only: default)
+    0,                                                 //dDeadPlanet (Cataclysm-only: default)
+    0,                                                 //dCrystal0 (Cataclysm-only: default)
+    0,                                                 //dCrystal1 (Cataclysm-only: default)
+    0,                                                 //dBeastDockingBay (Cataclysm-only: default)
+    0,                                                 //dNISBuoy (Cataclysm-only: default)
+    0,                                                 //dBeastMothership (Cataclysm-only: default)
+    0,                                                 //dNomadMoon (Cataclysm-only: default)
+    0,                                                 //dNomadFieldEmitter (Cataclysm-only: default)
+    0,                                                 //dAcolyte (Cataclysm-only: default)
+    0,                                                 //dPrisonShip (Cataclysm-only: default)
+    0,                                                 //dPrisonShipInfected (Cataclysm-only: default)
+    0,                                                 //dSlipgateNode (Cataclysm-only: default)
+    0,                                                 //dKushanCarrier (Cataclysm-only: default)
+    0,                                                 //dIonArrayFrigate (Cataclysm-only: default)
+    SM_TO,                                             //dIonCannonFrigate (HW1 IonCannonFrigate)
+    0,                                                 //dEcclesiam (Cataclysm-only: default)
+    0,                                                 //dEcclesiamInfected (Cataclysm-only: default)
+    0,                                                 //nisLightSource1 (Cataclysm-only: default)
+    0,                                                 //nisLightSource2 (Cataclysm-only: default)
+    0                                                  //nisLensflareSource1 (Cataclysm-only: default)
 };
 ubyte smDerelictTypeMesh[NUM_DERELICTTYPES] =
 {

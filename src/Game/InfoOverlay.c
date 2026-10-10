@@ -309,6 +309,13 @@ void ioStartup(void)
 
     for (index=0;listinfo[index].nShips!=-1;index++)
     {
+        // CAT-PROVISIONAL: HW1's list still names the 22 HW1-only types, whose ids (>= HW1LEGACY_FIRST_SHIP) lie
+        //      outside lookupforlist; skip them. Cataclysm replaced this overlay (ioStartup 0x004ab4b0 reads
+        //      MainOverlay.script); its port is stage 3.
+        if (listinfo[index].shipnum > TOTAL_NUM_SHIPS)
+        {
+            continue;
+        }
         lookupforlist[listinfo[index].shipnum] = index;
     }
 

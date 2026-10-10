@@ -49,8 +49,11 @@ real32 CrateClassProbCLASS_Corvette = 0.45f;
 real32 CrateClassProbCLASS_Fighter = 0.10f;
 real32 CrateClassProbCLASS_Resource = 0.5f;
 real32 CrateClassProbCLASS_NonCombat = 0.0f;
-sdword NUM_IN_GROUPS[StandardFrigate+1];  //number of ships to be placed in agroup
-real32 SHIP_PROBS[StandardFrigate+1];
+// CAT: indexed by Cataclysm type ids up to bMissileCorvette (59) from crates.script, so sized by the type enum
+//      (SHIP_PROBS 0x00c43400 spans 0x180 bytes before the next global; NUM_IN_GROUPS is at 0x00c435c0). HW1's
+//      [StandardFrigate+1] would take the ASan out-of-bounds write of data-deltas run7.
+sdword NUM_IN_GROUPS[TOTAL_NUM_SHIPS];  //number of ships to be placed in agroup
+real32 SHIP_PROBS[TOTAL_NUM_SHIPS];
 real32 CRATE_EXPIRY_TIME = 300.0;
 
 ///RU's will be given instead
@@ -257,59 +260,65 @@ void cratesPlayerFoundACrate(Derelict *crate, Player *player)
 
 //maximum number of ships in anyone class
 #define MAX_NUM_IN_CLASS 10
+// CAT: Cataclysm's crate ship lists per class (exe .data 0x00878934..0x008789bb, read by cratesRewardPlayer
+//      0x00460ed0; crateInit 0x00462080 sets NUM_IN_CLASSES to 0,2,2,2,8,5,9,4,2, which these sizes give)
 sdword cratesCLASS_HeavyCruiser[] =
 {
-    HeavyCruiser
+    sDreadnought,
+    bHeavyCruiser
 };
 sdword cratesCLASS_Carrier[] =
 {
-    Carrier
+    sCarrier,
+    bCarrier
 };
 sdword cratesCLASS_Destroyer[] =
 {
-    MissileDestroyer,
-    StandardDestroyer
+    bIonArrayFrigate,
+    sDestroyer
 };
 sdword cratesCLASS_Frigate[] =
 {
-    AdvanceSupportFrigate,
-    DFGFrigate,
-    DDDFrigate,
-    CloakGenerator,
-    GravWellGenerator,
-    IonCannonFrigate,
-    StandardFrigate
+    sRammingFrigate,
+    bRammingFrigate,
+    sMultiBeamFrigate,
+    sHiveFrigate,
+    bMultiBeamFrigate,
+    bHiveFrigate,
+    bIonArrayFrigate,
+    bDFGFrigate
 };
 sdword cratesCLASS_Corvette[] =
 {
-    RepairCorvette,
-    SalCapCorvette,
-    MultiGunCorvette,
-    MinelayerCorvette,
-    LightCorvette,
-    HeavyCorvette
+    sACV,
+    sMCV,
+    bACV,
+    bMultiGunCorvette,
+    bHeavyCorvette
 };
 sdword cratesCLASS_Fighter[] =
 {
-    LightInterceptor,
-    LightDefender,
-    HeavyInterceptor,
-    HeavyDefender,
-    DefenseFighter,
-    CloakedFighter,
-    AttackBomber
+    sRecon,
+    sAcolyte,
+    sMimic,
+    sLeech,
+    bRecon,
+    bAcolyte,
+    bInterceptor,
+    bCloakedFighter,
+    bAttackBomber
 };
-
 sdword cratesCLASS_Resource[] =
 {
-    ResourceCollector,
-    ResourceController
+    sWorker,
+    sProcessor,
+    bWorker,
+    bProcessor
 };
 sdword cratesCLASS_NonCombat[] =
 {
-    SensorArray,
-    Probe,
-    ProximitySensor
+    sSentinel,
+    bSentinel
 };
 
 sdword NUM_IN_CLASSES[NUM_CLASSES];
@@ -765,7 +774,8 @@ void expireCrate(Derelict *crate)
 void crateInit(void)
 {
     sdword i;
-    for(i=0;i<=StandardFrigate;i++)
+    // CAT: the exe resets the first 0x2e = 46 entries of both tables (crateInit 0x00462080)
+    for(i=0;i<0x2e;i++)
     {
         NUM_IN_GROUPS[i] = 1;
         SHIP_PROBS[i] = 0.0f;

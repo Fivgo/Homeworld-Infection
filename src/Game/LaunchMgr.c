@@ -78,32 +78,37 @@ bool32 lmPaletted;
 
 LaunchShipsAvailable shipsavailable[LM_CORVETTE_SPACER+1];
 
-#define LM_NUMSHIPS 20
+// CAT: the launch list in Cataclysm's order (PrintOrder 0x00883340: fighter spacer, 12 strike craft, corvette spacer,
+//      9 corvettes and workers, -1)
+#define LM_NUMSHIPS 23
 
 sdword PrintOrder[LM_NUMSHIPS + 1] = {
     LM_FIGHTER_SPACER,
 
-    LightDefender,
-    HeavyDefender,
-    LightInterceptor,
-    HeavyInterceptor,
-    CloakedFighter,
-    DefenseFighter,
-    AttackBomber,
-    P1Fighter,
-    P2Swarmer,
-    P2AdvanceSwarmer,
+    sRecon,
+    bRecon,
+    sAcolyte,
+    bAcolyte,
+    sMimic,
+    bInterceptor,
+    bCloakedFighter,
+    bAttackBomber,
+    sLeech,
+    sSentinel,
+    bSentinel,
+    dAcolyte,
 
     LM_CORVETTE_SPACER,
 
-    LightCorvette,
-    HeavyCorvette,
-    RepairCorvette,
-    SalCapCorvette,
-    MinelayerCorvette,
-    MultiGunCorvette,
-    P1StandardCorvette,
-    P1MissileCorvette,
+    sACV,
+    bACV,
+    sMCV,
+    bCruiseMissile,
+    bMultiGunCorvette,
+    bHeavyCorvette,
+    bMissileCorvette,
+    sWorker,
+    bWorker,
 
     -1, // sentinel value
 };

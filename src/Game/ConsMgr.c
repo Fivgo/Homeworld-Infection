@@ -693,7 +693,11 @@ sdword cmClassCapRemap[NUM_CLASSES]=
     CLASS_Corvette,
     CLASS_Fighter,
     CLASS_Resource,
-    CLASS_NonCombat
+    CLASS_NonCombat,
+    // CAT-PROVISIONAL: the three new classes map to themselves; the exe copy of this table was not located (stage 3)
+    CLASS_MonsterShip,
+    CLASS_Component,
+    CLASS_Micro
 };
 sdword cmMaxJobsPerClass[NUM_CLASSES] =
 {
@@ -705,6 +709,11 @@ sdword cmMaxJobsPerClass[NUM_CLASSES] =
     CM_MaxJobsCorvette,
     CM_MaxJobsFighter,
     CM_MaxJobsResource,
+    CM_MaxJobsNonCombat,
+    // CAT-PROVISIONAL: the three new classes take the NonCombat limit; the exe copy of this table was not located and
+    //      Cataclysm's UnitLimitCaps tables no longer carry MaxJobsPerClass keys (stage 3)
+    CM_MaxJobsNonCombat,
+    CM_MaxJobsNonCombat,
     CM_MaxJobsNonCombat,
 };
 

@@ -1872,7 +1872,8 @@ void scriptSetTweakableGlobals()
     scriptSet(NULL,"Galaxy.script",StarTweaks);
     scriptSet(NULL,"Tweak.script",Tweaks);
     scriptSet(NULL,"Flightman.script",FlightmanTweaks);
-    scriptSet(NULL,"Dock.script",DockTweaks);
+    // CAT: Dock.script is no longer read (Cataclysm ships none); the DockTweaks globals keep their compiled-in
+    //      defaults (scriptSetTweakableGlobals 0x00527820 goes from Flightman.script straight to Soundevent.script)
     scriptSet(NULL,"Soundevent.script",SoundeventTweaks);
     scriptSet(NULL,"Trail.script",TrailTweaks);
     scriptSet(NULL,"Resource.script",ResCollectTweaks);

@@ -222,7 +222,7 @@ extern NebulaStaticInfo nebulaStaticInfos[NUM_NEBULATYPES];
 extern Camera defaultCamera;
 
 extern MissileStaticInfo missileStaticInfos[NUM_RACES];
-extern MissileStaticInfo mineStaticInfos[2];
+extern MissileStaticInfo mineStaticInfos[NUM_RACES];  // CAT: was [2]
 
 extern struct SphereStaticInfo *sphereStaticInfo;
 

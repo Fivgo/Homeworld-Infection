@@ -561,6 +561,61 @@ def shorten(s, n=40):
 
 HSDL_RENAMES = {"HWEnqueue": "Enqueue", "HWDequeue": "Dequeue"}
 LIB_CLASSES = ("crt", "lib", "won", "bink", "rgl", "unknown")
+# Linker-folded HW1 functions (identical code once dbgAssert/aiplayerLog are compiled out, so the
+# linker kept one copy under the other name). A call to the key in HW1 is the same call as one to the
+# value in Cataclysm. Read by hand in M2-R2 (SaveGame.c:147-217, AIMoves1.c:115/168/682,
+# AIMoves2.c:505); classify adds pairs it finds itself (see icf_pairs).
+ICF_FOLDED = {
+    "SpaceObjRegistryGetShip": "SpaceObjRegistryGetObj",
+    "SpaceObjRegistryGetTarget": "SpaceObjRegistryGetObj",
+    "aimInterceptShipDied": "aimCaptureShipDied",
+    "aimAdvancedAttackClose": "aimCloseKamikaze",
+}
+# Ghidra prototypes that say nothing about the real interface (param_N, this/edx from __thiscall,
+# cat_argN, varargs)
+GENERIC_SIG = re.compile(r"\bparam_\d|\bundefined\d?\b|\bthis\b|pThis|edx_unused|cat_arg\d|\bp\d\b|\.\.\.")
+_SRC_CACHE = {}
+GARBAGE_ARG = re.compile(r"\b(unaff_\w+|in_stack_\w+|in_E[A-Z]X|in_[A-Z]{2}\b|extraout_\w+)")
+
+
+def call_args(body, name):
+    """Argument texts of every call to NAME in a decompiled body (signature line excluded)."""
+    text = body.split("{", 1)[-1]
+    out = []
+    for m in re.finditer(r"\b%s\s*\(" % re.escape(name), text):
+        i, d, cur, args = m.end(), 1, "", []
+        while i < len(text) and d:
+            ch = text[i]
+            if ch == "(":
+                d += 1
+            elif ch == ")":
+                d -= 1
+                if d == 0:
+                    break
+            if ch == "," and d == 1:
+                args.append(cur.strip())
+                cur = ""
+            else:
+                cur += ch
+            i += 1
+        if cur.strip():
+            args.append(cur.strip())
+        out.append(args)
+    return out
+
+
+def hw1_param_text(d, root):
+    """The parameter list of an HW1 definition, read from its source (the index keeps only the count)."""
+    f = d["file"]
+    path = f if os.path.isabs(f) else os.path.join(root, f)
+    if path not in _SRC_CACHE:
+        try:
+            _SRC_CACHE[path] = open(path, encoding="latin-1").read().split("\n")
+        except Exception:
+            _SRC_CACHE[path] = []
+    txt = strip_comments("\n".join(_SRC_CACHE[path][d["line"] - 1:d["line"] + 12]))
+    m = re.search(r"\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*(?:const\s*)?\{", txt)
+    return m.group(1).strip() if m else ""
 
 
 def mask_like(v):
@@ -731,6 +786,76 @@ def stage_classify(a):
             continue
         rows.append((ad, t, pick[0], src))
 
+    # Callee interface changes (R1 audit, sample #8): a bound game callee whose evidence-named Cataclysm
+    # prototype has another parameter count than its HW1 definition (trTextureRegister 3 -> 4,
+    # timTimerStart 1 -> 2). Every caller that passes the new arguments changed with it.
+    first_ad = {}
+    for ad_, c_ in sorted(canon.items()):
+        first_ad.setdefault(c_, ad_)
+    iface = {}
+    for c_, ad_ in sorted(first_ad.items()):
+        dd = (defs.get(c_) or [None])[0]
+        if libish.get(ad_) or not dd:
+            continue
+        sig = fcsv.get(ad_, {}).get("signature", "")
+        if not sig or "__return_storage_ptr__" in sig or "..." in hw1_param_text(dd, hidx["orig"]):
+            continue
+        try:
+            npc = int(fcsv[ad_]["param_count"])
+        except Exception:
+            continue
+        if GENERIC_SIG.search(re.sub(r"\bcat_arg\d+\b", "", sig)):
+            # param_N prototypes are not used: a double or a struct passed by value splits into several
+            # param_N slots (rgluLookAt 9 -> 12, nisBlendCameraEndPoint 2 -> 24), so trTextureRegister's
+            # real 4th argument stays a hand-review finding. cat_argN is the binary map's name for an
+            # added argument it counted from caller stack cleanup (tutSetPointerTargetAIVolume), so a
+            # prototype whose only generic names are cat_argN counts, for added arguments only.
+            continue
+        if re.search(r"\bcat_arg\d+\b", sig) and (npc <= dd["features"]["nparams"]
+                                                     or fcsv[ad_].get("calling_convention") != "__cdecl"):
+            continue
+        if npc != dd["features"]["nparams"]:
+            iface[c_] = (dd["features"]["nparams"], npc)
+    # an under-declared prototype reads its missing parameters from registers or the caller's stack
+    # (static kniTransGrowVertexLists(int n) arrives in EAX: in_EAX in the body)
+    ibodies, _ = load_cat_bodies([first_ad[c_] for c_, (nh_, nc_) in iface.items() if nc_ < nh_])
+    for c_ in sorted(iface):
+        nh_, nc_ = iface[c_]
+        if nc_ < nh_ and re.search(r"\bin_E[A-Z]X\b|\bin_stack_", ibodies.get(first_ad[c_], "").split("{", 1)[-1]):
+            del iface[c_]
+
+    # Candidate linker folds in the data: an HW1 callee with no Cataclysm address whose every caller
+    # calls one and the same other bound function instead, both short with equal arity
+    fold = dict(ICF_FOLDED)
+    seen_m, pair_n = collections.Counter(), collections.Counter()
+    for ad, t, d, _ in rows:
+        cg0 = {canon[c] for c in calls_of.get(ad, ()) if c in canon and not libish.get(c)}
+        hg0 = {c for c in d["features"]["calls"] if c in defs}
+        for m in sorted(hg0 - cg0):
+            dm_ = defs[m][0]
+            if m in binnames or dm_["features"]["ntok"] > 80:
+                continue
+            seen_m[m] += 1
+            for x in sorted(cg0 - hg0):
+                dx = (defs.get(x) or [None])[0]
+                if dx and dx["features"]["ntok"] <= 80 and dx["features"]["nparams"] == dm_["features"]["nparams"]:
+                    pair_n[(m, x)] += 1
+    # only printed, never applied: the 4 pairs this lists on the M2-R2 data are not folds, their HW1
+    # bodies differ (InitShipForResourceCollection calls InitShipAI and sets rcstate; memStringDupeNV
+    # allocates with MBF_String), so a new fold goes into ICF_FOLDED only after a hand check
+    cands = []
+    for m, n in sorted(seen_m.items()):
+        xs = [x for (m2, x), k in sorted(pair_n.items()) if m2 == m and k == n]
+        if n >= 3 and len(xs) == 1 and m not in fold:
+            cands.append((m, xs[0]))
+    print("linker-folded callees: %d listed; candidates to check by hand: %s" % (
+        len(ICF_FOLDED), ", ".join("%s->%s" % p for p in cands) or "none"))
+    print("callee interface changes: %d (%s)" % (len(iface), ", ".join(
+        "%s %d->%d" % (c, *iface[c]) for c in sorted(iface)[:12]) + (" ..." if len(iface) > 12 else "")))
+    if os.environ.get("DELTA_MAP_DEBUG"):
+        for c in sorted(iface):
+            print("  iface", c, iface[c], fcsv[first_ad[c]].get("signature", ""))
+
     ratios = collections.defaultdict(list)
     for ad, t, d, _ in rows:
         if t["size"] > 0 and d["features"]["ntok"] > 0:
@@ -782,15 +907,21 @@ def stage_classify(a):
                 inlined.add(m)
             elif m not in binnames:
                 unbound.add(m)
+        # a linker-folded callee is the same call under the surviving name
+        folded = sorted(m for m in unbound | missing if fold.get(m) in cg)
+        for m in folded:
+            unbound.discard(m)
+            missing.discard(m)
+            added.discard(fold[m])
         missing -= inlined | unbound
         # an HW1 callee from another unit that Cataclysm does not contain at all was removed with its
         # callers' calls (e.g. aieHandlerSetFuelLow: no fuel in Cataclysm); debug output is noise
         removed = {m for m in unbound if not m.startswith(("dbg", "titanDebug"))}
-        callee_sim = jacc(Hg - inlined - unbound, cg - (cg - Hg - added))
+        callee_sim = jacc(Hg - inlined - unbound, (cg - (cg - Hg - added)) | set(folded))
         # features of inlined callees (2 levels) are expected in the Cataclysm body too
         ex = {"strings": set(), "fields": set(), "ids": set(), "ints": set(), "floats": set(), "calls": set(),
               "ntok": 0, "loops": 0}
-        todo, seen = list(inlined), set()
+        todo, seen = sorted(inlined, reverse=True), set()   # sorted: the 12-callee cap must not depend on set order
         while todo:
             m = todo.pop()
             if m in seen or len(seen) > 12:
@@ -916,7 +1047,7 @@ def stage_classify(a):
             # only; an evidence-checked prototype with real names (timTimerStart(scopeHash, nameHash))
             # is a real interface change
             sig = fcsv.get(ad, {}).get("signature", "")
-            generic = re.search(r"\bparam_\d|\bundefined\d?\b|\bthis\b|pThis|edx_unused|cat_arg\d|\bp\d\b|\.\.\.", sig)
+            generic = GENERIC_SIG.search(sig)
             body_txt = bodies.get(ad, "")
             argarray = np_h >= 2 and np_c == 1 and re.search(r"\b(param_1|args)\[\d+\]|\*args\b", body_txt)
             if argarray:
@@ -929,6 +1060,40 @@ def stage_classify(a):
             else:
                 deltas.append("parameters %d -> %d: %s" % (np_h, np_c, sig[:90]))
                 hard += 1
+        elif np_c == 1 and np_h == 1 and os.path.basename(unit).lower() in ("etg.c", "particle.c"):
+            # one-parameter ETG/particle callables: Cataclysm passes a pointer to the argument slot
+            # (etgSin(real32 *ang), etgOwnerColorSchemeGet(Effect **effect)) where HW1 took the value
+            sig = fcsv.get(ad, {}).get("signature", "")
+            m_ = re.search(r"\((.*)\)\s*$", sig)
+            cpar = m_.group(1) if m_ else ""
+            hpar = hw1_param_text(d, hidx["orig"] if hsrc == "ORIG" else hidx.get("gok_root", GOK))
+            pname = (re.findall(r"[A-Za-z_]\w*", cpar) or [""])[-1]
+            if pname and hpar and cpar.count("*") == hpar.count("*") + 1 and re.search(
+                    r"\*\s*\(?\s*\(?[\w\s\*]*\)?\s*%s\b|\b%s\s*\[" % (pname, pname), bodies.get(ad, "").split("{", 1)[-1]):
+                deltas.append("takes a pointer to its argument slot instead of the value (%s -> %s)" % (hpar, cpar))
+                hard += 1
+        chg = []
+        for c in sorted(Hg & cg):
+            if c not in iface:
+                continue
+            nh_, nc_ = iface[c]
+            if nc_ > nh_:
+                # an over-declared prototype shows up at the call site as register/stack garbage in
+                # the extra arguments (feCurrentScreenDelete(unaff_EDI, unaff_ESI)); a real new argument
+                # is a value (piePointModeOnOff(0, NULL), spMainScreen(1))
+                sites = call_args(bodies.get(ad, ""), funcs[first_ad[c]]["name"])
+                if not sites or all(any(GARBAGE_ARG.search(x) for x in args[nh_:]) for args in sites):
+                    continue
+            chg.append(c)
+        if chg:
+            deltas.append("calls with a changed parameter count: " + lst(
+                ["%s %d->%d" % (c, *iface[c]) for c in chg], 4))
+            hard += 1
+        if "kasfScopeName" in Hg and re.search(r"0x7fffffff|0x80000000", bodies.get(ad, "")):
+            # KAS names arrive as hashes; the high bit selects global scope (R1 audit, kasfTimer* family)
+            deltas.append("KAS hash keys: the name arrives as a hash (high bit = global scope); kasfScopeName "
+                          "string building gone")
+            hard += 1
         if size_dev is not None and size_dev > 1.0 and t["size"] >= 80 and (
                 cf["ctl"].get("if", 0) > hf["ctl"].get("if", 0) + 1):
             # much larger with more branches: added logic (a smaller body is usually compiled-out debug code
@@ -965,7 +1130,7 @@ def stage_classify(a):
             soft += 1
         # how much of HW1's own content (game callees + strings) survives in the Cataclysm body
         h_items = (Hg - inlined - unbound) | hs_eff
-        h_recall = len(h_items & (cg | cs)) / len(h_items) if h_items else None
+        h_recall = len(h_items & (cg | cs | set(folded))) / len(h_items) if h_items else None
         cj = callee_sim if callee_sim is not None else 1.0
         sj = str_sim if str_sim is not None else 1.0
         if hard == 0 and soft == 0:
@@ -1001,7 +1166,7 @@ def stage_classify(a):
             "int_recall": None if int_rec is None else round(int_rec, 3),
             "float_recall": None if fl_rec is None else round(fl_rec, 3),
             "hw1_calls": len(Hg), "cat_calls": len(cg), "calls_added": sorted(added), "calls_dropped": sorted(missing),
-            "calls_inlined": sorted(inlined), "calls_unbound": sorted(unbound), "calls_new_cataclysm": newc,
+            "calls_inlined": sorted(inlined), "calls_folded": folded, "calls_unbound": sorted(unbound), "calls_new_cataclysm": newc,
             "lib_added": lib_add[:8], "lib_dropped": lib_drop[:8],
             "field_jaccard": None if fld_sim is None else round(fld_sim, 3), "fields_new": fld_new[:8],
             "fields_added": fld_add[:8], "fields_missing": fld_miss[:8], "raw_offsets": cf["raw_offsets"],
@@ -1141,6 +1306,74 @@ def pct(a, b):
 
 
 
+R1_TOTALS = {"IDENTICAL": (3357, 658389), "MODIFIED": (983, 569953), "REWRITTEN": (80, 10505)}
+
+
+def reread_section(fs, rv, rr, conf_b, conf_m, cn, cb, tot_b):
+    """The "M2-R2 re-read" section: every M2-R1 IDENTICAL/low function read by hand (review entries
+    with sample reread-R2), the audit reclassifications (sample audit-R2) and the new totals."""
+    K = ("IDENTICAL", "MODIFIED", "REWRITTEN")
+    md = ["## M2-R2 re-read\n"]
+    rc = collections.Counter(r["class"] for r in rr)
+    rconf = collections.Counter((r["class"], r["confidence"]) for r in rr)
+    enum_only = sum(1 for r in rr if r["class"] != "IDENTICAL" and r["change"].startswith("enum:"))
+    changed = len(rr) - rc["IDENTICAL"]
+    md.append("M2-R2 read both bodies of every function M2-R1 had left IDENTICAL/low: %s functions. For each, it read "
+              "the Cataclysm decompilation and Relic's ad1bb82 source side by side, and the GoK `src/` body where it "
+              "differs from ad1bb82. A difference that is only a header-level constant (renumbered enum, struct "
+              "offset or size, macro value), an inlined or linker-folded callee, Ghidra prototype noise or "
+              "compiled-out debug code counts as IDENTICAL. Review entries carry `sample: reread-R2`.\n" % fmt(len(rr)))
+    md.append("| result | functions | share | high | medium | low |")
+    md.append("|---|---:|---:|---:|---:|---:|")
+    for k in K:
+        md.append("| %s | %s | %s | %d | %d | %d |" % (k, fmt(rc[k]), pct(rc[k], len(rr)), rconf[(k, "high")],
+                                                    rconf[(k, "medium")], rconf[(k, "low")]))
+    md.append("| **read** | **%s** | | | | |\n" % fmt(len(rr)))
+    md.append("**%s of %s changed class (%s)**: %s MODIFIED and %s REWRITTEN. %s of the MODIFIED ones differ only "
+              "in which ship types or races a test names (per-race Cataclysm types replacing HW1's, added or dropped "
+              "types); their change line starts with `enum:`. **The re-read IDENTICAL agreement for the IDENTICAL/low "
+              "bucket is %s** (M2-R1's 51-function sample said 86%%).\n" % (
+                  fmt(changed), fmt(len(rr)), pct(changed, len(rr)), fmt(rc["MODIFIED"]), fmt(rc["REWRITTEN"]),
+                  fmt(enum_only), pct(rc["IDENTICAL"], len(rr))))
+    au = [r for r in fs if (rv.get(r["address"]) or {}).get("sample") == "audit-R2"]
+    if au:
+        ac = collections.Counter(r["class"] for r in au)
+        md.append("The audit's reclassifications (`docs/audits/m2-r1-function-deltas.md`) were checked by hand and "
+                  "applied to %d functions (review entries with `sample: audit-R2`), now %s." % (
+                      len(au), ", ".join("%d %s" % (ac[k], k) for k in K if ac[k])) + "\n")
+    if rv.get("_notes_r2"):
+        md.append("\n".join(rv["_notes_r2"]).rstrip() + "\n")
+    md.append("Totals after M2-R2 (re-read, audit reclassifications, tool fixes), against M2-R1:\n")
+    md.append("| class | M2-R1 functions | M2-R2 functions | M2-R1 bytes | M2-R2 bytes | M2-R2 share of bytes |")
+    md.append("|---|---:|---:|---:|---:|---:|")
+    for k in K:
+        md.append("| %s | %s | %s | %s | %s | %s |" % (k, fmt(R1_TOTALS[k][0]), fmt(cn[k]), fmt(R1_TOTALS[k][1]),
+                                                   fmt(cb[k]), pct(cb[k], tot_b)))
+    md.append("")
+    # agreement estimate for what is still unread: P(reviewed IDENTICAL | automatic bucket) applied to the
+    # unreviewed functions that are automatically IDENTICAL
+    exp, n_un = 0.0, 0
+    for r in fs:
+        if r["reviewed"] or r["class"] != "IDENTICAL":
+            continue
+        n_un += 1
+        row = conf_b.get((r["auto_class"], r["auto_confidence"]))
+        if not row or sum(row.values()) < 5:
+            row = conf_m.get(r["auto_class"])
+        exp += row["IDENTICAL"] / sum(row.values()) if row and sum(row.values()) else 1.0
+    rev_id = sum(1 for r in fs if r["reviewed"] and r["class"] == "IDENTICAL")
+    md.append("**New IDENTICAL agreement estimate.** %s functions are IDENTICAL now: %s by hand review and %s by the "
+              "tool alone. Applying each automatic bucket's review agreement to the unread ones, about %s of those "
+              "%s (%s) are expected to be truly identical, so about %s of all %s IDENTICAL functions (%s) are, "
+              "against M2-R1's 80%% audit estimate. The unread ones sit in the automatic IDENTICAL/high and "
+              "/medium buckets, which have only %d and %d reviewed functions, so this is a rough figure.\n" % (
+                  fmt(cn["IDENTICAL"]), fmt(rev_id), fmt(n_un), fmt(exp), fmt(n_un), pct(exp, n_un),
+                  fmt(rev_id + exp), fmt(cn["IDENTICAL"]), pct(rev_id + exp, cn["IDENTICAL"]),
+                  sum(conf_b.get(("IDENTICAL", "high"), {}).values()),
+                  sum(conf_b.get(("IDENTICAL", "medium"), {}).values())))
+    return md
+
+
 def stage_report(a):
     dm = json.load(open(a.out))
     fs = dm["functions"]
@@ -1220,6 +1453,9 @@ def stage_report(a):
     if rv.get("_notes"):
         # hand-written findings, kept in the review file so the doc is fully regenerable
         md.append("\n".join(rv["_notes"]).rstrip() + "\n")
+    rr = [r for r in fs if (rv.get(r["address"]) or {}).get("sample") == "reread-R2"]
+    if rr:
+        md.extend(reread_section(fs, rv, rr, conf_b, conf_m, cn, cb, tot_b))
     md.append("## Hand review and calibration\n")
     nrev = sum(1 for r in fs if r["reviewed"])
     md.append("%d functions were reviewed by hand (both bodies read; for long bodies sometimes only the head, as the review note says). Rows: the tool's current automatic class; "
@@ -1248,8 +1484,9 @@ def stage_report(a):
         for k in K) + ".\n")
     md.append("## Per HW1 source file\n")
     md.append("Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and GoK-only). "
-              "Bytes are Cataclysm function sizes. `rev` = hand-reviewed functions in the file; `unres` = matched "
-              "functions with no HW1 body.\n")
+              "Bytes are Cataclysm function sizes. `matched` counts the classified functions only; `unres` = matched "
+              "functions with no HW1 body, additional to `matched` (BitIO.c: 2 classified + 2 unresolved bitio "
+              "functions). `rev` = hand-reviewed functions in the file.\n")
     for g in GROUPS:
         rows = [(f, p) for f, p in per.items() if p["group"] == g]
         if not rows:
@@ -1327,9 +1564,42 @@ def stage_mark(a):
     print("marked", n, "total", len(rv))
 
 
+def stage_merge(a):
+    """Apply the hand-review file to an existing delta_map.json without recomputing features (fast; used
+    after each file group of a re-read). Reviewed entries get the reviewed class/confidence/change, exactly
+    as classify does; --done LABEL appends a done_subsystems marker."""
+    dm = json.load(open(a.out))
+    review = json.load(open(a.review)) if os.path.isfile(a.review) else {}
+    n = 0
+    for r in dm["functions"]:
+        rv = review.get(r["address"])
+        if not rv:
+            continue
+        cls = rv.get("class", r["auto_class"])
+        new = {"class": cls, "change": rv.get("change", ""), "confidence": rv.get("confidence", "high"),
+               "reviewed": True}
+        if any(r.get(k) != v for k, v in new.items()) or r.get("review_note") != (rv.get("note") or None):
+            n += 1
+        r.update(new)
+        if rv.get("note"):
+            r["review_note"] = rv["note"]
+        else:
+            r.pop("review_note", None)
+    for lab in a.done or []:
+        if lab not in dm["done_subsystems"]:
+            dm["done_subsystems"].append(lab)
+    cnt = collections.Counter(r["class"] for r in dm["functions"])
+    dm["counts"].update({k: cnt.get(k, 0) for k in ("IDENTICAL", "MODIFIED", "REWRITTEN")})
+    dm["counts"]["reviewed"] = sum(1 for r in dm["functions"] if r["reviewed"])
+    tmp = a.out + ".tmp"
+    write_compact(dm, tmp)
+    os.replace(tmp, a.out)
+    print("merged; records changed", n, json.dumps(dm["counts"]))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("stage", choices=["prep", "classify", "show", "report", "mark"])
+    ap.add_argument("stage", choices=["prep", "classify", "show", "report", "mark", "merge"])
     ap.add_argument("addrs", nargs="*")
     ap.add_argument("--orig", default=ORIG)
     ap.add_argument("--work", default=WORK)
@@ -1339,9 +1609,10 @@ def main():
     ap.add_argument("--groups", nargs="*", default=None)
     ap.add_argument("--fresh", action="store_true")
     ap.add_argument("--max-lines", type=int, default=80)
+    ap.add_argument("--done", nargs="*", default=None, help="merge: done_subsystems labels to append")
     a = ap.parse_args()
     {"prep": stage_prep, "classify": stage_classify, "show": stage_show, "report": stage_report,
-     "mark": stage_mark}[a.stage](a)
+     "mark": stage_mark, "merge": stage_merge}[a.stage](a)
 
 
 if __name__ == "__main__":

@@ -515,7 +515,12 @@ ubyte battleClassDependencies[NUM_CLASSES] =
     /* CLASS_Corvette     */ 0,
     /* CLASS_Fighter      */ 0,
     /* CLASS_Resource     */ BCD_Damaged,
-    /* CLASS_NonCombat    */ 0
+    /* CLASS_NonCombat    */ 0,
+    // CAT: 12 classes; the three new ones have no class-specific chatter (battleClassDependencies 0x00750710 =
+    //      {0,3,3,3,3,0,0,2,0,0,0,0})
+    /* CLASS_MonsterShip  */ 0,
+    /* CLASS_Component    */ 0,
+    /* CLASS_Micro        */ 0
 };
 
 /*-----------------------------------------------------------------------------

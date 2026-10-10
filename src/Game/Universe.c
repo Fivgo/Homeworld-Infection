@@ -83,7 +83,9 @@ NebulaStaticInfo nebulaStaticInfos[NUM_NEBULATYPES];
 DerelictStaticInfo derelictStaticInfos[NUM_DERELICTTYPES];
 
 MissileStaticInfo missileStaticInfos[NUM_RACES];
-MissileStaticInfo mineStaticInfos[2];               //only race 1 and race 2 have mines
+// CAT: indexed by any race (SetInfoNeededForShipAndRelatedStaticInfo 0x004a29f0 sets mineStaticInfos[race] for
+//      tMinelayerCorvette, race RACE_Taiidan); HW1 had [2] ("only race 1 and race 2 have mines")
+MissileStaticInfo mineStaticInfos[NUM_RACES];
 
 GrowSelection ClampedShipList;       // special GrowSelect which can have NULL's in it
 
@@ -108,62 +110,156 @@ sdword cdLimitCaps[TOTAL_NUM_SHIPS]; // max number of ships per player allowed
 sdword cdClassCaps[NUM_CLASSES];     // max number of ships per class allowed
 bool32   cdEnabled=TRUE;               // flag specifying whether unit caps enabled
 
+// CAT: which race may own each type (RacesAllowedForGivenShip 0x008b1814, read by aiuCanBuildShipType 0x00412cb0 and
+//      aifBuildRequestedShips 0x004045b0): each type's own race, except trGhostship (Sect), dAcolyte (Traders) and
+//      the three nis* light sources (none)
 uword RacesAllowedForGivenShip[TOTAL_NUM_SHIPS] =
 {
-    R1_VALID|R2_VALID,                   //AdvanceSupportFrigate
-    R1_VALID|R2_VALID,                   //AttackBomber
-    R1_VALID|R2_VALID,                   //Carrier
-    R1_VALID         ,                   //CloakedFighter
-    R1_VALID|R2_VALID,                   //CloakGenerator
-    R1_VALID         ,                   //DDDFrigate
-             R2_VALID,                   //DefenseFighter
-             R2_VALID,                   //DFGFrigate
-    R1_VALID|R2_VALID,                   //GravWellGenerator
-    R1_VALID|R2_VALID,                   //HeavyCorvette
-    R1_VALID|R2_VALID,                   //HeavyCruiser
-    R1_VALID|R2_VALID,                   //HeavyDefender
-    R1_VALID|R2_VALID,                   //HeavyInterceptor
-    R1_VALID|R2_VALID,                   //IonCannonFrigate
-    R1_VALID|R2_VALID,                   //LightCorvette
-    R1_VALID|R2_VALID,                   //LightDefender
-    R1_VALID|R2_VALID,                   //LightInterceptor
-    R1_VALID|R2_VALID,                   //MinelayerCorvette
-    R1_VALID|R2_VALID,                   //MissileDestroyer
-    R1_VALID|R2_VALID,                   //Mothership
-    R1_VALID|R2_VALID,                   //MultiGunCorvette
-    R1_VALID|R2_VALID,                   //Probe
-    R1_VALID|R2_VALID,                   //ProximitySensor
-    R1_VALID|R2_VALID,                   //RepairCorvette
-    R1_VALID|R2_VALID,                   //ResearchShip
-    R1_VALID|R2_VALID,                   //ResourceCollector
-    R1_VALID|R2_VALID,                   //ResourceController
-    R1_VALID|R2_VALID,                   //SalCapCorvette
-    R1_VALID|R2_VALID,                   //SensorArray
-    R1_VALID|R2_VALID,                   //StandardDestroyer
-    R1_VALID|R2_VALID,                   //StandardFrigate
-    R1_VALID         ,                   //Drone
-    R1_VALID|R2_VALID,                   //TargetDrone
-    R1_VALID|R2_VALID,                   //HeadShotAsteroid
-    R1_VALID|R2_VALID,                   //CryoTray
-    P1_VALID         ,                   //P1Fighter
-    P1_VALID         ,                   //P1IonArrayFrigate
-    P1_VALID         ,                   //P1MissileCorvette
-    P1_VALID         ,                   //P1Mothership
-    P1_VALID         ,                   //P1StandardCorvette
-    P2_VALID         ,                   //P2AdvanceSwarmer
-    P2_VALID         ,                   //P2FuelPod
-    P2_VALID         ,                   //P2Mothership
-    P2_VALID         ,                   //P2MultiBeamFrigate
-    P2_VALID         ,                   //P2Swarmer
-    P3_VALID         ,                   //P3Destroyer
-    P3_VALID         ,                   //P3Frigate
-    P3_VALID         ,                   //P3Megaship
-    Traders_VALID    ,                   //FloatingCity
-    Traders_VALID    ,                   //CargoBarge
-    Traders_VALID    ,                   //MiningBase
-    Traders_VALID    ,                   //ResearchStation
-    Traders_VALID    ,                   //JunkYardDawg
-    Traders_VALID                        //JunkYardHQ
+    RaceToRaceBits(RACE_Sect),         //sRecon
+    RaceToRaceBits(RACE_Sect),         //sAcolyte
+    RaceToRaceBits(RACE_Sect),         //sMimic
+    RaceToRaceBits(RACE_Sect),         //sLeech
+    RaceToRaceBits(RACE_Sect),         //sACV
+    RaceToRaceBits(RACE_Sect),         //sMCV
+    RaceToRaceBits(RACE_Sect),         //sRammingFrigate
+    RaceToRaceBits(RACE_Sect),         //sMultiBeamFrigate
+    RaceToRaceBits(RACE_Sect),         //sHiveFrigate
+    RaceToRaceBits(RACE_Sect),         //sSwarmer
+    RaceToRaceBits(RACE_Sect),         //sDreadnought
+    RaceToRaceBits(RACE_Sect),         //sDreadnoughtCannon
+    RaceToRaceBits(RACE_Sect),         //sCarrier
+    RaceToRaceBits(RACE_Sect),         //sCarrierSupport
+    RaceToRaceBits(RACE_Sect),         //sWorker
+    RaceToRaceBits(RACE_Sect),         //sRepairDroid
+    RaceToRaceBits(RACE_Sect),         //sProcessor
+    RaceToRaceBits(RACE_Sect),         //sSentinel
+    RaceToRaceBits(RACE_Sect),         //sMothership
+    RaceToRaceBits(RACE_Sect),         //sMothershipSpecial
+    RaceToRaceBits(RACE_Sect),         //sMothershipEngineering
+    RaceToRaceBits(RACE_Sect),         //sMothershipArmour
+    RaceToRaceBits(RACE_Sect),         //sMothershipMicro
+    RaceToRaceBits(RACE_Sect),         //sMothershipWeapons
+    RaceToRaceBits(RACE_Sect),         //sMothershipDockingBay
+    RaceToRaceBits(RACE_Sect),         //sDestroyer
+    RaceToRaceBits(RACE_Sect),         //sMothershipSupport
+    RaceToRaceBits(RACE_Sect),         //sMothershipCommand
+    RaceToRaceBits(RACE_Sect),         //sMothershipEnginesLower
+    RaceToRaceBits(RACE_Sect),         //sMothershipEnginesUpper
+    RaceToRaceBits(RACE_Sect),         //sMothershipLowerSpine
+    RaceToRaceBits(RACE_Sect),         //sMothershipBigGun
+    RaceToRaceBits(RACE_Sect),         //sMothershipOreCanArmour
+    RaceToRaceBits(RACE_Beast),        //bRecon
+    RaceToRaceBits(RACE_Beast),        //bAcolyte
+    RaceToRaceBits(RACE_Beast),        //bInterceptor
+    RaceToRaceBits(RACE_Beast),        //bCloakedFighter
+    RaceToRaceBits(RACE_Beast),        //bAttackBomber
+    RaceToRaceBits(RACE_Beast),        //bACV
+    RaceToRaceBits(RACE_Beast),        //bMultiGunCorvette
+    RaceToRaceBits(RACE_Beast),        //bHeavyCorvette
+    RaceToRaceBits(RACE_Beast),        //bMultiBeamFrigate
+    RaceToRaceBits(RACE_Beast),        //bHiveFrigate
+    RaceToRaceBits(RACE_Beast),        //bSwarmer
+    RaceToRaceBits(RACE_Beast),        //bIonArrayFrigate
+    RaceToRaceBits(RACE_Beast),        //bDFGFrigate
+    RaceToRaceBits(RACE_Beast),        //bHeavyCruiser
+    RaceToRaceBits(RACE_Beast),        //bCarrier
+    RaceToRaceBits(RACE_Beast),        //bRammingFrigate
+    RaceToRaceBits(RACE_Beast),        //bWorker
+    RaceToRaceBits(RACE_Beast),        //bRepairDroid
+    RaceToRaceBits(RACE_Beast),        //bProcessor
+    RaceToRaceBits(RACE_Beast),        //bSentinel
+    RaceToRaceBits(RACE_Beast),        //bMothership
+    RaceToRaceBits(RACE_Beast),        //bMothershipDockingBay
+    RaceToRaceBits(RACE_Beast),        //bMothershipEnginesLower
+    RaceToRaceBits(RACE_Beast),        //bSectMoship
+    RaceToRaceBits(RACE_Beast),        //bMothershipSupport
+    RaceToRaceBits(RACE_Beast),        //bCruiseMissile
+    RaceToRaceBits(RACE_Beast),        //bMissileCorvette
+    RaceToRaceBits(RACE_Kushan),       //kAdvanceSupportFrigate
+    RaceToRaceBits(RACE_Kushan),       //kAttackBomber
+    RaceToRaceBits(RACE_Kushan),       //kCarrier
+    RaceToRaceBits(RACE_Kushan),       //kCloakGenerator
+    RaceToRaceBits(RACE_Kushan),       //kGravWellGenerator
+    RaceToRaceBits(RACE_Kushan),       //kHeavyCorvette
+    RaceToRaceBits(RACE_Kushan),       //kHeavyCruiser
+    RaceToRaceBits(RACE_Kushan),       //kHeavyDefender
+    RaceToRaceBits(RACE_Kushan),       //kHeavyInterceptor
+    RaceToRaceBits(RACE_Kushan),       //kIonCannonFrigate
+    RaceToRaceBits(RACE_Kushan),       //kMultiGunCorvette
+    RaceToRaceBits(RACE_Kushan),       //kProximitySensor
+    RaceToRaceBits(RACE_Kushan),       //kSalCapCorvette
+    RaceToRaceBits(RACE_Kushan),       //kStandardDestroyer
+    RaceToRaceBits(RACE_Taiidan),      //tAdvanceSupportFrigate
+    RaceToRaceBits(RACE_Taiidan),      //tAttackBomber
+    RaceToRaceBits(RACE_Taiidan),      //tCarrier
+    RaceToRaceBits(RACE_Taiidan),      //tCloakGenerator
+    RaceToRaceBits(RACE_Taiidan),      //tDFGFrigate
+    RaceToRaceBits(RACE_Taiidan),      //tGravWellGenerator
+    RaceToRaceBits(RACE_Taiidan),      //tHeavyCruiser
+    RaceToRaceBits(RACE_Taiidan),      //tHeavyDefender
+    RaceToRaceBits(RACE_Taiidan),      //tHeavyInterceptor
+    RaceToRaceBits(RACE_Taiidan),      //tIonCannonFrigate
+    RaceToRaceBits(RACE_Taiidan),      //tMinelayerCorvette
+    RaceToRaceBits(RACE_Taiidan),      //tMissileDestroyer
+    RaceToRaceBits(RACE_Taiidan),      //tMultiGunCorvette
+    RaceToRaceBits(RACE_Taiidan),      //tProximitySensor
+    RaceToRaceBits(RACE_Taiidan),      //tResourceCollector
+    RaceToRaceBits(RACE_Taiidan),      //tSalCapCorvette
+    RaceToRaceBits(RACE_Taiidan),      //tStandardDestroyer
+    RaceToRaceBits(RACE_Taiidan),      //tStandardFrigate
+    RaceToRaceBits(RACE_P1),           //p1Outpost
+    RaceToRaceBits(RACE_P1),           //p1Fighter
+    RaceToRaceBits(RACE_P1),           //p1IonArrayFrigate
+    RaceToRaceBits(RACE_P1),           //p1MissileCorvette
+    RaceToRaceBits(RACE_P1),           //p1Mothership
+    RaceToRaceBits(RACE_P1),           //p1StandardCorvette
+    RaceToRaceBits(RACE_Traders),      //trFloatingCity
+    RaceToRaceBits(RACE_Traders),      //trCargoBarge
+    RaceToRaceBits(RACE_Traders),      //trMiningBase
+    RaceToRaceBits(RACE_Traders),      //trResearchStation
+    RaceToRaceBits(RACE_Traders),      //trJunkYardDawg
+    RaceToRaceBits(RACE_Traders),      //trJunkYardHQ
+    RaceToRaceBits(RACE_Sect),         //trGhostship
+    RaceToRaceBits(RACE_Traders),      //trJunk_LGun
+    RaceToRaceBits(RACE_Traders),      //trJunk_SGun
+    RaceToRaceBits(RACE_Traders),      //trResearchStationBridge
+    RaceToRaceBits(RACE_Traders),      //trResearchStationTower
+    RaceToRaceBits(RACE_Derelict),     //dRKO
+    RaceToRaceBits(RACE_Derelict),     //dBigGun
+    RaceToRaceBits(RACE_Derelict),     //dBigGunUnit
+    RaceToRaceBits(RACE_Derelict),     //dSlipgateSmall
+    RaceToRaceBits(RACE_Derelict),     //dSlipgateMedium
+    RaceToRaceBits(RACE_Derelict),     //dSlipgateLarge
+    RaceToRaceBits(RACE_Derelict),     //dCrate
+    RaceToRaceBits(RACE_Derelict),     //dJunk1PartA
+    RaceToRaceBits(RACE_Derelict),     //dJunk1Shell
+    RaceToRaceBits(RACE_Derelict),     //dJunk1Strut
+    RaceToRaceBits(RACE_Derelict),     //dJunk2Shipwreck
+    RaceToRaceBits(RACE_Derelict),     //dJunk3Boiler
+    RaceToRaceBits(RACE_Derelict),     //dJunk3BoilerCasing
+    RaceToRaceBits(RACE_Derelict),     //dMessagePod
+    RaceToRaceBits(RACE_Derelict),     //dBuoy
+    RaceToRaceBits(RACE_Derelict),     //dFirstPlanet
+    RaceToRaceBits(RACE_Derelict),     //dDeadPlanet
+    RaceToRaceBits(RACE_Derelict),     //dCrystal0
+    RaceToRaceBits(RACE_Derelict),     //dCrystal1
+    RaceToRaceBits(RACE_Derelict),     //dBeastDockingBay
+    RaceToRaceBits(RACE_Derelict),     //dNISBuoy
+    RaceToRaceBits(RACE_Derelict),     //dBeastMothership
+    RaceToRaceBits(RACE_Derelict),     //dNomadMoon
+    RaceToRaceBits(RACE_Derelict),     //dNomadFieldEmitter
+    RaceToRaceBits(RACE_Traders),      //dAcolyte
+    RaceToRaceBits(RACE_Derelict),     //dPrisonShip
+    RaceToRaceBits(RACE_Derelict),     //dPrisonShipInfected
+    RaceToRaceBits(RACE_Derelict),     //dSlipgateNode
+    RaceToRaceBits(RACE_Derelict),     //dKushanCarrier
+    RaceToRaceBits(RACE_Derelict),     //dIonArrayFrigate
+    RaceToRaceBits(RACE_Derelict),     //dIonCannonFrigate
+    RaceToRaceBits(RACE_Derelict),     //dEcclesiam
+    RaceToRaceBits(RACE_Derelict),     //dEcclesiamInfected
+    0,                                 //nisLightSource1
+    0,                                 //nisLightSource2
+    0                                  //nisLensflareSource1
 };
 
 bool32 universeForceDefaultShip = FALSE;   //flag for forcing ships to be loaded as rave borgs
@@ -198,146 +294,310 @@ void *defaultmex = NULL;            // remove later when all stubs are taken out
 
 udword universeUpdateCounter = 0;
 
-ShipStaticInfo ShipStaticInfoR1[TOTAL_STD_SHIPS];
-ShipStaticInfo ShipStaticInfoR2[TOTAL_STD_SHIPS];
-ShipStaticInfo ShipStaticInfoP1[TOTAL_P1_SHIPS];
-ShipStaticInfo ShipStaticInfoP2[TOTAL_P2_SHIPS];
-ShipStaticInfo ShipStaticInfoP3[TOTAL_P3_SHIPS];
-ShipStaticInfo ShipStaticInfoTraders[TOTAL_TRADERS_SHIPS];
+// CAT: one flat ShipStaticInfo array indexed by type alone (ShipStaticInfos 0x00b3b420, 145 entries; GetShipStaticInfo
+//      0x0053ea50 takes no race). HW1 had one array per race.
+ShipStaticInfo ShipStaticInfos[TOTAL_NUM_SHIPS];
 
-ShipStaticInfo *RaceShipStaticInfos[NUM_RACES] =
-{
-    ShipStaticInfoR1,
-    ShipStaticInfoR2,
-    ShipStaticInfoP1,
-    ShipStaticInfoP2,
-    ShipStaticInfoP3,
-    ShipStaticInfoTraders
-};
-
+// CAT: one CustShipHeader per type (shipHeaders 0x008b1938). Where the exe uses a header HW1 also has, it is used here;
+//      the 22 Cataclysm-only headers (Acolyte, Mimic, Leech, ACV, MCV, ...) are stage-2 ship code and point at
+//      DefaultShipHeader until then
 CustShipHeader *shipHeaders[TOTAL_NUM_SHIPS] =
 {
-    &AdvanceSupportFrigateHeader,   //AdvanceSupportFrigate
-    &AttackBomberHeader,            //AttackBomber
-    &CarrierHeader,                 //Carrier
-    &CloakedFighterHeader,          //CloakedFighter
-    &CloakGeneratorHeader,          //CloakGenerator
-    &DDDFrigateHeader,              //DDDFrigate
-    &DefenseFighterHeader,          //DefenseFighter
-    &DFGFrigateHeader,              //DFGFrigate
-    &GravWellGeneratorHeader,       //GravWellGenerator
-    &HeavyCorvetteHeader,           //HeavyCorvette
-    &HeavyCruiserHeader,            //HeavyCruiser
-    &GenericDefenderHeader,         //HeavyDefender
-    &GenericInterceptorHeader,      //HeavyInterceptor
-    &IonCannonFrigateHeader,        //IonCannonFrigate
-    &LightCorvetteHeader,           //LightCorvette
-    &GenericDefenderHeader,         //LightDefender
-    &GenericInterceptorHeader,      //LightInterceptor
-    &MinelayerCorvetteHeader,       //MinelayerCorvette
-    &MissileDestroyerHeader,        //MissileDestroyer
-    &MothershipHeader,              //Mothership
-    &MultiGunCorvetteHeader,        //MultiGunCorvette
-    &ProbeHeader,                   //Probe
-    &ProximitySensorHeader,         //ProximitySensor
-    &RepairCorvetteHeader,          //RepairCorvette
-    &ResearchShipHeader,            //ResearchShip
-    &ResourceCollectorHeader,       //ResourceCollector
-    &ResourceControllerHeader,      //ResourceController
-    &SalCapCorvetteHeader,          //SalCapCorvette
-    &SensorArrayHeader,             //SensorArray
-    &StandardDestroyerHeader,       //StandardDestroyer
-    &StandardFrigateHeader,         //StandardFrigate
-    &DroneHeader,                   //Drone
-    &TargetDroneHeader,             //TargetDrone (header located in DefaultShip.c)
-    &DoNothingShipHeader,           //HeadShotAsteroid
-    &DoNothingShipHeader,           //CryoTray
-    &GenericInterceptorHeader,      //P1Fighter
-    &P1IonArrayFrigateHeader,       //P1IonArrayFrigate
-    &P1MissileCorvetteHeader,       //P1MissileCorvette
-    &P1MothershipHeader,            //P1Mothership
-    &P1StandardCorvetteHeader,      //P1StandardCorvette
-    &P2AdvanceSwarmerHeader,        //P2AdvanceSwarmer
-    &P2FuelPodHeader,               //P2FuelPod
-    &P2MothershipHeader,            //P2Mothership
-    &P2MultiBeamFrigateHeader,      //P2MultiBeamFrigate
-    &P2SwarmerHeader,               //P2Swarmer
-    &P3StandardShipHeader,          //P3Destroyer
-    &P3StandardShipHeader,          //P3Frigate
-    &P3StandardShipHeader,          //P3Megaship
-    &FloatingCityHeader,            //FloatingCity
-    &DefaultShipHeader,             //CargoBarge
-    &MiningBaseHeader,              //MiningBase
-    &DefaultShipHeader,             //ResearchStation
-    &JunkYardDawgHeader,            //JunkYardDawg
-    &DoNothingShipHeader,           //JunkYardHQ
-    &DoNothingShipHeader,           //GhostShip
-    &StationaryGunHeader,           //Junk_LGun
-    &StationaryGunHeader,           //Junk_SGun
-    &DoNothingShipHeader,           //ResearchStationBridge
-    &DoNothingShipHeader           //ResearchStationTower
+    &GenericInterceptorHeader,         //sRecon
+    &DefaultShipHeader,                //sAcolyte: exe AcolyteHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMimic: exe MimicHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sLeech: exe LeechHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sACV: exe ACVHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMCV: exe MCVHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sRammingFrigate: exe RammingFrigateHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMultiBeamFrigate: exe MultiBeamFrigateHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sHiveFrigate: exe HiveFrigateHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sSwarmer: exe SwarmerHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sDreadnought: exe DreadnoughtHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sDreadnoughtCannon: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &CarrierHeader,                    //sCarrier
+    &DefaultShipHeader,                //sCarrierSupport: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sWorker: exe WorkerHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sRepairDroid: exe RepairDroidHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sProcessor: exe ProcessorHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sSentinel: exe SentinelHeader (Cataclysm-only, stage 2)
+    &MothershipHeader,                 //sMothership
+    &DefaultShipHeader,                //sMothershipSpecial: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMothershipEngineering: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMothershipArmour: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMothershipMicro: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMothershipWeapons: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMothershipDockingBay: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &StandardDestroyerHeader,          //sDestroyer
+    &DefaultShipHeader,                //sMothershipSupport: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMothershipCommand: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMothershipEnginesLower: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMothershipEnginesUpper: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMothershipLowerSpine: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMothershipBigGun: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //sMothershipOreCanArmour: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &GenericInterceptorHeader,         //bRecon
+    &DefaultShipHeader,                //bAcolyte: exe AcolyteHeader (Cataclysm-only, stage 2)
+    &GenericInterceptorHeader,         //bInterceptor
+    &CloakedFighterHeader,             //bCloakedFighter
+    &AttackBomberHeader,               //bAttackBomber
+    &DefaultShipHeader,                //bACV: exe ACVHeader (Cataclysm-only, stage 2)
+    &MultiGunCorvetteHeader,           //bMultiGunCorvette
+    &HeavyCorvetteHeader,              //bHeavyCorvette
+    &DefaultShipHeader,                //bMultiBeamFrigate: exe MultiBeamFrigateHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //bHiveFrigate: exe HiveFrigateHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //bSwarmer: exe SwarmerHeader (Cataclysm-only, stage 2)
+    &P1IonArrayFrigateHeader,          //bIonArrayFrigate
+    &DFGFrigateHeader,                 //bDFGFrigate
+    &HeavyCruiserHeader,               //bHeavyCruiser
+    &CarrierHeader,                    //bCarrier
+    &DefaultShipHeader,                //bRammingFrigate: exe RammingFrigateHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //bWorker: exe WorkerHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //bRepairDroid: exe RepairDroidHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //bProcessor: exe ProcessorHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //bSentinel: exe SentinelHeader (Cataclysm-only, stage 2)
+    &MothershipHeader,                 //bMothership
+    &DefaultShipHeader,                //bMothershipDockingBay: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //bMothershipEnginesLower: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //bSectMoship: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //bMothershipSupport: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //bCruiseMissile: exe CruiseMissileHeader (Cataclysm-only, stage 2)
+    &P1MissileCorvetteHeader,          //bMissileCorvette
+    &AdvanceSupportFrigateHeader,      //kAdvanceSupportFrigate
+    &AttackBomberHeader,               //kAttackBomber
+    &CarrierHeader,                    //kCarrier
+    &DefaultShipHeader,              //kCloakGenerator: NULL in the exe (InitStatShipInfo would crash on it); DefaultShipHeader keeps the port safe
+    &GravWellGeneratorHeader,          //kGravWellGenerator
+    &HeavyCorvetteHeader,              //kHeavyCorvette
+    &HeavyCruiserHeader,               //kHeavyCruiser
+    &GenericDefenderHeader,            //kHeavyDefender
+    &GenericInterceptorHeader,         //kHeavyInterceptor
+    &IonCannonFrigateHeader,           //kIonCannonFrigate
+    &MultiGunCorvetteHeader,           //kMultiGunCorvette
+    &ProximitySensorHeader,            //kProximitySensor
+    &SalCapCorvetteHeader,             //kSalCapCorvette
+    &StandardDestroyerHeader,          //kStandardDestroyer
+    &AdvanceSupportFrigateHeader,      //tAdvanceSupportFrigate
+    &AttackBomberHeader,               //tAttackBomber
+    &CarrierHeader,                    //tCarrier
+    &DefaultShipHeader,              //tCloakGenerator: NULL in the exe (InitStatShipInfo would crash on it); DefaultShipHeader keeps the port safe
+    &DFGFrigateHeader,                 //tDFGFrigate
+    &GravWellGeneratorHeader,          //tGravWellGenerator
+    &HeavyCruiserHeader,               //tHeavyCruiser
+    &GenericDefenderHeader,            //tHeavyDefender
+    &GenericInterceptorHeader,         //tHeavyInterceptor
+    &IonCannonFrigateHeader,           //tIonCannonFrigate
+    &MinelayerCorvetteHeader,          //tMinelayerCorvette
+    &MissileDestroyerHeader,           //tMissileDestroyer
+    &MultiGunCorvetteHeader,           //tMultiGunCorvette
+    &ProximitySensorHeader,            //tProximitySensor
+    &ResourceCollectorHeader,          //tResourceCollector
+    &SalCapCorvetteHeader,             //tSalCapCorvette
+    &StandardDestroyerHeader,          //tStandardDestroyer
+    &StandardFrigateHeader,            //tStandardFrigate
+    &DoNothingShipHeader,              //p1Outpost
+    &GenericInterceptorHeader,         //p1Fighter
+    &P1IonArrayFrigateHeader,          //p1IonArrayFrigate
+    &P1MissileCorvetteHeader,          //p1MissileCorvette
+    &P1MothershipHeader,               //p1Mothership
+    &P1StandardCorvetteHeader,         //p1StandardCorvette
+    &FloatingCityHeader,               //trFloatingCity
+    &DefaultShipHeader,                //trCargoBarge
+    &MiningBaseHeader,                 //trMiningBase
+    &DefaultShipHeader,                //trResearchStation
+    &DoNothingShipHeader,              //trJunkYardDawg
+    &DoNothingShipHeader,              //trJunkYardHQ
+    &MothershipHeader,                 //trGhostship
+    &StationaryGunHeader,              //trJunk_LGun
+    &StationaryGunHeader,              //trJunk_SGun
+    &DoNothingShipHeader,              //trResearchStationBridge
+    &DoNothingShipHeader,              //trResearchStationTower
+    &DefaultShipHeader,                //dRKO: exe RKOHeader (Cataclysm-only, stage 2)
+    &DoNothingShipHeader,              //dBigGun
+    &DoNothingShipHeader,              //dBigGunUnit
+    &DefaultShipHeader,                //dSlipgateSmall: exe SlipgateHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //dSlipgateMedium: exe SlipgateHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //dSlipgateLarge: exe SlipgateHeader (Cataclysm-only, stage 2)
+    &DoNothingShipHeader,              //dCrate
+    &DoNothingShipHeader,              //dJunk1PartA
+    &DoNothingShipHeader,              //dJunk1Shell
+    &DoNothingShipHeader,              //dJunk1Strut
+    &DoNothingShipHeader,              //dJunk2Shipwreck
+    &DoNothingShipHeader,              //dJunk3Boiler
+    &DoNothingShipHeader,              //dJunk3BoilerCasing
+    &DoNothingShipHeader,              //dMessagePod
+    &DoNothingShipHeader,              //dBuoy
+    &DoNothingShipHeader,              //dFirstPlanet
+    &DoNothingShipHeader,              //dDeadPlanet
+    &DefaultShipHeader,                //dCrystal0: exe CrystalHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //dCrystal1: exe CrystalHeader (Cataclysm-only, stage 2)
+    &DoNothingShipHeader,              //dBeastDockingBay
+    &DoNothingShipHeader,              //dNISBuoy
+    &DefaultShipHeader,                //dBeastMothership: exe dBeastMothershipHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //dNomadMoon: exe NomadMoonHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //dNomadFieldEmitter: exe NomadFieldEmitterHeader (Cataclysm-only, stage 2)
+    &DefaultShipHeader,                //dAcolyte: exe AcolyteHeader (Cataclysm-only, stage 2)
+    &DoNothingShipHeader,              //dPrisonShip
+    &DoNothingShipHeader,              //dPrisonShipInfected
+    &DoNothingShipHeader,              //dSlipgateNode
+    &CarrierHeader,                    //dKushanCarrier
+    &IonCannonFrigateHeader,           //dIonArrayFrigate
+    &IonCannonFrigateHeader,           //dIonCannonFrigate
+    &DoNothingShipHeader,              //dEcclesiam
+    &DoNothingShipHeader,              //dEcclesiamInfected
+    &DoNothingShipHeader,              //nisLightSource1
+    &DoNothingShipHeader,              //nisLightSource2
+    &DoNothingShipHeader               //nisLensflareSource1
 };
 
+// CAT: values per Cataclysm type (rowAvoidBy 0x008b1b7c)
 real32 rowAvoidBy[TOTAL_NUM_SHIPS] =
 {
-    1000.0,         //AdvanceSupportFrigate
-    0.0,            //AttackBomber
-    1600.0,         //Carrier
-    0.0,            //CloakedFighter
-    1000.0,         //CloakGenerator
-    1000.0,         //DDDFrigate
-    0.0,            //DefenseFighter
-    1000.0,         //DFGFrigate
-    1000.0,         //GravWellGenerator
-    0.0,            //HeavyCorvette
-    1500.0,         //HeavyCruiser
-    0.0,            //HeavyDefender
-    0.0,            //HeavyInterceptor
-    1000.0,         //IonCannonFrigate
-    0.0,            //LightCorvette
-    0.0,            //LightDefender
-    0.0,            //LightInterceptor
-    0.0,            //MinelayerCorvette
-    1500.0,         //MissileDestroyer
-    2000.0,         //Mothership
-    0.0,            //MultiGunCorvette
-    0.0,            //Probe
-    0.0,            //ProximitySensor
-    0.0,            //RepairCorvette
-    1000.0,         //ResearchShip
-    1000.0,         //ResourceCollector
-    1000.0,         //ResourceController
-    0.0,            //SalCapCorvette
-    1000.0,         //SensorArray
-    1500.0,         //StandardDestroyer
-    1000.0,         //StandardFrigate
-    0.0,            //Drone
-    0.0,            //TargetDrone
-    2000.0,         //HeadShotAsteroid
-    2000.0,         //CryoTray
-    0.0,            //P1Fighter
-    1000.0,         //P1IonArrayFrigate
-    0.0,            //P1MissileCorvette
-    1700.0,         //P1Mothership
-    0.0,            //P1StandardCorvette
-    0.0,            //P2AdvanceSwarmer
-    1000.0,         //P2FuelPod
-    1700.0,         //P2Mothership
-    1000.0,         //P2MultiBeamFrigate
-    0.0,            //P2Swarmer
-    1500.0,         //P3Destroyer
-    1700.0,         //P3Frigate
-    2000.0,         //P3Megaship
-    2000.0,         //FloatingCity
-    1000.0,         //CargoBarge
-    1700.0,         //MiningBase
-    1700.0,         //ResearchStation
-    1000.0,         //JunkYardDawg
-    1000.0,         //JunkYardHQ
-    2000.0,         //Junk_LGun
-    1000.0,         //Junk_SGun
-    2000.0,         //ResearchStationBridge
-    2000.0          //ResearchStationTower
+    0.0,             //sRecon
+    0.0,             //sAcolyte
+    0.0,             //sMimic
+    0.0,             //sLeech
+    0.0,             //sACV
+    0.0,             //sMCV
+    1000.0,          //sRammingFrigate
+    1000.0,          //sMultiBeamFrigate
+    1000.0,          //sHiveFrigate
+    0.0,             //sSwarmer
+    1000.0,          //sDreadnought
+    1000.0,          //sDreadnoughtCannon
+    1600.0,          //sCarrier
+    1600.0,          //sCarrierSupport
+    1000.0,          //sWorker
+    0.0,             //sRepairDroid
+    1000.0,          //sProcessor
+    0.0,             //sSentinel
+    2000.0,          //sMothership
+    2000.0,          //sMothershipSpecial
+    2000.0,          //sMothershipEngineering
+    2000.0,          //sMothershipArmour
+    2000.0,          //sMothershipMicro
+    2000.0,          //sMothershipWeapons
+    2000.0,          //sMothershipDockingBay
+    800.0,           //sDestroyer
+    2000.0,          //sMothershipSupport
+    2000.0,          //sMothershipCommand
+    2000.0,          //sMothershipEnginesLower
+    2000.0,          //sMothershipEnginesUpper
+    2000.0,          //sMothershipLowerSpine
+    2000.0,          //sMothershipBigGun
+    2000.0,          //sMothershipOreCanArmour
+    0.0,             //bRecon
+    0.0,             //bAcolyte
+    0.0,             //bInterceptor
+    0.0,             //bCloakedFighter
+    0.0,             //bAttackBomber
+    0.0,             //bACV
+    0.0,             //bMultiGunCorvette
+    0.0,             //bHeavyCorvette
+    1000.0,          //bMultiBeamFrigate
+    1000.0,          //bHiveFrigate
+    0.0,             //bSwarmer
+    1000.0,          //bIonArrayFrigate
+    1000.0,          //bDFGFrigate
+    1500.0,          //bHeavyCruiser
+    1600.0,          //bCarrier
+    1000.0,          //bRammingFrigate
+    1000.0,          //bWorker
+    0.0,             //bRepairDroid
+    1000.0,          //bProcessor
+    0.0,             //bSentinel
+    2000.0,          //bMothership
+    2000.0,          //bMothershipDockingBay
+    2000.0,          //bMothershipEnginesLower
+    2000.0,          //bSectMoship
+    2000.0,          //bMothershipSupport
+    0.0,             //bCruiseMissile
+    2000.0,          //bMissileCorvette
+    1000.0,          //kAdvanceSupportFrigate
+    0.0,             //kAttackBomber
+    1600.0,          //kCarrier
+    1000.0,          //kCloakGenerator
+    1000.0,          //kGravWellGenerator
+    0.0,             //kHeavyCorvette
+    1500.0,          //kHeavyCruiser
+    0.0,             //kHeavyDefender
+    0.0,             //kHeavyInterceptor
+    1000.0,          //kIonCannonFrigate
+    0.0,             //kMultiGunCorvette
+    0.0,             //kProximitySensor
+    0.0,             //kSalCapCorvette
+    1500.0,          //kStandardDestroyer
+    1000.0,          //tAdvanceSupportFrigate
+    0.0,             //tAttackBomber
+    1600.0,          //tCarrier
+    1000.0,          //tCloakGenerator
+    1000.0,          //tDFGFrigate
+    1000.0,          //tGravWellGenerator
+    1500.0,          //tHeavyCruiser
+    0.0,             //tHeavyDefender
+    0.0,             //tHeavyInterceptor
+    1000.0,          //tIonCannonFrigate
+    0.0,             //tMinelayerCorvette
+    1500.0,          //tMissileDestroyer
+    0.0,             //tMultiGunCorvette
+    0.0,             //tProximitySensor
+    1000.0,          //tResourceCollector
+    0.0,             //tSalCapCorvette
+    1500.0,          //tStandardDestroyer
+    1000.0,          //tStandardFrigate
+    1000.0,          //p1Outpost
+    0.0,             //p1Fighter
+    1000.0,          //p1IonArrayFrigate
+    0.0,             //p1MissileCorvette
+    1700.0,          //p1Mothership
+    0.0,             //p1StandardCorvette
+    2000.0,          //trFloatingCity
+    1000.0,          //trCargoBarge
+    1700.0,          //trMiningBase
+    1700.0,          //trResearchStation
+    1000.0,          //trJunkYardDawg
+    1000.0,          //trJunkYardHQ
+    1000.0,          //trGhostship
+    2000.0,          //trJunk_LGun
+    1000.0,          //trJunk_SGun
+    2000.0,          //trResearchStationBridge
+    2000.0,          //trResearchStationTower
+    2500.0,          //dRKO
+    1000.0,          //dBigGun
+    1000.0,          //dBigGunUnit
+    0.0,             //dSlipgateSmall
+    0.0,             //dSlipgateMedium
+    0.0,             //dSlipgateLarge
+    0.0,             //dCrate
+    500.0,           //dJunk1PartA
+    500.0,           //dJunk1Shell
+    500.0,           //dJunk1Strut
+    500.0,           //dJunk2Shipwreck
+    500.0,           //dJunk3Boiler
+    500.0,           //dJunk3BoilerCasing
+    500.0,           //dMessagePod
+    0.0,             //dBuoy
+    0.0,             //dFirstPlanet
+    0.0,             //dDeadPlanet
+    500.0,           //dCrystal0
+    500.0,           //dCrystal1
+    2000.0,          //dBeastDockingBay
+    0.0,             //dNISBuoy
+    2000.0,          //dBeastMothership
+    4000.0,          //dNomadMoon
+    500.0,           //dNomadFieldEmitter
+    0.0,             //dAcolyte
+    1700.0,          //dPrisonShip
+    1700.0,          //dPrisonShipInfected
+    500.0,           //dSlipgateNode
+    1600.0,          //dKushanCarrier
+    1000.0,          //dIonArrayFrigate
+    1000.0,          //dIonCannonFrigate
+    1000.0,          //dEcclesiam
+    1000.0,          //dEcclesiamInfected
+    0.0,             //nisLightSource1
+    0.0,             //nisLightSource2
+    0.0              //nisLensflareSource1
 };
 
 // rightOfWay for ships.
@@ -348,320 +608,455 @@ real32 rowAvoidBy[TOTAL_NUM_SHIPS] =
 // 3 indicates carriers
 // 4 indicates mothership
 
+// CAT: values per Cataclysm type (rightOfWays 0x008b1dc0, read by InitStatShipInfo 0x0053bab0)
 sbyte rightOfWays[TOTAL_NUM_SHIPS] =
 {
-    1,              //AdvanceSupportFrigate
-    0,              //AttackBomber
-    3,              //Carrier
-    0,              //CloakedFighter
-    1,              //CloakGenerator
-    1,              //DDDFrigate
-    0,              //DefenseFighter
-    1,              //DFGFrigate
-    1,              //GravWellGenerator
-    0,              //HeavyCorvette
-    2,              //HeavyCruiser
-    0,              //HeavyDefender
-    0,              //HeavyInterceptor
-    1,              //IonCannonFrigate
-    0,              //LightCorvette
-    0,              //LightDefender
-    0,              //LightInterceptor
-    0,              //MinelayerCorvette
-    2,              //MissileDestroyer
-    4,              //Mothership
-    0,              //MultiGunCorvette
-    0,              //Probe
-    0,              //ProximitySensor
-    0,              //RepairCorvette
-    2,              //ResearchShip
-    1,              //ResourceCollector
-    2,              //ResourceController
-    0,              //SalCapCorvette
-    1,              //SensorArray
-    2,              //StandardDestroyer
-    1,              //StandardFrigate
-    0,              //Drone
-    0,              //TargetDrone
-    4,              //HeadShotAsteroid
-    4,              //CryoTray
-    0,              //P1Fighter
-    1,              //P1IonArrayFrigate
-    0,              //P1MissileCorvette
-    4,              //P1Mothership
-    0,              //P1StandardCorvette
-    0,              //P2AdvanceSwarmer
-    1,              //P2FuelPod
-    4,              //P2Mothership
-    1,              //P2MultiBeamFrigate
-    0,              //P2Swarmer
-    2,              //P3Destroyer
-    3,              //P3Frigate
-    4,              //P3Megaship
-    4,              //FloatingCity
-    1,              //CargoBarge
-    4,              //MiningBase
-    4,              //ResearchStation
-    1,              //JunkYardDawg
-    2,              //JunkYardHQ
-    1,              //Junk_LGun
-    0,               //Junk_SGun
-    4,               //ResearchStationBridge
-    4                //ResearchStationTower
+    0,               //sRecon
+    0,               //sAcolyte
+    0,               //sMimic
+    0,               //sLeech
+    0,               //sACV
+    0,               //sMCV
+    1,               //sRammingFrigate
+    1,               //sMultiBeamFrigate
+    1,               //sHiveFrigate
+    0,               //sSwarmer
+    2,               //sDreadnought
+    2,               //sDreadnoughtCannon
+    3,               //sCarrier
+    3,               //sCarrierSupport
+    1,               //sWorker
+    0,               //sRepairDroid
+    2,               //sProcessor
+    0,               //sSentinel
+    4,               //sMothership
+    4,               //sMothershipSpecial
+    4,               //sMothershipEngineering
+    4,               //sMothershipArmour
+    4,               //sMothershipMicro
+    4,               //sMothershipWeapons
+    4,               //sMothershipDockingBay
+    2,               //sDestroyer
+    4,               //sMothershipSupport
+    4,               //sMothershipCommand
+    4,               //sMothershipEnginesLower
+    4,               //sMothershipEnginesUpper
+    4,               //sMothershipLowerSpine
+    4,               //sMothershipBigGun
+    4,               //sMothershipOreCanArmour
+    0,               //bRecon
+    0,               //bAcolyte
+    0,               //bInterceptor
+    0,               //bCloakedFighter
+    0,               //bAttackBomber
+    0,               //bACV
+    0,               //bMultiGunCorvette
+    0,               //bHeavyCorvette
+    1,               //bMultiBeamFrigate
+    1,               //bHiveFrigate
+    0,               //bSwarmer
+    1,               //bIonArrayFrigate
+    1,               //bDFGFrigate
+    2,               //bHeavyCruiser
+    3,               //bCarrier
+    1,               //bRammingFrigate
+    1,               //bWorker
+    0,               //bRepairDroid
+    2,               //bProcessor
+    0,               //bSentinel
+    4,               //bMothership
+    4,               //bMothershipDockingBay
+    4,               //bMothershipEnginesLower
+    4,               //bSectMoship
+    4,               //bMothershipSupport
+    0,               //bCruiseMissile
+    0,               //bMissileCorvette
+    1,               //kAdvanceSupportFrigate
+    0,               //kAttackBomber
+    3,               //kCarrier
+    1,               //kCloakGenerator
+    1,               //kGravWellGenerator
+    0,               //kHeavyCorvette
+    2,               //kHeavyCruiser
+    0,               //kHeavyDefender
+    0,               //kHeavyInterceptor
+    1,               //kIonCannonFrigate
+    0,               //kMultiGunCorvette
+    0,               //kProximitySensor
+    0,               //kSalCapCorvette
+    2,               //kStandardDestroyer
+    1,               //tAdvanceSupportFrigate
+    0,               //tAttackBomber
+    3,               //tCarrier
+    1,               //tCloakGenerator
+    1,               //tDFGFrigate
+    1,               //tGravWellGenerator
+    2,               //tHeavyCruiser
+    0,               //tHeavyDefender
+    0,               //tHeavyInterceptor
+    1,               //tIonCannonFrigate
+    0,               //tMinelayerCorvette
+    2,               //tMissileDestroyer
+    0,               //tMultiGunCorvette
+    0,               //tProximitySensor
+    1,               //tResourceCollector
+    0,               //tSalCapCorvette
+    2,               //tStandardDestroyer
+    1,               //tStandardFrigate
+    4,               //p1Outpost
+    0,               //p1Fighter
+    1,               //p1IonArrayFrigate
+    0,               //p1MissileCorvette
+    4,               //p1Mothership
+    0,               //p1StandardCorvette
+    4,               //trFloatingCity
+    1,               //trCargoBarge
+    4,               //trMiningBase
+    4,               //trResearchStation
+    1,               //trJunkYardDawg
+    2,               //trJunkYardHQ
+    1,               //trGhostship
+    1,               //trJunk_LGun
+    0,               //trJunk_SGun
+    4,               //trResearchStationBridge
+    4,               //trResearchStationTower
+    4,               //dRKO
+    2,               //dBigGun
+    2,               //dBigGunUnit
+    0,               //dSlipgateSmall
+    0,               //dSlipgateMedium
+    0,               //dSlipgateLarge
+    0,               //dCrate
+    2,               //dJunk1PartA
+    2,               //dJunk1Shell
+    2,               //dJunk1Strut
+    2,               //dJunk2Shipwreck
+    2,               //dJunk3Boiler
+    2,               //dJunk3BoilerCasing
+    2,               //dMessagePod
+    0,               //dBuoy
+    0,               //dFirstPlanet
+    0,               //dDeadPlanet
+    2,               //dCrystal0
+    2,               //dCrystal1
+    4,               //dBeastDockingBay
+    0,               //dNISBuoy
+    4,               //dBeastMothership
+    4,               //dNomadMoon
+    4,               //dNomadFieldEmitter
+    0,               //dAcolyte
+    3,               //dPrisonShip
+    3,               //dPrisonShipInfected
+    3,               //dSlipgateNode
+    2,               //dKushanCarrier
+    1,               //dIonArrayFrigate
+    1,               //dIonCannonFrigate
+    3,               //dEcclesiam
+    1,               //dEcclesiamInfected
+    0,               //nisLightSource1
+    0,               //nisLightSource2
+    0                //nisLensflareSource1
 };
 
+// CAT: Cataclysm's unit-cap keys (ShipStaticCapLimits 0x008b1e58: 110 per-type rows keyed by the ship name with the
+//      race prefix kept except for Sect, "Caps<name>", plus dAcolyte, then the 12 CLASS_* rows; the MaxJobsPerClass
+//      rows are gone; read from UnitLimitCaps<n>.script)
 scriptEntry ShipStaticCapLimits[] =
 {
-    { "ShipTotalCaps",              scriptSetSdwordCB, &cdMaxShipsAllowed },
-    { "CapAdvanceSupportFrigate",   scriptSetSdwordCB, &(cdLimitCaps[0]) },
-    { "CapAttackBomber",            scriptSetSdwordCB, &cdLimitCaps[1] },
-    { "CapCarrier",                 scriptSetSdwordCB, &cdLimitCaps[2] },
-    { "CapCloakedFighter",          scriptSetSdwordCB, &cdLimitCaps[3] },
-    { "CapCloakGenerator",          scriptSetSdwordCB, &cdLimitCaps[4] },
-    { "CapDDDFrigate",              scriptSetSdwordCB, &cdLimitCaps[5] },
-    { "CapDefenseFighter",          scriptSetSdwordCB, &cdLimitCaps[6] },
-    { "CapDFGFrigate",              scriptSetSdwordCB, &cdLimitCaps[7] },
-    { "CapGravWellGenerator",       scriptSetSdwordCB, &cdLimitCaps[8] },
-    { "CapHeavyCorvette",           scriptSetSdwordCB, &cdLimitCaps[9] },
-    { "CapHeavyCruiser",            scriptSetSdwordCB, &cdLimitCaps[10] },
-    { "CapHeavyDefender",           scriptSetSdwordCB, &cdLimitCaps[11] },
-    { "CapHeavyInterceptor",        scriptSetSdwordCB, &cdLimitCaps[12] },
-    { "CapIonCannonFrigate",        scriptSetSdwordCB, &cdLimitCaps[13] },
-    { "CapLightCorvette",           scriptSetSdwordCB, &cdLimitCaps[14] },
-    { "CapLightDefender",           scriptSetSdwordCB, &cdLimitCaps[15] },
-    { "CapLightInterceptor",        scriptSetSdwordCB, &cdLimitCaps[16] },
-    { "CapMinelayerCorvette",       scriptSetSdwordCB, &cdLimitCaps[17] },
-    { "CapMissileDestroyer",        scriptSetSdwordCB, &cdLimitCaps[18] },
-    { "CapMothership",              scriptSetSdwordCB, &cdLimitCaps[19] },
-    { "CapMultiGunCorvette",        scriptSetSdwordCB, &cdLimitCaps[20] },
-    { "CapProbe",                   scriptSetSdwordCB, &cdLimitCaps[21] },
-    { "CapProximitySensor",         scriptSetSdwordCB, &cdLimitCaps[22] },
-    { "CapRepairCorvette",          scriptSetSdwordCB, &cdLimitCaps[23] },
-    { "CapResearchShip",            scriptSetSdwordCB, &cdLimitCaps[24] },
-    { "CapResourceCollector",       scriptSetSdwordCB, &cdLimitCaps[25] },
-    { "CapResourceController",      scriptSetSdwordCB, &cdLimitCaps[26] },
-    { "CapSalCapCorvette",          scriptSetSdwordCB, &cdLimitCaps[27] },
-    { "CapSensorArray",             scriptSetSdwordCB, &cdLimitCaps[28] },
-    { "CapStandardDestroyer",       scriptSetSdwordCB, &cdLimitCaps[29] },
-    { "CapStandardFrigate",         scriptSetSdwordCB, &cdLimitCaps[30] },
-    { "CapDrone",                   scriptSetSdwordCB, &cdLimitCaps[31] },
-    { "CapTargetDrone",             scriptSetSdwordCB, &cdLimitCaps[32] },
-    { "CapHeadShotAsteroid",        scriptSetSdwordCB, &cdLimitCaps[33] },
-    { "CapCryoTray",                scriptSetSdwordCB, &cdLimitCaps[34] },
-    { "CapP1Fighter",               scriptSetSdwordCB, &cdLimitCaps[35] },
-    { "CapP1IonArrayFrigate",       scriptSetSdwordCB, &cdLimitCaps[36] },
-    { "CapP1MissileCorvette",       scriptSetSdwordCB, &cdLimitCaps[37] },
-    { "CapP1Mothership",            scriptSetSdwordCB, &cdLimitCaps[38] },
-    { "CapP1StandardCorvette",      scriptSetSdwordCB, &cdLimitCaps[39] },
-    { "CapP2AdvanceSwarmer",        scriptSetSdwordCB, &cdLimitCaps[40] },
-    { "CapP2FuelPod",               scriptSetSdwordCB, &cdLimitCaps[41] },
-    { "CapP2Mothership",            scriptSetSdwordCB, &cdLimitCaps[42] },
-    { "CapP2MultiBeamFrigate",      scriptSetSdwordCB, &cdLimitCaps[43] },
-    { "CapP2Swarmer",               scriptSetSdwordCB, &cdLimitCaps[44] },
-    { "CapP3Destroyer",             scriptSetSdwordCB, &cdLimitCaps[45] },
-    { "CapP3Frigate",               scriptSetSdwordCB, &cdLimitCaps[46] },
-    { "CapP3Megaship",              scriptSetSdwordCB, &cdLimitCaps[47] },
-    { "CapFloatingCity",            scriptSetSdwordCB, &cdLimitCaps[48] },
-    { "CapCargoBarge",              scriptSetSdwordCB, &cdLimitCaps[49] },
-    { "CapMiningBase",              scriptSetSdwordCB, &cdLimitCaps[50] },
-    { "CapResearchStation",         scriptSetSdwordCB, &cdLimitCaps[51] },
-    { "CapJunkYardDawg",            scriptSetSdwordCB, &cdLimitCaps[52] },
-    { "CapJunkYardHQ",              scriptSetSdwordCB, &cdLimitCaps[53] },
-    { "CapGhostShip",               scriptSetSdwordCB, &cdLimitCaps[54] },
-    { "CapJunk_LGun",               scriptSetSdwordCB, &cdLimitCaps[55] },
-    { "CapJunk_SGun",               scriptSetSdwordCB, &cdLimitCaps[56] },
-    { "CapResearchStationBridge",               scriptSetSdwordCB, &cdLimitCaps[57] },
-    { "CapResearchStationTower",               scriptSetSdwordCB, &cdLimitCaps[58] },
-    { "CapCLASS_Mothership",        scriptSetSdwordCB, &cdClassCaps[0]  },
-    { "CapCLASS_HeavyCruiser",      scriptSetSdwordCB, &cdClassCaps[1]  },
-    { "CapCLASS_Carrier",           scriptSetSdwordCB, &cdClassCaps[2]  },
-    { "CapCLASS_Destroyer",         scriptSetSdwordCB, &cdClassCaps[3]  },
-    { "CapCLASS_Frigate",           scriptSetSdwordCB, &cdClassCaps[4]  },
-    { "CapCLASS_Corvette",          scriptSetSdwordCB, &cdClassCaps[5]  },
-    { "CapCLASS_Fighter",           scriptSetSdwordCB, &cdClassCaps[6]  },
-    { "CapCLASS_Resource",          scriptSetSdwordCB, &cdClassCaps[7]  },
-    { "CapCLASS_NonCombat",         scriptSetSdwordCB, &cdClassCaps[8]  },
+    { "ShipTotalCaps",                   scriptSetSdwordCB, &cdMaxShipsAllowed },
+    { "CapsRecon",                       scriptSetSdwordCB, &cdLimitCaps[sRecon] },
+    { "CapsAcolyte",                     scriptSetSdwordCB, &cdLimitCaps[sAcolyte] },
+    { "CapsMimic",                       scriptSetSdwordCB, &cdLimitCaps[sMimic] },
+    { "CapsLeech",                       scriptSetSdwordCB, &cdLimitCaps[sLeech] },
+    { "CapsACV",                         scriptSetSdwordCB, &cdLimitCaps[sACV] },
+    { "CapsMCV",                         scriptSetSdwordCB, &cdLimitCaps[sMCV] },
+    { "CapsRammingFrigate",              scriptSetSdwordCB, &cdLimitCaps[sRammingFrigate] },
+    { "CapsMultiBeamFrigate",            scriptSetSdwordCB, &cdLimitCaps[sMultiBeamFrigate] },
+    { "CapsHiveFrigate",                 scriptSetSdwordCB, &cdLimitCaps[sHiveFrigate] },
+    { "CapsSwarmer",                     scriptSetSdwordCB, &cdLimitCaps[sSwarmer] },
+    { "CapsDreadnought",                 scriptSetSdwordCB, &cdLimitCaps[sDreadnought] },
+    { "CapsDreadnoughtCannon",           scriptSetSdwordCB, &cdLimitCaps[sDreadnoughtCannon] },
+    { "CapsCarrier",                     scriptSetSdwordCB, &cdLimitCaps[sCarrier] },
+    { "CapsCarrierSupport",              scriptSetSdwordCB, &cdLimitCaps[sCarrierSupport] },
+    { "CapsWorker",                      scriptSetSdwordCB, &cdLimitCaps[sWorker] },
+    { "CapsRepairDroid",                 scriptSetSdwordCB, &cdLimitCaps[sRepairDroid] },
+    { "CapsProcessor",                   scriptSetSdwordCB, &cdLimitCaps[sProcessor] },
+    { "CapsSentinel",                    scriptSetSdwordCB, &cdLimitCaps[sSentinel] },
+    { "CapsMothership",                  scriptSetSdwordCB, &cdLimitCaps[sMothership] },
+    { "CapsMothershipSpecial",           scriptSetSdwordCB, &cdLimitCaps[sMothershipSpecial] },
+    { "CapsMothershipEngineering",       scriptSetSdwordCB, &cdLimitCaps[sMothershipEngineering] },
+    { "CapsMothershipArmour",            scriptSetSdwordCB, &cdLimitCaps[sMothershipArmour] },
+    { "CapsMothershipMicro",             scriptSetSdwordCB, &cdLimitCaps[sMothershipMicro] },
+    { "CapsMothershipWeapons",           scriptSetSdwordCB, &cdLimitCaps[sMothershipWeapons] },
+    { "CapsMothershipDockingBay",        scriptSetSdwordCB, &cdLimitCaps[sMothershipDockingBay] },
+    { "CapsDestroyer",                   scriptSetSdwordCB, &cdLimitCaps[sDestroyer] },
+    { "CapsMothershipSupport",           scriptSetSdwordCB, &cdLimitCaps[sMothershipSupport] },
+    { "CapsMothershipCommand",           scriptSetSdwordCB, &cdLimitCaps[sMothershipCommand] },
+    { "CapsMothershipEnginesLower",      scriptSetSdwordCB, &cdLimitCaps[sMothershipEnginesLower] },
+    { "CapsMothershipEnginesUpper",      scriptSetSdwordCB, &cdLimitCaps[sMothershipEnginesUpper] },
+    { "CapsMothershipLowerSpine",        scriptSetSdwordCB, &cdLimitCaps[sMothershipLowerSpine] },
+    { "CapsMothershipBigGun",            scriptSetSdwordCB, &cdLimitCaps[sMothershipBigGun] },
+    { "CapsMothershipOreCanArmour",      scriptSetSdwordCB, &cdLimitCaps[sMothershipOreCanArmour] },
+    { "CapbRecon",                       scriptSetSdwordCB, &cdLimitCaps[bRecon] },
+    { "CapbAcolyte",                     scriptSetSdwordCB, &cdLimitCaps[bAcolyte] },
+    { "CapbInterceptor",                 scriptSetSdwordCB, &cdLimitCaps[bInterceptor] },
+    { "CapbCloakedFighter",              scriptSetSdwordCB, &cdLimitCaps[bCloakedFighter] },
+    { "CapbAttackBomber",                scriptSetSdwordCB, &cdLimitCaps[bAttackBomber] },
+    { "CapbACV",                         scriptSetSdwordCB, &cdLimitCaps[bACV] },
+    { "CapbMultiGunCorvette",            scriptSetSdwordCB, &cdLimitCaps[bMultiGunCorvette] },
+    { "CapbHeavyCorvette",               scriptSetSdwordCB, &cdLimitCaps[bHeavyCorvette] },
+    { "CapbMultiBeamFrigate",            scriptSetSdwordCB, &cdLimitCaps[bMultiBeamFrigate] },
+    { "CapbHiveFrigate",                 scriptSetSdwordCB, &cdLimitCaps[bHiveFrigate] },
+    { "CapbSwarmer",                     scriptSetSdwordCB, &cdLimitCaps[bSwarmer] },
+    { "CapbIonArrayFrigate",             scriptSetSdwordCB, &cdLimitCaps[bIonArrayFrigate] },
+    { "CapbDFGFrigate",                  scriptSetSdwordCB, &cdLimitCaps[bDFGFrigate] },
+    { "CapbHeavyCruiser",                scriptSetSdwordCB, &cdLimitCaps[bHeavyCruiser] },
+    { "CapbCarrier",                     scriptSetSdwordCB, &cdLimitCaps[bCarrier] },
+    { "CapbRammingFrigate",              scriptSetSdwordCB, &cdLimitCaps[bRammingFrigate] },
+    { "CapbWorker",                      scriptSetSdwordCB, &cdLimitCaps[bWorker] },
+    { "CapbRepairDroid",                 scriptSetSdwordCB, &cdLimitCaps[bRepairDroid] },
+    { "CapbProcessor",                   scriptSetSdwordCB, &cdLimitCaps[bProcessor] },
+    { "CapbSentinel",                    scriptSetSdwordCB, &cdLimitCaps[bSentinel] },
+    { "CapbMothership",                  scriptSetSdwordCB, &cdLimitCaps[bMothership] },
+    { "CapbMothershipDockingBay",        scriptSetSdwordCB, &cdLimitCaps[bMothershipDockingBay] },
+    { "CapbMothershipEnginesLower",      scriptSetSdwordCB, &cdLimitCaps[bMothershipEnginesLower] },
+    { "CapbSectMoship",                  scriptSetSdwordCB, &cdLimitCaps[bSectMoship] },
+    { "CapbMothershipSupport",           scriptSetSdwordCB, &cdLimitCaps[bMothershipSupport] },
+    { "CapbCruiseMissile",               scriptSetSdwordCB, &cdLimitCaps[bCruiseMissile] },
+    { "CapbMissileCorvette",             scriptSetSdwordCB, &cdLimitCaps[bMissileCorvette] },
+    { "CapkAdvanceSupportFrigate",       scriptSetSdwordCB, &cdLimitCaps[kAdvanceSupportFrigate] },
+    { "CapkAttackBomber",                scriptSetSdwordCB, &cdLimitCaps[kAttackBomber] },
+    { "CapkCarrier",                     scriptSetSdwordCB, &cdLimitCaps[kCarrier] },
+    { "CapkCloakGenerator",              scriptSetSdwordCB, &cdLimitCaps[kCloakGenerator] },
+    { "CapkGravWellGenerator",           scriptSetSdwordCB, &cdLimitCaps[kGravWellGenerator] },
+    { "CapkHeavyCorvette",               scriptSetSdwordCB, &cdLimitCaps[kHeavyCorvette] },
+    { "CapkHeavyCruiser",                scriptSetSdwordCB, &cdLimitCaps[kHeavyCruiser] },
+    { "CapkHeavyDefender",               scriptSetSdwordCB, &cdLimitCaps[kHeavyDefender] },
+    { "CapkHeavyInterceptor",            scriptSetSdwordCB, &cdLimitCaps[kHeavyInterceptor] },
+    { "CapkIonCannonFrigate",            scriptSetSdwordCB, &cdLimitCaps[kIonCannonFrigate] },
+    { "CapkMultiGunCorvette",            scriptSetSdwordCB, &cdLimitCaps[kMultiGunCorvette] },
+    { "CapkProximitySensor",             scriptSetSdwordCB, &cdLimitCaps[kProximitySensor] },
+    { "CapkSalCapCorvette",              scriptSetSdwordCB, &cdLimitCaps[kSalCapCorvette] },
+    { "CapkStandardDestroyer",           scriptSetSdwordCB, &cdLimitCaps[kStandardDestroyer] },
+    { "CaptAdvanceSupportFrigate",       scriptSetSdwordCB, &cdLimitCaps[tAdvanceSupportFrigate] },
+    { "CaptAttackBomber",                scriptSetSdwordCB, &cdLimitCaps[tAttackBomber] },
+    { "CaptCarrier",                     scriptSetSdwordCB, &cdLimitCaps[tCarrier] },
+    { "CaptCloakGenerator",              scriptSetSdwordCB, &cdLimitCaps[tCloakGenerator] },
+    { "CaptDFGFrigate",                  scriptSetSdwordCB, &cdLimitCaps[tDFGFrigate] },
+    { "CaptGravWellGenerator",           scriptSetSdwordCB, &cdLimitCaps[tGravWellGenerator] },
+    { "CaptHeavyCruiser",                scriptSetSdwordCB, &cdLimitCaps[tHeavyCruiser] },
+    { "CaptHeavyDefender",               scriptSetSdwordCB, &cdLimitCaps[tHeavyDefender] },
+    { "CaptHeavyInterceptor",            scriptSetSdwordCB, &cdLimitCaps[tHeavyInterceptor] },
+    { "CaptIonCannonFrigate",            scriptSetSdwordCB, &cdLimitCaps[tIonCannonFrigate] },
+    { "CaptMinelayerCorvette",           scriptSetSdwordCB, &cdLimitCaps[tMinelayerCorvette] },
+    { "CaptMissileDestroyer",            scriptSetSdwordCB, &cdLimitCaps[tMissileDestroyer] },
+    { "CaptMultiGunCorvette",            scriptSetSdwordCB, &cdLimitCaps[tMultiGunCorvette] },
+    { "CaptProximitySensor",             scriptSetSdwordCB, &cdLimitCaps[tProximitySensor] },
+    { "CaptResourceCollector",           scriptSetSdwordCB, &cdLimitCaps[tResourceCollector] },
+    { "CaptSalCapCorvette",              scriptSetSdwordCB, &cdLimitCaps[tSalCapCorvette] },
+    { "CaptStandardDestroyer",           scriptSetSdwordCB, &cdLimitCaps[tStandardDestroyer] },
+    { "CaptStandardFrigate",             scriptSetSdwordCB, &cdLimitCaps[tStandardFrigate] },
+    { "Capp1Outpost",                    scriptSetSdwordCB, &cdLimitCaps[p1Outpost] },
+    { "Capp1Fighter",                    scriptSetSdwordCB, &cdLimitCaps[p1Fighter] },
+    { "Capp1IonArrayFrigate",            scriptSetSdwordCB, &cdLimitCaps[p1IonArrayFrigate] },
+    { "Capp1MissileCorvette",            scriptSetSdwordCB, &cdLimitCaps[p1MissileCorvette] },
+    { "Capp1Mothership",                 scriptSetSdwordCB, &cdLimitCaps[p1Mothership] },
+    { "Capp1StandardCorvette",           scriptSetSdwordCB, &cdLimitCaps[p1StandardCorvette] },
+    { "CaptrFloatingCity",               scriptSetSdwordCB, &cdLimitCaps[trFloatingCity] },
+    { "CaptrCargoBarge",                 scriptSetSdwordCB, &cdLimitCaps[trCargoBarge] },
+    { "CaptrMiningBase",                 scriptSetSdwordCB, &cdLimitCaps[trMiningBase] },
+    { "CaptrResearchStation",            scriptSetSdwordCB, &cdLimitCaps[trResearchStation] },
+    { "CaptrJunkYardDawg",               scriptSetSdwordCB, &cdLimitCaps[trJunkYardDawg] },
+    { "CaptrJunkYardHQ",                 scriptSetSdwordCB, &cdLimitCaps[trJunkYardHQ] },
+    { "CaptrGhostShip",                  scriptSetSdwordCB, &cdLimitCaps[trGhostship] },
+    { "CaptrJunk_LGun",                  scriptSetSdwordCB, &cdLimitCaps[trJunk_LGun] },
+    { "CaptrJunk_SGun",                  scriptSetSdwordCB, &cdLimitCaps[trJunk_SGun] },
+    { "CaptrResearchStationBridge",      scriptSetSdwordCB, &cdLimitCaps[trResearchStationBridge] },
+    { "CaptrResearchStationTower",       scriptSetSdwordCB, &cdLimitCaps[trResearchStationTower] },
+    { "CapdAcolyte",                     scriptSetSdwordCB, &cdLimitCaps[dAcolyte] },
+    { "CapCLASS_Mothership",             scriptSetSdwordCB, &cdClassCaps[CLASS_Mothership] },
+    { "CapCLASS_HeavyCruiser",           scriptSetSdwordCB, &cdClassCaps[CLASS_HeavyCruiser] },
+    { "CapCLASS_Carrier",                scriptSetSdwordCB, &cdClassCaps[CLASS_Carrier] },
+    { "CapCLASS_Destroyer",              scriptSetSdwordCB, &cdClassCaps[CLASS_Destroyer] },
+    { "CapCLASS_Frigate",                scriptSetSdwordCB, &cdClassCaps[CLASS_Frigate] },
+    { "CapCLASS_Corvette",               scriptSetSdwordCB, &cdClassCaps[CLASS_Corvette] },
+    { "CapCLASS_Fighter",                scriptSetSdwordCB, &cdClassCaps[CLASS_Fighter] },
+    { "CapCLASS_Resource",               scriptSetSdwordCB, &cdClassCaps[CLASS_Resource] },
+    { "CapCLASS_NonCombat",              scriptSetSdwordCB, &cdClassCaps[CLASS_NonCombat] },
+    { "CapCLASS_MonsterShip",            scriptSetSdwordCB, &cdClassCaps[CLASS_MonsterShip] },
+    { "CapCLASS_Component",              scriptSetSdwordCB, &cdClassCaps[CLASS_Component] },
+    { "CapCLASS_Micro",                  scriptSetSdwordCB, &cdClassCaps[CLASS_Micro] },
 
-    { "MaxJobsPerClass[Mothership]",    scriptSetSdwordCB, &cmMaxJobsPerClass[CLASS_Mothership]  },
-    { "MaxJobsPerClass[HeavyCruiser]",  scriptSetSdwordCB, &cmMaxJobsPerClass[CLASS_HeavyCruiser]},
-    { "MaxJobsPerClass[Carrier]",       scriptSetSdwordCB, &cmMaxJobsPerClass[CLASS_Carrier]},
-    { "MaxJobsPerClass[Destroyer]",     scriptSetSdwordCB, &cmMaxJobsPerClass[CLASS_Destroyer]},
-    { "MaxJobsPerClass[Frigate]",       scriptSetSdwordCB, &cmMaxJobsPerClass[CLASS_Frigate]},
-    { "MaxJobsPerClass[Corvette]",      scriptSetSdwordCB, &cmMaxJobsPerClass[CLASS_Corvette]},
-    { "MaxJobsPerClass[Fighter]",       scriptSetSdwordCB, &cmMaxJobsPerClass[CLASS_Fighter]},
-    { "MaxJobsPerClass[Resource]",      scriptSetSdwordCB, &cmMaxJobsPerClass[CLASS_Resource]},
-    { "MaxJobsPerClass[NonCombat]",     scriptSetSdwordCB, &cmMaxJobsPerClass[CLASS_NonCombat]},
-    
     END_SCRIPT_ENTRY
 };
 
 scriptStructEntry ShipStaticScriptTable[] =
 {
-    { "LODFile",        LODScriptLoad,       &(ShipStaticInfoR1[0].common.LOD),  &(ShipStaticInfoR1[0]) },
-    { "pMexData",       loadMexDataCB,       &(ShipStaticInfoR1[0].common.pMexData),  &(ShipStaticInfoR1[0]) },
-    { "mass",           scriptSetReal32CB,   &(ShipStaticInfoR1[0].common.mass),       &(ShipStaticInfoR1[0]) },
-    { "momentOfInertiaX",scriptSetReal32CB,  &(ShipStaticInfoR1[0].common.momentOfInertiaX),  &(ShipStaticInfoR1[0]) },
-    { "momentOfInertiaY",scriptSetReal32CB,  &(ShipStaticInfoR1[0].common.momentOfInertiaY),  &(ShipStaticInfoR1[0]) },
-    { "momentOfInertiaZ",scriptSetReal32CB,  &(ShipStaticInfoR1[0].common.momentOfInertiaZ),  &(ShipStaticInfoR1[0]) },
+    { "LODFile",        LODScriptLoad,       &(ShipStaticInfos[0].common.LOD),  &(ShipStaticInfos[0]) },
+    { "pMexData",       loadMexDataCB,       &(ShipStaticInfos[0].common.pMexData),  &(ShipStaticInfos[0]) },
+    { "mass",           scriptSetReal32CB,   &(ShipStaticInfos[0].common.mass),       &(ShipStaticInfos[0]) },
+    { "momentOfInertiaX",scriptSetReal32CB,  &(ShipStaticInfos[0].common.momentOfInertiaX),  &(ShipStaticInfos[0]) },
+    { "momentOfInertiaY",scriptSetReal32CB,  &(ShipStaticInfos[0].common.momentOfInertiaY),  &(ShipStaticInfos[0]) },
+    { "momentOfInertiaZ",scriptSetReal32CB,  &(ShipStaticInfos[0].common.momentOfInertiaZ),  &(ShipStaticInfos[0]) },
 
-    { "collBoxScaleRight",scriptSetReal32CB,  &(ShipStaticInfoR1[0].common.staticCollInfo.collBoxScaleRight),  &(ShipStaticInfoR1[0]) },
-    { "collBoxScaleUp",scriptSetReal32CB,  &(ShipStaticInfoR1[0].common.staticCollInfo.collBoxScaleUp),  &(ShipStaticInfoR1[0]) },
-    { "collBoxScaleForward",scriptSetReal32CB,  &(ShipStaticInfoR1[0].common.staticCollInfo.collBoxScaleForward),  &(ShipStaticInfoR1[0]) },
-    { "collBoxOffsetX",scriptSetReal32CB,  &(ShipStaticInfoR1[0].common.staticCollInfo.collBoxOffsetX),  &(ShipStaticInfoR1[0]) },
-    { "collBoxOffsetY",scriptSetReal32CB,  &(ShipStaticInfoR1[0].common.staticCollInfo.collBoxOffsetY),  &(ShipStaticInfoR1[0]) },
-    { "collBoxOffsetZ",scriptSetReal32CB,  &(ShipStaticInfoR1[0].common.staticCollInfo.collBoxOffsetZ),  &(ShipStaticInfoR1[0]) },
+    { "collBoxScaleRight",scriptSetReal32CB,  &(ShipStaticInfos[0].common.staticCollInfo.collBoxScaleRight),  &(ShipStaticInfos[0]) },
+    { "collBoxScaleUp",scriptSetReal32CB,  &(ShipStaticInfos[0].common.staticCollInfo.collBoxScaleUp),  &(ShipStaticInfos[0]) },
+    { "collBoxScaleForward",scriptSetReal32CB,  &(ShipStaticInfos[0].common.staticCollInfo.collBoxScaleForward),  &(ShipStaticInfos[0]) },
+    { "collBoxOffsetX",scriptSetReal32CB,  &(ShipStaticInfos[0].common.staticCollInfo.collBoxOffsetX),  &(ShipStaticInfos[0]) },
+    { "collBoxOffsetY",scriptSetReal32CB,  &(ShipStaticInfos[0].common.staticCollInfo.collBoxOffsetY),  &(ShipStaticInfos[0]) },
+    { "collBoxOffsetZ",scriptSetReal32CB,  &(ShipStaticInfos[0].common.staticCollInfo.collBoxOffsetZ),  &(ShipStaticInfos[0]) },
 
-    { "immobile",        scriptSetBool8,     &(ShipStaticInfoR1[0].common.immobile),  &(ShipStaticInfoR1[0]) },
-    { "rightOfWay",      scriptSetSbyteCB,   &(ShipStaticInfoR1[0].common.rightOfWay),  &(ShipStaticInfoR1[0]) },
-    { "collspheresize", scriptSetReal32CB,   &(ShipStaticInfoR1[0].common.staticCollInfo.collspheresize),   &(ShipStaticInfoR1[0]) },
-    { "approxcollmodifier", scriptSetReal32CB,   &(ShipStaticInfoR1[0].common.staticCollInfo.approxcollmodifier),   &(ShipStaticInfoR1[0]) },
-    { "avoidcollmodifier", scriptSetReal32CB,   &(ShipStaticInfoR1[0].common.staticCollInfo.avoidcollmodifier),   &(ShipStaticInfoR1[0]) },
-    { "maxvelocity",    scriptSetReal32CB,   &(ShipStaticInfoR1[0].common.maxvelocity),   &(ShipStaticInfoR1[0]) },
-    { "maxrot",         scriptSetReal32CB,   &(ShipStaticInfoR1[0].common.maxrot),   &(ShipStaticInfoR1[0]) },
-    { "bulletRange[0]", scriptSetReal32CB,  &(ShipStaticInfoR1[0].bulletRange[0]),   &(ShipStaticInfoR1[0]) },
-    { "bulletRange[1]", scriptSetReal32CB,  &(ShipStaticInfoR1[0].bulletRange[1]),   &(ShipStaticInfoR1[0]) },
-    { "bulletRange[2]", scriptSetReal32CB,  &(ShipStaticInfoR1[0].bulletRange[2]),   &(ShipStaticInfoR1[0]) },
-    { "minBulletRange[0]", scriptSetReal32CB,  &(ShipStaticInfoR1[0].minBulletRange[0]),   &(ShipStaticInfoR1[0]) },
-    { "minBulletRange[1]", scriptSetReal32CB,  &(ShipStaticInfoR1[0].minBulletRange[1]),   &(ShipStaticInfoR1[0]) },
-    { "minBulletRange[2]", scriptSetReal32CB,  &(ShipStaticInfoR1[0].minBulletRange[2]),   &(ShipStaticInfoR1[0]) },
-    { "blastRadiusShockWave", scriptSetReal32CB,  &(ShipStaticInfoR1[0].blastRadiusShockWave),   &(ShipStaticInfoR1[0]) },
-    { "blastRadiusDamage", scriptSetReal32CB,  &(ShipStaticInfoR1[0].blastRadiusDamage),   &(ShipStaticInfoR1[0]) },
-    { "passiveRetaliateZone", scriptSetReal32CB,  &(ShipStaticInfoR1[0].passiveRetaliateZone),   &(ShipStaticInfoR1[0]) },
-    { "shipclass",      setClassCB,          &(ShipStaticInfoR1[0].shipclass),  &(ShipStaticInfoR1[0]) },
-    { "rotateToRetaliate",scriptSetBool8,      &(ShipStaticInfoR1[0].rotateToRetaliate),  &(ShipStaticInfoR1[0]) },
-    { "canTargetMultipleTargets",scriptSetBool8, &(ShipStaticInfoR1[0].canTargetMultipleTargets),  &(ShipStaticInfoR1[0]) },
-    { "canBuildShips",  scriptSetBool8,      &(ShipStaticInfoR1[0].canBuildShips),  &(ShipStaticInfoR1[0]) },
-    { "canReceiveShips",scriptSetBool8,      &(ShipStaticInfoR1[0].canReceiveShips),  &(ShipStaticInfoR1[0]) },
-    { "canReceiveResources",scriptSetBool8,  &(ShipStaticInfoR1[0].canReceiveResources),  &(ShipStaticInfoR1[0]) },
-    { "canReceiveShipsPermanently",scriptSetBool8,  &(ShipStaticInfoR1[0].canReceiveShipsPermanently),  &(ShipStaticInfoR1[0]) },
-    { "canReceiveShipsForRetire",scriptSetBool8,  &(ShipStaticInfoR1[0].canReceiveShipsForRetire),  &(ShipStaticInfoR1[0]) },
-    { "canBuildBigShips",scriptSetBool8,      &(ShipStaticInfoR1[0].canBuildBigShips),  &(ShipStaticInfoR1[0]) },
-    { "canReceiveFighters",scriptSetBool8,      &(ShipStaticInfoR1[0].canReceiveTheseShips[THISSHIPIS_FIGHTER]),  &(ShipStaticInfoR1[0]) },
-    { "canReceiveCorvettes",scriptSetBool8,      &(ShipStaticInfoR1[0].canReceiveTheseShips[THISSHIPIS_CORVETTE]),  &(ShipStaticInfoR1[0]) },
-    { "canReceiveResourceCollectors",scriptSetBool8,      &(ShipStaticInfoR1[0].canReceiveTheseShips[THISSHIPIS_RESOURCER]),  &(ShipStaticInfoR1[0]) },
-    { "canReceiveOtherNonCapitalShips",scriptSetBool8,      &(ShipStaticInfoR1[0].canReceiveTheseShips[THISSHIPIS_OTHERNONCAPITALSHIP]),  &(ShipStaticInfoR1[0]) },
-    { "canHandleNumShipsDocking",scriptSetSdwordCB,   &(ShipStaticInfoR1[0].canHandleNumShipsDocking),  &(ShipStaticInfoR1[0]) },
-    { "canHandleNumShipsDepositingRU",scriptSetSdwordCB,   &(ShipStaticInfoR1[0].canHandleNumShipsDepositingRU),  &(ShipStaticInfoR1[0]) },
-    { "svManeuverability",scriptSetSdwordCB,   &(ShipStaticInfoR1[0].svManeuverability),  &(ShipStaticInfoR1[0]) },
-    { "svCoverage",scriptSetSdwordCB,   &(ShipStaticInfoR1[0].svCoverage),  &(ShipStaticInfoR1[0]) },
-    { "svFirePower",scriptSetSdwordCB,   &(ShipStaticInfoR1[0].svFirePower),  &(ShipStaticInfoR1[0]) },
+    { "immobile",        scriptSetBool8,     &(ShipStaticInfos[0].common.immobile),  &(ShipStaticInfos[0]) },
+    { "rightOfWay",      scriptSetSbyteCB,   &(ShipStaticInfos[0].common.rightOfWay),  &(ShipStaticInfos[0]) },
+    { "collspheresize", scriptSetReal32CB,   &(ShipStaticInfos[0].common.staticCollInfo.collspheresize),   &(ShipStaticInfos[0]) },
+    { "approxcollmodifier", scriptSetReal32CB,   &(ShipStaticInfos[0].common.staticCollInfo.approxcollmodifier),   &(ShipStaticInfos[0]) },
+    { "avoidcollmodifier", scriptSetReal32CB,   &(ShipStaticInfos[0].common.staticCollInfo.avoidcollmodifier),   &(ShipStaticInfos[0]) },
+    { "maxvelocity",    scriptSetReal32CB,   &(ShipStaticInfos[0].common.maxvelocity),   &(ShipStaticInfos[0]) },
+    { "maxrot",         scriptSetReal32CB,   &(ShipStaticInfos[0].common.maxrot),   &(ShipStaticInfos[0]) },
+    { "bulletRange[0]", scriptSetReal32CB,  &(ShipStaticInfos[0].bulletRange[0]),   &(ShipStaticInfos[0]) },
+    { "bulletRange[1]", scriptSetReal32CB,  &(ShipStaticInfos[0].bulletRange[1]),   &(ShipStaticInfos[0]) },
+    { "bulletRange[2]", scriptSetReal32CB,  &(ShipStaticInfos[0].bulletRange[2]),   &(ShipStaticInfos[0]) },
+    { "minBulletRange[0]", scriptSetReal32CB,  &(ShipStaticInfos[0].minBulletRange[0]),   &(ShipStaticInfos[0]) },
+    { "minBulletRange[1]", scriptSetReal32CB,  &(ShipStaticInfos[0].minBulletRange[1]),   &(ShipStaticInfos[0]) },
+    { "minBulletRange[2]", scriptSetReal32CB,  &(ShipStaticInfos[0].minBulletRange[2]),   &(ShipStaticInfos[0]) },
+    { "blastRadiusShockWave", scriptSetReal32CB,  &(ShipStaticInfos[0].blastRadiusShockWave),   &(ShipStaticInfos[0]) },
+    { "blastRadiusDamage", scriptSetReal32CB,  &(ShipStaticInfos[0].blastRadiusDamage),   &(ShipStaticInfos[0]) },
+    { "passiveRetaliateZone", scriptSetReal32CB,  &(ShipStaticInfos[0].passiveRetaliateZone),   &(ShipStaticInfos[0]) },
+    { "shipclass",      setClassCB,          &(ShipStaticInfos[0].shipclass),  &(ShipStaticInfos[0]) },
+    { "rotateToRetaliate",scriptSetBool8,      &(ShipStaticInfos[0].rotateToRetaliate),  &(ShipStaticInfos[0]) },
+    { "canTargetMultipleTargets",scriptSetBool8, &(ShipStaticInfos[0].canTargetMultipleTargets),  &(ShipStaticInfos[0]) },
+    { "canBuildShips",  scriptSetBool8,      &(ShipStaticInfos[0].canBuildShips),  &(ShipStaticInfos[0]) },
+    { "canReceiveShips",scriptSetBool8,      &(ShipStaticInfos[0].canReceiveShips),  &(ShipStaticInfos[0]) },
+    { "canReceiveResources",scriptSetBool8,  &(ShipStaticInfos[0].canReceiveResources),  &(ShipStaticInfos[0]) },
+    { "canReceiveShipsPermanently",scriptSetBool8,  &(ShipStaticInfos[0].canReceiveShipsPermanently),  &(ShipStaticInfos[0]) },
+    { "canReceiveShipsForRetire",scriptSetBool8,  &(ShipStaticInfos[0].canReceiveShipsForRetire),  &(ShipStaticInfos[0]) },
+    { "canBuildBigShips",scriptSetBool8,      &(ShipStaticInfos[0].canBuildBigShips),  &(ShipStaticInfos[0]) },
+    { "canReceiveFighters",scriptSetBool8,      &(ShipStaticInfos[0].canReceiveTheseShips[THISSHIPIS_FIGHTER]),  &(ShipStaticInfos[0]) },
+    { "canReceiveCorvettes",scriptSetBool8,      &(ShipStaticInfos[0].canReceiveTheseShips[THISSHIPIS_CORVETTE]),  &(ShipStaticInfos[0]) },
+    { "canReceiveResourceCollectors",scriptSetBool8,      &(ShipStaticInfos[0].canReceiveTheseShips[THISSHIPIS_RESOURCER]),  &(ShipStaticInfos[0]) },
+    { "canReceiveOtherNonCapitalShips",scriptSetBool8,      &(ShipStaticInfos[0].canReceiveTheseShips[THISSHIPIS_OTHERNONCAPITALSHIP]),  &(ShipStaticInfos[0]) },
+    { "canHandleNumShipsDocking",scriptSetSdwordCB,   &(ShipStaticInfos[0].canHandleNumShipsDocking),  &(ShipStaticInfos[0]) },
+    { "canHandleNumShipsDepositingRU",scriptSetSdwordCB,   &(ShipStaticInfos[0].canHandleNumShipsDepositingRU),  &(ShipStaticInfos[0]) },
+    { "svManeuverability",scriptSetSdwordCB,   &(ShipStaticInfos[0].svManeuverability),  &(ShipStaticInfos[0]) },
+    { "svCoverage",scriptSetSdwordCB,   &(ShipStaticInfos[0].svCoverage),  &(ShipStaticInfos[0]) },
+    { "svFirePower",scriptSetSdwordCB,   &(ShipStaticInfos[0].svFirePower),  &(ShipStaticInfos[0]) },
 
-    { "maxDockableFighters" ,scriptSetSwordCB,  &(ShipStaticInfoR1[0].maxDockableFighters), &(ShipStaticInfoR1[0])},
-    { "maxDockableCorvettes",scriptSetSwordCB,  &(ShipStaticInfoR1[0].maxDockableCorvettes), &(ShipStaticInfoR1[0])},
-    { "specialActivateIsContinuous",scriptSetBool8,      &(ShipStaticInfoR1[0].specialActivateIsContinuous),  &(ShipStaticInfoR1[0]) },
-    { "canSpecialBandBoxFriendlies",scriptSetBool8,      &(ShipStaticInfoR1[0].canSpecialBandBoxFriendlies),  &(ShipStaticInfoR1[0]) },
-    { "canSingleClickSpecialActivate",scriptSetBool8,      &(ShipStaticInfoR1[0].canSingleClickSpecialActivate),  &(ShipStaticInfoR1[0]) },
-    { "buildCost",      scriptSetSdwordCB,   &(ShipStaticInfoR1[0].buildCost),  &(ShipStaticInfoR1[0]) },
-    { "buildTime",      scriptSetFramesCB,   &(ShipStaticInfoR1[0].buildTime),  &(ShipStaticInfoR1[0]) },
-    { "resourcesAtOneTime",   scriptSetSdwordCB,   &(ShipStaticInfoR1[0].resourcesAtOneTime),  &(ShipStaticInfoR1[0]) },
-    { "maxresources",   scriptSetSdwordCB,   &(ShipStaticInfoR1[0].maxresources),  &(ShipStaticInfoR1[0]) },
-    { "harvestAmount",  scriptSetSdwordCB,   &(ShipStaticInfoR1[0].harvestAmount),  &(ShipStaticInfoR1[0]) },
-    { "harvestRate",    scriptSetSdwordCB,   &(ShipStaticInfoR1[0].harvestRate),  &(ShipStaticInfoR1[0]) },
-    { "maxhealth",      scriptSetReal32CB,   &(ShipStaticInfoR1[0].health.maxhealth),  &(ShipStaticInfoR1[0]) },
-    { "minCollDamage",      scriptSetReal32CB,   &(ShipStaticInfoR1[0].health.minCollDamage),  &(ShipStaticInfoR1[0]) },
-    { "maxCollDamage",      scriptSetReal32CB,   &(ShipStaticInfoR1[0].health.maxCollDamage),  &(ShipStaticInfoR1[0]) },
-    { "groupSize",      scriptSetSdwordCB,   &(ShipStaticInfoR1[0].groupSize),  &(ShipStaticInfoR1[0]) },
-    { "maxfuel",        scriptSetReal32CB,   &(ShipStaticInfoR1[0].maxfuel),    &(ShipStaticInfoR1[0]) },
-    { "lowfuelpoint",   scriptSetReal32CB,   &(ShipStaticInfoR1[0].lowfuelpoint),    &(ShipStaticInfoR1[0]) },
-    { "fuelburnrate",   scriptSetReal32CB,   &(ShipStaticInfoR1[0].fuelburnrate),  &(ShipStaticInfoR1[0]) },
-    { "attackfuelburnrate", scriptSetReal32CB,  &(ShipStaticInfoR1[0].attackfuelburnrate),  &(ShipStaticInfoR1[0]) },
-    { "repairTime",     scriptSetReal32CB,   &(ShipStaticInfoR1[0].repairTime),  &(ShipStaticInfoR1[0]) },
-    { "repairDamage",   scriptSetReal32CB,   &(ShipStaticInfoR1[0].repairDamage),  &(ShipStaticInfoR1[0]) },
-    { "repairCombatTime",     scriptSetReal32CB,   &(ShipStaticInfoR1[0].repairCombatTime),  &(ShipStaticInfoR1[0]) },
-    { "repairCombatDamage",   scriptSetReal32CB,   &(ShipStaticInfoR1[0].repairCombatDamage),  &(ShipStaticInfoR1[0]) },
-    { "pumpFuelRate",     scriptSetReal32CB,   &(ShipStaticInfoR1[0].pumpFuelRate),  &(ShipStaticInfoR1[0]) },
-    { "repairOtherShipRate",   scriptSetReal32CB,   &(ShipStaticInfoR1[0].repairOtherShipRate),  &(ShipStaticInfoR1[0]) },
-    { "repairResourceCollectorRate",   scriptSetReal32CB,   &(ShipStaticInfoR1[0].repairResourceCollectorRate),  &(ShipStaticInfoR1[0]) },
-    { "dockShipRange",     scriptSetReal32CB,   &(ShipStaticInfoR1[0].dockShipRange),  &(ShipStaticInfoR1[0]) },
-    { "clearanceDistance",     scriptSetReal32CB,   &(ShipStaticInfoR1[0].clearanceDistance),  &(ShipStaticInfoR1[0]) },
-    { "clearanceDirection",   scriptSetUdwordCB,   &(ShipStaticInfoR1[0].clearanceDirection),  &(ShipStaticInfoR1[0]) },
-    { "formationPaddingModifier", scriptSetReal32CB,   &(ShipStaticInfoR1[0].formationPaddingModifier),  &(ShipStaticInfoR1[0]) },
-    { "cannotForceAttackIfOwnShip",scriptSetBool,      &(ShipStaticInfoR1[0].cannotForceAttackIfOwnShip),  &(ShipStaticInfoR1[0]) },
-    { "passiveAttackPenaltyExempt",scriptSetBool,      &(ShipStaticInfoR1[0].passiveAttackPenaltyExempt),  &(ShipStaticInfoR1[0]) },
-    { "isCapitalShip",scriptSetBool,      &(ShipStaticInfoR1[0].shipIsCapital),  &(ShipStaticInfoR1[0]) },
-    { "cantMoveAndAttack",scriptSetBool,      &(ShipStaticInfoR1[0].cantMoveAndAttack),  &(ShipStaticInfoR1[0]) },
+    { "maxDockableFighters" ,scriptSetSwordCB,  &(ShipStaticInfos[0].maxDockableFighters), &(ShipStaticInfos[0])},
+    { "maxDockableCorvettes",scriptSetSwordCB,  &(ShipStaticInfos[0].maxDockableCorvettes), &(ShipStaticInfos[0])},
+    { "specialActivateIsContinuous",scriptSetBool8,      &(ShipStaticInfos[0].specialActivateIsContinuous),  &(ShipStaticInfos[0]) },
+    { "canSpecialBandBoxFriendlies",scriptSetBool8,      &(ShipStaticInfos[0].canSpecialBandBoxFriendlies),  &(ShipStaticInfos[0]) },
+    { "canSingleClickSpecialActivate",scriptSetBool8,      &(ShipStaticInfos[0].canSingleClickSpecialActivate),  &(ShipStaticInfos[0]) },
+    { "buildCost",      scriptSetSdwordCB,   &(ShipStaticInfos[0].buildCost),  &(ShipStaticInfos[0]) },
+    { "buildTime",      scriptSetFramesCB,   &(ShipStaticInfos[0].buildTime),  &(ShipStaticInfos[0]) },
+    { "resourcesAtOneTime",   scriptSetSdwordCB,   &(ShipStaticInfos[0].resourcesAtOneTime),  &(ShipStaticInfos[0]) },
+    { "maxresources",   scriptSetSdwordCB,   &(ShipStaticInfos[0].maxresources),  &(ShipStaticInfos[0]) },
+    { "harvestAmount",  scriptSetSdwordCB,   &(ShipStaticInfos[0].harvestAmount),  &(ShipStaticInfos[0]) },
+    { "harvestRate",    scriptSetSdwordCB,   &(ShipStaticInfos[0].harvestRate),  &(ShipStaticInfos[0]) },
+    { "maxhealth",      scriptSetReal32CB,   &(ShipStaticInfos[0].health.maxhealth),  &(ShipStaticInfos[0]) },
+    { "minCollDamage",      scriptSetReal32CB,   &(ShipStaticInfos[0].health.minCollDamage),  &(ShipStaticInfos[0]) },
+    { "maxCollDamage",      scriptSetReal32CB,   &(ShipStaticInfos[0].health.maxCollDamage),  &(ShipStaticInfos[0]) },
+    { "groupSize",      scriptSetSdwordCB,   &(ShipStaticInfos[0].groupSize),  &(ShipStaticInfos[0]) },
+    { "maxfuel",        scriptSetReal32CB,   &(ShipStaticInfos[0].maxfuel),    &(ShipStaticInfos[0]) },
+    { "lowfuelpoint",   scriptSetReal32CB,   &(ShipStaticInfos[0].lowfuelpoint),    &(ShipStaticInfos[0]) },
+    { "fuelburnrate",   scriptSetReal32CB,   &(ShipStaticInfos[0].fuelburnrate),  &(ShipStaticInfos[0]) },
+    { "attackfuelburnrate", scriptSetReal32CB,  &(ShipStaticInfos[0].attackfuelburnrate),  &(ShipStaticInfos[0]) },
+    { "repairTime",     scriptSetReal32CB,   &(ShipStaticInfos[0].repairTime),  &(ShipStaticInfos[0]) },
+    { "repairDamage",   scriptSetReal32CB,   &(ShipStaticInfos[0].repairDamage),  &(ShipStaticInfos[0]) },
+    { "repairCombatTime",     scriptSetReal32CB,   &(ShipStaticInfos[0].repairCombatTime),  &(ShipStaticInfos[0]) },
+    { "repairCombatDamage",   scriptSetReal32CB,   &(ShipStaticInfos[0].repairCombatDamage),  &(ShipStaticInfos[0]) },
+    { "pumpFuelRate",     scriptSetReal32CB,   &(ShipStaticInfos[0].pumpFuelRate),  &(ShipStaticInfos[0]) },
+    { "repairOtherShipRate",   scriptSetReal32CB,   &(ShipStaticInfos[0].repairOtherShipRate),  &(ShipStaticInfos[0]) },
+    { "repairResourceCollectorRate",   scriptSetReal32CB,   &(ShipStaticInfos[0].repairResourceCollectorRate),  &(ShipStaticInfos[0]) },
+    { "dockShipRange",     scriptSetReal32CB,   &(ShipStaticInfos[0].dockShipRange),  &(ShipStaticInfos[0]) },
+    { "clearanceDistance",     scriptSetReal32CB,   &(ShipStaticInfos[0].clearanceDistance),  &(ShipStaticInfos[0]) },
+    { "clearanceDirection",   scriptSetUdwordCB,   &(ShipStaticInfos[0].clearanceDirection),  &(ShipStaticInfos[0]) },
+    { "formationPaddingModifier", scriptSetReal32CB,   &(ShipStaticInfos[0].formationPaddingModifier),  &(ShipStaticInfos[0]) },
+    { "cannotForceAttackIfOwnShip",scriptSetBool,      &(ShipStaticInfos[0].cannotForceAttackIfOwnShip),  &(ShipStaticInfos[0]) },
+    { "passiveAttackPenaltyExempt",scriptSetBool,      &(ShipStaticInfos[0].passiveAttackPenaltyExempt),  &(ShipStaticInfos[0]) },
+    { "isCapitalShip",scriptSetBool,      &(ShipStaticInfos[0].shipIsCapital),  &(ShipStaticInfos[0]) },
+    { "cantMoveAndAttack",scriptSetBool,      &(ShipStaticInfos[0].cantMoveAndAttack),  &(ShipStaticInfos[0]) },
 
-    { "repairBeamCapable",scriptSetBool,      &(ShipStaticInfoR1[0].repairBeamCapable),  &(ShipStaticInfoR1[0]) },
-    { "healthPerSecond", scriptSetReal32CB,   &(ShipStaticInfoR1[0].healthPerSecond),  &(ShipStaticInfoR1[0]) },
-    { "CapitalDistanceRepairStart2", scriptSetReal32CB,   &(ShipStaticInfoR1[0].CapitalDistanceRepairStart2),  &(ShipStaticInfoR1[0]) },
-    { "CapitalDistanceRepairStart", scriptSetReal32CB,   &(ShipStaticInfoR1[0].CapitalDistanceRepairStart),  &(ShipStaticInfoR1[0]) },
-    { "AngleDotProdThreshold", scriptSetReal32CB,   &(ShipStaticInfoR1[0].AngleDotProdThreshold),  &(ShipStaticInfoR1[0]) },
+    { "repairBeamCapable",scriptSetBool,      &(ShipStaticInfos[0].repairBeamCapable),  &(ShipStaticInfos[0]) },
+    { "healthPerSecond", scriptSetReal32CB,   &(ShipStaticInfos[0].healthPerSecond),  &(ShipStaticInfos[0]) },
+    { "CapitalDistanceRepairStart2", scriptSetReal32CB,   &(ShipStaticInfos[0].CapitalDistanceRepairStart2),  &(ShipStaticInfos[0]) },
+    { "CapitalDistanceRepairStart", scriptSetReal32CB,   &(ShipStaticInfos[0].CapitalDistanceRepairStart),  &(ShipStaticInfos[0]) },
+    { "AngleDotProdThreshold", scriptSetReal32CB,   &(ShipStaticInfos[0].AngleDotProdThreshold),  &(ShipStaticInfos[0]) },
 
-    { "collSideModifiers[TRANS_UP]",       scriptSetReal32CB,   &(ShipStaticInfoR1[0].collSideModifiers[TRANS_UP]),  &(ShipStaticInfoR1[0]) },
-    { "collSideModifiers[TRANS_DOWN]",     scriptSetReal32CB,   &(ShipStaticInfoR1[0].collSideModifiers[TRANS_DOWN]),  &(ShipStaticInfoR1[0]) },
-    { "collSideModifiers[TRANS_RIGHT]",    scriptSetReal32CB,   &(ShipStaticInfoR1[0].collSideModifiers[TRANS_RIGHT]),  &(ShipStaticInfoR1[0]) },
-    { "collSideModifiers[TRANS_LEFT]",     scriptSetReal32CB,   &(ShipStaticInfoR1[0].collSideModifiers[TRANS_LEFT]),  &(ShipStaticInfoR1[0]) },
-    { "collSideModifiers[TRANS_FORWARD]",  scriptSetReal32CB,   &(ShipStaticInfoR1[0].collSideModifiers[TRANS_FORWARD]),  &(ShipStaticInfoR1[0]) },
-    { "collSideModifiers[TRANS_BACK]",     scriptSetReal32CB,   &(ShipStaticInfoR1[0].collSideModifiers[TRANS_BACKWARD]),  &(ShipStaticInfoR1[0]) },
-    { "thruststrength[TRANS_UP]",       scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.thruststrengthstat[TRANS_UP]),  &(ShipStaticInfoR1[0]) },
-    { "thruststrength[TRANS_DOWN]",     scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.thruststrengthstat[TRANS_DOWN]),  &(ShipStaticInfoR1[0]) },
-    { "thruststrength[TRANS_RIGHT]",    scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.thruststrengthstat[TRANS_RIGHT]),  &(ShipStaticInfoR1[0]) },
-    { "thruststrength[TRANS_LEFT]",     scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.thruststrengthstat[TRANS_LEFT]),  &(ShipStaticInfoR1[0]) },
-    { "thruststrength[TRANS_FORWARD]",  scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.thruststrengthstat[TRANS_FORWARD]),  &(ShipStaticInfoR1[0]) },
-    { "thruststrength[TRANS_BACK]",     scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.thruststrengthstat[TRANS_BACKWARD]),  &(ShipStaticInfoR1[0]) },
-    { "rotstrength[ROT_YAWLEFT]",       scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.rotstrengthstat[ROT_YAWLEFT]),  &(ShipStaticInfoR1[0]) },
-    { "rotstrength[ROT_YAWRIGHT]",      scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.rotstrengthstat[ROT_YAWRIGHT]),  &(ShipStaticInfoR1[0]) },
-    { "rotstrength[ROT_PITCHUP]",       scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.rotstrengthstat[ROT_PITCHUP]),  &(ShipStaticInfoR1[0]) },
-    { "rotstrength[ROT_PITCHDOWN]",     scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.rotstrengthstat[ROT_PITCHDOWN]),  &(ShipStaticInfoR1[0]) },
-    { "rotstrength[ROT_ROLLRIGHT]",     scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.rotstrengthstat[ROT_ROLLRIGHT]),  &(ShipStaticInfoR1[0]) },
-    { "rotstrength[ROT_ROLLLEFT]",      scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.rotstrengthstat[ROT_ROLLLEFT]),  &(ShipStaticInfoR1[0]) },
-    { "turnspeed[TURN_YAW]",            scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.turnspeedstat[TURN_YAW]),  &(ShipStaticInfoR1[0]) },
-    { "turnspeed[TURN_PITCH]",          scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.turnspeedstat[TURN_PITCH]),  &(ShipStaticInfoR1[0]) },
-    { "turnspeed[TURN_ROLL]",           scriptSetReal32CB,   &(ShipStaticInfoR1[0].guidance.turnspeedstat[TURN_ROLL]),  &(ShipStaticInfoR1[0]) },
-    { "N-LIPS",                         scriptSetReal32CB,   &(ShipStaticInfoR1[0].scaleCap),  &(ShipStaticInfoR1[0]) },
-//    { "scaleCap",                       scriptSetReal32CB,   &(ShipStaticInfoR1[0].scaleCap),  &(ShipStaticInfoR1[0]) },
+    { "collSideModifiers[TRANS_UP]",       scriptSetReal32CB,   &(ShipStaticInfos[0].collSideModifiers[TRANS_UP]),  &(ShipStaticInfos[0]) },
+    { "collSideModifiers[TRANS_DOWN]",     scriptSetReal32CB,   &(ShipStaticInfos[0].collSideModifiers[TRANS_DOWN]),  &(ShipStaticInfos[0]) },
+    { "collSideModifiers[TRANS_RIGHT]",    scriptSetReal32CB,   &(ShipStaticInfos[0].collSideModifiers[TRANS_RIGHT]),  &(ShipStaticInfos[0]) },
+    { "collSideModifiers[TRANS_LEFT]",     scriptSetReal32CB,   &(ShipStaticInfos[0].collSideModifiers[TRANS_LEFT]),  &(ShipStaticInfos[0]) },
+    { "collSideModifiers[TRANS_FORWARD]",  scriptSetReal32CB,   &(ShipStaticInfos[0].collSideModifiers[TRANS_FORWARD]),  &(ShipStaticInfos[0]) },
+    { "collSideModifiers[TRANS_BACK]",     scriptSetReal32CB,   &(ShipStaticInfos[0].collSideModifiers[TRANS_BACKWARD]),  &(ShipStaticInfos[0]) },
+    { "thruststrength[TRANS_UP]",       scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_UP]),  &(ShipStaticInfos[0]) },
+    { "thruststrength[TRANS_DOWN]",     scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_DOWN]),  &(ShipStaticInfos[0]) },
+    { "thruststrength[TRANS_RIGHT]",    scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_RIGHT]),  &(ShipStaticInfos[0]) },
+    { "thruststrength[TRANS_LEFT]",     scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_LEFT]),  &(ShipStaticInfos[0]) },
+    { "thruststrength[TRANS_FORWARD]",  scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_FORWARD]),  &(ShipStaticInfos[0]) },
+    { "thruststrength[TRANS_BACK]",     scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_BACKWARD]),  &(ShipStaticInfos[0]) },
+    { "rotstrength[ROT_YAWLEFT]",       scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_YAWLEFT]),  &(ShipStaticInfos[0]) },
+    { "rotstrength[ROT_YAWRIGHT]",      scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_YAWRIGHT]),  &(ShipStaticInfos[0]) },
+    { "rotstrength[ROT_PITCHUP]",       scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_PITCHUP]),  &(ShipStaticInfos[0]) },
+    { "rotstrength[ROT_PITCHDOWN]",     scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_PITCHDOWN]),  &(ShipStaticInfos[0]) },
+    { "rotstrength[ROT_ROLLRIGHT]",     scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_ROLLRIGHT]),  &(ShipStaticInfos[0]) },
+    { "rotstrength[ROT_ROLLLEFT]",      scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_ROLLLEFT]),  &(ShipStaticInfos[0]) },
+    { "turnspeed[TURN_YAW]",            scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.turnspeedstat[TURN_YAW]),  &(ShipStaticInfos[0]) },
+    { "turnspeed[TURN_PITCH]",          scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.turnspeedstat[TURN_PITCH]),  &(ShipStaticInfos[0]) },
+    { "turnspeed[TURN_ROLL]",           scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.turnspeedstat[TURN_ROLL]),  &(ShipStaticInfos[0]) },
+    { "N-LIPS",                         scriptSetReal32CB,   &(ShipStaticInfos[0].scaleCap),  &(ShipStaticInfos[0]) },
+//    { "scaleCap",                       scriptSetReal32CB,   &(ShipStaticInfos[0].scaleCap),  &(ShipStaticInfos[0]) },
 #if SO_CLOOGE_SCALE
-    { "scaleFactor",                    scriptSetReal32CB,   &(ShipStaticInfoR1[0].scaleFactor),  &(ShipStaticInfoR1[0]) },
+    { "scaleFactor",                    scriptSetReal32CB,   &(ShipStaticInfos[0].scaleFactor),  &(ShipStaticInfos[0]) },
 #endif
-//    { "NumRepairDroids",                scriptSetUdwordCB,   &(ShipStaticInfoR1[0].nRepairDroids),  &(ShipStaticInfoR1[0]) },
-    { "trailStyle",                     scriptSetUdwordCB,   &(ShipStaticInfoR1[0].trailStyle[0]),  &(ShipStaticInfoR1[0]) },
-    { "trailWidth",                     scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailWidth[0]),  &(ShipStaticInfoR1[0]) },
-    { "trailHeight",                    scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailHeight[0]),  &(ShipStaticInfoR1[0]) },
-    { "trailAngle",                     scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailAngle[0]),  &(ShipStaticInfoR1[0]) },
-    { "trailRibbonAdjust",              scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailRibbonAdjust[0]),  &(ShipStaticInfoR1[0]) },
-    { "trailLength",                    scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailLength[0]),  &(ShipStaticInfoR1[0]) },
-    { "trailScaleCap",                  scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailScaleCap[0]),  &(ShipStaticInfoR1[0]) },
-    { "trailStyle2",                    scriptSetUdwordCB,   &(ShipStaticInfoR1[0].trailStyle[1]),  &(ShipStaticInfoR1[0]) },
-    { "trailWidth2",                    scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailWidth[1]),  &(ShipStaticInfoR1[0]) },
-    { "trailHeight2",                   scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailHeight[1]),  &(ShipStaticInfoR1[0]) },
-    { "trailAngle2",                    scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailAngle[1]),  &(ShipStaticInfoR1[0]) },
-    { "trailRibbonAdjust2",             scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailRibbonAdjust[1]),  &(ShipStaticInfoR1[0]) },
-    { "trailLength2",                   scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailLength[1]),  &(ShipStaticInfoR1[0]) },
-    { "trailScaleCap2",                 scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailScaleCap[1]),  &(ShipStaticInfoR1[0]) },
-    { "trailStyle3",                    scriptSetUdwordCB,   &(ShipStaticInfoR1[0].trailStyle[2]),  &(ShipStaticInfoR1[0]) },
-    { "trailWidth3",                    scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailWidth[2]),  &(ShipStaticInfoR1[0]) },
-    { "trailHeight3",                   scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailHeight[2]),  &(ShipStaticInfoR1[0]) },
-    { "trailAngle3",                    scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailAngle[2]),  &(ShipStaticInfoR1[0]) },
-    { "trailRibbonAdjust3",             scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailRibbonAdjust[2]),  &(ShipStaticInfoR1[0]) },
-    { "trailLength3",                   scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailLength[2]),  &(ShipStaticInfoR1[0]) },
-    { "trailScaleCap3",                 scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailScaleCap[2]),  &(ShipStaticInfoR1[0]) },
-    { "trailStyle4",                    scriptSetUdwordCB,   &(ShipStaticInfoR1[0].trailStyle[3]),  &(ShipStaticInfoR1[0]) },
-    { "trailWidth4",                    scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailWidth[3]),  &(ShipStaticInfoR1[0]) },
-    { "trailHeight4",                   scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailHeight[3]),  &(ShipStaticInfoR1[0]) },
-    { "trailAngle4",                    scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailAngle[3]),  &(ShipStaticInfoR1[0]) },
-    { "trailRibbonAdjust4",             scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailRibbonAdjust[3]),  &(ShipStaticInfoR1[0]) },
-    { "trailLength4",                   scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailLength[3]),  &(ShipStaticInfoR1[0]) },
-    { "trailScaleCap4",                 scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailScaleCap[3]),  &(ShipStaticInfoR1[0]) },
-    { "trailSpriteRadius",              scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailSpriteRadius[0]),  &(ShipStaticInfoR1[0]) },
-    { "trailSpriteRadius2",             scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailSpriteRadius[1]),  &(ShipStaticInfoR1[0]) },
-    { "trailSpriteRadius3",             scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailSpriteRadius[2]),  &(ShipStaticInfoR1[0]) },
-    { "trailSpriteRadius4",             scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailSpriteRadius[3]),  &(ShipStaticInfoR1[0]) },
-    { "trailSpriteOffset",              scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailSpriteOffset[0]),  &(ShipStaticInfoR1[0]) },
-    { "trailSpriteOffset2",             scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailSpriteOffset[1]),  &(ShipStaticInfoR1[0]) },
-    { "trailSpriteOffset3",             scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailSpriteOffset[2]),  &(ShipStaticInfoR1[0]) },
-    { "trailSpriteOffset4",             scriptSetReal32CB,   &(ShipStaticInfoR1[0].trailSpriteOffset[3]),  &(ShipStaticInfoR1[0]) },
-    { "minimumZoomDistance",            scriptSetReal32CB,   &(ShipStaticInfoR1[0].minimumZoomDistance),  &(ShipStaticInfoR1[0]) },
-    { "renderlistFade",                 scriptSetReal32CB,   &(ShipStaticInfoR1[0].renderlistFade),  &(ShipStaticInfoR1[0]) },
-    { "renderlistLimit",                scriptSetReal32SqrCB,  &(ShipStaticInfoR1[0].renderlistLimitSqr),  &(ShipStaticInfoR1[0]) },
-    { "dockLightNear",                  scriptSetReal32CB,   &(ShipStaticInfoR1[0].dockLightNear),  &(ShipStaticInfoR1[0]) },
-    { "dockLightFar",                   scriptSetReal32CB,   &(ShipStaticInfoR1[0].dockLightFar),  &(ShipStaticInfoR1[0]) },
-    { "dockLightColor",                 scriptSetRGBCB,      &(ShipStaticInfoR1[0].dockLightColor),  &(ShipStaticInfoR1[0]) },
-    { "hyperspaceColor",                scriptSetRGBCB,      &(ShipStaticInfoR1[0].hyperspaceColor),  &(ShipStaticInfoR1[0]) },
-    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfoR1[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfoR1[0]) },
-    { "madGunOpenDamagedHealthThreshold",  scriptSetReal32CB, &(ShipStaticInfoR1[0].madGunOpenDamagedHealthThreshold),  &(ShipStaticInfoR1[0]) },
-    { "madWingOpenDamagedHealthThreshold", scriptSetReal32CB, &(ShipStaticInfoR1[0].madWingOpenDamagedHealthThreshold),  &(ShipStaticInfoR1[0]) },
-    { "NUMBER_OF_SALVAGE_POINTS", scriptSetSalvageStatCB, &(ShipStaticInfoR1[0]), &(ShipStaticInfoR1[0]) },
-    { "Overlay_Selection_Scalar",       scriptSetReal32CB,   &(ShipStaticInfoR1[0].tacticalSelectionScale),  &(ShipStaticInfoR1[0]) },
+//    { "NumRepairDroids",                scriptSetUdwordCB,   &(ShipStaticInfos[0].nRepairDroids),  &(ShipStaticInfos[0]) },
+    { "trailStyle",                     scriptSetUdwordCB,   &(ShipStaticInfos[0].trailStyle[0]),  &(ShipStaticInfos[0]) },
+    { "trailWidth",                     scriptSetReal32CB,   &(ShipStaticInfos[0].trailWidth[0]),  &(ShipStaticInfos[0]) },
+    { "trailHeight",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailHeight[0]),  &(ShipStaticInfos[0]) },
+    { "trailAngle",                     scriptSetReal32CB,   &(ShipStaticInfos[0].trailAngle[0]),  &(ShipStaticInfos[0]) },
+    { "trailRibbonAdjust",              scriptSetReal32CB,   &(ShipStaticInfos[0].trailRibbonAdjust[0]),  &(ShipStaticInfos[0]) },
+    { "trailLength",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailLength[0]),  &(ShipStaticInfos[0]) },
+    { "trailScaleCap",                  scriptSetReal32CB,   &(ShipStaticInfos[0].trailScaleCap[0]),  &(ShipStaticInfos[0]) },
+    { "trailStyle2",                    scriptSetUdwordCB,   &(ShipStaticInfos[0].trailStyle[1]),  &(ShipStaticInfos[0]) },
+    { "trailWidth2",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailWidth[1]),  &(ShipStaticInfos[0]) },
+    { "trailHeight2",                   scriptSetReal32CB,   &(ShipStaticInfos[0].trailHeight[1]),  &(ShipStaticInfos[0]) },
+    { "trailAngle2",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailAngle[1]),  &(ShipStaticInfos[0]) },
+    { "trailRibbonAdjust2",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailRibbonAdjust[1]),  &(ShipStaticInfos[0]) },
+    { "trailLength2",                   scriptSetReal32CB,   &(ShipStaticInfos[0].trailLength[1]),  &(ShipStaticInfos[0]) },
+    { "trailScaleCap2",                 scriptSetReal32CB,   &(ShipStaticInfos[0].trailScaleCap[1]),  &(ShipStaticInfos[0]) },
+    { "trailStyle3",                    scriptSetUdwordCB,   &(ShipStaticInfos[0].trailStyle[2]),  &(ShipStaticInfos[0]) },
+    { "trailWidth3",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailWidth[2]),  &(ShipStaticInfos[0]) },
+    { "trailHeight3",                   scriptSetReal32CB,   &(ShipStaticInfos[0].trailHeight[2]),  &(ShipStaticInfos[0]) },
+    { "trailAngle3",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailAngle[2]),  &(ShipStaticInfos[0]) },
+    { "trailRibbonAdjust3",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailRibbonAdjust[2]),  &(ShipStaticInfos[0]) },
+    { "trailLength3",                   scriptSetReal32CB,   &(ShipStaticInfos[0].trailLength[2]),  &(ShipStaticInfos[0]) },
+    { "trailScaleCap3",                 scriptSetReal32CB,   &(ShipStaticInfos[0].trailScaleCap[2]),  &(ShipStaticInfos[0]) },
+    { "trailStyle4",                    scriptSetUdwordCB,   &(ShipStaticInfos[0].trailStyle[3]),  &(ShipStaticInfos[0]) },
+    { "trailWidth4",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailWidth[3]),  &(ShipStaticInfos[0]) },
+    { "trailHeight4",                   scriptSetReal32CB,   &(ShipStaticInfos[0].trailHeight[3]),  &(ShipStaticInfos[0]) },
+    { "trailAngle4",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailAngle[3]),  &(ShipStaticInfos[0]) },
+    { "trailRibbonAdjust4",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailRibbonAdjust[3]),  &(ShipStaticInfos[0]) },
+    { "trailLength4",                   scriptSetReal32CB,   &(ShipStaticInfos[0].trailLength[3]),  &(ShipStaticInfos[0]) },
+    { "trailScaleCap4",                 scriptSetReal32CB,   &(ShipStaticInfos[0].trailScaleCap[3]),  &(ShipStaticInfos[0]) },
+    { "trailSpriteRadius",              scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteRadius[0]),  &(ShipStaticInfos[0]) },
+    { "trailSpriteRadius2",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteRadius[1]),  &(ShipStaticInfos[0]) },
+    { "trailSpriteRadius3",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteRadius[2]),  &(ShipStaticInfos[0]) },
+    { "trailSpriteRadius4",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteRadius[3]),  &(ShipStaticInfos[0]) },
+    { "trailSpriteOffset",              scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteOffset[0]),  &(ShipStaticInfos[0]) },
+    { "trailSpriteOffset2",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteOffset[1]),  &(ShipStaticInfos[0]) },
+    { "trailSpriteOffset3",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteOffset[2]),  &(ShipStaticInfos[0]) },
+    { "trailSpriteOffset4",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteOffset[3]),  &(ShipStaticInfos[0]) },
+    { "minimumZoomDistance",            scriptSetReal32CB,   &(ShipStaticInfos[0].minimumZoomDistance),  &(ShipStaticInfos[0]) },
+    { "renderlistFade",                 scriptSetReal32CB,   &(ShipStaticInfos[0].renderlistFade),  &(ShipStaticInfos[0]) },
+    { "renderlistLimit",                scriptSetReal32SqrCB,  &(ShipStaticInfos[0].renderlistLimitSqr),  &(ShipStaticInfos[0]) },
+    { "dockLightNear",                  scriptSetReal32CB,   &(ShipStaticInfos[0].dockLightNear),  &(ShipStaticInfos[0]) },
+    { "dockLightFar",                   scriptSetReal32CB,   &(ShipStaticInfos[0].dockLightFar),  &(ShipStaticInfos[0]) },
+    { "dockLightColor",                 scriptSetRGBCB,      &(ShipStaticInfos[0].dockLightColor),  &(ShipStaticInfos[0]) },
+    { "hyperspaceColor",                scriptSetRGBCB,      &(ShipStaticInfos[0].hyperspaceColor),  &(ShipStaticInfos[0]) },
+    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfos[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfos[0]) },
+    { "madGunOpenDamagedHealthThreshold",  scriptSetReal32CB, &(ShipStaticInfos[0].madGunOpenDamagedHealthThreshold),  &(ShipStaticInfos[0]) },
+    { "madWingOpenDamagedHealthThreshold", scriptSetReal32CB, &(ShipStaticInfos[0].madWingOpenDamagedHealthThreshold),  &(ShipStaticInfos[0]) },
+    { "NUMBER_OF_SALVAGE_POINTS", scriptSetSalvageStatCB, &(ShipStaticInfos[0]), &(ShipStaticInfos[0]) },
+    { "Overlay_Selection_Scalar",       scriptSetReal32CB,   &(ShipStaticInfos[0].tacticalSelectionScale),  &(ShipStaticInfos[0]) },
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -720,7 +1115,7 @@ scriptStructEntry AsteroidStaticScriptTable[] =
     { "breakinto[Asteroid2]",scriptSetUdwordCB,  &(asteroidStaticInfos[0].breakinto[Asteroid2]),  &(asteroidStaticInfos[0]) },
     { "breakinto[Asteroid3]",scriptSetUdwordCB,  &(asteroidStaticInfos[0].breakinto[Asteroid3]),  &(asteroidStaticInfos[0]) },
     { "breakinto[Asteroid4]",scriptSetUdwordCB,  &(asteroidStaticInfos[0].breakinto[Asteroid4]),  &(asteroidStaticInfos[0]) },
-    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfoR1[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfoR1[0]) },
+    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfos[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfos[0]) },
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -754,7 +1149,7 @@ scriptStructEntry DustCloudStaticScriptTable[] =
 
     { "dustcloudCanShrink",scriptSetBool8,  &(dustcloudStaticInfos[0].dustcloudCanShrink),  &(dustcloudStaticInfos[0]) },
     { "dustcloudMinShrink",scriptSetReal32CB,  &(dustcloudStaticInfos[0].dustcloudMinShrink),  &(dustcloudStaticInfos[0]) },
-    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfoR1[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfoR1[0]) },
+    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfos[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfos[0]) },
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -786,7 +1181,7 @@ scriptStructEntry NebulaStaticScriptTable[] =
 
     { "nebulaCanShrink",scriptSetBool8,  &(nebulaStaticInfos[0].nebulaCanShrink),  &(nebulaStaticInfos[0]) },
     { "nebulaMinShrink",scriptSetReal32CB,  &(nebulaStaticInfos[0].nebulaMinShrink),  &(nebulaStaticInfos[0]) },
-    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfoR1[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfoR1[0]) },
+    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfos[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfos[0]) },
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -819,7 +1214,7 @@ scriptStructEntry GasCloudStaticScriptTable[] =
 
     { "gascloudCanShrink",scriptSetBool8,  &(gascloudStaticInfos[0].gascloudCanShrink),  &(gascloudStaticInfos[0]) },
     { "gascloudMinShrink",scriptSetReal32CB,  &(gascloudStaticInfos[0].gascloudMinShrink),  &(gascloudStaticInfos[0]) },
-    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfoR1[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfoR1[0]) },
+    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfos[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfos[0]) },
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -868,7 +1263,7 @@ scriptStructEntry DerelictStaticScriptTable[] =
     { "sinbank",                    scriptSetReal32CB,   &(derelictStaticInfos[0].shipOrDerelict.sinbank),  &(derelictStaticInfos[0]) },
     { "pitchturn",                  scriptSetReal32CB,   &(derelictStaticInfos[0].shipOrDerelict.pitchturn),  &(derelictStaticInfos[0]) },
 
-    { "preciseSelection",           scriptSetUdwordCB, &(ShipStaticInfoR1[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfoR1[0]) },
+    { "preciseSelection",           scriptSetUdwordCB, &(ShipStaticInfos[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfos[0]) },
     { "NUMBER_OF_SALVAGE_POINTS",   scriptSetSalvageStatCB, &(derelictStaticInfos[0]), &(derelictStaticInfos[0]) },
 
     { "scaleFactor",          scriptSetReal32CB,   &(derelictStaticInfos[0].scaleFactor),  &(derelictStaticInfos[0]) },
@@ -917,7 +1312,7 @@ scriptStructEntry MissileStaticScriptTable[] =
     { "turnspeed[TURN_YAW]",            scriptSetReal32CB,   &(missileStaticInfos[0].guidance.turnspeedstat[TURN_YAW]),  &(missileStaticInfos[0]) },
     { "turnspeed[TURN_PITCH]",          scriptSetReal32CB,   &(missileStaticInfos[0].guidance.turnspeedstat[TURN_PITCH]),  &(missileStaticInfos[0]) },
     { "turnspeed[TURN_ROLL]",           scriptSetReal32CB,   &(missileStaticInfos[0].guidance.turnspeedstat[TURN_ROLL]),  &(missileStaticInfos[0]) },
-    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfoR1[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfoR1[0]) },
+    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfos[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfos[0]) },
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -960,7 +1355,7 @@ scriptStructEntry MineStaticScriptTable[] =
     { "MINE_STOP_FRICTION",           scriptSetReal32CB,   &(mineStaticInfos[0].MINE_STOP_FRICTION),  &(mineStaticInfos[0]) },
     { "MINE_RANGESQR",           scriptSetReal32SqrCB,   &(mineStaticInfos[0].MINE_RANGESQR),  &(mineStaticInfos[0]) },
     { "MINE_RANGESQR_FORCED",           scriptSetReal32SqrCB,   &(mineStaticInfos[0].MINE_RANGESQR_FORCED),  &(mineStaticInfos[0]) },
-    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfoR1[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfoR1[0]) },
+    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfos[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfos[0]) },
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -2660,8 +3055,9 @@ void universeDefaultTeamColors(void)
     }
     //!!! somewhat oversimple assignment of default color schemes for the non-player races
     racePlayerTable[Traders][7] = TRUE;
-    racePlayerTable[P3][6] = TRUE;
-    racePlayerTable[P2][5] = TRUE;
+    // CAT: P2 and P3 are gone from the race enum, so their rows are dropped (racePlayerTable is [7][8] in
+    //      universeDefaultTeamColors 0x0053c940). The exe's own per-race defaults (tutorial, single player) are
+    //      stage 2.
     racePlayerTable[P1][4] = TRUE;
     //now plug that default table into all the ship static infos
     for (shiprace=0;shiprace<NUM_RACES;shiprace++)
@@ -2730,15 +3126,14 @@ void universeRaceStaticsScan(ShipRace shiprace, univstatcallback forShips, univs
         }
         if (forMisc)
         {
-            if (shiptype == MissileDestroyer)
+            // CAT: Cataclysm's missile and mine carriers (universeFlagRaceNeeded 0x0053c870, which inlines this scan:
+            //      types 0x55, 10, 0x5f, 0x19 -> missileStaticInfos[race]; 0x54 -> mineStaticInfos[race])
+            if (shiptype == tMissileDestroyer || shiptype == sDreadnought ||
+                shiptype == p1MissileCorvette || shiptype == sDestroyer)
             {
                 forMisc((StaticInfo *)&missileStaticInfos[shiprace], OBJ_MissileType);
             }
-            else if (shiptype == P1MissileCorvette && shiprace == P1)
-            {
-                forMisc((StaticInfo *)&missileStaticInfos[P1], OBJ_MissileType);
-            }
-            else if (shiprace < 2 && shiptype == MinelayerCorvette)
+            else if (shiptype == tMinelayerCorvette)
             {
                 forMisc((StaticInfo *)&mineStaticInfos[shiprace], OBJ_MissileType);
             }
@@ -4106,17 +4501,12 @@ void universeSwitchToPlayer(uword playerIndex)
 ----------------------------------------------------------------------------*/
 ShipStaticInfo *GetShipStaticInfo(ShipType shiptype,ShipRace shiprace)
 {
-    ShipStaticInfo *raceInfo = RaceShipStaticInfos[shiprace];
-    sdword offset;
-
-    dbgAssertOrIgnore(shiprace < NUM_RACES);
+    // CAT: one flat array indexed by type; the race no longer selects a table (GetShipStaticInfo 0x0053ea50). The
+    //      race parameter stays until stage 2 changes the callers (the exe's function takes the type only).
+    (void)shiprace;
     dbgAssertOrIgnore(shiptype < TOTAL_NUM_SHIPS);
 
-    offset = shiptype - FirstShipTypeOfRace[shiprace];
-    dbgAssertOrIgnore(offset >= 0);
-    dbgAssertOrIgnore(offset < NumShipTypesInRace[shiprace]);
-
-    return &raceInfo[offset];
+    return &ShipStaticInfos[shiptype];
 }
 
 /*-----------------------------------------------------------------------------
@@ -4128,28 +4518,19 @@ ShipStaticInfo *GetShipStaticInfo(ShipType shiptype,ShipRace shiprace)
 ----------------------------------------------------------------------------*/
 ShipStaticInfo *GetShipStaticInfoSafe(ShipType shiptype,ShipRace shiprace)
 {
-    ShipStaticInfo *raceInfo = RaceShipStaticInfos[shiprace];
     ShipStaticInfo *shipstatic;
-    sdword offset;
 
-    if ((shiprace >= NUM_RACES))
+    // CAT: type range and the loaded flag only, no race check (GetShipStaticInfoSafe 0x0053ea70: type <= 0x90 and
+    //      (infoFlags & IF_InfoLoaded))
+    // [audit: the exe's range test is unsigned (cmp ecx,0x91; jb), so a negative type such as
+    //      ShipType_Uninitialized returns NULL, as HW1's offset < 0 test did; ShipType is signed here]
+    (void)shiprace;
+    if (((udword)shiptype >= TOTAL_NUM_SHIPS))
     {
         return NULL;
     }
 
-    if ((shiptype >= TOTAL_NUM_SHIPS))
-    {
-        return NULL;
-    }
-
-    offset = shiptype - FirstShipTypeOfRace[shiprace];
-
-    if ((offset < 0) || (offset >= NumShipTypesInRace[shiprace]))
-    {
-        return NULL;
-    }
-
-    shipstatic = &raceInfo[offset];
+    shipstatic = &ShipStaticInfos[shiptype];
     if (!bitTest(shipstatic->common.infoFlags, IF_InfoLoaded))
     {
         return NULL;
@@ -4167,31 +4548,19 @@ ShipStaticInfo *GetShipStaticInfoSafe(ShipType shiptype,ShipRace shiprace)
 ----------------------------------------------------------------------------*/
 ShipRace GetValidRaceForShipType(ShipType shiptype)
 {
+    ShipRace race;
+
     dbgAssertOrIgnore(shiptype < TOTAL_NUM_SHIPS);
 
-    if (RacesAllowedForGivenShip[shiptype] & R1_VALID)
+    // CAT: first race allowed by RacesAllowedForGivenShip (0x008b1814), over all 7 Cataclysm races. HW1's version
+    //      tested its 6 races one by one; no exe counterpart was found (the exe derives a type's race from
+    //      LastShipTypeOfRace, cat_ShipTypeToRace 0x004d7170), so this keeps HW1's rule on the new races.
+    for (race = 0; race < NUM_RACES; race++)
     {
-        return R1;
-    }
-    if (RacesAllowedForGivenShip[shiptype] & R2_VALID)
-    {
-        return R2;
-    }
-    if (RacesAllowedForGivenShip[shiptype] & P1_VALID)
-    {
-        return P1;
-    }
-    if (RacesAllowedForGivenShip[shiptype] & P2_VALID)
-    {
-        return P2;
-    }
-    if (RacesAllowedForGivenShip[shiptype] & P3_VALID)
-    {
-        return P3;
-    }
-    if (RacesAllowedForGivenShip[shiptype] & Traders_VALID)
-    {
-        return Traders;
+        if (RacesAllowedForGivenShip[shiptype] & RaceToRaceBits(race))
+        {
+            return race;
+        }
     }
 
     dbgAssertOrIgnore(FALSE);

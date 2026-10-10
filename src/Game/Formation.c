@@ -2674,13 +2674,23 @@ typedef struct
     SlotInfo slotinfos[MAX_MILITARY_SLOTS];
 } ParadeTypeInfo;
 
-#define PARADE_R1MOTHERSHIP     0
-#define PARADE_R2MOTHERSHIP     1
-#define PARADE_R1CARRIER        2
-#define PARADE_R2CARRIER        3
-#define PARADE_P1MOTHERSHIP     4
-#define PARADE_P2MOTHERSHIP     5
-#define NUMBER_PARADE_TYPES     6
+// CAT: 12 parade types, one per Cataclysm parade_*.script, in the exe's array order (paradeTypeInfos 0x00a3e448,
+//      12 x 0x6E4 bytes, filled by paradeSetTweakables 0x004850d0). The exe's ParadeTypeInfo holds 63 slots (the
+//      parade_*.script keys SLOT_SRECON .. SLOT_Misc); HW1's 41-slot table is kept until stage 2 ports the slot
+//      enum and its assignment code, so the Cataclysm-only slot keys are ignored on load.
+#define PARADE_SMOTHERSHIP      0
+#define PARADE_BMOTHERSHIP      1
+#define PARADE_SCARRIER         2
+#define PARADE_BCARRIER         3
+#define PARADE_SLIPGATE         4
+#define PARADE_SPROCESSOR       5
+#define PARADE_BPROCESSOR       6
+#define PARADE_DPRISONSHIP      7
+#define PARADE_R1CARRIER        8
+#define PARADE_R2CARRIER        9
+#define PARADE_P1MOTHERSHIP     10
+#define PARADE_BHEAVYCRUISER    11
+#define NUMBER_PARADE_TYPES     12
 
 #define SUBSLOT_BATCH      10      // subslots are allocated in batches of this many
 
@@ -2747,18 +2757,32 @@ void scriptSetSlotInfoCB(char *directory,char *field,void *dataToFillIn)
 
 void paradeSetTweakables(void)
 {
-    memset(&paradeTypeInfos[PARADE_R1MOTHERSHIP],0,sizeof(ParadeTypeInfo));
-    memset(&paradeTypeInfos[PARADE_R2MOTHERSHIP],0,sizeof(ParadeTypeInfo));
+    // CAT: Cataclysm's 12 per-ship parade files, in the exe's order (paradeSetTweakables 0x004850d0); HW1's
+    //      Parade_R1Mothership/R2Mothership/Carrier/P2Mothership.script are gone
+    memset(&paradeTypeInfos[PARADE_SMOTHERSHIP],0,sizeof(ParadeTypeInfo));
+    memset(&paradeTypeInfos[PARADE_BMOTHERSHIP],0,sizeof(ParadeTypeInfo));
+    memset(&paradeTypeInfos[PARADE_SCARRIER],0,sizeof(ParadeTypeInfo));
+    memset(&paradeTypeInfos[PARADE_BCARRIER],0,sizeof(ParadeTypeInfo));
+    memset(&paradeTypeInfos[PARADE_SLIPGATE],0,sizeof(ParadeTypeInfo));
+    memset(&paradeTypeInfos[PARADE_SPROCESSOR],0,sizeof(ParadeTypeInfo));
+    memset(&paradeTypeInfos[PARADE_BPROCESSOR],0,sizeof(ParadeTypeInfo));
+    memset(&paradeTypeInfos[PARADE_DPRISONSHIP],0,sizeof(ParadeTypeInfo));
+    memset(&paradeTypeInfos[PARADE_BHEAVYCRUISER],0,sizeof(ParadeTypeInfo));
+    scriptSetStruct(NULL,"Parade_sMothership.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_SMOTHERSHIP]);
+    scriptSetStruct(NULL,"Parade_bMothership.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_BMOTHERSHIP]);
+    scriptSetStruct(NULL,"Parade_sCarrier.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_SCARRIER]);
+    scriptSetStruct(NULL,"Parade_bCarrier.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_BCARRIER]);
+    scriptSetStruct(NULL,"Parade_Slipgate.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_SLIPGATE]);
+    scriptSetStruct(NULL,"Parade_sProcessor.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_SPROCESSOR]);
+    scriptSetStruct(NULL,"Parade_bProcessor.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_BPROCESSOR]);
+    scriptSetStruct(NULL,"Parade_dPrisonShip.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_DPRISONSHIP]);
     memset(&paradeTypeInfos[PARADE_R1CARRIER],0,sizeof(ParadeTypeInfo));
     memset(&paradeTypeInfos[PARADE_R2CARRIER],0,sizeof(ParadeTypeInfo));
     memset(&paradeTypeInfos[PARADE_P1MOTHERSHIP],0,sizeof(ParadeTypeInfo));
-    memset(&paradeTypeInfos[PARADE_P2MOTHERSHIP],0,sizeof(ParadeTypeInfo));
-    scriptSetStruct(NULL,"Parade_R1Mothership.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_R1MOTHERSHIP]);
-    scriptSetStruct(NULL,"Parade_R2Mothership.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_R2MOTHERSHIP]);
-    scriptSetStruct(NULL,"Parade_Carrier.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_R1CARRIER]);
+    scriptSetStruct(NULL,"Parade_R1Carrier.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_R1CARRIER]);
     scriptSetStruct(NULL,"Parade_R2Carrier.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_R2CARRIER]);
     scriptSetStruct(NULL,"Parade_P1Mothership.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_P1MOTHERSHIP]);
-    scriptSetStruct(NULL,"Parade_P2Mothership.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_P2MOTHERSHIP]);
+    scriptSetStruct(NULL,"Parade_bHeavyCruiser.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_BHEAVYCRUISER]);
 }
 
 /*-----------------------------------------------------------------------------
@@ -3495,35 +3519,57 @@ struct CommandToDo *CreateMilitaryGroupAroundShip(struct CommandLayer *comlayer,
     }
 
     militaryParade->paradeType = -1;
-    if (aroundShip->shiprace == R1)
+    // CAT: the parade type is chosen by ship type alone (CreateMilitaryGroupAroundShip 0x00486050, switch on
+    //      aroundShip->shiptype); HW1 chose by race, then Mothership/Carrier
+    switch (aroundShip->shiptype)
     {
-        if (aroundShip->shiptype == Mothership)
-        {
-            militaryParade->paradeType = PARADE_R1MOTHERSHIP;
-        }
-        else if (aroundShip->shiptype == Carrier)
-        {
+        case sCarrier:
+            militaryParade->paradeType = PARADE_SCARRIER;
+            break;
+        case sProcessor:
+        case dEcclesiamInfected:
+            militaryParade->paradeType = PARADE_SPROCESSOR;
+            break;
+        case sMothership:
+        case trFloatingCity:
+        case trGhostship:
+            militaryParade->paradeType = PARADE_SMOTHERSHIP;
+            break;
+        case bHeavyCruiser:
+            militaryParade->paradeType = PARADE_BHEAVYCRUISER;
+            break;
+        case bCarrier:
+            militaryParade->paradeType = PARADE_BCARRIER;
+            break;
+        case bProcessor:
+            militaryParade->paradeType = PARADE_BPROCESSOR;
+            break;
+        case bMothership:
+        case dBeastMothership:
+        case dKushanCarrier:
+            militaryParade->paradeType = PARADE_BMOTHERSHIP;
+            break;
+        case kCarrier:
             militaryParade->paradeType = PARADE_R1CARRIER;
-        }
-    }
-    else if (aroundShip->shiprace == R2)
-    {
-        if (aroundShip->shiptype == Mothership)
-        {
-            militaryParade->paradeType = PARADE_R2MOTHERSHIP;
-        }
-        else if (aroundShip->shiptype == Carrier)
-        {
+            break;
+        case tCarrier:
+        case trResearchStation:
             militaryParade->paradeType = PARADE_R2CARRIER;
-        }
-    }
-    else if (aroundShip->shiprace == P1)
-    {
-        militaryParade->paradeType = PARADE_P1MOTHERSHIP;
-    }
-    else if (aroundShip->shiprace == P2)
-    {
-        militaryParade->paradeType = PARADE_P2MOTHERSHIP;
+            break;
+        case p1Outpost:
+        case p1Mothership:
+            militaryParade->paradeType = PARADE_P1MOTHERSHIP;
+            break;
+        case dRKO:
+        case dPrisonShip:
+        case dPrisonShipInfected:
+            militaryParade->paradeType = PARADE_DPRISONSHIP;
+            break;
+        case dSlipgateSmall:
+        case dSlipgateMedium:
+        case dSlipgateLarge:
+            militaryParade->paradeType = PARADE_SLIPGATE;
+            break;
     }
 
     dbgAssertOrIgnore(militaryParade->paradeType != -1);

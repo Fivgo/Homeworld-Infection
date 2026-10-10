@@ -14,7 +14,9 @@
 #include "StatScript.h"
 #include "Types.h"
 
-#define NUM_SHIPS_TO_GATHER_STATS_FOR   (TOTAL_STD_SHIPS+TOTAL_STD_SHIPS+TOTAL_P1_SHIPS+TOTAL_P2_SHIPS+TOTAL_P3_SHIPS)
+// CAT: one stat index per type of the first 5 races, sRecon..p1StandardCorvette = 98 (statsLoadFightStats 0x00524a50
+//      expects statfile.bin of 98*98*sizeof(FightStats) = 0x41a70 bytes)
+#define NUM_SHIPS_TO_GATHER_STATS_FOR   (P1_LAST_SHIP + 1)
 
 typedef struct FightStats
 {

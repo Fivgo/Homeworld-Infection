@@ -1808,19 +1808,17 @@ void SetInfoNeededForShipAndRelatedStaticInfo(ShipType type,ShipRace race,bool8 
     ShipStaticInfo *info = GetShipStaticInfo(type, race);
     bitSetTo(info->common.infoFlags, IF_InfoNeeded, dataToFillIn);
 
-    if (type == MissileDestroyer || type == P1MissileCorvette)
+    // CAT: the missile carriers are Cataclysm's six types, the mine layer is tMinelayerCorvette, and HW1's
+    //      DDDFrigate/Drone pair is gone (SetInfoNeededForShipAndRelatedStaticInfo 0x004a29f0: types 0x55, 10, 0x5f,
+    //      0x19, 1, 0x22 -> missileStaticInfos[race]; 0x54 -> mineStaticInfos[race])
+    if (type == tMissileDestroyer || type == sDreadnought || type == p1MissileCorvette ||
+        type == sDestroyer || type == sAcolyte || type == bAcolyte)
     {
         bitSetTo(missileStaticInfos[race].common.infoFlags, IF_InfoNeeded, dataToFillIn);
     }
-    else if (type == MinelayerCorvette)
+    else if (type == tMinelayerCorvette)
     {
         bitSetTo(mineStaticInfos[race].common.infoFlags, IF_InfoNeeded, dataToFillIn);
-    }
-    else if (race == R1 && type == DDDFrigate)
-    {
-        ShipStaticInfo *shipstatic;
-        shipstatic = GetShipStaticInfo(Drone,R1);
-        bitSetTo(shipstatic->common.infoFlags, IF_InfoNeeded, dataToFillIn);
     }
 }
 

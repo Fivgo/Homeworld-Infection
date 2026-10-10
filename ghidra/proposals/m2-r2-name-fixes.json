@@ -1,0 +1,37 @@
+{
+ "source": "m2-r2-name-fixes",
+ "method": "M2-R2 re-read (no Ghidra run). Each body in ghidra/exports/cataclysm_gog_r5/decompiled.c was compared by hand with the HW1 ad1bb82 source (original/scratch-m2/delta-orig/gardens-of-kadesh-ad1bb82c-src/src). A proposal is made only where the current binary-map name names a different HW1 function from the one the body implements. Checked and kept: RemoveShipFromFormation 0x00447950. The same body is inlined right after ship->command = NULL in RemoveShipsFromDoingStuff 0x00444810, where HW1 CommandLayer.c:3271-3272 calls RemoveShipFromCommand then RemoveShipFromFormation. Its two callers are the HW1 dock.c:6749 call site (processDockToDo, cat_dockFinishedDocking). The name is right; Cataclysm replaced the body.",
+ "done_subsystems": ["AIEvents.c", "mesh.c", "CommandLayer.c"],
+ "proposals": [
+  {
+   "address": "0x00404090",
+   "name": "aieCheckHealthLow",
+   "kind": "function",
+   "class": "hw1:AIEvents.c",
+   "confidence": "high",
+   "evidence": "Body is HW1 AIEvents.c:465 aieCheckHealthLow: loop over team->shipList.selection; if curMove->events.healthLow.watchIndividual (+0x100) return TRUE when health(+0x170)*100 < watchPercentage(+0xfc)*staticinfo->maxhealth(+0xa4), else accumulate and compare the sums with '<'. No aiuFindNearbyEnemyShips call and 1 parameter (caller cleans 4 bytes). aieExecute 0x00403a70 calls aiuFindNearbyEnemyShips itself, so HW1 aieCheckEnemyNearby is inlined there. Replaces the R3 name aieCheckEnemyNearby, which was assigned by call order only.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIEvents.c:aieCheckHealthLow",
+   "signature": "sdword aieCheckHealthLow(AITeam *team)"
+  },
+  {
+   "address": "0x00404150",
+   "name": "aieCheckHealthHigh",
+   "kind": "function",
+   "class": "hw1:AIEvents.c",
+   "confidence": "high",
+   "evidence": "Twin of 0x00404090 with the comparison reversed ('>'), using curMove->events.healthHigh (watchPercentage +0x108, watchIndividual +0x10c): HW1 AIEvents.c:499 aieCheckHealthHigh. Replaces the R3 name aieCheckEnemyNotNearby, which was assigned by call order only.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIEvents.c:aieCheckHealthHigh",
+   "signature": "sdword aieCheckHealthHigh(AITeam *team)"
+  },
+  {
+   "address": "0x004aeb10",
+   "name": "meshObjectFixupPacoUV",
+   "kind": "function",
+   "class": "hw1:mesh.c",
+   "confidence": "high",
+   "evidence": "Body is HW1 mesh.c:430 meshObjectFixupPacoUV(polygonobject *object, sdword on): per-object polygon loop with the PAC_FIXED (0x1000) flag and the 0.6/width UV nudge. The meshdata-level meshFixupPacoUV (mesh.c:549, localSize test and object loop) is inlined into its callers meshRender 0x004b4280 and meshRenderShipHierarchy 0x004b4520.",
+   "hw1_equivalent": "HomeworldSDL/src/Game/mesh.c:meshObjectFixupPacoUV",
+   "signature": "void meshObjectFixupPacoUV(polygonobject *object, sdword on)"
+  }
+ ]
+}

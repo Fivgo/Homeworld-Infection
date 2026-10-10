@@ -20,7 +20,12 @@
 #define CLASS_Fighter       6
 #define CLASS_Resource      7
 #define CLASS_NonCombat     8
+// CAT: three new classes (shipclassinfo 0x00889a80 "CLASS_MonsterShip", "CLASS_Component", "CLASS_Micro";
+//      CET game/Game/ClassDefs.h)
+#define CLASS_MonsterShip   9
+#define CLASS_Component     10
+#define CLASS_Micro         11
 
-#define NUM_CLASSES         (CLASS_NonCombat + 1)
+#define NUM_CLASSES         (CLASS_Micro + 1)
 
 #endif

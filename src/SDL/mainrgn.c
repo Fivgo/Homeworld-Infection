@@ -2763,61 +2763,155 @@ mrActionString[] =
     {MAM_Trade,         "CSM_Trade"},
     {0,      NULL},
 };
+// CAT-PROVISIONAL: re-keyed to the 145 Cataclysm types. The exe copy of this table was not located. The values are the HW1 values of each type's HW1
+//      counterpart (same ship, any race); Cataclysm-only types get the default. Stage 3 replaces this table.
 udword mrMenuActionsByShipType[TOTAL_NUM_SHIPS] =
 {
-    /* AdvanceSupportFrigate */  MAM_ExtSet,
-    /* AttackBomber          */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* Carrier               */  MAM_ExtSet | MAM_Divider | MAM_Build | MAM_Launch,
-    /* CloakedFighter        */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* CloakGenerator        */  MAM_ExtSet,
-    /* DDDFrigate            */  MAM_ExtSet,
-    /* DefenseFighter        */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* DFGFrigate            */  MAM_ExtSet,
-    /* GravWellGenerator     */  MAM_ExtSet,
-    /* HeavyCorvette         */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* HeavyCruiser          */  MAM_ExtSet,
-    /* HeavyDefender         */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* HeavyInterceptor      */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* IonCannonFrigate      */  MAM_ExtSet,
-    /* LightCorvette         */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* LightDefender         */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* LightInterceptor      */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* MinelayerCorvette     */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* MissileDestroyer      */  MAM_ExtSet,
-    /* Mothership            */  MAM_BasicSet | MAM_Divider | MAM_Scuttle | MAM_Build | MAM_Launch,
-    /* MultiGunCorvette      */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* Probe                 */  MAM_MedSet | MAM_Divider | MAM_Dock,
-    /* ProximitySensor       */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* RepairCorvette        */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* ResearchShip          */  MAM_ExtSet | MAM_Divider | MAM_Research,
-    /* ResourceCollector     */  MAM_ExtSet | MAM_Divider | MAM_Harvest | MAM_Dock,
-    /* ResourceController    */  MAM_ExtSet,
-    /* SalCapCorvette        */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* SensorArray           */  MAM_ExtSet,
-    /* StandardDestroyer     */  MAM_ExtSet,
-    /* StandardFrigate       */  MAM_ExtSet,
-    /* Drone                 */  MAM_ExtSet,
-    /* TargetDrone           */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* HeadShotAsteroid      */  MAM_ExtSet,
-    /* CryoTray              */  MAM_ExtSet,
-    /* P1Fighter             */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* P1IonArrayFrigate     */  MAM_ExtSet,
-    /* P1MissileCorvette     */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* P1Mothership          */  MAM_ExtSet,
-    /* P1StandardCorvette    */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* P2AdvanceSwarmer      */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* P2FuelPod             */  MAM_ExtSet,
-    /* P2Mothership          */  MAM_ExtSet,
-    /* P2MultiBeamFrigate    */  MAM_ExtSet,
-    /* P2Swarmer             */  MAM_ExtSet | MAM_Divider | MAM_Dock,
-    /* P3Destroyer           */  MAM_ExtSet,
-    /* P3Frigate             */  MAM_ExtSet,
-    /* P3Megaship            */  MAM_ExtSet,
-    /* FloatingCity          */  MAM_ExtSet,
-    /* CargoBarge            */  MAM_ExtSet,
-    /* MiningBase            */  MAM_ExtSet,
-    /* ResearchStation       */  MAM_ExtSet,
-    /* JunkYardDawg           */  MAM_ExtSet
+    MAM_ExtSet,                                        //sRecon (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sAcolyte (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMimic (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sLeech (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sACV (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMCV (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sRammingFrigate (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMultiBeamFrigate (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sHiveFrigate (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sSwarmer (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sDreadnought (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sDreadnoughtCannon (Cataclysm-only: default)
+    MAM_ExtSet | MAM_Divider | MAM_Build | MAM_Launch, //sCarrier (HW1 Carrier)
+    MAM_ExtSet,                                        //sCarrierSupport (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sWorker (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sRepairDroid (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sProcessor (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sSentinel (Cataclysm-only: default)
+    MAM_BasicSet | MAM_Divider | MAM_Scuttle | MAM_Build | MAM_Launch, //sMothership (HW1 Mothership)
+    MAM_ExtSet,                                        //sMothershipSpecial (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMothershipEngineering (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMothershipArmour (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMothershipMicro (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMothershipWeapons (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMothershipDockingBay (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sDestroyer (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMothershipSupport (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMothershipCommand (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMothershipEnginesLower (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMothershipEnginesUpper (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMothershipLowerSpine (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMothershipBigGun (Cataclysm-only: default)
+    MAM_ExtSet,                                        //sMothershipOreCanArmour (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bRecon (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bAcolyte (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bInterceptor (Cataclysm-only: default)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //bCloakedFighter (HW1 CloakedFighter)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //bAttackBomber (HW1 AttackBomber)
+    MAM_ExtSet,                                        //bACV (Cataclysm-only: default)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //bMultiGunCorvette (HW1 MultiGunCorvette)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //bHeavyCorvette (HW1 HeavyCorvette)
+    MAM_ExtSet,                                        //bMultiBeamFrigate (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bHiveFrigate (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bSwarmer (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bIonArrayFrigate (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bDFGFrigate (HW1 DFGFrigate)
+    MAM_ExtSet,                                        //bHeavyCruiser (HW1 HeavyCruiser)
+    MAM_ExtSet | MAM_Divider | MAM_Build | MAM_Launch, //bCarrier (HW1 Carrier)
+    MAM_ExtSet,                                        //bRammingFrigate (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bWorker (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bRepairDroid (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bProcessor (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bSentinel (Cataclysm-only: default)
+    MAM_BasicSet | MAM_Divider | MAM_Scuttle | MAM_Build | MAM_Launch, //bMothership (HW1 Mothership)
+    MAM_ExtSet,                                        //bMothershipDockingBay (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bMothershipEnginesLower (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bSectMoship (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bMothershipSupport (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bCruiseMissile (Cataclysm-only: default)
+    MAM_ExtSet,                                        //bMissileCorvette (Cataclysm-only: default)
+    MAM_ExtSet,                                        //kAdvanceSupportFrigate (HW1 AdvanceSupportFrigate)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kAttackBomber (HW1 AttackBomber)
+    MAM_ExtSet | MAM_Divider | MAM_Build | MAM_Launch, //kCarrier (HW1 Carrier)
+    MAM_ExtSet,                                        //kCloakGenerator (HW1 CloakGenerator)
+    MAM_ExtSet,                                        //kGravWellGenerator (HW1 GravWellGenerator)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kHeavyCorvette (HW1 HeavyCorvette)
+    MAM_ExtSet,                                        //kHeavyCruiser (HW1 HeavyCruiser)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kHeavyDefender (HW1 HeavyDefender)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kHeavyInterceptor (HW1 HeavyInterceptor)
+    MAM_ExtSet,                                        //kIonCannonFrigate (HW1 IonCannonFrigate)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kMultiGunCorvette (HW1 MultiGunCorvette)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kProximitySensor (HW1 ProximitySensor)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kSalCapCorvette (HW1 SalCapCorvette)
+    MAM_ExtSet,                                        //kStandardDestroyer (HW1 StandardDestroyer)
+    MAM_ExtSet,                                        //tAdvanceSupportFrigate (HW1 AdvanceSupportFrigate)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tAttackBomber (HW1 AttackBomber)
+    MAM_ExtSet | MAM_Divider | MAM_Build | MAM_Launch, //tCarrier (HW1 Carrier)
+    MAM_ExtSet,                                        //tCloakGenerator (HW1 CloakGenerator)
+    MAM_ExtSet,                                        //tDFGFrigate (HW1 DFGFrigate)
+    MAM_ExtSet,                                        //tGravWellGenerator (HW1 GravWellGenerator)
+    MAM_ExtSet,                                        //tHeavyCruiser (HW1 HeavyCruiser)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tHeavyDefender (HW1 HeavyDefender)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tHeavyInterceptor (HW1 HeavyInterceptor)
+    MAM_ExtSet,                                        //tIonCannonFrigate (HW1 IonCannonFrigate)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tMinelayerCorvette (HW1 MinelayerCorvette)
+    MAM_ExtSet,                                        //tMissileDestroyer (HW1 MissileDestroyer)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tMultiGunCorvette (HW1 MultiGunCorvette)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tProximitySensor (HW1 ProximitySensor)
+    MAM_ExtSet | MAM_Divider | MAM_Harvest | MAM_Dock, //tResourceCollector (HW1 ResourceCollector)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tSalCapCorvette (HW1 SalCapCorvette)
+    MAM_ExtSet,                                        //tStandardDestroyer (HW1 StandardDestroyer)
+    MAM_ExtSet,                                        //tStandardFrigate (HW1 StandardFrigate)
+    MAM_ExtSet,                                        //p1Outpost (Cataclysm-only: default)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //p1Fighter (HW1 P1Fighter)
+    MAM_ExtSet,                                        //p1IonArrayFrigate (HW1 P1IonArrayFrigate)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //p1MissileCorvette (HW1 P1MissileCorvette)
+    MAM_ExtSet,                                        //p1Mothership (HW1 P1Mothership)
+    MAM_ExtSet | MAM_Divider | MAM_Dock,               //p1StandardCorvette (HW1 P1StandardCorvette)
+    MAM_ExtSet,                                        //trFloatingCity (HW1 FloatingCity)
+    MAM_ExtSet,                                        //trCargoBarge (HW1 CargoBarge)
+    MAM_ExtSet,                                        //trMiningBase (HW1 MiningBase)
+    MAM_ExtSet,                                        //trResearchStation (HW1 ResearchStation)
+    MAM_ExtSet,                                        //trJunkYardDawg (HW1 JunkYardDawg)
+    MAM_ExtSet,                                        //trJunkYardHQ (Cataclysm-only: default)
+    MAM_ExtSet,                                        //trGhostship (Cataclysm-only: default)
+    MAM_ExtSet,                                        //trJunk_LGun (Cataclysm-only: default)
+    MAM_ExtSet,                                        //trJunk_SGun (Cataclysm-only: default)
+    MAM_ExtSet,                                        //trResearchStationBridge (Cataclysm-only: default)
+    MAM_ExtSet,                                        //trResearchStationTower (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dRKO (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dBigGun (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dBigGunUnit (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dSlipgateSmall (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dSlipgateMedium (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dSlipgateLarge (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dCrate (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dJunk1PartA (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dJunk1Shell (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dJunk1Strut (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dJunk2Shipwreck (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dJunk3Boiler (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dJunk3BoilerCasing (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dMessagePod (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dBuoy (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dFirstPlanet (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dDeadPlanet (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dCrystal0 (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dCrystal1 (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dBeastDockingBay (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dNISBuoy (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dBeastMothership (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dNomadMoon (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dNomadFieldEmitter (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dAcolyte (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dPrisonShip (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dPrisonShipInfected (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dSlipgateNode (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dKushanCarrier (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dIonArrayFrigate (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dIonCannonFrigate (HW1 IonCannonFrigate)
+    MAM_ExtSet,                                        //dEcclesiam (Cataclysm-only: default)
+    MAM_ExtSet,                                        //dEcclesiamInfected (Cataclysm-only: default)
+    MAM_ExtSet,                                        //nisLightSource1 (Cataclysm-only: default)
+    MAM_ExtSet,                                        //nisLightSource2 (Cataclysm-only: default)
+    MAM_ExtSet                                         //nisLensflareSource1 (Cataclysm-only: default)
 };
 
 char *mrMenuItemByFormation[] =

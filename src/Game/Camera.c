@@ -513,121 +513,306 @@ void cameraRayCast(vector *dest, Camera *cam, sdword screenX, sdword screenY, sd
 }
 
 // R1 and other races
+// CAT-PROVISIONAL: re-keyed to the 145 Cataclysm types. No such table was found in the exe (Cataclysm reads pilotViewOffsetX/Y/Z from the .shp, docs/formats/shipstatic.md). The values are the HW1 values of each type's HW1
+//      counterpart (same ship, any race); Cataclysm-only types get the default. Stage 3 replaces this table.
 real32 PilotOffsets[TOTAL_NUM_SHIPS] =
 {
-    0.520271f,   //AdvanceSupportFrigate
-    1.339939f,   //AttackBomber
-    0.721288f,   //Carrier
-    1.000000f,   //CloakedFighter
-    0.590338f,   //CloakGenerator
-    0.492416f,   //DDDFrigate
-    0.500000f,   //DefenseFighter
-    0.500000f,   //DFGFrigate
-    0.527472f,   //GravWellGenerator
-    1.151658f,   //HeavyCorvette
-    0.701667f,   //HeavyCruiser
-    0.877925f,   //HeavyDefender
-    1.529971f,   //HeavyInterceptor
-    0.554551f,   //IonCannonFrigate
-    1.163247f,   //LightCorvette
-    0.500000f,   //LightDefender
-    1.638964f,   //LightInterceptor
-    1.064361f,   //MinelayerCorvette
-    0.704322f,   //MissileDestroyer
-    0.284337f,   //Mothership
-    1.083175f,   //MultiGunCorvette
-    0.497371f,   //Probe
-    0.500000f,   //ProximitySensor
-    0.749807f,   //RepairCorvette
-    0.583764f,   //ResearchShip
-    0.658322f,   //ResourceCollector
-    0.680934f,   //ResourceController
-    0.816380f,   //SalCapCorvette
-    0.500000f,   //SensorArray
-    0.735038f,   //StandardDestroyer
-    0.537480f,   //StandardFrigate
-    0.500000f,   //Drone
-    0.668166f,   //TargetDrone
-    0.500000f,   //HeadShotAsteroid
-    0.500000f,   //CryoTray
-    1.048587f,   //P1Fighter
-    0.567337f,   //P1IonArrayFrigate
-    0.752711f,   //P1MissileCorvette
-    0.577365f,   //P1Mothership
-    0.722271f,   //P1StandardCorvette
-    0.500000f,   //P2AdvanceSwarmer
-    0.650220f,   //P2FuelPod
-    0.536278f,   //P2Mothership
-    0.681024f,   //P2MultiBeamFrigate
-    0.500000f,   //P2Swarmer
-    0.500000f,   //P3Destroyer
-    0.500000f,   //P3Frigate
-    0.500000f,   //P3Megaship
-    0.500000f,   //FloatingCity
-    0.500000f,   //CargoBarge
-    0.500000f,   //MiningBase
-    0.500000f,   //ResearchStation
-    0.500000f,   //JunkYardDawg
-    0.500000f    //JunkYardHQ
+    0.5f,                                              //sRecon (Cataclysm-only: default)
+    0.5f,                                              //sAcolyte (Cataclysm-only: default)
+    0.5f,                                              //sMimic (Cataclysm-only: default)
+    0.5f,                                              //sLeech (Cataclysm-only: default)
+    0.5f,                                              //sACV (Cataclysm-only: default)
+    0.5f,                                              //sMCV (Cataclysm-only: default)
+    0.5f,                                              //sRammingFrigate (Cataclysm-only: default)
+    0.5f,                                              //sMultiBeamFrigate (Cataclysm-only: default)
+    0.5f,                                              //sHiveFrigate (Cataclysm-only: default)
+    0.5f,                                              //sSwarmer (Cataclysm-only: default)
+    0.5f,                                              //sDreadnought (Cataclysm-only: default)
+    0.5f,                                              //sDreadnoughtCannon (Cataclysm-only: default)
+    0.721288f,                                         //sCarrier (HW1 Carrier)
+    0.5f,                                              //sCarrierSupport (Cataclysm-only: default)
+    0.5f,                                              //sWorker (Cataclysm-only: default)
+    0.5f,                                              //sRepairDroid (Cataclysm-only: default)
+    0.5f,                                              //sProcessor (Cataclysm-only: default)
+    0.5f,                                              //sSentinel (Cataclysm-only: default)
+    0.284337f,                                         //sMothership (HW1 Mothership)
+    0.5f,                                              //sMothershipSpecial (Cataclysm-only: default)
+    0.5f,                                              //sMothershipEngineering (Cataclysm-only: default)
+    0.5f,                                              //sMothershipArmour (Cataclysm-only: default)
+    0.5f,                                              //sMothershipMicro (Cataclysm-only: default)
+    0.5f,                                              //sMothershipWeapons (Cataclysm-only: default)
+    0.5f,                                              //sMothershipDockingBay (Cataclysm-only: default)
+    0.5f,                                              //sDestroyer (Cataclysm-only: default)
+    0.5f,                                              //sMothershipSupport (Cataclysm-only: default)
+    0.5f,                                              //sMothershipCommand (Cataclysm-only: default)
+    0.5f,                                              //sMothershipEnginesLower (Cataclysm-only: default)
+    0.5f,                                              //sMothershipEnginesUpper (Cataclysm-only: default)
+    0.5f,                                              //sMothershipLowerSpine (Cataclysm-only: default)
+    0.5f,                                              //sMothershipBigGun (Cataclysm-only: default)
+    0.5f,                                              //sMothershipOreCanArmour (Cataclysm-only: default)
+    0.5f,                                              //bRecon (Cataclysm-only: default)
+    0.5f,                                              //bAcolyte (Cataclysm-only: default)
+    0.5f,                                              //bInterceptor (Cataclysm-only: default)
+    1.000000f,                                         //bCloakedFighter (HW1 CloakedFighter)
+    1.339939f,                                         //bAttackBomber (HW1 AttackBomber)
+    0.5f,                                              //bACV (Cataclysm-only: default)
+    1.083175f,                                         //bMultiGunCorvette (HW1 MultiGunCorvette)
+    1.151658f,                                         //bHeavyCorvette (HW1 HeavyCorvette)
+    0.5f,                                              //bMultiBeamFrigate (Cataclysm-only: default)
+    0.5f,                                              //bHiveFrigate (Cataclysm-only: default)
+    0.5f,                                              //bSwarmer (Cataclysm-only: default)
+    0.5f,                                              //bIonArrayFrigate (Cataclysm-only: default)
+    0.500000f,                                         //bDFGFrigate (HW1 DFGFrigate)
+    0.701667f,                                         //bHeavyCruiser (HW1 HeavyCruiser)
+    0.721288f,                                         //bCarrier (HW1 Carrier)
+    0.5f,                                              //bRammingFrigate (Cataclysm-only: default)
+    0.5f,                                              //bWorker (Cataclysm-only: default)
+    0.5f,                                              //bRepairDroid (Cataclysm-only: default)
+    0.5f,                                              //bProcessor (Cataclysm-only: default)
+    0.5f,                                              //bSentinel (Cataclysm-only: default)
+    0.284337f,                                         //bMothership (HW1 Mothership)
+    0.5f,                                              //bMothershipDockingBay (Cataclysm-only: default)
+    0.5f,                                              //bMothershipEnginesLower (Cataclysm-only: default)
+    0.5f,                                              //bSectMoship (Cataclysm-only: default)
+    0.5f,                                              //bMothershipSupport (Cataclysm-only: default)
+    0.5f,                                              //bCruiseMissile (Cataclysm-only: default)
+    0.5f,                                              //bMissileCorvette (Cataclysm-only: default)
+    0.520271f,                                         //kAdvanceSupportFrigate (HW1 AdvanceSupportFrigate)
+    1.339939f,                                         //kAttackBomber (HW1 AttackBomber)
+    0.721288f,                                         //kCarrier (HW1 Carrier)
+    0.590338f,                                         //kCloakGenerator (HW1 CloakGenerator)
+    0.527472f,                                         //kGravWellGenerator (HW1 GravWellGenerator)
+    1.151658f,                                         //kHeavyCorvette (HW1 HeavyCorvette)
+    0.701667f,                                         //kHeavyCruiser (HW1 HeavyCruiser)
+    0.877925f,                                         //kHeavyDefender (HW1 HeavyDefender)
+    1.529971f,                                         //kHeavyInterceptor (HW1 HeavyInterceptor)
+    0.554551f,                                         //kIonCannonFrigate (HW1 IonCannonFrigate)
+    1.083175f,                                         //kMultiGunCorvette (HW1 MultiGunCorvette)
+    0.500000f,                                         //kProximitySensor (HW1 ProximitySensor)
+    0.816380f,                                         //kSalCapCorvette (HW1 SalCapCorvette)
+    0.735038f,                                         //kStandardDestroyer (HW1 StandardDestroyer)
+    0.520271f,                                         //tAdvanceSupportFrigate (HW1 AdvanceSupportFrigate)
+    1.339939f,                                         //tAttackBomber (HW1 AttackBomber)
+    0.721288f,                                         //tCarrier (HW1 Carrier)
+    0.590338f,                                         //tCloakGenerator (HW1 CloakGenerator)
+    0.500000f,                                         //tDFGFrigate (HW1 DFGFrigate)
+    0.527472f,                                         //tGravWellGenerator (HW1 GravWellGenerator)
+    0.701667f,                                         //tHeavyCruiser (HW1 HeavyCruiser)
+    0.877925f,                                         //tHeavyDefender (HW1 HeavyDefender)
+    1.529971f,                                         //tHeavyInterceptor (HW1 HeavyInterceptor)
+    0.554551f,                                         //tIonCannonFrigate (HW1 IonCannonFrigate)
+    1.064361f,                                         //tMinelayerCorvette (HW1 MinelayerCorvette)
+    0.704322f,                                         //tMissileDestroyer (HW1 MissileDestroyer)
+    1.083175f,                                         //tMultiGunCorvette (HW1 MultiGunCorvette)
+    0.500000f,                                         //tProximitySensor (HW1 ProximitySensor)
+    0.658322f,                                         //tResourceCollector (HW1 ResourceCollector)
+    0.816380f,                                         //tSalCapCorvette (HW1 SalCapCorvette)
+    0.735038f,                                         //tStandardDestroyer (HW1 StandardDestroyer)
+    0.537480f,                                         //tStandardFrigate (HW1 StandardFrigate)
+    0.5f,                                              //p1Outpost (Cataclysm-only: default)
+    1.048587f,                                         //p1Fighter (HW1 P1Fighter)
+    0.567337f,                                         //p1IonArrayFrigate (HW1 P1IonArrayFrigate)
+    0.752711f,                                         //p1MissileCorvette (HW1 P1MissileCorvette)
+    0.577365f,                                         //p1Mothership (HW1 P1Mothership)
+    0.722271f,                                         //p1StandardCorvette (HW1 P1StandardCorvette)
+    0.500000f,                                         //trFloatingCity (HW1 FloatingCity)
+    0.500000f,                                         //trCargoBarge (HW1 CargoBarge)
+    0.500000f,                                         //trMiningBase (HW1 MiningBase)
+    0.500000f,                                         //trResearchStation (HW1 ResearchStation)
+    0.500000f,                                         //trJunkYardDawg (HW1 JunkYardDawg)
+    0.500000f,                                         //trJunkYardHQ (HW1 JunkYardHQ)
+    0.5f,                                              //trGhostship (Cataclysm-only: default)
+    0.5f,                                              //trJunk_LGun (Cataclysm-only: default)
+    0.5f,                                              //trJunk_SGun (Cataclysm-only: default)
+    0.5f,                                              //trResearchStationBridge (Cataclysm-only: default)
+    0.5f,                                              //trResearchStationTower (Cataclysm-only: default)
+    0.5f,                                              //dRKO (Cataclysm-only: default)
+    0.5f,                                              //dBigGun (Cataclysm-only: default)
+    0.5f,                                              //dBigGunUnit (Cataclysm-only: default)
+    0.5f,                                              //dSlipgateSmall (Cataclysm-only: default)
+    0.5f,                                              //dSlipgateMedium (Cataclysm-only: default)
+    0.5f,                                              //dSlipgateLarge (Cataclysm-only: default)
+    0.5f,                                              //dCrate (Cataclysm-only: default)
+    0.5f,                                              //dJunk1PartA (Cataclysm-only: default)
+    0.5f,                                              //dJunk1Shell (Cataclysm-only: default)
+    0.5f,                                              //dJunk1Strut (Cataclysm-only: default)
+    0.5f,                                              //dJunk2Shipwreck (Cataclysm-only: default)
+    0.5f,                                              //dJunk3Boiler (Cataclysm-only: default)
+    0.5f,                                              //dJunk3BoilerCasing (Cataclysm-only: default)
+    0.5f,                                              //dMessagePod (Cataclysm-only: default)
+    0.5f,                                              //dBuoy (Cataclysm-only: default)
+    0.5f,                                              //dFirstPlanet (Cataclysm-only: default)
+    0.5f,                                              //dDeadPlanet (Cataclysm-only: default)
+    0.5f,                                              //dCrystal0 (Cataclysm-only: default)
+    0.5f,                                              //dCrystal1 (Cataclysm-only: default)
+    0.5f,                                              //dBeastDockingBay (Cataclysm-only: default)
+    0.5f,                                              //dNISBuoy (Cataclysm-only: default)
+    0.5f,                                              //dBeastMothership (Cataclysm-only: default)
+    0.5f,                                              //dNomadMoon (Cataclysm-only: default)
+    0.5f,                                              //dNomadFieldEmitter (Cataclysm-only: default)
+    0.5f,                                              //dAcolyte (Cataclysm-only: default)
+    0.5f,                                              //dPrisonShip (Cataclysm-only: default)
+    0.5f,                                              //dPrisonShipInfected (Cataclysm-only: default)
+    0.5f,                                              //dSlipgateNode (Cataclysm-only: default)
+    0.5f,                                              //dKushanCarrier (Cataclysm-only: default)
+    0.5f,                                              //dIonArrayFrigate (Cataclysm-only: default)
+    0.554551f,                                         //dIonCannonFrigate (HW1 IonCannonFrigate)
+    0.5f,                                              //dEcclesiam (Cataclysm-only: default)
+    0.5f,                                              //dEcclesiamInfected (Cataclysm-only: default)
+    0.5f,                                              //nisLightSource1 (Cataclysm-only: default)
+    0.5f,                                              //nisLightSource2 (Cataclysm-only: default)
+    0.5f                                               //nisLensflareSource1 (Cataclysm-only: default)
 };
 
+// CAT-PROVISIONAL: re-keyed to the 145 Cataclysm types. No such table was found in the exe. The values are the HW1 values of each type's HW1
+//      counterpart (same ship, any race); Cataclysm-only types get the default. Stage 3 replaces this table.
 real32 PilotOffsetsR2[TOTAL_NUM_SHIPS] =
 {
-    // R2
-    1.000000f,   //AdvanceSupportFrigate
-    0.693640f,   //AttackBomber
-    0.757119f,   //Carrier
-    0.500000f,   //CloakedFighter
-    1.000000f,   //CloakGenerator
-    0.500000f,   //DDDFrigate
-    0.500000f,   //DefenseFighter
-    0.705870f,   //DFGFrigate
-    1.000000f,   //GravWellGenerator
-    0.747669f,   //HeavyCorvette
-    0.639340f,   //HeavyCruiser
-    0.500000f,   //HeavyDefender
-    0.932979f,   //HeavyInterceptor
-    0.730083f,   //IonCannonFrigate
-    0.757052f,   //LightCorvette
-    0.500000f,   //LightDefender
-    0.747636f,   //LightInterceptor
-    0.651380f,   //MinelayerCorvette
-    0.662940f,   //MissileDestroyer
-    0.940094f,   //Mothership
-    0.836680f,   //MultiGunCorvette
-    0.500000f,   //Probe
-    0.500000f,   //ProximitySensor
-    0.714634f,   //RepairCorvette
-    0.500000f,   //ResearchShip
-    0.504698f,   //ResourceCollector
-    0.504698f,   //ResourceController
-    0.553650f,   //SalCapCorvette
-    0.500000f,   //SensorArray
-    0.652220f,   //StandardDestroyer
-    0.786846f,   //StandardFrigate
-    0.500000f,   //Drone
-    0.500000f,   //TargetDrone
-    0.500000f,   //HeadShotAsteroid
-    0.500000f,   //CryoTray
-    0.500000f,   //P1Fighter
-    0.500000f,   //P1IonArrayFrigate
-    0.500000f,   //P1MissileCorvette
-    0.500000f,   //P1Mothership
-    0.500000f,   //P1StandardCorvette
-    0.500000f,   //P2AdvanceSwarmer
-    0.500000f,   //P2FuelPod
-    0.500000f,   //P2Mothership
-    0.500000f,   //P2MultiBeamFrigate
-    0.500000f,   //P2Swarmer
-    0.500000f,   //P3Destroyer
-    0.500000f,   //P3Frigate
-    0.500000f,   //P3Megaship
-    0.500000f,   //FloatingCity
-    0.500000f,   //CargoBarge
-    0.500000f,   //MiningBase
-    0.500000f,   //ResearchStation
-    0.500000f,   //JunkYardDawg
-    0.500000f    //JunkYardHQ
+    0.5f,                                              //sRecon (Cataclysm-only: default)
+    0.5f,                                              //sAcolyte (Cataclysm-only: default)
+    0.5f,                                              //sMimic (Cataclysm-only: default)
+    0.5f,                                              //sLeech (Cataclysm-only: default)
+    0.5f,                                              //sACV (Cataclysm-only: default)
+    0.5f,                                              //sMCV (Cataclysm-only: default)
+    0.5f,                                              //sRammingFrigate (Cataclysm-only: default)
+    0.5f,                                              //sMultiBeamFrigate (Cataclysm-only: default)
+    0.5f,                                              //sHiveFrigate (Cataclysm-only: default)
+    0.5f,                                              //sSwarmer (Cataclysm-only: default)
+    0.5f,                                              //sDreadnought (Cataclysm-only: default)
+    0.5f,                                              //sDreadnoughtCannon (Cataclysm-only: default)
+    0.757119f,                                         //sCarrier (HW1 Carrier)
+    0.5f,                                              //sCarrierSupport (Cataclysm-only: default)
+    0.5f,                                              //sWorker (Cataclysm-only: default)
+    0.5f,                                              //sRepairDroid (Cataclysm-only: default)
+    0.5f,                                              //sProcessor (Cataclysm-only: default)
+    0.5f,                                              //sSentinel (Cataclysm-only: default)
+    0.940094f,                                         //sMothership (HW1 Mothership)
+    0.5f,                                              //sMothershipSpecial (Cataclysm-only: default)
+    0.5f,                                              //sMothershipEngineering (Cataclysm-only: default)
+    0.5f,                                              //sMothershipArmour (Cataclysm-only: default)
+    0.5f,                                              //sMothershipMicro (Cataclysm-only: default)
+    0.5f,                                              //sMothershipWeapons (Cataclysm-only: default)
+    0.5f,                                              //sMothershipDockingBay (Cataclysm-only: default)
+    0.5f,                                              //sDestroyer (Cataclysm-only: default)
+    0.5f,                                              //sMothershipSupport (Cataclysm-only: default)
+    0.5f,                                              //sMothershipCommand (Cataclysm-only: default)
+    0.5f,                                              //sMothershipEnginesLower (Cataclysm-only: default)
+    0.5f,                                              //sMothershipEnginesUpper (Cataclysm-only: default)
+    0.5f,                                              //sMothershipLowerSpine (Cataclysm-only: default)
+    0.5f,                                              //sMothershipBigGun (Cataclysm-only: default)
+    0.5f,                                              //sMothershipOreCanArmour (Cataclysm-only: default)
+    0.5f,                                              //bRecon (Cataclysm-only: default)
+    0.5f,                                              //bAcolyte (Cataclysm-only: default)
+    0.5f,                                              //bInterceptor (Cataclysm-only: default)
+    0.500000f,                                         //bCloakedFighter (HW1 CloakedFighter)
+    0.693640f,                                         //bAttackBomber (HW1 AttackBomber)
+    0.5f,                                              //bACV (Cataclysm-only: default)
+    0.836680f,                                         //bMultiGunCorvette (HW1 MultiGunCorvette)
+    0.747669f,                                         //bHeavyCorvette (HW1 HeavyCorvette)
+    0.5f,                                              //bMultiBeamFrigate (Cataclysm-only: default)
+    0.5f,                                              //bHiveFrigate (Cataclysm-only: default)
+    0.5f,                                              //bSwarmer (Cataclysm-only: default)
+    0.5f,                                              //bIonArrayFrigate (Cataclysm-only: default)
+    0.705870f,                                         //bDFGFrigate (HW1 DFGFrigate)
+    0.639340f,                                         //bHeavyCruiser (HW1 HeavyCruiser)
+    0.757119f,                                         //bCarrier (HW1 Carrier)
+    0.5f,                                              //bRammingFrigate (Cataclysm-only: default)
+    0.5f,                                              //bWorker (Cataclysm-only: default)
+    0.5f,                                              //bRepairDroid (Cataclysm-only: default)
+    0.5f,                                              //bProcessor (Cataclysm-only: default)
+    0.5f,                                              //bSentinel (Cataclysm-only: default)
+    0.940094f,                                         //bMothership (HW1 Mothership)
+    0.5f,                                              //bMothershipDockingBay (Cataclysm-only: default)
+    0.5f,                                              //bMothershipEnginesLower (Cataclysm-only: default)
+    0.5f,                                              //bSectMoship (Cataclysm-only: default)
+    0.5f,                                              //bMothershipSupport (Cataclysm-only: default)
+    0.5f,                                              //bCruiseMissile (Cataclysm-only: default)
+    0.5f,                                              //bMissileCorvette (Cataclysm-only: default)
+    1.000000f,                                         //kAdvanceSupportFrigate (HW1 AdvanceSupportFrigate)
+    0.693640f,                                         //kAttackBomber (HW1 AttackBomber)
+    0.757119f,                                         //kCarrier (HW1 Carrier)
+    1.000000f,                                         //kCloakGenerator (HW1 CloakGenerator)
+    1.000000f,                                         //kGravWellGenerator (HW1 GravWellGenerator)
+    0.747669f,                                         //kHeavyCorvette (HW1 HeavyCorvette)
+    0.639340f,                                         //kHeavyCruiser (HW1 HeavyCruiser)
+    0.500000f,                                         //kHeavyDefender (HW1 HeavyDefender)
+    0.932979f,                                         //kHeavyInterceptor (HW1 HeavyInterceptor)
+    0.730083f,                                         //kIonCannonFrigate (HW1 IonCannonFrigate)
+    0.836680f,                                         //kMultiGunCorvette (HW1 MultiGunCorvette)
+    0.500000f,                                         //kProximitySensor (HW1 ProximitySensor)
+    0.553650f,                                         //kSalCapCorvette (HW1 SalCapCorvette)
+    0.652220f,                                         //kStandardDestroyer (HW1 StandardDestroyer)
+    1.000000f,                                         //tAdvanceSupportFrigate (HW1 AdvanceSupportFrigate)
+    0.693640f,                                         //tAttackBomber (HW1 AttackBomber)
+    0.757119f,                                         //tCarrier (HW1 Carrier)
+    1.000000f,                                         //tCloakGenerator (HW1 CloakGenerator)
+    0.705870f,                                         //tDFGFrigate (HW1 DFGFrigate)
+    1.000000f,                                         //tGravWellGenerator (HW1 GravWellGenerator)
+    0.639340f,                                         //tHeavyCruiser (HW1 HeavyCruiser)
+    0.500000f,                                         //tHeavyDefender (HW1 HeavyDefender)
+    0.932979f,                                         //tHeavyInterceptor (HW1 HeavyInterceptor)
+    0.730083f,                                         //tIonCannonFrigate (HW1 IonCannonFrigate)
+    0.651380f,                                         //tMinelayerCorvette (HW1 MinelayerCorvette)
+    0.662940f,                                         //tMissileDestroyer (HW1 MissileDestroyer)
+    0.836680f,                                         //tMultiGunCorvette (HW1 MultiGunCorvette)
+    0.500000f,                                         //tProximitySensor (HW1 ProximitySensor)
+    0.504698f,                                         //tResourceCollector (HW1 ResourceCollector)
+    0.553650f,                                         //tSalCapCorvette (HW1 SalCapCorvette)
+    0.652220f,                                         //tStandardDestroyer (HW1 StandardDestroyer)
+    0.786846f,                                         //tStandardFrigate (HW1 StandardFrigate)
+    0.5f,                                              //p1Outpost (Cataclysm-only: default)
+    0.500000f,                                         //p1Fighter (HW1 P1Fighter)
+    0.500000f,                                         //p1IonArrayFrigate (HW1 P1IonArrayFrigate)
+    0.500000f,                                         //p1MissileCorvette (HW1 P1MissileCorvette)
+    0.500000f,                                         //p1Mothership (HW1 P1Mothership)
+    0.500000f,                                         //p1StandardCorvette (HW1 P1StandardCorvette)
+    0.500000f,                                         //trFloatingCity (HW1 FloatingCity)
+    0.500000f,                                         //trCargoBarge (HW1 CargoBarge)
+    0.500000f,                                         //trMiningBase (HW1 MiningBase)
+    0.500000f,                                         //trResearchStation (HW1 ResearchStation)
+    0.500000f,                                         //trJunkYardDawg (HW1 JunkYardDawg)
+    0.500000f,                                         //trJunkYardHQ (HW1 JunkYardHQ)
+    0.5f,                                              //trGhostship (Cataclysm-only: default)
+    0.5f,                                              //trJunk_LGun (Cataclysm-only: default)
+    0.5f,                                              //trJunk_SGun (Cataclysm-only: default)
+    0.5f,                                              //trResearchStationBridge (Cataclysm-only: default)
+    0.5f,                                              //trResearchStationTower (Cataclysm-only: default)
+    0.5f,                                              //dRKO (Cataclysm-only: default)
+    0.5f,                                              //dBigGun (Cataclysm-only: default)
+    0.5f,                                              //dBigGunUnit (Cataclysm-only: default)
+    0.5f,                                              //dSlipgateSmall (Cataclysm-only: default)
+    0.5f,                                              //dSlipgateMedium (Cataclysm-only: default)
+    0.5f,                                              //dSlipgateLarge (Cataclysm-only: default)
+    0.5f,                                              //dCrate (Cataclysm-only: default)
+    0.5f,                                              //dJunk1PartA (Cataclysm-only: default)
+    0.5f,                                              //dJunk1Shell (Cataclysm-only: default)
+    0.5f,                                              //dJunk1Strut (Cataclysm-only: default)
+    0.5f,                                              //dJunk2Shipwreck (Cataclysm-only: default)
+    0.5f,                                              //dJunk3Boiler (Cataclysm-only: default)
+    0.5f,                                              //dJunk3BoilerCasing (Cataclysm-only: default)
+    0.5f,                                              //dMessagePod (Cataclysm-only: default)
+    0.5f,                                              //dBuoy (Cataclysm-only: default)
+    0.5f,                                              //dFirstPlanet (Cataclysm-only: default)
+    0.5f,                                              //dDeadPlanet (Cataclysm-only: default)
+    0.5f,                                              //dCrystal0 (Cataclysm-only: default)
+    0.5f,                                              //dCrystal1 (Cataclysm-only: default)
+    0.5f,                                              //dBeastDockingBay (Cataclysm-only: default)
+    0.5f,                                              //dNISBuoy (Cataclysm-only: default)
+    0.5f,                                              //dBeastMothership (Cataclysm-only: default)
+    0.5f,                                              //dNomadMoon (Cataclysm-only: default)
+    0.5f,                                              //dNomadFieldEmitter (Cataclysm-only: default)
+    0.5f,                                              //dAcolyte (Cataclysm-only: default)
+    0.5f,                                              //dPrisonShip (Cataclysm-only: default)
+    0.5f,                                              //dPrisonShipInfected (Cataclysm-only: default)
+    0.5f,                                              //dSlipgateNode (Cataclysm-only: default)
+    0.5f,                                              //dKushanCarrier (Cataclysm-only: default)
+    0.5f,                                              //dIonArrayFrigate (Cataclysm-only: default)
+    0.730083f,                                         //dIonCannonFrigate (HW1 IonCannonFrigate)
+    0.5f,                                              //dEcclesiam (Cataclysm-only: default)
+    0.5f,                                              //dEcclesiamInfected (Cataclysm-only: default)
+    0.5f,                                              //nisLightSource1 (Cataclysm-only: default)
+    0.5f,                                              //nisLightSource2 (Cataclysm-only: default)
+    0.5f                                               //nisLensflareSource1 (Cataclysm-only: default)
 };
 
 #ifdef HW_BUILD_FOR_DEBUGGING
