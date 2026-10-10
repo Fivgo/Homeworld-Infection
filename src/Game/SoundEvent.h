@@ -55,8 +55,12 @@ extern sdword lastgrouptospeak;
 
 
 /* generic functions */
-void soundEventInit(void);				/* Initializes audio mixer, stream and DirectSound/Waveout */
+void soundEventInit(sdword race);		/* Initializes audio mixer, stream and DirectSound/Waveout; CAT: takes the player race for the speech set (soundEventInit 0x0051c6e0) */
 void soundEventClose(void);				/* Shuts down the mixer and frees resources, any soundevent calls will fail */
+#ifndef HW_GAME_DEMO
+sdword cat_speechEventLoadRaceVoice(sdword race);  /* CAT: per-race speech LUTs + voice file (0x005217f0) */
+sdword cat_speechEventInitForRace(sdword race);    /* CAT: speech start-up for a race (0x00521d50) */
+#endif
 void soundEventReset(void);				/* Shuts down the mixer but does not free resources, soundevent calls will continue to work */
 void soundEventUpdate(void);			/* Update function that does panning, volume, etc for objects in the universe */
 void soundEventInitStruct(SOUNDEVENT *pseStruct);	/* initializes a SOUNDEVENT structure for use, all ships have a SOUNDEVENT structure */

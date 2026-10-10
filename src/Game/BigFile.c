@@ -81,7 +81,9 @@ bigFileConfiguration bigFilePrecedence[] = {
 #ifdef HW_GAME_DEMO
         "HomeworldDL.big",
 #else
-        "Homeworld.big",
+        // CAT: Cataclysm's main archive (utyGameSystemsPreInit 0x005ab810 -> bigOpen 0x00425260,
+        //      utyBigFilename .data 0x008c0ef8 "Cataclysm.big"); the update archive stays "Update.big" (0x008c0f38)
+        "Cataclysm.big",
 #endif
         TRUE,
         NULL,
@@ -2519,6 +2521,14 @@ bool32 bigOpenAllBigFiles(void)
                 dbgFatalf(DBG_Loc, "Unable to find required .big file: %s", bigFilePath);
             }
         }
+        else if (strcasecmp(filePathTempBuffer, bigFilePath) == 0)
+        {
+            // CAT: the exe opens "Update.big"/"Cataclysm.big" on a case-insensitive file system, and the GOG
+            //      install ships "update.big"/"cataclysm.big". fileExists() has just matched the name
+            //      case-insensitively and left the on-disk spelling in filePathTempBuffer: open that, or the
+            //      1.01 patch archive is skipped silently on Linux (docs/m2-r1-data-deltas.md 1.2, run0c)
+            strcpy(bigFilePath, filePathTempBuffer);
+        }
         
         // can't fileOpen them because fileOpen wraps the .big archives themselves
         bigFilePrecedence[bigfile_i].filePtr = fopen(bigFilePath, "rb");
@@ -2559,11 +2569,20 @@ bool32 bigOpenAllBigFiles(void)
                 bigFilePrecedence[bigfile_i].bigFileName);
         
             bigFilePrecedence[bigfile_i].localFileRelativeAge
-                = memAlloc(bigFilePrecedence[bigfile_i].tableOfContents.numFiles,
+                = memAlloc(bigFilePrecedence[bigfile_i].tableOfContents.numFiles
+                           * sizeof(bigLocalFileAgeComparison),     // CAT: was numFiles bytes, see below
                            "bigLocalFileRelativeAge", 0);                   // 0 => no memAlloc flags
-                           
+
+            // CAT: the array holds 4-byte enums but GoK allocated and cleared numFiles BYTES, so every index above
+            //      numFiles/4 read and wrote past it inside the game heap (invisible to ASan). With Cataclysm.big's
+            //      16,528 entries, the loose-file scan wrote past it and later lookups read garbage: entry 13088
+            //      (etg\meshes\plasmashock.geo) read as LOCAL_FILE_IS_NEWER and the archive copy was skipped
+            //      (run startup-final-meshes). The exe keeps one byte per entry (utyGameSystemsPreInit 0x005ab810:
+            //      mainNewerAvailable = memAlloc(mainTOC) cleared bytewise), so sizing the array to its element
+            //      type is the faithful fix.
             memset(bigFilePrecedence[bigfile_i].localFileRelativeAge,
-                0, bigFilePrecedence[bigfile_i].tableOfContents.numFiles);  // 0 = LOCAL_FILE_DOES_NOT_EXIST
+                0, bigFilePrecedence[bigfile_i].tableOfContents.numFiles
+                   * sizeof(bigLocalFileAgeComparison));  // 0 = LOCAL_FILE_DOES_NOT_EXIST
         }
     }
     

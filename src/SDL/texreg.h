@@ -9,6 +9,8 @@
 #ifndef ___TEXREG_H
 #define ___TEXREG_H
 
+#include <stddef.h>  // CAT: offsetof for the texreg layout asserts
+
 #include "Color.h"
 #include "CRC32.h"
 #include "Types.h"
@@ -109,7 +111,9 @@
 #define TR_LifListing               "textures.ll"
 #define LL_FileIdentifier           "Event13"
 #define LL_FileVersion              0x104
-#define LL_MaxElements              12000
+// CAT: Cataclysm's textures.ll lists 12,403 textures; the exe's trListFileLoad 0x005878f0 has no element limit (HW1's
+//      12000 was checked in debug builds only). Raised so the debug check accepts the whole listing.
+#define LL_MaxElements              16384
 
 //authentication info for .LiF files
 #define LIF_FileIdentifier          "Willy 7"   //authentication identifier
@@ -171,8 +175,23 @@ typedef struct
     udword col1Handle;
 #endif
     udword sharedFrom;                          //if a shared texture, where does the real texture reside? (TR_NotShared if not shared)
+    // CAT: Cataclysm's entry is 0x34 bytes (trStartup 0x00584d30 allocates trRegistrySize * 0x34; HW1 release 0x2C):
+    //      two per-texture down-scale shifts (diskWidth >> scaleShiftX = scaled width) used by
+    //      trCramRAMComputeAndScale 0x00589a50, and the 4th argument of trTextureRegister 0x00585760 (stored at +0x30;
+    //      0 = never shrink). Names are ours (docs/formats/textures.md).
+    uword scaleShiftX, scaleShiftY;
+    udword bScalable;
 }
 texreg;
+
+#if defined(__i386__) && !TR_DEBUG_TEXTURES
+// CAT: the exe's (ILP32, no debug textures) registry entry layout; checked by tools/m2_layout32.sh
+_Static_assert(offsetof(texreg, sharedFrom) == 0x28, "texreg.sharedFrom is at 0x28 in the exe");
+_Static_assert(offsetof(texreg, scaleShiftX) == 0x2C, "texreg.scaleShiftX is at 0x2C in the exe");
+_Static_assert(offsetof(texreg, scaleShiftY) == 0x2E, "texreg.scaleShiftY is at 0x2E in the exe");
+_Static_assert(offsetof(texreg, bScalable) == 0x30, "texreg.bScalable is at 0x30 in the exe");
+_Static_assert(sizeof(texreg) == 0x34, "texreg is 0x34 bytes in the exe (HW1 0x2C)");
+#endif
 
 //structure for an entry in the no-palette texture registry
 typedef struct
@@ -344,7 +363,7 @@ void trReset(void);
 void trReload(void);    //fixup OpenGL .DLL hooks
 
 //queue up a texture for loading
-trhandle trTextureRegister(char *fileName, trcolorinfo *info, void *meshReference);
+trhandle trTextureRegister(char *fileName, trcolorinfo *info, void *meshReference, bool32 bScalable);  // CAT: 4th argument (0x00585760)
 //now change one or more of it's colors
 void trTextureColorsUpdate(trhandle handle, trcolorinfo *info);
 trhandle trRegisterAddition(trhandle handle, trcolorinfo *info);
@@ -375,6 +394,13 @@ void trRGBTextureMakeCurrent(udword handle);
 void trRGBTextureDelete(udword handle);
 lifheader *trLIFFileLoad(char *fileName, udword flags);
 void trBufferColorRGB(color *dest, color *source, ubyte *teamEffect0, ubyte *teamEffect1, color teamColor0, color teamColor1, sdword size, udword flags, real32 effectScalar0, real32 effectScalar1);
+
+//CAT: port diagnostic, not in the exe: /catTexturesTest loads textures.ll and registers every listed texture
+extern bool32 catTexturesSelfTest;
+void catTexturesRunSelfTest(void);
+//CAT: Cataclysm's texture-memory fitting (0x00589a50), replaces trCramRAMScaleCompute + trCramIntoRAM
+void trCramRAMComputeAndScale(void);
+extern sdword catTrCramLimit;
 
 //misc utility functions
 void trFilterEnable(sdword bEnable);

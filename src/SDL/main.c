@@ -60,6 +60,7 @@
 #include "utility.h"
 #include "Universe.h"
 #include "Mesh.h"           // CAT: /catMeshLoadTest (port diagnostic)
+#include "texreg.h"         // CAT: /catTexturesTest (port diagnostic)
 
 #ifdef _WIN32
     #define strcasecmp _stricmp
@@ -879,6 +880,8 @@ commandoption commandOptions[] =
     entryFnParam("/catShipStaticsSkip", CatShipStaticsSkipSet, " <n,n,...> - ship types /catShipStaticsTest leaves out."),
     // CAT: port diagnostic, not a Cataclysm option (Mesh.c catMeshRunSelfTest)
     entryFnParam("/catMeshLoadTest",    CatMeshLoadTestSet, " <listfile> - load every mesh named in listfile, log one line per file, then exit."),
+    // CAT: port diagnostic, not a Cataclysm option (texreg.c catTexturesRunSelfTest)
+    entryVr("/catTexturesTest",     catTexturesSelfTest, TRUE, " - load textures.ll and register/load every texture it lists, then exit."),
 
     END_COMMAND_OPTION,
 };

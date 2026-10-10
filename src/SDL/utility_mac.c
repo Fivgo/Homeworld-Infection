@@ -3731,7 +3731,7 @@ char *utyGameSystemsInit(void)
     utySet(SSA_Region);
 
     // initialize sound engine
-    soundEventInit();
+    soundEventInit(whichRaceSelected);  // CAT: race selects the speech set (not built; kept compilable)
     utySet2(SS2_SoundEngine);
 
 #ifndef HW_GAME_DEMO

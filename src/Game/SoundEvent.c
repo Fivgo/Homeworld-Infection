@@ -716,7 +716,7 @@ void SEprecalcVolTables(void)
     Outputs     :
     Return      :
 -----------------------------------------------------------------------------*/
-void soundEventInit(void)
+void soundEventInit(sdword race)  // CAT: race selects the speech set (soundEventInit 0x0051c6e0)
 {
 #if SOUND
 
@@ -795,7 +795,12 @@ void soundEventInit(void)
 #if SPEECH
     if (enableSpeech)
     {
+#ifdef HW_GAME_DEMO
         if (speechEventInit() != SOUND_OK)
+#else
+        // CAT: per-race tables and voice file, then the streams (cat_speechEventInitForRace 0x00521d50)
+        if (cat_speechEventInitForRace(race) != SOUND_OK)
+#endif
         {
             enableSpeech = FALSE;
         }

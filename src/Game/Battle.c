@@ -407,96 +407,101 @@ char *battleString_LosingBadly_Rsp[] =
 #endif //BATTLE_TEXT
 
 //master list of chatter events
+// CAT: Cataclysm's 88 battle chatter events (table .data 0x0074e8d0, stride 0x58, read by
+//      batRandomWeightSetCB 0x004232c0 and the other bat*SetCB callbacks). Same 88 slots and BCE_* order as HW1; the
+//      names are Cataclysm's (BattleChatter.script uses them) and the event numbers are the exe's speech event ids
+//      (Cataclysm format: index in the low bits, actor flags from 0x800, type flags from 0x1000000). Slots 14, 45, 66,
+//      73, 75, 83 and 84 carry new events; 76, 77, 81 and 87 have event number 0 in the exe.
 battleevent battleChatterEvent[] =
 {
-/*BCE_Wingman,                  */ newEvent("CHAT_Fighter_Wingman",          CHAT_Fighter_Wingman,           battleString_Wingman),
-/*BCE_PositiveBattle            */ newEvent("CHAT_Grp_PositiveBattle",       CHAT_Grp_PositiveBattle,        battleString_PositiveBattle),
-/*BCE_PositiveBattle_More       */ newEvent("CHAT_Grp_PositiveBattle_More",  CHAT_Grp_PositiveBattle_More,   battleString_PositiveBattle),
-/*BCE_NegativeBattle            */ newEvent("CHAT_Grp_NegativeBattle",       CHAT_Grp_NegativeBattle,        battleString_NegativeBattle),
-/*BCE_NegativeBattle_More       */ newEvent("CHAT_Grp_NegativeBattle_More",  CHAT_Grp_NegativeBattle_More,   battleString_NegativeBattle),
-/*BCE_NegativeBattle_More2      */ newEvent("CHAT_Grp_NegativeBattle_More2", CHAT_Grp_NegativeBattle_More2,  battleString_NegativeBattle),
-/*BCE_NeutralBattle,            */ newEvent("CHAT_Grp_NeutralBattle",        CHAT_Grp_NeutralBattle,         battleString_NeutralBattle),
-/*BCE_NeutralBattle_More,       */ newEvent("CHAT_Grp_NeutralBattle_More",   CHAT_Grp_NeutralBattle_More,    battleString_NeutralBattle),
-/*BCE_FriendlyFire,             */ newEvent("CHAT_Grp_FriendlyFire",         CHAT_Grp_FriendlyFire,          battleString_FriendlyFire),
-/*BCE_GroupFriendlyFire,        */ newEvent("STAT_AssGrp_FriendlyFire",      STAT_AssGrp_FriendlyFire,       battleString_FriendlyFire),
-/*BCE_WingmanChased,            */ newEvent("STAT_Fighter_WingmanChased",    STAT_Fighter_WingmanChased,     battleString_WingmanChased),
-/*BCE_WingmanChasedR            */ newEvent("STAT_Fighter_WingmanChased_Rsp",STAT_Fighter_WingmanChased_Rsp, battleString_WingmanChased_Rsp),
-/*BCE_WingmanHit,               */ newEvent("STAT_Fighter_WingmanHit",       STAT_Fighter_WingmanHit,        battleString_WingmanHit),
-/*BCE_WingmanHitRsp             */ newEvent("STAT_Fighter_WingmanHit_Rsp",   STAT_Fighter_WingmanHit_Rsp,    battleString_WingmanHit_Rsp),
-/*BCE_WingmanLethal,            */ newEvent("STAT_Fighter_WingmanLethal",    STAT_Fighter_WingmanLethal,     battleString_WingmanLethal),
-/*BCE_WingmanDies,              */ newEvent("STAT_Fighter_WingmanDies",      STAT_Fighter_WingmanDies,       battleString_WingmanDies),
-/*BCE_LeaderChased,             */ newEvent("STAT_Fighter_LeaderChased",     STAT_Fighter_LeaderChased,      battleString_LeaderChased),
-/*BCE_Kamikaze,                 */ newEvent("COMM_LInt_Kamikaze",                COMM_LInt_Kamikaze                , battleString_Kamikaze),
-/*BCE_StartBattleDisadvant,     */ newEvent("STAT_Grp_StartBattleDisadvant",     STAT_Grp_StartBattleDisadvant     , battleString_StartBattleDisadvantaged),
-/*BCE_StartBattleDisadvantRsp,  */ newEvent("STAT_Grp_StartBattleDisadvant_Rsp", STAT_Grp_StartBattleDisadvant_Rsp , battleString_StartBattleDisadvantaged_Rsp),
-/*BCE_StartBattleFair,          */ newEvent("STAT_Grp_StartBattleFair",          STAT_Grp_StartBattleFair          , battleString_StartBattleFair),
-/*BCE_StartBattleFairRsp,       */ newEvent("STAT_Grp_StartBattleFair_Rsp",      STAT_Grp_StartBattleFair_Rsp      , battleString_StartBattleFair_Rsp),
-/*BCE_StartBattleAdvantaged,    */ newEvent("STAT_Grp_StartBattleAdvantaged",    STAT_Grp_StartBattleAdvantaged    , battleString_StartBattleAdvantaged),
-/*BCE_StartBattleAdvantagedRsp, */ newEvent("STAT_Grp_StartBattleAdvantaged_Rsp",STAT_Grp_StartBattleAdvantaged_Rsp, battleString_StartBattleAdvantaged_Rsp),
-/*BCE_Retreat,                  */ newEvent("COMM_Group_Retreat",                COMM_Group_Retreat                , battleString_Retreat),
-/*BCE_RetreatRsp,               */ newEvent("COMM_Group_Retreat_Rsp",            COMM_Group_Retreat_Rsp            , battleString_Retreat_Rsp),
-/*BCE_WinningBattle,            */ newEvent("STAT_Grp_WinningBattle",            STAT_Grp_WinningBattle            , battleString_WinningBattle),
-/*BCE_WinningBattleRsp,         */ newEvent("STAT_Grp_WinningBattle_Rsp",        STAT_Grp_WinningBattle_Rsp        , battleString_WinningBattle_Rsp),
-/*BCE_KickingButt,              */ newEvent("STAT_Grp_KickingButt",              STAT_Grp_KickingButt              , battleString_KickingButt),
-/*BCE_KickingButtRsp,           */ newEvent("STAT_Grp_KickingButt_Rsp",          STAT_Grp_KickingButt_Rsp          , battleString_KickingButt_Rsp),
-/*BCE_BattleWon,                */ newEvent("STAT_Grp_BattleWon",                STAT_Grp_BattleWon                , battleString_BattleWon),
-/*BCE_GroupVictory,             */ newEvent("STAT_F_AssGrp_Victory",             STAT_F_AssGrp_Victory             , battleString_BattleWon),
-/*BCE_LosingBattle,             */ newEvent("STAT_Grp_LosingBattle",             STAT_Grp_LosingBattle             , battleString_LosingBattle),
-/*BCE_LosingBattle_More,        */ newEvent("STAT_Grp_LosingBattle_More",        STAT_Grp_LosingBattle_More        , battleString_LosingBattle),
-/*BCE_LosingBattleRsp,          */ newEvent("STAT_Grp_LosingBattle_Rsp",         STAT_Grp_LosingBattle_Rsp         , battleString_LosingBattle_Rsp),
-/*BCE_LosingBadly,              */ newEvent("STAT_Grp_LosingBadly",              STAT_Grp_LosingBadly              , battleString_LosingBadly),
-/*BCE_LosingBadly_More,         */ newEvent("STAT_Grp_LosingBadly_More",         STAT_Grp_LosingBadly_More         , battleString_LosingBadly),
-/*BCE_LosingBadlyRsp,           */ newEvent("STAT_Grp_LosingBadly_Rsp",          STAT_Grp_LosingBadly_Rsp          , battleString_LosingBadly_Rsp),
-/*COMM_CannotComply,            */ newEvent("COMM_CannotComply", COMM_CannotComply , NULL),
-/*STAT_Strike_StuckInGrav,      */ newEvent("STAT_Strike_StuckInGrav", STAT_Strike_StuckInGrav , NULL),
-/*COMM_Grav_Off,                */ newEvent("COMM_Grav_Off", COMM_Grav_Off , NULL),
-/*STAT_Strike_AttackComplete,   */ newEvent("STAT_Strike_AttackComplete", STAT_Strike_AttackComplete , NULL),
-/*COMM_Kamikaze_NoTargets,      */ newEvent("COMM_Kamikaze_NoTargets", COMM_Kamikaze_NoTargets , NULL),
-/*COMM_HVette_BurstAttack,      */ newEvent("COMM_HVette_BurstAttack", COMM_HVette_BurstAttack , NULL),
-/*COMM_MLVette_ForceDrop,       */ newEvent("COMM_MLVette_ForceDrop", COMM_MLVette_ForceDrop , NULL),
-/*COMM_MissleDest_VolleyAttack, */ newEvent("COMM_MissleDest_VolleyAttack", COMM_MissleDest_VolleyAttack , NULL),
-/*STAT_Grp_RetreatSuccessful,   */ newEvent("STAT_Grp_RetreatSuccessful", STAT_Grp_RetreatSuccessful , NULL),
-/*STAT_AssGrp_RetreatSuccessful,*/ newEvent("STAT_AssGrp_RetreatSuccessful", STAT_AssGrp_RetreatSuccessful , NULL),
-/*STAT_Grp_EnemyRetreated,      */ newEvent("STAT_Grp_EnemyRetreated", STAT_Grp_EnemyRetreated , NULL),
-/*STAT_AssGrp_EnemyRetreated,   */ newEvent("STAT_AssGrp_EnemyRetreated", STAT_AssGrp_EnemyRetreated , NULL),
-/*STAT_SCVette_DroppingOff,     */ newEvent("STAT_SCVette_DroppingOff", STAT_SCVette_DroppingOff , NULL),
-/*STAT_F_ShipStolen,            */ newEvent("STAT_F_ShipStolen", STAT_F_ShipStolen , NULL),
-/*STAT_Grp_InMineField,         */ newEvent("STAT_Grp_InMineField", STAT_Grp_InMineField , NULL),
-/*STAT_AssGrp_InMineField,      */ newEvent("STAT_AssGrp_InMineField", STAT_AssGrp_InMineField , NULL),
-/*BCE_STAT_F_CloakedShipsDete   */ newEvent("STAT_F_CloakedShipsDetected", STAT_F_CloakedShipsDetected , NULL),
-/*BCE_STAT_Grp_AttackRetaliat   */ newEvent("STAT_Grp_AttackRetaliate", STAT_Grp_AttackRetaliate , NULL),
-/*BCE_STAT_Grp_AttackRetaliat,  */ newEvent("STAT_Grp_AttackRetaliate_Repeat", STAT_Grp_AttackRetaliate_Repeat , NULL),
-/*BCE_STAT_AssGrp_AttackRetal   */ newEvent("STAT_AssGrp_AttackRetaliate", STAT_AssGrp_AttackRetaliate , NULL),
-/*BCE_STAT_AssGrp_AttackRetaleat*/ newEvent("STAT_AssGrp_AttackRetaliate_Repeat", STAT_AssGrp_AttackRetaliate_Repeat , NULL),
-/* BCE_AttackFromAlly,          */ newEvent("STAT_F_UnderAttackFromAlly", STAT_F_UnderAttackFromAlly, NULL),
-/* BCE_GroupAttackFromAlly,     */ newEvent("STAT_Grp_AttackFromAlly", STAT_Grp_AttackFromAlly, NULL),
-/* BCE_ProbeDetected,           */ newEvent("STAT_F_EnemyProbe_Detected", STAT_F_EnemyProbe_Detected, NULL),
-/* BCE_GravwellDetected,        */ newEvent("STAT_F_GravWellDetected", STAT_F_GravWellDetected, NULL),
-/* BCE_CapitalShipDamaged,      */ newEvent("STAT_Cap_Damaged", STAT_Cap_Damaged     , NULL),
-/* BCE_CapitalShipDies,         */ newEvent("STAT_Cap_Dies", STAT_Cap_Dies        , NULL),
-/* BCE_CapitalShipDiesReport,   */ newEvent("STAT_Cap_Dies_Report", STAT_Cap_Dies_Report , NULL),
-/* BCE_HyperspaceAbandoned      */ newEvent("STAT_Hyper_Abandoned", STAT_Hyper_Abandoned, NULL),
-/* BCE_MothershipLargeAttack,   */ newEvent("STAT_MoShip_LargeAttack", STAT_MoShip_LargeAttack, NULL),
-/* BCE_MothershipLargeAttackResp*/ newEvent("STAT_MoShip_LargeAttack_Resp", STAT_MoShip_LargeAttack_Resp, NULL),
-/* BCE_CapitalShipLaunched,     */ newEvent("STAT_Cap_Launched", STAT_Cap_Launched, NULL),
-/* BCE_CapitalShipWelcomed,     */ newEvent("STAT_Cap_Welcomed", STAT_Cap_Welcomed, NULL),
-/* BCE_CapitalDamagedSpecific,  */ newEvent("STAT_Cap_Damaged_Specific", STAT_Cap_Damaged_Specific, NULL),
-/* BCE_CapitalShipDocked,       */ newEvent("STAT_Cap_ShipDocked", STAT_Cap_ShipDocked, NULL),
-/* BCE_DockingChatter,          */ newEvent("CHAT_Docking", CHAT_Docking, NULL),
-/* BCE_DockingChatterMore,      */ newEvent("CHAT_Docking_More", CHAT_Docking_More, NULL),
-/* BCE_CloakingOn,              */ newEvent("COMM_Cloak_CloakingOn", COMM_Cloak_CloakingOn, NULL),
-/* BCE_CloakingOnResponse,      */ newEvent("STAT_Cloak_CloakingOn_Resp", STAT_Cloak_CloakingOn_Resp, NULL),
-/* BCE_CloakingInsufficientPower*/ newEvent("COMM_Cloak_InsufficientPower", COMM_Cloak_InsufficientPower, NULL),
-/* BCE_CloakingPowerLow,        */ newEvent("STAT_Cloak_CloakPowerLow", STAT_Cloak_CloakPowerLow, NULL),
-/* BCE_Decloaking,              */ newEvent("COMM_Cloak_Decloak", COMM_Cloak_Decloak, NULL),
-/* BCE_SalvageTargetAcquired,   */ newEvent("STAT_SCVette_TargetAcquired", STAT_SCVette_TargetAcquired, NULL),
-/* BCE_RepairStarted,           */ newEvent("STAT_RepVette_StartedRepairs", STAT_RepVette_StartedRepairs, NULL),
-/* BCE_RepairFinished,          */ newEvent("STAT_RepVette_FinishedRepairs", STAT_RepVette_FinishedRepairs, NULL),
-/* BCE_FuelLow,                 */ newEvent("STAT_Strike_LowOnFuel", STAT_Strike_LowOnFuel, NULL),
-/* BCE_OutOfFuel,               */ newEvent("STAT_Strike_OutOfFuel", STAT_Strike_OutOfFuel, NULL),
-/* BCE_COMM_F_ScuttleReaffirm   */ newEvent("COMM_F_ScuttleReaffirm", COMM_F_ScuttleReaffirm, NULL),
-/* BCE_COMM_F_HyperspaceDetected*/ newEvent("COMM_F_HyperspaceDetected", COMM_F_HyperspaceDetected, NULL),
-/* BCE_STAT_F_ProxSensor_Detection*/ newEvent("STAT_F_ProxSensor_Detection", STAT_F_ProxSensor_Detection, NULL),
+/*BCE_Wingman,                  */ newEvent("CHAT_Fighter_Wingman", 0x10008c4, battleString_Wingman),
+/*BCE_PositiveBattle            */ newEvent("CHAT_Intel_Grp_PositiveBattle", 0x100207f, battleString_PositiveBattle),  // HW1: CHAT_Grp_PositiveBattle
+/*BCE_PositiveBattle_More       */ newEvent("CHAT_Ship_Grp_PositiveBattleMore", 0x1000816, battleString_PositiveBattle),  // HW1: CHAT_Grp_PositiveBattle_More
+/*BCE_NegativeBattle            */ newEvent("CHAT_Intel_Grp_NegativeBattle", 0x1002080, battleString_NegativeBattle),  // HW1: CHAT_Grp_NegativeBattle
+/*BCE_NegativeBattle_More       */ newEvent("CHAT_Ship_Grp_NegativeBattleMore", 0x1000817, battleString_NegativeBattle),  // HW1: CHAT_Grp_NegativeBattle_More
+/*BCE_NegativeBattle_More2      */ newEvent("CHAT_Intel_Grp_NegativeBattleMore2", 0x100206f, battleString_NegativeBattle),  // HW1: CHAT_Grp_NegativeBattle_More2
+/*BCE_NeutralBattle,            */ newEvent("CHAT_Intel_Grp_NeutralBattle", 0x1002081, battleString_NeutralBattle),  // HW1: CHAT_Grp_NeutralBattle
+/*BCE_NeutralBattle_More,       */ newEvent("CHAT_Intel_Grp_NeutralBattleMore", 0x1002071, battleString_NeutralBattle),  // HW1: CHAT_Grp_NeutralBattle_More
+/*BCE_FriendlyFire,             */ newEvent("CHAT_Intel_Grp_FriendlyFire", 0x1002082, battleString_FriendlyFire),  // HW1: CHAT_Grp_FriendlyFire
+/*BCE_GroupFriendlyFire,        */ newEvent("STAT_MoShip_AssGrp_FriendlyFire", 0x200105f, battleString_FriendlyFire),  // HW1: STAT_AssGrp_FriendlyFire
+/*BCE_WingmanChased,            */ newEvent("STAT_Fighter_WingmanChased", 0x20008be, battleString_WingmanChased),
+/*BCE_WingmanChasedR            */ newEvent("STAT_Fighter_WingmanChasedRsp", 0x20008bf, battleString_WingmanChased_Rsp),  // HW1: STAT_Fighter_WingmanChased_Rsp
+/*BCE_WingmanHit,               */ newEvent("STAT_Fighter_WingmanHit", 0x20008c0, battleString_WingmanHit),
+/*BCE_WingmanHitRsp             */ newEvent("STAT_Fighter_WingmanHitRsp", 0x20008c1, battleString_WingmanHit_Rsp),  // HW1: STAT_Fighter_WingmanHit_Rsp
+/*BCE_WingmanLethal,            */ newEvent("STAT_Spec_ShipBeingBeastified", 0x10008a1, battleString_WingmanLethal),  // HW1: STAT_Fighter_WingmanLethal
+/*BCE_WingmanDies,              */ newEvent("STAT_Fighter_WingmanDies", 0x20008c2, battleString_WingmanDies),
+/*BCE_LeaderChased,             */ newEvent("STAT_Fighter_LeaderChased", 0x20008c3, battleString_LeaderChased),
+/*BCE_Kamikaze,                 */ newEvent("COMM_LInt_Kamikaze", 0x40008c5, battleString_Kamikaze),
+/*BCE_StartBattleDisadvant,     */ newEvent("STAT_Intel_Grp_StartBattleDisadvant", 0x2002077, battleString_StartBattleDisadvantaged),  // HW1: STAT_Grp_StartBattleDisadvant
+/*BCE_StartBattleDisadvantRsp,  */ newEvent("STAT_Intel_Grp_StartBattleDisadvantRsp", 0x200206c, battleString_StartBattleDisadvantaged_Rsp),  // HW1: STAT_Grp_StartBattleDisadvant_Rsp
+/*BCE_StartBattleFair,          */ newEvent("STAT_Intel_Grp_StartBattleFair", 0x2002078, battleString_StartBattleFair),  // HW1: STAT_Grp_StartBattleFair
+/*BCE_StartBattleFairRsp,       */ newEvent("STAT_Intel_Grp_StartBattleFairRsp", 0x200206d, battleString_StartBattleFair_Rsp),  // HW1: STAT_Grp_StartBattleFair_Rsp
+/*BCE_StartBattleAdvantaged,    */ newEvent("STAT_Intel_Grp_StartBattleAdvantaged", 0x2002079, battleString_StartBattleAdvantaged),  // HW1: STAT_Grp_StartBattleAdvantaged
+/*BCE_StartBattleAdvantagedRsp, */ newEvent("STAT_Intel_Grp_StartBattleAdvantagedRsp", 0x200206e, battleString_StartBattleAdvantaged_Rsp),  // HW1: STAT_Grp_StartBattleAdvantaged_Rsp
+/*BCE_Retreat,                  */ newEvent("COMM_Intel_Grp_Retreat", 0x4002072, battleString_Retreat),  // HW1: COMM_Group_Retreat
+/*BCE_RetreatRsp,               */ newEvent("COMM_Intel_Grp_RetreatRsp", 0x400206b, battleString_Retreat_Rsp),  // HW1: COMM_Group_Retreat_Rsp
+/*BCE_WinningBattle,            */ newEvent("STAT_Intel_Grp_WinningBattle", 0x200207a, battleString_WinningBattle),  // HW1: STAT_Grp_WinningBattle
+/*BCE_WinningBattleRsp,         */ newEvent("STAT_Ship_Grp_WinningBattleRsp", 0x1000812, battleString_WinningBattle_Rsp),  // HW1: STAT_Grp_WinningBattle_Rsp
+/*BCE_KickingButt,              */ newEvent("STAT_Intel_Grp_KickingButt", 0x200207b, battleString_KickingButt),  // HW1: STAT_Grp_KickingButt
+/*BCE_KickingButtRsp,           */ newEvent("STAT_Ship_Grp_KickingButtRsp", 0x1000813, battleString_KickingButt_Rsp),  // HW1: STAT_Grp_KickingButt_Rsp
+/*BCE_BattleWon,                */ newEvent("STAT_Intel_Grp_BattleWon", 0x200207c, battleString_BattleWon),  // HW1: STAT_Grp_BattleWon
+/*BCE_GroupVictory,             */ newEvent("STAT_Intel_AssGrp_Victory", 0x2002075, battleString_BattleWon),  // HW1: STAT_F_AssGrp_Victory
+/*BCE_LosingBattle,             */ newEvent("STAT_Intel_Grp_LosingBattle", 0x200207d, battleString_LosingBattle),  // HW1: STAT_Grp_LosingBattle
+/*BCE_LosingBattle_More,        */ newEvent("STAT_Intel_Grp_LosingBattleMore", 0x2002070, battleString_LosingBattle),  // HW1: STAT_Grp_LosingBattle_More
+/*BCE_LosingBattleRsp,          */ newEvent("STAT_Ship_Grp_LosingBattleRsp", 0x1000814, battleString_LosingBattle_Rsp),  // HW1: STAT_Grp_LosingBattle_Rsp
+/*BCE_LosingBadly,              */ newEvent("STAT_Intel_Grp_LosingBadly", 0x200207e, battleString_LosingBadly),  // HW1: STAT_Grp_LosingBadly
+/*BCE_LosingBadly_More,         */ newEvent("STAT_Ship_Grp_LosingBadlyMore", 0x1000819, battleString_LosingBadly),  // HW1: STAT_Grp_LosingBadly_More
+/*BCE_LosingBadlyRsp,           */ newEvent("STAT_Ship_Grp_LosingBadlyRsp", 0x1000815, battleString_LosingBadly_Rsp),  // HW1: STAT_Grp_LosingBadly_Rsp
+/*COMM_CannotComply,            */ newEvent("COMM_CannotComply", 0x4000810, NULL),
+/*STAT_Strike_StuckInGrav,      */ newEvent("STAT_MoShip_GravWellHasShips", 0x2001051, NULL),  // HW1: STAT_Strike_StuckInGrav
+/*COMM_Grav_Off,                */ newEvent("COMM_Spec_GravWellOff", 0x40008a0, NULL),  // HW1: COMM_Grav_Off
+/*STAT_Strike_AttackComplete,   */ newEvent("STAT_MoShip_StrikeAttackComplete", 0x200105a, NULL),  // HW1: STAT_Strike_AttackComplete
+/*COMM_Kamikaze_NoTargets,      */ newEvent("COMM_Kamikaze_NoTargets", 0x4000809, NULL),
+/*COMM_HVette_BurstAttack,      */ newEvent("COMM_Spec_FighterBurstAttack", 0x400089a, NULL),  // HW1: COMM_HVette_BurstAttack
+/*COMM_MLVette_ForceDrop,       */ newEvent("COMM_Spec_MineLayerForceDrop", 0x400089b, NULL),  // HW1: COMM_MLVette_ForceDrop
+/*COMM_MissleDest_VolleyAttack, */ newEvent("STAT_Spec_HiveSwarmersUnderway", 0x20008ab, NULL),  // HW1: COMM_MissleDest_VolleyAttack
+/*STAT_Grp_RetreatSuccessful,   */ newEvent("STAT_Intel_Grp_RetreatSuccessful", 0x2002083, NULL),  // HW1: STAT_Grp_RetreatSuccessful
+/*STAT_AssGrp_RetreatSuccessful,*/ newEvent("STAT_MoShip_AssGrp_RetreatSuccessful", 0x200105d, NULL),  // HW1: STAT_AssGrp_RetreatSuccessful
+/*STAT_Grp_EnemyRetreated,      */ newEvent("STAT_Intel_Grp_EnemyRetreated", 0x2002084, NULL),  // HW1: STAT_Grp_EnemyRetreated
+/*STAT_AssGrp_EnemyRetreated,   */ newEvent("STAT_MoShip_AssGrp_EnemyRetreated", 0x200105e, NULL),  // HW1: STAT_AssGrp_EnemyRetreated
+/*STAT_SCVette_DroppingOff,     */ newEvent("STAT_Spec_SalvageDropOff", 0x2000897, NULL),  // HW1: STAT_SCVette_DroppingOff
+/*STAT_F_ShipStolen,            */ newEvent("STAT_MoShip_ShipStolen", 0x2001041, NULL),  // HW1: STAT_F_ShipStolen
+/*STAT_Grp_InMineField,         */ newEvent("STAT_Intel_Grp_InMineField", 0x2002087, NULL),  // HW1: STAT_Grp_InMineField
+/*STAT_AssGrp_InMineField,      */ newEvent("STAT_MoShip_AssGrp_InMineField", 0x2001060, NULL),  // HW1: STAT_AssGrp_InMineField
+/*BCE_STAT_F_CloakedShipsDete   */ newEvent("STAT_MoShip_CloakedShipsDetected", 0x200104c, NULL),  // HW1: STAT_F_CloakedShipsDetected
+/*BCE_STAT_Grp_AttackRetaliat   */ newEvent("STAT_Intel_Grp_AttackRetaliate", 0x2002086, NULL),  // HW1: STAT_Grp_AttackRetaliate
+/*BCE_STAT_Grp_AttackRetaliat,  */ newEvent("STAT_Ship_Grp_AttackRetaliateRepeat", 0x1000818, NULL),  // HW1: STAT_Grp_AttackRetaliate_Repeat
+/*BCE_STAT_AssGrp_AttackRetal   */ newEvent("STAT_Intel_AssGrp_AttackRetaliate", 0x2002073, NULL),  // HW1: STAT_AssGrp_AttackRetaliate
+/*BCE_STAT_AssGrp_AttackRetaleat*/ newEvent("STAT_Intel_AssGrp_AttackRetaliateRepeat", 0x2002074, NULL),  // HW1: STAT_AssGrp_AttackRetaliate_Repeat
+/* BCE_AttackFromAlly,          */ newEvent("STAT_MoShip_UnderAttackFromAlly", 0x2001069, NULL),  // HW1: STAT_F_UnderAttackFromAlly
+/* BCE_GroupAttackFromAlly,     */ newEvent("STAT_Intel_Grp_AttackFromAlly", 0x2002085, NULL),  // HW1: STAT_Grp_AttackFromAlly
+/* BCE_ProbeDetected,           */ newEvent("STAT_MoShip_EnemyProbeDetected", 0x200104b, NULL),  // HW1: STAT_F_EnemyProbe_Detected
+/* BCE_GravwellDetected,        */ newEvent("STAT_MoShip_GravWellDetected", 0x2001050, NULL),  // HW1: STAT_F_GravWellDetected
+/* BCE_CapitalShipDamaged,      */ newEvent("STAT_Ship_Damaged", 0x100080b, NULL),  // HW1: STAT_Cap_Damaged
+/* BCE_CapitalShipDies,         */ newEvent("STAT_Cap_Dies", 0x100080c, NULL),
+/* BCE_CapitalShipDiesReport,   */ newEvent("STAT_MoShip_ShipDiesReport", 0x2001065, NULL),  // HW1: STAT_Cap_Dies_Report
+/* BCE_HyperspaceAbandoned      */ newEvent("STAT_Spec_RammerRamComplete", 0x20008ae, NULL),  // HW1: STAT_Hyper_Abandoned
+/* BCE_MothershipLargeAttack,   */ newEvent("STAT_MoShip_MoShipLargeAttack", 0x2001059, NULL),  // HW1: STAT_MoShip_LargeAttack
+/* BCE_MothershipLargeAttackResp*/ newEvent("STAT_MoShip_MoShipUnderLargeAttackRsp", 0x2001057, NULL),  // HW1: STAT_MoShip_LargeAttack_Resp
+/* BCE_CapitalShipLaunched,     */ newEvent("STAT_MoShip_CapShipLaunched", 0x200103f, NULL),  // HW1: STAT_Cap_Launched
+/* BCE_CapitalShipWelcomed,     */ newEvent("STAT_MoShip_CapShipWelcomed", 0x200101e, NULL),  // HW1: STAT_Cap_Welcomed
+/* BCE_CapitalDamagedSpecific,  */ newEvent("STAT_MoShip_DamagedSpecificShip", 0x2001066, NULL),  // HW1: STAT_Cap_Damaged_Specific
+/* BCE_CapitalShipDocked,       */ newEvent("STAT_Cap_ShipDocked", (sdword)0x81000804, NULL),
+/* BCE_DockingChatter,          */ newEvent("STAT_MoShip_EMPPulseDetected", 0x200104f, NULL),  // HW1: CHAT_Docking
+/* BCE_DockingChatterMore,      */ newEvent("CHAT_Docking_More", (sdword)0x81000804, NULL),
+/* BCE_CloakingOn,              */ newEvent("STAT_Spec_WorkerFull", 0x20008a4, NULL),  // HW1: COMM_Cloak_CloakingOn
+/* BCE_CloakingOnResponse,      */ newEvent("STAT_Cloak_CloakingOn_Resp", 0x0, NULL),
+/* BCE_CloakingInsufficientPower*/ newEvent("COMM_Cloak_InsufficientPower", 0x0, NULL),
+/* BCE_CloakingPowerLow,        */ newEvent("STAT_Spec_CloakCloakPowerLow", 0x200088c, NULL),  // HW1: STAT_Cloak_CloakPowerLow
+/* BCE_Decloaking,              */ newEvent("COMM_Spec_CloakDecloak", 0x400088d, NULL),  // HW1: COMM_Cloak_Decloak
+/* BCE_SalvageTargetAcquired,   */ newEvent("STAT_Spec_SalvageTargetAcquired", 0x2000899, NULL),  // HW1: STAT_SCVette_TargetAcquired
+/* BCE_RepairStarted,           */ newEvent("STAT_RepVette_StartedRepairs", 0x0, NULL),
+/* BCE_RepairFinished,          */ newEvent("STAT_Spec_FinishedRepairs", 0x2000893, NULL),  // HW1: STAT_RepVette_FinishedRepairs
+/* BCE_FuelLow,                 */ newEvent("STAT_Spec_ResourcesTransferred", 0x200088e, NULL),  // HW1: STAT_Strike_LowOnFuel
+/* BCE_OutOfFuel,               */ newEvent("COMM_Spec_RammerStartingRam", 0x40008ad, NULL),  // HW1: STAT_Strike_OutOfFuel
+/* BCE_COMM_F_ScuttleReaffirm   */ newEvent("COMM_F_ScuttleReaffirm", 0x400080a, NULL),
+/* BCE_COMM_F_HyperspaceDetected*/ newEvent("COMM_MoShip_HyperspaceDetected", 0x400104e, NULL),  // HW1: COMM_F_HyperspaceDetected
+/* BCE_STAT_F_ProxSensor_Detection*/ newEvent("STAT_MoShip_ProxSensorDetection", 0x0, NULL),  // HW1: STAT_F_ProxSensor_Detection
 
 /*COMM_F_Grp_Enemy_Fighters_Decl*/ //newEvent("COMM_F_Grp_Enemy_Fighters_Decloaking", COMM_F_Grp_Enemy_Fighters_Decloaking , NULL),
 /*COMM_F_Cloakgen_Decloaking,   */ //newEvent("COMM_F_Cloakgen_Decloaking", COMM_F_Cloakgen_Decloaking , NULL),
@@ -574,6 +579,8 @@ void batMinRepeatProximitySetCB(char *directory,char *field,void *dataToFillIn);
 void batRepeatProximityExponentSetCB(char *directory,char *field,void *dataToFillIn);
 void batTuneEventSet(char *directory,char *field,void *dataToFillIn);
 void batGlobalFrequencyModifierSet(char *directory,char *field,void *dataToFillIn);
+void cat_batStatusUpdateSetCB(char *directory,char *field,void *dataToFillIn);
+void cat_batStatusSuppressSetCB(char *directory,char *field,void *dataToFillIn);
 scriptEntry battleTweaks[] =
 {
     {"randomWeight",    batRandomWeightSetCB, NULL},
@@ -583,6 +590,10 @@ scriptEntry battleTweaks[] =
     {"expWavelength",   batWavelengthExponentSetCB, NULL},
     {"minRepeatProximity",batMinRepeatProximitySetCB, NULL},
     {"expRepeatProximity",batRepeatProximityExponentSetCB, NULL},
+    // CAT: two new per-event keys (script table .data 0x00750758, 12-byte entries: "battleStatusUpdate" entry
+    //      0x007507ac, "battleStatusSuppress" entry 0x007507b8; their callback fields are at 0x007507b0/0x007507bc)
+    {"battleStatusUpdate",   cat_batStatusUpdateSetCB, NULL},
+    {"battleStatusSuppress", cat_batStatusSuppressSetCB, NULL},
 #if BATTLE_TUNING
     {"TuneOnlyThisEvent",batTuneEventSet, NULL},
 #endif
@@ -705,6 +716,24 @@ void batRepeatProximityExponentSetCB(char *directory,char *field,void *dataToFil
     chat = battleChatterEventFromName(field, &value);
     dbgAssertOrIgnore(value > 0.0f);
     chat->expRepeatProximity = (double)value;
+}
+// CAT: "battleStatusUpdate <event> <value>": flag = value > 0.0 (cat_batStatusUpdateSetCB 0x004235f0)
+void cat_batStatusUpdateSetCB(char *directory,char *field,void *dataToFillIn)
+{
+    battleevent *chat;
+    double value;
+
+    chat = battleChatterEventFromName(field, &value);
+    chat->statusUpdate = (value > 0.0) ? TRUE : FALSE;
+}
+// CAT: "battleStatusSuppress <event> <value>": flag = value > 0.0 (cat_batStatusSuppressSetCB 0x00423680)
+void cat_batStatusSuppressSetCB(char *directory,char *field,void *dataToFillIn)
+{
+    battleevent *chat;
+    double value;
+
+    chat = battleChatterEventFromName(field, &value);
+    chat->statusSuppress = (value > 0.0) ? TRUE : FALSE;
 }
 #if BATTLE_TUNING
 void batTuneEventSet(char *directory,char *field,void *dataToFillIn)

@@ -285,7 +285,7 @@ void subThemePictureSet(char *directory, char *field, void *dataToFillIn)
         strcpy(fileName, "SpeechIcons\\R2\\");
     }
     strcat(fileName, pictureString);
-    subTheme[iTheme].picture = trTextureRegister(fileName, &teColorSchemes[iColorScheme].textureColor, (void *)&subTheme[iTheme]);
+    subTheme[iTheme].picture = trTextureRegister(fileName, &teColorSchemes[iColorScheme].textureColor, (void *)&subTheme[iTheme], FALSE);  // CAT: never shrunk (subThemePictureSet 0x005833e0 passes 0)
     subTheme[iTheme].pictureColorScheme = iColorScheme;
     subTheme[iTheme].bPicture = TRUE;
 }
@@ -661,7 +661,7 @@ void subTexturesReset(void)
             {
                 //trTextureUnregister(subTheme[index].picture);
                 trRegisterRemoval(subTheme[index].picture);
-                subTheme[index].picture = trTextureRegister(fileName, &teColorSchemes[subTheme[index].pictureColorScheme].textureColor, (void *)&subTheme[index]);
+                subTheme[index].picture = trTextureRegister(fileName, &teColorSchemes[subTheme[index].pictureColorScheme].textureColor, (void *)&subTheme[index], FALSE);  // CAT: subTexturesReset 0x00583990 passes 0
             }
         }
     }

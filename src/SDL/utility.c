@@ -200,14 +200,19 @@ char utyMusicFilename[] = "DL_Music.wxd";
 #elif defined(HW_GAME_RAIDER_RETREAT)
 char utyMusicFilename[] = "OEM_Music.wxd";
 #else
-char utyMusicFilename[] = "HW_Music.wxd";
+// CAT: Cataclysm's music stream (utyGameSystemsPreInit 0x005ab810, .data 0x008c0f08 "Music4Cat.wxd")
+char utyMusicFilename[] = "Music4Cat.wxd";
 #endif
 
 // name of voice file
 #ifdef HW_GAME_DEMO
 char utyVoiceFilename[] = "DL_Demo.vce";
 #else
-char utyVoiceFilename[] = "HW_comp.vce";
+// CAT: one voice file per playable race: Somtaaw (Sect) in utyVoiceFilename, Beast in cat_utyBeastVoiceFilename
+//      (utyGameSystemsPreInit 0x005ab810 checks both, cat_speechEventLoadRaceVoice 0x005217f0 opens one;
+//      .data 0x008c0f18 "SectSpeech.vce", 0x008c0f28 "BeastSpeech.vce")
+char utyVoiceFilename[] = "SectSpeech.vce";
+char cat_utyBeastVoiceFilename[] = "BeastSpeech.vce";
 #endif
 
 // name of other files
@@ -1798,6 +1803,15 @@ void gameStart(char *loadfilename)
     {
         LoadGame(loadfilename);
     }
+
+#ifndef HW_GAME_DEMO
+    // CAT: switch the speech set to the current player's race (gameStart 0x005a9290: after universeSwitchToPlayer,
+    //      if speech is on, cat_speechEventLoadRaceVoice(universe.players[curPlayerIndex].race))
+    if (enableSpeech)
+    {
+        cat_speechEventLoadRaceVoice(universe.players[universe.curPlayerIndex].race);
+    }
+#endif
 
     //now start the level
     if (tutorial==1)
@@ -3736,6 +3750,18 @@ char* utyGameSystemsPreInit(void)
         }
     }
 
+#ifndef HW_GAME_DEMO
+    // CAT: the Beast voice file is checked the same way (utyGameSystemsPreInit 0x005ab810)
+    if (!fileExists(cat_utyBeastVoiceFilename, 0))
+    {
+        if (!fileExists(cat_utyBeastVoiceFilename, FF_CDROM))
+        {
+            sprintf(errorString, utyCannotOpenFileMessages[strCurLanguage], cat_utyBeastVoiceFilename);
+            return(errorString);
+        }
+    }
+#endif
+
     //start up the memory manager
     if (MemoryHeapSize == MEM_HeapSizeDefault)
     {                                                       //if the user has not specified a heap size
@@ -3860,7 +3886,7 @@ char *utyGameSystemsInit(void)
         "%22s = 0x%x"    
         ,
         "Update.big TOC",       HomeworldCRC[1],
-        "Homeworld.big TOC",    HomeworldCRC[2],
+        "Cataclysm.big TOC",    HomeworldCRC[2],  // CAT: log label only; the main archive is Cataclysm.big
         "(not used)",           HomeworldCRC[3]  // never been used
     );
     
@@ -3929,7 +3955,7 @@ char *utyGameSystemsInit(void)
     utySet(SSA_Region);
 
     // initialize sound engine
-    soundEventInit();
+    soundEventInit(whichRaceSelected);  // CAT: utyGameSystemsInit 0x005abe70 passes the selected race
     utySet2(SS2_SoundEngine);
 
 #ifndef HW_GAME_DEMO
@@ -4243,6 +4269,14 @@ DONE_INTROS:
     if (catMeshSelfTestList[0] != '\0')
     {
         catMeshRunSelfTest();
+        utyGameQuit(NULL, NULL);
+        return(NULL);
+    }
+
+    // CAT: /catTexturesTest (port diagnostic): load textures.ll, register and load every listed texture, and quit
+    if (catTexturesSelfTest)
+    {
+        catTexturesRunSelfTest();
         utyGameQuit(NULL, NULL);
         return(NULL);
     }

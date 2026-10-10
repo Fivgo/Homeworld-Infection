@@ -1454,7 +1454,20 @@ void feAllCallOnCreate(fescreen *screen)
     {
         if (bitTest(atom->flags, FAF_CallOnCreate))
         {                                           //if we should call at creation
-            feFunctionExecute(atom->name, atom, TRUE);
+            // CAT: Cataclysm inlines the callback search here and skips an atom that has no callback, silently
+            //      (feAllCallOnCreate 0x00474050). Its front_end.fib flags the link atom
+            //      "Main_game_screen-TO-Select_tutorial" call-on-create (flags 0x861) and registers no callback of
+            //      that name (the string is not in the exe), so the atom is inert in both; only the "not found"
+            //      message of feFunctionExecute went away (docs/m2-r1-data-deltas.md rank 10).
+            sdword cb;
+            for (cb = 0; cb < feCallbackIndex; cb++)
+            {
+                if (feNamesEqual(atom->name, feCallback[cb].name))
+                {
+                    feFunctionExecute(atom->name, atom, TRUE);
+                    break;
+                }
+            }
         }
     }
 }

@@ -327,7 +327,7 @@ trhandle * meshTextureRegisterAllPlayers(char *fullName, void *meshReference)
     info = meshNameToStaticInfo(fullName);
     if (info == NULL)
     {
-        handleList[0] = trTextureRegister(fullName, NULL, meshReference);
+        handleList[0] = trTextureRegister(fullName, NULL, meshReference, TRUE);  // CAT: 4th arg 1 (meshTextureRegisterAllPlayers 0x004ae910)
         nRegistered = 1;
     }
     else
@@ -340,7 +340,7 @@ trhandle * meshTextureRegisterAllPlayers(char *fullName, void *meshReference)
             if (utyShipsAlwaysUseOwnerColors || ((ShipStaticInfo *)info)->shipOrDerelict.teamColor[index])
             {                                               //if this player can build this ship
                 handleList[index] = trTextureRegister(fullName, //register in this players's colors
-                        &teColorSchemes[index].textureColor, meshReference);
+                        &teColorSchemes[index].textureColor, meshReference, TRUE);  // CAT: 4th arg 1 (0x004ae910)
                 nRegistered++;
             }
         }
@@ -1308,7 +1308,7 @@ doneDeletingAllOldTextures:
                             if (validHandle == TR_Invalid)
                             {                               //if no valid handles (they've all be unregistered)
                                 meshTextureNameToPath(fullName, mesh->fileName, mesh->localMaterial[index].textureNameSave);
-                                validHandle = handles[j] = trTextureRegister(fullName, &teColorSchemes[j].textureColor, mesh);
+                                validHandle = handles[j] = trTextureRegister(fullName, &teColorSchemes[j].textureColor, mesh, TRUE);  // CAT: 4th arg 1 (meshRecolorize 0x004af3a0)
                             }
                             else
                             {                               //else a valid handle aleready exists for this texture

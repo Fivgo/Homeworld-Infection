@@ -349,6 +349,36 @@ sdword          drawstate;
 udword          rmLabTexture[MAX_RACES] = { TR_InvalidInternalHandle, TR_InvalidInternalHandle };
 lifheader      *rmLabImage[MAX_RACES] = { NULL, NULL };
 
+// CAT: Cataclysm's research art (rmGUIStartup 0x004f76f0). Somtaaw (Race1): 15 lab buttons
+//      "ResearchGUI\Race1\" + "Research_icon_" + {Hangar,Armour,Engineering,Special,Weapons}_{disabled,off,on}.lif
+//      (.data 0x00891e7c, names table 0x00891e80; images 0x00c17ac0, textures 0x00c16800). Beast (Race2): 6 animation
+//      frames "ResearchGUI\Race2\" + "bresearch_ani_" + "01".."06" ".lif" (.data 0x00891ec4, 0x00891ec8; images
+//      0x00c168a0, textures 0x00c17b00). HW1's single "Research_icon.lif" per race does not exist in Cataclysm.
+#define CAT_RM_NUM_LABICONS     15
+#define CAT_RM_NUM_BEASTFRAMES  6
+char *catRmLabIcons[CAT_RM_NUM_LABICONS] =
+{
+    "Hangar_disabled.lif", "Armour_disabled.lif", "Engineering_disabled.lif", "Special_disabled.lif", "Weapons_disabled.lif",
+    "Hangar_off.lif",      "Armour_off.lif",      "Engineering_off.lif",      "Special_off.lif",      "Weapons_off.lif",
+    "Hangar_on.lif",       "Armour_on.lif",       "Engineering_on.lif",       "Special_on.lif",       "Weapons_on.lif"
+};
+char *catRmBeastFrames[CAT_RM_NUM_BEASTFRAMES] = { "01.lif", "02.lif", "03.lif", "04.lif", "05.lif", "06.lif" };
+udword          catRmLabTexture[CAT_RM_NUM_LABICONS] =
+{
+    TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle,
+    TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle,
+    TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle,
+    TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle
+};
+lifheader      *catRmLabImage[CAT_RM_NUM_LABICONS];
+udword          catRmBeastTexture[CAT_RM_NUM_BEASTFRAMES] =
+{
+    TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle,
+    TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle
+};
+lifheader      *catRmBeastImage[CAT_RM_NUM_BEASTFRAMES];
+fonthandle      catRmHeadingFont = 0;   // CAT: third research font, "EuroseWideHeavy_i8.hff" (.data 0x008912f0)
+
 // variable for marque light position
 real32          marqueetime=0.0;
 real32          marqueepos=0;
@@ -2398,6 +2428,7 @@ void rmGUIStartup(void)
         pictures[index].techTexture = TR_InvalidInternalHandle;
     }
 
+#if 0   // CAT: HW1's per-race "Research_icon.lif" (replaced below)
     for(index=0; index < MAX_RACES; index++)
     {
         //if( rmLabTexture[index] == TR_InvalidInternalHandle)
@@ -2437,6 +2468,51 @@ void rmGUIStartup(void)
             //trPalettedTextureMakeCurrent(rmLabTexture[index], rmLabImage[index]->palette);
         }
     }
+#endif
+    // CAT: load the Somtaaw lab buttons and the Beast animation frames (rmGUIStartup 0x004f76f0, two loops; each
+    //      image paletted or RGB, rmPaletted follows the last one loaded, as in the exe's flag at 0x00c1689c)
+    for (index = 0; index < CAT_RM_NUM_LABICONS; index++)
+    {
+        strcpy(filename, TechImagePaths[0]);
+        strcat(filename, "Research_icon_");
+        strcat(filename, catRmLabIcons[index]);
+        catRmLabImage[index] = trLIFFileLoad(filename, NonVolatile);
+        rmPaletted = bitTest(catRmLabImage[index]->flags, TRF_Paletted) ? TRUE : FALSE;
+        if (rmPaletted)
+        {
+            catRmLabTexture[index] = trPalettedTextureCreate(catRmLabImage[index]->data, catRmLabImage[index]->palette,
+                                                             catRmLabImage[index]->width, catRmLabImage[index]->height);
+        }
+        else
+        {
+            catRmLabTexture[index] = trRGBTextureCreate((color*)catRmLabImage[index]->data,
+                                                        catRmLabImage[index]->width, catRmLabImage[index]->height, TRUE);
+        }
+    }
+    for (index = 0; index < CAT_RM_NUM_BEASTFRAMES; index++)
+    {
+        strcpy(filename, TechImagePaths[1]);
+        strcat(filename, "bresearch_ani_");
+        strcat(filename, catRmBeastFrames[index]);
+        catRmBeastImage[index] = trLIFFileLoad(filename, NonVolatile);
+        rmPaletted = bitTest(catRmBeastImage[index]->flags, TRF_Paletted) ? TRUE : FALSE;
+        if (rmPaletted)
+        {
+            catRmBeastTexture[index] = trPalettedTextureCreate(catRmBeastImage[index]->data, catRmBeastImage[index]->palette,
+                                                               catRmBeastImage[index]->width, catRmBeastImage[index]->height);
+        }
+        else
+        {
+            catRmBeastTexture[index] = trRGBTextureCreate((color*)catRmBeastImage[index]->data,
+                                                          catRmBeastImage[index]->width, catRmBeastImage[index]->height, TRUE);
+        }
+    }
+    // CAT: HW1's lab-icon draw code (rmDrawLab*, stage 3) still reads rmLabImage/rmLabTexture[race]; until it is
+    //      ported they borrow (do not own) the Somtaaw "Engineering_on" button and the first Beast frame
+    rmLabImage[0]   = catRmLabImage[12];
+    rmLabTexture[0] = catRmLabTexture[12];
+    rmLabImage[1]   = catRmBeastImage[0];
+    rmLabTexture[1] = catRmBeastTexture[0];
 
     rmCurTexture   = TR_InvalidInternalHandle;
     rmCurTechImage = NULL;
@@ -2444,6 +2520,7 @@ void rmGUIStartup(void)
 
     rmTechListFont  = frFontRegister(rmTechListFontName);
     rmTechInfoFont  = frFontRegister(rmTechInfoFontName);
+    catRmHeadingFont = frFontRegister("EuroseWideHeavy_i8.hff");  // CAT: rmGUIStartup 0x004f76f0, third font
 }
 
 /*-----------------------------------------------------------------------------
@@ -2478,17 +2555,37 @@ void rmGUIShutdown(void)
         }
     }
 
+    // CAT: rmLabImage/rmLabTexture only borrow entries of the tables below (rmGUIStartup); drop them, then free the
+    //      Cataclysm research art (rmGUIShutdown 0x004f7970, second and third loops)
     for(index=0;index<MAX_RACES;index++)
     {
-        if (rmLabImage[index] != NULL)
+        rmLabImage[index] = NULL;
+        rmLabTexture[index] = TR_InvalidInternalHandle;
+    }
+    for (index = 0; index < CAT_RM_NUM_LABICONS; index++)
+    {
+        if (catRmLabImage[index] != NULL)
         {
-            memFree(rmLabImage[index]);
-            rmLabImage[index] = NULL;
+            memFree(catRmLabImage[index]);
+            catRmLabImage[index] = NULL;
         }
-        if (rmLabTexture[index] != TR_InvalidInternalHandle)
+        if (catRmLabTexture[index] != TR_InvalidInternalHandle)
         {
-            trRGBTextureDelete(rmLabTexture[index]);
-            rmLabTexture[index] = TR_InvalidInternalHandle;
+            trRGBTextureDelete(catRmLabTexture[index]);
+            catRmLabTexture[index] = TR_InvalidInternalHandle;
+        }
+    }
+    for (index = 0; index < CAT_RM_NUM_BEASTFRAMES; index++)
+    {
+        if (catRmBeastImage[index] != NULL)
+        {
+            memFree(catRmBeastImage[index]);
+            catRmBeastImage[index] = NULL;
+        }
+        if (catRmBeastTexture[index] != TR_InvalidInternalHandle)
+        {
+            trRGBTextureDelete(catRmBeastTexture[index]);
+            catRmBeastTexture[index] = TR_InvalidInternalHandle;
         }
     }
 }

@@ -119,7 +119,11 @@ sdword cmSelectRightAdjust = 0;
 #define CM_ProgressInterSpacing 2
 #define CM_SHIP_IMAGE_INSET     4
 
-#define NUM_CMTEXTURES          2
+// CAT: six images per race, icon1/icon2 in _disabled/_off/_on states (cmLoadTextures 0x00455040: icon table
+//      .data 0x00754a20..0x00754a38, image/texture tables 0x00a2dc58/0x007549e8 of 2 x 6 entries)
+#define NUM_CMTEXTURES          6
+// CAT: five decorative support-unit masks/icons, new in Cataclysm (cmLoadTextures 0x00455040, names .data 0x00754a68)
+#define CAT_NUM_CMSUPPORTTEXTURES 5
 
 #define NUM_CMCARRIERS          4
 
@@ -571,14 +575,16 @@ bool32 cmIoSaveState;
 
 udword cmShipTexture[MAX_RACES][NUM_CMTEXTURES] =
 {
-    {TR_InvalidInternalHandle, TR_InvalidInternalHandle},
-    {TR_InvalidInternalHandle, TR_InvalidInternalHandle}
+    {TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle,
+     TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle},
+    {TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle,
+     TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle}
 };
 
 lifheader *cmShipImage[MAX_RACES][NUM_CMTEXTURES] =
 {
-    { NULL, NULL },
-    { NULL, NULL }
+    { NULL, NULL, NULL, NULL, NULL, NULL },
+    { NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
 
@@ -595,8 +601,38 @@ char *ShipImagePaths[] =
 
 char *ShipIcons[] =
 {
-    "icon1.lif", // Mothership
-    "icon2.lif"  // Carrier
+    // CAT: Cataclysm's names (.data 0x00754cdc..0x00754c88, table 0x00754a20); HW1: "icon1.lif", "icon2.lif"
+    "icon1_disabled.lif",
+    "icon1_off.lif",
+    "icon1_on.lif",
+    "icon2_disabled.lif",
+    "icon2_off.lif",
+    "icon2_on.lif"
+};
+
+// CAT: decorative support-unit textures (cmLoadTextures 0x00455040; path .data 0x00754eac "Feman\texDecorative\",
+//      names table 0x00754a68; images 0x00a2dca0, textures 0x00754a7c)
+#ifdef _WIN32
+#define CAT_CM_SUPPORT_PATH "Feman\\texDecorative\\"
+#else
+#define CAT_CM_SUPPORT_PATH "Feman/texDecorative/"
+#endif
+char *catCmSupportIcons[CAT_NUM_CMSUPPORTTEXTURES] =
+{
+    "b_Build_SupportMask_Top.lif",
+    "b_Build_SupportMask_Mid.lif",
+    "b_Build_SupportMask_Low.lif",
+    "b_Build_SupportIcon_Top.lif",
+    "b_Build_SupportIcon_Low.lif"
+};
+udword catCmSupportTexture[CAT_NUM_CMSUPPORTTEXTURES] =
+{
+    TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle,
+    TR_InvalidInternalHandle, TR_InvalidInternalHandle
+};
+lifheader *catCmSupportImage[CAT_NUM_CMSUPPORTTEXTURES] =
+{
+    NULL, NULL, NULL, NULL, NULL
 };
 
 udword cmArrowTexture[6] =
@@ -1380,6 +1416,19 @@ void cmLoadTextures(void)
             TRUE);
 #endif
     }
+
+    // CAT: load the support-unit textures (cmLoadTextures 0x00455040, last loop: RGB textures)
+    for (index = 0; index < CAT_NUM_CMSUPPORTTEXTURES; index++)
+    {
+        strcpy(filename, CAT_CM_SUPPORT_PATH);
+        strcat(filename, catCmSupportIcons[index]);
+        catCmSupportImage[index] = trLIFFileLoad(filename, NonVolatile);
+        catCmSupportTexture[index] = trRGBTextureCreate(
+            (color*)catCmSupportImage[index]->data,
+            catCmSupportImage[index]->width,
+            catCmSupportImage[index]->height,
+            TRUE);
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -1421,6 +1470,21 @@ void cmCloseTextures(void)
         {
             trRGBTextureDelete(cmArrowTexture[index]);
             cmArrowTexture[index] = TR_InvalidInternalHandle;
+        }
+    }
+
+    // CAT: free the support-unit textures (cmCloseTextures 0x004551e0, third loop)
+    for (index = 0; index < CAT_NUM_CMSUPPORTTEXTURES; index++)
+    {
+        if (catCmSupportImage[index] != NULL)
+        {
+            memFree(catCmSupportImage[index]);
+            catCmSupportImage[index] = NULL;
+        }
+        if (catCmSupportTexture[index] != TR_InvalidInternalHandle)
+        {
+            trRGBTextureDelete(catCmSupportTexture[index]);
+            catCmSupportTexture[index] = TR_InvalidInternalHandle;
         }
     }
 }
@@ -3769,7 +3833,11 @@ void cmDrawShipImage(regionhandle region, sdword shipID)
     rectangle rect;
     udword usetexture;
 
-    usetexture = (shipID == 0) ? 0 : 1;
+    // CAT: [audit] six images per race now (icon1/icon2 x disabled/off/on), so HW1's 0/1 picked icon1_disabled and
+    //      icon1_off (the Mothership art for the carrier). Cataclysm's cmDrawShipImage 0x004589c0 takes a third
+    //      argument and picks base (0 or 3) + 0 disabled / +1 off / +2 on (focused); until that rewrite is ported
+    //      (stage 3) this HW1 version shows the enabled, unfocused "_off" image, as lmDrawShipImage does.
+    usetexture = (shipID == 0) ? 1 : 4;
 
     rect.x0 = region->rect.x0 + CM_SHIP_IMAGE_INSET;
     rect.y0 = region->rect.y0 + CM_SHIP_IMAGE_INSET;

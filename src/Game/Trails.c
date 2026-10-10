@@ -232,7 +232,7 @@ void trailStartup(void)
 #endif
 
     strcpy(filename, "etg\\textures\\glow32");
-    g_glowHandle = trTextureRegister(filename, NULL, NULL);
+    g_glowHandle = trTextureRegister(filename, NULL, NULL, TRUE);  // CAT: 4th arg 1 (trailStartup 0x005a49d0)
 
     for (i = 0; i < TM_NUMDEFS; i++)
     {

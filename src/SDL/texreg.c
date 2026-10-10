@@ -24,6 +24,7 @@
 #include "main.h"
 #include "utility.h"
 #include "HorseRace.h"
+#include "SinglePlayer.h"   // CAT: mission-17 texture memory limit (trCramRAMComputeAndScale)
 
 #include "Universe.h"
 
@@ -618,10 +619,12 @@ sdword trFindTextureIndexByName(char *fileName)
                     texture is not to be colored.
                   meshReference - pointer to the mesh requesting texture.
                     Only used for colorization.
+                  bScalable - CAT: FALSE if texture-memory fitting must never shrink this texture (the subtitle
+                    pictures); every other caller passes TRUE (trTextureRegister 0x00585760, +0x30 = param_4)
     Outputs     : Allocates and fills in an entry in the texture registry.
     Return      : Handle to registered texture.
 ----------------------------------------------------------------------------*/
-trhandle trTextureRegister(char *fileName, trcolorinfo *info, void *meshReference)
+trhandle trTextureRegister(char *fileName, trcolorinfo *info, void *meshReference, bool32 bScalable)
 {
     sdword index, paletteIndex, length;
     crc32 nameCRC, *regCRC;
@@ -730,6 +733,9 @@ trhandle trTextureRegister(char *fileName, trcolorinfo *info, void *meshReferenc
             trTextureRegistry[index].baseScalar = (uword)colRealToUdword(trBaseColorScalar);
             trTextureRegistry[index].stripeScalar = (uword)colRealToUdword(trStripeColorScalar);
             trTextureRegistry[index].handle = TR_InvalidInternalHandle;
+            trTextureRegistry[index].bScalable = bScalable;  // CAT: +0x30 = param_4 (trTextureRegister 0x00585760)
+            trTextureRegistry[index].scaleShiftX = 0;        // CAT: no down-scaling until the RAM fit sets it
+            trTextureRegistry[index].scaleShiftY = 0;
             dbgAssertOrIgnore(info != NULL);
             *((trcolorinfo *)trTextureRegistry[index].palettes) = *info;
             trSetPending(index);                            //texture is pending
@@ -1632,7 +1638,9 @@ ubyte *trImageScaleIndexed(ubyte *data, sdword width, sdword height, sdword newW
 
     dbgAssertOrIgnore(newWidth <= width && newHeight <= height);    //verify the preconditions
     dbgAssertOrIgnore(newWidth >= TR_MinimumSizeX && newHeight >= TR_MinimumSizeY);
-    dbgAssertOrIgnore(bitNumberSet(width, 16) == 1 && bitNumberSet(height, 16) == 1);
+    // CAT: no power-of-two check: Cataclysm ships a 32x90 texture (race_beast\bcruisemissile\rl0\LOD4\4bcr5) and its
+    //      texture-memory fitting halves it like any other (trCramRAMComputeAndScale); the integer-ratio point
+    //      sampling below copes, as in the exe (trImageScaleIndexed 0x00586af0, same algorithm, no check)
     if (newWidth == width && newHeight == height)
     {                                                       //if new size same as old size
         if (bFree)
@@ -2647,9 +2655,11 @@ void trListFileLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
     oldShare=(udword*)((memsize)oldptr +newHeader->stringLength) ;
     newShare=(sdword*)newptr;
 
-    for(loopvar = 0; loopvar<loopcount; loopvar++){
-        newShare[loopvar] = oldShare[loopvar] ;
-    }
+    // CAT: Cataclysm's string block is 547,729 bytes (odd), so the sharing block that follows it is not 4-byte
+    //      aligned in the file or in this copy; copy it bytewise (the exe reads it in place on x86, trListFileLoad
+    //      0x005878f0). HW1's element-wise copy is undefined behaviour there (UBSan: misaligned udword load).
+    memcpy(newShare, oldShare, loopcount * sizeof(udword));
+    (void)loopvar;
 
     offset+=newHeader->sharingLength;
     newptr+=newHeader->sharingLength;
@@ -2902,6 +2912,120 @@ bool32 trLiFMeasure(char *fileName, sdword *width, sdword *height, udword *flags
 }
 
 /*-----------------------------------------------------------------------------
+    CAT: Cataclysm's texture-memory fitting (trCramRAMComputeAndScale 0x00589a50), which replaces HW1's
+    trCramRAMScaleCompute + trCramIntoRAM (global 16.16 scale factor over RAM pools, power-of-two sizes only).
+-----------------------------------------------------------------------------*/
+// CAT: texture memory limit in bytes (.data 0x008bb698, initial value 0x00a00000 = 10 MB). The exe sets it from the
+//      texture-detail option through cat_trTextureMemorySet 0x00589cd0 (1..12 MB); that option is not ported yet.
+sdword catTrCramLimit = 0x00a00000;
+
+// CAT: bytes one registry entry needs at its current shifts: paletted w*h, RGB nPalettes * w*h * 2
+static sdword catTrCramSize(texreg *reg)
+{
+    sdword size = (sdword)(sword)(reg->diskWidth >> reg->scaleShiftX) * (sdword)(sword)(reg->diskHeight >> reg->scaleShiftY);
+
+    if (!bitTest(reg->flags, TRF_Paletted))
+    {
+        size = reg->nPalettes * size * 2;
+    }
+    return size;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : trCramRAMComputeAndScale
+    Description : CAT: fit the textures of trSizeSortList into catTrCramLimit bytes (0x00589a50): sum their sizes,
+                  then pass over the list halving the longer side (scaleShiftX/Y + 1) of every texture registered
+                  with bScalable whose current width or height is above 8, until the total fits or a whole pass
+                  changes nothing; then scale already loaded textures down (trPreLoadedTextureScale) and set the
+                  scaled size of pending ones. In mission 17 the limit is 30 % (at least 1 MB).
+                  Handles any texture size (Cataclysm's textures.ll has a 32x90 texture,
+                  race_beast\bcruisemissile\rl0\LOD4\4bcr5, which HW1's power-of-two cram asserts on).
+    Inputs      : trSizeSortList, trSizeSortLength (unsorted, as the exe builds it)
+    Outputs     : scaleShiftX/Y, scaledWidth/Height of each listed entry
+    Return      : void
+----------------------------------------------------------------------------*/
+void trCramRAMComputeAndScale(void)
+{
+    sdword index, total = 0, limit, width, height;
+    bool32 changed = FALSE;
+    texreg *reg;
+
+    for (index = 0; index < trSizeSortLength; index++)
+    {
+        reg = &trTextureRegistry[trSizeSortList[index].index];
+        reg->scaleShiftX = 0;
+        reg->scaleShiftY = 0;
+        total += catTrCramSize(reg);
+    }
+
+    limit = catTrCramLimit;
+    // (MissionEnum)17: Cataclysm's mission 17 (singlePlayerGameInfo.currentMission == 0x11); HW1's enum value 17 is
+    // MISSION_5B, which Cataclysm does not have. CET's LoadMission_AdjustTextureMemoryLimit hook skips this.
+    if (singlePlayerGame && singlePlayerGameInfo.currentMission == (MissionEnum)17)
+    {
+        limit = (sdword)((real32)limit * 0.3f);             // 0.3f at .data 0x0072b064
+        if (limit < 0x100000)
+        {
+            limit = 0x100000;
+        }
+    }
+
+    index = 0;
+    while (total > limit && trSizeSortLength > 0)
+    {
+        reg = &trTextureRegistry[trSizeSortList[index].index];
+        if (reg->bScalable)
+        {
+            width = (sword)(reg->diskWidth >> reg->scaleShiftX);
+            height = (sword)(reg->diskHeight >> reg->scaleShiftY);
+            if (width > 8 || height > 8)
+            {
+                total -= catTrCramSize(reg);
+                if (height < width)
+                {
+                    reg->scaleShiftX++;
+                }
+                else
+                {
+                    reg->scaleShiftY++;
+                }
+                total += catTrCramSize(reg);
+                changed = TRUE;
+            }
+        }
+        index++;
+        if (index == trSizeSortLength)
+        {
+            if (!changed)
+            {
+                break;                                      // nothing left to shrink
+            }
+            index = 0;
+            changed = FALSE;
+        }
+    }
+
+    for (index = 0; index < trSizeSortLength; index++)
+    {
+        reg = &trTextureRegistry[trSizeSortList[index].index];
+        width = reg->diskWidth >> reg->scaleShiftX;
+        height = reg->diskHeight >> reg->scaleShiftY;
+        if (!trPending(trSizeSortList[index].index))
+        {                                                   // already loaded: scale it down if it shrank
+            if (width < reg->scaledWidth || height < reg->scaledHeight)
+            {
+                trPreLoadedTextureScale(trSizeSortList[index].index, width, height);
+            }
+        }
+        else
+        {                                                   // not loaded yet: just set the size to load at
+            reg->scaledWidth = (sword)width;
+            reg->scaledHeight = (sword)height;
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
     Name        : trRegistryRefresh
     Description : Refresh the texture registry, deleting old textures and
                     loading in new ones.
@@ -2913,7 +3037,7 @@ bool32 trLiFMeasure(char *fileName, sdword *width, sdword *height, udword *flags
 ----------------------------------------------------------------------------*/
 void trRegistryRefresh(void)
 {
-    sdword index, width, height, scaleFactor, texes;
+    sdword index, width, height, texes;  // CAT: scaleFactor gone with HW1's cram
     char fullName[PATH_MAX];
     char *pSharedFrom;
     texreg *reg;
@@ -3094,19 +3218,10 @@ void trRegistryRefresh(void)
         goto abortloading;
     }
 
-    //now that we have the lists, we can sort them
-    qsort(trSizeSortList, trSizeSortLength, sizeof(trmemmap), trSizeSortCompare);
-
-    //!!! important note:  the texture cramming operation uses an order inherently
-    //  different from the one used in actual texture creation (size-sorted as
-    //  opposed to mesh-sorted).  As such, it is possible that texture allocation
-    //  could fail after all the textures have been supposedly crammed.  If this
-    //  happens, this list could be arranged to cram textures in the same order
-    //  as the mesh-sort lists.
-
-    //fit all textures into allotted RAM
-    scaleFactor = trCramRAMScaleCompute();
-    trCramIntoRAM(scaleFactor);
+    // CAT: Cataclysm does not sort the size list and fits it with its own per-texture halving
+    //      (trRegistryRefresh 0x00587a50 calls trCramRAMComputeAndScale 0x00589a50 right after freeing the listing);
+    //      HW1's qsort + trCramRAMScaleCompute + trCramIntoRAM are no longer called.
+    trCramRAMComputeAndScale();
 
     //now run through the mesh-sorted lists and load them in that order
     for (index = texes = 0; index < trMeshSortLength; index++)
@@ -4230,3 +4345,138 @@ void trTextureUsageList(char *fileName)
     fclose(fp);
 }
 #endif //TR_TEXTURE_USAGE
+
+/*-----------------------------------------------------------------------------
+    Name        : catTexturesRunSelfTest
+    Description : CAT: port diagnostic, not in the exe (command line /catTexturesTest; docs/m2-r2-startup.md).
+                  1. Loads textures.ll through trListFileLoad (all elements, LL_MaxElements raised for Cataclysm's
+                     12,403) and looks every element up again through trImageMeasureFromListing (the binary search
+                     trRegistryRefresh uses).
+                  2. Registers every listed texture through trTextureRegister (4th argument TRUE) in batches that fit
+                     the free registry, loads each batch with trRegistryRefresh, checks that every entry is allocated,
+                     no longer pending, has a texture (its own or its share parent's) and kept bScalable, then
+                     unregisters and deletes the batch.
+                  Logs "texturetest:" lines and a "texturetest: self-test done" summary.
+    Inputs      :
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+bool32 catTexturesSelfTest = FALSE;
+
+void catTexturesRunSelfTest(void)
+{
+    llelement *list;
+    sdword n = 0, i, w, h, found = 0, sizeMismatch = 0, badShare = 0;
+    udword fl;
+    char *sharedName;
+    trhandle *handles;
+    sdword batchStart, batchSize, freeSlots, registered = 0, loaded = 0, failed = 0, scaled = 0, notScalable = 0;
+    sdword nBatches = 0, noFile = 0;
+    texreg *reg;
+
+    list = trListFileLoad(TR_LifListing, &n);
+    dbgMessagef("texturetest: self-test start, %s has %d elements (LL_MaxElements %d)", TR_LifListing, n, LL_MaxElements);
+    for (i = 0; i < n; i++)
+    {
+        if (trImageMeasureFromListing(list[i].textureName, list, n, &w, &h, &fl, &sharedName))
+        {
+            found++;
+            if (w != list[i].width || h != list[i].height || fl != list[i].flags)
+            {
+                sizeMismatch++;
+            }
+        }
+        else if (failed++ < 20)
+        {
+            dbgMessagef("texturetest: listing lookup failed for %s", list[i].textureName);
+        }
+        if (list[i].sharedFrom >= n)
+        {
+            badShare++;
+        }
+    }
+    dbgMessagef("texturetest: listing lookups %d/%d found, %d size/flag mismatches, %d bad sharedFrom", found, n,
+                sizeMismatch, badShare);
+
+    handles = memAlloc(n * sizeof(trhandle), "catTexturesTest", 0);
+    failed = 0;
+    for (batchStart = 0; batchStart < n; batchStart += batchSize)
+    {
+        freeSlots = 0;
+        for (i = 0; i < TR_RegistrySize; i++)
+        {
+            if (!trAllocated(i))
+            {
+                freeSlots++;
+            }
+        }
+        batchSize = min(n - batchStart, freeSlots - 16);    // leave a few slots free
+        if (batchSize <= 0)
+        {
+            dbgMessagef("texturetest: registry full (%d free slots), stopping", freeSlots);
+            break;
+        }
+        for (i = batchStart; i < batchStart + batchSize; i++)
+        {
+            // trRegistryRefresh loads a listed sharer from its share parent's file: skip the elements whose file
+            // (own, or the parent's) is not in the install (the listing names textures the data no longer ships)
+            char fullName[PATH_MAX];
+
+            snprintf(fullName, sizeof(fullName), "%s.LiF",
+                     list[i].sharedFrom >= 0 ? list[list[i].sharedFrom].textureName : list[i].textureName);
+            if (!fileExists(fullName, 0))
+            {
+                handles[i] = TR_InvalidHandle;
+                noFile++;
+                continue;
+            }
+            handles[i] = trTextureRegister(list[i].textureName, NULL, NULL, TRUE);
+            registered++;
+        }
+        horseRaceInit();                                    // trRegistryRefresh drives the loading screen, as in level loads
+        trRegistryRefresh();
+        horseRaceShutdown();
+        for (i = batchStart; i < batchStart + batchSize; i++)
+        {
+            if (handles[i] == TR_InvalidHandle)
+            {
+                continue;                                   // no file in the install
+            }
+            reg = trStructure(handles[i]);
+            if (!trAllocated(trIndex(handles[i])) || trPending(trIndex(handles[i])) ||
+                (reg->sharedFrom == TR_NotShared && reg->handle == TR_InvalidInternalHandle) ||
+                (reg->sharedFrom != TR_NotShared && trTextureRegistry[reg->sharedFrom].handle == TR_InvalidInternalHandle))
+            {
+                if (failed++ < 20)
+                {
+                    dbgMessagef("texturetest: not loaded %s (flags 0x%x)", list[i].textureName, reg->flags);
+                }
+                continue;
+            }
+            loaded++;
+            if (reg->scaledWidth != reg->diskWidth || reg->scaledHeight != reg->diskHeight)
+            {
+                scaled++;
+            }
+            if (reg->bScalable != TRUE)
+            {
+                notScalable++;
+            }
+        }
+        for (i = batchStart; i < batchStart + batchSize; i++)
+        {
+            if (handles[i] != TR_InvalidHandle)
+            {
+                trTextureUnregister(handles[i]);
+            }
+        }
+        trTextureDeleteAllUnregistered();
+        nBatches++;
+        dbgMessagef("texturetest: batch %d: elements %d..%d registered and loaded", nBatches, batchStart,
+                    batchStart + batchSize - 1);
+    }
+    memFree(handles);
+    memFree(list);
+    dbgMessagef("texturetest: self-test done, %d listed, %d found in listing, %d without a file to load, %d registered in %d batches, %d loaded, %d not loaded, %d scaled down, %d without bScalable, sizeof(texreg) %d",
+                n, found, noFile, registered, nBatches, loaded, failed, scaled, notScalable, (sdword)sizeof(texreg));
+}

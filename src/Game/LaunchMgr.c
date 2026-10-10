@@ -58,7 +58,12 @@
 #define LM_HorzSpacing      (fontWidth(" ") >> 1)
 #define LM_BoxSpacing       2
 
-#define NUM_LMTEXTURES      2
+// CAT: six images per race, icon1/icon2 in _disabled/_off/_on states (lmLoadTextures 0x0049dd60: icon table
+//      .data 0x00883508..0x00883520, image/texture tables 0x00a4471c/0x008834d0 of 2 x 6 entries)
+#define NUM_LMTEXTURES      6
+// CAT: fifteen launch-system button textures R1_Sys{1,2,3}_{disabled,off,off_mouse,off_focus,on}.lif, new in
+//      Cataclysm (lmLoadTextures 0x0049dd60: names table .data 0x0088353c, images 0x00a4474c, textures 0x00883578)
+#define CAT_NUM_LMSYSTEXTURES 15
 
 #define NUM_LMCARRIERS      4
 
@@ -196,14 +201,14 @@ Ship *lmCarrierX[NUM_LMCARRIERS] = { NULL, NULL, NULL, NULL };
 
 trhandle lmShipTexture[MAX_RACES][NUM_LMTEXTURES] =
 {
-    {TR_InvalidHandle, TR_InvalidHandle},
-    {TR_InvalidHandle, TR_InvalidHandle}
+    {TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle},
+    {TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle}
 };
 
 lifheader *lmShipImage[MAX_RACES][NUM_LMTEXTURES] =
 {
-    { NULL, NULL },
-    { NULL, NULL }
+    { NULL, NULL, NULL, NULL, NULL, NULL },
+    { NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
 
@@ -220,9 +225,34 @@ char *lmShipImagePaths[] =
 
 char *lmShipIcons[] =
 {
-    "icon1.lif", // Mothership
-    "icon2.lif", // Carrier
+    // CAT: Cataclysm's names (table .data 0x00883508); HW1: "icon1.lif", "icon2.lif"
+    "icon1_disabled.lif",
+    "icon1_off.lif",
+    "icon1_on.lif",
+    "icon2_disabled.lif",
+    "icon2_off.lif",
+    "icon2_on.lif",
 };
+
+// CAT: launch-system button textures (lmLoadTextures 0x0049dd60; path .data 0x00883520)
+#ifdef _WIN32
+#define CAT_LM_SYS_PATH "FEMan\\Construction_Manager\\"
+#else
+#define CAT_LM_SYS_PATH "FEMan/Construction_Manager/"
+#endif
+char *catLmSysIcons[CAT_NUM_LMSYSTEXTURES] =
+{
+    "R1_Sys1_disabled.lif", "R1_Sys1_off.lif", "R1_Sys1_off_mouse.lif", "R1_Sys1_off_focus.lif", "R1_Sys1_on.lif",
+    "R1_Sys2_disabled.lif", "R1_Sys2_off.lif", "R1_Sys2_off_mouse.lif", "R1_Sys2_off_focus.lif", "R1_Sys2_on.lif",
+    "R1_Sys3_disabled.lif", "R1_Sys3_off.lif", "R1_Sys3_off_mouse.lif", "R1_Sys3_off_focus.lif", "R1_Sys3_on.lif"
+};
+trhandle catLmSysTexture[CAT_NUM_LMSYSTEXTURES] =
+{
+    TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle,
+    TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle,
+    TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle
+};
+lifheader *catLmSysImage[CAT_NUM_LMSYSTEXTURES];
 
 
 sdword lmCurrentSelect = 0;
@@ -1153,7 +1183,10 @@ void lmDrawShipImage(regionhandle region, smemsize shipID)
     rectangle rect;
     sdword usetexture;
 
-    usetexture = (shipID == 0) ? 0 : 1;
+    // CAT: six images per race now (icon1/icon2 x disabled/off/on). Cataclysm's lmDrawShipImage 0x0049d980 takes a
+    //      third argument and picks base (0 or 3) + 0 disabled / +1 off / +2 on (focused); until that rewrite is
+    //      ported (stage 3) this HW1 version shows the enabled, unfocused "_off" image.
+    usetexture = (shipID == 0) ? 1 : 4;
 
     rect.x0 = region->rect.x0 + LM_SHIP_IMAGE_INSET;
     rect.y0 = region->rect.y0 + LM_SHIP_IMAGE_INSET;
@@ -1413,6 +1446,19 @@ void lmLoadTextures(void)
             }
         }
     }
+
+    // CAT: load the launch-system button textures (lmLoadTextures 0x0049dd60, second loop: RGB textures)
+    for (j = 0; j < CAT_NUM_LMSYSTEXTURES; j++)
+    {
+        strcpy(filename, CAT_LM_SYS_PATH);
+        strcat(filename, catLmSysIcons[j]);
+        catLmSysImage[j] = trLIFFileLoad(filename, NonVolatile);
+        catLmSysTexture[j] = trRGBTextureCreate(
+            (color*)catLmSysImage[j]->data,
+            catLmSysImage[j]->width,
+            catLmSysImage[j]->height,
+            TRUE);
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -1440,6 +1486,21 @@ void lmFreeTextures(void)
                 trRGBTextureDelete(lmShipTexture[i][j]);
                 lmShipTexture[i][j] = TR_InvalidHandle;
             }
+        }
+    }
+
+    // CAT: free the launch-system button textures (lmFreeTextures 0x0049df00, second loop)
+    for (j = 0; j < CAT_NUM_LMSYSTEXTURES; j++)
+    {
+        if (catLmSysImage[j] != NULL)
+        {
+            memFree(catLmSysImage[j]);
+            catLmSysImage[j] = NULL;
+        }
+        if (catLmSysTexture[j] != TR_InvalidHandle)
+        {
+            trRGBTextureDelete(catLmSysTexture[j]);
+            catLmSysTexture[j] = TR_InvalidHandle;
         }
     }
 }

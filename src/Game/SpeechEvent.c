@@ -246,7 +246,8 @@ char musicHeaderName[] = "DL_Music.wxh";
 #elif defined(HW_GAME_RAIDER_RETREAT)
 char musicHeaderName[] = "OEM_Music.wxh";
 #else
-char musicHeaderName[] = "HW_Music.wxh";
+// CAT: Cataclysm's music header (speechEventInit 0x00521a40, .data 0x00895f60 "Music4Cat.wxh")
+char musicHeaderName[] = "Music4Cat.wxh";
 #endif
 
 /* externs */
@@ -339,7 +340,9 @@ scriptStructEntry streamEffectScriptTable[] =
 =============================================================================*/
 void SEloadscripts(void)
 {
+#ifdef HW_GAME_DEMO
     sdword i;
+#endif
 
 #ifdef _WIN32
 #define SFX_SCRIPT_PATH "SoundFX\\Scripts\\"
@@ -349,6 +352,14 @@ void SEloadscripts(void)
 
     scriptSetStruct(SFX_SCRIPT_PATH, "eq_fleet.script", streamEQScriptTable, (ubyte *)&streamEQ[SPEECH_FLEET]);
     scriptSetStruct(SFX_SCRIPT_PATH, "eq_intel.script", streamEQScriptTable, (ubyte *)&streamEQ[SPEECH_INTEL]);
+#ifndef HW_GAME_DEMO
+    // CAT: Cataclysm loads only the fleet and intel EQ scripts (the only speech scripts it ships) and copies band 7
+    //      into the unused band 8 (speechEventInit 0x00521a40, SEloadscripts inlined: scriptSetStruct of
+    //      "eq_fleet.script"/"eq_intel.script" with the table at 0x00895f70, then eq[8] = eq[7] for both). No pilot EQ,
+    //      delay or effect scripts are read. The EQ slots keep HW1's indices until the speech runtime is ported.
+    streamEQ[SPEECH_FLEET].eq[8] = streamEQ[SPEECH_FLEET].eq[7];
+    streamEQ[SPEECH_INTEL].eq[8] = streamEQ[SPEECH_INTEL].eq[7];
+#else
     scriptSetStruct(SFX_SCRIPT_PATH, "eq_pilot1.script", streamEQScriptTable, (ubyte *)&streamEQ[SPEECH_PILOT1]);
     scriptSetStruct(SFX_SCRIPT_PATH, "eq_pilot2.script", streamEQScriptTable, (ubyte *)&streamEQ[SPEECH_PILOT2]);
     scriptSetStruct(SFX_SCRIPT_PATH, "eq_pilot3.script", streamEQScriptTable, (ubyte *)&streamEQ[SPEECH_PILOT3]);
@@ -388,6 +399,7 @@ void SEloadscripts(void)
         mixedeffect[i].fScaleLev = cleaneffect[i].fScaleLev;
         mixedeffect[i].fLimitLev = cleaneffect[i].fLimitLev;
     }
+#endif // HW_GAME_DEMO
 
 #undef SFX_SCRIPT_PATH
 }
@@ -427,7 +439,7 @@ sdword speechEventInit(void)
     char loadfile[100];
     sdword i, j;
 
-#if FIX_ENDIAN
+#if FIX_ENDIAN && defined(HW_GAME_DEMO)  // CAT: the LUT byte swaps moved to cat_speechEventLoadRaceVoice
     sdword p, z;
 #endif
 
@@ -436,6 +448,10 @@ sdword speechEventInit(void)
     sdword index;
 #endif
 
+#if defined(HW_GAME_DEMO)
+    // CAT: Cataclysm loads the lookup tables and opens the voice file per race before this function runs
+    //      (cat_speechEventLoadRaceVoice 0x005217f0, called by cat_speechEventInitForRace 0x00521d50); its
+    //      speechEventInit 0x00521a40 starts at soundstreamquery. HW1's single-LUT load is kept for the demo build only.
     /* load the speech lookup tables */
     strcpy(loadfile, SOUNDFXDIR);
 #ifdef HW_GAME_DEMO
@@ -515,12 +531,15 @@ sdword speechEventInit(void)
         }
     }
 #endif
+#endif // HW_GAME_DEMO (CAT: LUT load moved to cat_speechEventLoadRaceVoice)
     soundstreamquery(SE_NUM_STREAMS, &buffersize, &streamersize);
 
     if (buffersize == 0)
     {
+#if defined(HW_GAME_DEMO)
         memFree(SentenceLUT);
         memFree(PhraseLUT);
+#endif // CAT: the caller frees the race LUTs (cat_speechEventInitForRace 0x00521d50)
         /* soundstreamquery failed */
         return (SOUND_ERR);
     }
@@ -529,6 +548,7 @@ sdword speechEventInit(void)
 
     soundstreaminit(pspeechstream, streamersize, SE_NUM_STREAMS, soundEventDebugPrint);
 
+#if defined(HW_GAME_DEMO)
     /* moved voice file from sfxdir to root */
     //  strcpy(loadfile, SOUNDFXDIR);
 
@@ -539,19 +559,29 @@ sdword speechEventInit(void)
         dbgMessage("Voice file does not match lookup tables.  Not from same generate.");
         dbgAssertOrIgnore(FALSE);
     }
+#endif // CAT: the race voice file is opened by cat_speechEventLoadRaceVoice 0x005217f0
 
+#if defined(HW_GAME_DEMO)
     pspeechbuffer0 = memAlloc(buffersize, "SpeechBuffer0", NonVolatile);
         streamhandle[0] = soundstreamcreatebuffer(pspeechbuffer0, buffersize, SentenceLUT->compbitrate[0]);
     pspeechbuffer1 = memAlloc(buffersize, "SpeechBuffer1", NonVolatile);
         streamhandle[1] = soundstreamcreatebuffer(pspeechbuffer1, buffersize, SentenceLUT->compbitrate[1]);
     pspeechbuffer2 = memAlloc(buffersize, "SpeechBuffer2", NonVolatile);
         streamhandle[2] = soundstreamcreatebuffer(pspeechbuffer2, buffersize, SentenceLUT->compbitrate[2]);
-#if defined(HW_GAME_DEMO)
     pspeechbuffer4 = memAlloc(buffersize, "SpeechBuffer4", NonVolatile);
         streamhandle[3] = soundstreamcreatebuffer(pspeechbuffer4, buffersize, SentenceLUT->compbitrate[0]);
 #else
+    // CAT: every speech stream uses the LUT's single bitrate at +0x0E (speechEventInit 0x00521a40 creates its three
+    //      speech buffers with *(uword *)(SentenceLUT + 0xe)). HW1's five-stream layout is kept until the speech
+    //      runtime is ported (stage 3).
+    pspeechbuffer0 = memAlloc(buffersize, "SpeechBuffer0", NonVolatile);
+        streamhandle[0] = soundstreamcreatebuffer(pspeechbuffer0, buffersize, SentenceLUT->compbitrate[0]);
+    pspeechbuffer1 = memAlloc(buffersize, "SpeechBuffer1", NonVolatile);
+        streamhandle[1] = soundstreamcreatebuffer(pspeechbuffer1, buffersize, SentenceLUT->compbitrate[0]);
+    pspeechbuffer2 = memAlloc(buffersize, "SpeechBuffer2", NonVolatile);
+        streamhandle[2] = soundstreamcreatebuffer(pspeechbuffer2, buffersize, SentenceLUT->compbitrate[0]);
     pspeechbuffer3 = memAlloc(buffersize, "SpeechBuffer3", NonVolatile);
-        streamhandle[3] = soundstreamcreatebuffer(pspeechbuffer3, buffersize, SentenceLUT->compbitrate[3]);
+        streamhandle[3] = soundstreamcreatebuffer(pspeechbuffer3, buffersize, SentenceLUT->compbitrate[0]);
     pspeechbuffer4 = memAlloc(buffersize, "SpeechBuffer4", NonVolatile);
         streamhandle[4] = soundstreamcreatebuffer(pspeechbuffer4, buffersize, SentenceLUT->compbitrate[0]);
 #endif
@@ -610,6 +640,144 @@ sdword speechEventInit(void)
 
     return (SOUND_OK);
 }
+
+
+#ifndef HW_GAME_DEMO
+// CAT: TRUE once speechEventInit has created the streams (.data 0x00a6ae98, cat_speechEventInitForRace 0x00521d50)
+static bool32 catSpeechStreamsInitialised = FALSE;
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_speechEventLoadRaceVoice
+    Description : CAT: load the speech lookup tables of one race and open its voice file
+                  (cat_speechEventLoadRaceVoice 0x005217f0). Race 0 (Somtaaw/Sect) uses
+                  SoundFX\Sectsentence.lut, SoundFX\Sectphrase.lut and SectSpeech.vce; any other race uses the Beast
+                  set (SoundFX\Beastsentence.lut, SoundFX\Beastphrase.lut, BeastSpeech.vce), as the exe does.
+    Inputs      : race - player race
+    Outputs     : SentenceLUT, PhraseLUT, speechfilehandle
+    Return      : 0
+----------------------------------------------------------------------------*/
+sdword cat_speechEventLoadRaceVoice(sdword race)
+{
+    char loadfile[100];
+    char *raceName = (race == 0) ? "Sect" : "Beast";        // .data 0x00896144 "Sect", 0x0089613c "Beast"
+#if FIX_ENDIAN
+    sdword p, z;
+#endif
+
+    if (SentenceLUT != NULL)
+    {
+        memFree(SentenceLUT);
+        SentenceLUT = NULL;
+    }
+    if (PhraseLUT != NULL)
+    {
+        memFree(PhraseLUT);
+        PhraseLUT = NULL;
+    }
+    if (speechfilehandle != 0)
+    {
+        fileClose(speechfilehandle);
+        speechfilehandle = 0;
+    }
+
+    /* load the speech lookup tables */
+    strcpy(loadfile, SOUNDFXDIR);
+    strcat(loadfile, raceName);
+    strcat(loadfile, "sentence.lut");                       // .data 0x0089612c
+    fileLoadAlloc(loadfile, (void**)&SentenceLUT, NonVolatile);
+
+#if FIX_ENDIAN
+	SentenceLUT->ID         = FIX_ENDIAN_INT_32( SentenceLUT->ID );
+	SentenceLUT->checksum   = FIX_ENDIAN_INT_32( SentenceLUT->checksum );
+	SentenceLUT->numcolumns = FIX_ENDIAN_INT_16( SentenceLUT->numcolumns );
+	SentenceLUT->numevents  = FIX_ENDIAN_INT_16( SentenceLUT->numevents );
+	SentenceLUT->numactors  = FIX_ENDIAN_INT_16( SentenceLUT->numactors );
+	SentenceLUT->compbitrate[0] = FIX_ENDIAN_INT_16( SentenceLUT->compbitrate[0] );
+	for ( z=0; z< (SentenceLUT->numcolumns*(SentenceLUT->numactors*SentenceLUT->numevents)); z++){
+		SentenceLUT->lookup[z] = FIX_ENDIAN_INT_16( SentenceLUT->lookup[z] );
+	}
+#endif // FIX_ENDIAN
+
+    strcpy(loadfile, SOUNDFXDIR);
+    strcat(loadfile, raceName);
+    strcat(loadfile, "phrase.lut");                         // .data 0x008960fc
+    fileLoadAlloc(loadfile, (void**)&PhraseLUT, NonVolatile);
+
+#if FIX_ENDIAN
+	PhraseLUT->ID = FIX_ENDIAN_INT_32( PhraseLUT->ID );
+	PhraseLUT->checksum = FIX_ENDIAN_INT_32( PhraseLUT->checksum );
+	PhraseLUT->numcolumns = FIX_ENDIAN_INT_16( PhraseLUT->numcolumns );
+	PhraseLUT->numsentences = FIX_ENDIAN_INT_16( PhraseLUT->numsentences );
+
+	for ( p=0; p< (PhraseLUT->numcolumns*PhraseLUT->numsentences); p++){
+		PhraseLUT->lookupsy[p] = FIX_ENDIAN_INT_16( PhraseLUT->lookupsy[p] );
+	}
+#endif
+
+    /* verify sentence and phrase luts */
+    if (SentenceLUT->checksum != PhraseLUT->checksum)
+    {
+        dbgMessage("Sentence and Phrase lookup tables do not match.  Not from same generate.");
+        dbgAssertOrIgnore(FALSE);
+    }
+
+    /* open the race's speech file and compare checksums */
+    strcpy(loadfile, (race == 0) ? utyVoiceFilename : cat_utyBeastVoiceFilename);
+    if (soundstreamopenfile(loadfile, &speechfilehandle) != SentenceLUT->checksum)
+    {
+        dbgMessage("Voice file does not match lookup tables.  Not from same generate.");
+        dbgAssertOrIgnore(FALSE);
+    }
+
+    return 0;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_speechEventInitForRace
+    Description : CAT: speech start-up for one race (cat_speechEventInitForRace 0x00521d50, called by
+                  soundEventInit 0x0051c6e0): load the race's tables and voice file, then create the streams the
+                  first time only.
+    Inputs      : race - player race (soundEventInit passes whichRaceSelected)
+    Outputs     :
+    Return      : SOUND_OK, or SOUND_ERR with the tables freed
+----------------------------------------------------------------------------*/
+sdword cat_speechEventInitForRace(sdword race)
+{
+    sdword result;
+
+    result = cat_speechEventLoadRaceVoice(race);            // frees the previous race's tables and file itself
+    if (result == 0)
+    {
+        if (catSpeechStreamsInitialised)
+        {
+            return SOUND_OK;
+        }
+        result = speechEventInit();
+    }
+    if (result != SOUND_ERR)
+    {
+        catSpeechStreamsInitialised = TRUE;
+        return SOUND_OK;
+    }
+
+    if (SentenceLUT != NULL)
+    {
+        memFree(SentenceLUT);
+        SentenceLUT = NULL;
+    }
+    if (PhraseLUT != NULL)
+    {
+        memFree(PhraseLUT);
+        PhraseLUT = NULL;
+    }
+    if (speechfilehandle != 0)
+    {
+        fileClose(speechfilehandle);
+        speechfilehandle = 0;
+    }
+    return SOUND_ERR;
+}
+#endif // HW_GAME_DEMO
 
 
 void speechEventClose(void)
@@ -1003,6 +1171,7 @@ void speechPlayQueue(SPEECHQUEUE *pSQueue, sdword streamchannel)
     }
 
     /* get the bitrate for this actor */
+#ifdef HW_GAME_DEMO
     if (streamchannel < SentenceLUT->numactors)
     {
         bitrate = SentenceLUT->compbitrate[streamchannel];
@@ -1012,6 +1181,10 @@ void speechPlayQueue(SPEECHQUEUE *pSQueue, sdword streamchannel)
         /* the extra channel always plays from actor 0 */
         bitrate = SentenceLUT->compbitrate[0];
     }
+#else
+    // CAT: the LUT has a single bitrate (speechPlayQueue 0x005220e0: bitrate = *(sword *)(SentenceLUT + 0xe))
+    bitrate = SentenceLUT->compbitrate[0];
+#endif
 
     /* get the sentence */
     numoffsets = SEselectsentence(actornum, (event & SPEECH_EVENT_MASK),

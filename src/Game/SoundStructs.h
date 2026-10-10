@@ -9,6 +9,8 @@
 #ifndef ___SOUNDSTRUCTS_H
 #define ___SOUNDSTRUCTS_H
 
+#include <stddef.h>  // CAT: offsetof for the SENTENCELUT layout asserts
+
 #include "Types.h"
 
 
@@ -63,7 +65,12 @@ typedef struct
 #if defined(HW_GAME_DEMO)
 	uword	compbitrate[3];	// what bitrate is the speech compressed at for each actor
 #else
-	uword	compbitrate[4];	// what bitrate is the speech compressed at for each actor
+	// CAT: one bitrate, so lookup[] starts at +0x10 (HW1: four, lookup at +0x16). Cataclysm's race LUTs
+	//      (SoundFX\{Sect,Beast}sentence.lut) have numactors 1; every reader takes the bitrate at +0x0E and the
+	//      table at +0x10/+0x12 (speechEventInit 0x00521a40, speechPlayQueue 0x005220e0, SEselectsentence
+	//      0x005223c0, speechEventQueue 0x00522560). HW1's 4-entry array made the table start 6 bytes late and fed
+	//      a lookup value (2) to soundstreamcreatebuffer as a bitrate: SIGFPE (docs/m2-r1-data-deltas.md run10c)
+	uword	compbitrate[1];	// what bitrate is the speech compressed at
 #endif
 	sword	lookup[];		// lookup is numcolumns wide by (numactors * numevents) long
 /* columns are:
@@ -73,6 +80,12 @@ typedef struct
 	index - into the phrase table
 */
 } SENTENCELUT;
+
+#ifndef HW_GAME_DEMO
+// CAT: on-disk layout of Cataclysm's sentence LUT (header 0x10, table at +0x10); see the comment above
+_Static_assert(offsetof(SENTENCELUT, compbitrate) == 0x0E, "SENTENCELUT.compbitrate is at 0x0E in Cataclysm LUTs");
+_Static_assert(offsetof(SENTENCELUT, lookup) == 0x10, "SENTENCELUT.lookup is at 0x10 in Cataclysm LUTs");
+#endif
 
 
 typedef struct

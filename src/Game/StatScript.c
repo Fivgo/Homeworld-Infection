@@ -1218,7 +1218,7 @@ void scriptSetNAVLightCB(char *directory,char *field,void *dataToFillIn)
     }
     else
     {
-       navlightstatic->texturehandle = trTextureRegister(navlighttexturename, NULL, NULL);
+       navlightstatic->texturehandle = trTextureRegister(navlighttexturename, NULL, NULL, TRUE);  // CAT: 4th arg 1 (scriptSetNAVLightCB 0x00526ce0)
     }
 
     navlightstatic->lightType = StrToNAVLightType(navlighttypestr);

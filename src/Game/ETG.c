@@ -3986,7 +3986,7 @@ sdword etgSubTextureDWORD(struct etgeffectstatic *stat, ubyte *dest, char *opcod
         etgLoadErrorf(ETG, "Exceeded %d bytes of constant data.", ETG_ConstDataPool);
     }
 #endif
-    *((trhandle *)(etgConstData + stat->constLength)) = trTextureRegister(texName, NULL, stat);
+    *((trhandle *)(etgConstData + stat->constLength)) = trTextureRegister(texName, NULL, stat, TRUE);  // CAT: 4th arg 1 (etgSubTextureDWORD 0x0046caf0)
     stat->constLength += sizeof(trhandle);
     *((memsize *)(etgConstData + stat->constLength)) = SCALECAST(xyInfo);
     stat->constLength += sizeof(memsize);
@@ -4107,7 +4107,7 @@ sdword etgSetTextureParse(struct etgeffectstatic *stat, ubyte *dest, char *opcod
     function->returnValue = MINUS1;
     function->passThis = FALSE;
     function->parameter[function->nParameters].type = EVT_Constant;                 //first param is the texture handle
-    function->parameter[function->nParameters].param = trTextureRegister(path, NULL, dest);//a dummy dest should prevent it from sorting with other ships
+    function->parameter[function->nParameters].param = trTextureRegister(path, NULL, dest, TRUE);  // CAT: 4th arg 1 (etgSetTextureParse 0x0046cc60)//a dummy dest should prevent it from sorting with other ships
     function->nParameters++;
 
 

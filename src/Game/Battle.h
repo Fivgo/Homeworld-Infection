@@ -127,6 +127,11 @@ typedef struct
     //end of static stuff; dynamic stuff follows
     real32 lastTimeSpoken;                      //universe time when this event was last actually queued up
     vector lastPlaceSpoken;                     //where the event was last said
+    // CAT: two flags set from BattleChatter.script (keys "battleStatusUpdate", "battleStatusSuppress"; value > 0 sets
+    //      them), at +0x50/+0x54 of Cataclysm's 0x58-byte entry (cat_batStatusUpdateSetCB 0x004235f0,
+    //      cat_batStatusSuppressSetCB 0x00423680). Their readers are part of the battle chatter runtime (stage 3).
+    bool32 statusUpdate;
+    bool32 statusSuppress;
 }
 battleevent;
 

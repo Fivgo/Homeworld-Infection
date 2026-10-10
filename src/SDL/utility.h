@@ -148,6 +148,7 @@ extern bool8 utyStartedBits[SSA_NumberBits];
 
 extern char utyMusicFilename[];
 extern char utyVoiceFilename[];
+extern char cat_utyBeastVoiceFilename[];  // CAT: BeastSpeech.vce (cat_speechEventLoadRaceVoice 0x005217f0)
 
 
 /*=============================================================================
