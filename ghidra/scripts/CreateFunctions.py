@@ -12,6 +12,9 @@
 #                    (default 1; uses the program's stored analysis options, i.e. the
 #                    ConfigureAnalysis profile applied at import)
 #   tag=R2_created   function tag put on every function this script creates
+#   mark=R2          prefix of the plate comment "[<mark>] created by CreateFunctions.py (<reason>)"
+#                    written on every created function; brackets are added when missing, so
+#                    mark=R5 and mark=[R5] are the same (default "[R2]", the old fixed prefix)
 #   returning=<hex,...>  functions that DO return although analysis marked them non-returning;
 #                    their no-return flag is cleared, every call site's fall-through is
 #                    re-disassembled (iterated until stable) and the bodies of the callers plus
@@ -59,7 +62,15 @@ from ghidra.program.model.address import AddressSet
 from ghidra.program.model.listing import CommentType
 from ghidra.program.model.symbol import SourceType, SymbolUtilities
 
-MARK = "[R2]"
+MARK = "[R2]"  # default plate-comment prefix; mark= overrides it
+
+
+def parse_mark(v):
+    v = str(v or "").strip()
+    if not v:
+        return MARK
+    return v if v.startswith("[") and v.endswith("]") else "[%s]" % v.strip("[]")
+
 # Functions that return (each ends in a reachable RET; HW1 KAS.c / KASFunc.c bodies return a
 # value) but that Ghidra's "Non-Returning Functions - Discovered" marked no-return while
 # analysing the mission code on 2026-10-09: kasGrowSelectionPtr (pass 1), kasfShipsCount,
@@ -257,6 +268,7 @@ def main():
     report = args.get("report") or (re.sub(r"\.json$", "", path) + ".report.csv")
     analyze = args.get("analyze", "1") in ("1", "true", "yes")
     tag = args.get("tag", "R2_created")
+    mark = parse_mark(args.get("mark"))
     returning = [o for o in (parse_int(x) for x in parse_list(args.get("returning", DEFAULT_RETURNING)))
                  if o is not None]
     region = None
@@ -409,7 +421,7 @@ def main():
         f.addTag(tag)
         try:
             old = listing.getComment(CommentType.PLATE, a)
-            line = "%s created by CreateFunctions.py (%s)" % (MARK, row["reason"])
+            line = "%s created by CreateFunctions.py (%s)" % (mark, row["reason"])
             if not old or line not in old:
                 listing.setComment(a, CommentType.PLATE, (old + "\n" + line) if old else line)
         except Exception:

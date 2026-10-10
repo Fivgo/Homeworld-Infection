@@ -1,0 +1,6683 @@
+[
+ {
+  "address": "0x00410900",
+  "size": 20,
+  "holders": [
+   "aioCreateTakeoutTarget (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "cb074100e507"
+ },
+ {
+  "address": "0x00417df0",
+  "size": 21,
+  "holders": [
+   "aitExecute (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "527d4100a37d"
+ },
+ {
+  "address": "0x0041ae90",
+  "size": 24,
+  "holders": [
+   "aiuMakeShipsOnlyDangerousToMothership (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "81ae410081ae"
+ },
+ {
+  "address": "0x00421050",
+  "size": 548,
+  "holders": [
+   "animBinkPlay (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "binkGetSurface",
+   "cat_glideLfbLock",
+   "subTitlesDraw",
+   "cat_glideBufferSwap"
+  ],
+  "first_bytes": "83ec145657e8"
+ },
+ {
+  "address": "0x00421280",
+  "size": 899,
+  "holders": [
+   "animBinkPlay (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "what's this RGLtype: %d [binkSimpleDisplayProc]"
+  ],
+  "callees": [
+   "binkGetSurface",
+   "rgluOrtho2D",
+   "dbgFatalf",
+   "glcDisplayRGBABackgroundScaled"
+  ],
+  "first_bytes": "81ec180a0000"
+ },
+ {
+  "address": "0x004217d0",
+  "size": 131,
+  "holders": [
+   "animBinkPlay (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "subTitlesUpdate"
+  ],
+  "first_bytes": "8b0d90f98d00"
+ },
+ {
+  "address": "0x00425d40",
+  "size": 30,
+  "holders": [
+   "bobSubBlobListCreate (code)",
+   "bobListCreate (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b442404d940"
+ },
+ {
+  "address": "0x00425d60",
+  "size": 35,
+  "holders": [
+   "bobUpdateObjsInBlobCollInfo (code)",
+   "bobUpdateExtraCollBobInfo (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b08"
+ },
+ {
+  "address": "0x004289f0",
+  "size": 71,
+  "holders": [
+   "btgZip (code)",
+   "btgZip (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b00"
+ },
+ {
+  "address": "0x0042a740",
+  "size": 256,
+  "holders": [
+   "cat_beastWeaponHouseKeep (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "51558b2da0fb"
+ },
+ {
+  "address": "0x0042a840",
+  "size": 189,
+  "holders": [
+   "0x0042a7cb (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "cfa742000aa8"
+ },
+ {
+  "address": "0x0043f330",
+  "size": 748,
+  "holders": [
+   "CLOUD_LIGHTNING_MAIN_ALPHA+0x64c (.data)",
+   "CLOUD_LIGHTNING_MAIN_ALPHA+0x654 (.data)"
+  ],
+  "n_holders": 2,
+  "strings": [
+   "CP_RaceOne",
+   "CP_RaceTwo"
+  ],
+  "callees": [
+   "lib_crt_00676c90",
+   "cpColorsUpdate",
+   "regRecursiveSetDirty",
+   "feToggleButtonSet"
+  ],
+  "first_bytes": "8b0db82d7500"
+ },
+ {
+  "address": "0x00443560",
+  "size": 40,
+  "holders": [
+   "processMpHyperspaceingToDo (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b44241085c0"
+ },
+ {
+  "address": "0x00443590",
+  "size": 49,
+  "holders": [
+   "processMpHyperspaceingToDo (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b44241085c0"
+ },
+ {
+  "address": "0x00448920",
+  "size": 34,
+  "holders": [
+   "clAttack (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4c24048b51"
+ },
+ {
+  "address": "0x00449090",
+  "size": 29,
+  "holders": [
+   "clSpecial (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b80"
+ },
+ {
+  "address": "0x0044f060",
+  "size": 36,
+  "holders": [
+   "clSendAttack (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "11ef44003cef"
+ },
+ {
+  "address": "0x004545e0",
+  "size": 17,
+  "holders": [
+   "RESCONTROLLER_FOLLOW_BEHIND+0x8a0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cmClose"
+  ],
+  "first_bytes": "6a006a00e897"
+ },
+ {
+  "address": "0x00454600",
+  "size": 22,
+  "holders": [
+   "RESCONTROLLER_FOLLOW_BEHIND+0x8a8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cmClose",
+   "mrLaunch"
+  ],
+  "first_bytes": "6a006a00e877"
+ },
+ {
+  "address": "0x00454620",
+  "size": 141,
+  "holders": [
+   "RESCONTROLLER_FOLLOW_BEHIND+0x8b0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b15f0dba200"
+ },
+ {
+  "address": "0x00455790",
+  "size": 397,
+  "holders": [
+   "RESCONTROLLER_FOLLOW_BEHIND+0x880 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cmBuildJobsAdd",
+   "speechEventQueue"
+  ],
+  "first_bytes": "51a1a03ca400"
+ },
+ {
+  "address": "0x00455c10",
+  "size": 645,
+  "holders": [
+   "RESCONTROLLER_FOLLOW_BEHIND+0x888 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "clWrapDeterministicBuild",
+   "__ftol",
+   "cat_clWrapExternalBuildUpdate",
+   "speechEventQueue"
+  ],
+  "first_bytes": "a1a03ca40053"
+ },
+ {
+  "address": "0x00456060",
+  "size": 424,
+  "holders": [
+   "RESCONTROLLER_FOLLOW_BEHIND+0x890 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "clWrapDeterministicBuild",
+   "speechEventQueue"
+  ],
+  "first_bytes": "a1582eba0053"
+ },
+ {
+  "address": "0x00456210",
+  "size": 531,
+  "holders": [
+   "RESCONTROLLER_FOLLOW_BEHIND+0x8c8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontCurrentGet",
+   "fontMakeCurrent",
+   "feStaticRectangleDraw",
+   "primRectSolid2"
+  ],
+  "first_bytes": "515355565733"
+ },
+ {
+  "address": "0x00456840",
+  "size": 573,
+  "holders": [
+   "cmRightArrowDraw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cmSelectShipType",
+   "mgAccelerator",
+   "tutIsBuildShipRestricted",
+   "cmIncrement"
+  ],
+  "first_bytes": "a1943ca40085"
+ },
+ {
+  "address": "0x00456a80",
+  "size": 539,
+  "holders": [
+   "cmLeftArrowDraw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cmSelectShipType",
+   "mgAccelerator",
+   "cmDecrement",
+   "scAdjustThumbwheel"
+  ],
+  "first_bytes": "a1943ca40085"
+ },
+ {
+  "address": "0x004570c0",
+  "size": 776,
+  "holders": [
+   "cmShipInfoDraw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cmSelectShipType",
+   "tutIsBuildShipRestricted",
+   "cmIncrement",
+   "svSelectShip"
+  ],
+  "first_bytes": "a1943ca40085"
+ },
+ {
+  "address": "0x00458780",
+  "size": 127,
+  "holders": [
+   "0x00458bb3 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cmUpdateFactory",
+   "speechEventQueue",
+   "updateShipView"
+  ],
+  "first_bytes": "817c240c0020"
+ },
+ {
+  "address": "0x00458800",
+  "size": 131,
+  "holders": [
+   "cmCarrierXDraw (code)",
+   "WONCommon__RegKey__RegKey (code)",
+   "CryptoPP__DERLengthEncode (code)"
+  ],
+  "n_holders": 3,
+  "strings": [],
+  "callees": [
+   "cmUpdateFactory",
+   "speechEventQueue",
+   "updateShipView"
+  ],
+  "first_bytes": "817c240c0020"
+ },
+ {
+  "address": "0x00458890",
+  "size": 131,
+  "holders": [
+   "cmCarrierXDraw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cmUpdateFactory",
+   "speechEventQueue",
+   "updateShipView"
+  ],
+  "first_bytes": "817c240c0020"
+ },
+ {
+  "address": "0x00458920",
+  "size": 151,
+  "holders": [
+   "formationArrageCrazyOptimum (code)",
+   "RESCONTROLLER_FOLLOW_BEHIND+0x920 (.data)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "cat_shipNamesGetName",
+   "fontHeight",
+   "fontPrintf"
+  ],
+  "first_bytes": "a1c0dca20056"
+ },
+ {
+  "address": "0x00458b80",
+  "size": 109,
+  "holders": [
+   "RESCONTROLLER_FOLLOW_BEHIND+0x8f0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "regFunctionSet",
+   "cmDrawShipImage"
+  ],
+  "first_bytes": "a1fc74b60056"
+ },
+ {
+  "address": "0x00459e50",
+  "size": 69,
+  "holders": [
+   "SaveConsMgrDetermOptional (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "SpaceObjRegistryGetID",
+   "SaveStructureOfSize"
+  ],
+  "first_bytes": "83ec48568b74"
+ },
+ {
+  "address": "0x00459ea0",
+  "size": 51,
+  "holders": [
+   "LoadConsMgrDetermOptional (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "LoadStructureOfSize",
+   "SpaceObjRegistryGetObj",
+   "listAddNode"
+  ],
+  "first_bytes": "566a48e8485d"
+ },
+ {
+  "address": "0x00464080",
+  "size": 517,
+  "holders": [
+   "cat_dockGetDockClass (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "1e3e4600ca3e"
+ },
+ {
+  "address": "0x004720c0",
+  "size": 65,
+  "holders": [
+   "read_token (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424088b4c"
+ },
+ {
+  "address": "0x00472fc0",
+  "size": 569,
+  "holders": [
+   "feRegionsAdd (code)",
+   "feRegionsAdd (code)"
+  ],
+  "n_holders": 2,
+  "strings": [
+   "\\natom has no name in feScrollBarProcess"
+  ],
+  "callees": [
+   "nullsubReturnFalse",
+   "tutGameMessage"
+  ],
+  "first_bytes": "8b4c240833c0"
+ },
+ {
+  "address": "0x00473200",
+  "size": 372,
+  "holders": [
+   "feRegionsAdd (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "scAdjustThumbwheel"
+  ],
+  "first_bytes": "8b44240c3d00"
+ },
+ {
+  "address": "0x00473380",
+  "size": 366,
+  "holders": [
+   "feRegionsAdd (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "feScreenStart",
+   "tutGameMessage"
+  ],
+  "first_bytes": "83ec08538b5c"
+ },
+ {
+  "address": "0x004734f0",
+  "size": 223,
+  "holders": [
+   "feRegionsAdd (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "_memchr",
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontShadowSet"
+  ],
+  "first_bytes": "a10cb0a60053"
+ },
+ {
+  "address": "0x00473630",
+  "size": 16,
+  "holders": [
+   "feRegionsAdd (code)",
+   "gcStartup (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4c24048b41"
+ },
+ {
+  "address": "0x00473910",
+  "size": 274,
+  "holders": [
+   "feRegionsAdd (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "regRegionScroll"
+  ],
+  "first_bytes": "8b44240c3d00"
+ },
+ {
+  "address": "0x00479310",
+  "size": 198,
+  "holders": [
+   "feRegionsAdd (code)",
+   "horseRaceRender (code)",
+   "horseRaceRender (code)"
+  ],
+  "n_holders": 3,
+  "strings": [],
+  "callees": [
+   "ferTextureRegisterSpecial",
+   "rndAdditiveBlends",
+   "ferDraw"
+  ],
+  "first_bytes": "5556578b7c24"
+ },
+ {
+  "address": "0x004793e0",
+  "size": 198,
+  "holders": [
+   "feRegionsAdd (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "ferTextureRegisterSpecial",
+   "rndAdditiveBlends",
+   "ferDraw"
+  ],
+  "first_bytes": "5556578b7c24"
+ },
+ {
+  "address": "0x0047e1f0",
+  "size": 20,
+  "holders": [
+   "flightmanTestRandom (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "85e1470051e1"
+ },
+ {
+  "address": "0x004811b0",
+  "size": 79,
+  "holders": [
+   "formationArrangeOptimum (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4c24048b41"
+ },
+ {
+  "address": "0x004825c0",
+  "size": 96,
+  "holders": [
+   "SetFormationOffsetsForForceFieldWall (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "7b1f48009c1f"
+ },
+ {
+  "address": "0x00484a10",
+  "size": 19,
+  "holders": [
+   "FillInFormationSpecifics (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "054a48000b4a"
+ },
+ {
+  "address": "0x00487240",
+  "size": 113,
+  "holders": [
+   "gpGameWindowInit (code)",
+   "0x00488571 (code, no function)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "_sprintf",
+   "fontPrint"
+  ],
+  "first_bytes": "83ec40a10c97"
+ },
+ {
+  "address": "0x004872c0",
+  "size": 95,
+  "holders": [
+   "FORMATION_TRAVEL_SLOWEST_SHIP+0x17e8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "memStrncpy",
+   "__strupr",
+   "fontPrintf"
+  ],
+  "first_bytes": "a10497c30083"
+ },
+ {
+  "address": "0x00487320",
+  "size": 81,
+  "holders": [
+   "gpTitleListLoad (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "Quick Save"
+  ],
+  "callees": [
+   "lib_crt_00676c90"
+  ],
+  "first_bytes": "56578b7c240c"
+ },
+ {
+  "address": "0x00487a10",
+  "size": 129,
+  "holders": [
+   "FORMATION_TRAVEL_SLOWEST_SHIP+0x17d0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "recPackInGameStartCB",
+   "feAllScreensDelete",
+   "SaveGame",
+   "clCommandMessage"
+  ],
+  "first_bytes": "a11038a40085"
+ },
+ {
+  "address": "0x00487aa0",
+  "size": 13,
+  "holders": [
+   "FORMATION_TRAVEL_SLOWEST_SHIP+0x17d8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "feScreenDisappear"
+  ],
+  "first_bytes": "6a006a00e857"
+ },
+ {
+  "address": "0x00487ab0",
+  "size": 571,
+  "holders": [
+   "FORMATION_TRAVEL_SLOWEST_SHIP+0x17b8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "OverwriteGamePopup"
+  ],
+  "callees": [
+   "GeneralMessageBox",
+   "fileExists",
+   "feScreenStart",
+   "SaveGame"
+  ],
+  "first_bytes": "8b150897c300"
+ },
+ {
+  "address": "0x00487cf0",
+  "size": 507,
+  "holders": [
+   "FORMATION_TRAVEL_SLOWEST_SHIP+0x17a8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   ".pkts",
+   "%s %i"
+  ],
+  "callees": [
+   "VerifySaveFile",
+   "GeneralMessageBox",
+   "feScreenDisappear",
+   "recPackPlayInGameInit"
+  ],
+  "first_bytes": "8b154037a400"
+ },
+ {
+  "address": "0x00487ef0",
+  "size": 529,
+  "holders": [
+   "FORMATION_TRAVEL_SLOWEST_SHIP+0x17b0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "OverwriteGamePopup"
+  ],
+  "callees": [
+   "GeneralMessageBox",
+   "fileExists",
+   "feScreenStart",
+   "recPackInGameStartCB"
+  ],
+  "first_bytes": "8b150897c300"
+ },
+ {
+  "address": "0x00488110",
+  "size": 12,
+  "holders": [
+   "FORMATION_TRAVEL_SLOWEST_SHIP+0x1790 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "\\nStop playback."
+  ],
+  "callees": [
+   "nullsubReturnFalse"
+  ],
+  "first_bytes": "68e0128800e8"
+ },
+ {
+  "address": "0x00488120",
+  "size": 37,
+  "holders": [
+   "FORMATION_TRAVEL_SLOWEST_SHIP+0x1798 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "recPackInGameStopCB",
+   "feScreenDisappear"
+  ],
+  "first_bytes": "e8eb3b04006a"
+ },
+ {
+  "address": "0x00488220",
+  "size": 375,
+  "holders": [
+   "FORMATION_TRAVEL_SLOWEST_SHIP+0x17a0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "SavedGames\\\\Training\\\\"
+  ],
+  "callees": [
+   "VerifySaveFile",
+   "GeneralMessageBox",
+   "feScreenDisappear",
+   "soundEventStopTrack"
+  ],
+  "first_bytes": "8b154037a400"
+ },
+ {
+  "address": "0x004883a0",
+  "size": 565,
+  "holders": [
+   "FORMATION_TRAVEL_SLOWEST_SHIP+0x17c0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "SavedGames\\\\RecordedGames\\\\",
+   ".pkts"
+  ],
+  "callees": [
+   "feScreenDisappear",
+   "fileDelete",
+   "fontMakeCurrent",
+   "uicListCleanUp"
+  ],
+  "first_bytes": "8b154037a400"
+ },
+ {
+  "address": "0x004886a0",
+  "size": 192,
+  "holders": [
+   "FORMATION_TRAVEL_SLOWEST_SHIP+0x17c8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "SP_Game_Over",
+   "In_game_esc_menu",
+   "In_game_esc_menu2"
+  ],
+  "callees": [
+   "feScreenDisappear",
+   "feScreenStart"
+  ],
+  "first_bytes": "6a006a00e857"
+ },
+ {
+  "address": "0x00488760",
+  "size": 92,
+  "holders": [
+   "0x004887b0 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "In_game_esc_menu_tutorial",
+   "In_game_esc_menu_nosave",
+   "In_game_esc_menu_nosave_recording"
+  ],
+  "callees": [
+   "feScreenStart"
+  ],
+  "first_bytes": "8b158c52a700"
+ },
+ {
+  "address": "0x00488a00",
+  "size": 68,
+  "holders": [
+   "cat_gameStatsValueGet (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "9a8948009f89"
+ },
+ {
+  "address": "0x0048c980",
+  "size": 471,
+  "holders": [
+   "setGunBindInfo (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "hmatMakeHMatFromMat",
+   "hmatMakeRotAboutX",
+   "hmatMakeRotAboutY",
+   "hmatMultiplyHMatByHMat"
+  ],
+  "first_bytes": "83ec4c8b4c24"
+ },
+ {
+  "address": "0x0048e0f0",
+  "size": 64,
+  "holders": [
+   "FORMATION_TRAVEL_SLOWEST_SHIP+0x1d08 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "SendDroppingOutOfLoad",
+   "feScreenDeleteFlags"
+  ],
+  "first_bytes": "a1943ca40085"
+ },
+ {
+  "address": "0x0048e130",
+  "size": 31,
+  "holders": [
+   "FORMATION_TRAVEL_SLOWEST_SHIP+0x1d10 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "feScreenDeleteFlags"
+  ],
+  "first_bytes": "a1703ea40085"
+ },
+ {
+  "address": "0x00495060",
+  "size": 104,
+  "holders": [
+   "kasfShipsSelectGuarding (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424088b40"
+ },
+ {
+  "address": "0x004950f0",
+  "size": 30,
+  "holders": [
+   "kasfShipsSelectIdle (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b80"
+ },
+ {
+  "address": "0x00495110",
+  "size": 48,
+  "holders": [
+   "kasfShipsSelectNotIdle (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b80"
+ },
+ {
+  "address": "0x004951d0",
+  "size": 46,
+  "holders": [
+   "kasfShipsSelectClamped (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_salvageAttachedIterFirst",
+   "cat_salvageAttachedIterNext"
+  ],
+  "first_bytes": "8b4424085650"
+ },
+ {
+  "address": "0x00495290",
+  "size": 28,
+  "holders": [
+   "kasfShipsSelectNumber (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "a1e03fa4008b"
+ },
+ {
+  "address": "0x004952d0",
+  "size": 19,
+  "holders": [
+   "kasfShipsSelectPlayer (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b80"
+ },
+ {
+  "address": "0x00495310",
+  "size": 124,
+  "holders": [
+   "kasfShipsSelectSalvaging (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "getShipAndItsCommand",
+   "cat_salvageCanSalvage"
+  ],
+  "first_bytes": "53558b6c240c"
+ },
+ {
+  "address": "0x00495430",
+  "size": 46,
+  "holders": [
+   "kasfShipsSelectShips (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4c24088b49"
+ },
+ {
+  "address": "0x00495480",
+  "size": 22,
+  "holders": [
+   "kasfShipsSelectInside (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "volPointInside"
+  ],
+  "first_bytes": "8b4424048b4c"
+ },
+ {
+  "address": "0x004954c0",
+  "size": 14,
+  "holders": [
+   "kasfShipsSelectUpgradable (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_shipIsUpgradable"
+  ],
+  "first_bytes": "8b44240450e8"
+ },
+ {
+  "address": "0x004954f0",
+  "size": 106,
+  "holders": [
+   "kasfShipsSelectEnemyNoStealthy (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b44240885c0"
+ },
+ {
+  "address": "0x00495580",
+  "size": 148,
+  "holders": [
+   "kasfShipsSelectEnemy (code)",
+   "kasfShipsSelectFriendly (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [
+   "sub_53F9F0",
+   "cat_mimicAppearsAlliedTo"
+  ],
+  "first_bytes": "8b44240885c0"
+ },
+ {
+  "address": "0x00495670",
+  "size": 25,
+  "holders": [
+   "kasfShipsSelectClass (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b48"
+ },
+ {
+  "address": "0x004956c0",
+  "size": 22,
+  "holders": [
+   "kasfShipsSelectType (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4c24048b91"
+ },
+ {
+  "address": "0x00495700",
+  "size": 45,
+  "holders": [
+   "kasfShipsSelectCapital (code)",
+   "kasfShipsSelectNonCapital (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b44240885c0"
+ },
+ {
+  "address": "0x00495770",
+  "size": 22,
+  "holders": [
+   "kasfShipsSelectDocked (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b442404f740"
+ },
+ {
+  "address": "0x004957b0",
+  "size": 28,
+  "holders": [
+   "kasfShipsSelectNotDocked (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b40"
+ },
+ {
+  "address": "0x004957f0",
+  "size": 70,
+  "holders": [
+   "kasfShipsSelectDamaged (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "83ec088b5424"
+ },
+ {
+  "address": "0x00495860",
+  "size": 70,
+  "holders": [
+   "kasfShipsSelectMoreThanDamaged (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "83ec088b5424"
+ },
+ {
+  "address": "0x004958d0",
+  "size": 115,
+  "holders": [
+   "kasfShipsSelectMoving (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4c2404d941"
+ },
+ {
+  "address": "0x004959f0",
+  "size": 81,
+  "holders": [
+   "kasfShipsSelectFarther (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "aiuFindDistanceSquared"
+  ],
+  "first_bytes": "8b4424088b10"
+ },
+ {
+  "address": "0x00495aa0",
+  "size": 81,
+  "holders": [
+   "kasfShipsSelectNearby (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "aiuFindDistanceSquared"
+  ],
+  "first_bytes": "8b4424088b10"
+ },
+ {
+  "address": "0x00495b20",
+  "size": 164,
+  "holders": [
+   "kasfShipsSelectSpecial (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424084883"
+ },
+ {
+  "address": "0x00497ea0",
+  "size": 39,
+  "holders": [
+   "kasfShipsSelectLowFuel (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b48"
+ },
+ {
+  "address": "0x00498610",
+  "size": 29,
+  "holders": [
+   "kasfShipsSelectRace (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_ShipTypeToRace"
+  ],
+  "first_bytes": "8b4424048b88"
+ },
+ {
+  "address": "0x00498b00",
+  "size": 37,
+  "holders": [
+   "kasfShipsSelectBeastified (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4c24048b81"
+ },
+ {
+  "address": "0x00498b50",
+  "size": 37,
+  "holders": [
+   "kasfShipsSelectSalvaged (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4c24048b81"
+ },
+ {
+  "address": "0x0049b830",
+  "size": 181,
+  "holders": [
+   "kbListWindowCB (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontPrintf",
+   "primRectTranslucent2"
+  ],
+  "first_bytes": "83ec10568b74"
+ },
+ {
+  "address": "0x0049b8f0",
+  "size": 943,
+  "holders": [
+   "kbListWindowCB (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "%s %s",
+   "??????"
+  ],
+  "callees": [
+   "fontMakeCurrent",
+   "cat_kbBindingGet",
+   "cat_kbCommandNameGet",
+   "cat_moDebugKeyGet"
+  ],
+  "first_bytes": "81ec40030000"
+ },
+ {
+  "address": "0x0049c3b0",
+  "size": 2048,
+  "holders": [
+   "transStartup (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_kniTransGrowVertexLists"
+  ],
+  "first_bytes": "538bdc83ec08"
+ },
+ {
+  "address": "0x0049ccd0",
+  "size": 170,
+  "holders": [
+   "lagSlowIntY+0xf0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "feScreenDeleteFlags",
+   "soundEventPlay",
+   "nullsubReturnFalse",
+   "svClose"
+  ],
+  "first_bytes": "a1a03ca40056"
+ },
+ {
+  "address": "0x0049cd80",
+  "size": 170,
+  "holders": [
+   "lagSlowIntY+0xf8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "feScreenDeleteFlags",
+   "soundEventPlay",
+   "nullsubReturnFalse",
+   "svClose"
+  ],
+  "first_bytes": "a1a03ca40056"
+ },
+ {
+  "address": "0x0049ce30",
+  "size": 213,
+  "holders": [
+   "lagSlowIntY+0xb0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "memAllocFunction",
+   "clWrapLaunchMultipleShips",
+   "memFree",
+   "speechEventQueue"
+  ],
+  "first_bytes": "a1a03ca40053"
+ },
+ {
+  "address": "0x0049cf10",
+  "size": 187,
+  "holders": [
+   "lagSlowIntY+0x108 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "PITCHEXPLOSIONROCKHI"
+  ],
+  "callees": [
+   "clWrapLaunchMultipleShips",
+   "speechEventQueue"
+  ],
+  "first_bytes": "a1a03ca40083"
+ },
+ {
+  "address": "0x0049cfd0",
+  "size": 169,
+  "holders": [
+   "lagSlowIntY+0xb8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "\\nAutolaunch sent = %d"
+  ],
+  "callees": [
+   "feToggleButtonSet",
+   "clWrapAutoLaunch",
+   "nullsubReturnFalse"
+  ],
+  "first_bytes": "a1fc74b6008b"
+ },
+ {
+  "address": "0x0049d1a0",
+  "size": 167,
+  "holders": [
+   "lagSlowIntY+0xe0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "memAllocFunction",
+   "clWrapLaunchMultipleShips",
+   "memFree",
+   "speechEventQueue"
+  ],
+  "first_bytes": "833da03ca400"
+ },
+ {
+  "address": "0x0049d250",
+  "size": 165,
+  "holders": [
+   "lagSlowIntY+0xd8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "feScreenDeleteFlags",
+   "soundEventPlay",
+   "nullsubReturnFalse",
+   "svClose"
+  ],
+  "first_bytes": "a1a03ca40056"
+ },
+ {
+  "address": "0x0049d3b0",
+  "size": 249,
+  "holders": [
+   "lmShipsToLaunchDraw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   " 55 ",
+   " x %s"
+  ],
+  "callees": [
+   "fontMakeCurrent",
+   "_sprintf",
+   "fontWidth",
+   "fontPrintf"
+  ],
+  "first_bytes": "83ec44a10c47"
+ },
+ {
+  "address": "0x0049d5e0",
+  "size": 278,
+  "holders": [
+   "lagSlowIntY+0x118 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "primRectSolid2",
+   "__ftol",
+   "fontPrintf"
+  ],
+  "first_bytes": "a1e446a40083"
+ },
+ {
+  "address": "0x0049d700",
+  "size": 253,
+  "holders": [
+   "lagSlowIntY+0x120 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "primRectSolid2",
+   "__ftol",
+   "fontPrintf"
+  ],
+  "first_bytes": "a10047a4008b"
+ },
+ {
+  "address": "0x0049d800",
+  "size": 67,
+  "holders": [
+   "0x0049db6d (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "lmReLaunch"
+  ],
+  "first_bytes": "a1fc74b60083"
+ },
+ {
+  "address": "0x0049d850",
+  "size": 64,
+  "holders": [
+   "lmCarrierXDraw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "lmReLaunch"
+  ],
+  "first_bytes": "a11447a40085"
+ },
+ {
+  "address": "0x0049d890",
+  "size": 64,
+  "holders": [
+   "lmCarrierXDraw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "lmReLaunch"
+  ],
+  "first_bytes": "a11847a40085"
+ },
+ {
+  "address": "0x0049d8d0",
+  "size": 164,
+  "holders": [
+   "lagSlowIntY+0x140 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "cat_shipNamesGetName",
+   "fontHeight",
+   "fontPrintf"
+  ],
+  "first_bytes": "a1e467c30085"
+ },
+ {
+  "address": "0x0049db40",
+  "size": 106,
+  "holders": [
+   "lagSlowIntY+0x128 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "regFunctionSet",
+   "lmDrawShipImage"
+  ],
+  "first_bytes": "a1fc74b60057"
+ },
+ {
+  "address": "0x0049dc60",
+  "size": 116,
+  "holders": [
+   "lagSlowIntY+0x130 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "LM_AutoLaunchC1",
+   "Launch_Manager",
+   "Beast_Launch_Manager"
+  ],
+  "callees": [
+   "feScreenFind",
+   "feAtomFindInScreen",
+   "lmCarrierXDraw"
+  ],
+  "first_bytes": "a1fc74b6008b"
+ },
+ {
+  "address": "0x0049dce0",
+  "size": 116,
+  "holders": [
+   "lagSlowIntY+0x138 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "LM_AutoLaunchC2",
+   "Launch_Manager",
+   "Beast_Launch_Manager"
+  ],
+  "callees": [
+   "feScreenFind",
+   "feAtomFindInScreen",
+   "lmCarrierXDraw"
+  ],
+  "first_bytes": "a1fc74b6008b"
+ },
+ {
+  "address": "0x0049ec60",
+  "size": 143,
+  "holders": [
+   "cat_lmModuleSlot1Draw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mothershipModuleSlotSet"
+  ],
+  "first_bytes": "568b35fc74b6"
+ },
+ {
+  "address": "0x0049ecf0",
+  "size": 143,
+  "holders": [
+   "cat_lmModuleSlot2Draw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mothershipModuleSlotSet"
+  ],
+  "first_bytes": "568b35fc74b6"
+ },
+ {
+  "address": "0x0049ed80",
+  "size": 143,
+  "holders": [
+   "cat_lmModuleSlot3Draw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mothershipModuleSlotSet"
+  ],
+  "first_bytes": "568b35fc74b6"
+ },
+ {
+  "address": "0x0049ee10",
+  "size": 143,
+  "holders": [
+   "cat_lmModuleSlot4Draw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mothershipModuleSlotSet"
+  ],
+  "first_bytes": "568b35fc74b6"
+ },
+ {
+  "address": "0x0049eea0",
+  "size": 143,
+  "holders": [
+   "cat_lmModuleSlot5Draw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mothershipModuleSlotSet"
+  ],
+  "first_bytes": "568b35fc74b6"
+ },
+ {
+  "address": "0x0049ef30",
+  "size": 143,
+  "holders": [
+   "cat_lmModuleSlot6Draw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mothershipModuleSlotSet"
+  ],
+  "first_bytes": "568b35fc74b6"
+ },
+ {
+  "address": "0x0049efc0",
+  "size": 143,
+  "holders": [
+   "cat_lmModuleSlot7Draw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mothershipModuleSlotSet"
+  ],
+  "first_bytes": "568b35fc74b6"
+ },
+ {
+  "address": "0x0049fbb0",
+  "size": 119,
+  "holders": [
+   "lagSlowIntY+0x100 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "feRadioButtonSet",
+   "cat_clWrapSetBeastSystem"
+  ],
+  "first_bytes": "a1fc74b6008b"
+ },
+ {
+  "address": "0x004a27e0",
+  "size": 55,
+  "holders": [
+   "scriptSetMissionSphereCB (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "d4274a004227"
+ },
+ {
+  "address": "0x004a3f20",
+  "size": 805,
+  "holders": [
+   "SongNumber+0x15c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "%f %f %f %f"
+  ],
+  "callees": [
+   "RemoveCommasFromString",
+   "_sscanf",
+   "matMakeRotAboutZ",
+   "matMultiplyMatByVec"
+  ],
+  "first_bytes": "a19c3ca40083"
+ },
+ {
+  "address": "0x004a4ad0",
+  "size": 18,
+  "holders": [
+   "SongNumber+0xe6c (.data)",
+   "SongNumber+0xe7c (.data)",
+   "SongNumber+0xe8c (.data)",
+   "SongNumber+0xe9c (.data)"
+  ],
+  "n_holders": 6,
+  "strings": [
+   "Can't load sprite images yet!"
+  ],
+  "callees": [
+   "dbgFatal"
+  ],
+  "first_bytes": "68604a88006a"
+ },
+ {
+  "address": "0x004a54a0",
+  "size": 28,
+  "holders": [
+   "madLinkInSetUpInitialBuiltMadState (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "9d544a009d54"
+ },
+ {
+  "address": "0x004a5540",
+  "size": 28,
+  "holders": [
+   "madLinkInSetUpInitialPlacedMadState (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "3d554a003d55"
+ },
+ {
+  "address": "0x004a5dc0",
+  "size": 114,
+  "holders": [
+   "SongNumber+0x17c4 (.data)",
+   "SongNumber+0x17d0 (.data)",
+   "SongNumber+0x17dc (.data)",
+   "SongNumber+0x17e8 (.data)"
+  ],
+  "n_holders": 60,
+  "strings": [
+   "%d,%d",
+   "Could not read Overlay Print Option: %s"
+  ],
+  "callees": [
+   "_sscanf",
+   "dbgFatalf"
+  ],
+  "first_bytes": "51568b742410"
+ },
+ {
+  "address": "0x004aff20",
+  "size": 250,
+  "holders": [
+   "meshMorphedObjectRenderTex (code)",
+   "meshObjectRenderTex (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [
+   "rndBackFaceCullEnable"
+  ],
+  "first_bytes": "a12c5d880085"
+ },
+ {
+  "address": "0x004b5820",
+  "size": 58,
+  "holders": [
+   "univBulletCollidedWithTarget (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_shGlowUpdate"
+  ],
+  "first_bytes": "8b44240c8b08"
+ },
+ {
+  "address": "0x004ba830",
+  "size": 476,
+  "holders": [
+   "mgChatWindowInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "<%s>  ",
+   "<%s>",
+   "%s  "
+  ],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "_sprintf"
+  ],
+  "first_bytes": "81ec04020000"
+ },
+ {
+  "address": "0x004baad0",
+  "size": 142,
+  "holders": [
+   "mgUserNameWindowInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "_sprintf"
+  ],
+  "first_bytes": "8b0d58c6a400"
+ },
+ {
+  "address": "0x004badc0",
+  "size": 161,
+  "holders": [
+   "mgListOfChannelsInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "fontPrintf"
+  ],
+  "first_bytes": "a160c6a40053"
+ },
+ {
+  "address": "0x004bae70",
+  "size": 311,
+  "holders": [
+   "mgListOfChannelsInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "_wcstombs"
+  ],
+  "first_bytes": "81ec04020000"
+ },
+ {
+  "address": "0x004bb960",
+  "size": 312,
+  "holders": [
+   "0x004bbb19 (code, no function)",
+   "0x004bbb9b (code, no function)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [
+   "lib_crt_0071dc70",
+   "_wcslen"
+  ],
+  "first_bytes": "8b4424048b4c"
+ },
+ {
+  "address": "0x004bbaa0",
+  "size": 266,
+  "holders": [
+   "mgListOfGamesInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "uicListSort"
+  ],
+  "first_bytes": "8b4c24048b15"
+ },
+ {
+  "address": "0x004bbc90",
+  "size": 518,
+  "holders": [
+   "mgListOfGamesInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "fontPrint"
+  ],
+  "first_bytes": "a168c6a40053"
+ },
+ {
+  "address": "0x004bbea0",
+  "size": 551,
+  "holders": [
+   "mgListOfGamesInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "CheckNetworkVersionCompatibility",
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight"
+  ],
+  "first_bytes": "81ec10020000"
+ },
+ {
+  "address": "0x004bc220",
+  "size": 41,
+  "holders": [
+   "mgListOfChannelsInit (code)",
+   "mgListOfGamesInit (code)",
+   "mgListOfServersInit (code)"
+  ],
+  "n_holders": 3,
+  "strings": [],
+  "callees": [
+   "titanRefreshRequest"
+  ],
+  "first_bytes": "a12060880085"
+ },
+ {
+  "address": "0x004bc2d0",
+  "size": 153,
+  "holders": [
+   "mgListOfServersInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "\\nSending ping"
+  ],
+  "callees": [
+   "ConvertNumToPointerInList",
+   "nullsubReturnFalse",
+   "titanSendPing"
+  ],
+  "first_bytes": "8b0de81bc300"
+ },
+ {
+  "address": "0x004bc370",
+  "size": 447,
+  "holders": [
+   "mgGameChatWindowInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "<%s>  ",
+   "<%s>",
+   "%s  "
+  ],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "_sprintf"
+  ],
+  "first_bytes": "81ec04020000"
+ },
+ {
+  "address": "0x004bc530",
+  "size": 16,
+  "holders": [
+   "0x004bc3da (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "dec34b0021c4"
+ },
+ {
+  "address": "0x004bc5f0",
+  "size": 102,
+  "holders": [
+   "mgGameUserNameWindowInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "fontPrintf"
+  ],
+  "first_bytes": "8b0d70c6a400"
+ },
+ {
+  "address": "0x004bd440",
+  "size": 190,
+  "holders": [
+   "mgRemoveCPUOpponent (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b44240c3d00"
+ },
+ {
+  "address": "0x004bd500",
+  "size": 200,
+  "holders": [
+   "mgAddCPUOpponent (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b44240c3d00"
+ },
+ {
+  "address": "0x004be4b0",
+  "size": 105,
+  "holders": [
+   "mgConnectingStatusInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "fontPrintf"
+  ],
+  "first_bytes": "8b0d7cc6a400"
+ },
+ {
+  "address": "0x004c0c20",
+  "size": 20,
+  "holders": [
+   "titanGetPatch (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b4c"
+ },
+ {
+  "address": "0x004c0c40",
+  "size": 11,
+  "holders": [
+   "titanGetPatch (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "c705d4c7a400"
+ },
+ {
+  "address": "0x004c0c50",
+  "size": 10,
+  "holders": [
+   "titanGetPatch (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b442404a3cc"
+ },
+ {
+  "address": "0x004c28f0",
+  "size": 550,
+  "holders": [
+   "mgListOfServersInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "fontPrint"
+  ],
+  "first_bytes": "51a160c6a400"
+ },
+ {
+  "address": "0x004c2b20",
+  "size": 248,
+  "holders": [
+   "0x004c2c99 (code, no function)",
+   "0x004c2d2a (code, no function)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [
+   "lib_crt_0071dc70"
+  ],
+  "first_bytes": "8b4424048b4c"
+ },
+ {
+  "address": "0x004c2c20",
+  "size": 281,
+  "holders": [
+   "mgListOfServersInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "uicListSort"
+  ],
+  "first_bytes": "8b4c24048b15"
+ },
+ {
+  "address": "0x004c2d40",
+  "size": 375,
+  "holders": [
+   "mgListOfServersInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "_wcstombs"
+  ],
+  "first_bytes": "81ec04020000"
+ },
+ {
+  "address": "0x004c3280",
+  "size": 88,
+  "holders": [
+   "cat_mgCountryListWindowInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontPrint"
+  ],
+  "first_bytes": "a150c6a40053"
+ },
+ {
+  "address": "0x004c3b30",
+  "size": 25,
+  "holders": [
+   "cat_mgAdBannerDraw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "soundEventPlay",
+   "cat_titanAdBannerClick"
+  ],
+  "first_bytes": "6a0068090100"
+ },
+ {
+  "address": "0x004c4920",
+  "size": 16,
+  "holders": [
+   "lgDrawChatWindowItem (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "ce474c001148"
+ },
+ {
+  "address": "0x004c49f0",
+  "size": 142,
+  "holders": [
+   "lgUserNameWindowInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "_sprintf"
+  ],
+  "first_bytes": "8b0ddcc8a400"
+ },
+ {
+  "address": "0x004c4ce0",
+  "size": 273,
+  "holders": [
+   "0x004c4e79 (code, no function)",
+   "0x004c4ed6 (code, no function)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [
+   "_wcslen",
+   "lib_crt_0071dc70"
+  ],
+  "first_bytes": "8b4424048b4c"
+ },
+ {
+  "address": "0x004c4e00",
+  "size": 229,
+  "holders": [
+   "lgListOfGamesInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "uicListSort"
+  ],
+  "first_bytes": "8b4c24048b15"
+ },
+ {
+  "address": "0x004c4fd0",
+  "size": 426,
+  "holders": [
+   "lgListOfGamesInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "fontPrint"
+  ],
+  "first_bytes": "a1ecc8a40053"
+ },
+ {
+  "address": "0x004c5180",
+  "size": 460,
+  "holders": [
+   "lgListOfGamesInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "CheckNetworkVersionCompatibility",
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight"
+  ],
+  "first_bytes": "81ec10020000"
+ },
+ {
+  "address": "0x004c5480",
+  "size": 447,
+  "holders": [
+   "lgGameChatWindowInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "<%s>  ",
+   "<%s>",
+   "%s  "
+  ],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "_sprintf"
+  ],
+  "first_bytes": "81ec04020000"
+ },
+ {
+  "address": "0x004c5640",
+  "size": 16,
+  "holders": [
+   "0x004c54ea (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "ee544c003155"
+ },
+ {
+  "address": "0x004c5700",
+  "size": 102,
+  "holders": [
+   "lgGameUserNameWindowInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontWidth",
+   "fontHeight",
+   "fontPrintf"
+  ],
+  "first_bytes": "8b0df4c8a400"
+ },
+ {
+  "address": "0x004ce290",
+  "size": 66,
+  "holders": [
+   "nisStop (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "19de4c00dede"
+ },
+ {
+  "address": "0x004d4850",
+  "size": 15,
+  "holders": [
+   "nisLoad (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b4c"
+ },
+ {
+  "address": "0x004d4860",
+  "size": 59,
+  "holders": [
+   "animLoadNISScript (code)",
+   "nisLoad (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4c2404d901"
+ },
+ {
+  "address": "0x004d4fa0",
+  "size": 56,
+  "holders": [
+   "nisLoad (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b74b4d00b74b"
+ },
+ {
+  "address": "0x004d6810",
+  "size": 106,
+  "holders": [
+   "poTextFontName+0x40 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "feScreenDeleteFlags",
+   "mrEnable",
+   "memFree",
+   "listDeleteNode"
+  ],
+  "first_bytes": "a194cba40053"
+ },
+ {
+  "address": "0x004d68a0",
+  "size": 35,
+  "holders": [
+   "objectiveLoad (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "LoadStructureOfSize",
+   "Load_String",
+   "listAddNode"
+  ],
+  "first_bytes": "566a18e84893"
+ },
+ {
+  "address": "0x004e3940",
+  "size": 112,
+  "holders": [
+   "partModifyAlphaMode (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "0e384e000e38"
+ },
+ {
+  "address": "0x004e3b80",
+  "size": 13,
+  "holders": [
+   "etgSetMeshParse (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b08"
+ },
+ {
+  "address": "0x004e6530",
+  "size": 1621,
+  "holders": [
+   "piePointModeOnOff (code)",
+   "piePointModeOnOff (code)",
+   "piePointModeOnOff (code)"
+  ],
+  "n_holders": 3,
+  "strings": [],
+  "callees": [
+   "cat_shipIsCloakedFully",
+   "sub_53F9F0",
+   "cat_mimicAppearsAsResource",
+   "cat_mimicAppearsAlliedTo"
+  ],
+  "first_bytes": "83ec44a1642b"
+ },
+ {
+  "address": "0x004e6e70",
+  "size": 972,
+  "holders": [
+   "piePointModeOnOff (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "ranRandomFn",
+   "primLine3",
+   "primCircleOutline3",
+   "pieMovementCursorDraw"
+  ],
+  "first_bytes": "83ec30a1c8b1"
+ },
+ {
+  "address": "0x004e7520",
+  "size": 359,
+  "holders": [
+   "piePointModeOnOff (code)",
+   "piePointModeOnOff (code)",
+   "piePointModeOnOff (code)",
+   "piePointModeOnOff (code)"
+  ],
+  "n_holders": 4,
+  "strings": [],
+  "callees": [
+   "rndTextureEnable",
+   "cat_pieCompassDraw",
+   "selCircleComputeGeneral",
+   "primCircleOutlineZ"
+  ],
+  "first_bytes": "a1c8b1a50083"
+ },
+ {
+  "address": "0x004e8820",
+  "size": 30,
+  "holders": [
+   "pingListDraw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b442404d940"
+ },
+ {
+  "address": "0x004e8e60",
+  "size": 40,
+  "holders": [
+   "pingListDraw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "698b4e009c8b"
+ },
+ {
+  "address": "0x004e8e90",
+  "size": 124,
+  "holders": [
+   "pingAnomalySelectionPingAdd (code)",
+   "pingAnomalyObjectPingAdd (code)",
+   "pingAnomalyPositionPingAdd (code)",
+   "pingAnomalyPingRemove (code)"
+  ],
+  "n_holders": 6,
+  "strings": [],
+  "callees": [
+   "selSelectionRemoveSingleShip",
+   "selCentrePointComputeGeneral"
+  ],
+  "first_bytes": "8b44241083ec"
+ },
+ {
+  "address": "0x004e9210",
+  "size": 84,
+  "holders": [
+   "pingAttackPingsCreate (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424088b48"
+ },
+ {
+  "address": "0x004e9270",
+  "size": 216,
+  "holders": [
+   "pingAttackPingsCreate (code)",
+   "pingBattlePingsCreate (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [
+   "battlePingEvaluateNoEnemies",
+   "nullsub",
+   "battlePingEvaluate",
+   "battleAccountForLosses"
+  ],
+  "first_bytes": "8b4c241085c9"
+ },
+ {
+  "address": "0x004e9c80",
+  "size": 143,
+  "holders": [
+   "psPlugLinkSet (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "regRecursiveSetDirty",
+   "utyBrowserExec"
+  ],
+  "first_bytes": "568b74240856"
+ },
+ {
+  "address": "0x004e9d10",
+  "size": 261,
+  "holders": [
+   "psScreenStart (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "trRGBTextureMakeCurrent",
+   "primRectSolidTexturedFullRectC2"
+  ],
+  "first_bytes": "83ec1c535556"
+ },
+ {
+  "address": "0x004e9e20",
+  "size": 156,
+  "holders": [
+   "psScreenStart (code)",
+   "psScreenStart (code)"
+  ],
+  "n_holders": 2,
+  "strings": [
+   "gameon"
+  ],
+  "callees": [],
+  "first_bytes": "8b44240c3d00"
+ },
+ {
+  "address": "0x004ea1a0",
+  "size": 83,
+  "holders": [
+   "pingTOLingerTime+0x450 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "psImageLoad"
+  ],
+  "first_bytes": "a18800c30033"
+ },
+ {
+  "address": "0x004ea4a0",
+  "size": 599,
+  "holders": [
+   "psModeBegin (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "exit",
+   "gameon"
+  ],
+  "callees": [
+   "lib_crt_00676c90",
+   "regRecursiveSetDirty",
+   "soundEventPlayMusic",
+   "soundEventStopMusic"
+  ],
+  "first_bytes": "5356ff15f4b1"
+ },
+ {
+  "address": "0x004ee070",
+  "size": 163,
+  "holders": [
+   "cat_popupMenuDrawTargetHighlights (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "28dd4e00c5dc"
+ },
+ {
+  "address": "0x004f4b60",
+  "size": 111,
+  "holders": [
+   "rmTechInfoFontName+0xf8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontPrint"
+  ],
+  "first_bytes": "833dc01e8900"
+ },
+ {
+  "address": "0x004f4be0",
+  "size": 105,
+  "holders": [
+   "rmTechInfoFontName+0x88 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "clWrapResearch",
+   "speechEventQueue"
+  ],
+  "first_bytes": "a1c01e890083"
+ },
+ {
+  "address": "0x004f4d40",
+  "size": 227,
+  "holders": [
+   "rmTechInfoFontName+0x98 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "RM_Close"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "feCurrentScreenDelete",
+   "nullsubReturnFalse",
+   "soundEventPlay"
+  ],
+  "first_bytes": "a1a03ca40053"
+ },
+ {
+  "address": "0x004f4f20",
+  "size": 232,
+  "holders": [
+   "rmTechInfoFontName+0xb0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "RM_Close"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "feCurrentScreenDelete",
+   "nullsubReturnFalse",
+   "soundEventPlay"
+  ],
+  "first_bytes": "a1a03ca40053"
+ },
+ {
+  "address": "0x004f5010",
+  "size": 237,
+  "holders": [
+   "rmTechInfoFontName+0xb8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "RM_Close"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "feCurrentScreenDelete",
+   "nullsubReturnFalse",
+   "soundEventPlay"
+  ],
+  "first_bytes": "a1a03ca40053"
+ },
+ {
+  "address": "0x004f54c0",
+  "size": 304,
+  "holders": [
+   "0x004f5b64 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "RM_LabSelect "
+  ],
+  "callees": [
+   "tutGameMessage",
+   "uicListFindItemByData",
+   "uicListWindowSetCurItem"
+  ],
+  "first_bytes": "8b44240c81ec"
+ },
+ {
+  "address": "0x004f55f0",
+  "size": 308,
+  "holders": [
+   "rmLab2Draw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "RM_LabSelect "
+  ],
+  "callees": [
+   "tutGameMessage",
+   "uicListFindItemByData",
+   "uicListWindowSetCurItem"
+  ],
+  "first_bytes": "8b44240c81ec"
+ },
+ {
+  "address": "0x004f5730",
+  "size": 308,
+  "holders": [
+   "rmLab3Draw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "RM_LabSelect "
+  ],
+  "callees": [
+   "tutGameMessage",
+   "uicListFindItemByData",
+   "uicListWindowSetCurItem"
+  ],
+  "first_bytes": "8b44240c81ec"
+ },
+ {
+  "address": "0x004f5870",
+  "size": 308,
+  "holders": [
+   "rmLab4Draw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "RM_LabSelect "
+  ],
+  "callees": [
+   "tutGameMessage",
+   "uicListFindItemByData",
+   "uicListWindowSetCurItem"
+  ],
+  "first_bytes": "8b44240c81ec"
+ },
+ {
+  "address": "0x004f59b0",
+  "size": 308,
+  "holders": [
+   "rmLab5Draw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "RM_LabSelect "
+  ],
+  "callees": [
+   "tutGameMessage",
+   "uicListFindItemByData",
+   "uicListWindowSetCurItem"
+  ],
+  "first_bytes": "8b44240c81ec"
+ },
+ {
+  "address": "0x004f5af0",
+  "size": 158,
+  "holders": [
+   "rmTechInfoFontName+0xc8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "regFunctionSet",
+   "rmDrawLabButton"
+  ],
+  "first_bytes": "a1ec76a50085"
+ },
+ {
+  "address": "0x004f6090",
+  "size": 32,
+  "holders": [
+   "rmTechInfoFontName+0xa8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b0d5877a500"
+ },
+ {
+  "address": "0x004f6810",
+  "size": 720,
+  "holders": [
+   "rmTechListWindow (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontShadowSet",
+   "_sprintf",
+   "TechTypeToNiceString"
+  ],
+  "first_bytes": "83ec6c8b4424"
+ },
+ {
+  "address": "0x004f9200",
+  "size": 146,
+  "holders": [
+   "cat_salvageGetDepotInfo (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "ed914f00f391"
+ },
+ {
+  "address": "0x004fa240",
+  "size": 349,
+  "holders": [
+   "cat_salvageDeliverToDepot (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "7ca04f0071a0"
+ },
+ {
+  "address": "0x004fc0c0",
+  "size": 200,
+  "holders": [
+   "cat_salvageHouseKeep (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e8be4f00dcbe"
+ },
+ {
+  "address": "0x004fd3b0",
+  "size": 146,
+  "holders": [
+   "cat_salvageTargetHasBeam (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "6ed34f0084d3"
+ },
+ {
+  "address": "0x004ff380",
+  "size": 36,
+  "holders": [
+   "SaveAllSpaceObjs (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "1df14f0028f1"
+ },
+ {
+  "address": "0x004ff680",
+  "size": 36,
+  "holders": [
+   "FixAllSpaceObjs (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "18f44f0023f4"
+ },
+ {
+  "address": "0x00504950",
+  "size": 173,
+  "holders": [
+   "spDescriptionColor+0xc (.data)",
+   "spDescriptionColor+0x4c (.data)",
+   "spDescriptionColor+0x8c (.data)",
+   "spDescriptionColor+0xcc (.data)"
+  ],
+  "n_holders": 7,
+  "strings": [],
+  "callees": [
+   "memStringDupe",
+   "memReallocFunction"
+  ],
+  "first_bytes": "8b152479a500"
+ },
+ {
+  "address": "0x00504f70",
+  "size": 110,
+  "holders": [
+   "spScenarioBitmap (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontMakeCurrent",
+   "fontShadowSet",
+   "fontPrintf"
+  ],
+  "first_bytes": "8b0d8c278900"
+ },
+ {
+  "address": "0x00508f90",
+  "size": 25,
+  "holders": [
+   "selSelectionCompare (code)",
+   "selSelectionCompare (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b4c"
+ },
+ {
+  "address": "0x00509bc0",
+  "size": 31,
+  "holders": [
+   "cat_smSensorRangeBlobsDraw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b442404d940"
+ },
+ {
+  "address": "0x0050c7e0",
+  "size": 315,
+  "holders": [
+   "smSensorsBegin (code)",
+   "smSensorsBegin (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [
+   "cat_mrHoldLeft",
+   "cat_mrPressLeft",
+   "mrCameraMotion",
+   "cat_mrPressRight"
+  ],
+  "first_bytes": "a0d0b1a50084"
+ },
+ {
+  "address": "0x0050f700",
+  "size": 270,
+  "holders": [
+   "cat_shipNamesRelease (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "d2f65000fcf6"
+ },
+ {
+  "address": "0x00510e40",
+  "size": 32,
+  "holders": [
+   "cat_shipPrintToggle (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "490d5100bc0c"
+ },
+ {
+  "address": "0x00514c90",
+  "size": 308,
+  "holders": [
+   "svShipViewRender (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "mousePositionSet",
+   "mouseClipToRect"
+  ],
+  "first_bytes": "83ec10a1e885"
+ },
+ {
+  "address": "0x005169b0",
+  "size": 16,
+  "holders": [
+   "cat_saveUniverseList5e288 (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "SaveStructureOfSize"
+  ],
+  "first_bytes": "8b4424046a74"
+ },
+ {
+  "address": "0x005169c0",
+  "size": 34,
+  "holders": [
+   "cat_loadUniverseList5e288 (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "LoadStructureOfSize",
+   "listAddNode"
+  ],
+  "first_bytes": "566a74e82892"
+ },
+ {
+  "address": "0x00526060",
+  "size": 12,
+  "holders": [
+   "actorFlagsEnabled+0x2104 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "\\nWarning!  Out Of Data Script Entry Found:  DamageLo"
+  ],
+  "callees": [
+   "nullsubReturnFalse"
+  ],
+  "first_bytes": "68507d8900e8"
+ },
+ {
+  "address": "0x00526070",
+  "size": 12,
+  "holders": [
+   "actorFlagsEnabled+0x2114 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "\\nWarning!  Out Of Data Script Entry Found:  DamageHi"
+  ],
+  "callees": [
+   "nullsubReturnFalse"
+  ],
+  "first_bytes": "68887d8900e8"
+ },
+ {
+  "address": "0x00526080",
+  "size": 12,
+  "holders": [
+   "actorFlagsEnabled+0x20f4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "\\nWarning!  Out Of Data Script Entry Found:  BulletType"
+  ],
+  "callees": [
+   "nullsubReturnFalse"
+  ],
+  "first_bytes": "68c07d8900e8"
+ },
+ {
+  "address": "0x00528a30",
+  "size": 101,
+  "holders": [
+   "LanguageStrings+0xfdfc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "%f,%f"
+  ],
+  "callees": [
+   "_sscanf"
+  ],
+  "first_bytes": "518b54240c8d"
+ },
+ {
+  "address": "0x0052a1e0",
+  "size": 44,
+  "holders": [
+   "cat_tacticsRetaliateEvasive (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b80"
+ },
+ {
+  "address": "0x0052a210",
+  "size": 148,
+  "holders": [
+   "cat_tacticsRetaliateEvasive (code)",
+   "cat_tacticsRetaliate (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [
+   "cat_rammingFrigateStateActive",
+   "cat_shipIsSentinelInSphere",
+   "cat_acvIsFullyLinked",
+   "cat_mothershipBigGunActive"
+  ],
+  "first_bytes": "56578b7c240c"
+ },
+ {
+  "address": "0x0052b510",
+  "size": 43,
+  "holders": [
+   "tbBumperProcess (code)",
+   "tbBumperProcess (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [
+   "tbCalcTotalShipCommands"
+  ],
+  "first_bytes": "a15cb2a60085"
+ },
+ {
+  "address": "0x0052d790",
+  "size": 128,
+  "holders": [
+   "ROOM_MAX_THRESHOLD+0x56c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "feScreenDeleteFlags",
+   "soundEventPlay",
+   "spUnlockout",
+   "svClose"
+  ],
+  "first_bytes": "a178bba60056"
+ },
+ {
+  "address": "0x0052d810",
+  "size": 333,
+  "holders": [
+   "ROOM_MAX_THRESHOLD+0x574 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_rmTechSetAdd"
+  ],
+  "first_bytes": "66a1f4af8a00"
+ },
+ {
+  "address": "0x0052d960",
+  "size": 342,
+  "holders": [
+   "ROOM_MAX_THRESHOLD+0x5ac (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "fontCurrentGet",
+   "fontMakeCurrent",
+   "fontHeight",
+   "fontWidthf"
+  ],
+  "first_bytes": "5153555657e8"
+ },
+ {
+  "address": "0x0052dac0",
+  "size": 423,
+  "holders": [
+   "tmTechListDraw (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "\\nSelected %i"
+  ],
+  "callees": [
+   "fontMakeCurrent",
+   "fontHeight",
+   "nullsubReturnFalse"
+  ],
+  "first_bytes": "a1943ca40083"
+ },
+ {
+  "address": "0x00531f20",
+  "size": 227,
+  "holders": [
+   "tutShowText (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "tutDrawTextPointers",
+   "primRectTranslucent2",
+   "fontMakeCurrent",
+   "tutGetNextTextLine"
+  ],
+  "first_bytes": "81ec14010000"
+ },
+ {
+  "address": "0x005348a0",
+  "size": 243,
+  "holders": [
+   "twNotifySalvageTargetTooStrongRate+0x45c0 (.data)",
+   "twNotifySalvageTargetTooStrongRate+0x468c (.data)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [
+   "ferDrawButton"
+  ],
+  "first_bytes": "8b158404c400"
+ },
+ {
+  "address": "0x00534a80",
+  "size": 371,
+  "holders": [
+   "twNotifySalvageTargetTooStrongRate+0x45d8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "glCapFeatureExists",
+   "primRectSolid2",
+   "ferDrawButton"
+  ],
+  "first_bytes": "a18404c40083"
+ },
+ {
+  "address": "0x005363e0",
+  "size": 288,
+  "holders": [
+   "twNotifySalvageTargetTooStrongRate+0x462c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "ferDrawRadioButton"
+  ],
+  "first_bytes": "a18404c4008d"
+ },
+ {
+  "address": "0x00536500",
+  "size": 213,
+  "holders": [
+   "twNotifySalvageTargetTooStrongRate+0x4668 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "ferDrawRadioButton",
+   "ferDrawBitmapButton"
+  ],
+  "first_bytes": "a18404c4008d"
+ },
+ {
+  "address": "0x005365e0",
+  "size": 288,
+  "holders": [
+   "twNotifySalvageTargetTooStrongRate+0x45cc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "ferDrawCheckbox"
+  ],
+  "first_bytes": "a18404c4008d"
+ },
+ {
+  "address": "0x00538020",
+  "size": 48,
+  "holders": [
+   "uicDragButtonProcess (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "ba7e5300437e"
+ },
+ {
+  "address": "0x005394a0",
+  "size": 239,
+  "holders": [
+   "feScreenStart (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "uicClearCurrent",
+   "uicSetCurrent",
+   "feFindRadioButtonRegion"
+  ],
+  "first_bytes": "a1ac168b0085"
+ },
+ {
+  "address": "0x00539590",
+  "size": 239,
+  "holders": [
+   "feScreenStart (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "uicClearCurrent",
+   "uicSetCurrent",
+   "feFindRadioButtonRegion"
+  ],
+  "first_bytes": "a1ac168b0085"
+ },
+ {
+  "address": "0x00539680",
+  "size": 574,
+  "holders": [
+   "feScreenStart (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "uicFindFlag",
+   "soundEventPlay",
+   "regRecursiveSetDirty",
+   "uicToggleProcess"
+  ],
+  "first_bytes": "a1ac168b0053"
+ },
+ {
+  "address": "0x005398c0",
+  "size": 326,
+  "holders": [
+   "feScreenStart (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "\\nuicReturnProcess: don't know how to handle return for atom of type 0x%x"
+  ],
+  "callees": [
+   "uicFindFlag",
+   "feFindRadioButtonRegion",
+   "keyBufferClear",
+   "feFunctionExecute"
+  ],
+  "first_bytes": "a1ac168b0085"
+ },
+ {
+  "address": "0x00539a10",
+  "size": 100,
+  "holders": [
+   "feScreenStart (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "uicFindFlag",
+   "soundEventPlay"
+  ],
+  "first_bytes": "a1ac168b0085"
+ },
+ {
+  "address": "0x00539a80",
+  "size": 198,
+  "holders": [
+   "feScreenStart (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "uicClearCurrent",
+   "uicSetCurrent",
+   "feFindRadioButtonRegion"
+  ],
+  "first_bytes": "a1ac168b0085"
+ },
+ {
+  "address": "0x00539b50",
+  "size": 209,
+  "holders": [
+   "feScreenStart (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "uicClearCurrent",
+   "uicSetCurrent",
+   "feFindRadioButtonRegion"
+  ],
+  "first_bytes": "a1ac168b0085"
+ },
+ {
+  "address": "0x0053c430",
+  "size": 106,
+  "holders": [
+   "InitStatShipInfo (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e3bc5300f0bc"
+ },
+ {
+  "address": "0x0053ffb0",
+  "size": 116,
+  "holders": [
+   "cat_shipStealthTargetState (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "7fff530088ff"
+ },
+ {
+  "address": "0x00547cb0",
+  "size": 17,
+  "holders": [
+   "univHideJustAboutEverything (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "7d7c5400a77c"
+ },
+ {
+  "address": "0x0054d9e0",
+  "size": 46,
+  "holders": [
+   "cat_kbCheckBindingConflict (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "05d9540025d9"
+ },
+ {
+  "address": "0x0054ecc0",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x77c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e9cbb30100"
+ },
+ {
+  "address": "0x0054ecd0",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x784 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e95b4f0100"
+ },
+ {
+  "address": "0x0054ece0",
+  "size": 13,
+  "holders": [
+   "NUM_BIG_STARS+0x78c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "mrRetire"
+  ],
+  "first_bytes": "6a006a00e8c7"
+ },
+ {
+  "address": "0x0054ecf0",
+  "size": 42,
+  "holders": [
+   "NUM_BIG_STARS+0x794 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiHaltSelection",
+   "soundEventPlay"
+  ],
+  "first_bytes": "833da03ca400"
+ },
+ {
+  "address": "0x0054ed20",
+  "size": 11,
+  "holders": [
+   "NUM_BIG_STARS+0x7ac (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "c705a09bb300"
+ },
+ {
+  "address": "0x0054ed30",
+  "size": 13,
+  "holders": [
+   "NUM_BIG_STARS+0x79c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "mrScuttle"
+  ],
+  "first_bytes": "6a006a00e8d7"
+ },
+ {
+  "address": "0x0054ed40",
+  "size": 212,
+  "holders": [
+   "NUM_BIG_STARS+0x7a4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "MakeSelectionKamikazeCapable",
+   "getShipAndItsCommand",
+   "speechEventQueue",
+   "soundEventPlay"
+  ],
+  "first_bytes": "6820abc000e8"
+ },
+ {
+  "address": "0x0054ee20",
+  "size": 78,
+  "holders": [
+   "NUM_BIG_STARS+0x7b0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "selSelectionCopy",
+   "cat_popupMenuOpen"
+  ],
+  "first_bytes": "a120abc00081"
+ },
+ {
+  "address": "0x0054ee70",
+  "size": 13,
+  "holders": [
+   "NUM_BIG_STARS+0x8d4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mrSetTactics"
+  ],
+  "first_bytes": "6a016a00e8b7"
+ },
+ {
+  "address": "0x0054ee80",
+  "size": 13,
+  "holders": [
+   "NUM_BIG_STARS+0x8dc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mrSetTactics"
+  ],
+  "first_bytes": "6a016a01e8a7"
+ },
+ {
+  "address": "0x0054ee90",
+  "size": 13,
+  "holders": [
+   "NUM_BIG_STARS+0x8e4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mrSetTactics"
+  ],
+  "first_bytes": "6a016a02e897"
+ },
+ {
+  "address": "0x0054eea0",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x8ec (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mrTacticsCycle"
+  ],
+  "first_bytes": "6a00e8b97901"
+ },
+ {
+  "address": "0x0054eeb0",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x8f4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mrTacticsCycle"
+  ],
+  "first_bytes": "6a01e8a97901"
+ },
+ {
+  "address": "0x0054eec0",
+  "size": 15,
+  "holders": [
+   "NUM_BIG_STARS+0x8fc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "mrSetTheFormation"
+  ],
+  "first_bytes": "6a006a016a00"
+ },
+ {
+  "address": "0x0054eed0",
+  "size": 15,
+  "holders": [
+   "NUM_BIG_STARS+0x904 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "mrSetTheFormation"
+  ],
+  "first_bytes": "6a006a016a01"
+ },
+ {
+  "address": "0x0054eee0",
+  "size": 15,
+  "holders": [
+   "NUM_BIG_STARS+0x90c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "mrSetTheFormation"
+  ],
+  "first_bytes": "6a006a016a02"
+ },
+ {
+  "address": "0x0054eef0",
+  "size": 15,
+  "holders": [
+   "NUM_BIG_STARS+0x914 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "mrSetTheFormation"
+  ],
+  "first_bytes": "6a006a016a03"
+ },
+ {
+  "address": "0x0054ef00",
+  "size": 15,
+  "holders": [
+   "NUM_BIG_STARS+0x91c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "mrSetTheFormation"
+  ],
+  "first_bytes": "6a006a016a04"
+ },
+ {
+  "address": "0x0054ef10",
+  "size": 15,
+  "holders": [
+   "NUM_BIG_STARS+0x924 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "mrSetTheFormation"
+  ],
+  "first_bytes": "6a006a016a05"
+ },
+ {
+  "address": "0x0054ef20",
+  "size": 15,
+  "holders": [
+   "NUM_BIG_STARS+0x92c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "mrSetTheFormation"
+  ],
+  "first_bytes": "6a006a016a06"
+ },
+ {
+  "address": "0x0054ef30",
+  "size": 15,
+  "holders": [
+   "NUM_BIG_STARS+0x934 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "mrSetTheFormation"
+  ],
+  "first_bytes": "6a006a016a08"
+ },
+ {
+  "address": "0x0054ef40",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x93c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mrFormationCycle"
+  ],
+  "first_bytes": "6a00e8097801"
+ },
+ {
+  "address": "0x0054ef50",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x944 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_mrFormationCycle"
+  ],
+  "first_bytes": "6a01e8f97701"
+ },
+ {
+  "address": "0x0054ef60",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x7bc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e90b610100"
+ },
+ {
+  "address": "0x0054ef70",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x7c4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e91b610100"
+ },
+ {
+  "address": "0x0054ef80",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x7cc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSetWaypointMode"
+  ],
+  "first_bytes": "6a00e8796101"
+ },
+ {
+  "address": "0x0054ef90",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x7d4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSetWaypointMode"
+  ],
+  "first_bytes": "6a02e8696101"
+ },
+ {
+  "address": "0x0054efa0",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x7dc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSetWaypointMode"
+  ],
+  "first_bytes": "6a01e8596101"
+ },
+ {
+  "address": "0x0054efb0",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x7e4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e9bb610100"
+ },
+ {
+  "address": "0x0054efc0",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x7fc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "mrHarvestResources"
+  ],
+  "first_bytes": "6a00e8f94c01"
+ },
+ {
+  "address": "0x0054efd0",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x804 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSpecialRepair"
+  ],
+  "first_bytes": "6a00e8595601"
+ },
+ {
+  "address": "0x0054efe0",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x80c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSpecialSalvage"
+  ],
+  "first_bytes": "6a00e8495001"
+ },
+ {
+  "address": "0x0054f040",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x844 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e92b650100"
+ },
+ {
+  "address": "0x0054f050",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x84c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e98b650100"
+ },
+ {
+  "address": "0x0054f060",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x8b4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSpecialEMP"
+  ],
+  "first_bytes": "6a00e8295601"
+ },
+ {
+  "address": "0x0054f070",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x8c4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e97b730100"
+ },
+ {
+  "address": "0x0054f080",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x8cc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSpecialFireMissile"
+  ],
+  "first_bytes": "6a00e8c95601"
+ },
+ {
+  "address": "0x0054f090",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x88c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSpecialSwarm"
+  ],
+  "first_bytes": "6a00e8295601"
+ },
+ {
+  "address": "0x0054f0a0",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x894 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e9db560100"
+ },
+ {
+  "address": "0x0054f0b0",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x87c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e9db570100"
+ },
+ {
+  "address": "0x0054f0c0",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x884 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e95b580100"
+ },
+ {
+  "address": "0x0054f120",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x86c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiProtectFormation"
+  ],
+  "first_bytes": "6a00e8096e01"
+ },
+ {
+  "address": "0x0054f180",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x864 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e9eb650100"
+ },
+ {
+  "address": "0x0054f190",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x7ec (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e9bb640100"
+ },
+ {
+  "address": "0x0054f1a0",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x89c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e99b710100"
+ },
+ {
+  "address": "0x0054f1b0",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x8a4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e95b560100"
+ },
+ {
+  "address": "0x0054f1c0",
+  "size": 241,
+  "holders": [
+   "NUM_BIG_STARS+0x9ac (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_Focus",
+   "Chase"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "soundEventPlay",
+   "ccFocus",
+   "selSelectionCopy"
+  ],
+  "first_bytes": "a120abc00081"
+ },
+ {
+  "address": "0x0054f350",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x954 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e92b6b0100"
+ },
+ {
+  "address": "0x0054f360",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x95c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e9dbd3f5ff"
+ },
+ {
+  "address": "0x0054f370",
+  "size": 28,
+  "holders": [
+   "NUM_BIG_STARS+0x964 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "ccCancelFocus",
+   "soundEventPlay"
+  ],
+  "first_bytes": "680c2ab600e8"
+ },
+ {
+  "address": "0x0054f390",
+  "size": 28,
+  "holders": [
+   "NUM_BIG_STARS+0x96c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "ccForwardFocus",
+   "soundEventPlay"
+  ],
+  "first_bytes": "680c2ab600e8"
+ },
+ {
+  "address": "0x0054f3b0",
+  "size": 12,
+  "holders": [
+   "NUM_BIG_STARS+0x974 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "ccFocusOnFleetSmooth"
+  ],
+  "first_bytes": "680c2ab600e8"
+ },
+ {
+  "address": "0x0054f3c0",
+  "size": 215,
+  "holders": [
+   "NUM_BIG_STARS+0x9b4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "selSelectionCopy",
+   "selRectDragFunction",
+   "ioUpdateShipTotals",
+   "selSelectionCompare"
+  ],
+  "first_bytes": "a1a03ca40081"
+ },
+ {
+  "address": "0x0054f4a0",
+  "size": 45,
+  "holders": [
+   "NUM_BIG_STARS+0x9bc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "soundEventPlay",
+   "cat_popupMenuOpen"
+  ],
+  "first_bytes": "6a0068080100"
+ },
+ {
+  "address": "0x0054f4d0",
+  "size": 18,
+  "holders": [
+   "NUM_BIG_STARS+0xa2c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "piePointModeToggle"
+  ],
+  "first_bytes": "833d8852a700"
+ },
+ {
+  "address": "0x0054f4f0",
+  "size": 18,
+  "holders": [
+   "NUM_BIG_STARS+0xa30 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "piePointModeToggle"
+  ],
+  "first_bytes": "833d8852a700"
+ },
+ {
+  "address": "0x0054f510",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0xa34 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e97bd5f5ff"
+ },
+ {
+  "address": "0x0054f520",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0xa3c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e9abd5f5ff"
+ },
+ {
+  "address": "0x0054f570",
+  "size": 41,
+  "holders": [
+   "NUM_BIG_STARS+0x9f4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_Build"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "mrBuildShips"
+  ],
+  "first_bytes": "a18c51a70085"
+ },
+ {
+  "address": "0x0054f5a0",
+  "size": 41,
+  "holders": [
+   "NUM_BIG_STARS+0x9fc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_Research"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "mrResearch"
+  ],
+  "first_bytes": "a18c51a70085"
+ },
+ {
+  "address": "0x0054f5d0",
+  "size": 31,
+  "holders": [
+   "NUM_BIG_STARS+0xa04 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "mrLaunch"
+  ],
+  "first_bytes": "a18c51a70085"
+ },
+ {
+  "address": "0x0054f5f0",
+  "size": 329,
+  "holders": [
+   "NUM_BIG_STARS+0xa44 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "gcCancelViewingBuffer",
+   "nisGoToEnd",
+   "piePointModeOnOff",
+   "soundEventPlay"
+  ],
+  "first_bytes": "a19c3ca40056"
+ },
+ {
+  "address": "0x0054f740",
+  "size": 170,
+  "holders": [
+   "NUM_BIG_STARS+0xad4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_GroupAssign"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "selHotKeyGroupRemoveReferences",
+   "selSelectionIsReinforced",
+   "selSelectionCopy"
+  ],
+  "first_bytes": "a120abc00085"
+ },
+ {
+  "address": "0x0054f7f0",
+  "size": 170,
+  "holders": [
+   "NUM_BIG_STARS+0xadc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_GroupAssign"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "selHotKeyGroupRemoveReferences",
+   "selSelectionIsReinforced",
+   "selSelectionCopy"
+  ],
+  "first_bytes": "a120abc00085"
+ },
+ {
+  "address": "0x0054f8a0",
+  "size": 170,
+  "holders": [
+   "NUM_BIG_STARS+0xae4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_GroupAssign"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "selHotKeyGroupRemoveReferences",
+   "selSelectionIsReinforced",
+   "selSelectionCopy"
+  ],
+  "first_bytes": "a120abc00085"
+ },
+ {
+  "address": "0x0054f950",
+  "size": 170,
+  "holders": [
+   "NUM_BIG_STARS+0xaec (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_GroupAssign"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "selHotKeyGroupRemoveReferences",
+   "selSelectionIsReinforced",
+   "selSelectionCopy"
+  ],
+  "first_bytes": "a120abc00085"
+ },
+ {
+  "address": "0x0054fa00",
+  "size": 170,
+  "holders": [
+   "NUM_BIG_STARS+0xaf4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_GroupAssign"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "selHotKeyGroupRemoveReferences",
+   "selSelectionIsReinforced",
+   "selSelectionCopy"
+  ],
+  "first_bytes": "a120abc00085"
+ },
+ {
+  "address": "0x0054fab0",
+  "size": 170,
+  "holders": [
+   "NUM_BIG_STARS+0xafc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_GroupAssign"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "selHotKeyGroupRemoveReferences",
+   "selSelectionIsReinforced",
+   "selSelectionCopy"
+  ],
+  "first_bytes": "a120abc00085"
+ },
+ {
+  "address": "0x0054fb60",
+  "size": 170,
+  "holders": [
+   "NUM_BIG_STARS+0xb04 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_GroupAssign"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "selHotKeyGroupRemoveReferences",
+   "selSelectionIsReinforced",
+   "selSelectionCopy"
+  ],
+  "first_bytes": "a120abc00085"
+ },
+ {
+  "address": "0x0054fc10",
+  "size": 170,
+  "holders": [
+   "NUM_BIG_STARS+0xb0c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_GroupAssign"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "selHotKeyGroupRemoveReferences",
+   "selSelectionIsReinforced",
+   "selSelectionCopy"
+  ],
+  "first_bytes": "a120abc00085"
+ },
+ {
+  "address": "0x0054fcc0",
+  "size": 170,
+  "holders": [
+   "NUM_BIG_STARS+0xb14 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_GroupAssign"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "selHotKeyGroupRemoveReferences",
+   "selSelectionIsReinforced",
+   "selSelectionCopy"
+  ],
+  "first_bytes": "a120abc00085"
+ },
+ {
+  "address": "0x0054fd70",
+  "size": 170,
+  "holders": [
+   "NUM_BIG_STARS+0xb1c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_GroupAssign"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "selHotKeyGroupRemoveReferences",
+   "selSelectionIsReinforced",
+   "selSelectionCopy"
+  ],
+  "first_bytes": "a120abc00085"
+ },
+ {
+  "address": "0x005501e0",
+  "size": 140,
+  "holders": [
+   "NUM_BIG_STARS+0xbc4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "selSelectionCompare",
+   "soundEventPlay",
+   "selHotKeyGroupRemoveReferences",
+   "selHotKeyGroupRemoveReferencesFromAllGroups"
+  ],
+  "first_bytes": "8b1520abc000"
+ },
+ {
+  "address": "0x00550270",
+  "size": 19,
+  "holders": [
+   "NUM_BIG_STARS+0xbcc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b0d4c2b8900"
+ },
+ {
+  "address": "0x00550290",
+  "size": 19,
+  "holders": [
+   "NUM_BIG_STARS+0xbd4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b0d502b8900"
+ },
+ {
+  "address": "0x005502b0",
+  "size": 30,
+  "holders": [
+   "NUM_BIG_STARS+0xbdc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "AreasVisitedToggle"
+  ],
+  "callees": [
+   "tutGameMessage"
+  ],
+  "first_bytes": "8b15582b8900"
+ },
+ {
+  "address": "0x005502d0",
+  "size": 19,
+  "holders": [
+   "NUM_BIG_STARS+0xbe4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b0d9cb1a500"
+ },
+ {
+  "address": "0x005502f0",
+  "size": 19,
+  "holders": [
+   "NUM_BIG_STARS+0xbec (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b0d5c2b8900"
+ },
+ {
+  "address": "0x00550310",
+  "size": 19,
+  "holders": [
+   "NUM_BIG_STARS+0xbfc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b0d642b8900"
+ },
+ {
+  "address": "0x00550330",
+  "size": 19,
+  "holders": [
+   "NUM_BIG_STARS+0xbf4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b0d602b8900"
+ },
+ {
+  "address": "0x00550350",
+  "size": 19,
+  "holders": [
+   "NUM_BIG_STARS+0xc04 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b0d542b8900"
+ },
+ {
+  "address": "0x00550370",
+  "size": 19,
+  "holders": [
+   "NUM_BIG_STARS+0xc0c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b0d482b8900"
+ },
+ {
+  "address": "0x00550390",
+  "size": 19,
+  "holders": [
+   "NUM_BIG_STARS+0xc14 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b0da4b1a500"
+ },
+ {
+  "address": "0x005503b0",
+  "size": 19,
+  "holders": [
+   "NUM_BIG_STARS+0xc1c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b0d6c2b8900"
+ },
+ {
+  "address": "0x005503d0",
+  "size": 19,
+  "holders": [
+   "NUM_BIG_STARS+0xc24 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b0d702b8900"
+ },
+ {
+  "address": "0x005503f0",
+  "size": 47,
+  "holders": [
+   "NUM_BIG_STARS+0xa4c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "smSensorsCloseForGood",
+   "gcChatEntryStart"
+  ],
+  "first_bytes": "a1943ca40085"
+ },
+ {
+  "address": "0x00550420",
+  "size": 47,
+  "holders": [
+   "NUM_BIG_STARS+0xa54 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "smSensorsCloseForGood",
+   "gcChatEntryStart"
+  ],
+  "first_bytes": "a1943ca40085"
+ },
+ {
+  "address": "0x00550450",
+  "size": 63,
+  "holders": [
+   "NUM_BIG_STARS+0xa0c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_TacticalDisplayOn",
+   "KB_TacticalDisplayOff"
+  ],
+  "callees": [
+   "soundEventPlay",
+   "tutGameMessage"
+  ],
+  "first_bytes": "83359052a700"
+ },
+ {
+  "address": "0x00550490",
+  "size": 56,
+  "holders": [
+   "NUM_BIG_STARS+0xa14 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "soundEventPlay"
+  ],
+  "first_bytes": "8b15b852a700"
+ },
+ {
+  "address": "0x005504d0",
+  "size": 25,
+  "holders": [
+   "NUM_BIG_STARS+0xa5c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "d90538cba400"
+ },
+ {
+  "address": "0x005504f0",
+  "size": 25,
+  "holders": [
+   "NUM_BIG_STARS+0xa64 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "d90538cba400"
+ },
+ {
+  "address": "0x00550510",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0xa74 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e93b37fdff"
+ },
+ {
+  "address": "0x00550520",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0xa7c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e97b37fdff"
+ },
+ {
+  "address": "0x00550530",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x9e8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e9abbff5ff"
+ },
+ {
+  "address": "0x00550540",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0xa8c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e94bc6f5ff"
+ },
+ {
+  "address": "0x00550550",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0xa1c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_ioCycleMode"
+  ],
+  "first_bytes": "6a01e8e9c5f5"
+ },
+ {
+  "address": "0x00550560",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x874 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e9eb5c0100"
+ },
+ {
+  "address": "0x00550570",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x81c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSetLeechAction"
+  ],
+  "first_bytes": "6a06e8f95e01"
+ },
+ {
+  "address": "0x00550580",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x824 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSetLeechAction"
+  ],
+  "first_bytes": "6a07e8e95e01"
+ },
+ {
+  "address": "0x00550590",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x82c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSetLeechAction"
+  ],
+  "first_bytes": "6a08e8d95e01"
+ },
+ {
+  "address": "0x005505a0",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x834 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSpecialLeech"
+  ],
+  "first_bytes": "6a00e8b94001"
+ },
+ {
+  "address": "0x005505b0",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x83c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e95b5f0100"
+ },
+ {
+  "address": "0x005505c0",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x8ac (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSpecialInfect"
+  ],
+  "first_bytes": "6a00e8294101"
+ },
+ {
+  "address": "0x005505d0",
+  "size": 9,
+  "holders": [
+   "NUM_BIG_STARS+0x8bc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_uiSpecialRam"
+  ],
+  "first_bytes": "6a00e8494101"
+ },
+ {
+  "address": "0x005505e0",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x7f4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e9bb5f0100"
+ },
+ {
+  "address": "0x005505f0",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0x7b4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e92b630100"
+ },
+ {
+  "address": "0x00550600",
+  "size": 28,
+  "holders": [
+   "NUM_BIG_STARS+0xaac (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "a1d8a6b30085"
+ },
+ {
+  "address": "0x00550620",
+  "size": 28,
+  "holders": [
+   "NUM_BIG_STARS+0xab4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "a1d8a6b30085"
+ },
+ {
+  "address": "0x00550640",
+  "size": 176,
+  "holders": [
+   "NUM_BIG_STARS+0xabc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "KB_Pause",
+   "\\nPause ON",
+   "\\nPause OFF"
+  ],
+  "callees": [
+   "tutGameMessage",
+   "piePointModeOnOff",
+   "nullsubReturnFalse",
+   "soundEventPlay"
+  ],
+  "first_bytes": "a1943ca40085"
+ },
+ {
+  "address": "0x005506f0",
+  "size": 28,
+  "holders": [
+   "NUM_BIG_STARS+0xac4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "soundEventPlay"
+  ],
+  "first_bytes": "6a0068080100"
+ },
+ {
+  "address": "0x00550710",
+  "size": 5,
+  "holders": [
+   "NUM_BIG_STARS+0xacc (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e94bc5fbff"
+ },
+ {
+  "address": "0x00550720",
+  "size": 75,
+  "holders": [
+   "NUM_BIG_STARS+0xa6c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_taskTimeCompressionMaxIndex",
+   "cat_taskTimeCompressionDefaultIndex",
+   "cat_taskTimeCompressionApply"
+  ],
+  "first_bytes": "a1943ca40085"
+ },
+ {
+  "address": "0x00551500",
+  "size": 16,
+  "holders": [
+   "binkPlay (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "binkDisplayWin32"
+  ],
+  "first_bytes": "8b4424046a10"
+ },
+ {
+  "address": "0x00551bc0",
+  "size": 332,
+  "holders": [
+   "binkPlay (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "what's this type: %d [binkUserPaintCallback]"
+  ],
+  "callees": [
+   "dbgFatalf"
+  ],
+  "first_bytes": "a14ca8b3006a"
+ },
+ {
+  "address": "0x00551de0",
+  "size": 137,
+  "holders": [
+   "lpString2_0072d8b8+0x1c76c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "#######INVALID KEY######"
+  ],
+  "callees": [
+   "lib_crt_00554270",
+   "_atexit"
+  ],
+  "first_bytes": "518a44240355"
+ },
+ {
+  "address": "0x00551e70",
+  "size": 65,
+  "holders": [
+   "0x00551e59 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0da40fa700"
+ },
+ {
+  "address": "0x00551ec0",
+  "size": 17,
+  "holders": [
+   "lpString2_0072d8b8+0x1c770 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "ClientCDKey_REG_CDKEY_PATH_init",
+   "_atexit"
+  ],
+  "first_bytes": "e81b00000068"
+ },
+ {
+  "address": "0x00551f70",
+  "size": 65,
+  "holders": [
+   "0x00551ec6 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d940fa700"
+ },
+ {
+  "address": "0x00552830",
+  "size": 206,
+  "holders": [
+   "cat_timeCompressionFactorTable+0x7c (.rdata)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "515355568bf1"
+ },
+ {
+  "address": "0x00552e00",
+  "size": 45,
+  "holders": [
+   "ClientCDKey__Init_string (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b32c5500b72c"
+ },
+ {
+  "address": "0x00553890",
+  "size": 137,
+  "holders": [
+   "lpString2_0072d8b8+0x1c74c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "lib_crt_00554270",
+   "_atexit"
+  ],
+  "first_bytes": "518a44240355"
+ },
+ {
+  "address": "0x00553920",
+  "size": 65,
+  "holders": [
+   "0x00553909 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d540fa700"
+ },
+ {
+  "address": "0x00553970",
+  "size": 137,
+  "holders": [
+   "lpString2_0072d8b8+0x1c750 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "SOFTWARE"
+  ],
+  "callees": [
+   "lib_crt_00554270",
+   "_atexit"
+  ],
+  "first_bytes": "518a44240355"
+ },
+ {
+  "address": "0x00553a00",
+  "size": 65,
+  "holders": [
+   "0x005539e9 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d740fa700"
+ },
+ {
+  "address": "0x00553a50",
+  "size": 137,
+  "holders": [
+   "lpString2_0072d8b8+0x1c754 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "lib_crt_00554270",
+   "_atexit"
+  ],
+  "first_bytes": "518a44240355"
+ },
+ {
+  "address": "0x00553ae0",
+  "size": 65,
+  "holders": [
+   "0x00553ac9 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d240fa700"
+ },
+ {
+  "address": "0x00553b30",
+  "size": 137,
+  "holders": [
+   "lpString2_0072d8b8+0x1c758 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "Titan"
+  ],
+  "callees": [
+   "lib_crt_00554270",
+   "_atexit"
+  ],
+  "first_bytes": "518a44240355"
+ },
+ {
+  "address": "0x00553bc0",
+  "size": 65,
+  "holders": [
+   "0x00553ba9 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d640fa700"
+ },
+ {
+  "address": "0x00553c10",
+  "size": 17,
+  "holders": [
+   "lpString2_0072d8b8+0x1c75c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "WON_RegConst_init_1",
+   "_atexit"
+  ],
+  "first_bytes": "e81b00000068"
+ },
+ {
+  "address": "0x00553cc0",
+  "size": 65,
+  "holders": [
+   "0x00553c16 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d340fa700"
+ },
+ {
+  "address": "0x00553d10",
+  "size": 17,
+  "holders": [
+   "lpString2_0072d8b8+0x1c760 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "WON_RegConst_init_2",
+   "_atexit"
+  ],
+  "first_bytes": "e81b00000068"
+ },
+ {
+  "address": "0x00553dc0",
+  "size": 65,
+  "holders": [
+   "0x00553d16 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d840fa700"
+ },
+ {
+  "address": "0x00553e10",
+  "size": 137,
+  "holders": [
+   "lpString2_0072d8b8+0x1c764 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "AuthVerifierKey"
+  ],
+  "callees": [
+   "lib_crt_00554270",
+   "_atexit"
+  ],
+  "first_bytes": "518a44240355"
+ },
+ {
+  "address": "0x00553ea0",
+  "size": 65,
+  "holders": [
+   "0x00553e89 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d440fa700"
+ },
+ {
+  "address": "0x00554c70",
+  "size": 92,
+  "holders": [
+   "lpString2_0072d8b8+0x1c774 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "_atexit"
+  ],
+  "first_bytes": "a048a8b30053"
+ },
+ {
+  "address": "0x00556da0",
+  "size": 255,
+  "holders": [
+   "cat_ddErrorString (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e66a5500ec6a"
+ },
+ {
+  "address": "0x00556ea0",
+  "size": 385,
+  "holders": [
+   "cat_ddErrorString (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8f6b5500956b"
+ },
+ {
+  "address": "0x00558fc0",
+  "size": 5,
+  "holders": [
+   "RTTI_Type_Descriptor+0x9b4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e9cb051200"
+ },
+ {
+  "address": "0x0055d230",
+  "size": 941,
+  "holders": [
+   "glcActivate (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "glcDrawPixels: unknown format %d"
+  ],
+  "callees": [
+   "glcUpdateExtents",
+   "dbgFatalf"
+  ],
+  "first_bytes": "83ec1053558b"
+ },
+ {
+  "address": "0x0055d5e0",
+  "size": 379,
+  "holders": [
+   "glcActivate (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "__ftol"
+  ],
+  "first_bytes": "81ecac000000"
+ },
+ {
+  "address": "0x0055d760",
+  "size": 62,
+  "holders": [
+   "glcActivate (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b542404578b"
+ },
+ {
+  "address": "0x0055d7a0",
+  "size": 68,
+  "holders": [
+   "glcActivate (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048bc8"
+ },
+ {
+  "address": "0x0055d7f0",
+  "size": 83,
+  "holders": [
+   "glcActivate (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4c24048bc1"
+ },
+ {
+  "address": "0x0055d850",
+  "size": 83,
+  "holders": [
+   "glcActivate (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4c24048bc1"
+ },
+ {
+  "address": "0x0055dc20",
+  "size": 46,
+  "holders": [
+   "glDLLGetGLCompat (code)",
+   "glDLLGetProcs (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424043de2"
+ },
+ {
+  "address": "0x0055dc50",
+  "size": 46,
+  "holders": [
+   "glDLLGetGLCompat (code)",
+   "glDLLGetProcs (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424043de2"
+ },
+ {
+  "address": "0x0055eac0",
+  "size": 75,
+  "holders": [
+   "lpModuleName_008b7b58+0x8ac (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "lib_crt_00676c90"
+  ],
+  "first_bytes": "a1a0838b0053"
+ },
+ {
+  "address": "0x0055f490",
+  "size": 11,
+  "holders": [
+   "minorBuildVersion+0x1c8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b801000000a3"
+ },
+ {
+  "address": "0x0055f4a0",
+  "size": 11,
+  "holders": [
+   "minorBuildVersion+0x2b8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b801000000a3"
+ },
+ {
+  "address": "0x0055f4b0",
+  "size": 24,
+  "holders": [
+   "minorBuildVersion+0x348 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b0d08868b00"
+ },
+ {
+  "address": "0x0055f5a0",
+  "size": 11,
+  "holders": [
+   "minorBuildVersion+0x570 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b801000000a3"
+ },
+ {
+  "address": "0x0055f5b0",
+  "size": 31,
+  "holders": [
+   "minorBuildVersion+0x3c0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b801000000a3"
+ },
+ {
+  "address": "0x0055f5d0",
+  "size": 31,
+  "holders": [
+   "minorBuildVersion+0x3d8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b801000000a3"
+ },
+ {
+  "address": "0x0055f5f0",
+  "size": 31,
+  "holders": [
+   "minorBuildVersion+0x3f0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b801000000a3"
+ },
+ {
+  "address": "0x0055f610",
+  "size": 31,
+  "holders": [
+   "minorBuildVersion+0x408 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b801000000a3"
+ },
+ {
+  "address": "0x0055f630",
+  "size": 31,
+  "holders": [
+   "minorBuildVersion+0x420 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b801000000a3"
+ },
+ {
+  "address": "0x0055f650",
+  "size": 31,
+  "holders": [
+   "minorBuildVersion+0x438 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b801000000a3"
+ },
+ {
+  "address": "0x0055f670",
+  "size": 79,
+  "holders": [
+   "DebugHelpDefault (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424082d10"
+ },
+ {
+  "address": "0x0055ffe0",
+  "size": 16,
+  "holders": [
+   "cat_mainRGLFeaturesSet (code)",
+   "mainStartupParticularRGL (code)",
+   "WinMain (code)"
+  ],
+  "n_holders": 3,
+  "strings": [],
+  "callees": [
+   "memAllocAttemptFunction"
+  ],
+  "first_bytes": "8b4424046a28"
+ },
+ {
+  "address": "0x00564a90",
+  "size": 721,
+  "holders": [
+   "0x005669e3 (code, no function)",
+   "0x0056a197 (code, no function)",
+   "0x0056a1c6 (code, no function)"
+  ],
+  "n_holders": 3,
+  "strings": [],
+  "callees": [
+   "MakeShipsMobile",
+   "lib_crt_006787d0",
+   "cat_selSelectionCopy",
+   "clWrapSetTactics"
+  ],
+  "first_bytes": "81ecb40f0000"
+ },
+ {
+  "address": "0x00564d70",
+  "size": 899,
+  "holders": [
+   "0x00564f14 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "WaypointEndToEnd",
+   "WaypointCircular",
+   "WaypointNormal"
+  ],
+  "callees": [
+   "soundEventPlay",
+   "piePointModeOnOff",
+   "MakeShipsMobile",
+   "selCentrePointCompute"
+  ],
+  "first_bytes": "a1b09cb30083"
+ },
+ {
+  "address": "0x00565c10",
+  "size": 28,
+  "holders": [
+   "mrSetTheFormation (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8d5b56009f5b"
+ },
+ {
+  "address": "0x0056b650",
+  "size": 72,
+  "holders": [
+   "cat_mrReleaseRight (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "feb2560014b3"
+ },
+ {
+  "address": "0x00573600",
+  "size": 474,
+  "holders": [
+   "cat_timeCompressionFactorTable+0x114 (.rdata)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "std___Xran",
+   "lib_crt_005541f0",
+   "_memmove",
+   "lib_crt_00554270"
+  ],
+  "first_bytes": "51535556578b"
+ },
+ {
+  "address": "0x005738f0",
+  "size": 501,
+  "holders": [
+   "cat_timeCompressionFactorTable+0x118 (.rdata)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "std___Xran",
+   "lib_crt_005541f0",
+   "_memmove",
+   "lib_crt_00554270"
+  ],
+  "first_bytes": "515355578b7c"
+ },
+ {
+  "address": "0x00573ea0",
+  "size": 137,
+  "holders": [
+   "lpString2_0072d8b8+0x1c778 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "lib_crt_00554270",
+   "_atexit"
+  ],
+  "first_bytes": "518a44240355"
+ },
+ {
+  "address": "0x00573f30",
+  "size": 65,
+  "holders": [
+   "0x00573f19 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d7459a700"
+ },
+ {
+  "address": "0x00573f80",
+  "size": 137,
+  "holders": [
+   "lpString2_0072d8b8+0x1c77c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "SOFTWARE"
+  ],
+  "callees": [
+   "lib_crt_00554270",
+   "_atexit"
+  ],
+  "first_bytes": "518a44240355"
+ },
+ {
+  "address": "0x00574010",
+  "size": 65,
+  "holders": [
+   "0x00573ff9 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d9459a700"
+ },
+ {
+  "address": "0x00574060",
+  "size": 137,
+  "holders": [
+   "lpString2_0072d8b8+0x1c780 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "lib_crt_00554270",
+   "_atexit"
+  ],
+  "first_bytes": "518a44240355"
+ },
+ {
+  "address": "0x005740f0",
+  "size": 65,
+  "holders": [
+   "0x005740d9 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d4459a700"
+ },
+ {
+  "address": "0x00574140",
+  "size": 137,
+  "holders": [
+   "lpString2_0072d8b8+0x1c784 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "Titan"
+  ],
+  "callees": [
+   "lib_crt_00554270",
+   "_atexit"
+  ],
+  "first_bytes": "518a44240355"
+ },
+ {
+  "address": "0x005741d0",
+  "size": 65,
+  "holders": [
+   "0x005741b9 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d8459a700"
+ },
+ {
+  "address": "0x00574220",
+  "size": 17,
+  "holders": [
+   "lpString2_0072d8b8+0x1c788 (.data)",
+   "lib_crt_00c67ca0+0x16d27 (.cms_d)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [
+   "lib_msvc_static_init_00574240",
+   "_atexit"
+  ],
+  "first_bytes": "e81b00000068"
+ },
+ {
+  "address": "0x005742d0",
+  "size": 65,
+  "holders": [
+   "0x00574226 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d5459a700"
+ },
+ {
+  "address": "0x00574320",
+  "size": 17,
+  "holders": [
+   "lpString2_0072d8b8+0x1c78c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "lib_msvc_static_init_00574340",
+   "_atexit"
+  ],
+  "first_bytes": "e81b00000068"
+ },
+ {
+  "address": "0x005743d0",
+  "size": 65,
+  "holders": [
+   "0x00574326 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0da459a700"
+ },
+ {
+  "address": "0x00574420",
+  "size": 137,
+  "holders": [
+   "lpString2_0072d8b8+0x1c790 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "AuthVerifierKey"
+  ],
+  "callees": [
+   "lib_crt_00554270",
+   "_atexit"
+  ],
+  "first_bytes": "518a44240355"
+ },
+ {
+  "address": "0x005744b0",
+  "size": 65,
+  "holders": [
+   "0x00574499 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d6459a700"
+ },
+ {
+  "address": "0x00574500",
+  "size": 4,
+  "holders": [
+   "cat_timeCompressionFactorTable+0x110 (.rdata)",
+   "lpString2_0072d8b8+0x45fc (.rdata)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8a4108c3"
+ },
+ {
+  "address": "0x00574530",
+  "size": 32,
+  "holders": [
+   "lpString2_0072d8b8+0x1c794 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "_atexit"
+  ],
+  "first_bytes": "8a0d48a8b300"
+ },
+ {
+  "address": "0x0057b8c0",
+  "size": 166,
+  "holders": [
+   "SongNumber+0x254 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   ".script",
+   "LensFlares\\\\"
+  ],
+  "callees": [
+   "trTextureUnregister",
+   "_sscanf",
+   "lib_crt_00679d80",
+   "__makepath"
+  ],
+  "first_bytes": "a14c5da70081"
+ },
+ {
+  "address": "0x0057e100",
+  "size": 1209,
+  "holders": [
+   "rinEnumerateDevices (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "%08X [%s][%s]\\n",
+   "driver"
+  ],
+  "callees": [
+   "DDRAW.DLL::DirectDrawCreate",
+   "_malloc",
+   "crc32Compute",
+   "_fprintf"
+  ],
+  "first_bytes": "8b4424088b4c"
+ },
+ {
+  "address": "0x0057e680",
+  "size": 73,
+  "holders": [
+   "0x0057e226 (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "cat_rinEnumD3DDevices_cb"
+  ],
+  "first_bytes": "8b44240485c0"
+ },
+ {
+  "address": "0x0057e6d0",
+  "size": 58,
+  "holders": [
+   "rinEnumerateDevices (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "DDRAW.DLL::DirectDrawCreate"
+  ],
+  "first_bytes": "8b44240485c0"
+ },
+ {
+  "address": "0x0057e7e0",
+  "size": 128,
+  "holders": [
+   "rinEnumerateDevices (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "DDRAW.DLL::DirectDrawCreate",
+   "_strncpy"
+  ],
+  "first_bytes": "8b44240485c0"
+ },
+ {
+  "address": "0x00580210",
+  "size": 727,
+  "holders": [
+   "cat_isoundmixerStartThread (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "isoundmixerprocess"
+  ],
+  "first_bytes": "8b0d345fa700"
+ },
+ {
+  "address": "0x00582a60",
+  "size": 2112,
+  "holders": [
+   "streamStartThread (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "\\n>>> Streams: no streams buffer yet..\\n",
+   "\\n>>> Streams: SoundInited [%2d] Status [%2d]\\n",
+   "\\nsoundstreamupdate95: couldn't read file block."
+  ],
+  "callees": [
+   "nullsubReturnFalse",
+   "isoundstreamreadheader",
+   "__ftol",
+   "fileSeek"
+  ],
+  "first_bytes": "b88060ac0083"
+ },
+ {
+  "address": "0x00583500",
+  "size": 56,
+  "holders": [
+   "subTitleShortest+0x28 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "%d%d"
+  ],
+  "callees": [
+   "RemoveCommasFromString",
+   "_sscanf"
+  ],
+  "first_bytes": "51568b742410"
+ },
+ {
+  "address": "0x00583540",
+  "size": 83,
+  "holders": [
+   "subTitleShortest+0x40 (.data)",
+   "subTitleShortest+0x4c (.data)"
+  ],
+  "n_holders": 2,
+  "strings": [
+   "%d%f"
+  ],
+  "callees": [
+   "RemoveCommasFromString",
+   "_sscanf"
+  ],
+  "first_bytes": "51568b742410"
+ },
+ {
+  "address": "0x005836f0",
+  "size": 66,
+  "holders": [
+   "subTitleShortest+0x88 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "%d%d"
+  ],
+  "callees": [
+   "RemoveCommasFromString",
+   "_sscanf"
+  ],
+  "first_bytes": "51568b742410"
+ },
+ {
+  "address": "0x00586ef0",
+  "size": 49,
+  "holders": [
+   "trRegistryRefresh (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424048b00"
+ },
+ {
+  "address": "0x0058a150",
+  "size": 142,
+  "holders": [
+   "lpString2_0072d8b8+0x1c798 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "CataclysmValidVersions"
+  ],
+  "callees": [
+   "lib_crt_00554640",
+   "_atexit"
+  ],
+  "first_bytes": "518a4424038a"
+ },
+ {
+  "address": "0x0058a1e0",
+  "size": 65,
+  "holders": [
+   "0x0058a1cf (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d3c60a700"
+ },
+ {
+  "address": "0x0058a230",
+  "size": 142,
+  "holders": [
+   "lpString2_0072d8b8+0x1c79c (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "Description"
+  ],
+  "callees": [
+   "lib_crt_00554640",
+   "_atexit"
+  ],
+  "first_bytes": "518a4424038a"
+ },
+ {
+  "address": "0x0058a2c0",
+  "size": 65,
+  "holders": [
+   "0x0058a2af (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d0c60a700"
+ },
+ {
+  "address": "0x0058a310",
+  "size": 142,
+  "holders": [
+   "lpString2_0072d8b8+0x1c7a0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "RoomFlags"
+  ],
+  "callees": [
+   "lib_crt_00554640",
+   "_atexit"
+  ],
+  "first_bytes": "518a4424038a"
+ },
+ {
+  "address": "0x0058a3a0",
+  "size": 65,
+  "holders": [
+   "0x0058a38f (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0dec5fa700"
+ },
+ {
+  "address": "0x0058a3f0",
+  "size": 142,
+  "holders": [
+   "lpString2_0072d8b8+0x1c7a4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "__RSClientCount"
+  ],
+  "callees": [
+   "lib_crt_00554640",
+   "_atexit"
+  ],
+  "first_bytes": "518a4424038a"
+ },
+ {
+  "address": "0x0058a480",
+  "size": 65,
+  "holders": [
+   "0x0058a46f (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0dfc5fa700"
+ },
+ {
+  "address": "0x0058a4d0",
+  "size": 142,
+  "holders": [
+   "lpString2_0072d8b8+0x1c7a8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "__FactCur_RoutingServHWGame"
+  ],
+  "callees": [
+   "lib_crt_00554640",
+   "_atexit"
+  ],
+  "first_bytes": "518a4424038a"
+ },
+ {
+  "address": "0x0058a560",
+  "size": 65,
+  "holders": [
+   "0x0058a54f (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d1c60a700"
+ },
+ {
+  "address": "0x0058a5b0",
+  "size": 142,
+  "holders": [
+   "lpString2_0072d8b8+0x1c7ac (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "__FactTotal_RoutingServHWGame"
+  ],
+  "callees": [
+   "lib_crt_00554640",
+   "_atexit"
+  ],
+  "first_bytes": "518a4424038a"
+ },
+ {
+  "address": "0x0058a640",
+  "size": 65,
+  "holders": [
+   "0x0058a62f (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0ddc5fa700"
+ },
+ {
+  "address": "0x0058a690",
+  "size": 142,
+  "holders": [
+   "lpString2_0072d8b8+0x1c7b0 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "__ServerUptime"
+  ],
+  "callees": [
+   "lib_crt_00554640",
+   "_atexit"
+  ],
+  "first_bytes": "518a4424038a"
+ },
+ {
+  "address": "0x0058a720",
+  "size": 65,
+  "holders": [
+   "0x0058a70f (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "operator_delete"
+  ],
+  "first_bytes": "8b0d2c60a700"
+ },
+ {
+  "address": "0x0058a770",
+  "size": 11,
+  "holders": [
+   "titanStart (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "c7058060a700"
+ },
+ {
+  "address": "0x0058a780",
+  "size": 10,
+  "holders": [
+   "titanStart (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b442404a378"
+ },
+ {
+  "address": "0x0058bfe0",
+  "size": 44,
+  "holders": [
+   "TitanInterface_TitanInterface (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "518a44240388"
+ },
+ {
+  "address": "0x00593c00",
+  "size": 50,
+  "holders": [
+   "Catch@00593be4 (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "lib_won_006b0590"
+  ],
+  "first_bytes": "8d8d48ffffff"
+ },
+ {
+  "address": "0x00597410",
+  "size": 24,
+  "holders": [
+   "TitanInterface_HandleRecvCmd (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "ad735900ad73"
+ },
+ {
+  "address": "0x00597820",
+  "size": 3,
+  "holders": [
+   "lpString2_0072d8b8+0xf54 (.rdata)",
+   "lpString2_0072d8b8+0x1040 (.rdata)",
+   "lpString2_0072d8b8+0x108c (.rdata)",
+   "lpString2_0072d8b8+0x1208 (.rdata)"
+  ],
+  "n_holders": 19,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b005c3"
+ },
+ {
+  "address": "0x00597830",
+  "size": 3,
+  "holders": [
+   "lpString2_0072d8b8+0xf58 (.rdata)",
+   "lpString2_0072d8b8+0x1044 (.rdata)",
+   "lpString2_0072d8b8+0x1090 (.rdata)",
+   "lpString2_0072d8b8+0x120c (.rdata)"
+  ],
+  "n_holders": 19,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b006c3"
+ },
+ {
+  "address": "0x00597840",
+  "size": 10,
+  "holders": [
+   "lpString2_0072d8b8+0xf5c (.rdata)",
+   "lpString2_0072d8b8+0x1048 (.rdata)",
+   "lpString2_0072d8b8+0x1094 (.rdata)",
+   "lpString2_0072d8b8+0x1210 (.rdata)"
+  ],
+  "n_holders": 19,
+  "strings": [],
+  "callees": [
+   "lib_won_00694c30"
+  ],
+  "first_bytes": "e8ebd30f000f"
+ },
+ {
+  "address": "0x00597850",
+  "size": 10,
+  "holders": [
+   "lpString2_0072d8b8+0xf60 (.rdata)",
+   "lpString2_0072d8b8+0x104c (.rdata)",
+   "lpString2_0072d8b8+0x1098 (.rdata)",
+   "lpString2_0072d8b8+0x1214 (.rdata)"
+  ],
+  "n_holders": 19,
+  "strings": [],
+  "callees": [
+   "lib_won_00694c30"
+  ],
+  "first_bytes": "e8dbd30f000f"
+ },
+ {
+  "address": "0x00597860",
+  "size": 17,
+  "holders": [
+   "lpString2_0072d8b8+0xf64 (.rdata)",
+   "lpString2_0072d8b8+0x1050 (.rdata)",
+   "lpString2_0072d8b8+0x109c (.rdata)",
+   "lpString2_0072d8b8+0x1218 (.rdata)"
+  ],
+  "n_holders": 19,
+  "strings": [],
+  "callees": [
+   "lib_won_00694c30"
+  ],
+  "first_bytes": "e8cbd30f0066"
+ },
+ {
+  "address": "0x00597880",
+  "size": 17,
+  "holders": [
+   "lpString2_0072d8b8+0xf68 (.rdata)",
+   "lpString2_0072d8b8+0x1054 (.rdata)",
+   "lpString2_0072d8b8+0x10a0 (.rdata)",
+   "lpString2_0072d8b8+0x121c (.rdata)"
+  ],
+  "n_holders": 19,
+  "strings": [],
+  "callees": [
+   "lib_won_00694c30"
+  ],
+  "first_bytes": "e8abd30f0066"
+ },
+ {
+  "address": "0x005983f0",
+  "size": 249,
+  "holders": [
+   "TitanInterface_HandlePeerMsg (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "c9825900df82"
+ },
+ {
+  "address": "0x0059c6c0",
+  "size": 37,
+  "holders": [
+   "Catch@0059c6a4 (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b75e48b7de0"
+ },
+ {
+  "address": "0x0059e3f0",
+  "size": 94,
+  "holders": [
+   "TitanInterface_startThread (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "lib_won_006d7250",
+   "cat_titanAdBannerSetImage"
+  ],
+  "first_bytes": "83ec0c8d4424"
+ },
+ {
+  "address": "0x005a4590",
+  "size": 92,
+  "holders": [
+   "lpString2_0072d8b8+0x1c7b4 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "_atexit"
+  ],
+  "first_bytes": "a048a8b30053"
+ },
+ {
+  "address": "0x005a45f0",
+  "size": 8,
+  "holders": [
+   "cat_timeCompressionFactorTable+0x1e8 (.rdata)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "83e930e90879"
+ },
+ {
+  "address": "0x005a4880",
+  "size": 8,
+  "holders": [
+   "cat_timeCompressionFactorTable+0x234 (.rdata)",
+   "lpString2_0072d8b8+0xf04 (.rdata)",
+   "lpString2_0072d8b8+0xf50 (.rdata)",
+   "lpString2_0072d8b8+0x103c (.rdata)"
+  ],
+  "n_holders": 55,
+  "strings": [],
+  "callees": [
+   "lib_won_00694c30"
+  ],
+  "first_bytes": "e8ab030f008a"
+ },
+ {
+  "address": "0x005a4890",
+  "size": 3,
+  "holders": [
+   "cat_timeCompressionFactorTable+0x238 (.rdata)",
+   "lpString2_0072d8b8+0xf08 (.rdata)",
+   "lpString2_0072d8b8+0x10d8 (.rdata)",
+   "lpString2_0072d8b8+0x1124 (.rdata)"
+  ],
+  "n_holders": 36,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b003c3"
+ },
+ {
+  "address": "0x005a48a0",
+  "size": 3,
+  "holders": [
+   "cat_timeCompressionFactorTable+0x23c (.rdata)",
+   "lpString2_0072d8b8+0xf0c (.rdata)",
+   "lpString2_0072d8b8+0x10dc (.rdata)",
+   "lpString2_0072d8b8+0x1128 (.rdata)"
+  ],
+  "n_holders": 36,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b004c3"
+ },
+ {
+  "address": "0x005a48b0",
+  "size": 13,
+  "holders": [
+   "cat_timeCompressionFactorTable+0x240 (.rdata)",
+   "lpString2_0072d8b8+0xf10 (.rdata)",
+   "lpString2_0072d8b8+0x10e0 (.rdata)",
+   "lpString2_0072d8b8+0x112c (.rdata)"
+  ],
+  "n_holders": 36,
+  "strings": [],
+  "callees": [
+   "lib_won_00694c30"
+  ],
+  "first_bytes": "e87b030f0033"
+ },
+ {
+  "address": "0x005a48c0",
+  "size": 13,
+  "holders": [
+   "cat_timeCompressionFactorTable+0x244 (.rdata)",
+   "lpString2_0072d8b8+0xf14 (.rdata)",
+   "lpString2_0072d8b8+0x10e4 (.rdata)",
+   "lpString2_0072d8b8+0x1130 (.rdata)"
+  ],
+  "n_holders": 36,
+  "strings": [],
+  "callees": [
+   "lib_won_00694c30"
+  ],
+  "first_bytes": "e86b030f0033"
+ },
+ {
+  "address": "0x005a48d0",
+  "size": 15,
+  "holders": [
+   "cat_timeCompressionFactorTable+0x248 (.rdata)",
+   "lpString2_0072d8b8+0xf18 (.rdata)",
+   "lpString2_0072d8b8+0x10e8 (.rdata)",
+   "lpString2_0072d8b8+0x1134 (.rdata)"
+  ],
+  "n_holders": 36,
+  "strings": [],
+  "callees": [
+   "lib_won_00694c30"
+  ],
+  "first_bytes": "e85b030f008a"
+ },
+ {
+  "address": "0x005a48e0",
+  "size": 15,
+  "holders": [
+   "cat_timeCompressionFactorTable+0x24c (.rdata)",
+   "lpString2_0072d8b8+0xf1c (.rdata)",
+   "lpString2_0072d8b8+0x10ec (.rdata)",
+   "lpString2_0072d8b8+0x1138 (.rdata)"
+  ],
+  "n_holders": 36,
+  "strings": [],
+  "callees": [
+   "lib_won_00694c30"
+  ],
+  "first_bytes": "e84b030f008a"
+ },
+ {
+  "address": "0x005a48f0",
+  "size": 32,
+  "holders": [
+   "lpString2_0072d8b8+0x1c7b8 (.data)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "_atexit"
+  ],
+  "first_bytes": "8a0d48a8b300"
+ },
+ {
+  "address": "0x005aa370",
+  "size": 496,
+  "holders": [
+   "utyGameSystemsInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "\\nQuit to main menu!",
+   "Credits\\\\",
+   "Credits-GameEnd.cred"
+  ],
+  "callees": [
+   "memFree",
+   "nullsubReturnFalse",
+   "feAllScreensDelete",
+   "soundEventStopMusic"
+  ],
+  "first_bytes": "83ec08a16862"
+ },
+ {
+  "address": "0x005aa560",
+  "size": 20,
+  "holders": [
+   "0x005aa3dd (code, no function)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "e1a35a00e1a3"
+ },
+ {
+  "address": "0x005ab7b0",
+  "size": 51,
+  "holders": [
+   "utyGameSystemsPreInit (code)"
+  ],
+  "n_holders": 1,
+  "strings": [
+   "\\nERROR: %d"
+  ],
+  "callees": [
+   "nullsubReturnFalse"
+  ],
+  "first_bytes": "8b442404566a"
+ },
+ {
+  "address": "0x005ab7f0",
+  "size": 19,
+  "holders": [
+   "utyGameSystemsPreShutdown (code)",
+   "utyGameSystemsShutdown (code)"
+  ],
+  "n_holders": 2,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4424046800"
+ },
+ {
+  "address": "0x005b02d0",
+  "size": 20,
+  "holders": [
+   "DefaultShipFire (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "b6025b00b602"
+ },
+ {
+  "address": "0x005b65a0",
+  "size": 32,
+  "holders": [
+   "HiveFrigateHouseKeep (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "ba5b5b00275e"
+ },
+ {
+  "address": "0x005b6e00",
+  "size": 26,
+  "holders": [
+   "cat_leechDetach (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "206d5b00176d"
+ },
+ {
+  "address": "0x005b7a90",
+  "size": 52,
+  "holders": [
+   "cat_leechProcess (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "dd6f5b003471"
+ },
+ {
+  "address": "0x005b9430",
+  "size": 44,
+  "holders": [
+   "MimicHouseKeep (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "558f5b00ab8f"
+ },
+ {
+  "address": "0x005b9620",
+  "size": 19,
+  "holders": [
+   "cat_mimicGetCameraRadius (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "f3955b001596"
+ },
+ {
+  "address": "0x005b9b70",
+  "size": 32,
+  "holders": [
+   "Mimic_Fix (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "f89a5b00459b"
+ },
+ {
+  "address": "0x005bbce0",
+  "size": 117,
+  "holders": [
+   "cat_bigGunFireCommand (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [
+   "smSensorsCloseForGood",
+   "piePointModeOnOff",
+   "cat_clWrapPointOrder"
+  ],
+  "first_bytes": "83ec0ca1c8b1"
+ },
+ {
+  "address": "0x005bf540",
+  "size": 53,
+  "holders": [
+   "ProximitySensorHouseKeep (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "8b4c241085c9"
+ },
+ {
+  "address": "0x005bf750",
+  "size": 16,
+  "holders": [
+   "ProximitySensorHouseKeep (code)"
+  ],
+  "n_holders": 1,
+  "strings": [],
+  "callees": [],
+  "first_bytes": "1bf65b0025f6"
+ },
+ {
+  "address": "0x005c9130",
+  "size": 344,
+  "holders": [
+   "ChangeSingleShipToCollectResource (code)",
+   "clCollectResource (code)",
+   "PreFix_ShipXHarvestsResourceY (code)",
+   "Fix_ShipXHarvestsResourceY (code)"
+  ],
+  "n_holders": 6,
+  "strings": [],
+  "callees": [
+   "cat_workerTurnTowardTarget",
+   "cat_MoveReachedDestinationRadius",
+   "etgEffectDelete",
+   "univRemoveObjFromRenderList"
+  ],
+  "first_bytes": "83ec1853558b"
+ }
+]

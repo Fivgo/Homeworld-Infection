@@ -1,0 +1,16 @@
+address,name,reason,status,function,body_bytes,detail
+0x0043e690,cpValueProcess,r5-deferred,created,cpValueProcess,601,named
+0x0043e8f0,cpHueSaturationProcess,r5-deferred,created,cpHueSaturationProcess,635,named
+0x00508480,selStatusDraw3,r5-deferred,created,selStatusDraw3,266,named
+0x00508590,selStatusDraw4,r5-deferred,created,selStatusDraw4,266,named
+0x00532750,tutProcessNextButton,r5-deferred,created,tutProcessNextButton,42,named
+0x00532780,cat_tutProcessNextTextButton,r5-deferred,created,cat_tutProcessNextTextButton,41,named
+0x005327b0,cat_tutProcessPrevButton,r5-deferred,created,cat_tutProcessPrevButton,42,named
+0x005327e0,cat_tutProcessQuitButton,r5-deferred,created,cat_tutProcessQuitButton,59,named
+0x00532820,tutDrawNextButtonFunction,r5-deferred,created,tutDrawNextButtonFunction,146,named
+0x005328c0,cat_tutDrawNextTextButtonFunction,r5-deferred,created,cat_tutDrawNextTextButtonFunction,128,named
+0x00532940,cat_tutDrawPrevButtonFunction,r5-deferred,created,cat_tutDrawPrevButtonFunction,146,named
+0x005329e0,cat_tutDrawQuitButtonFunction,r5-deferred,created,cat_tutDrawQuitButtonFunction,146,named
+0x00532c90,tutProcessBackButton,r5-deferred,created,tutProcessBackButton,230,named
+0x00532d80,tutDrawBackButtonFunction,r5-deferred,created,tutDrawBackButtonFunction,101,named
+0x00533080,tutDrawImageFunction,r5-deferred,created,tutDrawImageFunction,104,named

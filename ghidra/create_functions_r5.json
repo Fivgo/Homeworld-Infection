@@ -1,0 +1,272 @@
+[
+ {
+  "address": "0x004011d0",
+  "name": "aiaPriorityShipsConstraints",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00405f70",
+  "name": "aihHarassFiringSingleShipHandler",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00406650",
+  "name": "aihPatrolEnemyNearbyHandler",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004066d0",
+  "name": "aihGravWellEnemyNearbyHandler",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00406880",
+  "name": "aihFastDefenseDistressHandler",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00406af0",
+  "name": "aihSlowDefenseDistressHandler",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x0040c590",
+  "name": "aimPreFix_PatrolMove",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00411bb0",
+  "name": "SaveRequestShipsCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00411bf0",
+  "name": "SaveTeamWaitingCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00411c50",
+  "name": "LoadRequestShipsCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00411c80",
+  "name": "LoadTeamWaitingCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00411ca0",
+  "name": "FixTeamWaitingCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00413b70",
+  "name": "scriptAIShipPrecalculate",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00417990",
+  "name": "aitTeamIsntCoopWithAnotherTeam_GravWell",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x0041aa70",
+  "name": "aiuShipIsFighter",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x0041aa90",
+  "name": "aiuShipNotGoodAgainstFighters",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004d7200",
+  "name": "opHighlightBabyFunction",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004d96f0",
+  "name": "opMusicVolumeProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004d9770",
+  "name": "opSFXVolumeProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004d97f0",
+  "name": "opSpeechVolumeProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004d98c0",
+  "name": "opMouseSensitivityProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004d98e0",
+  "name": "opBattleChatterProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004d9900",
+  "name": "opNumEffectsProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004d9990",
+  "name": "opEqualizerProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004d9b20",
+  "name": "opDetailThresholdProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004da690",
+  "name": "opBrightnessProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004db6d0",
+  "name": "cat_opTextureDetailProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004f1cf0",
+  "name": "DefaultShipHarvestsResource",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x004f1d40",
+  "name": "R1ResourcerHarvestsAsteroid",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00501ad0",
+  "name": "DerelictListAddCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00501af0",
+  "name": "ImpactableListAddCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00501b10",
+  "name": "MissileListAddCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00503da0",
+  "name": "spScenarioItemDraw",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x005040a0",
+  "name": "compareScenariosCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x005170b0",
+  "name": "cat_spWarpShipsSetCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00517130",
+  "name": "cat_spWarpResourcesSetCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00517180",
+  "name": "cat_spWarpTechSetCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x0051b430",
+  "name": "singlePlayerNisStoppedCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00524b10",
+  "name": "statShipConstraintsFrigatesOrBetterCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00524b30",
+  "name": "statShipConstraintsFightingShipsCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00524bd0",
+  "name": "statShipConstraintsCarrierFightingShipsCB",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00534ea0",
+  "name": "uicScrollBarProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00535160",
+  "name": "uicScrollBarDraw",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x005351b0",
+  "name": "uicScrollBarButtonDraw",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00535290",
+  "name": "uicListWindowDraw",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00536c10",
+  "name": "uicTextEntryProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00537af0",
+  "name": "uicTextEntryDraw",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00538eb0",
+  "name": "uicTabProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00538fc0",
+  "name": "uicRightArrowProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00539230",
+  "name": "uicLeftArrowProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00555d70",
+  "name": "dbwWindowProc",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00561f10",
+  "name": "WindowProc",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00567930",
+  "name": "mrRegionProcess",
+  "reason": "r4-deferred"
+ },
+ {
+  "address": "0x00569260",
+  "name": "mrRegionDraw",
+  "reason": "r4-deferred"
+ }
+]

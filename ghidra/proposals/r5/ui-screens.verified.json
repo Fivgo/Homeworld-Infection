@@ -1,0 +1,1779 @@
+{
+ "source": "ui-screens",
+ "method": "Started from named neighbours in cataclysm_gog_r5a/call_graph.csv and functions.csv; compared decompiled.c bodies with HomeworldSDL/src (control flow, constants, strings, call order of adjacent functions); pointer tables located by scanning original/game/cataclysm.exe for the function address; ship-type constants read from CataclysmEngineTweaks game/Game/ShipDefs.h. Cataclysm-only functions named cat_<subsystem>Verb from callers/body; low confidence where only callers/body shape support the name.",
+ "done_subsystems": [
+  "selection-ui",
+  "fog-of-war",
+  "region-screens",
+  "stats-keys",
+  "colour",
+  "load-init",
+  "hw1-ui-files",
+  "band-53"
+ ],
+ "proposals": [
+  {
+   "address": "0x0047f850",
+   "name": "cat_fowBoundaryCreate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Allocates three cell*0x44 face arrays + three cell*0xc dirty lists for fowCurrentGrid, listInit x3; if arg, zeroes cells and fowCellMarkDirty all; callers fowCreate, fowClear, cat_saveLoadPlayerFOW",
+   "hw1_equivalent": "",
+   "signature": "void cat_fowBoundaryCreate(bool32 markAllDirty)"
+  },
+  {
+   "address": "0x0047fb00",
+   "name": "cat_fowBoundaryDestroy",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "memFree + NULL of the six arrays cat_fowBoundaryCreate allocates (0xa3e2f4..0xa3e310); callers fowDestroy, fowClear",
+   "hw1_equivalent": "",
+   "signature": "void cat_fowBoundaryDestroy(void)"
+  },
+  {
+   "address": "0x0047fcf0",
+   "name": "cat_fowBoundaryUpdate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Called first by fowRender (its plate: rebuilds dirty boundary faces); runs cat_fowBoundaryRebuildFaces for modes 2/0 or 1 depending on 0xa5b19c and 0x892b58 flags",
+   "hw1_equivalent": "",
+   "signature": "void cat_fowBoundaryUpdate(void)"
+  },
+  {
+   "address": "0x0047fd80",
+   "name": "cat_fowBoundaryRebuildFaces",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "For each dirty cell: test 6-neighbour cells by mode (0 visited-not-active, 1 visited, 2 active), fill 0x44-byte face node, listAddNode/listRemoveNode on the face list; clears dirty count",
+   "hw1_equivalent": "",
+   "signature": "void cat_fowBoundaryRebuildFaces(void * dirtyCells, sdword * dirtyCount, void * faces, sdword mode, LinkedList * faceList)"
+  },
+  {
+   "address": "0x004801a0",
+   "name": "cat_fowCellCornerGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "switch 0..7: out = cell centre +/- half cell size (fowCurrentGrid+0x1c * 0.5) on x/y/z: the 8 cube corners; caller cat_fowBoundaryDrawList",
+   "hw1_equivalent": "",
+   "signature": "void cat_fowCellCornerGet(sdword corner, vector * centre, vector * out)"
+  },
+  {
+   "address": "0x004802d0",
+   "name": "cat_fowBoundaryDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Second call in fowRender: builds 16-step colBlend ramps for 3 boundary colours (once), corner offset table from cell size, then cat_fowBoundaryDrawList on each face list",
+   "hw1_equivalent": "",
+   "signature": "void cat_fowBoundaryDraw(void)"
+  },
+  {
+   "address": "0x00480650",
+   "name": "cat_fowBoundaryDrawList",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Walks a face list, builds cube edges via cat_fowCellCornerGet/cat_fowLineAdd, then glBegin(GL_LINES) with distance-ramped glColor3ub per vertex, glEnd every 64 lines",
+   "hw1_equivalent": "",
+   "signature": "void cat_fowBoundaryDrawList(LinkedList * faceList)"
+  },
+  {
+   "address": "0x00480a90",
+   "name": "cat_fowLineAdd",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Appends a 0x20-byte line (two points + getVectDistSloppy distance of each to camera 0xc0aad0) to a growable array (memReallocFunction +0x80); count 0xa3e31c reset after drawing",
+   "hw1_equivalent": "",
+   "signature": "void cat_fowLineAdd(vector * p0, vector * p1)"
+  },
+  {
+   "address": "0x00480be0",
+   "name": "cat_fowCornerLinesAdd",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Adds the 3 lines of a small triangle at a cube corner (point + 3 offsets from the 0x24-byte per-corner table at 0xa3e328) via cat_fowLineAdd; caller cat_fowBoundaryDrawList",
+   "hw1_equivalent": "",
+   "signature": "void cat_fowCornerLinesAdd(vector * corner, sdword cornerIndex)"
+  },
+  {
+   "address": "0x00530060",
+   "name": "cat_tutSetPointerTargetObj",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Sole caller kasfTutSetPointerTargetObj; finds/allocates named tutpointer slot (0x68-byte array 0xa6bc28, memStrncpy name 0x3b), type 1 at XY stored by cat_tutObjPointerXYSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSetPointerTargetXY",
+   "signature": "void cat_tutSetPointerTargetObj(char * name)"
+  },
+  {
+   "address": "0x00531290",
+   "name": "cat_tutObjPointerXYSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Stores two ints in 0xa6c51c/0xa6c520, the XY that cat_tutSetPointerTargetObj gives its pointer; sole caller cat_moObjectivesDraw (objective line position)",
+   "hw1_equivalent": "",
+   "signature": "void cat_tutObjPointerXYSet(sdword x, sdword y)"
+  },
+  {
+   "address": "0x00532010",
+   "name": "tutShowNextButton",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "kasfTutShowNextButton is a 5-byte JMP to it; HW1 body: hide if visible, root region 'TutorialWrapper', regChildAlloc 'TutorialNext', uicButtonProcess, regDrawFunctionSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutShowNextButton",
+   "signature": "void tutShowNextButton(void)"
+  },
+  {
+   "address": "0x00532190",
+   "name": "cat_tutShowNextTextButton",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "kasfTutShowNextTextButton JMPs here; same pattern as tutShowNextButton with atom 'TutorialNextText' (64x32 at text box x0)",
+   "hw1_equivalent": "",
+   "signature": "void cat_tutShowNextTextButton(void)"
+  },
+  {
+   "address": "0x00532300",
+   "name": "tutShowPrevButton",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "medium",
+   "evidence": "kasfTutShowPrevButton JMPs here; Cataclysm gives Prev its own region (atom 'TutorialPrev', 128x32) instead of HW1's flag on the Back button",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutShowPrevButton",
+   "signature": "void tutShowPrevButton(void)"
+  },
+  {
+   "address": "0x00532480",
+   "name": "cat_tutButtonRowSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller subTitlesDraw: if tutorial==1 stores y as tutorial button row (0xa6bc14, the y every tutShow*Button uses) and returns y+0x20",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_tutButtonRowSet(sdword y)"
+  },
+  {
+   "address": "0x005324a0",
+   "name": "cat_tutShowQuitButton",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "kasfTutShowQuitButton JMPs here; tutorial button pattern with atom 'TutorialQuit' (64x32 at MAIN_WindowWidth-64)",
+   "hw1_equivalent": "",
+   "signature": "void cat_tutShowQuitButton(void)"
+  },
+  {
+   "address": "0x00532610",
+   "name": "tutHideNextButton",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "kasfTutHideNextButton JMPs here; HW1 body: regRegionDelete(next region), tutDeallocateRootRegion inlined (refcount 0xa6c4d0), clear visible flag",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutHideNextButton",
+   "signature": "void tutHideNextButton(void)"
+  },
+  {
+   "address": "0x00532660",
+   "name": "cat_tutHideNextTextButton",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "kasfTutHideNextTextButton JMPs here; deletes the 'TutorialNextText' region, root refcount",
+   "hw1_equivalent": "",
+   "signature": "void cat_tutHideNextTextButton(void)"
+  },
+  {
+   "address": "0x005326b0",
+   "name": "cat_tutHidePrevButton",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "kasfTutHidePrevButton JMPs here; deletes the 'TutorialPrev' region (0xa6c500), root refcount",
+   "hw1_equivalent": "",
+   "signature": "void cat_tutHidePrevButton(void)"
+  },
+  {
+   "address": "0x00532700",
+   "name": "cat_tutHideQuitButton",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "kasfTutHideQuitButton JMPs here; deletes the 'TutorialQuit' region (0xa6c50c), root refcount",
+   "hw1_equivalent": "",
+   "signature": "void cat_tutHideQuitButton(void)"
+  },
+  {
+   "address": "0x00532a80",
+   "name": "tutNextButtonClicked",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "kasfTutNextButtonClicked JMPs here (bytes e97bc40900); returns+clears 0xa6c4ec, the flag the Next process code 0x532750 sets. Name was on 0x532a90 (renamed there)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutNextButtonClicked",
+   "signature": "sdword tutNextButtonClicked(void)"
+  },
+  {
+   "address": "0x00532a90",
+   "name": "cat_tutNextTextButtonClicked",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Round-1 tutNextButtonClicked is wrong: kasfTutNextTextButtonClicked JMPs here, flag 0xa6c4f8 is set by NextText process 0x532780; kasfTutNextButtonClicked JMPs to 0x532a80",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_tutNextTextButtonClicked(void)",
+   "replaces": "tutNextButtonClicked"
+  },
+  {
+   "address": "0x00532aa0",
+   "name": "cat_tutPrevButtonClicked",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "kasfTutPrevButtonClicked JMPs here; returns and clears 0xa6c504, set by the Prev button process code 0x5327b0",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_tutPrevButtonClicked(void)"
+  },
+  {
+   "address": "0x00532ab0",
+   "name": "cat_tutQuitButtonClicked",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "kasfTutQuitButtonClicked JMPs here; returns and clears 0xa6c510, set by the Quit button process code 0x5327e0",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_tutQuitButtonClicked(void)"
+  },
+  {
+   "address": "0x00532ac0",
+   "name": "tutShowBackButton",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "kasfTutShowBackButton JMPs here; HW1 body: hide if visible (clears prev flag), atom 'TutorialBack' 128x32 at tutTextRect.x0, uicButtonProcess",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutShowBackButton",
+   "signature": "void tutShowBackButton(void)"
+  },
+  {
+   "address": "0x00532c40",
+   "name": "tutHideBackButton",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "kasfTutHideBackButton JMPs here; HW1 body: delete back region, dealloc root, back visible=0, prev visible=0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutHideBackButton",
+   "signature": "void tutHideBackButton(void)"
+  },
+  {
+   "address": "0x00532df0",
+   "name": "tutShowImages",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "Caller kasfTutShowImages; HW1 body with GetNextCommaDelimitedToken/tutParseImagesIntoIndices inlined: tokens matched against 'Tut_NextLesson_On...' list, 64px images, atom 'TutorialImage'",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutShowImages",
+   "signature": "void tutShowImages(char * szImages)"
+  },
+  {
+   "address": "0x005330f0",
+   "name": "tutHideImages",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "kasfTutHideImages JMPs here; deletes the image region 0xa6c4e0, root refcount, clears visible",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutHideImages",
+   "signature": "void tutHideImages(void)"
+  },
+  {
+   "address": "0x00533590",
+   "name": "tutEnableEverything",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "kasfTutEnableEverything JMPs here; HW1 body: tutSetFlagIndex(i,1) inlined for 64 bits of tutGameEnableFlags (0xba2e58)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutEnableEverything",
+   "signature": "void tutEnableEverything(void)"
+  },
+  {
+   "address": "0x005335e0",
+   "name": "tutDisableEverything",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "kasfTutDisableEverything JMPs here; HW1 body: clears the 64 tutGameEnableFlags bits (0xba2e58) via inlined tutSetFlagIndex(i,0)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutDisableEverything",
+   "signature": "void tutDisableEverything(void)"
+  },
+  {
+   "address": "0x005339d0",
+   "name": "tutBuilderRestrictAll",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "HW1 body: tutBuildRestrict[145 ships]=1 (0x24 dwords 0x01010101 + 1 byte), then inlined tutSetEnableFlags(\"BuildArrows\",0); follows tutBuilderSetRestrictions",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutBuilderRestrictAll",
+   "signature": "void tutBuilderRestrictAll(void)"
+  },
+  {
+   "address": "0x00533b30",
+   "name": "tutBuilderRestrictNone",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "HW1 body: tutBuildRestrict[145]=0, inlined tutSetEnableFlags(\"BuildArrows\",1); precedes tutIsBuildShipRestricted",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutBuilderRestrictNone",
+   "signature": "void tutBuilderRestrictNone(void)"
+  },
+  {
+   "address": "0x00533ca0",
+   "name": "cat_tutSelectShips",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Sole caller kasfTutSelectShips; empties selSelected via selSelectionRemoveSingleShip then selSelectionAddSingleShip for each ship of the given selection",
+   "hw1_equivalent": "",
+   "signature": "void cat_tutSelectShips(MaxSelection * ships)"
+  },
+  {
+   "address": "0x00533d00",
+   "name": "tutSelectedContainsShipTypes",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "high",
+   "evidence": "HW1 body: comma tokens -> StrToShipType -> count matching shiptype in selSelected (tutSelectedContainsShipType inlined); caller kasfSelectContainsShipTypes",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutSelectedContainsShipTypes",
+   "signature": "sdword tutSelectedContainsShipTypes(char * pShipTypes)"
+  },
+  {
+   "address": "0x005341f0",
+   "name": "cat_tutButtonsHideForScreen",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Saves Next/Prev/Quit visible flags (0xa6c524..52c) then hides those buttons; callers cmConstructionBegin, lmLaunchBegin, rmResearchGUIBegin (full-screen managers)",
+   "hw1_equivalent": "",
+   "signature": "void cat_tutButtonsHideForScreen(void)"
+  },
+  {
+   "address": "0x00534300",
+   "name": "cat_tutButtonsRestoreAfterScreen",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Re-shows Next/Prev/Quit buttons whose saved flag (0xa6c524..52c) is set; callers cmClose, lmCloseIfOpen, lmLaunchCapableShipDied, rmCloseIfOpen",
+   "hw1_equivalent": "",
+   "signature": "void cat_tutButtonsRestoreAfterScreen(void)"
+  },
+  {
+   "address": "0x00532750",
+   "name": "tutProcessNextButton",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "medium",
+   "evidence": "Button process ptr set by tutShowNextButton; bytes: if event==0x100 (CM_ButtonClick) set 0xa6c4ec=1, return 1. NOT a function entry in r5a: needs CreateFunction",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutProcessNextButton",
+   "signature": "udword tutProcessNextButton(regionhandle reg, sdword ID, udword event, udword data)"
+  },
+  {
+   "address": "0x00532780",
+   "name": "cat_tutProcessNextTextButton",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Process ptr set by cat_tutShowNextTextButton; on 0x100 sets 0xa6c4f8=1 and calls a sound function. NOT a function entry in r5a: needs CreateFunction",
+   "hw1_equivalent": "",
+   "signature": "udword cat_tutProcessNextTextButton(regionhandle reg, sdword ID, udword event, udword data)"
+  },
+  {
+   "address": "0x005327b0",
+   "name": "cat_tutProcessPrevButton",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Process ptr set by tutShowPrevButton; on 0x100 sets 0xa6c504=1. NOT a function entry in r5a: needs CreateFunction",
+   "hw1_equivalent": "",
+   "signature": "udword cat_tutProcessPrevButton(regionhandle reg, sdword ID, udword event, udword data)"
+  },
+  {
+   "address": "0x005327e0",
+   "name": "cat_tutProcessQuitButton",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Process ptr set by cat_tutShowQuitButton; on 0x100 sets 0xa6c510=1 and calls a function. NOT a function entry in r5a: needs CreateFunction",
+   "hw1_equivalent": "",
+   "signature": "udword cat_tutProcessQuitButton(regionhandle reg, sdword ID, udword event, udword data)"
+  },
+  {
+   "address": "0x00532820",
+   "name": "tutDrawNextButtonFunction",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "medium",
+   "evidence": "regDrawFunctionSet target in tutShowNextButton. NOT a function entry in r5a (code in gap 0x532810-0x532a80): needs CreateFunction",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutDrawNextButtonFunction",
+   "signature": "void tutDrawNextButtonFunction(regionhandle reg)"
+  },
+  {
+   "address": "0x005328c0",
+   "name": "cat_tutDrawNextTextButtonFunction",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "regDrawFunctionSet target in cat_tutShowNextTextButton. NOT a function entry in r5a: needs CreateFunction",
+   "hw1_equivalent": "",
+   "signature": "void cat_tutDrawNextTextButtonFunction(regionhandle reg)"
+  },
+  {
+   "address": "0x00532940",
+   "name": "cat_tutDrawPrevButtonFunction",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "regDrawFunctionSet target in tutShowPrevButton. NOT a function entry in r5a: needs CreateFunction",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutDrawBackButtonFunction",
+   "signature": "void cat_tutDrawPrevButtonFunction(regionhandle reg)"
+  },
+  {
+   "address": "0x005329e0",
+   "name": "cat_tutDrawQuitButtonFunction",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "regDrawFunctionSet target in cat_tutShowQuitButton. NOT a function entry in r5a: needs CreateFunction",
+   "hw1_equivalent": "",
+   "signature": "void cat_tutDrawQuitButtonFunction(regionhandle reg)"
+  },
+  {
+   "address": "0x00532c90",
+   "name": "tutProcessBackButton",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "medium",
+   "evidence": "Button process ptr set by tutShowBackButton. NOT a function entry in r5a (gap 0x532c8e-0x532df0): needs CreateFunction",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutProcessBackButton",
+   "signature": "udword tutProcessBackButton(regionhandle reg, sdword ID, udword event, udword data)"
+  },
+  {
+   "address": "0x00532d80",
+   "name": "tutDrawBackButtonFunction",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "medium",
+   "evidence": "regDrawFunctionSet target in tutShowBackButton. NOT a function entry in r5a: needs CreateFunction",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutDrawBackButtonFunction",
+   "signature": "void tutDrawBackButtonFunction(regionhandle reg)"
+  },
+  {
+   "address": "0x00533080",
+   "name": "tutDrawImageFunction",
+   "kind": "function",
+   "class": "hw1:Tutor.c",
+   "confidence": "medium",
+   "evidence": "regDrawFunctionSet target in tutShowImages. NOT a function entry in r5a (gap 0x533073-0x5330f0): needs CreateFunction",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutDrawImageFunction",
+   "signature": "void tutDrawImageFunction(regionhandle reg)"
+  },
+  {
+   "address": "0x00488970",
+   "name": "cat_gameStatsValueGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "(player row, column 0..16) -> float from 0x44-byte stats row (base 0xa43c7c) with a column->field switch; callers cat_gameStatsClick, cat_gameStatsDraw, cat_gameStatsBegin",
+   "hw1_equivalent": "",
+   "signature": "real32 cat_gameStatsValueGet(sdword row, sdword column)"
+  },
+  {
+   "address": "0x00488c80",
+   "name": "cat_gameStatsPlayerRowFill",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Fills a 17-int stats row for player i from universe.gameStats.playerStats (stride 0x7f8) sums and research count (cat_rmTechSetHas over 41 techs); caller cat_gameStatsBegin",
+   "hw1_equivalent": "",
+   "signature": "void cat_gameStatsPlayerRowFill(sdword playerIndex, sdword * row)"
+  },
+  {
+   "address": "0x00488e70",
+   "name": "cat_gameStatsLayoutCompute",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Computes the stats screen rect (centred), column x and row y arrays from fontWidth of MessageStrings headers and fontHeight, per numPlayers; caller cat_gameStatsBegin",
+   "hw1_equivalent": "",
+   "signature": "void cat_gameStatsLayoutCompute(void)"
+  },
+  {
+   "address": "0x00489470",
+   "name": "cat_gameStatsButtonDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Text button: mouse hover test, 3 cat_overlayIconDraw pieces, centred label with hotkey char highlighted (white vs 0xffc8c8c8); callers cat_gameStatsDraw, cat_moObjectivesFrameDraw",
+   "hw1_equivalent": "",
+   "signature": "void cat_gameStatsButtonDraw(rectangle * rect, char * label, sdword hotkeyIndex)"
+  },
+  {
+   "address": "0x0049b1b0",
+   "name": "cat_keyNameStringsInit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Tail of keyInit (not in HW1 keyInit): fills a per-keycode table (0xa44000 + key*4) with consecutive string IDs 0x2d7.. (key display names)",
+   "hw1_equivalent": "",
+   "signature": "void cat_keyNameStringsInit(void)"
+  },
+  {
+   "address": "0x0049b570",
+   "name": "cat_kbKeyCharParse",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Converts a string with a CRT helper (lib_crt_00676970) into one key char, returns it != 0; sole caller cat_kbKeySetCB (keybinding script parser)",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_kbKeyCharParse(char * string, char * key)"
+  },
+  {
+   "address": "0x0049b590",
+   "name": "cat_kbKeyToString",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Key code -> static string buffer 0xa44404 via _sprintf (special keys vs printable), switch on strCurKeyboardLanguage; callers kbListWindowCB, cat_kbBindingToString, cat_kbCommandKeyString",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opKeyToNiceString",
+   "signature": "char * cat_kbKeyToString(keyindex key)"
+  },
+  {
+   "address": "0x0049bec0",
+   "name": "transDetermineKatmaiSupport",
+   "kind": "function",
+   "class": "hw1:StubTransform.c",
+   "confidence": "high",
+   "evidence": "transStartup passes CPUID(1) EDX bit 25 (SSE); GetVersion() OS check, sets and returns global 0xa44460=(arg!=0). Matches StubTransform.c doc ('kind of guesses under NT')",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StubTransform.c:transDetermineKatmaiSupport",
+   "signature": "int transDetermineKatmaiSupport(unsigned int haveKatmai)"
+  },
+  {
+   "address": "0x0049bf10",
+   "name": "transSetKatmaiSupport",
+   "kind": "function",
+   "class": "hw1:StubTransform.c",
+   "confidence": "high",
+   "evidence": "Sets the Katmai global 0xa44460 = on; transStartup calls it with 1 (forced) or 0 (disallowed) instead of the CPUID probe",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StubTransform.c:transSetKatmaiSupport",
+   "signature": "void transSetKatmaiSupport(unsigned int on)"
+  },
+  {
+   "address": "0x0049bf20",
+   "name": "transCanSupportKatmai",
+   "kind": "function",
+   "class": "hw1:StubTransform.c",
+   "confidence": "high",
+   "evidence": "returns the Katmai global 0xa44460; transStartup stores it in 0xa6bbe4 and picks the SSE transform function pointers when set",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StubTransform.c:transCanSupportKatmai",
+   "signature": "int transCanSupportKatmai(void)"
+  },
+  {
+   "address": "0x0049bf30",
+   "name": "transTransformCompletely_intrin",
+   "kind": "function",
+   "class": "hw1:StubTransform.c",
+   "confidence": "low",
+   "evidence": "(nVerts, dest, source, m0, m1) model+perspective transform taken by 0x52f340 when Katmai is on; grows temp vector lists (0x49c260). _intrin vs _xmm variant is a guess",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StubTransform.c:transTransformCompletely_intrin",
+   "signature": "void transTransformCompletely_intrin(int nVerts, hvector * dest, void * source, float * m0, float * m1)"
+  },
+  {
+   "address": "0x0049c260",
+   "name": "cat_kniTransGrowVertexLists",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "If count (EAX) > capacity 0xa446a0: kniTransFreeVertexLists then allocates 10 buffers of n*16 bytes via 0x52f160; caller transTransformCompletely_intrin",
+   "hw1_equivalent": "",
+   "signature": "void cat_kniTransGrowVertexLists(void)"
+  },
+  {
+   "address": "0x0049c310",
+   "name": "kniTransFreeVertexLists",
+   "kind": "function",
+   "class": "hw1:StubTransform.c",
+   "confidence": "medium",
+   "evidence": "Frees the 10 vertex list buffers (0xa446b0..d8) and zeroes capacity; callers transStartup, transShutdown, cat_kniTransGrowVertexLists; StubTransform.c doc 'frees vertex list contents'",
+   "hw1_equivalent": "HomeworldSDL/src/Game/StubTransform.c:kniTransFreeVertexLists",
+   "signature": "void kniTransFreeVertexLists(void)"
+  },
+  {
+   "address": "0x0054d6a0",
+   "name": "cat_kbCommandsCanShareKey",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "TRUE for command pairs allowed on one key (0x57/0x4e, 0x4f/0x6b, group 0x19..0x26), recursing with args swapped; callers cat_kbCheckBindingConflict, cat_kbSetNewKey",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_kbCommandsCanShareKey(sdword command1, sdword command2, bool32 swapped)"
+  },
+  {
+   "address": "0x0054e410",
+   "name": "cat_kbSetNewKey",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Binds key+Shift/Ctrl/Alt (keyScanCode 0xc36b90..92) to command: clears old slot, removes it from conflicting commands (cat_kbCommandsForKey, cat_kbCommandsCanShareKey); caller kbListWindowCB",
+   "hw1_equivalent": "HomeworldSDL/src/Game/KeyBindings.c:kbSetNewKey",
+   "signature": "void cat_kbSetNewKey(sdword command, udword key)"
+  },
+  {
+   "address": "0x0054e910",
+   "name": "cat_kbBindingGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Copies the 13-dword binding record of command (0xa6ee90 + cmd*0x34) to the caller; caller cat_moDebugKeyLineDraw",
+   "hw1_equivalent": "",
+   "signature": "void cat_kbBindingGet(sdword command, void * binding)"
+  },
+  {
+   "address": "0x0054e940",
+   "name": "cat_kbCommandNameGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "returns MessageStrings[table[command].stringId] (8-byte table at 0x8b5e58); caller cat_moDebugKeyLineDraw",
+   "hw1_equivalent": "",
+   "signature": "char * cat_kbCommandNameGet(sdword command)"
+  },
+  {
+   "address": "0x0052b890",
+   "name": "teColorAdjust",
+   "kind": "function",
+   "class": "hw1:Teams.c",
+   "confidence": "high",
+   "evidence": "HW1 body: colRGBToHLS of base colour, hue += colorize->hue wrapped to 0..1, lum/sat *= and clamped to 1, colHLSToRGB, pack colRGB; after teReset; caller teTeamColorsSet",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Teams.c:teColorAdjust",
+   "signature": "color teColorAdjust(color baseColor, void * colorize)"
+  },
+  {
+   "address": "0x0052ba90",
+   "name": "teTeamColorsSet",
+   "kind": "function",
+   "class": "hw1:Teams.c",
+   "confidence": "high",
+   "evidence": "HW1 body: multiPlayerGame -> colRGBToHSV, too-dark value -> cheater colours; base/stripe into teColorSchemes[i], trail colours via teColorAdjust; callers gameStart, levelPreInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Teams.c:teTeamColorsSet",
+   "signature": "void teTeamColorsSet(sdword iTeam, color baseColor, color stripeColor)"
+  },
+  {
+   "address": "0x0043df90",
+   "name": "cpHueSatImageCreate",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "HW1 body: frees old data (cpHueSatImageDelete inlined), memAlloc 256*256*4, colHSVToRGB(hue,255-sat,255-sat/4), trRGBTextureCreate; callers cpBaseColor, cpHueSaturationDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpHueSatImageCreate",
+   "signature": "color * cpHueSatImageCreate(void)"
+  },
+  {
+   "address": "0x0043e180",
+   "name": "cat_cpValueGradientCreateSized",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Same as cpValueTextureGradientCreate but width x height from args (valStep 1/height); sole caller cpValueDraw (HW1 cpValueDraw only binds cpValueTexture)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpValueTextureGradientCreate",
+   "signature": "color * cat_cpValueGradientCreateSized(sdword width, sdword height)"
+  },
+  {
+   "address": "0x0043e330",
+   "name": "cpValueTextureGradientCreate",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "HW1 body: hue/sat from base or stripe by cpColorMode, memAlloc 0x8000 (32x256 colours), 256 rows colHSVToRGB + memClearDword; callers cpBaseColor, cpStripeColor, cpPreviousColor, cpDefault",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpValueTextureGradientCreate",
+   "signature": "color * cpValueTextureGradientCreate(void)"
+  },
+  {
+   "address": "0x0043e4c0",
+   "name": "cpPreviewTexturePrepare",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "high",
+   "evidence": "HW1 body: 2x cpScalarFromCurveGet (race curves), trBufferColorRGB of preview palette, delete + trPalettedTextureCreate; callers cpBaseColor, cpPreviousColor, cpPreviewImageDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpPreviewTexturePrepare",
+   "signature": "void cpPreviewTexturePrepare(void)"
+  },
+  {
+   "address": "0x0043e690",
+   "name": "cpValueProcess",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "medium",
+   "evidence": "cpBaseColor pushes 0x43e690 to regFunctionSet for region 'CP_Value' (HW1: cpValueProcess). NOT a function entry in r5a (gap 0x43e68a-0x43eb70): needs CreateFunction",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpValueProcess",
+   "signature": "udword cpValueProcess(regionhandle region, sdword ID, udword event, udword data)"
+  },
+  {
+   "address": "0x0043e8f0",
+   "name": "cpHueSaturationProcess",
+   "kind": "function",
+   "class": "hw1:ColPick.c",
+   "confidence": "medium",
+   "evidence": "cpBaseColor pushes 0x43e8f0 to regFunctionSet for region 'CP_HueSaturation' (HW1: cpHueSaturationProcess). NOT a function entry in r5a: needs CreateFunction",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpHueSaturationProcess",
+   "signature": "udword cpHueSaturationProcess(regionhandle region, sdword ID, udword event, udword data)"
+  },
+  {
+   "address": "0x004c3490",
+   "name": "cat_mgAdBannerRender",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Draws the 468x60 banner buffer of cat_mgAdBannerDraw: glDrawPixels(GL_RGBA) normally, or two 256x64 textured quads when renderer string has 'Matrox'/'atrox' or other driver flags",
+   "hw1_equivalent": "",
+   "signature": "void cat_mgAdBannerRender(rectangle * rect)"
+  },
+  {
+   "address": "0x004b70e0",
+   "name": "mexLoad",
+   "kind": "function",
+   "class": "hw1:MEX.c",
+   "confidence": "high",
+   "evidence": "fileLoadAlloc, compares header with 'mannngo', dbgFatal 'Invalid MEX file' (path C:\\Cataclysm\\src\\game\\mex.c); callers loadMexDataCB, universeStaticInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MEX.c:mexLoad",
+   "signature": "void * mexLoad(char * filename)"
+  },
+  {
+   "address": "0x004b7190",
+   "name": "mexGetDockChunk",
+   "kind": "function",
+   "class": "hw1:MEX.c",
+   "confidence": "medium",
+   "evidence": "Walks MEX chunks for type 'Dock' (or 'SALVAGE') with the given name (HW1 mexGetDockChunk + mexGetSalChunk merged); caller mexGetDockStaticInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MEX.c:mexGetDockChunk",
+   "signature": "void * mexGetDockChunk(void * mex, char * dockname)"
+  },
+  {
+   "address": "0x004b7240",
+   "name": "mexGetResNozzleStatic",
+   "kind": "function",
+   "class": "hw1:MEX.c",
+   "confidence": "high",
+   "evidence": "Finds chunk 'Gun0', memAlloc 0x18 position+normalised direction; warning 'ResNozzle info not retrieved. Mesh extensions not loaded'; caller InitStatShipInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MEX.c:mexGetResNozzleStatic",
+   "signature": "void * mexGetResNozzleStatic(void * mex)"
+  },
+  {
+   "address": "0x004b7330",
+   "name": "mexGetRepairNozzleStatic",
+   "kind": "function",
+   "class": "hw1:MEX.c",
+   "confidence": "high",
+   "evidence": "Finds chunk 'Rep0', allocates the static; warning 'RepairNozzle info not retrieved. Mesh extensions not loaded'; caller InitStatShipInfo; before mexGetGunStaticInfo as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MEX.c:mexGetRepairNozzleStatic",
+   "signature": "void * mexGetRepairNozzleStatic(void * mex)"
+  },
+  {
+   "address": "0x004b7560",
+   "name": "mexGetDockStaticInfo",
+   "kind": "function",
+   "class": "hw1:MEX.c",
+   "confidence": "high",
+   "evidence": "Warnings 'Dock point \"%s\" not in mex %x' and 'Dock info not retrieved'; uses mexGetDockChunk + vecNormalize; caller InitStatShipInfo; after mexGetGunStaticInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MEX.c:mexGetDockStaticInfo",
+   "signature": "void mexGetDockStaticInfo(void * dockStaticInfo, void * mex)"
+  },
+  {
+   "address": "0x004b7680",
+   "name": "mexGetNAVLightStaticInfo",
+   "kind": "function",
+   "class": "hw1:MEX.c",
+   "confidence": "high",
+   "evidence": "Warnings 'Could not find NAVLight point in mex at %x' / 'NAV Light info not retrieved'; callers InitStatShipInfo, universeStaticInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MEX.c:mexGetNAVLightStaticInfo",
+   "signature": "void mexGetNAVLightStaticInfo(void * navLightStaticInfo, void * mex)"
+  },
+  {
+   "address": "0x004b7820",
+   "name": "mexVecToVec",
+   "kind": "function",
+   "class": "hw1:MEX.c",
+   "confidence": "high",
+   "evidence": "HW1 body: *dest=*source; zero vector -> x=1 else vecNormalize; between mexGetNAVLightStaticInfo and mexSetCollisionInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MEX.c:mexVecToVec",
+   "signature": "void mexVecToVec(vector * dest, vector * source)"
+  },
+  {
+   "address": "0x004b7880",
+   "name": "mexSetCollisionInfo",
+   "kind": "function",
+   "class": "hw1:MEX.c",
+   "confidence": "high",
+   "evidence": "HW1 body: zero scales -> 1, max scale, chunk 'Col0' sphere (+0x20 radius, offsets + x/y/zslide), then 'Rct0' rectangle; 8 args as HW1; caller precalcStaticHeader",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MEX.c:mexSetCollisionInfo",
+   "signature": "void mexSetCollisionInfo(void * staticCollInfo, void * mex, real32 forwardScale, real32 upScale, real32 rightScale, real32 xslide, real32 yslide, real32 zslide)"
+  },
+  {
+   "address": "0x004b7c20",
+   "name": "mexSetEngineNozzle",
+   "kind": "function",
+   "class": "hw1:MEX.c",
+   "confidence": "high",
+   "evidence": "HW1 body: chunk type 'Eng' name 'Eng0' with digit '0'+index (strings 0x8791ec), copies position to the ship static's nozzle slot; caller InitStatShipInfo; after mexSetCollisionInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MEX.c:mexSetEngineNozzle",
+   "signature": "void mexSetEngineNozzle(void * staticinfo, void * mex, sdword index)"
+  },
+  {
+   "address": "0x005280a0",
+   "name": "cat_scriptAsteroidPieceParse",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Replaces ',' and '?' then sscanf '%d %f %f %f %f %f %f %f %f %f %f', builds rotation via matMakeRotAboutX/Y + matMultiplyMatByMat; sole caller cat_scriptAsteroidBreakInfoLoad",
+   "hw1_equivalent": "",
+   "signature": "void cat_scriptAsteroidPieceParse(char * directory, char * field, void * dataToFillIn)"
+  },
+  {
+   "address": "0x00528190",
+   "name": "cat_scriptAsteroidBreakInfoLoad",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Opens directory+file, parses 'AsteroidBreakInfo' / 'NUMBER_OF_ASTEROID_PIECES' lines (fileLineRead, parseLine, _sscanf), memAlloc pieces; sole caller universeStaticInit",
+   "hw1_equivalent": "",
+   "signature": "void cat_scriptAsteroidBreakInfoLoad(char * directory, char * filename, void * dest)"
+  },
+  {
+   "address": "0x00523d00",
+   "name": "Make3dStar",
+   "kind": "function",
+   "class": "hw1:Star3d.c",
+   "confidence": "high",
+   "evidence": "HW1 body: random distance inner..outer, random X/Y/Z rotations (matMakeRotAbout*, matMultiplyMatByVec), colour from starMinColor..starMaxColor +/- red/green/blue variance; caller star3dInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Star3d.c:Make3dStar",
+   "signature": "void Make3dStar(void * star, real32 innerlimit, real32 outerlimit)"
+  },
+  {
+   "address": "0x004a3860",
+   "name": "TryToFindMothershipsForPlayers",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "HW1 body: for each player without mothership, dbg 'no mothership assigned, trying to find one:', univFindBackupMothership, 'no mothership found for this player'; callers levelInit, levelStartNext",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:TryToFindMothershipsForPlayers",
+   "signature": "void TryToFindMothershipsForPlayers(void)"
+  },
+  {
+   "address": "0x004a3a10",
+   "name": "levelInit",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "HW1 body: isLevelMissionManGenerated inlined ('; MissionMan' strncmp 12), shipMaxUnits reset, scriptSetStruct MissionSphere, ccFocusOnFleet/PlayersMothership; callers gameStart, tutInitTutorial",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:levelInit",
+   "signature": "void levelInit(char * directory, char * pickedMission)"
+  },
+  {
+   "address": "0x004a3c80",
+   "name": "levelStartNext",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "HW1 body: missionman check, singlePlayerSetMissionAttributes, SetSMMissionTweaks (smDepthCueRadius), scriptSetStruct MissionSphere, TryToFindMothershipsForPlayers; caller singlePlayerLoadNewLevel",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:levelStartNext",
+   "signature": "void levelStartNext(char * directory, char * pickedMission)"
+  },
+  {
+   "address": "0x004a3e10",
+   "name": "AnyShipOverlapsAsteroid",
+   "kind": "function",
+   "class": "hw1:LevelLoad.c",
+   "confidence": "high",
+   "evidence": "HW1 body: walk universe.ShipList, skip hidden/type 100, box test of position vs ship collspheresize + asteroid radius (asteroidStaticInfos stride 200); caller AddResourceToVolumeAtPosition",
+   "hw1_equivalent": "HomeworldSDL/src/Game/LevelLoad.c:AnyShipOverlapsAsteroid",
+   "signature": "bool32 AnyShipOverlapsAsteroid(vector * position, sdword asteroidtype)"
+  },
+  {
+   "address": "0x005732f0",
+   "name": "WONCommon__RegKey__RegKey",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "__thiscall ctor: vtable 0x72be20, RegOpenKeyExA or RegCreateKeyExA (KEY_ALL_ACCESS 0xf003f) on (root, key string), stores HKEY/open flag; next to WONCommon__RegKey__GetSubKey_2 etc.",
+   "hw1_equivalent": "",
+   "signature": ""
+  },
+  {
+   "address": "0x00564780",
+   "name": "cat_uiReleaseHiveSwarm",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Per selected ship with upgrade 0x800 (hive swarm; same bit cat_uiSpecialTargetCommand tests) and cat_hiveFrigateSwarmReady: clWrapSpecial(1 ship); caller cat_popupMenuExecuteSpecial; mainrgn.c band",
+   "hw1_equivalent": "",
+   "signature": "void cat_uiReleaseHiveSwarm(void)"
+  },
+  {
+   "address": "0x00564890",
+   "name": "cat_uiCloakShips",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Per selected ship with upgrade 0x20000 that is not cloaked (0x436110 tests SOF_Cloaked|SOF_Cloaking per CET spaceobj.h): clWrapSpecial; caller cat_popupMenuExecuteSpecial",
+   "hw1_equivalent": "",
+   "signature": "void cat_uiCloakShips(void)"
+  },
+  {
+   "address": "0x00564920",
+   "name": "cat_uiDecloakShips",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Twin of cat_uiCloakShips for ships with upgrade 0x20000 that ARE cloaked (0x436110 != 0): clWrapSpecial toggles it off; caller cat_popupMenuExecuteSpecial",
+   "hw1_equivalent": "",
+   "signature": "void cat_uiDecloakShips(void)"
+  },
+  {
+   "address": "0x005663f0",
+   "name": "cat_uiFireDreadnoughtCannon",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Copies selSelected, keeps ships with upgrade 0x400 (bit of cat_dreadnoughtHasCannonUpgrade/DreadnoughtSpecialActivate) and not busy, clWrapSpecial; caller cat_popupMenuExecuteSpecial",
+   "hw1_equivalent": "",
+   "signature": "void cat_uiFireDreadnoughtCannon(void)"
+  },
+  {
+   "address": "0x00569030",
+   "name": "toDrawRadialIndicator4",
+   "kind": "function",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "HW1 body: per circle timers/delay/distance, reset past 2*radius, newrad=fsqrt(r^2-(r-d)^2), primModeClear, hmatMakeHMatFromMat, primCircleOutline3; sole caller toAllShipsDraw (HW1 proximity ring)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:toDrawRadialIndicator4",
+   "signature": "void toDrawRadialIndicator4(Ship * ship, real32 radius, real32 scale, color passedColour)"
+  },
+  {
+   "address": "0x0056a080",
+   "name": "cat_mrTacticalOverlayGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "returns 0xa75290 = mrDrawTactical (saved/restored by mrNISStarting/mrNISStopping, gates toAllShipsDraw); caller cat_popupMenuBuildSelectionItems. HW1 only has the setter",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrTacticalOverlayState",
+   "signature": "bool32 cat_mrTacticalOverlayGet(void)"
+  },
+  {
+   "address": "0x00a75290",
+   "name": "mrDrawTactical",
+   "kind": "data",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "mrNISStarting saves it to 0xa75294 and clears it, mrNISStopping restores it (applied plate comments say mrSaveTactical=mrDrawTactical); tested before toAllShipsDraw",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrDrawTactical"
+  },
+  {
+   "address": "0x00a75294",
+   "name": "mrSaveTactical",
+   "kind": "data",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "Holds mrDrawTactical across an NIS: written in mrNISStarting, read back in mrNISStopping",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrSaveTactical"
+  },
+  {
+   "address": "0x0055f2e0",
+   "name": "cat_lightSetAmbient",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Writes rgb + 1.0 alpha at +4 of light 0 (0xa74c28) or light 1 (0xa74cb0); sole caller cat_nisLightAmbient; Light.c band after cat_lightSetPosition",
+   "hw1_equivalent": "",
+   "signature": "void cat_lightSetAmbient(sdword lightIndex, real32 * rgb)"
+  },
+  {
+   "address": "0x0055f320",
+   "name": "cat_lightSetDiffuse",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Writes rgb + 1.0 alpha at +0x14 of light 0 or 1; sole caller cat_nisLightDiffuse",
+   "hw1_equivalent": "",
+   "signature": "void cat_lightSetDiffuse(sdword lightIndex, real32 * rgb)"
+  },
+  {
+   "address": "0x0055f360",
+   "name": "cat_lightSetGlobalAmbient",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Writes rgb + 1.0 into global 0x8b83f0 (global ambient); sole caller cat_nisGlobalAmbient",
+   "hw1_equivalent": "",
+   "signature": "void cat_lightSetGlobalAmbient(real32 * rgb)"
+  },
+  {
+   "address": "0x00561e40",
+   "name": "mainReinitRGL",
+   "kind": "function",
+   "class": "hw1:main.c",
+   "confidence": "high",
+   "evidence": "Declared bool32 mainReinitRGL(void) in HW1 SDL/main.h; body prints '-- reinit rGL --' when rGL (0xb3a700==2) and calls a driver fn(0x100d), returns 1; caller rndRenderTask",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.h:mainReinitRGL",
+   "signature": "bool32 mainReinitRGL(void)"
+  },
+  {
+   "address": "0x005072c0",
+   "name": "selCircleComputeGeneral",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "Body = HW1: centre.w=1, hmatMultiplyHMatByHVec into global selCameraSpace(0xc0cab0), radius.x+=worldRadius, 3 out params /w; follows selCircleCompute; 8 projection callers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selCircleComputeGeneral",
+   "signature": "void selCircleComputeGeneral(hmatrix * modelView, hmatrix * projection, vector * location, real32 worldRadius, real32 * destX, real32 * destY, real32 * destRadius)"
+  },
+  {
+   "address": "0x00507390",
+   "name": "cat_selStatusRectCompute",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Cataclysm helper: screen rect from ship selCircleX/Y/Radius (+0x150/154/158), max with selMinSelectionRadius; called by all 11 status-overlay draw helpers and selStatusDraw0-2",
+   "hw1_equivalent": "",
+   "signature": "void cat_selStatusRectCompute(Ship * ship, sdword lod, rectangle * rect)"
+  },
+  {
+   "address": "0x005074f0",
+   "name": "cat_selStatusUpgradePendingDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Allied ship with pending upgrades (cat_shipGetPendingWeaponUpgrades, cat_shipCanUpgradeArmour, cat_shipGetPendingUpgradeFlags): pulsing cat_colBlendRGBA marker; caller cat_selStatusBarsDraw",
+   "hw1_equivalent": "",
+   "signature": "void cat_selStatusUpgradePendingDraw(Ship * ship, sdword lod)"
+  },
+  {
+   "address": "0x00507630",
+   "name": "cat_selStatusIconsDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Calls cat_selStatusRectCompute then cat_overlayIconDraw once per count at ship+0x5f8; caller cat_selStatusBarsDraw. What the count is (guess: attached modules/upgrades) is unverified",
+   "hw1_equivalent": "",
+   "signature": "void cat_selStatusIconsDraw(Ship * ship, sdword lod)"
+  },
+  {
+   "address": "0x005076a0",
+   "name": "cat_selStatusHotKeyDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "HW1 selStatusDraw0 hot-key block split out: if hotkey bits (ship+0x43e & 0x7fe0) fontPrint(x, y-fontHeight(\" \"), selHotKeyNumberColor 0x892a88, selHotKeyString[...]); per-LOD font",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw0",
+   "signature": "void cat_selStatusHotKeyDraw(Ship * ship, sdword lod)"
+  },
+  {
+   "address": "0x00507740",
+   "name": "cat_selStatusAmmoCountDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "lod<3: for shiptype 10/25/84/85 (sDreadnought,sDestroyer,tMinelayer,tMissileDestroyer per CET ShipDefs.h) or Acolyte link: sums gun ammo of gun types 3/4, fontPrintf; else Hive (8/42) count",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw0",
+   "signature": "void cat_selStatusAmmoCountDraw(Ship * ship, sdword lod, sdword barIndex)"
+  },
+  {
+   "address": "0x00507920",
+   "name": "cat_selStatusStealthDetectDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Allied ship with static flag 0x20000 (the stealth types sub_53F9F0 tracks): one primCircleSolid2 per player, colour by allied or sub_53F9F0(ship,player) = detected by that player",
+   "hw1_equivalent": "",
+   "signature": "void cat_selStatusStealthDetectDraw(Ship * ship, sdword lod)"
+  },
+  {
+   "address": "0x00507a10",
+   "name": "cat_selStatusBarDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Draws one status bar row: filled rect (factor) in colour + backdrop in dark colour via 2x primRectSolid2, row offset by index; called for health/EMP/resource/charge bars",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw0",
+   "signature": "void cat_selStatusBarDraw(Ship * ship, sdword lod, sdword row, real32 * factor, color * c, color * dark)"
+  },
+  {
+   "address": "0x00507b00",
+   "name": "cat_selHealthColorsGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Exactly HW1 selStatusDraw0 colour pick: factor > selShipHealthGreenFactor -> Green/DarkGreen, > Yellow -> Yellow/DarkYellow, else Red/DarkRed; callers cat_lmModuleSlot1-7Draw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw0",
+   "signature": "void cat_selHealthColorsGet(real32 * factor, color * c, color * dark)"
+  },
+  {
+   "address": "0x00507b70",
+   "name": "cat_selHealthFactorGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "factor = ship->health(+0x170) * staticinfo->oneOverMaxHealth(+0xa8) clamped 0..1 (HW1 selStatusDraw0 line); callers cat_lmModuleSlot1-7Draw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw0",
+   "signature": "void cat_selHealthFactorGet(Ship * ship, real32 * factor)"
+  },
+  {
+   "address": "0x00507bc0",
+   "name": "cat_selStatusBarsDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Shared body of selStatusDraw0-2: health bar, then ACV EMP, resources, beast weapon, dreadnought, big gun, cloak, grav well, sentinel bars, then hotkey/ammo/icon helpers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw0",
+   "signature": "void cat_selStatusBarsDraw(Ship * ship, sdword lod)"
+  },
+  {
+   "address": "0x00507f10",
+   "name": "selStatusDraw0",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "Entry 0 of the selStatusDraw table 0x892ac8 (6 entries, last nullsub = selStatusDrawNULL) indexed by currentLOD in selSelectedDraw; width 0.7 (selSelectionWidthFactor0), tutPointerShip rect",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw0",
+   "signature": "void selStatusDraw0(Ship * ship)"
+  },
+  {
+   "address": "0x005080f0",
+   "name": "selStatusDraw1",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "Entry 1 of selStatusDraw table 0x892ac8; same body as selStatusDraw0 with lod 1 (cat_selStatusRectCompute(ship,1), cat_selStatusBarsDraw(ship,1))",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw1",
+   "signature": "void selStatusDraw1(Ship * ship)"
+  },
+  {
+   "address": "0x005082c0",
+   "name": "selStatusDraw2",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "Entry 2 of selStatusDraw table 0x892ac8; lod 2 body, tutorial rect adjust",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw2",
+   "signature": "void selStatusDraw2(Ship * ship)"
+  },
+  {
+   "address": "0x00508480",
+   "name": "selStatusDraw3",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "medium",
+   "evidence": "Entry 3 of selStatusDraw table 0x892ac8 (dword 0x00508480 in exe); NOT a function entry in r5a (gap 0x50847e-0x50858f after selStatusDraw2): needs CreateFunction",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw3",
+   "signature": "void selStatusDraw3(Ship * ship)"
+  },
+  {
+   "address": "0x00508590",
+   "name": "selStatusDraw4",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "medium",
+   "evidence": "Entry 4 of selStatusDraw table 0x892ac8 (dword 0x00508590); NOT a function entry in r5a (gap up to selSelectedDraw 0x5086a0): needs CreateFunction",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw4",
+   "signature": "void selStatusDraw4(Ship * ship)"
+  },
+  {
+   "address": "0x005086a0",
+   "name": "selSelectedDraw",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "HW1 flow: fontCurrentGet, rndTextureEnable/LightingEnable(0), loop selSelected, univSpaceObjInRenderList, radius>0, Mothership LOD--, glShadeModel(0x1d00), selStatusDraw[lod] (sole xref of 0x892ac8)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelectedDraw",
+   "signature": "void selSelectedDraw(void)"
+  },
+  {
+   "address": "0x00508900",
+   "name": "selSelectingDraw",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "HW1 body: loop selSelecting, precise box over 8 points (1e21 bounds) else radius*tacticalSelectionScale max selMinSelectionRadius, primRectOutline2(selSelectingColor); caller cat_mrSelectRectDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelectingDraw",
+   "signature": "void selSelectingDraw(void)"
+  },
+  {
+   "address": "0x00508be0",
+   "name": "selCentrePointComputeGeneral",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "HW1 body: min/max of ship positions (1e21 bounds), *average_size += collspheresize*scale, /= count, returns midpoint; 17 callers (AI moves, kas vectors); before selSelectionCopy",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selCentrePointComputeGeneral",
+   "signature": "vector selCentrePointComputeGeneral(MaxSelection * selection, real32 * average_size)"
+  },
+  {
+   "address": "0x00508e30",
+   "name": "selCentrePointCompute",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "HW1: selCentrePoint(0xc0bad0) = selCentrePointComputeGeneral(&selSelected, &selAverageSize 0xc0bae4); callers piePointModeOnOff, piePointSpecDraw, smSensorsClose",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selCentrePointCompute",
+   "signature": "void selCentrePointCompute(void)"
+  },
+  {
+   "address": "0x00508ea0",
+   "name": "selSelectionIsReinforced",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "HW1 body: src<=dest -> FALSE, dest==0 -> FALSE, need 1 or n*215/256 (SEL_ReinforceFactor, 0xd7>>8), count dest ships in source; directly after selSelectionCopy",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelectionIsReinforced",
+   "signature": "bool32 selSelectionIsReinforced(MaxAnySelection * dest, MaxAnySelection * source)"
+  },
+  {
+   "address": "0x00892ac8",
+   "name": "selStatusDraw",
+   "kind": "data",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "6 code pointers: 0x507f10,0x5080f0,0x5082c0,0x508480,0x508590,nullsub 0x49ae30 (= selStatusDrawNULL); indexed by LOD in selSelectedDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw"
+  },
+  {
+   "address": "0x00892a80",
+   "name": "selSelectionWidthFactor0",
+   "kind": "data",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "float 0.7 (0x3f333333) = SEL_SelectionWidthFactor0; multiplies the selection radius in selStatusDraw0-2 bar half-width",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelectionWidthFactor0"
+  },
+  {
+   "address": "0x00892a88",
+   "name": "selHotKeyNumberColor",
+   "kind": "data",
+   "class": "hw1:Select.c",
+   "confidence": "medium",
+   "evidence": "colour 0xfffafafa passed to fontPrint/fontPrintf with selHotKeyString in cat_selStatusHotKeyDraw and the ammo-count text",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selHotKeyNumberColor"
+  },
+  {
+   "address": "0x00892a90",
+   "name": "selHotKeyString",
+   "kind": "data",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "char* array, first entry 0x892ae0 = \"10\" (HW1 {\"10\",\"1\",...\"9\"}); indexed in cat_selStatusHotKeyDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selHotKeyString"
+  },
+  {
+   "address": "0x00c0bad0",
+   "name": "selCentrePoint",
+   "kind": "data",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "vector written by selCentrePointCompute from selCentrePointComputeGeneral(&selSelected,...)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selCentrePoint"
+  },
+  {
+   "address": "0x00c0bae4",
+   "name": "selAverageSize",
+   "kind": "data",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "real32 average_size out-param of selCentrePointComputeGeneral in selCentrePointCompute",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selAverageSize"
+  },
+  {
+   "address": "0x00c0cab0",
+   "name": "selCameraSpace",
+   "kind": "data",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "hvector global written by hmatMultiplyHMatByHVec(&selCameraSpace, modelView, &centre) in selCircleComputeGeneral",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selCameraSpace"
+  },
+  {
+   "address": "0x00529150",
+   "name": "tacticsShipDied",
+   "kind": "function",
+   "class": "hw1:Tactics.c",
+   "confidence": "high",
+   "evidence": "HW1 body: walk RetreatList, delete node if retreater==ship, else remove ship from attacker list (swap last), delete when empty; callers univDeleteDeadShip, univRemoveShipReferences",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tactics.c:tacticsShipDied",
+   "signature": "void tacticsShipDied(Ship * ship)"
+  },
+  {
+   "address": "0x00529250",
+   "name": "tacticsMaxDistToTarget",
+   "kind": "function",
+   "class": "hw1:Tactics.c",
+   "confidence": "high",
+   "evidence": "HW1 body: max squared distance from selection ships to target position, return fsqrt; caller delegateCommand (HW1 CommandLayer.c uses it for defenders)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tactics.c:tacticsMaxDistToTarget",
+   "signature": "real32 tacticsMaxDistToTarget(SelectCommand * selection, SpaceObjRotImpTarg * target)"
+  },
+  {
+   "address": "0x005292f0",
+   "name": "tacticsCheckGuardConditionsDuringAttack",
+   "kind": "function",
+   "class": "hw1:Tactics.c",
+   "confidence": "high",
+   "evidence": "HW1 body: average pos of command->selection vs command->protect (+0x2b4), distSqr > threshold -> TRUE; callers processAttackToDo, processAttackToDoInFormation",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tactics.c:tacticsCheckGuardConditionsDuringAttack",
+   "signature": "bool32 tacticsCheckGuardConditionsDuringAttack(CommandToDo * command)"
+  },
+  {
+   "address": "0x005294c0",
+   "name": "cat_tacticsFindResponsibleShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Returns the ship that should retaliate: formation leader (command->selection[0]), dock parent for class 10, Nomad field emitter (type 132) via cat_nomadMoonFind; caller cat_tacticsShipAttacked",
+   "hw1_equivalent": "",
+   "signature": "Ship * cat_tacticsFindResponsibleShip(Ship * ship)"
+  },
+  {
+   "address": "0x005295c0",
+   "name": "cat_tacticsMergeAttackTargets",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "dest = existing attack targets + new targets not already in them (local 1000-entry list); called by cat_tacticsRetaliatePassive",
+   "hw1_equivalent": "",
+   "signature": "void cat_tacticsMergeAttackTargets(AttackCommand * dest, AttackCommand * existing, AttackCommand * attackers)"
+  },
+  {
+   "address": "0x005296f0",
+   "name": "cat_tacticsRetaliatePassive",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "tacticstype 1 (Neutral) branch of cat_tacticsRetaliate: drop untargetable attackers, isShipPassiveAttackCapable, ShipsInPassiveAttackRange, clPassiveAttack (HW1 Neutral case)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tactics.c:tacticsDelegateSingleAttack",
+   "signature": "void cat_tacticsRetaliatePassive(Ship * ship, CommandToDo * command, AttackCommand * attackers)"
+  },
+  {
+   "address": "0x00529830",
+   "name": "cat_tacticsAveragePosition",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Average position of a selection (single ship -> its position) into vector out; HW1 setAveragePosition with arguments reversed; caller cat_tacticsRetaliateEvasive",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tactics.c:setAveragePosition",
+   "signature": "void cat_tacticsAveragePosition(SelectCommand * selection, vector * vec)"
+  },
+  {
+   "address": "0x005298c0",
+   "name": "cat_shipIsMothership",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "returns shiptype(+0x2b0)==18||==53 (sMothership, bMothership in CET ShipDefs.h); caller cat_rammingFrigatePushTarget",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipIsMothership(Ship * ship)"
+  },
+  {
+   "address": "0x005298e0",
+   "name": "cat_tacticsRetaliateEvasive",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "tacticstype 0 (Evasive) branch of cat_tacticsRetaliate: moves selection away from attackers' average position by cat_shipGetFOWRadius (vecNormalize, clMove), then passive retaliate",
+   "hw1_equivalent": "",
+   "signature": "void cat_tacticsRetaliateEvasive(Ship * ship, CommandToDo * command, AttackCommand * attackers)"
+  },
+  {
+   "address": "0x00529b70",
+   "name": "cat_tacticsSelectionHasFlag80Ship",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "TRUE if ship, its formation members or command selection has flag 0x80 at +0x1c8; cat_tacticsRetaliate skips when TRUE. Flag meaning unknown, name descriptive only",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_tacticsSelectionHasFlag80Ship(Ship * ship, CommandToDo * command)"
+  },
+  {
+   "address": "0x00529c20",
+   "name": "cat_tacticsShipAttacked",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller univCheckShipState (HW1 gettingrocked retaliation site); picks responsible ship + getShipAndItsCommand, then cat_tacticsRetaliate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tactics.c:tacticsDelegateAttackCommand",
+   "signature": "void cat_tacticsShipAttacked(Ship * ship, CommandToDo * command, AttackCommand * attackers)"
+  },
+  {
+   "address": "0x00529cb0",
+   "name": "cat_tacticsRetaliate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Switch on command order, copies attackers (memAlloc), by tacticstype(+0x2b8): 0 evasive, 1 passive, 2 MakeShipsAttackCapable+clAttack (aggressive); Cataclysm rewrite of HW1 delegate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Tactics.c:tacticsDelegateAttackCommand",
+   "signature": "void cat_tacticsRetaliate(Ship * ship, CommandToDo * command, AttackCommand * attackers)"
+  },
+  {
+   "address": "0x00529f00",
+   "name": "cat_tacticsNotRetreatingToDockCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "ShipConstraintsCB passed to MakeShipsOnlyFollowConstraints: FALSE for Evasive ship docking (order 3) with health factor below 0x8a89f4 threshold",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_tacticsNotRetreatingToDockCB(Ship * ship)"
+  },
+  {
+   "address": "0x00529f70",
+   "name": "cat_tacticsRemoveRetreatingShips",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "MakeShipsOnlyFollowConstraints(selection, cat_tacticsNotRetreatingToDockCB); callers clMove, clAttack",
+   "hw1_equivalent": "",
+   "signature": "void cat_tacticsRemoveRetreatingShips(SelectCommand * selection)"
+  },
+  {
+   "address": "0x00529f90",
+   "name": "cat_tacticsEvasiveRetreatToDock",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller ApplyDamageToTarget: Evasive ship (tacticstype 0) that can dock and whose health factor < threshold gets clDock(selection of 1) unless already docking",
+   "hw1_equivalent": "",
+   "signature": "void cat_tacticsEvasiveRetreatToDock(Ship * ship)"
+  },
+  {
+   "address": "0x0052a060",
+   "name": "cat_shipIsUntargetable",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "returns staticinfo flags(+0x1ec) bit 14 (0x4000); same bit makes cat_shipIsTargetableBy FALSE; 17 callers (selection click/drag, docking, univCreateShip). Bit meaning a guess",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipIsUntargetable(Ship * ship)"
+  },
+  {
+   "address": "0x0052a080",
+   "name": "cat_shipIsTargetableBy",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "(player, ship): FALSE if not visible to player (sub_53F9F0), crystal, flag 0x4000, dead, not a ship, big gun/crate/junk types 110-123,141, outside smUniverseSize; AI + tactics callers",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipIsTargetableBy(Player * player, Ship * ship)"
+  },
+  {
+   "address": "0x0053f590",
+   "name": "cat_univFindNearestShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Walks universe.ShipList, optional filter callback(ship), returns the ship with the smallest squared distance to the given object (1e20 start); caller cat_beastWeaponHouseKeep",
+   "hw1_equivalent": "",
+   "signature": "Ship * cat_univFindNearestShip(SpaceObj * from, void * filterCB)"
+  },
+  {
+   "address": "0x0053f680",
+   "name": "cat_univMothershipModuleTypesGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Fills a list of Somtaaw mothership module types (19-32 per CET ShipDefs.h), count at [20], by tutorial/mission/'DemoBigGun2'/'DemoSect2'; callers cat_univCreateMothershipModules, unitCapCreateShip",
+   "hw1_equivalent": "",
+   "signature": "void cat_univMothershipModuleTypesGet(sdword * typeList)"
+  },
+  {
+   "address": "0x0053f840",
+   "name": "cat_univBeastMothershipModuleTypesGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Missions 1-3 -> 0 modules, else types 54/55 (bMothershipDockingBay, bMothershipEnginesLower per CET ShipDefs.h), count 2 at [20]; 'DemoBeastAttack2'; caller cat_univCreateMothershipModules",
+   "hw1_equivalent": "",
+   "signature": "void cat_univBeastMothershipModuleTypesGet(sdword * typeList)"
+  },
+  {
+   "address": "0x0053f8c0",
+   "name": "cat_shipNozzleInfoGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Returns entry (index, -1 -> 0; stride 0x58) of the per-LOD list at ship+0x4b8 (LOD byte +0x34), or NULL; sole caller trailGetNozzleOffset",
+   "hw1_equivalent": "",
+   "signature": "void * cat_shipNozzleInfoGet(Ship * ship, sdword index)"
+  },
+  {
+   "address": "0x0053f900",
+   "name": "cat_meshObjectMatrixConcat",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Recursive: walks parent link (+0x54) first, then hmatMultiplyHMatByHMat with this object's local hmatrix (+0x14 or object+0x34); caller cat_meshObjectMatrixGet",
+   "hw1_equivalent": "",
+   "signature": "void cat_meshObjectMatrixConcat(void * unused, hmatrix * dest, void * object)"
+  },
+  {
+   "address": "0x0053f970",
+   "name": "cat_meshObjectMatrixGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "NULL object -> identity hmatrix (0x72aed8), else same parent-chain concatenation as cat_meshObjectMatrixConcat; sole caller trailGetNozzleOffset",
+   "hw1_equivalent": "",
+   "signature": "void cat_meshObjectMatrixGet(void * unused, hmatrix * dest, void * object)"
+  },
+  {
+   "address": "0x0053fad0",
+   "name": "cat_shipStealthDetectedSet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Sets per-player detected flag of a stealth ship (same per-type arrays +0x6e4/+0x654/+0x668/+0x650 that sub_53F9F0 reads); on new detection calls 0x522bc0; mimic disguise check",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipStealthDetectedSet(Ship * ship, sdword playerIndex, bool32 detected, bool32 silent)"
+  },
+  {
+   "address": "0x0053fce0",
+   "name": "cat_shipStealthInit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "For the stealth ship types (2,5,36,44,94,97 -> 1; 3 -> 0) calls cat_shipStealthDetectedSet for all 8 players, silent; caller univCreateShip",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipStealthInit(Ship * ship)"
+  },
+  {
+   "address": "0x0053fd90",
+   "name": "cat_shipStealthDetectionUpdate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Allies always detect; ships with static flag 0x10000 + upgrade 0x800000 within cat_shipGetFOWRadius detect for their owner; applied via cat_shipStealthDetectedSet; caller cat_univShipDeferredUpdate",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipStealthDetectionUpdate(Ship * ship)"
+  },
+  {
+   "address": "0x0053ff30",
+   "name": "cat_shipStealthTargetState",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "(ship, player): 1 if own ship, 2 if a stealth type not detected by that player, else 0; sole caller cat_beastWeaponFindNearestTarget",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_shipStealthTargetState(Ship * ship, Player * player)"
+  }
+ ],
+ "audit": {
+  "sampled": 30,
+  "wrong": 1,
+  "correct": 29,
+  "unverifiable": 0,
+  "precision": 0.9667,
+  "action": "keep (precision >= 0.9); dropped the sampled-wrong proposal(s)",
+  "dropped": [
+   {
+    "address": "0x0054d3d0",
+    "name": "cat_kbDebugKeyGet",
+    "reason": "returns MessageStrings[0xbb4c34..] entries (0xbb4c34 lies inside MessageStrings@0xbb3620, no other symbol between); caller passes result as fontPrintf format string -> a key-group heading string (char*), not a debug key value (udword)"
+   }
+  ],
+  "seed": 19,
+  "strata": "all renames (1) + 12 high + 12 medium + 5 low",
+  "export": "ghidra/exports/cataclysm_gog_r5a",
+  "verdicts": [
+   {
+    "address": "0x0047fcf0",
+    "name": "cat_fowBoundaryUpdate",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00532300",
+    "name": "tutShowPrevButton",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x005326b0",
+    "name": "cat_tutHidePrevButton",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00532a90",
+    "name": "cat_tutNextTextButtonClicked",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00532ab0",
+    "name": "cat_tutQuitButtonClicked",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00532df0",
+    "name": "tutShowImages",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x005335e0",
+    "name": "tutDisableEverything",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x005339d0",
+    "name": "tutBuilderRestrictAll",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00533d00",
+    "name": "tutSelectedContainsShipTypes",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00532750",
+    "name": "tutProcessNextButton",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00488c80",
+    "name": "cat_gameStatsPlayerRowFill",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0049b570",
+    "name": "cat_kbKeyCharParse",
+    "confidence": "low",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0054d3d0",
+    "name": "cat_kbDebugKeyGet",
+    "confidence": "low",
+    "verdict": "wrong",
+    "reason": "returns MessageStrings[0xbb4c34..] entries (0xbb4c34 lies inside MessageStrings@0xbb3620, no other symbol between); caller passes result as fontPrintf format string -> a key-group heading string (char*), not a debug key value (udword)"
+   },
+   {
+    "address": "0x0054e910",
+    "name": "cat_kbBindingGet",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0054e940",
+    "name": "cat_kbCommandNameGet",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0052b890",
+    "name": "teColorAdjust",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0043e330",
+    "name": "cpValueTextureGradientCreate",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x004b7190",
+    "name": "mexGetDockChunk",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x004b7820",
+    "name": "mexVecToVec",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x004b7880",
+    "name": "mexSetCollisionInfo",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00528190",
+    "name": "cat_scriptAsteroidBreakInfoLoad",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x004a3a10",
+    "name": "levelInit",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x004a3c80",
+    "name": "levelStartNext",
+    "confidence": "high",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x005074f0",
+    "name": "cat_selStatusUpgradePendingDraw",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x00508590",
+    "name": "selStatusDraw4",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0052a060",
+    "name": "cat_shipIsUntargetable",
+    "confidence": "low",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0053f840",
+    "name": "cat_univBeastMothershipModuleTypesGet",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0053f8c0",
+    "name": "cat_shipNozzleInfoGet",
+    "confidence": "low",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0053fd90",
+    "name": "cat_shipStealthDetectionUpdate",
+    "confidence": "medium",
+    "verdict": "correct"
+   },
+   {
+    "address": "0x0053ff30",
+    "name": "cat_shipStealthTargetState",
+    "confidence": "low",
+    "verdict": "correct"
+   }
+  ]
+ }
+}

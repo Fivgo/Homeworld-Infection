@@ -1,0 +1,12 @@
+kind,address,name,status,before,after,detail
+call-ref,0x00626510,Watch_Mission13_Resourcers->kasJump,ok,,,00626548:'CALL 0x00490640' ok
+call-ref,0x006430c0,Watch_Mission16_Corvettes_Dock->kasfGetDockHost,ok,,,00643363:'CALL 0x0049a8b0' ok
+call-ref,0x0064ffe0,Init_Mission17_Workers->kasfTeamCount,ok,,,00650051:'CALL 0x00492ce0' ok
+call-ref,0x0066aa30,Watch_Tutorial1_SpeechEvents_WaitMessage5->kasfCameraFocus,ok,,,0066ab64:'CALL 0x00496870' ok
+guard,00528580,FUN_00528580,created-by-analysis,,size=102,
+guard,,snapshot-restore,done,functions=14691,functions=14949,"new_functions_by_analysis=1, noreturn_cleared=0, noreturn_new_kept=0, recreate_failed=0, recreated=0, regrow_failed=0, regrow_partial=0, regrown=0, still_gone=0, still_shrunk=0"
+call-ref,0x00626510,Watch_Mission13_Resourcers->kasJump,ok,,,00626548:'CALL 0x00490640' ok
+call-ref,0x006430c0,Watch_Mission16_Corvettes_Dock->kasfGetDockHost,ok,,,00643363:'CALL 0x0049a8b0' ok
+call-ref,0x0064ffe0,Init_Mission17_Workers->kasfTeamCount,ok,,,00650051:'CALL 0x00492ce0' ok
+call-ref,0x0066aa30,Watch_Tutorial1_SpeechEvents_WaitMessage5->kasfCameraFocus,ok,,,0066ab64:'CALL 0x00496870' ok
+summary,0x005d6fe0-0x00670a0f,region,done,covered=612687,covered=612687,"of 629296 bytes; functions 14948->14949; tables ; repair flow_cleared=0, flow_cleared_at=0[], ft_cleared=0, functions_fixed=0, holes_fixed=0, padding_trimmed=0, undis_after=0, undis_before=0, unresolved=0; repair-post flow_cleared=0, flow_cleared_at=0[], ft_cleared=0, functions_fixed=0, holes_fixed=0, padding_trimmed=0, undis_after=0, undis_before=0, unresolved=0; guard new_functions_by_analysis=1, noreturn_cleared=0, noreturn_new_kept=0, recreate_failed=0, recreated=0, regrow_failed=0, regrow_partial=0, regrown=0, still_gone=0, still_shrunk=0"

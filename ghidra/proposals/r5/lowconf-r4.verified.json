@@ -1,0 +1,461 @@
+{
+ "source": "lowconf-r4",
+ "method": "Re-check of the 180 round-4 low-confidence names (symbols_round4.json entries whose notes/verified.json say confidence=low, the 17 prototype-only entries excluded) against cataclysm_gog_r5a decompiled.c, call_graph.csv, functions.csv, raw exe bytes (jump table at 0x4f8f60, CustShipHeaders), HW1 HomeworldSDL source and CET ShipDefs.h/ClassDefs.h/FormationDefs.h/CommandLayer.h plus cet-knowledge.md offsets. 141 names confirmed (no proposal; includes the 5 game-region class-only placeholders left as they are, 0x415af0, 0x515930, 0x5af4a0, 0x5b3850, 0x5be5d0 and the lib_won/lib_magick/lib_msvc_stl slot names). Proposals: 19 raises with the same name, 7 renames of applied names shown wrong (high), and 13 real names for class-only placeholders (hw1_ShipSelect_*, cat_new_*, lib_msvc_stl_*), which are naming rather than renaming (medium). No removals.",
+ "done_subsystems": [
+  "band-51",
+  "band-5a",
+  "band-5b",
+  "band-5c",
+  "other"
+ ],
+ "proposals": [
+  {
+   "address": "0x004eab40",
+   "name": "cat_popupMenuSetupSensorsItems",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Gate 0xa5b1c8 is the sensors-manager-open flag (tested by kasfSensorsIsOpen, kasfCloseSensors, kasfSetSensorsLookAtPoint); copies key/command ids into submenu 0x12 items and enables them",
+   "signature": "void cat_popupMenuSetupSensorsItems(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004f4790",
+   "name": "cat_rmBeastPrintIndexToShipType",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Old name wrong: maps 10..0x1d to Beast ShipTypes 33..59 (bRecon..bMissileCorvette, CET ShipDefs); result is compared with ship->shiptype and indexes player+0x62b0[shiptype]",
+   "signature": "ShipType cat_rmBeastPrintIndexToShipType(sdword index)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "cat_rmShipTypeToModuleSlot"
+  },
+  {
+   "address": "0x004f8f60",
+   "name": "cat_shipIsSalvager",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Old name wrong: pure predicate, no side effects. Bytes: shiptype 14/49/72/89/97 -> mov eax,1; 102 trJunkYardDawg -> debug msg 0x753660 + 0; else 0. Callers test EAX (extraout_EAX)",
+   "signature": "bool32 cat_shipIsSalvager(Ship *ship)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "cat_salvageShipReleaseTarget"
+  },
+  {
+   "address": "0x004fa050",
+   "name": "cat_salvageDeliverToDepot",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Old name wrong (nothing released): puts carried ship in a free slot of depot's 16x0x14 transfer table, ETA via twSalTransSpeed/MaxTime, sets carried+0x3ec=depot, disable reason 2 on its salvagers",
+   "signature": "void cat_salvageDeliverToDepot(Ship *salvager, Ship *depot)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "cat_salvageReleaseClampedShips"
+  },
+  {
+   "address": "0x00511710",
+   "name": "cat_shipPrintIsDragging",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "6-byte getter of 0xa5e208; that flag is written only by cat_shipPrintDragStart (=1), cat_shipPrintDragEnd/cat_shipPrintReset (=0) and read by cat_shipPrintDraw/DragUpdate",
+   "signature": "bool32 cat_shipPrintIsDragging(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511ce0",
+   "name": "cat_selMakeShipsScuttleable",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "mrScuttle calls it (sel,1) then makeShipsRetireable where HW1 calls MakeShipMastersIncludeSlaves; drops +0x210-flagged ships and types 12/18/47/53 (Carrier/Mothership) with BCE 0x26 CannotComply",
+   "signature": "void cat_selMakeShipsScuttleable(SelectCommand *selection, bool32 check)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511ea0",
+   "name": "cat_selMakeShipsHaltable",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller cat_uiHaltSelection: filter(&selSelected,1) then clWrapHalt; drops ships with +0x210 (cat_shipSetDisableReason flag) unless +0x598 set, same +0x598 escape as halt item in popup builder",
+   "signature": "void cat_selMakeShipsHaltable(SelectCommand *selection, bool32 check)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "hw1_ShipSelect_00511ea0"
+  },
+  {
+   "address": "0x00511f00",
+   "name": "cat_selMakeShipsProtectCapable",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Old name wrong: no formation/leader test; drops ships whose command->ordertype.order (+0x14, as in makeShipsControllable) is 4/6/10/11-17; all 3 callers run it on key 0x4a before clWrapProtect",
+   "signature": "void cat_selMakeShipsProtectCapable(SelectCommand *selection, bool32 check)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "cat_selMakeShipsFormationLeaders"
+  },
+  {
+   "address": "0x00511f90",
+   "name": "cat_selMakeShipsMobileNotBusy",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Body = MakeShipsMobile(0x5126b0) with the +0x210 test forced on: drops immobile (static+0x31) or +0x210 ships, speech 0x400101b for own class-0 Mothership; caller popup hyperspace item",
+   "signature": "void cat_selMakeShipsMobileNotBusy(SelectCommand *selection)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "hw1_ShipSelect_00511f90"
+  },
+  {
+   "address": "0x00513540",
+   "name": "cat_shipCanMove",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Per-ship form of MakeShipsMobile: FALSE if staticinfo immobile (+0x31, CET StaticHeader) or (check && +0x210); popup builder/highlighter gate move items 3/6 with it",
+   "signature": "bool32 cat_shipCanMove(Ship *ship, bool32 check)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "hw1_ShipSelect_00513540"
+  },
+  {
+   "address": "0x00513570",
+   "name": "cat_shipCanDock",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "FALSE for shipclass 0 Mothership/10 Component, static+0x1f0 externalBuild, or (check && +0x210); FUN_00529f90 uses it to gate clDock of damaged Evasive ships; popup items 0xb/0xc",
+   "signature": "bool32 cat_shipCanDock(Ship *ship, bool32 check)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "hw1_ShipSelect_00513570"
+  },
+  {
+   "address": "0x005135e0",
+   "name": "cat_shipCanSetTactics",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "FALSE if (check && +0x210), shiptype 9 sSwarmer or +0x18 bit 1; popup builder marks tactics slot [ship+0x2b8 tacticstype] when TRUE (item 0xe); also gates tactics-based auto-dock 0x529f90",
+   "signature": "bool32 cat_shipCanSetTactics(Ship *ship, bool32 check)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "hw1_ShipSelect_005135e0"
+  },
+  {
+   "address": "0x00513620",
+   "name": "cat_shipCanCollectResources",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "ShipCanHarvest test inline (class 7, static+0x260>0) plus SP or game flag 0x20, and when check: not +0x210 and type 14/49 Worker; gates popup item 0x19 (harvest)",
+   "signature": "bool32 cat_shipCanCollectResources(Ship *ship, bool32 check)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "hw1_ShipSelect_00513620"
+  },
+  {
+   "address": "0x00513710",
+   "name": "cat_selMakeShipsDockCapableFor",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "mrDockingOrders passes target->shiptype; 0x70/0x71/0x72 = dSlipgateSmall/Medium/Large (CET ShipDefs) -> gate size 1/2/3 compared with a shipclass tier (static+0x1e8); other targets drop all",
+   "signature": "void cat_selMakeShipsDockCapableFor(SelectCommand *selection, ShipType dockTargetType, bool32 check)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00513800",
+   "name": "cat_shipClassCanUseSlipgate",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Old name wrong on its key argument: mrDockingOrders passes staticinfo->shipclass (+0x1e8), not a ShipType; 2nd arg is the slipgate's shiptype 0x70-0x72 (Small/Medium/Large)",
+   "signature": "bool32 cat_shipClassCanUseSlipgate(ShipClass shipclass, ShipType slipgateType)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "cat_shipTypeCanDockFor"
+  },
+  {
+   "address": "0x005163b0",
+   "name": "cat_blastDrawLightning",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller cat_blastRenderAll; random walk of N (0x894044) points on a sphere radius r at (x,y,z), each segment drawn by lightning-bolt drawer FUN_00576010 (also used by the beam effects)",
+   "signature": "uint cat_blastDrawLightning(real32 x, real32 y, real32 z, real32 radius)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "cat_new_005163b0"
+  },
+  {
+   "address": "0x00516610",
+   "name": "cat_blastRandomPolarAngle",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns centre const 0x72a590 +/- an inverse-square random offset; used as the 2nd spherical angle next to azimuth rand*0x72ab64 in cat_blastDrawLightning and the 0x5166b0 tables",
+   "signature": "real32 cat_blastRandomPolarAngle(void)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "cat_new_00516610"
+  },
+  {
+   "address": "0x005166b0",
+   "name": "cat_blastInitRandomTables",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller cat_blastInit; fills 0xa5e2a8..0xa66f48 with (1.0, random azimuth, cat_blastRandomPolarAngle) triples and 0xa66f48..0xa67010 with random indices < 0x894068",
+   "signature": "void cat_blastInitRandomTables(void)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "cat_new_005166b0"
+  },
+  {
+   "address": "0x00516d40",
+   "name": "cat_bigGunBulletsInFlight",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns count of list 0xa5e298 != 0; that list is filled only by cat_bigGunBulletTrack/cat_bigGunBulletRebuildList, emptied by cat_bigGunBulletUntrack/cat_blastReset",
+   "signature": "bool32 cat_bigGunBulletsInFlight(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0051fc60",
+   "name": "cat_soundEventBlast",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller cat_blastUpdate (end of a blast step); distance from eye/NIS camera to blast centre(+8)+radius(+0x3c) shell sets soundvolumeF/soundpanF/soundequalize",
+   "signature": "void cat_soundEventBlast(void *blast)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00524d70",
+   "name": "cat_statsRandomAttackShipStatic",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Arg is the AI player's race (aioCreateFancyTakeoutTarget passes player->race); random type from per-race tables 0x89700c.. -> GetShipStaticInfo, in the slot of HW1 statsBestShipToBuyToKillFleet",
+   "signature": "ShipStaticInfo *cat_statsRandomAttackShipStatic(ShipRace race)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00524eb0",
+   "name": "statsNumShipsNeededToKillFleet",
+   "class": "hw1:Stats.c",
+   "confidence": "high",
+   "evidence": "aioCreateFancyTakeoutTarget matches AIOrders.c:1301-1316: result 0 -> skip, >20 (0x14) -> re-pick ship and call again, clamp 20; follows statsNumShipsNeededToKillTarget; body stubbed",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:statsNumShipsNeededToKillFleet",
+   "signature": "sdword statsNumShipsNeededToKillFleet(ShipStaticInfo *shipstatic, SelectCommand *targetFleet)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0054eff0",
+   "name": "cat_kbLeechCB",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Pointer-table callback: copy of selSelected, cat_selMakeShipsHaveUpgrade(0x40), MakeShipsSpecialActivateCapable, then cat_popupMenuOpenLeech if any remain",
+   "signature": "void cat_kbLeechCB(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054f0d0",
+   "name": "cat_kbMimicShipsCB",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Pointer-table callback: copy of selSelected, cat_selMakeShipsHaveUpgrade(0x20), MakeShipsSpecialActivateCapable, then cat_popupMenuOpenMimicShips if any remain",
+   "signature": "void cat_kbMimicShipsCB(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054f130",
+   "name": "cat_kbMimicPlayersCB",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Pointer-table callback: copy of selSelected, cat_selMakeShipsHaveUpgrade(0x20), MakeShipsSpecialActivateCapable, then cat_popupMenuOpenMimicPlayers if any remain",
+   "signature": "void cat_kbMimicPlayersCB(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a0bb0",
+   "name": "std__multimap_Profile2Reply__find",
+   "class": "lib:msvc-stl",
+   "confidence": "high",
+   "evidence": "Old name wrong: after the _Lbound walk it returns end() (head) unless node.key <= key, i.e. MSVC find(); lower_bound would return the bound node itself",
+   "signature": "",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "std__multimap_Profile2Reply__lower_bound"
+  },
+  {
+   "address": "0x005a1330",
+   "name": "std__deque_uchar__pop_front",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "Advances First across 0x1000-byte blocks, --size (+0x2c), frees the emptied block or the whole map at size 0 = MSVC deque::pop_front; only caller std__deque_uchar__erase",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "lib_msvc_stl_005a1330"
+  },
+  {
+   "address": "0x005a14f0",
+   "name": "std__wstring__max_size",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "Returns 0x7ffffffd = allocator<wchar_t>::max_size()-2 (MSVC basic_string::max_size); only caller lib_crt_0059e960 is the wmemmove/_Xran/_Xlen wstring assign(str,pos,n)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "lib_msvc_stl_005a14f0"
+  },
+  {
+   "address": "0x005a3960",
+   "name": "std__deque_uchar__pop_back",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "Moves Last (+0x1c) back across 0x1000-byte blocks, --size (+0x2c), frees the emptied block or the map at size 0 = MSVC deque::pop_back; only caller std__deque_uchar__erase",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "lib_msvc_stl_005a3960"
+  },
+  {
+   "address": "0x005a4400",
+   "name": "std__wstring__deleting_dtor",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "basic_string layout (+4 ptr,+8 len,+0xc res): refcount byte at ptr-1, frees ptr-2 (wchar_t), zeroes +4..+0xc, operator_delete(this) if flag&1; caller TitanInterface_dtor",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "lib_msvc_stl_005a4400"
+  },
+  {
+   "address": "0x005afd70",
+   "name": "cat_moduleIterate",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Walks host +0x1bc->+0x34 attached-ship list in globals 0xa762c0..c8, returning only live ships whose static shipclass (+0x1e8) is 10 = CLASS_Component (CET ClassDefs.h); NULL continues",
+   "signature": "Ship *cat_moduleIterate(Ship *host)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005afed0",
+   "name": "cat_moduleIterFirst",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Wrapper cat_moduleIterate(host); 8 callers pair it with cat_moduleIterNext (dockPutShipOutside, AddShipToHyperspace, univRemoveShipFromOutside, worker repair) to visit CLASS_Component modules",
+   "signature": "Ship *cat_moduleIterFirst(Ship *host)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005afee0",
+   "name": "cat_moduleIterNext",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Wrapper cat_moduleIterate(NULL): continues the CLASS_Component iteration started by cat_moduleIterFirst; same 8 callers",
+   "signature": "Ship *cat_moduleIterNext(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005b94e0",
+   "name": "cat_mimicGetSelectRadius",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Returns staticinfo+0x4c = staticCollInfo.collspheresize (HW1 StaticCollInfo at +0x34) of the disguise type (+0x704) or own; HW1 selCircleCompute uses collspheresize and is a caller",
+   "signature": "real32 cat_mimicGetSelectRadius(Ship *ship)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005b9550",
+   "name": "cat_mimicGetAvoidRadius",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Returns staticinfo+0x38 = staticCollInfo.avoidcollspheresize of the disguise type or own; only caller aishipFlyToPointAvoidingObjsFunc (collision avoidance)",
+   "signature": "real32 cat_mimicGetAvoidRadius(Ship *ship)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005b95c0",
+   "name": "cat_mimicGetCameraRadius",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Returns staticinfo+0x3b4 = minimumZoomDistance (CET spaceobj.h:886 assert) of the disguise type or own (+0x728 fallback); callers cameraMinimumZoom, NewSetFocusPoint",
+   "signature": "real32 cat_mimicGetCameraRadius(Ship *ship)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005bd5f0",
+   "name": "cat_mothershipStartDeathSequence",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "AddShipToDeleteShipList diverts shiptype 0x12 sMothership here instead of the delete list; once (+0x6d4) arms a random death delay (+0x6d8), stores reason, disable reason 10",
+   "signature": "void cat_mothershipStartDeathSequence(Ship *ship, sdword reason)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c6e80",
+   "name": "cat_shipIsSentinelInSphere",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Old name wrong: tests formation +0x230 == 10; cat_uiProtectFormation issues 10 around a protected target and cat_uiProtectFormationCancel reverts 10 to SPHERE_FORMATION 5 (9 -> WALL 4)",
+   "signature": "bool32 cat_shipIsSentinelInSphere(Ship *ship)",
+   "kind": "function",
+   "hw1_equivalent": "",
+   "replaces": "cat_shipIsSentinelInWall"
+  }
+ ],
+ "audit": {
+  "sampled": 30,
+  "wrong": 1,
+  "unverifiable": 0,
+  "precision": 0.9667,
+  "action": "keep (precision >= 0.9); dropped the 1 sampled-wrong proposal 0x0048f8b0 cat_hsGateRectangle",
+  "seed": 19,
+  "sampled_addresses": [
+   "0x0048f8b0",
+   "0x004eab40",
+   "0x004f4790",
+   "0x004f8f60",
+   "0x004fa050",
+   "0x00511ce0",
+   "0x00511f00",
+   "0x00513540",
+   "0x005135e0",
+   "0x00513710",
+   "0x00513800",
+   "0x005163b0",
+   "0x00516610",
+   "0x005166b0",
+   "0x00516d40",
+   "0x0051fc60",
+   "0x00524d70",
+   "0x0054eff0",
+   "0x0054f130",
+   "0x005a0bb0",
+   "0x005a1330",
+   "0x005a3960",
+   "0x005a4400",
+   "0x005afed0",
+   "0x005afee0",
+   "0x005b94e0",
+   "0x005b9550",
+   "0x005b95c0",
+   "0x005bd5f0",
+   "0x005c6e80"
+  ],
+  "wrong_details": [
+   {
+    "address": "0x0048f8b0",
+    "name": "cat_hsGateRectangle",
+    "why": "Signature wrong: 5 cdecl args, not 4. hsStaticGateRender pushes origin,w,h,0x5a,1 then add esp,0x14; body tests [esp+0x34] (5th arg = outline) before the outline loop; alpha is an int (ubyte 90), not real32. Name itself is fine.",
+    "correct_signature": "void cat_hsGateRectangle(vector *origin, real32 width, real32 height, ubyte alpha, bool32 outline)"
+   }
+  ],
+  "notes": [
+   "0x00511f00: evidence says orders 11-17 are dropped but the switch skips 13 (drops 4,6,10,11,12,14,15,16,17); the rename is still correct (+0x370 is command, not formation).",
+   "The applied round-4 prototype of 0x0048f8b0 has the same wrong 4-parameter form and should be fixed in a later prototype pass."
+  ]
+ }
+}

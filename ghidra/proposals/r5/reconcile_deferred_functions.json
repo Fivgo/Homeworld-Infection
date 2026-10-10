@@ -1,0 +1,167 @@
+[
+ {
+  "address": "0x0043e690",
+  "name": "cpValueProcess",
+  "reason": "r5-deferred:ui-screens",
+  "class": "hw1:ColPick.c",
+  "confidence": "medium",
+  "evidence": "cpBaseColor pushes 0x43e690 to regFunctionSet for region 'CP_Value' (HW1: cpValueProcess). NOT a function entry in r5a (gap 0x43e68a-0x43eb70): needs CreateFunction",
+  "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpValueProcess",
+  "signature": "udword cpValueProcess(regionhandle region, sdword ID, udword event, udword data)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x0043e8f0",
+  "name": "cpHueSaturationProcess",
+  "reason": "r5-deferred:ui-screens",
+  "class": "hw1:ColPick.c",
+  "confidence": "medium",
+  "evidence": "cpBaseColor pushes 0x43e8f0 to regFunctionSet for region 'CP_HueSaturation' (HW1: cpHueSaturationProcess). NOT a function entry in r5a: needs CreateFunction",
+  "hw1_equivalent": "HomeworldSDL/src/Game/ColPick.c:cpHueSaturationProcess",
+  "signature": "udword cpHueSaturationProcess(regionhandle region, sdword ID, udword event, udword data)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x00508480",
+  "name": "selStatusDraw3",
+  "reason": "r5-deferred:render-combat+ui-screens",
+  "class": "hw1:Select.c",
+  "confidence": "high",
+  "evidence": "needs CreateFunctions (code after the 0x5082C0 RET, no function yet); table 0x892AC8 = {0x507F10,0x5080F0,0x5082C0,0x508480,0x5085 slot 3; pushes 3, calls 0x507BC0",
+  "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw3",
+  "signature": "void selStatusDraw3(Ship * ship)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x00508590",
+  "name": "selStatusDraw4",
+  "reason": "r5-deferred:render-combat+ui-screens",
+  "class": "hw1:Select.c",
+  "confidence": "high",
+  "evidence": "needs CreateFunctions (no function yet; ends RET 0x508699 before 0x5086A0); table 0x892AC8 slot 4; calls 0x507BC0 like slots 0-3",
+  "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw4",
+  "signature": "void selStatusDraw4(Ship * ship)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x00532750",
+  "name": "tutProcessNextButton",
+  "reason": "r5-deferred:ui-screens",
+  "class": "hw1:Tutor.c",
+  "confidence": "medium",
+  "evidence": "Button process ptr set by tutShowNextButton; bytes: if event==0x100 (CM_ButtonClick) set 0xa6c4ec=1, return 1. NOT a function entry in r5a: needs CreateFunction",
+  "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutProcessNextButton",
+  "signature": "udword tutProcessNextButton(regionhandle reg, sdword ID, udword event, udword data)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x00532780",
+  "name": "cat_tutProcessNextTextButton",
+  "reason": "r5-deferred:ui-screens",
+  "class": "cat-new",
+  "confidence": "medium",
+  "evidence": "Process ptr set by cat_tutShowNextTextButton; on 0x100 sets 0xa6c4f8=1 and calls a sound function. NOT a function entry in r5a: needs CreateFunction",
+  "hw1_equivalent": "",
+  "signature": "udword cat_tutProcessNextTextButton(regionhandle reg, sdword ID, udword event, udword data)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x005327b0",
+  "name": "cat_tutProcessPrevButton",
+  "reason": "r5-deferred:ui-screens",
+  "class": "cat-new",
+  "confidence": "medium",
+  "evidence": "Process ptr set by tutShowPrevButton; on 0x100 sets 0xa6c504=1. NOT a function entry in r5a: needs CreateFunction",
+  "hw1_equivalent": "",
+  "signature": "udword cat_tutProcessPrevButton(regionhandle reg, sdword ID, udword event, udword data)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x005327e0",
+  "name": "cat_tutProcessQuitButton",
+  "reason": "r5-deferred:ui-screens",
+  "class": "cat-new",
+  "confidence": "medium",
+  "evidence": "Process ptr set by cat_tutShowQuitButton; on 0x100 sets 0xa6c510=1 and calls a function. NOT a function entry in r5a: needs CreateFunction",
+  "hw1_equivalent": "",
+  "signature": "udword cat_tutProcessQuitButton(regionhandle reg, sdword ID, udword event, udword data)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x00532820",
+  "name": "tutDrawNextButtonFunction",
+  "reason": "r5-deferred:ui-screens",
+  "class": "hw1:Tutor.c",
+  "confidence": "medium",
+  "evidence": "regDrawFunctionSet target in tutShowNextButton. NOT a function entry in r5a (code in gap 0x532810-0x532a80): needs CreateFunction",
+  "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutDrawNextButtonFunction",
+  "signature": "void tutDrawNextButtonFunction(regionhandle reg)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x005328c0",
+  "name": "cat_tutDrawNextTextButtonFunction",
+  "reason": "r5-deferred:ui-screens",
+  "class": "cat-new",
+  "confidence": "medium",
+  "evidence": "regDrawFunctionSet target in cat_tutShowNextTextButton. NOT a function entry in r5a: needs CreateFunction",
+  "hw1_equivalent": "",
+  "signature": "void cat_tutDrawNextTextButtonFunction(regionhandle reg)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x00532940",
+  "name": "cat_tutDrawPrevButtonFunction",
+  "reason": "r5-deferred:ui-screens",
+  "class": "cat-new",
+  "confidence": "medium",
+  "evidence": "regDrawFunctionSet target in tutShowPrevButton. NOT a function entry in r5a: needs CreateFunction",
+  "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutDrawBackButtonFunction",
+  "signature": "void cat_tutDrawPrevButtonFunction(regionhandle reg)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x005329e0",
+  "name": "cat_tutDrawQuitButtonFunction",
+  "reason": "r5-deferred:ui-screens",
+  "class": "cat-new",
+  "confidence": "medium",
+  "evidence": "regDrawFunctionSet target in cat_tutShowQuitButton. NOT a function entry in r5a: needs CreateFunction",
+  "hw1_equivalent": "",
+  "signature": "void cat_tutDrawQuitButtonFunction(regionhandle reg)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x00532c90",
+  "name": "tutProcessBackButton",
+  "reason": "r5-deferred:ui-screens",
+  "class": "hw1:Tutor.c",
+  "confidence": "medium",
+  "evidence": "Button process ptr set by tutShowBackButton. NOT a function entry in r5a (gap 0x532c8e-0x532df0): needs CreateFunction",
+  "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutProcessBackButton",
+  "signature": "udword tutProcessBackButton(regionhandle reg, sdword ID, udword event, udword data)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x00532d80",
+  "name": "tutDrawBackButtonFunction",
+  "reason": "r5-deferred:ui-screens",
+  "class": "hw1:Tutor.c",
+  "confidence": "medium",
+  "evidence": "regDrawFunctionSet target in tutShowBackButton. NOT a function entry in r5a: needs CreateFunction",
+  "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutDrawBackButtonFunction",
+  "signature": "void tutDrawBackButtonFunction(regionhandle reg)",
+  "inside_function": ""
+ },
+ {
+  "address": "0x00533080",
+  "name": "tutDrawImageFunction",
+  "reason": "r5-deferred:ui-screens",
+  "class": "hw1:Tutor.c",
+  "confidence": "medium",
+  "evidence": "regDrawFunctionSet target in tutShowImages. NOT a function entry in r5a (gap 0x533073-0x5330f0): needs CreateFunction",
+  "hw1_equivalent": "HomeworldSDL/src/Game/Tutor.c:tutDrawImageFunction",
+  "signature": "void tutDrawImageFunction(regionhandle reg)",
+  "inside_function": ""
+ }
+]

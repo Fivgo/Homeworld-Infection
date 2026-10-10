@@ -1,0 +1,77 @@
+[
+ {
+  "address": "0x0043e690",
+  "name": "cpValueProcess",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x0043e8f0",
+  "name": "cpHueSaturationProcess",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x00508480",
+  "name": "selStatusDraw3",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x00508590",
+  "name": "selStatusDraw4",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x00532750",
+  "name": "tutProcessNextButton",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x00532780",
+  "name": "cat_tutProcessNextTextButton",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x005327b0",
+  "name": "cat_tutProcessPrevButton",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x005327e0",
+  "name": "cat_tutProcessQuitButton",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x00532820",
+  "name": "tutDrawNextButtonFunction",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x005328c0",
+  "name": "cat_tutDrawNextTextButtonFunction",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x00532940",
+  "name": "cat_tutDrawPrevButtonFunction",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x005329e0",
+  "name": "cat_tutDrawQuitButtonFunction",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x00532c90",
+  "name": "tutProcessBackButton",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x00532d80",
+  "name": "tutDrawBackButtonFunction",
+  "reason": "r5-deferred"
+ },
+ {
+  "address": "0x00533080",
+  "name": "tutDrawImageFunction",
+  "reason": "r5-deferred"
+ }
+]

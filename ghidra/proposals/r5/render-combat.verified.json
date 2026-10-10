@@ -1,0 +1,1397 @@
+{
+ "source": "render-combat",
+ "method": "Start from named neighbours in cataclysm_gog_r5a/call_graph.csv and functions.csv address order; compare decompiled.c bodies with HomeworldSDL/src (control flow, constants, GL enums, callees, call order of adjacent functions in the HW1 file vs address order); pointer tables and branch targets checked in original/game/cataclysm.exe with objdump and a raw .data scan; Cataclysm-only bodies named cat_<subsystem>Verb from callers/callees/fields (low unless the body pins the role). Addresses that are not yet function entries (0x00508480, 0x00508590) are marked 'needs CreateFunctions' in evidence; 0x00571611 is an off-cut of primBeveledRectSolid and gets no name. aimoves/dock-salcap/sensors-nebulae: every FUN_* inside the HW1 file address ranges is covered here; no FUN_* is left in the AIMoves.c (0x00406e90-0x0040e160), Dock.c (0x004631f0-0x00467b00) or Nebulae.c (0x004c7b30-0x004cb800) ranges, so their unmatched HW1 defs are inlined, folded or absent in Cataclysm.",
+ "done_subsystems": [
+  "render",
+  "combat",
+  "ship-code",
+  "aimoves",
+  "dock-salcap",
+  "sensors-nebulae",
+  "band-50",
+  "band-57"
+ ],
+ "proposals": [
+  {
+   "address": "0x005750c0",
+   "name": "rndShipVisibleUsingCoordSys",
+   "kind": "function",
+   "class": "hw1:render.c",
+   "confidence": "high",
+   "evidence": "Between rndShipVisible and rndFade as in render.c; glGetFloatv(0xBA7/0xBA6), rgluPerspective, rgluLookAt, hmatMakeHMatFromMat(coordsys), rndShipVisible, reload matrices; +Cataclysm fade fields",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/render.c:rndShipVisibleUsingCoordSys",
+   "signature": "bool32 rndShipVisibleUsingCoordSys(SpaceObj * spaceobj, Camera * camera)"
+  },
+  {
+   "address": "0x00574f80",
+   "name": "rndCameraInside",
+   "kind": "function",
+   "class": "hw1:render.c",
+   "confidence": "high",
+   "evidence": "Before rndShipVisible; SOF_Rotatable&SOF_Impactable test, eye-to-position distance vs collspheresize^2, then collCheckRectPoint(obj,&camera->eyeposition) (=FUN_0043a110)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/render.c:rndCameraInside",
+   "signature": "bool32 rndCameraInside(SpaceObj * spaceobj, Camera * camera)"
+  },
+  {
+   "address": "0x00576010",
+   "name": "cat_rndLightningBoltDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "From p0 to p1 in N segments: glBegin(GL_LINE_STRIP), random jitter per vertex via ranRandomFn; callers cat_dreadnoughtChargeEffect, cat_nomadMoonBeamEffect, cat_new_005163b0, 0x00576330",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00576330",
+   "name": "cat_rndLinkLightningDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_rndRenderObjectList; for each member of a ship link list (FUN_005aed60) draws cat_rndLightningBoltDraw from ship to member, saves/restores GL_LINE_SMOOTH (0xB20?) state; role guessed",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00577660",
+   "name": "cat_rndSortObjectsByDepth",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Called by rndMainViewRenderFunction with mode 1 (reset count) / 2 (exchange-sort a pointer list by float at +0x40, descending); role guessed from body",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050dfe0",
+   "name": "shColourSet0",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "Callers meshObjectRender/Lit (HW1 meshColour macro); base colour + sum of nDotVP*matdiffuse over lights, shDockFactor 1.1-t blend with dock colour, glColor4ub; Cataclysm adds colour-adjust args",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shColourSet0"
+  },
+  {
+   "address": "0x0050d7c0",
+   "name": "cat_shColourAddGlow",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Called by shColourSet0 and shSpecularColour: adds per-object glow (obj[6..8]*k, after cat_shGlowUpdate) or a packed signed RGB offset to r/g/b bytes, clamped 0..255",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050d560",
+   "name": "cat_shGlowUpdate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller cat_shColourAddGlow; decays glow fields by elapsed universe time, mixes in team colour (cat_shGetTeamColour) for trail-flag bits 0x10<<i; role guessed",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050d460",
+   "name": "cat_shGetTeamColour",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Team colour of the current render object (0xBB3024 player colour table; mimic uses cat_mimicGetApparentPlayerIndex) as floats normalised to max 1; callers trailDraw, trailDrawCapitalGlow",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050db30",
+   "name": "shGammaSet",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "After shGammaDown; shGammaAdjust=(float)gamma*0.01, shBrightness=adjust*127; callers opUpdateSettings, opRestoreSavedSettings, opBrightnessProcess",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shGammaSet",
+   "signature": "void shGammaSet(sdword gamma)"
+  },
+  {
+   "address": "0x0050db50",
+   "name": "shGammaGet",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "Returns (sdword)(shGammaAdjust*100) via __ftol; only caller opOptionsSaveSettings; follows shGammaSet as in Shader.c",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shGammaGet",
+   "signature": "sdword shGammaGet(void)"
+  },
+  {
+   "address": "0x0050dba0",
+   "name": "shSetMaterial",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "After shSetGlobalAmbient; copies 4 floats of ambient and diffuse when non-NULL; callers meshCurrentMaterialDefault, partMeshMaterialPrepare",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shSetMaterial",
+   "signature": "void shSetMaterial(real32 * ambient, real32 * diffuse)"
+  },
+  {
+   "address": "0x0050dc00",
+   "name": "shSetLighting",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "shLight[index] (stride 0x70) diffuse/ambient 4-float copies; callers lightDefaultLightSet, lightParseHSF, lightSetLighting",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shSetLighting",
+   "signature": "void shSetLighting(sdword index, real32 * diffuse, real32 * ambient)"
+  },
+  {
+   "address": "0x0050dc60",
+   "name": "shUpdateLighting",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "shBaseColor=globalAmbient*material, MIN2(diffuse[3],1), stdBase*0.196, per-light matdiffuse/stdmatdiffuse, *255, +shBrightness; callers mesh material setters",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shUpdateLighting",
+   "signature": "void shUpdateLighting(void)"
+  },
+  {
+   "address": "0x0050de20",
+   "name": "shSetExponent",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "index 0..2 guard; exponent==-1 restores shSpecularDefault[index]; callers partRenderMeshSystem, trailDrawCapitalGlow",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shSetExponent",
+   "signature": "void shSetExponent(sdword index, real32 exponent)"
+  },
+  {
+   "address": "0x0050de60",
+   "name": "shDockLight",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "One store shDockFactor=t (read by shColourSet0 as 1.1-t); after shSetExponent as in Shader.c; caller cat_rndRenderObjectList",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shDockLight",
+   "signature": "void shDockLight(real32 t)"
+  },
+  {
+   "address": "0x0050de70",
+   "name": "shDockLightColor",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "shDockColor=c and per-channel colReal32 scalars (byte*1/255); follows shDockLight; caller cat_rndRenderObjectList",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shDockLightColor",
+   "signature": "void shDockLightColor(color c)"
+  },
+  {
+   "address": "0x0050dee0",
+   "name": "shTransformNormal",
+   "kind": "function",
+   "class": "hw1:Shader.c",
+   "confidence": "high",
+   "evidence": "shNormalize ? 3x3 transform + 1/len (len>1e-30) : plain transform; caller shSpecularColour; matches Shader.c line by line",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Shader.c:shTransformNormal",
+   "signature": "void shTransformNormal(vector * out, vector * in, real32 * m)"
+  },
+  {
+   "address": "0x00575c90",
+   "name": "cat_rndObjectEffectsSetup",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Sets all per-object render globals (object 0xC32C00, fade, Naggarok EMP, stun 0x4e4, field 0x768) by inlining 0x00575a20/b70/c60/9f0; callers svShipViewRender, univBulletCollidedWithTarget",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00572010",
+   "name": "primCircleBorder",
+   "kind": "function",
+   "class": "hw1:prim2d.c",
+   "confidence": "high",
+   "evidence": "(x,y,radInner,radOuter,nSlices,colInner): GL_SMOOTH, GL_BLEND, per slice GL_TRIANGLE_FAN alpha 255 inside, 0 outside, sin/cos; between primCircleSolid2 and primPointLineIntersection",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/prim2d.c:primCircleBorder",
+   "signature": "void primCircleBorder(sdword x, sdword y, sdword radInner, sdword radOuter, sdword nSlices, color colInner)"
+  },
+  {
+   "address": "0x00570300",
+   "name": "cat_primRectSolidTexturedFullRectBlendC2",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Copy of primRectSolidTexturedFullRectC2 (prev function) with glIsEnabled(GL_BLEND) save/enable/restore; caller cat_cmSUBarDraw",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004e7240",
+   "name": "cat_pieCompassDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "No caller or absolute ref (dead code); circle primCircleOutlineZ(48 seg) + 15-degree ticks + 4 spokes with range ticks via primLine3; sits where PiePlate.c has piePlaneDraw",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0048a2f0",
+   "name": "gunCanShoot",
+   "kind": "function",
+   "class": "hw1:Gun.c",
+   "confidence": "high",
+   "evidence": "First Gun.c body before gunOrientGimbleGun; getShipAndItsCommand, burstFireTime==0 path vs burst state machine with soundEventBurstStop, passive-attack random fire delay; +Cataclysm health scaling",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Gun.c:gunCanShoot",
+   "signature": "bool32 gunCanShoot(Ship * ship, Gun * gun)"
+  },
+  {
+   "address": "0x0048a1c0",
+   "name": "cat_gunCanFire",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Wrapper called by every ship Fire routine (AcolyteFire, DefaultShipFire, DreadnoughtFire, ...): ship+0x570==1 blocks, upgraded-weapon fire delay shared by guns, else gunCanShoot",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0048b790",
+   "name": "cat_gunStaticSetSoundTypes",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Sets gunstatic+4 and +8 from cat_gunSoundTypeLookup(+0xC/+0x10 weapon class, +0x14 size) for normal and upgraded weapon; callers LoadShip, cat_shipUpgradesInit",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0048b7c0",
+   "name": "cat_gunSoundTypeLookup",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Pure table: (class 1..n, size 0..3) -> small index; only caller cat_gunStaticSetSoundTypes; read as gun sound type because cat_gunGetSoundType feeds soundEventPlay",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0048b8c0",
+   "name": "cat_gunGetSoundType",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns gunstatic+8 when the gun fires its upgraded weapon (gun->type==gunstatic+0x10 != +0xC) else gunstatic+4; callers soundEventPlay, soundEventUpdate, cat_shipPrintGuns",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0048b8e0",
+   "name": "cat_gunGetBulletSpeed",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Same upgraded-weapon test; returns gunstatic+0xF8 (upgraded) or +0xDC; callers GenericInterceptorAttack/PassiveAttack, same value feeds aishipGetTrajectoryWithVelPrediction in 0x0048cd40",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0048b950",
+   "name": "cat_gunPickMothershipModuleTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller processAttackToDo; if target is sCarrier/sMothership/bMothership (12/18/53) with an attached-piece list (+0x1BC->+0x34), returns the nearest piece with static flag 10",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0048cd40",
+   "name": "cat_gunFixedGunAimedAtTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Predicts target (aishipGetTrajectoryWithVelPrediction, bullet speed by upgrade state), gun heading via ship coordsys, true if miss distance < target collspheresize*k; callers gunShootGunsAt*",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00542cb0",
+   "name": "cat_bulletHomingUpdate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller univUpdateAllPosVelBullets; bullet->target (+0x124) steering: re-aims velocity/heading toward predicted target position, skips sSwarmer/bSwarmer (9/43) targets",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0043a110",
+   "name": "collCheckRectPoint",
+   "kind": "function",
+   "class": "hw1:Collision.c",
+   "confidence": "high",
+   "evidence": "Between collCheckRectLine and collCheckRectInRect as in Collision.c; only caller rndCameraInside, which in HW1 ends with collCheckRectPoint(obj,&camera->eyeposition)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Collision.c:collCheckRectPoint"
+  },
+  {
+   "address": "0x0043a900",
+   "name": "collZeroRectInfo",
+   "kind": "function",
+   "class": "hw1:Collision.c",
+   "confidence": "high",
+   "evidence": "Zeroes collrectoffset xyz and up/right/forward lengths (6 floats); after collCheckRectBumpCollision as in Collision.c; callers universeStaticInit, InitStatNebulaInfo, InitStatDustCloudInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Collision.c:collZeroRectInfo",
+   "signature": "void collZeroRectInfo(StaticCollInfo * staticCollInfo)"
+  },
+  {
+   "address": "0x0043a6b0",
+   "name": "cat_collLineTriangleIntersect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Segment p0-p1 vs triangle (a,b,c, optional normal via cross product): plane param t, point-in-triangle test; callers collCheckMissileShipColl, cat_meshObjectLineIntersect",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0043abf0",
+   "name": "cat_collLineSentinelFieldIntersect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "For ship+0x640 linked pairs (+0x644) tests the segment against triangle (ship,pairA,pairB) with cat_collLineTriangleIntersect, returns nearest index; callers collCheckBulletTargetColl, beam checks",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0043acc0",
+   "name": "cat_collSentinelFieldExempt",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller collCheckShipShipColl; sSentinel/bSentinel (17/52) with active field (FUN_005c6e50) vs ship flags +0x1C8&2 sets *out=1 to suppress the collision; role guessed",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00435f10",
+   "name": "cat_cloakInit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers CloakedFighterInit, P1IonArrayFrigateInit; sets SOF_Cloaked (0x200), zeroes the cloak state block (state 0, charge 1000.0, rates from args)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00435f50",
+   "name": "cat_cloakActivate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers CloakedFighterSpecialActivate/Attack/AttackPassive, P1IonArrayFrigateAttack*; state 0 -> 3 with random delay, or speechEventQueue(0x400088B) when charge too low",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00436110",
+   "name": "cat_shipIsCloakedFully",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns flags&SOF_Cloaked(0x200) && flags&0x400; 28 callers in targeting, selection, missiles, rendering (MakeSelectionNotHaveNonVisibleEnemyShips, aiuFindDecloakedShip...)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00436130",
+   "name": "cat_cloakGetFadeState",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_rndRenderObjectList; for the 3 cloaking ship types returns TRUE and *out=state+0x14 while cloak state is 2 or 3 (fading)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00436180",
+   "name": "cat_cloakGetChargeFraction",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Cloak charge (+4 of the state block for types 36/44/94) * constant; only caller cat_selStatusDrawBars, which draws it as a status bar when SOF_Cloaked",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004361c0",
+   "name": "cat_cloakUpdate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller CloakedFighterHouseKeep; cloak state machine 0..3: charge/drain, clears 0x400 flag, soundEventPlay(0x812), random re-cloak delay, shipHasJustCloaked",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004601d0",
+   "name": "cat_vecShipLocalToWorld",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "out = ship coordsys * local + ship position; callers RammingFrigate latch/push geometry and hw1_AIShip_00415af0; counterpart of cat_vecWorldToShipLocal",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00460220",
+   "name": "cat_shipDissolveInit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller univCreateShip; zeroes the dissolve block (+0x578 plane, +0x570 active=0, +0x574=1, +0x594 effect=0)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00460250",
+   "name": "cat_shipDissolveIsActive",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns ship+0x570==1; callers are the per-object render setup (sets render flag 0xC32C64 for a clipped draw)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00460270",
+   "name": "cat_shipDissolveComputePlane",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Plane from +0x578 direction and timer fraction (cat_timerFractionElapsed) in ship-local space (cat_vecWorldToShipLocal); callers cat_rndRenderObjectList, cat_shipDissolveUpdate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004603d0",
+   "name": "cat_shipDissolveStart",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Callers cat_salvageDepotProcessCrystal, RKOHouseKeep; kills attached pieces (ApplyDamageToTarget 1e21), sets +0x570=1, starts timer +0x584, stores direction, creates effect",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004604a0",
+   "name": "cat_shipDissolveSetDirection",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Stores a new direction vector at +0x578 and re-creates the effect; callers cat_salvageDepotProcessCrystal, RKOHouseKeep",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004604d0",
+   "name": "cat_shipDissolveFraction",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "min(cat_timerFractionElapsed(ship+0x584),1); callers cat_salvageDepotProcessCrystal, RKOHouseKeep",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00460500",
+   "name": "cat_shipDissolveEdgeIntersect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Line-plane intersection used on the 12 bounding-box edges (edge table 0x878738) by cat_shipDissolveUpdate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004605b0",
+   "name": "cat_shipDissolveCutEffects",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller cat_shipDissolveUpdate; spawns ETG effects (static 0xC41D48) along the cut polygon with random points, matCreateCoordSysFromHeading",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00460850",
+   "name": "cat_shipDissolveUpdate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller cat_univShipDeferredUpdate; while active and timer running: transforms 8 box corners, intersects 12 edges with the plane, averages the cut polygon, effects",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00460af0",
+   "name": "cat_shipDissolveEffectCreate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Creates the sweep ETG effect (static 0xC41D4C) sized from the ship collsphere, length from cat_timerRemaining, crystal special case (cat_shipIsCrystal); stores +0x594",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00460c70",
+   "name": "cat_shipDissolveStop",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Callers cat_salvageDepotDied, RKORemoveShipReferences; if active, +0x574=0 and deletes the effect at +0x594 (FUN_005bbbb0)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0044f290",
+   "name": "cat_clSendSpecialTargetFlagged",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Copy of clSendSpecial (next to it) building a 0xCCCC command packet of type 0x19 with ships and targets; cat_clWrapSpecialTarget calls it in multiplayer when flag!=0",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0044f490",
+   "name": "cat_clSendSpecialTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Same packet builder with command type 0x1A; cat_clWrapSpecialTarget calls it in multiplayer when flag==0",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00449790",
+   "name": "cat_clHarvestNearestResource",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers mrHarvestResources, rescollectFindNearestResource; univFindNearestResource, else speech + dock (FindNearestShipToDockAt, clWrapDock); clWrapCollectResource or ChangeSingleShipToCollectResource",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c8e30",
+   "name": "cat_workerBeamEffectUpdate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "No caller or absolute ref (dead code) in the Worker repair file; aims an ETG beam (table 0xC41CC0 by LOD) from a ship point to a target, kept at ship+0x38C",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c9010",
+   "name": "cat_workerTurnTowardTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Worker repair state code (caller switch 0x005C9288); true when heading is within a cone of the target, else aitrackHeadingFunc toward it",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c81e0",
+   "name": "cat_shipPointOutsideBoxDistance",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Point to ship-local space, per-axis distance outside cat_shipGetBoundingBox, length; only caller cat_workerRepairEffect",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c5ea0",
+   "name": "cat_sentinelFieldChargeFraction",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "After SentinelHouseKeep; value +0x33C / per-player table 0x8C6808; cat_selStatusDrawBars draws it for sSentinel/bSentinel (17/52)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c6e50",
+   "name": "cat_shipIsSentinelFieldActive",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Sentinel state +0x638==1 and +0x63C==1.0; next to cat_shipIsSentinelInWall/InField; callers beam and bullet collision checks, beast weapon",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005556e0",
+   "name": "idct",
+   "kind": "function",
+   "class": "hw1:dct.c",
+   "confidence": "high",
+   "evidence": "Only caller fqDecOver; 4 KB stack (__chkstk), pre-twiddle, fft(size/4,...), post-twiddle scaled by k/sqrt(size), windowed overlap as in dct.c idct",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/dct.c:idct",
+   "signature": "int idct(float * spectra, float * samples, float * window, udword size)"
+  },
+  {
+   "address": "0x005558d0",
+   "name": "Initdct",
+   "kind": "function",
+   "class": "hw1:dct.c",
+   "confidence": "high",
+   "evidence": "For i<len/4: f=(i+0.125)*2PI/len, buf[i]=sin f, buf[i+len/4]=cos f; follows idct; caller fqDecBlock",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/dct.c:Initdct",
+   "signature": "int Initdct(float * buf, udword len)"
+  },
+  {
+   "address": "0x004a5420",
+   "name": "madLinkInSetUpInitialBuiltMadState",
+   "kind": "function",
+   "class": "hw1:MadLinkIn.c",
+   "confidence": "high",
+   "evidence": "Caller univCreateShip; madStatic->needStartBuiltAnimation(+0xC)/startBuiltAnimationIndex(+0x10), madAnimationStart+Pause, race switch, fatal \"Unknown race type with a start...\"",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MadLinkIn.c:madLinkInSetUpInitialBuiltMadState",
+   "signature": "void madLinkInSetUpInitialBuiltMadState(Ship * ship)"
+  },
+  {
+   "address": "0x004a54c0",
+   "name": "madLinkInSetUpInitialPlacedMadState",
+   "kind": "function",
+   "class": "hw1:MadLinkIn.c",
+   "confidence": "high",
+   "evidence": "Twin of the built variant using needStartPlacedAnimation(+4)/startPlacedAnimationIndex(+8); caller univCreateShip; follows it as in MadLinkIn.c",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MadLinkIn.c:madLinkInSetUpInitialPlacedMadState",
+   "signature": "void madLinkInSetUpInitialPlacedMadState(Ship * ship)"
+  },
+  {
+   "address": "0x004a5660",
+   "name": "madLinkInCloseGuns",
+   "kind": "function",
+   "class": "hw1:MadLinkIn.c",
+   "confidence": "high",
+   "evidence": "After madOpenGunsShip; loops the command selection calling madLinkInCloseGunsShip; only caller AttackCleanup (HW1 CommandLayer.c AttackCleanup: madLinkInCloseGuns(attacktodo,1))",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MadLinkIn.c:madLinkInCloseGuns"
+  },
+  {
+   "address": "0x004a56b0",
+   "name": "madLinkInCloseGunsShip",
+   "kind": "function",
+   "class": "hw1:MadLinkIn.c",
+   "confidence": "high",
+   "evidence": "madGunStatus(+0x304) closed/closing -> return, opening -> nextAnim; random gun-close or damaged index by health threshold, cued type, status closing; callers clDock, dock code",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MadLinkIn.c:madLinkInCloseGunsShip",
+   "signature": "void madLinkInCloseGunsShip(Ship * ship)"
+  },
+  {
+   "address": "0x004a57c0",
+   "name": "madLinkInPostDocking",
+   "kind": "function",
+   "class": "hw1:MadLinkIn.c",
+   "confidence": "high",
+   "evidence": "Loops the command selection calling madLinkInPostDockingShip; only caller DockCleanup (HW1 Dock.c DockCleanup: madLinkInPostDocking(docktodo,1))",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MadLinkIn.c:madLinkInPostDocking"
+  },
+  {
+   "address": "0x004a5800",
+   "name": "madLinkInPostDockingShip",
+   "kind": "function",
+   "class": "hw1:MadLinkIn.c",
+   "confidence": "high",
+   "evidence": "madWingStatus(+0x308) open(5)/opening(7) -> return, closing -> nextAnim 3; random post-dock index; callers madLinkInPostDocking, madLinkInUpdateMeshAnimations",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MadLinkIn.c:madLinkInPostDockingShip",
+   "signature": "void madLinkInPostDockingShip(Ship * ship)"
+  },
+  {
+   "address": "0x004a5910",
+   "name": "madLinkInPreDockingShip",
+   "kind": "function",
+   "class": "hw1:MadLinkIn.c",
+   "confidence": "high",
+   "evidence": "madWingStatus closed(6)/closing(8) -> return, nextAnim 4; random dock index; callers shipHasJustBeenDisabled (HW1 CommandLayer.c:3758) and madLinkInUpdateMeshAnimations",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MadLinkIn.c:madLinkInPreDockingShip",
+   "signature": "void madLinkInPreDockingShip(Ship * ship)"
+  },
+  {
+   "address": "0x004a5a20",
+   "name": "madLinkInOpenDoor",
+   "kind": "function",
+   "class": "hw1:MadLinkIn.c",
+   "confidence": "high",
+   "evidence": "madDoorStatus(+0x30C) open(9)/opening(11) -> return, closing(12) -> nextAnim 5; random DoorOpenIndexes (+0x54/+0x5C), status opening; follows madLinkInPreDockingShip",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MadLinkIn.c:madLinkInOpenDoor",
+   "signature": "void madLinkInOpenDoor(Ship * ship)"
+  },
+  {
+   "address": "0x004a5ae0",
+   "name": "madLinkInCloseDoor",
+   "kind": "function",
+   "class": "hw1:MadLinkIn.c",
+   "confidence": "high",
+   "evidence": "Mirror of madLinkInOpenDoor: closed(10)/closing(12) -> return, opening -> nextAnim 6; DoorCloseIndexes (+0x58/+0x60), status closing",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MadLinkIn.c:madLinkInCloseDoor",
+   "signature": "void madLinkInCloseDoor(Ship * ship)"
+  },
+  {
+   "address": "0x004a5ba0",
+   "name": "madLinkInOpenSpecialShip",
+   "kind": "function",
+   "class": "hw1:MadLinkIn.c",
+   "confidence": "high",
+   "evidence": "madSpecialStatus(+0x310) open(13)/opening(15) -> return, nextAnim 7; callers GravWellGeneratorSpecialActivate, ProximitySensorHouseKeep (both call it in HW1)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MadLinkIn.c:madLinkInOpenSpecialShip",
+   "signature": "void madLinkInOpenSpecialShip(Ship * ship)"
+  },
+  {
+   "address": "0x004a5cb0",
+   "name": "madLinkInCloseSpecialShip",
+   "kind": "function",
+   "class": "hw1:MadLinkIn.c",
+   "confidence": "high",
+   "evidence": "madSpecialStatus closed(14)/closing(16) -> return, nextAnim 8; callers turnoffGravwell, ProximitySensorHouseKeep, shipHasJustBeenDisabled (all call it in HW1)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/MadLinkIn.c:madLinkInCloseSpecialShip",
+   "signature": "void madLinkInCloseSpecialShip(Ship * ship)"
+  },
+  {
+   "address": "0x0050a280",
+   "name": "cat_smShipBlipType",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller cat_smShipsDraw; static flag +0x1E8 gate, then ship type -> sensors icon class: carriers 12/47/62/76 ->2, cruisers/dreadnought ->1, trader stations ->8, processors ->7, 25/109 ->3",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050b830",
+   "name": "cat_smZoomFadeColor",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Just before smZoomUpdate; t=smZoom current/range (0xC0AA1C/0xC0AA50, the smZoomUpdate args) clamped 0..1 (inverted if arg2==1), colMultiply(c,t), 0xFF000000 at 0",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004e7690",
+   "name": "cat_smHeightCircleColorGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Returns cat_smZoomFadeColor(0x892C94,0); 0x892C94 sits where Sensors.c declares smHeightCircleColor (just before smWorldPlaneDistanceFactor 0x892C98); callers piePointSpecDraw, smPan",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005072c0",
+   "name": "selCircleComputeGeneral",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "After selCircleCompute; centre*modelView into selCameraSpace, +worldRadius in x, both *projection, destX/Y=s/w, destRadius=(rx-sx)/w; callers pie*, smHorizonLineDraw, smHotkeyGroupsDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selCircleComputeGeneral",
+   "signature": "void selCircleComputeGeneral(hmatrix * modelView, hmatrix * projection, vector * location, real32 worldRadius, real32 * destX, real32 * destY, real32 * destRadius)"
+  },
+  {
+   "address": "0x00507390",
+   "name": "cat_selStatusRectCompute",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Screen rect of a ship status bar from collInfo.selCircleX/Y/Radius (+0x150..0x158, min selMinSelectionRadius); called by every selStatusDraw helper",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005074f0",
+   "name": "cat_selStatusDrawUpgradeIndicator",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "For allied ships with pending upgrades (cat_shipGetPendingWeaponUpgrades/UpgradeFlags, cat_shipCanUpgradeArmour) draws a blinking circle (cat_colBlendRGBA, 0x00571E50)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00507630",
+   "name": "cat_selStatusDrawIcons",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Draws cat_overlayIconDraw ship+0x5F8 times in the status rect; only caller cat_selStatusDrawBars; meaning of the count not identified",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005076a0",
+   "name": "cat_selStatusDrawHotKeyNumber",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "If hot-key bits (+0x43E & 0x7FE0) set, prints the group number string (table 0x892A90, index (+0x43E-1)&0xF) above the bar in a LOD font; HW1 selStatusDraw0 prints hotkey too",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00507740",
+   "name": "cat_selStatusDrawCountText",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Prints a count under the bars: missiles/mines (gun types 3/4) for some types or Acolyte link fire count, else two shorts from +0x4B4 (and +0x658 for types 8/42)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00507920",
+   "name": "cat_selStatusDrawAllianceDots",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "For static flag 0x20000 on own/allied ships draws one primCircleSolid2 dot per player, colour by allianceArePlayersAllied/sub_53F9F0; role guessed",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00507a10",
+   "name": "cat_selStatusBarDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "(ship, lod, barIndex, *fraction, *colour, *darkColour): two primRectSolid2 (filled and remainder) in the cat_selStatusRectCompute rect offset by bar index",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00507b00",
+   "name": "cat_selHealthColorsGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "fraction > selShipHealthGreenFactor -> selShipHealthGreen/DarkGreen, > YellowFactor -> Yellow, else Red; callers cat_lmModuleSlot1..7Draw and cat_selStatusDrawBars",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00507b70",
+   "name": "cat_shipHealthFraction",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "health(+0x170)*staticinfo->oneOverMaxHealth(+0xA8) clamped to 0..1; callers cat_lmModuleSlot1..7Draw (same expression inlined in cat_selStatusDrawBars)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00507bc0",
+   "name": "cat_selStatusDrawBars",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Common body of selStatusDraw0..4: health bar plus extra bars (ACV EMP, resources, beast weapon, dreadnought, big gun, cloak, sentinel field, timers), upgrades, hotkeys, counts",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00507f10",
+   "name": "selStatusDraw0",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "table 0x892AC8 = {0x507F10,0x5080F0,0x5082C0,0x508480,0x508590,nullsub 0x49AE30} = selStatusDraw[SEL_NumberLOD+1]; slot 0; calls cat_selStatusDrawBars(ship,0), tutorial pointer rect",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw0",
+   "signature": "void selStatusDraw0(Ship * ship)"
+  },
+  {
+   "address": "0x005080f0",
+   "name": "selStatusDraw1",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "table 0x892AC8 = {0x507F10,0x5080F0,0x5082C0,0x508480,0x508590,nullsub 0x49AE30} = selStatusDraw[SEL_NumberLOD+1]; slot 1; cat_selStatusDrawBars(ship,1)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw1",
+   "signature": "void selStatusDraw1(Ship * ship)"
+  },
+  {
+   "address": "0x005082c0",
+   "name": "selStatusDraw2",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "table 0x892AC8 = {0x507F10,0x5080F0,0x5082C0,0x508480,0x508590,nullsub 0x49AE30} = selStatusDraw[SEL_NumberLOD+1]; slot 2; cat_selStatusDrawBars(ship,2)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw2",
+   "signature": "void selStatusDraw2(Ship * ship)"
+  },
+  {
+   "address": "0x00508480",
+   "name": "selStatusDraw3",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "needs CreateFunctions (code after the 0x5082C0 RET, no function yet); table 0x892AC8 = {0x507F10,0x5080F0,0x5082C0,0x508480,0x5085 slot 3; pushes 3, calls 0x507BC0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw3",
+   "signature": "void selStatusDraw3(Ship * ship)"
+  },
+  {
+   "address": "0x00508590",
+   "name": "selStatusDraw4",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "needs CreateFunctions (no function yet; ends RET 0x508699 before 0x5086A0); table 0x892AC8 slot 4; calls 0x507BC0 like slots 0-3",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selStatusDraw4",
+   "signature": "void selStatusDraw4(Ship * ship)"
+  },
+  {
+   "address": "0x005086a0",
+   "name": "selSelectedDraw",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "Caller mrRegionDraw; fontCurrentGet, for selSelected ships in render list: glShadeModel(GL_FLAT 0x1D00), selStatusDraw[currentLOD] via table 0x892AC8, fontMakeCurrent",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelectedDraw",
+   "signature": "void selSelectedDraw(void)"
+  },
+  {
+   "address": "0x00508900",
+   "name": "selSelectingDraw",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "Caller cat_mrSelectRectDraw; for selSelecting targets in render list: precise rect bounds (1e21 init) or selCircle*tacticalSelectionScale, primRectOutline2(&rect,1,selSelectingColor)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelectingDraw",
+   "signature": "void selSelectingDraw(void)"
+  },
+  {
+   "address": "0x00508be0",
+   "name": "selCentrePointComputeGeneral",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "min/max of ship positions (init +-1e21), average size from collspheresize (mimic radius), returns midpoint; 17 callers incl. aimProcessMoveTo, aimProcessFlankAttack, kasShipsVectorPtr",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selCentrePointComputeGeneral",
+   "signature": "vector selCentrePointComputeGeneral(MaxSelection * selection, real32 * average_size)"
+  },
+  {
+   "address": "0x00508e30",
+   "name": "selCentrePointCompute",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "selCentrePoint(0xC0BAD0) = selCentrePointComputeGeneral(&selSelected,&selAverageSize 0xC0BAE4); callers piePointModeOnOff, piePointSpecDraw, smSensorsClose",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selCentrePointCompute",
+   "signature": "void selCentrePointCompute(void)"
+  },
+  {
+   "address": "0x00508ea0",
+   "name": "selSelectionIsReinforced",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "After selSelectionCopy as in Select.c; false if source<=dest or dest empty, needed=1 or dest*0xD7/256 (SEL_ReinforceFactor), counts dest ships found in source",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelectionIsReinforced",
+   "signature": "bool32 selSelectionIsReinforced(MaxAnySelection * dest, MaxAnySelection * source)"
+  },
+  {
+   "address": "0x00509030",
+   "name": "selSelectHotKeyGroup",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "selSelected = group ships with (flags & 0x2A08000)==0 and flags & 0x2000 (Cataclysm values of the Hide/Disabled/Hyperspace/Crazy and Selectable tests); caller hot-key select 0x0054FE30",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelectHotKeyGroup",
+   "signature": "void selSelectHotKeyGroup(MaxSelection * hotkeygroup)"
+  },
+  {
+   "address": "0x00509080",
+   "name": "selHotKeyNumbersSet",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "For each ship in selHotKeyGroup[group] sets hot-key bit 1<<(group+5) and group number (low nibble) in +0x43E; returns OKAY(0)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selHotKeyNumbersSet",
+   "signature": "sdword selHotKeyNumbersSet(sdword group)"
+  },
+  {
+   "address": "0x005090f0",
+   "name": "selHotKeyGroupRemoveReferences",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "Ships whose group number==group: clear bit/number, re-pick another group bit (10 groups); the clRemoveShipFromSelection branch is unreachable as in HW1 (destSelection==thisSelection)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selHotKeyGroupRemoveReferences",
+   "signature": "void selHotKeyGroupRemoveReferences(sdword group)"
+  },
+  {
+   "address": "0x005091d0",
+   "name": "selHotKeyGroupRemoveReferencesFromAllGroups",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "For selSelected ships: clear group number, clRemoveShipFromSelection from every selHotKeyGroup whose bit is set, then clear all bits",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selHotKeyGroupRemoveReferencesFromAllGroups",
+   "signature": "void selHotKeyGroupRemoveReferencesFromAllGroups(void)"
+  },
+  {
+   "address": "0x00509250",
+   "name": "selSelectionDimensions",
+   "kind": "function",
+   "class": "hw1:Select.c",
+   "confidence": "high",
+   "evidence": "Last Select.c function; selCentrePointComputeGeneral, max of dist^2+collsphere^2, fsqrt, then the selCircleComputeGeneral math inline; caller tutDrawTextPointers",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Select.c:selSelectionDimensions",
+   "signature": "void selSelectionDimensions(hmatrix * modelView, hmatrix * projection, SelectCommand * selection, real32 * destX, real32 * destY, real32 * destRad)"
+  },
+  {
+   "address": "0x00509400",
+   "name": "cat_selPositionHiddenByFOW",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Fog-of-war test of a position for the current player (fowSelect, fowIsValidW, fowGetUsageCountW or fowGetVisitedW by arg2); callers selRectDragFunction, pingListDraw",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050d3a0",
+   "name": "cat_selShipSelectableInFOW",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller selRectDragFunction; cat_shipIsCloakedFully, fog-of-war usage at the ship position, mimic alliance and sub_53F9F0 visibility in multiplayer",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050f190",
+   "name": "cat_shipNamesShipIsNameable",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Own ship (player 0 in SP, local player in MP) of type sCarrier/sMothership/bCarrier/bMothership/dKushanCarrier (12,18,47,53,137), the types shipnames.script accepts",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050f320",
+   "name": "cat_shipNamesAssign",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Same nameable test, then takes a free entry of the 0x70-byte name pool (0xA5B640, count 0xA5E200) for the ship type; callers univCreateShip, SelectionSwitchPlayerOwner",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050f540",
+   "name": "cat_shipNamesCountFree",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Counts name-pool entries with shiptype==arg and no ship; caller cat_popupMenuBuildSelectionItems",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050f570",
+   "name": "cat_shipNamesRename",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Gives the ship the arg2-th free name of its type and frees its previous entry; callers cat_popupMenuClick, cat_popupMenuActivateSelected",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050f600",
+   "name": "cat_shipNamesGetFreeName",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns the name string (+0xC) of the arg2-th free pool entry of a ship type; caller cat_popupMenuBuildSelectionItems",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050f660",
+   "name": "cat_shipNamesRelease",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Nameable test, then clears the pool entry that points at the ship; callers univRemoveShipReferences, SelectionSwitchPlayerOwner",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0050f810",
+   "name": "cat_shipNamesGetName",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Name string of the ship pool entry (or 0xA5E204 when flag 0xA7518C is set); callers cat_moTooltipDraw, cat_popupMenuBuildSelectionItems",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00570610",
+   "name": "cat_primRectShadedHorizontal2",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "(rect, cLeft, cRight): GL_QUADS, colour arg2 on the x0 vertices and arg3 on the x1 vertices; between primRectSolid2 and primRectTranslucentRGL2; caller cat_gameStatsDraw",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00571440",
+   "name": "primLineThick2",
+   "kind": "function",
+   "class": "hw1:prim2d.c",
+   "confidence": "high",
+   "evidence": "(x0,y0,x1,y1,thickness,c): glPushAttrib(GL_LINE_BIT), glLineWidth(thickness), glColor3ub, GL_LINES 2 vertices, glPopAttrib; between primLine2 and primLineLoopStart2 as in prim2d.c",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/prim2d.c:primLineThick2",
+   "signature": "void primLineThick2(sdword x0, sdword y0, sdword x1, sdword y1, sdword thickness, color c)"
+  },
+  {
+   "address": "0x00571611",
+   "name": "",
+   "kind": "function",
+   "class": "hw1:prim2d.c",
+   "confidence": "high",
+   "evidence": "Not a function: GL fallback branch of primBeveledRectSolid (0x5715E0 je 0x571611 when glcActive() is false); no other ref. Body fix: merge into primBeveledRectSolid, no name",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/prim2d.c:primBeveledRectSolid"
+  },
+  {
+   "address": "0x00571be0",
+   "name": "primSeriesOfRoundRects",
+   "kind": "function",
+   "class": "hw1:prim2d.c",
+   "confidence": "high",
+   "evidence": "(rect,width,fore,back,steps,xb,yb): cfrac=1/steps, steps+1 times shrink rect by 1 (decRect), primRoundRectOutline(&r,2,c,xb,yb), colBlend(fore,back,frac); caller kasfPopupTextDraw",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/prim2d.c:primSeriesOfRoundRects",
+   "signature": "void primSeriesOfRoundRects(rectangle * rect, uword width, color fore, color back, uword steps, uword xb, uword yb)"
+  },
+  {
+   "address": "0x00571e50",
+   "name": "cat_primCircleSolidBlend2",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "(x,y,radius,nSlices,c): GL_TRIANGLE_FAN circle like primCircleSolid2 (previous function) with blend/cull state saved and restored; only caller cat_selStatusDrawUpgradeIndicator",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00572320",
+   "name": "cat_primLine3Smooth",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Between primLine3 and primCircleSolid3; GL_LINE_SMOOTH (0xB20) + blend if supported (glCapFeatureExists), rndAdditiveBlends(0), GL_LINES with two colours; caller cat_smBoundsEdgeDraw",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00572a90",
+   "name": "primPointSize3",
+   "kind": "function",
+   "class": "hw1:prim3d.c",
+   "confidence": "high",
+   "evidence": "glPointSize(size), glColor3ub(c), glBegin(GL_POINTS), glVertex3f(p1), glEnd, glPointSize(1.0); after primPoint3 as in prim3d.c; caller cat_rndRenderObjectList",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/prim3d.c:primPointSize3",
+   "signature": "void primPointSize3(vector * p1, real32 size, color c)"
+  },
+  {
+   "address": "0x005732f0",
+   "name": "WONCommon__RegKey__OpenNewKey_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "RegKey copy, vtbl 0x72BE20: RegOpenKeyExA/RegCreateKeyExA with std::string path handling (std___Xran); callers ClientCDKey-area 0x552FE0/0x553140/0x5532E0; WON copy is WONCommon__RegKey__OpenNewKey",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00573500",
+   "name": "WONCommon__RegKey__dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "RegKey copy, vtbl 0x72BE20: resets vptr to 0x72BE20, RegCloseKey if open (+8), frees value buffer (+0x1C) and the refcounted path string; called by the deleting dtor 0x574510 and EH unwinds",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00573560",
+   "name": "WONCommon__RegKey__GetToBuf_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "RegKey copy, vtbl 0x72BE20: RegQueryValueExA size probe, grows internal buffer (+0x1C, size +0x20), queries into it; same role as WONCommon__RegKey__GetToBuf at 0x6E3360",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005737e0",
+   "name": "WONCommon__RegKey__GetValue_3",
+   "kind": "function",
+   "class": "won",
+   "confidence": "low",
+   "evidence": "RegKey copy, vtbl 0x72BE20: IsOpen vcall, GetToBuf_2, type 3 (REG_BINARY) -> operator_new copy to *data,*len; binary GetValue overload (WON copies are GetValue/GetValue_2)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00573860",
+   "name": "WONCommon__RegKey__SetValue_3",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "RegKey copy, vtbl 0x72BE20: IsOpen vcall then RegSetValueExA(name, REG_BINARY 3, data, len); binary SetValue overload (WON copies SetValue/SetValue_2 use string/DWORD)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005738b0",
+   "name": "WONCommon__RegKey__DeleteValue",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "RegKey copy, vtbl 0x72BE20: IsOpen vcall then RegDeleteValueA(hkey, name); caller 0x5532E0 next to the other RegKey users",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00573be0",
+   "name": "WONCommon__RegKey__GetNextSubKey_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "Slot 6 of RegKey vtable 0x72BE20 between GetFirstSubKey_2 (slot 5) and GetFirstValueName_2 (slot 7); RegEnumKeyExA; WON copy WONCommon__RegKey__GetNextSubKey 0x6E3AE0 (298 B)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00574510",
+   "name": "WONCommon__RegKey__deleting_dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "Slot 0 of RegKey vtable 0x72BE20: calls WONCommon__RegKey__dtor (0x573500) then operator_delete if flag&1",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00574240",
+   "name": "lib_msvc_static_init_00574240",
+   "kind": "function",
+   "class": "lib:msvc",
+   "confidence": "low",
+   "evidence": "No caller (CRT initializer table entry): EH frame, builds global std::string 0xA75950 = 0xA75990 + 0xA75970 (lib_crt_00554A20 concat), releases temp; class-only placeholder",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00574340",
+   "name": "lib_msvc_static_init_00574340",
+   "kind": "function",
+   "class": "lib:msvc",
+   "confidence": "low",
+   "evidence": "Twin of lib_msvc_static_init_00574240 (same size and shape) for the next global std::string; no caller; class-only placeholder",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005759f0",
+   "name": "cat_rndSetupDissolveFlag",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Global 0xC32C64 = (ship && cat_shipDissolveIsActive(ship)); callers rndMainViewRenderFunction, cat_rndRenderObjectList; same code inlined in cat_rndObjectEffectsSetup",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00575a20",
+   "name": "cat_rndSetupFadeFlag",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Global 0xC32C08..0C10: NULL object -> real-time based global fade, ship flag +0x1CC&8 -> fade 1-(+1000); caller cat_rndRenderObjectList; inlined in cat_rndObjectEffectsSetup",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00575ae0",
+   "name": "cat_rndShipEMPdAndMoving",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "cat_kasNaggarokEMPHitShip(ship) and speed^2 (+0x64..0x6C) > constant; callers rndMainViewRenderFunction, cat_rndRenderObjectList",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00575b30",
+   "name": "cat_kasNaggarokEMPHitShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "cat_kasVarFind(0,cat_kasHashString(\"G_NaggarokEMP\")) and ship+0x52C < var value; callers 0x575AE0 and cat_rndObjectEffectsSetup (there only for ship type 109 dRKO)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00575b70",
+   "name": "cat_rndSetupTimedEffectPhase",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Global 0xC32C58 phase 1..3 and 0xC32C5C cosine ramp from universe time between ship+0x508 and +0x50C; callers rndMainViewRenderFunction, cat_rndRenderObjectList",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00575c60",
+   "name": "cat_rndSetupMimicFlag",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Global 0xC32C7C = object flag +0x18&8 (mimic bit used by cat_mimicGetSelectRadius callers) and +0x768!=0; parameters copied later by cat_rndSetupObjectEffectParams",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00575ea0",
+   "name": "cat_meshHierarchyCount",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Recursive: sum of field +0x14 over a node and its children (+0x2C first child, +0x30 sibling); callers itself, cat_lodHierarchyCount, rndMainViewRenderFunction",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00575ee0",
+   "name": "cat_lodHierarchyCount",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Walks the LOD object list (+0x14, nodes +0x20/+0x30) calling cat_meshHierarchyCount on each child; callers lodLevelGet, 0x004A5000",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00575f40",
+   "name": "cat_rndSetupObjectEffectParams",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "After cat_rndObjectEffectsSetup: stun fraction from +0x4E4 and cat_beastTimeSpentStunned into 0xC32C54, mimic parameters (+0x70C..+0x760) into 0xC32C80..98; caller svShipViewRender",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057ae40",
+   "name": "cat_rndDepthTestEnable",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Between rndTextureEnable and rndTextureEnvironment; returns glIsEnabled(GL_DEPTH_TEST 0xB71), enables/disables it plus a depth-mask call when glCapFeatureExists(0x9003)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0057dcc0",
+   "name": "rinMemAlloc",
+   "kind": "function",
+   "class": "hw1:rinit.c",
+   "confidence": "high",
+   "evidence": "_malloc(size) then zero-fill (memset inlined), before rinDeviceCRC as in rinit.c; caller rinEnumerateDevices",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/rinit.c:rinMemAlloc",
+   "signature": "void * rinMemAlloc(sdword size)"
+  },
+  {
+   "address": "0x0057e090",
+   "name": "cat_rinEnumD3DDevices_cb",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "No direct caller (callback); copies a 0xFC-byte device description (D3DDEVICEDESC size) to 0xA75DF0 and tests capability bits; sits between rinFreeDevices and rinEnumDisplayModes_cb",
+   "hw1_equivalent": ""
+  }
+ ],
+ "audit": {
+  "sampled": 30,
+  "wrong": 2,
+  "unverifiable": 0,
+  "correct": 28,
+  "precision": 0.9333,
+  "action": "keep (precision >= 0.9); dropped the 2 sampled-wrong proposals",
+  "seed": 19,
+  "strata": {
+   "high": 10,
+   "medium": 10,
+   "low": 10
+  },
+  "dropped": [
+   {
+    "address": "0x0043a980",
+    "name": "cat_collBeastInfectionCheck",
+    "reason": "Body is the per-ship half of HW1 Collision.c kamikazeCheck (SPECIAL_Kamikaze test, damage=kamikazeDamage[shiptype] 0xBB32C0, self damage maxhealth*k, killer type 0x29C, playerIndex); Beast infection is only one branch. Better: cat_kamikazeCheckShip"
+   },
+   {
+    "address": "0x00569030",
+    "name": "cat_toFieldPulseDraw",
+    "reason": "Body is HW1 mainrgn.c toDrawRadialIndicator4 (circle4 timers/delay, reset past 2*radius, newrad=fsqrt(r^2-(r-d)^2), primModeClear2, hmatMakeHMatFromMat, primCircleOutline3 32 slices), caller passes TW_PROXIMITY_RING_COLOUR; HW1 name required"
+   }
+  ],
+  "verdicts": {
+   "0x005091d0": "correct",
+   "0x0050dfe0": "correct",
+   "0x00508480": "correct",
+   "0x0050dc60": "correct",
+   "0x005082c0": "correct",
+   "0x00572010": "correct",
+   "0x004a5a20": "correct",
+   "0x004a57c0": "correct",
+   "0x00573be0": "correct",
+   "0x004a5420": "correct",
+   "0x00573500": "correct",
+   "0x00435f10": "correct",
+   "0x00573560": "correct",
+   "0x0044f290": "correct",
+   "0x0048cd40": "correct",
+   "0x005759f0": "correct",
+   "0x00507b70": "correct",
+   "0x0050b830": "correct",
+   "0x0044f490": "correct",
+   "0x005738b0": "correct",
+   "0x004605b0": "correct",
+   "0x00460500": "correct",
+   "0x00577660": "correct",
+   "0x00572320": "correct",
+   "0x00574340": "correct",
+   "0x0043a980": "wrong",
+   "0x00569030": "wrong",
+   "0x00575ae0": "correct",
+   "0x0048b7c0": "correct",
+   "0x0050d3a0": "correct"
+  }
+ }
+}

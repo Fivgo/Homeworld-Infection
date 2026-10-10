@@ -1,0 +1,3 @@
+address,old_name,offcut_size,parent_address,parent,parent_size_before,parent_size_after,jumps_from_parent,calls_in,status,detail
+0x0043453B,FUN_0043453b,165,0x00434500,recievedChatPacketCB,59,224,1,0,merged,fixup=True
+0x00571611,FUN_00571611,671,0x005715E0,primBeveledRectSolid,49,720,1,0,merged,fixup=True
