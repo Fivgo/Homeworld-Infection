@@ -38,6 +38,7 @@
 #include "CRC32.h"
 #include "Hash.h"
 #include "prim3d.h"
+#include "MeshAnim.h"       // CAT: /catMeshLoadTest also loads the .mad files (port diagnostic)
 
 #ifdef _MSC_VER
 #define strcasecmp _stricmp
@@ -46,7 +47,18 @@
 #define GLVERTEX(x) glVertex4fv((GLfloat*)(x))
 #define VERTEXLIST clipVertexList
 
-#define meshColour(NORMAL) shColourSet0((vector*)NORMAL);
+#define meshColour(NORMAL) shColourSet0((vector*)NORMAL, NULL, NULL);
+//CAT: per-vertex colour (meshObjectRender 0x004b0170, meshObjectRenderLit 0x004b0970): with enableCPV set, each vertex
+//is lit with its own info entry (pVertexInfo[iV], cat_shColourAddGlow 0x0050d7c0) and its runtime glow state. The
+//state array is the exe's new first argument of both functions (state + iV * 0x28, created per ship and LOD by
+//cat_univShipMeshStateCreate 0x00541cd0, stage 2); until it is ported the state is NULL.
+#define MESH_VERTEX_STATE(IV)   ((real32 *)NULL)
+#define meshColourCPV(NORMAL, OBJECT, IV) \
+    shColourSet0((vector*)(NORMAL), MESH_VERTEX_STATE(IV), &(OBJECT)->pVertexInfo[(IV)].colourOffset);
+//CAT: the smooth modes of meshObjectRenderLit 0x004b0970 light every vertex: with its info entry and state when
+//enableCPV is set, with neither when it is not
+#define meshColourLit(NORMAL, OBJECT, IV) \
+    if (enableCPV) { meshColourCPV(NORMAL, OBJECT, IV) } else { meshColour(NORMAL) }
 
 #define MESH_OBJECT_RENDER(O, M, C)\
     if (g_SpecHack)\
@@ -612,86 +624,114 @@ void meshFixupPacoUV(meshdata* mesh, sdword on)
 
 
 #ifdef HW_PTR_64
+/*-----------------------------------------------------------------------------
+    Name        : meshConvertOffset64 (GoK 64-bit port helper)
+    Description : CAT: maps a file offset that points behind the material table (vertex, vertex-info, normal and
+                  polygon lists, object, material and texture names) into the 64-bit image built by
+                  meshLoadAndConvertTo64Bit, where that part of the file is copied verbatim to blobStart.
+    Inputs      : fileOffset - offset as stored in the file; payloadStart - first byte behind the material table;
+                  blobStart - where that byte lands in the new image; fileLength - length of the file
+    Return      : the offset in the new image
+----------------------------------------------------------------------------*/
+static memsize meshConvertOffset64(udword fileOffset, udword payloadStart, memsize blobStart, sdword fileLength,
+                                   char *fileName, char *what)
+{
+    if (fileOffset < payloadStart || fileOffset > (udword)fileLength)
+    {
+        dbgFatalf(DBG_Loc, "meshLoad: %s offset 0x%x in %s is outside the data area 0x%x..0x%x",
+                  what, fileOffset, fileName, payloadStart, fileLength);
+    }
+    return blobStart + (fileOffset - payloadStart);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : meshLoadAndConvertTo64Bit (GoK 64-bit port helper, not in the exe)
+    Description : Loads a .geo/.peo file and rebuilds it with 64-bit pointer-sized records, so meshLoad can fix it
+                  up as the 32-bit game fixes up the file image in place.
+                  CAT: rewritten for Cataclysm's layout (meshLoad 0x004aec90, docs/formats/mesh.md):
+                  - polygon objects are read at a stride of 0x74 (polygonobject_disk; HW1 0x70) and carry the new
+                    per-vertex info list (+0x1C, pVertexInfo);
+                  - everything behind the material table (the vertex, vertex-info, normal and polygon lists and the
+                    name strings) is copied as ONE verbatim block and every offset into it is translated. Duplicate
+                    objects therefore keep sharing their arrays as in the exe (400 of the 1,729 shipped files share
+                    at least one array; GoK's converter copied each object's arrays separately into a buffer of
+                    3 * file length, and dropped the material names);
+                  - the image size is computed, not guessed;
+                  - a file whose table does not have the 0x74 stride (an HW1 0x402 mesh) is a fatal error with the
+                    file name, where the exe would silently misparse it.
+    Inputs      : fileName - file to load
+    Outputs     : *loadAddress - the new image (memAlloc'ed): GeoFileHeader, polygonobject[n], materialentry[m],
+                  then the verbatim data block
+    Return      : length of the new image
+----------------------------------------------------------------------------*/
 sdword meshLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
 {
-    int i;
+    ubyte *oldbase = NULL;
+    ubyte *newbase;
+    GeoFileHeader_disk *oldHeader;
+    GeoFileHeader *newHeader;
+    polygonobject_disk *oldpolobj;
+    polygonobject *newpolobj;
+    materialentry_disk *oldmaterial;
+    materialentry *newmaterial;
+    sdword oldLength, i, nObjects, nMaterials;
+    udword oldObjectsEnd, oldMaterialsEnd;
+    memsize newObjects, newMaterials, blobStart, newLength;
 
-    int loopvar;
-    int loopcount;
-
-    GeoFileHeader_disk *oldHeader = NULL;
-    GeoFileHeader *newHeader = NULL;
-
-    int lenDiff;
-    memsize offset=0;
-    memsize loopsize=0;
-
-    void * oldptr = NULL;
-    void * newptr = NULL;
-    void * oldbase = NULL;
-    void * newbase = NULL;
-
-    struct polygonobject_disk * oldpolobj = NULL;
-    struct polygonobject * newpolobj = NULL;
-
-    struct tagmaterialentry_disk *oldmaterial = NULL;
-    struct tagmaterialentry *newmaterial = NULL;
-    struct tagmaterialentry *newmaterialbase = NULL;
-
-    int oldLength;
-    int newLength;
-    int numPolygons;
-
-    lenDiff = sizeof(GeoFileHeader) - sizeof(GeoFileHeader_disk);
-
-    //oldbase = fileloadalloc(oldFile, &oldLength, 0);
     oldLength = fileLoadAlloc(fileName, (void **)&oldbase, NonVolatile);
-    oldHeader = oldptr = oldbase;
-
-    newLength = 3*oldLength;
-
-    //newbase = malloc(3*oldLength);
-    newbase = memAlloc(3* oldLength, "mesh 64bit conversion", 0); 
-
-    newHeader = newbase;
-    newptr =  (void*) newbase;
-
-    memset (newbase, 0 ,3*oldLength);
-  
-    strcpy(newHeader->identifier,oldHeader->identifier);
-    newHeader->version = oldHeader->version;
-    if (oldHeader->pName !=0){
-//      newHeader->pName = (char *)(((Uint64)oldHeader->pName) +offset);
-//      strcpy(newHeader + offset,oldHeader + (Uint64)oldHeader->pName);
-//      offset += strlen(oldHeader + (Uint64)oldHeader->pName);
+    if (oldLength < (sdword)sizeof(GeoFileHeader_disk))
+    {
+        dbgFatalf(DBG_Loc, "meshLoad: %s is too short for a mesh header (%d bytes)", fileName, oldLength);
     }
+    oldHeader = (GeoFileHeader_disk *)oldbase;
+    nObjects = (sdword)oldHeader->nPolygonObjects;
+    nMaterials = (sdword)(oldHeader->nPublicMaterials + oldHeader->nLocalMaterials);
+    oldObjectsEnd = sizeof(GeoFileHeader_disk) + (udword)nObjects * sizeof(polygonobject_disk);
+    oldMaterialsEnd = oldHeader->oPublicMaterial + (udword)nMaterials * sizeof(materialentry_disk);
+    // CAT: the object table ends where the material table starts, at 0x44 + n * 0x74 in all 1,729 shipped files
+    if (nObjects < 0 || nMaterials < 0 || oldHeader->oPublicMaterial != oldObjectsEnd ||
+        oldMaterialsEnd > (udword)oldLength)
+    {
+        dbgFatalf(DBG_Loc, "meshLoad: %s does not have Cataclysm's 0x74-byte polygon objects (%d objects, materials at 0x%x, expected 0x%x)",
+                  fileName, nObjects, oldHeader->oPublicMaterial, oldObjectsEnd);
+    }
+
+    newObjects = sizeof(GeoFileHeader);
+    newMaterials = newObjects + (memsize)nObjects * sizeof(polygonobject);
+    blobStart = newMaterials + (memsize)nMaterials * sizeof(materialentry);
+    newLength = blobStart + (memsize)(oldLength - oldMaterialsEnd);
+
+    newbase = memAlloc(newLength, "mesh 64bit conversion", 0);
+    memset(newbase, 0, newLength);
+    newHeader = (GeoFileHeader *)newbase;
+
+    memcpy(newHeader->identifier, oldHeader->identifier, MESH_FileIDLength);
+    newHeader->version = oldHeader->version;
+    newHeader->pName = (oldHeader->pName == 0) ? NULL :
+        (char *)meshConvertOffset64(oldHeader->pName, oldMaterialsEnd, blobStart, oldLength, fileName, "mesh name");
     newHeader->__obsolete = oldHeader->fileSize;
     newHeader->localSize = oldHeader->localSize;
     newHeader->nPublicMaterials = oldHeader->nPublicMaterials;
     newHeader->nLocalMaterials = oldHeader->nLocalMaterials;
-//    newHeader->oPublicMaterial = oldHeader->oPublicMaterial;
-//    newHeader->oLocalMaterial = oldHeader->oLocalMaterial;
+    newHeader->oPublicMaterial = newMaterials;
+    // CAT: the exe keeps both table pointers (publicMaterial = oPublicMaterial, localMaterial = oLocalMaterial)
+    if (oldHeader->oLocalMaterial < oldHeader->oPublicMaterial || oldHeader->oLocalMaterial > oldMaterialsEnd ||
+        (oldHeader->oLocalMaterial - oldHeader->oPublicMaterial) % sizeof(materialentry_disk) != 0)
+    {
+        dbgFatalf(DBG_Loc, "meshLoad: %s has a local material table at 0x%x", fileName, oldHeader->oLocalMaterial);
+    }
+    newHeader->oLocalMaterial = newMaterials +
+        (oldHeader->oLocalMaterial - oldHeader->oPublicMaterial) / sizeof(materialentry_disk) * sizeof(materialentry);
     newHeader->nPolygonObjects = oldHeader->nPolygonObjects;
-    
-    memcpy (newHeader->reserved, oldHeader->reserved, 24); 
+    memcpy(newHeader->reserved, oldHeader->reserved, sizeof(newHeader->reserved));
 
-// fixup polygonobject
-
-    numPolygons = oldHeader->nPolygonObjects;
-
-    oldpolobj = (struct polygonobject_disk *) (((void *) sizeof(GeoFileHeader_disk)) + (Uint64)oldptr);
-
-    newpolobj = (struct polygonobject *) (newbase + sizeof(GeoFileHeader));
-    newptr += sizeof(GeoFileHeader);
-    offset += sizeof(GeoFileHeader);
-
-    for (i=0; i<numPolygons; i++){
-
-    //printf("polyobj[%d]-> %d@%x %d@%x %d@%x\n",i, oldpolobj[i].nVertices,oldpolobj[i].pVertexList,
-    //    oldpolobj[i].nFaceNormals,oldpolobj[i].pNormalList,
-    //    oldpolobj[i].nPolygons,oldpolobj[i].pPolygonList);
-    
-
+    // polygon objects: pointers become offsets into the new image, meshLoad adds the base
+    oldpolobj = (polygonobject_disk *)(oldbase + sizeof(GeoFileHeader_disk));
+    newpolobj = (polygonobject *)(newbase + newObjects);
+    for (i = 0; i < nObjects; i++)
+    {
+        newpolobj[i].pName = (oldpolobj[i].pName == 0) ? NULL :
+            (char *)meshConvertOffset64(oldpolobj[i].pName, oldMaterialsEnd, blobStart, oldLength, fileName, "object name");
         newpolobj[i].flags = oldpolobj[i].flags;
         newpolobj[i].iObject = oldpolobj[i].iObject;
         newpolobj[i].nameCRC = oldpolobj[i].nameCRC;
@@ -699,132 +739,69 @@ sdword meshLoadAndConvertTo64Bit(char *fileName, void** loadAddress)
         newpolobj[i].nFaceNormals = oldpolobj[i].nFaceNormals;
         newpolobj[i].nVertexNormals = oldpolobj[i].nVertexNormals;
         newpolobj[i].nPolygons = oldpolobj[i].nPolygons;
+        // CAT: the four list pointers are fixed up unconditionally, as in meshLoad 0x004aec90
+        newpolobj[i].pVertexList = (vertexentry *)meshConvertOffset64(oldpolobj[i].pVertexList, oldMaterialsEnd,
+            blobStart, oldLength, fileName, "vertex list");
+        newpolobj[i].pVertexInfo = (vertexinfo *)meshConvertOffset64(oldpolobj[i].pVertexInfo, oldMaterialsEnd,
+            blobStart, oldLength, fileName, "vertex info list");
+        newpolobj[i].pNormalList = (normalentry *)meshConvertOffset64(oldpolobj[i].pNormalList, oldMaterialsEnd,
+            blobStart, oldLength, fileName, "normal list");
+        newpolobj[i].pPolygonList = (polyentry *)meshConvertOffset64(oldpolobj[i].pPolygonList, oldMaterialsEnd,
+            blobStart, oldLength, fileName, "polygon list");
+        if (oldpolobj[i].nVertices < 0 || oldpolobj[i].nFaceNormals < 0 || oldpolobj[i].nVertexNormals < 0 ||
+            oldpolobj[i].nPolygons < 0 ||
+            (memsize)oldpolobj[i].pVertexList + (memsize)oldpolobj[i].nVertices * sizeof(vertexentry) > (memsize)oldLength ||
+            (memsize)oldpolobj[i].pVertexInfo + (memsize)oldpolobj[i].nVertices * sizeof(vertexinfo) > (memsize)oldLength ||
+            (memsize)oldpolobj[i].pNormalList + (memsize)(oldpolobj[i].nFaceNormals + oldpolobj[i].nVertexNormals) * sizeof(normalentry) > (memsize)oldLength ||
+            (memsize)oldpolobj[i].pPolygonList + (memsize)oldpolobj[i].nPolygons * sizeof(polyentry) > (memsize)oldLength)
+        {
+            dbgFatalf(DBG_Loc, "meshLoad: object %d of %s has a list past the end of the file", i, fileName);
+        }
+        // hierarchy links: file offsets of other polygon objects
+#define MESH_CONVERT_LINK(field)                                                                            \
+        if (oldpolobj[i].field != 0)                                                                        \
+        {                                                                                                   \
+            if (oldpolobj[i].field < sizeof(GeoFileHeader_disk) || oldpolobj[i].field >= oldObjectsEnd ||   \
+                (oldpolobj[i].field - sizeof(GeoFileHeader_disk)) % sizeof(polygonobject_disk) != 0)        \
+            {                                                                                               \
+                dbgFatalf(DBG_Loc, "meshLoad: object %d of %s has a bad " #field " link 0x%x", i, fileName, \
+                          oldpolobj[i].field);                                                              \
+            }                                                                                               \
+            newpolobj[i].field = (polygonobject *)(newObjects + (oldpolobj[i].field - sizeof(GeoFileHeader_disk)) / \
+                sizeof(polygonobject_disk) * sizeof(polygonobject));                                        \
+        }
+        MESH_CONVERT_LINK(pMother)
+        MESH_CONVERT_LINK(pDaughter)
+        MESH_CONVERT_LINK(pSister)
+#undef MESH_CONVERT_LINK
         newpolobj[i].localMatrix = oldpolobj[i].localMatrix;
-
-        if (oldpolobj[i].pDaughter != 0) {
-            newpolobj[i].pDaughter = ( oldpolobj[i].pDaughter - sizeof(GeoFileHeader_disk)) /
-                 sizeof(struct polygonobject_disk) * sizeof(struct polygonobject) + sizeof(GeoFileHeader);
-        }
-        if (oldpolobj[i].pMother != 0) {
-            newpolobj[i].pMother = ( oldpolobj[i].pMother - sizeof(GeoFileHeader_disk)) /
-                 sizeof(struct polygonobject_disk) * sizeof(struct polygonobject) + sizeof(GeoFileHeader);
-        }
-        if (oldpolobj[i].pSister != 0) {
-            newpolobj[i].pSister = ( oldpolobj[i].pSister - sizeof(GeoFileHeader_disk)) /
-                 sizeof(struct polygonobject_disk) * sizeof(struct polygonobject) + sizeof(GeoFileHeader);
-        }
-
-        newptr += sizeof(struct polygonobject);
-        offset += sizeof(struct polygonobject);
-
     }
 
-    newHeader->oPublicMaterial = offset;
-    newHeader->oLocalMaterial = offset;
-
-
-    loopcount = oldHeader->nPublicMaterials + oldHeader->nLocalMaterials;
-    
-    oldmaterial = (struct tagmaterialentry_disk *) ((Uint64)oldbase + oldHeader->oPublicMaterial);
-
-
-    newmaterialbase = (struct tagmaterialentry *) newptr;
-
-    newmaterial = newmaterialbase;
-
-    loopcount = oldHeader->nPublicMaterials + oldHeader->nLocalMaterials;
-
-    for (loopvar=0; loopvar < loopcount; loopvar++) {
-        if (oldmaterial->pName != 0){
-            //printf("oldmaterial->pName = %x \n",oldmaterial->pName);
-        }
-        newmaterial->ambient = oldmaterial->ambient;    
-        newmaterial->diffuse = oldmaterial->diffuse;    
-        newmaterial->specular = oldmaterial->specular;    
-        newmaterial->kAlpha = oldmaterial->kAlpha;    
-        if (oldmaterial->texture != 0){
-            //printf("oldmaterial->texture = %x \n",oldmaterial->texture);
-        }
-        newmaterial->flags = oldmaterial->flags;    
-        newmaterial->nFullAmbient = oldmaterial->nFullAmbient;    
-        newmaterial->bTexturesRegistered = oldmaterial->bTexturesRegistered;    
-        if (oldmaterial->textureNameSave != 0xabababab){
-            //printf("oldmaterial->textureNameSave = %x \n",oldmaterial->textureNameSave);
-        }
-
-        newmaterial++;
-        oldmaterial++;
-        offset += sizeof(struct tagmaterialentry);
-
-
+    // materials: same order; names and texture names become offsets into the data block
+    oldmaterial = (materialentry_disk *)(oldbase + oldHeader->oPublicMaterial);
+    newmaterial = (materialentry *)(newbase + newMaterials);
+    for (i = 0; i < nMaterials; i++)
+    {
+        newmaterial[i].pName = (oldmaterial[i].pName == 0) ? NULL :
+            (char *)meshConvertOffset64(oldmaterial[i].pName, oldMaterialsEnd, blobStart, oldLength, fileName, "material name");
+        newmaterial[i].ambient = oldmaterial[i].ambient;
+        newmaterial[i].diffuse = oldmaterial[i].diffuse;
+        newmaterial[i].specular = oldmaterial[i].specular;
+        newmaterial[i].kAlpha = oldmaterial[i].kAlpha;
+        newmaterial[i].texture = (oldmaterial[i].texture == 0) ? NULL :
+            (trhandle *)meshConvertOffset64(oldmaterial[i].texture, oldMaterialsEnd, blobStart, oldLength, fileName, "texture name");
+        newmaterial[i].flags = oldmaterial[i].flags;
+        newmaterial[i].nFullAmbient = oldmaterial[i].nFullAmbient;
+        newmaterial[i].bTexturesRegistered = oldmaterial[i].bTexturesRegistered;
+        newmaterial[i].textureNameSave = NULL;              // set by meshLoad from the texture name, as in the exe
     }
 
-    newptr = (void*)newmaterial;
-
-//fixups
-
-    newpolobj->pPolygonList = (polyentry*)(Uint64)offset;
-    
-
-    for (i=0; i < numPolygons; i++) {
-    
-        loopsize= oldpolobj[i].nPolygons * sizeof(struct tagpolygon);
-        memcpy(newptr, oldbase + oldpolobj[i].pPolygonList, loopsize);
-        newpolobj[i].pPolygonList = (polyentry *)offset;        
-        newptr += loopsize;
-        offset += loopsize;  
-
-        loopsize= oldpolobj[i].nVertices * sizeof(struct tagvertex);
-        memcpy(newptr, oldbase + oldpolobj[i].pVertexList, loopsize);
-        newpolobj[i].pVertexList = (vertexentry*)offset;        
-        newptr += loopsize;
-        offset += loopsize;  
-        
-        loopsize= (oldpolobj[i].nFaceNormals + oldpolobj[i].nVertexNormals) * sizeof(struct tagnormal);
-        memcpy(newptr, oldbase + oldpolobj[i].pNormalList, loopsize);
-        newpolobj[i].pNormalList = (normalentry *)offset;        
-        newptr += loopsize;
-        offset += loopsize;  
-    }
-        
-    for (i=0; i < numPolygons; i++) {
-        if (oldpolobj[i].pName != 0) {
-            strcpy(newptr, oldbase + oldpolobj[i].pName);
-            loopsize = strlen(oldbase + oldpolobj[i].pName) + 1;
-            newpolobj[i].pName = offset;
-
-            newptr += loopsize;
-            offset += loopsize;
-        }
-    }
-
-
-    oldmaterial = (struct tagmaterialentry_disk *) ((Uint64)oldbase + oldHeader->oPublicMaterial);
-    newmaterial = newmaterialbase;
-
-    loopcount = oldHeader->nPublicMaterials + oldHeader->nLocalMaterials;
-
-    for (loopvar=0; loopvar < loopcount; loopvar++) {
-        if (oldmaterial->texture != 0){
-            //printf("oldmaterial->texture = %x - %s \n",oldmaterial->texture, oldbase + oldmaterial->texture);
-            strcpy(newptr, oldbase + oldmaterial->texture);
-            loopsize=strlen(oldbase + oldmaterial->texture) + 1;
-            newmaterial->texture = offset; 
-        }
-
-        newmaterial++;
-        oldmaterial++;
-        newptr += loopsize;
-        offset += loopsize;  
-
-    }
-
-    newHeader->__obsolete = offset - sizeof (struct tagGeoFileHeader_disk);
-    
+    // the data block, verbatim
+    memcpy(newbase + blobStart, oldbase + oldMaterialsEnd, (size_t)(oldLength - oldMaterialsEnd));
     memFree(oldbase);
 
     *loadAddress = newbase;
-    return offset;
+    return (sdword)newLength;
 }
 #endif
 
@@ -912,10 +889,9 @@ meshdata *meshLoad(char *inFileName)
             dbgFatalf(DBG_Loc, "meshLoad: Invalid ident string in %s.  Expected %s, found %s", fileName, MESH_FileID, header.identifier);
         }
     }
-    if (header.version != MESH_Version)                    //verify correct version
-    {
-        dbgFatalf(DBG_Loc, "meshLoad: Invalid version # %s.  Expected 0x%x, found 0x%x", fileName, MESH_Version, header.version);
-    }
+    // CAT: no version check. Cataclysm's meshLoad 0x004aec90 never reads the version dword; its files say 0x500
+    // (1,727 files) or 0x402 (2 files, already in the 0x74 layout), so the stamp says nothing about the layout.
+    // The 64-bit conversion checks the 0x74 object stride instead.
 #endif
 
     if (strncmp(header.identifier, MESH_FileID2, MESH_FileIDLength) == 0)
@@ -970,6 +946,7 @@ meshdata *meshLoad(char *inFileName)
 		object->nVertexNormals = FIX_ENDIAN_INT_32( object->nVertexNormals );
 		object->nPolygons      = FIX_ENDIAN_INT_32( object->nPolygons );
 		object->pVertexList    = ( vertexentry *)FIX_ENDIAN_INT_32( ( udword )object->pVertexList );
+		object->pVertexInfo    = ( vertexinfo *)FIX_ENDIAN_INT_32( ( udword )object->pVertexInfo );    // CAT: new list (meshLoad 0x004aec90)
 		object->pNormalList    = ( normalentry *)FIX_ENDIAN_INT_32( ( udword )object->pNormalList );
 		object->pPolygonList   = ( polyentry *)FIX_ENDIAN_INT_32( ( udword )object->pPolygonList );
 		object->pMother        = ( polygonobject *)FIX_ENDIAN_INT_32( ( udword )object->pMother );
@@ -989,6 +966,7 @@ meshdata *meshLoad(char *inFileName)
 
         //object->pName += offset;                          //!!! is there a name
         object->pVertexList = (vertexentry *)(offset + (ubyte *)object->pVertexList);             //fixup vertex list pointer
+        object->pVertexInfo = (vertexinfo *)(offset + (ubyte *)object->pVertexInfo);              // CAT: the new per-vertex info list, fixed up unconditionally (meshLoad 0x004aec90)
         object->pNormalList = (normalentry *)(offset + (ubyte *)object->pNormalList);             //fixup vertex list pointer
         object->pPolygonList = (polyentry *)(offset + (ubyte *)object->pPolygonList);            //fixup vertex list pointer
         if (object->pMother != NULL)
@@ -1931,14 +1909,17 @@ void meshObjectRender(polygonobject *object, materialentry *materials, sdword iC
             case MPM_Flat:
                 dbgAssertOrIgnore(polygon->iFaceNormal != UWORD_Max);
                 normal = &normalList[polygon->iFaceNormal];
-                
+
                 glNormal3f(normal->x, normal->y, normal->z);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV0) }    // CAT: per-vertex colour
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV0].x);
-                
+
                 glNormal3f(normal->x, normal->y, normal->z);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV1) }    // CAT
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV1].x);
-                
+
                 glNormal3f(normal->x, normal->y, normal->z);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV2) }    // CAT
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV2].x);
 
 #if RND_POLY_STATS
@@ -1949,14 +1930,17 @@ void meshObjectRender(polygonobject *object, materialentry *materials, sdword iC
                 dbgAssertOrIgnore(polygon->iFaceNormal != UWORD_Max);
                 normal = &normalList[polygon->iFaceNormal];
                 glNormal3f(normal->x, normal->y, normal->z);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV0) }    // CAT: per-vertex colour
                 glTexCoord2f(polygon->s0, polygon->t0);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV0].x);
 
                 glNormal3f(normal->x, normal->y, normal->z);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV1) }    // CAT
                 glTexCoord2f(polygon->s1, polygon->t1);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV1].x);
 
                 glNormal3f(normal->x, normal->y, normal->z);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV2) }    // CAT
                 glTexCoord2f(polygon->s2, polygon->t2);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV2].x);
 
@@ -1969,16 +1953,19 @@ void meshObjectRender(polygonobject *object, materialentry *materials, sdword iC
                 dbgAssertOrIgnore(vertexList[polygon->iV0].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV0].iVertexNormal];
                 glNormal3f(normal->x, normal->y, normal->z);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV0) }    // CAT: per-vertex colour
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV0].x);
 
                 dbgAssertOrIgnore(vertexList[polygon->iV1].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV1].iVertexNormal];
                 glNormal3f(normal->x, normal->y, normal->z);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV1) }    // CAT
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV1].x);
 
                 dbgAssertOrIgnore(vertexList[polygon->iV2].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV2].iVertexNormal];
                 glNormal3f(normal->x, normal->y, normal->z);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV2) }    // CAT
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV2].x);
 
 #if RND_POLY_STATS
@@ -1990,18 +1977,21 @@ void meshObjectRender(polygonobject *object, materialentry *materials, sdword iC
                 dbgAssertOrIgnore(vertexList[polygon->iV0].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV0].iVertexNormal];
                 glNormal3f(normal->x, normal->y, normal->z);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV0) }    // CAT: per-vertex colour
                 glTexCoord2f(polygon->s0, polygon->t0);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV0].x);
 
                 dbgAssertOrIgnore(vertexList[polygon->iV1].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV1].iVertexNormal];
                 glNormal3f(normal->x, normal->y, normal->z);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV1) }    // CAT
                 glTexCoord2f(polygon->s1, polygon->t1);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV1].x);
 
                 dbgAssertOrIgnore(vertexList[polygon->iV2].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV2].iVertexNormal];
                 glNormal3f(normal->x, normal->y, normal->z);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV2) }    // CAT
                 glTexCoord2f(polygon->s2, polygon->t2);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV2].x);
 
@@ -2145,10 +2135,13 @@ void meshObjectRenderLit(polygonobject *object, materialentry *materials, sdword
             case MPM_Flat:
                 dbgAssertOrIgnore(polygon->iFaceNormal != UWORD_Max);
                 normal = &normalList[polygon->iFaceNormal];
-                meshColour(normal); //shader
+                // CAT: with enableCPV every vertex gets its own colour (meshObjectRenderLit 0x004b0970)
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV0) } else { meshColour(normal) } //shader
 
                 glArrayElement(polygon->iV0);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV1) }
                 glArrayElement(polygon->iV1);
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV2) }
                 glArrayElement(polygon->iV2);
 #if RND_POLY_STATS
                 rndNumberPolys++;
@@ -2157,14 +2150,17 @@ void meshObjectRenderLit(polygonobject *object, materialentry *materials, sdword
             case MPM_Texture:
                 dbgAssertOrIgnore(polygon->iFaceNormal != UWORD_Max);
                 normal = &normalList[polygon->iFaceNormal];
-                meshColour(normal); //shader
+                // CAT: with enableCPV every vertex gets its own colour (meshObjectRenderLit 0x004b0970)
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV0) } else { meshColour(normal) } //shader
 
                 glTexCoord2f(polygon->s0, polygon->t0);
                 glArrayElement(polygon->iV0);
 
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV1) }
                 glTexCoord2f(polygon->s1, polygon->t1);
                 glArrayElement(polygon->iV1);
 
+                if (enableCPV) { meshColourCPV(normal, object, polygon->iV2) }
                 glTexCoord2f(polygon->s2, polygon->t2);
                 glArrayElement(polygon->iV2);
 #if RND_POLY_STATS
@@ -2175,17 +2171,17 @@ void meshObjectRenderLit(polygonobject *object, materialentry *materials, sdword
             case MPM_Smooth:
                 dbgAssertOrIgnore(vertexList[polygon->iV0].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV0].iVertexNormal];
-                meshColour(normal); //shader
+                meshColourLit(normal, object, polygon->iV0); //shader; CAT: + info entry when enableCPV (meshObjectRenderLit 0x004b0970)
                 glArrayElement(polygon->iV0);
 
                 dbgAssertOrIgnore(vertexList[polygon->iV1].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV1].iVertexNormal];
-                meshColour(normal); //shader
+                meshColourLit(normal, object, polygon->iV1); //shader; CAT: + info entry when enableCPV (meshObjectRenderLit 0x004b0970)
                 glArrayElement(polygon->iV1);
 
                 dbgAssertOrIgnore(vertexList[polygon->iV2].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV2].iVertexNormal];
-                meshColour(normal); //shader
+                meshColourLit(normal, object, polygon->iV2); //shader; CAT: + info entry when enableCPV (meshObjectRenderLit 0x004b0970)
                 glArrayElement(polygon->iV2);
 #if RND_POLY_STATS
                 rndNumberPolys++;
@@ -2195,19 +2191,19 @@ void meshObjectRenderLit(polygonobject *object, materialentry *materials, sdword
             case MPM_SmoothTexture:
                 dbgAssertOrIgnore(vertexList[polygon->iV0].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV0].iVertexNormal];
-                meshColour(normal); //shader
+                meshColourLit(normal, object, polygon->iV0); //shader; CAT: + info entry when enableCPV (meshObjectRenderLit 0x004b0970)
                 glTexCoord2f(polygon->s0, polygon->t0);
                 glArrayElement(polygon->iV0);
 
                 dbgAssertOrIgnore(vertexList[polygon->iV1].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV1].iVertexNormal];
-                meshColour(normal); //shader
+                meshColourLit(normal, object, polygon->iV1); //shader; CAT: + info entry when enableCPV (meshObjectRenderLit 0x004b0970)
                 glTexCoord2f(polygon->s1, polygon->t1);
                 glArrayElement(polygon->iV1);
 
                 dbgAssertOrIgnore(vertexList[polygon->iV2].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV2].iVertexNormal];
-                meshColour(normal); //shader
+                meshColourLit(normal, object, polygon->iV2); //shader; CAT: + info entry when enableCPV (meshObjectRenderLit 0x004b0970)
                 glTexCoord2f(polygon->s2, polygon->t2);
                 glArrayElement(polygon->iV2);
 #if MESH_SURFACE_NAME_DEBUG
@@ -3158,4 +3154,192 @@ void meshHierarchyWalk(meshdata *mesh, meshcallback preCallback, meshcallback po
             break;
         }
     }
+}
+
+/*=============================================================================
+    CAT: /catMeshLoadTest <listfile> (port diagnostic, not in the exe; docs/m2-r2-mesh.md)
+=============================================================================*/
+char catMeshSelfTestList[FL_Path] = "";             // CAT: list file of mesh paths, one per line; "" = test off
+
+/*-----------------------------------------------------------------------------
+    Name        : catMeshSelfTestCheck
+    Description : CAT: port diagnostic. Checks a loaded mesh the way the renderer will use it: every polygon's
+                  vertex, face-normal and material index, every vertex's normal index, the hierarchy links, the
+                  object index and each local matrix's m44 (1.0). Counts the totals mesh_probe.py prints.
+    Return      : number of objects that fail a check
+----------------------------------------------------------------------------*/
+static sdword catMeshSelfTestCheck(meshdata *mesh, sdword *nVerts, sdword *nPolys, sdword *nNorms, sdword *nGlow,
+                                   sdword *nTextures)
+{
+    sdword iObject, i, nNormals, nMaterials, bad = 0;
+    polygonobject *object, *first, *last;
+    bool32 objectBad;
+
+    nMaterials = mesh->nPublicMaterials + mesh->nLocalMaterials;
+    first = &mesh->object[0];
+    last = &mesh->object[mesh->nPolygonObjects - 1];
+    *nVerts = *nPolys = *nNorms = *nGlow = *nTextures = 0;
+    for (iObject = 0; iObject < mesh->nPolygonObjects; iObject++)
+    {
+        object = &mesh->object[iObject];
+        nNormals = object->nFaceNormals + object->nVertexNormals;
+        objectBad = FALSE;
+        for (i = 0; i < object->nPolygons; i++)
+        {
+            polyentry *poly = &object->pPolygonList[i];
+            if (poly->iV0 >= object->nVertices || poly->iV1 >= object->nVertices || poly->iV2 >= object->nVertices ||
+                poly->iFaceNormal < 0 || poly->iFaceNormal >= nNormals || poly->iMaterial >= nMaterials)
+            {
+                objectBad = TRUE;
+            }
+        }
+        for (i = 0; i < object->nVertices; i++)
+        {
+            if (object->pVertexList[i].iVertexNormal < 0 || object->pVertexList[i].iVertexNormal >= nNormals)
+            {
+                objectBad = TRUE;
+            }
+            if ((object->pVertexInfo[i].colourOffset & 0x00ffffff) != 0)
+            {                                               // a vertex cat_shColourAddGlow tints
+                (*nGlow)++;
+            }
+            if (!objectBad)
+            {                                               // the colour path the renderer takes with enableCPV
+                shColourSet0((vector *)&object->pNormalList[object->pVertexList[i].iVertexNormal], NULL,
+                             &object->pVertexInfo[i].colourOffset);
+            }
+        }
+        if ((object->pMother != NULL && (object->pMother < first || object->pMother > last)) ||
+            (object->pDaughter != NULL && (object->pDaughter < first || object->pDaughter > last)) ||
+            (object->pSister != NULL && (object->pSister < first || object->pSister > last)) ||
+            object->localMatrix.m44 != 1.0f || object->iObject != (ubyte)iObject)
+        {
+            objectBad = TRUE;
+        }
+        if (objectBad)
+        {
+            bad++;
+        }
+        *nVerts += object->nVertices;
+        *nPolys += object->nPolygons;
+        *nNorms += nNormals;
+    }
+    for (i = 0; i < nMaterials; i++)
+    {
+        if (mesh->localMaterial[i].bTexturesRegistered)
+        {
+            (*nTextures)++;
+        }
+    }
+    return bad;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : catMeshSelfTestMad
+    Description : CAT: port diagnostic. Loads a .mad mesh animation through madFileLoad, checks every object path
+                  (name, at least one keyframe, times not decreasing, the animation names) and logs one
+                  "meshtest: mad loaded ..." line.
+    Return      : TRUE if the file failed a check
+----------------------------------------------------------------------------*/
+static bool32 catMeshSelfTestMad(char *fileName)
+{
+    madheader *header;
+    sdword i, j, nKeyframes = 0, bad = 0;
+
+    header = madFileLoad(fileName);
+    for (i = 0; i < header->nObjects; i++)
+    {
+        madobjpath *path = &header->objPath[i];
+        if (path->name == NULL || path->name[0] == '\0' || path->nKeyframes <= 0 ||
+            path->nameCRC != crc16Compute((ubyte *)path->name, strlen(path->name)))
+        {
+            bad++;
+            continue;
+        }
+        for (j = 1; j < path->nKeyframes; j++)
+        {
+            if (path->times[j] < path->times[j - 1])
+            {
+                bad++;
+                break;
+            }
+        }
+        nKeyframes += path->nKeyframes;
+    }
+    for (i = 0; i < header->nAnimations; i++)
+    {
+        if (header->anim[i].name == NULL || header->anim[i].endTime < header->anim[i].startTime)
+        {
+            bad++;
+        }
+    }
+    dbgMessagef("meshtest: mad loaded %s objects=%d animations=%d keyframes=%d bad=%d",
+                fileName, header->nObjects, header->nAnimations, nKeyframes, bad);
+    madHeaderDelete(header);
+    return bad != 0;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : catMeshRunSelfTest
+    Description : CAT: port diagnostic, not in the exe (command line /catMeshLoadTest <listfile>). Loads every mesh
+                  named in the list file (paths as the game's archives name them, one per line) through meshLoad,
+                  with paging off so each named file is the one loaded, checks it (catMeshSelfTestCheck), logs
+                  one "meshtest: loaded ..." line per file and frees it again. A .mad path is loaded through
+                  madFileLoad instead (catMeshSelfTestMad, "meshtest: mad loaded ...").
+                  tools/formats/mesh_engine_check.py compares the log with tools/formats/mesh_probe.py.
+    Inputs      :
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void catMeshRunSelfTest(void)
+{
+    FILE *list;
+    char line[FL_Path];
+    char *end;
+    meshdata *mesh;
+    bool32 savedAllowPacking = mainAllowPacking;
+    sdword nFiles = 0, nBad = 0, objectsBad;
+    sdword nVerts, nPolys, nNorms, nGlow, nTextures;
+
+    list = fopen(catMeshSelfTestList, "rt");
+    if (list == NULL)
+    {
+        dbgMessagef("meshtest: cannot open list file %s", catMeshSelfTestList);
+        return;
+    }
+    dbgMessagef("meshtest: self-test start, list %s", catMeshSelfTestList);
+    mainAllowPacking = FALSE;                               // load the named file itself, not its .peo
+    while (fgets(line, sizeof(line), list) != NULL)
+    {
+        for (end = line + strlen(line); end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' '); end--)
+        {
+            end[-1] = '\0';
+        }
+        if (line[0] == '\0' || line[0] == '#')
+        {
+            continue;
+        }
+        nFiles++;
+        if (strlen(line) > 4 && strcasecmp(line + strlen(line) - 4, ".mad") == 0)
+        {                                                   // a mesh animation (MeshAnim.c)
+            if (catMeshSelfTestMad(line))
+            {
+                nBad++;
+            }
+            continue;
+        }
+        mesh = meshLoad(line);
+        objectsBad = catMeshSelfTestCheck(mesh, &nVerts, &nPolys, &nNorms, &nGlow, &nTextures);
+        dbgMessagef("meshtest: loaded %s ident=%s objects=%d materials=%d verts=%d polys=%d norms=%d glowverts=%d textures=%d bad=%d",
+                    line, mesh->localSize == UDWORD_Max ? "RMF97ba" : "RMF99ba", mesh->nPolygonObjects,
+                    mesh->nPublicMaterials + mesh->nLocalMaterials, nVerts, nPolys, nNorms, nGlow, nTextures, objectsBad);
+        if (objectsBad != 0)
+        {
+            nBad++;
+        }
+        meshFree(mesh);
+    }
+    fclose(list);
+    mainAllowPacking = savedAllowPacking;
+    dbgMessagef("meshtest: self-test done, %d files, %d with bad objects", nFiles, nBad);
 }

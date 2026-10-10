@@ -157,3 +157,22 @@ dwords 2 and 3 are always 0.
 * Whether anything sets `mainOnlyPacking` (0x00a74d90) is not established (no direct write in decompiled.c; HW1 sets it
   from a command-line switch in neither `ORIG` nor GoK's main.c as far as grep shows).
 * `.mex` / `.mad` (mesh extensions, animation) were not re-checked here.
+
+## M2-R2 findings (docs/m2-r2-mesh.md)
+
+* The field meanings above hold in all 1,729 files: with +0x18 vertices, +0x1C vertex info, +0x20 normals and +0x24
+  polygons, every index of all 4,563 objects is in range, every normal has unit length, every object is named, and
+  dwords 2-3 of every vertex-info entry are 0. The engine port loads all 1,729 files and agrees with the files on
+  every count (`tools/formats/mesh_engine_check.py`).
+  [audit: the 200-file census above is not the full value set. Over all 1,729 files (139,602 vertex-info entries,
+  shared lists counted once) dword 1 takes 0, 1, 2, 3, 0x10, 0x12 and 0x13 (2: 86 entries, 0x12: 48), and byte 3 of
+  dword 0 is 0xFF except in 28 entries where it is 0x80. docs/audits/m2-r2-mesh.md]
+* `mainOnlyPacking` (0x00a74d90): its only reference is the read in `meshLoad`, `.data` holds 0, and the exe has no
+  `/onlyPacking`, `/disablePacking` or `/allowPacking` string. Paging is always on and "only packing" always off.
+* The colour path: `shColourSet0` 0x0050dfe0 calls `cat_shColourAddGlow` only with a non-NULL info entry, and the
+  render functions pass one only when the video option `enableCPV` (0x00c52378; `Homeworld.cfg` key `enableCPV`,
+  switch `/noCPV`, toggle `VO_DynamicCPV`) is set. The per-vertex runtime state (0x28 bytes) is the new first
+  argument of `meshObjectRender`/`meshObjectRenderLit`. Two console toggles gate the glow add (`cbv`, 0x0087816c)
+  and the lighting (`lighting`, 0x0087816d); both are 1.
+* `.mad` (mesh animation) is unchanged: `Mellonn` 0.91 in all 29 files, and `madFileLoad` 0x004b65c0 is HW1's
+  loader statement for statement.

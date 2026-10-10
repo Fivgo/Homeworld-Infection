@@ -38,7 +38,10 @@ void shSpecularColour(sdword specInd, sdword side, vector* vobj, vector* norm,
                       ubyte* color, real32* m, real32* minv);
 void shColour(sdword side, vector* norm, ubyte* color, real32* minv);
 void shColourSet(sdword side, vector* norm, real32* minv);
-void shColourSet0(vector* norm);
+void shColourSet0(vector* norm, real32* vertexState, udword* vertexInfo);  // CAT: + vertex state and info entry (0x0050dfe0)
+void cat_shColourAddGlow(ubyte *r, ubyte *g, ubyte *b, real32 *vertexState, udword *vertexInfo); // CAT: 0x0050d7c0
+extern bool8 catShColourByVertex;          // CAT: console toggle "cbv" (0x0087816c), 1
+extern bool8 catShLighting;                // CAT: console toggle "lighting" (0x0087816d), 1
 void shInvertMatrix(real32* out, real32 const* m);
 void shSetExponent(sdword index, real32 exponent);
 void shSetLightPosition(sdword index, real32* position, real32* m);

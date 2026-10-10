@@ -678,12 +678,77 @@ void shShadeBuffer(sdword nVertices, hvector* source)
     }
 }
 
-void shColourSet0(vector* norm)
+/*-----------------------------------------------------------------------------
+    CAT: per-vertex colour (Cataclysm's mesh files carry a 16-byte info entry per vertex, docs/formats/mesh.md)
+-----------------------------------------------------------------------------*/
+//CAT: two debug toggles of the exe's console command table (row "cbv" 0x00878560 -> 0x0087816c, row "lighting"
+//0x00878574 -> 0x0087816d). Both bytes are 1 in .data and no code writes them; this tree has no such console.
+bool8 catShColourByVertex = TRUE;           // cat_shColourAddGlow adds a vertex's colour only when set
+bool8 catShLighting = TRUE;                 // when clear, shColourSet0 draws every vertex flat grey (0x80) + its colour
+
+//CAT: FAST_TO_INT: the exe adds 1.5 * 2^52 (double at 0x0072a458) and reads the low dword, i.e. rounds to nearest
+static sdword catShFastToInt(real32 x)
+{
+    return (sdword)lrint((double)x);
+}
+
+static ubyte catShClampByte(sdword c)
+{
+    return (ubyte)(c < 0 ? 0 : (c > 0xff ? 0xff : c));
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_shColourAddGlow (Cataclysm 0x0050d7c0)
+    Description : Adds a vertex's own colour to its lit colour. With a per-ship vertex state it adds the runtime
+                  glow (state[6..8], updated by cat_shGlowUpdate 0x0050d560 from the info entry's flags); without
+                  one it adds the info entry's packed signed RGB offset when its low 24 bits are non-zero. Each
+                  channel is clamped to 0..255.
+    Inputs      : r, g, b - the colour bytes to change; vertexState - the vertex's runtime state (0x28 bytes) or
+                  NULL; vertexInfo - the vertex's info entry (vertexinfo.colourOffset)
+    Outputs     : r, g, b
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_shColourAddGlow(ubyte *r, ubyte *g, ubyte *b, real32 *vertexState, udword *vertexInfo)
+{
+    if (!catShColourByVertex)
+    {
+        return;
+    }
+    if (vertexState != NULL)
+    {
+        //CAT: stage 2. The runtime glow needs cat_shGlowUpdate 0x0050d560 and the per-ship mesh state of
+        //cat_univShipMeshStateCreate 0x00541cd0 (0x28 bytes per vertex: glow, hit, last update time, colour at
+        //+0x18..+0x20), the current ship and its trails; none of it is ported, and every caller passes NULL.
+        dbgFatalf(DBG_Loc, "cat_shColourAddGlow: per-vertex glow state is not ported yet (stage 2)");
+    }
+    if ((*vertexInfo & 0x00ffffff) != 0)
+    {
+        *r = catShClampByte((sdword)*r + (sdword)(sbyte)(*vertexInfo));
+        *g = catShClampByte((sdword)*g + (sdword)(sbyte)(*vertexInfo >> 8));
+        *b = catShClampByte((sdword)*b + (sdword)(sbyte)(*vertexInfo >> 16));
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : shColourSet0
+    Description : Lights a vertex with the shader's lights and makes the result the current GL colour.
+                  CAT: Cataclysm (0x0050dfe0) takes the vertex's runtime state and info entry as well: it converts
+                  the lit colour to bytes itself (FAST_TO_INT, clamped to 0..255 at both ends), adds the vertex's
+                  own colour (cat_shColourAddGlow) when an info entry is given, and with the "lighting" toggle clear
+                  draws 0x80 grey plus that colour at full alpha. The sums stay in GoK's [0, 1] scale and are
+                  scaled by 255 before the conversion (HW1 and the exe sum in 0..255).
+    Inputs      : norm - the normal; vertexState - per-vertex runtime glow state or NULL; vertexInfo - the
+                  vertex's info entry or NULL
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void shColourSet0(vector* norm, real32* vertexState, udword* vertexInfo)
 {
     udword l;
     real32 sumR, sumG, sumB;
     real32 nx, ny, nz;
     real32 nDotVP;
+    ubyte r, g, b, a;
 
     nx = norm->x;
     ny = norm->y;
@@ -727,10 +792,25 @@ void shColourSet0(vector* norm)
         sumB += t * shDockScalarBlue;
     }
 
-    glColor4f(MIN2(sumR, 1.f),
-              MIN2(sumG, 1.f),
-              MIN2(sumB, 1.f),
-              shBaseAlpha);
+    // CAT: byte colour, clamped at both ends, plus the vertex's own colour (shColourSet0 0x0050dfe0)
+    r = catShClampByte(catShFastToInt(sumR * 255.0f));
+    g = catShClampByte(catShFastToInt(sumG * 255.0f));
+    b = catShClampByte(catShFastToInt(sumB * 255.0f));
+    if (vertexInfo != NULL)
+    {
+        cat_shColourAddGlow(&r, &g, &b, vertexState, vertexInfo);
+    }
+    a = catShClampByte(catShFastToInt(shBaseAlpha * 255.0f));     // exe: FAST_TO_INT in shUpdateLighting 0x0050dc60
+    if (!catShLighting)
+    {
+        r = g = b = 0x80;
+        if (vertexInfo != NULL)
+        {
+            cat_shColourAddGlow(&r, &g, &b, vertexState, vertexInfo);
+        }
+        a = 0xff;
+    }
+    glColor4ub(r, g, b, a);
 }
 
 real32 gl_pow(real32 a, real32 b)

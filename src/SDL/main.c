@@ -59,6 +59,7 @@
 #include "TitanNet.h"
 #include "utility.h"
 #include "Universe.h"
+#include "Mesh.h"           // CAT: /catMeshLoadTest (port diagnostic)
 
 #ifdef _WIN32
     #define strcasecmp _stricmp
@@ -165,6 +166,7 @@ sdword showBackgrounds = TRUE;
 bool32 showBorder = TRUE;
 sdword enableTextures = TRUE;
 sdword enableSmoothing = TRUE;
+sdword enableCPV = FALSE;   // CAT: per-vertex colour (0x00c52378, .bss; set by Homeworld.cfg "enableCPV", /noCPV, the video options)
 sdword enableStipple = FALSE;
 sdword enableTrails = TRUE;
 #if TR_NIL_TEXTURE
@@ -338,6 +340,14 @@ bool32 CatShipStaticsSkipSet(char *string)
             s++;
         }
     }
+    return TRUE;
+}
+
+// CAT: port diagnostic: /catMeshLoadTest <listfile> (Mesh.c catMeshRunSelfTest)
+bool32 CatMeshLoadTestSet(char *string)
+{
+    strncpy(catMeshSelfTestList, string, FL_Path - 1);
+    catMeshSelfTestList[FL_Path - 1] = '\0';
     return TRUE;
 }
 
@@ -681,6 +691,8 @@ commandoption commandOptions[] =
     entryVr("/noBG",                showBackgrounds, FALSE,             " - disable display of galaxy backgrounds."),
     entryVr("/noFilter",            texLinearFiltering,FALSE,           " - disable bi-linear filtering of textures."),
     entryVr("/noSmooth",            enableSmoothing, FALSE,             " - do not use polygon smoothing."),
+    // CAT: Cataclysm's switch (command-line table row 0x008b8a80, help string 0x008b9694)
+    entryVr("/noCPV",               enableCPV, FALSE,                   " - do not use vertex CPV."),
 #if TR_NIL_TEXTURE
     entryVr("/nilTexture",          GLOBAL_NO_TEXTURES,TRUE,            " - don't ever load textures at all."),
 #endif
@@ -865,6 +877,8 @@ commandoption commandOptions[] =
     // CAT: port diagnostic, not a Cataclysm option (Universe.c catShipStaticsRunSelfTest)
     entryVr("/catShipStaticsTest",  catShipStaticsSelfTest, TRUE, " - load the .shp of every ship type, log one line per file, then exit."),
     entryFnParam("/catShipStaticsSkip", CatShipStaticsSkipSet, " <n,n,...> - ship types /catShipStaticsTest leaves out."),
+    // CAT: port diagnostic, not a Cataclysm option (Mesh.c catMeshRunSelfTest)
+    entryFnParam("/catMeshLoadTest",    CatMeshLoadTestSet, " <listfile> - load every mesh named in listfile, log one line per file, then exit."),
 
     END_COMMAND_OPTION,
 };

@@ -123,6 +123,7 @@ extern sdword utySystemStarted;
 extern regionhandle ghMainRegion;
 extern sdword enableTextures;
 extern sdword enableSmoothing;
+extern sdword enableCPV;            // CAT: per-vertex colour option (0x00c52378)
 extern sdword enableStipple;
 extern ShipRace whichRaceSelected;
 

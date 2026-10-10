@@ -9,6 +9,8 @@
 #ifndef ___MESH_H
 #define ___MESH_H
 
+#include <stddef.h>         // CAT: offsetof for the Cataclysm mesh layout asserts below (meshLoad 0x004aec90)
+
 #include "Color.h"
 #include "Matrix.h"
 #include "texreg.h"
@@ -162,6 +164,17 @@ typedef struct tagnormal
 }
 normalentry;
 
+//CAT: per-vertex info entry, new in Cataclysm's mesh files: one 16-byte entry per vertex, pointed to by
+//polygonobject +0x1C (meshLoad 0x004aec90 fixes it up; meshObjectRender 0x004b0170 passes &pVertexInfo[iV] to
+//shColourSet0 0x0050dfe0, which hands it to cat_shColourAddGlow 0x0050d7c0). Field names are ours (docs/formats/mesh.md).
+typedef struct tagvertexinfo
+{
+    udword colourOffset;                    // CAT: bytes 0..2 = signed R,G,B offsets added to the lit colour when the low 24 bits are non-zero; byte 3 = 0xFF in the data (0x80 in 28 of 139,602 entries, shared lists counted once) [audit: census of all 1,729 files]
+    udword flags;                           // CAT: 0, 1, 2, 3, 0x10, 0x12, 0x13 in the data [audit: all 1,729 files; 2 and 0x12 were missing]; read by cat_shGlowUpdate 0x0050d560 (bits 0x01/0x02 hit glow, 0x10<<i trail i team colour)
+    udword reserved[2];                     // CAT: always 0 in the shipped data
+}
+vertexinfo;
+
 typedef struct tagmaterialentry
 {
     char  *pName;                           // Offset to name of material (may be a CRC32).
@@ -188,6 +201,7 @@ typedef struct polygonobject
     sdword  nVertexNormals;                 // Number of vertex normals for this object.
     sdword  nPolygons;                      // Number of polygons in this object.
     vertexentry *pVertexList;               // Offset to the vertex list in this object.
+    vertexinfo  *pVertexInfo;               // CAT: new per-vertex info list at +0x1C, inserted before pNormalList (meshLoad 0x004aec90)
     normalentry *pNormalList;               // Offset to the normal list in this object.
     polyentry   *pPolygonList;              // Offset to the polygon list in this object.
     struct polygonobject *pMother;          // link to parent object
@@ -283,6 +297,7 @@ typedef struct polygonobject_disk
     sdword  nVertexNormals;                 // Number of vertex normals for this object.
     sdword  nPolygons;                      // Number of polygons in this object.
     udword pVertexList; //vertexentry *pVertexList;     // Offset to the vertex list in this object.
+    udword pVertexInfo; //vertexinfo *pVertexInfo;      // CAT: new per-vertex info list at +0x1C (meshLoad 0x004aec90)
     udword pNormalList;//normalentry *pNormalList;     // Offset to the normal list in this object.
     udword pPolygonList; //polyentry   *pPolygonList;   // Offset to the polygon list in this object.
     udword pMother; // struct polygonobject *pMother;          // link to parent object
@@ -323,6 +338,38 @@ typedef struct tagmaterialentry_disk
 }
 materialentry_disk;
 
+
+//CAT: the on-disk layout of Cataclysm's .geo/.peo files (docs/formats/mesh.md). meshLoad 0x004aec90 reads a 0x44-byte
+//header and walks the polygon objects at a stride of 0x74 (HW1: 0x70); the other records are unchanged.
+#define CAT_ASSERT_MESH_OFFSET(type, field, off) \
+    _Static_assert(offsetof(type, field) == (off), #type "." #field " is at " #off " in Cataclysm mesh files")
+_Static_assert(sizeof(GeoFileHeader_disk) == 0x44, "GeoFileHeader is 0x44 bytes in Cataclysm mesh files");
+_Static_assert(sizeof(polygonobject_disk) == 0x74, "polygonobject is 0x74 bytes in Cataclysm mesh files (HW1 0x70)");
+_Static_assert(sizeof(materialentry_disk) == 0x20, "materialentry is 0x20 bytes in Cataclysm mesh files");
+_Static_assert(sizeof(vertexentry) == 0x10, "vertexentry is 0x10 bytes in Cataclysm mesh files");
+_Static_assert(sizeof(vertexinfo) == 0x10, "vertexinfo is 0x10 bytes in Cataclysm mesh files");
+_Static_assert(sizeof(normalentry) == 0x10, "normalentry is 0x10 bytes in Cataclysm mesh files");
+_Static_assert(sizeof(polyentry) == 0x28, "polyentry is 0x28 bytes in Cataclysm mesh files");
+CAT_ASSERT_MESH_OFFSET(polygonobject_disk, pVertexList, 0x18);
+CAT_ASSERT_MESH_OFFSET(polygonobject_disk, pVertexInfo, 0x1C);
+CAT_ASSERT_MESH_OFFSET(polygonobject_disk, pNormalList, 0x20);
+CAT_ASSERT_MESH_OFFSET(polygonobject_disk, pPolygonList, 0x24);
+CAT_ASSERT_MESH_OFFSET(polygonobject_disk, pMother, 0x28);
+CAT_ASSERT_MESH_OFFSET(polygonobject_disk, pDaughter, 0x2C);
+CAT_ASSERT_MESH_OFFSET(polygonobject_disk, pSister, 0x30);
+CAT_ASSERT_MESH_OFFSET(polygonobject_disk, localMatrix, 0x34);
+CAT_ASSERT_MESH_OFFSET(GeoFileHeader_disk, nPolygonObjects, 0x28);
+#if defined(__i386__)
+//CAT: ILP32 (the exe's own layout): the in-memory polygonobject IS the file record, meshdata's head is 0x20 bytes
+//(meshLoad allocates fileSize - 0x24 = fileSize - 0x44 + 0x20). Checked by tools/m2_layout32.sh.
+_Static_assert(sizeof(polygonobject) == 0x74, "polygonobject is 0x74 bytes in cataclysm.exe");
+_Static_assert(offsetof(meshdata, object) == 0x20, "meshdata.object is at 0x20 in cataclysm.exe");
+CAT_ASSERT_MESH_OFFSET(polygonobject, pVertexInfo, 0x1C);
+CAT_ASSERT_MESH_OFFSET(polygonobject, pPolygonList, 0x24);
+CAT_ASSERT_MESH_OFFSET(polygonobject, localMatrix, 0x34);
+CAT_ASSERT_MESH_OFFSET(materialentry, texture, 0x14);
+_Static_assert(sizeof(materialentry) == 0x20, "materialentry is 0x20 bytes in cataclysm.exe");
+#endif
 
 /*=============================================================================
     Data:
@@ -380,6 +427,10 @@ mhbinding *meshBindingFindByName(mhbinding *startBinding, mhbinding *list, meshd
 sdword meshBindingIndexFindByName(mhbinding *list, meshdata *mesh, char *name);
 bool32 meshFindHierarchyMatrixByUserData(hmatrix *dest, hmatrix *destNC, mhbinding *bindings, void *userData);
 void meshHierarchyWalk(meshdata *mesh, meshcallback preMesh, meshcallback postCallback);
+
+//CAT: port diagnostic, not in the exe: /catMeshLoadTest <listfile> loads every mesh in the list (docs/m2-r2-mesh.md)
+extern char catMeshSelfTestList[];
+void catMeshRunSelfTest(void);
 
 void meshSetFade(real32 fade);
 void meshSetSpecular(sdword mode, ubyte red, ubyte green, ubyte blue, ubyte alpha); //mode -1 == off

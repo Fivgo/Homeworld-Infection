@@ -287,6 +287,13 @@ typedef enum
     M13PanelC,
     //hyperspace gate dummy derelict
     HyperspaceGate,
+    //CAT-PROVISIONAL: Cataclysm's derelict types with no HW1 counterpart, appended so their meshes and statics resolve
+    //(meshNameToStaticInfo 0x004ae7b0 looks the mesh directory up in this table). The exe's table 0x00889b68 has 8
+    //types: Crate 0, Homeworld 1, PlanetOfOrigin 2, PlanetOfOrigin_scarred 3, Galaxy 4, LavaBall 5, MattWorld 6,
+    //HyperspaceGate 7. Renumbering to it is the open derelict-table item (docs/m2-r2-shipstatics.md, docs/m2-r2-mesh.md).
+    Galaxy,
+    LavaBall,
+    MattWorld,
     NUM_DERELICTTYPES
 } DerelictType;
 

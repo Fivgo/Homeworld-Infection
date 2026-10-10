@@ -384,6 +384,10 @@ static NumStrXlate derelicttypeinfo[] =
     { (uword)M13PanelB,                     "M13PanelB"},
     { (uword)M13PanelC,                     "M13PanelC"},
     { (uword)HyperspaceGate,                "HyperspaceGate"},
+    // CAT-PROVISIONAL: Cataclysm-only derelict types, names as in the exe's table 0x00889b68 (values there 4, 5, 6)
+    { (uword)Galaxy,                        "Galaxy"},
+    { (uword)LavaBall,                      "LavaBall"},
+    { (uword)MattWorld,                     "MattWorld"},
     { 0,NULL }
 };
 

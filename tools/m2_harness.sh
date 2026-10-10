@@ -5,11 +5,14 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics
+#   --mode sp|fe|statics|meshes
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
-#                    "shipstatic:" log line per file, docs/m2-r2-shipstatics.md) and quits
+#                    "shipstatic:" log line per file, docs/m2-r2-shipstatics.md) and quits;
+#                    meshes: /catMeshLoadTest <run>/meshes.list, loads every .geo/.peo/.mad of the install (the
+#                    cataclysm.big TOC, or the files of an /ignoreBigfiles --data tree) once at start-up, one
+#                    "meshtest:" log line per file (docs/m2-r2-mesh.md), and quits
 #   --timeout N      seconds (default 60)
 #   --driver D       offscreen (default; falls back to dummy if the offscreen driver cannot set a video mode) | dummy
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
@@ -85,6 +88,18 @@ cp -r "$HARNESS/home-template" "$out/home"
 args=(/window /nodebugInt /logFileLoads /settingspath "$out/settings")
 [[ "$mode" == sp ]] && args+=(/debugScreenshots)
 [[ "$mode" == statics ]] && args+=(/catShipStaticsTest)
+if [[ "$mode" == meshes ]]; then
+	# every .geo/.peo the install has: the cataclysm.big TOC (tools/bigfile.py), or for an /ignoreBigfiles data tree
+	# the files themselves; paths as the archive names them (backslashes)
+	if [[ -e "$data/cataclysm.big" ]]; then
+		python3 "$root/tools/bigfile.py" list "$data/cataclysm.big" | awk -F'\t' 'NR > 1 {print $5}' \
+			| grep -i -E '\.(geo|peo|mad)$' | sort > "$out/meshes.list"
+	else
+		(cd "$data" && find -L . -type f \( -iname '*.geo' -o -iname '*.peo' -o -iname '*.mad' \)) | sed 's|^\./||; s|/|\\|g' \
+			| sort > "$out/meshes.list"
+	fi
+	args+=(/catMeshLoadTest "$out/meshes.list")
+fi
 args+=("${extra[@]}")
 
 run_once() {
@@ -123,6 +138,7 @@ grep -qi "Mission01.mission\|LevelLoad\|levelLoad" "$out/FileLoads.log" "$L" 2>/
 	grep -q "New single player game started" "$L" && milestone="level load (mission file read)"
 grep -q "debugScreenshots univUpdateCounter" "$L" && milestone="universe running (univUpdateCounter > 0)"
 grep -q "shipstatic: self-test done" "$L" && milestone="ship statics self-test done"
+grep -q "meshtest: self-test done" "$L" && milestone="mesh self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately, except the misaligned-access reports on the packed sound-bank and front-end
@@ -147,6 +163,8 @@ nload=$(wc -l < "$out/FileLoads.log" 2>/dev/null || echo 0)
 	echo "first non-benign UBSan report (non-fatal): ${ubsan1:-none}"
 	echo "file loads: $nload; ASan errors: $asan_n"
 	echo "ship statics: $(grep -c 'shipstatic: loaded' "$L") loaded, $(grep -c 'shipstatic: .* not found' "$L") not found (disabled), $(grep -c 'shipstatic: other' "$L") other .shp; $(grep -h 'shipstatic: self-test done' "$L" | sed 's/^.*shipstatic: //' | head -n 1)"
+	[[ "$mode" == meshes ]] && echo "meshes: $(grep -c . "$out/meshes.list" 2>/dev/null) listed, $(grep -c 'meshtest: loaded' "$L") .geo/.peo loaded, $(grep -c 'meshtest: mad loaded' "$L") .mad loaded, $(grep 'meshtest: .*loaded' "$L" | grep -c -v ' bad=0$') with bad=; $(grep -h 'meshtest: self-test done' "$L" | sed 's/^.*meshtest: //' | head -n 1)"
+	echo "engine glows: $(grep -c -i 'engineglows' "$out/FileLoads.log" 2>/dev/null) mesh/mex loads from misc\\EngineGlows in FileLoads.log"
 	echo "UBSan report kinds (count, site):"; echo "$ubsan_kinds"
 	echo "log tail:"; grep -v '^    #\|^ *$' "$L" | tail -n 8
 } | tee "$out/summary.txt"

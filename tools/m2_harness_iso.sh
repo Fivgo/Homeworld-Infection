@@ -11,7 +11,7 @@
 # Stages that can be undone (numbers as in docs/m2-r1-data-deltas.md section 4):
 #   3 aiship.script  4 tweak.script  5 dock.script  6 gatherstatsfor.script  7 crates.script
 #   8 parade_{r1mothership,r2mothership,p2mothership,carrier}.script  9 speech LUT names  12 battlechatter.script
-#   13 colpick.script  14 tactical.script
+#   13 colpick.script  14 tactical.script  15 the mesh down-conversion (all .geo/.peo back to the 0x74 originals)
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [[ -d "$root/original/game" ]]; then main="$root"; else main="$(cd "$root/../../.." && pwd)"; fi
@@ -39,6 +39,16 @@ for s in "${list[@]}"; do
 		12) restore battlechatter.script "$X/cataclysm/battlechatter.script" ;;
 		13) restore colpick.script "$X/cataclysm/colpick.script" ;;
 		14) restore tactical.script "$X/cataclysm/tactical.script" ;;
+		15) # the mesh down-conversion: every .geo/.peo back to the original 0x74-layout file (update.big's copy
+			# first if it has one; it has none today), docs/m2-r2-mesh.md
+			n15=0
+			while IFS= read -r -d '' f; do
+				rel=${f#"$T/"}
+				if [[ -e "$X/update/$rel" ]]; then src="$X/update/$rel"; else src="$X/cataclysm/$rel"; fi
+				[[ -e "$src" ]] || { echo "stage 15: no original for $rel" >&2; exit 1; }
+				restore "$rel" "$src"; n15=$((n15 + 1))
+			done < <(find "$T" \( -iname '*.geo' -o -iname '*.peo' \) -print0)
+			echo "stage 15 undone: $n15 meshes point at the original files" ;;
 		*) echo "stage $s cannot be undone here" >&2; exit 2 ;;
 	esac
 done

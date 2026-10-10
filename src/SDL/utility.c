@@ -99,6 +99,7 @@
 #include "Undo.h"
 #include "Universe.h"
 #include "UnivUpdate.h"
+#include "Mesh.h"           // CAT: /catMeshLoadTest (port diagnostic)
 
 #include "main.h"
 #include "avi.h"
@@ -659,6 +660,7 @@ scriptEntry utyOptionsList[] =
     {"noLOD",                   scriptSetUdwordCB, &opNoLODVal},
     {"detailThreshold",         scriptSetUdwordCB, &opDetailThresholdVal},
     {"enableSmoothing",         scriptSetUdwordCB, &enableSmoothing},
+    {"enableCPV",               scriptSetUdwordCB, &enableCPV},        // CAT: options table row 0x008c14c0 (after enableSmoothing)
     {"showBackgrounds",         scriptSetUdwordCB, &showBackgrounds},
     {"texLinearFiltering",      scriptSetUdwordCB, &texLinearFiltering},
     {"enableStipple",           scriptSetUdwordCB, &enableStipple},
@@ -4236,6 +4238,14 @@ DONE_INTROS:
 */
 
     utySet(SS2_SystemStarted);                              //!!! leave this at the end of this function
+
+    // CAT: /catMeshLoadTest (port diagnostic): load every mesh in the list once, log it, and quit
+    if (catMeshSelfTestList[0] != '\0')
+    {
+        catMeshRunSelfTest();
+        utyGameQuit(NULL, NULL);
+        return(NULL);
+    }
 
     // CAT: /catShipStaticsTest (port diagnostic): load every ship static once, log it, and quit
     if (catShipStaticsSelfTest)
