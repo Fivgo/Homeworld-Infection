@@ -325,6 +325,22 @@ int RegisterCommandLine(char *commandLine)
 /*-----------------------------------------------------------------------------
     Command-line parsing functions called when a certain flags are set
 -----------------------------------------------------------------------------*/
+// CAT: port diagnostic: /catShipStaticsSkip <type,type,...> leaves these ship types out of /catShipStaticsTest
+bool32 CatShipStaticsSkipSet(char *string)
+{
+    char *s = string;
+
+    while (*s && catShipStaticsSkipCount < CAT_SHIPSTATICS_MAXSKIP)
+    {
+        catShipStaticsSkip[catShipStaticsSkipCount++] = (sdword)strtol(s, &s, 10);
+        while (*s == ',' || *s == ' ')
+        {
+            s++;
+        }
+    }
+    return TRUE;
+}
+
 bool32 HeapSizeSet(char *string)
 {
     sscanf(string, "%d", &MemoryHeapSize);
@@ -846,6 +862,9 @@ commandoption commandOptions[] =
 
     entryVr("/debugScreenshots",    debugScreenshots, TRUE, " - take screenshots from all single-player missions for render debugging then exit."),
     entryVr("/vanilla",              vanillaMode, TRUE, " - restore original engine behaviour (Universe update rate)."),
+    // CAT: port diagnostic, not a Cataclysm option (Universe.c catShipStaticsRunSelfTest)
+    entryVr("/catShipStaticsTest",  catShipStaticsSelfTest, TRUE, " - load the .shp of every ship type, log one line per file, then exit."),
+    entryFnParam("/catShipStaticsSkip", CatShipStaticsSkipSet, " <n,n,...> - ship types /catShipStaticsTest leaves out."),
 
     END_COMMAND_OPTION,
 };

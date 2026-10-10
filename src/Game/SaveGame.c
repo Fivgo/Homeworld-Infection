@@ -1382,7 +1382,7 @@ void FixSalvageInfo(ShipOrDerelict *ship)
         }
         else
         {
-            salvagePoint->salvageStaticPoint = &ship->staticinfo->salvageStaticInfo->salvageStaticPoints[(sdword)salvagePoint->salvageStaticPoint];
+            salvagePoint->salvageStaticPoint = &CAT_SALVAGESTATICINFO(ship->staticinfo)->salvageStaticPoints[(sdword)salvagePoint->salvageStaticPoint];
         }
     }
 }
@@ -1654,7 +1654,7 @@ void CopyPointersFromRealShipStaticInfo(ShipStaticInfo *dynamicstaticinfo,ShipSt
 
     CopyPointersFromRealStaticHeader(&dynamicstaticinfo->common,&realstaticinfo->common);
 
-    dynamicstaticinfo->shipOrDerelict.salvageStaticInfo = realstaticinfo->shipOrDerelict.salvageStaticInfo;
+    // CAT: no salvageStaticInfo in Cataclysm (CopyPointersFromRealShipStaticInfo 0x004ffc60 copies none)
     dynamicstaticinfo->custshipheader = realstaticinfo->custshipheader;
     dynamicstaticinfo->custstatinfo = realstaticinfo->custstatinfo;
 
@@ -1670,7 +1670,7 @@ void CopyPointersFromRealShipStaticInfo(ShipStaticInfo *dynamicstaticinfo,ShipSt
     dynamicstaticinfo->dockOverideInfo = realstaticinfo->dockOverideInfo;
     dynamicstaticinfo->navlightStaticInfo = realstaticinfo->navlightStaticInfo;
     dynamicstaticinfo->resNozzleStatic = realstaticinfo->resNozzleStatic;
-    dynamicstaticinfo->tractorEmitterStatic = realstaticinfo->tractorEmitterStatic;
+    // CAT: no tractorEmitterStatic in Cataclysm (CopyPointersFromRealShipStaticInfo 0x004ffc60 copies none)
     dynamicstaticinfo->ShipXDocksAtShipY = realstaticinfo->ShipXDocksAtShipY;
     dynamicstaticinfo->LaunchShipXFromShipY = realstaticinfo->LaunchShipXFromShipY;
 }

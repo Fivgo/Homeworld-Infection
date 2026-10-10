@@ -70,6 +70,12 @@ extern scriptEntry FrontEndColourTweaks[];
 
 char globalScriptFileName[50];  //file name of file loaded in a script callback function
 
+// CAT: port diagnostic (not in the exe): number of keys the most recently finished scriptSetStruct call matched and
+//      passed to a callback (a nested call, e.g. the LOD script read by the LODFile key, finishes first, so the outer
+//      call's count is the one left). InitStatShipInfo logs it per ship so the parse can be compared with
+//      tools/formats/shipstatic_probe.py
+udword scriptStructEntriesSet = 0;
+
 /*=============================================================================
     Private Defines:
 =============================================================================*/
@@ -84,6 +90,9 @@ void scriptSetDockPointCB(char *directory,char *field,void *dataToFillIn);
 void scriptSetDockOverideCB(char *directory,char *field,void *dataToFillIn);
 void scriptSetNAVLightCB(char *directory,char *field,void *dataToFillIn);
 //static void setEffectPointer(char *directory,char *field,void *dataToFillIn);
+static void cat_scriptSetObsoleteGunKeyCB(char *directory,char *field,void *dataToFillIn);  // CAT: new
+static void cat_scriptSetWeaponTypeCB(char *directory,char *field,void *dataToFillIn);      // CAT: new
+static void cat_scriptSetGunSizeCB(char *directory,char *field,void *dataToFillIn);         // CAT: new
 
 /*=============================================================================
     Private Data:
@@ -91,40 +100,51 @@ void scriptSetNAVLightCB(char *directory,char *field,void *dataToFillIn);
 
 static GunStatic gunStaticTemplate;
 
+// CAT: Cataclysm's gun table, the exe's 39 entries in the exe's order (0x008975a0). SoundType, BulletType, DamageLo and
+//      DamageHi are still accepted but ignored (their exe callbacks 0x00526050/0x00526080/0x00526060/0x00526070 only
+//      pass an "obsolete key" message to a stripped debug print); 8 keys are new (StartUpgradeLevel, EndUpgradeLevel,
+//      GunSize, DamageMult, BulletLifeTime2, BulletRange2, BulletSpeed2, FireTime2).
 static scriptStructEntry StaticGunInfoScriptTable[] =
 {
-    { "Type",                scriptSetGunTypeCB,      &(gunStaticTemplate.guntype),              &gunStaticTemplate },
-    { "SoundType",           scriptSetGunSoundTypeCB, &(gunStaticTemplate.gunsoundtype),         &gunStaticTemplate },
-    { "BulletType",          scriptSetBulletTypeCB,   &(gunStaticTemplate.bulletType),           &gunStaticTemplate },
-    { "DamageLo",            scriptSetReal32CB,       &(gunStaticTemplate.baseGunDamageLo),      &gunStaticTemplate },
-    { "DamageHi",            scriptSetReal32CB,       &(gunStaticTemplate.baseGunDamageHi),      &gunStaticTemplate },
-    { "MaxMissiles",         scriptSetSdwordCB,       &(gunStaticTemplate.maxMissiles),          &gunStaticTemplate },
-    { "BulletLifeTime",      scriptSetReal32CB,       &(gunStaticTemplate.bulletlifetime),       &gunStaticTemplate },
-    { "BulletLength",        scriptSetReal32CB,       &(gunStaticTemplate.bulletlength),         &gunStaticTemplate },
-    { "BulletRange",         scriptSetReal32CB,       &(gunStaticTemplate.bulletrange),          &gunStaticTemplate },
-    { "BulletSpeed",         scriptSetReal32CB,       &(gunStaticTemplate.bulletspeed),          &gunStaticTemplate },
-    { "BulletMass",          scriptSetReal32CB,       &(gunStaticTemplate.bulletmass),           &gunStaticTemplate },
-    { "FireTime",            scriptSetReal32CB,       &(gunStaticTemplate.firetime),             &gunStaticTemplate },
-    { "BurstFireTime",       scriptSetReal32CB,       &(gunStaticTemplate.burstFireTime),        &gunStaticTemplate },
-    { "BurstWaitTime",       scriptSetReal32CB,       &(gunStaticTemplate.burstWaitTime),        &gunStaticTemplate },
-    { "MinAngle",            scriptSetCosAngCB,       &(gunStaticTemplate.cosminAngleFromNorm),  &gunStaticTemplate },
-    { "MaxAngle",            scriptSetCosAngCB,       &(gunStaticTemplate.cosmaxAngleFromNorm),  &gunStaticTemplate },
-    { "TriggerHappy",        scriptSetCosAngCB,       &(gunStaticTemplate.triggerHappy),         &gunStaticTemplate },
-
-    { "minturnangle",        scriptSetAngCB,          &(gunStaticTemplate.minturnangle),         &gunStaticTemplate },
-    { "maxturnangle",        scriptSetAngCB,          &(gunStaticTemplate.maxturnangle),         &gunStaticTemplate },
-    { "mindeclination",      scriptSetAngCB,          &(gunStaticTemplate.mindeclination),       &gunStaticTemplate },
-    { "maxdeclination",      scriptSetAngCB,          &(gunStaticTemplate.maxdeclination),       &gunStaticTemplate },
-    { "maxanglespeed",       scriptSetAngCB,          &(gunStaticTemplate.maxanglespeed),        &gunStaticTemplate },
-    { "maxdeclinationspeed", scriptSetAngCB,          &(gunStaticTemplate.maxdeclinationspeed),  &gunStaticTemplate },
-    { "angletracking",       scriptSetReal32CB,       &(gunStaticTemplate.angletracking),        &gunStaticTemplate },
-    { "declinationtracking", scriptSetReal32CB,       &(gunStaticTemplate.declinationtracking),  &gunStaticTemplate },
-    { "BarrelLength",        scriptSetReal32CB,       &(gunStaticTemplate.barrelLength),         &gunStaticTemplate },
-    { "RecoilLength",        scriptSetReal32CB,       &(gunStaticTemplate.recoilLength),         &gunStaticTemplate },
-    { "OffsetX",             scriptSetReal32CB,       &(gunStaticTemplate.offset.x),             &gunStaticTemplate },
-    { "OffsetY",             scriptSetReal32CB,       &(gunStaticTemplate.offset.y),             &gunStaticTemplate },
-    { "OffsetZ",             scriptSetReal32CB,       &(gunStaticTemplate.offset.z),             &gunStaticTemplate },
-    { "SlaveDriver",         scriptSetSdwordCB,       &(gunStaticTemplate.slaveDriver),          &gunStaticTemplate },
+    { "SoundType",           cat_scriptSetObsoleteGunKeyCB,  &gunStaticTemplate,                           &gunStaticTemplate },
+    { "BulletType",          cat_scriptSetObsoleteGunKeyCB,  &gunStaticTemplate,                           &gunStaticTemplate },
+    { "DamageLo",            cat_scriptSetObsoleteGunKeyCB,  &gunStaticTemplate,                           &gunStaticTemplate },
+    { "DamageHi",            cat_scriptSetObsoleteGunKeyCB,  &gunStaticTemplate,                           &gunStaticTemplate },
+    { "StartUpgradeLevel",   cat_scriptSetWeaponTypeCB,      &(gunStaticTemplate.startUpgradeLevel),       &gunStaticTemplate },
+    { "EndUpgradeLevel",     cat_scriptSetWeaponTypeCB,      &(gunStaticTemplate.endUpgradeLevel),         &gunStaticTemplate },
+    { "GunSize",             cat_scriptSetGunSizeCB,         &(gunStaticTemplate.gunSize),                 &gunStaticTemplate },
+    { "DamageMult",          scriptSetReal32CB,              &(gunStaticTemplate.damageMult),              &gunStaticTemplate },
+    { "Type",                scriptSetGunTypeCB,             &(gunStaticTemplate.guntype),                 &gunStaticTemplate },
+    { "MaxMissiles",         scriptSetSdwordCB,              &(gunStaticTemplate.maxMissiles),             &gunStaticTemplate },
+    { "BulletLifeTime",      scriptSetReal32CB,              &(gunStaticTemplate.bulletlifetime),          &gunStaticTemplate },
+    { "BulletLength",        scriptSetReal32CB,              &(gunStaticTemplate.bulletlength),            &gunStaticTemplate },
+    { "BulletRange",         scriptSetReal32CB,              &(gunStaticTemplate.bulletrange),             &gunStaticTemplate },
+    { "BulletSpeed",         scriptSetReal32CB,              &(gunStaticTemplate.bulletspeed),             &gunStaticTemplate },
+    { "BulletMass",          scriptSetReal32CB,              &(gunStaticTemplate.bulletmass),              &gunStaticTemplate },
+    { "FireTime",            scriptSetReal32CB,              &(gunStaticTemplate.firetime),                &gunStaticTemplate },
+    { "BurstFireTime",       scriptSetReal32CB,              &(gunStaticTemplate.burstFireTime),           &gunStaticTemplate },
+    { "BurstWaitTime",       scriptSetReal32CB,              &(gunStaticTemplate.burstWaitTime),           &gunStaticTemplate },
+    { "MinAngle",            scriptSetCosAngCB,              &(gunStaticTemplate.cosminAngleFromNorm),     &gunStaticTemplate },
+    { "MaxAngle",            scriptSetCosAngCB,              &(gunStaticTemplate.cosmaxAngleFromNorm),     &gunStaticTemplate },
+    { "TriggerHappy",        scriptSetCosAngCB,              &(gunStaticTemplate.triggerHappy),            &gunStaticTemplate },
+    { "BulletLifeTime2",     scriptSetReal32CB,              &(gunStaticTemplate.bulletlifetime2),         &gunStaticTemplate },
+    { "BulletRange2",        scriptSetReal32CB,              &(gunStaticTemplate.bulletrange2),            &gunStaticTemplate },
+    { "BulletSpeed2",        scriptSetReal32CB,              &(gunStaticTemplate.bulletspeed2),            &gunStaticTemplate },
+    { "FireTime2",           scriptSetReal32CB,              &(gunStaticTemplate.firetime2),               &gunStaticTemplate },
+    { "minturnangle",        scriptSetAngCB,                 &(gunStaticTemplate.minturnangle),            &gunStaticTemplate },
+    { "maxturnangle",        scriptSetAngCB,                 &(gunStaticTemplate.maxturnangle),            &gunStaticTemplate },
+    { "mindeclination",      scriptSetAngCB,                 &(gunStaticTemplate.mindeclination),          &gunStaticTemplate },
+    { "maxdeclination",      scriptSetAngCB,                 &(gunStaticTemplate.maxdeclination),          &gunStaticTemplate },
+    { "maxanglespeed",       scriptSetAngCB,                 &(gunStaticTemplate.maxanglespeed),           &gunStaticTemplate },
+    { "maxdeclinationspeed", scriptSetAngCB,                 &(gunStaticTemplate.maxdeclinationspeed),     &gunStaticTemplate },
+    { "angletracking",       scriptSetReal32CB,              &(gunStaticTemplate.angletracking),           &gunStaticTemplate },
+    { "declinationtracking", scriptSetReal32CB,              &(gunStaticTemplate.declinationtracking),     &gunStaticTemplate },
+    { "BarrelLength",        scriptSetReal32CB,              &(gunStaticTemplate.barrelLength),            &gunStaticTemplate },
+    { "RecoilLength",        scriptSetReal32CB,              &(gunStaticTemplate.recoilLength),            &gunStaticTemplate },
+    { "OffsetX",             scriptSetReal32CB,              &(gunStaticTemplate.offset.x),                &gunStaticTemplate },
+    { "OffsetY",             scriptSetReal32CB,              &(gunStaticTemplate.offset.y),                &gunStaticTemplate },
+    { "OffsetZ",             scriptSetReal32CB,              &(gunStaticTemplate.offset.z),                &gunStaticTemplate },
+    { "SlaveDriver",         scriptSetSdwordCB,              &(gunStaticTemplate.slaveDriver),             &gunStaticTemplate },
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -143,12 +163,14 @@ static scriptStructEntry StaticDockOverideInfoScriptTable[] =
     END_SCRIPT_STRUCT_ENTRY
 };
 
+#if 0 // CAT: no SalvagePoint key in Cataclysm (see scriptSetSalvageStatCB below)
 static scriptStructEntry StaticSalvageInfoScriptTable[] =
 {
     { "SalvagePoint",  scriptSetSalvagePointCB, 0, 0 },
 
     END_SCRIPT_STRUCT_ENTRY
 };
+#endif
 
 static scriptStructEntry StaticNavLightInfoScriptTable[] =
 {
@@ -544,6 +566,39 @@ void scriptSetGunTypeCB(char *directory,char *field,void *dataToFillIn)
     *((ShipClass *)dataToFillIn) = StrToGunType(field);
 }
 
+// CAT: gun keys Cataclysm still accepts but ignores (SoundType 0x00526050, DamageLo 0x00526060, DamageHi 0x00526070,
+//      BulletType 0x00526080: each only passes a message to a stripped debug print)
+static void cat_scriptSetObsoleteGunKeyCB(char *directory,char *field,void *dataToFillIn)
+{
+}
+
+// CAT: StartUpgradeLevel/EndUpgradeLevel: WEAPON_* name; an unknown name leaves the field as it was
+//      (cat_scriptSetWeaponTypeCB 0x00525ff0)
+static void cat_scriptSetWeaponTypeCB(char *directory,char *field,void *dataToFillIn)
+{
+    sdword weapontype = cat_StrToWeaponType(field);
+
+    if (weapontype == -1)
+    {
+        dbgMessagef("Warning! Unrecognized Ship Weapon Upgrade found:  %s", field);
+        return;
+    }
+    *((sdword *)dataToFillIn) = weapontype;
+}
+
+// CAT: GunSize: GUNSIZE_* name; an unknown name leaves the field as it was (cat_scriptSetGunSizeCB 0x00526020)
+static void cat_scriptSetGunSizeCB(char *directory,char *field,void *dataToFillIn)
+{
+    sdword gunsize = cat_StrToGunSize(field);
+
+    if (gunsize == -1)
+    {
+        dbgMessagef("Warning! Unrecognized Gun Size found: %s", field);
+        return;
+    }
+    *((udword *)dataToFillIn) = (udword)gunsize;
+}
+
 void scriptSetGunSoundTypeCB(char *directory,char *field,void *dataToFillIn)
 {
     *((ShipClass *)dataToFillIn) = StrToGunSoundType(field);
@@ -787,6 +842,7 @@ void scriptSetStruct(char *directory, char *filename, scriptStructEntry info[], 
     char fullfilename[80];
     sdword status;
     scriptStructEntry *foundentry;
+    udword entriesSet = 0;          // CAT: port diagnostic count (scriptStructEntriesSet)
 
     if (directory != NULL)
     {
@@ -817,10 +873,12 @@ void scriptSetStruct(char *directory, char *filename, scriptStructEntry info[], 
                 strcpy(globalScriptFileName,filename);
 
                 foundentry->setVarCB(directory, value, (char*)structureToFillIn + (foundentry->offset1 - foundentry->offset2));
+                entriesSet++;               // CAT: port diagnostic count only
             }
         }
     }
 
+    scriptStructEntriesSet = entriesSet;   // CAT: port diagnostic
     fileClose(fh);
 }
 
@@ -964,7 +1022,7 @@ void scriptSetGunStatics(char *directory,char *filename,struct ShipStaticInfo *s
     GunStaticInfo *gunstaticinfo = NULL;
     ubyte *structureToFillIn;
     sdword i,k;
-    real32 curbulletrange,bonus,spdbonus;
+    real32 curbulletrange;      // CAT: no per-class range/speed bonus any more
 
     if (directory != NULL)
     {
@@ -1034,34 +1092,14 @@ void scriptSetGunStatics(char *directory,char *filename,struct ShipStaticInfo *s
                     if (name[0] == '}')
                     {
                         state = SETGUNSTATE_LOOKINGFORGUN;
-                        if(shipstatinfo->shipclass == CLASS_Fighter)
+                        // CAT: the damage arrays take the base values for every tactic and class; Cataclysm
+                        //      dropped HW1's fighter/corvette DamageBonus scaling here (scriptSetGunStatics
+                        //      0x00526790, 0x005269e0..0x00526a88). DamageLo/DamageHi are ignored keys, so the
+                        //      base values stay 0 (gun damage is computed elsewhere in Cataclysm, stage 2).
+                        for (k = 0; k < NUM_TACTICS_TYPES; k++)
                         {
-                            gunstaticinfo->gunstatics[processingGun].gunDamageLo[Evasive]=   gunstaticinfo->gunstatics[processingGun].baseGunDamageLo * tacticsInfo.DamageBonus[Tactics_Fighter][Evasive];
-                            gunstaticinfo->gunstatics[processingGun].gunDamageLo[Neutral]=   gunstaticinfo->gunstatics[processingGun].baseGunDamageLo * tacticsInfo.DamageBonus[Tactics_Fighter][Neutral];
-                            gunstaticinfo->gunstatics[processingGun].gunDamageLo[Aggressive]=gunstaticinfo->gunstatics[processingGun].baseGunDamageLo * tacticsInfo.DamageBonus[Tactics_Fighter][Aggressive];
-
-                            gunstaticinfo->gunstatics[processingGun].gunDamageHi[Evasive]=   gunstaticinfo->gunstatics[processingGun].baseGunDamageHi * tacticsInfo.DamageBonus[Tactics_Fighter][Evasive];
-                            gunstaticinfo->gunstatics[processingGun].gunDamageHi[Neutral]=   gunstaticinfo->gunstatics[processingGun].baseGunDamageHi * tacticsInfo.DamageBonus[Tactics_Fighter][Neutral];
-                            gunstaticinfo->gunstatics[processingGun].gunDamageHi[Aggressive]=gunstaticinfo->gunstatics[processingGun].baseGunDamageHi * tacticsInfo.DamageBonus[Tactics_Fighter][Aggressive];
-                        }
-                        else if(shipstatinfo->shipclass == CLASS_Corvette)
-                        {
-                            gunstaticinfo->gunstatics[processingGun].gunDamageLo[Evasive]=   gunstaticinfo->gunstatics[processingGun].baseGunDamageLo * tacticsInfo.DamageBonus[Tactics_Corvette][Evasive];
-                            gunstaticinfo->gunstatics[processingGun].gunDamageLo[Neutral]=   gunstaticinfo->gunstatics[processingGun].baseGunDamageLo * tacticsInfo.DamageBonus[Tactics_Corvette][Neutral];
-                            gunstaticinfo->gunstatics[processingGun].gunDamageLo[Aggressive]=gunstaticinfo->gunstatics[processingGun].baseGunDamageLo * tacticsInfo.DamageBonus[Tactics_Corvette][Aggressive];
-
-                            gunstaticinfo->gunstatics[processingGun].gunDamageHi[Evasive]=   gunstaticinfo->gunstatics[processingGun].baseGunDamageHi * tacticsInfo.DamageBonus[Tactics_Corvette][Evasive];
-                            gunstaticinfo->gunstatics[processingGun].gunDamageHi[Neutral]=   gunstaticinfo->gunstatics[processingGun].baseGunDamageHi * tacticsInfo.DamageBonus[Tactics_Corvette][Neutral];
-                            gunstaticinfo->gunstatics[processingGun].gunDamageHi[Aggressive]=gunstaticinfo->gunstatics[processingGun].baseGunDamageHi * tacticsInfo.DamageBonus[Tactics_Corvette][Aggressive];
-                        }
-                        else
-                        {
-                            gunstaticinfo->gunstatics[processingGun].gunDamageLo[Evasive]=gunstaticinfo->gunstatics[processingGun].baseGunDamageLo;
-                            gunstaticinfo->gunstatics[processingGun].gunDamageLo[Neutral]=gunstaticinfo->gunstatics[processingGun].baseGunDamageLo;
-                            gunstaticinfo->gunstatics[processingGun].gunDamageLo[Aggressive]=gunstaticinfo->gunstatics[processingGun].baseGunDamageLo;
-                            gunstaticinfo->gunstatics[processingGun].gunDamageHi[Evasive]=gunstaticinfo->gunstatics[processingGun].baseGunDamageHi;
-                            gunstaticinfo->gunstatics[processingGun].gunDamageHi[Neutral]=gunstaticinfo->gunstatics[processingGun].baseGunDamageHi;
-                            gunstaticinfo->gunstatics[processingGun].gunDamageHi[Aggressive]=gunstaticinfo->gunstatics[processingGun].baseGunDamageHi;
+                            gunstaticinfo->gunstatics[processingGun].gunDamageLo[k] = gunstaticinfo->gunstatics[processingGun].baseGunDamageLo;
+                            gunstaticinfo->gunstatics[processingGun].gunDamageHi[k] = gunstaticinfo->gunstatics[processingGun].baseGunDamageHi;
                         }
 
                         processingGun = -1;
@@ -1090,49 +1128,48 @@ void scriptSetGunStatics(char *directory,char *filename,struct ShipStaticInfo *s
 
     if (gunstaticinfo != NULL)
     {
+        // CAT: ranges without HW1's per-class BulletRangeBonus/BulletSpeedBonus (bonus 1 for every class), and a
+        //      default for the second fire mode's lifetime (scriptSetGunStatics 0x00526790, 0x00526b49..0x00526c7f)
         for(k=0;k<NUM_TACTICS_TYPES;k++)
         {
-            if(shipstatinfo->shipclass != CLASS_Fighter &&
-               shipstatinfo->shipclass != CLASS_Corvette)
-            {
-                bonus = 1.0f;
-                spdbonus = 1.0f;
-            }
-            else
-            {
-                if(shipstatinfo->shipclass == CLASS_Fighter)
-                {
-                    bonus = tacticsInfo.BulletRangeBonus[Tactics_Fighter][k];
-                    spdbonus = tacticsInfo.BulletSpeedBonus[Tactics_Fighter][k];
-                }
-                else
-                {
-                    bonus = tacticsInfo.BulletRangeBonus[Tactics_Corvette][k];
-                    spdbonus = tacticsInfo.BulletSpeedBonus[Tactics_Corvette][k];
-                }
-            }
-            shipstatinfo->minBulletRange[k] = shipstatinfo->bulletRange[k] = gunstaticinfo->gunstatics[0].bulletrange*bonus;
+            shipstatinfo->minBulletRange[k] = shipstatinfo->bulletRange[k] = gunstaticinfo->gunstatics[0].bulletrange;
             dbgAssertOrIgnore(numGuns > 0);
             for (i=0;i<numGuns;i++)
             {
+                GunStatic *gunstatic = &gunstaticinfo->gunstatics[i];
+
                 if (k == 0)
                 {
-                    if (gunstaticinfo->gunstatics[i].angletracking == 0.0f)
+                    if (gunstatic->angletracking == 0.0f)
                     {
-                        gunstaticinfo->gunstatics[i].angletracking = 1.0f;
+                        gunstatic->angletracking = 1.0f;
                     }
-                    if (gunstaticinfo->gunstatics[i].declinationtracking == 0.0f)
+                    if (gunstatic->declinationtracking == 0.0f)
                     {
-                        gunstaticinfo->gunstatics[i].declinationtracking = 1.0f;
+                        gunstatic->declinationtracking = 1.0f;
                     }
-                    if (gunstaticinfo->gunstatics[i].bulletlifetime == 0.0f)
+                    if (gunstatic->bulletlifetime == 0.0f)
                     {
-                        gunstaticinfo->gunstatics[i].bulletlifetime = (gunstaticinfo->gunstatics[i].bulletrange*bonus) / (gunstaticinfo->gunstatics[i].bulletspeed*spdbonus);
+                        gunstatic->bulletlifetime = gunstatic->bulletrange / gunstatic->bulletspeed;
                     }
-                    //gunstaticinfo->gunstatics[i].burstWaitTime += gunstaticinfo->gunstatics[i].burstFireTime;     not needed anymore
+                    if (gunstatic->bulletlifetime2 == 0.0f)
+                    {
+                        real32 range2 = gunstatic->bulletrange2;
+                        real32 speed2 = gunstatic->bulletspeed2;
+
+                        if (range2 <= 0.0f)
+                        {
+                            range2 = gunstatic->bulletrange;
+                        }
+                        if (speed2 <= 0.0f)
+                        {
+                            speed2 = gunstatic->bulletspeed;
+                        }
+                        gunstatic->bulletlifetime2 = range2 / speed2;
+                    }
                 }
 
-                curbulletrange = gunstaticinfo->gunstatics[i].bulletrange*bonus;
+                curbulletrange = gunstatic->bulletrange;
                 if (curbulletrange > shipstatinfo->bulletRange[k])
                 {
                     shipstatinfo->bulletRange[k] = curbulletrange;
@@ -1148,7 +1185,8 @@ void scriptSetGunStatics(char *directory,char *filename,struct ShipStaticInfo *s
     }
     else
     {
-        if(shipstatinfo->shiptype == ResourceCollector)
+        // CAT: gunless resourcers by class (CLASS_Resource), not HW1's ResourceCollector type test (0x00526c81)
+        if(shipstatinfo->shipclass == CLASS_Resource)
         {
             for(k=0;k<NUM_TACTICS_TYPES;k++)
             {
@@ -1385,6 +1423,14 @@ void scriptSetDockStatics(char *directory,char *filename,struct ShipStaticInfo *
                         dbgAssertOrIgnore(numDockPoints > 0);
                         structureToFillIn = (ubyte *)&dockstaticinfo->dockstaticpoints[processingDockPoint];
                         foundentry->setVarCB(directory,value,structureToFillIn);
+                        // CAT: equal heading and up directions are replaced by 0 and 2 (scriptSetDockStatics
+                        //      0x005270c0; the exe also passes a warning to a stripped debug print)
+                        if (dockstaticinfo->dockstaticpoints[processingDockPoint].headingdirection ==
+                            dockstaticinfo->dockstaticpoints[processingDockPoint].updirection)
+                        {
+                            dockstaticinfo->dockstaticpoints[processingDockPoint].headingdirection = 0;
+                            dockstaticinfo->dockstaticpoints[processingDockPoint].updirection = 2;
+                        }
                         processingDockPoint++;
                         if (processingDockPoint >= numDockPoints)
                         {
@@ -1546,6 +1592,10 @@ done:
 }
 
 
+// CAT: HW1's salvage statics (NUMBER_OF_SALVAGE_POINTS / SalvagePoint) do not exist in Cataclysm: neither string is in
+//      cataclysm.exe and ShipStaticInfo has no salvageStaticInfo field (SpaceObj.h). The loaders are kept for
+//      reference only. Cataclysm's salvage system (DPT_Salvage dock points) is stage 2.
+#if 0
 void scriptSetSalvageStatCB(char *directory,char *field,void *dataToFillIn)
 {
     StaticInfoShipOrDerelict *statinfo = (StaticInfoShipOrDerelict *)dataToFillIn;
@@ -1709,6 +1759,7 @@ done:
     }
     fileClose(fh);
 }
+#endif // CAT: HW1 salvage statics
 
 
 #ifdef USE_SPHERE_TABLES

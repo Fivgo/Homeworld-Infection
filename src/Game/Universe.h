@@ -248,6 +248,10 @@ extern bool32   cdEnabled;                    // flag specifying whether unit ca
 extern lodinfo *defaultlod;                 // remove later when all stubs are taken out
 extern void *defaultmex;                    // remove later when all stubs are taken out
 extern bool32 universeForceDefaultShip;       //flag for forcing ships to be loaded as rave borgs
+extern bool32 catShipStaticsSelfTest;          // CAT: /catShipStaticsTest (port diagnostic)
+#define CAT_SHIPSTATICS_MAXSKIP 16
+extern sdword catShipStaticsSkip[CAT_SHIPSTATICS_MAXSKIP];   // CAT: /catShipStaticsSkip (port diagnostic)
+extern sdword catShipStaticsSkipCount;
 
 #if UNIV_SHIP_LOADFREE_LOG
 extern bool32 univLoadFreeLog;
@@ -293,6 +297,7 @@ void CloseStatAsteroidInfo(AsteroidStaticInfo *asteroidStatInfo);
 void CloseStatDerelictInfo(DerelictStaticInfo *derelictStatInfo);
 void CloseStatDustCloudInfo(DustCloudStaticInfo *dustcloudStatInfo);
 void CloseStatGasCloudInfo(GasCloudStaticInfo *gascloudStatInfo);
+void CloseStatNebulaInfo(NebulaStaticInfo *nebulaStatInfo);       // CAT: declared for catShipStaticsRunSelfTest
 void CloseStatMissileInfo(MissileStaticInfo *missileStatInfo);
 void CloseStatMineInfo(MissileStaticInfo *mineStatInfo);
 void CloseStatEffectInfo(etgeffectstatic *effectStatInfo);
@@ -324,6 +329,8 @@ void gameStatsShipDied(Ship *ship);
 void gameStatsCalcShipCostTotals(void);
 
 bool32 isStrikeCraft(ShipType type);
+void cat_univInitShipTypeFlags(struct ShipStaticInfo *statinfo);   // CAT: cat_univInitShipTypeFlags 0x0053b8c0
+void catShipStaticsRunSelfTest(void);                               // CAT: port diagnostic (/catShipStaticsTest)
 
 void unitCapInitStatics(udword numplayers);
 

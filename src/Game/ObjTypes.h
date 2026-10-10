@@ -17,11 +17,51 @@
     Types:
 =============================================================================*/
 
+// CAT: Cataclysm's 35 dock point types (dockpointtypeinfo 0x00889c48, StrToDockPointType 0x004d7030). HW1's
+//      DockingCone/LatchPoint/LaunchPoint are not in the exe's table (a .shp line naming them gets -1, as in the exe);
+//      they are kept above the Cataclysm range so the unported HW1 dock code compiles and stays dormant (stage 2).
 typedef enum
 {
-    DockingCone,
-    LatchPoint,
-    LaunchPoint,
+    DPT_Small_In,
+    DPT_Small_Out,
+    DPT_Small_In_Engineering,
+    DPT_Small_Out_Engineering,
+    DPT_Fighter_Latch,
+    DPT_Corvette_Latch,
+    DPT_Med_In,
+    DPT_Med_Out,
+    DPT_Med_In_Engineering,
+    DPT_Med_Out_Engineering,
+    DPT_Large_In,
+    DPT_Large_Out,
+    DPT_Leech,
+    DPT_Leech_RU_Transfer,
+    DPT_Worker_RU_Transfer,
+    DPT_Tow,
+    DPT_Link,
+    DPT_Repairbot,
+    DPT_Destroyer_EB,
+    DPT_Module_EB,
+    DPT_Support_EB,
+    DPT_Swarmer_In,
+    DPT_Swarmer_Out,
+    DPT_Crystal_Process,
+    DPT_Crystal_Effect,
+    DPT_ForceFieldOrigin,
+    DPT_Resourcer_RU_Transfer,
+    DPT_Salvage,
+    DPT_SalvageLatch,
+    DPT_SalvageProcess,
+    DPT_RKOWeaponSource,
+    DPT_AutoRepair,
+    DPT_CleesanBoarding,
+    DPT_Mothership_In,
+    DPT_Mothership_Out,
+    NUM_DOCKPOINT_TYPES,
+
+    DockingCone = 100,      // HW1 only, dormant
+    LatchPoint,             // HW1 only, dormant
+    LaunchPoint,            // HW1 only, dormant
 } DockPointType;
 
 typedef enum
@@ -39,6 +79,36 @@ typedef enum
     GUN_MissileLauncher,
     GUN_MineLauncher
 } GunType;
+
+// CAT: Cataclysm's gimbal type names (guntypeinfo 0x00889c08): GUN_HiddenGimble = 1 and GUN_VisibleGimble = 2, i.e.
+//      the same values as GUN_Gimble and GUN_NewGimble; 246 of the 271 shipped guns use them
+#define GUN_HiddenGimble    GUN_Gimble
+#define GUN_VisibleGimble   GUN_NewGimble
+
+// CAT: gun upgrade class, keys StartUpgradeLevel/EndUpgradeLevel (cat_weapontypeinfo 0x00889ea8)
+typedef enum
+{
+    WEAPON_PROJECTILE,
+    WEAPON_ENERGY,
+    WEAPON_ION,
+    WEAPON_PLASMABOMB,
+    WEAPON_LASER,
+    WEAPON_MISSILE,
+    WEAPON_MINE,
+    WEAPON_BIGGUN,
+    WEAPON_BEASTINFECT,
+    NUM_WEAPON_TYPES
+} WeaponType;
+
+// CAT: gun size class, key GunSize (gunsizeinfo 0x00889e80)
+typedef enum
+{
+    GUNSIZE_SMALL,
+    GUNSIZE_MEDIUM,
+    GUNSIZE_LARGE,
+    GUNSIZE_VERYLARGE,
+    NUM_GUN_SIZES
+} GunSize;
 
 typedef enum
 {
@@ -354,6 +424,8 @@ char *GunTypeToStr(GunType guntype);
 GunType StrToGunType(char *str);
 
 DockPointType StrToDockPointType(char *str);
+sdword cat_StrToWeaponType(char *str);      // CAT: cat_StrToWeaponType 0x004d7130
+sdword cat_StrToGunSize(char *str);         // CAT: cat_StrToGunSize 0x004d70f0
 char *DockPointTypeToStr(DockPointType dockpointtype);
 
 SalvagePointType StrToSalvagePointType(char *str);

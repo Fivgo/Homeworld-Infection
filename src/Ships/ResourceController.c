@@ -60,23 +60,10 @@ bool32 ResourceControllerSpecialTarget(Ship *ship, void *custom)
 
 CustShipHeader ResourceControllerHeader =
 {
-    ResourceController,
-    sizeof(ResourceControllerSpec),
-    ResourceControllerStaticInit,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    ResourceControllerSpecialTarget,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(ResourceControllerSpec),
+    .CustShipStaticInit = ResourceControllerStaticInit,
+    .CustShipSpecialTarget = ResourceControllerSpecialTarget,
 };
 

@@ -41,6 +41,9 @@ void dockDrawDockInfo(Ship *ship);
 #endif
 
 void dockInitializeCustomFunctions(ShipStaticInfo *statinfo,ShipType type,ShipRace race);
+// CAT: declared for InitStatShipInfo, which sets them as the safe default dock callbacks (Universe.c)
+bool32 LaunchShipFromDefaultShip(Ship *ship,Ship *dockwith);
+bool32 ShipDocksAtDefaultShip(struct CommandToDo *docktodo,struct Ship *ship,struct Ship *dockwith);
 
 sdword dockFindDockIndex(char *name,DockStaticInfo *dockstaticinfo);
 /*static void dockReserveDockPoint(Ship *ship,Ship *dockwith,sdword dockpointindex);*/

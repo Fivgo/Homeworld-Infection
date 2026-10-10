@@ -524,23 +524,18 @@ void MothershipDied(Ship *ship)
 }
 CustShipHeader MothershipHeader =
 {
-    Mothership,
-    sizeof(MothershipSpec),
-    MothershipStaticInit,
-    NULL,
-    MothershipInit,
-    NULL,
-    MothershipAttack,
-    DefaultShipFire,
-    MothershipAttackPassive,
-    NULL,
-    NULL,
-    MothershipHouseKeep,
-    MothershipRemoveShipReferences,
-    MothershipDied,
-    Mothership_PreFix,
-    NULL,
-    NULL,
-    Mothership_Fix
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(MothershipSpec),
+    .CustShipStaticInit = MothershipStaticInit,
+    .CustShipInit = MothershipInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = MothershipAttackPassive,
+    .CustShipHousekeep = MothershipHouseKeep,
+    .CustShipRemoveShipReferences = MothershipRemoveShipReferences,
+    .CustShipDied = MothershipDied,
+    .CustShip_PreFix = Mothership_PreFix,
+    .CustShip_Fix = Mothership_Fix,
+    .CustShipAttack = MothershipAttack,
 };
 

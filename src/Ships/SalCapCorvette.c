@@ -904,9 +904,9 @@ void salCapUnBusySalvagePoint(Ship *ship,ShipOrDerelict *target)
             //don't decrease this quantity unless we're clamped to the ship!
             dbgAssertOrIgnore(ship->guidance.clampInfo->host == &target->targetable);
             target->salvageInfo->numNeededForSalvage++;
-            if(spec->target->salvageInfo->numNeededForSalvage > spec->target->staticinfo->salvageStaticInfo->numNeededForSalvage)
+            if(spec->target->salvageInfo->numNeededForSalvage > CAT_SALVAGESTATICINFO(spec->target->staticinfo)->numNeededForSalvage)
             {
-                spec->target->salvageInfo->numNeededForSalvage = spec->target->staticinfo->salvageStaticInfo->numNeededForSalvage;
+                spec->target->salvageInfo->numNeededForSalvage = CAT_SALVAGESTATICINFO(spec->target->staticinfo)->numNeededForSalvage;
             }
         }
      }
@@ -919,7 +919,7 @@ sdword salCapFitCarrier(Ship *ship,ShipOrDerelict *target)
 
     if(target->salvageInfo != NULL)
     {
-       needBig = target->staticinfo->salvageStaticInfo->willFitCarrier;
+       needBig = CAT_SALVAGESTATICINFO(target->staticinfo)->willFitCarrier;
     }
     else
     {
@@ -959,11 +959,11 @@ sdword salCapNeedBig(Ship *ship,ShipOrDerelict *target)
     {
         if(ship->shiprace == R1)
         {
-            needBig = target->staticinfo->salvageStaticInfo->needBigR1;
+            needBig = CAT_SALVAGESTATICINFO(target->staticinfo)->needBigR1;
         }
         else
         {
-            needBig = target->staticinfo->salvageStaticInfo->needBigR2;
+            needBig = CAT_SALVAGESTATICINFO(target->staticinfo)->needBigR2;
         }
     }
     else
@@ -2296,9 +2296,9 @@ reachedit:
 
                 //its ok to decrease this here..we were just clmaped
                 spec->target->salvageInfo->numNeededForSalvage++;
-                if(spec->target->salvageInfo->numNeededForSalvage > spec->target->staticinfo->salvageStaticInfo->numNeededForSalvage)
+                if(spec->target->salvageInfo->numNeededForSalvage > CAT_SALVAGESTATICINFO(spec->target->staticinfo)->numNeededForSalvage)
                 {
-                    spec->target->salvageInfo->numNeededForSalvage = spec->target->staticinfo->salvageStaticInfo->numNeededForSalvage;
+                    spec->target->salvageInfo->numNeededForSalvage = CAT_SALVAGESTATICINFO(spec->target->staticinfo)->numNeededForSalvage;
                 }
 
             }
@@ -2399,9 +2399,9 @@ reachedit:
 
                 //its ok to do this here, we we just clamped
                 spec->target->salvageInfo->numNeededForSalvage++;
-                if(spec->target->salvageInfo->numNeededForSalvage > spec->target->staticinfo->salvageStaticInfo->numNeededForSalvage)
+                if(spec->target->salvageInfo->numNeededForSalvage > CAT_SALVAGESTATICINFO(spec->target->staticinfo)->numNeededForSalvage)
                 {
-                    spec->target->salvageInfo->numNeededForSalvage = spec->target->staticinfo->salvageStaticInfo->numNeededForSalvage;
+                    spec->target->salvageInfo->numNeededForSalvage = CAT_SALVAGESTATICINFO(spec->target->staticinfo)->numNeededForSalvage;
                 }
             }
             spec->target->salvageNumTagged[ship->playerowner->playerIndex]--;
@@ -3095,46 +3095,32 @@ void SalCapCorvette_Fix(Ship *ship)
 
 CustShipHeader SalCapCorvetteHeader =
 {
-    SalCapCorvette,
-    sizeof(SalCapCorvetteSpec),
-    SalCapCorvetteStaticInit,
-    NULL,
-    SalCapCorvetteInit,
-    NULL,
-    NULL, // SalCapCorvetteAttack,
-    NULL, // DefaultShipFire,
-    NULL, // SalCapCorvetteAttackPassive,
-    NULL,
-    SalCapCorvetteSpecialTarget,
-    SalCapCorvetteHouseKeep,
-    SalCapRemoveShipReferences,
-    SalCapDied,
-    SalCapCorvette_PreFix,
-    NULL,
-    NULL,
-    SalCapCorvette_Fix
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(SalCapCorvetteSpec),
+    .CustShipStaticInit = SalCapCorvetteStaticInit,
+    .CustShipInit = SalCapCorvetteInit,
+    .CustShipSpecialTarget = SalCapCorvetteSpecialTarget,
+    .CustShipHousekeep = SalCapCorvetteHouseKeep,
+    .CustShipRemoveShipReferences = SalCapRemoveShipReferences,
+    .CustShipDied = SalCapDied,
+    .CustShip_PreFix = SalCapCorvette_PreFix,
+    .CustShip_Fix = SalCapCorvette_Fix,
 };
 
 CustShipHeader JunkYardDawgHeader =
 {
-    JunkYardDawg,
-    sizeof(SalCapCorvetteSpec),
-    SalCapCorvetteStaticInit,
-    NULL,
-    SalCapCorvetteInit,
-    NULL,
-    NULL, // SalCapCorvetteAttack,
-    NULL, // DefaultShipFire,
-    NULL, // SalCapCorvetteAttackPassive,
-    NULL,
-    SalCapCorvetteSpecialTarget,
-    SalCapCorvetteHouseKeep,
-    SalCapRemoveShipReferences,
-    SalCapDied,
-    SalCapCorvette_PreFix,
-    NULL,
-    NULL,
-    SalCapCorvette_Fix
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(SalCapCorvetteSpec),
+    .CustShipStaticInit = SalCapCorvetteStaticInit,
+    .CustShipInit = SalCapCorvetteInit,
+    .CustShipSpecialTarget = SalCapCorvetteSpecialTarget,
+    .CustShipHousekeep = SalCapCorvetteHouseKeep,
+    .CustShipRemoveShipReferences = SalCapRemoveShipReferences,
+    .CustShipDied = SalCapDied,
+    .CustShip_PreFix = SalCapCorvette_PreFix,
+    .CustShip_Fix = SalCapCorvette_Fix,
 };
 
 /*-----------------------------------------------------------------------------
@@ -3151,9 +3137,9 @@ void dockDrawSalvageInfo(ShipOrDerelict *obj)
     vector to;
     StaticInfoShipOrDerelict *statinfo = obj->staticinfo;
 
-    if(statinfo->salvageStaticInfo != NULL)
+    if(CAT_SALVAGESTATICINFO(statinfo) != NULL)
     {
-        SalvageStaticInfo *salvageStaticInfo = statinfo->salvageStaticInfo;
+        SalvageStaticInfo *salvageStaticInfo = CAT_SALVAGESTATICINFO(statinfo);
         SalvageStaticPoint *salvagePoint;
         sdword salvageNumPoints = salvageStaticInfo->numSalvagePoints;
 
@@ -3297,7 +3283,7 @@ bool32 salCapAreEnoughSalvagersTargettingThisTarget(Ship *ship,ShipOrDerelict *t
 
     if(target->salvageInfo != NULL)
     {
-        if(count < target->staticinfo->salvageStaticInfo->numNeededForSalvage)
+        if(count < CAT_SALVAGESTATICINFO(target->staticinfo)->numNeededForSalvage)
         {
             return FALSE;
         }

@@ -61,23 +61,13 @@ void P1StandardCorvetteAttackPassive(Ship *ship,Ship *target,bool32 rotate)
 
 CustShipHeader P1StandardCorvetteHeader =
 {
-    P1StandardCorvette,
-    sizeof(P1StandardCorvetteSpec),
-    P1StandardCorvetteStaticInit,
-    NULL,
-    P1StandardCorvetteInit,
-    NULL,
-    P1StandardCorvetteAttack,
-    DefaultShipFire,
-    P1StandardCorvetteAttackPassive,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(P1StandardCorvetteSpec),
+    .CustShipStaticInit = P1StandardCorvetteStaticInit,
+    .CustShipInit = P1StandardCorvetteInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = P1StandardCorvetteAttackPassive,
+    .CustShipAttack = P1StandardCorvetteAttack,
 };
 

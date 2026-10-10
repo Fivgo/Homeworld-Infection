@@ -59,23 +59,12 @@ void P2FuelPodAttackPassive(Ship *ship,Ship *target,bool32 rotate)
 
 CustShipHeader P2FuelPodHeader =
 {
-    P2FuelPod,
-    sizeof(P2FuelPodSpec),
-    P2FuelPodStaticInit,
-    NULL,
-    NULL,
-    NULL,
-    P2FuelPodAttack,
-    DefaultShipFire,
-    P2FuelPodAttackPassive,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(P2FuelPodSpec),
+    .CustShipStaticInit = P2FuelPodStaticInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = P2FuelPodAttackPassive,
+    .CustShipAttack = P2FuelPodAttack,
 };
 

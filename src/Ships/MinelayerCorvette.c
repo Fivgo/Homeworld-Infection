@@ -792,23 +792,17 @@ void MineLayerCorvette_Fix(Ship *ship)
 
 CustShipHeader MinelayerCorvetteHeader =
 {
-    MinelayerCorvette,
-    sizeof(MinelayerCorvetteSpec),
-    MinelayerCorvetteStaticInit,
-    NULL,
-    MinelayerCorvetteInit,
-    NULL,
-    MinelayerCorvetteAttack,
-    MinelayerCorvetteFire,
-    NULL,
-    MinelayerCorvetteSpecialActivate,
-    NULL,
-    MinelayerCorvetteHousekeep,
-    NULL,
-    MineLayerCorvetteDied,
-    MineLayerCorvette_PreFix,
-    NULL,
-    NULL,
-    MineLayerCorvette_Fix
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(MinelayerCorvetteSpec),
+    .CustShipStaticInit = MinelayerCorvetteStaticInit,
+    .CustShipInit = MinelayerCorvetteInit,
+    .CustShipFire = MinelayerCorvetteFire,
+    .CustShipSpecialActivate = MinelayerCorvetteSpecialActivate,
+    .CustShipHousekeep = MinelayerCorvetteHousekeep,
+    .CustShipDied = MineLayerCorvetteDied,
+    .CustShip_PreFix = MineLayerCorvette_PreFix,
+    .CustShip_Fix = MineLayerCorvette_Fix,
+    .CustShipAttack = MinelayerCorvetteAttack,
 };
 

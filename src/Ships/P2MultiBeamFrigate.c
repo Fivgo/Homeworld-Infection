@@ -209,24 +209,13 @@ void P2MultiBeamFrigateAttackPassive(Ship *ship,Ship *target,bool32 rotate)
 
 CustShipHeader P2MultiBeamFrigateHeader =
 {
-    P2MultiBeamFrigate,
-    sizeof(P2MultiBeamFrigateSpec),
-    P2MultiBeamFrigateStaticInit,
-    NULL,
-    P2MultiBeamFrigateInit,
-    NULL,
-    P2MultiBeamFrigateAttack,
-//    DefaultShipFire,
-    P2MultiBeamFrigateFire,
-    P2MultiBeamFrigateAttackPassive,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(P2MultiBeamFrigateSpec),
+    .CustShipStaticInit = P2MultiBeamFrigateStaticInit,
+    .CustShipInit = P2MultiBeamFrigateInit,
+    .CustShipFire = P2MultiBeamFrigateFire,
+    .CustShipAttackPassive = P2MultiBeamFrigateAttackPassive,
+    .CustShipAttack = P2MultiBeamFrigateAttack,
 };
 

@@ -465,3 +465,37 @@ all 173 .shp: 170 OK, 3 count mismatches (srecon, brecon, trghostship; the engin
 * `custstatinfo` at +0x194 and `dockOverideInfo` at +0x3F4 are inferred from position, not from an access.
 * Slots 24-26 and 28-33 have no caller in the census; slot 26/29 targets in one header each suggest they are reached
   through a path the census misses (for example a computed offset).
+
+## M2-R2 findings (ship-statics port, docs/m2-r2-shipstatics.md)
+
+The port resolved most open points above; `src/Game/SpaceObj.h` pins every offset below with ILP32 static asserts
+(`tools/m2_layout32.sh`).
+
+* **The 12 new `StaticCollInfo` bytes** are a vector at `StaticCollInfo`+0x38 (`ShipStaticInfo`+0x6C), between
+  `collrectoffset` (+0x60, unchanged) and `uplength` (+0x78). `mexSetCollisionInfo` 0x004b7880 stores
+  `(collrectoffset + {up,right,forward}length) * 0.5` there; the MiningBase hack in `InitStatShipInfo` still adds to
+  +0x54/+0x60, so `collsphereoffset`/`collrectoffset` did not move.
+* **The 4 bytes lost between +0xF0 and +0x104** are HW1's `salvageStaticInfo` pointer: `teamColor[8]` is at +0xF0
+  (`universeDefaultTeamColors` 0x0053c940 copies 8 bytes there per type) and `sinbank` at +0xF8 (`aishipPrecalcInfo`
+  0x00413bd0). The exe has no `NUMBER_OF_SALVAGE_POINTS`/`SalvagePoint` string at all, so HW1's salvage statics are
+  gone (the HW1 key table had `NUMBER_OF_SALVAGE_POINTS`; the "8 dropped keys" above omit it and count HW1's
+  commented-out `scaleCap`/`NumRepairDroids` instead).
+* +0x1EC: per-type category bits set by `cat_univInitShipTypeFlags` 0x0053b8c0 (meaning not identified).
+* +0x194 `custstatinfo`, +0x3F4 `dockOverideInfo`, +0x400/+0x404 (HW1 `ShipXDocksAtShipY`/`LaunchShipXFromShipY`):
+  confirmed by `CopyPointersFromRealShipStaticInfo` 0x004ffc60, which copies the HW1 pointer list in HW1 order minus
+  `salvageStaticInfo` and `tractorEmitterStatic` (no `mexGetTractorBeamStatic` and no `dockInitializeCustomFunctions`
+  exist in the exe). Who writes +0x400/+0x404 is still unknown (no store of a code address to [reg+0x400] found).
+* Still unknown: +0x212/+0x213 (defaults 1/0), +0x2B0..+0x2C7, +0x42C, +0x44C/+0x450.
+* `GunStatic`: `SoundType`, `BulletType`, `DamageLo`, `DamageHi` are ignored (callbacks 0x00526050/0x00526080/
+  0x00526060/0x00526070 only print), so `baseGunDamageLo/Hi` stay 0; `scriptSetGunStatics` 0x00526790 copies the base
+  values to all three tactics without HW1's fighter/corvette bonuses, drops the range/speed bonuses, defaults
+  `BulletLifeTime2` to range2/speed2 (falling back to the first mode), and gives gunless ships of `CLASS_Resource`
+  (HW1: type `ResourceCollector`) the asteroid harvest range. `GUN_HiddenGimble` = 1 and `GUN_VisibleGimble` = 2 are
+  extra names in the gun type table (0x00889c08); `WEAPON_*` 0x00889ea8 (9) and `GUNSIZE_*` 0x00889e80 (4) are
+  matched case-insensitively (`_stricmp` 0x00676c90; six guns spell `GUNSIZE_Medium`).
+* Dock points: `StrToDockPointType` uses 35 `DPT_*` names (0x00889c48); HW1's `DockingCone`/`LatchPoint`/
+  `LaunchPoint` are gone (3 shipped lines still say `LatchPoint`, 4 say `DPT_Drill`: both give -1). `scriptSetDockStatics`
+  0x005270c0 replaces equal heading/up directions by 0/2, and its `DockStaticInfo` has a 0x50-byte header (per-type
+  first-index and count tables, `numDockPoints` at +0x48, a "center" point index at +0x4C) that the port has not
+  adopted yet (stage 2).
+* `NAVLightStatic` is 0x48 bytes in the exe (HW1 0x40); the two extra dwords are not identified.

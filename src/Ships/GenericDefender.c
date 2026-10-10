@@ -350,23 +350,12 @@ dontshoot:
 
 CustShipHeader GenericDefenderHeader =
 {
-    (ShipType)-1,
-    sizeof(GenericDefenderSpec),
-    GenericDefenderStaticInit,
-    NULL,
-    NULL,
-    NULL,
-    GenericDefenderAttack,
-    DefaultShipFire,
-    GenericDefenderAttackPassive,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(GenericDefenderSpec),
+    .CustShipStaticInit = GenericDefenderStaticInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = GenericDefenderAttackPassive,
+    .CustShipAttack = GenericDefenderAttack,
 };
 

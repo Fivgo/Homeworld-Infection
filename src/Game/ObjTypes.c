@@ -412,15 +412,77 @@ static NumStrXlate guntypeinfo[] =
     { (uword)GUN_NewGimble, strdollar(GUN_NewGimble) },
     { (uword)GUN_MissileLauncher, strdollar(GUN_MissileLauncher) },
     { (uword)GUN_MineLauncher, strdollar(GUN_MineLauncher) },
+    // CAT: Cataclysm's two gimbal names (guntypeinfo 0x00889c08 rows 5-6, values 1 and 2)
+    { (uword)GUN_HiddenGimble, "GUN_HiddenGimble" },
+    { (uword)GUN_VisibleGimble, "GUN_VisibleGimble" },
     { 0,NULL }
 };
 
+// CAT: Cataclysm's 35 dock point names in the exe's order and values (dockpointtypeinfo 0x00889c48); HW1's three
+//      names are not in it
 static NumStrXlate dockpointtypeinfo[] =
 {
-    { (uword)DockingCone, strdollar(DockingCone) },
-    { (uword)LatchPoint, strdollar(LatchPoint) },
-    { (uword)LaunchPoint, strdollar(LaunchPoint) },
+    { (uword)DPT_Small_In, strdollar(DPT_Small_In) },
+    { (uword)DPT_Small_Out, strdollar(DPT_Small_Out) },
+    { (uword)DPT_Small_In_Engineering, strdollar(DPT_Small_In_Engineering) },
+    { (uword)DPT_Small_Out_Engineering, strdollar(DPT_Small_Out_Engineering) },
+    { (uword)DPT_Fighter_Latch, strdollar(DPT_Fighter_Latch) },
+    { (uword)DPT_Corvette_Latch, strdollar(DPT_Corvette_Latch) },
+    { (uword)DPT_Med_In, strdollar(DPT_Med_In) },
+    { (uword)DPT_Med_Out, strdollar(DPT_Med_Out) },
+    { (uword)DPT_Med_In_Engineering, strdollar(DPT_Med_In_Engineering) },
+    { (uword)DPT_Med_Out_Engineering, strdollar(DPT_Med_Out_Engineering) },
+    { (uword)DPT_Large_In, strdollar(DPT_Large_In) },
+    { (uword)DPT_Large_Out, strdollar(DPT_Large_Out) },
+    { (uword)DPT_Leech, strdollar(DPT_Leech) },
+    { (uword)DPT_Leech_RU_Transfer, strdollar(DPT_Leech_RU_Transfer) },
+    { (uword)DPT_Worker_RU_Transfer, strdollar(DPT_Worker_RU_Transfer) },
+    { (uword)DPT_Tow, strdollar(DPT_Tow) },
+    { (uword)DPT_Link, strdollar(DPT_Link) },
+    { (uword)DPT_Repairbot, strdollar(DPT_Repairbot) },
+    { (uword)DPT_Destroyer_EB, strdollar(DPT_Destroyer_EB) },
+    { (uword)DPT_Module_EB, strdollar(DPT_Module_EB) },
+    { (uword)DPT_Support_EB, strdollar(DPT_Support_EB) },
+    { (uword)DPT_Swarmer_In, strdollar(DPT_Swarmer_In) },
+    { (uword)DPT_Swarmer_Out, strdollar(DPT_Swarmer_Out) },
+    { (uword)DPT_Crystal_Process, strdollar(DPT_Crystal_Process) },
+    { (uword)DPT_Crystal_Effect, strdollar(DPT_Crystal_Effect) },
+    { (uword)DPT_ForceFieldOrigin, strdollar(DPT_ForceFieldOrigin) },
+    { (uword)DPT_Resourcer_RU_Transfer, strdollar(DPT_Resourcer_RU_Transfer) },
+    { (uword)DPT_Salvage, strdollar(DPT_Salvage) },
+    { (uword)DPT_SalvageLatch, strdollar(DPT_SalvageLatch) },
+    { (uword)DPT_SalvageProcess, strdollar(DPT_SalvageProcess) },
+    { (uword)DPT_RKOWeaponSource, strdollar(DPT_RKOWeaponSource) },
+    { (uword)DPT_AutoRepair, strdollar(DPT_AutoRepair) },
+    { (uword)DPT_CleesanBoarding, strdollar(DPT_CleesanBoarding) },
+    { (uword)DPT_Mothership_In, strdollar(DPT_Mothership_In) },
+    { (uword)DPT_Mothership_Out, strdollar(DPT_Mothership_Out) },
 
+    { 0,NULL }
+};
+
+// CAT: gun upgrade classes (cat_weapontypeinfo 0x00889ea8)
+static NumStrXlate weapontypeinfo[] =
+{
+    { (uword)WEAPON_PROJECTILE, strdollar(WEAPON_PROJECTILE) },
+    { (uword)WEAPON_ENERGY, strdollar(WEAPON_ENERGY) },
+    { (uword)WEAPON_ION, strdollar(WEAPON_ION) },
+    { (uword)WEAPON_PLASMABOMB, strdollar(WEAPON_PLASMABOMB) },
+    { (uword)WEAPON_LASER, strdollar(WEAPON_LASER) },
+    { (uword)WEAPON_MISSILE, strdollar(WEAPON_MISSILE) },
+    { (uword)WEAPON_MINE, strdollar(WEAPON_MINE) },
+    { (uword)WEAPON_BIGGUN, strdollar(WEAPON_BIGGUN) },
+    { (uword)WEAPON_BEASTINFECT, strdollar(WEAPON_BEASTINFECT) },
+    { 0,NULL }
+};
+
+// CAT: gun size classes (gunsizeinfo 0x00889e80)
+static NumStrXlate gunsizeinfo[] =
+{
+    { (uword)GUNSIZE_SMALL, strdollar(GUNSIZE_SMALL) },
+    { (uword)GUNSIZE_MEDIUM, strdollar(GUNSIZE_MEDIUM) },
+    { (uword)GUNSIZE_LARGE, strdollar(GUNSIZE_LARGE) },
+    { (uword)GUNSIZE_VERYLARGE, strdollar(GUNSIZE_VERYLARGE) },
     { 0,NULL }
 };
 
@@ -809,6 +871,19 @@ GunSoundType StrToGunSoundType(char *str)
 DockPointType StrToDockPointType(char *str)
 {
     return StrToNum(dockpointtypeinfo,str);
+}
+
+// CAT: WEAPON_* name -> value, -1 if unknown (cat_StrToWeaponType 0x004d7130)
+sdword cat_StrToWeaponType(char *str)
+{
+    return StrToNum(weapontypeinfo,str);
+}
+
+// CAT: GUNSIZE_* name -> value, -1 if unknown; case-insensitive like every StrToNum (cat_StrToGunSize 0x004d70f0;
+//      six shipped guns spell GUNSIZE_Medium)
+sdword cat_StrToGunSize(char *str)
+{
+    return StrToNum(gunsizeinfo,str);
 }
 
 SalvagePointType StrToSalvagePointType(char *str)

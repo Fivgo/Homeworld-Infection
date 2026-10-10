@@ -584,22 +584,18 @@ void CloakGenerator_Fix(Ship *ship)
 
 CustShipHeader CloakGeneratorHeader =
 {
-    CloakGenerator,
-    sizeof(CloakGeneratorSpec),
-    CloakGeneratorStaticInit,
-    NULL,
-    CloakGeneratorInit,
-    CloakGeneratorClose,
-    CloakGeneratorAttack,
-    NULL,
-    NULL,
-    CloakGeneratorSpecialActivate,
-    NULL,
-    CloakGeneratorHouseKeep,
-    CloakGeneratorRemoveShipReferences,
-    CloakGeneratorDied,
-    NULL,
-    CloakGenerator_Save,
-    CloakGenerator_Load,
-    CloakGenerator_Fix
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(CloakGeneratorSpec),
+    .CustShipStaticInit = CloakGeneratorStaticInit,
+    .CustShipInit = CloakGeneratorInit,
+    .CustShipClose = CloakGeneratorClose,
+    .CustShipSpecialActivate = CloakGeneratorSpecialActivate,
+    .CustShipHousekeep = CloakGeneratorHouseKeep,
+    .CustShipRemoveShipReferences = CloakGeneratorRemoveShipReferences,
+    .CustShipDied = CloakGeneratorDied,
+    .CustShip_Save = CloakGenerator_Save,
+    .CustShip_Load = CloakGenerator_Load,
+    .CustShip_Fix = CloakGenerator_Fix,
+    .CustShipAttack = CloakGeneratorAttack,
 };

@@ -5,8 +5,11 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe     sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
-#                    fe: plain start, idles in the front end until the timeout
+#   --mode sp|fe|statics
+#                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
+#                    fe: plain start, idles in the front end until the timeout;
+#                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
+#                    "shipstatic:" log line per file, docs/m2-r2-shipstatics.md) and quits
 #   --timeout N      seconds (default 60)
 #   --driver D       offscreen (default; falls back to dummy if the offscreen driver cannot set a video mode) | dummy
 #   --data DIR       HW_Data dir to use instead of the harness data dir. ONLY for isolation runs of one item while
@@ -81,6 +84,7 @@ cp -r "$HARNESS/home-template" "$out/home"
 
 args=(/window /nodebugInt /logFileLoads /settingspath "$out/settings")
 [[ "$mode" == sp ]] && args+=(/debugScreenshots)
+[[ "$mode" == statics ]] && args+=(/catShipStaticsTest)
 args+=("${extra[@]}")
 
 run_once() {
@@ -118,6 +122,7 @@ grep -q "New single player game started" "$L" && milestone="single player starte
 grep -qi "Mission01.mission\|LevelLoad\|levelLoad" "$out/FileLoads.log" "$L" 2>/dev/null && \
 	grep -q "New single player game started" "$L" && milestone="level load (mission file read)"
 grep -q "debugScreenshots univUpdateCounter" "$L" && milestone="universe running (univUpdateCounter > 0)"
+grep -q "shipstatic: self-test done" "$L" && milestone="ship statics self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately, except the misaligned-access reports on the packed sound-bank and front-end
@@ -141,6 +146,7 @@ nload=$(wc -l < "$out/FileLoads.log" 2>/dev/null || echo 0)
 	echo "first stop: $stop"
 	echo "first non-benign UBSan report (non-fatal): ${ubsan1:-none}"
 	echo "file loads: $nload; ASan errors: $asan_n"
+	echo "ship statics: $(grep -c 'shipstatic: loaded' "$L") loaded, $(grep -c 'shipstatic: .* not found' "$L") not found (disabled), $(grep -c 'shipstatic: other' "$L") other .shp; $(grep -h 'shipstatic: self-test done' "$L" | sed 's/^.*shipstatic: //' | head -n 1)"
 	echo "UBSan report kinds (count, site):"; echo "$ubsan_kinds"
 	echo "log tail:"; grep -v '^    #\|^ *$' "$L" | tail -n 8
 } | tee "$out/summary.txt"

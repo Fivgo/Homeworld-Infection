@@ -1283,90 +1283,53 @@ bool32 GenericInterceptorSpecialActivate(Ship *ship)
 
 CustShipHeader GenericInterceptorHeader =
 {
-    (ShipType)-1,
-    sizeof(GenericInterceptorSpec),
-    GenericInterceptorStaticInit,
-    NULL,
-    GenericInterceptorInit,
-    NULL,
-    GenericInterceptorAttack,
-    GenericInterceptorFire,
-    GenericInterceptorPassiveAttack,
-    GenericInterceptorSpecialActivate,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(GenericInterceptorSpec),
+    .CustShipStaticInit = GenericInterceptorStaticInit,
+    .CustShipInit = GenericInterceptorInit,
+    .CustShipFire = GenericInterceptorFire,
+    .CustShipAttackPassive = GenericInterceptorPassiveAttack,
+    .CustShipSpecialActivate = GenericInterceptorSpecialActivate,
+    .CustShipAttack = GenericInterceptorAttack,
 };
 
 CustShipHeader CloakedFighterHeader =
 {
-    (ShipType)-1,
-    sizeof(CloakedFighterSpec),
-    CloakedFighterStaticInit,
-    NULL,
-    CloakedFighterInit,
-    NULL,
-    GenericInterceptorAttack,
-    CloakedFighterFire,
-    GenericInterceptorPassiveAttack,
-    CloakedFighterSpecialActivate,
-    NULL,
-    CloakedFighterHouseKeep,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(CloakedFighterSpec),
+    .CustShipStaticInit = CloakedFighterStaticInit,
+    .CustShipInit = CloakedFighterInit,
+    .CustShipFire = CloakedFighterFire,
+    .CustShipAttackPassive = GenericInterceptorPassiveAttack,
+    .CustShipSpecialActivate = CloakedFighterSpecialActivate,
+    .CustShipHousekeep = CloakedFighterHouseKeep,
+    .CustShipAttack = GenericInterceptorAttack,
 };
 
 CustShipHeader AttackBomberHeader =
 {
-    (ShipType)-1,
-    sizeof(AttackBomberSpec),
-    GenericInterceptorStaticInit,
-    NULL,
-    GenericInterceptorInit,
-    NULL,
-    GenericInterceptorAttack,
-    GenericInterceptorFire,
-    GenericInterceptorPassiveAttack,
-    GenericInterceptorSpecialActivate,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(AttackBomberSpec),
+    .CustShipStaticInit = GenericInterceptorStaticInit,
+    .CustShipInit = GenericInterceptorInit,
+    .CustShipFire = GenericInterceptorFire,
+    .CustShipAttackPassive = GenericInterceptorPassiveAttack,
+    .CustShipSpecialActivate = GenericInterceptorSpecialActivate,
+    .CustShipAttack = GenericInterceptorAttack,
 };
 
 CustShipHeader TargetDroneHeader =
 {
-    (ShipType)-1,
-    sizeof(GenericInterceptorSpec),
-    GenericInterceptorStaticInit,
-    NULL,
-    GenericInterceptorInit,
-    NULL,
-    GenericInterceptorAttack,
-    GenericInterceptorFire,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(GenericInterceptorSpec),
+    .CustShipStaticInit = GenericInterceptorStaticInit,
+    .CustShipInit = GenericInterceptorInit,
+    .CustShipFire = GenericInterceptorFire,
+    .CustShipAttack = GenericInterceptorAttack,
 };
 
 

@@ -263,23 +263,15 @@ bool32 MissileDestroyerSpecialTarget(Ship *ship,void *custom)
 
 CustShipHeader MissileDestroyerHeader =
 {
-    MissileDestroyer,
-    sizeof(MissileDestroyerSpec),
-    MissileDestroyerStaticInit,
-    NULL,
-    MissileDestroyerInit,
-    NULL,
-    MissileDestroyerAttack,
-    DefaultShipFire,
-    MissileDestroyerAttackPassive,
-    NULL,
-    MissileDestroyerSpecialTarget,
-    MissileDestroyerHousekeep,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(MissileDestroyerSpec),
+    .CustShipStaticInit = MissileDestroyerStaticInit,
+    .CustShipInit = MissileDestroyerInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = MissileDestroyerAttackPassive,
+    .CustShipSpecialTarget = MissileDestroyerSpecialTarget,
+    .CustShipHousekeep = MissileDestroyerHousekeep,
+    .CustShipAttack = MissileDestroyerAttack,
 };
 

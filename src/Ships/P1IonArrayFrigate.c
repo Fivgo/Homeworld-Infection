@@ -59,23 +59,12 @@ void P1IonArrayFrigateAttackPassive(Ship *ship,Ship *target,bool32 rotate)
 
 CustShipHeader P1IonArrayFrigateHeader =
 {
-    P1IonArrayFrigate,
-    sizeof(P1IonArrayFrigateSpec),
-    P1IonArrayFrigateStaticInit,
-    NULL,
-    NULL,
-    NULL,
-    P1IonArrayFrigateAttack,
-    DefaultShipFire,
-    P1IonArrayFrigateAttackPassive,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(P1IonArrayFrigateSpec),
+    .CustShipStaticInit = P1IonArrayFrigateStaticInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = P1IonArrayFrigateAttackPassive,
+    .CustShipAttack = P1IonArrayFrigateAttack,
 };
 

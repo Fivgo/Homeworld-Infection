@@ -4237,6 +4237,14 @@ DONE_INTROS:
 
     utySet(SS2_SystemStarted);                              //!!! leave this at the end of this function
 
+    // CAT: /catShipStaticsTest (port diagnostic): load every ship static once, log it, and quit
+    if (catShipStaticsSelfTest)
+    {
+        catShipStaticsRunSelfTest();
+        utyGameQuit(NULL, NULL);
+        return(NULL);
+    }
+
     // when we want to take debug screenshots directly start the singleplayer campaing
     if (debugScreenshots)
     {

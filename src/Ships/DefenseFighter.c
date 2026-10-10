@@ -1064,22 +1064,18 @@ void DefenseFighter_Fix(Ship *ship)
 
 CustShipHeader DefenseFighterHeader =
 {
-    DefenseFighter,
-    sizeof(DefenseFighterSpec),
-    DefenseFighterStaticInit,
-    NULL,
-    DefenseFighterInit,
-    DefenseFighterDied,
-    DefenseFighterAttack,
-    NULL,
-    DefenseFighterPassiveAttack,
-    DefenseFighterSpecialActivate,
-    NULL,
-    DefenseFighterHouseKeep,
-    NULL,
-    DefenseFighterDied,
-    NULL,
-    DefenseFighter_Save,
-    DefenseFighter_Load,
-    DefenseFighter_Fix
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(DefenseFighterSpec),
+    .CustShipStaticInit = DefenseFighterStaticInit,
+    .CustShipInit = DefenseFighterInit,
+    .CustShipClose = DefenseFighterDied,
+    .CustShipAttackPassive = DefenseFighterPassiveAttack,
+    .CustShipSpecialActivate = DefenseFighterSpecialActivate,
+    .CustShipHousekeep = DefenseFighterHouseKeep,
+    .CustShipDied = DefenseFighterDied,
+    .CustShip_Save = DefenseFighter_Save,
+    .CustShip_Load = DefenseFighter_Load,
+    .CustShip_Fix = DefenseFighter_Fix,
+    .CustShipAttack = DefenseFighterAttack,
 };

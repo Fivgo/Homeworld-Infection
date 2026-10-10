@@ -83,22 +83,12 @@ bool32 AdvacedSupportFrigateSpecialTarget(Ship *ship,void *custom)
 
 CustShipHeader AdvanceSupportFrigateHeader =
 {
-    AdvanceSupportFrigate,
-    sizeof(AdvanceSupportFrigateSpec),
-    AdvanceSupportFrigateStaticInit,
-    NULL,
-    NULL,
-    NULL,
-    AdvanceSupportFrigateAttack,
-    DefaultShipFire,
-    AdvanceSupportFrigateAttackPassive,
-    NULL,
-    AdvacedSupportFrigateSpecialTarget,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(AdvanceSupportFrigateSpec),
+    .CustShipStaticInit = AdvanceSupportFrigateStaticInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = AdvanceSupportFrigateAttackPassive,
+    .CustShipSpecialTarget = AdvacedSupportFrigateSpecialTarget,
+    .CustShipAttack = AdvanceSupportFrigateAttack,
 };

@@ -609,23 +609,18 @@ void DDDFrigate_Fix(Ship *ship)
 
 CustShipHeader DDDFrigateHeader =
 {
-    DDDFrigate,
-    sizeof(DDDFrigateSpec),
-    DDDFrigateStaticInit,
-    NULL,
-    DDDFrigateInit,
-    NULL,
-    DDDFrigateAttack,
-    NULL,
-    DDDFrigatePassiveAttack,
-    DDDFrigateSpecialActivate,
-    NULL,
-    DDDFrigateHousekeep,
-    DDDFrigateRemoveShipReferences,
-    DDDFrigateDied,
-    DDDFrigate_PreFix,
-    NULL,
-    NULL,
-    DDDFrigate_Fix
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(DDDFrigateSpec),
+    .CustShipStaticInit = DDDFrigateStaticInit,
+    .CustShipInit = DDDFrigateInit,
+    .CustShipAttackPassive = DDDFrigatePassiveAttack,
+    .CustShipSpecialActivate = DDDFrigateSpecialActivate,
+    .CustShipHousekeep = DDDFrigateHousekeep,
+    .CustShipRemoveShipReferences = DDDFrigateRemoveShipReferences,
+    .CustShipDied = DDDFrigateDied,
+    .CustShip_PreFix = DDDFrigate_PreFix,
+    .CustShip_Fix = DDDFrigate_Fix,
+    .CustShipAttack = DDDFrigateAttack,
 };
 

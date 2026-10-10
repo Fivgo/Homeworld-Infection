@@ -881,7 +881,7 @@ Derelict *univAddDerelictByStatInfo(DerelictType derelictType, DerelictStaticInf
     else
     {
         //fix it for good:
-        stat->shipOrDerelict.salvageStaticInfo = NULL;
+        // CAT: no salvageStaticInfo field in Cataclysm
         newDerelict->shipOrDerelict.salvageInfo = NULL;
     }
 
@@ -6794,7 +6794,7 @@ void setSalvageInfo(ShipOrDerelict *object)
     StaticInfoShipOrDerelict *statinfo = object->staticinfo;
     sdword sizeofSalvageInfo;
 
-    if(object->staticinfo->salvageStaticInfo == NULL)
+    if(CAT_SALVAGESTATICINFO(object->staticinfo) == NULL)
     {
         object->salvageInfo = NULL;
         return;
@@ -6804,18 +6804,18 @@ void setSalvageInfo(ShipOrDerelict *object)
         SalvagePoint *cursalvagepoint;
         SalvageStaticPoint *cursalvagestaticpoint;
         sdword i;
-        sizeofSalvageInfo = sizeofSalvageInfo(statinfo->salvageStaticInfo->numSalvagePoints-1);
+        sizeofSalvageInfo = sizeofSalvageInfo(CAT_SALVAGESTATICINFO(statinfo)->numSalvagePoints-1);
         object->salvageInfo = memAlloc(sizeofSalvageInfo,"SalvageInfo",NonVolatile);
-        object->salvageInfo->numSalvagePoints = statinfo->salvageStaticInfo->numSalvagePoints;
+        object->salvageInfo->numSalvagePoints = CAT_SALVAGESTATICINFO(statinfo)->numSalvagePoints;
         //list free ones...account for heading and up ones!
         object->salvageInfo->numSalvagePointsFree = object->salvageInfo->numSalvagePoints;
 
-        for(i=0,cursalvagepoint=&object->salvageInfo->salvagePoints[0],cursalvagestaticpoint=&statinfo->salvageStaticInfo->salvageStaticPoints[0];i<statinfo->salvageStaticInfo->numSalvagePoints;i++,cursalvagepoint++,cursalvagestaticpoint++)
+        for(i=0,cursalvagepoint=&object->salvageInfo->salvagePoints[0],cursalvagestaticpoint=&CAT_SALVAGESTATICINFO(statinfo)->salvageStaticPoints[0];i<CAT_SALVAGESTATICINFO(statinfo)->numSalvagePoints;i++,cursalvagepoint++,cursalvagestaticpoint++)
         {
             cursalvagepoint->salvageStaticPoint = cursalvagestaticpoint;
             cursalvagepoint->busy = 0;
         }
-        object->salvageInfo->numNeededForSalvage = statinfo->salvageStaticInfo->numNeededForSalvage;
+        object->salvageInfo->numNeededForSalvage = CAT_SALVAGESTATICINFO(statinfo)->numNeededForSalvage;
 
     }
 }

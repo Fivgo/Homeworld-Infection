@@ -852,22 +852,13 @@ void addMonkeyResearchShip(Ship *ship)
 
 CustShipHeader ResearchShipHeader =
 {
-    ResearchShip,
-    sizeof(ResearchShipSpec),
-    ResearchShipStaticInit,
-    NULL,
-    ResearchShipInit,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    ResearchShipHouseKeep,
-    NULL,
-    ResearchShipDied,
-    ResearchShip_PreFix,
-    NULL,
-    NULL,
-    ResearchShip_Fix
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(ResearchShipSpec),
+    .CustShipStaticInit = ResearchShipStaticInit,
+    .CustShipInit = ResearchShipInit,
+    .CustShipHousekeep = ResearchShipHouseKeep,
+    .CustShipDied = ResearchShipDied,
+    .CustShip_PreFix = ResearchShip_PreFix,
+    .CustShip_Fix = ResearchShip_Fix,
 };

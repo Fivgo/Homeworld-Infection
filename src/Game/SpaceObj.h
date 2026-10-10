@@ -7,6 +7,8 @@
 #ifndef ___SPACEOBJ_H
 #define ___SPACEOBJ_H
 
+#include <stddef.h>
+
 #include "Color.h"
 #include "ETG.h"
 #include "Globals.h"
@@ -46,11 +48,19 @@
 -----------------------------------------------------------------------------*/
 //flags for the gun object
 #define GF_MultiLevelMatrix     0x00000001
+// CAT: GunStatic is 0x11C bytes in Cataclysm (HW1 0xFC): four fields after bulletType (+0x0C..+0x18) and a second
+//      fire mode after burstWaitTime (+0xF4..+0x100). Offsets from the gun key table 0x008975a0 and from
+//      scriptSetGunStatics 0x00526790 (stride 0x11C, slaveDriver at +0x118). gunsoundtype/bulletType stay at +4/+8
+//      but no script key sets them any more (SoundType/BulletType are obsolete keys, docs/formats/shipstatic.md).
 typedef struct
 {
     GunType guntype;
     GunSoundType gunsoundtype;
     BulletType bulletType;      // type of bullet gun fires
+    sdword startUpgradeLevel;   // CAT: key StartUpgradeLevel, WEAPON_* (cat_scriptSetWeaponTypeCB 0x00525ff0)
+    sdword endUpgradeLevel;     // CAT: key EndUpgradeLevel, WEAPON_* (cat_scriptSetWeaponTypeCB 0x00525ff0)
+    udword gunSize;             // CAT: key GunSize, GUNSIZE_* (cat_scriptSetGunSizeCB 0x00526020)
+    real32 damageMult;          // CAT: key DamageMult (scriptSetReal32CB)
     udword flags;               //flags for the gun
     udword gunindex;            //index of gun
 
@@ -88,6 +98,12 @@ typedef struct
     real32 firetime;            // minimum time required before gun can fire again
     real32 burstFireTime;       // time in seconds a gun can burst (if burstFireTime == 0, this gun doesn't fire in bursts)
     real32 burstWaitTime;       // time in seconds gun must cool down after a burst
+
+    // CAT: second fire mode, keys BulletLifeTime2/BulletSpeed2/BulletRange2/FireTime2 (gun table 0x008975a0)
+    real32 bulletlifetime2;
+    real32 bulletspeed2;
+    real32 bulletrange2;
+    real32 firetime2;
 
     real32 barrelLength;        // length of gun barrel for offsetting muzzle flashes
     real32 recoilLength;        // amount of recoil on the gun when it fires
@@ -374,6 +390,10 @@ typedef struct
     vector collsphereoffset;// bounding sphere offset in object co-ordinates
 
     vector collrectoffset;  // collision rectangle offset in object co-ordinates (leftdownback corner of cube)
+    // CAT: 12 new bytes at StaticCollInfo+0x38 (StaticHeader+0x6C): mexSetCollisionInfo 0x004b7880 stores
+    //      (collrectoffset + {up,right,forward}length) * 0.5 here; preciseSelection moves +0x7C -> +0x88
+    //      (ShipStaticScriptTable 0x008b2428). Name chosen here, the exe's is unknown.
+    vector collrectmid;
     real32 uplength;        // length of rectangle in up direction
     real32 rightlength;     // length of rectangle in right direction
     real32 forwardlength;   // length of rectangle in forward direction
@@ -491,13 +511,20 @@ typedef struct StaticInfoShipOrDerelict {
 
     // TODO(type safety, 2026-04-24): Extract into another type (e.g. `Colored`) to mutualize with MissileStaticInfo
     bool8 teamColor[MAX_MULTIPLAYER_PLAYERS]; // what color schemes this can be
-    SalvageStaticInfo* salvageStaticInfo;     // static info for salvageable objects
+    // CAT: no salvageStaticInfo pointer. Cataclysm has no NUMBER_OF_SALVAGE_POINTS key anywhere (strings.csv) and its
+    //      ShipStaticInfo has teamColor[8] at +0xF0 (universeDefaultTeamColors 0x0053c940 copies 8 bytes there) and
+    //      sinbank at +0xF8 (aishipPrecalcInfo 0x00413bd0), 4 bytes less than HW1. Salvage uses DPT_Salvage dock points.
 
     // these 3 variables must be next
     real32 sinbank; // variables used by the AIShip routines
     real32 pitchturn;
     real32 pitchdescend;
 } StaticInfoShipOrDerelict;
+
+// CAT: HW1 code that read statinfo->salvageStaticInfo reads CAT_SALVAGESTATICINFO(statinfo) instead, which is always
+//      NULL: Cataclysm has no HW1-style salvage statics (no NUMBER_OF_SALVAGE_POINTS key, no field). The HW1 salvage
+//      paths behind it are therefore dormant until stage 2 ports Cataclysm's salvage system (DPT_Salvage points).
+#define CAT_SALVAGESTATICINFO(statinfo) ((void)(statinfo), (SalvageStaticInfo *)NULL)
 
 //info for SpaceObjRotImpTarg objects that was once
 //static, but now needs to be non-static
@@ -520,28 +547,65 @@ typedef struct
 struct ShipStaticInfo;
 struct CommandToDo;
 
+struct SpaceObj;
+struct Effect;
+struct Bullet;
+
+// CAT: CustShipHeader is 0x8C bytes in Cataclysm (HW1 0x48): no leading shiptype, sizeofShipSpecifics, then 34
+//      function slots. InitStatShipInfo 0x0053bab0 copies 0x23 dwords from shipHeaders[type] (0x008b1938) to
+//      statinfo+0x108, so slot k is at statinfo+0x108+4k. Slot meanings from the call census and the 51 headers the exe
+//      ships (docs/formats/shipstatic.md). CustShipAttack moved from HW1 slot 4 to slot 21. The new slots (9, 12-14,
+//      20, 22-34) are NULL in every header of this tree until their callers and bodies are ported (stage 2); no code
+//      in this tree calls them yet. Signatures of the new slots are taken from the exe's Round-5 prototypes of their
+//      targets (CarrierOrderChanged, CarrierBulletRemoval, MothershipEffectRemoval, HiveFrigateDockCommand); the
+//      others are UNVERIFIED.
 typedef struct
 {
-    ShipType shiptype;
-    udword sizeofShipSpecifics;
-    void (*CustShipStaticInit) (char *directory,char *filename,struct ShipStaticInfo *statinfo);
-    void (*CustShipStaticInitPost) (struct ShipStaticInfo *statinfo);
-    void (*CustShipInit) (struct Ship *ship);
-    void (*CustShipClose) (struct Ship *ship);
-    void (*CustShipAttack) (struct Ship *ship,struct SpaceObjRotImpTarg *target,real32 maxdist);
-    void (*CustShipFire) (struct Ship *ship, struct SpaceObjRotImpTarg *target);
-    void (*CustShipAttackPassive) (struct Ship *ship,struct Ship *target,bool32 rotate);
-    bool32 (*CustShipSpecialActivate) (struct Ship *ship);
-    bool32 (*CustShipSpecialTarget) (struct Ship *ship,void *custom);
-    void (*CustShipHousekeep) (struct Ship *ship);
-    void (*CustShipRemoveShipReferences)(struct Ship *ship, struct Ship *shiptoremove);
-    void (*CustShipDied)(struct Ship *ship);
-    void (*CustShip_PreFix)(struct Ship *ship);
-    void (*CustShip_Save)(struct Ship *ship);
-    void (*CustShip_Load)(struct Ship *ship);
-    void (*CustShip_Fix)(struct Ship *ship);
+    udword sizeofShipSpecifics;                                                                    /* +0x00 */
+    void (*CustShipStaticInit) (char *directory,char *filename,struct ShipStaticInfo *statinfo);  /* slot 1 */
+    void (*CustShipStaticInitPost) (struct ShipStaticInfo *statinfo);                             /* slot 2 */
+    void (*CustShipInit) (struct Ship *ship);                                                      /* slot 3 */
+    void (*CustShipClose) (struct Ship *ship);                                                     /* slot 4 */
+    void (*CustShipFire) (struct Ship *ship, struct SpaceObjRotImpTarg *target);                   /* slot 5 */
+    void (*CustShipAttackPassive) (struct Ship *ship,struct Ship *target,bool32 rotate);           /* slot 6 */
+    bool32 (*CustShipSpecialActivate) (struct Ship *ship);                                         /* slot 7 */
+    bool32 (*CustShipSpecialTarget) (struct Ship *ship,void *custom);                              /* slot 8 */
+    void (*CustShipOrderChanged) (struct Ship *ship);                                              /* slot 9, CAT new */
+    void (*CustShipHousekeep) (struct Ship *ship);                                                 /* slot 10 */
+    void (*CustShipRemoveShipReferences)(struct Ship *ship, struct Ship *shiptoremove);            /* slot 11 */
+    void (*CustShipRemoveObjReferences)(struct Ship *ship, struct SpaceObj *objtoremove);          /* slot 12, CAT new */
+    void (*CustShipEffectRemoval)(struct Ship *ship, struct Effect *effect);                       /* slot 13, CAT new */
+    void (*CustShipBulletRemoval)(struct Ship *ship, struct Bullet *bullet);                       /* slot 14, CAT new */
+    void (*CustShipDied)(struct Ship *ship);                                                       /* slot 15 */
+    void (*CustShip_PreFix)(struct Ship *ship);                                                    /* slot 16 */
+    void (*CustShip_Save)(struct Ship *ship);                                                      /* slot 17 */
+    void (*CustShip_Load)(struct Ship *ship);                                                      /* slot 18 */
+    void (*CustShip_Fix)(struct Ship *ship);                                                       /* slot 19 */
+    bool32 (*CustShipMoveCommand)(struct Ship *ship);                                              /* slot 20, CAT new */
+    void (*CustShipAttack) (struct Ship *ship,struct SpaceObjRotImpTarg *target,real32 maxdist);  /* slot 21, CAT moved */
+    bool32 (*CustShipDockCommand)(struct Ship *ship, sdword dockType, struct Ship *dockwith);      /* slot 22, CAT new */
+    bool32 (*CustShipLaunchCommand)(struct Ship *ship);                                            /* slot 23, CAT new */
+    void (*CustShipSlot24)(void);                                                                  /* slots 24-26: no caller found */
+    void (*CustShipSlot25)(void);
+    void (*CustShipSlot26)(void);
+    bool32 (*CustShipHaltCommand)(struct Ship *ship);                                              /* slot 27, CAT new */
+    void (*CustShipSlot28)(void);                                                                  /* slots 28-33: no caller found */
+    void (*CustShipSlot29)(void);
+    void (*CustShipSlot30)(void);
+    void (*CustShipSlot31)(void);
+    void (*CustShipSlot32)(void);
+    void (*CustShipSlot33)(void);
+    bool32 (*CustShipFormationCommand)(struct Ship *ship, sdword formation);                       /* slot 34, CAT new */
 } CustShipHeader;
 
+// CAT: ShipStaticInfo is 0x458 bytes in Cataclysm (HW1 0x370): ShipStaticInfos 0x00b3b420 is 145 x 0x458. The
+//      layout below reproduces the exe's offsets on an ILP32 target (the /*+0x...*/ comments, checked by the static
+//      asserts after the struct). Sources: ShipStaticScriptTable 0x008b2428 (every scripted field), InitStatShipInfo
+//      0x0053bab0 (defaults and fix-ups), CopyPointersFromRealShipStaticInfo 0x004ffc60 (custstatinfo +0x194,
+//      dockOverideInfo +0x3F4, ShipXDocksAtShipY/LaunchShipXFromShipY +0x400/+0x404), scriptSetGunStatics 0x00526790
+//      (+0x3EC), scriptSetDockStatics 0x005270c0 (+0x3F0), CET game/Game/spaceobj.h. Fields marked "unknown" are
+//      present in the exe but never named; they are kept as padding so every known field sits at its exe offset.
+//      HW1's tractorEmitterStatic and SO_CLOOGE_SCALE scaleFactor have no slot in the exe and are gone.
 typedef struct ShipStaticInfo
 {
     union {
@@ -549,105 +613,117 @@ typedef struct ShipStaticInfo
         StaticInfoHealth health;
         StaticInfoHealthGuidance guidance;
         StaticInfoShipOrDerelict shipOrDerelict;
-    };
+    };                                          /*+0x000, 0x104 bytes */
 
     //TODO(type safety, 2026-04-24): Merge into StaticInfoShipOrDerelict
-    NAVLightStaticInfo *navlightStaticInfo;
+    NAVLightStaticInfo *navlightStaticInfo;     /*+0x104*/
 /*ship specific stuff below */
-    CustShipHeader custshipheader;
-    void *custstatinfo;
-    real32 bulletRangeSquared[NUM_TACTICS_TYPES];
-    real32 bulletRange[NUM_TACTICS_TYPES];
-    real32 minBulletRange[NUM_TACTICS_TYPES];
-    real32 blastRadiusShockWave;
-    real32 blastRadiusDamage;
-    real32 passiveRetaliateZone;
-    real32 collSideModifiers[NUM_TRANS_DEGOFFREEDOM];
+    CustShipHeader custshipheader;              /*+0x108, 0x8C bytes */
+    void *custstatinfo;                         /*+0x194*/
+    real32 bulletRangeSquared[NUM_TACTICS_TYPES];/*+0x198*/
+    real32 bulletRange[NUM_TACTICS_TYPES];      /*+0x1A4*/
+    real32 minBulletRange[NUM_TACTICS_TYPES];   /*+0x1B0*/
+    real32 blastRadiusShockWave;                /*+0x1BC*/
+    real32 blastRadiusDamage;                   /*+0x1C0*/
+    real32 passiveRetaliateZone;                /*+0x1C4*/
+    real32 collSideModifiers[NUM_TRANS_DEGOFFREEDOM];/*+0x1C8*/
 
-    ShipType shiptype;
-    ShipRace shiprace;
-    ShipClass shipclass;
+    ShipType shiptype;                          /*+0x1E0*/
+    ShipRace shiprace;                          /*+0x1E4*/
+    ShipClass shipclass;                        /*+0x1E8*/
+    udword catTypeFlags;                        /*+0x1EC CAT: per-type category bits, cat_univInitShipTypeFlags 0x0053b8c0 (meaning of the bits unknown) */
+    bool8 externalBuild;                        /*+0x1F0 CAT: key externalBuild (scriptSetBool8; CET declares bool32) */
+    ubyte pad1F1[3];
+    real32 forceFieldProtectionDistanceScale;   /*+0x1F4 CAT: key, default -1.0, <= 1.0 after load -> 2.0 [audit: was "<= 0"] */
+    real32 upgradeTimeModifier;                 /*+0x1F8 CAT: key, default 1.0 */
 
-    bool8 canBuildShips;
+    bool8 canBuildShips;                        /*+0x1FC*/
     bool8 canReceiveShips;
     bool8 canReceiveResources;
     bool8 canReceiveShipsPermanently;
-    bool8 canReceiveShipsForRetire;
+    bool8 canReceiveShipsForRetire;             /*+0x200*/
     bool8 canReceiveSomething;
     bool8 canBuildBigShips;
     bool8 canTargetMultipleTargets;
-    bool8 rotateToRetaliate;
-    bool8 canReceiveTheseShips[4];
+    bool8 rotateToRetaliate;                    /*+0x204*/
+    bool8 canReceiveTheseShips[4];              /*+0x205*/
 
-    bool32 passiveAttackPenaltyExempt;
+    bool32 passiveAttackPenaltyExempt;          /*+0x20C*/
 
-    bool8 specialActivateIsContinuous;
-    bool8 canSpecialBandBoxFriendlies;
-    bool8 canSingleClickSpecialActivate;
+    bool8 specialActivateIsContinuous;          /*+0x210*/
+    bool8 canSpecialBandBoxFriendlies;          /*+0x211*/
+    bool8 unknownFlag212;                       /*+0x212 CAT: unknown, InitStatShipInfo sets 1 */
+    bool8 unknownFlag213;                       /*+0x213 CAT: unknown, InitStatShipInfo sets 0 */
+    bool8 canSingleClickSpecialActivate;        /*+0x214*/
 
-    sword maxDockableFighters;  // maximum fighters that can dock at this ship
-    sword maxDockableCorvettes; // maximum corvettes that can dock at this ship
+    sword maxDockableFighters;  // maximum fighters that can dock at this ship   /*+0x216*/
+    sword maxDockableCorvettes; // maximum corvettes that can dock at this ship  /*+0x218*/
 
-    sdword canHandleNumShipsDocking;
-    sdword canHandleNumShipsDepositingRU;
+    sdword canHandleNumShipsDocking;            /*+0x21C*/
+    sdword canHandleNumShipsDepositingRU;       /*+0x220*/
 
-    bool32 repairBeamCapable;
+    bool32 repairBeamCapable;                   /*+0x224*/
     real32 healthPerSecond;
     real32 CapitalDistanceRepairStart2;
     real32 CapitalDistanceRepairStart;
     real32 AngleDotProdThreshold;
 
-    sdword buildCost;
-    sdword buildTime;
-    sdword svManeuverability;
+    sdword buildCost;                           /*+0x238*/
+    sdword buildTime;                           /*+0x23C*/
+    real32 fowRadius;                           /*+0x240 CAT: key fowRadius */
+    sdword svManeuverability;                   /*+0x244*/
     sdword svCoverage;
     sdword svFirePower;
+    real32 RKOEatMeTime;                        /*+0x250 CAT: key RKOEatMeTime */
 
-    sdword resourcesAtOneTime;
+    sdword resourcesAtOneTime;                  /*+0x254*/
     sdword maxresources;
     sdword harvestRate;
     sdword harvestAmount;
 
-    sdword groupSize;
+    sdword groupSize;                           /*+0x264*/
 
-    real32 maxfuel;
+    // CAT: the fuel fields keep their slots; their keys (maxfuel, lowfuelpoint, fuelburnrate, attackfuelburnrate,
+    //      pumpFuelRate) are gone from ShipStaticScriptTable 0x008b2428, so they stay 0 (no fuel in Cataclysm)
+    real32 maxfuel;                             /*+0x268*/
     real32 lowfuelpoint;
     real32 fuelburnrate;
     real32 attackfuelburnrate;
 
-    real32 repairTime;          // self-repair for capital ships
+    real32 repairTime;          // self-repair for capital ships   /*+0x278*/
     real32 repairDamage;
     real32 repairCombatTime;    // self-repair for capital ships in combat
     real32 repairCombatDamage;
 
-    real32 pumpFuelRate;        // rate at which ship can refuel other ships
+    real32 pumpFuelRate;        // rate at which ship can refuel other ships   /*+0x288*/
     real32 repairOtherShipRate; // rate at which ship can repair other ships
     real32 repairResourceCollectorRate; //specifically for when a ship is repairing a resource collector.  0.0f deafults to previous value
     real32 clearanceDistance;   // distance which other docking ship should fly away for clearance
     udword clearanceDirection;  // direction which other ship should fly away for clearance (0..7)
 
-    real32 dockShipRange;       // distance to ship to get for docking, squared
+    real32 dockShipRange;       // distance to ship to get for docking, squared   /*+0x29C*/
 
-    real32 formationPaddingModifier;
+    real32 formationPaddingModifier;                                               /*+0x2A0*/
     bool32 cannotForceAttackIfOwnShip;    //variable..if set to TRUE player cannot force attack this ship IF it is their own ship
     bool32 shipIsCapital;                 //Set to TRUE is ship is a TRUE capital ship (class defs are unreliable)
     bool32 cantMoveAndAttack;             //if set, SHIP explicitly cannot move and attack...will be given a special move order.
-    vector engineNozzleOffset[MAX_NUM_TRAILS];      //offset of engine in object co-ordinates
-    trailstatic* trailStatic[MAX_NUM_TRAILS];
-    udword multipleEngines;
+    udword unknown2B0[6];                       /*+0x2B0 CAT: unknown, 24 bytes */
+    vector engineNozzleOffset[MAX_NUM_TRAILS];      //offset of engine in object co-ordinates   /*+0x2C8*/
+    trailstatic* trailStatic[MAX_NUM_TRAILS];   /*+0x2F8*/
+    udword multipleEngines;                     /*+0x308*/
 
-    real32 scaleCap;            //minimum sizing cap, which prevents a ship from getting too small
+    real32 scaleCap;            //minimum sizing cap, which prevents a ship from getting too small   /*+0x30C key N-LIPS*/
 
-    sdword hierarchySize;       //size of the ship hierarchy
-    madstatic *madStatic;       //mesh animation binding and animation data
-    real32 madGunOpenDamagedHealthThreshold;
-    real32 madWingOpenDamagedHealthThreshold;
+    sdword hierarchySize;       //size of the ship hierarchy     /*+0x310*/
+    madstatic *madStatic;       //mesh animation binding and animation data   /*+0x314*/
+    real32 madGunOpenDamagedHealthThreshold;    /*+0x318*/
+    real32 madWingOpenDamagedHealthThreshold;   /*+0x31C*/
 
     // Alex's repair droid stuff...
-//    udword nRepairDroids;
+    udword nRepairDroids;                       /*+0x320 CAT: key repairDroids (HW1 had the field commented out) */
 
     // Keith's engine trail stuff...
-    udword trailStyle[MAX_NUM_TRAILS];
+    udword trailStyle[MAX_NUM_TRAILS];          /*+0x324*/
     real32 trailWidth[MAX_NUM_TRAILS];
     real32 trailHeight[MAX_NUM_TRAILS];
     real32 trailAngle[MAX_NUM_TRAILS];
@@ -657,28 +733,300 @@ typedef struct ShipStaticInfo
     real32 trailSpriteRadius[MAX_NUM_TRAILS];
     real32 trailSpriteOffset[MAX_NUM_TRAILS];
 
-    real32 minimumZoomDistance;
+    real32 minimumZoomDistance;                 /*+0x3B4*/
     real32 renderlistFade, renderlistLimitSqr;
 
-    real32 dockLightNear, dockLightFar;
-    color  dockLightColor;
+    real32 dockLightNear, dockLightFar;         /*+0x3C0*/
+    color  dockLightColor;                      /*+0x3C8*/
 
-    color  hyperspaceColor;
+    color  hyperspaceColor;                     /*+0x3CC*/
 
-    real32 tacticalSelectionScale;
+    real32 hyperspaceBoxScale;                  /*+0x3D0 CAT: key, default 1.0 */
+    udword leechRUsPerSecond;                   /*+0x3D4 CAT: key (scriptSetUdwordCB), default 1 */
+    real32 leechHPsPerSecond;                   /*+0x3D8 CAT: key, default 20.0 */
+    real32 beastAttackCascadeCost;              /*+0x3DC CAT: key, default 1.0 */
+    sdword beastAttacksRequired;                /*+0x3E0 CAT: key, default -1 */
+    ShipType beastAttackConvertTo;              /*+0x3E4 CAT: key (cat_scriptSetBeastAttackConvertToCB), default bWorker */
 
-#if SO_CLOOGE_SCALE
-    real32 scaleFactor;
-#endif
-    GunStaticInfo *gunStaticInfo;
-    DockStaticInfo *dockStaticInfo;
-    DockOverideInfo *dockOverideInfo;
-    ResNozzleStatic *resNozzleStatic;
-    RepairNozzleStatic *repairNozzleStatic;
-    TractorBeamStatic *tractorEmitterStatic;
-    bool32 (*ShipXDocksAtShipY) (struct CommandToDo *docktodo,struct Ship *ship,struct Ship *dockwith);
-    bool32 (*LaunchShipXFromShipY) (struct Ship *ship,struct Ship *dockwith);
+    real32 tacticalSelectionScale;              /*+0x3E8 key Overlay_Selection_Scalar */
+
+    GunStaticInfo *gunStaticInfo;               /*+0x3EC*/
+    DockStaticInfo *dockStaticInfo;             /*+0x3F0*/
+    DockOverideInfo *dockOverideInfo;           /*+0x3F4*/
+    ResNozzleStatic *resNozzleStatic;           /*+0x3F8*/
+    RepairNozzleStatic *repairNozzleStatic;     /*+0x3FC*/
+    bool32 (*ShipXDocksAtShipY) (struct CommandToDo *docktodo,struct Ship *ship,struct Ship *dockwith);  /*+0x400*/
+    bool32 (*LaunchShipXFromShipY) (struct Ship *ship,struct Ship *dockwith);                           /*+0x404*/
+
+    bool32 bUseRayTriangleIntersectionForHitLocation;   /*+0x408 CAT: key, default TRUE */
+    real32 linkDistance;                        /*+0x40C CAT: key, default 0 */
+    udword supportUnits;                        /*+0x410 CAT: key */
+    udword providesSU;                          /*+0x414 CAT: key */
+    real32 RamDamage;                           /*+0x418 CAT: key */
+    real32 cuttingBeamDamagePerSecond;          /*+0x41C CAT: key */
+    real32 cuttingBeamUpgradedDamagePerSecond;  /*+0x420 CAT: key */
+    real32 RamPushTime;                         /*+0x424 CAT: key */
+    real32 RamWaitAfterPushTime;                /*+0x428 CAT: key */
+    udword unknown42C;                          /*+0x42C CAT: unknown */
+    real32 TimeShockedByEMP;                    /*+0x430 CAT: key */
+    real32 EMP_Range;                           /*+0x434 CAT: key */
+    real32 EMP_Max_Combine_Distance;            /*+0x438 CAT: key */
+    bool32 UpgradeByDocking;                    /*+0x43C CAT: key, default FALSE */
+    real32 pilotViewOffsetX;                    /*+0x440 CAT: key, default 0 */
+    real32 pilotViewOffsetY;                    /*+0x444 CAT: key, default 0 */
+    real32 pilotViewOffsetZ;                    /*+0x448 CAT: key, default 0 */
+    udword unknown44C;                          /*+0x44C CAT: unknown */
+    udword unknown450;                          /*+0x450 CAT: unknown */
+    udword RKOGetsMissiles;                     /*+0x454 CAT: key (InitStatShipInfo clears its low byte only) */
 } ShipStaticInfo;
+
+/*-----------------------------------------------------------------------------
+    CAT: layout pins for the three Cataclysm ship-static structs.
+    On an ILP32 target (the exe's) the sizes and the key offsets must be the exe's: ShipStaticInfo 0x458
+    (ShipStaticInfos 0x00b3b420, 145 x 0x458), GunStatic 0x11C (scriptSetGunStatics 0x00526790 stride),
+    CustShipHeader 0x8C (InitStatShipInfo 0x0053bab0 copies 0x23 dwords). tools/m2_layout32.sh compiles this header
+    with -m32 to check that branch. On LP64 the pointers are 8 bytes, so the sizes are pinned to this layout's
+    LP64 values instead: a change to either branch is a deliberate layout change.
+-----------------------------------------------------------------------------*/
+#define CAT_ASSERT_OFFSET(type, field, off) \
+    _Static_assert(offsetof(type, field) == (off), #type "." #field " is at " #off " in cataclysm.exe")
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(GunStatic) == 0x11C, "GunStatic is 0x11C bytes in cataclysm.exe");
+_Static_assert(sizeof(CustShipHeader) == 0x8C, "CustShipHeader is 0x8C bytes in cataclysm.exe");
+_Static_assert(sizeof(ShipStaticInfo) == 0x458, "ShipStaticInfo is 0x458 bytes in cataclysm.exe");
+_Static_assert(sizeof(StaticInfo) == 0xA4, "StaticHeader is 0xA4 bytes in cataclysm.exe");
+CAT_ASSERT_OFFSET(GunStatic, startUpgradeLevel, 0x0C);
+CAT_ASSERT_OFFSET(GunStatic, gunSize, 0x14);
+CAT_ASSERT_OFFSET(GunStatic, damageMult, 0x18);
+CAT_ASSERT_OFFSET(GunStatic, cosminAngleFromNorm, 0x3C);
+CAT_ASSERT_OFFSET(GunStatic, minturnangle, 0x8C);
+CAT_ASSERT_OFFSET(GunStatic, maxMissiles, 0xAC);
+CAT_ASSERT_OFFSET(GunStatic, baseGunDamageLo, 0xCC);
+CAT_ASSERT_OFFSET(GunStatic, bulletlength, 0xD4);
+CAT_ASSERT_OFFSET(GunStatic, burstWaitTime, 0xF0);
+CAT_ASSERT_OFFSET(GunStatic, bulletlifetime2, 0xF4);
+CAT_ASSERT_OFFSET(GunStatic, firetime2, 0x100);
+CAT_ASSERT_OFFSET(GunStatic, barrelLength, 0x104);
+CAT_ASSERT_OFFSET(GunStatic, slaveDriver, 0x118);
+CAT_ASSERT_OFFSET(CustShipHeader, CustShipStaticInit, 0x04);
+CAT_ASSERT_OFFSET(CustShipHeader, CustShipInit, 0x0C);
+CAT_ASSERT_OFFSET(CustShipHeader, CustShipAttackPassive, 0x18);
+CAT_ASSERT_OFFSET(CustShipHeader, CustShipDied, 0x3C);
+CAT_ASSERT_OFFSET(CustShipHeader, CustShipAttack, 0x54);
+CAT_ASSERT_OFFSET(CustShipHeader, CustShipHaltCommand, 0x6C);
+CAT_ASSERT_OFFSET(CustShipHeader, CustShipFormationCommand, 0x88);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.collspheresize, 0x4C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.collsphereoffset, 0x54);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.collrectoffset, 0x60);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.collrectmid, 0x6C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.preciseSelection, 0x88);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.collBoxOffsetZ, 0xA0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, health.maxhealth, 0xA4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.turnspeedstat[TURN_ROLL], 0xEC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, shipOrDerelict.teamColor, 0xF0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, shipOrDerelict.sinbank, 0xF8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, navlightStaticInfo, 0x104);
+CAT_ASSERT_OFFSET(ShipStaticInfo, custshipheader, 0x108);
+CAT_ASSERT_OFFSET(ShipStaticInfo, custshipheader.CustShipAttack, 0x15C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, custstatinfo, 0x194);
+CAT_ASSERT_OFFSET(ShipStaticInfo, bulletRangeSquared, 0x198);
+CAT_ASSERT_OFFSET(ShipStaticInfo, collSideModifiers, 0x1C8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, shiptype, 0x1E0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, shipclass, 0x1E8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, externalBuild, 0x1F0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, upgradeTimeModifier, 0x1F8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canBuildShips, 0x1FC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canReceiveTheseShips, 0x205);
+CAT_ASSERT_OFFSET(ShipStaticInfo, passiveAttackPenaltyExempt, 0x20C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canSingleClickSpecialActivate, 0x214);
+CAT_ASSERT_OFFSET(ShipStaticInfo, maxDockableFighters, 0x216);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canHandleNumShipsDocking, 0x21C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, repairBeamCapable, 0x224);
+CAT_ASSERT_OFFSET(ShipStaticInfo, buildCost, 0x238);
+CAT_ASSERT_OFFSET(ShipStaticInfo, fowRadius, 0x240);
+CAT_ASSERT_OFFSET(ShipStaticInfo, RKOEatMeTime, 0x250);
+CAT_ASSERT_OFFSET(ShipStaticInfo, groupSize, 0x264);
+CAT_ASSERT_OFFSET(ShipStaticInfo, maxfuel, 0x268);
+CAT_ASSERT_OFFSET(ShipStaticInfo, repairTime, 0x278);
+CAT_ASSERT_OFFSET(ShipStaticInfo, pumpFuelRate, 0x288);
+CAT_ASSERT_OFFSET(ShipStaticInfo, dockShipRange, 0x29C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, cantMoveAndAttack, 0x2AC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, engineNozzleOffset, 0x2C8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailStatic, 0x2F8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, multipleEngines, 0x308);
+CAT_ASSERT_OFFSET(ShipStaticInfo, scaleCap, 0x30C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, madStatic, 0x314);
+CAT_ASSERT_OFFSET(ShipStaticInfo, nRepairDroids, 0x320);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailStyle, 0x324);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailSpriteOffset, 0x3A4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, minimumZoomDistance, 0x3B4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, hyperspaceColor, 0x3CC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, hyperspaceBoxScale, 0x3D0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, beastAttackConvertTo, 0x3E4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, tacticalSelectionScale, 0x3E8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, gunStaticInfo, 0x3EC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, dockStaticInfo, 0x3F0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, dockOverideInfo, 0x3F4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, resNozzleStatic, 0x3F8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, repairNozzleStatic, 0x3FC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, ShipXDocksAtShipY, 0x400);
+CAT_ASSERT_OFFSET(ShipStaticInfo, bUseRayTriangleIntersectionForHitLocation, 0x408);
+CAT_ASSERT_OFFSET(ShipStaticInfo, linkDistance, 0x40C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, RamDamage, 0x418);
+CAT_ASSERT_OFFSET(ShipStaticInfo, TimeShockedByEMP, 0x430);
+CAT_ASSERT_OFFSET(ShipStaticInfo, UpgradeByDocking, 0x43C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, pilotViewOffsetX, 0x440);
+CAT_ASSERT_OFFSET(ShipStaticInfo, RKOGetsMissiles, 0x454);
+// CAT: every other key of ShipStaticScriptTable 0x008b2428 at its exe offset (generated from the exe table)
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.LOD, 0x000);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.pMexData, 0x004);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.mass, 0x008);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.momentOfInertiaX, 0x00C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.momentOfInertiaY, 0x010);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.momentOfInertiaZ, 0x014);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.collBoxScaleRight, 0x094);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.collBoxScaleUp, 0x090);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.collBoxScaleForward, 0x08C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.collBoxOffsetX, 0x098);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.collBoxOffsetY, 0x09C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.immobile, 0x031);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.rightOfWay, 0x032);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.approxcollmodifier, 0x040);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.avoidcollmodifier, 0x044);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.maxvelocity, 0x028);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.maxrot, 0x02C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, bulletRange[0], 0x1A4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, bulletRange[1], 0x1A8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, bulletRange[2], 0x1AC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, minBulletRange[0], 0x1B0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, minBulletRange[1], 0x1B4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, minBulletRange[2], 0x1B8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, blastRadiusShockWave, 0x1BC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, blastRadiusDamage, 0x1C0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, passiveRetaliateZone, 0x1C4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, rotateToRetaliate, 0x204);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canTargetMultipleTargets, 0x203);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canReceiveShips, 0x1FD);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canReceiveResources, 0x1FE);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canReceiveShipsPermanently, 0x1FF);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canReceiveShipsForRetire, 0x200);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canBuildBigShips, 0x202);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canReceiveTheseShips[THISSHIPIS_FIGHTER], 0x205);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canReceiveTheseShips[THISSHIPIS_CORVETTE], 0x206);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canReceiveTheseShips[THISSHIPIS_RESOURCER], 0x207);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canReceiveTheseShips[THISSHIPIS_OTHERNONCAPITALSHIP], 0x208);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canHandleNumShipsDepositingRU, 0x220);
+CAT_ASSERT_OFFSET(ShipStaticInfo, svManeuverability, 0x244);
+CAT_ASSERT_OFFSET(ShipStaticInfo, svCoverage, 0x248);
+CAT_ASSERT_OFFSET(ShipStaticInfo, svFirePower, 0x24C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, maxDockableCorvettes, 0x218);
+CAT_ASSERT_OFFSET(ShipStaticInfo, specialActivateIsContinuous, 0x210);
+CAT_ASSERT_OFFSET(ShipStaticInfo, canSpecialBandBoxFriendlies, 0x211);
+CAT_ASSERT_OFFSET(ShipStaticInfo, supportUnits, 0x410);
+CAT_ASSERT_OFFSET(ShipStaticInfo, providesSU, 0x414);
+CAT_ASSERT_OFFSET(ShipStaticInfo, EMP_Range, 0x434);
+CAT_ASSERT_OFFSET(ShipStaticInfo, EMP_Max_Combine_Distance, 0x438);
+CAT_ASSERT_OFFSET(ShipStaticInfo, cuttingBeamDamagePerSecond, 0x41C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, cuttingBeamUpgradedDamagePerSecond, 0x420);
+CAT_ASSERT_OFFSET(ShipStaticInfo, RamPushTime, 0x424);
+CAT_ASSERT_OFFSET(ShipStaticInfo, RamWaitAfterPushTime, 0x428);
+CAT_ASSERT_OFFSET(ShipStaticInfo, pilotViewOffsetY, 0x444);
+CAT_ASSERT_OFFSET(ShipStaticInfo, pilotViewOffsetZ, 0x448);
+CAT_ASSERT_OFFSET(ShipStaticInfo, buildTime, 0x23C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, resourcesAtOneTime, 0x254);
+CAT_ASSERT_OFFSET(ShipStaticInfo, maxresources, 0x258);
+CAT_ASSERT_OFFSET(ShipStaticInfo, harvestAmount, 0x260);
+CAT_ASSERT_OFFSET(ShipStaticInfo, harvestRate, 0x25C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, health.minCollDamage, 0x0AC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, health.maxCollDamage, 0x0B0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, repairDamage, 0x27C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, repairCombatTime, 0x280);
+CAT_ASSERT_OFFSET(ShipStaticInfo, repairCombatDamage, 0x284);
+CAT_ASSERT_OFFSET(ShipStaticInfo, repairOtherShipRate, 0x28C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, repairResourceCollectorRate, 0x290);
+CAT_ASSERT_OFFSET(ShipStaticInfo, clearanceDistance, 0x294);
+CAT_ASSERT_OFFSET(ShipStaticInfo, clearanceDirection, 0x298);
+CAT_ASSERT_OFFSET(ShipStaticInfo, formationPaddingModifier, 0x2A0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, cannotForceAttackIfOwnShip, 0x2A4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, shipIsCapital, 0x2A8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, healthPerSecond, 0x228);
+CAT_ASSERT_OFFSET(ShipStaticInfo, CapitalDistanceRepairStart2, 0x22C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, CapitalDistanceRepairStart, 0x230);
+CAT_ASSERT_OFFSET(ShipStaticInfo, AngleDotProdThreshold, 0x234);
+CAT_ASSERT_OFFSET(ShipStaticInfo, collSideModifiers[TRANS_UP], 0x1C8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, collSideModifiers[TRANS_DOWN], 0x1CC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, collSideModifiers[TRANS_RIGHT], 0x1D0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, collSideModifiers[TRANS_LEFT], 0x1D4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, collSideModifiers[TRANS_FORWARD], 0x1D8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, collSideModifiers[TRANS_BACKWARD], 0x1DC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.thruststrengthstat[TRANS_UP], 0x0B4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.thruststrengthstat[TRANS_DOWN], 0x0B8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.thruststrengthstat[TRANS_RIGHT], 0x0BC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.thruststrengthstat[TRANS_LEFT], 0x0C0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.thruststrengthstat[TRANS_FORWARD], 0x0C4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.thruststrengthstat[TRANS_BACKWARD], 0x0C8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.rotstrengthstat[ROT_YAWLEFT], 0x0CC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.rotstrengthstat[ROT_YAWRIGHT], 0x0D0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.rotstrengthstat[ROT_PITCHUP], 0x0D4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.rotstrengthstat[ROT_PITCHDOWN], 0x0D8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.rotstrengthstat[ROT_ROLLRIGHT], 0x0DC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.rotstrengthstat[ROT_ROLLLEFT], 0x0E0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.turnspeedstat[TURN_YAW], 0x0E4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, guidance.turnspeedstat[TURN_PITCH], 0x0E8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailStyle[0], 0x324);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailWidth[0], 0x334);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailHeight[0], 0x344);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailAngle[0], 0x354);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailRibbonAdjust[0], 0x364);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailLength[0], 0x374);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailScaleCap[0], 0x384);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailStyle[1], 0x328);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailWidth[1], 0x338);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailHeight[1], 0x348);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailAngle[1], 0x358);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailRibbonAdjust[1], 0x368);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailLength[1], 0x378);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailScaleCap[1], 0x388);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailStyle[2], 0x32C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailWidth[2], 0x33C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailHeight[2], 0x34C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailAngle[2], 0x35C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailRibbonAdjust[2], 0x36C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailLength[2], 0x37C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailScaleCap[2], 0x38C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailStyle[3], 0x330);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailWidth[3], 0x340);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailHeight[3], 0x350);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailAngle[3], 0x360);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailRibbonAdjust[3], 0x370);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailLength[3], 0x380);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailScaleCap[3], 0x390);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailSpriteRadius[0], 0x394);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailSpriteRadius[1], 0x398);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailSpriteRadius[2], 0x39C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailSpriteRadius[3], 0x3A0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailSpriteOffset[0], 0x3A4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailSpriteOffset[1], 0x3A8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailSpriteOffset[2], 0x3AC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, trailSpriteOffset[3], 0x3B0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, renderlistFade, 0x3B8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, renderlistLimitSqr, 0x3BC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, dockLightNear, 0x3C0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, dockLightFar, 0x3C4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, dockLightColor, 0x3C8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, madGunOpenDamagedHealthThreshold, 0x318);
+CAT_ASSERT_OFFSET(ShipStaticInfo, madWingOpenDamagedHealthThreshold, 0x31C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, leechRUsPerSecond, 0x3D4);
+CAT_ASSERT_OFFSET(ShipStaticInfo, leechHPsPerSecond, 0x3D8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, beastAttackCascadeCost, 0x3DC);
+CAT_ASSERT_OFFSET(ShipStaticInfo, beastAttacksRequired, 0x3E0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, forceFieldProtectionDistanceScale, 0x1F4);
+#else
+_Static_assert(sizeof(void *) == 8, "the non-ILP32 pins below assume 8-byte pointers");
+_Static_assert(sizeof(GunStatic) == 0x11C, "GunStatic has no pointers: 0x11C bytes on every target");
+_Static_assert(sizeof(CustShipHeader) == 0x118, "CustShipHeader: 4 + 4 pad + 34 x 8 on LP64/LLP64");
+_Static_assert(sizeof(ShipStaticInfo) == 0x540, "ShipStaticInfo: this layout with 8-byte pointers");
+#endif
 
 typedef struct
 {

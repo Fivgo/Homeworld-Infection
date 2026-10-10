@@ -35,6 +35,7 @@ typedef struct
 
 ///////DATA!!!!
 extern char globalScriptFileName[50];  //file name of file loaded in a script callback function
+extern udword scriptStructEntriesSet;   // CAT: port diagnostic, callbacks run by the last scriptSetStruct
 
 
 /*=============================================================================
@@ -90,9 +91,10 @@ void scriptSetVectorCB(char *directory,char *field,void *dataToFillIn);
 void scriptSetLWToHWMonkeyVectorCB(char *directory,char *field,void *dataToFillIn);
 void scriptSetFormationCB(char *directory,char *field,void *dataToFillIn);
 void scriptSetTacticsCB(char *directory,char *field,void *dataToFillIn);
-void scriptSetSalvagePointCB(char *directory,char *field,void *dataToFillIn);
-void scriptSetSalvageStatCB(char *directory,char *field,void *dataToFillIn);
-void scriptSetSalvageStatics(char *directory,char *filename,struct StaticInfoShipOrDerelict *statinfo);
+// CAT: HW1's salvage statics loaders are not built (no such keys in Cataclysm, see StatScript.c)
+//void scriptSetSalvagePointCB(char *directory,char *field,void *dataToFillIn);
+//void scriptSetSalvageStatCB(char *directory,char *field,void *dataToFillIn);
+//void scriptSetSalvageStatics(char *directory,char *filename,struct StaticInfoShipOrDerelict *statinfo);
 void scriptSetDockOverideStatics(char *directory,char *filename,struct ShipStaticInfo *shipstatinfo);
 
 void scriptSetStruct(char *directory, char *filename, scriptStructEntry info[], void *structureToFillIn);

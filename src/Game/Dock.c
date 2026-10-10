@@ -318,11 +318,21 @@ bool32 ShipWithinDockRange(Ship *ship,Ship *target)
 {
     vector diff;
     real32 distsqr;
+    real32 rangesqr;
 
     vecSub(diff,ship->obj.posinfo.position,target->obj.posinfo.position);
     distsqr = vecMagnitudeSquared(diff);
 
-    if (distsqr < target->staticinfo->dockShipRange)
+    // CAT: InitStatShipInfo 0x0053bab0 keeps dockShipRange as read; HW1's padded, squared range is formed here until
+    //      the dock code is ported (stage 2)
+    rangesqr = target->staticinfo->dockShipRange;
+    if (rangesqr != 0.0f)
+    {
+        rangesqr += target->staticinfo->common.staticCollInfo.approxcollspheresize;
+        rangesqr *= rangesqr;
+    }
+
+    if (distsqr < rangesqr)
     {
         return TRUE;
     }
@@ -524,9 +534,9 @@ sdword ThisShipIs(ShipStaticInfo *shipstatic)
 //returns TRUE if the shiptype requires a mothership in order to retire
 bool32 shipRetireNeedsMothership(Ship *ship)
 {
-    if (ship->staticinfo->shipOrDerelict.salvageStaticInfo != NULL)
+    if (CAT_SALVAGESTATICINFO(ship->staticinfo) != NULL)
     {
-        return !ship->staticinfo->shipOrDerelict.salvageStaticInfo->willFitCarrier;
+        return !CAT_SALVAGESTATICINFO(ship->staticinfo)->willFitCarrier;
     }
     else
     {
@@ -4097,15 +4107,15 @@ sdword **ResourceLatchPoints[] = {
 bool32 shipStaticIndicatesBigHangerBayForRace(ShipStaticInfo *ship_static, sdword race)
 {
     if (ship_static                    != NULL
-    &&  ship_static->shipOrDerelict.salvageStaticInfo != NULL)
+    &&  CAT_SALVAGESTATICINFO(ship_static) != NULL)
     {
         if (race == R1)
         {
-            return ship_static->shipOrDerelict.salvageStaticInfo->needBigR1;
+            return CAT_SALVAGESTATICINFO(ship_static)->needBigR1;
         }
         else if (race == R2) // should be a given but might see P1 et al
         {
-            return ship_static->shipOrDerelict.salvageStaticInfo->needBigR2;
+            return CAT_SALVAGESTATICINFO(ship_static)->needBigR2;
         }
     }
     

@@ -65,23 +65,13 @@ void P2AdvanceSwarmerAttackPassive(Ship *ship,Ship *target,bool32 rotate)
 
 CustShipHeader P2AdvanceSwarmerHeader =
 {
-    P2AdvanceSwarmer,
-    sizeof(P2AdvanceSwarmerSpec),
-    P2AdvanceSwarmerStaticInit,
-    NULL,
-    P2AdvanceSwarmerInit,
-    NULL,
-    P2AdvanceSwarmerAttack,
-    DefaultShipFire,
-    P2AdvanceSwarmerAttackPassive,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(P2AdvanceSwarmerSpec),
+    .CustShipStaticInit = P2AdvanceSwarmerStaticInit,
+    .CustShipInit = P2AdvanceSwarmerInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = P2AdvanceSwarmerAttackPassive,
+    .CustShipAttack = P2AdvanceSwarmerAttack,
 };
 

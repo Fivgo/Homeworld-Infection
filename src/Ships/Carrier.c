@@ -201,23 +201,19 @@ void CarrierDied(Ship *ship)
 
 CustShipHeader CarrierHeader =
 {
-    Carrier,
-    sizeof(CarrierSpec),
-    CarrierStaticInit,
-    NULL,
-    CarrierInit,
-    NULL,
-    CarrierAttack,
-    DefaultShipFire,
-    CarrierAttackPassive,
-    NULL,
-    CarrierSpecialTarget,
-    CarrierHouseKeep,
-    CarrierRemoveShipReferences,
-    CarrierDied,
-    Carrier_PreFix,
-    NULL,
-    NULL,
-    Carrier_Fix
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(CarrierSpec),
+    .CustShipStaticInit = CarrierStaticInit,
+    .CustShipInit = CarrierInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = CarrierAttackPassive,
+    .CustShipSpecialTarget = CarrierSpecialTarget,
+    .CustShipHousekeep = CarrierHouseKeep,
+    .CustShipRemoveShipReferences = CarrierRemoveShipReferences,
+    .CustShipDied = CarrierDied,
+    .CustShip_PreFix = Carrier_PreFix,
+    .CustShip_Fix = Carrier_Fix,
+    .CustShipAttack = CarrierAttack,
 };
 

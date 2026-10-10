@@ -298,23 +298,16 @@ void HeavyCorvette_PreFix(Ship *ship)
 
 CustShipHeader HeavyCorvetteHeader =
 {
-    HeavyCorvette,
-    sizeof(HeavyCorvetteSpec),
-    HeavyCorvetteStaticInit,
-    NULL,
-    HeavyCorvetteInit,
-    NULL,
-    HeavyCorvetteAttack,
-    DefaultShipFire,
-    HeavyCorvetteAttackPassive,
-    NULL,
-    HeavyCorvetteSpecialTarget,
-    HeavyCorvetteHouseKeep,
-    NULL,
-    NULL,
-    HeavyCorvette_PreFix,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(HeavyCorvetteSpec),
+    .CustShipStaticInit = HeavyCorvetteStaticInit,
+    .CustShipInit = HeavyCorvetteInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = HeavyCorvetteAttackPassive,
+    .CustShipSpecialTarget = HeavyCorvetteSpecialTarget,
+    .CustShipHousekeep = HeavyCorvetteHouseKeep,
+    .CustShip_PreFix = HeavyCorvette_PreFix,
+    .CustShipAttack = HeavyCorvetteAttack,
 };
 

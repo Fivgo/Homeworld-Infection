@@ -2725,7 +2725,9 @@ dontdraw:
                                     ship->magnitudeSquared = 1.0f;
 //!!!                                    break;
                                 }
-#if SO_CLOOGE_SCALE
+// CAT: no scaleFactor in Cataclysm's ShipStaticInfo (key dropped from ShipStaticScriptTable 0x008b2428), so the
+//      debug-only SO_CLOOGE_SCALE ship scaling is gone
+#if 0
                                 if (shipStaticInfo->scaleFactor != 1.0f)
                                 {
                                     glScalef(shipStaticInfo->scaleFactor,

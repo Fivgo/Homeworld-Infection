@@ -523,23 +523,18 @@ bool32 RepairCorvetteSpecialTarget(Ship *ship,void *custom)
 }
 CustShipHeader RepairCorvetteHeader =
 {
-    RepairCorvette,
-    sizeof(RepairCorvetteSpec),
-    RepairCorvetteStaticInit,
-    NULL,
-    RepairCorvetteInit,
-    NULL,
-    RepairCorvetteAttack,
-    DefaultShipFire,
-    RepairCorvetteAttackPassive,
-    NULL,
-    RepairCorvetteSpecialTarget,
-    NULL,
-    RepairCorvetteRemoveShipReferences,
-    RepairCorvetteDied,
-    RepairCorvette_PreFix,
-    NULL,
-    NULL,
-    RepairCorvette_Fix
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(RepairCorvetteSpec),
+    .CustShipStaticInit = RepairCorvetteStaticInit,
+    .CustShipInit = RepairCorvetteInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = RepairCorvetteAttackPassive,
+    .CustShipSpecialTarget = RepairCorvetteSpecialTarget,
+    .CustShipRemoveShipReferences = RepairCorvetteRemoveShipReferences,
+    .CustShipDied = RepairCorvetteDied,
+    .CustShip_PreFix = RepairCorvette_PreFix,
+    .CustShip_Fix = RepairCorvette_Fix,
+    .CustShipAttack = RepairCorvetteAttack,
 };
 

@@ -264,6 +264,12 @@ uword RacesAllowedForGivenShip[TOTAL_NUM_SHIPS] =
 
 bool32 universeForceDefaultShip = FALSE;   //flag for forcing ships to be loaded as rave borgs
 
+// CAT: /catShipStaticsTest (port diagnostic, not in the exe): load the .shp of every ship type at start-up, log one
+//      line per ship and exit; see catShipStaticsRunSelfTest
+bool32 catShipStaticsSelfTest = FALSE;
+sdword catShipStaticsSkip[CAT_SHIPSTATICS_MAXSKIP];    // CAT: /catShipStaticsSkip (types the self-test leaves out)
+sdword catShipStaticsSkipCount = 0;
+
 #if UNIV_SHIP_LOADFREE_LOG
 bool32 univLoadFreeLog = FALSE;
 #endif
@@ -275,6 +281,7 @@ bool32 univLoadFreeLog = FALSE;
 static void loadMexDataCB(char *directory,char *field,void *dataToFillIn);
 //static void setRaceCB(char *directory,char *field,void *dataToFillIn);
 static void setClassCB(char *directory,char *field,void *dataToFillIn);
+static void cat_scriptSetBeastAttackConvertToCB(char *directory,char *field,void *dataToFillIn);   // CAT: new
 static void scriptSetFramesCB(char *directory,char *field,void *dataToFillIn);
 static void LODScriptLoad(char *directory,char *field,void *dataToFillIn);
 static void setGunBindInfo(char *directory,char *field,void *dataToFillIn);
@@ -890,173 +897,191 @@ scriptEntry ShipStaticCapLimits[] =
     END_SCRIPT_ENTRY
 };
 
+// CAT: Cataclysm's ShipStaticScriptTable, the 178 entries of the exe's table (0x008b2428) in the exe's order.
+//      29 keys are new (marked); HW1's maxfuel, lowfuelpoint, fuelburnrate, attackfuelburnrate, pumpFuelRate,
+//      NUMBER_OF_SALVAGE_POINTS and the debug-only scaleFactor are gone (their fields, where kept, stay 0), and
+//      HW1's commented-out scaleCap/NumRepairDroids stay out (repairDroids is the new key). Callbacks of keys HW1
+//      already had are HW1's; the exe's scriptSetU*CB entries are the linker-folded S* bodies (same "%d" scan).
 scriptStructEntry ShipStaticScriptTable[] =
 {
-    { "LODFile",        LODScriptLoad,       &(ShipStaticInfos[0].common.LOD),  &(ShipStaticInfos[0]) },
-    { "pMexData",       loadMexDataCB,       &(ShipStaticInfos[0].common.pMexData),  &(ShipStaticInfos[0]) },
-    { "mass",           scriptSetReal32CB,   &(ShipStaticInfos[0].common.mass),       &(ShipStaticInfos[0]) },
-    { "momentOfInertiaX",scriptSetReal32CB,  &(ShipStaticInfos[0].common.momentOfInertiaX),  &(ShipStaticInfos[0]) },
-    { "momentOfInertiaY",scriptSetReal32CB,  &(ShipStaticInfos[0].common.momentOfInertiaY),  &(ShipStaticInfos[0]) },
-    { "momentOfInertiaZ",scriptSetReal32CB,  &(ShipStaticInfos[0].common.momentOfInertiaZ),  &(ShipStaticInfos[0]) },
-
-    { "collBoxScaleRight",scriptSetReal32CB,  &(ShipStaticInfos[0].common.staticCollInfo.collBoxScaleRight),  &(ShipStaticInfos[0]) },
-    { "collBoxScaleUp",scriptSetReal32CB,  &(ShipStaticInfos[0].common.staticCollInfo.collBoxScaleUp),  &(ShipStaticInfos[0]) },
-    { "collBoxScaleForward",scriptSetReal32CB,  &(ShipStaticInfos[0].common.staticCollInfo.collBoxScaleForward),  &(ShipStaticInfos[0]) },
-    { "collBoxOffsetX",scriptSetReal32CB,  &(ShipStaticInfos[0].common.staticCollInfo.collBoxOffsetX),  &(ShipStaticInfos[0]) },
-    { "collBoxOffsetY",scriptSetReal32CB,  &(ShipStaticInfos[0].common.staticCollInfo.collBoxOffsetY),  &(ShipStaticInfos[0]) },
-    { "collBoxOffsetZ",scriptSetReal32CB,  &(ShipStaticInfos[0].common.staticCollInfo.collBoxOffsetZ),  &(ShipStaticInfos[0]) },
-
-    { "immobile",        scriptSetBool8,     &(ShipStaticInfos[0].common.immobile),  &(ShipStaticInfos[0]) },
-    { "rightOfWay",      scriptSetSbyteCB,   &(ShipStaticInfos[0].common.rightOfWay),  &(ShipStaticInfos[0]) },
-    { "collspheresize", scriptSetReal32CB,   &(ShipStaticInfos[0].common.staticCollInfo.collspheresize),   &(ShipStaticInfos[0]) },
-    { "approxcollmodifier", scriptSetReal32CB,   &(ShipStaticInfos[0].common.staticCollInfo.approxcollmodifier),   &(ShipStaticInfos[0]) },
-    { "avoidcollmodifier", scriptSetReal32CB,   &(ShipStaticInfos[0].common.staticCollInfo.avoidcollmodifier),   &(ShipStaticInfos[0]) },
-    { "maxvelocity",    scriptSetReal32CB,   &(ShipStaticInfos[0].common.maxvelocity),   &(ShipStaticInfos[0]) },
-    { "maxrot",         scriptSetReal32CB,   &(ShipStaticInfos[0].common.maxrot),   &(ShipStaticInfos[0]) },
-    { "bulletRange[0]", scriptSetReal32CB,  &(ShipStaticInfos[0].bulletRange[0]),   &(ShipStaticInfos[0]) },
-    { "bulletRange[1]", scriptSetReal32CB,  &(ShipStaticInfos[0].bulletRange[1]),   &(ShipStaticInfos[0]) },
-    { "bulletRange[2]", scriptSetReal32CB,  &(ShipStaticInfos[0].bulletRange[2]),   &(ShipStaticInfos[0]) },
-    { "minBulletRange[0]", scriptSetReal32CB,  &(ShipStaticInfos[0].minBulletRange[0]),   &(ShipStaticInfos[0]) },
-    { "minBulletRange[1]", scriptSetReal32CB,  &(ShipStaticInfos[0].minBulletRange[1]),   &(ShipStaticInfos[0]) },
-    { "minBulletRange[2]", scriptSetReal32CB,  &(ShipStaticInfos[0].minBulletRange[2]),   &(ShipStaticInfos[0]) },
-    { "blastRadiusShockWave", scriptSetReal32CB,  &(ShipStaticInfos[0].blastRadiusShockWave),   &(ShipStaticInfos[0]) },
-    { "blastRadiusDamage", scriptSetReal32CB,  &(ShipStaticInfos[0].blastRadiusDamage),   &(ShipStaticInfos[0]) },
-    { "passiveRetaliateZone", scriptSetReal32CB,  &(ShipStaticInfos[0].passiveRetaliateZone),   &(ShipStaticInfos[0]) },
-    { "shipclass",      setClassCB,          &(ShipStaticInfos[0].shipclass),  &(ShipStaticInfos[0]) },
-    { "rotateToRetaliate",scriptSetBool8,      &(ShipStaticInfos[0].rotateToRetaliate),  &(ShipStaticInfos[0]) },
-    { "canTargetMultipleTargets",scriptSetBool8, &(ShipStaticInfos[0].canTargetMultipleTargets),  &(ShipStaticInfos[0]) },
-    { "canBuildShips",  scriptSetBool8,      &(ShipStaticInfos[0].canBuildShips),  &(ShipStaticInfos[0]) },
-    { "canReceiveShips",scriptSetBool8,      &(ShipStaticInfos[0].canReceiveShips),  &(ShipStaticInfos[0]) },
-    { "canReceiveResources",scriptSetBool8,  &(ShipStaticInfos[0].canReceiveResources),  &(ShipStaticInfos[0]) },
-    { "canReceiveShipsPermanently",scriptSetBool8,  &(ShipStaticInfos[0].canReceiveShipsPermanently),  &(ShipStaticInfos[0]) },
-    { "canReceiveShipsForRetire",scriptSetBool8,  &(ShipStaticInfos[0].canReceiveShipsForRetire),  &(ShipStaticInfos[0]) },
-    { "canBuildBigShips",scriptSetBool8,      &(ShipStaticInfos[0].canBuildBigShips),  &(ShipStaticInfos[0]) },
-    { "canReceiveFighters",scriptSetBool8,      &(ShipStaticInfos[0].canReceiveTheseShips[THISSHIPIS_FIGHTER]),  &(ShipStaticInfos[0]) },
-    { "canReceiveCorvettes",scriptSetBool8,      &(ShipStaticInfos[0].canReceiveTheseShips[THISSHIPIS_CORVETTE]),  &(ShipStaticInfos[0]) },
-    { "canReceiveResourceCollectors",scriptSetBool8,      &(ShipStaticInfos[0].canReceiveTheseShips[THISSHIPIS_RESOURCER]),  &(ShipStaticInfos[0]) },
-    { "canReceiveOtherNonCapitalShips",scriptSetBool8,      &(ShipStaticInfos[0].canReceiveTheseShips[THISSHIPIS_OTHERNONCAPITALSHIP]),  &(ShipStaticInfos[0]) },
-    { "canHandleNumShipsDocking",scriptSetSdwordCB,   &(ShipStaticInfos[0].canHandleNumShipsDocking),  &(ShipStaticInfos[0]) },
-    { "canHandleNumShipsDepositingRU",scriptSetSdwordCB,   &(ShipStaticInfos[0].canHandleNumShipsDepositingRU),  &(ShipStaticInfos[0]) },
-    { "svManeuverability",scriptSetSdwordCB,   &(ShipStaticInfos[0].svManeuverability),  &(ShipStaticInfos[0]) },
-    { "svCoverage",scriptSetSdwordCB,   &(ShipStaticInfos[0].svCoverage),  &(ShipStaticInfos[0]) },
-    { "svFirePower",scriptSetSdwordCB,   &(ShipStaticInfos[0].svFirePower),  &(ShipStaticInfos[0]) },
-
-    { "maxDockableFighters" ,scriptSetSwordCB,  &(ShipStaticInfos[0].maxDockableFighters), &(ShipStaticInfos[0])},
-    { "maxDockableCorvettes",scriptSetSwordCB,  &(ShipStaticInfos[0].maxDockableCorvettes), &(ShipStaticInfos[0])},
-    { "specialActivateIsContinuous",scriptSetBool8,      &(ShipStaticInfos[0].specialActivateIsContinuous),  &(ShipStaticInfos[0]) },
-    { "canSpecialBandBoxFriendlies",scriptSetBool8,      &(ShipStaticInfos[0].canSpecialBandBoxFriendlies),  &(ShipStaticInfos[0]) },
-    { "canSingleClickSpecialActivate",scriptSetBool8,      &(ShipStaticInfos[0].canSingleClickSpecialActivate),  &(ShipStaticInfos[0]) },
-    { "buildCost",      scriptSetSdwordCB,   &(ShipStaticInfos[0].buildCost),  &(ShipStaticInfos[0]) },
-    { "buildTime",      scriptSetFramesCB,   &(ShipStaticInfos[0].buildTime),  &(ShipStaticInfos[0]) },
-    { "resourcesAtOneTime",   scriptSetSdwordCB,   &(ShipStaticInfos[0].resourcesAtOneTime),  &(ShipStaticInfos[0]) },
-    { "maxresources",   scriptSetSdwordCB,   &(ShipStaticInfos[0].maxresources),  &(ShipStaticInfos[0]) },
-    { "harvestAmount",  scriptSetSdwordCB,   &(ShipStaticInfos[0].harvestAmount),  &(ShipStaticInfos[0]) },
-    { "harvestRate",    scriptSetSdwordCB,   &(ShipStaticInfos[0].harvestRate),  &(ShipStaticInfos[0]) },
-    { "maxhealth",      scriptSetReal32CB,   &(ShipStaticInfos[0].health.maxhealth),  &(ShipStaticInfos[0]) },
-    { "minCollDamage",      scriptSetReal32CB,   &(ShipStaticInfos[0].health.minCollDamage),  &(ShipStaticInfos[0]) },
-    { "maxCollDamage",      scriptSetReal32CB,   &(ShipStaticInfos[0].health.maxCollDamage),  &(ShipStaticInfos[0]) },
-    { "groupSize",      scriptSetSdwordCB,   &(ShipStaticInfos[0].groupSize),  &(ShipStaticInfos[0]) },
-    { "maxfuel",        scriptSetReal32CB,   &(ShipStaticInfos[0].maxfuel),    &(ShipStaticInfos[0]) },
-    { "lowfuelpoint",   scriptSetReal32CB,   &(ShipStaticInfos[0].lowfuelpoint),    &(ShipStaticInfos[0]) },
-    { "fuelburnrate",   scriptSetReal32CB,   &(ShipStaticInfos[0].fuelburnrate),  &(ShipStaticInfos[0]) },
-    { "attackfuelburnrate", scriptSetReal32CB,  &(ShipStaticInfos[0].attackfuelburnrate),  &(ShipStaticInfos[0]) },
-    { "repairTime",     scriptSetReal32CB,   &(ShipStaticInfos[0].repairTime),  &(ShipStaticInfos[0]) },
-    { "repairDamage",   scriptSetReal32CB,   &(ShipStaticInfos[0].repairDamage),  &(ShipStaticInfos[0]) },
-    { "repairCombatTime",     scriptSetReal32CB,   &(ShipStaticInfos[0].repairCombatTime),  &(ShipStaticInfos[0]) },
-    { "repairCombatDamage",   scriptSetReal32CB,   &(ShipStaticInfos[0].repairCombatDamage),  &(ShipStaticInfos[0]) },
-    { "pumpFuelRate",     scriptSetReal32CB,   &(ShipStaticInfos[0].pumpFuelRate),  &(ShipStaticInfos[0]) },
-    { "repairOtherShipRate",   scriptSetReal32CB,   &(ShipStaticInfos[0].repairOtherShipRate),  &(ShipStaticInfos[0]) },
-    { "repairResourceCollectorRate",   scriptSetReal32CB,   &(ShipStaticInfos[0].repairResourceCollectorRate),  &(ShipStaticInfos[0]) },
-    { "dockShipRange",     scriptSetReal32CB,   &(ShipStaticInfos[0].dockShipRange),  &(ShipStaticInfos[0]) },
-    { "clearanceDistance",     scriptSetReal32CB,   &(ShipStaticInfos[0].clearanceDistance),  &(ShipStaticInfos[0]) },
-    { "clearanceDirection",   scriptSetUdwordCB,   &(ShipStaticInfos[0].clearanceDirection),  &(ShipStaticInfos[0]) },
-    { "formationPaddingModifier", scriptSetReal32CB,   &(ShipStaticInfos[0].formationPaddingModifier),  &(ShipStaticInfos[0]) },
-    { "cannotForceAttackIfOwnShip",scriptSetBool,      &(ShipStaticInfos[0].cannotForceAttackIfOwnShip),  &(ShipStaticInfos[0]) },
-    { "passiveAttackPenaltyExempt",scriptSetBool,      &(ShipStaticInfos[0].passiveAttackPenaltyExempt),  &(ShipStaticInfos[0]) },
-    { "isCapitalShip",scriptSetBool,      &(ShipStaticInfos[0].shipIsCapital),  &(ShipStaticInfos[0]) },
-    { "cantMoveAndAttack",scriptSetBool,      &(ShipStaticInfos[0].cantMoveAndAttack),  &(ShipStaticInfos[0]) },
-
-    { "repairBeamCapable",scriptSetBool,      &(ShipStaticInfos[0].repairBeamCapable),  &(ShipStaticInfos[0]) },
-    { "healthPerSecond", scriptSetReal32CB,   &(ShipStaticInfos[0].healthPerSecond),  &(ShipStaticInfos[0]) },
-    { "CapitalDistanceRepairStart2", scriptSetReal32CB,   &(ShipStaticInfos[0].CapitalDistanceRepairStart2),  &(ShipStaticInfos[0]) },
-    { "CapitalDistanceRepairStart", scriptSetReal32CB,   &(ShipStaticInfos[0].CapitalDistanceRepairStart),  &(ShipStaticInfos[0]) },
-    { "AngleDotProdThreshold", scriptSetReal32CB,   &(ShipStaticInfos[0].AngleDotProdThreshold),  &(ShipStaticInfos[0]) },
-
-    { "collSideModifiers[TRANS_UP]",       scriptSetReal32CB,   &(ShipStaticInfos[0].collSideModifiers[TRANS_UP]),  &(ShipStaticInfos[0]) },
-    { "collSideModifiers[TRANS_DOWN]",     scriptSetReal32CB,   &(ShipStaticInfos[0].collSideModifiers[TRANS_DOWN]),  &(ShipStaticInfos[0]) },
-    { "collSideModifiers[TRANS_RIGHT]",    scriptSetReal32CB,   &(ShipStaticInfos[0].collSideModifiers[TRANS_RIGHT]),  &(ShipStaticInfos[0]) },
-    { "collSideModifiers[TRANS_LEFT]",     scriptSetReal32CB,   &(ShipStaticInfos[0].collSideModifiers[TRANS_LEFT]),  &(ShipStaticInfos[0]) },
-    { "collSideModifiers[TRANS_FORWARD]",  scriptSetReal32CB,   &(ShipStaticInfos[0].collSideModifiers[TRANS_FORWARD]),  &(ShipStaticInfos[0]) },
-    { "collSideModifiers[TRANS_BACK]",     scriptSetReal32CB,   &(ShipStaticInfos[0].collSideModifiers[TRANS_BACKWARD]),  &(ShipStaticInfos[0]) },
-    { "thruststrength[TRANS_UP]",       scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_UP]),  &(ShipStaticInfos[0]) },
-    { "thruststrength[TRANS_DOWN]",     scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_DOWN]),  &(ShipStaticInfos[0]) },
-    { "thruststrength[TRANS_RIGHT]",    scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_RIGHT]),  &(ShipStaticInfos[0]) },
-    { "thruststrength[TRANS_LEFT]",     scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_LEFT]),  &(ShipStaticInfos[0]) },
-    { "thruststrength[TRANS_FORWARD]",  scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_FORWARD]),  &(ShipStaticInfos[0]) },
-    { "thruststrength[TRANS_BACK]",     scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_BACKWARD]),  &(ShipStaticInfos[0]) },
-    { "rotstrength[ROT_YAWLEFT]",       scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_YAWLEFT]),  &(ShipStaticInfos[0]) },
-    { "rotstrength[ROT_YAWRIGHT]",      scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_YAWRIGHT]),  &(ShipStaticInfos[0]) },
-    { "rotstrength[ROT_PITCHUP]",       scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_PITCHUP]),  &(ShipStaticInfos[0]) },
-    { "rotstrength[ROT_PITCHDOWN]",     scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_PITCHDOWN]),  &(ShipStaticInfos[0]) },
-    { "rotstrength[ROT_ROLLRIGHT]",     scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_ROLLRIGHT]),  &(ShipStaticInfos[0]) },
-    { "rotstrength[ROT_ROLLLEFT]",      scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_ROLLLEFT]),  &(ShipStaticInfos[0]) },
-    { "turnspeed[TURN_YAW]",            scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.turnspeedstat[TURN_YAW]),  &(ShipStaticInfos[0]) },
-    { "turnspeed[TURN_PITCH]",          scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.turnspeedstat[TURN_PITCH]),  &(ShipStaticInfos[0]) },
-    { "turnspeed[TURN_ROLL]",           scriptSetReal32CB,   &(ShipStaticInfos[0].guidance.turnspeedstat[TURN_ROLL]),  &(ShipStaticInfos[0]) },
-    { "N-LIPS",                         scriptSetReal32CB,   &(ShipStaticInfos[0].scaleCap),  &(ShipStaticInfos[0]) },
-//    { "scaleCap",                       scriptSetReal32CB,   &(ShipStaticInfos[0].scaleCap),  &(ShipStaticInfos[0]) },
-#if SO_CLOOGE_SCALE
-    { "scaleFactor",                    scriptSetReal32CB,   &(ShipStaticInfos[0].scaleFactor),  &(ShipStaticInfos[0]) },
-#endif
-//    { "NumRepairDroids",                scriptSetUdwordCB,   &(ShipStaticInfos[0].nRepairDroids),  &(ShipStaticInfos[0]) },
-    { "trailStyle",                     scriptSetUdwordCB,   &(ShipStaticInfos[0].trailStyle[0]),  &(ShipStaticInfos[0]) },
-    { "trailWidth",                     scriptSetReal32CB,   &(ShipStaticInfos[0].trailWidth[0]),  &(ShipStaticInfos[0]) },
-    { "trailHeight",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailHeight[0]),  &(ShipStaticInfos[0]) },
-    { "trailAngle",                     scriptSetReal32CB,   &(ShipStaticInfos[0].trailAngle[0]),  &(ShipStaticInfos[0]) },
-    { "trailRibbonAdjust",              scriptSetReal32CB,   &(ShipStaticInfos[0].trailRibbonAdjust[0]),  &(ShipStaticInfos[0]) },
-    { "trailLength",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailLength[0]),  &(ShipStaticInfos[0]) },
-    { "trailScaleCap",                  scriptSetReal32CB,   &(ShipStaticInfos[0].trailScaleCap[0]),  &(ShipStaticInfos[0]) },
-    { "trailStyle2",                    scriptSetUdwordCB,   &(ShipStaticInfos[0].trailStyle[1]),  &(ShipStaticInfos[0]) },
-    { "trailWidth2",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailWidth[1]),  &(ShipStaticInfos[0]) },
-    { "trailHeight2",                   scriptSetReal32CB,   &(ShipStaticInfos[0].trailHeight[1]),  &(ShipStaticInfos[0]) },
-    { "trailAngle2",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailAngle[1]),  &(ShipStaticInfos[0]) },
-    { "trailRibbonAdjust2",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailRibbonAdjust[1]),  &(ShipStaticInfos[0]) },
-    { "trailLength2",                   scriptSetReal32CB,   &(ShipStaticInfos[0].trailLength[1]),  &(ShipStaticInfos[0]) },
-    { "trailScaleCap2",                 scriptSetReal32CB,   &(ShipStaticInfos[0].trailScaleCap[1]),  &(ShipStaticInfos[0]) },
-    { "trailStyle3",                    scriptSetUdwordCB,   &(ShipStaticInfos[0].trailStyle[2]),  &(ShipStaticInfos[0]) },
-    { "trailWidth3",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailWidth[2]),  &(ShipStaticInfos[0]) },
-    { "trailHeight3",                   scriptSetReal32CB,   &(ShipStaticInfos[0].trailHeight[2]),  &(ShipStaticInfos[0]) },
-    { "trailAngle3",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailAngle[2]),  &(ShipStaticInfos[0]) },
-    { "trailRibbonAdjust3",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailRibbonAdjust[2]),  &(ShipStaticInfos[0]) },
-    { "trailLength3",                   scriptSetReal32CB,   &(ShipStaticInfos[0].trailLength[2]),  &(ShipStaticInfos[0]) },
-    { "trailScaleCap3",                 scriptSetReal32CB,   &(ShipStaticInfos[0].trailScaleCap[2]),  &(ShipStaticInfos[0]) },
-    { "trailStyle4",                    scriptSetUdwordCB,   &(ShipStaticInfos[0].trailStyle[3]),  &(ShipStaticInfos[0]) },
-    { "trailWidth4",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailWidth[3]),  &(ShipStaticInfos[0]) },
-    { "trailHeight4",                   scriptSetReal32CB,   &(ShipStaticInfos[0].trailHeight[3]),  &(ShipStaticInfos[0]) },
-    { "trailAngle4",                    scriptSetReal32CB,   &(ShipStaticInfos[0].trailAngle[3]),  &(ShipStaticInfos[0]) },
-    { "trailRibbonAdjust4",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailRibbonAdjust[3]),  &(ShipStaticInfos[0]) },
-    { "trailLength4",                   scriptSetReal32CB,   &(ShipStaticInfos[0].trailLength[3]),  &(ShipStaticInfos[0]) },
-    { "trailScaleCap4",                 scriptSetReal32CB,   &(ShipStaticInfos[0].trailScaleCap[3]),  &(ShipStaticInfos[0]) },
-    { "trailSpriteRadius",              scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteRadius[0]),  &(ShipStaticInfos[0]) },
-    { "trailSpriteRadius2",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteRadius[1]),  &(ShipStaticInfos[0]) },
-    { "trailSpriteRadius3",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteRadius[2]),  &(ShipStaticInfos[0]) },
-    { "trailSpriteRadius4",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteRadius[3]),  &(ShipStaticInfos[0]) },
-    { "trailSpriteOffset",              scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteOffset[0]),  &(ShipStaticInfos[0]) },
-    { "trailSpriteOffset2",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteOffset[1]),  &(ShipStaticInfos[0]) },
-    { "trailSpriteOffset3",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteOffset[2]),  &(ShipStaticInfos[0]) },
-    { "trailSpriteOffset4",             scriptSetReal32CB,   &(ShipStaticInfos[0].trailSpriteOffset[3]),  &(ShipStaticInfos[0]) },
-    { "minimumZoomDistance",            scriptSetReal32CB,   &(ShipStaticInfos[0].minimumZoomDistance),  &(ShipStaticInfos[0]) },
-    { "renderlistFade",                 scriptSetReal32CB,   &(ShipStaticInfos[0].renderlistFade),  &(ShipStaticInfos[0]) },
-    { "renderlistLimit",                scriptSetReal32SqrCB,  &(ShipStaticInfos[0].renderlistLimitSqr),  &(ShipStaticInfos[0]) },
-    { "dockLightNear",                  scriptSetReal32CB,   &(ShipStaticInfos[0].dockLightNear),  &(ShipStaticInfos[0]) },
-    { "dockLightFar",                   scriptSetReal32CB,   &(ShipStaticInfos[0].dockLightFar),  &(ShipStaticInfos[0]) },
-    { "dockLightColor",                 scriptSetRGBCB,      &(ShipStaticInfos[0].dockLightColor),  &(ShipStaticInfos[0]) },
-    { "hyperspaceColor",                scriptSetRGBCB,      &(ShipStaticInfos[0].hyperspaceColor),  &(ShipStaticInfos[0]) },
-    { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfos[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfos[0]) },
-    { "madGunOpenDamagedHealthThreshold",  scriptSetReal32CB, &(ShipStaticInfos[0].madGunOpenDamagedHealthThreshold),  &(ShipStaticInfos[0]) },
-    { "madWingOpenDamagedHealthThreshold", scriptSetReal32CB, &(ShipStaticInfos[0].madWingOpenDamagedHealthThreshold),  &(ShipStaticInfos[0]) },
-    { "NUMBER_OF_SALVAGE_POINTS", scriptSetSalvageStatCB, &(ShipStaticInfos[0]), &(ShipStaticInfos[0]) },
-    { "Overlay_Selection_Scalar",       scriptSetReal32CB,   &(ShipStaticInfos[0].tacticalSelectionScale),  &(ShipStaticInfos[0]) },
+    { "LODFile",                                   LODScriptLoad,                       &(ShipStaticInfos[0].common.LOD), &(ShipStaticInfos[0]) },
+    { "pMexData",                                  loadMexDataCB,                       &(ShipStaticInfos[0].common.pMexData), &(ShipStaticInfos[0]) },
+    { "mass",                                      scriptSetReal32CB,                   &(ShipStaticInfos[0].common.mass), &(ShipStaticInfos[0]) },
+    { "momentOfInertiaX",                          scriptSetReal32CB,                   &(ShipStaticInfos[0].common.momentOfInertiaX), &(ShipStaticInfos[0]) },
+    { "momentOfInertiaY",                          scriptSetReal32CB,                   &(ShipStaticInfos[0].common.momentOfInertiaY), &(ShipStaticInfos[0]) },
+    { "momentOfInertiaZ",                          scriptSetReal32CB,                   &(ShipStaticInfos[0].common.momentOfInertiaZ), &(ShipStaticInfos[0]) },
+    { "collBoxScaleRight",                         scriptSetReal32CB,                   &(ShipStaticInfos[0].common.staticCollInfo.collBoxScaleRight), &(ShipStaticInfos[0]) },
+    { "collBoxScaleUp",                            scriptSetReal32CB,                   &(ShipStaticInfos[0].common.staticCollInfo.collBoxScaleUp), &(ShipStaticInfos[0]) },
+    { "collBoxScaleForward",                       scriptSetReal32CB,                   &(ShipStaticInfos[0].common.staticCollInfo.collBoxScaleForward), &(ShipStaticInfos[0]) },
+    { "collBoxOffsetX",                            scriptSetReal32CB,                   &(ShipStaticInfos[0].common.staticCollInfo.collBoxOffsetX), &(ShipStaticInfos[0]) },
+    { "collBoxOffsetY",                            scriptSetReal32CB,                   &(ShipStaticInfos[0].common.staticCollInfo.collBoxOffsetY), &(ShipStaticInfos[0]) },
+    { "collBoxOffsetZ",                            scriptSetReal32CB,                   &(ShipStaticInfos[0].common.staticCollInfo.collBoxOffsetZ), &(ShipStaticInfos[0]) },
+    { "immobile",                                  scriptSetBool8,                      &(ShipStaticInfos[0].common.immobile), &(ShipStaticInfos[0]) },
+    { "rightOfWay",                                scriptSetSbyteCB,                    &(ShipStaticInfos[0].common.rightOfWay), &(ShipStaticInfos[0]) },
+    { "collspheresize",                            scriptSetReal32CB,                   &(ShipStaticInfos[0].common.staticCollInfo.collspheresize), &(ShipStaticInfos[0]) },
+    { "approxcollmodifier",                        scriptSetReal32CB,                   &(ShipStaticInfos[0].common.staticCollInfo.approxcollmodifier), &(ShipStaticInfos[0]) },
+    { "avoidcollmodifier",                         scriptSetReal32CB,                   &(ShipStaticInfos[0].common.staticCollInfo.avoidcollmodifier), &(ShipStaticInfos[0]) },
+    { "maxvelocity",                               scriptSetReal32CB,                   &(ShipStaticInfos[0].common.maxvelocity), &(ShipStaticInfos[0]) },
+    { "maxrot",                                    scriptSetReal32CB,                   &(ShipStaticInfos[0].common.maxrot), &(ShipStaticInfos[0]) },
+    { "bulletRange[0]",                            scriptSetReal32CB,                   &(ShipStaticInfos[0].bulletRange[0]), &(ShipStaticInfos[0]) },
+    { "bulletRange[1]",                            scriptSetReal32CB,                   &(ShipStaticInfos[0].bulletRange[1]), &(ShipStaticInfos[0]) },
+    { "bulletRange[2]",                            scriptSetReal32CB,                   &(ShipStaticInfos[0].bulletRange[2]), &(ShipStaticInfos[0]) },
+    { "minBulletRange[0]",                         scriptSetReal32CB,                   &(ShipStaticInfos[0].minBulletRange[0]), &(ShipStaticInfos[0]) },
+    { "minBulletRange[1]",                         scriptSetReal32CB,                   &(ShipStaticInfos[0].minBulletRange[1]), &(ShipStaticInfos[0]) },
+    { "minBulletRange[2]",                         scriptSetReal32CB,                   &(ShipStaticInfos[0].minBulletRange[2]), &(ShipStaticInfos[0]) },
+    { "blastRadiusShockWave",                      scriptSetReal32CB,                   &(ShipStaticInfos[0].blastRadiusShockWave), &(ShipStaticInfos[0]) },
+    { "blastRadiusDamage",                         scriptSetReal32CB,                   &(ShipStaticInfos[0].blastRadiusDamage), &(ShipStaticInfos[0]) },
+    { "passiveRetaliateZone",                      scriptSetReal32CB,                   &(ShipStaticInfos[0].passiveRetaliateZone), &(ShipStaticInfos[0]) },
+    { "shipclass",                                 setClassCB,                          &(ShipStaticInfos[0].shipclass), &(ShipStaticInfos[0]) },
+    { "rotateToRetaliate",                         scriptSetBool8,                      &(ShipStaticInfos[0].rotateToRetaliate), &(ShipStaticInfos[0]) },
+    { "canTargetMultipleTargets",                  scriptSetBool8,                      &(ShipStaticInfos[0].canTargetMultipleTargets), &(ShipStaticInfos[0]) },
+    { "canBuildShips",                             scriptSetBool8,                      &(ShipStaticInfos[0].canBuildShips), &(ShipStaticInfos[0]) },
+    { "canReceiveShips",                           scriptSetBool8,                      &(ShipStaticInfos[0].canReceiveShips), &(ShipStaticInfos[0]) },
+    { "canReceiveResources",                       scriptSetBool8,                      &(ShipStaticInfos[0].canReceiveResources), &(ShipStaticInfos[0]) },
+    { "canReceiveShipsPermanently",                scriptSetBool8,                      &(ShipStaticInfos[0].canReceiveShipsPermanently), &(ShipStaticInfos[0]) },
+    { "canReceiveShipsForRetire",                  scriptSetBool8,                      &(ShipStaticInfos[0].canReceiveShipsForRetire), &(ShipStaticInfos[0]) },
+    { "canBuildBigShips",                          scriptSetBool8,                      &(ShipStaticInfos[0].canBuildBigShips), &(ShipStaticInfos[0]) },
+    { "canReceiveFighters",                        scriptSetBool8,                      &(ShipStaticInfos[0].canReceiveTheseShips[THISSHIPIS_FIGHTER]), &(ShipStaticInfos[0]) },
+    { "canReceiveCorvettes",                       scriptSetBool8,                      &(ShipStaticInfos[0].canReceiveTheseShips[THISSHIPIS_CORVETTE]), &(ShipStaticInfos[0]) },
+    { "canReceiveResourceCollectors",              scriptSetBool8,                      &(ShipStaticInfos[0].canReceiveTheseShips[THISSHIPIS_RESOURCER]), &(ShipStaticInfos[0]) },
+    { "canReceiveOtherNonCapitalShips",            scriptSetBool8,                      &(ShipStaticInfos[0].canReceiveTheseShips[THISSHIPIS_OTHERNONCAPITALSHIP]), &(ShipStaticInfos[0]) },
+    { "canHandleNumShipsDocking",                  scriptSetSdwordCB,                   &(ShipStaticInfos[0].canHandleNumShipsDocking), &(ShipStaticInfos[0]) },
+    { "canHandleNumShipsDepositingRU",             scriptSetSdwordCB,                   &(ShipStaticInfos[0].canHandleNumShipsDepositingRU), &(ShipStaticInfos[0]) },
+    { "svManeuverability",                         scriptSetSdwordCB,                   &(ShipStaticInfos[0].svManeuverability), &(ShipStaticInfos[0]) },
+    { "svCoverage",                                scriptSetSdwordCB,                   &(ShipStaticInfos[0].svCoverage), &(ShipStaticInfos[0]) },
+    { "svFirePower",                               scriptSetSdwordCB,                   &(ShipStaticInfos[0].svFirePower), &(ShipStaticInfos[0]) },
+    { "maxDockableFighters",                       scriptSetSwordCB,                    &(ShipStaticInfos[0].maxDockableFighters), &(ShipStaticInfos[0]) },
+    { "maxDockableCorvettes",                      scriptSetSwordCB,                    &(ShipStaticInfos[0].maxDockableCorvettes), &(ShipStaticInfos[0]) },
+    { "specialActivateIsContinuous",               scriptSetBool8,                      &(ShipStaticInfos[0].specialActivateIsContinuous), &(ShipStaticInfos[0]) },
+    { "canSpecialBandBoxFriendlies",               scriptSetBool8,                      &(ShipStaticInfos[0].canSpecialBandBoxFriendlies), &(ShipStaticInfos[0]) },
+    { "canSingleClickSpecialActivate",             scriptSetBool8,                      &(ShipStaticInfos[0].canSingleClickSpecialActivate), &(ShipStaticInfos[0]) },
+    { "buildCost",                                 scriptSetSdwordCB,                   &(ShipStaticInfos[0].buildCost), &(ShipStaticInfos[0]) },
+    { "supportUnits",                              scriptSetUdwordCB,                   &(ShipStaticInfos[0].supportUnits), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "providesSU",                                scriptSetUdwordCB,                   &(ShipStaticInfos[0].providesSU), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "TimeShockedByEMP",                          scriptSetReal32CB,                   &(ShipStaticInfos[0].TimeShockedByEMP), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "EMP_Range",                                 scriptSetReal32CB,                   &(ShipStaticInfos[0].EMP_Range), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "EMP_Max_Combine_Distance",                  scriptSetReal32CB,                   &(ShipStaticInfos[0].EMP_Max_Combine_Distance), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "RamDamage",                                 scriptSetReal32CB,                   &(ShipStaticInfos[0].RamDamage), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "cuttingBeamDamagePerSecond",                scriptSetReal32CB,                   &(ShipStaticInfos[0].cuttingBeamDamagePerSecond), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "cuttingBeamUpgradedDamagePerSecond",        scriptSetReal32CB,                   &(ShipStaticInfos[0].cuttingBeamUpgradedDamagePerSecond), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "RamPushTime",                               scriptSetReal32CB,                   &(ShipStaticInfos[0].RamPushTime), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "RamWaitAfterPushTime",                      scriptSetReal32CB,                   &(ShipStaticInfos[0].RamWaitAfterPushTime), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "UpgradeByDocking",                          scriptSetBool,                       &(ShipStaticInfos[0].UpgradeByDocking), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "pilotViewOffsetX",                          scriptSetReal32CB,                   &(ShipStaticInfos[0].pilotViewOffsetX), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "pilotViewOffsetY",                          scriptSetReal32CB,                   &(ShipStaticInfos[0].pilotViewOffsetY), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "pilotViewOffsetZ",                          scriptSetReal32CB,                   &(ShipStaticInfos[0].pilotViewOffsetZ), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "RKOGetsMissiles",                           scriptSetUdwordCB,                   &(ShipStaticInfos[0].RKOGetsMissiles), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "buildTime",                                 scriptSetFramesCB,                   &(ShipStaticInfos[0].buildTime), &(ShipStaticInfos[0]) },
+    { "fowRadius",                                 scriptSetReal32CB,                   &(ShipStaticInfos[0].fowRadius), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "resourcesAtOneTime",                        scriptSetSdwordCB,                   &(ShipStaticInfos[0].resourcesAtOneTime), &(ShipStaticInfos[0]) },
+    { "RKOEatMeTime",                              scriptSetReal32CB,                   &(ShipStaticInfos[0].RKOEatMeTime), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "maxresources",                              scriptSetSdwordCB,                   &(ShipStaticInfos[0].maxresources), &(ShipStaticInfos[0]) },
+    { "harvestAmount",                             scriptSetSdwordCB,                   &(ShipStaticInfos[0].harvestAmount), &(ShipStaticInfos[0]) },
+    { "harvestRate",                               scriptSetSdwordCB,                   &(ShipStaticInfos[0].harvestRate), &(ShipStaticInfos[0]) },
+    { "maxhealth",                                 scriptSetReal32CB,                   &(ShipStaticInfos[0].health.maxhealth), &(ShipStaticInfos[0]) },
+    { "minCollDamage",                             scriptSetReal32CB,                   &(ShipStaticInfos[0].health.minCollDamage), &(ShipStaticInfos[0]) },
+    { "maxCollDamage",                             scriptSetReal32CB,                   &(ShipStaticInfos[0].health.maxCollDamage), &(ShipStaticInfos[0]) },
+    { "groupSize",                                 scriptSetSdwordCB,                   &(ShipStaticInfos[0].groupSize), &(ShipStaticInfos[0]) },
+    { "repairTime",                                scriptSetReal32CB,                   &(ShipStaticInfos[0].repairTime), &(ShipStaticInfos[0]) },
+    { "repairDamage",                              scriptSetReal32CB,                   &(ShipStaticInfos[0].repairDamage), &(ShipStaticInfos[0]) },
+    { "repairDroids",                              scriptSetUdwordCB,                   &(ShipStaticInfos[0].nRepairDroids), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "repairCombatTime",                          scriptSetReal32CB,                   &(ShipStaticInfos[0].repairCombatTime), &(ShipStaticInfos[0]) },
+    { "repairCombatDamage",                        scriptSetReal32CB,                   &(ShipStaticInfos[0].repairCombatDamage), &(ShipStaticInfos[0]) },
+    { "repairOtherShipRate",                       scriptSetReal32CB,                   &(ShipStaticInfos[0].repairOtherShipRate), &(ShipStaticInfos[0]) },
+    { "repairResourceCollectorRate",               scriptSetReal32CB,                   &(ShipStaticInfos[0].repairResourceCollectorRate), &(ShipStaticInfos[0]) },
+    { "dockShipRange",                             scriptSetReal32CB,                   &(ShipStaticInfos[0].dockShipRange), &(ShipStaticInfos[0]) },
+    { "clearanceDistance",                         scriptSetReal32CB,                   &(ShipStaticInfos[0].clearanceDistance), &(ShipStaticInfos[0]) },
+    { "clearanceDirection",                        scriptSetUdwordCB,                   &(ShipStaticInfos[0].clearanceDirection), &(ShipStaticInfos[0]) },
+    { "formationPaddingModifier",                  scriptSetReal32CB,                   &(ShipStaticInfos[0].formationPaddingModifier), &(ShipStaticInfos[0]) },
+    { "cannotForceAttackIfOwnShip",                scriptSetBool,                       &(ShipStaticInfos[0].cannotForceAttackIfOwnShip), &(ShipStaticInfos[0]) },
+    { "passiveAttackPenaltyExempt",                scriptSetBool,                       &(ShipStaticInfos[0].passiveAttackPenaltyExempt), &(ShipStaticInfos[0]) },
+    { "isCapitalShip",                             scriptSetBool,                       &(ShipStaticInfos[0].shipIsCapital), &(ShipStaticInfos[0]) },
+    { "cantMoveAndAttack",                         scriptSetBool,                       &(ShipStaticInfos[0].cantMoveAndAttack), &(ShipStaticInfos[0]) },
+    { "repairBeamCapable",                         scriptSetBool,                       &(ShipStaticInfos[0].repairBeamCapable), &(ShipStaticInfos[0]) },
+    { "healthPerSecond",                           scriptSetReal32CB,                   &(ShipStaticInfos[0].healthPerSecond), &(ShipStaticInfos[0]) },
+    { "CapitalDistanceRepairStart2",               scriptSetReal32CB,                   &(ShipStaticInfos[0].CapitalDistanceRepairStart2), &(ShipStaticInfos[0]) },
+    { "CapitalDistanceRepairStart",                scriptSetReal32CB,                   &(ShipStaticInfos[0].CapitalDistanceRepairStart), &(ShipStaticInfos[0]) },
+    { "AngleDotProdThreshold",                     scriptSetReal32CB,                   &(ShipStaticInfos[0].AngleDotProdThreshold), &(ShipStaticInfos[0]) },
+    { "collSideModifiers[TRANS_UP]",               scriptSetReal32CB,                   &(ShipStaticInfos[0].collSideModifiers[TRANS_UP]), &(ShipStaticInfos[0]) },
+    { "collSideModifiers[TRANS_DOWN]",             scriptSetReal32CB,                   &(ShipStaticInfos[0].collSideModifiers[TRANS_DOWN]), &(ShipStaticInfos[0]) },
+    { "collSideModifiers[TRANS_RIGHT]",            scriptSetReal32CB,                   &(ShipStaticInfos[0].collSideModifiers[TRANS_RIGHT]), &(ShipStaticInfos[0]) },
+    { "collSideModifiers[TRANS_LEFT]",             scriptSetReal32CB,                   &(ShipStaticInfos[0].collSideModifiers[TRANS_LEFT]), &(ShipStaticInfos[0]) },
+    { "collSideModifiers[TRANS_FORWARD]",          scriptSetReal32CB,                   &(ShipStaticInfos[0].collSideModifiers[TRANS_FORWARD]), &(ShipStaticInfos[0]) },
+    { "collSideModifiers[TRANS_BACK]",             scriptSetReal32CB,                   &(ShipStaticInfos[0].collSideModifiers[TRANS_BACKWARD]), &(ShipStaticInfos[0]) },
+    { "thruststrength[TRANS_UP]",                  scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_UP]), &(ShipStaticInfos[0]) },
+    { "thruststrength[TRANS_DOWN]",                scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_DOWN]), &(ShipStaticInfos[0]) },
+    { "thruststrength[TRANS_RIGHT]",               scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_RIGHT]), &(ShipStaticInfos[0]) },
+    { "thruststrength[TRANS_LEFT]",                scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_LEFT]), &(ShipStaticInfos[0]) },
+    { "thruststrength[TRANS_FORWARD]",             scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_FORWARD]), &(ShipStaticInfos[0]) },
+    { "thruststrength[TRANS_BACK]",                scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.thruststrengthstat[TRANS_BACKWARD]), &(ShipStaticInfos[0]) },
+    { "rotstrength[ROT_YAWLEFT]",                  scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_YAWLEFT]), &(ShipStaticInfos[0]) },
+    { "rotstrength[ROT_YAWRIGHT]",                 scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_YAWRIGHT]), &(ShipStaticInfos[0]) },
+    { "rotstrength[ROT_PITCHUP]",                  scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_PITCHUP]), &(ShipStaticInfos[0]) },
+    { "rotstrength[ROT_PITCHDOWN]",                scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_PITCHDOWN]), &(ShipStaticInfos[0]) },
+    { "rotstrength[ROT_ROLLRIGHT]",                scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_ROLLRIGHT]), &(ShipStaticInfos[0]) },
+    { "rotstrength[ROT_ROLLLEFT]",                 scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.rotstrengthstat[ROT_ROLLLEFT]), &(ShipStaticInfos[0]) },
+    { "turnspeed[TURN_YAW]",                       scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.turnspeedstat[TURN_YAW]), &(ShipStaticInfos[0]) },
+    { "turnspeed[TURN_PITCH]",                     scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.turnspeedstat[TURN_PITCH]), &(ShipStaticInfos[0]) },
+    { "turnspeed[TURN_ROLL]",                      scriptSetReal32CB,                   &(ShipStaticInfos[0].guidance.turnspeedstat[TURN_ROLL]), &(ShipStaticInfos[0]) },
+    { "N-LIPS",                                    scriptSetReal32CB,                   &(ShipStaticInfos[0].scaleCap), &(ShipStaticInfos[0]) },
+    { "trailStyle",                                scriptSetUdwordCB,                   &(ShipStaticInfos[0].trailStyle[0]), &(ShipStaticInfos[0]) },
+    { "trailWidth",                                scriptSetReal32CB,                   &(ShipStaticInfos[0].trailWidth[0]), &(ShipStaticInfos[0]) },
+    { "trailHeight",                               scriptSetReal32CB,                   &(ShipStaticInfos[0].trailHeight[0]), &(ShipStaticInfos[0]) },
+    { "trailAngle",                                scriptSetReal32CB,                   &(ShipStaticInfos[0].trailAngle[0]), &(ShipStaticInfos[0]) },
+    { "trailRibbonAdjust",                         scriptSetReal32CB,                   &(ShipStaticInfos[0].trailRibbonAdjust[0]), &(ShipStaticInfos[0]) },
+    { "trailLength",                               scriptSetReal32CB,                   &(ShipStaticInfos[0].trailLength[0]), &(ShipStaticInfos[0]) },
+    { "trailScaleCap",                             scriptSetReal32CB,                   &(ShipStaticInfos[0].trailScaleCap[0]), &(ShipStaticInfos[0]) },
+    { "trailStyle2",                               scriptSetUdwordCB,                   &(ShipStaticInfos[0].trailStyle[1]), &(ShipStaticInfos[0]) },
+    { "trailWidth2",                               scriptSetReal32CB,                   &(ShipStaticInfos[0].trailWidth[1]), &(ShipStaticInfos[0]) },
+    { "trailHeight2",                              scriptSetReal32CB,                   &(ShipStaticInfos[0].trailHeight[1]), &(ShipStaticInfos[0]) },
+    { "trailAngle2",                               scriptSetReal32CB,                   &(ShipStaticInfos[0].trailAngle[1]), &(ShipStaticInfos[0]) },
+    { "trailRibbonAdjust2",                        scriptSetReal32CB,                   &(ShipStaticInfos[0].trailRibbonAdjust[1]), &(ShipStaticInfos[0]) },
+    { "trailLength2",                              scriptSetReal32CB,                   &(ShipStaticInfos[0].trailLength[1]), &(ShipStaticInfos[0]) },
+    { "trailScaleCap2",                            scriptSetReal32CB,                   &(ShipStaticInfos[0].trailScaleCap[1]), &(ShipStaticInfos[0]) },
+    { "trailStyle3",                               scriptSetUdwordCB,                   &(ShipStaticInfos[0].trailStyle[2]), &(ShipStaticInfos[0]) },
+    { "trailWidth3",                               scriptSetReal32CB,                   &(ShipStaticInfos[0].trailWidth[2]), &(ShipStaticInfos[0]) },
+    { "trailHeight3",                              scriptSetReal32CB,                   &(ShipStaticInfos[0].trailHeight[2]), &(ShipStaticInfos[0]) },
+    { "trailAngle3",                               scriptSetReal32CB,                   &(ShipStaticInfos[0].trailAngle[2]), &(ShipStaticInfos[0]) },
+    { "trailRibbonAdjust3",                        scriptSetReal32CB,                   &(ShipStaticInfos[0].trailRibbonAdjust[2]), &(ShipStaticInfos[0]) },
+    { "trailLength3",                              scriptSetReal32CB,                   &(ShipStaticInfos[0].trailLength[2]), &(ShipStaticInfos[0]) },
+    { "trailScaleCap3",                            scriptSetReal32CB,                   &(ShipStaticInfos[0].trailScaleCap[2]), &(ShipStaticInfos[0]) },
+    { "trailStyle4",                               scriptSetUdwordCB,                   &(ShipStaticInfos[0].trailStyle[3]), &(ShipStaticInfos[0]) },
+    { "trailWidth4",                               scriptSetReal32CB,                   &(ShipStaticInfos[0].trailWidth[3]), &(ShipStaticInfos[0]) },
+    { "trailHeight4",                              scriptSetReal32CB,                   &(ShipStaticInfos[0].trailHeight[3]), &(ShipStaticInfos[0]) },
+    { "trailAngle4",                               scriptSetReal32CB,                   &(ShipStaticInfos[0].trailAngle[3]), &(ShipStaticInfos[0]) },
+    { "trailRibbonAdjust4",                        scriptSetReal32CB,                   &(ShipStaticInfos[0].trailRibbonAdjust[3]), &(ShipStaticInfos[0]) },
+    { "trailLength4",                              scriptSetReal32CB,                   &(ShipStaticInfos[0].trailLength[3]), &(ShipStaticInfos[0]) },
+    { "trailScaleCap4",                            scriptSetReal32CB,                   &(ShipStaticInfos[0].trailScaleCap[3]), &(ShipStaticInfos[0]) },
+    { "trailSpriteRadius",                         scriptSetReal32CB,                   &(ShipStaticInfos[0].trailSpriteRadius[0]), &(ShipStaticInfos[0]) },
+    { "trailSpriteRadius2",                        scriptSetReal32CB,                   &(ShipStaticInfos[0].trailSpriteRadius[1]), &(ShipStaticInfos[0]) },
+    { "trailSpriteRadius3",                        scriptSetReal32CB,                   &(ShipStaticInfos[0].trailSpriteRadius[2]), &(ShipStaticInfos[0]) },
+    { "trailSpriteRadius4",                        scriptSetReal32CB,                   &(ShipStaticInfos[0].trailSpriteRadius[3]), &(ShipStaticInfos[0]) },
+    { "trailSpriteOffset",                         scriptSetReal32CB,                   &(ShipStaticInfos[0].trailSpriteOffset[0]), &(ShipStaticInfos[0]) },
+    { "trailSpriteOffset2",                        scriptSetReal32CB,                   &(ShipStaticInfos[0].trailSpriteOffset[1]), &(ShipStaticInfos[0]) },
+    { "trailSpriteOffset3",                        scriptSetReal32CB,                   &(ShipStaticInfos[0].trailSpriteOffset[2]), &(ShipStaticInfos[0]) },
+    { "trailSpriteOffset4",                        scriptSetReal32CB,                   &(ShipStaticInfos[0].trailSpriteOffset[3]), &(ShipStaticInfos[0]) },
+    { "minimumZoomDistance",                       scriptSetReal32CB,                   &(ShipStaticInfos[0].minimumZoomDistance), &(ShipStaticInfos[0]) },
+    { "renderlistFade",                            scriptSetReal32CB,                   &(ShipStaticInfos[0].renderlistFade), &(ShipStaticInfos[0]) },
+    { "renderlistLimit",                           scriptSetReal32SqrCB,                &(ShipStaticInfos[0].renderlistLimitSqr), &(ShipStaticInfos[0]) },
+    { "dockLightNear",                             scriptSetReal32CB,                   &(ShipStaticInfos[0].dockLightNear), &(ShipStaticInfos[0]) },
+    { "dockLightFar",                              scriptSetReal32CB,                   &(ShipStaticInfos[0].dockLightFar), &(ShipStaticInfos[0]) },
+    { "dockLightColor",                            scriptSetRGBCB,                      &(ShipStaticInfos[0].dockLightColor), &(ShipStaticInfos[0]) },
+    { "hyperspaceColor",                           scriptSetRGBCB,                      &(ShipStaticInfos[0].hyperspaceColor), &(ShipStaticInfos[0]) },
+    { "hyperspaceBoxScale",                        scriptSetReal32CB,                   &(ShipStaticInfos[0].hyperspaceBoxScale), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "preciseSelection",                          scriptSetUdwordCB,                   &(ShipStaticInfos[0].common.staticCollInfo.preciseSelection), &(ShipStaticInfos[0]) },
+    { "madGunOpenDamagedHealthThreshold",          scriptSetReal32CB,                   &(ShipStaticInfos[0].madGunOpenDamagedHealthThreshold), &(ShipStaticInfos[0]) },
+    { "madWingOpenDamagedHealthThreshold",         scriptSetReal32CB,                   &(ShipStaticInfos[0].madWingOpenDamagedHealthThreshold), &(ShipStaticInfos[0]) },
+    { "externalBuild",                             scriptSetBool8,                      &(ShipStaticInfos[0].externalBuild), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "leechRUsPerSecond",                         scriptSetUdwordCB,                   &(ShipStaticInfos[0].leechRUsPerSecond), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "leechHPsPerSecond",                         scriptSetReal32CB,                   &(ShipStaticInfos[0].leechHPsPerSecond), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "Overlay_Selection_Scalar",                  scriptSetReal32CB,                   &(ShipStaticInfos[0].tacticalSelectionScale), &(ShipStaticInfos[0]) },
+    { "beastAttackCascadeCost",                    scriptSetReal32CB,                   &(ShipStaticInfos[0].beastAttackCascadeCost), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "beastAttacksRequired",                      scriptSetSdwordCB,                   &(ShipStaticInfos[0].beastAttacksRequired), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "beastAttackConvertTo",                      cat_scriptSetBeastAttackConvertToCB, &(ShipStaticInfos[0].beastAttackConvertTo), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "linkDistance",                              scriptSetReal32CB,                   &(ShipStaticInfos[0].linkDistance), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "forceFieldProtectionDistanceScale",         scriptSetReal32CB,                   &(ShipStaticInfos[0].forceFieldProtectionDistanceScale), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "bUseRayTriangleIntersectionForHitLocation", scriptSetBool,                       &(ShipStaticInfos[0].bUseRayTriangleIntersectionForHitLocation), &(ShipStaticInfos[0]) },   // CAT: new key
+    { "upgradeTimeModifier",                       scriptSetReal32CB,                   &(ShipStaticInfos[0].upgradeTimeModifier), &(ShipStaticInfos[0]) },   // CAT: new key
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -1264,7 +1289,7 @@ scriptStructEntry DerelictStaticScriptTable[] =
     { "pitchturn",                  scriptSetReal32CB,   &(derelictStaticInfos[0].shipOrDerelict.pitchturn),  &(derelictStaticInfos[0]) },
 
     { "preciseSelection",           scriptSetUdwordCB, &(ShipStaticInfos[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfos[0]) },
-    { "NUMBER_OF_SALVAGE_POINTS",   scriptSetSalvageStatCB, &(derelictStaticInfos[0]), &(derelictStaticInfos[0]) },
+    // CAT: NUMBER_OF_SALVAGE_POINTS is gone (the string is not in cataclysm.exe; no HW1-style salvage statics)
 
     { "scaleFactor",          scriptSetReal32CB,   &(derelictStaticInfos[0].scaleFactor),  &(derelictStaticInfos[0]) },
     { "worldRender",                scriptSetBool,   &(derelictStaticInfos[0].worldRender),  &(derelictStaticInfos[0]) },
@@ -1800,6 +1825,12 @@ static void setClassCB(char *directory,char *field,void *dataToFillIn)
     *((ShipClass *)dataToFillIn) = StrToShipClass(field);
 }
 
+// CAT: key beastAttackConvertTo, a ship type name (cat_scriptSetBeastAttackConvertToCB 0x0053ac50)
+static void cat_scriptSetBeastAttackConvertToCB(char *directory,char *field,void *dataToFillIn)
+{
+    *((ShipType *)dataToFillIn) = StrToShipType(field);
+}
+
 static void scriptSetFramesCB(char *directory,char *field,void *dataToFillIn)
 {
     sscanf(field,"%d",(sdword *)dataToFillIn);
@@ -1929,7 +1960,9 @@ void precalcStaticInfoGuidance(StaticInfoHealthGuidance *staticinfo)
 
     for (i=0;i<NUM_TRANS_DEGOFFREEDOM;i++)
     {
-        staticinfo->thruststrengthstat[i] *= staticinfo->common.mass * GLOBAL_SHIP_SPEED_MODIFIER;
+        // CAT: the exe multiplies (mass * thrust) * GLOBAL_SHIP_SPEED_MODIFIER (InitStatShipInfo 0x0053bab0 inline,
+        //      0x0053c05d: fld mass; fmul thrust; fmul modifier); HW1 multiplied thrust by (mass * modifier)
+        staticinfo->thruststrengthstat[i] = staticinfo->common.mass * staticinfo->thruststrengthstat[i] * GLOBAL_SHIP_SPEED_MODIFIER;
     }
 
     staticinfo->common.maxvelocity *= GLOBAL_SHIP_SPEED_MODIFIER;
@@ -2354,27 +2387,111 @@ void InitStatMineInfo(MissileStaticInfo *mineStatInfo,ShipRace race)
     Outputs     :
     Return      : returns TRUE if ship is a strikecraft
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : cat_univInitShipTypeFlags
+    Description : CAT: Cataclysm-only (cat_univInitShipTypeFlags 0x0053b8c0). Sets the per-type category bits
+                  at ShipStaticInfo+0x1EC from the ship type; InitStatShipInfo calls it after the .shp is read.
+                  The bits' meanings are not identified yet; their readers are stage-2 code.
+    Inputs      : statinfo (shiptype already set)
+    Outputs     : statinfo->catTypeFlags
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_univInitShipTypeFlags(ShipStaticInfo *statinfo)
+{
+    statinfo->catTypeFlags = 0;
+    switch (statinfo->shiptype)
+    {
+        case sRecon: case sSentinel: case bRecon: case bSentinel: case kProximitySensor: case tProximitySensor:
+        case trFloatingCity: case trResearchStation: case dAcolyte:
+            statinfo->catTypeFlags |= 0x10000;
+            break;
+        case sAcolyte: case bAcolyte:
+            statinfo->catTypeFlags |= 0x20;
+            break;
+        case sMimic:
+            statinfo->catTypeFlags |= 0x20020;
+            break;
+        case sLeech:
+            statinfo->catTypeFlags |= 0x20300;
+            break;
+        case sACV: case bACV:
+            statinfo->catTypeFlags |= 0x40;
+            break;
+        case sMCV:
+            statinfo->catTypeFlags |= 0x20040;
+            break;
+        case sMultiBeamFrigate: case bMultiBeamFrigate:
+            statinfo->catTypeFlags |= 0x80;
+            break;
+        case sHiveFrigate: case bHiveFrigate: case dRKO:
+            statinfo->catTypeFlags |= 0x8000;
+            break;
+        case sDreadnought: case sDestroyer: case tMissileDestroyer: case p1MissileCorvette:
+            statinfo->catTypeFlags |= 0x400;
+            break;
+        case sCarrier: case bCarrier: case kCarrier: case tCarrier:
+            statinfo->catTypeFlags |= 0x8012;
+            break;
+        case sWorker: case bWorker: case tResourceCollector:
+            statinfo->catTypeFlags |= 0x1;
+            break;
+        case sMothership: case bMothership: case dBeastMothership:
+            statinfo->catTypeFlags |= 0x800e;
+            break;
+        case sMothershipSpecial: case sMothershipEngineering: case sMothershipArmour: case sMothershipMicro:
+        case sMothershipWeapons: case sMothershipDockingBay: case sMothershipSupport: case sMothershipCommand:
+        case sMothershipEnginesLower: case sMothershipEnginesUpper: case sMothershipLowerSpine:
+        case sMothershipBigGun: case sMothershipOreCanArmour: case bMothershipDockingBay:
+        case bMothershipEnginesLower: case bSectMoship: case bMothershipSupport:
+            statinfo->catTypeFlags |= 0x1000;
+            break;
+        case bCloakedFighter: case bIonArrayFrigate: case p1IonArrayFrigate: case p1StandardCorvette:
+            statinfo->catTypeFlags |= 0x20020;
+            break;
+        case tMinelayerCorvette:
+            statinfo->catTypeFlags |= 0x800;
+            break;
+        case dSlipgateSmall: case dSlipgateMedium: case dSlipgateLarge:
+            statinfo->catTypeFlags |= 0xc000;
+            break;
+        default:
+            break;
+    }
+}
+
 bool32 isStrikeCraft(ShipType shiptype)
 {
+    // CAT: Cataclysm's 27 strike craft (isStrikeCraft 0x0053ba20; InitStatShipInfo 0x0053bab0 inlines the same list
+    //      for the formation padding default)
     switch (shiptype)
     {
-        case AttackBomber:
-        case CloakedFighter:
-        case DefenseFighter:
-        case HeavyInterceptor:
-        case LightInterceptor:
-        case HeavyDefender:
-        case LightCorvette:
-        case HeavyCorvette:
-        case MultiGunCorvette:
-        case MinelayerCorvette:
-        case SalCapCorvette:
-        case RepairCorvette:
-        case P1Fighter:
-        case P1MissileCorvette:
-        case P1StandardCorvette:
-        case P2Swarmer:
-        case P2AdvanceSwarmer:
+        case sRecon:
+        case sAcolyte:
+        case sMimic:
+        case sLeech:
+        case sACV:
+        case sMCV:
+        case bRecon:
+        case bAcolyte:
+        case bInterceptor:
+        case bCloakedFighter:
+        case bAttackBomber:
+        case bACV:
+        case kAttackBomber:
+        case kHeavyCorvette:
+        case kHeavyDefender:
+        case kHeavyInterceptor:
+        case kMultiGunCorvette:
+        case kSalCapCorvette:
+        case tAttackBomber:
+        case tHeavyDefender:
+        case tHeavyInterceptor:
+        case tMinelayerCorvette:
+        case tMultiGunCorvette:
+        case tSalCapCorvette:
+        case p1Fighter:
+        case p1MissileCorvette:
+        case p1StandardCorvette:
             return TRUE;
 
         default:
@@ -2397,12 +2514,23 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
     char *shiptypestr;
     sdword i;
     bool32 stubbedOut;
+    udword shipKeysSet;
 
+    // CAT: defaults of the Cataclysm-only fields, set before the file check (InitStatShipInfo 0x0053bab0)
+    statinfo->bUseRayTriangleIntersectionForHitLocation = TRUE;
+    statinfo->forceFieldProtectionDistanceScale = -1.0f;
+    statinfo->upgradeTimeModifier = 1.0f;
     statinfo->shiptype = type;
     statinfo->shiprace = race;
+    statinfo->leechRUsPerSecond = 1;
+    statinfo->leechHPsPerSecond = 20.0f;
+    statinfo->nRepairDroids = 0;
+    statinfo->fowRadius = 0.0f;
+    statinfo->linkDistance = 0.0f;
+    statinfo->externalBuild = FALSE;
 
+    // CAT: the 0x8C-byte header has no shiptype field any more, so HW1's header/type assertion is gone
     statinfo->custshipheader = *(shipHeaders[type]);
-    dbgAssertOrIgnore((statinfo->custshipheader.shiptype == (ShipType)-1) || (type == statinfo->custshipheader.shiptype));
 
     shiptypestr = ShipTypeToStr(type);
 
@@ -2433,6 +2561,9 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
     if (!fileExists(fullshipname,0) || universeForceDefaultShip)
     {
         //we now disable this ship if we can't find it...
+        // CAT: the exe disables the type silently (InitStatShipInfo 0x0053bab0); this port says so in the log
+        dbgMessagef("shipstatic: %s not found%s, ship type %d (%s) disabled", fullshipname,
+                    universeForceDefaultShip ? " (universeForceDefaultShip)" : "", type, shiptypestr);
         SetInfoNeededForShipAndRelatedStaticInfo(type,race,FALSE);
         rmEnableShip(race, type, FALSE);
         return;
@@ -2454,9 +2585,7 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
         stubbedOut = FALSE;
     }
 
-#if SO_CLOOGE_SCALE
-    statinfo->scaleFactor = 1.0f;
-#endif
+    // CAT: no scaleFactor in Cataclysm's ShipStaticInfo (SO_CLOOGE_SCALE default removed)
 
     statinfo->guidance.turnspeedstat[TURN_YAW]   = 1.0f;
     statinfo->guidance.turnspeedstat[TURN_PITCH] = 1.0f;
@@ -2472,6 +2601,7 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
     statinfo->dockLightColor = colRGB(120, 194, 255);   //default blue glow
 
     statinfo->hyperspaceColor = colRGB(0,0,0);  //default is to use the effect's default
+    statinfo->hyperspaceBoxScale = 1.0f;        // CAT: default (InitStatShipInfo 0x0053bab0, +0x3D0)
 
     statinfo->tacticalSelectionScale = 1.0f;  // This is used to scale the R1 probes tactiacl overlay size, and the defenders selection box size
 
@@ -2507,7 +2637,24 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
 
     statinfo->common.rightOfWay = rightOfWays[type];      // defaults for right of way
 
+    // CAT: more defaults of Cataclysm fields, written just before the .shp is read (InitStatShipInfo 0x0053bab0)
+    statinfo->beastAttackCascadeCost = 1.0f;
+    statinfo->beastAttacksRequired = -1;
+    statinfo->beastAttackConvertTo = bWorker;
+    statinfo->UpgradeByDocking = FALSE;
+    statinfo->pilotViewOffsetX = 0.0f;
+    statinfo->pilotViewOffsetY = 0.0f;
+    statinfo->pilotViewOffsetZ = 0.0f;
+    statinfo->RKOGetsMissiles &= ~(udword)0xff;     // the exe clears the low byte only (byte store to +0x454)
+    statinfo->dockShipRange = 0.0f;
+    statinfo->canSpecialBandBoxFriendlies = FALSE;
+    statinfo->unknownFlag212 = TRUE;
+    statinfo->unknownFlag213 = FALSE;
+
     scriptSetStruct(directory,shipname,ShipStaticScriptTable,(ubyte *)statinfo);
+    shipKeysSet = scriptStructEntriesSet;           // CAT: diagnostic count for the per-ship log line below
+
+    // CAT: the exe warns (into a stripped debug print) when fowRadius is 0; nothing else happens
 
     if ((statinfo->repairTime) && (statinfo->repairCombatTime == 0.0f))
     {
@@ -2516,8 +2663,11 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
 
     if ((statinfo->repairDamage) && (statinfo->repairCombatDamage == 0.0f))
     {
-        statinfo->repairCombatDamage = statinfo->repairDamage;
+        // CAT: combat repair defaults to a fifth of the normal rate (HW1: the same rate); 0.2f at 0x0072a510
+        statinfo->repairCombatDamage = statinfo->repairDamage * 0.2f;
     }
+
+    cat_univInitShipTypeFlags(statinfo);            // CAT: new (cat_univInitShipTypeFlags 0x0053b8c0)
 
     if (statinfo->collSideModifiers[0] == 0.0f)
     {
@@ -2546,6 +2696,17 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
     }
 #endif
 */
+    // CAT: single-player build costs of three Beast/Sect ships (InitStatShipInfo 0x0053bab0)
+    if (singlePlayerGame)
+    {
+        switch (statinfo->shiptype)
+        {
+            case bHeavyCruiser:         statinfo->buildCost = 3000; break;
+            case bIonArrayFrigate:      statinfo->buildCost = 600;  break;
+            case sMothershipBigGun:     statinfo->buildCost = 5000; break;
+            default: break;
+        }
+    }
     if (statinfo->blastRadiusShockWave == 0.0f)
     {
         statinfo->blastRadiusShockWave = BLAST_RADIUS_MULTIPLE_DEFAULT;
@@ -2564,7 +2725,8 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
 
     if (statinfo->attackfuelburnrate == 0.0f)
     {
-        statinfo->attackfuelburnrate = statinfo->fuelburnrate;
+        // CAT: the exe stores 0 here (no fuel keys in Cataclysm; HW1 copied fuelburnrate)
+        statinfo->attackfuelburnrate = 0.0f;
     }
 
     statinfo->canReceiveSomething = (bool8)(statinfo->canReceiveResources | statinfo->canReceiveShips | statinfo->canReceiveShipsPermanently | statinfo->canReceiveShipsForRetire);
@@ -2582,11 +2744,11 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
         statinfo->multipleEngines = FALSE;
     }
 
-    statinfo->lowfuelpoint *= statinfo->maxfuel;
+    // CAT: no lowfuelpoint scaling (no fuel keys; the exe has no such step)
 
     precalcStaticHeader(&statinfo->common);
 #if 1  // comment out when MiningBase properly moved hack,  fix later
-    if (type == MiningBase)
+    if (type == trMiningBase)   // CAT: type 100 (InitStatShipInfo 0x0053bab0)
     {
         StaticCollInfo *staticCollInfo = &statinfo->common.staticCollInfo;
         staticCollInfo->collsphereoffset.x += MINING_BASE_VERTICAL_DIST_HACK;
@@ -2596,11 +2758,8 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
     precalcStaticInfoHealth((StaticInfoHealth *)statinfo);
     precalcStaticInfoGuidance((StaticInfoHealthGuidance *)statinfo);
 
-    if (statinfo->dockShipRange != 0.0f)
-    {
-        statinfo->dockShipRange += statinfo->common.staticCollInfo.approxcollspheresize;
-        statinfo->dockShipRange *= statinfo->dockShipRange;
-    }
+    // CAT: dockShipRange is kept as read (InitStatShipInfo 0x0053bab0 neither pads nor squares it; Cataclysm's dock
+    //      code adds the collision radius at the point of use). HW1's Dock.c does the old conversion where it reads it.
 
     aishipPrecalcInfo(statinfo);
 
@@ -2620,10 +2779,13 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
         mexGetDockStaticInfo(statinfo->dockStaticInfo,statinfo->common.pMexData);
     }
 
-    if (stubbedOut == FALSE)
-    {
-        dockInitializeCustomFunctions(statinfo,type,race);
-    }
+    // CAT: InitStatShipInfo 0x0053bab0 has no dockInitializeCustomFunctions step (the exe has no such function): HW1's
+    //      per-type dock set-up looks up HW1 dock-point names ("In", ...) that Cataclysm's ships do not have and
+    //      stops with a fatal error (run ss-r2-statics-iso, sMothership). The two dock callbacks get HW1's default
+    //      handlers as safe defaults so the unported dock code never calls through NULL; Cataclysm's docking
+    //      (DPT_* points, the CustShipDockCommand slot) is stage 2.
+    statinfo->ShipXDocksAtShipY = ShipDocksAtDefaultShip;
+    statinfo->LaunchShipXFromShipY = LaunchShipFromDefaultShip;
 
     if (ShipCanHarvest(statinfo))
     {
@@ -2637,11 +2799,7 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
         statinfo->repairNozzleStatic = mexGetRepairNozzleStatic(statinfo->common.pMexData);
     }
 
-    if(type == SalCapCorvette)
-    {
-        //find tractor beam emmitter
-        statinfo->tractorEmitterStatic = mexGetTractorBeamStatic(statinfo->common.pMexData);
-    }
+    // CAT: no tractor beam emitter static in Cataclysm (no field, no mexGetTractorBeamStatic in the exe)
 
     scriptSetNAVLightStatics(directory, shipname, statinfo);
     if (statinfo->navlightStaticInfo != NULL)
@@ -2705,10 +2863,190 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
 
     }
 
+    // CAT: the exe logs "SHP file loaded: %s" (stripped in retail); this port logs what it parsed, one line per ship
+    //      (before the slot-1 call, so a stage-2 StaticInit that stops still leaves the parse in the log), in the form
+    //      tools/formats/shipstatic_engine_check.py compares with tools/formats/shipstatic_probe.py
+    dbgMessagef("shipstatic: loaded %s type=%d race=%d keys=%u guns=%d docks=%d navs=%d lod=%s staticinit=%s",
+                fullshipname, type, race, shipKeysSet,
+                statinfo->gunStaticInfo ? statinfo->gunStaticInfo->numGuns : 0,
+                statinfo->dockStaticInfo ? statinfo->dockStaticInfo->numDockPoints : 0,
+                statinfo->navlightStaticInfo ? statinfo->navlightStaticInfo->numNAVLights : 0,
+                statinfo->common.LOD ? "yes" : "no",
+                statinfo->custshipheader.CustShipStaticInit == NULL ? "none" : (catShipStaticsSelfTest ? "skipped" : "next"));
+
     if (statinfo->custshipheader.CustShipStaticInit != NULL)
     {
-        statinfo->custshipheader.CustShipStaticInit(directory,shipname,statinfo);
+        if (catShipStaticsSelfTest)
+        {
+            // CAT: /catShipStaticsTest loads every type; the slot-1 bodies are stage 2 (HW1's assert on most
+            //      Cataclysm types), so the self-test stops before them
+        }
+        else
+        {
+            statinfo->custshipheader.CustShipStaticInit(directory,shipname,statinfo);
+        }
     }
+
+    // CAT: forceFieldProtectionDistanceScale <= 1.0 after the load becomes 2.0 (InitStatShipInfo 0x0053bab0)
+    //      [audit: the threshold is 1.0, not 0: 0x0053c3b5 fcomp qword [0x0072a548] (double 1.0), and the stripped
+    //      warning 0x008b58c8 reads "... Distance Scale is smaller than or equal to 1.0 ... Defaulting to 2.0"]
+    if (statinfo->forceFieldProtectionDistanceScale <= 1.0f)
+    {
+        statinfo->forceFieldProtectionDistanceScale = 2.0f;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : catShipStaticsRunSelfTest
+    Description : CAT: port diagnostic, not in the exe (command line /catShipStaticsTest). Loads the .shp of every
+                  one of the 145 ship types the way universeStaticInit does (race = the type's race range), except
+                  that CustShipStaticInit is skipped (the slot-1 bodies are stage 2). InitStatShipInfo logs one
+                  "shipstatic: loaded ..." line per ship, or "shipstatic: ... not found ... disabled". Then it runs
+                  the other .shp loaders this tree has (missile and mine per race, asteroids, dust clouds, nebulae,
+                  HW1 derelict types whose file exists) and logs "shipstatic: other ..." per file. Every static is
+                  closed again afterwards. tools/formats/shipstatic_engine_check.py compares the log with the probe.
+    Inputs      :
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+static void catSelfTestLogOther(char *kind, char *path)
+{
+    dbgMessagef("shipstatic: other %s %s loaded", kind, path);
+}
+
+void catShipStaticsRunSelfTest(void)
+{
+    static MissileStaticInfo missileScratch, mineScratch;
+    static AsteroidStaticInfo asteroidScratch;
+    static DustCloudStaticInfo dustcloudScratch;
+    static NebulaStaticInfo nebulaScratch;
+    static DerelictStaticInfo derelictScratch;
+    char path[160];
+    ShipRace race;
+    ShipType type;
+    sdword i;
+    udword loaded = 0;
+
+#ifdef _WIN32
+#define CAT_SEP "\\"
+#else
+#define CAT_SEP "/"
+#endif
+    dbgMessagef("shipstatic: self-test start, %d ship types", TOTAL_NUM_SHIPS);
+    // the shared defaults universeStaticInit loads before any static (a missing LOD level falls back to defaultmesh)
+    if (sphereStaticInfo == NULL)
+    {
+        sphereStaticInfo = createSphereStaticInfo();
+    }
+    if (defaultmesh == NULL)
+    {
+        defaultmesh = meshLoad("DefaultShip" CAT_SEP "DefaultShip.geo");
+    }
+    if (defaultlod == NULL)
+    {
+        defaultlod = lodTableReadScript("DefaultShip" CAT_SEP, "DefaultShip.lod");
+    }
+    if (defaultmex == NULL)
+    {
+        defaultmex = mexLoad("DefaultShip" CAT_SEP "DefaultShip.mex");
+    }
+    for (race = 0; race < NUM_RACES; race++)
+    {
+        for (type = FirstShipTypeOfRace[race]; type <= LastShipTypeOfRace[race]; type++)
+        {
+            ShipStaticInfo *statinfo = GetShipStaticInfo(type, race);
+
+            for (i = 0; i < catShipStaticsSkipCount; i++)
+            {
+                if (catShipStaticsSkip[i] == (sdword)type)
+                {
+                    break;
+                }
+            }
+            if (i < catShipStaticsSkipCount)
+            {
+                dbgMessagef("shipstatic: skipped type %d (%s): /catShipStaticsSkip", type, ShipTypeToStr(type));
+                continue;
+            }
+            InitStatShipInfo(statinfo, type, race);
+            if (statinfo->common.LOD != NULL)     // every shipped .shp has a LODFile key
+            {
+                loaded++;
+            }
+            CloseStatShipInfo(statinfo);
+        }
+    }
+
+    for (race = 0; race < NUM_RACES; race++)
+    {
+        sprintf(path, "%s" CAT_SEP "Missile.shp", ShipRaceToStr(race));
+        if (fileExists(path, 0))
+        {
+            memset(&missileScratch, 0, sizeof(missileScratch));
+            InitStatMissileInfo(&missileScratch, race);
+            catSelfTestLogOther("missile", path);
+            CloseStatMissileInfo(&missileScratch);
+        }
+        sprintf(path, "%s" CAT_SEP "Mine.shp", ShipRaceToStr(race));
+        if (fileExists(path, 0))
+        {
+            memset(&mineScratch, 0, sizeof(mineScratch));
+            InitStatMineInfo(&mineScratch, race);
+            catSelfTestLogOther("mine", path);
+            CloseStatMineInfo(&mineScratch);
+        }
+    }
+    for (i = 0; i < NUM_ASTEROIDTYPES; i++)
+    {
+        sprintf(path, "Resources" CAT_SEP "Asteroids" CAT_SEP "%s.shp", AsteroidTypeToStr((AsteroidType)i));
+        if (fileExists(path, 0))
+        {
+            memset(&asteroidScratch, 0, sizeof(asteroidScratch));
+            InitStatAsteroidInfo(&asteroidScratch, (AsteroidType)i);
+            catSelfTestLogOther("asteroid", path);
+            CloseStatAsteroidInfo(&asteroidScratch);
+        }
+    }
+    for (i = 0; i < NUM_DUSTCLOUDTYPES; i++)
+    {
+        sprintf(path, "Resources" CAT_SEP "DustClouds" CAT_SEP "%s.shp", DustCloudTypeToStr((DustCloudType)i));
+        if (fileExists(path, 0))
+        {
+            memset(&dustcloudScratch, 0, sizeof(dustcloudScratch));
+            InitStatDustCloudInfo(&dustcloudScratch, (DustCloudType)i);
+            catSelfTestLogOther("dustcloud", path);
+            CloseStatDustCloudInfo(&dustcloudScratch);
+        }
+    }
+    for (i = 0; i < NUM_NEBULATYPES; i++)
+    {
+        sprintf(path, "Resources" CAT_SEP "Nebulae" CAT_SEP "%s.shp", NebulaTypeToStr((NebulaType)i));
+        if (fileExists(path, 0))
+        {
+            memset(&nebulaScratch, 0, sizeof(nebulaScratch));
+            InitStatNebulaInfo(&nebulaScratch, (NebulaType)i);
+            catSelfTestLogOther("nebula", path);
+            CloseStatNebulaInfo(&nebulaScratch);
+        }
+    }
+    for (i = 0; i < NUM_DERELICTTYPES; i++)
+    {
+        if ((DerelictType)i == HyperspaceGate)
+        {
+            continue;
+        }
+        sprintf(path, "Derelicts" CAT_SEP "%s.shp", DerelictTypeToStr((DerelictType)i));
+        if (fileExists(path, 0))     // HW1's derelict enum: only the names Cataclysm still ships are loaded here
+        {
+            memset(&derelictScratch, 0, sizeof(derelictScratch));
+            InitStatDerelictInfo(&derelictScratch, (DerelictType)i);
+            catSelfTestLogOther("derelict", path);
+            CloseStatDerelictInfo(&derelictScratch);
+        }
+    }
+#undef CAT_SEP
+
+    dbgMessagef("shipstatic: self-test done, %u of %d ship types loaded", loaded, TOTAL_NUM_SHIPS);
 }
 
 /*-----------------------------------------------------------------------------
@@ -2867,18 +3205,8 @@ void CloseStatShipInfo(ShipStaticInfo *statinfo)
         statinfo->repairNozzleStatic = NULL;
     }
 
-    if (statinfo->shipOrDerelict.salvageStaticInfo != NULL)
-    {
-        memFree(statinfo->shipOrDerelict.salvageStaticInfo);
-        statinfo->shipOrDerelict.salvageStaticInfo = NULL;
-    }
-
-
-    if (statinfo->tractorEmitterStatic != NULL)
-    {
-        memFree(statinfo->tractorEmitterStatic);
-        statinfo->tractorEmitterStatic = NULL;
-    }
+    // CAT: no salvageStaticInfo and no tractorEmitterStatic to free (neither exists in Cataclysm's ShipStaticInfo;
+    //      CloseStatShipInfo 0x0053c500 frees +0x3F4, +0x3F8, +0x3FC, +0x3F0, +0x104, +0x3EC only)
 
 
     if (statinfo->dockStaticInfo != NULL)
@@ -2957,11 +3285,7 @@ void CloseStatNebulaInfo(NebulaStaticInfo *nebulaStatInfo)
 ----------------------------------------------------------------------------*/
 void CloseStatDerelictInfo(DerelictStaticInfo *derelictStatInfo)
 {
-    if (derelictStatInfo->shipOrDerelict.salvageStaticInfo != NULL)
-    {
-        memFree(derelictStatInfo->shipOrDerelict.salvageStaticInfo);
-        derelictStatInfo->shipOrDerelict.salvageStaticInfo = NULL;
-    }
+    // CAT: no salvageStaticInfo in Cataclysm (no NUMBER_OF_SALVAGE_POINTS key anywhere in the exe)
     CloseStatInfo((StaticInfo *)derelictStatInfo);
 }
 

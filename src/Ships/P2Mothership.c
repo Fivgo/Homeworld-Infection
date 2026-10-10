@@ -69,23 +69,12 @@ void P2MothershipAttackPassive(Ship *ship,Ship *target,bool32 rotate)
 
 CustShipHeader P2MothershipHeader =
 {
-    P2Mothership,
-    sizeof(P2MothershipSpec),
-    P2MothershipStaticInit,
-    NULL,
-    NULL,
-    NULL,
-    P2MothershipAttack,
-    DefaultShipFire,
-    P2MothershipAttackPassive,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(P2MothershipSpec),
+    .CustShipStaticInit = P2MothershipStaticInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = P2MothershipAttackPassive,
+    .CustShipAttack = P2MothershipAttack,
 };
 

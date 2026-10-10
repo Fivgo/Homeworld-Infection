@@ -60,23 +60,12 @@ void StandardFrigateAttackPassive(Ship *ship,Ship *target,bool32 rotate)
 
 CustShipHeader StandardFrigateHeader =
 {
-    StandardFrigate,
-    sizeof(StandardFrigateSpec),
-    StandardFrigateStaticInit,
-    NULL,
-    NULL,
-    NULL,
-    StandardFrigateAttack,
-    DefaultShipFire,
-    StandardFrigateAttackPassive,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(StandardFrigateSpec),
+    .CustShipStaticInit = StandardFrigateStaticInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = StandardFrigateAttackPassive,
+    .CustShipAttack = StandardFrigateAttack,
 };
 

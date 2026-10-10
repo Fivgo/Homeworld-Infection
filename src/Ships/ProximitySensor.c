@@ -395,22 +395,10 @@ void ProximitySensorHouseKeep(Ship *ship)
 
 CustShipHeader ProximitySensorHeader =
 {
-    ProximitySensor,
-    sizeof(ProximitySensorSpec),
-    ProximitySensorStaticInit,
-    NULL,
-    ProximitySensorInit,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    ProximitySensorHouseKeep,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(ProximitySensorSpec),
+    .CustShipStaticInit = ProximitySensorStaticInit,
+    .CustShipInit = ProximitySensorInit,
+    .CustShipHousekeep = ProximitySensorHouseKeep,
 };

@@ -80,23 +80,12 @@ void P3StandardShipAttackPassive(Ship *ship,Ship *target,bool32 rotate)
 
 CustShipHeader P3StandardShipHeader =
 {
-    (ShipType)-1,
-    sizeof(P3StandardShipSpec),
-    P3StandardShipStaticInit,
-    NULL,
-    NULL,
-    NULL,
-    P3StandardShipAttack,
-    DefaultShipFire,
-    P3StandardShipAttackPassive,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(P3StandardShipSpec),
+    .CustShipStaticInit = P3StandardShipStaticInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = P3StandardShipAttackPassive,
+    .CustShipAttack = P3StandardShipAttack,
 };
 

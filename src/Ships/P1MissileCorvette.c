@@ -221,23 +221,15 @@ bool32 P1MissileCorvetteSpecialTarget(Ship *ship,void *custom)
 
 CustShipHeader P1MissileCorvetteHeader =
 {
-    P1MissileCorvette,
-    sizeof(P1MissileCorvetteSpec),
-    P1MissileCorvetteStaticInit,
-    NULL,
-    P1MissileCorvetteInit,
-    NULL,
-    P1MissileCorvetteAttack,
-    DefaultShipFire,
-    P1MissileCorvetteAttackPassive,
-    NULL,
-    P1MissileCorvetteSpecialTarget,
-    P1MissileCorvetteHousekeep,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(P1MissileCorvetteSpec),
+    .CustShipStaticInit = P1MissileCorvetteStaticInit,
+    .CustShipInit = P1MissileCorvetteInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = P1MissileCorvetteAttackPassive,
+    .CustShipSpecialTarget = P1MissileCorvetteSpecialTarget,
+    .CustShipHousekeep = P1MissileCorvetteHousekeep,
+    .CustShipAttack = P1MissileCorvetteAttack,
 };
 

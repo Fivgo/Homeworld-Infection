@@ -134,24 +134,12 @@ void ProbeHouseKeep(Ship *ship)
 
 CustShipHeader ProbeHeader =
 {
-    Probe,
-    sizeof(ProbeSpec),
-    ProbeStaticInit,
-    NULL,
-    ProbeInit,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    ProbeHouseKeep,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(ProbeSpec),
+    .CustShipStaticInit = ProbeStaticInit,
+    .CustShipInit = ProbeInit,
+    .CustShipHousekeep = ProbeHouseKeep,
 };
 
 

@@ -60,23 +60,12 @@ void StandardDestroyerAttackPassive(Ship *ship,Ship *target,bool32 rotate)
 
 CustShipHeader StandardDestroyerHeader =
 {
-    StandardDestroyer,
-    sizeof(StandardDestroyerSpec),
-    StandardDestroyerStaticInit,
-    NULL,
-    NULL,
-    NULL,
-    StandardDestroyerAttack,
-    DefaultShipFire,
-    StandardDestroyerAttackPassive,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(StandardDestroyerSpec),
+    .CustShipStaticInit = StandardDestroyerStaticInit,
+    .CustShipFire = DefaultShipFire,
+    .CustShipAttackPassive = StandardDestroyerAttackPassive,
+    .CustShipAttack = StandardDestroyerAttack,
 };
 

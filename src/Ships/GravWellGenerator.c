@@ -724,22 +724,19 @@ void GravWellAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdist)
 
 CustShipHeader GravWellGeneratorHeader =
 {
-    GravWellGenerator,
-    sizeof(GravWellGeneratorSpec),
-    GravWellGeneratorStaticInit,
-    NULL,
-    GravWellGeneratorInit,
-    GravWellClose,
-    GravWellAttack,
-    NULL,
-    NULL,
-    GravWellGeneratorSpecialActivate,
-    NULL,
-    GravWellGeneratorHouseKeep,
-    GravWellGeneratorRemoveShipReferences,
-    GravWellGeneratorDied,
-    GravWellGenerator_PreFix,
-    GravWellGenerator_Save,
-    GravWellGenerator_Load,
-    GravWellGenerator_Fix
+    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
+    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+    .sizeofShipSpecifics = sizeof(GravWellGeneratorSpec),
+    .CustShipStaticInit = GravWellGeneratorStaticInit,
+    .CustShipInit = GravWellGeneratorInit,
+    .CustShipClose = GravWellClose,
+    .CustShipSpecialActivate = GravWellGeneratorSpecialActivate,
+    .CustShipHousekeep = GravWellGeneratorHouseKeep,
+    .CustShipRemoveShipReferences = GravWellGeneratorRemoveShipReferences,
+    .CustShipDied = GravWellGeneratorDied,
+    .CustShip_PreFix = GravWellGenerator_PreFix,
+    .CustShip_Save = GravWellGenerator_Save,
+    .CustShip_Load = GravWellGenerator_Load,
+    .CustShip_Fix = GravWellGenerator_Fix,
+    .CustShipAttack = GravWellAttack,
 };
