@@ -1,0 +1,1186 @@
+{
+ "0x00401000": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops the aieHandlerSetFuelLow(newMove,15,...) handler (no fuel in Cataclysm); team died handler is aihReconaissanceTeamDiedHandler",
+  "note": "recon team loop otherwise as HW1"
+ },
+ "0x00404090": {
+  "class": "REWRITTEN",
+  "confidence": "low",
+  "change": "body is a strength comparison over the team's ships (no aiuFindNearbyEnemyShips, 1 parameter); the HW1 name may not fit this function",
+  "note": "flag for re-check of the binary-map name",
+  "sample": "REWRITTEN/medium"
+ },
+ "0x00405100": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "messages queued from the dead team are cleared without memFree (HW1 frees msgQP->msgs[j])",
+  "note": "waiting-queue removal inlined as three list walks; team-type dispatch as HW1",
+  "sample": "MODIFIED/high"
+ },
+ "0x00407330": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "InitNewMove macro expanded",
+  "sample": "uniform/IDENTICAL"
+ },
+ "0x00407900": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same resets, DELTA3D_FORMATION=2, log compiled out",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x00407a80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "aiumemFree macro (free + NULL) twice",
+  "sample": "uniform/IDENTICAL"
+ },
+ "0x00407c20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "aiplayerLog compiled out; same move/finish logic",
+  "sample": "IDENTICAL/high"
+ },
+ "0x0040bb10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "FixMoveFuncPtrs macro",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x0040cc80": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "aimCreateActiveResourceNoAdd inlined + listAddNode; the \"\\naimProcessActiveResource\" xref is a debug-name string the tool counts, not visible code",
+  "sample": "MODIFIED/high"
+ },
+ "0x0040ced0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "aimCreateActiveMineNoAdd inlined + listAddNode",
+  "sample": "uniform/IDENTICAL"
+ },
+ "0x0040e950": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops the fuel-low handler (aieHandlerSetFuelLow) on the defend-mothership move",
+  "note": "",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x0040f5d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "only requests minelayer ships (aimCreateGetShips type 0x54) when the AI player's race is 3; mine and done moves always added",
+  "note": "",
+  "sample": "uniform/IDENTICAL"
+ },
+ "0x00411000": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "also destroys all KAS variables (cat_kasVarDestroyAll) after aivarShutdown",
+  "note": "",
+  "sample": "MODIFIED/low"
+ },
+ "0x00411ac0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "8-player loop, newvalue+10",
+  "sample": "IDENTICAL/low"
+ },
+ "0x00411b10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "chunk copy of the path",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x00413ee0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "vecSub(collPosition - position) as three float subtractions",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x00417a20": {
+  "class": "MODIFIED",
+  "confidence": "low",
+  "change": "ship-type exclusion tests four Cataclysm type ids (0x3f,0x40,0x4d,0x4f) where HW1 tests GravWellGenerator and CloakGenerator",
+  "note": "AIPlayer struct offsets differ, so the Ghidra field names are wrong; the type list is the visible change",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x00419a40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "aitrackIsZeroRotation/aitrackIsZeroVelocity inlined (STILL_ROT_*/STILL_VELOCITY_* bounds)",
+  "sample": "REWRITTEN/high"
+ },
+ "0x0041b420": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "aiuFindEnemyMothership inlined; switch body not fully compared",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x00421610": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "header alloc/memset/iLookyObject/length as HW1; localisation loop in tail not compared",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x004224a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "memset as a 0x78-dword rep stos",
+  "sample": "IDENTICAL/low"
+ },
+ "0x00422cc0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "branches swapped by the compiler; strcpy inlined",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x00423040": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "early-out added: when the curve already sits on its last key it returns points[last]; running past the end also returns points[last] instead of REALlyBig",
+  "note": "hermite part not fully compared",
+  "sample": "IDENTICAL/high"
+ },
+ "0x00423330": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "battleChatterEventFromName inlined",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x00423490": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "battleChatterEventFromName inlined (scan of the CHAT_* event table + sscanf)",
+  "sample": "MODIFIED/medium"
+ },
+ "0x00424d80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "frequency modifier is now a plain scale of freq100 (one multiply); HW1's pow(2, value) curve between batGlobalFrequencyMin/Max is gone",
+  "note": "",
+  "sample": "MODIFIED/low"
+ },
+ "0x004254b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same seek/alloc/LZSS-or-fread path; asserts compiled out (size ratio of bigfile.c skewed by debug code)",
+  "sample": "MODIFIED/medium"
+ },
+ "0x00428450": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "return -btgThetaOffset",
+  "sample": "IDENTICAL/low"
+ },
+ "0x00429220": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "becomes per-channel: (index, value) into an array of colour multipliers with an unchanged-value early-out, then btgFade from it",
+  "note": "HW1: single btgFade = t*255",
+  "sample": "MODIFIED/low"
+ },
+ "0x004344f0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "ResetChannel(); state = 0xffffffff (CS_Idle enum value)",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x0043f310": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same 15-slot clear",
+  "sample": "MODIFIED/low"
+ },
+ "0x0043f7e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "cpNumberDraw inlined",
+  "sample": "REWRITTEN/high"
+ },
+ "0x004402a0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "glcActive is named cat_glcActive in the map; head matches",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x004459f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "listInit(&comlayer->todolist)",
+  "sample": "IDENTICAL/low"
+ },
+ "0x00447950": {
+  "class": "REWRITTEN",
+  "confidence": "low",
+  "change": "body unrelated to HW1's one-liner (formationcommand = NULL): sets a disable reason when state==1 and unclamps two ship types",
+  "note": "binary-map name suspect; re-check",
+  "sample": "MODIFIED/low"
+ },
+ "0x0044b320": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "grouping re-done: appends the ship to aroundShip's current command selection (realloc), clears flags, row-out-of-way; HW1's research-ship docking / formation group / military parade logic gone [audit: only the research-ship docking branch is gone. The body inlines AddShipToFormationGroup (selection realloc, formationContentHasChanged) and GroupShipIntoMilitaryParade (AddShipToMilitaryGroup or CreateMilitaryGroupAroundShip, now skipped for shipclass 10), so the formation-group and military-parade logic is still there; by the brief's definitions this is MODIFIED]",
+  "note": "",
+  "sample": "REWRITTEN/high"
+ },
+ "0x0044e2d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same loop",
+  "sample": "IDENTICAL/low"
+ },
+ "0x0044f090": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "packet build as HW1 (0xcccc = PACKETTYPE_COMMAND, SetTargetID/packetSendToCaptain inlined); tail not fully read"
+ },
+ "0x004531d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "salvage-corvette block (SalCapCorvette target checks, isThereAnotherTargetForMe, speech) replaced by a cat_shipIsSalvager pass; tutorial flag 0x200000 gates clSpecial",
+  "note": "copy/flash/clSpecial/clSendSpecial skeleton as HW1",
+  "sample": "MODIFIED/high"
+ },
+ "0x00454550": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "refreshes availability first (cmUpdateShipAvailable) and only dirties the other regions when the ship-info region exists",
+  "note": "HW1 dirties each region independently",
+  "sample": "MODIFIED/low"
+ },
+ "0x004589c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "new third parameter selects one of four image states per race (disabled/normal/focus) instead of HW1's textured/untextured pair",
+  "note": "",
+  "sample": "MODIFIED/high"
+ },
+ "0x00466950": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "dock loop keeps HW1's shape (FindNearestShipToDockAt, dock vars, ShipDocksAtShip) but adds Hive-frigate swarm reset, madLinkInCloseGunsShip for two ship types, cat_dockShipDocksAtShip/cat_dockFinishedDocking; HW1's formation/protect regrouping after docking is gone",
+  "note": "heavy change; not a rewrite of the skeleton",
+  "sample": "REWRITTEN/medium"
+ },
+ "0x00467a60": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "tests dock states 8/9 directly instead of HW1's per-dock-type (ASF / carrier-mothership) test",
+  "note": "",
+  "sample": "MODIFIED/low"
+ },
+ "0x0046a580": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same registry loop",
+  "sample": "uniform/IDENTICAL"
+ },
+ "0x0046a5b0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "variable/rate/effectID layout and memsets as HW1; \"LoF\" is a Ghidra field-name artefact of the mistyped Effect",
+  "sample": "MODIFIED/medium"
+ },
+ "0x0046de60": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "etgParseNamesMatch inlined (strchr over etgLabelString + strncmp); at/before/after/every chain as HW1; tail not fully read",
+  "sample": "MODIFIED/high"
+ },
+ "0x0046e770": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same copy",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x0046eb00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same compare of two effect variables; size ratio of etg.c opcode handlers is skewed"
+ },
+ "0x0046ec50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same float compare"
+ },
+ "0x0046ec80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same compare",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x0046fd90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ETG-callable function now takes one pointer to an argument array (args[0], args[1]) instead of two float parameters",
+  "note": "Cataclysm's ETG function-call convention; same for the other etg*/part* callables"
+ },
+ "0x00479130": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "switch over normal/focus texture holders became if-chain; GL calls through function pointers",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x0047af60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same arithmetic; ROT_PITCHUP=2, untyped Ship offsets",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x00486e70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x0048f1a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "clamp-host test as HW1",
+  "sample": "MODIFIED/low"
+ },
+ "0x00490d90": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "memStrncpy of the label likely inlined in the tail (not read)",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x00494ac0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "kasfFindPlayersShipsOfType(ships, shipType, 1) inlined",
+  "sample": "REWRITTEN/high"
+ },
+ "0x00496b90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "(sdword)pieDistance via __ftol",
+  "sample": "IDENTICAL/low"
+ },
+ "0x00496dd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "tmSetPriceScale",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x00497b80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "subMessageEnded = FALSE",
+  "sample": "IDENTICAL/low"
+ },
+ "0x0049bec0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "both HW1 branches set kniSupport = haveKatmai?1:0, so only the GetVersion call is left",
+  "sample": "REWRITTEN/low"
+ },
+ "0x0049e1e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "launch screen gains a Beast launch manager (.fib \"Beast_Launch_Manager\"), module slots (cat_lmFillInModuleSlots), tutorial button hiding and sensors close; HW1's glcFullscreen/ioDisable calls gone",
+  "note": "",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x004a5100": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same LZSS loop (bitio calls are classed as library)",
+  "sample": "MODIFIED/low"
+ },
+ "0x004acd60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "hmatrixdot macro expanded",
+  "sample": "uniform/IDENTICAL"
+ },
+ "0x004ad4b0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "matMultiplyMatByMat inlined (scaled copy then identity*scale multiply)",
+  "sample": "REWRITTEN/medium"
+ },
+ "0x004b40a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "material swap around meshMorphedObjectRender",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x004b4370": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "hierarchy render gains a fifth parameter and new lit paths (cat_meshObjectRenderLitImmediate/LitTransformed)",
+  "note": "binding/matrix push as HW1",
+  "sample": "MODIFIED/medium"
+ },
+ "0x004b48b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "walks the daughter hierarchy releasing bindings recursively (cat_meshBindingListDeleteR) before memFree; extra parameter",
+  "note": "",
+  "sample": "MODIFIED/low"
+ },
+ "0x004b6e70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "pauses a running animation first (madAnimationPause(ship,0)) and restores saved bindings only when present (clearing them); keeps the previous anim index",
+  "note": "HW1 just restores bindings and sets MAD_NoAnimation",
+  "sample": "MODIFIED/medium"
+ },
+ "0x004b6ed0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "a missing animation no longer calls dbgFatalf; the function just returns -1",
+  "note": "tail (3 lines) not read",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x004b7190": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "also accepts \"SALVAGE\" docking chunks (Cataclysm salvage points) besides Dok/Dock",
+  "note": "",
+  "sample": "MODIFIED/medium"
+ },
+ "0x004b8f90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "WaitForSingleObject(INFINITE), assert compiled out",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x004b8fb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "CreateMutex",
+  "sample": "MODIFIED/low"
+ },
+ "0x004b9390": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "mgScreensDisappear/mgShutdownMultiPlayerGameScreens inlined; tail not fully read",
+  "sample": "IDENTICAL/high"
+ },
+ "0x004bad70": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "same screen choice",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x004bbbb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "MG_VertSpacing expands to a fontHeight() expression",
+  "sample": "IDENTICAL/high"
+ },
+ "0x004bdb10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "retail (non-CGW/OEM) branch; FEFIRSTCALL test",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x004c05c0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "also frees one more buffer (global) after titanGameShutdown",
+  "note": "",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x004c27f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "mgShowScreen(lastScreen, TRUE)",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x004c40c0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "titanStart is tried once; HW1's retry with the other protocol (IPGame ^= 1) is gone",
+  "note": "single titanStart(1,IPGame) call before the error box",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x004c4b30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "wcscpy x2 + mgShowScreen",
+  "sample": "uniform/IDENTICAL"
+ },
+ "0x004c9cc0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "nebGetTendrilVert inlined; head matches",
+  "sample": "IDENTICAL/high"
+ },
+ "0x004caa60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "colour macros expanded; same HSV arithmetic",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x004cb160": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "nebRemoveTendril inlined (dead flags on tendril and both chunks)",
+  "sample": "MODIFIED/medium"
+ },
+ "0x004cbaf0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "strcpy/strcat inlined; head matches",
+  "sample": "MODIFIED/low"
+ },
+ "0x004d6a90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same table scan",
+  "sample": "MODIFIED/low"
+ },
+ "0x004d7030": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "StrToNum inlined over the dock-point table",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x004d8370": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "after restoring settings and returning to Main_game_screen also reloads key bindings (cat_kbReloadKeyBindings(false))",
+  "note": "opOptionsCancelHelper inlined",
+  "sample": "MODIFIED/medium"
+ },
+ "0x004d9770": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "normalizeSmoothie inlined (clamp to 0..1)",
+  "sample": "IDENTICAL/high"
+ },
+ "0x004db2a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "opBattleChatterProcess inlined (reads slider, battleChatterFrequencySet)",
+  "sample": "MODIFIED/medium"
+ },
+ "0x004df1d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "renders new particle-system types (extra switch cases incl. a cat_partRenderUnk1System path; 5 -> 14 case labels) and a lighting-state query before the switch",
+  "note": "",
+  "sample": "MODIFIED/high"
+ },
+ "0x004e4120": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "takes a pointer to the four colour values (ETG argument array) instead of four float parameters; body otherwise as HW1",
+  "note": ""
+ },
+ "0x004e76b0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "ellipse-intersection clipping (sizeX/Y/Z params) replaced by clamping both points to the box +-(smUniverseSize - margin)",
+  "note": "2 params instead of 5",
+  "sample": "REWRITTEN/medium"
+ },
+ "0x004ef9a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "ranRandom macro body inlined in the loop",
+  "sample": "MODIFIED/low"
+ },
+ "0x004f3ca0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "tech flags set through cat_rmTechSetInit(techlevel -2/0) for Cataclysm's ship range (< 0x3c or 0x85) and races 0/1, instead of HW1's RM_Disabled bit on the five tech tables",
+  "note": "",
+  "sample": "MODIFIED/low"
+ },
+ "0x004feb30": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "LoadSelection inlined per member; head matches",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x004ffa30": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "CreateChunk inlined",
+  "sample": "uniform/IDENTICAL"
+ },
+ "0x00501660": {
+  "class": "IDENTICAL",
+  "confidence": "low",
+  "change": "",
+  "note": "per-type loaders (LoadBullet, LoadAsteroid...) inlined into the switch; not compared case by case",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x00505e00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same scan",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x005072c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same three hmat multiplies",
+  "sample": "uniform/IDENTICAL"
+ },
+ "0x0050c920": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "mrUpdateHyperspaceStatus is an empty function in Cataclysm (call goes to nullsub); this function is unchanged",
+  "sample": "MODIFIED/low"
+ },
+ "0x00511940": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "removes the ships inline, then calls ioUpdateShipTotals() (new)",
+  "note": "HW1: loop of clRemoveShipFromSelection only"
+ },
+ "0x00511b10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "also returns FALSE for disabled ships and for two ship types (custom-header flag + type 9/10 test) before the CustShipAttackPassive check",
+  "note": "HW1 only tests CustShipAttackPassive",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x00511c70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "new second parameter also drops busy ships; ShipCanGuard inlined with Cataclysm class tests; calls ioUpdateShipTotals()",
+  "note": "",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x00512860": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "calls ioUpdateShipTotals() after filtering (Cataclysm adds this to the shipselect.c filters)",
+  "note": "",
+  "sample": "MODIFIED/low"
+ },
+ "0x00512930": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "calls ioUpdateShipTotals() after filtering",
+  "note": "",
+  "sample": "MODIFIED/low"
+ },
+ "0x00512ca0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "excludes six Cataclysm non-combat ship types instead of Cloak/GravWell/DFG, then calls ioUpdateShipTotals()",
+  "note": "",
+  "sample": "MODIFIED/low"
+ },
+ "0x00513010": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "calls ioUpdateShipTotals() after the copy (per call graph; tail not read)",
+  "note": "",
+  "sample": "MODIFIED/low"
+ },
+ "0x00513130": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "calls ioUpdateShipTotals after merging (per call graph; tail not read)",
+  "note": "merge loops as HW1 in the head",
+  "sample": "MODIFIED/high"
+ },
+ "0x00514c20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "when the type changes, records a zoom start value and cat_taskRealTimeElapsed for a timed re-zoom",
+  "note": "HW1: set type + ReZoom",
+  "sample": "MODIFIED/low"
+ },
+ "0x0051b340": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "switch over Cataclysm's missions returning Watch_MissionNN, with a \"Could not find watch function\" message for unknown values",
+  "note": "the compared body is HomeworldSDL's (GoK-HEAD); Relic's 2003 tree has no such function",
+  "sample": "MODIFIED/low"
+ },
+ "0x0051c570": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "same LUT arithmetic in the head",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x00524980": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same branches, asserts compiled out",
+  "sample": "IDENTICAL/low"
+ },
+ "0x00525a90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "sscanf \"%s %f\" + StrToShipType (Ghidra lost the &prob argument)",
+  "sample": "IDENTICAL/low"
+ },
+ "0x00525e10": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "duplicates with memStringDupe (Cataclysm has no memStringDupeNV / non-volatile variant)",
+  "note": "",
+  "sample": "MODIFIED/low"
+ },
+ "0x005260b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "StrToTypeOfFormation",
+  "sample": "IDENTICAL/low"
+ },
+ "0x0052c660": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "KAS timers are addressed by (scope hash, name hash) instead of a name string; create/set/start inlined over the hash-keyed timer table",
+  "note": "the tool missed this because the three callees are same-file and inlined",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x0052ca00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "titanResetGameCreated inlined (mgResetNamePassword + MapName/DisplayMapName/numPlayers/userBehindFirewall)"
+ },
+ "0x00530750": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "tutPointerAllocate inlined (strcmp loop over the pointer table); rect copy and -1/-1/+2 adjust as HW1; __thiscall 'this' is a Ghidra artefact",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x00532750": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "click accepted only when one of two new global flags is set (extra condition on the CM_ButtonClick test)",
+  "note": "event 0x100 test plus (DAT_008b9ecc"
+ },
+ "0x00535290": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "same margins, focus window, title callback",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x005358d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "scroll-bar adjust inlined; same loops",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x005386c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "uicListScrollBarAdjust inlined (scAdjustThumbwheel); all branches as HW1",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x00538b70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same loop over feStack screen atoms (untyped)",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x00538dc0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "same status/tabstop/radio logic in the head",
+  "sample": "IDENTICAL/high"
+ },
+ "0x0053ae00": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "strcpy/strcat inlined; precalcStaticInfoHealth inlined (COLLDAMAGE_* fields); \".shp\" is an untyped DAT_; tail not fully read",
+  "sample": "MODIFIED/high"
+ },
+ "0x0053e3b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "resets time compression first (cat_taskTimeCompressionReset); universeClosePlayers inlined with rm/cm/lmCloseIfOpen for the local player and cat_playerUpgradesReset unless a warp-to-level is pending",
+  "note": "",
+  "sample": "MODIFIED/high"
+ },
+ "0x005407e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same nested list walk",
+  "sample": "MODIFIED/medium"
+ },
+ "0x00547900": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "before univFreeShipContents/memFree, unlinks the ship from three lists and runs the ship-died notifications (etgShipDied, soundEventShipRemove, pieShipDied, mouseClickShipDied, clShipDied, univRemoveAllShipReferencesFromSpecialShips)",
+  "note": "HW1 only frees",
+  "sample": "REWRITTEN/high"
+ },
+ "0x00555ba0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "ddActivate is named cat_ddActivate in the map; logic as HW1",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x005580d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same three assignments",
+  "sample": "IDENTICAL/low"
+ },
+ "0x00559a60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same buffer count",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x0055dc00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "GLC_MAX_BUFFERS=3 loop unrolled",
+  "sample": "uniform/IDENTICAL-low"
+ },
+ "0x0055eb60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "scriptSet(\"Light.script\", lightScriptTable) twice-clear as HW1",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x00563a40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "RPM_MouseEvents = 0x7ffff; same flag save/set",
+  "sample": "IDENTICAL/medium"
+ },
+ "0x00563cc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "harvest hotkey reworked: tutGameMessage(\"KB_Harvest\"/\"Game_ClickHarvest\"), per-ship cat_clHarvestNearestResource when no target, Mimic ships posing as resources (cat_mimicAppearsAsResource/GetFakeResource); univFindNearestResource and the no-RUs speech gone",
+  "note": "",
+  "sample": "MODIFIED/high"
+ },
+ "0x0056a020": {
+  "class": "MODIFIED",
+  "confidence": "low",
+  "change": "no longer zeroes mrSelectionRect when a left-button hold is cancelled (selRectNone and mrHoldLeft/Right resets kept)",
+  "note": "could be a Ghidra dead-store artefact; low",
+  "sample": "IDENTICAL/high"
+ },
+ "0x0056ec50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "more cursor states (36 case labels vs 23), popup-menu check (cat_popupMenuIsOpen), depth-test toggle and real-time based expiry",
+  "note": "not fully compared",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x0056f8d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "mouseCursorHide inlined (mouseIsVisible = FALSE)"
+ },
+ "0x005730f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "listDeleteAll(&CircleList)",
+  "sample": "IDENTICAL/low"
+ },
+ "0x00574550": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "PIXELFORMATDESCRIPTOR initialiser written field by field",
+  "sample": "MODIFIED/medium"
+ },
+ "0x00574a90": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "after the GL/RGL context teardown also empties a list (listDeleteAll) and frees a buffer",
+  "note": "tail not fully read",
+  "sample": "MODIFIED/low"
+ },
+ "0x0057d8e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "tan/glFrustum through the GL function pointer",
+  "sample": "uniform/IDENTICAL"
+ },
+ "0x0057e030": {
+  "class": "IDENTICAL",
+  "confidence": "low",
+  "change": "",
+  "note": "same device/mode list walk; frees with CRT free where HW1's memFree may be a macro in rinit.cpp (not checked)",
+  "sample": "MODIFIED/low"
+ },
+ "0x00587a50": {
+  "class": "IDENTICAL",
+  "confidence": "low",
+  "change": "",
+  "note": "487 decompiled lines, only the head read: trTextureDeleteAllUnregistered/trListFileLoad and the shared-texture loop match; \"Willy 7\" is LIF_FileIdentifier from an inlined LiF reader",
+  "sample": "MODIFIED/high"
+ },
+ "0x0058a0f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same logfileClear/strftime/titanDebug",
+  "sample": "MODIFIED/medium"
+ },
+ "0x0058a8e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "titanInterface->LeaveGameNotify() when IPGame",
+  "sample": "MODIFIED/low"
+ },
+ "0x0058a900": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "titanInterface->CheckStartingGame",
+  "sample": "MODIFIED/low"
+ },
+ "0x0058ad80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "RequestDirectory when theDir == NULL",
+  "sample": "MODIFIED/low"
+ },
+ "0x0058ae70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "titanInterface->SendLanBroadcast",
+  "sample": "MODIFIED/low"
+ },
+ "0x0058ae90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "titanInterface->SendPacketTo(...) as a __thiscall call (extra Ghidra args)",
+  "sample": "MODIFIED/low"
+ },
+ "0x0058b1b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "titanInterface->StartShutdown when set",
+  "sample": "MODIFIED/low"
+ },
+ "0x0058b440": {
+  "class": "IDENTICAL",
+  "confidence": "low",
+  "change": "",
+  "note": "std::string temporaries inlined around Authenticate(...,false); a global string is measured first (unexplained)",
+  "sample": "MODIFIED/low"
+ },
+ "0x0058b5b0": {
+  "class": "IDENTICAL",
+  "confidence": "low",
+  "change": "",
+  "note": "as authAuthenticate with true",
+  "sample": "MODIFIED/low"
+ },
+ "0x0058b720": {
+  "class": "IDENTICAL",
+  "confidence": "low",
+  "change": "",
+  "note": "as authAuthenticate with the new password",
+  "sample": "MODIFIED/low"
+ },
+ "0x0058c6e0": {
+  "class": "REWRITTEN",
+  "confidence": "low",
+  "change": "9-parameter Cataclysm patch-download routine; HW1's 2-argument GetPatch thread launcher does not match it [audit: it does match. The body ends in _beginthread(TitanInterface_GetPatch,0,args), with the failure callback (parameter 8) called on -1, exactly as HW1's launcher; the arguments grew from 2 strings to 9 parameters. MODIFIED; the tool's automatic MODIFIED/low was right]",
+  "note": "binary-map match to HW1 is weak",
+  "sample": "MODIFIED/low"
+ },
+ "0x0058d700": {
+  "class": "REWRITTEN",
+  "confidence": "low",
+  "change": "compiler-generated destructor of a patch-arguments object; no HW1 source counterpart",
+  "note": "regenerate from the struct",
+  "sample": "MODIFIED/low"
+ },
+ "0x0058d7c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "\"kver.kp\" is VERIFIER_KEY_FILE_NAME; the catch-block string lives in an EH funclet",
+  "sample": "MODIFIED/high"
+ },
+ "0x0058d880": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "EasySocketEngine/SocketPipe/AddPipe/startThread sequence kept, with a \"Cataclysm\" name string and different engine arguments",
+  "note": "WON library calls inlined",
+  "sample": "REWRITTEN/low"
+ },
+ "0x0058da00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "sprintf of the dotted address, ntohs = WSOCK32 ordinal 15",
+  "sample": "uniform/IDENTICAL"
+ },
+ "0x005acf70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "same GetKeyState/keyPress pairs",
+  "sample": "uniform/IDENTICAL"
+ },
+ "0x005ad000": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no depth parameter and no ioResolutionChange() call after the rescale",
+  "note": "",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x005b0260": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "gun readiness through cat_gunCanFire instead of gunCanShoot, then a switch on gun type",
+  "note": "shoot dispatch otherwise as HW1",
+  "sample": "uniform/MODIFIED"
+ },
+ "0x005b4e60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "heavyCleanSpec inlined",
+  "sample": "uniform/IDENTICAL"
+ },
+ "0x005bb9c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds a death blast (cat_blastCreate), beast-weapon close and salvage-depot cleanup; the drop-target loop now timestamps docked ships instead of re-enabling salvaged targets",
+  "note": "",
+  "sample": "MODIFIED/high"
+ },
+ "0x005c59c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "static block chosen by Cataclysm race ids (2,3,5 -> three statics, else the statinfo itself) and filled through cat_salvageStaticInit",
+  "note": "HW1: Traders/R1/R2 choice + two scriptSetStruct calls",
+  "sample": "MODIFIED/medium"
+ },
+ "0x005c5ac0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "body replaced by a call to the new cat_salvageDied(ship) (Cataclysm salvage system)",
+  "note": "HW1's tractor-beam/unclamp/dock-point cleanup is not in this function",
+  "sample": "REWRITTEN/high"
+ },
+ "0x005c78e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "race test uses Cataclysm's race id (enum renumbering only)",
+  "sample": "uniform/IDENTICAL"
+ },
+ "_notes": [
+  "## Key findings",
+  "",
+  "1. **Most of the matched engine is free.** By function count about three quarters of the HW1-matched functions show no change the tool can see; by bytes a little over half. Adjusted with the hand-review agreement rates (table below), IDENTICAL covers about 58% of the matched bytes, MODIFIED about 41%, REWRITTEN under 1%; the raw automatic split is 53% / 46% / 1%. The MODIFIED bytes sit in a few hundred large functions (164 MODIFIED functions are 1,000 bytes or larger): UI/front-end, rendering, AI and the ship/unit code. Small leaf functions are almost all identical.",
+  "2. **Many changes come from a handful of systemic Cataclysm changes.** Porting them once, in headers or shared helpers, covers dozens of functions each:",
+  "   - **No fuel.** `aieHandlerSetFuelLow` does not exist in Cataclysm, and 18 AI functions drop their call to it (`aiaSendRecon`, `aioCreate*`...).",
+  "   - **Selection filters refresh the info overlay.** 30 functions in ShipSelect.c and elsewhere add an `ioUpdateShipTotals()` call after filtering.",
+  "   - **AI move set-up macro.** 62 AI move functions reference a `\"\\naimProcess<Name>\"` string. Cataclysm's InitNewMove/FixMoveFuncPtrs-style macro in AITeam.h stores the process-function name. That is one header change, and the tool does not count it per function.",
+  "   - **ETG and particle calling convention.** The functions that ETG scripts call (`etgFadd/Fmult/...`, `partSet*`/`partModify*`) read their arguments from one array pointer instead of separate parameters. 76 functions (ETG.c 36, Particle.c 39, SoundEventPlay.c 1) carry this change, many of them with nothing else changed.",
+  "   - **KAS keyed by hashes.** KAS timers take `(scopeHash, nameHash)` instead of a name (Timer.c, `timTimerStart(udword scopeHash, udword nameHash)`). KAS variables go through new `cat_kasVar*` functions, and `cat_kasHashString` is called from 15 matched functions. The `kasfShipsSelect*` family collapses into `cat_kasShipsSelectByPredicate` (11 REWRITTEN).",
+  "   - **New salvage system.** The SalCapCorvette.c entry points delegate to new `cat_salvage*` code (REWRITTEN), and 29 other functions call `cat_salvage*` [audit: was \"37 other\"; 37 is the total including the 8 SalCapCorvette.c functions that call cat_salvage*, counted from calls_added/calls_new_cataclysm in delta_map.json].",
+  "   - **Renumbered races and ship types.** Race and ship-type tests use Cataclysm's enum values (races 0/1/2/3/5; ship types such as 0x3f/0x40/0x4d/0x4f). Some filters test more types than HW1 did. Where only the enum value differs, the function is IDENTICAL in source.",
+  "   - **New features threaded through HW1 code.** 386 non-identical functions call at least one Cataclysm-only (`cat-new`) function. The most frequent are cloaking (`cat_shipIsCloakedFully`, 15 callers), crystals (11), speed multipliers (11), beast weapons (10), disable reasons (9), upgrades (`cat_playerUpdateUpgradesFromResearch`, 8), plus module slots and support units.",
+  "   - **Debug output.** HW1 calls `dbgMessagef` directly in 54 matched functions and `dbgMessage` in 44, some of them the same functions, and the Cataclysm binary has neither function. They are treated as compiled out, not as a change.",
+  "3. **Inlining is common in the Cataclysm build.** It inlines small helpers from the same source file (`partHeaderSize`, `aiuFindDistanceSquared`, `nisNewEvent`, `StrToNum`, `opOptionsCancelHelper`...). The tool counts a dropped same-file callee as inlined and expects that callee's strings, fields and constants in the caller. A port must not mistake this inlining for a source change.",
+  "4. **Some binary-map names look wrong.** The bodies are unrelated to the HW1 function: `aieCheckEnemyNearby` 0x00404090 and `RemoveShipFromFormation` 0x00447950. `TitanInterface_GetPatch_2` 0x0058c6e0 is a 9-parameter Cataclysm routine [audit: wrong for GetPatch_2: its body is HW1's TitanInterface::GetPatch thread launcher extended to 9 parameters (allocates an argument object, copies the strings into it, calls _beginthread(TitanInterface_GetPatch,0,args) and calls the failure callback passed as parameter 8 when that returns -1), so the binary-map name fits and the function is MODIFIED, not REWRITTEN]. These are flagged REWRITTEN/low with a note.",
+  "5. **Limits.** The tool compares features, not semantics. A changed condition or constant that adds no call, string, field or global is invisible to it. Reading found several such changes in functions the tool called IDENTICAL: `lgLaunchLAN` (protocol retry removed), `bsCurveUpdate` (end-of-curve value), `aioCreateMine` (race test), `timTimerCreateSetStart` (hash keys behind inlined callees). That is why the IDENTICAL buckets agree with review only 82-98% of the time. In M2, IDENTICAL means \"port verbatim, then let the checksum oracle catch the rest\"."
+ ]
+}

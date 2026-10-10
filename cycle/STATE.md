@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-09 19:56
+Last checkpoint: 2026-10-10 03:17
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -30,7 +30,7 @@ Claude Code records no "approaching limit" signal: across a week of transcripts 
     claude limited : False
     gpu gate       : BLOCKED (a game is running)
     model          : qwen3.6:27b ctx=8192
-    progress       : 12/0 functions proposed -> /home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/r2-apply/ghidra/proposals/qwen/naming.jsonl
+    progress       : 12/0 functions proposed -> /home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/ghidra/proposals/qwen/naming.jsonl
 ```
 <!-- /qwen-status -->
 
@@ -45,7 +45,7 @@ Rounds 2-5 are on main (the user fast-forwarded to eae37c9). M2 works on branch 
 
 ### Decisions the user owns
 1. M2-R1 runs 11 agents (5 producers, one per M2_BRIEF R1 item, 5 auditors, 1 integrate), close to the brief's "about 10". The brief's "one producer per format" became one formats producer that writes each format doc as it goes, to keep the round near 10 agents. Say if you want the formats split.
-2. The bootstrap producer is told to import the ad1bb82 tree plus only the GoK portability fixes it needs; if that grows into hundreds of hand-picked hunks it falls back to importing GoK's whole `src/` and records it here as your decision.
+2. The bootstrap producer is told to import the ad1bb82 tree plus only the GoK portability fixes it needs; if that grows into hundreds of hand-picked hunks it falls back to importing GoK's whole `src/` and records it here as your decision. **Outcome (M2-R1):** the fallback was taken; see "## M2", decision 1.
 3. Still open from docs/PLAN.md: the M0 play-test sign-off; whether LAN interop with stock 1.01 clients is required.
 4. If `/tmp/claude-r3a` still exists (a pre-round-3 copy of the Ghidra project, with the game's program bytes): `rm -rf /tmp/claude-r3a`.
 
@@ -60,6 +60,54 @@ B. Run the orchestrator yourself, once, from a terminal (lives in the CLI, survi
    If B is chosen, no in-session crons must launch anything (set "orchestrator: active" here).
 
 Round-2 state on disk: A1 complete (r2a export, 13,440 functions); A2 (data names + struct types), producers, audits, reconcile, apply not started. Relaunch = Workflow resumeFromRunId wf_2d9d668a-e53.
+
+## M2
+
+### M2-R1: COMPLETE 2026-10-10 (the delta inventory, measurement only)
+
+Summary and M2-R2 plan: [docs/m2-r1-summary.md](../docs/m2-r1-summary.md). All five items exist and are audited. Every verdict is PASS-WITH-FIXES, and each fix is marked inline with `[audit: ...]`. `src/` builds.
+
+| item | output | key numbers | audit |
+|---|---|---|---|
+| 1 data deltas | [docs/m2-r1-data-deltas.md](../docs/m2-r1-data-deltas.md) | 34 headless/closed runs. The unmodified HW1 engine stops 17 times before its first frame; 15 were cleared in scratch, 1 with `/noSpeech`, and 1 is a hard blocker: mesh v0x500 (116-byte polygon objects in all 1,727 v0x500 files). With the meshes down-converted it reaches `Main_game_screen`. ASan found 2 out-of-bounds writes from ship names. 145 vs 59 ship types, no id kept. 226 of 590 HW1 string ids missing | 0.936, PASS-WITH-FIXES |
+| 2 formats | [docs/formats/](../docs/formats/) (mesh, textures, script, shipstatic, savegame, fib) + `tools/formats/*_probe.py` | polygonobject 0x70→0x74 (1,729 files probe OK); texreg entry 0x2C→0x34; 1,994 new script keys (652 functional); ShipStaticInfo 0x370→0x458, CustShipHeader 34 slots; save layout from code only (no saves exist yet); FIB unchanged | 0.889, PASS-WITH-FIXES |
+| 3 function deltas | [docs/m2-r1-function-deltas.md](../docs/m2-r1-function-deltas.md), `ghidra/delta_map.json` | 4,420 of 4,426 classified: IDENTICAL 3,357 (53.1% of bytes, about 58% after review correction), MODIFIED 983 (46.0%), REWRITTEN 80 (0.8%) | random sample 31/40 = 0.775, PASS-WITH-FIXES (treat classes as estimates) |
+| 4 bootstrap | [docs/m2-r1-bootstrap.md](../docs/m2-r1-bootstrap.md), `src/`, `meson.build`, `tools/build.sh` | GoK `3af31fb` whole `src/` (603 files) + Relic `Win32/` as reference; `hwi-engine` release 5,157,976 B, debug 74,870,832 B, 0 warnings under `-Werror`. Integrate re-ran `tools/build.sh --release --clean`: rc 0, same sha256 `0024b0f6…53b297` | 0.935, PASS-WITH-FIXES |
+| 5 checksum oracle | [docs/m2-checksum-oracle.md](../docs/m2-checksum-oracle.md) | design only. 23 Cataclysm functions located; checksum covers ships only; 16-byte sync entry (HW1 12); 27 RNG streams; 7 hook sites; driven by the game's own recorded-game playback, no input | 0.901, PASS-WITH-FIXES |
+
+### M2-R2 order, with delta counts
+
+HW1-matched counts come from `delta_map.json`, by HW1 file. cat-new counts are estimates: the kas2c mission region is assigned exactly, the rest by name prefix or by nearest neighbour in address order (method in the summary).
+
+| stage | IDENTICAL fn / B | MODIFIED fn / B | REWRITTEN fn / B | cat-new fn / B (est.) |
+|---|---:|---:|---:|---:|
+| 1 file formats (mesh 0x500/.peo first) + data load, now including the 145-type/7-race/12-class enums | 236 / 50,910 | 79 / 44,334 | 0 / 0 | 76 / 27,383 |
+| 2 universe and ships (incl. ETG/particle) | 971 / 195,981 | 401 / 205,267 | 30 / 4,501 | 829 / 187,242 |
+| 3 UI and presentation (FE, render, sound, NIS) | 958 / 222,114 | 233 / 168,373 | 7 / 2,355 | 429 / 132,822 |
+| 4 AI | 404 / 80,807 | 72 / 42,717 | 3 / 348 | 23 / 14,404 |
+| 5 LAN networking | 411 / 72,656 | 108 / 72,557 | 13 / 1,677 | 67 / 17,483 |
+| 6 missions (2,085 kas2c functions, 612,687 B, among the cat-new) | 377 / 35,921 | 90 / 36,705 | 27 / 1,624 | 2,365 / 656,918 |
+
+How R1 changed the order:
+- The identifier enums move into stage 1, because they block the first frame and cause memory-corrupting writes.
+- Systemic changes are ported once, in headers, at the start of the stage that owns them: ETG argument arrays, the AI move macro, the KAS hash keys.
+- The oracle's recreation side is built alongside stage 1.
+- The save layout waits for real saves.
+
+Stage-1 gate: debug `hwi-engine` reaches `Main_game_screen` on unmodified Cataclysm data with no scratch workarounds, and gets past the `RACE_*` level-load stop.
+
+First M2-R2 round: 5 producers (mesh; identifiers + tweak tables; ship statics; startup names/audio/FE art/textures; oracle recreation side), each with 1 auditor, plus integrate. Not yet written or launched.
+
+### Decisions the user owns (surfaced by M2-R1)
+1. **`src/` is GoK's whole tree at `3af31fb`, not ad1bb82 plus minimal hunks.** The bootstrap measured 14,257 change blocks, and ad1bb82 does not compile outside MSVC. This settles decision 2 of the list below as the fallback. Accept, or name another base.
+2. **GoK behaviour changes in `src/`**: 64 Hz universe (16 Hz with `/vanilla`), save version 0x10ad0029, turbo factor 8, SSE numerics. Proposed: decide per item while porting each subsystem, make 16 Hz the default once Cataclysm timing lands, and pin `-O2 -fno-strict-aliasing`, no fast-math, before any oracle comparison.
+3. Relic's original `Game/` and `Ships/` in-tree as `src/reference/hw1-ad1bb82/` (about 10 MB), or not.
+4. **Function-delta follow-up.** 1,013 IDENTICAL/low functions were sampled, not all read. Should a round read the rest? Also apply the audit's proposed reclassifications (the `kasfTimer*` family to MODIFIED, the 10 `SpaceObjRegistryGetShip` callers to IDENTICAL), and re-check 2 suspect binary-map names (`aieCheckEnemyNearby` 0x00404090, `RemoveShipFromFormation` 0x00447950).
+5. **Oracle and rule 2.** May the oracle DLL call the game's own record and playback functions? No OS input is synthesised. The alternative is one user click on "Load recorded game" per run.
+6. **First reference recording.** The user records one skirmish through the menus. Which map and player setup?
+7. **DLL toolchain.** The installed `clang-18` + `lld-link`, untried, or a package install of `gcc-mingw-w64-i686`.
+8. **Two saves** from the M0 play-test (one mission, one skirmish) for `tools/formats/savegame_probe.py`; without them the save layout stays code-derived.
+9. Still open, and now concrete: whether **LAN interop with stock 1.01** is required. If it is, the recreation must reproduce Cataclysm's 16-byte sync entry, its 0x1C packet header and its version check exactly, and the build-version string must be pinned (`-Dbuild_version=`).
 
 ## Opus workflows in flight
 
