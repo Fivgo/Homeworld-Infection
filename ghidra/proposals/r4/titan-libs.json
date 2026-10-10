@@ -1,0 +1,2466 @@
+{
+ "source": "titan-libs",
+ "method": "titan bands 0x0058b400-0x005a4870: every FUN_* read in cataclysm_gog_r4a decompiled.c with its callers/callees (call_graph.csv) and strings, matched against HomeworldSDL/src/SDL/TitanInterface.cpp/.h (method bodies, member offsets via the ctor/dtor, call order) and the WON SDK headers of gardens-of-kadesh/zarchive/original-release-snapshot/src/Titan (CriticalSection.h, EasySocket, msg); STL template instances (std::map/_Tree, std::list, std::deque, basic_string<wchar_t>, vector) named from the container they serve in the calling TitanInterface method; catch-continuation fragments (code after a try/catch that Ghidra split off, using unaff_EBP) named <parent>_tail. Library leftovers: the 54 A1-created FUN_* in 0x694130-0x705c9f and the class-tagged FUN_* found by joining all *.verified.json (proposals/, r2/, r3/) with r4a functions.csv FUN_* entries; vtable slot + RTTI COL from r3/table-targets evidence, MSVC reverse-order overload layout for num_put, body checks; class-only names lib_<class>_<addr> (lib:msvc-stl -> lib_msvc_stl_, won -> lib_won_, lib:imagemagick -> lib_magick_) where no real name is supported; game-class fallbacks hw1_<File>_<addr> / cat_new_<addr> at low confidence.",
+ "done_subsystems": [
+  "titan-58",
+  "titan-59",
+  "titan-5a",
+  "won-magick-unclassed",
+  "class-only"
+ ],
+ "proposals": [
+  {
+   "address": "0x00412e10",
+   "name": "hw1_AIResourceMan_00412e10",
+   "kind": "function",
+   "class": "hw1:AIResourceMan.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:AIResourceMan.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. link-order attribution: lies after AIResourceMan.c functions; c",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00413070",
+   "name": "hw1_AIResourceMan_00413070",
+   "kind": "function",
+   "class": "hw1:AIResourceMan.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:AIResourceMan.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. link-order attribution: lies after AIResourceMan.c functions; c",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00415af0",
+   "name": "hw1_AIShip_00415af0",
+   "kind": "function",
+   "class": "hw1:AIShip.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:AIShip.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. link-order attribution: lies after AIShip.c functions; callers FUN_005",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511590",
+   "name": "cat_new_00511590",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. ship info panel (SHIPPRINT) helper: drag/mouse state 0xa5e208..0xa5e22c; ca",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511640",
+   "name": "cat_new_00511640",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. ship info panel (SHIPPRINT) helper: drag/mouse state 0xa5e208..0xa5e22c; ca",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511690",
+   "name": "cat_new_00511690",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. ship info panel (SHIPPRINT) helper: drag/mouse state 0xa5e208..0xa5e22c; ca",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511710",
+   "name": "cat_new_00511710",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. ship info panel (SHIPPRINT) helper: drag/mouse state 0xa5e208..0xa5e22c; ca",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511ce0",
+   "name": "hw1_ShipSelect_00511ce0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511db0",
+   "name": "hw1_ShipSelect_00511db0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511df0",
+   "name": "hw1_ShipSelect_00511df0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511e50",
+   "name": "hw1_ShipSelect_00511e50",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511ea0",
+   "name": "hw1_ShipSelect_00511ea0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511f00",
+   "name": "hw1_ShipSelect_00511f00",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511f90",
+   "name": "hw1_ShipSelect_00511f90",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00512330",
+   "name": "hw1_ShipSelect_00512330",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005123a0",
+   "name": "hw1_ShipSelect_005123a0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00512410",
+   "name": "hw1_ShipSelect_00512410",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00512470",
+   "name": "hw1_ShipSelect_00512470",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00512530",
+   "name": "hw1_ShipSelect_00512530",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00512580",
+   "name": "hw1_ShipSelect_00512580",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005125f0",
+   "name": "hw1_ShipSelect_005125f0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00512650",
+   "name": "hw1_ShipSelect_00512650",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00512780",
+   "name": "hw1_ShipSelect_00512780",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00512b50",
+   "name": "hw1_ShipSelect_00512b50",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00512c40",
+   "name": "hw1_ShipSelect_00512c40",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005133e0",
+   "name": "hw1_ShipSelect_005133e0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00513540",
+   "name": "hw1_ShipSelect_00513540",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00513570",
+   "name": "hw1_ShipSelect_00513570",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005135c0",
+   "name": "hw1_ShipSelect_005135c0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005135e0",
+   "name": "hw1_ShipSelect_005135e0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00513620",
+   "name": "hw1_ShipSelect_00513620",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005136a0",
+   "name": "hw1_ShipSelect_005136a0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005136e0",
+   "name": "hw1_ShipSelect_005136e0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00513710",
+   "name": "hw1_ShipSelect_00513710",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00513800",
+   "name": "hw1_ShipSelect_00513800",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005138b0",
+   "name": "hw1_ShipSelect_005138b0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005138f0",
+   "name": "hw1_ShipSelect_005138f0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00513920",
+   "name": "hw1_ShipSelect_00513920",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005139b0",
+   "name": "hw1_ShipSelect_005139b0",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00513a00",
+   "name": "hw1_ShipSelect_00513a00",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "low",
+   "evidence": "class-only fallback (class hw1:ShipSelect.c, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. inside the ShipSelect.c object (0x511760-0x513a00); selection filt",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00515930",
+   "name": "cat_new_00515930",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00515940",
+   "name": "cat_new_00515940",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00515b40",
+   "name": "cat_new_00515b40",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00515bd0",
+   "name": "cat_new_00515bd0",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00515d30",
+   "name": "cat_new_00515d30",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00516370",
+   "name": "cat_new_00516370",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00516390",
+   "name": "cat_new_00516390",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005163b0",
+   "name": "cat_new_005163b0",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00516610",
+   "name": "cat_new_00516610",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005166b0",
+   "name": "cat_new_005166b0",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00516a40",
+   "name": "cat_new_00516a40",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00516bb0",
+   "name": "cat_new_00516bb0",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00516d40",
+   "name": "cat_new_00516d40",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00516d60",
+   "name": "cat_new_00516d60",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00516da0",
+   "name": "cat_new_00516da0",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00516f20",
+   "name": "cat_new_00516f20",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00516f50",
+   "name": "cat_new_00516f50",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/game-sim-mp.verified.json, empty name); a real name from another r4 set wins. Cataclysm blast/explosion module 0x515930-0x516f90 (list 0xa5e288, saved by",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054eff0",
+   "name": "cat_new_0054eff0",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/table-targets.verified.json, empty name); a real name from another r4 set wins. key-command table 0x8b6310; filters selection by flag 0x40, MakeShipsSpec",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054f0d0",
+   "name": "cat_new_0054f0d0",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/table-targets.verified.json, empty name); a real name from another r4 set wins. key-command table 0x8b6310; filters selection by flag 0x20, MakeShipsSpec",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054f130",
+   "name": "cat_new_0054f130",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/table-targets.verified.json, empty name); a real name from another r4 set wins. key-command table 0x8b6310; filters selection by flag 0x20, MakeShipsSpec",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0058b400",
+   "name": "cat_titanProfileSetInfo",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "C wrapper: cat_TitanInterface_ProfileSetInfo(titanInterface DAT_00a76074, p); sole caller cat_mgReallyCreateNewAccountNow; sits with the auth* wrappers after titanGetPatch",
+   "hw1_equivalent": "",
+   "signature": "void __cdecl cat_titanProfileSetInfo(void *info)"
+  },
+  {
+   "address": "0x0058b420",
+   "name": "cat_titanContestRecordResult",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "C wrapper: cat_TitanInterface_ContestRecordResult(titanInterface, a, b, c); sole caller cat_DeclarePlayerWinReportResults",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0058b440",
+   "name": "authAuthenticate",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "builds string(login), string(password), \"\" and calls TitanInterface_Authenticate(titanInterface,...,0); caller mgLaunchWON; HW1 wrapper order authAuthenticate/CreateUser/ChangePassword",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:authAuthenticate",
+   "signature": "void __cdecl authAuthenticate(char *loginName, char *password)"
+  },
+  {
+   "address": "0x0058b5b0",
+   "name": "authCreateUser",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "same body as authAuthenticate but Authenticate(...,1) (CreateAccount=true); caller mgCreateNewAccountNow",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:authCreateUser",
+   "signature": "void __cdecl authCreateUser(char *loginName, char *password)"
+  },
+  {
+   "address": "0x0058b720",
+   "name": "authChangePassword",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "3 char* args, string(newpassword) as 3rd Authenticate arg, flag 0; caller mgChangePasswordNow",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:authChangePassword",
+   "signature": "void __cdecl authChangePassword(char *loginName, char *oldpassword, char *newpassword)"
+  },
+  {
+   "address": "0x0058b880",
+   "name": "cat_titanAdBannerClick",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "calls lib_won_006d7210(titanInterface+0xb54, 4); +0xb54 is the WON AdApi object (Init 'Cataclysm' in startThread), 006d7210->006d82d0 calls ShellExecuteA; no direct caller",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0058bf00",
+   "name": "TitanInterface_deleting_dtor",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "scalar deleting dtor: calls ~TitanInterface 0x0058c110 then operator_delete if flag&1; vtable 0x72bf0c slot 1 next to threadProcess/startThread/stopThread",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::~TitanInterface"
+  },
+  {
+   "address": "0x0058bf20",
+   "name": "std__map_ClientToPipe__dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "WON Dinkumware _Tree::~_Tree (erase all, free _Head/_Nil); uses _Erase 0x005a3210 / erase 0x005a33d0 like LeaveGameNotify's mClientMap; called from ctor/dtor unwind funclets",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:ClientToPipe mClientMap"
+  },
+  {
+   "address": "0x0058c010",
+   "name": "cat_titanProfileList_dtor",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "dtor of the TitanInterface+0xb20 member: string fileName (+0, ctor copies \"profiles.lst\") and map<string,...> at +0x10 (ctor sets +0xb34 head/+0xb38 nil/+0xb40 size); ctor/dtor unwind only",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0058c110",
+   "name": "TitanInterface_dtor",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "resets vtables 0x72bf08/0x72befc, deletes key/cert pointers (mVerifierKey..mRouteClientSecret), member dtors, DeleteCriticalSection x5; only caller the deleting dtor",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::~TitanInterface"
+  },
+  {
+   "address": "0x0058c580",
+   "name": "TitanInterface_ChangeAddress",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "loops tpGameCreated.numPlayers, compares mOldtpGameCreated.playerInfo[i].address (this+0x15c, stride 0x3c) with *old (IP/IPX branch), stores *new into tpGameCreated.playerInfo[i]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::ChangeAddress"
+  },
+  {
+   "address": "0x0058c6e0",
+   "name": "TitanInterface_GetPatch_2",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "medium",
+   "evidence": "copies 4 strings into new 0x54-byte args, _beginthread(TitanInterface_GetPatch, 0, args), on -1 calls fail callback(8); callers titanGetPatch/titanStart; Cataclysm adds host/port/callbacks",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::GetPatch(const char*,const char*)"
+  },
+  {
+   "address": "0x0058d700",
+   "name": "TitanInterface_GetPatchArgs_dtor",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "low",
+   "evidence": "frees the 4 refcounted strings at +0x30/+0x20/+0x10/+0 of the 0x54-byte patch args block built by 0x0058c6e0; sole caller the TitanInterface_GetPatch thread",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::GetPatch(void*) delete[] args"
+  },
+  {
+   "address": "0x0058d880",
+   "name": "TitanInterface_startThread",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "mEngine=new EasySocketEngine(3,0,false); if !mIsLan AdApi Init('Cataclysm'); new SocketPipe; AddPipe; ThreadBase::startThread; vtable 0x72bf10 slot 2",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::startThread"
+  },
+  {
+   "address": "0x0058d970",
+   "name": "TitanInterface_stopThread",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "!mIsLan: RecordEvent(0x7da)+SendMessage MediaMetrix (inlined OnFinalLobbyExit); SetEvent(stopEvent); AbortGetCompletedPipe; ThreadBase::stopThread; delete mEngine; vtable slot 3",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::stopThread"
+  },
+  {
+   "address": "0x0058da00",
+   "name": "TitanInterface_PrintAddress",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "ntohs(sin_port) then sprintf(static buf 0xa7605c, \"%d.%d.%d.%d:%d\") and returns the buffer",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::PrintAddress(SOCKADDR_IN&)"
+  },
+  {
+   "address": "0x0058da50",
+   "name": "TitanInterface_GetLocalIPAddress",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "GetDiskFreeSpaceA+GetTickCount nonce, UDP socket, SO_BROADCAST, bind, sendto broadcast, recvfrom loop, closesocket: same steps as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::GetLocalIPAddress"
+  },
+  {
+   "address": "0x0058dd30",
+   "name": "TitanInterface_ConnectTo",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "new SocketPipe; OpenCmd; CreateEventA; SmartConnectCmd; SetEventCmd; WaitForEventCmd + RecvPrefCmd loop; callers ConnectAndSend, ConnectToClient",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::ConnectTo(const SOCKADDR&,...)"
+  },
+  {
+   "address": "0x0058e310",
+   "name": "WONCommon__CriticalSection__dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "8-byte inline ~CriticalSection: DeleteCriticalSection(&mCrit); called from ctor/dtor unwind funclets of the 5 TitanInterface critical sections",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Titan/common/CriticalSection.h:CriticalSection::~CriticalSection"
+  },
+  {
+   "address": "0x0058e320",
+   "name": "WONCommon__AutoCrit__dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "while (mEnterCt>0) { LeaveCriticalSection(mCritR); mEnterCt--; } exactly ~AutoCrit; 61 callers incl. HandleTitanMsg and unwind funclets",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Titan/common/CriticalSection.h:AutoCrit::~AutoCrit"
+  },
+  {
+   "address": "0x0058e562",
+   "name": "TitanInterface_FirewallDetect_tail",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "medium",
+   "evidence": "split-off tail of TitanInterface_FirewallDetect (unaff_EBP frame, destroys a local message, restores ExceptionList); catch continuation, not a real entry",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::FirewallDetect"
+  },
+  {
+   "address": "0x0058e8c3",
+   "name": "TitanInterface_PingFactServer_tail",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "medium",
+   "evidence": "split-off tail of TitanInterface_PingFactServer (unaff_EBP frame, local msg dtor lib_won_00699960, ExceptionList restore)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::PingFactServer"
+  },
+  {
+   "address": "0x0058e990",
+   "name": "TitanInterface_PingHandleReply_tail",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "medium",
+   "evidence": "split-off tail of TitanInterface_PingHandleReply: calls PingFactServer(this in ESI) then restores ExceptionList (HW1 PingHandleReply ends with PingFactServer())",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::PingHandleReply"
+  },
+  {
+   "address": "0x0058eb1b",
+   "name": "TitanInterface_AuthGetPubKeyBlock_tail",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "medium",
+   "evidence": "split-off tail of TitanInterface_AuthGetPubKeyBlock (unaff_EBP frame, local msg dtor lib_won_006a7d60, ExceptionList restore)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::AuthGetPubKeyBlock"
+  },
+  {
+   "address": "0x0058ecd0",
+   "name": "TitanInterface_ReadLoginKey",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "fopen(\"login.ks\",rb), n=fgetc, new LoginKeyStruct[n], fread, fclose, match AUTHSERVER_ADDRESSES[mCurAuthServer]; callers AuthHandleLogin/AuthHandleRefresh",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::ReadLoginKey"
+  },
+  {
+   "address": "0x0058edb0",
+   "name": "TitanInterface_WriteLoginKey",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "\"login.ks\" read into map<ClientNetAddr,uchar> (tree init/insert/erase), rebuild per AUTHSERVER, fwrite; callers AuthHandleChallenge/AuthHandleLoginReply",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::WriteLoginKey"
+  },
+  {
+   "address": "0x0058f100",
+   "name": "std__map_ClientNetAddr_uchar__dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::~_Tree using _Erase 0x005a37a0, which WriteLoginKey also calls (its local anAddrMap); only caller an unwind funclet",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::WriteLoginKey anAddrMap"
+  },
+  {
+   "address": "0x0058f626",
+   "name": "TitanInterface_AuthHandleLogin_tail",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "medium",
+   "evidence": "split-off tail of AuthHandleLogin: TMsgAuth1LoginRequestHW::Pack, mAuthPipe(+0x368)=ConnectAndSend(AUTHSERVER_ADDRESSES[mCurAuthServer]...), local dtors",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::AuthHandleLogin"
+  },
+  {
+   "address": "0x00590309",
+   "name": "TitanInterface_AuthHandleRefresh_tail",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "medium",
+   "evidence": "split-off tail of AuthHandleRefresh (operator_delete, local msg dtor lib_won_00694be0, ExceptionList restore via unaff_EBP)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::AuthHandleRefresh"
+  },
+  {
+   "address": "0x00591930",
+   "name": "WONCommon__AutoCrit__AutoCrit",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "mCritR=crit; mEnterCt=0; if (enterNow) { EnterCriticalSection; mEnterCt++ } = inline AutoCrit ctor; callers PeerHandleChallenge/Complete and WON lib functions",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Titan/common/CriticalSection.h:AutoCrit::AutoCrit"
+  },
+  {
+   "address": "0x00591960",
+   "name": "WONCommon__AutoCrit__Leave",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "if (mEnterCt>0) { LeaveCriticalSection(mCritR); mEnterCt--; } = inline AutoCrit::Leave",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Titan/common/CriticalSection.h:AutoCrit::Leave"
+  },
+  {
+   "address": "0x005922f0",
+   "name": "TitanInterface_EncryptNonTMessage",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "GetDataLen<GetHeaderLength -> false; copies body+1 with optional seq num, ResetBuffer, AppendByte(encrypted type by class), AppendShort(sessionId), Encrypt, AppendBytes; 6 senders",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::EncryptNonTMessage"
+  },
+  {
+   "address": "0x005924c0",
+   "name": "TitanInterface_DecryptNonTMessage",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "strings 'FAIL: non-Tmessage too small.', 'Unable to decrypt non-Tmessage', 'Incorrect session id in non-Tmessage', 'Invalid sequence number'; callers HandleTitan/Small/MiniMsg",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::DecryptNonTMessage"
+  },
+  {
+   "address": "0x00594cc0",
+   "name": "TitanInterface_MakeClientNetAddr",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "mIpType(+0x3c8)==ip: {IP, Port}; else packs etherAddr[0..3] and etherAddr[4..5]+Port into the second long; returns pair; callers ConnectToClient, HandleJoin*, ChangeAddress",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::MakeClientNetAddr"
+  },
+  {
+   "address": "0x00595430",
+   "name": "std__set_DataObject__dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "WON Dinkumware _Tree::~_Tree whose node value (+0xc) has a virtual dtor (WONCommon::DataObject); erase lib_crt_005a1600/_Erase lib_crt_005a1a60; called from TitanInterface and WON lib unwinds",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Titan/common/DataObject.h:DataObjectTypeSet"
+  },
+  {
+   "address": "0x00595646",
+   "name": "cat_TitanInterface_ContestRecordResult_tail",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "split-off tail of cat_TitanInterface_ContestRecordResult (unaff_EBP/ESI frame): calls the contest peer-login 0x00595670 and restores ExceptionList",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00595670",
+   "name": "cat_TitanInterface_ContestStartPeerLogin",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "no contest server (+0x638==0) -> mgDisplayMessage; else TMsgAuth1Request from cert, Pack, ConnectAndSend to list +0x6ec; like DirStartPeerLogin; callers ContestSendRequest/ContestDBCallReply",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::DirStartPeerLogin (pattern)"
+  },
+  {
+   "address": "0x0059573e",
+   "name": "cat_TitanInterface_ContestStartPeerLogin_tail",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "split-off tail of 0x00595670: wraps mCurContestServer(+0x440) mod count(+0x638), pipe +0x370 = ConnectAndSend(addr +0x6ec[i]), local msg dtor",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00595c60",
+   "name": "cat_titanProfileData_ctor",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "ctor of a {wstring(from wchar_t* arg); string; string; byte=2} block used by cat_TitanInterface_ProfileSetInfo (wcslen/wmemcpy into +4, zeroes +0x14/+0x24, +0x30=2)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00595cf0",
+   "name": "cat_TitanInterface_ProfileStartPeerLogin",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "twin of the contest peer login for the profile server: TMsgAuth1Request+Pack+ConnectAndSend, mgDisplayMessage when no server; callers ProfileSendRequest/ProfileSetInfo/ProfileFailOver",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::DirStartPeerLogin (pattern)"
+  },
+  {
+   "address": "0x00595dbf",
+   "name": "cat_TitanInterface_ProfileStartPeerLogin_tail",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "split-off tail of 0x00595cf0 (ConnectAndSend to the current profile server, local message dtor lib_won_006a93b0)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00596950",
+   "name": "cat_titanProfileData_dtor",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "frees the refcounted strings at +0x24, +0x14 and +4 of the profile data block of 0x00595c60; caller cat_TitanInterface_ProfileSetInfo and its unwinds",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00597290",
+   "name": "WONMsg__BaseMessage__AllocateHeaderBuffer",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "AllocateNewBuffer(GetHeaderLength()) (vtbl+0x24) after CopyOnWrite; slot 5 of every WONMsg vtable incl. TitanPacketMsg 0x72bf34; tmessage.h inline AllocateHeaderBuffer",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Titan/msg/tmessage.h:BaseMessage::AllocateHeaderBuffer"
+  },
+  {
+   "address": "0x005972b0",
+   "name": "WONMsg__BaseMessage__GetBodyPtr",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "returns GetDataPtr()+GetHeaderLength(); fills slots 7 and 8 (const/non-const GetBodyPtr, ICF) of the WONMsg vtables",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Titan/msg/tmessage.h:BaseMessage::GetBodyPtr"
+  },
+  {
+   "address": "0x00597810",
+   "name": "WONMsg__SmallMessage__GetHeaderLength",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "mov eax,5; ret (sizeof(SmallHeader)=1+2+2) in the GetHeaderLength slot of SmallMessage-derived vtables (19 refs)",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Titan/msg/tmessage.h:SmallMessage::GetHeaderLength"
+  },
+  {
+   "address": "0x00598c80",
+   "name": "TitanInterface_HandleChannelList",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "walks DirEntityList: TitanFactoryServer/TitanRoutingServer, 'Too many factory servers.', '  Ser: %s - %s', tpLockChannelList, cNotifyRoomListPresent, PingFactServer; caller HandleDirMultiEntityReply",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::HandleChannelList"
+  },
+  {
+   "address": "0x00599390",
+   "name": "TitanInterface_HandleTitanServerList",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "'Too many event/firewall servers.' as HW1, plus Cataclysm TitanProfileServer/TitanContestServer lists; '  Dir: %s'; caller HandleDirMultiEntityReply",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::HandleTitanServerList"
+  },
+  {
+   "address": "0x0059a410",
+   "name": "TitanInterface_HandleGameMsg",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "titanGameMsgReceivedCB(msg->blob(+0x10), msg->blobLen(+0xc)); caller HandlePeerMsg; sits between HandleGameData and HandleGameDisolved",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::HandleGameMsg"
+  },
+  {
+   "address": "0x0059b3c0",
+   "name": "lib_msvc_stl_0059b3c0",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "inline dtor of a wstring member at +0x10 (refcount at ptr-1, delete ptr-2); 9 unwind funclets + lib_won_006ae9d0",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059b590",
+   "name": "TitanInterface_BroadcastPacket",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "switch mGameCreationState(+0x33c): loops tpGameCreated / mOldtpGameCreated players skipping myAddress, SendPacketTo; started state under mPacketCrit, routing -> SendPacketTo(NULL)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::BroadcastPacket"
+  },
+  {
+   "address": "0x0059ba40",
+   "name": "std__map_string__dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::~_Tree with value dtor lib_crt_0059fa20, erase lib_crt_005a1d50, _Erase lib_crt_005a2140 (the profiles.lst map family, string keys); TitanInterface ctor unwind",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059ccb0",
+   "name": "TitanInterface_OnNewRoutingServerClient",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "id==mMyClientId[server] -> mMyIPAddress=ip, Port=GAME_PORT, myAddress if !mUseRoutingServer; server 0 -> chatReceiveUsersJoined/Here(WStringToString(name)); callers GetClientListReply/GroupChangeEx",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::OnNewRoutingServerClient"
+  },
+  {
+   "address": "0x0059dc00",
+   "name": "TitanInterface_SaveWonstuff",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "builds filePrependPath+'WONstuff.txt', GetModuleFileNameA, CreateFileA/hash write, CloseHandle; only caller titanSaveWonstuff",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::SaveWonstuff"
+  },
+  {
+   "address": "0x0059de20",
+   "name": "titanSaveWonstuff",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "return TitanInterface::SaveWonstuff() & 0xff; caller utyGameSystemsPreInit",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:titanSaveWonstuff",
+   "signature": "int __cdecl titanSaveWonstuff(void)"
+  },
+  {
+   "address": "0x0059de30",
+   "name": "TitanInterface_ReadFromWonstuff",
+   "kind": "function",
+   "class": "hw1:TitanInterface.cpp",
+   "confidence": "high",
+   "evidence": "(bool restart, uchar *buf): opens filePrependPath+'WONstuff.txt' with CreateFileA, ReadFile, CloseHandle; caller AuthHandleChallenge (challenge response)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::ReadFromWonstuff"
+  },
+  {
+   "address": "0x0059df20",
+   "name": "cat_titanProfileListLoad",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "fopen(this->fileName = \"profiles.lst\"), fread count, then per entry length-prefixed string chunks (<=100 bytes) inserted via map insert 0x005a02a0 into this+0x10; caller TitanInterface ctor",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059e150",
+   "name": "cat_TitanInterface_AdBannerSendRequest",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "slot 1 of the AdApi-callback vtable 0x72befc (this+0x30): closes old ad pipe (+0x364) 'NOTE: ...Close existing AdBa', new SocketPipe, Open/SmartConnect(host,port), SendCmd(request), recv",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059eb90",
+   "name": "std__wstring__compare",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "basic_string<wchar_t>::compare(const wchar_t*): wcslen, min length loop on ushort, returns -1/0/1; callers HandleChannelList/HandleTitanServerList (entity name tests)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059ec00",
+   "name": "lib_msvc_stl_0059ec00",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "refcounted basic_string<char> construct/assign of n chars with _Xlen check (n>0xfffffffd); caller TitanInterface_DirHandleGetHWDirectory",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059ecb0",
+   "name": "std__multiset_DataObject__insert",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "tree descent with the key's virtual compare (WONCommon::DataObject), no _Multi test, then _Insert 0x005a1b10; caller DirHandleGetHWDirectory (AddGetType)",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Titan/common/DataObject.h:DataObjectTypeMultiSet"
+  },
+  {
+   "address": "0x0059edb0",
+   "name": "lib_msvc_stl_0059edb0",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "set<DataObject> erase/clear loop (lib_crt_005a01f0 ++, erase lib_crt_005a1600, _Erase lib_crt_005a1a60); caller StartRoutingServer",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059ee70",
+   "name": "lib_msvc_stl_0059ee70",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "set<DataObject> copy/assign helper (_Erase/_Copy-style calls lib_crt_005a19d0/1a60/3800/4250); caller StartRoutingServer",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059eff0",
+   "name": "lib_msvc_stl_0059eff0",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "std::list node insert (operator_new + value copy via 0x005a3f40); caller TitanInterface_RecordEvent (event attribute list)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059f040",
+   "name": "std__map_string__clear",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "erase(begin,end) of the string-keyed map (value dtor lib_crt_0059fa20, erase 005a1d50, _Erase 005a2140) without freeing _Head/_Nil; caller ~TitanInterface (profile list member)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059f100",
+   "name": "WONMsg__SMsgProfile2Set__SetField",
+   "kind": "function",
+   "class": "won",
+   "confidence": "low",
+   "evidence": "converts the wstring field to string (StringToWString/assign) and inserts (int id, string) into the map at this+0xc via 0x005a0750; caller cat_TitanInterface_ProfileSetInfo",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059f240",
+   "name": "WONMsg__SMsgProfile2Set__SetField_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "low",
+   "evidence": "one-byte overload: string of length 1 from the char arg, inserted with the field id into the map at this+0xc (0x005a0750); caller cat_TitanInterface_ProfileSetInfo",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059f340",
+   "name": "std__list_ustring__dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "list dtor: unlink each node, destroy basic_string at node+8 (lib_crt_00554760), delete; ctor/dtor unwinds = mPacketList (list<basic_string<uchar>>)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:mPacketList"
+  },
+  {
+   "address": "0x0059f3a0",
+   "name": "std__vector_wstring__dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "vector dtor over 0x10-byte wstring elements (ptr-2 delete), frees _First; ctor/dtor unwinds = mRoutingQueryMap (vector<wstring>)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:mRoutingQueryMap"
+  },
+  {
+   "address": "0x0059f400",
+   "name": "WONMsg__SMsgProfile2Set__deleting_dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72e8cc slot 0, RTTI .?AVSMsgProfile2Set@WONMsg@@; calls dtor 0x0059f530 then operator_delete if flag&1",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059f420",
+   "name": "std__map_int_string__dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::~_Tree for the int->string map (++ 0x005a0b60, erase 0x005a2460, _Erase 0x005a2830, value dtor 0x005a4450); unwind of SMsgProfile2Set",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059f4f0",
+   "name": "std__pair_int_string__dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "destroys the refcounted string at +4 (ptr +8) of a pair<const int,string>; callers the int->string map erase/_Erase/clear",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059f530",
+   "name": "WONMsg__SMsgProfile2Set__dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "destroys the field map at +0xc then base SmallMessage dtor lib_won_00695340; called by the SMsgProfile2Set deleting dtor (RTTI vtable 0x72e8cc)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059f640",
+   "name": "std__multimap_Profile2Reply__ctor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "_Tree ctor with _Multi=1, 0x28-byte head/nil nodes (isnil +0x25); caller cat_TitanInterface_HandleProfile2SetReply",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059f6b0",
+   "name": "WONMsg__SMsgProfile2SetReply__deleting_dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x72e918 slot 0, RTTI .?AVSMsgProfile2SetReply@WONMsg@@; dtor 0x0059f7a0 + operator_delete",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059f6d0",
+   "name": "std__multimap_Profile2Reply__dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::~_Tree of the 0x28-node multimap (++ 0x005a0c20, erase 0x005a2ae0, _Erase 0x005a2ef0, value dtor 0x005a4470); unwind of SMsgProfile2SetReply",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059f7a0",
+   "name": "WONMsg__SMsgProfile2SetReply__dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "destroys the multimap at +0x24 then base dtor lib_won_00695340; callers its deleting dtor (RTTI vtable 0x72e918) and HandleProfile2SetReply",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059f8b0",
+   "name": "std__list_uchar__dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "list dtor without value dtor (unlink+delete, size--), frees head; ctor/dtor unwinds next to mPacketList = mPacketTypeList (list<unsigned char>)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:mPacketTypeList"
+  },
+  {
+   "address": "0x0059f900",
+   "name": "std__list_uchar__clear",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "unlinks and deletes every node, keeps head (list::clear); caller HandleRoutingRegisterClientReply where InitPacketList is inlined",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::InitPacketList"
+  },
+  {
+   "address": "0x0059f940",
+   "name": "std__deque_uchar__dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "deque dtor (0x1000-byte blocks, map at +0x10, size +0x2c); passed as the element dtor to eh_vector_constructor_iterator(this+0xa34, 0x30, 2) in the ctor = mWaitingRequestQueue[2]",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:mWaitingRequestQueue"
+  },
+  {
+   "address": "0x0059fa10",
+   "name": "std__auto_ptr__dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "if (_Owns) operator_delete(_Ptr): VC5 auto_ptr<T>::~auto_ptr (bool at +0, ptr at +4); 18 unwind funclets (Encrypt/Decrypt use auto_ptr<char>)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059fb90",
+   "name": "std__wstring__compare_2",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "basic_string<wchar_t>::compare(pos, n, const wchar_t*, n2): _Xran if pos>size, clamp, ushort loop; callers HandleChannelList/HandleTitanServerList",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059fe40",
+   "name": "std__string__append",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "basic_string::append(const string&, pos, n): _Xran if pos>size, _Xlen checks, refcount grow; callers RequestCreate/Delete/Replace/RenewGame, RoutingSendChat*",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0059ff20",
+   "name": "std__set_DataObject__insert",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::insert(value) with the key's virtual compare, _Multi test (+0xc), _Insert 0x005a1b10, rotations; callers DirHandleGetTitanServers (AddGetType), StartRoutingServer, WON lib",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Titan/common/DataObject.h:DataObjectTypeSet"
+  },
+  {
+   "address": "0x005a0170",
+   "name": "std__set_DataObject__find",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Lbound walk with the DataObject virtual compare (node+0xc vtbl+4) then !(key<node) test, returns node or end; callers HandleDirMultiEntityReply, WONMsg__DirEntity__ComputeSize",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Titan/common/DataObject.h:DataObjectTypeSet"
+  },
+  {
+   "address": "0x005a0240",
+   "name": "lib_msvc_stl_005a0240",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "std::list insert(where, value): new 0x2c node linked before where, value copy-built by 0x005a3f40, size++; callers TitanInterface_RecordEvent, lib_won_006ad470",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a02a0",
+   "name": "std__map_string__insert",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::insert(value): descent with basic_string compare lib_crt_0059fa70 on node+0x10, _Multi test, _Buynode 0x005a3880, _Lrotate/_Rrotate; callers cat_titanProfileListLoad, WON lib_won_006a6270",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a0590",
+   "name": "std__list_ushort__insert",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "list insert of a 0xc-byte node holding one unsigned short, size++; callers RoutingSendChatWhisper/RoutingSendData (addressee client-id list)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a05f0",
+   "name": "std__list_ustring__erase",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "list::erase(it): unlink, destroy string at node+0xc, delete, size--; callers CheckStartingGame/HandleBeginStartGame/HandleChangeAddress (mPacketList pop_front/clear)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:mPacketList"
+  },
+  {
+   "address": "0x005a0660",
+   "name": "std__list_ustring__erase_range",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "list::erase(first,last) with string value dtor; callers ~TitanInterface and HandleRoutingRegisterClientReply (InitPacketList: mPacketList.clear())",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::InitPacketList"
+  },
+  {
+   "address": "0x005a06e0",
+   "name": "std__map_int_string__ctor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree ctor: key_compare/allocator bytes, _Multi arg, 0x24-byte _Nil and _Head nodes (isnil +0x21), size 0; caller TitanInterface ctor (member at +0x61c)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a0750",
+   "name": "std__map_int_string__insert",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::insert(pair<int,string>) with int key compare (*key < node[3]), _Insert 0x005a2870, iterator --0x005a3900; callers SMsgProfile2Set setters 0x0059f100/0x0059f240",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a0980",
+   "name": "std__map_int_string__erase_range",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::erase(first,last): whole-tree fast path (_Erase 0x005a2830 + pair dtor 0x0059f4f0) else loop ++/erase 0x005a2460; caller ~TitanInterface (+0x61c map)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a0a30",
+   "name": "std__map_int_string__erase_key",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::erase(const key&): _Ubound 0x005a3ca0 + lower bound walk = equal_range, count, erase(first,last); returns count; caller cat_TitanInterface_ProfileSetInfo",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a0b60",
+   "name": "std__map_int_string__iterator___Inc",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "in-order successor on 0x24-byte nodes (isnil +0x21): right subtree minimum or climb parents; used by the int->string map erase/clear/dtor",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a0bb0",
+   "name": "std__multimap_Profile2Reply__lower_bound",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "int-key lower_bound then !(key<node) check = find on the 0x28-node multimap; caller cat_TitanInterface_HandleProfile2SetReply",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a0c20",
+   "name": "std__multimap_Profile2Reply__iterator___Inc",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "in-order successor on 0x28-byte nodes (isnil +0x25); callers the Profile2SetReply multimap dtor and erase 0x005a2ae0",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a0c70",
+   "name": "std__list_uchar__erase",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "list::erase(it) without value dtor (unlink, delete, size--); caller ~TitanInterface (mPacketTypeList)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:mPacketTypeList"
+  },
+  {
+   "address": "0x005a0cb0",
+   "name": "std__list_uchar__erase_range",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "list::erase(first,last) without value dtor; callers CheckStartingGame/HandleBeginStartGame/HandleChangeAddress (mPacketTypeList.clear() of InitPacketList)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.cpp:TitanInterface::InitPacketList"
+  },
+  {
+   "address": "0x005a0d00",
+   "name": "std__map_ClientToPipe__erase_range",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::erase(first,last) on 0x1c-byte nodes: fast path _Erase 0x005a3210, else ++ lib_crt_005a3380 + erase 0x005a33d0; caller ~TitanInterface (mClientMap)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:mClientMap"
+  },
+  {
+   "address": "0x005a0db0",
+   "name": "std__map_ClientToPipe__find",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "lower_bound with pair<ulong,ulong> operator< 0x005a4220 then equality test, else end(); callers ConnectToClient/HandleLeaveGame (mClientMap.find(MakeClientNetAddr))",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:mClientMap"
+  },
+  {
+   "address": "0x005a0e30",
+   "name": "std__deque_uchar__erase",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "deque::erase(first,last) over 0x1000-byte blocks (iterator math, ++/-- 0x005a13f0/0x005a3d30, += 0x005a3d60, pops); callers ConnectToRoutingServer/HandleCloseCmd (mWaitingRequestQueue)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:mWaitingRequestQueue"
+  },
+  {
+   "address": "0x005a1140",
+   "name": "std__deque_uchar__push_back",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "deque push_back: allocates a new 0x1000 block/map slot when the last block is full, stores the byte, size(+0x2c)++; callers RequestCreate/Delete/Replace/RenewGame, HandleRoutingRegister",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:mWaitingRequestQueue"
+  },
+  {
+   "address": "0x005a1330",
+   "name": "lib_msvc_stl_005a1330",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "deque<uchar> front-pop step (advance first iterator across 0x1000 blocks, free emptied block, size--); only caller deque erase 0x005a0e30",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a13f0",
+   "name": "std__deque_uchar__iterator__inc",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "deque iterator ++: next element, on block end move to next map slot (block size 0x1000); caller deque erase 0x005a0e30",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a1430",
+   "name": "std__wstring__append",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "basic_string<wchar_t>::append(const wchar_t*, n): npos 0x0072bf1c, max 0x7ffffffd (wchar), grow, copy; caller TitanInterface_StartRoutingServer",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a14f0",
+   "name": "lib_msvc_stl_005a14f0",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "6-byte constant-return stub (ret after one mov); only caller lib_crt_0059e960",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a1b10",
+   "name": "std__set_DataObject___Insert",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::_Insert: new node, copy-constructs the DataObject value, links under parent, red-black fix-up; callers set/multiset insert 0x0059ff20/0x0059ecb0 and WONMsg__DirEntity__Pack",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a21b0",
+   "name": "std__map_string___Insert",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::_Insert for the string-keyed map: operator_new node, value copy, rebalance via lib_crt_005a04f0/005a40b0; only caller std__map_string__insert 0x005a02a0",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a2400",
+   "name": "std__map_string__iterator__postinc",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "iterator operator++(int) on 0x20-byte nodes (isnil +0x1d) returning the old position; caller cat_titanProfileList_dtor",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a2460",
+   "name": "std__map_int_string__erase",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::erase(iterator) with full red-black delete fix-up on 0x24-byte nodes, destroys pair via 0x0059f4f0; callers int->string map dtor/clear/erase_key",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a2830",
+   "name": "std__map_int_string___Erase",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "recursive _Tree::_Erase(node): _Erase(right), destroy pair (0x0059f4f0), delete, go left until _Nil",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a2870",
+   "name": "std__map_int_string___Insert",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::_Insert for 0x24-byte nodes (copies int key and string), rebalance with lib_crt_005a42a0; only caller std__map_int_string__insert",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a2ae0",
+   "name": "std__multimap_Profile2Reply__erase",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::erase(iterator) with red-black delete fix-up on 0x28-byte nodes, value dtor 0x005a2eb0; callers SMsgProfile2SetReply dtor and its multimap dtor",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a2eb0",
+   "name": "std__pair_Profile2Reply__dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "destroys the refcounted string inside the 0x28-node multimap value; callers erase/_Erase/value deleting dtor of that multimap",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a2ef0",
+   "name": "std__multimap_Profile2Reply___Erase",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "recursive _Tree::_Erase for the 0x28-node multimap (value dtor 0x005a2eb0, delete)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a2f30",
+   "name": "std__multimap_Profile2Reply__iterator__postinc",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "iterator operator++(int) on 0x28-byte nodes (isnil +0x25); caller WONMsg__SMsgProfile2SetReply__dtor",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a2f90",
+   "name": "std__map_ClientNetAddr__insert",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::insert(value) keyed by pair<ulong,ulong> (operator< 0x005a4220), _Insert 0x005a3a10, --0x005a3cd0; callers WriteLoginKey, ConnectToClient, HandleJoinGame/JoinConfirm/ClientReconnect",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:ClientToPipe"
+  },
+  {
+   "address": "0x005a31c0",
+   "name": "std__map_ClientToPipe__lower_bound",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "_Lbound on pair<ulong,ulong> keys (inline compare of node[3],node[4]); caller TitanInterface_SendPacketTo (mClientMap lookup)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:mClientMap"
+  },
+  {
+   "address": "0x005a3210",
+   "name": "std__map_ClientToPipe___Erase",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "recursive _Tree::_Erase on 0x1c-byte nodes without value dtor; callers mClientMap dtor/erase_range and TitanInterface_LeaveGameNotify",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3250",
+   "name": "std__map_ClientNetAddr___Init",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::_Init: allocates 0x1c-byte _Nil (color black, isnil) and _Head nodes, size 0; callers TitanInterface ctor (mClientMap) and WriteLoginKey (anAddrMap)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a32b0",
+   "name": "std___Tree___Lrotate",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "red-black left rotation (x->right becomes parent; fixes _Root via _Head) independent of node payload, so shared by all trees; callers 4 insert routines",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3300",
+   "name": "std__map_ClientNetAddr___Min",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "walks left until isnil(+0x19) on 0x1c-byte nodes = _Tree::_Min; caller TitanInterface_StartShutdown (iterates mClientMap)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3320",
+   "name": "std___Tree___Rrotate",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "red-black right rotation mirror of 0x005a32b0, payload independent; same 4 insert callers",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a33d0",
+   "name": "std__map_ClientNetAddr__erase",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::erase(iterator) with full red-black delete fix-up on 0x1c-byte nodes; callers HandleCloseCmd, HandleLeaveGame (mClientMap.erase), WriteLoginKey, map dtors",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/TitanInterface.h:mClientMap"
+  },
+  {
+   "address": "0x005a37a0",
+   "name": "std__map_ClientNetAddr_uchar___Erase",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "recursive _Tree::_Erase twin of 0x005a3210 used by WriteLoginKey's map<ClientNetAddr,unsigned char> and its unwind dtor 0x0058f100",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a37e0",
+   "name": "std__char_traits_char__length",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "22-byte cdecl strlen loop (count until NUL) = inline char_traits<char>::length COMDAT; caller HandleRoutingRegisterClientReply",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3820",
+   "name": "std__set_DataObject__iterator___Dec",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "iterator -- on 0x18-byte nodes (color +0x14, isnil +0x15): head special case, left subtree max or climb; callers DataObject set inserts and DirEntity::Pack",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3880",
+   "name": "std__map_string___Buynode",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "operator_new(0x20) node, parent=arg1, color=arg2, isnil(+0x1d)=0 = _Tree::_Buynode for 0x20-byte nodes; callers TitanInterface ctor (+0xb30 map), map insert, SMsgFactStartProcessBase ctor",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a38a0",
+   "name": "std__map_string__iterator___Dec",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "iterator -- on 0x20-byte nodes (color +0x1c); caller std__map_string__insert",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3900",
+   "name": "std__map_int_string__iterator___Dec",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "iterator -- on 0x24-byte nodes (color +0x20); caller std__map_int_string__insert",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3960",
+   "name": "lib_msvc_stl_005a3960",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "deque<uchar> back-pop step (move last iterator back across 0x1000 blocks, free empty block); only caller deque erase 0x005a0e30",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3a10",
+   "name": "std__map_ClientNetAddr___Insert",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "_Tree::_Insert for 0x1c-byte nodes: new node, std::_Construct of the pair, compare with 0x005a4220, red-black fix-up; caller map insert 0x005a2f90",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3c60",
+   "name": "std__map_ClientNetAddr_uchar__lower_bound",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "_Lbound on pair<ulong,ulong> keys with inline compare; caller TitanInterface_WriteLoginKey (anAddrMap.find)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3ca0",
+   "name": "std__map_int_string___Ubound",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "upper_bound walk (key < node -> go left, remember node) on int keys; caller std__map_int_string__erase_key (equal_range)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3cd0",
+   "name": "std__map_ClientNetAddr__iterator___Dec",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "iterator -- on 0x1c-byte nodes (color +0x18, isnil +0x19); caller std__map_ClientNetAddr__insert",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3d30",
+   "name": "std__deque_uchar__iterator__dec",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "deque iterator --: at block start step to previous map slot (block +0x1000), then cur-1; caller deque erase 0x005a0e30",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3d60",
+   "name": "std__deque_uchar__iterator__add",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "deque iterator += n: offset split into 0x1000-byte blocks (>>12) and map-slot step; callers deque erase and the RequestCreate/Delete/Replace/RenewGame queue code",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3f20",
+   "name": "std___Construct_uchar",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "if (p) *p = *v; one-byte std::_Construct COMDAT (the std___Construct* family); caller TitanInterface_RequestDeleteGame (deque<uchar> push)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a3f40",
+   "name": "lib_msvc_stl_005a3f40",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "copy-constructs a list value holding a basic_string<wchar_t> (wmemcpy/wmemmove, _Xran, lib_crt_0059fc20..0059fdf0); callers list inserts 0x0059eff0/0x005a0240, lib_won_006af590",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a4220",
+   "name": "std__operator_lt_ClientNetAddr",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "pair<ulong,ulong> operator<: first<first || (first==first && second<second); callers WriteLoginKey, mClientMap find/insert/_Insert, SendPacketTo",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a4400",
+   "name": "lib_msvc_stl_005a4400",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "thiscall (this, flag) deleting dtor of an object holding wchar strings (frees ptr-2 at +4 ...), operator_delete when flag set; caller ~TitanInterface",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a4450",
+   "name": "std__pair_int_string__deleting_dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "calls pair dtor 0x0059f4f0 then operator_delete if flag&1; callers the int->string map dtors and erase_key",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a4470",
+   "name": "std__pair_Profile2Reply__deleting_dtor",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "low",
+   "evidence": "calls value dtor 0x005a2eb0 then operator_delete if flag&1; caller the Profile2SetReply multimap dtor",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a4490",
+   "name": "std__string__compare",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "basic_string<char>::compare(const string&): min-length byte loop, -1/0/1, empty-string DAT_0072bdb8; caller TitanInterface_HandleChannelList",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a4500",
+   "name": "std__string__compare_2",
+   "kind": "function",
+   "class": "lib:msvc-stl",
+   "confidence": "medium",
+   "evidence": "basic_string<char>::compare(pos, n, const char*, n2): _Xran if pos>size, clamp, byte loop; caller TitanInterface_HandleChannelList",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005a4870",
+   "name": "WONMsg__MiniMessage__GetHeaderLength",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "mov eax,3; ret (sizeof(MiniHeader)) in the GetHeaderLength slot (vtbl+0x24) of MiniMessage-derived vtables incl. TitanPacketMsg 0x72bf44 (36 refs)",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Titan/msg/tmessage.h:MiniMessage::GetHeaderLength"
+  },
+  {
+   "address": "0x005a7240",
+   "name": "cat_trailShouldDraw",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "bool(ship, ...): false for dead/hidden flags (0x400000/0x800000, +0x1cc&8) and docking states, true when visible; sole caller trailDraw; no HW1 Trails.c counterpart between mistrailDraw and trailDraw",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ad540",
+   "name": "cat_acolyteGroupAttack",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "collects Acolytes (shiptype 1/0x22, CET ShipDefs) of the ship's selection group (+0x370) linked to the same partner (+0x688) and issues clAttack; caller AcolyteHouseKeep",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ae1d0",
+   "name": "cat_acvGroupSelectLinkable",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "fills a GrowSelection with ACVs (shiptype 4/0x26) of the ship's group in state 0/3 having upgrade 0x200 (growSelectAddShip); callers ACVHouseKeep/ACVSpecialActivate",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ae720",
+   "name": "cat_acvGroupAttack",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "collects ACVs of the group in state 3 sharing this ship's target (+0x6f4), clears their flag and issues clAttack on that target; caller ACVHouseKeep",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005af460",
+   "name": "cat_shipCountCarrierSupportModules",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "counts entries of ship->+0x1bc->+0x34 list with shiptype 0xd (sCarrierSupport in CET ShipDefs.h) and not dead (+0x1cc&8); callers cmUpdateShipAvailable, unitCapCanCreateShip",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005af4a0",
+   "name": "cat_new_005af4a0",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/table-targets.verified.json, empty name); a real name from another r4 set wins. StaticInit (+0x04) of CustShipHeader 0x8c3560 (sizeof 4) not referenced b",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005af4c0",
+   "name": "cat_moduleShipTypeDataGet",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "switch on shiptype 0xb,0xd,0x13..0x1a (Dreadnought cannon, CarrierSupport, Mothership modules) returning a per-type static block 0xa76xxx; callers ModuleShipStaticInit/HouseKeep",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005afd70",
+   "name": "cat_shipModuleIterate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "stateful iterator (globals 0xa762c0..c8) over ship->+0x1bc->+0x34 entries with type 10; arg!=0 resets; wrappers 0x005afed0 (first) / 0x005afee0 (next)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005afed0",
+   "name": "cat_shipModuleIterFirst",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "cat_shipModuleIterate(ship); callers AddShipToHyperspace, dockPutShipOutside, univRemoveShipFromOutside and 4 ship functions",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005afee0",
+   "name": "cat_shipModuleIterNext",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "cat_shipModuleIterate(0) (continue); same 8 callers as cat_shipModuleIterFirst",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005b3850",
+   "name": "cat_new_005b3850",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/table-targets.verified.json, empty name); a real name from another r4 set wins. StaticInit (+0x04) of CustShipHeader 0x8c4718 (sizeof 4) not referenced b",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005be5d0",
+   "name": "cat_new_005be5d0",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "class-only fallback (class cat-new, audited r3/table-targets.verified.json, empty name); a real name from another r4 set wins. StaticInit (+0x04) of CustShipHeader 0x8c59f8 (sizeof 4) not referenced b",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00695aa0",
+   "name": "std__bad_cast___Doraise",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "vtable 0x72e880 slot 2 (RTTI .?AVbad_cast@std@@; exception vtable: dtor, what, _Doraise): copy-constructs *this (lib_won_00695ae0) and _CxxThrowException",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006967a0",
+   "name": "std__num_put_char__do_put_long",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "num_put<char> vtable 0x72e88c slot 5; builds '%[+][#]l' + o/x/X/d by ios flags then sprintf + _Iput; MSVC lists the do_put overloads in reverse: slot 5 = long",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00696850",
+   "name": "std__num_put_char__do_put_ulong",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "num_put<char> slot 4: same as the long overload but default conversion 'u' (0x75) = do_put(unsigned long)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00696900",
+   "name": "std__num_put_char__do_put_double",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "num_put<char> slot 3: precision default 6 (max 36), '%[+][#].*' + f/e/g, sprintf + _Fput (lib_won_00696cb0) = do_put(double)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006969f0",
+   "name": "std__num_put_char__do_put_ldouble",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "num_put<char> slot 2: like the double overload but adds the 'L' length modifier (0x4c) = do_put(long double)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00696ae0",
+   "name": "std__num_put_char__do_put_ptr",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "num_put<char> slot 1: sprintf with the '%p' format DAT_008d2360, fill/width padding loop on the ostreambuf_iterator = do_put(const void*)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006aed10",
+   "name": "std__basic_streambuf_char__seekoff",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "shared vtable slot 8 (seekoff in VC basic_streambuf order) of basic_streambuf-derived wonstringstream buffers; returns pos_type(_BADOFF) via fpos ctor lib_crt_006af470",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006aed40",
+   "name": "std__basic_streambuf_char__seekpos",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "shared vtable slot 9 (seekpos) next to the seekoff default 0x006aed10; returns pos_type(_BADOFF) via lib_crt_006af470",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006aeda0",
+   "name": "std__basic_stringbuf_char__overflow",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "basic_stringbuf vtable 0x72fb04 slot 1 (RTTI basic_stringbuf<char>): grows the buffer with operator_new/operator_delete and stores the char = overflow(int)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006aefd0",
+   "name": "std__basic_stringbuf_char__underflow",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "basic_stringbuf vtable slot 4 (underflow): extends the get area to the put pointer and returns the next char or eof",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006af1a0",
+   "name": "std__basic_stringbuf_char__seekpos",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "basic_stringbuf vtable slot 9 (seekpos): converts the fpos (lib_crt_006af470) and repositions get/put pointers",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006af280",
+   "name": "std__basic_ostream_char__deleting_dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "vtable 0x72fabc slot 0 (RTTI basic_ostream<char>): virtual-base destructor (lib_crt_006ae980 ~basic_ios) + operator_delete if flag",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006af2d0",
+   "name": "std__basic_istream_char__deleting_dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "vtable 0x72fab4 slot 0 (RTTI basic_istream<char>): virtual-base destructor + operator_delete if flag",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006af370",
+   "name": "std__basic_iostream_char__deleting_dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "vtable 0x72fac4 slot 0 (RTTI basic_iostream<char>): ~basic_iostream (lib_won_006ae990), ~basic_ios, operator_delete if flag",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006af3a0",
+   "name": "std__basic_stringstream_char__deleting_dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "vtable 0x72fa40 slot 0 (RTTI basic_stringstream<char>): ~basic_stringstream (lib_won_006aea90), ~basic_ios, operator_delete if flag",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b6280",
+   "name": "WONCommon__wonstringstream__deleting_dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "vtable 0x72fe68 slot 0 (RTTI .?AVwonstringstream@WONCommon@@): dtor lib_won_006b62b0, ~basic_ios, operator_delete if flag",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b7330",
+   "name": "std__basic_filebuf_char__overflow",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "basic_filebuf vtable 0x72fec8 slot 1 (RTTI basic_filebuf<char>): codecvt conversion buffer then fputc/fwrite = overflow",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b7510",
+   "name": "std__basic_filebuf_char__pbackfail",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "basic_filebuf slot 2: puts the char back with ungetc / in-buffer = pbackfail",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b76c0",
+   "name": "std__basic_filebuf_char__uflow",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "basic_filebuf slot 5: fgetc loop through codecvt into a string buffer = uflow",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b78b0",
+   "name": "std__basic_filebuf_char__seekoff",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "basic_filebuf slot 8: fseek + fgetpos and builds pos_type (lib_crt_006af470) = seekoff",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b7ae0",
+   "name": "std__basic_ofstream_char__deleting_dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "vtable 0x72fec0 slot 0 (RTTI basic_ofstream<char>): dtor lib_won_006b7220, ~basic_ios, operator_delete if flag",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b8240",
+   "name": "std__codecvt_char__do_in",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "codecvt<char,char,int> vtable 0x72ff08 slots 4 and 5 (do_in/do_out ICF): mid1=first1, mid2=first2, return noconv (3), ret 0x1c (7 args)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b8260",
+   "name": "std__codecvt_char__do_length",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "codecvt<char,char,int> slot 6: return min(last1-first1, len2), ret 0x10 (4 args) = do_length",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006b8f00",
+   "name": "CryptoPP__Blowfish__ProcessBlock_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "shared slot 2 of BlowfishEncryption/Decryption vtables: ProcessBlock(inoutBlock) = CryptoPP__Blowfish__ProcessBlock(inout, inout) (14 bytes)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006bd720",
+   "name": "WONCrypt__PublicKey__Create",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "shared slot 2 of WONCrypt::EGPublicKey/PublicKey vtables; throws CryptException(CryptKeyBase.cpp line 0xb0, 'Create(len) called on PublicKey.')",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006be3d0",
+   "name": "CryptoPP__RandomNumberGenerator__GetBlock",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "RandomNumberGenerator vtable slot 5: for n bytes *out++ = this->GetByte() (vtbl+4) = GetBlock(byte*, unsigned)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006be470",
+   "name": "CryptoPP__StreamCipher__ProcessString",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "StreamCipher vtable slot 2: for len bytes *out++ = ProcessByte(*in++) (vtbl+4) = ProcessString(byte*, const byte*, unsigned)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006be4b0",
+   "name": "CryptoPP__StreamCipher__ProcessString_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "StreamCipher vtable slot 3: in-place *p = ProcessByte(*p) = ProcessString(byte* inoutString, unsigned length)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006bee30",
+   "name": "CryptoPP__ByteQueue__Peek",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "shared slot 9 of ByteQueue/DERSequenceEncoder vtables: ByteQueueNode::Peek(head node at this+8, out)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006c1ab0",
+   "name": "CryptoPP__ModularArithmetic__Equal",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "shared slot 1 of MontgomeryRepresentation/ModularArithmetic vtables: return Integer::Compare(a,b)==0 = AbstractGroup Equal(a,b)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006c2380",
+   "name": "lib_won_006c2380",
+   "kind": "function",
+   "class": "won",
+   "confidence": "low",
+   "evidence": "forwards (a,b) to the member object at this+4 vtbl slot 1; shared slot 1 of CryptoPP VMontgomeryRepresentation/VInteger wrapper vtables (r3 table-targets)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006c44b0",
+   "name": "lib_won_006c44b0",
+   "kind": "function",
+   "class": "won",
+   "confidence": "low",
+   "evidence": "forwards (a,b) to the attached transformation at this+4 vtbl slot 5; shared slot 5 of CBCPaddedEncryptor/Decryptor/BERSequence vtables (Filter forwarding)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006c51e0",
+   "name": "CryptoPP__ElGamalEncryptor__deleting_dtor",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "vtable 0x7308d4 slot 0 (RTTI .?AVElGamalEncryptor@CryptoPP@@): dtor lib_won_006c52c0 + operator_delete if flag",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cad80",
+   "name": "CryptoPP__ModularArithmetic__Accumulate",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "slot 7 of ModularArithmetic/Montgomery vtables: a+=b then a-=modulus if a>=modulus, word-array fast path CryptoPP__Add/Compare/Subtract",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cb760",
+   "name": "CryptoPP__EuclideanDomainOf_Integer__Accumulate",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "EuclideanDomainOf<Integer> vtable 0x730ae0 slot 7: return a += b (Integer::operator+= lib_won_006c9000)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cb7d0",
+   "name": "CryptoPP__EuclideanDomainOf_Integer__Reduce",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "EuclideanDomainOf<Integer> slot 8: return a -= b (Integer::operator-= lib_won_006c91b0)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cb8b0",
+   "name": "CryptoPP__EuclideanDomainOf_Integer__IsUnit",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "EuclideanDomainOf<Integer> slot 11: return a.IsUnit() (CryptoPP__Integer__IsUnit)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cb940",
+   "name": "CryptoPP__EuclideanDomainOf_Integer__DivisionAlgorithm",
+   "kind": "function",
+   "class": "won",
+   "confidence": "high",
+   "evidence": "EuclideanDomainOf<Integer> slot 19: Integer::Divide(r, q, a, d)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cbc40",
+   "name": "CryptoPP__MD5__vTransform",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "MD5 vtable 0x730b4c slot 1 (RTTI .?AVMD5@CryptoPP@@): MD5::Transform(digest at this+0x20, data)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cc470",
+   "name": "CryptoPP__HashModule__CalculateDigest",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "shared slot 4 of MD5/HashModule/IteratedHash vtables: Update(input,len) (vtbl+4) then Final(digest) (vtbl+8)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cc5a0",
+   "name": "CryptoPP__RandomNumberGenerator__GetShort",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "shared slot 4 of RandomPool/RandomNumberGenerator vtables: return (word16)GetLong((word16)min,(word16)max) via vtbl+0xc",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cc610",
+   "name": "lib_won_006cc610",
+   "kind": "function",
+   "class": "won",
+   "confidence": "low",
+   "evidence": "RandomPool vtable slot 5 (r3 table-targets): forwards (a,b) to the object at this+4 vtbl slot 5 (secondary-base thunk)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cc630",
+   "name": "lib_won_006cc630",
+   "kind": "function",
+   "class": "won",
+   "confidence": "low",
+   "evidence": "RandomPool vtable slot 3: 18-byte forwarder to CryptoPP__RandomNumberGenerator__GetLong(this, min, max)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cc9d0",
+   "name": "CryptoPP__RandomPool__Put_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "RandomPool vtable 0x730b7c slot 1: xorbuf the input into the pool from addPos, Stir when full = Put(const byte*, unsigned) (Put(byte) is 0x006cc990)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006cca80",
+   "name": "CryptoPP__RandomPool__Get_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "RandomPool vtable 0x730b8c slot 5: copies from the pool at getPos, Stir when exhausted = Get(byte*, unsigned) (Get(byte&) is 0x006cca40)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ccb60",
+   "name": "CryptoPP__MDC_MD5__ProcessBlock",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "MDC<MD5> vtable 0x730c04 slot 1: copies the 16-byte block in->out then MD5::Transform(out, key)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006ccda0",
+   "name": "CryptoPP__CFBEncryption__ProcessString_2",
+   "kind": "function",
+   "class": "won",
+   "confidence": "medium",
+   "evidence": "CFBEncryption vtable 0x730bf4 slot 2 (between ProcessByte and the named ProcessString): out = in ^ register with DoFeedBack = ProcessString(out, in, len)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006d8870",
+   "name": "lib_won_006d8870",
+   "kind": "function",
+   "class": "won",
+   "confidence": "low",
+   "evidence": "thread loop (ResetEvent/WaitForMultipleObjects, lib_won_006d8290); r3 table-targets: vtable 0x731e88 slot 15 after AuthCertificateBase (WON AdApi range)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006dbc50",
+   "name": "lib_won_006dbc50",
+   "kind": "function",
+   "class": "won",
+   "confidence": "low",
+   "evidence": "thread loop on WaitForMultipleObjects calling lib_won_006dbe40; slot in .rdata table 0x731edc after the WONAuth vtables (no COL)",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006e4580",
+   "name": "std__bad_alloc___Doraise",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "medium",
+   "evidence": "vtable 0x7341f4 slot 2 (RTTI .?AVbad_alloc@std@@): copy-construct (lib_crt_006e45c0) + _CxxThrowException, same shape as bad_cast _Doraise",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006eed00",
+   "name": "lib_won_006eed00",
+   "kind": "function",
+   "class": "won",
+   "confidence": "low",
+   "evidence": "thread loop on WaitForMultipleObjects calling lib_won_006efb00; slot in vtable 0x7324f8 among lib_won_ AdApi slots",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f15b0",
+   "name": "lib_magick_006f15b0",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "low",
+   "evidence": "slot in .rdata table 0x732510 next to lib_magick_006f14d0/006f1c70; basic_string build/assign body; ImageMagick range 0x6f13e0-0x705c81",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f16f0",
+   "name": "lib_magick_006f16f0",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "low",
+   "evidence": "10-byte slot in .rdata table 0x732518 next to lib_magick_006f14d0/006f1c70; ImageMagick range",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x006f1710",
+   "name": "lib_magick_006f1710",
+   "kind": "function",
+   "class": "lib:imagemagick",
+   "confidence": "low",
+   "evidence": "10-byte slot in .rdata table 0x732520 next to lib_magick_006f14d0/006f1c70; ImageMagick range",
+   "hw1_equivalent": ""
+  }
+ ]
+}

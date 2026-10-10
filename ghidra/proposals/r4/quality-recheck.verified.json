@@ -1,0 +1,59 @@
+{
+ "source": "quality-recheck",
+ "method": "Re-check of applied names against cataclysm_gog_r4a (functions.csv, call_graph.csv, decompiled.c) and HomeworldSDL src. low-r3/low-r2: every applied function name whose notes say confidence=low in symbols_round2.json/symbols_round3.json, plus the 2 low r2-deferred names created by B1 (51 r3 + 69 r2 = 120); body, callers and callees compared with the HW1 body or with the producer's evidence. shipselect: every function classed hw1:ShipSelect.c (r3 verified sets, symbols files) checked for a definition in Game/ShipSelect.c and against its HW1 body. call-order: for HW1 files with >=10 matched names, matched addresses sorted and compared with the .c definition order; inversions and runs of adjacent names checked by body/callers for one-slot shifts. Only changes are emitted. | AUDIT: all 4 proposals sampled (population < 30; seed 17 irrelevant); each checked against cataclysm_gog_r4a decompiled.c/call_graph.csv/functions.csv and HomeworldSDL src.",
+ "done_subsystems": [
+  "low-r3",
+  "low-r2",
+  "shipselect",
+  "call-order"
+ ],
+ "proposals": [],
+ "audit": {
+  "sampled": 4,
+  "correct": 1,
+  "wrong": 3,
+  "unverifiable": 0,
+  "precision": 0.25,
+  "action": "precision < 0.7: kept only verified high entries; the one high entry (0x0053C7F0 CloseStatDerelictInfo) was wrong, so 0 kept, 4 dropped. NOTE: 0x00419E80 (medium) is verified correct - applied name aiuGenerateRandomVector is demonstrably wrong; recommend re-proposing it as a high-confidence fix.",
+  "dropped": [
+   "0x00419E80",
+   "0x005169F0",
+   "0x00516A10",
+   "0x0053C7F0"
+  ],
+  "samples": [
+   {
+    "address": "0x00419E80",
+    "name": "cat_MoveReachedDestinationRadius",
+    "replaces": "aiuGenerateRandomVector",
+    "confidence": "medium",
+    "verdict": "correct",
+    "why": "r4a body is a squared-distance test |ship+0x58 - dest|^2 < r^2 returning 0/1 with 3 params; HW1 AIUtilities.c:90 aiuGenerateRandomVector(void) returns a random vector (it is inlined in aiuGenerateRandomStandoffPoint 0x419ed0 as 3x ranRandomFn). Callers in cat_salvageSpecialTarget use it as (ship,&target->posinfo.position,radius). Old name shown wrong; not in cet_symbols.json."
+   },
+   {
+    "address": "0x005169F0",
+    "name": "cat_blastSaveList",
+    "replaces": "cat_saveUniverseList5e288",
+    "confidence": "medium",
+    "verdict": "wrong",
+    "why": "Facts hold (0xa5e288 is the list cat_blastCreate fills, cat_blastUpdateAll walks), but the applied name cat_saveUniverseList5e288 is accurate (it saves the universe-save list at 0xa5e288); the rename is only better, not a fix of a wrong name, and is medium (project rule: applied names renamed only on high-confidence evidence)."
+   },
+   {
+    "address": "0x00516A10",
+    "name": "cat_blastLoadList",
+    "replaces": "cat_loadUniverseList5e288",
+    "confidence": "medium",
+    "verdict": "wrong",
+    "why": "Same as 0x5169F0: body LoadLinkedListOfStuff(0xa5e288)+sets 0xa67010; applied name cat_loadUniverseList5e288 is accurate, so the rename is merely less-good -> more-good, medium confidence."
+   },
+   {
+    "address": "0x0053C7F0",
+    "name": "CloseStatDerelictInfo",
+    "replaces": "CloseStatInfo",
+    "confidence": "high",
+    "verdict": "wrong",
+    "why": "r4a body = HW1 Universe.c:2352 CloseStatInfo verbatim (free LOD/mex unless default 0xa6c5bc/0xa6c5c0, memset 0x29 dwords). HW1 CloseStatDerelictInfo first memFrees salvageStaticInfo; no such free here or in nisDelete. Old name not shown wrong; ICF fold/direct call possible; high unsupported."
+   }
+  ]
+ }
+}

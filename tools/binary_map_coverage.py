@@ -17,7 +17,8 @@ Relative paths resolve against the main checkout (the one holding ghidra/exports
 also when this runs from a linked git worktree).
 
 Tiers: real name = not FUN_* and not class-only; class-only = lib_<class>_<addr>,
-lib_<class>_Unwind_<addr>, Ghidra Unwind@/Catch@/thunk_FUN_/switchD_ names; unnamed = FUN_*.
+lib_<class>_Unwind_<addr>, hw1_<File>_<addr>, cat_new_<addr>, Ghidra Unwind@/Catch@/thunk_FUN_/switchD_
+names; unnamed = FUN_*.
 Class per function: symbols_roundN.json `class=` notes (latest round wins), then the audited
 proposal sets (ghidra/proposals/r2/*.verified.json, only where their name is the current name or
 they are class-only), then CET (hw1_equivalent -> "CET (hw1)"), else "other named"/"unnamed".
@@ -47,7 +48,9 @@ def main_root():
 
 
 ROOT = main_root()
-CLASS_ONLY = re.compile(r"^(lib_|Unwind@|Catch@|thunk_FUN_|switchD)")
+# Round 4 adds the titan-libs placeholders hw1_<File>_<8 hex> and cat_new_<8 hex> (a class, no
+# real name); no export before r4 holds such a name, so earlier rounds' numbers are unchanged.
+CLASS_ONLY = re.compile(r"^(lib_|Unwind@|Catch@|thunk_FUN_|switchD|hw1_[A-Za-z0-9]+_[0-9a-fA-F]{8}$|cat_new_[0-9a-fA-F]{8}$)")
 REGIONS = [
     ("game C/C++", 0x401000, 0x5ca0ff),
     ("IJG libjpeg", 0x5ca100, 0x5d6fdf),

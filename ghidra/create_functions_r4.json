@@ -1,0 +1,932 @@
+[
+ {
+  "address": "0x00417f40",
+  "name": "SaveMoveCB",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x00486510",
+  "name": "gcInGameChatEntry",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x0049be80",
+  "name": "kbKeyResetToDefault",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004b9390",
+  "name": "mgConnectionBack",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004b9860",
+  "name": "mgChangePassword",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004b98c0",
+  "name": "mgNewAccount",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004b9b00",
+  "name": "mgBackToConnection",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004b9bb0",
+  "name": "mgChangePasswordBack",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004b9e50",
+  "name": "mgNewAccountBack",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004b9e60",
+  "name": "cat_mgReallyCreateNewAccountNow",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004b9fe0",
+  "name": "cat_mgRegistrationBack",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004ba780",
+  "name": "mgCreateGame",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004ba7e0",
+  "name": "mgBackToLogin",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004ba7f0",
+  "name": "mgChangeColors",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bac10",
+  "name": "mgCurrentChannelDraw",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bac80",
+  "name": "mgJoinChannel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bad60",
+  "name": "mgCreateChannel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bad70",
+  "name": "mgBackToChannelChat",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bb2b0",
+  "name": "mgCreateChannelNow",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bb4e0",
+  "name": "mgPingAllGames",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bb920",
+  "name": "mgListOfGamesBack",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bc710",
+  "name": "mgLeaveGame",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bc770",
+  "name": "mgSetupGame",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bc8c0",
+  "name": "mgStartGame",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bce60",
+  "name": "mgCurrentGameDraw",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bcfe0",
+  "name": "mgCreateGameNow",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bd7a0",
+  "name": "mgPickGameType",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004be250",
+  "name": "mgBackFromOptions",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004be2e0",
+  "name": "mgBasicOptions",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004be360",
+  "name": "mgAdvancedOptions",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004be3d0",
+  "name": "mgResourceOptions",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004be440",
+  "name": "mgBackFromPlayerOptions",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004be480",
+  "name": "mgConnectingCancel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004be890",
+  "name": "mgBackFromPassword",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004be8a0",
+  "name": "mgGoPassword",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004beaa0",
+  "name": "mgBackFromRoomPassword",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004beab0",
+  "name": "mgGoRoomPassword",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004beb30",
+  "name": "mgYesQuitWON",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004beba0",
+  "name": "mgMessageOk",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004bebb0",
+  "name": "mgDrawMessageBox",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c10e0",
+  "name": "mgAbortDownloadPatch",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c26e0",
+  "name": "mgGoChooseServer",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c27f0",
+  "name": "mgCancelChooseServer",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c3000",
+  "name": "cat_mgContestServer",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c3010",
+  "name": "cat_mgSierraCom",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c40c0",
+  "name": "lgLaunchLAN",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c46e0",
+  "name": "lgCreateGame",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c4710",
+  "name": "lgBackToLogin",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c4720",
+  "name": "lgChangeColors",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c4b30",
+  "name": "lgSeeDetails",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c5820",
+  "name": "lgViewDetails",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c5830",
+  "name": "lgLeaveGame",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c5900",
+  "name": "lgStartGame",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c5e50",
+  "name": "lgCurrentGameDraw",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c6180",
+  "name": "lgChooseScenario",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c6210",
+  "name": "lgAdvanced",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c6220",
+  "name": "lgResource",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c6230",
+  "name": "lgSetColorsNow",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c6270",
+  "name": "lgBackFromPassword",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c63a0",
+  "name": "lgBackToConnection",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004c6450",
+  "name": "lgYesQuitWON",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004cf710",
+  "name": "nisSoundEvent",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004cf8b0",
+  "name": "nisFleetSpeechEvent",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004cf8f0",
+  "name": "nisAnimaticSpeechEvent",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004cfa30",
+  "name": "nisSMPTEOff",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004cfe70",
+  "name": "nisHideDerelict",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004cff00",
+  "name": "nisNewNIS",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d0240",
+  "name": "nisTextCard",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d0290",
+  "name": "nisTextScroll",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d02d0",
+  "name": "nisScissorOut",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d0710",
+  "name": "nisMusicStart",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d09e0",
+  "name": "nisBlendCameraEndPoint",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d0e20",
+  "name": "nisUniversePauseToggle",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d0ef0",
+  "name": "nisUniverseHideToggle",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d0f10",
+  "name": "nisDeathDamageSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d0fb0",
+  "name": "nisDeathProjectileSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d1050",
+  "name": "nisDeathBeamSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d10f0",
+  "name": "nisAttackSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d11a0",
+  "name": "cat_nisRepairSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d1250",
+  "name": "nisHaltAttackSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d12d0",
+  "name": "nisFireSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d1370",
+  "name": "nisCurrentObjectClear",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d13e0",
+  "name": "nisCurrentObjectShow",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d1460",
+  "name": "nisCurrentObjectHide",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d14e0",
+  "name": "nisInvincibleSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d1560",
+  "name": "nisVincibleSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d15e0",
+  "name": "nisSoundEventSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d1690",
+  "name": "cat_nisLightAmbientSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d1790",
+  "name": "cat_nisLightDiffuseSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d1890",
+  "name": "cat_nisGlobalAmbientSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d1960",
+  "name": "cat_nisNumberLightsSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d1a10",
+  "name": "cat_nisMimicSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2190",
+  "name": "cat_nisOpenSlipgateSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2210",
+  "name": "cat_nisCloseSlipgateSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2290",
+  "name": "nisCameraFOVSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2330",
+  "name": "cat_nisCameraClipNearSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d23d0",
+  "name": "cat_nisCameraClipFarSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2470",
+  "name": "nisRaceSwap",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d24d0",
+  "name": "nisCameraCutSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2640",
+  "name": "nisTextPositionSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2680",
+  "name": "nisTextScrollSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2ac0",
+  "name": "nisCameraBlendInSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2cd0",
+  "name": "nisFocusAtEndSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2d50",
+  "name": "nisFocusSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2dd0",
+  "name": "nisMusicStartSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2e80",
+  "name": "nisMusicStopSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2f70",
+  "name": "nisCentreShipSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d2fa0",
+  "name": "nisFadeSetSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d30b0",
+  "name": "nisFadeToSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d31e0",
+  "name": "nisColorSchemeSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d3290",
+  "name": "nisMeshAnimationStartSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d3330",
+  "name": "cat_nisEboltsSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d33e0",
+  "name": "cat_nisBeastEffectSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d3490",
+  "name": "cat_nisFogSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d35d0",
+  "name": "nisMeshAnimationStopSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d3650",
+  "name": "nisMeshAnimationPauseSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d36d0",
+  "name": "nisMeshAnimationSeekSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d37d0",
+  "name": "nisBlendCameraToFocusSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d3850",
+  "name": "nisVolumesSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d3900",
+  "name": "nisTrailZeroSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d3980",
+  "name": "nisTrailMoveSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d3a00",
+  "name": "nisUniversePauseSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d3a80",
+  "name": "nisUniverseHideSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d3b00",
+  "name": "nisNewEnvironmentSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d3c10",
+  "name": "nisLookyObjectSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d3ed0",
+  "name": "nisSMPTEOffSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d4230",
+  "name": "nisStaticOffSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d42d0",
+  "name": "nisHideDerelictSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d44f0",
+  "name": "nisAttributesSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d45a0",
+  "name": "nisAttackKasSelectionSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d4650",
+  "name": "nisKeepMovingAtEndSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d46d0",
+  "name": "nisMinimumLODSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d4770",
+  "name": "nisDamageLevelSet",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d7430",
+  "name": "opCountdownYes",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d75e0",
+  "name": "opCountdownBoxDraw",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d8370",
+  "name": "opOptionsCancel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d83a0",
+  "name": "opInGameOptionsCancel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d8400",
+  "name": "opEqualizerToAudioAccept",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d8480",
+  "name": "opEqualizerToAudioCancel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d84f0",
+  "name": "opEqualizerToInGameAudioAccept",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d8570",
+  "name": "opEqualizerToInGameAudioCancel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d85e0",
+  "name": "opAdvancedToAudioAccept",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d8690",
+  "name": "opAdvancedToAudioCancel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d8740",
+  "name": "opAdvancedToInGameAudioAccept",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d87f0",
+  "name": "opAdvancedToInGameAudioCancel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d88a0",
+  "name": "opEffectsToVideoAccept",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d8990",
+  "name": "opEffectsToVideoCancel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d8a70",
+  "name": "opEffectsToInGameVideoAccept",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d8b60",
+  "name": "opEffectsToInGameVideoCancel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d9250",
+  "name": "opOptionsStart",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d9280",
+  "name": "opInGameOptionsStart",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d92e0",
+  "name": "opKeyCancel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004d9b00",
+  "name": "opEqualizerButton",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004da710",
+  "name": "opCustomEffects",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004da9a0",
+  "name": "opResolution",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004dada0",
+  "name": "opRender",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004db6c0",
+  "name": "opTroubleShoot",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004db760",
+  "name": "cat_opSpeechTest",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004db790",
+  "name": "cat_opSoundFXTest",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004e9850",
+  "name": "psLinkDraw",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x004f4350",
+  "name": "cat_consoleAllTech",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x00503e10",
+  "name": "spScenarioNameDraw",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x00504850",
+  "name": "spBackPicking",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x00517320",
+  "name": "spAbortHyperspaceCB",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005174b0",
+  "name": "cat_spEmergencyHyperspaceCB",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005175b0",
+  "name": "spShipsRemainingDrawCB",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x00517600",
+  "name": "spShipsDockedDrawCB",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x0053c850",
+  "name": "universeInfoNeededSetCB",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x0054d0e0",
+  "name": "cat_consoleUpgradeShips",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x0054d1c0",
+  "name": "cat_consoleExperienceShips",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005a81a0",
+  "name": "utyVideoPlay",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005a8200",
+  "name": "utyTutorialAlertCancel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005a8650",
+  "name": "utyPickColors",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005a9190",
+  "name": "utyHideMenuOrGotoQuitGame",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005aa140",
+  "name": "utyMultiplayerGameStart",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005aa160",
+  "name": "utyShowCredits",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005aa5c0",
+  "name": "utySinglePlayerGame",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005aa5e0",
+  "name": "utySelectSinglePlayerGame",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005aa730",
+  "name": "utyLoadMultiSinglePlayerGame",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005aaa40",
+  "name": "utySelectMultiPlayerGame",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005aab80",
+  "name": "utyBackFromSinglePlayerOptions",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005ab150",
+  "name": "utyBackFromSinglePlayer",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005ab570",
+  "name": "utyGameQuit",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005ab780",
+  "name": "utyInGameCancel",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005ad1b0",
+  "name": "utyYesDropPlayer",
+  "reason": "r3-deferred"
+ },
+ {
+  "address": "0x005ad1e0",
+  "name": "utyDontDropPlayer",
+  "reason": "r3-deferred"
+ }
+]

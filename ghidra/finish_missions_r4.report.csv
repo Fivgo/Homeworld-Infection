@@ -1,0 +1,98 @@
+kind,address,name,status,before,after,detail
+switch-table,0x005db568,switchdataD_005db568,typed,pointer,pointer[8],ptr dispatch@0x005db4aa in Init_Mission02_Patrols_GetPatrol@005db480;count=8;bound@0x005db4a5
+switch-table,0x005e0b9c,switchdataD_005e0b9c,typed,undefined,pointer[4],ptr dispatch@0x005e0846 in Init_Mission02@005e05a0;count=4;bound@0x005e083d
+switch-table,0x005e3888,switchdataD_005e3888,typed,undefined,pointer[5],ptr dispatch@0x005e383a in Watch_Mission03_Cleesan_Wait@005e3720;count=5;bound@0x005e3835
+switch-table,0x005e50b8,switchdataD_005e50b8,typed,undefined,pointer[5],ptr dispatch@0x005e4f18 in Init_Mission03@005e4c60;count=5;bound@0x005e4f13
+switch-table,0x005e6580,switchdataD_005e6580,typed,undefined,pointer[5],ptr dispatch@0x005e5f06 in Watch_Mission04_FleetIntel_WaitMessage@005e5960;count=5;bound@0x005e5ef9;indexed-by=0x005e6594
+switch-table,0x005e6594,switchdataD_005e6594,typed,byte,byte[19],byte dispatch@0x005e5f00 in Watch_Mission04_FleetIntel_WaitMessage@005e5960;count=19;bound@0x005e5ef9
+switch-table,0x005e65a8,switchdataD_005e65a8,typed,undefined,pointer[5],ptr dispatch@0x005e5f30 in Watch_Mission04_FleetIntel_WaitMessage@005e5960;count=5;bound@0x005e5f20;indexed-by=0x005e65bc
+switch-table,0x005e65bc,switchdataD_005e65bc,typed,byte,byte[162],byte dispatch@0x005e5f2a in Watch_Mission04_FleetIntel_WaitMessage@005e5960;count=162;bound@0x005e5f20
+switch-table,0x005e853c,switchdataD_005e853c,typed,undefined,pointer[6],ptr dispatch@0x005e8464 in Watch_Mission04_BeastStrike_Build@005e8420;count=6;bound@0x005e845f
+switch-table,0x005f259c,switchdataD_005f259c,typed,undefined,pointer[6],ptr dispatch@0x005f2470 in Watch_Mission05_Fighters_Create@005f23b0;count=6;bound@0x005f2467
+switch-table,0x005f7e10,switchdataD_005f7e10,typed,undefined,pointer[5],ptr dispatch@0x005f7db9 in Init_Mission06_Scouts@005f7d70;count=5;bound@0x005f7db4
+switch-table,0x00603530,switchdataD_00603530,typed,undefined,pointer[5],ptr dispatch@0x00602ee4 in Watch_Mission08_FleetIntel_WaitMessage@00602a30;count=5;bound@0x00602edf
+switch-table,0x00603544,switchdataD_00603544,typed,undefined,pointer[5],ptr dispatch@0x0060335f in Watch_Mission08_FleetIntel_WaitMessage@00602a30;count=5;bound@0x0060335a
+switch-table,0x00603f44,switchdataD_00603f44,typed,undefined,pointer[5],ptr dispatch@0x00603e37 in Watch_Mission08_Spy@00603bf0;count=5;bound@0x00603e2e
+switch-table,0x0060b1a4,switchdataD_0060b1a4,typed,pointer,pointer[5],ptr dispatch@0x0060aea9 in Watch_Mission09_AttackLeader_Build@0060ae50;count=5;bound@0x0060aea0
+switch-table,0x0060b808,switchdataD_0060b808,typed,pointer,pointer[4],ptr dispatch@0x0060b736 in Watch_Mission09_AttackSpecial_Build@0060b6c0;count=4;bound@0x0060b731
+switch-table,0x0060bc58,switchdataD_0060bc58,typed,pointer,pointer[4],ptr dispatch@0x0060bb76 in Watch_Mission09_AttackSupport_Build@0060bb00;count=4;bound@0x0060bb71
+switch-table,0x0060c27c,switchdataD_0060c27c,typed,pointer,pointer[5],ptr dispatch@0x0060c07d in Init_Mission09_FrigatePatrol@0060c040;count=5;bound@0x0060c078
+switch-table,0x0060db04,switchdataD_0060db04,typed,pointer,pointer[5],ptr dispatch@0x0060d2ee in Init_Mission09@0060d2d0;count=5;bound@0x0060d2e9
+switch-table,0x0060e098,switchdataD_0060e098,typed,pointer,pointer[5],ptr dispatch@0x0060deda in Watch_Mission09@0060db20;count=5;bound@0x0060ded5
+switch-table,0x0061c8ac,switchdataD_0061c8ac,typed,undefined,pointer[6],ptr dispatch@0x0061c780 in Watch_Mission11_Fighters_Create@0061c6c0;count=6;bound@0x0061c777
+switch-table,0x00622034,switchdataD_00622034,typed,undefined,pointer[4],ptr dispatch@0x00621fcc in Watch_Mission12_FSM_x0a52a12_Patrolling@00621eb0;count=4;bound@0x00621fc7;computed-jump-refs-added=4
+switch-table,0x0062a6f4,switchdataD_0062a6f4,typed,pointer,pointer[5],ptr dispatch@0x00629b57 in Init_Mission13@00629a90;count=5;bound@0x00629b52
+switch-table,0x0062a708,switchdataD_0062a708,typed,pointer,pointer[5],ptr dispatch@0x00629b82 in Init_Mission13@00629a90;count=5;bound@0x00629b7d
+switch-table,0x0062afdc,switchdataD_0062afdc,typed,pointer,pointer[5],ptr dispatch@0x0062af74 in Watch_Mission13@0062a720;count=5;bound@0x0062af6f
+switch-table,0x0062d498,switchdataD_0062d498,typed,pointer,pointer[5],ptr dispatch@0x0062d422 in Init_Mission14_BeastMissiles_WaitCreate@0062d400;count=5;bound@0x0062d41d
+switch-table,0x0063555c,switchdataD_0063555c,typed,undefined,pointer[6],ptr dispatch@0x00635430 in Watch_Mission14_Fighters_Create@00635370;count=6;bound@0x00635427
+switch-table,0x0063866c,switchdataD_0063866c,typed,undefined,pointer[5],ptr dispatch@0x0063839d in Watch_Mission15_FleetIntel_WaitMessage@00637c50;count=5;bound@0x00638389;indexed-by=0x00638680
+switch-table,0x00638680,switchdataD_00638680,typed,byte,byte[161],byte dispatch@0x00638397 in Watch_Mission15_FleetIntel_WaitMessage@00637c50;count=161;bound@0x00638389
+switch-table,0x00638724,switchdataD_00638724,typed,undefined,pointer[7],ptr dispatch@0x006384b4 in Watch_Mission15_FleetIntel_WaitMessage@00637c50;count=7;bound@0x006384ab
+switch-table,0x006393b0,switchdataD_006393b0,typed,undefined,pointer[5],ptr dispatch@0x00639299 in Watch_Mission15_Fighters_Build@00639240;count=5;bound@0x00639290
+switch-table,0x0063add4,switchdataD_0063add4,typed,undefined,pointer[5],ptr dispatch@0x0063a9df in Watch_Mission15@0063a1a0;count=5;bound@0x0063a9da
+switch-table,0x00643d5c,switchdataD_00643d5c,typed,undefined,pointer[6],ptr dispatch@0x00643c30 in Watch_Mission16_Fighters_Create@00643b70;count=6;bound@0x00643c27
+switch-table,0x0064a08c,switchdataD_0064a08c,typed,undefined,pointer[4],ptr dispatch@0x00648beb in Watch_Mission17_FleetIntel_WaitMessage@00648b00;count=4;bound@0x00648be2
+switch-table,0x0064a09c,switchdataD_0064a09c,typed,undefined,pointer[8],ptr dispatch@0x00649266 in Watch_Mission17_FleetIntel_WaitMessage@00648b00;count=8;bound@0x00649256;indexed-by=0x0064a0bc
+switch-table,0x0064a0bc,switchdataD_0064a0bc,typed,byte,byte[161],byte dispatch@0x00649260 in Watch_Mission17_FleetIntel_WaitMessage@00648b00;count=161;bound@0x00649256
+switch-table,0x0064b09c,switchdataD_0064b09c,typed,pointer,pointer[5],ptr dispatch@0x0064b00e in Init_Mission17_Naggarok_Fire@0064afe0;count=5;bound@0x0064b009
+switch-table,0x00656f8c,switchdataD_00656f8c,typed,undefined,pointer[6],ptr dispatch@0x00656e60 in Watch_Mission17_Fighters_Create@00656da0;count=6;bound@0x00656e57
+switch-table,0x0065c2dc,switchdataD_0065c2dc,typed,undefined,pointer[4],ptr dispatch@0x0065c1dc in Watch_Mission17_kFighters_Create@0065c120;count=4;bound@0x0065c1d7
+switch-table,0x006651f4,switchdataD_006651f4,typed,undefined,pointer[4],ptr dispatch@0x00664c49 in Init_Mission17_FSM_x048a873_Guard@00664c00;count=4;bound@0x00664c40
+switch-table,0x00668f08,switchdataD_00668f08,typed,undefined,pointer[5],ptr dispatch@0x00666935 in Init_Mission17@00666510;count=5;bound@0x0066692c;computed-jump-refs-added=5
+switch-table,0x00669c24,switchdataD_00669c24,typed,pointer,pointer[12],ptr dispatch@0x00669acf in Init_Tutorial1_SpeechEvents_S_x995f835@00669aa0;count=12;bound@0x00669ac6
+switch-table,0x0066a070,switchdataD_0066a070,typed,pointer,pointer[4],ptr dispatch@0x00669e1f in Watch_Tutorial1_SpeechEvents_WaitMessage1@00669c60;count=4;bound@0x00669e1a
+switch-table,0x0066b738,switchdataD_0066b738,typed,pointer,pointer[5],ptr dispatch@0x0066b222 in Watch_Tutorial1_SpeechEvents_WaitMessage6@0066b180;count=5;bound@0x0066b219
+switch-table,0x0066b74c,switchdataD_0066b74c,typed,pointer,pointer[7],ptr dispatch@0x0066b245 in Watch_Tutorial1_SpeechEvents_WaitMessage6@0066b180;count=7;bound@0x0066b23c
+switch-table,0x0066d678,switchdataD_0066d678,typed,undefined,pointer[12],ptr dispatch@0x0066d517 in Watch_Tutorial1_Tutorial_S_x176e135@0066d460;count=12;bound@0x0066d50e
+offcut-repair,005ef500,Watch_Mission05_Workers_Harvest,fixed,undisassembled=1,undisassembled=0,fixed@005ef568:2B/1ins;offcut=005ef569'PUSH EDI'
+offcut-repair,005ef6b0,Init_Mission05_Workers_Heal,fixed,undisassembled=2,undisassembled=0,fixed@005ef745:2B/1ins;offcut=005ef746'PUSH EDI';fixed@005ef718:2B/1ins;offcut=005ef719'PUSH EDI'
+offcut-repair,005f8920,Watch_Mission06_Scouts_Attack,fixed,undisassembled=1,undisassembled=0,"fixed@005f8a66:4B/2ins;offcut=005f8a67'LES ECX,[EBX + EAX*0x8]'refs:DATA<-0060c244,DATA<-0060c3a3"
+offcut-repair,00600540,Init_Mission07_Escort_Attack,fixed,undisassembled=1,undisassembled=0,fixed@00600669:2B/1ins;offcut=0060066a'PUSH ESI'
+offcut-repair,006044f0,Init_Mission08_Support_Heal,fixed,undisassembled=1,undisassembled=0,fixed@0060452e:2B/1ins;offcut=0060452f'PUSH EDI'
+offcut-repair,00605220,Watch_Mission08_Crystals_Check,fixed,undisassembled=1,undisassembled=0,fixed@0060528d:2B/1ins;offcut=0060528e'PUSH EDI'
+offcut-repair,00609e50,Init_Mission09_GuardSupport_Heal,fixed,undisassembled=1,undisassembled=0,fixed@00609ec1:2B/1ins;offcut=00609ec2'PUSH EDI'
+offcut-repair,0060bee0,Init_Mission09_AttackSupport_Heal,fixed,undisassembled=1,undisassembled=0,fixed@0060bf51:2B/1ins;offcut=0060bf52'PUSH EDI'
+offcut-repair,0060fa80,Watch_Mission10_BigGun,fixed,undisassembled=1,undisassembled=0,fixed@0060fc69:2B/1ins;offcut=0060fc6a'PUSH ESI'
+offcut-repair,00616390,Init_Mission11_Sentinels_Defend,fixed,undisassembled=3,undisassembled=0,"fixed@00616664:2B/1ins;offcut=00616665'PUSH ESI';fixed@0061645f:4B/2ins;offcut=00616461'ADD AL,0x50'refs:DATA<-006d8d3d"
+offcut-repair,00617310,Init_Mission11_Harvest,fixed,undisassembled=1,undisassembled=0,"fixed@00617374:10B/2ins;offcut=00617375'SCASB ES:EDI'refs:DATA<-0072e1a0|00617377'XLAT EBX'|00617378'MOV EAX,GS'"
+offcut-repair,00618210,Watch_Mission11_Workers_Harvest,fixed,undisassembled=1,undisassembled=0,fixed@00618278:2B/1ins;offcut=00618279'PUSH EDI'
+offcut-repair,006183c0,Init_Mission11_Workers_Heal,fixed,undisassembled=2,undisassembled=0,fixed@00618455:2B/1ins;offcut=00618456'PUSH EDI';fixed@00618428:2B/1ins;offcut=00618429'PUSH EDI'
+offcut-repair,00621eb0,Watch_Mission12_FSM_x0a52a12_Patrolling,fixed,undisassembled=1,undisassembled=0,"fixed@00621f4a:6B/2ins;offcut=00621f4b'MOV EAX,[0x50ffe6ea]'"
+offcut-repair,00622ae0,Watch_Mission12_PirateSalvage_WaitSalvage,fixed,undisassembled=1,undisassembled=0,"fixed@00622b71:14B/4ins;offcut=00622b72'IN EAX,0x11'refs:DATA<-007514b4|00622b74'CMP byte ptr [EAX + EBP*0x8],AL'|00622b77'XOR EAX,0x83ffe6e0'refs:DATA<-007340ec"
+offcut-repair,00626510,Watch_Mission13_Resourcers,fixed,undisassembled=3,undisassembled=0,"fixed@00626543:10B/2ins;offcut=00626546'TEST EAX,0xa0f3e806'refs:DATA<-0072d2e4|0062654b'OUT 0xff,AL'"
+offcut-repair,006272b0,Init_Mission13_FSM_x4d56e8e_Attack,fixed,undisassembled=1,undisassembled=0,fixed@0062738f:2B/1ins;offcut=00627390'PUSH ESI'
+offcut-repair,006292d0,Init_Mission13_AssultWave2_Attack,fixed,undisassembled=1,undisassembled=0,fixed@006293af:2B/1ins;offcut=006293b0'PUSH ESI'
+offcut-repair,006305c0,Init_Mission14_Sentinels_Defend,fixed,undisassembled=1,undisassembled=0,fixed@00630894:2B/1ins;offcut=00630895'PUSH ESI'
+offcut-repair,00633fb0,Watch_Mission14_Corvettes_Create,fixed,undisassembled=2,undisassembled=0,fixed@0063420b:7B/2ins;offcut=0063420d'PUSH 0x6affe6'
+offcut-repair,00636510,Watch_Mission14_RammingFrigates_Create,fixed,undisassembled=4,undisassembled=0,"fixed@00636540:20B/4ins;offcut=00636544'OR EAX,EBP'refs:DATA<-0072d2bc|00636546'MOV EAX,0xf068ffe5'|0063654c'ADD byte ptr GS:[EAX + -0x10],CH'"
+offcut-repair,006398f0,Watch_Mission15_Fighters_Wait,fixed,undisassembled=1,undisassembled=0,fixed@0063991d:2B/1ins;offcut=0063991e'PUSH ESI'
+offcut-repair,0063e500,Init_Mission16_Sentinels_Defend,fixed,undisassembled=1,undisassembled=0,fixed@0063e7d4:2B/1ins;offcut=0063e7d5'PUSH ESI'
+offcut-repair,006421b0,Watch_Mission16_Corvettes_Build,fixed,undisassembled=1,undisassembled=0,"fixed@0064251f:5B/1ins;offcut=00642520'DEC ESP'refs:DATA<-00897534|00642521'IN EAX,0xff'"
+offcut-repair,006430c0,Watch_Mission16_Corvettes_Dock,fixed,undisassembled=2,undisassembled=0,"fixed@0064336b:2B/2ins;offcut=00643367'INC dword ptr [EBX + 0x90c30cc4]';fixed@0064334b:5B/1ins;offcut=0064334c'TEST AH,DL'refs:CONDITIONAL_JUMP<-00643365|0064334e'ADD AL,0x0';fixed@00643363:8B/2ins;offcut=00643364'DEC EAX'refs:DATA<-0088c1e4|00643365'JNZ 0x0064334c';trimmed-padding-tail=4"
+offcut-repair,00646190,Watch_Mission16_DFGs_Building,fixed,undisassembled=3,undisassembled=0,fixed@00646263:22B/5ins;offcut=00646264'PUSH ESP'refs:DATA<-008da84c|00646265'SAHF'|00646266'AAA'
+offcut-repair,00646b00,Init_Mission16_HeavyCruisers_Beastify,fixed,undisassembled=1,undisassembled=0,"fixed@00646c24:7B/2ins;offcut=00646c25'ADC AL,0x68'refs:DATA<-008d4ae4|00646c27'SBB AL,0xe8'|00646c29'POP ES'"
+offcut-repair,0064d8b0,Init_Mission17_Sentinels_Defend,fixed,undisassembled=1,undisassembled=0,fixed@0064dc1b:2B/1ins;offcut=0064dc1c'PUSH ESI'
+offcut-repair,0064ffe0,Init_Mission17_Workers,fixed,undisassembled=2,undisassembled=0,"fixed@00650051:24B/6ins;offcut=00650053'SUB AL,0xe4'refs:DATA<-008bbb58|00650055'INC dword ptr [EBP + 0x687b74c0]'|0065005b'MOV BL,0xd0'"
+offcut-repair,006506e0,Watch_Mission17_Workers_Harvest,fixed,undisassembled=1,undisassembled=0,fixed@00650748:2B/1ins;offcut=00650749'PUSH EDI'
+offcut-repair,00650890,Init_Mission17_Workers_Heal,fixed,undisassembled=2,undisassembled=0,fixed@00650925:2B/1ins;offcut=00650926'PUSH EDI';fixed@006508f8:2B/1ins;offcut=006508f9'PUSH EDI'
+offcut-repair,00658b10,Init_Mission17_Recons_Patrol,fixed,undisassembled=2,undisassembled=0,"fixed@00658b62:7B/3ins;offcut=00658b64'MOV EAX,[0x5048ffe3]'"
+offcut-repair,0065cd20,Watch_Mission17_kAdvancedSupportFrigates_Move,fixed,undisassembled=1,undisassembled=0,fixed@0065cd69:2B/1ins;offcut=0065cd6a'PUSH ESI'
+offcut-repair,0065ceb0,Init_Mission17_kAdvancedSupportFrigates_Heal,fixed,undisassembled=1,undisassembled=0,fixed@0065cef9:2B/1ins;offcut=0065cefa'PUSH ESI'
+offcut-repair,00660670,Watch_Mission17_tAdvancedSupportFrigates_Move,fixed,undisassembled=1,undisassembled=0,fixed@006606b9:2B/1ins;offcut=006606ba'PUSH ESI'
+offcut-repair,00660800,Init_Mission17_tAdvancedSupportFrigates_Heal,fixed,undisassembled=1,undisassembled=0,fixed@00660849:2B/1ins;offcut=0066084a'PUSH ESI'
+offcut-repair,00666510,Init_Mission17,fixed,undisassembled=2,undisassembled=0,"fixed@00666666:4B/2ins;offcut=00666668'ADD AL,0x50'refs:DATA<-004d3c65"
+offcut-repair,0066aa30,Watch_Tutorial1_SpeechEvents_WaitMessage5,fixed,undisassembled=2,undisassembled=0,"fixed@0066ab64:7B/2ins;offcut=0066ab66'MOV EBP,0x1b6affe2'"
+call-ref,0x00626510,Watch_Mission13_Resourcers->kasJump,ok,,,00626548:'CALL 0x00490640' ok
+call-ref,0x006430c0,Watch_Mission16_Corvettes_Dock->kasfGetDockHost,ok,,,00643363:'CALL 0x0049a8b0' ok
+call-ref,0x0064ffe0,Init_Mission17_Workers->kasfTeamCount,ok,,,00650051:'CALL 0x00492ce0' ok
+call-ref,0x0066aa30,Watch_Tutorial1_SpeechEvents_WaitMessage5->kasfCameraFocus,ok,,,0066ab64:'CALL 0x00496870' ok
+guard,004bc250,FUN_004bc250,created-by-analysis,,size=125,
+guard,004da730,FUN_004da730,created-by-analysis,,size=302,
+guard,004daa80,FUN_004daa80,created-by-analysis,,size=379,
+guard,,snapshot-restore,done,functions=14676,functions=14936,"new_functions_by_analysis=3, noreturn_cleared=0, noreturn_new_kept=0, recreate_failed=0, recreated=0, regrow_failed=0, regrow_partial=0, regrown=0, still_gone=0, still_shrunk=0"
+call-ref,0x00626510,Watch_Mission13_Resourcers->kasJump,ok,,,00626548:'CALL 0x00490640' ok
+call-ref,0x006430c0,Watch_Mission16_Corvettes_Dock->kasfGetDockHost,ok,,,00643363:'CALL 0x0049a8b0' ok
+call-ref,0x0064ffe0,Init_Mission17_Workers->kasfTeamCount,ok,,,00650051:'CALL 0x00492ce0' ok
+call-ref,0x0066aa30,Watch_Tutorial1_SpeechEvents_WaitMessage5->kasfCameraFocus,ok,,,0066ab64:'CALL 0x00496870' ok
+summary,0x005d6fe0-0x00670a0f,region,done,covered=612691,covered=612687,"of 629296 bytes; functions 14933->14936; tables already=0, byte=4, entries=232, failed=0, found=46, ptr=42, refs_added=9, runs=36, typed=46; repair flow_cleared=0, flow_cleared_at=0[], ft_cleared=0, functions_fixed=38, holes_fixed=44, padding_trimmed=4, undis_after=0, undis_before=56, unresolved=0; repair-post flow_cleared=0, flow_cleared_at=0[], ft_cleared=0, functions_fixed=0, holes_fixed=0, padding_trimmed=0, undis_after=0, undis_before=0, unresolved=0; guard new_functions_by_analysis=3, noreturn_cleared=0, noreturn_new_kept=0, recreate_failed=0, recreated=0, regrow_failed=0, regrow_partial=0, regrown=0, still_gone=0, still_shrunk=0"

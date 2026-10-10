@@ -1,4 +1,6 @@
-# Binary map, rounds 1-3: cataclysm.exe (GOG build 12948)
+# Binary map, rounds 1-4: cataclysm.exe (GOG build 12948)
+
+> **Round 4 (2026-10-09)** is the "Round 4" section at the end. 14,679 functions; 9,049 have real names, covering 79.5% of function bytes (96.7% are not `FUN_*`). The game region is 93.1% real-named with 458 `FUN_*` left (99,908 bytes); all 2,085 mission functions have a name and an applied prototype. The round-5 targets are in R4.6. Where round 4 changed a fact, the Round 4 section is authoritative over the earlier ones.
 
 > **Round 3 (2026-10-09)** is the "Round 3" section at the end. 14,490 functions; 8,235 have real names, covering 73.9% of function bytes. The game region is 83.5% real-named, and mission bodies now cover 97.4% of the mission region. The round-4 targets are in R3.6. Where round 3 changed a fact, the Round 3 section is authoritative over the earlier ones.
 
@@ -1304,3 +1306,426 @@ Ranked by bytes that can be won and by how directly the fix follows from data al
    - `universe.world[]` offset +0x3D9B0 vs CET's +0x3DA30 is still unverified.
    - 2 thread-start functions keep `lpStartAddress_*` names.
    - A Ghidra pass that runs analysis on mission code needs the FixFunctionBodies snapshot guard. The no-return analyzer runs even when switched off (`docs/ghidra-round3-prep.md`).
+
+## Round 4
+
+Generated 2026-10-09 from the re-export `ghidra/exports/cataclysm_gog_r4/`, made after `ghidra/symbols_round4.json` (3,526 symbols) was applied to project `ghidra/projects/cataclysm_gog`. Round 4 ran on branch `r2-apply-coverage` (worktree `.claude/worktrees/r2-apply`), like round 3. It had two Ghidra passes on the same project:
+- **C1** created the 186 deferred round-3 functions, typed the 46 inline switch tables of the mission region, repaired 44 off-cut holes and restored the 4 missing CALL references (export `cataclysm_gog_r4a`; details in `docs/ghidra-round4-prep.md`).
+- **Apply** is this pass.
+
+The numbers come from `tools/binary_map_coverage.py`. Round 4 changed one thing in it: the class-only tier now also matches the titan-libs placeholders `hw1_<File>_<8 hex>` and `cat_new_<8 hex>` (a class, no real name). No export before r4 holds such a name. Re-run with the round-3 command, the script still gives R3.2 exactly (8,235 real-named functions, game region 83.52%, 3,946 HW1 matches in 190 files). Round-4 command:
+
+```
+python3 -I tools/binary_map_coverage.py --export ghidra/exports/cataclysm_gog_r4 \
+  --history "round 1=ghidra/exports/cataclysm_gog_r1" "round 2=ghidra/exports/cataclysm_gog_r2" \
+  --before ghidra/exports/cataclysm_gog_r3 --before-label "round 3" \
+  --mid ghidra/exports/cataclysm_gog_r4a --mid-label "after C1" --label "round 4" --new-tag r4 \
+  --symbols ghidra/symbols_round1.json ghidra/symbols_round2.json ghidra/symbols_round3.json ghidra/symbols_round4.json \
+  --props ghidra/proposals/r2/*.verified.json ghidra/proposals/r3/*.verified.json ghidra/proposals/r4/*.verified.json \
+  --out /tmp/bmap_r4
+```
+
+The prototype rows of R4.2 use the round-3 method: per real-named function, the latest apply-report status over `cataclysm_gog_r1`, `_r2`, `_r3` and `_r4/cet_apply_report.csv`, where a later name-only entry does not erase an earlier prototype. Run against r3 with the r1-r3 reports, this method gives R3.2's 3,208 / 342 / 79 / 2,030 / 2,576 exactly.
+
+### R4.1 What round 4 did
+
+| pass | what | result |
+|---|---|---|
+| C1 deferred functions + mission region (`CreateFunctions.py`, `FinishMissionRegion.py`, `ghidra/create_functions_r4.json`) | create and name the 186 deferred round-3 functions; type the inline switch tables; repair the off-cut code behind the 56 undisassembled bytes; check the 4 missing CALL references; guarded analysis (FixFunctionBodies snapshot guard) | **186 / 186** created and named (25,963 bytes), 3 more functions found by the analysis (all unnamed, outside the mission region). 14,490 -> 14,679 functions. **46 switch tables** typed in the 36 runs (42 `pointer[N]`, 4 `byte[N]`), 9 `COMPUTED_JUMP` references added. **44 off-cut holes** repaired in 38 functions; undisassembled bytes in mission bodies 56 -> 0; missing CALL references 4 -> 0. Mission bodies 612,687 bytes (97.4%) |
+| producers + audits | 5 sets in `ghidra/proposals/r4/`, each written per subsystem: ui-render (popup menu, main view, renderer/video options, mouse UI, sentinel fields, Mimic menu), ai-ships-sim (AI build/defense/attack, ship code, selection filters, Acolyte/ACV/module code), titan-libs (TitanInterface/WON C++ 0x0058b400-0x005a4870, the 54 WON/Magick `FUN_*`, class-only names for library leftovers), prototypes-r4 (no renames: the 77 `__thiscall` fixes, a `void __cdecl NAME(void)` for each of the 2,085 mission functions, degraded and missing hw1 prototypes), quality-recheck (low-confidence names of rounds 2-3, the ShipSelect.c attribution, call-order check of HW1 files) | verified sizes: ui-render 195 (audit precision 1.0), ai-ships-sim 330 (0.933), titan-libs 270 (0.931), prototypes-r4 2,875 (0.933), quality-recheck 0 of 4 (0.25: 3 of its 4 renames were judged wrong; the 4th, 0x00419E80, was judged correct and taken by reconcile) |
+| reconcile (`ghidra/proposals/r4/reconcile_report.md`) | new names and prototypes on top of rounds 1-3 + C1; signatures checked against `objdump` RET immediates and caller stack cleanup | 3,526 symbols: **663 new function names**, **1 rename**, **0 removals**, 0 data names, **2,862 prototype-only entries** (2,785 `__cdecl`, 77 `__fastcall`; 2,085 of them mission functions). 17 cross-set conflicts resolved, 48 titan-libs placeholders superseded by a real name, **54 deferred to round 5** (address not a function entry), 0 dropped, 0 CET anchors touched. New names by confidence: high 171, medium 312, low 180; by class: hw1 173, cat-new 337, lib 89, won 64. 433 new names carry a checked signature, 9 signatures were dropped, 13 prototypes were dropped |
+| **apply** (this pass) | `tools/ghidra_headless.sh --symbols ghidra/symbols_round4.json --export-name cataclysm_gog_r4 --post-script "DropStaleComments.py drop=0x00419e80:aiuGenerateRandomVector" original/game/cataclysm.exe cataclysm_gog` (reuse mode, `-noanalysis`, ImportSymbolsJson phase=all, ExportAnalysis with decompile), detached with `setsid nohup`, log `ghidra/exports/r4_headless.log` | 2026-10-09 18:38, rc=0, wall 58 s, no project-lock retry, 0 `ERROR`/Traceback/lock lines in the log (the 46 decompiler `WARN` lines are the same count as in the r3 and r4a logs). **3,526 of 3,526 symbols applied**, all `function`: 664 `renamed` (663 `FUN_*` + the 1 rename), 2,862 `same-name`. 0 `kept-user-name`, 0 `inside:`, 0 `error`. Prototypes: **3,295 applied, 0 degraded, 0 unparsed**, 231 entries had none. 3,486 of the 3,526 entries export a different signature than in r4a. Decompile: ok 14,590, thunk 86, failed 3 (the same 3 as rounds 1-3), error 0 |
+
+**Apply failures: 0.** Every round-4 name is the primary name at its address in `functions.csv` (checked for all 3,526 entries). The 77 TitanInterface prototypes that failed to parse in round 3 were rewritten by prototypes-r4 as `__fastcall(pThis, edx_unused, ...)` with RET = 4*(n-2) checked, and all 77 applied.
+
+**Removals and the stale comment.** No set upheld a removal, so no reset post-script was needed. The one rename (0x00419E80 `aiuGenerateRandomVector` -> `cat_MoveReachedDestinationRadius`, a 3-argument squared-distance test, not HW1's `vector aiuGenerateRandomVector(void)`) left the old `[CET] aiuGenerateRandomVector ...` line in the plate comment, because ImportSymbolsJson only appends comments. The new post-script `ghidra/scripts/DropStaleComments.py` (args `drop=<addr>:<oldname>,...`) removed that line in the same pass (log: `0x00419e80 PLATE: removed 1 line(s)`). The function now exports as `bool32 cat_MoveReachedDestinationRadius(Ship * ship, vector * destination, real32 radius)`.
+
+Spot checks: `Init_Mission01_Objectives` 0x005d6fe0 exports as `void Init_Mission01_Objectives(void)` (all 2,085 mission functions now carry an applied prototype); `cat_popupMenuBuildSelectionItems` 0x004eb940 (R3.5 #2), `battlePingEvaluate` 0x00424110 (R3.5 #1), `mainRestoreRender` 0x00560ba0 and `mainLoadParticularRGL` 0x00561920 (the `3dfxvgl.dll`/`opengl32.dll` functions), `TitanInterface_HandleChannelList` 0x00598c80 (`TitanFactoryServer`).
+
+### R4.2 Before / after
+
+| measure | round 1 | round 2 | round 3 | after C1 (`r4a`) | round 4 |
+|---|---:|---:|---:|---:|---:|
+| functions in Ghidra | 11,194 | 14,384 | 14,490 | 14,679 | **14,679** |
+| function bytes | 2,194,228 | 2,679,918 | 2,999,412 | 3,026,177 | 3,026,177 |
+| real-named functions | 3,867 | 7,055 | 8,235 | 8,421 | **9,049** |
+| real-named bytes (% of function bytes) | 1,019,110 (46.4%) | 1,599,230 (59.7%) | 2,216,810 (73.9%) | 2,242,769 (74.1%) | **2,407,059 (79.5%)** |
+| not `FUN_*` (real + class-only) functions / % bytes | 8,992 / 70.2% | 12,150 / 78.9% | 13,330 / 91.1% | 13,516 / 91.1% | **14,179 / 96.7%** |
+| unnamed `FUN_*` functions / bytes | 2,202 / 653,625 | 2,234 / 565,795 | 1,160 / 267,709 | 1,163 / 268,515 | **500 / 99,950** |
+| game region 0x401000-0x5c9fff: functions | 5,079 | 6,073 | 6,178 | 6,367 | 6,367 |
+| game region: real-named % of function bytes | 55.3% | 65.7% | 83.5% | 83.7% | **93.1%** |
+| game region: `FUN_*` functions / bytes | 2,160 / 653,583 | 2,081 / 549,585 | 1,064 / 261,804 | 1,067 / 262,610 | **458 / 99,908** |
+| game region: class-only functions | 133 | 130 | 130 | 130 | 155 |
+| mission region 0x5d6fe0-0x670a0f: functions (all real-named) | 0 | 2,085 | 2,085 | 2,085 | 2,085 |
+| mission region: bytes inside a function body | 0 | 320,296 (50.9%) | 612,691 (97.4%) | 612,687 (97.4%) | **612,687 of 629,296 (97.4%)**; the rest is padding and the 46 switch tables C1 typed as data |
+| mission functions with an applied prototype | - | 0 | 0 | 0 | **2,085** |
+| HW1 functions matched (`hw1:*` class + CET) | 2,261 | 3,053 in 180 files | 3,946 in 190 files (verbatim 3,726) | - | **4,245 in 192 files (verbatim 4,022)** |
+| HW1 files with 0 matches (files that define something) | 69 | 42 | 32 | - | 31 |
+| data labels applied by the pipeline | 34 | 1,010 | 1,015 | 1,015 | 1,015 |
+| real-named functions with a prototype from a symbol file (full / degraded / unparsed) | - | 889 / 1,007 / 2 | 3,208 / 342 / 79 | - | **6,503 / 46 / 2** |
+| real-named functions with no prototype in their symbol entry / not in any symbol file | - | 2,686 / 2,471 | 2,030 / 2,576 | - | 1,821 / 677 |
+| R3.5 top-60 still unnamed | - | - | 60 | 60 | **14** |
+| deferred names waiting for a function entry | - | 105 | 186 | 0 | 54 |
+
+Movement from round 3 to round 4: 626 round-3 `FUN_*` became real names and 35 became class-only names (21 `lib_*`, 14 titan-libs placeholders `hw1_<File>_<addr>`/`cat_new_<addr>`). 188 new functions are real-named: C1's 186 and 2 of the 3 functions its analysis found. 1 new function is still `FUN_*`. 1 real name was replaced (0x00419E80). No round-3 function disappeared.
+
+The 2 unparsed prototypes are round-1 entries (`univHideShipFromSpheres` 0x00547c20, `univReallyDeleteThisDerelictRightNow` 0x00549700). "Not in any symbol file" is now mostly C1's 186 functions (named by `create_functions_r4.json`, no prototype) plus CET, FID and import names; the 2,085 mission functions left this bucket.
+
+ShipSelect.c drops from 83 to 58 matches. The 25 functions that left it were `FUN_*` in round 3 whose only class came from an audited round-3 proposal (`hw1:ShipSelect.c`, no name). Round 4 named them as Cataclysm-only selection filters (`cat_selMakeShipsScuttleable` 0x00511ce0, `cat_selMakeShipsNotLinkedACVs`, `cat_selMakeShipsLeechCapable`, ...), class cat-new. That settles R3.6 gap 7's ShipSelect.c question. AIUtilities.c drops by 1 (the rename above).
+
+### R4.3 Per region, section and class
+
+| region | round 3 functions | round 4 functions | real | class-only | `FUN_*` | `FUN_*` bytes | real % of function bytes, round 4 (round 3) |
+|---|---:|---:|---:|---:|---:|---:|---|
+| game C/C++ 0x401000-0x5ca0ff | 6,178 | 6,367 | 5,754 | 155 | 458 | 99,908 | 93.1% (83.5%) |
+| IJG libjpeg 0x5ca100-0x5d6fdf | 102 | 102 | 41 | 61 | 0 | 0 | 23.8% (23.8%) |
+| kas2c mission code 0x5d6fe0-0x670a0f | 2,085 | 2,085 | 2,085 | 0 | 0 | 0 | 100.0% (100.0%) |
+| WSOCK32 thunks + static CRT 0x670a10-0x69412f | 596 | 596 | 257 | 339 | 0 | 0 | 41.1% (41.1%) |
+| WON/Titan + AdApi + Magick 0x694130-0x705c9f | 2,216 | 2,216 | 740 | 1,476 | 0 | 0 | 34.6% (33.3%) |
+| Dinkumware C++ std lib 0x705ca0-0x71cccf | 708 | 708 | 124 | 584 | 0 | 0 | 9.3% (9.3%) |
+| late CRT 0x71ccd0-0x71f62f | 48 | 48 | 28 | 20 | 0 | 0 | 58.3% (58.3%) |
+| text$x EH funclets 0x71f630-0x729fff | 2,343 | 2,343 | 0 | 2,343 | 0 | 0 | 0.0% (0.0%) |
+| .cms_t stub + CRT 0xc55000-0xc68fff | 172 | 172 | 20 | 152 | 0 | 0 | 5.1% (5.1%) |
+
+| section | functions | bytes | real | class-only | `FUN_*` | `FUN_*` bytes |
+|---|---:|---:|---:|---:|---:|---:|
+| .text | 14,465 | 2,989,777 | 9,029 | 4,978 | 458 | 99,908 |
+| .cms_t | 172 | 36,358 | 20 | 152 | 0 | 0 |
+| .data | 42 | 42 | 0 | 0 | 42 | 42 |
+
+Per class (round 3 -> round 4 functions: hw1:* 3,904 -> 4,203, cat-new 3,145 -> 3,479, won 3,290 -> 3,304, lib:msvc-stl 62 -> 86 with 74 now real-named, unnamed `FUN_*` 977 -> 495). The class of a function comes from the latest symbol round, then the audited r2, r3 and r4 sets, then CET. Confidence counts are those of the class source.
+
+| class | functions | bytes | real | class-only | high | medium | low | lowest - highest entry |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| hw1:* (all files) | 4,203 | 1,173,335 | 4,196 | 7 | 2,359 | 1,749 | 95 | 0x00401000 - 0x005c79b0 |
+| cat-new | 3,479 | 973,130 | 3,472 | 7 | 2,434 | 791 | 254 | 0x00405210 - 0x006708a0 |
+| won | 3,304 | 330,301 | 727 | 2,577 | 3,101 | 194 | 9 | 0x00551dc0 - 0x007276f1 |
+| crt | 1,913 | 277,069 | 335 | 1,578 | 1,583 | 330 | 0 | 0x00553420 - 0x00c67ca0 |
+| unknown, lib=magick | 346 | 78,087 | 15 | 331 | 276 | 70 | 0 | 0x006e3de0 - 0x00727bd0 |
+| unknown, lib=ijg | 61 | 19,307 | 0 | 61 | 28 | 33 | 0 | 0x005ca410 - 0x005d6d10 |
+| lib:msvc-stl | 86 | 16,745 | 74 | 11 | 0 | 62 | 24 | 0x0058bf20 - 0x005a4500 |
+| CET (hw1) | 42 | 14,724 | 42 | 0 | 0 | 0 | 0 | 0x00420880 - 0x005a7a70 |
+| unknown, lib=cms | 12 | 7,621 | 0 | 12 | 0 | 12 | 0 | 0x00c55000 - 0x00c60540 |
+| CET (other) | 10 | 6,862 | 10 | 0 | 0 | 0 | 0 | 0x00431510 - 0x005bc900 |
+| lib:libjpeg | 19 | 4,360 | 19 | 0 | 15 | 0 | 4 | 0x005c9cd0 - 0x005cf9d0 |
+| unknown | 32 | 4,252 | 28 | 0 | 23 | 6 | 3 | 0x0043453b - 0x006fe9a0 |
+| lib:imagemagick | 16 | 3,635 | 13 | 3 | 2 | 11 | 3 | 0x006e41c0 - 0x006f1710 |
+| rgl | 3 | 3,586 | 3 | 0 | 1 | 2 | 0 | 0x00559a80 - 0x0055dd30 |
+| bink | 8 | 2,503 | 8 | 0 | 6 | 2 | 0 | 0x00551220 - 0x00551d40 |
+| other named | 650 | 12,723 | 107 | 543 | 0 | 0 | 0 | 0x00425ca0 - 0x00727750 |
+| unnamed FUN_* | 495 | 97,937 | 0 | 0 | 0 | 0 | 0 | 0x00421610 - 0x00892114 |
+
+### R4.4 Per HW1 source file
+
+Same columns as R3.4, with the round-3 count. Totals: 4,245 matched functions in 192 files (verbatim 4,022). These files define about 6,765 functions; HomeworldSDL `src/` has 218 .c/.cpp basenames with about 7,176 definitions.
+
+| HW1 file | path under src/ | round 3 | round 4 | of which CET | defs (approx.) | matched / defs | verbatim | bytes |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| KASFunc.c | Game/KASFunc.c | 293 | 293 | 0 | 313 | 93.6% | 293 | 16,460 |
+| ETG.c | Game/ETG.c | 205 | 205 | 4 | 244 | 84.0% | 205 | 33,365 |
+| MultiplayerGame.c | Game/MultiplayerGame.c | 137 | 175 | 3 | 233 | 75.1% | 174 | 37,576 |
+| AIMoves.c | Game/AIMoves.c | 162 | 162 | 0 | 270 | 60.0% | 162 | 28,181 |
+| TitanInterface.cpp | SDL/TitanInterface.cpp | 112 | 144 | 0 | 165 | 87.3% | 27 | 67,286 |
+| NIS.c | Game/NIS.c | 80 | 139 | 0 | 159 | 87.4% | 138 | 34,289 |
+| Particle.c | Game/Particle.c | 132 | 132 | 0 | 175 | 75.4% | 132 | 28,809 |
+| UnivUpdate.c | Game/UnivUpdate.c | 98 | 98 | 4 | 139 | 70.5% | 97 | 40,315 |
+| CommandLayer.c | Game/CommandLayer.c | 97 | 97 | 0 | 144 | 67.4% | 96 | 46,672 |
+| AIUtilities.c | Game/AIUtilities.c | 84 | 83 | 0 | 113 | 73.5% | 82 | 24,517 |
+| SaveGame.c | Game/SaveGame.c | 83 | 83 | 1 | 180 | 46.1% | 83 | 24,606 |
+| Options.c | Game/Options.c | 53 | 79 | 1 | 154 | 51.3% | 79 | 14,225 |
+| utility.c | SDL/utility.c | 58 | 74 | 0 | 98 | 75.5% | 74 | 18,772 |
+| ShipSelect.c | Game/ShipSelect.c | 83 | 58 | 0 | 68 | 85.3% | 52 | 5,581 |
+| Universe.c | Game/Universe.c | 55 | 56 | 2 | 93 | 60.2% | 55 | 21,115 |
+| CommandNetwork.c | Game/CommandNetwork.c | 53 | 53 | 0 | 68 | 77.9% | 52 | 15,236 |
+| MultiplayerLANGame.c | Game/MultiplayerLANGame.c | 37 | 53 | 0 | 77 | 68.8% | 52 | 12,950 |
+| ConsMgr.c | Game/ConsMgr.c | 48 | 48 | 0 | 87 | 55.2% | 48 | 17,091 |
+| Tutor.c | Game/Tutor.c | 46 | 46 | 0 | 80 | 57.5% | 46 | 12,969 |
+| FlightMan.c | Game/FlightMan.c | 45 | 45 | 0 | 63 | 71.4% | 45 | 13,987 |
+| SinglePlayer.c | Game/SinglePlayer.c | 42 | 45 | 2 | 107 | 42.1% | 45 | 16,323 |
+| texreg.c | SDL/texreg.c | 24 | 44 | 1 | 76 | 57.9% | 42 | 20,096 |
+| AITeam.c | Game/AITeam.c | 42 | 43 | 0 | 80 | 53.8% | 43 | 6,332 |
+| StatScript.c | Game/StatScript.c | 42 | 42 | 4 | 60 | 70.0% | 42 | 9,637 |
+| FEFlow.c | Game/FEFlow.c | 38 | 38 | 1 | 71 | 53.5% | 35 | 11,322 |
+| UIControls.c | Game/UIControls.c | 38 | 38 | 3 | 84 | 45.2% | 38 | 10,059 |
+| ColPick.c | Game/ColPick.c | 35 | 35 | 0 | 46 | 76.1% | 35 | 8,479 |
+| TitanNet.c | Game/TitanNet.c | 35 | 35 | 0 | 39 | 89.7% | 35 | 3,507 |
+| Mesh.c | Game/Mesh.c | 33 | 33 | 0 | 47 | 70.2% | 33 | 20,829 |
+| SoundEvent.c | Game/SoundEvent.c | 32 | 32 | 0 | 51 | 62.7% | 32 | 17,324 |
+| Trails.c | Game/Trails.c | 32 | 32 | 2 | 46 | 69.6% | 32 | 13,427 |
+| Formation.c | Game/Formation.c | 31 | 31 | 0 | 47 | 66.0% | 29 | 16,469 |
+| Region.c | Game/Region.c | 31 | 31 | 0 | 45 | 68.9% | 30 | 5,265 |
+| KAS.c | Game/KAS.c | 30 | 30 | 0 | 44 | 68.2% | 30 | 4,426 |
+| render.c | SDL/render.c | 30 | 30 | 0 | 60 | 50.0% | 25 | 14,960 |
+| ObjTypes.c | Game/ObjTypes.c | 29 | 29 | 1 | 46 | 63.0% | 29 | 1,480 |
+| mainrgn.c | SDL/mainrgn.c | 29 | 29 | 0 | 93 | 31.2% | 29 | 12,675 |
+| CameraCommand.c | Game/CameraCommand.c | 28 | 28 | 0 | 40 | 70.0% | 28 | 7,312 |
+| FEReg.c | Game/FEReg.c | 28 | 28 | 0 | 35 | 80.0% | 28 | 13,275 |
+| Nebulae.c | Game/Nebulae.c | 28 | 28 | 0 | 71 | 39.4% | 28 | 16,132 |
+| glcompat.c | (not in HomeworldSDL) | 28 | 28 | 0 | - | - | 0 | 12,438 |
+| TradeMgr.c | Game/TradeMgr.c | 27 | 27 | 0 | 41 | 65.9% | 27 | 4,720 |
+| main.c | SDL/main.c | 21 | 26 | 1 | 69 | 37.7% | 22 | 12,264 |
+| Clouds.c | Game/Clouds.c | 25 | 25 | 0 | 43 | 58.1% | 25 | 14,255 |
+| soundlow.c | SDL/soundlow.c | 24 | 24 | 0 | 31 | 77.4% | 24 | 4,628 |
+| AIPlayer.c | Game/AIPlayer.c | 23 | 23 | 0 | 34 | 67.6% | 21 | 5,563 |
+| Collision.c | Game/Collision.c | 23 | 23 | 0 | 26 | 88.5% | 23 | 14,582 |
+| CommandWrap.c | Game/CommandWrap.c | 23 | 23 | 5 | 24 | 95.8% | 23 | 3,522 |
+| LevelLoad.c | Game/LevelLoad.c | 23 | 23 | 0 | 47 | 48.9% | 23 | 12,187 |
+| prim2d.c | SDL/prim2d.c | 19 | 23 | 0 | 36 | 63.9% | 22 | 6,511 |
+| AIOrders.c | Game/AIOrders.c | 22 | 22 | 0 | 30 | 73.3% | 22 | 10,994 |
+| Stats.c | Game/Stats.c | 13 | 22 | 0 | 61 | 36.1% | 22 | 4,900 |
+| Subtitle.c | Game/Subtitle.c | 22 | 22 | 0 | 26 | 84.6% | 22 | 5,863 |
+| ResearchAPI.c | Game/ResearchAPI.c | 10 | 21 | 2 | 32 | 65.6% | 21 | 5,282 |
+| font.c | SDL/font.c | 21 | 21 | 0 | 29 | 72.4% | 21 | 5,742 |
+| AIShip.c | Game/AIShip.c | 20 | 20 | 0 | 29 | 69.0% | 19 | 11,038 |
+| Matrix.c | Game/Matrix.c | 19 | 20 | 0 | 25 | 80.0% | 20 | 2,333 |
+| mouse.c | SDL/mouse.c | 20 | 20 | 0 | 29 | 69.0% | 20 | 8,436 |
+| AITrack.c | Game/AITrack.c | 19 | 19 | 0 | 24 | 79.2% | 19 | 6,816 |
+| Battle.c | Game/Battle.c | 9 | 19 | 0 | 26 | 73.1% | 19 | 6,786 |
+| File.c | Game/File.c | 19 | 19 | 0 | 30 | 63.3% | 18 | 6,480 |
+| Sensors.c | Game/Sensors.c | 19 | 19 | 0 | 56 | 33.9% | 19 | 8,273 |
+| SpeechEvent.c | Game/SpeechEvent.c | 19 | 19 | 1 | 33 | 57.6% | 19 | 7,677 |
+| Dock.c | Game/Dock.c | 18 | 18 | 0 | 113 | 15.9% | 18 | 5,139 |
+| GravWellGenerator.c | Ships/GravWellGenerator.c | 18 | 18 | 0 | 21 | 85.7% | 18 | 3,298 |
+| Ping.c | Game/Ping.c | 18 | 18 | 0 | 25 | 72.0% | 17 | 4,208 |
+| ResearchGUI.c | Game/ResearchGUI.c | 18 | 18 | 0 | 47 | 38.3% | 18 | 8,062 |
+| BTG.c | Game/BTG.c | 17 | 17 | 0 | 26 | 65.4% | 17 | 5,565 |
+| HS.c | Game/HS.c | 4 | 17 | 0 | 28 | 60.7% | 17 | 4,805 |
+| NetCheck.c | Game/NetCheck.c | 17 | 17 | 0 | 24 | 70.8% | 17 | 2,398 |
+| ResCollect.c | Game/ResCollect.c | 12 | 17 | 0 | 26 | 65.4% | 17 | 3,987 |
+| Blobs.c | Game/Blobs.c | 16 | 16 | 0 | 31 | 51.6% | 16 | 7,317 |
+| HorseRace.c | Game/HorseRace.c | 16 | 16 | 0 | 29 | 55.2% | 16 | 8,271 |
+| Task.c | Game/Task.c | 16 | 16 | 0 | 16 | 100.0% | 14 | 2,756 |
+| AIEvents.c | Game/AIEvents.c | 15 | 15 | 0 | 32 | 46.9% | 15 | 2,365 |
+| AIHandler.c | Game/AIHandler.c | 15 | 15 | 0 | 25 | 60.0% | 15 | 2,606 |
+| LaunchMgr.c | Game/LaunchMgr.c | 15 | 15 | 0 | 38 | 39.5% | 15 | 4,137 |
+| Memory.c | Game/Memory.c | 14 | 14 | 0 | 35 | 40.0% | 14 | 4,243 |
+| Objectives.c | Game/Objectives.c | 14 | 14 | 0 | 24 | 58.3% | 14 | 2,412 |
+| AIDefenseMan.c | Game/AIDefenseMan.c | 4 | 13 | 0 | 23 | 56.5% | 13 | 4,421 |
+| AIResourceMan.c | Game/AIResourceMan.c | 13 | 13 | 0 | 22 | 59.1% | 13 | 5,578 |
+| AIVar.c | Game/AIVar.c | 3 | 13 | 0 | 18 | 72.2% | 13 | 1,374 |
+| GenericInterceptor.c | Ships/GenericInterceptor.c | 13 | 13 | 0 | 17 | 76.5% | 13 | 6,153 |
+| LinkedList.c | Game/LinkedList.c | 13 | 13 | 0 | 19 | 68.4% | 13 | 1,351 |
+| MeshAnim.c | Game/MeshAnim.c | 13 | 13 | 0 | 21 | 61.9% | 13 | 2,582 |
+| MinelayerCorvette.c | Ships/MinelayerCorvette.c | 13 | 13 | 0 | 14 | 92.9% | 13 | 4,139 |
+| PiePlate.c | Game/PiePlate.c | 13 | 13 | 0 | 20 | 65.0% | 13 | 6,755 |
+| ScenPick.c | Game/ScenPick.c | 11 | 13 | 0 | 20 | 65.0% | 13 | 4,326 |
+| Select.c | Game/Select.c | 13 | 13 | 0 | 39 | 33.3% | 13 | 8,328 |
+| sstream.c | SDL/sstream.c | 13 | 13 | 0 | 17 | 76.5% | 13 | 3,294 |
+| AIAttackMan.c | Game/AIAttackMan.c | 4 | 12 | 0 | 23 | 52.2% | 12 | 5,810 |
+| ChannelFSM.c | Game/ChannelFSM.c | 12 | 12 | 0 | 16 | 75.0% | 12 | 868 |
+| GameChat.c | Game/GameChat.c | 11 | 12 | 0 | 18 | 66.7% | 12 | 3,760 |
+| Key.c | Game/Key.c | 12 | 12 | 0 | 17 | 70.6% | 12 | 920 |
+| Timer.c | Game/Timer.c | 12 | 12 | 0 | 17 | 70.6% | 12 | 2,071 |
+| Vector.c | Game/Vector.c | 12 | 12 | 0 | 15 | 80.0% | 12 | 1,056 |
+| AIFleetMan.c | Game/AIFleetMan.c | 7 | 11 | 0 | 21 | 52.4% | 11 | 5,934 |
+| AutoDownloadMap.c | Game/AutoDownloadMap.c | 11 | 11 | 0 | 19 | 57.9% | 11 | 2,109 |
+| GamePick.c | Game/GamePick.c | 11 | 11 | 0 | 31 | 35.5% | 11 | 2,383 |
+| prim3d.c | SDL/prim3d.c | 11 | 11 | 0 | 18 | 61.1% | 11 | 3,328 |
+| Captaincy.c | Game/Captaincy.c | 10 | 10 | 0 | 30 | 33.3% | 10 | 3,364 |
+| DefenseFighter.c | Ships/DefenseFighter.c | 10 | 10 | 0 | 19 | 52.6% | 10 | 792 |
+| Light.c | Game/Light.c | 10 | 10 | 0 | 15 | 66.7% | 10 | 1,957 |
+| Shader.c | Game/Shader.c | 10 | 10 | 0 | 32 | 31.2% | 10 | 3,325 |
+| mixfft.c | SDL/mixfft.c | 0 | 10 | 0 | 11 | 90.9% | 10 | 4,916 |
+| RepairCorvette.c | Ships/RepairCorvette.c | 9 | 9 | 0 | 15 | 60.0% | 9 | 1,943 |
+| BigFile.c | Game/BigFile.c | 8 | 8 | 0 | 35 | 22.9% | 5 | 3,088 |
+| Camera.c | Game/Camera.c | 8 | 8 | 0 | 17 | 47.1% | 8 | 2,456 |
+| Carrier.c | Ships/Carrier.c | 8 | 8 | 0 | 10 | 80.0% | 8 | 902 |
+| Crates.c | Game/Crates.c | 8 | 8 | 0 | 14 | 57.1% | 8 | 5,155 |
+| Demo.c | Game/Demo.c | 8 | 8 | 0 | 10 | 80.0% | 8 | 1,625 |
+| Mothership.c | Ships/Mothership.c | 8 | 8 | 0 | 18 | 44.4% | 8 | 1,672 |
+| PlugScreen.c | Game/PlugScreen.c | 7 | 8 | 0 | 17 | 47.1% | 8 | 3,285 |
+| Queue.c | SDL/Queue.c | 8 | 8 | 0 | 8 | 100.0% | 8 | 446 |
+| SalCapCorvette.c | Ships/SalCapCorvette.c | 8 | 8 | 0 | 46 | 17.4% | 8 | 227 |
+| debugwnd.c | SDL/debugwnd.c | 6 | 8 | 0 | 16 | 50.0% | 8 | 2,730 |
+| glcaps.c | (not in HomeworldSDL) | 8 | 8 | 0 | - | - | 0 | 1,472 |
+| smixer.c | SDL/smixer.c | 8 | 8 | 0 | 9 | 88.9% | 5 | 3,779 |
+| Clipper.c | Game/Clipper.c | 7 | 7 | 0 | 10 | 70.0% | 7 | 4,805 |
+| Color.c | Game/Color.c | 7 | 7 | 0 | 11 | 63.6% | 7 | 2,270 |
+| Gun.c | Game/Gun.c | 7 | 7 | 0 | 20 | 35.0% | 7 | 6,624 |
+| Physics.c | Game/Physics.c | 7 | 7 | 0 | 8 | 87.5% | 7 | 5,646 |
+| Alliance.c | Game/Alliance.c | 3 | 6 | 1 | 10 | 60.0% | 6 | 1,715 |
+| Damage.c | Game/Damage.c | 6 | 6 | 0 | 15 | 40.0% | 6 | 1,883 |
+| Eval.c | Game/Eval.c | 6 | 6 | 0 | 19 | 31.6% | 6 | 3,298 |
+| FontReg.c | Game/FontReg.c | 6 | 6 | 0 | 6 | 100.0% | 6 | 935 |
+| HeavyCorvette.c | Ships/HeavyCorvette.c | 6 | 6 | 0 | 12 | 50.0% | 6 | 1,232 |
+| Randy.c | Game/Randy.c | 6 | 6 | 1 | 12 | 50.0% | 6 | 578 |
+| Scroller.c | Game/Scroller.c | 6 | 6 | 0 | 7 | 85.7% | 6 | 530 |
+| Tactical.c | Game/Tactical.c | 6 | 6 | 0 | 7 | 85.7% | 6 | 2,229 |
+| TaskBar.c | Game/TaskBar.c | 6 | 6 | 0 | 49 | 12.2% | 6 | 1,349 |
+| fqeffect.c | SDL/fqeffect.c | 6 | 6 | 1 | 20 | 30.0% | 6 | 557 |
+| Attack.c | Game/Attack.c | 5 | 5 | 0 | 7 | 71.4% | 5 | 2,425 |
+| MissileDestroyer.c | Ships/MissileDestroyer.c | 5 | 5 | 0 | 6 | 83.3% | 5 | 951 |
+| P1MissileCorvette.c | Ships/P1MissileCorvette.c | 5 | 5 | 0 | 6 | 83.3% | 5 | 497 |
+| Tactics.c | Game/Tactics.c | 5 | 5 | 0 | 37 | 13.5% | 5 | 385 |
+| ddraw.cpp | (not in HomeworldSDL) | 5 | 5 | 0 | - | - | 0 | 660 |
+| rinit.cpp | (not in HomeworldSDL) | 5 | 5 | 0 | - | - | 0 | 2,058 |
+| AutoLOD.c | Game/AutoLOD.c | 4 | 4 | 0 | 15 | 26.7% | 4 | 195 |
+| B-Spline.c | Game/B-Spline.c | 4 | 4 | 0 | 8 | 50.0% | 4 | 1,025 |
+| BitIO.c | ThirdParty/LZSS/BitIO.c | 4 | 4 | 0 | 13 | 30.8% | 2 | 226 |
+| DefaultShip.c | Ships/DefaultShip.c | 4 | 4 | 0 | 6 | 66.7% | 4 | 399 |
+| KeyBindings.c | Game/KeyBindings.c | 3 | 4 | 0 | 14 | 28.6% | 4 | 573 |
+| LOD.c | Game/LOD.c | 4 | 4 | 1 | 11 | 36.4% | 4 | 1,146 |
+| LagPrint.c | Game/LagPrint.c | 4 | 4 | 0 | 4 | 100.0% | 4 | 263 |
+| Md52.cpp | (not in HomeworldSDL) | 0 | 4 | 0 | - | - | 0 | 2,568 |
+| ProximitySensor.c | Ships/ProximitySensor.c | 4 | 4 | 0 | 13 | 30.8% | 4 | 816 |
+| ShipView.c | Game/ShipView.c | 4 | 4 | 0 | 15 | 26.7% | 4 | 2,421 |
+| StringSupport.c | Game/StringSupport.c | 4 | 4 | 0 | 6 | 66.7% | 4 | 778 |
+| Teams.c | Game/Teams.c | 4 | 4 | 0 | 8 | 50.0% | 4 | 420 |
+| TimeoutTimer.c | SDL/TimeoutTimer.c | 4 | 4 | 0 | 8 | 50.0% | 4 | 233 |
+| Titan.c | SDL/Titan.c | 4 | 4 | 0 | 3 | 133.3% | 2 | 327 |
+| Volume.c | Game/Volume.c | 4 | 4 | 0 | 4 | 100.0% | 4 | 1,130 |
+| Animatic.c | Game/Animatic.c | 3 | 3 | 0 | 17 | 17.6% | 3 | 725 |
+| Chatting.c | Game/Chatting.c | 3 | 3 | 0 | 3 | 100.0% | 3 | 306 |
+| Clamp.c | Game/Clamp.c | 3 | 3 | 0 | 3 | 100.0% | 3 | 898 |
+| DFGFrigate.c | Ships/DFGFrigate.c | 3 | 3 | 0 | 3 | 100.0% | 3 | 998 |
+| GenericDefender.c | Ships/GenericDefender.c | 3 | 3 | 0 | 4 | 75.0% | 3 | 1,730 |
+| P1IonArrayFrigate.c | Ships/P1IonArrayFrigate.c | 3 | 3 | 0 | 3 | 100.0% | 3 | 267 |
+| P1StandardCorvette.c | Ships/P1StandardCorvette.c | 3 | 3 | 0 | 4 | 75.0% | 3 | 380 |
+| Tweak.c | Game/Tweak.c | 3 | 3 | 0 | 3 | 100.0% | 3 | 205 |
+| fqcodec.c | SDL/fqcodec.c | 3 | 3 | 0 | 5 | 60.0% | 3 | 1,372 |
+| fquant.c | SDL/fquant.c | 3 | 3 | 0 | 4 | 75.0% | 3 | 1,270 |
+| rglu.c | SDL/rglu.c | 3 | 3 | 0 | 10 | 30.0% | 3 | 976 |
+| AdvanceSupportFrigate.c | Ships/AdvanceSupportFrigate.c | 2 | 2 | 0 | 4 | 50.0% | 2 | 141 |
+| BMP.c | Game/BMP.c | 2 | 2 | 0 | 2 | 100.0% | 2 | 227 |
+| CRC32.c | ThirdParty/CRC/CRC32.c | 2 | 2 | 0 | 2 | 100.0% | 2 | 104 |
+| Debug.c | Game/Debug.c | 2 | 2 | 0 | 9 | 22.2% | 2 | 183 |
+| Globals.c | Game/Globals.c | 2 | 2 | 0 | 2 | 100.0% | 1 | 334 |
+| InfoOverlay.c | Game/InfoOverlay.c | 2 | 2 | 0 | 10 | 20.0% | 2 | 651 |
+| MEX.c | Game/MEX.c | 2 | 2 | 0 | 17 | 11.8% | 2 | 496 |
+| MadLinkIn.c | Game/MadLinkIn.c | 2 | 2 | 0 | 16 | 12.5% | 2 | 820 |
+| MultiGunCorvette.c | Ships/MultiGunCorvette.c | 2 | 2 | 0 | 4 | 50.0% | 2 | 103 |
+| NavLights.c | Game/NavLights.c | 2 | 2 | 0 | 4 | 50.0% | 2 | 634 |
+| P1Mothership.c | Ships/P1Mothership.c | 2 | 2 | 0 | 3 | 66.7% | 2 | 101 |
+| ResourceCollector.c | Ships/ResourceCollector.c | 2 | 2 | 0 | 4 | 50.0% | 2 | 85 |
+| SoundEventPlay.c | Game/SoundEventPlay.c | 2 | 2 | 0 | 4 | 50.0% | 2 | 3,054 |
+| SoundEventStop.c | Game/SoundEventStop.c | 2 | 2 | 0 | 2 | 100.0% | 2 | 136 |
+| Transformer.c | Game/Transformer.c | 2 | 2 | 0 | 1 | 200.0% | 0 | 374 |
+| Twiddle.c | Game/Twiddle.c | 2 | 2 | 0 | 4 | 50.0% | 2 | 55 |
+| Undo.c | Game/Undo.c | 2 | 2 | 0 | 4 | 50.0% | 2 | 62 |
+| fastmath.c | (not in HomeworldSDL) | 2 | 2 | 0 | - | - | 0 | 227 |
+| rinit.c | SDL/rinit.c | 2 | 2 | 2 | 14 | 14.3% | 2 | 653 |
+| Bounties.c | Game/Bounties.c | 1 | 1 | 0 | 6 | 16.7% | 1 | 190 |
+| FloatingCity.c | Ships/FloatingCity.c | 1 | 1 | 0 | 3 | 33.3% | 1 | 51 |
+| HeavyCruiser.c | Ships/HeavyCruiser.c | 1 | 1 | 0 | 3 | 33.3% | 1 | 115 |
+| IonCannonFrigate.c | Ships/IonCannonFrigate.c | 1 | 1 | 0 | 3 | 33.3% | 1 | 99 |
+| P2Swarmer.c | Ships/P2Swarmer.c | 1 | 1 | 0 | 4 | 25.0% | 0 | 41 |
+| StandardDestroyer.c | Ships/StandardDestroyer.c | 1 | 1 | 0 | 3 | 33.3% | 1 | 121 |
+| StandardFrigate.c | Ships/StandardFrigate.c | 1 | 1 | 0 | 3 | 33.3% | 1 | 68 |
+| Star3d.c | Game/Star3d.c | 1 | 1 | 0 | 3 | 33.3% | 1 | 86 |
+| screenshot.c | SDL/screenshot.c | 1 | 1 | 0 | 3 | 33.3% | 0 | 710 |
+
+**HW1 files with 0 matches** (31 files that define at least one function; defs approx., most first):
+
+SDL/utility_mac.c (98), SDL/TitanInterfaceC.c (43), SDL/TitanInterfaceC.stub.c (36), Game/File_Mac.c (30), SDL/ClientCDKey.cpp (25), SDL/avi.c (18), Ships/CloakGenerator.c (17), Ships/DDDFrigate.c (17), SDL/NetworkInterface.c (15), Ships/ResearchShip.c (15), SDL/wave.c (14), Game/ProfileTimers.c (12), Game/StubTransform.c (9), Game/Hash.c (6), Game/Types.c (6), Ships/P2MultiBeamFrigate.c (6), Game/Tracking.c (4), Ships/LightCorvette.c (4), Ships/P2AdvanceSwarmer.c (4), Ships/Probe.c (4), Ships/SensorArray.c (4), SDL/TitanPacketMsg.cpp (3), Ships/P2FuelPod.c (3), Ships/P2Mothership.c (3), Ships/P3StandardShip.c (3), ThirdParty/LZSS/LZSS.c (3), SDL/dct.c (2), SDL/win32glue.c (2), Ships/Drone.c (2), Ships/ResourceController.c (2), Game/Matrix-mult.c (1)
+
+Largest gains: NIS.c 80 -> 139, MultiplayerGame.c 137 -> 175, TitanInterface.cpp 112 -> 144, Options.c 53 -> 79, texreg.c 24 -> 44, utility.c 58 -> 74, MultiplayerLANGame.c 37 -> 53, HS.c 4 -> 17, ResearchAPI.c 10 -> 21, mixfft.c 0 -> 10, Battle.c 9 -> 19, AIVar.c 3 -> 13, Stats.c 13 -> 22, AIDefenseMan.c 4 -> 13, AIAttackMan.c 4 -> 12. Files new in round 4: SDL/mixfft.c and Md52.cpp. Most of the NIS.c, MultiplayerGame.c, Options.c, MultiplayerLANGame.c and utility.c gains are C1's 186 deferred round-3 names.
+
+### R4.5 Next-round targets: the 60 largest unnamed functions
+
+Same method as R3.5. `in round 3` = `yes` when the function was already unnamed in round 3 (all 60 were). 46 of R3.5's 60 are now named, among them `battlePingEvaluate` 0x00424110, `cat_popupMenuBuildSelectionItems` 0x004eb940, `Transform2` 0x0056b890, `aifBuildRequestedShips` 0x004045b0, `cat_ioClick` 0x004ab840, `cat_gameStatsDraw` 0x004896b0, `twiddleTransf` 0x0056cc70, `TitanInterface_HandleChannelList` 0x00598c80, `mainRestoreRender` 0x00560ba0, `rmResearchTechForShip` 0x004f3380, `allianceSetAlliance` 0x00420a20 and `aidMothershipDefense` 0x00403130.
+
+| # | address | size | calls in | strings | named callers | named callees | in round 3 |
+|---:|---|---:|---:|---|---|---|---|
+| 1 | 0x004c3490 | 1,687 | 1 | `atrox `; `Matrox` | cat_mgAdBannerDraw | __ftol, _free, _malloc | yes |
+| 2 | 0x0052ba90 | 1,354 | 2 | - | gameStart, levelPreInit | colRGBToHSV | yes |
+| 3 | 0x00534300 | 1,128 | 4 | - | cmClose, lmCloseIfOpen, lmLaunchCapableShipDied | regChildAlloc, regDrawFunctionSet, regRegionDelete | yes |
+| 4 | 0x00480650 | 1,080 | 1 | - | - | __ftol, vecNormalize | yes |
+| 5 | 0x0047fd80 | 1,054 | 1 | - | - | listAddNode, listRemoveNode | yes |
+| 6 | 0x00488e70 | 1,029 | 1 | - | cat_gameStatsBegin | fontHeight, fontMakeCurrent, fontWidth | yes |
+| 7 | 0x0049b1b0 | 951 | 1 | - | keyInit | - | yes |
+| 8 | 0x004b7880 | 925 | 1 | `Rct0`; `Col0` | precalcStaticHeader | - | yes |
+| 9 | 0x00542cb0 | 893 | 1 | - | univUpdateAllPosVelBullets | fsqrt, vecNormalize | yes |
+| 10 | 0x004802d0 | 882 | 1 | - | fowRender | colBlend | yes |
+| 11 | 0x00507bc0 | 845 | 3 | - | - | allianceIsShipAlly, cat_acvEMPChargeFraction, cat_beastWeaponChargeFraction | yes |
+| 12 | 0x0049bf30 | 799 | 1 | - | - | - | yes |
+| 13 | 0x00576010 | 797 | 4 | - | cat_dreadnoughtChargeEffect, cat_nomadMoonBeamEffect | fsqrt, ranRandomFn, vecNormalize | yes |
+| 14 | 0x005750c0 | 781 | 1 | - | rndMainViewRenderFunction | hmatMakeHMatFromMat, rgluLookAt, rgluPerspective | yes |
+| 15 | 0x0048a2f0 | 741 | 3 | - | gunShootGunsAtMultipleTargets, gunShootGunsAtTarget | getShipAndItsCommand, ranRandomFn, soundEventBurstStop | yes |
+| 16 | 0x004e7240 | 731 | 0 | - | - | primCircleOutlineZ, primLine3, rndTextureEnable | yes |
+| 17 | 0x00508900 | 725 | 1 | - | cat_mrSelectRectDraw | primRectOutline2, univSpaceObjInRenderList | yes |
+| 18 | 0x0047f850 | 676 | 3 | - | cat_saveLoadPlayerFOW, fowClear, fowCreate | fowCellMarkDirty, listInit, memAllocFunction | yes |
+| 19 | 0x00571611 | 671 | 0 | - | - | - | yes |
+| 20 | 0x0050dfe0 | 664 | 5 | - | cat_meshObjectRenderLitImmediate, cat_meshObjectRenderLitTransformed, cat_meshObjectRenderWarped | - | yes |
+| 21 | 0x004605b0 | 663 | 1 | - | - | etgEffectCreate, etgFrequencyExceeded, matCreateCoordSysFromHeading | yes |
+| 22 | 0x00460850 | 662 | 1 | - | cat_univShipDeferredUpdate | cat_timerExpired, matMultiplyVecByMat | yes |
+| 23 | 0x005298e0 | 646 | 1 | - | - | MakeShipsOnlyFollowConstraints, cat_selMakeShipsSameOwnerAsFirst, cat_selSelectionAddShip | yes |
+| 24 | 0x00532df0 | 643 | 1 | `Tut_NextLesson_Off`; `Tut_NextLesson_On` | kasfTutShowImages | regChildAlloc, regDrawFunctionSet, regRegionDelete | yes |
+| 25 | 0x00528190 | 634 | 1 | `AsteroidBreakInfo`; `NUMBER_OF_ASTEROID_PIECES` | universeStaticInit | _sscanf, fileClose, fileLineRead | yes |
+| 26 | 0x004271d0 | 628 | 1 | - | bobListUpdate | allianceIsShipAlly, battleChatterFleetAttempt, smStrchr | yes |
+| 27 | 0x0042ca10 | 624 | 1 | - | cat_mcRender | cat_hmatMultiplyHMatByVec, hmatMultiplyHMatByHMat | yes |
+| 28 | 0x004a3a10 | 616 | 2 | `; MissionMan` | gameStart, tutInitTutorial | _strncmp, cat_fowCreatePlayerGrids, ccFocusOnFleet | yes |
+| 29 | 0x0050d560 | 601 | 1 | - | - | - | yes |
+| 30 | 0x005086a0 | 595 | 0 | - | - | cat_moAltPrintOptionsActive, cat_rmTechSetHas, fontCurrentGet | yes |
+| 31 | 0x00508be0 | 591 | 17 | - | aiaSendRecon, aimProcessControlResources, aimProcessFlankAttack | cat_mimicGetSelectRadius | yes |
+| 32 | 0x0049b590 | 585 | 4 | - | cat_kbBindingToString, cat_kbCheckBindingConflict, cat_kbCommandKeyString | _sprintf | yes |
+| 33 | 0x0043a6b0 | 583 | 3 | - | cat_meshObjectLineIntersect, collCheckMissileShipColl | vecNormalize | yes |
+| 34 | 0x00523d00 | 583 | 1 | - | star3dInit | matMakeRotAboutX, matMakeRotAboutY, matMakeRotAboutZ | yes |
+| 35 | 0x0050d7c0 | 572 | 2 | - | shSpecularColour | - | yes |
+| 36 | 0x00489470 | 567 | 2 | - | cat_gameStatsDraw, cat_moObjectivesFrameDraw | cat_overlayIconDraw, fontHeight, fontMakeCurrent | yes |
+| 37 | 0x0054e410 | 565 | 1 | - | kbListWindowCB | cat_kbCommandsForKey | yes |
+| 38 | 0x00529cb0 | 553 | 1 | - | - | MakeShipsAttackCapable, MakeShipsOnlyFollowConstraints, cat_selMakeShipsSameOwnerAsFirst | yes |
+| 39 | 0x00569030 | 550 | 1 | - | toAllShipsDraw | fsqrt, hmatMakeHMatFromMat, primCircleOutline3 | yes |
+| 40 | 0x0043a110 | 549 | 1 | - | - | - | yes |
+| 41 | 0x00572010 | 531 | 1 | - | cat_smSensorRangeBlobsDraw | - | yes |
+| 42 | 0x005732f0 | 528 | 3 | - | - | EXTERNAL:ADVAPI32.DLL::RegCreateKeyExA, EXTERNAL:ADVAPI32.DLL::RegOpenKeyExA, _memmove | yes |
+| 43 | 0x004a03e0 | 515 | 3 | - | cat_scriptSetMeteorStormCB, scriptSetResourcesCB, univCheckRegrowResources | AddResourceToVolumeAtPosition, matMakeRotAboutY, matMakeRotAboutZ | yes |
+| 44 | 0x00575c90 | 514 | 2 | - | svShipViewRender, univBulletCollidedWithTarget | - | yes |
+| 45 | 0x0052b890 | 510 | 1 | - | - | colHLSToRGB, colRGBToHLS | yes |
+| 46 | 0x004361c0 | 496 | 1 | - | CloakedFighterHouseKeep | ranRandomFn, shipHasJustCloaked, soundEventPlay | yes |
+| 47 | 0x005556e0 | 496 | 1 | - | fqDecOver | __chkstk, fft | yes |
+| 48 | 0x00488c80 | 494 | 1 | - | cat_gameStatsBegin | __ftol, cat_rmTechSetHas | yes |
+| 49 | 0x0043df90 | 490 | 2 | - | cpBaseColor, cpHueSaturationDraw | colHSVToRGB, memAllocFunction, memFree | yes |
+| 50 | 0x0048cd40 | 487 | 3 | `Hobbes call Mike upgraded weapon does no` | GenericInterceptorCanFire, gunShootGunsAtMultipleTargets, gunShootGunsAtTarget | aishipGetTrajectoryWithVelPrediction, fsqrt, matMultiplyMatByVec | yes |
+| 51 | 0x005a1140 | 483 | 5 | - | TitanInterface_HandleRoutingRegister, TitanInterface_RequestCreateGame, TitanInterface_RequestDeleteGame | operator_delete, operator_new | yes |
+| 52 | 0x00507740 | 480 | 1 | - | - | cat_acolyteCanLink, cat_acolyteCanLinkFire, fontMakeCurrent | yes |
+| 53 | 0x0044f290 | 471 | 1 | - | cat_clWrapSpecialTarget | HWEnqueue, LockQueue, UnLockQueue | yes |
+| 54 | 0x0044f490 | 471 | 1 | - | cat_clWrapSpecialTarget | HWEnqueue, LockQueue, UnLockQueue | yes |
+| 55 | 0x005c8e30 | 471 | 0 | - | - | etgEffectCreate, etgFrequencyExceeded, fsqrt | yes |
+| 56 | 0x00507f10 | 470 | 0 | `333?` | - | cat_salvageGetSalvagerInfo | yes |
+| 57 | 0x0043e4c0 | 458 | 3 | - | cpBaseColor, cpPreviewImageDraw, cpPreviousColor | cpScalarFromCurveGet, trBufferColorRGB, trPalettedTextureCreate | yes |
+| 58 | 0x00570300 | 456 | 1 | - | cat_cmSUBarDraw | rndTextureEnable | yes |
+| 59 | 0x00449790 | 450 | 2 | - | mrHarvestResources, rescollectFindNearestResource | ChangeSingleShipToCollectResource, FindNearestShipToDockAt, FreeLastOrder | yes |
+| 60 | 0x005080f0 | 449 | 0 | `333?` | - | cat_salvageGetSalvagerInfo | yes |
+
+Remaining `FUN_*` by 64 KB band (count / bytes): 0x0042xxxx 15/3,086, 0x0043xxxx 20/5,467, 0x0044xxxx 12/2,719, 0x0045xxxx 15/3,458, 0x0046xxxx 15/3,088, 0x0047xxxx 6/2,385, 0x0048xxxx 21/8,138, 0x0049xxxx 24/4,718, 0x004axxxx 33/6,227, 0x004bxxxx 10/2,784, 0x004cxxxx 1/1,687, 0x004exxxx 10/1,373, 0x004fxxxx 6/989, 0x0050xxxx 48/12,161, 0x0051xxxx 2/319, 0x0052xxxx 44/9,451, 0x0053xxxx 36/7,733, 0x0054xxxx 22/4,236, 0x0055xxxx 38/5,599, 0x0056xxxx 8/1,179, 0x0057xxxx 37/8,782, 0x0058xxxx 7/567, 0x0059xxxx 1/182, 0x005axxxx 4/549, 0x005bxxxx 15/1,560, 0x005cxxxx 8/1,471, 0x0089xxxx 42/42.
+
+### R4.6 Ranked gaps for round 5
+
+Ranked by bytes that can be won and by how directly the fix follows from data already on disk. Cluster attributions rest on the callers, callees and strings in R4.5; the ones marked "guess" rest on nothing else.
+
+1. **The game region still holds 458 `FUN_*` (99,908 bytes).** 58 have no direct caller, and 68 are 32 bytes or smaller. Two bands were not touched by round 4 at all: 0x0050xxxx (48 functions / 12,161 bytes) and 0x0053xxxx (36 / 7,733), both identical to round 3. Others: 0x0052xxxx 44 / 9,451, 0x0057xxxx 37 / 8,782, 0x0048xxxx 21 / 8,138, 0x004axxxx 33 / 6,227, 0x0055xxxx 38 / 5,599, 0x0043xxxx 20 / 5,467 (unchanged). By cluster, from R4.5:
+   - **Selection / mouse UI and Cataclysm special ships, 0x00507xxx-0x00508xxx:** 0x00508be0 (17 callers, among them `aiaSendRecon`, `aimProcessControlResources`; callee `cat_mimicGetSelectRadius`), 0x00508900 (caller `cat_mrSelectRectDraw`), 0x005086a0, 0x00507bc0 (callees `cat_acvEMPChargeFraction`, `cat_beastWeaponChargeFraction`, `cat_bigGunChargeFraction`), 0x00507740 (`cat_acolyteCanLink*`), 0x00507f10 and 0x005080f0 (`cat_salvageGetSalvagerInfo`); 0x005298e0 and 0x00529cb0 (`MakeShipsOnlyFollowConstraints`, `cat_selMakeShipsSameOwnerAsFirst`).
+   - **Fog of war, 0x0047f-0x00480:** 0x00480650, 0x0047fd80, 0x004802d0 (caller `fowRender`), 0x0047f850 (callers `fowClear`, `fowCreate`, `cat_saveLoadPlayerFOW`).
+   - **Region-based screens:** 0x00534300 (callers `cmClose`, `lmCloseIfOpen`, `lmLaunchCapableShipDied`), 0x00532df0 (`Tut_NextLesson_On/Off`, caller `kasfTutShowImages`); game stats 0x00488e70, 0x00488c80 (caller `cat_gameStatsBegin`), 0x00489470; key bindings 0x0049b1b0 (caller `keyInit`), 0x0049b590, 0x0054e410 (`kbListWindowCB`).
+   - **Rendering:** 0x005750c0 (`rgluLookAt`/`rgluPerspective`, caller `rndMainViewRenderFunction`), 0x00576010 (callers `cat_dreadnoughtChargeEffect`, `cat_nomadMoonBeamEffect`), 0x0050dfe0 (5 `cat_meshObjectRender*` callers), 0x0050d7c0 (`shSpecularColour`), 0x0050d560, 0x00575c90, 0x00572010, 0x00569030, 0x00570300, 0x004e7240 (no caller).
+   - **Colour:** 0x0052ba90 (callers `gameStart`, `levelPreInit`; `colRGBToHSV`), 0x0052b890 (`colHLSToRGB`), colour picker 0x0043df90 and 0x0043e4c0 (`cp*` callers).
+   - **Combat and ship code:** 0x0048a2f0 and 0x0048cd40 (`gunShootGunsAt*` callers; string `Hobbes call Mike upgraded weapon...`), 0x00542cb0 (caller `univUpdateAllPosVelBullets`), 0x0043a6b0 (collision), 0x004361c0 (`CloakedFighterHouseKeep`), 0x00460850 (`cat_univShipDeferredUpdate`), 0x004605b0 and 0x005c8e30 (ETG effects), 0x0044f290 and 0x0044f490 (`cat_clWrapSpecialTarget`, command queue), 0x00449790 (resource collecting).
+   - **Load / init:** 0x004c3490 (`Matrox`, caller `cat_mgAdBannerDraw`, 1,687 bytes, the largest left), 0x004b7880 (`Rct0`/`Col0`, `precalcStaticHeader`), 0x00528190 (`AsteroidBreakInfo`), 0x00523d00 (`star3dInit`), 0x004a3a10 (`; MissionMan`, callers `gameStart`, `tutInitTutorial`), 0x005732f0 (registry), 0x005556e0 (`fft`, caller `fqDecOver`: likely the rest of mixfft.c, guess).
+2. **54 deferred round-4 names** (`ghidra/proposals/r4/reconcile_deferred_functions.json`): audited names whose address is code but not a function entry. Options.c 10, UIControls.c 9, AIHandler.c 5, AIPlayer.c 5, cat-new 4, SaveGame.c 3, Stats.c 3, and 15 others (e.g. `aiaPriorityShipsConstraints` 0x004011d0, a constraints callback passed as a code label; `aihHarassFiringSingleShipHandler` 0x00405f70, entry 1 of the AI handler table 0x74a3a4). Fix: the C1 mechanism (CreateFunctions.py as a post-script with `analyze=0`, analysis inside the FixFunctionBodies snapshot guard), then apply the names.
+3. **Prototypes.** 1,821 real-named functions have a symbol entry without a prototype, among them 196 of round 4's new names (231 round-4 entries had no signature; 35 of those are class-only names). 677 real-named functions are in no symbol file; 186 of them are C1's functions, and 107 of those have an audited signature in round 3's `ghidra/proposals/r3/reconcile_deferred_functions.json` that can be applied as prototype-only entries after the round-3 binary check. 46 prototypes are still applied degraded; 2 round-1 prototypes do not parse.
+4. **Low-confidence names.** Round 4 added 180 low names (of 663), on top of round 3's 51 and round 2's 85. quality-recheck re-checked 120 round-2/3 low names and proposed only 4 changes, 3 of which the audit rejected, so most low names held up; the round-4 lows (136 of the 180 are `cat_*`; by band 0x0051xxxx 35, 0x005cxxxx 30, 0x005axxxx 27, 0x005bxxxx 24, e.g. the Acolyte/ACV/module and sentinel-field families) have not been re-sampled.
+5. **HW1 files with large gaps** (defs approx. / matched):
+   - AIMoves.c 270/162
+   - SaveGame.c 180/83
+   - Dock.c 113/18
+   - Options.c 154/79 (10 deferred)
+   - mainrgn.c 93/29
+   - SinglePlayer.c 107/45
+   - MultiplayerGame.c 233/175
+   - CommandLayer.c 144/97
+   - UIControls.c 84/38 (9 deferred)
+   - main.c 69/26
+   - TaskBar.c 49/6
+   - Nebulae.c 71/28
+   - Stats.c 61/22
+   - SalCapCorvette.c 46/8
+   - Sensors.c 56/19
+
+   Game and ship files with 0 matches are the same as in R3.6 (mixfft.c left the list): mostly HW1 race ships that Cataclysm may not ship (guess).
+6. **Library and class-only tiers.** The WON/Titan + Magick range has 0 `FUN_*` left (54 in round 3). 5,130 functions carry only a class-only name; 155 are in the game region: 72 Ghidra `Catch@` funclets, 56 `lib_crt_*` (e.g. `lib_crt_00553420`), 11 `lib_msvc_stl_*`, the 14 placeholders, 1 `thunk_FUN_` and 1 `switchD`. The 14 titan-libs placeholders (`hw1_ShipSelect_00511ea0` ... `cat_new_005166b0`) are real functions with a known class and no name yet. The 42 one-byte `FUN_*` "functions" in `.data` at 0x0089xxxx are not code (guess: analysis artefacts); deleting them would make the unnamed tier exactly the 458 game functions.
+7. **Mission region: done.** C1 typed the 46 switch tables, repaired the 44 off-cut holes and restored the 4 CALL references; every mission function has a name and an applied `void (void)` prototype. What is outside a body is alignment padding and the typed tables.
+8. **Carried over:**
+   - `qwen-naming.json` is still unaudited (STATE.md "Next steps" 1); it must be re-filtered against `cataclysm_gog_r4` before an audit, since rounds 3-4 named most of its queue.
+   - `universe.world[]` offset +0x3D9B0 vs CET's +0x3DA30 is still unverified.
+   - 2 thread-start functions keep `lpStartAddress_*` names.
+   - Any Ghidra pass that runs analysis on mission code needs the FixFunctionBodies snapshot guard, and a walk that clears flow overrides must keep the 41 `CALL_RETURN` overrides on tail-call `JMP`s (`docs/ghidra-round4-prep.md`).

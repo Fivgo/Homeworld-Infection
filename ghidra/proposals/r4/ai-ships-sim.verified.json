@@ -1,0 +1,3538 @@
+{
+ "source": "ai-ships-sim",
+ "method": "Start from named neighbours in cataclysm_gog_r4a/call_graph.csv; compare the decompiled body (decompiled.c) with the HW1 function (control flow, constants, struct offsets, callees, call order of adjacent functions in the HW1 file vs address order); Cataclysm-only bodies named cat_<subsystem>Verb from their callers/callees; ship type numbers decoded with CET game/Game/ShipDefs.h. zero-match-ships: no proposals. CET game/Game/ShipDefs.h has 145 ship types in races Sect/Beast/Kushan/Taiidan/P1/Traders/Derelict and no P2/P3 race, ResearchShip, Probe, SensorArray, Drone, DDDFrigate, LightCorvette, ResourceController or FuelPod type, so those HW1 files have no Cataclysm code; k/tCloakGenerator (63/77) exist but shipHeaders[63]/[77] are NULL (ships.json evidence), so CloakGenerator.c code is absent too; P2MultiBeamFrigate/P2Swarmer became Cataclysm MultiBeamFrigate*/Swarmer* (already named).",
+ "done_subsystems": [
+  "ai-build-defense",
+  "aimoves",
+  "dock",
+  "ship-code",
+  "zero-match-ships",
+  "savegame",
+  "singleplayer-stats",
+  "band-5b",
+  "band-5c",
+  "band-4f",
+  "band-51"
+ ],
+ "proposals": [
+  {
+   "address": "0x00401000",
+   "name": "aiaSendRecon",
+   "kind": "function",
+   "class": "hw1:AIAttackMan.c",
+   "confidence": "high",
+   "evidence": "Only caller aiaArmada; closest recon team by aiuFindDistanceSquared (min 1e21=REALlyBig), aimCreateShipReconNoAdd(team,ships,NO_FORMATION,Evasive,1,1), aieHandlerSetTeamDied, aimInsertMove",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIAttackMan.c:aiaSendRecon",
+   "signature": "AITeam * aiaSendRecon(SelectCommand *ships)"
+  },
+  {
+   "address": "0x00401120",
+   "name": "aiaArmada",
+   "kind": "function",
+   "class": "hw1:AIAttackMan.c",
+   "confidence": "high",
+   "evidence": "Tail call of aiaProcessAttackTeams as HW1; aitFindNumTeamsWithFlag(TEAM_ARMADA 0x10000) vs aiaArmada.numTeams, aiuFindArmadaTarget, then aiaSendRecon",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIAttackMan.c:aiaArmada",
+   "signature": "void aiaArmada(void)"
+  },
+  {
+   "address": "0x004011d0",
+   "name": "aiaPriorityShipsConstraints",
+   "kind": "function",
+   "class": "hw1:AIAttackMan.c",
+   "confidence": "medium",
+   "evidence": "Code label LAB_004011d0 passed as constraintsCB to statsGetMostDangerousShipNonStatConstraints in the TAKEOUT_TARGET case of aiaGenerateAttackType, same as HW1; sits between aiaArmada and it [not a fu",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIAttackMan.c:aiaPriorityShipsConstraints",
+   "signature": "bool32 aiaPriorityShipsConstraints(Ship *ship)"
+  },
+  {
+   "address": "0x004012a0",
+   "name": "aiaGenerateAttackType",
+   "kind": "function",
+   "class": "hw1:AIAttackMan.c",
+   "confidence": "high",
+   "evidence": "switch(attacktype) 0..: AttackFeatures bits 0x10/0x20/0x40/0x80 -> aioCreateTakeoutMothershipFast/Guard/Big/Huge, then TakeoutTarget, FancyTakeout, strikes, Harass, Capture, Mine, SpecialDefense",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIAttackMan.c:aiaGenerateAttackType",
+   "signature": "bool32 aiaGenerateAttackType(AITeam *newteam, AttackType attacktype, bool32 ForceBig)"
+  },
+  {
+   "address": "0x004016f0",
+   "name": "aiaProcessAttackTeams",
+   "kind": "function",
+   "class": "hw1:AIAttackMan.c",
+   "confidence": "high",
+   "evidence": "Per team: aitCountTeamsWaitingForShips <4 or (<10 and RUs>12000) -> new team with random attack (GenerateNewAttackTeam inlined); done teams take out nearby enemies/mothership; then aiaArmada",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIAttackMan.c:aiaProcessAttackTeams",
+   "signature": "void aiaProcessAttackTeams(void)"
+  },
+  {
+   "address": "0x004019b0",
+   "name": "aiaTimeAttack",
+   "kind": "function",
+   "class": "hw1:AIAttackMan.c",
+   "confidence": "high",
+   "evidence": "Last call of aiaAttackManager; switch on aiplayerDifficultyLevel, BEGINNER sets attackVar -1; TempGuard teams (flag 0x40000) aitDeleteMovesUntilMoveType; aivarFind/aivarValueSet/Get as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIAttackMan.c:aiaTimeAttack",
+   "signature": "void aiaTimeAttack(void)"
+  },
+  {
+   "address": "0x00401b50",
+   "name": "aiaDivideNewShips",
+   "kind": "function",
+   "class": "hw1:AIAttackMan.c",
+   "confidence": "high",
+   "evidence": "Called by aiaAttackManager when newships non-empty; counts newships per shiptype (TOTAL_NUM_SHIPS array 0x91), creates teams via aiaGenerateAttackType(team,type,TRUE) (NewAttackOrder inlined)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIAttackMan.c:aiaDivideNewShips",
+   "signature": "bool32 aiaDivideNewShips(void)"
+  },
+  {
+   "address": "0x00401f00",
+   "name": "aiaTeamDied",
+   "kind": "function",
+   "class": "hw1:AIAttackMan.c",
+   "confidence": "high",
+   "evidence": "Called by aifTeamDied; clears harassTeam/reconTeam[0..1]/aiaArmada.recon_team matches, else removes team from attackTeam[24] swapping with last, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIAttackMan.c:aiaTeamDied",
+   "signature": "void aiaTeamDied(AIPlayer *aiplayer, AITeam *team)"
+  },
+  {
+   "address": "0x00401fa0",
+   "name": "aiaShipDied",
+   "kind": "function",
+   "class": "hw1:AIAttackMan.c",
+   "confidence": "high",
+   "evidence": "Called by aiplayerShipDied; clRemoveShipFromSelection on armada targets and Targets selection, memFree when empty, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIAttackMan.c:aiaShipDied",
+   "signature": "bool32 aiaShipDied(AIPlayer *aiplayer, ShipPtr ship)"
+  },
+  {
+   "address": "0x00402820",
+   "name": "aidSendDistressSignal",
+   "kind": "function",
+   "class": "hw1:AIDefenseMan.c",
+   "confidence": "high",
+   "evidence": "Two selectMergeTwoSelections(field, ships, DEALLOC1) into aidDefenseTargets and aidDistressShips; caller airResourceManager (airCheckForDistressSignals inlined); precedes aidClearDistressSignal",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIDefenseMan.c:aidSendDistressSignal",
+   "signature": "void aidSendDistressSignal(SelectCommand *ships)"
+  },
+  {
+   "address": "0x004028d0",
+   "name": "aidCheckSphereOfInfluence",
+   "kind": "function",
+   "class": "hw1:AIDefenseMan.c",
+   "confidence": "high",
+   "evidence": "aidDefenseManager callee; aiuFindEnemyMothership distance/4, aiuFindLeadShipInSphereOfInfluence (+aidSendInvasionSignal inlined), aitRecallGuardTeam for teams outside 1.4x sphere",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIDefenseMan.c:aidCheckSphereOfInfluence",
+   "signature": "void aidCheckSphereOfInfluence(void)"
+  },
+  {
+   "address": "0x00402aa0",
+   "name": "aidSetupResourceDefenseTeams",
+   "kind": "function",
+   "class": "hw1:AIDefenseMan.c",
+   "confidence": "high",
+   "evidence": "Loops resource reserves; shiptypes 0xe/0x31/0x58 (Worker/bWorker/tResourceCollector), Processors, ASF; unguarded -> memAlloc 1-ship selection, aitCreate(DefenseTeam), aioCreateGuardShips; max 12 teams",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIDefenseMan.c:aidSetupResourceDefenseTeams",
+   "signature": "void aidSetupResourceDefenseTeams(void)"
+  },
+  {
+   "address": "0x00402c40",
+   "name": "aidPositionProximitySensorGuard",
+   "kind": "function",
+   "class": "hw1:AIDefenseMan.c",
+   "confidence": "high",
+   "evidence": "Only caller aidCloakDefense; aiuGenerateRandomStandoffPoint(aiuPlayerMothershipCoords) and aiuGenerateFlankCoordinates then aiuWrapMove, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIDefenseMan.c:aidPositionProximitySensorGuard",
+   "signature": "void aidPositionProximitySensorGuard(udword index)"
+  },
+  {
+   "address": "0x00402e00",
+   "name": "aidCloakDefense",
+   "kind": "function",
+   "class": "hw1:AIDefenseMan.c",
+   "confidence": "high",
+   "evidence": "aidDefenseManager callee; aiuFindCloakersInEnemyShipsIAmAwareOf, random 3-6 sensors via aifResourceManRequestsShipsCB, aitFindMostValuable+aiuWrapProtect (roving inlined), sensor guard",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIDefenseMan.c:aidCloakDefense",
+   "signature": "void aidCloakDefense(void)"
+  },
+  {
+   "address": "0x00403070",
+   "name": "aidAddAllShips",
+   "kind": "function",
+   "class": "hw1:AIDefenseMan.c",
+   "confidence": "high",
+   "evidence": "Only caller aidMothershipDefense; teams passing aiuIsShipDangerous, aitTeamIsntDefendingMothership, aitTeamIsInMothershipRange get aimCreateDefendMothershipNoAdd+aimInsertMove, merged",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIDefenseMan.c:aidAddAllShips",
+   "signature": "SelectCommand * aidAddAllShips(SelectCommand *enemyships)"
+  },
+  {
+   "address": "0x00403130",
+   "name": "aidMothershipDefense",
+   "kind": "function",
+   "class": "hw1:AIDefenseMan.c",
+   "confidence": "high",
+   "evidence": "String \"msdp\" (selectMemDupSelection tag in HW1), aioCreateDefendMothership on mothershipdefteam, aitAddShip from reserves, aidAddSlackerShips inlined, calls aidAddAllShips",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIDefenseMan.c:aidMothershipDefense",
+   "signature": "void aidMothershipDefense(void)"
+  },
+  {
+   "address": "0x00403820",
+   "name": "aidTeamDied",
+   "kind": "function",
+   "class": "hw1:AIDefenseMan.c",
+   "confidence": "high",
+   "evidence": "Called by aifTeamDied; removes team from guardTeams (+0x1cdc) decrementing numGuardTeams (+0x1cd8) and fixing mothershipdefteam (+0x1cd4), as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIDefenseMan.c:aidTeamDied",
+   "signature": "void aidTeamDied(AIPlayer *aiplayer, AITeam *team)"
+  },
+  {
+   "address": "0x00403890",
+   "name": "aidShipDied",
+   "kind": "function",
+   "class": "hw1:AIDefenseMan.c",
+   "confidence": "high",
+   "evidence": "Called by aiplayerShipDied; clRemoveShipFromSelection on proximity sensors/defense targets/distress/invading/attacking-mothership selections, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIDefenseMan.c:aidShipDied",
+   "signature": "bool32 aidShipDied(AIPlayer *aiplayer, ShipPtr ship)"
+  },
+  {
+   "address": "0x00404470",
+   "name": "BuildShip",
+   "kind": "function",
+   "class": "hw1:AIFleetMan.c",
+   "confidence": "high",
+   "evidence": "Only caller aifBuildRequestedShips; switch shiptype increments NumRCollectors/RControllers/ASF BeingBuilt (Worker 0xe, Processor 0x10...), creator defaults to mothership, clWrapBuildShip",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIFleetMan.c:BuildShip",
+   "signature": "void BuildShip(ShipStaticInfo *shipstatic, Player *player, sdword *incRUs, sdword *decRUs, ShipPtr creator)"
+  },
+  {
+   "address": "0x004045b0",
+   "name": "aifBuildRequestedShips",
+   "kind": "function",
+   "class": "hw1:AIFleetMan.c",
+   "confidence": "high",
+   "evidence": "4 request ptrs, returns if no PlayerMothership, per request GetShipStaticInfo + RacesAllowedForGivenShip bit test + IF_InfoLoaded, calls BuildShip; caller aifProcessShipBuildRequests",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIFleetMan.c:aifBuildRequestedShips",
+   "signature": "void aifBuildRequestedShips(RequestShips *scriptrequest, RequestShips *attrequest, RequestShips *defrequest, RequestShips *resourcerequest)"
+  },
+  {
+   "address": "0x00404e10",
+   "name": "aifResourceManRequestsShipsCB",
+   "kind": "function",
+   "class": "hw1:AIFleetMan.c",
+   "confidence": "high",
+   "evidence": "Stores shiptype/number/priority and AICreator into aiCurrentAIPlayer->ResourceManRequestShips; callers airResourceManager, aidCloakDefense, airDumb* requests",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIFleetMan.c:aifResourceManRequestsShipsCB",
+   "signature": "void aifResourceManRequestsShipsCB(ShipType shiptype, sdword number, sdword priority)"
+  },
+  {
+   "address": "0x00404e60",
+   "name": "aifTeamRequestsShipsCB",
+   "kind": "function",
+   "class": "hw1:AIFleetMan.c",
+   "confidence": "high",
+   "evidence": "Callers aimProcessGetShips/FancyGetShips; switch team->teamType, memAlloc RequestShips (0x20) + TeamWaiting (0x4c, strcpy doneSetVar), listAddNodeBeginning if priority&HIPRI",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIFleetMan.c:aifTeamRequestsShipsCB",
+   "signature": "void aifTeamRequestsShipsCB(ShipType shiptype, sdword number, AITeam *team, char *doneSetVar, sdword priority)"
+  },
+  {
+   "address": "0x00405210",
+   "name": "cat_aifRequestSupportModule",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "aifProcessShipBuildRequests callee, MP only: shiptype 13/26 (sCarrierSupport/sMothershipSupport, race 0) or 57 bMothershipSupport (race 1); if under cap requests it via ResourceManRequestShips",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_aifRequestSupportModule(void)"
+  },
+  {
+   "address": "0x004f2870",
+   "name": "rmFindFreeLab",
+   "kind": "function",
+   "class": "hw1:ResearchAPI.c",
+   "confidence": "high",
+   "evidence": "Scans 5 labs at player+0x360 for labstatus==LS_NORESEARCHITEM (1), rmUpdateTechList if GUI active and human, returns index or -1; Cataclysm adds a tech->lab-type filter",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmFindFreeLab",
+   "signature": "sdword rmFindFreeLab(Player *player, TechnologyType tech)"
+  },
+  {
+   "address": "0x004f28f0",
+   "name": "rmClearResearchlab",
+   "kind": "function",
+   "class": "hw1:ResearchAPI.c",
+   "confidence": "high",
+   "evidence": "Caller clSetResearch; lab status 2 (LS_RESEARCHITEM) -> topic=NULL, listDeleteNode, status 1, rmUpdateTechList for curPlayerPtr, follows rmFindFreeLab as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmClearResearchlab",
+   "signature": "void rmClearResearchlab(Player *player, sdword labnumber)"
+  },
+  {
+   "address": "0x004f2960",
+   "name": "rmAssignPlayersLabToResearch",
+   "kind": "function",
+   "class": "hw1:ResearchAPI.c",
+   "confidence": "high",
+   "evidence": "Caller clSetResearch; Researching() inlined over listoftopics, else memAlloc ResearchTopic + listAddNode, timeleft=techstat->TimeToComplete[tech], rmUpdateTechList",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmAssignPlayersLabToResearch",
+   "signature": "void rmAssignPlayersLabToResearch(Player *player, sdword labnumber, TechnologyType tech)"
+  },
+  {
+   "address": "0x004f2db0",
+   "name": "rmAllTechRequiredforTech",
+   "kind": "function",
+   "class": "hw1:ResearchAPI.c",
+   "confidence": "medium",
+   "evidence": "Recursive; ORs techstat->TechNeededToResearch[tech] (0xa8-byte 41-entry tech set) of every required tech, as HW1 rmAllTechRequiredforTech (Cataclysm tech sets are arrays, not bitmasks)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmAllTechRequiredforTech"
+  },
+  {
+   "address": "0x004f2e90",
+   "name": "rmTechRequiredForShip",
+   "kind": "function",
+   "class": "hw1:ResearchAPI.c",
+   "confidence": "high",
+   "evidence": "Counts techs missing for TechNeededToBuildShip[type] after recursive closure minus HasTechnology; called by aifProcessShipBuildRequests before rmResearchTechForShip as HW1 AIFleetMan.c:857",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmTechRequiredForShip",
+   "signature": "sdword rmTechRequiredForShip(Player *player, ShipType type)"
+  },
+  {
+   "address": "0x004f30e0",
+   "name": "cat_rmTechRequiredForShipUpgrade",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Same counting body as rmTechRequiredForShip but reads a per-player tech set at player+0x388+type*0xa8; caller aifProcessShipBuildRequests (types 0x12 sMothership, 0xc sCarrier); role guessed",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_rmTechRequiredForShipUpgrade(Player *player, ShipType type)"
+  },
+  {
+   "address": "0x004f3320",
+   "name": "cat_rmAIResearchTech",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers airDumbResearchRequests, cat_aisResearchUpdate; if research allowed and tech not owned, rmFindFreeLab then clWrapResearch(player,lab,tech)",
+   "hw1_equivalent": "",
+   "signature": "void cat_rmAIResearchTech(Player *player, TechnologyType tech)"
+  },
+  {
+   "address": "0x004f3380",
+   "name": "rmResearchTechForShip",
+   "kind": "function",
+   "class": "hw1:ResearchAPI.c",
+   "confidence": "high",
+   "evidence": "Called by aifProcessShipBuildRequests after rmTechRequiredForShip; builds required-tech closure, for each researchable tech rmFindFreeLab + clWrapResearch, returns researching flag",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmResearchTechForShip",
+   "signature": "bool32 rmResearchTechForShip(Player *player, ShipType type)"
+  },
+  {
+   "address": "0x004f38e0",
+   "name": "rmGiveTechToPlayerByType",
+   "kind": "function",
+   "class": "hw1:ResearchAPI.c",
+   "confidence": "high",
+   "evidence": "Caller cratesRewardPlayer (HW1 Crates.c:472); loop: required techs = need & has ^ need, highest missing given first, then techtype itself",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmGiveTechToPlayerByType",
+   "signature": "void rmGiveTechToPlayerByType(Player *player, TechnologyType techtype)"
+  },
+  {
+   "address": "0x004f39b0",
+   "name": "rmInitializeResearchStatics",
+   "kind": "function",
+   "class": "hw1:ResearchAPI.c",
+   "confidence": "high",
+   "evidence": "Caller Load_PlayerResearchInfo; picks techstat (+0x350) by singlePlayerGame and race 0/1 from three static tables, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmInitializeResearchStatics",
+   "signature": "void rmInitializeResearchStatics(Player *player)"
+  },
+  {
+   "address": "0x004f3a00",
+   "name": "rmInitializeResearchStruct",
+   "kind": "function",
+   "class": "hw1:ResearchAPI.c",
+   "confidence": "high",
+   "evidence": "Caller gameStart; sets CanDoResearch (+0x34c), inits HasTechnology set, techstat by race/SP, clears 5 labs, listInit(listoftopics), as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmInitializeResearchStruct",
+   "signature": "void rmInitializeResearchStruct(Player *player, bool32 candoresearch, sdword techlevel)"
+  },
+  {
+   "address": "0x004f3ca0",
+   "name": "rmEnableShip",
+   "kind": "function",
+   "class": "hw1:ResearchAPI.c",
+   "confidence": "high",
+   "evidence": "Callers llExcludeShip, kasfEnableShipConstruction, universeLoadEverythingNeeded (HW1 LevelLoad.c/Universe.c callers); race 0 writes SP+MP tables, race 1 the beast table",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmEnableShip",
+   "signature": "void rmEnableShip(ShipRace race, ShipType ship, bool32 bEnabled)"
+  },
+  {
+   "address": "0x004f3d30",
+   "name": "rmResetStaticInfo",
+   "kind": "function",
+   "class": "hw1:ResearchAPI.c",
+   "confidence": "high",
+   "evidence": "Callers singlePlayerLoadNewLevel, gameEnd; zeroes the tech static tables, scriptSet(ResearchDepend), rmSetPrintList calls, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResearchAPI.c:rmResetStaticInfo",
+   "signature": "void rmResetStaticInfo(void)"
+  },
+  {
+   "address": "0x004f3fc0",
+   "name": "cat_rmTechSetAdd",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Sets techset[tech]=1; for sensor techs (2, 0x1c) toggles cat_univShipFOWDeactivate/Activate over universe.ShipList; callers rmAddTechToPlayer, rmUpdateResearch, rmGiveTechToPlayerByType",
+   "hw1_equivalent": "",
+   "signature": "void cat_rmTechSetAdd(sdword *techset, TechnologyType tech)"
+  },
+  {
+   "address": "0x004f4070",
+   "name": "cat_rmTechSetAnd",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "41-entry tech set (flag word +0xa4, 2=all); out=a AND b with all-flag shortcuts; used for need&has in rmGiveTechToPlayerByType, rmCanBuildShip",
+   "hw1_equivalent": "",
+   "signature": "void cat_rmTechSetAnd(sdword *out, sdword *a, sdword *b)"
+  },
+  {
+   "address": "0x004f4130",
+   "name": "cat_rmTechSetOr",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "out[i]=a[i]|b[i] over 41 entries unless either has the all-flag 2 (+0xa4); callers rmResearchTechForShip, cat_spWarpToLevel",
+   "hw1_equivalent": "",
+   "signature": "void cat_rmTechSetOr(sdword *out, sdword *a, sdword *b)"
+  },
+  {
+   "address": "0x004f41a0",
+   "name": "cat_rmTechSetClear",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Zeroes 42 dwords of a tech set; caller kasfGiveTechToAI",
+   "hw1_equivalent": "",
+   "signature": "void cat_rmTechSetClear(sdword *techset)"
+  },
+  {
+   "address": "0x004f41b0",
+   "name": "cat_rmTechSetHas",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns flag(+0xa4)==2 or techset[tech]==1; callers rmUpdateTechList, cratesRewardPlayer, aifProcessShipBuildRequests, cat_aisResearchUpdate",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_rmTechSetHas(sdword *techset, TechnologyType tech)"
+  },
+  {
+   "address": "0x004f41d0",
+   "name": "cat_rmTechSetEqual",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Compares the all-flag (+0xa4) and 41 entries of two tech sets; callers getShipBuild, rmUpdateTechList, cat_univConvertShip",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_rmTechSetEqual(sdword *a, sdword *b)"
+  },
+  {
+   "address": "0x004f4210",
+   "name": "cat_rmTechSetInit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "techlevel -2/-1/2/other sets the all-flag or clears the set, with sensor FOW refresh as cat_rmTechSetAdd; callers rmInitializeResearchStruct, rmEnableShip, gameStart",
+   "hw1_equivalent": "",
+   "signature": "void cat_rmTechSetInit(sdword *techset, sdword techlevel)"
+  },
+  {
+   "address": "0x004f4300",
+   "name": "cat_rmTechSetNot",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "out[i]=(a[i]==0) over 41 entries, cleared if a has a flag; used by rmResearchTechForShip to compute techs not yet owned",
+   "hw1_equivalent": "",
+   "signature": "void cat_rmTechSetNot(sdword *out, sdword *a)"
+  },
+  {
+   "address": "0x00412e10",
+   "name": "airDumbResourcerRequests",
+   "kind": "function",
+   "class": "hw1:AIResourceMan.c",
+   "confidence": "high",
+   "evidence": "ResourcersToBuild = rand%3 + difficulty + 2 (HW1 randybetween(2+d,4+d)); if collectors+being built below, cmCanBuildShipType then aifResourceManRequestsShipsCB(Worker 0xe/0x31/0x58, n, HIPRI)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIResourceMan.c:airDumbResourcerRequests",
+   "signature": "bool32 airDumbResourcerRequests(void)"
+  },
+  {
+   "address": "0x00413070",
+   "name": "airDumbResearchRequests",
+   "kind": "function",
+   "class": "hw1:AIResourceMan.c",
+   "confidence": "medium",
+   "evidence": "First helper of airResourceManager (before airDumbResourcerRequests, as HW1); Cataclysm requests mothership modules 0x13/0x15/0x16/0x17/0x18 via aifResourceManRequestsShipsCB, sets *requested=1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIResourceMan.c:airDumbResearchRequests",
+   "signature": "bool32 airDumbResearchRequests(bool32 *requestedResearch)"
+  },
+  {
+   "address": "0x004203a0",
+   "name": "aivarShutdown",
+   "kind": "function",
+   "class": "hw1:AIVar.c",
+   "confidence": "high",
+   "evidence": "Follows aivarStartup; memFree each vars[i] then vars, zero varsAllocated/varsUsed/aivRenderMainScreen; callers aiplayerShutdown, kasLabelledEntitiesDestroy (aivarDestroyAll folded in)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIVar.c:aivarShutdown",
+   "signature": "void aivarShutdown(void)"
+  },
+  {
+   "address": "0x00420420",
+   "name": "aivarCreate",
+   "kind": "function",
+   "class": "hw1:AIVar.c",
+   "confidence": "high",
+   "evidence": "memAlloc var, label strncpy, memAlloc/memRealloc vars list by increment; callers aiaInit, aimProcessGetShips, aioCreateTakeoutMothership*",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIVar.c:aivarCreate",
+   "signature": "AIVar * aivarCreate(char *label)"
+  },
+  {
+   "address": "0x00420510",
+   "name": "aivarFind",
+   "kind": "function",
+   "class": "hw1:AIVar.c",
+   "confidence": "high",
+   "evidence": "strncmp(vars[i]->label,label,0x2f=AIVAR_LABEL_MAX_LENGTH) over varsUsed; callers aimProcessVar*, aiaTimeAttack, aifAssignNewShips",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIVar.c:aivarFind",
+   "signature": "AIVar * aivarFind(char *label)"
+  },
+  {
+   "address": "0x004205c0",
+   "name": "aivarLabelGenerate",
+   "kind": "function",
+   "class": "hw1:AIVar.c",
+   "confidence": "high",
+   "evidence": "Writes '_','V' then itoa(uniqueNum,10), uniqueNum++, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIVar.c:aivarLabelGenerate",
+   "signature": "char * aivarLabelGenerate(char *label)"
+  },
+  {
+   "address": "0x004205f0",
+   "name": "aivarLabelGet",
+   "kind": "function",
+   "class": "hw1:AIVar.c",
+   "confidence": "high",
+   "evidence": "Returns var+4 (label) or NULL; follows aivarLabelGenerate as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIVar.c:aivarLabelGet",
+   "signature": "char * aivarLabelGet(AIVar *var)"
+  },
+  {
+   "address": "0x00420600",
+   "name": "aivarValueSet",
+   "kind": "function",
+   "class": "hw1:AIVar.c",
+   "confidence": "high",
+   "evidence": "if (var) var->value=value; callers aimProcessVarSet/Inc/Dec, aiaTimeAttack, aiaInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIVar.c:aivarValueSet",
+   "signature": "void aivarValueSet(AIVar *var, sdword value)"
+  },
+  {
+   "address": "0x00420610",
+   "name": "aivarValueGet",
+   "kind": "function",
+   "class": "hw1:AIVar.c",
+   "confidence": "high",
+   "evidence": "Returns var->value when var non-NULL; callers aimProcessVarWait/Inc/Dec, aiaTimeAttack; precedes AIVarToNumber",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIVar.c:aivarValueGet",
+   "signature": "sdword aivarValueGet(AIVar *var)"
+  },
+  {
+   "address": "0x00420650",
+   "name": "NumberToAIVar",
+   "kind": "function",
+   "class": "hw1:AIVar.c",
+   "confidence": "high",
+   "evidence": "Returns vars[number] (-1 -> NULL); follows AIVarToNumber; callers aimFix_GetShips/FancyGetShips",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIVar.c:NumberToAIVar",
+   "signature": "AIVar * NumberToAIVar(sdword number)"
+  },
+  {
+   "address": "0x00420670",
+   "name": "aivarSave",
+   "kind": "function",
+   "class": "hw1:AIVar.c",
+   "confidence": "high",
+   "evidence": "Caller aiplayerSave; SaveInfoNumber(varsUsed) + SaveStructureOfSize per var, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIVar.c:aivarSave",
+   "signature": "void aivarSave(void)"
+  },
+  {
+   "address": "0x004206d0",
+   "name": "aivarLoad",
+   "kind": "function",
+   "class": "hw1:AIVar.c",
+   "confidence": "high",
+   "evidence": "Caller aiplayerLoad; LoadInfoNumber, memAlloc/memRealloc vars, LoadStructureOfSize per var, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIVar.c:aivarLoad",
+   "signature": "void aivarLoad(void)"
+  },
+  {
+   "address": "0x00420920",
+   "name": "allianceBreakWith",
+   "kind": "function",
+   "class": "hw1:Alliance.c",
+   "confidence": "high",
+   "evidence": "61 bytes between allianceFormWith and allianceFormRequestRecievedCB (HW1 order); calls clWrapSetAlliance; caller popup menu 0x004ee5f0",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Alliance.c:allianceBreakWith",
+   "signature": "void allianceBreakWith(udword playerindex)"
+  },
+  {
+   "address": "0x00420a20",
+   "name": "allianceSetAlliance",
+   "kind": "function",
+   "class": "hw1:Alliance.c",
+   "confidence": "high",
+   "evidence": "Only caller clSetAlliance; \"%s %s\" sprintf + gcProcessGameTextMessage, speechEventQueue, RemoveAttackTargetFromExtraAttackInfo; Cataclysm adds FOW reactivation",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Alliance.c:allianceSetAlliance",
+   "signature": "void allianceSetAlliance(udword AllianceType, uword curalliance, uword newalliance)"
+  },
+  {
+   "address": "0x00420ec0",
+   "name": "allianceIsShipAlly",
+   "kind": "function",
+   "class": "hw1:Alliance.c",
+   "confidence": "high",
+   "evidence": "Directly precedes allianceArePlayersAllied; owner==player or attributes&0x100 (Defector) -> TRUE, else player->Allies bit of owner index; Cataclysm crystal check",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Alliance.c:allianceIsShipAlly",
+   "signature": "bool32 allianceIsShipAlly(Ship *ship, Player *player)"
+  },
+  {
+   "address": "0x00423760",
+   "name": "cat_battleChatterReset",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "After battleChatterStartup; resets lastTimeSpoken of every battleChatterEvent (stride 0x58) and two globals; HW1 battleChatterShutdown is empty; caller FUN_0051c980",
+   "hw1_equivalent": "",
+   "signature": "void cat_battleChatterReset(void)"
+  },
+  {
+   "address": "0x00423790",
+   "name": "battleChatterAttempt",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "randomWeight*batGlobalFrequencyModifier vs ranRandom, distance check vs maxDistance, stores lastTimeSpoken/lastPlaceSpoken, speechEventQueue(ship,eventNumber,...)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:battleChatterAttempt",
+   "signature": "sdword battleChatterAttempt(sdword linkTo, sdword event, Ship *ship, sdword variable)"
+  },
+  {
+   "address": "0x004238b0",
+   "name": "battleCanChatterAtThisTime",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "timeSinceLastSpoken/minWavelength with pow(expWavelength), minRepeatProximity distance from ship or camera eye, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:battleCanChatterAtThisTime",
+   "signature": "bool32 battleCanChatterAtThisTime(sdword event, Ship *ship)"
+  },
+  {
+   "address": "0x00423a50",
+   "name": "battleChatterFleetAttempt",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "Wavelength curve, repeat proximity against *where (may be NULL), then randomWeight test and speechEventQueue, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:battleChatterFleetAttempt",
+   "signature": "sdword battleChatterFleetAttempt(sdword linkTo, sdword event, sdword variable, vector *where)"
+  },
+  {
+   "address": "0x00423ce0",
+   "name": "battleShipOnMyTail",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "matCopyAndTranspose + matMultiplyMatByVec twice (bogey in my space behind, me in its space ahead), caller battlePingEvaluate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:battleShipOnMyTail",
+   "signature": "bool32 battleShipOnMyTail(Ship *meShip, Ship *badGuyShip)"
+  },
+  {
+   "address": "0x00423e50",
+   "name": "battleAccountForLosses",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "gunShipFirePower + buildCost into friendly/enemy recently-lost totals devalued by pow(timeSinceLoss, batExpLossDevalue)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:battleAccountForLosses",
+   "signature": "void battleAccountForLosses(Ship *ship, battleping *battlePing)"
+  },
+  {
+   "address": "0x00423f80",
+   "name": "battlePingEvaluateNoEnemies",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "medium",
+   "evidence": "No direct caller (ping callback); loops ping ships, calls battleChatterFleetAttempt with random choice; sits between AccountForLosses and battlePingEvaluate",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:battlePingEvaluateNoEnemies",
+   "signature": "void battlePingEvaluateNoEnemies(void *voidPing, battleping *battlePing)"
+  },
+  {
+   "address": "0x00424110",
+   "name": "battlePingEvaluate",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "3177-byte ping callback (no direct caller); calls battleChatterAttempt/CanChatter/FleetAttempt, battleShipOnMyTail, gunShipFirePower, allianceIsShipAlly, as HW1 Battle.c:1279",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:battlePingEvaluate",
+   "signature": "void battlePingEvaluate(void *voidPing, battleping *battlePing)"
+  },
+  {
+   "address": "0x00424d80",
+   "name": "battleChatterFrequencySet",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "medium",
+   "evidence": "Callers opBattleChatterCB, opOptionsSaveSettings, audio accept/cancel; sets the global frequency modifier from freq100 * constant (HW1 uses pow)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:battleChatterFrequencySet",
+   "signature": "void battleChatterFrequencySet(sdword freq100)"
+  },
+  {
+   "address": "0x00424da0",
+   "name": "battleShipDyingWithTimeToScream",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "high",
+   "evidence": "Callers etgDeathCriesPlay, univDeleteDeadShip; switch staticinfo->shipclass: capital ships CanChatter+Attempt then FleetAttempt report, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:battleShipDyingWithTimeToScream",
+   "signature": "void battleShipDyingWithTimeToScream(Ship *ship)"
+  },
+  {
+   "address": "0x00424ef0",
+   "name": "battleLaunchWelcomeExchange",
+   "kind": "function",
+   "class": "hw1:Battle.c",
+   "confidence": "medium",
+   "evidence": "Last in Battle.c block; tests class-dependency bit table &1 (BCD_LaunchWelcome), events 0x45/0x46 via battleChatterFleetAttempt; caller cat_cmBuildJobFinished",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Battle.c:battleLaunchWelcomeExchange",
+   "signature": "void battleLaunchWelcomeExchange(sdword shipclass, sdword variable)"
+  },
+  {
+   "address": "0x00405f70",
+   "name": "aihHarassFiringSingleShipHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "Entry 1 of the AI handler table 0x74a3a4 used by aieHandlerToNum/aieNumToHandler; table order = HW1 handlerTable minus the 3 fuel handlers; code not yet a function [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihHarassFiringSingleShipHandler"
+  },
+  {
+   "address": "0x00406650",
+   "name": "aihPatrolEnemyNearbyHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "Handler table 0x74a3a4 entry 7 (after aihGenericGettingRockedHandler, before GravWell handlers) as HW1 handlerTable; code not yet a function [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihPatrolEnemyNearbyHandler"
+  },
+  {
+   "address": "0x004066d0",
+   "name": "aihGravWellEnemyNearbyHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "Handler table 0x74a3a4 entry 8, directly before aihGravWellEnemyNotNearbyHandler (0x406830) as in HW1 handlerTable; code not yet a function [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihGravWellEnemyNearbyHandler"
+  },
+  {
+   "address": "0x00406880",
+   "name": "aihFastDefenseDistressHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "Handler table 0x74a3a4 entry 10, after aihGravWellEnemyNotNearbyHandler, before aihFastDefenseTeamDiedHandler, as HW1 handlerTable; 619 bytes, not yet a function [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihFastDefenseDistressHandler"
+  },
+  {
+   "address": "0x00406af0",
+   "name": "aihSlowDefenseDistressHandler",
+   "kind": "function",
+   "class": "hw1:AIHandler.c",
+   "confidence": "high",
+   "evidence": "Handler table 0x74a3a4 entry 11, before aihFastDefenseTeamDiedHandler (0x406d80), as HW1 handlerTable; 652 bytes, not yet a function [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIHandler.c:aihSlowDefenseDistressHandler"
+  },
+  {
+   "address": "0x0040c590",
+   "name": "aimPreFix_PatrolMove",
+   "kind": "function",
+   "class": "hw1:AIMoves.c",
+   "confidence": "high",
+   "evidence": "Between aimFix_PatrolMove and aimSave_PatrolMove; mov ecx,savingThisAITeam; ConvertPointerInListToNum(&team->moves, move->loopMove) -> move+0x18; data ref 0x74e0c0 (move cb table) [not a function entr",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIMoves.c:aimPreFix_PatrolMove",
+   "signature": "void aimPreFix_PatrolMove(AITeamMove *move)"
+  },
+  {
+   "address": "0x00411bb0",
+   "name": "SaveRequestShipsCB",
+   "kind": "function",
+   "class": "hw1:AIPlayer.c",
+   "confidence": "high",
+   "evidence": "First of 5 uncreated callbacks between AITeamIndexToTeam and SaveThisAIPlayer, matching HW1 AIPlayer.c order SaveRequestShipsCB..FixTeamWaitingCB [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIPlayer.c:SaveRequestShipsCB"
+  },
+  {
+   "address": "0x00411bf0",
+   "name": "SaveTeamWaitingCB",
+   "kind": "function",
+   "class": "hw1:AIPlayer.c",
+   "confidence": "high",
+   "evidence": "Second uncreated callback after AITeamIndexToTeam (HW1 order); 88 bytes, converts team pointer to index before chunk save [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIPlayer.c:SaveTeamWaitingCB"
+  },
+  {
+   "address": "0x00411c50",
+   "name": "LoadRequestShipsCB",
+   "kind": "function",
+   "class": "hw1:AIPlayer.c",
+   "confidence": "high",
+   "evidence": "Uncreated callback: push 0x20; call memAlloc (sizeof RequestShips 0x20 as aifTeamRequestsShipsCB); third in HW1 order [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIPlayer.c:LoadRequestShipsCB"
+  },
+  {
+   "address": "0x00411c80",
+   "name": "LoadTeamWaitingCB",
+   "kind": "function",
+   "class": "hw1:AIPlayer.c",
+   "confidence": "high",
+   "evidence": "Uncreated callback: push 0x4c; call memAlloc (sizeof TeamWaitingForTheseShips 0x4c as aifTeamRequestsShipsCB); fourth in HW1 order [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIPlayer.c:LoadTeamWaitingCB"
+  },
+  {
+   "address": "0x00411ca0",
+   "name": "FixTeamWaitingCB",
+   "kind": "function",
+   "class": "hw1:AIPlayer.c",
+   "confidence": "high",
+   "evidence": "Fifth uncreated callback directly before SaveThisAIPlayer (0x411cd0), HW1 order; 37 bytes converting team index back to pointer [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIPlayer.c:FixTeamWaitingCB"
+  },
+  {
+   "address": "0x00413b70",
+   "name": "scriptAIShipPrecalculate",
+   "kind": "function",
+   "class": "hw1:AIShip.c",
+   "confidence": "high",
+   "evidence": "Script callback (data ref 0x74da0c in AIShipTweaks) before aishipPrecalcInfo; computes 1/DESCEND_PITCH4_DIST, 1/(P3-P4), 1/(P2-P3) and NEG_AVOID_MIN_VEL=-AVOID_MIN_VEL exactly as HW1 [not a function e",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIShip.c:scriptAIShipPrecalculate",
+   "signature": "void scriptAIShipPrecalculate(char *directory, char *field, void *dataToFillIn)"
+  },
+  {
+   "address": "0x00417990",
+   "name": "aitTeamIsntCoopWithAnotherTeam_GravWell",
+   "kind": "function",
+   "class": "hw1:AITeam.c",
+   "confidence": "high",
+   "evidence": "After aitFindMostValuable; teams with cooperatingTeam==arg holding class 6/5 (Fighter/Corvette) or shiptype 64/79 (k/tGravWellGenerator) -> FALSE; uncreated [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AITeam.c:aitTeamIsntCoopWithAnotherTeam_GravWell",
+   "signature": "bool32 aitTeamIsntCoopWithAnotherTeam_GravWell(AITeam *testteam)"
+  },
+  {
+   "address": "0x0041aa70",
+   "name": "aiuShipIsFighter",
+   "kind": "function",
+   "class": "hw1:AIUtilities.c",
+   "confidence": "high",
+   "evidence": "Directly after aiuAnyShipsAreCapitalShips as HW1; returns ship->staticinfo->shipclass==6 (CLASS_Fighter); uncreated constraint callback [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIUtilities.c:aiuShipIsFighter",
+   "signature": "bool32 aiuShipIsFighter(Ship *ship)"
+  },
+  {
+   "address": "0x0041aa90",
+   "name": "aiuShipNotGoodAgainstFighters",
+   "kind": "function",
+   "class": "hw1:AIUtilities.c",
+   "confidence": "high",
+   "evidence": "Follows aiuShipIsFighter as HW1; switch on ship->shiptype (byte table over 44..90: Ion frigates, destroyers, heavy cruisers) returns TRUE; uncreated [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/AIUtilities.c:aiuShipNotGoodAgainstFighters",
+   "signature": "bool32 aiuShipNotGoodAgainstFighters(Ship *ship)"
+  },
+  {
+   "address": "0x00463680",
+   "name": "cat_linkComputeTargetCoordSys",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller cat_linkFlyIntoPosition; builds a matrix from the dock point heading/up (GetDirectionVectorOfShip, cross, matCreateMatFromVecs) times host coordsys, then transposed ship-point frame",
+   "hw1_equivalent": "",
+   "signature": "void cat_linkComputeTargetCoordSys(Ship *ship, void *linkpoint, Ship *host, void *hostpoint, matrix *out)"
+  },
+  {
+   "address": "0x004638f0",
+   "name": "cat_salvageOpenAnimIndex",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Byte-table switch: returns 3 for shiptypes 3,72,88,89,97,126,127 (salvager/clamping types per CET ShipDefs.h), else -1; cat_salvageDetach compares it to the running mad animation",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_salvageOpenAnimIndex(ShipType type)"
+  },
+  {
+   "address": "0x004639b0",
+   "name": "cat_salvageCloseAnimIndex",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Twin of cat_salvageOpenAnimIndex returning 2 for the same 7 shiptypes; cat_salvageDetach calls madAnimationStart(salvager, it, 2) when the open animation was playing",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_salvageCloseAnimIndex(ShipType type)"
+  },
+  {
+   "address": "0x00463a70",
+   "name": "cat_dockCanDockWithBusyHost",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "ThisShipCanDockWith calls it when target attributes&0x400; TRUE for mission 16 Worker docking at type 0x8d, dock-point state 4..5, purpose 3..5, or shiptype byte-table (0x58,0x7e,0x7f...)",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_dockCanDockWithBusyHost(Ship *ship, sdword purpose)"
+  },
+  {
+   "address": "0x005ad540",
+   "name": "cat_acolyteLinkedAttack",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller AcolyteHouseKeep; when the ship's formation (+0x370) is a link (flag 1) with >1 member, gathers Acolytes (types 1/34) and issues clAttack",
+   "hw1_equivalent": "",
+   "signature": "void cat_acolyteLinkedAttack(Ship *ship)"
+  },
+  {
+   "address": "0x005ada50",
+   "name": "cat_acolyteCanFireLinkedWeapon",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Acolyte (type 1/34) with upgrade 0x4000000 and gun/missile counts at static+0x17c/+0x204; callers popup menu 0x004edc70, mouse UI 0x00513a00/0x00512530",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_acolyteCanFireLinkedWeapon(Ship *ship)"
+  },
+  {
+   "address": "0x005adab0",
+   "name": "cat_acolyteCanLinkFire",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Twin of 0x005ada50 (same Acolyte + upgrade 0x4000000 test) used by cat_processLinkToDo and 0x00507740",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_acolyteCanLinkFire(Ship *ship)"
+  },
+  {
+   "address": "0x005adba0",
+   "name": "cat_empShipClampedToPlayer",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller cat_empPulse; ship clamped (0x004fc7a0) with flag 0x2000000 to a host owned by playerIndex (or its +0x3ec owner) -> TRUE",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_empShipClampedToPlayer(udword playerIndex, Ship *ship)"
+  },
+  {
+   "address": "0x005adc10",
+   "name": "cat_acvLinkReset",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "ACV (types 4/38) sets +0x6fc/+0x700 to 2; same two callers (cat_dockShipDocksAtShip, cat_spLaunchDockedShipsOnArrival) as cat_acolyteLinkReset",
+   "hw1_equivalent": "",
+   "signature": "void cat_acvLinkReset(Ship *ship)"
+  },
+  {
+   "address": "0x005ae720",
+   "name": "cat_acvLinkedAttack",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller ACVHouseKeep; twin of cat_acolyteLinkedAttack for ACV types 4/38 in a linked formation, issues clAttack",
+   "hw1_equivalent": "",
+   "signature": "void cat_acvLinkedAttack(Ship *ship)"
+  },
+  {
+   "address": "0x005ae1d0",
+   "name": "cat_acvCollectEMPTargets",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Callers ACVSpecialActivate/ACVHouseKeep before cat_empPulse; adds the ship or its linked ACVs to a GrowSelection, uses cat_shipHasUpgrade and distance 0x00550d60",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_acvCollectEMPTargets(Ship *ship, bool32 linked, GrowSelection *out)"
+  },
+  {
+   "address": "0x005af190",
+   "name": "cat_carrierDoorAnimUpdate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_dockFlyOutOfCone; door state +0x798 with madAnimationStart/cat_madAnimationFinished, after CarrierOrderChanged in the Carrier.c block",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_carrierDoorAnimUpdate(Ship *ship, sdword dockstate)"
+  },
+  {
+   "address": "0x005af460",
+   "name": "cat_carrierCountSupportModules",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Counts attached ships (+0x1bc ->+0x34 selection) of type 13 sCarrierSupport not flagged 8; callers cmUpdateShipAvailable, unitCapCanCreateShip (unit caps)",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_carrierCountSupportModules(Ship *ship)"
+  },
+  {
+   "address": "0x005af4c0",
+   "name": "cat_moduleShipGetStatics",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "switch on module shiptype (11,13,19,20,21...) returning per-module static tables at 0x00a762xx; callers ModuleShipStaticInit, ModuleShipHouseKeep",
+   "hw1_equivalent": "",
+   "signature": "void * cat_moduleShipGetStatics(ShipType type)"
+  },
+  {
+   "address": "0x005af940",
+   "name": "cat_moduleShipEject",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller processLaunchShipToDo for attached modules; state +0x638=1, timers, per-type random velocity table 0x008c3608, unClampObj from host",
+   "hw1_equivalent": "",
+   "signature": "void cat_moduleShipEject(Ship *module, bool32 random, real32 delay, real32 duration)"
+  },
+  {
+   "address": "0x005afd70",
+   "name": "cat_moduleIterate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Iterator over a host's attached ships (+0x1bc->+0x34) of class 10 kept in globals 0x00a762c0..c8; NULL continues; wrapped by 0x005afed0/0x005afee0",
+   "hw1_equivalent": "",
+   "signature": "Ship * cat_moduleIterate(Ship *host)"
+  },
+  {
+   "address": "0x005afed0",
+   "name": "cat_moduleIterFirst",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Calls cat_moduleIterate(host); paired with cat_moduleIterNext in dockPutShipOutside, AddShipToHyperspace, worker repair code",
+   "hw1_equivalent": "",
+   "signature": "Ship * cat_moduleIterFirst(Ship *host)"
+  },
+  {
+   "address": "0x005afee0",
+   "name": "cat_moduleIterNext",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Calls cat_moduleIterate(NULL) to continue the module iteration started by cat_moduleIterFirst",
+   "hw1_equivalent": "",
+   "signature": "Ship * cat_moduleIterNext(void)"
+  },
+  {
+   "address": "0x005bf760",
+   "name": "cat_shipImmuneToRamming",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Shiptype 109 dRKO, 131 dNomadMoon or 132 dNomadFieldEmitter (CET ShipDefs.h) -> TRUE; only caller cat_rammingFrigateCollide",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipImmuneToRamming(Ship *ship)"
+  },
+  {
+   "address": "0x005bf860",
+   "name": "cat_rammingFrigateResetCooldown",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "s/bRammingFrigate (6/48): cat_timerStartGameTime(+0x67c, static+0x194 ->+0x14); caller the latch routine 0x005c1010",
+   "hw1_equivalent": "",
+   "signature": "void cat_rammingFrigateResetCooldown(Ship *ship)"
+  },
+  {
+   "address": "0x005bf8a0",
+   "name": "cat_rammingFrigateRelease",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Called by every RammingFrigate* callback; deletes effect +0x674, unClampObj when state +0x638 was 5 (pushing), madAnimationStart, stops sound, restarts timer",
+   "hw1_equivalent": "",
+   "signature": "void cat_rammingFrigateRelease(Ship *ship, char newstate)"
+  },
+  {
+   "address": "0x005bfa60",
+   "name": "cat_rammingFrigateHitEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller 0x005c1010; replaces effect at +0x650 with an etg hit effect from table 0x00c41d40 when etgHitEffectsEnabled",
+   "hw1_equivalent": "",
+   "signature": "void cat_rammingFrigateHitEffect(Ship *ship)"
+  },
+  {
+   "address": "0x005bfef0",
+   "name": "cat_shipBlendHeading",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Weighted average of current heading (+0xb0) and dir, vecNormalize, matCreateCoordSysFromHeading into +0x98, collUpdateCollRectangle; callers ram latch, RKO",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipBlendHeading(Ship *ship, vector *dir, real32 wdir, real32 wcur)"
+  },
+  {
+   "address": "0x005bff90",
+   "name": "cat_shipSetHeading",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "vecNormalize(dir), matCreateCoordSysFromHeading into ship coordsys (+0x98), collUpdateCollRectangle; callers RKOHouseKeep, 0x005c41a0",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipSetHeading(Ship *ship, vector *dir)"
+  },
+  {
+   "address": "0x005bffe0",
+   "name": "cat_shipBlendHeadingDefault",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Same as cat_shipBlendHeading with weights from globals 0x008c5da4/da8; caller 0x005b16f0",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipBlendHeadingDefault(Ship *ship, vector *dir)"
+  },
+  {
+   "address": "0x005c0a70",
+   "name": "cat_shipIsLiveRammingFrigate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Not dead (+0x10==0) and shiptype 6 sRammingFrigate or 48 bRammingFrigate; caller cat_shipUpdateExternalBuildAndAI",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipIsLiveRammingFrigate(Ship *ship)"
+  },
+  {
+   "address": "0x005c0a90",
+   "name": "cat_shipIsRammingFrigate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "return shiptype==48 bRammingFrigate || shiptype==6 sRammingFrigate (CET ShipDefs.h)",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipIsRammingFrigate(Ship *ship)"
+  },
+  {
+   "address": "0x005c0ac0",
+   "name": "cat_rammingFrigateIsPushing",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "return ram state (+0x638)==5, the clamped state that cat_rammingFrigateRelease unclamps",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_rammingFrigateIsPushing(Ship *ship)"
+  },
+  {
+   "address": "0x005c0ae0",
+   "name": "cat_rammingFrigateForceRelease",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "If ramming frigate in state 5 calls cat_rammingFrigateRelease(ship,0); callers hyperspace-out prep, cat_empShockShip, RKOHouseKeep",
+   "hw1_equivalent": "",
+   "signature": "void cat_rammingFrigateForceRelease(Ship *ship)"
+  },
+  {
+   "address": "0x005c0d30",
+   "name": "cat_rammingFrigateFindLatchPoint",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller latch 0x005c1010; mesh line tests (0x005c0c00/0x005c0b20, cat_meshLineIntersect) and dock static point to find a contact point on the target",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_rammingFrigateFindLatchPoint(Ship *ship, real32 range, vector *out)"
+  },
+  {
+   "address": "0x005c1010",
+   "name": "cat_rammingFrigateLatchTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller cat_rammingFrigateCollide; validates target, clampObjToObj, RemoveShipsFromDoingStuff, madAnimationStart, battle chatter; else release/cooldown",
+   "hw1_equivalent": "",
+   "signature": "void cat_rammingFrigateLatchTarget(Ship *rammer, Ship *target)"
+  },
+  {
+   "address": "0x005c1830",
+   "name": "cat_rammingFrigateThrustEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller RammingFrigateHouseKeep; creates etg effect from table 0x00c41d64 oriented by matCreateCoordSysFromHeading(dir)",
+   "hw1_equivalent": "",
+   "signature": "void cat_rammingFrigateThrustEffect(Ship *ship, uint *effect, vector *dir)"
+  },
+  {
+   "address": "0x005c1b20",
+   "name": "cat_rammingFrigateDamageTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Target +0x64c; creates push effect (0x005c1900) and calls ApplyDamageToTarget with upgrade-dependent damage; called from push update 0x005c1c20",
+   "hw1_equivalent": "",
+   "signature": "void cat_rammingFrigateDamageTarget(Ship *ship)"
+  },
+  {
+   "address": "0x005c1c20",
+   "name": "cat_rammingFrigatePushTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller RammingFrigateHouseKeep; push speed doubled with upgrade 0x100, damages target (cat_rammingFrigateDamageTarget) and applies push (0x005c1d20)",
+   "hw1_equivalent": "",
+   "signature": "void cat_rammingFrigatePushTarget(Ship *ship)"
+  },
+  {
+   "address": "0x005c1f70",
+   "name": "cat_univPointInUniverse",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "|x|,|y|,|z| within smUniverseSizeX/Y/Z; callers ram latch, RKOHouseKeep, 0x00515d30 and others",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_univPointInUniverse(vector *pos)"
+  },
+  {
+   "address": "0x005c2020",
+   "name": "cat_rammingFrigateCheckCollision",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller RammingFrigateHouseKeep; bounding radius test, collCheckRectBumpCollision, then cat_rammingFrigateCollide",
+   "hw1_equivalent": "",
+   "signature": "void cat_rammingFrigateCheckCollision(Ship *rammer, Ship *other)"
+  },
+  {
+   "address": "0x005c2120",
+   "name": "cat_rammingFrigateSpeedMultiplier",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller cat_shipGetSpeedMultiplier; ramming frigate in state 3 with upgrade 0x100 returns constant 0x008c5e34 else 1.0",
+   "hw1_equivalent": "",
+   "signature": "real32 cat_rammingFrigateSpeedMultiplier(Ship *ship)"
+  },
+  {
+   "address": "0x005c3e00",
+   "name": "cat_vecWithinDistance",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "returns |a-b|^2 < dist*dist; caller 0x00515bd0",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_vecWithinDistance(vector *a, vector *b, real32 dist)"
+  },
+  {
+   "address": "0x005c3e50",
+   "name": "cat_vecWithinDistanceSq",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "returns |a-b|^2 < distsq; callers RKOHouseKeep, 0x005b0df0",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_vecWithinDistanceSq(vector *a, vector *b, real32 distsq)"
+  },
+  {
+   "address": "0x005c4130",
+   "name": "cat_shipReleaseAttachedRammers",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "For each ship attached to this one (+0x1bc->+0x34 selection, back to front) calls cat_rammingFrigateForceRelease and 0x004fd580; callers DreadnoughtHouseKeep, dock code",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipReleaseAttachedRammers(Ship *ship)"
+  },
+  {
+   "address": "0x005c54c0",
+   "name": "cat_shipIsRKO",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Not dead and shiptype==109 dRKO (CET ShipDefs.h); callers collCheckShipShipColl, cat_empPulse, ACVHouseKeep",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipIsRKO(Ship *ship)"
+  },
+  {
+   "address": "0x005c54e0",
+   "name": "cat_rkoGetNaggarokMissiles",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Only caller kasfGetNaggarokMissiles; returns rko+0x6a4",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_rkoGetNaggarokMissiles(Ship *rko)"
+  },
+  {
+   "address": "0x005c54f0",
+   "name": "cat_rkoDecNaggarokMissiles",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Only caller kasfDecNaggarokMissiles; rko+0x6a4 -= 1",
+   "hw1_equivalent": "",
+   "signature": "void cat_rkoDecNaggarokMissiles(Ship *rko)"
+  },
+  {
+   "address": "0x005c5500",
+   "name": "cat_rkoSetBigGunPos",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Only caller kasfRKOBigGunPos; sets beware flag +0x6c4=1, timer +0x6e4, random radius +0x6d4 and danger position +0x6c8",
+   "hw1_equivalent": "",
+   "signature": "void cat_rkoSetBigGunPos(Ship *rko, vector *pos)"
+  },
+  {
+   "address": "0x005c56b0",
+   "name": "cat_rkoGetAvoidLocation",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Only caller kasfRKOAvoidLocation; if +0x6c4==1 copies +0x6c8 and +0x6d8 vectors out",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_rkoGetAvoidLocation(Ship *rko, vector *pos, vector *dir)"
+  },
+  {
+   "address": "0x005c5700",
+   "name": "cat_rkoIsSafe",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Only caller kasfRKOIsSafe; FALSE while beware flag set and RKO within radius (+0x6d4) of danger point",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_rkoIsSafe(Ship *rko)"
+  },
+  {
+   "address": "0x005c5760",
+   "name": "cat_rkoBeware",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Only caller kasfRKOBeware; returns +0x6c4==1",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_rkoBeware(Ship *rko)"
+  },
+  {
+   "address": "0x005c5780",
+   "name": "cat_rkoNotifyBigGunExplosion",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers cat_bigGunBulletExplode/ExplodeAt; single player only, finds the dRKO (109) in universe.ShipList and updates its beware state",
+   "hw1_equivalent": "",
+   "signature": "void cat_rkoNotifyBigGunExplosion(vector *pos)"
+  },
+  {
+   "address": "0x005c57c0",
+   "name": "cat_rkoWarnBigGunFire",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller SectMothershipHouseKeep; SP only, finds dRKO in ShipList and sets beware position/radius/timer like cat_rkoSetBigGunPos",
+   "hw1_equivalent": "",
+   "signature": "void cat_rkoWarnBigGunFire(vector *pos)"
+  },
+  {
+   "address": "0x005c5af0",
+   "name": "cat_shipIsLiveSentinel",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Not dead and shiptype 17 sSentinel or 52 bSentinel (CET ShipDefs.h); caller ram latch-point search",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipIsLiveSentinel(Ship *ship)"
+  },
+  {
+   "address": "0x005c5cb0",
+   "name": "cat_sentinelFieldRenderAll",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller rndMainViewRenderFunction; walks queued field entries (0x00a78d18 list, 0x38-byte records) calling the field renderer 0x005c60a0 then clears the queue",
+   "hw1_equivalent": "",
+   "signature": "void cat_sentinelFieldRenderAll(void)"
+  },
+  {
+   "address": "0x005c60a0",
+   "name": "cat_sentinelFieldRender",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Additive blend, lighting/texture off, primCircleSolid3/primSolidTexture3 billboards, cat_colBlendRGBA; draws one queued Sentinel force-field segment",
+   "hw1_equivalent": "",
+   "signature": "void cat_sentinelFieldRender(void *entry)"
+  },
+  {
+   "address": "0x005c6830",
+   "name": "cat_sentinelFormationUpdate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller SentinelHouseKeep; formation +0x370 type 9/10 with this ship as leader, clampObjToObj/unClampObj members, formationContentHasChanged",
+   "hw1_equivalent": "",
+   "signature": "void cat_sentinelFormationUpdate(Ship *ship)"
+  },
+  {
+   "address": "0x005c6c60",
+   "name": "cat_sentinelFieldBulletHit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers collCheckBeamColl/BulletTargetColl/univBulletCollidedWithTarget; cat_weaponDamageVsArmour * damage subtracted from +0x974, sets down flag +0x978",
+   "hw1_equivalent": "",
+   "signature": "void cat_sentinelFieldBulletHit(void *field, void *unused, Bullet *bullet)"
+  },
+  {
+   "address": "0x005c6cd0",
+   "name": "cat_sentinelFieldMissileHit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller collCheckMissileShipColl; stamps hit time +0x968 and plays the missile's etg hit effect when in render list",
+   "hw1_equivalent": "",
+   "signature": "void cat_sentinelFieldMissileHit(void *field, void *unused, Missile *missile)"
+  },
+  {
+   "address": "0x005c6ec0",
+   "name": "cat_shipIsSentinelInField",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Sentinel (17/52) whose formation (+0x370) is active with type 9 or 10; callers MakeShipsAttackCapable, mouse UI 0x00513a00",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipIsSentinelInField(Ship *ship)"
+  },
+  {
+   "address": "0x005c6fa0",
+   "name": "cat_slipgateSetEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "switch(state) deletes/creates the gate etg effect at +0x644; callers cat_slipgateOpen/Close and SlipgateHouseKeep",
+   "hw1_equivalent": "",
+   "signature": "void cat_slipgateSetEffect(Ship *gate, ubyte state)"
+  },
+  {
+   "address": "0x005c70e0",
+   "name": "cat_slipgateOpen",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers cat_nisOpenSlipgate, cat_dockShipDocksAtShip; stamps open time on gate and partner (+0x638) and calls cat_slipgateSetEffect",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_slipgateOpen(Ship *gate)"
+  },
+  {
+   "address": "0x005c7180",
+   "name": "cat_slipgateClose",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller cat_nisCloseSlipgate; cat_slipgateSetEffect(gate,3) and on partner (+0x638) unless flag 0x80",
+   "hw1_equivalent": "",
+   "signature": "void cat_slipgateClose(Ship *gate)"
+  },
+  {
+   "address": "0x005c71b0",
+   "name": "cat_slipgateSetPartner",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller cat_scriptSetSlipgateCB; stores partner at gate+0x638",
+   "hw1_equivalent": "",
+   "signature": "void cat_slipgateSetPartner(Ship *gate, Ship *partner)"
+  },
+  {
+   "address": "0x005c73b0",
+   "name": "cat_slipgateAddShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "growSelectAddShip(gate+0x65c, ship); caller cat_dockShipDocksAtShip; Slipgate_Save/Load save that GrowSelection",
+   "hw1_equivalent": "",
+   "signature": "void cat_slipgateAddShip(Ship *gate, Ship *ship)"
+  },
+  {
+   "address": "0x005c7a50",
+   "name": "cat_swarmerSetState",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Stores state at +0x648; callers HiveFrigateHouseKeep, 0x005b5af0; follows SwarmerAttack",
+   "hw1_equivalent": "",
+   "signature": "void cat_swarmerSetState(Ship *ship, sdword state)"
+  },
+  {
+   "address": "0x005c79e0",
+   "name": "cat_swarmerGetState",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Derives swarmer state from +0x648 and its formation (+0x370) type; callers HiveFrigateHouseKeep, 0x005b59f0",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_swarmerGetState(Ship *ship)"
+  },
+  {
+   "address": "0x005c7d60",
+   "name": "cat_workerChooseRepairTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller the worker repair routine 0x005c89a0; filters allied (allianceIsShipAlly) ships and their modules (cat_moduleIterFirst/Next), picks via 0x005c7c60",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_workerChooseRepairTarget(Ship *worker, SelectCommand *ships, Ship **out)"
+  },
+  {
+   "address": "0x005c8310",
+   "name": "cat_workerRepairEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers WorkerHouseKeep and 0x005c89a0; repair beam etg effect from table 0x00c41d08 aimed with aishipGetTrajectory at target +0x670",
+   "hw1_equivalent": "",
+   "signature": "void cat_workerRepairEffect(Ship *worker)"
+  },
+  {
+   "address": "0x005c84c0",
+   "name": "cat_workerStopRepairEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Deletes effect +0x674 (etgEffectDelete, univRemoveObjFromRenderList, listDeleteNode) and clears +0x674..+0x67c",
+   "hw1_equivalent": "",
+   "signature": "void cat_workerStopRepairEffect(Ship *worker)"
+  },
+  {
+   "address": "0x005c8510",
+   "name": "cat_workerReleaseRepairTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Decrements target(+0x670)->+0x604 repairer count, clears +0x608/+0x670 and the repair effect",
+   "hw1_equivalent": "",
+   "signature": "void cat_workerReleaseRepairTarget(Ship *worker)"
+  },
+  {
+   "address": "0x005c85b0",
+   "name": "cat_vecWorldToShipLocal",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "out = (pos - ship->posinfo.position) * ship coordsys via matMultiplyVecByMat; caller 0x00460270",
+   "hw1_equivalent": "",
+   "signature": "void cat_vecWorldToShipLocal(vector *out, vector *pos, Ship *ship)"
+  },
+  {
+   "address": "0x005c8740",
+   "name": "cat_workerFlyToRepairPoint",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller 0x005c89a0; standoff 800..1500 from target via 0x005c8600, aishipFlyToPointAvoidingObjsFunc, aitrackHeading/VelocityVectorGuidance",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_workerFlyToRepairPoint(Ship *worker)"
+  },
+  {
+   "address": "0x005c8940",
+   "name": "cat_shipFindMostDamagedPart",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Returns the ship or attached module with lowest health/maxhealth (+0x170 / static+0xa4) using cat_moduleIterFirst/Next; caller 0x005bedd0",
+   "hw1_equivalent": "",
+   "signature": "Ship * cat_shipFindMostDamagedPart(Ship *ship)"
+  },
+  {
+   "address": "0x005c89a0",
+   "name": "cat_workerRepairTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller WorkerSpecialTarget (non-salvage branch); chooses target, flies in, repair beam, battle chatter, releases when done/disabled",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_workerRepairTarget(Ship *worker, SelectCommand *targets)"
+  },
+  {
+   "address": "0x005c8e00",
+   "name": "cat_shipIsLiveWorker",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Not dead and shiptype 14 sWorker or 49 bWorker; callers kasfRepair, cat_nisRepair, cat_clSpecialTarget, ShipHasToLaunch, salvage code",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipIsLiveWorker(Ship *ship)"
+  },
+  {
+   "address": "0x005c9c60",
+   "name": "cat_uiShipDamageFraction",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Lowest health ratio over ship and attached modules (twin of cat_shipFindMostDamagedPart returning the ratio); caller cat_uiFindNearestSpecialTarget",
+   "hw1_equivalent": "",
+   "signature": "real32 cat_uiShipDamageFraction(Ship *ship)"
+  },
+  {
+   "address": "0x005433d0",
+   "name": "cat_univShipSelfRepair",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller cat_univShipDeferredUpdate; upgrade 0x200000 or race 1, repair interval from static +0x278/+0x280, droidUpdateArray, mothership modules by type",
+   "hw1_equivalent": "",
+   "signature": "void cat_univShipSelfRepair(Ship *ship)"
+  },
+  {
+   "address": "0x00501ad0",
+   "name": "DerelictListAddCB",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadUniverse passes LAB_00501ad0 to LoadLinkedListOfSpaceObjs(&universe.DerelictList,..) as HW1 SaveGame.c:4208; body listAddNode(list, obj+0x238, obj); uncreated [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:DerelictListAddCB",
+   "signature": "void DerelictListAddCB(LinkedList *list, SpaceObj *obj)"
+  },
+  {
+   "address": "0x00501af0",
+   "name": "ImpactableListAddCB",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadUniverse passes LAB_00501af0 for universe.ImpactableList (HW1 :4209); listAddNode(list, obj+0x160, obj); uncreated [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:ImpactableListAddCB",
+   "signature": "void ImpactableListAddCB(LinkedList *list, SpaceObj *obj)"
+  },
+  {
+   "address": "0x00501b10",
+   "name": "MissileListAddCB",
+   "kind": "function",
+   "class": "hw1:SaveGame.c",
+   "confidence": "high",
+   "evidence": "LoadUniverse passes LAB_00501b10 for universe.MissileList (HW1 :4210); listAddNode(list, obj+0x1d0, obj); uncreated, directly before SaveSelection [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SaveGame.c:MissileListAddCB",
+   "signature": "void MissileListAddCB(LinkedList *list, SpaceObj *obj)"
+  },
+  {
+   "address": "0x00503da0",
+   "name": "spScenarioItemDraw",
+   "kind": "function",
+   "class": "hw1:ScenPick.c",
+   "confidence": "high",
+   "evidence": "Uncreated code right before spScenarioNameDraw (HW1 order); fontMakeCurrent, selected-color choice by flag 2, memStrncpy(title,31), fontPrint, restore font [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ScenPick.c:spScenarioItemDraw",
+   "signature": "void spScenarioItemDraw(rectangle *rect, listitemhandle data)"
+  },
+  {
+   "address": "0x005040a0",
+   "name": "compareScenariosCB",
+   "kind": "function",
+   "class": "hw1:ScenPick.c",
+   "confidence": "high",
+   "evidence": "Between spTitleFind and spTitleListLoad (HW1 order); strcmp-like CRT call on the first field of both entries (qsort callback); uncreated [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ScenPick.c:compareScenariosCB",
+   "signature": "int compareScenariosCB(const void *arg1, const void *arg2)"
+  },
+  {
+   "address": "0x005170b0",
+   "name": "cat_spWarpShipsSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Warp script table 0x894350 entry \"Ships\" (0x884030); sscanf \"%s %d\" + StrToShipType into per-level warp fleet; dbgFatal \"Level not specified while parsing warp script\"; uncreated [not a function entry",
+   "hw1_equivalent": "",
+   "signature": "void cat_spWarpShipsSetCB(char *directory, char *field, void *dataToFillIn)"
+  },
+  {
+   "address": "0x00517130",
+   "name": "cat_spWarpResourcesSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Warp script table entry \"Resources\" (0x884000); sscanf \"%d\" into warp level record at 0xa67498+level*0x2f0; same Level guard as cat_spWarpLevelSetCB; uncreated [not a function entry in r4a]",
+   "hw1_equivalent": "",
+   "signature": "void cat_spWarpResourcesSetCB(char *directory, char *field, void *dataToFillIn)"
+  },
+  {
+   "address": "0x00517180",
+   "name": "cat_spWarpTechSetCB",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Warp script table entry \"Tech\" (0x8948c4); sscanf \"%s\", StrToTechType, cat_rmTechSetAdd into warp level tech set 0xa676e0+level*0x2f0; uncreated [not a function entry in r4a]",
+   "hw1_equivalent": "",
+   "signature": "void cat_spWarpTechSetCB(char *directory, char *field, void *dataToFillIn)"
+  },
+  {
+   "address": "0x0051b430",
+   "name": "singlePlayerNisStoppedCB",
+   "kind": "function",
+   "class": "hw1:SinglePlayer.c",
+   "confidence": "high",
+   "evidence": "Uncreated callback after MissionEnumToWatchFunction; growSelect+clFormation for NIS 1, sprintf Nislet/Nis%dComplete into a KAS var, spUnlockout, spHyperspaceButtonPushed, as HW1 [not a function entry ",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:singlePlayerNisStoppedCB",
+   "signature": "void singlePlayerNisStoppedCB(void)"
+  },
+  {
+   "address": "0x0051bd90",
+   "name": "cat_spWarpToLevelEnabled",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "singlePlayerGame && WarpEnabled flag (0xa67490, set by scriptSetBool from the warp script); replaces HW1 WarpToLevelEnabled file probe; callers gameStart, universeReset/Close",
+   "hw1_equivalent": "HomeworldSDL/src/Game/SinglePlayer.c:WarpToLevelEnabled",
+   "signature": "bool32 cat_spWarpToLevelEnabled(void)"
+  },
+  {
+   "address": "0x0051c0c0",
+   "name": "cat_spGetHyperspaceModuleTypes",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller nisNewObjectCreate; lists shiptypes of ships in singlePlayerGameInfo.ShipsInHyperspace attached (+0x1bc) to a live sMothership (18)",
+   "hw1_equivalent": "",
+   "signature": "void cat_spGetHyperspaceModuleTypes(sdword *count, ShipType *types)"
+  },
+  {
+   "address": "0x00516f20",
+   "name": "cat_bigGunBulletTrack",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller SectMothershipHouseKeep; if cat_isBigGunBullet, memAlloc node and listAddNode to the big-gun bullet list 0x00a5e298",
+   "hw1_equivalent": "",
+   "signature": "void cat_bigGunBulletTrack(Bullet *bullet)"
+  },
+  {
+   "address": "0x00516f50",
+   "name": "cat_bigGunBulletUntrack",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers cat_bigGunBulletExplode/ExplodeAt; removes the bullet's node from list 0x00a5e298 (listRemoveNode)",
+   "hw1_equivalent": "",
+   "signature": "void cat_bigGunBulletUntrack(Bullet *bullet)"
+  },
+  {
+   "address": "0x00516f90",
+   "name": "cat_spGetDifficultyModifiers",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "switch(difficulty 0..4) fills three float multipliers (6.0,3.0,1.0,0.85...); callers kasLoad, cat_spGameDifficulty",
+   "hw1_equivalent": "",
+   "signature": "void cat_spGetDifficultyModifiers(real32 *a, real32 *b, real32 *c, sdword difficulty)"
+  },
+  {
+   "address": "0x00524350",
+   "name": "GetPostCombatStats",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "high",
+   "evidence": "Caller statsShowFancyFight; walks todolist for the two attack commands, numShipsAfter/totalHPAfter (health +0x170), battleTime, universeReset/univupdateReset/singlePlayerInit, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:GetPostCombatStats",
+   "signature": "void GetPostCombatStats(FightStats *fightStats)"
+  },
+  {
+   "address": "0x00524ac0",
+   "name": "statsGetOverallKillRating",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "medium",
+   "evidence": "After statsSetOverkillfactor; race/type -> stat index (ConvertShipRaceTypeToStatIndex inlined), returns FightStatsColumnSum[i] second field or 0.0; callers aiuRateShip, aiuRateBlobs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:statsGetOverallKillRating",
+   "signature": "real32 statsGetOverallKillRating(ShipStaticInfo *shipstatic)"
+  },
+  {
+   "address": "0x00524b10",
+   "name": "statShipConstraintsFrigatesOrBetterCB",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "high",
+   "evidence": "Uncreated: returns shipstatic->shipclass (+0x1e8) <= 4 (CLASS_Frigate) via cmp/sbb/inc; in the HW1 constraint-callback block [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:statShipConstraintsFrigatesOrBetterCB",
+   "signature": "bool32 statShipConstraintsFrigatesOrBetterCB(ShipStaticInfo *shipstatic)"
+  },
+  {
+   "address": "0x00524b30",
+   "name": "statShipConstraintsFightingShipsCB",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "medium",
+   "evidence": "Uncreated: switch on shipclass 0..6 with per-shiptype byte table for frigates and excludes 0x48/0x59 SalCap corvettes, first of two 146-byte twins (HW1 order) [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:statShipConstraintsFightingShipsCB",
+   "signature": "bool32 statShipConstraintsFightingShipsCB(ShipStaticInfo *shipstatic)"
+  },
+  {
+   "address": "0x00524bd0",
+   "name": "statShipConstraintsCarrierFightingShipsCB",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "medium",
+   "evidence": "Uncreated second 146-byte class/type switch right after statShipConstraintsFightingShipsCB, as in HW1 file order [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:statShipConstraintsCarrierFightingShipsCB",
+   "signature": "bool32 statShipConstraintsCarrierFightingShipsCB(ShipStaticInfo *shipstatic)"
+  },
+  {
+   "address": "0x00524c70",
+   "name": "statsGetMostDangerousShipNonStatConstraints",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "high",
+   "evidence": "Loops selection, optional constraintsCB(ship), keeps max kill rating (init -1.0); called by aiaGenerateAttackType with aiaPriorityShipsConstraints as HW1 aiaGetTakeoutTarget",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:statsGetMostDangerousShipNonStatConstraints",
+   "signature": "Ship * statsGetMostDangerousShipNonStatConstraints(SelectCommand *selection, ShipConstraintsCB constraintsCB)"
+  },
+  {
+   "address": "0x00524cf0",
+   "name": "statsBestShipToBuyToKillShip",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "medium",
+   "evidence": "Callers aioCreateTakeoutTarget/FancyTakeoutTarget (HW1 AIOrders.c:1105); Cataclysm per-race counter tables 0x8961e8/0x896e2c returning GetShipStaticInfo",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:statsBestShipToBuyToKillShip",
+   "signature": "ShipStaticInfo * statsBestShipToBuyToKillShip(ShipRace race, void *constraintsCB, ShipStaticInfo *target)"
+  },
+  {
+   "address": "0x00524d70",
+   "name": "cat_statsRandomAttackShipStatic",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller aioCreateFancyTakeoutTarget; switch(kind 0..4) picks a random shiptype from tables 0x89700c.. and returns GetShipStaticInfo",
+   "hw1_equivalent": "",
+   "signature": "ShipStaticInfo * cat_statsRandomAttackShipStatic(sdword kind)"
+  },
+  {
+   "address": "0x00524e40",
+   "name": "statsNumShipsNeededToKillTarget",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "medium",
+   "evidence": "Callers aioCreateTakeoutTarget/Fancy after statsBestShipToBuyToKillShip as HW1 :1112; class-by-class table 0x897078/0x8970a8, random 1..9 for non-standard targets",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:statsNumShipsNeededToKillTarget",
+   "signature": "sdword statsNumShipsNeededToKillTarget(ShipStaticInfo *shipstatic, ShipStaticInfo *targetstatic)"
+  },
+  {
+   "address": "0x00524eb0",
+   "name": "statsNumShipsNeededToKillFleet",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "low",
+   "evidence": "Returns class factor table 0x897078[shipclass]*3; only caller aioCreateFancyTakeoutTarget (fleet variant); follows statsNumShipsNeededToKillTarget",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:statsNumShipsNeededToKillFleet",
+   "signature": "sdword statsNumShipsNeededToKillFleet(ShipStaticInfo *shipstatic)"
+  },
+  {
+   "address": "0x00524ed0",
+   "name": "statsGetRelativeFleetStrengths",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "high",
+   "evidence": "Returns fleet2->numShips / fleet1->numShips; callers aidMothershipDefense, aiuSelectionNotGoodAtKillingTheseTargets, aiuFindBest*EnemyShip as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:statsGetRelativeFleetStrengths",
+   "signature": "real32 statsGetRelativeFleetStrengths(SelectCommand *fleet1, SelectCommand *fleet2)"
+  },
+  {
+   "address": "0x00524ee0",
+   "name": "statsBestShipsToUseToKillTarget",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "high",
+   "evidence": "Callers aioCreateTakeoutTarget/Fancy (HW1 AIOrders.c:1062); selectMemDupSelection \"selDup\", greedy best kill-ratio picks, clRemoveShipFromSelection, *goodEnough",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:statsBestShipsToUseToKillTarget",
+   "signature": "SelectCommand * statsBestShipsToUseToKillTarget(SelectCommand *ships, ShipStaticInfo *target, bool32 *goodEnough)"
+  },
+  {
+   "address": "0x00525170",
+   "name": "statsGetStatChecksum",
+   "kind": "function",
+   "class": "hw1:Stats.c",
+   "confidence": "medium",
+   "evidence": "Only caller netcheckShow; sums GetShipStaticInfo/player fields + crc32Compute, logs \"CDET %d %d...\" ; last function block of Stats.c like HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:statsGetStatChecksum",
+   "signature": "sdword statsGetStatChecksum(void)"
+  },
+  {
+   "address": "0x00525300",
+   "name": "cat_statsGetPostCombatStats",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller statsGatherFightStats; GetPostCombatStats twin writing a gather-table row (0xbb5140+i*0x14) then universeReset/univUpdateReset/singlePlayerInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:GetPostCombatStats",
+   "signature": "bool32 cat_statsGetPostCombatStats(real32 *fightStats, sdword numShips)"
+  },
+  {
+   "address": "0x00525440",
+   "name": "cat_statsSetupShipsForFight",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller statsGatherFightStats; SetupShipsForFight twin: creates both fleets, clPresetShipsToPosition, clFormation, clAttackThese, statLog",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Stats.c:SetupShipsForFight",
+   "signature": "void cat_statsSetupShipsForFight(sdword i, sdword j, sdword numShips)"
+  },
+  {
+   "address": "0x005b04a0",
+   "name": "cat_defenseFighterRenderBeams",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller cat_rndRenderObjectList; after DefenseFighterHouseKeep, walks owner's (+0x11c) target list at +0x638 and builds beam coordsys (matCreateCoordSysFromHeading)",
+   "hw1_equivalent": "",
+   "signature": "void cat_defenseFighterRenderBeams(void *bullet)"
+  },
+  {
+   "address": "0x005b0df0",
+   "name": "cat_dfgFieldContainsPoint",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller physUpdateBulletPosVel; scans ShipList for bDFGFrigate 45 / tDFGFrigate 78 with cat_vecWithinDistanceSq(pos, ship pos, field radius); after DFGFrigateHouseKeep",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_dfgFieldContainsPoint(vector *pos)"
+  },
+  {
+   "address": "0x005b1110",
+   "name": "cat_dreadnoughtRenderCharge",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_rndRenderObjectList; sDreadnought (10) with cannon (+0x139c) draws charge effect 0x00516a40 scaled by cat_timerFractionElapsed(+5000)",
+   "hw1_equivalent": "",
+   "signature": "void cat_dreadnoughtRenderCharge(Ship *ship)"
+  },
+  {
+   "address": "0x005b1290",
+   "name": "cat_dreadnoughtHasCannonUpgrade",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "shiptype 10 sDreadnought and cat_shipHasUpgrade(ship,0x400); caller charge-bar UI 0x00507bc0 (alongside cat_*ChargeFraction)",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_dreadnoughtHasCannonUpgrade(Ship *ship)"
+  },
+  {
+   "address": "0x005b12c0",
+   "name": "cat_dreadnoughtChargeFraction",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "min(1.0, cat_timerFractionElapsed(ship+0x1368)); caller 0x00507bc0 together with cat_acvEMPChargeFraction, cat_bigGunChargeFraction",
+   "hw1_equivalent": "",
+   "signature": "real32 cat_dreadnoughtChargeFraction(Ship *ship)"
+  },
+  {
+   "address": "0x005b12f0",
+   "name": "cat_dreadnoughtCreateCannon",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers cat_clUpgradeShips, DreadnoughtHouseKeep; timer from cat_shipUpgradeFlagsTime(ship,0x400), univCreateShip(11 sDreadnoughtCannon), clampObjToObj, unitCapCreateShip",
+   "hw1_equivalent": "",
+   "signature": "void cat_dreadnoughtCreateCannon(Ship *ship)"
+  },
+  {
+   "address": "0x005b13b0",
+   "name": "cat_dreadnoughtReclampCannon",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "If cannon (+0x139c) exists: unClampObj then clampObjToObj(cannon, ship); caller 0x00455ad0",
+   "hw1_equivalent": "",
+   "signature": "void cat_dreadnoughtReclampCannon(Ship *ship)"
+  },
+  {
+   "address": "0x005b16f0",
+   "name": "cat_kamikazeSteer",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller doKamikazeAttack; speed from cat_shipGetSpeedMultiplier*tacticsGetShipsMaxVelocity of both, lead vector, cat_shipBlendHeadingDefault",
+   "hw1_equivalent": "",
+   "signature": "void cat_kamikazeSteer(Ship *ship, Ship *target, real32 dt)"
+  },
+  {
+   "address": "0x005b1990",
+   "name": "cat_kamikazeCheckHit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller doKamikazeAttack; kamikazeCheck then bounding radius distance test and ObjectsCollided",
+   "hw1_equivalent": "",
+   "signature": "void cat_kamikazeCheckHit(Ship *ship, Ship *target)"
+  },
+  {
+   "address": "0x005b3bd0",
+   "name": "cat_shipSetHelpless",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers kasfShipsSetHelpless, univCreateShip; sets +0x530 and disabled flag +0x200, restarts timers, ApplyCareenRotationDirectly",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipSetHelpless(Ship *ship, real32 duration)"
+  },
+  {
+   "address": "0x005b3c80",
+   "name": "cat_shipClearHelpless",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller kasfShipsSetHelpless (off branch); clears +0x530, recomputes disabled flag +0x200 from the 13 reasons at +0x1dc",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipClearHelpless(Ship *ship)"
+  },
+  {
+   "address": "0x005b3fe0",
+   "name": "cat_shipSetDisableReason",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Stores value in ship+0x1dc[reason] and sets +0x200 if any of the 13 reasons is non-zero; callers RemoveShipsFromDoingStuff, FreeLastOrder, link code",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipSetDisableReason(Ship *ship, sdword value, sdword reason)"
+  },
+  {
+   "address": "0x005b3b40",
+   "name": "cat_shipStartDrift",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Callers RKOHouseKeep, 0x00515d30; inside universe (cat_univPointInUniverse) saves velocity into +0x554 once (+0x550=1) and starts timer +0x560",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipStartDrift(Ship *ship, real32 time, real32 extra)"
+  },
+  {
+   "address": "0x005b3d60",
+   "name": "cat_shipUpdateDrift",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_univShipDeferredUpdate; while +0x550==1 and inside the universe, waits on timer +0x560 and restores/zeroes velocity",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipUpdateDrift(Ship *ship)"
+  },
+  {
+   "address": "0x005b5ac0",
+   "name": "cat_hiveFrigateSwarmReady",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns +0x1600 && +0x63c; callers kasfIsSwarmReady, cat_shipUpdateExternalBuildAndAI, UI; after HiveFrigateFire",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_hiveFrigateSwarmReady(Ship *hive)"
+  },
+  {
+   "address": "0x005b5af0",
+   "name": "cat_hiveFrigateResetSwarm",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Clears +0x63c and sets each of the 6 swarmer slots (+0x640) to state 0 (cat_swarmerSetState); callers docking/launch code",
+   "hw1_equivalent": "",
+   "signature": "void cat_hiveFrigateResetSwarm(Ship *hive)"
+  },
+  {
+   "address": "0x005b59f0",
+   "name": "cat_hiveFrigateUpdateSwarmers",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller HiveFrigateHouseKeep; iterates the 6 swarmer slots at +0x640 reading cat_swarmerGetState",
+   "hw1_equivalent": "",
+   "signature": "void cat_hiveFrigateUpdateSwarmers(Ship *hive)"
+  },
+  {
+   "address": "0x005b7ff0",
+   "name": "cat_leechGetSpecifics",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Returns ship+0x638 (ShipSpecifics); after cat_shipIsLeech; callers collision checks, soundEventUpdate",
+   "hw1_equivalent": "",
+   "signature": "void * cat_leechGetSpecifics(Ship *ship)"
+  },
+  {
+   "address": "0x005b84f0",
+   "name": "cat_mimicUnmimic",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers kasfUnmimic, cat_nisMimic, clScuttle, MimicSpecialActivate; switch on mimic state (+0x760), random restore timing, memFree disguise data",
+   "hw1_equivalent": "",
+   "signature": "void cat_mimicUnmimic(Ship *ship, bool32 animate)"
+  },
+  {
+   "address": "0x005b8620",
+   "name": "cat_mimicCopyFromPartner",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_processUnlinkToDo; copies disguise fields +0x704..+0x754 from partner and rebuilds mesh bindings (cat_univMeshBindingsDupeNoGuns)",
+   "hw1_equivalent": "",
+   "signature": "void cat_mimicCopyFromPartner(Ship *ship, Ship *partner)"
+  },
+  {
+   "address": "0x005b88f0",
+   "name": "cat_mimicBecomeShipType",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers MimicSpecialTarget, cat_nisMimic, cat_mimicCommand; GetShipStaticInfo(type), switch on its class, disguise data, cat_univMeshBindingsDupeNoGuns",
+   "hw1_equivalent": "",
+   "signature": "void cat_mimicBecomeShipType(Ship *ship, ShipType type, sdword race)"
+  },
+  {
+   "address": "0x005b8b00",
+   "name": "cat_mimicBecomeTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Callers MimicSpecialTarget, cat_mimicCommand; picks disguise from target or random (sMimic type 2), cat_shipHasUpgrade checks",
+   "hw1_equivalent": "",
+   "signature": "void cat_mimicBecomeTarget(Ship *ship, Ship *target)"
+  },
+  {
+   "address": "0x005b8d70",
+   "name": "cat_mimicCommand",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers clProcess, kasfMimic; requires upgrade 0x20; mode 0 cat_mimicUnmimic, 1 cat_mimicBecomeShipType, 2 cat_mimicBecomeTarget",
+   "hw1_equivalent": "",
+   "signature": "void cat_mimicCommand(Ship *ship, sdword mode, sdword a, sdword b, sdword c)"
+  },
+  {
+   "address": "0x005b8ea0",
+   "name": "cat_mimicCleanup",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers cat_dockShipDocksAtShip, kasfDeleteShips; resets mimic state +0x760, frees disguise buffers +0x710/+0x73c",
+   "hw1_equivalent": "",
+   "signature": "void cat_mimicCleanup(Ship *ship)"
+  },
+  {
+   "address": "0x005b9640",
+   "name": "cat_mimicGetStaticInfo",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Disguised (flag 8 at +0x18, state 1) returns disguise static +0x70c else ship->staticinfo; callers lodLevelGet and LOD helpers",
+   "hw1_equivalent": "",
+   "signature": "ShipStaticInfo * cat_mimicGetStaticInfo(Ship *ship)"
+  },
+  {
+   "address": "0x005b96f0",
+   "name": "cat_mimicAppearsAlliedTo",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Disguised ship with apparent owner +0x71c == player index and not really allied (sub_53F9F0); callers selection drag, overlay, mine targeting",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_mimicAppearsAlliedTo(Ship *ship, Player *player)"
+  },
+  {
+   "address": "0x005b9760",
+   "name": "cat_mimicGetApparentPlayerIndex",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Real owner index unless disguised (state 1, +0x704!=-1) where +0x714 (SP) or disguise owner is returned; caller 0x0050d460",
+   "hw1_equivalent": "",
+   "signature": "udword cat_mimicGetApparentPlayerIndex(Ship *ship)"
+  },
+  {
+   "address": "0x005b97e0",
+   "name": "cat_mimicGetApparentShipType",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns +0x704 when flag 8 at +0x18 else shiptype; callers overlay/tooltip draw, ioUpdateShipTotals, speechEventQueue, soundEventUpdate",
+   "hw1_equivalent": "",
+   "signature": "ShipType cat_mimicGetApparentShipType(Ship *ship)"
+  },
+  {
+   "address": "0x005b9810",
+   "name": "cat_mimicGetApparentShipClass",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "GetShipStaticInfo(apparent type +0x704 or shiptype)->shipclass (+0x1e8); caller toAllShipsDraw",
+   "hw1_equivalent": "",
+   "signature": "ShipClass cat_mimicGetApparentShipClass(Ship *ship)"
+  },
+  {
+   "address": "0x005b99b0",
+   "name": "cat_shipIsMimicking",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "flag 8 at +0x18 and mimic state +0x760 != 0; callers attackStraightForward, kasfDeleteShips, UI draw functions",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipIsMimicking(Ship *ship)"
+  },
+  {
+   "address": "0x005b94e0",
+   "name": "cat_mimicGetSelectRadius",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Disguise-aware radius from GetShipStaticInfo(disguise) by mimic state; callers selCircleCompute and 0x00508be0/0x00509250",
+   "hw1_equivalent": "",
+   "signature": "real32 cat_mimicGetSelectRadius(Ship *ship)"
+  },
+  {
+   "address": "0x005b9550",
+   "name": "cat_mimicGetAvoidRadius",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Same disguise switch as cat_mimicGetSelectRadius; only caller aishipFlyToPointAvoidingObjsFunc",
+   "hw1_equivalent": "",
+   "signature": "real32 cat_mimicGetAvoidRadius(Ship *ship)"
+  },
+  {
+   "address": "0x005b95c0",
+   "name": "cat_mimicGetCameraRadius",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Same disguise switch; callers cameraMinimumZoom, NewSetFocusPoint",
+   "hw1_equivalent": "",
+   "signature": "real32 cat_mimicGetCameraRadius(Ship *ship)"
+  },
+  {
+   "address": "0x005ba0d0",
+   "name": "cat_spSetCurrentMimicItem",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller kasfSetCurrentMimicItem; item 8 resets the menu index table 0x00a77814.. else stores per-item value",
+   "hw1_equivalent": "",
+   "signature": "void cat_spSetCurrentMimicItem(ubyte item, sdword value)"
+  },
+  {
+   "address": "0x005ba150",
+   "name": "cat_spSetMCVItemIndex",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Only caller kasfSetMCVItemIndex; stores index in table 0x00a762e8[item]",
+   "hw1_equivalent": "",
+   "signature": "void cat_spSetMCVItemIndex(ubyte item, sdword index)"
+  },
+  {
+   "address": "0x005ba020",
+   "name": "cat_spGetMenuItemEntry",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Returns &table 0x00a76310[(menu*0x54+index)*2]; callers cat_mouseGetContextAction, popup menu 0x004ed8b0",
+   "hw1_equivalent": "",
+   "signature": "void * cat_spGetMenuItemEntry(ubyte menu, sdword unused, sdword index)"
+  },
+  {
+   "address": "0x005b9ff0",
+   "name": "cat_spGetMenuItemIndex",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Returns 0x00a77ab0[menu] when mimic else 0x00a762e8[menu] (the MCV item index set by cat_spSetMCVItemIndex)",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_spGetMenuItemIndex(ubyte menu, bool32 mimic)"
+  },
+  {
+   "address": "0x005bd5f0",
+   "name": "cat_mothershipStartDeathSequence",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller AddShipToDeleteShipList; once (+0x6d4) sets random delay between globals 0x008c53b0/b4, stores reason, cat_salvageDepotDied, cat_shipSetDisableReason",
+   "hw1_equivalent": "",
+   "signature": "void cat_mothershipStartDeathSequence(Ship *ship, sdword reason)"
+  },
+  {
+   "address": "0x005bdc80",
+   "name": "cat_nomadMoonFind",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns the last ship of type 131 dNomadMoon in universe.ShipList; after NomadMoonInit; caller 0x005294c0",
+   "hw1_equivalent": "",
+   "signature": "Ship * cat_nomadMoonFind(void)"
+  },
+  {
+   "address": "0x005bdcb0",
+   "name": "cat_nomadMoonCanFire",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Only caller kasfNomadMoonCanFire; at least one emitter (+0x638/+0x63c) and not already firing (+0x640)",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_nomadMoonCanFire(Ship *moon)"
+  },
+  {
+   "address": "0x005bdcf0",
+   "name": "cat_nomadMoonFire",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Only caller kasfNomadMoonFire; if emitters exist and not firing, starts fire timer (cat_timerStartGameTime)",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_nomadMoonFire(Ship *moon)"
+  },
+  {
+   "address": "0x005bdd80",
+   "name": "cat_nomadMoonEmitterCount",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Only caller kasfNomadMoonEmitterCount; counts non-NULL emitter slots +0x638 and +0x63c",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_nomadMoonEmitterCount(Ship *moon)"
+  },
+  {
+   "address": "0x005be120",
+   "name": "cat_nomadMoonRenderBeam",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_rndRenderObjectList; while firing (+0x640==1) draws emitter beams via 0x00516bb0 using cat_timerFractionElapsed(+0x644); after NomadMoonFire",
+   "hw1_equivalent": "",
+   "signature": "void cat_nomadMoonRenderBeam(Ship *moon)"
+  },
+  {
+   "address": "0x005bedd0",
+   "name": "cat_processorAutoRepair",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller ProcessorHouseKeep; requires upgrade 0x40000 and no disable flags, finds target (0x005bec30), repair beams/effects, timers",
+   "hw1_equivalent": "",
+   "signature": "void cat_processorAutoRepair(Ship *processor)"
+  },
+  {
+   "address": "0x005beae0",
+   "name": "cat_processorRepairTargetInCone",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Lazily caches cos(twProcessorAutoRepairConeAngle) and twProcessorAutoRepairDistance^2, tests target against beam origin/heading",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_processorRepairTargetInCone(void *beam, Ship *target)"
+  },
+  {
+   "address": "0x005bec30",
+   "name": "cat_processorFindRepairTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Closest same-owner damaged ship in universe.ShipList passing cat_processorRepairTargetInCone; caller cat_processorAutoRepair",
+   "hw1_equivalent": "",
+   "signature": "Ship * cat_processorFindRepairTarget(void *beam)"
+  },
+  {
+   "address": "0x005bed00",
+   "name": "cat_processorInitRepairBeams",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller ProcessorInit; zeroes 0x21 dwords at +0x77c and sets up beams from the static dock/beam points (+0x3f0), timers",
+   "hw1_equivalent": "",
+   "signature": "void cat_processorInitRepairBeams(Ship *processor)"
+  },
+  {
+   "address": "0x005be8f0",
+   "name": "cat_processorRepairEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_processorAutoRepair; beam origin from host coordsys, creates/updates etg repair effect (etgEffectCreate)",
+   "hw1_equivalent": "",
+   "signature": "void cat_processorRepairEffect(void *beam)"
+  },
+  {
+   "address": "0x005c0b20",
+   "name": "cat_rammingFrigateLineHitsMesh",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Builds a segment origin +/- dir*const (0x008c5dd8) and calls cat_meshLineIntersect; only caller the latch-point probe 0x005c0c00",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_rammingFrigateLineHitsMesh(real32 len, void *mesh, vector *dir, vector *origin, vector *hit)"
+  },
+  {
+   "address": "0x005c0c00",
+   "name": "cat_rammingFrigateProbeLatchPoints",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_rammingFrigateFindLatchPoint; 9 probe directions (0x004601d0) each tested with cat_rammingFrigateLineHitsMesh, keeps nearest hit (0x00550d60)",
+   "hw1_equivalent": "",
+   "signature": "void cat_rammingFrigateProbeLatchPoints(Ship *ship, real32 range, ...)"
+  },
+  {
+   "address": "0x005c16f0",
+   "name": "cat_rammingFrigatePushGeometry",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller RammingFrigateHouseKeep; fills six vectors from tweak constants 0x008c5de8..df8 and the ship frame (0x004601d0, vecNormalize)",
+   "hw1_equivalent": "",
+   "signature": "void cat_rammingFrigatePushGeometry(Ship *ship, vector *a, vector *b, vector *c, vector *d, vector *e, vector *f)"
+  },
+  {
+   "address": "0x005c1900",
+   "name": "cat_rammingFrigatePushEffectCreate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_rammingFrigateDamageTarget when no effect at +0x674; etg fire effect from table 0x00c41d54 placed at the mesh contact (cat_meshLineIntersect)",
+   "hw1_equivalent": "",
+   "signature": "void cat_rammingFrigatePushEffectCreate(Ship *ship)"
+  },
+  {
+   "address": "0x005c1d20",
+   "name": "cat_rammingFrigateApplyPush",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_rammingFrigatePushTarget; for a live clamped target (worker check 0x005c8e00) physApplyRotToObj and aitrackForceGuidanceZeroRotation by heading dot",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_rammingFrigateApplyPush(Ship *ship, vector *dir, real32 mindot, real32 rot)"
+  },
+  {
+   "address": "0x005c3ea0",
+   "name": "cat_rkoTurnTowardPoint",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller RKOHouseKeep; direction to pos, cat_shipBlendHeading with weights 0x008c6430/34, special case for ACVs (cat_shipIsACV)",
+   "hw1_equivalent": "",
+   "signature": "void cat_rkoTurnTowardPoint(Ship *rko, vector *pos)"
+  },
+  {
+   "address": "0x005c41a0",
+   "name": "cat_rkoFaceShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller RKOHouseKeep; vector to the other ship blended with current heading then cat_shipSetHeading",
+   "hw1_equivalent": "",
+   "signature": "void cat_rkoFaceShip(Ship *rko, Ship *other)"
+  },
+  {
+   "address": "0x005c5b20",
+   "name": "cat_sentinelFieldQueueAdd",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller 0x005c5ec0; appends a 0x38-byte field segment to pool 0x00a77b98 (count 0x00a78d1c, max 34 or 79) sorted by distance into list 0x00a78d18",
+   "hw1_equivalent": "",
+   "signature": "void cat_sentinelFieldQueueAdd(...)"
+  },
+  {
+   "address": "0x005c5c20",
+   "name": "cat_sentinelFieldRenderNear",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller rndMainViewRenderFunction; sets render flag 0x00a78d20 and renders queued field segments closer than the given ship (fsqrt distance) via cat_sentinelFieldRender",
+   "hw1_equivalent": "",
+   "signature": "void cat_sentinelFieldRenderNear(void *camera, Ship *ship)"
+  },
+  {
+   "address": "0x005c5ec0",
+   "name": "cat_sentinelFieldQueueSegment",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller 0x005c67b0; positions from the two Sentinels' static points (+0x3f0) via matMultiplyMatByVec, then cat_sentinelFieldQueueAdd",
+   "hw1_equivalent": "",
+   "signature": "void cat_sentinelFieldQueueSegment(void *field, Ship *a, Ship *b, sdword idx)"
+  },
+  {
+   "address": "0x005c67b0",
+   "name": "cat_sentinelFieldQueueFormation",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_rndRenderObjectList; loops formation members (+0x640 counts) queueing segments with cat_sentinelFieldQueueSegment",
+   "hw1_equivalent": "",
+   "signature": "void cat_sentinelFieldQueueFormation(void *field, SelectCommand *members)"
+  },
+  {
+   "address": "0x005c6e80",
+   "name": "cat_shipIsSentinelInWall",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Sentinel 17/52 whose active formation (+0x370) has type 10; caller processMoveToDo",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipIsSentinelInWall(Ship *ship)"
+  },
+  {
+   "address": "0x005c73d0",
+   "name": "cat_slipgateDockWaitingShips",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller SlipgateHouseKeep; scans the command todolist for ships in the gate selection and issues clDock when ThisShipCanDockWith",
+   "hw1_equivalent": "",
+   "signature": "void cat_slipgateDockWaitingShips(void)"
+  },
+  {
+   "address": "0x005c7ac0",
+   "name": "cat_workerStaticInitRepairPoints",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller WorkerStaticInit; scriptSetStruct with scriptSetReal32CB entries and cat_dockFindDockStaticPoint for the repair points",
+   "hw1_equivalent": "",
+   "signature": "void cat_workerStaticInitRepairPoints(char *directory, char *field, ShipStaticInfo *statinfo)"
+  },
+  {
+   "address": "0x005c7c60",
+   "name": "cat_workerPickLeastBusyTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_workerChooseRepairTarget; picks entry with smallest repairer count (+0x600)",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_workerPickLeastBusyTarget(Ship *worker, SelectCommand *ships)"
+  },
+  {
+   "address": "0x005c7f80",
+   "name": "cat_boxUnion",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Max/min of centre+extent per axis of two boxes (6 floats); only caller cat_shipGetBoundingBox",
+   "hw1_equivalent": "",
+   "signature": "void cat_boxUnion(real32 *out, real32 *a, real32 *b)"
+  },
+  {
+   "address": "0x005c80d0",
+   "name": "cat_shipGetBoundingBox",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Box from static collision data (+0x60..+0x80) unioned with attached modules (cat_moduleIterFirst/Next, cat_boxUnion); worker repair callers",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipGetBoundingBox(Ship *ship, real32 *box)"
+  },
+  {
+   "address": "0x005c8600",
+   "name": "cat_workerComputeRepairStandoff",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_workerFlyToRepairPoint; standoff = target radius*k clamped to 800..1500 and point from cat_shipGetBoundingBox",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_workerComputeRepairStandoff(Ship *worker)"
+  },
+  {
+   "address": "0x004f1ac0",
+   "name": "TurnHarvestEffectOn",
+   "kind": "function",
+   "class": "hw1:ResCollect.c",
+   "confidence": "medium",
+   "evidence": "After TurnHarvestEffectOff as in HW1; harvest point = ship coordsys * static +0x3f8, distance to resource, matCreateCoordSysFromHeading, etgFrequencyExceeded/etgEffectCreate, stored in rceffect",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResCollect.c:TurnHarvestEffectOn",
+   "signature": "void TurnHarvestEffectOn(Ship *ship, Resource *resource, vector *trajectory, real32 resourceRadius, etglod *etgLOD)"
+  },
+  {
+   "address": "0x004f1c00",
+   "name": "ModifyHarvestEffect",
+   "kind": "function",
+   "class": "hw1:ResCollect.c",
+   "confidence": "medium",
+   "evidence": "Follows TurnHarvestEffectOn (HW1 order); repositions the effect at the ship harvest point (static +0x3f8) and rebuilds its coordsys from the trajectory",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResCollect.c:ModifyHarvestEffect",
+   "signature": "void ModifyHarvestEffect(Effect *effect, Ship *ship, vector *trajectory, real32 dist)"
+  },
+  {
+   "address": "0x004f1cf0",
+   "name": "DefaultShipHarvestsResource",
+   "kind": "function",
+   "class": "hw1:ResCollect.c",
+   "confidence": "high",
+   "evidence": "PreFix_ShipXHarvestsResourceY maps LAB_004f1cf0 to 0 and Fix maps 0 back to it, exactly HW1 DefaultShipHarvestsResource; code not yet a function [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResCollect.c:DefaultShipHarvestsResource",
+   "signature": "void DefaultShipHarvestsResource(Ship *ship, Resource *resource)"
+  },
+  {
+   "address": "0x004f1d40",
+   "name": "R1ResourcerHarvestsAsteroid",
+   "kind": "function",
+   "class": "hw1:ResCollect.c",
+   "confidence": "high",
+   "evidence": "PreFix maps LAB_004f1d40 to 1 and Fix maps 1 back, as HW1 R1ResourcerHarvestsAsteroid (InitShipForResourceCollection default); code not yet a function [not a function entry in r4a]",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResCollect.c:R1ResourcerHarvestsAsteroid",
+   "signature": "void R1ResourcerHarvestsAsteroid(Ship *ship, Resource *resource)"
+  },
+  {
+   "address": "0x004f2090",
+   "name": "PreFix_ShipXHarvestsResourceY",
+   "kind": "function",
+   "class": "hw1:ResCollect.c",
+   "confidence": "high",
+   "evidence": "Only caller SaveShip; ship+0x390 harvest fn ptr -> 0/1 (+2 for the Cataclysm handler 0x005c9130) else -1, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResCollect.c:PreFix_ShipXHarvestsResourceY",
+   "signature": "void PreFix_ShipXHarvestsResourceY(Ship *ship)"
+  },
+  {
+   "address": "0x004f20e0",
+   "name": "Fix_ShipXHarvestsResourceY",
+   "kind": "function",
+   "class": "hw1:ResCollect.c",
+   "confidence": "high",
+   "evidence": "Only caller FixShip; switch on saved index restores LAB_004f1cf0 / LAB_004f1d40 / LAB_005c9130 or NULL into ship+0x390, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResCollect.c:Fix_ShipXHarvestsResourceY",
+   "signature": "void Fix_ShipXHarvestsResourceY(Ship *ship)"
+  },
+  {
+   "address": "0x004f2450",
+   "name": "cat_rescollectStopHarvest",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller processCollectResource; clears +0x1d8 and flag 0x800 in +0x1cc, sets +0x1d4=1 and calls the harvest handler (+0x390)(ship,NULL)",
+   "hw1_equivalent": "",
+   "signature": "void cat_rescollectStopHarvest(Ship *ship)"
+  },
+  {
+   "address": "0x004f24a0",
+   "name": "removeResourcerFromAttacking",
+   "kind": "function",
+   "class": "hw1:ResCollect.c",
+   "confidence": "medium",
+   "evidence": "Only caller RemoveShipFromAttacking; if rceffect (+0x38c) exists deletes it (TurnHarvestEffectOff inlined: etgEffectDelete, univRemoveObjFromRenderList, listDeleteNode)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ResCollect.c:removeResourcerFromAttacking",
+   "signature": "void removeResourcerFromAttacking(Ship *ship)"
+  },
+  {
+   "address": "0x004f2500",
+   "name": "cat_shipIsCollectingResources",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "getShipAndItsCommand and command ordertype (+0x14) == 5 (collect resources); caller univCheckShipState",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipIsCollectingResources(Ship *ship)"
+  },
+  {
+   "address": "0x004f4620",
+   "name": "cat_rmResearchModuleDied",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller clShipDied; module type 19/21/22 -> lab 3/1/2, clears that lab (listDeleteNode topic) and rmUpdateTechList, after cat_rmResearchModuleActivated",
+   "hw1_equivalent": "",
+   "signature": "void cat_rmResearchModuleDied(Player *player, ShipType moduletype)"
+  },
+  {
+   "address": "0x004f4700",
+   "name": "cat_rmMothershipLabLost",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller clShipDied; clears lab 0 (+0x360/+0x364) like rmClearResearchlab and refreshes the tech list",
+   "hw1_equivalent": "",
+   "signature": "void cat_rmMothershipLabLost(Player *player)"
+  },
+  {
+   "address": "0x004f4780",
+   "name": "cat_playerShipTypeEnabled",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Returns player+0x62b0[type]; callers cmCanBuildShipType, cmUpdateShipAvailable, aifProcessShipBuildRequests (Beast race check)",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_playerShipTypeEnabled(Player *player, ShipType type)"
+  },
+  {
+   "address": "0x004f4790",
+   "name": "cat_rmShipTypeToModuleSlot",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "switch over shiptypes 10..15 etc. returning an index or -1; only caller cat_rmAcquireShipTechs",
+   "hw1_equivalent": "",
+   "signature": "sdword cat_rmShipTypeToModuleSlot(ShipType type)"
+  },
+  {
+   "address": "0x004f7a40",
+   "name": "cat_rmSelectTechPrintList",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_rmAcquireShipTechs; picks tech print table 0x00c17aa8 by singlePlayerGame and current player race (after rmGUIShutdown)",
+   "hw1_equivalent": "",
+   "signature": "void cat_rmSelectTechPrintList(void)"
+  },
+  {
+   "address": "0x004f7a90",
+   "name": "cat_salvageResetGlobals",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller universeReset; zeroes 0x00a57798 (the AI depot ship set by kasfSetAIDepotShip) and 0x00a5779c",
+   "hw1_equivalent": "",
+   "signature": "void cat_salvageResetGlobals(void)"
+  },
+  {
+   "address": "0x004f7ab0",
+   "name": "cat_salvageBeamEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Callers cat_salvageSpecialTarget, cat_salvageHouseKeep; per-type salvager info (Worker/SalCap), etgEffectCreate + soundEventPlay, univUpdateObjRotInfo",
+   "hw1_equivalent": "",
+   "signature": "void cat_salvageBeamEffect(Ship *salvager)"
+  },
+  {
+   "address": "0x004f7e70",
+   "name": "cat_playerHasSalvageUpgradeShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Scans universe.ShipList for a ship of player with cat_shipHasUpgrade(0x100000); caller cat_aisWorkersUpdate",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_playerHasSalvageUpgradeShip(Player *player)"
+  },
+  {
+   "address": "0x004f86e0",
+   "name": "cat_salvageAlignToVelocity",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Normalizes ship velocity (+0x64) and aitrackHeadingFunc(ship, dir, 0.999, 0.999); callers the two salvage fly-to helpers",
+   "hw1_equivalent": "",
+   "signature": "void cat_salvageAlignToVelocity(Ship *ship)"
+  },
+  {
+   "address": "0x004f8730",
+   "name": "cat_salvageGetTargetAttachPoint",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_salvageSpecialTarget; per-type salvager info then computes the attach point on the target",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_salvageGetTargetAttachPoint(Ship *salvager, vector *out)"
+  },
+  {
+   "address": "0x004f8ec0",
+   "name": "cat_salvageGetSalvagerInfo",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "switch shiptype: Worker 14/49 -> ship+0x644, SalCap 72/89 and P1 corvette -> their specifics, else dummy 0x00a57770; many collision/AI callers",
+   "hw1_equivalent": "",
+   "signature": "void * cat_salvageGetSalvagerInfo(Ship *ship)"
+  },
+  {
+   "address": "0x004f8f60",
+   "name": "cat_salvageShipReleaseTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Salvager types 14/49/72/89/97/102 drop their target; callers collision checks, RemoveShipFromBeingTargeted, clProcess, hyperspace prep",
+   "hw1_equivalent": "",
+   "signature": "void cat_salvageShipReleaseTarget(Ship *ship)"
+  },
+  {
+   "address": "0x004f9010",
+   "name": "cat_salvageInit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers WorkerInit, SalCapCorvetteInit, P1StandardCorvetteInit; sets flag 0x80000 in +0x1c8, cat_salvageDetach, resets per-type salvage state",
+   "hw1_equivalent": "",
+   "signature": "void cat_salvageInit(Ship *ship)"
+  },
+  {
+   "address": "0x004f90e0",
+   "name": "cat_salvageStaticInit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers Worker/SalCapCorvette/P1StandardCorvette StaticInit; scriptSetStruct into static +0x194+0xc and cat_dockFindDockStaticPoint",
+   "hw1_equivalent": "",
+   "signature": "void cat_salvageStaticInit(char *directory, char *field, ShipStaticInfo *statinfo)"
+  },
+  {
+   "address": "0x004f91c0",
+   "name": "cat_salvageGetDepotInfo",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "switch shiptype carriers 12/47/62/76/137 -> ship+0x654 else default table; caller makeSelectionHyperspaceCapable",
+   "hw1_equivalent": "",
+   "signature": "void * cat_salvageGetDepotInfo(Ship *ship)"
+  },
+  {
+   "address": "0x004fa3a0",
+   "name": "cat_salvageFlyToTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_salvageSpecialTarget; MoveReachedDestinationVariable else aishipFlyToPointAvoidingObjsFunc at max speed, then cat_salvageAlignToVelocity",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_salvageFlyToTarget(Ship *salvager, Ship *target)"
+  },
+  {
+   "address": "0x004fa410",
+   "name": "cat_salvageApproachTarget",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_salvageSpecialTarget; like cat_salvageFlyToTarget with 50-unit final approach, aitrackStabilizeGuidance/aitrackZeroVelocity",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_salvageApproachTarget(Ship *salvager, Ship *target)"
+  },
+  {
+   "address": "0x004fa050",
+   "name": "cat_salvageReleaseClampedShips",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_salvageSpecialTarget; walks cat_salvageNextAttachedSalvager, workers (cat_shipIsLiveWorker), cat_shipSetDisableReason",
+   "hw1_equivalent": "",
+   "signature": "void cat_salvageReleaseClampedShips(Ship *salvager, Ship *target)"
+  },
+  {
+   "address": "0x004fc190",
+   "name": "cat_salvageDied",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers WorkerDied, SalCapDied, P1StandardCorvetteDied; tail-calls cat_salvageDetach(ship)",
+   "hw1_equivalent": "",
+   "signature": "void cat_salvageDied(Ship *ship)"
+  },
+  {
+   "address": "0x004fc460",
+   "name": "cat_salvage_PreFix",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers Worker_PreFix, SalCapCorvette_PreFix, P1StandardCorvette_PreFix; per-type salvager info pointers -> SpaceObjRegistryGetID",
+   "hw1_equivalent": "",
+   "signature": "void cat_salvage_PreFix(Ship *ship)"
+  },
+  {
+   "address": "0x004fc550",
+   "name": "cat_salvage_Fix",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers Worker_Fix, SalCapCorvette_Fix, P1StandardCorvette_Fix; ids back to pointers via SpaceObjRegistryGetObj",
+   "hw1_equivalent": "",
+   "signature": "void cat_salvage_Fix(Ship *ship)"
+  },
+  {
+   "address": "0x004fc7a0",
+   "name": "cat_salvageAttachedIterFirst",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Wrapper cat_salvageNextAttachedSalvager(target); callers ThisShipCanDockWith, kasfShipsSelectClamped/GetClamped, cat_empCanAffectShip",
+   "hw1_equivalent": "",
+   "signature": "Ship * cat_salvageAttachedIterFirst(Ship *target)"
+  },
+  {
+   "address": "0x004fc7b0",
+   "name": "cat_salvageAttachedIterNext",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Wrapper cat_salvageNextAttachedSalvager(NULL) continuing the iteration; caller kasfShipsGetClamped",
+   "hw1_equivalent": "",
+   "signature": "Ship * cat_salvageAttachedIterNext(void)"
+  },
+  {
+   "address": "0x004fc7c0",
+   "name": "cat_salvageDepotInit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers CarrierInit, HeavyCruiserInit, MothershipInit, P1MothershipInit, ProcessorInit; resets depot info (carriers 12/47/62/76/137 at +0x654)",
+   "hw1_equivalent": "",
+   "signature": "void cat_salvageDepotInit(Ship *ship)"
+  },
+  {
+   "address": "0x004fd0e0",
+   "name": "cat_salvageDepot_PreFix",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers HeavyCruiser_PreFix, Mothership_PreFix, Processor_PreFix; depot info pointers -> SpaceObjRegistryGetID; pairs with cat_salvageDepotFix",
+   "hw1_equivalent": "",
+   "signature": "void cat_salvageDepot_PreFix(Ship *ship)"
+  },
+  {
+   "address": "0x004fd2e0",
+   "name": "cat_salvageSetAIDepotShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Stores ship in 0x00a57798; callers kasfSetAIDepotShip and univDeleteDeadShip (clears it)",
+   "hw1_equivalent": "",
+   "signature": "void cat_salvageSetAIDepotShip(Ship *ship)"
+  },
+  {
+   "address": "0x004fd2f0",
+   "name": "cat_salvageGetAIDepotShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns 0x00a57798 (set by cat_salvageSetAIDepotShip); caller univDeleteDeadShip",
+   "hw1_equivalent": "",
+   "signature": "Ship * cat_salvageGetAIDepotShip(void)"
+  },
+  {
+   "address": "0x00511590",
+   "name": "cat_shipPrintDragStart",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_mrPressLeft; with command key 0x62 and the cursor inside the ship-print window rect (0x893794/98..0xa5e23c/38) records drag origin; after cat_shipPrintHealthColor",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipPrintDragStart(void)"
+  },
+  {
+   "address": "0x00511640",
+   "name": "cat_shipPrintDragEnd",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_mrReleaseLeft; if dragging (0xa5e208) moves the window origin by the mouse delta and clears the flag",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipPrintDragEnd(void)"
+  },
+  {
+   "address": "0x00511690",
+   "name": "cat_shipPrintDragUpdate",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller smViewportRender; while dragging shifts the window rectangle by the mouse delta since last frame",
+   "hw1_equivalent": "",
+   "signature": "void cat_shipPrintDragUpdate(void)"
+  },
+  {
+   "address": "0x00511710",
+   "name": "cat_shipPrintIsDragging",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Returns the ship-print drag flag 0x00a5e208; callers cat_mrPressRight/ReleaseRight",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipPrintIsDragging(void)"
+  },
+  {
+   "address": "0x00511ce0",
+   "name": "cat_selMakeShipsScuttleable",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller mrScuttle; ShipSelect filter removing capital types (12,18,47...) by shiptype switch, battle chatter on removal, ioUpdateShipTotals",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeShipsScuttleable(SelectCommand *selection, bool32 check)"
+  },
+  {
+   "address": "0x00511db0",
+   "name": "makeShipsRetireable",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "Callers mrScuttle, mrRetire; removes one shiptype (88 tResourceCollector) swapping in the last entry, between MakeShipsGuardCapable and makeShipsControllable as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:makeShipsRetireable",
+   "signature": "void makeShipsRetireable(SelectCommand *selection)"
+  },
+  {
+   "address": "0x00511df0",
+   "name": "cat_selMakeShipsNotLinkedACVs",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_uiSpecialTargetCommand; removes ACVs (4/38) whose link state +0x6f0 is 1 or 2",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeShipsNotLinkedACVs(SelectCommand *selection)"
+  },
+  {
+   "address": "0x00511e50",
+   "name": "cat_selMakeShipsSameOwnerAsFirst",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Keeps only ships whose playerowner (+0x32c) equals that of ShipPtr[0]; callers 0x005298e0, 0x00529cb0",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeShipsSameOwnerAsFirst(SelectCommand *selection)"
+  },
+  {
+   "address": "0x00511f00",
+   "name": "cat_selMakeShipsFormationLeaders",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Callers mrObjectClick, mrSelectHold, cat_mrBandBoxRelease; filter on formation (+0x370) type 4/6/10/11/12",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeShipsFormationLeaders(SelectCommand *selection, bool32 check)"
+  },
+  {
+   "address": "0x00512330",
+   "name": "cat_selMakeShipsHaveAbilityUpgrade",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Keeps ships having any of upgrades 0x1000/0x2000/0x4000; callers popup menu 0x004edc70, mouse UI 0x00565f30/0x00566250",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeShipsHaveAbilityUpgrade(SelectCommand *selection)"
+  },
+  {
+   "address": "0x005123a0",
+   "name": "cat_selMakeShipsLeechCapable",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Keeps ships with upgrade 0x40 that are not busy or are leeching (cat_leechIsLeeching); callers cat_uiSpecialTargetCommand, 0x00566470",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeShipsLeechCapable(SelectCommand *selection, bool32 check)"
+  },
+  {
+   "address": "0x00512410",
+   "name": "cat_selMakeShipsRammingFrigates",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Keeps only shiptype 6/48 (s/bRammingFrigate) not busy (+0x210) when check; caller cat_uiSpecialTargetCommand",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeShipsRammingFrigates(SelectCommand *selection, bool32 check)"
+  },
+  {
+   "address": "0x00512470",
+   "name": "cat_selMakeShipsRepairCapable",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Keeps live ships with upgrade 0x40000 that are not Processors (16/51); caller cat_uiSpecialTargetCommand; same test as cat_shipCanRepair",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeShipsRepairCapable(SelectCommand *selection)"
+  },
+  {
+   "address": "0x00512530",
+   "name": "cat_selMakeShipsAcolyteLinkFire",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Keeps live ships passing cat_acolyteCanFireLinkedWeapon; caller cat_uiSpecialTargetCommand",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeShipsAcolyteLinkFire(SelectCommand *selection)"
+  },
+  {
+   "address": "0x00512580",
+   "name": "cat_selMakeShipsNotBigShips",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Removes motherships/carriers/dreadnought/destroyer/processors/heavy cruiser types (18,12,10,25,16,53,47,46,51); callers popup 0x004eb940, 0x00565c30",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeShipsNotBigShips(SelectCommand *selection)"
+  },
+  {
+   "address": "0x005125f0",
+   "name": "cat_selMakeShipsNotBusy",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Keeps ships with +0x210==0 or of type 3 sLeech/17/52 Sentinel; many special-command UI callers",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeShipsNotBusy(SelectCommand *selection)"
+  },
+  {
+   "address": "0x00512650",
+   "name": "cat_selMakeShipsLeeching",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Keeps ships with upgrade 0x40 that are currently leeching (cat_leechIsLeeching); caller 0x00566510",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeShipsLeeching(SelectCommand *selection)"
+  },
+  {
+   "address": "0x00512780",
+   "name": "makeShipsFormationCapable",
+   "kind": "function",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "Between AreShipsMobile and MakeShipsNonCapital exactly as HW1; caller mrSetTheFormation; Cataclysm removes ships with +0x210 set instead of Probes",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:makeShipsFormationCapable",
+   "signature": "void makeShipsFormationCapable(SelectCommand *selection)"
+  },
+  {
+   "address": "0x00512b50",
+   "name": "cat_selMakeTargetsAttackable",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "After MakeTargetsOnlyNonForceAttackTargets; per-target owner/alliance/SP checks; callers mrObjectClick, cat_mrBandBoxRelease, cat_mrReleaseRight, popup menu",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeTargetsAttackable(SelectCommand *targets, bool32 force)"
+  },
+  {
+   "address": "0x00512c40",
+   "name": "cat_selMakeTargetsBeastAttackable",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller cat_beastWeaponAttack; cat_selMakeTargetsAttackable(targets,0) then removes crystals (cat_shipIsCrystal)",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeTargetsBeastAttackable(SelectCommand *targets)"
+  },
+  {
+   "address": "0x005133e0",
+   "name": "cat_growSelectNullShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "After growSelectRemoveShip; sets every entry equal to ship to NULL without compacting; callers univDeleteDeadShip, univRemoveShipReferences",
+   "hw1_equivalent": "",
+   "signature": "void cat_growSelectNullShip(GrowSelection *grow, Ship *ship)"
+  },
+  {
+   "address": "0x005135c0",
+   "name": "cat_shipCanBeHalted",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "FALSE when check and ship busy (+0x210); callers kasfHaltAllPlayerShips and popup menus",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipCanBeHalted(Ship *ship, bool32 check)"
+  },
+  {
+   "address": "0x005138b0",
+   "name": "cat_shipCanRepair",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Live ship with upgrade 0x40000 that is not a Processor (16/51); callers kasfRepair, popup menu 0x004edc70",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipCanRepair(Ship *ship)"
+  },
+  {
+   "address": "0x005138f0",
+   "name": "cat_shipCanSalvage",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Live ship with upgrade 0x80000; callers kasfSalvage, popup menu 0x004edc70",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipCanSalvage(Ship *ship)"
+  },
+  {
+   "address": "0x00513920",
+   "name": "cat_uiShipIsSalvageable",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_uiFindNearestSpecialTarget; special case mission 10 dBigGun (110), else cat_salvageCheckTargetReasons for the current player",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_uiShipIsSalvageable(Ship *ship)"
+  },
+  {
+   "address": "0x00513710",
+   "name": "cat_selMakeShipsDockCapableFor",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller mrDockingOrders; menu ids 0x70/0x71/0x72 -> dock kind 1/2/3, removes ships that cannot dock that way",
+   "hw1_equivalent": "",
+   "signature": "void cat_selMakeShipsDockCapableFor(SelectCommand *selection, sdword command, bool32 check)"
+  },
+  {
+   "address": "0x00513800",
+   "name": "cat_shipTypeCanDockFor",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller mrDockingOrders; maps menu id 0x70..0x72 to dock kind and switches on shiptype",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_shipTypeCanDockFor(ShipType type, sdword command)"
+  },
+  {
+   "address": "0x00515b40",
+   "name": "cat_blastCreateSlipgateExplosion",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller kasfSlipgateExplode; copies the 0x19-dword blast template 0x893da0, fills position, memAlloc + listAddNode into the blast list (like cat_blastCreate)",
+   "hw1_equivalent": "",
+   "signature": "void cat_blastCreateSlipgateExplosion(vector *pos, sdword a, sdword b)"
+  },
+  {
+   "address": "0x00515bd0",
+   "name": "cat_blastCreateBigGunExplosion",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers cat_bigGunBulletExplode/ExplodeAt; MP only, blast template 0x893da0, skips near-duplicates (cat_vecWithinDistance), adds to the blast list",
+   "hw1_equivalent": "",
+   "signature": "void cat_blastCreateBigGunExplosion(real32 x, ...)"
+  },
+  {
+   "address": "0x00515d30",
+   "name": "cat_blastAffectShip",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller cat_blastUpdate; ship inside the expanding shell (radius +0x3c, width +0x38) takes ApplyDamageToTarget, cat_shipStartDrift push, rammer release",
+   "hw1_equivalent": "",
+   "signature": "void cat_blastAffectShip(Blast *blast, Ship *ship)"
+  },
+  {
+   "address": "0x00516da0",
+   "name": "cat_blastAffectObject",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_blastUpdate; same shell test as cat_blastAffectShip for non-ship objects, pushes along the normalized offset",
+   "hw1_equivalent": "",
+   "signature": "void cat_blastAffectObject(Blast *blast, SpaceObj *obj)"
+  },
+  {
+   "address": "0x00515940",
+   "name": "cat_blastSpawnEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_blastUpdate; etg effect from table 0x00c41cc0[blast type] when etgFrequencyExceeded allows",
+   "hw1_equivalent": "",
+   "signature": "void cat_blastSpawnEffect(Blast *blast)"
+  },
+  {
+   "address": "0x00516370",
+   "name": "cat_blastInit",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "listInit of the blast list 0x00a5e288 and big-gun bullet list 0x00a5e298, then random table init; callers gameStart, singlePlayerLoadNewLevel, cat_loadUniverseList5e288",
+   "hw1_equivalent": "",
+   "signature": "void cat_blastInit(void)"
+  },
+  {
+   "address": "0x00516390",
+   "name": "cat_blastReset",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "listDeleteAll on 0x00a5e298 and 0x00a5e288; callers universeReset, cat_loadUniverseList5e288",
+   "hw1_equivalent": "",
+   "signature": "void cat_blastReset(void)"
+  },
+  {
+   "address": "0x00516d60",
+   "name": "cat_bigGunBulletRebuildList",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller cat_loadUniverseList5e288; scans universe.BulletList and re-adds big-gun bullets (cat_isBigGunBullet) to list 0x00a5e298",
+   "hw1_equivalent": "",
+   "signature": "void cat_bigGunBulletRebuildList(void)"
+  },
+  {
+   "address": "0x00516d40",
+   "name": "cat_bigGunBulletsInFlight",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Returns 0x00a5e2a0 != 0 (count of list 0x00a5e298); caller NomadMoonHouseKeep",
+   "hw1_equivalent": "",
+   "signature": "bool32 cat_bigGunBulletsInFlight(void)"
+  },
+  {
+   "address": "0x00516a40",
+   "name": "cat_dreadnoughtChargeEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller cat_dreadnoughtRenderCharge; ring of etg effects at angle frac with radius 0x893f80, lighting/texture toggles",
+   "hw1_equivalent": "",
+   "signature": "void cat_dreadnoughtChargeEffect(vector *pos, real32 frac)"
+  },
+  {
+   "address": "0x00516bb0",
+   "name": "cat_nomadMoonBeamEffect",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller cat_nomadMoonRenderBeam; same ring-effect code as cat_dreadnoughtChargeEffect with radius 0x893fe8",
+   "hw1_equivalent": "",
+   "signature": "void cat_nomadMoonBeamEffect(vector *pos, real32 frac)"
+  },
+  {
+   "address": "0x0051c980",
+   "name": "cat_soundLevelReset",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller levelPreInit; calls 0x00522ba0, cat_battleChatterReset, 0x00521770(0), 0x00522dc0 (sound/speech resets)",
+   "hw1_equivalent": "",
+   "signature": "void cat_soundLevelReset(void)"
+  },
+  {
+   "address": "0x0051fc60",
+   "name": "cat_soundEventBlast",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_blastUpdate; after soundEventDerelictRemove; camera/eye distance, getPanAngle, SEequalize, soundover/soundEventStopSound",
+   "hw1_equivalent": "",
+   "signature": "void cat_soundEventBlast(Blast *blast)"
+  }
+ ],
+ "audit": {
+  "sampled": 30,
+  "correct": 28,
+  "wrong": 2,
+  "unverifiable": 0,
+  "precision": 0.933,
+  "action": "precision >= 0.9: kept all proposals, dropped the 2 sampled-wrong (0x004F92A0, 0x005C81E0). Note: GetPostCombatStats signature uses FightStats, which is not a /Cataclysm type in r4a datatypes.h.",
+  "dropped": [
+   "0x004f92a0",
+   "0x005c81e0"
+  ],
+  "seed": 17,
+  "strata": {
+   "high": 12,
+   "medium": 9,
+   "low": 9
+  },
+  "samples": [
+   {
+    "address": "0x0041aa90",
+    "name": "aiuShipNotGoodAgainstFighters",
+    "confidence": "high",
+    "verdict": "correct",
+    "why": "LAB_0041aa90 is the constraint CB passed for selection in aiuSelectionNotGoodAtKillingTheseTargets (0x41ab00), exactly as HW1 AIUtilities.c:717."
+   },
+   {
+    "address": "0x00406650",
+    "name": "aihPatrolEnemyNearbyHandler",
+    "confidence": "high",
+    "verdict": "correct",
+    "why": "Handler table 0x74a3a4[7] = 0x406650; raw bytes call aiuSelectionNotGoodAtKillingTheseTargets, push \"duppenh\", selectMemDupSelection, aimCreateAttackNoAdd, aitAddmoveBeforeAndMakeCurrent = HW1 AIHandler.c:510."
+   },
+   {
+    "address": "0x00420610",
+    "name": "aivarValueGet",
+    "confidence": "high",
+    "verdict": "correct",
+    "why": "if(var) return *var; else 0 = HW1 AIVar.c:221; AIVar.value at +0."
+   },
+   {
+    "address": "0x004238b0",
+    "name": "battleCanChatterAtThisTime",
+    "confidence": "high",
+    "verdict": "correct",
+    "why": "Per-event 0x58 record: timeSince vs minWavelength, __CIpow, ranRandom, proximity from ship+0x58 or camera = HW1 Battle.c:856."
+   },
+   {
+    "address": "0x00420600",
+    "name": "aivarValueSet",
+    "confidence": "high",
+    "verdict": "correct",
+    "why": "if(var) *var=value = HW1 AIVar.c:215."
+   },
+   {
+    "address": "0x004f28f0",
+    "name": "rmClearResearchlab",
+    "confidence": "high",
+    "verdict": "correct",
+    "why": "status 2 -> topic NULL, listDeleteNode, status 1, rmUpdateTechList if curPlayer = HW1 ResearchAPI.c:432 (extra Cataclysm status-3 branch)."
+   },
+   {
+    "address": "0x005bdcb0",
+    "name": "cat_nomadMoonCanFire",
+    "confidence": "high",
+    "verdict": "correct",
+    "why": "Body: (+0x638||+0x63c) && !+0x640; sole caller kasfNomadMoonCanFire."
+   },
+   {
+    "address": "0x005c54e0",
+    "name": "cat_rkoGetNaggarokMissiles",
+    "confidence": "high",
+    "verdict": "correct",
+    "why": "return ship+0x6a4; sole caller kasfGetNaggarokMissiles."
+   },
+   {
+    "address": "0x00524350",
+    "name": "GetPostCombatStats",
+    "confidence": "high",
+    "verdict": "correct",
+    "why": "todolist walk for two attack commands, health +0x170 sums, battleTime, universeReset/univUpdateReset/singlePlayerInit = HW1 Stats.c:461. Note: FightStats is not a /Cataclysm type in r4a datatypes.h."
+   },
+   {
+    "address": "0x004205c0",
+    "name": "aivarLabelGenerate",
+    "confidence": "high",
+    "verdict": "correct",
+    "why": "'_','V', itoa(uniqueNum), uniqueNum++ = HW1 AIVar.c:184."
+   },
+   {
+    "address": "0x00403130",
+    "name": "aidMothershipDefense",
+    "confidence": "high",
+    "verdict": "correct",
+    "why": "aiuEnemyShipsInMothershipBlob, gettingrocked fallback, \"msdp\" selectMemDupSelection, aioCreateDefendMothership = HW1 AIDefenseMan.c:654."
+   },
+   {
+    "address": "0x004016f0",
+    "name": "aiaProcessAttackTeams",
+    "confidence": "high",
+    "verdict": "correct",
+    "why": "aitCountTeamsWaitingForShips <4 or <10 && RU>12000, aitTeamIsDone, MakeShipsOnlyFollowConstraints(aiuShipIsntAnEnemyMothership), takeout mothership = HW1 AIAttackMan.c:475."
+   },
+   {
+    "address": "0x005c1010",
+    "name": "cat_rammingFrigateLatchTarget",
+    "confidence": "medium",
+    "verdict": "correct",
+    "why": "On hit: target stored at +0x64c, clampObjToObj, state 5, madAnimationStart, sound, battle chatter 0x42; else cooldown timer +0x67c; sole caller cat_rammingFrigateCollide."
+   },
+   {
+    "address": "0x005c73b0",
+    "name": "cat_slipgateAddShip",
+    "confidence": "medium",
+    "verdict": "correct",
+    "why": "growSelectAddShip(gate+0x65c, ship); sits in Slipgate block (SlipgateInit..SlipgateHouseKeep); caller dock code guarded by static flag bit 0x4000 (also used by kasfFindSlipgate)."
+   },
+   {
+    "address": "0x004fc7a0",
+    "name": "cat_salvageAttachedIterFirst",
+    "confidence": "medium",
+    "verdict": "correct",
+    "why": "Returns cat_salvageNextAttachedSalvager(target) (iterator seed); kasfShipsGetClamped loops FUN_004fc7a0 then FUN_004fc7b0 (next)."
+   },
+   {
+    "address": "0x004f7a90",
+    "name": "cat_salvageResetGlobals",
+    "confidence": "medium",
+    "verdict": "correct",
+    "why": "Zeroes 0xa57798 (written by kasfSetAIDepotShip) and 0xa5779c (notify timer); caller universeReset."
+   },
+   {
+    "address": "0x005c85b0",
+    "name": "cat_vecWorldToShipLocal",
+    "confidence": "medium",
+    "verdict": "correct",
+    "why": "matMultiplyVecByMat(out, pos - ship+0x58, ship coordsys +0x98) = world->local transform."
+   },
+   {
+    "address": "0x005c1b20",
+    "name": "cat_rammingFrigateDamageTarget",
+    "confidence": "medium",
+    "verdict": "correct",
+    "why": "While +0x6b0==1: create/update push effect +0x674, ApplyDamageToTarget(+0x64c, phystime*rate) with upgrade 0x2000000 rate."
+   },
+   {
+    "address": "0x00511e50",
+    "name": "cat_selMakeShipsSameOwnerAsFirst",
+    "confidence": "medium",
+    "verdict": "correct",
+    "why": "Keeps ships whose +0x32c owner equals ShipPtr[0] owner, then ioUpdateShipTotals; not one of HW1 ShipSelect.c filters, so cat-new is right."
+   },
+   {
+    "address": "0x00524cf0",
+    "name": "statsBestShipToBuyToKillShip",
+    "confidence": "medium",
+    "verdict": "correct",
+    "why": "Callers aioCreateTakeoutTarget/FancyTakeoutTarget call it (race, constraintsCB, target->staticinfo) and use the ShipStaticInfo* result, as HW1 AIOrders.c:1105; body is a Cataclysm table lookup."
+   },
+   {
+    "address": "0x004fc460",
+    "name": "cat_salvage_PreFix",
+    "confidence": "medium",
+    "verdict": "correct",
+    "why": "Per-type salvager info (+0x644/+0x640/+0x774) pointers -> SpaceObjRegistryGetID; callers Worker/SalCap/P1StandardCorvette _PreFix."
+   },
+   {
+    "address": "0x005b8620",
+    "name": "cat_mimicCopyFromPartner",
+    "confidence": "low",
+    "verdict": "correct",
+    "why": "In Mimic block (MimicAttackPassive..MimicSpecialActivate); copies +0x730..+0x758 from partner into +0x704..+0x72c, dupes mesh bindings; called from cat_processUnlinkToDo."
+   },
+   {
+    "address": "0x004f92a0",
+    "name": "cat_salvageDepotDispatchSalvagers",
+    "confidence": "low",
+    "verdict": "wrong",
+    "why": "Signature says (Ship *depot, sdword unused) but param_2 is used at entry (iVar2 = param_2*5) as the depot slot index selecting the held object whose attached salvagers are retasked then detached; not \"idle salvagers\"."
+   },
+   {
+    "address": "0x00516bb0",
+    "name": "cat_nomadMoonBeamEffect",
+    "confidence": "low",
+    "verdict": "correct",
+    "why": "Caller 0x5be120 uses moon fields +0x638/+0x63c/+0x640 (same as kasfNomadMoonCanFire helper); draws ring point at radius 0x893fe8 + etg effect."
+   },
+   {
+    "address": "0x00511690",
+    "name": "cat_shipPrintDragUpdate",
+    "confidence": "low",
+    "verdict": "correct",
+    "why": "While drag flag 0xa5e208: shifts rect 0xa5e218..224 by mouse delta; set by 0x511590 from panel pos 0x893794 in the cat_shipPrint block."
+   },
+   {
+    "address": "0x00512330",
+    "name": "cat_selMakeShipsHaveAbilityUpgrade",
+    "confidence": "low",
+    "verdict": "correct",
+    "why": "Keeps ships with upgrade 0x1000|0x2000|0x4000, then ioUpdateShipTotals; \"Ability\" is a low-confidence label only."
+   },
+   {
+    "address": "0x005bed00",
+    "name": "cat_processorInitRepairBeams",
+    "confidence": "low",
+    "verdict": "correct",
+    "why": "Zeroes 0x21 dwords at +0x77c, up to 4 slots from static+0x3f0 points; slots are processed by 0x5bedd0 using twProcessorAutoRepairUpdateDelay/Rate."
+   },
+   {
+    "address": "0x005c5cb0",
+    "name": "cat_sentinelFieldRenderAll",
+    "confidence": "low",
+    "verdict": "correct",
+    "why": "Walks list 0xa78d18 (next at [0xd]) calling 0x5c60a0 then clears; entries queued by 0x5c5b20 from a three-ship triangle builder in the Sentinel block."
+   },
+   {
+    "address": "0x005c81e0",
+    "name": "cat_workerRepairPointOnBox",
+    "confidence": "low",
+    "verdict": "wrong",
+    "why": "Body never writes pos; it returns fsqrt(|offset|^2) (tail call to fsqrt, caller cat_workerRepairEffect uses the float10 result): a point-to-box distance, so the void signature and \"clamps the point\" name are wrong."
+   },
+   {
+    "address": "0x005ae720",
+    "name": "cat_acvLinkedAttack",
+    "confidence": "low",
+    "verdict": "correct",
+    "why": "Gathers types 4/38 (sACV/bACV per CET ShipDefs.h) in linked formation +0x370 targeting the same +0x6f4, clAttack; sole caller ACVHouseKeep."
+   }
+  ]
+ }
+}

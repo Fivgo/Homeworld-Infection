@@ -1,0 +1,56 @@
+{
+ "source": "quality-recheck",
+ "method": "Re-check of applied names against cataclysm_gog_r4a (functions.csv, call_graph.csv, decompiled.c) and HomeworldSDL src. low-r3/low-r2: every applied function name whose notes say confidence=low in symbols_round2.json/symbols_round3.json, plus the 2 low r2-deferred names created by B1 (51 r3 + 69 r2 = 120); body, callers and callees compared with the HW1 body or with the producer's evidence. shipselect: every function classed hw1:ShipSelect.c (r3 verified sets, symbols files) checked for a definition in Game/ShipSelect.c and against its HW1 body. call-order: for HW1 files with >=10 matched names, matched addresses sorted and compared with the .c definition order; inversions and runs of adjacent names checked by body/callers for one-slot shifts. Only changes are emitted.",
+ "done_subsystems": [
+  "low-r3",
+  "low-r2",
+  "shipselect",
+  "call-order"
+ ],
+ "proposals": [
+  {
+   "address": "0x00419E80",
+   "name": "cat_MoveReachedDestinationRadius",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "r4a body: TRUE when |ship->posinfo.position - *dest|^2 < r^2 (spherical twin of MoveReachedDestinationVariable 0x419d50, after MoveLeftToGo); HW1 aiuGenerateRandomVector returns a random vector",
+   "hw1_equivalent": "",
+   "signature": "bool32 __cdecl cat_MoveReachedDestinationRadius(Ship *ship, vector *destination, real32 radius)",
+   "replaces": "aiuGenerateRandomVector"
+  },
+  {
+   "address": "0x005169F0",
+   "name": "cat_blastSaveList",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "SaveLinkedListOfStuff(&0xa5e288,...); 0xa5e288 is the blast list: cat_blastCreate listAddNode(0xa5e288), cat_blastUpdateAll walks it. Caller SaveUniverse",
+   "hw1_equivalent": "",
+   "signature": "void __cdecl cat_blastSaveList(void)",
+   "replaces": "cat_saveUniverseList5e288"
+  },
+  {
+   "address": "0x00516A10",
+   "name": "cat_blastLoadList",
+   "kind": "function",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "LoadLinkedListOfStuff(&0xa5e288,...) then sets 0xa67010=1 (flag also read by cat_blastUpdateAll); 0xa5e288 = blast list of cat_blastCreate. Caller LoadUniverse",
+   "hw1_equivalent": "",
+   "signature": "void __cdecl cat_blastLoadList(void)",
+   "replaces": "cat_loadUniverseList5e288"
+  },
+  {
+   "address": "0x0053C7F0",
+   "name": "CloseStatDerelictInfo",
+   "kind": "function",
+   "class": "hw1:Universe.c",
+   "confidence": "high",
+   "evidence": "one slot off: sole caller nisDelete calls it per generic object then memFree x2 = HW1 NIS.c:5092 CloseStatDerelictInfo; CloseStatInfo body is inlined in CloseStatShipInfo 0x53c500, which precedes it",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Universe.c:CloseStatDerelictInfo",
+   "signature": "void __cdecl CloseStatDerelictInfo(DerelictStaticInfo *derelictStatInfo)",
+   "replaces": "CloseStatInfo"
+  }
+ ]
+}

@@ -1,0 +1,1986 @@
+{
+ "source": "ui-render",
+ "method": "Start from named neighbours in cataclysm_gog_r4a call_graph.csv; compare decompiled.c bodies with HomeworldSDL/gardens-of-kadesh functions (control flow, constants, strings, call order of adjacent functions); cat_* names from body behaviour, callers and strings",
+ "done_subsystems": [
+  "popup-menu",
+  "mouse-ui",
+  "video-options",
+  "render-helpers",
+  "options",
+  "mainrgn",
+  "uicontrols-taskbar",
+  "texreg-main"
+ ],
+ "proposals": [
+  {
+   "address": "0x004eb7e0",
+   "name": "cat_popupMenuStartup",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Caller utyGameSystemsInit; frFontRegister('arial_15_hff'/'arial_12_hff') into 0xa575f0/0xa575f4 (fonts used by cat_popupMenuDraw); clears popup open flag 0xa574a0",
+   "signature": "void cat_popupMenuStartup(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004eaa60",
+   "name": "cat_popupMenuFindSpecialTarget",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "switch on menu item 0x1a-0x30 -> kind 0..3, cat_uiFindNearestSpecialTarget(first selected ship, kind); result stored as 1-ship target list 0xa52d18/0xa52d20 used by item handlers",
+   "signature": "void cat_popupMenuFindSpecialTarget(sdword item)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004eaaf0",
+   "name": "cat_popupMenuMouseInRect",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns 1 if mouseCursorX/YPosition inside rect[0..3] grown by popup border margin 0xa52b34; used by cat_popupMenuMouseInside (0x004ec720)",
+   "signature": "bool32 cat_popupMenuMouseInRect(rectangle *rect)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004eab40",
+   "name": "cat_popupMenuSetupSensorsItems",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller 0x004eb940 (menu builder); when 0xa5b1c8 set copies command ids from 0x892b48.. into submenu 0x12 items (0x88eca0) and enables item 0x12 (0x88e2d4); 0xa5b1c8 also selects smSensorsClose pa",
+   "signature": "void cat_popupMenuSetupSensorsItems(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004eb940",
+   "name": "cat_popupMenuBuildSelectionItems",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "cat_popupMenuOpen calls it when target==NULL (and Draw when 0xa574b0==0); scans selSelected own ships for build/dock/upgrade/special capability and MP hyperspace; enables 0x3c-byte items at 0x88de88",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004eac30",
+   "name": "cat_popupMenuBuildTargetItems",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "cat_popupMenuOpen calls it when target!=NULL; capability struct from 0x00513a00 over target list; enables special items 0x18-0x30 and builds mimic player/ship-type lists ('%d. %s')",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004eb0b0",
+   "name": "cat_popupMenuLayout",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Lays out one menu: per enabled 0x3c-byte item fontHeight/fontWidth of label (MessageStrings) and hotkey text (0x0054e960), writes item rects, clamps menu rect to MAIN_WindowWidth/Height",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004eb3e0",
+   "name": "cat_popupMenuLayoutAll",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller cat_popupMenuDraw; calls cat_popupMenuLayout for the main menu (0x88de88, 0x31 items, at popup pos 0xa574a8) and for the submenu chosen by 0x88dde0 (0xe,0xf,0x1c,0x12,...)",
+   "signature": "void cat_popupMenuLayoutAll(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ec9a0",
+   "name": "cat_popupMenuDrawFrame",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers cat_popupMenuDraw and 0x004896b0; fills rect (+margin) with primRectSolid2 or primRectTranslucent2 then 8 cat_overlayIconDraw border pieces",
+   "signature": "void cat_popupMenuDrawFrame(rectangle *rect, bool32 fill, sdword margin)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ecb30",
+   "name": "cat_popupMenuDrawItems",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller cat_popupMenuDraw for main menu (0x88de88,0x31) and submenus; per enabled item fontPrint label + hotkey string, blinking colour via colBlend, highlight icons for 0x88dde0/0x88dde4",
+   "signature": "void cat_popupMenuDrawItems(void *items, sdword count, sdword checkCol, sdword keyCol, bool32 isMain)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ec220",
+   "name": "cat_popupMenuOpenMimicShips",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Opens popup like cat_popupMenuOpen (tutGameMessage 'Game_PopupOpen') then selects item 0x22 (mimic ship-type list 0xa53cc0); caller hotkey 0x0054f0d0 needs upgrade 0x20 (mimic)",
+   "signature": "void cat_popupMenuOpenMimicShips(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ec3c0",
+   "name": "cat_popupMenuOpenMimicPlayers",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Same body as 0x004ec220 but selects item 0x21 (mimic player list 0xa57270, built from cat_mimicPlayerAvailable); caller hotkey 0x0054f130 needs upgrade 0x20",
+   "signature": "void cat_popupMenuOpenMimicPlayers(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ec560",
+   "name": "cat_popupMenuOpenLeech",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Same body as 0x004ec220 but selects item 0x1c (leech submenu; item 0x1d = cat_uiSpecialLeech); caller hotkey 0x0054eff0 needs upgrade 0x40 (0x005136a0 leech check)",
+   "signature": "void cat_popupMenuOpenLeech(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ec720",
+   "name": "cat_popupMenuMouseInside",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns 0 if popup closed; else 1 when mouse is inside main menu rect 0xa574b8 or the open submenu rect (per 0x88dde0); callers cat_mrPressRight, cat_mrReleaseRight, 0x004ee5f0",
+   "signature": "bool32 cat_popupMenuMouseInside(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ecf60",
+   "name": "cat_popupMenuFilterTargets",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Removes dead ships (+0x10) and, by flag, allied or non-allied ones (allianceIsShipAlly 0x00420ec0) from popup target list 0xa562c8; caller item dispatcher 0x004ecfe0 (repair item)",
+   "signature": "void cat_popupMenuFilterTargets(bool32 keepAllies)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ecfe0",
+   "name": "cat_popupMenuExecuteSpecial",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "switch on item 0x18-0x30 -> cat_uiSpecialRepair/Salvage/Leech/Swarm/Infect/EMP/Ram, cat_uiFireSiegeCannon, mrHarvestResources, submenu open for 0x1c/0x21/0x22",
+   "signature": "bool32 cat_popupMenuExecuteSpecial(sdword item)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ed510",
+   "name": "cat_popupMenuSpecialFireMissile",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Item 0x30 of 0x004ecfe0: passes popup target list 0xa562c8 (filtered by 0x00512b50) or single target 0xa52d18 to cat_uiSpecialFireMissile",
+   "signature": "void cat_popupMenuSpecialFireMissile(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ed550",
+   "name": "cat_popupMenuGetSubmenu",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "switch submenu id 1-0xd -> out items array (0x88ea08, 0x88eac0, ... 0xa52b38), item count and rect (0xa574c8..); callers 0x004ecfe0, 0x004ef1c0, 0x004ef670",
+   "signature": "void cat_popupMenuGetSubmenu(sdword submenu, void **items, sdword *count, rectangle *rect)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ed8b0",
+   "name": "cat_popupMenuMimicSelect",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Takes mimic item index of current mimic player (cat_mimicItemGet 0x005ba020), keeps selected mimic-capable ships, issues cat_clWrapMimic(universe, selSelected, mode, shipType, player, sub)",
+   "signature": "bool32 cat_popupMenuMimicSelect(sdword item)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ed9b0",
+   "name": "cat_selShipScreenRectDraw",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Projects ship collision box corners (+0x14c, 8 points) to screen and draws primRectOutline2 in given colour; callers popup highlight 0x004edc70 and cat_mrSelectRectDraw",
+   "signature": "void cat_selShipScreenRectDraw(Ship *ship, color c)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004edc70",
+   "name": "cat_popupMenuDrawTargetHighlights",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller cat_popupMenuDraw; for hovered item 0x88dde0 tests each selected ship (cat_shipHasUpgrade, cat_mothershipHasBigGunModule, leech/mimic checks) and boxes it via 0x004ed9b0; also boxes popup targe",
+   "signature": "void cat_popupMenuDrawTargetHighlights(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ee5d0",
+   "name": "cat_popupMenuClickIfTarget",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_mrPressRight; if popup target 0xa574b0 set returns cat_popupMenuClick (0x004ee5f0) else 0",
+   "signature": "bool32 cat_popupMenuClickIfTarget(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ee5f0",
+   "name": "cat_popupMenuClick",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller cat_mrReleaseLeft; refreshes hover then executes the checked item of the open submenu: key commands (0x0054eb10), allianceFormWith/allianceBreakWith, gcRUTransferStart, smSensorsClose",
+   "signature": "bool32 cat_popupMenuClick(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004eec90",
+   "name": "cat_popupMenuHitTestItems",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "For each enabled item tests mouse against item rect (+0x28..+0x34) +margin; sets hover flag +0x24 and current main item 0x88dde0 or submenu item 0x88dde4; returns hit",
+   "signature": "bool32 cat_popupMenuHitTestItems(bool32 isMain, void *items, sdword count, rectangle *rect)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004eee30",
+   "name": "cat_popupMenuUpdateHover",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers smViewportRender and cat_popupMenuClick; if popup open and mouse moved (0xa5762c/0xa57630), hit-tests the open submenu then the main menu via 0x004eec90",
+   "signature": "void cat_popupMenuUpdateHover(bool32 force)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ef010",
+   "name": "cat_popupMenuActivateSelected",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller cat_popupMenuKeyPress (Enter 0xd): runs main item command (0x0054eb10) or cat_popupMenuExecuteSpecial, or submenu item, mimic player set (0x005b9f30), cat_popupMenuMimicSelect",
+   "signature": "bool32 cat_popupMenuActivateSelected(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ef1c0",
+   "name": "cat_popupMenuKeyPress",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller key dispatcher 0x0054e7c0 before command bindings; returns 0 if popup closed; switch on key: 0xd Enter -> activate + cat_popupMenuClose, arrows move 0x88dde0/0x88dde4",
+   "signature": "bool32 cat_popupMenuKeyPress(udword key)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ef670",
+   "name": "cat_popupMenuHotkeyScan",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Scans items [first..last] for one whose bound command matches key (0x0054ebc0); runs it (0x0054eb10 or cat_popupMenuExecuteSpecial) or opens its submenu; callers 0x004ef1c0",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00420920",
+   "name": "allianceBreakWith",
+   "class": "hw1:Alliance.c",
+   "confidence": "high",
+   "evidence": "Identical to HW1: if bit playerindex set in universe.players[sigsPlayerIndex].Allies -> clWrapSetAlliance(2=ALLIANCE_BREAK_ALLIANCE,...); follows allianceFormWith; popup alliance submenu",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Alliance.c:allianceBreakWith",
+   "signature": "void allianceBreakWith(udword playerindex)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00420a20",
+   "name": "allianceSetAlliance",
+   "class": "hw1:Alliance.c",
+   "confidence": "high",
+   "evidence": "Caller clSetAlliance (HW1 clSetAlliance->allianceSetAlliance); '%s %s' sprintf + gcProcessGameTextMessage, speechEventQueue, attack-target removal; between allianceFormRequestRecievedCB and allianceIs",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Alliance.c:allianceSetAlliance",
+   "signature": "void allianceSetAlliance(udword AllianceType, uword playerone, uword playertwo)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00420ec0",
+   "name": "allianceIsShipAlly",
+   "class": "hw1:Alliance.c",
+   "confidence": "high",
+   "evidence": "HW1 body: true if ship->playerowner==player or ATTRIBUTES_Defector (+0x38&0x100), else player->Allies bit of owner index; Cataclysm adds cat_shipIsCrystal/dead checks; precedes allianceArePlayersAllie",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Alliance.c:allianceIsShipAlly",
+   "signature": "bool32 allianceIsShipAlly(Ship *ship, Player *player)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00453b30",
+   "name": "cat_clWrapMimic",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "clWrap pattern (clFlashShips, MP -> 0x004527f0 else 0x0044da80 which queues CommandToDo ordertype 0xf); popup passes mimic mode 1/2, shipType, player like kasfMimic->0x005b8d70",
+   "signature": "void cat_clWrapMimic(CommandLayer *comm, SelectCommand *selectcom, udword mode, udword shipType, udword player, udword index)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0044da80",
+   "name": "cat_clMimic",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Single-player branch of cat_clWrapMimic and clProcessSyncPacket: allocs CommandToDo, RemoveShipsFromDoingStuff, ordertype 0xf with mode/shipType/player/index at +0x2e8.., listAddNode",
+   "signature": "void cat_clMimic(CommandLayer *comm, SelectCommand *selectcom, udword mode, udword shipType, udword player, udword index)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005b9f20",
+   "name": "cat_mimicGetCurrentPlayer",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns byte 0xa77ad4 (saved by cat_spSaveMiscInfo with mimic tables); compared with list index to check the current entry of popup mimic player list",
+   "signature": "ubyte cat_mimicGetCurrentPlayer(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005b9f30",
+   "name": "cat_mimicSetCurrentPlayer",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Sets byte 0xa77ad4; called from popup when a mimic player entry (item 0x21) is chosen (0x004ef010, 0x004ee5f0)",
+   "signature": "void cat_mimicSetCurrentPlayer(ubyte player)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005b9f40",
+   "name": "cat_mimicPlayerAvailable",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "SP: true for slots 0,1,8,9; MP: true for 8 or index<universe.numPlayers; gates entries of popup mimic player list (9 entries)",
+   "signature": "bool32 cat_mimicPlayerAvailable(ubyte player)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005b9fa0",
+   "name": "cat_mimicPlayerName",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Name for mimic player slot: >7 table 0xbb4d1c, SP MessageStrings[0x5bd/0x5be], MP player name 0xc39640+i*0x12; formatted '%d. %s' in popup",
+   "signature": "char *cat_mimicPlayerName(ubyte player)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005b9ff0",
+   "name": "cat_mimicItemCount",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Returns per-player count 0xa77ab0[p] (incremented by cat_mimicItemAdd) or 0xa762e8[p] by flag; same arrays saved by cat_spSaveMiscInfo",
+   "signature": "sdword cat_mimicItemCount(ubyte player, bool32 added)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ba020",
+   "name": "cat_mimicItemGet",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns &0xa76310[(index + player*0x54)*2] (shipType pair); used by popup mimic select and filled by cat_mimicItemAdd",
+   "signature": "udword *cat_mimicItemGet(ubyte player, udword unused, sdword index)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ba050",
+   "name": "cat_mimicItemName",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Same index math as cat_mimicItemGet; ShipTypeToNiceStr of entry, or for player 8 one of 4 strings 0xbb4d40..4c (asteroid forms); popup mimic ship list",
+   "signature": "char *cat_mimicItemName(ubyte player, udword unused, sdword index)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005ba0d0",
+   "name": "cat_mimicItemAdd",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller kasfSetCurrentMimicItem(itemType, shipName): player 8 resets 4 fixed entries, else appends shipType to 0xa76310[player] and bumps 0xa77ab0[player]",
+   "signature": "void cat_mimicItemAdd(ubyte player, ShipType type)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054eb10",
+   "name": "cat_kbCommandExecute",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Calls press and release handlers of key-binding command table 0x8b6310[cmd*8]/+4 with state arg; used by popup to run an item's bound command",
+   "signature": "void cat_kbCommandExecute(udword state, sdword command)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054eb40",
+   "name": "cat_kbModifiersMatch",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Checks binding's shift/ctrl/alt flags (+4,+8,+0xc) against key states 0xc36b90-92, ignoring the modifier key itself (0x10/0x11/0x12)",
+   "signature": "bool32 cat_kbModifiersMatch(void *binding)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054ebc0",
+   "name": "cat_kbCommandKeyMatch",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Loops bindings of command (0xa6ee90+cmd*0x34, 16-byte entries) for key + cat_kbModifiersMatch; optionally executes handlers; used by popup hotkey scan",
+   "signature": "bool32 cat_kbCommandKeyMatch(udword state, sdword command, udword key, bool32 execute)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054e680",
+   "name": "cat_kbCommandsForKey",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Fills list with every command index whose binding matches key and modifiers (0xa6ee90 table, 0x34 stride); returns count; callers key press/release dispatchers",
+   "signature": "sdword cat_kbCommandsForKey(udword key, sdword *commands)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054e7c0",
+   "name": "cat_kbKeyPress",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Digit keys go to cat_shipPrintToggle/cat_moPrintOptionToggle, then cat_popupMenuKeyPress, else runs press handler 0x8b6310 of each command from cat_kbCommandsForKey",
+   "signature": "void cat_kbKeyPress(udword state, udword key)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054e8c0",
+   "name": "cat_kbKeyRelease",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Runs release handler 0x8b6314 of each command bound to key (cat_kbCommandsForKey); pair of cat_kbKeyPress",
+   "signature": "void cat_kbKeyRelease(udword state, udword key)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054e960",
+   "name": "cat_kbCommandKeyString",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Builds text of all bindings of a command ('%s%s%s%s' modifiers + key name via 0x0049b590, joined by separator) or a default string; popup uses it for hotkey column",
+   "signature": "void cat_kbCommandKeyString(sdword command, char *out)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054f0d0",
+   "name": "cat_kbMimicShipsCB",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Pointer-table key command: selected ships with upgrade 0x20 and special-activate capable -> cat_popupMenuOpenMimicShips",
+   "signature": "void cat_kbMimicShipsCB(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054f130",
+   "name": "cat_kbMimicPlayersCB",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Pointer-table key command: selected ships with upgrade 0x20 and special-activate capable -> cat_popupMenuOpenMimicPlayers",
+   "signature": "void cat_kbMimicPlayersCB(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0054eff0",
+   "name": "cat_kbLeechCB",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Pointer-table key command: selected ships with upgrade 0x40 and special-activate capable -> cat_popupMenuOpenLeech",
+   "signature": "void cat_kbLeechCB(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005136a0",
+   "name": "cat_shipCanLeech",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "cat_shipHasUpgrade(ship,0x40), and if flag and ship attached (+0x210) requires cat_leechIsLeeching; popup items 0x1c/0x1d (leech submenu, cat_uiSpecialLeech)",
+   "signature": "bool32 cat_shipCanLeech(Ship *ship, bool32 checkAttached)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ab840",
+   "name": "cat_ioClick",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller cat_mrClickRelease; hit-tests HUD ship-list rects (0xa45a20/0xa44800/0xa4a638 per shiptype), removes/selects those ships, ioUpdateShipTotals, tutGameMessage('ShipListClick'); objective list -> ",
+   "hw1_equivalent": "HomeworldSDL/src/Game/InfoOverlay.c:ioListClick",
+   "signature": "bool32 cat_ioClick(bool32 select)",
+   "kind": "function"
+  },
+  {
+   "address": "0x004ac050",
+   "name": "cat_ioUpdateHover",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers ioUpdateShipTotals (last call) and smViewportRender; clears or sets hover flags of HUD ship-list rects, objective entries ('hyperspace','end mission') and scroll buttons from mouse position",
+   "signature": "void cat_ioUpdateHover(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ab590",
+   "name": "cat_ioReset",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers ioStartup and universeReset; zeroes HUD ship-list tables (same 0x1220-byte arrays as ioUpdateShipTotals), objective count 0xa4b8f0, message count 0xa4b8f4 and scroll state",
+   "signature": "void cat_ioReset(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ab620",
+   "name": "cat_ioSubtitleNotify",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller subTitlesDraw; stores non-zero arg into HUD var 0xa4b890 (also reset by cat_ioReset), clears 0xa4b894 and stamps cat_taskRealTimeElapsed",
+   "signature": "void cat_ioSubtitleNotify(sdword value)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ab800",
+   "name": "cat_ioRemoveShipReferences",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller univRemoveShipReferences; clears HUD message entries (stride 0x89 dwords at 0xa47288, count 0xa4b8f4) whose ship pointer equals the dying ship",
+   "signature": "void cat_ioRemoveShipReferences(Ship *ship)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ac5e0",
+   "name": "cat_ioObjectiveAdd",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers objectiveAndFleetIntelligenceCreate, objectiveLoad; appends pointer to HUD objective list 0xa46da4 (stride 6 dwords), count 0xa4b8f0",
+   "signature": "void cat_ioObjectiveAdd(void *objective)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ac600",
+   "name": "cat_ioObjectiveAddFirst",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller objectiveAndFleetIntelligenceCreate; shifts HUD objective list 0xa46da4 down one slot and inserts at the front, count 0xa4b8f0++",
+   "signature": "void cat_ioObjectiveAddFirst(void *objective)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ac650",
+   "name": "cat_ioObjectiveRemove",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller objectiveDestroy; removes matching pointer from HUD objective list 0xa46da4 and decrements 0xa4b8f0",
+   "signature": "void cat_ioObjectiveRemove(void *objective)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ac6a0",
+   "name": "cat_ioObjectivesClear",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller objectiveDestroyAll; sets HUD objective count 0xa4b8f0 = 0",
+   "signature": "void cat_ioObjectivesClear(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ac6b0",
+   "name": "cat_ioMessageScroll",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers 0x004ac940 (when >0x18 messages) and clCommandMessage; drops the oldest HUD message, shifting 0x224-byte entries (text+colour+ship) down; count 0xa4b8f4--",
+   "signature": "void cat_ioMessageScroll(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004ac940",
+   "name": "cat_ioMessageAdd",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "LockMutex, scroll if >0x18, strcpy text into HUD message slot 0xa47070+n*0x224 with colour/ship args, soundEventPlay; callers MothershipHouseKeep, cat_bigGunFireCommand, cat_shipUpdateExperienceLevel",
+   "signature": "void cat_ioMessageAdd(char *text, udword colour, udword arg2, udword arg3)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00513a00",
+   "name": "cat_selComputeTargetActions",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Fills 0x29-dword flag block for a target list: enemy/ally/derelict, repairable (upgrade 0x40000), salvageable (0x80000), capturable, mimic, leech; callers popup builder, cat_mrReleaseRight, mouseSetCu",
+   "signature": "void *cat_selComputeTargetActions(void *flagsOut, MaxSelection *targets)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005139b0",
+   "name": "cat_selSelectionCopy",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Copies numShips and up to 255 ship pointers from src to dest selection; used before every filter (popup builders, hotkeys 0x0054f0d0..., mainrgn handlers)",
+   "signature": "void cat_selSelectionCopy(MaxSelection *dest, MaxSelection *src)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005138b0",
+   "name": "cat_shipCanRepair",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Ship (+0x10==0) with cat_shipHasUpgrade(0x40000) and type not 0x10/0x33; callers kasfRepair and popup item 0x1a highlight (item 0x1a = cat_uiSpecialRepair)",
+   "signature": "bool32 cat_shipCanRepair(Ship *ship)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005138f0",
+   "name": "cat_shipCanSalvage",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Ship (+0x10==0) with cat_shipHasUpgrade(0x80000); callers kasfSalvage and popup item 0x1b highlight (item 0x1b = cat_uiSpecialSalvage)",
+   "signature": "bool32 cat_shipCanSalvage(Ship *ship)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005136e0",
+   "name": "cat_shipCanUnleech",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "cat_shipHasUpgrade(ship,0x40) && cat_leechIsLeeching; popup item 0x1e whose action 0x00566510 calls cat_clWrapUnleech",
+   "signature": "bool32 cat_shipCanUnleech(Ship *ship)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00513920",
+   "name": "cat_salvageTargetAllowed",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_uiFindNearestSpecialTarget; true unless cat_salvageCheckTargetReasons fails with a non-zero reason count; special case SP mission 10 ship type 0x6e",
+   "signature": "bool32 cat_salvageTargetAllowed(Ship *target)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00512780",
+   "name": "makeShipsFormationCapable",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "Caller mrSetTheFormation (HW1 calls makeShipsFormationCapable first); swap-remove filter after AreShipsMobile/MakeShipsMobile as in HW1 order; Cataclysm removes docked (+0x210) ships",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:makeShipsFormationCapable",
+   "signature": "void makeShipsFormationCapable(SelectCommand *selection)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00511db0",
+   "name": "makeShipsRetireable",
+   "class": "hw1:ShipSelect.c",
+   "confidence": "medium",
+   "evidence": "Callers mrRetire, mrScuttle (HW1 mrRetire calls makeShipsRetireable); removes one ship type (0x58) like HW1 removes Probe/TargetDrone; between MakeShipsGuardCapable and makeShipsControllable",
+   "hw1_equivalent": "HomeworldSDL/src/Game/ShipSelect.c:makeShipsRetireable",
+   "signature": "void makeShipsRetireable(SelectCommand *selection)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00511590",
+   "name": "cat_shipPrintDragStart",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller cat_mrPressLeft; if ship-print key (kbCommandKeyIsHit 0x62, as cat_shipPrintActive) and mouse inside window 0x893794/98, starts drag (0xa5e208=1)",
+   "signature": "bool32 cat_shipPrintDragStart(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511640",
+   "name": "cat_shipPrintDragEnd",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller cat_mrReleaseLeft; if dragging (0xa5e208) moves window origin 0x893794/98 by mouse delta and stops drag",
+   "signature": "void cat_shipPrintDragEnd(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511690",
+   "name": "cat_shipPrintDragUpdate",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller smViewportRender; while dragging (0xa5e208) offsets drag rect 0xa5e218..24 by mouse delta",
+   "signature": "void cat_shipPrintDragUpdate(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00511710",
+   "name": "cat_shipPrintIsDragging",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Returns drag flag 0xa5e208 set by cat_shipPrintDragStart; callers cat_mrPressRight, cat_mrReleaseRight, 0x0056b6a0",
+   "signature": "bool32 cat_shipPrintIsDragging(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00560ba0",
+   "name": "mainRestoreRender",
+   "class": "hw1:main.c",
+   "confidence": "high",
+   "evidence": "Callers opCountdownNo, opTimerExpired, opOptionsAcceptHelper exactly as HW1 Options.c calls mainRestoreRender; restores saved mode, reloads GL (mainStartupGL) or falls back to software ('Fatal Error')",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:mainRestoreRender",
+   "signature": "void mainRestoreRender(void)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00561260",
+   "name": "mainShutdownRenderer",
+   "class": "hw1:main.c",
+   "confidence": "high",
+   "evidence": "Callers opCountdownNo and opTimerExpired, each just before mainRestoreRender (HW1 Options.c:1140-1141); closes render, frees textures/fonts, FreeLibrary of GL DLL, returns TRUE",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:mainShutdownRenderer",
+   "signature": "bool32 mainShutdownRenderer(void)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00561570",
+   "name": "mainLoadGL",
+   "class": "hw1:main.c",
+   "confidence": "high",
+   "evidence": "One arg (GL dll name), caller opOptionsAcceptHelper (HW1 'if (mainLoadGL(rnd->data))'); closes old renderer then mainStartupGL, mainOpenRender-like reload, alodStartup; follows mainShutdownRenderer",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:mainLoadGL",
+   "signature": "bool32 mainLoadGL(char *data)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00561920",
+   "name": "mainLoadParticularRGL",
+   "class": "hw1:main.c",
+   "confidence": "high",
+   "evidence": "Two char* args (device, data) like HW1 mainLoadParticularRGL; callers opOptionsAcceptHelper and mainRestoreRender; glCapLoadOpenGL/glCapValidGL, rndSmallInit, alodStartup; last before keyLanguageTrans",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:mainLoadParticularRGL",
+   "signature": "bool32 mainLoadParticularRGL(char *device, char *data)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00560550",
+   "name": "mainSetupSoftware",
+   "class": "hw1:main.c",
+   "confidence": "high",
+   "evidence": "Between mainSaveRender and mainRestoreSoftware as in HW1 order; sets 640x480x16 into MAIN_Window* and saved copies, default GL/device names, opDeviceIndex = -1 (HW1 body); caller WinMain",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/main.c:mainSetupSoftware",
+   "signature": "void mainSetupSoftware(void)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0055fff0",
+   "name": "cat_mainRGLFeaturesSet",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Callers mainRestoreSoftware and mainLoadParticularRGL; registers trail delete callback and sets rGL features 0x1001/0x1002 (fullScreen), 0x1003/0x100c, 0x1004/0x100b, device name via 0xb3a718",
+   "signature": "void cat_mainRGLFeaturesSet(char *data)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00556990",
+   "name": "cat_ddErrorString",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "Maps a DirectDraw HRESULT to its name: 92 string refs DDERR_WRONGMODE, DDERR_NODC, DDERR_OUTOFMEMORY...; caller the DirectDraw mode-set helper 0x005567f0",
+   "signature": "char *cat_ddErrorString(sdword hresult)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005567f0",
+   "name": "cat_ddCreate",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller hwCreateWindow (ddraw.cpp); if fullScreen: DirectDrawCreate, SetCooperativeLevel(hwnd,0x11 then 8) with cat_ddErrorString, SetDisplayMode(w,h,bpp), stores mode in 0xa70fc8..",
+   "signature": "bool32 cat_ddCreate(void *hwnd)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005567a0",
+   "name": "cat_ddDelete",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller hwDeleteWindow; if fullScreen: RestoreDisplayMode (vtbl+0x4c) if mode set, Release (vtbl+8), clears DirectDraw object 0xa70fd8",
+   "signature": "bool32 cat_ddDelete(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005568d0",
+   "name": "cat_ddActivate",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Only caller hwActivate; deactivate: RestoreDisplayMode with Sleep(30) retries; activate: SetDisplayMode with saved mode, up to 11 retries",
+   "signature": "bool32 cat_ddActivate(bool32 bActive)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005566f0",
+   "name": "dbwPaneClear",
+   "class": "hw1:debugwnd.c",
+   "confidence": "high",
+   "evidence": "After dbwClose as in HW1 debugwnd.c order; if pane in use fills its text buffer with spaces (0x20202020) and reprints each line with dbwCharsPrint, resets line index; caller dbwStart",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/debugwnd.c:dbwPaneClear",
+   "signature": "void dbwPaneClear(sdword pane)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00555cf0",
+   "name": "dbwAllPanesRepaint",
+   "class": "hw1:debugwnd.c",
+   "confidence": "medium",
+   "evidence": "Follows dbwCharsPrint as in HW1 order; for every active pane (0xb3a780 stride 0x2c) reprints visible lines with dbwCharsPrint; no direct caller (window proc path); HDC arg not used",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/debugwnd.c:dbwAllPanesRepaint",
+   "signature": "void dbwAllPanesRepaint(void *hDC)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056b6d0",
+   "name": "MD5Init2",
+   "class": "hw1:Md52.cpp",
+   "confidence": "high",
+   "evidence": "Sets ctx buf to MD5 IVs 0x67452301,0xefcdab89,0x98badcfe,0x10325476 and bits[2]=0; callers TitanInterface_AuthHandleChallenge (HW1 TitanInterface.cpp MD5Init2 use)",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Win32/Md52.cpp:MD5Init2",
+   "signature": "void MD5Init2(void *ctx)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056b700",
+   "name": "MD5Update2",
+   "class": "hw1:Md52.cpp",
+   "confidence": "high",
+   "evidence": "Colin Plumb MD5 update: bit count += len*8 with carry, buffers into ctx+0x18 (64-byte in[]), calls Transform2 per 64-byte block; same callers as MD5Init2",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Win32/Md52.cpp:MD5Update2",
+   "signature": "void MD5Update2(void *ctx, ubyte *buf, udword len)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056b7f0",
+   "name": "MD5Final2",
+   "class": "hw1:Md52.cpp",
+   "confidence": "high",
+   "evidence": "MD5 final(digest, ctx): 0x80 pad, zero fill, bit count into in[14..15], Transform2, copies 4 words to digest; same callers as MD5Init2",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Win32/Md52.cpp:MD5Final2",
+   "signature": "void MD5Final2(ubyte *digest, void *ctx)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056b890",
+   "name": "Transform2",
+   "class": "hw1:Md52.cpp",
+   "confidence": "high",
+   "evidence": "2,147-byte leaf called only by MD5Update2/MD5Final2 with (ctx->buf, ctx->in): the MD5 compression round function (Md52.cpp Transform2(uint32 buf[4], uint32 in[16]))",
+   "hw1_equivalent": "gardens-of-kadesh/zarchive/original-release-snapshot/src/Win32/Md52.cpp:Transform2",
+   "signature": "void Transform2(udword *buf, udword *in)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056d3f0",
+   "name": "fft",
+   "class": "hw1:mixfft.c",
+   "confidence": "high",
+   "evidence": "fft(n,xRe,xIm,yRe,yIm): sets pi 0x40490fdb, transTableSetup, permute, twiddleTransf per factor; caller 0x005556e0 from fqDecOver (fqeffect.c uses mixfft)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mixfft.c:fft",
+   "signature": "void fft(sdword n, real32 *xRe, real32 *xIm, real32 *yRe, real32 *yIm)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056c100",
+   "name": "factorize",
+   "class": "hw1:mixfft.c",
+   "confidence": "high",
+   "evidence": "Only caller transTableSetup (0x0056c290) as in mixfft.c; first function of the mixfft block",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mixfft.c:factorize",
+   "signature": "void factorize(sdword n, sdword *nFact, sdword *fact)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056c290",
+   "name": "transTableSetup",
+   "class": "hw1:mixfft.c",
+   "confidence": "high",
+   "evidence": "Calls factorize, prints 'Prime factor of FFT length too large' and exit(1) as mixfft.c transTableSetup; caller fft",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mixfft.c:transTableSetup",
+   "signature": "void transTableSetup(sdword *sofar, sdword *actual, sdword *remain, sdword *nFact, sdword *nPoints)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056c350",
+   "name": "permute",
+   "class": "hw1:mixfft.c",
+   "confidence": "high",
+   "evidence": "Second callee of fft after transTableSetup, 8 args (nPoint,nFact,fact,remain,xRe,xIm,yRe,yIm) as mixfft.c permute",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mixfft.c:permute",
+   "signature": "void permute(sdword nPoint, sdword nFact, sdword *fact, sdword *remain, real32 *xRe, real32 *xIm, real32 *yRe, real32 *yIm)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056c440",
+   "name": "fft_4",
+   "class": "hw1:mixfft.c",
+   "confidence": "high",
+   "evidence": "Radix-4 butterfly on (aRe,aIm); only caller fft_8 (0x0056c690) which calls it as mixfft.c fft_8 calls fft_4",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mixfft.c:fft_4",
+   "signature": "void fft_4(real32 *aRe, real32 *aIm)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056c4f0",
+   "name": "fft_5",
+   "class": "hw1:mixfft.c",
+   "confidence": "high",
+   "evidence": "Radix-5 butterfly (aRe,aIm); only caller fft_10 (0x0056c890) as in mixfft.c",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mixfft.c:fft_5",
+   "signature": "void fft_5(real32 *aRe, real32 *aIm)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056c690",
+   "name": "fft_8",
+   "class": "hw1:mixfft.c",
+   "confidence": "high",
+   "evidence": "Callee of twiddleTransf, calls fft_4 (0x0056c440) like mixfft.c fft_8",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mixfft.c:fft_8",
+   "signature": "void fft_8(void)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056c890",
+   "name": "fft_10",
+   "class": "hw1:mixfft.c",
+   "confidence": "high",
+   "evidence": "Callee of twiddleTransf, calls fft_5 (0x0056c4f0) like mixfft.c fft_10",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mixfft.c:fft_10",
+   "signature": "void fft_10(void)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056ca90",
+   "name": "fft_odd",
+   "class": "hw1:mixfft.c",
+   "confidence": "high",
+   "evidence": "Third callee of twiddleTransf after fft_8/fft_10, the generic odd-radix butterfly of mixfft.c",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mixfft.c:fft_odd",
+   "signature": "void fft_odd(sdword radix)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0056cc70",
+   "name": "twiddleTransf",
+   "class": "hw1:mixfft.c",
+   "confidence": "high",
+   "evidence": "Called by fft once per factor with (sofarRadix,radix,remainRadix,yRe,yIm); calls fft_8, fft_10, fft_odd (radix 2/3/4/5 inlined) as mixfft.c twiddleTransf",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mixfft.c:twiddleTransf",
+   "signature": "void twiddleTransf(sdword sofarRadix, sdword radix, sdword remainRadix, real32 *yRe, real32 *yIm)",
+   "kind": "function"
+  },
+  {
+   "address": "0x004ace50",
+   "name": "hmatMultiplyHVecByHMat",
+   "class": "hw1:Matrix.c",
+   "confidence": "high",
+   "evidence": "result[i] = dot(vector, column i of matrix) for 4 columns, exactly HW1 hmatMultiplyHVecByHMat; follows hmatMultiplyHMatByHVec in Matrix.c order; caller _inplace_glify",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Matrix.c:hmatMultiplyHVecByHMat",
+   "signature": "void hmatMultiplyHVecByHMat(hvector *result, hvector *vector, hmatrix *matrix)",
+   "kind": "function"
+  },
+  {
+   "address": "0x004acdf0",
+   "name": "cat_hmatMultiplyHMatByVec",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "result.xyz = M*vec + translation column (m14..m34) on a 3-vector, between hmatMultiplyHMatByHVec and hmatMultiplyHVecByHMat; callers cat_mcpReset, 0x0042ca10",
+   "signature": "void cat_hmatMultiplyHMatByVec(vector *result, hmatrix *matrix, vector *vec)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0048f070",
+   "name": "hsOrientEffect",
+   "class": "hw1:HS.c",
+   "confidence": "high",
+   "evidence": "Callers hsStart (0x0048f1c0) and hsContinue, as HW1 HS.c:222/323; first of the HS.c block",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsOrientEffect",
+   "signature": "void hsOrientEffect(Ship *ship)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0048f1a0",
+   "name": "hsShouldDisplayEffect",
+   "class": "hw1:HS.c",
+   "confidence": "high",
+   "evidence": "32-byte bool; callers UpdateHyperspacingShip, UpdateArrivingShip and the object render list, matching HW1 SinglePlayer.c hsStart(..., hsShouldDisplayEffect(ship)) and render.c:2664",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsShouldDisplayEffect",
+   "signature": "bool32 hsShouldDisplayEffect(Ship *ship)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0048f1c0",
+   "name": "hsStart",
+   "class": "hw1:HS.c",
+   "confidence": "high",
+   "evidence": "4 args (ship, cliptDelta, into, displayEffect); callers UpdateHyperspacingShip/UpdateArrivingShip; dmgStopEffect, etgEffectCreate, hsOrientEffect as HW1 hsStart",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsStart",
+   "signature": "void hsStart(Ship *ship, real32 cliptDelta, bool32 into, bool32 displayEffect)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0048f320",
+   "name": "hsGetEquation",
+   "class": "hw1:HS.c",
+   "confidence": "medium",
+   "evidence": "Only caller hsContinue, 2 args, leaf; sits between hsStart and hsContinue where HW1 defines hsGetEquation",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsGetEquation",
+   "signature": "void hsGetEquation(Ship *ship, hvector *equation)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0048f750",
+   "name": "hsRectangle",
+   "class": "hw1:HS.c",
+   "confidence": "high",
+   "evidence": "6 args (origin, rightlength, uplength, alpha, outline, c) like HW1; follows hsContinue; called by hsEnd (0x0048fd10) to draw the hyperspace window",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsRectangle",
+   "signature": "void hsRectangle(vector *origin, real32 rightlength, real32 uplength, ubyte alpha, bool32 outline, color c)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0048f9f0",
+   "name": "hsDesat",
+   "class": "hw1:HS.c",
+   "confidence": "high",
+   "evidence": "(r*, g*, b*, c, scale): colRGBToHSV, scale saturation, colHSVToRGB, write ubytes - HW1 hsDesat body; caller hsEnd (hsLine inlined)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsDesat",
+   "signature": "void hsDesat(ubyte *r, ubyte *g, ubyte *b, color c, real32 scale)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0048fb60",
+   "name": "hsUpdate",
+   "class": "hw1:HS.c",
+   "confidence": "high",
+   "evidence": "One ship arg; callers UpdateHyperspacingShip, UpdateArrivingShip (HW1 SinglePlayer.c calls hsUpdate there); state machine with etgEffectDelete/univDeleteEffect (hsFinish inlined)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsUpdate",
+   "signature": "void hsUpdate(Ship *ship)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0048fd10",
+   "name": "hsEnd",
+   "class": "hw1:HS.c",
+   "confidence": "high",
+   "evidence": "Caller cat_rndRenderObjectList (HW1 render.c:2956 hsEnd(ship, displayEffect)); draws window with hsRectangle and desaturated line (hsDesat) in the ship's hmatrix",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsEnd",
+   "signature": "void hsEnd(Ship *ship, bool32 displayEffect)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00490180",
+   "name": "hsStaticReset",
+   "class": "hw1:HS.c",
+   "confidence": "high",
+   "evidence": "Identical to HW1: if static data 0xa43e84 != NULL memFree it, NULL it, gate count 0xa43e80 = 0; caller gameEnd (HW1 utility.c gameEnd calls hsStaticReset); just before hsStaticInit",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsStaticReset",
+   "signature": "void hsStaticReset(void)",
+   "kind": "function"
+  },
+  {
+   "address": "0x004901e0",
+   "name": "hsStaticDestroy",
+   "class": "hw1:HS.c",
+   "confidence": "high",
+   "evidence": "Follows hsStaticInit as in HW1 order; single hvector* arg; caller kasfGateDestroy",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsStaticDestroy",
+   "signature": "void hsStaticDestroy(hvector *point)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00490240",
+   "name": "hsStaticGateRender",
+   "class": "hw1:HS.c",
+   "confidence": "high",
+   "evidence": "Per-gate render: univSpaceObjInRenderList, hmatMakeHMatFromMat, blend/cull/lighting off, draws gate rectangle via 0x0048f8b0; caller hsStaticRender",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsStaticGateRender",
+   "signature": "void hsStaticGateRender(void *gate)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00490370",
+   "name": "hsStaticRender",
+   "class": "hw1:HS.c",
+   "confidence": "high",
+   "evidence": "Caller rndMainViewRenderFunction (HW1 render.c:3213 hsStaticRender()); loops gates calling hsStaticGateRender",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsStaticRender",
+   "signature": "void hsStaticRender(void)",
+   "kind": "function"
+  },
+  {
+   "address": "0x004903b0",
+   "name": "hsDerelictTakesDamage",
+   "class": "hw1:HS.c",
+   "confidence": "medium",
+   "evidence": "Follows hsStaticRender as in HW1 order; caller ApplyDamageToTarget; one derelict arg",
+   "hw1_equivalent": "HomeworldSDL/src/Game/HS.c:hsDerelictTakesDamage",
+   "signature": "void hsDerelictTakesDamage(void *derelict)",
+   "kind": "function"
+  },
+  {
+   "address": "0x0048f8b0",
+   "name": "cat_hsGateRectangle",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Only caller hsStaticGateRender; immediate-mode quad in fixed gate colour (0x46,0x5a,0xff) plus outline loop with line width 2 - the hsRectangle variant used for static gates",
+   "signature": "void cat_hsGateRectangle(vector *origin, real32 width, real32 height, real32 alpha)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00571cb0",
+   "name": "primCircleSolid2",
+   "class": "hw1:prim2d.c",
+   "confidence": "medium",
+   "evidence": "5 args (x, y, rad, nSlices, c); callers sensors blob draw (cat_smSensorRangeBlobsDraw; HW1 Sensors.c:1860 calls primCircleSolid2); after primRoundRectOutline in prim2d order",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/prim2d.c:primCircleSolid2",
+   "signature": "void primCircleSolid2(sdword x, sdword y, sdword rad, sdword nSlices, color c)",
+   "kind": "function"
+  },
+  {
+   "address": "0x005718b0",
+   "name": "primRoundRectOutline",
+   "class": "hw1:prim2d.c",
+   "confidence": "medium",
+   "evidence": "Right after primBeveledRectSolid as in prim2d.c; rect edges plus 4 primOvalArcOutline2 corners in colour arg; callers cat_moTooltipDraw, cat_shipPrintDraw, cat_moPrintOptionsDraw",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/prim2d.c:primRoundRectOutline",
+   "signature": "void primRoundRectOutline(rectangle *rect, sdword thickness, color c, uword xb, uword yb)",
+   "kind": "function"
+  },
+  {
+   "address": "0x005711b0",
+   "name": "primGLCircleOutline2",
+   "class": "hw1:prim2d.c",
+   "confidence": "high",
+   "evidence": "(real32 x, y, radius, sdword nSegments, color c) as HW1; between primOvalArcOutline2 and primLine2 as in prim2d.c; caller tutDrawTextPointers (HW1 Tutor.c calls primGLCircleOutline2)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/prim2d.c:primGLCircleOutline2",
+   "signature": "void primGLCircleOutline2(real32 x, real32 y, real32 radius, sdword nSegments, color c)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00570190",
+   "name": "primRectSolidTexturedFullRectC2",
+   "class": "hw1:prim2d.c",
+   "confidence": "medium",
+   "evidence": "(rect, colour), textured quad over full rect, right after primRectSolidTextured2; caller psLinkDraw (HW1 PlugScreen.c:116 primRectSolidTexturedFullRectC2(&rect, c))",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/prim2d.c:primRectSolidTexturedFullRectC2",
+   "signature": "void primRectSolidTexturedFullRectC2(rectangle *rect, color c)",
+   "kind": "function"
+  },
+  {
+   "address": "0x005c60a0",
+   "name": "cat_sentinelFieldSegmentDraw",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Draws one queued field segment (additive blend, textured quad via primSolidTexture3, primCircleSolid3, partFilter); callers 0x005c5c20/0x005c5cb0 that drain the sorted list from rndMainViewRenderFunct",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c5b20",
+   "name": "cat_sentinelFieldSegmentAdd",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Inserts a segment (3 vectors + depth) into depth-sorted list 0xa78d18 from a fixed pool 0xa77b98 (0x22 or 0x4f entries); only caller 0x005c5ec0 (per-sentinel field builder)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c5c20",
+   "name": "cat_sentinelFieldsRenderBehind",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller rndMainViewRenderFunction; draws queued field segments farther than the given object's distance to the camera, popping them from list 0xa78d18",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c5cb0",
+   "name": "cat_sentinelFieldsRenderRest",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller rndMainViewRenderFunction; draws all remaining queued field segments and resets the list/pool (0xa78d18, 0xa78d1c)",
+   "signature": "void cat_sentinelFieldsRenderRest(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005c67b0",
+   "name": "cat_sentinelFieldQueue",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_rndRenderObjectList; for a sentinel ship computes its field segments via 0x005c5ec0 which queues them with cat_sentinelFieldSegmentAdd; sits in Sentinel.c (after SentinelHouseKeep)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00489e50",
+   "name": "cat_gameStatsStartup",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller utyGameSystemsInit; frFontRegister 'default.hff' x2 and 'Arial_b17.hff' into 0xa43c84.., starts 2 s timer; fonts used by the end-game stats screen code 0x00488e70-0x00489e90",
+   "signature": "void cat_gameStatsStartup(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00489e90",
+   "name": "cat_gameStatsBegin",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Caller cat_utyGameQuitToMainOrStats; allocs per-player 0x44-byte stats, sets active flag 0xa43c78, mrDisable, smSensorsCloseForGood, stats music, string 'TerryStats', hrInitBackground",
+   "signature": "void cat_gameStatsBegin(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00489290",
+   "name": "cat_gameStatsEnd",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Called from the stats click handler 0x004892e0; memFree stats, hrShutdownBackground, mrEnable, utyGameQuitToMain",
+   "signature": "void cat_gameStatsEnd(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x0048a050",
+   "name": "cat_gameStatsIsActive",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Returns flag 0xa43c78 set by cat_gameStatsBegin; callers cat_mrPressRight, cat_mrReleaseRight, feShouldSaveMouseCursor block input while the stats screen is up",
+   "signature": "bool32 cat_gameStatsIsActive(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004892e0",
+   "name": "cat_gameStatsClick",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller cat_mrClickRelease; button hit test, soundEventPlay, timer restart, may call cat_gameStatsEnd",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00488a50",
+   "name": "cat_gameStatsValuePrint",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "switch on stat column -> sprintf into buffer, column 0 as time '%d:%02d:%02d', others as numbers; caller stats draw 0x004896b0",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004896b0",
+   "name": "cat_gameStatsDraw",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "No direct caller (draw callback); 1,938 bytes drawing frames (cat_popupMenuDrawFrame), table text via fontPrint/sprintf, per-player rows with allianceArePlayersAllied, timer fades",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x004da730",
+   "name": "opResItemDraw",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "List-item draw callback (rect, listitem) between opCustomEffects and opResListSet as in HW1; font 0xa4cc4c, '%dx%d' and '%d bit' text, centre x = x0+(x1-x0)/2+9 exactly as HW1 opResItemDraw",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opResItemDraw",
+   "signature": "void opResItemDraw(rectangle *rect, void *data)",
+   "kind": "function"
+  },
+  {
+   "address": "0x004daa80",
+   "name": "opRenderItemDraw",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "Draw callback between opResolution and opRenderListLoad; if selected renderer changed calls opResListSet(rnd->dev) as HW1 opRenderItemDraw; squeezes name to rect width (opSqueezeString inlined)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opRenderItemDraw",
+   "signature": "void opRenderItemDraw(rectangle *rect, void *data)",
+   "kind": "function"
+  },
+  {
+   "address": "0x004d7200",
+   "name": "opHighlightBabyFunction",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "Code (not yet a function entry) registered by opDefineThisKey via taskCallBackRegister(..., 0.8) as HW1 opDefineThisKey registers opHighlightBabyFunction; sits between opUpdateSettings and opDefineThi",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opHighlightBabyFunction",
+   "kind": "function"
+  },
+  {
+   "address": "0x004d96f0",
+   "name": "opMusicVolumeProcess",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "Code (not a function entry yet) stored as slider processFunction (+0x58) by opMusicVolume, as HW1 opMusicVolume sets shandle->processFunction = opMusicVolumeProcess",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opMusicVolumeProcess",
+   "kind": "function"
+  },
+  {
+   "address": "0x004d9770",
+   "name": "opSFXVolumeProcess",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "Code (not a function entry yet) stored as slider processFunction (+0x58) by opSFXVolume, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opSFXVolumeProcess",
+   "kind": "function"
+  },
+  {
+   "address": "0x004d97f0",
+   "name": "opSpeechVolumeProcess",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "Code (not a function entry yet) stored as slider processFunction (+0x58) by opSpeechVolume, as HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opSpeechVolumeProcess",
+   "kind": "function"
+  },
+  {
+   "address": "0x004d98c0",
+   "name": "opMouseSensitivityProcess",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "Code (not a function entry yet) stored as slider processFunction by opMouseSensitivity; follows opNumChannelsProcess as in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opMouseSensitivityProcess",
+   "kind": "function"
+  },
+  {
+   "address": "0x004d98e0",
+   "name": "opBattleChatterProcess",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "Code (not a function entry yet) stored as slider processFunction by opBattleChatterCB (HW1 Options.c:3129); next after opMouseSensitivityProcess as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opBattleChatterProcess",
+   "kind": "function"
+  },
+  {
+   "address": "0x004d9900",
+   "name": "opNumEffectsProcess",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "Code (not a function entry yet) stored as slider processFunction by opNumberEffects (HW1 Options.c:3153); next after opBattleChatterProcess as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opNumEffectsProcess",
+   "kind": "function"
+  },
+  {
+   "address": "0x004d9990",
+   "name": "opEqualizerProcess",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "Code (not a function entry yet) stored as slider processFunction by opEqualizer1..8 (EqualizerCommon in HW1 sets opEqualizerProcess)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opEqualizerProcess",
+   "kind": "function"
+  },
+  {
+   "address": "0x004d9b20",
+   "name": "opDetailThresholdProcess",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "Code (not a function entry yet) stored as slider processFunction by opDetailThreshold (HW1 Options.c:2363); right after opEqualizerButton as in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opDetailThresholdProcess",
+   "kind": "function"
+  },
+  {
+   "address": "0x004da690",
+   "name": "opBrightnessProcess",
+   "class": "hw1:Options.c",
+   "confidence": "high",
+   "evidence": "Code (not a function entry yet) stored as slider processFunction by opBrightness (HW1 Options.c:2398); between opDetailThreshold and opBrightness as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/Game/Options.c:opBrightnessProcess",
+   "kind": "function"
+  },
+  {
+   "address": "0x004db6d0",
+   "name": "cat_opTextureDetailProcess",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Code (not a function entry yet) stored as slider processFunction by cat_opTextureDetail, same pattern as the HW1 op*Process slider callbacks",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00569260",
+   "name": "mrRegionDraw",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "Code (not yet a function entry) passed by mrStartup to regDrawFunctionSet(ghMainRegion, ...) exactly as HW1 mrStartup; sits after the to* draw helpers and before mrReset as in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrRegionDraw",
+   "signature": "void mrRegionDraw(regionhandle reg)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00567930",
+   "name": "mrRegionProcess",
+   "class": "hw1:mainrgn.c",
+   "confidence": "high",
+   "evidence": "Code (not yet a function entry) passed by mrStartup to regFunctionSet(ghMainRegion, ...) and to every regKeyChildAlloc, as HW1 mrStartup does with mrRegionProcess; follows mrObjectClick/mrDockingOrder",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrRegionProcess",
+   "signature": "udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00563be0",
+   "name": "cat_mrKeyChildrenAlloc",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "regKeyChildAlloc(region, ID, 0x180000, callback, 1, ID) for all 256 keys - the loop inlined in mrStartup, factored out for smSensorsBegin (only caller); placed after mrStartup",
+   "signature": "void cat_mrKeyChildrenAlloc(regionhandle region, regionfunction function)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00565c30",
+   "name": "cat_mrSetTactics",
+   "class": "cat-new",
+   "confidence": "high",
+   "evidence": "tactic 0/1/2 -> speechEventQueue, tutGameMessage 'KB_TacticsEvasive'/'KB_TacticsNeutral'/'KB_TacticsAggressive', clWrapSetTactics, optional clCommandMessage: HW1 mrEvasive/Neutral/AgressiveTactics mer",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/mainrgn.c:mrNeutralTactics",
+   "signature": "void cat_mrSetTactics(sdword tactic, bool32 showMessage)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00566860",
+   "name": "cat_mrTacticsCycle",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Pointer-table key command: steps displayed tactics 0..2 forward/back (0xb39cb4), shows MessageStrings 0x5cf-0x5d1 (the tactics names used by cat_mrSetTactics) via clCommandMessage, click sound 0x108",
+   "signature": "void cat_mrTacticsCycle(bool32 backwards)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00566750",
+   "name": "cat_mrFormationCycle",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Pointer-table key command: if >1 selected, clSelectionAlreadyInFormation then steps formation index 0..5 forward/back, shows formation name strings 0xbb4d8c.. via clCommandMessage, click sound 0x108",
+   "signature": "void cat_mrFormationCycle(bool32 backwards)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00567860",
+   "name": "cat_mrMimicTarget",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Callers mrObjectClick, cat_mrReleaseRight; for a ship target cat_clWrapMimic(sel, 1, target shiptype, owner playerIndex, 0); otherwise per-ship mode 2 player 8 (asteroid forms 1/3)",
+   "signature": "void cat_mrMimicTarget(SpaceObj *target)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00565770",
+   "name": "cat_uiUnmimic",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Popup item 0x23: keeps selected ships with upgrade 0x20 that are mimicking (0x005b99b0) and issues cat_clWrapMimic(..., 0, -1, -1, -1) i.e. mode 0 = stop mimic",
+   "signature": "void cat_uiUnmimic(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005b99b0",
+   "name": "cat_shipIsMimicking",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "True when ship flag +0x18 bit 8 set and mimic byte +0x760 non-zero; used by cat_uiUnmimic, popup highlights and ioUpdateShipTotals for disguised ships; in Mimic.c tail",
+   "signature": "bool32 cat_shipIsMimicking(Ship *ship)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00565570",
+   "name": "cat_uiLink",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Popup item 0x1f: copy selection, keep ships with upgrade 8, drop docked (0x005125f0), cat_clWrapLink(universe, sel)",
+   "signature": "void cat_uiLink(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x005655e0",
+   "name": "cat_uiUnlink",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Popup item 0x20: same filter as cat_uiLink then cat_clWrapUnlink(universe, sel)",
+   "signature": "void cat_uiUnlink(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00566510",
+   "name": "cat_uiUnleech",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Popup item 0x1e: filters selection to leeching ships (0x00512650: upgrade 0x40 + cat_leechIsLeeching) and calls cat_clWrapUnleech",
+   "signature": "void cat_uiUnleech(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00566470",
+   "name": "cat_uiSetLeechAction",
+   "class": "cat-new",
+   "confidence": "medium",
+   "evidence": "Pointer-table command with byte arg: filters selection with 0x005123a0 (leech-capable) and 0x005125f0, then cat_clWrapSetLeechAction(&universe.mainCommandLayer, sel, action)",
+   "signature": "void cat_uiSetLeechAction(ubyte action)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00564810",
+   "name": "cat_uiSiegeCannonCancel",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Popup item 0x2b (next to 0x2a cat_uiFireSiegeCannon): for each selected ship with cat_mothershipBigGunActive issues clWrapSpecial on that ship alone (toggles the firing big gun off)",
+   "signature": "void cat_uiSiegeCannonCancel(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00566250",
+   "name": "cat_uiProtectFormationCancel",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Popup item 0x25: for selected ships leading a formation command of type 10 or 9 re-issues clWrapFormation with 5 or 4 (normal formation), click sound 0x108",
+   "signature": "void cat_uiProtectFormationCancel(void)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00565f30",
+   "name": "cat_uiProtectFormation",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Callers mrObjectClick, cat_mrReleaseRight, popup item 0x24; ships with upgrades 0x1000/0x2000/0x4000 (0x00512330) get clWrapProtect + clWrapFormation 10 around target (9 without target), speech 0x4000",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00534ea0",
+   "name": "uicScrollBarProcess",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "Code (not yet a function entry) passed to regFunctionSet for the scroll bar and its up/down buttons by uicChildScrollBarAlloc, exactly as HW1 UIControls.c:4357-4384; follows uicRadioButtonProcess in H",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicScrollBarProcess",
+   "signature": "udword uicScrollBarProcess(regionhandle region, sdword ID, udword event, udword data)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00535160",
+   "name": "uicScrollBarDraw",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "Code (not yet a function entry) passed to regDrawFunctionSet for the scroll bar region by uicChildScrollBarAlloc (HW1 UIControls.c:4385)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicScrollBarDraw",
+   "signature": "void uicScrollBarDraw(regionhandle region)",
+   "kind": "function"
+  },
+  {
+   "address": "0x005351b0",
+   "name": "uicScrollBarButtonDraw",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "Code (not yet a function entry) passed to regDrawFunctionSet for the up/down buttons by uicChildScrollBarAlloc (HW1 UIControls.c:4358/4372)",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicScrollBarButtonDraw",
+   "signature": "void uicScrollBarButtonDraw(regionhandle region)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00535290",
+   "name": "uicListWindowDraw",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "Code (not yet a function entry) set as draw function by uicChildListWindowAlloc (HW1 UIControls.c:4428 regDrawFunctionSet(newHandle, uicListWindowDraw)); just before uicListWindowViewSelection",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicListWindowDraw",
+   "signature": "void uicListWindowDraw(regionhandle region)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00536c10",
+   "name": "uicTextEntryProcess",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "Code (not yet a function entry) set by uicChildTextEntryAlloc and compared in uicSetCurrent (HW1 UIControls.c:4962 and 5312 'reg->processFunction == uicTextEntryProcess'); after uicBackspaceCharacter",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicTextEntryProcess",
+   "signature": "udword uicTextEntryProcess(regionhandle region, sdword ID, udword event, udword data)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00537af0",
+   "name": "uicTextEntryDraw",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "Code (not yet a function entry) set as draw function by uicChildTextEntryAlloc (HW1 UIControls.c:4963); directly before uicDragButtonProcess as in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicTextEntryDraw",
+   "signature": "void uicTextEntryDraw(regionhandle region)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00538eb0",
+   "name": "uicTabProcess",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "Code (not yet a function entry) registered by feScreenStart with regKeyChildAlloc(..., key 9 TAB) and found via regSiblingFindByFunction in uicListWindowProcess, as HW1 FEFlow.c:2386 / UIControls.c:28",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicTabProcess",
+   "signature": "udword uicTabProcess(regionhandle reg, sdword num_buttons, udword event, udword data)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00538fc0",
+   "name": "uicRightArrowProcess",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "Code (not yet a function entry) registered by feScreenStart with regKeyChildAlloc(..., key 0x27 VK_RIGHT) as HW1 FEFlow.c:2387; follows uicTabProcess in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicRightArrowProcess",
+   "signature": "udword uicRightArrowProcess(regionhandle reg, sdword num_buttons, udword event, udword data)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00539230",
+   "name": "uicLeftArrowProcess",
+   "class": "hw1:UIControls.c",
+   "confidence": "high",
+   "evidence": "Code (not yet a function entry) registered by feScreenStart with regKeyChildAlloc(..., key 0x25 VK_LEFT); follows uicRightArrowProcess as in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/Game/UIControls.c:uicLeftArrowProcess",
+   "signature": "udword uicLeftArrowProcess(regionhandle reg, sdword num_buttons, udword event, udword data)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00584ec0",
+   "name": "trReset",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "Callers trStartup and trShutdown, between them in the binary as HW1 orders trReset after trStartup; clears registry (memClearDword) and deletes allocated textures via trTextureDelete (0x005854c0)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trReset",
+   "signature": "void trReset(void)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00585280",
+   "name": "trInternalTexturesDelete",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "Callers trSetAllPending, trTextureDelete, trRegisterAddition/Removal, trTextureColorsUpdate, trPreLoadedTextureScale (HW1 has 8 call sites, all in texreg.c); first after trShutdown as in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trInternalTexturesDelete",
+   "signature": "void trInternalTexturesDelete(trhandle handle)",
+   "kind": "function"
+  },
+  {
+   "address": "0x005854c0",
+   "name": "trTextureDelete",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "Callers trReset, trTextureDeleteAllUnregistered, trRegistryRefresh; deletes internal textures, fixes nSharedTo of shared-from entries (+0xf), memFree of name/palettes; returns sdword like HW1",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trTextureDelete",
+   "signature": "sdword trTextureDelete(trhandle handle)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00585650",
+   "name": "trColorInfosPointer",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "Returns colour-info pointer of registry entry (0x34 stride): shared/paletted (+0xc bit 2) selects palettes + index*0x400 or *4, else +0x14 - HW1 trColorInfosPointer logic; follows trTextureDelete",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trColorInfosPointer",
+   "signature": "trcolorinfo *trColorInfosPointer(sdword textureIndex)",
+   "kind": "function"
+  },
+  {
+   "address": "0x005856b0",
+   "name": "trColorsEqual",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "(info, textureIndex): scans the entry's colour infos for a matching base/stripe pair, returns its index or -1; caller meshRecolorize (HW1 Mesh.c calls trColorsEqual)",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trColorsEqual",
+   "signature": "sdword trColorsEqual(trcolorinfo *info, sdword textureIndex)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00585760",
+   "name": "trTextureRegister",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "11 callers matching HW1 users (etgSetTextureParse, meshTextureRegisterAllPlayers, meshRecolorize, scriptSetNAVLightCB, subThemePictureSet, trailStartup...); __strupr + crc32Compute of the name, memAll",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trTextureRegister",
+   "signature": "trhandle trTextureRegister(char *fileName, trcolorinfo *info, void *meshReference)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00585b60",
+   "name": "trRegisterAddition",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "(handle, info), caller meshRecolorize (HW1 Mesh.c only caller of trRegisterAddition); follows trTextureRegister as in HW1 order; uses trInternalTexturesDelete",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trRegisterAddition",
+   "signature": "trhandle trRegisterAddition(trhandle handle, trcolorinfo *info)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00585e70",
+   "name": "trRegisterRemoval",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "(handle), callers meshRecolorize and subTexturesReset (HW1: Mesh.c and Subtitle.c call trRegisterRemoval); next in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trRegisterRemoval",
+   "signature": "void trRegisterRemoval(trhandle handle)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00585fa0",
+   "name": "trTextureColorsUpdate",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "(handle, info), caller meshRecolorize (HW1 Mesh.c calls trTextureColorsUpdate); next in HW1 order before trTextureUnregister",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trTextureColorsUpdate",
+   "signature": "void trTextureColorsUpdate(trhandle handle, trcolorinfo *info)",
+   "kind": "function"
+  },
+  {
+   "address": "0x005860d0",
+   "name": "trTextureUnregister",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "(handle); callers meshFree, navLightStaticInfoDelete and texture unload helpers (HW1 Mesh.c/NavLights.c call trTextureUnregister); next in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trTextureUnregister",
+   "signature": "void trTextureUnregister(trhandle handle)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00586140",
+   "name": "trTextureDeleteAllUnregistered",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "Caller gameEnd (HW1 utility.c gameEnd calls trTextureDeleteAllUnregistered); deletes entries with flag 4 and usage count <1 via trTextureDelete",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trTextureDeleteAllUnregistered",
+   "signature": "void trTextureDeleteAllUnregistered(void)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00586190",
+   "name": "trMeshSortAdd",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "(regIndex, teamFlags) 2 args, only caller trRegistryRefresh (HW1 texreg.c:3077 trMeshSortAdd(index, listFlags)); next after trTextureDeleteAllUnregistered as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trMeshSortAdd",
+   "signature": "void trMeshSortAdd(sdword regIndex, udword teamFlags)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00586460",
+   "name": "trCreateUnpalettedTexture",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "(palette, data, width, height), only caller trPalettedTextureCreate, immediately before it - HW1 order and call site",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trCreateUnpalettedTexture",
+   "signature": "void trCreateUnpalettedTexture(ubyte *palette, ubyte *data, sdword width, sdword height)",
+   "kind": "function"
+  },
+  {
+   "address": "0x005878f0",
+   "name": "trListFileLoad",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "(name, &number) returns list pointer; caller trRegistryRefresh; after trMeshSortListLoad as in HW1 order trListFileLoadAndConvertTo64Bit, trListFileLoad",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trListFileLoad",
+   "signature": "llelement *trListFileLoad(char *name, sdword *number)",
+   "kind": "function"
+  },
+  {
+   "address": "0x005879a0",
+   "name": "trImageMeasureFromListing",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "7 args (name, list, listLength, &width, &height, &flags, &sharedFrom) as HW1; caller trRegistryRefresh; next after trListFileLoad",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trImageMeasureFromListing",
+   "signature": "bool32 trImageMeasureFromListing(char *name, llelement *list, sdword listLength, sdword *width, sdword *height, udword *flags, char **sharedFrom)",
+   "kind": "function"
+  },
+  {
+   "address": "0x005888e0",
+   "name": "trFilterEnable",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "Callers utyFilterToggle, utyMagFilterToggle, utyFilterBitmapToggle, opEffectsHelper, cat_opSetAllDefaults (HW1 utility.c x3 and Options.c call trFilterEnable(texLinearFiltering))",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trFilterEnable",
+   "signature": "void trFilterEnable(sdword bEnable)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00588b80",
+   "name": "trSetAllPending",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "Strings '** nopal freed %dMB of textures **' and '** nopalw/o freed ...' (inlined trNoPalReadjust/WithoutPending); calls trInternalTexturesDelete; callers gameStart and the main.c renderer switches",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trSetAllPending",
+   "signature": "void trSetAllPending(bool32 freeNoPal)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00588ee0",
+   "name": "trNoPalTexImage",
+   "class": "hw1:texreg.c",
+   "confidence": "medium",
+   "evidence": "glTexParameter filter by texLinearFiltering then expands paletted data to RGBA/16-bit and glTexImage2D; callers trNoPalTextureCreate, trNoPalMakeCurrent, trMakeCurrent; just before trNoPalTextureCreat",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trNoPalTexImage",
+   "signature": "void trNoPalTexImage(ubyte *data, ubyte *palette, sdword width, sdword height)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00589590",
+   "name": "trNoPalStartup",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "Callers mainOpenRender (HW1 main.c:1442 mainOpenRender calls trNoPalStartup), mainRestoreSoftware, mainLoadGL, mainLoadParticularRGL, mainRestoreRender; after trNoPalMakeCurrent as in HW1",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trNoPalStartup",
+   "signature": "void trNoPalStartup(void)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00589630",
+   "name": "trNoPalShutdown",
+   "class": "hw1:texreg.c",
+   "confidence": "high",
+   "evidence": "Callers mainShutdownRenderer, mainLoadGL, mainLoadParticularRGL, mainRestoreRender, mainRestoreSoftware (HW1 main.c:1429 mainCloseRender: trSetAllPending; trNoPalShutdown); before trNoPalResizePool",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/texreg.c:trNoPalShutdown",
+   "signature": "void trNoPalShutdown(void)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00589cd0",
+   "name": "cat_trTextureMemorySet",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Callers opUpdateSettings, opRestoreSavedSettings, cat_opSetAllDefaults, utyGameSystemsInit; maps a 0-100 setting through two tables to nopal pool / texture byte limits (<<20) and frees textures over t",
+   "signature": "void cat_trTextureMemorySet(sdword percent)",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00589910",
+   "name": "cat_trPrecacheShipTextures",
+   "class": "cat-new",
+   "confidence": "low",
+   "evidence": "Caller singlePlayerGameUpdate; for a fixed list of ship types (0x44,0x41,0x45,0x49,0x3e,0x52) and LOD levels calls trMakeCurrent on each texture to preload them",
+   "kind": "function",
+   "hw1_equivalent": ""
+  },
+  {
+   "address": "0x00561f10",
+   "name": "WindowProc",
+   "class": "hw1:main.c",
+   "confidence": "high",
+   "evidence": "Code (typed as data, not a function entry) assigned to wc.lpfnWndProc in mainRegisterClass; CET labels WindowProc_JumpIfF12KeyUp 0x562401 and WindowProc_NormalKeyUpEvent 0x562943 lie inside it",
+   "hw1_equivalent": "",
+   "signature": "sdword WindowProc(void *hWnd, udword message, udword wParam, sdword lParam)",
+   "kind": "function"
+  },
+  {
+   "address": "0x00555d70",
+   "name": "dbwWindowProc",
+   "class": "hw1:debugwnd.c",
+   "confidence": "high",
+   "evidence": "Code (not yet a function entry) assigned to windowClass.lpfnWndProc in dbwStart, as HW1 debugwnd.c:443 windowClass.lpfnWndProc = dbwWindowProc; follows dbwAllPanesRepaint as in HW1 order",
+   "hw1_equivalent": "HomeworldSDL/src/SDL/debugwnd.c:dbwWindowProc",
+   "signature": "sdword dbwWindowProc(void *hWnd, udword message, udword wParam, sdword lParam)",
+   "kind": "function"
+  }
+ ],
+ "audit": {
+  "sampled": 30,
+  "wrong": 0,
+  "unverifiable": 0,
+  "correct": 30,
+  "precision": 1.0,
+  "action": "keep (precision >= 0.9); no sampled-wrong entries to drop",
+  "dropped": 0,
+  "seed": 17,
+  "sample_strata": "12 high + 18 medium/low; no renames/removals in set",
+  "sampled_addresses": [
+   "0x004ec9a0",
+   "0x004ed8b0",
+   "0x004ef1c0",
+   "0x00420ec0",
+   "0x005b9fa0",
+   "0x0054e680",
+   "0x004ab620",
+   "0x004ac5e0",
+   "0x00513920",
+   "0x00511710",
+   "0x0056b890",
+   "0x0056c890",
+   "0x0048fb60",
+   "0x00490240",
+   "0x005718b0",
+   "0x005711b0",
+   "0x005c67b0",
+   "0x004892e0",
+   "0x004da730",
+   "0x004d9900",
+   "0x004da690",
+   "0x004db6d0",
+   "0x005b99b0",
+   "0x00565570",
+   "0x00566510",
+   "0x00565f30",
+   "0x00534ea0",
+   "0x005856b0",
+   "0x00585e70",
+   "0x00589cd0"
+  ],
+  "notes": "Verified against cataclysm_gog_r4a decompiled.c/call_graph.csv/functions.csv and HW1 HS.c, Alliance.c, prim2d.c, mixfft.c, Options.c, texreg.c, Md52.cpp; mimic/sentinel claims cross-checked with CET ShipDefs.h (sMimic=2, sMCV=5, sSentinel=17, bSentinel=52); no name duplicates or clashes with existing r4a names."
+ }
+}
