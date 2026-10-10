@@ -618,7 +618,7 @@ bool32 mouseLDoubleClick(void)
             tempSelection.numShips = 0;
             selSelectionCopy((MaxAnySelection *)&tempSelection, (MaxAnySelection *)&mouseCursorSelect);
 
-            MakeShipsSpecialTargetCapable((SelectCommand *)&mouseCursorSelect,TRUE);
+            MakeShipsSpecialTargetCapable((SelectCommand *)&mouseCursorSelect,TRUE, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. cat_kbLeechCB 0x0054eff0)
             MakeShipsNotIncludeTheseShips((SelectCommand *)&mouseCursorSelect, (SelectCommand *)&selSelected);
 
             if (mouseCursorSelect.numShips > 0)
@@ -657,7 +657,7 @@ bool32 mouseLDoubleClick(void)
         }
         if (bitTest(mouseInfo.flags, MCF_SpecialOp))
         {
-            MakeShipsSpecialActivateCapable((SelectCommand *)&mouseCursorSelect);
+            MakeShipsSpecialActivateCapable((SelectCommand *)&mouseCursorSelect, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. cat_kbLeechCB 0x0054eff0)
 
             if (mouseCursorSelect.numShips > 0)
             {

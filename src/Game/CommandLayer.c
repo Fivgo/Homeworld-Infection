@@ -4718,7 +4718,7 @@ void clMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector t
     Node *nextnode;
     CommandToDo *command;
 
-    MakeShipsMobile(selectcom);
+    MakeShipsMobile(selectcom, FALSE);   // CAT: skip-disabled argument 0, as game code passes (aiuWrapMove 0x0041eea0); the exe's clMove 0x00446d90 has no such call, its port is M2-R4 #2 [audit]
     salCapExtraSpecialOrderCleanUp(selectcom,COMMAND_MOVE,NULL,NULL);
 
     if (selectcom->numShips < 1)
@@ -5961,7 +5961,7 @@ CommandToDo *clAttackThese(CommandLayer *comlayer,SelectCommand *selectcom,Attac
     // for safety
     if (!AreAllShipsAttackCapable(selectcom))
     {
-        MakeShipsAttackCapable(selectcom,selectcom);
+        MakeShipsAttackCapable(selectcom,selectcom, FALSE);   // CAT: skip-disabled argument (clAttack 0x00448950 and the other game-code callers pass 0)
         dbgMessage("WARNING: ships not capable of attacking told to attack");
     }
 
@@ -6051,7 +6051,7 @@ void clAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *att
     // for safety
     if (!AreAllShipsAttackCapable(selectcom))
     {
-        MakeShipsAttackCapable(selectcom,selectcom);
+        MakeShipsAttackCapable(selectcom,selectcom, FALSE);   // CAT: skip-disabled argument (clAttack 0x00448950 and the other game-code callers pass 0)
         dbgMessage("WARNING: ships not capable of attacking told to attack");
     }
 
@@ -9063,7 +9063,7 @@ void clPostProcess(CommandLayer *comlayer)
 
 //                            if (AreAnyShipsAttackCapable(command->selection))
                             MaxSelection attackingships;
-                            if (MakeShipsAttackCapable((SelectCommand *)&attackingships, command->selection))
+                            if (MakeShipsAttackCapable((SelectCommand *)&attackingships, command->selection, FALSE))   // CAT: skip-disabled argument (clAttack 0x00448950 and the other game-code callers pass 0)
                             {
                                 // just tell the ships that are attack capable to attack
                                 CommandToDo *newcommand;

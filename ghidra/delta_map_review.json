@@ -859,6 +859,13 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00420ec0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "returns FALSE for crystals (cat_shipIsCrystal) and for non-ship objects before HW1's test",
+  "note": "M2-R3 selection (read while porting the filters; Alliance.c is M2-R4 #5)",
+  "sample": "port-R3"
+ },
  "0x00420f20": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -5859,6 +5866,13 @@
   "note": "qsort twice; pointer difference in TargetPtr units (0x17c-byte objects)",
   "sample": "reread-R2"
  },
+ "0x00509030": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R3 selection: header-level, the flag mask 0x2a08000 is HW1's SOF_Hide|SOF_Disabled|SOF_Hyperspace|SOF_Crazy renumbered (0x8000|0x800000|0x2000000|0x200000), SOF_Selectable 0x2000 [audit: was 'is HW1's SOF_Hide']",
+  "sample": "port-R3"
+ },
  "0x00509490": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -5995,8 +6009,9 @@
  "0x00511940": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "removes the ships inline, then calls ioUpdateShipTotals() (new)",
-  "note": "HW1: loop of clRemoveShipFromSelection only"
+  "change": "removes theseships inline (clRemoveShipFromSelection), then ioUpdateShipTotals",
+  "note": "M2-R3 selection \"filters\"",
+  "sample": "port-R3"
  },
  "0x00511990": {
   "class": "IDENTICAL",
@@ -6022,23 +6037,100 @@
  "0x00511b10": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "also returns FALSE for disabled ships and for two ship types (custom-header flag + type 9/10 test) before the CustShipAttackPassive check",
-  "note": "HW1 only tests CustShipAttackPassive",
-  "sample": "uniform/IDENTICAL-low"
+  "change": "FALSE for a ship whose command is in formation (attributes bit 0) with formation type 9 or 10, and for a ship being built (specialFlags2 0x8); then HW1's CustShipAttackPassive test",
+  "note": "M2-R3 selection: corrects the earlier text (\"disabled ships\", \"two ship types\"); Ship+0x370 is command, +0x1CC specialFlags2",
+  "sample": "port-R3"
+ },
+ "0x00511b60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "3rd argument: skip disabled ships (Ship+0x210); drops a Sentinel holding a field (cat_shipIsSentinelInField 0x005c6ec0); ioUpdateShipTotals",
+  "note": "M2-R3 selection; UI callers pass 1, game code 0",
+  "sample": "port-R3"
+ },
+ "0x00511be0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ShipCanHarvest inlined (resource class, harvestAmount > 0); harvesting must be on (singlePlayerGame or tpGameCreated.flag MG_HarvestinEnabled); 3rd argument: only non-disabled sWorker/bWorker; ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
  },
  "0x00511c70": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "new second parameter also drops busy ships; ShipCanGuard inlined with Cataclysm class tests; calls ioUpdateShipTotals()",
-  "note": "",
-  "sample": "uniform/MODIFIED"
+  "change": "ShipCanGuard inlined: not class Mothership or Component, not externalBuild; 2nd argument skips disabled ships; ioUpdateShipTotals",
+  "note": "M2-R3 selection; HW1 tested types Mothership/Probe",
+  "sample": "port-R3"
+ },
+ "0x00511db0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "removes type 0x58 (tResourceCollector) instead of Probe/TargetDrone; ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x00512020": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the cannot-comply chatter is attempted for the selected ship with its type as the variable; no research-ship exception; ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x005120d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "also removes a host whose clamped-object list holds a ship being built, a ship being salvaged into a depot holding a crystal, a Sect mothership on COMMAND_SPECIAL or with its big gun active; then HW1's canMpHyperspace test; ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x00512250": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "2nd argument skips disabled ships except types 3, 0x11, 0x34 (sLeech, sSentinel, bSentinel); ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x005122c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ignores bFriendlies and canSpecialBandBoxFriendlies (keeps every ship with CustShipSpecialTarget; empty debug print); 3rd argument skips disabled ships; ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x005126b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "2nd argument skips disabled ships; the mothership speech for any class-0 ship of the current player; ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x00512780": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "removes disabled ships (HW1 removed Probes); ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x005127c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ioUpdateShipTotals after HW1's body",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x00512810": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ioUpdateShipTotals after HW1's body",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
  },
  "0x00512860": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "calls ioUpdateShipTotals() after filtering (Cataclysm adds this to the shipselect.c filters)",
-  "note": "",
-  "sample": "MODIFIED/low"
+  "change": "ioUpdateShipTotals after HW1's body",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
  },
  "0x005128b0": {
   "class": "IDENTICAL",
@@ -6057,37 +6149,107 @@
  "0x00512930": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "calls ioUpdateShipTotals() after filtering",
-  "note": "",
-  "sample": "MODIFIED/low"
+  "change": "ioUpdateShipTotals after HW1's body",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x00512970": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "also drops ships with specialFlags 0x40000 (SPECIAL_FriendlyStatus, kasfShipsSetNonRetaliation 0x00495da0) and crystals; no Drone test; ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x005129f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "keeps another player's derelict-race ship (not a crystal), the hyperspace gate (derelict type 7), enemy non-JunkYardHQ ships unless crystal, KAS derelict (Ship+0x18 bit 4) or a mimic that looks allied/resource/derelict, and mines (missileType 1); no KillerCollDamage exception; ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
  },
  "0x00512ca0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "excludes six Cataclysm non-combat ship types instead of Cloak/GravWell/DFG, then calls ioUpdateShipTotals()",
-  "note": "",
-  "sample": "MODIFIED/low"
+  "change": "removes the six types 0x3f, 0x40, 0x4d, 0x4f, 0x2d, 0x4e (k/tCloakGenerator, k/tGravWellGenerator, bDFGFrigate, tDFGFrigate); ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x00512d00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "removes fully cloaked (cat_shipIsCloakedFully) enemy ships not detected by the player (sub_53F9F0); no proximity sensors; ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x00512d80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ioUpdateShipTotals after HW1's body",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x00512e50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ioUpdateShipTotals after HW1's body",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x00512ea0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ioUpdateShipTotals after HW1's body",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x00512f00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_spShipCanHyperspace 0x00517650 and not capital and not class Component; ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x00512f80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_spShipCanHyperspace 0x00517650 and (capital or class Component); ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
  },
  "0x00513010": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "calls ioUpdateShipTotals() after the copy (per call graph; tail not read)",
-  "note": "",
-  "sample": "MODIFIED/low"
+  "confidence": "high",
+  "change": "ioUpdateShipTotals after the copy (tail read)",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x00513060": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R3 selection: selectMemDupSelection and clRemoveShipFromSelection inlined, same behaviour as HW1 (the automatic differences were inlining artefacts); was MODIFIED/high",
+  "sample": "port-R3"
  },
  "0x00513130": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "calls ioUpdateShipTotals after merging (per call graph; tail not read)",
-  "note": "merge loops as HW1 in the head",
-  "sample": "MODIFIED/high"
+  "confidence": "high",
+  "change": "MakeShipsNotIncludeTheseShips inlined with its ioUpdateShipTotals (tail read); copies as HW1",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
  },
  "0x00513310": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "enum and class: the test is staticinfo->shipclass == CLASS_Mothership (return) / CLASS_Carrier (remember); HW1 tests the ship types Mothership, P1Mothership, P2Mothership and Carrier",
-  "note": "",
-  "sample": "reread-R2"
+  "change": "by class: shipclass 0 returns its index, shipclass 2 is remembered",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x00513350": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "grows with memRealloc instead of alloc/copy/free",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
  },
  "0x00513390": {
   "class": "IDENTICAL",
@@ -6110,12 +6272,26 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00513480": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "growSelectAddShip (memRealloc growth) inlined",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
+ "0x005134e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "keeps classes 6, 5, 7 (resource class instead of type ResourceCollector); ioUpdateShipTotals",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
+ },
  "0x00513680": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "enum and class: a ship can harvest when shipclass == CLASS_Resource and a static capacity field (+0x260) is above 0; HW1 tests shiptype == ResourceCollector",
-  "note": "",
-  "sample": "reread-R2"
+  "change": "resource class and harvestAmount (+0x260) > 0 instead of type ResourceCollector",
+  "note": "M2-R3 selection",
+  "sample": "port-R3"
  },
  "0x00514c20": {
   "class": "MODIFIED",

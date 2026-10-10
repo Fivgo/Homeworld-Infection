@@ -3337,7 +3337,7 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                 vector destination;
 
                 dbgAssertOrIgnore(!smFleetIntel);
-                MakeShipsMobile((SelectCommand *)&selSelected);
+                MakeShipsMobile((SelectCommand *)&selSelected, TRUE);   // CAT: skip-disabled argument (UI callers pass 1)
                 if (selSelected.numShips > 0)
                 {
                     if (piePointSpecZ != 0.0f)

@@ -219,11 +219,10 @@ void MakeShipsFriendlyShips(SelectCommand *selection,struct Player *curplayer);
 void MakeShipsFriendlyAndAlliesShips(SelectCommand *selection,struct Player *curplayer);
 
 // Makes sure that ships are harvest capable
-sdword MakeShipsHarvestCapable(SelectCommand *dest, SelectCommand *source);
+sdword MakeShipsHarvestCapable(SelectCommand *dest, SelectCommand *source, bool32 workersOnly);   // CAT: 3rd argument
 
 // Makes sure that ships are attack capable
-sdword MakeShipsAttackCapable(SelectCommand *dest, SelectCommand *source);
-//void MakeShipsAttackCapable(SelectCommand *selection);
+sdword MakeShipsAttackCapable(SelectCommand *dest, SelectCommand *source, bool32 skipDisabled);    // CAT: 3rd argument
 
 // Returns TRUE if all ships are attack capable
 bool32 AreAllShipsAttackCapable(SelectCommand *selection);
@@ -244,16 +243,16 @@ bool32 AreAnyShipsPassiveAttackCapable(SelectCommand *selection);
 bool32 isShipPassiveAttackCapable(Ship *ship);
 
 // Makes sure that ships are guard capable
-void MakeShipsGuardCapable(SelectCommand *selection);
+void MakeShipsGuardCapable(SelectCommand *selection, bool32 skipDisabled);      // CAT: 2nd argument
 
 // Makes sure the ships have a special activate function
-void MakeShipsSpecialActivateCapable(SelectCommand *selection);
+void MakeShipsSpecialActivateCapable(SelectCommand *selection, bool32 skipDisabled);    // CAT: 2nd argument
 
 // Makes sure the ships have special targeting capability
-void MakeShipsSpecialTargetCapable(SelectCommand *selection, bool32 bFriendlies);
+void MakeShipsSpecialTargetCapable(SelectCommand *selection, bool32 bFriendlies, bool32 skipDisabled);   // CAT: 3rd argument
 
 // Makes sure that ships are mobile
-void MakeShipsMobile(SelectCommand *selection);
+void MakeShipsMobile(SelectCommand *selection, bool32 skipDisabled);    // CAT: 2nd argument
 bool32 AreShipsMobile(SelectCommand *selection);
 
 // Makes sure ships aren't capital ships
@@ -333,7 +332,68 @@ SelectCommand *selectMergeTwoSelections(SelectCommand *selection1, SelectCommand
 SelectCommand *selectMemDupSelection(SelectCommand *selection, char *str, udword memflag);
 #define selectDupSelection(sel)     selectMemDupSelection(sel, "selDup", 0)
 
-#define ShipCanHyperspace(ship) (isCapitalShip(ship) && (ship->shiptype != CryoTray) && (ship->shiptype != Probe))
+// CAT: HW1 also excluded its cryo-tray and probe types, which Cataclysm does not have. The exe's single-player hyperspace test is
+//      cat_spShipCanHyperspace 0x00517650; the macro's users (SinglePlayer.c) are stage 6.
+#define ShipCanHyperspace(ship) (isCapitalShip(ship))
+
+/*=============================================================================
+    CAT: Cataclysm-only selection functions (exe ShipSelect.c block 0x00511870-0x00514210)
+=============================================================================*/
+void cat_selSelectionAddShip(MaxSelection *dest, Ship *ship);
+void cat_selSelectionCopy(MaxSelection *dest, MaxSelection *src);
+void cat_growSelectNullShip(GrowSelection *grow, Ship *ship);
+void cat_selMakeShipsScuttleable(SelectCommand *selection, bool32 check);
+void cat_selMakeShipsNotLinkedACVs(SelectCommand *selection);
+void cat_selMakeShipsSameOwnerAsFirst(SelectCommand *selection);
+void cat_selMakeShipsHaltable(SelectCommand *selection, bool32 check);
+void cat_selMakeShipsProtectCapable(SelectCommand *selection, bool32 check);
+void cat_selMakeShipsMobileNotBusy(SelectCommand *selection);
+void cat_selMakeShipsHaveAbilityUpgrade(SelectCommand *selection);
+void cat_selMakeShipsLeechCapable(SelectCommand *selection, bool32 check);
+void cat_selMakeShipsRammingFrigates(SelectCommand *selection, bool32 check);
+void cat_selMakeShipsRepairCapable(SelectCommand *selection);
+void cat_selMakeShipsHaveUpgrade(SelectCommand *selection, udword flags);
+void cat_selMakeShipsAcolyteLinkFire(SelectCommand *selection);
+void cat_selMakeShipsNotBigShips(SelectCommand *selection);
+void cat_selMakeShipsNotBusy(SelectCommand *selection);
+void cat_selMakeShipsLeeching(SelectCommand *selection);
+void cat_selMakeTargetsAttackable(SelectCommand *targets, bool32 force);
+void cat_selMakeTargetsBeastAttackable(SelectCommand *targets);
+void cat_selMakeShipsDockCapableFor(SelectCommand *selection, ShipType dockTargetType, bool32 check);
+bool32 cat_shipClassCanUseSlipgate(ShipClass shipclass, ShipType slipgateType);
+bool32 cat_shipCanMove(Ship *ship, bool32 check);
+bool32 cat_shipCanDock(Ship *ship, bool32 check);
+bool32 cat_shipCanBeHalted(Ship *ship, bool32 check);
+bool32 cat_shipCanSetTactics(Ship *ship, bool32 check);
+bool32 cat_shipCanCollectResources(Ship *ship, bool32 check);
+bool32 cat_shipCanLeech(Ship *ship, bool32 checkAttached);
+bool32 cat_shipCanUnleech(Ship *ship);
+bool32 cat_shipCanRepair(Ship *ship);
+bool32 cat_shipCanSalvage(Ship *ship);
+bool32 cat_shipHasUpgrade(Ship *ship, udword flag);
+real32 cat_upgradeFlagsBaseTime(udword flags);
+real32 cat_shipUpgradeFlagsTime(Ship *ship, udword flags);
+
+// CAT: ship-state queries the selection code calls; their exe homes are other subsystems (see ShipSelect.c)
+bool32 cat_shipIsCrystal(Ship *ship);
+bool32 cat_shipIsCloakedFully(Ship *ship);
+bool32 cat_shipIsUntargetable(Ship *ship);
+bool32 cat_shipIsSentinelInField(Ship *ship);
+bool32 cat_shipIsSentinelFieldActive(Ship *ship);
+bool32 cat_leechIsLeeching(Ship *ship);
+sdword cat_acvLinkState(Ship *ship);
+bool32 cat_acolyteCanFireLinkedWeapon(Ship *ship);
+bool32 cat_salvageIsBeingSalvaged(Ship *ship);
+bool32 cat_salvageDepotHoldsCrystal(Ship *ship);
+bool32 cat_mothershipBigGunActive(Ship *ship);
+bool32 cat_shipDetectedByPlayer(Ship *ship, sdword playerIndex);
+bool32 cat_shipIsMimicking(Ship *ship);
+ShipType cat_mimicGetApparentShipType(Ship *ship);
+real32 cat_mimicGetSelectRadius(Ship *ship);
+bool32 cat_mimicAppearsAlliedTo(Ship *ship, struct Player *player);
+bool32 cat_mimicAppearsAsResource(Ship *ship, struct Player *player);
+bool32 cat_mimicAppearsAsDerelict(Ship *ship, struct Player *player);
+bool32 cat_spShipCanHyperspace(Ship *ship);
 
 #endif
 

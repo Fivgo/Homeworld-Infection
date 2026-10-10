@@ -2875,7 +2875,7 @@ void kasfHarvest(void)
 
     if (selection->numShips > 0)
     {
-        if (MakeShipsHarvestCapable((SelectCommand *)&tempSelection, selection))
+        if (MakeShipsHarvestCapable((SelectCommand *)&tempSelection, selection, FALSE))   // CAT: workers-only argument (kasfHarvest 0x00495f00 passes 0)
         {
             clWrapCollectResource(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,NULL);
         }

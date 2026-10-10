@@ -1625,6 +1625,30 @@ typedef struct ShipID
 #define SPECIAL_2_DontPlowThroughEnemyShips         BIT5
 #define SPECIAL_2_BusiedDockPoint                   BIT6
 #define SPECIAL_2_DisabledForever                   BIT7
+// CAT (M2-R3 selection): two Cataclysm specialFlags2 states the selection filters test. The exe keeps them at bit 3
+//      (0x8: ship being built externally, cleared by cat_clExternalBuildUpdate 0x0044dfc0; HW1's CircularGuard bit, which
+//      Cataclysm moved into specialFlags, clProtect 0x0044af20) and bit 13 (0x2000: ship being salvaged,
+//      cat_salvageIsBeingSalvaged 0x004f7c00). The specialFlags/specialFlags2 renumbering belongs to the CommandLayer
+//      port (M2-R4 #2); until then they take free bits of this tree's specialFlags2.
+#define SPECIAL_2_CatBeingBuilt                     BIT8
+#define SPECIAL_2_CatBeingSalvaged                  BIT9
+
+// CAT (M2-R3 selection): Ship.catShipFlags (exe Ship+0x18)
+#define CAT_SHIPFLAG_Mimic                          BIT3    // set by MimicInit 0x005b8360, MCVInit 0x005b8130, P1StandardCorvetteInit 0x005be660
+#define CAT_SHIPFLAG_KasDerelict                    BIT4    // kasfShipsSetDerelict 0x00498510
+#define CAT_SHIPFLAG_NoTactics                      BIT1    // cat_shipCanSetTactics 0x005135e0 refuses it (setter not located)
+
+// CAT (M2-R3 selection): number of Ship.catDisableReason slots (cat_shipSetDisableReason 0x005b3fe0 scans 13 dwords)
+#define CAT_NUM_DISABLE_REASONS                     13
+
+// CAT (M2-R3 selection): Ship.catUpgradeFlags bits the selection code tests (names chosen here from their users)
+#define CAT_UPGRADE_Leech                           0x00000040  // cat_shipCanLeech 0x005136a0
+#define CAT_UPGRADE_Ability1                        0x00001000  // cat_selMakeShipsHaveAbilityUpgrade 0x00512330
+#define CAT_UPGRADE_Ability2                        0x00002000
+#define CAT_UPGRADE_Ability3                        0x00004000
+#define CAT_UPGRADE_Repair                          0x00040000  // cat_shipCanRepair 0x005138b0
+#define CAT_UPGRADE_Salvage                         0x00080000  // cat_shipCanSalvage 0x005138f0
+#define CAT_UPGRADE_AcolyteLinkFire                 0x04000000  // cat_acolyteCanFireLinkedWeapon 0x005ada50
 				
 
 struct Resource;
@@ -1769,6 +1793,17 @@ typedef struct Ship         // Ship object
 //    RepairDroid *pRepairDroids;     // Alex's repair droid stuff...
     struct ShipSinglePlayerGameInfo *shipSinglePlayerGameInfo;     // stuff for the single player game
     void* lightning[2];             //lightning effect stuff
+    // CAT (M2-R3 selection): per-ship Cataclysm state read by the selection filters (ShipSelect.c, Select.c). The exe
+    //      keeps these in its own Ship layout (0x63C bytes, univCreateShip 0x00542320 zeroes them); this tree's Ship
+    //      is GoK's, so they are appended here by name. Their setters are ported with the code that owns them.
+    udword catShipFlags;            // exe Ship+0x18, CAT_SHIPFLAG_* below
+    sdword catDisableReason[CAT_NUM_DISABLE_REASONS];   // exe Ship+0x1DC, cat_shipSetDisableReason 0x005b3fe0 sets [reason]
+    bool32 catDisabled;             // exe Ship+0x210: TRUE while any catDisableReason[] is nonzero (cat_shipSetDisableReason
+                                    //   0x005b3fe0, cat_shipSetHelpless 0x005b3bd0, cat_shipClearHelpless 0x005b3c80,
+                                    //   cat_empShockShip 0x005b3900, cat_shipUpdateDrift 0x005b3d60 recompute it)
+    udword catUpgradeFlags;         // exe Ship+0x3F4: CAT_UPGRADE_* (cat_shipHasUpgrade 0x00514210; cat_shipUpgradesInit 0x005140a0 clears it)
+    bool32 catDissolving;           // exe Ship+0x570: set by cat_shipDissolveStart 0x004603d0, cleared by cat_shipDissolveInit 0x00460220
+    bool32 catUpgrading;            // exe Ship+0x598: set by cat_clUpgradeShips 0x0044de80, cleared by cat_univShipDeferredUpdate 0x005447b0
     udword sizeofShipSpecifics;
     udword ShipSpecifics[1];        //this member must go last
 } Ship;

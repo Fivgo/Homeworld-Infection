@@ -17,7 +17,6 @@
 #include "utility.h"
 #include "Debug.h"
 #include "Universe.h"
-#include "CloakGenerator.h"
 #include "GravWellGenerator.h"
 #include "UnivUpdate.h"
 #include "FastMath.h"
@@ -30,8 +29,7 @@
 #include "Alliance.h"
 #include "Sensors.h"
 #include "Select.h"
-#include "SalCapCorvette.h"
-#include "ProximitySensor.h"
+#include "ShipSelect.h"
 #include "StringSupport.h"
 #include "Tweak.h"
 #include "Tutor.h"
@@ -96,6 +94,9 @@ fonthandle selGroupFont0;
 fonthandle selGroupFont1;
 fonthandle selGroupFont2;
 fonthandle selGroupFont3;
+// CAT: a fifth font, "default.hff", registered by selStartup 0x00505300 (exe 0x00c0bae8); the exe's status bars print
+//      the ammo count with it (cat_selStatusAmmoCountDraw 0x00507740), which is ported with the status bars
+fonthandle selDefaultFont;
 
 real32 SEL_MinSelectionRadius;
 real32 selMinSelectionRadius;
@@ -144,6 +145,7 @@ void selStartup(void)
     selGroupFont1 = frFontRegister(selFontName1);
     selGroupFont2 = frFontRegister(selFontName2);
     selGroupFont3 = frFontRegister(selFontName3);
+    selDefaultFont = frFontRegister("default.hff");     // CAT: selStartup 0x00505300 (exe global 0x00c0bae8)
 }
 
 /*-----------------------------------------------------------------------------
@@ -226,10 +228,11 @@ void selRectDragFunction(Node *startNode, Camera *camera, rectangle *screenRect,
         if(target->header.objtype == OBJ_ShipType)     //later optimize if ONLY ships are cloaked!
         {
             Ship* ship = (Ship*)target;
-            if (bitTest(ship->header.flags, SOF_Cloaked) &&          // target is cloaked
+            // CAT: a fully cloaked enemy ship the player has not detected is skipped (selRectDragFunction 0x005053a0:
+            //      cat_shipIsCloakedFully, sub_53F9F0); HW1 asked the proximity sensors
+            if (cat_shipIsCloakedFully(ship) &&          // target is cloaked
                 ship->playerowner != universe.curPlayerPtr && // ship isn't players so don't draw box, unless...
-                !proximityCanPlayerSeeShip(universe.curPlayerPtr, ship)) {
-                // not even the players proximity sensors can save this person now...
+                !cat_shipDetectedByPlayer(ship, universe.curPlayerPtr->playerIndex)) {
                 continue;
             }
             if (bitTest(ship->header.flags, SOF_Slaveable) && !bitTest(ship->slaveinfo->flags, SF_MASTER)) {
@@ -474,10 +477,7 @@ Ship *selSelectionClick(Node *listHead, Camera *camera, sdword x, sdword y, bool
         ship = (Ship *)listGetStructOfNode(shipnode);
         if (ship->header.objtype == OBJ_ShipType)
         {
-            if (ship->shiptype == Drone)
-            {                                               //can't click on drones
-                goto nextship;
-            }
+            ;                                               // CAT: HW1 skipped its drones here; Cataclysm has none
         }
         else if (bIncludeResources && (ship->header.objtype == OBJ_AsteroidType || ship->header.objtype == OBJ_DustType))
         {
@@ -491,9 +491,11 @@ Ship *selSelectionClick(Node *listHead, Camera *camera, sdword x, sdword y, bool
         {                                                   //not anything we want
             goto nextship;                                  //skip this one
         }
-        if(bitTest(ship->header.flags,SOF_Cloaked) && ship->playerowner != universe.curPlayerPtr)
+        // CAT: fully cloaked and not detected by the player (selSelectionClick 0x00505ed0: cat_shipIsCloakedFully,
+        //      sub_53F9F0); HW1 asked the proximity sensors
+        if(cat_shipIsCloakedFully(ship) && ship->playerowner != universe.curPlayerPtr)
         {                                                   //ship is cloaked and isn't players so ignore it
-            if(!proximityCanPlayerSeeShip(universe.curPlayerPtr,ship))
+            if(!cat_shipDetectedByPlayer(ship, universe.curPlayerPtr->playerIndex))
             {
                 goto nextship;
             }
@@ -584,8 +586,9 @@ SpaceObj* selClickFromArray(SpaceObj** list, sdword length, sdword x, sdword y) 
         if (bitTest(flags, SOF_Selectable | SOF_Targetable) == 0) continue;
         if (object->header.objtype == OBJ_ShipType) {
             Ship* ship = (Ship*)object;
-            if (bitTest(flags, SOF_Cloaked) && ship->playerowner != universe.curPlayerPtr &&
-                !proximityCanPlayerSeeShip(universe.curPlayerPtr, ship)) {
+            // CAT: as selSelectionClick 0x00505ed0 (cat_shipIsCloakedFully, sub_53F9F0); HW1 asked the proximity sensors
+            if (cat_shipIsCloakedFully(ship) && ship->playerowner != universe.curPlayerPtr &&
+                !cat_shipDetectedByPlayer(ship, universe.curPlayerPtr->playerIndex)) {
                 // object is cloaked and isn't players so ignore it
                 continue;
             }
@@ -647,7 +650,7 @@ void selShipUnderMouse(SpaceObjRotImpTarg *target, sdword distance)
     //process object for move near to command
     if (piePointSpecMode == PSM_XY || piePointSpecMode == PSM_Z)
     {                                                       //if in point spec mode
-        if ((target->header.objtype == OBJ_ShipType && ((Ship*)target)->shiptype != Mothership)  ||
+        if ((target->header.objtype == OBJ_ShipType && ((Ship*)target)->staticinfo->shipclass != CLASS_Mothership)  ||   // CAT: by class (block is compiled out: PIE_MOVE_NEARTO 0)
             (target->header.objtype == OBJ_AsteroidType/* &&
              target->staticinfo->common.staticCollInfo.collspheresize > selAsteroidMoveNeartoSize*/))
         {                                                   //if it's a valid object type
@@ -683,9 +686,11 @@ void selShipUnderMouse(SpaceObjRotImpTarg *target, sdword distance)
                     //the trader ship refuses not to be buggy in these "general" cases,
                     //so I'll just put special case code for the trader, seeing as it's
                     //a special case anyway.
-                    if (targetShip->shiptype == FloatingCity)
+                    // CAT: the exe keeps the trader special case for trFloatingCity (selShipUnderMouse 0x00506550,
+                    //      shiptype 0x62)
+                    if (targetShip->shiptype == trFloatingCity)
                     {
-                        mouseCursorOverShipType = FloatingCity;
+                        mouseCursorOverShipType = trFloatingCity;
                         mouseCursorObjPtr       = NULL;
                         bitClear(mouseCursorMode, MCM_CursorOverObj);
                     }
@@ -740,10 +745,8 @@ void selShipUnderMouse(SpaceObjRotImpTarg *target, sdword distance)
             }
             else
             {
-                // only consider dustclouds as cursor objects if there's a
-                // resource collector selected
-                if ((target->header.objtype != OBJ_DustType) ||
-                    ShiptypeInSelection((SelectCommand *)&selSelected, ResourceCollector))
+                // CAT: every resource is a cursor object (selShipUnderMouse 0x00506550); HW1 took dust clouds only
+                //      while one of its resource-collector ships was selected
                 {
                     mouseCursorOverShipType = MC_RESOURCE;
                     mouseCursorObjPtr = &target->obj;
@@ -1250,7 +1253,10 @@ void selStatusDraw0(Ship *ship)
         fontMakeCurrent(selGroupFont0);
         fontPrint(x - halfWidth - fontWidth("C") - 1, rect.y1 + 5 - fontHeight(" "), selHotKeyNumberColor, "C");
     }
-    if((ship->shiptype == MissileDestroyer) || (ship->shiptype == MinelayerCorvette))      //ship has missles, so display missile status
+    // CAT: the exe counts missiles for sDreadnought, sDestroyer, tMissileDestroyer, tMinelayerCorvette (and linked
+    //      Acolytes, with the status-bar port): cat_selStatusAmmoCountDraw 0x00507740, types 10, 0x19, 0x55, 0x54
+    if((ship->shiptype == sDreadnought) || (ship->shiptype == sDestroyer) ||
+       (ship->shiptype == tMissileDestroyer) || (ship->shiptype == tMinelayerCorvette))      //ship has missles, so display missile status
     {
         GunStatic *gunstatic;
         numGuns = ship->gunInfo->numGuns;
@@ -1316,28 +1322,11 @@ void selStatusDraw0(Ship *ship)
             tutPointerShipHealthRect->y1 += 5;
     }
 
-    if(ship->shiptype == CloakGenerator)
-    {   //if ship is a cloakgenerator, draw cloak status...
-        maxcloaktime = (long ) ((CloakGeneratorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->MaxCloakingTime;
-        cloaktime = (long ) ((CloakGeneratorSpec *)ship->ShipSpecifics)->CloakStatus;
-        //draw inside of cloak time
-        rect.x0 = x - halfWidth;
-        rect.y0 += 5;
-        rect.y1 += 5;
-        rect.x1 = rect.x0 + (halfWidth * 2) * cloaktime / maxcloaktime;
-        cloakcolor =   selShipResourceColor;
-        cloakdarkcolor = selShipDarkResourceColor;
-
-        primRectSolid2(&rect, cloakcolor);
-        //draw backdrop of cloaking time
-        rect.x0 = rect.x1;
-        rect.x1 = x + halfWidth;
-        primRectSolid2(&rect, cloakdarkcolor);    //get better colors later...
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-            tutPointerShipHealthRect->y1 += 5;
-    }
-    else if(ship->shiptype == GravWellGenerator)
+    // CAT: no cloak-generator bar: k/tCloakGenerator run on DefaultShipHeader, and the exe draws a cloak
+    //      charge only for SOF_CatCloakDevice ships (cat_selStatusBarsDraw 0x00507bc0, ported with the
+    //      status bars). The gravwell bar is the exe's for k/tGravWellGenerator (types 0x40/0x4f:
+    //      OperationTime at custstatinfo+8, TimeOn at specifics+0x14, as HW1's structs)
+    if((ship->shiptype == kGravWellGenerator) || (ship->shiptype == tGravWellGenerator))
     {   //if ship is a cloakgenerator, draw cloak status...
         maxgravtime = (long ) ((GravWellGeneratorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->OperationTime;
         gravtime = (long ) (maxgravtime - ((GravWellGeneratorSpec *)ship->ShipSpecifics)->TimeOn);
@@ -1358,60 +1347,8 @@ void selStatusDraw0(Ship *ship)
         if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
             tutPointerShipHealthRect->y1 += 5;
     }
-    else if(ship->shipOrDerelict.specialFlags & SPECIAL_IsASalvager)
-    {
-        if(((SalCapCorvetteSpec *) ship->ShipSpecifics)->salvageState != 0)
-        {
-            if(((SalCapCorvetteSpec *) ship->ShipSpecifics)->salvageAttributes & SALVAGE_AT_GET_TECH)
-            {
-                maxTechTime = (long) ((SalCapCorvetteStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->getTechTime;
-                techtime = (long) ((SalCapCorvetteSpec *) ship->ShipSpecifics)->timeCounter;
-                rect.x0 = x - halfWidth;
-                rect.y0 += 5;
-                rect.y1 += 5;
-                rect.x1 = rect.x0 + (halfWidth * 2) * techtime/maxTechTime - fontWidth(" ");
-
-                gravcolor =   selShipResourceColor;
-                gravdarkcolor = selShipDarkResourceColor;
-
-                primRectSolid2(&rect, gravcolor);
-                //draw backdrop of cloaking time
-                rect.x0 = rect.x1;
-                rect.x1 = x + halfWidth;
-                primRectSolid2(&rect, gravdarkcolor);    //get better colors later...
-
-                //fontPrint(rect.x1 - fontWidth(" ") + 1, rect.y1, selHotKeyNumberColor,"T");
-
-                if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-                    tutPointerShipHealthRect->y1 += 5;
-            }
-        }
-        else if (bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_SalvageTakingHomeTechnology))
-        {
-            //if the salvage corvette has just stripped a technology, the
-            //brown stripe should stay until the salcapcorvette docks to
-            //transfer the technology
-            rect.x0 = x - halfWidth;
-            rect.y0 += 5;
-            rect.y1 += 5;
-            rect.x1 = rect.x0 + (halfWidth * 2) - fontWidth(" ");
-
-            gravcolor =   selShipResourceColor;
-            gravdarkcolor = selShipDarkResourceColor;
-
-            primRectSolid2(&rect, gravcolor);
-            //draw backdrop of cloaking time
-            rect.x0 = rect.x1;
-            rect.x1 = x + halfWidth;
-            primRectSolid2(&rect, gravdarkcolor);    //get better colors later...
-
-            //fontPrint(rect.x1 - fontWidth(" ") + 1, rect.y1, selHotKeyNumberColor,"T");
-
-            if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-                tutPointerShipHealthRect->y1 += 5;
-        }
-    }
-    else if (ship->shipsInsideMe != NULL && ship->shiptype != DDDFrigate)
+    // CAT: no salvage-capture tech bar (the exe's status bars draw none; cat_selStatusBarsDraw 0x00507bc0)
+    else if (ship->shipsInsideMe != NULL)                  // CAT: HW1 excluded its DDD frigate (none in Cataclysm)
     {                                                       //print number of docked ships
         fontMakeCurrent(selGroupFont3);
         fontPrintf(x - halfWidth - 1, rect.y1 + 4, selHotKeyNumberColor,
@@ -1499,7 +1436,10 @@ void selStatusDraw1(Ship *ship)
         fontMakeCurrent(selGroupFont1);
         fontPrint(x - halfWidth - fontWidth("C") - 1,rect.y1 + 4 - fontHeight(" ") , selHotKeyNumberColor, "C");
     }
-    if((ship->shiptype == MissileDestroyer) || (ship->shiptype == MinelayerCorvette))     //ship has missles, so display missile status
+    // CAT: the exe counts missiles for sDreadnought, sDestroyer, tMissileDestroyer, tMinelayerCorvette (and linked
+    //      Acolytes, with the status-bar port): cat_selStatusAmmoCountDraw 0x00507740, types 10, 0x19, 0x55, 0x54
+    if((ship->shiptype == sDreadnought) || (ship->shiptype == sDestroyer) ||
+       (ship->shiptype == tMissileDestroyer) || (ship->shiptype == tMinelayerCorvette))     //ship has missles, so display missile status
     {
         GunStatic *gunstatic;
         numGuns = ship->gunInfo->numGuns;
@@ -1563,29 +1503,11 @@ void selStatusDraw1(Ship *ship)
         if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
             tutPointerShipHealthRect->y1 += 4;
     }
-    if(ship->shiptype == CloakGenerator)
-    {   //if ship is a cloakgenerator, draw cloak status...
-        maxcloaktime = (long ) ((CloakGeneratorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->MaxCloakingTime;
-        cloaktime = (long ) ((CloakGeneratorSpec *)ship->ShipSpecifics)->CloakStatus;
-        //draw inside of cloak time
-        cloakcolor =   selShipResourceColor;
-        cloakdarkcolor = selShipDarkResourceColor;
-
-        rect.x0 = x - halfWidth;
-        rect.y0 += 4;
-        rect.y1 += 4;
-        rect.x1 = rect.x0 + (halfWidth * 2) * cloaktime / maxcloaktime;
-
-        primRectSolid2(&rect, cloakcolor);
-        //draw backdrop of cloaking time
-        rect.x0 = rect.x1;
-        rect.x1 = x + halfWidth;
-        primRectSolid2(&rect, cloakdarkcolor);    //get better colors later...
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-            tutPointerShipHealthRect->y1 += 4;
-    }
-    else if(ship->shiptype == GravWellGenerator)
+    // CAT: no cloak-generator bar: k/tCloakGenerator run on DefaultShipHeader, and the exe draws a cloak
+    //      charge only for SOF_CatCloakDevice ships (cat_selStatusBarsDraw 0x00507bc0, ported with the
+    //      status bars). The gravwell bar is the exe's for k/tGravWellGenerator (types 0x40/0x4f:
+    //      OperationTime at custstatinfo+8, TimeOn at specifics+0x14, as HW1's structs)
+    if((ship->shiptype == kGravWellGenerator) || (ship->shiptype == tGravWellGenerator))
     {   //if ship is a cloakgenerator, draw cloak status...
         udword maxgravtime = (long ) ((GravWellGeneratorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->OperationTime;
         udword gravtime = (long ) (maxgravtime - ((GravWellGeneratorSpec *)ship->ShipSpecifics)->TimeOn);
@@ -1606,36 +1528,8 @@ void selStatusDraw1(Ship *ship)
         if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
             tutPointerShipHealthRect->y1 += 4;
     }
-    else if(ship->shipOrDerelict.specialFlags & SPECIAL_IsASalvager)
-    {
-        if(((SalCapCorvetteSpec *) ship->ShipSpecifics)->salvageState != 0)
-        {
-            if(((SalCapCorvetteSpec *) ship->ShipSpecifics)->salvageAttributes & SALVAGE_AT_GET_TECH)
-            {
-                maxTechTime = (long) ((SalCapCorvetteStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->getTechTime;
-                techtime = (long) ((SalCapCorvetteSpec *) ship->ShipSpecifics)->timeCounter;
-                rect.x0 = x - halfWidth;
-                rect.y0 += 4;
-                rect.y1 += 4;
-                rect.x1 = rect.x0 + (halfWidth * 2) * techtime/maxTechTime - fontWidth(" ");
-
-                gravcolor =   selShipResourceColor;
-                gravdarkcolor = selShipDarkResourceColor;
-
-                primRectSolid2(&rect, gravcolor);
-                //draw backdrop of cloaking time
-                rect.x0 = rect.x1;
-                rect.x1 = x + halfWidth;
-                primRectSolid2(&rect, gravdarkcolor);    //get better colors later...
-
-                //fontPrint(rect.x1 - fontWidth(" ") + 1, rect.y1, selHotKeyNumberColor,"T");
-
-                if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-                    tutPointerShipHealthRect->y1 += 4;
-            }
-        }
-    }
-    else if (ship->shipsInsideMe != NULL && ship->shiptype != DDDFrigate)
+    // CAT: no salvage-capture tech bar (the exe's status bars draw none; cat_selStatusBarsDraw 0x00507bc0)
+    else if (ship->shipsInsideMe != NULL)                  // CAT: HW1 excluded its DDD frigate (none in Cataclysm)
     {                                                       //print number of docked ships
         fontMakeCurrent(selGroupFont3);
         fontPrintf(x - halfWidth - 1, rect.y1 + 4, selHotKeyNumberColor,
@@ -1718,7 +1612,10 @@ void selStatusDraw2(Ship *ship)
             tutPointerShipGroupRect->y1 = rect.y1 + 3 + 2;
         }
     }
-    if((ship->shiptype == MissileDestroyer) || (ship->shiptype == MinelayerCorvette))    //ship has missles, so display missile status
+    // CAT: the exe counts missiles for sDreadnought, sDestroyer, tMissileDestroyer, tMinelayerCorvette (and linked
+    //      Acolytes, with the status-bar port): cat_selStatusAmmoCountDraw 0x00507740, types 10, 0x19, 0x55, 0x54
+    if((ship->shiptype == sDreadnought) || (ship->shiptype == sDestroyer) ||
+       (ship->shiptype == tMissileDestroyer) || (ship->shiptype == tMinelayerCorvette))    //ship has missles, so display missile status
     {
         GunStatic *gunstatic;
         numGuns = ship->gunInfo->numGuns;
@@ -1787,29 +1684,11 @@ void selStatusDraw2(Ship *ship)
         if(tutorial && tutPointerShip == ship && tutPointerShipGroupRect)
             tutPointerShipGroupRect->y1 += 3;
     }
-    if(ship->shiptype == CloakGenerator)
-    {   //if ship is a cloakgenerator, draw cloak status...
-        maxcloaktime = (long ) ((CloakGeneratorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->MaxCloakingTime;
-        cloaktime = (long ) ((CloakGeneratorSpec *)ship->ShipSpecifics)->CloakStatus;
-        //draw inside of cloak time
-        cloakcolor =   selShipResourceColor;
-        cloakdarkcolor = selShipDarkResourceColor;
-
-        rect.x0 = x - halfWidth;
-        rect.y0 += 3;
-        rect.y1 += 3;
-        rect.x1 = rect.x0 + (halfWidth * 2) * cloaktime / maxcloaktime;
-
-        primRectSolid2(&rect, cloakcolor);
-        //draw backdrop of cloaking time
-        rect.x0 = rect.x1;
-        rect.x1 = x + halfWidth;
-        primRectSolid2(&rect, cloakdarkcolor);    //get better colors later...
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipGroupRect)
-            tutPointerShipGroupRect->y1 += 3;
-    }
-    else if(ship->shiptype == GravWellGenerator)
+    // CAT: no cloak-generator bar: k/tCloakGenerator run on DefaultShipHeader, and the exe draws a cloak
+    //      charge only for SOF_CatCloakDevice ships (cat_selStatusBarsDraw 0x00507bc0, ported with the
+    //      status bars). The gravwell bar is the exe's for k/tGravWellGenerator (types 0x40/0x4f:
+    //      OperationTime at custstatinfo+8, TimeOn at specifics+0x14, as HW1's structs)
+    if((ship->shiptype == kGravWellGenerator) || (ship->shiptype == tGravWellGenerator))
     {   //if ship is a cloakgenerator, draw cloak status...
         udword maxgravtime = (long ) ((GravWellGeneratorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->OperationTime;
         udword gravtime = (long ) (maxgravtime - ((GravWellGeneratorSpec *)ship->ShipSpecifics)->TimeOn);
@@ -1830,35 +1709,7 @@ void selStatusDraw2(Ship *ship)
         if(tutorial && tutPointerShip == ship && tutPointerShipGroupRect)
             tutPointerShipGroupRect->y1 += 3;
     }
-    else if(ship->shipOrDerelict.specialFlags & SPECIAL_IsASalvager)
-    {
-        if(((SalCapCorvetteSpec *) ship->ShipSpecifics)->salvageState != 0)
-        {
-            if(((SalCapCorvetteSpec *) ship->ShipSpecifics)->salvageAttributes & SALVAGE_AT_GET_TECH)
-            {
-                maxTechTime = (long) ((SalCapCorvetteStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->getTechTime;
-                techtime = (long) ((SalCapCorvetteSpec *) ship->ShipSpecifics)->timeCounter;
-                rect.x0 = x - halfWidth;
-                rect.y0 += 3;
-                rect.y1 += 3;
-                rect.x1 = rect.x0 + (halfWidth * 2) * techtime/maxTechTime - fontWidth(" ");
-
-                gravcolor =   selShipResourceColor;
-                gravdarkcolor = selShipDarkResourceColor;
-
-                primRectSolid2(&rect, gravcolor);
-                //draw backdrop of cloaking time
-                rect.x0 = rect.x1;
-                rect.x1 = x + halfWidth;
-                primRectSolid2(&rect, gravdarkcolor);    //get better colors later...
-
-                //fontPrint(rect.x1 - fontWidth(" ") + 1, rect.y1, selHotKeyNumberColor,"T");
-
-                if(tutorial && tutPointerShip == ship && tutPointerShipGroupRect)
-                    tutPointerShipGroupRect->y1 += 3;
-            }
-        }
-    }
+    // CAT: no salvage-capture tech bar (the exe's status bars draw none; cat_selStatusBarsDraw 0x00507bc0)
 }
 
 //lod3: health and fuel 1 pixel tall and solid
@@ -2062,7 +1913,9 @@ void selSelectedDraw(void)
             {
                 currentLOD = ship->obj.currentLOD;
                 dbgAssertOrIgnore(currentLOD < SEL_NumberLOD);
-                if ((ship->shiptype == Mothership) && (currentLOD > 0))
+                // CAT: any mothership-class ship draws one LOD finer (selSelectedDraw 0x005086a0 tests shipclass 0);
+                //      HW1 tested its mothership type
+                if ((ship->staticinfo->shipclass == CLASS_Mothership) && (currentLOD > 0))
                 {
                     currentLOD--;
                 }
@@ -2156,11 +2009,32 @@ vector selCentrePointComputeGeneral(MaxSelection *selection, real32 *average_siz
     vector maxVector = {REALlyNegative, REALlyNegative, REALlyNegative};
     vector returnVector;
 
+    real32 radius, scale;
+
     returnVector.x = returnVector.y = returnVector.z = *average_size = 0.0f;
     for (index = 0; index < selection->numShips; index++)
     {
         ship = selection->ShipPtr[index];
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
+
+        // CAT: selCentrePointComputeGeneral 0x00508be0 takes ships and missiles (other objects count in the average
+        //      but add nothing), a mimic's select radius, and a scale of 1 where magnitudeSquared is 0
+        if (ship->header.objtype == OBJ_ShipType)
+        {
+            radius = bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic) ? cat_mimicGetSelectRadius(ship)
+                                                                    : ship->staticinfo->common.staticCollInfo.collspheresize;
+            scale = (ship->magnitudeSquared != 0.0f) ? ship->magnitudeSquared : 1.0f;
+        }
+        else if (ship->header.objtype == OBJ_MissileType)
+        {
+            radius = ((Missile *)ship)->staticinfo->common.staticCollInfo.collspheresize;
+            // CAT-PROVISIONAL: the exe scales by a Cataclysm Missile float at +0x254 when it is nonzero (not
+            //      identified; the Missile layout comes with the missile code, M2-R4 #3); 1 until then
+            scale = 1.0f;
+        }
+        else
+        {
+            continue;
+        }
 
         minVector.x = min(minVector.x, ship->obj.posinfo.position.x);
         minVector.y = min(minVector.y, ship->obj.posinfo.position.y);
@@ -2168,7 +2042,7 @@ vector selCentrePointComputeGeneral(MaxSelection *selection, real32 *average_siz
         maxVector.x = max(maxVector.x, ship->obj.posinfo.position.x);
         maxVector.y = max(maxVector.y, ship->obj.posinfo.position.y);
         maxVector.z = max(maxVector.z, ship->obj.posinfo.position.z);
-        *average_size += ship->staticinfo->common.staticCollInfo.collspheresize * ship->magnitudeSquared;
+        *average_size += scale * radius;
 //        returnVector.x += ship->obj.posinfo.position.x;
 //        returnVector.y += ship->obj.posinfo.position.y;
 //        returnVector.z += ship->obj.posinfo.position.z;
@@ -2640,7 +2514,9 @@ void selSelectionDimensions(hmatrix *modelView, hmatrix *projection, SelectComma
         {
             ship = selection->ShipPtr[index];
             vecSub(distance, centre, ship->obj.posinfo.position);//distance to mean
-            radius = ship->staticinfo->common.staticCollInfo.collspheresize;
+            // CAT: a mimic's select radius (selSelectionDimensions 0x00509250)
+            radius = bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic) ? cat_mimicGetSelectRadius(ship)
+                                                                    : ship->staticinfo->common.staticCollInfo.collspheresize;
             radius = vecMagnitudeSquared(distance) + radius * radius;//square of distance
             if (radius > maxRadius)
             {

@@ -3947,7 +3947,7 @@ SelectCommand *aiuAttack(AITeam *team, SelectCommand *targets)
     }
 
     //take out non-attacking ships
-    MakeShipsAttackCapable((SelectCommand *)&Attackers, team->shipList.selection);
+    MakeShipsAttackCapable((SelectCommand *)&Attackers, team->shipList.selection, FALSE);   // CAT: skip-disabled argument (aiuAttack 0x0041ea60 passes 0)
     numNonAttacking = team->shipList.selection->numShips - Attackers.numShips;
 
     if (!Attackers.numShips)

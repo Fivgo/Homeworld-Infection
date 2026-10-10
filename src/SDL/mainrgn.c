@@ -679,7 +679,7 @@ void mrHarvestResources(char *string, featom *atom)
 
     if (selSelected.numShips > 0)
     {
-        if (MakeShipsHarvestCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected))
+        if (MakeShipsHarvestCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected, TRUE))   // CAT: workers-only argument (mrHarvestResources 0x00563cc0 passes 1)
         {
             nearestresource = univFindNearestResource(tempSelection.ShipPtr[0],0,NULL);
             if (nearestresource != NULL)
@@ -1364,7 +1364,7 @@ void mrKeyRelease(sdword ID)
             if (selSelected.numShips > 0 && mrHoldLeft == mrNULL && mrSpecialBandBox == FALSE)
             {
                 selSelectionCopy((MaxAnySelection *)&tempSelection, (MaxAnySelection *)&selSelected);
-                MakeShipsSpecialActivateCapable((SelectCommand *)&tempSelection);
+                MakeShipsSpecialActivateCapable((SelectCommand *)&tempSelection, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
                 if (tempSelection.numShips > 0)       // check again in case some ships were eliminated.
                 {
                     tutGameMessage("KB_Special");
@@ -3473,7 +3473,7 @@ void mrObjectClick(Ship *ship)
             {
                 if (!ShipInSelection((SelectCommand *)&selSelected,ship))
                 {
-                    MakeShipsGuardCapable((SelectCommand *)&selSelected);
+                    MakeShipsGuardCapable((SelectCommand *)&selSelected, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
 
                     if (selSelected.numShips > 0)
                     {
@@ -3528,7 +3528,7 @@ void mrObjectClick(Ship *ship)
             {                                               //select friendlies only
                 MakeShipsFriendlyShips((SelectCommand *)&selSelecting, universe.curPlayerPtr);
             }
-            MakeShipsSpecialTargetCapable((SelectCommand *)&selSelected, bFriendlies);
+            MakeShipsSpecialTargetCapable((SelectCommand *)&selSelected, bFriendlies, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
             if (selSelected.numShips > 0)   // check again in case we eliminated some of our ships
             {
                 MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting,(SelectCommand *)&selSelected);
@@ -3597,7 +3597,9 @@ void mrObjectClick(Ship *ship)
         goto regularEnemyCase;
     } else if ((ship->header.objtype == OBJ_AsteroidType || ship->header.objtype == OBJ_DustType) &&
                MakeShipsHarvestCapable((SelectCommand *)&tempSelection,
-                                       (SelectCommand *)&selSelected)) { // there are harvesters present
+                                       (SelectCommand *)&selSelected, TRUE)) { // there are harvesters present
+        // CAT: workers-only argument TRUE, as the UI caller mrHarvestResources 0x00563cc0 passes 1 (the exe's
+        //      mrObjectClick 0x00566b60 has no MakeShipsHarvestCapable call; stage 3 ports its own test) [audit]
         if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
         {
             return;  // playing back a recorded game do nothing!
@@ -3694,7 +3696,7 @@ regularFriendlyCase:
 regularEnemyCase:
                     if (selSelected.numShips > 0)
                     {
-                        if (MakeShipsAttackCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected))
+                        if (MakeShipsAttackCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected, TRUE))   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
                         {                                   //if there are ships that can attack
                             if (!selShipInSelection(selSelected.ShipPtr, selSelected.numShips, ship))
                             {                               //if not attacking your own ship
@@ -3864,7 +3866,7 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                     break;
                 }
 
-                MakeShipsMobile((SelectCommand *)&selSelected);
+                MakeShipsMobile((SelectCommand *)&selSelected, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
                 if (selSelected.numShips > 0)
                 {                                           //if some ships are selected
 #if PIE_MOVE_NEARTO
@@ -3928,7 +3930,7 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
 
                                 MakeShipMastersIncludeSlaves((SelectCommand *)&selSelecting);
 
-                                MakeShipsGuardCapable((SelectCommand *)&selSelected);
+                                MakeShipsGuardCapable((SelectCommand *)&selSelected, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
 
                                 if ((selSelecting.numTargets > 0) && (selSelected.numShips > 0))      // check again in case we removed all the ships
                                 {
@@ -3992,7 +3994,7 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                                     clWrapSpecial(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,(SpecialCommand *)&selSelecting);
                                 }
 */
-                                MakeShipsAttackCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected);
+                                MakeShipsAttackCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
                                 MakeShipMastersIncludeSlaves((SelectCommand *)&selSelecting);
 
                                 if ((selSelecting.numTargets > 0) && (tempSelection.numShips > 0))      // check again in case we removed all the ships
@@ -4042,7 +4044,7 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                         }
                         if (selSelecting.numTargets > 0)
                         {                                   //if some ships within band-box
-                            MakeShipsSpecialTargetCapable((SelectCommand *)&selSelected, bFriendlies);
+                            MakeShipsSpecialTargetCapable((SelectCommand *)&selSelected, bFriendlies, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
                             if (selSelected.numShips > 0)   // check again in case we eliminated some of our ships
                             {
                                 mrSpecialBandBox = TRUE;
