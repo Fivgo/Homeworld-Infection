@@ -42,8 +42,8 @@ sdword nDemoPlays = 0, nUnivUpdates = 0;
 #if DEM_RANDOM_VERIFY
 bool8 demCheckStream[DEM_NumberStreamsToSave] =
 {
-    0,                          // RANDOM_PARTICLE_STREAM
-    0,                          // RANDOM_ETG
+    0,                          // RANDOM_STREAM_0 (CAT: HW1's particle stream)
+    0,                          // RANDOM_CAT_SHIPS (CAT: HW1's ETG stream)
     0,                          // RANDOM_SOUND
     1,                          // RANDOM_TRAILS
     1,                          // RANDOM_CLOUDS
@@ -67,6 +67,8 @@ bool8 demCheckStream[DEM_NumberStreamsToSave] =
     1,                          // RANDOM_SOUND_GAME_THREAD_4
     1,                          // RANDOM_SOUND_GAME_THREAD_5
     1,                          // RANDOM_SOUND_GAME_THREAD_6
+    0,                          // RANDOM_PARTICLE_STREAM (CAT: stream 25)
+    0,                          // RANDOM_ETG (CAT: stream 26)
 };
 #endif
 

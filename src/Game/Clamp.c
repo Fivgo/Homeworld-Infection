@@ -30,6 +30,7 @@ void clampObjToObj(SpaceObjRotImpTargGuidance *obj,SpaceObjRotImpTargGuidance *d
     vector tmpvec;
 
     obj->clampInfo = memAlloc(sizeof(ClampInfo),"ClampingInformation",NonVolatile);
+    obj->clampInfo->clampedObjs = NULL;    // CAT: new ClampInfo field starts empty (clampObjToObj 0x004346e0)
 
     obj->clampInfo->host = (SpaceObjRotImpTarg *)dest;
 

@@ -93,6 +93,15 @@ Private data
 
 bool32 gameIsEnding=FALSE;
 
+// CAT: real-time clock behind universe.realtimeelapsed (realtimeremainder 0x00A6D9A0, a 64-bit QueryPerformanceCounter
+//      value in the exe; here SDL_GetTicks milliseconds, GoK's task timer, with the same divisor utyTimerDivisor)
+extern Uint32 utyTimerDivisor;
+static Uint32 univRealTimeRemainder = 0;
+// HWI-ORACLE: TRUE in checksum-oracle runs: realtimeelapsed then grows by exactly 1/16 s per tick, as the GOG hook DLL's
+// virtual QueryPerformanceCounter (hook H3, 15 periods of the 240 Hz task timer) makes it grow (docs/m2-r2-oracle.md)
+bool32 univRealTimeVirtual = FALSE;
+#define UNIV_REALTIME_VIRTUAL_TICK  0.0625f
+
 /*=============================================================================
     Tweakables
 =============================================================================*/
@@ -6157,6 +6166,7 @@ void univupdateReset()
 {
     universe.phystimeelapsed = UNIVERSE_UPDATE_PERIOD;
     universe.totaltimeelapsed = 0.0f;
+    universe.realtimeelapsed = 0.0f;                        // CAT: univUpdateReset 0x0054acd0
     universe.radius = 20000.0f;
     universe.univUpdateCounter = 0;
     universe.resourceNumber = 0;
@@ -7204,6 +7214,27 @@ void univCheckRegrowResources(void)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_univRealTimeDelta
+    Description : CAT: cat_univRealTimeDelta 0x0054c360: real time since the last call, in seconds, counted in whole
+                  periods of the task timer; the remainder is carried to the next call. univUpdate inlines the same
+                  code (QueryPerformanceCounter at 0x0054c57f) to advance realtimeelapsed; universeUpdateTask calls it
+                  while the universe is paused, so the paused time is consumed and realtimeelapsed does not jump.
+                  The exe's counter starts at 0, so its first call returns the time since the counter's origin;
+                  likewise here (SDL_GetTicks counts from SDL_Init).
+    Inputs      :
+    Outputs     : advances univRealTimeRemainder
+    Return      : elapsed seconds (whole timer periods / taskFrequency)
+----------------------------------------------------------------------------*/
+real32 cat_univRealTimeDelta(void)
+{
+    Uint32 now = SDL_GetTicks();
+    Uint32 difference = now - univRealTimeRemainder;
+
+    univRealTimeRemainder = now - difference % utyTimerDivisor;
+    return (real32)(difference / utyTimerDivisor) / taskFrequency;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : univUpdate
     Description : Updates the mission sphere ships and objects
     Inputs      : phystimeelapsed, time since last time it was updated
@@ -7268,6 +7299,10 @@ bool32 univUpdate(real32 phystimeelapsed)
 
     universe.phystimeelapsed = phystimeelapsed;
     universe.totaltimeelapsed += phystimeelapsed;
+    // CAT: then the real-time clock (univUpdate 0x0054c3f0, 0x0054c57f-0x0054c5f6: realtimeelapsed += whole QPC periods
+    //      / taskFrequency); a fixed 1/16 s per tick in oracle runs (univRealTimeVirtual)
+    universe.realtimeelapsed = (univRealTimeVirtual ? UNIV_REALTIME_VIRTUAL_TICK : cat_univRealTimeDelta())
+                               + universe.realtimeelapsed;
 
     if (universe.quittime != 0.0f)
     {

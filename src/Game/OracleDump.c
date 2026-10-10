@@ -69,14 +69,24 @@ static bool32 oracleInSelfTest = FALSE;
     Command line:
 =============================================================================*/
 
+// clock=virtual on this side (docs/m2-r3-closeout-headers.md "randy"): the wall-clock second ranStartup and ranRandomize
+// draw stream 0 forward by reads as 0, and realtimeelapsed grows by 1/16 s per tick, as the GOG DLL's vqpc makes it grow
+static void oracleSetVirtualClock(void)
+{
+    ranVirtualWallClock = TRUE;
+    univRealTimeVirtual = TRUE;
+}
+
 void oracleSetDumpFile(char *string)
 {
     strncpy(oracleFileName, string, sizeof(oracleFileName) - 1);
     oracleFileName[sizeof(oracleFileName) - 1] = '\0';
+    oracleSetVirtualClock();
 }
 
 void oracleSetSelfTest(char *string)
 {
+    oracleSetVirtualClock();
     oracleSelfTestTicks = (sdword)strtol(string, NULL, 10);
     if (oracleSelfTestTicks <= 0)
     {
@@ -197,8 +207,8 @@ static bool32 oracleOpen(void)
     {
         header.mode = HWO_MODE_OBSERVE;
     }
-    // the hwi-engine simulation reads no wall clock (Cataclysm's realtimeelapsed is not ported yet), so its clock is
-    // tick-derived like the GOG side's clock=virtual; there is no stream-0 split (rng0) on this side
+    // realtimeelapsed is tick-derived in oracle runs (univRealTimeVirtual) and the stream-0 wall-clock seed is 0
+    // (ranVirtualWallClock), like the GOG side's clock=virtual; there is no stream-0 split (rng0) on this side
     header.options = HWO_OPT_CLOCK_VIRTUAL;
     if (oracleInSelfTest && oracleSelfTestPerturbTick >= 1)
     {
@@ -299,9 +309,9 @@ static void oracleFillTick(HwoTick *t)
     t->tick = (uint32_t)universe.univUpdateCounter;
     t->dt = oracleFloatBits(universe.phystimeelapsed);
     t->total = oracleFloatBits(universe.totaltimeelapsed);
-    t->real = 0;                                    // no realtimeelapsed in hwi-engine yet: HWO_TV_REAL stays clear
+    t->real = oracleFloatBits(universe.realtimeelapsed);    // CAT: realtimeelapsed is ported (M2-R3)
     t->fpcw = oracleFpControl();
-    t->valid = HWO_TV_SHIPMISC | HWO_TV_HEALTH | HWO_TV_LISTS | HWO_TV_PLAYERS | HWO_TV_CHECKSUMS;
+    t->valid = HWO_TV_REAL | HWO_TV_SHIPMISC | HWO_TV_HEALTH | HWO_TV_LISTS | HWO_TV_PLAYERS | HWO_TV_CHECKSUMS;
 
     // the game's own checksums, computed by the game's own functions with the net log muted (they write to it)
     savedNetlog = netlogfile;
@@ -329,7 +339,7 @@ static void oracleFillTick(HwoTick *t)
     (dst).c = ranStream[s].c; (dst).n = ranStream[s].n
     ORACLE_COPY_STREAM(t->rng10, RANDOM_GAME);
     ORACLE_COPY_STREAM(t->rng6, RANDOM_AI_PLAYER);
-    ORACLE_COPY_STREAM(t->rng0, RANDOM_PARTICLE_STREAM);
+    ORACLE_COPY_STREAM(t->rng0, RANDOM_STREAM_0);   // CAT: stream 0 by index (Randy.h renumbering)
 #undef ORACLE_COPY_STREAM
 
     // live ships in ShipList order (list order is part of determinism, so it is hashed as is)
@@ -527,9 +537,11 @@ void oracleRunSelfTest(void)
         return;
     }
 
-    // the new-game resets of gameStart (loadfilename == NULL), and a fresh sync-checksum ring
+    // the new-game resets of gameStart (loadfilename == NULL) for a non-single-player game, and a fresh sync-checksum
+    // ring. CAT: gameStart 0x005a9290 calls cat_ranResetGameStreams (streams 1..26), not ranStartup; stream 0 keeps the
+    // state ranStartup gave it at start-up (its wall-clock second is 0 here: oracleSetVirtualClock)
     univupdateReset();
-    ranStartup();
+    cat_ranResetGameStreams();
     netcheckReset();
 
     // two players, no ships: gameStart's per-player set-up for a new non-single-player game

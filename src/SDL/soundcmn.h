@@ -257,5 +257,6 @@ sdword smixCreateDSoundBuffer(SDLWAVEFORMAT *pcmwf);
 sdword smixInitMixBuffer(SDL_AudioSpec *aspec);
 
 sdword streamStartThread(void);
+void streamWaitThread(void);    // HWI-FIX: joins the "soundstream" thread at quit (sstream.c)
 
 #endif

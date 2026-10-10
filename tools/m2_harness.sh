@@ -127,6 +127,9 @@ run_once() {
 	export HOME="$out/home" HW_Data="$data" SDL_VIDEODRIVER="$d"
 	export ASAN_OPTIONS="log_path=$out/asan:detect_leaks=1:verify_asan_link_order=0"
 	export UBSAN_OPTIONS="print_stacktrace=1:log_path=$out/ubsan"
+	# LeakSanitizer runs at a normal exit (M2-R3: quits no longer stop at the munmap assertion); its report lands in the
+	# ubsan.* log (UBSan's log_path wins), and known start-up leaks of GoK and system libraries are suppressed
+	export LSAN_OPTIONS="suppressions=$root/tools/lsan.supp:print_suppressions=0"
 	local t0 t1
 	t0=$(date +%s.%N)
 	# cwd = settings dir: FileLoads.log and other engine-side files land in the run dir, never in the data dir
@@ -172,6 +175,7 @@ if [[ -z "$stop" ]]; then
 	if [[ $rc -eq 124 || $rc -eq 137 ]]; then stop="none: still running at the ${tmo}s timeout"; else stop="none found in the log (rc=$rc)"; fi
 fi
 asan_n=$(cat "$out"/asan.* 2>/dev/null | grep -c "ERROR: AddressSanitizer")
+leak_sum=$(cat "$out"/asan.* "$out"/ubsan.* 2>/dev/null | grep -h "SUMMARY: AddressSanitizer: .* leaked" | head -n 1)
 ubsan_kinds=$(cat "$L" "$out"/ubsan.* 2>/dev/null | grep "runtime error" | sed -E 's/^.*src\///; s/:[0-9]+:[0-9]+: runtime error:/: /; s/0x[0-9a-f]+/X/g' | sort | uniq -c | sort -rn | head -8)
 nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/null first: a release run has no FileLoads.log]
 
@@ -183,7 +187,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	echo "milestone: $milestone"
 	echo "first stop: $stop"
 	echo "first non-benign UBSan report (non-fatal): ${ubsan1:-none}"
-	echo "file loads: $nload; ASan errors: $asan_n"
+	echo "file loads: $nload; ASan errors: $asan_n; LeakSanitizer at exit: ${leak_sum:-no unsuppressed leak}"
 	echo "ship statics: $(grep -c 'shipstatic: loaded' "$L") loaded, $(grep -c 'shipstatic: .* not found' "$L") not found (disabled), $(grep -c 'shipstatic: other' "$L") other .shp; $(grep -h 'shipstatic: self-test done' "$L" | sed 's/^.*shipstatic: //' | head -n 1)"
 	[[ "$mode" == meshes ]] && echo "meshes: $(grep -c . "$out/meshes.list" 2>/dev/null) listed, $(grep -c 'meshtest: loaded' "$L") .geo/.peo loaded, $(grep -c 'meshtest: mad loaded' "$L") .mad loaded, $(grep 'meshtest: .*loaded' "$L" | grep -c -v ' bad=0$') with bad=; $(grep -h 'meshtest: self-test done' "$L" | sed 's/^.*meshtest: //' | head -n 1)"
 	[[ -f "$out/run.hwo" ]] && echo "oracle: $(grep -h 'oracle: self-test done' "$L" | sed 's/^.*oracle: //' | head -n 1); run.hwo $(stat -c %s "$out/run.hwo") bytes, sha256 $(sha256sum "$out/run.hwo" | cut -c1-16)"

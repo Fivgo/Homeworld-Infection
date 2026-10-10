@@ -359,12 +359,22 @@ typedef struct
 
 //CLAMPING INFO
 
+// CAT: ClampInfo is 0x38 bytes (HW1 0x34): clampObjToObj 0x004346e0 allocates memAlloc(0x38), reuses an existing
+//      clampInfo, and keeps on the HOST's clampInfo a pointer at +0x34 to a list of the objects clamped to it (a 0xFA8
+//      block: count at +0, objects from +8, i.e. up to 1000; host == NULL for a pure host). The list's code is
+//      clampObjToObj's (M2-R4 combat/docking); only the field and its NULL start are here.
+struct CatClampedList;
 typedef struct
 {
-    struct SpaceObjRotImpTarg *host;
-    matrix clampCoordsys;
-    vector clampOffset;
+    struct SpaceObjRotImpTarg *host;            // +0x00
+    matrix clampCoordsys;                       // +0x04
+    vector clampOffset;                         // +0x28
+    struct CatClampedList *clampedObjs;         // +0x34 CAT: new (name chosen here)
 }ClampInfo;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(ClampInfo) == 0x38, "ClampInfo is 0x38 bytes in cataclysm.exe");
+_Static_assert(offsetof(ClampInfo, clampedObjs) == 0x34, "ClampInfo clamped-object list at +0x34 in cataclysm.exe");
+#endif
 
 /*=============================================================================
     Object Static Types
@@ -409,6 +419,8 @@ typedef struct
     real32 collBoxOffsetY;
     real32 collBoxOffsetZ;
 } StaticCollInfo;
+// CAT: 0x70 bytes in the exe (HW1 0x64: the 12-byte collrectmid is new); no pointers, so on every target
+_Static_assert(sizeof(StaticCollInfo) == 0x70, "StaticCollInfo is 0x70 bytes in cataclysm.exe");
 
 #define IF_InfoNeeded           0x01
 #define IF_InfoLoaded           0x02
@@ -828,6 +840,16 @@ CAT_ASSERT_OFFSET(ShipStaticInfo, shipOrDerelict.sinbank, 0xF8);
 CAT_ASSERT_OFFSET(ShipStaticInfo, navlightStaticInfo, 0x104);
 CAT_ASSERT_OFFSET(ShipStaticInfo, custshipheader, 0x108);
 CAT_ASSERT_OFFSET(ShipStaticInfo, custshipheader.CustShipAttack, 0x15C);
+// CAT (M2-R3 systemic headers): CustShipFire is slot 5 at staticinfo+0x11C (the Fire callers GenericInterceptorAttack,
+//      MultiBeamFrigateAttack, doKamikazeAttack, nisFire call [statinfo+0x11C]); StaticCollInfo starts at +0x34 and its
+//      lengths sit 3 dwords later than HW1's because of collrectmid (GetCollSizeInDirection and mexSetCollisionInfo
+//      0x004b7880 read/write uplength +0x78, rightlength +0x7C, forwardlength +0x80)
+CAT_ASSERT_OFFSET(ShipStaticInfo, custshipheader.CustShipFire, 0x11C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo, 0x34);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.uplength, 0x78);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.rightlength, 0x7C);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.forwardlength, 0x80);
+CAT_ASSERT_OFFSET(ShipStaticInfo, common.staticCollInfo.diagonallength, 0x84);
 CAT_ASSERT_OFFSET(ShipStaticInfo, custstatinfo, 0x194);
 CAT_ASSERT_OFFSET(ShipStaticInfo, bulletRangeSquared, 0x198);
 CAT_ASSERT_OFFSET(ShipStaticInfo, collSideModifiers, 0x1C8);
@@ -1231,6 +1253,22 @@ matrix as follows:
     SpaceObj - General, base object from which all objects are derived
 -----------------------------------------------------------------------------*/
 
+// CAT: Cataclysm's object flags (SpaceObj.flags, +0x14 on ILP32). HW1's bits 0-7 are kept; above them Cataclysm drops
+//      one cloak flag, SOF_BitForSaleCheap and SOF_Slaveable, so the rest move down by 1, 2 and 3 bits, and three new
+//      flags take the top bits. Evidence, per flag (exe functions that set/test the bit where the HW1 body uses the
+//      name): Rotatable|Impactable|Selectable|Targetable = 0x102003 (univCreateShip 0x00542320 `| 0x102003`),
+//      Rotatable|Impactable|Targetable|Resource = 0x104003 (univAddAsteroid), | NotBumpable = 0x184003
+//      (univAddDustCloud/GasCloud/Nebula), BigObject 0x20000 (univCreateShip), Dead|DontCreateBlob = 0x1800
+//      (bobListCreate), Dead 0x800 (univGetChecksum 0x00549f50 and 33 other `& 0x800` tests), Cloaked 0x400 (DetectShips
+//      `& 0x400` where HW1 tests SOF_Cloaked; cat_cloakUpdate 0x004361c0 sets it), Hide 0x8000 and HideSave 0x8000000
+//      (kasfHideShips 0x004977a0 / kasfUnhideShips), HideSave2 0x10000000 (univHideJustAboutEverything,
+//      univUnhideJustAboutEverything 0x00547cd0), Crazy 0x200000 (aitrackForceSteadyShip and 15 other functions),
+//      DontDrawTrails 0x400000 (univSetupShipForControl, processMilitaryParadeToDo), Disabled 0x800000
+//      (aishipmineaquiretarget), Clamped 0x1000000 (clampObjToObj 0x004346e0 `| 0x1000000`), Hyperspace 0x2000000
+//      (ShipAlreadyHyperspaceOut), AlwaysSortFront 0x4000000 (etgEffectCreate 0x00470990 for ESO_SortForward),
+//      StaticInfoIsDynamic 0x40000 (SaveShip/LoadShip), ForceVisible 0x10000, Selectable 0x2000 (selSelectionClick),
+//      AttachPosition/Coordsys/Velocity/NLips 0x8/0x10/0x20/0x40 and NISShip 0x80 unchanged (etgEffectCreate,
+//      univCheckShipState). Census and method: docs/m2-r3-closeout-headers.md "headers".
 #define SOF_Rotatable           0x00000001
 #define SOF_Impactable          0x00000002      // objects such as asteroids, ships which
                                                 // can impart a change in momentum
@@ -1243,48 +1281,68 @@ matrix as follows:
 
 #define SOF_NISShip             0x00000080      //subject to 'NIS physics'
 
-#define SOF_CloakGenField       0x00000100      //if the object is cloaked with the local players own field...i.e. if he/she can see the object
-#define SOF_Cloaked             0x00000200      //object is cloaked for whatever reason
-#define SOF_Cloaking            0x00000400      //Set if Object is In Process of Cloaking
-#define SOF_DeCloaking          0x00000800      //Set if Object is in process of DeCloaking
+// CAT: 0x100 is never set or tested on an object in the exe (HW1's cloak generator is gone); 0x200 marks a ship that
+//      carries a Cataclysm cloak (cat_cloakInit 0x00435f10 sets it; cat_selStatusBarsDraw shows the cloak charge,
+//      cat_shipIsCloakedFully 0x00436110 tests 0x200 && 0x400); 0x400 is the cloaked state. The cloak state machine
+//      lives in the ship's cloak record (cat_cloakUpdate states 0-3), so HW1's Cloaking/DeCloaking/CloakGenField flags
+//      have no bit: they are 0, which leaves the HW1 cloak code that still tests them inert (it is gone in the exe).
+#define SOF_CloakGenField       0x00000000      // CAT: retired (HW1 0x100)
+#define SOF_CatCloakDevice      0x00000200      // CAT: new: the ship has a Cataclysm cloak (name chosen here)
+#define SOF_Cloaked             0x00000400      // CAT: was 0x200. object is cloaked for whatever reason
+#define SOF_Cloaking            0x00000000      // CAT: retired (HW1 0x400)
+#define SOF_DeCloaking          0x00000000      // CAT: retired (HW1 0x800)
 
-#define SOF_Dead                0x00001000      //Indicates object is dead, and cannot interact with selection/targeting in any way
+#define SOF_Dead                0x00000800      // CAT: was 0x1000. Indicates object is dead, and cannot interact with selection/targeting in any way
 
-#define SOF_Selected            0x00002000      //ship selection shite
-#define SOF_DontCreateBlob      0x00002000      //this object's blob is fine as it is
-#define SOF_BitForSaleCheap     0x00004000
+#define SOF_Selected            0x00001000      // CAT: was 0x2000. ship selection shite
+#define SOF_DontCreateBlob      0x00001000      // CAT: was 0x2000. this object's blob is fine as it is
+// CAT: SOF_BitForSaleCheap (HW1 0x4000, unused) is gone
 
-#define SOF_Selectable          0x00008000      //Indicates object is selectable
+#define SOF_Selectable          0x00002000      // CAT: was 0x8000. Indicates object is selectable
 
-#define SOF_Resource            0x00010000      //Indicates object is a resource
+#define SOF_Resource            0x00004000      // CAT: was 0x10000. Indicates object is a resource
 
-#define SOF_Hide                0x00020000      //Indicates object should be hidden (never drawn, and never put in render list)
-#define SOF_ForceVisible        0x00040000      //object will always be in render list no matter what
-#define SOF_BigObject           0x00080000      //Indicates object is big (e.g. A Mothership)
+#define SOF_Hide                0x00008000      // CAT: was 0x20000. Indicates object should be hidden (never drawn, and never put in render list)
+#define SOF_ForceVisible        0x00010000      // CAT: was 0x40000. object will always be in render list no matter what
+#define SOF_BigObject           0x00020000      // CAT: was 0x80000. Indicates object is big (e.g. A Mothership)
 
-#define SOF_StaticInfoIsDynamic 0x00100000      //Indicates static info has been copied and modified and is dynamic
+#define SOF_StaticInfoIsDynamic 0x00040000      // CAT: was 0x100000. Indicates static info has been copied and modified and is dynamic
 
-#define SOF_NotBumpable         0x00200000      //Indicates colliding with object should not result in momentum transferal
+#define SOF_NotBumpable         0x00080000      // CAT: was 0x200000. Indicates colliding with object should not result in momentum transferal
 
-#define SOF_Targetable          0x00400000      // Indicates object is targetable
+#define SOF_Targetable          0x00100000      // CAT: was 0x400000. Indicates object is targetable
 
-#define SOF_Slaveable           0x00800000      // Indicates if object is ABLE to be slaved..and
-                                                //hence has relevant info in its slaveinfo struct
+// CAT: SOF_Slaveable (HW1 0x800000) has no bit: Cataclysm has no slave trade (dockMakeMaster, dockAddSlave,
+//      dockRemoveSlave ... are absent from the exe). 0 leaves the HW1 slave code inert until stage 2 removes it.
+#define SOF_Slaveable           0x00000000      // CAT: retired
 
-#define SOF_Crazy               0x01000000      // Indicates object is in crazy mode, and about to die. (Used for ships only)
+#define SOF_Crazy               0x00200000      // CAT: was 0x1000000. Indicates object is in crazy mode, and about to die. (Used for ships only)
 
-#define SOF_DontDrawTrails      0x02000000      // Indicates we do not want to draw engine trails. (Used for ships only)
+#define SOF_DontDrawTrails      0x00400000      // CAT: was 0x2000000. Indicates we do not want to draw engine trails. (Used for ships only)
 
-#define SOF_Disabled            0x04000000      //set if ship is to be a derelict in space
+#define SOF_Disabled            0x00800000      // CAT: was 0x4000000. set if ship is to be a derelict in space
 
-#define SOF_Clamped             0x08000000      //indicates ship is CLAMPED to another ship
+#define SOF_Clamped             0x01000000      // CAT: was 0x8000000. indicates ship is CLAMPED to another ship
 
-#define SOF_Hyperspace          0x10000000      //indicates ship is in hyperspace ether
+#define SOF_Hyperspace          0x02000000      // CAT: was 0x10000000. indicates ship is in hyperspace ether
 
-#define SOF_AlwaysSortFront     0x20000000      //object will always sort to the front
+#define SOF_AlwaysSortFront     0x04000000      // CAT: was 0x20000000. object will always sort to the front
 
-#define SOF_HideSave            0x40000000      //object was hidden
-#define SOF_HideSave2           0x80000000      //object was hidden
+#define SOF_HideSave            0x08000000      // CAT: was 0x40000000. object was hidden
+#define SOF_HideSave2           0x10000000      // CAT: was 0x80000000. object was hidden
+
+// CAT: three new flags (names chosen here; the exe's are unknown):
+//      0x20000000: an effect that follows its owner's coordinate system. etgEffectCreate 0x00470990 maps the
+//      EAF_OwnerCoordSys (0x01000000) argument bit to it and etgEffectDraw tests it; HW1 stored the EAF bit itself in
+//      the header flags, where it collided with SOF_Crazy.
+#define SOF_OwnerCoordSys       0x20000000
+//      0x40000000: a ship that is a part of another ship (cat_univCreateMothershipModules, cat_dreadnoughtCreateCannon
+//      set it; DreadnoughtDied, cat_shipDissolveStart clear it; ApplyDamageToTarget 0x00546250 redirects damage).
+#define SOF_CatShipPart         0x40000000
+//      0x80000000: docking/attached (cat_dockShipDocksAtShip, cat_processLinkToDo, cat_leechProcess,
+//      cat_moduleShipEject set it; RemoveShipFromDocking/Launching, LaunchCleanup, processLaunchShipToDo clear it;
+//      collCheckShipShipColl, collCheckBigShipSmallShipColl, collCheckShipResourceColl skip such ships).
+#define SOF_CatDocking          0x80000000
 
 typedef struct
 {

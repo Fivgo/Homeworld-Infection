@@ -378,66 +378,20 @@ ubyte smShipTypeRenderFlags[TOTAL_NUM_SHIPS] =
     0,                                                 //nisLightSource2 (Cataclysm-only: default)
     0                                                  //nisLensflareSource1 (Cataclysm-only: default)
 };
+// CAT: re-keyed to Cataclysm's 8 derelict types (ObjTypes.h). CAT-PROVISIONAL: the exe's sensors manager was rewritten
+//      (smBlobDrawClear and its callers are absent) and has no such table; HW1 drew none of the kept types as a mesh
+//      (Crate, Homeworld, PlanetOfOrigin(_scarred), HyperspaceGate were 0), and the three new planet-like types follow
+//      them. Stage 3 (sensors manager) owns the real behaviour.
 ubyte smDerelictTypeMesh[NUM_DERELICTTYPES] =
 {
-    0,                                          //AngelMoon,
-    0,                                          //AngelMoon_clean,
-    0,                                          //Crate,
-    SM_Mesh,                                    //FragmentPanel0a,
-    SM_Mesh,                                    //FragmentPanel0b,
-    SM_Mesh,                                    //FragmentPanel0c,
-    SM_Mesh,                                    //FragmentPanel1,
-    SM_Mesh,                                    //FragmentPanel2,
-    SM_Mesh,                                    //FragmentPanel3,
-    SM_Mesh,                                    //FragmentStrut,
-    0,                                          //Homeworld,
-    0,                                          //LifeBoat,
-    0,                                          //PlanetOfOrigin,
-    0,                                          //PlanetOfOrigin_scarred,
-    0,                                          //PrisonShipOld,
-    0,                                          //PrisonShipNew,
-    SM_Mesh,                                    //Scaffold,
-    SM_Mesh,                                    //Scaffold_scarred,
-    SM_Mesh,                                    //ScaffoldFingerA_scarred,
-    SM_Mesh,                                    //ScaffoldFingerB_scarred,
-    0,                                          //Shipwreck,
-    //pre-revision ships as junkyard derelicts:
-    0,                                          //JunkAdvanceSupportFrigate,
-    SM_Mesh,                                    //JunkCarrier,
-    0,                                          //JunkDDDFrigate,
-    0,                                          //JunkHeavyCorvette,
-    SM_Mesh,                                    //JunkHeavyCruiser,
-    0,                                          //JunkIonCannonFrigate,
-    0,                                          //JunkLightCorvette,
-    0,                                          //JunkMinelayerCorvette,
-    0,                                          //JunkMultiGunCorvette,
-    0,                                          //JunkRepairCorvette,
-    0,                                          //JunkResourceController,
-    0,                                          //JunkSalCapCorvette,
-    0,                                          //JunkStandardFrigate,
-    0,                                          //Junk0_antenna
-    0,                                          //Junk0_fin1
-    0,                                          //Junk0_fin2
-    0,                                          //Junk0_GunAmmo
-    0,                                          //Junk0_panel
-    0,                                          //Junk0_sensors
-    0,                                          //Junk1_partA
-    0,                                          //Junk1_partB
-    0,                                          //Junk1_shell
-    0,                                          //Junk1_strut
-    0,                                          //Junk2_panelA
-    0,                                          //Junk2_panelB
-    0,                                          //Junk2_panelC
-    0,                                          //Junk2_panelD
-    0,                                          //Junk2_shipwreck
-    0,                                          //Junk3_Boiler
-    0,                                          //Junk3_BoilerCasing
-    0,                                          //M13PanelA
-    0,                                          //M13PanelB
-    0,                                          //M13PanelC
-                                                    //hyperspace gate dummy derelict
+    0,                                          //Crate
+    0,                                          //Homeworld
+    0,                                          //PlanetOfOrigin
+    0,                                          //PlanetOfOrigin_scarred
+    0,                                          //Galaxy
+    0,                                          //LavaBall
+    0,                                          //MattWorld
     0,                                          //HyperspaceGate
-
 };
 
 GLboolean smBigPoints;

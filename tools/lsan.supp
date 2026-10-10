@@ -1,0 +1,19 @@
+# LeakSanitizer suppressions for tools/m2_harness.sh (docs/m2-r3-closeout-headers.md "quit").
+#
+# Until M2-R3 no harness run reached a normal exit: every quit stopped at GoK's munmap(heap, 0) assertion first. With
+# that fixed, LeakSanitizer runs at exit and reports these allocations that nothing frees before exit(). None is a
+# Cataclysm delta and none grows during a run (each is made once at start-up). Every other leak still fails the run.
+#
+# Third-party libraries (not this tree's code):
+leak:libdbus-1.so
+# OpenGL driver state made inside SDL_GL_CreateContext (render.c setupPixelFormat); the driver frees it at unload
+leak:setupPixelFormat
+#
+# GoK start-up allocations never released at quit (owner: stage 5 networking / stage 3 render init, which port these
+# start-up and shut-down paths):
+# - SDL mutexes made by mgStartup (MultiplayerGame.c) and titanGameStartup (TitanNet.c); titanGameShutdown, which
+#   destroys two of them, is never called on the quit path
+leak:mgStartup
+leak:titanGameStartup
+# - a display-mode record made by rinEnumeratePrimary (rinit.c) during InitWindow
+leak:rinEnumeratePrimary

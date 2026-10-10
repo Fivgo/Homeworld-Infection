@@ -63,6 +63,8 @@ void univupdateClose();
 void univupdateCloseAllObjectsAndMissionSpheres();
 
 bool32 univUpdate(real32 phystimeelapsed);
+real32 cat_univRealTimeDelta(void);              // CAT: 0x0054c360
+extern bool32 univRealTimeVirtual;              // HWI-ORACLE: fixed 1/16 s per tick (UnivUpdate.c)
 
 void univRotateObjYaw(SpaceObjRot *robj,real32 rot);
 void univRotateObjPitch(SpaceObjRot *robj,real32 rot);

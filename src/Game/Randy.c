@@ -11,6 +11,8 @@
 #include "Debug.h"
 #include "SaveGame.h"
 
+#include <time.h>
+
 #if RANDOM_DEBUG_CALL_SEQ
     #include "File.h"
     #include "Globals.h"
@@ -22,6 +24,8 @@
     Data:
 =============================================================================*/
 ranstream ranStream[RANDOM_NUMBER_STREAMS];
+
+bool32 ranVirtualWallClock = FALSE;     // HWI-ORACLE (Randy.h)
 
 #if RANDOM_DEBUG_CALL_SEQ
     #define RANDOM_LOG_FILE            "Randylog.txt"
@@ -194,6 +198,29 @@ void ranParametersReset(sdword ranIndex)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : ranWallClockSecond
+    Description : CAT: the wall-clock second that ranStartup and ranRandomize advance a stream by: the exe calls
+                  GetSystemTime and uses wSecond & 0xff (UTC, 0..59; ranStartup 0x004efa30, ranRandomize 0x004ef9a0,
+                  as HW1's ranRandomize). GoK used SDL_GetTicks() & 255 instead. 0 in oracle runs (ranVirtualWallClock).
+    Inputs      :
+    Outputs     :
+    Return      : number of draws
+----------------------------------------------------------------------------*/
+static udword ranWallClockSecond(void)
+{
+    time_t now;
+    struct tm *utc;
+
+    if (ranVirtualWallClock)
+    {
+        return 0;
+    }
+    now = time(NULL);
+    utc = gmtime(&now);
+    return (utc != NULL) ? ((udword)utc->tm_sec & 255) : 0;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : ranRandomize
     Description : randomizes the number stream based on system time
     Inputs      : ranIndex - index of random number sequence.
@@ -202,13 +229,10 @@ void ranParametersReset(sdword ranIndex)
 ----------------------------------------------------------------------------*/
 void ranRandomize(sdword ranIndex)
 {
-    Uint32 curr_ticks;
     udword iter;
     udword i;
 
-    curr_ticks = SDL_GetTicks();
-
-    iter = curr_ticks & 255;
+    iter = ranWallClockSecond();                    // CAT: GetSystemTime().wSecond as in the exe (GoK: SDL_GetTicks)
 
     for (i=0;i<iter;i++)
     {
@@ -228,6 +252,28 @@ void ranStartup(void)
     sdword ranIndex;
 
     for (ranIndex = 0; ranIndex < RANDOM_NUMBER_STREAMS; ranIndex++)
+    {
+        ranParametersReset(ranIndex);
+    }
+    // CAT: then advance stream 0 by the wall-clock second (ranStartup 0x004efa30: GetSystemTime, wSecond & 0xff
+    //      steps of the generator on stream 0, inlined); HW1 left every stream at its constants
+    ranRandomize(RANDOM_STREAM_0);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_ranResetGameStreams
+    Description : CAT: cat_ranResetGameStreams 0x004efb10, called by gameStart for a new non-single-player game:
+                  streams 1..26 back to the ranParametersReset constants. Stream 0 keeps its wall-clock offset
+                  from ranStartup.
+    Inputs      :
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_ranResetGameStreams(void)
+{
+    sdword ranIndex;
+
+    for (ranIndex = 1; ranIndex < RANDOM_NUMBER_STREAMS; ranIndex++)
     {
         ranParametersReset(ranIndex);
     }

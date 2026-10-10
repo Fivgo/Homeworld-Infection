@@ -2334,7 +2334,7 @@ void etgEffectDraw(Effect *effect)
                 }
                 partRenderSystem((psysPtr)effect->particleBlock[index]);
             }
-            else if (bitTest(effect->header.flags, EAF_OwnerCoordSys))
+            else if (bitTest(effect->header.flags, SOF_OwnerCoordSys))  // CAT: etgEffectDraw tests 0x20000000
             {
                 hmatrix ownerCoordMatrix;
                 matrix tempMatrix;
@@ -7466,7 +7466,14 @@ Effect* etgEffectCreate(etgeffectstatic* stat, Ship* owner, vector* pos, vector*
     newEffect = memAlloc(stat->effectSize, "GE(GenEffect)", Pyrophoric);//allocate the new effect
 
     newEffect->header.objtype = OBJ_EffectType;                    //type of spaceobj
-    newEffect->header.flags = SOF_Rotatable | flags;               //basic flags
+    // CAT: only the attachment bits are copied, and EAF_OwnerCoordSys becomes its own header bit (etgEffectCreate
+    //      0x00470990: flags & 8 -> |9, & 0x20, & 0x10, & 0x40 copied, & 0x01000000 -> | 0x20000000); copying the EAF bit
+    //      as HW1 did would now set SOF_Clamped (0x01000000 since the SOF_* renumbering)
+    newEffect->header.flags = SOF_Rotatable | (flags & EAF_Full);  //basic flags
+    if (bitTest(flags, EAF_OwnerCoordSys))
+    {
+        bitSet(newEffect->header.flags, SOF_OwnerCoordSys);
+    }
     newEffect->staticinfo = stat;             //save static info
     ClearNode(newEffect->obj.renderlink);                       //no in render list
     newEffect->obj.currentLOD = 0;//owner ? ((Ship *)owner)->obj.currentLOD : 0;

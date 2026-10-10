@@ -227,11 +227,29 @@ typedef enum
     NUM_NEBULATYPES
 } NebulaType;
 
+// CAT: Cataclysm's 8 derelict types, ids and names as the exe's table derelicttypeinfo 0x00889b68 (read by
+//      StrToDerelictType / DerelictTypeToStr and by meshNameToStaticInfo 0x004ae7b0); HW1 had 55. NUM_DERELICTTYPES 8
+//      sizes the per-type tables (derelictStaticInfos, etgDeathEventTableDerelict ...). NIS generic objects keep using
+//      ids NUM_DERELICTTYPES + n (NIS.c), as in HW1.
 typedef enum
 {
-    AngelMoon,
+    Crate                       = 0,
+    Homeworld                   = 1,
+    PlanetOfOrigin              = 2,
+    PlanetOfOrigin_scarred      = 3,
+    Galaxy                      = 4,
+    LavaBall                    = 5,
+    MattWorld                   = 6,
+    HyperspaceGate              = 7,    //hyperspace gate dummy derelict
+    NUM_DERELICTTYPES           = 8,
+
+    // CAT: HW1 derelict names Cataclysm dropped, kept only so that HW1 code not yet ported compiles (switch cases in
+    //      Select.c, ShipSelect.c, Sensors.c). Their ids are far above every Cataclysm and NIS id and no table maps a
+    //      name to them, so code keyed on them is dormant (as ShipDefs.h does for the 22 dropped ship types). Never
+    //      index a NUM_DERELICTTYPES table with them.
+    HW1LEGACY_FIRST_DERELICT    = 0x1000,
+    AngelMoon                   = HW1LEGACY_FIRST_DERELICT,
     AngelMoon_clean,
-    Crate,
     FragmentPanel0a,
     FragmentPanel0b,
     FragmentPanel0c,
@@ -239,10 +257,7 @@ typedef enum
     FragmentPanel2,
     FragmentPanel3,
     FragmentStrut,
-    Homeworld,
     LifeBoat,
-    PlanetOfOrigin,
-    PlanetOfOrigin_scarred,
     PrisonShipOld,
     PrisonShipNew,
     Scaffold,
@@ -250,7 +265,6 @@ typedef enum
     ScaffoldFingerA_scarred,
     ScaffoldFingerB_scarred,
     Shipwreck,
-    //pre-revision ships as junkyard derelicts:
     JunkAdvanceSupportFrigate,
     JunkCarrier,
     JunkDDDFrigate,
@@ -264,7 +278,6 @@ typedef enum
     JunkResourceController,
     JunkSalCapCorvette,
     JunkStandardFrigate,
-    //junk derelicts
     Junk0_antenna,
     Junk0_fin1,
     Junk0_fin2,
@@ -285,16 +298,7 @@ typedef enum
     M13PanelA,
     M13PanelB,
     M13PanelC,
-    //hyperspace gate dummy derelict
-    HyperspaceGate,
-    //CAT-PROVISIONAL: Cataclysm's derelict types with no HW1 counterpart, appended so their meshes and statics resolve
-    //(meshNameToStaticInfo 0x004ae7b0 looks the mesh directory up in this table). The exe's table 0x00889b68 has 8
-    //types: Crate 0, Homeworld 1, PlanetOfOrigin 2, PlanetOfOrigin_scarred 3, Galaxy 4, LavaBall 5, MattWorld 6,
-    //HyperspaceGate 7. Renumbering to it is the open derelict-table item (docs/m2-r2-shipstatics.md, docs/m2-r2-mesh.md).
-    Galaxy,
-    LavaBall,
-    MattWorld,
-    NUM_DERELICTTYPES
+    HW1LEGACY_LAST_DERELICT     = M13PanelC
 } DerelictType;
 
 typedef enum

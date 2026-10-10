@@ -1272,6 +1272,13 @@
   "note": "zeroes collrectoffset and three floats; header-level: in Cataclysm uplength/rightlength/forwardlength sit 3 dwords later than in HW1's StaticCollInfo (GetCollSizeInDirection reads the same slots), so CET's StaticCollInfo names are shifted",
   "sample": "reread-R2"
  },
+ "0x0043dea0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "scan format \"%s%f%f\" (HW1 \"%2s,%f,%f\"); RACE_KUSHAN folded into the Sect curve and RACE_TAIIDAN into the Beast curve (14-entry curve table)",
+  "note": "M2-R2 identifiers item and audit row 27 (format string 0x007530c8); was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x0043f310": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -1558,6 +1565,13 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x004551e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a third loop frees the 5 new support-unit textures (b_Build_Support*.lif)",
+  "note": "M2-R2 startup report; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x004589c0": {
   "class": "MODIFIED",
   "confidence": "high",
@@ -1684,6 +1698,13 @@
   "note": "variable/rate/effectID layout and memsets as HW1; \"LoF\" is a Ghidra field-name artefact of the mistyped Effect",
   "sample": "MODIFIED/medium"
  },
+ "0x0046ac20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "header-level: tests effect header bit 0x20000000 (SOF_OwnerCoordSys) where HW1 tests EAF_OwnerCoordSys 0x01000000 in effect->flags; etgEffectCreate 0x00470990 maps the EAF bit to 0x20000000, so the body is HW1's with the bit renumbered (M2-R3 closeout-headers audit; src edit: ETG.c etgEffectDraw)",
+  "sample": "port-R3"
+ },
  "0x0046b320": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -1739,6 +1760,13 @@
   "change": "trTextureRegister gets the new 4th argument (1)",
   "note": "callee arity change (texreg); constant-data writes as HW1",
   "sample": "reread-R2"
+ },
+ "0x0046cc60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "trTextureRegister gets a 4th argument (push 1)",
+  "note": "callee arity, M2-R2 startup report (texreg 0x34 entry); was IDENTICAL/medium",
+  "sample": "port-R3"
  },
  "0x0046d070": {
   "class": "IDENTICAL",
@@ -2276,6 +2304,13 @@
   "note": "feNamesEqual inlined",
   "sample": "reread-R2"
  },
+ "0x00474050": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the feCallback[] search is inlined and an atom without a callback is skipped silently (no \"not found\" path)",
+  "note": "M2-R2 startup report (run startup-r6-fecb-fe); was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x004743a0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -2437,12 +2472,26 @@
   "note": "DELTA/BROAD and DELTA3D/CLAW shift loops checked to the end",
   "sample": "reread-R2"
  },
+ "0x00485b30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "one case per Cataclysm ship type (145-type enum) into 63 slots; second argument the parade: carriers fill S/BCARRIER0..2 by highestSlotUsed, bHeavyCruiser only around a bMothership; Swarmers -> SLOT_SLEECH; default SLOT_Misc",
+  "note": "M2-R3 closeout-headers \"headers\"; HW1's shape (switch with class fallback) kept, hence MODIFIED",
+  "sample": "port-R3"
+ },
  "0x00485e70": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "CalculateNewHighestUsedSlot inlined; header-level: MAX_MILITARY_SLOTS is 63 (HW1 41)",
   "sample": "reread-R2"
+ },
+ "0x00485ee0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "passes the parade to GetShipSlot as a second argument (0x00485efb push esi, 0x00485efc push ebx)",
+  "note": "M2-R3 closeout-headers \"headers\"; was IDENTICAL/medium",
+  "sample": "port-R3"
  },
  "0x00486050": {
   "class": "MODIFIED",
@@ -3599,6 +3648,13 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0049df00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a second loop frees the 15 launch-system button textures (R1_Sys{1,2,3}_*.lif)",
+  "note": "M2-R2 startup report; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x0049e1e0": {
   "class": "MODIFIED",
   "confidence": "high",
@@ -3619,6 +3675,13 @@
   "change": "enum: the replacement ship type comes from a per-ship-type table (DAT_00883cf8[request]) when the race may not build it; HW1 swaps CloakedFighter/DefenseFighter and DDDFrigate/DFGFrigate in a 4-case switch",
   "note": "RacesAllowedForGivenShip test as HW1 (1 << race)",
   "sample": "reread-R2"
+ },
+ "0x004a29f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "missile carriers are Cataclysm's 6 types (0x55, 10, 0x5f, 0x19, 1, 0x22) and the mine layer 0x54 (tMinelayerCorvette); HW1's DDDFrigate/Drone pair is gone; mineStaticInfos indexed by race (300-byte stride)",
+  "note": "M2-R2 identifiers audit row 28; was IDENTICAL/medium",
+  "sample": "port-R3"
  },
  "0x004a4250": {
   "class": "IDENTICAL",
@@ -3739,6 +3802,20 @@
   "note": "the body is HW1 meshObjectFixupPacoUV (per-object polygon loop, PAC_FIXED 0x1000, 0.6/width); the caller holds the inlined meshFixupPacoUV (localSize test and object loop). Binary-map name wrong: proposal in ghidra/proposals/m2-r2-name-fixes.json; renamed from meshFixupPacoUV in M2-R3 (export cataclysm_gog_r6); features still scored against the old HW1 function",
   "sample": "reread-R2"
  },
+ "0x004aec90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no version check (1,727 files say 0x500, 2 say 0x402); objects at a 0x74 stride with the new per-vertex info list at +0x1C fixed up unconditionally; .lod -> .peo paging inlined",
+  "note": "M2-R2 mesh report rows 49-72; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x004af3a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "trTextureRegister gets a 4th argument (push 1)",
+  "note": "callee arity, M2-R2 startup report; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x004b40a0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -3766,6 +3843,13 @@
   "change": "walks the daughter hierarchy releasing bindings recursively (cat_meshBindingListDeleteR) before memFree; extra parameter",
   "note": "",
   "sample": "MODIFIED/low"
+ },
+ "0x004b65c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "HW1's loader: 0x28-byte header, fileSize - stringBlockLength, the same fix-ups; the automatic field/loop differences are Ghidra typing (M2-R2 mesh report: MeshAnim needed no change, 29 .mad files load); was MODIFIED/high",
+  "sample": "port-R3"
  },
  "0x004b6700": {
   "class": "IDENTICAL",
@@ -5037,8 +5121,29 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "ranRandom macro body inlined in the loop",
+  "note": "ranRandom macro body inlined in the loop; as ORIG ad1bb82 randy.c:198 GetSystemTime().wSecond & 255 (src: GoK SDL_GetTicks replaced by ranWallClockSecond in M2-R3)",
   "sample": "MODIFIED/low"
+ },
+ "0x004efa30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "27 streams; after the reset, stream 0 is advanced by GetSystemTime().wSecond steps (inlined generator)",
+  "note": "M2-R3 closeout-headers \"randy\"; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
+ "0x004efb50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "header-level: loops over 27 streams of 0x14 bytes (to 0x00C2FF9C; HW1 25, RANDOM_NUMBER_STREAMS) (M2-R3 closeout-headers audit)",
+  "sample": "port-R3"
+ },
+ "0x004efb70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "header-level: loops over 27 streams of 0x14 bytes (to 0x00C2FF9C; HW1 25, RANDOM_NUMBER_STREAMS) (M2-R3 closeout-headers audit)",
+  "sample": "port-R3"
  },
  "0x004f0ae0": {
   "class": "IDENTICAL",
@@ -5166,6 +5271,13 @@
   "note": "Cataclysm has per-race tech lists instead",
   "sample": "reread-R2"
  },
+ "0x004f7970": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "frees Cataclysm's 15 + 6 research tables (0x00c17ac0/0x00c16800, 0x00c168a0/0x00c17b00)",
+  "note": "M2-R2 startup report; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x004fd740": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -5270,6 +5382,13 @@
   "change": "",
   "note": "CreateChunk/SaveThisChunk inlined (BASIC_STRUCTURE 0x80000000)",
   "sample": "reread-R2"
+ },
+ "0x004ffc60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "copies custstatinfo +0x194, dockOverideInfo +0x3F4 and the two dock callbacks +0x400/+0x404; no salvage-info and no tractor-beam pointer",
+  "note": "M2-R2 ship statics report and audit section 3 (disassembly); was IDENTICAL/medium",
+  "sample": "port-R3"
  },
  "0x004ffd20": {
   "class": "MODIFIED",
@@ -6138,6 +6257,13 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00526ce0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "trTextureRegister gets a 4th argument (push 1)",
+  "note": "callee arity, M2-R2 startup report; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x00527050": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -6151,6 +6277,13 @@
   "change": "",
   "note": "PRIMARYLANGID tests",
   "sample": "reread-R2"
+ },
+ "0x005288f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "HW1's loop over the LanguageStrings rows, returning the row index; only the table (1,705 rows) differs, header-level",
+  "sample": "port-R3"
  },
  "0x00528970": {
   "class": "IDENTICAL",
@@ -6702,6 +6835,13 @@
   "change": "",
   "note": "UNIVERSE_UPDATE_RATE 16 (<< 4)",
   "sample": "reread-R2"
+ },
+ "0x0053ad70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "thrust = mass * thrust * GLOBAL_SHIP_SPEED_MODIFIER (HW1 thrust *= mass * modifier): the float operation order differs, so results can round differently",
+  "note": "M2-R2 ship statics report \"What is left\" 11 (operand order); was IDENTICAL/medium",
+  "sample": "port-R3"
  },
  "0x0053ae00": {
   "class": "IDENTICAL",
@@ -7724,12 +7864,26 @@
   "note": "Ghidra drops the sscanf out-arguments",
   "sample": "reread-R2"
  },
+ "0x005833e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "trTextureRegister gets a 4th argument (push 0)",
+  "note": "callee arity, M2-R2 startup report; was IDENTICAL/medium",
+  "sample": "port-R3"
+ },
  "0x00583970": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00583990": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "trTextureRegister gets a 4th argument (push 0)",
+  "note": "callee arity, M2-R2 startup report; was IDENTICAL/medium",
+  "sample": "port-R3"
  },
  "0x00583ac0": {
   "class": "IDENTICAL",

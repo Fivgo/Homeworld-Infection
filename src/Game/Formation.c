@@ -2675,9 +2675,10 @@ typedef struct
 } ParadeTypeInfo;
 
 // CAT: 12 parade types, one per Cataclysm parade_*.script, in the exe's array order (paradeTypeInfos 0x00a3e448,
-//      12 x 0x6E4 bytes, filled by paradeSetTweakables 0x004850d0). The exe's ParadeTypeInfo holds 63 slots (the
-//      parade_*.script keys SLOT_SRECON .. SLOT_Misc); HW1's 41-slot table is kept until stage 2 ports the slot
-//      enum and its assignment code, so the Cataclysm-only slot keys are ignored on load.
+//      12 x 0x6E4 bytes, filled by paradeSetTweakables 0x004850d0). Each ParadeTypeInfo holds the 63 Cataclysm slots
+//      (Formation.h SLOT_SRECON .. SLOT_Misc, 63 x 0x1C = 0x6E4).
+_Static_assert(sizeof(SlotInfo) == 0x1C, "SlotInfo is 0x1C bytes in cataclysm.exe");
+_Static_assert(sizeof(ParadeTypeInfo) == 0x6E4, "ParadeTypeInfo is 0x6E4 bytes in cataclysm.exe (12 at 0x00a3e448)");
 #define PARADE_SMOTHERSHIP      0
 #define PARADE_BMOTHERSHIP      1
 #define PARADE_SCARRIER         2
@@ -2700,6 +2701,48 @@ void scriptSetSlotInfoCB(char *directory,char *field,void *dataToFillIn);
 
 scriptStructEntry ParadeInfoScriptTable[] =
 {
+    // CAT: the exe's 63 keys in its order (ParadeInfoScriptTable 0x0087fb68, all scriptSetSlotInfoCB 0x00485090)
+    { "SlotPositionInfo[SLOT_SRECON]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SRECON], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SMIMIC]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SMIMIC], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SMCV]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SMCV], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SWORKER]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SWORKER], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SPROCESSOR]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SPROCESSOR], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SCARRIER0]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SCARRIER0], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SCARRIER1]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SCARRIER1], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SCARRIER2]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SCARRIER2], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SSENTINEL]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SSENTINEL], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SACOLYTE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SACOLYTE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SACV]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SACV], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SRAMMINGFRIGATE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SRAMMINGFRIGATE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SMULTIBEAMFRIGATE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SMULTIBEAMFRIGATE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SHIVEFRIGATE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SHIVEFRIGATE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SDREADNOUGHT]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SDREADNOUGHT], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SLEECH]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SLEECH], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SDESTROYER]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SDESTROYER], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_SMOTHERSHIP]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SMOTHERSHIP], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BRECON]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BRECON], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BWORKER]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BWORKER], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BPROCESSOR]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BPROCESSOR], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BHIVEFRIGATE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BHIVEFRIGATE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BMULTIBEAMFRIGATE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BMULTIBEAMFRIGATE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BCARRIER0]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BCARRIER0], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BCARRIER1]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BCARRIER1], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BCARRIER2]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BCARRIER2], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BSENTINEL]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BSENTINEL], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BACOLYTE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BACOLYTE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BACV]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BACV], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BINTERCEPTOR]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BINTERCEPTOR], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BATTACKBOMBER]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BATTACKBOMBER], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BCLOAKEDFIGHTER]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BCLOAKEDFIGHTER], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BMULTIGUNCORVETTE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BMULTIGUNCORVETTE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BDFGFRIGATE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BDFGFRIGATE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BHEAVYCORVETTE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BHEAVYCORVETTE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BIONARRAYFRIGATE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BIONARRAYFRIGATE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BHEAVYCRUISER]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BHEAVYCRUISER], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BMISSILECORVETTE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BMISSILECORVETTE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BCRUISEMISSILE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BCRUISEMISSILE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BRAMMINGFRIGATE]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BRAMMINGFRIGATE], &paradeTypeInfos[0] },
+    { "SlotPositionInfo[SLOT_BMOTHERSHIP]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_BMOTHERSHIP], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_Fighter0]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_Fighter0], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_Fighter1]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_Fighter1], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_Fighter2]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_Fighter2], &paradeTypeInfos[0] },
@@ -2712,34 +2755,15 @@ scriptStructEntry ParadeInfoScriptTable[] =
     { "SlotPositionInfo[SLOT_Corvette3]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_Corvette3], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_Frigate]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_Frigate], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_ResCollector]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_ResCollector], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_ResourceController]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_ResourceController], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_Destroyer]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_Destroyer], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_HeavyCruiser]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_HeavyCruiser], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_NonCombat]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_NonCombat], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_Carrier]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_Carrier], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_SensorArray]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SensorArray], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_ResearchShip]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_ResearchShip], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_SupportCorvette]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_SupportCorvette], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_P1Fighter]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P1Fighter], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_P1IonArrayFrigate]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P1IonArrayFrigate], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_P1MissileCorvette]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P1MissileCorvette], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_P1StandardCorvette]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P1StandardCorvette], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2Swarmer0]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2Swarmer0], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2Swarmer1]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2Swarmer1], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2Swarmer2]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2Swarmer2], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2Swarmer3]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2Swarmer3], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2AdvanceSwarmer0]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2AdvanceSwarmer0], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2AdvanceSwarmer1]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2AdvanceSwarmer1], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2AdvanceSwarmer2]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2AdvanceSwarmer2], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2AdvanceSwarmer3]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2AdvanceSwarmer3], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2FuelPod0]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2FuelPod0], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2FuelPod1]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2FuelPod1], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2FuelPod2]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2FuelPod2], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2FuelPod3]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2FuelPod3], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2MultiBeamFrigate0]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2MultiBeamFrigate0], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2MultiBeamFrigate1]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2MultiBeamFrigate1], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2MultiBeamFrigate2]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2MultiBeamFrigate2], &paradeTypeInfos[0] },
-    { "SlotPositionInfo[SLOT_P2MultiBeamFrigate3]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_P2MultiBeamFrigate3], &paradeTypeInfos[0] },
     { "SlotPositionInfo[SLOT_Misc]", scriptSetSlotInfoCB, &paradeTypeInfos[0].slotinfos[SLOT_Misc], &paradeTypeInfos[0] },
 
     END_SCRIPT_STRUCT_ENTRY
@@ -3132,224 +3156,97 @@ void FreeMilitaryParadeContents(MilitaryParadeCommand *militaryParade)
 /*-----------------------------------------------------------------------------
     Name        : GetShipSlot
     Description : returns the correct slot a ship belongs to
-    Inputs      :
+    Inputs      : ship; militaryParade - CAT: the parade it joins (carriers fill their race's three carrier slots in
+                  turn, and a Beast heavy cruiser gets its own slot only around a Beast mothership)
     Outputs     :
-    Return      :
+    Return      : SLOT_xxx
 ----------------------------------------------------------------------------*/
-sdword GetShipSlot(Ship *ship)
+// CAT: GetShipSlot 0x00485b30, one case per Cataclysm ship type (a switch on ship->shiptype, ship+0x2B0), with the parade
+//      as a second argument (PutShipInMilitaryParade 0x00485ee0 pushes it: 0x00485efb push esi, 0x00485efc push ebx).
+//      The exe's two debug messages ("Assigning Swarmer to SLOT_SLEECH", "This ship is using MISC formation slot")
+//      are compiled out (nullsubReturnFalse). tResourceCollector and every type without a case use SLOT_Misc.
+sdword GetShipSlot(Ship *ship, MilitaryParadeCommand *militaryParade)
 {
-    switch(ship->staticinfo->shiptype)
+    switch (ship->shiptype)
     {
-      case LightDefender:
-            return SLOT_Fighter0;
-        case HeavyDefender:
-            return SLOT_Fighter1;
-        case LightInterceptor:
-            return SLOT_Fighter2;
-        case HeavyInterceptor:
-            return SLOT_Fighter3;
-        case AttackBomber:
-            return SLOT_Fighter4;
-        case CloakedFighter:
-        case DefenseFighter:
-            return SLOT_Fighter5;
-       case LightCorvette:
-            return SLOT_Corvette0;
-        case HeavyCorvette:
-            return SLOT_Corvette1;
-        case MultiGunCorvette:
-            return SLOT_Corvette2;
-        case MinelayerCorvette:
-            return SLOT_Corvette3;
-
-        case RepairCorvette:
-        case SalCapCorvette:
-            return SLOT_SupportCorvette;
-        case ResourceController:
-            return SLOT_ResourceController;
-
-        case CloakGenerator:
-        case GravWellGenerator:
-            return SLOT_NonCombat;
-
-        case ResourceCollector:
-            return SLOT_ResCollector;
-
-        case StandardDestroyer:
-            return SLOT_Destroyer;
-
-        case HeavyCruiser:
-            return SLOT_HeavyCruiser;
-
-        case SensorArray:
-            return SLOT_SensorArray;
-        case ResearchShip:
-            return SLOT_ResearchShip;
-        case P1Fighter:
-            return SLOT_P1Fighter;
-        case P1IonArrayFrigate:
-            return SLOT_P1IonArrayFrigate;
-        case P1MissileCorvette:
-            return SLOT_P1MissileCorvette;
-        case P1StandardCorvette:
-            return SLOT_P1StandardCorvette;
-        case P2Swarmer:
-            return (SLOT_P2Swarmer0 + (ship->shipID.shipNumber & 3));
-        case P2AdvanceSwarmer:
-            return (SLOT_P2AdvanceSwarmer0 + (ship->shipID.shipNumber & 3));
-        case P2FuelPod:
-            return (SLOT_P2FuelPod0 + (ship->shipID.shipNumber & 3));
-        case P2MultiBeamFrigate:
-            return (SLOT_P2MultiBeamFrigate0 + (ship->shipID.shipNumber & 3));
-        default:
-            switch(ship->shiprace)
+        case sRecon:                return SLOT_SRECON;
+        case sAcolyte:
+        case dAcolyte:              return SLOT_SACOLYTE;
+        case sMimic:                return SLOT_SMIMIC;
+        case sLeech:                return SLOT_SLEECH;
+        case sACV:                  return SLOT_SACV;
+        case sMCV:                  return SLOT_SMCV;
+        case sRammingFrigate:       return SLOT_SRAMMINGFRIGATE;
+        case sMultiBeamFrigate:     return SLOT_SMULTIBEAMFRIGATE;
+        case sHiveFrigate:          return SLOT_SHIVEFRIGATE;
+        case sSwarmer:
+        case bSwarmer:              return SLOT_SLEECH;
+        case sDreadnought:          return SLOT_SDREADNOUGHT;
+        case sCarrier:
+            if (militaryParade->militarySlots[SLOT_SCARRIER0]->highestSlotUsed >= 0)
             {
-            case R1:
-            case R2:
-                switch(ship->staticinfo->shipclass)
-                {
-                case CLASS_Fighter:
-                    return SLOT_Fighter5;
-                case CLASS_Corvette:
-                    return SLOT_Corvette3;
-                case CLASS_Frigate:
-                    return SLOT_Frigate;
-                case CLASS_Resource:
-                    return SLOT_ResCollector;
-                case CLASS_Destroyer:
-                    return SLOT_Destroyer;
-                case CLASS_HeavyCruiser:
-                    return SLOT_HeavyCruiser;
-                case CLASS_NonCombat:
-                    return SLOT_NonCombat;
-                case CLASS_Carrier:
-                    return SLOT_Carrier;
-                }
+                return (militaryParade->militarySlots[SLOT_SCARRIER1]->highestSlotUsed >= 0) ? SLOT_SCARRIER2 : SLOT_SCARRIER1;
             }
-        return SLOT_Misc;
+            return SLOT_SCARRIER0;
+        case sWorker:               return SLOT_SWORKER;
+        case sProcessor:            return SLOT_SPROCESSOR;
+        case sSentinel:             return SLOT_SSENTINEL;
+        case sMothership:           return SLOT_SMOTHERSHIP;
+        case sDestroyer:            return SLOT_SDESTROYER;
+        case bRecon:                return SLOT_BRECON;
+        case bAcolyte:              return SLOT_BACOLYTE;
+        case bInterceptor:          return SLOT_BINTERCEPTOR;
+        case bCloakedFighter:       return SLOT_BCLOAKEDFIGHTER;
+        case bAttackBomber:         return SLOT_BATTACKBOMBER;
+        case bACV:                  return SLOT_BACV;
+        case bMultiGunCorvette:     return SLOT_BMULTIGUNCORVETTE;
+        case bHeavyCorvette:        return SLOT_BHEAVYCORVETTE;
+        case bMultiBeamFrigate:     return SLOT_BMULTIBEAMFRIGATE;
+        case bHiveFrigate:          return SLOT_BHIVEFRIGATE;
+        case bIonArrayFrigate:      return SLOT_BIONARRAYFRIGATE;
+        case bDFGFrigate:           return SLOT_BDFGFRIGATE;
+        case bHeavyCruiser:
+            return (militaryParade->aroundShip->shiptype == bMothership) ? SLOT_BHEAVYCRUISER : SLOT_Misc;
+        case bCarrier:
+            if (militaryParade->militarySlots[SLOT_BCARRIER0]->highestSlotUsed >= 0)
+            {
+                return (militaryParade->militarySlots[SLOT_BCARRIER1]->highestSlotUsed >= 0) ? SLOT_BCARRIER2 : SLOT_BCARRIER1;
+            }
+            return SLOT_BCARRIER0;
+        case bRammingFrigate:       return SLOT_BRAMMINGFRIGATE;
+        case bWorker:               return SLOT_BWORKER;
+        case bProcessor:            return SLOT_BPROCESSOR;
+        case bSentinel:             return SLOT_BSENTINEL;
+        case bMothership:           return SLOT_BMOTHERSHIP;
+        case bCruiseMissile:        return SLOT_BCRUISEMISSILE;
+        case bMissileCorvette:      return SLOT_BMISSILECORVETTE;
+        case kAttackBomber:
+        case tAttackBomber:         return SLOT_Fighter4;
+        case kCarrier:              return SLOT_Carrier;
+        case kCloakGenerator:
+        case kGravWellGenerator:
+        case tCloakGenerator:
+        case tGravWellGenerator:    return SLOT_NonCombat;
+        case kHeavyCorvette:        return SLOT_Corvette1;
+        case kHeavyCruiser:
+        case tHeavyCruiser:         return SLOT_HeavyCruiser;
+        case kHeavyDefender:
+        case tHeavyDefender:        return SLOT_Fighter1;
+        case kHeavyInterceptor:
+        case tHeavyInterceptor:     return SLOT_Fighter3;
+        case kMultiGunCorvette:
+        case tMultiGunCorvette:     return SLOT_Corvette2;
+        case kSalCapCorvette:
+        case tSalCapCorvette:       return SLOT_SupportCorvette;
+        case kStandardDestroyer:
+        case tStandardDestroyer:    return SLOT_Destroyer;
+        case tMinelayerCorvette:    return SLOT_Corvette3;
+        case p1Fighter:             return SLOT_P1Fighter;
+        case p1IonArrayFrigate:     return SLOT_P1IonArrayFrigate;
+        case p1MissileCorvette:     return SLOT_P1MissileCorvette;
+        case p1StandardCorvette:    return SLOT_P1StandardCorvette;
+        default:                    return SLOT_Misc;
     }
-
-/*
-
-    switch(ship->staticinfo->shiprace)
-    {
-        case R1:
-        case R2:
-            switch (ship->staticinfo->shipclass)
-            {
-                case CLASS_Fighter:
-                    switch (ship->shiptype)
-                    {
-                        case LightDefender:
-                            return SLOT_Fighter0;
-                        case HeavyDefender:
-                            return SLOT_Fighter1;
-                        case LightInterceptor:
-                            return SLOT_Fighter2;
-                        case HeavyInterceptor:
-                            return SLOT_Fighter3;
-                        case AttackBomber:
-                            return SLOT_Fighter4;
-                        case CloakedFighter:
-                        case DefenseFighter:
-                            return SLOT_Fighter5;
-
-                        default:
-                            return SLOT_Fighter5;
-                    }
-
-                case CLASS_Corvette:
-                    switch (ship->shiptype)
-                    {
-                        case LightCorvette:
-                            return SLOT_Corvette0;
-                        case HeavyCorvette:
-                            return SLOT_Corvette1;
-                        case MultiGunCorvette:
-                            return SLOT_Corvette2;
-                        case MinelayerCorvette:
-                            return SLOT_Corvette3;
-
-                        case RepairCorvette:
-                        case SalCapCorvette:
-                            return SLOT_SupportCorvette;
-
-                        default:
-                            return SLOT_Corvette3;
-                    }
-
-                case CLASS_Frigate:
-                    switch (ship->shiptype)
-                    {
-                        case ResourceController:
-                            return SLOT_ResourceController;
-
-                        case CloakGenerator:
-                        case GravWellGenerator:
-                            return SLOT_NonCombat;
-
-                        default:
-                            return SLOT_Frigate;
-                    }
-
-                case CLASS_Resource:
-                    return SLOT_ResCollector;
-
-                case CLASS_Destroyer:
-                    return SLOT_Destroyer;
-
-                case CLASS_HeavyCruiser:
-                    return SLOT_HeavyCruiser;
-
-                case CLASS_NonCombat:
-                    if (ship->shiptype == SensorArray)
-                    {
-                        return SLOT_SensorArray;
-                    }
-                    else if (ship->shiptype == ResearchShip)
-                    {
-                        return SLOT_ResearchShip;
-                    }
-                    else
-                    {
-                        return SLOT_NonCombat;
-                    }
-
-                case CLASS_Carrier:
-                    return SLOT_Carrier;
-            }
-            return SLOT_Misc;
-
-        case P1:
-            switch(ship->shiptype)
-            {
-                case P1Fighter:
-                    return SLOT_P1Fighter;
-                case P1IonArrayFrigate:
-                    return SLOT_P1IonArrayFrigate;
-                case P1MissileCorvette:
-                    return SLOT_P1MissileCorvette;
-                case P1StandardCorvette:
-                    return SLOT_P1StandardCorvette;
-            }
-            return SLOT_Misc;
-        case P2:
-            switch(ship->shiptype)
-            {
-                case P2Swarmer:
-                    return (SLOT_P2Swarmer0 + (ship->shipID.shipNumber & 3));
-                case P2AdvanceSwarmer:
-                    return (SLOT_P2AdvanceSwarmer0 + (ship->shipID.shipNumber & 3));
-                case P2FuelPod:
-                    return (SLOT_P2FuelPod0 + (ship->shipID.shipNumber & 3));
-                case P2MultiBeamFrigate:
-                    return (SLOT_P2MultiBeamFrigate0 + (ship->shipID.shipNumber & 3));
-            }
-            return SLOT_Misc;
-        default:
-            return SLOT_Misc;
-    }
-    */
 }
 
 void CalculateNewHighestUsedSlot(MilitarySlot *militarySlot)
@@ -3414,7 +3311,7 @@ void PutShipInMilitaryParade(Ship *ship,MilitaryParadeCommand *militaryParade)
     sdword sizeofNewSlot;
     MilitarySlot *newMilitarySlot;
 
-    slot = GetShipSlot(ship);
+    slot = GetShipSlot(ship, militaryParade);               // CAT: the parade is the second argument (0x00485efb)
     dbgAssertOrIgnore(slot >= 0);
     dbgAssertOrIgnore(slot < MAX_MILITARY_SLOTS);
     slotinfo = &paradeTypeInfo->slotinfos[slot];

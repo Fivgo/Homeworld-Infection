@@ -135,6 +135,10 @@ typedef struct
 
     real32 phystimeelapsed;
     real32 totaltimeelapsed;
+    // CAT: wall-clock seconds of game play (universe.realtimeelapsed 0x00B62AC4, right after totaltimeelapsed 0x00B62AC0):
+    //      univUpdate 0x0054c3f0 adds QueryPerformanceCounter time each tick, univUpdateReset 0x0054acd0 zeroes it; the
+    //      quit/win timers and ~20 other functions read it (docs/m2-checksum-oracle.md 2.5; readers are ported with them)
+    real32 realtimeelapsed;
 
     real32 radius;
 
@@ -203,6 +207,12 @@ typedef struct
     Player players[MAX_MULTIPLAYER_PLAYERS+1];      // players[MAX_MULTIPLAYER_PLAYER] is a enemy of all players and used for autoguns, etc.
     Derelict *world[UNIV_NUMBER_WORLDS];        //list of planets
 } Universe;
+// CAT: realtimeelapsed directly follows totaltimeelapsed (exe 0x00B62AC0 / 0x00B62AC4). The fields before it do not
+//      have the exe's offsets yet (ILP32 totaltimeelapsed is +0xBC here, +0xC0 in the exe), so Universe's exe size
+//      (0x3D9BC save chunk) is asserted with the full layout (M2-R4); this pins the field this round added.
+//      [audit: added by the M2-R3 closeout-headers audit]
+_Static_assert(offsetof(Universe, realtimeelapsed) == offsetof(Universe, totaltimeelapsed) + sizeof(real32),
+               "realtimeelapsed follows totaltimeelapsed (universe 0x00B62AC4 in cataclysm.exe)");
 
 extern GrowSelection ClampedShipList;       // special GrowSelect which can have NULL's in it
 

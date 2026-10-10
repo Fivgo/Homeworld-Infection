@@ -154,6 +154,7 @@ sdword soundinit(bool32 mode);
 //sdword soundreinit(HWND hWnd);
 sdword soundreinit();
 void soundrestore(void);
+void soundstopthreads(void);    // HWI-FIX: before the game heap is unmapped at quit (soundlow.c)
 void soundclose(void);
 void soundupdate(void);
 

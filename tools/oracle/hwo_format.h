@@ -55,7 +55,7 @@
 #define HWO_REC_EVENT       0x45            /* 'E' */
 
 /* 'T' valid bits: a field is compared only when both files set its bit */
-#define HWO_TV_REAL         0x0001u         /* real = realtimeelapsed (Cataclysm only; hwi-engine has none yet) */
+#define HWO_TV_REAL         0x0001u         /* real = realtimeelapsed (hwi-engine since M2-R3) */
 #define HWO_TV_SHIPMISC     0x0002u         /* ships_misc: type, race, owner, command order/attributes */
 #define HWO_TV_HEALTH       0x0004u         /* ships_health */
 #define HWO_TV_LISTS        0x0008u         /* missiles/bullets/derelicts/resources counts and hashes */
@@ -110,7 +110,7 @@ typedef struct HwoTick
     uint32_t univcheck;         /* univGetChecksum(), f32 bits (net log muted) */
     uint16_t nships;            /* its out-parameter */
     uint32_t statcheck;         /* statsGetStatChecksum() (net log muted) */
-    uint16_t rng_streams;       /* number of streams rng_all covers (GOG 27; hwi-engine 25 until Randy.c is ported) */
+    uint16_t rng_streams;       /* number of streams rng_all covers (27 on both sides since M2-R3) */
     uint32_t rng_all;           /* hwoCrc32 over every stream's x,y,z,c,n (u32 LE each) in stream order */
     HwoRanStream rng10, rng6, rng0;     /* gamerand (RAN_Game), AI player, particle/mixed */
     uint16_t ships_n;           /* live ships (SOF_Dead clear) in ShipList order */

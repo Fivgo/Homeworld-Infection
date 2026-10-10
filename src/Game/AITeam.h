@@ -127,7 +127,11 @@ typedef struct {
     sdword    priority;
 } paramsGetShips;
 
-#define MAX_NUM_ALTERNATIVES            12      // make sure it's a multiple of 4 for alignment purposes
+// CAT: 20 alternatives of a dword each (HW1 12 of a byte each): AlternativeShips is 0xA8 bytes, copied as 0x2A dwords by
+//      aimCreateFancyGetShipsNoAdd (inlined at 0x0040e040); aioCreateReconaissance 0x0040e3a0 fills it on the stack as
+//      numNextPicks -0xC0, alternativeFlags -0xBC, ship types from -0xB8, equivalents from -0x68 (= +0x58), and
+//      aimProcessFancyGetShips reads both arrays as dwords (+0x8 and +0x58 of the struct)
+#define MAX_NUM_ALTERNATIVES            20      // CAT: was 12
 #define ALTERNATIVE_SHIP_BASE           10      // base value for equivalence comparisons between ships
 #define ALTERNATIVE_RANDOM              1       // alternativeFlags - indicates alternatives should be picked randomly
 
@@ -138,9 +142,13 @@ typedef struct AlternativeShips
 {
     sdword  numNextPicks;
     sdword  alternativeFlags;
-    sbyte   shipTypeNextPicks[MAX_NUM_ALTERNATIVES];
-    sbyte   shipNumEquivNextPicks[MAX_NUM_ALTERNATIVES];
+    sdword  shipTypeNextPicks[MAX_NUM_ALTERNATIVES];      // CAT: dwords (HW1 sbyte), +0x08
+    sdword  shipNumEquivNextPicks[MAX_NUM_ALTERNATIVES];  // CAT: dwords (HW1 sbyte), +0x58
 } AlternativeShips;
+
+// CAT: no pointers, so 0xA8 on every target
+_Static_assert(sizeof(AlternativeShips) == 0xA8, "AlternativeShips is 0xA8 bytes in cataclysm.exe");
+_Static_assert(offsetof(AlternativeShips, shipNumEquivNextPicks) == 0x58, "equivalents at +0x58 in cataclysm.exe");
 
 #define SetNumAlternatives(alt,num) \
     (alt).numNextPicks = (num);   \
@@ -153,7 +161,7 @@ typedef struct AlternativeShips
     dbgAssertOrIgnore((num) <= MAX_NUM_ALTERNATIVES);
 
 #define SetAlternative(alt,index,stype,equivnum) \
-    (alt).shipTypeNextPicks[index] = (sbyte)(stype);  \
+    (alt).shipTypeNextPicks[index] = (sdword)(stype);  \
     (alt).shipNumEquivNextPicks[index] = (equivnum);
 
 typedef struct {

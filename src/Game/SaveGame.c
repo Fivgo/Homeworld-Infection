@@ -585,6 +585,92 @@ sdword LoadVersionInfo(void)
         }
     }
 
+    if (saveGameVersionNumber == SAVE_VERSION_NUMBER_CATACLYSM)
+    {
+        return saveCatLoadHook();                   // CAT: a GOG Cataclysm save (PreLoadGame 0x004fdfc0 accepts only this)
+    }
+
+    return VERIFYSAVEFILE_BADVERSION;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : saveCatChunkSize32
+    Description : CAT: the contents size the exe writes for a chunk type whose size is fixed (docs/formats/savegame.md;
+                  SaveGame.h SAVE_CAT32_*), or -1 for the types whose size varies (BASIC_STRUCTURE sub-type 0 holds
+                  several structs: player names 0x90, tpGameCreated 0x2B0, the 0x9C state block, RNG streams 0x14 ...)
+    Inputs      : type - chunk type (flags | sub-type)
+    Outputs     :
+    Return      : bytes, or -1
+----------------------------------------------------------------------------*/
+sdword saveCatChunkSize32(TypeOfSaveChunk type)
+{
+    switch (type)
+    {
+        case INFO_CHUNK:                                        return (sdword)sizeof(InfoChunkContents);
+        case BASIC_STRUCTURE|SAVE_UNIVERSE:                     return SAVE_CAT32_UNIVERSE;
+        case BASIC_STRUCTURE|SAVE_BLOB:                         return SAVE_CAT32_BLOB;
+        case BASIC_STRUCTURE|SAVE_SHIPSINGLEPLAYERGAMEINFO:     return SAVE_CAT32_SPGAMEINFO;
+        case BASIC_STRUCTURE|SAVE_CAT_PREGAMETABLE:             return SAVE_CAT32_PREGAMETABLE;
+        case BASIC_STRUCTURE|SAVE_CAT_MISC9:                    return SAVE_CAT32_MISC9;
+        case BASIC_STRUCTURE|SAVE_CAT_MISCA:                    return SAVE_CAT32_MISCA;
+        case BASIC_STRUCTURE|SAVE_CAT_MISCB:                    return SAVE_CAT32_MISCB;
+        default:                                                return -1;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : saveCatLoadHook
+    Description : CAT: the plug-in point for GOG Cataclysm saves (version 0x10ad0027). Cataclysm's saves are raw dumps
+                  of its ILP32 structs (Ship 0x63C, Universe 0x3D9BC with 8 Players of 0x6530, ...), which this 64-bit
+                  tree cannot read field by field until the layout is fixed against real saves (the user's two saves
+                  from the M0 play-test; tools/formats/savegame_probe.py). Until then this walks the container only:
+                  every chunk header to EOF, checking the fixed-size chunk types against saveCatChunkSize32 and the
+                  ship chunks (VARIABLE_STRUCTURE | SAVE_SPACEOBJ | OBJ_ShipType) against the 0x63C minimum, logs
+                  the result and refuses the file. A loader for the 32-bit layout replaces the refusal.
+    Inputs      : savefile positioned just after the version
+    Outputs     : one log line
+    Return      : VERIFYSAVEFILE_BADVERSION (not loadable yet)
+----------------------------------------------------------------------------*/
+sdword saveCatLoadHook(void)
+{
+    FILE *fp = fileStream(savefile);
+    SaveChunk header;
+    sdword chunks = 0, checked = 0, wrong = 0, ships = 0, expect;
+
+    while (fread(&header, sizeof(SaveChunk), 1, fp) == 1)
+    {
+        if (header.contentsSize < 0)
+        {
+            wrong++;
+            break;
+        }
+        chunks++;
+        expect = saveCatChunkSize32(header.type);
+        if (expect >= 0)
+        {
+            checked++;
+            if (header.contentsSize != expect)
+            {
+                wrong++;
+            }
+        }
+        else if (header.type == (VARIABLE_STRUCTURE|SAVE_SPACEOBJ|OBJ_ShipType))
+        {
+            ships++;
+            if (header.contentsSize < SAVE_CAT32_SHIP - 4)
+            {
+                wrong++;
+            }
+        }
+        if (fseek(fp, header.contentsSize, SEEK_CUR) != 0)
+        {
+            wrong++;
+            break;
+        }
+    }
+    dbgMessagef("Cataclysm save (version 0x%x): %d chunks, %d fixed-size and %d ship chunks checked, %d wrong; "
+                "the 32-bit save layout is not ported yet (saveCatLoadHook, docs/m2-r3-closeout-headers.md)",
+                SAVE_VERSION_NUMBER_CATACLYSM, chunks, checked, ships, wrong);
     return VERIFYSAVEFILE_BADVERSION;
 }
 
@@ -1693,6 +1779,10 @@ void SaveClampInfo(ClampInfo *clampInfo)
 ClampInfo *LoadClampInfo(void)
 {
     ClampInfo *clampInfo = LoadStructureOfSize(sizeof(ClampInfo));
+    // CAT: the saved pointer to the host's clamped-object list is stale; the exe saves that list as a separate
+    //      selection chunk (SaveClampInfo inlined in 0x00501050), which this tree does not write yet (save layout
+    //      waits for the user's saves, docs/m2-r3-closeout-headers.md "save-deltamap")
+    clampInfo->clampedObjs = NULL;
     return clampInfo;
 }
 

@@ -81,13 +81,34 @@ void soundstreamquery(sdword maxstreams, sdword *pbuffersize, sdword *pstreamers
 
 
 
+// HWI-FIX: the thread handle is kept so that soundstopthreads can join the thread before the game heap is unmapped
+//          (M2-R3 closeout-headers audit); GoK dropped it, and the thread ran on through shutdown
+static SDL_Thread *streamThread = NULL;
+
 sdword streamStartThread(void)
 {
 	streamer.status = SOUND_PLAYING;
 
-	SDL_CreateThread(isoundstreamupdate, "soundstream", NULL);
-			
+	streamThread = SDL_CreateThread(isoundstreamupdate, "soundstream", NULL);
+
 	return (SOUND_OK);
+}
+
+/*-----------------------------------------------------------------------------
+	Name		: streamWaitThread
+	Description	: HWI-FIX: wait for the "soundstream" thread to end (it ends once soundinited is FALSE) and free its
+				  handle. Called by soundstopthreads at quit, before the game heap is unmapped.
+	Inputs		:
+	Outputs		:
+	Return		:
+----------------------------------------------------------------------------*/
+void streamWaitThread(void)
+{
+	if (streamThread != NULL)
+	{
+		SDL_WaitThread(streamThread, NULL);
+		streamThread = NULL;
+	}
 }
 
 

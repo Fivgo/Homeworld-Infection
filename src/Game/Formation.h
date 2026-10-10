@@ -91,48 +91,74 @@ typedef struct
 
 #define sizeofMilitarySlot(n) (sizeof(MilitarySlot) + sizeof(Subslot)*((n)-1))
 
-#define SLOT_Fighter0               0
-#define SLOT_Fighter1               1
-#define SLOT_Fighter2               2
-#define SLOT_Fighter3               3
-#define SLOT_Fighter4               4
-#define SLOT_Fighter5               5
-#define SLOT_Corvette0              6
-#define SLOT_Corvette1              7
-#define SLOT_Corvette2              8
-#define SLOT_Corvette3              9
-#define SLOT_Frigate                10
-#define SLOT_ResCollector           11
-#define SLOT_ResourceController     12
-#define SLOT_Destroyer              13
-#define SLOT_HeavyCruiser           14
-#define SLOT_NonCombat              15
-#define SLOT_Carrier                16
-#define SLOT_SupportCorvette        17
-#define SLOT_SensorArray            18
-#define SLOT_ResearchShip           19
-#define SLOT_P1Fighter              20
-#define SLOT_P1IonArrayFrigate      21
-#define SLOT_P1MissileCorvette      22
-#define SLOT_P1StandardCorvette     23
-#define SLOT_P2Swarmer0             24
-#define SLOT_P2Swarmer1             25
-#define SLOT_P2Swarmer2             26
-#define SLOT_P2Swarmer3             27
-#define SLOT_P2AdvanceSwarmer0      28
-#define SLOT_P2AdvanceSwarmer1      29
-#define SLOT_P2AdvanceSwarmer2      30
-#define SLOT_P2AdvanceSwarmer3      31
-#define SLOT_P2FuelPod0             32
-#define SLOT_P2FuelPod1             33
-#define SLOT_P2FuelPod2             34
-#define SLOT_P2FuelPod3             35
-#define SLOT_P2MultiBeamFrigate0    36
-#define SLOT_P2MultiBeamFrigate1    37
-#define SLOT_P2MultiBeamFrigate2    38
-#define SLOT_P2MultiBeamFrigate3    39
-#define SLOT_Misc                   40
-#define MAX_MILITARY_SLOTS          41
+// CAT: Cataclysm's 63 parade slots, numbered as the exe's ParadeInfoScriptTable 0x0087fb68 orders its keys
+//      (SlotPositionInfo[SLOT_xxx] -> paradeTypeInfos 0x00a3e448 + 0x1C * slot) and as GetShipSlot 0x00485b30
+//      returns them (MAX_MILITARY_SLOTS 63, HW1 41). HW1's SLOT_ResourceController, SLOT_SensorArray,
+//      SLOT_ResearchShip and the SLOT_P2* slots are gone.
+#define SLOT_SRECON                 0
+#define SLOT_SMIMIC                 1
+#define SLOT_SMCV                   2
+#define SLOT_SWORKER                3
+#define SLOT_SPROCESSOR             4
+#define SLOT_SCARRIER0              5
+#define SLOT_SCARRIER1              6
+#define SLOT_SCARRIER2              7
+#define SLOT_SSENTINEL              8
+#define SLOT_SACOLYTE               9
+#define SLOT_SACV                   10
+#define SLOT_SRAMMINGFRIGATE        11
+#define SLOT_SMULTIBEAMFRIGATE      12
+#define SLOT_SHIVEFRIGATE           13
+#define SLOT_SDREADNOUGHT           14
+#define SLOT_SLEECH                 15
+#define SLOT_SDESTROYER             16
+#define SLOT_SMOTHERSHIP            17
+#define SLOT_BRECON                 18
+#define SLOT_BWORKER                19
+#define SLOT_BPROCESSOR             20
+#define SLOT_BHIVEFRIGATE           21
+#define SLOT_BMULTIBEAMFRIGATE      22
+#define SLOT_BCARRIER0              23
+#define SLOT_BCARRIER1              24
+#define SLOT_BCARRIER2              25
+#define SLOT_BSENTINEL              26
+#define SLOT_BACOLYTE               27
+#define SLOT_BACV                   28
+#define SLOT_BINTERCEPTOR           29
+#define SLOT_BATTACKBOMBER          30
+#define SLOT_BCLOAKEDFIGHTER        31
+#define SLOT_BMULTIGUNCORVETTE      32
+#define SLOT_BDFGFRIGATE            33
+#define SLOT_BHEAVYCORVETTE         34
+#define SLOT_BIONARRAYFRIGATE       35
+#define SLOT_BHEAVYCRUISER          36
+#define SLOT_BMISSILECORVETTE       37
+#define SLOT_BCRUISEMISSILE         38
+#define SLOT_BRAMMINGFRIGATE        39
+#define SLOT_BMOTHERSHIP            40
+#define SLOT_Fighter0               41
+#define SLOT_Fighter1               42
+#define SLOT_Fighter2               43
+#define SLOT_Fighter3               44
+#define SLOT_Fighter4               45
+#define SLOT_Fighter5               46
+#define SLOT_Corvette0              47
+#define SLOT_Corvette1              48
+#define SLOT_Corvette2              49
+#define SLOT_Corvette3              50
+#define SLOT_Frigate                51
+#define SLOT_ResCollector           52
+#define SLOT_Destroyer              53
+#define SLOT_HeavyCruiser           54
+#define SLOT_NonCombat              55
+#define SLOT_Carrier                56
+#define SLOT_SupportCorvette        57
+#define SLOT_P1Fighter              58
+#define SLOT_P1IonArrayFrigate      59
+#define SLOT_P1MissileCorvette      60
+#define SLOT_P1StandardCorvette     61
+#define SLOT_Misc                   62
+#define MAX_MILITARY_SLOTS          63          // CAT: was 41
 
 typedef struct
 {
@@ -140,6 +166,12 @@ typedef struct
     sdword paradeType;
     MilitarySlot *militarySlots[MAX_MILITARY_SLOTS];
 } MilitaryParadeCommand;
+#if defined(__i386__) || defined(_M_IX86)
+// CAT: 8 + 63 x 4 bytes on the exe's ILP32 layout (GetShipSlot 0x00485b30 reads militarySlots[5]/[6] at +0x1C/+0x20 and
+//      [23]/[24] at +0x64/+0x68 of the parade command)
+_Static_assert(sizeof(MilitaryParadeCommand) == 0x104, "MilitaryParadeCommand is 0x104 bytes in cataclysm.exe");
+#endif
+_Static_assert(MAX_MILITARY_SLOTS == SLOT_Misc + 1, "SLOT_Misc is the last of the 63 Cataclysm parade slots");
 
 struct CommandLayer;
 

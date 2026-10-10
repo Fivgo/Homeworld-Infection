@@ -286,7 +286,37 @@ void soundrestore(void)
 
 	isoundmixerrestore();
 
+#ifndef _WIN32
+	// HWI-FIX: close the SDL audio device, which waits for a running soundfeedercb and stops further callbacks.
+	//          GoK left the callback thread running through shutdown; it read sound data from the game heap after
+	//          utyGameSystemsShutdown unmapped it (SEGV in isoundmixerdecodeEffect, run r3-closeout-final-oracle), which
+	//          the munmap(heap, 0) failure had hidden until M2-R3 (docs/m2-r3-closeout-headers.md "quit").
+	SDL_CloseAudio();
+#endif
+
 	return;
+}
+
+
+/*-----------------------------------------------------------------------------
+	Name		: soundstopthreads
+	Description	: HWI-FIX: stop the sound threads before the game heap is unmapped. utyGameSystemsShutdown does not
+				  call soundEventClose (so not soundrestore above) under _LINUX_FIX_ME, so on Linux the SDL audio
+				  thread (soundfeedercb) and the "soundstream" thread (isoundstreamupdate, a busy loop over the stream
+				  buffers) kept running through utyGameSystemsShutdown and read the unmapped heap: a SIGSEGV in thread
+				  SDLAudioP1 right after munmap of the main heap in about 1 of 5 oracle-mode quits (M2-R3 closeout-headers
+				  audit, docs/audits/m2-r3-closeout-headers.md). Not a Cataclysm delta.
+	Inputs		:
+	Outputs		: soundinited FALSE, the stream thread joined, the audio device closed
+	Return		:
+----------------------------------------------------------------------------*/
+void soundstopthreads(void)
+{
+#ifndef _WIN32
+	soundinited = FALSE;                        // ends isoundstreamupdate's loop (it cleans up and sets SOUND_FREE)
+	streamWaitThread();                         // join it (no-op if it was never started)
+	SDL_CloseAudio();                           // waits for a running soundfeedercb, no callback after it
+#endif
 }
 
 

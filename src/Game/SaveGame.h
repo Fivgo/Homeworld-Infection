@@ -78,6 +78,48 @@ typedef struct
 
 #define chunkContents(c) ((void *) (((ubyte *)c) + sizeof(SaveChunk)))
 
+/*-----------------------------------------------------------------------------
+    CAT: Cataclysm's save container and chunk sizes (docs/formats/savegame.md; M2-R3 "save-deltamap").
+    The container is HW1's: a raw udword version, then {sdword type; sdword contentsSize; contents} chunks to EOF
+    (SaveThisChunk 0x004fd7c0, LoadNextChunk 0x004fd840). Cataclysm writes 0x10ad0027 (SaveGame 0x004fdaf0) and
+    PreLoadGame 0x004fdfc0 accepts nothing else. The sizes below are the exe's chunk contents sizes (ILP32 structs).
+    hwi-engine still WRITES its own 64-bit layout under SAVE_VERSION_NUMBER (GoK's 0x10ad0029), so its files are never
+    mistaken for GOG saves; a 0x10ad0027 file goes to saveCatLoadHook (SaveGame.c), the place the 32-bit reader
+    plugs in once the user's two saves fix the layout.
+-----------------------------------------------------------------------------*/
+#define SAVE_VERSION_NUMBER_CATACLYSM   SAVE_VERSION_NUMBER_ORIGINAL   // 0x10ad0027, unchanged from HW1 1.04
+
+// new chunk sub-types (BASIC_STRUCTURE | x)
+#define SAVE_CAT_PREGAMETABLE           0x00004000  // cat_saveGamePreGameTable 0x004fda00: 3 {ptr,size} entries at 0x00892660
+#define SAVE_CAT_MISC9                  0x00009000  // cat_saveGameMiscChunks 0x005ba170: 0x24 bytes from 0x00a762e8
+#define SAVE_CAT_MISCA                  0x0000a000  //   0x24 bytes from 0x00a77ab0
+#define SAVE_CAT_MISCB                  0x0000b000  //   0x17A0 bytes from 0x00a76310
+
+// contents sizes in the exe's saves
+#define SAVE_CAT32_STATEBLOCK           0x9C        // BASIC_STRUCTURE (sub-type 0) right after the pre-game block: 39 dwords from 0x00c32c00
+#define SAVE_CAT32_PLAYERNAMES          0x90        // 8 x 18
+#define SAVE_CAT32_CAPTAINGAMEINFO      0x2B0       // tpGameCreated (HW1 0x268)
+#define SAVE_CAT32_PREGAMETABLE         0x0C
+#define SAVE_CAT32_MISC9                0x24
+#define SAVE_CAT32_MISCA                0x24
+#define SAVE_CAT32_MISCB                0x17A0
+#define SAVE_CAT32_UNIVERSE             0x3D9BC     // SaveUniverse 0x005034c0, BASIC | SAVE_UNIVERSE (HW1 0x30A0)
+#define SAVE_CAT32_PLAYER               0x6530      // Player stride inside the Universe chunk (PreLoadGame loop)
+#define SAVE_CAT32_SHIP                 0x63C       // SaveShip 0x004ffd70: + sizeofShipSpecifics - 4 (+0x7C precise selection, + MAD)
+#define SAVE_CAT32_BLOB                 0x100       // SaveBlob 0x004fe7d0, BASIC | SAVE_BLOB
+#define SAVE_CAT32_SPGAMEINFO           0x54        // SaveSinglePlayerGame 0x0051bee0, SinglePlayerGameInfo
+#define SAVE_CAT32_SHIPSTATICINFO       0x458       // a dynamic ShipStaticInfo (BASIC | SAVE_STATICINFO)
+#define SAVE_CAT32_CLAMPINFO            0x38        // SaveClampInfo (inlined in 0x00501050)
+#define SAVE_CAT32_RANSTREAM            0x14        // ranSave 0x004efb50, 27 chunks
+
+_Static_assert(sizeof(SaveChunk) == 8, "chunk header is 8 bytes in cataclysm.exe saves");
+_Static_assert(sizeof(InfoChunkContents) == 4, "an INFO chunk holds one sdword in cataclysm.exe saves");
+#if defined(__i386__) || defined(_M_IX86)
+// the structs whose exe layout this tree already has must match the exe's chunk sizes (tools/m2_layout32.sh)
+_Static_assert(sizeof(ShipStaticInfo) == SAVE_CAT32_SHIPSTATICINFO, "ShipStaticInfo chunk is 0x458 in cataclysm.exe");
+_Static_assert(sizeof(ClampInfo) == SAVE_CAT32_CLAMPINFO, "ClampInfo chunk is 0x38 in cataclysm.exe");
+#endif
+
 #define sizeofSaveChunk(n) (sizeof(SaveChunk) + n)
 
 #define VerifyChunk(c,t,s)              \
@@ -150,6 +192,8 @@ void Load_StringToAddress(char *addr);
 #define VERIFYSAVEFILE_BADVERSION       -2
 
 sdword VerifySaveFile(char *filename);
+sdword saveCatChunkSize32(TypeOfSaveChunk type);   // CAT: the exe's contents size of a fixed-size chunk type, -1 if it varies
+sdword saveCatLoadHook(void);                       // CAT: a 0x10ad0027 (GOG Cataclysm) file; see SaveGame.c
 
 bool32 LoadInfoNumberOptional(sdword *info);
 SaveChunk *LoadNextChunkSafe();

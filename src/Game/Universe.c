@@ -4664,6 +4664,9 @@ processtextures:
                 {
                     if (universePause)
                     {
+                        // CAT: consume the paused real time (universeUpdateTask 0x0053e460 calls
+                        //      cat_univRealTimeDelta 0x0054c360 in the paused branch, so realtimeelapsed does not jump)
+                        cat_univRealTimeDelta();
                         goto alldone;
                     }
                 }
@@ -4731,6 +4734,7 @@ processtextures:
 
                 if (universePause)
                 {
+                    cat_univRealTimeDelta();        // CAT: as above (universeUpdateTask 0x0053e460, free-running branch)
                     goto alldone2;
                 }
 

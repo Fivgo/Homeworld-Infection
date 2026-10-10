@@ -79,6 +79,7 @@
 #include "ShipView.h"
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
+#include "soundlow.h"                                      // HWI-FIX: soundstopthreads (quit)
 #include "SpaceObj.h"
 #include "Stats.h"
 #include "StatScript.h"
@@ -175,6 +176,14 @@ extern unsigned char *updateNewerAvailable;
 bool32 utilPlayingIntro = FALSE;
 
 void *utyMemoryHeap;
+#ifndef _WIN32
+// HWI-FIX: munmap() needs the mapped length (length 0 is EINVAL on Linux), so every quit after a growth heap was created
+//          ended with the utility.c "result != -1" assertion (GoK 3af31fb defect, docs/m2-r3-closeout-headers.md "quit").
+//          The lengths of the main heap and of each growth heap are remembered here. Not a Cataclysm delta: the exe
+//          frees its heaps with VirtualFree(heap, 0, MEM_RELEASE), which takes no length.
+static size_t utyMemoryHeapLength = 0;
+static struct { void *heap; size_t length; } utyGrowthHeaps[MGH_NumberGrowthHeaps];
+#endif
 char errorString[UTY_ErrorStringLength];
 
 // used to skip the tutorial warning after you have played a non tutorial mission
@@ -1798,7 +1807,13 @@ void gameStart(char *loadfilename)
     if (loadfilename == NULL)
     {
         univupdateReset();                                      //reset univupdate
-        ranStartup();                                           //restart the random-number generator
+        // CAT: no ranStartup here (gameStart 0x005a9290, 0x005a9a98): a new non-single-player game resets streams
+        //      1..26 with cat_ranResetGameStreams; stream 0 keeps its start-up wall-clock offset, and a new
+        //      single-player game keeps every stream as it is (incl. aiplayerStartup's ranRandomize of stream 6)
+        if (!singlePlayerGame)
+        {
+            cat_ranResetGameStreams();
+        }
     }
     else
     {
@@ -3461,7 +3476,24 @@ void *utyGrowthHeapAlloc(sdword size)
 #ifdef _WIN32
     return((void *)VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE));
 #else
-    return mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    void *heap = mmap(0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    sdword i;
+
+    if (heap == MAP_FAILED)
+    {
+        return NULL;                                        // memNewGrowthPoolAlloc reports a NULL heap
+    }
+    for (i = 0; i < MGH_NumberGrowthHeaps; i++)
+    {                                                       // HWI-FIX: remember the length for utyGrowthHeapFree
+        if (utyGrowthHeaps[i].heap == NULL)
+        {
+            utyGrowthHeaps[i].heap = heap;
+            utyGrowthHeaps[i].length = (size_t)size;
+            break;
+        }
+    }
+    dbgAssertOrIgnore(i < MGH_NumberGrowthHeaps);
+    return heap;
 #endif
 }
 
@@ -3479,8 +3511,19 @@ void utyGrowthHeapFree(void *heap)
     result = VirtualFree(heap, 0, MEM_RELEASE);
     dbgAssertOrIgnore(result);
 #else
-    int result;
-    result = munmap(heap, 0);
+    int result = -1;
+    sdword i;
+
+    for (i = 0; i < MGH_NumberGrowthHeaps; i++)
+    {                                                       // HWI-FIX: unmap with the length it was mapped with
+        if (utyGrowthHeaps[i].heap == heap)
+        {
+            result = munmap(heap, utyGrowthHeaps[i].length);
+            utyGrowthHeaps[i].heap = NULL;
+            utyGrowthHeaps[i].length = 0;
+            break;
+        }
+    }
     dbgAssertOrIgnore(result != -1);
 #endif
 }
@@ -3796,8 +3839,13 @@ char* utyGameSystemsPreInit(void)
 #ifdef _WIN32
     utyMemoryHeap = (void *)VirtualAlloc(NULL, MemoryHeapSize + sizeof(memcookie) * 4, MEM_COMMIT, PAGE_READWRITE);
 #else
-    utyMemoryHeap = mmap(0, MemoryHeapSize + sizeof(memcookie) * 4,
+    utyMemoryHeapLength = (size_t)MemoryHeapSize + sizeof(memcookie) * 4;
+    utyMemoryHeap = mmap(0, utyMemoryHeapLength,
         PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (utyMemoryHeap == MAP_FAILED)
+    {
+        utyMemoryHeap = NULL;                               // HWI-FIX: mmap reports failure as MAP_FAILED, not NULL
+    }
 #endif
 
     if (utyMemoryHeap == NULL)
@@ -4348,7 +4396,7 @@ char* utyGameSystemsPreShutdown(void)
         bool32 result = VirtualFree(utyMemoryHeap, 0, MEM_RELEASE);
         dbgAssertOrIgnore(result);
 #else
-        dbgAssertAlwaysDo(munmap(utyMemoryHeap, 0) != -1);
+        dbgAssertAlwaysDo(munmap(utyMemoryHeap, utyMemoryHeapLength) != -1);   // HWI-FIX: mapped length, not 0
 #endif
         utyClear(SSA_MemoryHeap);
     }
@@ -4424,6 +4472,8 @@ char *utyGameSystemsShutdown(void)
         // shutdown sound engine
 #ifndef _LINUX_FIX_ME
         soundEventClose();
+#else
+        soundstopthreads();     // HWI-FIX: no sound thread may read the heap after it is unmapped below (soundlow.c)
 #endif
         utyClear2(SS2_SoundEngine);
     }
@@ -4697,7 +4747,7 @@ char *utyGameSystemsShutdown(void)
         dbgAssertOrIgnore(result);
 #else
         int result;
-        result = munmap(utyMemoryHeap, 0);
+        result = munmap(utyMemoryHeap, utyMemoryHeapLength);   // HWI-FIX: mapped length, not 0
         dbgAssertOrIgnore(result != -1);
 #endif
         utyClear(SSA_MemoryHeap);
