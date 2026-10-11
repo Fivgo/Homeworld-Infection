@@ -145,6 +145,10 @@ args+=("${extra[@]}")
 run_once() {
 	local d=$1
 	export HOME="$out/home" HW_Data="$data" SDL_VIDEODRIVER="$d"
+	# Automated runs are SILENT: the engine still initialises and "plays" audio, but through SDL's dummy
+	# backend, so nothing reaches the speakers (the user heard the intro and front-end music on every
+	# self-test, 2026-10-11). Override only for a deliberate, attended listen: HWI_AUDIBLE=1.
+	[[ "${HWI_AUDIBLE:-0}" = 1 ]] || export SDL_AUDIODRIVER=dummy
 	export ASAN_OPTIONS="log_path=$out/asan:detect_leaks=1:verify_asan_link_order=0"
 	export UBSAN_OPTIONS="print_stacktrace=1:log_path=$out/ubsan"
 	# LeakSanitizer runs at a normal exit (M2-R3: quits no longer stop at the munmap assertion); its report lands in the
