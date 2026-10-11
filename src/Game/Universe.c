@@ -53,7 +53,7 @@
 #include "Tutor.h"
 #include "Tweak.h"
 #include "UnivUpdate.h"
-#include "OracleDump.h"     // HWI-ORACLE: ORACLE_UNIV_UPDATE at the 4 univUpdate call sites of universeUpdateTask (hook H1)
+#include "OracleDump.h"     // HWI-ORACLE: ORACLE_UNIV_UPDATE at the univUpdate call sites of universeUpdateTask (hook H1; 3 since M2-R3, as in the exe)
 #include "utility.h"
 
 #ifdef _MSC_VER
@@ -106,6 +106,7 @@ meshdata *defaultmesh = NULL;
 
 ubyte turboTimeCompressionFactor = 8;  // same as Homeworld Cataclysm
 bool32 universeTurbo = FALSE;
+bool32 universePlaybackNoPacket = FALSE;    // CAT: 0x00a6c5c8, set when a recorded-game playback pass finds no packet
 bool32 universePause = FALSE;
 
 sdword cdMaxShipsAllowed;            // max number of ships allowed
@@ -293,6 +294,8 @@ static void LODScriptLoad(char *directory,char *field,void *dataToFillIn);
 static void setGunBindInfo(char *directory,char *field,void *dataToFillIn);
 static void setAnimationBindInfo(char *directory,char *field,void *dataToFillIn);
 static void setMadStartInfo(char *directory,char *field,void *dataToFillIn);
+static void cat_madNumberOfAnimsSetCB(char *directory,char *field,void *dataToFillIn);   // CAT: new (0x00539e40)
+static void setMadAnim(char *directory,char *field,void *dataToFillIn);                  // CAT: new (0x00539f70)
 static void setGunAnimInfo(char *directory,char *field,void *dataToFillIn);
 static void setDockAnimInfo(char *directory,char *field,void *dataToFillIn);
 static void setMothershipDoorAnimInfo(char *directory,char *field,void *dataToFillIn);
@@ -1107,6 +1110,9 @@ scriptStructEntry MadMaxMadInfoLoad[] =
     { "MadDockAnims",                   setDockAnimInfo,0, 0 },
     { "MadMothershipDockingAnims",      setMothershipDoorAnimInfo,0,0 },
     { "MadSpecialCaseAnims",      setSpecialCaseAnimInfo,0,0 },
+    // CAT: two new keys (table 0x008b2f88 rows 5 and 6)
+    { "NUMBER_OF_ANIMS",                cat_madNumberOfAnimsSetCB,0,0 },
+    { "ANIM",                           setMadAnim,0,0 },
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -1137,15 +1143,9 @@ scriptStructEntry AsteroidStaticScriptTable[] =
     { "maxCollDamage",      scriptSetReal32CB,   &(asteroidStaticInfos[0].health.maxCollDamage),  &(asteroidStaticInfos[0]) },
     { "resourcevalue",  scriptSetSdwordCB,   &(asteroidStaticInfos[0].resource.resourcevalue),  &(asteroidStaticInfos[0]) },
     { "harvestableByMultipleShips",  scriptSetUdwordCB,   &(asteroidStaticInfos[0].resource.harvestableByMultipleShips),  &(asteroidStaticInfos[0]) },
-
-    { "asteroidCanShrink",scriptSetBool8,  &(asteroidStaticInfos[0].asteroidCanShrink),  &(asteroidStaticInfos[0]) },
-    { "asteroidCanBreak", scriptSetBool8,  &(asteroidStaticInfos[0].asteroidCanBreak),   &(asteroidStaticInfos[0]) },
-    { "asteroidMinShrink",scriptSetReal32CB,  &(asteroidStaticInfos[0].asteroidMinShrink),  &(asteroidStaticInfos[0]) },
-    { "breakinto[Asteroid0]",scriptSetUdwordCB,  &(asteroidStaticInfos[0].breakinto[Asteroid0]),  &(asteroidStaticInfos[0]) },
-    { "breakinto[Asteroid1]",scriptSetUdwordCB,  &(asteroidStaticInfos[0].breakinto[Asteroid1]),  &(asteroidStaticInfos[0]) },
-    { "breakinto[Asteroid2]",scriptSetUdwordCB,  &(asteroidStaticInfos[0].breakinto[Asteroid2]),  &(asteroidStaticInfos[0]) },
-    { "breakinto[Asteroid3]",scriptSetUdwordCB,  &(asteroidStaticInfos[0].breakinto[Asteroid3]),  &(asteroidStaticInfos[0]) },
-    { "breakinto[Asteroid4]",scriptSetUdwordCB,  &(asteroidStaticInfos[0].breakinto[Asteroid4]),  &(asteroidStaticInfos[0]) },
+    // CAT: no asteroidCanShrink/asteroidCanBreak/asteroidMinShrink/breakinto[] keys (the exe's table 0x008b3008 ends
+    //      with harvestableByMultipleShips and preciseSelection); breaking is NUMBER_OF_ASTEROID_PIECES/AsteroidBreakInfo
+    //      (cat_scriptAsteroidBreakInfoLoad 0x00528190, called by InitStatAsteroidInfo)
     { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfos[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfos[0]) },
 
     END_SCRIPT_STRUCT_ENTRY
@@ -1387,6 +1387,8 @@ scriptStructEntry MineStaticScriptTable[] =
     { "MINE_RANGESQR",           scriptSetReal32SqrCB,   &(mineStaticInfos[0].MINE_RANGESQR),  &(mineStaticInfos[0]) },
     { "MINE_RANGESQR_FORCED",           scriptSetReal32SqrCB,   &(mineStaticInfos[0].MINE_RANGESQR_FORCED),  &(mineStaticInfos[0]) },
     { "preciseSelection",scriptSetUdwordCB, &(ShipStaticInfos[0].common.staticCollInfo.preciseSelection),  &(ShipStaticInfos[0]) },
+    // CAT: new key (table 0x008b3b88 row 37; the exe takes the offset from missileStaticInfos, the same struct)
+    { "N-LIPS",                         scriptSetReal32CB,      &(missileStaticInfos[0].scaleCap),  &(missileStaticInfos[0]) },
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -1831,6 +1833,52 @@ static void setClassCB(char *directory,char *field,void *dataToFillIn)
     *((ShipClass *)dataToFillIn) = StrToShipClass(field);
 }
 
+// CAT: key NUMBER_OF_ANIMS n (cat_madNumberOfAnimsSetCB 0x00539e40): loads the ship's .mad like BindAnimations, then
+//      allocates an n-entry animation table, all -1 until ANIM lines fill it; n <= 0 does nothing
+static void cat_madNumberOfAnimsSetCB(char *directory,char *field,void *dataToFillIn)
+{
+    ShipStaticInfo *info = (ShipStaticInfo *)dataToFillIn;
+    sdword numAnims = 0;
+    char fileName[256];
+    sdword i;
+
+    sscanf(field,"%i",&numAnims);
+    if (numAnims > 0)
+    {
+        sprintf(fileName, "%s%s%s", directory, ShipTypeToStr(info->shiptype), MAD_Extension);
+        info->madStatic = memAlloc(sizeof(madstatic), "madBindings", NonVolatile);
+        memset(info->madStatic,0,sizeof(madstatic));
+        info->madStatic->header = madFileLoad(fileName);
+        info->hierarchySize = lodHierarchySizeCompute(info->common.LOD);
+        info->madStatic->numAnims = numAnims;
+        info->madStatic->animIndexes = memAlloc(numAnims * sizeof(sdword), "madAnimIndexes", NonVolatile);
+        memset(info->madStatic->animIndexes, 0, numAnims * sizeof(sdword));
+        for (i = 0; i < info->madStatic->numAnims; i++)
+        {
+            info->madStatic->animIndexes[i] = -1;
+        }
+        info->madStatic->animsByNumber = 1;
+    }
+}
+
+// CAT: key ANIM "n name" (setMadAnim 0x00539f70): animation n is the .mad animation of that name (-1 if none; the exe
+//      then warns into a stripped debug print). Like the exe, it trusts NUMBER_OF_ANIMS to have come first and n to
+//      be in range.
+static void setMadAnim(char *directory,char *field,void *dataToFillIn)
+{
+    ShipStaticInfo *info = (ShipStaticInfo *)dataToFillIn;
+    sdword index = 0;
+    char madAnimName[256];
+
+    madAnimName[0] = 0;
+    sscanf(field,"%i %s",&index,madAnimName);
+    info->madStatic->animIndexes[index] = madAnimIndexFindByName(info->madStatic->header, madAnimName);
+    if (info->madStatic->animIndexes[index] == -1)
+    {
+        dbgMessagef("setMadAnim(): Animation %s not found in %s", madAnimName, ShipTypeToStr(info->shiptype));
+    }
+}
+
 // CAT: key beastAttackConvertTo, a ship type name (cat_scriptSetBeastAttackConvertToCB 0x0053ac50)
 static void cat_scriptSetBeastAttackConvertToCB(char *directory,char *field,void *dataToFillIn)
 {
@@ -1960,15 +2008,30 @@ void precalcStaticInfoHealth(StaticInfoHealth *staticinfo)
     }
 }
 
-void precalcStaticInfoGuidance(StaticInfoHealthGuidance *staticinfo)
+// CAT: the exe has three orders of the thrust product (mass, thrust and GLOBAL_SHIP_SPEED_MODIFIER), one per site;
+//      HW1 multiplied thrust by (mass * modifier) everywhere. The rest of the guidance precalc is the same at every site.
+#define CAT_THRUST_MOD_THRUST_MASS  0   // precalcStaticInfoGuidance 0x0053ad70 (universeStaticInit's derelicts), InitStatDerelictInfoByPath 0x0053b2a0
+#define CAT_THRUST_MASS_THRUST_MOD  1   // InitStatShipInfo 0x0053bab0 inline (0x0053c05d: fld mass; fmul thrust; fmul modifier)
+#define CAT_THRUST_THRUST_MASS_MOD  2   // InitStatMissileInfo 0x0053b400, InitStatMineInfo 0x0053b660 inline
+
+static void catPrecalcStaticInfoGuidanceOrder(StaticInfoHealthGuidance *staticinfo, sdword order)
 {
     sdword i;
 
     for (i=0;i<NUM_TRANS_DEGOFFREEDOM;i++)
     {
-        // CAT: the exe multiplies (mass * thrust) * GLOBAL_SHIP_SPEED_MODIFIER (InitStatShipInfo 0x0053bab0 inline,
-        //      0x0053c05d: fld mass; fmul thrust; fmul modifier); HW1 multiplied thrust by (mass * modifier)
-        staticinfo->thruststrengthstat[i] = staticinfo->common.mass * staticinfo->thruststrengthstat[i] * GLOBAL_SHIP_SPEED_MODIFIER;
+        switch (order)
+        {
+            case CAT_THRUST_MASS_THRUST_MOD:
+                staticinfo->thruststrengthstat[i] = staticinfo->common.mass * staticinfo->thruststrengthstat[i] * GLOBAL_SHIP_SPEED_MODIFIER;
+                break;
+            case CAT_THRUST_THRUST_MASS_MOD:
+                staticinfo->thruststrengthstat[i] = staticinfo->thruststrengthstat[i] * staticinfo->common.mass * GLOBAL_SHIP_SPEED_MODIFIER;
+                break;
+            default:
+                staticinfo->thruststrengthstat[i] = GLOBAL_SHIP_SPEED_MODIFIER * staticinfo->thruststrengthstat[i] * staticinfo->common.mass;
+                break;
+        }
     }
 
     staticinfo->common.maxvelocity *= GLOBAL_SHIP_SPEED_MODIFIER;
@@ -1979,6 +2042,11 @@ void precalcStaticInfoGuidance(StaticInfoHealthGuidance *staticinfo)
     staticinfo->rotstrengthstat[ROT_ABOUTYCW]  *= staticinfo->common.momentOfInertiaY;
     staticinfo->rotstrengthstat[ROT_ABOUTZCCW] *= staticinfo->common.momentOfInertiaZ;
     staticinfo->rotstrengthstat[ROT_ABOUTZCW]  *= staticinfo->common.momentOfInertiaZ;
+}
+
+void precalcStaticInfoGuidance(StaticInfoHealthGuidance *staticinfo)
+{
+    catPrecalcStaticInfoGuidanceOrder(staticinfo, CAT_THRUST_MOD_THRUST_MASS);   // CAT: 0x0053ad70's order
 }
 
 /*-----------------------------------------------------------------------------
@@ -2016,6 +2084,7 @@ void InitStatAsteroidInfo(AsteroidStaticInfo *asteroidStatInfo,AsteroidType aste
     if (fileExists(fullshipname,0))
     {
         scriptSetStruct(directory,shipname,AsteroidStaticScriptTable,(ubyte *)asteroidStatInfo);
+        cat_scriptAsteroidBreakInfoLoad(directory,shipname,asteroidStatInfo);   // CAT: new (0x00528190)
 
         precalcStaticHeader(&asteroidStatInfo->common);
         precalcStaticInfoHealth((StaticInfoHealth *)asteroidStatInfo);
@@ -2259,7 +2328,7 @@ void InitStatDerelictInfo(DerelictStaticInfo *derelictStatInfo, DerelictType der
     scriptSetNAVLightStatics(directory, shipname, (ShipStaticInfo *)derelictStatInfo);
     if (derelictStatInfo->navlightStaticInfo != NULL)
     {
-        mexGetNAVLightStaticInfo(derelictStatInfo->navlightStaticInfo,derelictStatInfo->common.pMexData);
+        mexGetNAVLightStaticInfo(derelictStatInfo->navlightStaticInfo,&derelictStatInfo->common);   // CAT: the header (0x004b7680)
     }
 }
 
@@ -2332,7 +2401,7 @@ void InitStatMissileInfo(MissileStaticInfo *missileStatInfo,ShipRace race)
 
     precalcStaticHeader(&missileStatInfo->common);
     precalcStaticInfoHealth((StaticInfoHealth *)missileStatInfo);
-    precalcStaticInfoGuidance((StaticInfoHealthGuidance *)missileStatInfo);
+    catPrecalcStaticInfoGuidanceOrder((StaticInfoHealthGuidance *)missileStatInfo, CAT_THRUST_THRUST_MASS_MOD);   // CAT: inline order
 
     //missile trail stuff
     missileStatInfo->trailWidth = -1.0f;
@@ -2383,7 +2452,7 @@ void InitStatMineInfo(MissileStaticInfo *mineStatInfo,ShipRace race)
 
     precalcStaticHeader(&mineStatInfo->common);
     precalcStaticInfoHealth((StaticInfoHealth *)mineStatInfo);
-    precalcStaticInfoGuidance((StaticInfoHealthGuidance *)mineStatInfo);
+    catPrecalcStaticInfoGuidanceOrder((StaticInfoHealthGuidance *)mineStatInfo, CAT_THRUST_THRUST_MASS_MOD);   // CAT: inline order
 }
 
 /*-----------------------------------------------------------------------------
@@ -2762,7 +2831,7 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
     }
 #endif
     precalcStaticInfoHealth((StaticInfoHealth *)statinfo);
-    precalcStaticInfoGuidance((StaticInfoHealthGuidance *)statinfo);
+    catPrecalcStaticInfoGuidanceOrder((StaticInfoHealthGuidance *)statinfo, CAT_THRUST_MASS_THRUST_MOD);   // CAT: inline order
 
     // CAT: dockShipRange is kept as read (InitStatShipInfo 0x0053bab0 neither pads nor squares it; Cataclysm's dock
     //      code adds the collision radius at the point of use). HW1's Dock.c does the old conversion where it reads it.
@@ -2771,7 +2840,7 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
 
     for (i = 0; i < MAX_NUM_TRAILS; i++)
     {
-        mexSetEngineNozzle(statinfo->engineNozzleOffset + i, statinfo->common.pMexData, i);
+        mexSetEngineNozzle(statinfo, statinfo->common.pMexData, i);     // CAT: statinfo (0x004b7c20)
     }
 
     if (stubbedOut == FALSE)
@@ -2783,6 +2852,9 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
     if (statinfo->dockStaticInfo != NULL)
     {
         mexGetDockStaticInfo(statinfo->dockStaticInfo,statinfo->common.pMexData);
+        // CAT: the "center" dock point goes into the DockStaticInfo header (InitStatShipInfo 0x0053bab0,
+        //      cat_dockFindDockStaticPoint 0x00463d00; NULL when the ship has none)
+        statinfo->dockStaticInfo->centerDockPoint = cat_dockFindDockStaticPoint("center",statinfo->dockStaticInfo);
     }
 
     // CAT: InitStatShipInfo 0x0053bab0 has no dockInitializeCustomFunctions step (the exe has no such function): HW1's
@@ -2810,7 +2882,7 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
     scriptSetNAVLightStatics(directory, shipname, statinfo);
     if (statinfo->navlightStaticInfo != NULL)
     {
-        mexGetNAVLightStaticInfo(statinfo->navlightStaticInfo,statinfo->common.pMexData);
+        mexGetNAVLightStaticInfo(statinfo->navlightStaticInfo,&statinfo->common);   // CAT: the header (0x004b7680)
     }
 
     scriptSetGunStatics(directory,shipname,statinfo);
@@ -3066,15 +3138,18 @@ void catShipStaticsRunSelfTest(void)
 ----------------------------------------------------------------------------*/
 void InitStatShipInfoPost(ShipStaticInfo *statinfo)
 {
+    // CAT: the zero test and 1/maxhealth run whatever the modifier, and the result is kept in maxhealthBase for the
+    //      single-player difficulty factor (universeStaticInit 0x0053d2a0 inlines this function)
     if (GLOBAL_SHIP_HEALTH_MODIFIER != 1.0f)
     {
-        statinfo->health.maxhealth = ((statinfo->health.maxhealth) * GLOBAL_SHIP_HEALTH_MODIFIER);
-        if (statinfo->health.maxhealth == 0.0f)
-        {
-            statinfo->health.maxhealth = 1.0f;
-        }
-        statinfo->health.oneOverMaxHealth = 1.0f/statinfo->health.maxhealth;
+        statinfo->health.maxhealth = (GLOBAL_SHIP_HEALTH_MODIFIER * (statinfo->health.maxhealth));
     }
+    if (statinfo->health.maxhealth == 0.0f)
+    {
+        statinfo->health.maxhealth = 1.0f;
+    }
+    statinfo->maxhealthBase = statinfo->health.maxhealth;
+    statinfo->health.oneOverMaxHealth = 1.0f/statinfo->health.maxhealth;
 
     if (statinfo->custshipheader.CustShipStaticInitPost != NULL)
     {
@@ -3192,14 +3267,23 @@ void CloseStatShipInfo(ShipStaticInfo *statinfo)
         }
 
 
+        // CAT-FIX: the exe never frees the NUMBER_OF_ANIMS table (CloseStatShipInfo 0x0053c500 frees the 14 HW1 index
+        //      arrays only, a leak per close); the port frees it
+        if(statinfo->madStatic->animIndexes != NULL)
+        {
+            memFree(statinfo->madStatic->animIndexes);
+        }
+
         madHeaderDelete(statinfo->madStatic->header);
         //... other mesh binding freeing stuffs
         memFree(statinfo->madStatic);
+        statinfo->madStatic = NULL;             // CAT: the exe clears it (0x0053c500)
 
     }
     if(statinfo->dockOverideInfo != NULL)
     {
         memFree(statinfo->dockOverideInfo);
+        statinfo->dockOverideInfo = NULL;       // CAT: the exe clears it (0x0053c500)
     }
     if (statinfo->resNozzleStatic != NULL)
     {
@@ -3384,12 +3468,158 @@ void universeDefaultTeamColors(void)
     {
         racePlayerTable[universe.players[index].race][index] = TRUE;
     }
-    //!!! somewhat oversimple assignment of default color schemes for the non-player races
-    racePlayerTable[Traders][7] = TRUE;
-    // CAT: P2 and P3 are gone from the race enum, so their rows are dropped (racePlayerTable is [7][8] in
-    //      universeDefaultTeamColors 0x0053c940). The exe's own per-race defaults (tutorial, single player) are
-    //      stage 2.
-    racePlayerTable[P1][4] = TRUE;
+
+    // CAT: the default colour schemes of the non-player races depend on the game: the tutorial, multiplayer, and each
+    //      single-player mission have their own set (universeDefaultTeamColors 0x0053c940, racePlayerTable [7][8] on
+    //      the stack; HW1 set Traders [7] and P1/P2/P3 for every game). Every set but missions 5, 7, 11 and 15 also
+    //      sets [RACE_Derelict][0]; a mission number outside 1..17 adds nothing to the three Sect/Beast entries.
+    if (tutorial == 1)
+    {
+        racePlayerTable[RACE_Sect][0] = TRUE;
+        racePlayerTable[RACE_Sect][4] = TRUE;
+        racePlayerTable[RACE_Taiidan][2] = TRUE;
+        racePlayerTable[RACE_Taiidan][0] = TRUE;
+        racePlayerTable[RACE_Derelict][0] = TRUE;
+    }
+    else if (!singlePlayerGame)
+    {
+        racePlayerTable[RACE_Taiidan][2] = TRUE;
+        racePlayerTable[RACE_Kushan][6] = TRUE;
+        racePlayerTable[RACE_P1][5] = TRUE;
+        racePlayerTable[RACE_Traders][5] = TRUE;
+        racePlayerTable[RACE_Derelict][0] = TRUE;
+    }
+    else
+    {
+        racePlayerTable[RACE_Sect][0] = TRUE;
+        racePlayerTable[RACE_Sect][1] = TRUE;
+        racePlayerTable[RACE_Beast][1] = TRUE;
+        if ((singlePlayerGameInfo.currentMission >= 8) && (singlePlayerGameInfo.currentMission <= 17))
+        {
+            // missions 8..17 all set these four (the exe's default case, a mission above 17, does not)
+            // [audit: was ">= 8" alone, which also set them for a mission above 17]
+            racePlayerTable[RACE_P1][0] = TRUE;
+            racePlayerTable[RACE_P1][1] = TRUE;
+            racePlayerTable[RACE_Taiidan][0] = TRUE;
+            racePlayerTable[RACE_Taiidan][1] = TRUE;
+        }
+        switch (singlePlayerGameInfo.currentMission)
+        {
+            case 1:
+                racePlayerTable[RACE_Taiidan][2] = TRUE;
+                racePlayerTable[RACE_Kushan][4] = TRUE;
+                racePlayerTable[RACE_Kushan][6] = TRUE;
+                racePlayerTable[RACE_Kushan][7] = TRUE;
+                racePlayerTable[RACE_Derelict][0] = TRUE;
+                break;
+            case 2:
+                racePlayerTable[RACE_Kushan][4] = TRUE;
+                racePlayerTable[RACE_P1][5] = TRUE;
+                racePlayerTable[RACE_Derelict][0] = TRUE;
+                break;
+            case 3:
+                racePlayerTable[RACE_P1][5] = TRUE;
+                racePlayerTable[RACE_P1][0] = TRUE;
+                racePlayerTable[RACE_Derelict][0] = TRUE;
+                racePlayerTable[RACE_Derelict][1] = TRUE;
+                racePlayerTable[RACE_Taiidan][5] = TRUE;
+                break;
+            case 4:
+                racePlayerTable[RACE_Beast][0] = TRUE;
+                racePlayerTable[RACE_P1][5] = TRUE;
+                racePlayerTable[RACE_P1][0] = TRUE;
+                racePlayerTable[RACE_P1][1] = TRUE;
+                racePlayerTable[RACE_Taiidan][5] = TRUE;
+                racePlayerTable[RACE_Derelict][0] = TRUE;
+                break;
+            case 5:
+                racePlayerTable[RACE_P1][0] = TRUE;
+                racePlayerTable[RACE_P1][1] = TRUE;
+                racePlayerTable[RACE_Traders][5] = TRUE;
+                racePlayerTable[RACE_Kushan][4] = TRUE;
+                break;
+            case 6:
+                racePlayerTable[RACE_P1][0] = TRUE;
+                racePlayerTable[RACE_Taiidan][0] = TRUE;
+                racePlayerTable[RACE_Taiidan][2] = TRUE;
+                racePlayerTable[RACE_Traders][2] = TRUE;
+                racePlayerTable[RACE_Kushan][4] = TRUE;
+                racePlayerTable[RACE_Derelict][0] = TRUE;
+                racePlayerTable[RACE_Derelict][1] = TRUE;
+                break;
+            case 7:
+                racePlayerTable[RACE_P1][0] = TRUE;
+                racePlayerTable[RACE_P1][1] = TRUE;
+                racePlayerTable[RACE_Taiidan][0] = TRUE;
+                racePlayerTable[RACE_Taiidan][1] = TRUE;
+                racePlayerTable[RACE_Kushan][4] = TRUE;
+                racePlayerTable[RACE_Derelict][1] = TRUE;
+                racePlayerTable[RACE_Derelict][3] = TRUE;
+                break;
+            case 8:
+                racePlayerTable[RACE_Taiidan][2] = TRUE;
+                racePlayerTable[RACE_Taiidan][3] = TRUE;
+                racePlayerTable[RACE_Derelict][0] = TRUE;
+                break;
+            case 9:
+                racePlayerTable[RACE_Taiidan][2] = TRUE;
+                racePlayerTable[RACE_Derelict][0] = TRUE;
+                break;
+            case 10:
+                racePlayerTable[RACE_Taiidan][2] = TRUE;
+                racePlayerTable[RACE_P1][5] = TRUE;
+                racePlayerTable[RACE_Derelict][0] = TRUE;
+                racePlayerTable[RACE_Derelict][1] = TRUE;
+                break;
+            case 11:
+                racePlayerTable[RACE_Derelict][1] = TRUE;
+                racePlayerTable[RACE_Traders][0] = TRUE;
+                break;
+            case 12:
+                racePlayerTable[RACE_Sect][5] = TRUE;
+                racePlayerTable[RACE_Taiidan][5] = TRUE;
+                racePlayerTable[RACE_P1][5] = TRUE;
+                racePlayerTable[RACE_Derelict][0] = TRUE;
+                racePlayerTable[RACE_Derelict][1] = TRUE;
+                racePlayerTable[RACE_Taiidan][2] = TRUE;
+                break;
+            case 13:
+                racePlayerTable[RACE_Derelict][0] = TRUE;
+                racePlayerTable[RACE_Kushan][0] = TRUE;
+                racePlayerTable[RACE_Taiidan][2] = TRUE;
+                racePlayerTable[RACE_Traders][0] = TRUE;
+                break;
+            case 14:
+                racePlayerTable[RACE_Kushan][0] = TRUE;
+                racePlayerTable[RACE_P1][5] = TRUE;
+                racePlayerTable[RACE_Taiidan][2] = TRUE;
+                racePlayerTable[RACE_Derelict][0] = TRUE;
+                racePlayerTable[RACE_Derelict][1] = TRUE;
+                break;
+            case 15:
+                racePlayerTable[RACE_Kushan][0] = TRUE;
+                racePlayerTable[RACE_Traders][5] = TRUE;
+                racePlayerTable[RACE_Derelict][5] = TRUE;
+                break;
+            case 16:
+                racePlayerTable[RACE_Kushan][4] = TRUE;
+                racePlayerTable[RACE_Kushan][0] = TRUE;
+                racePlayerTable[RACE_Derelict][1] = TRUE;
+                racePlayerTable[RACE_Derelict][0] = TRUE;
+                break;
+            case 17:
+                racePlayerTable[RACE_Kushan][0] = TRUE;
+                racePlayerTable[RACE_Derelict][1] = TRUE;
+                racePlayerTable[RACE_Derelict][0] = TRUE;
+                racePlayerTable[RACE_Taiidan][2] = TRUE;
+                racePlayerTable[RACE_Taiidan][3] = TRUE;
+                racePlayerTable[RACE_Traders][5] = TRUE;
+                break;
+            default:
+                break;
+        }
+    }
+
     //now plug that default table into all the ship static infos
     for (shiprace=0;shiprace<NUM_RACES;shiprace++)
     {
@@ -3402,16 +3632,14 @@ void universeDefaultTeamColors(void)
         }
         missileInfo = &missileStaticInfos[shiprace];
         memcpy(missileInfo->teamColor, racePlayerTable[shiprace], sizeof(missileInfo->teamColor));
-        if (shiprace <= R2)
-        {
-            missileInfo = &mineStaticInfos[shiprace];
-            memcpy(missileInfo->teamColor, racePlayerTable[shiprace], sizeof(missileInfo->teamColor));
-        }
+        // CAT: mines of every race (HW1: R1 and R2 only)
+        missileInfo = &mineStaticInfos[shiprace];
+        memcpy(missileInfo->teamColor, racePlayerTable[shiprace], sizeof(missileInfo->teamColor));
     }
-    //plug default team colors into derelicts (last team color scheme, like traders)
+    // CAT: derelicts take the Derelict race's row (HW1: the Traders' row)
     for (derelicttype = 0; derelicttype < NUM_DERELICTTYPES; derelicttype++)
     {
-        memcpy(derelictStaticInfos[derelicttype].shipOrDerelict.teamColor, racePlayerTable[Traders], sizeof(racePlayerTable[Traders]));
+        memcpy(derelictStaticInfos[derelicttype].shipOrDerelict.teamColor, racePlayerTable[RACE_Derelict], sizeof(racePlayerTable[RACE_Derelict]));
     }
 }
 
@@ -3653,7 +3881,7 @@ void universeSaveEverythingNeeded(void)
         data[3] = 0;
         SaveInfoNumber(TreatAsUdword(data[0]));
     }
-    for (shiprace=0;shiprace<2;shiprace++)
+    for (shiprace=0;shiprace<NUM_RACES;shiprace++)      // CAT: 7 mines (universeSaveEverythingNeeded 0x0053ce80; HW1 2)
     {
         MissileStaticInfo *misstaticinfo = &mineStaticInfos[shiprace];
         data[0] = bitTest(misstaticinfo->common.infoFlags, IF_InfoLoaded);
@@ -3732,7 +3960,7 @@ void universeLoadEverythingNeeded(void)
         bitSetTo(misstaticinfo->common.infoFlags, IF_InfoNeeded, datab[0]);
         unbitpackTeamColor(misstaticinfo->teamColor,datab[1]);
     }
-    for (shiprace=0;shiprace<2;shiprace++)
+    for (shiprace=0;shiprace<NUM_RACES;shiprace++)      // CAT: 7 mines (universeLoadEverythingNeeded 0x0053d090; HW1 2)
     {
         MissileStaticInfo *misstaticinfo = &mineStaticInfos[shiprace];
         data = LoadInfoNumber();
@@ -3975,19 +4203,8 @@ void universeStaticInit(void)
 #endif
             }
         }
-        else
-        {                                                   //info not needed
-            if (bitTest(staticinfo->infoFlags, IF_InfoLoaded))
-            {                                               //info loaded
-                CloseStatNebulaInfo((NebulaStaticInfo *)staticinfo);
-#if UNIV_SHIP_LOADFREE_LOG
-                if (logFile)
-                {
-                    fprintf(logFile, "Freeing nebula: %s\n", NebulaTypeToStr(nebulatype));
-                }
-#endif
-            }
-        }
+        // CAT: a nebula static no longer needed is not closed (universeStaticInit 0x0053d2a0 has no close branch for
+        //      nebulae; HW1's CloseStatNebulaInfo did nothing either)
         count++;
     }
 
@@ -4075,7 +4292,9 @@ void universeStaticInit(void)
     }
 
     maxMineCollSphereSize = 0.0f;
-    for (shiprace=0;shiprace<2;shiprace++)
+    // CAT: mines of all 7 races (HW1: R1 and R2), and the Derelict race's mine is loaded whether needed or not
+    //      (universeStaticInit 0x0053d2a0 skips the not-needed branch for mineStaticInfos[6], 0x00b3b318)
+    for (shiprace=0;shiprace<NUM_RACES;shiprace++)
     {
         HorseRaceNext(((real32)count)/((real32)max));
         if (hrAbortLoadingGame)
@@ -4083,7 +4302,7 @@ void universeStaticInit(void)
             goto abortloadinggame;
         }
         staticinfo = (StaticInfo *)&mineStaticInfos[shiprace];
-        if (bitTest(staticinfo->infoFlags, IF_InfoNeeded))
+        if (bitTest(staticinfo->infoFlags, IF_InfoNeeded) || (shiprace == RACE_Derelict))
         {                                                   //if info needed
             if (!bitTest(staticinfo->infoFlags, IF_InfoLoaded))
             {                                               //info needed and not loaded
@@ -4140,6 +4359,12 @@ abortloadinggame:
                     bitSet(shipstaticinfo->common.infoFlags, IF_InfoLoaded);
                 }
             }
+            // CAT: every loaded ship static gets its health for this game: the single-player difficulty factor for
+            //      the Somtaaw (universeStaticInit 0x0053d2a0 inlines cat_univSetShipMaxHealth 0x0053c4a0)
+            if (bitTest(shipstaticinfo->common.infoFlags, IF_InfoLoaded))
+            {
+                cat_univSetShipMaxHealth(shipstaticinfo);
+            }
         }
     }
 
@@ -4151,23 +4376,30 @@ abortloadinggame:
     }
 #endif
 
-    if (hrAbortLoadingGame)
+    // CAT: no Mothership immobile step (universeStaticInit 0x0053d2a0 ends with the health loop; HW1 set the R1/R2
+    //      Mothership statics immobile in single player)
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univSetShipMaxHealth
+    Description : CAT: a ship static's maxhealth for this game: maxhealthBase, times the single-player difficulty's
+                  health factor for the Somtaaw (race Sect) in a single-player game (cat_univSetShipMaxHealth
+                  0x0053c4a0; called by universeStaticInit, FixShip and LoadGame)
+    Inputs      : statinfo
+    Outputs     : maxhealth, oneOverMaxHealth
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_univSetShipMaxHealth(ShipStaticInfo *statinfo)
+{
+    if (singlePlayerGame && (statinfo->shiprace == RACE_Sect))
     {
-        ;
+        statinfo->health.maxhealth = spDifficultyHealthModifier * statinfo->maxhealthBase;
     }
     else
     {
-        if (singlePlayerGame)
-        {
-            GetShipStaticInfo(Mothership,R1)->common.immobile = TRUE;
-            GetShipStaticInfo(Mothership,R2)->common.immobile = TRUE;
-        }
-        else
-        {
-            GetShipStaticInfo(Mothership,R1)->common.immobile = FALSE;
-            GetShipStaticInfo(Mothership,R2)->common.immobile = FALSE;
-        }
+        statinfo->health.maxhealth = statinfo->maxhealthBase;
     }
+    statinfo->health.oneOverMaxHealth = 1.0f / statinfo->health.maxhealth;
 }
 
 /*-----------------------------------------------------------------------------
@@ -4297,7 +4529,9 @@ void universeNoStaticLoadedOrNeeded(void)
     {
         missileStaticInfo = &missileStaticInfos[shiprace];
         memset(missileStaticInfo,0,sizeof(*missileStaticInfo));
-        if (shiprace <= R2)
+        // CAT: the mines of the first four races only, Sect..Taiidan (universeNoStaticLoadedOrNeeded 0x0053dd90
+        //      clears mineStaticInfos at offsets 0, 300, 600, 900; HW1 R1 and R2)
+        if (shiprace <= RACE_Taiidan)
         {
             missileStaticInfo = &mineStaticInfos[shiprace];
             memset(missileStaticInfo,0,sizeof(*missileStaticInfo));
@@ -4335,7 +4569,17 @@ void universeClosePlayers(void)
             aiplayerClose(universe.players[i].aiPlayer);
             universe.players[i].aiPlayer = NULL;
         }
+        // CAT: the current player's research, construction and launch managers close here (universeClosePlayers
+        //      0x0053def0; universeReset 0x0053df80 and universeClose 0x0053e3b0 inline the same loop)
+        if (&universe.players[i] == universe.curPlayerPtr)
+        {
+            rmCloseIfOpen();
+            cmCloseIfOpen();
+            lmCloseIfOpen();
+        }
         universe.players[i].PlayerMothership = NULL;
+        // CAT-TODO(M2-R4 research, #5): the exe then resets the player's upgrades, cat_playerUpgradesReset 0x00514100,
+        //      except for player 0 while a single-player warp-to-level is on (cat_spWarpToLevelEnabled 0x0051bd90)
     }
 }
 
@@ -4343,6 +4587,10 @@ void universeReset(void)
 {
     sdword index;
 
+    // CAT-TODO: universeReset 0x0053df80 first calls cat_salvageResetGlobals 0x004f7a90 (salvage, M2-R4 stage 2B),
+    //      cat_blastReset 0x00516390 (blast lists, stage 2B) and destroys each player's fog-of-war map (fowDestroy on
+    //      Player+0x6500; the Cataclysm Player layout and the FOW are stage 3), and after clReset/ccReset sets the
+    //      multiplayer camera mode in a recorded-game playback (cat_mcSetMode/cat_mcResetRequest, stage 3)
     clReset(&universe.mainCommandLayer);
     ccReset(&universe.mainCameraCommand);
 
@@ -4359,6 +4607,11 @@ void universeReset(void)
     {
         universe.world[index] = NULL;
     }
+
+    // CAT-TODO: then cat_ioReset 0x004ab590 (info overlay), cat_shipPrintReset 0x00511500, cat_taskTimeCompressionReset
+    //      0x0052a420 (time compression), four UI globals (0x00a762dc..0x00a762e4, 0x00a5b1ac) and
+    //      cat_tutPointerListReset 0x0052f890 (tutorial pointers); their subsystems are not ported yet (stage 3 UI,
+    //      stage 6 tutorial)
 }
 
 /*-----------------------------------------------------------------------------
@@ -4478,6 +4731,8 @@ void universeStaticCloseAllStatics(void)
 
 void universeClose(void)
 {
+    // CAT-TODO: universeClose 0x0053e3b0 starts with cat_taskTimeCompressionReset 0x0052a420 (time compression, not
+    //      ported yet)
     clClose(&universe.mainCommandLayer);
     ccClose(&universe.mainCameraCommand);
 
@@ -4521,6 +4776,8 @@ DEFINE_TASK(universeUpdateTask)
 
     for(;;)
     {
+        universePlaybackNoPacket = FALSE;       // CAT: cleared every pass (universeUpdateTask 0x0053e460, 0x00a6c5c8)
+
         if ((multiPlayerGame) && (startingGame) && (gameIsRunning) && ((IAmCaptain) && (!multiPlayerGameUnderWay)))
         {
             if (checkPlayersReady())
@@ -4677,8 +4934,10 @@ processtextures:
 
                 if ((playPackets|recordFakeSendPackets) && universeTurbo)
                 {
-                    repeattimes = (turboTimeCompressionFactor-1)>>1;
-                    dbgAssertOrIgnore(repeattimes >= 1);
+                    // CAT: a fixed 9 updates per pass (universeUpdateTask 0x0053e460: mov repeattimes,9), Relic HW1's
+                    //      UNIVERSE_TURBO_REPEAT 19 >> 1 (docs/m2-checksum-oracle.md); GoK's
+                    //      (turboTimeCompressionFactor-1)>>1 gave 3, and the exe has no TimeCompressionFactor key
+                    repeattimes = 9;
                 }
                 else
                 {
@@ -4689,7 +4948,16 @@ processtextures:
                 for (repeatuniv=0;repeatuniv<repeattimes;repeatuniv++)
                 {
                     waitpacketstatus = clWaitSyncPacket(&universe.mainCommandLayer);
-                    if (waitpacketstatus != NO_PACKET)
+                    if (waitpacketstatus == NO_PACKET)
+                    {
+                        // CAT: a playback that ran out of packets this pass is flagged for the overlay
+                        //      (universeUpdateTask 0x0053e460; read by cat_moRender 0x004aafb0)
+                        if (playPackets)
+                        {
+                            universePlaybackNoPacket = TRUE;
+                        }
+                    }
+                    else
                     {
                         if (multiPlayerGame)
                         {
@@ -4751,19 +5019,9 @@ processtextures:
                     goto alldone2;
                 }
 
-                if (universeTurbo)
-                {
-                    for (repeatuniv=0;repeatuniv<(turboTimeCompressionFactor-1);repeatuniv++)
-                    {
-                        if (ORACLE_UNIV_UPDATE(UNIVERSE_UPDATE_PERIOD))
-                        {
-                            goto alldone2;
-                        }
-#ifdef HW_BUILD_FOR_DEBUGGING
-                        if (ShowFancyFights) statsShowFancyFightUpdate();
-#endif
-                    }
-                }
+                // CAT: one update per pass, no universeTurbo repeat (universeUpdateTask 0x0053e460 calls univUpdate once
+                //      here; Cataclysm's time compression changes the task rate instead, cat_taskTimeCompressionApply
+                //      0x0052a370, not ported yet)
                 ORACLE_UNIV_UPDATE(UNIVERSE_UPDATE_PERIOD);
 alldone2:;
 #ifdef HW_BUILD_FOR_DEBUGGING
@@ -4825,6 +5083,8 @@ void universeSwitchToPlayer(uword playerIndex)
     dbgAssertOrIgnore(playerIndex < universe.numPlayers);
     universe.curPlayerIndex = playerIndex;
     universe.curPlayerPtr = &universe.players[universe.curPlayerIndex];
+    // CAT-TODO(stage 3 FOW): universeSwitchToPlayer 0x0053ea10 also selects the player's fog-of-war map
+    //      (fowSelect(Player+0x6500))
 }
 
 /*-----------------------------------------------------------------------------
@@ -4899,7 +5159,7 @@ ShipRace GetValidRaceForShipType(ShipType shiptype)
     }
 
     dbgAssertOrIgnore(FALSE);
-    return R1;
+    return RACE_Sect;       // CAT: HW1's R1 alias retired (same id 0)
 }
 
 /*-----------------------------------------------------------------------------
@@ -4930,23 +5190,169 @@ ShipStaticInfo *GetShipStaticInfoValidate(ShipType shiptype,ShipRace shiprace)
 -----------------------------------------------------------------------------*/
 void unitCapCreateShip(Ship *ship, Player *player)
 {
-//    if (player->aiPlayer)
-//    {
-//        return;
-//    }
-    // don't keep tabs on these ship types
-    if ((cdEnabled) &&
-        (ship->shiptype != Drone) &&
-        (ship->shiptype != TargetDrone) &&
-        (ship->shiptype != HeadShotAsteroid) &&
-        (ship->shiptype != CryoTray) &&
-        (! (bitTest(ship->shipOrDerelict.specialFlags2,SPECIAL_2_InUnitCaps)) ) )
+    CatModuleTypeList modules;
+    sdword i;
+
+    // CAT: no exempt types (HW1: Drone, TargetDrone, HeadShotAsteroid, CryoTray), and a mothership brings its modules
+    //      into the caps: each module type counts as a ship of its type and of CLASS_Component (Player+0x29c =
+    //      classtotals[10]; unitCapCreateShip 0x0053eab0; the exe inlines cat_univBeastMothershipModuleTypesGet for
+    //      bMothership)
+    if (!cdEnabled)
+    {
+        return;
+    }
+    if (bitTest(ship->shipOrDerelict.specialFlags2,SPECIAL_2_InUnitCaps))
+    {
+        return;
+    }
+    player->totalships++;
+    player->shiptotals[ship->shiptype]++;
+    player->classtotals[ship->staticinfo->shipclass]++;
+    bitSet(ship->shipOrDerelict.specialFlags2,SPECIAL_2_InUnitCaps);
+
+    if (ship->shiptype == sMothership)
+    {
+        cat_univMothershipModuleTypesGet(&modules);
+        for (i = 0; i < modules.num; i++)
+        {
+            player->totalships++;
+            player->shiptotals[modules.types[i]]++;
+            player->classtotals[CLASS_Component]++;
+        }
+    }
+    if (ship->shiptype != bMothership)
+    {
+        return;
+    }
+    cat_univBeastMothershipModuleTypesGet(&modules);
+    for (i = 0; i < modules.num; i++)
     {
         player->totalships++;
-        player->shiptotals[ship->shiptype]++;
-        player->classtotals[ship->staticinfo->shipclass]++;
-        bitSet(ship->shipOrDerelict.specialFlags2,SPECIAL_2_InUnitCaps);
+        player->shiptotals[modules.types[i]]++;
+        player->classtotals[CLASS_Component]++;
     }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univFindNearestShip
+    Description : CAT: the ship of universe.ShipList nearest to an object (squared distance, strictly below 1e20; the
+                  first of equal distances wins), among the ships the filter accepts (all if NULL)
+                  (cat_univFindNearestShip 0x0053f590; called by cat_beastWeaponHouseKeep 0x0042a900, M2-R4)
+    Inputs      : from, filter
+    Outputs     :
+    Return      : the ship or NULL
+----------------------------------------------------------------------------*/
+Ship *cat_univFindNearestShip(SpaceObj *from, bool32 (*filter)(Ship *ship))
+{
+    Node *node;
+    Ship *ship;
+    Ship *nearest = NULL;
+    real32 nearestDistSqr = 1e20f;
+    real32 dx, dy, dz, distSqr;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if ((filter != NULL) && !filter(ship))
+        {
+            continue;
+        }
+        dx = ship->obj.posinfo.position.x - from->posinfo.position.x;
+        dy = ship->obj.posinfo.position.y - from->posinfo.position.y;
+        dz = ship->obj.posinfo.position.z - from->posinfo.position.z;
+        distSqr = dx * dx + dy * dy + dz * dz;
+        if (distSqr < nearestDistSqr)
+        {
+            nearestDistSqr = distSqr;
+            nearest = ship;
+        }
+    }
+    return nearest;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univMothershipModuleTypesGet
+    Description : CAT: the module types a Somtaaw mothership starts with (cat_univMothershipModuleTypesGet 0x0053f680):
+                  the tutorial, single-player missions 1-2 and 3, and the multiplayer maps DemoBigGun2 and DemoSect2
+                  (case-insensitive) have their own lists; every other game gets EnginesUpper, Command, Engineering
+    Inputs      :
+    Outputs     : modules
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_univMothershipModuleTypesGet(CatModuleTypeList *modules)
+{
+    static const ShipType tutorialModules[] = { sMothershipEnginesLower, sMothershipEnginesUpper, sMothershipCommand,
+        sMothershipLowerSpine, sMothershipOreCanArmour, sMothershipEngineering, sMothershipDockingBay };
+    static const ShipType mission12Modules[] = { sMothershipEnginesLower, sMothershipEnginesUpper, sMothershipCommand,
+        sMothershipLowerSpine, sMothershipOreCanArmour, sMothershipEngineering };
+    static const ShipType mission3Modules[] = { sMothershipEnginesLower, sMothershipEnginesUpper, sMothershipCommand,
+        sMothershipLowerSpine, sMothershipEngineering };
+    static const ShipType demoBigGunModules[] = { sMothershipEnginesLower, sMothershipEnginesUpper, sMothershipCommand,
+        sMothershipEngineering, sMothershipSpecial, sMothershipBigGun, sMothershipLowerSpine };
+    // CAT-FIX: for DemoSect2 the exe writes these 11 types but sets the count to 12 (mov [list+0x50],0xc at
+    //      0x0053f81c), so its callers (unitCapCreateShip, cat_spDeleteLeftBehindShips, cat_univCreateMothershipModules)
+    //      read a 12th, never-written entry of their uninitialised stack array; the port counts the 11 written ones
+    //      [audit: the divergence was undocumented]
+    static const ShipType demoSectModules[] = { sMothershipEnginesLower, sMothershipEnginesUpper, sMothershipCommand,
+        sMothershipEngineering, sMothershipSpecial, sMothershipBigGun, sMothershipLowerSpine, sMothershipArmour,
+        sMothershipMicro, sMothershipWeapons, sMothershipDockingBay };
+    static const ShipType defaultModules[] = { sMothershipEnginesUpper, sMothershipCommand, sMothershipEngineering };
+    const ShipType *list = defaultModules;
+    sdword num = sizeof(defaultModules) / sizeof(ShipType);
+    sdword i;
+
+    if (tutorial == 1)
+    {
+        list = tutorialModules; num = sizeof(tutorialModules) / sizeof(ShipType);
+    }
+    else if (singlePlayerGame == 1)
+    {
+        if ((singlePlayerGameInfo.currentMission == 1) || (singlePlayerGameInfo.currentMission == 2))
+        {
+            list = mission12Modules; num = sizeof(mission12Modules) / sizeof(ShipType);
+        }
+        else if (singlePlayerGameInfo.currentMission == 3)
+        {
+            list = mission3Modules; num = sizeof(mission3Modules) / sizeof(ShipType);
+        }
+    }
+    else if (strcasecmp(spScenarios[spCurrentSelected].fileSpec, "DemoBigGun2") == 0)
+    {
+        list = demoBigGunModules; num = sizeof(demoBigGunModules) / sizeof(ShipType);
+    }
+    else if (strcasecmp(spScenarios[spCurrentSelected].fileSpec, "DemoSect2") == 0)
+    {
+        list = demoSectModules; num = sizeof(demoSectModules) / sizeof(ShipType);
+    }
+
+    for (i = 0; i < num; i++)
+    {
+        modules->types[i] = list[i];
+    }
+    modules->num = num;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univBeastMothershipModuleTypesGet
+    Description : CAT: the module types a Beast mothership starts with (cat_univBeastMothershipModuleTypesGet
+                  0x0053f840): none in single-player missions 1-3, otherwise its docking bay and lower engines. In
+                  multiplayer the exe compares the map name with "DemoBeastAttack2" and ignores the result.
+    Inputs      :
+    Outputs     : modules
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_univBeastMothershipModuleTypesGet(CatModuleTypeList *modules)
+{
+    if ((singlePlayerGame == 1) &&
+        ((singlePlayerGameInfo.currentMission == 1) || (singlePlayerGameInfo.currentMission == 2) ||
+         (singlePlayerGameInfo.currentMission == 3)))
+    {
+        modules->num = 0;
+        return;
+    }
+    modules->types[0] = bMothershipDockingBay;
+    modules->types[1] = bMothershipEnginesLower;
+    modules->num = 2;
 }
 
 /*-----------------------------------------------------------------------------
@@ -4964,11 +5370,8 @@ void unitCapDeleteShip(Ship *ship, Player *player)
 //    {
 //        return;
 //    }
+    // CAT: no exempt types (unitCapDeleteShip 0x0053ec00; HW1 skipped Drone, TargetDrone, HeadShotAsteroid, CryoTray)
     if ((cdEnabled) &&
-        (ship->shiptype != Drone) &&
-        (ship->shiptype != TargetDrone) &&
-        (ship->shiptype != HeadShotAsteroid) &&
-        (ship->shiptype != CryoTray) &&
         ( (bitTest(ship->shipOrDerelict.specialFlags2,SPECIAL_2_InUnitCaps)) ))
     {
         player->totalships--;
@@ -5016,8 +5419,13 @@ bool32 unitCapCanCreateShip(ShipType ship, shipsinprogress *factory, shipavailab
     udword   totalships=1, typeships=1, classships=1,index;
     ShipStaticInfo *statinfo, *shipstatic;
 
-    if ((!bitTest(tpGameCreated.flag,MG_UnitCapsEnabled)) &&
-        (ship!=ResearchShip)&&(!singlePlayerGame))
+    // CAT: no ResearchShip exception (unitCapCanCreateShip 0x0053ece0 tests the caps flag 0x200 and singlePlayerGame
+    //      only). CAT-TODO(M2-R4, construction manager): the rest of the exe body differs too: the factory loop counts
+    //      the player's race's types only and no lag, one lag value (shiplagtotals[type]) is added to each limit, the
+    //      type count drops by one for an externalBuild type in a factory whose progress entry has its +0x28 field
+    //      set (Cataclysm's shipinprogress is 0x30 bytes, HW1's 0x24), sCarrier's limit counts
+    //      cat_carrierCountSupportModules, and the class cap is skipped when cdClassCaps is -1
+    if ((!bitTest(tpGameCreated.flag,MG_UnitCapsEnabled)) && (!singlePlayerGame))
     {
         return(TRUE);
     }
@@ -5260,7 +5668,7 @@ void gameStatsAddShip(Ship *ship,sdword playerIndex)
     universe.gameStats.playerStats[playerIndex].totalForEachClass[ship->staticinfo->shipclass]++;
     universe.gameStats.totalRUsInAllShips += ship->staticinfo->buildCost;
     universe.gameStats.playerStats[playerIndex].totalRUsInCurrentShips += ship->staticinfo->buildCost;
-    universe.gameStats.totalShipsInGame++;
+    // CAT: no totalShipsInGame++ (gameStatsAddShip 0x0053f220 ends with the player's totalRUsInCurrentShips)
 }
 
 
@@ -5272,13 +5680,7 @@ void gameStatsShipDied(Ship *ship)
         shipownerindex = ship->playerowner->playerIndex;
     else
         dbgFatalf(DBG_Loc,"\nShip player pointer NULL...shouldn't be");
-    if(ship->shiptype == Drone)
-    {
-        //we don't want to count drones as kills..
-        //because they aren't really a critical kill
-        //andthey have no real RU value
-        return;
-    }
+    // CAT: no Drone exception (gameStatsShipDied 0x0053f290)
     switch(ship->howDidIDie)
     {
     case DEATH_Killed_By_Player:
@@ -5304,18 +5706,34 @@ void gameStatsShipDied(Ship *ship)
         break;
     }
 
-    if(killerPlayerIndex != ship->playerowner->playerIndex && killerPlayerIndex != 99)
+    // CAT: the killer is any index below 8 other than the owner (gameStatsShipDied 0x0053f290: signed compare with 8;
+    //      HW1 tested != 99). The class counters skip the Swarmers and count the ACVs and the MCV twice.
+    if(killerPlayerIndex != ship->playerowner->playerIndex && killerPlayerIndex < MAX_MULTIPLAYER_PLAYERS)
     {
         //Didn't kill own ships...and we need to register the kills
         universe.gameStats.playerStats[killerPlayerIndex].totalRUsKilled += ship->staticinfo->buildCost;
         universe.gameStats.playerStats[killerPlayerIndex].totalKills++;
         universe.gameStats.playerStats[killerPlayerIndex].totalKillsForEachShip[ship->shiptype]++;
-        universe.gameStats.playerStats[killerPlayerIndex].totalKillsForEachClass[ship->staticinfo->shipclass]++;
+        if ((ship->shiptype != sSwarmer) && (ship->shiptype != bSwarmer))
+        {
+            universe.gameStats.playerStats[killerPlayerIndex].totalKillsForEachClass[ship->staticinfo->shipclass]++;
+            if ((ship->shiptype == sACV) || (ship->shiptype == sMCV) || (ship->shiptype == bACV))
+            {
+                universe.gameStats.playerStats[killerPlayerIndex].totalKillsForEachClass[ship->staticinfo->shipclass]++;
+            }
+        }
     }
 
     universe.gameStats.playerStats[ship->playerowner->playerIndex].totalLosses++;
     universe.gameStats.playerStats[ship->playerowner->playerIndex].totalLossesForEachShip[ship->shiptype]++;
-    universe.gameStats.playerStats[ship->playerowner->playerIndex].totalLossesForEachClass[ship->staticinfo->shipclass]++;
+    if ((ship->shiptype != sSwarmer) && (ship->shiptype != bSwarmer))      // CAT: as above
+    {
+        universe.gameStats.playerStats[ship->playerowner->playerIndex].totalLossesForEachClass[ship->staticinfo->shipclass]++;
+        if ((ship->shiptype == sACV) || (ship->shiptype == sMCV) || (ship->shiptype == bACV))
+        {
+            universe.gameStats.playerStats[ship->playerowner->playerIndex].totalLossesForEachClass[ship->staticinfo->shipclass]++;
+        }
+    }
     universe.gameStats.playerStats[ship->playerowner->playerIndex].totalRUsLost += ship->staticinfo->buildCost;
     universe.gameStats.playerStats[ship->playerowner->playerIndex].totalRUsInCurrentShips -= ship->staticinfo->buildCost;
 
@@ -5418,90 +5836,17 @@ void gameStatsCalcShipCostTotals(void)
 }
 
 // this function returns the actual ship class based on ship type, -1 otherwise
+// CAT: from the loaded ship static (the HW1 type table named HW1 types only; this game-stats log check is GoK debug
+//      code, absent from cataclysm.exe)
 sdword gameStatsGetShipClass(sdword nShipType)
 {
-    switch(nShipType)
+    ShipStaticInfo *statinfo = GetShipStaticInfoSafe(nShipType, 0);
+
+    if (statinfo == NULL)
     {
-        case Carrier:
-        case JunkYardHQ:
-            return(CLASS_Carrier);
-
-        case HeavyCorvette:
-        case LightCorvette:
-        case MinelayerCorvette:
-        case MultiGunCorvette:
-        case RepairCorvette:
-        case SalCapCorvette:
-        case P1MissileCorvette:
-        case P1StandardCorvette:
-        case JunkYardDawg:
-            return(CLASS_Corvette);
-
-        case MissileDestroyer:
-        case StandardDestroyer:
-        case P3Destroyer:
-        case MiningBase:
-            return(CLASS_Destroyer);
-
-        case AttackBomber:
-        case CloakedFighter:
-        case DefenseFighter:
-        case HeavyDefender:
-        case HeavyInterceptor:
-        case LightDefender:
-        case LightInterceptor:
-        case Drone:
-        case P1Fighter:
-        case P2AdvanceSwarmer:
-        case P2Swarmer:
-            return(CLASS_Fighter);
-
-        case AdvanceSupportFrigate:
-        case DDDFrigate:
-        case DFGFrigate:
-        case IonCannonFrigate:
-        case StandardFrigate:
-        case P1IonArrayFrigate:
-        case P2FuelPod:
-        case P2MultiBeamFrigate:
-        case P3Frigate:
-        case Junk_LGun:
-        case Junk_SGun:
-            return(CLASS_Frigate);
-
-        case HeavyCruiser:
-            return(CLASS_HeavyCruiser);
-
-        case Mothership:
-        case HeadShotAsteroid:
-        case P1Mothership:
-        case P2Mothership:
-        case P3Megaship:
-        case FloatingCity:
-            return(CLASS_Mothership);
-
-        case CloakGenerator:
-        case GravWellGenerator:
-        case Probe:
-        case ProximitySensor:
-        case ResearchShip:
-        case ResourceController:
-        case SensorArray:
-        case TargetDrone:
-        case CryoTray:
-        case CargoBarge:
-        case ResearchStation:
-        case ResearchStationBridge:
-        case ResearchStationTower:
-        case Ghostship:
-            return(CLASS_NonCombat);
-
-        case ResourceCollector:
-            return(CLASS_Resource);
-
-        default:
-            return(-1);
+        return(-1);
     }
+    return(statinfo->shipclass);
 }
 
 #define isPlayerIndexCmptPlayer(i)  ((i) >= tpGameCreated.numPlayers)

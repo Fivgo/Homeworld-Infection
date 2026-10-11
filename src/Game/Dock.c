@@ -308,6 +308,31 @@ sdword dockFindDockIndex(char *name,DockStaticInfo *dockstaticinfo)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_dockFindDockStaticPoint
+    Description : CAT: finds a dock point by name, case-insensitive (cat_dockFindDockStaticPoint 0x00463d00, the exe's
+                  _stricmp 0x00676c90). Unlike dockFindDockIndex it returns the point and is not fatal: a missing
+                  point gives NULL (the exe's warning for a missing "center" goes to a stripped debug print).
+    Inputs      : name, dockstaticinfo
+    Outputs     :
+    Return      : the dock point, or NULL
+----------------------------------------------------------------------------*/
+DockStaticPoint *cat_dockFindDockStaticPoint(char *name,DockStaticInfo *dockstaticinfo)
+{
+    sdword numDockPoints = dockstaticinfo->numDockPoints;
+    DockStaticPoint *curdockpoint;
+    sdword i;
+
+    for (i=0,curdockpoint=&dockstaticinfo->dockstaticpoints[0];i<numDockPoints;i++,curdockpoint++)
+    {
+        if (strcasecmp(name,curdockpoint->name) == 0)
+        {
+            return curdockpoint;
+        }
+    }
+    return NULL;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : ShipWithinDockRange
     Description : returns TRUE if ship is within docking range of target
     Inputs      : ship, target

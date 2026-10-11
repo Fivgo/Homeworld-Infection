@@ -18,6 +18,7 @@
 
 #include "Carrier.h"
 #include "Debug.h"
+#include "Dock.h"
 #include "HeavyCruiser.h"
 #include "Mothership.h"
 #include "P1Mothership.h"
@@ -44,22 +45,13 @@ scriptStructEntry cat_salvageStaticScriptTable[] =
 
 static DockStaticPoint *cat_salvageFindDockStaticPoint(char *name, DockStaticInfo *dockstaticinfo)
 {
-    // CAT: cat_dockFindDockStaticPoint 0x00463d00, the case-insensitive search by dock point name (the exe's
-    //      _stricmp 0x00676c90) over this tree's DockStaticInfo; NULL if there is none (the exe also returns 0 then)
-    sdword i;
-
+    // CAT: cat_dockFindDockStaticPoint 0x00463d00 (Dock.c, M2-R3 universe-mex); this wrapper only adds a NULL test
+    //      for a type without dock points (the exe reads the pointer unchecked; every salvager has dock points)
     if (dockstaticinfo == NULL)
     {
         return NULL;
     }
-    for (i = 0; i < dockstaticinfo->numDockPoints; i++)
-    {
-        if (strcasecmp(name, dockstaticinfo->dockstaticpoints[i].name) == 0)
-        {
-            return &dockstaticinfo->dockstaticpoints[i];
-        }
-    }
-    return NULL;
+    return cat_dockFindDockStaticPoint(name, dockstaticinfo);
 }
 
 CatSalvagerInfo *cat_salvageGetSalvagerInfo(Ship *ship)                     // 0x004f8ec0

@@ -827,37 +827,85 @@ static void scriptSetDerelictCB(char *directory,char *field,void *dataToFillIn)
 
 static char llMiscDelimiters[] = "|?,";
 
+// CAT: the Sect <-> Beast substitute of each standard ship type (0x00883cf8: 60 ShipType entries, one per type
+//      sRecon..bMissileCorvette; HW1 swapped only CloakedFighter/DefenseFighter and DDDFrigate/DFGFrigate)
+static const ShipType catAppropriateShipTypeSwap[STD_LAST_SHIP + 1] =
+{
+    bRecon,                     // sRecon
+    bAcolyte,                   // sAcolyte
+    bCloakedFighter,            // sMimic
+    bAttackBomber,              // sLeech
+    bACV,                       // sACV
+    bMultiGunCorvette,          // sMCV
+    bRammingFrigate,            // sRammingFrigate
+    bMultiBeamFrigate,          // sMultiBeamFrigate
+    bHiveFrigate,               // sHiveFrigate
+    bSwarmer,                   // sSwarmer
+    bHeavyCruiser,              // sDreadnought
+    bRecon,                     // sDreadnoughtCannon
+    bCarrier,                   // sCarrier
+    bRecon,                     // sCarrierSupport
+    bWorker,                    // sWorker
+    bRepairDroid,               // sRepairDroid
+    bProcessor,                 // sProcessor
+    bSentinel,                  // sSentinel
+    bMothership,                // sMothership
+    bRecon,                     // sMothershipSpecial
+    bRecon,                     // sMothershipEngineering
+    bRecon,                     // sMothershipArmour
+    bRecon,                     // sMothershipMicro
+    bRecon,                     // sMothershipWeapons
+    bMothershipDockingBay,      // sMothershipDockingBay
+    bIonArrayFrigate,           // sDestroyer
+    bMothershipSupport,         // sMothershipSupport
+    bRecon,                     // sMothershipCommand
+    bMothershipEnginesLower,    // sMothershipEnginesLower
+    bRecon,                     // sMothershipEnginesUpper
+    bRecon,                     // sMothershipLowerSpine
+    bRecon,                     // sMothershipBigGun
+    bRecon,                     // sMothershipOreCanArmour
+    sRecon,                     // bRecon
+    sAcolyte,                   // bAcolyte
+    sAcolyte,                   // bInterceptor
+    sMimic,                     // bCloakedFighter
+    sAcolyte,                   // bAttackBomber
+    sACV,                       // bACV
+    sMCV,                       // bMultiGunCorvette
+    sACV,                       // bHeavyCorvette
+    sMultiBeamFrigate,          // bMultiBeamFrigate
+    sHiveFrigate,               // bHiveFrigate
+    sSwarmer,                   // bSwarmer
+    sDestroyer,                 // bIonArrayFrigate
+    sMultiBeamFrigate,          // bDFGFrigate
+    sDreadnought,               // bHeavyCruiser
+    sCarrier,                   // bCarrier
+    sRammingFrigate,            // bRammingFrigate
+    sWorker,                    // bWorker
+    sRepairDroid,               // bRepairDroid
+    sProcessor,                 // bProcessor
+    sSentinel,                  // bSentinel
+    sMothership,                // bMothership
+    sMothershipDockingBay,      // bMothershipDockingBay
+    sMothershipEnginesLower,    // bMothershipEnginesLower
+    sRecon,                     // bSectMoship
+    sMothershipSupport,         // bMothershipSupport
+    sRecon,                     // bCruiseMissile
+    sRecon,                     // bMissileCorvette
+};
+
+// CAT: a type the race may not own is swapped through catAppropriateShipTypeSwap, with no race assertion and no
+//      check that the substitute is allowed (GetAppropriateShipTypeForRace 0x004a13c0). The exe indexes its 60-entry
+//      table with any type and reads past it (string data) for a type >= 60; such a type is returned unchanged here.
 ShipType GetAppropriateShipTypeForRace(ShipType request,ShipRace shiprace)
 {
     ShipType shiptype = request;
 
-    dbgAssertOrIgnore((shiprace == R1) || (shiprace == R2));
-
     if ((RacesAllowedForGivenShip[shiptype] & RaceToRaceBits(shiprace)) == 0)
     {
-        // this race/shiptype isn't allowed so substitute:
-        switch (shiptype)
+        if (shiptype <= STD_LAST_SHIP)
         {
-            case CloakedFighter:
-                shiptype = DefenseFighter;
-                break;
-
-            case DefenseFighter:
-                shiptype = CloakedFighter;
-                break;
-
-            case DDDFrigate:
-                shiptype = DFGFrigate;
-                break;
-
-            case DFGFrigate:
-                shiptype = DDDFrigate;
-                break;
-                
-            default:
-                break;
+            shiptype = catAppropriateShipTypeSwap[shiptype];
         }
-        dbgAssertOrIgnore(RacesAllowedForGivenShip[shiptype] & RaceToRaceBits(shiprace));
     }
 
     return shiptype;
@@ -1084,7 +1132,9 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
         }
     }
 
-    if ((missionman) && ((shiprace == R1) || (shiprace == R2)))
+    // CAT: the race override is multiplayer-only (scriptSetShipsCB 0x004a13f0 also tests !singlePlayerGame): single
+    //      player missions place each ship with the race the mission names
+    if ((!singlePlayerGame) && (missionman) && ((shiprace == R1) || (shiprace == R2)))
     {
         if ((player->race != shiprace) && ((player->race == R1) || (player->race == R2)))
         {
@@ -1222,7 +1272,10 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
 //            }
         }
 
-        if ((shiptype == Mothership) || (useAsMothership))
+        // CAT: the player's mothership is any of sMothership, bMothership, kCarrier, tCarrier, trFloatingCity
+        //      (scriptSetShipsCB 0x004a13f0: types 0x12, 0x35, 0x3E, 0x4C, 0x62)
+        if ((shiptype == sMothership) || (shiptype == bMothership) || (shiptype == kCarrier) ||
+            (shiptype == tCarrier) || (shiptype == trFloatingCity) || (useAsMothership))
         {
             player->PlayerMothership = ship;
         }

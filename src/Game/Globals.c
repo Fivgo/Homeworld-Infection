@@ -151,15 +151,10 @@ void globalsResetFunc(bool32 firstTime)
     numPlayers = 0;
     curPlayer = 0;
     universePause = FALSE;
+    universeTurbo = FALSE;      // CAT: reset here too (globalsInit 0x0048a060, 0x00a6c5b0)
 
-    LockMutex(gMessageMutex);
-    while (i < MAX_MESSAGES)
-    {
-        gMessage[i].MessageExpire = (real32)0;
-        gMessage[i].message[0]    = '\0';
-        i++;
-    }
-    UnLockMutex(gMessageMutex);
+    // CAT: the command-message list (gMessage) is not cleared any more (globalsInit 0x0048a060 clears the two big
+    //      messages and playersReadyToGo only)
 
     for (i=0;i<MAX_BIGMESSAGES;i++)
     {
@@ -190,6 +185,8 @@ void globalsResetFunc(bool32 firstTime)
         recordFakeSendPackets = FALSE;
 
         smGhostMode = FALSE;
+        // CAT-TODO(stage 3 recorder): globalsInit 0x0048a060 also clears two recorder globals after
+        //      recordFakeSendPackets (0x00a7519c, 0x00a751a0), unidentified until the recorder is ported
     }
     else
     {

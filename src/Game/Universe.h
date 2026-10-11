@@ -231,6 +231,7 @@ extern DerelictStaticInfo derelictStaticInfos[NUM_DERELICTTYPES];
 extern NebulaStaticInfo nebulaStaticInfos[NUM_NEBULATYPES];
 
 extern Camera defaultCamera;
+extern bool32 universePlaybackNoPacket;     // CAT: 0x00a6c5c8 (universeUpdateTask 0x0053e460)
 
 extern MissileStaticInfo missileStaticInfos[NUM_RACES];
 extern MissileStaticInfo mineStaticInfos[NUM_RACES];  // CAT: was [2]
@@ -294,6 +295,7 @@ void universeClose(void);
 void universeReset(void);
 void universeSetZeroPlayers(void);
 void universeStaticInit(void);
+void cat_univSetShipMaxHealth(struct ShipStaticInfo *statinfo);    // CAT: new (0x0053c4a0)
 void universeStaticClose(void);
 DECLARE_TASK(universeUpdateTask);
 void universeSwitchToNextPlayer(void);
@@ -316,6 +318,16 @@ void CloseStatEffectInfo(etgeffectstatic *effectStatInfo);
 void InitStatDerelictInfoByPath(DerelictStaticInfo *derelictStatInfo, DerelictType derelicttype, char *directory, char *shipFile);
 
 void unitCapCreateShip(Ship *ship, Player *player);
+
+// CAT: a list of mothership module types (the exe passes sdword[20] plus a count at [20])
+typedef struct
+{
+    ShipType types[20];
+    sdword num;
+} CatModuleTypeList;
+void cat_univMothershipModuleTypesGet(CatModuleTypeList *modules);        // CAT: 0x0053f680
+void cat_univBeastMothershipModuleTypesGet(CatModuleTypeList *modules);   // CAT: 0x0053f840
+Ship *cat_univFindNearestShip(SpaceObj *from, bool32 (*filter)(Ship *ship));   // CAT: 0x0053f590
 void unitCapDeleteShip(Ship *ship, Player *player);
 bool32 unitCapCanCreateShip(ShipType ship, shipsinprogress *factory, shipavailable *cmShipsAvail);
 void unitCapInitialize(Player *player);

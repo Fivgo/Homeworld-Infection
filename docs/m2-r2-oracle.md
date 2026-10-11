@@ -70,7 +70,7 @@ gimbal reset, is untouched). Not changed here, still GoK behaviour, each for the
 |---|---|
 | `tools/oracle/hwo_format.h` (new) | the record format shared by both producers: 64-byte header, then `type u8, reserved u8, length u16, payload` records `T` (tick, 242 B), `P` (sync packet, 52 B), `E` (event, 8 B + text); field-by-field little-endian packers (`hwoPackHeader/Tick/Packet/Event`), FNV-1a-64 and bitwise CRC-32 helpers. Header-only, `<stdint.h>`/`<stddef.h>` only, so the freestanding 32-bit DLL uses the same code as the 64-bit engine. Layout table below |
 | `src/Game/OracleDump.c`, `.h` (new) | the hwi-engine producer: opens the stream on first use (header: producer 2, mode, options, git hash, FNV-1a-32 of `HWI_BUILD_FLAGS`, MXCSR, `UNIVERSE_UPDATE_RATE`, tag), `oracleUnivUpdate` (= `univUpdate` + a `T` record when `universe.univUpdateCounter` moved, like hook H1), `oracleEmitPacket` (`P`, like H2), `oracleEmitGameStart` (`E` + tick-0 `T`, like H7), and the self-test (subsystem `selftest`). One `fwrite` + `fflush` per record, so a killed process loses at most the record being written. It draws no random number, allocates nothing from the game's pools, and calls `univGetChecksum`/`statsGetStatChecksum` with `netlogfile` set to NULL for the call (both write to the net log) |
-| `src/Game/Universe.c` | the 4 `univUpdate(UNIVERSE_UPDATE_PERIOD)` calls of `universeUpdateTask` (lockstep pair, turbo loop, free-running) go through `ORACLE_UNIV_UPDATE`, which is `univUpdate` itself when `HWI_ORACLE` is 0. Wrapping the call sites keeps `univUpdate` as ported (design 5.1) |
+| `src/Game/Universe.c` | the 4 `univUpdate(UNIVERSE_UPDATE_PERIOD)` calls of `universeUpdateTask` (lockstep pair, turbo loop, free-running) go through `ORACLE_UNIV_UPDATE`, which is `univUpdate` itself when `HWI_ORACLE` is 0. Wrapping the call sites keeps `univUpdate` as ported (design 5.1) [audit M2-R3 universe-mex: 3 call sites since that port, as in the exe: the free-running turbo loop is gone] |
 | `src/Game/NetCheck.c` | end of `netcheckShow`: `oracleEmitPacket(packet, packetnum, randcheck, univcheck, blobcheck)`, after `netcheckCheckChecksum`, so the record carries this packet's sync-error counters |
 | `src/SDL/utility.c` | end of `gameStart` (after `gameIsRunning = TRUE`): `oracleEmitGameStart(loadfilename)`; end of `utyGameSystemsInit`: `/oracleSelfTest` runs the self-test and quits, next to the other port self-tests |
 | `src/SDL/main.c` | switches `/oracleDump <file>`, `/oracleSelfTest <ticks>`, `/oracleSelfTestPerturb <tick>` (inside `#if HWI_ORACLE`) |
@@ -273,7 +273,7 @@ the debug build); `python3 tools/oracle/dll/check_sites.py`; `tools/oracle/dll/b
 
 | file | change |
 |---|---|
-| `src/Game/Universe.c`, `Universe.h` | 16 Hz default (CAT); `ORACLE_UNIV_UPDATE` at the 4 `univUpdate` call sites; comment |
+| `src/Game/Universe.c`, `Universe.h` | 16 Hz default (CAT); `ORACLE_UNIV_UPDATE` at the 4 `univUpdate` call sites [audit M2-R3 universe-mex: 3 since that port]; comment |
 | `src/SDL/main.c` | `/gok64Hz`; `/oracleDump`, `/oracleSelfTest`, `/oracleSelfTestPerturb`; `/vanilla` help text |
 | `src/SDL/utility.c` | `oracleEmitGameStart` at the end of `gameStart`; the self-test call in `utyGameSystemsInit` |
 | `src/Game/NetCheck.c` | `oracleEmitPacket` at the end of `netcheckShow` |
@@ -325,7 +325,7 @@ Untracked and not for git: `build/oracle-tools/` (scratch helpers `dec.py`, `pe.
 |---|---|
 | subsystems | 6 (`flags`, `writer`, `selftest`, `compare`, `dll`, `runs`) |
 | Cataclysm deltas ported (CAT) | 3: 16 Hz universe (`universeUpdateTask` 0x0053e460), `univGetChecksum` (0x00549f50), `statsGetStatChecksum` (0x00525170) |
-| oracle emit points in hwi-engine | 6 call sites: 4 `univUpdate` (H1), `netcheckShow` (H2), `gameStart` (H7) |
+| oracle emit points in hwi-engine | 6 call sites: 4 `univUpdate` (H1) [audit M2-R3 universe-mex: 3 since that port, so 5 call sites], `netcheckShow` (H2), `gameStart` (H7) |
 | record format | header 64 B; `T` 242 B, `P` 52 B, `E` 8 B + text (each + 4-byte prefix) |
 | self-test stream (512 ticks) | 772 records, 140,723 B |
 | hwo_compare fields per tick | 21 in causal order |

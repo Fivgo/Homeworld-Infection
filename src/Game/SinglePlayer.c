@@ -151,6 +151,12 @@ bool32 triggerNIS                       = FALSE;
 bool32 spCollectResourcesAtEndOfMission = FALSE;
 
 real32 spFleetModifier = 0.0f;
+
+// CAT: the single-player difficulty's health factor for the Somtaaw ships (0x00894194, 1.0 in the exe image; set by
+//      cat_spGetDifficultyModifiers 0x00516f90 from the difficulty 0..4 as 6, 3, 1, 0.85, 0.7 and read by
+//      cat_univSetShipMaxHealth 0x0053c4a0). The difficulty screen (cat_spGameDifficulty 0x0051c140) and its save are
+//      not ported yet (stage 6 single player), so the factor stays 1.0 (difficulty 2, the exe's default 0x008941a0)
+real32 spDifficultyHealthModifier = 1.0f;
 real32 spFleetStr      = 0.0f;
 
 real32 BaseFleetStrengthForLevel    [NUMBER_SINGLEPLAYER_MISSIONS+1];
@@ -2908,6 +2914,16 @@ udword spOldMissionNumber(MissionEnum missionEnum)
 
 void singlePlayerKasMissionStart(MissionEnum mission)
 {
+#if !CAT_HW1_MISSION_SCRIPTS
+    // CAT-PROVISIONAL (stage 6, the kas2c mission code): no mission script runs until stage 6 ports Cataclysm's
+    //      own (Init_Mission01_Objectives 0x005d6fe0 onwards; 85 functions / 16,378 B for Mission01, 2,085 in all).
+    //      The scripts below are HW1's compiled Kharak..Hiigara missions; they name HW1 teams that Cataclysm's
+    //      .mission files never define (Mission01: KAS.c kasAITeamPtr "unresolved reference to team
+    //      TDFormationTrial"), so they are wrong code for every Cataclysm mission. kasExecute does nothing while no
+    //      mission watch function is set.
+    (void)mission;
+    return;
+#else
     switch (mission)
     {
         case MISSION_1_KHARAK_SYSTEM:              kasMissionStart("mission01",     Init_Mission01,     Watch_Mission01);      break;
@@ -2932,6 +2948,7 @@ void singlePlayerKasMissionStart(MissionEnum mission)
             dbgFatalf(DBG_Loc, "Unsupported MissionEnum enum: %d", mission);
             break;
     }
+#endif
 }
 
 void *WatchFunctionAddress(MissionEnum mission)
@@ -3845,9 +3862,18 @@ void singlePlayerStartGame(void)
     singlePlayerLevelLoaded();
     singlePlayerKasMissionStart(spGetCurrentMission());
     GetStartPointPlayer(&startPoint);
-    
+
+#if CAT_HW1_MISSION_SCRIPTS
     singlePlayerNISNamesGet(&nis, &script, &centre, spOldMissionNumber(spGetCurrentMission()));
     singlePlayerStartNis(nis, script, centre, &startPoint);
+#else
+    // CAT-PROVISIONAL (stage 6, SinglePlayer.c): no mission-start NIS yet. Cataclysm starts a new game by playing
+    //      nis\n01.nis with nis\n01.script and loads the level from inside singlePlayerStartNis
+    //      (singlePlayerStartGame 0x0051bdb0, singlePlayerStartNis 0x0051b670 -> singlePlayerLoadNewLevel); HW1's
+    //      race-suffixed nis\n01r1.nis does not exist in Cataclysm's data (File.c fileSizeGet fatal). Until stage 6
+    //      ports that flow the level is loaded HW1's way above and the game starts without the NIS.
+    (void)nis; (void)script; (void)centre;
+#endif
 }
 
 void singlePlayerNextLevel(void)

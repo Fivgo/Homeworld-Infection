@@ -126,6 +126,9 @@ typedef struct
     udword minLOD;               // min LOD to draw light at.
     char name[20];               // name of nav light
     memsize texturehandle;      // handle to a texture (if any).		// actually trhandle, but not defined here
+    // CAT: per LOD level, the index of the mesh polygon object the light moves with, 0xFF = none (written by
+    //      mexGetNAVLightStaticInfo 0x004b7680 at +0x40 + level; the exe's NAVLightStatic is 0x48 bytes, HW1 0x40)
+    ubyte navlightObject[8];
 } NAVLightStatic;
 
 typedef struct
@@ -319,10 +322,17 @@ typedef struct
     char name[LIGHTNAME_LENGTH];
 } DockStaticPoint;
 
+// CAT: Cataclysm's DockStaticInfo has a 0x50-byte header before the points (HW1: numDockPoints only).
+//      scriptSetDockStatics 0x005270c0 allocates 0x50 + n * 0x4C bytes, stores n at +0x48 and then indexes the
+//      points by type: firstOfType[t] = index of the first point of type t (0xFF if none), numOfType[t] = how many.
+//      InitStatShipInfo 0x0053bab0 stores the point named "center" at +0x4C (cat_dockFindDockStaticPoint 0x00463d00).
 typedef struct
 {
-    sdword numDockPoints;
-    DockStaticPoint dockstaticpoints[1];
+    ubyte firstOfType[NUM_DOCKPOINT_TYPES];     /*+0x00 CAT: 0xFF = no point of this type */
+    ubyte numOfType[NUM_DOCKPOINT_TYPES];       /*+0x23 CAT */
+    sdword numDockPoints;                       /*+0x48 */
+    DockStaticPoint *centerDockPoint;           /*+0x4C CAT: the "center" point, or NULL */
+    DockStaticPoint dockstaticpoints[1];        /*+0x50 */
 } DockStaticInfo;
 
 /*-----------------------------------------------------------------------------
@@ -719,8 +729,11 @@ typedef struct ShipStaticInfo
     bool32 cannotForceAttackIfOwnShip;    //variable..if set to TRUE player cannot force attack this ship IF it is their own ship
     bool32 shipIsCapital;                 //Set to TRUE is ship is a TRUE capital ship (class defs are unreliable)
     bool32 cantMoveAndAttack;             //if set, SHIP explicitly cannot move and attack...will be given a special move order.
-    udword unknown2B0[6];                       /*+0x2B0 CAT: unknown, 24 bytes */
-    vector engineNozzleOffset[MAX_NUM_TRAILS];      //offset of engine in object co-ordinates   /*+0x2C8*/
+    // CAT: the engine nozzles are at +0x2B0 and are followed by a per-LOD mesh-object index of each nozzle
+    //      (mexSetEngineNozzle 0x004b7c20 writes +0x2B0 + index * 0xC and +0x2E0 + level * 4 + index;
+    //      trailGetNozzleOffset 0x005a4cc0 reads both). M2-R2 had placed the nozzles at +0x2C8 by position.
+    vector engineNozzleOffset[MAX_NUM_TRAILS];      //offset of engine in object co-ordinates   /*+0x2B0*/
+    ubyte engineNozzleObject[LOD_NumberLevels][MAX_NUM_TRAILS];   /*+0x2E0 CAT: polygon object index, 0xFF = none */
     trailstatic* trailStatic[MAX_NUM_TRAILS];   /*+0x2F8*/
     udword multipleEngines;                     /*+0x308*/
 
@@ -787,7 +800,9 @@ typedef struct ShipStaticInfo
     real32 pilotViewOffsetX;                    /*+0x440 CAT: key, default 0 */
     real32 pilotViewOffsetY;                    /*+0x444 CAT: key, default 0 */
     real32 pilotViewOffsetZ;                    /*+0x448 CAT: key, default 0 */
-    udword unknown44C;                          /*+0x44C CAT: unknown */
+    real32 maxhealthBase;                       /*+0x44C CAT: maxhealth after GLOBAL_SHIP_HEALTH_MODIFIER, before the
+                                                   single-player difficulty factor (universeStaticInit 0x0053d2a0,
+                                                   cat_univSetShipMaxHealth 0x0053c4a0) */
     udword unknown450;                          /*+0x450 CAT: unknown */
     udword RKOGetsMissiles;                     /*+0x454 CAT: key (InitStatShipInfo clears its low byte only) */
 } ShipStaticInfo;
@@ -873,7 +888,8 @@ CAT_ASSERT_OFFSET(ShipStaticInfo, repairTime, 0x278);
 CAT_ASSERT_OFFSET(ShipStaticInfo, pumpFuelRate, 0x288);
 CAT_ASSERT_OFFSET(ShipStaticInfo, dockShipRange, 0x29C);
 CAT_ASSERT_OFFSET(ShipStaticInfo, cantMoveAndAttack, 0x2AC);
-CAT_ASSERT_OFFSET(ShipStaticInfo, engineNozzleOffset, 0x2C8);
+CAT_ASSERT_OFFSET(ShipStaticInfo, engineNozzleOffset, 0x2B0);
+CAT_ASSERT_OFFSET(ShipStaticInfo, engineNozzleObject, 0x2E0);
 CAT_ASSERT_OFFSET(ShipStaticInfo, trailStatic, 0x2F8);
 CAT_ASSERT_OFFSET(ShipStaticInfo, multipleEngines, 0x308);
 CAT_ASSERT_OFFSET(ShipStaticInfo, scaleCap, 0x30C);
@@ -1043,6 +1059,20 @@ CAT_ASSERT_OFFSET(ShipStaticInfo, leechHPsPerSecond, 0x3D8);
 CAT_ASSERT_OFFSET(ShipStaticInfo, beastAttackCascadeCost, 0x3DC);
 CAT_ASSERT_OFFSET(ShipStaticInfo, beastAttacksRequired, 0x3E0);
 CAT_ASSERT_OFFSET(ShipStaticInfo, forceFieldProtectionDistanceScale, 0x1F4);
+// CAT: DockStaticInfo 0x50-byte header and 0x4C-byte points (scriptSetDockStatics 0x005270c0: 0x4C * n + 0x50,
+//      n at +0x48, firstOfType at +0, numOfType at +0x23; cat_dockFindDockStaticPoint 0x00463d00: name at +0x38)
+_Static_assert(sizeof(DockStaticPoint) == 0x4C, "DockStaticPoint is 0x4C bytes in cataclysm.exe");
+CAT_ASSERT_OFFSET(DockStaticPoint, headingdirection, 0x30);
+CAT_ASSERT_OFFSET(DockStaticPoint, name, 0x38);
+CAT_ASSERT_OFFSET(DockStaticInfo, numOfType, 0x23);
+CAT_ASSERT_OFFSET(DockStaticInfo, numDockPoints, 0x48);
+CAT_ASSERT_OFFSET(DockStaticInfo, centerDockPoint, 0x4C);
+CAT_ASSERT_OFFSET(DockStaticInfo, dockstaticpoints, 0x50);
+// CAT: NAVLightStatic is 0x48 bytes (scriptSetNAVLightStatics 0x00526dc0 stride; mexGetNAVLightStaticInfo 0x004b7680:
+//      name at +0x28, per-LOD object bytes at +0x40)
+_Static_assert(sizeof(NAVLightStatic) == 0x48, "NAVLightStatic is 0x48 bytes in cataclysm.exe");
+CAT_ASSERT_OFFSET(NAVLightStatic, name, 0x28);
+CAT_ASSERT_OFFSET(NAVLightStatic, navlightObject, 0x40);
 #else
 _Static_assert(sizeof(void *) == 8, "the non-ILP32 pins below assume 8-byte pointers");
 _Static_assert(sizeof(GunStatic) == 0x11C, "GunStatic has no pointers: 0x11C bytes on every target");
@@ -1061,7 +1091,7 @@ typedef struct
     udword harvestableByMultipleShips;
 } ResourceStaticInfo;
 
-typedef struct
+typedef struct AsteroidStaticInfo     // CAT: tagged for StatScript.h
 {
     union {
         StaticInfo common;
@@ -1069,7 +1099,15 @@ typedef struct
         ResourceStaticInfo resource;
     };
 
-    AsteroidType asteroidtype;      // Asteroid specific stuff from here on
+    AsteroidType asteroidtype;      // Asteroid specific stuff from here on    /*+0xBC*/
+    // CAT: Cataclysm's asteroids break into the pieces their .shp lists (NUMBER_OF_ASTEROID_PIECES, AsteroidBreakInfo;
+    //      cat_scriptAsteroidBreakInfoLoad 0x00528190); the exe's AsteroidStaticInfo ends here (0xC8 bytes, the
+    //      asteroidStaticInfos stride in universeStaticInit 0x0053d2a0)
+    sdword numBreakPieces;                                                      /*+0xC0*/
+    struct AsteroidBreakPiece *breakPieces;                                     /*+0xC4*/
+    // CAT-DORMANT: HW1's shrink/break fields. No Cataclysm key sets them (the exe's asteroid key table 0x008b3008 has
+    //      none), so they stay 0 and ResCollect.c's HW1 shrink/break paths never run; they go when stage 2B ports
+    //      Cataclysm's asteroid breaking (owner: M2-R4 stage-2B combat/resources)
     bool8 asteroidCanShrink;
     bool8 asteroidCanBreak;
     bool8 pad2;
@@ -1077,6 +1115,18 @@ typedef struct
     real32 asteroidMinShrink;
     udword breakinto[NUM_ASTEROIDTYPES];
 } AsteroidStaticInfo;
+
+// CAT: one AsteroidBreakInfo line of an asteroid .shp, 0x44 bytes (cat_scriptAsteroidPieceParse 0x005280a0:
+//      "%d %f %f %f %f %f %f %f %f %f %f" after ',' -> ' ' and '?' -> '0'). The orientation is RotX(a) * RotY(b) *
+//      RotY(b) of the 4th and 5th values: the exe never uses the 6th value (two matMakeRotAboutY calls,
+//      0x005280a0..0x0052818f). The meaning of the last four values belongs to the breaking code (stage 2B).
+typedef struct AsteroidBreakPiece
+{
+    AsteroidType asteroidtype;      /*+0x00*/
+    vector position;                /*+0x04*/
+    matrix orientation;             /*+0x10*/
+    real32 params[4];               /*+0x34*/
+} AsteroidBreakPiece;
 
 typedef struct
 {
@@ -1159,6 +1209,7 @@ typedef struct
     real32 MINE_RANGESQR;
     real32 MINE_RANGESQR_FORCED;
     real32 maxvelocity_FORCED;
+    real32 scaleCap;                // CAT: mine key N-LIPS (mine key table 0x008b3b88, +0x110)
 
     //missile trail stuff
     vector engineNozzleOffset;
@@ -1167,6 +1218,21 @@ typedef struct
     real32 trailWidth;
     real32 trailHeight;
 } MissileStaticInfo;
+
+#if defined(__i386__) || defined(_M_IX86)
+// CAT: the exe's layouts of the other statics (universeStaticInit 0x0053d2a0 strides: asteroids 200, derelicts 0x124,
+//      missiles and mines 300; InitStatMissileInfo 0x0053b400 stores trailStatic at +0x120 and the trail size at
+//      +0x124/+0x128; cat_scriptAsteroidBreakInfoLoad 0x00528190 reads the piece count at +0xC0 and stores the pieces
+//      at +0xC4)
+_Static_assert(offsetof(AsteroidStaticInfo, asteroidtype) == 0xBC, "AsteroidStaticInfo.asteroidtype is at 0xBC in cataclysm.exe");
+_Static_assert(offsetof(AsteroidStaticInfo, breakPieces) == 0xC4, "AsteroidStaticInfo.breakPieces is at 0xC4 in cataclysm.exe");
+_Static_assert(offsetof(AsteroidStaticInfo, asteroidCanShrink) == 0xC8, "AsteroidStaticInfo is 0xC8 bytes in cataclysm.exe before the dormant HW1 fields");
+_Static_assert(sizeof(AsteroidBreakPiece) == 0x44, "AsteroidBreakPiece is 0x44 bytes in cataclysm.exe");
+_Static_assert(sizeof(DerelictStaticInfo) == 0x124, "DerelictStaticInfo is 0x124 bytes in cataclysm.exe");
+_Static_assert(sizeof(MissileStaticInfo) == 0x12C, "MissileStaticInfo is 0x12C bytes in cataclysm.exe");
+_Static_assert(offsetof(MissileStaticInfo, scaleCap) == 0x110, "MissileStaticInfo.scaleCap is at 0x110 in cataclysm.exe");
+_Static_assert(offsetof(MissileStaticInfo, trailStatic) == 0x120, "MissileStaticInfo.trailStatic is at 0x120 in cataclysm.exe");
+#endif
 
 /*=============================================================================
     Object Instance Information

@@ -17,6 +17,11 @@
     Switches:
 =============================================================================*/
 
+// CAT-PROVISIONAL (stage 6): 0 = HW1's compiled mission scripts and mission-start NIS names are not used on
+//      Cataclysm data (singlePlayerKasMissionStart, singlePlayerStartGame); stage 6 replaces both with Cataclysm's
+//      kas2c missions and NIS-first start and deletes this switch.
+#define CAT_HW1_MISSION_SCRIPTS     0
+
 #ifdef HW_BUILD_FOR_DEBUGGING
 
 #define SP_ERROR_CHECKING           1           //general error checking
@@ -257,6 +262,7 @@ extern char spMissionsDir[];
 extern char spMissionsFile[];
 
 extern real32 spFleetModifier;
+extern real32 spDifficultyHealthModifier;     // CAT: 0x00894194 (cat_univSetShipMaxHealth 0x0053c4a0)
 
 extern real32 spHyperspaceDelay;
 extern bool32   spHoldHyperspaceWindow;

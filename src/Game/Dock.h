@@ -46,6 +46,7 @@ bool32 LaunchShipFromDefaultShip(Ship *ship,Ship *dockwith);
 bool32 ShipDocksAtDefaultShip(struct CommandToDo *docktodo,struct Ship *ship,struct Ship *dockwith);
 
 sdword dockFindDockIndex(char *name,DockStaticInfo *dockstaticinfo);
+DockStaticPoint *cat_dockFindDockStaticPoint(char *name,DockStaticInfo *dockstaticinfo);   // CAT: 0x00463d00
 /*static void dockReserveDockPoint(Ship *ship,Ship *dockwith,sdword dockpointindex);*/
 /*void dockReserveDockPoint(Ship *ship,Ship *dockwith,sdword dockpointindex);*/
 

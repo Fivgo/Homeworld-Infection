@@ -53,6 +53,7 @@ extern udword scriptStructEntriesSet;   // CAT: port diagnostic, callbacks run b
 
 struct StaticInfoShipOrDerelict;
 struct ShipStaticInfo;
+struct AsteroidStaticInfo;
 
 void RemoveCommasFromString(char *field);
 void StripTrailingSpaces(char *value);
@@ -103,6 +104,7 @@ void scriptSetFileSystem(char *directory,char *filename,scriptEntry info[]);
 void scriptSetGunStatics(char *directory,char *filename,struct ShipStaticInfo *shipstatinfo);
 void scriptSetNAVLightStatics(char *directory,char *filename,struct ShipStaticInfo *shipstatinfo);
 void scriptSetDockStatics(char *directory,char *filename,struct ShipStaticInfo *statinfo);
+void cat_scriptAsteroidBreakInfoLoad(char *directory,char *filename,struct AsteroidStaticInfo *asteroidstatinfo);   // CAT: 0x00528190
 struct SphereStaticInfo *scriptSetSphereStaticInfo(char *directory,char *filename);
 void scriptSetShipGroupSizeCB(char *directory, char *field, sdword *dataToFillIn);
 void scriptSetShipProbCB(char *directory, char *field, real32 *dataToFillIn);

@@ -1423,6 +1423,150 @@ void scriptSetDockStatics(char *directory,char *filename,struct ShipStaticInfo *
 
 done:
     fileClose(fh);
+
+    // CAT: index the points by type in the DockStaticInfo header once any point was read (scriptSetDockStatics
+    //      0x005270c0): firstOfType[t] = the first point of type t (0xFF if none), numOfType[t] = the count. The exe
+    //      skips type -1 (StrToDockPointType's unknown name, the only value outside 0..34 it can return)
+    if (processingDockPoint != 0)
+    {
+        sdword i;
+        DockPointType type;
+
+        for (i = 0; i < NUM_DOCKPOINT_TYPES; i++)
+        {
+            dockstaticinfo->firstOfType[i] = 0xFF;
+            dockstaticinfo->numOfType[i] = 0;
+        }
+        for (i = 0; i < numDockPoints; i++)
+        {
+            type = dockstaticinfo->dockstaticpoints[i].type;
+            if (((sdword)type >= 0) && (type < NUM_DOCKPOINT_TYPES))
+            {
+                if (dockstaticinfo->firstOfType[type] == 0xFF)
+                {
+                    dockstaticinfo->firstOfType[type] = (ubyte)i;
+                }
+                dockstaticinfo->numOfType[type]++;
+            }
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_scriptAsteroidPieceParse
+    Description : CAT: one AsteroidBreakInfo line (cat_scriptAsteroidPieceParse 0x005280a0): asteroid type, position,
+                  two rotation angles (radians) and four more values. ',' becomes ' ' and '?' becomes '0' first. The
+                  orientation is RotX(a) * RotY(b) * RotY(b): the exe calls matMakeRotAboutY twice with the 5th value
+                  and never uses the 6th, which the port keeps.
+    Inputs      : directory, field, dataToFillIn (an AsteroidBreakPiece)
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+static void cat_scriptAsteroidPieceParse(char *directory,char *field,void *dataToFillIn)
+{
+    AsteroidBreakPiece *piece = (AsteroidBreakPiece *)dataToFillIn;
+    sdword type = 0;
+    real32 angleX = 0.0f, angleY = 0.0f, angleUnused = 0.0f;
+    matrix rot;
+    char *c;
+
+    for (c = field; *c != 0; c++)
+    {
+        if (*c == ',')
+        {
+            *c = ' ';
+        }
+        else if (*c == '?')
+        {
+            *c = '0';
+        }
+    }
+    sscanf(field,"%d %f %f %f %f %f %f %f %f %f %f",&type,
+           &piece->position.x,&piece->position.y,&piece->position.z,
+           &angleX,&angleY,&angleUnused,
+           &piece->params[0],&piece->params[1],&piece->params[2],&piece->params[3]);
+    piece->asteroidtype = (AsteroidType)type;
+    matMakeRotAboutX(&piece->orientation,(real32)cos(angleX),(real32)sin(angleX));
+    matMakeRotAboutY(&rot,(real32)cos(angleY),(real32)sin(angleY));
+    matMultiplyMatByMat(&piece->orientation,&piece->orientation,&rot);
+    matMakeRotAboutY(&rot,(real32)cos(angleY),(real32)sin(angleY));
+    matMultiplyMatByMat(&piece->orientation,&piece->orientation,&rot);
+}
+
+static scriptStructEntry cat_AsteroidBreakInfoScriptTable[] =               // CAT: table 0x00897930
+{
+    { "AsteroidBreakInfo", cat_scriptAsteroidPieceParse, 0, 0 },
+
+    END_SCRIPT_STRUCT_ENTRY
+};
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_scriptAsteroidBreakInfoLoad
+    Description : CAT: reads an asteroid's break pieces from its .shp (cat_scriptAsteroidBreakInfoLoad 0x00528190):
+                  NUMBER_OF_ASTEROID_PIECES n (n < 1 stops the read), then the first n AsteroidBreakInfo lines.
+    Inputs      : directory, filename, asteroidstatinfo
+    Outputs     : asteroidstatinfo->numBreakPieces, ->breakPieces (n * 0x44 bytes, zeroed)
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_scriptAsteroidBreakInfoLoad(char *directory,char *filename,struct AsteroidStaticInfo *asteroidstatinfo)
+{
+    filehandle fh;
+    char line[MAX_LINE_CHARS];
+    char *name, *value;
+    char fullfilename[80];
+    sdword state = 0;
+    sdword numRead = 0;
+    scriptStructEntry *foundentry;
+
+    if (directory != NULL)
+    {
+        strcpy(fullfilename,directory);
+        strcat(fullfilename,filename);
+    }
+    else
+    {
+        strcpy(fullfilename,filename);
+    }
+
+    fh = fileOpen(fullfilename,FF_TextMode);
+
+    while (fileLineRead(fh,line,MAX_LINE_CHARS) != FR_EndOfFile)
+    {
+        if (!parseLine(line,&name,&value))
+        {
+            continue;
+        }
+        if (state == 0)
+        {
+            if (strcmp(name,"NUMBER_OF_ASTEROID_PIECES") == 0)
+            {
+                sscanf(value,"%d",&asteroidstatinfo->numBreakPieces);
+                if (asteroidstatinfo->numBreakPieces < 1)
+                {
+                    break;
+                }
+                asteroidstatinfo->breakPieces = memAlloc(asteroidstatinfo->numBreakPieces * sizeof(AsteroidBreakPiece),
+                                                         "asteroidBreakPieces",NonVolatile);
+                memset(asteroidstatinfo->breakPieces,0,asteroidstatinfo->numBreakPieces * sizeof(AsteroidBreakPiece));
+                state = 1;
+            }
+        }
+        else
+        {
+            foundentry = findStructEntry(cat_AsteroidBreakInfoScriptTable,name);
+            if (foundentry != NULL)
+            {
+                foundentry->setVarCB(directory,value,&asteroidstatinfo->breakPieces[numRead]);
+                numRead++;
+                if (numRead == asteroidstatinfo->numBreakPieces)
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    fileClose(fh);
 }
 
 /************ Overide Docking script setting *******************/

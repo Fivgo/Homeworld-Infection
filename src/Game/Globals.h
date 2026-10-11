@@ -45,7 +45,7 @@
 #define MAX_MESSAGE_LENGTH              100
 #define MAX_MESSAGES                    5
 
-#define MAX_BIGMESSAGE_LENGTH           150
+#define MAX_BIGMESSAGE_LENGTH           256     // CAT: 256 (bigmessageDisplay 0x00567cf0, bMessage stride 0x104; HW1 150)
 #define MAX_BIGMESSAGES                 2
 
 /*=============================================================================

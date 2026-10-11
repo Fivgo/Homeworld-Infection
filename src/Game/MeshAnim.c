@@ -689,7 +689,7 @@ void madAnimationStop(Ship *ship)
     Inputs      : header - header to search
                   name - name of animation to find
     Outputs     :
-    Return      : index of animation, generates an error if not found
+    Return      : index of animation, -1 if not found (CAT; HW1 generated a fatal error) [audit: comment was stale]
 ----------------------------------------------------------------------------*/
 sdword madAnimIndexFindByName(madheader *header, char *name)
 {
@@ -704,7 +704,9 @@ sdword madAnimIndexFindByName(madheader *header, char *name)
             return(index);
         }
     }
-    dbgFatalf(DBG_Loc, "Unable to find animation '%s'.", name);
+    // CAT: a missing animation returns -1 without the fatal error (madAnimIndexFindByName 0x004b6ed0 calls only
+    //      _stricmp; setMadAnim 0x00539f70 warns instead). Cataclysm data names animations its .mad lacks, e.g.
+    //      "Link" (statics self-test um-r4-statics)
     return(-1);
 }
 

@@ -123,8 +123,17 @@ typedef struct
     sdword *specialCloseIndexes;
     sdword *specialOpenDamagedIndexes;
     sdword *specialCloseDamagedIndexes;
+    // CAT: madstatic is 0x90 bytes in Cataclysm: a table of animations by number, filled by the NUMBER_OF_ANIMS and
+    //      ANIM keys (cat_madNumberOfAnimsSetCB 0x00539e40, setMadAnim 0x00539f70) and read by
+    //      cat_madAnimationFinished 0x004b7090
+    sdword numAnims;                            /*+0x84*/
+    sdword *animIndexes;                        /*+0x88 madheader animation index per number, -1 if none */
+    sdword animsByNumber;                       /*+0x8C set to 1 by NUMBER_OF_ANIMS */
 }
 madstatic;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(madstatic) == 0x90, "madstatic is 0x90 bytes in cataclysm.exe (cat_madNumberOfAnimsSetCB 0x00539e40)");
+#endif
 
 //structure of animation data stored within a ship
 typedef struct

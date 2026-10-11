@@ -169,6 +169,19 @@ MEXDockingChunk *mexGetDockChunk(void *mex,char *dockname)
             }
         }
 
+        // CAT: a "Sal"/"SALVAGE" chunk is a dock point too (mexGetDockChunk 0x004b7190): Cataclysm's salvage points
+        //      are dock points of type DPT_Salvage/DPT_SalvageLatch, looked up by the same name at the same offset
+        if (strcasecmp(curmexchunk->type,"Sal") == 0)
+        {
+            if (strcasecmp(curmexchunk->name,"SALVAGE") == 0)
+            {
+                if (strcasecmp(((MEXDockingChunk *)curmexchunk)->dockName,dockname) == 0)
+                {
+                    return (MEXDockingChunk *)curmexchunk;
+                }
+            }
+        }
+
         curmexchunk = (MEXChunk *)(((ubyte *)curmexchunk) + sizeof(MEXChunk) + curmexchunk->chunkSize);
     }
 
@@ -372,7 +385,16 @@ void mexGetDockStaticInfo(DockStaticInfo *dockstaticinfo,void *mex)
         }
         else
         {
-            dbgMessagef("WARNING: Could not find dock point in mex at %x",mex);
+            // CAT: a point with no chunk gets position 0, cone normal (1,0,0) and a 90-degree cone (mexGetDockStaticInfo
+            //      0x004b7560: cos of the double 1.5707963705062866 at 0x0072af58); HW1 left the zeroed values
+            dockstaticpoint->position.x = 0.0f;
+            dockstaticpoint->position.y = 0.0f;
+            dockstaticpoint->position.z = 0.0f;
+            dockstaticpoint->conenormal.x = 1.0f;
+            dockstaticpoint->conenormal.y = 0.0f;
+            dockstaticpoint->conenormal.z = 0.0f;
+            dockstaticpoint->coneangle = (real32)cos(1.5707963705062866);
+            dbgMessagef("WARNING: Could not find dock point in mex at %p",mex);
         }
     }
 }
@@ -410,12 +432,15 @@ void mexGetSalvageStaticInfo(SalvageStaticInfo *salvagestaticinfo,void *mex)
     }
 }
 
-void mexGetNAVLightStaticInfo(NAVLightStaticInfo *navlightstaticinfo,void *mex)
+void mexGetNAVLightStaticInfo(NAVLightStaticInfo *navlightstaticinfo,StaticInfo *staticheader)
 {
     sdword i;
     MEXNAVLightChunk *navlightchunk;
     sdword numNAVLights = navlightstaticinfo->numNAVLights;
     NAVLightStatic *navlightstatic;
+    void *mex = staticheader->pMexData;
+    lodinfo *LOD;
+    sdword level, object;
 
     if (mex == NULL)
     {
@@ -433,10 +458,39 @@ void mexGetNAVLightStaticInfo(NAVLightStaticInfo *navlightstaticinfo,void *mex)
             navlightstatic->color = colRGB(navlightchunk->red,
                                            navlightchunk->green,
                                            navlightchunk->blue);
+
+            // CAT: for each LOD level, the index of the polygon object the chunk names (case-insensitive), or 0xFF
+            //      when it names none or the level has no such object (mexGetNAVLightStaticInfo 0x004b7680, the same
+            //      walk as mexSetEngineNozzle 0x004b7c20). The exe writes LOD->nLevels bytes unbounded; the port caps
+            //      the walk at the 8 bytes of navlightObject and treats a level without mesh or bindings as "none"
+            LOD = staticheader->LOD;
+            if (LOD != NULL)
+            {
+                for (level = 0; (level < LOD->nLevels) && (level < (sdword)sizeof(navlightstatic->navlightObject)); level++)
+                {
+                    meshdata *mesh = (meshdata *)LOD->level[level].pData;
+                    object = -1;
+                    if ((navlightchunk->objectName[0] != 0) && (mesh != NULL) && (LOD->level[level].hBindings != NULL))
+                    {
+                        for (object = 0; object < mesh->nPolygonObjects; object++)
+                        {
+                            if (strcasecmp(LOD->level[level].hBindings[object].object->pName, navlightchunk->objectName) == 0)
+                            {
+                                break;
+                            }
+                        }
+                        if (object >= mesh->nPolygonObjects)
+                        {
+                            object = -1;
+                        }
+                    }
+                    navlightstatic->navlightObject[level] = (ubyte)object;
+                }
+            }
         }
         else
         {
-            dbgMessagef("WARNING: Could not find NAVLight point in mex at %x",mex);
+            dbgMessagef("WARNING: Could not find NAVLight point in mex at %p",mex);
         }
     }
 }
@@ -466,6 +520,8 @@ void mexSetCollisionInfo(StaticCollInfo *staticCollInfo,void *mex,real32 forward
 {
     MEXCollisionSphereChunk *spherechunk;
     MEXCollisionRectangleChunk *rectchunk;
+    real32 maxScale;
+    real32 rightforwardSqr, upSqr;
 
     if (mex == NULL)
     {
@@ -480,14 +536,21 @@ void mexSetCollisionInfo(StaticCollInfo *staticCollInfo,void *mex,real32 forward
     if(rightScale == 0.0f)
         rightScale = 1.0f;
 
+    // CAT: the sphere radius is scaled by the largest of the three box scales, the avoidance sphere gets 3 units on
+    //      top, and the padded avoidance sphere is left alone (mexSetCollisionInfo 0x004b7880; 3.0 at 0x0072a534)
+    maxScale = max(upScale, forwardScale);
+    if (maxScale <= max(rightScale, upScale))
+    {
+        maxScale = max(rightScale, upScale);
+    }
+
     spherechunk = mexGetChunk(mex,"Col","Col0");
     if (spherechunk != NULL)
     {
-        staticCollInfo->originalCollSphereSize = spherechunk->r;
-        staticCollInfo->collspheresize = spherechunk->r;
-        staticCollInfo->approxcollspheresize = spherechunk->r;
-        staticCollInfo->avoidcollspheresize = spherechunk->r;
-        staticCollInfo->avoidcollspherepad = spherechunk->r;
+        staticCollInfo->originalCollSphereSize = maxScale * spherechunk->r;
+        staticCollInfo->collspheresize = maxScale * spherechunk->r;
+        staticCollInfo->approxcollspheresize = maxScale * spherechunk->r;
+        staticCollInfo->avoidcollspheresize = maxScale * spherechunk->r + 3.0f;
         staticCollInfo->collsphereoffset = spherechunk->offset;
         staticCollInfo->collsphereoffset.x += xslide;
         staticCollInfo->collsphereoffset.y += yslide;
@@ -498,9 +561,10 @@ void mexSetCollisionInfo(StaticCollInfo *staticCollInfo,void *mex,real32 forward
     rectchunk = mexGetChunk(mex,"Rct","Rct0");
     if (rectchunk != NULL)
     {
-        staticCollInfo->collrectoffset.x = rectchunk->ox+xslide;
-        staticCollInfo->collrectoffset.y = rectchunk->oy+yslide;
-        staticCollInfo->collrectoffset.z = rectchunk->oz+zslide;
+        // CAT: the box offset is taken as stored; the slides move only the sphere (mexSetCollisionInfo 0x004b7880)
+        staticCollInfo->collrectoffset.x = rectchunk->ox;
+        staticCollInfo->collrectoffset.y = rectchunk->oy;
+        staticCollInfo->collrectoffset.z = rectchunk->oz;
 
         staticCollInfo->uplength = rectchunk->dx;
         staticCollInfo->rightlength = rectchunk->dy;
@@ -544,10 +608,6 @@ void mexSetCollisionInfo(StaticCollInfo *staticCollInfo,void *mex,real32 forward
                 staticCollInfo->collspheresizeSqr = staticCollInfo->collspheresize * staticCollInfo->collspheresize;
             }
         }
-
-        staticCollInfo->diagonallength = sqrt(staticCollInfo->uplength*staticCollInfo->uplength +
-                                              staticCollInfo->forwardlength*staticCollInfo->forwardlength +
-                                              staticCollInfo->rightlength*staticCollInfo->rightlength);
     }
     else
     {
@@ -561,17 +621,26 @@ void mexSetCollisionInfo(StaticCollInfo *staticCollInfo,void *mex,real32 forward
         staticCollInfo->uplength = staticCollInfo->collspheresize*upScale;
         staticCollInfo->rightlength = staticCollInfo->collspheresize*rightScale;
         staticCollInfo->forwardlength = staticCollInfo->collspheresize*forwardScale;
-
-        staticCollInfo->diagonallength = sqrt(staticCollInfo->uplength*staticCollInfo->uplength +
-                                              staticCollInfo->forwardlength*staticCollInfo->forwardlength +
-                                              staticCollInfo->rightlength*staticCollInfo->rightlength);
     }
+
+    // CAT: the diagonal sums up^2 + (right^2 + forward^2) (the exe's order), and the box midpoint collrectmid is
+    //      (collrectoffset + length) * 0.5 per axis, in both branches (mexSetCollisionInfo 0x004b7880)
+    upSqr = staticCollInfo->uplength*staticCollInfo->uplength;
+    rightforwardSqr = staticCollInfo->rightlength*staticCollInfo->rightlength +
+                      staticCollInfo->forwardlength*staticCollInfo->forwardlength;
+    staticCollInfo->diagonallength = sqrt(upSqr + rightforwardSqr);
+
+    staticCollInfo->collrectmid.x = (staticCollInfo->uplength + staticCollInfo->collrectoffset.x) * 0.5f;
+    staticCollInfo->collrectmid.y = (staticCollInfo->collrectoffset.y + staticCollInfo->rightlength) * 0.5f;
+    staticCollInfo->collrectmid.z = (staticCollInfo->collrectoffset.z + staticCollInfo->forwardlength) * 0.5f;
 }
 
-void mexSetEngineNozzle(vector* engineNozzleOffset, void* mex, sdword index)
+void mexSetEngineNozzle(ShipStaticInfo *statinfo, void* mex, sdword index)
 {
     MEXEngineChunk* enginechunk;
     char engine[5];
+    lodinfo *LOD;
+    sdword level, object;
 
     if (mex == NULL)
     {
@@ -584,7 +653,37 @@ void mexSetEngineNozzle(vector* engineNozzleOffset, void* mex, sdword index)
     enginechunk = mexGetChunk(mex,"Eng",engine);
     if (enginechunk != NULL)
     {
-        *engineNozzleOffset = enginechunk->position;
+        statinfo->engineNozzleOffset[index] = enginechunk->position;
+
+        // CAT: for each LOD level, the index of the polygon object the chunk names (case-insensitive), or 0xFF when
+        //      the chunk names none or the level has no such object (mexSetEngineNozzle 0x004b7c20; read by
+        //      trailGetNozzleOffset 0x005a4cc0 through cat_shipNozzleInfoGet 0x0053f8c0). The exe walks the level's
+        //      hierarchy bindings (binding->object->pName); the level count is capped at this table's 6 rows and a
+        //      level without bindings counts as "none" (the exe reads both unchecked)
+        LOD = statinfo->common.LOD;
+        if (LOD != NULL)
+        {
+            for (level = 0; (level < LOD->nLevels) && (level < LOD_NumberLevels); level++)
+            {
+                meshdata *mesh = (meshdata *)LOD->level[level].pData;
+                object = -1;
+                if ((enginechunk->objectName[0] != 0) && (mesh != NULL) && (LOD->level[level].hBindings != NULL))
+                {
+                    for (object = 0; object < mesh->nPolygonObjects; object++)
+                    {
+                        if (strcasecmp(LOD->level[level].hBindings[object].object->pName, enginechunk->objectName) == 0)
+                        {
+                            break;
+                        }
+                    }
+                    if (object >= mesh->nPolygonObjects)
+                    {
+                        object = -1;
+                    }
+                }
+                statinfo->engineNozzleObject[level][index] = (ubyte)object;
+            }
+        }
     }
 }
 
