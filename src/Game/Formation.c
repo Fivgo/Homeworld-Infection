@@ -2939,25 +2939,8 @@ void processMilitaryParadeToDo(struct CommandToDo *command,bool32 passiveAttacke
                     }
                     if (!MoveReachedDestinationVariable(ship,&positionat,10.0f))
                     {
-                        if(ship->shiptype == ResearchShip)
-                        {
-                            if(ship->header.flags & SOF_Slaveable)
-                            {
-                                real32 tmpdistaway = MoveLeftToGo(ship,&positionat);
-                                if(tmpdistaway < 50.0 || (tmpdistaway <300.0f && !bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_ParadeNeedTomoveCloser)))
-                                {
-                                    //less that 50, or less than 300, but we are have been doing this already
-                                    bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_ParadeNeedTomoveCloser);
-                                    aitrackSteadyShipDriftOnly(ship);
-                                    goto dontmovecloser;
-                                }
-                                else
-                                {
-                                    //greater than 50.0f && we're driving for 50, set flag, and then drive in
-                                    bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_ParadeNeedTomoveCloser);
-                                }
-                            }
-                        }
+                        // CAT: no ResearchShip "move closer" parade step, Cataclysm has no research ship type
+                        //      (processMilitaryParadeToDo 0x00485280 tests no ship type)
                         aishipFlyToPointAvoidingObjsWithVel(ship,&positionat,AISHIP_FastAsPossible,0.0f,&leader->obj.posinfo.velocity);
                     }
                     else if (steadyFormation)
@@ -2989,20 +2972,10 @@ void processMilitaryParadeToDo(struct CommandToDo *command,bool32 passiveAttacke
                         if (steadyFormation)
                         {
                             ship->header.flags |= SOF_DontDrawTrails;
-                            //no choice special case ResearchShip code
-                            if(ship->shiptype == ResearchShip)
-                            {
-                                //researchship, and we're in a 'steady' state
-                                //lets skip the adjustment of our heading
-                                if(ship->header.flags & SOF_Slaveable)
-                                {
-                                    goto dontadjustheading;
-                                }
-                            }
+                            // CAT: no ResearchShip "keep heading" case (the type is gone; processMilitaryParadeToDo 0x00485280)
                         }
 
                         trackheading = TRUE;
-dontadjustheading:;
                     }
 
                     if (trackheading)
@@ -3013,26 +2986,8 @@ dontadjustheading:;
 
                     if (tmpdistaway >= 10.0f)
                     {
-                        if(ship->shiptype == ResearchShip)
-                        {
-                            if(ship->header.flags & SOF_Slaveable)
-                            {
-                                if(tmpdistaway < 50.0 || (tmpdistaway <300.0f && !bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_ParadeNeedTomoveCloser)))
-                                {
-                                    //less that 50, or less than 300, but we are have been doing this already
-                                    bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_ParadeNeedTomoveCloser);
-                                    aitrackSteadyShipDriftOnly(ship);
-                                    goto dontmovecloser;
-                                }
-                                else
-                                {
-                                    //greater than 50.0f && we're driving for 50, set flag, and then drive in
-                                    bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_ParadeNeedTomoveCloser);
-                                }
-                            }
-                        }
+                        // CAT: no ResearchShip "move closer" parade step (the type is gone; processMilitaryParadeToDo 0x00485280)
                         aishipFlyToPointAvoidingObjsWithVel(ship,&positionat,tmpuseflags,0.0f,&leader->obj.posinfo.velocity);
-dontmovecloser:;
                     }
                     else if (steadyFormation)
                     {

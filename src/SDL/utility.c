@@ -3275,11 +3275,7 @@ void utyTeaserStart(void)
         shiprace = utyTeaserHeader->objectPath[index].race;
         info = GetShipStaticInfo(shiptype,shiprace);
         bitSet(info->common.infoFlags, IF_InfoNeeded);
-        if (shiptype == DDDFrigate)
-        {
-            info = GetShipStaticInfo(Drone, shiprace);
-            bitSet(info->common.infoFlags, IF_InfoNeeded);
-        }
+        // CAT: no drone statics for a DDDFrigate, Cataclysm has neither type (M2-R4 ships-b retire)
     }
     universeStaticInit();
     if (etgHasBeenStarted)

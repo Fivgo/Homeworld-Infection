@@ -2093,10 +2093,7 @@ sdword cmSelectShipType(regionhandle region, sdword yClicked)
 ----------------------------------------------------------------------------*/
 ShipClass cmClassCapClassRemap(ShipType shipType, ShipClass shipClass)
 {
-    if (shipType == ResourceController)
-    {                                                       //resource controller is a special case
-        return(CLASS_Resource);
-    }
+    // CAT: no ResourceController special case, Cataclysm has no such type (M2-R4 ships-b retire)
     return(cmClassCapRemap[shipClass]);
 }
 

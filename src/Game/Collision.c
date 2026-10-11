@@ -2100,7 +2100,6 @@ void collCheckBulletTargetColl(blob *thisBlob)
                 collCheckBeamColl(thisBlob,bullet);
                 break;
             case WEAPON_LASER:
-            case CAT_BULLET_HW1DefenseLaser:    // CAT-DORMANT
                 break;              //don't do collision detection for lasers
             default:
                 pass = 0;
@@ -2231,14 +2230,11 @@ passagain:
                         }
                     }
 
-                    // CAT: no field-radius exemption for a DFG frigate (collCheckBulletTargetColl 0x0043cd90 tests every target
-                    //      against its collision sphere first); the exemption stays for the dormant HW1 DefenseFighter
-                    if ((target->header.objtype != OBJ_ShipType) || (((Ship *)target)->shiptype != DefenseFighter))
+                    // CAT: no collision-sphere exemption for any type (HW1 exempted the DFG frigate and the defense
+                    //      fighter): collCheckBulletTargetColl 0x0043cd90 tests every target against its sphere first
+                    if (ABS(distcheck) > (targetstaticheader->staticCollInfo.collspheresize+bullet->traveldist))
                     {
-                        if (ABS(distcheck) > (targetstaticheader->staticCollInfo.collspheresize+bullet->traveldist))
-                        {
-                            goto nexttarget;
-                        }
+                        goto nexttarget;
                     }
 
                     if (bullet->owner == (Ship *)target)
@@ -2269,19 +2265,8 @@ passagain:
                     distsquared = vecMagnitudeSquared(distvector);
                     v = vecDotProduct(distvector,bullet->bulletheading);
 
-                    if (target->header.objtype == OBJ_ShipType)
-                    {
-                        // CAT: HW1's DFGFrigate test is cat_collBulletDFGFieldCheck above
-                        if(((Ship *)target)->shiptype == DefenseFighter)
-                        {    //if target is a DefenseFighter
-                            DefenseFighterStatics *defensestatics;
-                            defensestatics = (DefenseFighterStatics *) ((ShipStaticInfo *)(((Ship *)target)->staticinfo))->custstatinfo;
-                            if(distsquared < ((Ship *)target)->staticinfo->bulletRangeSquared[((Ship *)target)->tacticstype])
-                            {
-                                DefenseFighterReportBullet((Ship *)target, bullet);
-                            }
-                        }
-                    }
+                    // CAT: HW1's DFGFrigate test is cat_collBulletDFGFieldCheck above; HW1's DefenseFighter bullet report
+                    //      is gone with the type (collCheckBulletTargetColl 0x0043cd90)
 
 					//if (v > 0)
 					{
@@ -2323,11 +2308,8 @@ nextbullet:
         if (deletebulletflag)
         {
             // we are deleting this bullet's index, so don't update bulletindex
-
-            if(bitTest(bullet->SpecialEffectFlag, 0x0002))
-            {    //bullet is possibly being targetted by a defense fighter...remove that reference
-                DefenseFighterBulletRemoval(bullet);
-            }
+            // CAT: no DefenseFighterBulletRemoval (SpecialEffectFlag 0x2), Cataclysm has no defense fighter
+            //      (M2-R4 ships-b retire)
 
             bobObjectDied((SpaceObj *)bullet,&universe.collBlobList);
             listRemoveNode(&bullet->bulletlink);

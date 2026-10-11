@@ -2667,7 +2667,10 @@ void speechEventUnderAttack(Ship *target)
                         target->soundevent.timeLastStatus = universe.totaltimeelapsed;
                     }
                 }
-                else if (target->shiptype == ResourceController)
+                // CAT: the Workers are Cataclysm's resource ships (speechEventUnderAttack 0x00523190 tests sWorker 0xe and
+                //      bWorker 0x31 where HW1 tested the ResourceController; the exe merges this branch with the
+                //      carrier / heavy-cruiser one above, 0x100080b: stage 3 speech)
+                else if (target->shiptype == sWorker || target->shiptype == bWorker)
                 {
                     speechEvent(target, STAT_ResCol_Damaged, 0);
                     target->soundevent.timeLastStatus = universe.totaltimeelapsed;

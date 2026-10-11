@@ -1770,17 +1770,9 @@ void tacticsUpdateOrderStatus(Ship *ship)
             ship->tactics_ordertype = ORDER_TYPE_ATTACK_ORDERS + enemyalready;
             break;
         case COMMAND_SPECIAL:
-            if(ship->shiptype == RepairCorvette)
-            {
-                if( ((RepairCorvetteSpec *)ship->ShipSpecifics)->repairState > REPAIR_DOCK_1)
-                    ship->tactics_ordertype = ORDER_TYPE_MOVE_ORDERS;   //force not to dodge
-                else
-                    ship->tactics_ordertype = ORDER_TYPE_MOVE_ORDERS + enemyalready;
-            }
-            else
-            {
-                ship->tactics_ordertype = ORDER_TYPE_MOVE_ORDERS + enemyalready;
-            }
+            // CAT: no RepairCorvette "don't dodge while repairing" case, Cataclysm has no repair corvette type
+            //      (M2-R4 ships-b retire)
+            ship->tactics_ordertype = ORDER_TYPE_MOVE_ORDERS + enemyalready;
             break;
         default:
             break;
@@ -2212,10 +2204,7 @@ real32 tacticsGetShipsMaxVelocity(Ship *ship)
         return(ship->staticinfo->common.maxvelocity);
     }
 
-    if (ship->shiptype == Probe)
-    {
-        return ProbeGetMaxVelocity(ship);
-    }
+    // CAT: no Probe dispatch speed, Cataclysm has no probe type (tacticsGetShipsMaxVelocity 0x00529450 tests no type)
 
     if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_Kamikaze))
     {

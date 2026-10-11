@@ -302,10 +302,7 @@ void toAllShipsDraw(void)
                 }
             }
 
-            if (ship->shiptype == Drone)
-            {
-                goto nextnode;
-            }
+            // CAT: no Drone skip, Cataclysm has no drones (toAllShipsDraw 0x00528aa0)
 
             // tactical overlay (fades out when the ship gets large enough)
             radius = collInfo->selCircleRadius * ship->staticinfo->tacticalSelectionScale;

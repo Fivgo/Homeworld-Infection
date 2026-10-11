@@ -29,8 +29,6 @@ _Static_assert(SECT_LAST_SHIP == 32 && BEAST_LAST_SHIP == 59 && KUSHAN_LAST_SHIP
                P1_LAST_SHIP == 97 && TRADERS_LAST_SHIP == 108 && DERELICT_LAST_SHIP == 144,
                "race ranges as LastShipTypeOfRace 0x00889504");
 _Static_assert(NSR_Asteroid == 7 && NSR_Missile == 14, "NIS object races as nisraceinfo 0x00889a00");
-_Static_assert(HW1LEGACY_FIRST_SHIP > TOTAL_NUM_SHIPS + 2 && HW1LEGACY_LAST_SHIP < 256,
-               "HW1-only type ids stay outside every type table and fit in a ubyte");
 
 /*=============================================================================
     Public Data:

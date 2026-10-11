@@ -2188,9 +2188,8 @@ typedef struct                                  // Bullet object
     //      cat_gunCreateBullet 0x0048bb00), where HW1 keeps the bullet type. Its readers test 2 (WEAPON_ION), which is
     //      HW1's BULLET_Beam: the ion cannon is Cataclysm's beam. 4 (WEAPON_LASER) does not move
     //      (physUpdateBulletPosVel 0x004e45b0), 8 (WEAPON_BEASTINFECT) is steered by the Beast weapon.
-    sdword bulletType;                          // CAT: WEAPON_* (was BulletType)
-#define CAT_BULLET_HW1DefenseLaser  100         // CAT-DORMANT: HW1's DefenseFighter laser (BULLET_Laser 3 is WEAPON_PLASMABOMB
-                                                //   now); only the dormant DefenseFighter code makes or tests it (M2-R4 #4)
+    sdword bulletType;                          // CAT: WEAPON_* (was BulletType); HW1's DefenseFighter laser type is gone
+                                                //   with the type (M2-R4 ships-b retire)
     bool32 catBurst;                            // CAT: exe +0x10C: fired while the ship burst-fires (specialFlags
                                                 //   0x40, SPECIAL_BurstFiring); replaces HW1's BULLET_SpecialBurst type
     GunSoundType soundType;

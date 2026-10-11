@@ -545,11 +545,7 @@ void pieAllShipsToPiePlateDraw(real32 distance)
             goto nextnode;
         }
 
-        if (ship->shiptype == Drone)
-        {
-            goto nextnode;
-        }
-
+        // CAT: no Drone skip, Cataclysm has no drones (M2-R4 ships-b retire)
         if (ship->header.objtype != OBJ_ShipType)
         {
             goto nextnode;

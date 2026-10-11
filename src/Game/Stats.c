@@ -1365,8 +1365,10 @@ bool32 statShipConstraintsFightingShipsCB(ShipStaticInfo *shipstatic)
             return TRUE;
             break;
         case CLASS_Frigate:
-            if ((shipstatic->shiptype == DFGFrigate) ||
-                (shipstatic->shiptype == AdvanceSupportFrigate))
+            // CAT: both race variants of the DFG and support frigates (statShipConstraintsFightingShipsCB 0x00524b30 /
+            //      statShipConstraintsCarrierFightingShipsCB 0x00524bd0: types 0x2d, 0x3c, 0x4a, 0x4e)
+            if ((shipstatic->shiptype == bDFGFrigate) || (shipstatic->shiptype == tDFGFrigate) ||
+                (shipstatic->shiptype == kAdvanceSupportFrigate) || (shipstatic->shiptype == tAdvanceSupportFrigate))
             {
                 return FALSE;
             }
@@ -1376,7 +1378,8 @@ bool32 statShipConstraintsFightingShipsCB(ShipStaticInfo *shipstatic)
             }
             break;
         case CLASS_Corvette:
-            if ((shipstatic->shiptype == SalCapCorvette))
+            // CAT: both salvage corvettes (types 0x48, 0x59)
+            if ((shipstatic->shiptype == kSalCapCorvette) || (shipstatic->shiptype == tSalCapCorvette))
             {
                 return FALSE;   //salcap corvette doesn't attack in a conventional manner
             }
@@ -1385,14 +1388,8 @@ bool32 statShipConstraintsFightingShipsCB(ShipStaticInfo *shipstatic)
                 return TRUE;
             }
         case CLASS_Fighter:
-            if (shipstatic->shiptype == DefenseFighter)
-            {
-                return FALSE;
-            }
-            else
-            {
-                return TRUE;
-            }
+            // CAT: every fighter fights, no DefenseFighter exemption (the type is gone)
+            return TRUE;
         case CLASS_Resource:
         case CLASS_NonCombat:
         default:
@@ -1421,8 +1418,10 @@ bool32 statShipConstraintsCarrierFightingShipsCB(ShipStaticInfo *shipstatic)
             return FALSE;
             break;
         case CLASS_Frigate:
-            if ((shipstatic->shiptype == DFGFrigate) ||
-                (shipstatic->shiptype == AdvanceSupportFrigate))
+            // CAT: both race variants of the DFG and support frigates (statShipConstraintsFightingShipsCB 0x00524b30 /
+            //      statShipConstraintsCarrierFightingShipsCB 0x00524bd0: types 0x2d, 0x3c, 0x4a, 0x4e)
+            if ((shipstatic->shiptype == bDFGFrigate) || (shipstatic->shiptype == tDFGFrigate) ||
+                (shipstatic->shiptype == kAdvanceSupportFrigate) || (shipstatic->shiptype == tAdvanceSupportFrigate))
             {
                 return FALSE;
             }
@@ -1432,7 +1431,8 @@ bool32 statShipConstraintsCarrierFightingShipsCB(ShipStaticInfo *shipstatic)
             }
             break;
         case CLASS_Corvette:
-            if ((shipstatic->shiptype == SalCapCorvette))
+            // CAT: both salvage corvettes (types 0x48, 0x59)
+            if ((shipstatic->shiptype == kSalCapCorvette) || (shipstatic->shiptype == tSalCapCorvette))
             {
                 return FALSE;   //salcap corvette doesn't attack in a conventional manner
             }
@@ -1441,14 +1441,8 @@ bool32 statShipConstraintsCarrierFightingShipsCB(ShipStaticInfo *shipstatic)
                 return TRUE;
             }
         case CLASS_Fighter:
-            if (shipstatic->shiptype == DefenseFighter)
-            {
-                return FALSE;
-            }
-            else
-            {
-                return TRUE;
-            }
+            // CAT: every fighter fights, no DefenseFighter exemption (the type is gone)
+            return TRUE;
         case CLASS_Resource:
         case CLASS_NonCombat:
         default:

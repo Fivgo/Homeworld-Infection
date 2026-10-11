@@ -1014,11 +1014,6 @@ void soundEventUpdateNew(void)
             goto nextship;
         }
 
-        if (ship->shiptype >= Drone)
-        {
-            goto nextship;
-        }
-
         shipclass = ship->staticinfo->shipclass;
 
 
@@ -2240,10 +2235,8 @@ void soundEventShipDied(Ship *deadship)
                 /* need some global warnings */
                 if (isCapitalShip(deadship))
                 {
-                    if (deadship->shiptype != CryoTray)
-                    {
-                        speechEventFleet(STAT_F_Cap_Dies, deadship->staticinfo->shipclass, deadship->playerowner->playerIndex);
-                    }
+                    // CAT: no CryoTray exemption, Cataclysm has no such type (soundEventShipDied 0x0051f960)
+                    speechEventFleet(STAT_F_Cap_Dies, deadship->staticinfo->shipclass, deadship->playerowner->playerIndex);
                 }
                 else if (deadship->shiptype == ResourceCollector)
                 {

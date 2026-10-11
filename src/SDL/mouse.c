@@ -608,9 +608,7 @@ bool32 mouseLDoubleClick(void)
             (((isShipOfClass(mouseCursorObjPtr, CLASS_Fighter) ||        // Carriers only support strikecraft
                isShipOfClass(mouseCursorObjPtr, CLASS_Corvette)) &&
               ShiptypeInSelection((SelectCommand *)&mouseCursorSelect, Carrier)) ||
-            (!isShipOfClass(mouseCursorObjPtr, CLASS_Mothership) &&     // RCorvs dock instead if possible.
-             !isShipOfClass(mouseCursorObjPtr, CLASS_Carrier) &&
-             ShiptypeInSelection((SelectCommand *)&mouseCursorSelect, RepairCorvette)) ||
+            // CAT: no RepairCorvette clause, Cataclysm has no repair corvette type (M2-R4 ships-b retire; stage 3 UI)
             ShiptypeInSelection((SelectCommand *)&mouseCursorSelect, AdvanceSupportFrigate)))
         {
             // make a backup of mouseCursorSelect
@@ -1260,21 +1258,11 @@ void mouseSelectCursorSetting(void)
                         bitSet(mouseInfo.flags, MCF_GUICapable);
                         bitSet(mouseInfo.flags, MCF_BuildGUI);
                         break;
-                        bitSet(mouseInfo.flags, MCF_GUICapable);
-                        bitSet(mouseInfo.flags, MCF_ResearchGUI);
-                        break;
-                        bitSet(mouseInfo.flags, MCF_GUICapable);
-                        bitSet(mouseInfo.flags, MCF_SensorsGUI);
-                        break;
+                    // CAT: the ResearchShip / SensorArray / DDDFrigate cases are gone with the types (M2-R4 ships-b retire;
+                    //      the research and sensors GUI flags of Cataclysm's modules are stage 3 UI)
                     case CloakGenerator:
                     case CloakedFighter:
                         if (bitTest(ship->header.flags, SOF_Cloaked))
-                        {
-                            bitSet(mouseInfo.flags, MCF_SpecialOpDeployed);
-                        }
-                        bitSet(mouseInfo.flags, MCF_SpecialOp);
-                        break;
-                        if (((DDDFrigateSpec *)ship->ShipSpecifics)->DDDstate == 3) //DDDSTATE_ALLOUTSIDE
                         {
                             bitSet(mouseInfo.flags, MCF_SpecialOpDeployed);
                         }
@@ -1305,14 +1293,8 @@ void mouseSelectCursorSetting(void)
             if ((ship->staticinfo->shipclass == CLASS_Corvette) ||
                 (ship->staticinfo->shipclass == CLASS_Fighter))
             {
-                if (ship->shiptype != RepairCorvette)
-                {
-                    bitSet(mouseInfo.flags, MCF_SmallDockable);
-                }
-                else
-                {
-                    bitSet(mouseInfo.flags, MCF_Dockable);
-                }
+                // CAT: every strike craft is small-dockable, no RepairCorvette case (the type is gone; M2-R4 ships-b retire)
+                bitSet(mouseInfo.flags, MCF_SmallDockable);
             }
             else if ((ship->staticinfo->shipclass == CLASS_Resource) ||
                      (ship->staticinfo->shipclass == CLASS_NonCombat))

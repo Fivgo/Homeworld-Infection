@@ -215,7 +215,6 @@ bool32 physUpdateBulletPosVel(Bullet *bullet,real32 phystimeelapsed)
             }
             break;
         case WEAPON_LASER:  //don't do move lasers
-        case CAT_BULLET_HW1DefenseLaser:    // CAT-DORMANT (SpaceObj.h)
             break;
         case WEAPON_BEASTINFECT:
             cat_beastWeaponBulletUpdate(bullet);

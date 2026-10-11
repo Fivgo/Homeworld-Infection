@@ -2355,24 +2355,8 @@ static enum WhetherToDraw onRenderEffect(Effect* effect) {
         return DontDraw;
     }
 
-    if (bullet->bulletType != CAT_BULLET_HW1DefenseLaser) return Draw;    // CAT: HW1's defense laser only (SpaceObj.h)
-
-    /** Effect is owned by a defense fighter laser beam
-     *
-     * If we are rendering the nozzle flash effect, we can't know if the owner is still valid, so just skip to drawing
-     * and let the beam effect do the dereferencing for length adjustments (plus, we wouldn't want to do that twice).
-     *
-     * Gitlab #30 "Segfault on defense fighter laser" - Thibault Lemaire - 2024-04-10 - 3 of 3
-     */
-    if (bullet->effect != effect) return Draw;
-
-    // Effect is the laser beam
-    // bullet update 'feature' to draw laser to bullet
-    defenseFighterAdjustLaser(bullet);
-
-    // TODO: What length problem?
-    // Comment from 1997: "luke suggested fix to laser length problem"
-    etgEffectUpdate(effect, 0.0f);
+    // CAT: HW1's defense-fighter laser (its beam followed the bullet, defenseFighterAdjustLaser) is gone with the
+    //      type (M2-R4 ships-b retire): every other bullet effect is drawn as is
 
     return Draw;
 }
@@ -2606,11 +2590,8 @@ void rndMainViewRenderFunction(Camera *camera)
                 {                                           //if there is no effect for this bullet
                     rndLightingEnable(FALSE);               //draw default line
                     rndTextureEnable(FALSE);
-                    if(((Bullet *)spaceobj)->bulletType == CAT_BULLET_HW1DefenseLaser)     // CAT: HW1's defense laser only (SpaceObj.h)
-                    {   //bullet update 'feature' to draw laser to bullet
-                        defenseFighterAdjustLaser(((Bullet *)spaceobj));
-                    }
-                    else if (((Bullet *)spaceobj)->bulletType == BULLET_Beam)
+                    // CAT: no defense-fighter laser case (the type is gone; M2-R4 ships-b retire)
+                    if (((Bullet *)spaceobj)->bulletType == BULLET_Beam)
                     {
                         if(((Bullet *)spaceobj)->timelived <= UNIVERSE_UPDATE_PERIOD)
                         {

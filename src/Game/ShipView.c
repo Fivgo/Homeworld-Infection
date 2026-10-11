@@ -894,16 +894,9 @@ void svTopSpeedRender(featom *atom, regionhandle region)
 
     //sprintf(buf,"%d", (uword)info->common.maxvelocity);
     //topspeed contains a %d for the numerical location of the maxvelocity
-    if(info->shiptype == Probe)
-    {
-        sprintf(buftemp,"%d",(udword) ((ProbeStatics *) info->custstatinfo)->ProbeDispatchMaxVelocity);
-        sprintf(buf,ShipStatToNiceStr(TopSpeed),buftemp);
-    }
-    else
-    {
-        sprintf(buftemp,"%d",(udword) info->common.maxvelocity);
-        sprintf(buf,ShipStatToNiceStr(TopSpeed),buftemp);
-    }
+    // CAT: no Probe dispatch speed, Cataclysm has no probe type (M2-R4 ships-b retire)
+    sprintf(buftemp,"%d",(udword) info->common.maxvelocity);
+    sprintf(buf,ShipStatToNiceStr(TopSpeed),buftemp);
     fontPrintf(
         rect->x0,
         rect->y0,

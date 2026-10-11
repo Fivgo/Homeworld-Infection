@@ -1241,27 +1241,14 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
                         teamp->newships--;
                     }
 
-                    if(ship->shiptype == ResearchShip &&
-                       player->shiptotals[ResearchShip] >1)
-                    {
-                        addMonkeyResearchShip(ship);
-                    }
+                    // CAT: no addMonkeyResearchShip, Cataclysm has no research ship type (scriptSetShipsCB 0x004a13f0)
                 }
             }
         }
 
 
-        // Update research manager ship status
-
-        // ****** IMPORTANT we have changed the research so that it is deterministic on all machines.
-        if (shiptype==ResearchShip)
-        {
-/*            if ( (player==universe.curPlayerPtr) ||
-                 (player->aiPlayer!=NULL) )
-            {*/
-                rmActivateFreeLab(player);
-//            }
-        }
+        // CAT: no ResearchShip lab activation, Cataclysm has no research ship type (scriptSetShipsCB 0x004a13f0; the
+        //      research module's activation is cat_rmResearchModuleActivated, CAT-TODO M2-R4 #5)
 
         // CAT: the player's mothership is any of sMothership, bMothership, kCarrier, tCarrier, trFloatingCity
         //      (scriptSetShipsCB 0x004a13f0: types 0x12, 0x35, 0x3E, 0x4C, 0x62)
@@ -1320,27 +1307,10 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
                         teamp->newships--;
                     }
 
-                    // Update research manager ship status
+                    // CAT: no ResearchShip lab activation (the type is gone; scriptSetShipsCB 0x004a13f0)
 
-                    // ****** IMPORTANT we have changed the research so that it is deterministic on all machines.
-                    if (shiptype==ResearchShip)
-                    {
-/*                        if ( (player==universe.curPlayerPtr) ||
-                             (player->aiPlayer!=NULL) )
-                        {*/
-                            rmActivateFreeLab(player);
-//                        }
-                    }
-
-                    if(ship->shiptype == ResearchShip &&
-                       player->shiptotals[ResearchShip] >1)
-                    {
-                        addMonkeyResearchShip(ship);
-                    }
-                    else
-                    {
-                        GroupShipIntoMilitaryParade(&universe.mainCommandLayer,ship,player->PlayerMothership);
-                    }
+                    // CAT: no addMonkeyResearchShip (the type is gone): every ship joins the parade
+                    GroupShipIntoMilitaryParade(&universe.mainCommandLayer,ship,player->PlayerMothership);
                 }
             }
         }
@@ -1385,30 +1355,13 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
                         teamp->newships--;
                     }
 
-                    // Update research manager ship status
-
-                    // ****** IMPORTANT we have changed the research so that it is deterministic on all machines.
-                    if (shiptype==ResearchShip)
-                    {
-/*                        if ( (player==universe.curPlayerPtr) ||
-                             (player->aiPlayer!=NULL) )
-                        {*/
-                            rmActivateFreeLab(player);
-//                        }
-                    }
+                    // CAT: no ResearchShip lab activation (the type is gone; scriptSetShipsCB 0x004a13f0)
 
 
                     selectcom->ShipPtr[i] = ship;
 
-                    if(ship->shiptype == ResearchShip &&
-                       player->shiptotals[ResearchShip] >1)
-                    {
-                        addMonkeyResearchShip(ship);
-                    }
-                    else
-                    {
-                        rotatedposition.z += (ship->staticinfo->common.staticCollInfo.collspheresize * 2.0f);
-                    }
+                    // CAT: no addMonkeyResearchShip (the type is gone): every ship takes a column slot
+                    rotatedposition.z += (ship->staticinfo->common.staticCollInfo.collspheresize * 2.0f);
                 }
             }
 

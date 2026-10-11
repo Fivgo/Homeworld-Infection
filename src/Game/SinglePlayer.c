@@ -743,10 +743,7 @@ void spGoNowHyperspaceCB(char *string, featom *atom)
                 }
 */
             }
-            if (ship->shiptype == DDDFrigate)
-            {
-                DDDFrigateDockAllDronesInstantly(ship);
-            }
+            // CAT: no DDDFrigateDockAllDronesInstantly, Cataclysm has no drone frigate (spGoNowHyperspaceCB 0x005173a0)
         }
         memFree(selectAll);
         militaryGroup = GetMilitaryGroupAroundShip(&universe.mainCommandLayer,universe.curPlayerPtr->PlayerMothership);
@@ -800,10 +797,8 @@ void CalculateRollCall(void)
         {
             if (ship->shipsInsideMe)
             {
-                if (ship->shiptype != DDDFrigate)
-                {
-                    singlePlayerGameInfo.rollcallShipsDocked += ship->shipsInsideMe->insideList.num;
-                }
+                // CAT: every ship inside counts, no DDDFrigate exemption (CalculateRollCall 0x005176e0, 0x00517707)
+                singlePlayerGameInfo.rollcallShipsDocked += ship->shipsInsideMe->insideList.num;
             }
 
             if (!ShipCanHyperspace(ship))
@@ -854,14 +849,7 @@ void TellShipsToDockForHyperspace(void)
 
         if (allianceIsShipAlly(ship,universe.curPlayerPtr) && !(ship->header.flags & SOF_Disabled))
         {
-            if (ship->shiptype == DDDFrigate)
-            {
-                DDDFrigateMakeReadyForHyperspace(ship);
-            }
-            if(ship->shiptype == ResearchShip)
-            {
-                ResearchShipMakeReadyForHyperspace(ship);
-            }
+            // CAT: no DDDFrigate / ResearchShip hyperspace preparation, Cataclysm has neither type (M2-R4 ships-b retire)
         }
 
         objnode = objnode->next;
@@ -3199,7 +3187,16 @@ void singlePlayerNisStoppedCB(void)
             dbgAssertOrIgnore(universe.curPlayerPtr->PlayerMothership != NULL);
 
             growSelectInit(&growselect);
-            FindShipsOfShipTypeOfPlayer(&growselect,LightInterceptor,universe.curPlayerPtr);
+            // CAT: the player's Recon ships (sRecon for a Sect player, bRecon for a Beast one) go into the custom
+            //      formation, not HW1's LightInterceptors (singlePlayerNisStoppedCB 0x0051b430, 0x0051b4a0 .. 0x0051b4f0)
+            if (universe.curPlayerPtr->race == RACE_Sect)
+            {
+                FindShipsOfShipTypeOfPlayer(&growselect,sRecon,universe.curPlayerPtr);
+            }
+            else if (universe.curPlayerPtr->race == RACE_Beast)
+            {
+                FindShipsOfShipTypeOfPlayer(&growselect,bRecon,universe.curPlayerPtr);
+            }
             if (growselect.selection->numShips > 0)
             {
                 clFormation(&universe.mainCommandLayer,growselect.selection,CUSTOM_FORMATION);
@@ -3695,15 +3692,7 @@ void SetWarpFleetCB(char *directory,char *field,void *dataToFillIn)
         // Update ship totals for player
         unitCapCreateShip(ship,player);
 
-        // Update research manager ship status
-        if (shiptype==ResearchShip)
-        {
-            if ( (player==universe.curPlayerPtr) ||
-                 (player->aiPlayer!=NULL) )
-            {
-                rmActivateFreeLab(player);
-            }
-        }
+        // CAT: no ResearchShip lab activation, Cataclysm has no research ship type (M2-R4 ships-b retire)
 
         GroupShipIntoMilitaryParade(&universe.mainCommandLayer,ship,universe.players[0].PlayerMothership);
     }

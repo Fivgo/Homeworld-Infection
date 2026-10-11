@@ -477,18 +477,12 @@ void kasfSwarmMoveTo(GrowSelection *targets)
     swarmers.numShips = 0;
     Pod.numShips = 0;
 
-    //split the teams into swarmers and pods
+    // CAT: no P2AdvanceSwarmer / fuel pod split: every ship of the team is a "swarmer" and the pod selection stays
+    //      empty (kasfSwarmMoveTo 0x00492610; the HW1 type is gone)
     for (i=0;i<CurrentTeamP->shipList.selection->numShips;i++)
     {
         ship = CurrentTeamP->shipList.selection->ShipPtr[i];
-        if ((ship->shiptype == P2AdvanceSwarmer))
-        {
-            selSelectionAddSingleShip(&swarmers, ship);
-        }
-        else
-        {
-            selSelectionAddSingleShip(&Pod, ship);
-        }
+        selSelectionAddSingleShip(&swarmers, ship);
     }
     destination = selCentrePointComputeGeneral((MaxSelection *)targets->selection, &temp);
 
@@ -1539,11 +1533,7 @@ void SelectionSwitchPlayerOwner(SelectCommand *selection)
             ship->playerowner = &universe.players[1];
             ship->obj.attributes |= ATTRIBUTES_Defector;
             bitClear(ship->header.flags,SOF_Selectable);
-
-            if (ship->shiptype == DDDFrigate)
-            {
-                DDDFrigateSwitchSides(ship,1);
-            }
+            // CAT: no DDDFrigateSwitchSides, Cataclysm has no drone frigate (SelectionSwitchPlayerOwner 0x00493f80)
         }
         else
         {
@@ -1553,11 +1543,7 @@ void SelectionSwitchPlayerOwner(SelectCommand *selection)
             bitClear(ship->obj.attributes,ATTRIBUTES_Defector);
 			bitClear(ship->header.flags,SOF_Disabled);
             bitSet(ship->header.flags,SOF_Selectable);
-
-            if (ship->shiptype == DDDFrigate)
-            {
-                DDDFrigateSwitchSides(ship,0);
-            }
+            // CAT: no DDDFrigateSwitchSides (the type is gone; SelectionSwitchPlayerOwner 0x00493f80)
         }
     }
 }

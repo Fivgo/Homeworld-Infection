@@ -591,10 +591,7 @@ void bobSubBlobListCreate(BlobProperties *blobProperties, LinkedList *list, blob
             switch (spaceobj->header.objtype)
             {
                 case OBJ_ShipType:
-                    if (((Ship *)spaceobj)->shiptype == Drone)
-                    {
-                        continue;
-                    }
+                    // CAT: no Drone skip, Cataclysm has no drones (bobSubBlobListCreate 0x00426510 tests no ship type)
                     mass = ((Ship *)spaceobj)->staticinfo->common.mass;
                     break;
                 case OBJ_BulletType:
@@ -1206,8 +1203,8 @@ void bobBlobItemize(blob *thisBlob, sdword sensorsLevel)
     SpaceObj *object = NULL;
     ubyte shipClass;
     SpaceObjSelection *blobObjects = thisBlob->blobObjects;
-    bool32 bGravWellDetected = FALSE, bProbeDetected = FALSE;
-    Ship *gravWell = NULL, *probe = NULL;
+    bool32 bGravWellDetected = FALSE;
+    Ship *gravWell = NULL;
 
     thisBlob->RUs = 0;
     thisBlob->nRockRUs = thisBlob->nDustRUs = 0;
@@ -1252,17 +1249,13 @@ void bobBlobItemize(blob *thisBlob, sdword sensorsLevel)
                     thisBlob->nFriendlyShips++;
                 }
                 thisBlob->shipMass += ((Ship *)object)->staticinfo->common.mass;
-//!!! bryce: change this definition
-#define probeActive(ship)       TRUE
                 if (((Ship *)object)->playerowner == universe.curPlayerPtr &&
                     !(object->header.flags & SOF_Disabled))        //if shipis players and isn't disabled!
                 {                                           //if this is one of the player's ships
                     bitSet(thisBlob->flags, BTF_Explored);
-                    if (((Ship *)object)->shiptype == Probe && probeActive((Ship *)object))
-                    {                                       //if player has an active probe in the blob
-                        bitSet(thisBlob->flags, BTF_ProbeDroid);
-                    }
-                    else if (((Ship *)object)->shiptype == Carrier)
+                    // CAT: no Probe / BTF_ProbeDroid test, Cataclysm has no probe type (bobBlobItemize 0x004271d0 tests
+                    //      no ship type)
+                    if (((Ship *)object)->shiptype == Carrier)
                     {
                         bitSet(thisBlob->flags, BTF_Carrier);
                     }
@@ -1286,11 +1279,8 @@ void bobBlobItemize(blob *thisBlob, sdword sensorsLevel)
                             gravWell = (Ship *)object;
                         }
                     }
-                    else if (((Ship *)object)->shiptype == Probe)
-                    {                                       //enemy probe
-                        bProbeDetected = TRUE;
-                        probe = (Ship *)object;
-                    }
+                    // CAT: no enemy-probe detection (BCE_ProbeDetected), Cataclysm has no probe type (bobBlobItemize
+                    //      0x004271d0 tests only the grav-well generators)
                 }
                 if (((Ship *)object)->recentlyAttacked != 0)
                 {
@@ -1326,10 +1316,6 @@ resourceCommon:
 
     if (bitTest(thisBlob->flags, BTF_Explored))
     {
-        if (bProbeDetected)
-        {
-            battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_ProbeDetected, SOUND_EVENT_DEFAULT, &probe->obj.posinfo.position);
-        }
         if (bGravWellDetected)
         {
             battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_GravwellDetected, SOUND_EVENT_DEFAULT, &gravWell->obj.posinfo.position);

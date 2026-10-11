@@ -55,15 +55,13 @@ void soundEventBurstStop(Ship *ship, Gun *gun)
 
 		if (ship->soundevent.burstHandle > SOUND_NOTINITED)
 		{
-			if (ship->staticinfo->shiptype == DefenseFighter)
-			{
-				soundstop(ship->soundevent.burstHandle, SOUND_FADE_STOPNOW);
-			}
-			else
-			{
-				soundstop(ship->soundevent.burstHandle, SOUND_FADE_STOPTIME);
-			}
+			// CAT: no DefenseFighter instant stop, Cataclysm has no such type (soundEventBurstStop 0x00521710 always
+			//      fades over SOUND_FADE_STOPTIME)
+			soundstop(ship->soundevent.burstHandle, SOUND_FADE_STOPTIME);
 		    ship->soundevent.burstHandle = SOUND_NOTINITED;
+		    // CAT: the exe also clears the burst gun (Ship+0x48C = soundevent.gun; soundEventBurstStop 0x00521710)
+		    //      [audit M2-R4 ships-b]
+		    ship->soundevent.gun = NULL;
 		}
 	}
 }

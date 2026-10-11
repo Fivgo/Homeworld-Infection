@@ -1,7 +1,7 @@
-<!-- done: systems, derelicts, strike, capital -->
+<!-- done: systems, derelicts, strike, capital, retire, final -->
 # M2-R4 producer 4: ship code B, the Cataclysm-only ships
 
-Status: in progress. Branch `m2`, worktree `.claude/worktrees/m2`, nothing committed by this run. Scope:
+Status: DONE, unaudited (resumed 2026-10-11 from the unaudited WIP commit 2f1a847; the retire and final subsystems are this run's). Branch `m2`, worktree `.claude/worktrees/m2`, nothing committed by this run. Scope:
 docs/m2-r3-summary.md "Plan for M2-R4" row 4 and "What is left of stage 2 part A" item 4 (the provisional ship-state
 queries).
 
@@ -171,3 +171,140 @@ Runs: `r4sb-cap1-statics` / `r4sb-cap-statics` (statics + `/catShipStaticsStatic
 145 types, **108 StaticInits ran** (35 types have none: the exe's NULL slot 1, including sProcessor/bProcessor).
 `r4sb-cap1-sp`, `r4sb-cap-sp` (sp, 340 s): universe running, `univUpdateCounter` 1,248, ASan 0, no unsuppressed leak,
 3,723 / 3,725 file loads. `tools/m2_layout32.sh`: OK, 45 ship files.
+
+## 5. `retire`: the 22 dormant HW1 types, DefenseFighter.c, the dormant RepairCorvette header
+
+The WIP commit 2f1a847 had already deleted the ids (ShipDefs.h: the 22 HW1 types once at 200..221 are gone, the
+alias block's comment says so), the 14 HW1-only ship files (DDDFrigate, DefenseFighter, Drone, LightCorvette,
+P2AdvanceSwarmer, P2FuelPod, P2Mothership, P2MultiBeamFrigate, P2Swarmer, P3StandardShip, Probe, ResearchShip,
+ResourceController, SensorArray: 28 files, `Ships/meson.build`, `Ships/Ships.h`) and the `RepairCorvetteHeader`
+(RepairCorvette.c keeps only the shared repair-effect helpers the Cataclysm repairers call: `startRepairEffect`
+0x005c22c0, `stopRepairEffect` 0x005c23b0, `ModifyRepairEffect` 0x005c2410, `refuelRepairShips` 0x005c24e0; its
+comment says why), but the tree did not build: 43 compile errors and 2 link errors in HW1 code keyed on the dropped
+types. This run removed that code (`ninja -k 0` until clean), each site with a CAT comment; where the exe has a
+replacement test the port has it too:
+
+| file | what went | exe evidence |
+|---|---|---|
+| `Game/Blobs.c` | the Drone skip of the sub-blob mass sum; the Probe `BTF_ProbeDroid` flag and the `probeActive` macro; the enemy-probe detection (`BCE_ProbeDetected` chatter, its two locals) | `bobSubBlobListCreate` 0x00426510 and `bobBlobItemize` 0x004271d0 test no ship type (grav-well generator only) |
+| `Game/Collision.c` | the DefenseFighter collision-sphere exemption (HW1 also exempted the DFG frigate; combat had kept this half), the `DefenseFighterReportBullet` block, the `SpecialEffectFlag 0x2` `DefenseFighterBulletRemoval` on bullet deletion, the `CAT_BULLET_HW1DefenseLaser` case | `collCheckBulletTargetColl` 0x0043cd90 (combat's audit: every target tested against its sphere first) |
+| `Game/Physics.c`, `Game/SpaceObj.h` | the dormant `CAT_BULLET_HW1DefenseLaser` bullet type (100) and its no-move case | |
+| `SDL/render.c` | `onRenderEffect`'s defense-laser half (`defenseFighterAdjustLaser`, the laser-length `etgEffectUpdate`) and the default-line laser branch of `rndMainViewRenderFunction` | the two unresolved symbols at link |
+| `Game/ConsMgr.c` | `cmClassCapClassRemap`'s ResourceController case | |
+| `Game/Formation.c` | the two ResearchShip parade cases of `processMilitaryParadeToDo` (move closer; keep heading) and their `dontmovecloser` / `dontadjustheading` labels | 0x00485280 tests no ship type |
+| `Game/KASFunc.c` | `kasfSwarmMoveTo`: every ship of the team goes into the swarmer selection, the pod selection stays empty (HW1 split on P2AdvanceSwarmer); `SelectionSwitchPlayerOwner`: both `DDDFrigateSwitchSides` calls | 0x00492610 (whole body: no type test, all ships added to one selection); 0x00493f80 |
+| `Game/LevelLoad.c` | three ResearchShip `rmActivateFreeLab` blocks and two `addMonkeyResearchShip` blocks (the parade / column placement is unconditional now) | `scriptSetShipsCB` 0x004a13f0 (tests 0x12, 0x35, 0x3e, 0x4c, 0x62 only) |
+| `Game/ObjTypes.c` | the `HW1LEGACY_FIRST_SHIP` / `LAST_SHIP` static assert (the ids are gone) | |
+| `Game/PiePlate.c`, `Game/Tactical.c` | the Drone skips | `toAllShipsDraw` 0x00528aa0 |
+| `Game/ShipView.c` | the Probe dispatch-speed stat | |
+| `Game/SinglePlayer.c` | `singlePlayerNisStoppedCB`: the custom formation after NIS 1 takes the player's **sRecon** (Sect) or **bRecon** (Beast) ships instead of HW1's LightInterceptors; `SetWarpFleetCB`'s ResearchShip lab; `spGoNowHyperspaceCB`'s `DDDFrigateDockAllDronesInstantly`; `CalculateRollCall` counts every ship inside (no DDDFrigate exemption); `TellShipsToDockForHyperspace`'s two type calls | 0x0051b430 (0x0051b4a0 .. 0x0051b4f0: race 0 -> type 0, race 1 -> type 0x21); 0x005173a0; 0x005176e0 (0x00517707) |
+| `Game/SoundEvent.c`, `Game/SoundEventStop.c` | the CryoTray exemption of the capital-ship death speech; the `>= Drone` skip inside the `#if 0` block of `soundEventUpdateNew`; the DefenseFighter instant burst stop (always `SOUND_FADE_STOPTIME`) [audit: the exe's body also clears `soundevent.gun` (Ship+0x48C) after the stop, which HW1 and the port did not; added] | `soundEventShipDied` 0x0051f960; `soundEventBurstStop` 0x00521710 (whole body: `soundstop(handle, 0.5)`) |
+| `Game/SpeechEvent.c` | the resource-ship damage warning tests `sWorker || bWorker` where HW1 tested ResourceController | `speechEventUnderAttack` 0x00523190 (0xe, 0x31; the exe merges the branch with the carrier / heavy-cruiser one: stage 3) |
+| `Game/Stats.c` | both fighting-ship callbacks: the frigate exceptions are **both** race variants (bDFGFrigate, tDFGFrigate, kAdvanceSupportFrigate, tAdvanceSupportFrigate), the corvette ones both SalCaps, every fighter fights (the aliases had covered one variant each) | 0x00524b30 / 0x00524bd0: types 0x2d, 0x3c, 0x4a, 0x4e; 0x48, 0x59 |
+| `Game/Tactics.c` | the RepairCorvette "don't dodge while repairing" order type; the Probe speed | `tacticsGetShipsMaxVelocity` 0x00529450 (whole body: no type test) |
+| `SDL/mouse.c` | the RepairCorvette dock clause of the double-click, the unreachable ResearchShip / SensorArray / DDDFrigate bodies the WIP had left after removed `case` labels, the RepairCorvette `MCF_Dockable` case (every strike craft is `MCF_SmallDockable`) | stage 3 UI, no exe name |
+| `SDL/utility.c`, `SDL/utility_mac.c` | the teaser NIS no longer loads Drone statics for a DDDFrigate | |
+
+[audit: the table above lists only the resumed run's 22 files. The WIP commit 2f1a847 had already removed the
+dropped-type code of about 20 more files, which this report did not name: the stage-4 AI files `AIAttackMan.c`
+(`aiaCleanUpSwarmers` / `aiaProcessSwarm` / the P2 attack manager), `AIDefenseMan.c`, `AIEvents.c`, `AIFleetMan.c`
+(`aifP2FleetCommand`), `AIHandler.c`, `AIMoves.c`, `AIOrders.c`, `AIResourceMan.c`, `AIShip.c`, `AITeam.c`,
+`AIUtilities.c` (where the AI asked for a LightInterceptor, LightCorvette, Probe, RepairCorvette, ResearchShip or
+ResourceController the request is dropped or another type stands in, each marked `CAT-TODO(stage 4 AI)`);
+`Dock.c` (-2,139 lines: the ResearchShip, RepairCorvette, ResourceController, P2Mothership, P2FuelPod, DDDFrigate and
+Drone dock code and their `dockInitializeCustomFunctions` cases; the exe has none of these dock types, M2-R4 combat's
+35-type table); `CommandLayer.c` (`selectionHasSwarmers`, the Probe / DefenseFighter / DDDFrigate / TargetDrone /
+LightDefender tests); the `ConsMgr.c` key, disabled and available tables; the `InfoOverlay.c` overlay list;
+`Bounties.c`, `Formation.c` (`need_TargetDrone_Solution`, the DDDF drone sphere), `MadLinkIn.c`, `Sensors.c`,
+`ResearchGUI.c`, `SDL/mainrgn.c`. The in-function edits among them carry CAT comments; the whole-function and
+table-row deletions (about 100 hunks) carry none, which the porting convention asks for.]
+
+Not retired here, with a reason: `Ships/CloakGenerator.c` tests the `Mothership` / `Carrier` aliases (the file is
+not in this scope; M2-R3 ships-a's). The `R1` / `R2` race aliases (RaceDefs.h) are not used by the new code
+(`RACE_Sect` / `RACE_Beast`).
+
+After this subsystem no whole-word use of a dropped type name is left in `src/Game`, `src/Ships`, `src/SDL`,
+`src/Missions` outside comments and string tables (checked with a grep over the 29 identifiers, the `str*` string
+ids excluded).
+
+Builds: `tools/build.sh --debug` rc 0, 0 warnings; `tools/build.sh --release` rc 0, 0 warnings;
+`tools/m2_layout32.sh` OK (45 ship files, every `sizeofShipSpecifics` assert holds).
+
+Run `r4sb-retire-statics` (statics + `/catShipStaticsStaticInit`, plain harness, debug ASan): rc 0, ASan 0, no
+unsuppressed leak, 143 of 145 types loaded (2 not found: the disabled kCloakGenerator / tCloakGenerator .shp), 27
+other .shp (170 of 173 .shp), **108 StaticInits ran** (`staticinit=next`), 35 types with the exe's NULL slot 1
+(`staticinit=none`); unchanged from `r4sb-cap-statics`.
+
+## 6. `final`: delta-map review entries, builds, runs, what is left
+
+### Delta-map review entries (ghidra/delta_map.json, `done_subsystems` += `m2r4:ships-b`)
+
+Class corrected from IDENTICAL to MODIFIED (the HW1 body has a test on a dropped type; the exe has none):
+- `kasfSwarmMoveTo` 0x00492610 (whole body read; reviewed): every team ship goes into one selection.
+- `soundEventBurstStop` 0x00521710 (whole body read; reviewed): always `soundstop(handle, 0.5)`.
+- `soundEventShipDied` 0x0051f960, `speechEventUnderAttack` 0x00523190, `bobSubBlobListCreate` 0x00426510 (partial
+  reads, the type tests only: not marked reviewed; the change text says what was read).
+
+`review_note` added (partial reads, the dropped-type branch only; the rest of each delta belongs to its owner):
+`bobBlobItemize` 0x004271d0, `processMilitaryParadeToDo` 0x00485280, `SelectionSwitchPlayerOwner` 0x00493f80,
+`scriptSetShipsCB` 0x004a13f0, `singlePlayerNisStoppedCB` 0x0051b430, `toAllShipsDraw` 0x00528aa0,
+`tacticsGetShipsMaxVelocity` 0x00529450, `CalculateRollCall` 0x005176e0, `spGoNowHyperspaceCB` 0x005173a0.
+Dead-code notes on the exe's bodies of the dropped types: the 10 `DefenseFighter*` functions (0x005b0420 ..
+0x005b08b0) and `RepairCorvetteStaticInit` / `Init` / `Died` / `SpecialTarget` (0x005c21e0, 0x005c2240, 0x005c2280,
+0x005c2990). Counts after: IDENTICAL 3,086, MODIFIED 1,257, reviewed 1,532. No edited IDENTICAL function was found
+in the Ships files this producer changed (checked: the IDENTICAL entries of Carrier.c, DFGFrigate.c, DefaultShip.c,
+RepairCorvette.c against the diff's hunks; `DFGFrigateAttack` appears only as a hunk context of the new
+`DFGFrigateHouseKeep`).
+
+[audit: the Game files were not checked the same way. The retire step (WIP 2f1a847) edited 20 more functions the map
+still called IDENTICAL, all by removing an HW1 test on a dropped type, with no entry: `aiaPriorityShipsConstraints`,
+`aidSetupResourceDefenseTeams`, `aifAssignNewShips`, `aifFleetCommand`, `aihFastDefenseDistressHandler`,
+`aihSlowDefenseDistressHandler`, `aimProcessTempGuard`, `airAddNewShip`, `airShipDied`, `aishipPrecalcInfo`,
+`aiuFindFighterVulnerableEnemyShips`, `aiuFindUnarmedEnemyShips`, `aiuMakeShipsOnlyDangerousToMothership`,
+`aiuRateBlobs`, `aiuRateShip`, `aiuUnitCapCanBuildShip`, `BreakupIntoLeaderWingman`,
+`LaunchAllInternalShipsOfPlayerThatMustBeLaunched`, `formGroups`, `isCapitalShipStaticOrBig`. The audit reclassified
+them MODIFIED (a type id that does not exist in Cataclysm cannot be tested by the exe; the r6 bodies' own type tests
+are in each `review_note`, partial reads except `aiaPriorityShipsConstraints` and `isCapitalShipStaticOrBig`, whose
+whole bodies test both race variants and, for the frigate constraint, the Processors: stage 4 / command follow-up).
+Counts after the audit: IDENTICAL 3,066, MODIFIED 1,277, REWRITTEN 77, reviewed 1,532.]
+
+### Builds and layout
+`tools/build.sh --debug` rc 0, 0 warnings; `tools/build.sh --release` rc 0, 0 warnings (-Werror);
+`tools/m2_layout32.sh` OK (45 ship files, every ILP32 `sizeofShipSpecifics` assert holds).
+
+### Plain-harness runs (tools/m2_harness.sh, silent; debug ASan binary copied to /tmp/m2r4sb/bin6)
+| run | mode | result |
+|---|---|---|
+| `r4sb-retire-statics` | statics + `/catShipStaticsStaticInit` | rc 0, ASan 0, no unsuppressed leak; 143 of 145 types loaded (the two disabled cloak-generator .shp not found), 170 of 173 .shp; 108 StaticInits ran, 35 types with the exe's NULL slot 1 |
+| `r4sb-retire-sp` | sp, 340 s | milestone "universe running", `univUpdateCounter` 1,248 at the timeout (rc 124 = timeout, as every sp run since R3), ASan 0, no unsuppressed leak, 3,723 file loads, 33 ship statics (Mission01); first stop: none (still running at the timeout) |
+
+DONE WHEN: every ship type's `shipHeaders` row is the exe's header (a script compared `Universe.c` with
+headers.txt: 143 of 145 rows equal; kCloakGenerator / tCloakGenerator keep `DefaultShipHeader` where the exe has NULL,
+the accepted default, because `InitStatShipInfo` dereferences the header and the exe never loads those two .shp);
+no HW1-only ship type or file is left; statics 143 / 145 (170 / 173 .shp) unchanged; sp as far as before, ASan 0.
+[audit: slot by slot, the 22 new headers match headers.txt and the exe's raw dwords (Acolyte, Worker and Sentinel
+re-read from 0x008c3260 / 0x008c6b50 / 0x008c6830) with the typed nullsub / kasfSpecialOff stand-ins, except two
+slots left NULL on purpose: Mimic slot 29 (`MimicSlot74Command`, section 3) and `WorkerHeader` slot 26
+(`kasfSpecialOff` in the exe; the slot has no caller, Worker.c's header comment says so but this report did not).]
+
+### Counts
+Whole producer (d407410 .. working tree): 169 files (48 added, 28 deleted, 93 modified), +14,036 / -8,147 lines;
+`src/Ships` 91 files (+12,217 / -4,360), `src/Game` + `src/SDL` 71 files (+1,621 / -3,774); 48 ship .c files now
+(22 new Cataclysm ship files + Dissolve.c + ShipDisable.c + ShipLink.h); 615 added lines carry a CAT comment.
+This run (the resume): 22 source files (retire) + the report + the delta map.
+
+### What is left and its owner
+- M2-R4 #3 (dock follow-up): the dock purposes of the hive, slipgate and leech (`clDock` / `ThisShipCanDockWith`
+  stand-ins), the hive's purpose 2 (swarmers out of the hive), the carrier door.
+- M2-R4 #5 (ConsMgr / research / support units): `cat_suShipRemoved` / `cat_suShipAdded`, `cat_carrierCountSupportModules`
+  users, `cat_rmResearchModuleActivated`, the stealth detection update (FOW radius, tech sets), the 7 module slots'
+  unit caps.
+- M2-R4 command follow-up: the link orders (`cat_clUnlink`), COMMAND_CAT_POINT for the big gun, `cat_clWrapSetModuleSlot`,
+  `RemoveShipsFromDoingStuff` reasons, the tactics speed multipliers.
+- Stage 3 (renderer / UI / sound): the mimic menu and its save chunks, the big-gun fire command UI, the repair-droid
+  proxies, the FOW visibility tests, `madAnimationStart`'s third argument, the Sentinel field / Dreadnought glow /
+  beam drawing, the research and sensors GUI flags of the modules in mouse.c, the merged speech branch of
+  `speechEventUnderAttack`.
+- Stage 6 (KAS / single player): the KAS variables of the RKO and Naggarok EMP, the NIS-stop formation's KAS flow.
+- Audit (this producer's ask): sections 1-4 were written by the cut-off run and committed unaudited in 2f1a847;
+  section 5 by this run. The 41 CAT-TODO / CAT-PROVISIONAL comments in the new ship files name their owner.
