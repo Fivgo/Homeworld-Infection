@@ -40,6 +40,10 @@ void shColour(sdword side, vector* norm, ubyte* color, real32* minv);
 void shColourSet(sdword side, vector* norm, real32* minv);
 void shColourSet0(vector* norm, real32* vertexState, udword* vertexInfo);  // CAT: + vertex state and info entry (0x0050dfe0)
 void cat_shColourAddGlow(ubyte *r, ubyte *g, ubyte *b, real32 *vertexState, udword *vertexInfo); // CAT: 0x0050d7c0
+struct CatVertexState;
+void cat_shGlowUpdate(struct CatVertexState *state, udword *vertexInfo);  // CAT: 0x0050d560
+void cat_shGetTeamColour(real32 *rgb);                      // CAT: 0x0050d460 (team colour of catShCurrentObject)
+extern void *catShCurrentObject;           // CAT: the object being rendered (0x00c32c00), a Ship or NULL
 extern bool8 catShColourByVertex;          // CAT: console toggle "cbv" (0x0087816c), 1
 extern bool8 catShLighting;                // CAT: console toggle "lighting" (0x0087816d), 1
 void shInvertMatrix(real32* out, real32 const* m);

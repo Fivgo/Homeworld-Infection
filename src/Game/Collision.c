@@ -1838,7 +1838,8 @@ void collCheckBeamColl(blob *thisBlob,Bullet *bullet)
 
         // don't apply beam damage every tick, correct with update rate factor
         if ((universe.univUpdateCounter % (UNIVERSE_UPDATE_RATE_FACTOR)) == 0) {
-            univBulletCollidedWithTarget(minbeamTarget,&minbeamTarget->staticinfo->common,bullet,minbeamCollideLineDist,minbeamCollSide);
+            // CAT: collCheckBeamColl 0x0043c900 passes 0 on the beam frames that only draw the hit (CAT-TODO(M2-R4 #3))
+            univBulletCollidedWithTarget(TRUE, minbeamTarget,&minbeamTarget->staticinfo->common,bullet,minbeamCollideLineDist,minbeamCollSide);
         }
         bullet->beamtraveldist = minbeamCollideLineDist;
     }
@@ -1947,7 +1948,7 @@ void collCheckBulletTargetColl(blob *thisBlob)
 								{
 									if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)bullet->target,&bullet->obj.posinfo.position,&bullet->bulletheading,bullet->traveldist,&collSide)) >= 0.0f)
 									{
-										univBulletCollidedWithTarget(bullet->target,&bullet->target->staticinfo->common,bullet,collideLineDist,collSide);
+										univBulletCollidedWithTarget(TRUE, bullet->target,&bullet->target->staticinfo->common,bullet,collideLineDist,collSide);   // CAT: 1 (collCheckBulletTargetColl 0x0043cd90)
 										deletebulletflag = TRUE;
 										goto nextbullet;
 									}
@@ -2085,7 +2086,7 @@ passagain:
 							{
 								if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)target,&bullet->obj.posinfo.position,&bullet->bulletheading,bullet->traveldist,&collSide)) >= 0.0f)
 								{
-									univBulletCollidedWithTarget(target,targetstaticheader,bullet,collideLineDist,collSide);
+									univBulletCollidedWithTarget(TRUE, target,targetstaticheader,bullet,collideLineDist,collSide);   // CAT: 1 (collCheckBulletTargetColl 0x0043cd90)
 									deletebulletflag = TRUE;
 									goto nextbullet;
 								}

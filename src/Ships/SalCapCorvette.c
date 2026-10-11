@@ -815,7 +815,9 @@ void salCapHarvestTarget(ShipOrDerelict *target,Ship *dockwith)
         dockwith->playerowner->resourceUnits += 250;
         universe.gameStats.playerStats[dockwith->playerowner->playerIndex].totalResourceUnitsCollected+= 250;
         bitSet(target->specialFlags,SPECIAL_Harvested);
-        AddTargetToDeleteList((SpaceObjRotImpTarg *)target,-1);
+        // CAT: 3 arguments (AddTargetToDeleteList 0x00545dd0 never reads the third); this HW1 salvage path has no exe
+        //      counterpart (dormant, deleted by M2-R4 #3), so 1 is only a placeholder
+        AddTargetToDeleteList((SpaceObjRotImpTarg *)target,-1,1);
         break;
     default:
 #if DEBUG_SALVAGE_CORVETTE

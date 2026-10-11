@@ -2828,9 +2828,15 @@ dontdraw:
                                             extern bool32 g_Points;
                                             extern bool32 g_SpecificPoly;
 #endif
+                                            // CAT: the ship is the current render object of the per-vertex glow
+                                            //      (0x00c32c00, set per object by cat_rndRenderObjectList 0x005776f0)
+                                            //      and its per-vertex mesh state goes to the mesh renderer
+                                            //      (0x00578c08: meshRenderShipHierarchy(ship+0x80, ...); meshRender
+                                            //      gets the LOD's slots)
+                                            catShCurrentObject = spaceobj;
                                             if (ship->bindings != NULL)
                                             {
-                                                meshRenderShipHierarchy(ship->bindings,
+                                                meshRenderShipHierarchy(ship->obj.catMeshState, ship->bindings,
                                                         ship->obj.currentLOD,
                                                         (meshdata *)level->pData, i);
 #if DEBUG_VISIBLE_POLYS
@@ -2839,13 +2845,13 @@ dontdraw:
                                                     g_SpecificPoly = TRUE;
                                                     g_WireframeHack = TRUE;
                                                     glScalef(1.02f, 1.02f, 1.02f);
-                                                    meshRenderShipHierarchy(ship->bindings,
+                                                    meshRenderShipHierarchy(ship->obj.catMeshState, ship->bindings,
                                                                             ship->obj.currentLOD,
                                                                             (meshdata*)level->pData, i);
                                                     g_WireframeHack = FALSE;
                                                     glScalef(1.01f, 1.01f, 1.01f);
                                                     g_Points = TRUE;
-                                                    meshRenderShipHierarchy(ship->bindings,
+                                                    meshRenderShipHierarchy(ship->obj.catMeshState, ship->bindings,
                                                                             ship->obj.currentLOD,
                                                                             (meshdata*)level->pData, i);
                                                     g_Points = FALSE;
@@ -2855,7 +2861,9 @@ dontdraw:
                                             }
                                             else
                                             {
-                                                meshRender((meshdata *)level->pData, i);
+                                                cat_meshRenderState((ship->obj.catMeshState != NULL) ?
+                                                                    ship->obj.catMeshState->level[ship->obj.currentLOD] : NULL,
+                                                                    (meshdata *)level->pData, i);
 #if DEBUG_VISIBLE_POLYS
                                                 if (visiblePoly >= 0)
                                                 {
@@ -2872,6 +2880,7 @@ dontdraw:
                                                 }
 #endif
                                             }
+                                            catShCurrentObject = NULL;      // CAT: as cat_rndRenderObjectList does when it is done
                                             spaceobj->renderedLODs |= (1 << spaceobj->currentLOD);
 
                                             //navlights

@@ -35,6 +35,7 @@
 #include "mainrgn.h"
 #include "Memory.h"
 #include "MEX.h"
+#include "Mothership.h"     // CAT: cat_mothershipStartDeathSequence (AddShipToDeleteShipList)
 #include "mouse.h"
 #include "MultiplayerGame.h"
 #include "NetCheck.h"
@@ -45,6 +46,7 @@
 #include "ProfileTimers.h"
 #include "Randy.h"
 #include "SaveGame.h"
+#include "Shader.h"         // CAT: catShCurrentObject (the bullet-hit glow)
 #include "Select.h"
 #include "Sensors.h"
 #include "Ships.h"
@@ -62,6 +64,101 @@
 
 
 #define DEBUG_COLLISIONS 0
+
+// CAT: a missile whose target is gone lives at most this much longer (0x008b5c68; univDeleteDeadShip 0x00547d00,
+//      univRemoveShipFromOutside 0x00547990)
+#define CAT_MISSILE_LOST_TARGET_LIFE    5.0f
+
+/*-----------------------------------------------------------------------------
+    CAT: per-player ship counters (statics of the exe's UnivUpdate.c; names chosen here). The KAS functions
+    kasfGetShipCountSalvaged/Beastified and kasfGetNumberShipsPlayerKilled/Lost read them, the salvage depot
+    (M2-R4 #3) and ApplyDamageToTarget's attacker argument (M2-R4 #3) count into them, univupdateInit 0x0054af40 and
+    univUpdateReset 0x0054acd0 clear them, SaveUniverse/LoadUniverse save them (cat_saveShipCounters 0x00540130,
+    cat_loadShipCounters 0x005401d0; CAT-TODO(saves): not wired into this tree's save format yet).
+-----------------------------------------------------------------------------*/
+sdword catShipsSalvaged[MAX_MULTIPLAYER_PLAYERS][TOTAL_NUM_SHIPS];      // 0x00a6c5d0, 0x488 dwords
+sdword catShipsBeastified[MAX_MULTIPLAYER_PLAYERS][TOTAL_NUM_SHIPS];    // 0x00a6d9a8, 0x488 dwords
+sdword catShipsKilledByClass[MAX_MULTIPLAYER_PLAYERS][NUM_CLASSES];     // 0x00a6ebe8, 0x60 dwords: [killer][class]
+sdword catShipsLostByClass[MAX_MULTIPLAYER_PLAYERS][NUM_CLASSES];       // 0x00a6d820, 0x60 dwords: [owner][class]
+real32 catProtectedSpeedLimitTime = 0.0f;   // 0x00a6ed6c: when cat_univLimitProtectedShipSpeed runs next
+                                            //   (univUpdateAllPosVelShips; saved after the four tables)
+sdword catShipCounterA = 0;         // 0x00a6ed68: cleared with them (no other user found)
+// CAT: debug frame stepping (0x00a6ed74 on, 0x00a6ed78 frames left): univUpdate 0x0054c3f0 returns at once unless a
+//      frame is left; LoadUniverse restores the switch, gameEnd/nisUpdateTask/cat_kasWideScreenInFinish and
+//      univUpdateReset clear it (no setter in the release game)
+bool32 catUnivFrameStep = FALSE;
+sdword catUnivFrameStepsLeft = 0;
+// CAT: the multiplayer autosave of univUpdate (switch 0x00a74dac, next time 0x00b3a870, number 0x00a6ed80)
+bool32 catMultiplayerAutoSave = FALSE;
+real32 catMultiplayerAutoSaveTime = 0.0f;
+sdword catMultiplayerAutoSaveNumber = 0;
+#ifdef _WIN32
+#define TMP_SAVEDGAMES_PATH_SEP "\\"
+#else
+#define TMP_SAVEDGAMES_PATH_SEP "/"
+#endif
+
+// CAT: the deferred-update ship list (see cat_univShipDeferredUpdate below)
+static GrowSelection catDeferredShipList;
+static void catDeferredShipListReset(void);
+
+static void catShipCountersReset(void)
+{
+    memset(catShipsKilledByClass, 0, sizeof(catShipsKilledByClass));
+    memset(catShipsLostByClass, 0, sizeof(catShipsLostByClass));
+    memset(catShipsSalvaged, 0, sizeof(catShipsSalvaged));
+    memset(catShipsBeastified, 0, sizeof(catShipsBeastified));
+}
+
+// cat_univGetShipCountSalvaged 0x00540030: one type's count, or the sum over all types for type -1
+sdword cat_univGetShipCountSalvaged(sdword shipType, sdword playerIndex)
+{
+    sdword i, total = 0;
+
+    if (shipType == -1)
+    {
+        for (i = 0; i < TOTAL_NUM_SHIPS; i++)
+        {
+            total += catShipsSalvaged[playerIndex][i];
+        }
+        return total;
+    }
+    return catShipsSalvaged[playerIndex][shipType];
+}
+
+// cat_univGetShipCountBeastified 0x00540080: as cat_univGetShipCountSalvaged, for ships the Beast took over
+sdword cat_univGetShipCountBeastified(sdword shipType, sdword playerIndex)
+{
+    sdword i, total = 0;
+
+    if (shipType == -1)
+    {
+        for (i = 0; i < TOTAL_NUM_SHIPS; i++)
+        {
+            total += catShipsBeastified[playerIndex][i];
+        }
+        return total;
+    }
+    return catShipsBeastified[playerIndex][shipType];
+}
+
+// cat_univShipSalvagedCountInc 0x005400d0: the exe indexes the [8][145] table as [a + b * 8] (unlike its getter),
+// which is kept
+void cat_univShipSalvagedCountInc(sdword a, sdword b)
+{
+    ((sdword *)catShipsSalvaged)[a + b * MAX_MULTIPLAYER_PLAYERS]++;
+}
+
+// cat_univGetNumberShipsPlayerKilled 0x005400f0 / cat_univGetNumberShipsPlayerLost 0x00540110
+sdword cat_univGetNumberShipsPlayerKilled(sdword playerIndex, sdword shipClass)
+{
+    return catShipsKilledByClass[playerIndex][shipClass];
+}
+
+sdword cat_univGetNumberShipsPlayerLost(sdword playerIndex, sdword shipClass)
+{
+    return catShipsLostByClass[playerIndex][shipClass];
+}
 
 vector defaultshipupvector = { 0.0f, 0.0f, 1.0f };
 vector defaultshiprightvector = { 0.0f, -1.0f, 0.0f };
@@ -630,7 +727,10 @@ Asteroid *univAddAsteroid(AsteroidType asteroidtype,vector *astpos)
         listAddNode(&universe.SpaceObjList,&(newAsteroid->header.objlink),newAsteroid);
         listAddNode(&universe.ResourceList,&(newAsteroid->resource.resourcelink),newAsteroid);
         listAddNode(&universe.ImpactableList,&(newAsteroid->impactable.impactablelink),newAsteroid);
+        cat_univShipMeshStateCreate(&newAsteroid->obj);    // CAT: univAddAsteroid 0x00540a30 (NULL: not a ship)
     }
+    newAsteroid->obj.catEffectBlock = NULL;                 // CAT: both paths clear +0x84 and +0x80 (0x00540a30)
+    newAsteroid->obj.catMeshState = NULL;
 
     return newAsteroid;
 }
@@ -729,6 +829,9 @@ Missile *univAddMissile(ShipRace race)
     missile->damage = 48.0f;                                //from the.shp file
 
     missile->missileID.missileNumber = universe.missileNumber;
+    // CAT-TODO(stage 3/5 recorder): the exe also adds the ID while a game is being recorded in multiplayer
+    //      (univAddMissile 0x00540c70: multiPlayerGame || (0x00a7519c && 0x00a75190), the two flags set by
+    //      recPackInGameStartCBSafeToStart 0x004cbbb0)
     if (multiPlayerGame) IDToPtrTableAdd(&MissileIDToPtr,universe.missileNumber,(SpaceObj *)missile);
     universe.missileNumber++;
 
@@ -744,6 +847,8 @@ Missile *univAddMissile(ShipRace race)
     listAddNode(&universe.SpaceObjList,&(missile->header.objlink),missile);
     listAddNode(&universe.ImpactableList,&(missile->impactable.impactablelink),missile);
     listAddNode(&universe.MissileList,&(missile->missilelink),missile);
+    missile->obj.catEffectBlock = NULL;                     // CAT: univAddMissile 0x00540c70 clears +0x84, +0x80
+    missile->obj.catMeshState = NULL;
 
     return(missile);
 }
@@ -901,6 +1006,8 @@ Derelict *univAddDerelictByStatInfo(DerelictType derelictType, DerelictStaticInf
     listAddNode(&universe.SpaceObjList,&(newDerelict->header.objlink),newDerelict);
     listAddNode(&universe.DerelictList,&(newDerelict->derelictlink),newDerelict);
     listAddNode(&universe.ImpactableList,&(newDerelict->impactable.impactablelink),newDerelict);
+    newDerelict->obj.catEffectBlock = NULL;                 // CAT: univAddDerelictByStatInfo 0x00541000 clears +0x84
+    cat_univShipMeshStateCreate(&newDerelict->obj);         //      and creates the mesh state (NULL: not a ship)
 
     if (stat->worldRender)
     {                                                       //if planet-style rendering
@@ -984,6 +1091,8 @@ DustCloud *univAddDustCloud(DustCloudType dustcloudtype,vector *cloudpos)
     listAddNode(&universe.SpaceObjList,&(newCloud->header.objlink),newCloud);
     listAddNode(&universe.ResourceList,&(newCloud->resource.resourcelink),newCloud);
     listAddNode(&universe.ImpactableList,&(newCloud->impactable.impactablelink),newCloud);
+    newCloud->obj.catEffectBlock = NULL;    // CAT: univAddDustCloud 0x00541300 / univAddGasCloud 0x00541500 clear +0x84, +0x80
+    newCloud->obj.catMeshState = NULL;
 
     return newCloud;
 }
@@ -1035,6 +1144,8 @@ GasCloud *univAddGasCloud(GasCloudType gascloudtype,vector *cloudpos)
     listAddNode(&universe.SpaceObjList,&(newCloud->header.objlink),newCloud);
     listAddNode(&universe.ResourceList,&(newCloud->resource.resourcelink),newCloud);
     listAddNode(&universe.ImpactableList,&(newCloud->impactable.impactablelink),newCloud);
+    newCloud->obj.catEffectBlock = NULL;    // CAT: univAddDustCloud 0x00541300 / univAddGasCloud 0x00541500 clear +0x84, +0x80
+    newCloud->obj.catMeshState = NULL;
 
     return newCloud;
 }
@@ -1089,6 +1200,8 @@ Nebula* univAddNebula(NebulaType nebulatype,vector* nebpos, void* stub)
     listAddNode(&universe.SpaceObjList, &(newNeb->header.objlink), newNeb);
     listAddNode(&universe.ResourceList, &(newNeb->resource.resourcelink), newNeb);
     listAddNode(&universe.ImpactableList, &(newNeb->impactable.impactablelink), newNeb);
+    newNeb->obj.catEffectBlock = NULL;                      // CAT: univAddNebula 0x005416d0 clears +0x84, +0x80
+    newNeb->obj.catMeshState = NULL;
 
     return newNeb;
 }
@@ -1162,12 +1275,14 @@ shipbindings *univMeshBindingsDupe(ShipStaticInfo *shipstaticinfo, Ship *newShip
                 bindingListDest->userData = &newShip->gunInfo->guns[bindingListSource->userID];
                 bindingListDest->userID = (smemsize)newShip;    //also save ship pointer
                 bindingListDest->flags = bindingListSource->flags;
-                bindingListDest->object = bindingListSource->object;
             }
             else
             {
                 bindingListDest->function = NULL;         //this is all we need if there is no function
             }
+            // CAT: every binding gets its object, with or without a function (univMeshBindingsDupe 0x005419d0;
+            //      cat_meshObjectMatrixConcat 0x0053f900 reads the object of function-less bindings)
+            bindingListDest->object = bindingListSource->object;
             bindingListDest++;
             bindingListSource++;
         }
@@ -1179,7 +1294,329 @@ shipbindings *univMeshBindingsDupe(ShipStaticInfo *shipstaticinfo, Ship *newShip
     dbgMessagef("univMeshBindingsDupe: localizing bindings 0x%x for ship 0x%x lengh %d",
                 newBindings, newShip, shipBindingsLength(nLevels) + shipstaticinfo->hierarchySize * sizeof(mhlocalbinding));
 #endif
+    cat_univMeshBindingsLinkParents(shipstaticinfo, newBindings);  // CAT: univMeshBindingsDupe 0x005419d0
     return(newBindings);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univMeshBindingsLinkParents (Cataclysm 0x00541ae0)
+    Description : Points every local binding of every mesh LOD at its parent object's binding, from the parent
+                  index the static binding list keeps (meshBindingListRecurse 0x004b47b0), or NULL for a top-level
+                  object.
+    Inputs      : shipstaticinfo - the ship's static info (its LOD and static bindings); bindings - the ship's
+                  local bindings (univMeshBindingsDupe, cat_univMeshBindingsDupeNoGuns, madAnimBindingsDupe)
+    Outputs     : sets mhlocalbinding.parent
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_univMeshBindingsLinkParents(ShipStaticInfo *shipstaticinfo, shipbindings *bindings)
+{
+    lodinfo *lodInfo = shipstaticinfo->common.LOD;
+    mhlocalbinding *local;
+    mhbinding *source;
+    sdword level, j, nObjects;
+
+    for (level = 0; level < lodInfo->nLevels; level++)
+    {
+        if ((lodInfo->level[level].flags & LM_LODType) != LT_Mesh)
+        {
+            continue;
+        }
+        local = bindings->localBinding[level];
+        source = lodInfo->level[level].hBindings;
+        nObjects = ((meshdata *)lodInfo->level[level].pData)->nPolygonObjects;
+        for (j = 0; j < nObjects; j++, local++, source++)
+        {
+            local->parent = (source->parentIndex == 0xff) ? NULL : &bindings->localBinding[level][source->parentIndex];
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univMeshBindingsDupeNoGuns (Cataclysm 0x005418f0)
+    Description : Like univMeshBindingsDupe, but with no binding functions: every local binding is zero except its
+                  object (and its parent link). Callers in the exe: FixShip, cat_beastInfectShip, the salvage depot
+                  and the Mimic fix-up (none of them ported yet).
+    Inputs      : shipstaticinfo - static info whose LOD and static bindings are copied
+    Outputs     : allocates the bindings
+    Return      : the new bindings, or NULL if the ship has no hierarchy
+----------------------------------------------------------------------------*/
+shipbindings *cat_univMeshBindingsDupeNoGuns(ShipStaticInfo *shipstaticinfo)
+{
+    lodinfo *lodInfo = shipstaticinfo->common.LOD;
+    shipbindings *newBindings;
+    mhlocalbinding *dest;
+    mhbinding *source;
+    sdword nLevels, level, j, nObjects;
+    udword length;
+
+    if (shipstaticinfo->hierarchySize == 0)
+    {
+        return NULL;
+    }
+    nLevels = lodInfo->nLevels;
+    length = shipBindingsLength(nLevels) + shipstaticinfo->hierarchySize * sizeof(mhlocalbinding);
+    newBindings = memAlloc(length, "ShipLocalBindings", NonVolatile);
+    memset(newBindings, 0, length);
+    dest = (mhlocalbinding *)((ubyte *)newBindings + shipBindingsLength(nLevels));
+    for (level = 0; level < nLevels; level++)
+    {
+        if ((lodInfo->level[level].flags & LM_LODType) != LT_Mesh)
+        {
+            newBindings->localBinding[level] = NULL;
+            continue;
+        }
+        newBindings->localBinding[level] = dest;
+        nObjects = ((meshdata *)lodInfo->level[level].pData)->nPolygonObjects;
+        source = lodInfo->level[level].hBindings;
+        for (j = 0; j < nObjects; j++, dest++, source++)
+        {
+            dest->object = source->object;
+        }
+    }
+    newBindings->frequencyCounter = 0;
+    cat_univMeshBindingsLinkParents(shipstaticinfo, newBindings);
+    return newBindings;
+}
+
+/*-----------------------------------------------------------------------------
+    CAT: the per-vertex mesh state (types in SpaceObj.h). In the exe only ships get one, and only when the
+    low-memory switch 0x00c5236c is clear: utyGameSystemsInit sets it (and clears the dynamic-CPV option 0x00c52378)
+    when the machine has less than 128 MB of physical memory. This tree never sets it (stage 3 owns the low-memory
+    overrides of utyGameSystemsInit).
+-----------------------------------------------------------------------------*/
+bool32 catMeshStateDisabled = FALSE;
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univMeshStateAllocRecursive (Cataclysm 0x00541b80)
+    Description : Gives a polygon object and, depth first, all its daughters a state slot each, numbered in the
+                  same pre-order as the hierarchy render walk.
+    Inputs      : slots - the level's slot array; index - this object's slot; object - the polygon object
+    Outputs     : fills the slots and allocates their vertex states
+    Return      : the next free slot index
+----------------------------------------------------------------------------*/
+sdword cat_univMeshStateAllocRecursive(CatMeshObjectState *slots, sdword index, polygonobject *object)
+{
+    CatMeshObjectState *slot = &slots[index];
+    polygonobject *daughter;
+    sdword i;
+
+    slot->vertex = memAlloc(object->nVertices * sizeof(CatVertexState), "CatVertexState", NonVolatile);
+    for (i = 0; i < object->nVertices; i++)
+    {
+        memset(&slot->vertex[i], 0, sizeof(CatVertexState));
+        slot->vertex[i].dirty = 1;
+        slot->vertex[i].lastUpdate = -1.0f;
+        if (bitTest(object->pVertexInfo[i].flags, 0x04))
+        {
+            slot->vertex[i].value08 = 1.0f;
+        }
+    }
+    slot->nVertices = object->nVertices;
+    slot->objectWord0 = (sdword)(smemsize)object->pName;    // the exe copies the object's first dword
+    index++;
+    for (daughter = object->pDaughter; daughter != NULL; daughter = daughter->pSister)
+    {
+        index = cat_univMeshStateAllocRecursive(slots, index, daughter);
+    }
+    return index;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univMeshStateFreeRecursive (Cataclysm 0x00541c70)
+    Description : Frees the vertex states of a polygon object's daughters (depth first) and then its own.
+    Inputs      : slots - the level's slot array; index - this object's slot; object - the polygon object
+    Outputs     : frees and clears slot vertex arrays
+    Return      : the next slot index
+----------------------------------------------------------------------------*/
+sdword cat_univMeshStateFreeRecursive(CatMeshObjectState *slots, sdword index, polygonobject *object)
+{
+    polygonobject *daughter;
+    sdword next = index + 1;
+
+    for (daughter = object->pDaughter; daughter != NULL; daughter = daughter->pSister)
+    {
+        next = cat_univMeshStateFreeRecursive(slots, next, daughter);
+    }
+    if (slots[index].vertex != NULL)
+    {
+        memFree(slots[index].vertex);
+        slots[index].vertex = NULL;
+    }
+    return next;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univShipMeshStateCreate (Cataclysm 0x00541cd0)
+    Description : Creates an object's per-vertex mesh state: a table with one entry per LOD level and, for every
+                  mesh level, one slot per polygon object with a state per vertex. Only ships get one; every other
+                  object (and every object when catMeshStateDisabled is set) gets NULL. Called by the creators of
+                  ships, asteroids, derelicts, effects, missiles and bullets.
+    Inputs      : obj - the new object
+    Outputs     : sets obj->catMeshState
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_univShipMeshStateCreate(SpaceObj *obj)
+{
+    lodinfo *lodInfo;
+    meshdata *mesh;
+    CatMeshObjectState *slots;
+    polygonobject *object;
+    sdword level, index;
+
+    if (catMeshStateDisabled || obj->header.objtype != OBJ_ShipType)
+    {
+        obj->catMeshState = NULL;
+        return;
+    }
+    lodInfo = obj->staticinfo->LOD;
+    obj->catMeshState = memAlloc(catMeshStateSize(lodInfo->nLevels), "CatMeshState", NonVolatile);
+    obj->catMeshState->nLevels = lodInfo->nLevels;
+    for (level = 0; level < lodInfo->nLevels; level++)
+    {
+        obj->catMeshState->level[level] = NULL;
+        if ((lodInfo->level[level].flags & LM_LODType) == LT_Mesh)
+        {
+            mesh = (meshdata *)lodInfo->level[level].pData;
+            slots = memAlloc(mesh->nPolygonObjects * sizeof(CatMeshObjectState), "CatMeshObjectState", NonVolatile);
+            for (index = 0, object = &mesh->object[0]; object != NULL; object = object->pSister)
+            {
+                index = cat_univMeshStateAllocRecursive(slots, index, object);
+            }
+            obj->catMeshState->level[level] = slots;
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univMeshStateFree (Cataclysm 0x00541df0)
+    Description : Frees an object's per-vertex mesh state, if it has one. Effects are skipped (they never have
+                  one). Called by every free and delete path of the universe.
+    Inputs      : obj - the object
+    Outputs     : frees obj->catMeshState and clears it
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_univMeshStateFree(SpaceObj *obj)
+{
+    lodinfo *lodInfo;
+    CatMeshObjectState *slots;
+    polygonobject *object, *daughter;
+    sdword level, index, next;
+
+    if (obj->catMeshState == NULL || obj->header.objtype == OBJ_EffectType)
+    {
+        return;
+    }
+    //the exe takes the level count from the LOD (object types 0..5 and 8); only ships ever get a state, so the
+    //table's own count is the same number
+    lodInfo = obj->staticinfo->LOD;
+    for (level = 0; level < obj->catMeshState->nLevels; level++)
+    {
+        slots = obj->catMeshState->level[level];
+        if (slots == NULL)
+        {
+            continue;
+        }
+        index = 0;
+        for (object = &((meshdata *)lodInfo->level[level].pData)->object[0]; object != NULL; object = object->pSister)
+        {
+            next = index + 1;
+            for (daughter = object->pDaughter; daughter != NULL; daughter = daughter->pSister)
+            {
+                next = cat_univMeshStateFreeRecursive(slots, next, daughter);
+            }
+            if (slots[index].vertex != NULL)
+            {
+                memFree(slots[index].vertex);
+                slots[index].vertex = NULL;
+            }
+            index = next;
+        }
+        memFree(slots);
+        obj->catMeshState->level[level] = NULL;
+    }
+    memFree(obj->catMeshState);
+    obj->catMeshState = NULL;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univFreeEffectBlock
+    Description : Frees an object's one-byte block (SpaceObj.catEffectBlock, exe +0x84), as every free path of the
+                  exe does inline (univFreeShipContents 0x0054b550, univupdateCloseAllObjectsAndMissionSpheres
+                  0x0054b780, etgEffectDelete 0x0046a6f0 ...). A helper of this tree, not an exe function.
+    Inputs      : obj - the object
+    Outputs     : frees and clears the block
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_univFreeEffectBlock(SpaceObj *obj)
+{
+    if (obj->catEffectBlock != NULL)
+    {
+        memFree(obj->catEffectBlock);
+        obj->catEffectBlock = NULL;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_shipNozzleInfoGet (Cataclysm 0x0053f8c0)
+    Description : The local binding of the mesh object an engine nozzle moves with, in the ship's current LOD.
+    Inputs      : ship; index - ShipStaticInfo.engineNozzleObject[LOD][trail] (0xFF = none, read as object 0)
+    Outputs     :
+    Return      : the binding, or NULL if the ship has no local bindings
+----------------------------------------------------------------------------*/
+mhlocalbinding *cat_shipNozzleInfoGet(Ship *ship, sdword index)
+{
+    mhlocalbinding *list;
+
+    if ((sbyte)index == -1)
+    {
+        index = 0;
+    }
+    if (ship->bindings == NULL)
+    {
+        return NULL;
+    }
+    list = ship->bindings->localBinding[ship->obj.currentLOD];
+    return (list == NULL) ? NULL : &list[index];            // HWI: no pointer arithmetic on a NULL list
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_meshObjectMatrixConcat (Cataclysm 0x0053f900)
+    Description : The object-to-ship matrix of a binding: its parents' matrices (outermost first) times its own,
+                  which is the binding's animated matrix if it has a function, else the object's local matrix.
+    Inputs      : dest - where to put the matrix; binding - the local binding
+    Outputs     : dest
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_meshObjectMatrixConcat(hmatrix *dest, mhlocalbinding *binding)
+{
+    hmatrix *own = (binding->function == NULL) ? &binding->object->localMatrix : &binding->matrix;
+    hmatrix temp;
+
+    if (binding->parent != NULL)
+    {
+        cat_meshObjectMatrixConcat(dest, binding->parent);
+        hmatMultiplyHMatByHMat(&temp, dest, own);
+        *dest = temp;
+        return;
+    }
+    *dest = *own;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_meshObjectMatrixGet (Cataclysm 0x0053f970)
+    Description : cat_meshObjectMatrixConcat, with the identity for no binding.
+    Inputs      : dest - where to put the matrix; binding - the local binding or NULL
+    Outputs     : dest
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_meshObjectMatrixGet(hmatrix *dest, mhlocalbinding *binding)
+{
+    if (binding == NULL)
+    {
+        *dest = IdentityHMatrix;                            // the exe copies its identity at 0x0072aed8
+        return;
+    }
+    cat_meshObjectMatrixConcat(dest, binding);
 }
 
 /*-----------------------------------------------------------------------------
@@ -1242,7 +1679,8 @@ void InitializeEngineTrails(Ship *newship)
         //capital ship engine glow
         for (i = 0; i < numTrails; i++)
         {
-            if (newship->shiprace == R2)
+            // CAT: Beast and Taiidan ships get glow style 2 (InitializeEngineTrails 0x00541f40: race 1 or 3; HW1 R2)
+            if (newship->shiprace == RACE_Beast || newship->shiprace == RACE_Taiidan)
             {
                 newship->trail[i] = trailNew(shipstaticinfo->trailStatic[i], (void*)newship, 2, (ubyte)i);
             }
@@ -1327,6 +1765,13 @@ void InitializeShowingDamage(Ship* ship)
     Outputs     :
     Return      : address of ship created
 ----------------------------------------------------------------------------*/
+// CAT-TODO(M2-R4 #2/#3/#4/#5): univCreateShip 0x00542320 is ported only as far as the mesh state (below). The exe
+//      takes 7 arguments and adds the ship to the universe itself unless a flag says not to (univAddShip is gone); it
+//      allocates the 0x63C-byte Ship with the gun (0x88 per gun), mad and precise-selection blocks behind it, sets up
+//      repair droids, damage points (cat_dmgShipLoadDamagePoints), upgrades (cat_shipUpgradesInit/ApplyUpgrades), dock
+//      info (cat_dockInitShipDockInfo), external build state, the factory only for the four builder types, the
+//      mothership modules (cat_univCreateMothershipModules), experience, stealth, dissolve and ship names, the FOW
+//      cube, and the helplessness of Beast-race ships in multiplayer.
 Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built)
 {
     Ship *newship;
@@ -1369,10 +1814,7 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     newship->shipDeCloakTime = -20.0f;                  //initialize to a negative number so if a battle occurs at time 0.0f or anytime near by, then it will not screw up.
     newship->header.objtype = OBJ_ShipType;
     newship->header.flags = SOF_Rotatable + SOF_Impactable + SOF_Selectable + SOF_Targetable;
-    if (shiptype == Drone)
-    {
-        newship->header.flags |= SOF_NotBumpable;
-    }
+    // CAT: no Drone case (HW1's drones are not in Cataclysm; univCreateShip 0x00542320 sets 0x102003 for every type)
     if (shipstaticinfo->common.staticCollInfo.collspheresize > VERYBIGSHIP_SIZE)
     {
         newship->header.flags |= SOF_BigObject;
@@ -1513,7 +1955,6 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     }
     else
     {
-        dbgAssertOrIgnore(newship->shiptype != DefenseFighter);
         newship->gunInfo = NULL;
     }
 
@@ -1633,6 +2074,10 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
             }
         }
     }
+    // CAT: after the colour scheme, univCreateShip 0x00542320 clears +0x84 and creates the ship's per-vertex mesh
+    //      state (0x00542b0a: cat_univShipMeshStateCreate 0x00541cd0)
+    newship->obj.catEffectBlock = NULL;
+    cat_univShipMeshStateCreate(&newship->obj);
     return newship;
 }
 
@@ -1652,11 +2097,7 @@ Ship *univAddShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Pla
     listAddNode(&universe.ShipList,&(newship->shiplink),newship);
     listAddNode(&universe.ImpactableList,&(newship->impactable.impactablelink),newship);
 
-    //special case - don't want cryotrays to be selectable
-    if (shiptype == CryoTray)
-    {
-        bitClear(newship->header.flags, SOF_Selectable);
-    }
+    // CAT: no CryoTray case (an HW1-only type)
 
     return newship;
 }
@@ -1695,6 +2136,117 @@ void univUpdateAllPosVelMinorObjs()
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT-PROVISIONAL(M2-R4 #3): the exe's bullets carry the firing gun's weapon word (bullet +0x108 = Gun +0x00,
+//      WEAPON_*: cat_gunCreateBullet 0x0048bb00 at 0x0048bb90; cat_shipApplyUpgrades 0x00514490 raises it from
+//      PROJECTILE to ENERGY). Neither the Gun word nor the bullet field is ported, so no bullet has a weapon type yet.
+#define CAT_BULLET_WEAPON_TYPE(bullet)      ((void)(bullet), (sdword)-1)
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_shipGetAimPoint (Cataclysm 0x00415af0)
+    Description : The point a homing bullet steers at: the target's collision position. For a trFloatingCity the
+                  exe computes a point on the ship's axis (local (0,0,-755) in world space) into a local of its own
+                  and leaves the result alone, so the collision position stands for every target.
+    Inputs      : target - the bullet's target; aim - the collision position, from the caller
+    Outputs     : aim (unchanged)
+    Return      : void
+----------------------------------------------------------------------------*/
+static void cat_shipGetAimPoint(SpaceObjRotImpTarg *target, vector *aim)
+{
+    vector local, unused;
+
+    if (target->header.objtype == OBJ_ShipType && ((Ship *)target)->shiptype == trFloatingCity)
+    {
+        local.x = 0.0f;
+        local.y = 0.0f;
+        local.z = -755.0f;                                  // 0x0074da20
+        matMultiplyMatByVec(&unused, &target->rotatable.rotinfo.coordsys, &local);
+        vecAddTo(unused, target->obj.posinfo.position);    // cat_vecShipLocalToWorld 0x004601d0, result dropped
+        return;
+    }
+    *aim = target->impactable.collInfo.collPosition;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_bulletHomingUpdate (Cataclysm 0x00542cb0)
+    Description : Steers a homing bullet older than half a second at its target (not at swarmers): its velocity
+                  keeps its speed and turns towards the target (towards the target's lead position inside 200
+                  units); inside 100 units it moves with the target plus its own speed (halved above 150) along the
+                  first direction. The heading follows the velocity.
+    Inputs      : bullet
+    Outputs     : bullet velocity and heading
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_bulletHomingUpdate(Bullet *bullet)
+{
+    SpaceObjRotImpTarg *target = bullet->target;
+    vector aim, d, dir, first, lead;
+    real32 dist2, speed, speed2, t;
+
+    if (target == NULL || !(bullet->timelived > 0.5f))              // 0x008b5c54
+    {
+        return;
+    }
+    if (target->header.objtype == OBJ_ShipType &&
+        (((Ship *)target)->shiptype == sSwarmer || ((Ship *)target)->shiptype == bSwarmer))
+    {
+        return;
+    }
+    aim = target->impactable.collInfo.collPosition;
+    cat_shipGetAimPoint(target, &aim);
+    vecSub(d, aim, bullet->obj.posinfo.position);
+    dist2 = d.x * d.x + d.y * d.y + d.z * d.z;
+    dir = d;
+    vecNormalize(&dir);
+    first = dir;
+    if (!(dist2 < 40000.0f) &&                                      // 0x008b5c58
+        (d.z * bullet->obj.posinfo.velocity.z + d.y * bullet->obj.posinfo.velocity.y +
+         d.x * bullet->obj.posinfo.velocity.x) < -0.866025f)        // 0x008b5c50
+    {
+        return;
+    }
+    speed2 = bullet->obj.posinfo.velocity.x * bullet->obj.posinfo.velocity.x +
+             bullet->obj.posinfo.velocity.y * bullet->obj.posinfo.velocity.y +
+             bullet->obj.posinfo.velocity.z * bullet->obj.posinfo.velocity.z;
+    if (speed2 < 2560000.0f + 10000.0f && speed2 > 2560000.0f - 10000.0f)   // 0x008b5c44, 0x008b5c48
+    {
+        speed = 1600.0f;                                            // 0x008b5c4c: the usual bullet speed, no sqrt
+    }
+    else
+    {
+        speed = (real32)sqrt((double)speed2);
+    }
+    if (dist2 < 40000.0f && speed > 0.0f)
+    {                                                               // lead the target by the flight time
+        t = (real32)(sqrt((double)dist2) / speed);
+        lead.x = t * target->obj.posinfo.velocity.x + d.x;
+        lead.y = t * target->obj.posinfo.velocity.y + d.y;
+        lead.z = t * target->obj.posinfo.velocity.z + d.z;
+        dir = lead;
+        vecNormalize(&dir);
+    }
+    bullet->obj.posinfo.velocity.x = dir.x * speed;
+    bullet->bulletheading = dir;
+    bullet->obj.posinfo.velocity.y = dir.y * speed;
+    bullet->obj.posinfo.velocity.z = dir.z * speed;
+    if (dist2 < 10000.0f)                                           // 0x008b5c5c
+    {
+        if (!(target->header.objtype == OBJ_ShipType &&
+              (((Ship *)target)->shiptype == sSwarmer || ((Ship *)target)->shiptype == bSwarmer)))
+        {
+            if (speed > 150.0f)                                     // 0x008b5c60
+            {
+                speed /= 2.0f;                                      // 0x008b5c64
+            }
+            bullet->obj.posinfo.velocity.x = target->obj.posinfo.velocity.x + first.x * speed;
+            bullet->obj.posinfo.velocity.y = target->obj.posinfo.velocity.y + first.y * speed;
+            bullet->obj.posinfo.velocity.z = target->obj.posinfo.velocity.z + first.z * speed;
+        }
+        dir = bullet->obj.posinfo.velocity;
+        vecNormalize(&dir);
+        bullet->bulletheading = dir;
+    }
+}
+
 void univUpdateAllPosVelBullets()
 {
     Node* bulletnode = universe.BulletList.head;
@@ -1711,6 +2263,13 @@ void univUpdateAllPosVelBullets()
 
         if ((bullet->header.flags & SOF_DontApplyPhysics) == 0)
         {
+            // CAT: homing bullets steer before they move (univUpdateAllPosVelBullets 0x00543030 calls
+            //      cat_bulletHomingUpdate 0x00542cb0 when the bullet's weapon word, bullet +0x108 = the firing gun's
+            //      Gun +0x00, is WEAPON_ENERGY)
+            if (CAT_BULLET_WEAPON_TYPE(bullet) == WEAPON_ENERGY)
+            {
+                cat_bulletHomingUpdate(bullet);
+            }
             if (physUpdateBulletPosVel(bullet,universe.phystimeelapsed))
             {
                 //bullet has died so clean it up
@@ -1761,6 +2320,11 @@ void univUpdateAllPosVelBullets()
                 }
                 bulletnode = bulletnode->next;
 
+                // CAT: the burst explosion is keyed on the bullet's burst flag (bullet +0x10c, set by
+                //      cat_gunCreateBullet 0x0048bb00 when the firing ship has specialFlags 0x40, burst firing),
+                //      not on HW1's BULLET_SpecialBurst type; its damage is scaled by cat_weaponDamageVsArmour(the
+                //      bullet's sound type, armour 0) 0x00514460 (0x0054319d). CAT-PROVISIONAL: neither the flag nor
+                //      the weapon-vs-armour table is ported (M2-R4 #3), so the HW1 test and a factor of 1 stand in
                 if(bullet->bulletType == BULLET_SpecialBurst)
                 {
                     etgLOD = etgSpecialPurposeEffectTable[EGT_BURST_EXPLOSION_EFFECT];
@@ -1804,11 +2368,17 @@ void univUpdateAllPosVelBullets()
                     pointExplosionInSpace(&bullet->obj.posinfo.position,burstRadius,bullet->damage,bullet->playerowner->playerIndex);
                 }
 
-                //Defense Fighter 'hack' to remove its reference
-                if(bitTest(bullet->SpecialEffectFlag, 0x0002))
-                {    //bullet is possibly being targetted by a defense fighter...remove that reference
-                    DefenseFighterBulletRemoval(bullet);
+                // CAT: a Sect big-gun shell explodes where it dies and loses its ping (0x005431d6: sound type
+                //      GS_BigGun -> cat_bigGunBulletExplodeAt 0x005bd0c0, pingRemovePingByOwner).
+                //      CAT-TODO(M2-R4 #4): the big-gun block (cat_bigGun*) is not ported; the ping is removed here
+                if (bullet->soundType == GS_BigGun)
+                {
+                    pingRemovePingByOwner((SpaceObj *)bullet);
                 }
+
+                // CAT: every ship drops its references to the bullet (CustShipHeader slot 14, 0x0054322c), its mesh
+                //      state and +0x84 block are freed (0x00543253); HW1 told only the DefenseFighters
+                univFreeBulletContents(bullet);
 
                 bobObjectDied(((SpaceObj *)bullet),&universe.collBlobList);
                 listRemoveNode(&bullet->bulletlink);
@@ -1909,6 +2479,9 @@ void univUpdateAllPosVelResources()
         if ((resource->header.flags & (SOF_DontApplyPhysics|SOF_NISShip)) == 0)
         {
             physUpdateObjPosVelBasic(&resource->obj,universe.phystimeelapsed);
+            // CAT-TODO(M2-R4 #3 asteroids, #5 level-load attributes): univUpdateAllPosVelResources 0x005432d0 then
+            //      clamps a resource whose attribute word (exe +0x38) has bit 0x200 into the box +-(exe +0x1A8,
+            //      +0x1AC, +0x1B0), a per-asteroid bound this tree does not have yet
         }
 
         if (resource->resourceNotAccessible > 0)
@@ -1931,8 +2504,10 @@ void univUpdateAllPosVelShips()
 {
     Node *objnode = universe.ShipList.head;
     Ship *ship;
+    sdword i;
 
     growSelectReset(&universe.HousekeepShipList);
+    catDeferredShipListReset();                             // CAT: univUpdateAllPosVelShips 0x00544f40
     if(ClampedShipList.selection == NULL)
     {
         growSelectInit(&ClampedShipList);
@@ -1943,50 +2518,50 @@ void univUpdateAllPosVelShips()
     {
         ship = (Ship *)listGetStructOfNode(objnode);
 
+        // CAT: no SOF_NISShip test and no slave handling (0x00544f9a: only SOF_DontApplyPhysics; dockUpdateSlaves
+        //      is not in the exe, no Cataclysm ship is slaveable)
         if ((ship->header.flags & SOF_DontApplyPhysics) == 0)
         {
-            if ((ship->header.flags & SOF_NISShip) == 0)
+            univCheckShipState(ship);
+
+            // CAT-TODO(M2-R4 #3): the exe's clamp scheme (0x00544fa6): a ship clamped to a ship that is not itself
+            //      clamped puts that host on the list (once, from the host's first clamped object) and skips its own
+            //      physics; the host then moves its clamped objects (updateClampedObject on the host). Every other
+            //      ship, clamped or not, runs physUpdateObjPosVelShip. Until Clamp.c is ported the HW1 scheme stays.
+            if(ship->guidance.clampInfo != NULL)
             {
-                univCheckShipState(ship);
-
-                if(bitTest(ship->header.flags, SOF_Slaveable))
-                {    //object is slaveable
-                    if(bitTest(ship->slaveinfo->flags,SF_SLAVE))
-                    {   //if object is a slave
-                        goto nowdosetupforshipsShipCustomFunc;
-                    }
-                    else
-                    {   //object should be a master
-                        //update slaves of object now
-                        physUpdateObjPosVelShip(ship,universe.phystimeelapsed);
-                        dockUpdateSlaves(ship);
-                        //update master
-                        goto nowdosetupforshipsShipCustomFunc;
-                    }
-                }
-                if(ship->guidance.clampInfo != NULL)
-                {
-                    //object has clampinfo, should be updated
-                    //updateClampedObject((SpaceObjRotImpTargGuidance *)spaceobj);
-                    growSelectAddShip(&ClampedShipList,ship);
-                    goto nowdosetupforshipsShipCustomFunc;
-                }
-                physUpdateObjPosVelShip(ship,universe.phystimeelapsed);
-
-nowdosetupforshipsShipCustomFunc:
-                univSetupShipForControl(ship);
+                //object has clampinfo, should be updated
+                growSelectAddShip(&ClampedShipList,ship);
             }
+            else
+            {
+                physUpdateObjPosVelShip(ship,universe.phystimeelapsed);
+            }
+            univSetupShipForControl(ship);
         }
         else
         {
+            // CAT: a ship that does not move still gets its housekeep and deferred update (0x0054500a..0x00545082)
             univMinorSetupShipForControl(ship);
+            // CAT-TODO(M2-R4 #3): a clamped one is carried along without physics (cat_updateClampedObjectNoPhysics
+            //      0x00434ab0)
+            if (ship->staticinfo->custshipheader.CustShipHousekeep != NULL)
+            {
+                growSelectAddShip(&universe.HousekeepShipList,ship);
+            }
+            growSelectAddShip(&catDeferredShipList,ship);
         }
         //update mesh animations
+        // CAT: ships whose .shp numbers their animations (madstatic.animsByNumber, the ANIM keys) skip the HW1
+        //      mad link-in processing, and the link-in runs only while an animation is playing (0x00545089)
         if (ship->madBindings != NULL)
         {
-            if(ship->madAnimationFlags & MAD_ANIMATION_NEED_PROC)
+            if ((ship->staticinfo->madStatic->animsByNumber == 0) && (ship->madAnimationFlags & MAD_ANIMATION_NEED_PROC))
             {
-                madLinkInUpdateMeshAnimations(ship);
+                if (ship->madBindings->nCurrentAnim != -1)
+                {
+                    madLinkInUpdateMeshAnimations(ship);
+                }
             }
             else if (ship->madBindings->nCurrentAnim != -1)
             {
@@ -1994,14 +2569,12 @@ nowdosetupforshipsShipCustomFunc:
             }
         }
 
-
         objnode = objnode->next;
     }
 
     {
         Ship *obj;
         SelectCommand *clampedShipSelection;
-        sdword i;
         sdword numShips;
 
         //update those poor baby clamped ships!
@@ -2022,10 +2595,22 @@ nowdosetupforshipsShipCustomFunc:
         }
     }
 
+    // CAT: the deferred updates run before the housekeeps (0x00545147)
+    {
+        SelectCommand *deferredSelection = catDeferredShipList.selection;
+
+        for (i = 0; i < deferredSelection->numShips; i++)
+        {
+            if (deferredSelection->ShipPtr[i] != NULL)
+            {
+                cat_univShipDeferredUpdate(deferredSelection->ShipPtr[i]);
+            }
+        }
+    }
+
     {
         Ship *obj;
         SelectCommand *housekeepSelection;
-        sdword i;
         sdword numShips;
 
         housekeepSelection = universe.HousekeepShipList.selection;
@@ -2041,7 +2626,15 @@ nowdosetupforshipsShipCustomFunc:
         }
     }
 
+    // CAT: every 5 seconds (0x0072bd5c) the protected-speed limits are recomputed (0x005451a1).
+    //      CAT-TODO(M2-R4 #2): cat_univLimitProtectedShipSpeed 0x00544e00 (escort commands' group speed into Ship +0x5C4)
+    if (catProtectedSpeedLimitTime < universe.totaltimeelapsed)
+    {
+        catProtectedSpeedLimitTime = 5.0f + universe.totaltimeelapsed;
+    }
+
     growSelectReset(&universe.HousekeepShipList);       // don't need to keep track of them anymore
+    growSelectReset(&catDeferredShipList);
     growSelectReset(&ClampedShipList);       // don't need to keep track of them anymore
 }
 
@@ -2321,117 +2914,55 @@ void MakeNewGasCloudStaticInfo(GasCloud *gascloud)
 #define HYPERING_IN_DAMAGE    twHyperingInDamage
 #define HYPERED_INTO_DAMAGE   twHyperedIntoDamage
 
+// CAT: the attribute bit of the exe's killer collisions (ApplyDamageToCollidingObjects 0x00545540 tests attribute word
+//      bit 0x200; HW1 used ATTRIBUTES_KillerCollDamage 0x10 / ATTRIBUTES_HeadShotKillerCollDamage 0x400). The level
+//      loader's attribute names are M2-R4 #5's, so the bit is spelled out here (name chosen here)
+#define CAT_ATTRIBUTES_KillerCollision      0x0200
+
 void ApplyDamageToCollidingObjects(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *obj2,vector *distvector,real32 dist)
 {
     real32 damage;
-    real32 damage2;
-    real32 mindamage;
-    real32 maxdamage;
-    StaticInfoHealth *staticobj1;
-    StaticInfoHealth *staticobj2;
-    real32 veltangentfactor;
-    vector obj2VelRelToObj1;
+    SpaceObjRotImpTarg *target;
+    etglod *etgLOD;
+    etgeffectstatic *stat;
+    vector heading, position;
+    matrix coordsys;
 
-    if ((obj1->obj.attributes^obj2->obj.attributes) & (ATTRIBUTES_KillerCollDamage|ATTRIBUTES_HeadShotKillerCollDamage))
+    // CAT: Cataclysm's collisions do no damage, except a killer collision: when exactly one of the two objects has the
+    //      killer attribute, both take the smaller of their healths (cause 9 / 10 and the other object as attacker in
+    //      the exe's 7-argument ApplyDamageToTarget, M2-R4 #3) and the hit effect of Sect very-large plasma bombs
+    //      (etgGunEventTable[0][GS_VeryLargePlasmaBomb][EGT_GunHit], 0x00c412c4) plays on the killer object
+    //      (ApplyDamageToCollidingObjects 0x00545540). The distance arguments are no longer used.
+    (void)distvector;
+    (void)dist;
+    if (((obj1->obj.attributes ^ obj2->obj.attributes) & CAT_ATTRIBUTES_KillerCollision) == 0)
     {
-        // if one or the other but not both objects have KillerCollDamage
-        if (obj1->obj.attributes & (ATTRIBUTES_KillerCollDamage|ATTRIBUTES_HeadShotKillerCollDamage))
-        {
-            ApplyDamageToTarget(obj1,min(obj2->health, obj1->health),0,DEATH_Killed_By_Collision,99);
-            ApplyDamageToTarget(obj2,(obj1->obj.attributes & ATTRIBUTES_HeadShotKillerCollDamage) ? attrHEADSHOTKillerCollDamage : attrKillerCollDamage,0,DEATH_Killed_By_Collision,99); // and do lots of damage to thing it hit
-            return;
-        }
-        else if (obj2->obj.attributes & (ATTRIBUTES_KillerCollDamage|ATTRIBUTES_HeadShotKillerCollDamage))
-        {
-            ApplyDamageToTarget(obj2,min(obj2->health, obj1->health),0,DEATH_Killed_By_Collision,99);
-            ApplyDamageToTarget(obj1,(obj2->obj.attributes & ATTRIBUTES_HeadShotKillerCollDamage) ? attrHEADSHOTKillerCollDamage : attrKillerCollDamage,0,DEATH_Killed_By_Collision,99); // and do lots of damage to thing it hit
-            return;
-        }
+        // the exe looks up the ships' commands here and ignores the result (0x00545562)
+        return;
     }
-
-    vecSub(obj2VelRelToObj1,obj2->obj.posinfo.velocity,obj1->obj.posinfo.velocity);
-    veltangentfactor = ABS(vecDotProduct(*distvector,obj2VelRelToObj1));
-    veltangentfactor /= (COLLDAMAGE_VELOCITY_TANGENT_SCALE * dist);
-    // now veltangentfactor is equal to k * |vel| cos(theta) where theta is angle between distvector and obj2VelRelToObj1
-
     damage = min(obj1->health, obj2->health);
-    damage = (damage * veltangentfactor);
-
-    staticobj1 = obj1->staticinfo;
-    staticobj2 = obj2->staticinfo;
-    mindamage = min(staticobj1->minCollDamage,staticobj2->minCollDamage);
-    maxdamage = min(staticobj1->maxCollDamage,staticobj2->maxCollDamage);
-
-    if (damage < mindamage)
-    {
-        damage = mindamage;
-    }
-    else if (damage > maxdamage)
-    {
-        damage = maxdamage;
-    }
-    damage2 = damage;
-
-    if(obj1->header.objtype == OBJ_ShipType)
-    {
-       if(((Ship *)obj1)->shiptype == P2Mothership)
-       {
-          damage /= 3.0f;
-       }
-       else if (((Ship *)obj1)->shiptype == FloatingCity)
-       {
-          return;       // Floating city's are peaceful and magical - don't do any collision damage
-       }
-       else
-       {
-          CommandToDo *obj1command=getShipAndItsCommand(&universe.mainCommandLayer,((Ship *)obj1));
-          if(obj1command != NULL)
-          {
-             if(obj1command->ordertype.order == COMMAND_MP_HYPERSPACING)
-             {
-                //if ship is hyperspaceing IN, modify its damage
-                if(obj1command->hyperspaceState == COM_HYPERSPACE_IN)
-                {
-                   damage *= HYPERING_IN_DAMAGE;
-                   damage2 *= HYPERED_INTO_DAMAGE;
-                }
-             }
-          }
-       }
-    }
-
-    if(obj2->header.objtype == OBJ_ShipType)
-    {
-       if(((Ship *)obj2)->shiptype == P2Mothership)
-       {
-          damage2 /= 3.0f;
-       }
-       else if (((Ship *)obj2)->shiptype == FloatingCity)
-       {
-          return;       // Floating city's are peaceful and magical - don't do any collision damage
-       }
-       else
-       {
-          CommandToDo *obj2command=getShipAndItsCommand(&universe.mainCommandLayer,((Ship *)obj2));
-          if(obj2command != NULL)
-          {
-             if(obj2command->ordertype.order == COMMAND_MP_HYPERSPACING)
-             {
-                //if ship is hyperspaceing IN, modify its damage
-                if(obj2command->hyperspaceState == COM_HYPERSPACE_IN)
-                {
-                   damage2 *= HYPERING_IN_DAMAGE;
-                   damage *= HYPERED_INTO_DAMAGE;
-                }
-             }
-          }
-       }
-    }
-
-
-
     ApplyDamageToTarget(obj1,damage,0,DEATH_Killed_By_Collision,99);
-    ApplyDamageToTarget(obj2,damage2,0,DEATH_Killed_By_Collision,99);
+    ApplyDamageToTarget(obj2,damage,0,DEATH_Killed_By_Collision,99);
+
+    target = (obj1->obj.attributes & CAT_ATTRIBUTES_KillerCollision) ? obj1 : obj2;
+    etgLOD = etgGunEventTable[0][GS_VeryLargePlasmaBomb][EGT_GunHit];
+    if ((etgLOD == NULL) || (target->obj.currentLOD >= etgLOD->nLevels))
+    {
+        stat = NULL;
+    }
+    else
+    {
+        stat = etgLOD->level[target->obj.currentLOD];
+    }
+    if (univSpaceObjInRenderList(&target->obj) && (stat != NULL) && !etgFrequencyExceeded(stat))
+    {
+        vecCopyAndNegate(heading, target->obj.posinfo.velocity);
+        vecNormalize(&heading);
+        matCreateCoordSysFromHeading(&coordsys, &heading);
+        vecAdd(position, target->obj.posinfo.position, target->obj.posinfo.velocity);
+        etgEffectCreate(stat, NULL, &position, &target->obj.posinfo.velocity, &coordsys, 0.0f, 0, 2,
+                        SCALECAST(Real32ToUdword(damage)), SCALECAST(1));
+    }
 }
 
 bool32 ObjectsHaveCollidedLately(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *obj2)
@@ -2647,10 +3178,20 @@ void ApplyCareenRotationDirectly(Ship *ship)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void AddShipToDeleteShipList(Ship *ship,GunSoundType damageType)
+void AddShipToDeleteShipList(Ship *ship,GunSoundType damageType,sdword unused)
 {
     DeleteShip *deleteShip;
     ShipStaticInfo *shipstaticinfo = (ShipStaticInfo *)ship->staticinfo;
+
+    // CAT: a third argument the body never reads (its callers pass 1); a dying Sect mothership starts its death
+    //      sequence instead of going on the delete list (AddShipToDeleteShipList 0x00545b80 ->
+    //      cat_mothershipStartDeathSequence 0x005bd5f0; MothershipHouseKeep explodes and deletes it later)
+    (void)unused;
+    if (ship->shiptype == sMothership)
+    {
+        cat_mothershipStartDeathSequence(ship, damageType);
+        return;
+    }
 
     ship->header.flags |= SOF_Dead;
 
@@ -2665,6 +3206,8 @@ void AddShipToDeleteShipList(Ship *ship,GunSoundType damageType)
     // add to delete ship list
     deleteShip = memAlloc(sizeof(DeleteShip),"DeleteShip",Pyrophoric);
     deleteShip->ship = ship;
+    // CAT: the exe drops the damageType != -1 test and reads etgDeathModeByGunType[-1], the zero byte before the
+    //      table (0x0087ac63 = EDT_AccumDamage), so the HW1 test gives the same result without the out-of-bounds read
     if (ship->targetable.health <= etgBigDeathFactor[shipstaticinfo->shiprace][shipstaticinfo->shipclass] && damageType != -1)
     {                                   //ship took a really big bong hit
         deleteShip->deathBy = (udword)etgDeathModeByGunType[damageType];
@@ -2712,7 +3255,9 @@ void AddDerelictToDeleteDerelictList(Derelict *derelict,GunSoundType damageType)
     deleteDerelict->derelict = derelict;
     if (derelict->targetable.health <= etgBigDeathFactorDerelict[derelict->derelicttype])
     {                                   //derelict took a really big bong hit
-        deleteDerelict->deathBy = (udword)etgDeathModeByGunType[damageType];
+        // HWI: crates are deleted with damageType -1 (Crates.c); the exe then reads the zero byte before the table
+        //      (0x0087ac63 = EDT_AccumDamage), which this gives without the out-of-bounds read
+        deleteDerelict->deathBy = (damageType < 0) ? EDT_AccumDamage : (udword)etgDeathModeByGunType[damageType];
     }
     else
     {                                   //if it just barely died, use the small explosion
@@ -2748,12 +3293,13 @@ void AddMissileToDeleteMissileList(Missile *missile,GunSoundType damageType)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void AddTargetToDeleteList(SpaceObjRotImpTarg *target,GunSoundType soundType)
+void AddTargetToDeleteList(SpaceObjRotImpTarg *target,GunSoundType soundType,sdword unused)
 {
+    (void)unused;                   // CAT: a third argument the body never reads (AddTargetToDeleteList 0x00545dd0)
     switch (target->header.objtype)
     {
         case OBJ_ShipType:
-            AddShipToDeleteShipList((Ship *)target,soundType);
+            AddShipToDeleteShipList((Ship *)target,soundType,1);
             break;
 
         case OBJ_AsteroidType:
@@ -2790,7 +3336,7 @@ void addSlavesToDeleteList(Ship *master, GunSoundType deathtype)
         slave = (Ship *) listGetStructOfNode(slavenode);
         slave->slaveinfo->flags |= SF_DEAD;
         if(!(slave->header.flags & SOF_Dead))
-            AddTargetToDeleteList((SpaceObjRotImpTarg *)slave,deathtype);
+            AddTargetToDeleteList((SpaceObjRotImpTarg *)slave,deathtype,1);
         slavenode = slavenode->next;
     }
 }
@@ -2816,6 +3362,7 @@ void ApplyRockToTarget(SpaceObjRotImpTarg *target,real32 projectilemass)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT-TODO(M2-R4 #3): MakeExplosionRockBumpables 0x00545f00 calls the 7-argument ApplyDamageToTarget.
 void MakeExplosionRockBumpables(Ship *ship,bool32 scuttle)
 {
     Node *objnode = universe.ImpactableList.head;
@@ -2921,6 +3468,11 @@ nextnode:
     Outputs     :
     Return      : returns TRUE if damage was fatal damage
 ----------------------------------------------------------------------------*/
+// CAT-TODO(M2-R4 #3, with #5 for the stats): ApplyDamageToTarget 0x00546250 is not ported yet. It takes two more
+//      arguments (the attacking ship and a cause code), redirects damage from a ship part (SOF_CatShipPart) to its
+//      parent, skips damage while an NIS runs, for KAS-derelict ships (catShipFlags bit 2) and for invulnerable ships,
+//      calls cat_tacticsEvasiveRetreatToDock, keeps the killer's and the loser's kill counts (catShipsKilledByClass,
+//      catShipsLostByClass) and experience (cat_shipUpdateExperienceLevel), and no longer has slave ships.
 bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoundType soundType,sdword damageHow,sdword playerIndex)
 {
     bool32 targetWasAlive = ((target->header.flags & SOF_Dead) == 0);
@@ -2946,7 +3498,7 @@ bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoun
         case OBJ_AsteroidType:
             if (AsteroidTakesDamage((Asteroid *)target,(sdword)damagetaken,targetWasAlive))
             {
-                AddTargetToDeleteList(target,soundType);
+                AddTargetToDeleteList(target,soundType,1);
                 return TRUE;                    //used by effect
             }
             else
@@ -3014,11 +3566,11 @@ fallthrough:;
                         addSlavesToDeleteList((Ship *)target,soundType);
                     }
                     if(!(target->header.flags & SOF_Dead))
-                        AddTargetToDeleteList(target,soundType);
+                        AddTargetToDeleteList(target,soundType,1);
                 }
                 else
                 {
-                    AddTargetToDeleteList(target,soundType);
+                    AddTargetToDeleteList(target,soundType,1);
                 }
                 return TRUE;                    //used by effect
             }
@@ -3037,6 +3589,7 @@ fallthrough:;
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT-TODO(M2-R4 #3): pointExplosionInSpace 0x00546780 calls the 7-argument ApplyDamageToTarget.
 void pointExplosionInSpace(vector *position,real32 blastRadius,real32 maxDamage,sdword playerIndex)
 {
     Node *objnode = universe.ImpactableList.head;
@@ -3118,22 +3671,72 @@ nextnode:
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void univBulletCollidedWithTarget(SpaceObjRotImpTarg *target,StaticInfo *targetstaticheader,Bullet *bullet,real32 collideLineDist,sdword collSide)
+void univBulletCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target,StaticInfo *targetstaticheader,Bullet *bullet,real32 collideLineDist,sdword collSide)
 {
-    real32 damagetaken = bullet->damage;
+    real32 damagetaken;
     Ship *bulletowner = bullet->owner;
     real32 massovertime;
     vector recoil;
     etgeffectstatic *stat;
     sdword LOD;
     vector LOF;
-    bool32 fatalHit;
+    bool32 fatalHit = TRUE;         // CAT: the exe's "fatal" effect parameter starts at 1.0 (local_78 = 1.0, 0x00546a32)
     vector hitLocation;
     matrix hitCoordsys;
     real32 floatDamage;
     real32 damageMult = 1.0f;
-    udword intDamage;
     real32 targetScale;
+    real32 glowAmount = 1.0f;
+
+    // CAT: univBulletCollidedWithTarget 0x00546a20 takes a new first argument: FALSE for the beam frames in which a
+    //      beam only draws its hit (collCheckBeamColl 0x0043c900 passes 0 or 1, collCheckBulletTargetColl 1). Without
+    //      it there is no damage, push or attacker bookkeeping, only the hit effect.
+
+    // CAT: a Sect big-gun shell explodes where it hits and loses its ping (0x00546a48: sound type GS_BigGun).
+    //      CAT-TODO(M2-R4 #4): cat_bigGunBulletExplodeAt 0x005bd0c0 (the big-gun block is not ported)
+    if (bullet->soundType == GS_BigGun)
+    {
+        pingRemovePingByOwner((SpaceObj *)bullet);
+    }
+
+    // CAT: the damage is the bullet's damage scaled by its weapon against the target's armour level
+    //      (cat_weaponDamageVsArmour 0x00514460(sound type, Ship +0x3F0 armour level; 0 for other targets)).
+    //      CAT-PROVISIONAL(M2-R4 #3): the weapon-vs-armour table and the armour level are not ported, factor 1
+    damagetaken = bullet->damage;
+    if (target->header.objtype == OBJ_ShipType)
+    {
+        Ship *ship = (Ship *)target;
+
+        // crystals are not hurt by projectiles, plasma bombs or missiles (0x00546aa4)
+        if (cat_shipIsCrystal(ship) &&
+            (bullet->soundType == GS_LargeProjectile || bullet->soundType == GS_LargePlasmaBomb ||
+             bullet->soundType == GS_MediumPlasmaBomb || bullet->soundType == GS_MediumProjectile ||
+             bullet->soundType == GS_MissleLauncher || bullet->soundType == GS_SmallPlasmaBomb ||
+             bullet->soundType == GS_SmallProjectile || bullet->soundType == GS_VeryLargePlasmaBomb))
+        {
+            damagetaken = 0.0f;
+        }
+        // a Nomad moon does not hurt its own field emitters (0x00546ae5)
+        if (bulletowner != NULL && bulletowner->shiptype == dNomadMoon && ship->shiptype == dNomadFieldEmitter)
+        {
+            damagetaken = 0.0f;
+        }
+        if (!applyDamage)
+        {
+            goto hiteffect;
+        }
+        // an active Sentinel field takes the hit for its Sentinel (0x00546b10)
+        if ((ship->shiptype == sSentinel || ship->shiptype == bSentinel) && cat_shipIsSentinelFieldActive(ship))
+        {
+            // CAT-TODO(M2-R4 #4): cat_sentinelFieldBulletHit 0x005c6c60 (target, -1, bullet), the field's response
+            applyDamage = FALSE;
+            goto hiteffect;
+        }
+    }
+    if (!applyDamage)
+    {
+        goto hiteffect;
+    }
 
     // if target isn't immobile, apply impact force from bullet
     if (!targetstaticheader->immobile && !bitTest(target->header.flags, SOF_NotBumpable))
@@ -3167,7 +3770,9 @@ nobulletmasstransfer:
 
         if (bulletowner != NULL)
         {
-            if ((bulletowner->shiptype == HeavyDefender) && (ship->staticinfo->shipclass == CLASS_Fighter))
+            // CAT: armour-piercing heavy defenders (kHeavyDefender, tHeavyDefender) against fighters (0x00546bd8)
+            if (((bulletowner->shiptype == kHeavyDefender) || (bulletowner->shiptype == tHeavyDefender)) &&
+                (ship->staticinfo->shipclass == CLASS_Fighter))
             {
                 // armour piercing bullets vs fighters
                 damagetaken *= armourPiercingModifier;
@@ -3175,10 +3780,8 @@ nobulletmasstransfer:
 
             if (bulletowner->playerowner == ship->playerowner)
             {                                               //if it's friendly fire
-        //!!! why only in non-debug???
-#ifndef HW_BUILD_FOR_DEBUGGING
+                // CAT: the retail exe always applies it (0x00546c15); HW1 skipped it in debug builds
                 damagetaken *= friendlyFireModifier;
-#endif
                 bitSet(ship->chatterBits, BCB_FriendlyFire);
             }
             else if (allianceIsShipAlly(ship, bulletowner->playerowner))
@@ -3200,12 +3803,18 @@ nobulletmasstransfer:
         }
     }
 
+    // CAT-TODO(M2-R4 #3): ApplyDamageToTarget 0x00546250 takes two more arguments here: the attacking ship (for its
+    //      experience and the kill counts) and a cause code (0xE with an owner, 0xF without)
     if(bulletowner != NULL && bulletowner->playerowner != NULL)
         fatalHit = ApplyDamageToTarget(target,damagetaken,bullet->soundType,DEATH_Killed_By_Player,bulletowner->playerowner->playerIndex);
     else
         fatalHit = ApplyDamageToTarget(target,damagetaken,bullet->soundType,DEATH_Killed_By_Dead_Player,99);
 
+hiteffect:
     //delete the bullet effect
+    // CAT: the exe keeps the flight effect of beams and of Beast infection bullets (weapon word 2 or 8, 0x00546b5a);
+    //      CAT-TODO(M2-R4 #3): with no weapon word on this tree's bullets the HW1 beam test stands in
+
 #if ETG_DISABLEABLE
     if (bullet->effect != NULL && etgEffectsEnabled && bullet->bulletType != BULLET_Beam)
 #else
@@ -3225,6 +3834,31 @@ nobulletmasstransfer:
             return;                                         //don't play any hit effects
         }
     }
+
+    // CAT: the hit location is worked out before the effect test: the bullet-hit glow below uses it too (the exe
+    //      computes it inside the effect branch only and hands the glow an unset vector when no effect is made)
+    if (collideLineDist == 0.0f)
+    {
+        hitLocation = bullet->obj.posinfo.position;
+    }
+    else
+    {
+        vecScalarMultiply(hitLocation,bullet->bulletheading,collideLineDist);
+        vecAdd(hitLocation,bullet->obj.posinfo.position,hitLocation);
+    }
+    //N-Lip the impact position
+    if (target->header.objtype == OBJ_ShipType)
+    {
+        targetScale = ((Ship *)target)->magnitudeSquared;
+        vecSubFrom(hitLocation, target->obj.posinfo.position);
+        vecMultiplyByScalar(hitLocation, targetScale);
+        vecAddTo(hitLocation, target->obj.posinfo.position);
+    }
+    else
+    {
+        targetScale = 1.0f;
+    }
+
     //play the imact effect
     if (bullet->hitEffect != NULL)
     {
@@ -3250,36 +3884,26 @@ nobulletmasstransfer:
         if (stat != NULL && etgHitEffectsEnabled && (!etgFrequencyExceeded(stat)))
 #endif
         {
-            if (collideLineDist == 0.0f)
-            {
-                hitLocation = bullet->obj.posinfo.position;
-            }
-            else
-            {
-                dbgAssertOrIgnore(collideLineDist > 0.0f);
-                vecScalarMultiply(hitLocation,bullet->bulletheading,collideLineDist);
-                vecAdd(hitLocation,bullet->obj.posinfo.position,hitLocation);
-            }
-            //N-Lip the impact position
-            if (target->header.objtype == OBJ_ShipType)
-            {
-                targetScale = ((Ship *)target)->magnitudeSquared;
-                vecSubFrom(hitLocation, target->obj.posinfo.position);
-                vecMultiplyByScalar(hitLocation, targetScale);
-                vecAddTo(hitLocation, target->obj.posinfo.position);
-            }
-            else
-            {
-                targetScale = 1.0f;
-            }
-
             vecCopyAndNegate(LOF,bullet->bulletheading);
             matCreateCoordSysFromHeading(&hitCoordsys,&LOF);
             floatDamage = (real32)damagetaken;
             floatDamage *= damageMult;
-            intDamage = Real32ToUdword(floatDamage);
-            etgEffectCreate(stat, NULL, &hitLocation, &target->obj.posinfo.velocity, &hitCoordsys, targetScale, 0, 2, SCALECAST(intDamage), SCALECAST(fatalHit));
+            // CAT: both effect parameters are floats in the exe: the damage, and the fatal flag as 0.0 / 1.0
+            //      ((float)ApplyDamageToTarget(...), 0x00546eb6; HW1 passed the flag as an integer)
+            etgEffectCreate(stat, NULL, &hitLocation, &target->obj.posinfo.velocity, &hitCoordsys, targetScale, 0, 2,
+                            SCALECAST(Real32ToUdword(floatDamage)), SCALECAST(Real32ToUdword(fatalHit ? 1.0f : 0.0f)));
         }
+    }
+
+    // CAT: a ship that takes damage glows where it was hit (0x0054703a: cat_rndObjectEffectsSetup(target), then
+    //      cat_meshApplyBulletHit(hit point, radius^2 1.0, target, cat_meshBulletHitGlowCB 0x004b5820, &1.0f)).
+    //      The render object is reset afterwards (HWI: the exe leaves it pointing at the target until the next
+    //      render sets it)
+    if (applyDamage && target->header.objtype == OBJ_ShipType)
+    {
+        catShCurrentObject = target;
+        cat_meshApplyBulletHit(&hitLocation, 1.0f, (Ship *)target, cat_meshBulletHitGlowCB, &glowAmount);
+        catShCurrentObject = NULL;
     }
 }
 
@@ -3290,6 +3914,8 @@ nobulletmasstransfer:
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT-TODO(M2-R4 #3): univMissileCollidedWithTarget 0x00547080 takes a new first argument (apply damage, as
+//      univBulletCollidedWithTarget), uses battleChatterFleetAttempt and the 7-argument ApplyDamageToTarget.
 void univMissileCollidedWithTarget(SpaceObjRotImpTarg *target,StaticInfo *targetstaticheader,Missile *missile,real32 collideLineDist,sdword collSide)
 {
     real32 damagetaken = missile->damage;
@@ -3507,6 +4133,12 @@ void univRemoveAllTargetReferencesFromMissiles(SpaceObjRotImpTarg *target)
         if (missile->target == target)
         {
             missile->target = NULL;
+            // CAT: a missile that loses its target self-destructs within 5 seconds
+            //      (univRemoveAllTargetReferencesFromMissiles 0x00547570)
+            if (missile->totallifetime - missile->timelived > CAT_MISSILE_LOST_TARGET_LIFE)
+            {
+                missile->totallifetime = missile->timelived + CAT_MISSILE_LOST_TARGET_LIFE;
+            }
         }
 
         objnodemissile = objnodemissile->next;
@@ -3556,30 +4188,37 @@ void univRemoveAllDerelictReferencesFromSpecialShips(Derelict *d)
 
 void univRemoveAllShipReferencesFromSpecialShip(Ship *shiptoremove,Ship *ship)
 {
-    if (ship->recentlyAttacked && ship->recentAttacker == shiptoremove)
+    // CAT: the attacker memories are cleared whenever they point at the ship, counted down or not
+    //      (univRemoveAllShipReferencesFromSpecialShip 0x00547640)
+    if (ship->recentAttacker == shiptoremove)
     {
         // forget that this ship had recently attacked anyone
         ship->recentlyAttacked = 0;
         ship->recentAttacker = NULL;
     }
-    if (ship->recentlyFiredUpon && ship->firingAtUs == shiptoremove)
+    if (ship->firingAtUs == shiptoremove)
     {
         ship->recentlyFiredUpon = 0;
         ship->firingAtUs = NULL;
     }
+    // CAT: and so is gettingrocked
+    if (ship->gettingrocked == shiptoremove)
+    {
+        ship->gettingrocked = NULL;
+    }
 
+    // CAT: no right-of-way callback any more (the exe calls an empty function there)
     if (ship->rowGetOutOfWay == shiptoremove)
     {
-        rowGetOutOfWayShipDiedCB(ship);
         ship->rowGetOutOfWay = NULL;
     }
 
-    if(!(gameIsEnding && ship->shiptype == ResearchShip))
+    // CAT-TODO(M2-R4 #4): three Cataclysm ship pointers at exe Ship +0x3EC, +0x608 and +0x4E8 are cleared here too
+
+    // CAT: the ship's CustShipRemoveShipReferences (slot 11) always runs (HW1 skipped research ships at game end)
+    if(((ShipStaticInfo *)ship->staticinfo)->custshipheader.CustShipRemoveShipReferences != NULL)
     {
-        if(((ShipStaticInfo *)ship->staticinfo)->custshipheader.CustShipRemoveShipReferences != NULL)
-        {
-            ((ShipStaticInfo *)ship->staticinfo)->custshipheader.CustShipRemoveShipReferences(ship, shiptoremove);
-        }
+        ((ShipStaticInfo *)ship->staticinfo)->custshipheader.CustShipRemoveShipReferences(ship, shiptoremove);
     }
 }
 
@@ -3593,6 +4232,7 @@ void univRemoveAllShipReferencesFromSpecialShip(Ship *shiptoremove,Ship *ship)
 void univRemoveAllShipReferencesFromSpecialShips(Ship *shiptoremove)
 {
     Node *node = universe.ShipList.head;
+    Node *insidenode;
     Ship *ship;
     InsideShip *insideShip;
 
@@ -3602,6 +4242,42 @@ void univRemoveAllShipReferencesFromSpecialShips(Ship *shiptoremove)
         dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
 
         univRemoveAllShipReferencesFromSpecialShip(shiptoremove,ship);
+
+        // CAT: the ship stops docking with it (univRemoveAllShipReferencesFromSpecialShips 0x005476e0).
+        //      CAT-TODO(M2-R4 #4): and drops it as a queued attack target (exe Ship +0x4B0)
+        if (ship->dockvars.dockship == shiptoremove)
+        {
+            ship->dockvars.dockship = NULL;
+        }
+        // CAT: the exe then looks for an inside-ship entry that holds the ship itself (not shiptoremove) and, if it
+        //      finds one, deletes it, updates the launch manager and counts it out by shiptoremove's class
+        //      (fighter/micro or corvette/resource); kept as written, although no ship is ever inside itself
+        if (ship->shipsInsideMe != NULL)
+        {
+            for (insidenode = ship->shipsInsideMe->insideList.head; insidenode != NULL; insidenode = insidenode->next)
+            {
+                insideShip = (InsideShip *)listGetStructOfNode(insidenode);
+                if (insideShip->ship == ship)
+                {
+                    listDeleteNode(insidenode);
+                    lmUpdateShipsInside();
+                    switch (shiptoremove->staticinfo->shipclass)
+                    {
+                        case CLASS_Fighter:
+                        case CLASS_Micro:
+                            ship->shipsInsideMe->FightersInsideme--;
+                            break;
+                        case CLASS_Corvette:
+                        case CLASS_Resource:
+                            ship->shipsInsideMe->CorvettesInsideme--;
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+                }
+            }
+        }
 
         node = node->next;
     }
@@ -3617,6 +4293,10 @@ void univRemoveAllShipReferencesFromSpecialShips(Ship *shiptoremove)
         dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
 
         univRemoveAllShipReferencesFromSpecialShip(shiptoremove,ship);
+        if (ship->dockvars.dockship == shiptoremove)
+        {                                                   // CAT: 0x0054779b
+            ship->dockvars.dockship = NULL;
+        }
 
         node = node->next;
     }
@@ -3689,9 +4369,16 @@ void FreeShipsInsideMe(Ship *ship)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: set by kasfMission13DeleteEngineeringModuleHack 0x0049a480 (stage 6) for a ship that is in no object list:
+//      univWipeShipOutOfExistence 0x005477d0 then frees it directly and clears the flag (0x00a44000)
+bool32 catWipeShipFreeDirectly = FALSE;
+
 void univWipeShipOutOfExistence(Ship *ship)
 {
     dbgAssertOrIgnore(ship != NULL);
+    // CAT-TODO(stage 3 FOW): the exe first takes the ship's fog-of-war cube away (cat_playerGetFOWGrid, fowSelect,
+    //      cat_shipAffectsFOW, fowDeactivateCubeW(position, cat_shipGetFOWRadius(ship, 0), 0) at 0x005477d0), then
+    //      frees two Cataclysm ship blocks at exe Ship +0x4FC and +0x510 (M2-R4 #4: not in this tree's Ship)
     if (ship->shiplink.belongto != NULL)
     {
         listRemoveNode(&ship->shiplink);
@@ -3704,7 +4391,16 @@ void univWipeShipOutOfExistence(Ship *ship)
     etgShipDied(ship);
     univRemoveObjFromRenderList((SpaceObj *)ship);
     univFreeShipContents(ship);
-    listDeleteNode(&ship->header.objlink);
+    if (catWipeShipFreeDirectly)
+    {                                                       // CAT: 0x005478c2
+        catWipeShipFreeDirectly = FALSE;
+        memFree(ship);
+        return;
+    }
+    if (ship->header.objlink.belongto != NULL)
+    {                                                       // CAT: only if it is in a list (0x005478e0)
+        listDeleteNode(&ship->header.objlink);
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -3717,6 +4413,27 @@ void univWipeShipOutOfExistence(Ship *ship)
 ----------------------------------------------------------------------------*/
 void univDeleteWipeInsideShipOutOfExistence(Ship *ship)
 {
+    // CAT: the ship leaves the ship, impactable and object lists and every subsystem hears of it before it is freed
+    //      (univDeleteWipeInsideShipOutOfExistence 0x00547900; univDeleteDeadShip 0x00547d00 inlines the same body
+    //      for the ships inside a dying ship)
+    if (ship->shiplink.belongto != NULL)
+    {
+        listRemoveNode(&ship->shiplink);
+    }
+    if (ship->impactable.impactablelink.belongto != NULL)
+    {
+        listRemoveNode(&ship->impactable.impactablelink);
+    }
+    if (ship->header.objlink.belongto != NULL)
+    {
+        listRemoveNode(&ship->header.objlink);
+    }
+    etgShipDied(ship);
+    soundEventShipRemove(ship);
+    pieShipDied(ship);
+    mouseClickShipDied(ship);
+    clShipDied(&universe.mainCommandLayer,ship);
+    univRemoveAllShipReferencesFromSpecialShips(ship);
     univFreeShipContents(ship);
     memFree(ship);                  //added Ala the request of Gary
 }
@@ -3731,8 +4448,28 @@ void univDeleteWipeInsideShipOutOfExistence(Ship *ship)
 ----------------------------------------------------------------------------*/
 void univRemoveShipFromOutside(Ship *ship)
 {
+    Node *node;
+    Missile *missile;
+
     // if a ship goes inside another ship, missile can no longer target it
-    univRemoveAllTargetReferencesFromMissiles((SpaceObjRotImpTarg *)ship);
+    // CAT: and a missile that loses its target self-destructs within 5 seconds (univRemoveShipFromOutside 0x00547990
+    //      inlines this loop; univDeleteDeadShip 0x00547d00 has the same one)
+    for (node = universe.MissileList.head; node != NULL; node = node->next)
+    {
+        missile = (Missile *)listGetStructOfNode(node);
+        if (missile->owner == ship)
+        {
+            missile->owner = NULL;
+        }
+        if (&missile->target->header == &ship->header)
+        {
+            missile->target = NULL;
+            if (missile->totallifetime - missile->timelived > CAT_MISSILE_LOST_TARGET_LIFE)
+            {
+                missile->totallifetime = missile->timelived + CAT_MISSILE_LOST_TARGET_LIFE;
+            }
+        }
+    }
 
     shipHasJustDisappeared(ship);
 
@@ -3750,11 +4487,8 @@ void univRemoveShipFromOutside(Ship *ship)
     // Remove ship from hotkey group if it belongs to one.
     //univRemoveShipFromHotkeyGroup(ship, FALSE);       maintain hotkey groups
 
-    //if sensors manager is running, delete it from any sm spheres
-    if (smSensorsActive)
-    {
-        smObjectDied(ship);
-    }
+    // CAT: smObjectDied is called whether or not the sensors manager is up (0x00547a52)
+    smObjectDied(ship);
 
     bobObjectDied((SpaceObj *)ship,&universe.collBlobList);
     pingObjectDied((SpaceObj *)ship);
@@ -3762,6 +4496,12 @@ void univRemoveShipFromOutside(Ship *ship)
 
     pieShipDied(ship);
     mouseClickShipDied(ship);
+
+    // CAT: the AI players hear of the ship leaving in multiplayer only (0x00547a8e)
+    if (!singlePlayerGame)
+    {
+        aiplayerShipDied(ship);
+    }
 
     if (ship->shiplink.belongto != NULL)
     {
@@ -3781,6 +4521,17 @@ void univRemoveShipFromOutside(Ship *ship)
     soundEventShipRemove(ship);
 
     ship->header.flags |= SOF_Hide;
+
+    // CAT-TODO(M2-R4 #4): the ship's module ships (cat_moduleIterFirst 0x005bd6e0 / cat_moduleIterNext) leave the
+    //      render list and are hidden too. CAT-TODO(stage 3 FOW): with its second argument set, the exe also takes
+    //      the ship's fog-of-war cube away (fowDeactivateCubeW(..., 1)); the argument gates nothing else, so this
+    //      tree keeps the one-argument form until the fog of war is ported.
+    // CAT: the ship forgets who was attacking it (0x00547b4a..0x00547b65)
+    ship->gettingrocked = NULL;
+    ship->recentAttacker = NULL;
+    ship->recentlyAttacked = 0;
+    ship->firingAtUs = NULL;
+    ship->recentlyFiredUpon = 0;
 }
 
 /*-----------------------------------------------------------------------------
@@ -3808,7 +4559,9 @@ bool8 univRemoveShipFromHotkeyGroup(Ship *ship, bool8 PlayDefeat)
                         selHotKeyGroup[i].timeLastStatus = universe.totaltimeelapsed;
                         if (PlayDefeat)
                         {
-                            speechEventFleet(STAT_F_AssGrp_Defeat, i, ship->playerowner->playerIndex);
+                            // CAT: Cataclysm's event 0x2002076 (STAT_Intel_AssGrp_Defeat by the pattern of
+                            //      Battle.c's 0x2002075 Victory; univRemoveShipFromHotkeyGroup 0x00547b70)
+                            speechEventFleet(0x2002076, i, ship->playerowner->playerIndex);
                         }
                     }
                 }
@@ -3925,6 +4678,14 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
     real32 colSize;
     udword colSizeDword, velMagnitudeDword;
     real32 velMagnitude, maxVelocity;
+    // CAT: the big-ship death explosions (univDeleteDeadShip 0x00547d00, 0x00547e5d..0x00548175)
+    bool32 bigExplosion = FALSE;
+    sdword bigMode = 0;
+    real32 bigScale = 1.0f;
+    StaticCollInfo *coll;
+    Node *node;
+    Bullet *bullet;
+    Missile *missile;
 
     vecZeroVector(ship->obj.posinfo.force);
     vecZeroVector(ship->rotatable.rotinfo.torque);
@@ -3932,29 +4693,45 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
     ship->header.flags |= SOF_Dead;
     bitClear(ship->header.flags,SOF_Selectable);
 
-    if (((ShipStaticInfo *)(ship->staticinfo))->canBuildShips)
+    // CAT-TODO(M2-R4 #3, salvage): in single player a ship that is the AI's salvage depot stops being it
+    //      (cat_salvageGetAIDepotShip 0x004fd2f0 == ship -> cat_salvageSetAIDepotShip(NULL) 0x004fd2e0)
+
+    // CAT: the ship's CustShipDied comes first (statinfo +0x144, 0x00547d60), before the factory and launch updates
+    if(((ShipStaticInfo *)ship->staticinfo)->custshipheader.CustShipDied != NULL)
+    {
+        ((ShipStaticInfo *)ship->staticinfo)->custshipheader.CustShipDied(ship);
+    }
+
+    // CAT: a factory is removed unless it is an enemy's in single player (0x00547d6c)
+    if ((((ShipStaticInfo *)(ship->staticinfo))->canBuildShips) &&
+        (!singlePlayerGame || ship->playerowner->playerIndex == 0))
     {
         cmRemoveFactory(ship);
     }
 
+    // CAT: externally built ships (0x00547d97). CAT-TODO(M2-R4 #2): cat_cmExternalBuildShipDied 0x00455960 (the
+    //      build queue entry that waits for the ship) and the clearing of specialFlags2 bit 0x8 (being built), whose
+    //      renumbering is M2-R4 #2's. A docked externally built ship leaves the dock
+    if (ship->staticinfo->externalBuild && ship->dockvars.dockship != NULL)
+    {
+        RemoveShipFromDocking(ship);
+    }
+
     if (ship->rceffect != NULL)
     {
-        TurnHarvestEffectOff(ship);
+        // CAT: the repair effect, not HW1's harvest effect (stopRepairEffect at 0x00547dce)
+        stopRepairEffect(ship);
     }
 
     // Check if launch manager is up, if it is then fix it update it on a ships death.
 
     if (lmActive)
     {
-        if ((ship->shiptype==Carrier) || (ship->shiptype==Mothership))
+        // CAT: by class, CLASS_Carrier or CLASS_Mothership (0x00547de0), not by HW1's two ship types
+        if ((ship->staticinfo->shipclass == CLASS_Carrier) || (ship->staticinfo->shipclass == CLASS_Mothership))
         {
             lmLaunchCapableShipDied(ship);
         }
-    }
-
-    if(((ShipStaticInfo *)ship->staticinfo)->custshipheader.CustShipDied != NULL)
-    {
-        ((ShipStaticInfo *)ship->staticinfo)->custshipheader.CustShipDied(ship);
     }
 
     tacticsShipDied(ship);
@@ -3964,16 +4741,8 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
         DeleteShipsInsideMe(ship);
     }
 
-    if (bitTest(ship->header.flags,SOF_Slaveable))
-    {   //ship was involved with the slave trade...so cleanup
-        dockDealWithDeadSlaveable(ship);
-    }
-    // Remove repair droids...
-/*    if(ship->pRepairDroids)
-    {
-        memFree(ship->pRepairDroids);
-        ship->pRepairDroids = 0;
-    }*/
+    // CAT-TODO(M2-R4 #4): cat_droidFreeArray(ship +0x4C0) 0x005c32b0, the repair droids (not in this tree's Ship).
+    //      HW1's slave clean-up (dockDealWithDeadSlaveable) is gone: no Cataclysm ship is slaveable (SOF_Slaveable 0)
 
 #if ETG_DISABLEABLE
     if (deathBy >= 0 && etgEffectsEnabled)
@@ -3985,51 +4754,94 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
         {
             battleShipDyingWithTimeToScream(ship);
         }
-//        if (univSpaceObjInRenderList((SpaceObj *)ship))
-//        {
-            etgLOD = etgDeathEventTable[((ShipStaticInfo *)ship->staticinfo)->shiprace]
-                [((ShipStaticInfo *)ship->staticinfo)->shipclass][deathBy];
-            if (etgLOD != NULL)
+        // CAT: big ships use the death effects of their race's CLASS_Mothership row (CLASS_MonsterShip for dRKO and
+        //      dNomadMoon) and create them with 10 parameters: a scale, a mode, the size, the speed and the
+        //      collision box (0x00547e5d: switch on the static info's ship type)
+        switch (ship->shiptype)
+        {
+            case sDreadnoughtCannon: case sMothership: case sMothershipOreCanArmour: case bMothership:
+            case bSectMoship:
+                etgLOD = etgDeathEventTable[ship->staticinfo->shiprace][CLASS_Mothership][deathBy];
+                bigExplosion = TRUE;
+                bigMode = 2;
+                bigScale = 0.5f;
+                break;
+            case sCarrierSupport: case sMothershipSpecial: case sMothershipEngineering: case sMothershipArmour:
+            case sMothershipMicro: case sMothershipSupport: case sMothershipCommand: case sMothershipEnginesLower:
+            case sMothershipLowerSpine: case sMothershipBigGun: case bMothershipSupport:
+                etgLOD = etgDeathEventTable[ship->staticinfo->shiprace][CLASS_Mothership][deathBy];
+                bigExplosion = TRUE;
+                bigMode = 1;
+                bigScale = 0.4f;
+                break;
+            case sMothershipWeapons: case sMothershipDockingBay: case sMothershipEnginesUpper:
+            case bMothershipDockingBay: case bMothershipEnginesLower: case trFloatingCity: case trGhostship:
+                etgLOD = etgDeathEventTable[ship->staticinfo->shiprace][CLASS_Mothership][deathBy];
+                bigExplosion = TRUE;
+                bigMode = 3;
+                bigScale = 0.75f;
+                break;
+            case dRKO: case dNomadMoon:
+                etgLOD = etgDeathEventTable[ship->staticinfo->shiprace][CLASS_MonsterShip][deathBy];
+                bigExplosion = TRUE;
+                bigMode = 3;
+                bigScale = 0.75f;
+                break;
+            default:
+                etgLOD = etgDeathEventTable[((ShipStaticInfo *)ship->staticinfo)->shiprace]
+                    [((ShipStaticInfo *)ship->staticinfo)->shipclass][deathBy];
+                break;
+        }
+        if (etgLOD != NULL)
+        {
+            LOD = ship->obj.currentLOD;
+            explosion = etgLOD->level[min(etgLOD->nLevels - 1, LOD)];
+        }
+        else
+        {
+            explosion = NULL;
+        }
+        if (explosion)
+        {
+            colSize = ship->staticinfo->common.staticCollInfo.collspheresize;
+            colSize *= ship->magnitudeSquared;
+            // CAT: the exe's software-renderer branch (RGL device 0: size and scale x0.75, mode one level down,
+            //      0x00547f9b) cannot run here: this tree renders with GL only
+
+            // CAT-PROVISIONAL(M2-R4 #5): the exe divides by the ship's top speed times its speed multiplier
+            //      (cat_shipGetSpeedMultiplier 0x00514940: experience, upgrades, health, ram and Beast bonuses)
+            maxVelocity = ship->staticinfo->common.maxvelocity;
+            if (maxVelocity != 0.0f)
             {
-                LOD = ship->obj.currentLOD;
-                explosion = etgLOD->level[min(etgLOD->nLevels - 1, LOD)];
+                velMagnitude = fsqrt(vecMagnitudeSquared(ship->obj.posinfo.velocity));
+                velMagnitude /= maxVelocity;
             }
             else
             {
-                explosion = NULL;
+                velMagnitude = 0;
             }
-            if (explosion)
+            colSizeDword = Real32ToUdword(colSize);
+            velMagnitudeDword = Real32ToUdword(velMagnitude);
+
+            if (bigExplosion)
             {
-                colSize = ship->staticinfo->common.staticCollInfo.collspheresize;
-//                if (univSpaceObjInRenderList((SpaceObj *)ship))
-//                {
-                    colSize *= ship->magnitudeSquared;
-//                }
-
-                maxVelocity = ship->staticinfo->common.maxvelocity;
-                if (maxVelocity != 0.0f)
-                {
-                    velMagnitude = fsqrt(vecMagnitudeSquared(ship->obj.posinfo.velocity));
-                    velMagnitude /= maxVelocity;
-                }
-                else
-                {
-                    velMagnitude = 0;
-                }
-                colSizeDword = Real32ToUdword(colSize);
-                velMagnitudeDword = Real32ToUdword(velMagnitude);
-
+                coll = &ship->staticinfo->common.staticCollInfo;
+                effect = etgEffectCreate(explosion, ship, NULL, NULL, NULL, 1.0f, 0, 10,
+                                         SCALECAST(Real32ToUdword(bigScale)), SCALECAST(bigMode),
+                                         SCALECAST(colSizeDword), SCALECAST(velMagnitudeDword),
+                                         SCALECAST(Real32ToUdword(coll->collrectoffset.x)),     // statinfo +0x60
+                                         SCALECAST(Real32ToUdword(coll->collrectoffset.y)),     // +0x64
+                                         SCALECAST(Real32ToUdword(coll->collrectoffset.z)),     // +0x68
+                                         SCALECAST(Real32ToUdword(coll->collrectoffset.x + coll->uplength)),    // +0x60 + +0x78
+                                         SCALECAST(Real32ToUdword(coll->collrectoffset.y + coll->rightlength)));// +0x64 + +0x7C
+            }
+            else
+            {
                 //!!!??? should there be some EAF_ here???
                 effect = etgEffectCreate(explosion, ship, NULL, NULL, NULL, 1.0f, 0, 2, SCALECAST(colSizeDword), SCALECAST(velMagnitudeDword));
-                /*
-                if (!univSpaceObjInRenderList((SpaceObj *)effect))
-                {
-                    univAddObjToRenderList((SpaceObj *)effect);//make sure it's in render list
-                }
-                */
-                bitSet(effect->header.flags, SOF_ForceVisible);
             }
-//        }
+            bitSet(effect->header.flags, SOF_ForceVisible);
+        }
     }
 
     //notify leader of a lost wingman
@@ -4041,16 +4853,44 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
         }
     }
 
-    univRemoveAllTargetReferencesFromBullets((SpaceObjRotImpTarg *)ship);
-    univRemoveAllTargetReferencesFromMissiles((SpaceObjRotImpTarg *)ship);
-
-    univRemoveAllShipReferencesFromSpecialShips(ship);
-
-    //if sensors manager is running, delete it from any sm spheres
-    if (smSensorsActive)
+    // CAT: the bullet and missile references are cleared inline (0x005481a0..0x00548235): a beam whose owner died
+    //      times out, and a missile that loses its target self-destructs within 5 seconds
+    for (node = universe.BulletList.head; node != NULL; node = node->next)
     {
-        smObjectDied(ship);
+        bullet = (Bullet *)listGetStructOfNode(node);
+        if (bullet->owner == ship)
+        {
+            bullet->owner = NULL;
+            bullet->gunowner = NULL;
+            if (bullet->bulletType == BULLET_Beam)
+            {
+                bullet->timelived += 10000.0f;                  // 0x0072a488
+            }
+        }
+        if (&bullet->target->header == &ship->header)
+        {
+            bullet->target = NULL;
+        }
     }
+    for (node = universe.MissileList.head; node != NULL; node = node->next)
+    {
+        missile = (Missile *)listGetStructOfNode(node);
+        if (missile->owner == ship)
+        {
+            missile->owner = NULL;
+        }
+        if (&missile->target->header == &ship->header)
+        {
+            missile->target = NULL;
+            if (missile->totallifetime - missile->timelived > CAT_MISSILE_LOST_TARGET_LIFE)
+            {
+                missile->totallifetime = missile->timelived + CAT_MISSILE_LOST_TARGET_LIFE;
+            }
+        }
+    }
+
+    // CAT: smObjectDied is called whether or not the sensors manager is up (0x00548235)
+    smObjectDied(ship);
 
     bobObjectDied((SpaceObj *)ship,&universe.collBlobList);
     pingObjectDied((SpaceObj *)ship);
@@ -4059,14 +4899,17 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
     // Update Ship Command Layer to reflect ship death
     clShipDied(&universe.mainCommandLayer,ship);
 
+    // CAT: special ships drop their references here (HW1 did it before the sensors manager), and ships let go of
+    //      clamps (0x0054826b..0x00548285). CAT-TODO(M2-R4 #3): cat_clampUnclampAllFromShip 0x00434900 (every
+    //      object clamped to this ship, from the ClampInfo clamped-object list); the ship itself is unclamped here
+    univRemoveAllShipReferencesFromSpecialShips(ship);
+    unClampObj((SpaceObjRotImpTargGuidance *)ship);
+
     // Update computer player structures to reflect ship death
     aiplayerShipDied(ship);
 
     // Update Camera focus stacks
     ccRemoveShip(&universe.mainCameraCommand,ship);
-
-    // Let any mission spheres know ship is leaving it
-//    msShipLeavingMissphere(ship,ship->myMissphere,ship->playerowner->homeMissphere);
 
     // Tell single player game module ship died
     singlePlayerShipDied(ship);
@@ -4074,12 +4917,18 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
     if(tutorial)
         tutPlayerShipDied(ship);
 
-    // Tell the sound layer that the ship died
-    soundEventShipDied(ship);
+    // CAT: no death sound for a ship deleted on the spot (deathBy -1, 0x005482c7)
+    if (deathBy != -1)
+    {
+        soundEventShipDied(ship);
+    }
 
     IDToPtrTableObjDied(&ShipIDToPtr,ship->shipID.shipNumber);
 
-    growSelectRemoveShip(&universe.HousekeepShipList,ship);
+    // CAT: the ship's entry is set to NULL rather than removed (cat_growSelectNullShip 0x00511b10 at 0x00548300).
+    //      CAT-TODO(M2-R4 #5): the exe does the same for a second universe grow-selection (universe +0x?, called
+    //      unk1 in the export, 0x005482f2), which is not in this tree's Universe yet
+    cat_growSelectNullShip(&universe.HousekeepShipList,ship);
 
     // Remove ships that are destroyed from any current selection
     clRemoveShipFromSelection((SelectCommand *)&selSelected,ship);
@@ -4091,23 +4940,20 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
 
     // Remove ships that are destroyed from any hot key groups and play group death sound if all dead
     univRemoveShipFromHotkeyGroup(ship, TRUE);
-
-//if no effects, we should delete it properly
-    /*
-#if ETG_DISABLEABLE
-    if (!etgEffectsEnabled)
-    {
-        univWipeShipOutOfExistence(ship);
-    }
-#endif
-*/
 }
 
 void DisableAllPlayersShips(sdword playerIndex)
 {
     Node *objnode = universe.ShipList.head;
     Ship *ship;
-    Player *player = &universe.players[playerIndex];
+    Player *player;
+
+    // CAT: only for a valid player index (DisableAllPlayersShips 0x00548450: playerIndex < 8)
+    if (playerIndex >= MAX_MULTIPLAYER_PLAYERS)
+    {
+        return;
+    }
+    player = &universe.players[playerIndex];
 
     while (objnode != NULL)
     {
@@ -4118,7 +4964,9 @@ void DisableAllPlayersShips(sdword playerIndex)
             {
                 ship->header.flags |= SOF_Crazy;
                 ship->deathtime = universe.totaltimeelapsed + frandombetween(PLAYERLOSE_SHIPDEATHTIMEMIN,PLAYERLOSE_SHIPDEATHTIMEMAX);
-                if ((!singlePlayerGame) && (ship->shiptype != Mothership)) ApplyCareenRotationDirectly(ship);
+                // CAT-TODO(M2-R4 #4): a mimicking ship drops its disguise first (cat_mimicUnmimic(ship, 0) 0x005b9a??)
+                // CAT: neither mothership careens (sMothership, bMothership; HW1 tested its Mothership only)
+                if ((!singlePlayerGame) && (ship->shiptype != sMothership) && (ship->shiptype != bMothership)) ApplyCareenRotationDirectly(ship);
             }
 
             bitClear(ship->header.flags,SOF_Selectable);
@@ -4157,76 +5005,89 @@ void CheckPlayerWin(void)
     if (gatherStats|showStatsFight|showStatsFancyFight)
         return;     // just gathering stats, don't want to do the player win thing
 
-    if (!singlePlayerGame)
+    // CAT-TODO(stage 3/5 recorder): the exe also returns while the second recorder global 0x00a751a0 is set
+
+    // CAT: the test is multiPlayerGame (CheckPlayerWin 0x005485e0; HW1 tested !singlePlayerGame). A game that is
+    //      neither multiplayer nor single player (a skirmish against the computer) therefore ends only when no player
+    //      is left alive, the stock 1.01 behaviour that CET's CheckPlayerWin_GameTypeCheck patch changes
+    if (!multiPlayerGame)
     {
-        // check how many players are still alive
-        for (i=0;i<universe.numPlayers;i++)
+        if (!singlePlayerGame)
         {
-            if (universe.players[i].playerState == PLAYER_ALIVE)
-            {
-                numPlayersAlive++;
-            }
-        }
-
-        if (numPlayersAlive <= 1)
-        {
-            // end of game
-            universe.wintime = universe.totaltimeelapsed + WAIT_TIME_TO_WIN;
-            universe.quittime = universe.totaltimeelapsed + WAIT_TIME_TO_QUIT;
-        }
-
-        //check for allied victory
-        if((!singlePlayerGame) && (tpGameCreated.flag & MG_AlliedVictory))
-        {
-            sdword ally = -1;
-            bool32 alliedvictory = TRUE;
-            //all living players on same team?
-            //find allies of first player, make sure all other living players
-            // are allies
-
-            // This statement does nothing but presumably was meant to do something. I'm leaving it
-            // here in case someone debugging this code realises it forms part of the solution...
-            //universe.players[sigsPlayerIndex].Allies;
-
-            for (i=0; ((i<universe.numPlayers) && alliedvictory); i++)
+            for (i=0;i<universe.numPlayers;i++)
             {
                 if (universe.players[i].playerState == PLAYER_ALIVE)
                 {
-                    if (ally == -1)
-                    {
-                        //first player
-                        ally = i;
+                    return;
+                }
+            }
+        }
+        else if (universe.players[0].playerState != PLAYER_DEAD)
+        {
+            return;
+        }
+        // end of game
+        universe.quittime = universe.realtimeelapsed + WAIT_TIME_TO_QUIT;     // CAT: real time
+        universe.wintime = universe.realtimeelapsed + WAIT_TIME_TO_WIN;
+        return;
+    }
 
-                    }
-                    else
-                    {
-                        if ( !((1<<i) & universe.players[ally].Allies) )
-                        {
+    // check how many players are still alive
+    for (i=0;i<universe.numPlayers;i++)
+    {
+        if (universe.players[i].playerState == PLAYER_ALIVE)
+        {
+            numPlayersAlive++;
+        }
+    }
 
-                            alliedvictory = FALSE;
-                        }
+    if (numPlayersAlive <= 1)
+    {
+        // end of game
+        universe.wintime = universe.realtimeelapsed + WAIT_TIME_TO_WIN;      // CAT: real time (CheckPlayerWin 0x005485e0)
+        universe.quittime = universe.realtimeelapsed + WAIT_TIME_TO_QUIT;
+    }
+
+    //check for allied victory
+    if((!singlePlayerGame) && (tpGameCreated.flag & MG_AlliedVictory))
+    {
+        sdword ally = -1;
+        bool32 alliedvictory = TRUE;
+        //all living players on same team?
+        //find allies of first player, make sure all other living players
+        // are allies
+
+        for (i=0; ((i<universe.numPlayers) && alliedvictory); i++)
+        {
+            if (universe.players[i].playerState == PLAYER_ALIVE)
+            {
+                if (ally == -1)
+                {
+                    //first player
+                    ally = i;
+
+                }
+                else
+                {
+                    if ( !((1<<i) & universe.players[ally].Allies) )
+                    {
+
+                        alliedvictory = FALSE;
                     }
                 }
             }
-            if (alliedvictory)
-            {
-                // end of game
-                universe.wintime = universe.totaltimeelapsed + WAIT_TIME_TO_WIN;
-                universe.quittime = universe.totaltimeelapsed + WAIT_TIME_TO_QUIT;
-            }
         }
-    }
-    else
-    {
-        if (universe.players[0].playerState == PLAYER_DEAD)
+        if (alliedvictory)
         {
             // end of game
-            universe.wintime = universe.totaltimeelapsed + WAIT_TIME_TO_WIN;
-            universe.quittime = universe.totaltimeelapsed + WAIT_TIME_TO_QUIT;
+            universe.quittime = universe.realtimeelapsed + WAIT_TIME_TO_QUIT;     // CAT: real time
+            universe.wintime = universe.realtimeelapsed + WAIT_TIME_TO_WIN;
         }
     }
 }
 
+// CAT-TODO(stage 3/5): DeclarePlayerWin 0x005487f0 reports the results (cat_DeclarePlayerWinReportResults
+//      0x00548750) and is twice HW1's size (multiplayer result screens).
 void DeclarePlayerWin(void)
 {
     udword numPlayersAlive = 0;
@@ -4311,36 +5172,74 @@ void DeclarePlayerWin(void)
     Outputs     :
     Return      : TRUE if a backup was found
 ----------------------------------------------------------------------------*/
+// CAT: the ships that can take over as a player's mothership: per race, the race's carrier or any CLASS_Mothership
+//      ship (univFindBackupMothership 0x00548ad0: Sect race 0 sCarrier, Beast race 1 bCarrier; other races none)
+static bool32 univIsBackupMothershipFor(Ship *ship, struct Player *player)
+{
+    if (((ship->header.flags & SOF_Dead) != 0) || (ship->playerowner != player) || (ship == player->PlayerMothership))
+    {
+        return FALSE;
+    }
+    if (player->race == RACE_Sect)
+    {
+        return (ship->shiptype == sCarrier) || (ship->staticinfo->shipclass == CLASS_Mothership);
+    }
+    if (player->race == RACE_Beast)
+    {
+        return (ship->shiptype == bCarrier) || (ship->staticinfo->shipclass == CLASS_Mothership);
+    }
+    return FALSE;
+}
+
 bool32 univFindBackupMothership(struct Player *player)
 {
     Node *shipnode = universe.ShipList.head;
     Ship *ship;
+    InsideShip *insideShip;
 
     while (shipnode != NULL)
     {
         ship = (Ship *)listGetStructOfNode(shipnode);
 
-        if (((ship->header.flags & SOF_Dead) == 0) && (ship->playerowner == player) && (ship != player->PlayerMothership))
+        if (univIsBackupMothershipFor(ship, player))
         {
-            if ((ship->shiptype == Carrier) || (ship->staticinfo->shipclass == CLASS_Mothership))
+            if (player->PlayerMothership != NULL)
             {
-                if (player->PlayerMothership != NULL)
+                // CAT: when the race's mothership (sMothership / bMothership) is lost: event 0x200101d
+                //      (HW1 STAT_F_ReassignedToCarrier)
+                if (gameIsRunning &&
+                    (player->PlayerMothership->shiptype == ((player->race == RACE_Sect) ? sMothership : bMothership)))
                 {
-                    if (gameIsRunning && (player->PlayerMothership->shiptype == Mothership))
-                    {
-                        speechEventFleet(STAT_F_ReassignedToCarrier, 0, player->playerIndex);
-                    }
+                    speechEventFleet(0x200101d, -1, player->playerIndex);
                 }
-                player->PlayerMothership = ship;
-                return TRUE;
             }
+            player->PlayerMothership = ship;
+            return TRUE;
         }
 
         shipnode = shipnode->next;
     }
+
+    // CAT: in a multiplayer game with hyperspace on, a ship waiting in the hyperspace ether counts too
+    //      (0x00548b0e: tpGameCreated.flag & MG_Hyperspace, singlePlayerGameInfo.ShipsInHyperspace; no speech)
+    if (!singlePlayerGame && bitTest(tpGameCreated.flag, MG_Hyperspace))
+    {
+        for (shipnode = singlePlayerGameInfo.ShipsInHyperspace.head; shipnode != NULL; shipnode = shipnode->next)
+        {
+            insideShip = (InsideShip *)listGetStructOfNode(shipnode);
+            if (univIsBackupMothershipFor(insideShip->ship, player))
+            {
+                player->PlayerMothership = insideShip->ship;
+                return TRUE;
+            }
+        }
+    }
     return FALSE;
 }
 
+// CAT-TODO(M2-R4 #5, stage 3): univKillOtherPlayersIfDead 0x00548c70 closes the construction, launch and research
+//      managers (cmCloseIfOpen, lmCloseIfOpen, rmCloseIfOpen), looks at the hyperspace ether too, and calls the
+//      three-argument univKillPlayer.
 void univKillOtherPlayersIfDead(Ship *ship)
 {
     bool32 aplayerdied=FALSE;
@@ -4403,21 +5302,15 @@ void univKillOtherPlayersIfDead(Ship *ship)
 ----------------------------------------------------------------------------*/
 void univDeleteDeadShips()
 {
-    Node *objnode = universe.DeleteShipList.head;
     DeleteShip *deleteShip;
     Ship *ship;
-    Node *nextnode;
 
-    if (objnode == NULL)
+    // CAT: the list is consumed from its head until it is empty, so ships added while it is being processed are
+    //      handled too (univDeleteDeadShips 0x00548e00: listDeleteNode of the head each time; HW1 walked a saved
+    //      next pointer and then deleted the whole list)
+    while (universe.DeleteShipList.head != NULL)
     {
-        return;
-    }
-
-    do
-    {
-        nextnode = objnode->next;
-
-        deleteShip = (DeleteShip *)listGetStructOfNode(objnode);
+        deleteShip = (DeleteShip *)listGetStructOfNode(universe.DeleteShipList.head);
         ship = deleteShip->ship;
         dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
 
@@ -4427,7 +5320,9 @@ void univDeleteDeadShips()
             listRemoveNode(&ship->impactable.impactablelink);
         }
 
-        if (ship->shiptype == ResourceCollector)
+        // CAT: any CLASS_Resource ship carrying resources leaves a dust cloud (0x00548e3e: class 7, HW1 only the
+        //      ResourceCollector type); the cloud joins the render list next to the ship if the ship is in it
+        if (ship->staticinfo->shipclass == CLASS_Resource)
         {
             if (ship->resources > 0)
             {
@@ -4448,11 +5343,8 @@ void univDeleteDeadShips()
         }
 #endif
 
-        objnode = nextnode;
-
-    } while (objnode != NULL);
-
-    listDeleteAll(&universe.DeleteShipList);
+        listDeleteNode(universe.DeleteShipList.head);
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -4484,11 +5376,9 @@ void univReallyDeleteThisShipRightNow(Ship *ship)
 ----------------------------------------------------------------------------*/
 void DeleteDeadResource(Resource *resource)
 {
-    //if sensors manager is running, delete it from any sm spheres
-    if (smSensorsActive)
-    {
-        smObjectDied(&resource->obj);
-    }
+    // CAT: smObjectDied whether or not the sensors manager is up (univReallyDeleteThisResourceRightNow 0x005490d0,
+    //      univDeleteDeadResources 0x00549270)
+    smObjectDied(&resource->obj);
 
     ccRemoveShip(&universe.mainCameraCommand,(Ship *)resource);
 
@@ -4503,6 +5393,9 @@ void DeleteDeadResource(Resource *resource)
 
     IDToPtrTableObjDied(&ResourceIDToPtr,resource->resourceID.resourceNumber);
 
+    // CAT-TODO(M2-R4 #4): ramming frigates drop the resource as a target (cat_univRemoveTargetFromRammingFrigates
+    //      0x00549230: RammingFrigateRemoveShipReferences for types 6 and 0x30); CAT-TODO(stage 6): KAS selections
+    //      drop it (cat_kasShipRemovedFromSelections)
     univFreeResourceContents(resource);
 }
 
@@ -4568,6 +5461,9 @@ void univDeleteDeadResources()
             }
         }
 
+        // CAT-TODO(M2-R4 #3, asteroid break pieces): the exe breaks every dying asteroid whose attribute word
+        //      (exe +0x38) lacks bit 0x200, whatever its resource value (univDeleteDeadResources 0x00549270); the HW1
+        //      test stays until BreakAsteroidUp (ResCollect.c) is ported
         if (resource->header.objtype == OBJ_AsteroidType)
         {
             if (resource->resourcevalue > 0)
@@ -4610,16 +5506,14 @@ bool32 DeleteDeadDerelict(Derelict *derelict, sdword deathBy)
     }
 
     bobObjectDied((SpaceObj *)derelict,&universe.collBlobList);
-    //if sensors manager is running, delete it from any sm spheres
-    if (smSensorsActive)
-    {
-        smObjectDied((SpaceObj *)derelict);
-    }
+    // CAT: smObjectDied whether or not the sensors manager is up (DeleteDeadDerelict 0x00549430)
+    smObjectDied((SpaceObj *)derelict);
 
     /* shut off the derelicts sounds */
     soundEventDerelictRemove(derelict);
 
-    univRemoveAllDerelictReferencesFromSpecialShips(derelict);
+    // CAT: no HW1 salvage-corvette references to drop (the exe has no univRemoveAllDerelictReferencesFromSpecialShips
+    //      call; HW1's salvage code goes with M2-R4 #3)
     pingObjectDied((SpaceObj *)derelict);
     ccRemoveShip(&universe.mainCameraCommand,(Ship *)derelict);
     // Update Command Layer to reflect derelict death
@@ -4659,6 +5553,8 @@ bool32 DeleteDeadDerelict(Derelict *derelict, sdword deathBy)
             bitSet(effect->header.flags, SOF_ForceVisible);
         }
     }
+    cat_univMeshStateFree(&derelict->obj);                  // CAT: 0x0054962a
+    cat_univFreeEffectBlock(&derelict->obj);
     univFreeDerelictContents(derelict);
     listRemoveNode(&derelict->derelictlink);
     listRemoveNode(&derelict->impactable.impactablelink);
@@ -4822,7 +5718,13 @@ void DeleteDeadMissile(Missile *missile, sdword deathBy)
 
     IDToPtrTableObjDied(&MissileIDToPtr,missile->missileID.missileNumber);
 
+    // CAT-TODO(stage 6): KAS selections drop the missile (cat_kasShipRemovedFromSelections)
+    cat_univMeshStateFree(&missile->obj);                   // CAT: DeleteDeadMissile 0x00549880
+    cat_univFreeEffectBlock(&missile->obj);
     univFreeMissileContents(missile);
+    // CAT: and the sensors manager and the camera forget it (0x00549aaa)
+    smObjectDied(&missile->obj);
+    ccRemoveShip(&universe.mainCameraCommand,(Ship *)missile);
 }
 
 /*-----------------------------------------------------------------------------
@@ -4930,6 +5832,9 @@ bool32 univObjectOutsideWorld(SpaceObj *obj)
     Outputs     :
     Return      : returns the nearest resource (or NULL if none found)
 ----------------------------------------------------------------------------*/
+// CAT-TODO(M2-R4 #3): univFindNearestResource 0x00549c50 takes a fourth argument and checks the fog of war
+//      (fowIsValidW, fowGetVisitedW), the player's technology (cat_rmTechSetHas) and stealth (0x0053f9f0), with a
+//      random pick.
 Resource *univFindNearestResource(Ship *ship,real32 volumeRadius,vector *volumePosition)
 {
     Node *objnode = universe.ResourceList.head;
@@ -5517,7 +6422,7 @@ void univMinorSetupShipForControl(Ship *ship)
 void univSetupShipForControl(Ship *ship)
 {
     ShipStaticInfo *shipstatic;
-    sdword i,t;
+    sdword i;
 
     ship->gettingrocked = NULL;     // always make sure this gets set to NULL - don't want any bad references
 
@@ -5528,45 +6433,16 @@ void univSetupShipForControl(Ship *ship)
 
     shipstatic = (ShipStaticInfo *)ship->staticinfo;
 
-    //vecZeroVector(ship->obj.posinfo.force);
-    //vecZeroVector(ship->rotatable.rotinfo.torque);
-
-    if(UNIVERSE_WOODPECKER(TW_ProximitySensorSearchRate, TW_ProximitySensorSearchFrame))
-    {
-        //this univupdate, proximity sensors will search again for
-        //ships nearby, lets make all ships 'invisible' and then let
-        //the proximity sensor make those ships visible that should be
-
-        //do a check like so here: Check if ship has just become
-        //invisible to other ships, if so, remove it from being targetted
-        //by those people.
-        if(ship->header.flags & SOF_Cloaked)
-        {
-            for(t = 0; t <= universe.numPlayers; t++)
-            {
-                //looking for state such that the player COULD see the ship in the
-                //previous frame(2 ago), but now cannot (1 ago)
-                if(bitTest(ship->visibleToWhoPreviousFrame,0x01<<t))
-                {
-                    //ship was seen 2 frames ago
-                    if(!bitTest(ship->visibleToWho,0x01<<t))
-                    {
-                        //now ship isn't visible to player
-                        shipHasJustCloaked(ship);
-                        break;  //above function will take care of targetting info for all ships/players
-                    }
-                }
-            }
-        }
-        ship->visibleToWhoPreviousFrame = ship->visibleToWho;
-        ship->visibleToWho = 0;
-    }
+    // CAT: no proximity-sensor cloak visibility pass here any more (univSetupShipForControl 0x0054a230 has no
+    //      shipHasJustCloaked; Cataclysm's stealth is cat_shipStealthDetectionUpdate, M2-R4 #4)
 
     ship->shipidle = TRUE;
     ship->autostabilizeship = TRUE;
 
     //clear this flag incase it is a target of a salcapcorvette
+    // CAT: specialFlags 0x08000000 in the exe (the flags' renumbering is M2-R4 #2)
     bitClear(ship->shipOrDerelict.specialFlags2,SPECIAL_2_SalvageTargetAlreadyDriven);
+    // CAT-TODO(M2-R4 #4): the exe also clears a Cataclysm ship word at Ship +0x600 here (0x0054a26b)
     // memory of attackers fades away...
     if (ship->recentlyAttacked)
     {
@@ -5613,48 +6489,15 @@ void univSetupShipForControl(Ship *ship)
         }
     }
 
-    if ((ship->header.flags & SOF_Disabled) == 0)
-    {
-        if (shipstatic->repairDamage != 0)
-        {
-            if (ship->targetable.health < shipstatic->health.maxhealth)
-            {
-                real32 repairTime;
-                real32 repairDamage;
-
-                if (ship->recentlyAttacked | ship->shipisattacking | bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_ForcedAttackStatus))
-                {
-                    repairTime = shipstatic->repairCombatTime;
-                    repairDamage = shipstatic->repairCombatDamage;
-                }
-                else
-                {
-                    repairTime = shipstatic->repairTime;
-                    repairDamage = shipstatic->repairDamage;
-                }
-
-                if ((universe.totaltimeelapsed - ship->lastTimeRepaired) >= repairTime)
-                {
-                    ship->lastTimeRepaired = universe.totaltimeelapsed;
-
-                    ship->targetable.health += repairDamage;
-                    if (ship->targetable.health > shipstatic->health.maxhealth)
-                    {
-                        ship->targetable.health = shipstatic->health.maxhealth;
-                    }
-                }
-            }
-            else
-            {
-                ship->lastTimeRepaired = universe.totaltimeelapsed;
-            }
-        }
-    }
+    // CAT: the HW1 self-repair is gone from here: Cataclysm repairs in the deferred update, and only Beast ships
+    //      and ships with the self-repair upgrade (cat_univShipSelfRepair 0x005433d0)
 
     if (shipstatic->custshipheader.CustShipHousekeep != NULL)       // put in a list, and execute all housekeeps later
     {                                                               // to make sure all of the ships have been properly setup
         growSelectAddShip(&universe.HousekeepShipList,ship);
     }
+    // CAT: every live ship gets a deferred update after the ship loop (0x0054a31f)
+    growSelectAddShip(&catDeferredShipList,ship);
 }
 
 /*-----------------------------------------------------------------------------
@@ -5669,10 +6512,12 @@ void univSetupShipsForControl()
     Node *objnode = universe.ShipList.head;
     Ship *ship;
     SelectCommand *housekeepSelection;
+    SelectCommand *deferredSelection;
     sdword i;
     sdword numShips;
 
     growSelectReset(&universe.HousekeepShipList);
+    catDeferredShipListReset();                             // CAT: univSetupShipsForControl 0x0054a340
 
     while (objnode != NULL)
     {
@@ -5682,6 +6527,16 @@ void univSetupShipsForControl()
         univSetupShipForControl(ship);
 
         objnode = objnode->next;
+    }
+
+    // CAT: the deferred updates run before the housekeeps (0x0054a39e)
+    deferredSelection = catDeferredShipList.selection;
+    for (i = 0; i < deferredSelection->numShips; i++)
+    {
+        if (deferredSelection->ShipPtr[i] != NULL)
+        {
+            cat_univShipDeferredUpdate(deferredSelection->ShipPtr[i]);
+        }
     }
 
     housekeepSelection = universe.HousekeepShipList.selection;
@@ -5697,8 +6552,12 @@ void univSetupShipsForControl()
     }
 
     growSelectReset(&universe.HousekeepShipList);       // don't need to keep track of them anymore
+    growSelectReset(&catDeferredShipList);
 }
 
+// CAT-TODO(M2-R4 #4/#5): getEnemiesWithinProximity 0x0054a3f0 tests cat_shipIsTargetableBy and the stealth
+//      detection (0x0053f9f0) instead of proximityCanPlayerSeeShip and the decloak timers, and fills a static
+//      selection (no memAlloc). The HW1 FloatingCity/TargetDrone tests stay until then.
 SelectCommand *getEnemiesWithinProximity(Ship *thisship,real32 retaliateZone)
 {
     Player *playerowner = thisship->playerowner;
@@ -5795,6 +6654,12 @@ nextnode:
     return select;
 }
 
+// CAT-TODO(M2-R4 #2/#4/#5): univCheckShipState 0x0054a650 is not ported yet: the delayed deaths (deathtime) of
+//      disabled, mimicking and Beast-system ships go to AddShipToDeleteShipList with modes 2/3/4, passive attacks
+//      go through cat_tacticsShipAttacked (HW1's tacticsDelegate* / passive-attack helpers are gone), cloaked and
+//      mimicking ships and resource collectors are skipped, and the out-of-world check keeps a ship attacking a
+//      target inside the world. HW1's per-type tests (GravWellGenerator, MiningBase, Drone, ResourceCollector) stay
+//      until then.
 void univCheckShipState(Ship *ship)
 {
     SelectCommand selectone;
@@ -5809,7 +6674,7 @@ void univCheckShipState(Ship *ship)
       if (isnan(ship->obj.posinfo.position.x) || isnan(ship->obj.posinfo.position.y) || isnan(ship->obj.posinfo.position.z)) {
         dbgMessage("univCheckShipState(): Ship position contains NaN! Killing it.");
         ship->targetable.health = 0;
-        AddShipToDeleteShipList(ship, -1);
+        AddShipToDeleteShipList(ship,-1,1);
       }
     }
 
@@ -5825,7 +6690,7 @@ void univCheckShipState(Ship *ship)
                     //if ship is disabled..it didn't receive the
                     //self destruct order
                     ship->targetable.health = 0;
-                    AddShipToDeleteShipList(ship,-1);
+                    AddShipToDeleteShipList(ship,-1,1);
                 }
                 else if(ship->shiptype == GravWellGenerator)
                 {
@@ -5834,7 +6699,7 @@ void univCheckShipState(Ship *ship)
                         //if ship is disabled..it didn't receive the
                         //self destruct order
                         ship->targetable.health = 0;
-                        AddShipToDeleteShipList(ship,-1);
+                        AddShipToDeleteShipList(ship,-1,1);
                     }
                 }
             }
@@ -6225,6 +7090,13 @@ void univupdateReset()
     growSelectClose(&ClampedShipList);
     growSelectInit(&ClampedShipList);
 
+    // CAT: the per-player ship counters are cleared (univUpdateReset 0x0054acd0). CAT-TODO(M2-R4 #5): the exe also
+    //      resets a second universe grow-selection (unk1 in the export, before HousekeepShipList) and has no
+    //      AttackMemory list init (the Universe layout); CAT-TODO(stage 6): cat_missionTimerReset 0x004acb80
+    catShipCountersReset();
+    catShipCounterA = 0;
+    catUnivFrameStep = FALSE;
+    catProtectedSpeedLimitTime = 0.0f;
 }
 
 /*-----------------------------------------------------------------------------
@@ -6245,6 +7117,10 @@ void univupdateInit()
     universe.star3dinfo = star3dInit(NUM_STARS, universe.radius - 1.0f, universe.radius);
     scriptSet(NULL,"Galaxy.script",GalaxyTweaks);
     universe.backgroundColor = backgroundColor;
+    // CAT: and clears the per-player ship counters again (univupdateInit 0x0054af40)
+    catShipCountersReset();
+    catShipCounterA = 0;
+    catProtectedSpeedLimitTime = 0.0f;
 }
 
 /*-----------------------------------------------------------------------------
@@ -6339,6 +7215,10 @@ void univFreeDustCloudContents(DustCloud *dustcloud)
 
 void univFreeResourceContents(Resource *resource)
 {
+    // CAT: every resource type frees its mesh state and its +0x84 block first (univFreeResourceContents 0x0054b030
+    //      calls cat_univMeshStateFree before the switch and again in each case; the second call finds NULL)
+    cat_univMeshStateFree(&resource->obj);
+    cat_univFreeEffectBlock(&resource->obj);
     switch (resource->header.objtype)
     {
         case OBJ_AsteroidType:
@@ -6370,7 +7250,34 @@ void univFreeResourceContents(Resource *resource)
 ----------------------------------------------------------------------------*/
 void univFreeBulletContents(Bullet *bullet)
 {
-    ;
+    // CAT: ships drop their references to the bullet, then its mesh state and +0x84 block go (univFreeBulletContents
+    //      0x0054b1d0; the same loop is cat_univRemoveBulletReferencesFromShips 0x0054b1a0)
+    cat_univRemoveBulletReferencesFromShips(bullet);
+    cat_univMeshStateFree(&bullet->obj);
+    cat_univFreeEffectBlock(&bullet->obj);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univRemoveBulletReferencesFromShips (Cataclysm 0x0054b1a0)
+    Description : Calls every ship's CustShipBulletRemoval (CustShipHeader slot 14) for a bullet that is going away
+                  (HW1 only told the DefenseFighters, from univUpdateAllPosVelBullets).
+    Inputs      : bullet - the bullet
+    Outputs     :
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_univRemoveBulletReferencesFromShips(Bullet *bullet)
+{
+    Node *node;
+    Ship *ship;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if (ship->staticinfo->custshipheader.CustShipBulletRemoval != NULL)
+        {
+            ship->staticinfo->custshipheader.CustShipBulletRemoval(ship, (struct Bullet *)bullet);
+        }
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -6408,29 +7315,30 @@ void univFreeMissileContents(Missile *missile)
 ----------------------------------------------------------------------------*/
 void univRemoveShipReferences(Ship *ship)
 {
+    Node *node;
+    Bullet *bullet;
+    Missile *missile;
+
     ship->header.flags |= SOF_Dead;
     bitClear(ship->header.flags,SOF_Selectable);
 
     //hopefully, at this point, the ships howDidIDied variable is set and valid!
     gameStatsShipDied(ship);
 
-    if (((ShipStaticInfo *)(ship->staticinfo))->canBuildShips)
+    // CAT: a factory is removed unless it is an enemy's in single player (univRemoveShipReferences 0x0054b230)
+    if ((((ShipStaticInfo *)(ship->staticinfo))->canBuildShips) &&
+        (!singlePlayerGame || ship->playerowner->playerIndex == 0))
     {
         cmRemoveFactory(ship);
     }
 
     if (ship->rceffect != NULL)
     {
-        TurnHarvestEffectOff(ship);
+        stopRepairEffect(ship);                 // CAT: the repair effect, not HW1's harvest effect
     }
 
-    if(!(gameIsEnding && ship->shiptype == ResearchShip))
-    {
-        if(((ShipStaticInfo *)ship->staticinfo)->custshipheader.CustShipDied != NULL)
-        {
-            ((ShipStaticInfo *)ship->staticinfo)->custshipheader.CustShipDied(ship);
-        }
-    }
+    // CAT: no CustShipDied here any more (HW1 called it again unless the game was ending with a research ship);
+    //      the exe calls it once, from univDeleteDeadShip 0x00547d00
 
     tacticsShipDied(ship);
 
@@ -6439,27 +7347,57 @@ void univRemoveShipReferences(Ship *ship)
         DeleteShipsInsideMe(ship);
     }
 
-    if (bitTest(ship->header.flags,SOF_Slaveable))
+    // CAT: HW1's slave clean-up is gone (no Cataclysm ship is slaveable). The bullet and missile references are
+    //      cleared inline, as in univDeleteDeadShip: a beam whose owner is gone times out, a missile that loses its
+    //      target self-destructs within 5 seconds (0x0054b2f4..0x0054b39b)
+    for (node = universe.BulletList.head; node != NULL; node = node->next)
     {
-        dockDealWithDeadSlaveable(ship);        //this probably won't be called ever
+        bullet = (Bullet *)listGetStructOfNode(node);
+        if (bullet->owner == ship)
+        {
+            bullet->owner = NULL;
+            bullet->gunowner = NULL;
+            if (bullet->bulletType == BULLET_Beam)
+            {
+                bullet->timelived += 10000.0f;      // 0x0072a488
+            }
+        }
+        if (&bullet->target->header == &ship->header)
+        {
+            bullet->target = NULL;
+        }
     }
-
-    univRemoveAllTargetReferencesFromBullets((SpaceObjRotImpTarg *)ship);
-    univRemoveAllTargetReferencesFromMissiles((SpaceObjRotImpTarg *)ship);
-
-    univRemoveAllShipReferencesFromSpecialShips(ship);
-
-    //if sensors manager is running, delete it from any sm spheres
-    if (smSensorsActive)
+    for (node = universe.MissileList.head; node != NULL; node = node->next)
     {
-        smObjectDied(ship);
+        missile = (Missile *)listGetStructOfNode(node);
+        if (missile->owner == ship)
+        {
+            missile->owner = NULL;
+        }
+        if (&missile->target->header == &ship->header)
+        {
+            missile->target = NULL;
+            if (missile->totallifetime - missile->timelived > CAT_MISSILE_LOST_TARGET_LIFE)
+            {
+                missile->totallifetime = missile->timelived + CAT_MISSILE_LOST_TARGET_LIFE;
+            }
+        }
     }
-
-    bobObjectDied((SpaceObj *)ship,&universe.collBlobList);
-    pingObjectDied((SpaceObj *)ship);
 
     // Update Ship Command Layer to reflect ship death
     clShipDied(&universe.mainCommandLayer,ship);
+
+    univRemoveAllShipReferencesFromSpecialShips(ship);
+
+    // CAT: clamps are released (CAT-TODO(M2-R4 #3): cat_clampUnclampAllFromShip 0x00434900 for every object clamped
+    //      to this ship); the ship itself is unclamped; smObjectDied runs whether or not the sensors manager is up
+    //      and the camera command forgets the ship (0x0054b3a3..0x0054b3c6)
+    unClampObj((SpaceObjRotImpTargGuidance *)ship);
+    smObjectDied(ship);
+    ccRemoveShip(&universe.mainCameraCommand,ship);
+
+    bobObjectDied((SpaceObj *)ship,&universe.collBlobList);
+    pingObjectDied((SpaceObj *)ship);
 
     // Update computer player structures to reflect ship death
     aiplayerShipDied(ship);
@@ -6479,12 +7417,16 @@ void univRemoveShipReferences(Ship *ship)
 
     IDToPtrTableObjDied(&ShipIDToPtr,ship->shipID.shipNumber);
 
-    growSelectRemoveShip(&universe.HousekeepShipList,ship);
+    // CAT: the entry is set to NULL rather than removed (cat_growSelectNullShip 0x00511b10). CAT-TODO(M2-R4 #5): the
+    //      same for the second universe grow-selection (unk1 in the export), not in this tree's Universe yet
+    cat_growSelectNullShip(&universe.HousekeepShipList,ship);
 
     // Remove ships that are destroyed from any hot key groups
     univRemoveShipFromHotkeyGroup(ship,FALSE);
 
+    // CAT-TODO: the exe also releases the ship's name (cat_shipNamesRelease 0x0050f660, M2-R4 #4) after the hot-key groups
     mrShipDied(ship);
+    // CAT-TODO(stage 3): cat_popupMenuRemoveShip and cat_ioRemoveShipReferences (the info overlay) follow mrShipDied
 }
 
 /*-----------------------------------------------------------------------------
@@ -6497,6 +7439,11 @@ void univRemoveShipReferences(Ship *ship)
 void univFreeShipContents(Ship *ship)
 {
     udword i;
+
+    // CAT: the ship's per-vertex mesh state and +0x84 block go first (univFreeShipContents 0x0054b550).
+    //      CAT-TODO(M2-R4 #5): cat_suShipRemoved 0x00459ae0 (support units) comes before them in the exe
+    cat_univMeshStateFree(&ship->obj);
+    cat_univFreeEffectBlock(&ship->obj);
 
     univRemoveShipReferences(ship);
 
@@ -6610,6 +7557,7 @@ void univupdateCloseAllObjectsAndMissionSpheres()
 
     univCloseFastNetworkIDLookups();
     growSelectClose(&universe.HousekeepShipList);
+    growSelectClose(&catDeferredShipList);                  // CAT: the deferred-update list (unk1 in the export)
     growSelectClose(&ClampedShipList);
 
     gameIsEnding = TRUE;    //set global flag to indicate to other functions that the game is ending
@@ -6619,6 +7567,14 @@ void univupdateCloseAllObjectsAndMissionSpheres()
     while (objnode != NULL)
     {
         obj = (SpaceObj *)listGetStructOfNode(objnode);
+
+        // CAT: every object type but ships (univFreeShipContents) and effects (etgEffectDelete) frees its mesh state
+        //      and +0x84 block here (univupdateCloseAllObjectsAndMissionSpheres 0x0054b780)
+        if (obj->header.objtype != OBJ_ShipType && obj->header.objtype != OBJ_EffectType)
+        {
+            cat_univMeshStateFree(obj);
+            cat_univFreeEffectBlock(obj);
+        }
 
         switch (obj->header.objtype)
         {
@@ -6676,6 +7632,8 @@ void univupdateCloseAllObjectsAndMissionSpheres()
         switch (obj->header.objtype)
         {
             case OBJ_AsteroidType:
+                cat_univMeshStateFree(obj);                 // CAT: 0x0054b7d4
+                cat_univFreeEffectBlock(obj);
                 univFreeAsteroidContents((Asteroid *)obj);
                 break;
 
@@ -6964,6 +7922,8 @@ void univUpdateMinorRenderList()
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT-TODO(stage 3): univUpdateRenderList 0x0054be80 uses per-type render distances (static info +0x3BC for ships,
+//      +0x120 for derelicts, else the class limits), a separate sort-front list and listMergeSort.
 void univUpdateRenderList()
 {
     Node *objnode = universe.SpaceObjList.head;
@@ -7214,6 +8174,272 @@ void univCheckRegrowResources(void)
     }
 }
 
+/*=============================================================================
+    CAT: the per-ship deferred update. In the exe univSetupShipForControl 0x0054a230 puts every live ship on a
+    universe grow-selection (unk1 in the export, after HousekeepShipList), and after the ship loop
+    univUpdateAllPosVelShips 0x00544f40 / univSetupShipsForControl 0x0054a340 run cat_univShipDeferredUpdate on each,
+    before the CustShipHousekeeps. That selection is not in this tree's Universe yet (its layout is M2-R4 #5), so
+    it is a file static here.
+=============================================================================*/
+static GrowSelection catDeferredShipList;
+
+static void catDeferredShipListReset(void)
+{
+    if (catDeferredShipList.selection == NULL)
+    {
+        growSelectInit(&catDeferredShipList);
+    }
+    growSelectReset(&catDeferredShipList);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univRemoveObjReferencesFromShips (Cataclysm 0x0054d350)
+    Description : Marks an object (bit 0x100 of its +0x18 word) and has every ship, in the universe and in the
+                  hyperspace ether, drop its references to it (CustShipHeader slot 12). The mark makes the
+                  object's next deferred update tell the ships again (cat_univShipDeferredUpdate). Callers in the
+                  exe: cat_dockShipDocksAtShip, UpdateMidLevelHyperspacingShips (not ported yet).
+    Inputs      : obj - the object
+    Outputs     :
+    Return      : void
+----------------------------------------------------------------------------*/
+static void catUnivTellShipsToDropReferences(SpaceObj *obj)
+{
+    Node *node;
+    Ship *ship;
+    InsideShip *insideShip;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if (ship->staticinfo->custshipheader.CustShipRemoveObjReferences != NULL)
+        {
+            ship->staticinfo->custshipheader.CustShipRemoveObjReferences(ship, (struct SpaceObj *)obj);
+        }
+    }
+    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
+    {
+        insideShip = (InsideShip *)listGetStructOfNode(node);
+        ship = insideShip->ship;
+        if (ship->staticinfo->custshipheader.CustShipRemoveObjReferences != NULL)
+        {
+            ship->staticinfo->custshipheader.CustShipRemoveObjReferences(ship, (struct SpaceObj *)obj);
+        }
+    }
+}
+
+// CAT: the exe's +0x18 word of an object: Ship.catShipFlags for ships (M2-R3 selection), the header word otherwise
+#define CAT_OBJ_FLAGS18(obj)    (*(((obj)->header.objtype == OBJ_ShipType) ? &((Ship *)(obj))->catShipFlags : \
+                                                                               &(obj)->header.catHeader18))
+#define CAT_OBJFLAG18_RemoveReferences  0x100
+
+void cat_univRemoveObjReferencesFromShips(SpaceObj *obj)
+{
+    CAT_OBJ_FLAGS18(obj) |= CAT_OBJFLAG18_RemoveReferences;
+    catUnivTellShipsToDropReferences(obj);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univShipSelfRepair (Cataclysm 0x005433d0)
+    Description : Ship self-repair, which in Cataclysm only Beast ships and ships with the self-repair upgrade
+                  (catUpgradeFlags 0x200000) have, and not while they are being built: every repairTime seconds
+                  (repairCombatTime in combat: forced attack status, recently attacked or attacking) the ship
+                  gains repairDamage (repairCombatDamage) x its damageModifier word, up to its maximum health.
+                  Component-class ships and ships at full health only restart the timer (a Sect mothership at
+                  full health still runs its module repair).
+    Inputs      : ship
+    Outputs     :
+    Return      : void
+----------------------------------------------------------------------------*/
+#define CAT_UPGRADE_SelfRepair      0x00200000      // cat_shipHasUpgrade(ship, 0x200000) at 0x0054341a (name chosen here)
+void cat_univShipSelfRepair(Ship *ship)
+{
+    ShipStaticInfo *shipstatic = ship->staticinfo;
+    bool32 inCombat;
+    real32 repairTime, repairDamage;
+
+    // CAT: the forced-attack bit is specialFlags 0x400000 in the exe (renumbering: M2-R4 #2)
+    inCombat = bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_ForcedAttackStatus) ||
+               (ship->recentlyAttacked != 0) || (ship->shipisattacking != 0);
+    repairTime = inCombat ? shipstatic->repairCombatTime : shipstatic->repairTime;
+    repairDamage = inCombat ? shipstatic->repairCombatDamage : shipstatic->repairDamage;
+
+    if (!(cat_shipHasUpgrade(ship, CAT_UPGRADE_SelfRepair) || ship->shiprace == RACE_Beast) ||
+        !(repairDamage > 0.0f) || bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+    {
+        return;
+    }
+    // CAT-TODO(M2-R4 #4): Sect ships with repair droids update them here (droidUpdateArray, Ship +0x4C0, when the
+    //      droid option 0x00c52374 is on)
+    if ((shipstatic->shipclass == CLASS_Component) ||
+        ((ship->targetable.health >= shipstatic->health.maxhealth) && (ship->shiptype != sMothership)))
+    {
+        ship->lastTimeRepaired = universe.totaltimeelapsed;
+        return;
+    }
+    if ((universe.totaltimeelapsed - ship->lastTimeRepaired) >= repairTime)
+    {
+        ship->lastTimeRepaired = universe.totaltimeelapsed;
+        // CAT-TODO(M2-R4 #4): a Sect mothership first repairs its damaged module ships (its clamped objects, 0x00543505:
+        //      engines, armour, weapons and the rest, shared out by the module slots of its specifics)
+        // CAT-TODO(M2-R4 #4): a Beast mothership with an active system does not repair (cat_beastMothershipSystemActive)
+        if (ship->targetable.health < shipstatic->health.maxhealth)
+        {
+            ship->targetable.health += repairDamage * ship->damageModifier;
+            if (ship->targetable.health > shipstatic->health.maxhealth)
+            {
+                ship->targetable.health = shipstatic->health.maxhealth;
+            }
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univShipDeferredUpdate (Cataclysm 0x005447b0)
+    Description : The per-ship update that runs after every ship has moved and been set up for control. Ported:
+                  the remove-references broadcast of a marked ship and the self-repair. The rest is marked
+                  CAT-TODO with its owner.
+    Inputs      : ship
+    Outputs     :
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_univShipDeferredUpdate(Ship *ship)
+{
+    if (bitTest(ship->catShipFlags, CAT_OBJFLAG18_RemoveReferences))
+    {                                                       // 0x005447b7
+        catUnivTellShipsToDropReferences((SpaceObj *)ship);
+        bitClear(ship->catShipFlags, CAT_OBJFLAG18_RemoveReferences);
+    }
+    // CAT-TODO(M2-R4 #3/#4): cat_univBeastInfectionUpdate 0x00543860 runs next and, when it converts the ship, ends
+    //      the update. Then (0x00544867..0x005449c4): a queued attack target (Ship +0x4B0) becomes a clAttack;
+    //      Sentinel field timers (Ship +0x97C/+0x980); the protected-speed limit (Ship +0x5C4) is reset when its
+    //      timer has run out (M2-R4 #2); cat_shipDissolveUpdate; the stun/EMP timers at Ship +0x4D0..+0x4DC (M2-R4 #4)
+    cat_univShipSelfRepair(ship);
+    // CAT-TODO(M2-R4 #3/#4/#5/#2): then the gun burst state (Ship +0x610, Gun +0x84/+0x78/+0x7C), the end of an
+    //      upgrade (catUpgrading with its end time at Ship +0x5A0: cat_shipSetDisableReason(ship, 0, 0),
+    //      cat_shipApplyUpgrades, speech 0x2000895), the debug re-upgrade switch 0x00a751c0, cat_shipUpdateDrift,
+    //      the stealth detection (static catTypeFlags 0x20000, every 0x0072bd60-masked tick), and for live ships
+    //      cat_shipUpdateExternalBuildAndAI 0x00543f10 with universe.aiplayerProcessing set
+}
+
+/*-----------------------------------------------------------------------------
+    CAT: bullet effects after a load (cat_univRequestBulletEffectsRecreate 0x0054d240, called by LoadUniverse;
+    cat_univRecreateBulletEffectsIfNeeded 0x0054d330, called by univUpdate; cat_univRecreateBulletEffects 0x0054d250):
+    big-gun shells and homing bullets that have no flight effect get one again.
+-----------------------------------------------------------------------------*/
+static bool32 catBulletEffectsRecreateRequested = FALSE;   // 0x00a6ed88
+
+void cat_univRequestBulletEffectsRecreate(void)
+{
+    catBulletEffectsRecreateRequested = TRUE;
+}
+
+void cat_univRecreateBulletEffects(void)
+{
+    Node *node;
+    Bullet *bullet;
+    etglod *etgLOD;
+    etgeffectstatic *stat;
+
+    for (node = universe.BulletList.head; node != NULL; node = node->next)
+    {
+        bullet = (Bullet *)listGetStructOfNode(node);
+        if (bullet->effect != NULL ||
+            !(bullet->soundType == GS_BigGun || CAT_BULLET_WEAPON_TYPE(bullet) == WEAPON_ENERGY))
+        {
+            continue;
+        }
+        etgLOD = etgGunEventTable[bullet->playerowner->race][bullet->soundType][EGT_GunBullet];
+        if (etgLOD == NULL)
+        {
+            continue;
+        }
+        stat = etgLOD->level[0];
+        if (stat == NULL || !etgBulletEffectsEnabled || etgFrequencyExceeded(stat))
+        {
+            continue;
+        }
+        if (bullet->soundType == GS_BigGun)
+        {                                                   // one parameter, 12345.0f (0x4640e400)
+            bullet->effect = etgEffectCreate(stat, (Ship *)bullet, NULL, &bullet->obj.posinfo.velocity, NULL, 1.0f,
+                                             EAF_AllButNLips, 1, SCALECAST(Real32ToUdword(12345.0f)));
+        }
+        else
+        {
+            bullet->effect = etgEffectCreate(stat, (Ship *)bullet, NULL, &bullet->obj.posinfo.velocity, NULL, 1.0f,
+                                             EAF_AllButNLips, 0);
+        }
+    }
+}
+
+void cat_univRecreateBulletEffectsIfNeeded(void)
+{
+    if (catBulletEffectsRecreateRequested)
+    {
+        catBulletEffectsRecreateRequested = FALSE;
+        cat_univRecreateBulletEffects();
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univDeleteBulletNow (Cataclysm 0x0054d110)
+    Description : Removes a bullet at once (no effects): its +0x84 block, its flight effect's owner link, its
+                  collision blob, bullet and render lists, and the bullet itself. Caller in the exe:
+                  collCheckBulletTargetColl (M2-R4 #3).
+    Inputs      : bullet
+    Outputs     :
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_univDeleteBulletNow(Bullet *bullet)
+{
+    cat_univFreeEffectBlock(&bullet->obj);
+    if (bullet->effect != NULL)
+    {
+        bullet->effect->owner = NULL;
+    }
+    bobObjectDied((SpaceObj *)bullet,&universe.collBlobList);
+    listRemoveNode(&bullet->bulletlink);
+    univRemoveObjFromRenderList((SpaceObj *)bullet);
+    listDeleteNode(&bullet->header.objlink);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univSetShipPosition (Cataclysm 0x0054d180)
+    Description : Moves a ship to a position (Clamp.c, Dock.c, Formation.c use it in the exe; not ported yet).
+                  CAT-TODO(stage 3 FOW): a ship that affects the fog of war first moves its cube
+                  (cat_univShipFOWUpdate 0x00544b10).
+    Inputs      : ship, position
+    Outputs     :
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_univSetShipPosition(Ship *ship, vector *position)
+{
+    ship->obj.posinfo.position = *position;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univPlayerHasFlaggedShip (Cataclysm 0x0054d200)
+    Description : TRUE if the current player owns a ship that is being built (specialFlags2 bit 0x8;
+                  SPECIAL_2_CatBeingBuilt, renumbered by M2-R4 #2). Caller: spHyperspaceButtonPushed (stage 6).
+    Inputs      :
+    Outputs     :
+    Return      : bool32
+----------------------------------------------------------------------------*/
+bool32 cat_univPlayerHasFlaggedShip(void)
+{
+    Node *node;
+    Ship *ship;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if (ship->playerowner == universe.curPlayerPtr && bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
 /*-----------------------------------------------------------------------------
     Name        : cat_univRealTimeDelta
     Description : CAT: cat_univRealTimeDelta 0x0054c360: real time since the last call, in seconds, counted in whole
@@ -7249,6 +8475,33 @@ bool32 univUpdate(real32 phystimeelapsed)
 #else
 #define TMP_SAVEDGAMES_PATH "SavedGames/"
 #endif
+
+    // CAT: debug frame stepping: no update unless a step is left (univUpdate 0x0054c3f0, 0x0054c3fb)
+    if (catUnivFrameStep)
+    {
+        if (catUnivFrameStepsLeft < 1)
+        {
+            return FALSE;
+        }
+        catUnivFrameStepsLeft--;
+    }
+
+    // CAT: multiplayer autosave every 200 s into SavedGames\multiplayer\AS0..AS10 (0x0054c41b; the switch
+    //      0x00a74dac has no setter in the code, presumably a command-line option, so it is off here)
+    if (catMultiplayerAutoSave && !singlePlayerGame && (catMultiplayerAutoSaveTime < universe.totaltimeelapsed))
+    {
+        char savegamename[200];
+
+        sprintf(savegamename, TMP_SAVEDGAMES_PATH "multiplayer" TMP_SAVEDGAMES_PATH_SEP "AS%d", catMultiplayerAutoSaveNumber);
+        SaveGame(savegamename);
+        clCommandMessage(savegamename);
+        catMultiplayerAutoSaveTime = universe.totaltimeelapsed + 200.0f;                 // 0x0072a440
+        catMultiplayerAutoSaveNumber++;
+        if (catMultiplayerAutoSaveNumber > 10)
+        {
+            catMultiplayerAutoSaveNumber = 0;
+        }
+    }
 
     if ((autoSaveDebug) && (UNIVERSE_WOODPECKER(31, 0)))    // every 2s
     {
@@ -7305,13 +8558,16 @@ bool32 univUpdate(real32 phystimeelapsed)
     universe.realtimeelapsed = (univRealTimeVirtual ? UNIV_REALTIME_VIRTUAL_TICK : cat_univRealTimeDelta())
                                + universe.realtimeelapsed;
 
+    // CAT: the quit and win times are kept in real time (univUpdate 0x0054c3f0 compares them with
+    //      universe.realtimeelapsed, and every setter adds to it: CheckPlayerWin, singlePlayerGameUpdate,
+    //      singlePlayerMissionCompleteCB), so a paused or slowed game still ends on time
     if (universe.quittime != 0.0f)
     {
         real32 usequittime = universe.quittime;
 
         if (universe.wintime != 0.0f)
         {
-            if (universe.totaltimeelapsed >= universe.wintime)
+            if (universe.realtimeelapsed >= universe.wintime)
             {
                 DeclarePlayerWin();
                 universe.wintime = 0.0f;
@@ -7323,7 +8579,7 @@ bool32 univUpdate(real32 phystimeelapsed)
             usequittime += 5.0f;    // give a extra 5s so we transmit some more sync pkts other people so they quit too...
         }
 
-        if (universe.totaltimeelapsed >= usequittime)
+        if (universe.realtimeelapsed >= usequittime)
         {
             // quit the game here
             spMainScreen();
@@ -7341,6 +8597,8 @@ bool32 univUpdate(real32 phystimeelapsed)
             }
             else
             {
+                // CAT-TODO(stage 3): the exe goes to the game stats screen when there is one
+                //      (cat_utyGameQuitToMainOrStats 0x005ab5b0, spMainScreen(1))
                 utyGameQuitToMain(NULL,NULL);
                 return TRUE;
             }
@@ -7351,7 +8609,7 @@ bool32 univUpdate(real32 phystimeelapsed)
         if (queueNumberOverruns(ProcessSyncPktQ) > 0)
         {
             bigmessageDisplay(strGetString(strSyncPktQOverrun),1);
-            universe.quittime = universe.totaltimeelapsed + WAIT_TIME_TO_QUIT;
+            universe.quittime = universe.realtimeelapsed + WAIT_TIME_TO_QUIT;    // CAT: real time
         }
     }
 
@@ -7429,8 +8687,9 @@ bool32 univUpdate(real32 phystimeelapsed)
             universe.lasttimeadded = universe.univUpdateCounter;
             resourceInjectionTask();
             //speech event to notify of this:
+            // CAT: Cataclysm's event 0x2001044 with var -1 (univUpdate 0x0054c3f0)
             if (universe.players[universe.curPlayerIndex].playerState != PLAYER_DEAD)
-                speechEventFleet(STAT_F_ResourceInjectionRecieved,0,universe.curPlayerIndex);
+                speechEventFleet(0x2001044,-1,universe.curPlayerIndex);
         }
 
         if ( (bitTest(tpGameCreated.flag,MG_ResourceLumpSum)) &&
@@ -7438,7 +8697,7 @@ bool32 univUpdate(real32 phystimeelapsed)
         {
             resourceLumpSum();
             if (universe.players[universe.curPlayerIndex].playerState != PLAYER_DEAD)
-                speechEventFleet(STAT_F_ResourceInjectionRecieved,0,universe.curPlayerIndex);
+                speechEventFleet(0x2001044,-1,universe.curPlayerIndex);     // CAT
         }
 
         if (universe.univUpdateCounter == universe.players[sigsPlayerIndex].AllianceProposalsTimeout)
@@ -7503,8 +8762,8 @@ bool32 univUpdate(real32 phystimeelapsed)
 
     PTENDLITTLE(2);
 
-    //do global tactics updates
-    tacticsGlobalUpdate();
+    // CAT: no global tactics update any more (the exe has no tacticsGlobalUpdate: retreat tracking and attack
+    //      memory are not processed in univUpdate 0x0054c3f0)
 
     univUpdateMineWallFormations();
 
@@ -7527,6 +8786,9 @@ bool32 univUpdate(real32 phystimeelapsed)
         univUpdateAllPosVelDerelicts();
         univUpdateAllPosVelResources();
         univUpdateAllPosVelShips();     // also does a univCheckShipStates
+        // CAT: then the blasts and the bullet effects a load asked for (cat_blastUpdateAll 0x00516320,
+        //      CAT-TODO(M2-R4 #3); cat_univRecreateBulletEffectsIfNeeded 0x0054d330)
+        cat_univRecreateBulletEffectsIfNeeded();
 
     }
     else
@@ -7565,9 +8827,12 @@ bool32 univUpdate(real32 phystimeelapsed)
         universe.bounties = TRUE;
         calculatePlayerBounties();
     }
+    // CAT-TODO(stage 6): a KAS save request is carried out last (0x0054ce03: 0x00a43fec -> cat_kasSaveLevelNow)
     return FALSE;
 }
 
+// CAT-TODO(M2-R4 #5, stage 3): univKillPlayer 0x0054ce20 takes a third argument, closes the construction, launch
+//      and research managers and no longer writes the game stats file.
 void univKillPlayer(sdword i,sdword playerdeathtype)
 {
     char filename[50];

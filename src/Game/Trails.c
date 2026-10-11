@@ -31,6 +31,7 @@
 #include "StatScript.h"
 #include "Tactics.h"
 #include "Teams.h"
+#include "UnivUpdate.h"     // CAT: cat_shipNozzleInfoGet, cat_meshObjectMatrixGet
 #include "Universe.h"
 
 #if defined _MSC_VER
@@ -91,7 +92,7 @@ static sdword TRAIL_GLOW_2_RED = 40;
 static sdword TRAIL_GLOW_2_GREEN = 180;
 static sdword TRAIL_GLOW_2_BLUE = 255;
 
-static sdword TRAIL_EXPANSION_TICKS = 16;
+sdword TRAIL_EXPANSION_TICKS = 16;     // CAT: not static; cat_shGlowUpdate 0x0050d560 reads it (exe global)
 
 scriptEntry TrailTweaks[] =
 {
@@ -509,8 +510,23 @@ void trailInplaceShipToWorld(real32* vec, real32* coordsys, real32* position)
 void trailGetNozzleOffset(real32* vec, shiptrail* trail)
 {
     Ship* ship = (Ship*)trail->vship;
+    ShipStaticInfo *statinfo = (ShipStaticInfo*)ship->staticinfo;
+    hmatrix objectMatrix;
+    hvector nozzle, out;
 
-    VECCOPY(vec, &((ShipStaticInfo*)ship->staticinfo)->engineNozzleOffset[trail->trailNum]);
+    // CAT: the nozzle moves with the mesh object its Eng chunk names (trailGetNozzleOffset 0x005a4cc0): the offset is
+    //      transformed by that object's ship-space matrix in the current LOD (cat_shipNozzleInfoGet 0x0053f8c0,
+    //      cat_meshObjectMatrixGet 0x0053f970; the identity when the ship has no local bindings)
+    cat_meshObjectMatrixGet(&objectMatrix,
+        cat_shipNozzleInfoGet(ship, statinfo->engineNozzleObject[ship->obj.currentLOD][trail->trailNum]));
+    nozzle.x = statinfo->engineNozzleOffset[trail->trailNum].x;
+    nozzle.y = statinfo->engineNozzleOffset[trail->trailNum].y;
+    nozzle.z = statinfo->engineNozzleOffset[trail->trailNum].z;
+    nozzle.w = 1.0f;
+    hmatMultiplyHMatByHVec(&out, &objectMatrix, &nozzle);
+    vec[0] = out.x;
+    vec[1] = out.y;
+    vec[2] = out.z;
 }
 
 //convenience fn.  copies ship.coordsys into provided matrix

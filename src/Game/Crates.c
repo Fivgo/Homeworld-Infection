@@ -255,7 +255,9 @@ void cratesPlayerFoundACrate(Derelict *crate, Player *player)
         etgEffectCreate(stat, NULL, &crate->obj.posinfo.position, &zero, &ident, 1.0f, EAF_AllButNLips, 0);
     }
 
-    AddTargetToDeleteList((SpaceObjRotImpTarg *)crate,-1);
+    // CAT: 3 arguments; this caller passes 0 (cratesPlayerFoundACrate 0x00460d60, push 0 at 0x00460ebc). The body
+    //      never reads the third argument (AddTargetToDeleteList 0x00545dd0) [audit: was 1]
+    AddTargetToDeleteList((SpaceObjRotImpTarg *)crate,-1,0);
     }
 
 //maximum number of ships in anyone class
@@ -740,7 +742,8 @@ void expireCrate(Derelict *crate)
     universe.numCratesInWorld--;
 
     //delete target
-    AddTargetToDeleteList((SpaceObjRotImpTarg *)crate,-1);
+    // CAT: 3 arguments; the exe's expireCrate (inlined in cratesUpdate 0x00461e10, push 1 at 0x00461f70) passes 1
+    AddTargetToDeleteList((SpaceObjRotImpTarg *)crate,-1,1);
 
     //play effect
     etgLOD = etgSpecialPurposeEffectTable[EGT_CRATE_TIME_OUT];

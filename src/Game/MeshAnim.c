@@ -22,6 +22,7 @@
 #include "NIS.h"
 #include "SpaceObj.h"
 #include "Types.h"
+#include "UnivUpdate.h"     // CAT: cat_univMeshBindingsLinkParents
 #include "Universe.h"
 #include "Vector.h"
 #include "mainrgn.h"
@@ -478,6 +479,8 @@ bool32 madBindingListCallback(meshdata *mesh, polygonobject *object, sdword iObj
 
     madBindingDest->userData = madDupeShip;                 //pass in pointer to ship
     madBindingDest->function = NULL;                       //object not in animation; no binding
+    madBindingDest->object = object;                        //CAT: the object is recorded here too (madBindingListCallback
+                                                            //0x004b68f0; cat_meshObjectMatrixConcat 0x0053f900 reads it)
     madBindingDest++;                                       //skip to next binding struct
     return(FALSE);
 foundOne:
@@ -486,6 +489,7 @@ foundOne:
     madBindingDest->userID = j;                             //pass in index of motion path
     madBindingDest->flags = 0;                              //flags not needed here
     madBindingDest->object = object;                        //object to animate
+    madBindingDest->matrix = IdentityHMatrix;               //CAT: starts as the identity (0x004b694c, copy of 0x0072aed8)
 
     madBindingDest++;                                       //skip to next binding struct
     return(FALSE);
@@ -552,6 +556,9 @@ void madAnimBindingsDupe(Ship *ship, ShipStaticInfo *staticInfo,bool32 LoadingGa
         ship->madBindings->nCurrentAnim = MAD_NoAnimation;      //start off by doing no animation
         ship->madBindings->bPaused = FALSE;
     }
+    // CAT: the animation bindings get their parent links too (madAnimBindingsDupe 0x004b6a10 ends with
+    //      cat_univMeshBindingsLinkParents 0x00541ae0). The rest of the Cataclysm madanim changes are M2-R4 #4's.
+    cat_univMeshBindingsLinkParents(staticInfo, bindings);
 }
 
 /*-----------------------------------------------------------------------------

@@ -239,10 +239,12 @@ typedef struct
     sdword userID;                          //integer data to pass
     udword flags;                           //flags on how this binding operates (see above)
     polygonobject *object;                  //object of this binding
+    ubyte parentIndex;                      //CAT: index of the parent object's binding, 0xFF for a top-level object
+                                            //(+0x14, the binding is 0x18 bytes: meshBindingListRecurse 0x004b47b0)
 }
 mhbinding;
 
-typedef struct
+typedef struct mhlocalbinding
 {
     mhbindingfunction function;             //function to call to get a new matrix
     void *userData;                         //pointer data to pass
@@ -250,8 +252,14 @@ typedef struct
     udword flags;                           //flags on how this binding operates (see above)
     polygonobject *object;                  //object of this binding
     hmatrix matrix;
+    struct mhlocalbinding *parent;          //CAT: the parent object's binding or NULL (+0x54, 0x58 bytes in the exe;
+                                            //set by cat_univMeshBindingsLinkParents 0x00541ae0)
 }
 mhlocalbinding;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(mhbinding) == 0x18, "mhbinding is 0x18 bytes in cataclysm.exe");
+_Static_assert(sizeof(mhlocalbinding) == 0x58, "mhlocalbinding is 0x58 bytes in cataclysm.exe");
+#endif
 
 //hierarchy information to be found in ship structure
 typedef struct shipbindings
@@ -413,7 +421,18 @@ void meshMorphedObjectRender(
 void meshMorphedObjectRenderTex(polygonobject* object1, polygonobject* object2,
                                 polyentry *uvPolys, materialentry* material,
                                 real32 frac, sdword iColorScheme);
-void meshRenderShipHierarchy(shipbindings *bindings, sdword currentLOD, meshdata *mesh, sdword iColorScheme);
+struct CatMeshState;
+struct CatMeshObjectState;
+//CAT: the ship's per-vertex mesh state is the new first argument (meshRenderShipHierarchy 0x004b4520)
+void meshRenderShipHierarchy(struct CatMeshState *meshState, shipbindings *bindings, sdword currentLOD, meshdata *mesh, sdword iColorScheme);
+//CAT: meshRender with a LOD's vertex-state slots (the exe's meshRender 0x004b4280 first argument)
+sdword cat_meshRenderState(struct CatMeshObjectState *slots, meshdata *mesh, sdword iColorScheme);
+//CAT: the bullet-hit glow (Mesh.c)
+struct Ship;
+struct CatVertexState;
+void cat_meshBulletHitGlowCB(vertexinfo *info, struct CatVertexState *state, void *data);       // 0x004b5820
+void cat_meshApplyBulletHit(vector *hit, real32 radiusSquared, struct Ship *ship,
+                            void (*callback)(vertexinfo *, struct CatVertexState *, void *), void *data);  // 0x004b52d0
 void meshObjectRender(polygonobject *object, materialentry *materials, sdword iColorScheme);
 void meshObjectRenderTex(polygonobject *object, materialentry *material);
 

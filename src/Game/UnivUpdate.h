@@ -145,8 +145,8 @@ void univUpdateObjRotInfo(SpaceObjRot *robj);
 void AddResourceToDeleteResourceList(Resource *resource);
 void AddDerelictToDeleteDerelictList(Derelict *derelict,GunSoundType damageType);
 void AddMissileToDeleteMissileList(Missile *missile,GunSoundType damageType);
-void AddShipToDeleteShipList(Ship *ship,GunSoundType damageType);
-void AddTargetToDeleteList(SpaceObjRotImpTarg *target,GunSoundType soundType);
+void AddShipToDeleteShipList(Ship *ship,GunSoundType damageType,sdword unused);    // CAT: 3 arguments (0x00545b80)
+void AddTargetToDeleteList(SpaceObjRotImpTarg *target,GunSoundType soundType,sdword unused);   // CAT: 3 arguments (0x00545dd0)
 void univAddToWorldList(Derelict *world);
 void univRemoveFromWorldList(Derelict *world);
 
@@ -160,7 +160,8 @@ void ObjectsCollided(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *obj2,real32 co
 void ApplyDamageToCollidingObjects(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *obj2,vector *distvector,real32 dist);
 bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoundType soundType,sdword damageHow,sdword playerIndex);
 
-void univBulletCollidedWithTarget(SpaceObjRotImpTarg *target,StaticInfo *targetstaticheader,Bullet *bullet,real32 collideLineDist,sdword collSide);
+// CAT: new first argument applyDamage (0x00546a20; FALSE for the beam frames that only draw the hit)
+void univBulletCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target,StaticInfo *targetstaticheader,Bullet *bullet,real32 collideLineDist,sdword collSide);
 void univMissileCollidedWithTarget(SpaceObjRotImpTarg *target,StaticInfo *targetstaticheader,Missile *missile,real32 collideLineDist,sdword collSide);
 
 SelectCommand *getEnemiesWithinProximity(Ship *thisship,real32 retaliateZone);
@@ -178,6 +179,38 @@ void InitializeEngineTrails(Ship *newship);
 
 shipbindings *univMeshBindingsDupe(ShipStaticInfo *shipstaticinfo, Ship *newShip);
 void univResetNewGimbleGun(Gun *gun);
+
+// CAT: mesh bindings and the per-vertex mesh state (UnivUpdate.c)
+void cat_univMeshBindingsLinkParents(ShipStaticInfo *shipstaticinfo, shipbindings *bindings);   // 0x00541ae0
+shipbindings *cat_univMeshBindingsDupeNoGuns(ShipStaticInfo *shipstaticinfo);                   // 0x005418f0
+sdword cat_univMeshStateAllocRecursive(CatMeshObjectState *slots, sdword index, polygonobject *object); // 0x00541b80
+sdword cat_univMeshStateFreeRecursive(CatMeshObjectState *slots, sdword index, polygonobject *object);  // 0x00541c70
+void cat_univShipMeshStateCreate(SpaceObj *obj);                                                // 0x00541cd0
+void cat_univMeshStateFree(SpaceObj *obj);                                                      // 0x00541df0
+void cat_univFreeEffectBlock(SpaceObj *obj);                    // the inline +0x84 free of the exe's free paths
+mhlocalbinding *cat_shipNozzleInfoGet(Ship *ship, sdword index);                                // 0x0053f8c0
+void cat_meshObjectMatrixConcat(hmatrix *dest, mhlocalbinding *binding);                        // 0x0053f900
+void cat_meshObjectMatrixGet(hmatrix *dest, mhlocalbinding *binding);                           // 0x0053f970
+extern bool32 catMeshStateDisabled;                             // 0x00c5236c (low-memory switch)
+void cat_bulletHomingUpdate(Bullet *bullet);                                                    // 0x00542cb0
+void cat_univShipSelfRepair(Ship *ship);                                                        // 0x005433d0
+void cat_univShipDeferredUpdate(Ship *ship);                                                    // 0x005447b0 (partial)
+void cat_univRemoveObjReferencesFromShips(SpaceObj *obj);                                       // 0x0054d350
+void cat_univRequestBulletEffectsRecreate(void);                                                // 0x0054d240
+void cat_univRecreateBulletEffects(void);                                                       // 0x0054d250
+void cat_univRecreateBulletEffectsIfNeeded(void);                                               // 0x0054d330
+void cat_univDeleteBulletNow(Bullet *bullet);                                                   // 0x0054d110
+void cat_univSetShipPosition(Ship *ship, vector *position);                                     // 0x0054d180
+bool32 cat_univPlayerHasFlaggedShip(void);                                                      // 0x0054d200
+sdword cat_univGetShipCountSalvaged(sdword shipType, sdword playerIndex);                       // 0x00540030
+sdword cat_univGetShipCountBeastified(sdword shipType, sdword playerIndex);                     // 0x00540080
+void cat_univShipSalvagedCountInc(sdword a, sdword b);                                          // 0x005400d0
+sdword cat_univGetNumberShipsPlayerKilled(sdword playerIndex, sdword shipClass);                // 0x005400f0
+sdword cat_univGetNumberShipsPlayerLost(sdword playerIndex, sdword shipClass);                  // 0x00540110
+extern bool32 catUnivFrameStep;                                                                 // 0x00a6ed74
+extern sdword catUnivFrameStepsLeft;                                                            // 0x00a6ed78
+void cat_univRemoveBulletReferencesFromShips(Bullet *bullet);                                   // 0x0054b1a0
+void univFreeBulletContents(Bullet *bullet);
 
 void InitializeNavLights(Ship *newship);
 

@@ -2763,13 +2763,8 @@ void FixSpaceObj(SpaceObj *obj)
     }
 }
 
-SpaceObj *LoadSpaceObj(void)
+static SpaceObj *LoadSpaceObjByType(SaveChunk *chunk)
 {
-    SaveChunk *chunk;
-
-    chunk = LoadNextChunk();
-    dbgAssertOrIgnore(chunk->type & SAVE_SPACEOBJ);
-
     switch (chunk->type & SAVE_OBJTYPEMASK)
     {
         case OBJ_ShipType:
@@ -2807,6 +2802,25 @@ SpaceObj *LoadSpaceObj(void)
     }
 
 	return NULL;
+}
+
+SpaceObj *LoadSpaceObj(void)
+{
+    SaveChunk *chunk;
+    SpaceObj *obj;
+
+    chunk = LoadNextChunk();
+    dbgAssertOrIgnore(chunk->type & SAVE_SPACEOBJ);
+
+    obj = LoadSpaceObjByType(chunk);
+    if (obj != NULL)
+    {
+        // CAT: a loaded object has no per-vertex mesh state and no effect block (LoadSpaceObj 0x00501660 clears
+        //      +0x84 and +0x80 of every object it loads; the saved pointers are stale)
+        obj->catEffectBlock = NULL;
+        obj->catMeshState = NULL;
+    }
+    return obj;
 }
 
 typedef struct SaveLLSpaceObj {

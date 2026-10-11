@@ -3977,12 +3977,24 @@
   "note": "material swap around meshMorphedObjectRender",
   "sample": "IDENTICAL/medium"
  },
+ "0x004b4280": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "new first argument: the LOD's per-vertex mesh-state slots (cat_rndRenderObjectList passes the ship's +0x80 level slots, other callers 0); meshObjectRenderR gets the slots and a running pre-order slot index (its return value); no colour-scheme argument (2 parameters)",
+  "note": "M2-R4 univupdate audit: found modified (was IDENTICAL, edited by the univupdate port without a review); ported as cat_meshRenderState + the slot index in meshRender/meshObjectRenderR"
+ },
  "0x004b4370": {
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "hierarchy render gains a fifth parameter and new lit paths (cat_meshObjectRenderLitImmediate/LitTransformed)",
   "note": "binding/matrix push as HW1",
   "sample": "MODIFIED/medium"
+ },
+ "0x004b4520": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "new first argument: the ship's per-vertex mesh state (+0x80); passes level[currentLOD] (or 0) and a running slot index to meshObjectRenderHierarchy; no colour-scheme argument (4 parameters: state, bindings, LOD, mesh)",
+  "note": "M2-R4 univupdate audit: found modified (was IDENTICAL, edited by the univupdate port without a review); ported (the state is the new first parameter, the slot index is the binding's offset from the LOD's first binding)"
  },
  "0x004b47b0": {
   "class": "MODIFIED",
@@ -5650,10 +5662,10 @@
   "sample": "reread-R2"
  },
  "0x00501660": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "type switch as HW1 with LoadBullet/LoadAsteroid/LoadNebula/LoadDerelict/LoadMissile inlined; changes inside the inlined loaders belong to those functions",
+  "change": "after the type switch every loaded object gets SpaceObj +0x84 and +0x80 (the per-vertex mesh state and the effect block) cleared (the saved pointers are stale)",
+  "note": "type switch as HW1 with LoadBullet/LoadAsteroid/LoadNebula/LoadDerelict/LoadMissile inlined; changes inside the inlined loaders belong to those functions. [audit M2-R4 univupdate: the +0x80/+0x84 clear after the switch makes it MODIFIED; ported in SaveGame.c LoadSpaceObj]",
   "sample": "reread-R2"
  },
  "0x00501af0": {
@@ -7352,78 +7364,600 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same coll/engine offset updates (Ghidra mislabels the fields)",
+  "note": "M2-R4 univupdate: compared with the exe again: same coll/engine offset updates",
   "sample": "reread-R2"
  },
  "0x00540340": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "matMakeRotAboutY, coordsys copy, multiply",
+  "note": "M2-R4 univupdate: compared: matMakeRotAboutY, coordsys copy, multiply",
   "sample": "reread-R2"
  },
  "0x005403a0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "matMakeRotAboutX, coordsys copy, multiply",
+  "note": "M2-R4 univupdate: compared: matMakeRotAboutX, coordsys copy, multiply",
   "sample": "reread-R2"
  },
  "0x00540400": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "matMakeRotAboutZ, coordsys copy, multiply",
+  "note": "M2-R4 univupdate: compared: matMakeRotAboutZ, coordsys copy, multiply",
   "sample": "reread-R2"
+ },
+ "0x00540460": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: posinfo/rotinfo clears, defaultshipmatrix, frandom(2PI) on stream 10 (scale 0x0072ab64 = (float)(2PI)/UDWORD_Max), X/Y/Z rotations, univUpdateObjRotInfo"
+ },
+ "0x00540630": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: grow by 250 (memAlloc/memRealloc), fatal on a used ID"
+ },
+ "0x005406c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: chunk 0xF00 IDTOPTRTABLE, SpaceObjRegistryGetID per entry"
+ },
+ "0x00540730": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: same load, NULL table for 0 entries"
+ },
+ "0x005407a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: IDToPtrTableIDToObj inlined, SOF_Hide test when !considerInsideShips"
  },
  "0x005407e0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same nested list walk",
+  "note": "M2-R4 univupdate: compared: same nested ShipList/insideList walk",
   "sample": "MODIFIED/medium"
  },
  "0x00540820": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "M2-R4 univupdate: compared: same",
   "sample": "reread-R2"
+ },
+ "0x00540850": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: IDToPtrTableIDToObj inlined"
+ },
+ "0x00540870": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: IDToPtrTableIDToObj inlined"
+ },
+ "0x00540890": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: IDToPtrTableIDToObj inlined"
+ },
+ "0x00540a30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "creates the (NULL) mesh state for non-Asteroid0 asteroids; clears the new SpaceObj +0x80/+0x84",
+  "note": "M2-R4 univupdate: compared and ported"
  },
  "0x00540c40": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "M2-R4 univupdate: compared: forwards to univAddDerelictByStatInfo with derelictStaticInfos[type]",
   "sample": "reread-R2"
+ },
+ "0x00540c70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clears the new SpaceObj +0x80/+0x84 fields at the end; the missile ID also goes into the ID table while a multiplayer game is being recorded (multiPlayerGame",
+  "note": ""
  },
  "0x00540f70": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "UNIV_NUMBER_WORLDS 3",
+  "note": "M2-R4 univupdate: compared: UNIV_NUMBER_WORLDS 3",
   "sample": "reread-R2"
  },
  "0x00540fa0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "UNIV_NUMBER_WORLDS 3",
+  "note": "M2-R4 univupdate: compared: UNIV_NUMBER_WORLDS 3, same compaction",
   "sample": "reread-R2"
+ },
+ "0x00541000": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clears +0x84 and creates the mesh state after the list adds; no setSalvageInfo (no salvage statics); crates reported in multiplayer",
+  "note": "M2-R4 univupdate: compared; mesh state ported (the rest matched the tree)"
+ },
+ "0x00541300": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clears the new SpaceObj +0x80/+0x84 fields at the end",
+  "note": "M2-R4 univupdate: found modified (was IDENTICAL); otherwise the HW1 body (cloudCreateSystem(collspheresize, 0.1), ID table, lists)"
+ },
+ "0x00541500": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clears the new SpaceObj +0x80/+0x84 fields at the end",
+  "note": "M2-R4 univupdate: found modified (was IDENTICAL); otherwise the HW1 body"
+ },
+ "0x005416d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clears the new SpaceObj +0x80/+0x84 fields at the end",
+  "note": "M2-R4 univupdate: found modified (was IDENTICAL); otherwise the HW1 body (nebAttributes, nebNewNeb)"
+ },
+ "0x005418c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: univRemoveObjFromRenderList inlined, listDeleteNode"
+ },
+ "0x005419d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "stores every binding's object (with or without a function) and links parents (cat_univMeshBindingsLinkParents)",
+  "note": "M2-R4 univupdate: ported"
+ },
+ "0x00541f40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "capital-ship engine glows: trail style 2 for Beast and Taiidan ships (shiprace 1 or 3), 3 otherwise (HW1: style 2 for R2 only)",
+  "note": "M2-R4 univupdate: found modified (was IDENTICAL); ported"
+ },
+ "0x00542040": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: navlight array 0xC per light + count, lightstate 0, lastTimeFlashed = startdelay"
+ },
+ "0x00542320": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "7 arguments, adds the ship to the universe itself, 0x63C-byte ship with gun/mad/precise blocks, droids, damage points, upgrades, dock info, external build, mothership modules, experience, stealth, dissolve, names, FOW, mesh state",
+  "note": "M2-R4 univupdate: only the mesh state and +0x84 are ported (CAT-TODO block lists the rest for M2-R4 #2/#3/#4/#5); HW1 Drone/DefenseFighter/CryoTray cases removed"
+ },
+ "0x00543030": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "homing update for WEAPON_ENERGY bullets, burst explosion keyed on the bullet's burst flag with weapon-vs-armour damage, big-gun shells explode and lose their ping, every ship's slot 14 is told, mesh state and +0x84 freed",
+  "note": "M2-R4 univupdate: ported except the weapon word, burst flag and weapon-vs-armour table (CAT-PROVISIONAL, M2-R4 #3) and cat_bigGunBulletExplodeAt (M2-R4 #4)"
+ },
+ "0x005432d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "after the physics step, a resource whose attribute word (exe SpaceObj +0x38) has bit 0x200 is clamped into the box +-(exe +0x1A8, +0x1AC, +0x1B0) (new per-object bounds at the end of the 0x1B4-byte asteroid)",
+  "note": "M2-R4 univupdate: found modified (was IDENTICAL); CAT-TODO in the tree (the bounds field and its setter are not ported: M2-R4 #3 asteroids / #5 level-load attributes)"
+ },
+ "0x00544f40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "deferred updates (unk1 list) before the housekeeps, the host-based clamp scheme, no NIS/slave handling, mad link-in only while an animation plays and not for numbered animations, protected-speed timer",
+  "note": "M2-R4 univupdate: ported except the clamp scheme (M2-R4 #3) and cat_univLimitProtectedShipSpeed (M2-R4 #2)"
+ },
+ "0x005451e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: 200-byte static copy, the same scaled fields (mass, moments, approx/avoid sizes, coll sphere, offsets, box lengths), collrectmid not scaled, collUpdateCollRectangle"
+ },
+ "0x00545390": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: as MakeNewDustCloudStaticInfo"
+ },
+ "0x00545540": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "no collision damage except a killer collision (attribute bit 0x200 on exactly one object): both take the smaller health, plus a hit effect (etgGunEventTable[0][16][1]) on the killer",
+  "note": "M2-R4 univupdate: ported (the 7-argument ApplyDamageToTarget is M2-R4 #3)"
+ },
+ "0x005456d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: ObjectsHaveCollidedLately and ShouldDoGlancingCollision inlined (kamikaze specialFlags test, GLANCE_COLLISION_VEL_RATIO, dot < 0), same exchange/glancing/repulsion forces, ATTRIBUTES_KillerCollDamage (0x10) and immobile tests; the kamikaze bit itself is renumbered by M2-R4 #2"
+ },
+ "0x00545a80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: frandombetween(*CRAZY*) on stream 10, vecCapVectorSloppy(maxrot)"
+ },
+ "0x00545b80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a dying sMothership starts its death sequence instead (cat_mothershipStartDeathSequence); third argument unused; the -1 damage type reads the zero byte before the death-mode table",
+  "note": "M2-R4 univupdate: ported"
+ },
+ "0x00545cf0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: same (0x14-byte node, SOF_Dead)"
+ },
+ "0x00545d20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: same; a damageType of -1 (crates) reads the zero byte before etgDeathModeByGunType in the exe and in HW1, the tree now guards it with the same result"
+ },
+ "0x00545da0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: same"
+ },
+ "0x00545dd0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "third argument unused; the per-type adders are inlined",
+  "note": "M2-R4 univupdate: ported"
+ },
+ "0x00545f00": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "calls the 7-argument ApplyDamageToTarget",
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3)"
+ },
+ "0x00546250": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "7 arguments: ship-part damage redirect, NIS/KAS-derelict/invulnerable skips, evasive retreat, kill counts and experience; no slave ships",
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3 with #5); CAT-TODO in the tree"
+ },
+ "0x00546780": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "calls the 7-argument ApplyDamageToTarget",
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3)"
+ },
+ "0x00546a20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "new first argument (apply damage), big-gun shells, weapon-vs-armour damage, crystals immune to projectiles/plasma/missiles, Nomad moon vs its emitters, Sentinel fields, armour piercing for both heavy defenders, friendly fire always, float effect parameters, bullet-hit glow",
+  "note": "M2-R4 univupdate: ported except the weapon word/table (M2-R4 #3), cat_bigGunBulletExplodeAt and cat_sentinelFieldBulletHit (M2-R4 #4) and the 7-argument ApplyDamageToTarget"
+ },
+ "0x00547080": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "new first argument, battleChatterFleetAttempt, 7-argument ApplyDamageToTarget",
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3)"
+ },
+ "0x005474d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: owner/gunowner cleared, a beam (bullet +0x108 == 2) gets +10000 s, target cleared"
+ },
+ "0x00547570": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a missile that loses its target gets totallifetime = min(totallifetime, timelived + 5.0) (0x008b5c68)",
+  "note": "M2-R4 univupdate: found modified (was IDENTICAL); ported"
+ },
+ "0x00547640": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clears recentAttacker/firingAtUs/gettingrocked whenever they match, right-of-way callback gone, three Cataclysm ship pointers cleared, slot 11 always called",
+  "note": "M2-R4 univupdate: ported (the three Cataclysm fields are M2-R4 #4)"
+ },
+ "0x005476e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "also clears dockvars.dockship (both lists) and the queued attack target; inside-ship entry deletion with launch-manager update",
+  "note": "M2-R4 univupdate: ported (the queued attack target is M2-R4 #4)"
+ },
+ "0x005477d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "FOW cube removal, two Cataclysm blocks freed, mission-13 free-directly flag, objlink deleted only if listed",
+  "note": "M2-R4 univupdate: ported except FOW (stage 3) and the two blocks (M2-R4 #4)"
  },
  "0x00547900": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "before univFreeShipContents/memFree, unlinks the ship from three lists and runs the ship-died notifications (etgShipDied, soundEventShipRemove, pieShipDied, mouseClickShipDied, clShipDied, univRemoveAllShipReferencesFromSpecialShips)",
-  "note": "HW1 only frees",
+  "change": "unlinks from the ship/impactable/object lists and notifies etg, sound, pie, mouse, command layer and special ships before freeing",
+  "note": "M2-R4 univupdate: ported (review confirmed)",
   "sample": "REWRITTEN/high"
+ },
+ "0x00547990": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "inline missile loop with the 5 s self-destruct, smObjectDied always, AI told in multiplayer only, module ships hidden, FOW, attacker fields cleared",
+  "note": "M2-R4 univupdate: ported except modules (M2-R4 #4) and FOW (stage 3)"
+ },
+ "0x00547b70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the group-defeat speech is Cataclysm's event 0x2002076 (HW1 STAT_F_AssGrp_Defeat); the hot-key bit test is inlined (hotKeyGroup bits 5..14)",
+  "note": "M2-R4 univupdate: found modified (was IDENTICAL); ported"
+ },
+ "0x00547c20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: render-list removal inlined, SOF_Hide (0x8000)"
+ },
+ "0x00547c50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: SOF_NISShip skip, types 0/1/6/7/8 hidden or SOF_HideSave2 (0x10000000)"
+ },
+ "0x00547cd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: SOF_HideSave2 / SOF_Hide"
+ },
+ "0x00547d00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "CustShipDied first, factory only for player 0 in single player, external-build death, repair effect, launch manager by class, big-ship death explosions (10 parameters), inline bullet/missile clean-up, smObjectDied always, clamps released, no death sound for -1, grow-selection entries nulled",
+  "note": "M2-R4 univupdate: ported except salvage depot, external build, droids, cat_clampUnclampAllFromShip, the second grow-selection and the speed multiplier (owners in the CAT-TODOs)"
+ },
+ "0x00548450": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "valid player index only, mimics unmimic, neither mothership careens, hot-key removal inline",
+  "note": "M2-R4 univupdate: ported except cat_mimicUnmimic (M2-R4 #4)"
+ },
+ "0x005485e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "real-time win/quit times; non-multiplayer games end only when nobody (skirmish) or player 0 (single player) is left; recorder test",
+  "note": "M2-R4 univupdate: ported except the recorder global (stage 3/5)"
+ },
+ "0x005487f0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "reports results (cat_DeclarePlayerWinReportResults), multiplayer result handling",
+  "note": "M2-R4 univupdate: compared, not ported (stage 3/5)"
+ },
+ "0x00548ad0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "per race: Sect takes sCarrier or a CLASS_Mothership ship, Beast bCarrier or a CLASS_Mothership ship, other races none (HW1: Carrier or CLASS_Mothership for everyone); speech 0x200101d with var -1 when the race's sMothership/bMothership is lost; with no candidate in ShipList, multiplayer games with MG_Hyperspace also look in singlePlayerGameInfo.ShipsInHyperspace",
+  "note": "M2-R4 univupdate: found modified (was IDENTICAL); ported"
+ },
+ "0x00548c70": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "closes construction/launch/research managers, hyperspace ether, 3-argument univKillPlayer",
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #5, stage 3)"
+ },
+ "0x00548e00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "consumes the list from its head (ships added meanwhile are handled), CLASS_Resource dust clouds",
+  "note": "M2-R4 univupdate: ported"
+ },
+ "0x00548f00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: univDeleteDeadShip(-1), impactable link, univWipeShipOutOfExistence"
+ },
+ "0x005490d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "smObjectDied always, inline bullet/missile clean-up with the missile self-destruct, ramming frigates and KAS selections told",
+  "note": "M2-R4 univupdate: ported except ramming frigates (M2-R4 #4) and KAS (stage 6)"
+ },
+ "0x00549270": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "as univReallyDeleteThisResourceRightNow; asteroids break unless attribute bit 0x200, whatever their value",
+  "note": "M2-R4 univupdate: ported except the break test (M2-R4 #3 asteroid pieces)"
+ },
+ "0x00549430": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "smObjectDied always, no HW1 salvage references, mesh state and +0x84 freed",
+  "note": "M2-R4 univupdate: ported"
+ },
+ "0x00549700": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: SOF_Dead, DeleteDeadDerelict(-1), render-list removal inlined, listDeleteNode"
+ },
+ "0x00549740": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: same as HW1 with the list/render/world removals inlined (the tool saw the inlining as a delta)"
+ },
+ "0x00549820": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: same (the ETG_DISABLEABLE branch is compiled out in both)"
+ },
+ "0x00549880": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "mesh state and +0x84 freed, KAS selections told, smObjectDied and ccRemoveShip at the end",
+  "note": "M2-R4 univupdate: ported except KAS (stage 6)"
+ },
+ "0x00549ac0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: same list removals"
+ },
+ "0x00549b30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: nisIsRunning/REALlyBig skip, resourcevalue sum, Asteroid0 count in MinorSpaceObjList"
+ },
+ "0x00549bb0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: same compare; the export shows pieMovePointClipToLimits with 2 arguments (PiePlate.c, stage 3: prototype not checked here)"
+ },
+ "0x00549c50": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "fourth argument, FOW, technology and stealth checks, random pick",
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3)"
+ },
+ "0x00549f50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "sums live ships only (no derelict/resource loop), z+y+x on the x87 stack; the verbose net-log lines are shorter (no bullet log)",
+  "note": "M2-R4 univupdate: compared; the checksum itself was already ported (docs/m2-checksum-oracle.md 2.2), the verbose net-log text is left (stage 5, multiplayer)"
+ },
+ "0x0054a230": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no cloak-visibility pass, no HW1 self-repair (cat_univShipSelfRepair in the deferred update), Ship +0x600 cleared, every live ship queued for the deferred update",
+  "note": "M2-R4 univupdate: ported except Ship +0x600 (M2-R4 #4)"
+ },
+ "0x0054a340": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "runs the deferred updates before the housekeeps",
+  "note": "M2-R4 univupdate: ported"
+ },
+ "0x0054a3f0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "cat_shipIsTargetableBy and stealth detection, static selection",
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #4/#5)"
+ },
+ "0x0054a650": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "delayed deaths with modes, cat_tacticsShipAttacked, cloak/mimic/collector skips, out-of-world target check",
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #2/#4/#5)"
+ },
+ "0x0054acd0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clears realtimeelapsed, the ship counters, the frame-step switch, the protected-speed timer, two grow-selections; mission timer reset; no AttackMemory",
+  "note": "M2-R4 univupdate: ported except the second grow-selection/AttackMemory (M2-R4 #5) and the mission timer (stage 6)"
+ },
+ "0x0054af40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "inits a second universe grow-selection (unk1, the deferred-update list) besides HousekeepShipList and ClampedShipList (0x00c52d70); after the HW1 body clears the per-player ship counters (0x00a6ebe8, 0x00a6d820: 8 x 12; 0x00a6c5d0, 0x00a6d9a8: 8 x 145) and 0x00a6ed68, 0x00a6ed6c (protected-speed timer)",
+  "note": "M2-R4 univupdate: found modified (was IDENTICAL); the counters are ported (catShips*), the grow-selection layout is M2-R4 #5 (Universe layout). [audit: 0x00c52d70 is ClampedShipList (univUpdateAllPosVelShips adds clamped hosts to it and runs updateClampedObject over it), so \"no ClampedShipList init\" was wrong]"
+ },
+ "0x0054b030": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "frees the mesh state and +0x84 block for every resource type",
+  "note": "M2-R4 univupdate: ported"
+ },
+ "0x0054b1d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "tells every ship (slot 14), frees the mesh state and +0x84",
+  "note": "M2-R4 univupdate: ported"
+ },
+ "0x0054b230": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no CustShipDied, factory only for player 0 in single player, repair effect, inline bullet/missile clean-up, clamps, ship names, popup menu and info overlay told",
+  "note": "M2-R4 univupdate: ported except clamps (#3), names (#4), popup/overlay (stage 3)"
+ },
+ "0x0054b550": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "support units told, mesh state and +0x84 freed first, droids, damage points",
+  "note": "M2-R4 univupdate: mesh state and +0x84 ported; support units (#5), droids (#4) and damage points (#3) left"
+ },
+ "0x0054b780": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "frees mesh states and +0x84 blocks, closes the extra grow-selections",
+  "note": "M2-R4 univupdate: ported"
+ },
+ "0x0054bbd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: the \"trailDelete\" call is star3dClose's folded body (a memFree), as HW1"
  },
  "0x0054bbf0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "M2-R4 univupdate: compared: renderlink.belongto != NULL",
   "sample": "reread-R2"
+ },
+ "0x0054bc00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: univSpaceObjInRenderList inlined, listRemoveNode (listVerify is debug-only)"
+ },
+ "0x0054bc20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: SOF_Hide (0x8000) / SOF_AlwaysSortFront (0x4000000) tests, camera distance copied, listAddNodeAfter"
+ },
+ "0x0054bc80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: camera distance from mainCameraCommand eye position, sorted insert from the tail (sort-front) or head"
+ },
+ "0x0054bd80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: mrCamera (0x00a75274) lookat/eye, RENDER_VIEWABLE_DISTANCE_SQR, SOF_Hide, MinorRenderList"
+ },
+ "0x0054be80": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "per-type render distances, sort-front list, listMergeSort",
+  "note": "M2-R4 univupdate: compared, not ported (stage 3)"
+ },
+ "0x0054c270": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 univupdate: compared: REGROW_RATE_MODIFIER[0..7] (0x0088f560), frandom(1) on stream 10, three tries per volume type"
+ },
+ "0x0054c3f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "frame step, multiplayer autosave, real-time quit/win, Cataclysm speech ids, no tacticsGlobalUpdate, blasts and bullet-effect recreation after the ship update, inline dead-object loops, KAS save",
+  "note": "M2-R4 univupdate: ported except cat_blastUpdateAll (#3), cat_kasSaveLevelNow (stage 6) and the stats-screen quit (stage 3)"
+ },
+ "0x0054ce20": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "3 arguments, closes construction/launch/research managers, no game stats file",
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #5, stage 3)"
  },
  "0x005508d0": {
   "class": "IDENTICAL",

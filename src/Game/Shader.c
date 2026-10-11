@@ -16,6 +16,11 @@ Copyright Relic Entertainment, Inc.  All rights reserved.
 #include "Debug.h"
 #include "render.h"
 #include "Memory.h"
+#include "Globals.h"      // CAT: singlePlayerGame (cat_shGetTeamColour)
+#include "SpaceObj.h"    // CAT: the per-vertex glow state, ships and their trails
+#include "Teams.h"       // CAT: teColorSchemes
+#include "Trails.h"
+#include "Universe.h"    // CAT: universe.totaltimeelapsed
 
 
 /*=============================================================================
@@ -697,6 +702,172 @@ static ubyte catShClampByte(sdword c)
     return (ubyte)(c < 0 ? 0 : (c > 0xff ? 0xff : c));
 }
 
+//CAT: the object being rendered (0x00c32c00): cat_rndRenderObjectList 0x005776f0 / cat_rndObjectEffectsSetup
+//0x00575c90 set it per object and clear it when done; cat_shGlowUpdate and cat_shGetTeamColour read its trails and
+//team colour. Only ships are ever set here.
+void *catShCurrentObject = NULL;
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_shGetTeamColour (Cataclysm 0x0050d460)
+    Description : The detail (stripe) colour of the current render object's team, as floats scaled so that the
+                  largest channel is 1.0 (0xFF000000, black, counts as white). The team is the ship's colour scheme
+                  in single player and its owner's index otherwise.
+    Inputs      : rgb - where to put the colour
+    Outputs     : rgb[0..2]
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_shGetTeamColour(real32 *rgb)
+{
+    Ship *ship = (Ship *)catShCurrentObject;
+    sdword index;
+    color c;
+    real32 r, g, b, maxc;
+
+    if (bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic))
+    {
+        //CAT-TODO(M2-R4 #4): a mimic shows the team it imitates (cat_mimicGetApparentPlayerIndex 0x005b9890)
+        index = ship->playerowner->playerIndex;
+    }
+    else
+    {
+        index = singlePlayerGame ? ship->colorScheme : ship->playerowner->playerIndex;
+    }
+    c = teColorSchemes[index].textureColor.detail;      // 0x00bb3024 + index * 0x30
+    if (c == 0xff000000)
+    {
+        c = 0xffffffff;
+    }
+    r = (real32)(c & 0xff) * (1.0f / 256.0f);
+    g = (real32)((c >> 8) & 0xff) * (1.0f / 256.0f);
+    b = (real32)((c >> 16) & 0xff) * (1.0f / 256.0f);
+    maxc = r;
+    if (maxc < g)
+    {
+        maxc = g;
+    }
+    if (maxc < b)
+    {
+        maxc = b;
+    }
+    maxc = 1.0f / maxc;
+    rgb[0] = r * maxc;
+    rgb[1] = g * maxc;
+    rgb[2] = b * maxc;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_shGlowUpdate (Cataclysm 0x0050d560)
+    Description : Brings a vertex's runtime glow state up to date. Vertices whose info has flag 0x01 carry a hit
+                  glow that decays by 0.2 per second (and, with flag 0x02, darkens the vertex: the lost glow x 0.2
+                  is added to the scorch, which decays by 0.1 per second); the colour is -0.15 x the scorch plus
+                  the info's own colour offset / 256, or, for vertices with the trail bits 0x10 << i, plus the
+                  team colour weighted by how far trail i has expanded. Flags 0x31 force a recompute; the state
+                  remembers the time of its last update.
+    Inputs      : state - the vertex's state (NULL: nothing); vertexInfo - its info entry
+    Outputs     : the state
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_shGlowUpdate(CatVertexState *state, udword *vertexInfo)
+{
+    vertexinfo *info = (vertexinfo *)vertexInfo;
+    bool8 changed;
+    real32 old, c, k, team[3];
+    sdword i;
+    Ship *ship;
+    shiptrail *trail;
+
+    if (state == NULL)
+    {
+        return;
+    }
+    changed = state->dirty;
+    if ((info->flags & 0x31) != 0)
+    {
+        state->dirty = 1;
+    }
+    if (state->dirty)
+    {
+        if ((info->flags & 0x01) && state->hitGlow > 0.0f)
+        {
+            old = state->hitGlow;
+            if (state->hitGlow > 1.0f)
+            {
+                state->hitGlow = 1.0f;
+            }
+            state->hitGlow -= (universe.totaltimeelapsed - state->lastUpdate) * 0.2f;    // 0x0072b0f0
+            if (state->hitGlow < 0.0f)
+            {
+                state->hitGlow = 0.0f;
+            }
+            if (info->flags & 0x02)
+            {
+                state->scorch += (old - state->hitGlow) * 0.2f;                         // 0x0072a510
+            }
+            state->scorch -= (universe.totaltimeelapsed - state->lastUpdate) * 0.1f;     // 0x0072b0ec
+            if (state->scorch < 0.0f)
+            {
+                state->scorch = 0.0f;
+            }
+            changed = 1;
+        }
+        if ((info->flags & 0x30) || changed)
+        {
+            c = state->scorch;
+            if (!(c >= 0.0f))
+            {
+                c = 0.0f;
+            }
+            else if (!(c <= 1.0f))
+            {
+                c = 1.0f;
+            }
+            state->scorch = c;
+            c *= -0.15f;                                                                // 0x0072b0e8
+            state->colour[0] = c;
+            state->colour[1] = c;
+            state->colour[2] = c;
+            if ((info->flags & 0x30) == 0)
+            {
+                state->colour[0] = (real32)(sbyte)(info->colourOffset) * (1.0f / 256.0f) + c;
+                state->colour[1] = (real32)(sbyte)(info->colourOffset >> 8) * (1.0f / 256.0f) + c;
+                state->colour[2] = (real32)(sbyte)(info->colourOffset >> 16) * (1.0f / 256.0f) + c;
+            }
+            else if (catShCurrentObject != NULL)
+            {
+                ship = (Ship *)catShCurrentObject;
+                for (i = 0; i < 4; i++)
+                {
+                    if ((info->flags & (0x10 << i)) && (trail = ship->trail[i]) != NULL)
+                    {
+                        if (trail->state == TRAIL_CONTRACTED)
+                        {
+                            break;
+                        }
+                        if (trail->counter == 0)
+                        {
+                            k = 1.0f;
+                        }
+                        else if (trail->state == TRAIL_EXPANDING)
+                        {
+                            k = 1.0f - (real32)trail->counter / (real32)TRAIL_EXPANSION_TICKS;
+                        }
+                        else
+                        {
+                            k = (real32)trail->counter / (real32)TRAIL_EXPANSION_TICKS;
+                        }
+                        cat_shGetTeamColour(team);
+                        state->colour[0] += team[0] * k;
+                        state->colour[1] += team[1] * k;
+                        state->colour[2] += team[2] * k;
+                    }
+                }
+            }
+        }
+        state->dirty = 0;
+    }
+    state->lastUpdate = universe.totaltimeelapsed;
+}
+
 /*-----------------------------------------------------------------------------
     Name        : cat_shColourAddGlow (Cataclysm 0x0050d7c0)
     Description : Adds a vertex's own colour to its lit colour. With a per-ship vertex state it adds the runtime
@@ -710,16 +881,21 @@ static ubyte catShClampByte(sdword c)
 ----------------------------------------------------------------------------*/
 void cat_shColourAddGlow(ubyte *r, ubyte *g, ubyte *b, real32 *vertexState, udword *vertexInfo)
 {
+    CatVertexState *state = (CatVertexState *)vertexState;
+
     if (!catShColourByVertex)
     {
         return;
     }
-    if (vertexState != NULL)
+    if (state != NULL)
     {
-        //CAT: stage 2. The runtime glow needs cat_shGlowUpdate 0x0050d560 and the per-ship mesh state of
-        //cat_univShipMeshStateCreate 0x00541cd0 (0x28 bytes per vertex: glow, hit, last update time, colour at
-        //+0x18..+0x20), the current ship and its trails; none of it is ported, and every caller passes NULL.
-        dbgFatalf(DBG_Loc, "cat_shColourAddGlow: per-vertex glow state is not ported yet (stage 2)");
+        //CAT: with a per-vertex state the glow colour is added instead: the state is brought up to date
+        //(cat_shGlowUpdate) and each channel gets twice FAST_TO_INT(colour * 256), clamped (0x0050d7da..0x0050d974)
+        cat_shGlowUpdate(state, vertexInfo);
+        *r = catShClampByte((sdword)*r + catShFastToInt(state->colour[0] * 256.0f) * 2);
+        *g = catShClampByte((sdword)*g + catShFastToInt(state->colour[1] * 256.0f) * 2);
+        *b = catShClampByte((sdword)*b + catShFastToInt(state->colour[2] * 256.0f) * 2);
+        return;
     }
     if ((*vertexInfo & 0x00ffffff) != 0)
     {

@@ -967,7 +967,9 @@ void smBlobDrawClear(Camera *camera, blob *thisBlob, hmatrix *modelView, hmatrix
                                     g_WireframeHack = FALSE;
                                     if (ship->bindings != NULL)
                                     {
-                                        meshRenderShipHierarchy(ship->bindings,
+                                        // CAT: the sensors manager draws with no per-vertex state
+                                        //      (cat_smShipMeshDraw 0x0050a0d0 passes 0)
+                                        meshRenderShipHierarchy(NULL, ship->bindings,
                                                 ship->obj.currentLOD,
                                                 (meshdata *)level->pData, i);
                                     }

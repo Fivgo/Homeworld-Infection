@@ -1423,6 +1423,49 @@ typedef struct
     udword catOmitFromRenderList;
 } SpaceObjHeader;
 
+/*-----------------------------------------------------------------------------
+    CAT: per-vertex runtime mesh state (the "glow" state). cat_univShipMeshStateCreate 0x00541cd0 gives every ship,
+    and only ships, a table with one entry per LOD level; each mesh level holds one 12-byte slot per polygon object
+    (numbered in the hierarchy's pre-order, as the render walk numbers them) with a 0x28-byte state per vertex
+    (cat_univMeshStateAllocRecursive 0x00541b80). The renderer passes the vertex state to cat_shColourAddGlow
+    0x0050d7c0; cat_shGlowUpdate 0x0050d560 and the bullet-hit callback 0x004b5820 change it. Field names are chosen
+    here from those users.
+-----------------------------------------------------------------------------*/
+typedef struct CatVertexState
+{
+    real32 scorch;          // +0x00 darkening: grows by 0.2 x the hit glow lost when the vertex info has flag 0x02,
+                            //       decays 0.1 per second, clamped to 0..1 (cat_shGlowUpdate)
+    real32 hitGlow;         // +0x04 the bullet-hit callback adds 1.0; decays 0.2 per second, at most 1.0
+    real32 value08;         // +0x08 1.0 when the vertex info has flag 0x04 (no shipped mesh has it), else 0; no reader found
+    real32 value0C;         // +0x0C 0, no reader found
+    ubyte value10;          // +0x10 0, no reader found
+    ubyte dirty;            // +0x11 1 at creation and when the info has flags 0x31: cat_shGlowUpdate recomputes the colour
+    ubyte pad12[2];
+    real32 lastUpdate;      // +0x14 universe.totaltimeelapsed at the last cat_shGlowUpdate, -1.0 at creation
+    real32 colour[3];       // +0x18 R, G, B offsets cat_shColourAddGlow adds (x 256 x 2) to the lit colour
+    real32 value24;         // +0x24 0, no reader found
+} CatVertexState;
+
+typedef struct CatMeshObjectState
+{
+    sdword objectWord0;     // +0x00 a copy of the polygon object's first word (its name pointer in the exe)
+    sdword nVertices;       // +0x04
+    CatVertexState *vertex; // +0x08 nVertices states
+} CatMeshObjectState;
+
+typedef struct CatMeshState
+{
+    sdword nLevels;                     // +0x00 the ship's LOD count
+    CatMeshObjectState *level[1];       // +0x04 per LOD level: the object slots of a mesh level, NULL otherwise
+} CatMeshState;
+
+#define catMeshStateSize(n)     (sizeof(CatMeshState) + sizeof(CatMeshObjectState *) * ((n) - 1))
+
+_Static_assert(sizeof(CatVertexState) == 0x28, "the per-vertex mesh state is 0x28 bytes in cataclysm.exe");
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(CatMeshObjectState) == 0x0C, "the per-object mesh state slot is 12 bytes in cataclysm.exe");
+#endif
+
 typedef struct
 {
     SpaceObjHeader header;
@@ -1438,6 +1481,14 @@ typedef struct
     real32 collOptimizeDist;         // distance used for optimizing collision checking
     struct blob *collMyBlob;         // collision blob I belong to
     PosInfo posinfo;
+    // CAT: two new fields right after posinfo (exe +0x80 and +0x84; posinfo is +0x58..+0x80 in the exe). Every
+    //      creator sets both (univAddAsteroid 0x00540a30, univAddMissile 0x00540c70, etgEffectCreate 0x00470990 ...)
+    //      and LoadSpaceObj 0x00501660 clears both after a load.
+    CatMeshState *catMeshState;      // exe +0x80: ships only (cat_univShipMeshStateCreate 0x00541cd0), else NULL;
+                                     //   freed by cat_univMeshStateFree 0x00541df0
+    ubyte *catEffectBlock;           // exe +0x84: a one-byte block the effect creators allocate (etgEffectCreate,
+                                     //   etgCreateEffects, etgSpawnNewEffect: memAlloc(1)), NULL for every other
+                                     //   object; every free path frees it. No reader was found (render, stage 3)
 } SpaceObj;
 
 typedef SpaceObj *SpaceObjPtr;

@@ -789,6 +789,7 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
     listAddNode(&universe.SpaceObjList,&(missile->header.objlink),missile);
     listAddNode(&universe.ImpactableList,&(missile->impactable.impactablelink),missile);
     listAddNode(&universe.MissileList,&(missile->missilelink),missile);
+    cat_univShipMeshStateCreate(&missile->obj);             // CAT: missileShoot 0x0048aac0 (NULL: not a ship)
 
     univAddObjToRenderListIf((SpaceObj *)missile,&ship->obj);     // add missile to render list if parent ship is in render list
 
@@ -989,6 +990,7 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
     gun->lasttimefired = universe.totaltimeelapsed;
 
     bullet = memAlloc(sizeof(Bullet),"Bu(Bullet)",Pyrophoric);
+    bullet->obj.catEffectBlock = NULL;                      // CAT: +0x84 cleared first (cat_gunCreateBullet 0x0048bb00)
 
     bullet->header.objtype = OBJ_BulletType;
     bullet->header.flags = 0;
@@ -997,6 +999,7 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
     bullet->obj.currentLOD = ship->obj.currentLOD;
     bullet->obj.collMyBlob = NULL;
     bullet->obj.cameraDistanceSquared = ship->obj.cameraDistanceSquared;
+    cat_univShipMeshStateCreate(&bullet->obj);              // CAT: cat_gunCreateBullet 0x0048bb00 (NULL: not a ship)
 
 
     //calculate a damage multipler based on several variables

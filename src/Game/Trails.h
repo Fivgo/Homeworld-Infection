@@ -120,6 +120,7 @@ missiletrail;
     Data:
 =============================================================================*/
 extern sdword trailInsertCount;
+extern sdword TRAIL_EXPANSION_TICKS;    // CAT: read by cat_shGlowUpdate (Shader.c)
 
 /*=============================================================================
     Macros:

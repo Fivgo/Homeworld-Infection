@@ -157,18 +157,9 @@ void MiningBaseDied(Ship *ship)
             deleteme->howDidIDie = ship->howDidIDie;
             deleteme->whoKilledMe = ship->whoKilledMe;
             univDeleteDeadShip(deleteme,EDT_AccumDamage);
-            // CAT: the exe's MiningBaseDied 0x005b0370 has no list removals here (nor the ETG_DISABLEABLE wipe);
-            //      they are kept until univDeleteDeadShip and the dead-ship path (UnivUpdate.c, M2-R4 #1) are ported,
-            //      because HW1's univDeleteDeadShip leaves the ship in both lists
-            listRemoveNode(&deleteme->shiplink);
-            listRemoveNode(&deleteme->impactable.impactablelink);
-
-#if ETG_DISABLEABLE
-            if (!etgEffectsEnabled)
-            {
-                univWipeShipOutOfExistence(deleteme);
-            }
-#endif
+            // CAT: no list removals and no ETG_DISABLEABLE wipe here (MiningBaseDied 0x005b0370): the other mining
+            //      bases stay in the ship and impactable lists until their death effect wipes them
+            //      (univWipeShipOutOfExistence), as every other dead ship does
         }
     }
 }

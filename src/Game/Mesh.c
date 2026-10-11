@@ -50,9 +50,14 @@
 #define meshColour(NORMAL) shColourSet0((vector*)NORMAL, NULL, NULL);
 //CAT: per-vertex colour (meshObjectRender 0x004b0170, meshObjectRenderLit 0x004b0970): with enableCPV set, each vertex
 //is lit with its own info entry (pVertexInfo[iV], cat_shColourAddGlow 0x0050d7c0) and its runtime glow state. The
-//state array is the exe's new first argument of both functions (state + iV * 0x28, created per ship and LOD by
-//cat_univShipMeshStateCreate 0x00541cd0, stage 2); until it is ported the state is NULL.
-#define MESH_VERTEX_STATE(IV)   ((real32 *)NULL)
+//exe passes the object's vertex states (0x28 bytes per vertex, from the ship's per-vertex mesh state,
+//cat_univShipMeshStateCreate 0x00541cd0) as the new first argument of both functions; here the hierarchy walkers
+//(meshObjectRenderHierarchy 0x004b4370, meshObjectRenderR 0x004b4110) set meshCurrentVertexState around the call
+//instead, so the HW1 signatures and their other callers stay as they are (NULL: no state).
+static struct CatVertexState *meshCurrentVertexState = NULL;
+#define MESH_VERTEX_STATE(IV)   ((meshCurrentVertexState != NULL) ? (real32 *)&meshCurrentVertexState[(IV)] : (real32 *)NULL)
+//CAT: the vertex states of slot `index` of a level's mesh state, or NULL (the exe's `slots ? slots[index].vertex : 0`)
+#define MESH_SLOT_STATE(SLOTS, INDEX)   (((SLOTS) != NULL) ? (SLOTS)[(INDEX)].vertex : NULL)
 #define meshColourCPV(NORMAL, OBJECT, IV) \
     shColourSet0((vector*)(NORMAL), MESH_VERTEX_STATE(IV), &(OBJECT)->pVertexInfo[(IV)].colourOffset);
 //CAT: the smooth modes of meshObjectRenderLit 0x004b0970 light every vertex: with its info entry and state when
@@ -2788,9 +2793,34 @@ void meshObjectRenderTex(polygonobject *object, materialentry *material)
     Outputs     : renders the object and all it's daughter objects.
     Return      : void
 ----------------------------------------------------------------------------*/
-void meshObjectRenderR(polygonobject *object, materialentry *materials, sdword iColorScheme)
+//CAT: meshObjectRenderR 0x004b4110 also takes the level's vertex-state slots and the object's slot index (the same
+//pre-order as cat_univMeshStateAllocRecursive 0x00541b80) and returns the next index
+static struct CatMeshObjectState *meshCurrentStateSlots = NULL;
+static mhlocalbinding *meshCurrentBindingBase = NULL;   //CAT: first binding of the LOD being drawn (slot index base)
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_meshRenderState
+    Description : meshRender with a ship's per-vertex mesh state: the exe's meshRender 0x004b4280 takes the LOD's
+                  slots as its first argument (cat_rndRenderObjectList passes them for ships with no local
+                  bindings); every other caller passes none, which is what meshRender does here.
+    Inputs      : slots - the LOD's object slots or NULL; mesh, iColorScheme - as meshRender
+    Outputs     :
+    Return      : as meshRender
+----------------------------------------------------------------------------*/
+sdword meshRender(meshdata *mesh, sdword iColorScheme);
+sdword cat_meshRenderState(struct CatMeshObjectState *slots, meshdata *mesh, sdword iColorScheme)
+{
+    sdword result;
+
+    meshCurrentStateSlots = slots;
+    result = meshRender(mesh, iColorScheme);
+    meshCurrentStateSlots = NULL;
+    return result;
+}
+sdword meshObjectRenderR(polygonobject *object, materialentry *materials, sdword iColorScheme, sdword index)
 {
     polygonobject *daughter;
+    sdword next = index + 1;                                //CAT
 
     glPushMatrix();
     glMultMatrixf((float *)&object->localMatrix);            //set matrix for this object
@@ -2798,13 +2828,16 @@ void meshObjectRenderR(polygonobject *object, materialentry *materials, sdword i
 
     for (daughter = object->pDaughter; daughter != NULL; daughter = daughter->pSister)
     {
-        meshObjectRenderR(daughter, materials, iColorScheme);     //render all daughter objects
+        next = meshObjectRenderR(daughter, materials, iColorScheme, next);     //render all daughter objects
     }
 
+    meshCurrentVertexState = MESH_SLOT_STATE(meshCurrentStateSlots, index);   //CAT
     MESH_OBJECT_RENDER(object, materials, iColorScheme)
+    meshCurrentVertexState = NULL;                          //CAT
 
     shPopLightMatrix();
     glPopMatrix();
+    return next;
 }
 
 /*-----------------------------------------------------------------------------
@@ -2820,6 +2853,7 @@ void meshObjectRenderR(polygonobject *object, materialentry *materials, sdword i
 sdword meshRender(meshdata *mesh, sdword iColorScheme)
 {
     polygonobject *object;
+    sdword index;                                           //CAT
 
     meshFixupPacoUV(mesh, texLinearFiltering);
 
@@ -2835,9 +2869,9 @@ sdword meshRender(meshdata *mesh, sdword iColorScheme)
     nMaterialChanges = 0;
     iMaterialMax = 0;
 #endif //MESH_MATERIAL_STATS
-    for (object = &mesh->object[0]; object != NULL; object = object->pSister)
+    for (object = &mesh->object[0], index = 0; object != NULL; object = object->pSister)
     {
-        meshObjectRenderR(object, mesh->localMaterial, iColorScheme);
+        index = meshObjectRenderR(object, mesh->localMaterial, iColorScheme, index);  //CAT: slot index (0x004b4280)
     }
 #if MESH_MATERIAL_STATS
     meshMaterialChanges += nMaterialChanges;                //record material stats
@@ -2858,6 +2892,8 @@ sdword meshRender(meshdata *mesh, sdword iColorScheme)
 mhlocalbinding *meshObjectRenderHierarchy(mhlocalbinding *binding, polygonobject *object, materialentry *materials, sdword iColorScheme)
 {
     polygonobject *daughter;
+    //CAT: the exe walks the bindings by index (0x004b4370); the index picks the object's vertex-state slot
+    sdword index = (meshCurrentStateSlots != NULL) ? (sdword)(binding - meshCurrentBindingBase) : 0;
 
     glPushMatrix();
     if (binding->function != NULL)
@@ -2877,7 +2913,9 @@ mhlocalbinding *meshObjectRenderHierarchy(mhlocalbinding *binding, polygonobject
     {
         binding = meshObjectRenderHierarchy(binding, daughter, materials, iColorScheme);     //render all daughter objects
     }
+    meshCurrentVertexState = MESH_SLOT_STATE(meshCurrentStateSlots, index);   //CAT: this object's vertex states
     MESH_OBJECT_RENDER(object, materials, iColorScheme)
+    meshCurrentVertexState = NULL;                          //CAT
     shPopLightMatrix();
     glPopMatrix();
     return(binding);
@@ -2893,7 +2931,7 @@ mhlocalbinding *meshObjectRenderHierarchy(mhlocalbinding *binding, polygonobject
     Outputs     : renders a ship
     Return      : void
 ----------------------------------------------------------------------------*/
-void meshRenderShipHierarchy(shipbindings *bindings, sdword currentLOD, meshdata *mesh, sdword iColorScheme)
+void meshRenderShipHierarchy(struct CatMeshState *meshState, shipbindings *bindings, sdword currentLOD, meshdata *mesh, sdword iColorScheme)
 {
     polygonobject *object;
     mhlocalbinding *binding;                                //binding list for this LOD
@@ -2919,10 +2957,16 @@ void meshRenderShipHierarchy(shipbindings *bindings, sdword currentLOD, meshdata
     iMaterialMax = 0;
 #endif //MESH_MATERIAL_STATS
     binding = bindings->localBinding[currentLOD];
+    //CAT: meshRenderShipHierarchy 0x004b4520 takes the ship's per-vertex mesh state as a new first argument and
+    //passes this LOD's slots down (meshState->level[currentLOD], or none)
+    meshCurrentBindingBase = binding;
+    meshCurrentStateSlots = (meshState != NULL) ? meshState->level[currentLOD] : NULL;
     for (object = &mesh->object[0]; object != NULL; object = object->pSister)
     {
         binding = meshObjectRenderHierarchy(binding, object, mesh->localMaterial, iColorScheme);
     }
+    meshCurrentStateSlots = NULL;
+    meshCurrentBindingBase = NULL;
 #if MESH_MATERIAL_STATS
     meshMaterialChanges += nMaterialChanges;                //record material stats
     meshTotalMaterials += iMaterialMax + 1;
@@ -2996,6 +3040,192 @@ bool32 meshFindHierarchyMatrixByUserData(hmatrix *dest, hmatrix *destNC, mhbindi
     return(FALSE);
 }
 
+/*=============================================================================
+    CAT: the bullet-hit glow (cat_meshApplyBulletHit 0x004b52d0 and its helpers 0x004b4f80..0x004b5240, callback
+    0x004b5820). A bullet that hits a ship lights the mesh vertex nearest to the hit point and every vertex within a
+    radius of it, in every LOD of the ship's per-vertex mesh state. The exe builds each object's matrix on the GL
+    modelview stack (glPushMatrix / glMultMatrixf / glGetFloatv(GL_MODELVIEW_MATRIX)) from the ship's coordinate
+    system and position and the objects' local matrices; this port multiplies the same matrices on the CPU (the
+    glow is render state only, so the last float bits of the result do not matter to the simulation). The radius
+    pass compares object-space positions with the nearest vertex's object-space position, as the exe does.
+=============================================================================*/
+typedef struct CatNearestVertex                         // the exe's 0x18-byte record
+{
+    vertexinfo *info;                                   // +0x00 the nearest vertex's info entry, NULL = none yet
+    CatVertexState *state;                              // +0x04 its state
+    real32 distSquared;                                 // +0x08
+    vector position;                                    // +0x0C its object-space position
+} CatNearestVertex;
+
+//cat_meshObjectNearestVertexToHit 0x004b4f80: brings the hit point into object space (the inverse rotation of the
+//object-to-world matrix times hit - translation) and keeps the object's vertex nearest to it in the record
+static void cat_meshObjectNearestVertexToHit(vector *hit, hmatrix *objectToWorld, polygonobject *object, sdword index,
+                                             CatMeshObjectState *slots, CatNearestVertex *rec)
+{
+    matrix rotation;
+    vector delta, local, d;
+    real32 distSquared;
+    sdword i;
+
+    rotation.m11 = objectToWorld->m11; rotation.m21 = objectToWorld->m21; rotation.m31 = objectToWorld->m31;
+    rotation.m12 = objectToWorld->m12; rotation.m22 = objectToWorld->m22; rotation.m32 = objectToWorld->m32;
+    rotation.m13 = objectToWorld->m13; rotation.m23 = objectToWorld->m23; rotation.m33 = objectToWorld->m33;
+    delta.x = hit->x - objectToWorld->m14;
+    delta.y = hit->y - objectToWorld->m24;
+    delta.z = hit->z - objectToWorld->m34;
+    matMultiplyVecByMat(&local, &delta, &rotation);
+    for (i = 0; i < object->nVertices; i++)
+    {
+        d.x = local.x - object->pVertexList[i].x;
+        d.y = local.y - object->pVertexList[i].y;
+        d.z = local.z - object->pVertexList[i].z;
+        distSquared = d.x * d.x + d.y * d.y + d.z * d.z;
+        if (rec->info == NULL || distSquared < rec->distSquared)
+        {
+            rec->info = &object->pVertexInfo[i];
+            rec->state = &slots[index].vertex[i];
+            rec->distSquared = distSquared;
+            rec->position.x = object->pVertexList[i].x;
+            rec->position.y = object->pVertexList[i].y;
+            rec->position.z = object->pVertexList[i].z;
+        }
+    }
+}
+
+//cat_meshObjectNearestVertexToHitR 0x004b5110: the daughters first (slots index + 1 ...), then the object itself
+static sdword cat_meshObjectNearestVertexToHitR(vector *hit, hmatrix *parentToWorld, polygonobject *object, sdword index,
+                                                CatMeshObjectState *slots, CatNearestVertex *rec)
+{
+    polygonobject *daughter;
+    hmatrix objectToWorld;
+    sdword next = index + 1;
+
+    hmatMultiplyHMatByHMat(&objectToWorld, parentToWorld, &object->localMatrix);    // glPushMatrix, glMultMatrixf
+    for (daughter = object->pDaughter; daughter != NULL; daughter = daughter->pSister)
+    {
+        next = cat_meshObjectNearestVertexToHitR(hit, &objectToWorld, daughter, next, slots, rec);
+    }
+    cat_meshObjectNearestVertexToHit(hit, &objectToWorld, object, index, slots, rec);
+    return next;
+}
+
+//cat_meshObjectForVerticesInRadius 0x004b5190: calls the callback for every vertex of the object within the squared
+//radius of the nearest vertex's (object-space) position
+static void cat_meshObjectForVerticesInRadius(CatNearestVertex *rec, real32 radiusSquared, polygonobject *object,
+                                              sdword index, CatMeshObjectState *slots,
+                                              void (*callback)(vertexinfo *, CatVertexState *, void *), void *data)
+{
+    vector d;
+    sdword i;
+
+    for (i = 0; i < object->nVertices; i++)
+    {
+        d.x = object->pVertexList[i].x - rec->position.x;
+        d.y = object->pVertexList[i].y - rec->position.y;
+        d.z = object->pVertexList[i].z - rec->position.z;
+        if (d.x * d.x + d.y * d.y + d.z * d.z <= radiusSquared)
+        {
+            callback(&object->pVertexInfo[i], &slots[index].vertex[i], data);
+        }
+    }
+}
+
+//cat_meshObjectForVerticesInRadiusR 0x004b5240: the daughters first, then the object
+static sdword cat_meshObjectForVerticesInRadiusR(CatNearestVertex *rec, real32 radiusSquared, polygonobject *object,
+                                                 sdword index, CatMeshObjectState *slots,
+                                                 void (*callback)(vertexinfo *, CatVertexState *, void *), void *data)
+{
+    polygonobject *daughter;
+    sdword next = index + 1;
+
+    for (daughter = object->pDaughter; daughter != NULL; daughter = daughter->pSister)
+    {
+        next = cat_meshObjectForVerticesInRadiusR(rec, radiusSquared, daughter, next, slots, callback, data);
+    }
+    cat_meshObjectForVerticesInRadius(rec, radiusSquared, object, index, slots, callback, data);
+    return next;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_meshBulletHitGlowCB (Cataclysm 0x004b5820, unnamed in the export)
+    Description : The bullet hit's per-vertex callback: a vertex whose info has flag 0x01 is brought up to date,
+                  gains *data of hit glow, and its info entry gets flag 0x02 (shared by every ship of that mesh).
+    Inputs      : info, state - the vertex; data - a real32 *, the glow to add (1.0)
+    Outputs     :
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_meshBulletHitGlowCB(vertexinfo *info, CatVertexState *state, void *data)
+{
+    if (info->flags & 0x01)
+    {
+        cat_shGlowUpdate(state, (udword *)info);
+        state->hitGlow += *(real32 *)data;
+        info->flags |= 0x02;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_meshApplyBulletHit (Cataclysm 0x004b52d0)
+    Description : For each LOD level of a ship's per-vertex mesh state: finds the mesh vertex nearest to a world
+                  point and calls a callback on it and on every vertex within a radius of it.
+    Inputs      : hit - the world point; radiusSquared; ship; callback, data - called as callback(info, state, data)
+    Outputs     :
+    Return      : void
+----------------------------------------------------------------------------*/
+void cat_meshApplyBulletHit(vector *hit, real32 radiusSquared, Ship *ship,
+                            void (*callback)(vertexinfo *, CatVertexState *, void *), void *data)
+{
+    lodinfo *lodInfo = ship->staticinfo->common.LOD;
+    hmatrix shipToWorld, objectToWorld;
+    CatNearestVertex rec;
+    CatMeshObjectState *slots;
+    polygonobject *object, *daughter;
+    sdword level, next;
+
+    hmatMakeHMatFromMat(&shipToWorld, &ship->rotatable.rotinfo.coordsys);
+    shipToWorld.m14 = ship->obj.posinfo.position.x;
+    shipToWorld.m24 = ship->obj.posinfo.position.y;
+    shipToWorld.m34 = ship->obj.posinfo.position.z;
+    for (level = 0; level < lodInfo->nLevels; level++)
+    {
+        rec.info = NULL;
+        rec.state = NULL;
+        rec.distSquared = 0.0f;
+        if (ship->obj.catMeshState == NULL)
+        {
+            break;
+        }
+        slots = ship->obj.catMeshState->level[level];
+        if (slots == NULL)
+        {                                                   // HWI: the exe walks every level as a mesh; a non-mesh
+            continue;                                       // level has no slots here
+        }
+        //every top-level object starts at slot 0 and its daughters at 1 (0x004b53d6, 0x004b540b), as in the exe
+        for (object = &((meshdata *)lodInfo->level[level].pData)->object[0]; object != NULL; object = object->pSister)
+        {
+            hmatMultiplyHMatByHMat(&objectToWorld, &shipToWorld, &object->localMatrix);
+            for (next = 1, daughter = object->pDaughter; daughter != NULL; daughter = daughter->pSister)
+            {
+                next = cat_meshObjectNearestVertexToHitR(hit, &objectToWorld, daughter, next, slots, &rec);
+            }
+            cat_meshObjectNearestVertexToHit(hit, &objectToWorld, object, 0, slots, &rec);
+        }
+        if (rec.info == NULL)
+        {                                                   // HWI: a mesh with no vertices (the exe would call the
+            continue;                                       // callback with NULL)
+        }
+        callback(rec.info, rec.state, data);
+        for (object = &((meshdata *)lodInfo->level[level].pData)->object[0]; object != NULL; object = object->pSister)
+        {
+            for (next = 1, daughter = object->pDaughter; daughter != NULL; daughter = daughter->pSister)
+            {
+                next = cat_meshObjectForVerticesInRadiusR(&rec, radiusSquared, daughter, next, slots, callback, data);
+            }
+            cat_meshObjectForVerticesInRadius(&rec, radiusSquared, object, 0, slots, callback, data);
+        }
+    }
+}
+
 /*-----------------------------------------------------------------------------
     Name        : meshBindingListRecurse
     Description : Mesh-hierarchy recursion function to handle the creation of
@@ -3007,16 +3237,18 @@ bool32 meshFindHierarchyMatrixByUserData(hmatrix *dest, hmatrix *destNC, mhbindi
                     binding list in an order appropriate for rendering.
     Return      : new index into the list
 ----------------------------------------------------------------------------*/
-sdword meshBindingListRecurse(mhbinding *bindingList, sdword index, polygonobject *object)
+sdword meshBindingListRecurse(mhbinding *bindingList, sdword index, polygonobject *object, ubyte parentIndex)
 {
     polygonobject *daughter;
+    sdword myIndex = index;                                 //CAT
 
     bindingList[index].object = object;                     //save the link to this object
     bindingList[index].function = NULL;                     //NULL means no function
+    bindingList[index].parentIndex = parentIndex;           //CAT: parent binding index (meshBindingListRecurse 0x004b47b0)
     index++;
     for (daughter = object->pDaughter; daughter != NULL; daughter = daughter->pSister)
     {                                                               //service all children first
-        index = meshBindingListRecurse(bindingList, index, daughter);//render all daughter objects
+        index = meshBindingListRecurse(bindingList, index, daughter, (ubyte)myIndex);//CAT: children's parent is this binding
     }
     return(index);
 }
@@ -3039,7 +3271,7 @@ mhbinding *meshBindingListCreate(meshdata *mesh)
     bindingList = memAlloc(mesh->nPolygonObjects * sizeof(mhbinding), "MeshBindingList", NonVolatile);
     for (sister = &mesh->object[0]; sister != NULL; sister = sister->pSister)
     {                                                       //search all the base objects
-        index = meshBindingListRecurse(bindingList, index, sister);
+        index = meshBindingListRecurse(bindingList, index, sister, 0xff);  //CAT: top-level objects have no parent (meshBindingListCreate 0x004b4840)
     }
 #if MESH_ERROR_CHECKING
     if (index != mesh->nPolygonObjects)

@@ -292,6 +292,8 @@ void defensefightertargetbullet(Ship *ship, Bullet *bullettotarget)
 //        size = etgEffectSize(stat->nParticleBlocks);//compute size of effect
         size = stat->effectSize;
         newEffect = memAlloc(size, "DefenseFHittingEffect", 0);          //allocate the new effect
+        newEffect->obj.catMeshState = NULL;                 // CAT: the SpaceObj +0x80/+0x84 fields (dormant HW1 ship)
+        newEffect->obj.catEffectBlock = NULL;
 
         newEffect->header.objtype = OBJ_EffectType;
         newEffect->header.flags = SOF_Rotatable | SOF_AttachVelocity | SOF_AttachPosition | SOF_AttachCoordsys;

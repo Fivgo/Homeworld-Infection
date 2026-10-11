@@ -1400,6 +1400,8 @@ udword etgEffectTest(regionhandle reg, sdword ID, udword event, udword data)
     size = stat->effectSize;
     newEffect = memAlloc(size, "TestingEffect", 0);         //allocate the new effect
     newEffect->header.objtype = OBJ_EffectType;
+    newEffect->obj.catMeshState = NULL;                     // CAT: the SpaceObj +0x80/+0x84 fields (debug creator: no
+    newEffect->obj.catEffectBlock = NULL;                   //      block, the free paths accept NULL)
     newEffect->header.flags = SOF_Rotatable | SOF_AttachPosition | SOF_AttachVelocity | SOF_AttachCoordsys;
     newEffect->staticinfo = stat;
     ClearNode(newEffect->obj.renderlink);
@@ -2029,6 +2031,9 @@ void etgEffectDelete(Effect *effect)
 {
     sdword index;
 
+    // CAT: the effect's one-byte block goes first (etgEffectDelete 0x0046a6f0, and inlined in etgDeleteEffectsOwnedBy
+    //      0x0046fff0 at 0x0047001d)
+    cat_univFreeEffectBlock(&effect->obj);
     // CAT: ships drop their references to the effect (cat_univRemoveEffectReferencesFromShips 0x005475e0, called by
     //      etgEffectDelete 0x0046a6f0 and etgDeleteEffectsOwnedBy 0x0046fff0)
     cat_univRemoveEffectReferencesFromShips(effect);
@@ -7111,6 +7116,8 @@ memsize etgCreateEffects(etgarg *args)
         }
         size = stat->effectSize;
         newEffect = memAlloc(size, "Ef(Effect)", Pyrophoric);   //allocate the new effect
+        newEffect->obj.catMeshState = NULL;                 // CAT: +0x80 cleared, +0x84 = a one-byte block
+        newEffect->obj.catEffectBlock = memAlloc(1, "EffectBlock", 0);  //      (etgCreateEffects 0x004704e0)
         newEffect->header.objtype = OBJ_EffectType;
         newEffect->header.flags = SOF_Rotatable;
         newEffect->header.catHeader18 = 0;                  // CAT: cleared as the exe does (0x00470669)
@@ -7175,6 +7182,7 @@ memsize etgCreateEffects(etgarg *args)
         newEffect->deltaSpin = etgEffOffset.deltaSpin;
         listAddNode(&universe.SpaceObjList,&(newEffect->header.objlink),newEffect);
         listAddNode(&universe.effectList,&(newEffect->effectLink),newEffect);
+        cat_univShipMeshStateCreate(&newEffect->obj);       // CAT: etgCreateEffects 0x004704e0 (NULL: not a ship)
         if (bitTest(stat->specialOps, ESO_WorldRender))
         {
             bitSet(newEffect->header.flags, SOF_Hide);
@@ -7213,6 +7221,8 @@ Effect* etgEffectCreate(etgeffectstatic* stat, Ship* owner, vector* pos, vector*
     Effect *newEffect;
 
     newEffect = memAlloc(stat->effectSize, "GE(GenEffect)", Pyrophoric);//allocate the new effect
+    newEffect->obj.catMeshState = NULL;                     // CAT: +0x80 cleared, +0x84 = a one-byte block
+    newEffect->obj.catEffectBlock = memAlloc(1, "EffectBlock", 0);  //      (etgEffectCreate 0x00470990)
 
     newEffect->header.objtype = OBJ_EffectType;                    //type of spaceobj
     // CAT: only the attachment bits are copied, and EAF_OwnerCoordSys becomes its own header bit (etgEffectCreate
@@ -7297,6 +7307,7 @@ Effect* etgEffectCreate(etgeffectstatic* stat, Ship* owner, vector* pos, vector*
     }
     listAddNode(&universe.SpaceObjList,&(newEffect->header.objlink),newEffect);
     listAddNode(&universe.effectList,&(newEffect->effectLink),newEffect);
+    cat_univShipMeshStateCreate(&newEffect->obj);           // CAT: etgEffectCreate 0x00470990 (NULL: not a ship)
     if (owner != NULL)
     {
         if (bitTest(stat->specialOps, ESO_WorldRender))
@@ -7433,6 +7444,8 @@ memsize etgSpawnNewEffect(etgarg *args)
 //    size = etgEffectSize(stat->nParticleBlocks);            //compute size of effect
     size = stat->effectSize;
     newEffect = memAlloc(size, "Ef(Effect)", Pyrophoric);       //allocate the new effect
+    newEffect->obj.catMeshState = NULL;                     // CAT: +0x80 cleared, +0x84 = a one-byte block
+    newEffect->obj.catEffectBlock = memAlloc(1, "EffectBlock", 0);  //      (etgSpawnNewEffect 0x00470c50)
     newEffect->header.objtype = OBJ_EffectType;
     newEffect->header.catHeader18 = 0;                      // CAT: cleared as the exe does
     if (etgEffOffset.attachParent && effect->owner != NULL)
@@ -7518,6 +7531,7 @@ memsize etgSpawnNewEffect(etgarg *args)
     newEffect->deltaSpin = etgEffOffset.deltaSpin;
     listAddNode(&universe.SpaceObjList,&(newEffect->header.objlink),newEffect);
     listAddNode(&universe.effectList,&(newEffect->effectLink),newEffect);
+    cat_univShipMeshStateCreate(&newEffect->obj);           // CAT: etgSpawnNewEffect 0x00470c50 (NULL: not a ship)
     univAddObjToRenderListIf((SpaceObj *)newEffect,(SpaceObj *)effect);// add to render list if parent ship is in render list
 
     return((memsize)newEffect);                              //return pointer to ETG code

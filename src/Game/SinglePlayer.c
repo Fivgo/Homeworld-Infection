@@ -2586,7 +2586,7 @@ void singlePlayerGameUpdate(void)
 #else
                     if (spGetCurrentMission() == MISSION_16_HIIGARA)
                     {
-                        universe.quittime = universe.totaltimeelapsed;
+                        universe.quittime = universe.realtimeelapsed;     // CAT: quit times are real time (singlePlayerGameUpdate 0x005197d0; Cataclysm's last-mission test is stage 6)
                         utyCreditsSequence = TRUE;
                     }
 #endif
@@ -3917,7 +3917,7 @@ void singlePlayerMissionCompleteCB(void)
     selSelected.numShips = 0;
     ioUpdateShipTotals();
     mrRenderMainScreen = FALSE;
-    universe.quittime = universe.totaltimeelapsed;
+    universe.quittime = universe.realtimeelapsed;           // CAT: real time (singlePlayerMissionCompleteCB 0x0051be40)
     // this will prevent the shiplist from being displayed!
     utyCreditsSequence = TRUE;
 }
