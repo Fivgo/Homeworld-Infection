@@ -60,6 +60,11 @@ extern CustShipHeader CloakedFighterHeader;
 extern CustShipHeader GenericInterceptorHeader;
 
 void GenericInterceptorAttack(Ship *ship, SpaceObjRotImpTarg *target, real32 maxdist);
+// CAT (M2-R4 ships-b): also called by the Acolyte and Mimic headers
+void GenericInterceptorStaticInit(char *directory, char *filename, struct ShipStaticInfo *statinfo);
+void GenericInterceptorInit(Ship *ship);
+void GenericInterceptorFire(Ship *ship, SpaceObjRotImpTarg *target);
+void GenericInterceptorPassiveAttack(Ship *ship, Ship *target, bool32 rotate);
 // CAT: the cloak slots the exe shares with P1IonArrayFrigateHeader (slots 7 and 10)
 bool32 CloakedFighterSpecialActivate(Ship *ship);
 void CloakedFighterHouseKeep(Ship *ship);

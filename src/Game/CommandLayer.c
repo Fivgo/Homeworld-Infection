@@ -100,7 +100,6 @@ void clMoveThese(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vec
 void clMpHyperspaceThese(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to);
 bool32 isSelectionExclusivlyStrikeCraft(SelectCommand *selection);
 bool32 isSelectionExclusivlyStrikeCraftorNoMoveAndAttackShips(SelectCommand *selection);
-bool32 selectionHasSwarmers(SelectCommand *selection);
 void removeShipFromMpHyperspaceing(Ship *ship);
 
 /*=============================================================================
@@ -1045,7 +1044,7 @@ bool32 processAttackToDo(CommandToDo *attacktodo)
 
     if (numShipsToAttack == 0)
     {                                                               // don't do holding pattern for swarmers (don't want them to go into delta formation)
-        if(isSelectionExclusivlyStrikeCraft(attacktodo->selection) && (!selectionHasSwarmers(attacktodo->selection)))
+        if(isSelectionExclusivlyStrikeCraft(attacktodo->selection))     // CAT: no HW1 P2 swarmers (M2-R4 ships-b)
         {
             attacktodo->holdingStartTime = universe.totaltimeelapsed;
             //use leaders heading for holding pattern
@@ -1134,7 +1133,7 @@ bool32 processAttackToDo(CommandToDo *attacktodo)
         attackvars = &ship->attackvars;
         target = attackvars->attacktarget;
 
-        if(!isShipStaticInterceptor(shipstaticinfo) && ship->shiptype != DefenseFighter)
+        if(!isShipStaticInterceptor(shipstaticinfo))     // CAT: no HW1 DefenseFighter (M2-R4 ships-b)
         {
             if (target == NULL)
             {
@@ -1196,7 +1195,7 @@ bool32 processAttackToDo(CommandToDo *attacktodo)
                     goto doattack;
                 }
 
-                if(ship->shiptype != DefenseFighter)
+                // CAT: no HW1 DefenseFighter test (M2-R4 ships-b)
                 {
                     if ((myLeaderTarget = myLeader->attackvars.attacktarget) != NULL)
                     {
@@ -1524,12 +1523,10 @@ void formGroups(SelectCommand *selection,SelectCommand *selectionDefenders,Selec
 
     for(a=0;a<selection->numShips;a++)
     {
-        if((selection->ShipPtr[a]->staticinfo->shipclass == CLASS_Fighter) ||
-           (selection->ShipPtr[a]->staticinfo->shiptype == TargetDrone))
+        if(selection->ShipPtr[a]->staticinfo->shipclass == CLASS_Fighter)     // CAT: no HW1 TargetDrone (M2-R4 ships-b)
         {
             //check if defender, else fighter
-            if(selection->ShipPtr[a]->staticinfo->shiptype == LightDefender ||
-                selection->ShipPtr[a]->staticinfo->shiptype == HeavyDefender)
+            if(selection->ShipPtr[a]->staticinfo->shiptype == HeavyDefender)     // CAT: no HW1 LightDefender (M2-R4 ships-b)
             {
                 selectionDefenders->ShipPtr[i] = selection->ShipPtr[a];
                 i++;
@@ -2120,7 +2117,7 @@ bool32 processAttackToDoInFormation(CommandToDo *attacktodo)
 
     if (numShipsToAttack == 0)
     {                                                               // don't do holding pattern for swarmers (don't want them to go into delta formation)
-        if(isSelectionExclusivlyStrikeCraft(attacktodo->selection) && (!selectionHasSwarmers(attacktodo->selection)))
+        if(isSelectionExclusivlyStrikeCraft(attacktodo->selection))     // CAT: no HW1 P2 swarmers (M2-R4 ships-b)
         {
             attacktodo->holdingStartTime = universe.totaltimeelapsed;
             //use leaders heading for holding pattern
@@ -2761,18 +2758,7 @@ bool32 processMoveToDo(CommandToDo *movetodo,bool32 passiveAttacked)
         ship = selection->ShipPtr[i];
         shipstatic = (ShipStaticInfo *)ship->staticinfo;
 
-        if(ship->shiptype == ResearchShip)
-        {
-            if(ship->header.flags & SOF_Slaveable)
-            {
-                dontrotate = TRUE;
-            }
-            else
-            {
-                dontrotate = (passiveAttacked & (bool32)shipstatic->rotateToRetaliate);
-            }
-        }
-        else
+        // CAT: no HW1 ResearchShip case (M2-R4 ships-b)
         {
             if(movetodo->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING)
             {
@@ -2817,7 +2803,7 @@ bool32 processMoveToDo(CommandToDo *movetodo,bool32 passiveAttacked)
                 else
                 {
                     aiflags = (dontrotate) ? (AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured) : (AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_FirstPointInDirectionFlying|AISHIP_PointInDirectionFlying|AISHIP_CarTurn);
-                    if (aishipFlyToPointAvoidingObjs(ship,&ship->moveTo,aiflags,(ship->shiptype == HeadShotAsteroid) ? (-tacticsGetShipsMaxVelocity(ship)) : -20.0f) & AISHIP_FLY_OBJECT_IN_WAY)
+                    if (aishipFlyToPointAvoidingObjs(ship,&ship->moveTo,aiflags,-20.0f)     /* CAT: no HW1 HeadShotAsteroid (M2-R4 ships-b) */ & AISHIP_FLY_OBJECT_IN_WAY)
                     {
                         ship->aistatecommand = 1;
                         vecZeroVector(ship->moveTo);
@@ -2883,21 +2869,8 @@ bool32 processMoveLeaderToDo(CommandToDo *movetodo,bool32 passiveAttacked)
     ship = selection->ShipPtr[0];
     shipstatic = (ShipStaticInfo *)ship->staticinfo;
 
-    if(ship->shiptype == ResearchShip)
-    {
-        if(ship->header.flags & SOF_Slaveable)
-        {
-            dontrotate = TRUE;
-        }
-        else
-        {
-            dontrotate = (passiveAttacked & (bool32)shipstatic->rotateToRetaliate);
-        }
-    }
-    else
-    {
-        dontrotate = (passiveAttacked & (bool32)shipstatic->rotateToRetaliate);
-    }
+    // CAT: no HW1 ResearchShip case (M2-R4 ships-b)
+    dontrotate = (passiveAttacked & (bool32)shipstatic->rotateToRetaliate);
 
     switch (ship->aistatecommand)
     {
@@ -3304,15 +3277,7 @@ void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom)
                         //formationArrangeOptimum(todo);
                         if (todo->formation.formationtype == WALL_FORMATION)    // leave holes in WALL and SPHERE formations
                         {
-                            if ((removedShipFromFormation == 0) && (shiptoremove->shiptype == TargetDrone))     // always preserve wall formation order if consists of Target Drones
-                            {
-                                todo->formation.formationtype = CUSTOM_FORMATION;
-                                formationContentHasChanged(todo);   // leave holes in wall by making it custom
-                            }
-                            else
-                            {
-                                ;       // deliberately do not call formationContentHasChanged for sphere formation
-                            }
+                            // CAT: no HW1 TargetDrone wall (M2-R4 ships-b)
                         }
                         else if (todo->formation.formationtype == SPHERE_FORMATION)
                         {
@@ -4229,23 +4194,6 @@ bool32 isSelectionExclusivlyStrikeCraftorNoMoveAndAttackShips(SelectCommand *sel
     return TRUE;
 }
 
-bool32 selectionHasSwarmers(SelectCommand *selection)
-{
-    sdword i;
-    Ship *ship;
-
-    for(i=0;i<selection->numShips;i++)
-    {
-        ship = selection->ShipPtr[i];
-        if ((ship->shiptype == P2Swarmer) || (ship->shiptype == P2AdvanceSwarmer))
-        {
-            return TRUE;
-        }
-    }
-
-    return FALSE;
-}
-
 /*
 ;=============================================================================
 ; Solution for ships moving to single point nastiness:
@@ -4510,14 +4458,7 @@ StillDoAttackMoveWithCapitals:
     }
 
     PrepareShipsForCommand(alreadycommand,TRUE);
-    if(selectcom->numShips == 1)
-    {
-        if(selectcom->ShipPtr[0]->shiptype == Probe)
-        {
-            ((ProbeSpec *) selectcom->ShipPtr[0]->ShipSpecifics)->HaveMoved = TRUE;
-            ((ProbeSpec *) selectcom->ShipPtr[0]->ShipSpecifics)->moveTime = universe.totaltimeelapsed;
-        }
-    }
+    // CAT: no HW1 Probe move bookkeeping (M2-R4 ships-b)
 
     return;
 }
@@ -4545,16 +4486,7 @@ void clMoveThese(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vec
 #endif
         return;
     }
-    if(numShips == 1)
-    {
-        if(selectcom->ShipPtr[0]->shiptype == Probe)
-        {
-            //need probe 'solution' again
-            //so set specific probe variables
-            ((ProbeSpec *) selectcom->ShipPtr[0]->ShipSpecifics)->HaveMoved = TRUE;
-            ((ProbeSpec *) selectcom->ShipPtr[0]->ShipSpecifics)->moveTime = universe.totaltimeelapsed;
-        }
-    }
+    // CAT: no HW1 Probe move bookkeeping (M2-R4 ships-b)
     if ((alreadycommand = IsSelectionAlreadyDoingSomething(comlayer,selectcom)) != NULL)
     {
         ChangeOrderToMove(alreadycommand,from,to);
@@ -5565,7 +5497,7 @@ void BreakupIntoLeaderWingman(SelectCommand *selection)
     {
         ship = selection->ShipPtr[i];
 
-        if ((isShipInterceptor(ship) || ship->shiptype == DefenseFighter) &&
+        if (isShipInterceptor(ship) &&     // CAT: no HW1 DefenseFighter (M2-R4 ships-b)
             (ship->shiprace != P1) && (ship->shiprace != P2) &&
             ((gamerand() & 255) <= FIGHTER_PAIRUP_PROB)
            )
@@ -5587,30 +5519,7 @@ void BreakupIntoLeaderWingman(SelectCommand *selection)
 
         leader = selection->ShipPtr[i];
 
-        if(leader->shiptype == DefenseFighter)
-        {
-            sdword cont=FALSE;
-            for(j=i+1;j<numShips;j++)
-            {
-                if (findwingmen->flags[j])
-                {
-                    continue;
-                }
-                if(selection->ShipPtr[j]->shiptype != DefenseFighter)
-                {
-                    Ship *temp = selection->ShipPtr[j];
-                    selection->ShipPtr[j] = leader;
-                    selection->ShipPtr[i] = temp;
-                    cont = TRUE;
-                    break;
-                }
-            }
-            if(cont)
-            {
-                i--;
-            }
-            continue;
-        }
+        // CAT: no HW1 DefenseFighter leader swap (M2-R4 ships-b)
 
         mindist = REALlyBig;
         wingmanj = 0;
@@ -5623,12 +5532,7 @@ void BreakupIntoLeaderWingman(SelectCommand *selection)
 
             compareto = selection->ShipPtr[j];
 
-            if(compareto->shiptype == DefenseFighter)
-            {
-                //autoselect defenseFighter
-                wingmanj = j;
-                break;
-            }
+            // CAT: no HW1 DefenseFighter autoselect (M2-R4 ships-b)
 
             vecSub(dist,leader->obj.posinfo.position,compareto->obj.posinfo.position);
             distsqr = vecMagnitudeSquared(dist);
@@ -6362,10 +6266,8 @@ void clPlaySpeechEventsForSupportCraft(SelectCommand *selection)
             switch(selection->ShipPtr[i]->shiptype)
             {
             case Carrier:
-            case ResourceController:
             case ResourceCollector:
             case AdvanceSupportFrigate:
-            case RepairCorvette:
                 //I don't think we need battle chatter limiting...
                 speechEvent(selection->ShipPtr[0],COMM_Support,0);
                 return;     //return after first one...all we need!
@@ -6721,7 +6623,7 @@ void clHaltThese(CommandLayer *comlayer,SelectCommand *selectcom)
                 //if docking ship is NULL, we can assume some stuff...
                 if (selectcom->ShipPtr[i]->shipOrDerelict.dockingship != NULL)
                 {
-                    if(selectcom->ShipPtr[i]->shiptype != ResearchShip)
+                    // CAT: no HW1 ResearchShip exception (M2-R4 ships-b)
                     {
                         //signal docking ship to cancel
                         selectcom->ShipPtr[i]->forceCancelDock=TRUE;
@@ -6901,14 +6803,22 @@ void clScuttle(CommandLayer *comlayer,SelectCommand *selectcom)
     for (i=0;i<numShips;i++)
     {
         // CAT: clScuttle 0x0044a150: in the tutorial the sMothership is not scuttled. CAT-TODO(M2-R4 #4): a ship with
-        //      catShipFlags 0x80 whose float at exe Ship+0x4E4 is nonzero is not scuttled either (neither state is
-        //      ported, so the test is FALSE here), and a mimicking ship (CAT_SHIPFLAG_Mimic) drops its disguise
-        //      (cat_mimicUnmimic(ship, 0)) whether or not it is scuttled
+        //      catShipFlags 0x80 whose float at exe Ship+0x4E4 is nonzero is neither scuttled nor unmimicked (that
+        //      flag is not ported, so the test is FALSE here). A mimic (CAT_SHIPFLAG_Mimic) drops its disguise
+        //      (cat_mimicUnmimic(ship, 0)) [M2-R4 ships-b]
         if ((tutorial==TUTORIAL_ONLY) && (selectcom->ShipPtr[i]->shiptype == sMothership))
         {
+            if (bitTest(selectcom->ShipPtr[i]->catShipFlags, CAT_SHIPFLAG_Mimic))
+            {
+                cat_mimicUnmimic(selectcom->ShipPtr[i], FALSE);
+            }
             continue;
         }
         selectcom->ShipPtr[i]->deathtime = universe.totaltimeelapsed + frandombetween(SCUTTLE_SHIPDEATHTIMEMIN,SCUTTLE_SHIPDEATHTIMEMAX);
+        if (bitTest(selectcom->ShipPtr[i]->catShipFlags, CAT_SHIPFLAG_Mimic))
+        {
+            cat_mimicUnmimic(selectcom->ShipPtr[i], FALSE);
+        }
     }
 
     return;
@@ -7028,7 +6938,7 @@ void LaunchAllInternalShipsOfPlayerThatMustBeLaunched(struct Player *player)
 
         if (ship->playerowner == player)
         {
-            if ((ship->shipsInsideMe) && (ship->shiptype != DDDFrigate))
+            if (ship->shipsInsideMe)     // CAT: no HW1 DDDFrigate (M2-R4 ships-b)
             {
                 Node *insidenode = ship->shipsInsideMe->insideList.head;
                 InsideShip *insideship;
@@ -7114,7 +7024,7 @@ sdword LaunchAllInternalShipsOfPlayer(struct Player *player, udword carriermask)
 
         if (ship->playerowner == player)
         {
-            if ((ship->shipsInsideMe) && (ship->shiptype != DDDFrigate))
+            if (ship->shipsInsideMe)     // CAT: no HW1 DDDFrigate (M2-R4 ships-b)
             {
                 if ( ((carriermask & BIT0) && (ship == mothership)) ||
                      ((carriermask & BIT1) && (ship == carriers[0])) ||
@@ -7220,12 +7130,7 @@ void clSetResearch(udword type, udword playernum, udword labnum, udword tech)
     }
 }
 
-// CAT: a worker that is still a ship (cat_shipIsLiveWorker 0x005c8e00: objtype ship and sWorker/bWorker). Its home is
-//      the Worker port (M2-R4 #4); ShipHasToLaunch is its only command-layer reader.
-bool32 cat_shipIsLiveWorker(Ship *ship)
-{
-    return (ship->header.objtype == OBJ_ShipType) && ((ship->shiptype == sWorker) || (ship->shiptype == bWorker));
-}
+// CAT: cat_shipIsLiveWorker 0x005c8e00 lives in Ships/Worker.c [M2-R4 ships-b]
 
 bool32 ShipHasToLaunch(Ship *InsideShip, Ship *ship)
 {
@@ -7843,41 +7748,6 @@ void AddShipToFormationGroup(ShipPtr ship,CommandToDo *group)
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : thereareothercompatibleresearchships(ship)
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-bool32 thereareothercompatibleresearchships(Ship *ship)
-{
-    Node *resnode;
-    Ship *resship;
-
-    dbgAssertOrIgnore(ship->shiptype == ResearchShip);
-
-    resnode = universe.ShipList.head;
-
-    if(((ResearchShipSpec *)ship->ShipSpecifics)->master)
-        return FALSE;
-
-    while(resnode != NULL)
-    {
-        resship = (Ship *) listGetStructOfNode(resnode);
-        if(resship->shiptype == ResearchShip && resship->playerowner == ship->playerowner)
-        {    //there exists a ship to dock with...
-            if(resship != ship)
-            {
-                return TRUE;
-            }
-        }
-        resnode = resnode->next;
-    }
-
-    return FALSE;
-}
-
-/*-----------------------------------------------------------------------------
     Name        : GroupShipIntoMilitaryParade
     Description : groups ship into military parade around aroundShip
     Inputs      :
@@ -7964,14 +7834,7 @@ void GroupShip(CommandLayer *comlayer,ShipPtr ship,ShipPtr aroundShip)
 
 //    groupSize = shipstaticinfo->groupSize;
 //    dbgAssertOrIgnore(groupSize > 0);
-    if((ship->shiptype == ResearchShip) && (thereareothercompatibleresearchships(ship)))
-    {
-        selection.numShips = 1;
-        selection.ShipPtr[0] = ship;
-        bitClear(ship->header.flags,SOF_Selectable);
-        clDock(comlayer, &selection, DOCK_FOR_RESEARCH, NULL);
-        return;
-    }
+    // CAT: no HW1 ResearchShip docking (M2-R4 ships-b)
     shipGroup = getShipAndItsFormationCommand(comlayer,aroundShip);
     if (shipGroup != NULL)
     {
@@ -8794,18 +8657,7 @@ processdock:
                             }
                         }
 
-                        // has the probe arrived?
-                        for (i = 0; i < command->selection->numShips; i++)
-                        {
-                            if (command->selection->ShipPtr[i]->shiptype == Probe)
-                            {
-                                if (command->selection->ShipPtr[i]->playerowner == universe.curPlayerPtr)
-                                {
-                                    speechEventFleetSpec(command->selection->ShipPtr[i], STAT_F_Probe_Arrived, 0, universe.curPlayerIndex);
-                                    break;
-                                }
-                            }
-                        }
+                        // CAT: no HW1 Probe arrival speech (M2-R4 ships-b)
 
                         if (command->ordertype.attributes & (COMMAND_MASK_PROTECTING|COMMAND_MASK_PASSIVE_ATTACKING))
                         {

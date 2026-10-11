@@ -39,6 +39,7 @@ void DustCloudChargesUp(DustCloud* dustcloud, sdword damagetaken, bool32 targetW
 void BreakAsteroidUp(Asteroid *asteroid);
 
 void HandleDustCloudScaling(DustCloud* dustcloud);
+bool32 CollectResources(Ship *ship,Resource *resource);     // CAT: exported for the Worker (0x004f17a0)
 
 void PreFix_ShipXHarvestsResourceY(Ship *ship);
 void Fix_ShipXHarvestsResourceY(Ship *ship);

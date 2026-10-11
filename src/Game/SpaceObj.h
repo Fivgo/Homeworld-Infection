@@ -1814,6 +1814,15 @@ _Static_assert(SPECIAL_2_CatBeingBuilt == 0x8 && SPECIAL_2_CatBeingSalvaged == 0
 #define CAT_UPGRADE_Repair                          0x00040000  // cat_shipCanRepair 0x005138b0
 #define CAT_UPGRADE_Salvage                         0x00080000  // cat_shipCanSalvage 0x005138f0
 #define CAT_UPGRADE_AcolyteLinkFire                 0x04000000  // cat_acolyteCanFireLinkedWeapon 0x005ada50
+// CAT (M2-R4 ships-b): the upgrade bits the Cataclysm-only ships test (names chosen here from their users)
+#define CAT_UPGRADE_MimicSmall                      0x00000010  // cat_mimicBecomeShipType 0x005b88f0: an sMCV may pose as a fighter/micro (it unlinks); names chosen here
+#define CAT_UPGRADE_Mimic                           0x00000020  // cat_mimicCommand 0x005b8d70, MimicSpecialTarget 0x005b8dd0
+#define CAT_UPGRADE_MimicRam                        0x00000080  // cat_shipGetRamDamageScale 0x005b9980
+#define CAT_UPGRADE_ACVEMP                          0x00000200  // ACVSpecialActivate 0x005ae450, cat_acvEMPChargeFraction
+#define CAT_UPGRADE_RamFrigate                      0x00000100  // cat_shipHasRamUpgrade 0x005bf840, RammingFrigateHouseKeep
+#define CAT_UPGRADE_DreadnoughtCannon               0x00000400  // DreadnoughtHouseKeep 0x005b0f10
+#define CAT_UPGRADE_RamInfectionImmunity            0x00400000  // cat_rammingFrigateCollide 0x005c14a0
+#define CAT_UPGRADE_RamCuttingBeam                  0x02000000  // cat_rammingFrigateDamageTarget 0x005c1b20
 				
 
 // CAT (M2-R4 combat): "never" for Ship.catSalvageNotifyTime: univCreateShip 0x00542320 and cat_salvageDetach
@@ -1984,10 +1993,10 @@ typedef struct Ship         // Ship object
                                     //   sets, the AI's aimProcessResourceVolume reads and clears); HW1's specialFlags bit
     bool32 catResourcing;           // exe Ship+0x1D8: harvesting for the AI (CollectResources clears, aimProcessResourceVolume
                                     //   sets, aiuShipIsResourcingOrSomething reads); HW1's specialFlags bit
-    bool32 catHelpless;             // exe Ship+0x530: set/cleared by cat_shipSetHelpless/ClearHelpless (M2-R4 #4); a helpless
+    bool32 catHelpless;             // exe Ship+0x530: set/cleared by cat_shipSetHelpless/ClearHelpless (ShipDisable.c); a helpless
                                     //   crazy ship keeps drifting (physUpdateObjPosVelShip 0x004e4950)
-    CatTimer catDriftTimer;         // exe Ship+0x560: the drift's slow-down (cat_shipStartDrift, M2-R4 #4)
-    bool32 catDrifting;             // exe Ship+0x550: set by cat_shipStartDrift, cleared by cat_shipUpdateDrift (M2-R4 #4);
+    CatTimer catDriftTimer;         // exe Ship+0x560: the drift's timer (cat_shipStartDrift, ShipDisable.c)
+    bool32 catDrifting;             // exe Ship+0x550: set by cat_shipStartDrift, cleared by cat_shipUpdateDrift (ShipDisable.c);
                                     //   read by cat_blastAffectShip 0x00515d30 and physUpdateObjPosVelShip
     bool32 catBurstFiring;          // exe Ship+0x610: TRUE in a gun's burst, FALSE in its cool-off (gunCanShoot 0x0048a2f0)
     sdword catArmourLevel;          // exe Ship+0x3F0: 0..2, the column of cat_damageVsArmourTable a hit on this ship uses
@@ -2007,7 +2016,12 @@ typedef struct Ship         // Ship object
     shipbindings *catSalvageConvertBindings;    // exe Ship+0x510: cat_univMeshBindingsDupeNoGuns of the new type
     ubyte catSalvageConvertColor;   // exe Ship+0x514: the new owner's colour scheme
     vector catDockLatchHeading;     // exe Ship+0x5A4: last cone heading of cat_dockFlyToConeOriginLatch 0x00464b30
-    struct Ship *catSalvageBigGun;  // exe Ship+0x608: a towed dBigGunUnit's dBigGun, or the salvager's
+    // CAT (M2-R4 ships-b): the Workers repairing this ship (cat_workerRepairTarget 0x005c89a0, cat_workerChooseRepairTarget
+    //      0x005c7d60). Names chosen here.
+    sdword catRepairIdleWorkers;    // exe Ship+0x600: Workers sent to it while it was at full health
+    sdword catRepairWorkers;        // exe Ship+0x604: Workers repairing it
+    struct Ship *catSalvageBigGun;  // exe Ship+0x608: a towed dBigGunUnit's dBigGun, or the salvager's; a Worker also keeps its repair
+                                    //   target here (cat_workerRepairTarget 0x005c89a0)
     sbyte catSalvagePointIndex;     // exe Ship+0x615: the dock point it holds on its target or depot, -1 none
     real32 catSalvageNotifyTime;    // exe Ship+0x618: last "more salvagers needed" message (real time)
     real32 catSalvageDepotCheckTime;// exe Ship+0x61C: last nearest-depot check (cat_salvageSpecialTarget state 10)
@@ -2026,6 +2040,29 @@ typedef struct Ship         // Ship object
     real32 catBeastCascadeEnd;      // exe Ship+0x4F8
     shipbindings *catBeastBindings; // exe Ship+0x4FC: bindings of the Beast type it turns into
     ubyte catBeastColor;            // exe Ship+0x500: the infector's colour scheme
+    // CAT (M2-R4 ships-b): the helpless / EMP / drift state (cat_empShockShip 0x005b3900, cat_shipSetHelpless
+    //      0x005b3bd0, cat_shipClearHelpless 0x005b3c80, cat_shipStartDrift 0x005b3b40, cat_shipUpdateDrift
+    //      0x005b3d60). Names chosen here from their users.
+    bool8 catEmpStunned;            // exe Ship+0x528: set by the first EMP shock, cleared with the helplessness;
+                                    //   while set the ship's velocity decays (x0.9 per update)
+    sdword catEmpShockCount;        // exe Ship+0x52C: EMP strength taken so far
+    CatTimer catHelplessTimer;      // exe Ship+0x534
+    bool32 catHelplessSavedDisabled;    // exe Ship+0x544: SOF_Disabled before the helplessness
+    bool32 catHelplessSavedCrazy;       // exe Ship+0x548: SOF_Crazy before the helplessness
+    sdword catHelplessSavedAutostabilize;   // exe Ship+0x54C: autostabilizeship before the helplessness
+    vector catDriftVelocity;        // exe Ship+0x554: the velocity when the drift started
+    // CAT (M2-R4 ships-b): the dissolve state (Dissolve.c, cat_shipDissolveInit 0x00460220 .. cat_shipDissolveStop
+    //      0x00460c70). Names chosen here.
+    bool32 catDissolveEffectsOn;    // exe Ship+0x574: 1 from cat_shipDissolveInit, 0 after cat_shipDissolveStop
+    vector catDissolvePoint;        // exe Ship+0x578: the point the ship dissolves into
+    CatTimer catDissolveTimer;      // exe Ship+0x584
+    struct Effect *catDissolveEffect;   // exe Ship+0x594
+    sbyte catRKOMissilesTaken;      // exe Ship+0x518: missiles a dRKO has gained from eating this ship (RKOHouseKeep
+                                    //   0x005c4260, its only user; name chosen here)
+    // CAT (M2-R4 ships-b): the ship that made this one (exe Ship+0x4AC: the 6th argument of univCreateShip 0x00542320,
+    //      0 for an ordinary ship; NomadMoonInit, cat_dreadnoughtCreateCannon, cat_univCreateMothershipModules and the
+    //      external build pass the maker; the construction manager reads it). Name chosen here.
+    struct Ship *catCreator;
     udword sizeofShipSpecifics;
     udword ShipSpecifics[1];        //this member must go last
 } Ship;
@@ -2291,6 +2328,9 @@ typedef struct Asteroid
 
     AsteroidType asteroidtype;  // asteroid specific information
     real32 scaling;
+    // CAT (M2-R4 ships-b): the mimic posing as this asteroid (exe Asteroid+0x1A4: MimicHouseKeep 0x005b8f30 sets it on
+    //      the fake asteroid of cat_univAddMimicResource 0x005408b0; NULL for a real asteroid). Name chosen here.
+    struct Ship *catMimicShip;
 } Asteroid;
 
 /*-----------------------------------------------------------------------------

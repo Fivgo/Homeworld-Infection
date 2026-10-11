@@ -23,4 +23,7 @@ _Static_assert(sizeof(P1MothershipSpec) == 0x144, "P1MothershipSpec is 0x144 byt
 
 extern CustShipHeader P1MothershipHeader;
 
+// CAT (M2-R4 ships-b): exported; the ACV headers (ACVHeader 0x008c3328) point slot 6 at this body (0x005be540)
+void P1MothershipAttackPassive(Ship *ship,Ship *target,bool32 rotate);
+
 #endif

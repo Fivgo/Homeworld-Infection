@@ -7,6 +7,9 @@
 =============================================================================*/
 
 #include "UnivUpdate.h"
+#include "Dissolve.h"
+#include "ModuleShip.h"
+#include "Sentinel.h"
 
 #include <math.h>
 
@@ -734,6 +737,43 @@ Asteroid *univAddAsteroid(AsteroidType asteroidtype,vector *astpos)
     newAsteroid->obj.catMeshState = NULL;
 
     return newAsteroid;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univAddMimicResource
+    Description : CAT (M2-R4 ships-b): the fake asteroid an idle mimic posing as an asteroid leaves (cat_univAddMimicResource
+                  0x005408b0): an asteroid of the type with a resource number, on the resource list only (not in the
+                  object, impactable or render lists, no collision blob or mesh state)
+    Inputs      : asteroidtype, pos
+    Return      : the resource
+----------------------------------------------------------------------------*/
+Resource *cat_univAddMimicResource(sdword asteroidtype, vector *pos)
+{
+    Asteroid *newAsteroid = memAlloc(sizeof(Asteroid),"MimicAsteroid",NonVolatile);
+    AsteroidStaticInfo *staticInfo = &asteroidStaticInfos[asteroidtype];
+
+    memset(newAsteroid, 0, sizeof(Asteroid));
+    newAsteroid->resource.resourceID.resourceNumber = universe.resourceNumber;
+    IDToPtrTableAdd(&ResourceIDToPtr,universe.resourceNumber,(SpaceObj *)newAsteroid);
+    universe.resourceNumber++;
+
+    newAsteroid->staticinfo = staticInfo;
+    newAsteroid->header.objtype = OBJ_AsteroidType;
+    newAsteroid->header.flags |= SOF_Rotatable + SOF_Impactable + SOF_Targetable + SOF_Resource;
+    ClearNode(newAsteroid->obj.renderlink);
+    newAsteroid->obj.collMyBlob = NULL;
+    newAsteroid->obj.currentLOD = 0;
+    newAsteroid->obj.cameraDistanceSquared = REALlyBig;
+    newAsteroid->obj.attributesParam = 0;
+    newAsteroid->resource.resourcevalue = staticInfo->resource.resourcevalue;
+    newAsteroid->asteroidtype = asteroidtype;
+    newAsteroid->scaling = 1.0f;
+    newAsteroid->targetable.health = staticInfo->health.maxhealth;
+    univInitSpaceObjPosRot(&newAsteroid->obj,pos,TRUE);
+    listAddNode(&universe.ResourceList,&(newAsteroid->resource.resourcelink),newAsteroid);
+    newAsteroid->obj.catEffectBlock = NULL;
+    newAsteroid->obj.catMeshState = NULL;
+    return &newAsteroid->resource;
 }
 
 /*-----------------------------------------------------------------------------
@@ -1996,7 +2036,10 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
 
     InitializeNavLights(newship);
 
-    if (shipstaticinfo->canBuildShips | shipstaticinfo->canReceiveShipsPermanently)
+    // CAT (M2-R4 ships-b): also for the types with catTypeFlags 0x8000 (sHiveFrigate, bHiveFrigate, dRKO:
+    //      cat_univInitShipTypeFlags 0x0053b8c0), which keep ships inside without a dock (univCreateShip 0x005428d7)
+    if ((shipstaticinfo->canBuildShips | shipstaticinfo->canReceiveShipsPermanently) ||
+        (shipstaticinfo->catTypeFlags & 0x8000))
     {
         newship->shipsInsideMe = memAlloc(sizeof(ShipsInsideMe),"ShipsInsideMe",NonVolatile);
         listInit(&newship->shipsInsideMe->insideList);
@@ -2104,6 +2147,20 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
         newship->catBuildProgress = 1.0f;
         bitClear(newship->shipOrDerelict.specialFlags2,SPECIAL_2_CatBeingBuilt);
     }
+    // CAT (M2-R4 ships-b): the stealth flags (cat_shipStealthInit 0x0053fce0, call at 0x00542c15)
+    cat_shipStealthInit(newship);
+    // CAT (M2-R4 ships-b): after the stealth state the exe resets the dissolve state (0x00542c1b:
+    //      cat_shipDissolveInit 0x00460220), and in multiplayer a derelict-race ship that is no crystal and is
+    //      targetable is a KAS derelict, helpless for good (0x00542c00..0x00542c5a: catShipFlags bit 4,
+    //      cat_shipSetHelpless(ship, 1e21)). CAT-TODO(stage 3/5 recorder): the exe also takes this path while a game
+    //      is recorded (0x00a7519c && 0x00a75190)
+    cat_shipDissolveInit(newship);
+    if (multiPlayerGame && (shiptype >= DERELICT_FIRST_SHIP) && (shiptype <= DERELICT_LAST_SHIP) &&
+        !cat_shipIsCrystal(newship) && !cat_shipIsUntargetable(newship))
+    {
+        bitSet(newship->catShipFlags, CAT_SHIPFLAG_KasDerelict);
+        cat_shipSetHelpless(newship, 1e21f);
+    }
     return newship;
 }
 
@@ -2125,7 +2182,74 @@ Ship *univAddShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Pla
 
     // CAT: no CryoTray case (an HW1-only type)
 
+    // CAT (M2-R4 ships-b): a Sect or Beast mothership comes with its module ships. The exe's univCreateShip 0x00542320
+    //      makes them right after adding the ship (0x00542bba: unless the type is sMothership with the 7th argument
+    //      set outside mission 1); this tree's univCreateShip neither adds ships nor has that argument, so the
+    //      modules are made here, for every mothership added to the universe (a ship only created, e.g. by the
+    //      fight statistics, gets none)
+    cat_univCreateMothershipModules(newship, shiprace, shippos, playerowner, built);
+
     return newship;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univCreateMothershipModules
+    Description : CAT (M2-R4 ships-b): the module ships of a new sMothership or bMothership
+                  (cat_univCreateMothershipModules 0x005420b0): each type of cat_univMothershipModuleTypesGet /
+                  cat_univBeastMothershipModuleTypesGet at the host's position and velocity, clamped to it as a ship
+                  part; in multiplayer an sMothership also gets seven more modules that count against the unit caps
+                  and are not ship parts (0x008b5c28)
+    Inputs      : host, race, pos, player, built - the host's creation arguments
+----------------------------------------------------------------------------*/
+void cat_univCreateMothershipModules(Ship *host, ShipRace race, vector *pos, struct Player *player, sdword built)
+{
+    static const ShipType multiplayerModules[] = { sMothershipSpecial, sMothershipEngineering, sMothershipArmour,
+        sMothershipMicro, sMothershipWeapons, sMothershipDockingBay, sMothershipBigGun };
+    CatModuleTypeList modules;
+    Ship *module;
+    sdword i;
+    bool32 gameOptionNoModules = FALSE;
+
+    if (host->shiptype == sMothership)
+    {
+        cat_univMothershipModuleTypesGet(&modules);
+    }
+    else if (host->shiptype == bMothership)
+    {
+        cat_univBeastMothershipModuleTypesGet(&modules);
+    }
+    else
+    {
+        return;
+    }
+    for (i = 0; i < modules.num; i++)
+    {
+        module = univAddShip(modules.types[i], race, pos, player, built);
+        module->catCreator = host->catCreator;      // the exe passes its own 6th argument on
+        if (race == RACE_Sect)
+        {
+            // CAT-TODO(M2-R4 #5): cat_rmResearchModuleActivated(player, module->shiptype, 0) 0x004f4530 (the
+            //      research modules, ResearchAPI.c)
+        }
+        module->obj.posinfo.position = host->obj.posinfo.position;
+        module->obj.posinfo.velocity = host->obj.posinfo.velocity;
+        clampObjToObj((SpaceObjRotImpTargGuidance *)module, (SpaceObjRotImpTargGuidance *)host);
+        bitSet(module->header.flags, SOF_CatShipPart);
+    }
+    // CAT-TODO(M2-R4 #5): gameOptionNoModules is bit 0x8 of the multiplayer game options word 0x008860ec (the
+    //      Cataclysm tpGameCreated layout); until that layout is ported the option counts as off
+    if ((!singlePlayerGame) && (!gameOptionNoModules) && (host->shiptype == sMothership))
+    {
+        for (i = 0; i < (sdword)(sizeof(multiplayerModules) / sizeof(multiplayerModules[0])); i++)
+        {
+            module = univAddShip(multiplayerModules[i], race, pos, player, built);
+            module->catCreator = host->catCreator;
+            unitCapCreateShip(module, module->playerowner);
+            module->obj.posinfo.position = host->obj.posinfo.position;
+            module->obj.posinfo.velocity = host->obj.posinfo.velocity;
+            clampObjToObj((SpaceObjRotImpTargGuidance *)module, (SpaceObjRotImpTargGuidance *)host);
+        }
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -2396,10 +2520,10 @@ void univUpdateAllPosVelBullets()
                 }
 
                 // CAT: a Sect big-gun shell explodes where it dies and loses its ping (0x005431d6: sound type
-                //      GS_BigGun -> cat_bigGunBulletExplodeAt 0x005bd0c0, pingRemovePingByOwner).
-                //      CAT-TODO(M2-R4 #4): the big-gun block (cat_bigGun*) is not ported; the ping is removed here
+                //      GS_BigGun -> cat_bigGunBulletExplodeAt 0x005bd0c0, pingRemovePingByOwner) [M2-R4 ships-b]
                 if (bullet->soundType == GS_BigGun)
                 {
+                    cat_bigGunBulletExplodeAt(bullet, &bullet->obj.posinfo.position);
                     pingRemovePingByOwner((SpaceObj *)bullet);
                 }
 
@@ -3627,9 +3751,9 @@ bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoun
             killer = attacker;
             if ((attacker->shiptype == sSwarmer) || (attacker->shiptype == bSwarmer))
             {
-                // CAT-PROVISIONAL (M2-R4 #4): a Swarmer's kill counts for the ship at its specifics +0x0C (Ship+0x644);
-                //      the Swarmer header is ship code B's, so no Swarmer has one yet
-                killer = NULL;
+                // CAT: a Swarmer's kill counts for its hive frigate (specifics +0x0C, Ship+0x644), none without one
+                //      [M2-R4 ships-b]
+                killer = ((SwarmerSpec *)attacker->ShipSpecifics)->hive;
             }
             if (killer != NULL)
             {
@@ -3761,10 +3885,11 @@ void univBulletCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target,
     //      beam only draws its hit (collCheckBeamColl 0x0043c900 passes 0 or 1, collCheckBulletTargetColl 1). Without
     //      it there is no damage, push or attacker bookkeeping, only the hit effect.
 
-    // CAT: a Sect big-gun shell explodes where it hits and loses its ping (0x00546a48: sound type GS_BigGun).
-    //      CAT-TODO(M2-R4 #4): cat_bigGunBulletExplodeAt 0x005bd0c0 (the big-gun block is not ported)
+    // CAT: a Sect big-gun shell explodes where it hits and loses its ping (0x00546a48: sound type GS_BigGun,
+    //      cat_bigGunBulletExplodeAt 0x005bd0c0) [M2-R4 ships-b]
     if (bullet->soundType == GS_BigGun)
     {
+        cat_bigGunBulletExplodeAt(bullet, &bullet->obj.posinfo.position);
         pingRemovePingByOwner((SpaceObj *)bullet);
     }
 
@@ -3804,7 +3929,7 @@ void univBulletCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target,
         // an active Sentinel field takes the hit for its Sentinel (0x00546b10)
         if ((ship->shiptype == sSentinel || ship->shiptype == bSentinel) && cat_shipIsSentinelFieldActive(ship))
         {
-            // CAT-TODO(M2-R4 #4): cat_sentinelFieldBulletHit 0x005c6c60 (target, -1, bullet), the field's response
+            cat_sentinelFieldBulletHit(ship, (void *)-1, bullet);       // CAT: 0x005c6c60 (M2-R4 ships-b)
             applyDamage = FALSE;
             goto hiteffect;
         }
@@ -4261,7 +4386,19 @@ void univRemoveAllShipReferencesFromSpecialShip(Ship *shiptoremove,Ship *ship)
         ship->rowGetOutOfWay = NULL;
     }
 
-    // CAT-TODO(M2-R4 #4): three Cataclysm ship pointers at exe Ship +0x3EC, +0x608 and +0x4E8 are cleared here too
+    // CAT: three Cataclysm ship pointers are cleared too (exe Ship +0x3EC, +0x608, +0x4E8) [M2-R4 ships-b]
+    if (ship->catSalvageDepot == shiptoremove)
+    {
+        ship->catSalvageDepot = NULL;
+    }
+    if (ship->catSalvageBigGun == shiptoremove)
+    {
+        ship->catSalvageBigGun = NULL;
+    }
+    if (ship->catBeastInfector == shiptoremove)
+    {
+        ship->catBeastInfector = NULL;
+    }
 
     // CAT: the ship's CustShipRemoveShipReferences (slot 11) always runs (HW1 skipped research ships at game end)
     if(((ShipStaticInfo *)ship->staticinfo)->custshipheader.CustShipRemoveShipReferences != NULL)
@@ -4425,8 +4562,18 @@ void univWipeShipOutOfExistence(Ship *ship)
 {
     dbgAssertOrIgnore(ship != NULL);
     // CAT-TODO(stage 3 FOW): the exe first takes the ship's fog-of-war cube away (cat_playerGetFOWGrid, fowSelect,
-    //      cat_shipAffectsFOW, fowDeactivateCubeW(position, cat_shipGetFOWRadius(ship, 0), 0) at 0x005477d0), then
-    //      frees two Cataclysm ship blocks at exe Ship +0x4FC and +0x510 (M2-R4 #4: not in this tree's Ship)
+    //      cat_shipAffectsFOW, fowDeactivateCubeW(position, cat_shipGetFOWRadius(ship, 0), 0) at 0x005477d0)
+    // CAT: then the two Cataclysm binding blocks go (exe Ship +0x4FC, +0x510) [M2-R4 ships-b]
+    if (ship->catBeastBindings != NULL)
+    {
+        memFree(ship->catBeastBindings);
+        ship->catBeastBindings = NULL;
+    }
+    if (ship->catSalvageConvertBindings != NULL)
+    {
+        memFree(ship->catSalvageConvertBindings);
+        ship->catSalvageConvertBindings = NULL;
+    }
     if (ship->shiplink.belongto != NULL)
     {
         listRemoveNode(&ship->shiplink);
@@ -4570,8 +4717,21 @@ void univRemoveShipFromOutside(Ship *ship)
 
     ship->header.flags |= SOF_Hide;
 
-    // CAT-TODO(M2-R4 #4): the ship's module ships (cat_moduleIterFirst 0x005bd6e0 / cat_moduleIterNext) leave the
-    //      render list and are hidden too. CAT-TODO(stage 3 FOW): with its second argument set, the exe also takes
+    // CAT (M2-R4 ships-b): the ship's module ships leave the render list and are hidden too (0x00547b02:
+    //      cat_moduleIterFirst 0x005afed0 / cat_moduleIterNext 0x005afee0)
+    {
+        Ship *module;
+
+        for (module = cat_moduleIterFirst(ship); module != NULL; module = cat_moduleIterNext())
+        {
+            if (module->obj.renderlink.belongto != NULL)
+            {
+                listRemoveNode(&module->obj.renderlink);
+            }
+            module->header.flags |= SOF_Hide;
+        }
+    }
+    // CAT-TODO(stage 3 FOW): with its second argument set, the exe also takes
     //      the ship's fog-of-war cube away (fowDeactivateCubeW(..., 1)); the argument gates nothing else, so this
     //      tree keeps the one-argument form until the fog of war is ported.
     // CAT: the ship forgets who was attacking it (0x00547b4a..0x00547b65)
@@ -4798,7 +4958,8 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
         DeleteShipsInsideMe(ship);
     }
 
-    // CAT-TODO(M2-R4 #4): cat_droidFreeArray(ship +0x4C0) 0x005c32b0, the repair droids (not in this tree's Ship).
+    // CAT-TODO(stage 3): cat_droidFreeArray(ship +0x4C0) 0x005c32b0, the repair droids: render-side proxies that crawl
+    //      over the hull and make welding effects (M2-R4 ships-b, RepairDroid.h), not in this tree's Ship yet.
     //      HW1's slave clean-up (dockDealWithDeadSlaveable) is gone: no Cataclysm ship is slaveable (SOF_Slaveable 0)
 
 #if ETG_DISABLEABLE
@@ -5021,7 +5182,11 @@ void DisableAllPlayersShips(sdword playerIndex)
             {
                 ship->header.flags |= SOF_Crazy;
                 ship->deathtime = universe.totaltimeelapsed + frandombetween(PLAYERLOSE_SHIPDEATHTIMEMIN,PLAYERLOSE_SHIPDEATHTIMEMAX);
-                // CAT-TODO(M2-R4 #4): a mimicking ship drops its disguise first (cat_mimicUnmimic(ship, 0) 0x005b9a??)
+                // CAT: a mimic drops its disguise (DisableAllPlayersShips 0x00548450: cat_mimicUnmimic(ship, 0)) [M2-R4 ships-b]
+                if (bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic))
+                {
+                    cat_mimicUnmimic(ship, FALSE);
+                }
                 // CAT: neither mothership careens (sMothership, bMothership; HW1 tested its Mothership only)
                 if ((!singlePlayerGame) && (ship->shiptype != sMothership) && (ship->shiptype != bMothership)) ApplyCareenRotationDirectly(ship);
             }
@@ -5450,9 +5615,9 @@ void DeleteDeadResource(Resource *resource)
 
     IDToPtrTableObjDied(&ResourceIDToPtr,resource->resourceID.resourceNumber);
 
-    // CAT-TODO(M2-R4 #4): ramming frigates drop the resource as a target (cat_univRemoveTargetFromRammingFrigates
-    //      0x00549230: RammingFrigateRemoveShipReferences for types 6 and 0x30); CAT-TODO(stage 6): KAS selections
-    //      drop it (cat_kasShipRemovedFromSelections)
+    // CAT (M2-R4 ships-b): ramming frigates drop the resource as a target (cat_univRemoveTargetFromRammingFrigates
+    //      0x00549230); CAT-TODO(stage 6): KAS selections drop it (cat_kasShipRemovedFromSelections)
+    cat_univRemoveTargetFromRammingFrigates(resource);
     univFreeResourceContents(resource);
 }
 
@@ -5481,6 +5646,54 @@ void univReallyDeleteThisResourceRightNow(Resource *resource)
         univRemoveObjFromRenderList(&resource->obj);
         listDeleteNode(&resource->header.objlink);
     }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univRemoveTargetFromRammingFrigates
+    Description : CAT (M2-R4 ships-b): every ramming frigate drops obj as its target (cat_univRemoveTargetFromRammingFrigates
+                  0x00549230: RammingFrigateRemoveShipReferences for sRammingFrigate and bRammingFrigate)
+    Inputs      : obj - the resource (or ship) going away
+----------------------------------------------------------------------------*/
+void cat_univRemoveTargetFromRammingFrigates(void *obj)
+{
+    Node *node;
+    Ship *ship;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if ((ship->shiptype == sRammingFrigate) || (ship->shiptype == bRammingFrigate))
+        {
+            RammingFrigateRemoveShipReferences(ship, (Ship *)obj);
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univDeleteMimicResource
+    Description : CAT (M2-R4 ships-b): deletes the fake asteroid of a mimic (cat_univDeleteMimicResource 0x00548f40):
+                  DeleteDeadResource's steps (the bullet/missile loops inlined), then off the resource list. The
+                  object is in no other list (cat_univAddMimicResource).
+    Inputs      : resource - the fake asteroid
+----------------------------------------------------------------------------*/
+void cat_univDeleteMimicResource(Resource *resource)
+{
+    smObjectDied(&resource->obj);
+    ccRemoveShip(&universe.mainCameraCommand,(Ship *)resource);
+    bobObjectDied(&resource->obj,&universe.collBlobList);
+    pingObjectDied(&resource->obj);
+    univRemoveAllTargetReferencesFromBullets((SpaceObjRotImpTarg *)resource);
+    univRemoveAllTargetReferencesFromMissiles((SpaceObjRotImpTarg *)resource);
+    clResourceDied(&universe.mainCommandLayer,resource);
+    aiplayerResourceDied(resource);
+    IDToPtrTableObjDied(&ResourceIDToPtr,resource->resourceID.resourceNumber);
+    cat_univRemoveTargetFromRammingFrigates(resource);
+    // CAT-TODO(stage 6): KAS selections drop it (cat_kasShipRemovedFromSelections)
+    univFreeResourceContents(resource);
+    listRemoveNode(&resource->resourcelink);
+    cat_univRemoveTargetFromRammingFrigates(resource);
+    // CAT-FIX: the exe never frees the object (its 0x1B4-byte block leaks on every unmimic); nothing refers to it now
+    memFree(resource);
 }
 
 /*-----------------------------------------------------------------------------
@@ -6498,7 +6711,8 @@ void univSetupShipForControl(Ship *ship)
     //clear this flag incase it is a target of a salcapcorvette
     // CAT: specialFlags 0x08000000 in the exe (SPECIAL_SalvageTargetAlreadyDriven since the M2-R4 command port)
     bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_SalvageTargetAlreadyDriven);   // CAT: specialFlags in the exe
-    // CAT-TODO(M2-R4 #4): the exe also clears a Cataclysm ship word at Ship +0x600 here (0x0054a26b)
+    // CAT: the idle-Worker count goes too (Ship +0x600, 0x0054a26b) [M2-R4 ships-b]
+    ship->catRepairIdleWorkers = 0;
     // memory of attackers fades away...
     if (ship->recentlyAttacked)
     {
@@ -6628,8 +6842,7 @@ SelectCommand *getEnemiesWithinProximity(Ship *thisship,real32 retaliateZone)
     real32 timesincecloak;
     real32 negRetaliateZone = -retaliateZone;
 
-    if ((thisship->shiptype == FloatingCity) || (thisship->shiptype == TargetDrone) ||
-        (bitTest(thisship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus)))
+    if ((thisship->shiptype == FloatingCity) || (bitTest(thisship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus)))
     {
         return NULL;      // traders get special status, not considered enemy to anyone
     }
@@ -6644,8 +6857,7 @@ SelectCommand *getEnemiesWithinProximity(Ship *thisship,real32 retaliateZone)
         {
             goto nextnode;      // must be enemy ship
         }
-        if ((ship->shiptype == FloatingCity) || (ship->shiptype == TargetDrone) ||
-            (bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus|SPECIAL_Hyperspacing)))
+        if ((ship->shiptype == FloatingCity) || (bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus|SPECIAL_Hyperspacing)))
         {
             goto nextnode;      // traders get special status, not considered enemy to anyone
         }
@@ -6773,7 +6985,7 @@ void univCheckShipState(Ship *ship)
         //ship->autostabilizeship = FALSE;
     }
 
-    if (ship->autostabilizeship && !bitTest(ship->header.flags, SOF_Disabled|SOF_Hide|SOF_Hyperspace|SOF_NISShip|SOF_Crazy) && !bitTest(ship->obj.attributes,ATTRIBUTES_DontApplyFriction) && (ship->shiptype != Drone))
+    if (ship->autostabilizeship && !bitTest(ship->header.flags, SOF_Disabled|SOF_Hide|SOF_Hyperspace|SOF_NISShip|SOF_Crazy) && !bitTest(ship->obj.attributes,ATTRIBUTES_DontApplyFriction))
     {
         bool32 isShipSteady;
 
@@ -8259,6 +8471,107 @@ void cat_univRemoveObjReferencesFromShips(SpaceObj *obj)
     Return      : void
 ----------------------------------------------------------------------------*/
 #define CAT_UPGRADE_SelfRepair      0x00200000      // cat_shipHasUpgrade(ship, 0x200000) at 0x0054341a (name chosen here)
+#define CAT_MODULE_REPAIR_SHARE     7.0f            // 0x0072bd6c
+
+// the module repair of a Sect mothership (inlined in cat_univShipSelfRepair 0x005433d0 at 0x00543505)
+static void cat_univMothershipRepairModules(Ship *ship, bool32 inCombat)
+{
+    MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+    CatClampedList *clamped;
+    Ship *module;
+    Ship *slotModule[CAT_MOTHERSHIP_MODULE_SLOTS];
+    sdword damaged[3] = { 0, 0, 0 };
+    sdword priority;
+    sdword slot;
+    sdword i;
+    real32 rate;
+
+    if ((ship->guidance.clampInfo == NULL) || ((clamped = ship->guidance.clampInfo->clampedObjs) == NULL))
+    {
+        return;
+    }
+    for (i = 0; i < CAT_MOTHERSHIP_MODULE_SLOTS; i++)
+    {
+        slotModule[i] = NULL;
+    }
+    for (i = 0; i < clamped->numShips; i++)
+    {
+        module = clamped->ShipPtr[i];
+        switch (module->shiptype)
+        {
+            case sMothershipDockingBay: slot = 0; break;
+            case sMothershipWeapons:    slot = 1; break;
+            case sMothershipArmour:     slot = 2; break;
+            case sMothershipMicro:      slot = 3; break;
+            case sMothershipSpecial:    slot = 4; break;
+            case sMothershipSupport:    slot = 5; break;
+            case sMothershipBigGun:     slot = 6; break;
+            default:                    continue;
+        }
+        if (slot == 5)
+        {
+            // the support modules: the first damaged one counts, then the weakest of them is repaired
+            if (slotModule[5] == NULL)
+            {
+                if (module->targetable.health < module->staticinfo->health.maxhealth)
+                {
+                    damaged[spec->moduleSlots[5].count]++;
+                    slotModule[5] = module;
+                }
+            }
+            else if (module->targetable.health < slotModule[5]->targetable.health)
+            {
+                slotModule[5] = module;
+            }
+            continue;
+        }
+        slotModule[slot] = module;
+        if (module->staticinfo->health.maxhealth <= module->targetable.health)
+        {
+            slotModule[slot] = NULL;
+        }
+        else
+        {
+            damaged[spec->moduleSlots[slot].count]++;
+        }
+    }
+    for (i = 0; i < CAT_MOTHERSHIP_MODULE_SLOTS; i++)
+    {
+        module = slotModule[i];
+        if (module == NULL)
+        {
+            continue;
+        }
+        rate = inCombat ? module->staticinfo->repairCombatDamage : module->staticinfo->repairDamage;
+        if (0.0f < rate)
+        {
+            priority = spec->moduleSlots[i].count;
+            if (damaged[0] >= 1)
+            {
+                if (priority == 0)
+                {
+                    module->targetable.health += (CAT_MODULE_REPAIR_SHARE / (real32)damaged[0]) * module->damageModifier * rate;
+                }
+            }
+            else if (damaged[1] >= 1)
+            {
+                if (priority == 1)
+                {
+                    module->targetable.health += (CAT_MODULE_REPAIR_SHARE / (real32)damaged[1]) * module->damageModifier * rate;
+                }
+            }
+            else if (priority == 2)
+            {
+                module->targetable.health += (CAT_MODULE_REPAIR_SHARE / (real32)damaged[2]) * module->damageModifier * rate;
+            }
+            if (module->staticinfo->health.maxhealth < module->targetable.health)
+            {
+                module->targetable.health = module->staticinfo->health.maxhealth;
+            }
+        }
+    }
+}
+
 void cat_univShipSelfRepair(Ship *ship)
 {
     ShipStaticInfo *shipstatic = ship->staticinfo;
@@ -8276,7 +8589,7 @@ void cat_univShipSelfRepair(Ship *ship)
     {
         return;
     }
-    // CAT-TODO(M2-R4 #4): Sect ships with repair droids update them here (droidUpdateArray, Ship +0x4C0, when the
+    // CAT-TODO(stage 3): Sect ships with repair droids update them here (droidUpdateArray 0x005c32f0, Ship +0x4C0, when the
     //      droid option 0x00c52374 is on)
     if ((shipstatic->shipclass == CLASS_Component) ||
         ((ship->targetable.health >= shipstatic->health.maxhealth) && (ship->shiptype != sMothership)))
@@ -8287,10 +8600,17 @@ void cat_univShipSelfRepair(Ship *ship)
     if ((universe.totaltimeelapsed - ship->lastTimeRepaired) >= repairTime)
     {
         ship->lastTimeRepaired = universe.totaltimeelapsed;
-        // CAT-TODO(M2-R4 #4): a Sect mothership first repairs its damaged module ships (its clamped objects, 0x00543505:
-        //      engines, armour, weapons and the rest, shared out by the module slots of its specifics)
-        // CAT-TODO(M2-R4 #4): a Beast mothership with an active system does not repair (cat_beastMothershipSystemActive)
-        if (ship->targetable.health < shipstatic->health.maxhealth)
+        // CAT (M2-R4 ships-b): a Sect mothership first repairs its damaged module ships (0x00543505): each module type
+        //      has a priority (the second word of its specifics module slot, 0..2); only the damaged modules of the
+        //      highest priority present gain 7 / their number x their damageModifier x their own repair rate
+        if (ship->shiptype == sMothership)
+        {
+            cat_univMothershipRepairModules(ship, inCombat);
+        }
+        // CAT (M2-R4 ships-b): a Beast mothership with an active system does not repair itself
+        //      (cat_beastMothershipSystemActive 0x005bcac0)
+        if (((ship->shiptype != bMothership) || !cat_beastMothershipSystemActive(ship)) &&
+            (ship->targetable.health < shipstatic->health.maxhealth))
         {
             ship->targetable.health += repairDamage * ship->damageModifier;
             if (ship->targetable.health > shipstatic->health.maxhealth)
@@ -8490,8 +8810,14 @@ void cat_univShipDeferredUpdate(Ship *ship)
         clAttack(&universe.mainCommandLayer, &selectone, &attackone);
         ship->catQueuedAttackTarget = NULL;
     }
-    // CAT-TODO(M2-R4 #4/#2): then Sentinel field timers (Ship +0x97C/+0x980); the protected-speed limit (Ship +0x5C4)
-    //      is reset when its timer has run out (M2-R4 #2); cat_shipDissolveUpdate (M2-R4 #4)
+    // CAT (M2-R4 ships-b): a Sentinel's DFG disruption ends with its timer, checked on 31 of 32 updates (0x0054487b)
+    if (((universe.univUpdateCounter & 0x1f) != 0) && ((ship->shiptype == sSentinel) || (ship->shiptype == bSentinel)) &&
+        (((SentinelSpec *)ship->ShipSpecifics)->disruptEndTime < universe.totaltimeelapsed))
+    {
+        ((SentinelSpec *)ship->ShipSpecifics)->disrupted = FALSE;
+    }
+    // CAT-TODO(M2-R4 #2): the protected-speed limit (Ship +0x5C4) is reset when its timer has run out
+    cat_shipDissolveUpdate(ship);                           // CAT: 0x00460850 (M2-R4 ships-b)
     // CAT (M2-R4 combat): the stun timers of a Beast hit (0x005448ca): when the stun period is over, a hit ship
     //      (state 1) is stunned again after 0.4..1.2 s for 1.5..3 s, or at its spin time when that is set; an infected
     //      one (state 2) is released
@@ -8536,11 +8862,15 @@ void cat_univShipDeferredUpdate(Ship *ship)
             }
         }
     }
-    // CAT-TODO(M2-R4 #4/#5/#2): then the end of an
+    // CAT-TODO(M2-R4 #5): then the end of an
     //      upgrade (catUpgrading with its end time at Ship +0x5A0: cat_shipSetDisableReason(ship, 0, 0),
-    //      cat_shipApplyUpgrades, speech 0x2000895), the debug re-upgrade switch 0x00a751c0, cat_shipUpdateDrift,
-    //      the stealth detection (static catTypeFlags 0x20000, every 0x0072bd60-masked tick), and for live ships
-    //      cat_shipUpdateExternalBuildAndAI 0x00543f10 with universe.aiplayerProcessing set
+    //      cat_shipApplyUpgrades, speech 0x2000895) and the debug re-upgrade switch 0x00a751c0
+    cat_shipUpdateDrift(ship);                              // CAT: 0x005b3d60 (M2-R4 ships-b)
+    // CAT-TODO(M2-R4 #5): then the stealth detection of the catTypeFlags 0x20000 types on every 16th tick by ship
+    //      number (cat_shipStealthDetectionUpdate 0x0053fd90: a player detects the ship when one of its detector ships,
+    //      catTypeFlags 0x10000 with upgrade 0x800000, is within its FOW radius, cat_shipGetFOWRadius 0x00514a30, which
+    //      needs the research tech sets cat_rmTechSetHas), and for live ships cat_shipUpdateExternalBuildAndAI
+    //      0x00543f10 with universe.aiplayerProcessing set
 }
 
 /*-----------------------------------------------------------------------------

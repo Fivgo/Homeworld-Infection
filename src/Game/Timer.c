@@ -342,3 +342,29 @@ real32 cat_timerFractionElapsed(CatTimer *t)
     }
     return (now - t->startTime) / t->duration;
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_timerElapsed / cat_timerRemaining / cat_timerRestartWithRemainder
+    Description : CAT (M2-R4 ships-b): the time since a CatTimer started (cat_timerElapsed 0x00528470), the time left
+                  (cat_timerRemaining 0x00528510), and a restart that keeps the time left and adds `extra`
+                  (cat_timerRestartWithRemainder 0x00528540: the restarted timer always runs on game time)
+----------------------------------------------------------------------------*/
+real32 cat_timerElapsed(CatTimer *t)
+{
+    return (t->realTime ? cat_taskRealTimeElapsed : universe.totaltimeelapsed) - t->startTime;
+}
+
+real32 cat_timerRemaining(CatTimer *t)
+{
+    return t->duration - ((t->realTime ? cat_taskRealTimeElapsed : universe.totaltimeelapsed) - t->startTime);
+}
+
+void cat_timerRestartWithRemainder(CatTimer *t, real32 extra)
+{
+    real32 now = t->realTime ? cat_taskRealTimeElapsed : universe.totaltimeelapsed;
+
+    t->magic = CAT_TIMER_MAGIC;
+    t->duration = (t->duration - (now - t->startTime)) + extra;
+    t->startTime = universe.totaltimeelapsed;
+    t->realTime = FALSE;
+}

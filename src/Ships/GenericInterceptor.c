@@ -16,7 +16,6 @@
 #include "Collision.h"
 #include "CommandDefs.h"
 #include "CommandLayer.h"
-#include "DefenseFighter.h"
 #include "FastMath.h"
 #include "Gun.h"
 #include "MadLinkIn.h"

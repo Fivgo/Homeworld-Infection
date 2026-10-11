@@ -238,7 +238,8 @@ void aihHarassNumbersLowHandler(AITeam *team)
     SetAlternative(alternatives,0,HeavyInterceptor,HARASS_HEAVYINT_EQUIVNUM);
     SetAlternative(alternatives,1,AttackBomber, HARASS_BOMBER_EQUIVNUM);
 
-    newMove = aimCreateFancyGetShipsNoAdd(team, LightInterceptor, 16, &alternatives, REQUESTSHIPS_HIPRI, TRUE, TRUE);
+    // CAT-TODO(stage 4 AI): HW1 asked for LightInterceptors (gone with the HW1-only types (M2-R4 ships-b)); the first alternative stands in
+    newMove = aimCreateFancyGetShipsNoAdd(team, HeavyInterceptor, 16, &alternatives, REQUESTSHIPS_HIPRI, TRUE, TRUE);
     listAddNodeBefore(&(thisMove->listNode), &(newMove->listNode), newMove);
 
     bitClear(team->teamFlags, TEAM_NEEDS_SUPPORT);
@@ -365,7 +366,8 @@ void aihFastDefenseNumbersLowHandler(AITeam *team)
         SetAlternative(alternatives,1,HeavyInterceptor,14);
         SetAlternative(alternatives,2,AttackBomber,15);
 
-        newMove = aimCreateFancyGetShipsNoAdd(team, LightInterceptor, 12, &alternatives, 0, TRUE, FALSE);
+        // CAT-TODO(stage 4 AI): HW1 asked for LightInterceptors (gone with the HW1-only types (M2-R4 ships-b)); the first alternative stands in
+        newMove = aimCreateFancyGetShipsNoAdd(team, HeavyDefender, 12, &alternatives, 0, TRUE, FALSE);
     }
 
     thisMove->events.numbersLow.watchBaseCount = 0;
@@ -427,11 +429,9 @@ void aihSlowDefenseNumbersLowHandler(AITeam *team)
     }
     else
     {
-        SetNumAlternativesFlags(alternatives,4,ALTERNATIVE_RANDOM);
+        SetNumAlternativesFlags(alternatives,2,ALTERNATIVE_RANDOM);     // CAT: the HW1-only types dropped (M2-R4 ships-b)
         SetAlternative(alternatives,0,HeavyCorvette,12);
-        SetAlternative(alternatives,1,LightCorvette,7);
-        SetAlternative(alternatives,2,StandardFrigate,30);
-        SetAlternative(alternatives,3,DDDFrigate,30);
+        SetAlternative(alternatives,1,StandardFrigate,30);
 
         newMove = aimCreateFancyGetShipsNoAdd(team, MultiGunCorvette, 3, &alternatives, 0, TRUE, FALSE);
     }
@@ -644,10 +644,7 @@ void aihFastDefenseDistressHandler(AITeam *team, udword *intvar)
         {
             return;
         }
-        if (aiuRescueShipType((SelectCommand *)&distressShips, team, ResourceController))
-        {
-            return;
-        }
+        // CAT: no HW1 ResourceController to rescue (M2-R4 ships-b)
     }
 
     if (aiCurrentAIPlayer->aidInvadingShips)
@@ -736,10 +733,7 @@ void aihSlowDefenseDistressHandler(AITeam *team, udword *intvar)
         {
             return;
         }
-        if (aiuRescueShipType((SelectCommand *)&distressShips, team, ResourceController))
-        {
-            return;
-        }
+        // CAT: no HW1 ResourceController to rescue (M2-R4 ships-b)
     }
 
     if (aiCurrentAIPlayer->aidInvadingShips)

@@ -17,7 +17,6 @@
 #include "AITrack.h"
 #include "CommandDefs.h"
 #include "CommandLayer.h"
-#include "DDDFrigate.h"
 #include "Debug.h"
 #include "FastMath.h"
 #include "Globals.h"
@@ -154,11 +153,8 @@ bool32 isCapitalShipStaticOrBig(ShipStaticInfo *shipstatic)
 
     switch (shipstatic->shiptype)   // other cases that are not necessarily covered by isCapitalShipStatic
     {
-        case SensorArray:
         case CloakGenerator:
         case GravWellGenerator:
-        case ResourceController:
-        case ResearchShip:
             return TRUE;
         default:
             return FALSE;
@@ -603,11 +599,8 @@ void formationSpecificsSphere(CommandToDo *command)
     tableentry = findSphereTableEntry(numShipsIncludingCentre);
     numDeclinations = tableentry->numDeclinations;
 
-    if ((centreship->shiptype == DDDFrigate) && (selection->ShipPtr[0]->shiptype == Drone))
-    {   //if centre ship is DDDF and the 1st ship is a drone, the assumption is all are drones
-        sphereRadius = ((DDDFrigateStatics *) ((ShipStaticInfo *)(centreship->staticinfo))->custstatinfo)->droneDeploymentRange;
-    }
-    else if(prox_sol)
+    // CAT: no HW1 DDDFrigate drone sphere (M2-R4 ships-b)
+    if(prox_sol)
     {
         sphereRadius = shipRadius + ((ProximitySensorStatics *) ((ShipStaticInfo *)(selection->ShipPtr[1]->staticinfo))->custstatinfo)->SearchRadius;
     }
@@ -901,15 +894,8 @@ bool32 need_Proximity_Sensor_Solution(SelectCommand *selection)
 //function to determine if selection contains nothing but Target Drones
 bool32 need_TargetDrone_Solution(SelectCommand *selection)
 {
-   sdword i;
-   for(i=0;i<selection->numShips;i++)
-   {
-      if(selection->ShipPtr[i]->shiptype != TargetDrone)
-      {
-         return(FALSE);
-      }
-   }
-   return(TRUE);
+   // CAT: no HW1 TargetDrone, so only an empty selection is "all target drones" (M2-R4 ships-b)
+   return(selection->numShips <= 0);
 }
 
 
@@ -1087,10 +1073,7 @@ void processFormationToDo(struct CommandToDo *formationtodo,bool32 steadyFormati
         {
             bool32 protectsurround = FALSE;
 
-            if (leader->shiptype == Drone)
-            {
-                aishipTempDisableAvoiding = TRUE;
-            }
+            // CAT: no HW1 Drone (M2-R4 ships-b)
 
             if (formationtodo->ordertype.attributes & COMMAND_MASK_PROTECTING)
             {
@@ -2938,20 +2921,7 @@ void processMilitaryParadeToDo(struct CommandToDo *command,bool32 passiveAttacke
             {
                 shipstatic = (ShipStaticInfo *)ship->staticinfo;
                 dontrotate = (passiveAttacked & (bool32)shipstatic->rotateToRetaliate);
-                if(ship->shiptype == ResearchShip)
-                {
-                    //special case for research ship
-                    CommandToDo *leaderCommand = getShipAndItsCommand(&universe.mainCommandLayer,leader);
-                    dontrotate = TRUE;  //default to NOT ROTATING in parade
-                    if(leaderCommand != NULL)
-                    {
-                        if(leaderCommand->ordertype.order == COMMAND_MOVE)
-                        {
-                            //let it rotate here.
-                            dontrotate = FALSE;
-                        }
-                    }
-                }
+                // CAT: no HW1 ResearchShip parade case (M2-R4 ships-b)
                 if (firstShipOfSlot)
                 {
                     firstShipOfSlot = FALSE;

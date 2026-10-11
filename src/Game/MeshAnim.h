@@ -215,6 +215,7 @@ void madAnimationPause(struct Ship *ship, bool32 bFreeze);
 bool32 madAnimationUpdate(struct Ship *ship, real32 timeElapsed);
 void madAnimationStop(struct Ship *ship);
 bool32 cat_madAnimationFinished(struct Ship *ship);     // CAT: 0x004b7090 (M2-R4 combat: the sCarrier door)
+void cat_madAnimationStartNumber(struct Ship *ship, sdword number);    // CAT: madAnimationStart's number lookup (M2-R4 ships-b)
 
 //find things in animations
 sdword madAnimIndexFindByName(madheader *header, char *name);

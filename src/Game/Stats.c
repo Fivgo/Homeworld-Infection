@@ -1365,8 +1365,7 @@ bool32 statShipConstraintsFightingShipsCB(ShipStaticInfo *shipstatic)
             return TRUE;
             break;
         case CLASS_Frigate:
-            if ((shipstatic->shiptype == ResourceController) ||
-                (shipstatic->shiptype == DFGFrigate) ||
+            if ((shipstatic->shiptype == DFGFrigate) ||
                 (shipstatic->shiptype == AdvanceSupportFrigate))
             {
                 return FALSE;
@@ -1377,8 +1376,7 @@ bool32 statShipConstraintsFightingShipsCB(ShipStaticInfo *shipstatic)
             }
             break;
         case CLASS_Corvette:
-            if ((shipstatic->shiptype == RepairCorvette) ||
-                (shipstatic->shiptype == SalCapCorvette))
+            if ((shipstatic->shiptype == SalCapCorvette))
             {
                 return FALSE;   //salcap corvette doesn't attack in a conventional manner
             }
@@ -1423,8 +1421,7 @@ bool32 statShipConstraintsCarrierFightingShipsCB(ShipStaticInfo *shipstatic)
             return FALSE;
             break;
         case CLASS_Frigate:
-            if ((shipstatic->shiptype == ResourceController) ||
-                (shipstatic->shiptype == DFGFrigate) ||
+            if ((shipstatic->shiptype == DFGFrigate) ||
                 (shipstatic->shiptype == AdvanceSupportFrigate))
             {
                 return FALSE;
@@ -1435,8 +1432,7 @@ bool32 statShipConstraintsCarrierFightingShipsCB(ShipStaticInfo *shipstatic)
             }
             break;
         case CLASS_Corvette:
-            if ((shipstatic->shiptype == RepairCorvette) ||
-                (shipstatic->shiptype == SalCapCorvette))
+            if ((shipstatic->shiptype == SalCapCorvette))
             {
                 return FALSE;   //salcap corvette doesn't attack in a conventional manner
             }

@@ -19,9 +19,13 @@
 #include "Gun.h"
 #include "InfoOverlay.h"
 #include "KASFunc.h"
+#include "Leech.h"
 #include "Memory.h"
+#include "Mothership.h"
 #include "MultiplayerGame.h"
 #include "MaxMultiplayer.h"
+#include "Mimic.h"
+#include "RammingFrigate.h"
 #include "Salvage.h"
 #include "Select.h"
 #include "SinglePlayer.h"
@@ -2737,8 +2741,13 @@ real32 cat_shipGetSpeedMultiplier(Ship *ship)                       // 0x0051494
     {
         multiplier = cat_experienceSpeedScale[experience] + 0.15f;
     }
-    // CAT-TODO(M2-R4 #4): + cat_beastMothershipSpeedBonus 0x005bca00 [audit: was "0x005bc9xx"] for a bMothership
-    //      and + cat_rammingFrigateSpeedMultiplier 0x005c2120 for every ship (ship code B); both 0 until then
+    // CAT (M2-R4 ships-b): + cat_beastMothershipSpeedBonus 0x005bca00 for a bMothership and
+    //      + cat_rammingFrigateSpeedMultiplier 0x005c2120 for every ship
+    if (ship->shiptype == bMothership)
+    {
+        multiplier = cat_beastMothershipSpeedBonus(ship) + multiplier;
+    }
+    multiplier = cat_rammingFrigateSpeedMultiplier(ship) + multiplier;
     healthFraction = ship->targetable.health / ship->staticinfo->health.maxhealth;
     if (healthFraction < 0.1f)
     {
@@ -2913,8 +2922,8 @@ real32 cat_shipGetDamageMultiplier(Ship *ship)                      // 0x005148f
 
     if (ship->shiptype == bMothership)
     {
-        // CAT-TODO(M2-R4 #4): + cat_beastMothershipDamageBonus 0x005bca30 [audit: was "0x005bc9xx"] (the Beast
-        //      mothership's module bonus)
+        // CAT: + cat_beastMothershipDamageBonus 0x005bca30 (1.0 unless the damage system is on) [M2-R4 ships-b]
+        multiplier = cat_beastMothershipDamageBonus(ship) + multiplier;
     }
     if ((singlePlayerGame) && (kasfMissionSkillGet() == 0))
     {
@@ -3038,80 +3047,26 @@ bool32 cat_shipIsCrystal(Ship *ship)                                // 0x005affa
 
 // cat_shipIsCloakedFully 0x00436110 lives in Cloak.c with the rest of Cataclysm's cloak [M2-R3 ships-a]
 
-bool32 cat_shipIsAcolyte(Ship *ship)                                // 0x005ad300 [M2-R3 ships-a]
-{
-    // sAcolyte and bAcolyte (not dAcolyte)
-    return ((ship->shiptype == sAcolyte) || (ship->shiptype == bAcolyte)) ? TRUE : FALSE;
-}
+// cat_shipIsAcolyte 0x005ad300 lives in Ships/Acolyte.c [M2-R4 ships-b]
 
-void cat_shipSetDisableReason(Ship *ship, sdword value, sdword reason)      // 0x005b3fe0 [M2-R3 ships-a]
-{
-    // one of 13 disable reasons; the ship is disabled while any of them is set
-    sdword i;
-
-    dbgAssertOrIgnore((reason >= 0) && (reason < CAT_NUM_DISABLE_REASONS));
-    ship->catDisableReason[reason] = value;
-    ship->catDisabled = FALSE;
-    for (i = 0; i < CAT_NUM_DISABLE_REASONS; i++)
-    {
-        if (ship->catDisableReason[i] != 0)
-        {
-            ship->catDisabled = TRUE;
-        }
-    }
-}
+// cat_shipSetDisableReason 0x005b3fe0 lives in Ships/ShipDisable.c with the rest of the disable state [M2-R4 ships-b]
 
 bool32 cat_shipIsUntargetable(Ship *ship)                           // 0x0052a060
 {
     return (ship->staticinfo->catTypeFlags >> 14) & 1;
 }
 
-bool32 cat_shipIsSentinelInField(Ship *ship)                        // 0x005c6ec0
-{
-    return ((ship->shiptype == sSentinel) || (ship->shiptype == bSentinel)) && (ship->command != NULL) &&
-           (ship->command->ordertype.attributes & COMMAND_MASK_FORMATION) &&
-           ((ship->command->formation.formationtype == FORCEFIELD_SPHERE_FORMATION) ||
-            (ship->command->formation.formationtype == FORCEFIELD_WALL_FORMATION));
-}
+// cat_shipIsSentinelInField 0x005c6ec0 and cat_shipIsSentinelFieldActive 0x005c6e50 live in Ships/Sentinel.c
+//      [M2-R4 ships-b]
 
-bool32 cat_shipIsSentinelFieldActive(Ship *ship)                    // 0x005c6e50
-{
-    // CAT-PROVISIONAL: the exe reads the Sentinel specifics (state +0x638 == 1 and field level +0x63C == 1.0); the
-    //      Sentinel code is ported in M2-R4 #4 (ship code B). Until then no field is up.
-    (void)ship;
-    return FALSE;
-}
 
-bool32 cat_leechIsLeeching(Ship *ship)                              // 0x005b7ce0
-{
-    // CAT-PROVISIONAL: the exe reads the first byte of the Leech specifics (Ship+0x638); the Leech code is ported in
-    //      M2-R4 #4 (ship code B). Until then no ship is leeching.
-    (void)ship;
-    return FALSE;
-}
+// cat_leechIsLeeching 0x005b7ce0 lives in Ships/Leech.c [M2-R4 ships-b]
 
-sdword cat_acvLinkState(Ship *ship)
-{
-    // CAT-PROVISIONAL: the exe reads the ACV specifics byte at Ship+0x6F0 (cat_selMakeShipsNotLinkedACVs 0x00511df0);
-    //      the ACV link code is ported in M2-R4 #4 (ship code B). Until then no ACV is linked (state 0).
-    (void)ship;
-    return 0;
-}
+// cat_acvLinkState (the ACV specifics byte at Ship+0x6F0) lives in Ships/ACV.c [M2-R4 ships-b]
 
-// CAT (M2-R4 combat): sAcolyte, bAcolyte or dAcolyte (cat_shipIsAcolyteOrDerelict 0x005ad360)
-bool32 cat_shipIsAcolyteOrDerelict(Ship *ship)                      // 0x005ad360
-{
-    return (ship->shiptype == sAcolyte) || (ship->shiptype == bAcolyte) || (ship->shiptype == dAcolyte);
-}
+// cat_shipIsAcolyteOrDerelict 0x005ad360 and cat_acolyteCanFireLinkedWeapon 0x005ada50 live in Ships/Acolyte.c
+//      [M2-R4 ships-b]
 
-bool32 cat_acolyteCanFireLinkedWeapon(Ship *ship)                   // 0x005ada50
-{
-    // the third or fourth gun (the linked weapon) must hold missiles; the exe's Gun has a leading upgrade-level
-    // dword, so its +0x68 is numMissiles
-    return ((ship->shiptype == sAcolyte) || (ship->shiptype == bAcolyte)) &&
-           cat_shipHasUpgrade(ship, CAT_UPGRADE_AcolyteLinkFire) &&
-           ((ship->gunInfo->guns[2].numMissiles > 0) || (ship->gunInfo->guns[3].numMissiles > 0));
-}
 
 // CAT (M2-R4 combat): cat_salvageIsBeingSalvaged 0x004f7c00 lives in Salvage.c with the rest of the salvage system.
 
@@ -3133,31 +3088,7 @@ bool32 cat_salvageDepotHoldsCrystal(Ship *ship)
     return crystal;
 }
 
-bool32 cat_mothershipBigGunActive(Ship *ship)                       // 0x005bbf60
-{
-    SelectCommand *clamped;
-    bool32 bigGunReady = FALSE;
-    sdword i;
-
-    if ((ship->shiptype != sMothership) || (ship->guidance.clampInfo == NULL) ||
-        (ship->guidance.clampInfo->clampedObjs == NULL))
-    {
-        return FALSE;
-    }
-    clamped = (SelectCommand *)ship->guidance.clampInfo->clampedObjs;
-    for (i = 0; i < clamped->numShips; i++)
-    {
-        if ((clamped->ShipPtr[i]->shiptype == sMothershipBigGun) &&
-            (!bitTest(clamped->ShipPtr[i]->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt)))
-        {
-            bigGunReady = TRUE;
-        }
-    }
-    // CAT-PROVISIONAL: the exe also needs the mothership specifics byte at Ship+0x674 (big gun firing); the Sect
-    //      mothership code is ported in M2-R4 #4 (ship code B). Until then the big gun never fires.
-    (void)bigGunReady;
-    return FALSE;
-}
+// cat_mothershipBigGunActive 0x005bbf60 lives in Ships/Mothership.c with the big gun [M2-R4 ships-b]
 
 // CAT (M2-R4 combat): 1 for player's own ship, 2 for a stealth-type ship player has not detected, else 0
 //      (cat_shipStealthTargetState 0x0053ff30; the per-type detected flags as cat_shipDetectedByPlayer reads them)
@@ -3175,6 +3106,35 @@ sdword cat_shipStealthTargetState(Ship *ship, Player *player)       // 0x0053ff3
     return 0;
 }
 
+// CAT (M2-R4 ships-b): a new ship's stealth flags: the mimic and cloaking types start detected by every player, the
+//      leech undetected (cat_shipStealthInit 0x0053fce0, silently; univCreateShip calls it)
+void cat_shipStealthInit(Ship *ship)                                // 0x0053fce0
+{
+    sdword playerIndex;
+    bool32 detected;
+
+    for (playerIndex = 0; playerIndex < MAX_MULTIPLAYER_PLAYERS; playerIndex++)
+    {
+        switch (ship->shiptype)
+        {
+            case sMimic:
+            case sMCV:
+            case bCloakedFighter:
+            case bIonArrayFrigate:
+            case p1IonArrayFrigate:
+            case p1StandardCorvette:
+                detected = TRUE;
+                break;
+            case sLeech:
+                detected = FALSE;
+                break;
+            default:
+                continue;
+        }
+        cat_shipStealthDetectedSet(ship, playerIndex, detected, TRUE);
+    }
+}
+
 bool32 cat_shipDetectedByPlayer(Ship *ship, sdword playerIndex)     // sub_53F9F0 0x0053f9f0
 {
     // Ship types with the stealth type flag (catTypeFlags 0x20000: sMimic, sLeech, sMCV, bCloakedFighter,
@@ -3190,8 +3150,19 @@ bool32 cat_shipDetectedByPlayer(Ship *ship, sdword playerIndex)     // sub_53F9F
         {
             return detected[playerIndex];
         }
-        // CAT-PROVISIONAL: the mimic/MCV/p1StandardCorvette (+0xAC) and leech (+0x1C) flags are ported with those
-        //      ships in M2-R4 #4 (ship code B); until then they count as detected, as HW1 treated uncloaked ships.
+        // CAT (M2-R4 ships-b): the mimic types (sMimic, sMCV, p1StandardCorvette: Mimic.h +0xAC) and the leech
+        //      (Leech.h +0x1C)
+        switch (ship->shiptype)
+        {
+            case sMimic:
+            case sMCV:
+            case p1StandardCorvette:
+                return ((MimicSpec *)ship->ShipSpecifics)->detected[playerIndex];
+            case sLeech:
+                return ((LeechSpec *)ship->ShipSpecifics)->detected[playerIndex];
+            default:
+                break;
+        }
         return TRUE;
     }
     return TRUE;
@@ -3221,52 +3192,43 @@ void cat_shipStealthDetectedSet(Ship *ship, sdword playerIndex, bool32 detected,
         flags[playerIndex] = detected;
         return;
     }
-    // CAT-PROVISIONAL: the mimic types (sMimic, sMCV, p1StandardCorvette: +0xAC, with the "appears as" rules) and the
-    //      leech (+0x1C) are M2-R4 #4 (ship code B); until then their flags are not kept (see cat_shipDetectedByPlayer)
+    // CAT (M2-R4 ships-b): a mimic that becomes detected while mimicking raises the alert; one that becomes undetected
+    //      stays detected unless its disguise fools that player (allied look, asteroid or derelict); the leech
+    switch (ship->shiptype)
+    {
+        case sMimic:
+        case sMCV:
+        case p1StandardCorvette:
+            flags = ((MimicSpec *)ship->ShipSpecifics)->detected;
+            if ((flags[playerIndex] == FALSE) && (detected == TRUE) && (!silent) && cat_shipIsMimicking(ship))
+            {
+                cat_speechAlertsNoteShip(ship, playerIndex);
+            }
+            flags[playerIndex] = detected;
+            if (detected == FALSE)
+            {
+                Player *player = &universe.players[playerIndex];
+
+                flags[playerIndex] = (!cat_mimicAppearsAlliedTo(ship, player) && !cat_mimicAppearsAsResource(ship, player) &&
+                                      !cat_mimicAppearsAsDerelict(ship, player)) ? TRUE : FALSE;
+            }
+            break;
+        case sLeech:
+            flags = ((LeechSpec *)ship->ShipSpecifics)->detected;
+            if ((flags[playerIndex] == FALSE) && (detected == TRUE) && (!silent))
+            {
+                cat_speechAlertsNoteShip(ship, playerIndex);
+            }
+            flags[playerIndex] = detected;
+            break;
+        default:
+            break;
+    }
 }
 
-bool32 cat_shipIsMimicking(Ship *ship)                              // 0x005b99b0
-{
-    // CAT-PROVISIONAL: a ship with CAT_SHIPFLAG_Mimic mimics while its mimic mode (specifics, Ship+0x760) is not 0;
-    //      the mimic code is ported in M2-R4 #4 (ship code B), and until then no mimic is active.
-    (void)ship;
-    return FALSE;
-}
-
-ShipType cat_mimicGetApparentShipType(Ship *ship)                   // 0x005b97e0
-{
-    // CAT-PROVISIONAL: a mimic shows the type in its specifics (Ship+0x704); see cat_shipIsMimicking
-    return ship->shiptype;
-}
-
-real32 cat_mimicGetSelectRadius(Ship *ship)                         // 0x005b94e0
-{
-    // CAT-PROVISIONAL: an active mimic uses the apparent type's (or its stored, Ship+0x724) radius; see
-    //      cat_shipIsMimicking. Otherwise the ship's own collision sphere.
-    return ship->staticinfo->common.staticCollInfo.collspheresize;
-}
-
-bool32 cat_mimicAppearsAlliedTo(Ship *ship, struct Player *player)  // 0x005b96f0
-{
-    // CAT-PROVISIONAL: an active mimic posing as a ship of player looks allied to it (specifics Ship+0x71c); see
-    //      cat_shipIsMimicking
-    (void)player;
-    return cat_shipIsMimicking(ship);
-}
-
-bool32 cat_mimicAppearsAsResource(Ship *ship, struct Player *player)    // 0x005b9860
-{
-    // CAT-PROVISIONAL: an undetected active mimic posing as an asteroid; see cat_shipIsMimicking
-    (void)player;
-    return cat_shipIsMimicking(ship);
-}
-
-bool32 cat_mimicAppearsAsDerelict(Ship *ship, struct Player *player)    // 0x005b98d0
-{
-    // CAT-PROVISIONAL: an undetected active mimic posing as a derelict; see cat_shipIsMimicking
-    (void)player;
-    return cat_shipIsMimicking(ship);
-}
+// cat_shipIsMimicking 0x005b99b0, cat_mimicGetApparentShipType 0x005b97e0, cat_mimicGetSelectRadius 0x005b94e0,
+//      cat_mimicAppearsAlliedTo 0x005b96f0, cat_mimicAppearsAsResource 0x005b9860 and cat_mimicAppearsAsDerelict
+//      0x005b98d0 live in Ships/Mimic.c [M2-R4 ships-b]
 
 bool32 cat_spShipCanHyperspace(Ship *ship)                          // 0x00517650 (single player, SinglePlayer.c block)
 {

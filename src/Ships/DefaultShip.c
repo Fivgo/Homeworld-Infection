@@ -107,6 +107,48 @@ void DefaultShipAttackPassive(Ship *ship,Ship *target,bool32 rotate)
 
 // CAT: no DefaultShipAttackStationary (StationaryGunHeader 0x008c3b60 has no slot 21)
 
+// CAT (M2-R4 ships-b): nullsub 0x0049ae30 is a bare "ret" and kasfSpecialOff 0x00497db0 a bare "return 1"; the exe's
+//      headers put them in several slots of the Cataclysm-only ships (CruiseMissile, MultiBeamFrigate, NomadMoon,
+//      NomadFieldEmitter, RammingFrigate, Sentinel, Swarmer, Worker headers)
+void nullsubStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
+{
+    (void)directory;
+    (void)filename;
+    (void)statinfo;
+}
+
+void nullsubShip(Ship *ship)
+{
+    (void)ship;
+}
+
+void nullsubAttackPassive(Ship *ship,Ship *target,bool32 rotate)
+{
+    (void)ship;
+    (void)target;
+    (void)rotate;
+}
+
+bool32 kasfSpecialOffShip(Ship *ship)
+{
+    (void)ship;
+    return TRUE;
+}
+
+bool32 kasfSpecialOffTarget(Ship *ship,void *custom)
+{
+    (void)ship;
+    (void)custom;
+    return TRUE;
+}
+
+bool32 nullsubReturnFalseTarget(Ship *ship,void *custom)
+{
+    (void)ship;
+    (void)custom;
+    return FALSE;
+}
+
 void MiningBaseInit(Ship *ship)
 {
     MiningBaseSpec *spec = (MiningBaseSpec *)ship->ShipSpecifics;
@@ -167,8 +209,8 @@ void MiningBaseDied(Ship *ship)
 // CAT: the exe's headers (shipHeaders 0x008b1938). Slot 6 of DefaultShipHeader and StationaryGunHeader is the
 //      "rotate ? attackPassiveRotate : attackPassive" body that the linker folded into P1MothershipAttackPassive
 //      0x005be540; DefaultShipAttackPassive is the same code.
-CustShipHeader DefaultShipHeader =                  // 0x008c39b0: trCargoBarge, trResearchStation (+ the 22 Cataclysm-only
-{                                                   // headers and the two cloak generators until M2-R4 #4)
+CustShipHeader DefaultShipHeader =                  // 0x008c39b0: trCargoBarge, trResearchStation (+ kCloakGenerator
+{                                                   // and tCloakGenerator, whose exe header is NULL: Universe.c)
     .sizeofShipSpecifics = sizeof(DefaultShipSpec),
     .CustShipFire = DefaultShipFire,
     .CustShipAttackPassive = DefaultShipAttackPassive,

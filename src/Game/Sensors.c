@@ -39,7 +39,6 @@
 #include "Ping.h"
 #include "prim2d.h"
 #include "prim3d.h"
-#include "Probe.h"
 #include "ProximitySensor.h"
 #include "Randy.h"
 #include "Region.h"

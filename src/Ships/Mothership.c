@@ -22,7 +22,9 @@
 #include "MadLinkInDefs.h"
 #include "MaxMultiplayer.h"
 #include "Memory.h"
+#include "MeshAnim.h"
 #include "Randy.h"
+#include "RKO.h"
 #include "Salvage.h"
 #include "SaveGame.h"
 #include "ShipSelect.h"
@@ -338,27 +340,358 @@ void Mothership_Fix(Ship *ship)
     cat_salvageDepotFix(ship);
 }
 
+// CAT (M2-R4 ships-b): the Sect mothership's big gun (0x005bb7e0 .. 0x005bd4b0)
+#define CAT_BIGGUN_AIM_TIME             20.0f       // 0x008c53c0 (cat_bigGunAimTime)
+#define CAT_BIGGUN_SCATTER_MP           0.1f        // 0x008c53c4
+#define CAT_BIGGUN_RANGE_SPREAD         0.1f        // 0x008c53c8
+#define CAT_BIGGUN_RANGE_SPREAD_MIN     20000.0f    // 0x008c53cc
+#define CAT_BIGGUN_AIM_DOT              0.985f      // 0x008c53d0 (cat_bigGunAimDotThreshold)
+#define CAT_BIGGUN_MAX_RANGE_SP         60000.0f    // 0x008c53d4 (cat_bigGunMaxRangeSP)
+#define CAT_BIGGUN_FALLOFF_START_SP     35000.0f    // 0x008c53d8
+#define CAT_BIGGUN_MAX_RANGE_MP         90000.0f    // 0x008c53dc (cat_bigGunMaxRangeMP)
+#define CAT_BIGGUN_FALLOFF_START_MP     30000.0f    // 0x008c53e0
+#define CAT_BIGGUN_MIN_DAMAGE           0.01f       // 0x008c53e4
+#define CAT_BIGGUN_CHARGE_TIME          11.0        // 0x0072bfc8 (double): the charge before the shot
+#define CAT_BIGGUN_CHARGE_SPIN          3.0f        // 0x0072bfc0
+#define CAT_BIGGUN_AIM_ACCURACY         0.999f
+#define CAT_BIGGUN_AIM_UP_ACCURACY      0.2f
+
+// the single-player scatter factor (0x00a77af8, .bss: nothing in the exe writes it, so single-player shots go
+//      straight)
+static real32 cat_bigGunScatterSP = 0.0f;
+
+static bool32 cat_bigGunAimTimerExpired(Ship *ship)                         // 0x005bb7e0
+{
+    MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+
+    return (spec->bigGunAimTimerRunning == TRUE) && cat_timerExpired(&spec->bigGunAimTimer);
+}
+
+static void cat_bigGunAimTimerStart(Ship *ship)                             // 0x005bb810
+{
+    MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+
+    if (!spec->bigGunAimTimerRunning)
+    {
+        spec->bigGunAimTimerRunning = TRUE;
+        cat_timerStartGameTime(&spec->bigGunAimTimer, CAT_BIGGUN_AIM_TIME);
+    }
+}
+
+// the big gun has reloaded: more than its fire time less the charge time since it last fired
+static bool32 cat_bigGunReloaded(Gun *gun)
+{
+    return ((real32)(gun->gunstatic->firetime - CAT_BIGGUN_CHARGE_TIME) < universe.totaltimeelapsed - gun->lasttimefired);
+}
+
+real32 cat_bigGunChargeFraction(Ship *ship)                                 // 0x005bbb30
+{
+    Gun *gun = cat_mothershipGetBigGun(ship);
+    real32 fraction = (universe.totaltimeelapsed - gun->lasttimefired) /
+                      (real32)(gun->gunstatic->firetime - CAT_BIGGUN_CHARGE_TIME);
+
+    if (1.0f < fraction)
+    {
+        fraction = 1.0f;
+    }
+    return fraction;
+}
+
+// a random point around aim, up to the scatter factor x the distance off in each axis (0.1 in multiplayer)
+static void cat_bigGunScatterTarget(Ship *ship, vector *aim, vector *out)  // 0x005bbd60
+{
+    real32 spread, low, span;
+    real32 x, y;
+
+    *out = *aim;
+    spread = (singlePlayerGame ? cat_bigGunScatterSP : CAT_BIGGUN_SCATTER_MP) *
+             cat_vecDistance(&ship->obj.posinfo.position, aim);
+    if (spread <= 0.0f)
+    {
+        return;
+    }
+    low = spread * -1.0f;
+    span = spread - low;
+    x = (real32)ranRandom(RANDOM_CAT_SHIPS) * span * CAT_RANDOM_TO_UNIT + low;
+    y = (real32)ranRandom(RANDOM_CAT_SHIPS) * span * CAT_RANDOM_TO_UNIT + low;
+    out->x = x + out->x;
+    out->y = y + out->y;
+    out->z = (real32)ranRandom(RANDOM_CAT_SHIPS) * span * CAT_RANDOM_TO_UNIT + low + out->z;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_bigGunProcessFireCommand
+    Description : CAT (M2-R4 ships-b): the point order of a Sect mothership (cat_bigGunProcessFireCommand 0x005bbe80):
+                  once the big gun has reloaded it aims at a scattered point near the ordered one
+    Inputs      : ship - the mothership (the exe takes the CommandToDo and reads its first ship), point - the
+                  ordered point (the exe's CommandToDo +0x2DC, the COMMAND_CAT_POINT block that this tree's
+                  CommandToDo does not have yet: the point order is an M2-R4 command follow-up)
+----------------------------------------------------------------------------*/
+void cat_bigGunProcessFireCommand(Ship *ship, vector *point)               // 0x005bbe80
+{
+    MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+
+    if (cat_bigGunReloaded(cat_mothershipGetBigGun(ship)))
+    {
+        cat_bigGunScatterTarget(ship, point, &spec->bigGunTarget);
+        spec->bigGunState = CAT_BIGGUN_Aiming;
+        speechEventQueue(NULL, 0x40008b5, -1, -1, 0, ship->playerowner->playerIndex, -1, 5.0f, -1);
+        if (spec->bigGunChargeEffect != NULL)
+        {
+            etgEffectDelete(spec->bigGunChargeEffect);
+            univRemoveObjFromRenderList((SpaceObj *)spec->bigGunChargeEffect);
+            listDeleteNode(&spec->bigGunChargeEffect->header.objlink);
+            spec->bigGunChargeEffect = NULL;
+        }
+    }
+}
+
+bool32 cat_mothershipBigGunActive(Ship *ship)                               // 0x005bbf60
+{
+    return cat_mothershipHasBigGunModule(ship) &&
+           (((MothershipSpec *)ship->ShipSpecifics)->bigGunState != CAT_BIGGUN_Idle);
+}
+
+static bool32 cat_bigGunIsAimed(Ship *ship)                                 // 0x005bc250
+{
+    MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+    vector dir, heading;
+
+    heading.x = ship->rotatable.rotinfo.coordsys.m13;
+    heading.y = ship->rotatable.rotinfo.coordsys.m23;
+    heading.z = ship->rotatable.rotinfo.coordsys.m33;
+    vecSub(dir, spec->bigGunTarget, ship->obj.posinfo.position);
+    vecNormalize(&dir);
+    vecNormalize(&heading);
+    return (CAT_BIGGUN_AIM_DOT < dir.x * heading.x + dir.y * heading.y + dir.z * heading.z);
+}
+
+// keep turning to the target until aimed and the aim time is up; TRUE when done
+static bool32 cat_bigGunAimUpdate(Ship *ship)                               // 0x005bc2f0
+{
+    MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+    vector dir;
+
+    vecSub(dir, spec->bigGunTarget, ship->obj.posinfo.position);
+    vecNormalize(&dir);
+    ship->autostabilizeship = FALSE;
+    if (cat_bigGunIsAimed(ship) && !spec->bigGunAimTimerRunning)
+    {
+        spec->bigGunAimTimerRunning = TRUE;
+        cat_timerStartGameTime(&spec->bigGunAimTimer, CAT_BIGGUN_AIM_TIME);
+    }
+    if (((spec->bigGunAimTimerRunning != TRUE) || !cat_timerExpired(&spec->bigGunAimTimer)) &&
+        !aitrackHeadingFunc((SpaceObjRotImpTargGuidance *)ship, &dir, CAT_BIGGUN_AIM_ACCURACY,
+                            CAT_BIGGUN_AIM_UP_ACCURACY, 0.0f, 0))
+    {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+// the charge effect at the big gun's muzzle, scaled like the ship
+static void cat_bigGunChargeEffectStart(Ship *ship)                         // 0x005bd4b0
+{
+    MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+    etglod *etgLOD = etgSpecialPurposeEffectTable[EGT_BIG_GUN_CHARGING];
+    etgeffectstatic *stat;
+    Gun *gun;
+    matrix coordsys;
+    vector pos, velocity;
+
+    if ((etgLOD != NULL) && (etgLOD->nLevels > 0) && ((stat = etgLOD->level[0]) != NULL) && etgFireEffectsEnabled &&
+        !etgFrequencyExceeded(stat))
+    {
+        coordsys = ship->rotatable.rotinfo.coordsys;
+        gun = cat_mothershipGetBigGun(ship);
+        vecZeroVector(velocity);
+        matMultiplyMatByVec(&pos, &ship->rotatable.rotinfo.coordsys, &gun->gunstatic->position);
+        vecAddTo(pos, ship->obj.posinfo.position);
+        // (an effect still running reaches a debug hook only)
+        spec->bigGunChargeEffect = etgEffectCreate(stat, NULL, &pos, &velocity, &coordsys, ship->staticinfo->scaleCap,
+                                                   EAF_Full, 0);
+    }
+}
+
+// after the charge time the shot goes (state Firing, the module's firing animation); the charge effect follows the
+//      muzzle and spins faster and faster
+static void cat_bigGunFiringUpdate(Ship *ship)                              // 0x005bd1e0
+{
+    MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+    Effect *effect;
+    Ship *module = NULL;
+    Node *node;
+    Gun *gun;
+    vector pos;
+    matrix rot, coordsys;
+    real32 t;
+
+    if ((spec->bigGunState == CAT_BIGGUN_Charging) &&
+        ((real32)CAT_BIGGUN_CHARGE_TIME < universe.totaltimeelapsed - spec->bigGunChargeStartTime))
+    {
+        speechEventQueue(NULL, 0x20008b6, -1, -1, 0, ship->playerowner->playerIndex, -1, 5.0f, -1);
+        if (ship->playerowner != universe.curPlayerPtr)
+        {
+            // the exe passes a second argument (the colour 0xff0000ff) to its clCommandMessage
+            clCommandMessage(strGetString(strWarnBigGunHasFired));
+            soundEventPlay(NULL, 0x13d, NULL);
+        }
+        spec->bigGunState = CAT_BIGGUN_Firing;
+        if (ship->playerowner->shiptotals[sMothershipBigGun] != 0)
+        {
+            for (node = universe.ShipList.head; node != NULL; node = node->next)
+            {
+                module = (Ship *)listGetStructOfNode(node);
+                if ((module->staticinfo->shiptype == sMothershipBigGun) && (module->playerowner == ship->playerowner) &&
+                    !bitTest(module->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+                {
+                    if (spec->bigGunChargeEffectState == 1)
+                    {
+                        cat_madAnimationStartNumber(module, 0);  // CAT-TODO(stage 3): the exe passes a third argument, 0
+                    }
+                    break;
+                }
+            }
+        }
+        spec->bigGunChargeEffectState = 0;
+        spec->bigGunChargeEffect = NULL;
+    }
+    if ((effect = spec->bigGunChargeEffect) != NULL)
+    {
+        gun = cat_mothershipGetBigGun(ship);
+        matMultiplyMatByVec(&pos, &ship->rotatable.rotinfo.coordsys, &gun->gunstatic->position);
+        effect->obj.posinfo.position.x = pos.x + ship->obj.posinfo.position.x;
+        effect->obj.posinfo.position.y = pos.y + ship->obj.posinfo.position.y;
+        effect->obj.posinfo.position.z = pos.z + ship->obj.posinfo.position.z;
+        effect->rotatable.rotinfo.coordsys = ship->rotatable.rotinfo.coordsys;
+        t = (universe.totaltimeelapsed - spec->bigGunChargeStartTime) / CAT_BIGGUN_CHARGE_SPIN;
+        t = t * t;
+        // the exe passes sin(t) as the cosine and cos(t) as the sine (0x005bd3f3 .. 0x005bd3ff)
+        matMakeRotAboutZ(&rot, (real32)sin((double)t), (real32)cos((double)t));
+        coordsys = effect->rotatable.rotinfo.coordsys;
+        matMultiplyMatByMat(&effect->rotatable.rotinfo.coordsys, &coordsys, &rot);
+    }
+}
+
 static void SectMothershipHouseKeep(Ship *ship)                             // 0x005bc430
 {
-    // CAT-PROVISIONAL: the Sect mothership's big gun (aim at bigGunTarget, charge, fire the shell, scatter, the
-    //      cat_bigGun* block 0x005bb7e0..0x005bd6e0 around it, 1,222 bytes here) depends on the big-gun module ship
-    //      (sMothershipBigGun on ModuleShipHeader), RKO warnings and gunShoot returning the bullet; it is ported with
-    //      the module ships in M2-R4 #4. Until then the big gun stays idle: the exe's idle-state work is resetting the
-    //      aim timer.
     MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+    vector dir;
+    Gun *gun;
+    Bullet *bullet;
+    real32 dist, spread, low;
 
     if ((spec->bigGunState == CAT_BIGGUN_Idle) || (spec->bigGunState == CAT_BIGGUN_Stabilizing))
     {
         spec->bigGunAimTimerRunning = FALSE;
         cat_timerStartGameTime(&spec->bigGunAimTimer, 0.01f);
     }
-    if (spec->bigGunState == CAT_BIGGUN_Stabilizing)
+    switch (spec->bigGunState)
     {
-        if (aitrackStabilizeShip(ship))
-        {
-            spec->bigGunState = CAT_BIGGUN_Idle;
-        }
+        case CAT_BIGGUN_Aiming:
+            vecSub(dir, spec->bigGunTarget, ship->obj.posinfo.position);
+            vecNormalize(&dir);
+            ship->autostabilizeship = FALSE;
+            if (cat_bigGunIsAimed(ship) && !spec->bigGunAimTimerRunning)
+            {
+                spec->bigGunAimTimerRunning = TRUE;
+                cat_timerStartGameTime(&spec->bigGunAimTimer, CAT_BIGGUN_AIM_TIME);
+            }
+            if (((spec->bigGunAimTimerRunning != TRUE) || !cat_timerExpired(&spec->bigGunAimTimer)) &&
+                !aitrackHeadingFunc((SpaceObjRotImpTargGuidance *)ship, &dir, CAT_BIGGUN_AIM_ACCURACY,
+                                    CAT_BIGGUN_AIM_UP_ACCURACY, 0.0f, 0))
+            {
+                return;
+            }
+            spec->bigGunFirePosition = ship->obj.posinfo.position;
+            break;
+        case CAT_BIGGUN_Scattering:
+            vecSub(dir, spec->bigGunTarget, ship->obj.posinfo.position);
+            vecNormalize(&dir);
+            ship->autostabilizeship = FALSE;
+            if (cat_bigGunIsAimed(ship) && !spec->bigGunAimTimerRunning)
+            {
+                cat_bigGunAimTimerStart(ship);
+            }
+            if (!cat_bigGunAimTimerExpired(ship))
+            {
+                aitrackHeadingFunc((SpaceObjRotImpTargGuidance *)ship, &dir, CAT_BIGGUN_AIM_ACCURACY,
+                                   CAT_BIGGUN_AIM_UP_ACCURACY, 0.0f, 0);
+            }
+            if (!cat_bigGunReloaded(cat_mothershipGetBigGun(ship)))
+            {
+                return;
+            }
+            break;
+        case CAT_BIGGUN_Firing:
+            gun = cat_mothershipGetBigGun(ship);
+            vecSub(dir, spec->bigGunTarget, ship->obj.posinfo.position);
+            vecNormalize(&dir);
+            ship->autostabilizeship = FALSE;
+            if (cat_bigGunIsAimed(ship) && !spec->bigGunAimTimerRunning)
+            {
+                spec->bigGunAimTimerRunning = TRUE;
+                cat_timerStartGameTime(&spec->bigGunAimTimer, CAT_BIGGUN_AIM_TIME);
+            }
+            if (!cat_bigGunAimTimerExpired(ship))
+            {
+                aitrackHeadingFunc((SpaceObjRotImpTargGuidance *)ship, &dir, CAT_BIGGUN_AIM_ACCURACY,
+                                   CAT_BIGGUN_AIM_UP_ACCURACY, 0.0f, 0);
+            }
+            // (the exe computes the distance moved since bigGunFirePosition here and drops it)
+            bullet = gunShoot(ship, gun, NULL);
+            spec->bigGunBullet = bullet;
+            if (bullet != NULL)
+            {
+                // CAT-FIX: the exe tracks the shell before its NULL test (cat_isBigGunBullet would read a NULL bullet)
+                cat_bigGunBulletTrack(bullet);
+            }
+            cat_rkoWarnBigGunFire(&spec->bigGunTarget);
+            if (spec->bigGunBullet == NULL)
+            {
+                return;
+            }
+            dist = cat_vecDistance(&spec->bigGunTarget, &spec->bigGunBullet->obj.posinfo.position);
+            if (!singlePlayerGame && (CAT_BIGGUN_RANGE_SPREAD_MIN < dist))
+            {
+                // the multiplayer shell flies its distance +-10%
+                spread = CAT_BIGGUN_RANGE_SPREAD * dist;
+                low = spread * -1.0f;
+                dist = (spread - low) * (real32)ranRandom(RANDOM_CAT_SHIPS) * CAT_RANDOM_TO_UNIT + low + dist;
+            }
+            spec->bigGunBullet->catBigGunTravelled = 0.0f;
+            spec->bigGunBullet->catBigGunRange = dist;
+            spec->bigGunState = CAT_BIGGUN_Stabilizing;
+            return;
+        case CAT_BIGGUN_Charging:
+            cat_bigGunAimUpdate(ship);
+            cat_bigGunFiringUpdate(ship);
+            return;
+        case CAT_BIGGUN_Stabilizing:
+            cat_bigGunFiringUpdate(ship);
+            if (aitrackStabilizeShip(ship))
+            {
+                spec->bigGunState = CAT_BIGGUN_Idle;
+            }
+            return;
+        case CAT_BIGGUN_Idle:
+            cat_bigGunFiringUpdate(ship);
+            return;
+        default:
+            spec->bigGunState = CAT_BIGGUN_Stabilizing;
+            return;
     }
+    // aimed (and reloaded): charge, if the big-gun module is there
+    if (cat_mothershipHasBigGunModule(ship))
+    {
+        cat_bigGunChargeEffectStart(ship);
+        spec->bigGunState = CAT_BIGGUN_Charging;
+        spec->bigGunChargeEffectState = 1;
+        spec->bigGunChargeStartTime = universe.totaltimeelapsed;
+        ship->autostabilizeship = FALSE;
+        return;
+    }
+    spec->bigGunState = CAT_BIGGUN_Stabilizing;
 }
 
 static void beastMothershipSelfDamage(Ship *ship)                           // 0x005bc900
@@ -510,6 +843,21 @@ void MothershipDied(Ship *ship)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_effectDeleteNow
+    Description : CAT (M2-R4 ships-b): deletes an effect at once (cat_effectDeleteNow 0x005bbbb0): what univUpdate
+                  does with an expired effect
+----------------------------------------------------------------------------*/
+void cat_effectDeleteNow(Effect *effect)
+{
+    if (effect != NULL)
+    {
+        etgEffectDelete(effect);
+        univRemoveObjFromRenderList((SpaceObj *)effect);
+        listDeleteNode(&effect->header.objlink);
+    }
+}
+
+/*-----------------------------------------------------------------------------
     CAT: Cataclysm mothership queries
 -----------------------------------------------------------------------------*/
 Gun *cat_mothershipGetBigGun(Ship *ship)                                    // 0x005bb790
@@ -598,6 +946,98 @@ bool32 cat_isBigGunBullet(SpaceObj *obj)                                   // 0x
 {
     // a bullet whose weapon type is WEAPON_BIGGUN (7): Bullet +0x108, the weapon word (M2-R4 combat)
     return (obj->header.objtype == OBJ_BulletType) && (((Bullet *)obj)->bulletType == WEAPON_BIGGUN);
+}
+
+// CAT (M2-R4 ships-b): the Beast mothership's systems (the launch manager's choice, beastSystemState 1-5) give one
+//      bonus while active (0x005bca00 .. 0x005bcac0)
+real32 cat_beastMothershipSpeedBonus(Ship *ship)                            // 0x005bca00
+{
+    MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+
+    return (spec->beastSystemActive && (spec->beastSystemState == 1)) ? 0.2f : 0.0f;       // 0x0072a510
+}
+
+real32 cat_beastMothershipDamageBonus(Ship *ship)                           // 0x005bca30
+{
+    MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+
+    return (spec->beastSystemActive && (spec->beastSystemState == 3)) ? 0.15f : 1.0f;      // 0x0072af78, 0x0072a4c4
+}
+
+real32 cat_beastMothershipResearchFactor(Ship *ship)                        // 0x005bca60
+{
+    MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+
+    return (spec->beastSystemActive && (spec->beastSystemState == 4)) ? 2.0f : 1.0f;
+}
+
+sdword cat_beastMothershipBuildFactor(Ship *ship)                           // 0x005bca90
+{
+    MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
+
+    return (spec->beastSystemActive && (spec->beastSystemState == 5)) ? 2 : 1;
+}
+
+bool32 cat_beastMothershipSystemActive(Ship *ship)                          // 0x005bcac0
+{
+    return (ubyte)((MothershipSpec *)ship->ShipSpecifics)->beastSystemActive;
+}
+
+real32 cat_bigGunMaxRange(void)                                             // 0x005bceb0
+{
+    return singlePlayerGame ? CAT_BIGGUN_MAX_RANGE_SP : CAT_BIGGUN_MAX_RANGE_MP;
+}
+
+// full damage up to the falloff start, then down linearly to 0 at the maximum range, never below 0.01
+real32 cat_bigGunDamageFalloff(real32 distance)                             // 0x005bced0
+{
+    real32 range = singlePlayerGame ? CAT_BIGGUN_MAX_RANGE_SP : CAT_BIGGUN_MAX_RANGE_MP;
+    real32 start = singlePlayerGame ? CAT_BIGGUN_FALLOFF_START_SP : CAT_BIGGUN_FALLOFF_START_MP;
+    real32 scale = 1.0f;
+
+    if (start < distance)
+    {
+        distance = distance - start;
+        range = range - start;
+        if (range < distance)
+        {
+            distance = range;
+        }
+        if (0.0f < range)
+        {
+            scale = 1.0f - distance / range;
+            if (scale < 0.0f)
+            {
+                scale = 0.0f;
+            }
+        }
+    }
+    if (scale < CAT_BIGGUN_MIN_DAMAGE)
+    {
+        scale = CAT_BIGGUN_MIN_DAMAGE;
+    }
+    return scale;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_bigGunBulletExplodeAt
+    Description : CAT (M2-R4 ships-b): a big-gun shell explodes at pos: the RKO's warning ends, the shell leaves the
+                  blast list, a big-gun blast with the damage of the distance it flew, the explosion sound
+                  (cat_bigGunBulletExplodeAt 0x005bd0c0; its callers pass the shell's position among the arguments of
+                  an effect call it shares; cat_bigGunBulletExplode 0x005bcfa0 is the same at the shell's position)
+----------------------------------------------------------------------------*/
+void cat_bigGunBulletExplodeAt(Bullet *bullet, vector *pos)                // 0x005bd0c0
+{
+    cat_rkoNotifyBigGunExplosion(pos);
+    cat_bigGunBulletUntrack(bullet);
+    cat_blastCreateBigGunExplosion(pos->x, pos->y, pos->z, bullet->playerowner->playerIndex,
+                                   cat_bigGunDamageFalloff(bullet->catBigGunTravelled));
+    soundEventPlay(pos, 0x1010, NULL);
+}
+
+void cat_bigGunBulletExplode(Bullet *bullet)                                // 0x005bcfa0
+{
+    cat_bigGunBulletExplodeAt(bullet, &bullet->obj.posinfo.position);
 }
 
 /*-----------------------------------------------------------------------------

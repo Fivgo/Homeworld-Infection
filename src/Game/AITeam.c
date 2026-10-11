@@ -1967,22 +1967,7 @@ AITeam *aitFindCloakGeneratorCoopTeam(void)
     AITeam *resconTeam = NULL, *frigTeam = NULL, *team;
     udword i;
 
-    //cloaking the resource controller ROCKS
-    if (aiCurrentAIPlayer->airNumRControllers)
-    {
-        for (i=0;i<aiCurrentAIPlayer->numSupportTeams;i++)
-        {
-            team = aiCurrentAIPlayer->supportTeam[i];
-
-            if (team &&
-                team->shipList.selection->numShips &&
-                aitTeamShipTypeIs(ResourceController, team))
-            {
-                resconTeam = aiCurrentAIPlayer->supportTeam[i];
-                break;
-            }
-        }
-    }
+    // CAT: no HW1 ResourceController team to cloak (M2-R4 ships-b)
 
     //frigates are also good to cloak
     for (i=0;i<aiCurrentAIPlayer->numAttackTeams;i++)

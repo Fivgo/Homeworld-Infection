@@ -69,10 +69,21 @@ bool32 *cat_cloakDetectedFlags(Ship *ship)
 //      i.e. 0 to about 0.86 s (x87 f2xm1/fscale of log2(e) * r * 9.313226e-08 * -0.005, then 1.0 - that + now)
 static real32 cat_cloakFadeStartTime(void)
 {
+    return (real32)(cat_randomExpDelay() + (double)universe.totaltimeelapsed);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_randomExpDelay
+    Description : CAT (M2-R4 ships-b): 1.0 - e^(ranRandom(RANDOM_CAT_SHIPS) * (100 / 2^30) * -0.005), 0 .. about 0.86,
+                  which the exe inlines (x87 f2xm1/fscale, 0x0072a64c / 0x0072a648 / 0x0072a548) wherever a ship
+                  waits a random moment: the cloak fade, the Acolyte's wing animation, the hive frigate's launches,
+                  the mimic's unmimic. Returned in double, as the x87 keeps it before the caller scales and stores it.
+----------------------------------------------------------------------------*/
+double cat_randomExpDelay(void)
+{
     udword r = ranRandom(RANDOM_CAT_SHIPS);
 
-    return (real32)((1.0 - exp((double)r * (double)9.313225746154785e-08f * (double)-0.005f)) +
-                    (double)universe.totaltimeelapsed);
+    return 1.0 - exp((double)r * (double)9.313225746154785e-08f * (double)-0.005f);
 }
 
 void cat_cloakInit(Ship *ship, CatCloak *cloak, real32 drainRate, real32 chargeRate)    // 0x00435f10

@@ -31,7 +31,7 @@
 sdword maxEffects[DMG_NumberDamageTypes] = {1,2,1};
 
 static real32 DMG_StrikeTrailLimit = 0.6f;
-static real32 DMG_StrikeLightLimit = 0.4f;
+real32 DMG_StrikeLightLimit = 0.4f;     // CAT: exported, the mimic "appears as" tests read it (cat_mimicAppearsAsResource 0x005b9860)
 static real32 DMG_TrailLimit = 0.6f;
 static real32 DMG_LightLimit = 0.4f;
 static real32 DMG_HeavyLimit = 0.2f;

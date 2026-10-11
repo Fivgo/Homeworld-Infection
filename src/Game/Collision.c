@@ -7,6 +7,11 @@
 // =============================================================================
 
 #include "Collision.h"
+#include "Leech.h"
+#include "Mimic.h"
+#include "RKO.h"
+#include "RammingFrigate.h"
+#include "Sentinel.h"
 #include "Salvage.h"
 
 #include "Alliance.h"
@@ -615,14 +620,7 @@ static bool32 cat_shipsClampedTogether(SpaceObjRotImpTargGuidance *a, SpaceObjRo
     return together;
 }
 
-// CAT (M2-R4 combat): the damage factor of a ramming mimic (cat_shipGetRamDamageScale 0x005b9980): with upgrade 0x80
-//      the ship's specifics +0x138 (Ship+0x770), else 1. CAT-PROVISIONAL (M2-R4 #4): the mimic/P1 standard corvette
-//      specifics are ship code B's, so the upgraded factor reads as 1 until then
-static real32 cat_shipGetRamDamageScale(Ship *ship)
-{
-    (void)ship;
-    return 1.0f;
-}
+// CAT (M2-R4 combat): cat_shipGetRamDamageScale 0x005b9980 lives in Ships/Mimic.c [M2-R4 ships-b]
 
 /*-----------------------------------------------------------------------------
     Name        : cat_kamikazeCheckShip
@@ -767,15 +765,11 @@ bool32 cat_collLineTriangleIntersect(vector *p0, vector *p1, vector *a, vector *
     return TRUE;
 }
 
-// CAT-PROVISIONAL (M2-R4 #4): an active Sentinel's field is a fan of triangles from the Sentinel to pairs of its
-//      partners (Sentinel specifics: the count at Ship+0x640, the pairs from Ship+0x644). The Sentinel header is on
-//      DefaultShipHeader until ship code B ports it, so no Sentinel has a field (cat_shipIsSentinelFieldActive is FALSE
-//      and no caller gets here).
-static sdword cat_sentinelFieldTriangles(Ship *sentinel, Ship *(**pairs)[2])
+// CAT: an active Sentinel's field is a fan of triangles from the Sentinel to pairs of its partners (Sentinel
+//      specifics: the count at Ship+0x640, the pairs from Ship+0x644; Sentinel.c since M2-R4 ships-b)
+static sdword cat_sentinelFieldTriangles(Ship *sentinel, SentinelLink **pairs)
 {
-    (void)sentinel;
-    *pairs = NULL;
-    return 0;
+    return cat_sentinelFieldLinks(sentinel, pairs);
 }
 
 /*-----------------------------------------------------------------------------
@@ -788,7 +782,7 @@ static sdword cat_sentinelFieldTriangles(Ship *sentinel, Ship *(**pairs)[2])
 ----------------------------------------------------------------------------*/
 sdword cat_collLineSentinelFieldIntersect(Ship *sentinel, vector *start, vector *dir, real32 *t)
 {
-    Ship *(*pairs)[2];
+    SentinelLink *pairs;
     sdword num = cat_sentinelFieldTriangles(sentinel, &pairs);
     sdword i, nearest = -1;
     real32 nearestT = 1e21f;
@@ -797,8 +791,8 @@ sdword cat_collLineSentinelFieldIntersect(Ship *sentinel, vector *start, vector 
     vecAdd(end, *start, *dir);
     for (i = 0; i < num; i++)
     {
-        if (cat_collLineTriangleIntersect(start, &end, &sentinel->obj.posinfo.position, &pairs[i][0]->obj.posinfo.position,
-                                          &pairs[i][1]->obj.posinfo.position, NULL, t) && (*t < nearestT))
+        if (cat_collLineTriangleIntersect(start, &end, &sentinel->obj.posinfo.position, &pairs[i].a->obj.posinfo.position,
+                                          &pairs[i].b->obj.posinfo.position, NULL, t) && (*t < nearestT))
         {
             nearestT = *t;
             nearest = i;
@@ -811,18 +805,11 @@ sdword cat_collLineSentinelFieldIntersect(Ship *sentinel, vector *start, vector 
     return nearest;
 }
 
-// CAT (M2-R4 combat): an sLeech that is attached to a ship (cat_shipIsLeech 0x005b7fd0 and its specifics +0x48,
-//      cat_leechGetSpecifics 0x005b7ff0). CAT-PROVISIONAL (M2-R4 #4): the Leech header is ship code B's; no Leech
-//      is attached until then
+// CAT (M2-R4 combat): an sLeech that has a last target (cat_shipIsLeech 0x005b7fd0 and its specifics +0x48,
+//      cat_leechGetSpecifics 0x005b7ff0; Leech.c since M2-R4 ships-b)
 static bool32 cat_leechIsAttached(Ship *ship)
 {
-    return (ship->shiptype == sLeech) && FALSE;
-}
-
-// CAT (M2-R4 combat): a live dRKO (cat_shipIsRKO 0x005c54c0)
-static bool32 cat_shipIsRKO(Ship *ship)
-{
-    return (ship->header.objtype == OBJ_ShipType) && (ship->shiptype == dRKO);
+    return cat_shipIsLeech(ship) && (cat_leechGetSpecifics(ship)->lastTarget != NULL);
 }
 
 /*-----------------------------------------------------------------------------
@@ -1049,8 +1036,9 @@ void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
                     {
                         if(!kamikazeCheck(&obj1->targetable, &obj2->targetable))    //return true if kamikaze collision is true
                         {
-                            // CAT-TODO(M2-R4 #4): the exe first lets a ramming frigate act (cat_rammingFrigateCollide
-                            //      0x005c14a0: latch, release, infect); the RammingFrigate header is ship code B's
+                            // CAT: a ramming frigate acts first (cat_rammingFrigateCollide 0x005c14a0: latch, release,
+                            //      infect) [M2-R4 ships-b]
+                            cat_rammingFrigateCollide(obj1, obj2);
                             if (obj1->playerowner == obj2->playerowner)
                             {
                                 goto dontapplydamage;      // don't apply bonk damage for own ships
@@ -1289,8 +1277,9 @@ void collCheckBigShipSmallShipColl(blob *thisBlob)
                     {
                         if(!kamikazeCheck(&obj1->targetable,&obj2->targetable))    //return true if kamikaze collision is true
                         {
-                            // CAT-TODO(M2-R4 #4): the exe first lets a ramming frigate act (cat_rammingFrigateCollide
-                            //      0x005c14a0: latch, release, infect); the RammingFrigate header is ship code B's
+                            // CAT: a ramming frigate acts first (cat_rammingFrigateCollide 0x005c14a0: latch, release,
+                            //      infect) [M2-R4 ships-b]
+                            cat_rammingFrigateCollide(obj1, obj2);
                             if (obj1->playerowner == obj2->playerowner)
                             {
                                 goto dontapplydamage;
@@ -1986,8 +1975,7 @@ void collCheckBeamColl(blob *thisBlob,Bullet *bullet)
             ((((Ship *)minbeamTarget)->shiptype == sSentinel) || (((Ship *)minbeamTarget)->shiptype == bSentinel)) &&
             cat_shipIsSentinelFieldActive((Ship *)minbeamTarget))
         {
-            // CAT-TODO(M2-R4 #4): cat_sentinelFieldBulletHit 0x005c6c60 (target, NULL, bullet) first, the field's
-            //      response (Sentinel.c)
+            cat_sentinelFieldBulletHit((Ship *)minbeamTarget, NULL, bullet);     // CAT: 0x005c6c60 (M2-R4 ships-b)
             applyDamage = FALSE;
         }
 
@@ -2044,9 +2032,7 @@ static bool32 cat_collBulletDFGFieldCheck(Bullet *bullet, SpaceObjRotImpTarg *ta
     vecSub(diff, target->impactable.collInfo.collPosition, bullet->obj.posinfo.position);
     if (vecMagnitudeSquared(diff) < ((DFGFrigateStatics *)ship->staticinfo->custstatinfo)->DFGFrigateFieldRadiusSqr)
     {
-        univDFGFieldEffect(ship, bullet, universe.totaltimeelapsed);
-        // CAT-TODO(M2-R4 #4): TRUE when univDFGFieldEffect detonated a big-gun shell (the big-gun block); it never
-        //      does before ship code B, so the bullet always goes on
+        return univDFGFieldEffect(ship, bullet, universe.totaltimeelapsed);
     }
     return FALSE;
 }
@@ -2224,7 +2210,7 @@ passagain:
 
                     // CAT: an enemy bullet whose line crosses an active Sentinel field within this frame's travel hits the
                     //      field (collCheckBulletTargetColl 0x0043cd90): only the hit is drawn (first argument 0) and the
-                    //      bullet is deleted. No Sentinel has a field before ship code B (cat_shipIsSentinelFieldActive).
+                    //      bullet is deleted (cat_shipIsSentinelFieldActive, Sentinel.c).
                     if ((target->header.objtype == OBJ_ShipType) &&
                         ((((Ship *)target)->shiptype == sSentinel) || (((Ship *)target)->shiptype == bSentinel)) &&
                         cat_shipIsSentinelFieldActive((Ship *)target) &&
@@ -2235,8 +2221,10 @@ passagain:
                         if ((cat_collLineSentinelFieldIntersect((Ship *)target, &bullet->obj.posinfo.position, &bullet->bulletheading, &fieldDist) != -1) &&
                             (fieldDist < bullet->traveldist))
                         {
-                            // CAT-TODO(M2-R4 #4): cat_sentinelFieldBulletHit 0x005c6c60 (target, triangle, bullet) first.
-                            //      The exe passes the side its last collCheckRectLine left behind; -1 here.
+                            // CAT: cat_sentinelFieldBulletHit 0x005c6c60 first (M2-R4 ships-b); the exe passes the
+                            //      triangle as its unused second argument. univBulletCollidedWithTarget gets the side
+                            //      its last collCheckRectLine left behind; -1 here.
+                            cat_sentinelFieldBulletHit((Ship *)target, NULL, bullet);
                             univBulletCollidedWithTarget(FALSE, target, targetstaticheader, bullet, fieldDist, -1);
                             deletebulletflag = TRUE;
                             goto nextbullet;
@@ -2487,6 +2475,32 @@ passagain:
             if (missile->owner == (Ship *)target)
             {
                 goto nexttarget;
+            }
+
+            // CAT (M2-R4 ships-b): an enemy missile whose path (its position along its velocity) crosses an active
+            //      Sentinel field hits the field and is deleted (collCheckMissileShipColl 0x0043d330:
+            //      cat_collLineTriangleIntersect per triangle, then cat_sentinelFieldMissileHit)
+            if (((target->shiptype == sSentinel) || (target->shiptype == bSentinel)) && cat_shipIsSentinelFieldActive(target) &&
+                (missile->playerowner != target->playerowner))
+            {
+                SentinelLink *pairs;
+                sdword numPairs = cat_sentinelFieldLinks(target, &pairs);
+                sdword pair;
+                vector pathEnd;
+                real32 pathT;
+
+                vecAdd(pathEnd, missile->obj.posinfo.position, missile->obj.posinfo.velocity);
+                for (pair = 0; pair < numPairs; pair++)
+                {
+                    if (cat_collLineTriangleIntersect(&missile->obj.posinfo.position, &pathEnd, &target->obj.posinfo.position,
+                                                      &pairs[pair].a->obj.posinfo.position,
+                                                      &pairs[pair].b->obj.posinfo.position, NULL, &pathT))
+                    {
+                        cat_sentinelFieldMissileHit(target, (void *)(smemsize)pair, missile);
+                        AddMissileToDeleteMissileList(missile, -1);
+                        goto nextmissile;
+                    }
+                }
             }
 
             // Check for collisions between missile and target here:

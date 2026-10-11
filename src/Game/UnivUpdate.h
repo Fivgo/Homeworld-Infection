@@ -201,12 +201,16 @@ void cat_univRequestBulletEffectsRecreate(void);                                
 void cat_univRecreateBulletEffects(void);                                                       // 0x0054d250
 void cat_univRecreateBulletEffectsIfNeeded(void);                                               // 0x0054d330
 void cat_univDeleteBulletNow(Bullet *bullet);                                                   // 0x0054d110
+void cat_univCreateMothershipModules(Ship *host, ShipRace race, vector *pos, struct Player *player, sdword built);   // 0x005420b0
 void cat_univSetShipPosition(Ship *ship, vector *position);                                     // 0x0054d180
 bool32 cat_univPlayerHasFlaggedShip(void);                                                      // 0x0054d200
 sdword cat_univGetShipCountSalvaged(sdword shipType, sdword playerIndex);                       // 0x00540030
 sdword cat_univGetShipCountBeastified(sdword shipType, sdword playerIndex);                     // 0x00540080
 Ship *cat_univConvertShip(Ship *ship, ShipType newType, struct Player *newOwner);                 // 0x00543950
 bool32 cat_univPointInUniverse(vector *pos);                                                      // 0x005c1f70
+Resource *cat_univAddMimicResource(sdword asteroidtype, vector *pos);                              // 0x005408b0
+void cat_univDeleteMimicResource(Resource *resource);                                                  // 0x00548f40
+void cat_univRemoveTargetFromRammingFrigates(void *obj);                                               // 0x00549230
 bool32 cat_univBeastInfectionUpdate(Ship *ship);                                                 // 0x00543860
 void cat_univShipSalvagedCountInc(sdword a, sdword b);                                          // 0x005400d0
 sdword cat_univGetNumberShipsPlayerKilled(sdword playerIndex, sdword shipClass);                // 0x005400f0

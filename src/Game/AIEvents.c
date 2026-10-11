@@ -372,16 +372,12 @@ sdword aieCheckEnemyNearby(AITeam *team, SelectCommand **ships)
 //        MakeTargetsOnlyBeWithinRangeAndNotIncludeMe((SelectAnyCommand *)(*ships), (SpaceObjRotImpTarg *)(*ships)->ShipPtr[0], team->curMove->events.enemyNearby.watchRadius);
         if ((*ships)->numShips)
         {
-            if (((*ships)->numShips <= 2) &&
-                ((*ships)->ShipPtr[0]->shiptype == LightInterceptor))
-            {
-                goto end;
-            }
+            // CAT: no HW1 LightInterceptor exception (M2-R4 ships-b)
             return TRUE;
         }
     }
 
-  end:
+    // CAT: the label "end" went with its only goto (the HW1 LightInterceptor exception) (M2-R4 ships-b)
     aiumemFree(*ships);
     return FALSE;
 }

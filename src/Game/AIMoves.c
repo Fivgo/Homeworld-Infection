@@ -2134,10 +2134,7 @@ sdword aimProcessTempGuard(AITeam *team)
         {
             return FALSE;
         }
-        if (aiuRescueShipType((SelectCommand *)&distressShips, team, ResourceController))
-        {
-            return FALSE;
-        }
+        // CAT: no HW1 ResourceController to rescue (M2-R4 ships-b)
     }
 
     return FALSE;
@@ -2331,15 +2328,7 @@ sdword aimProcessActiveRecon(AITeam *team)
         return FALSE;
     }
 
-    if (team->shipList.selection->ShipPtr[0]->shiptype == Probe)
-    {
-        //if a probe is farther than 5km from the mothership,
-        //it is considered launched and can't move again.
-        if (playerMothership && (aiuFindDistanceSquared(team->shipList.selection->ShipPtr[0]->obj.posinfo.position, playerMothership->obj.posinfo.position) > 25000000))
-        {
-            return TRUE;
-        }
-    }
+    // CAT: no HW1 Probe launch test (M2-R4 ships-b)
 
     if (!thisMove->processing)
     {

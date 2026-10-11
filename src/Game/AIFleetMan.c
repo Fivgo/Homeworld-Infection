@@ -233,18 +233,12 @@ void BuildShip(ShipStaticInfo *shipstatic,Player *player,sdword *incRUs,sdword *
     {
         aiCurrentAIPlayer->NumRCollectorsBeingBuilt++;
     }
-    else if (shipstatic->shiptype == ResourceController)
-    {
-        aiCurrentAIPlayer->NumRControllersBeingBuilt++;
-    }
+    // CAT: no HW1 ResourceController (M2-R4 ships-b)
     else if (shipstatic->shiptype == AdvanceSupportFrigate)
     {
         aiCurrentAIPlayer->NumASFBeingBuilt++;
     }
-    else if (shipstatic->shiptype == ResearchShip)
-    {
-        aiCurrentAIPlayer->NumResearchShipsBeingBuilt++;
-    }
+    // CAT: no HW1 ResearchShip (M2-R4 ships-b)
 
     if (!creator)
     {
@@ -263,17 +257,12 @@ ShipStaticInfo *GetSubstituteShipStatic(ShipRace race)
 
     switch (race)
     {
-        case R1:
-        case R2:
-            shipstatic = GetShipStaticInfo(LightInterceptor,race);
-            break;
+        // CAT-TODO(stage 4 AI): the HW1 substitute for R1/R2 was the dropped LightInterceptor (M2-R4 ships-b)
 
         case P1:
             shipstatic = GetShipStaticInfo(P1Fighter,race);
             break;
-        case P2:
-            shipstatic = GetShipStaticInfo(P2Swarmer,race);
-            break;
+        // CAT: no HW1 P2 swarmer substitute (M2-R4 ships-b)
 
         default:
             dbgAssertOrIgnore(FALSE);
@@ -1076,7 +1065,6 @@ void aifAssignNewShips(void)
         }
         else if ((ship->staticinfo->shipclass == CLASS_Resource) ||
             (ship->staticinfo->shipclass == CLASS_NonCombat) ||
-            (ship->shiptype == ResourceController) ||
             (ship->shiptype == AdvanceSupportFrigate) ||
             (ship->shiptype == Mothership) ||
             (ship->shiptype == Carrier))
@@ -1214,31 +1202,6 @@ void aifFindAllies(void)
 /*=============================================================================
     Fleet Commands:
 =============================================================================*/
-/*-----------------------------------------------------------------------------
-    Name        : aifP2FleetCommand
-    Description : Logic for fleet command for the P2 pirates
-    Inputs      :
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void aifP2FleetCommand(void)
-{
-    Player *player = aiCurrentAIPlayer->player;
-
-    aiuCreateBlobArrays(player);
-    aiuUpdateKnowledgeOfEnemyShips(aiCurrentAIPlayer);
-    aidClearDistressSignal(aiCurrentAIPlayer);
-
-    aifAssignNewShips();
-
-    aiaP2AttackManager();
-    aitExecute();
-
-    aifProcessShipBuildRequests();
-
-    aiuDeleteBlobArrays();
-}
-
 
 
 
@@ -1256,12 +1219,7 @@ void aifFleetCommand(void)
 
     aiIndex = aiCurrentAIPlayer->player->playerIndex;
 
-    //temporary
-    if (player->race == P2)
-    {
-        aifP2FleetCommand();
-        return;
-    }
+    // CAT: no HW1 P2 pirate fleet command (the P2 race and its swarm ships are gone) (M2-R4 ships-b)
 
     if (aiCurrentAIPlayer->recalculateAllies)
     {

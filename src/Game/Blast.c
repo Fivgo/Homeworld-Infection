@@ -9,10 +9,12 @@
 
 // CAT: new file (M2-R4 combat). Every body follows the exe function named on it. The blast rendering
 //      (cat_blastRenderAll 0x00516750, cat_blastDrawLightning 0x005163b0) is stage 3's and the blast sound
-//      (cat_soundEventBlast 0x0051fc60) stage 3's; the drift and the ramming-frigate release it triggers are ship
-//      code B's (M2-R4 #4).
+//      (cat_soundEventBlast 0x0051fc60) stage 3's; the drift and the ramming-frigate release it triggers are in
+//      ShipDisable.c and RammingFrigate.c (M2-R4 ships-b).
 
 #include "Blast.h"
+#include "RammingFrigate.h"
+#include "ShipDisable.h"
 
 #include <math.h>
 
@@ -266,8 +268,7 @@ static void cat_blastAffectShip(CatBlast *blast, Ship *ship)
             {
                 damage = CAT_BLAST_DRIFT_HEALTH_DAMAGE * ship->staticinfo->health.maxhealth;
             }
-            // CAT-TODO(M2-R4 #4): cat_shipStartDrift 0x005b3b40 [audit: was "0x005b..."] (ship, 1.0, 1.0): the
-            //      drift is ship code B's
+            cat_shipStartDrift(ship, 1.0f, 1.0f);           // CAT: 0x005b3b40 (M2-R4 ships-b)
             ship->obj.posinfo.force = push;
             cat_physApplyForceToVelocity(ship);
         }
@@ -291,7 +292,8 @@ static void cat_blastAffectShip(CatBlast *blast, Ship *ship)
         ApplyDamageToTarget(&ship->targetable, damage * blast->damageScale, GS_LargeEnergyCannon, DEATH_Killed_By_Player,
                             blast->playerIndex, NULL, 2);
     }
-    // CAT-TODO(M2-R4 #4): cat_rammingFrigateForceRelease (a ramming frigate latched to ship lets go)
+    // CAT: a ramming frigate latched to ship lets go (cat_rammingFrigateForceRelease 0x005c0ae0) [M2-R4 ships-b]
+    cat_rammingFrigateForceRelease(ship);
 }
 
 // the shell pushes a big-gun shell (cat_blastAffectObject 0x00516da0)

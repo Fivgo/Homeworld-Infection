@@ -56,4 +56,6 @@ bool32 cat_cloakGetFadeState(Ship *ship, real32 *fade);
 real32 cat_cloakGetChargeFraction(Ship *ship);
 void cat_cloakUpdate(Ship *ship);
 
+double cat_randomExpDelay(void);                     // CAT: inlined in the exe (M2-R4 ships-b)
+
 #endif

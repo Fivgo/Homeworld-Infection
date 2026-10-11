@@ -18,7 +18,6 @@ void aiaProcessSpecialTeams(void);
 bool32 aiaShipDied(AIPlayer *aiplayer, ShipPtr ship);
 void aiaTeamDied(AIPlayer *aiplayer, AITeam *team);
 
-void aiaP2AttackManager(void);
 
 void aiaInit(AIPlayer *aiplayer);
 void aiaClose(AIPlayer *aiplayer);

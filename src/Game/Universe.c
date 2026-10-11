@@ -317,69 +317,69 @@ udword universeUpdateCounter = 0;
 ShipStaticInfo ShipStaticInfos[TOTAL_NUM_SHIPS];
 
 // CAT: one CustShipHeader per type (shipHeaders 0x008b1938). Where the exe uses a header HW1 also has, it is used here;
-//      the 22 Cataclysm-only headers (Acolyte, Mimic, Leech, ACV, MCV, ...) are stage-2 ship code and point at
-//      DefaultShipHeader until then
+//      the 22 Cataclysm-only headers (Acolyte, Mimic, Leech, ACV, MCV, ...) are in their own Ships/ files since M2-R4
+//      ships-b. The two cloak generators keep DefaultShipHeader where the exe has NULL (see their rows).
 CustShipHeader *shipHeaders[TOTAL_NUM_SHIPS] =
 {
     &GenericInterceptorHeader,         //sRecon
-    &DefaultShipHeader,                //sAcolyte: exe AcolyteHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMimic: exe MimicHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sLeech: exe LeechHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sACV: exe ACVHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMCV: exe MCVHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sRammingFrigate: exe RammingFrigateHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMultiBeamFrigate: exe MultiBeamFrigateHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sHiveFrigate: exe HiveFrigateHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sSwarmer: exe SwarmerHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sDreadnought: exe DreadnoughtHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sDreadnoughtCannon: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &AcolyteHeader,                    //sAcolyte
+    &MimicHeader,                      //sMimic
+    &LeechHeader,                      //sLeech
+    &ACVHeader,                        //sACV
+    &MCVHeader,                        //sMCV
+    &RammingFrigateHeader,             //sRammingFrigate
+    &MultiBeamFrigateHeader,           //sMultiBeamFrigate
+    &HiveFrigateHeader,                //sHiveFrigate
+    &SwarmerHeader,                    //sSwarmer
+    &DreadnoughtHeader,                //sDreadnought
+    &ModuleShipHeader,                 //sDreadnoughtCannon
     &CarrierHeader,                    //sCarrier
-    &DefaultShipHeader,                //sCarrierSupport: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sWorker: exe WorkerHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sRepairDroid: exe RepairDroidHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sProcessor: exe ProcessorHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sSentinel: exe SentinelHeader (Cataclysm-only, stage 2)
+    &ModuleShipHeader,                 //sCarrierSupport
+    &WorkerHeader,                     //sWorker
+    &RepairDroidHeader,                //sRepairDroid
+    &ProcessorHeader,                  //sProcessor
+    &SentinelHeader,                   //sSentinel
     &MothershipHeader,                 //sMothership
-    &DefaultShipHeader,                //sMothershipSpecial: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMothershipEngineering: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMothershipArmour: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMothershipMicro: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMothershipWeapons: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMothershipDockingBay: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &ModuleShipHeader,                 //sMothershipSpecial
+    &ModuleShipHeader,                 //sMothershipEngineering
+    &ModuleShipHeader,                 //sMothershipArmour
+    &ModuleShipHeader,                 //sMothershipMicro
+    &ModuleShipHeader,                 //sMothershipWeapons
+    &ModuleShipHeader,                 //sMothershipDockingBay
     &StandardDestroyerHeader,          //sDestroyer
-    &DefaultShipHeader,                //sMothershipSupport: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMothershipCommand: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMothershipEnginesLower: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMothershipEnginesUpper: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMothershipLowerSpine: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMothershipBigGun: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //sMothershipOreCanArmour: exe ModuleShipHeader (Cataclysm-only, stage 2)
+    &ModuleShipHeader,                 //sMothershipSupport
+    &ModuleShipHeader,                 //sMothershipCommand
+    &ModuleShipHeader,                 //sMothershipEnginesLower
+    &ModuleShipHeader,                 //sMothershipEnginesUpper
+    &ModuleShipHeader,                 //sMothershipLowerSpine
+    &ModuleShipHeader,                 //sMothershipBigGun
+    &ModuleShipHeader,                 //sMothershipOreCanArmour
     &GenericInterceptorHeader,         //bRecon
-    &DefaultShipHeader,                //bAcolyte: exe AcolyteHeader (Cataclysm-only, stage 2)
+    &AcolyteHeader,                    //bAcolyte
     &GenericInterceptorHeader,         //bInterceptor
     &CloakedFighterHeader,             //bCloakedFighter
     &AttackBomberHeader,               //bAttackBomber
-    &DefaultShipHeader,                //bACV: exe ACVHeader (Cataclysm-only, stage 2)
+    &ACVHeader,                        //bACV
     &MultiGunCorvetteHeader,           //bMultiGunCorvette
     &HeavyCorvetteHeader,              //bHeavyCorvette
-    &DefaultShipHeader,                //bMultiBeamFrigate: exe MultiBeamFrigateHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //bHiveFrigate: exe HiveFrigateHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //bSwarmer: exe SwarmerHeader (Cataclysm-only, stage 2)
+    &MultiBeamFrigateHeader,           //bMultiBeamFrigate
+    &HiveFrigateHeader,                //bHiveFrigate
+    &SwarmerHeader,                    //bSwarmer
     &P1IonArrayFrigateHeader,          //bIonArrayFrigate
     &DFGFrigateHeader,                 //bDFGFrigate
     &HeavyCruiserHeader,               //bHeavyCruiser
     &CarrierHeader,                    //bCarrier
-    &DefaultShipHeader,                //bRammingFrigate: exe RammingFrigateHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //bWorker: exe WorkerHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //bRepairDroid: exe RepairDroidHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //bProcessor: exe ProcessorHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //bSentinel: exe SentinelHeader (Cataclysm-only, stage 2)
+    &RammingFrigateHeader,             //bRammingFrigate
+    &WorkerHeader,                     //bWorker
+    &RepairDroidHeader,                //bRepairDroid
+    &ProcessorHeader,                  //bProcessor
+    &SentinelHeader,                   //bSentinel
     &MothershipHeader,                 //bMothership
-    &DefaultShipHeader,                //bMothershipDockingBay: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //bMothershipEnginesLower: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //bSectMoship: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //bMothershipSupport: exe ModuleShipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //bCruiseMissile: exe CruiseMissileHeader (Cataclysm-only, stage 2)
+    &ModuleShipHeader,                 //bMothershipDockingBay
+    &ModuleShipHeader,                 //bMothershipEnginesLower
+    &ModuleShipHeader,                 //bSectMoship
+    &ModuleShipHeader,                 //bMothershipSupport
+    &CruiseMissileHeader,              //bCruiseMissile
     &P1MissileCorvetteHeader,          //bMissileCorvette
     &AdvanceSupportFrigateHeader,      //kAdvanceSupportFrigate
     &AttackBomberHeader,               //kAttackBomber
@@ -430,12 +430,12 @@ CustShipHeader *shipHeaders[TOTAL_NUM_SHIPS] =
     &StationaryGunHeader,              //trJunk_SGun
     &DoNothingShipHeader,              //trResearchStationBridge
     &DoNothingShipHeader,              //trResearchStationTower
-    &DefaultShipHeader,                //dRKO: exe RKOHeader (Cataclysm-only, stage 2)
+    &RKOHeader,                        //dRKO
     &DoNothingShipHeader,              //dBigGun
     &DoNothingShipHeader,              //dBigGunUnit
-    &DefaultShipHeader,                //dSlipgateSmall: exe SlipgateHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //dSlipgateMedium: exe SlipgateHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //dSlipgateLarge: exe SlipgateHeader (Cataclysm-only, stage 2)
+    &SlipgateHeader,                   //dSlipgateSmall
+    &SlipgateHeader,                   //dSlipgateMedium
+    &SlipgateHeader,                   //dSlipgateLarge
     &DoNothingShipHeader,              //dCrate
     &DoNothingShipHeader,              //dJunk1PartA
     &DoNothingShipHeader,              //dJunk1Shell
@@ -447,14 +447,14 @@ CustShipHeader *shipHeaders[TOTAL_NUM_SHIPS] =
     &DoNothingShipHeader,              //dBuoy
     &DoNothingShipHeader,              //dFirstPlanet
     &DoNothingShipHeader,              //dDeadPlanet
-    &DefaultShipHeader,                //dCrystal0: exe CrystalHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //dCrystal1: exe CrystalHeader (Cataclysm-only, stage 2)
+    &CrystalHeader,                    //dCrystal0
+    &CrystalHeader,                    //dCrystal1
     &DoNothingShipHeader,              //dBeastDockingBay
     &DoNothingShipHeader,              //dNISBuoy
-    &DefaultShipHeader,                //dBeastMothership: exe dBeastMothershipHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //dNomadMoon: exe NomadMoonHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //dNomadFieldEmitter: exe NomadFieldEmitterHeader (Cataclysm-only, stage 2)
-    &DefaultShipHeader,                //dAcolyte: exe AcolyteHeader (Cataclysm-only, stage 2)
+    &dBeastMothershipHeader,           //dBeastMothership
+    &NomadMoonHeader,                  //dNomadMoon
+    &NomadFieldEmitterHeader,          //dNomadFieldEmitter
+    &AcolyteHeader,                    //dAcolyte
     &DoNothingShipHeader,              //dPrisonShip
     &DoNothingShipHeader,              //dPrisonShipInfected
     &DoNothingShipHeader,              //dSlipgateNode

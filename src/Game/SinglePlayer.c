@@ -19,7 +19,6 @@
 #include "CommandDefs.h"
 #include "CommandWrap.h"
 #include "Damage.h"
-#include "DDDFrigate.h"
 #include "FEFlow.h"
 #include "FastMath.h"
 #include "File.h"
@@ -42,7 +41,6 @@
 #include "Ping.h"
 #include "Randy.h"
 #include "ResearchGUI.h"
-#include "ResearchShip.h"
 #include "SaveGame.h"
 #include "Select.h"
 #include "Sensors.h"
@@ -516,7 +514,7 @@ void GetFleetStrengthHyperspace(Player *player)
             spFleetStr += GetStrengthOfShip(ship);
             // also check ships inside it:
 
-            if ((ship->shipsInsideMe != NULL) && (ship->shiptype != DDDFrigate))
+            if ((ship->shipsInsideMe != NULL))
             {
                 // check ships inside too
                 Node *insidenode = ship->shipsInsideMe->insideList.head;
@@ -565,7 +563,7 @@ void GetFleetStrengthInUniverseOfPlayer(Player *player)
 
             // also check ships inside it:
 
-            if ((ship->shipsInsideMe != NULL) && (ship->shiptype != DDDFrigate))
+            if ((ship->shipsInsideMe != NULL))
             {
                 // check ships inside too
                 Node *insidenode = ship->shipsInsideMe->insideList.head;
@@ -798,7 +796,7 @@ void CalculateRollCall(void)
         ship = (Ship *)listGetStructOfNode(objnode);
         dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
 
-        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && (ship->shiptype != CryoTray) && (ship->shiptype != Probe) && !(ship->header.flags & SOF_Disabled))
+        if (allianceIsShipAlly(ship,universe.curPlayerPtr) && !(ship->header.flags & SOF_Disabled))
         {
             if (ship->shipsInsideMe)
             {

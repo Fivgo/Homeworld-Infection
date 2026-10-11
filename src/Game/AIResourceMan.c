@@ -208,22 +208,13 @@ bool32 airShipDied(AIPlayer *aiplayer,ShipPtr ship)
                 aiplayer->airNumRCollectors--;
                 dbgAssertOrIgnore(aiplayer->airNumRCollectors >= 0);
             }
-            else if (ship->shiptype == ResourceController)
-            {
-                aiplayer->airNumRControllers--;
-                dbgAssertOrIgnore(aiplayer->airNumRControllers >= 0);
-            }
+            // CAT: no HW1 ResourceController (M2-R4 ships-b)
             else if (ship->shiptype == AdvanceSupportFrigate)
             {
                 aiplayer->airNumASF--;
                 dbgAssertOrIgnore(aiplayer->airNumASF >= 0);
             }
-            else if (ship->shiptype == ResearchShip)
-            {
-                aiplayer->airNumResearchShips--;
-                dbgAssertOrIgnore(aiplayer->airNumResearchShips >= 0);
-                aiCurrentAIPlayer->TechnologyDeficit = 0;       //recalculate technology deficit
-            }
+            // CAT: no HW1 ResearchShip (M2-R4 ships-b)
             return TRUE;
         }
 //    }
@@ -488,18 +479,12 @@ void airAddNewShip(Ship *ship)
     {
         airAddedResourceCollector(ship);
     }
-    else if (ship->shiptype == ResourceController)
-    {
-        airAddedResourceController(ship);
-    }
+    // CAT: no HW1 ResourceController (M2-R4 ships-b)
     else if (ship->shiptype == AdvanceSupportFrigate)
     {
         airAddedAdvanceSupportFrigate(ship);
     }
-    else if (ship->shiptype == ResearchShip)
-    {
-        airAddedResearchShip(ship);
-    }
+    // CAT: no HW1 ResearchShip (M2-R4 ships-b)
     else if (ship->shiptype == ProximitySensor)
     {
         airAddedProximitySensor(ship);
@@ -669,13 +654,7 @@ void airDivideSupportTasks(void)
 ----------------------------------------------------------------------------*/
 void airProcessSpecialTeams(void)
 {
-    if (!aiCurrentAIPlayer->airNumResearchShips)
-    {
-        if (aiuCanBuildShipType(ResearchShip,FALSE))
-        {
-            aifResourceManRequestsShipsCB(ResearchShip, 1, REQUESTSHIPS_HIPRI);
-        }
-    }
+    // CAT-TODO(stage 4 AI): HW1 asked for a ResearchShip here (gone with the HW1-only types) (M2-R4 ships-b)
 }
 
 
@@ -726,20 +705,7 @@ bool32 airDumbResearchRequests(bool32 *requestedResearch)
 
         if (totalResearch < aiCurrentAIPlayer->ResearchersToBuild)
         {
-            if (aiuCanBuildShipType(ResearchShip,FALSE))
-            {
-                if (!totalResearch)
-                {
-                    aifResourceManRequestsShipsCB(ResearchShip, 1, REQUESTSHIPS_HIPRI);
-                    *requestedResearch = TRUE;
-                    return TRUE;
-                }
-                else
-                {
-                    aifResourceManRequestsShipsCB(ResearchShip, 1, 0);
-                    *requestedResearch = TRUE;
-                }
-            }
+            // CAT-TODO(stage 4 AI): HW1 asked for ResearchShips here (gone with the HW1-only types) (M2-R4 ships-b)
         }
     }
     else
@@ -769,21 +735,7 @@ bool32 airSmartResearchRequests(bool32 *requestedResearch)
 
         if ((real32)(totalResearch) < (((real32)(aiCurrentAIPlayer->TechnologyDeficit))/2.0))
         {
-            if (aiuCanBuildShipType(ResearchShip,FALSE))
-            {
-                if (!totalResearch)
-                {
-                    aifResourceManRequestsShipsCB(ResearchShip, 1, REQUESTSHIPS_HIPRI);
-                    *requestedResearch = TRUE;
-                    return TRUE;
-                }
-                else
-                {
-                    aifResourceManRequestsShipsCB(ResearchShip, 1, 0);
-                    *requestedResearch = TRUE;
-                    return FALSE;
-                }
-            }
+            // CAT-TODO(stage 4 AI): HW1 asked for ResearchShips here (gone with the HW1-only types) (M2-R4 ships-b)
         }
         else
         {
@@ -905,11 +857,7 @@ void airResourceManager(void)
                 {
                     if (cashGenerated > BUILD_RCONTROLLER_CASH_BASE)
                     {
-                        if (aiuCanBuildShipType(ResourceController,FALSE))
-                        {
-                            aifResourceManRequestsShipsCB(ResourceController, 1, 0);
-                            return;
-                        }
+                        // CAT-TODO(stage 4 AI): HW1 asked for a ResourceController here (gone with the HW1-only types) (M2-R4 ships-b)
                     }
                 }
             }

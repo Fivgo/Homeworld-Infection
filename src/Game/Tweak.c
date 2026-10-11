@@ -428,6 +428,15 @@ real32 twNotifySalvageTargetTooStrongRate = 5.0f;       // 0x008ac608: real seco
 //      cat_salvageTargetDamagedEnough 0x004f7d70). The exe's tweak entry "twSalvageDamageLimit[CLASS_MonsterShip]"
 //      points at the CLASS_Corvette slot (0x008adb18 -> 0x00ba2c14), so CLASS_MonsterShip's own slot is never set.
 real32 twSalvageDamageLimit[NUM_CLASSES];
+// CAT (M2-R4 ships-b): the hull points per second a Worker or a Processor's beam gives a ship of each class (0x00ba2bc0,
+//      .bss; cat_workerRepairTarget 0x005c89a0, cat_processorAutoRepair 0x005bedd0); a class with rate 0 is not repaired
+real32 twRepairRate[NUM_CLASSES];
+// CAT (M2-R4 ships-b): the Processor's repair beams (0x008ac5f0..0x008ac600, the exe's defaults; Processor.c)
+real32 twProcessorAutoRepairDistance = 2000.0f;         // 0x008ac5f0
+real32 twProcessorAutoRepairConeAngle = 90.0f;          // 0x008ac5f4: degrees
+real32 twProcessorAutoRepairUpdateRate = 5.0f;          // 0x008ac5f8: seconds between target searches
+real32 twProcessorAutoRepairUpdateDelay = 0.5f;         // 0x008ac5fc: seconds after a beam loses its target
+real32 twProcessorAutoRepairBeamWidth = 250.0f;         // 0x008ac600: the widest beam
 
 /*=============================================================================
     Private tweak-specific script set functions
@@ -1019,6 +1028,24 @@ scriptEntry Tweaks[] =
     makeEntry(twCrystalProcessingTime,scriptSetReal32CB),
     makeEntry(twNotifySalvagersNeededRate,scriptSetReal32CB),
     makeEntry(twNotifySalvageTargetTooStrongRate,scriptSetReal32CB),
+    // CAT (M2-R4 ships-b): the repair tweakables (the exe's tweak table, before the processor and salvage entries)
+    makeEntry(twRepairRate[CLASS_Mothership],scriptSetReal32CB),
+    makeEntry(twRepairRate[CLASS_HeavyCruiser],scriptSetReal32CB),
+    makeEntry(twRepairRate[CLASS_Carrier],scriptSetReal32CB),
+    makeEntry(twRepairRate[CLASS_Destroyer],scriptSetReal32CB),
+    makeEntry(twRepairRate[CLASS_Frigate],scriptSetReal32CB),
+    makeEntry(twRepairRate[CLASS_Corvette],scriptSetReal32CB),
+    makeEntry(twRepairRate[CLASS_Fighter],scriptSetReal32CB),
+    makeEntry(twRepairRate[CLASS_Resource],scriptSetReal32CB),
+    makeEntry(twRepairRate[CLASS_NonCombat],scriptSetReal32CB),
+    makeEntry(twRepairRate[CLASS_MonsterShip],scriptSetReal32CB),
+    makeEntry(twRepairRate[CLASS_Component],scriptSetReal32CB),
+    makeEntry(twRepairRate[CLASS_Micro],scriptSetReal32CB),
+    makeEntry(twProcessorAutoRepairDistance,scriptSetReal32CB),
+    makeEntry(twProcessorAutoRepairConeAngle,scriptSetReal32CB),
+    makeEntry(twProcessorAutoRepairUpdateRate,scriptSetReal32CB),
+    makeEntry(twProcessorAutoRepairUpdateDelay,scriptSetReal32CB),
+    makeEntry(twProcessorAutoRepairBeamWidth,scriptSetReal32CB),
     makeEntry(twSalvageDamageLimit[CLASS_Mothership],scriptSetReal32CB),
     makeEntry(twSalvageDamageLimit[CLASS_HeavyCruiser],scriptSetReal32CB),
     makeEntry(twSalvageDamageLimit[CLASS_Carrier],scriptSetReal32CB),

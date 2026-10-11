@@ -78,11 +78,74 @@ static sdword lmRenderEverythingCounter;
 
 bool32 lmActive = FALSE;
 
-// CAT: the module slots (0x00a4478c). CAT-TODO(M2-R4 #4): cat_lmFillInModuleSlots 0x0049e9f0, which fills them from
-//      the sMothership's module list when lmLaunchBegin 0x0049e1e0 opens the screen, needs the module ships' list
-//      (cat_moduleIterate 0x005afed0 family, Ships/ModuleShip.c); the slot draw callbacks are stage 3. Until then
-//      the slots stay empty.
+// CAT: the module slots (0x00a4478c), filled by cat_lmFillInModuleSlots below; the slot draw callbacks are stage 3
 Ship *cat_lmModuleSlots[CAT_LM_NUM_MODULE_SLOTS];
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_lmFillInModuleSlots
+    Description : CAT (M2-R4 ships-b): the launch screen's module slots of the local player's sMothership, from the
+                  ships clamped to it: docking bay, micro, armour, weapons, special, the weakest support module, big
+                  gun; then the empty slots are filled from the right (cat_lmFillInModuleSlots 0x0049e9f0; called by
+                  lmLaunchBegin 0x0049e1e0 and the first slot's draw callback, stage 3)
+----------------------------------------------------------------------------*/
+void cat_lmFillInModuleSlots(void)
+{
+    Ship *mothership = universe.curPlayerPtr->PlayerMothership;
+    CatClampedList *clamped;
+    Ship *module;
+    sdword i, j;
+
+    if ((mothership == NULL) || (mothership->shiptype != sMothership))
+    {
+        return;
+    }
+    for (i = 0; i < CAT_LM_NUM_MODULE_SLOTS; i++)
+    {
+        cat_lmModuleSlots[i] = NULL;
+    }
+    // CAT-FIX: the exe reads the list without testing clampInfo (a Sect mothership always has its modules clamped);
+    //      here a mothership that was only created, not added (univAddShip makes the modules), has none
+    if ((mothership->guidance.clampInfo == NULL) || (mothership->guidance.clampInfo->clampedObjs == NULL))
+    {
+        return;
+    }
+    clamped = mothership->guidance.clampInfo->clampedObjs;
+    for (i = 0; i < clamped->numShips; i++)
+    {
+        module = clamped->ShipPtr[i];
+        switch (module->shiptype)
+        {
+            case sMothershipDockingBay:     cat_lmModuleSlots[0] = module; break;
+            case sMothershipMicro:          cat_lmModuleSlots[1] = module; break;
+            case sMothershipArmour:         cat_lmModuleSlots[2] = module; break;
+            case sMothershipWeapons:        cat_lmModuleSlots[3] = module; break;
+            case sMothershipSpecial:        cat_lmModuleSlots[4] = module; break;
+            case sMothershipSupport:
+                if ((cat_lmModuleSlots[5] == NULL) || (module->targetable.health < cat_lmModuleSlots[5]->targetable.health))
+                {
+                    cat_lmModuleSlots[5] = module;
+                }
+                break;
+            case sMothershipBigGun:         cat_lmModuleSlots[6] = module; break;
+            default: break;
+        }
+    }
+    for (i = 0; i < CAT_LM_NUM_MODULE_SLOTS - 1; i++)
+    {
+        if (cat_lmModuleSlots[i] == NULL)
+        {
+            for (j = i + 1; j < CAT_LM_NUM_MODULE_SLOTS; j++)
+            {
+                if (cat_lmModuleSlots[j] != NULL)
+                {
+                    cat_lmModuleSlots[i] = cat_lmModuleSlots[j];
+                    cat_lmModuleSlots[j] = NULL;
+                    break;
+                }
+            }
+        }
+    }
+}
 
 /*-----------------------------------------------------------------------------
     Name        : cat_lmModuleSlotsRemoveType
@@ -1708,6 +1771,9 @@ sdword lmLaunchBegin(regionhandle region, smemsize ID, udword event, udword data
     }
 
     lmFillInCarrierXs();
+    // CAT (M2-R4 ships-b): the exe's lmLaunchBegin 0x0049e1e0 fills the module slots when it opens the screen (the rest
+    //      of its Cataclysm launch screen is stage 3)
+    cat_lmFillInModuleSlots();
 
     if ((launchship == NULL)||((launchship->shiptype!=Mothership)&&(launchship->shiptype!=Carrier)))
     {

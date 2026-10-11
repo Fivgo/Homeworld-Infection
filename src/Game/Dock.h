@@ -47,6 +47,8 @@ bool32 ShipDocksAtDefaultShip(struct CommandToDo *docktodo,struct Ship *ship,str
 
 sdword dockFindDockIndex(char *name,DockStaticInfo *dockstaticinfo);
 DockStaticPoint *cat_dockFindDockStaticPoint(char *name,DockStaticInfo *dockstaticinfo);   // CAT: 0x00463d00
+bool32 ThisShipCanDockWith(Ship *ship,Ship *dockwith,DockType dockType);   // CAT: declared for the Cataclysm ships (Slipgate.c, M2-R4 ships-b); the exe's takes a 4th argument (dock purposes follow-up)
+real32 ClampToWithin(real32 number,real32 min,real32 max);   // CAT: declared for Leech.c (M2-R4 ships-b)
 void GetDirectionVectorOfShip(vector *result,udword direction,matrix *coordsys);   // CAT: takes the frame (0x004631f0)
 // CAT (M2-R4 combat): Cataclysm-only dock helpers (Dock.c; the salvage system and the link code use them)
 void cat_dockDepositResourceUnits(struct Player *player,sdword resourceUnits);             // CAT: 0x00463270
@@ -79,16 +81,11 @@ bool32 ShipWithinDockRange(Ship *ship,Ship *target);
 Ship *FindNearestShipToDockAt(Ship *ship,DockType dockType);
 
 // specific docking for certain ships
-bool32 LaunchShipFromDDDF(Ship *ship,Ship *dockwith);
-bool32 DroneDocksAtDDDF(struct Ship *ship,struct Ship *dockwith);
-void dockPrepareDroneForDocking(Ship *ship,Ship *dockship);
 
 bool32 ShipIsRefuelingAtCarrierMother(struct Ship *ship);
 bool32 ShipIsWaitingForSoftLaunch(struct Ship *ship);
-Ship *FindAnotherResearchShiptoDockWith(Ship *ship);
 void dockMakeMaster(Ship *master);
 void dockAddSlave(Ship *master, Ship *slave);
-void bitClearAllSlaves(Ship *ship);
 
 sdword **GetLaunchPoints(ShipStaticInfo *shipstatic,ShipStaticInfo *dockwithstatic);
 

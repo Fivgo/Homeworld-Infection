@@ -52,10 +52,8 @@
 #include "PiePlate.h"
 #include "prim2d.h"
 #include "prim3d.h"
-#include "Probe.h"
 #include "render.h"
 #include "ResearchGUI.h"
-#include "ResearchShip.h"
 #include "screenshot.h"
 #include "Select.h"
 #include "Sensors.h"
@@ -352,26 +350,7 @@ void mrEnable(void)
 ----------------------------------------------------------------------------*/
 bool32 mrNeedProbeHack(void)
 {
-    if(selSelected.numShips == 1)
-    {
-        if(selSelected.ShipPtr[0]->shiptype == Probe)
-        {    //woo hoo!  1 ship selected and its a probe
-            ProbeSpec *spec;
-            spec = (ProbeSpec *) selSelected.ShipPtr[0]->ShipSpecifics;
-            //no longer do checks for if a probe has moved..allow infinite moves!
-            if(!spec->HaveMoved)
-            {
-
-                return TRUE;
-            }
-            else
-            {
-                //fix later
-                //should give SOUND EVENT to indicate probe is no good anymore
-                soundEvent(NULL, UI_ClickCancel);
-            }
-        }
-    }
+    // CAT: no HW1 Probe, so never (M2-R4 ships-b)
     return FALSE;
 }
 /*-----------------------------------------------------------------------------
@@ -383,17 +362,7 @@ bool32 mrNeedProbeHack(void)
 ----------------------------------------------------------------------------*/
 void mrRemoveAllProbesFromSelection()
 {
-    sdword i;
-    for(i=0;i<selSelected.numShips;)
-    {
-        if(selSelected.ShipPtr[i]->shiptype == Probe)
-        {
-            selSelected.numShips--;
-            selSelected.ShipPtr[i] = selSelected.ShipPtr[selSelected.numShips];
-            continue;
-        }
-        i++;
-    }
+    // CAT: no HW1 Probe to remove (M2-R4 ships-b)
 }
 
 /*-----------------------------------------------------------------------------
@@ -448,8 +417,7 @@ void mrRemoveDerelictsAndAllPlayerShipsFromSelecting()
         if (target->header.objtype == OBJ_ShipType)
         {
             if ((((Ship *)target)->playerowner == universe.curPlayerPtr) ||
-                (allianceIsShipAlly((Ship *)target, universe.curPlayerPtr)) ||
-                (((Ship *)target)->shiptype == Drone))
+                (allianceIsShipAlly((Ship *)target, universe.curPlayerPtr)))     // CAT: no HW1 Drone (M2-R4 ships-b)
             {
 removeit:
                 selSelecting.numTargets--;
@@ -1461,8 +1429,8 @@ void mrSetTheFormation(TypeOfFormation formationtype)
     Return      : TRUE if motherhip in focus, FALSE otherwise.
 ----------------------------------------------------------------------------*/
 #define MR_ONLY_MOTHERSHIP          1                       //1=focus only on mothership, 0 = focus on mothership along with other ships
-#define MR_NumberMothershipTypes    8
-ubyte mrMothershipShipTypes[] = {Carrier, Mothership, P1Mothership, P2Mothership, P3Megaship, FloatingCity, ResearchStation, JunkYardHQ, 0};
+#define MR_NumberMothershipTypes    6                       // CAT: no HW1 P2Mothership or P3Megaship (M2-R4 ships-b)
+ubyte mrMothershipShipTypes[] = {Carrier, Mothership, P1Mothership, FloatingCity, ResearchStation, JunkYardHQ, 0};
 Ship *mrMothershipPtr = NULL;
 bool32 mrMothershipInFocus(Ship *mothership)
 {
@@ -3344,12 +3312,7 @@ void mrFormationShips(MaxSelection *selection, Ship *ship)
     bool32 parade, groupselect = FALSE;
     //sdword i;
 
-    if (ship->shiptype == Probe)
-    {
-        selection->ShipPtr[0] = ship;  //select just one probe, because you can only dispatch them 1 at a time anyway
-        selection->numShips = 1;
-        goto gotselection;
-    }
+    // CAT: no HW1 Probe (M2-R4 ships-b)
 
     formSelection = getShipAndItsCommandSelection(&universe.mainCommandLayer, ship, &parade);
     MakeShipsSelectable(formSelection);
@@ -3411,7 +3374,7 @@ void mrFormationShips(MaxSelection *selection, Ship *ship)
     }
 */
     //free the formation selection
-gotselection:
+    // CAT: the label "gotselection" went with the HW1 Probe case (M2-R4 ships-b)
 #if MR_GUI_SINGLECLICK
     if (selSelected.numShips == 1 && selection->numShips == 1 && selSelected.ShipPtr[0] == selection->ShipPtr[0])
     {
@@ -3435,10 +3398,8 @@ gotselection:
                     cmConstructionBegin(ghMainRegion,(smemsize)selSelected.ShipPtr[0], 0, 0);
 //                }
                 break;
-            case ResearchShip:
                 rmResearchGUIBegin(ghMainRegion,(smemsize)selSelected.ShipPtr[0], 0, 0);
                 break;
-            case SensorArray:
                 smSensorsBegin(NULL, NULL);
                 break;
             default:
@@ -3629,7 +3590,7 @@ void mrObjectClick(Ship *ship)
             if (ship->playerowner == universe.curPlayerPtr)
             {                                               //clicked on a friendly ship
 regularFriendlyCase:
-                if (keyIsHit(CONTROLKEY) && keyIsHit(SHIFTKEY) && ship->shiptype != CryoTray)
+                if (keyIsHit(CONTROLKEY) && keyIsHit(SHIFTKEY))
                 {                                           //ctrl-shift-click friendly ship: attack
                     if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
                     {
@@ -4725,18 +4686,7 @@ void toMoveLineDraw(ShipPtr ship, real32 scale)
             //only draw the moveto circle
             toDrawMoveCircle(ship, scale, linecolor, pulsecolor);
         }
-        else if(ship->shiptype == ResearchShip)
-        {
-            toFakeOneShip(ship,&temp1, &temp2);
-
-            //den draw da linez
-            toDrawMoveToLine(ship, linecolor, pulsecolor);
-            //toDrawMoveFromLine(ship);
-            toDrawMoveCircle(ship, scale, linecolor, pulsecolor);
-
-            toUnFakeOneShip(ship,&temp1, &temp2);
-
-        }
+        // CAT: no HW1 ResearchShip line drawing (M2-R4 ships-b)
         else
         {
             //den draw da linez

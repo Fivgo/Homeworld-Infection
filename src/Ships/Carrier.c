@@ -151,27 +151,6 @@ void CarrierOrderChanged(Ship *ship)
     }
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : cat_carrierDoorAnimate
-    Description : CAT: starts sCarrier's door animation by number (0 closes, 1 opens; CarrierHouseKeep 0x005af210
-                  calls madAnimationStart(ship, number, 0))
-----------------------------------------------------------------------------*/
-static void cat_carrierDoorAnimate(Ship *ship,sdword number)
-{
-    madstatic *mstatic = ship->staticinfo->madStatic;
-    sdword index = number;
-
-    // CAT-TODO(stage 3): the exe's madAnimationStart 0x004b6b90 looks the number up in madstatic.animIndexes itself
-    //      and takes a third argument (0 here); this tree's takes the header index, so the lookup is done here
-    if (mstatic->animsByNumber)
-    {
-        index = (number < mstatic->numAnims) ? mstatic->animIndexes[number] : -1;
-    }
-    if ((index >= 0) && (index < mstatic->header->nAnimations))
-    {
-        madAnimationStart(ship, index);
-    }
-}
 
 void CarrierHouseKeep(Ship *ship)
 {
@@ -201,7 +180,7 @@ void CarrierHouseKeep(Ship *ship)
         {
             if ((spec->doorState == 1) && cat_madAnimationFinished(ship))
             {
-                cat_carrierDoorAnimate(ship, 0);
+                cat_madAnimationStartNumber(ship, 0);   // CAT-TODO(stage 3): the exe passes a third argument, 0
                 spec->doorState = 0;
             }
             spec->doorTimer = -1.0f;
@@ -218,7 +197,7 @@ void CarrierHouseKeep(Ship *ship)
             }
             else if (universe.totaltimeelapsed >= spec->doorTimer)
             {
-                cat_carrierDoorAnimate(ship, 1);
+                cat_madAnimationStartNumber(ship, 1);   // CAT-TODO(stage 3): the exe passes a third argument, 0
                 spec->doorState = 1;
                 spec->doorTimer = -1.0f;
             }
@@ -259,6 +238,63 @@ void Carrier_Fix(Ship *ship)
         cat_beastWeaponFix(ship);
     }
     cat_salvageDepotFix(ship);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_carrierDoorAnimUpdate
+    Description : CAT (M2-R4 ships-b): may a ship use an sCarrier dock point of state 6/7 (DPT_Med_In / DPT_Med_Out)?
+                  Any other state may; for those the door must be open and its animation over. An open door whose
+                  animation is over closes again (animation 0, door timer reset), and the ship must wait
+                  (cat_carrierDoorAnimUpdate 0x005af190; called by cat_dockFlyOutOfCone, the dock purposes follow-up)
+    Inputs      : ship - the carrier, dockstate - the dock point state
+    Return      : TRUE when the ship may go on
+----------------------------------------------------------------------------*/
+bool32 cat_carrierDoorAnimUpdate(Ship *ship, sdword dockstate)
+{
+    CarrierSpec *spec = (CarrierSpec *)ship->ShipSpecifics;
+
+    if ((dockstate != 6) && (dockstate != 7))
+    {
+        return TRUE;
+    }
+    if ((spec->doorState == 0) && cat_madAnimationFinished(ship))
+    {
+        return TRUE;
+    }
+    if ((spec->doorState == 1) && cat_madAnimationFinished(ship))
+    {
+        cat_madAnimationStartNumber(ship, 0);   // CAT-TODO(stage 3): the exe passes a third argument, 0
+        spec->doorState = 0;
+        spec->doorTimer = -1.0f;
+    }
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_carrierCountSupportModules
+    Description : CAT (M2-R4 ships-b): the finished sCarrierSupport modules clamped to ship (not SPECIAL_2_CatBeingBuilt)
+                  (cat_carrierCountSupportModules 0x005af460; called by cmUpdateShipAvailable and unitCapCanCreateShip,
+                  M2-R4 #5)
+----------------------------------------------------------------------------*/
+sdword cat_carrierCountSupportModules(Ship *ship)
+{
+    CatClampedList *clamped;
+    sdword count = 0;
+    sdword i;
+
+    if ((ship->guidance.clampInfo == NULL) || ((clamped = ship->guidance.clampInfo->clampedObjs) == NULL))
+    {
+        return 0;
+    }
+    for (i = 0; i < clamped->numShips; i++)
+    {
+        if ((clamped->ShipPtr[i]->shiptype == sCarrierSupport) &&
+            !bitTest(clamped->ShipPtr[i]->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+        {
+            count++;
+        }
+    }
+    return count;
 }
 
 void CarrierDied(Ship *ship)

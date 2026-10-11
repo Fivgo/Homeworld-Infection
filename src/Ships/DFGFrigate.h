@@ -23,6 +23,7 @@ typedef struct
 
 extern CustShipHeader DFGFrigateHeader;
 
-void univDFGFieldEffect(Ship *ship, Bullet *bullet, real32 totaltimeelapsed);
+bool32 cat_dfgFieldContainsPoint(vector *pos);    // CAT: 0x005b0df0 (M2-R4 ships-b)
+bool32 univDFGFieldEffect(Ship *ship, Bullet *bullet, real32 totaltimeelapsed);  // CAT: TRUE when it destroyed the bullet (0x005b0940)
 
 #endif

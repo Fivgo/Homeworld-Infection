@@ -10,6 +10,7 @@
 #define ___SHIPSELECT_H
 
 #include "SpaceObj.h"
+#include "ShipDisable.h"   // CAT: cat_shipSetDisableReason moved there (M2-R4 ships-b)
 
 /*=============================================================================
     Defines:
@@ -395,9 +396,9 @@ bool32 cat_salvageDepotHoldsCrystal(Ship *ship);
 bool32 cat_mothershipBigGunActive(Ship *ship);
 bool32 cat_shipDetectedByPlayer(Ship *ship, sdword playerIndex);
 sdword cat_shipStealthTargetState(Ship *ship, struct Player *player);   // CAT: 0x0053ff30 (M2-R4 combat)
-void cat_shipSetDisableReason(Ship *ship, sdword value, sdword reason);
 bool32 cat_shipIsAcolyte(Ship *ship);
 void cat_shipStealthDetectedSet(Ship *ship, sdword playerIndex, bool32 detected, bool32 silent);
+void cat_shipStealthInit(Ship *ship);                                // CAT: 0x0053fce0 (M2-R4 ships-b)
 bool32 cat_shipIsMimicking(Ship *ship);
 ShipType cat_mimicGetApparentShipType(Ship *ship);
 real32 cat_mimicGetSelectRadius(Ship *ship);

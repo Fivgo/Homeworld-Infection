@@ -36,4 +36,7 @@ extern CustShipHeader CarrierHeader;
 // CAT: slot 14 of the Carrier, HeavyCruiser and Mothership headers (CarrierBulletRemoval 0x005af390)
 void CarrierBulletRemoval(Ship *ship, struct Bullet *bullet);
 
+bool32 cat_carrierDoorAnimUpdate(Ship *ship, sdword dockstate);     // CAT: 0x005af190 (M2-R4 ships-b)
+sdword cat_carrierCountSupportModules(Ship *ship);                  // CAT: 0x005af460 (M2-R4 ships-b)
+
 #endif

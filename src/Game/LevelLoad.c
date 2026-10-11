@@ -24,7 +24,6 @@
 #include "Ping.h"
 #include "Randy.h"
 #include "ResearchAPI.h"
-#include "ResearchShip.h"
 #include "ScenPick.h"
 #include "Sensors.h"
 #include "SinglePlayer.h"
@@ -927,13 +926,11 @@ bool32 isCapturableCapitalShip(ShipType shiptype)
     {
         case AdvanceSupportFrigate:
         case CloakGenerator       :
-        case DDDFrigate           :
         case DFGFrigate           :
         case GravWellGenerator    :
         case HeavyCruiser         :
         case IonCannonFrigate     :
         case MissileDestroyer     :
-        case ResourceController   :
         case StandardDestroyer    :
         case StandardFrigate      :
             return TRUE;
@@ -983,15 +980,8 @@ void GivePlayerCapitalShip(Player *player)
             // Update ship totals for player
             unitCapCreateShip(ship,player);
 
-            if(ship->shiptype == ResearchShip &&
-               player->shiptotals[ResearchShip] >1)
-            {
-                addMonkeyResearchShip(ship);
-            }
-            else
-            {
-                GroupShipIntoMilitaryParade(&universe.mainCommandLayer,ship,player->PlayerMothership);
-            }
+            // CAT: no HW1 ResearchShip docking (M2-R4 ships-b)
+            GroupShipIntoMilitaryParade(&universe.mainCommandLayer,ship,player->PlayerMothership);
         }
     }
 }
@@ -1059,7 +1049,16 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
             memStrncpy(teamp->kasLabel, label, KAS_TEAM_NAME_MAX_LENGTH);
             // initialize original team size & type (to be updated later)
             teamp->kasOrigShipsCount = 0;
-            teamp->kasOrigShipsType = LightInterceptor;  // a default, just in case
+            // CAT: the default is the race's Recon (scriptSetShipsCB 0x004a13f0: sRecon for Sect, bRecon for Beast);
+            //      HW1's LightInterceptor is gone (M2-R4 ships-b)
+            if (aiCurrentAIPlayer->player->race == RACE_Sect)
+            {
+                teamp->kasOrigShipsType = sRecon;
+            }
+            else if (aiCurrentAIPlayer->player->race == RACE_Beast)
+            {
+                teamp->kasOrigShipsType = bRecon;
+            }
         }
     }
 
@@ -1104,11 +1103,7 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
     }
     dbgAssertOrIgnore(shiptype != -1);
 
-    if (singlePlayerGame && (shiptype == CryoTray))
-    {
-        //cryo trays are owned by the player
-        player = &universe.players[0];
-    }
+    // CAT: no HW1 CryoTray (M2-R4 ships-b)
 
     if (!singlePlayerGame)
     {
@@ -1118,11 +1113,7 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
             return;
         }
 
-        if ((!bitTest(tpGameCreated.flag,MG_ResearchEnabled)) &&
-            (shiptype==ResearchShip))
-        {
-            return;
-        }
+        // CAT: no HW1 ResearchShip (M2-R4 ships-b)
 
         if ((bitTest(tpGameCreated.flag,MG_CarrierIsMothership)) &&
             (shiptype == Mothership))
@@ -1902,13 +1893,7 @@ void SetTeamColorForShipAndRelatedStaticInfo(ShipType type,ShipRace race,bool8 s
     {
         memcpy(mineStaticInfos[race].teamColor, schemes, sizeof(mineStaticInfos[race].teamColor));
     }
-    else if (type == DDDFrigate)
-    {
-        ShipStaticInfo *ss;
-        dbgAssertOrIgnore(race == R1);
-        ss = GetShipStaticInfo(Drone,R1);
-        memcpy(ss->shipOrDerelict.teamColor, schemes, sizeof(ss->shipOrDerelict.teamColor));
-    }
+    // CAT: no HW1 DDDFrigate drones (M2-R4 ships-b)
 }
 
 /*-----------------------------------------------------------------------------
@@ -2163,7 +2148,7 @@ static void scriptSetShipsToBeNeeded(char *directory,char *field,void *dataToFil
 
     if (singlePlayerGame)
     {
-        if (shiptype != CryoTray)       // cryo trays are always "ours"
+        // CAT: no HW1 CryoTray (M2-R4 ships-b)
         if (universe.players[0].race == R2)
         {
             if ((shiprace == R1) || (shiprace == R2))

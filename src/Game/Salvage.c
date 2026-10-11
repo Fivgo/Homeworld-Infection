@@ -12,6 +12,8 @@
 //      "SALVAGING: ..." go to a stripped nullsub in the retail build and are left out.
 
 #include "Salvage.h"
+#include "Dissolve.h"
+#include "Crystal.h"
 
 #include <string.h>
 #ifndef _MSC_VER
@@ -41,6 +43,7 @@
 #include "Mothership.h"
 #include "P1Mothership.h"
 #include "P1StandardCorvette.h"
+#include "Processor.h"
 #include "SalCapCorvette.h"
 #include "SaveGame.h"
 #include "Select.h"
@@ -53,6 +56,7 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 #include "Vector.h"
+#include "Worker.h"
 
 #ifdef _MSC_VER
     #define strcasecmp _stricmp
@@ -106,14 +110,6 @@ static DockStaticPoint *cat_salvageFindDockStaticPoint(char *name, DockStaticInf
     return cat_dockFindDockStaticPoint(name, dockstaticinfo);
 }
 
-// CAT-PROVISIONAL (M2-R4 #4): sWorker/bWorker and sProcessor/bProcessor still use DefaultShipHeader, whose specifics
-//      are too small for the exe's blocks (WorkerHeader 0x48 bytes, ProcessorHeader 0x1C8); until their headers are
-//      ported such a ship gets the shared default block, as any other type does in the exe.
-static bool32 cat_salvageSpecificsHold(Ship *ship, udword end)
-{
-    return ship->sizeofShipSpecifics >= end;
-}
-
 CatSalvagerInfo *cat_salvageGetSalvagerInfo(Ship *ship)                     // 0x004f8ec0
 {
     ubyte *specifics = (ubyte *)ship->ShipSpecifics;
@@ -122,12 +118,7 @@ CatSalvagerInfo *cat_salvageGetSalvagerInfo(Ship *ship)                     // 0
     {
         case sWorker:
         case bWorker:
-            // the exe's +0x0C of the Worker specifics (WorkerHeader, M2-R4 #4 gives it a type)
-            if (!cat_salvageSpecificsHold(ship, 0x0C + sizeof(CatSalvagerInfo)))
-            {
-                return &cat_salvageDefaultSalvagerInfo;
-            }
-            return (CatSalvagerInfo *)(specifics + 0x0C);
+            return (CatSalvagerInfo *)(specifics + offsetof(WorkerSpec, salvager));            // exe +0x0C
         case kSalCapCorvette:
         case tSalCapCorvette:
             return (CatSalvagerInfo *)(specifics + offsetof(CatSalCapCorvetteSpec, salvager));     // exe +0x08
@@ -176,12 +167,7 @@ CatSalvageDepot *cat_salvageGetDepotInfo(Ship *ship)                        // 0
             return (CatSalvageDepot *)(specifics + offsetof(CarrierSpec, depot));          // exe +0x1C
         case sProcessor:
         case bProcessor:
-            // the exe's +0x00 of the Processor specifics (ProcessorHeader, M2-R4 #4)
-            if (!cat_salvageSpecificsHold(ship, sizeof(CatSalvageDepot)))
-            {
-                return &cat_salvageDefaultDepot;
-            }
-            return (CatSalvageDepot *)(specifics + 0x00);
+            return (CatSalvageDepot *)(specifics + offsetof(ProcessorSpec, depot));        // exe +0x00
         case p1Mothership:
             return (CatSalvageDepot *)(specifics + offsetof(P1MothershipSpec, depot));     // exe +0x00
         case sMothership:
@@ -202,13 +188,9 @@ static CatSalvageStatics *cat_salvageGetStatics(ShipStaticInfo *statinfo)
     {
         case sWorker:
         case bWorker:
+            return &((WorkerStatics *)statinfo->custstatinfo)->salvage;
         case kSalCapCorvette:
         case tSalCapCorvette:
-            // CAT-PROVISIONAL (M2-R4 #4): no statics block before WorkerStaticInit is ported
-            if (statinfo->custstatinfo == NULL)
-            {
-                return &cat_salvageDefaultStatics;
-            }
             return &((CatSalvagerStatics *)statinfo->custstatinfo)->salvage;
         case p1StandardCorvette:
             return &((P1StandardCorvetteStatics *)statinfo->custstatinfo)->salvage;
@@ -220,12 +202,7 @@ static CatSalvageStatics *cat_salvageGetStatics(ShipStaticInfo *statinfo)
 // the Worker's mode byte at specifics +0x08 (Ship+0x640), 1 = a salvaging worker (cat_salvageDeliverToDepot)
 static ubyte cat_salvageWorkerMode(Ship *ship)
 {
-    // CAT-PROVISIONAL (M2-R4 #4): the byte belongs to WorkerHeader's specifics; 0 until that header is ported
-    if (!cat_salvageSpecificsHold(ship, 0x0C))
-    {
-        return 0;
-    }
-    return ((ubyte *)ship->ShipSpecifics)[0x08];
+    return ((WorkerSpec *)ship->ShipSpecifics)->specialMode;
 }
 
 // frees a dock point a ship holds on host (the block inlined at every user of Ship+0x615 in the exe)
@@ -926,6 +903,8 @@ void cat_salvageStaticInit(char *directory, char *filename, ShipStaticInfo *stat
     {
         case sWorker:
         case bWorker:
+            salstat = &((WorkerStatics *)statinfo->custstatinfo)->salvage;
+            break;
         case kSalCapCorvette:
         case tSalCapCorvette:
             salstat = &((CatSalvagerStatics *)statinfo->custstatinfo)->salvage;
@@ -1882,21 +1861,70 @@ static void cat_salvageDepotProcessBeast(Ship *depot, sdword slot)
     // state 2: done, the slot is freed when the infected ship goes; any other: "Unhandled state ..."
 }
 
-// a crystal is dissolved into resource units (cat_salvageDepotProcessCrystal 0x004f98b0)
+// a crystal is dissolved into resource units (cat_salvageDepotProcessCrystal 0x004f98b0) [M2-R4 ships-b]
 static void cat_salvageDepotProcessCrystal(Ship *depot, sdword slot)
 {
-    // CAT-TODO(M2-R4 #4): the crystal processing needs the Crystal header (CrystalHeader 0x008c3860, 12-byte
-    //      specifics: resource units at +0x00, a "harvested" word at +0x04 and a "processing" word at +0x08) and the
-    //      dissolve effect (cat_shipDissolveStart 0x004603d0, cat_shipDissolveFraction 0x004604d0,
-    //      cat_shipDissolveSetDirection 0x004604a0), both ship code B. The exe: state 0 clamps the crystal to the
-    //      depot, starts the dissolve towards the depot's DPT_Crystal_Effect point (dockStaticInfo->firstOfType)
-    //      over twCrystalProcessingTime and queues speech 0x2001054; state 1 pays the dissolved fraction of the
-    //      crystal's resource units to the depot owner (cat_dockDepositResourceUnits) until the fraction reaches
-    //      1.0; state 2 bumps the KAS variable G_CrystalsHarvested (stage 6) and the AI player's crystal count
-    //      (stage 4), frees the crystal's dock point, unclamps and deletes it (univReallyDeleteThisShipRightNow),
-    //      clears the slot and queues speech 0x2001055. Until then a delivered crystal waits in its slot.
-    (void)depot;
-    (void)slot;
+    CatSalvageDepotSlot *depotslot = &cat_salvageGetDepotInfo(depot)->slots[slot];
+    Ship *crystal = depotslot->ship;
+    CrystalSpec *crystalspec = (CrystalSpec *)crystal->ShipSpecifics;
+    DockStaticInfo *dockstaticinfo = depot->staticinfo->dockStaticInfo;
+    vector point;
+    sdword remaining;
+    real32 fraction;
+
+    // the crystal dissolves into the depot's DPT_Crystal_Effect point
+    matMultiplyMatByVec(&point, &depot->rotatable.rotinfo.coordsys,
+                        &dockstaticinfo->dockstaticpoints[(sbyte)dockstaticinfo->firstOfType[DPT_Crystal_Effect]].position);
+    point.x += depot->obj.posinfo.position.x;
+    point.y += depot->obj.posinfo.position.y;
+    point.z += depot->obj.posinfo.position.z;
+    switch (depotslot->state)
+    {
+        case 0:
+            clampObjToObj((SpaceObjRotImpTargGuidance *)crystal, (SpaceObjRotImpTargGuidance *)depot);
+            cat_shipDissolveStart(crystal, &point, twCrystalProcessingTime);
+            depotslot->state = 1;
+            crystalspec->processing = TRUE;
+            speechEventQueue(NULL, 0x2001054, -1, -1, 0, depot->playerowner->playerIndex, -1, 5.0f, -1);
+            break;
+
+        case 1:
+            // the owner gets the dissolved part of the crystal's resource units
+            fraction = cat_shipDissolveFraction(crystal);
+            if (fraction >= 1.0f)
+            {
+                depotslot->state = 2;
+                return;
+            }
+            // (x87: fild value * (1.0 - fraction), truncated by __ftol; double is the nearest C precision)
+            remaining = (sdword)((1.0 - (double)fraction) *
+                                 (double)((CrystalStatics *)crystal->staticinfo->custstatinfo)->resourceValue);
+            cat_dockDepositResourceUnits(depot->playerowner, crystalspec->resourceValue - remaining);
+            crystalspec->resourceValue = remaining;
+            cat_shipDissolveSetDirection(crystal, &point);
+            break;
+
+        case 2:
+            // CAT-TODO(stage 6): the KAS variable G_CrystalsHarvested is incremented (cat_kasHashString,
+            //      cat_kasVarFind: the Cataclysm KAS variables come with the kas2c missions)
+            // CAT-TODO(stage 4): so is the depot owner's crystal count in the AI player block (0x00b62d58 + player *
+            //      0x7f8)
+            crystalspec->noBlast = TRUE;
+            crystalspec->processing = FALSE;
+            cat_salvageFreePoint(crystal, depot);
+            unClampObj((SpaceObjRotImpTargGuidance *)crystal);
+            univReallyDeleteThisShipRightNow(crystal);  // CAT-TODO(M2-R4 #1 follow-up): the exe passes a second argument, 1
+            depotslot->ship = NULL;
+            depotslot->startTime = 0.0f;
+            depotslot->endTime = 0.0f;
+            depotslot->state = 0;
+            depotslot->justDelivered = FALSE;
+            speechEventQueue(NULL, 0x2001055, -1, -1, 0, depot->playerowner->playerIndex, -1, 5.0f, -1);
+            break;
+
+        default:
+            break;
+    }
 }
 
 // a dBigGunUnit is drawn as converting, then taken apart (cat_salvageDepotProcessBigGun 0x004f9bc0)
@@ -2142,7 +2170,7 @@ void cat_salvageDepotDied(Ship *ship)                                       // 0
         process = cat_salvageDepotProcessFor(ship, salvaged);
         if (process == cat_salvageDepotProcessCrystal)
         {
-            // CAT-TODO(M2-R4 #4): the exe stops the crystal's dissolve here (cat_shipDissolveStop 0x00460c70)
+            cat_shipDissolveStop(salvaged);         // CAT: 0x00460c70 [M2-R4 ships-b]
         }
         else if ((process == cat_salvageDepotProcessDockable) || (process == cat_salvageDepotProcessBigGun))
         {

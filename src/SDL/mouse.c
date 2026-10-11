@@ -11,7 +11,6 @@
 #include <SDL2/SDL.h>
 
 #include "CommandWrap.h"
-#include "DDDFrigate.h"
 #include "Debug.h"
 #include "Demo.h"
 #include "Dock.h"
@@ -1261,11 +1260,9 @@ void mouseSelectCursorSetting(void)
                         bitSet(mouseInfo.flags, MCF_GUICapable);
                         bitSet(mouseInfo.flags, MCF_BuildGUI);
                         break;
-                    case ResearchShip:
                         bitSet(mouseInfo.flags, MCF_GUICapable);
                         bitSet(mouseInfo.flags, MCF_ResearchGUI);
                         break;
-                    case SensorArray:
                         bitSet(mouseInfo.flags, MCF_GUICapable);
                         bitSet(mouseInfo.flags, MCF_SensorsGUI);
                         break;
@@ -1277,7 +1274,6 @@ void mouseSelectCursorSetting(void)
                         }
                         bitSet(mouseInfo.flags, MCF_SpecialOp);
                         break;
-                    case DDDFrigate:
                         if (((DDDFrigateSpec *)ship->ShipSpecifics)->DDDstate == 3) //DDDSTATE_ALLOUTSIDE
                         {
                             bitSet(mouseInfo.flags, MCF_SpecialOpDeployed);
@@ -1295,7 +1291,6 @@ void mouseSelectCursorSetting(void)
                         bitSet(mouseInfo.flags, MCF_SpecialOp);
                         break;
                     case AdvanceSupportFrigate:
-                    case RepairCorvette:
                         //we don't want the dock cursor to show up when
                         //the mouse is over a selected repair corvette
                         bitSet(mouseInfo.flags, MCF_SupportOverItself);
@@ -1335,7 +1330,6 @@ void mouseSelectCursorSetting(void)
                     bitSet(mouseInfo.flags, MCF_SpecialSCSupport);
                     break;
                 case AdvanceSupportFrigate:
-                case RepairCorvette:
                     bitSet(mouseInfo.flags, MCF_SpecialSupport);
                     break;
                 case SalCapCorvette:
@@ -1387,33 +1381,26 @@ void mouseSelectCursorSetting(void)
                     mouseInfo.cursorover = build;
                 }
                 break;
-            case ResearchShip:
                 mouseInfo.cursorover = research;
                 break;
-            case SensorArray:
                 mouseInfo.cursorover = sensors;
                 break;
-            case ResourceController:
                 mouseInfo.cursorover = docking;
                 break;
             case CloakGenerator:
             case CloakedFighter:
-            case DDDFrigate:
             case GravWellGenerator:
             case MinelayerCorvette:
                 mouseInfo.cursorover = special_op_activate;
                 break;
             //drone is not considered as a ship in this case
-            case Drone:
                 mouseInfo.cursorover = MC_NO_SHIP;
                 break;
-            case RepairCorvette:
             case ResourceCollector:
             case AdvanceSupportFrigate:
             case JunkYardHQ:
                 mouseInfo.cursorover = small_docking;
                 break;
-            case CryoTray:
                 if ((spGetCurrentMission() != MISSION_1_KHARAK_SYSTEM) &&
                     (bitTest(mouseInfo.flags, MCF_SalvageOnly)))
                 {

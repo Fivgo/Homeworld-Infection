@@ -197,7 +197,6 @@ void madLinkInSetUpInitialBuiltMadState(Ship *ship)
                 case HeavyDefender:
                     ship->madGunStatus = MAD_STATUS_GUNS_CLOSED;
                     break;
-                case Probe:
                     ship->madWingStatus = MAD_STATUS_WINGS_CLOSED;
                     break;
                 default:

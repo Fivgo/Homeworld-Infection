@@ -4,6 +4,7 @@
 
 #include "AIShip.h"
 #include "AITrack.h"
+#include "Battle.h"
 #include "Clouds.h"
 #include "Collision.h"
 #include "CommandDefs.h"
@@ -23,6 +24,7 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 #include "Vector.h"
+#include "Worker.h"
 
 #define DEBUG_COLLECT_RESOURCES 0
 
@@ -958,9 +960,14 @@ void InitShipForResourceCollection(Ship *ship,Resource *resource)
     // CAT: the exe inlines this (ChangeSingleShipToCollectResource 0x004f12c0, processCollectResource 0x004f2130):
     //      sWorker and bWorker harvest with a third callback, the code at 0x005c9130 (no Ghidra function; saved as
     //      index 2 by PreFix_ShipXHarvestsResourceY 0x004f2090), every other harvester with R1ResourcerHarvestsAsteroid.
-    // CAT-PROVISIONAL(M2-R4 #4): the Worker callback belongs to Worker.c; until it is ported the Workers use
-    //      R1ResourcerHarvestsAsteroid as well
-    ship->ShipXHarvestsResourceY = R1ResourcerHarvestsAsteroid;//DefaultShipHarvestsResource;
+    if ((ship->shiptype == sWorker) || (ship->shiptype == bWorker))
+    {
+        ship->ShipXHarvestsResourceY = cat_workerHarvestsResource;     // CAT: Worker.c [M2-R4 ships-b]
+    }
+    else
+    {
+        ship->ShipXHarvestsResourceY = R1ResourcerHarvestsAsteroid;//DefaultShipHarvestsResource;
+    }
 }
 
 void PreFix_ShipXHarvestsResourceY(Ship *ship)
@@ -972,6 +979,10 @@ void PreFix_ShipXHarvestsResourceY(Ship *ship)
     else if (ship->ShipXHarvestsResourceY == R1ResourcerHarvestsAsteroid)
     {
         ship->ShipXHarvestsResourceY = (void *) 1;
+    }
+    else if (ship->ShipXHarvestsResourceY == cat_workerHarvestsResource)
+    {
+        ship->ShipXHarvestsResourceY = (void *) 2;     // CAT: the Worker's callback (0x004f2090) [M2-R4 ships-b]
     }
     else
     {
@@ -989,6 +1000,10 @@ void Fix_ShipXHarvestsResourceY(Ship *ship)
 
         case 1:
             ship->ShipXHarvestsResourceY = R1ResourcerHarvestsAsteroid;
+            break;
+
+        case 2:
+            ship->ShipXHarvestsResourceY = cat_workerHarvestsResource;     // CAT: 0x004f20e0 [M2-R4 ships-b]
             break;
 
         default:

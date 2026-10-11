@@ -20,6 +20,7 @@
 #include "glinc.h"
 #include "Globals.h"
 #include "Gun.h"
+#include "RKO.h"
 #include "LinkedList.h"
 #include "MadLinkIn.h"
 #include "MadLinkInDefs.h"
@@ -1026,7 +1027,7 @@ Bullet *cat_gunCreateBullet(Ship *ship, Gun *gun, SpaceObj *from, SpaceObjRotImp
     bullet->DFGFieldEntryTime = 0.0f;
     bullet->BulletSpeed = 0.0f;
     bullet->catMoved = FALSE;
-    bullet->catBigGunRange = 0.0f;                          // CAT-TODO(M2-R4 #4): set for GS_BigGun shells by the big gun
+    bullet->catBigGunRange = 0.0f;                          // CAT: SectMothershipHouseKeep sets it for the big gun's shell
     bullet->catBigGunTravelled = 0.0f;
 
     memset(&(bullet->obj.posinfo),0,sizeof(bullet->obj.posinfo));
@@ -1232,8 +1233,13 @@ Bullet *gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
 
     dbgAssertOrIgnore(gunstatic->guntype != GUN_MissileLauncher);
 
-    // CAT-TODO(M2-R4 #4): a dRKO does not fire at the ship its RKO weapon holds (RKO specifics Ship+0x664); the RKO
-    //      header is on DefaultShipHeader until ship code B ports it
+    // CAT: a dRKO does not fire at the ship its RKO weapon holds (RKO specifics Ship+0x664, gunShoot 0x0048b5b0)
+    //      [M2-R4 ships-b]
+    if ((ship->shiptype == dRKO) && (target != NULL) && (target->header.objtype == OBJ_ShipType) &&
+        ((SpaceObjRotImpTarg *)((RKOSpec *)ship->ShipSpecifics)->target == target))
+    {
+        return NULL;
+    }
 
     // CAT: a ship being handed to a salvage depot neither fires nor is fired at (Ship+0x3EC, catSalvageDepot)
     if ((ship != NULL) && (ship->header.objtype == OBJ_ShipType) && (ship->catSalvageDepot != NULL))

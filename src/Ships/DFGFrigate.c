@@ -10,12 +10,20 @@
 #include <math.h>
 
 #include "Attack.h"
+#include "CommandDefs.h"
+#include "Collision.h"
+#include "CommandLayer.h"
+#include "ETG.h"
 #include "FastMath.h"
 #include "glinc.h"
 #include "Mothership.h"
+#include "Ping.h"
 #include "Randy.h"
+#include "RKO.h"
+#include "Sentinel.h"
 #include "StatScript.h"
 #include "UnivUpdate.h"
+#include "Universe.h"
 
 typedef struct
 {
@@ -54,7 +62,28 @@ void DFGFrigateStaticInit(char *directory,char *filename,struct ShipStaticInfo *
     dfgstat->DFGFrigateFieldRadiusSqr = dfgstat->DFGFrigateFieldRadius*dfgstat->DFGFrigateFieldRadius;
 }
 
-void univDFGFieldEffect(Ship *ship, Bullet *bullet,real32 totaltimeelapsed)
+// CAT (M2-R4 ships-b): is pos inside the field of any DFG frigate (cat_dfgFieldContainsPoint 0x005b0df0: the field
+//      radius squared of the statics, around the ship's position)
+bool32 cat_dfgFieldContainsPoint(vector *pos)
+{
+    Node *node;
+    Ship *ship;
+    bool32 inside = FALSE;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if (((ship->shiptype == bDFGFrigate) || (ship->shiptype == tDFGFrigate)) &&
+            cat_vecWithinDistanceSq(pos, &ship->obj.posinfo.position,
+                                    ((DFGFrigateStatics *)ship->staticinfo->custstatinfo)->DFGFrigateFieldRadiusSqr))
+        {
+            inside = TRUE;
+        }
+    }
+    return inside;
+}
+
+bool32 univDFGFieldEffect(Ship *ship, Bullet *bullet,real32 totaltimeelapsed)   // CAT: returns TRUE when it destroyed the bullet
 {
     vector  dir1,shiptobullet;
     vector  newbulletdir;
@@ -74,21 +103,35 @@ void univDFGFieldEffect(Ship *ship, Bullet *bullet,real32 totaltimeelapsed)
     if(bullet->playerowner == ship->playerowner)
     {
         //don't affect players bullets
-        return;
+        return FALSE;
     }
     if(bullet->SpecialEffectFlag & 0x0001)
     {
         //bullet has been effected by field so don't touch it ever again!
-        return;
+        return FALSE;
     }
 
     // CAT: the field detonates a Sect big-gun shell outright (univDFGFieldEffect 0x005b0940: cat_isBigGunBullet ->
-    //      cat_bigGunBulletExplode, then the shell, its effect and its ping are deleted).
-    //      CAT-TODO(M2-R4 #4): cat_bigGunBulletExplode and the deletion belong to the big-gun block of ship code B;
-    //      until then the field only leaves a big-gun shell alone (the bullet weapon word is ported, M2-R4 combat)
+    //      cat_bigGunBulletExplode, then the shell, its effect and its ping are deleted; 0x005b0991 .. 0x005b09ee)
+    //      [M2-R4 ships-b]
     if (cat_isBigGunBullet((SpaceObj *)bullet))
     {
-        return;
+        Effect *effect = bullet->effect;
+
+        cat_bigGunBulletExplode(bullet);
+        if (effect != NULL)
+        {
+            etgEffectDelete(effect);
+            univRemoveObjFromRenderList(&effect->obj);
+            listDeleteNode(&effect->header.objlink);
+        }
+        pingRemovePingByOwner((SpaceObj *)bullet);
+        univFreeBulletContents(bullet);
+        bobObjectDied((SpaceObj *)bullet, &universe.collBlobList);
+        listRemoveNode(&bullet->bulletlink);
+        univRemoveObjFromRenderList((SpaceObj *)bullet);
+        listDeleteNode(&bullet->header.objlink);
+        return TRUE;
     }
 
     bullet->SpecialEffectFlag |= 0x0001;
@@ -97,7 +140,7 @@ void univDFGFieldEffect(Ship *ship, Bullet *bullet,real32 totaltimeelapsed)
     if(randomnum < DFGFstatics->percentageThatGetThrough)
     {
         //bullet is fortunate enough to not be deflected
-        return;
+        return FALSE;
     }
 
     bulletspeed = fsqrt(vecMagnitudeSquared(bullet->obj.posinfo.velocity));
@@ -174,6 +217,7 @@ void univDFGFieldEffect(Ship *ship, Bullet *bullet,real32 totaltimeelapsed)
 
     // CAT: no BulletDamageMultiplier any more (the key is still read); the life extension stays (0x005b0940)
     bullet->totallifetime += DFGFstatics->BulletLifeExtension;
+    return FALSE;
 }
 
 void DFGFrigateAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdist)
@@ -187,13 +231,50 @@ void DFGFrigateAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdist)
 void DFGFrigateHouseKeep(Ship *ship)
 {
     // CAT: new slot-10 body (DFGFrigateHouseKeep 0x005b0cf0). On 3 of every 4 universe updates
-    //      ((univUpdateCounter & 0xC) != 0) the exe walks the command layer for formation commands of type 9 or 10
-    //      (the Sentinel field formations) whose lead ship belongs to another player and lies within the DFG's
-    //      fieldRadius (statics +0x04, squared), and marks every ship of such a command (Sentinel specifics, exe
-    //      Ship+0x97C = 1, Ship+0x980 = now + 0x0072a6c0): the DFG field disrupts enemy Sentinel fields.
-    //      CAT-PROVISIONAL: the Sentinel specifics and its field formations are M2-R4 #4 (ship code B), so nothing
-    //      is marked until then.
-    (void)ship;
+    //      ((univUpdateCounter & 0xC) != 0) the DFG field disrupts every enemy Sentinel field formation (formation
+    //      type 9 or 10) whose lead ship is within its field radius: each ship of it is disrupted for 2 s (Sentinel
+    //      specifics, exe Ship+0x97C / +0x980; Sentinel.c since M2-R4 ships-b)
+    DFGFrigateStatics *dfgstat = (DFGFrigateStatics *)ship->staticinfo->custstatinfo;
+    CommandToDo *command;
+    SelectCommand *selection;
+    Ship *lead;
+    Node *node;
+    vector diff;
+    sdword i;
+
+    if ((universe.univUpdateCounter & 0xc) == 0)
+    {
+        return;
+    }
+    for (node = universe.mainCommandLayer.todolist.head; node != NULL; node = node->next)
+    {
+        command = (CommandToDo *)listGetStructOfNode(node);
+        if (!(command->ordertype.attributes & COMMAND_MASK_FORMATION) ||
+            ((command->formation.formationtype != FORCEFIELD_WALL_FORMATION) &&
+             (command->formation.formationtype != FORCEFIELD_SPHERE_FORMATION)))
+        {
+            continue;
+        }
+        selection = command->selection;
+        if (selection->numShips <= 0)
+        {
+            continue;
+        }
+        lead = selection->ShipPtr[0];
+        diff.x = lead->obj.posinfo.position.x - ship->obj.posinfo.position.x;
+        diff.y = lead->obj.posinfo.position.y - ship->obj.posinfo.position.y;
+        diff.z = lead->obj.posinfo.position.z - ship->obj.posinfo.position.z;
+        if ((lead->playerowner != ship->playerowner) &&
+            (diff.x * diff.x + diff.y * diff.y + diff.z * diff.z < dfgstat->DFGFrigateFieldRadiusSqr))
+        {
+            for (i = 0; i < selection->numShips; i++)
+            {
+                ((SentinelSpec *)selection->ShipPtr[i]->ShipSpecifics)->disrupted = TRUE;
+                ((SentinelSpec *)command->selection->ShipPtr[i]->ShipSpecifics)->disruptEndTime =
+                    universe.totaltimeelapsed + 2.0f;   // 0x0072a6c0
+            }
+        }
+    }
 }
 
 // CAT: the exe's header (DFGFrigateHeader 0x008c3ff8: bDFGFrigate, tDFGFrigate; original/scratch-m2/m2r2-shipstatic-tools/headers.txt).

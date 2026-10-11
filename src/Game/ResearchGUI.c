@@ -1418,11 +1418,9 @@ char *getShipBuild(char *dest)
                   techstat->TechNeededToBuildShip[index])
             {
                 if ( ( (universe.curPlayerPtr->race == R1) &&
-                       (index != DefenseFighter          ) &&
                        (index != DFGFrigate              )  ) |
                      ( (universe.curPlayerPtr->race == R2) &&
-                       (index != CloakedFighter          ) &&
-                       (index != DDDFrigate              )  ) )
+                       (index != CloakedFighter          )  ) )
                 {
                     if (!first)
                     {

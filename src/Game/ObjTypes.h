@@ -405,6 +405,7 @@ typedef udword SpecialEffectType;
 
 extern ShipType FirstShipTypeOfRace[NUM_RACES];
 extern ShipType LastShipTypeOfRace[NUM_RACES];
+sdword cat_ShipTypeToRace(udword type);                  // CAT: 0x004d7170 (M2-R4 ships-b)
 extern uword NumShipTypesInRace[NUM_RACES];
 
 /*=============================================================================

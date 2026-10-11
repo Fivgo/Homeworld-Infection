@@ -34,13 +34,11 @@ void aioCreateGuardShips(AITeam *team, SelectCommand *ships)
 
     aiplayerLog((aiIndex, "%x Issuing Guard Ships Order", team));
 
-    SetNumAlternativesFlags(alternatives,5, ALTERNATIVE_RANDOM)
+    SetNumAlternativesFlags(alternatives,3, ALTERNATIVE_RANDOM)     // CAT: the HW1-only types dropped (M2-R4 ships-b)
 //    SetAlternative(alternatives,0,DefenseFighter,10);
     SetAlternative(alternatives,0,HeavyInterceptor,15);
-    SetAlternative(alternatives,1,LightInterceptor,10);
-    SetAlternative(alternatives,2,LightCorvette,18);
-    SetAlternative(alternatives,3,HeavyCorvette,24);
-    SetAlternative(alternatives,4,MultiGunCorvette,24);
+    SetAlternative(alternatives,1,HeavyCorvette,24);
+    SetAlternative(alternatives,2,MultiGunCorvette,24);
 
     if (aiuAnyShipsAreCapitalShips(ships))
     {
@@ -84,11 +82,11 @@ void aioCreateReconaissance(AITeam *team, ReconType type)
             destination = aiuFindEnemyMothershipCoords(aiCurrentAIPlayer->player);
             destination = aiuGenerateRandomStandoffPoint(destination, RECON_STANDOFF_DISTANCE, origin, RSP_NEAR);
 
-            SetNumAlternatives(alternatives, 2);
+            SetNumAlternatives(alternatives,1);     // CAT: the HW1-only types dropped (M2-R4 ships-b)
             SetAlternative(alternatives,0,CloakedFighter,10);
-            SetAlternative(alternatives,1,LightInterceptor,10);
 
-            aimCreateFancyGetShips(team, Probe, 1, &alternatives, REQUESTSHIPS_HIPRI, TRUE, FALSE);
+            // CAT-TODO(stage 4 AI): HW1 asked for a Probe (gone with the HW1-only types (M2-R4 ships-b)); the first alternative stands in
+            aimCreateFancyGetShips(team, CloakedFighter, 1, &alternatives, REQUESTSHIPS_HIPRI, TRUE, FALSE);
             aimCreateMoveTeam(team, destination, NO_FORMATION, TRUE, FALSE);
             aimCreateCountShips(team, FALSE, FALSE);
             move = aimCreateActiveRecon(team, TRUE, NO_FORMATION, Evasive, TRUE, FALSE);
@@ -101,7 +99,8 @@ void aioCreateReconaissance(AITeam *team, ReconType type)
             SetNumAlternatives(alternatives, 1);
             SetAlternative(alternatives,0,CloakedFighter,10);
 
-            aimCreateFancyGetShips(team, LightInterceptor, 1, &alternatives, REQUESTSHIPS_HIPRI, TRUE, FALSE);
+            // CAT-TODO(stage 4 AI): HW1 asked for a LightInterceptor (gone with the HW1-only types (M2-R4 ships-b)); the first alternative stands in
+            aimCreateFancyGetShips(team, CloakedFighter, 1, &alternatives, REQUESTSHIPS_HIPRI, TRUE, FALSE);
             move = aimCreateActiveRecon(team, FALSE, NO_FORMATION, Evasive, TRUE, FALSE);
             aieHandlerSetFuelLow(move, 15, TRUE, TRUE, aihGenericFuelLowHandler);
             aieHandlerSetTeamDied(move, aihReconaissanceTeamDiedHandler);
@@ -112,7 +111,8 @@ void aioCreateReconaissance(AITeam *team, ReconType type)
             SetNumAlternatives(alternatives, 1);
             SetAlternative(alternatives,0,CloakedFighter,10);
 
-            aimCreateFancyGetShips(team, LightInterceptor, 1, &alternatives, REQUESTSHIPS_HIPRI, TRUE, FALSE);
+            // CAT-TODO(stage 4 AI): HW1 asked for a LightInterceptor (gone with the HW1-only types (M2-R4 ships-b)); the first alternative stands in
+            aimCreateFancyGetShips(team, CloakedFighter, 1, &alternatives, REQUESTSHIPS_HIPRI, TRUE, FALSE);
             move = aimCreateActiveRecon(team, TRUE, NO_FORMATION, Evasive, TRUE, FALSE);
             aieHandlerSetFuelLow(move, 15, TRUE, TRUE, aihGenericFuelLowHandler);
             aieHandlerSetTeamDied(move, aihReconaissanceTeamDiedHandler);
@@ -156,7 +156,8 @@ void aioCreateHarass(AITeam *team)
     SetAlternative(alternatives,4,CloakedFighter,10);
     SetAlternative(alternatives,5,CloakedFighter,10);
 
-    aimCreateFancyGetShips(team, LightInterceptor, HARASS_LIGHTINT_INITNUM, &alternatives, REQUESTSHIPS_HIPRI, TRUE, FALSE);
+    // CAT-TODO(stage 4 AI): HW1 asked for LightInterceptors (gone with the HW1-only types (M2-R4 ships-b)); the first alternative stands in
+    aimCreateFancyGetShips(team, HeavyInterceptor, HARASS_LIGHTINT_INITNUM, &alternatives, REQUESTSHIPS_HIPRI, TRUE, FALSE);
 
     move = aimCreateMoveTeam(team, destination, AIO_HARASS_INITIAL_MOVE_FORMATION, TRUE, FALSE);
     aieHandlerSetFuelLow(move, AIO_HARASS_FUEL_LOW, TRUE, TRUE, aihGenericFuelLowHandler);
@@ -200,7 +201,8 @@ void aioCreateReconHarass(AITeam *team)
     SetAlternative(alternatives,0,HeavyInterceptor,HARASS_HEAVYINT_EQUIVNUM);
     SetAlternative(alternatives,1,AttackBomber,HARASS_BOMBER_EQUIVNUM);
 
-    aimCreateFancyGetShips(team, LightInterceptor, HARASS_LIGHTINT_INITNUM, &alternatives, 0, TRUE, FALSE);
+    // CAT-TODO(stage 4 AI): HW1 asked for LightInterceptors (gone with the HW1-only types (M2-R4 ships-b)); the first alternative stands in
+    aimCreateFancyGetShips(team, HeavyInterceptor, HARASS_LIGHTINT_INITNUM, &alternatives, 0, TRUE, FALSE);
 
     move = aimCreateMoveTeam(team, destination, AIO_HARASS_INITIAL_MOVE_FORMATION, TRUE, FALSE);
     aieHandlerSetFuelLow(move, AIO_HARASS_FUEL_LOW, TRUE, TRUE, aihGenericFuelLowHandler);
@@ -295,7 +297,8 @@ void aioCreateFastRovingDefense(AITeam *team)
     SetAlternative(alternatives,4,AttackBomber,15);
     SetAlternative(alternatives,5,AttackBomber,15);
 
-    aimCreateFancyGetShips(team, LightInterceptor, 15, &alternatives, 0, TRUE, FALSE);
+    // CAT-TODO(stage 4 AI): HW1 asked for LightInterceptors (gone with the HW1-only types (M2-R4 ships-b)); the first alternative stands in
+    aimCreateFancyGetShips(team, HeavyDefender, 15, &alternatives, 0, TRUE, FALSE);
 //    aimCreateFormation(team, WALL_FORMATION, FALSE, FALSE);
     move = aimCreateActivePatrol(team, AIT_FAST_PATROL, TRUE, FALSE);
     aieHandlerSetFuelLow(move, AIO_FASTROVING_FUEL_LOW, TRUE, TRUE, aihGenericFuelLowHandler);
@@ -323,14 +326,12 @@ void aioCreateSlowRovingDefense(AITeam *team)
 
     aiplayerLog((aiIndex, "%x Issuing Slow Roving Defense Order", team));
 
-    SetNumAlternativesFlags(alternatives,7,ALTERNATIVE_RANDOM);
+    SetNumAlternativesFlags(alternatives,5,ALTERNATIVE_RANDOM);     // CAT: the HW1-only types dropped (M2-R4 ships-b)
     SetAlternative(alternatives,0,HeavyCorvette,10);
     SetAlternative(alternatives,1,HeavyCorvette,10);
     SetAlternative(alternatives,2,HeavyCorvette,10);
     SetAlternative(alternatives,3,MultiGunCorvette,10);
-    SetAlternative(alternatives,4,LightCorvette,7);
-    SetAlternative(alternatives,5,StandardFrigate,30);
-    SetAlternative(alternatives,6,DDDFrigate,30);
+    SetAlternative(alternatives,4,StandardFrigate,30);
 
     aimCreateFancyGetShips(team, MultiGunCorvette, 3, &alternatives, 0, TRUE, FALSE);
 //    aimCreateFormation(team, DELTA_FORMATION, FALSE, FALSE);
@@ -400,8 +401,7 @@ void aioCreateActiveSupport(AITeam *team, SelectCommand *ships, SupportType type
     {
         if (!team->shipList.selection->numShips)
         {
-            SetNumAlternatives(alternatives, 1);
-            SetAlternative(alternatives,0,RepairCorvette,3);
+            SetNumAlternatives(alternatives,0);     // CAT: the HW1-only types dropped (M2-R4 ships-b)
 
             aimCreateFancyGetShips(team, AdvanceSupportFrigate, 1, &alternatives, 0, TRUE, FALSE);
         }
@@ -410,10 +410,7 @@ void aioCreateActiveSupport(AITeam *team, SelectCommand *ships, SupportType type
     }
     else if (type == SUPPORT_RESOURCE)
     {
-        if (!team->shipList.selection->numShips)
-        {
-            aimCreateGetShips(team, ResourceController, 1, 0, TRUE, FALSE);
-        }
+        // CAT-TODO(stage 4 AI): HW1 asked for a ResourceController here (gone with the HW1-only types) (M2-R4 ships-b)
 
         aimCreateControlResources(team, ships, TRUE, FALSE);
     }
@@ -448,16 +445,15 @@ void aioCreateFighterStrike(AITeam *team)
 
     aiplayerLog((aiIndex, "%x Issuing Fighter Strike Order", team));
 
-    SetNumAlternativesFlags(alternatives,9,ALTERNATIVE_RANDOM);
-    SetAlternative(alternatives,0,LightInterceptor,12);
+    SetNumAlternativesFlags(alternatives,8,ALTERNATIVE_RANDOM);     // CAT: the HW1-only types dropped (M2-R4 ships-b)
+    SetAlternative(alternatives,0,HeavyInterceptor,7);
     SetAlternative(alternatives,1,HeavyInterceptor,7);
     SetAlternative(alternatives,2,HeavyInterceptor,7);
-    SetAlternative(alternatives,3,HeavyInterceptor,7);
+    SetAlternative(alternatives,3,AttackBomber,10);
     SetAlternative(alternatives,4,AttackBomber,10);
     SetAlternative(alternatives,5,AttackBomber,10);
-    SetAlternative(alternatives,6,AttackBomber,10);
-    SetAlternative(alternatives,7,HeavyDefender,8);
-    SetAlternative(alternatives,8,CloakedFighter,10);
+    SetAlternative(alternatives,6,HeavyDefender,8);
+    SetAlternative(alternatives,7,CloakedFighter,10);
 
     aimCreateFancyGetShips(team, AttackBomber, 15, &alternatives, 0, TRUE, FALSE);
 
@@ -492,14 +488,13 @@ void aioCreateCorvetteStrike(AITeam *team)
 
     aiplayerLog((aiIndex, "%x Issuing Corvette Strike Order", team));
 
-    SetNumAlternativesFlags(alternatives,7,ALTERNATIVE_RANDOM);
-    SetAlternative(alternatives,0,LightCorvette,13);
+    SetNumAlternativesFlags(alternatives,6,ALTERNATIVE_RANDOM);     // CAT: the HW1-only types dropped (M2-R4 ships-b)
+    SetAlternative(alternatives,0,HeavyCorvette,10);
     SetAlternative(alternatives,1,HeavyCorvette,10);
     SetAlternative(alternatives,2,HeavyCorvette,10);
     SetAlternative(alternatives,3,HeavyCorvette,10);
-    SetAlternative(alternatives,4,HeavyCorvette,10);
-    SetAlternative(alternatives,5,MultiGunCorvette,7);
-    SetAlternative(alternatives,6,MinelayerCorvette,7);
+    SetAlternative(alternatives,4,MultiGunCorvette,7);
+    SetAlternative(alternatives,5,MinelayerCorvette,7);
 
     aimCreateFancyGetShips(team, HeavyCorvette, 9, &alternatives, 0, TRUE, FALSE);
 
@@ -869,15 +864,13 @@ void aioCreateTakeoutMothershipHuge(struct AITeam *team,Ship *mothership)
     Var1 = aivarCreate(aivarLabelGenerate(label));
     aivarValueSet(Var1, 0);
 
-    SetNumAlternativesFlags(guardalternatives,6,ALTERNATIVE_RANDOM);
+    SetNumAlternativesFlags(guardalternatives,4,ALTERNATIVE_RANDOM);     // CAT: the HW1-only types dropped (M2-R4 ships-b)
     SetAlternative(guardalternatives,0,HeavyInterceptor,10);
-    SetAlternative(guardalternatives,1,DefenseFighter,10);
-    SetAlternative(guardalternatives,2,LightCorvette,15);
-    SetAlternative(guardalternatives,3,HeavyCorvette,20);
-    SetAlternative(guardalternatives,4,MultiGunCorvette,25);
+    SetAlternative(guardalternatives,1,HeavyCorvette,20);
+    SetAlternative(guardalternatives,2,MultiGunCorvette,25);
 //    SetAlternative(guardalternatives,5,DFGFrigate,50);
 //    SetAlternative(guardalternatives,6,DDDFrigate,50);
-    SetAlternative(guardalternatives,5,MissileDestroyer,100);
+    SetAlternative(guardalternatives,3,MissileDestroyer,100);
 
     aimCreateFancyGetShips(secondaryteam, HeavyDefender, (sbyte)10, &guardalternatives, 0, TRUE, FALSE);
 
@@ -944,13 +937,10 @@ void aioCreateTakeoutMothershipGuard(struct AITeam *team,Ship *mothership)
     Var1 = aivarCreate(aivarLabelGenerate(label));
     aivarValueSet(Var1, 0);
 
-    SetNumAlternativesFlags(guardalternatives,6,ALTERNATIVE_RANDOM);
+    SetNumAlternativesFlags(guardalternatives,3,ALTERNATIVE_RANDOM);     // CAT: the HW1-only types dropped (M2-R4 ships-b)
     SetAlternative(guardalternatives,0,HeavyInterceptor,10);
-    SetAlternative(guardalternatives,1,LightInterceptor,5);
-    SetAlternative(guardalternatives,2,DefenseFighter,10);
-    SetAlternative(guardalternatives,3,LightCorvette,15);
-    SetAlternative(guardalternatives,4,HeavyCorvette,20);
-    SetAlternative(guardalternatives,5,MultiGunCorvette,25);
+    SetAlternative(guardalternatives,1,HeavyCorvette,20);
+    SetAlternative(guardalternatives,2,MultiGunCorvette,25);
 //    SetAlternative(guardalternatives,6,DFGFrigate,100);
 //    SetAlternative(guardalternatives,7,DDDFrigate,100);
 
@@ -1124,9 +1114,7 @@ treatasgoodenough:;
                 case P1:
                     shipsToBuy = GetShipStaticInfo(P1MissileCorvette,race);
                     break;
-                case P2:
-                    shipsToBuy = GetShipStaticInfo(P2AdvanceSwarmer,race);
-                    break;
+                // CAT: no HW1 P2 swarmers (M2-R4 ships-b)
 
                 default:
                     dbgAssertOrIgnore(FALSE);
@@ -1233,9 +1221,7 @@ treatasgoodenoughfancy:;
                 case P1:
                     shipsToBuy = GetShipStaticInfo(P1MissileCorvette,race);
                     break;
-                case P2:
-                    shipsToBuy = GetShipStaticInfo(P2AdvanceSwarmer,race);
-                    break;
+                // CAT: no HW1 P2 swarmers (M2-R4 ships-b)
 
                 default:
                     dbgAssertOrIgnore(FALSE);

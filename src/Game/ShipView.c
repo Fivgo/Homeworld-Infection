@@ -25,7 +25,6 @@
 #include "Light.h"
 #include "mouse.h"
 #include "Options.h"
-#include "Probe.h"
 #include "render.h"
 #include "rglu.h"
 #include "SoundEvent.h"

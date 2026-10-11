@@ -44,6 +44,9 @@ void cat_timerStartGameTime(CatTimer *t, real32 duration);
 void cat_timerStartRealTime(CatTimer *t, real32 duration);
 bool32 cat_timerExpired(CatTimer *t);
 real32 cat_timerFractionElapsed(CatTimer *t);              // CAT: 0x005284c0 (M2-R4 combat)
+real32 cat_timerElapsed(CatTimer *t);                      // CAT: 0x00528470 (M2-R4 ships-b)
+real32 cat_timerRemaining(CatTimer *t);                    // CAT: 0x00528510 (M2-R4 ships-b)
+void cat_timerRestartWithRemainder(CatTimer *t, real32 extra);  // CAT: 0x00528540 (M2-R4 ships-b)
 
 void timTimerCreate(char *name);
 void timTimerStart(char *name);

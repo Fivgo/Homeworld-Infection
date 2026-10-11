@@ -158,7 +158,7 @@ void clBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uwor
 #define CAT_EXTBUILD_PROGRESS       2   // progress update (mode 2)
 void cat_clStartExternalBuildTimer(CommandLayer *comlayer,SelectCommand *selectcom);
 void cat_clExternalBuildUpdate(CommandLayer *comlayer,uword playerIndex,Ship *creator,Ship *ship,real32 progress,sdword mode);
-bool32 cat_shipIsLiveWorker(Ship *ship);   // CAT: 0x005c8e00 (home: the Worker port, M2-R4 #4)
+bool32 cat_shipIsLiveWorker(Ship *ship);   // CAT: 0x005c8e00 (Ships/Worker.c)
 void clCollectResource(CommandLayer *comlayer,SelectCommand *selectcom,ResourcePtr resource);
 CommandToDo *clProtect(CommandLayer *comlayer,SelectCommand *selectcom,ProtectCommand *protectcom);
 void clSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *targets);

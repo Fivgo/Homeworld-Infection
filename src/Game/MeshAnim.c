@@ -697,6 +697,33 @@ bool32 cat_madAnimationFinished(Ship *ship)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_madAnimationStartNumber
+    Description : CAT (M2-R4 ships-b): starts a mesh animation by its Cataclysm animation *number*, which
+                  madAnimationStart 0x004b6b90 looks up in madstatic.animIndexes itself; this tree's madAnimationStart
+                  takes the header index, so the lookup is done here (as Carrier.c did for the sCarrier door).
+                  CAT-TODO(stage 3): the exe's third argument (loop) is not passed on.
+    Inputs      : ship - a ship with mesh animation bindings, number - the animation number
+----------------------------------------------------------------------------*/
+void cat_madAnimationStartNumber(Ship *ship, sdword number)
+{
+    madstatic *mstatic = ship->staticinfo->madStatic;
+    sdword index = number;
+
+    if (mstatic == NULL)
+    {
+        return;
+    }
+    if (mstatic->animsByNumber)
+    {
+        index = (number < mstatic->numAnims) ? mstatic->animIndexes[number] : -1;
+    }
+    if ((index >= 0) && (index < mstatic->header->nAnimations))
+    {
+        madAnimationStart(ship, index);
+    }
+}
+
+/*-----------------------------------------------------------------------------
     Name        : madAnimationStop
     Description : Stop an animation from playing.
     Inputs      : ship - ship to stop animating

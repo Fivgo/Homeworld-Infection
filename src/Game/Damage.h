@@ -21,6 +21,8 @@
 
 #endif
 
+extern real32 DMG_StrikeLightLimit;     // CAT: exported (cat_mimicAppearsAsResource 0x005b9860)
+
 void dmgStartup(void);
 void dmgShutdown(void);
 void dmgShipThink(Ship* ship);

@@ -24,7 +24,6 @@
 #include "Memory.h"
 #include "mouse.h"
 #include "Physics.h"
-#include "Probe.h"
 #include "ProximitySensor.h"
 #include "Randy.h"
 #include "RepairCorvette.h"
@@ -2063,8 +2062,7 @@ bool32 tacticsAreEnemiesNearby(Ship *leadership,Ship *thisship, real32 retaliate
     real32 timesincecloak;
     real32 negRetaliateZone = -retaliateZone;
 
-    if ((thisship->shiptype == FloatingCity) || (thisship->shiptype == TargetDrone) ||
-        (bitTest(thisship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus|SPECIAL_Hyperspacing)))
+    if ((thisship->shiptype == FloatingCity) || (bitTest(thisship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus|SPECIAL_Hyperspacing)))
     {
         return FALSE;      // traders get special status, not considered enemy to anyone
     }
@@ -2077,8 +2075,7 @@ bool32 tacticsAreEnemiesNearby(Ship *leadership,Ship *thisship, real32 retaliate
         {
             goto nextnode;      // must be enemy ship
         }
-        if ((ship->shiptype == FloatingCity) || (ship->shiptype == TargetDrone) ||
-            (bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus|SPECIAL_Hyperspacing)))
+        if ((ship->shiptype == FloatingCity) || (bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus|SPECIAL_Hyperspacing)))
         {
             goto nextnode;      // traders get special status, not considered enemy to anyone
         }

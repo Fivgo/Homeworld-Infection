@@ -52,6 +52,7 @@ extern bool32 lmActive;
 #define CAT_LM_NUM_MODULE_SLOTS 7
 extern Ship *cat_lmModuleSlots[CAT_LM_NUM_MODULE_SLOTS];
 void cat_lmModuleSlotsRemoveType(ShipType type);    // CAT: 0x0049e970
+void cat_lmFillInModuleSlots(void);                 // CAT: 0x0049e9f0 (M2-R4 ships-b)
 
 
 /*=============================================================================

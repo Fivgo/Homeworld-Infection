@@ -33,7 +33,7 @@ typedef struct
     bool32 beastSystemActive;           // +0x1C bMothership
     vector bigGunTarget;                // +0x20 sMothership big gun: the aim point (SectMothershipHouseKeep 0x005bc430)
     vector bigGunFirePosition;          // +0x2C sMothership big gun: where the mothership stood when it fired
-    struct Bullet *bigGunBullet;        // +0x38 sMothership big gun: the shell in flight
+    Bullet *bigGunBullet;               // +0x38 sMothership big gun: the shell in flight
     ubyte bigGunState;                  // +0x3C sMothership big gun: CAT_BIGGUN_*
     ubyte pad3D[3];
     real32 bigGunChargeStartTime;       // +0x40
@@ -91,6 +91,19 @@ bool32 cat_mothershipHasBigGunModule(Ship *ship);
 void cat_mothershipStartDeathSequence(Ship *ship, sdword reason);
 sdword cat_mothershipModuleSlotGet(Ship *mothership, sdword moduleType);
 bool32 cat_isBigGunBullet(SpaceObj *obj);
+void cat_effectDeleteNow(struct Effect *effect);                    // CAT: 0x005bbbb0 (M2-R4 ships-b)
+// CAT (M2-R4 ships-b): the Sect big gun and the Beast mothership's systems
+real32 cat_bigGunChargeFraction(Ship *ship);                        // 0x005bbb30
+void cat_bigGunProcessFireCommand(Ship *ship, vector *point);       // 0x005bbe80
+real32 cat_bigGunMaxRange(void);                                    // 0x005bceb0
+real32 cat_bigGunDamageFalloff(real32 distance);                    // 0x005bced0
+void cat_bigGunBulletExplode(Bullet *bullet);                       // 0x005bcfa0
+void cat_bigGunBulletExplodeAt(Bullet *bullet, vector *pos);        // 0x005bd0c0
+real32 cat_beastMothershipSpeedBonus(Ship *ship);                   // 0x005bca00
+real32 cat_beastMothershipDamageBonus(Ship *ship);                  // 0x005bca30
+real32 cat_beastMothershipResearchFactor(Ship *ship);               // 0x005bca60
+sdword cat_beastMothershipBuildFactor(Ship *ship);                  // 0x005bca90
+bool32 cat_beastMothershipSystemActive(Ship *ship);                 // 0x005bcac0
 
 // HW1 door-cargo helpers: Cataclysm has no door cargo; kept, inert, for their unported HW1 callers (see Mothership.c)
 void MothershipAttachObjectToDoor(Ship *ship,ShipOrDerelict *object);

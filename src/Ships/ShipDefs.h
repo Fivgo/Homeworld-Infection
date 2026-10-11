@@ -177,8 +177,8 @@ typedef enum
     //      Each name that has a Cataclysm counterpart is an alias of ONE counterpart (rule: the Kushan k* ship, else the
     //      Taiidan t*, else Sect s*, else Beast b*, else the P1/Traders ship of the same name); HW1 code that tests
     //      such a name therefore only sees that one race variant until stage 2 ports the function. The 22 HW1 types
-    //      that Cataclysm dropped get ids >= HW1LEGACY_FIRST_SHIP, which no Cataclysm data can produce (StrToShipType
-    //      only returns 0..144), so HW1 code keyed on them is dormant. Never index a TOTAL_NUM_SHIPS table with them.
+    //      that Cataclysm dropped (DDDFrigate .. P3Megaship, once ids 200..221) are gone with the HW1 code keyed on them
+    //      (M2-R4 ships-b).
     AdvanceSupportFrigate       = kAdvanceSupportFrigate,
     AttackBomber                = kAttackBomber,
     Carrier                     = kCarrier,
@@ -215,32 +215,7 @@ typedef enum
     Junk_LGun                   = trJunk_LGun,
     Junk_SGun                   = trJunk_SGun,
     ResearchStationBridge       = trResearchStationBridge,
-    ResearchStationTower        = trResearchStationTower,
-
-    HW1LEGACY_FIRST_SHIP        = 200,
-    DDDFrigate                  = HW1LEGACY_FIRST_SHIP,
-    DefenseFighter,
-    LightCorvette,
-    LightDefender,
-    LightInterceptor,
-    Probe,
-    RepairCorvette,
-    ResearchShip,
-    ResourceController,
-    SensorArray,
-    Drone,
-    TargetDrone,
-    HeadShotAsteroid,
-    CryoTray,
-    P2AdvanceSwarmer,
-    P2FuelPod,
-    P2Mothership,
-    P2MultiBeamFrigate,
-    P2Swarmer,
-    P3Destroyer,
-    P3Frigate,
-    P3Megaship,
-    HW1LEGACY_LAST_SHIP         = P3Megaship
+    ResearchStationTower        = trResearchStationTower
 } ShipType_enum;
 
 #ifdef HW_PTR_64   //Capture this first, and make sure it's correctly sized.

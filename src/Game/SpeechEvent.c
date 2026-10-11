@@ -1592,7 +1592,7 @@ sdword speechEventQueue(void *object, sdword event, sdword var, sdword variation
         if ((event == COMM_Selection) || (event == COMM_AssGrp_Select))
         {
             /* Probes and Proximity Sensors are unmanned and shouldn't speak when selected */
-            if ((pShip->staticinfo->shiptype == Probe) || (pShip->staticinfo->shiptype == ProximitySensor))
+            if ((pShip->staticinfo->shiptype == ProximitySensor))
             {
                 /* play this sound event instead */
                 soundEvent(pShip, Ship_SelectProbe);

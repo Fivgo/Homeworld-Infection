@@ -297,26 +297,14 @@ void aishipPrecalcInfo(ShipStaticInfo *shipstatinfo)
         default:
             switch (shipstatinfo->shiptype)
             {
-                case SensorArray:
-                    shipstatinfo->shipOrDerelict.sinbank = NOSHIP_BANK;
-                    shipstatinfo->shipOrDerelict.pitchturn = NOSHIP_TURNPITCH;
-                    shipstatinfo->shipOrDerelict.pitchdescend = NOSHIP_DESCENDPITCH;
-                    break;
-                case CryoTray:
+                // CAT: no HW1 SensorArray, CryoTray, P2Mothership, P3Megaship or ResourceController cases (M2-R4 ships-b)
                 case P1Mothership:
-                case P2Mothership:
-                case P3Megaship:
                 case FloatingCity:
                 case ResearchStation:
                 case Ghostship:
                     shipstatinfo->shipOrDerelict.sinbank = MASSIVESHIP_BANK;
                     shipstatinfo->shipOrDerelict.pitchturn = MASSIVESHIP_TURNPITCH;
                     shipstatinfo->shipOrDerelict.pitchdescend = MASSIVESHIP_DESCENDPITCH;
-                    break;
-                case ResourceController:
-                    shipstatinfo->shipOrDerelict.sinbank = FRIGATE_BANK;
-                    shipstatinfo->shipOrDerelict.pitchturn = FRIGATE_TURNPITCH;
-                    shipstatinfo->shipOrDerelict.pitchdescend = FRIGATE_DESCENDPITCH;
                     break;
                 default:
                     break;
@@ -550,10 +538,7 @@ sdword rowShipCanGetOutOfWayOfMe(Ship *ship,Ship *me)
     CommandToDo *shipcommand = getShipAndItsCommand(&universe.mainCommandLayer,ship);
     CommandToDo *mecommand;
 
-    if (ship->shiptype == Drone)
-    {
-        return ROW_CANNOT_GET_OUT_OF_WAY;
-    }
+    // CAT: no HW1 Drone (M2-R4 ships-b)
 
     if (shipcommand == NULL)
     {                   // ship not doing anything, so it can get out of way
@@ -943,13 +928,7 @@ udword aishipFlyToPointAvoidingObjsFunc(Ship *ship,vector *destination,udword ai
             useAVOID_OBJ_SCALE_FACTOR = COMBAT_AVOID_OBJ_SCALE_FACTOR;
         }
     }
-    else if (ship->shiptype == Probe)
-    {
-        if (((ProbeSpec *)ship->ShipSpecifics)->HaveMoved)
-        {
-            useAVOID_OBJ_SCALE_FACTOR = PROBE_AVOID_OBJ_SCALE_FACTOR;
-        }
-    }
+    // CAT: no HW1 Probe (M2-R4 ships-b)
 
     aishipStatsInit(ship);
 

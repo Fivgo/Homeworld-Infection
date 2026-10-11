@@ -13,25 +13,16 @@
 #include "Attack.h"
 #include "CommandLayer.h"
 #include "DefaultShip.h"
+#include "MCV.h"
 #include "Memory.h"
+#include "Mimic.h"
 #include "Salvage.h"
 #include "Universe.h"
 
 // CAT: P1StandardCorvette.c follows cataclysm.exe's block (0x005be610..0x005be8f0): a mimic and a salvager. The
-//      mimic half calls the Mimic code (MimicHeader, Cataclysm-only; MimicSpecialActivate 0x005b8c60 and friends),
-//      which is M2-R4 #4 (ship code B); those calls go through the p1scMimic* stand-ins below, each CAT-PROVISIONAL
-//      and doing nothing until M2-R4 #4 points them at its Mimic functions. No mimic mode is ever entered before
-//      that, so the corvette fights and salvages only.
+//      mimic half calls the Mimic code (Mimic.c, MCV.c) [M2-R4 ships-b: the p1scMimic* stand-ins are gone].
 
 P1StandardCorvetteStatics P1StandardCorvetteStatic;     // 0x00a7a7e0
-
-static void p1scMimicSpecialActivate(Ship *ship) { (void)ship; }                            // MimicSpecialActivate
-static bool32 p1scMimicSpecialTarget(Ship *ship, void *custom) { (void)ship; (void)custom; return TRUE; }   // MimicSpecialTarget
-static void p1scMimicHouseKeep(Ship *ship) { (void)ship; }                                   // MimicHouseKeep 0x005b8f30
-static void p1scMimicRemoveShipReferences(Ship *ship, Ship *shiptoremove) { (void)ship; (void)shiptoremove; }
-static void p1scMimicDied(Ship *ship) { (void)ship; }                                        // MimicDied
-static void p1scMimic_PreFix(Ship *ship) { (void)ship; }                                     // Mimic_PreFix
-static void p1scMimic_Fix(Ship *ship) { (void)ship; }                                        // Mimic_Fix
 
 void P1StandardCorvetteStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
@@ -51,19 +42,19 @@ void P1StandardCorvetteInit(Ship *ship)
     // CAT: P1StandardCorvetteInit 0x005be660: side-step state, the mimic flag and mimic fields, the salvager
     attackSideStepInit(&spec->attacksidestep);
     bitSet(ship->catShipFlags, CAT_SHIPFLAG_Mimic);
-    spec->mimicMode = 0;
-    spec->mimicUnknown124 = 0;
-    spec->mimicDataD8 = NULL;
-    spec->mimicUnknownE4 = -1;
-    spec->mimicApparentType = -1;
-    spec->mimicUnknownD0 = -1;
-    spec->mimicUnknownE8 = -1;
-    spec->mimicUnknown110 = -1;
-    spec->mimicUnknownF8 = -1;
-    spec->mimicUnknownFC = -1;
-    spec->mimicUnknown114 = -1;
-    spec->mimicData104 = NULL;
-    spec->mimicResource = 0;
+    spec->mimic.mode = MIMIC_Off;
+    spec->mimic.fade = 0.0f;
+    spec->mimic.apparentBindings = NULL;
+    spec->mimic.apparentPlayer = -1;
+    spec->mimic.apparentType = -1;
+    spec->mimic.apparentRace = -1;
+    spec->mimic.apparentAsteroid = -1;
+    spec->mimic.nextPlayer = -1;
+    spec->mimic.nextType = -1;
+    spec->mimic.nextRace = -1;
+    spec->mimic.nextAsteroid = -1;
+    spec->mimic.nextBindings = NULL;
+    spec->mimic.fakeResource = NULL;
     spec->specialMode = 0;
     cat_salvageInit(ship);
 }
@@ -73,46 +64,31 @@ void P1StandardCorvetteAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdi
     P1StandardCorvetteSpec *spec = (P1StandardCorvetteSpec *)ship->ShipSpecifics;
     P1StandardCorvetteStatics *corvstat = (P1StandardCorvetteStatics *)((ShipStaticInfo *)ship->staticinfo)->custstatinfo;
 
+    vector heading;
+    vector trajectory;
+
     // CAT: P1StandardCorvetteAttack 0x005be6e0: a mimicking corvette attacks straight on (too-close range 1000)
-    //      and, once facing the target (heading . trajectory > 0.5), sets specialFlags 0x6 in the exe's numbering
-    //      (SPECIAL_Kamikaze | SPECIAL_BrokenFormation since the M2-R4 command port; CAT-PROVISIONAL: mimic mode is
-    //      never entered before M2-R4 #4, so the flag is not set here yet [audit: M2-R4 command, the renumbering part
-    //      of this note was stale]); otherwise the HW1 side-step attack
-    if (spec->mimicMode == 1)
+    //      and, once facing the target (heading . trajectory > 0.5), goes kamikaze (SPECIAL_Kamikaze |
+    //      SPECIAL_BrokenFormation); otherwise the HW1 side-step attack
+    if (spec->mimic.mode == MIMIC_On)
     {
         attackStraightForward(ship,target,maxdist,1000.0f);
+        heading.x = ship->rotatable.rotinfo.coordsys.m13;
+        heading.y = ship->rotatable.rotinfo.coordsys.m23;
+        heading.z = ship->rotatable.rotinfo.coordsys.m33;
+        aishipGetTrajectory(ship,target,&trajectory);
+        if (0.5f < trajectory.x * heading.x + trajectory.y * heading.y + trajectory.z * heading.z)
+        {
+            bitSet(ship->shipOrDerelict.specialFlags, SPECIAL_Kamikaze | SPECIAL_BrokenFormation);
+        }
         return;
     }
     attackSideStep(ship,target,&spec->attacksidestep,&corvstat->sidestepParameters);
 }
 
-void P1StandardCorvetteAttackPassive(Ship *ship,Ship *target,bool32 rotate)
-{
-    P1StandardCorvetteSpec *spec = (P1StandardCorvetteSpec *)ship->ShipSpecifics;
-
-    // CAT: slot 6 is MCVAttackPassive 0x005b8210 (shared with MCVHeader): a mimicking corvette in a type-5 formation
-    //      sets specialFlags 0x6 (exe numbering, CAT-PROVISIONAL as in P1StandardCorvetteAttack) and does not fire;
-    //      a mimicking one never fires passively; otherwise HW1's passive attack
-    if (spec->mimicMode == 1)
-    {
-        return;
-    }
-    if (spec->mimicMode == 0)
-    {
-        if ((rotate) & ((bool32)((ShipStaticInfo *)(ship->staticinfo))->rotateToRetaliate))
-        {
-            attackPassiveRotate(ship,target);
-        }
-        else
-        {
-            attackPassive(ship,target);
-        }
-    }
-}
-
 bool32 P1StandardCorvetteSpecialActivate(Ship *ship)                       // CAT: new slot 7 (0x005be7a0)
 {
-    p1scMimicSpecialActivate(ship);
+    MimicSpecialActivate(ship);
     return TRUE;
 }
 
@@ -126,7 +102,7 @@ bool32 P1StandardCorvetteSpecialTarget(Ship *ship, void *custom)           // CA
     switch (spec->specialMode)
     {
         case 1:
-            done = p1scMimicSpecialTarget(ship, custom);
+            done = MimicSpecialTarget(ship, custom);
             break;
         case 2:
             done = cat_salvageSpecialTarget(ship, custom);
@@ -152,69 +128,43 @@ void P1StandardCorvetteOrderChanged(Ship *ship)                             // C
 
 void P1StandardCorvetteHouseKeep(Ship *ship)                                // CAT: new slot 10 (0x005be850)
 {
-    p1scMimicHouseKeep(ship);
+    MimicHouseKeep(ship);
     cat_salvageHouseKeep(ship);
 }
 
 void P1StandardCorvetteRemoveShipReferences(Ship *ship, Ship *shiptoremove) // CAT: new slots 11/12 (0x005be870)
 {
-    p1scMimicRemoveShipReferences(ship, shiptoremove);
+    MimicRemoveShipReferences(ship, shiptoremove);
     cat_salvageRemoveShipReferences(ship, shiptoremove);
 }
 
 void P1StandardCorvetteDied(Ship *ship)                                     // CAT: new slot 15 (0x005be890)
 {
-    p1scMimicDied(ship);
+    MimicDied(ship);
     cat_salvageDied(ship);
 }
 
 void P1StandardCorvette_PreFix(Ship *ship)                                  // CAT: new slot 16 (0x005be8b0)
 {
-    p1scMimic_PreFix(ship);
+    Mimic_PreFix(ship);
     cat_salvage_PreFix(ship);
 }
 
 void P1StandardCorvette_Fix(Ship *ship)                                     // CAT: new slot 19 (0x005be8d0)
 {
-    p1scMimic_Fix(ship);
+    Mimic_Fix(ship);
     cat_salvage_Fix(ship);
 }
 
-bool32 P1StandardCorvetteHaltCommand(Ship *ship)
-{
-    P1StandardCorvetteSpec *spec = (P1StandardCorvetteSpec *)ship->ShipSpecifics;
-
-    // CAT: new slot 27: the exe's MCVHaltCommand 0x005b82e0 = MimicHaltCommand 0x005b99e0: a halt during a
-    //      transformation (mode 8) ends it and frees the mimic data
-    if (spec->mimicMode == 8)
-    {
-        spec->mimicMode = 0;
-        if (spec->mimicDataD8 != NULL)
-        {
-            memFree(spec->mimicDataD8);
-            spec->mimicDataD8 = NULL;
-        }
-        if (spec->mimicData104 != NULL)
-        {
-            memFree(spec->mimicData104);
-            spec->mimicData104 = NULL;
-        }
-        // CAT-PROVISIONAL: cat_univDeleteMimicResource(spec->mimicResource) (Universe, M2-R4 #4); never set before then
-        spec->mimicResource = 0;
-    }
-    return TRUE;
-}
-
 // CAT: the exe's header (P1StandardCorvetteHeader 0x008c5a88: p1StandardCorvette). Slot 6 is MCVAttackPassive and
-//      slot 27 MCVHaltCommand (shared with MCVHeader, Cataclysm-only); their bodies are this file's
-//      P1StandardCorvetteAttackPassive / P1StandardCorvetteHaltCommand.
+//      slot 27 MCVHaltCommand (MCV.c) [M2-R4 ships-b: they were copies here].
 CustShipHeader P1StandardCorvetteHeader =
 {
     .sizeofShipSpecifics = sizeof(P1StandardCorvetteSpec),
     .CustShipStaticInit = P1StandardCorvetteStaticInit,
     .CustShipInit = P1StandardCorvetteInit,
     .CustShipFire = DefaultShipFire,
-    .CustShipAttackPassive = P1StandardCorvetteAttackPassive,
+    .CustShipAttackPassive = MCVAttackPassive,                             // CAT: MCVAttackPassive 0x005b8210
     .CustShipSpecialActivate = P1StandardCorvetteSpecialActivate,          // CAT: new
     .CustShipSpecialTarget = P1StandardCorvetteSpecialTarget,              // CAT: new
     .CustShipOrderChanged = P1StandardCorvetteOrderChanged,                // CAT: new slot 9
@@ -225,5 +175,5 @@ CustShipHeader P1StandardCorvetteHeader =
     .CustShip_PreFix = P1StandardCorvette_PreFix,                          // CAT: new
     .CustShip_Fix = P1StandardCorvette_Fix,                                // CAT: new
     .CustShipAttack = P1StandardCorvetteAttack,
-    .CustShipHaltCommand = P1StandardCorvetteHaltCommand,                  // CAT: new slot 27
+    .CustShipHaltCommand = MCVHaltCommand,                                 // CAT: new slot 27 (MCVHaltCommand 0x005b82e0)
 };

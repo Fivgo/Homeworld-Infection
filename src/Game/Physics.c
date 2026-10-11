@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "Physics.h"
+#include "DFGFrigate.h"
 
 #include <math.h>
 
@@ -152,13 +153,7 @@ void physApplyRotToObj(SpaceObjRot *obj,real32 torque,uword rotdir)
     Outputs     :
     Return      : true if the bullet should now be deleted
 ----------------------------------------------------------------------------*/
-// CAT-TODO(M2-R4 #4): cat_dfgFieldContainsPoint 0x005b0df0 (is the point inside a DFG frigate's field?) belongs to
-//      the DFG frigate code of ship code B; no field until then
-static bool32 cat_dfgFieldContainsPoint(vector *point)
-{
-    (void)point;
-    return FALSE;
-}
+// CAT: cat_dfgFieldContainsPoint 0x005b0df0 lives in Ships/DFGFrigate.c [M2-R4 ships-b]
 
 bool32 physUpdateBulletPosVel(Bullet *bullet,real32 phystimeelapsed)
 {

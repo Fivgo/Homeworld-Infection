@@ -19,7 +19,6 @@
 #include "CommandDefs.h"
 #include "CommandWrap.h"
 #include "ConsMgr.h"
-#include "DDDFrigate.h"
 #include "Debug.h"
 #include "FastMath.h"
 #include "font.h"
@@ -482,8 +481,7 @@ void kasfSwarmMoveTo(GrowSelection *targets)
     for (i=0;i<CurrentTeamP->shipList.selection->numShips;i++)
     {
         ship = CurrentTeamP->shipList.selection->ShipPtr[i];
-        if ((ship->shiptype == P2Swarmer) ||
-            (ship->shiptype == P2AdvanceSwarmer))
+        if ((ship->shiptype == P2AdvanceSwarmer))
         {
             selSelectionAddSingleShip(&swarmers, ship);
         }
@@ -2618,7 +2616,6 @@ bool32 kasfShipMeetsCriteria(ShipPtr ship, sdword CriteriaFlag)
                     switch (ship->shiptype)
                     {
                         case CloakGenerator:
-                        case ResourceController:
                             return FALSE;
                         default:
                             return TRUE;
@@ -2627,7 +2624,6 @@ bool32 kasfShipMeetsCriteria(ShipPtr ship, sdword CriteriaFlag)
                 case CLASS_Corvette:
                     switch (ship->shiptype)
                     {
-                        case RepairCorvette:
                         case SalCapCorvette:
                             return FALSE;
                         default:

@@ -844,7 +844,7 @@ bool32 aiuIsShipDangerous(Ship *ship)
             return TRUE;
             break;
         case CLASS_Frigate:
-            if ((shipstatic->shiptype == ResourceController) || (shipstatic->shiptype == DFGFrigate))
+            if ((shipstatic->shiptype == DFGFrigate))
             {
                 return FALSE;
             }
@@ -854,20 +854,9 @@ bool32 aiuIsShipDangerous(Ship *ship)
             }
             break;
         case CLASS_Corvette:
-            if (shipstatic->shiptype == RepairCorvette)
-            {
-                return FALSE;
-            }
-            else
-            {
-                return TRUE;
-            }
+            return TRUE;        // CAT: no HW1 RepairCorvette (M2-R4 ships-b)
         case CLASS_Fighter:
-            if (shipstatic->shiptype == DefenseFighter)
-            {
-                return FALSE;
-            }
-            else
+            // CAT: no HW1 DefenseFighter (M2-R4 ships-b)
             {
                 return TRUE;
             }
@@ -951,7 +940,6 @@ void aiuRateShip(udword *strength, udword *value, ShipPtr ship)
             break;
 
         case AdvanceSupportFrigate:
-        case DDDFrigate:
         case DFGFrigate:
         case IonCannonFrigate:
         case StandardFrigate:
@@ -961,25 +949,16 @@ void aiuRateShip(udword *strength, udword *value, ShipPtr ship)
 
         case AttackBomber:
         case CloakedFighter:
-        case DefenseFighter:
         case HeavyDefender:
         case HeavyInterceptor:
-        case LightDefender:
-        case LightInterceptor:
 
         case HeavyCorvette:
-        case LightCorvette:
         case MinelayerCorvette:
         case MultiGunCorvette:
 
-        case Probe:
         case ProximitySensor:
-        case RepairCorvette:
-        case ResearchShip:
         case ResourceCollector:
-        case ResourceController:
         case SalCapCorvette:
-        case SensorArray:
 
     }
 */
@@ -1045,8 +1024,7 @@ void aiuMakeShipsOnlyDangerousToMothership(SelectCommand *ships)
                 dangerous = TRUE;
                 break;
             case CLASS_Frigate:
-                if ((ships->ShipPtr[i]->shiptype != ResourceController) &&
-                    (ships->ShipPtr[i]->shiptype != AdvanceSupportFrigate))
+                if ((ships->ShipPtr[i]->shiptype != AdvanceSupportFrigate))
                 {
                     dangerous = TRUE;
                 }
@@ -1482,9 +1460,7 @@ SelectCommand *aiuFindUnarmedEnemyShips(void)
 
                 if ((!allianceArePlayersAllied(blobship->playerowner, aiCurrentAIPlayer->player)) &&
                     ((blob_shipclass == CLASS_Resource) || (blob_shipclass == CLASS_NonCombat) ||
-                     (blobship->shiptype == ResourceController) ||
                      (blobship->shiptype == AdvanceSupportFrigate) ||
-                     (blobship->shiptype == RepairCorvette) ||
                      (blobship->shiptype == SalCapCorvette)) &&
                     (blobship->shiptype != GravWellGenerator))
                 {
@@ -1538,7 +1514,6 @@ SelectCommand *aiuFindFighterVulnerableEnemyShips(void)
 
                 if ((!allianceArePlayersAllied(blobship->playerowner, aiCurrentAIPlayer->player)) &&
                     (isCapitalShip(blobship)) &&
-                    (blobship->shiptype != DDDFrigate) &&
                     (blobship->shiptype != DFGFrigate) &&
                     (blobship->shiptype != GravWellGenerator) &&
                     (blobship->shiptype != Mothership))
@@ -1760,8 +1735,6 @@ bool32 aiuShipIsVulnerableGoodGuy(ShipPtr ship)
     if ((ship->playerowner == aiCurrentAIPlayer->player) &&
         ((shipclass == CLASS_Resource) ||
          (shiptype  == AdvanceSupportFrigate) ||
-         (shiptype  == ResourceController) ||
-         (shiptype  == RepairCorvette) ||
          (shiptype  == SalCapCorvette)))
     {
         return TRUE;
@@ -1782,8 +1755,7 @@ bool32 aiuShipIsLargeVulnerableGoodGuy(ShipPtr ship)
     ShipType shiptype = ship->shiptype;
 
     if ((ship->playerowner == aiCurrentAIPlayer->player) &&
-        ((shiptype == AdvanceSupportFrigate) ||
-         (shiptype == ResourceController)))
+        ((shiptype == AdvanceSupportFrigate)))
     {
         return TRUE;
     }
@@ -3534,7 +3506,6 @@ udword aiuUnitCapCanBuildShip(AIPlayer *aiplayer, ShipType shiptype, sdword numS
             classtotal += aiplayer->NumRCollectorsBeingBuilt;
             classtotal += aiplayer->NumRControllersBeingBuilt;
             break;
-        case ResourceController:
             typetotal  += aiplayer->NumRControllersBeingBuilt;
             classtotal += aiplayer->NumRControllersBeingBuilt;
             classtotal += aiplayer->NumRCollectorsBeingBuilt;
@@ -3543,7 +3514,6 @@ udword aiuUnitCapCanBuildShip(AIPlayer *aiplayer, ShipType shiptype, sdword numS
             typetotal  += aiplayer->NumASFBeingBuilt;
             classtotal += aiplayer->NumASFBeingBuilt;
             break;
-        case ResearchShip:
             typetotal  += aiplayer->NumResearchShipsBeingBuilt;
             classtotal += aiplayer->NumResearchShipsBeingBuilt;
             break;
@@ -3797,8 +3767,7 @@ void aiuFindPriorityTarget(SelectCommand *attackers, SelectCommand *targets)
 			capship = TRUE;
 			// these ships try to take out AdvanceSupport frigates first 9 out of 10 times
 			if (randyrandom(RANDOM_AI_PLAYER, 10) &&
-				(selSelectionCopyByType(&tempsel, (MaxSelection *)targets, AdvanceSupportFrigate) ||
-				 (selSelectionCopyByType(&tempsel, (MaxSelection *)targets, RepairCorvette) >= 2)))
+				selSelectionCopyByType(&tempsel, (MaxSelection *)targets, AdvanceSupportFrigate))     // CAT: no HW1 RepairCorvette (M2-R4 ships-b)
 			{
 				selSelectionCopy((MaxAnySelection *)targets, (MaxAnySelection *)&tempsel);
 				break;
@@ -3825,13 +3794,9 @@ void aiuFindPriorityTarget(SelectCommand *attackers, SelectCommand *targets)
 		
 		// anti-fighter
 		case CloakedFighter:
-		case DDDFrigate:
-		case DefenseFighter:
 		case HeavyCorvette:
 		case HeavyDefender:
 		case HeavyInterceptor:
-		case LightCorvette:
-		case LightInterceptor:
 		case MultiGunCorvette:
 			// take out any defenders in the group first  9 out of 10 times
 			if (randyrandom(RANDOM_AI_PLAYER, 10) &&
@@ -3843,7 +3808,6 @@ void aiuFindPriorityTarget(SelectCommand *attackers, SelectCommand *targets)
 		
 		// minor firepower ships
 		case AdvanceSupportFrigate:
-		case RepairCorvette:
 		case Carrier:
 		
 		default:
@@ -4492,7 +4456,6 @@ void aiuFillInArrays(blob_array *goodGuy_blob_array, blob_array *enemy_blob_arra
 
             //as soon as an enemy ship is found, stick the blob into the blob array, don't do this more than once per blob
             if ((!enemyFound) && (ship->playerowner != player) &&
-                (ship->shiptype != Drone) &&
                 (!(bitTest(ship->header.flags, SOF_Cloaked) && (!proximityCanPlayerSeeShip(aiCurrentAIPlayer->player, ship)))))
             {
                 enemy_blob_array->blob[enemy_blob_array->numBlobs] = tempBlob;
@@ -4500,8 +4463,7 @@ void aiuFillInArrays(blob_array *goodGuy_blob_array, blob_array *enemy_blob_arra
                 enemyFound = TRUE;
             }
             //as soon as a goodguy ship is found, stick the blob into the blob array, don't do this more than once per blob
-            else if ((!goodGuyFound) && (ship->playerowner == player) &&
-                     (ship->shiptype != Drone))
+            else if ((!goodGuyFound) && (ship->playerowner == player))
             {
                 goodGuy_blob_array->blob[goodGuy_blob_array->numBlobs] = tempBlob;
                 goodGuy_blob_array->numBlobs++;
@@ -4712,11 +4674,7 @@ void aiuRateBlobs(Player *player)
                 mothership = TRUE;
             }
 
-            //hack for cryotray
-            if (ship->shiptype == CryoTray)
-            {
-                tempvalue = 1000;
-            }
+            // CAT: no HW1 CryoTray (M2-R4 ships-b)
 
 
             if (shipplayer == player)

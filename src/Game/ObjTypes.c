@@ -60,6 +60,19 @@ ShipType LastShipTypeOfRace[NUM_RACES] =
     DERELICT_LAST_SHIP
 };
 
+// CAT: the race of a ship type: the first race whose last type is not below it (cat_ShipTypeToRace 0x004d7170;
+//      a type past the table gives NUM_RACES, as the exe's loop ends there)
+sdword cat_ShipTypeToRace(udword type)
+{
+    sdword race = 0;
+
+    while ((race < NUM_RACES) && ((udword)LastShipTypeOfRace[race] < type))
+    {
+        race++;
+    }
+    return race;
+}
+
 uword NumShipTypesInRace[NUM_RACES] =
 {
     SECT_LAST_SHIP - SECT_FIRST_SHIP + 1,

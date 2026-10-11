@@ -64,11 +64,14 @@ if grep -q "error" <<<"$out"; then
 fi
 "${cc[@]}" -Wint-conversion "$tmp/layout.c" 2>&1 | grep -o "'char (\*)\[[0-9]*\]'" | tr -d "'" |
 	paste -sd' ' | sed 's/^/ILP32 sizes (ShipStaticInfo GunStatic CustShipHeader polygonobject texreg SENTENCELUT ClampInfo StaticCollInfo AlternativeShips MilitaryParadeCommand ranstream SaveChunk particle eboltSystem): /'
-# M2-R3 ships-a: the ship files whose specifics/statics sizes are pinned under __i386__ (asserts in the files)
+# M2-R3 ships-a: the ship files whose specifics/statics sizes are pinned under __i386__ (asserts in the files); M2-R4
+# ships-b added the Cataclysm-only ships (docs/m2-r4-ships-b.md)
 ships=(AdvanceSupportFrigate Carrier DFGFrigate DefaultShip FloatingCity GenericDefender GenericInterceptor
 	GravWellGenerator HeavyCorvette HeavyCruiser IonCannonFrigate MinelayerCorvette MissileDestroyer Mothership
 	MultiGunCorvette P1IonArrayFrigate P1MissileCorvette P1Mothership P1StandardCorvette ProximitySensor
-	ResourceCollector SalCapCorvette StandardDestroyer StandardFrigate)
+	ResourceCollector SalCapCorvette StandardDestroyer StandardFrigate
+	CruiseMissile Crystal dBeastMothership HiveFrigate ModuleShip MultiBeamFrigate NomadMoon RepairDroid Slipgate
+	Swarmer Acolyte ACV Dreadnought Leech MCV Mimic Processor RammingFrigate RKO Sentinel Worker)
 shipfiles=()
 for s in "${ships[@]}"; do shipfiles+=("$root/src/Ships/$s.c"); done
 shipout="$("${cc[@]}" -w "${shipfiles[@]}" 2>&1 || true)"

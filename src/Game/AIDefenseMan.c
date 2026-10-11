@@ -121,13 +121,11 @@ udword aidCountDefendableShips(void)
     for (i=0;i<aiCurrentAIPlayer->airResourceReserves.selection->numShips;i++)
     {
         ship = aiCurrentAIPlayer->airResourceReserves.selection->ShipPtr[i];
-        if ((ship->shiptype == ResourceCollector) || (ship->shiptype == RepairCorvette)
-            || (ship->shiptype == SalCapCorvette))
+        if ((ship->shiptype == ResourceCollector) || (ship->shiptype == SalCapCorvette))
         {
             numdefships++;
         }
-        else if ((ship->shiptype == ResourceController) ||
-                 (ship->shiptype == AdvanceSupportFrigate) ||
+        else if ((ship->shiptype == AdvanceSupportFrigate) ||
                  (ship->shiptype == Carrier))
         {
             //these ships count as two
@@ -268,8 +266,7 @@ void aidSetupResourceDefenseTeams(void)
     for (i=0;i<aiCurrentAIPlayer->airResourceReserves.selection->numShips;i++)
     {
         ship = aiCurrentAIPlayer->airResourceReserves.selection->ShipPtr[i];
-        if ((ship->shiptype == ResourceCollector) || (ship->shiptype == ResourceController) ||
-            (ship->shiptype == AdvanceSupportFrigate))
+        if ((ship->shiptype == ResourceCollector) || (ship->shiptype == AdvanceSupportFrigate))
         {
             if (!aitAnyTeamOfPlayerGuardingThisShip(aiCurrentAIPlayer,ship))
             {

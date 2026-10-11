@@ -216,8 +216,6 @@ KeysToShips cmShipTypes[]=
 //    {KKEY,           Carrier},
     {F4KEY,           CloakedFighter},
 //    {LKEY|CM_SHIFT,  CloakGenerator},
-//    {UKEY|CM_SHIFT,  DDDFrigate},
-    {F4KEY,          DefenseFighter},
 //    {UKEY,           DFGFrigate},
 //    {GKEY,           GravWellGenerator},
     {F7KEY,          HeavyCorvette},
@@ -225,38 +223,20 @@ KeysToShips cmShipTypes[]=
     {F1KEY,          HeavyDefender},
     {F3KEY,          HeavyInterceptor},
 //    {OKEY,           IonCannonFrigate},
-    {F6KEY,          LightCorvette},
-//    {DKEY,           LightDefender},
-    {F2KEY,          LightInterceptor},
     {F10KEY,         MinelayerCorvette},
 //    {MKEY|CM_SHIFT,  MissileDestroyer},
   //{KEY ,           Mothership},
     {F11KEY,         MultiGunCorvette},
-//    {WKEY,           Probe},
 //    {XKEY|CM_SHIFT,  ProximitySensor},
-    {F8KEY,          RepairCorvette},
-//    {XKEY,           ResearchShip},
     {F12KEY,         ResourceCollector},
-//    {RKEY|CM_SHIFT,  ResourceController},
     {F9KEY,          SalCapCorvette},
-//    {SKEY|CM_SHIFT,  SensorArray},
 //    {YKEY,           StandardDestroyer},
 //    {EKEY,           StandardFrigate},
-//    {TKEY,           Drone},
-//    {TKEY|CM_SHIFT,  TargetDrone},
   /*{KEY ,           P1Fighter},
     {KEY ,           P1IonArrayFrigate},
     {KEY ,           P1MissileCorvette},
     {KEY ,           P1Mothership},
     {KEY ,           P1StandardCorvette},
-    {KEY ,           P2AdvanceSwarmer},
-    {KEY ,           P2FuelPod},
-    {KEY ,           P2Mothership},
-    {KEY ,           P2MultiBeamFrigate},
-    {KEY ,           P2Swarmer},
-    {KEY ,           P3Destroyer},
-    {KEY ,           P3Frigate},
-    {KEY ,           P3Megaship},
     {KEY ,           FloatingCity},
     {KEY ,           CargoBarge},
     {KEY ,           MiningBase},
@@ -322,8 +302,6 @@ shipdisabled cmShipsDisabled[] =
     {0, Carrier},
     {0, CloakedFighter},
     {1, CloakGenerator},
-    {1, DDDFrigate},
-    {0, DefenseFighter},
     {1, DFGFrigate},
     {1, GravWellGenerator},
     {0, HeavyCorvette},
@@ -331,23 +309,14 @@ shipdisabled cmShipsDisabled[] =
     {0, HeavyDefender},
     {0, HeavyInterceptor},
     {0, IonCannonFrigate},
-    {0, LightCorvette},
-    {0, LightDefender},
-    {0, LightInterceptor},
     {1, MinelayerCorvette},
     {1, MissileDestroyer},
     {1, MultiGunCorvette},
-    {0, Probe},
     {0, ProximitySensor},
-    {0, RepairCorvette},
-    {0, ResearchShip},
     {0, ResourceCollector},
-    {0, ResourceController},
     {1, SalCapCorvette},
-    {0, SensorArray},
     {0, StandardDestroyer},
     {0, StandardFrigate},
-    {0, Drone},
     {-1, 0},
 };
 */
@@ -357,15 +326,12 @@ shipavailable cmShipsAvailableR1Reg[NSHIPS_AVAILABLE_R1REG + 1] =
 {
     {0,ITEM_CLASS,0,  CLASS_Fighter       ,  NULL},
     {0,ITEM_SHIP ,0,  HeavyDefender       ,  NULL},
-    {0,ITEM_SHIP ,0,  LightInterceptor    ,  NULL},
     {0,ITEM_SHIP ,0,  HeavyInterceptor    ,  NULL},
     {0,ITEM_SHIP ,0,  CloakedFighter      ,  NULL},
     {0,ITEM_SHIP ,0,  AttackBomber        ,  NULL},
 
     {0,ITEM_CLASS,0,  CLASS_Corvette      ,  NULL},
-    {0,ITEM_SHIP ,0,  LightCorvette       ,  NULL},
     {0,ITEM_SHIP ,0,  HeavyCorvette       ,  NULL},
-    {0,ITEM_SHIP ,0,  RepairCorvette      ,  NULL},
     {0,ITEM_SHIP ,0,  SalCapCorvette      ,  NULL},
     {0,ITEM_SHIP ,0,  MinelayerCorvette   ,  NULL},
     {0,ITEM_SHIP ,0,  MultiGunCorvette    ,  NULL},
@@ -376,16 +342,12 @@ shipavailable cmShipsAvailableR1Reg[NSHIPS_AVAILABLE_R1REG + 1] =
     {0,ITEM_CLASS,0,  CLASS_Frigate       ,  NULL},
     {0,ITEM_SHIP ,0,  StandardFrigate     ,  NULL},
     {0,ITEM_SHIP ,0,  AdvanceSupportFrigate, NULL},
-    {0,ITEM_SHIP ,0,  DDDFrigate          ,  NULL},
     {0,ITEM_SHIP ,0,  IonCannonFrigate    ,  NULL},
 
     {0,ITEM_CLASS,0,  CLASS_NonCombat     ,  NULL},
     {0,ITEM_SHIP ,0,  GravWellGenerator   ,  NULL},            // Added by Daly on 04.21.99
     {0,ITEM_SHIP ,0,  CloakGenerator      ,  NULL},            // Added by Daly on 04.21.99
-    {0,ITEM_SHIP ,0,  Probe               ,  NULL},
     {0,ITEM_SHIP ,0,  ProximitySensor     ,  NULL},
-    {0,ITEM_SHIP ,0,  SensorArray         ,  NULL},
-    {0,ITEM_SHIP ,0,  ResearchShip        ,  NULL},
 
     {-1,0,0, 0                   ,  NULL}
 };
@@ -394,27 +356,22 @@ shipavailable cmShipsAvailableR1Big[NSHIPS_AVAILABLE_R1BIG + 1] =
 {
     {0,ITEM_CLASS,0,  CLASS_Fighter       ,  NULL},
     {0,ITEM_SHIP ,0,  HeavyDefender       ,  NULL},
-    {0,ITEM_SHIP ,0,  LightInterceptor    ,  NULL},
     {0,ITEM_SHIP ,0,  HeavyInterceptor    ,  NULL},
     {0,ITEM_SHIP ,0,  CloakedFighter      ,  NULL},
     {0,ITEM_SHIP ,0,  AttackBomber        ,  NULL},
 
     {0,ITEM_CLASS,0,  CLASS_Corvette      ,  NULL},
-    {0,ITEM_SHIP ,0,  LightCorvette       ,  NULL},
     {0,ITEM_SHIP ,0,  HeavyCorvette       ,  NULL},
-    {0,ITEM_SHIP ,0,  RepairCorvette      ,  NULL},
     {0,ITEM_SHIP ,0,  SalCapCorvette      ,  NULL},
     {0,ITEM_SHIP ,0,  MinelayerCorvette   ,  NULL},
     {0,ITEM_SHIP ,0,  MultiGunCorvette    ,  NULL},
 
     {0,ITEM_CLASS,0,  CLASS_Resource      ,  NULL},
     {0,ITEM_SHIP ,0,  ResourceCollector   ,  NULL},
-    {0,ITEM_SHIP ,0,  ResourceController  ,  NULL},
 
     {0,ITEM_CLASS,0,  CLASS_Frigate       ,  NULL},
     {0,ITEM_SHIP ,0,  StandardFrigate     ,  NULL},
     {0,ITEM_SHIP ,0,  AdvanceSupportFrigate, NULL},
-    {0,ITEM_SHIP ,0,  DDDFrigate          ,  NULL},
     {0,ITEM_SHIP ,0,  IonCannonFrigate    ,  NULL},
 
     {0,ITEM_CLASS,0,  CLASS_Destroyer     ,  NULL},
@@ -424,11 +381,8 @@ shipavailable cmShipsAvailableR1Big[NSHIPS_AVAILABLE_R1BIG + 1] =
     {0,ITEM_SHIP ,0,  Carrier             ,  NULL},
 
     {0,ITEM_CLASS,0,  CLASS_NonCombat     ,  NULL},
-    {0,ITEM_SHIP ,0,  Probe               ,  NULL},
     {0,ITEM_SHIP ,0,  ProximitySensor     ,  NULL},
-    {0,ITEM_SHIP ,0,  SensorArray         ,  NULL},
 
-    {0,ITEM_SHIP ,0,  ResearchShip        ,  NULL},
     {0,ITEM_SHIP ,0,  GravWellGenerator   ,  NULL},
     {0,ITEM_SHIP ,0,  CloakGenerator      ,  NULL},
 
@@ -440,15 +394,11 @@ shipavailable cmShipsAvailableR2Reg[NSHIPS_AVAILABLE_R2REG + 1] =
 {
     {0,ITEM_CLASS,0,  CLASS_Fighter       ,  NULL},
     {0,ITEM_SHIP ,0,  HeavyDefender       ,  NULL},
-    {0,ITEM_SHIP ,0,  LightInterceptor    ,  NULL},
     {0,ITEM_SHIP ,0,  HeavyInterceptor    ,  NULL},
-    {0,ITEM_SHIP ,0,  DefenseFighter      ,  NULL},
     {0,ITEM_SHIP ,0,  AttackBomber        ,  NULL},
 
     {0,ITEM_CLASS,0,  CLASS_Corvette      ,  NULL},
-    {0,ITEM_SHIP ,0,  LightCorvette       ,  NULL},
     {0,ITEM_SHIP ,0,  HeavyCorvette       ,  NULL},
-    {0,ITEM_SHIP ,0,  RepairCorvette      ,  NULL},
     {0,ITEM_SHIP ,0,  SalCapCorvette      ,  NULL},
     {0,ITEM_SHIP ,0,  MinelayerCorvette   ,  NULL},
     {0,ITEM_SHIP ,0,  MultiGunCorvette    ,  NULL},
@@ -465,10 +415,7 @@ shipavailable cmShipsAvailableR2Reg[NSHIPS_AVAILABLE_R2REG + 1] =
     {0,ITEM_CLASS,0,  CLASS_NonCombat     ,  NULL},
     {0,ITEM_SHIP ,0,  GravWellGenerator   ,  NULL},            // Added by Daly on 04.21.99
     {0,ITEM_SHIP ,0,  CloakGenerator      ,  NULL},            // Added by Daly on 04.21.99
-    {0,ITEM_SHIP ,0,  Probe               ,  NULL},
     {0,ITEM_SHIP ,0,  ProximitySensor     ,  NULL},
-    {0,ITEM_SHIP ,0,  SensorArray         ,  NULL},
-    {0,ITEM_SHIP ,0,  ResearchShip        ,  NULL},
 
     {-1,0,0, 0                   ,  NULL}
 };
@@ -477,22 +424,17 @@ shipavailable cmShipsAvailableR2Big[NSHIPS_AVAILABLE_R2BIG + 1] =
 {
     {0,ITEM_CLASS,0,  CLASS_Fighter       ,  NULL},
     {0,ITEM_SHIP ,0,  HeavyDefender       ,  NULL},
-    {0,ITEM_SHIP ,0,  LightInterceptor    ,  NULL},
     {0,ITEM_SHIP ,0,  HeavyInterceptor    ,  NULL},
-    {0,ITEM_SHIP ,0,  DefenseFighter      ,  NULL},
     {0,ITEM_SHIP ,0,  AttackBomber        ,  NULL},
 
     {0,ITEM_CLASS,0,  CLASS_Corvette      ,  NULL},
-    {0,ITEM_SHIP ,0,  LightCorvette       ,  NULL},
     {0,ITEM_SHIP ,0,  HeavyCorvette       ,  NULL},
-    {0,ITEM_SHIP ,0,  RepairCorvette      ,  NULL},
     {0,ITEM_SHIP ,0,  SalCapCorvette      ,  NULL},
     {0,ITEM_SHIP ,0,  MinelayerCorvette   ,  NULL},
     {0,ITEM_SHIP ,0,  MultiGunCorvette    ,  NULL},
 
     {0,ITEM_CLASS,0,  CLASS_Resource      ,  NULL},
     {0,ITEM_SHIP ,0,  ResourceCollector   ,  NULL},
-    {0,ITEM_SHIP ,0,  ResourceController  ,  NULL},
 
     {0,ITEM_CLASS,0,  CLASS_Frigate       ,  NULL},
     {0,ITEM_SHIP ,0,  StandardFrigate     ,  NULL},
@@ -507,11 +449,8 @@ shipavailable cmShipsAvailableR2Big[NSHIPS_AVAILABLE_R2BIG + 1] =
     {0,ITEM_SHIP ,0,  Carrier             ,  NULL},
 
     {0,ITEM_CLASS,0,  CLASS_NonCombat     ,  NULL},
-    {0,ITEM_SHIP ,0,  Probe               ,  NULL},
     {0,ITEM_SHIP ,0,  ProximitySensor     ,  NULL},
-    {0,ITEM_SHIP ,0,  SensorArray         ,  NULL},
 
-    {0,ITEM_SHIP ,0,  ResearchShip        ,  NULL},
     {0,ITEM_SHIP ,0,  GravWellGenerator   ,  NULL},
     {0,ITEM_SHIP ,0,  CloakGenerator      ,  NULL},
 
@@ -538,12 +477,8 @@ shipavailable cmShipsAvailableP1[NSHIPS_AVAILABLE_P1 + 1] =
 shipavailable cmShipsAvailableP2[NSHIPS_AVAILABLE_P2 + 1] =
 {
     {0,ITEM_CLASS,0,  CLASS_Fighter       ,  NULL},
-    {0,ITEM_SHIP ,0,  P2Swarmer           ,  NULL},
-    {0,ITEM_SHIP ,0,  P2AdvanceSwarmer    ,  NULL},
 
     {0,ITEM_CLASS,0,  CLASS_Frigate       ,  NULL},
-    {0,ITEM_SHIP ,0,  P2FuelPod           ,  NULL},
-    {0,ITEM_SHIP ,0,  P2MultiBeamFrigate  ,  NULL},
 
     {-1,0,0,0,NULL}
 };

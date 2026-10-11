@@ -24,7 +24,6 @@
 #include "Collision.h"
 #include "CommandNetwork.h"
 #include "Debug.h"
-#include "DefenseFighter.h"
 #include "Demo.h"
 #include "Dock.h"
 #include "FastMath.h"

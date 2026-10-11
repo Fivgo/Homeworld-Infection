@@ -1522,7 +1522,6 @@ othersounds:
 				break;
 
 			case AdvanceSupportFrigate:
-			case RepairCorvette:
 				if (ship->rceffect != NULL)
 				{
 					if ((ship->soundevent.specialHandle == SOUND_NOTINITED) ||

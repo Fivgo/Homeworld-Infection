@@ -16,6 +16,7 @@ Copyright Relic Entertainment, Inc.  All rights reserved.
 #include "Debug.h"
 #include "render.h"
 #include "Memory.h"
+#include "Mimic.h"
 #include "Globals.h"      // CAT: singlePlayerGame (cat_shGetTeamColour)
 #include "SpaceObj.h"    // CAT: the per-vertex glow state, ships and their trails
 #include "Teams.h"       // CAT: teColorSchemes
@@ -725,8 +726,8 @@ void cat_shGetTeamColour(real32 *rgb)
 
     if (bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic))
     {
-        //CAT-TODO(M2-R4 #4): a mimic shows the team it imitates (cat_mimicGetApparentPlayerIndex 0x005b9890)
-        index = ship->playerowner->playerIndex;
+        // CAT: a mimic shows the team it imitates (cat_mimicGetApparentPlayerIndex 0x005b9760) [M2-R4 ships-b]
+        index = cat_mimicGetApparentPlayerIndex(ship);
     }
     else
     {
