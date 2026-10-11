@@ -37,6 +37,9 @@ typedef struct
     sdword GravDerelict;
     Effect *gravityEffect;
 } GravWellGeneratorSpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(GravWellGeneratorSpec) == 40, "GravWellGeneratorSpec is 40 bytes in cataclysm.exe (GravWellGeneratorHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 extern CustShipHeader GravWellGeneratorHeader;
 

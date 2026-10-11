@@ -29,6 +29,7 @@
 #include "Ping.h"
 #include "prim3d.h"
 #include "Randy.h"
+#include "Salvage.h"
 #include "SaveGame.h"
 #include "Select.h"
 #include "SinglePlayer.h"
@@ -100,10 +101,10 @@ scriptStructEntry SalCapCorvetteStaticTable[] =
 
 
 bool32 handOffTargetToDockWith(Ship *ship);
-void SalCapRemoveShipReferences(Ship *ship, Ship *shiptoremove);
+void hw1SalCapRemoveShipReferences(Ship *ship, Ship *shiptoremove);
 
 
-void SalCapCorvetteStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
+void hw1SalCapCorvetteStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
     SalCapCorvetteStatics *corvstat;
     if(statinfo->shiprace == Traders)
@@ -146,7 +147,7 @@ void CleanSalCapSpec(Ship *ship)
 }
 
 
-void SalCapCorvetteInit(Ship *ship)
+void hw1SalCapCorvetteInit(Ship *ship)
 {
     SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)ship->ShipSpecifics;
     attackSideStepInit(&spec->attacksidestep);
@@ -707,34 +708,8 @@ void docapture(Ship *ship,Ship *target)
     {
         speechEventFleetSpec(ship, STAT_F_EnemyShipCaptured,target->shiptype,ship->playerowner->playerIndex);
     }
-    if(ship->shiptype == Mothership)
-    {
-        MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
-        if(spec->CAP_NumInBuildCue < (SALVAGE_MAX_CAPTURABLE-1))
-        {
-            spec->CAPTimeToBuildShip[spec->CAP_NumInBuildCue] = max(SALVAGE_MIN_RETROFIT_TIME,SALVAGE_MAX_RETROFIT_TIME*(1.0f - target->targetable.health/target->staticinfo->health.maxhealth));
-            spec->CAPshiptype[spec->CAP_NumInBuildCue] = target->shiptype;
-            spec->CAPshiprace[spec->CAP_NumInBuildCue] = target->staticinfo->shiprace;
-            spec->CAPcolorScheme[spec->CAP_NumInBuildCue] = target->colorScheme;
-            spec->CAP_NumInBuildCue++;
-        }
-    }
-    else if(ship->shiptype == Carrier)
-    {
-        CarrierSpec *spec = (CarrierSpec *)ship->ShipSpecifics;
-        if(spec->CAP_NumInBuildCue < (SALVAGE_MAX_CAPTURABLE-1))
-        {
-            spec->CAPTimeToBuildShip[spec->CAP_NumInBuildCue] = max(SALVAGE_MIN_RETROFIT_TIME,SALVAGE_MAX_RETROFIT_TIME*(1.0f - target->targetable.health/target->staticinfo->health.maxhealth));
-            spec->CAPshiptype[spec->CAP_NumInBuildCue] = target->shiptype;
-            spec->CAPshiprace[spec->CAP_NumInBuildCue] = target->staticinfo->shiprace;
-            spec->CAPcolorScheme[spec->CAP_NumInBuildCue] = target->colorScheme;
-            spec->CAP_NumInBuildCue++;
-        }
-    }
-    else
-    {
-        dbgFatalf(DBG_Loc,"\nUnknown type of ship receiveing captured ship.  NOT a carrier or mothership");
-    }
+    // CAT: no captured-ship build queue in carriers or motherships (CarrierSpec / MothershipSpec have none in
+    //      cataclysm.exe; captured ships go to the salvage depot, Salvage.c). Dormant HW1 code.
 
 }
 
@@ -1608,13 +1583,13 @@ sdword salCapFlyToDockingPoint3(Ship *dockwith,ShipOrDerelict *target,sdword doc
 }
 
 /*-----------------------------------------------------------------------------
-    Name        :   SalCapCorvetteSpecialTarget
+    Name        :   hw1SalCapCorvetteSpecialTarget
     Description :   Performs salvageing!  Hopefully
     Inputs      :
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-bool32 SalCapCorvetteSpecialTarget(Ship *ship, void *custom)
+bool32 hw1SalCapCorvetteSpecialTarget(Ship *ship, void *custom)
 {
     SelectAnyCommand *targets;
     SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)ship->ShipSpecifics;
@@ -2501,55 +2476,9 @@ bool32 handOffTargetToDockWith(Ship *ship)
 
     ///////
 
-    if(spec->dockwith->shiptype == Mothership)
-    {
-        MothershipSpec *mspec = (MothershipSpec *)spec->dockwith->ShipSpecifics;
-        for(i=0;i<MAX_NUM_DROP;i++)
-        {
-            if(mspec->droptarget[i] == spec->target)
-            {
-                //already handed off..don't do.
-                goto handed;
-            }
-        }
-
-        for(i=0;i<MAX_NUM_DROP;i++)
-        {
-            if(mspec->droptarget[i] == NULL)
-            {
-                mspec->dropstate[i] = DROP_BEGIN;
-                mspec->droptarget[i] = spec->target;
-                mspec->dockindex[i]  = spec->dockindex;
-                goto handed;
-            }
-        }
-
-    }
-    else
-    {
-        //assumed to be carrier
-        CarrierSpec *cspec = (CarrierSpec *)spec->dockwith->ShipSpecifics;
-        for(i=0;i<MAX_NUM_DROP;i++)
-        {
-            if(cspec->droptarget[i] == spec->target)
-            {
-                //already handed off..don't do.
-                goto handed;
-            }
-        }
-        for(i=0;i<MAX_NUM_DROP;i++)
-        {
-            if(cspec->droptarget[i] == NULL)
-            {
-                cspec->dropstate[i] = DROP_BEGIN;
-                cspec->droptarget[i] = spec->target;
-                cspec->dockindex[i] = spec->dockindex;
-                goto handed;
-            }
-        }
-    }
-    //if we get here...we didn't find an attachment point...so we should wait!!!
-    return FALSE;
+    // CAT: no drop targets in carriers or motherships (cataclysm.exe's CarrierSpec / MothershipSpec have none;
+    //      salvage is delivered to the depot block, Salvage.c). Dormant HW1 code.
+    goto handed;
 
 handed:
     bitSet(spec->target->specialFlags,SPECIAL_SalvagedTargetGoingIntoDockWithShip);
@@ -2662,7 +2591,7 @@ bool32 DropTargetInShip(Ship *dockwith,sdword *targetDepotState, ShipOrDerelict 
     */
 
 //housekeep function...we don't really need this I think...it is out of the header file
-void SalCapCorvetteHouseKeep(Ship *ship)
+void hw1SalCapCorvetteHouseKeep(Ship *ship)
 {
 //was going to slowly rotate small ships..
     SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)ship->ShipSpecifics;
@@ -2741,7 +2670,7 @@ void salCapClearTechBool()
 {
     universe.DerelictTech = FALSE;
 }
-void SalCapDied(Ship *ship)
+void hw1SalCapDied(Ship *ship)
 {
     SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)ship->ShipSpecifics;
     spec->tractorBeam = FALSE;
@@ -2805,10 +2734,10 @@ void SalCapDied(Ship *ship)
 
 void salCapCleanUpCloakingTarget(Ship *ship, Ship *shiptoremove)
 {
-    SalCapRemoveShipReferences(ship,shiptoremove);
+    hw1SalCapRemoveShipReferences(ship,shiptoremove);
 }
 
-void SalCapRemoveShipReferences(Ship *ship, Ship *shiptoremove)
+void hw1SalCapRemoveShipReferences(Ship *ship, Ship *shiptoremove)
 {
     SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)ship->ShipSpecifics;
     if(shiptoremove == (Ship *)spec->target)
@@ -2930,7 +2859,7 @@ void SalCapRemoveShipReferences(Ship *ship, Ship *shiptoremove)
 }
 void salCapRemoveDerelictReferences(Ship *ship,Derelict *d)
 {
-     SalCapRemoveShipReferences(ship, (Ship *)d);
+     hw1SalCapRemoveShipReferences(ship, (Ship *)d);
 }
 
 // Called only when user hits HALT.  (clHalt).
@@ -3075,7 +3004,7 @@ void SalCapDropTarget(Ship *ship)
 
 // Save Game stuff
 
-void SalCapCorvette_PreFix(Ship *ship)
+void hw1SalCapCorvette_PreFix(Ship *ship)
 {
     SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)ship->ShipSpecifics;
 
@@ -3084,7 +3013,7 @@ void SalCapCorvette_PreFix(Ship *ship)
     spec->noDamageTarget = (ShipOrDerelict *)SpaceObjRegistryGetID((SpaceObj *)spec->noDamageTarget);
 }
 
-void SalCapCorvette_Fix(Ship *ship)
+void hw1SalCapCorvette_Fix(Ship *ship)
 {
     SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)ship->ShipSpecifics;
 
@@ -3093,31 +3022,98 @@ void SalCapCorvette_Fix(Ship *ship)
     spec->noDamageTarget = (ShipOrDerelict *)SpaceObjRegistryGetTarget((sdword)spec->noDamageTarget);
 }
 
+/*-----------------------------------------------------------------------------
+    CAT: cataclysm.exe's SalCapCorvette block (0x005c59c0..0x005c5af0) is the header's slot bodies only, each a
+    wrapper around the salvage system (Salvage.c). HW1's salvage code above is dormant: no ship sets
+    SPECIAL_IsASalvager any more (cat_salvageInit sets SPECIAL_CatSalvager), and its readers in Dock.c,
+    Collision.c, CommandLayer.c, AIShip.c and AIMoves.c are ported with the salvage runtime (M2-R4 #3).
+-----------------------------------------------------------------------------*/
+
+// CAT: one block per race (SalCapCorvetteStaticInit 0x005c59c0): Kushan 0x00a77b50, Taiidan 0x00a77b68, Traders
+//      0x00a77b80, 0x18 bytes apart: the side-step parameters and the salvage statics (Salvage.h CatSalvagerStatics)
+CatSalvagerStatics SalCapCorvetteStaticKushan;
+CatSalvagerStatics SalCapCorvetteStaticTaiidan;
+CatSalvagerStatics SalCapCorvetteStaticTraders;
+CatSalvagerStatics SalCapCorvetteStaticOther;   // CAT: the exe writes into the statinfo itself for any other race
+
+void SalCapCorvetteStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
+{
+    CatSalvagerStatics *corvstat;
+
+    switch (statinfo->shiprace)
+    {
+        case RACE_Kushan:  corvstat = &SalCapCorvetteStaticKushan;  break;
+        case RACE_Taiidan: corvstat = &SalCapCorvetteStaticTaiidan; break;
+        case RACE_Traders: corvstat = &SalCapCorvetteStaticTraders; break;
+        default:
+            dbgAssertOrIgnore(FALSE);
+            corvstat = &SalCapCorvetteStaticOther;
+            break;
+    }
+    // the exe clears 0x14 bytes, reads the side-step keys, then the salvage statics
+    memset(corvstat, 0, sizeof(*corvstat));
+    scriptSetStruct(directory,filename,AttackSideStepParametersScriptTable,(ubyte *)&corvstat->sidestepParameters);
+    statinfo->custstatinfo = corvstat;
+    cat_salvageStaticInit(directory, filename, statinfo);
+}
+
+void SalCapCorvetteInit(Ship *ship)                                         // 0x005c5a40
+{
+    CatSalCapCorvetteSpec *spec = (CatSalCapCorvetteSpec *)ship->ShipSpecifics;
+
+    attackSideStepInit(&spec->attacksidestep);
+    cat_salvageInit(ship);
+}
+
+bool32 SalCapCorvetteSpecialTarget(Ship *ship, void *custom)               // 0x005c5a60
+{
+    return cat_salvageSpecialTarget(ship, custom);
+}
+
+void SalCapCorvetteOrderChanged(Ship *ship)                                 // CAT: new slot 9 (0x005c5a80)
+{
+    cat_salvageOrderChanged(ship);
+}
+
+void SalCapCorvetteHouseKeep(Ship *ship)                                    // 0x005c5a90
+{
+    cat_salvageHouseKeep(ship);
+}
+
+void SalCapRemoveShipReferences(Ship *ship, Ship *shiptoremove)            // 0x005c5aa0 (also slot 12)
+{
+    cat_salvageRemoveShipReferences(ship, shiptoremove);
+}
+
+void SalCapDied(Ship *ship)                                                 // 0x005c5ac0
+{
+    cat_salvageDied(ship);
+}
+
+void SalCapCorvette_PreFix(Ship *ship)                                      // 0x005c5ad0
+{
+    cat_salvage_PreFix(ship);
+}
+
+void SalCapCorvette_Fix(Ship *ship)                                         // 0x005c5ae0
+{
+    cat_salvage_Fix(ship);
+}
+
+// CAT: the exe's header (SalCapCorvetteHeader 0x008c6698: kSalCapCorvette, tSalCapCorvette). The specifics are
+//      0x30 bytes in the exe (CatSalCapCorvetteSpec); the port allocates the larger of that and HW1's spec while
+//      HW1 readers that cast every SalCap's specifics to SalCapCorvetteSpec remain (M2-R4 #3): memory only.
+//      No JunkYardDawgHeader: trJunkYardDawg is on DoNothingShipHeader in cataclysm.exe.
 CustShipHeader SalCapCorvetteHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
-    .sizeofShipSpecifics = sizeof(SalCapCorvetteSpec),
+    .sizeofShipSpecifics = (sizeof(CatSalCapCorvetteSpec) > sizeof(SalCapCorvetteSpec)) ? sizeof(CatSalCapCorvetteSpec) : sizeof(SalCapCorvetteSpec),
     .CustShipStaticInit = SalCapCorvetteStaticInit,
     .CustShipInit = SalCapCorvetteInit,
     .CustShipSpecialTarget = SalCapCorvetteSpecialTarget,
+    .CustShipOrderChanged = SalCapCorvetteOrderChanged,                         // CAT: new slot 9
     .CustShipHousekeep = SalCapCorvetteHouseKeep,
     .CustShipRemoveShipReferences = SalCapRemoveShipReferences,
-    .CustShipDied = SalCapDied,
-    .CustShip_PreFix = SalCapCorvette_PreFix,
-    .CustShip_Fix = SalCapCorvette_Fix,
-};
-
-CustShipHeader JunkYardDawgHeader =
-{
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
-    .sizeofShipSpecifics = sizeof(SalCapCorvetteSpec),
-    .CustShipStaticInit = SalCapCorvetteStaticInit,
-    .CustShipInit = SalCapCorvetteInit,
-    .CustShipSpecialTarget = SalCapCorvetteSpecialTarget,
-    .CustShipHousekeep = SalCapCorvetteHouseKeep,
-    .CustShipRemoveShipReferences = SalCapRemoveShipReferences,
+    .CustShipRemoveObjReferences = (void (*)(struct Ship *, struct SpaceObj *))SalCapRemoveShipReferences,   // CAT: new slot 12
     .CustShipDied = SalCapDied,
     .CustShip_PreFix = SalCapCorvette_PreFix,
     .CustShip_Fix = SalCapCorvette_Fix,

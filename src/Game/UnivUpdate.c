@@ -80,7 +80,8 @@ IDToPtrTable MissileIDToPtr;
 void setSalvageInfo(ShipOrDerelict *object);
 
 
-static void MakeExplosionRockBumpables(Ship *ship,bool32 scuttle);
+// CAT (M2-R3 ships-a): not static, MothershipHouseKeep 0x005bcad0 calls it for the mothership death sequence
+void MakeExplosionRockBumpables(Ship *ship,bool32 scuttle);
 void pointExplosionInSpace(vector *position,real32 blastRadius,real32 maxDamage,sdword playerIndex);
 
 void univCheckShipState(Ship *ship);

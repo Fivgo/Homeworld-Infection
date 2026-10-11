@@ -28,6 +28,22 @@ typedef struct {
     bool8 bPaused;
 } Timer;
 
+// CAT (M2-R3 ships-a): Cataclysm's small unnamed timers (cat_timerStartGameTime 0x00528410 .. 0x00528540), 0x10
+//      bytes, kept inside ship specifics (e.g. the Sect mothership's big-gun aim timer, Ship+0x68C)
+typedef struct CatTimer
+{
+    real32 startTime;       // +0x00 universe.totaltimeelapsed, or cat_taskRealTimeElapsed for a real-time timer (cat_timerStartRealTime 0x00528440)
+    real32 duration;        // +0x04
+    udword magic;           // +0x08 0x499602D2 (1234567890) once started
+    bool32 realTime;        // +0x0C
+} CatTimer;
+_Static_assert(sizeof(CatTimer) == 0x10, "CatTimer is 0x10 bytes in cataclysm.exe");
+
+extern real32 cat_taskRealTimeElapsed;
+void cat_timerStartGameTime(CatTimer *t, real32 duration);
+void cat_timerStartRealTime(CatTimer *t, real32 duration);
+bool32 cat_timerExpired(CatTimer *t);
+
 void timTimerCreate(char *name);
 void timTimerStart(char *name);
 void timTimerStop(char *name);

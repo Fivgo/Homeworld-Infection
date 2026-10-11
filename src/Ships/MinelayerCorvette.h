@@ -62,6 +62,9 @@ typedef struct
     sdword formation_number_Y;
     real32 lasttimeRegeneratedMines;
 } MinelayerCorvetteSpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(MinelayerCorvetteSpec) == 136, "MinelayerCorvetteSpec is 136 bytes in cataclysm.exe (MinelayerCorvetteHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 extern CustShipHeader MinelayerCorvetteHeader;
 

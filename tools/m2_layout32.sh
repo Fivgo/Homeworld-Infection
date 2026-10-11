@@ -10,8 +10,10 @@
 #   0x104), Randy.h (ranstream 0x14), SaveGame.h (SaveChunk 8) and SpaceObj.h's ClampInfo 0x38 / StaticCollInfo 0x70
 #   (docs/m2-r3-closeout-headers.md); since M2-R3 etg-particles also Particle.h (particle 0x100,
 #   point/mesh/billboard/electric-bolt system headers 0x1c/0x30/0x50/0x24, lens flare source within 0x40;
-#   docs/m2-r3-etg-particles.md) [audit: the etg-particles lines had split the closeout sentence]. Prints the ILP32
-#   sizes on success.
+#   docs/m2-r3-etg-particles.md) [audit: the etg-particles lines had split the closeout sentence]; since M2-R3
+#   ships-a also Cloak.h, Salvage.h, BeastWeapon.h, Timer.h (CatTimer) and, by a second -m32 -fsyntax-only pass over
+#   the ship files, every reused HW1 header's specifics size against the exe's sizeofShipSpecifics
+#   (docs/m2-r3-ships-a.md). Prints the ILP32 sizes on success.
 #   No 32-bit libc is needed: an empty gnu/stubs-32.h shim is created in a temporary directory.
 # Exit status: 0 if every assert holds, 1 otherwise.
 set -euo pipefail
@@ -31,6 +33,10 @@ cat > "$tmp/layout.c" <<'EOF'
 #include "Randy.h"
 #include "SaveGame.h"
 #include "Particle.h"
+#include "Cloak.h"
+#include "Salvage.h"
+#include "BeastWeapon.h"
+#include "Timer.h"
 char (*cat_ssi)[sizeof(ShipStaticInfo)] = 1;
 char (*cat_gs)[sizeof(GunStatic)] = 1;
 char (*cat_csh)[sizeof(CustShipHeader)] = 1;
@@ -58,4 +64,18 @@ if grep -q "error" <<<"$out"; then
 fi
 "${cc[@]}" -Wint-conversion "$tmp/layout.c" 2>&1 | grep -o "'char (\*)\[[0-9]*\]'" | tr -d "'" |
 	paste -sd' ' | sed 's/^/ILP32 sizes (ShipStaticInfo GunStatic CustShipHeader polygonobject texreg SENTENCELUT ClampInfo StaticCollInfo AlternativeShips MilitaryParadeCommand ranstream SaveChunk particle eboltSystem): /'
+# M2-R3 ships-a: the ship files whose specifics/statics sizes are pinned under __i386__ (asserts in the files)
+ships=(AdvanceSupportFrigate Carrier DFGFrigate DefaultShip FloatingCity GenericDefender GenericInterceptor
+	GravWellGenerator HeavyCorvette HeavyCruiser IonCannonFrigate MinelayerCorvette MissileDestroyer Mothership
+	MultiGunCorvette P1IonArrayFrigate P1MissileCorvette P1Mothership P1StandardCorvette ProximitySensor
+	ResourceCollector SalCapCorvette StandardDestroyer StandardFrigate)
+shipfiles=()
+for s in "${ships[@]}"; do shipfiles+=("$root/src/Ships/$s.c"); done
+shipout="$("${cc[@]}" -w "${shipfiles[@]}" 2>&1 || true)"
+if grep -q "error" <<<"$shipout"; then
+	grep "error" <<<"$shipout"
+	echo "m2_layout32: FAIL (ship specifics)"
+	exit 1
+fi
+echo "ILP32 ship specifics: ${#ships[@]} files, every sizeofShipSpecifics assert holds"
 echo "m2_layout32: OK (all ILP32 layout asserts hold)"

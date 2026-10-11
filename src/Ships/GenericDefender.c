@@ -30,6 +30,9 @@ typedef struct
 {
     udword dummy;
 } GenericDefenderSpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(GenericDefenderSpec) == 4, "GenericDefenderSpec is 4 bytes in cataclysm.exe (GenericDefenderHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 typedef struct
 {
@@ -39,16 +42,16 @@ typedef struct
     real32 CIRCLE_RIGHT_THRUST;
 } GenericDefenderStatics;
 
-GenericDefenderStatics LightDefenderStaticRace1;
-GenericDefenderStatics LightDefenderStaticRace2;
-
-GenericDefenderStatics HeavyDefenderStaticRace1;
-GenericDefenderStatics HeavyDefenderStaticRace2;
+// CAT: one block per type: kHeavyDefender (0x00aadc40) and tHeavyDefender (0x00aadc20)
+//      (GenericDefenderStaticInit 0x005b1420); HW1 had light/heavy x R1/R2
+GenericDefenderStatics kHeavyDefenderStatic;
+GenericDefenderStatics tHeavyDefenderStatic;
+GenericDefenderStatics GenericDefenderStaticOther;  // CAT: the exe writes into the statinfo itself for any other type
 
 scriptStructEntry DefenderStaticScriptTable[] =
 {
-    { "CIRCLE_RIGHT_VELOCITY",    scriptSetReal32CB,  &(HeavyDefenderStaticRace1.CIRCLE_RIGHT_VELOCITY),  &(HeavyDefenderStaticRace1) },
-    { "CIRCLE_RIGHT_THRUST",      scriptSetReal32CB,  &(HeavyDefenderStaticRace1.CIRCLE_RIGHT_THRUST),    &(HeavyDefenderStaticRace1) },
+    { "CIRCLE_RIGHT_VELOCITY",    scriptSetReal32CB,  &(kHeavyDefenderStatic.CIRCLE_RIGHT_VELOCITY),  &(kHeavyDefenderStatic) },
+    { "CIRCLE_RIGHT_THRUST",      scriptSetReal32CB,  &(kHeavyDefenderStatic.CIRCLE_RIGHT_THRUST),    &(kHeavyDefenderStatic) },
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -58,16 +61,19 @@ void GenericDefenderStaticInit(char *directory,char *filename,struct ShipStaticI
     udword i;
     GenericDefenderStatics *defenderstat = NULL;
 
+    // CAT: by Cataclysm type (GenericDefenderStaticInit 0x005b1420); no LightDefender
     switch (statinfo->shiptype)
     {
-        case LightDefender:
-           defenderstat = (statinfo->shiprace == R1) ? &LightDefenderStaticRace1 : &LightDefenderStaticRace2;
+        case kHeavyDefender:
+           defenderstat = &kHeavyDefenderStatic;
            break;
-        case HeavyDefender:
-           defenderstat = (statinfo->shiprace == R1) ? &HeavyDefenderStaticRace1 : &HeavyDefenderStaticRace2;
+        case tHeavyDefender:
+           defenderstat = &tHeavyDefenderStatic;
            break;
         default:
             dbgAssertOrIgnore(FALSE);
+            defenderstat = &GenericDefenderStaticOther;
+            break;
     }
 
     statinfo->custstatinfo = defenderstat;
@@ -212,6 +218,27 @@ void GenericDefenderAttackPassive(Ship *ship,Ship *target,bool32 rotate)
 
 #define kamikazeFlyByDist 1200.0f
 
+static void cat_kamikazeSteer(Ship *ship, Ship *target, real32 range)    // 0x005b16f0
+{
+    // CAT-PROVISIONAL: inside 800 units the exe steers the kamikaze straight at the target's collision centre by
+    //      setting its velocity (from the speed multipliers and tacticsGetShipsMaxVelocity of both ships, the
+    //      closing distance per frame, and cat_shipBlendHeadingDefault 0x005bffe0); skipped for non-ships, ships
+    //      with SOF_CatDocking or orphaned modules. It writes the physics state directly and is ported with the
+    //      collision/physics code (M2-R4 #3); until then the HW1 approach flies the last 800 units.
+    (void)ship;
+    (void)target;
+    (void)range;
+}
+
+static void cat_kamikazeCheckHit(Ship *ship, Ship *target)                 // 0x005b1990
+{
+    // CAT-PROVISIONAL: when the kamikaze touches its target's collision box the exe applies the kamikaze collision at
+    //      once (kamikazeCheck + ObjectsCollided with the two collision spheres); ported with Collision.c (M2-R4 #3).
+    //      Until then the collision code's own per-frame kamikaze test handles the hit, as in HW1.
+    (void)ship;
+    (void)target;
+}
+
 void doKamikazeAttack(Ship *ship,SpaceObjRotImpTarg *target)
 {
     real32 mag,dist,range,shipvel;
@@ -260,13 +287,10 @@ void doKamikazeAttack(Ship *ship,SpaceObjRotImpTarg *target)
         //lets use...mmmmm..twister theor...no...relativity
         vecSub(EinsteinVelocity,ship->obj.posinfo.velocity,target->obj.posinfo.velocity);
         shipvel = fsqrt(vecMagnitudeSquared(EinsteinVelocity));
-        if(ship->shiptype == MinelayerCorvette)
+        // CAT: tMinelayerCorvette only; no DefenseFighter case (doKamikazeAttack 0x005b1a50)
+        if(ship->shiptype == tMinelayerCorvette)
         {
             ((MinelayerCorvetteSpec *)(ship->ShipSpecifics))->mineaistate = MINE_DROP_ATTACK;
-        }
-        else if (ship->shiptype == DefenseFighter)
-        {
-            goto dontshoot;
         }
 
         if (isShipStaticInterceptor(shipstaticinfo))
@@ -291,11 +315,11 @@ void doKamikazeAttack(Ship *ship,SpaceObjRotImpTarg *target)
                 }
             }
         }
-        else
+        else if (!(bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic) && cat_shipIsMimicking(ship)))
         {
+            // CAT: a mimicking ship holds its fire (0x005b1a50)
             gunShootGunsAtTarget(ship,target,range,&trajectory);
         }
-dontshoot:
         aishipFlyToPointAvoidingObjs(ship,&destination,AISHIP_PointInDirectionFlying | AISHIP_FirstPointInDirectionFlying | AISHIP_FastAsPossible,0.0f);
         if(range < 1500.0f)
         {
@@ -304,6 +328,21 @@ dontshoot:
         else
         {
             bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_KamikazeCrazyFast);
+        }
+        // CAT: the last 800 units are steered, and a touch of the collision boxes is a hit at once (0x005b1a50;
+        //      the blob test is the exe's: different blobs, or either ship without one)
+        if (range < 800.0f)
+        {
+            cat_kamikazeSteer(ship, (Ship *)target, range);
+        }
+        if (range < 1.0f)
+        {
+            if (((ship->obj.collMyBlob != target->obj.collMyBlob) || (ship->obj.collMyBlob == NULL) || (target->obj.collMyBlob == NULL)) &&
+                collCheckRectBumpCollision((SpaceObjRotImp *)ship, (SpaceObjRotImp *)target))
+            {
+                cat_kamikazeCheckHit(ship, (Ship *)target);
+                return;
+            }
         }
 
 /*
@@ -348,10 +387,10 @@ dontshoot:
     //          ask bryce how to...
 }
 
+// CAT: the exe's header (GenericDefenderHeader 0x008c42d8: kHeavyDefender, tHeavyDefender; original/scratch-m2/m2r2-shipstatic-tools/headers.txt).
+//      Slot 6: the exe folded the identical "rotate ? attackPassiveRotate : attackPassive" body into P1MothershipAttackPassive 0x005be540.
 CustShipHeader GenericDefenderHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(GenericDefenderSpec),
     .CustShipStaticInit = GenericDefenderStaticInit,
     .CustShipFire = DefaultShipFire,

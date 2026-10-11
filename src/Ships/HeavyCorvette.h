@@ -21,6 +21,9 @@ typedef struct
     real32 bulletLifeTime;
     Effect *chargeEffect;
 } HeavyCorvetteSpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(HeavyCorvetteSpec) == 44, "HeavyCorvetteSpec is 44 bytes in cataclysm.exe (HeavyCorvetteHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 extern CustShipHeader HeavyCorvetteHeader;
 

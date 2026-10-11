@@ -26,8 +26,10 @@
 
 MinelayerCorvetteStatics MinelayerCorvetteStatic;
 
-MinelayerCorvetteStatics MinelayerCorvetteStaticRace1;
-MinelayerCorvetteStatics MinelayerCorvetteStaticRace2;
+// CAT: Taiidan (0x00a7ab00) and every other race (0x00a7aba0) (MinelayerCorvetteStaticInit 0x005ba260); only
+//      tMinelayerCorvette uses this header. HW1 had R1/R2
+MinelayerCorvetteStatics MinelayerCorvetteStaticTaiidan;
+MinelayerCorvetteStatics MinelayerCorvetteStaticOther;
 
 #define FIRST_OFF                       99
 #define FIRST_OFF2                      100
@@ -87,9 +89,9 @@ bool32 MinelayerCorvetteStaticMineDrop(Ship *ship,SpaceObjRotImpTarg *target);
 
 void MinelayerCorvetteStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
-    MinelayerCorvetteStatics *corvstat = (statinfo->shiprace == R1) ? &MinelayerCorvetteStaticRace1 : &MinelayerCorvetteStaticRace2;
+    // CAT: Taiidan, else the other block; no memset first (MinelayerCorvetteStaticInit 0x005ba260)
+    MinelayerCorvetteStatics *corvstat = (statinfo->shiprace == RACE_Taiidan) ? &MinelayerCorvetteStaticTaiidan : &MinelayerCorvetteStaticOther;
 
-    memset(corvstat, 0, sizeof(MinelayerCorvetteStatics));
     scriptSetStruct(directory,filename,AttackSideStepParametersScriptTable,(ubyte *)&corvstat->sidestepParameters);
 
     statinfo->custstatinfo = corvstat;
@@ -120,6 +122,8 @@ void MinelayerCorvetteFire(Ship *ship,SpaceObjRotImpTarg *target)
     GunInfo *guninfo = ship->gunInfo;
     Gun *gun0,*gun1;
 
+    // CAT: cat_gunCanFire in place of gunCanShoot (MinelayerCorvetteFire 0x005ba330)
+
     if (guninfo == NULL)
     {
         dbgAssertOrIgnore(FALSE);       //should have gun info...something is teribly wrong...
@@ -133,7 +137,7 @@ void MinelayerCorvetteFire(Ship *ship,SpaceObjRotImpTarg *target)
         {    //Gun 0's turn to fire
             if (gun0->numMissiles >0)
             {   //if there is ammo
-                if (gunCanShoot(ship, gun0))
+                if (cat_gunCanFire(ship, gun0))
                 {
                     missileShoot(ship,gun0, target);
                 }
@@ -142,7 +146,7 @@ void MinelayerCorvetteFire(Ship *ship,SpaceObjRotImpTarg *target)
             {
                 if(gun1->numMissiles >0)
                 {
-                    if (gunCanShoot(ship, gun1))
+                    if (cat_gunCanFire(ship, gun1))
                     {
                         missileShoot(ship,gun1, target);
                     }
@@ -153,7 +157,7 @@ void MinelayerCorvetteFire(Ship *ship,SpaceObjRotImpTarg *target)
         {
             if (gun1->numMissiles >0)
             {   //if there is ammo
-                if (gunCanShoot(ship, gun1))
+                if (cat_gunCanFire(ship, gun1))
                 {
                     missileShoot(ship,gun1, target);
                 }
@@ -162,7 +166,7 @@ void MinelayerCorvetteFire(Ship *ship,SpaceObjRotImpTarg *target)
             {
                 if(gun0->numMissiles >0)
                 {
-                    if (gunCanShoot(ship, gun0))
+                    if (cat_gunCanFire(ship, gun0))
                     {
                         missileShoot(ship,gun0, target);
                     }
@@ -174,7 +178,7 @@ void MinelayerCorvetteFire(Ship *ship,SpaceObjRotImpTarg *target)
     {    //ship is race 2 wiht 1 gun only
         if (gun0->numMissiles >0)
         {   //if there is ammo
-            if (gunCanShoot(ship, gun0))
+            if (cat_gunCanFire(ship, gun0))
             {
             missileShoot(ship,gun0, target);
             }
@@ -287,7 +291,8 @@ void MineLayerAttackRun(Ship *ship,SpaceObjRotImpTarg *target,AttackSideStep *at
 			//lets check if we want to force drop...
 			if(target->header.objtype == OBJ_ShipType)
 			{
-				if(((Ship *)target)->shiptype == Mothership)
+				// CAT: any mothership-class target (HW1: the Mothership type) (MineLayerAttackRun 0x005ba6e0)
+				if(((Ship *)target)->staticinfo->shipclass == CLASS_Mothership)
 				{
 					//its a mothership
 					vector tempvec;
@@ -379,7 +384,8 @@ void MineLayerAttackRun(Ship *ship,SpaceObjRotImpTarg *target,AttackSideStep *at
 
             spec->aispheretime += universe.phystimeelapsed;
 
-            if(gunCanShoot(ship, gun))
+            // CAT: cat_gunCanFire in place of gunCanShoot (0x005ba6e0)
+            if(cat_gunCanFire(ship, gun))
             {
                 if(gun->numMissiles > 0)
                 {
@@ -423,7 +429,7 @@ void MineLayerAttackRun(Ship *ship,SpaceObjRotImpTarg *target,AttackSideStep *at
             }
             break;
         default:
-            dbgAssertOrIgnore(FALSE);
+            // CAT: no assertion (0x005ba6e0 returns)
             break;
     }
 
@@ -790,15 +796,17 @@ void MineLayerCorvette_Fix(Ship *ship)
     spec->mineforminfo = ConvertNumToPointerInList(&universe.MineFormationList,(sdword)spec->mineforminfo);
 }
 
+// CAT: the exe's header (MinelayerCorvetteHeader 0x008c5040: tMinelayerCorvette; original/scratch-m2/m2r2-shipstatic-tools/headers.txt).
+//      Slot 9 is MinelayerCorvetteOrderChanged 0x005bb320, whose body is HW1's MinelayerCorvetteOrderChangedCleanUp
+//      (MiningStatus = FIRST_OFF, the formation info marked FULL and dropped).
 CustShipHeader MinelayerCorvetteHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(MinelayerCorvetteSpec),
     .CustShipStaticInit = MinelayerCorvetteStaticInit,
     .CustShipInit = MinelayerCorvetteInit,
     .CustShipFire = MinelayerCorvetteFire,
     .CustShipSpecialActivate = MinelayerCorvetteSpecialActivate,
+    .CustShipOrderChanged = MinelayerCorvetteOrderChangedCleanUp, // CAT: new slot 9
     .CustShipHousekeep = MinelayerCorvetteHousekeep,
     .CustShipDied = MineLayerCorvetteDied,
     .CustShip_PreFix = MineLayerCorvette_PreFix,

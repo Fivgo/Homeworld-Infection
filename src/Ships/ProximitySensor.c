@@ -20,8 +20,10 @@ color ProximitySensorBlipColor = colWhite;
 
 ProximitySensorStatics ProximitySensorStatic;
 
-ProximitySensorStatics ProximitySensorStaticRace1;
-ProximitySensorStatics ProximitySensorStaticRace2;
+// CAT: Kushan (0x00a7a7a0) and every other race (0x00a7a760, i.e. Taiidan) (ProximitySensorStaticInit 0x005bf3d0);
+//      HW1 had R1/R2
+ProximitySensorStatics ProximitySensorStaticKushan;
+ProximitySensorStatics ProximitySensorStaticTaiidan;
 
 sdword proxGetBlipRadius(Ship *ship);
 bool32 proxShouldDrawOverlay(Ship *ship);
@@ -46,7 +48,8 @@ scriptStructEntry ProximitySensorStaticScriptTable[] =
 
 void ProximitySensorStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
-    ProximitySensorStatics *ProximitySensorstat = (statinfo->shiprace == R1) ? &ProximitySensorStaticRace1 : &ProximitySensorStaticRace2;
+    // CAT: Kushan, else the Taiidan block (ProximitySensorStaticInit 0x005bf3d0)
+    ProximitySensorStatics *ProximitySensorstat = (statinfo->shiprace == RACE_Kushan) ? &ProximitySensorStaticKushan : &ProximitySensorStaticTaiidan;
 
     statinfo->custstatinfo = ProximitySensorstat;
     scriptSetStruct(directory,filename,ProximitySensorStaticScriptTable,(ubyte *)ProximitySensorstat);
@@ -68,7 +71,10 @@ void proxInFocusSelection(SelectCommand *focus)
     sdword count;
     for(count = 0; count < focus->numShips; count++)
     {
-        if(focus->ShipPtr[count]->shiptype == ProximitySensor)
+        // CAT: HW1 alias retired for both Cataclysm proximity sensor types (HW1 alias ProximitySensor = kProximitySensor
+        //      only). Not exe behaviour: cataclysm.exe has no proxInFocusSelection (ccFocusGeneral 0x0042deb0 does not
+        //      call it, delta map); the call in CameraCommand.c goes with that port [audit: M2-R3 ships-a]
+        if((focus->ShipPtr[count]->shiptype == kProximitySensor) || (focus->ShipPtr[count]->shiptype == tProximitySensor))
         {   //proximity sensor is in the selection
             ((ProximitySensorSpec *)((focus->ShipPtr[count])->ShipSpecifics))->TAGGED = TRUE;
         }
@@ -341,11 +347,7 @@ void ProximitySensorHouseKeep(Ship *ship)
                 if (ship->playerowner->playerIndex == universe.curPlayerIndex)
                 {
                     //only do this stuff for the local player...
-                    //speechEventFleetSpec(ship, STAT_F_ProxSensor_Detection, 0, ship->playerowner->playerIndex);
-                    if(battleCanChatterAtThisTime(BCE_STAT_F_ProxSensor_Detection, ship))
-                    {
-                        battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_F_ProxSensor_Detection, SOUND_EVENT_DEFAULT, &ship->obj.posinfo.position);
-                    }
+                    // CAT: no detection battle chatter (ProximitySensorHouseKeep 0x005bf580 only creates the ping)
                     newPing = pingCreate(
                         NULL,
                         (SpaceObj *)ship,
@@ -393,10 +395,9 @@ void ProximitySensorHouseKeep(Ship *ship)
     }
 }
 
+// CAT: the exe's header (ProximitySensorHeader 0x008c5c88: kProximitySensor, tProximitySensor; original/scratch-m2/m2r2-shipstatic-tools/headers.txt).
 CustShipHeader ProximitySensorHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(ProximitySensorSpec),
     .CustShipStaticInit = ProximitySensorStaticInit,
     .CustShipInit = ProximitySensorInit,

@@ -14,6 +14,7 @@
 #include "Attributes.h"
 #include "Battle.h"
 #include "CommandDefs.h"
+#include "Cloak.h"
 #include "CommandLayer.h"
 #include "InfoOverlay.h"
 #include "Memory.h"
@@ -2789,9 +2790,29 @@ bool32 cat_shipIsCrystal(Ship *ship)                                // 0x005affa
            ((ship->shiptype == dCrystal0) || (ship->shiptype == dCrystal1));
 }
 
-bool32 cat_shipIsCloakedFully(Ship *ship)                           // 0x00436110
+// cat_shipIsCloakedFully 0x00436110 lives in Cloak.c with the rest of Cataclysm's cloak [M2-R3 ships-a]
+
+bool32 cat_shipIsAcolyte(Ship *ship)                                // 0x005ad300 [M2-R3 ships-a]
 {
-    return bitTest(ship->header.flags, SOF_CatCloakDevice) && bitTest(ship->header.flags, SOF_Cloaked);
+    // sAcolyte and bAcolyte (not dAcolyte)
+    return ((ship->shiptype == sAcolyte) || (ship->shiptype == bAcolyte)) ? TRUE : FALSE;
+}
+
+void cat_shipSetDisableReason(Ship *ship, sdword value, sdword reason)      // 0x005b3fe0 [M2-R3 ships-a]
+{
+    // one of 13 disable reasons; the ship is disabled while any of them is set
+    sdword i;
+
+    dbgAssertOrIgnore((reason >= 0) && (reason < CAT_NUM_DISABLE_REASONS));
+    ship->catDisableReason[reason] = value;
+    ship->catDisabled = FALSE;
+    for (i = 0; i < CAT_NUM_DISABLE_REASONS; i++)
+    {
+        if (ship->catDisableReason[i] != 0)
+        {
+            ship->catDisabled = TRUE;
+        }
+    }
 }
 
 bool32 cat_shipIsUntargetable(Ship *ship)                           // 0x0052a060
@@ -2888,11 +2909,47 @@ bool32 cat_shipDetectedByPlayer(Ship *ship, sdword playerIndex)     // sub_53F9F
     // every other ship is always detected.
     if ((playerIndex < MAX_MULTIPLAYER_PLAYERS) && (ship->staticinfo->catTypeFlags & 0x20000))
     {
-        // CAT-PROVISIONAL: the per-player flags (specifics +0xAC, +0x1C, +0x30 or +0x18 by type) are ported with those
+        // CAT: the cloaking types (bCloakedFighter specifics +0x30, bIonArrayFrigate/p1IonArrayFrigate +0x18;
+        //      Cloak.h) [M2-R3 ships-a]
+        bool32 *detected = cat_cloakDetectedFlags(ship);
+
+        if (detected != NULL)
+        {
+            return detected[playerIndex];
+        }
+        // CAT-PROVISIONAL: the mimic/MCV/p1StandardCorvette (+0xAC) and leech (+0x1C) flags are ported with those
         //      ships in M2-R4 #4 (ship code B); until then they count as detected, as HW1 treated uncloaked ships.
         return TRUE;
     }
     return TRUE;
+}
+
+static void cat_speechAlertsNoteShip(Ship *ship, sdword playerIndex)    // 0x00522bc0
+{
+    // CAT-PROVISIONAL: the exe raises a "stealth ship spotted" speech-alert flag (0x00c09820 for the cloaking types,
+    //      0x00c09824 mimics, 0x00c09814 leeches) when an enemy stealth ship of the local player's view is
+    //      detected; the speech-alert runtime that reads them is stage 3, so nothing is raised here yet.
+    (void)ship;
+    (void)playerIndex;
+}
+
+void cat_shipStealthDetectedSet(Ship *ship, sdword playerIndex, bool32 detected, bool32 silent)    // 0x0053fad0
+{
+    // CAT: the cloaking types (bCloakedFighter, bIonArrayFrigate, p1IonArrayFrigate) [M2-R3 ships-a]: a ship that
+    //      is fully cloaked and becomes detected by a player raises the speech alert unless silent
+    bool32 *flags = cat_cloakDetectedFlags(ship);
+
+    if (flags != NULL)
+    {
+        if ((flags[playerIndex] == FALSE) && (detected == TRUE) && (!silent) && cat_shipIsCloakedFully(ship))
+        {
+            cat_speechAlertsNoteShip(ship, playerIndex);
+        }
+        flags[playerIndex] = detected;
+        return;
+    }
+    // CAT-PROVISIONAL: the mimic types (sMimic, sMCV, p1StandardCorvette: +0xAC, with the "appears as" rules) and the
+    //      leech (+0x1C) are M2-R4 #4 (ship code B); until then their flags are not kept (see cat_shipDetectedByPlayer)
 }
 
 bool32 cat_shipIsMimicking(Ship *ship)                              // 0x005b99b0

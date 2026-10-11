@@ -8,7 +8,10 @@
 #ifndef ___SALCAPCORVETTE_H
 #define ___SALCAPCORVETTE_H
 
+#include <stddef.h>
+
 #include "Attack.h"
+#include "Salvage.h"
 #include "ShipSelect.h"
 #include "render.h"
 
@@ -45,7 +48,16 @@ typedef struct
     real32 noLightClampingDistance;
 } SalCapCorvetteStatics;
 
-extern CustShipHeader JunkYardDawgHeader;
+// CAT: the exe's specifics (SalCapCorvetteHeader sizeofShipSpecifics 48): the side-step state and the salvager
+//      block at +0x08 (cat_salvageGetSalvagerInfo 0x004f8ec0 returns Ship+0x640)
+typedef struct
+{
+    AttackSideStep attacksidestep;      // +0x00
+    CatSalvagerInfo salvager;           // +0x08
+} CatSalCapCorvetteSpec;
+_Static_assert(offsetof(CatSalCapCorvetteSpec, salvager) == 0x08, "SalCap salvager block at Ship+0x640 in cataclysm.exe");
+_Static_assert(sizeof(CatSalCapCorvetteSpec) == 0x30, "the exe's SalCapCorvetteSpec is 0x30 bytes");
+
 extern CustShipHeader SalCapCorvetteHeader;
 
 bool32 DropTargetInShip(Ship *dockwith,sdword *targetDepotState, ShipOrDerelict *target,sdword *dockindex);

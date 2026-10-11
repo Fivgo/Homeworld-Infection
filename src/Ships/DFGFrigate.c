@@ -12,6 +12,7 @@
 #include "Attack.h"
 #include "FastMath.h"
 #include "glinc.h"
+#include "Mothership.h"
 #include "Randy.h"
 #include "StatScript.h"
 #include "UnivUpdate.h"
@@ -20,12 +21,16 @@ typedef struct
 {
     udword dummy;
 } DFGFrigateSpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(DFGFrigateSpec) == 4, "DFGFrigateSpec is 4 bytes in cataclysm.exe (DFGFrigateHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 
 DFGFrigateStatics DFGFrigateStatic;
 
-DFGFrigateStatics DFGFrigateStaticRace1;
-DFGFrigateStatics DFGFrigateStaticRace2;
+// CAT: one block for both bDFGFrigate and tDFGFrigate (DFGFrigateStaticInit 0x005b08f0 always uses 0x00aadcc0);
+//      HW1 had R1/R2
+DFGFrigateStatics DFGFrigateStaticCat;
 
 scriptStructEntry DFGStaticScriptTable[] =
 {
@@ -41,7 +46,7 @@ scriptStructEntry DFGStaticScriptTable[] =
 
 void DFGFrigateStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
-    DFGFrigateStatics *dfgstat = (statinfo->shiprace == R1) ? &DFGFrigateStaticRace1 : &DFGFrigateStaticRace2;
+    DFGFrigateStatics *dfgstat = &DFGFrigateStaticCat;    // CAT: one block (0x005b08f0)
 
     statinfo->custstatinfo = dfgstat;
 
@@ -74,6 +79,15 @@ void univDFGFieldEffect(Ship *ship, Bullet *bullet,real32 totaltimeelapsed)
     if(bullet->SpecialEffectFlag & 0x0001)
     {
         //bullet has been effected by field so don't touch it ever again!
+        return;
+    }
+
+    // CAT: the field detonates a Sect big-gun shell outright (univDFGFieldEffect 0x005b0940: cat_isBigGunBullet ->
+    //      cat_bigGunBulletExplode, then the shell, its effect and its ping are deleted).
+    //      CAT-PROVISIONAL: no bullet carries the WEAPON_BIGGUN type before the bullet/big-gun ports (M2-R4 #3/#4),
+    //      so cat_isBigGunBullet is FALSE and the detonation is not written yet
+    if (cat_isBigGunBullet((SpaceObj *)bullet))
+    {
         return;
     }
 
@@ -122,6 +136,9 @@ void univDFGFieldEffect(Ship *ship, Bullet *bullet,real32 totaltimeelapsed)
 #endif
         {                                                   //if there is a deflection effect
 //            matCreateCoordSysFromHeading(&newCoordsys,&shiptobullet);
+            // CAT-PROVISIONAL: the exe scales the damage by cat_weaponDamageVsArmour(bullet weapon type, 0)
+            //      0x00514460 (and by etgSoftwareScalarHit in software rendering) before the magnitude; the
+            //      weapon-vs-armour table and the bullet's weapon type are M2-R4 #3, so the factor is 1 here
             floatDamage = (real32)bullet->damage;
             floatDamage *= ship->magnitudeSquared;
             intDamage = Real32ToUdword(floatDamage);
@@ -130,7 +147,9 @@ void univDFGFieldEffect(Ship *ship, Bullet *bullet,real32 totaltimeelapsed)
     }
 
     theta = DEG_TO_RAD(randombetween(0,DFGFstatics->angleVariance));
-    if(randombetween(1,2) & 1)
+    // CAT: the exe flips on an odd random number (ranRandom(10) & 1); HW1's randombetween(1,2) & 1 flipped on an even
+    //      one (0x005b0940; the same for the direction flip below)
+    if(gamerand() & 1)
     {
         theta *= -1.0f;             //could optimize by using a bit toggle
     }
@@ -140,7 +159,7 @@ void univDFGFieldEffect(Ship *ship, Bullet *bullet,real32 totaltimeelapsed)
 
     matGetVectFromMatrixCol1(dir1,newmatrix);
 
-    if(randombetween(1,2) & 1)
+    if(gamerand() & 1)
     {
         vecScalarMultiply(dir1,dir1,-1.0f);
     }
@@ -154,7 +173,7 @@ void univDFGFieldEffect(Ship *ship, Bullet *bullet,real32 totaltimeelapsed)
     vecScalarMultiply(bullet->lengthvec,newbulletdir,bullet->lengthmag);
     bullet->bulletheading = newbulletdir;
 
-    bullet->damage = (sword) (bullet->damage*DFGFstatics->BulletDamageMultiplier);
+    // CAT: no BulletDamageMultiplier any more (the key is still read); the life extension stays (0x005b0940)
     bullet->totallifetime += DFGFstatics->BulletLifeExtension;
 }
 
@@ -166,12 +185,24 @@ void DFGFrigateAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdist)
 }
 
 
+void DFGFrigateHouseKeep(Ship *ship)
+{
+    // CAT: new slot-10 body (DFGFrigateHouseKeep 0x005b0cf0). On 3 of every 4 universe updates
+    //      ((univUpdateCounter & 0xC) != 0) the exe walks the command layer for formation commands of type 9 or 10
+    //      (the Sentinel field formations) whose lead ship belongs to another player and lies within the DFG's
+    //      fieldRadius (statics +0x04, squared), and marks every ship of such a command (Sentinel specifics, exe
+    //      Ship+0x97C = 1, Ship+0x980 = now + 0x0072a6c0): the DFG field disrupts enemy Sentinel fields.
+    //      CAT-PROVISIONAL: the Sentinel specifics and its field formations are M2-R4 #4 (ship code B), so nothing
+    //      is marked until then.
+    (void)ship;
+}
+
+// CAT: the exe's header (DFGFrigateHeader 0x008c3ff8: bDFGFrigate, tDFGFrigate; original/scratch-m2/m2r2-shipstatic-tools/headers.txt).
 CustShipHeader DFGFrigateHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(DFGFrigateSpec),
     .CustShipStaticInit = DFGFrigateStaticInit,
+    .CustShipHousekeep = DFGFrigateHouseKeep,                // CAT: new slot 10
     .CustShipAttack = DFGFrigateAttack,
 };
 

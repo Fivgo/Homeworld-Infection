@@ -39,6 +39,10 @@
 =============================================================================*/
 
 bool32 gunCanShoot(Ship *ship, Gun *gun);
+// CAT (M2-R3 ships-a): Cataclysm's gun queries that the reused HW1 ship bodies call (see Gun.c)
+bool32 cat_gunCanFire(Ship *ship, Gun *gun);
+real32 cat_gunGetBulletSpeed(Gun *gun);
+bool32 cat_gunFixedGunAimedAtTarget(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target, bool32 useGunHeading);
 bool32 gunOrientGimbleGun(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target);
 void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target);
 void gunShoot(Ship *ship,Gun *gun, SpaceObjRotImpTarg *target);

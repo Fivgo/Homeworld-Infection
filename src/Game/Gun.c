@@ -57,6 +57,98 @@ bool32 vanillaGunsMode = FALSE;
 =============================================================================*/
 
 /*-----------------------------------------------------------------------------
+    CAT (M2-R3 ships-a): three Cataclysm gun queries the reused HW1 ship bodies call (DefaultShipFire,
+    GenericInterceptorCanFire, GenericInterceptorPassiveAttack). In the exe each first asks whether the gun is in
+    its upgraded second fire mode (Gun +0x00 == gunstatic->endUpgradeLevel and start != end level) and then uses the
+    "2" keys (firetime2, bulletspeed2). This tree's Gun has no upgrade-level word yet (the exe's Gun is 0x88 bytes
+    with it at +0x00; HW1's is 0x84): the Gun layout and the upgrade runtime are M2-R4 #3 (combat). Until then
+    every gun is in its first mode, which is the exe's path for every gun that is not upgraded (CAT-PROVISIONAL).
+-----------------------------------------------------------------------------*/
+static bool32 cat_gunInSecondMode(Gun *gun)
+{
+    // CAT-PROVISIONAL: (gun->upgradeLevel == gunstatic->endUpgradeLevel) && (startUpgradeLevel != endUpgradeLevel)
+    //      in the exe; no upgrade level until M2-R4 #3
+    (void)gun;
+    return FALSE;
+}
+
+bool32 cat_gunCanFire(Ship *ship, Gun *gun)                                 // 0x0048a1c0
+{
+    // a dissolving ship does not fire
+    if ((ship != NULL) && (ship->catDissolving == TRUE))
+    {
+        return FALSE;
+    }
+    if (cat_gunInSecondMode(gun))
+    {
+        // CAT-PROVISIONAL: the second-mode fire-time rules (firetime2 shared between the ship's second-mode guns)
+        //      are M2-R4 #3; unreachable until then
+        return FALSE;
+    }
+    return gunCanShoot(ship, gun);
+}
+
+real32 cat_gunGetBulletSpeed(Gun *gun)                                      // 0x0048b8e0
+{
+    GunStatic *gunstatic = gun->gunstatic;
+
+    if (cat_gunInSecondMode(gun))
+    {
+        // the exe falls back to the first speed only when bulletspeed2 <= 0 and bulletspeed > 0
+        // [audit: M2-R3 ships-a; was "bulletspeed2 > 0 ? bulletspeed2 : bulletspeed", which differs when both are <= 0]
+        if ((gunstatic->bulletspeed2 <= 0.0f) && (gunstatic->bulletspeed > 0.0f))
+        {
+            return gunstatic->bulletspeed;
+        }
+        return gunstatic->bulletspeed2;
+    }
+    return gunstatic->bulletspeed;
+}
+
+bool32 cat_gunFixedGunAimedAtTarget(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target, bool32 useGunHeading)    // 0x0048cd40
+{
+    GunStatic *gunstatic = gun->gunstatic;
+    vector trajectory;
+    vector gunposition;
+    vector heading;
+    vector worldheading;
+    real32 dist, cosang, sinang;
+
+    // where the target will be, seen from the gun's muzzle
+    aishipGetTrajectoryWithVelPrediction(ship, target, cat_gunGetBulletSpeed(gun), &trajectory);
+    matMultiplyMatByVec(&gunposition, &ship->rotatable.rotinfo.coordsys, &gunstatic->position);
+    vecSubFrom(trajectory, gunposition);
+
+    // the gun's own heading, or the ship's heading column (the exe rotates either by the ship's coordsys)
+    if (useGunHeading)
+    {
+        heading = gun->gunheading;
+    }
+    else
+    {
+        matGetVectFromMatrixCol3(heading, ship->rotatable.rotinfo.coordsys);
+    }
+    matMultiplyMatByVec(&worldheading, &ship->rotatable.rotinfo.coordsys, &heading);
+
+    dist = fsqrt(vecMagnitudeSquared(trajectory));
+    cosang = vecDotProduct(worldheading, trajectory) * (1.0f / dist);
+    if (cosang > 0.0f)
+    {
+        if (cosang > 1.0f)
+        {
+            cosang = 1.0f;
+        }
+        sinang = fsqrt(1.0f - cosang * cosang);
+        // the line of fire passes within 3/4 of the target's collision sphere
+        if (sinang * dist < target->staticinfo->common.staticCollInfo.collspheresize * 0.75f)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : gunCanShoot
     Description : returns TRUE if gun can shoot
     Inputs      : gun

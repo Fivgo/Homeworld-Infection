@@ -107,7 +107,6 @@ struct SphereStaticInfo *scriptSetSphereStaticInfo(char *directory,char *filenam
 void scriptSetShipGroupSizeCB(char *directory, char *field, sdword *dataToFillIn);
 void scriptSetShipProbCB(char *directory, char *field, real32 *dataToFillIn);
 void scriptSetHyperspaceCostCB(char *directory, char *field, void *dataToFillIn);
-void scriptSetSpecialDoorOffsetCB(char *directory, char *field, void *dataToFillIn);
 void scriptSetBlobPropertyOverlap(char *directory,char *field,void *dataToFillIn);
 void scriptSetBlobBiggestRadius(char *directory,char *field,void *dataToFillIn);
 

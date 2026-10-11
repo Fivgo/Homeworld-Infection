@@ -16,6 +16,9 @@ typedef struct
 {
     sdword resourcesCollected;
 } ResourceCollectorSpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(ResourceCollectorSpec) == 4, "ResourceCollectorSpec is 4 bytes in cataclysm.exe (ResourceCollectorHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 
 typedef struct
@@ -25,8 +28,10 @@ typedef struct
 
 ResourceCollectorStatics ResourceCollectorStatic;
 
-ResourceCollectorStatics ResourceCollectorStaticRace1;
-ResourceCollectorStatics ResourceCollectorStaticRace2;
+// CAT: Kushan (0x00a7a608) and every other race (0x00a7a604, i.e. Taiidan: tResourceCollector)
+//      (ResourceCollectorStaticInit 0x005c3d90); HW1 had R1/R2
+ResourceCollectorStatics ResourceCollectorStaticKushan;
+ResourceCollectorStatics ResourceCollectorStaticTaiidan;
 
 scriptStructEntry ResourceCollectorStaticScriptTable[] =
 {
@@ -37,7 +42,8 @@ scriptStructEntry ResourceCollectorStaticScriptTable[] =
 
 void ResourceCollectorStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
-    ResourceCollectorStatics *resourcestat = (statinfo->shiprace == R1) ? &ResourceCollectorStaticRace1 : &ResourceCollectorStaticRace2;
+    // CAT: Kushan, else the Taiidan block (ResourceCollectorStaticInit 0x005c3d90)
+    ResourceCollectorStatics *resourcestat = (statinfo->shiprace == RACE_Kushan) ? &ResourceCollectorStaticKushan : &ResourceCollectorStaticTaiidan;
 
     statinfo->custstatinfo = resourcestat;
     scriptSetStruct(directory,filename,ResourceCollectorStaticScriptTable,(ubyte *)resourcestat);
@@ -66,14 +72,14 @@ void ResourceCollectorAttack(Ship *ship, SpaceObjRotImpTarg *target,real32 maxdi
     R1ResourcerAttacksShip(ship,target,FALSE);
 }
 
+// CAT: the exe's header (ResourceCollectorHeader 0x008c6378: tResourceCollector; original/scratch-m2/m2r2-shipstatic-tools/headers.txt).
+//      Slot 3 is the "specifics word 0 = 0" body the exe folded into MiningBaseInit 0x005b0360 (the same code as
+//      ResourceCollectorInit). No slot 21 (HW1: ResourceCollectorAttack): the collector does not attack.
 CustShipHeader ResourceCollectorHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(ResourceCollectorSpec),
     .CustShipStaticInit = ResourceCollectorStaticInit,
     .CustShipInit = ResourceCollectorInit,
     .CustShipSpecialTarget = ResourceCollectorSpecialTarget,
-    .CustShipAttack = ResourceCollectorAttack,
 };
 

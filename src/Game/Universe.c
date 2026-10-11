@@ -270,6 +270,9 @@ bool32 universeForceDefaultShip = FALSE;   //flag for forcing ships to be loaded
 // CAT: /catShipStaticsTest (port diagnostic, not in the exe): load the .shp of every ship type at start-up, log one
 //      line per ship and exit; see catShipStaticsRunSelfTest
 bool32 catShipStaticsSelfTest = FALSE;
+// CAT: port diagnostic (M2-R3 ships-a): with /catShipStaticsTest, also run each type's CustShipStaticInit, so every
+//      StaticInit of the 145 types is exercised once (logged "staticinit=next" instead of "skipped")
+bool32 catShipStaticsRunStaticInit = FALSE;
 sdword catShipStaticsSkip[CAT_SHIPSTATICS_MAXSKIP];    // CAT: /catShipStaticsSkip (types the self-test leaves out)
 sdword catShipStaticsSkipCount = 0;
 
@@ -2875,14 +2878,15 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
                 statinfo->dockStaticInfo ? statinfo->dockStaticInfo->numDockPoints : 0,
                 statinfo->navlightStaticInfo ? statinfo->navlightStaticInfo->numNAVLights : 0,
                 statinfo->common.LOD ? "yes" : "no",
-                statinfo->custshipheader.CustShipStaticInit == NULL ? "none" : (catShipStaticsSelfTest ? "skipped" : "next"));
+                statinfo->custshipheader.CustShipStaticInit == NULL ? "none" :
+                    ((catShipStaticsSelfTest && !catShipStaticsRunStaticInit) ? "skipped" : "next"));
 
     if (statinfo->custshipheader.CustShipStaticInit != NULL)
     {
-        if (catShipStaticsSelfTest)
+        if (catShipStaticsSelfTest && !catShipStaticsRunStaticInit)
         {
-            // CAT: /catShipStaticsTest loads every type; the slot-1 bodies are stage 2 (HW1's assert on most
-            //      Cataclysm types), so the self-test stops before them
+            // CAT: /catShipStaticsTest loads every type and by default stops before the slot-1 bodies (stage 2);
+            //      /catShipStaticsStaticInit runs them too (M2-R3 ships-a)
         }
         else
         {

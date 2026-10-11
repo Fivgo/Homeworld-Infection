@@ -20,6 +20,9 @@ typedef struct
     real32 lasttimeDidSpecialTargeting;
     sdword curTargetIndex;
 } P1MissileCorvetteSpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(P1MissileCorvetteSpec) == 24, "P1MissileCorvetteSpec is 24 bytes in cataclysm.exe (P1MissileCorvetteHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 typedef struct
 {
@@ -31,7 +34,10 @@ typedef struct
     AttackSideStepParameters sidestepParameters;
 } P1MissileCorvetteStatics;
 
+// CAT: P1 (0x00a7a8c0) and every other race (0x00a7a880: bMissileCorvette) (P1MissileCorvetteStaticInit
+//      0x005be2e0); HW1 had one block
 P1MissileCorvetteStatics P1MissileCorvetteStatic;
+P1MissileCorvetteStatics P1MissileCorvetteStaticBeast;
 
 scriptStructEntry P1MissileCorvetteScriptTable[] =
 {
@@ -45,9 +51,8 @@ scriptStructEntry P1MissileCorvetteScriptTable[] =
 void P1MissileCorvetteStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
     udword i;
-    P1MissileCorvetteStatics *corvstat = &P1MissileCorvetteStatic;
-
-    memset(corvstat, 0, sizeof(P1MissileCorvetteStatics));
+    // CAT: P1, else the Beast block; no memset first (P1MissileCorvetteStaticInit 0x005be2e0)
+    P1MissileCorvetteStatics *corvstat = (statinfo->shiprace == RACE_P1) ? &P1MissileCorvetteStatic : &P1MissileCorvetteStaticBeast;
 
     scriptSetStruct(directory,filename,AttackSideStepParametersScriptTable,(ubyte *)&corvstat->sidestepParameters);
     scriptSetStruct(directory,filename,P1MissileCorvetteScriptTable,(ubyte *)corvstat);
@@ -141,20 +146,11 @@ void P1MissileCorvetteHousekeep(Ship *ship)
 bool32 P1MissileCorvetteSpecialTarget(Ship *ship,void *custom)
 {
     SelectAnyCommand *targets;
-    sdword i;
-    sdword numShipsToTarget;
-    sdword numGuns;
-    Gun *gun;
-    GunStatic *gunstatic;
-    SpaceObjRotImpTarg *target;
-    ShipStaticInfo *shipstaticinfo;
     P1MissileCorvetteSpec *spec;
     P1MissileCorvetteStatics *mcorvettestat;
-    bool32 firedSomeMissiles;
 
     spec = (P1MissileCorvetteSpec *)ship->ShipSpecifics;
-    shipstaticinfo = (ShipStaticInfo *)ship->staticinfo;
-    mcorvettestat = (P1MissileCorvetteStatics *)shipstaticinfo->custstatinfo;
+    mcorvettestat = (P1MissileCorvetteStatics *)((ShipStaticInfo *)ship->staticinfo)->custstatinfo;
 
     spec->lasttimeDidSpecialTargeting = universe.totaltimeelapsed;
 
@@ -167,62 +163,18 @@ bool32 P1MissileCorvetteSpecialTarget(Ship *ship,void *custom)
         return FALSE;
     }
 
+    // CAT: P1MissileCorvetteSpecialTarget 0x005be480 fires no missile volley: once the volley time has passed it
+    //      resets the target index and reports the order done (HW1 fired every loaded launcher at the targets in turn)
     targets = (SelectAnyCommand *)custom;
-    numShipsToTarget = targets->numTargets;
-
-    if (numShipsToTarget == 0)
-    {
-        // have destroyed targets, so we are done
-        spec->curTargetIndex = 0;
-        return TRUE;
-    }
-
-    if (spec->curTargetIndex >= numShipsToTarget)
-    {
-        spec->curTargetIndex = 0;
-    }
-
-    numGuns = ship->gunInfo->numGuns;
-    firedSomeMissiles = FALSE;
-    for (i=0;i<numGuns;i++)
-    {
-        gunstatic = &shipstaticinfo->gunStaticInfo->gunstatics[i];
-        if (gunstatic->guntype == GUN_MissileLauncher)
-        {
-            gun = &ship->gunInfo->guns[i];
-            if (gunHasMissiles(gun))
-            {
-                firedSomeMissiles = TRUE;
-
-                target = targets->TargetPtr[spec->curTargetIndex];
-
-                missileShoot(ship,gun,target);
-
-                spec->curTargetIndex++;
-                if (spec->curTargetIndex >= numShipsToTarget)
-                {
-                    spec->curTargetIndex = 0;
-                }
-            }
-        }
-    }
-
-    if (firedSomeMissiles)
-    {
-        return FALSE;
-    }
-    else
-    {
-        // all empty of missiles, so we are done
-        spec->curTargetIndex = 0;
-        return TRUE;
-    }
+    (void)targets;
+    spec->curTargetIndex = 0;
+    return TRUE;
 }
 
+// CAT: the exe's header (P1MissileCorvetteHeader 0x008c58d8: bMissileCorvette, p1MissileCorvette; original/scratch-m2/m2r2-shipstatic-tools/headers.txt).
+//      Slot 6: the exe folded the identical "rotate ? attackPassiveRotate : attackPassive" body into P1MothershipAttackPassive 0x005be540.
 CustShipHeader P1MissileCorvetteHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(P1MissileCorvetteSpec),
     .CustShipStaticInit = P1MissileCorvetteStaticInit,
     .CustShipInit = P1MissileCorvetteInit,

@@ -38,6 +38,9 @@ typedef struct
     real32 blipRadius;
     sdword TAGGED;
 } ProximitySensorSpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(ProximitySensorSpec) == 16, "ProximitySensorSpec is 16 bytes in cataclysm.exe (ProximitySensorHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 extern color ProximitySensorBlipColor;
 extern CustShipHeader ProximitySensorHeader;

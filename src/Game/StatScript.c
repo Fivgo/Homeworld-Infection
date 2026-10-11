@@ -331,33 +331,8 @@ void scriptSetHyperspaceCostCB(char *directory, char *field, void *dataToFillIn)
     costData->canMpHyperspace = TRUE;
 }
 
-void scriptSetSpecialDoorOffsetCB(char *directory, char *field, void *dataToFillIn)
-{
-    char shipname[200];
-    char racename[50];
-    ShipType shiptype;
-    ShipRace race;
-    real32 offsetX,offsetY,offsetZ;
-    sdword headingSdword, upSdword;
-    MothershipStatics *mstatic = (MothershipStatics *)dataToFillIn;
-
-    sscanf(field,"%s %s %f %f %f %d %d", racename, shipname, &offsetX, &offsetY, &offsetZ, &headingSdword, &upSdword);
-
-    shiptype = StrToShipType(shipname);
-    race = StrToShipRace(racename);
-
-    //from monkeyvector callback
-    //sscanf(field,"%f,%f,%f",&newvec.z, &newvec.x, &newvec.y);
-    //newvec.z = -newvec.z;
-    //*((vector *)dataToFillIn) = newvec;
-
-    mstatic->specialDoorOffset[race][shiptype].z = -offsetX;
-    mstatic->specialDoorOffset[race][shiptype].x = offsetY;
-    mstatic->specialDoorOffset[race][shiptype].y = offsetZ;
-    mstatic->specialDoorOrientationHeading[race][shiptype] = headingSdword;
-    mstatic->specialDoorOrientationUp[race][shiptype] = upSdword;
-}
-
+// CAT (M2-R3 ships-a): no scriptSetSpecialDoorOffsetCB: cataclysm.exe has no mothership special-door offsets
+//      (MothershipStaticInit 0x005bb730 reads no key table; no such callback in the exe)
 
 void scriptSetShipGroupSizeCB(char *directory, char *field, sdword *dataToFillIn)
 {

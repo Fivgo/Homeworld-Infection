@@ -25,8 +25,10 @@ typedef struct
     AttackSideStepParameters sidestepParameters;
 } HeavyCorvetteStatics;
 
-HeavyCorvetteStatics HeavyCorvetteStaticRace1;
-HeavyCorvetteStatics HeavyCorvetteStaticRace2;
+// CAT: Kushan (0x00a7ad80) and every other race (0x00a7ad90, i.e. Beast) (HeavyCorvetteStaticInit 0x005b4e10);
+//      HW1 had R1/R2
+HeavyCorvetteStatics HeavyCorvetteStaticKushan;
+HeavyCorvetteStatics HeavyCorvetteStaticBeast;
 
 void heavyCleanSpec(Ship *ship);
 bool32 doBurstCharging(Ship *ship);
@@ -35,9 +37,9 @@ bool32 doBurstFire(Ship *ship);
 
 void HeavyCorvetteStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
-    HeavyCorvetteStatics *corvstat = (statinfo->shiprace == R1) ? &HeavyCorvetteStaticRace1 : &HeavyCorvetteStaticRace2;
+    // CAT: Kushan, else the Beast block; no memset first (HeavyCorvetteStaticInit 0x005b4e10)
+    HeavyCorvetteStatics *corvstat = (statinfo->shiprace == RACE_Kushan) ? &HeavyCorvetteStaticKushan : &HeavyCorvetteStaticBeast;
 
-    memset(corvstat, 0, sizeof(HeavyCorvetteStatics));
     scriptSetStruct(directory,filename,AttackSideStepParametersScriptTable,(ubyte *)&corvstat->sidestepParameters);
 
     statinfo->custstatinfo = corvstat;
@@ -288,6 +290,15 @@ void HeavyCorvetteHouseKeep(Ship *ship)
     }
 }
 
+void HeavyCorvetteOrderChanged(Ship *ship)
+{
+    // CAT: new slot-9 body (HeavyCorvetteOrderChanged 0x005b5300): a new order resets the burst state (Ship+0x640 =
+    //      specifics +0x08)
+    HeavyCorvetteSpec *spec = (HeavyCorvetteSpec *)ship->ShipSpecifics;
+
+    spec->burstState = 0;
+}
+
 void HeavyCorvette_PreFix(Ship *ship)
 {
     HeavyCorvetteSpec *spec = (HeavyCorvetteSpec *)ship->ShipSpecifics;
@@ -296,16 +307,18 @@ void HeavyCorvette_PreFix(Ship *ship)
 }
 
 
+// CAT: the exe's header (HeavyCorvetteHeader 0x008c4998: bHeavyCorvette, kHeavyCorvette; original/scratch-m2/m2r2-shipstatic-tools/headers.txt).
+//      Slot 6: the exe folded the identical "rotate ? attackPassiveRotate : attackPassive" body into P1MothershipAttackPassive 0x005be540.
+//      Slot 21: the exe folded the identical attackSideStep(spec, statics) body into SwarmerAttack 0x005c79b0.
 CustShipHeader HeavyCorvetteHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(HeavyCorvetteSpec),
     .CustShipStaticInit = HeavyCorvetteStaticInit,
     .CustShipInit = HeavyCorvetteInit,
     .CustShipFire = DefaultShipFire,
     .CustShipAttackPassive = HeavyCorvetteAttackPassive,
     .CustShipSpecialTarget = HeavyCorvetteSpecialTarget,
+    .CustShipOrderChanged = HeavyCorvetteOrderChanged,       // CAT: new slot 9
     .CustShipHousekeep = HeavyCorvetteHouseKeep,
     .CustShip_PreFix = HeavyCorvette_PreFix,
     .CustShipAttack = HeavyCorvetteAttack,

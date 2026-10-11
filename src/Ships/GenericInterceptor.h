@@ -8,6 +8,8 @@
 #ifndef ___GENERICINTERCEPTOR_H
 #define ___GENERICINTERCEPTOR_H
 
+#include <stddef.h>
+
 #include "ClassDefs.h"
 #include "FlightMan.h"
 #include "ObjTypes.h"
@@ -42,12 +44,25 @@ typedef struct
     FlightManProb flightmanProb[NUM_TACTICS_TYPES][NUM_CLASSES+1];
 } GenericInterceptorStatics;
 
+// CAT: 0x3640 bytes in cataclysm.exe (GenericInterceptorStaticInit 0x005b1e70 clears 0xD90 dwords; key table
+//      0x008c4378: maxFlyAwayDist +0x4, breakRange +0x13C, flyPastDist +0x1D8, triggerHappy +0x274,
+//      faceTargetAccuracy +0x310, maxAttackTime +0x3AC, flightmanProb +0x448, FlightManProb 0x148), with 13 = 12
+//      classes + default per tactics row. Only real32/udword members, so the size is the same on LP64.
+_Static_assert(sizeof(FlightManProb) == 0x148, "FlightManProb is 0x148 bytes in cataclysm.exe");
+_Static_assert(sizeof(GenericInterceptorStatics) == 0x3640, "GenericInterceptorStatics is 0x3640 bytes in cataclysm.exe");
+_Static_assert(offsetof(GenericInterceptorStatics, breakRange) == 0x13C, "breakRange at +0x13C in cataclysm.exe");
+_Static_assert(offsetof(GenericInterceptorStatics, triggerHappy) == 0x274, "triggerHappy at +0x274 in cataclysm.exe");
+_Static_assert(offsetof(GenericInterceptorStatics, maxAttackTime) == 0x3AC, "maxAttackTime at +0x3AC in cataclysm.exe");
+_Static_assert(offsetof(GenericInterceptorStatics, flightmanProb) == 0x448, "flightmanProb at +0x448 in cataclysm.exe");
+
 extern CustShipHeader AttackBomberHeader;
 extern CustShipHeader CloakedFighterHeader;
 extern CustShipHeader GenericInterceptorHeader;
-extern CustShipHeader TargetDroneHeader;
 
 void GenericInterceptorAttack(Ship *ship, SpaceObjRotImpTarg *target, real32 maxdist);
+// CAT: the cloak slots the exe shares with P1IonArrayFrigateHeader (slots 7 and 10)
+bool32 CloakedFighterSpecialActivate(Ship *ship);
+void CloakedFighterHouseKeep(Ship *ship);
 bool32 GenericInterceptorCanFire(Ship *ship, SpaceObjRotImpTarg *target, vector *trajectory, real32 triggerHappy);
 FlightManProb *GenericInterceptorGetFlightManProb(Ship *ship, SpaceObjRotImpTarg *target);
 bool32 InterceptorInRange(Ship *ship, SpaceObjRotImpTarg *target);

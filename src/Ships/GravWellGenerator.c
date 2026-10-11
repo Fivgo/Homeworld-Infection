@@ -34,8 +34,10 @@ typedef struct
 
 GravWellGeneratorStatics GravWellGeneratorStatic;
 
-GravWellGeneratorStatics GravWellGeneratorStaticRace1;
-GravWellGeneratorStatics GravWellGeneratorStaticRace2;
+// CAT: Kushan (0x00a7ada0) and every other race (0x00a7ade0, i.e. Taiidan) (GravWellGeneratorStaticInit 0x005b40a0);
+//      HW1 had R1/R2
+GravWellGeneratorStatics GravWellGeneratorStaticKushan;
+GravWellGeneratorStatics GravWellGeneratorStaticTaiidan;
 
 //after effect is spawned, wait between these two numbers before re-spawning
 #define gravwellEffectLifeLow       3.0f
@@ -64,7 +66,8 @@ scriptStructEntry GravWellGeneratorStaticScriptTable[] =
 
 void GravWellGeneratorStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
-    GravWellGeneratorStatics *GravWellGeneratorstat = (statinfo->shiprace == R1) ? &GravWellGeneratorStaticRace1 : &GravWellGeneratorStaticRace2;
+    // CAT: Kushan, else the Taiidan block (GravWellGeneratorStaticInit 0x005b40a0)
+    GravWellGeneratorStatics *GravWellGeneratorstat = (statinfo->shiprace == RACE_Kushan) ? &GravWellGeneratorStaticKushan : &GravWellGeneratorStaticTaiidan;
 
     statinfo->custstatinfo = GravWellGeneratorstat;
     scriptSetStruct(directory,filename,GravWellGeneratorStaticScriptTable,(ubyte *)GravWellGeneratorstat);
@@ -109,10 +112,12 @@ void runShipEffect(Ship *ship)
      }
      if (univSpaceObjInRenderList((SpaceObj *)ship))
      {
+         // CAT: the frequency limit applies in every build (runShipEffect 0x005b4130 always calls
+         //      etgFrequencyExceeded; HW1 only with ETG_DISABLEABLE)
     #if ETG_DISABLEABLE
          if (stat != NULL && etgEffectsEnabled && !etgFrequencyExceeded(stat))
     #else
-         if (stat != NULL)
+         if (stat != NULL && !etgFrequencyExceeded(stat))
     #endif
          {
              udword colSizeDword;
@@ -149,6 +154,14 @@ void GravWellGeneratorDied(Ship *ship)
        gravnode = gravnode->next;
     }
     listDeleteAll(&spec->GravList);        //delete the list
+    // CAT: the field effect is detached and timed out here too (GravWellGeneratorDied 0x005b41e0: effect +0xE8 owner
+    //      = NULL, duration parameter = time elapsed, spec effect = NULL)
+    if (spec->gravityEffect != NULL)
+    {
+        spec->gravityEffect->owner = NULL;
+        ((real32 *)spec->gravityEffect->variable)[ETG_SpecialDurationParam] = spec->gravityEffect->timeElapsed;
+        spec->gravityEffect = NULL;
+    }
 }
 
 bool32 gravwellIsShipStuckForHyperspaceing(Ship *ship)
@@ -159,7 +172,8 @@ bool32 gravwellIsShipStuckForHyperspaceing(Ship *ship)
     for(i=0;i<ship->obj.collMyBlob->blobShips->numShips;i++)
     {
         posShip = ship->obj.collMyBlob->blobShips->ShipPtr[i];
-        if(posShip->shiptype == GravWellGenerator)
+        // CAT: both Cataclysm gravwell types (gravwellIsShipStuckForHyperspaceing 0x005b4260 tests 0x40 / 0x4F)
+        if((posShip->shiptype == kGravWellGenerator) || (posShip->shiptype == tGravWellGenerator))
         {
             //SHIP IS A GRAV WELL!
             if(((GravWellGeneratorSpec *)(posShip->ShipSpecifics))->GravFieldOn)
@@ -206,6 +220,8 @@ void turnoffGravwell(Ship *ship)
     //////////////////////////
 
     madLinkInCloseSpecialShip(ship);
+    // CAT: Cataclysm's gravwell-off sound, ship event 0x80F (turnoffGravwell 0x005b42f0)
+    soundEventPlay(ship, 0x80F, NULL);
     spec->GravFieldOn = FALSE;
     GravWellGeneratorDied(ship); //not literal...just cleans up linked list of ships
     //make the continuous effect time out by modifying the duration parameter directly
@@ -272,7 +288,10 @@ bool32 GravWellGeneratorSpecialActivate(Ship *ship)
             if(spec->TimeOn < gravwellgeneratorstatics->OperationTime)
             {
                 madLinkInOpenSpecialShip(ship);
-                speechEvent(ship, COMM_Grav_On, 0);
+                // CAT: Cataclysm's grav-on command speech (Fleet Command event 0x0400089E) and its gravwell-on sound,
+                //      ship event 0x80E (GravWellGeneratorSpecialActivate 0x005b4430)
+                speechEventQueue(ship, 0x0400089E, 0, -1, -1, -1, -1, 0.0f, -1);
+                soundEventPlay(ship, 0x80E, NULL);
                 spec->GravFieldOn = TRUE;
                 //create the looping "gravity on" effect
                 etgLOD = etgSpecialPurposeEffectTable[EGT_GRAVWELL_ON];
@@ -372,12 +391,10 @@ void GravWellGeneratorAddObj(Ship *ship,  Ship *objtoadd)
     //speech event ships stuck in gravwell
     //need to definatly limit with battle chatter!
     //event define:   STAT_Strike_StuckInGrav
+    // CAT: a fleet-level "stuck in gravwell" chatter with no can-chatter test (GravWellGeneratorAddObj 0x005b4570)
     if(objtoadd->playerowner->playerIndex == universe.curPlayerIndex)
     {
-        if (battleCanChatterAtThisTime(BCE_STAT_Strike_StuckInGrav, objtoadd))
-        {
-            battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_Strike_StuckInGrav, objtoadd, SOUND_EVENT_DEFAULT);
-        }
+        battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_Strike_StuckInGrav, SOUND_EVENT_DEFAULT, NULL);
     }
 
     ////////////////////////
@@ -411,10 +428,14 @@ void GravAddObjectsInProximity(Ship *gravship)
     {
         ship = (Ship *)listGetStructOfNode(objnode);
 
+        // CAT: corvettes, fighters, micro-class ships and sWorker are caught; the two SalCap corvettes are not
+        //      (GravAddObjectsInProximity 0x005b46c0; HW1: corvettes and fighters, not the SalCapCorvette type)
         if(ship->staticinfo->shipclass == CLASS_Corvette ||
-           ship->staticinfo->shipclass == CLASS_Fighter)
+           ship->staticinfo->shipclass == CLASS_Fighter ||
+           ship->staticinfo->shipclass == CLASS_Micro ||
+           ship->shiptype == sWorker)
         {
-            if(ship->shiptype == SalCapCorvette)
+            if((ship->shiptype == kSalCapCorvette) || (ship->shiptype == tSalCapCorvette))
                 goto nextnode;
             //later, do a cubular check instead?
             vecSub(diff,ship->obj.posinfo.position,gravship->obj.posinfo.position);
@@ -485,10 +506,16 @@ void GravWellGeneratorHouseKeep(Ship *ship)
     {
         gravwellgeneratorstatics = (GravWellGeneratorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo;
         spec->ready = TRUE;
-        spec->TimeOn += universe.phystimeelapsed;
+        // CAT: only an ownerless gravwell uses up its operation time (GravWellGeneratorHouseKeep 0x005b47e0 adds
+        //      phystimeelapsed only when playerowner, Ship+0x32C, is NULL)
+        if (ship->playerowner == NULL)
+        {
+            spec->TimeOn += universe.phystimeelapsed;
+        }
         if(spec->TimeOn >= gravwellgeneratorstatics->OperationTime)
         {   //Grav Generator has used up its time so shut it down
-            speechEvent(ship, STAT_Grav_Collapse, 0);
+            // CAT: Cataclysm's collapse status speech (event 0x0200089F) (0x005b47e0)
+            speechEventQueue(ship, 0x0200089F, 0, -1, -1, -1, -1, 0.0f, -1);
             GravWellGeneratorDied(ship);
             spec->GravFieldOn = FALSE;
             spec->GravDerelict = TRUE;
@@ -723,10 +750,9 @@ void GravWellAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdist)
     attackStraightForward(ship,target,4000.0f,3000.0f);
 }
 
+// CAT: the exe's header (GravWellGeneratorHeader 0x008c4868: kGravWellGenerator, tGravWellGenerator; original/scratch-m2/m2r2-shipstatic-tools/headers.txt).
 CustShipHeader GravWellGeneratorHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(GravWellGeneratorSpec),
     .CustShipStaticInit = GravWellGeneratorStaticInit,
     .CustShipInit = GravWellGeneratorInit,
@@ -734,6 +760,7 @@ CustShipHeader GravWellGeneratorHeader =
     .CustShipSpecialActivate = GravWellGeneratorSpecialActivate,
     .CustShipHousekeep = GravWellGeneratorHouseKeep,
     .CustShipRemoveShipReferences = GravWellGeneratorRemoveShipReferences,
+    .CustShipRemoveObjReferences = (void (*)(struct Ship *, struct SpaceObj *))GravWellGeneratorRemoveShipReferences, // CAT: new slot 12, the slot-11 body
     .CustShipDied = GravWellGeneratorDied,
     .CustShip_PreFix = GravWellGenerator_PreFix,
     .CustShip_Save = GravWellGenerator_Save,

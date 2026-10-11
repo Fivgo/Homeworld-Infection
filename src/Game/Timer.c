@@ -291,3 +291,35 @@ void timTimerLoad(void)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    CAT (M2-R3 ships-a): Cataclysm's unnamed timers (Timer.h CatTimer)
+-----------------------------------------------------------------------------*/
+#define CAT_TIMER_MAGIC 0x499602D2
+
+// CAT-PROVISIONAL: the exe's real-time timers read the task scheduler's own wall-clock sum (cat_taskRealTimeElapsed
+//      0x00a6b20c, advanced by taskExecuteAllPending 0x0052a840), not universe.realtimeelapsed. Task.c is M2-R4 #5;
+//      until it advances this, a real-time timer never expires. No ported caller starts one yet.
+real32 cat_taskRealTimeElapsed = 0.0f;
+
+void cat_timerStartGameTime(CatTimer *t, real32 duration)                  // 0x00528410
+{
+    t->duration = duration;
+    t->magic = CAT_TIMER_MAGIC;
+    t->startTime = universe.totaltimeelapsed;
+    t->realTime = FALSE;
+}
+
+void cat_timerStartRealTime(CatTimer *t, real32 duration)                  // 0x00528440
+{
+    t->duration = duration;
+    t->magic = CAT_TIMER_MAGIC;
+    t->startTime = cat_taskRealTimeElapsed;
+    t->realTime = TRUE;
+}
+
+bool32 cat_timerExpired(CatTimer *t)                                        // 0x00528490
+{
+    real32 now = t->realTime ? cat_taskRealTimeElapsed : universe.totaltimeelapsed;
+
+    return ((now - t->startTime) < t->duration) ? FALSE : TRUE;
+}

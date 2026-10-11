@@ -12,14 +12,19 @@
 #include "AIShip.h"
 #include "AITrack.h"
 #include "Battle.h"
+#include "Cloak.h"
 #include "Collision.h"
+#include "CommandDefs.h"
+#include "CommandLayer.h"
 #include "DefenseFighter.h"
 #include "FastMath.h"
 #include "Gun.h"
 #include "MadLinkIn.h"
 #include "MadLinkInDefs.h"
+#include "MaxMultiplayer.h"
 #include "NIS.h"
 #include "Randy.h"
+#include "ShipSelect.h"
 #include "SoundEvent.h"
 #include "Tactics.h"
 #include "Universe.h"
@@ -36,6 +41,9 @@ typedef struct
     uword activeGun;
 } GenericInterceptorSpec;
 
+// CAT: 0x50 bytes in cataclysm.exe (CloakedFighterHeader sizeofShipSpecifics 80): the interceptor specifics, then
+//      Cataclysm's cloak block at +0x18 (CloakedFighterInit 0x005b36f0 -> cat_cloakInit(ship, ship+0x650)) and the
+//      per-player detected flags at +0x30 (sub_53F9F0 0x0053f9f0 reads Ship+0x668); HW1's cloak fuel fields are gone
 typedef struct                      //Inherited From GenericInterceptorSpec
 {
     real32 lasttimefired;
@@ -43,11 +51,13 @@ typedef struct                      //Inherited From GenericInterceptorSpec
     vector aivec;                   // AI vector when breaking
     bool16 aiAIPflightman;          // AI boolean indicating if attack in progress (AIP) flight maneuver has been chosen
     uword activeGun;
-    real32 CloakingStatus;          // Gradient value for cloaking and decloaking state
-    bool32 CloakLowWarning;
-    bool32 ReCloak;
-    real32 ReCloakTime;
+    CatCloak cloak;                 // CAT: +0x18
+    bool32 detected[MAX_MULTIPLAYER_PLAYERS];   // CAT: +0x30
 } CloakedFighterSpec;
+_Static_assert(sizeof(GenericInterceptorSpec) == 0x18, "GenericInterceptorSpec is 0x18 bytes in cataclysm.exe");
+_Static_assert(offsetof(CloakedFighterSpec, cloak) == CAT_CLOAK_SPECOFS_CLOAKEDFIGHTER, "cloak at specifics +0x18");
+_Static_assert(offsetof(CloakedFighterSpec, detected) == CAT_DETECTED_SPECOFS_CLOAKEDFIGHTER, "detected at +0x30");
+_Static_assert(sizeof(CloakedFighterSpec) == 0x50, "CloakedFighterSpec is 0x50 bytes in cataclysm.exe");
 
 typedef struct
 {
@@ -61,6 +71,8 @@ typedef struct
     real32 angle;
     sdword bombingdelay;
 } AttackBomberSpec;
+// CAT: the exe's sizeofShipSpecifics (GenericInterceptorHeader 24, AttackBomberHeader 56); no pointers, same on LP64
+_Static_assert(sizeof(AttackBomberSpec) == 0x38, "AttackBomberSpec is 0x38 bytes in cataclysm.exe");
 
 void GenericInterceptorStaticInit(char *directory, char *filename, struct ShipStaticInfo *statinfo);
 void GenericInterceptorInit(Ship *ship);
@@ -93,48 +105,28 @@ typedef struct
     FlightManProb flightmanProb[NUM_TACTICS_TYPES][NUM_CLASSES+1];
 } GenericInterceptorStatics;
 */
-typedef struct          //inherited Structure for Cloaked Fighter
-{
-    real32 firetime;
-    real32 maxFlyAwayDist[NUM_TACTICS_TYPES][NUM_CLASSES+1];
-    real32 maxFlyAwayDistSquared[NUM_TACTICS_TYPES][NUM_CLASSES+1];    // use NUM_CLASSES entry as DefaultClass (so array len = NUM_CLASSES+1)
-    real32 breakRange[NUM_TACTICS_TYPES][NUM_CLASSES+1];
-    real32 flyPastDist[NUM_TACTICS_TYPES][NUM_CLASSES+1];
-    real32 triggerHappy[NUM_TACTICS_TYPES][NUM_CLASSES+1];
-    real32 faceTargetAccuracy[NUM_TACTICS_TYPES][NUM_CLASSES+1];
-    real32 maxAttackTime[NUM_TACTICS_TYPES][NUM_CLASSES+1];
-    FlightManProb flightmanProb[NUM_TACTICS_TYPES][NUM_CLASSES+1];
-    real32 CloakFuelBurnRate;
-    real32 ForceDeCloakAtFuelPercent;
-    real32 DeCloakFuelLevel;
-    real32 CloakingTime;
-    real32 DeCloakingTime;
-    real32 VisibleState;
-    real32 battleReCloakTime;
-} CloakedFighterStatics;
+// CAT: no CloakedFighterStatics (HW1 cloak fuel statics; CloakedFighterStaticInit 0x005b36d0 reads no cloak keys)
 
 GenericInterceptorStatics GenericInterceptorStatic;
-CloakedFighterStatics CloakedFighterStatic;
 
-GenericInterceptorStatics LightInterceptorStaticRace1;
-GenericInterceptorStatics LightInterceptorStaticRace2;
-
-GenericInterceptorStatics HeavyInterceptorStaticRace1;
-GenericInterceptorStatics HeavyInterceptorStaticRace2;
-
-GenericInterceptorStatics AttackBomberStaticRace1;
-GenericInterceptorStatics AttackBomberStaticRace2;
-
-CloakedFighterStatics CloakedFighterStaticRace1;
-CloakedFighterStatics CloakedFighterStaticRace2;
-
-GenericInterceptorStatics P1FighterStatic;
-
-GenericInterceptorStatics P2SwarmerStatic;
-
-GenericInterceptorStatics P2AdvanceSwarmerStatic;
-
-GenericInterceptorStatics TargetDroneStatic;
+// CAT: one statics block per ship type, 14 types (GenericInterceptorStaticInit 0x005b1e70 switches on the type and
+//      keeps 14 blocks of 0x3640 bytes at 0x00a7e4a0..0x00aaa5e0); HW1 had per-race light/heavy/bomber/cloaked blocks
+//      and P1/P2/TargetDrone blocks. Cataclysm has no CloakedFighterStatics: CloakedFighterStaticInit 0x005b36d0 only
+//      calls GenericInterceptorStaticInit, so bCloakedFighter gets a plain GenericInterceptorStatics block too.
+GenericInterceptorStatics sReconInterceptorStatic;
+GenericInterceptorStatics sAcolyteInterceptorStatic;
+GenericInterceptorStatics sMimicInterceptorStatic;
+GenericInterceptorStatics bReconInterceptorStatic;
+GenericInterceptorStatics bAcolyteInterceptorStatic;
+GenericInterceptorStatics bInterceptorInterceptorStatic;
+GenericInterceptorStatics bCloakedFighterInterceptorStatic;
+GenericInterceptorStatics bAttackBomberInterceptorStatic;
+GenericInterceptorStatics kAttackBomberInterceptorStatic;
+GenericInterceptorStatics kHeavyInterceptorInterceptorStatic;
+GenericInterceptorStatics tAttackBomberInterceptorStatic;
+GenericInterceptorStatics tHeavyInterceptorInterceptorStatic;
+GenericInterceptorStatics p1FighterInterceptorStatic;
+GenericInterceptorStatics dAcolyteInterceptorStatic;
 
 scriptStructEntry LIStaticScriptTable[] =
 {
@@ -155,17 +147,6 @@ scriptStructEntry LIStaticScriptTable[] =
     END_SCRIPT_STRUCT_ENTRY
 };
 
-scriptStructEntry CloakedFighterStaticScriptTable[] =
-{
-    { "CloakFuelBurnRate",          scriptSetReal32CB,  &(CloakedFighterStatic.CloakFuelBurnRate),           &(CloakedFighterStatic) },
-    { "ForceDeCloakAtFuelPercent",  scriptSetReal32CB,  &(CloakedFighterStatic.ForceDeCloakAtFuelPercent),   &(CloakedFighterStatic) },
-    { "CloakingTime",               scriptSetReal32CB,  &(CloakedFighterStatic.CloakingTime),                &(CloakedFighterStatic) },
-    { "DeCloakingTime",             scriptSetReal32CB,  &(CloakedFighterStatic.DeCloakingTime),              &(CloakedFighterStatic) },
-    { "VisibleState",               scriptSetReal32CB,  &(CloakedFighterStatic.VisibleState),                &(CloakedFighterStatic) },
-    { "battleReCloakTime",          scriptSetReal32CB,  &(CloakedFighterStatic.battleReCloakTime),           &(CloakedFighterStatic) },
-
-    END_SCRIPT_STRUCT_ENTRY
-};
 
 void GenericInterceptorStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
@@ -173,32 +154,24 @@ void GenericInterceptorStaticInit(char *directory,char *filename,struct ShipStat
     udword i;
     TacticsType t;
 
+    // CAT: the 14 Cataclysm types that use this StaticInit (directly or through CloakedFighterStaticInit,
+    //      AcolyteStaticInit, MimicStaticInit), one block each (GenericInterceptorStaticInit 0x005b1e70)
     switch (statinfo->shiptype)
     {
-        case LightInterceptor:
-            interceptorstat = (statinfo->shiprace == R1) ? &LightInterceptorStaticRace1 : &LightInterceptorStaticRace2;
-            break;
-        case HeavyInterceptor:
-            interceptorstat = (statinfo->shiprace == R1) ? &HeavyInterceptorStaticRace1 : &HeavyInterceptorStaticRace2;
-            break;
-        case AttackBomber:
-            interceptorstat = (statinfo->shiprace == R1) ? &AttackBomberStaticRace1 : &AttackBomberStaticRace2;
-            break;
-        case CloakedFighter:
-            interceptorstat = (statinfo->shiprace == R1) ? (GenericInterceptorStatics *)&CloakedFighterStaticRace1 : (GenericInterceptorStatics *)&CloakedFighterStaticRace2;
-            break;
-        case P1Fighter:
-            interceptorstat = &P1FighterStatic;
-            break;
-        case P2Swarmer:
-            interceptorstat = &P2SwarmerStatic;
-            break;
-        case P2AdvanceSwarmer:
-            interceptorstat = &P2AdvanceSwarmerStatic;
-            break;
-        case TargetDrone:
-            interceptorstat = &TargetDroneStatic;
-            break;
+        case sRecon:            interceptorstat = &sReconInterceptorStatic;             break;
+        case sAcolyte:          interceptorstat = &sAcolyteInterceptorStatic;           break;
+        case sMimic:            interceptorstat = &sMimicInterceptorStatic;             break;
+        case bRecon:            interceptorstat = &bReconInterceptorStatic;             break;
+        case bAcolyte:          interceptorstat = &bAcolyteInterceptorStatic;           break;
+        case bInterceptor:      interceptorstat = &bInterceptorInterceptorStatic;       break;
+        case bCloakedFighter:   interceptorstat = &bCloakedFighterInterceptorStatic;    break;
+        case bAttackBomber:     interceptorstat = &bAttackBomberInterceptorStatic;      break;
+        case kAttackBomber:     interceptorstat = &kAttackBomberInterceptorStatic;      break;
+        case kHeavyInterceptor: interceptorstat = &kHeavyInterceptorInterceptorStatic;  break;
+        case tAttackBomber:     interceptorstat = &tAttackBomberInterceptorStatic;      break;
+        case tHeavyInterceptor: interceptorstat = &tHeavyInterceptorInterceptorStatic;  break;
+        case p1Fighter:         interceptorstat = &p1FighterInterceptorStatic;          break;
+        case dAcolyte:          interceptorstat = &dAcolyteInterceptorStatic;           break;
         default:
             break;
     }
@@ -231,13 +204,8 @@ void GenericInterceptorStaticInit(char *directory,char *filename,struct ShipStat
             }
         }
 
-    if (statinfo->shiptype == TargetDrone)
-        for (t = Evasive; t < NUM_TACTICS_TYPES; t++)
-        {
-            statinfo->bulletRange[t] = 2500.0f;
-            statinfo->bulletRangeSquared[t] = 2500.0f * 2500.0f;
-            statinfo->minBulletRange[t] = 2500.0f;
-        }
+    // CAT: no TargetDrone bullet-range override (no TargetDrone type; GenericInterceptorStaticInit 0x005b1e70 ends
+    //      after the per-class fallback)
 }
 
 void GenericInterceptorInit(Ship *ship)
@@ -255,24 +223,20 @@ bool32 GenericInterceptorCanFire(Ship *ship,SpaceObjRotImpTarg *target,vector *t
     Gun *gun;
     GunInfo *gunInfo = ship->gunInfo;
     sdword i;
+    sdword numGuns;
     bool32 returnval = FALSE;
     bool32 canUseGun;
     sdword pickgun;
 
-    if (ship->shiptype == TargetDrone)
+    // CAT: GenericInterceptorCanFire 0x005b2120. No TargetDrone test and no trigger-happy adjustments (the exe never
+    //      reads triggerHappy: fixed guns aim with cat_gunFixedGunAimedAtTarget); a mimicking ship never fires;
+    //      cat_gunCanFire in place of gunCanShoot; an Acolyte picks among the first half of its guns; fixed guns fire
+    (void)trajectory;
+    (void)triggerHappy;
+
+    if (bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic) && cat_shipIsMimicking(ship))
     {
-        //target drones attack like interceptors, but don't have guns
         return FALSE;
-    }
-
-    if(ship->aistateattack == STATE_WHIPSTRAFE1)
-    {
-        triggerHappy = 0.0f;
-    }
-
-    if (bitTest(ship->header.flags, SOF_NISShip))
-    {
-        triggerHappy = NIS_TriggerHappyAngle;
     }
 
     if(ship->staticinfo->madStatic != NULL)
@@ -300,16 +264,22 @@ bool32 GenericInterceptorCanFire(Ship *ship,SpaceObjRotImpTarg *target,vector *t
         return FALSE;   // if time since last shot fired is less than the gun firetime, don't shoot.
     }
 
-    for (i=0,canUseGun=FALSE,pickgun=spec->activeGun;i<gunInfo->numGuns;i++)
+    numGuns = gunInfo->numGuns;
+    if (cat_shipIsAcolyte(ship))
     {
-        if (gunCanShoot(ship, &gunInfo->guns[pickgun]))
+        numGuns = gunInfo->numGuns / 2;
+    }
+
+    for (i=0,canUseGun=FALSE,pickgun=spec->activeGun;i<numGuns;i++)
+    {
+        if (cat_gunCanFire(ship, &gunInfo->guns[pickgun]))
         {
             canUseGun = TRUE;
             break;
         }
 
         pickgun++;
-        if (pickgun>=gunInfo->numGuns)
+        if (pickgun>=numGuns)
         {
             pickgun = 0;
         }
@@ -318,20 +288,15 @@ bool32 GenericInterceptorCanFire(Ship *ship,SpaceObjRotImpTarg *target,vector *t
     if (canUseGun)
     {
         spec->activeGun = pickgun;
-        dbgAssertOrIgnore(spec->activeGun < gunInfo->numGuns);
         gun = &gunInfo->guns[spec->activeGun];
 
         switch (gun->gunstatic->guntype)
         {
+            case GUN_Fixed:
+                return cat_gunFixedGunAimedAtTarget(ship,gun,target,TRUE);
+
             case GUN_Gimble:
-                if (gunOrientGimbleGun(ship,gun,target))
-                {
-                    return TRUE;
-                }
-                else
-                {
-                    return FALSE;
-                }
+                return gunOrientGimbleGun(ship,gun,target) ? TRUE : FALSE;
 
             case GUN_NewGimble:
                 // orient all other gimble guns as well
@@ -339,7 +304,6 @@ bool32 GenericInterceptorCanFire(Ship *ship,SpaceObjRotImpTarg *target,vector *t
                 {
                     if (i == spec->activeGun)
                     {
-                        dbgAssertOrIgnore(curgun == gun);
                         returnval = gunOrientGimbleGun(ship,curgun,target);
                     }
                     else
@@ -350,7 +314,6 @@ bool32 GenericInterceptorCanFire(Ship *ship,SpaceObjRotImpTarg *target,vector *t
                 return returnval;
 
             default:
-                dbgAssertOrIgnore(FALSE);
                 return FALSE;
         }
     }
@@ -367,12 +330,15 @@ void GenericInterceptorFire(Ship *ship,SpaceObjRotImpTarg *target)
 
     spec->lasttimefired = universe.totaltimeelapsed;
 
-    dbgAssertOrIgnore(spec->activeGun < gunInfo->numGuns);
-
     gunShoot(ship,&gunInfo->guns[spec->activeGun],target);
 
     spec->activeGun++;
     if (spec->activeGun >= gunInfo->numGuns)
+    {
+        spec->activeGun = 0;
+    }
+    // CAT: an Acolyte alternates between its first two guns (GenericInterceptorFire 0x005b22c0)
+    if (cat_shipIsAcolyte(ship) && (spec->activeGun > 1))
     {
         spec->activeGun = 0;
     }
@@ -446,8 +412,10 @@ void GenericInterceptorPassiveAttack(Ship *ship,Ship *target,bool32 rotate)
     //Commented out for now...was causing crashwith CloakedFighter
     //dbgAssertOrIgnore(shipstaticinfo->custshipheader.CustShipFire == GenericInterceptorFire);
 
-    if (shipstaticinfo->gunStaticInfo)
-        aishipGetTrajectoryWithVelPrediction(ship,(SpaceObjRotImpTarg *)target,shipstaticinfo->gunStaticInfo->gunstatics[0].bulletspeed,&trajectory);
+    // CAT: the first gun's current bullet speed (cat_gunGetBulletSpeed), and only when the ship has guns at all
+    //      (GenericInterceptorPassiveAttack 0x005b2470)
+    if ((shipstaticinfo->gunStaticInfo != NULL) && (ship->gunInfo != NULL))
+        aishipGetTrajectoryWithVelPrediction(ship,(SpaceObjRotImpTarg *)target,cat_gunGetBulletSpeed(&ship->gunInfo->guns[0]),&trajectory);
     else
         aishipGetTrajectory(ship,(SpaceObjRotImpTarg *)target,&trajectory);
 
@@ -501,7 +469,6 @@ void GenericInterceptorPassiveAttack(Ship *ship,Ship *target,bool32 rotate)
     */
 }
 
-// works with DefenseFighter as well, even though it is not a generic interceptor
 FlightManProb *GenericInterceptorGetFlightManProb(Ship *ship,SpaceObjRotImpTarg *target)
 {
     ShipStaticInfo *shipstaticinfo = (ShipStaticInfo *)ship->staticinfo;
@@ -516,10 +483,8 @@ FlightManProb *GenericInterceptorGetFlightManProb(Ship *ship,SpaceObjRotImpTarg 
         targetIndex = (uword)NUM_CLASSES;
     }
 
-    if (ship->shiptype == DefenseFighter)
-        return &((DefenseFighterStatics *)shipstaticinfo->custstatinfo)->flightmanProb[ship->tacticstype][targetIndex];
-    else
-        return &((GenericInterceptorStatics *)shipstaticinfo->custstatinfo)->flightmanProb[ship->tacticstype][targetIndex];
+    // CAT: no DefenseFighter case (GenericInterceptorGetFlightManProb 0x005b25c0)
+    return &((GenericInterceptorStatics *)shipstaticinfo->custstatinfo)->flightmanProb[ship->tacticstype][targetIndex];
 }
 
 void CalcRallyPoint(vector s, vector t, AttackBomberSpec *diveinfo)
@@ -578,8 +543,10 @@ void GenericInterceptorAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdi
     {
         case STATE_INIT:
             spec->aiAIPflightman = FALSE;
-            if((ship->shiptype != AttackBomber) || (!BombersUseBombingRun) || (targetIndex > CLASS_Frigate) ||
-               ((target->header.objtype == OBJ_ShipType) && (((Ship *)target)->shiptype == Mothership) && (((Ship *)target)->shiprace == R1)))
+            // CAT: only kAttackBomber/tAttackBomber may start a bombing run, and never at a ship target (HW1: never at
+            //      the R1 mothership) (GenericInterceptorAttack 0x005b2620)
+            if(((ship->shiptype != kAttackBomber) && (ship->shiptype != tAttackBomber)) || (!BombersUseBombingRun) ||
+               (targetIndex > CLASS_Frigate) || (target->header.objtype == OBJ_ShipType))
             {
                 ship->aistateattack = STATE_APPROACH;
                 aishipGetTrajectory(ship,target,&trajectory);
@@ -769,8 +736,9 @@ void GenericInterceptorAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdi
 #if DEBUG_INTERCEPTOR
             dbgMessagef("Ship %x STATE_KILL",(udword)ship);
 #endif
-            if (shipstaticinfo->gunStaticInfo)
-                aishipGetTrajectoryWithVelPrediction(ship,target,shipstaticinfo->gunStaticInfo->gunstatics[0].bulletspeed,&trajectory);
+            // CAT: the first gun's current bullet speed, and only when the ship has guns (0x005b2620)
+            if ((shipstaticinfo->gunStaticInfo != NULL) && (ship->gunInfo != NULL))
+                aishipGetTrajectoryWithVelPrediction(ship,target,cat_gunGetBulletSpeed(&ship->gunInfo->guns[0]),&trajectory);
             else
                 aishipGetTrajectory(ship,target,&trajectory);
 
@@ -857,15 +825,13 @@ void GenericInterceptorAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdi
                     }
                     randegf = DEG_TO_RAD(randegf);
 
-                    if ((ship->formationcommand) && (ship->tacticstype != Evasive))
-                        formtype = ship->formationcommand->formation.formationtype;
+                    // CAT: the formation type of the ship's own command when it is a formation command (HW1: the
+                    //      ship's formationcommand), and no R1-mothership exception (0x005b2620)
+                    if ((ship->command != NULL) && (ship->command->ordertype.attributes & COMMAND_MASK_FORMATION) &&
+                        (ship->tacticstype != Evasive))
+                        formtype = ship->command->formation.formationtype;
                     else
                         formtype = NO_FORMATION;
-
-                    if ((target->header.objtype == OBJ_ShipType) && (((Ship *)target)->shiptype == Mothership) && (((Ship *)target)->shiprace == R1) )
-                    {
-                        formtype = NO_FORMATION;            // yet another R1 Mothership special consideration
-                    }
 
                     if ( (ABS(trajectory.z) >= 0.75) )
                     {
@@ -991,7 +957,7 @@ abortbreakafterall:
             break;
 
         default:
-            dbgAssertOrIgnore(FALSE);
+            // CAT: no assertion (0x005b2620 returns)
             break;
     }
 
@@ -999,27 +965,20 @@ abortbreakafterall:
 
 void CloakedFighterStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
-    CloakedFighterStatics *interceptorstat;
-
+    // CAT: only the interceptor statics (CloakedFighterStaticInit 0x005b36d0); no cloak fuel keys, the cloak is
+    //      Cataclysm's charge-based cloak (Cloak.c, cat_cloakInit/cat_cloakUpdate)
     GenericInterceptorStaticInit(directory,filename,statinfo);
-
-    interceptorstat = (CloakedFighterStatics *)statinfo->custstatinfo;
-
-    scriptSetStruct(directory,filename,CloakedFighterStaticScriptTable,(ubyte *)interceptorstat);
-
-    //Set the fuel level at which ship decloaks and can no longer cloak
-    interceptorstat->DeCloakFuelLevel = (interceptorstat->ForceDeCloakAtFuelPercent/100)*statinfo->maxfuel;
-    interceptorstat->CloakingTime = 1 / interceptorstat->CloakingTime;
 }
 
 
 void CloakedFighterInit(Ship *ship)
 {
     CloakedFighterSpec *spec = (CloakedFighterSpec *)ship->ShipSpecifics;
-    GenericInterceptorInit(ship);
-    spec->CloakingStatus = 1.0f;        //ship isn't cloaked
-    spec->CloakLowWarning = FALSE;
-    spec->ReCloak = FALSE;
+
+    // CAT: Cataclysm's cloak with drain and charge rate 0.1 (CloakedFighterInit 0x005b36f0); the exe inlines
+    //      GenericInterceptorInit (activeGun = 0)
+    spec->activeGun = 0;
+    cat_cloakInit(ship, &spec->cloak, 0.1f, 0.1f);
 }
 
 
@@ -1065,179 +1024,47 @@ void SpawnCloakingEffect(Ship *ship, etglod *etgLOD)
 
 bool32 CloakedFighterSpecialActivate(Ship *ship)
 {
-    CloakedFighterSpec *spec = (CloakedFighterSpec *)ship->ShipSpecifics;
-    CloakedFighterStatics *cloakedfighterstatics;
-    cloakedfighterstatics = (CloakedFighterStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo;
-
-    spec->ReCloak = FALSE;
-    if(ship->fuel <= cloakedfighterstatics->DeCloakFuelLevel)
-    {           //ships fuel is below critical level, so don't let it cloak
-//        speechEvent(ship, COMM_Cloak_InsufficientPower, 0);
-		if (battleCanChatterAtThisTime(BCE_CloakingInsufficientPower, ship))
-		{
-			battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CloakingInsufficientPower, ship, SOUND_EVENT_DEFAULT);
-		}
-        return TRUE;
-    }
-/*
-    if(bitTest(ship->header.flags,SOF_Cloaked) || bitTest(ship->header.flags,SOF_Cloaking))
-    {
-        bitSet(ship->header.flags,SOF_DeCloaking);     //begin DeCloaking Process;
-        bitClear(ship->header.flags,SOF_Cloaking);     //clear in case we are cloaking right now
-    }
-    else
-    {
-        bitSet(ship->header.flags,SOF_Cloaking);       //begin Cloaking Process
-        bitClear(ship->header.flags,SOF_DeCloaking);   //clear in case we are decloaking right now
-    }
-*/
-    if(bitTest(ship->header.flags,SOF_Cloaked))
-    {
-
-        if(universe.curPlayerIndex != ship->playerowner->playerIndex)
-        {
-            //////////////////
-            //speechevent ENEMY fighters decloaking
-            //needs to be dependant on camera n' stuff!
-            //event num: COMM_F_Grp_Enemy_Fighters_Decloaking
-            //battle chatter
-            // if (battleCanChatterAtThisTime(BCE_COMM_F_Grp_Enemy_Fighters_Decloaking, ship))
-            //{
-            //    battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_COMM_F_Grp_Enemy_Fighters_Decloaking, ship, SOUND_EVENT_DEFAULT);
-            //}
-            //
-        }
-        bitSet(ship->header.flags,SOF_DeCloaking);     //begin DeCloaking Process;
-        SpawnCloakingEffect(ship, etgSpecialPurposeEffectTable[EGT_CLOAK_OFF]);
-		soundEvent(ship, Ship_CloakOff);
-    }
-    else
-    {
-        bitSet(ship->header.flags,SOF_Cloaking);       //begin Cloaking Process
-        SpawnCloakingEffect(ship, etgSpecialPurposeEffectTable[EGT_CLOAK_ON]);
-		soundEvent(ship, Ship_CloakOn);
-//        speechEvent(ship, COMM_Cloak_CloakingOn, 0);
-		if (battleCanChatterAtThisTime(BCE_CloakingOn, ship))
-		{
-			battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CloakingOn, ship, SOUND_EVENT_DEFAULT);
-		}
-    }
-    return TRUE;
+    // CAT: toggles Cataclysm's cloak (CloakedFighterSpecialActivate 0x005b3720); no fuel test, effect or chatter here
+    return cat_cloakActivate(ship);
 }
-
 
 void CloakedFighterFire(Ship *ship,SpaceObjRotImpTarg *target)
 {
-    if(ship->shiptype == CloakedFighter)
+    // CAT: a fully cloaked fighter does not fire (it does not decloak to fire either); otherwise the interceptor
+    //      fire, which the exe inlines with its Acolyte gun wrap (CloakedFighterFire 0x005b37b0)
+    if (!cat_shipIsCloakedFully(ship))
     {
-        if (bitTest(ship->header.flags,SOF_Cloaked) || bitTest(ship->header.flags,SOF_Cloaking))
-        {             //ship is cloaked...make it decloak...
-            bitClear(ship->header.flags,SOF_Cloaking);         //if bastard is trying to cloak,
-            bitSet(ship->header.flags,SOF_DeCloaking);         //put an end to it pronto!
-            ((CloakedFighterSpec *) ship->ShipSpecifics)->ReCloak = TRUE;
-            ((CloakedFighterSpec *) ship->ShipSpecifics)->ReCloakTime = universe.totaltimeelapsed +
-                ((CloakedFighterStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->battleReCloakTime;
-        }
+        GenericInterceptorFire(ship,target);
     }
-
-    GenericInterceptorFire(ship,target);
 }
 
 void CloakedFighterHouseKeep(Ship *ship)
 {
-    CloakedFighterSpec *spec = (CloakedFighterSpec *)ship->ShipSpecifics;
-    CloakedFighterStatics *cloakedfighterstatics;
-    cloakedfighterstatics = (CloakedFighterStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo;
+    // CAT: Cataclysm's cloak update (CloakedFighterHouseKeep 0x005b3840)
+    cat_cloakUpdate(ship);
+}
 
-    if(bitTest(ship->header.flags,SOF_Cloaking))           //ship is cloaking
+void CloakedFighterAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdist)
+{
+    // CAT: new slot-21 body (CloakedFighterAttack 0x005b3730): attack like an interceptor while visible; a fully
+    //      cloaked fighter that is told to attack decloaks first (the exe returns 1/0, which no caller reads)
+    if (!cat_shipIsCloakedFully(ship))
     {
-        //decrement Cloaking Status counter based on time elapsed
-/***** calculated the inverse of CloakingTime in CloakedFighterStaticInit and multiply instead of divide *****/
-        spec->CloakingStatus -= universe.phystimeelapsed*cloakedfighterstatics->CloakingTime;
-        if(spec->CloakingStatus <= cloakedfighterstatics->VisibleState)
-        {                                       //if ship is now past the vissible threshold
-            bitSet(ship->header.flags,SOF_Cloaked);    //make it invisible to everything
-            if(spec->CloakingStatus <= 0.0f)    //if it is completly invisible stop decloaking
-            {
-                spec->CloakingStatus = 0.0f;    //reset to 0.0
-                bitClear(ship->header.flags,SOF_Cloaking); //stop ship from 'cloaking'
-                //Since ship is cloaked, must remove it from being targeted
-                //Note:  This probably will not let a person attack their own cloaked ships...
-
-                shipHasJustCloaked(ship);
-                //speechEvent(ship, COMM_Cloak_CloakingOn, 0);
-                /*
-
-                RemoveShipFromBeingTargeted(&universe.mainCommandLayer,ship,FALSE);
-                if(ship->playerowner != universe.curPlayerPtr)
-                {           //if ship isn't players...remove it from camera stack
-                    ccRemoveShip(&universe.mainCameraCommand,ship);
-                }
-                speechEvent(ship, COMM_Cloak_CloakingOn, 0);
-                */
-            }
-        }
+        GenericInterceptorAttack(ship,target,maxdist);
+        return;
     }
-    else if(bitTest(ship->header.flags,SOF_DeCloaking))    //Ship is decloaking
+    cat_cloakActivate(ship);
+}
+
+void CloakedFighterAttackPassive(Ship *ship,Ship *target,bool32 rotate)
+{
+    // CAT: new slot-6 body (CloakedFighterAttackPassive 0x005b3770), the passive-attack twin of CloakedFighterAttack
+    if (!cat_shipIsCloakedFully(ship))
     {
-        //Increment Cloaking Status counter based on time elapsed
-/***** calculated the inverse of CloakingTime in CloakedFighterStaticInit and multiply instead of divide *****/
-        spec->CloakingStatus += universe.phystimeelapsed*cloakedfighterstatics->CloakingTime;
-        if(spec->CloakingStatus >= cloakedfighterstatics->VisibleState)
-        {    //ship is 'visible' since it is past visible threshold
-            if(ship->header.flags & SOF_Cloaked)
-            {
-                bitClear(ship->header.flags, SOF_Cloaked);
-                ship->shipDeCloakTime = universe.totaltimeelapsed;
-            }
-            if(spec->CloakingStatus >= 1.0f)        //done decloaking
-            {
-                spec->CloakingStatus = 1.0f;
-                bitClear(ship->header.flags,SOF_DeCloaking);
-                spec->CloakLowWarning = FALSE;  //reset flag
-                if(spec->ReCloak == FALSE)
-                {   //only play speech when really decloaking for good
-//                    speechEvent(ship, COMM_Cloak_Decloak, 0);
-					if (battleCanChatterAtThisTime(BCE_Decloaking, ship))
-					{
-						battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_Decloaking, ship, SOUND_EVENT_DEFAULT);
-					}
-                }
-            }
-        }
+        GenericInterceptorPassiveAttack(ship,target,rotate);
+        return;
     }
-
-    //Now, lets charge the guy/gal fuel for using the cloaking device
-    if(bitTest(ship->header.flags,SOF_Cloaked) || bitTest(ship->header.flags,SOF_Cloaking))
-    {               //Ship is cloaked or cloaking subtract fuel
-        ship->fuel -= cloakedfighterstatics->CloakFuelBurnRate*universe.phystimeelapsed;
-        if(ship->fuel <= cloakedfighterstatics->DeCloakFuelLevel)
-        {                                           //if fuel reaches a certain level, DeCloak
-            bitSet(ship->header.flags,SOF_DeCloaking);     //begin DeCloaking Process;
-            bitClear(ship->header.flags,SOF_Cloaking);     //clear in case we are cloaking right now
-            SpawnCloakingEffect(ship, etgSpecialPurposeEffectTable[EGT_CLOAK_OFF]);
-			soundEvent(ship, Ship_CloakOff);
-        }
-        if ((ship->fuel <= cloakedfighterstatics->CloakFuelBurnRate * 10.0f) && !spec->CloakLowWarning)
-        {
-            spec->CloakLowWarning = TRUE;
-//            speechEvent(ship, STAT_Cloak_CloakPowerLow, (sdword)(ship->fuel / cloakedfighterstatics->CloakFuelBurnRate));
-			if (battleCanChatterAtThisTime(BCE_CloakingPowerLow, ship))
-			{
-				battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CloakingPowerLow, ship, (sdword)(ship->fuel / cloakedfighterstatics->CloakFuelBurnRate));
-			}
-        }
-    }
-
-    if(spec->ReCloak == TRUE)
-    {
-        if(universe.totaltimeelapsed > spec->ReCloakTime)
-        {
-            spec->ReCloak = FALSE;
-            bitSet(ship->header.flags,SOF_Cloaking);
-			soundEvent(ship, Ship_CloakOn);
-        }
-    }
+    cat_cloakActivate(ship);
 }
 
 bool32 InterceptorInRange(Ship *ship,SpaceObjRotImpTarg *target)
@@ -1269,22 +1096,16 @@ bool32 InterceptorInRange(Ship *ship,SpaceObjRotImpTarg *target)
 
 bool32 GenericInterceptorSpecialActivate(Ship *ship)
 {
-    if(ship->shiptype == LightInterceptor)
-    {
-        if(!bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_SpeedBurst))
-        {
-            bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_SpeedBurst);
-            ship->speedBurstTime = universe.totaltimeelapsed+speedBurstDuration;
-        }
-
-    }
+    // CAT: no speed burst (HW1 gave one to LightInterceptor, a type Cataclysm dropped); the exe's slot 7 of the
+    //      interceptor and attack bomber headers is a bare "return 1", which the linker folded with kasfSpecialOff
+    //      0x00497db0 (GenericInterceptorHeader 0x008c4448, AttackBomberHeader 0x008c4568)
+    (void)ship;
     return TRUE;
 }
 
-CustShipHeader GenericInterceptorHeader =
+// CAT: the exe's header contents (shipHeaders 0x008b1938; original/scratch-m2/m2r2-shipstatic-tools/headers.txt)
+CustShipHeader GenericInterceptorHeader =       // 0x008c4448: sRecon, bRecon, bInterceptor, kHeavyInterceptor, tHeavyInterceptor, p1Fighter
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(GenericInterceptorSpec),
     .CustShipStaticInit = GenericInterceptorStaticInit,
     .CustShipInit = GenericInterceptorInit,
@@ -1294,24 +1115,20 @@ CustShipHeader GenericInterceptorHeader =
     .CustShipAttack = GenericInterceptorAttack,
 };
 
-CustShipHeader CloakedFighterHeader =
+CustShipHeader CloakedFighterHeader =           // 0x008c44d8: bCloakedFighter
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(CloakedFighterSpec),
     .CustShipStaticInit = CloakedFighterStaticInit,
     .CustShipInit = CloakedFighterInit,
     .CustShipFire = CloakedFighterFire,
-    .CustShipAttackPassive = GenericInterceptorPassiveAttack,
+    .CustShipAttackPassive = CloakedFighterAttackPassive,   // CAT: was GenericInterceptorPassiveAttack
     .CustShipSpecialActivate = CloakedFighterSpecialActivate,
     .CustShipHousekeep = CloakedFighterHouseKeep,
-    .CustShipAttack = GenericInterceptorAttack,
+    .CustShipAttack = CloakedFighterAttack,                 // CAT: was GenericInterceptorAttack
 };
 
-CustShipHeader AttackBomberHeader =
+CustShipHeader AttackBomberHeader =             // 0x008c4568: bAttackBomber, kAttackBomber, tAttackBomber
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(AttackBomberSpec),
     .CustShipStaticInit = GenericInterceptorStaticInit,
     .CustShipInit = GenericInterceptorInit,
@@ -1321,15 +1138,4 @@ CustShipHeader AttackBomberHeader =
     .CustShipAttack = GenericInterceptorAttack,
 };
 
-CustShipHeader TargetDroneHeader =
-{
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
-    .sizeofShipSpecifics = sizeof(GenericInterceptorSpec),
-    .CustShipStaticInit = GenericInterceptorStaticInit,
-    .CustShipInit = GenericInterceptorInit,
-    .CustShipFire = GenericInterceptorFire,
-    .CustShipAttack = GenericInterceptorAttack,
-};
-
-
+// CAT: no TargetDroneHeader (no TargetDrone type in Cataclysm; HW1LEGACY id, never in shipHeaders)

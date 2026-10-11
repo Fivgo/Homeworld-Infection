@@ -8,13 +8,19 @@
 #include "Carrier.h"
 
 #include "Attack.h"
-#include "ConsMgr.h"
+#include "BeastWeapon.h"
+#include "Debug.h"
 #include "DefaultShip.h"
+#include "Mothership.h"
 #include "RepairCorvette.h"
-#include "SalCapCorvette.h"
-#include "SaveGame.h"
+#include "Salvage.h"
+#include "Select.h"
+#include "ShipSelect.h"
 #include "Universe.h"
-#include "utility.h"
+
+// CAT: Carrier.c follows cataclysm.exe's Carrier block (0x005aefb0..0x005af460). The carriers are salvage depots
+//      (Salvage.c) and bCarrier carries the Beast infection weapon (BeastWeapon.c); HW1's drop targets and the
+//      captured-ship build queue are gone.
 
 typedef struct
 {
@@ -25,8 +31,14 @@ typedef struct
 
 CarrierStatics CarrierStatic;
 
-CarrierStatics CarrierStaticRace1;
-CarrierStatics CarrierStaticRace2;
+// CAT: one block per race that has a carrier: Sect (0x00ab73e0), Beast (0x00ab73c0), Kushan (0x00ab7420),
+//      Taiidan (0x00ab7400), Derelict (0x00ab7440: dKushanCarrier) (CarrierStaticInit 0x005aefb0); HW1 had R1/R2
+CarrierStatics CarrierStaticSect;
+CarrierStatics CarrierStaticBeast;
+CarrierStatics CarrierStaticKushan;
+CarrierStatics CarrierStaticTaiidan;
+CarrierStatics CarrierStaticDerelict;
+CarrierStatics CarrierStaticOther;      // CAT: the exe writes into the statinfo itself for any other race
 
 scriptStructEntry CStaticScriptTable[] =
 {
@@ -38,7 +50,28 @@ scriptStructEntry CStaticScriptTable[] =
 void CarrierStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
     udword i;
-    CarrierStatics *carrstat = (statinfo->shiprace == R1) ? &CarrierStaticRace1 : &CarrierStaticRace2;
+    CarrierStatics *carrstat;
+
+    // CAT: CarrierStaticInit 0x005aefb0: three statinfo flags (+0x211 = 1 for the Beast carrier only), the block by
+    //      Cataclysm race, then HW1's ranges and key table, then the Beast-weapon tweaks for bCarrier
+    statinfo->canSpecialBandBoxFriendlies = FALSE;
+    statinfo->unknownFlag213 = FALSE;
+    statinfo->unknownFlag212 = TRUE;
+    switch (statinfo->shiprace)
+    {
+        case RACE_Sect:     carrstat = &CarrierStaticSect;     break;
+        case RACE_Beast:
+            carrstat = &CarrierStaticBeast;
+            statinfo->canSpecialBandBoxFriendlies = TRUE;
+            break;
+        case RACE_Kushan:   carrstat = &CarrierStaticKushan;   break;
+        case RACE_Taiidan:  carrstat = &CarrierStaticTaiidan;  break;
+        case RACE_Derelict: carrstat = &CarrierStaticDerelict; break;
+        default:
+            dbgAssertOrIgnore(FALSE);
+            carrstat = &CarrierStaticOther;
+            break;
+    }
 
     statinfo->custstatinfo = carrstat;
 
@@ -49,20 +82,26 @@ void CarrierStaticInit(char *directory,char *filename,struct ShipStaticInfo *sta
     }
     scriptSetStruct(directory,filename,CStaticScriptTable,(ubyte *)carrstat);
 
+    if (cat_staticHasBeastWeapon(statinfo))
+    {
+        cat_beastWeaponStaticInit();
+    }
 }
+
 void CarrierInit(Ship *ship)
 {
     CarrierSpec *spec = (CarrierSpec *)ship->ShipSpecifics;
-    sdword i;
 
-    for(i=0;i<MAX_NUM_DROP;i++)
+    // CAT: CarrierInit 0x005af090
+    if (cat_shipHasBeastWeapon(ship))
     {
-        spec->dropstate[i] = 0;
-        spec->droptarget[i] = NULL;
-        spec->dockindex[i]=0;
+        cat_beastWeaponInit(ship);
     }
-
+    spec->doorState = 1;
+    spec->doorTimer = -1.0f;
+    cat_salvageDepotInit(ship);
 }
+
 void CarrierAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdist)
 {
     ShipStaticInfo *shipstaticinfo = (ShipStaticInfo *)ship->staticinfo;
@@ -76,144 +115,130 @@ void CarrierAttackPassive(Ship *ship,Ship *target,bool32 rotate)
     attackPassive(ship,target);
 }
 
+bool32 CarrierSpecialActivate(Ship *ship)
+{
+    // CAT: new slot-7 body: a bare "return 0" (the exe's nullsubReturnFalse 0x006fe9a0); the special-activate
+    //      order does nothing on a carrier
+    (void)ship;
+    return FALSE;
+}
+
 bool32 CarrierSpecialTarget(Ship *ship,void *custom)
 {
     CarrierStatics *cstat = (CarrierStatics *)ship->staticinfo->custstatinfo;
     SelectAnyCommand *targets;
+    MaxAnySelection copy;
+
+    // CAT: CarrierSpecialTarget 0x005af0f0: bCarrier aims its infection weapon at the targets if it has one among
+    //      them (on a copy of the selection); otherwise the carriers repair, as HW1
     targets = (SelectAnyCommand *)custom;
+    selSelectionCopy(&copy, (MaxAnySelection *)targets);
+    if (cat_shipHasBeastWeapon(ship) && cat_beastWeaponHasTarget(ship, (SelectCommand *)&copy))
+    {
+        return cat_beastWeaponAttack(ship, &copy);
+    }
     return(refuelRepairShips(ship, targets,cstat->repairApproachDistance));
+}
+
+void CarrierOrderChanged(Ship *ship)
+{
+    // CAT: new slot-9 body (CarrierOrderChanged 0x005af170)
+    if (cat_shipHasBeastWeapon(ship))
+    {
+        cat_beastWeaponOrderChanged(ship);
+    }
 }
 
 void CarrierHouseKeep(Ship *ship)
 {
-    CarrierSpec *spec = (CarrierSpec *)ship->ShipSpecifics;
-    sdword i;
-
-    for(i=0;i<MAX_NUM_DROP;i++)
+    // CAT: CarrierHouseKeep 0x005af210. sCarrier with a dock info animates its door: open (animation 1) when no
+    //      ship is at a dock point of type 6 or 7, close (animation 0) when one is, with a random 5-10 s pause
+    //      before reopening.
+    //      CAT-PROVISIONAL: the door logic reads Cataclysm's DockStaticInfo (dock point types from the 0x50-byte
+    //      header, producer 5 of M2-R3) and DockInfo, and starts animations with madAnimationStart's third argument
+    //      (MeshAnim.c, stage 3); it is ported with those. The rest is the exe's.
+    if (cat_shipHasBeastWeapon(ship))
     {
-        if(spec->droptarget[i] != NULL)
-        {
-            if(DropTargetInShip(ship,&spec->dropstate[i],spec->droptarget[i],&spec->dockindex[i]))
-            {
-                spec->dropstate[i] = 0;
-                spec->droptarget[i] = NULL;
-            }
-        }
+        cat_beastWeaponHouseKeep(ship);
     }
-
-    for(i=0;i<spec->CAP_NumInBuildCue;)
-    {
-        spec->CAPTimeToBuildShip[i]-= universe.phystimeelapsed;
-        if(spec->CAPTimeToBuildShip[i] < 0.0f)
-        {
-            Ship *newship;
-
-            if (GetShipStaticInfoSafe(spec->CAPshiptype[i],spec->CAPshiprace[i]))
-            {
-                //time for a captured ship to pop out
-                if ((multiPlayerGame) && (ship->playerowner->playerIndex==sigsPlayerIndex))
-                {
-                    shiplagtotals[spec->CAPshiptype[i]]++;
-                }
-
-                newship = clCreateShip(&universe.mainCommandLayer,
-                        spec->CAPshiptype[i],
-                        spec->CAPshiprace[i],
-                        ship->playerowner->playerIndex,
-                        ship);
-                newship->colorScheme = utyShipsAlwaysUseOwnerColors ? ship->playerowner->playerIndex : spec->CAPcolorScheme[i];
-            }
-
-            spec->CAP_NumInBuildCue--;
-            spec->CAPTimeToBuildShip[i] = spec->CAPTimeToBuildShip[spec->CAP_NumInBuildCue];
-            spec->CAPshiptype[i] = spec->CAPshiptype[spec->CAP_NumInBuildCue];
-            spec->CAPshiprace[i] = spec->CAPshiprace[spec->CAP_NumInBuildCue];
-            spec->CAPcolorScheme[i] = spec->CAPcolorScheme[spec->CAP_NumInBuildCue];
-            continue;
-        }
-        i++;
-    }
-
+    cat_salvageDepotHouseKeep(ship);
 }
 
 void CarrierRemoveShipReferences(Ship *ship,Ship *shiptoremove)
 {
-    CarrierSpec *spec = (CarrierSpec *)ship->ShipSpecifics;
-    sdword i;
-    for(i=0;i<MAX_NUM_DROP;i++)
+    // CAT: CarrierRemoveShipReferences 0x005af360 (also slot 12)
+    if (cat_shipHasBeastWeapon(ship))
     {
-        if(shiptoremove == (Ship *) spec->droptarget[i])
-        {
-            if(ship->dockInfo != NULL)
-            {
-                if(ship->dockInfo->dockpoints[spec->dockindex[i]].thisDockBusy)
-                    ship->dockInfo->dockpoints[spec->dockindex[i]].thisDockBusy--;
-            }
-            spec->droptarget[i] = NULL;
-            break;
-        }
+        cat_beastWeaponRemoveShipReferences(ship, shiptoremove);
     }
+    cat_salvageDepotRemoveShipReferences(ship, shiptoremove);
 }
 
-void Carrier_PreFix(Ship *ship)
+void CarrierBulletRemoval(Ship *ship, struct Bullet *bullet)
 {
-    CarrierSpec *spec = (CarrierSpec *)ship->ShipSpecifics;
-    sdword i;
-    for(i=0;i<MAX_NUM_DROP;i++)
+    // CAT: new slot-14 body (CarrierBulletRemoval 0x005af390), shared with the HeavyCruiser and Mothership headers
+    if (cat_shipHasBeastWeapon(ship))
     {
-        spec->droptarget[i] = (ShipOrDerelict*)SpaceObjRegistryGetID((SpaceObj *)spec->droptarget[i]);
+        cat_beastWeaponBulletRemoval(ship, NULL, bullet);
     }
 }
 
 void Carrier_Fix(Ship *ship)
 {
-    CarrierSpec *spec = (CarrierSpec *)ship->ShipSpecifics;
-    sdword i;
-    for(i=0;i<MAX_NUM_DROP;i++)
+    // CAT: Carrier_Fix 0x005af3c0
+    if (cat_shipHasBeastWeapon(ship))
     {
-        spec->droptarget[i] = (ShipOrDerelict *)SpaceObjRegistryGetObj((sdword)spec->droptarget[i]);
+        cat_beastWeaponFix(ship);
     }
+    cat_salvageDepotFix(ship);
 }
 
 void CarrierDied(Ship *ship)
 {
-    CarrierSpec *spec = (CarrierSpec *)ship->ShipSpecifics;
+    SelectCommand *clamped;
     sdword i;
-    for(i=0;i<MAX_NUM_DROP;i++)
+
+    // CAT: CarrierDied 0x005af3f0: the weapon and the depot close; the component-class ships clamped to the carrier
+    //      are flagged orphaned
+    if (cat_shipHasBeastWeapon(ship))
     {
-
-        if(spec->droptarget[i] != NULL)
+        cat_beastWeaponClose(ship);
+    }
+    cat_salvageDepotDied(ship);
+    if ((ship->guidance.clampInfo != NULL) && (ship->guidance.clampInfo->clampedObjs != NULL))
+    {
+        clamped = (SelectCommand *)ship->guidance.clampInfo->clampedObjs;
+        for (i = 0; i < clamped->numShips; i++)
         {
-            if(spec->droptarget[i]->header.objtype == OBJ_ShipType)
+            if (clamped->ShipPtr[i]->staticinfo->shipclass == CLASS_Component)
             {
-                //undisabled and make selectable
-                if(!bitTest(spec->droptarget[i]->specialFlags2,SPECIAL_2_DisabledForever))
-                {
-                    bitClear(spec->droptarget[i]->header.flags,SOF_Disabled);
-                    bitClear(spec->droptarget[i]->specialFlags,SPECIAL_SalvagedTargetGoingIntoDockWithShip);
-                    bitSet(spec->droptarget[i]->header.flags,SOF_Selectable);
-                }
+                bitSet(clamped->ShipPtr[i]->catShipFlags, CAT_SHIPFLAG_Orphaned);
             }
-
         }
     }
 }
 
+// CAT: the exe's header (CarrierHeader 0x008c34d0: sCarrier, bCarrier, kCarrier, tCarrier, dKushanCarrier).
+//      Slot 21: the exe folded the identical attackStraightForward(gunRange, tooCloseRange) body into
+//      MissileDestroyerAttack 0x005bb3e0. Slots 16-18 are the Mothership depot/weapon save hooks.
 CustShipHeader CarrierHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(CarrierSpec),
     .CustShipStaticInit = CarrierStaticInit,
     .CustShipInit = CarrierInit,
     .CustShipFire = DefaultShipFire,
     .CustShipAttackPassive = CarrierAttackPassive,
+    .CustShipSpecialActivate = CarrierSpecialActivate,                      // CAT: new
     .CustShipSpecialTarget = CarrierSpecialTarget,
+    .CustShipOrderChanged = CarrierOrderChanged,                            // CAT: new slot 9
     .CustShipHousekeep = CarrierHouseKeep,
     .CustShipRemoveShipReferences = CarrierRemoveShipReferences,
+    .CustShipRemoveObjReferences = (void (*)(struct Ship *, struct SpaceObj *))CarrierRemoveShipReferences,   // CAT: new slot 12
+    .CustShipBulletRemoval = CarrierBulletRemoval,                          // CAT: new slot 14
     .CustShipDied = CarrierDied,
-    .CustShip_PreFix = Carrier_PreFix,
+    .CustShip_PreFix = Mothership_PreFix,                                   // CAT: was Carrier_PreFix
+    .CustShip_Save = Mothership_Save,                                       // CAT: new
+    .CustShip_Load = Mothership_Load,                                       // CAT: new
     .CustShip_Fix = Carrier_Fix,
     .CustShipAttack = CarrierAttack,
 };
-

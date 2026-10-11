@@ -14,6 +14,9 @@ typedef struct
 {
     udword dummy;
 } StandardFrigateSpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(StandardFrigateSpec) == 4, "StandardFrigateSpec is 4 bytes in cataclysm.exe (StandardFrigateHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 typedef struct
 {
@@ -21,13 +24,16 @@ typedef struct
     real32 frigateTooCloseRange[NUM_TACTICS_TYPES];
 } StandardFrigateStatics;
 
-StandardFrigateStatics StandardFrigateStaticRace1;
-StandardFrigateStatics StandardFrigateStaticRace2;
+// CAT: Kushan (0x00a7a4e0) and every other race (0x00a7a500, i.e. Taiidan: tStandardFrigate)
+//      (StandardFrigateStaticInit 0x005c78e0); HW1 had R1/R2
+StandardFrigateStatics StandardFrigateStaticKushan;
+StandardFrigateStatics StandardFrigateStaticTaiidan;
 
 void StandardFrigateStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
     udword i;
-    StandardFrigateStatics *frigstat = (statinfo->shiprace == R1) ? &StandardFrigateStaticRace1 : &StandardFrigateStaticRace2;
+    // CAT: Kushan, else the Taiidan block (StandardFrigateStaticInit 0x005c78e0)
+    StandardFrigateStatics *frigstat = (statinfo->shiprace == RACE_Kushan) ? &StandardFrigateStaticKushan : &StandardFrigateStaticTaiidan;
 
     statinfo->custstatinfo = frigstat;
 
@@ -58,10 +64,11 @@ void StandardFrigateAttackPassive(Ship *ship,Ship *target,bool32 rotate)
     }
 }
 
+// CAT: the exe's header (StandardFrigateHeader 0x008c6a20: tStandardFrigate; original/scratch-m2/m2r2-shipstatic-tools/headers.txt).
+//      Slot 6: the exe folded the identical "rotate ? attackPassiveRotate : attackPassive" body into P1MothershipAttackPassive 0x005be540.
+//      Slot 21: the exe folded the identical attackStraightForward(gunRange, tooCloseRange) body into MissileDestroyerAttack 0x005bb3e0.
 CustShipHeader StandardFrigateHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(StandardFrigateSpec),
     .CustShipStaticInit = StandardFrigateStaticInit,
     .CustShipFire = DefaultShipFire,

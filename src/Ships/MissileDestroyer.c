@@ -29,6 +29,9 @@ typedef struct
     sdword curTargetIndex;
     sdword volleyState;
 } MissileDestroyerSpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(MissileDestroyerSpec) == 20, "MissileDestroyerSpec is 20 bytes in cataclysm.exe (MissileDestroyerHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 typedef struct
 {
@@ -39,14 +42,16 @@ typedef struct
     real32 missileLagVolleyTime;
 } MissileDestroyerStatics;
 
-MissileDestroyerStatics MissileDestroyerStaticRace1;
-MissileDestroyerStatics MissileDestroyerStaticRace2;
+// CAT: Taiidan (0x00a7aa20) and every other race (0x00a7a9e0) (MissileDestroyerStaticInit 0x005bb350); only
+//      tMissileDestroyer uses this header. HW1 had R1/R2
+MissileDestroyerStatics MissileDestroyerStaticTaiidan;
+MissileDestroyerStatics MissileDestroyerStaticOther;
 
 scriptStructEntry MissileDestroyerScriptTable[] =
 {
-    { "MissileRegenerateTime",scriptSetReal32CB, &(MissileDestroyerStaticRace1.missileRegenerateTime), &(MissileDestroyerStaticRace1) },
-    { "MissileVolleyTime",scriptSetReal32CB, &(MissileDestroyerStaticRace1.missileVolleyTime), &(MissileDestroyerStaticRace1) },
-    { "MissileLagVolleyTime",scriptSetReal32CB, &(MissileDestroyerStaticRace1.missileLagVolleyTime), &(MissileDestroyerStaticRace1) },
+    { "MissileRegenerateTime",scriptSetReal32CB, &(MissileDestroyerStaticTaiidan.missileRegenerateTime), &(MissileDestroyerStaticTaiidan) },
+    { "MissileVolleyTime",scriptSetReal32CB, &(MissileDestroyerStaticTaiidan.missileVolleyTime), &(MissileDestroyerStaticTaiidan) },
+    { "MissileLagVolleyTime",scriptSetReal32CB, &(MissileDestroyerStaticTaiidan.missileLagVolleyTime), &(MissileDestroyerStaticTaiidan) },
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -54,7 +59,8 @@ scriptStructEntry MissileDestroyerScriptTable[] =
 void MissileDestroyerStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
     udword i;
-    MissileDestroyerStatics *mdestroyerstat = (statinfo->shiprace == R1) ? &MissileDestroyerStaticRace1 : &MissileDestroyerStaticRace2;
+    // CAT: Taiidan, else the other block (MissileDestroyerStaticInit 0x005bb350)
+    MissileDestroyerStatics *mdestroyerstat = (statinfo->shiprace == RACE_Taiidan) ? &MissileDestroyerStaticTaiidan : &MissileDestroyerStaticOther;
 
     statinfo->custstatinfo = mdestroyerstat;
 
@@ -261,10 +267,10 @@ bool32 MissileDestroyerSpecialTarget(Ship *ship,void *custom)
     return FALSE;
 }
 
+// CAT: the exe's header (MissileDestroyerHeader 0x008c5320: tMissileDestroyer; original/scratch-m2/m2r2-shipstatic-tools/headers.txt).
+//      Slot 6: the exe folded the identical "rotate ? attackPassiveRotate : attackPassive" body into P1MothershipAttackPassive 0x005be540.
 CustShipHeader MissileDestroyerHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(MissileDestroyerSpec),
     .CustShipStaticInit = MissileDestroyerStaticInit,
     .CustShipInit = MissileDestroyerInit,

@@ -253,7 +253,8 @@ void ModifyRepairEffect(Effect *effect,Ship *ship,vector *trajectory,real32 dist
 	distance = max(200.0f,distance);
 	if(target->header.objtype == OBJ_ShipType)
 	{
-		if(((Ship *)target)->shiptype == Mothership)
+		// CAT: any mothership-class target (ModifyRepairEffect 0x005c2410; HW1: the Mothership type)
+		if(((Ship *)target)->staticinfo->shipclass == CLASS_Mothership)
 		{
 			distance = max(800.0f,distance);
 		}
@@ -351,6 +352,13 @@ bool32 refuelRepairShips(Ship *ship, SelectAnyCommand *targets,real32 rangetoRef
 
     target = targets->TargetPtr[0];
 
+    // CAT: a ship never repairs itself (refuelRepairShips 0x005c24e0 returns FALSE when the first target is the
+    //      repairing ship)
+    if (target == (SpaceObjRotImpTarg *)ship)
+    {
+        return FALSE;
+    }
+
 //need to add
 //repairBeamCapable
 //    real32 healthPerSecond,CapitalDistanceRepairStart;
@@ -374,7 +382,8 @@ bool32 refuelRepairShips(Ship *ship, SelectAnyCommand *targets,real32 rangetoRef
             vecNormalize(&trajectory);
             aitrackHeading(ship,&trajectory,0.999f);
 
-            if(targetShip->shiptype == Mothership)
+            // CAT: any mothership-class target doubles the distances (HW1: the Mothership type) (0x005c24e0)
+            if(targetShip->staticinfo->shipclass == CLASS_Mothership)
             {
                 range1 = 2*ship->staticinfo->CapitalDistanceRepairStart;
                 range2 = 2*ship->staticinfo->CapitalDistanceRepairStart2;
@@ -425,7 +434,11 @@ bool32 refuelRepairShips(Ship *ship, SelectAnyCommand *targets,real32 rangetoRef
                         //fix up effect
                         ModifyRepairEffect(ship->rceffect,ship,&trajectory,range, target);
                     }
-                    target->health+=ship->staticinfo->healthPerSecond*universe.phystimeelapsed;
+                    // CAT: an NIS ship is not healed (0x005c24e0 tests SOF_NISShip)
+                    if (!bitTest(target->header.flags, SOF_NISShip))
+                    {
+                        target->health+=ship->staticinfo->healthPerSecond*universe.phystimeelapsed;
+                    }
                     if(targetShip->targetable.health > targetShip->staticinfo->health.maxhealth)
                     {
                         if(ship->rceffect != NULL)
@@ -490,6 +503,8 @@ bool32 refuelRepairShips(Ship *ship, SelectAnyCommand *targets,real32 rangetoRef
 
         //"speech event?  Switching to Emergency Docking Fuel Supply?
         //cldock
+        // CAT-PROVISIONAL: the exe passes Cataclysm's dock type 0 with dockwith = ship (Cataclysm renumbered the
+        //      dock types; clDock and Dock.c are M2-R4 #3), so HW1's DOCK_AT_SPECIFIC_SHIP stays until then
         clDock(&universe.mainCommandLayer,&selectOne,DOCK_AT_SPECIFIC_SHIP,ship);
         targets->numTargets--;
         if(targets->numTargets <= 0)

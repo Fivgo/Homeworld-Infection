@@ -17,6 +17,9 @@ typedef struct
 {
     sdword dummy;
 } DefaultShipSpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(DefaultShipSpec) == 4, "DefaultShipSpec is 4 bytes in cataclysm.exe (DefaultShipHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 typedef struct
 {
@@ -27,6 +30,9 @@ typedef struct
 {
     bool32 dontRecurseKill;
 } MiningBaseSpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(MiningBaseSpec) == 4, "MiningBaseSpec is 4 bytes in cataclysm.exe (MiningBaseHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 void DefaultShipAttack(Ship *ship, SpaceObjRotImpTarg *target, real32 maxdist);
 
@@ -44,13 +50,21 @@ void DefaultShipFire(Ship *ship,SpaceObjRotImpTarg *target)
 
     numGuns = guninfo->numGuns;
 
+    // CAT: cat_gunCanFire (second fire mode, dissolving ships) in place of gunCanShoot, and fixed guns fire too
+    //      (HW1 asserted on them) (DefaultShipFire 0x005b0260)
     for (i=0;i<numGuns;i++)
     {
         gun = &guninfo->guns[i];
-        if (gunCanShoot(ship, gun))
+        if (cat_gunCanFire(ship, gun))
         {
             switch (gun->gunstatic->guntype)
             {
+                case GUN_Fixed:
+                case GUN_Gimble:
+                case GUN_NewGimble:
+                    gunShoot(ship,gun,target);
+                    break;
+
                 case GUN_MissileLauncher:
                 case GUN_MineLauncher:
                     if (gunHasMissiles(gun))
@@ -59,14 +73,8 @@ void DefaultShipFire(Ship *ship,SpaceObjRotImpTarg *target)
                     }
                     break;
 
-                case GUN_NewGimble:
-                case GUN_Gimble:
-                    gunShoot(ship,gun,target);
-                    break;
-
                 default:
-                    dbgAssertOrIgnore(FALSE);
-
+                    break;
             }
         }
     }
@@ -97,10 +105,7 @@ void DefaultShipAttackPassive(Ship *ship,Ship *target,bool32 rotate)
     }
 }
 
-void DefaultShipAttackStationary(Ship *ship,SpaceObjRotImpTarg *target, real32 maxdist)
-{
-    DefaultShipAttackPassive(ship,(Ship *)target,TRUE);
-}
+// CAT: no DefaultShipAttackStationary (StationaryGunHeader 0x008c3b60 has no slot 21)
 
 void MiningBaseInit(Ship *ship)
 {
@@ -115,7 +120,7 @@ void MiningBaseDied(Ship *ship)
     Node *node;
     MiningBaseSpec *spec = (MiningBaseSpec *)ship->ShipSpecifics;
 
-    dbgAssertOrIgnore(ship->shiptype == MiningBase);
+    // CAT: type trMiningBase (100) throughout, no type assertion (MiningBaseDied 0x005b0370)
     if (ship->header.flags & SOF_NISShip)
     {
         return;
@@ -133,7 +138,7 @@ void MiningBaseDied(Ship *ship)
         deleteme = (Ship *)listGetStructOfNode(node);
         dbgAssertOrIgnore(deleteme->header.objtype == OBJ_ShipType);
 
-        if ((deleteme->shiptype == MiningBase) && (deleteme != ship) && ((deleteme->header.flags & (SOF_Dead|SOF_NISShip)) == 0))
+        if ((deleteme->shiptype == trMiningBase) && (deleteme != ship) && ((deleteme->header.flags & (SOF_Dead|SOF_NISShip)) == 0))
         {
             spec = (MiningBaseSpec *)deleteme->ShipSpecifics;
             spec->dontRecurseKill = TRUE;
@@ -147,11 +152,14 @@ void MiningBaseDied(Ship *ship)
         deleteme = (Ship *)listGetStructOfNode(node);
         dbgAssertOrIgnore(deleteme->header.objtype == OBJ_ShipType);
 
-        if ((deleteme->shiptype == MiningBase) && (deleteme != ship) && ((deleteme->header.flags & (SOF_Dead|SOF_NISShip)) == 0))
+        if ((deleteme->shiptype == trMiningBase) && (deleteme != ship) && ((deleteme->header.flags & (SOF_Dead|SOF_NISShip)) == 0))
         {
             deleteme->howDidIDie = ship->howDidIDie;
             deleteme->whoKilledMe = ship->whoKilledMe;
             univDeleteDeadShip(deleteme,EDT_AccumDamage);
+            // CAT: the exe's MiningBaseDied 0x005b0370 has no list removals here (nor the ETG_DISABLEABLE wipe);
+            //      they are kept until univDeleteDeadShip and the dead-ship path (UnivUpdate.c, M2-R4 #1) are ported,
+            //      because HW1's univDeleteDeadShip leaves the ship in both lists
             listRemoveNode(&deleteme->shiplink);
             listRemoveNode(&deleteme->impactable.impactablelink);
 
@@ -165,39 +173,33 @@ void MiningBaseDied(Ship *ship)
     }
 }
 
-CustShipHeader DefaultShipHeader =
-{
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
+// CAT: the exe's headers (shipHeaders 0x008b1938). Slot 6 of DefaultShipHeader and StationaryGunHeader is the
+//      "rotate ? attackPassiveRotate : attackPassive" body that the linker folded into P1MothershipAttackPassive
+//      0x005be540; DefaultShipAttackPassive is the same code.
+CustShipHeader DefaultShipHeader =                  // 0x008c39b0: trCargoBarge, trResearchStation (+ the 22 Cataclysm-only
+{                                                   // headers and the two cloak generators until M2-R4 #4)
     .sizeofShipSpecifics = sizeof(DefaultShipSpec),
     .CustShipFire = DefaultShipFire,
     .CustShipAttackPassive = DefaultShipAttackPassive,
     .CustShipAttack = DefaultShipAttack,
 };
 
-CustShipHeader DoNothingShipHeader =
+CustShipHeader DoNothingShipHeader =                // 0x008c3a40
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(DefaultShipSpec),
 };
 
-CustShipHeader MiningBaseHeader =
+CustShipHeader MiningBaseHeader =                   // 0x008c3ad0: trMiningBase
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(MiningBaseSpec),
     .CustShipInit = MiningBaseInit,
     .CustShipDied = MiningBaseDied,
 };
 
-CustShipHeader StationaryGunHeader =
+CustShipHeader StationaryGunHeader =                // 0x008c3b60: trJunk_LGun, trJunk_SGun
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(DefaultShipSpec),
     .CustShipFire = DefaultShipFire,
     .CustShipAttackPassive = DefaultShipAttackPassive,
-    .CustShipAttack = DefaultShipAttackStationary,
+    // CAT: no slot 21 (HW1: DefaultShipAttackStationary); the junkyard guns only fire passively
 };
-

@@ -260,6 +260,7 @@ extern lodinfo *defaultlod;                 // remove later when all stubs are t
 extern void *defaultmex;                    // remove later when all stubs are taken out
 extern bool32 universeForceDefaultShip;       //flag for forcing ships to be loaded as rave borgs
 extern bool32 catShipStaticsSelfTest;          // CAT: /catShipStaticsTest (port diagnostic)
+extern bool32 catShipStaticsRunStaticInit;     // CAT: /catShipStaticsStaticInit (port diagnostic, M2-R3 ships-a)
 #define CAT_SHIPSTATICS_MAXSKIP 16
 extern sdword catShipStaticsSkip[CAT_SHIPSTATICS_MAXSKIP];   // CAT: /catShipStaticsSkip (port diagnostic)
 extern sdword catShipStaticsSkipCount;

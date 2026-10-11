@@ -921,6 +921,7 @@ commandoption commandOptions[] =
     // CAT: port diagnostic, not a Cataclysm option (Universe.c catShipStaticsRunSelfTest)
     entryVr("/catShipStaticsTest",  catShipStaticsSelfTest, TRUE, " - load the .shp of every ship type, log one line per file, then exit."),
     entryFnParam("/catShipStaticsSkip", CatShipStaticsSkipSet, " <n,n,...> - ship types /catShipStaticsTest leaves out."),
+    entryVr("/catShipStaticsStaticInit", catShipStaticsRunStaticInit, TRUE, " - with /catShipStaticsTest, also run each type's CustShipStaticInit."),
     // CAT: port diagnostic, not a Cataclysm option (Mesh.c catMeshRunSelfTest)
     entryFnParam("/catMeshLoadTest",    CatMeshLoadTestSet, " <listfile> - load every mesh named in listfile, log one line per file, then exit."),
     // CAT: port diagnostics, not Cataclysm options (ETG.c catEtgRunParseSelfTest, catEtgRunEffectSelfTest)

@@ -567,8 +567,8 @@ struct Bullet;
 //      function slots. InitStatShipInfo 0x0053bab0 copies 0x23 dwords from shipHeaders[type] (0x008b1938) to
 //      statinfo+0x108, so slot k is at statinfo+0x108+4k. Slot meanings from the call census and the 51 headers the exe
 //      ships (docs/formats/shipstatic.md). CustShipAttack moved from HW1 slot 4 to slot 21. The new slots (9, 12-14,
-//      20, 22-34) are NULL in every header of this tree until their callers and bodies are ported (stage 2); no code
-//      in this tree calls them yet. Signatures of the new slots are taken from the exe's Round-5 prototypes of their
+//      20, 22-34) hold the exe's functions in the 29 reused HW1 headers since M2-R3 ships-a and stay NULL elsewhere;
+//      of their callers only slot 13's (ETG.c, M2-R3 etg-particles) is ported, the rest are stage 2. Signatures of the new slots are taken from the exe's Round-5 prototypes of their
 //      targets (CarrierOrderChanged, CarrierBulletRemoval, MothershipEffectRemoval, HiveFrigateDockCommand); the
 //      others are UNVERIFIED.
 typedef struct
@@ -1610,6 +1610,10 @@ typedef struct ShipID
 #define SPECIAL_Hyperspacing                        BIT25
 #define SPECIAL_ForcedAttackStatus                  BIT26  //ship is in combat status, despite not actually attacking ships (must be turned off - doesn't expire)
 
+// CAT (M2-R3 ships-a): the exe's specialFlags bit 19 (0x80000), set on every Cataclysm salvager by cat_salvageInit
+//      0x004f9010. It takes BIT27 (free in this tree) and not HW1's SPECIAL_IsASalvager (BIT20), because HW1 code that
+//      tests SPECIAL_IsASalvager reads HW1's SalCapCorvetteSpec from the ship; until the M2-R4 #2 renumbering
+#define SPECIAL_CatSalvager                         BIT27
 #define SPECIAL_LaunchedFromKas                     BIT28
 #define SPECIAL_KasCheckDoneLaunching               BIT29
 #define SPECIAL_Launching                           BIT30  //indicates ship is launching
@@ -1632,11 +1636,27 @@ typedef struct ShipID
 //      port (M2-R4 #2); until then they take free bits of this tree's specialFlags2.
 #define SPECIAL_2_CatBeingBuilt                     BIT8
 #define SPECIAL_2_CatBeingSalvaged                  BIT9
+// CAT (M2-R3 ships-a): the exe's specialFlags2 bit 13 is also set by cat_salvageDepotInit 0x004fc7c0 on every salvage
+//      depot (carriers, motherships, processors, bHeavyCruiser), so it marks a ship as a depot; this name says so. Same
+//      bit as SPECIAL_2_CatBeingSalvaged (cat_salvageIsBeingSalvaged 0x004f7c00 only tests it).
+#define SPECIAL_2_CatSalvageDepot                   SPECIAL_2_CatBeingSalvaged
+// CAT (M2-R3 ships-a): the exe's specialFlags2 bit 15, set by kasfShipsSetBeastInfectionUnlimited 0x00498a60 and
+//      cleared by cat_beastWeaponInit 0x0042a040; a free bit of this tree until the M2-R4 #2 renumbering
+#define SPECIAL_2_CatBeastInfectionUnlimited        BIT10
+// CAT (M2-R3 ships-a): the exe's specialFlags2 bit 20 (0x100000). Ships with it get no mothership health warning
+//      (MothershipHouseKeep 0x005bcad0), no battle pings or death screams (battlePingEvaluate 0x00424110), no support-
+//      unit accounting (cat_suShipAdded 0x00459a90) and special docking rules (ThisShipCanDockWith 0x00464290). Its
+//      setter and meaning are not pinned; a free bit of this tree until the M2-R4 #2 renumbering
+#define SPECIAL_2_CatExempt20                       BIT11
 
 // CAT (M2-R3 selection): Ship.catShipFlags (exe Ship+0x18)
 #define CAT_SHIPFLAG_Mimic                          BIT3    // set by MimicInit 0x005b8360, MCVInit 0x005b8130, P1StandardCorvetteInit 0x005be660
 #define CAT_SHIPFLAG_KasDerelict                    BIT4    // kasfShipsSetDerelict 0x00498510
 #define CAT_SHIPFLAG_NoTactics                      BIT1    // cat_shipCanSetTactics 0x005135e0 refuses it (setter not located)
+// CAT (M2-R3 ships-a): set on the component-class ships clamped to a carrier or mothership when the host dies
+//      (CarrierDied 0x005af3f0, MothershipHouseKeep 0x005bcad0); read by cat_salvageCheckTarget 0x004f7eb0 and
+//      cat_kamikazeSteer 0x005b16f0. Name chosen here.
+#define CAT_SHIPFLAG_Orphaned                       BIT2
 
 // CAT (M2-R3 selection): number of Ship.catDisableReason slots (cat_shipSetDisableReason 0x005b3fe0 scans 13 dwords)
 #define CAT_NUM_DISABLE_REASONS                     13

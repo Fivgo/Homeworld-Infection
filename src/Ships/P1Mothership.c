@@ -9,11 +9,8 @@
 
 #include "Attack.h"
 #include "DefaultShip.h"
-
-typedef struct
-{
-    udword dummy;
-} P1MothershipSpec;
+#include "Mothership.h"
+#include "Salvage.h"
 
 typedef struct
 {
@@ -57,14 +54,49 @@ void P1MothershipAttackPassive(Ship *ship,Ship *target,bool32 rotate)
     }
 }
 
+// CAT: the Cataclysm-only slot bodies (P1MothershipInit 0x005be530 .. P1Mothership_Fix 0x005be5c0): the P1
+//      mothership is a salvage depot; each body is the depot call
+void P1MothershipInit(Ship *ship)
+{
+    cat_salvageDepotInit(ship);
+}
+
+void P1MothershipHouseKeep(Ship *ship)
+{
+    cat_salvageDepotHouseKeep(ship);
+}
+
+void P1MothershipRemoveShipReferences(Ship *ship, Ship *shiptoremove)
+{
+    cat_salvageDepotRemoveShipReferences(ship, shiptoremove);
+}
+
+void P1MothershipDied(Ship *ship)
+{
+    cat_salvageDepotDied(ship);
+}
+
+void P1Mothership_Fix(Ship *ship)
+{
+    cat_salvageDepotFix(ship);
+}
+
+// CAT: the exe's header (P1MothershipHeader 0x008c5968: p1Mothership). Slot 6 is this file's own
+//      P1MothershipAttackPassive (the body several headers share); slot 21: the exe folded the identical attackStraightForward(gunRange, tooCloseRange) body into MissileDestroyerAttack 0x005bb3e0.
+//      Slot 16 is the Mothership's depot pre-fix.
 CustShipHeader P1MothershipHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(P1MothershipSpec),
     .CustShipStaticInit = P1MothershipStaticInit,
+    .CustShipInit = P1MothershipInit,                        // CAT: new
     .CustShipFire = DefaultShipFire,
     .CustShipAttackPassive = P1MothershipAttackPassive,
+    .CustShipHousekeep = P1MothershipHouseKeep,              // CAT: new
+    .CustShipRemoveShipReferences = P1MothershipRemoveShipReferences, // CAT: new
+    .CustShipRemoveObjReferences = (void (*)(struct Ship *, struct SpaceObj *))P1MothershipRemoveShipReferences, // CAT: new
+    .CustShipDied = P1MothershipDied,                        // CAT: new
+    .CustShip_PreFix = Mothership_PreFix,                    // CAT: new
+    .CustShip_Fix = P1Mothership_Fix,                        // CAT: new
     .CustShipAttack = P1MothershipAttack,
 };
 

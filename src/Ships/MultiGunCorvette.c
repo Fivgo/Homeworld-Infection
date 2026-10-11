@@ -8,26 +8,44 @@
 #include "MultiGunCorvette.h"
 
 #include "Attack.h"
+#include "Debug.h"
 #include "DefaultShip.h"
 
 typedef struct
 {
     AttackSideStep attacksidestep;
 } MultiGunCorvetteSpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(MultiGunCorvetteSpec) == 8, "MultiGunCorvetteSpec is 8 bytes in cataclysm.exe (MultiGunCorvetteHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 typedef struct
 {
     AttackSideStepParameters sidestepParameters;
 } MultiGunCorvetteStatics;
 
-MultiGunCorvetteStatics MultiGunCorvetteStaticRace1;
-MultiGunCorvetteStatics MultiGunCorvetteStaticRace2;
+// CAT: one block per race that has the ship: Beast (0x00a7a980), Kushan (0x00a7a960), Taiidan (0x00a7a970)
+//      (MultiGunCorvetteStaticInit 0x005bdb30); HW1 had R1/R2
+MultiGunCorvetteStatics MultiGunCorvetteStaticBeast;
+MultiGunCorvetteStatics MultiGunCorvetteStaticKushan;
+MultiGunCorvetteStatics MultiGunCorvetteStaticTaiidan;
+MultiGunCorvetteStatics MultiGunCorvetteStaticOther;    // CAT: the exe writes into the statinfo itself for any other race
 
 void MultiGunCorvetteStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {
-    MultiGunCorvetteStatics *corvstat = (statinfo->shiprace == R1) ? &MultiGunCorvetteStaticRace1 : &MultiGunCorvetteStaticRace2;
+    MultiGunCorvetteStatics *corvstat;
 
-    memset(corvstat, 0, sizeof(MultiGunCorvetteStatics));
+    // CAT: by Cataclysm race; no memset first (MultiGunCorvetteStaticInit 0x005bdb30)
+    switch (statinfo->shiprace)
+    {
+        case RACE_Beast:   corvstat = &MultiGunCorvetteStaticBeast;   break;
+        case RACE_Kushan:  corvstat = &MultiGunCorvetteStaticKushan;  break;
+        case RACE_Taiidan: corvstat = &MultiGunCorvetteStaticTaiidan; break;
+        default:
+            dbgAssertOrIgnore(FALSE);
+            corvstat = &MultiGunCorvetteStaticOther;
+            break;
+    }
     scriptSetStruct(directory,filename,AttackSideStepParametersScriptTable,(ubyte *)&corvstat->sidestepParameters);
 
     statinfo->custstatinfo = corvstat;
@@ -60,10 +78,11 @@ void MultiGunCorvetteAttackPassive(Ship *ship,Ship *target,bool32 rotate)
     }
 }
 
+// CAT: the exe's header (MultiGunCorvetteHeader 0x008c5648: bMultiGunCorvette, kMultiGunCorvette, tMultiGunCorvette; original/scratch-m2/m2r2-shipstatic-tools/headers.txt).
+//      Slot 6: the exe folded the identical "rotate ? attackPassiveRotate : attackPassive" body into P1MothershipAttackPassive 0x005be540.
+//      Slot 21: the exe folded the identical attackSideStep(spec, statics) body into SwarmerAttack 0x005c79b0.
 CustShipHeader MultiGunCorvetteHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(MultiGunCorvetteSpec),
     .CustShipStaticInit = MultiGunCorvetteStaticInit,
     .CustShipInit = MultiGunCorvetteInit,

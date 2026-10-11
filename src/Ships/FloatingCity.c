@@ -15,6 +15,9 @@ typedef struct
 {
     udword dummy;
 } FloatingCitySpec;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(FloatingCitySpec) == 4, "FloatingCitySpec is 4 bytes in cataclysm.exe (FloatingCityHeader sizeofShipSpecifics)");   // CAT
+#endif
 
 typedef struct
 {
@@ -58,10 +61,11 @@ void FloatingCityAttackPassive(Ship *ship,Ship *target,bool32 rotate)
     }
 }
 
+// CAT: the exe's header (FloatingCityHeader 0x008c4200: trFloatingCity; original/scratch-m2/m2r2-shipstatic-tools/headers.txt).
+//      Slot 6: the exe folded the identical "rotate ? attackPassiveRotate : attackPassive" body into P1MothershipAttackPassive 0x005be540.
+//      Slot 21: the exe folded the identical attackStraightForward(gunRange, tooCloseRange) body into MissileDestroyerAttack 0x005bb3e0.
 CustShipHeader FloatingCityHeader =
 {
-    // CAT: Cataclysm slot order (CustShipHeader, SpaceObj.h; no shiptype field, Attack in slot 21).
-    //      The Cataclysm-only slots stay NULL until their bodies are ported (stage 2).
     .sizeofShipSpecifics = sizeof(FloatingCitySpec),
     .CustShipStaticInit = FloatingCityStaticInit,
     .CustShipFire = DefaultShipFire,

@@ -25,6 +25,9 @@ typedef struct DeleteShip
     sdword deathBy;
 } DeleteShip;
 
+// CAT (M2-R3 ships-a): also called by MothershipHouseKeep (exe 0x00545f00)
+void MakeExplosionRockBumpables(Ship *ship,bool32 scuttle);
+
 typedef struct DeleteResource
 {
     Node objlink;

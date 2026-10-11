@@ -16,6 +16,8 @@ real32 RangeToTargetGivenDist(Ship *ship,SpaceObjRotImpTarg *target,real32 dist)
 void collUpdateCollRectangle(SpaceObjRotImp *irobj);
 void collDrawCollisionInfo(SpaceObjRotImp *irobj);
 void collZeroRectInfo(StaticCollInfo *staticCollInfo);
+// CAT (M2-R3 ships-a): also called by doKamikazeAttack (exe 0x005b1a50)
+bool32 collCheckRectBumpCollision(SpaceObjRotImp *obj1,SpaceObjRotImp *obj2);
 real32 collCheckRectLine(SpaceObjRotImp *obj1,vector *univpoint,vector *univdir,real32 linelength,sdword *collSide);
 bool32 collCheckRectPoint(SpaceObjRotImp *obj1,vector *point);
 bool32 collCheckRectInRect(SpaceObjRotImp *obj1,SpaceObjRotImp *obj2);
