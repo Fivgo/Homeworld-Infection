@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-10 22:45
+Last checkpoint: 2026-10-10 22:52
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -115,40 +115,108 @@ Summary, exit test and the M2-R3/R4 plan: [docs/m2-r2-summary.md](../docs/m2-r2-
 
 Stage-1 leftovers (carried into M2-R3 producer 1, none blocks the exit test): the 8-type derelict table, GoK's quit assert, the save container and chunk sizes, 14 delta-map reclassifications found by the ports, the 1,705-entry string-id enum.
 
-### M2-R3 plan (stage-1 close-out + stage 2 part A; M2-R4 = stage 2 part B)
+### M2-R3: COMPLETE 2026-10-10 (stage 2 part A: stage-1 close-out, systemic headers, effects, selection, ship code A, universe statics)
 
-5 producers in sequence + 5 auditors + integrate (11 agents). Counts: HW1-matched IDENTICAL / MODIFIED / REWRITTEN functions (MODIFIED bytes) and cat-new by address neighbour, from `ghidra/delta_map.json` with `tools/m2_stage_counts.py`'s rules. Stage 2 in all: 860 / 512 / 30 (216,998 B MODIFIED) + 829 cat-new (187,242 B). Details and the M2-R4 table: docs/m2-r2-summary.md.
+Summary, exit test and the M2-R4 plan: [docs/m2-r3-summary.md](../docs/m2-r3-summary.md). Workflow
+`cycle/workflows/m2-r3.js`, run `wf_914794bc-f5e`, 12 agents. Each port was checkpointed by its auditor. The Ghidra
+stage applied the 3 name fixes. The R3 plan as launched (5 producers, scopes, done-whens) is in docs/m2-r2-summary.md
+"Plan for M2-R3 and M2-R4"; it replaced the "M2-R3 plan" table that stood here.
 
-| # | producer | scope | I / M / R (M bytes) | cat-new | done when |
+**R3 exit test: MET** (this integrate step, clean builds at e068e39). Debug `hwi-engine` (ASan) on the plain harness:
+- **sp:** passes the Mission01 level load and reaches **`universe running` (`univUpdateCounter > 0`)**, 1,248 ticks
+  in 340 s, ASan 0, no unsuppressed leak (run `r3-integrate-sp`). The intro animatic plays in real time first, about
+  246 s, so sp needs `--timeout 340`. This holds with the CAT-PROVISIONAL `CAT_HW1_MISSION_SCRIPTS 0` (no HW1 KAS
+  script and no HW1 mission-start NIS until stage 6).
+- **fe:** `Main_game_screen`, ASan 0.
+- **Self-tests:** all exit **rc 0** (R2: rc 1 from GoK's quit assert). Statics 143/143 types as the probe (170/173
+  `.shp`); meshes 1,758/1,758; textures 10,661 loaded, 0 failed; oracle 512 ticks with 0 sync errors; new ETG/effect
+  self-test 9/9 scripts, 618 effects, ASan 0.
+- **Release oracle self-test:** `SELFTEST PASS` with 27 RNG streams.
+- **Builds:** `tools/build.sh --debug`/`--release` `--clean` give 0 warnings under `-Werror`; `tools/m2_layout32.sh`
+  OK.
+
+| item | report | result | audit | commit |
+|---|---|---|---|---|
+| close-out + systemic headers | [docs/m2-r3-closeout-headers.md](../docs/m2-r3-closeout-headers.md) | **quit rc 0:** `munmap` lengths, SDL audio stopped before the heap unmap, `tools/lsan.supp`. **Randy:** 27 streams. **Headers:** `SOF_*` renumbered (24 / 3 retired / 3 new), 63 parade slots, `AlternativeShips` 0xA8, `ClampInfo` 0x38. **Tables:** 8 derelict types, the 1,705-id string enum. **Saves:** version 0x10ad0027, chunk sizes, `saveCatLoadHook`. 27 static asserts | 0.92, PASS-WITH-FIXES | 2a5f51c |
+| ETG + particle argument arrays | [docs/m2-r3-etg-particles.md](../docs/m2-r3-etg-particles.md) | one-pointer callables; the exe's 167-row table; GoK wrappers deleted; 0x100-byte particle; `/catEtgParseTest`, `/catEtgEffectTest` (9/9 scripts, 618 effects, ASan 0) | 0.875, PASS-WITH-FIXES | 2ee01a0 |
+| selection | [docs/m2-r3-selection.md](../docs/m2-r3-selection.md) | `ShipSelect.c` filters at the exe bodies, `ioUpdateShipTotals` 45/45, skip-disabled argument split as the exe; 33 cat-new ported; no HW1 alias left | 0.94, PASS-WITH-FIXES | 91602f4 |
+| ship code A | [docs/m2-r3-ships-a.md](../docs/m2-r3-ships-a.md) | 29 reused headers slot for slot; 14-type `GenericInterceptorStaticInit`; new `Cloak.c`, `Salvage.c`, `BeastWeapon.c`; 97 cat-new ported or hooked; sp passes `GenericInterceptor.c (205)` | 0.935, PASS-WITH-FIXES | ce5726d |
+| universe statics + MEX | [docs/m2-r3-universe-mex.md](../docs/m2-r3-universe-mex.md) | **Level load:** the 60-entry Sect/Beast swap table. **`MEX.c`** and the `DockStaticInfo` 0x50 header. **`Universe.c`:** 7-race mine statics, team colours, 8-type derelict loader. **`Globals.c`.** Universe running | 0.925, PASS-WITH-FIXES | e068e39 |
+| Ghidra name fixes | docs/binary-map.md "M2-R3 name fixes" | 3/3 applied (`aieCheckHealthLow/High`, `meshObjectFixupPacoUV`); export `cataclysm_gog_r6` | (audited in M2-R2) | d2c5494 |
+
+Round size (`git diff 7ac664f HEAD`): 134 tracked files changed, +14,900 / -4,976 lines. In `src/`: 109 files, 1,295
+added lines carrying `CAT`. Delta map: IDENTICAL / MODIFIED / REWRITTEN went from 3,175 / 1,168 / 77 to
+**3,110 / 1,234 / 76**, with 1,374 functions hand-reviewed. Stage 2 is now **804 / 569 / 29 (240,423 MODIFIED B) +
+829 cat-new**. The ports found IDENTICAL bodies modified at a high rate (ships-a 19 of 80, universe-mex 9 of 38), so
+the R4 producers compare every IDENTICAL body in their scope.
+
+### M2-R4 plan (stage 2 part B; details in docs/m2-r3-summary.md "Plan for M2-R4")
+
+5 producers in sequence + 5 auditors + integrate (11 agents). Counts are HW1-matched I / M / R functions (MODIFIED
+bytes) and cat-new by address neighbour, from `ghidra/delta_map.json` at the end of R3. Each producer starts with the
+R3 part-A leftovers it owns.
+
+| # | producer | scope (part-A leftovers first) | I / M / R (M bytes) | cat-new | done when |
 |---|---|---|---|---|---|
-| 1 | close-out + systemic headers | stage-1 leftovers; `SOF_*` renumbering, `MAX_MILITARY_SLOTS` 63, `AlternativeShips` 0xA8, `ClampInfo` 0x38, `StaticCollInfo`, `CustShipFire` +0x11C; `Randy.c` 27 streams + `realtimeelapsed` | 8 / 0 / 0 | 15 / 8,705 B | quit rc 0; size asserts; oracle self-test PASS with 27 streams |
-| 2 | ETG + particle argument arrays | one-pointer callables, `etg\race_*.script`, ETG.c, Particle.c | 171 / 164 / 2 (21,936 B) | 24 / 6,685 B | all `etg\*.script` parse, ASan 0 |
-| 3 | selection | `ioUpdateShipTotals` in 30 filters, Select.c, ShipSelect.c | 33 / 44 / 4 (14,536 B) | 59 / 11,278 B | no HW1 alias left in both files |
-| 4 | ship code A (HW1 headers) | `CustShipHeader` slot wiring; StaticInit/slot bodies of the reused HW1 headers, `GenericInterceptorStaticInit` 0x005b1e70 first | Ships/* 80 / 45 / 12 (15,070 B) | part of 422 / 78,155 B | sp passes `GenericInterceptor.c (205)` |
-| 5 | universe statics + MEX | Universe.c (mine statics x7 races, team colours, derelict loader), MEX.c, `DockStaticInfo` 0x50, Globals.c | 38 / 31 / 0 (15,684 B) | 20 / 5,549 B | sp reaches `universe running` on Mission01 |
+| 1 | universe update + mesh state | the effect +0x80/+0x84 mesh state and the per-ship mesh-state helpers; `UnivUpdate.c`; glow runtime; `univDeleteDeadShip` with the mothership death trigger | 52 / 46 / 0 (30,978 B) | 51 / 15,092 B | sp as far as R3 with the new UnivUpdate, ASan 0; effect self-test passes |
+| 2 | command layer + formations | **first:** the specialFlags/specialFlags2 renumbering to the exe's bits (systemic header). Then `CommandLayer.c`, `CommandWrap.c`, `Formation.c`, orders 11-17, formation types 9/10 | 87 / 65 / 1 (51,539 B) | 41 / 11,084 B | flags at the exe's bits; sp as far as before, ASan 0 |
+| 3 | combat, docking, salvage | `Collision`, `Physics`, `Clamp`, `Gun` (weapon-type word), `Damage`, `Attack`, `Dock`, `LaunchMgr`, `ResCollect`; the salvage and Beast-weapon runtime; delete the dormant HW1 salvage code; kamikaze, blast | 48 / 56 / 5 (34,228 B) | 42 / 20,039 B | `SalCapCorvetteHeader` at the exe's 0x30; no HW1 salvage reader left; ASan 0 |
+| 4 | ship code B | the 22 Cataclysm-only headers and the cloak-generator NULL headers; big gun, Mimic, Sentinel, disable/dissolve; move the provisional queries home; delete the 22 dormant HW1 types | Ships/* 61 / 64 / 12 (18,603 B) | Ships/* 422 / 78,155 B (97 done in R3) | no HW1 ship type left; statics 143/143 with StaticInits under ASan |
+| 5 | the rest, Player layout, oracle stage 2, tools | `Clouds`, `Nebulae`, `Camera*`, `Stats`, `ResearchAPI` (upgrades), `Crates`, `Captaincy`, `Alliance`, `Tactics`, `Eval`, `Bounties`, `Blobs`, `Region`, `Memory`, `Task`, `HS`, `FlightMan`, math. **Layout:** `Universe`/`Player` with size asserts. **Level load:** `scriptSetShipsCB`, `unitCapCanCreateShip` (`ConsMgr.c` `shipinprogress`). **Oracle:** Ship health and Player in the checksum, and a headless Mission01 oracle run (virtual clock, no real-time animatic, no next-level loop). **Save:** the tick-0 compare at `saveCatLoadHook`. **Tools:** a sample filter for `delta_map.py report`, `classify` on r6, the 21 UI cat-new moved to stage 3 | 341 / 63 / 6 (33,483 B) | 155 / 30,655 B | two headless Mission01 runs give byte-identical `.hwo` streams |
 
-M2-R4 (stage 2 part B): UnivUpdate.c + glow runtime; CommandLayer/CommandWrap/Formation; combat + docking + salvage; ship code B (the 22 Cataclysm-only headers, rest of Ships/* cat-new); the rest + oracle stage 2. Stage-2 exit: Mission01 runs headless with ASan 0 and two runs give byte-identical `.hwo` streams.
+**R4 integrate (stage-2 exit):** Mission01 runs a few thousand ticks headless with ASan 0, and two runs give
+byte-identical `.hwo` streams. fe, the self-tests and the release `SELFTEST PASS` must also hold, and quits must return
+rc 0.
 
 ### Decisions the user owns
 
-**Answered by the user 2026-10-10** (R1 list numbering; the user's own numbering in brackets where it differs), all applied in M2-R2:
+**Answered by the user 2026-10-10** (R1 list numbering; the user's own numbering in brackets where it differs). Items
+1-9 were applied in M2-R2; items 11 and 12 in M2-R3.
 1. ANSWERED: accept GoK 3af31fb as `src/`.
-2. ANSWERED: Cataclysm behaviour wins, decided per subsystem as it is ported; 16 Hz universe is the default (GoK's 64 Hz only behind `/gok64Hz`); `-O2 -fno-strict-aliasing`, no fast-math, pinned before any checksum comparison (done in M2-R2 oracle).
+2. ANSWERED: Cataclysm behaviour wins, decided per subsystem as it is ported. The 16 Hz universe is the default; GoK's
+   64 Hz is only behind `/gok64Hz`. `-O2 -fno-strict-aliasing`, no fast-math, pinned before any checksum comparison
+   (done in the M2-R2 oracle item).
 3. ANSWERED: Relic ad1bb82 `Game/` and `Ships/` in-tree as reference (`src/reference/hw1-ad1bb82/`, commit 86c3ee6).
-4. ANSWERED: re-read the 1,013 low-confidence IDENTICALs and apply the audit's reclassifications (done: docs/m2-r2-reread.md).
-5. ANSWERED: the oracle may call the game's own record/playback functions; no OS input is synthesised (built into the DLL).
-7. ANSWERED [their 6]: clang-18 + lld-link first, mingw fallback. **Outcome: the DLL builds with clang-18 + lld-link; no mingw install is needed.**
-9. ANSWERED [their 7]: LAN interop with stock 1.01 is nice-to-have, not required: no effort spent, wire format not broken gratuitously.
+4. ANSWERED: re-read the 1,013 low-confidence IDENTICALs and apply the audit's reclassifications (done:
+   docs/m2-r2-reread.md).
+5. ANSWERED: the oracle may call the game's own record/playback functions; no OS input is synthesised (built into the
+   DLL).
+7. ANSWERED [their 6]: clang-18 + lld-link first, mingw fallback. **Outcome: the DLL builds with clang-18 + lld-link;
+   no mingw install is needed.**
+9. ANSWERED [their 7]: LAN interop with stock 1.01 is nice-to-have, not required. No effort is spent on it, and the
+   wire format is not broken gratuitously.
+11. ANSWERED 2026-10-10: **the faithfulness defaults already in the tree are accepted.**
+    - The 22 dropped HW1 types stay dormant at ids 200-221 until M2-R4 #4 deletes them.
+    - `kCloakGenerator`/`tCloakGenerator` use `DefaultShipHeader` where the exe has NULL.
+    - `crateInit` resets 46 entries.
+    - The mission-17 texture cut follows the stock exe, not CET.
+    - The fq audio code follows the binary.
+12. ANSWERED 2026-10-10: **run the Ghidra name fixes.** Done in M2-R3: commit d2c5494, export `cataclysm_gog_r6`.
+- ANSWERED 2026-10-10: **the oracle reference recording (6) and the two saves (8) come later and do not block.** The
+  rounds build what does not need them. The hooks are ready: `saveCatLoadHook` (`src/Game/SaveGame.c`) for the
+  saves; `tools/oracle/` and docs/m2-r2-oracle.md "What is left" 1 for the recording.
 
-**Still open:**
-6. **First reference recording.** Which skirmish map and player setup you record through the menus as the first oracle reference.
-8. **Two saves** from the M0 play-test (one mission, one skirmish) for `tools/formats/savegame_probe.py`; without them the save layout stays code-derived.
+**Still open (the user's; none blocks M2-R4):**
+6. **First reference recording.** Which skirmish map and player setup you record through the menus as the first
+   oracle reference.
+8. **Two saves** from the M0 play-test (one mission, one skirmish), for `tools/formats/savegame_probe.py` and
+   `saveCatLoadHook`. Without them the save layout stays code-derived.
+10. **The first live oracle session is yours** (goes with 6). Copy `build/oracle-dll/hwi_oracle.dll` and
+    `hwi_oracle_loader.exe` next to `cataclysm.exe`, record one skirmish, then make two playback runs; the procedure
+    is in docs/m2-r2-oracle.md "What is left" 1. Until then three things are unverified: that the DLL loads under
+    Proton, that the H6 trigger works, and that `vqpc` gives 1/16 s per tick.
 - The M0 play-test sign-off (docs/PLAN.md).
 
-**New from M2-R2:**
-10. **The first live oracle session is yours** (goes with 6): copy `build/oracle-dll/hwi_oracle.dll` and `hwi_oracle_loader.exe` next to `cataclysm.exe`, record one skirmish, then two playback runs; procedure in docs/m2-r2-oracle.md "What is left" 1. Until then it is unverified that the DLL loads under Proton, that the H6 trigger works and that `vqpc` gives 1/16 s per tick.
-11. **Faithfulness defaults already in the tree** (say if you want otherwise): the 22 dropped HW1 types stay dormant (ids 200-221) until stages 2/4 delete their code; `kCloakGenerator`/`tCloakGenerator` use `DefaultShipHeader` where the exe has NULL; `crateInit` resets 46 entries as the exe does; the mission-17 texture cut follows the stock exe, not CET; the fq audio functions will follow the binary, not GoK's reconstruction.
-12. **One small Ghidra pass** to apply the 3 name fixes in `ghidra/proposals/m2-r2-name-fixes.json` (M2-R2 ran no Ghidra).
+**New from M2-R3** (each has a default in the tree; say if you want otherwise):
+13. **LeakSanitizer suppressions.** `tools/lsan.supp` suppresses 11 start-up allocations: libdbus, the GL driver,
+    GoK's SDL mutexes and one `rinit` mode record. Every other leak still fails a run. The entries are dropped when
+    stages 3 and 5 port those paths.
+14. **`CAT_HW1_MISSION_SCRIPTS 0` (CAT-PROVISIONAL).** No HW1 KAS mission script and no HW1 mission-start NIS until
+    stage 6 ports Cataclysm's kas2c missions and its NIS-first start. Without the switch, sp stops at `KAS.c (265)`.
+15. **Chosen names.** The 3 new `SOF_*` flags have names chosen here, since the exe's are unknown:
+    `SOF_CatCloakDevice` 0x200, `SOF_CatShipPart` 0x40000000, `SOF_CatDocking` 0x80000000. The 3 HW1 flags with no
+    exe bit are defined 0 (`SOF_CloakGenField`, `SOF_Cloaking`/`DeCloaking`, `SOF_Slaveable`).
+16. **The LP64 save blob changes with each appended `Ship` field.** Nothing is pinned until the saves (8) arrive.
 
 ## Opus workflows in flight
 

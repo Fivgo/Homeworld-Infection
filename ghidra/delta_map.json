@@ -4,7 +4,7 @@
  "export": "ghidra/exports/cataclysm_gog_r5",
  "hw1_source": "Relic HW1 source at gardens-of-kadesh root commit ad1bb82ca3c62dcc8be9d35f2e836d0bb7cf7caa (ORIG); GoK working tree only where ORIG has no definition (hw1_source=GoK-HEAD)",
  "size_ratio_global_median": 0.232,
- "counts": {"targets":4426,"classified_all_groups":4420,"in_done_groups":4420,"unresolved":6,"IDENTICAL":3118,"MODIFIED":1226,"REWRITTEN":76,"reviewed":1341},
+ "counts": {"targets":4426,"classified_all_groups":4420,"in_done_groups":4420,"unresolved":6,"IDENTICAL":3110,"MODIFIED":1234,"REWRITTEN":76,"reviewed":1374},
  "cpp_failures": 91,
  "unresolved": [
   {"address":"0x00425be0","name":"bitioFileInputBit","hw1_file":"BitIO.c","hw1_func":"bitioFileInputBit","bytes":70,"source":"class","reason":"no definition of bitioFileInputBit in ORIG@ad1bb82 src/{Game,Win32,Ships,SinglePlayer} (cpp -DHW_Release) nor in the GoK working tree"},
