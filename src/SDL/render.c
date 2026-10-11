@@ -2739,7 +2739,7 @@ dontdraw:
 #if RND_VISUALIZATION
                                 if (dockLines) dockDrawDockInfo(ship);
                                 if (gunLines) gunDrawGunInfo(ship);
-                                if (dockLines) dockDrawSalvageInfo(&ship->shipOrDerelict);
+                                // CAT (M2-R4 combat): no HW1 salvage-point lines (dockDrawSalvageInfo is gone with HW1's salvage)
 #endif
 
  /*
@@ -3084,11 +3084,7 @@ dontdraw:
                                 }
                             }
 
-#ifdef HW_BUILD_FOR_DEBUGGING
-                            if (spaceobj->header.objtype == OBJ_DerelictType &&
-                                ((Derelict*)spaceobj)->derelicttype < NUM_DERELICTTYPES && dockLines)
-                                dockDrawSalvageInfo((ShipOrDerelict*)spaceobj);
-#endif
+                            // CAT (M2-R4 combat): no HW1 salvage-point lines for derelicts (dockDrawSalvageInfo is gone)
                             colorScheme = 0;
                             switch (spaceobj->header.objtype)
                             {

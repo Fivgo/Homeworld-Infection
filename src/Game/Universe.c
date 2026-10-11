@@ -8,6 +8,7 @@
 =============================================================================*/
 
 #include "Universe.h"
+#include "Salvage.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -4587,8 +4588,9 @@ void universeReset(void)
 {
     sdword index;
 
-    // CAT-TODO: universeReset 0x0053df80 first calls cat_salvageResetGlobals 0x004f7a90 (salvage, M2-R4 stage 2B),
-    //      cat_blastReset 0x00516390 (blast lists, stage 2B) and destroys each player's fog-of-war map (fowDestroy on
+    // CAT (M2-R4 combat): universeReset 0x0053df80 first calls cat_salvageResetGlobals 0x004f7a90
+    cat_salvageResetGlobals();
+    // CAT-TODO: then cat_blastReset 0x00516390 (blast lists, stage 2B) and destroys each player's fog-of-war map (fowDestroy on
     //      Player+0x6500; the Cataclysm Player layout and the FOW are stage 3), and after clReset/ccReset sets the
     //      multiplayer camera mode in a recorded-game playback (cat_mcSetMode/cat_mcResetRequest, stage 3)
     clReset(&universe.mainCommandLayer);
@@ -5268,6 +5270,35 @@ Ship *cat_univFindNearestShip(SpaceObj *from, bool32 (*filter)(Ship *ship))
         }
     }
     return nearest;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_playerHasCompletedShip
+    Description : CAT: TRUE when player owns a ship of the given type that is not still being built externally
+                  (cat_playerHasCompletedShip 0x0053f620; the exe tests the player's per-type count first)
+    Inputs      : type, player
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+bool32 cat_playerHasCompletedShip(ShipType type, Player *player)
+{
+    Node *node;
+    Ship *ship;
+
+    if (player->shiptotals[type] == 0)
+    {
+        return FALSE;
+    }
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if ((ship->staticinfo->shiptype == type) && (ship->playerowner == player) &&
+            !bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 /*-----------------------------------------------------------------------------

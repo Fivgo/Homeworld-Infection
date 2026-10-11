@@ -53,6 +53,7 @@ _Static_assert(sizeof(CatBeastWeaponSpec) == 0x18, "the beast weapon block is 0x
 bool32 cat_staticHasBeastWeapon(ShipStaticInfo *statinfo);
 bool32 cat_shipHasBeastWeapon(Ship *ship);
 void cat_beastWeaponStaticInit(void);
+void cat_beastInfectShip(Ship *target, Ship *infector);
 
 void cat_beastWeaponInit(Ship *ship);
 void cat_beastWeaponClose(Ship *ship);

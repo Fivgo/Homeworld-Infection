@@ -250,7 +250,7 @@ void syncDebugDump(char *filename1,sdword counter,bool32 save)
             us->ship[j].impactable.impactablelink.structptr=0;
 
             us->ship[j].guidance.clampInfo=0;
-            us->ship[j].shipOrDerelict.salvageInfo=0;
+            // CAT (M2-R4 combat): no salvageInfo pointer in Cataclysm's ship (SpaceObj.h)
             if(us->ship[j].shipOrDerelict.dockingship != NULL)
             {
                 us->ship[j].shipOrDerelict.dockingship=(Ship *)us->ship[j].shipOrDerelict.dockingship->shipID.shipNumber;

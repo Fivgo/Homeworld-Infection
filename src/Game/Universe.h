@@ -328,6 +328,7 @@ typedef struct
 void cat_univMothershipModuleTypesGet(CatModuleTypeList *modules);        // CAT: 0x0053f680
 void cat_univBeastMothershipModuleTypesGet(CatModuleTypeList *modules);   // CAT: 0x0053f840
 Ship *cat_univFindNearestShip(SpaceObj *from, bool32 (*filter)(Ship *ship));   // CAT: 0x0053f590
+bool32 cat_playerHasCompletedShip(ShipType type, Player *player);                 // CAT: 0x0053f620
 void unitCapDeleteShip(Ship *ship, Player *player);
 bool32 unitCapCanCreateShip(ShipType ship, shipsinprogress *factory, shipavailable *cmShipsAvail);
 void unitCapInitialize(Player *player);

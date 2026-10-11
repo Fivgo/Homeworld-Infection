@@ -1370,6 +1370,23 @@ bool32 MoveReachedDestinationVariable(Ship *ship,vector *destination,real32 boun
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_MoveReachedDestinationRadius
+    Description : CAT: TRUE when ship is within radius of destination (a sphere, not
+                  MoveReachedDestinationVariable's box; cat_MoveReachedDestinationRadius 0x00419e80)
+    Inputs      : ship, destination, radius
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+bool32 cat_MoveReachedDestinationRadius(Ship *ship,vector *destination,real32 radius)
+{
+    real32 dx = ship->obj.posinfo.position.x - destination->x;
+    real32 dy = ship->obj.posinfo.position.y - destination->y;
+    real32 dz = ship->obj.posinfo.position.z - destination->z;
+
+    return (dx * dx + dy * dy + dz * dz < radius * radius);
+}
+
+/*-----------------------------------------------------------------------------
     Name        : MoveLeftToGo
     Description : returns the maximum distance along a axis which the ship has left to go
     Inputs      : ship, destination

@@ -36,7 +36,7 @@
 #include "prim3d.h"
 #include "Randy.h"
 #include "ResearchShip.h"
-#include "SalCapCorvette.h"
+#include "Salvage.h"
 #include "Select.h"
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
@@ -259,21 +259,22 @@ CommandToDo *findFormationGuardingShip(Ship *ship);
     Outputs     : result
     Return      :
 ----------------------------------------------------------------------------*/
-void GetDirectionVectorOfShip(vector *result,udword direction,Ship *ship)
+void GetDirectionVectorOfShip(vector *result,udword direction,matrix *coordsys)
 {
+    // CAT: GetDirectionVectorOfShip 0x004631f0 takes a coordinate system, not a ship (cat_linkComputeTargetCoordSys
+    //      passes a dock point's frame), and direction 3 leaves result as it was
     switch (direction & 3)
     {
         case 0:
-            matGetVectFromMatrixCol1(*result,ship->rotatable.rotinfo.coordsys);
+            matGetVectFromMatrixCol1(*result,*coordsys);
             break;
 
         case 1:
-            matGetVectFromMatrixCol2(*result,ship->rotatable.rotinfo.coordsys);
+            matGetVectFromMatrixCol2(*result,*coordsys);
             break;
 
         case 2:
-        case 3:
-            matGetVectFromMatrixCol3(*result,ship->rotatable.rotinfo.coordsys);
+            matGetVectFromMatrixCol3(*result,*coordsys);
             break;
     }
 
@@ -330,6 +331,496 @@ DockStaticPoint *cat_dockFindDockStaticPoint(char *name,DockStaticInfo *dockstat
         }
     }
     return NULL;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockDepositResourceUnits
+    Description : CAT: gives a player resource units from a depot (cat_dockDepositResourceUnits 0x00463270: the
+                  crystal processing of the salvage depots)
+    Inputs      : player, resourceUnits
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_dockDepositResourceUnits(Player *player,sdword resourceUnits)
+{
+    if (resourceUnits > 0)
+    {
+        player->resourceUnits += resourceUnits;
+        // CAT-TODO(stage 4): the exe also adds them to the player's two AI resource counters (universe.aiplayerEnemy
+        //      + playerIndex * 0x7F8, +0x4E and +0x52; the Cataclysm AIPlayer layout is the AI stage's)
+        universe.gameStats.totalResourceUnitsCollected += resourceUnits;
+        if ((singlePlayerGame) && (player->playerIndex == 0))
+        {
+            singlePlayerGameInfo.resourceUnitsCollected += resourceUnits;
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_salvageOpenAnimIndex / cat_salvageCloseAnimIndex
+    Description : CAT: the mesh animation a salvager plays to open / close its claws: the Worker's 3 / 2, none for
+                  any other type (0x004638f0 / 0x004639b0)
+    Inputs      : type
+    Outputs     :
+    Return      : the animation number, or -1
+----------------------------------------------------------------------------*/
+sdword cat_salvageOpenAnimIndex(ShipType type)
+{
+    switch (type)
+    {
+        case sWorker:
+        case bWorker:
+            return 3;
+        default:
+            return -1;
+    }
+}
+
+sdword cat_salvageCloseAnimIndex(ShipType type)
+{
+    switch (type)
+    {
+        case sWorker:
+        case bWorker:
+            return 2;
+        default:
+            return -1;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_matCoordSysAligned
+    Description : CAT: TRUE when the up, forward and right axes of two frames are each within cosAngle of each
+                  other (cat_matCoordSysAligned 0x00463840, tested in that order)
+    Inputs      : a, b, cosAngle
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+bool32 cat_matCoordSysAligned(matrix *a,matrix *b,real32 cosAngle)
+{
+    if (b->m11 * a->m11 + b->m21 * a->m21 + b->m31 * a->m31 < cosAngle)
+    {
+        return FALSE;
+    }
+    if (b->m13 * a->m13 + b->m23 * a->m23 + b->m33 * a->m33 < cosAngle)
+    {
+        return FALSE;
+    }
+    if (b->m12 * a->m12 + b->m22 * a->m22 + b->m32 * a->m32 < cosAngle)
+    {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_linkComputeTargetCoordSys
+    Description : CAT: the frame ship must have so that its link point faces the host's dock point
+                  (cat_linkComputeTargetCoordSys 0x00463680)
+    Inputs      : ship, linkpoint (ship's point), host, hostpoint
+    Outputs     : out
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_linkComputeTargetCoordSys(Ship *ship,DockStaticPoint *linkpoint,Ship *host,DockStaticPoint *hostpoint,matrix *out)
+{
+    matrix pointframe, tmpmat;
+    vector heading, up, right;
+    vector backward, side, third;
+
+    (void)ship;
+
+    // the host point's frame: up / right / heading from its cone normal and its heading and up directions
+    matCreateCoordSysFromHeading(&pointframe, &hostpoint->conenormal);
+    GetDirectionVectorOfShip(&heading, hostpoint->headingdirection, &pointframe);
+    GetDirectionVectorOfShip(&up, hostpoint->updirection, &pointframe);
+    right.x = up.z * heading.y - up.y * heading.z;
+    right.y = up.x * heading.z - heading.x * up.z;
+    right.z = heading.x * up.y - up.x * heading.y;
+    vecNormalize(&right);
+    matCreateMatFromVecs(&tmpmat, &up, &right, &heading);
+    matMultiplyMatByMat(out, &host->rotatable.rotinfo.coordsys, &tmpmat);
+
+    // undo the link point's own frame (its cone normal reversed)
+    backward.x = -linkpoint->conenormal.x;
+    backward.y = -linkpoint->conenormal.y;
+    backward.z = -linkpoint->conenormal.z;
+    side.x = 0.0f - backward.y;
+    side.z = 0.0f;
+    side.y = backward.x - 0.0f;
+    vecNormalize(&side);
+    third.x = side.z * backward.y - side.y * backward.z;
+    third.y = side.x * backward.z - side.z * backward.x;
+    third.z = side.y * backward.x - side.x * backward.y;
+    vecNormalize(&third);
+    matCreateMatFromVecs(&tmpmat, &backward, &side, &third);
+    matTranspose(&tmpmat);
+    matMultiplyMatByMat(out, out, &tmpmat);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockFlyToConeOriginLatch
+    Description : CAT: flies ship down the cone of the dock point it holds on dockwith (dockvars.catDockPointIndex)
+                  to the point itself, keeping it on the cone axis (cat_dockFlyToConeOriginLatch 0x00464b30)
+    Inputs      : ship, dockwith, radius (arrival distance)
+    Outputs     :
+    Return      : TRUE when it has arrived
+----------------------------------------------------------------------------*/
+bool32 cat_dockFlyToConeOriginLatch(Ship *ship,Ship *dockwith,real32 radius)
+{
+    DockStaticPoint *dockpoint;
+    vector pointpos, conenormal, heading, up, diff, newpos, dest;
+    real32 dist, oneOverDist, along, upDot, headingDot, proj, speed, arrival;
+    udword aishipflags;
+    bool32 aligned;
+    ShipClass shipclass = ship->staticinfo->shipclass;
+
+    dockpoint = &dockwith->staticinfo->dockStaticInfo->dockstaticpoints[ship->dockvars.catDockPointIndex];
+
+    if (cat_shipIsUntargetable(dockwith) &&
+        ((shipclass == CLASS_Fighter) || (shipclass == CLASS_Corvette) || (shipclass == CLASS_Micro)))
+    {
+        matMultiplyMatByVec(&pointpos, &dockwith->rotatable.rotinfo.coordsys, &dockpoint->position);
+        vecAddTo(pointpos, dockwith->obj.posinfo.position);
+        if (MoveReachedDestinationVariable(ship, &pointpos, ship->staticinfo->common.staticCollInfo.collspheresize))
+        {
+            return TRUE;
+        }
+        aishipFlyToPointAvoidingObjsFunc(ship, &pointpos, AISHIP_FirstPointInDirectionFlying|AISHIP_PointInDirectionFlying|AISHIP_FastAsPossible, -100.0f, &dockwith->obj.posinfo.velocity);
+        return FALSE;
+    }
+
+    matMultiplyMatByVec(&pointpos, &dockwith->rotatable.rotinfo.coordsys, &dockpoint->position);
+    vecAddTo(pointpos, dockwith->obj.posinfo.position);
+    if (MoveReachedDestinationVariable(ship, &pointpos, radius))
+    {
+        return TRUE;
+    }
+
+    matMultiplyMatByVec(&conenormal, &dockwith->rotatable.rotinfo.coordsys, &dockpoint->conenormal);
+    GetDirectionVectorOfShip(&up, dockpoint->updirection, &dockwith->rotatable.rotinfo.coordsys);
+    if (ship->shiptype == dEcclesiam)
+    {
+        real32 cx, cy, cz;
+
+        heading.x = -conenormal.x;
+        heading.y = -conenormal.y;
+        heading.z = -conenormal.z;
+        cx = up.y * heading.z - up.z * heading.y;
+        cy = up.z * heading.x - up.x * heading.z;
+        cz = up.x * heading.y - up.y * heading.x;
+        up.x = cz * heading.y - cy * heading.z;
+        up.y = cx * heading.z - cz * heading.x;
+        up.z = cy * heading.x - cx * heading.y;
+    }
+    else
+    {
+        GetDirectionVectorOfShip(&heading, dockpoint->headingdirection, &dockwith->rotatable.rotinfo.coordsys);
+    }
+
+    vecSub(diff, ship->obj.posinfo.position, pointpos);
+    dist = fsqrt(vecMagnitudeSquared(diff));
+    oneOverDist = 1.0f / dist;
+    along = conenormal.x * (oneOverDist * diff.x) + conenormal.y * oneOverDist * diff.y + conenormal.z * oneOverDist * diff.z;
+
+    // keep the ship on the cone axis as the axis turns with the host
+    newpos.x = (conenormal.x - ship->catDockLatchHeading.x) * dist + ship->obj.posinfo.position.x;
+    newpos.y = (conenormal.y - ship->catDockLatchHeading.y) * dist + ship->obj.posinfo.position.y;
+    newpos.z = (conenormal.z - ship->catDockLatchHeading.z) * dist + ship->obj.posinfo.position.z;
+    cat_univSetShipPosition(ship, &newpos);
+
+    if (ship->shiptype == dEcclesiam)
+    {
+        matrix *coordsys = &ship->rotatable.rotinfo.coordsys;
+
+        headingDot = coordsys->m13 * heading.x + coordsys->m23 * heading.y + coordsys->m33 * heading.z;
+        upDot = coordsys->m11 * up.x + coordsys->m31 * up.z + coordsys->m21 * up.y;
+        aitrackHeadingAndUp(ship, &heading, &up, 0.995f);
+        aligned = !((headingDot < 0.995f) || (upDot < 0.78f));
+    }
+    else
+    {
+        aligned = aitrackHeadingAndUp(ship, &heading, &up, 0.995f);
+    }
+
+    if (along < 0.0f)
+    {
+        return TRUE;
+    }
+    if ((along < 0.995f) && (100.0f < dist))
+    {
+        proj = conenormal.x * diff.x + conenormal.y * diff.y + conenormal.z * diff.z;
+        dest.x = proj * conenormal.x + pointpos.x;
+        dest.y = conenormal.y * proj + pointpos.y;
+        dest.z = proj * conenormal.z + pointpos.z;
+        aishipFlyToPointAvoidingObjsFunc(ship, &dest, 0, -20.0f, &dockwith->obj.posinfo.velocity);
+    }
+    if (aligned)
+    {
+        if (cat_shipIsUntargetable(dockwith))
+        {
+            aishipflags = AISHIP_FastAsPossible;
+            speed = 100.0f;
+        }
+        else
+        {
+            aishipflags = 0;
+            speed = 120.0f;
+        }
+        aishipFlyToPointAvoidingObjsFunc(ship, &pointpos, aishipflags, -speed, &dockwith->obj.posinfo.velocity);
+        if (cat_shipIsUntargetable(dockwith))
+        {
+            if (ship->staticinfo->common.staticCollInfo.collspheresize <= 1000.0f)
+            {
+                arrival = 1000.0f;
+            }
+            else
+            {
+                arrival = ship->staticinfo->common.staticCollInfo.collspheresize;
+            }
+            if (MoveReachedDestinationVariable(ship, &pointpos, arrival))
+            {
+                return TRUE;
+            }
+        }
+    }
+    ship->catDockLatchHeading = conenormal;
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockFlyToConeInside
+    Description : CAT: flies ship into the cone of a dock point of dockwith (cat_dockFlyToConeInside 0x004671d0)
+    Inputs      : ship, dockwith, dockpoint
+    Outputs     :
+    Return      : TRUE when it is inside the cone
+----------------------------------------------------------------------------*/
+bool32 cat_dockFlyToConeInside(Ship *ship,Ship *dockwith,DockStaticPoint *dockpoint)
+{
+    vector conepos, diff, conenormal, dest;
+    real32 dist, clampdist;
+    ShipClass shipclass;
+
+    matMultiplyMatByVec(&conepos, &dockwith->rotatable.rotinfo.coordsys, &dockpoint->position);
+    vecAddTo(conepos, dockwith->obj.posinfo.position);
+    vecSub(diff, ship->obj.posinfo.position, conepos);
+    dist = fsqrt(vecMagnitudeSquared(diff));
+    if (dist < dockpoint->mindist)
+    {
+        clampdist = dockpoint->mindist;
+    }
+    else if (dockpoint->maxdist < dist)
+    {
+        clampdist = dockpoint->maxdist;
+    }
+    else
+    {
+        clampdist = dist;
+    }
+
+    matMultiplyMatByVec(&conenormal, &dockwith->rotatable.rotinfo.coordsys, &dockpoint->conenormal);
+    dest.x = dockpoint->mindist * conenormal.x + conepos.x;
+    dest.y = dockpoint->mindist * conenormal.y + conepos.y;
+    dest.z = dockpoint->mindist * conenormal.z + conepos.z;
+
+    if (dist * dockpoint->coneangle < conenormal.x * diff.x + conenormal.y * diff.y + conenormal.z * diff.z + 5.0f)
+    {
+        shipclass = ship->staticinfo->shipclass;
+        if ((dockwith->header.objtype != OBJ_ShipType) || !cat_shipIsUntargetable(dockwith) ||
+            ((shipclass != CLASS_Fighter) && (shipclass != CLASS_Corvette) && (shipclass != CLASS_Micro)))
+        {
+            aitrackForceSteadyShip(ship);
+        }
+        return TRUE;
+    }
+
+    if (dist <= clampdist + 500.0f)
+    {
+        aishipFlyToPointAvoidingObjsFunc(ship, &dest, AISHIP_FirstPointInDirectionFlying|AISHIP_PointInDirectionFlying, -10.0f, &dockwith->obj.posinfo.velocity);
+        return FALSE;
+    }
+    aishipFlyToPointAvoidingObjsFunc(ship, &dest, AISHIP_FirstPointInDirectionFlying|AISHIP_PointInDirectionFlying|AISHIP_FastAsPossible, -80.0f, &dockwith->obj.posinfo.velocity);
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockFlyToConeOrigin
+    Description : CAT: flies ship along the cone of a dock point of dockwith towards its origin
+                  (cat_dockFlyToConeOrigin 0x004673c0)
+    Inputs      : ship, dockwith, dockpoint
+    Outputs     :
+    Return      : TRUE when it has arrived
+----------------------------------------------------------------------------*/
+bool32 cat_dockFlyToConeOrigin(Ship *ship,Ship *dockwith,DockStaticPoint *dockpoint)
+{
+    vector conepos, diff, conenormal, dest;
+    real32 dist, tolerance, speed;
+    udword aishipflags;
+    ShipClass shipclass = ship->staticinfo->shipclass;
+    bool32 untargetableHost = (dockwith->header.objtype == OBJ_ShipType) && cat_shipIsUntargetable(dockwith);
+
+    if (untargetableHost && ((shipclass == CLASS_Fighter) || (shipclass == CLASS_Corvette) || (shipclass == CLASS_Micro)))
+    {
+        return TRUE;
+    }
+
+    matMultiplyMatByVec(&conepos, &dockwith->rotatable.rotinfo.coordsys, &dockpoint->position);
+    vecAddTo(conepos, dockwith->obj.posinfo.position);
+    vecSub(diff, ship->obj.posinfo.position, conepos);
+    dist = fsqrt(vecMagnitudeSquared(diff));
+    if (dist < dockpoint->mindist)
+    {
+        dist = dockpoint->mindist;
+    }
+    else if (dockpoint->maxdist < dist)
+    {
+        dist = dockpoint->maxdist;
+    }
+
+    matMultiplyMatByVec(&conenormal, &dockwith->rotatable.rotinfo.coordsys, &dockpoint->conenormal);
+    dest.x = conenormal.x * dist + conepos.x;
+    dest.y = conenormal.y * dist + conepos.y;
+    dest.z = conenormal.z * dist + conepos.z;
+
+    if (untargetableHost)
+    {
+        tolerance = ship->staticinfo->common.staticCollInfo.collspheresize * 0.125f + 25.0f;
+    }
+    else
+    {
+        tolerance = 10.0f;
+    }
+    if (MoveReachedDestinationVariable(ship, &dest, tolerance))
+    {
+        return TRUE;
+    }
+
+    aishipflags = AISHIP_FirstPointInDirectionFlying|AISHIP_PointInDirectionFlying|AISHIP_DontFlyToObscuredPoints|
+                  AISHIP_ReturnImmedIfPointObscured|AISHIP_IgnoreDockWithObscuredPoints;    // 0xB3
+    if (untargetableHost)
+    {
+        aishipflags |= AISHIP_FastAsPossible;                                               // 0xB7
+        speed = 100.0f;
+    }
+    else
+    {
+        speed = 80.0f;
+    }
+    aishipFlyToPointAvoidingObjsFunc(ship, &dest, aishipflags, -speed, &dockwith->obj.posinfo.velocity);
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_linkFlyIntoPosition
+    Description : CAT: lines ship's link point up with host's dock point and snaps it there when position,
+                  orientation and both ships' mesh animations are ready (cat_linkFlyIntoPosition 0x004675c0)
+    Inputs      : ship, linkpoint (ship's point), host, hostpoint
+    Outputs     :
+    Return      : TRUE when it is in position
+----------------------------------------------------------------------------*/
+bool32 cat_linkFlyIntoPosition(Ship *ship,DockStaticPoint *linkpoint,Ship *host,DockStaticPoint *hostpoint)
+{
+    real32 nearRadiusSq, collsphere, tolerance, alignCos, distSq;
+    matrix target;
+    vector targetpos, offset, heading, up;
+    bool32 positioned, aligned, animsReady, hostAnimReady;
+    madanim *mad, *hostmad;
+    bool32 untargetableHost = (host->header.objtype == OBJ_ShipType) && cat_shipIsUntargetable(host);
+
+    nearRadiusSq = ship->staticinfo->common.staticCollInfo.avoidcollspheresize;
+    nearRadiusSq = nearRadiusSq * nearRadiusSq;
+    collsphere = ship->staticinfo->common.staticCollInfo.collspheresize;
+
+    cat_linkComputeTargetCoordSys(ship, linkpoint, host, hostpoint, &target);
+    matMultiplyMatByVec(&targetpos, &host->rotatable.rotinfo.coordsys, &hostpoint->position);
+    vecAddTo(targetpos, host->obj.posinfo.position);
+    matMultiplyMatByVec(&offset, &ship->rotatable.rotinfo.coordsys, &linkpoint->position);
+    vecSubFrom(targetpos, offset);
+
+    if (untargetableHost)
+    {
+        tolerance = ship->staticinfo->common.staticCollInfo.collspheresize * 0.25f;
+        alignCos = 0.985f;
+    }
+    else
+    {
+        tolerance = 5.0f;
+        alignCos = 0.996f;
+    }
+    positioned = !((tolerance <= ABS(ship->obj.posinfo.position.x - targetpos.x)) ||
+                   (tolerance <= ABS(ship->obj.posinfo.position.y - targetpos.y)) ||
+                   (tolerance <= ABS(ship->obj.posinfo.position.z - targetpos.z)));
+
+    aligned = cat_matCoordSysAligned(&ship->rotatable.rotinfo.coordsys, &target, alignCos);
+    distSq = (targetpos.x - ship->obj.posinfo.position.x) * (targetpos.x - ship->obj.posinfo.position.x) +
+             (targetpos.y - ship->obj.posinfo.position.y) * (targetpos.y - ship->obj.posinfo.position.y) +
+             (targetpos.z - ship->obj.posinfo.position.z) * (targetpos.z - ship->obj.posinfo.position.z);
+
+    // CAT: the exe's madanim +0x08 is the mode madAnimationStart 0x004b6b90 stores (its third argument, stage 3);
+    //      this tree keeps it in madanim.flags
+    mad = ship->madBindings;
+    hostmad = (host->header.objtype == OBJ_ShipType) ? host->madBindings : NULL;
+    animsReady = TRUE;
+    hostAnimReady = TRUE;
+    if ((mad != NULL) && (mad->nCurrentAnim != -1) && (mad->flags == 0) && ((nearRadiusSq <= distSq) || !mad->bPaused))
+    {
+        animsReady = FALSE;
+    }
+    if ((hostmad != NULL) && (hostmad->nCurrentAnim != -1) && (hostmad->flags == 0))
+    {
+        hostAnimReady = (distSq < nearRadiusSq) && hostmad->bPaused;
+    }
+    animsReady = animsReady && hostAnimReady;
+
+    if (aligned && positioned && animsReady)
+    {
+        ship->rotatable.rotinfo.coordsys = target;
+        ship->obj.posinfo.velocity = host->obj.posinfo.velocity;
+        cat_univSetShipPosition(ship, &targetpos);
+        return TRUE;
+    }
+
+    if (distSq < nearRadiusSq)
+    {
+        if ((mad != NULL) && (mad->nCurrentAnim != -1) && (mad->flags == 0))
+        {
+            madAnimationPause(ship, FALSE);
+        }
+        if ((hostmad != NULL) && (hostmad->nCurrentAnim != -1) && (hostmad->flags == 0))
+        {
+            madAnimationPause(host, FALSE);
+        }
+    }
+
+    if (!aligned)
+    {
+        GetDirectionVectorOfShip(&heading, 2, &target);
+        GetDirectionVectorOfShip(&up, 0, &target);
+        aitrackHeadingAndUp(ship, &heading, &up, FLYSHIP_HEADINGACCURACY);
+        if (positioned)
+        {
+            return FALSE;
+        }
+    }
+    else
+    {
+        if (positioned)
+        {
+            return FALSE;
+        }
+        if (animsReady)
+        {
+            goto flyto;
+        }
+    }
+
+    if (distSq <= collsphere * collsphere)
+    {
+        aitrackVelocityVectorGuidance((SpaceObjRotImpTargGuidance *)ship, &host->obj.posinfo.velocity);
+        return FALSE;
+    }
+flyto:
+    aishipFlyToPointAvoidingObjsFunc(ship, &targetpos, 0, -120.0f, &host->obj.posinfo.velocity);
+    return FALSE;
 }
 
 /*-----------------------------------------------------------------------------
@@ -559,11 +1050,7 @@ sdword ThisShipIs(ShipStaticInfo *shipstatic)
 //returns TRUE if the shiptype requires a mothership in order to retire
 bool32 shipRetireNeedsMothership(Ship *ship)
 {
-    if (CAT_SALVAGESTATICINFO(ship->staticinfo) != NULL)
-    {
-        return !CAT_SALVAGESTATICINFO(ship->staticinfo)->willFitCarrier;
-    }
-    else
+    // CAT (M2-R4 combat): no HW1 willFitCarrier salvage static (always absent in Cataclysm)
     {
         //no salvage lights
         if(isCapitalShipStatic(ship->staticinfo))
@@ -954,7 +1441,7 @@ sdword clDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockType,
         }
     }
 
-    salCapExtraSpecialOrderCleanUp(selectcom,COMMAND_DOCK,dockwith,NULL);
+    // CAT (M2-R4 combat): no salCapExtraSpecialOrderCleanUp (HW1 salvage; clDock 0x00466c70 has no such call)
 
     if(dockwith !=NULL)
     {
@@ -1474,8 +1961,8 @@ bool32 dockFlyToConeOrigin(Ship *ship,Ship *dockwith,real32 tolerance,real32 min
         if((overide = dockNeedRotationOveride(dockwith,ship,dockstaticpoint)) != -1)
         {
             vector desiredHeading,desiredUp;
-            GetDirectionVectorOfShip(&desiredHeading,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading,dockwith);
-            GetDirectionVectorOfShip(&desiredUp,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up,dockwith);
+            GetDirectionVectorOfShip(&desiredHeading,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading,&(dockwith)->rotatable.rotinfo.coordsys);
+            GetDirectionVectorOfShip(&desiredUp,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up,&(dockwith)->rotatable.rotinfo.coordsys);
             aitrackHeadingAndUp(ship,&desiredHeading,&desiredUp,FLYSHIP_HEADINGACCURACY);
             flags = 0;
         }
@@ -1559,13 +2046,13 @@ latchimmediately:
         {
             if((overide = dockNeedRotationOveride(dockwith,ship,dockstaticpoint)) != -1)
             {
-                GetDirectionVectorOfShip(&desiredHeading,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading,dockwith);
-                GetDirectionVectorOfShip(&desiredUp,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up,dockwith);
+                GetDirectionVectorOfShip(&desiredHeading,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading,&(dockwith)->rotatable.rotinfo.coordsys);
+                GetDirectionVectorOfShip(&desiredUp,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up,&(dockwith)->rotatable.rotinfo.coordsys);
             }
             else
             {
-                GetDirectionVectorOfShip(&desiredHeading,dockstaticpoint->headingdirection,dockwith);
-                GetDirectionVectorOfShip(&desiredUp,dockstaticpoint->updirection,dockwith);
+                GetDirectionVectorOfShip(&desiredHeading,dockstaticpoint->headingdirection,&(dockwith)->rotatable.rotinfo.coordsys);
+                GetDirectionVectorOfShip(&desiredUp,dockstaticpoint->updirection,&(dockwith)->rotatable.rotinfo.coordsys);
             }
             aitrackHeadingAndUp(ship,&desiredHeading,&desiredUp,FLYSHIP_HEADINGACCURACY);
             aishipFlyToPointAvoidingObjsWithVel(ship,&conepositionInWorldCoordSys,0,-50.0f,&dockwith->obj.posinfo.velocity);
@@ -1586,13 +2073,13 @@ bool32 dockFlyToConeOriginLatch(Ship *ship,Ship *dockwith)
 
     if((overide = dockNeedRotationOveride(dockwith,ship,dockstaticpoint)) != -1)
     {
-        GetDirectionVectorOfShip(&desiredHeading,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading,dockwith);
-        GetDirectionVectorOfShip(&desiredUp,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up,dockwith);
+        GetDirectionVectorOfShip(&desiredHeading,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading,&(dockwith)->rotatable.rotinfo.coordsys);
+        GetDirectionVectorOfShip(&desiredUp,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up,&(dockwith)->rotatable.rotinfo.coordsys);
     }
     else
     {
-        GetDirectionVectorOfShip(&desiredHeading,dockstaticpoint->headingdirection,dockwith);
-        GetDirectionVectorOfShip(&desiredUp,dockstaticpoint->updirection,dockwith);
+        GetDirectionVectorOfShip(&desiredHeading,dockstaticpoint->headingdirection,&(dockwith)->rotatable.rotinfo.coordsys);
+        GetDirectionVectorOfShip(&desiredUp,dockstaticpoint->updirection,&(dockwith)->rotatable.rotinfo.coordsys);
     }
 
     if((overide = dockNeedOffsetOveride(dockwith,ship,dockstaticpoint)) != -1)
@@ -1693,13 +2180,13 @@ bool32 dockBackoutOfConeLatchFacingProperly(Ship *ship,Ship *dockwith,real32 wit
         {
             if((overide = dockNeedRotationOveride(dockwith,ship,dockstaticpoint)) != -1)
             {
-                GetDirectionVectorOfShip(&desiredHeading,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading,dockwith);
-                GetDirectionVectorOfShip(&desiredUp,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up,dockwith);
+                GetDirectionVectorOfShip(&desiredHeading,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading,&(dockwith)->rotatable.rotinfo.coordsys);
+                GetDirectionVectorOfShip(&desiredUp,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up,&(dockwith)->rotatable.rotinfo.coordsys);
             }
             else
             {
-                GetDirectionVectorOfShip(&desiredHeading,dockstaticpoint->headingdirection,dockwith);
-                GetDirectionVectorOfShip(&desiredUp,dockstaticpoint->updirection,dockwith);
+                GetDirectionVectorOfShip(&desiredHeading,dockstaticpoint->headingdirection,&(dockwith)->rotatable.rotinfo.coordsys);
+                GetDirectionVectorOfShip(&desiredUp,dockstaticpoint->updirection,&(dockwith)->rotatable.rotinfo.coordsys);
             }
             aitrackHeadingAndUp(ship,&desiredHeading,&desiredUp,FLYSHIP_HEADINGACCURACY);
             aishipFlyToPointAvoidingObjsWithVel(ship,&destination,0,BACKOUT_MINFLYSPEED,&dockwith->obj.posinfo.velocity);
@@ -1740,8 +2227,8 @@ bool32 dockFlyOutOfCone(Ship *ship,Ship *dockwith,sdword headingdirection,sdword
         if ((headingdirection >= 0) && (updirection >= 0))
     {
             dbgAssertOrIgnore(headingdirection != updirection);
-            GetDirectionVectorOfShip(&heading,headingdirection,dockwith);
-            GetDirectionVectorOfShip(&up,updirection,dockwith);
+            GetDirectionVectorOfShip(&heading,headingdirection,&(dockwith)->rotatable.rotinfo.coordsys);
+            GetDirectionVectorOfShip(&up,updirection,&(dockwith)->rotatable.rotinfo.coordsys);
             aitrackHeadingAndUp(ship,&heading,&up,FLYSHIP_HEADINGACCURACY);
             flags = 0;
         }
@@ -2342,34 +2829,28 @@ void dockPutShipInside(Ship *ship,Ship *dockwith)
 {
     ShipsInsideMe *shipsInsideMe = dockwith->shipsInsideMe;
     InsideShip *insideShip;
+    Node *node;
+    ShipClass shipclass;
 
-    dbgAssertOrIgnore(shipsInsideMe);
+    // CAT: dockPutShipInside 0x004652c0: a ship already inside is not added twice; micro ships count as fighters and
+    //      resource ships as corvettes; no HW1 SalCap target hand-over (HW1 salvage, gone)
+    for (node = shipsInsideMe->insideList.head; node != NULL; node = node->next)
+    {
+        if (((InsideShip *)listGetStructOfNode(node))->ship == ship)
+        {
+            return;
+        }
+    }
 
     insideShip = memAlloc(sizeof(InsideShip),"InsideShip",0);
     insideShip->ship = ship;
     listAddNode(&shipsInsideMe->insideList,&insideShip->node,insideShip);
     lmUpdateShipsInside();
-    if (ship->staticinfo->shipclass==CLASS_Fighter)
+    shipclass = ship->staticinfo->shipclass;
+    if ((shipclass == CLASS_Fighter) || (shipclass == CLASS_Micro))
         dockwith->shipsInsideMe->FightersInsideme++;
-    else if (ship->staticinfo->shipclass==CLASS_Corvette)
+    else if ((shipclass == CLASS_Corvette) || (shipclass == CLASS_Resource))
         dockwith->shipsInsideMe->CorvettesInsideme++;
-
-    //check if ship is salcap
-    if(ship->shiptype == SalCapCorvette)
-    {
-        //check if it has a target
-        if(((SalCapCorvetteSpec *)ship->ShipSpecifics)->target != NULL)
-        {
-            ShipOrDerelict *temp = ((SalCapCorvetteSpec *)ship->ShipSpecifics)->target;
-
-            //cleanup the salcap
-            bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_SalvagerHasSomethingAttachedAndIsDoingSomethingElse);
-            SalCapOrderChangedCleanUp(ship);
-
-            //harvest the target
-            salCapHarvestTarget(temp,dockwith);  //hopefully harvest the target properly!
-        }
-    }
 }
 
 void dockInitShipForLaunch(Ship *ship)
@@ -2434,8 +2915,8 @@ void dockPutShipOutside(Ship *ship,Ship *creator,vector *createat,udword heading
     ship->obj.posinfo.velocity = creator->obj.posinfo.velocity;
 
     dbgAssertOrIgnore(headingdirection != updirection);
-    GetDirectionVectorOfShip(&heading,headingdirection,creator);
-    GetDirectionVectorOfShip(&up,updirection,creator);
+    GetDirectionVectorOfShip(&heading,headingdirection,&(creator)->rotatable.rotinfo.coordsys);
+    GetDirectionVectorOfShip(&up,updirection,&(creator)->rotatable.rotinfo.coordsys);
     vecCrossProduct(right,heading,up);   // should not have to normalize because heading, up are unit vectors and angle between them is 90 degrees.
     matCreateMatFromVecs(&ship->rotatable.rotinfo.coordsys,&up,&right,&heading);
 
@@ -3509,8 +3990,8 @@ bool32 ShipDocksAtASF(struct CommandToDo *docktodo,struct Ship *ship,struct Ship
                 matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->position);
                 vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
 
-                GetDirectionVectorOfShip(&desiredHeading,dockstaticpoint->headingdirection,dockwith);
-                GetDirectionVectorOfShip(&desiredUp,dockstaticpoint->updirection,dockwith);
+                GetDirectionVectorOfShip(&desiredHeading,dockstaticpoint->headingdirection,&(dockwith)->rotatable.rotinfo.coordsys);
+                GetDirectionVectorOfShip(&desiredUp,dockstaticpoint->updirection,&(dockwith)->rotatable.rotinfo.coordsys);
                 vecCrossProduct(desiredRight,desiredHeading,desiredUp);
 
                 ship->obj.posinfo.position = conepositionInWorldCoordSys;
@@ -4131,19 +4612,12 @@ sdword **ResourceLatchPoints[] = {
 
 bool32 shipStaticIndicatesBigHangerBayForRace(ShipStaticInfo *ship_static, sdword race)
 {
-    if (ship_static                    != NULL
-    &&  CAT_SALVAGESTATICINFO(ship_static) != NULL)
-    {
-        if (race == R1)
-        {
-            return CAT_SALVAGESTATICINFO(ship_static)->needBigR1;
-        }
-        else if (race == R2) // should be a given but might see P1 et al
-        {
-            return CAT_SALVAGESTATICINFO(ship_static)->needBigR2;
-        }
-    }
-    
+    // CAT (M2-R4 combat): HW1 read the needBigR1/needBigR2 salvage statics here; Cataclysm has no HW1 salvage statics
+    //      (CAT_SALVAGESTATICINFO is always NULL), so the small hangar bay is always the answer. The HW1 launch code
+    //      around this is the dock port's (Dock.c, Cataclysm dock types).
+    (void)ship_static;
+    (void)race;
+
     // default to using the small hanger bay - it doesn't sound particularly
     // sensible but that's the way the .shp configuration is set up
     return FALSE;
@@ -4783,14 +5257,7 @@ waitforlatch:
                 }
 //                speechEvent(dockwith, STAT_Cap_ShipDocked, 0);
 
-                if ((singlePlayerGame)  &&
-                    (ship->shiptype == SalCapCorvette) &&
-                    (bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_SalvageTakingHomeTechnology)))
-                {
-                    tutGameMessage("Game_TechnologyReturned");
-                    bitClear(ship->shipOrDerelict.specialFlags, SPECIAL_SalvageTakingHomeTechnology);
-                    salCapClearTechBool();
-                }
+                // CAT (M2-R4 combat): no HW1 "technology returned" hand-in (HW1 salvage; its flag is retired)
 
             }
             return FALSE;

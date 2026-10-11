@@ -204,6 +204,8 @@ void cat_univSetShipPosition(Ship *ship, vector *position);                     
 bool32 cat_univPlayerHasFlaggedShip(void);                                                      // 0x0054d200
 sdword cat_univGetShipCountSalvaged(sdword shipType, sdword playerIndex);                       // 0x00540030
 sdword cat_univGetShipCountBeastified(sdword shipType, sdword playerIndex);                     // 0x00540080
+Ship *cat_univConvertShip(Ship *ship, ShipType newType, struct Player *newOwner);                 // 0x00543950
+bool32 cat_univBeastInfectionUpdate(Ship *ship);                                                 // 0x00543860
 void cat_univShipSalvagedCountInc(sdword a, sdword b);                                          // 0x005400d0
 sdword cat_univGetNumberShipsPlayerKilled(sdword playerIndex, sdword shipClass);                // 0x005400f0
 sdword cat_univGetNumberShipsPlayerLost(sdword playerIndex, sdword shipClass);                  // 0x00540110

@@ -26,7 +26,6 @@
 #include "ProximitySensor.h"
 #include "Randy.h"
 #include "RepairCorvette.h"
-#include "SalCapCorvette.h"
 #include "Select.h"
 #include "SoundEvent.h"
 #include "StatScript.h"
@@ -2260,11 +2259,8 @@ real32 tacticsGetShipsMaxVelocity(Ship *ship)
             return ship->singlePlayerSpeedLimiter;      // deliberately override other considerations - we want this to be the final word
 //        }
     }
-    if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_SalvagerHasSomethingAttachedAndIsDoingSomethingElse))
-    {
-        SalCapCorvetteStatics *salcapcorvettestatics = ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo;
-        return(salcapcorvettestatics->maxPushingVelocitySingle);
-    }
+    // CAT (M2-R4 combat): no HW1 salvager pushing velocity (tacticsGetShipsMaxVelocity 0x00529450 has no such case;
+    //      its flag is retired)
 
     switch(ship->staticinfo->shipclass)
     {

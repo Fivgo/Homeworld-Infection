@@ -379,3 +379,14 @@ void vecVectorsBlend(vector *result, vector *start, vector *end, real32 factor)
     result->z = start->z * oneMinusFactor + end->z * factor;
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_vecDistance
+    Description : CAT: the distance between two points (cat_vecDistance 0x00550d60)
+    Inputs      : a, b
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+real32 cat_vecDistance(vector *a, vector *b)
+{
+    return fsqrt((a->x - b->x) * (a->x - b->x) + (a->y - b->y) * (a->y - b->y) + (a->z - b->z) * (a->z - b->z));
+}

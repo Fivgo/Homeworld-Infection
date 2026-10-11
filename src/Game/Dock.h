@@ -47,6 +47,17 @@ bool32 ShipDocksAtDefaultShip(struct CommandToDo *docktodo,struct Ship *ship,str
 
 sdword dockFindDockIndex(char *name,DockStaticInfo *dockstaticinfo);
 DockStaticPoint *cat_dockFindDockStaticPoint(char *name,DockStaticInfo *dockstaticinfo);   // CAT: 0x00463d00
+void GetDirectionVectorOfShip(vector *result,udword direction,matrix *coordsys);   // CAT: takes the frame (0x004631f0)
+// CAT (M2-R4 combat): Cataclysm-only dock helpers (Dock.c; the salvage system and the link code use them)
+void cat_dockDepositResourceUnits(struct Player *player,sdword resourceUnits);             // CAT: 0x00463270
+sdword cat_salvageOpenAnimIndex(ShipType type);                                            // CAT: 0x004638f0
+sdword cat_salvageCloseAnimIndex(ShipType type);                                           // CAT: 0x004639b0
+bool32 cat_matCoordSysAligned(matrix *a,matrix *b,real32 cosAngle);                        // CAT: 0x00463840
+void cat_linkComputeTargetCoordSys(Ship *ship,DockStaticPoint *linkpoint,Ship *host,DockStaticPoint *hostpoint,matrix *out);   // CAT: 0x00463680
+bool32 cat_dockFlyToConeOriginLatch(Ship *ship,Ship *dockwith,real32 radius);              // CAT: 0x00464b30
+bool32 cat_dockFlyToConeInside(Ship *ship,Ship *dockwith,DockStaticPoint *dockpoint);      // CAT: 0x004671d0
+bool32 cat_dockFlyToConeOrigin(Ship *ship,Ship *dockwith,DockStaticPoint *dockpoint);      // CAT: 0x004673c0
+bool32 cat_linkFlyIntoPosition(Ship *ship,DockStaticPoint *linkpoint,Ship *host,DockStaticPoint *hostpoint);   // CAT: 0x004675c0
 /*static void dockReserveDockPoint(Ship *ship,Ship *dockwith,sdword dockpointindex);*/
 /*void dockReserveDockPoint(Ship *ship,Ship *dockwith,sdword dockpointindex);*/
 

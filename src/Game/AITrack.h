@@ -65,6 +65,7 @@ void aitrackVelocityVectorGuidance(SpaceObjRotImpTargGuidance *ship,vector *desi
 #define aitrackVelocityVector(ship,v) aitrackVelocityVectorGuidance((SpaceObjRotImpTargGuidance *)ship,v)
 
 bool32 MoveReachedDestinationVariable(Ship *ship,vector *destination,real32 bounds);
+bool32 cat_MoveReachedDestinationRadius(Ship *ship,vector *destination,real32 radius);   // CAT: 0x00419e80
 
 real32 MoveLeftToGo(Ship *ship,vector *destination);
 

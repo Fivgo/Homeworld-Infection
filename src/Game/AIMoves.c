@@ -15,7 +15,7 @@
 #include "CommandWrap.h"
 #include "FastMath.h"
 #include "Randy.h"
-#include "SalCapCorvette.h"
+#include "Salvage.h"
 #include "SaveGame.h"
 #include "Select.h"
 #include "SinglePlayer.h"
@@ -3345,7 +3345,9 @@ sdword aimProcessActiveCapture(AITeam *team)
     }
     else if (!(((udword)universe.totaltimeelapsed) & 15))
     {
-        if (((SalCapCorvetteSpec *)(team->shipList.selection->ShipPtr[0]->ShipSpecifics))->salvageState < 3) //dockingstate1
+        // CAT (M2-R4 combat): the exe tests the Cataclysm salvager block's target (aimProcessActiveCapture 0x0040b3f0);
+        //      the rest of the move (the three-way capture target, cat_aiuWrapCapture) is the AI stage's (stage 4)
+        if (cat_salvageGetSalvagerInfo(team->shipList.selection->ShipPtr[0])->target == NULL)
         {
             thisMove->processing = FALSE;
         }

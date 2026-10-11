@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "SoundEvent.h"
+#include "Salvage.h"
 
 #include <math.h>
 
@@ -1500,9 +1501,12 @@ othersounds:
 				}
 				break;
 
-			case SalCapCorvette:
+			// CAT (M2-R4 combat): both SalCap corvettes, and the beam flag of the Cataclysm salvager block
+			//      (soundEventUpdate 0x0051cd10: cat_salvageGetSalvagerInfo +0x0C); the sound code itself is stage 3's
+			case kSalCapCorvette:
+			case tSalCapCorvette:
 				// is the tractor beam on?
-				if ((((SalCapCorvetteSpec *)ship->ShipSpecifics)->tractorBeam == TRUE) &&
+				if ((cat_salvageGetSalvagerInfo(ship)->tractorBeam) &&
 					(SEinrange(shipclass, dist)))
 				{
 					// is the sound for it playing?

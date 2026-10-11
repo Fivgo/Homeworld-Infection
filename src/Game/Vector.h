@@ -139,5 +139,6 @@ void vecLineIntersectWithYZPlane(vector *result, vector *linepoint1,vector *line
 void vecLineIntersectWithXZPlane(vector *result, vector *linepoint1,vector *linepoint2, real32 yp);
 void vecLineIntersectWithPlane(vector *dest, vector *Vplane, vector *Vnormal, vector *Vline, vector *Vdirection);
 void vecVectorsBlend(vector *result, vector *start, vector *end, real32 factor);
+real32 cat_vecDistance(vector *a, vector *b);                                    // CAT: 0x00550d60
 
 #endif

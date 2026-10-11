@@ -20,6 +20,7 @@
 #include "Collision.h"
 #include "CommandDefs.h"
 #include "CommandWrap.h"
+#include "ConsMgr.h"
 #include "Crates.h"
 #include "Damage.h"
 #include "Debug.h"
@@ -174,7 +175,6 @@ IDToPtrTable MissileIDToPtr;
     Private functions:
 =============================================================================*/
 
-void setSalvageInfo(ShipOrDerelict *object);
 
 
 // CAT (M2-R3 ships-a): not static, MothershipHouseKeep 0x005bcad0 calls it for the mothership death sequence
@@ -987,18 +987,9 @@ Derelict *univAddDerelictByStatInfo(DerelictType derelictType, DerelictStaticInf
     newDerelict->newDockWithTransfer = NULL;
     univInitSpaceObjPosRot(&newDerelict->obj,pos,FALSE);
 
-    //needed hack to Fix LUKES ridiculous NIS hack
-    if(derelictType < NUM_DERELICTTYPES)
-    {
-        //yes, it is a valid derelict
-        setSalvageInfo(&newDerelict->shipOrDerelict);
-    }
-    else
-    {
-        //fix it for good:
-        // CAT: no salvageStaticInfo field in Cataclysm
-        newDerelict->shipOrDerelict.salvageInfo = NULL;
-    }
+    // CAT (M2-R4 combat): no HW1 per-object salvage points (setSalvageInfo and ShipOrDerelict.salvageInfo are gone):
+    //      Cataclysm salvages ships at their DPT_Salvage dock points (Salvage.c); univAddDerelictByStatInfo 0x00541000
+    //      allocates nothing of the kind
 
     InitializeNavLights((Ship *)newDerelict);
 
@@ -1809,6 +1800,13 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     newship = memAlloc(totalsize,"Ship",NonVolatile);
     memset(newship,0,sizeship);                             // set everything to 0 by default
     extraPointer = (ubyte *)newship + sizeship;             //point to end of ship where extra RAM was allocated
+    // CAT (M2-R4 combat): right after zeroing the ship the exe sets the salvage-target fields (univCreateShip
+    //      0x00542320 at 0x005423c2..0x005423f6): +0x618 = 0x6258d727 (1e21, "never"), +0x615 = -1, +0x238 = -1;
+    //      and the dock point index +0x4A0 = -1 further on (0x00542899)
+    newship->catSalvageNotifyTime = CAT_SALVAGE_NEVER;
+    newship->catSalvagePointIndex = -1;
+    newship->catSalvagePlayer = -1;
+    newship->dockvars.catDockPointIndex = -1;
 
     newship->sizeofShipSpecifics = sizespec;
     newship->shipDeCloakTime = -20.0f;                  //initialize to a negative number so if a battle occurs at time 0.0f or anytime near by, then it will not screw up.
@@ -1958,7 +1956,8 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
         newship->gunInfo = NULL;
     }
 
-    setSalvageInfo((ShipOrDerelict *)newship);
+    // CAT (M2-R4 combat): no HW1 per-object salvage points (setSalvageInfo is gone): Cataclysm's salvage points are
+    //      the DPT_Salvage/DPT_SalvageLatch dock points of the target, held in dockInfo (Salvage.c)
 
     if (shipstaticinfo->dockStaticInfo != NULL)
     {
@@ -1972,6 +1971,8 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
         newship->dockInfo = memAlloc(sizeofDockInfo(numDockPoints),"dockInfo",NonVolatile);
         newship->dockInfo->busyness = 0;
         newship->dockInfo->numDockPoints = numDockPoints;
+        // CAT (M2-R4 combat): cat_dockInitShipDockInfo 0x00463bb0 clears the 0x23 per-type busy counts
+        memset(newship->dockInfo->catNumBusyOfType, 0, sizeof(newship->dockInfo->catNumBusyOfType));
 
         for (i=0,curdockpoint=&newship->dockInfo->dockpoints[0],curdockstaticpoint=&dockstaticinfo->dockstaticpoints[0];i<numDockPoints;i++,curdockpoint++,curdockstaticpoint++)
         {
@@ -2540,14 +2541,16 @@ void univUpdateAllPosVelShips()
         {
             univCheckShipState(ship);
 
-            // CAT-TODO(M2-R4 #3): the exe's clamp scheme (0x00544fa6): a ship clamped to a ship that is not itself
+            // CAT (M2-R4 combat): the exe's clamp scheme (0x00544fa6): a ship clamped to a ship that is not itself
             //      clamped puts that host on the list (once, from the host's first clamped object) and skips its own
-            //      physics; the host then moves its clamped objects (updateClampedObject on the host). Every other
-            //      ship, clamped or not, runs physUpdateObjPosVelShip. Until Clamp.c is ported the HW1 scheme stays.
-            if(ship->guidance.clampInfo != NULL)
+            //      physics; the host then moves its clamped objects (updateClampedObject on the host, below). Every
+            //      other ship, clamped or not, runs physUpdateObjPosVelShip.
+            if ((ship->guidance.clampInfo != NULL) && (ship->guidance.clampInfo->host != NULL) &&
+                (ship->guidance.clampInfo->host->header.objtype == OBJ_ShipType) &&
+                (((Ship *)ship->guidance.clampInfo->host)->guidance.clampInfo->host == NULL) &&
+                (((Ship *)ship->guidance.clampInfo->host)->guidance.clampInfo->clampedObjs->ShipPtr[0] == ship))
             {
-                //object has clampinfo, should be updated
-                growSelectAddShip(&ClampedShipList,ship);
+                growSelectAddShip(&ClampedShipList,(Ship *)ship->guidance.clampInfo->host);
             }
             else
             {
@@ -2559,8 +2562,11 @@ void univUpdateAllPosVelShips()
         {
             // CAT: a ship that does not move still gets its housekeep and deferred update (0x0054500a..0x00545082)
             univMinorSetupShipForControl(ship);
-            // CAT-TODO(M2-R4 #3): a clamped one is carried along without physics (cat_updateClampedObjectNoPhysics
-            //      0x00434ab0)
+            // CAT (M2-R4 combat): a clamped one is carried along without physics (0x00545047)
+            if ((ship->guidance.clampInfo != NULL) && (ship->guidance.clampInfo->host != NULL))
+            {
+                cat_updateClampedObjectNoPhysics((SpaceObjRotImpTargGuidance *)ship);
+            }
             if (ship->staticinfo->custshipheader.CustShipHousekeep != NULL)
             {
                 growSelectAddShip(&universe.HousekeepShipList,ship);
@@ -2600,9 +2606,11 @@ void univUpdateAllPosVelShips()
         for (i=0;i<numShips;i++)
         {
             obj = clampedShipSelection->ShipPtr[i];
+            // CAT (M2-R4 combat): the list holds hosts (0x005450f4): a host still holding objects and clamped to
+            //      nothing moves them
             if (obj)    //???????
             {
-                if(obj->guidance.clampInfo != NULL)
+                if ((obj->guidance.clampInfo != NULL) && (obj->guidance.clampInfo->host == NULL))
                 {
                     //do this check again because it is possible for a ship to become unclamped at some point down the road...
                     updateClampedObject((SpaceObjRotImpTargGuidance *)obj);
@@ -4161,46 +4169,9 @@ void univRemoveAllTargetReferencesFromMissiles(SpaceObjRotImpTarg *target)
     }
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : univRemoveAllDerelictReferencesFromSpecialShips
-    Description : removes all derelict references from special ships
-    Inputs      : d - derelictto remove
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void univRemoveAllDerelictReferencesFromSpecialShips(Derelict *d)
-{
-    Node *node = universe.ShipList.head;
-    Ship *ship;
-    InsideShip *insideShip;
-
-    while (node != NULL)
-    {
-        ship = (Ship *)listGetStructOfNode(node);
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-
-        if(ship->shipOrDerelict.specialFlags & SPECIAL_IsASalvager)
-            salCapRemoveDerelictReferences(ship,d);
-
-        node = node->next;
-    }
-
-    // walk through ships in hyperspace too!
-
-    node = singlePlayerGameInfo.ShipsInHyperspace.head;
-
-    while (node != NULL)
-    {
-        insideShip = (InsideShip *)listGetStructOfNode(node);
-        ship = insideShip->ship;
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-
-        if(ship->shipOrDerelict.specialFlags & SPECIAL_IsASalvager)
-            salCapRemoveDerelictReferences(ship,d);
-
-        node = node->next;
-    }
-}
+// CAT (M2-R4 combat): no univRemoveAllDerelictReferencesFromSpecialShips: it only told HW1's salvagers to forget a
+//      derelict (salCapRemoveDerelictReferences); cataclysm.exe has no such function and Cataclysm does not salvage
+//      derelicts (cat_salvageCheckTarget 0x004f7eb0 refuses every non-ship)
 
 void univRemoveAllShipReferencesFromSpecialShip(Ship *shiptoremove,Ship *ship)
 {
@@ -4921,9 +4892,9 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
     clShipDied(&universe.mainCommandLayer,ship);
 
     // CAT: special ships drop their references here (HW1 did it before the sensors manager), and ships let go of
-    //      clamps (0x0054826b..0x00548285). CAT-TODO(M2-R4 #3): cat_clampUnclampAllFromShip 0x00434900 (every
-    //      object clamped to this ship, from the ClampInfo clamped-object list); the ship itself is unclamped here
+    //      clamps (0x0054826b..0x00548285): every object clamped to this ship, then the ship itself
     univRemoveAllShipReferencesFromSpecialShips(ship);
+    cat_clampUnclampAllFromShip((SpaceObjRotImpTargGuidance *)ship);
     unClampObj((SpaceObjRotImpTargGuidance *)ship);
 
     // Update computer player structures to reflect ship death
@@ -7170,11 +7141,6 @@ void univFreeDerelictContents(Derelict *derelict)
         memFree(derelict->navLightInfo);
         derelict->navLightInfo = NULL;
     }
-    if(derelict->shipOrDerelict.salvageInfo != NULL)
-    {
-        memFree(derelict->shipOrDerelict.salvageInfo);
-        derelict->shipOrDerelict.salvageInfo = NULL;
-    }
     if(derelict->guidance.clampInfo != NULL)
     {
         memFree(derelict->guidance.clampInfo);
@@ -7410,9 +7376,10 @@ void univRemoveShipReferences(Ship *ship)
 
     univRemoveAllShipReferencesFromSpecialShips(ship);
 
-    // CAT: clamps are released (CAT-TODO(M2-R4 #3): cat_clampUnclampAllFromShip 0x00434900 for every object clamped
-    //      to this ship); the ship itself is unclamped; smObjectDied runs whether or not the sensors manager is up
-    //      and the camera command forgets the ship (0x0054b3a3..0x0054b3c6)
+    // CAT: clamps are released (cat_clampUnclampAllFromShip 0x00434900 for every object clamped to this ship, then
+    //      the ship itself is unclamped); smObjectDied runs whether or not the sensors manager is up and the camera
+    //      command forgets the ship (0x0054b3a3..0x0054b3c6)
+    cat_clampUnclampAllFromShip((SpaceObjRotImpTargGuidance *)ship);
     unClampObj((SpaceObjRotImpTargGuidance *)ship);
     smObjectDied(ship);
     ccRemoveShip(&universe.mainCameraCommand,ship);
@@ -7496,11 +7463,6 @@ void univFreeShipContents(Ship *ship)
     {
         memFree(ship->navLightInfo);
         ship->navLightInfo = NULL;
-    }
-    if(ship->shipOrDerelict.salvageInfo != NULL)
-    {
-        memFree(ship->shipOrDerelict.salvageInfo);
-        ship->shipOrDerelict.salvageInfo = NULL;
     }
     if(ship->guidance.clampInfo != NULL)
     {
@@ -7713,45 +7675,6 @@ void univupdateClose()
     star3dClose(universe.star3dinfo);
     universe.star3dinfo = NULL;
 }
-
-/*-----------------------------------------------------------------------------
-    Name        :
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void setSalvageInfo(ShipOrDerelict *object)
-{
-    StaticInfoShipOrDerelict *statinfo = object->staticinfo;
-    sdword sizeofSalvageInfo;
-
-    if(CAT_SALVAGESTATICINFO(object->staticinfo) == NULL)
-    {
-        object->salvageInfo = NULL;
-        return;
-    }
-
-    {
-        SalvagePoint *cursalvagepoint;
-        SalvageStaticPoint *cursalvagestaticpoint;
-        sdword i;
-        sizeofSalvageInfo = sizeofSalvageInfo(CAT_SALVAGESTATICINFO(statinfo)->numSalvagePoints-1);
-        object->salvageInfo = memAlloc(sizeofSalvageInfo,"SalvageInfo",NonVolatile);
-        object->salvageInfo->numSalvagePoints = CAT_SALVAGESTATICINFO(statinfo)->numSalvagePoints;
-        //list free ones...account for heading and up ones!
-        object->salvageInfo->numSalvagePointsFree = object->salvageInfo->numSalvagePoints;
-
-        for(i=0,cursalvagepoint=&object->salvageInfo->salvagePoints[0],cursalvagestaticpoint=&CAT_SALVAGESTATICINFO(statinfo)->salvageStaticPoints[0];i<CAT_SALVAGESTATICINFO(statinfo)->numSalvagePoints;i++,cursalvagepoint++,cursalvagestaticpoint++)
-        {
-            cursalvagepoint->salvageStaticPoint = cursalvagestaticpoint;
-            cursalvagepoint->busy = 0;
-        }
-        object->salvageInfo->numNeededForSalvage = CAT_SALVAGESTATICINFO(statinfo)->numNeededForSalvage;
-
-    }
-}
-
 
 /*-----------------------------------------------------------------------------
     Name        : univRegrowAsteroids
@@ -8315,6 +8238,163 @@ void cat_univShipSelfRepair(Ship *ship)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_univConvertShip (Cataclysm 0x00543950)
+    Description : Replaces ship by a new ship of newType owned by newOwner, at the same place, speed, frame, health
+                  (capped) and resources (capped): a salvaged ship joining its salvager's player, an infected ship
+                  turning Beast. A ship the new owner has no support units for is destroyed instead.
+    Inputs      : ship, newType, newOwner
+    Outputs     :
+    Return      : the new ship, or NULL
+----------------------------------------------------------------------------*/
+Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
+{
+    Ship *newship;
+    Player *oldOwner = ship->playerowner;
+    ShipType oldType = ship->shiptype;
+    Ship *depot = ship->catSalvageDepot;
+    real32 health, savedRotInfo[15];
+    sdword resources;
+    udword upgradeFlags;
+    vector position, velocity, force;
+    bool16 isMoving;
+
+    (void)oldOwner;
+    (void)oldType;
+
+    ship->catBeastConvertTime = 0.0f;
+    if (ship->catBeastBindings != NULL)
+    {
+        memFree(ship->catBeastBindings);
+        ship->catBeastBindings = NULL;
+    }
+    if (ship->catSalvageConvertBindings != NULL)
+    {
+        memFree(ship->catSalvageConvertBindings);
+        ship->catSalvageConvertBindings = NULL;
+    }
+
+    if (!cat_cmHasSupportUnits(newType, newOwner) && (ship->catSalvageDepot == NULL))
+    {
+        // CAT-TODO(stage 3): for the current player the exe shows a command message first (clCommandMessage
+        //      0x004ac820, string 0x00bb5008, red)
+        // CAT-TODO(M2-R4 #5): ApplyDamageToTarget 0x00546250 takes 7 arguments (here 0x13, 0x29a, the owner, 0, 8);
+        //      this tree's takes 5
+        ApplyDamageToTarget(&ship->targetable, 5000.0f, (GunSoundType)0x13, 0x29a, newOwner->playerIndex);
+        ship->catBeastConvertTime = 0.0f;
+        bitClear(ship->header.flags, SOF_Crazy|SOF_Disabled);
+        return NULL;
+    }
+
+    // the state the new ship keeps (0x00543a2f: rotinfo's 15 dwords, posinfo, health, Ship+0x3F0, upgrades, resources)
+    memcpy(savedRotInfo, &ship->rotatable.rotinfo.coordsys, sizeof(savedRotInfo));
+    position = ship->obj.posinfo.position;
+    velocity = ship->obj.posinfo.velocity;
+    force = ship->obj.posinfo.force;
+    isMoving = ship->obj.posinfo.isMoving;
+    health = ship->targetable.health;
+    upgradeFlags = ship->catUpgradeFlags;
+    resources = ship->resources;
+
+    // CAT-TODO(M2-R4 #2..#5): univCreateShip 0x00542320 takes 7 arguments and adds the ship itself; univAddShip is
+    //      this tree's equivalent
+    newship = univAddShip(newType, GetValidRaceForShipType(newType), &position, newOwner, 0);
+
+    // CAT-TODO(M2-R4 combat, the gun word): the exe copies each gun's current-weapon word from the old ship to the new
+    //      one (Gun +0x00, the first min(numGuns) guns)
+
+    univAddObjToRenderListIf((SpaceObj *)newship, (SpaceObj *)ship);
+    unitCapCreateShip(newship, newship->playerowner);
+    // CAT-TODO(M2-R4 #5): the exe copies the old type's 0xA8-byte research/upgrade block of the old owner (Player
+    //      +0x350) to the new type's block of the new owner
+
+    univDeleteDeadShip(ship, -1);   // CAT-TODO(M2-R4 #1 follow-up): the exe passes a third argument, 1
+    if (ship->impactable.impactablelink.belongto != NULL)
+    {
+        listRemoveNode(&ship->impactable.impactablelink);
+    }
+    univWipeShipOutOfExistence(ship);   // CAT-TODO(M2-R4 #1 follow-up): the exe passes a second argument, 2
+
+    newship->obj.posinfo.velocity = velocity;
+    newship->obj.posinfo.force = force;
+    memcpy(&newship->rotatable.rotinfo.coordsys, savedRotInfo, sizeof(savedRotInfo));
+    newship->targetable.health = health;
+    newship->obj.posinfo.isMoving = isMoving;
+    if (newship->staticinfo->health.maxhealth < health)
+    {
+        newship->targetable.health = newship->staticinfo->health.maxhealth;
+    }
+    newship->lastTimeRepaired = 0.0f;
+    newship->resources = resources;
+    if (newship->staticinfo->maxresources < resources)
+    {
+        newship->resources = newship->staticinfo->maxresources;
+    }
+    // CAT-TODO(M2-R4 #5): the exe also copies Ship+0x3F0 (an upgrade word next to the upgrade flags)
+    newship->catUpgradeFlags = upgradeFlags;
+    univUpdateObjRotInfo((SpaceObjRot *)newship);
+
+    if (newOwner->race == RACE_Beast)
+    {
+        if ((depot == NULL) || (depot->shiprace == RACE_Beast))
+        {
+            newship->catBeastStunState = 2;
+            newship->catBeastStunStart = universe.totaltimeelapsed + 0.5f;
+            newship->catBeastStunEnd = newship->catBeastStunStart + 0.5f;
+        }
+        if (!singlePlayerGame)
+        {
+            // CAT-TODO(stage 4): a computer player's new ship (not a bProcessor) is sent to dock, 1 in 10 with dock type
+            //      7 (clWrapDock with universe.aiplayerProcessing set); a bProcessor acquires the old ship's techs
+            //      (cat_rmAcquireShipTechs, M2-R4 #5); for the current player the exe compares the new owner's
+            //      research with the type's tech sets and shows "new technology" messages (cat_ioMessageAdd, stage 3)
+        }
+    }
+    return newship;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univBeastInfectionUpdate (Cataclysm 0x00543860)
+    Description : An infected ship stops what it is doing and, when its time has come, turns into the Beast type its
+                  statics name (bWorker when they name none) for the infector's owner.
+    Inputs      : ship
+    Outputs     :
+    Return      : TRUE when the ship has been converted (the caller stops updating it)
+----------------------------------------------------------------------------*/
+bool32 cat_univBeastInfectionUpdate(Ship *ship)
+{
+    SelectCommand selectone;
+    ShipType newType;
+    Ship *newship;
+
+    if ((ship->catBeastConvertTime != 0.0f) && !nisIsRunning)
+    {
+        if (ship->command != NULL)
+        {
+            selectone.numShips = 1;
+            selectone.timeLastStatus = 0.0f;
+            selectone.ShipPtr[0] = ship;
+            // CAT: the exe passes RemoveShipsFromDoingStuff 0x00444810 the reason 0x2A (M2-R4 command follow-up)
+            RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone);
+        }
+        if (ship->catBeastConvertTime <= universe.totaltimeelapsed)
+        {
+            newType = (ship->staticinfo->beastAttacksRequired >= 0) ? ship->staticinfo->beastAttackConvertTo : bWorker;
+            // the exe indexes the [8][145] table as [newType + player * 8], as cat_univShipSalvagedCountInc
+            ((sdword *)catShipsBeastified)[newType + ship->catBeastInfectorOwner->playerIndex * MAX_MULTIPLAYER_PLAYERS]++;
+            ship->howDidIDie = 0x29a;
+            ship->whoKilledMe = ship->catBeastInfectorOwner->playerIndex;
+            newship = cat_univConvertShip(ship, newType, ship->catBeastInfectorOwner);
+            if (newship != NULL)
+            {
+                bitSet(newship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeastified);
+            }
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : cat_univShipDeferredUpdate (Cataclysm 0x005447b0)
     Description : The per-ship update that runs after every ship has moved and been set up for control. Ported:
                   the remove-references broadcast of a marked ship and the self-repair. The rest is marked
@@ -8330,8 +8410,12 @@ void cat_univShipDeferredUpdate(Ship *ship)
         catUnivTellShipsToDropReferences((SpaceObj *)ship);
         bitClear(ship->catShipFlags, CAT_OBJFLAG18_RemoveReferences);
     }
-    // CAT-TODO(M2-R4 #3/#4): cat_univBeastInfectionUpdate 0x00543860 runs next and, when it converts the ship, ends
-    //      the update. Then (0x00544867..0x005449c4): a queued attack target (Ship +0x4B0) becomes a clAttack;
+    // CAT (M2-R4 combat): an infected ship that turns Beast ends the update (0x00544829)
+    if (cat_univBeastInfectionUpdate(ship))
+    {
+        return;
+    }
+    // CAT-TODO(M2-R4 #3/#4): then (0x00544867..0x005449c4): a queued attack target (Ship +0x4B0) becomes a clAttack;
     //      Sentinel field timers (Ship +0x97C/+0x980); the protected-speed limit (Ship +0x5C4) is reset when its
     //      timer has run out (M2-R4 #2); cat_shipDissolveUpdate; the stun/EMP timers at Ship +0x4D0..+0x4DC (M2-R4 #4)
     cat_univShipSelfRepair(ship);

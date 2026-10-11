@@ -17,7 +17,9 @@ typedef struct
 {
     CatSalvageDepot depot;              // +0x00
 } P1MothershipSpec;
+#if defined(__i386__) || defined(_M_IX86)
 _Static_assert(sizeof(P1MothershipSpec) == 0x144, "P1MothershipSpec is 0x144 bytes in cataclysm.exe");
+#endif
 
 extern CustShipHeader P1MothershipHeader;
 

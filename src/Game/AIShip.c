@@ -11,6 +11,7 @@
 // =============================================================================
 
 #include "AIShip.h"
+#include "Salvage.h"
 
 #include "AITrack.h"
 #include "Alliance.h"
@@ -1454,26 +1455,23 @@ norowcheck:
                     }
                 }
 
-                if (ship->shipOrDerelict.specialFlags & SPECIAL_IsASalvager) {
-                    SalCapCorvetteSpec* salvageCorvette = (SalCapCorvetteSpec*)ship->ShipSpecifics;
-                    if (salvageCorvette->salvageState == SAL_WL_FLYTOCONEORIGIN) {
-                        // don't want salvager in this state to avoid...
-                        goto noavoid;
-                    }
-                    if (&salvageCorvette->target->impactable == avoidobj &&
-                        // avoid target?
-                        salvageCorvette->noAvoid) {
-                        // want to avoid target
-                        goto nextnode;
+                // CAT (M2-R4 combat): a salvager (SPECIAL_CatSalvager) does not avoid its target once inside the
+                //      target's cone (the Cataclysm salvager block's noAvoid), nor a salvager with the same target
+                //      (aishipFlyToPointAvoidingObjsFunc 0x00414610 at 0x004153c5..); HW1's salvage-state exception
+                //      is gone with HW1's salvage code
+                if (ship->shipOrDerelict.specialFlags & SPECIAL_CatSalvager) {
+                    CatSalvagerInfo *salvager = cat_salvageGetSalvagerInfo(ship);
+                    if (&salvager->target->impactable == avoidobj) {
+                        if (salvager->noAvoid) {
+                            goto nextnode;
+                        }
                     } else if (avoidobj->header.objtype == OBJ_ShipType) {
                         Ship* avoidShip = (Ship*)avoidobj;
-                        if (avoidShip->shipOrDerelict.specialFlags & SPECIAL_IsASalvager) {
-                            ShipOrDerelict* targetOfAvoidShip =
-                                ((SalCapCorvetteSpec*)avoidShip->ShipSpecifics)->target;
-                            if (targetOfAvoidShip && targetOfAvoidShip == salvageCorvette->target) {
-                                // don't avoid other salcap corvettes
-                                goto noavoid;
-                            }
+                        if ((avoidShip->shipOrDerelict.specialFlags & SPECIAL_CatSalvager) &&
+                            (cat_salvageGetSalvagerInfo(avoidShip)->target != NULL) &&
+                            (cat_salvageGetSalvagerInfo(avoidShip)->target == salvager->target)) {
+                            // don't avoid other salvagers of the same target
+                            goto noavoid;
                         }
                     }
                 }

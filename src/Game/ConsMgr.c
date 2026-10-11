@@ -4621,3 +4621,23 @@ void LoadConsMgrDetermOptional(void)
         listInit(&cmDetermProgress);
     }
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmHasSupportUnits
+    Description : CAT: does player have the support units for one more ship of type? (cat_cmHasSupportUnits
+                  0x00459b40; the salvage check asks it before a salvager takes a target)
+    Inputs      : type, player
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+bool32 cat_cmHasSupportUnits(ShipType type, Player *player)
+{
+    // CAT-PROVISIONAL (M2-R4 #5): the exe answers TRUE for any computer player in single player and for a type that
+    //      costs no support units (ShipStaticInfo +0x410), else compares the player's support-unit cap and use
+    //      (Player +0x0C/+0x10) with the type's cost plus that of the ships in production (ConsMgr's job list).
+    //      Those Player fields come with the Cataclysm Player layout (M2-R4 #5); until then every ship is affordable.
+    (void)type;
+    (void)player;
+    return TRUE;
+}
+

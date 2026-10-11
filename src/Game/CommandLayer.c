@@ -2968,34 +2968,16 @@ state1:
     return FALSE;
 }
 
-void SalCapCancelOrder(Ship *ship);
-
+// CAT (M2-R4 combat): a ship taken off a special order calls its header's order-changed slot (slot 9): the exe's
+//      RemoveShipsFromDoingStuff 0x00444810 calls [statinfo+0x12c] at 0x00444994 and 0x00444d15. HW1's per-type
+//      switch is that slot's content now (the salvagers' cat_salvageOrderChanged, MinelayerCorvetteOrderChanged,
+//      HeavyCorvetteOrderChanged, AdvanceSupportFrigateOrderChanged ...); HW1's SalCapCancelOrder and
+//      SalCapOrderChangedCleanUp are gone with HW1's salvage code.
 void RemoveShipFromSpecial(Ship *shiptoremove)
 {
-    if (shiptoremove->shipOrDerelict.specialFlags & SPECIAL_IsASalvager)
+    if (shiptoremove->staticinfo->custshipheader.CustShipOrderChanged != NULL)
     {
-        SalCapCancelOrder(shiptoremove);
-        SalCapOrderChangedCleanUp(shiptoremove);
-    }
-    else if (shiptoremove->shiptype == MinelayerCorvette)
-    {
-        MinelayerCorvetteOrderChangedCleanUp(shiptoremove);
-    }
-    else if(shiptoremove->shiptype == RepairCorvette)
-    {
-        RepairCorvetteOrderChanged(shiptoremove);
-    }
-    else if(shiptoremove->shiptype == HeavyCorvette)
-    {
-        heavyCorvetteOrderChanged(shiptoremove);
-    }
-    else if(shiptoremove->shiptype == AdvanceSupportFrigate)
-    {
-        if(shiptoremove->rceffect != NULL)
-        {
-            //need to turn off effect
-            stopRepairEffect(shiptoremove);
-        }
+        shiptoremove->staticinfo->custshipheader.CustShipOrderChanged(shiptoremove);
     }
 }
 
@@ -4706,7 +4688,7 @@ void clMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector t
     CommandToDo *command;
 
     MakeShipsMobile(selectcom, FALSE);   // CAT: skip-disabled argument 0, as game code passes (aiuWrapMove 0x0041eea0); the exe's clMove 0x00446d90 has no such call, its port is M2-R4 #2 [audit]
-    salCapExtraSpecialOrderCleanUp(selectcom,COMMAND_MOVE,NULL,NULL);
+    // CAT (M2-R4 combat): no salCapExtraSpecialOrderCleanUp (HW1 salvage; clMove has no counterpart call)
 
     if (selectcom->numShips < 1)
     {
@@ -6055,7 +6037,7 @@ void clAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *att
         dbgMessage("WARNING: NO SHIPS TO ATTACK.");
         return;
     }
-    salCapExtraSpecialOrderCleanUp(selectcom,COMMAND_ATTACK,NULL,NULL);
+    // CAT (M2-R4 combat): no salCapExtraSpecialOrderCleanUp (HW1 salvage; clAttack has no counterpart call)
 
     sizeofcopycom = sizeofSelectCommand(selectcom->numShips);
     copycom = memAlloc(sizeofcopycom,"cc2(copycom)", Pyrophoric);
@@ -6418,33 +6400,24 @@ void clSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *t
         return;
     }
 
+    // CAT (M2-R4 combat): a lone SalCap corvette already salvaging a ship of the new target list keeps its order
+    //      (clSpecial 0x004492c0: kSalCapCorvette/tSalCapCorvette, ship->command, the Cataclysm salvager block's
+    //      target); HW1's salCapExtraSpecialOrderCleanUp has no counterpart in the exe
     if(selectcom->numShips == 1)
     {
-        if(selectcom->ShipPtr[0]->shiptype == SalCapCorvette)
+        Ship *salcap = selectcom->ShipPtr[0];
+
+        if (((salcap->shiptype == kSalCapCorvette) || (salcap->shiptype == tSalCapCorvette)) &&
+            (salcap->command != NULL) && (salcap->command->ordertype.order == COMMAND_SPECIAL) &&
+            (cat_salvageGetTarget(salcap) != NULL) &&
+            ShipInSelection((SelectCommand *)targets,cat_salvageGetTarget(salcap)))
         {
-            CommandToDo *oldcommand=getShipAndItsCommand(&universe.mainCommandLayer,selectcom->ShipPtr[0]);
-            if(oldcommand != NULL)
-            {
-                if(oldcommand->ordertype.order == COMMAND_SPECIAL)
-                {
-                    if((((SalCapCorvetteSpec *)selectcom->ShipPtr[0]->ShipSpecifics)->target) != NULL)
-                    {
-                        if(ShipInSelection((SelectCommand *)targets,(Ship *)(((SalCapCorvetteSpec *)selectcom->ShipPtr[0]->ShipSpecifics)->target)))
-                        {
-                            //ship is targetting a ship in the list already...lets ignore the command
-
-                            //if we get bugs..we could only do this if the target list is the same exactly
-                            return;
-                        }
-                    }
-                }
-            }
-
+            //ship is targetting a ship in the list already...lets ignore the command
+            return;
         }
     }
 
     clPlaySpeechEventsForSupportCraft(selectcom);
-    salCapExtraSpecialOrderCleanUp(selectcom,COMMAND_SPECIAL,NULL,(SelectCommand *)targets);
 
 
     sizeofselection = sizeofSelectCommand(selectcom->numShips);
@@ -6762,7 +6735,7 @@ void clHaltThese(CommandLayer *comlayer,SelectCommand *selectcom)
         i++;
     }
 
-    salCapExtraSpecialOrderCleanUp(selectcom,COMMAND_HALT,NULL,NULL);
+    // CAT (M2-R4 combat): no salCapExtraSpecialOrderCleanUp (HW1 salvage; no counterpart call in the exe)
 
     if ((alreadycommand = IsSelectionAlreadyDoingSomething(comlayer,selectcom)) != NULL)
     {
@@ -7769,7 +7742,7 @@ CommandToDo *clProtect(CommandLayer *comlayer,SelectCommand *selectcom,ProtectCo
         return NULL;
     }
     //cleanup like halt command
-    salCapExtraSpecialOrderCleanUp(selectcom,COMMAND_HALT,NULL,NULL);
+    // CAT (M2-R4 combat): no salCapExtraSpecialOrderCleanUp (HW1 salvage; no counterpart call in the exe)
 
     if (numShipsToProtect == 0)
     {

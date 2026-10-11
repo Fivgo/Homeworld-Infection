@@ -36,7 +36,6 @@
 #include "prim2d.h"
 #include "Randy.h"
 #include "render.h"
-#include "SalCapCorvette.h"
 #include "SaveGame.h"
 #include "Select.h"
 #include "Sensors.h"
@@ -436,13 +435,11 @@ void kasfIntercept(GrowSelection *targets)
 
 
 // for salvage/capture ships
+// CAT-DORMANT (M2-R4 combat): cataclysm.exe has no kasfTargetDrop (HW1's KAS "TargetDrop" is not in its function table
+//      0x00755048); HW1's SalCapDropTarget is gone with HW1's salvage code, so this does nothing. Stage 6 removes the
+//      HW1 KAS entry with the HW1 mission scripts.
 void kasfTargetDrop(void)
 {
-    SelectCommand *selection = CurrentTeamP->shipList.selection;
-    sdword i;
-
-    for (i=0; i<selection->numShips; i++)
-        SalCapDropTarget(selection->ShipPtr[i]);
 }
 
 void kasfAttackFlank(GrowSelection *targets)
@@ -2601,9 +2598,8 @@ bool32 kasfShipMeetsCriteria(ShipPtr ship, sdword CriteriaFlag)
     switch (CriteriaFlag)
     {
         case kasSpecial_ReturningTechnology:
-            if ((ship->shiptype == SalCapCorvette) &&
-                (bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_SalvageTakingHomeTechnology)))
-                return TRUE;
+            // CAT-DORMANT (M2-R4 combat): no ship returns technology in Cataclysm (HW1's salvage flag is retired and
+            //      cataclysm.exe has no kasfShipMeetsCriteria; stage 6)
             break;
         case kasSpecial_ShipsDisabled:
             if (bitTest(ship->header.flags, SOF_Disabled))

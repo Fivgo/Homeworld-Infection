@@ -417,6 +417,18 @@ real32 TW_BURST_ATTACK_FORCE_MODIFIER;
 
 real32 armourPiercingModifier = 1.5f;
 
+// CAT (M2-R4 combat): the salvage tweakables (cataclysm.exe 0x008ac5dc..0x008ac608, names in the tweak table; the
+//      values are the exe's defaults). Read by Salvage.c.
+real32 twSalTransSpeed = 5.0f;                          // 0x008ac5dc: forward length per second of a depot transfer
+real32 twSalTransMaxTime = 9999999.0f;                  // 0x008ac5e0: cap on that time
+real32 twCrystalProcessingTime = 10.0f;                 // 0x008ac5ec
+real32 twNotifySalvagersNeededRate = 15.0f;             // 0x008ac604: real seconds between "salvagers needed" messages
+real32 twNotifySalvageTargetTooStrongRate = 5.0f;       // 0x008ac608: real seconds between "target too strong" messages
+// CAT (M2-R4 combat): the health fraction below which a ship of each class can be towed (0x00ba2c00, .bss; read by
+//      cat_salvageTargetDamagedEnough 0x004f7d70). The exe's tweak entry "twSalvageDamageLimit[CLASS_MonsterShip]"
+//      points at the CLASS_Corvette slot (0x008adb18 -> 0x00ba2c14), so CLASS_MonsterShip's own slot is never set.
+real32 twSalvageDamageLimit[NUM_CLASSES];
+
 /*=============================================================================
     Private tweak-specific script set functions
 =============================================================================*/
@@ -1000,6 +1012,25 @@ scriptEntry Tweaks[] =
     makeEntry(TW_BURST_ATTACK_FORCE_MODIFIER,scriptSetReal32CB),
 
     makeEntry(armourPiercingModifier,scriptSetReal32CB),
+
+    // CAT (M2-R4 combat): the salvage tweakables (Salvage.c)
+    makeEntry(twSalTransSpeed,scriptSetReal32CB),
+    makeEntry(twSalTransMaxTime,scriptSetReal32CB),
+    makeEntry(twCrystalProcessingTime,scriptSetReal32CB),
+    makeEntry(twNotifySalvagersNeededRate,scriptSetReal32CB),
+    makeEntry(twNotifySalvageTargetTooStrongRate,scriptSetReal32CB),
+    makeEntry(twSalvageDamageLimit[CLASS_Mothership],scriptSetReal32CB),
+    makeEntry(twSalvageDamageLimit[CLASS_HeavyCruiser],scriptSetReal32CB),
+    makeEntry(twSalvageDamageLimit[CLASS_Carrier],scriptSetReal32CB),
+    makeEntry(twSalvageDamageLimit[CLASS_Destroyer],scriptSetReal32CB),
+    makeEntry(twSalvageDamageLimit[CLASS_Frigate],scriptSetReal32CB),
+    makeEntry(twSalvageDamageLimit[CLASS_Corvette],scriptSetReal32CB),
+    makeEntry(twSalvageDamageLimit[CLASS_Fighter],scriptSetReal32CB),
+    makeEntry(twSalvageDamageLimit[CLASS_Resource],scriptSetReal32CB),
+    makeEntry(twSalvageDamageLimit[CLASS_NonCombat],scriptSetReal32CB),
+    { "twSalvageDamageLimit[CLASS_MonsterShip]", scriptSetReal32CB, &(twSalvageDamageLimit[CLASS_Corvette]) },   // CAT: sic, see above
+    makeEntry(twSalvageDamageLimit[CLASS_Component],scriptSetReal32CB),
+    makeEntry(twSalvageDamageLimit[CLASS_Micro],scriptSetReal32CB),
 
     END_SCRIPT_ENTRY
 };

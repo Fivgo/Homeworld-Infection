@@ -410,7 +410,9 @@ bool32 salCapCorvetteInSelection(SelectCommand *selection)
 
     for(i=0;i<selection->numShips;i++)
     {
-        if(selection->ShipPtr[i]->shipOrDerelict.specialFlags & SPECIAL_IsASalvager)
+        // CAT (M2-R4 combat): the Cataclysm salvager mark (SPECIAL_CatSalvager, set by cat_salvageInit 0x004f9010);
+        //      HW1's SPECIAL_IsASalvager is retired. The rest of this right-click code is stage 3's.
+        if(selection->ShipPtr[i]->shipOrDerelict.specialFlags & SPECIAL_CatSalvager)
         {
             return TRUE;
         }

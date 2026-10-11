@@ -370,6 +370,8 @@ bool32 cat_shipCanLeech(Ship *ship, bool32 checkAttached);
 bool32 cat_shipCanUnleech(Ship *ship);
 bool32 cat_shipCanRepair(Ship *ship);
 bool32 cat_shipCanSalvage(Ship *ship);
+real32 cat_shipGetSpeedMultiplier(Ship *ship);                      // CAT: 0x00514940 (M2-R4 combat)
+bool32 cat_salvageTargetAllowed(Ship *target);                      // CAT: 0x00513920 (M2-R4 combat)
 bool32 cat_shipHasUpgrade(Ship *ship, udword flag);
 real32 cat_upgradeFlagsBaseTime(udword flags);
 real32 cat_shipUpgradeFlagsTime(Ship *ship, udword flags);
@@ -383,7 +385,6 @@ bool32 cat_shipIsSentinelFieldActive(Ship *ship);
 bool32 cat_leechIsLeeching(Ship *ship);
 sdword cat_acvLinkState(Ship *ship);
 bool32 cat_acolyteCanFireLinkedWeapon(Ship *ship);
-bool32 cat_salvageIsBeingSalvaged(Ship *ship);
 bool32 cat_salvageDepotHoldsCrystal(Ship *ship);
 bool32 cat_mothershipBigGunActive(Ship *ship);
 bool32 cat_shipDetectedByPlayer(Ship *ship, sdword playerIndex);

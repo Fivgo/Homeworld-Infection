@@ -2598,7 +2598,7 @@ void clFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation
     }
 
     //treat cleanup like a halt!
-    salCapExtraSpecialOrderCleanUp(selectcom,COMMAND_HALT,NULL,NULL);
+    // CAT (M2-R4 combat): no salCapExtraSpecialOrderCleanUp (HW1 salvage; clFormation 0x00484c80 has no such call)
 
 
 

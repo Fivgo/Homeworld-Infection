@@ -10,7 +10,14 @@
 
 #include "BeastWeapon.h"
 
+#include "AIPlayer.h"
+#include "CommandLayer.h"
 #include "Debug.h"
+#include "MeshAnim.h"
+#include "Randy.h"
+#include "SpeechEvent.h"
+#include "Universe.h"
+#include "UnivUpdate.h"
 #include "SaveGame.h"
 #include "StatScript.h"
 
@@ -61,6 +68,68 @@ bool32 cat_shipHasBeastWeapon(Ship *ship)                                   // 0
 {
     // the exe tests the type of the ship's static info (Ship+0x20 -> +0x1E0)
     return cat_isBeastWeaponType(ship->staticinfo->shiptype);
+}
+
+// The Beast's infection takes hold of target: it is stunned and spun, disabled, dropped by the AI and, when
+// cat_univBeastInfectionUpdate's time comes, converted for the infector's owner
+void cat_beastInfectShip(Ship *target, Ship *infector)                      // 0x004298f0
+{
+    Player *owner = infector->playerowner;
+    ShipStaticInfo *statinfo = target->staticinfo;
+    real32 spin = cat_beastWeaponTweaks.stunnedSpinRate;
+    real32 stunned;
+    ShipType convertTo;
+
+    bitSet(target->header.flags, SOF_Crazy|SOF_Disabled);
+    // a random spin direction (catShipFlags bit 7)
+    if ((ranRandom(RANDOM_CAT_SHIPS) % 100) > 50)
+    {
+        bitSet(target->catShipFlags, 0x80);
+    }
+    else
+    {
+        bitClear(target->catShipFlags, 0x80);
+    }
+    // the exe divides by the one-over-moment fields (StaticInfo +0x1C/+0x20/+0x24)
+    target->rotatable.rotinfo.torque.x += (spin * 0.5f) / statinfo->common.oneOverMomentOfInertiaX;
+    target->rotatable.rotinfo.torque.y += (spin * 0.33333334f) / statinfo->common.oneOverMomentOfInertiaY;
+    target->rotatable.rotinfo.torque.z += (spin * 0.25f) / statinfo->common.oneOverMomentOfInertiaZ;
+
+    stunned = cat_beastWeaponTweaks.beastAttackTimeSpentStunned;
+    if (target->shiptype == dEcclesiam)
+    {
+        stunned = stunned + stunned;
+    }
+    target->catBeastInfector = infector;
+    target->catBeastInfectorOwner = owner;
+    target->catBeastConvertTime = universe.totaltimeelapsed + stunned;
+    target->catBeastStunStart = universe.totaltimeelapsed + 1.0f;
+    target->catBeastStunState = 2;
+    target->catBeastStunEnd = target->catBeastStunStart + stunned;
+
+    // the bindings of the Beast type it will become; the exe reads the statics block unchecked (every infectable
+    // type has beastAttacksRequired >= 0)
+    convertTo = statinfo->beastAttackConvertTo;
+    target->catBeastBindings = cat_univMeshBindingsDupeNoGuns(GetShipStaticInfo(convertTo, RACE_Beast));
+    if (!singlePlayerGame)
+    {
+        target->catBeastColor = (owner->PlayerMothership != NULL) ? (ubyte)owner->PlayerMothership->colorScheme : 0;
+    }
+    else
+    {
+        target->catBeastColor = 1;
+    }
+    if (target->madBindings != NULL)
+    {
+        madAnimationStop(target);
+    }
+    // CAT: Cataclysm's "ship infected" status speech (the exe's literal 0x10008a1)
+    speechEventQueue(target, 0x10008a1, target->shiptype, -1, -1, -1, -1, 0.0f, -1);
+    aiplayerShipDied(target);
+    shipHasJustBeenDisabled(target, TRUE);          // the exe passes 1 (0x00429aa2)
+    // CAT-TODO(stage 6): Mission 7's first infected prison ship (dPrisonShip, 0x86) sets the KAS selection
+    //      "FirstInfectedConvoyShip" when G_TRIGGER_FirstShipInfected is 0, else queues the speech once more with a
+    //      5 s timeout (cat_kasHashString, cat_kasVarFind, kasGrowSelectionPtr)
 }
 
 void cat_beastWeaponStaticInit(void)                                        // 0x00429b90

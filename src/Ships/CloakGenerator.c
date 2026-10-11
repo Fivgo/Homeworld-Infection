@@ -10,7 +10,7 @@
 #include "Battle.h"
 #include "GenericInterceptor.h"
 #include "Memory.h"
-#include "SalCapCorvette.h"
+#include "Salvage.h"
 #include "SaveGame.h"
 #include "SoundEvent.h"
 #include "Tweak.h"
@@ -188,9 +188,11 @@ void CloakAddObjectsInProximity(Ship *cloakship)
         {
             goto nextnode;      // must be players ship inorder to cloak
         }
-        if( spaceobj->shiptype == SalCapCorvette)
+        // CAT-DORMANT (M2-R4 combat): no header uses this file in Cataclysm (the cloak generators are on
+        //      DefaultShipHeader, M2-R4 #4); HW1's SalCap spec is gone, so the beam flag is the Cataclysm salvager block's
+        if ((spaceobj->shiptype == kSalCapCorvette) || (spaceobj->shiptype == tSalCapCorvette))
         {
-            if(((SalCapCorvetteSpec *)spaceobj->ShipSpecifics)->tractorBeam)
+            if (cat_salvageGetSalvagerInfo(spaceobj)->tractorBeam)
             {
                 goto nextnode;
             }
@@ -431,9 +433,10 @@ void CloakGeneratorHouseKeep(Ship *ship)
 
         if(spaceobj->header.objtype == OBJ_ShipType)
         {
-            if( ((Ship *)spaceobj)->shiptype == SalCapCorvette)
+            // CAT-DORMANT (M2-R4 combat): as above, the Cataclysm salvager block's beam flag
+            if ((((Ship *)spaceobj)->shiptype == kSalCapCorvette) || (((Ship *)spaceobj)->shiptype == tSalCapCorvette))
             {
-                if(((SalCapCorvetteSpec *)((Ship *)spaceobj)->ShipSpecifics)->tractorBeam)
+                if (cat_salvageGetSalvagerInfo((Ship *)spaceobj)->tractorBeam)
                 {
                     //attached so decloak
                     if(bitTest(spaceobj->header.flags,SOF_Cloaked))

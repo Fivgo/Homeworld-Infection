@@ -346,10 +346,15 @@ typedef struct
     udword thisDockBusy;
 } DockPoint;
 
+// CAT (M2-R4 combat): Cataclysm's per-ship dock info is 0x24 + 4n bytes (cat_dockInitShipDockInfo 0x00463bb0): a
+//      byte per dock point type counting the busy points of that type (+0x00..+0x22), then a busy word per point
+//      (+0x24 + 4i, this tree's dockpoints[i].thisDockBusy). dockReserveDockPoint 0x00464610, RemoveShipFromDocking
+//      0x00465360 and the salvage code (Salvage.c) keep both. The counts are added here by name.
 typedef struct
 {
     sdword busyness;
     sdword numDockPoints;
+    ubyte catNumBusyOfType[NUM_DOCKPOINT_TYPES];    // CAT: exe DockInfo+0x00
     DockPoint dockpoints[1];
 } DockInfo;
 
@@ -371,9 +376,15 @@ typedef struct
 
 // CAT: ClampInfo is 0x38 bytes (HW1 0x34): clampObjToObj 0x004346e0 allocates memAlloc(0x38), reuses an existing
 //      clampInfo, and keeps on the HOST's clampInfo a pointer at +0x34 to a list of the objects clamped to it (a 0xFA8
-//      block: count at +0, objects from +8, i.e. up to 1000; host == NULL for a pure host). The list's code is
-//      clampObjToObj's (M2-R4 combat/docking); only the field and its NULL start are here.
-struct CatClampedList;
+//      block: count at +0, objects from +8, i.e. up to 1000; host == NULL for a pure host); Clamp.c keeps it.
+// CAT (M2-R4 combat): the host's list of clamped objects (clampObjToObj 0x004346e0: memAlloc(0xFA8), count at +0,
+//      objects from +8; the head is a SelectCommand's, so the readers cast it to one)
+typedef struct CatClampedList
+{
+    sdword numShips;
+    real32 timeLastStatus;
+    struct Ship *ShipPtr[1000];
+} CatClampedList;
 typedef struct
 {
     struct SpaceObjRotImpTarg *host;            // +0x00
@@ -1591,7 +1602,9 @@ typedef struct ShipOrDerelict
         SpaceObjRotImpTargGuidance guidance;
     };
 
-    SalvageInfo *salvageInfo;       //salvage info...
+    // CAT (M2-R4 combat): no HW1 salvageInfo pointer: in cataclysm.exe the clamp info (+0x1BC) is followed directly by
+    //      aistate (+0x1C0) and dockingship (+0x1C4) (RemoveShipFromDocking 0x00465360, collCheckShipShipColl
+    //      0x0043ade0); Cataclysm salvages at DPT_Salvage dock points (Salvage.c)
 
     //must come next to be compatible with Derelict in aiship stuff
     ubyte aistate;                  // AI state variable
@@ -1669,6 +1682,10 @@ typedef struct
     DockStaticPoint *dockstaticpoint;
     void *customdockinfo;
     sdword **launchpoints;
+    // CAT (M2-R4 combat): the index of the dock point this ship holds on dockship, or -1 (exe Ship+0x4A0, dockvars
+    //      +0x0C: univCreateShip 0x00542320 and InitializeDockVars 0x00463c40 set -1, dockReserveDockPoint 0x00464610
+    //      sets it, RemoveShipFromDocking 0x00465360 frees the point; the salvage depots use it for towed pods)
+    sdword catDockPointIndex;
 } SpecificDockVars;
 
 typedef struct ShipID
@@ -1719,9 +1736,11 @@ typedef struct ShipID
 #define SPECIAL_BurstFiring                         0x00000040  // doBurstFire 0x005b5100, cat_gunCreateBullet 0x0048bb00
 #define SPECIAL_SinglePlayerWithinHyperSpaceRange   0x00000080  // CalculateRollCall, TellHyperspacingShipsToReady 0x00517770, spGoNowHyperspaceCB 0x005173a0
 #define SPECIAL_SinglePlayerLimitSpeed              0x00000100  // kasfShipsSetMaxVelocity 0x004938f0, kasfTeamSetMaxVelocity 0x00493860, tacticsGetShipsMaxVelocity
-#define SPECIAL_BUSY_BECAUSE_SALVAGE_DOCKING        0x00000000  // CAT-DORMANT: retired (HW1 0x200; HW1 salvage only, SalCapCorvette.c: M2-R4 #3)
-#define SPECIAL_Harvested                           0x00000000  // CAT-DORMANT: retired (HW1 0x400; HW1 salvage only: M2-R4 #3)
 #define SPECIAL_EXITING_DOOR                        0x00000000  // CAT-DORMANT: retired (HW1 0x800): no exe access; Dock.c readers: M2-R4 #3
+// CAT (M2-R4 combat): HW1's salvage flags (BUSY_BECAUSE_SALVAGE_DOCKING 0x200, Harvested 0x400, IsASalvager
+//      0x100000, SalvagerHasSomethingAttachedAndIsDoingSomethingElse 0x200000, SalvagedTargetGoingIntoDockWithShip
+//      0x800000, SalvageTakingHomeTechnology 0x1000000) were retired by M2-R4 command and are gone with HW1's salvage
+//      code and its readers; Cataclysm's salvager mark is SPECIAL_CatSalvager.
 #define SPECIAL_STAY_TILL_EXPLICITLAUNCH            0x00001000  // InitializeDockVars 0x00463c40, ShipHasToLaunch 0x0044a780, RemoveShipFromLaunching 0x00465590
 #define SPECIAL_CatKasSpecialRepairModifier         0x00002000  // CAT: new: kasfShipsSetRepairFactor 0x00493a10 / kasfShipsClearRepairFactor 0x00493a60
 #define SPECIAL_KasSpecialDamageModifier            0x00004000  // CAT: was 0x2000. kasfShipsSetDamageFactor 0x00493980, gunShoot 0x0048b5b0, missileShoot 0x0048aac0
@@ -1732,11 +1751,7 @@ typedef struct ShipID
 #define SPECIAL_ATTACKMOVECANCEL                    0x00020000  // CAT: was 0x40000. clProcess 0x0044b950 sets, ChangeOrderToMove 0x004460d0 tests
 #define SPECIAL_FriendlyStatus                      0x00040000  // CAT: was 0x80000. kasfShipsSetNonRetaliation 0x00495da0, selShipUnderMouse 0x00506550, MakeTargetsOnlyEnemyShips 0x00512970; CrystalInit, SlipgateInit set it
 #define SPECIAL_CatSalvager                         0x00080000  // CAT: Cataclysm's salvager mark: cat_salvageInit 0x004f9010 sets it; collCheckShipShipColl 0x0043ade0, aishipFlyToPointAvoidingObjsFunc 0x00414610, selStatusDraw0 0x00507f10 test it where HW1 tests SPECIAL_IsASalvager
-#define SPECIAL_IsASalvager                         0x00000000  // CAT-DORMANT: retired (HW1 0x100000): HW1's salvager mark, whose readers cast HW1's SalCapCorvetteSpec; the exe's sites test SPECIAL_CatSalvager with the Cataclysm salvage block (M2-R4 #3)
-#define SPECIAL_SalvagerHasSomethingAttachedAndIsDoingSomethingElse 0x00000000  // CAT-DORMANT: retired (HW1 0x200000, HW1 salvage: M2-R4 #3)
 #define SPECIAL_AttackFromAbove                     0x00100000  // CAT: was 0x400000. attackSideStep 0x00421fa0; RemoveShipFromAttacking 0x004477c0 clears 0x100006
-#define SPECIAL_SalvagedTargetGoingIntoDockWithShip 0x00000000  // CAT-DORMANT: retired (HW1 0x800000, HW1 salvage: M2-R4 #3/#4)
-#define SPECIAL_SalvageTakingHomeTechnology         0x00000000  // CAT-DORMANT: retired (HW1 0x1000000, HW1 salvage; Dock.c/KASFunc.c readers: M2-R4 #3, stage 6)
 #define SPECIAL_Hyperspacing                        0x00200000  // CAT: was 0x2000000. CalculateHyperspaceTimeForShip 0x005178a0 sets, UpdateArrivingShip 0x00518170 clears, attackPassive 0x00421c30 tests
 #define SPECIAL_ForcedAttackStatus                  0x00400000  // CAT: was 0x4000000. kasfForceCombatStatus 0x00493d70; cat_univShipSelfRepair 0x005433d0 reads it as "in combat"
 #define SPECIAL_LaunchedFromKas                     0x00800000  // CAT: was 0x10000000. kasfLaunch 0x004947c0 sets 0x1800000, aiplayerShipLaunchedCallback 0x00411390 tests
@@ -1780,12 +1795,10 @@ typedef struct ShipID
 #define SPECIAL_2_CatSUProvided                     0x10000000  // CAT: cat_suShipProvidesSU 0x00459a60 / cat_suShipAdded set, cat_suShipRemoved 0x00459ae0 tests/clears (name chosen here)
 #define SPECIAL_2_CatSlipgate                       0x20000000  // CAT: SlipgateInit 0x005c7250 sets; ThisShipCanDockWith tests it on the dock target (name chosen here)
 // CAT-DORMANT: HW1 specialFlags2 bits with no exe counterpart (retired, defined 0): NoMoreDockingAllowed (HW1 0x10,
-//      ShipDocksAtJunkYardHQ, a dropped type: M2-R4 #4), BusiedDockPoint (0x40) and DisabledForever (0x80) (HW1
-//      salvage in SalCapCorvette.c/Carrier.c/Mothership.c: M2-R4 #3/#4; the exe's MothershipDied 0x005bb9c0 tests
-//      SPECIAL_2_CatBeingBuilt where HW1 tests DisabledForever on its drop targets).
+//      ShipDocksAtJunkYardHQ, a dropped type: M2-R4 #4). HW1's salvage-only BusiedDockPoint (0x40) and
+//      DisabledForever (0x80) are gone with HW1's salvage code (M2-R4 combat; the exe's MothershipDied 0x005bb9c0
+//      tests SPECIAL_2_CatBeingBuilt where HW1 tests DisabledForever on its drop targets).
 #define SPECIAL_2_NoMoreDockingAllowed              0x00000000
-#define SPECIAL_2_BusiedDockPoint                   0x00000000
-#define SPECIAL_2_DisabledForever                   0x00000000
 
 // CAT (M2-R4 command): static checks. The live flags of each word are distinct bits (their OR equals their sum) and
 //      cover exactly the bits the exe uses; the values the M2-R3 ports quoted are these.
@@ -1850,6 +1863,10 @@ _Static_assert(SPECIAL_2_CatBeingBuilt == 0x8 && SPECIAL_2_CatBeingSalvaged == 0
 #define CAT_UPGRADE_Salvage                         0x00080000  // cat_shipCanSalvage 0x005138f0
 #define CAT_UPGRADE_AcolyteLinkFire                 0x04000000  // cat_acolyteCanFireLinkedWeapon 0x005ada50
 				
+
+// CAT (M2-R4 combat): "never" for Ship.catSalvageNotifyTime: univCreateShip 0x00542320 and cat_salvageDetach
+//      0x004f88b0 store 0x6258d727, the bits of 1e21f
+#define CAT_SALVAGE_NEVER                           1e21f
 
 struct Resource;
 
@@ -2006,6 +2023,36 @@ typedef struct Ship         // Ship object
     bool32 catUpgrading;            // exe Ship+0x598: set by cat_clUpgradeShips 0x0044de80, cleared by cat_univShipDeferredUpdate 0x005447b0
     real32 catBuildProgress;        // exe Ship+0x3E8: external build progress 0..1 (univCreateShip 0x00542320 sets 0 for a
                                     //   ship built externally, else 1.0; cat_clExternalBuildUpdate 0x0044dfc0 advances it)
+    // CAT (M2-R4 combat): the salvage state of a ship as a salvage target (Salvage.c). univCreateShip 0x00542320
+    //      zeroes the block and sets catSalvagePlayer -1, catSalvagePointIndex -1 and catSalvageNotifyTime
+    //      CAT_SALVAGE_NEVER (0x6258d727, 1e21). Names chosen here from their users.
+    sdword catSalvagePlayer;        // exe Ship+0x238: index of the player whose salvagers reached it first, -1 none
+    struct Ship *catSalvageDepot;   // exe Ship+0x3EC: the depot it is being delivered to (cat_salvageDeliverToDepot)
+    bool8 catSalvageConverting;     // exe Ship+0x504: drawn as its converted type (cat_salvageDepotProcessGeneric)
+    real32 catSalvageConvertStart;  // exe Ship+0x508
+    real32 catSalvageConvertEnd;    // exe Ship+0x50C
+    shipbindings *catSalvageConvertBindings;    // exe Ship+0x510: cat_univMeshBindingsDupeNoGuns of the new type
+    ubyte catSalvageConvertColor;   // exe Ship+0x514: the new owner's colour scheme
+    vector catDockLatchHeading;     // exe Ship+0x5A4: last cone heading of cat_dockFlyToConeOriginLatch 0x00464b30
+    struct Ship *catSalvageBigGun;  // exe Ship+0x608: a towed dBigGunUnit's dBigGun, or the salvager's
+    sbyte catSalvagePointIndex;     // exe Ship+0x615: the dock point it holds on its target or depot, -1 none
+    real32 catSalvageNotifyTime;    // exe Ship+0x618: last "more salvagers needed" message (real time)
+    real32 catSalvageDepotCheckTime;// exe Ship+0x61C: last nearest-depot check (cat_salvageSpecialTarget state 10)
+    // CAT (M2-R4 combat): the Beast infection state (BeastWeapon.c, cat_univBeastInfectionUpdate 0x00543860).
+    //      Names chosen here from their users.
+    sdword catBeastStunState;       // exe Ship+0x4D0: 1 hit (stunned), 2 infected (cat_beastAttackHit 0x0042af40)
+    real32 catBeastStunStart;       // exe Ship+0x4D4
+    real32 catBeastStunEnd;         // exe Ship+0x4D8
+    real32 catBeastSpin;            // exe Ship+0x4DC: -1.0 when hit
+    sdword catBeastHits;            // exe Ship+0x4E0: infection hits taken (beastAttacksRequired converts)
+    real32 catBeastConvertTime;     // exe Ship+0x4E4: when the infected ship turns Beast, 0 = not infected
+    struct Ship *catBeastInfector;  // exe Ship+0x4E8
+    struct Player *catBeastInfectorOwner;   // exe Ship+0x4EC
+    real32 catBeastCascadeTime;     // exe Ship+0x4F0: last infection hit
+    real32 catBeastCascadePoints;   // exe Ship+0x4F4: cascade points left to pass on
+    real32 catBeastCascadeEnd;      // exe Ship+0x4F8
+    shipbindings *catBeastBindings; // exe Ship+0x4FC: bindings of the Beast type it turns into
+    ubyte catBeastColor;            // exe Ship+0x500: the infector's colour scheme
     udword sizeofShipSpecifics;
     udword ShipSpecifics[1];        //this member must go last
 } Ship;

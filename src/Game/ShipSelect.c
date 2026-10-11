@@ -20,6 +20,7 @@
 #include "Memory.h"
 #include "MultiplayerGame.h"
 #include "MaxMultiplayer.h"
+#include "Salvage.h"
 #include "Select.h"
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
@@ -2715,6 +2716,70 @@ bool32 cat_shipCanSalvage(Ship *ship)                               // 0x005138f
     return (ship->header.objtype == OBJ_ShipType) && cat_shipHasUpgrade(ship, CAT_UPGRADE_Salvage);
 }
 
+// CAT (M2-R4 combat): the factor on a ship's top speed (cat_shipGetSpeedMultiplier 0x00514940): its experience
+//      level's speed scale (cat_experienceSpeedScale 0x0072bb8c: 1.0, 1.1, 1.2, 1.3, 1.4), +0.15 with any of the
+//      upgrade bits 0..2, the Beast mothership's and the ramming frigate's bonuses, minus a health penalty (-0.1
+//      below 3/4 health, -0.2 below 1/2, -0.4 below 1/4, -0.6 below 1/10). Ported for the salvagers' towing speed
+//      (Salvage.c); univDeleteDeadShip's explosion still uses 1.0 (UnivUpdate.c, CAT-PROVISIONAL).
+static const real32 cat_experienceSpeedScale[5] = { 1.0f, 1.1f, 1.2f, 1.3f, 1.4f };    // 0x0072bb8c
+
+real32 cat_shipGetSpeedMultiplier(Ship *ship)                       // 0x00514940
+{
+    real32 multiplier, healthFraction;
+    // CAT-PROVISIONAL (M2-R4 #5): the experience level is Ship+0x5F8 in the exe, which this tree's Ship does not
+    //      have yet (experience is the Stats/Player layout's); level 0 until then
+    sdword experience = 0;
+
+    multiplier = cat_experienceSpeedScale[experience];
+    if (ship->catUpgradeFlags & 0x7)
+    {
+        multiplier = cat_experienceSpeedScale[experience] + 0.15f;
+    }
+    // CAT-TODO(M2-R4 #4): + cat_beastMothershipSpeedBonus 0x005bc9xx for a bMothership and
+    //      + cat_rammingFrigateSpeedMultiplier for every ship (ship code B); both 0 until then
+    healthFraction = ship->targetable.health / ship->staticinfo->health.maxhealth;
+    if (healthFraction < 0.1f)
+    {
+        return multiplier - 0.6f;
+    }
+    if (healthFraction < 0.25f)
+    {
+        return multiplier - 0.4f;
+    }
+    if (healthFraction < 0.5f)
+    {
+        return multiplier - 0.2f;
+    }
+    if (healthFraction < 0.75f)
+    {
+        multiplier = multiplier - 0.1f;
+    }
+    return multiplier;
+}
+
+// CAT (M2-R4 combat): may the current player point a salvage order at target? Yes unless the salvage check fails
+//      for one of the reasons the cursor cannot override: no salvage points, friendly, an asteroid, a dust cloud or
+//      a forbidden target (reasons 0, 3, 6, 7, 8; Mission 10's dBigGun is always allowed). cat_salvageTargetAllowed 0x00513920; its
+//      only caller is cat_uiFindNearestSpecialTarget 0x00563e20 (stage 3).
+bool32 cat_salvageTargetAllowed(Ship *target)                       // 0x00513920
+{
+    sword reasons[CAT_SALVAGE_NUM_REASONS];
+
+    memset(reasons, 0, sizeof(reasons));
+    if ((singlePlayerGame) && (singlePlayerGameInfo.currentMission == 10) && (target->shiptype == dBigGun))
+    {
+        return TRUE;
+    }
+    if (!cat_salvageCheckTargetReasons(universe.curPlayerPtr, target, reasons) &&
+        ((reasons[CAT_SALVAGE_REASON_NoPoints] > 0) || (reasons[CAT_SALVAGE_REASON_Friendly] > 0) ||
+         (reasons[CAT_SALVAGE_REASON_Asteroid] > 0) || (reasons[CAT_SALVAGE_REASON_Dust] > 0) ||
+         (reasons[CAT_SALVAGE_REASON_Forbidden] > 0)))
+    {
+        return FALSE;
+    }
+    return TRUE;
+}
+
 /*-----------------------------------------------------------------------------
     CAT: ship upgrades (0x00513f40-0x00514210). The flags live in Ship.catUpgradeFlags; the player-side upgrade
     state (cat_shipUpgradesInit 0x005140a0, cat_playerUpgradesReset 0x00514100,
@@ -2852,19 +2917,24 @@ bool32 cat_acolyteCanFireLinkedWeapon(Ship *ship)                   // 0x005ada5
            ((ship->gunInfo->guns[2].numMissiles > 0) || (ship->gunInfo->guns[3].numMissiles > 0));
 }
 
-bool32 cat_salvageIsBeingSalvaged(Ship *ship)                       // 0x004f7c00
-{
-    return bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingSalvaged) ? TRUE : FALSE;
-}
+// CAT (M2-R4 combat): cat_salvageIsBeingSalvaged 0x004f7c00 lives in Salvage.c with the rest of the salvage system.
 
 bool32 cat_salvageDepotHoldsCrystal(Ship *ship)
 {
-    // CAT-PROVISIONAL: the exe scans the 16 salvage depot slots (5 dwords each) of cat_salvageGetDepotInfo 0x004f91c0
-    //      for a crystal (makeSelectionHyperspaceCapable 0x005120d0); the depots live in the specifics of the
-    //      carriers, motherships and processors and are ported with the salvage system (M2-R4 #3). Until then no
-    //      depot holds anything.
-    (void)ship;
-    return FALSE;
+    // CAT (M2-R4 combat): the scan makeSelectionHyperspaceCapable 0x005120d0 inlines: does one of the 16 slots of the
+    //      depot (cat_salvageGetDepotInfo 0x004f91c0) hold a crystal?
+    CatSalvageDepot *depot = cat_salvageGetDepotInfo(ship);
+    bool32 crystal = FALSE;
+    sdword slot;
+
+    for (slot = 0; slot < CAT_SALVAGE_NUM_DEPOT_SLOTS; slot++)
+    {
+        if ((depot->slots[slot].ship != NULL) && cat_shipIsCrystal(depot->slots[slot].ship))
+        {
+            crystal = TRUE;
+        }
+    }
+    return crystal;
 }
 
 bool32 cat_mothershipBigGunActive(Ship *ship)                       // 0x005bbf60

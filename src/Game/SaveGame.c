@@ -1406,72 +1406,8 @@ void FixDockInfo(Ship *ship)
     }
 }
 
-void SaveSalvageInfo(ShipOrDerelict *ship)
-{
-    SalvageInfo *originalSalvageInfo = ship->salvageInfo;
-    SalvageInfo *savecontents;
-    SaveChunk *chunk;
-    sdword i;
-
-    chunk = CreateChunk(BASIC_STRUCTURE|SAVE_SALVAGEINFO,sizeofSalvageInfo(originalSalvageInfo->numSalvagePoints),originalSalvageInfo);
-    savecontents = chunkContents(chunk);
-
-    for (i=0;i<originalSalvageInfo->numSalvagePoints;i++)
-    {
-        if (savecontents->salvagePoints[i].salvageStaticPoint == NULL)
-        {
-            savecontents->salvagePoints[i].salvageStaticPoint = (SalvageStaticPoint*)-1;
-        }
-        else
-        {
-            savecontents->salvagePoints[i].salvageStaticPoint = (SalvageStaticPoint*)savecontents->salvagePoints[i].salvageStaticPoint->number;
-        }
-    }
-
-    SaveThisChunk(chunk);
-    memFree(chunk);
-}
-
-void LoadSalvageInfo(ShipOrDerelict *ship)
-{
-    SalvageInfo *loadedSalvageInfo;
-    SalvageInfo *originalSalvageInfo;
-    SaveChunk *chunk;
-    sdword size;
-
-    chunk = LoadNextChunk();
-    VerifyChunkNoSize(chunk,BASIC_STRUCTURE|SAVE_SALVAGEINFO);
-
-    originalSalvageInfo = (SalvageInfo *)chunkContents(chunk);
-    size = sizeofSalvageInfo(originalSalvageInfo->numSalvagePoints);
-    dbgAssertOrIgnore(size == chunk->contentsSize);
-    loadedSalvageInfo = memAlloc(size,"salvageInfo",NonVolatile);
-    memcpy(loadedSalvageInfo,originalSalvageInfo,size);
-
-    memFree(chunk);
-
-    ship->salvageInfo = loadedSalvageInfo;
-}
-
-void FixSalvageInfo(ShipOrDerelict *ship)
-{
-    SalvageInfo *salvageInfo = ship->salvageInfo;
-    SalvagePoint *salvagePoint;
-    sdword i;
-
-    for (i=0;i<salvageInfo->numSalvagePoints;i++)
-    {
-        salvagePoint = &salvageInfo->salvagePoints[i];
-        if (salvagePoint->salvageStaticPoint == (SalvageStaticPoint*)-1)
-        {
-            salvagePoint->salvageStaticPoint = NULL;
-        }
-        else
-        {
-            salvagePoint->salvageStaticPoint = &CAT_SALVAGESTATICINFO(ship->staticinfo)->salvageStaticPoints[(sdword)salvagePoint->salvageStaticPoint];
-        }
-    }
-}
+// CAT (M2-R4 combat): no SaveSalvageInfo/LoadSalvageInfo/FixSalvageInfo: Cataclysm has no HW1 per-object salvage
+//      points (ShipOrDerelict.salvageInfo is gone, see SpaceObj.h), so no SAVE_SALVAGEINFO chunk is written or read
 
 void SaveShipSinglePlayerGameInfo(Ship *ship)
 {
@@ -1920,10 +1856,6 @@ void SaveShip(Ship *ship)
         SaveClampInfo(ship->guidance.clampInfo);
     }
 
-    if (ship->shipOrDerelict.salvageInfo != NULL)
-    {
-        SaveSalvageInfo((ShipOrDerelict *)ship);
-    }
 
     if (ship->flightmanInfo != NULL)
     {
@@ -2050,10 +1982,6 @@ Ship *LoadShip(SaveChunk *chunk)
         ship->guidance.clampInfo = LoadClampInfo();
     }
 
-    if (ship->shipOrDerelict.salvageInfo != NULL)
-    {
-        LoadSalvageInfo((ShipOrDerelict *)ship);
-    }
 
     if (ship->flightmanInfo != NULL)
     {
@@ -2143,10 +2071,6 @@ void FixShip(Ship *ship)
         FixClampInfo(ship->guidance.clampInfo);
     }
 
-    if (ship->shipOrDerelict.salvageInfo)
-    {
-        FixSalvageInfo((ShipOrDerelict *)ship);
-    }
 
     if (ship->attackvars.multipleAttackTargets)
     {
@@ -2529,10 +2453,6 @@ void SaveDerelict(Derelict *derelict)
         SaveClampInfo(derelict->guidance.clampInfo);
     }
 
-    if (derelict->shipOrDerelict.salvageInfo != NULL)
-    {
-        SaveSalvageInfo((ShipOrDerelict *)derelict);
-    }
 }
 
 Derelict *LoadDerelict(SaveChunk *chunk)
@@ -2557,10 +2477,6 @@ Derelict *LoadDerelict(SaveChunk *chunk)
         derelict->guidance.clampInfo = LoadClampInfo();
     }
 
-    if (derelict->shipOrDerelict.salvageInfo != NULL)
-    {
-        LoadSalvageInfo((ShipOrDerelict *)derelict);
-    }
 
     return derelict;
 }
@@ -2579,10 +2495,6 @@ void FixDerelict(Derelict *derelict)
         FixClampInfo(derelict->guidance.clampInfo);
     }
 
-    if (derelict->shipOrDerelict.salvageInfo)
-    {
-        FixSalvageInfo((ShipOrDerelict *)derelict);
-    }
 }
 
 void SaveMissile(Missile *missile)

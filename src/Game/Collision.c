@@ -7,6 +7,7 @@
 // =============================================================================
 
 #include "Collision.h"
+#include "Salvage.h"
 
 #include "Alliance.h"
 #include "Debug.h"
@@ -676,6 +677,69 @@ bool32 kamikazeCheck(SpaceObjRotImpTarg *obj1, SpaceObjRotImpTarg *obj2)
     return TRUE;
 }
 /*-----------------------------------------------------------------------------
+    Name        : cat_collClampExempt
+    Description : CAT: the clamp test collCheckShipShipColl 0x0043ade0 and collCheckBigShipSmallShipColl 0x0043b460
+                  share (inlined in both): TRUE when obj1 and obj2 must not collide because of what they are
+                  clamped to. A clamp info with no host is a pure host (Clamp.c) and counts as not clamped.
+    Inputs      : obj1, obj2
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+static bool32 cat_collClampExempt(Ship *obj1, Ship *obj2)
+{
+    Ship *host1 = (obj1->guidance.clampInfo != NULL) ? (Ship *)obj1->guidance.clampInfo->host : NULL;
+    Ship *host2 = (obj2->guidance.clampInfo != NULL) ? (Ship *)obj2->guidance.clampInfo->host : NULL;
+
+    if (host1 != NULL)
+    {
+        // a ship clamped to a salvager does not collide with the depot the salvager tows it to
+        if ((host1->header.objtype == OBJ_ShipType) && cat_shipIsSalvager(host1) &&
+            (cat_salvageGetSalvagerInfo(host1)->dockwith == obj2))
+        {
+            return TRUE;
+        }
+        if (host2 == NULL)
+        {
+            if ((host1->shipOrDerelict.dockingship != NULL) &&
+                ((host1->shipOrDerelict.dockingship == obj2) ||
+                 (host1->shipOrDerelict.dockingship == obj2->shipOrDerelict.dockingship)))
+            {
+                return TRUE;
+            }
+        }
+        else if (((host2->shipOrDerelict.dockingship != NULL) &&
+                  (host2->shipOrDerelict.dockingship == obj1->shipOrDerelict.dockingship)) ||
+                 (host2 == host1))
+        {
+            // docking with the same ship, or the same host
+            return TRUE;
+        }
+    }
+    if ((host2 != NULL) && (host2->header.objtype == OBJ_ShipType))
+    {
+        if (cat_shipIsSalvager(host2) && (cat_salvageGetSalvagerInfo(host2)->dockwith == obj1))
+        {
+            return TRUE;
+        }
+        if (host1 == NULL)
+        {
+            if ((host2->shipOrDerelict.dockingship != NULL) &&
+                ((host2->shipOrDerelict.dockingship == obj1) ||
+                 (host2->shipOrDerelict.dockingship == obj1->shipOrDerelict.dockingship)))
+            {
+                return TRUE;
+            }
+        }
+        else if ((host1->shipOrDerelict.dockingship != NULL) &&
+                 (host1->shipOrDerelict.dockingship == obj2->shipOrDerelict.dockingship))
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : collCheckShipShipColl
     Description : checks collisions between ships and ships, and impacts a force
                   on each one (equal and opposite forces)
@@ -795,17 +859,16 @@ void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
                 goto nocollision;
             }
 
-            if (obj1->shipOrDerelict.specialFlags & SPECIAL_IsASalvager) {
-                SalCapCorvetteSpec* salvageCorvette = (SalCapCorvetteSpec*)obj1->ShipSpecifics;
-                if (salvageCorvette->target == &obj2->shipOrDerelict && salvageCorvette->noAvoid) {
-                    goto nocollision;
-                }
+            // CAT (M2-R4 combat): a salvager inside its target's cone (the Cataclysm salvager block's noAvoid) does not
+            //      collide with its target (SPECIAL_CatSalvager; collCheckShipShipColl 0x0043ade0,
+            //      collCheckBigShipSmallShipColl 0x0043b460)
+            if ((obj1->shipOrDerelict.specialFlags & SPECIAL_CatSalvager) &&
+                (cat_salvageGetSalvagerInfo(obj1)->target == obj2) && cat_salvageGetSalvagerInfo(obj1)->noAvoid) {
+                goto nocollision;
             }
-            if (obj2->shipOrDerelict.specialFlags & SPECIAL_IsASalvager) {
-                SalCapCorvetteSpec* salvageCorvette = (SalCapCorvetteSpec*)obj1->ShipSpecifics;
-                if (salvageCorvette->target == &obj1->shipOrDerelict && salvageCorvette->noAvoid) {
-                    goto nocollision;
-                }
+            if ((obj2->shipOrDerelict.specialFlags & SPECIAL_CatSalvager) &&
+                (cat_salvageGetSalvagerInfo(obj2)->target == obj1) && cat_salvageGetSalvagerInfo(obj2)->noAvoid) {
+                goto nocollision;
             }
 
             if ((obj1->header.flags|obj2->header.flags) & SOF_Hide)
@@ -813,51 +876,11 @@ void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
                 goto nocollision;
             }
 
-            // TODO(duplicated code, 2026-04-22): Dedupe with collCheckBigShipSmallShipColl
-            if (obj1->guidance.clampInfo != NULL) {
-                dbgAssertOrIgnore(obj1->guidance.clampInfo->host->header.objtype == OBJ_ShipType);
-                Ship* host1 = (Ship*)obj1->guidance.clampInfo->host;
-                if (host1->shiptype == SalCapCorvette &&
-                    ((SalCapCorvetteSpec*)host1->ShipSpecifics)->dockwith == obj2) {
-                    // ship clamped to salcap is colliding with the ship the salcap is docking with,
-                    // don't really collide
-                    goto nocollision;
-                }
-                if (obj2->guidance.clampInfo != NULL) {
-                    dbgAssertOrIgnore(obj2->guidance.clampInfo->host->header.objtype == OBJ_ShipType);
-                    Ship* host2 = (Ship*)obj2->guidance.clampInfo->host;
-                    if (host2->shipOrDerelict.dockingship != NULL && host2->shipOrDerelict.dockingship == obj1->shipOrDerelict.dockingship) {
-                        // docking with same ships...
-                        goto nocollision;
-                    }
-                    if (obj2->guidance.clampInfo->host == obj1->guidance.clampInfo->host) {
-                        // same host, so don't do collision detection
-                        goto nocollision;
-                    }
-                } else if (host1->shipOrDerelict.dockingship != NULL &&
-                           (host1->shipOrDerelict.dockingship == obj2 || host1->shipOrDerelict.dockingship == obj2->shipOrDerelict.dockingship)) {
-                    goto nocollision;
-                }
-            }
-            if (obj2->guidance.clampInfo != NULL && obj2->guidance.clampInfo->host->header.objtype == OBJ_ShipType) {
-                Ship* host2 = (Ship*)obj2->guidance.clampInfo->host;
-                if (host2->shiptype == SalCapCorvette &&
-                    ((SalCapCorvetteSpec*)host2->ShipSpecifics)->dockwith == obj1) {
-                    // ship clamped to salcap is colliding with the ship the salcap is docking with,
-                    // don't really collide
-                    goto nocollision;
-                }
-                if (obj1->guidance.clampInfo != NULL) {
-                    dbgAssertOrIgnore(obj1->guidance.clampInfo->host->header.objtype == OBJ_ShipType);
-                    Ship* host1 = (Ship*)obj1->guidance.clampInfo->host;
-                    if (host1->shipOrDerelict.dockingship != NULL && host1->shipOrDerelict.dockingship == obj2->shipOrDerelict.dockingship) {
-                        // docking with same ships...
-                        goto nocollision;
-                    }
-                } else if (host2->shipOrDerelict.dockingship != NULL &&
-                           (host2->shipOrDerelict.dockingship == obj1 || host2->shipOrDerelict.dockingship == obj1->shipOrDerelict.dockingship)) {
-                    goto nocollision;
-                }
+            // CAT (M2-R4 combat): the exe's clamp test (both functions have the same code): clamped objects whose
+            //      hosts are docking with, or towing to, the other object do not collide
+            if (cat_collClampExempt(obj1, obj2))
+            {
+                goto nocollision;
             }
             distsquared = vecMagnitudeSquared(distvector);
             dist = (real32)fsqrt(distsquared);
@@ -887,21 +910,19 @@ void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
                                 goto dontapplydamage;
                             }
 
-                            if(obj1->shiptype == SalCapCorvette || obj1->shiptype == JunkYardDawg)
+                            // CAT (M2-R4 combat): a salvager does no bump damage to the ship it just let go of (the
+                            //      Cataclysm salvager block's noDamageTarget; collCheckShipShipColl 0x0043ade0 tests
+                            //      obj2 only when obj1 is no salvager)
+                            if (cat_shipIsSalvager(obj1))
                             {
-                                SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)obj1->ShipSpecifics;
-                                if(spec->noDamageTarget == &obj2->shipOrDerelict)
+                                if (cat_salvageGetSalvagerInfo(obj1)->noDamageTarget == obj2)
                                 {
                                     goto dontapplydamage;
                                 }
                             }
-                            else if(obj2->shiptype == SalCapCorvette || obj2->shiptype == JunkYardDawg)
+                            else if (cat_shipIsSalvager(obj2) && (cat_salvageGetSalvagerInfo(obj2)->noDamageTarget == obj1))
                             {
-                                SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)obj2->ShipSpecifics;
-                                if(spec->noDamageTarget == &obj1->shipOrDerelict)
-                                {
-                                    goto dontapplydamage;
-                                }
+                                goto dontapplydamage;
                             }
 
                             ApplyDamageToCollidingObjects(&obj1->targetable,&obj2->targetable,&distvector,dist);
@@ -1064,17 +1085,16 @@ void collCheckBigShipSmallShipColl(blob *thisBlob)
                 goto nocollision;
             }
 
-            if (obj1->shipOrDerelict.specialFlags & SPECIAL_IsASalvager) {
-                SalCapCorvetteSpec* salvageCorvette = (SalCapCorvetteSpec*)obj1->ShipSpecifics;
-                if (salvageCorvette->target == &obj2->shipOrDerelict && salvageCorvette->noAvoid) {
-                    goto nocollision;
-                }
+            // CAT (M2-R4 combat): a salvager inside its target's cone (the Cataclysm salvager block's noAvoid) does not
+            //      collide with its target (SPECIAL_CatSalvager; collCheckShipShipColl 0x0043ade0,
+            //      collCheckBigShipSmallShipColl 0x0043b460)
+            if ((obj1->shipOrDerelict.specialFlags & SPECIAL_CatSalvager) &&
+                (cat_salvageGetSalvagerInfo(obj1)->target == obj2) && cat_salvageGetSalvagerInfo(obj1)->noAvoid) {
+                goto nocollision;
             }
-            if (obj2->shipOrDerelict.specialFlags & SPECIAL_IsASalvager) {
-                SalCapCorvetteSpec* salvageCorvette = (SalCapCorvetteSpec*)obj2->ShipSpecifics;
-                if (salvageCorvette->target == &obj1->shipOrDerelict && salvageCorvette->noAvoid) {
-                    goto nocollision;
-                }
+            if ((obj2->shipOrDerelict.specialFlags & SPECIAL_CatSalvager) &&
+                (cat_salvageGetSalvagerInfo(obj2)->target == obj1) && cat_salvageGetSalvagerInfo(obj2)->noAvoid) {
+                goto nocollision;
             }
 
             if ((obj1->header.flags|obj2->header.flags) & SOF_Hide)
@@ -1082,54 +1102,12 @@ void collCheckBigShipSmallShipColl(blob *thisBlob)
                 goto nocollision;
             }
 
-            // TODO(duplicated code, 2026-04-22): Dedupe with collCheckShipShipColl
-            if (obj1->guidance.clampInfo != NULL) {
-                dbgAssertOrIgnore(obj1->guidance.clampInfo->host->header.objtype == OBJ_ShipType);
-                Ship* host1 = (Ship*)obj1->guidance.clampInfo->host;
-                if (host1->shiptype == SalCapCorvette &&
-                    ((SalCapCorvetteSpec*)host1->ShipSpecifics)->dockwith == obj2) {
-                    // ship clamped to salcap is colliding with the ship the salcap is docking with,
-                    // don't really collide
-                    goto nocollision;
-                }
-                if (obj2->guidance.clampInfo != NULL) {
-                    dbgAssertOrIgnore(obj2->guidance.clampInfo->host->header.objtype == OBJ_ShipType);
-                    Ship* host2 = (Ship*)obj2->guidance.clampInfo->host;
-                    if (host2->shipOrDerelict.dockingship != NULL && host2->shipOrDerelict.dockingship == obj1->shipOrDerelict.dockingship) {
-                        // docking with same ships...
-                        goto nocollision;
-                    }
-                    if (obj2->guidance.clampInfo->host == obj1->guidance.clampInfo->host) {
-                        // same host, so don't do collision detection
-                        goto nocollision;
-                    }
-                } else if (host1->shipOrDerelict.dockingship != NULL &&
-                           (host1->shipOrDerelict.dockingship == obj2 || host1->shipOrDerelict.dockingship == obj2->shipOrDerelict.dockingship)) {
-                    goto nocollision;
-                }
+            // CAT (M2-R4 combat): the exe's clamp test (both functions have the same code): clamped objects whose
+            //      hosts are docking with, or towing to, the other object do not collide
+            if (cat_collClampExempt(obj1, obj2))
+            {
+                goto nocollision;
             }
-            if (obj2->guidance.clampInfo != NULL) {
-                dbgAssertOrIgnore(obj2->guidance.clampInfo->host->header.objtype == OBJ_ShipType);
-                Ship* host2 = (Ship*)obj2->guidance.clampInfo->host;
-                if (host2->shiptype == SalCapCorvette &&
-                    ((SalCapCorvetteSpec*)host2->ShipSpecifics)->dockwith == obj1) {
-                    // ship clamped to salcap is colliding with the ship the salcap is docking with,
-                    // don't really collide
-                    goto nocollision;
-                }
-                if (obj1->guidance.clampInfo != NULL) {
-                    dbgAssertOrIgnore(obj1->guidance.clampInfo->host->header.objtype == OBJ_ShipType);
-                    Ship* host1 = (Ship*)obj1->guidance.clampInfo->host;
-                    if (host1->shipOrDerelict.dockingship != NULL && host1->shipOrDerelict.dockingship == obj2->shipOrDerelict.dockingship) {
-                        // docking with same ships...
-                        goto nocollision;
-                    }
-                } else if (host2->shipOrDerelict.dockingship != NULL &&
-                           (host2->shipOrDerelict.dockingship == obj1 || host2->shipOrDerelict.dockingship == obj1->shipOrDerelict.dockingship)) {
-                    goto nocollision;
-                }
-            }
-
             distsquared = vecMagnitudeSquared(distvector);
             dist = (real32)fsqrt(distsquared);
 
@@ -1158,21 +1136,13 @@ void collCheckBigShipSmallShipColl(blob *thisBlob)
                                 goto dontapplydamage;
                             }
 
-                            if(obj1->shiptype == SalCapCorvette || obj1->shiptype == JunkYardDawg)
+                            // CAT (M2-R4 combat): a salvager does no bump damage to the ship it just let go of (the
+                            //      Cataclysm salvager block's noDamageTarget; collCheckBigShipSmallShipColl 0x0043b460
+                            //      tests both ships)
+                            if ((cat_shipIsSalvager(obj1) && (cat_salvageGetSalvagerInfo(obj1)->noDamageTarget == obj2)) ||
+                                (cat_shipIsSalvager(obj2) && (cat_salvageGetSalvagerInfo(obj2)->noDamageTarget == obj1)))
                             {
-                                SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)obj1->ShipSpecifics;
-                                if(((SpaceObjRotImpTarg *)spec->noDamageTarget) == &obj2->targetable)
-                                {
-                                    goto dontapplydamage;
-                                }
-                            }
-                            else if(obj2->shiptype == SalCapCorvette || obj2->shiptype == JunkYardDawg)
-                            {
-                                SalCapCorvetteSpec *spec = (SalCapCorvetteSpec *)obj2->ShipSpecifics;
-                                if(((SpaceObjRotImpTarg *)spec->noDamageTarget) == (&obj1->targetable))
-                                {
-                                    goto dontapplydamage;
-                                }
+                                goto dontapplydamage;
                             }
 
                             ApplyDamageToCollidingObjects(&obj1->targetable,&obj2->targetable,&distvector,dist);
@@ -1485,16 +1455,9 @@ void collCheckShipDerelictColl(blob *thisBlob)
                 goto nocollision;
             }
 
-            if(obj1->shipOrDerelict.specialFlags & SPECIAL_IsASalvager)
-            {
-                if( ((SalCapCorvetteSpec *)obj1->ShipSpecifics)->target == &obj2->shipOrDerelict)
-                {
-                    if( ((SalCapCorvetteSpec *)obj1->ShipSpecifics)->noAvoid)
-                    {
-                        goto nocollision;
-                    }
-                }
-            }
+            // CAT (M2-R4 combat): Cataclysm salvages no derelicts: a salvager whose target is this derelict only gets a
+            //      debug print ("SALVAGING: Salvager target derelict.  This shouldn't be happening.") and collides
+            //      (collCheckShipDerelictColl 0x0043bed0)
 
             if ((obj1->header.flags|obj2->header.flags) & SOF_Hide)
             {

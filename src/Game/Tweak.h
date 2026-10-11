@@ -512,4 +512,12 @@ extern real32 twHyperedIntoDamage;
 extern real32 TW_BURST_ATTACK_FORCE_MODIFIER;
 
 extern real32 armourPiercingModifier;
+
+// CAT (M2-R4 combat): the salvage tweakables (Tweak.c, Salvage.c)
+extern real32 twSalTransSpeed;
+extern real32 twSalTransMaxTime;
+extern real32 twCrystalProcessingTime;
+extern real32 twNotifySalvagersNeededRate;
+extern real32 twNotifySalvageTargetTooStrongRate;
+extern real32 twSalvageDamageLimit[NUM_CLASSES];
 #endif
