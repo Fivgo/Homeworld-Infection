@@ -18,6 +18,194 @@ const HARNESS = SCRATCH + '/m2r2-harness'
 const CKPT = `cd ${REPO} && CHECKPOINT_COAUTHOR="Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" tools/checkpoint.sh`
 const PLAN = `${REPO}/docs/m2-r3-summary.md "Plan for M2-R4"`
 
+
+// RELAUNCH 2026-10-11 (fresh session after a reboot; resumeFromRunId only works in the same session). The previous run
+// wf_985641f3-673 finished univupdate (3160fc0) and command (d47a23f), both audited; their results are copied below from
+// its journal. The combat producer was cut off by the usage limit before writing its report; its edits are committed
+// as the unaudited WIP snapshot b39dea7. A probe agent re-reads the audit docs so any later relaunch skips what is done.
+const PRIOR = {
+ "univupdate": {
+  "produced": {
+   "report": "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/docs/m2-r4-univupdate.md",
+   "files_changed": [
+    "src/Game/UnivUpdate.c",
+    "src/Game/UnivUpdate.h",
+    "src/Game/SpaceObj.h",
+    "src/Game/Mesh.c",
+    "src/Game/Mesh.h",
+    "src/Game/MeshAnim.c",
+    "src/Game/Shader.c",
+    "src/Game/Shader.h",
+    "src/Game/Trails.c",
+    "src/Game/Trails.h",
+    "src/SDL/render.c",
+    "src/Game/Sensors.c",
+    "src/Game/ETG.c",
+    "src/Game/Gun.c",
+    "src/Ships/DefenseFighter.c",
+    "src/Game/SaveGame.c",
+    "src/Game/Collision.c",
+    "src/Game/Crates.c",
+    "src/Ships/SalCapCorvette.c",
+    "src/Ships/DefaultShip.c",
+    "src/Game/SinglePlayer.c",
+    "ghidra/delta_map_review.json",
+    "ghidra/delta_map.json",
+    "docs/m2-r4-univupdate.md"
+   ],
+   "summary": "I ported UnivUpdate.c's universe update and the mesh state, and the DONE WHEN is met on the plain harness. Nothing is committed.\n\nRun results:\n- **sp (r4u-final-sp):** universe running, univUpdateCounter 1,248 at the 340 s timeout (R3 also reached 1,248), ASan 0, no leak.\n- **etg (r4u-final-etg):** the effect self-test passes with the same numbers as R3 (618 created, peak 2,515 effects).\n- **fe and statics:** unchanged. fe reaches Main_game_screen; statics loads 143 of 145 ship types.\n\nBuilds and checks: the debug and release builds both pass with 0 warnings under -Werror, and tools/m2_layout32.sh is OK.\n\nThe first sp run crashed (SEGV in cat_meshObjectMatrixConcat). The cause was that the old madBindingListCallback left some binding objects unset. I ported the exe's version and every sp run after that reached 1,248.\n\nWhat was ported:\n- **Mesh state:** the new SpaceObj fields at +0x80 and +0x84 and the per-vertex mesh state. Every object creator, free path and the save loader now handles them.\n- **Glow:** binding parent links and the per-vertex glow runtime (cat_shGlowUpdate, cat_shColourAddGlow, team colour, bullet-hit glow). The mesh renderer now gets each ship's state.\n- **Engine trails:** nozzle helpers, and trailGetNozzleOffset goes through the nozzle binding matrix.\n- **Deaths:** univDeleteDeadShip in the exe's order, with the mothership death-sequence trigger. MiningBaseDied no longer removes the other bases from the lists itself.\n- **Bullets, missiles and collisions:** these use the exe's rules; ordinary collisions do no damage, only the killer-collision case does.\n- **Update loop:** univUpdate with frame stepping, multiplayer autosave and real-time quit/win, plus a partial deferred per-ship update that includes self-repair.\n\nOf the 51 Cataclysm-only functions next to this file, 24 are now in the tree (22 added this round); the 27 left are assigned owners in the report.\n\nAll 52 IDENTICAL functions were compared with the exe. 10 turned out to be modified and were reclassed as MODIFIED. The other 42 match. I wrote 98 review entries covering every function of the file and merged them. The file now counts 44 IDENTICAL / 53 MODIFIED / 1 REWRITTEN. The merge also applied 21 review entries from other files that were already in the committed review file but had never been merged into the map.\n\nTwo things still don't run:\n- **Homing and burst bullets:** the code paths are written, but the gun's weapon type is not ported, so it is a placeholder for now. Owner is M2-R4 #3.\n- **Unported MODIFIED functions:** each one (for example ApplyDamageToTarget, univCheckShipState and the rest of univCreateShip) has a CAT-TODO header naming its exe address and owner.",
+   "done_when_met": true,
+   "harness_milestone": "sp: universe running (univUpdateCounter 1,248 at the 340 s timeout, ASan 0, no leak); etg: effect self-test done (618 created, as R3); fe: Main_game_screen; statics: self-test done (143 of 145 ship types)",
+   "first_stop": "none: sp was still running at the 340 s timeout (rc 124); etg and statics exited with rc 0; fe was still running at its 40 s timeout",
+   "counts": {
+    "identical_compared": 52,
+    "identical_found_modified": 10,
+    "modified_reviewed": 46,
+    "review_entries_written": 98,
+    "unrelated_committed_reviews_merged": 21,
+    "univupdate_classes_after": {
+     "IDENTICAL": 44,
+     "MODIFIED": 53,
+     "REWRITTEN": 1
+    },
+    "delta_map_totals_after": {
+     "IDENTICAL": 3106,
+     "MODIFIED": 1237,
+     "REWRITTEN": 77,
+     "reviewed": 1461
+    },
+    "cat_new_total": 51,
+    "cat_new_in_tree": 24,
+    "cat_new_added_this_round": 22,
+    "cat_new_in_tree_bytes": 5164,
+    "cat_new_left": 27,
+    "cat_new_left_bytes": 9928,
+    "sp_univUpdateCounter": 1248,
+    "sp_asan_errors": 0,
+    "etg_effects_created": 618,
+    "build_warnings_debug": 0,
+    "build_warnings_release": 0,
+    "files_changed": 24
+   },
+   "open_questions": [
+    "The exe's +0x18 word is two separate fields in the tree (SpaceObjHeader.catHeader18 and Ship.catShipFlags), joined by the CAT_OBJ_FLAGS18 macro. Should M2-R4 #5's header pass make it one field?",
+    "CAT_BULLET_WEAPON_TYPE is a placeholder that always returns -1 until M2-R4 #3 ports the gun's weapon type. Until then the homing (energy weapons) and burst code paths in univUpdateAllPosVelBullets and cat_univRecreateBulletEffects never run.",
+    "In collCheckBeamColl the exe passes applyDamage = 0 on beam frames that only draw the hit; the tree always passes TRUE (marked CAT-TODO for M2-R4 #3).",
+    "The merge also applied 21 review entries from other files (Universe.c 7, SalCapCorvette.c 3, and others) that were already in the committed review file but never merged into delta_map.json. Is that expected?"
+   ]
+  },
+  "audit": {
+   "audit_path": "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/docs/audits/m2-r4-univupdate.md",
+   "sampled": 40,
+   "wrong": 2,
+   "precision": 0.95,
+   "build_ok": true,
+   "verdict": "PASS-WITH-FIXES",
+   "commit": "3160fc081ccd6f833697252308c8673a056d89b4",
+   "fixed_in_place": 11,
+   "notes": [
+    "Clean builds in original/scratch-m2/build-audit-univupdate: debug 77,473,152 B and release 4,838,608 B, both rc 0 with 0 compiler warnings under werror=true. After the fixes, tools/build.sh --debug and --release are also green and tools/m2_layout32.sh is OK.",
+    "Plain-harness sp run (r4u-audit-sp, --timeout 340): universe running, univUpdateCounter 1,248 (same as R3), ASan 0, no leak, no new UBSan kind. The etg run (r4u-audit-etg) gives the same numbers as R3: 618 created, 3,197 deleted, 1,093 left, peak 2,515 effects and 3,012 particle blocks.",
+    "WRONG 1: the report said the AddTargetToDeleteList callers in Crates.c and SalCapCorvette.c pass 1 'as the exe does'. In the exe, cratesPlayerFoundACrate pushes 0 (0x00460ebc), only the inlined expireCrate pushes 1 (0x00461f70), and salCapHarvestTarget has no exe counterpart. The argument is never read, so behaviour does not change. Fixed: the crate-found call now passes 0, CAT comments were added, and the report is annotated.",
+    "WRONG 2: the univupdateInit delta-map and report text said 'no ClampedShipList init' and listed 'frame-step' globals. 0x00c52d70 is ClampedShipList: univUpdateAllPosVelShips adds clamped hosts to it and runs updateClampedObject over it. The body clears 0x00a6ed68 and 0x00a6ed6c, not 0x00a6ed74/78. Fixed in the review file, the merged map and the report.",
+    "Finding: the port edited three functions that the delta map calls IDENTICAL without a correct review entry: meshRender 0x004b4280, meshRenderShipHierarchy 0x004b4520 and LoadSpaceObj 0x00501660. Their exe bodies are modified. Added MODIFIED review entries and merged them with --done m2r4:univupdate-audit; the map is now 3,103 / 1,240 / 77 with 1,463 reviewed.",
+    "Finding: four caller edits lacked CAT comments (Crates.c x2, SalCapCorvette.c, Collision.c:1951). All four now have one.",
+    "Observation, no change made: the exe's attribute word is a dword at SpaceObj +0x38 (kasfShipsAttributesSet writes [esi+0x38]), while the tree's obj.attributes is a uword at ILP32 +0x36. The code is consistent by field name, but M2-R4 #5's header pass should align the offset and width.",
+    "Checked against r6 and the exe and found matching: glow update and team colour, mesh-state alloc/free, binding parent links, nozzle matrix helpers, univDeleteDeadShip order and the big-ship death switch, univDeleteDeadShips, the wipe paths, univUpdate tick order, CheckPlayerWin, univFindBackupMothership, killer collisions, the bullet-hit glow (slot 0/1 indexing confirmed at 0x004b53d6 and 0x004b540b), self-repair, the deferred update and the delta-map counts."
+   ]
+  }
+ },
+ "command": {
+  "produced": {
+   "report": "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/docs/m2-r4-command.md",
+   "files_changed": [
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/SpaceObj.h",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/CommandDefs.h",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/FormationDefs.h",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/CommandLayer.c",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/CommandLayer.h",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/CommandWrap.c",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/CommandWrap.h",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/Formation.c",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/ShipSelect.c",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/Salvage.c",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/Salvage.h",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/ConsMgr.h",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/UnivUpdate.c",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/Universe.c",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/Gun.c",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Game/KASFunc.c",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Ships/GravWellGenerator.c",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/src/Ships/SalCapCorvette.c",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/ghidra/delta_map_review.json",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/ghidra/delta_map.json",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/docs/m2-r4-command.md",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/tools/m2_specialflags_scan.py",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/tools/m2_fdis.py",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/tools/m2_fdec.py",
+    "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/tools/m2_exedata.py"
+   ],
+   "summary": "The DONE WHEN is met, but the command-layer and formation port is partial: much of it is left as listed CAT-TODOs.\n\n**The specialFlags renumbering (complete).**\n- The bits come from a census of the exe's disassembly. A new tool, tools/m2_specialflags_scan.py, finds every masked access to Ship+0x1C8 and +0x1CC per exe function and joins it with the HW1 flag names those functions use. Each bit was then read by hand in the named exe bodies.\n- What Cataclysm changed in specialFlags:\n  - It dropped HW1's AI resourcing pair (bits 14/15) and three HW1 salvage flags.\n  - It added a KAS repair modifier at 0x2000, which pushes the damage modifier to 0x4000.\n  - Parade 0x8000, rowGettingOutOfWay 0x10000, ATTACKMOVECANCEL 0x20000, FriendlyStatus 0x40000, CatSalvager 0x80000, AttackFromAbove 0x100000, Hyperspacing 0x200000, ForcedAttackStatus 0x400000, LaunchedFromKas 0x800000, KasCheckDoneLaunching 0x1000000 and Launching 0x2000000 all moved.\n  - HW1's specialFlags2 bits 0-3 moved into specialFlags at 0x8000000-0x40000000. In order: SalvageTargetAlreadyDriven, ShipInGravwell, InUnitCaps, CircularGuard.\n- specialFlags2 keeps only DontPlowThroughEnemyShips (now 0x1). The rest of that word is Cataclysm's: 22 more flags, including CatBeingBuilt 0x8, CatBeingSalvaged 0x2000, CatBeastInfectionUnlimited 0x8000 and CatExempt20 0x100000. Each is named after its setter.\n- HW1 flags with no exe bit are retired (defined 0, CAT-DORMANT), following the precedent of the retired SOF_* flags.\n- Static asserts in SpaceObj.h check that the live flags of each word are distinct bits and cover exactly the exe's used bits (0x7BFFF1CF and 0x3FFFF859). They also pin the values M2-R3 quoted.\n- The 18 reader lines of the four flags that moved words were updated. No reader masks either word with a literal.\n\n**Orders and formation types.**\n- Formation types 9 and 10 have the exe's own names, FORCEFIELD_WALL_FORMATION and FORCEFIELD_SPHERE_FORMATION, read from the exe's name table at 0x0087f998.\n- Command orders 11-17 are COMMAND_CAT_LINK, UNLINK, 13, POINT, MIMIC, RESEARCH and 17. The names come from the cl* functions that create each order and the clProcess cases that run it.\n- 13 and 17 keep placeholder names: no setter and no clProcess case was found for either.\n- ShipSelect.c's CAT_COMMAND_*/CAT_FORMATION_* stand-ins are gone.\n\n**CommandLayer.c and CommandWrap.c.**\n- Ported:\n  - protectShip and protectShipsAvg.\n  - ClearProtecting.\n  - The shipHasJust* functions; shipHasJustBeenDisabled gains a second argument.\n  - RemoveShipFromBeingTargeted, rewritten from the exe body with a 4th argument and a new salvaged flag 0x20.\n  - clScuttle, ShipHasToLaunch, clCreateShip and clShipDied.\n  - In CommandWrap.c: clFlashShips (real time, plus clamped objects), clWrapMove, clWrapMpHyperspace, clWrapDock, clWrapSpecial and clWrapFormation.\n  - Four more wraps that the delta map calls IDENTICAL but differ in the exe.\n- New functions:\n  - cat_shipHasJustBeenSalvaged, cat_shipIsSalvager and cat_shipIsLiveWorker.\n  - cat_clStartExternalBuildTimer and cat_clExternalBuildUpdate, plus their two wraps.\n  - Ship.catBuildProgress, and univCreateShip's external-build branch.\n- **That external-build branch is switched off** (CAT-PROVISIONAL CAT_EXTERNAL_BUILD_DRIVER 0). Its driver is in the construction manager (ConsMgr), which is not ported. With the branch on, 30 big-ship types (destroyers, carriers, processors, mothership modules) would be created at health 0 and never finish.\n- HW1 calls with no exe counterpart were removed at the ported sites: the DDDFrigate hooks, cloakGeneratorJustDisabled, proximityCanPlayerSeeShip, rmActivateFreeLab and rmDeactivateLab. The remaining ones (MakeShipsMobile, tacticsAttackCommandVoided, salCapExtraSpecialOrderCleanUp, the old dock launch calls) are CAT-TODO with their bodies.\n\n**Formation.c.** clFormation now accepts only the exe's set of formation types. The force-field formations themselves are not built yet; the work is in a CAT-TODO block at the top of the file.\n\n**Delta map.** 33 review entries, 27 of them new. Six IDENTICAL entries are now MODIFIED: ClearProtecting, clWrapCollectResource, clWrapScuttle, clWrapSetKamikaze, clWrapSetTactics and FillInFormationSpecifics. Totals went from 3,103 / 1,240 / 77 to 3,097 / 1,246 / 77, with 1,490 reviewed.\n\n**Builds.** Debug and release clean builds both finish with 0 warnings under -Werror, and tools/m2_layout32.sh passes.\n\n**Harness runs (final clean build, plain harness).**\n- sp: universe running, univUpdateCounter 1,248 (same as R3), ASan 0, no leaks.\n- fe: Main_game_screen, ASan 0.\n- statics: 143 of 145 types.\n- etg: 618 effects created, the same as R3.\n\nNone of the ported paths runs during the Mission01 start, so the sp and fe runs only show nothing regressed.\n\n**Still to do, and who owns it.**\n- Command-layer follow-up:\n  - The rest of CommandLayer.c's MODIFIED bodies (about 35), including RemoveShipsFromDoingStuff with its reason codes and clProcess.\n  - The orders 11-16 themselves and about 34 cat-new cl* functions.\n  - The force-field formations.\n  - The 75 IDENTICAL bodies in these three files not yet compared with the exe.\n- M2-R4 #3: the salvager block layout behind cat_salvageGetTarget (CAT-PROVISIONAL, returns NULL), clLaunchShip, and the numeric dock types.\n- M2-R4 #4: the mimic parts of clScuttle.\n- M2-R4 #5: the construction manager's external-build driver, the research-module calls and the game stats.\n\nDetails are in the report.",
+   "done_when_met": true,
+   "harness_milestone": "sp: universe running (univUpdateCounter 1,248 at the 340 s timeout, run r4c-final-sp, ASan 0, no unsuppressed leak); fe: Main_game_screen (r4c-final-fe, ASan 0); statics 143 of 145 types, rc 0; etg self-test 618 effects created, rc 0",
+   "first_stop": "none: sp still running at the 340 s timeout (rc 124), fe still running at 40 s",
+   "counts": {
+    "specialFlags_live_bits": 25,
+    "specialFlags2_live_bits": 23,
+    "hw1_flags_retired_to_0": 14,
+    "flags_moved_between_words": 4,
+    "reader_lines_moved": 18,
+    "static_asserts_added": 6,
+    "commandlayer_modified_ported": 10,
+    "commandwrap_modified_ported": 6,
+    "identical_found_modified": 6,
+    "identical_found_modified_ported": 5,
+    "identical_compared_same": 6,
+    "cat_new_added": 7,
+    "delta_map_review_entries": 33,
+    "delta_map_review_entries_new": 27,
+    "delta_map_after": "IDENTICAL 3097 / MODIFIED 1246 / REWRITTEN 77 / reviewed 1490",
+    "src_files_changed": 18,
+    "src_lines_added": 659,
+    "src_lines_removed": 435,
+    "src_added_lines_with_CAT": 191,
+    "build_warnings": 0
+   },
+   "open_questions": [
+    "None needs the user. The names of the exe bits and orders whose real names are unknown were chosen here from their setter functions: SPECIAL_CatKasSpecialRepairModifier, 18 SPECIAL_2_Cat* flags, COMMAND_CAT_13 and COMMAND_CAT_17 (no setter found for the last two).",
+    "CAT_EXTERNAL_BUILD_DRIVER 0 (CAT-PROVISIONAL) stays off until the construction manager's external-build driver (cmDeterministicBuildProcess 0x004592a0) is ported in M2-R4 #5 or stage 3.",
+    "Scheduling the rest of this port (about 35 CommandLayer.c MODIFIED bodies, the order 11-16 functions, the force-field formations, 75 uncompared IDENTICAL bodies) is the integrate step's call."
+   ]
+  },
+  "audit": {
+   "audit_path": "/home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/docs/audits/m2-r4-command.md",
+   "sampled": 65,
+   "wrong": 4,
+   "precision": 0.938,
+   "build_ok": true,
+   "verdict": "PASS-WITH-FIXES",
+   "commit": "d47a23f",
+   "fixed_in_place": 4,
+   "notes": [
+    "Clean builds in original/scratch-m2/build-audit-command passed with 0 warnings under -Werror (debug 77,357,424 B; release 4,838,944 B, the same size as the producer's). After the fixes, tools/build.sh --debug and --release also pass with 0 warnings, and m2_layout32.sh reports OK.",
+    "Flags: I checked 61 exe sites against SpaceObj.h. Every specialFlags and specialFlags2 bit is at the exe's value. An independent immediate-operand scan found no exe access to the bits the port leaves free. A token scan of src/ found no flag used on the wrong word, no old name and no literal mask. The static-assert masks 0x7BFFF1CF and 0x3FFFF859 equal the used bits.",
+    "Orders 11, 12, 14, 15 and 16 match their creators' stores at CommandToDo+0x14, and 13 and 17 have none. Formation types 9 and 10 match the exe's NumStrXlate table at 0x0087f998. clFormation's jump table accepts types 0-6, 9 and 10.",
+    "I compared 24 CommandLayer, CommandWrap and Formation bodies with the r6 decompilation and the disassembly, including RemoveShipFromBeingTargeted and all 7 of its callers' arguments, the external-build functions and the wraps. All match.",
+    "Plain harness: r4c-audit-sp reached 1,248 ticks with ASan 0, and r4c-audit-fe reached Main_game_screen with ASan 0. After the fixes, r4c-audit-fixed-sp reached 1,360 ticks with ASan 0; the counter at the timeout depends on how long the real-time animatic takes.",
+    "Finding 1 (fixed): GravWellGeneratorRemoveShipReferences 0x005b4760 was edited, but the delta map listed it as IDENTICAL with no review entry. I added a review entry (MODIFIED) and merged it with --done m2r4:command-audit. The map is now 3,096 / 1,247 / 77, with 1,491 reviewed.",
+    "Finding 2 (fixed with a doc note): the report said the three files 'hold 87 / 65 / 1 functions'. Those are their combined IDENTICAL / MODIFIED / REWRITTEN counts; the files hold 97 / 23 / 33 mapped functions.",
+    "Finding 3 (fixed in code): a CAT-TODO in univDeleteDeadShip assigned this port the SPECIAL_2_CatBeingBuilt clear (exe 0x00547dab), and the port left it neither done nor listed. I ported the one-line clear in src/Game/UnivUpdate.c and pointed the remaining cat_cmExternalBuildShipDied TODO at M2-R4 #5.",
+    "Finding 4 (fixed): four comments were stale after the port. Two are in UnivUpdate.c, one is in ShipSelect.c (MakeSelectionNonResearchShips now has no caller) and one is in P1StandardCorvette.c.",
+    "Retired HW1 flags are defined as 0. Their remaining readers are dormant code or are listed by the producer with an owner, for example AIShip.c's SPECIAL_IsASalvager reader for M2-R4 #3. univGetChecksum's mask now keeps the whole specialFlags word, which the producer notes as stage 5's."
+   ]
+  }
+ }
+}
+// Per-port resume notes: where an interrupted producer's work sits, and the base its auditor diffs against.
+const RESUME = {
+  combat: { base: 'd47a23f', note: `RESUME (2026-10-11): an earlier run of this producer was cut off by a usage limit BEFORE it wrote ${REPO}/docs/m2-r4-combat.md. Its src/ edits were committed UNAUDITED as the WIP snapshot b39dea7 (39 files: Salvage.c +2,066, SalCapCorvette.c -3,206, Dock.c +613, Collision.c, Clamp.c, UnivUpdate.c, SpaceObj.h, SaveGame.c, ShipSelect.c, ...). Start with \`git diff d47a23f..HEAD --stat\` and the diff itself, confirm the tree builds (debug and release, 0 warnings), decide subsystem by subsystem what is complete and correct, write the report doc with a done marker at once, and finish only what is missing. Edits outside your scope in that snapshot must be justified in the report or reverted.` },
+}
+
 const COMMON = `
 PROJECT: Homeworld-Infection: a 1-to-1 recreation of Homeworld: Cataclysm (GOG "Homeworld: Emergence", retail 1.01) for Linux and Windows 11. M2 (reimplementation) follows Option A: the engine is Homeworld 1 (src/ = Gardens of Kadesh 3af31fb) and we port Cataclysm's differences into it. M2-R1 measured the deltas; M2-R2 ported stage 1 (formats + data load; exit test met: the debug ASan engine reaches Main_game_screen on unmodified data, and single player passes the RACE_* stop, stopping at the GenericInterceptor.c (205) assert). M2-R3 ported stage 2 part A (exit test met: sp on Mission01 reaches the running universe, 1,248 ticks, ASan 0, with the provisional CAT_HW1_MISSION_SCRIPTS 0; every quit returns rc 0). This round, M2-R4, is stage 2 part B per ${REPO}/docs/m2-r3-summary.md "Plan for M2-R4" (your producer's row) and "What is left of stage 2 part A" (the part-A items folded into your scope).
 USER DECISIONS (binding): src/ base = GoK 3af31fb; Cataclysm behaviour wins per subsystem; 16 Hz universe default; FP/optimisation flags pinned (-O2 -fno-strict-aliasing, no fast-math) before any checksum comparison; Relic ad1bb82 Game/ and Ships/ at src/reference/hw1-ad1bb82/ (reference only); the oracle may call the game's own record/playback functions; DLL toolchain clang-18 + lld-link; LAN interop with stock 1.01 is nice-to-have, not required (do not break the wire format gratuitously). 2026-10-10: the faithfulness defaults already in the tree are ACCEPTED (the 22 dropped HW1 types dormant as ids 200-221; k/tCloakGenerator on DefaultShipHeader where the exe has NULL; crateInit resets 46 entries; the mission-17 texture cut follows the stock exe, not CET; the fq audio code follows the binary). The user will supply the oracle reference recording and two saves LATER: do not block on them; build what does not need them and leave a clear hook where they plug in.
@@ -69,7 +257,7 @@ const PORTS = [
 
 function portPrompt(p) {
   return `${COMMON}
-TASK (M2-R4 port, key ${p.key}): ${p.scope}
+TASK (M2-R4 port, key ${p.key}): ${p.scope}${RESUME[p.key] ? '\n' + RESUME[p.key].note : ''}
 DONE WHEN: ${p.done}.
 Report: ${REPO}/docs/m2-r4-${p.key}.md (what changed and why, file by file; each Cataclysm delta with its exe function and address; the build results; the plain-harness runs with milestone and first stop; delta-map review entries you added; what is left and its owner). Subsystems: split your scope into 3-6 subsystems and record them in the done marker.
 Return via StructuredOutput: report, files_changed, summary, done_when_met, harness_milestone, first_stop, counts, open_questions.`
@@ -80,15 +268,29 @@ function auditPrompt(p, r) {
 TASK: ADVERSARIAL AUDITOR for M2-R4 port "${p.key}" (producer result: ${JSON.stringify(r || {}).slice(0, 2500)}). RESUME RULE: if ${REPO}/docs/audits/m2-r4-${p.key}.md exists and ends with a "Verdict:" line, return its numbers immediately.
 1. Build from clean in a separate dir: rm -rf ${SCRATCH}/build-audit-${p.key} && meson setup / compile the debug and release configurations there exactly as tools/build.sh does (read it), 0 warnings under -Werror; record sizes.
 2. ${p.audit}
-3. Read the full diff of this port (git diff in ${REPO}; earlier ports are already committed): every change outside the producer's scope, every edited function the delta map calls IDENTICAL without a review entry, every Cataclysm change without a "CAT:" comment is a finding.
+3. Read the full diff of this port (${RESUME[p.key] ? `git diff ${RESUME[p.key].base} in ${REPO}: this port's work spans the WIP commit(s) after ${RESUME[p.key].base} plus the working tree` : `git diff in ${REPO}; earlier ports are already committed`}): every change outside the producer's scope, every edited function the delta map calls IDENTICAL without a review entry, every Cataclysm change without a "CAT:" comment is a finding.
 4. Re-check the producer's DONE WHEN claim (${p.done}) yourself on the plain harness.
 Fix factual errors you prove directly (code or doc; mark doc fixes "[audit: ...]"), keep the build green, and count the fixes. Write ${REPO}/docs/audits/m2-r4-${p.key}.md: what you checked, each finding with evidence, precision = correct/(correct+wrong) over the sampled checks, fixes, and a last line "Verdict: PASS|PASS-WITH-FIXES|FAIL - <reason>".
 Then CHECKPOINT this port (even on FAIL, so the next port starts from a recorded state): ${CKPT} "M2-R4 ${p.key}: <verdict word> (<one-line summary>)" (it refuses forbidden paths; on an index.lock, wait 30 s and retry). Return the commit hash in "commit".`
 }
 
+const AUDITED_SCHEMA = { type: 'object', properties: { ports: { type: 'array', items: { type: 'object', properties: {
+  key: { type: 'string' }, verdict: { type: 'string' }, commit: { type: 'string' } }, required: ['key', 'verdict', 'commit'] } } },
+  required: ['ports'] }
+
 async function portChain() {
   const out = []
+  const probe = await agent(`In ${REPO}, for each key in [${PORTS.map(p => p.key).join(', ')}]: if docs/audits/m2-r4-<key>.md exists and its last non-empty line starts with "Verdict:", report {key, verdict: the verdict word (PASS, PASS-WITH-FIXES or FAIL), commit: the short hash of the newest commit whose subject starts with "M2-R4 <key>:" (git log --format='%h %s' | grep), or "" if none}. Omit keys whose audit doc is missing or has no Verdict line. Read only; change nothing.`,
+    { label: 'probe:audited', phase: 'Port', schema: AUDITED_SCHEMA, effort: 'low' })
+  const audited = {}
+  for (const a of (probe && probe.ports) || []) if (a.verdict && a.commit) audited[a.key] = a
   for (const p of PORTS) {
+    if (audited[p.key]) {
+      const prior = PRIOR[p.key] || { produced: { report: `${REPO}/docs/m2-r4-${p.key}.md` }, audit: { verdict: audited[p.key].verdict, commit: audited[p.key].commit } }
+      out.push({ key: p.key, produced: prior.produced, audit: prior.audit })
+      log(`${p.key}: already audited (${audited[p.key].verdict}, ${audited[p.key].commit}); skipped`)
+      continue
+    }
     const r = await agent(portPrompt(p), { label: p.label, phase: 'Port', schema: PROD_SCHEMA, model: 'opus', effort: 'high' })
     const v = await agent(auditPrompt(p, r), { label: 'audit:' + p.key, phase: 'Port', schema: AUDIT_SCHEMA, model: 'opus' })
     out.push({ key: p.key, produced: r, audit: v })
@@ -99,7 +301,7 @@ async function portChain() {
 
 phase('Port')
 log('M2-R4: 5 src/ ports in sequence (univupdate, command, combat, ships-b, rest-oracle)')
-const all = (await portChain()).filter(Boolean)
+const all = (await portChain()).filter(Boolean)  // skips ports whose audit doc already has a Verdict line
 
 phase('Integrate')
 const digest = JSON.stringify(all.map(d => ({ key: d.key, done: d.produced && d.produced.done_when_met, milestone: d.produced && d.produced.harness_milestone, first_stop: d.produced && d.produced.first_stop, counts: d.produced && d.produced.counts, questions: d.produced && d.produced.open_questions, audit: d.audit && { precision: d.audit.precision, verdict: d.audit.verdict, commit: d.audit.commit } }))).slice(0, 20000)
