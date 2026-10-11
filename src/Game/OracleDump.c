@@ -43,8 +43,10 @@
 #include "Randy.h"
 #include "SpaceObj.h"
 #include "Stats.h"
+#include "Task.h"
 #include "Universe.h"
 #include "UnivUpdate.h"
+#include "utility.h"
 
 /*=============================================================================
     Data:
@@ -64,6 +66,8 @@ static udword oracleRecords = 0;
 static sdword oracleSelfTestTicks = 0;              // > 0: /oracleSelfTest given
 static sdword oracleSelfTestPerturbTick = -1;       // >= 1: draw one extra gamerand() before this tick
 static bool32 oracleInSelfTest = FALSE;
+static sdword oracleMissionTicks = 0;               // > 0: /oracleMission given (M2-R4 rest-oracle)
+static bool32 oracleMissionDone = FALSE;
 
 /*=============================================================================
     Command line:
@@ -102,6 +106,37 @@ void oracleSetSelfTestPerturb(char *string)
 bool32 oracleSelfTestRequested(void)
 {
     return (oracleSelfTestTicks > 0);
+}
+
+// /oracleMission <ticks>: the headless Mission01 run; implies the virtual clock
+void oracleSetMission(char *string)
+{
+    oracleSetVirtualClock();
+    oracleMissionTicks = (sdword)strtol(string, NULL, 10);
+    if (oracleMissionTicks <= 0)
+    {
+        oracleMissionTicks = 3000;
+    }
+}
+
+bool32 oracleMissionRequested(void)
+{
+    return (oracleMissionTicks > 0);
+}
+
+// one universe tick of task time per frame: the universe task (period UNIVERSE_UPDATE_PERIOD) runs exactly once per
+// render frame, so every per-frame draw of a random stream (trails, particles, effects, sound) and the task clock
+// (taskTimeElapsed) are functions of the tick count alone, and two runs produce the same stream byte for byte
+udword oracleVirtualFrameTicks(void)
+{
+    udword ticks;
+
+    if (oracleMissionTicks <= 0)
+    {
+        return 0;
+    }
+    ticks = (udword)(UNIVERSE_UPDATE_PERIOD * taskFrequency);
+    return (ticks == 0) ? 1 : ticks;
 }
 
 /*=============================================================================
@@ -210,7 +245,7 @@ static bool32 oracleOpen(void)
     // realtimeelapsed is tick-derived in oracle runs (univRealTimeVirtual) and the stream-0 wall-clock seed is 0
     // (ranVirtualWallClock), like the GOG side's clock=virtual; there is no stream-0 split (rng0) on this side
     header.options = HWO_OPT_CLOCK_VIRTUAL;
-    if (oracleInSelfTest && oracleSelfTestPerturbTick >= 1)
+    if ((oracleInSelfTest || oracleMissionTicks > 0) && oracleSelfTestPerturbTick >= 1)
     {
         header.options |= HWO_OPT_PERTURBED;
     }
@@ -432,11 +467,45 @@ static void oracleEmitTick(void)
 bool32 oracleUnivUpdate(real32 phystimeelapsed)
 {
     udword before = universe.univUpdateCounter;
-    bool32 result = univUpdate(phystimeelapsed);
+    bool32 result;
+    char text[HWO_EVENT_TEXT_MAX];
+
+    // the deliberate perturbation (/oracleSelfTestPerturb <tick>): one extra RAN_Game draw before that tick, in the
+    // self-test and in a mission run alike [M2-R4 rest-oracle: moved here from the self-test loop]
+    if ((oracleSelfTestPerturbTick >= 1) && ((sdword)before + 1 == oracleSelfTestPerturbTick) &&
+        (oracleInSelfTest || oracleMissionTicks > 0) && !oracleMissionDone)
+    {
+        (void)gamerand();
+        oracleEmitEvent(HWO_EV_PERTURB, "one extra gamerand() before this tick");
+    }
+
+    result = univUpdate(phystimeelapsed);
 
     if ((oracleFileName[0] != '\0' || oracleInSelfTest) && universe.univUpdateCounter != before)
     {
         oracleEmitTick();
+    }
+    // the mission run: a progress line every 256 ticks, then the stop at the requested tick (utyGameQuit only pushes
+    // the exit event; the main loop quits normally, so the stream and the logs are complete)
+    if ((oracleMissionTicks > 0) && !oracleMissionDone && (universe.univUpdateCounter != before))
+    {
+        if ((universe.univUpdateCounter % 256) == 0)
+        {
+            fprintf(stdout, "oracle: mission tick %u records=%u\n", (unsigned)universe.univUpdateCounter, (unsigned)oracleRecords);
+            fflush(stdout);
+        }
+        if ((sdword)universe.univUpdateCounter >= oracleMissionTicks)
+        {
+            oracleMissionDone = TRUE;
+            snprintf(text, sizeof(text), "ticks=%u records=%u ships=%u", (unsigned)universe.univUpdateCounter,
+                     (unsigned)oracleRecords, (unsigned)universe.ShipList.num);
+            oracleEmitEvent(HWO_EV_QUIT, text);
+            fprintf(stdout, "oracle: mission run done %s file=%s\n", text, oracleFileName);
+            fflush(stdout);
+            oracleClose();
+            oracleFailed = TRUE;                    // the stream is complete: nothing may reopen (and truncate) it
+            utyGameQuit(NULL, NULL);
+        }
     }
     return result;
 }
@@ -577,12 +646,7 @@ void oracleRunSelfTest(void)
 
         for (k = 0; k < 2 && (sdword)universe.univUpdateCounter < oracleSelfTestTicks; k++)
         {
-            if (oracleSelfTestPerturbTick >= 1 && (sdword)universe.univUpdateCounter + 1 == oracleSelfTestPerturbTick)
-            {
-                (void)gamerand();                   // the deliberate perturbation: one extra RAN_Game draw
-                oracleEmitEvent(HWO_EV_PERTURB, "one extra gamerand() before this tick");
-            }
-            ORACLE_UNIV_UPDATE(UNIVERSE_UPDATE_PERIOD);
+            ORACLE_UNIV_UPDATE(UNIVERSE_UPDATE_PERIOD);     // the /oracleSelfTestPerturb draw happens in oracleUnivUpdate
         }
     }
 

@@ -6,6 +6,7 @@
 // =============================================================================
 
 #include "Alliance.h"
+#include "ShipSelect.h"     // CAT: cat_shipIsCrystal
 
 #include "CommandDefs.h"
 #include "CommandWrap.h"
@@ -243,7 +244,20 @@ void alliancePrintNamesNice(char *dest, uword alliance)
 void allianceSetAlliance(udword AllianceType, uword playerone, uword playertwo)
 {
     char   temp[128];
+    Node  *node;
+    Ship  *ship;
 
+    // CAT: every ship with a fog-of-war grid comes off the grid first and goes back on at the end (allianceSetAlliance
+    //      0x00420a20: cat_playerGetFOWGrid, cat_shipAffectsFOW, cat_univShipFOWDeactivate/Activate). CAT-TODO(stage 3
+    //      FOW): the grid is NULL for every player until stage 3 creates it, so the loop bodies never run
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if (cat_playerGetFOWGrid(ship->playerowner) != NULL)
+        {
+            // CAT-TODO(stage 3 FOW): if (cat_shipAffectsFOW(ship)) cat_univShipFOWDeactivate(ship);
+        }
+    }
     universe.collUpdateAllBlobs = TRUE;                     //alliances mean the blobs have to be re-created from scratch
     switch (AllianceType)
     {
@@ -414,6 +428,15 @@ void allianceSetAlliance(udword AllianceType, uword playerone, uword playertwo)
         }
         break;*/
     }
+    // CAT: the fog-of-war cubes go back on (allianceSetAlliance 0x00420a20)
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if (cat_playerGetFOWGrid(ship->playerowner) != NULL)
+        {
+            // CAT-TODO(stage 3 FOW): if (cat_shipAffectsFOW(ship)) cat_univShipFOWActivate(ship);
+        }
+    }
 }
 
 void allianceRemovePlayerShipsFromAttackList(SelectAnyCommand *list,uword playerindex,CommandToDo *todo)
@@ -493,6 +516,15 @@ void allianceBreakAll(void)
 ----------------------------------------------------------------------------*/
 bool32 allianceIsShipAlly(Ship *ship, Player *player)
 {
+    // CAT: a crystal is nobody's ally and only ships are (allianceIsShipAlly 0x00420ec0: cat_shipIsCrystal, objtype)
+    if (cat_shipIsCrystal(ship))
+    {
+        return FALSE;
+    }
+    if (ship->header.objtype != OBJ_ShipType)
+    {
+        return FALSE;
+    }
     if ((ship->playerowner == player) || (bitTest(ship->obj.attributes, ATTRIBUTES_Defector)))
     {
         return TRUE;     // always considered ally with yourself
@@ -516,4 +548,3 @@ bool32 allianceArePlayersAllied(Player *playerone, Player *playertwo)
     }
     return(bitTest(playerone->Allies, PLAYER_MASK(playertwo->playerIndex)));
 }
-

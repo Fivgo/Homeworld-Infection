@@ -5,12 +5,26 @@
   "change": "drops the aieHandlerSetFuelLow(newMove,15,...) handler (no fuel in Cataclysm); team died handler is aihReconaissanceTeamDiedHandler",
   "note": "recon team loop otherwise as HW1"
  },
+ "0x004011d0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) ResourceController (the type ids do not exist in Cataclysm); r6 excludes the frigate types 0x10 sProcessor, 0x2d bDFGFrigate, 0x33 bProcessor, 0x3c kAdvanceSupportFrigate, 0x4a tAdvanceSupportFrigate, 0x4e tDFGFrigate (whole body read); the tree still has the HW1 pair of aliases: stage 4 AI",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
  "0x00401b50": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "ship-type count table is 145 entries and the team-making tests use Cataclysm ship types and extra pairings (two alternatives for the BIG fleet); the last two tests (GRAVWELL/CLOAKGEN slots, different types) run only when singlePlayerGame",
   "note": "aiaGenerateNewAttackOrder inlined (aitCreate + aiaGenerateAttackType); HW1 four tests, Cataclysm seven",
   "sample": "reread-R2"
+ },
+ "0x00402aa0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) ResourceController (two tests) (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read, type tests only)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
  },
  "0x00403820": {
   "class": "IDENTICAL",
@@ -110,6 +124,13 @@
   "note": "waiting-queue removal inlined as three list walks; team-type dispatch as HW1",
   "sample": "MODIFIED/high"
  },
+ "0x00405850": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) ResourceController (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
  "0x00405a70": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -117,12 +138,33 @@
   "note": "0x3da3d70a = 0.08f",
   "sample": "reread-R2"
  },
+ "0x00405b90": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) the P2 race branch (aifP2FleetCommand) (the type ids do not exist in Cataclysm); r6 body has no race/type test (partial read); aifP2FleetCommand is deleted",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
  "0x00405d20": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "handlerTable index",
   "sample": "reread-R2"
+ },
+ "0x00406880": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) ResourceController (aiuRescueShipType) (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
+ "0x00406af0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) ResourceController (aiuRescueShipType) (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
  },
  "0x00406e30": {
   "class": "IDENTICAL",
@@ -221,6 +263,13 @@
   "change": "",
   "note": "aimCreateMoveTeamNoAdd inlined (0x170 alloc, type 6, aimProcessMove) as AIMoves1.c:3126; 10000 is a float constant load; audit sample #16",
   "sample": "audit-R2"
+ },
+ "0x00409c50": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) ResourceController (aiuRescueShipType) (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
  },
  "0x0040b4b0": {
   "class": "IDENTICAL",
@@ -600,12 +649,33 @@
   "note": "HW1 Carrier or Mothership",
   "sample": "reread-R2"
  },
+ "0x00412590": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) ResourceController / ResearchShip (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
  "0x00412690": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00412950": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) ResourceController / ResearchShip (the type ids do not exist in Cataclysm); r6 switches on 0xc, 0x12, 0x2f, 0x35, 0x3e, 0x4c (carriers/motherships) and 0xd, 0x1a, 0x39 (support modules) (partial read): stage 4 AI",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
+ "0x00413bd0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) SensorArray, CryoTray, P2Mothership, P3Megaship, ResourceController cases (the type ids do not exist in Cataclysm); r6 switches on 0x60, 0x62, 0x65, 0x68, 0x6d, 0x82 (partial read): stage 4 AI",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
  },
  "0x00413ee0": {
   "class": "IDENTICAL",
@@ -782,6 +852,20 @@
   "note": "",
   "sample": "reread-R2"
  },
+ "0x0041acb0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) CryoTray hack (value 1000) and the DDDFrigate/DefenseFighter/LightCorvette/LightInterceptor/RepairCorvette cases (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
+ "0x0041ae00": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) ResourceController (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
  "0x0041b020": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -796,6 +880,20 @@
   "note": "aiuFindEnemyMothership inlined; switch body not fully compared",
   "sample": "IDENTICAL/medium"
  },
+ "0x0041b7d0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) ResourceController (the type ids do not exist in Cataclysm); r6 tests 0x3c kAdvanceSupportFrigate, 0x40 / 0x4f both GravWellGenerators (partial read): stage 4 AI",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
+ "0x0041b900": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) DefenseFighter (the type ids do not exist in Cataclysm); r6 tests only != 0x4e tDFGFrigate besides the class tests (partial read)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
  "0x0041dd50": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -803,12 +901,26 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0041e500": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) ResourceController / ResearchShip cases (the type ids do not exist in Cataclysm); r6 compares only against the requested type (partial read): stage 4 AI",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
  "0x0041f800": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x0041fd90": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) Drone (two tests) (the type ids do not exist in Cataclysm); r6 tests only 0x62 kCarrier besides the class (partial read): stage 4 AI",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
  },
  "0x00420510": {
   "class": "IDENTICAL",
@@ -859,12 +971,19 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00420a20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "FOW cubes of every gridded ship off before and on after the change (cat_playerGetFOWGrid, cat_shipAffectsFOW, cat_univShipFOW*)",
+  "note": "ported; the grids are stage 3",
+  "sample": "port-R4"
+ },
  "0x00420ec0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "returns FALSE for crystals (cat_shipIsCrystal) and for non-ship objects before HW1's test",
-  "note": "M2-R3 selection (read while porting the filters; Alliance.c is M2-R4 #5)",
-  "sample": "port-R3"
+  "change": "FALSE for crystals (cat_shipIsCrystal) and non-ships before HW1's test",
+  "note": "ported",
+  "sample": "port-R4"
  },
  "0x00420f20": {
   "class": "IDENTICAL",
@@ -893,6 +1012,12 @@
   "change": "enum and class: always TRUE for any CLASS_Carrier ship and for sProcessor, bProcessor, sDreadnought, tMissileDestroyer, p1Mothership (HW1: Carrier, MissileDestroyer, P1Mothership by ship type)",
   "note": "rest of the vertical-plane test same",
   "sample": "reread-R2"
+ },
+ "0x00421cf0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a mimic that is mimicking does not shoot",
+  "note": "M2-R4 combat: ported (the mimic query is provisional, M2-R4 #4)"
  },
  "0x00421f80": {
   "class": "IDENTICAL",
@@ -973,10 +1098,10 @@
  },
  "0x00423040": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "early-out added: when the curve already sits on its last key it returns points[last]; running past the end also returns points[last] instead of REALlyBig",
-  "note": "hermite part not fully compared",
-  "sample": "IDENTICAL/high"
+  "confidence": "high",
+  "change": "on the last key returns its value, past the end the last value; zero-length tensioned key pins the time",
+  "note": "ported",
+  "sample": "port-R4"
  },
  "0x004232a0": {
   "class": "IDENTICAL",
@@ -1005,6 +1130,12 @@
   "change": "",
   "note": "Ghidra dropped the sscanf out-argument and shows a garbage store; the visible call and format are HW1's",
   "sample": "reread-R2"
+ },
+ "0x00423e50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 combat: edited only for gunShipFirePower's one-argument prototype (0x0048cb60)"
  },
  "0x00424d80": {
   "class": "MODIFIED",
@@ -1048,26 +1179,47 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00426510": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "drops the Drone skip of the mass sum (HW1 blobs.c:587; the type is gone): no ship type is tested",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
+ "0x004271d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_shipIsCloakedFully instead of the SOF_Cloaked test; no probe code",
+  "note": "ported",
+  "sample": "port-R4"
+ },
  "0x00428050": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "clears a new 8-float per-player array and stores the raw bounty setting; HW1 stores TW_BountySizes[setting] in universe.bountySize",
-  "note": "goes with the new calculatePlayerBounties",
-  "sample": "reread-R2"
+  "change": "clears an 8-float per-player worth array and stores the raw bounty setting (HW1 stored TW_BountySizes[size])",
+  "note": "ported (Bounties.c)",
+  "sample": "port-R4"
  },
  "0x00428070": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "bounty computation cut down: per player, sum of buildCost of live ships (no ships-inside-carriers pass, no Drone test) plus resourceUnits, floored at 1.0, written to a new per-player float array; HW1's worth/ruworth shares, maxValue, 250 cap and player->bounty writes are gone",
-  "note": "single-player early-out kept",
-  "sample": "reread-R2"
+  "change": "per player, build cost of live, enabled ships + resource units into the worth array, floor 1.0; no percentages, carrier contents or human/computer averaging",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x00428130": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "getBountyOnShip inlined; body as HW1",
+  "sample": "port-R4"
  },
  "0x00428250": {
   "class": "MODIFIED",
   "confidence": "medium",
-  "change": "returns (sdword) of a float through __ftol (the new per-player float worth array); HW1 returns the sdword player->bounty",
-  "note": "16-byte body, the float operand is not shown by the decompiler",
-  "sample": "reread-R2"
+  "change": "(sdword) of the player's float worth (16-byte __ftol wrapper)",
+  "note": "ported; the array read is the reading of the evidence",
+  "sample": "port-R4"
  },
  "0x00428260": {
   "class": "IDENTICAL",
@@ -1118,6 +1270,20 @@
   "note": "HW1: single btgFade = t*255",
   "sample": "MODIFIED/low"
  },
+ "0x0042b9a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a mimicking ship (Ship+0x18 bit 3) zooms to cat_mimicGetCameraRadius",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x0042bab0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "key bindings through kbCommandKeyIsHit(0x45/0x46)",
+  "note": "stage 3 UI",
+  "sample": "port-R4"
+ },
  "0x0042beb0": {
   "class": "IDENTICAL",
   "confidence": "medium",
@@ -1128,9 +1294,9 @@
  "0x0042cf30": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "slave/master branch deleted; only HW1's else branch remains (*pos = collPosition; *rad = collspheresize)",
-  "note": "audit sample #35 (deletion, not rewrite); was REWRITTEN",
-  "sample": "audit-R2"
+  "change": "no slave/master selection circle",
+  "note": "ported",
+  "sample": "port-R4"
  },
  "0x0042d310": {
   "class": "IDENTICAL",
@@ -1166,6 +1332,13 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x0042ec90": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "vsprintf, two stripped debug calls, clCommandMessage(buffer, 0xffffffff) when echoing; no log file",
+  "note": "ported",
+  "sample": "port-R4"
  },
  "0x0042ed50": {
   "class": "IDENTICAL",
@@ -1209,6 +1382,18 @@
   "note": "HW1 always allocates and has no host-side list",
   "sample": "reread-R2"
  },
+ "0x00434830": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the object leaves its host's clamp list (the host's clamp info goes when the host is freed)",
+  "note": "M2-R4 combat: WIP port re-read against the exe and kept"
+ },
+ "0x00434940": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "called for the host: each object clamped to it runs its physics and follows the host",
+  "note": "M2-R4 combat: WIP port re-read against the exe and kept"
+ },
  "0x00434c10": {
   "class": "IDENTICAL",
   "confidence": "medium",
@@ -1251,6 +1436,13 @@
   "note": "MAX_LIGHTNING_PALS 3 loop unrolled",
   "sample": "reread-R2"
  },
+ "0x00436aa0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "DUSTCLOUD_RAN_MULTIPLIER random vertex offset against ad1bb82",
+  "note": "the GoK tree already has it; nothing to change",
+  "sample": "port-R4"
+ },
  "0x00437a40": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -1278,6 +1470,66 @@
   "change": "",
   "note": "zeroes collrectoffset and three floats; header-level: in Cataclysm uplength/rightlength/forwardlength sit 3 dwords later than in HW1's StaticCollInfo (GetCollSizeInDirection reads the same slots), so CET's StaticCollInfo names are shifted",
   "sample": "reread-R2"
+ },
+ "0x0043ab20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "asks cat_kamikazeCheckShip 0x0043a980 for each object (damage to itself and the other; mimics, Beast cruise-missile infection hits, ships clamped together, the ram damage scale)",
+  "note": "M2-R4 combat: ported; the ram damage scale stays 1.0 until the mimic block (M2-R4 #4)"
+ },
+ "0x0043ade0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "salvagers inside a target's cone do not collide; the exe's clamp test (cat_shipsClampedTogether); ramming frigates act first; no bump damage from a salvager just let go, an attached Leech or between RKO pieces",
+  "note": "M2-R4 combat: ported; the ramming frigate call and the Leech query are M2-R4 #4 (CAT-TODO / provisional FALSE)"
+ },
+ "0x0043b460": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "same Cataclysm tests as collCheckShipShipColl (salvager cone, clamp test, ramming, Leech)",
+  "note": "M2-R4 combat: ported as collCheckShipShipColl"
+ },
+ "0x0043bac0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "every resource-class ship and the killer-collision attribute decide the collision instead of HW1's resource collectors",
+  "note": "M2-R4 combat: ported; CAT_ATTRIBUTES_KillerCollision moved to Attributes.h"
+ },
+ "0x0043c900": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a beam hitting an sSentinel / bSentinel with its field up only draws the hit (cat_sentinelFieldBulletHit, first argument 0); a missed Beast beam (GS_BeastWeapon) still draws its hit on its own target's box; a seventh value 1/2/3 is pushed that univBulletCollidedWithTarget never reads",
+  "note": "M2-R4 combat: ported; cat_sentinelFieldBulletHit is M2-R4 #4; the tree keeps its update-rate cadence"
+ },
+ "0x0043cd90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "switches on the bullet's weapon word (Bullet +0x108: 2 WEAPON_ION and 8 WEAPON_BEASTINFECT go to collCheckBeamColl, 4 WEAPON_LASER is skipped); an enemy bullet crossing an active Sentinel field is drawn and deleted (cat_collLineSentinelFieldIntersect 0x0043abf0, cat_sentinelFieldBulletHit); DFG frigates act through cat_collBulletDFGFieldCheck 0x0043cd10 after the collision-sphere prefilter (no HW1 field-radius exemption); ships with bUseRayTriangleIntersectionForHitLocation move the hit onto the mesh (cat_meshLineIntersect 0x004b5910); univBulletCollidedWithTarget gets 1",
+  "note": "M2-R4 combat: ported except cat_sentinelFieldBulletHit (M2-R4 #4) and the mesh hit location (stage 3)"
+ },
+ "0x0043d330": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "univMissileCollidedWithTarget gets a new first argument, 1",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x0043d720": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "univMissileCollidedWithTarget gets a new first argument, 1",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x0043d970": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "univMissileCollidedWithTarget gets a new first argument, 1",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x0043dbb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "univMissileCollidedWithTarget gets a new first argument, 1",
+  "note": "M2-R4 combat: ported"
  },
  "0x0043dea0": {
   "class": "MODIFIED",
@@ -1349,6 +1601,18 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x004411c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "capital range for kGravWellGenerator/tGravWellGenerator (no cloak generator); follow-behind for sProcessor/bProcessor; no DDDFrigateMakeSureItCanGuard; CircularGuard is specialFlags 0x40000000",
+  "note": "M2-R4 command: ported"
+ },
+ "0x004413f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "capital range for both races' grav-well and cloak generators (64/79/63/77); docking-with-me scan without the canReceiveSomething gate; no DDDFrigate; CircularGuard is specialFlags 0x40000000",
+  "note": "M2-R4 command: ported"
+ },
  "0x00441750": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -1356,12 +1620,55 @@
   "note": "same leader/wingman tests (Ghidra mistypes attackvars)",
   "sample": "reread-R2"
  },
+ "0x00442680": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) TargetDrone / LightDefender (the type ids do not exist in Cataclysm); r6 tests the defender types 0x43 kHeavyDefender and 0x51 tHeavyDefender (partial read); the tree still has HW1 one-alias HeavyDefender: M2-R4 command follow-up",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
  "0x004435d0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "AdvanceSupportFrigate branch: any docking ship whose dockship is this ship makes it wait (HW1 skips ships in ASF_WAITLATCHPOINT/BACKUP/WAIT/REFUEL); enum: kAdvanceSupportFrigate/tAdvanceSupportFrigate (0x3c/0x4a); the Mothership branch tests shipclass == CLASS_Mothership",
   "note": "launch-ship tests as HW1",
   "sample": "reread-R2"
+ },
+ "0x00444780": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 command: compared with the exe: same (attribute bit 4 cleared, AttackCleanup, attack freed)"
+ },
+ "0x004447b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "formation case: a sphere needs >= 2 ships (HW1 > 0) and a FORCEFIELD_SPHERE formation becomes FORCEFIELD_WALL before formationContentHasChanged",
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+ },
+ "0x004452f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "RemoveShipFromBeingTargeted with 4 arguments; visibility by sub_53F9F0 (cat_shipDetectedByPlayer) instead of proximityCanPlayerSeeShip",
+  "note": "M2-R4 command: ported"
+ },
+ "0x00445340": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "RemoveShipFromBeingTargeted with 4 arguments",
+  "note": "M2-R4 command: ported"
+ },
+ "0x00445360": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "second argument keeps the ship on the camera stack (both exe callers pass 1); GravWellGeneratorJustDisabled for types 64/79 only; no DDDFrigate/cloak generator; the three madLinkIn closes for every type (no SensorArray test)",
+  "note": "M2-R4 command: ported"
+ },
+ "0x004453c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "4th argument (player) with new flag 0x20 (salvaged: only that player's commands); hyperspacing pass falls through; dock removal by dockship only; Cataclysm salvagers (cat_shipIsSalvager, salvager target, slot 11, cat_salvageRemoveShipReferences); cloak test cat_shipDetectedByPlayer; disabled crystals stay attack targets; parade around the ship only loses its attributes; no default assert",
+  "note": "M2-R4 command: ported (the salvager target is CAT-PROVISIONAL until M2-R4 #3 lays out CatSalvagerInfo)"
  },
  "0x004459f0": {
   "class": "IDENTICAL",
@@ -1391,12 +1698,32 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00447d30": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) DefenseFighter (three blocks) (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
  "0x00449af0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "enum: SalCapCorvette test becomes kSalCapCorvette/tSalCapCorvette (0x48/0x59)",
   "note": "getShipAndItsCommand inlined; same ATTACK/SPECIAL logic",
   "sample": "reread-R2"
+ },
+ "0x0044a150": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "tutorial sMothership skipped; catShipFlags 0x80 with nonzero Ship+0x4E4 not scuttled; mimics unmimic (cat_mimicUnmimic)",
+  "note": "M2-R4 command: ported except the 0x80/+0x4E4 case and the unmimic (CAT-TODO M2-R4 #4)"
+ },
+ "0x0044a400": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) DDDFrigate (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read: shipsInsideMe tested alone)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
  },
  "0x0044a6f0": {
   "class": "IDENTICAL",
@@ -1405,12 +1732,30 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0044a780": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "another player's ship always launches; swarmers (9, 43) never; micro class counts with fighters, live workers (cat_shipIsLiveWorker) with corvettes",
+  "note": "M2-R4 command: ported"
+ },
+ "0x0044a840": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "carrier-class mothership counts as carrier 1; univCreateShip(..., built 5, creator, 0); game stats by class (twice for types 4/5/38, none for swarmers); no ResearchShip/rmActivateFreeLab",
+  "note": "M2-R4 command: ported except the stats (CAT-TODO M2-R4 #5)"
+ },
  "0x0044b320": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "research-ship docking branch removed; new shipclass != 10 guard; AddShipToFormationGroup and GroupShipIntoMilitaryParade inlined and unchanged",
   "note": "audit sample #33; was REWRITTEN",
   "sample": "audit-R2"
+ },
+ "0x0044b470": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "members of a parade around the dead ship leave it first; RemoveShipsFromDoingStuff reason codes 0x65/0xe; research modules (cat_rmResearchModuleDied for Sect, cat_rmMothershipLabLost for bMothership); no rmDeactivateLab",
+  "note": "M2-R4 command: ported except the reason codes and the research calls (CAT-TODO)"
  },
  "0x0044d140": {
   "class": "IDENTICAL",
@@ -1530,12 +1875,84 @@
   "note": "HW1 one store per selected ship; M2-R4 command: ported (the M2-R3 review said docked ships; the list is the clamped-object list at ClampInfo+0x34, read at 0x0045298a)",
   "sample": "reread-R2"
  },
+ "0x004529e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no tutGameMessage; SpeechEventsForFuel reduced to an empty scan",
+  "note": "M2-R4 command: ported"
+ },
+ "0x00452ae0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "pause check with opPauseOrders; cat_shipSetDisableReason(ship,1,6) instead of clearing SOF_Selectable",
+  "note": "M2-R4 command: ported"
+ },
+ "0x00452c00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 command: compared with the exe: same (tutorial bit 0x2000 = bAttack)"
+ },
+ "0x00452ca0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no formation check; 4th argument passed to clFormation/clSendFormation",
+  "note": "M2-R4 command: check removed; the 4th argument is CAT-TODO with clFormation"
+ },
+ "0x00452d60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ioUpdateShipTotals for any dock type but retire (no MakeSelectionNonResearchShips); Cataclysm dock types 7/10 and their speech",
+  "note": "M2-R4 command: ported except the dock-type numbering and speech (CAT-TODO M2-R4 #3)"
+ },
+ "0x00453000": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the resource flashes with cat_taskRealTimeElapsed",
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+ },
+ "0x004530a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 command: compared with the exe: same"
+ },
  "0x004531d0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "salvage-corvette block replaced by an ignored cat_shipIsSalvager pass; tutorial flag gates clSpecial; the copy always freed",
   "note": "copy/flash/clSpecial/clSendSpecial skeleton as HW1; M2-R4 command: ported",
   "sample": "MODIFIED/high"
+ },
+ "0x00453300": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 command: compared with the exe: same"
+ },
+ "0x00453390": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "pause check with opPauseOrders (HW1: any pause)",
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+ },
+ "0x00453500": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "an empty selection does nothing",
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+ },
+ "0x00453820": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "pause check with opPauseOrders (HW1: any pause)",
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+ },
+ "0x004538b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 command: compared with the exe: same"
  },
  "0x00453f10": {
   "class": "IDENTICAL",
@@ -1621,6 +2038,20 @@
   "note": "SpaceObjRegistryGetShip folded into GetObj (not a delta); cmFillInCarrierXs inlined unchanged; audit reclassification checked by hand",
   "sample": "audit-R2"
  },
+ "0x00460d60": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "speech ids 0x2001048/49/4a and a per-result effect table; AddTargetToDeleteList 3 args",
+  "note": "effects/speech stage 3",
+  "sample": "port-R4"
+ },
+ "0x00460ed0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "gamerand()/2^32 probabilities; per-race 12-step ship ladders and 20-step technology ladders (double thresholds 0x0072a470..0x0072a7b0); up to 5 tech draws; no mothership gift, no SHIP_PROBS pick",
+  "note": "ported",
+  "sample": "port-R4"
+ },
  "0x00462110": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -1634,6 +2065,12 @@
   "change": "",
   "note": "crc32Compute inlined",
   "sample": "reread-R2"
+ },
+ "0x00462340": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "fourth argument: the health ratio over the level's limit (0..1) gives the chance; crystals flash; no ETG enable switches",
+  "note": "M2-R4 combat: ported"
  },
  "0x00462660": {
   "class": "IDENTICAL",
@@ -1649,6 +2086,12 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x004627b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "skips a ship being built externally (specialFlags2 0x8) instead of a hyperspacing one and passes dmgPlayEffect the health ratio over the damage level's limit",
+  "note": "M2-R4 combat: the map's IDENTICAL; ported (Damage.c)"
+ },
  "0x00462cc0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -1663,12 +2106,24 @@
   "note": "HW1 case 2/3 -> column 3",
   "sample": "reread-R2"
  },
+ "0x004632e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "micro ships count out as fighters and resource ships as corvettes (the counterpart of dockPutShipInside 0x004652c0); no 'not inside' warning",
+  "note": "M2-R4 combat audit: ported (the port had changed only dockPutShipInside)"
+ },
  "0x004645e0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x004652c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a ship already inside is not added twice; micro ships count as fighters and resource ships as corvettes; no SalCap target hand-over",
+  "note": "M2-R4 combat: ported"
  },
  "0x00466950": {
   "class": "MODIFIED",
@@ -2430,6 +2885,13 @@
   "note": "same bounds checks with Cataclysm's table sizes",
   "sample": "reread-R2"
  },
+ "0x00472260": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "the assert path string only (C:\\Cataclysm\\src\\game\\eval.c)",
+  "sample": "port-R4"
+ },
  "0x00472860": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -2605,6 +3067,13 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00481130": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no HW1 test on the dropped type(s) SensorArray / ResourceController / ResearchShip cases (the type ids do not exist in Cataclysm); r6 tests staticinfo+0x2a8 != 0, then 0x3f / 0x4d both CloakGenerators and 0x40 / 0x4f both GravWellGenerators (whole body read); the tree still has the HW1 one-alias cases: M2-R4 command follow-up",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
  "0x00481190": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -2625,6 +3094,18 @@
   "change": "",
   "note": "DELTA/BROAD and DELTA3D/CLAW shift loops checked to the end",
   "sample": "reread-R2"
+ },
+ "0x00484950": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "4 arguments: the force-field level stored at +0x288; formationSpecificInfo (+0x28C) cleared for types 0-6, 9, 10; formationArrageCrazyOptimum with more arguments",
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; CAT-TODO with clFormation"
+ },
+ "0x00484c80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "4th argument (force-field level, +0x288); accepts 0-6, 9, 10; per-ship CustShipFormationCommand veto; 12/24-ship caps for types 10/9; passive attack cleared for force fields",
+  "note": "M2-R4 command: accepted types ported; the rest CAT-TODO"
  },
  "0x00485b30": {
   "class": "MODIFIED",
@@ -2689,12 +3170,61 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0048a060": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "resets universeTurbo; no gMessage clear; bMessage 2 x 0x104; two more recorder globals cleared",
+  "note": "M2-R3 universe-mex: ported (Globals.c, Globals.h); the two recorder globals wait for the recorder port",
+  "sample": "port-R4"
+ },
  "0x0048a1a0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "profClose() is empty in a release build",
   "sample": "reread-R2"
+ },
+ "0x0048a2f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no fuel test; a damaged ship fires and bursts more slowly (x1.25 below 3/4 health, x1.75 below 1/2, x2.5 below 1/4, x4 below 1/10; not the big gun or the Beast weapon); no tactics or formation burst modifiers; the burst state is mirrored in Ship+0x610; the passive-attack penalty is also checked after a burst",
+  "note": "M2-R4 combat: the map's IDENTICAL; the body is Cataclysm's and is ported (Gun.c)"
+ },
+ "0x0048a5e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no HW1 ion-cannon angles against fighters/corvettes; second fire mode speed, no tactics bonus; beam guns keep tracking on target; other gun types are not aimed",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x0048aac0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no firing by or at a ship being handed to a salvage depot; the missile's damage type is the gun's current one; damage = ship multiplier x weapon vs armour; mesh state; a second effect parameter by launcher type; no cloak-field decloak",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x0048b5b0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "returns the bullet made by cat_gunCreateBullet 0x0048bb00; RKO, salvage-depot and line-of-sight checks; damage = ship multiplier x DamageMult and weapon tables; a Leech shot also does 10 damage",
+  "note": "M2-R4 combat: ported; the RKO hold check is M2-R4 #4"
+ },
+ "0x0048c2e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no tactics range bonus; the big gun and the Beast weapon are not fired here; Mission 15's no-firing KAS variable",
+  "note": "M2-R4 combat: ported; the Mission 15 test is stage 6"
+ },
+ "0x0048c690": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the big gun and the Beast weapon are skipped; a dissolving ship does not fire",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x0048cb60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "takes the static info only (no tactics) and weighs damage with the weapon tables",
+  "note": "M2-R4 combat: ported; gunFirePower removed, Battle.c and ShipView.c callers updated"
  },
  "0x0048d9e0": {
   "class": "IDENTICAL",
@@ -2723,6 +3253,13 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x004901b0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "no argument: frees the static gate table, zeroes the count",
+  "note": "ported; KAS.c call updated",
+  "sample": "port-R4"
  },
  "0x00490370": {
   "class": "IDENTICAL",
@@ -2863,6 +3400,13 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00492610": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no P2AdvanceSwarmer / fuel-pod split (the HW1 type is gone): every ship of the team goes into the swarmer selection, the pod selection stays empty",
+  "note": "M2-R4 ships-b retire: was IDENTICAL; whole body read against r6 (ported: the type test removed)",
+  "sample": "port-R4"
  },
  "0x004928f0": {
   "class": "IDENTICAL",
@@ -3122,6 +3666,12 @@
   "change": "",
   "note": "Ghidra names the stored field AICreator through CET's HW1-layout AIPlayer; the offset was not checked against ScriptCreator",
   "sample": "reread-R2"
+ },
+ "0x004960b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ApplyDamageToTarget with 7 arguments (call-site code 0x1e)",
+  "note": "M2-R4 combat: ported"
  },
  "0x00496110": {
   "class": "IDENTICAL",
@@ -3690,6 +4240,13 @@
   "note": "NIS_SMStaticIndex 3",
   "sample": "reread-R2"
  },
+ "0x0049ae00": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "ends with cat_keyNameStringsInit",
+  "note": "stage 3 UI",
+  "sample": "port-R4"
+ },
  "0x0049b050": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -3830,6 +4387,13 @@
   "note": "RacesAllowedForGivenShip test as HW1 (1 << race)",
   "sample": "reread-R2"
  },
+ "0x004a13f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_kasHashString teams; no harvest/carrier gates; RacesAllowedForGivenShip before the race swap; cat_shipInitResearchUpgrades per ship; cat_rmResearchModuleActivated for Sect; clFormation 4 args",
+  "note": "ported except the hash and clFormation's 4th argument",
+  "sample": "port-R4"
+ },
  "0x004a29f0": {
   "class": "MODIFIED",
   "confidence": "high",
@@ -3843,6 +4407,27 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x004a43f0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "listAddNode inlined",
+  "sample": "port-R4"
+ },
+ "0x004a4540": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "listAddNode inlined",
+  "sample": "port-R4"
+ },
+ "0x004a4690": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "listAddNode inlined",
+  "sample": "port-R4"
  },
  "0x004a48c0": {
   "class": "IDENTICAL",
@@ -3864,6 +4449,12 @@
   "change": "",
   "note": "same LZSS loop (bitio calls are classed as library)",
   "sample": "MODIFIED/low"
+ },
+ "0x004ac820": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "2 arguments (msg, flags); 25-line scroll ring, cat_ioMessageScroll, soundEventPlay",
+  "note": "M2-R4 command: CAT-TODO stage 3 (message scroller)"
  },
  "0x004accb0": {
   "class": "IDENTICAL",
@@ -3907,12 +4498,40 @@
   "note": "matMultiplyMatByMat inlined (scaled copy then identity*scale multiply)",
   "sample": "REWRITTEN/medium"
  },
+ "0x004ad5f0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "fill patterns seeded from USERNAME/USERPROFILE crc32 or ranRandomFn(26); no cookie-size check",
+  "note": "not ported: GoK's constants (MEM_VOLATILE_CLEARING only)",
+  "sample": "port-R4"
+ },
  "0x004ad8b0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "rep stosd as a loop",
   "sample": "reread-R2"
+ },
+ "0x004ad8d0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "the growth heaps GoK already has; memAllocFunctionA inlined",
+  "sample": "port-R4"
+ },
+ "0x004ae2a0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "as memAllocFunctionSBH",
+  "sample": "port-R4"
+ },
+ "0x004ae400": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "as memAllocFunctionSBH",
+  "sample": "port-R4"
  },
  "0x004ae6c0": {
   "class": "IDENTICAL",
@@ -4059,6 +4678,13 @@
   "note": "6 curves per object, three pointer fixups",
   "sample": "reread-R2"
  },
+ "0x004b70e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds strings \"C:\\Cataclysm\\src\\game\\mex.c\"; body 2.5x smaller than predicted",
+  "note": "M2-R3 universe-mex: read: inlines mexVerify, same behaviour; no src edit",
+  "sample": "port-R4"
+ },
  "0x004b7130": {
   "class": "IDENTICAL",
   "confidence": "medium",
@@ -4072,6 +4698,55 @@
   "change": "also accepts \"SALVAGE\" docking chunks (Cataclysm salvage points) besides Dok/Dock",
   "note": "",
   "sample": "MODIFIED/medium"
+ },
+ "0x004b7240": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops calls mexGetChunk",
+  "note": "M2-R3 universe-mex: read: inlined mexGetChunk/mexVecToVec, same result; no src edit",
+  "sample": "port-R4"
+ },
+ "0x004b7330": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops calls mexGetChunk",
+  "note": "M2-R3 universe-mex: read: inlined mexGetChunk, same result; no src edit",
+  "sample": "port-R4"
+ },
+ "0x004b73c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops calls mexGetChunk",
+  "note": "M2-R3 universe-mex: read: the exe passes the static header and reads the mex at +4; same result, the tree keeps the mex argument",
+  "sample": "port-R4"
+ },
+ "0x004b7560": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a point without a chunk gets position 0, cone normal (1,0,0), cone cos(pi/2)",
+  "note": "M2-R3 universe-mex: ported (MEX.c)",
+  "sample": "port-R4"
+ },
+ "0x004b7680": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "takes the static header (mex at +4, LOD at +0); per LOD level stores the index of the mesh object the Nav chunk names at NAVLightStatic+0x40 (0xFF = none); NAVLightStatic 0x48 bytes",
+  "note": "M2-R3 universe-mex: IDENTICAL in the map, modified in the exe; src edit: MEX.c, MEX.h, SpaceObj.h, Universe.c callers",
+  "sample": "port-R4"
+ },
+ "0x004b7880": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "sphere radius scaled by the largest box scale, avoid sphere r + 3, pad untouched; box offset without slides; diagonal order up^2 + (right^2 + forward^2); collrectmid",
+  "note": "M2-R3 universe-mex: ported (MEX.c)",
+  "sample": "port-R4"
+ },
+ "0x004b7c20": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "takes the ship static; nozzle at +0x2B0 and the per-LOD mesh object index of the Eng chunk at +0x2E0",
+  "note": "M2-R3 universe-mex: ported (MEX.c)",
+  "sample": "port-R4"
  },
  "0x004b7d80": {
   "class": "IDENTICAL",
@@ -4359,6 +5034,13 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x004c8650": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "NEB_VEL_BASE + NEB_VEL_RAN_MULTIPLIER chunk velocity (cloudRandomSphericalPoint) against ad1bb82",
+  "note": "the GoK tree already has it (Relic's later source); nothing to change",
+  "sample": "port-R4"
  },
  "0x004c9cc0": {
   "class": "IDENTICAL",
@@ -5290,6 +5972,24 @@
   "note": "SOF_Crazy test and the ROT_* torque cases as HW1 (Ghidra mislabels torque)",
   "sample": "reread-R2"
  },
+ "0x004e45b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "switches on the weapon word: WEAPON_LASER does not move, the ion beam is a beam, the Beast weapon is steered; a bullet cannot expire before its first move (+0x13C); a big-gun shell goes after its range or in a DFG field; keeps the previous position (+0x158)",
+  "note": "M2-R4 combat: ported; cat_dfgFieldContainsPoint is M2-R4 #4"
+ },
+ "0x004e4950": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a drifting ship is not accelerated and may reach 1400; top speed times the speed multiplier; helpless or drifting ships keep their speed; no fuel; FOW grid update of fog-seeing ships; universe clamp in multiplayer",
+  "note": "M2-R4 combat: ported; the FOW update is stage 3"
+ },
+ "0x004e5720": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a ship's top speed carries its speed multiplier; a drifting non-killer asteroid that was not pushed slows down and stops",
+  "note": "M2-R4 combat: ported"
+ },
  "0x004e5c60": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -5388,12 +6088,33 @@
   "note": "header-level: loops over 27 streams of 0x14 bytes (to 0x00C2FF9C; HW1 25, RANDOM_NUMBER_STREAMS) (M2-R3 closeout-headers audit)",
   "sample": "port-R3"
  },
+ "0x004f0a30": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "task name via taskStartName; same inits",
+  "sample": "port-R4"
+ },
  "0x004f0ae0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x004f0d40": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "regLinkRemove and regChildInsert inlined; the double regClickedLeft clear is harmless",
+  "sample": "port-R4"
+ },
+ "0x004f0e10": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "dirties the parents the region overlaps when the mouse cursor is saved (feShouldSaveMouseCursor, primRectUnion2, regDirtyEverythingUpwardsSelectively)",
+  "note": "stage 3 UI",
+  "sample": "port-R4"
  },
  "0x004f0fe0": {
   "class": "IDENTICAL",
@@ -5430,12 +6151,30 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x004f10f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "one velocity limit (MAX_RESOURCE_VELOCITY_TO_CHASE): HW1's Mission 6 limit and its MAX_RESOURCE_VELOCITY_TO_CHASE_LEVEL6 key are gone",
+  "note": "M2-R4 combat: the map's IDENTICAL; ported (ResCollect.c), the tweakable removed"
+ },
  "0x004f1170": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "COMMAND_COLLECTRESOURCE 5",
   "sample": "reread-R2"
+ },
+ "0x004f11f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "specialFlags2 0x4000000 restarts the volume search with COLLECTRESOURCE_ZONE and is cleared; univFindNearestResource takes a fourth argument (0); outside a volume only the local and AI players search, through cat_clHarvestNearestResource 0x00449790",
+  "note": "M2-R4 combat: ported up to cat_clHarvestNearestResource, which is not (HW1's plain search stands in)"
+ },
+ "0x004f12c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "takes the resource as a second argument and only searches when it is NULL (clProcess passes 0, cat_clHarvestNearestResource the resource it found); InitShipForResourceCollection is inlined with sWorker/bWorker getting the third harvest callback 0x005c9130",
+  "note": "M2-R4 combat: the map's IDENTICAL; ported (ResCollect.c); the Worker callback stays R1ResourcerHarvestsAsteroid until Worker.c (M2-R4 #4)"
  },
  "0x004f1530": {
   "class": "IDENTICAL",
@@ -5444,12 +6183,42 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x004f1580": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "breaks into the pieces its .shp lists (NUMBER_OF_ASTEROID_PIECES / AsteroidBreakInfo): offset by the asteroid's matrix, pushed along it by the first value, oriented by the piece matrix, spun by the other three, plus a break sound; HW1's breakinto[] and random scatter are gone",
+  "note": "M2-R4 combat: ported; the break sound is stage 3"
+ },
  "0x004f1730": {
   "class": "REWRITTEN",
   "confidence": "medium",
   "change": "asteroid damage model replaced: a value converted with ftol is stored in an asteroid field and the function returns TRUE when targetWasAlive and resourceVolume <= 0; HW1's RU damage ratio, resourcevalue decrement, health test and HandleAsteroidScaling are gone",
   "note": "only the alive test survives",
   "sample": "reread-R2"
+ },
+ "0x004f17a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a tutorial harvests five times as fast; Bulimia (specialFlags2 0x200000) changes the take; an asteroid's health follows its RUs (warning when negative); 'collector full' battle chatter 0x4B instead of speech; the AI resourcing marks are Ship words (+0x1D4 / +0x1D8)",
+  "note": "M2-R4 combat: ported (ResCollect.c)"
+ },
+ "0x004f1a50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "this is HW1's TurnOffAnyResourcingEffects(todo) with the effect stop inlined (ship = selection->ShipPtr[0], does nothing without an effect); no sound stop",
+  "note": "M2-R4 combat: the map's name is wrong (its callers clResourceDied and processCollectResource pass the command); TurnHarvestEffectOff(ship) itself folds into stopRepairEffect 0x005c23b0"
+ },
+ "0x004f1ac0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no harvest sound; the beam length and the resource radius go to etgEffectCreate as real32 values (HW1: integers)",
+  "note": "M2-R4 combat: ported without the sound; the effect parameters stay integers until the ETG port (stage 3)"
+ },
+ "0x004f1d40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a NULL resource resets rcstate1 and returns (processCollectResource and cat_rescollectStopHarvest stop a harvest that way)",
+  "note": "M2-R4 combat: the map's IDENTICAL; ported; the rest (flags 0x17, ranges, circling) is HW1's"
  },
  "0x004f2090": {
   "class": "MODIFIED",
@@ -5465,12 +6234,32 @@
   "note": "goes with PreFix_ShipXHarvestsResourceY",
   "sample": "reread-R2"
  },
+ "0x004f2130": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a resource moving too fast, taken or outside the world is dropped with the harvest (cat_rescollectStopHarvest 0x004f2450); a found resource is used only below resourcesAtOneTime, else the ship docks (purpose 3); a full ship sets specialFlags2 0x4000000 to resume in its volume; no harvester-done messages or speech; aitrackSteadyShip when the order ends or turns into a dock",
+  "note": "M2-R4 combat: ported (ResCollect.c); the dock purpose stays HW1's DOCK_TO_DEPOSIT_RESOURCES and two unnamed globals (0x00a7519c, 0x00a75190) are left out"
+ },
  "0x004f2530": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "strGetString(tech + strTechOffset) as a table index",
   "sample": "reread-R2"
+ },
+ "0x004f2550": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "NumToStr on the 41-row techtypeinfo",
+  "sample": "port-R4"
+ },
+ "0x004f2590": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "StrToNum on techtypeinfo",
+  "sample": "port-R4"
  },
  "0x004f25b0": {
   "class": "IDENTICAL",
@@ -5486,6 +6275,97 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x004f2600": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_rmTechSetAdd of one technology, then cat_playerUpdateUpgradesFromResearch",
+  "note": "ported (ResearchAPI.c)",
+  "sample": "port-R4"
+ },
+ "0x004f2630": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "3rd argument (hangar check), Beast-AI MP cases, Nomad moon, hyperspacing mothership test, tech sets",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x004f2870": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "(player, tech): the lab must match cat_techLabType[tech]; a Beast player has lab 0",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x004f28f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no numlabsresearching; LS_RESEARCHITEMSOON goes back to free",
+  "note": "ported; was IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x004f2960": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a Beast player researches one topic at a time; 0x18-byte topic; time from TimeToComplete at +0x7a10",
+  "note": "ported; was IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x004f2a20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "1 s per tick (8 in the tutorial, Beast mothership factor), speech 0x2001033/0x20010bc/0x2001034, per-race type range, cat_rmTechSetAdd + upgrades, rmClearAllLabs",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x004f2db0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "(out, player, tech): ORs the dependency closure into out, sets as arrays",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x004f2e90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "set version: closure of TechNeededToBuildShip[type] minus HasTechnology, counted",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x004f3380": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "set version through clWrapResearch; Beast enabled gate; falls back to the upgrade technologies (Player+0x388)",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x004f38e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "highest missing dependency first, upgrades refreshed each step",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x004f39b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "3 tables by singlePlayerGame and race 0/1; no MG_CarrierIsMothership",
+  "note": "ported; was IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x004f3a00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_rmTechSetInit(techlevel), 3 tables, 5 labs; Sect upgrade sets via cat_shipTypeGetUpgradeTechs, Beast per-type sets and enabled flags",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x004f3c00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "zeroes TechNeededToResearch of 3 tables and the race halves of TechNeededToBuildShip; rmSetPrintList x3",
+  "note": "ported; was IDENTICAL",
+  "sample": "port-R4"
+ },
  "0x004f3c90": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -5496,9 +6376,16 @@
  "0x004f3ca0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "tech flags set through cat_rmTechSetInit(techlevel -2/0) for Cataclysm's ship range (< 0x3c or 0x85) and races 0/1, instead of HW1's RM_Disabled bit on the five tech tables",
-  "note": "",
-  "sample": "MODIFIED/low"
+  "change": "set flag 0/-2 for types < 0x3c or 0x85 in the race's tables; the moon always disabled in the MP Sect table",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x004f3d30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "as rmAPIStartup without rmGUIStartup",
+  "note": "ported; was IDENTICAL",
+  "sample": "port-R4"
  },
  "0x004f5e10": {
   "class": "IDENTICAL",
@@ -6403,6 +7290,13 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0051f960": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "drops the CryoTray exemption of the capital-ship death speech (HW1 soundevent.c:2096; the type is gone); the speech is speechEventQueue(NULL, 0x2001065, shiptype, ..) after a shipclass 7 / 10 test",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
  "0x0051fc10": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -6459,6 +7353,13 @@
   "note": "SOUND_FADE_STOPNOW 0 / SOUND_FADE_STOPTIME 0.5",
   "sample": "reread-R2"
  },
+ "0x00521710": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no DefenseFighter test (the type is gone): the burst handle always stops with soundstop(handle, 0.5) = SOUND_FADE_STOPTIME",
+  "note": "M2-R4 ships-b retire: was IDENTICAL; whole body read against r6 (ported)",
+  "sample": "port-R4"
+ },
  "0x00521e30": {
   "class": "MODIFIED",
   "confidence": "high",
@@ -6473,12 +7374,33 @@
   "note": "RAN_SoundBothThreads 12",
   "sample": "reread-R2"
  },
+ "0x00523190": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the resource-ship damage warning tests sWorker (0xe) / bWorker (0x31) where HW1 tested ResourceController, merged into one branch with the carrier (shipclass 2) and heavy-cruiser (0x2e, 0x42, 0x50) warnings (speechEventQueue 0x100080b at health < max x factor)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "sample": "port-R4"
+ },
  "0x00523cf0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00524120": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "clFormation 4 args, clSetTactics per side, universe.players stride 0x6530, realtimeelapsed reset",
+  "note": "developer fight stats; not ported",
+  "sample": "port-R4"
+ },
+ "0x00524790": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "resets realtimeelapsed, uses the 60x60x5 gather table",
+  "note": "developer fight stats; not ported",
+  "sample": "port-R4"
  },
  "0x00524980": {
   "class": "IDENTICAL",
@@ -6511,37 +7433,65 @@
  "0x00524b30": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "enum: frigate exceptions are bDFGFrigate, kAdvanceSupportFrigate, tAdvanceSupportFrigate, tDFGFrigate (no ResourceController); corvette exceptions kSalCapCorvette/tSalCapCorvette (no RepairCorvette); fighters always count (no DefenseFighter)",
-  "note": "",
-  "sample": "reread-R2"
+  "change": "classes HeavyCruiser/Destroyer/Fighter/Frigate fight, corvettes except 0x48/0x59; the four frigate exceptions fall through into the corvette test",
+  "note": "ported with the fall-through",
+  "sample": "port-R4"
  },
  "0x00524bd0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "enum: same exception lists as statShipConstraintsFightingShipsCB (Cataclysm ship types; no ResourceController/RepairCorvette/DefenseFighter)",
-  "note": "",
-  "sample": "reread-R2"
+  "change": "fighters and frigates fight, corvettes except the salvage corvettes; the frigate exceptions fall through",
+  "note": "ported",
+  "sample": "port-R4"
  },
  "0x00524c70": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "a NULL constraints callback now accepts every ship, and the kill rating comes from a per-ship-type table for types < 0x3c (1.0 for the rest) instead of statsGetOverallKillRating",
-  "note": "selection walk and max search as HW1",
-  "sample": "reread-R2"
+  "change": "NULL callback accepts every ship; rating = static kill rating per type (0x008962d8)",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x00524cf0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "counter ship from the static table by target type and buyer race (0x00896e2c, has-counter bytes 0x008961e8); non-standard targets get the race's first strike craft",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x00524e40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "class factor (0x00897078) x class matrix (0x008970a8), or x a 1..9 AI-stream roll for a non-standard target",
+  "note": "ported",
+  "sample": "port-R4"
  },
  "0x00524eb0": {
   "class": "REWRITTEN",
   "confidence": "high",
-  "change": "returns a per-class table value times 3; HW1's kill-ratio computation against the target fleet (statsGetKillRatingAgainstFleet, overkill factor) is gone",
-  "note": "",
-  "sample": "reread-R2"
+  "change": "3 x the class factor",
+  "note": "ported",
+  "sample": "port-R4"
  },
  "0x00524ed0": {
   "class": "REWRITTEN",
   "confidence": "high",
-  "change": "returns fleet2->numShips / fleet1->numShips; HW1 sums statsGetKillRatingAgainstFleet over fleet2",
-  "note": "",
-  "sample": "reread-R2"
+  "change": "fleet2->numShips / fleet1->numShips",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x00524ee0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "greedy picks by static kill ratio; count from the class tables; fleet strength = sum of ratios against statsOverkillfactor",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x00525640": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "per type pair, fights 1..14 ships through cat_statsSetupShipsForFight / cat_statsGetPostCombatStats into the 60x60x5 table",
+  "note": "developer fight stats; not ported",
+  "sample": "port-R4"
  },
  "0x005258c0": {
   "class": "IDENTICAL",
@@ -6683,6 +7633,13 @@
   "note": "RemoveCommasFromString inlined; Ghidra drops the sscanf out-arguments",
   "sample": "reread-R2"
  },
+ "0x005270c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "allocates the 0x50-byte DockStaticInfo header and indexes the points by type; equal heading/up directions become 0/2",
+  "note": "M2-R3 universe-mex: ported (StatScript.c)",
+  "sample": "port-R4"
+ },
  "0x00528580": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -6711,6 +7668,76 @@
   "note": "Ghidra drops the sscanf out-argument",
   "sample": "reread-R2"
  },
+ "0x005290b0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "zeroes 0x244 dwords and sets 2 reals (a smaller TacticsInfo), initialises one tactics list",
+  "note": "the tree's extra inits are harmless; TacticsInfo layout left; was IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x00529120": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "listDeleteAll of the attack memory only (no menu baby, no menu region)",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x00529130": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "an empty walk of the command list (17 bytes): HW1's retreat registration is gone",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x00529150": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the attack-memory walk only; HW1's retreat list is gone",
+  "note": "ported; was IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005291b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "walks the one tactics list (universe+0x180) as HW1's AttackMemory",
+  "sample": "port-R4"
+ },
+ "0x00529250": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "",
+  "sample": "port-R4"
+ },
+ "0x005292f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "",
+  "sample": "port-R4"
+ },
+ "0x00529450": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "sphere formation 0.7 (0x0072bd10); kamikaze burst needs both flags; single-player limiter wins; no speed burst, fuel, velocity bonus table or probe speed",
+  "note": "ported",
+  "sample": "port-R4"
+ },
+ "0x0052a5f0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "4th argument: the task name",
+  "note": "GoK's taskStartName carries the name; argument order kept",
+  "sample": "port-R4"
+ },
+ "0x0052a840": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ticks scaled by cat_timeCompressionFactor (round to nearest via 1.5*2^52) before the demo/task clock; cat_taskRealTimeDelta/Elapsed from the unscaled ticks",
+  "note": "ported (Task.c); was IDENTICAL",
+  "sample": "port-R4"
+ },
  "0x0052ad20": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -6724,6 +7751,13 @@
   "change": "",
   "note": "TF_Paused 2",
   "sample": "reread-R2"
+ },
+ "0x0052af00": {
+  "class": "MODIFIED",
+  "confidence": "low",
+  "change": "taskStart with the name \"BabyTasks\"",
+  "note": "name only",
+  "sample": "port-R4"
  },
  "0x0052b3b0": {
   "class": "IDENTICAL",
@@ -7234,6 +8268,13 @@
   "note": "memset of udUndoInfo (16 bytes)",
   "sample": "reread-R2"
  },
+ "0x0053a000": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops strings \"StatusDump.txt\"; fields -LOD, header, hierarchySize, madStatic (+2)",
+  "note": "M2-R3 universe-mex: read: the madstatic is 0x90 bytes (sizeof in the tree); no other change",
+  "sample": "port-R4"
+ },
  "0x0053ac30": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -7262,12 +8303,54 @@
   "note": "strcpy/strcat inlined; precalcStaticInfoHealth inlined (COLLDAMAGE_* fields); \".shp\" is an untyped DAT_; tail not fully read",
   "sample": "MODIFIED/high"
  },
+ "0x0053b2a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops calls precalcStaticInfoGuidance; fields +LOD, mass, maxvelocity, momentOfInertiaX (+10) -derelicttype, maxhealth, minCollDamage, oneOverMaxHealth (+2); globals +GLOBAL_SHIP_SPEED_MODIFIER; loops 0 -> 2",
+  "note": "M2-R3 universe-mex: read: same steps; the guidance order is the function's",
+  "sample": "port-R4"
+ },
+ "0x0053b400": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "inline guidance with thrust * mass * modifier",
+  "note": "M2-R3 universe-mex: ported (Universe.c)",
+  "sample": "port-R4"
+ },
+ "0x0053b660": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "inline guidance with thrust * mass * modifier; key N-LIPS",
+  "note": "M2-R3 universe-mex: ported (Universe.c)",
+  "sample": "port-R4"
+ },
  "0x0053ba20": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "enum: the strike-craft list is 27 Cataclysm ship types (Somtaaw/Beast/Kushan/Taiidan/Turanic fighters and corvettes); HW1 lists 17 HW1 types",
   "note": "",
   "sample": "reread-R2"
+ },
+ "0x0053bab0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls ShipTypeToNiceStr, cat_univInitShipTypeFlags, dockFindDockStaticPoint; drops calls precalcStaticInfoGuidance; drops calls to dockInitializeCustomFunctions, mexGetTractorBeamStatic (absent from Cataclysm); adds strings \"\\nSHP file loaded:  %s\"; \"\\nWARNING: could not set gunbindings ...\"; \"\\nWarning! Force Field Protection Dis...\" (+2); fields +gunnormal, m11, m21, m33 (+1) -CustShipStaticInit, LOD, approxcollspheresize, attackfuelburnrate (+87); globals +GLOBAL_SHIP_SPEED_MODIFIER, singlePlayerGame; constants 17, 39, 120, 194 not in body; loops 9 -> 33",
+  "note": "M2-R3 universe-mex: read: the remaining deltas ported (center dock point, nozzle/NAV calls, ship guidance order)",
+  "sample": "port-R4"
+ },
+ "0x0053c500": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls trailDelete; drops calls to trailStaticDelete (absent from Cataclysm); library calls -memset",
+  "note": "M2-R3 universe-mex: ported: clears madStatic and dockOverideInfo; the port also frees the NUMBER_OF_ANIMS table, which the exe leaks",
+  "sample": "port-R4"
+ },
+ "0x0053c7f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls trailDelete; drops calls to mexFree (absent from Cataclysm); body 2.0x smaller than predicted",
+  "note": "M2-R3 universe-mex: read: same as HW1 (inlined close); no src edit",
+  "sample": "port-R4"
  },
  "0x0053c850": {
   "class": "IDENTICAL",
@@ -7311,12 +8394,61 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0053ce80": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "saves 7 mine statics (HW1 2)",
+  "note": "M2-R3 universe-mex: IDENTICAL in the map (mine loop 0x00b3acd0..0x00b3b504); src edit: Universe.c",
+  "sample": "port-R4"
+ },
+ "0x0053d090": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "loads 7 mine statics (HW1 2)",
+  "note": "M2-R3 universe-mex: IDENTICAL in the map (mine loop 0x00b3ac10..0x00b3b444); src edit: Universe.c",
+  "sample": "port-R4"
+ },
+ "0x0053d2a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "nebulae never closed; 7 mine statics, the Derelict race's always loaded; maxhealthBase and the single-player difficulty health; no Mothership immobile",
+  "note": "M2-R3 universe-mex: ported (Universe.c)",
+  "sample": "port-R4"
+ },
  "0x0053dd90": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "memset loops over Cataclysm's static arrays (sizes header-level)",
   "sample": "reread-R2"
+ },
+ "0x0053de80": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "clears each player's fog-of-war pointer (Player+0x6500)",
+  "note": "M2-R3 universe-mex: read: not ported (Cataclysm Player layout and FOW; M2-R4 #5 / stage 3)",
+  "sample": "port-R4"
+ },
+ "0x0053def0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "closes the current player's research/construction/launch managers; resets player upgrades (cat_playerUpgradesReset) unless player 0 warps to a level",
+  "note": "M2-R3 universe-mex: manager closes ported (Universe.c); the upgrade reset waits for M2-R4 research",
+  "sample": "port-R4"
+ },
+ "0x0053df80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_blastReset, cat_ioReset, cat_mcResetRequest, cat_mcSetMode, cat_playerUpgradesReset, cat_salvageResetGlobals (+8); uses fields HW1 never uses: cat_unknown_6500",
+  "note": "M2-R3 universe-mex: read: the player loop as universeClosePlayers; plus salvage/blast/fow/mc/io/shipPrint/time-compression/tutorial resets of unported subsystems (listed in Universe.c)",
+  "sample": "port-R4"
+ },
+ "0x0053e0d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls trailDelete; drops calls to mexFree (absent from Cataclysm); globals +ShipStaticInfos; library calls -memset; loops 8 -> 14",
+  "note": "M2-R3 universe-mex: read: inlined closes, the same loops (2 mines); no src edit",
+  "sample": "port-R4"
  },
  "0x0053e3b0": {
   "class": "MODIFIED",
@@ -7325,12 +8457,52 @@
   "note": "",
   "sample": "MODIFIED/high"
  },
+ "0x0053e460": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "free-running branch: one univUpdate per pass, no turbo repeat; playback turbo 9; NO_PACKET in playback sets 0x00a6c5c8",
+  "note": "M2-R3 universe-mex: ported (Universe.c)",
+  "sample": "port-R4"
+ },
+ "0x0053ea10": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "fowSelect(Player+0x6500)",
+  "note": "M2-R3 universe-mex: read: not ported (FOW, stage 3)",
+  "sample": "port-R4"
+ },
  "0x0053ea50": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "returns &ShipStaticInfos[shiptype] from one flat 145-entry array; HW1 indexes the per-race table RaceShipStaticInfos[race] by shiptype - FirstShipTypeOfRace[race]",
   "note": "race argument no longer used",
   "sample": "reread-R2"
+ },
+ "0x0053ea70": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "parameters 2 -> 1: ShipStaticInfo * GetShipStaticInfoSafe(ShipType shiptype); body 3.4x smaller than predicted; globals +ShipStaticInfos -FirstShipTypeOfRace; constants 58 not in body",
+  "note": "M2-R3 universe-mex: read: as M2-R2 ported",
+  "sample": "port-R4"
+ },
+ "0x0053eab0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no exempt types; mothership modules (cat_univMothershipModuleTypesGet / beast variant) count as ships and in classtotals[CLASS_Component]",
+  "note": "M2-R4 command: SPECIAL_InUnitCaps is specialFlags 0x20000000 (HW1 specialFlags2 0x4); readers moved"
+ },
+ "0x0053ec00": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no exempt types (HW1 skipped Drone, TargetDrone, HeadShotAsteroid, CryoTray)",
+  "note": "M2-R4 command: SPECIAL_InUnitCaps is specialFlags 0x20000000 (HW1 specialFlags2 0x4); readers moved"
+ },
+ "0x0053ece0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "caps flag or single player; queue items of type 1; race's types; external-build job already a ship (progress +0x28); shiplagtotals once; sCarrierSupport counts support modules; class cap skipped at -1",
+  "note": "ported (Universe.c)",
+  "sample": "port-R4"
  },
  "0x0053efd0": {
   "class": "IDENTICAL",
@@ -7354,11 +8526,32 @@
   "sample": "reread-R2"
  },
  "0x0053f100": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "same resets; array sizes are Cataclysm's (header-level)",
-  "sample": "reread-R2"
+  "change": "zeroes the three Cataclysm PlayerStats additions too (dwords 9, 0xa9.., 0x1f3; stride 0x1fe)",
+  "note": "ported; the layout is in GameStats.h",
+  "sample": "port-R4"
+ },
+ "0x0053f220": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no totalShipsInGame++",
+  "note": "M2-R3 universe-mex: IDENTICAL in the map (disassembly 0x0053f220..0x0053f28e); src edit: Universe.c",
+  "sample": "port-R4"
+ },
+ "0x0053f290": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no Drone exception; the killer is any index < 8 other than the owner (signed); class kill/loss counters skip sSwarmer/bSwarmer and count sACV, sMCV, bACV twice",
+  "note": "M2-R3 universe-mex: IDENTICAL in the map; src edit: Universe.c",
+  "sample": "port-R4"
+ },
+ "0x0053f500": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops calls GetShipStaticInfoSafe; constants 58 not in body",
+  "note": "M2-R3 universe-mex: read: inlined GetShipStaticInfoSafe, same sum; no src edit",
+  "sample": "port-R4"
  },
  "0x00540290": {
   "class": "IDENTICAL",
@@ -9281,12 +10474,67 @@
   "note": "",
   "sample": "uniform/MODIFIED"
  },
+ "0x005aef00": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "statics block by race Kushan / Taiidan (HW1: R1/R2)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005aefb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "statics by 5 races (+0x211..0x213 statinfo flags, Beast sets +0x211), Beast-weapon tweaks for bCarrier",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005af090": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "Beast weapon init, sCarrier door state 1 / timer -1, salvage depot init (no drop targets)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
  "0x005af0d0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "the rotate branch is #if 0 in HW1",
   "sample": "reread-R2"
+ },
+ "0x005af0f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Beast weapon attack when it has a target in the (copied) selection, else HW1 refuelRepairShips",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005af210": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "sCarrier door animation by dock-point occupancy, Beast weapon and depot housekeeping (no drop targets / capture queue)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); M2-R4 combat: door ported (Carrier.c) with cat_madAnimationFinished 0x004b7090; madAnimationStart's number lookup and third argument are stage 3"
+ },
+ "0x005af360": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "Beast weapon and depot reference removal",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005af3c0": {
+  "class": "REWRITTEN",
+  "confidence": "medium",
+  "change": "Beast weapon and depot fix-up",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005af3f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Beast weapon close, depot died, clamped component ships flagged orphaned (catShipFlags 4)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
  },
  "0x005b0260": {
   "class": "MODIFIED",
@@ -9302,12 +10550,61 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x005b0370": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "trMiningBase; no list removals after univDeleteDeadShip",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
  "0x005b0690": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x005b08f0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "one statics block for both races",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b0940": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "big-gun shells detonated; no BulletDamageMultiplier; coin flips on odd parity; effect damage scaled by cat_weaponDamageVsArmour",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b13e0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers): identical",
+  "sample": "port-R4"
+ },
+ "0x005b1420": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "statics block by type kHeavyDefender / tHeavyDefender (HW1: light/heavy x R1/R2)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005b1a50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "tMinelayerCorvette only; mimics hold fire; cat_kamikazeSteer inside 800; immediate cat_kamikazeCheckHit on box contact",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b1e70": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "statics block chosen from 14 per-type blocks by the Cataclysm ship type (HW1: per-race light/heavy/bomber/cloaked + P1/P2/TargetDrone blocks); no TargetDrone bullet-range override",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
  },
  "0x005b2110": {
   "class": "IDENTICAL",
@@ -9316,12 +10613,151 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x005b2120": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "mimic test, cat_gunCanFire, Acolyte half-gun pick, fixed guns via cat_gunFixedGunAimedAtTarget, no trigger-happy edits",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b22c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Acolyte alternates its first two guns",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b2350": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers): identical",
+  "sample": "port-R4"
+ },
+ "0x005b2470": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_gunGetBulletSpeed of gun 0, only with a gun info",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
  "0x005b25c0": {
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
   "note": "the DefenseFighter/GenericInterceptor branches compute the same address (flightmanProb at the same offset), so one expression remains; NUM_CLASSES+1 = 13 rows (header)",
   "sample": "reread-R2"
+ },
+ "0x005b2620": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "bombing run only kAttackBomber/tAttackBomber and never at ships; KILL bullet speed via cat_gunGetBulletSpeed; break formation from the ship command; no R1-mothership case",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b36d0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "only GenericInterceptorStaticInit (no cloak statics)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b36f0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "cat_cloakInit(ship+0x650, 0.1, 0.1)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b3720": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "cat_cloakActivate",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b37b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no fire while fully cloaked; Acolyte wrap inlined",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b3840": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "cat_cloakUpdate",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b40a0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "statics block Kushan or else (Taiidan) (HW1: R1/R2)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005b4130": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "frequency limit always",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b41e0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "also detaches the field effect (owner = NULL) and times it out (duration parameter = time elapsed), then drops it",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005b4260": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "tests both kGravWellGenerator (0x40) and tGravWellGenerator (0x4F)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005b42f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "gravwell-off sound 0x80F; GravWellGeneratorDied inlined",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b4430": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "grav-on speech 0x0400089E and sound 0x80E",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b4570": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "fleet chatter without can-chatter test; flag bit renumbered",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b46c0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "catches corvettes, fighters, micro-class ships and sWorker; excludes kSalCapCorvette/tSalCapCorvette (HW1: corvettes and fighters, not SalCapCorvette)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005b4760": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the removed ship's in-gravwell flag is cleared in specialFlags (and 0xefffffff on Ship+0x1C8, 0x005b479d), not HW1's specialFlags2 bit 1; otherwise as HW1 (find the node, clear the two dont*ever bits, listDeleteNode)",
+  "note": "M2-R4 command audit: body compared with the exe; edited by the port (SPECIAL_ShipInGravwell moved words) but left IDENTICAL and unreviewed"
+ },
+ "0x005b47e0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "operation time accrues only for an ownerless gravwell (playerowner == NULL); collapse speech is Cataclysm event 0x0200089F",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
  },
  "0x005b4da0": {
   "class": "IDENTICAL",
@@ -9337,6 +10773,13 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x005b4e10": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "statics block Kushan or else; no memset",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
  "0x005b4e60": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -9350,6 +10793,41 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x005b5310": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "statics by race Beast/Kushan/Taiidan; Beast-weapon tweaks for bHeavyCruiser",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005b6820": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "statics block by race Kushan / Taiidan / Derelict (HW1: R1/R2)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005ba260": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "statics block Taiidan or else; no memset before the key tables",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005ba330": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_gunCanFire",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005ba6e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "forced drop at mothership-class targets; cat_gunCanFire; no assert",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
  },
  "0x005bb120": {
   "class": "IDENTICAL",
@@ -9365,12 +10843,109 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x005bb350": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "statics block Taiidan or else (HW1: R1/R2)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005bb3e0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "the attackStraightForward(gunRange, tooCloseRange) body the exe uses for slot 21 of 9 headers (ICF)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers): identical (the attackStraightForward(gunRange, tooCloseRange) body the exe uses for slot 21 of 9 headers (ICF))",
+  "sample": "port-R4"
+ },
+ "0x005bb730": {
+  "class": "REWRITTEN",
+  "confidence": "medium",
+  "change": "one block, ranges only, no special-door key table; Beast-weapon tweaks for bMothership",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005bb840": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "Beast weapon, big-gun fields and aim timer, sMothership module slots, bMothership systems, trGhostship animation, depot (no door cargo / drop targets)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
  "0x005bb9c0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds a death blast (cat_blastCreate), beast-weapon close and salvage-depot cleanup; the drop-target loop now timestamps docked ships instead of re-enabling salvaged targets",
   "note": "",
   "sample": "MODIFIED/high"
+ },
+ "0x005bba70": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "big-gun module loss stops the big gun; launch-manager module slots; Beast weapon and depot",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); M2-R4 combat: module-slot removal ported (LaunchMgr.c)"
+ },
+ "0x005bbc50": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "aborts a big-gun shot, then attackPassive",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005bcad0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "death sequence states, Sect big gun / Beast systems dispatch, depot, low-health warnings",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005bcdb0": {
+  "class": "REWRITTEN",
+  "confidence": "medium",
+  "change": "depot pre-fix only",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005bcdc0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "Beast weapon fix, big-gun shell and effect cleared, depot fix",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005bdb30": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "statics block by race Beast / Kushan / Taiidan; no memset",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005be1a0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "statics block by race Beast / P1 / Derelict (HW1: one block)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005be220": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no attack while fully cloaked; decloak except in single player",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005be280": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no passive attack while fully cloaked; decloak except in single player",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005be2e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "statics block P1 or else (bMissileCorvette); no memset",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
  },
  "0x005be480": {
   "class": "MODIFIED",
@@ -9379,12 +10954,88 @@
   "note": "audit sample #40 (deletion, not rewrite); was REWRITTEN",
   "sample": "audit-R2"
  },
+ "0x005be4f0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers): identical",
+  "sample": "port-R4"
+ },
+ "0x005be540": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "the rotate ? attackPassiveRotate : attackPassive body the exe uses for slot 6 of 14 headers (ICF)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers): identical (the rotate ? attackPassiveRotate : attackPassive body the exe uses for slot 6 of 14 headers (ICF))",
+  "sample": "port-R4"
+ },
+ "0x005be610": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "side-step keys into +0x08, cat_salvageStaticInit",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005be660": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "mimic flag and fields, cat_salvageInit",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005be6e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "mimicking: straight attack and specialFlags 0x6; else side-step",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005bf3d0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "statics block Kushan or else (HW1: R1/R2)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005bf580": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no detection battle chatter",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
  "0x005c2260": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "REPAIR_Begin 0",
   "sample": "reread-R2"
+ },
+ "0x005c23b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 combat: its body is also HW1's TurnHarvestEffectOff(ship) without the sound stop (identical-code folding): processCollectResource, FreeLastOrder, RemoveShipsFromDoingStuff and univDeleteDeadShip call it for harvest effects"
+ },
+ "0x005c2410": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the 800 minimum distance applies to any mothership-class target (HW1: the Mothership type)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
+ },
+ "0x005c24e0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "never repairs itself; mothership-class distances; NIS ships not healed; Cataclysm dock type 0",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005c3d90": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "statics block Kushan or else (HW1: R1/R2)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); the map had IDENTICAL",
+  "sample": "port-R4"
  },
  "0x005c59c0": {
   "class": "MODIFIED",
@@ -9393,12 +11044,47 @@
   "note": "HW1: Traders/R1/R2 choice + two scriptSetStruct calls",
   "sample": "MODIFIED/medium"
  },
+ "0x005c5a40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "attackSideStepInit + cat_salvageInit",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005c5a60": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "cat_salvageSpecialTarget",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005c5a90": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "cat_salvageHouseKeep",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
+ "0x005c5aa0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "cat_salvageRemoveShipReferences",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
  "0x005c5ac0": {
   "class": "REWRITTEN",
   "confidence": "high",
   "change": "body replaced by a call to the new cat_salvageDied(ship) (Cataclysm salvage system)",
   "note": "HW1's tractor-beam/unclamp/dock-point cleanup is not in this function",
   "sample": "REWRITTEN/high"
+ },
+ "0x005c5ad0": {
+  "class": "REWRITTEN",
+  "confidence": "medium",
+  "change": "cat_salvage_PreFix",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
  },
  "0x005c5ae0": {
   "class": "MODIFIED",
@@ -9407,12 +11093,26 @@
   "note": "SpaceObjRegistryGetShip/GetTarget folded into GetObj (not a delta); audit reclassification checked by hand",
   "sample": "audit-R2"
  },
+ "0x005c7780": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "statics by race Sect/Kushan/Taiidan; the Sect block reads the missile regeneration keys",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "sample": "port-R4"
+ },
  "0x005c78e0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "race test uses Cataclysm's race id (enum renumbering only)",
   "sample": "uniform/IDENTICAL"
+ },
+ "0x005c79b0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "the attackSideStep(spec, statics) body the exe also uses for HeavyCorvetteHeader and MultiGunCorvetteHeader slot 21 (ICF)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers): identical (the attackSideStep(spec, statics) body the exe also uses for HeavyCorvetteHeader and MultiGunCorvetteHeader slot 21 (ICF))",
+  "sample": "port-R4"
  },
  "_notes": [
   "## Key findings",
@@ -9443,431 +11143,5 @@
   "",
   "Effect of the tool fixes alone, before the reviewed classes are applied: 117 functions went from automatic IDENTICAL to MODIFIED and 8 from MODIFIED to IDENTICAL; 48 unreviewed functions changed class (all IDENTICAL to MODIFIED). Every reviewed function keeps its reviewed class.",
   ""
- ],
- "0x004411c0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "capital range for kGravWellGenerator/tGravWellGenerator (no cloak generator); follow-behind for sProcessor/bProcessor; no DDDFrigateMakeSureItCanGuard; CircularGuard is specialFlags 0x40000000",
-  "note": "M2-R4 command: ported"
- },
- "0x004413f0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "capital range for both races' grav-well and cloak generators (64/79/63/77); docking-with-me scan without the canReceiveSomething gate; no DDDFrigate; CircularGuard is specialFlags 0x40000000",
-  "note": "M2-R4 command: ported"
- },
- "0x004447b0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "formation case: a sphere needs >= 2 ships (HW1 > 0) and a FORCEFIELD_SPHERE formation becomes FORCEFIELD_WALL before formationContentHasChanged",
-  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
- },
- "0x00444780": {
-  "class": "IDENTICAL",
-  "confidence": "high",
-  "change": "",
-  "note": "M2-R4 command: compared with the exe: same (attribute bit 4 cleared, AttackCleanup, attack freed)"
- },
- "0x004452f0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "RemoveShipFromBeingTargeted with 4 arguments; visibility by sub_53F9F0 (cat_shipDetectedByPlayer) instead of proximityCanPlayerSeeShip",
-  "note": "M2-R4 command: ported"
- },
- "0x00445340": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "RemoveShipFromBeingTargeted with 4 arguments",
-  "note": "M2-R4 command: ported"
- },
- "0x00445360": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "second argument keeps the ship on the camera stack (both exe callers pass 1); GravWellGeneratorJustDisabled for types 64/79 only; no DDDFrigate/cloak generator; the three madLinkIn closes for every type (no SensorArray test)",
-  "note": "M2-R4 command: ported"
- },
- "0x004453c0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "4th argument (player) with new flag 0x20 (salvaged: only that player's commands); hyperspacing pass falls through; dock removal by dockship only; Cataclysm salvagers (cat_shipIsSalvager, salvager target, slot 11, cat_salvageRemoveShipReferences); cloak test cat_shipDetectedByPlayer; disabled crystals stay attack targets; parade around the ship only loses its attributes; no default assert",
-  "note": "M2-R4 command: ported (the salvager target is CAT-PROVISIONAL until M2-R4 #3 lays out CatSalvagerInfo)"
- },
- "0x0044a150": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "tutorial sMothership skipped; catShipFlags 0x80 with nonzero Ship+0x4E4 not scuttled; mimics unmimic (cat_mimicUnmimic)",
-  "note": "M2-R4 command: ported except the 0x80/+0x4E4 case and the unmimic (CAT-TODO M2-R4 #4)"
- },
- "0x0044a780": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "another player's ship always launches; swarmers (9, 43) never; micro class counts with fighters, live workers (cat_shipIsLiveWorker) with corvettes",
-  "note": "M2-R4 command: ported"
- },
- "0x0044a840": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "carrier-class mothership counts as carrier 1; univCreateShip(..., built 5, creator, 0); game stats by class (twice for types 4/5/38, none for swarmers); no ResearchShip/rmActivateFreeLab",
-  "note": "M2-R4 command: ported except the stats (CAT-TODO M2-R4 #5)"
- },
- "0x0044b470": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "members of a parade around the dead ship leave it first; RemoveShipsFromDoingStuff reason codes 0x65/0xe; research modules (cat_rmResearchModuleDied for Sect, cat_rmMothershipLabLost for bMothership); no rmDeactivateLab",
-  "note": "M2-R4 command: ported except the reason codes and the research calls (CAT-TODO)"
- },
- "0x004529e0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "no tutGameMessage; SpeechEventsForFuel reduced to an empty scan",
-  "note": "M2-R4 command: ported"
- },
- "0x00452ae0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "pause check with opPauseOrders; cat_shipSetDisableReason(ship,1,6) instead of clearing SOF_Selectable",
-  "note": "M2-R4 command: ported"
- },
- "0x00452d60": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "ioUpdateShipTotals for any dock type but retire (no MakeSelectionNonResearchShips); Cataclysm dock types 7/10 and their speech",
-  "note": "M2-R4 command: ported except the dock-type numbering and speech (CAT-TODO M2-R4 #3)"
- },
- "0x00452ca0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "no formation check; 4th argument passed to clFormation/clSendFormation",
-  "note": "M2-R4 command: check removed; the 4th argument is CAT-TODO with clFormation"
- },
- "0x00453000": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "the resource flashes with cat_taskRealTimeElapsed",
-  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
- },
- "0x00453390": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "pause check with opPauseOrders (HW1: any pause)",
-  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
- },
- "0x00453820": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "pause check with opPauseOrders (HW1: any pause)",
-  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
- },
- "0x00453500": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "an empty selection does nothing",
-  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
- },
- "0x00452c00": {
-  "class": "IDENTICAL",
-  "confidence": "high",
-  "change": "",
-  "note": "M2-R4 command: compared with the exe: same (tutorial bit 0x2000 = bAttack)"
- },
- "0x00453300": {
-  "class": "IDENTICAL",
-  "confidence": "high",
-  "change": "",
-  "note": "M2-R4 command: compared with the exe: same"
- },
- "0x004530a0": {
-  "class": "IDENTICAL",
-  "confidence": "high",
-  "change": "",
-  "note": "M2-R4 command: compared with the exe: same"
- },
- "0x004538b0": {
-  "class": "IDENTICAL",
-  "confidence": "high",
-  "change": "",
-  "note": "M2-R4 command: compared with the exe: same"
- },
- "0x004ac820": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "2 arguments (msg, flags); 25-line scroll ring, cat_ioMessageScroll, soundEventPlay",
-  "note": "M2-R4 command: CAT-TODO stage 3 (message scroller)"
- },
- "0x00484c80": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "4th argument (force-field level, +0x288); accepts 0-6, 9, 10; per-ship CustShipFormationCommand veto; 12/24-ship caps for types 10/9; passive attack cleared for force fields",
-  "note": "M2-R4 command: accepted types ported; the rest CAT-TODO"
- },
- "0x00484950": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "4 arguments: the force-field level stored at +0x288; formationSpecificInfo (+0x28C) cleared for types 0-6, 9, 10; formationArrageCrazyOptimum with more arguments",
-  "note": "M2-R4 command: class change: IDENTICAL body found modified; CAT-TODO with clFormation"
- },
- "0x0053eab0": {
-  "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "no exempt types; mothership modules (cat_univMothershipModuleTypesGet / beast variant) count as ships and in classtotals[CLASS_Component]",
-  "note": "M2-R4 command: SPECIAL_InUnitCaps is specialFlags 0x20000000 (HW1 specialFlags2 0x4); readers moved"
- },
- "0x0053ec00": {
-  "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "no exempt types (HW1 skipped Drone, TargetDrone, HeadShotAsteroid, CryoTray)",
-  "note": "M2-R4 command: SPECIAL_InUnitCaps is specialFlags 0x20000000 (HW1 specialFlags2 0x4); readers moved"
- },
- "0x005b4760": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "the removed ship's in-gravwell flag is cleared in specialFlags (and 0xefffffff on Ship+0x1C8, 0x005b479d), not HW1's specialFlags2 bit 1; otherwise as HW1 (find the node, clear the two dont*ever bits, listDeleteNode)",
-  "note": "M2-R4 command audit: body compared with the exe; edited by the port (SPECIAL_ShipInGravwell moved words) but left IDENTICAL and unreviewed"
- },
- "0x0048a2f0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "no fuel test; a damaged ship fires and bursts more slowly (x1.25 below 3/4 health, x1.75 below 1/2, x2.5 below 1/4, x4 below 1/10; not the big gun or the Beast weapon); no tactics or formation burst modifiers; the burst state is mirrored in Ship+0x610; the passive-attack penalty is also checked after a burst",
-  "note": "M2-R4 combat: the map's IDENTICAL; the body is Cataclysm's and is ported (Gun.c)"
- },
- "0x004627b0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "skips a ship being built externally (specialFlags2 0x8) instead of a hyperspacing one and passes dmgPlayEffect the health ratio over the damage level's limit",
-  "note": "M2-R4 combat: the map's IDENTICAL; ported (Damage.c)"
- },
- "0x004f10f0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "one velocity limit (MAX_RESOURCE_VELOCITY_TO_CHASE): HW1's Mission 6 limit and its MAX_RESOURCE_VELOCITY_TO_CHASE_LEVEL6 key are gone",
-  "note": "M2-R4 combat: the map's IDENTICAL; ported (ResCollect.c), the tweakable removed"
- },
- "0x004f12c0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "takes the resource as a second argument and only searches when it is NULL (clProcess passes 0, cat_clHarvestNearestResource the resource it found); InitShipForResourceCollection is inlined with sWorker/bWorker getting the third harvest callback 0x005c9130",
-  "note": "M2-R4 combat: the map's IDENTICAL; ported (ResCollect.c); the Worker callback stays R1ResourcerHarvestsAsteroid until Worker.c (M2-R4 #4)"
- },
- "0x004f1d40": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "a NULL resource resets rcstate1 and returns (processCollectResource and cat_rescollectStopHarvest stop a harvest that way)",
-  "note": "M2-R4 combat: the map's IDENTICAL; ported; the rest (flags 0x17, ranges, circling) is HW1's"
- },
- "0x00423e50": {
-  "class": "IDENTICAL",
-  "confidence": "high",
-  "change": "",
-  "note": "M2-R4 combat: edited only for gunShipFirePower's one-argument prototype (0x0048cb60)"
- },
- "0x005c23b0": {
-  "class": "IDENTICAL",
-  "confidence": "high",
-  "change": "",
-  "note": "M2-R4 combat: its body is also HW1's TurnHarvestEffectOff(ship) without the sound stop (identical-code folding): processCollectResource, FreeLastOrder, RemoveShipsFromDoingStuff and univDeleteDeadShip call it for harvest effects"
- },
- "0x004f1a50": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "this is HW1's TurnOffAnyResourcingEffects(todo) with the effect stop inlined (ship = selection->ShipPtr[0], does nothing without an effect); no sound stop",
-  "note": "M2-R4 combat: the map's name is wrong (its callers clResourceDied and processCollectResource pass the command); TurnHarvestEffectOff(ship) itself folds into stopRepairEffect 0x005c23b0"
- },
- "0x004f1ac0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "no harvest sound; the beam length and the resource radius go to etgEffectCreate as real32 values (HW1: integers)",
-  "note": "M2-R4 combat: ported without the sound; the effect parameters stay integers until the ETG port (stage 3)"
- },
- "0x004f2130": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "a resource moving too fast, taken or outside the world is dropped with the harvest (cat_rescollectStopHarvest 0x004f2450); a found resource is used only below resourcesAtOneTime, else the ship docks (purpose 3); a full ship sets specialFlags2 0x4000000 to resume in its volume; no harvester-done messages or speech; aitrackSteadyShip when the order ends or turns into a dock",
-  "note": "M2-R4 combat: ported (ResCollect.c); the dock purpose stays HW1's DOCK_TO_DEPOSIT_RESOURCES and two unnamed globals (0x00a7519c, 0x00a75190) are left out"
- },
- "0x004f11f0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "specialFlags2 0x4000000 restarts the volume search with COLLECTRESOURCE_ZONE and is cleared; univFindNearestResource takes a fourth argument (0); outside a volume only the local and AI players search, through cat_clHarvestNearestResource 0x00449790",
-  "note": "M2-R4 combat: ported up to cat_clHarvestNearestResource, which is not (HW1's plain search stands in)"
- },
- "0x004f1580": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "breaks into the pieces its .shp lists (NUMBER_OF_ASTEROID_PIECES / AsteroidBreakInfo): offset by the asteroid's matrix, pushed along it by the first value, oriented by the piece matrix, spun by the other three, plus a break sound; HW1's breakinto[] and random scatter are gone",
-  "note": "M2-R4 combat: ported; the break sound is stage 3"
- },
- "0x004f17a0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "a tutorial harvests five times as fast; Bulimia (specialFlags2 0x200000) changes the take; an asteroid's health follows its RUs (warning when negative); 'collector full' battle chatter 0x4B instead of speech; the AI resourcing marks are Ship words (+0x1D4 / +0x1D8)",
-  "note": "M2-R4 combat: ported (ResCollect.c)"
- },
- "0x0043ab20": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "asks cat_kamikazeCheckShip 0x0043a980 for each object (damage to itself and the other; mimics, Beast cruise-missile infection hits, ships clamped together, the ram damage scale)",
-  "note": "M2-R4 combat: ported; the ram damage scale stays 1.0 until the mimic block (M2-R4 #4)"
- },
- "0x0043ade0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "salvagers inside a target's cone do not collide; the exe's clamp test (cat_shipsClampedTogether); ramming frigates act first; no bump damage from a salvager just let go, an attached Leech or between RKO pieces",
-  "note": "M2-R4 combat: ported; the ramming frigate call and the Leech query are M2-R4 #4 (CAT-TODO / provisional FALSE)"
- },
- "0x0043b460": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "same Cataclysm tests as collCheckShipShipColl (salvager cone, clamp test, ramming, Leech)",
-  "note": "M2-R4 combat: ported as collCheckShipShipColl"
- },
- "0x0043bac0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "every resource-class ship and the killer-collision attribute decide the collision instead of HW1's resource collectors",
-  "note": "M2-R4 combat: ported; CAT_ATTRIBUTES_KillerCollision moved to Attributes.h"
- },
- "0x0043c900": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "a beam hitting an sSentinel / bSentinel with its field up only draws the hit (cat_sentinelFieldBulletHit, first argument 0); a missed Beast beam (GS_BeastWeapon) still draws its hit on its own target's box; a seventh value 1/2/3 is pushed that univBulletCollidedWithTarget never reads",
-  "note": "M2-R4 combat: ported; cat_sentinelFieldBulletHit is M2-R4 #4; the tree keeps its update-rate cadence"
- },
- "0x0043cd90": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "switches on the bullet's weapon word (Bullet +0x108: 2 WEAPON_ION and 8 WEAPON_BEASTINFECT go to collCheckBeamColl, 4 WEAPON_LASER is skipped); an enemy bullet crossing an active Sentinel field is drawn and deleted (cat_collLineSentinelFieldIntersect 0x0043abf0, cat_sentinelFieldBulletHit); DFG frigates act through cat_collBulletDFGFieldCheck 0x0043cd10 after the collision-sphere prefilter (no HW1 field-radius exemption); ships with bUseRayTriangleIntersectionForHitLocation move the hit onto the mesh (cat_meshLineIntersect 0x004b5910); univBulletCollidedWithTarget gets 1",
-  "note": "M2-R4 combat: ported except cat_sentinelFieldBulletHit (M2-R4 #4) and the mesh hit location (stage 3)"
- },
- "0x0043d330": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "univMissileCollidedWithTarget gets a new first argument, 1",
-  "note": "M2-R4 combat: ported"
- },
- "0x0043d720": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "univMissileCollidedWithTarget gets a new first argument, 1",
-  "note": "M2-R4 combat: ported"
- },
- "0x0043d970": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "univMissileCollidedWithTarget gets a new first argument, 1",
-  "note": "M2-R4 combat: ported"
- },
- "0x0043dbb0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "univMissileCollidedWithTarget gets a new first argument, 1",
-  "note": "M2-R4 combat: ported"
- },
- "0x004e45b0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "switches on the weapon word: WEAPON_LASER does not move, the ion beam is a beam, the Beast weapon is steered; a bullet cannot expire before its first move (+0x13C); a big-gun shell goes after its range or in a DFG field; keeps the previous position (+0x158)",
-  "note": "M2-R4 combat: ported; cat_dfgFieldContainsPoint is M2-R4 #4"
- },
- "0x004e4950": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "a drifting ship is not accelerated and may reach 1400; top speed times the speed multiplier; helpless or drifting ships keep their speed; no fuel; FOW grid update of fog-seeing ships; universe clamp in multiplayer",
-  "note": "M2-R4 combat: ported; the FOW update is stage 3"
- },
- "0x004e5720": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "a ship's top speed carries its speed multiplier; a drifting non-killer asteroid that was not pushed slows down and stops",
-  "note": "M2-R4 combat: ported"
- },
- "0x0048a5e0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "no HW1 ion-cannon angles against fighters/corvettes; second fire mode speed, no tactics bonus; beam guns keep tracking on target; other gun types are not aimed",
-  "note": "M2-R4 combat: ported"
- },
- "0x0048aac0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "no firing by or at a ship being handed to a salvage depot; the missile's damage type is the gun's current one; damage = ship multiplier x weapon vs armour; mesh state; a second effect parameter by launcher type; no cloak-field decloak",
-  "note": "M2-R4 combat: ported"
- },
- "0x0048b5b0": {
-  "class": "REWRITTEN",
-  "confidence": "high",
-  "change": "returns the bullet made by cat_gunCreateBullet 0x0048bb00; RKO, salvage-depot and line-of-sight checks; damage = ship multiplier x DamageMult and weapon tables; a Leech shot also does 10 damage",
-  "note": "M2-R4 combat: ported; the RKO hold check is M2-R4 #4"
- },
- "0x0048c2e0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "no tactics range bonus; the big gun and the Beast weapon are not fired here; Mission 15's no-firing KAS variable",
-  "note": "M2-R4 combat: ported; the Mission 15 test is stage 6"
- },
- "0x0048c690": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "the big gun and the Beast weapon are skipped; a dissolving ship does not fire",
-  "note": "M2-R4 combat: ported"
- },
- "0x0048cb60": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "takes the static info only (no tactics) and weighs damage with the weapon tables",
-  "note": "M2-R4 combat: ported; gunFirePower removed, Battle.c and ShipView.c callers updated"
- },
- "0x00462340": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "fourth argument: the health ratio over the level's limit (0..1) gives the chance; crystals flash; no ETG enable switches",
-  "note": "M2-R4 combat: ported"
- },
- "0x00421cf0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "a mimic that is mimicking does not shoot",
-  "note": "M2-R4 combat: ported (the mimic query is provisional, M2-R4 #4)"
- },
- "0x005af210": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "sCarrier door animation by dock-point occupancy, Beast weapon and depot housekeeping (no drop targets / capture queue)",
-  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); M2-R4 combat: door ported (Carrier.c) with cat_madAnimationFinished 0x004b7090; madAnimationStart's number lookup and third argument are stage 3"
- },
- "0x005bba70": {
-  "class": "REWRITTEN",
-  "confidence": "high",
-  "change": "big-gun module loss stops the big gun; launch-manager module slots; Beast weapon and depot",
-  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); M2-R4 combat: module-slot removal ported (LaunchMgr.c)"
- },
- "0x004652c0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "a ship already inside is not added twice; micro ships count as fighters and resource ships as corvettes; no SalCap target hand-over",
-  "note": "M2-R4 combat: ported"
- },
- "0x004960b0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "ApplyDamageToTarget with 7 arguments (call-site code 0x1e)",
-  "note": "M2-R4 combat: ported"
- },
- "0x00434830": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "the object leaves its host's clamp list (the host's clamp info goes when the host is freed)",
-  "note": "M2-R4 combat: WIP port re-read against the exe and kept"
- },
- "0x00434940": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "called for the host: each object clamped to it runs its physics and follows the host",
-  "note": "M2-R4 combat: WIP port re-read against the exe and kept"
- },
- "0x004632e0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "micro ships count out as fighters and resource ships as corvettes (the counterpart of dockPutShipInside 0x004652c0); no 'not inside' warning",
-  "note": "M2-R4 combat audit: ported (the port had changed only dockPutShipInside)"
- }
+ ]
 }

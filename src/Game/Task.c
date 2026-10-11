@@ -15,6 +15,11 @@
 #include "Demo.h"
 #include "TitanInterfaceC.h"
 #include "Task.h"
+#include <math.h>      // CAT: time compression
+#include "CommandWrap.h"      // CAT: time compression
+#include "Globals.h"      // CAT: time compression
+#include "MultiplayerGame.h"      // CAT: time compression
+#include "Tutor.h"      // CAT: time compression
 
 /*=============================================================================
     Data:
@@ -35,6 +40,18 @@ taskhandle taskCurrentTask = -1;
 
 real32 taskTimeDelta   = 0.0f;
 real32 taskTimeElapsed = 0.0f;                  //time elapsed, in seconds, since program started
+
+// CAT (M2-R4 rest-oracle): Cataclysm's time compression (cataclysm.exe 0x0052a350-0x0052a4c0), which replaces HW1's
+//      universeTurbo: every tick count taskExecuteAllPending receives is scaled by cat_timeCompressionFactor
+//      (0x00bb3268), the table entry at cat_timeCompressionIndex (0x00bb326c; 0x0072bd14: 1/4, 1/2, 1, 2, 4, 6, 8; the
+//      default index 0x008aa6f0 is 2 = 1.0). The unscaled ticks also feed cat_taskRealTimeElapsed (0x00bb3270), the
+//      wall-clock task time the construction manager's build timers read.
+static const real32 cat_timeCompressionFactorTable[7] = { 0.25f, 0.5f, 1.0f, 2.0f, 4.0f, 6.0f, 8.0f };
+static const ubyte cat_timeCompressionDefaultIndex = 2;
+static ubyte  cat_timeCompressionIndex = 2;
+real32 cat_timeCompressionFactor = 1.0f;
+real32 cat_taskRealTimeDelta = 0.0f;
+real32 cat_taskRealTimeElapsed = 0.0f;
 
 udword taskProcessIndex = 0;                    //number of calls being executed on this task
 sdword taskNumberCalls;                         //number of times to call the task
@@ -279,6 +296,7 @@ void taskStop(taskhandle handle)
 static sdword tTicks, tLocalTicks;
 sdword taskExecuteAllPending(sdword ticks)
 {
+    sdword realTicks;
 #if TASK_VERBOSE_LEVEL >= 2
     if (ticks > 0)
     {
@@ -294,6 +312,12 @@ sdword taskExecuteAllPending(sdword ticks)
     }
     //taskInitCheck();
 
+    // CAT: the ticks are scaled by the time-compression factor and rounded to the nearest integer (the exe adds 1.5 x 2^52
+    //      in x87 and reads the low dword: round to nearest even) before the demo record/playback and the task clock
+    //      (taskExecuteAllPending 0x0052a840)
+    realTicks = ticks;
+    ticks = (sdword)nearbyintf((real32)ticks * cat_timeCompressionFactor);
+
     if (demDemoRecording)
     {
         demNumberTicksSave(ticks);
@@ -306,6 +330,9 @@ sdword taskExecuteAllPending(sdword ticks)
     taskTimeDelta = ticks / taskFrequency;
     taskTimeElapsed += taskTimeDelta;
     tTicks = ticks;             //save the ticks parameter
+    // CAT: the real (unscaled) task time (taskExecuteAllPending 0x0052a840)
+    cat_taskRealTimeDelta = (real32)realTicks / taskFrequency;
+    cat_taskRealTimeElapsed += cat_taskRealTimeDelta;
 
     // Verify we're not in any task currently.
     dbgAssertOrIgnore(taskCurrentTask == -1);
@@ -501,6 +528,88 @@ void taskResumeAll(void)
                 bitClear(taskData[index]->flags, TF_Paused);
             }
         }
+    }
+}
+
+/*=============================================================================
+    CAT: time compression (0x0052a350 - 0x0052a4c0)
+=============================================================================*/
+
+// 0x0052a350
+sdword cat_taskTimeCompressionMaxIndex(void)
+{
+    return 6;
+}
+
+// 0x0052a360
+ubyte cat_taskTimeCompressionDefaultIndex(void)
+{
+    return cat_timeCompressionDefaultIndex;
+}
+
+// 0x0052a370: the factor from the table, and the tutorial hears about it
+void cat_taskTimeCompressionApply(void)
+{
+    cat_timeCompressionFactor = cat_timeCompressionFactorTable[cat_timeCompressionIndex];
+    tutGameMessage("TimeCompress");
+}
+
+// 0x0052a3a0: "1/%d %s" below 1, "%d %s" otherwise, as a command message. CAT-TODO(stage 3): the %s argument (a string
+// the decompiler does not show; the exe's clCommandMessage also takes the colour 0xffffffff)
+void cat_taskTimeCompressionPrint(void)
+{
+    char buffer[64];
+
+    if (cat_timeCompressionFactor < 1.0f)
+    {
+        sprintf(buffer, "1/%d %s", (sdword)(1.0f / cat_timeCompressionFactor), "");
+    }
+    else
+    {
+        sprintf(buffer, "%d %s", (sdword)cat_timeCompressionFactor, "");
+    }
+    clCommandMessage(buffer);
+}
+
+// 0x0052a420: back to the default speed (universeReset, universeClose, nisStartup, animBinkPlay)
+void cat_taskTimeCompressionReset(void)
+{
+    if (cat_timeCompressionIndex != cat_timeCompressionDefaultIndex)
+    {
+        cat_timeCompressionIndex = cat_timeCompressionDefaultIndex;
+        cat_taskTimeCompressionApply();
+    }
+}
+
+// 0x0052a450
+void cat_taskTimeCompressionResetAndPrint(void)
+{
+    if (cat_timeCompressionIndex != cat_timeCompressionDefaultIndex)
+    {
+        cat_timeCompressionIndex = cat_timeCompressionDefaultIndex;
+        cat_taskTimeCompressionApply();
+        cat_taskTimeCompressionPrint();
+    }
+}
+
+// 0x0052a480 / 0x0052a4c0: one step up or down, outside a multiplayer game (the Accelerate_Time / Decelerate_Time keys)
+void cat_taskTimeCompressionIncrease(void)
+{
+    if (((!multiPlayerGame) || (singlePlayerGame)) && (cat_timeCompressionIndex < 6))
+    {
+        cat_timeCompressionIndex++;
+        cat_taskTimeCompressionApply();
+        cat_taskTimeCompressionPrint();
+    }
+}
+
+void cat_taskTimeCompressionDecrease(void)
+{
+    if (((!multiPlayerGame) || (singlePlayerGame)) && (cat_timeCompressionIndex != 0))
+    {
+        cat_timeCompressionIndex--;
+        cat_taskTimeCompressionApply();
+        cat_taskTimeCompressionPrint();
     }
 }
 

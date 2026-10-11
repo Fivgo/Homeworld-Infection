@@ -13,12 +13,14 @@
 #include "glinc.h"
 #include "mouse.h"
 #include "NIS.h"
+#include "OracleDump.h"    // HWI-ORACLE
 #include "rglu.h"
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
 #include "soundlow.h"
 #include "StringSupport.h"
 #include "Subtitle.h"
+#include "Task.h"
 #include "Universe.h"
 
 
@@ -697,6 +699,15 @@ bool32 animBinkPlay(sdword a, sdword b)
     {
         return FALSE;
     }
+#if HWI_ORACLE
+    // HWI-ORACLE: a headless oracle run (/oracleMission) plays no animatic: it is real time only (about 246 s for
+    // Animatic01.bik) and nothing in the universe depends on it (OracleDump.c; the exe's animBinkPlay 0x00421860 has no
+    // such switch, this is instrumentation)
+    if (oracleMissionRequested())
+    {
+        return FALSE;
+    }
+#endif
 
     g_cleared = FALSE;
     g_frame = 0;
@@ -774,6 +785,9 @@ bool32 animAviPlay(sdword a, sdword b)
 
     bool32 rval = TRUE;
 
+    // CAT: an animatic plays at normal speed (animBinkPlay 0x00421860 starts with cat_taskTimeCompressionReset)
+    cat_taskTimeCompressionReset();
+
 #ifdef HW_ENABLE_MOVIES
 
     char filename[1024], scriptname[1024];
@@ -784,6 +798,15 @@ bool32 animAviPlay(sdword a, sdword b)
     {
         return FALSE;
     }
+#if HWI_ORACLE
+    // HWI-ORACLE: a headless oracle run (/oracleMission) plays no animatic: it is real time only (about 246 s for
+    // Animatic01.bik) and nothing in the universe depends on it (OracleDump.c; the exe's animBinkPlay 0x00421860 has no
+    // such switch, this is instrumentation)
+    if (oracleMissionRequested())
+    {
+        return FALSE;
+    }
+#endif
 
     g_cleared = FALSE;
     g_frame = 0;

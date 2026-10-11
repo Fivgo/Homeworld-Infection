@@ -227,40 +227,9 @@ typedef struct
 
 void ccGetShipCollCenter(Ship *ship, vector *pos, real32 *rad)
 {
-Ship *master, *slave;
-Node *slavenode;
-vector   center, distvec;
-float dist;
-
-   if(bitTest(ship->header.flags, SOF_Slaveable) && bitTest(ship->slaveinfo->flags, SF_MASTER))
-   {  //object is a master...so calculate Biggey selection circle based on all slave circles
-      master = ship;
-      slavenode = master->slaveinfo->slaves.head;
-      center = master->impactable.collInfo.collPosition;
-
-      while(slavenode != NULL)
-      {
-         slave = (Ship *) listGetStructOfNode(slavenode);
-         vecAddTo(center, slave->impactable.collInfo.collPosition);
-
-         slavenode = slavenode->next;
-      }
-
-      center.x /= (real32 )(master->slaveinfo->slaves.num+1);
-      center.y /= (real32 )(master->slaveinfo->slaves.num+1);
-      center.z /= (real32 )(master->slaveinfo->slaves.num+1);
-
-      vecSub(distvec, center, master->impactable.collInfo.collPosition);
-      dist = fsqrt(vecMagnitudeSquared(distvec));
-
-      *pos = center;
-      *rad = dist + (master->staticinfo->common.staticCollInfo.collspheresize);
-   }
-   else
-   {
-      *pos = ship->impactable.collInfo.collPosition;
-      *rad = ship->staticinfo->common.staticCollInfo.collspheresize;
-   }
+    // CAT (ccGetShipCollCenter 0x0042cf30): no slave/master selection circle; the collision centre and sphere size only
+    *pos = ship->impactable.collInfo.collPosition;
+    *rad = ship->staticinfo->common.staticCollInfo.collspheresize;
 }
 
 static const double TAN_FOVConstant = 1.303225;

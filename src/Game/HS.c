@@ -811,51 +811,16 @@ bool32 hsIsStaticGate(char* label)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void hsStaticInit(sdword nVectors)
+void hsStaticInit(void)
 {
-    sdword i;
-    hsStaticGate* pGate;
-    extern LabelledVector** LabelledVectors;
-
-    hsStaticReset();
-
-    //iterate thru KAS labelled vectors
-    i = 0;
+    // CAT (hsStaticInit 0x004901b0): Cataclysm frees the static gate table and zeroes its count, nothing more (no KAS
+    //      labelled-vector scan, no aivar: the exe takes no argument). CAT-TODO(stage 6): where the static gates come from
+    if (hsStaticData != NULL)
+    {
+        memFree(hsStaticData);
+        hsStaticData = NULL;
+    }
     hsStaticNumGates = 0;
-    while (i < nVectors)
-    {
-        if (hsIsStaticGate(LabelledVectors[i]->label))
-        {
-            hsStaticNumGates++;
-        }
-        i++;
-    }
-
-    if (hsStaticNumGates > 0)
-    {
-        hsStaticData = (hsStaticGate*)memAlloc(hsStaticNumGates * sizeof(hsStaticGate), "hs statics", NonVolatile);
-        pGate = hsStaticData;
-
-        i = 0;
-        while (i < nVectors)
-        {
-            if (hsIsStaticGate(LabelledVectors[i]->label))
-            {
-                pGate->active = TRUE;
-                pGate->position.x = LabelledVectors[i]->hvector->x;
-                pGate->position.y = LabelledVectors[i]->hvector->y;
-                pGate->position.z = LabelledVectors[i]->hvector->z;
-                pGate->rotation = LabelledVectors[i]->hvector->w;
-                pGate->state = HS_STATIC_ACTIVE;
-                pGate->counter = 0;
-                memStrncpy(pGate->label,LabelledVectors[i]->label,HSGATE_LABEL_LEN-1);
-                pGate->derelict = univAddHyperspaceGateAsDerelict(LabelledVectors[i]->hvector);
-                aivarValueSet(aivarCreate(pGate->label),(sdword)pGate->derelict->targetable.health);
-                pGate++;
-            }
-            i++;
-        }
-    }
 }
 
 /*-----------------------------------------------------------------------------

@@ -945,7 +945,7 @@ void aifProcessShipBuildRequests(void)
     }
 
     //go through the queues to find more stuff to research if needed
-    if (rmFindFreeLab(player) != -1)
+    if (rmFindFreeLab(player, TECH_NONE) != -1)     // CAT: any lab (aifProcessShipBuildRequests passes -1)
     {
         tempnode = aiCurrentAIPlayer->AttackManRequestShipsQ.head;
 

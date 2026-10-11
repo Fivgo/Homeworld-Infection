@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "ShipSelect.h"
+#include "LevelLoad.h"      // CAT: GetAppropriateShipTypeForRace (cat_shipInitResearchUpgrades)
 
 #include <string.h>
 
@@ -2885,25 +2886,204 @@ static sdword cat_shipExperienceLevel(Ship *ship)
     return 0;
 }
 
-// CAT-PROVISIONAL (M2-R4 #5): the player's upgrade state (Player +0x6504 armour level, +0x650C energy-weapon research,
-//      +0x652C upgrade bits); cat_playerUpgradesReset 0x00514100 clears all three for a new game, so a player that
-//      has researched nothing reads 0, which is what these return until the Player layout is ported
+// CAT (M2-R4 rest-oracle): the player's upgrade state lives in the Player (Universe.h: +0x6504 armour level cap, +0x6508
+//      weapon availability, +0x652C upgrade bits); cat_shipApplyUpgrades 0x00514490 reads them directly
 static sdword cat_playerArmourLevel(Player *player)
 {
-    (void)player;
-    return 0;
+    return player->catArmourLevelCap;
 }
 
 static bool32 cat_playerHasEnergyWeapons(Player *player)
 {
-    (void)player;
-    return FALSE;
+    return player->catWeaponAvailable[WEAPON_ENERGY] != 0;      // Player+0x650C
 }
 
 static udword cat_playerUpgradeBits(Player *player)
 {
-    (void)player;
-    return 0;
+    return player->catUpgradeBits;
+}
+
+// CAT (M2-R4 rest-oracle): the technology behind each upgrade bit (cat_upgradeFlagTechTable 0x0072b9e8, 25 rows of
+//      {tech, bit, extra bits}, read from cataclysm.exe). cat_playerUpdateUpgradesFromResearch ORs bit | extra for every
+//      technology the player has; cat_shipTypeGetUpgradeTechs maps a ship type's mask back to technologies.
+typedef struct
+{
+    TechnologyType tech;
+    udword bit;
+    udword extra;
+} CatUpgradeFlagTech;
+
+static const CatUpgradeFlagTech cat_upgradeFlagTechTable[25] =
+{
+    { TECH_ADRIVE_FIGHTER,          0x00000001, 0 }, { TECH_ADRIVE_FRIGATE,          0x00000002, 0 },
+    { TECH_ADRIVE_DESTROYER,        0x00000004, 0 }, { TECH_LINK,                    0x00000008, 0x10 },
+    { TECH_MIMIC,                   0x00000020, 0 }, { TECH_MICRO_SHIP,              0x00000040, 0 },
+    { TECH_EXPLOSIVE_CHARGE,        0x00000080, 0 }, { TECH_AFTERBURNER,             0x00000100, 0 },
+    { TECH_EMP,                     0x00000200, 0 }, { TECH_REPULSE,                 0x00000400, 0 },
+    { TECH_MICRO_SHIP,              0x00000800, 0 }, { TECH_FORCE_FIELD1,            0x00001000, 0 },
+    { TECH_FORCE_FIELD2,            0x00002000, 0 }, { TECH_FORCE_FIELD3,            0x00004000, 0 },
+    { TECH_DEFENSE_FIELD,           0x00008000, 0 }, { TECH_INFECT,                  0x00010000, 0 },
+    { TECH_CLOAKING,                0x00020000, 0 }, { TECH_REPAIRBOTS,              0x00200000, 0 },
+    { TECH_SALVAGE,                 0x00080000, 0 }, { TECH_CRYSTAL_HARVEST,         0x00100000, 0 },
+    { TECH_REPAIR,                  0x00040000, 0 }, { TECH_BEAST_VACCINE,           0x00400000, 0 },
+    { TECH_ADVANCED_SENSORS,        0x00800000, 0 }, { TECH_ION,                     0x02000000, 0 },
+    { TECH_MISSILE,                 0x04000000, 0 },
+};
+
+// CAT: the technology that makes each WEAPON_* type available (cat_weaponUpgradeTechTable 0x0072bb18, 9 x {tech, weapon};
+//      TECH_NONE = always available), read from cataclysm.exe
+static const TechnologyType cat_weaponUpgradeTech[9] =
+{
+    TECH_NONE, TECH_ENERGY, TECH_ION, TECH_PLASMA_WEAPONS, TECH_NONE, TECH_MISSILE, TECH_NONE, TECH_BIG_GUN, TECH_INFECT
+};
+
+// CAT: the technology of each armour level above the first (cat_armourUpgradeTechTable 0x0072bb60: {TECH_NONE,0},
+//      {TECH_ARMOUR2,1}, {TECH_ARMOUR3,2})
+static const TechnologyType cat_armourUpgradeTech[3] = { TECH_NONE, TECH_ARMOUR2, TECH_ARMOUR3 };
+
+// 0x00514100: a new game: projectile weapons only, no armour research, no upgrade bits
+void cat_playerUpgradesReset(Player *player)
+{
+    sdword i;
+
+    for (i = 0; i < 9; i++)
+    {
+        player->catWeaponAvailable[i] = 0;
+    }
+    player->catWeaponAvailable[WEAPON_PROJECTILE] = 1;
+    player->catUpgradeBits = 0;
+    player->catArmourLevelCap = 0;
+}
+
+// 0x00514140: the player's research sets the armour cap, the weapon availability and ORs in the upgrade bits (the bits
+// are never cleared here, only in cat_playerUpgradesReset)
+void cat_playerUpdateUpgradesFromResearch(Player *player)
+{
+    sdword *techset = player->researchinfo.HasTechnology;
+    sdword i;
+
+    if (cat_rmTechSetHas(techset, TECH_ARMOUR3))
+    {
+        player->catArmourLevelCap = 2;
+    }
+    else if (cat_rmTechSetHas(techset, TECH_ARMOUR2))
+    {
+        player->catArmourLevelCap = 1;
+    }
+    else
+    {
+        player->catArmourLevelCap = 0;
+    }
+    for (i = 0; i < 9; i++)
+    {
+        if ((cat_weaponUpgradeTech[i] == TECH_NONE) || cat_rmTechSetHas(techset, cat_weaponUpgradeTech[i]))
+        {
+            player->catWeaponAvailable[i] = 1;
+        }
+        else
+        {
+            player->catWeaponAvailable[i] = 0;
+        }
+    }
+    for (i = 0; i < 25; i++)
+    {
+        if (cat_rmTechSetHas(techset, cat_upgradeFlagTechTable[i].tech))
+        {
+            player->catUpgradeBits |= cat_upgradeFlagTechTable[i].bit | cat_upgradeFlagTechTable[i].extra;
+        }
+    }
+}
+
+// 0x005146f0: the technologies that upgrade a ship type, as a tech set: one per upgrade bit of the type's mask (the exe
+// compares the bit INDEX with the table's bit masks, so only the bits whose mask equals their index match: 1, 2, 4;
+// ported as is), TECH_ENERGY when a gun goes from one weapon to WEAPON_ENERGY, and the armour technologies up to the
+// type's maximum level
+void cat_shipTypeGetUpgradeTechs(ShipType type, sdword *techs)
+{
+    udword mask;
+    sdword bitIndex, i;
+    ShipStaticInfo *statinfo;
+    GunStaticInfo *gunStaticInfo;
+
+    for (i = 0; i < CAT_TECHSET_SIZE; i++)
+    {
+        techs[i] = 0;
+    }
+    bitIndex = 0;
+    for (mask = cat_shipTypeUpgradeMasks[type]; mask != 0; mask >>= 1)
+    {
+        if (mask & 1)
+        {
+            for (i = 0; i < 25; i++)
+            {
+                if ((cat_upgradeFlagTechTable[i].bit == (udword)bitIndex) || (cat_upgradeFlagTechTable[i].extra == (udword)bitIndex))
+                {
+                    techs[cat_upgradeFlagTechTable[i].tech] = 1;
+                    break;
+                }
+            }
+        }
+        bitIndex++;
+    }
+    if (techs[TECH_ENERGY] == 0)
+    {
+        statinfo = GetShipStaticInfo(type, GetValidRaceForShipType(type));
+        gunStaticInfo = statinfo->gunStaticInfo;
+        if (gunStaticInfo != NULL)
+        {
+            for (i = 0; i < gunStaticInfo->numGuns; i++)
+            {
+                if ((gunStaticInfo->gunstatics[i].startUpgradeLevel != gunStaticInfo->gunstatics[i].endUpgradeLevel) &&
+                    (gunStaticInfo->gunstatics[i].endUpgradeLevel == WEAPON_ENERGY))
+                {
+                    techs[TECH_ENERGY] = 1;
+                    break;
+                }
+            }
+        }
+    }
+    for (i = 0; i < cat_shipTypeArmourLevels[type][1]; i++)
+    {
+        if (cat_armourUpgradeTech[i] != TECH_NONE)
+        {
+            techs[cat_armourUpgradeTech[i]] = 1;
+        }
+    }
+}
+
+// 0x00514af0 (scriptSetShipsCB's only call): the static upgrade bits of a placed ship's type from the technologies its
+// build requires: for a Beast ship of a type the player has not enabled, the multiplayer Sect table's row of the Sect
+// equivalent is copied into the player's table first and read instead. Writes the TYPE's static info (+0x450), as the
+// exe does.
+void cat_shipInitResearchUpgrades(Ship *ship)
+{
+    Player *player = ship->playerowner;
+    udword bits = 0;
+    sdword i;
+    ShipType sectType;
+    sdword *row;
+
+    if (ship->shiptype < 0x3c)
+    {
+        for (i = 0; i < 25; i++)
+        {
+            if ((ship->shiprace == RACE_Beast) && (player->researchinfo.catShipTypeEnabled[ship->shiptype] == 0))
+            {
+                sectType = GetAppropriateShipTypeForRace(ship->shiptype, RACE_Sect);
+                row = cat_MultiPlayerSectTechStatic.TechNeededToBuildShip[sectType];
+                memcpy(player->researchinfo.techstat->TechNeededToBuildShip[ship->shiptype], row, sizeof(CatTechSet));
+            }
+            else
+            {
+                row = player->researchinfo.techstat->TechNeededToBuildShip[ship->shiptype];
+            }
+            if (cat_rmTechSetHas(row, cat_upgradeFlagTechTable[i].tech))
+            {
+                bits |= cat_upgradeFlagTechTable[i].bit | cat_upgradeFlagTechTable[i].extra;
+            }
+        }
+        ship->staticinfo->unknown450 = cat_shipTypeUpgradeMasks[ship->shiptype] & bits;
+    }
 }
 
 real32 cat_weaponDamageVsArmour(sdword damageType, sdword armourLevel)   // 0x00514460

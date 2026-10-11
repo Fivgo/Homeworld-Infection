@@ -64,10 +64,15 @@
 #define RM_MarqueeSemiOnColor     colRGB(175, 175, 0)
 #define RM_MarqueeOffColor        colRGB(100, 100, 0)
 
-#define RM_SPR1                   1
+// CAT: three research tables (rmAPIStartup 0x004f3c00 calls rmSetPrintList(1, SP Sect), (3, MP Sect), (4, Beast));
+//      the HW1 ids 2, 5, 6 have no table. CAT-TODO(stage 3): rmSetPrintList's bodies are HW1's.
+#define RM_SPRS                   1
+#define RM_SPR1                   RM_SPRS
 #define RM_SPR2                   2
-#define RM_MPR1                   3
-#define RM_MPR2                   4
+#define RM_MPRS                   3
+#define RM_MPR1                   RM_MPRS
+#define RM_MPRB                   4
+#define RM_MPR2                   RM_MPRB
 #define RM_MPCR1                  5
 #define RM_MPCR2                  6
 
@@ -129,6 +134,7 @@ extern LRUPicture pictures[RM_TOTALPICS];
 
 // function called if something changes in the list stuff
 void rmUpdateTechList(void);
+void rmClearAllLabs(char *string, featom *atom);   // CAT: rmUpdateResearch 0x004f2a20 clears every lab of the GUI
 void rmClearLab(sdword labindex); // Turn off lab selected
 
 //start the Research Manager.  It will kill itself when you hit the launch button.

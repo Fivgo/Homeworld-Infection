@@ -165,6 +165,14 @@ sdword SINGLEPLAYER_DEBUGLEVEL  =   0;
 sdword SINGLEPLAYER_STARTINGRUS = 200;
 sdword warpLevel                =   0;
 
+// CAT: 0x0051bd90: a single-player game with the warp-to-level script active (the exe keeps a bool the warp script's
+//      scriptSetBool writes at 0x00a67490; here the level WarpToLevelEnabled() found). Callers: universeClosePlayers/
+//      universeClose (the upgrades of player 0 survive a warp) and gameStart.
+bool32 cat_spWarpToLevelEnabled(void)
+{
+    return (singlePlayerGame && (warpLevel != 0));
+}
+
 
 fibfileheader *spHyperspaceRollCallHandle = NULL;
 regionhandle   spHyperspaceRollCallScreen = NULL;

@@ -2228,8 +2228,8 @@ void cat_univCreateMothershipModules(Ship *host, ShipRace race, vector *pos, str
         module->catCreator = host->catCreator;      // the exe passes its own 6th argument on
         if (race == RACE_Sect)
         {
-            // CAT-TODO(M2-R4 #5): cat_rmResearchModuleActivated(player, module->shiptype, 0) 0x004f4530 (the
-            //      research modules, ResearchAPI.c)
+            // CAT: a module built with the mothership opens its lab quietly (cat_rmResearchModuleActivated 0x004f4530)
+            cat_rmResearchModuleActivated(player, module->shiptype, FALSE);
         }
         module->obj.posinfo.position = host->obj.posinfo.position;
         module->obj.posinfo.velocity = host->obj.posinfo.velocity;
@@ -7347,7 +7347,7 @@ void univupdateReset()
     listInit(&universe.collBlobList);
 
     // tactics stuff
-    listInit(&universe.RetreatList);
+    // CAT: the one tactics list, the attack memory at universe+0x180; HW1's RetreatList is gone (Universe.h)
     listInit(&universe.AttackMemory);
 
     // regrow resources stuff
@@ -7355,12 +7355,16 @@ void univupdateReset()
 
     growSelectClose(&universe.HousekeepShipList);
     growSelectInit(&universe.HousekeepShipList);
+    // CAT: the second universe grow-selection is reset with HousekeepShipList (univUpdateReset 0x0054acd0)
+    growSelectClose(&universe.catSelection1A0);
+    growSelectInit(&universe.catSelection1A0);
     growSelectClose(&ClampedShipList);
     growSelectInit(&ClampedShipList);
+    // CAT: the sensors manager's render-list hold is cleared (universe+0xB8, univUpdateReset 0x0054acd0)
+    universe.catSensorsHoldRenderList = FALSE;
 
-    // CAT: the per-player ship counters are cleared (univUpdateReset 0x0054acd0). CAT-TODO(M2-R4 #5): the exe also
-    //      resets a second universe grow-selection (unk1 in the export, before HousekeepShipList) and has no
-    //      AttackMemory list init (the Universe layout); CAT-TODO(stage 6): cat_missionTimerReset 0x004acb80
+    // CAT: the per-player ship counters are cleared (univUpdateReset 0x0054acd0). CAT-TODO(stage 6):
+    //      cat_missionTimerReset 0x004acb80
     catShipCountersReset();
     catShipCounterA = 0;
     catUnivFrameStep = FALSE;

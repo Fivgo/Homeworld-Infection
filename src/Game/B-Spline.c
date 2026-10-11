@@ -198,22 +198,34 @@ real32 bsCurveUpdate(splinecurve *curve, real32 timeElapsed)
 
     dbgAssertOrIgnore(timeElapsed >= 0.0f);
     curve->timeElapsed += timeElapsed;
+    // CAT (bsCurveUpdate 0x00423040): a curve that already sits on its last key returns that key's value, and running
+    //      past the end returns the last value (HW1 returned REALlyBig for both); a zero-length key between two keys
+    //      with tension pins the time to the key's end
+    if (curve->currentPoint == curve->nPoints - 1)
+    {
+        return(curve->points[curve->currentPoint]);
+    }
     //find next point.  Could conceivably pass multiple control points in one frame.
     while (curve->timeElapsed > curve->times[curve->currentPoint + 1])
     {                                                       //if current control point ended
         curve->currentPoint++;                              //update the current point index
         if (curve->currentPoint >= curve->nPoints - 1)
         {                                                   //if all points used up
-            return(REALlyBig);                              //this curve all used up
+            return(curve->points[curve->nPoints - 1]);      //this curve all used up
         }
     }
     currentPoint = curve->currentPoint;                     //faster access to point index
+    keyLength = curve->times[currentPoint + 1] - curve->times[currentPoint];
+    if ((keyLength <= 0.03433333337306976f) && (curve->params[currentPoint].tension != 0.0f) &&
+        (curve->params[currentPoint + 1].tension != 0.0f))
+    {
+        curve->timeElapsed = curve->times[currentPoint + 1];
+    }
     if (currentPoint >= curve->nPoints)
     {
         return(REALlyBig);
     }
     unscaledTime = curve->timeElapsed - curve->times[currentPoint];//get time into current control point
-    keyLength = curve->times[currentPoint + 1] - curve->times[currentPoint];
     scaledTime = unscaledTime / (keyLength);                //scale time to 1 second range
 
     if (lastTime != scaledTime)

@@ -109,32 +109,9 @@ void captaincyLog(bool32 echotoscreen,char *format, ...)
     vsprintf(buffer, format, argList);                      //prepare output string
     va_end(argList);
 
-    dbgMessage("");
-    dbgMessage(buffer);
+    // CAT: no debug echo and no captaincylog.txt (captaincyLog 0x0042ec90: vsprintf, two stripped debug calls, then
+    //      the command message when echoing; the exe's clCommandMessage also takes the colour 0xffffffff)
     if (echotoscreen) clCommandMessage(buffer);
-
-    if (logEnable)
-    {
-#ifdef _WIN32
-        SYSTEMTIME systime;
-        char buffer2[200];
-
-        GetSystemTime(&systime);
-        sprintf(buffer2,"\n%2d:%2d:%2d %s",systime.wHour,systime.wMinute,systime.wSecond,buffer);
-#else   /* TEE...VEE...MIND! */
-        struct timeval tv;
-        long tv_hour, tv_minute, tv_second;
-        char buffer2[200];
-
-        gettimeofday(&tv, 0);
-        tv_hour   = (tv.tv_sec % 86400) / 3600;
-        tv_minute = (tv.tv_sec %  3600) /   60;
-        tv_second = (tv.tv_sec %    60);
-        sprintf(buffer2, "\n%2ld:%2ld:%2ld %s", tv_hour, tv_minute, tv_second,
-            buffer);
-#endif
-        logfileLog(CAPTAINCYLOGFILE,buffer2);
-    }
 }
 
 void TransferCaptaincySyncPacketReceivedNotify(void)

@@ -7462,8 +7462,8 @@ void cat_clExternalBuildUpdate(CommandLayer *comlayer,uword playerIndex,Ship *cr
             bitClear(ship->shipOrDerelict.specialFlags2,SPECIAL_2_CatBeingBuilt);
             if (ship->shiprace == RACE_Sect)
             {
-                // CAT-TODO(M2-R4 #5): cat_rmResearchModuleActivated(ship->playerowner, ship->shiptype, TRUE)
-                //      0x004f4530 (ResearchAPI's research modules)
+                // CAT: a finished Sect module opens its research lab (cat_rmResearchModuleActivated 0x004f4530)
+                cat_rmResearchModuleActivated(ship->playerowner, ship->shiptype, TRUE);
             }
             cmDirtyShipInfo();
             break;
@@ -7887,8 +7887,16 @@ void clShipDied(CommandLayer *comlayer,ShipPtr deadship)
     // Update player unit caps info
     unitCapDeleteShip(deadship,deadship->playerowner);
 
-    // CAT: no research ship / rmDeactivateLab. CAT-TODO(M2-R4 #5): a Sect ship calls cat_rmResearchModuleDied(player,
-    //      shiptype) 0x004f4620, any other bMothership cat_rmMothershipLabLost(player) 0x004f4700 (research modules)
+    // CAT: no research ship / rmDeactivateLab: a Sect ship closes the lab of its module type (cat_rmResearchModuleDied
+    //      0x004f4620), a dead bMothership its lab 0 (cat_rmMothershipLabLost 0x004f4700) (clShipDied 0x0044b4ee)
+    if (deadship->shiprace == RACE_Sect)
+    {
+        cat_rmResearchModuleDied(deadship->playerowner, deadship->shiptype);
+    }
+    else if (deadship->shiptype == bMothership)
+    {
+        cat_rmMothershipLabLost(deadship->playerowner);
+    }
 }
 
 /*-----------------------------------------------------------------------------

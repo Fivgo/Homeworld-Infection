@@ -8,6 +8,7 @@
 // =============================================================================
 
 #include "Blobs.h"
+#include "ShipSelect.h"     // CAT: cat_shipIsCloakedFully
 
 #include "Alliance.h"
 #include "Battle.h"
@@ -1239,7 +1240,7 @@ void bobBlobItemize(blob *thisBlob, sdword sensorsLevel)
                     {
                         thisBlob->nNonCombat++;
                     }
-                    if (!bitTest(object->header.flags,SOF_Cloaked))
+                    if (!cat_shipIsCloakedFully((Ship *)object))    // CAT: the Cataclysm cloak query (bobBlobItemize 0x004271d0)
                     {                                       //if there is an uncloaked enemy ship here
                         bitSet(thisBlob->flags, BTF_UncloakedEnemies);
                     }

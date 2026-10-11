@@ -1550,7 +1550,7 @@ void cmUpdateShipAvailable(void)
     {
         if (cmShipsAvailable[index].itemtype==ITEM_SHIP)
         {
-            if (rmCanBuildShip(universe.curPlayerPtr, cmShipsAvailable[index].type) &&
+            if (rmCanBuildShip(universe.curPlayerPtr, cmShipsAvailable[index].type, TRUE) &&   // CAT: 3rd argument (cmUpdateShipAvailable 0x00455410 passes 1; CAT-TODO stage 3: the body)
                 bitTest(cmShipsAvailable[index].info->common.infoFlags, IF_InfoLoaded))
             {
                 cmShipsAvailable[index].itemstat = STAT_CANBUILD;
@@ -3257,7 +3257,7 @@ bool32 cmCanBuildShipType(Ship *factoryship,ShipType shiptype,bool32 checkResear
                     return TRUE;
                 }
 
-                if (rmCanBuildShip(factoryship->playerowner, shiptype))
+                if (rmCanBuildShip(factoryship->playerowner, shiptype, TRUE))     // CAT-TODO(stage 3): cmCanBuildShipType 0x00457e50 passes a computed flag
                 {
                     return TRUE;
                 }

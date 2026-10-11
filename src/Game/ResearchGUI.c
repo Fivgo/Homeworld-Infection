@@ -45,6 +45,38 @@
 #include "UIControls.h"
 #include "Universe.h"
 
+// CAT (M2-R4 rest-oracle): tech-set helpers for the HW1 mask arithmetic this file still carries (CAT-TODO stage 3)
+static void cat_rmTechSetCopy(sdword *out, sdword *a)
+{
+    sdword i;
+    for (i = 0; i < CAT_TECHSET_SIZE; i++)
+    {
+        out[i] = a[i];
+    }
+}
+
+// every technology of need is in have
+static bool32 cat_rmTechSetCovers(sdword *have, sdword *need)
+{
+    sdword i;
+    if (have[CAT_TECHSET_FLAG] == CAT_TECHSET_ALL)
+    {
+        return TRUE;
+    }
+    if (need[CAT_TECHSET_FLAG] == CAT_TECHSET_ALL)
+    {
+        return FALSE;
+    }
+    for (i = 0; i < NumTechnologies; i++)
+    {
+        if ((need[i] == 1) && (have[i] != 1))
+        {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
 #ifndef SW_Render
     #ifdef _WIN32
         #include <windows.h>
@@ -104,7 +136,7 @@
 #define RM_TEXTURE_INSET        3
 #define RM_LAB_INSET            5
 
-#define NUMTECHSINLIST          34
+#define NUMTECHSINLIST          43      // CAT-PROVISIONAL (stage 3): 41 technologies + heading + end
 
 /*=============================================================================
     Data:
@@ -208,50 +240,52 @@ fedrawcallback rmDrawCallback[] =
 };
 
 
+// CAT-PROVISIONAL (stage 3, research GUI): HW1's four class headings with the 41 Cataclysm technologies in enum order;
+//      the exe's research screen (rmGUIStartup 0x004f76f0, rmUpdateTechList 0x004f6d30) has its own list and layout
 TechPrintList PlayerTechListStatic[NUMTECHSINLIST] =
 {
     {ITEM_CLASSHEADER   ,   0               ,   WeaponHeading           },
-
-    {ITEM_TECHNOLOGY    ,   0               ,   MassDrive1Kt            },
-    {ITEM_TECHNOLOGY    ,   0               ,   Chassis1                },
-    {ITEM_TECHNOLOGY    ,   0               ,   FireControl             },
-    {ITEM_TECHNOLOGY    ,   0               ,   CoolingSystems          },
-    {ITEM_TECHNOLOGY    ,   0               ,   PlasmaWeapons           },
-    {ITEM_TECHNOLOGY    ,   0               ,   AdvancedCoolingSystems  },
-    {ITEM_TECHNOLOGY    ,   0               ,   AdvancedFireControl     },
-    {ITEM_TECHNOLOGY    ,   0               ,   CloakDefenseFighter     },
-
-    {ITEM_CLASSHEADER   ,   0               ,   ConstructionHeading     },
-
-    {ITEM_TECHNOLOGY    ,   0               ,   MassDrive10Kt           },
-    {ITEM_TECHNOLOGY    ,   0               ,   Chassis2                },
-    {ITEM_TECHNOLOGY    ,   0               ,   MediumGuns              },
-    {ITEM_TECHNOLOGY    ,   0               ,   TargetingSystems        },
-    {ITEM_TECHNOLOGY    ,   0               ,   MineLayerTech           },
-    {ITEM_TECHNOLOGY    ,   0               ,   NewAlloys               },
-
-    {ITEM_CLASSHEADER   ,   0               ,   InterdictionHeading     },
-
-    {ITEM_TECHNOLOGY    ,   0               ,   MassDrive100Kt          },
-    {ITEM_TECHNOLOGY    ,   0               ,   Chassis3                },
-    {ITEM_TECHNOLOGY    ,   0               ,   IonWeapons              },
-    {ITEM_TECHNOLOGY    ,   0               ,   MissileWeapons          },
-
-    {ITEM_TECHNOLOGY    ,   0               ,   DDDFDFGFTech            },
-    {ITEM_TECHNOLOGY    ,   0               ,   MassDrive1Mt            },
-    {ITEM_TECHNOLOGY    ,   0               ,   RepairTech              },
-
-    {ITEM_TECHNOLOGY    ,   0               ,   HeavyGuns               },
-
-    {ITEM_CLASSHEADER   ,   0               ,   SupportHeading          },
-    {ITEM_TECHNOLOGY    ,   0               ,   ProximityDetector       },
-    {ITEM_TECHNOLOGY    ,   0               ,   SupportRefuelTech       },
-    {ITEM_TECHNOLOGY    ,   0               ,   AdvanceTacticalSupport  },
-    {ITEM_TECHNOLOGY    ,   0               ,   ConstructionTech        },
-    {ITEM_TECHNOLOGY    ,   0               ,   SensorsArrayTech        },
-    {ITEM_TECHNOLOGY    ,   0               ,   GravityWellGeneratorTech},
-    {ITEM_TECHNOLOGY    ,   0               ,   CloakGeneratorTech      },
-
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_CLOAKING                   },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_TARGETING_SYSTEMS          },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_PLASMA_WEAPONS             },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_MEDIUM_GUNS                },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_DEFENSE_FIELD              },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_HEAVY_GUNS                 },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_REPAIR                     },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_SALVAGE                    },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_DRIVE_FIGHTER              },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ADRIVE_FIGHTER             },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_DRIVE_FRIGATE              },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ADRIVE_FRIGATE             },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_DRIVE_DESTROYER            },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ADRIVE_DESTROYER           },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ARMOUR2                    },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ARMOUR3                    },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_SUPPORT_SYSTEMS            },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_MICRO_SHIP                 },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ENERGY                     },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ION                        },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_MISSILE                    },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_REPULSE                    },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_EMP                        },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_EXPLOSIVE_CHARGE           },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_LINK                       },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_MIMIC                      },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_AFTERBURNER                },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_BIG_GUN                    },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ADVANCED_SENSORS           },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_FORCE_FIELD1               },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_FORCE_FIELD2               },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_FORCE_FIELD3               },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_INFECT                     },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_REPAIRBOTS                 },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_CRYSTAL_HARVEST            },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_RESEARCH_CLEESAN_ATTACK    },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_BEAST_VACCINE              },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_PHASED_TELEMETRY           },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_INERTIALESS_DRIVE          },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_BIOWARHEAD                 },
+    {ITEM_TECHNOLOGY    ,   0               ,   TECH_DRIVE_CORVETTE             },
     {ITEM_ENDLIST       ,   0               ,   0                       }
 };
 
@@ -654,7 +688,7 @@ void rmResearchItem(char *string, featom *atom)
             }
             if (found==FALSE)
             {
-                index = rmFindFreeLab(universe.curPlayerPtr);
+                index = rmFindFreeLab(universe.curPlayerPtr, tech->itemID);   // CAT: the lab of the technology's module (0x004f2870)
                 if (index!=-1)
                 {
                     if (!multiPlayerGame)
@@ -1405,17 +1439,19 @@ char *getShipBuild(char *dest)
 {
     PlayerResearchInfo *researchinfo = &universe.curPlayerPtr->researchinfo;
     TechStatics        *techstat = researchinfo->techstat;
-    sdword              hastech = researchinfo->HasTechnology;
+    CatTechSet          hasPlusTech;
     sdword              index;
     bool32                first=TRUE;
 
+    // CAT-TODO(stage 3): HW1's mask arithmetic on tech sets (the exe's getShipBuild compares sets with
+    //      cat_rmTechSetEqual); a ship is listed when the technology in hand completes its requirements
+    cat_rmTechSetCopy(hasPlusTech, researchinfo->HasTechnology);
+    hasPlusTech[techinfo] = 1;
     for (index=0;index<STD_LAST_SHIP;index++)
     {
-        if ( (techstat->TechNeededToBuildShip[index]&(hastech|TechToBit(techinfo))) ==
-              techstat->TechNeededToBuildShip[index])
+        if (cat_rmTechSetCovers(hasPlusTech, techstat->TechNeededToBuildShip[index]))
         {
-            if ( (techstat->TechNeededToBuildShip[index]&hastech) !=
-                  techstat->TechNeededToBuildShip[index])
+            if (!cat_rmTechSetCovers(researchinfo->HasTechnology, techstat->TechNeededToBuildShip[index]))
             {
                 if ( ( (universe.curPlayerPtr->race == R1) &&
                        (index != DFGFrigate              )  ) |
@@ -1516,22 +1552,12 @@ void rmTechInfoDraw(regionhandle region)
 
         //fontMakeCurrent(rmTechInfoFont);
 
-        // Bad bad design, my fault [Drew] doh!
-        if (techinfo==DDDFDFGFTech)
-            if (universe.curPlayerPtr->race==R1)
-                strcpy(stringtoprint,strGetString(strR1DDDFTechinfo));
-            else
-                strcpy(stringtoprint,strGetString(strR2DFGFTechinfo));
-        else if (techinfo==CloakDefenseFighter)
-            if (universe.curPlayerPtr->race==R1)
-                strcpy(stringtoprint,strGetString(strR1CloakFighterinfo));
-            else
-                strcpy(stringtoprint,strGetString(strR2DefenseFighterTechinfo));
+        // CAT: no race-specific technology names (HW1 renamed DDDFDFGFTech/CloakDefenseFighter per race);
+        //      CAT-TODO(stage 3): the exe's research screen body
+        if (universe.curPlayerPtr->race==R1)
+            strcpy(stringtoprint,strGetString(techinfo+strTechInfoOffsetR1));
         else
-            if (universe.curPlayerPtr->race==R1)
-                strcpy(stringtoprint,strGetString(techinfo+strTechInfoOffsetR1));
-            else
-                strcpy(stringtoprint,strGetString(techinfo+strTechInfoOffsetR2));
+            strcpy(stringtoprint,strGetString(techinfo+strTechInfoOffsetR2));
 
         getShipBuild(stringtoprint);
 
@@ -2044,7 +2070,7 @@ void rmUpdateTechList(void)
 {
     PlayerResearchInfo *research=&universe.curPlayerPtr->researchinfo;
     TechnologyType tech;
-    sdword index, mask, hastech, canprint=STAT_CANTPRINT;
+    sdword index, canprint=STAT_CANTPRINT;
     sdword count=0;
 //    ubyte *data=NULL;
 
@@ -2053,10 +2079,8 @@ void rmUpdateTechList(void)
         if (PlayerTechList[index].itemtype==ITEM_TECHNOLOGY)
         {
             tech    = PlayerTechList[index].itemID;
-            hastech = research->HasTechnology;
-            mask    = research->techstat->TechNeededToResearch[tech];
 
-            if (TechToBit(tech)&hastech)
+            if (cat_rmTechSetHas(research->HasTechnology, tech))     // CAT: tech sets (CAT-TODO stage 3: the exe body)
             {
                 PlayerTechList[index].itemstat = STAT_ALREADYHAVE;
             }
@@ -2077,7 +2101,7 @@ void rmUpdateTechList(void)
             }
             else
             {
-                if ((hastech & mask)==mask)
+                if (cat_rmTechSetCovers(research->HasTechnology, research->techstat->TechNeededToResearch[tech]))
                 {
                     PlayerTechList[index].itemstat = STAT_CANRESEARCH;
                 }
@@ -2271,7 +2295,7 @@ bool32 ShipsNeedTech(TechStatics *techstat, TechnologyType tech)
 
     for (index=0;index<STD_LAST_SHIP;index++)
     {
-        if (techstat->TechNeededToBuildShip[index]&TechToBit(tech))
+        if (techstat->TechNeededToBuildShip[index][tech] == 1)      // CAT: tech sets
         {
             return(TRUE);
         }

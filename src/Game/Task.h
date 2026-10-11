@@ -105,6 +105,18 @@ extern taskdata *taskData[TSK_NumberTasks];     //pointers to active tasks
 
 extern real32 taskTimeDelta;
 extern real32 taskTimeElapsed;                  //time elapsed, in seconds, since program started
+// CAT (M2-R4 rest-oracle): time compression (Task.c; cataclysm.exe 0x0052a350-0x0052a4c0, 0x0052a840)
+extern real32 cat_timeCompressionFactor;        // 0x00bb3268: scales the ticks taskExecuteAllPending gets
+extern real32 cat_taskRealTimeDelta;            // 0x00bb3274 (name chosen here)
+extern real32 cat_taskRealTimeElapsed;          // 0x00bb3270: unscaled task seconds since start (the build timers' clock)
+sdword cat_taskTimeCompressionMaxIndex(void);
+ubyte  cat_taskTimeCompressionDefaultIndex(void);
+void   cat_taskTimeCompressionApply(void);
+void   cat_taskTimeCompressionPrint(void);
+void   cat_taskTimeCompressionReset(void);
+void   cat_taskTimeCompressionResetAndPrint(void);
+void   cat_taskTimeCompressionIncrease(void);
+void   cat_taskTimeCompressionDecrease(void);
 
 extern udword taskProcessIndex;                 //number of calls being executed on this task
 extern sdword taskNumberCalls;                  //number of times to call the task

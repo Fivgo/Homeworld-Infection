@@ -4160,7 +4160,9 @@ void SaveUniverse(void)
     dbgAssertOrIgnore(universe.DeleteDerelictList.num == 0);
     dbgAssertOrIgnore(universe.DeleteShipList.num == 0);
 
-    SaveRetreatList(&universe.RetreatList);
+    // CAT: one tactics list: the attack memory at universe+0x180 (SaveUniverse 0x005034c0 saves its count and each
+    //      atom with SaveRetreatAtom, 0x24 + 4n bytes = HW1's AttackAtom); HW1's RetreatList is gone. CAT-TODO(save
+    //      hook): cat_saveUniverseList5e288 and cat_saveShipRecordTable follow it in the exe
     SaveAttackMemory(&universe.AttackMemory);
 
     SaveLinkedListOfStuff(&universe.ResourceVolumeList,SaveResourceVolumeCB);
@@ -4231,8 +4233,7 @@ void LoadUniverse(void)
 
     FillOutCollBlobList(&universe.collBlobList);
 
-    LoadRetreatList(&universe.RetreatList);
-    LoadAttackMemory(&universe.AttackMemory);
+    LoadAttackMemory(&universe.AttackMemory);   // CAT: the one tactics list (see SaveUniverse)
 
     LoadLinkedListOfStuff(&universe.ResourceVolumeList,LoadResourceVolumeCB);
 

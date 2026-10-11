@@ -66,8 +66,8 @@
 #define CAT_numPlayers              0x00B674F8u /* uword (universe.numPlayers) */
 #define CAT_players                 0x00B67500u /* Player[], stride 0x6530 */
 #define CAT_PLAYER_STRIDE           0x6530u
-#define CAT_PLAYER_resourceUnits    0x4u        /* statsGetStatChecksum adds it; printed 2nd in CDET, as HW1 resourceUnits */
-#define CAT_PLAYER_totalships       0x2Cu       /* statsGetStatChecksum adds it; printed 1st in CDET, as HW1 totalships */
+#define CAT_PLAYER_resourceUnits    0x4u        /* VERIFIED (M2-R4 rest-oracle): CET universe.h asserts; gameStart 0x005a9290 writes it; the Player layout is in src/Game/Universe.h */
+#define CAT_PLAYER_totalships       0x2Cu       /* VERIFIED (M2-R4 rest-oracle): unitCapCanCreateShip 0x0053ece0 pPVar3->totalships; CET universe.h assert */
 #define CAT_ranStream               0x00C2FD80u /* 27 x {x, y, z, c, n} */
 #define CAT_RAN_STREAMS             27
 #define CAT_netsyncchecksums        0x00C30FC0u /* 128 x 16-byte entries {u16 packetnum, u16 randcheck, f32 univcheck, u32 blobcheck, u32 extra} */
@@ -110,7 +110,7 @@
 #define CAT_SHIP_shiprace           0x2B4u
 #define CAT_SHIP_playerowner        0x32Cu      /* Player *; the owner index is found by address in CAT_players */
 #define CAT_SHIP_command            0x370u      /* CommandToDo *; order u16 at +0x14, attributes u16 at +0x16 */
-#define CAT_SHIP_health             0x170u      /* UNVERIFIED (CET says 0x158): ships_health stays invalid */
+#define CAT_SHIP_health             0x170u      /* VERIFIED (M2-R4 rest-oracle): ApplyDamageToTarget 0x00546250 clamps [esi+0x170] to staticinfo+0xA4 maxhealth; also read as health at 0x0054c3f0 (repair), 0x00580xxx (target), docs/m2-r4-rest-oracle.md "oracle" */
 #define CAT_SHIP_shipID             0x43Cu      /* u16 */
 
 /* H4: stream-0 callers that draw from the private stream with rng0=split: [start, end) from functions.csv (r5) */

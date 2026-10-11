@@ -104,24 +104,41 @@ typedef enum PlayerState
 
 typedef struct Player
 {
-    Ship *PlayerMothership;
-    sdword resourceUnits;
-    ShipRace race;
-    PlayerState playerState;
-    struct AIPlayer *aiPlayer;      // if non-null, then player has a computer AI Player
-    udword autoLaunch;
-    uword playerIndex;
-    ubyte sensorLevel;
-    ubyte bounty;                   //range from 0 to 100
-    real32 timeMoShipAttacked;
-    sdword totalships;                   // total ships for player
-    sdword shiptotals[TOTAL_NUM_SHIPS];  // totals for each type of ship
-    sdword classtotals[NUM_CLASSES];
-    PlayerResearchInfo researchinfo;    // research information for player
-    uword Allies;                       // bitmask of players that i am allied with
-    uword AllianceProposals;
-    udword AllianceProposalsTimeout;    // timeout counter for proposals to expire!
-    sdword initialShipCost;				// total ship cost at game start
+    Ship *PlayerMothership;             /*+0x000*/
+    sdword resourceUnits;               /*+0x004*/
+    // CAT (M2-R4 rest-oracle): the Cataclysm Player is 0x6530 bytes (PreLoadGame's stride, universe.players 0x00b67500
+    //      to 0x00b9bfd0); the offsets are the exe's. The three dwords after resourceUnits are CET's (universe.h): +0x8
+    //      has no reader in the r6 export, +0xC and +0x10 are the support-unit budget (cmUpdateShipAvailable
+    //      0x00455410; statsGetStatChecksum 0x00525170 adds +0xC)
+    udword catUnknown08;                /*+0x008 CAT: no reader found in the export (CET: unk) */
+    sdword supportUnitsMax;             /*+0x00C CAT */
+    sdword supportUnitsUsed;            /*+0x010 CAT */
+    ShipRace race;                      /*+0x014*/
+    PlayerState playerState;            /*+0x018*/
+    struct AIPlayer *aiPlayer;          /*+0x01C if non-null, then player has a computer AI Player */
+    udword autoLaunch;                  /*+0x020*/
+    uword playerIndex;                  /*+0x024*/
+    ubyte sensorLevel;                  /*+0x026*/
+    ubyte bounty;                       /*+0x027 range from 0 to 100 */
+    real32 timeMoShipAttacked;          /*+0x028*/
+    sdword totalships;                  /*+0x02C total ships for player */
+    sdword shiptotals[TOTAL_NUM_SHIPS]; /*+0x030 totals for each type of ship (145, crc32Compute(player+0x30, 0x244)) */
+    sdword classtotals[NUM_CLASSES];    /*+0x274*/
+    PlayerResearchInfo researchinfo;    /*+0x2A4 research information for player (0x6250 bytes, ResearchAPI.h) */
+    uword Allies;                       /*+0x64F4 bitmask of players that i am allied with (allianceIsShipAlly 0x00420ec0) */
+    uword AllianceProposals;            /*+0x64F6*/
+    udword AllianceProposalsTimeout;    /*+0x64F8 timeout counter for proposals to expire! */
+    sdword initialShipCost;             /*+0x64FC total ship cost at game start (gameStatsCalcShipCostTotals 0x0053f500) */
+    // CAT: the player's fog-of-war grid (cat_playerGetFOWGrid 0x00480d10; created by cat_fowCreatePlayerGrids 0x004a38c0,
+    //      destroyed in universeReset 0x0053df80); NULL until stage 3 ports the FOW
+    void *catFOWGrid;                   /*+0x6500*/
+    // CAT: the upgrade state the player's research gives its ships (cat_playerUpdateUpgradesFromResearch 0x00514140,
+    //      cat_playerUpgradesReset 0x00514100): the armour level cap (0: none, 1: TECH_ARMOUR2, 2: TECH_ARMOUR3), which
+    //      of the 9 weapon types are available (index = WEAPON_*; [0] projectile is always 1) and the CAT_UPGRADE_*
+    //      bits of the technologies the player has
+    sdword catArmourLevelCap;           /*+0x6504*/
+    sdword catWeaponAvailable[9];       /*+0x6508*/
+    udword catUpgradeBits;              /*+0x652C*/
 } Player;
 
 typedef struct
@@ -132,20 +149,24 @@ typedef struct
     LinkedList RenderList;      // Linked list of all objects (SpaeceObj's to be rendered)
     LinkedList MinorRenderList;
     bool32 dontUpdateRenderList;
+    // CAT (M2-R4 rest-oracle): universe+0xB8 (CET: unknown1): set by smSensorsBegin 0x0050cdb0, cleared by
+    //      smSensorsCloseForGood 0x0050ba90 and univUpdateReset 0x0054acd0; universeUpdateTask 0x0053e460 skips
+    //      univUpdateRenderList while it is set. Name chosen here.
+    bool32 catSensorsHoldRenderList;
 
-    real32 phystimeelapsed;
-    real32 totaltimeelapsed;
+    real32 phystimeelapsed;             /*+0x0BC*/
+    real32 totaltimeelapsed;            /*+0x0C0*/
     // CAT: wall-clock seconds of game play (universe.realtimeelapsed 0x00B62AC4, right after totaltimeelapsed 0x00B62AC0):
     //      univUpdate 0x0054c3f0 adds QueryPerformanceCounter time each tick, univUpdateReset 0x0054acd0 zeroes it; the
     //      quit/win timers and ~20 other functions read it (docs/m2-checksum-oracle.md 2.5; readers are ported with them)
-    real32 realtimeelapsed;
+    real32 realtimeelapsed;             /*+0x0C4*/
 
-    real32 radius;
+    real32 radius;                      /*+0x0C8*/
 
-    LinkedList SpaceObjList;
+    LinkedList SpaceObjList;            /*+0x0CC*/
     LinkedList MinorSpaceObjList;
-    LinkedList effectList;
-    LinkedList ShipList;
+    LinkedList effectList;              /*+0x0E4*/
+    LinkedList ShipList;                /*+0x0F0*/
     LinkedList BulletList;
     LinkedList ResourceList;
     LinkedList DerelictList;
@@ -158,61 +179,101 @@ typedef struct
     LinkedList DeleteShipList;
     LinkedList DeleteMissileList;
 
-    LinkedList collBlobList;
+    LinkedList collBlobList;            /*+0x174*/
 
     // tactics stuff
-    LinkedList RetreatList;
-    LinkedList AttackMemory;
+    // CAT: one tactics list (universe+0x180): its atoms are HW1's AttackAtoms (SaveRetreatAtom 0x00503290 saves 0x24 +
+    //      4 x numShips bytes: Node, retreater +0x10, two reals, SelectCommand attackerList at +0x1C;
+    //      tacticsShipDied 0x00529150 and tacticsMakeShipsNotLookForOtherShips 0x005291b0 walk it as attack memory).
+    //      HW1's RetreatList (RetreatAtoms) is gone; CET named this list RetreatList
+    LinkedList AttackMemory;            /*+0x180*/
 
     // regrow resources stuff
-    LinkedList ResourceVolumeList;
+    LinkedList ResourceVolumeList;      /*+0x18C*/
 
-    GrowSelection HousekeepShipList;
+    GrowSelection HousekeepShipList;    /*+0x198*/
+    // CAT: a second universe grow-selection (CET: unk1), saved after HousekeepShipList (SaveUniverse 0x005034c0),
+    //      reset with it (univUpdateReset 0x0054acd0). Name chosen here; its users come with their files.
+    GrowSelection catSelection1A0;      /*+0x1A0*/
 
-    Star3dInfo *star3dinfo;
-    udword univUpdateCounter;
+    Star3dInfo *star3dinfo;             /*+0x1A8*/
+    udword univUpdateCounter;           /*+0x1AC*/
     color backgroundColor;
     uword resourceNumber;
     uword derelictNumber;
     uword shipNumber;
     uword missileNumber;
 
-    real32 wintime;             // time to display the win game message
-    real32 quittime;            // time to quit the game
+    real32 wintime;             /*+0x1BC time to display the win game message */
+    real32 quittime;            /*+0x1C0 time to quit the game */
 
-    udword lasttimeadded;       // for resource injections
+    udword lasttimeadded;       /*+0x1C4 for resource injections */
 
-    uword shipMaxUnits[TOTAL_NUM_SHIPS];
+    uword shipMaxUnits[TOTAL_NUM_SHIPS];    /*+0x1C8*/
 
-    sbyte aiplayerEnemy[MAX_MULTIPLAYER_PLAYERS];
-    bool32  aiplayerProcessing;
+    sbyte aiplayerEnemy[MAX_MULTIPLAYER_PLAYERS];   /*+0x2EA*/
+    bool32  aiplayerProcessing;                     /*+0x2F4*/
 
-    sdword CapitalShipCaptured;     // bit field of players who have had a ship captured
-    sdword PlayerWhoWon;            // bit field of players who have captured a enemy's ship
+    sdword CapitalShipCaptured;     /*+0x2F8 bit field of players who have had a ship captured */
+    sdword PlayerWhoWon;            /*+0x2FC bit field of players who have captured a enemy's ship */
 
-    sdword bounties;
-    sdword bountySize;
+    sdword bounties;                /*+0x300*/
+    sdword bountySize;              /*+0x304*/
 
-    GameStats gameStats;
-    bool32 DerelictTech;              //variable that needs to be saved that controls the salvagability of technology holding derelicts
+    GameStats gameStats;            /*+0x308 (0x47E0 bytes, GameStats.h) */
+    bool32 DerelictTech;            /*+0x4AE8 variable that needs to be saved that controls the salvagability of technology holding derelicts */
 
-    real32 crateTimer;
-    udword numCratesInWorld;
+    real32 crateTimer;              /*+0x4AEC*/
+    udword numCratesInWorld;        /*+0x4AF0*/
 
-    bool32 collUpdateAllBlobs;        // put in here so it gets saved with SaveGame
+    bool32 collUpdateAllBlobs;      /*+0x4AF4 put in here so it gets saved with SaveGame */
 
-    uword numPlayers;
-    uword curPlayerIndex;
-    Player *curPlayerPtr;
-    Player players[MAX_MULTIPLAYER_PLAYERS+1];      // players[MAX_MULTIPLAYER_PLAYER] is a enemy of all players and used for autoguns, etc.
-    Derelict *world[UNIV_NUMBER_WORLDS];        //list of planets
+    uword numPlayers;               /*+0x4AF8*/
+    uword curPlayerIndex;           /*+0x4AFA*/
+    Player *curPlayerPtr;           /*+0x4AFC*/
+    Player players[MAX_MULTIPLAYER_PLAYERS+1];      /*+0x4B00 players[MAX_MULTIPLAYER_PLAYER] is a enemy of all players and used for autoguns, etc. */
+    Derelict *world[UNIV_NUMBER_WORLDS];        /*+0x3D9B0 list of planets (univAddToWorldList: 3 entries at 0x00ba03b0) */
 } Universe;
-// CAT: realtimeelapsed directly follows totaltimeelapsed (exe 0x00B62AC0 / 0x00B62AC4). The fields before it do not
-//      have the exe's offsets yet (ILP32 totaltimeelapsed is +0xBC here, +0xC0 in the exe), so Universe's exe size
-//      (0x3D9BC save chunk) is asserted with the full layout (M2-R4); this pins the field this round added.
-//      [audit: added by the M2-R3 closeout-headers audit]
+// CAT (M2-R4 rest-oracle): the Universe (0x3D9BC, the SaveUniverse chunk 0x005034c0 and cdLimitCaps at 0x00ba03c0 right
+//      after universe 0x00b62a00) and Player (0x6530) layouts are pinned under ILP32 (tools/m2_layout32.sh); the
+//      offsets are CET universe.h's asserts plus the exe reads listed in docs/m2-r4-rest-oracle.md "layout"
 _Static_assert(offsetof(Universe, realtimeelapsed) == offsetof(Universe, totaltimeelapsed) + sizeof(real32),
                "realtimeelapsed follows totaltimeelapsed (universe 0x00B62AC4 in cataclysm.exe)");
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(Player) == 0x6530, "Player is 0x6530 bytes in cataclysm.exe");
+_Static_assert(offsetof(Player, supportUnitsMax) == 0xC, "Player.supportUnitsMax at 0xC");
+_Static_assert(offsetof(Player, race) == 0x14, "Player.race at 0x14");
+_Static_assert(offsetof(Player, aiPlayer) == 0x1C, "Player.aiPlayer at 0x1C");
+_Static_assert(offsetof(Player, playerIndex) == 0x24, "Player.playerIndex at 0x24");
+_Static_assert(offsetof(Player, totalships) == 0x2C, "Player.totalships at 0x2C");
+_Static_assert(offsetof(Player, shiptotals) == 0x30, "Player.shiptotals at 0x30");
+_Static_assert(offsetof(Player, classtotals) == 0x274, "Player.classtotals at 0x274");
+_Static_assert(offsetof(Player, researchinfo) == 0x2A4, "Player.researchinfo at 0x2A4");
+_Static_assert(offsetof(Player, Allies) == 0x64F4, "Player.Allies at 0x64F4");
+_Static_assert(offsetof(Player, initialShipCost) == 0x64FC, "Player.initialShipCost at 0x64FC");
+_Static_assert(offsetof(Player, catFOWGrid) == 0x6500, "Player.catFOWGrid at 0x6500");
+_Static_assert(offsetof(Player, catArmourLevelCap) == 0x6504, "Player.catArmourLevelCap at 0x6504");
+_Static_assert(offsetof(Player, catWeaponAvailable) == 0x6508, "Player.catWeaponAvailable at 0x6508");
+_Static_assert(offsetof(Player, catUpgradeBits) == 0x652C, "Player.catUpgradeBits at 0x652C");
+_Static_assert(sizeof(Universe) == 0x3D9BC, "Universe is 0x3D9BC bytes in cataclysm.exe");
+_Static_assert(offsetof(Universe, catSensorsHoldRenderList) == 0xB8, "universe+0xB8");
+_Static_assert(offsetof(Universe, phystimeelapsed) == 0xBC, "universe.phystimeelapsed at 0xBC");
+_Static_assert(offsetof(Universe, totaltimeelapsed) == 0xC0, "universe.totaltimeelapsed at 0xC0");
+_Static_assert(offsetof(Universe, effectList) == 0xE4, "universe.effectList at 0xE4");
+_Static_assert(offsetof(Universe, ShipList) == 0xF0, "universe.ShipList at 0xF0");
+_Static_assert(offsetof(Universe, collBlobList) == 0x174, "universe.collBlobList at 0x174");
+_Static_assert(offsetof(Universe, AttackMemory) == 0x180, "universe.AttackMemory (CET: RetreatList) at 0x180");
+_Static_assert(offsetof(Universe, HousekeepShipList) == 0x198, "universe.HousekeepShipList at 0x198");
+_Static_assert(offsetof(Universe, univUpdateCounter) == 0x1AC, "universe.univUpdateCounter at 0x1AC");
+_Static_assert(offsetof(Universe, wintime) == 0x1BC, "universe.wintime at 0x1BC");
+_Static_assert(offsetof(Universe, aiplayerEnemy) == 0x2EA, "universe.aiplayerEnemy at 0x2EA");
+_Static_assert(offsetof(Universe, bountySize) == 0x304, "universe.bountySize at 0x304");
+_Static_assert(offsetof(Universe, gameStats) == 0x308, "universe.gameStats at 0x308");
+_Static_assert(offsetof(Universe, numCratesInWorld) == 0x4AF0, "universe.numCratesInWorld at 0x4AF0");
+_Static_assert(offsetof(Universe, numPlayers) == 0x4AF8, "universe.numPlayers at 0x4AF8");
+_Static_assert(offsetof(Universe, players) == 0x4B00, "universe.players at 0x4B00");
+_Static_assert(offsetof(Universe, world) == 0x3D9B0, "universe.world at 0x3D9B0");
+#endif
 
 extern GrowSelection ClampedShipList;       // special GrowSelect which can have NULL's in it
 
@@ -329,6 +390,7 @@ void cat_univMothershipModuleTypesGet(CatModuleTypeList *modules);        // CAT
 void cat_univBeastMothershipModuleTypesGet(CatModuleTypeList *modules);   // CAT: 0x0053f840
 Ship *cat_univFindNearestShip(SpaceObj *from, bool32 (*filter)(Ship *ship));   // CAT: 0x0053f590
 bool32 cat_playerHasCompletedShip(ShipType type, Player *player);                 // CAT: 0x0053f620
+void *cat_playerGetFOWGrid(Player *player);                                       // CAT: 0x00480d10 (the FOW itself is stage 3)
 void unitCapDeleteShip(Ship *ship, Player *player);
 bool32 unitCapCanCreateShip(ShipType ship, shipsinprogress *factory, shipavailable *cmShipsAvail);
 void unitCapInitialize(Player *player);

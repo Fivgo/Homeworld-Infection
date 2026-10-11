@@ -344,7 +344,7 @@ static void fill_tick(HwoTick *t)
     t->total = RD32(CAT_totaltimeelapsed);
     t->real = RD32(CAT_realtimeelapsed);
     t->fpcw = x87_cw();
-    t->valid = HWO_TV_REAL | HWO_TV_SHIPMISC | HWO_TV_CHECKSUMS;    /* PLAYERS and HEALTH: offsets not verified */
+    t->valid = HWO_TV_REAL | HWO_TV_SHIPMISC | HWO_TV_CHECKSUMS | HWO_TV_HEALTH | HWO_TV_PLAYERS;    /* M2-R4 rest-oracle: health +0x170 and the Player fields verified (hook_sites.h) */
     game_checksums(&t->univcheck, &t->nships, &t->statcheck);
 
     for (s = 0; s < CAT_RAN_STREAMS; s++)

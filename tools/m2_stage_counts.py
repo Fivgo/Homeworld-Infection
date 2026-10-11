@@ -39,7 +39,7 @@ def main_root():
         return HERE
 
 
-EXPORT = os.path.join(main_root(), "ghidra/exports/cataclysm_gog_r5")
+EXPORT = os.path.join(main_root(), "ghidra/exports/cataclysm_gog_r6")   # M2-R4: r6
 S1, S2, S3, S4, S5, S6 = ("1 formats+data-load", "2 universe+ships", "3 UI+presentation", "4 AI", "5 LAN",
                           "6 missions")
 STAGES = [S1, S2, S3, S4, S5, S6]
@@ -68,6 +68,9 @@ STAGE_FILES = {
 STAGE_OF = {f.lower(): s for s, fs in STAGE_FILES.items() for f in fs.split()}
 PREFIXES = [
     (r"^(cat_)?kas", S6), (r"^cat_(mission|objective|tutor|singlePlayer|sp[A-Z])", S6),
+    # M2-R4 rest-oracle: the ship info panel and the selection status bars are UI (docs/m2-r3-summary.md), not the
+    # stage-2 neighbours the address rule gave them
+    (r"^cat_(shipPrint|selStatus|selHealth)", S3),
     (r"^(cat_)?ai[a-z]?[A-Z_]", S4), (r"^cat_ai", S4),
     (r"^(cat_)?(mg|titan|Titan|lan|LAN|cn[A-Z]|netcheck|chat)", S5),
 ]

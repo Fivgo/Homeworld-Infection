@@ -19,6 +19,7 @@
 #include "ResearchAPI.h"
 #include "SinglePlayer.h"
 #include "Tweak.h"
+#include "Randy.h"
 #include "Universe.h"
 #include "UnivUpdate.h"
 
@@ -1344,6 +1345,77 @@ bool32 statShipConstraintsFrigatesOrBetterCB(ShipStaticInfo *shipstatic)
     }
 }
 
+
+/*=============================================================================
+    CAT (M2-R4 rest-oracle): Cataclysm's fight code reads static tables (read from cataclysm.exe) instead of HW1's
+    gathered fight statistics: the kill rating per standard ship type (0x008962d8, 60 rows of 5 reals, the first is the
+    rating), the per-class ship-count factor (0x00897078), the 12 x 12 class-against-class count matrix (0x008970a8,
+    [ship class][target class]), the counter ship per target type and race (0x00896e2c, {Sect, Beast}) and the
+    bytes that say whether a type has a counter (0x008961e8: Sect targets index from 0, Beast targets from +3, as
+    statsBestShipToBuyToKillShip 0x00524cf0 does). statsOverkillfactor (0x008961b0) is 1.0.
+=============================================================================*/
+#define CAT_STATS_NUM_RATED_TYPES   60      // the standard types; anything else rates 1.0 or rolls a die
+
+static const real32 cat_statsKillRating[CAT_STATS_NUM_RATED_TYPES] =
+{
+    1.0f, 3.0f, 4.0f, 4.0f, 5.0f, 6.0f, 7.0f, 9.0f, 8.0f, 1.0f, 11.0f, 1.0f, 5.0f, 1.0f, 5.0f, 1.0f,     // 0..15
+    5.0f, 3.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 3.0f,      // 16..31
+    2.0f, 1.0f, 3.0f, 2.0f, 4.0f, 5.0f, 5.0f, 7.0f, 6.0f, 9.0f, 8.0f, 1.0f, 10.0f, 1.0f, 11.0f, 5.0f,    // 32..47
+    7.0f, 5.0f, 1.0f, 5.0f, 3.0f, 2.0f, 2.0f, 2.0f, 2.0f, 2.0f, 5.0f, 4.0f,                              // 48..59
+};
+
+static const sdword cat_statsClassFactor[NUM_CLASSES] = { 1, 1, 1, 1, 2, 8, 10, 0, 0, 8, 0, 10 };
+
+static const sdword cat_statsClassMatrix[NUM_CLASSES][NUM_CLASSES] =
+{
+    { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },
+    { 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 },
+    { 3, 3, 3, 3, 3, 3, 3, 3, 1, 1, 3, 3 },
+    { 1, 3, 3, 3, 3, 2, 2, 2, 1, 1, 2, 2 },
+    { 3, 3, 3, 3, 3, 2, 2, 2, 1, 1, 2, 2 },
+    { 3, 3, 3, 3, 3, 3, 1, 1, 1, 1, 2, 1 },
+    { 3, 3, 3, 3, 3, 3, 3, 1, 1, 3, 1, 1 },
+    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    { 3, 3, 3, 3, 3, 3, 3, 1, 1, 3, 1, 1 },
+    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    { 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0 },
+};
+
+static const ShipType cat_statsCounterShip[CAT_STATS_NUM_RATED_TYPES][2] =
+{
+    { 0,33}, { 1,40}, { 1,35}, { 1,35}, { 4,59}, { 4,39}, { 6,58}, { 7,46}, { 8,39}, { 7,39}, {10,46}, {10,46},
+    {10,44}, { 8,44}, { 4,58}, { 0,35}, {25,44}, { 8,59}, {10,46}, {10,46}, {10,46}, {10,46}, {10,46}, {10,46},
+    {10,46}, {25,46}, {10,46}, {10,46}, {10,46}, {10,46}, {10,46}, {10,46}, {10,46}, { 0,33}, { 1,40}, { 1,35},
+    { 1,35}, { 4,37}, { 4,59}, { 4,39}, { 4,40}, { 7,44}, { 8,59}, { 7,39}, { 6,44}, { 8,44}, {10,46}, {25,44},
+    { 6,58}, { 4,58}, { 0,59}, {25,44}, { 8,59}, {10,46}, {10,46}, {10,46}, {10,46}, {10,46}, { 1,35}, { 4,37},
+};
+
+static const ubyte cat_statsHasCounter[0x4c] =
+{
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0,
+    1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0,
+};
+
+// the kill rating of a type: the table for the standard types, 1.0 for anything else
+static real32 cat_statsTypeKillRating(ShipType type)
+{
+    return (type < CAT_STATS_NUM_RATED_TYPES) ? cat_statsKillRating[type] : 1.0f;
+}
+
+// the kill ratio of a ship against a target (statsBestShipsToUseToKillTarget 0x00524ee0): the two ratings' quotient
+// for standard-race ships and targets, 1.0 otherwise
+static real32 cat_statsKillRatio(ShipStaticInfo *shipstatic, ShipStaticInfo *targetstatic)
+{
+    if (((shipstatic->shiprace == RACE_Sect) || (shipstatic->shiprace == RACE_Beast)) &&
+        ((targetstatic->shiprace == RACE_Sect) || (targetstatic->shiprace == RACE_Beast)))
+    {
+        return cat_statsKillRating[targetstatic->shiptype] / cat_statsKillRating[shipstatic->shiptype];
+    }
+    return 1.0f;
+}
+
 /*-----------------------------------------------------------------------------
     Name        : statShipConstraintsFightingShipsCB
     Description : Returns true if the staticinfo passed is a ship that can be
@@ -1355,47 +1427,31 @@ bool32 statShipConstraintsFrigatesOrBetterCB(ShipStaticInfo *shipstatic)
 ----------------------------------------------------------------------------*/
 bool32 statShipConstraintsFightingShipsCB(ShipStaticInfo *shipstatic)
 {
+    // CAT (statShipConstraintsFightingShipsCB 0x00524b30): heavy cruisers, destroyers, fighters and frigates fight;
+    //      corvettes except the two salvage corvettes (0x48, 0x59). The four frigate exceptions (0x2d, 0x3c, 0x4a,
+    //      0x4e) break into the corvette test in the exe and so fight too (the fall-through is kept as it is)
     switch (shipstatic->shipclass)
     {
-        case CLASS_Mothership:
-        case CLASS_Carrier:
-            return FALSE;
         case CLASS_HeavyCruiser:
         case CLASS_Destroyer:
+        case CLASS_Fighter:
             return TRUE;
-            break;
         case CLASS_Frigate:
-            // CAT: both race variants of the DFG and support frigates (statShipConstraintsFightingShipsCB 0x00524b30 /
-            //      statShipConstraintsCarrierFightingShipsCB 0x00524bd0: types 0x2d, 0x3c, 0x4a, 0x4e)
-            if ((shipstatic->shiptype == bDFGFrigate) || (shipstatic->shiptype == tDFGFrigate) ||
-                (shipstatic->shiptype == kAdvanceSupportFrigate) || (shipstatic->shiptype == tAdvanceSupportFrigate))
-            {
-                return FALSE;
-            }
-            else
-            {
-                return TRUE;    // all other Frigates are considered fighting ships
-            }
-            break;
-        case CLASS_Corvette:
-            // CAT: both salvage corvettes (types 0x48, 0x59)
-            if ((shipstatic->shiptype == kSalCapCorvette) || (shipstatic->shiptype == tSalCapCorvette))
-            {
-                return FALSE;   //salcap corvette doesn't attack in a conventional manner
-            }
-            else
+            if ((shipstatic->shiptype != bDFGFrigate) && (shipstatic->shiptype != kAdvanceSupportFrigate) &&
+                (shipstatic->shiptype != tAdvanceSupportFrigate) && (shipstatic->shiptype != tDFGFrigate))
             {
                 return TRUE;
             }
-        case CLASS_Fighter:
-            // CAT: every fighter fights, no DefenseFighter exemption (the type is gone)
-            return TRUE;
-        case CLASS_Resource:
-        case CLASS_NonCombat:
+            /* fall through */
+        case CLASS_Corvette:
+            if ((shipstatic->shiptype != kSalCapCorvette) && (shipstatic->shiptype != tSalCapCorvette))
+            {
+                return TRUE;
+            }
+            return FALSE;
         default:
             return FALSE;
     }
-    return FALSE;
 }
 
 /*-----------------------------------------------------------------------------
@@ -1409,46 +1465,28 @@ bool32 statShipConstraintsFightingShipsCB(ShipStaticInfo *shipstatic)
 ----------------------------------------------------------------------------*/
 bool32 statShipConstraintsCarrierFightingShipsCB(ShipStaticInfo *shipstatic)
 {
+    // CAT (statShipConstraintsCarrierFightingShipsCB 0x00524bd0): fighters and frigates fight, corvettes except the
+    //      salvage corvettes; the four frigate exceptions fall into the corvette test as above
     switch (shipstatic->shipclass)
     {
-        case CLASS_Mothership:
-        case CLASS_Carrier:
-        case CLASS_HeavyCruiser:
-        case CLASS_Destroyer:
-            return FALSE;
-            break;
         case CLASS_Frigate:
-            // CAT: both race variants of the DFG and support frigates (statShipConstraintsFightingShipsCB 0x00524b30 /
-            //      statShipConstraintsCarrierFightingShipsCB 0x00524bd0: types 0x2d, 0x3c, 0x4a, 0x4e)
-            if ((shipstatic->shiptype == bDFGFrigate) || (shipstatic->shiptype == tDFGFrigate) ||
-                (shipstatic->shiptype == kAdvanceSupportFrigate) || (shipstatic->shiptype == tAdvanceSupportFrigate))
-            {
-                return FALSE;
-            }
-            else
-            {
-                return TRUE;    // all other Frigates are considered fighting ships
-            }
-            break;
-        case CLASS_Corvette:
-            // CAT: both salvage corvettes (types 0x48, 0x59)
-            if ((shipstatic->shiptype == kSalCapCorvette) || (shipstatic->shiptype == tSalCapCorvette))
-            {
-                return FALSE;   //salcap corvette doesn't attack in a conventional manner
-            }
-            else
+            if ((shipstatic->shiptype != bDFGFrigate) && (shipstatic->shiptype != kAdvanceSupportFrigate) &&
+                (shipstatic->shiptype != tAdvanceSupportFrigate) && (shipstatic->shiptype != tDFGFrigate))
             {
                 return TRUE;
             }
+            /* fall through */
+        case CLASS_Corvette:
+            if ((shipstatic->shiptype != kSalCapCorvette) && (shipstatic->shiptype != tSalCapCorvette))
+            {
+                return TRUE;
+            }
+            return FALSE;
         case CLASS_Fighter:
-            // CAT: every fighter fights, no DefenseFighter exemption (the type is gone)
             return TRUE;
-        case CLASS_Resource:
-        case CLASS_NonCombat:
         default:
             return FALSE;
     }
-    return FALSE;
 }
 
 real32 statsGetKillRatingAgainstFleet(ShipStaticInfo *shipstatic,SelectCommand *fleet)
@@ -1526,14 +1564,14 @@ Ship *statsGetMostDangerousShipNonStatConstraints(SelectCommand *selection,ShipC
     real32 maxKillratio = -1.0f;
     real32 Killratio;
 
+    // CAT (0x00524c70): a NULL callback accepts every ship; the rating is the type's static kill rating
     for (i=0;i<numShips;i++)
     {
         ship = selection->ShipPtr[i];
-        dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
 
-        if (constraintsCB(ship))
+        if ((constraintsCB == NULL) || constraintsCB(ship))
         {
-            Killratio = statsGetOverallKillRating(ship->staticinfo);
+            Killratio = cat_statsTypeKillRating(ship->shiptype);
 
             if (Killratio > maxKillratio)
             {
@@ -1576,37 +1614,38 @@ ShipStaticInfo *statsGetMostDangerousShipStaticConstraints(SelectCommandStatic *
 
 ShipStaticInfo *statsBestShipToBuyToKillShip(ShipRace shipRace,statShipConstraintsCB constraintsCB,ShipStaticInfo *targetstatic)
 {
-    sdword i;
-    ShipStaticInfo *shipstatic;
-    ShipStaticInfo *maxshipstatic = NULL;
-    real32 maxRUratio = -1.0f;
-    real32 RUratio;
+    ShipType type = targetstatic->shiptype;
+    ubyte hasCounter;
 
-    sdword raceiNumShips = NumShipTypesInRace[shipRace];
-    sbyte *raceiCalcFightStatsFor = RaceCalcFightStatsFor[shipRace];
-    sdword raceiStatIndexOffset = StatIndexRaceOffsets[shipRace];
-    sdword indexi;
-
-    for (i=0;i<raceiNumShips;i++)
+    // CAT (statsBestShipToBuyToKillShip 0x00524cf0): the counter ship comes from the static table by target type and
+    //      buyer's race; a non-standard target gets the race's first strike craft (sAcolyte / bInterceptor), a target
+    //      of another race the race's first type; the constraints callback is not consulted
+    (void)constraintsCB;
+    if (targetstatic->shiprace == RACE_Sect)
     {
-        if (raceiCalcFightStatsFor[i])
+        if (type >= CAT_STATS_NUM_RATED_TYPES)
         {
-            indexi = i + raceiStatIndexOffset;
-            shipstatic = ConvertStatIndexToShipStatic(indexi);
-            if ((shipstatic) && constraintsCB(shipstatic))
-            {
-                dbgAssertOrIgnore(shipstatic->shiprace == shipRace);
-                RUratio = statsGetShipRURatingAgainstShip(shipstatic,targetstatic);
-                if (RUratio > maxRUratio)
-                {
-                    maxRUratio = RUratio;
-                    maxshipstatic = shipstatic;
-                }
-            }
+            return GetShipStaticInfo(sAcolyte, RACE_Sect);
         }
+        hasCounter = cat_statsHasCounter[type];
     }
-
-    return maxshipstatic;
+    else if (targetstatic->shiprace == RACE_Beast)
+    {
+        if (type >= CAT_STATS_NUM_RATED_TYPES)
+        {
+            return GetShipStaticInfo(bInterceptor, RACE_Beast);
+        }
+        hasCounter = cat_statsHasCounter[type + 3];
+    }
+    else
+    {
+        return GetShipStaticInfo(FirstShipTypeOfRace[shipRace], shipRace);
+    }
+    if (hasCounter == 0)
+    {
+        return NULL;
+    }
+    return GetShipStaticInfo(cat_statsCounterShip[type][shipRace], shipRace);
 }
 
 ShipStaticInfo *statsBestShipToBuyToKillFleet(ShipRace shipRace,statShipConstraintsCB constraintsCB,SelectCommand *targetFleet)
@@ -1732,82 +1771,28 @@ Ship *statsBestShipToUseToKillFleet(SelectCommand *freeShips,SelectCommand *targ
 
 sdword statsNumShipsNeededToKillTarget(ShipStaticInfo *shipstatic,ShipStaticInfo *targetstatic)
 {
-    real32 killratio = statsGetShipKillRatingAgainstShip(shipstatic,targetstatic);
-    real32 num;
-    sdword num_ships = 0;
-
-    if (killratio >= 1)
+    // CAT (0x00524e40): the class factor times the class-against-class count, or times a 1..9 roll of the AI stream
+    //      for a non-standard target
+    if (targetstatic->shiptype < CAT_STATS_NUM_RATED_TYPES)
     {
-        num = 1.0f;     // can kill >= 1 target with just 1 ship, so we only need 1
+        return cat_statsClassFactor[shipstatic->shipclass] *
+               cat_statsClassMatrix[shipstatic->shipclass][targetstatic->shipclass];
     }
-    else
-    {
-        num = 1.0f / killratio;
-    }
-
-    // Ensure that after casting to sdword, we don't get a negative number (-2147483648)
-    // which can happen if killratio is very small/close to 0 and we get an infty for num.
-    // Probably caused by a ship for which there is no entry in the ship vs ship stats table.
-    num_ships = ((sdword)(num * statsOverkillfactor));
-
-    if (num_ships < 0)
-    {
-        num_ships = 0;
-    }
-
-    return num_ships;
+    return cat_statsClassFactor[shipstatic->shipclass] * (sdword)(ranRandom(RANDOM_AI_PLAYER) % 9 + 1);
 }
 
 sdword statsNumShipsNeededToKillFleet(ShipStaticInfo *shipstatic,SelectCommand *targetFleet)
 {
-    real32 killratio = statsGetKillRatingAgainstFleet(shipstatic,targetFleet);
-    real32 num;
-    sdword num_ships = 0;
-
-    if (killratio == 0.0f)
-    {
-        return 0;
-    }
-    else if (killratio >= 1)
-    {
-        num = 1.0f;     // can kill >= 1 target with just 1 ship, so we only need 1
-    }
-    else
-    {
-        num = 1.0f / killratio;
-    }
-
-    // Ensure that after casting to sdword, we don't get a negative number (-2147483648)
-    // which can happen if killratio is very small/close to 0 and we get an infty for num.
-    // Probably caused by a ship for which there is no entry in the ship vs ship stats table.
-    num_ships = ((sdword)(num * statsOverkillfactor));
-
-    if (num_ships < 0)
-    {
-        num_ships = 0;
-    }
-
-    return num_ships;
+    // CAT (0x00524eb0): three times the class factor, whatever the fleet
+    (void)targetFleet;
+    return cat_statsClassFactor[shipstatic->shipclass] * 3;
 }
 
 // strength of fleet2 against fleet1, e.g. fleet2/fleet1
 real32 statsGetRelativeFleetStrengths(SelectCommand *fleet1,SelectCommand *fleet2)
 {
-    //sdword numShips1 = fleet1->numShips;
-    sdword numShips2 = fleet2->numShips;
-    sdword j;
-    //real32 totalstr1 = 0.0f;
-    real32 totalstr2 = 0.0f;
-
-    //dbgAssertOrIgnore(numShips1 > 0);
-    dbgAssertOrIgnore(numShips2 > 0);
-
-    for (j=0;j<numShips2;j++)
-    {
-        totalstr2 += statsGetKillRatingAgainstFleet(fleet2->ShipPtr[j]->staticinfo,fleet1);
-    }
-
-    return totalstr2;
+    // CAT (0x00524ed0): the ship counts' quotient
+    return (real32)fleet2->numShips / (real32)fleet1->numShips;
 }
 
 // strength of ship against fleet strength, e.g. targetstatic strength / fleet1 strength
@@ -1823,9 +1808,12 @@ SelectCommand *statsBestShipsToUseToKillTarget(SelectCommand *freeships,ShipStat
     Ship *bestship;
     Ship *ship;
     sdword num;
-    real32 fleetstr;
+    real32 fleetstr, ratio, bestratio;
     sdword i;
 
+    // CAT (statsBestShipsToUseToKillTarget 0x00524ee0): the greedy pick uses the static kill ratings; the count per
+    //      pick is the class-against-class table (or a 1..9 roll for a non-standard target); the fleet strength is the
+    //      sum of the picked ships' ratios against the target, good enough at statsOverkillfactor or more
     if (freeships->numShips == 0)
     {
         *goodEnough = FALSE;
@@ -1837,60 +1825,76 @@ SelectCommand *statsBestShipsToUseToKillTarget(SelectCommand *freeships,ShipStat
     useships = memAlloc(sizeofSelectCommand(freeships->numShips),"statsuseships",0);
     useships->numShips = 0;
 
-repeat:
-
-    bestship = statsBestShipToUseToKillShip(freeshipsleft,targetstatic);
-    num = statsNumShipsNeededToKillTarget(bestship->staticinfo,targetstatic);
-
-    clRemoveShipFromSelection(freeshipsleft,bestship);
-    useships->ShipPtr[useships->numShips++] = bestship;
-
-    num--;
-    while (num > 0)
+    while (1)
     {
-        // find another ship of type bestship->staticinfo
+        bestship = NULL;
+        bestratio = -1.0f;
         for (i=0;i<freeshipsleft->numShips;i++)
         {
-            ship = freeshipsleft->ShipPtr[i];
-            if (ship->staticinfo == bestship->staticinfo)
+            ratio = cat_statsKillRatio(freeshipsleft->ShipPtr[i]->staticinfo,targetstatic);
+            if (ratio > bestratio)
             {
-                // found it, remove it from freeshipsleft
-                freeshipsleft->numShips--;
-                freeshipsleft->ShipPtr[i] = freeshipsleft->ShipPtr[freeshipsleft->numShips];
-
-                // add it to useships
-                useships->ShipPtr[useships->numShips++] = ship;
-                goto foundit;
+                bestship = freeshipsleft->ShipPtr[i];
+                bestratio = ratio;
             }
         }
-        // didn't find any more ships, so break out of loop
-        break;
-foundit:
-        num--;
-    }
+        if ((bestship->shiprace != RACE_Sect) && (bestship->shiprace != RACE_Beast))
+        {
+            *goodEnough = FALSE;        // as the exe: the two selections are not freed
+            return NULL;
+        }
+        if (targetstatic->shiptype < CAT_STATS_NUM_RATED_TYPES)
+        {
+            num = cat_statsClassMatrix[bestship->staticinfo->shipclass][targetstatic->shipclass];
+        }
+        else
+        {
+            num = (sdword)(ranRandom(RANDOM_AI_PLAYER) % 9 + 1);
+        }
+        num *= cat_statsClassFactor[bestship->staticinfo->shipclass];
 
-    // now check fleet strengths:
+        clRemoveShipFromSelection(freeshipsleft,bestship);
+        useships->ShipPtr[useships->numShips++] = bestship;
 
-    // want useships strength relative to targetstatic
-    fleetstr = 1.0f / statsGetRelativeFleetStrengthAgainstShip(useships,targetstatic);
+        while (--num > 0)
+        {
+            // find another ship of type bestship->staticinfo
+            for (i=0;i<freeshipsleft->numShips;i++)
+            {
+                ship = freeshipsleft->ShipPtr[i];
+                if (ship->staticinfo == bestship->staticinfo)
+                {
+                    break;
+                }
+            }
+            if (i >= freeshipsleft->numShips)
+            {
+                break;              // didn't find any more ships
+            }
+            freeshipsleft->numShips--;
+            freeshipsleft->ShipPtr[i] = freeshipsleft->ShipPtr[freeshipsleft->numShips];
+            useships->ShipPtr[useships->numShips++] = ship;
+        }
 
-    if (fleetstr < statsOverkillfactor)
-    {
-        // not good enough, so lets exit and not repeat if we don't have any free ships
+        // now check fleet strengths:
+        fleetstr = 0.0f;
+        for (i=0;i<useships->numShips;i++)
+        {
+            fleetstr += cat_statsKillRatio(useships->ShipPtr[i]->staticinfo,targetstatic);
+        }
+        if (statsOverkillfactor <= 1.0f / (1.0f / fleetstr))
+        {
+            memFree(freeshipsleft);
+            *goodEnough = TRUE;
+            return useships;
+        }
         if (freeshipsleft->numShips == 0)
         {
-            // use all ships
-            dbgAssertOrIgnore(useships->numShips == freeships->numShips);
             memFree(freeshipsleft);
             *goodEnough = FALSE;
             return useships;
         }
-        goto repeat;
     }
-
-    memFree(freeshipsleft);
-    *goodEnough = TRUE;
-    return useships;
 }
 
 SelectCommand *statsBestShipsToUseToKillFleet(SelectCommand *freeships,SelectCommand *targetFleet,bool32 *goodEnough)
@@ -2065,13 +2069,12 @@ udword statsGetStatChecksum(void)
 
         // CAT: one CRC only, over the 145-entry shiptotals (crc32Compute(player+0x30, 0x244) in statsGetStatChecksum
         //      0x00525170); Relic's second CRC (meant for classtotals, it hashed shiptotals again) is gone. The exe
-        //      also adds Player +0x4 (resourceUnits), +0x2C (totalships), +0xC and +0x35C; the last two are kept as
-        //      HW1's HasTechnology / listoftopics.num until the stage-2 Player layout names them (UNVERIFIED).
+        //      adds Player +0x4 (resourceUnits), +0x2C (totalships), +0xC (supportUnitsMax) and +0x35C
+        //      (listoftopics.num) [M2-R4 rest-oracle: named by the Player layout, Universe.h]
         classtotals = 0;
 
-        // add the player's research information
-        //intCheck += crc32Compute(&universe.players[i].researchinfo, sizeof(PlayerResearchInfo));
-        intCheck += universe.players[i].researchinfo.HasTechnology;
+        // add the player's support-unit budget and research information
+        intCheck += universe.players[i].supportUnitsMax;
         intCheck += universe.players[i].researchinfo.listoftopics.num;
 
         if ((netlogfile) && (logEnable == LOG_VERBOSE))
@@ -2084,12 +2087,12 @@ udword statsGetStatChecksum(void)
             bnc.resourceunits = universe.players[i].resourceUnits;
             bnc.shiptotals = shiptotals;
             bnc.classtotals = classtotals;
-            bnc.hastechnology = universe.players[i].researchinfo.HasTechnology;
+            bnc.hastechnology = universe.players[i].supportUnitsMax;   // CAT: +0xC, the fifth CDET value
             bnc.listoftopicsnum = universe.players[i].researchinfo.listoftopics.num;
             fwrite(&bnc,sizeof(bnc),1,netlogfile);
 #else
             fprintf(netlogfile,"  CDET:%d %d %d %d %d %d\n",universe.players[i].totalships,universe.players[i].resourceUnits,
-                                shiptotals,classtotals,universe.players[i].researchinfo.HasTechnology,universe.players[i].researchinfo.listoftopics.num);
+                                shiptotals,classtotals,universe.players[i].supportUnitsMax,universe.players[i].researchinfo.listoftopics.num);
 #endif
         }
     }

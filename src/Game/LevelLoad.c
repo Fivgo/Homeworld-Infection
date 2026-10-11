@@ -24,6 +24,7 @@
 #include "Ping.h"
 #include "Randy.h"
 #include "ResearchAPI.h"
+#include "ShipSelect.h"
 #include "ScenPick.h"
 #include "Sensors.h"
 #include "SinglePlayer.h"
@@ -1037,6 +1038,8 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
 
         // if labelled team doesn't currently exist, create it
         // otherwise, add ships to existing labelled team
+        // CAT-TODO(stage 6, KAS): the exe matches teams by cat_kasHashString(label) (AITeam +0x58) and never stores the
+        //      label text (scriptSetShipsCB 0x004a13f0); the KAS hash keys come with the kas2c missions
         for (i = 0; i < aiCurrentAIPlayer->teamsUsed; i++)
         {
             teamp = aiCurrentAIPlayer->teams[i];
@@ -1103,35 +1106,22 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
     }
     dbgAssertOrIgnore(shiptype != -1);
 
-    // CAT: no HW1 CryoTray (M2-R4 ships-b)
-
-    if (!singlePlayerGame)
-    {
-        if ((!bitTest(tpGameCreated.flag,MG_HarvestinEnabled)) &&
-            (shiptype==ResourceCollector))
-        {
-            return;
-        }
-
-        // CAT: no HW1 ResearchShip (M2-R4 ships-b)
-
-        if ((bitTest(tpGameCreated.flag,MG_CarrierIsMothership)) &&
-            (shiptype == Mothership))
-        {
-            shiptype = Carrier;
-            useAsMothership = TRUE;
-        }
-    }
+    // CAT: no HW1 CryoTray (M2-R4 ships-b); no MG_HarvestinEnabled ResourceCollector gate and no MG_CarrierIsMothership
+    //      swap (scriptSetShipsCB 0x004a13f0 has neither) [M2-R4 rest-oracle]
 
     // CAT: the race override is multiplayer-only (scriptSetShipsCB 0x004a13f0 also tests !singlePlayerGame): single
-    //      player missions place each ship with the race the mission names
-    if ((!singlePlayerGame) && (missionman) && ((shiprace == R1) || (shiprace == R2)))
+    //      player missions place each ship with the race the mission names. The type is swapped only when the player's
+    //      race may not own it (RacesAllowedForGivenShip) [M2-R4 rest-oracle]
+    if ((!singlePlayerGame) && (missionman) && ((shiprace == RACE_Sect) || (shiprace == RACE_Beast)))
     {
-        if ((player->race != shiprace) && ((player->race == R1) || (player->race == R2)))
+        if ((player->race != shiprace) && ((player->race == RACE_Sect) || (player->race == RACE_Beast)))
         {
             // override shiprace and shiptype based on player's race:
             shiprace = player->race;
-            shiptype = GetAppropriateShipTypeForRace(shiptype,shiprace);
+            if (!(RacesAllowedForGivenShip[shiptype] & (1 << player->race)))
+            {
+                shiptype = GetAppropriateShipTypeForRace(shiptype,shiprace);
+            }
         }
     }
 
@@ -1226,6 +1216,7 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
                 dbgAssertOrIgnore(bitTest(testStatic->common.infoFlags, IF_InfoLoaded)); // we want it to crash if ship not loaded
                 {
                     ship = univAddShip(shiptype,shiprace,&rotatedposition,player,0);
+                    cat_shipInitResearchUpgrades(ship);     // CAT: the type's static upgrade bits (0x00514af0)
                     gameStatsAddShip(ship,player->playerIndex);
                     ship->obj.attributes = attributes;
                     ship->obj.attributesParam = (sword)attributesParam;
@@ -1247,8 +1238,12 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
         }
 
 
-        // CAT: no ResearchShip lab activation, Cataclysm has no research ship type (scriptSetShipsCB 0x004a13f0; the
-        //      research module's activation is cat_rmResearchModuleActivated, CAT-TODO M2-R4 #5)
+        // CAT: no ResearchShip lab activation, Cataclysm has no research ship type: a Sect player's placed module opens
+        //      its lab quietly (cat_rmResearchModuleActivated 0x004f4530; scriptSetShipsCB 0x004a13f0)
+        if (player->race == RACE_Sect)
+        {
+            cat_rmResearchModuleActivated(player, shiptype, FALSE);
+        }
 
         // CAT: the player's mothership is any of sMothership, bMothership, kCarrier, tCarrier, trFloatingCity
         //      (scriptSetShipsCB 0x004a13f0: types 0x12, 0x35, 0x3E, 0x4C, 0x62)
@@ -1292,6 +1287,7 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
                 dbgAssertOrIgnore(bitTest(testStatic->common.infoFlags, IF_InfoLoaded)); // we want it to crash if ship not loaded
                 {
                     ship = univAddShip(shiptype,shiprace,&rotatedposition,player,0);
+                    cat_shipInitResearchUpgrades(ship);     // CAT: 0x00514af0
                     gameStatsAddShip(ship,player->playerIndex);
                     ship->obj.attributes = attributes;
                     ship->obj.attributesParam = (sword)attributesParam;
@@ -1307,7 +1303,12 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
                         teamp->newships--;
                     }
 
-                    // CAT: no ResearchShip lab activation (the type is gone; scriptSetShipsCB 0x004a13f0)
+                    // CAT: no ResearchShip lab activation (the type is gone): a Sect module opens its lab
+                    //      (cat_rmResearchModuleActivated, scriptSetShipsCB 0x004a13f0)
+                    if (player->race == RACE_Sect)
+                    {
+                        cat_rmResearchModuleActivated(player, shiptype, FALSE);
+                    }
 
                     // CAT: no addMonkeyResearchShip (the type is gone): every ship joins the parade
                     GroupShipIntoMilitaryParade(&universe.mainCommandLayer,ship,player->PlayerMothership);
@@ -1339,6 +1340,7 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
                 dbgAssertOrIgnore(bitTest(testStatic->common.infoFlags, IF_InfoLoaded));  // we want it to crash if ship not loaded
                 {
                     ship = univAddShip(shiptype,shiprace,&rotatedposition,player,0);
+                    cat_shipInitResearchUpgrades(ship);     // CAT: 0x00514af0
                     gameStatsAddShip(ship,player->playerIndex);
                     ship->obj.attributes = attributes;
                     ship->obj.attributesParam = (sword)attributesParam;
@@ -1355,7 +1357,12 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
                         teamp->newships--;
                     }
 
-                    // CAT: no ResearchShip lab activation (the type is gone; scriptSetShipsCB 0x004a13f0)
+                    // CAT: no ResearchShip lab activation (the type is gone): a Sect module opens its lab
+                    //      (cat_rmResearchModuleActivated, scriptSetShipsCB 0x004a13f0)
+                    if (player->race == RACE_Sect)
+                    {
+                        cat_rmResearchModuleActivated(player, shiptype, FALSE);
+                    }
 
 
                     selectcom->ShipPtr[i] = ship;
@@ -1367,6 +1374,7 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
 
             if (formation != -1)
             {
+                // CAT-TODO(M2-R4 command): the exe's clFormation takes a 4th argument, 0 here (scriptSetShipsCB 0x004a13f0)
                 clFormation(&universe.mainCommandLayer,selectcom,formation);
             }
 

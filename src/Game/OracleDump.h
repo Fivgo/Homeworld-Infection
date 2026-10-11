@@ -34,6 +34,13 @@ void oracleSetSelfTestPerturb(char *string);    // /oracleSelfTestPerturb <tick>
 bool32 oracleSelfTestRequested(void);
 void oracleRunSelfTest(void);
 
+// the headless mission run (M2-R4 rest-oracle, docs/m2-r4-rest-oracle.md "oracle"): /oracleMission <ticks> starts single
+// player at once (utyGameSystemsInit, as /debugScreenshots does), skips the mission animatic (Animatic.c), advances the
+// task clock by exactly one universe tick per frame (utyTasksDispatch) and quits after <ticks> universe ticks
+void oracleSetMission(char *string);            // /oracleMission <ticks>
+bool32 oracleMissionRequested(void);
+udword oracleVirtualFrameTicks(void);          // task ticks per frame in a mission run, 0 = real time
+
 // emit points; each is a no-op unless /oracleDump or /oracleSelfTest is given
 bool32 oracleUnivUpdate(real32 phystimeelapsed);    // univUpdate + a 'T' record when the tick counter moved (H1)
 void oracleEmitPacket(void *packet, uword packetnum, uword randcheck, real32 univcheck, udword blobcheck);   // H2

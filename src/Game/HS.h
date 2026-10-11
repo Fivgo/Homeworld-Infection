@@ -39,7 +39,7 @@ typedef struct hsStaticGate
 void hsDerelictDied(Derelict *derelict);
 void hsDerelictTakesDamage(Derelict *derelict);
 
-void hsStaticInit(sdword nVectors); //level start (init structs)
+void hsStaticInit(void);     // CAT: no argument (0x004901b0) //level start (init structs)
 void hsStaticReset(void);   //level reset (clear structs)
 void hsStaticDestroy(hvector*); //destroy a gate
 void hsSetStaticData(sdword size, ubyte* data); //set static gate data (for loading)

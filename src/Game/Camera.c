@@ -9,6 +9,7 @@
 
 #include "FastMath.h"
 #include "Key.h"
+#include "Mimic.h"      // CAT: cat_mimicGetCameraRadius
 #include "render.h"
 #include "StatScript.h"
 #include "Universe.h"
@@ -268,10 +269,22 @@ real32 cameraMinimumZoom(Camera* camera)
         ship = focus->ShipPtr[i];
         if (ship->header.objtype == OBJ_ShipType)
         {
-            shipstaticinfo = (ShipStaticInfo*)ship->staticinfo;
-            if (shipstaticinfo->minimumZoomDistance > dist)
+            // CAT: a mimicking ship zooms to the radius of what it mimics (cameraMinimumZoom 0x0042b9a0:
+            //      Ship+0x18 bit 3 -> cat_mimicGetCameraRadius 0x005b95c0)
+            if (ship->catShipFlags & CAT_SHIPFLAG_Mimic)
             {
-                dist = shipstaticinfo->minimumZoomDistance;
+                if (cat_mimicGetCameraRadius(ship) > dist)
+                {
+                    dist = cat_mimicGetCameraRadius(ship);
+                }
+            }
+            else
+            {
+                shipstaticinfo = (ShipStaticInfo*)ship->staticinfo;
+                if (shipstaticinfo->minimumZoomDistance > dist)
+                {
+                    dist = shipstaticinfo->minimumZoomDistance;
+                }
             }
         }
         else if (ship->header.objtype == OBJ_DerelictType)

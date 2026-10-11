@@ -379,6 +379,10 @@ real32 cat_gunStaticBaseDamage(GunStatic *gunstatic);                     // CAT
 real32 cat_shipGetDamageMultiplier(Ship *ship);                           // CAT: 0x005148f0 (M2-R4 combat)
 void cat_shipUpgradesInit(Ship *ship);                                    // CAT: 0x005140a0 (M2-R4 combat)
 void cat_shipApplyUpgrades(Ship *ship);                                   // CAT: 0x00514490 (M2-R4 combat)
+void cat_playerUpgradesReset(struct Player *player);                             // CAT: 0x00514100 (M2-R4 rest-oracle)
+void cat_playerUpdateUpgradesFromResearch(struct Player *player);                // CAT: 0x00514140 (M2-R4 rest-oracle)
+void cat_shipTypeGetUpgradeTechs(ShipType type, sdword *techs);           // CAT: 0x005146f0 (M2-R4 rest-oracle): a CatTechSet
+void cat_shipInitResearchUpgrades(Ship *ship);                             // CAT: 0x00514af0 (M2-R4 rest-oracle)
 real32 cat_upgradeFlagsBaseTime(udword flags);
 real32 cat_shipUpgradeFlagsTime(Ship *ship, udword flags);
 

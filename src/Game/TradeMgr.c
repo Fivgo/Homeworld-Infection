@@ -427,7 +427,7 @@ void tmAcceptOffer(char *string, featom *atom)
 
 
     //rmAddTechToPlayer(universe.curPlayerPtr, tmTechSelected);
-    universe.curPlayerPtr->researchinfo.HasTechnology |= TechToBit(tmTechSelected);
+    rmAddTechToPlayer(universe.curPlayerPtr, tmTechSelected);   // CAT: tech sets; CAT-TODO(stage 3): compare with the exe body
 
     tmtechinfo = -1;
     tmTechSelected = -1;
@@ -877,22 +877,12 @@ void tmTechInfoDraw(featom *atom, regionhandle region)
 
         y += TM_VertSpacing + fontHeight(" ");
 
-        // Bad bad design, my fault [Drew] doh!
-        if (tmtechinfo==DDDFDFGFTech)
-            if (universe.curPlayerPtr->race==R1)
-                strcpy(stringtoprint,strGetString(strR1DDDFTechinfo));
-            else
-                strcpy(stringtoprint,strGetString(strR2DFGFTechinfo));
-        else if (tmtechinfo==CloakDefenseFighter)
-            if (universe.curPlayerPtr->race==R1)
-                strcpy(stringtoprint,strGetString(strR1CloakFighterinfo));
-            else
-                strcpy(stringtoprint,strGetString(strR2DefenseFighterTechinfo));
+        // CAT: no race-specific technology names in Cataclysm (HW1 renamed DDDFDFGFTech/CloakDefenseFighter per race);
+        //      CAT-TODO(stage 3): the exe's tmTechInfoDraw body
+        if (universe.curPlayerPtr->race==R1)
+            strcpy(stringtoprint,strGetString(tmtechinfo+strTechInfoOffsetR1));
         else
-            if (universe.curPlayerPtr->race==R1)
-                strcpy(stringtoprint,strGetString(tmtechinfo+strTechInfoOffsetR1));
-            else
-                strcpy(stringtoprint,strGetString(tmtechinfo+strTechInfoOffsetR2));
+            strcpy(stringtoprint,strGetString(tmtechinfo+strTechInfoOffsetR2));
 
         pos = stringtoprint;
 
@@ -1265,7 +1255,7 @@ void PlayerAcquiredTechnology(char *techname)
 {
    TechnologyType tech = StrToTechType(techname);
    tmTechForSale[tech] = TM_TECH_IS_ALREADY_OWNED;
-   rmAddTechToPlayer(universe.curPlayerPtr, ((udword)1)<<tech);
+   rmAddTechToPlayer(universe.curPlayerPtr, tech);     // CAT: one technology, not a mask (rmAddTechToPlayer 0x004f2600)
 }
 
 sdword CanPlayerResearch(char *techname)

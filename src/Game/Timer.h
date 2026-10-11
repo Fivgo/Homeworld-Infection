@@ -39,7 +39,7 @@ typedef struct CatTimer
 } CatTimer;
 _Static_assert(sizeof(CatTimer) == 0x10, "CatTimer is 0x10 bytes in cataclysm.exe");
 
-extern real32 cat_taskRealTimeElapsed;
+#include "Task.h"       // CAT: cat_taskRealTimeElapsed (the real-time timers' clock)
 void cat_timerStartGameTime(CatTimer *t, real32 duration);
 void cat_timerStartRealTime(CatTimer *t, real32 duration);
 bool32 cat_timerExpired(CatTimer *t);

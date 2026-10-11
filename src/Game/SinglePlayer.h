@@ -274,4 +274,6 @@ extern real32 HYPERSPACEGATE_WAYPOINTDIST;
 
 extern real32 SINGLEPLAYER_MISSION14_SPHERE_OVERRIDE;
 
+bool32 cat_spWarpToLevelEnabled(void);      // CAT: 0x0051bd90 (M2-R4 rest-oracle)
+
 #endif

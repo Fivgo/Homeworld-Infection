@@ -1444,6 +1444,9 @@ void regRecursiveDisable(regionhandle reg)
 ----------------------------------------------------------------------------*/
 void regRegionDelete(regionhandle region)
 {
+    // CAT-TODO(stage 3 UI): regRegionDelete 0x004f0e10 first dirties the parents the region overlaps when the mouse
+    //      cursor is saved (feShouldSaveMouseCursor, primRectUnion2, regDirtyEverythingUpwardsSelectively); the rest is
+    //      HW1's with regLinkRemove inlined
     regionhandle child, nextChild;
     sdword index;
 

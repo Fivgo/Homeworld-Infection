@@ -46,8 +46,22 @@ typedef struct
     sdword paused;
     sdword costSoFar;
     ShipStaticInfo *info;
+    // CAT (M2-R4 rest-oracle): Cataclysm's entry is 0x30 bytes (cmBuildJobsAdd 0x004586c0 and unitCapCanCreateShip
+    //      0x0053ece0 index by type * 0x30; LoadConsMgr 0x004598a0 fixes up +0x20 info and +0x2C ship for 0x91 entries);
+    //      the three dwords after info: +0x24 has no reader in the r6 export, +0x28 is tested by unitCapCanCreateShip for
+    //      an externally built type (one queued job of the type is already a ship), +0x2C is the ship under construction
+    //      (SaveConsMgr 0x00459780 saves it by ID). Names chosen here.
+    sdword catUnknown24;
+    bool32 catExternalShipStarted;
+    struct Ship *catExternalShip;
 }
 shipinprogress;
+
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(shipinprogress) == 0x30, "shipinprogress is 0x30 bytes in cataclysm.exe (cmBuildJobsAdd 0x004586c0)");
+_Static_assert(offsetof(shipinprogress, catExternalShipStarted) == 0x28, "shipinprogress +0x28 (unitCapCanCreateShip 0x0053ece0)");
+_Static_assert(offsetof(shipinprogress, catExternalShip) == 0x2C, "shipinprogress +0x2C (SaveConsMgr 0x00459780)");
+#endif
 //structure for all ships under construction at a certain site
 typedef struct
 {

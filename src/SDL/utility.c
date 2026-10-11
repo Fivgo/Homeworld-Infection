@@ -1769,10 +1769,21 @@ void gameStart(char *loadfilename)
             // Initialize research structure, only for computer players, and human players on this machine
 
             // ****** IMPORTANT we have changed the research so that it is deterministic on all machines.
-            if (ComputerPlayerEnabled[i])
-                rmInitializeResearchStruct(player, TRUE, (singlePlayerGame) ? TECH_ALLTECHNOLOGY : TECH_NOTECHNOLOGY);
-            else
-                rmInitializeResearchStruct(player, TRUE, TECH_NOTECHNOLOGY);
+            // CAT: gameStart 0x005a9290: a human player gets everything when research is off (the tpGameCreated research
+            //      flag is read into a global at 0x00a75240 by the game-setup screens, stage 3: here the flag itself),
+            //      a computer player everything when research is off or in a non-tutorial single-player game;
+            //      otherwise an empty set (-1)
+            {
+                bool32 researchOff = (!singlePlayerGame) && (!bitTest(tpGameCreated.flag,MG_ResearchEnabled));
+                sdword techLevel;
+                if (!ComputerPlayerEnabled[i])
+                    techLevel = researchOff ? TECH_ALLTECHNOLOGY : TECH_NOTECHNOLOGY;
+                else if (!researchOff)
+                    techLevel = ((!singlePlayerGame) || (tutorial != 0)) ? TECH_NOTECHNOLOGY : TECH_ALLTECHNOLOGY;
+                else
+                    techLevel = TECH_ALLTECHNOLOGY;
+                rmInitializeResearchStruct(player, TRUE, techLevel);
+            }
 
     #if MAIN_SENSOR_LEVEL
             if (multiPlayerGame)
@@ -1923,19 +1934,10 @@ void gameStart(char *loadfilename)
 
     if (loadfilename == NULL)
     {
-        udword techLevel = 0;
-
         dbgMessagef("SYNC NUMBER: %u",gamerand());
 
-        if ((!singlePlayerGame) && (!bitTest(tpGameCreated.flag,MG_ResearchEnabled)))
-        {
-            techLevel = AllTechnology;
-        }
-
-        for (i=0;i<universe.numPlayers;i++)
-        {
-            rmAddTechToPlayer(&universe.players[i], techLevel);
-        }
+        // CAT: no rmAddTechToPlayer pass: the research-off case is rmInitializeResearchStruct's techlevel above
+        //      (gameStart 0x005a9290)
 
         for (i=0;i<universe.numPlayers;i++)
         {
@@ -4378,6 +4380,13 @@ DONE_INTROS:
     {
         utySinglePlayerGameStart("", NULL);
     }
+#if HWI_ORACLE
+    // HWI-ORACLE: /oracleMission <ticks> starts single player at once too (no screenshots, no next-level loop)
+    else if (oracleMissionRequested())
+    {
+        utySinglePlayerGameStart("", NULL);
+    }
+#endif
 
     return(NULL);                                           //success, return no error
 }
@@ -4811,6 +4820,17 @@ void utyTasksDispatch(void)
     Uint32 timer;
     Uint32 difference, remainder;
 
+#if HWI_ORACLE
+    // HWI-ORACLE: a headless mission run (/oracleMission) advances the task clock by exactly one universe tick per frame
+    // instead of by the wall clock, so the run is a function of the frame count alone (OracleDump.c)
+    if (oracleVirtualFrameTicks() != 0)
+    {
+        utyNFrameTicks = oracleVirtualFrameTicks();
+        taskExecuteAllPending(utyNFrameTicks);
+        utyTimerLast = SDL_GetTicks();
+        return;
+    }
+#endif
     timer = SDL_GetTicks();                                 //get counter, let's assume it works
     difference = timer - utyTimerLast;                      //get difference of this frame to last frame
     utyNFrameTicks = (udword)(difference / utyTimerDivisor);

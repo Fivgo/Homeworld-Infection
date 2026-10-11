@@ -327,120 +327,122 @@ sdword NUM_IN_CLASSES[NUM_CLASSES];
 
 
 
-sdword getShipClass(void)
+// CAT: no getShipClass / getShipType (0x00460cb0-0x00462080 has neither; the ladders of cratesRewardPlayer replace them)
+
+// CAT (M2-R4 rest-oracle): cratesRewardPlayer 0x00460ed0. The probabilities are gamerand() / 2^32 (the exe multiplies the
+//      32-bit draw by 2.3283064e-10); the ship and technology ladders are the exe's (double thresholds at 0x0072a470 ..
+//      0x0072a7b0, read from cataclysm.exe). HW1's SHIP_PROBS / NUM_IN_GROUPS tables, getShipClass / getShipType and the
+//      mothership-if-you-have-none gift are gone.
+#define CAT_RAN_TO_UNIT     2.3283064365386963e-10f
+
+static real32 cat_cratesProbability(void)
 {
-    real32 prob;
-    prob = frandombetween(0.0,1.0f);
-
-    if(prob <= CrateClassProbCLASS_HeavyCruiser)
-        return CLASS_HeavyCruiser;
-    else if(prob <= CrateClassProbCLASS_Carrier)
-        return CLASS_Carrier;
-    else if(prob <= CrateClassProbCLASS_Destroyer)
-        return CLASS_Destroyer;
-    else if(prob <= CrateClassProbCLASS_Frigate)
-        return CLASS_Frigate;
-    else if(prob <= CrateClassProbCLASS_Corvette)
-        return CLASS_Corvette;
-    else if(prob <= CrateClassProbCLASS_Fighter)
-        return CLASS_Fighter;
-    else if(prob <= CrateClassProbCLASS_Resource)
-        return CLASS_Resource;
-
-    //default
-    return CLASS_NonCombat;
+    return (real32)gamerand() * CAT_RAN_TO_UNIT;
 }
 
-ShipType gettype(sdword classtype,sdword index)
+// the ship type and how many of it a crate gives, per race (the ladder of 0x00460ed0)
+static ShipType cat_cratesShipReward(ShipRace race, real32 prob, sdword *number)
 {
-    if(classtype == CLASS_HeavyCruiser)
-        return(cratesCLASS_HeavyCruiser[index]);
-    else if(classtype == CLASS_Carrier)
-        return(cratesCLASS_Carrier[index]);
-    else if(classtype == CLASS_Destroyer)
-        return(cratesCLASS_Destroyer[index]);
-    else if(classtype == CLASS_Frigate)
-        return(cratesCLASS_Frigate[index]);
-    else if(classtype == CLASS_Corvette)
-        return(cratesCLASS_Corvette[index]);
-    else if(classtype == CLASS_Fighter)
-        return(cratesCLASS_Fighter[index]);
-    else if(classtype == CLASS_Resource)
-        return(cratesCLASS_Resource[index]);
-
-    return(cratesCLASS_NonCombat[index]);
-}
-ShipType getShipType(ShipClass classtype)
-{
-    sdword i;
-    real32 prob,probcurrent,probtest;
-    ShipType shipcurrent,shiptype;
-
-    prob = frandombetween(0.0,1.0f);
-    probcurrent = 1.0f;
-    shipcurrent = 9999;
-
-    for(i=0;i<NUM_IN_CLASSES[classtype];i++)
+    if (race == RACE_Sect)
     {
-        shiptype = gettype(classtype,i);
-        if(prob <= SHIP_PROBS[shiptype])
-        {
-            probtest = SHIP_PROBS[shiptype]-prob;
-            if(probtest <= probcurrent)
-            {
-                probcurrent = probtest;
-                shipcurrent = shiptype;
-            }
-        }
+        if      (prob < 0.01) { *number = 1;  return sDreadnought; }
+        else if (prob < 0.04) { *number = 1;  return sDestroyer; }
+        else if (prob < 0.1)  { *number = 1;  return sMultiBeamFrigate; }
+        else if (prob < 0.15) { *number = 2;  return sMultiBeamFrigate; }
+        else if (prob < 0.2)  { *number = 2;  return sRammingFrigate; }
+        else if (prob < 0.3)  { *number = 5;  return sSentinel; }
+        else if (prob < 0.4)  { *number = 4;  return sACV; }
+        else if (prob < 0.5)  { *number = 4;  return sMCV; }
+        else if (prob < 0.6)  { *number = 8;  return sAcolyte; }
+        else if (prob < 0.7)  { *number = 8;  return sMimic; }
+        else if (prob < 0.8)  { *number = 10; return sRecon; }
+        else                  { *number = 1;  return sWorker; }
     }
-    dbgAssertOrIgnore(shipcurrent != 9999); //should have selected SOME ship from list!
-    return shipcurrent;
+    if      (prob < 0.01) { *number = 1;  return bHeavyCruiser; }
+    else if (prob < 0.04) { *number = 3;  return bIonArrayFrigate; }
+    else if (prob < 0.1)  { *number = 2;  return bHiveFrigate; }
+    else if (prob < 0.15) { *number = 2;  return bMultiBeamFrigate; }
+    else if (prob < 0.2)  { *number = 2;  return bRammingFrigate; }
+    else if (prob < 0.3)  { *number = 5;  return bSentinel; }
+    else if (prob < 0.4)  { *number = 4;  return bACV; }
+    else if (prob < 0.5)  { *number = 3;  return bMultiGunCorvette; }
+    else if (prob < 0.6)  { *number = 8;  return bInterceptor; }
+    else if (prob < 0.7)  { *number = 3;  return bHeavyCorvette; }
+    else if (prob < 0.8)  { *number = 10; return bRecon; }
+    else                  { *number = 1;  return bWorker; }
 }
+
+// the technology a crate gives, per race (the ladder of 0x00460ed0; HW1 gave the first technology the player lacked)
+static TechnologyType cat_cratesTechReward(ShipRace race, real32 prob)
+{
+    if (race == RACE_Sect)
+    {
+        if      (prob < 0.05) return TECH_REPAIR;
+        else if (prob < 0.1)  return TECH_SALVAGE;
+        else if (prob < 0.15) return TECH_DRIVE_DESTROYER;
+        else if (prob < 0.2)  return TECH_ARMOUR2;
+        else if (prob < 0.25) return TECH_MICRO_SHIP;
+        else if (prob < 0.3)  return TECH_ENERGY;
+        else if (prob < 0.35) return TECH_ION;
+        else if (prob < 0.4)  return TECH_MISSILE;
+        else if (prob < 0.45) return TECH_EXPLOSIVE_CHARGE;
+        else if (prob < 0.5)  return TECH_BIG_GUN;
+        else if (prob < 0.55) return TECH_ADVANCED_SENSORS;
+        else if (prob < 0.6)  return TECH_FORCE_FIELD1;
+        else if (prob < 0.65) return TECH_REPAIRBOTS;
+        else if (prob < 0.7)  return TECH_CRYSTAL_HARVEST;
+        else if (prob < 0.75) return TECH_BEAST_VACCINE;
+        else if (prob < 0.8)  return TECH_PHASED_TELEMETRY;
+        else if (prob < 0.85) return TECH_MIMIC;
+        else if (prob < 0.9)  return TECH_LINK;
+        else if (prob < 0.95) return TECH_EMP;
+        else                  return TECH_REPULSE;
+    }
+    if      (prob < 0.05) return TECH_CLOAKING;
+    else if (prob < 0.1)  return TECH_TARGETING_SYSTEMS;
+    else if (prob < 0.15) return TECH_PLASMA_WEAPONS;
+    else if (prob < 0.2)  return TECH_MEDIUM_GUNS;
+    else if (prob < 0.25) return TECH_DEFENSE_FIELD;
+    else if (prob < 0.3)  return TECH_HEAVY_GUNS;
+    else if (prob < 0.35) return TECH_REPAIR;
+    else if (prob < 0.4)  return TECH_DRIVE_FIGHTER;
+    else if (prob < 0.45) return TECH_MICRO_SHIP;
+    else if (prob < 0.5)  return TECH_ENERGY;
+    else if (prob < 0.55) return TECH_ION;
+    else if (prob < 0.6)  return TECH_MISSILE;
+    else if (prob < 0.65) return TECH_LINK;
+    else if (prob < 0.7)  return TECH_AFTERBURNER;
+    else if (prob < 0.75) return TECH_ADVANCED_SENSORS;
+    else if (prob < 0.8)  return TECH_INFECT;
+    else if (prob < 0.85) return TECH_CRYSTAL_HARVEST;
+    else if (prob < 0.9)  return TECH_BIOWARHEAD;
+    else if (prob < 0.95) return TECH_DRIVE_CORVETTE;
+    else                  return TECH_ARMOUR2;
+}
+
 sdword cratesRewardPlayer(Derelict *crate, Player *player)
 {
     real32 prob;
     sdword rus;
-    sdword shipclasstoget,shipnumber;
-    sdword i;
+    sdword shipnumber;
+    sdword i, tries;
     Ship *ship;
     ShipStaticInfo *teststatic;
+    ShipType shiptype;
+    TechnologyType tech;
+    vector cratepos;
+    SelectCommand *selectcom;
 
-    if(player->PlayerMothership == NULL)
-    {
-        prob = frandombetween(0.0f, 1.0f);
-        if(prob < CRATES_GetMotherShipCarrierIfDontHaveOne)
-        {
-            dbgMessagef("Got a mothership/carrier from crate!");
-            //give player mothership
-            ship = univAddShip(Carrier,player->race,&crate->obj.posinfo.position,player,0);
-            gameStatsAddShip(ship,player->playerIndex);
-            unitCapCreateShip(ship,player);
-            return(CRATE_SHIP);
-        }
-    }
-
-    prob = frandombetween(0.0f, 1.0f);
+    prob = cat_cratesProbability();
     if(prob <= CRATES_GetAShip)
     {
-        sdword shiptype;
-        vector cratepos;
+        cratepos = crate->obj.posinfo.position;
+        shiptype = cat_cratesShipReward(player->race, cat_cratesProbability(), &shipnumber);
 
-        cratepos.x  = crate->obj.posinfo.position.x;
-        cratepos.y  = crate->obj.posinfo.position.y;
-        cratepos.z  = crate->obj.posinfo.position.z;
-
-        shipclasstoget = getShipClass();
-        shiptype = getShipType(shipclasstoget);
-        shiptype = GetAppropriateShipTypeForRace(shiptype,player->race);
-
-        shipnumber = NUM_IN_GROUPS[shiptype];
-
-        teststatic = GetShipStaticInfo(shiptype,player->race);
-
-        if (bitTest(teststatic->common.infoFlags, IF_InfoLoaded))
+        teststatic = GetShipStaticInfoSafe(shiptype,player->race);
+        if ((teststatic != NULL) && bitTest(teststatic->common.infoFlags, IF_InfoLoaded))
         {
-            sdword sizeofselect = sizeofSelectCommand(shipnumber);
-            SelectCommand *selectcom = memAlloc(sizeofselect,"selectform",0);
+            selectcom = memAlloc(sizeofSelectCommand(shipnumber),"selectform",0);
             selectcom->numShips = shipnumber;
 
             dbgMessagef("Got a %d ship type  from crate!",shiptype);
@@ -460,35 +462,33 @@ sdword cratesRewardPlayer(Derelict *crate, Player *player)
 
                 cratepos.z += (ship->staticinfo->common.staticCollInfo.collspheresize * 2.0f);
             }
-            //need a way to FORCE into formation INSTANTLY...could do calculations myself here...
-            //but must be an easier way.
+            // CAT-TODO(M2-R4 command): the exe's clFormation takes a 4th argument, 0 here
             clFormation(&universe.mainCommandLayer,selectcom,BROAD_FORMATION);
             memFree(selectcom);
             return(CRATE_SHIP);
         }
     }
 
-    prob = frandombetween(0.0f, 1.0f);
+    prob = cat_cratesProbability();
     if(prob <= CRATES_GetResearch)
     {
-        //give research
-        uqword mask;
+        //give research: up to 5 draws for a technology the player does not have
         dbgMessagef("Got research from crate");
-
-        for(i=0;i<NumTechnologies;i++)
+        tries = 0;
+        do
         {
-            mask = ((uqword) 1) << ((uqword) i);
-            if(!bitTest(player->researchinfo.HasTechnology, mask))
-            {
-                rmGiveTechToPlayerByType(player,i);
-                return(CRATE_RESEARCH);
-            }
+            tech = cat_cratesTechReward(player->race, cat_cratesProbability());
+            tries++;
+        } while (!cat_rmTechSetHas(player->researchinfo.HasTechnology, tech) && (tries < 5));
+        if (!cat_rmTechSetHas(player->researchinfo.HasTechnology, tech))
+        {
+            rmGiveTechToPlayerByType(player,tech);
+            return(CRATE_RESEARCH);
         }
         //no tech to give!
     }
 
-
-    rus = randombetween(CRATES_MIN_RUS_GIVEN,CRATES_MAX_RUS_GIVEN);
+    rus = (sdword)(gamerand() % (udword)(CRATES_MAX_RUS_GIVEN - CRATES_MIN_RUS_GIVEN + 1)) + CRATES_MIN_RUS_GIVEN;
     dbgMessagef("Got %d RU's from crate.",rus);
 
     player->resourceUnits += rus;

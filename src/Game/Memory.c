@@ -234,6 +234,10 @@ sdword memStartup(void *heapStart, sdword heapSize, memgrowcallback grow)
     dbgMessagef("Memory module init.  Heap = 0x%x, Length = %d", heapStart, heapSize);
 #endif //MEM_VERBOSE_LEVEL >= 2
 
+    // CAT-TODO(Memory.c): memStartup 0x004ad5f0 seeds the two fill patterns (memClearSetting / memFreeSetting) from
+    //      crc32 of the USERNAME and USERPROFILE environment strings, or from a ranRandomFn(26) draw each when they are
+    //      unset; this tree keeps GoK's constant patterns (MEM_ClearSetting / MEM_FreeSetting), which only matter under
+    //      MEM_VOLATILE_CLEARING
     memMainPool.wholePool = heapStart;
     memMainPool.pool = (ubyte *)(((memsize)((ubyte *)heapStart + sizeof(memcookie) - 1)) & (~(sizeof(memcookie) - 1)));
     memMainPool.poolLength = memMainPool.heapLength = heapSize;

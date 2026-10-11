@@ -4554,10 +4554,31 @@ void universeInit(void)
 
     universeNoStaticLoadedOrNeeded();
 
+    // CAT: every player's fog-of-war grid pointer starts NULL (universeInit 0x0053de80 clears Player+0x6500 of players 0..7)
+    for (index = 0; index < MAX_MULTIPLAYER_PLAYERS; index++)
+    {
+        universe.players[index].catFOWGrid = NULL;
+    }
+
     for (index = 0; index < UNIV_NUMBER_WORLDS; index++)
     {
         universe.world[index] = NULL;
     }
+}
+
+// CAT: 0x00480d10: the grid a player's ships are seen through; in multiplayer an ally of the local player shares the local
+//      player's grid. The grids themselves are stage 3 (cat_fowCreatePlayerGrids 0x004a38c0), so this is NULL until then.
+void *cat_playerGetFOWGrid(Player *player)
+{
+    if (!multiPlayerGame)
+    {
+        return player->catFOWGrid;
+    }
+    if (allianceArePlayersAllied(universe.curPlayerPtr, player))
+    {
+        return universe.curPlayerPtr->catFOWGrid;
+    }
+    return player->catFOWGrid;
 }
 
 void universeClosePlayers(void)
@@ -4580,8 +4601,12 @@ void universeClosePlayers(void)
             lmCloseIfOpen();
         }
         universe.players[i].PlayerMothership = NULL;
-        // CAT-TODO(M2-R4 research, #5): the exe then resets the player's upgrades, cat_playerUpgradesReset 0x00514100,
-        //      except for player 0 while a single-player warp-to-level is on (cat_spWarpToLevelEnabled 0x0051bd90)
+        // CAT: the player's upgrades are reset, cat_playerUpgradesReset 0x00514100, except for player 0 while a
+        //      single-player warp-to-level is on (universeClosePlayers 0x0053def0, cat_spWarpToLevelEnabled 0x0051bd90)
+        if ((i != 0) || (!cat_spWarpToLevelEnabled()))
+        {
+            cat_playerUpgradesReset(&universe.players[i]);
+        }
     }
 }
 
@@ -4593,9 +4618,14 @@ void universeReset(void)
     cat_salvageResetGlobals();
     // CAT (M2-R4 combat): then cat_blastReset 0x00516390 (the blast lists)
     cat_blastReset();
-    // CAT-TODO: then destroys each player's fog-of-war map (fowDestroy on
-    //      Player+0x6500; the Cataclysm Player layout and the FOW are stage 3), and after clReset/ccReset sets the
-    //      multiplayer camera mode in a recorded-game playback (cat_mcSetMode/cat_mcResetRequest, stage 3)
+    // CAT: then each player's fog-of-war grid goes (universeReset 0x0053df80: fowDestroy on Player+0x6500 of players
+    //      0..7). CAT-TODO(stage 3 FOW): fowDestroy; the pointer is NULL until stage 3 creates the grids.
+    for (index = 0; index < MAX_MULTIPLAYER_PLAYERS; index++)
+    {
+        universe.players[index].catFOWGrid = NULL;
+    }
+    // CAT-TODO(stage 3): after clReset/ccReset the exe sets the multiplayer camera mode in a recorded-game playback
+    //      (cat_mcSetMode/cat_mcResetRequest)
     clReset(&universe.mainCommandLayer);
     ccReset(&universe.mainCameraCommand);
 
@@ -4613,10 +4643,11 @@ void universeReset(void)
         universe.world[index] = NULL;
     }
 
-    // CAT-TODO: then cat_ioReset 0x004ab590 (info overlay), cat_shipPrintReset 0x00511500, cat_taskTimeCompressionReset
-    //      0x0052a420 (time compression), four UI globals (0x00a762dc..0x00a762e4, 0x00a5b1ac) and
-    //      cat_tutPointerListReset 0x0052f890 (tutorial pointers); their subsystems are not ported yet (stage 3 UI,
-    //      stage 6 tutorial)
+    // CAT: the time compression goes back to the default (cat_taskTimeCompressionReset 0x0052a420, universeReset
+    //      0x0053df80). CAT-TODO: cat_ioReset 0x004ab590 (info overlay), cat_shipPrintReset 0x00511500, four UI globals
+    //      (0x00a762dc..0x00a762e4, 0x00a5b1ac) and cat_tutPointerListReset 0x0052f890 (tutorial pointers) around it;
+    //      their subsystems are not ported yet (stage 3 UI, stage 6 tutorial)
+    cat_taskTimeCompressionReset();
 }
 
 /*-----------------------------------------------------------------------------
@@ -4736,8 +4767,8 @@ void universeStaticCloseAllStatics(void)
 
 void universeClose(void)
 {
-    // CAT-TODO: universeClose 0x0053e3b0 starts with cat_taskTimeCompressionReset 0x0052a420 (time compression, not
-    //      ported yet)
+    // CAT: universeClose 0x0053e3b0 starts with the time-compression reset (cat_taskTimeCompressionReset 0x0052a420)
+    cat_taskTimeCompressionReset();
     clClose(&universe.mainCommandLayer);
     ccClose(&universe.mainCameraCommand);
 
@@ -5450,15 +5481,16 @@ bool32 unitCapCanCreateShip(ShipType ship, shipsinprogress *factory, shipavailab
 {
     Player *player=factory->ship->playerowner;
     shipsinprogress *allfactories=(shipsinprogress *)factory->node.belongto->head;
-    udword   totalships=1, typeships=1, classships=1,index;
+    udword   totalships=1, typeships=1, classships=1, carrierTypeShips=0, index, count;
+    sdword   jobs, lag;
     ShipStaticInfo *statinfo, *shipstatic;
 
-    // CAT: no ResearchShip exception (unitCapCanCreateShip 0x0053ece0 tests the caps flag 0x200 and singlePlayerGame
-    //      only). CAT-TODO(M2-R4, construction manager): the rest of the exe body differs too: the factory loop counts
-    //      the player's race's types only and no lag, one lag value (shiplagtotals[type]) is added to each limit, the
-    //      type count drops by one for an externalBuild type in a factory whose progress entry has its +0x28 field
-    //      set (Cataclysm's shipinprogress is 0x30 bytes, HW1's 0x24), sCarrier's limit counts
-    //      cat_carrierCountSupportModules, and the class cap is skipped when cdClassCaps is -1
+    // CAT (M2-R4 rest-oracle): the body follows unitCapCanCreateShip 0x0053ece0. The caps apply with the unit-caps
+    //      game option or in single player (no HW1 ResearchShip exception); the queue counts ships only (itemtype 1);
+    //      the factory loop counts the player's race's types and, for an externally built type, one job less when its
+    //      ship already exists (shipinprogress +0x28); the lag total of the type (shiplagtotals, ConsMgr.c) is added to
+    //      each limit test once; sCarrierSupport's limit counts the carrier's attached support modules
+    //      (cat_carrierCountSupportModules) plus the factory's own queue; the class cap is skipped when it is -1
     if ((!bitTest(tpGameCreated.flag,MG_UnitCapsEnabled)) && (!singlePlayerGame))
     {
         return(TRUE);
@@ -5469,10 +5501,17 @@ bool32 unitCapCanCreateShip(ShipType ship, shipsinprogress *factory, shipavailab
     // total up all ships in the queue but not yet started
     for (index=0;cmShipsAvail[index].nJobs != -1; index++)
     {
-        statinfo = GetShipStaticInfo(cmShipsAvail[index].type, player->race);
-        totalships+=cmShipsAvail[index].nJobs;
-        if (cmShipsAvail[index].type == shipstatic->shiptype) typeships+=cmShipsAvail[index].nJobs;
-        if (statinfo->shipclass == shipstatic->shipclass) classships+=cmShipsAvail[index].nJobs;
+        if (cmShipsAvail[index].itemtype == 1)      // ITEM_SHIP (ConsMgr.c)
+        {
+            statinfo = GetShipStaticInfo(cmShipsAvail[index].type, player->race);
+            totalships+=cmShipsAvail[index].nJobs;
+            if (cmShipsAvail[index].type == shipstatic->shiptype) typeships+=cmShipsAvail[index].nJobs;
+            if (statinfo->shipclass == shipstatic->shipclass) classships+=cmShipsAvail[index].nJobs;
+        }
+    }
+    if (shipstatic->shiptype == sCarrierSupport)
+    {
+        carrierTypeShips = typeships;
     }
 
     // walk through list of factories
@@ -5481,40 +5520,58 @@ bool32 unitCapCanCreateShip(ShipType ship, shipsinprogress *factory, shipavailab
         // if factory is owned by player then total all ships being built
         if (allfactories->ship->playerowner==player)
         {
-            for (index=0;index<TOTAL_STD_SHIPS;index++)
+            for (index=FirstShipTypeOfRace[player->race];index<=(udword)LastShipTypeOfRace[player->race];index++)
             {
                 statinfo = GetShipStaticInfo(index, player->race);
-                totalships+=allfactories->progress[index].nJobs + shiplagtotals[index];
-                if (index==shipstatic->shiptype) typeships+=allfactories->progress[index].nJobs + shiplagtotals[index];
-                if (statinfo->shipclass == shipstatic->shipclass) classships+=allfactories->progress[index].nJobs + shiplagtotals[index];
+                jobs = allfactories->progress[index].nJobs;
+                totalships+=jobs;
+                if (index==shipstatic->shiptype)
+                {
+                    typeships+=jobs;
+                    if ((shipstatic->externalBuild) && (jobs > 0) && (allfactories->progress[index].catExternalShipStarted) &&
+                        (typeships != 0))
+                    {
+                        typeships--;
+                    }
+                }
+                if (statinfo->shipclass == shipstatic->shipclass) classships+=jobs;
             }
-
         }
         // next factory
         allfactories=(shipsinprogress *)allfactories->node.next;
     }
     while (allfactories != NULL);
 
-    if (player->totalships+totalships > cdMaxShipsAllowed)
+    lag = shiplagtotals[shipstatic->shiptype];
+    if ((udword)(player->totalships+lag+totalships) > (udword)cdMaxShipsAllowed)
     {
-        speechEventFleet(STAT_F_Const_TotalLimit, 0, player->playerIndex);
+        speechEventQueue(NULL, 0x2001039, -1, -1, 0, player->playerIndex, -1, 5.0f, -1);   // total limit
         // player already has too many ships cannot build anymore
         return(FALSE);
     }
 
     if (cdLimitCaps[shipstatic->shiptype] != -1)
     {
-        if (player->shiptotals[shipstatic->shiptype]+typeships > cdLimitCaps[shipstatic->shiptype])
+        if (shipstatic->shiptype == sCarrierSupport)
         {
-            speechEventFleet(STAT_F_Const_UnitLimit, shipstatic->shiptype, player->playerIndex);
+            count = cat_carrierCountSupportModules(factory->ship) + factory->progress[shipstatic->shiptype].nJobs + carrierTypeShips;
+        }
+        else
+        {
+            count = player->shiptotals[shipstatic->shiptype]+typeships+lag;
+        }
+        if (count > (udword)cdLimitCaps[shipstatic->shiptype])
+        {
+            speechEventQueue(NULL, 0x2001038, shipstatic->shiptype, -1, 0, player->playerIndex, -1, 5.0f, -1);   // unit limit
             // player has to many of this type of ship
             return(FALSE);
         }
     }
 
-    if (player->classtotals[shipstatic->shipclass]+classships > cdClassCaps[shipstatic->shipclass])
+    if ((cdClassCaps[shipstatic->shipclass] != -1) &&
+        ((udword)cdClassCaps[shipstatic->shipclass] < (udword)(player->classtotals[shipstatic->shipclass]+classships+lag)))
     {
-        speechEventFleet(STAT_F_Const_UnitLimit, shipstatic->shiptype, player->playerIndex);
+        speechEventQueue(NULL, 0x2001038, shipstatic->shiptype, -1, 0, player->playerIndex, -1, 5.0f, -1);
         // player has to many of this class of ship
         return(FALSE);
     }
@@ -5665,6 +5722,9 @@ void initGameStats(Universe *universe)
 
         universe->gameStats.playerStats[i].totalLosses = 0;
         universe->gameStats.playerStats[i].totalRUsLost = 0;
+        // CAT: the three Cataclysm additions are zeroed too (initGameStats 0x0053f100: dwords 9, 0xa9.. and 0x1f3)
+        universe->gameStats.playerStats[i].catStat28 = 0;
+        universe->gameStats.playerStats[i].catStat7D0 = 0;
 
 
         for(j=0;j<universe->numPlayers;j++)
@@ -5683,6 +5743,7 @@ void initGameStats(Universe *universe)
             universe->gameStats.playerStats[i].totalForEachClass[j]=0;
             universe->gameStats.playerStats[i].totalKillsForEachClass[j]=0;
             universe->gameStats.playerStats[i].totalLossesForEachClass[j]=0;
+            universe->gameStats.playerStats[i].catBuiltForEachClass[j]=0;
         }
     }
 }

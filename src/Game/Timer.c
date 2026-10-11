@@ -296,10 +296,8 @@ void timTimerLoad(void)
 -----------------------------------------------------------------------------*/
 #define CAT_TIMER_MAGIC 0x499602D2
 
-// CAT-PROVISIONAL: the exe's real-time timers read the task scheduler's own wall-clock sum (cat_taskRealTimeElapsed
-//      0x00a6b20c, advanced by taskExecuteAllPending 0x0052a840), not universe.realtimeelapsed. Task.c is M2-R4 #5;
-//      until it advances this, a real-time timer never expires. No ported caller starts one yet.
-real32 cat_taskRealTimeElapsed = 0.0f;
+// CAT: the exe's real-time timers read the task scheduler's own wall-clock sum (cat_taskRealTimeElapsed, advanced by
+//      taskExecuteAllPending 0x0052a840 from the unscaled ticks; Task.c, M2-R4 rest-oracle), not universe.realtimeelapsed
 
 void cat_timerStartGameTime(CatTimer *t, real32 duration)                  // 0x00528410
 {

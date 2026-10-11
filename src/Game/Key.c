@@ -38,6 +38,8 @@ uword keysToNotBuffer[] = {
 void keyInit(void)
 {
     keyClearAll();
+    // CAT-TODO(stage 3): keyInit 0x0049ae00 ends with cat_keyNameStringsInit (the key-name strings of the key bindings
+    //      screen); the rest is HW1's (both scan tables and the buffer count cleared)
 }
 
 /*-----------------------------------------------------------------------------

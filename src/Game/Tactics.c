@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "Tactics.h"
+#include "FormationDefs.h"
 
 #include <stdlib.h>
 
@@ -34,6 +35,18 @@
 #include "Types.h"
 #include "Universe.h"
 #include "UnivUpdate.h"
+
+// CAT-DORMANT (M2-R4 rest-oracle): cataclysm.exe's Tactics.c has 8 functions (tacticsStartUp 0x005290b0 ..
+//      tacticsGetShipsMaxVelocity 0x00529450); the retreat / dodge / flank / attack-memory machinery below has no exe
+//      counterpart. 17 of its functions have no caller; the rest (tacticsUpdate, tacticsGlobalUpdate,
+//      tacticsDelegateAttackCommand, tacticsDelegateSingleAttack, tacticsAttackCommandVoided, tacticsPopUpSetUp,
+//      tacticsAreStrikeCraftInSelection) are still called from UnivUpdate.c / CommandLayer.c and go with those files'
+//      remaining CAT-TODOs (M2-R4 univupdate / command).
+// CAT-PROVISIONAL (M2-R4 rest-oracle): HW1's universe.RetreatList (RetreatAtoms) is not in the Cataclysm Universe: the
+//      one tactics list at universe+0x180 holds AttackAtoms (Universe.h). The exe's Tactics.c has 8 functions
+//      (0x005290b0-0x00529450) and no retreat tracking; the HW1 retreat code below keeps its list here until it is
+//      retired with its callers.
+static LinkedList cat_hw1RetreatList;
 
 
 //global data
@@ -559,23 +572,13 @@ void tacticsStartUp()
     oneOverburstSpeed = 1.0f/burstSpeed;
     tacticsFlashMenuBaby = NULL;
     tacticsMenuRegion = NULL;
-    listInit(&universe.RetreatList);
+    listInit(&cat_hw1RetreatList);
     listInit(&universe.AttackMemory);
 }
 
 void tacticsShutDown()
 {
-    if(tacticsFlashMenuBaby != NULL)
-    {
-        taskCallBackRemove(tacticsFlashMenuBaby);
-        tacticsFlashMenuBaby = NULL;
-    }
-    if(tacticsMenuRegion != NULL)
-    {
-        feMenuDisappear(NULL,NULL);
-        tacticsMenuRegion = NULL;
-    }
-    listDeleteAll(&universe.RetreatList);
+    // CAT (tacticsShutDown 0x00529120): the attack memory is deleted, nothing else (no menu baby, no menu region)
     listDeleteAll(&universe.AttackMemory);
 }
 extern regionhandle ghMainRegion;
@@ -1225,7 +1228,7 @@ RetreatAtom *tacticsShipIsRetreatingFromThisCommand(Ship *ship, CommandToDo *com
     Node *link;
     RetreatAtom *r;
 
-    link = universe.RetreatList.head;
+    link = cat_hw1RetreatList.head;
 
     while(link != NULL)
     {
@@ -1275,136 +1278,13 @@ void setAveragePosition(vector *vec, SelectCommand *selection)
 void tacticsReportMove(CommandLayer *comlayer,SelectCommand *selection)
 {
     Node *curnode;
-    CommandToDo *command;
-    sdword i,j;
-    vector  testdistvec;
 
-
-    curnode = comlayer->todolist.head;
-
-#ifdef DEBUG_TACTICS
-    if(noRetreat)
-        return;
-#endif
-
-    while (curnode != NULL)
+    // CAT (tacticsReportMove 0x00529130): the walk of the command list is all that is left of HW1's retreat
+    //      registration (17 bytes: the loop body was compiled away)
+    (void)selection;
+    for (curnode = comlayer->todolist.head; curnode != NULL; curnode = curnode->next)
     {
-        command = (CommandToDo *)listGetStructOfNode(curnode);
-
-        if(command->ordertype.order == COMMAND_ATTACK)
-        {
-            if(command->selection->ShipPtr[0]->tacticstype == Aggressive)
-            {
-                //command is set to agressive <general simplicity
-                //assumption that all ships in the command have the same
-                //tactics setting> so ships can't retreat.
-                goto nextnode;
-            }
-            if (command->ordertype.attributes & COMMAND_MASK_FORMATION)
-            {
-                if(!command->formation.doneInitialAttack)
-                {
-                    //group of ships hasn't attacked yet...so
-                    //don't register a retreat yet!
-                    goto nextnode;
-                }
-            }
-            else
-            {
-                //ship(s) aren't in formation...
-                //mustn't let ships retreat if not close enough!
-                //!!! Ships must be within RetreatGetAwayDistSqr
-                vecSub(testdistvec,command->selection->ShipPtr[0]->obj.posinfo.position,selection->ShipPtr[0]->obj.posinfo.position);
-                if(vecMagnitudeSquared(testdistvec) > tacticsInfo.RetreatGetAwayDistSqr[selection->ShipPtr[0]->staticinfo->shipclass])
-                {
-                    //too far away to be considered for retreating
-                    goto nextnode;
-                }
-            }
-
-            for(i=0;i<((SelectCommand *)command->attack)->numShips;i++)
-            {
-                for(j=0;j<selection->numShips;j++)
-                {
-                    if(selection->ShipPtr[j] == ((SelectCommand *)command->attack)->ShipPtr[i])
-                    {
-                        //ship that has been given move command is also
-                        //being attacked by this command.  So
-                        //set retreat conditions and do check somewheres
-                        vector tempvec,tempRetFrom;//,oldvec;
-                        real32 tempdistanceStartSqr;//,olddistanceStartSqr;
-                        RetreatAtom *newRetreat,*oldretreat;
-
-                        setAveragePosition(&tempRetFrom, (SelectCommand *)command->attack);
-
-                        vecSub(tempvec,selection->ShipPtr[j]->obj.posinfo.position,tempRetFrom);
-                        tempdistanceStartSqr = vecMagnitudeSquared(tempvec);
-
-                        oldretreat = tacticsShipIsRetreatingFromThisCommand(selection->ShipPtr[j], command);
-                        if(oldretreat != NULL)
-                        {
-                            //ship is currently retreating from this command, so don't do anything
-                            continue;
-
-                            //ship is currently retreating from this command (amongst others possibly)
-                            //lets choose the more advantagous retreat plan.
-
-                            /*
-                            vecSub(oldvec,selection->ShipPtr[j]->obj.posinfo.position,oldretreat->retreatFrom);
-                            olddistanceStartSqr = vecMagnitudeSquared(tempvec);
-                            if(olddistanceStartSqr < oldretreat->distanceStartSqr)
-                            {
-                                continue;
-                            }
-                            else
-                            {
-                                //cancel current ships retreat from this
-                                //command, and lets create a new one
-#ifdef DEBUG_TACTICS
-                                dbgMessagef("removing old retreat in favour of a better one");
-#endif
-                                tacticsRemoveRetreat(oldretreat);
-                            }
-                            */
-                        }
-
-                        newRetreat = (RetreatAtom *) memAlloc(sizeof(RetreatAtom),"Retreat Data", NonVolatile);
-
-
-                        newRetreat->retreater = selection->ShipPtr[j];
-                        newRetreat->fleeingfrom = command;
-
-                        newRetreat->retreatFrom = tempRetFrom;
-                        newRetreat->distanceStartSqr = tempdistanceStartSqr;
-                        listAddNode(&universe.RetreatList,&newRetreat->retreatLink,newRetreat);
-#ifdef bpasechn
-    #ifdef DEBUG_TACTICS
-                        dbgMessagef("Retreat Registered.");
-    #endif
-#endif
-                        //maybe make a retreat list that we update
-                        //in tactics update every Xth frame
-                        //we also remove references as ships die n such.
-                        //pain in ass, but efficient
-
-                        //when retreat conditions are met, ship
-                        //is added to a ship 'memory' list.  This
-                        //list will contain ships that must be attacked
-                        //if ships come within range.  Checked in
-                        //tacticsDelegateAttack.
-                        //ship memory lists must be checked and
-                        //cleaned up as ships die
-                        //and must also have expiry times on entries.
-
-                    }
-
-                }
-            }
-        }
-nextnode:
-        curnode = curnode->next;
     }
-
 }
 
 //Name: tacticsShipDied
@@ -1415,30 +1295,9 @@ void tacticsShipDied(Ship *ship)
 {
     sdword i;
     Node *link,*templink;
-    RetreatAtom *r;
     AttackAtom *a;
 
-#ifdef DEBUG_TACTICS
-    if(!tacticsOn)
-        return;
-#endif
-
-    link = universe.RetreatList.head;
-    while(link != NULL)
-    {
-        r = (RetreatAtom *) listGetStructOfNode(link);
-        if(r->retreater == ship)
-        {
-            templink = link->next;
-
-            listDeleteNode(link);
-
-            link = templink;
-            continue;
-        }
-        link = link->next;
-    }
-
+    // CAT (tacticsShipDied 0x00529150): the attack memory only; HW1's retreat list is gone
     link = universe.AttackMemory.head;
     while(link != NULL)
     {
@@ -1471,9 +1330,6 @@ deleteNode:
         return;
 
     }
-
-
-
 }
 //name tacticsSelCopy(&newattackatom->attackList,lookers);
 //
@@ -1502,7 +1358,7 @@ void tacticsAttackCommandVoided(CommandToDo *command)
         return;
 #endif
 
-    link = universe.RetreatList.head;
+    link = cat_hw1RetreatList.head;
     while(link != NULL)
     {
         r = (RetreatAtom *) listGetStructOfNode(link);
@@ -1919,7 +1775,7 @@ void tacticsGlobalUpdate()
         vector tempvec2;
         real32 distsqr;
 
-        rnode = universe.RetreatList.head;
+        rnode = cat_hw1RetreatList.head;
         while(rnode != NULL)
         {
             ratom = (RetreatAtom *) listGetStructOfNode(rnode);
@@ -2198,68 +2054,32 @@ bool32 tacticsCheckGuardConditionsDuringAttack(CommandToDo *command)
 real32 tacticsGetShipsMaxVelocity(Ship *ship)
 {
     real32 speedmult = 1.0f;
+    CommandToDo *command;
 
     if(ship->header.objtype != OBJ_ShipType)
     {
         return(ship->staticinfo->common.maxvelocity);
     }
 
-    // CAT: no Probe dispatch speed, Cataclysm has no probe type (tacticsGetShipsMaxVelocity 0x00529450 tests no type)
-
-    if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_Kamikaze))
+    // CAT (tacticsGetShipsMaxVelocity 0x00529450): a sphere formation moves at 0.7 (0x0072bd10); the kamikaze burst
+    //      needs both kamikaze flags; the single-player limiter wins; no speed burst, no fuel, no tactics velocity
+    //      bonus table and no probe dispatch speed
+    command = ship->command;
+    if ((command != NULL) && bitTest(command->ordertype.attributes, COMMAND_MASK_FORMATION) &&
+        (command->formation.formationtype == SPHERE_FORMATION))
     {
-        //ship is in kamikaze mode
-        if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_KamikazeCrazyFast))
-        {
-            //in a state where extra speed boost is needed
-            speedmult = kamikazeSpeedBurst;
-        }
+        speedmult = 0.699999988079071f;
     }
-    if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_SpeedBurst))
+    if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_Kamikaze) &&
+       bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_KamikazeCrazyFast))
     {
-        speedmult *= speedBurstMaxVelocityMultiplier;
+        speedmult = kamikazeSpeedBurst;
     }
-    else if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_SpeedBurstCooling))
-    {
-        //slow deceleration
-        real32 temp;
-        temp = speedBurstMaxVelocityMultiplier*(ship->speedBurstTime/universe.totaltimeelapsed);
-        if(temp < 1.0f)
-            temp = 1.0f;
-        speedmult *= temp;
-    }
-
-    if (ship->staticinfo->maxfuel != 0.0f)
-    {
-        // ship burns fuel
-        if (ship->fuel <= 0.0f)
-        {
-            speedmult = OUT_OF_FUEL_VELOCITY_SLOWDOWN;
-        }
-    }
-
     if (bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_SinglePlayerLimitSpeed))
     {
-        //Falko: removed because we want to be able to increase the maximum speed
-        //       of ships as well as decreasing it.
-//        if (ship->singlePlayerSpeedLimiter < ship->staticinfo->common.maxvelocity)
-//        {
-            return ship->singlePlayerSpeedLimiter;      // deliberately override other considerations - we want this to be the final word
-//        }
+        return ship->singlePlayerSpeedLimiter;      // deliberately override other considerations - we want this to be the final word
     }
-    // CAT (M2-R4 combat): no HW1 salvager pushing velocity (tacticsGetShipsMaxVelocity 0x00529450 has no such case;
-    //      its flag is retired)
-
-    switch(ship->staticinfo->shipclass)
-    {
-    case CLASS_Fighter:
-        return(ship->staticinfo->common.maxvelocity*tacticsInfo.MaxVelocityBonus[ship->tactics_ordertype][Tactics_Fighter][ship->tacticstype]*speedmult);
-    case CLASS_Corvette:
-        return(ship->staticinfo->common.maxvelocity*tacticsInfo.MaxVelocityBonus[ship->tactics_ordertype][Tactics_Corvette][ship->tacticstype]*speedmult);
-    default:
-        return(ship->staticinfo->common.maxvelocity*speedmult);
-    }
-
+    return(speedmult * ship->staticinfo->common.maxvelocity);
 }
 
 

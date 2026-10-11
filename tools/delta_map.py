@@ -54,7 +54,7 @@ def main_root():
 
 
 ROOT = main_root()
-EXPORT = os.path.join(ROOT, "ghidra/exports/cataclysm_gog_r5")
+EXPORT = os.path.join(ROOT, "ghidra/exports/cataclysm_gog_r6")   # M2-R4: r6 (r5 + the 3 M2-R3 renames)
 ORIG = os.path.join(ROOT, "original/scratch-m2/delta-orig/gardens-of-kadesh-ad1bb82c-src/src")
 WORK = os.path.join(ROOT, "original/scratch-m2/delta-work")
 OUT_JSON = os.path.join(HERE, "ghidra/delta_map.json")
@@ -1201,7 +1201,7 @@ def stage_classify(a):
             done.append(g)
     funcs_out = [r for _, r in sorted(results.items()) if r["group"] in done]
     cnt = collections.Counter(r["class"] for r in funcs_out)
-    out = {"done_subsystems": done, "method": METHOD % " ".join(CPP_DEFS), "export": "ghidra/exports/cataclysm_gog_r5",
+    out = {"done_subsystems": done, "method": METHOD % " ".join(CPP_DEFS), "export": "ghidra/exports/cataclysm_gog_r6",
            "hw1_source": "Relic HW1 source at gardens-of-kadesh root commit ad1bb82ca3c62dcc8be9d35f2e836d0bb7cf7caa (ORIG); "
                          "GoK working tree only where ORIG has no definition (hw1_source=GoK-HEAD)",
            "size_ratio_global_median": round(gmed, 3),
@@ -1224,7 +1224,7 @@ METHOD = (
     "cpp %s with a case-insensitive include dir (system headers stubbed), so debug-only code is compiled out as in "
     "a retail build and macros are expanded; definitions found by a brace matcher on the token stream. Names ORIG "
     "does not define fall back to the GoK working tree (hw1_source=GoK-HEAD). Cataclysm side: "
-    "ghidra/exports/cataclysm_gog_r5 decompiled.c body (comments stripped), call_graph.csv callees, strings.csv "
+    "ghidra/exports/cataclysm_gog_r6 decompiled.c body (comments stripped), call_graph.csv callees, strings.csv "
     "xrefs. Target set: binary-map class hw1:* (symbols_round1-5 notes, then the audited r2-r5 proposal sets) plus "
     "CET entries with an hw1_equivalent whose name is current (the docs/binary-map.md R5 rule, 4,426 functions). "
     "Features: game-callee sets by canonical HW1 name (HomeworldSDL names mapped through ORIG macro aliases, e.g. "
@@ -1386,11 +1386,28 @@ def stage_report(a):
     for r in fs:
         cb[r["class"]] += r["features"]["cat_bytes"]
     unres = dm.get("unresolved", [])
-    # calibration: current automatic class vs hand review
+    # calibration: current automatic class vs hand review. [M2-R4 rest-oracle] Only the reviews drawn as samples
+    # count: the R1 calibration buckets ("IDENTICAL/medium", "uniform/..."), the R2 re-read of every IDENTICAL/low
+    # function and the audit reclassifications. The ports' targeted reviews (sample "port-*" or none) are the
+    # functions a port chose to read because it suspected a change, so they would bias the agreement estimate
+    # (docs/m2-r3-summary.md: about 80% instead of 93.6%). --calib-samples changes the set; "all" uses every review.
+    def calib_ok(r):
+        if not r["reviewed"]:
+            return False
+        if a.calib_samples == "all":
+            return True
+        sample = (rv.get(r["address"]) or {}).get("sample")
+        if sample is None:
+            return False
+        if a.calib_samples == "calibration":
+            return sample.startswith(("IDENTICAL/", "MODIFIED/", "REWRITTEN/", "uniform/", "reread-", "audit-"))
+        return sample in a.calib_samples.split(",")
+    n_calib = 0
     conf_m = collections.defaultdict(collections.Counter)
     conf_b = collections.defaultdict(collections.Counter)   # per (auto class, auto confidence) bucket
     for r in fs:
-        if r["reviewed"]:
+        if calib_ok(r):
+            n_calib += 1
             conf_m[r["auto_class"]][r["class"]] += 1
             conf_b[(r["auto_class"], r["auto_confidence"])][r["class"]] += 1
     # estimate: unreviewed functions redistributed by P(human | auto) from the review set
@@ -1432,7 +1449,7 @@ def stage_report(a):
     md.append("# M2-R1 function deltas: Cataclysm vs Homeworld 1\n")
     md.append("Round M2-R1, item 3 of `cycle/M2_BRIEF.md`. For every function the binary map matched to Homeworld 1 "
               "(class `hw1:<File>`, plus CET's `hw1_equivalent` entries, the rule behind the 4,426 HW1 matches of "
-              "docs/binary-map.md round 5), this compares the decompiled Cataclysm body (`ghidra/exports/cataclysm_gog_r5`) "
+              "docs/binary-map.md round 5), this compares the decompiled Cataclysm body (`ghidra/exports/cataclysm_gog_r6`, since M2-R4; r5 before) "
               "with Relic's original source (gardens-of-kadesh root commit `ad1bb82`) and classifies it IDENTICAL, MODIFIED or "
               "REWRITTEN. Per-function data: `ghidra/delta_map.json`. Tool: `tools/delta_map.py`. Hand-review verdicts: "
               "`ghidra/delta_map_review.json`.\n")
@@ -1458,8 +1475,11 @@ def stage_report(a):
         md.extend(reread_section(fs, rv, rr, conf_b, conf_m, cn, cb, tot_b))
     md.append("## Hand review and calibration\n")
     nrev = sum(1 for r in fs if r["reviewed"])
-    md.append("%d functions were reviewed by hand (both bodies read; for long bodies sometimes only the head, as the review note says). Rows: the tool's current automatic class; "
-              "columns: the reviewed class.\n" % nrev)
+    md.append("%d functions were reviewed by hand (both bodies read; for long bodies sometimes only the head, as the review note says). "
+              "The calibration below uses the %d reviews drawn as samples (`--calib-samples %s`: the M2-R1 buckets, the M2-R2 "
+              "re-read and the audit reclassifications); the ports' targeted reviews (sample `port-*` or none, %d functions) "
+              "are excluded because a port reads the functions it suspects of change. Rows: the tool's current automatic class; "
+              "columns: the reviewed class.\n" % (nrev, n_calib, a.calib_samples, nrev - n_calib))
     md.append("| automatic \\ reviewed | IDENTICAL | MODIFIED | REWRITTEN | agreement |")
     md.append("|---|---:|---:|---:|---:|")
     for k in K:
@@ -1610,6 +1630,9 @@ def main():
     ap.add_argument("--fresh", action="store_true")
     ap.add_argument("--max-lines", type=int, default=80)
     ap.add_argument("--done", nargs="*", default=None, help="merge: done_subsystems labels to append")
+    ap.add_argument("--calib-samples", default="calibration",
+                    help="report: which review samples calibrate the estimate: 'calibration' (default: the R1 buckets, "
+                         "reread-*, audit-*), 'all', or a comma-separated list of sample names")
     a = ap.parse_args()
     {"prep": stage_prep, "classify": stage_classify, "show": stage_show, "report": stage_report,
      "mark": stage_mark, "merge": stage_merge}[a.stage](a)

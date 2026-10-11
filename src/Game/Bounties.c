@@ -11,7 +11,6 @@
 #include "Tweak.h"
 
 
-real32 getPlayerBountyWorthDeterm(real32 shipworth,real32 ruworth,real32 totalshipworth,real32 totalruworth);
 
 //variables of import: tpGameCreated.flag, MG_BountiesEnabled bitmask
 //                     tpGameCreated.bountySize
@@ -24,186 +23,73 @@ real32 getPlayerBountyWorthDeterm(real32 shipworth,real32 ruworth,real32 totalsh
     Return      :
 ----------------------------------------------------------------------------*/
 
+// CAT (M2-R4 rest-oracle): Cataclysm keeps a per-player worth (8 floats at 0x008dfa28) and the raw bounty setting
+//      (0x008dfa48) instead of HW1's bounty percentage per player; names chosen here
+static real32 cat_playerBountyWorth[MAX_MULTIPLAYER_PLAYERS];
+static sdword cat_bountySetting;
+
+// 0x00428050: clears the worth array and stores the setting (HW1 stored TW_BountySizes[size] in universe.bountySize)
 void BountyInit(sdword bountySettingSize)
 {
-    //small,med,large
-    universe.bountySize = TW_BountySizes[bountySettingSize];
+    sdword i;
+
+    for (i = 0; i < MAX_MULTIPLAYER_PLAYERS; i++)
+    {
+        cat_playerBountyWorth[i] = 0.0f;
+    }
+    cat_bountySetting = bountySettingSize;
 }
 
+// 0x00428250: the player's worth as an integer (a 16-byte __ftol wrapper; HW1 returned player->bounty). The read of
+// the worth array is the reading of the evidence (callers cat_moPlayerNamesDraw, cat_aisUpdateTeams), confidence medium
 sdword getPlayerBountyRender(Player *player)
 {
-    return(player->bounty);
+    return((sdword)cat_playerBountyWorth[player->playerIndex]);
 }
+
 //called ONLY deterministically...
+// CAT: 0x00428070: per player, the build cost of every live, enabled ship plus the resource units (the ships inside
+//      carriers, the human/computer RU averaging and the bounty percentage of HW1 are gone); a worth of 0 or less reads 1
 void calculatePlayerBounties(void)
 {
-    real32 worth[MAX_MULTIPLAYER_PLAYERS];
     real32 shipworth[MAX_MULTIPLAYER_PLAYERS];
-    real32 ruworth[MAX_MULTIPLAYER_PLAYERS];
-    real32 maxValue;
-    real32 totalWorth = 0;
-    real32 totalshipworth = 0,totalruworth = 0;
+    real32 worth;
     sdword i;
-    udword cap;
-    real32 totalhumanruworth = 0.0f;
+    Node *objnode;
+    Ship *ship;
+    udword playerindex;
 
     if (singlePlayerGame)
     {
         return;
     }
 
-    maxValue = (real32) (universe.numPlayers*universe.bountySize);
-
-    for (i=0;i<universe.numPlayers;i++)
+    for (i=0;i<MAX_MULTIPLAYER_PLAYERS;i++)
     {
-        worth[i] = 0.0f;
         shipworth[i] = 0.0f;
-        ruworth[i] = 0.0f;
     }
 
-    // walk shiplist and calculate ship worth for everyone:
+    for (objnode = universe.ShipList.head; objnode != NULL; objnode = objnode->next)
     {
-        Node *objnode = universe.ShipList.head;
-        Ship *ship;
-        sdword playerindex;
-
-        while (objnode != NULL)
+        ship = (Ship *)listGetStructOfNode(objnode);
+        if (((ship->header.flags & SOF_Disabled) == 0) && ((ship->header.flags & SOF_Dead) == 0))
         {
-            ship = (Ship *)listGetStructOfNode(objnode);
-            dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-
-            if ( ((ship->header.flags & (SOF_Dead|SOF_Disabled)) == 0) )
+            playerindex = ship->playerowner->playerIndex;
+            if (playerindex < universe.numPlayers)
             {
-                playerindex = ship->playerowner->playerIndex;
-                if ((playerindex >= 0) && (playerindex < universe.numPlayers))
-                {
-                    shipworth[playerindex] += ship->staticinfo->buildCost;
-
-                    // also check ships inside it:
-
-                    if ((ship->shipsInsideMe != NULL))
-                    {
-                        // check ships inside too
-                        Node *insidenode = ship->shipsInsideMe->insideList.head;
-                        InsideShip *insideship2;
-
-                        while (insidenode != NULL)
-                        {
-                            insideship2 = (InsideShip *)listGetStructOfNode(insidenode);
-                            ship = insideship2->ship;
-                            dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-
-                            if ( ((ship->header.flags & (SOF_Dead|SOF_Disabled)) == 0) )
-                            {
-                                playerindex = ship->playerowner->playerIndex;
-                                if ((playerindex >= 0) && (playerindex < universe.numPlayers))
-                                {
-                                    shipworth[playerindex] += ship->staticinfo->buildCost;
-                                }
-                            }
-
-                            insidenode = insidenode->next;
-                        }
-                    }
-                }
+                shipworth[playerindex] += (real32)ship->staticinfo->buildCost;
             }
-
-            objnode = objnode->next;
         }
     }
 
-    totalhumanruworth = 0.0f;
-    for (i=0;i<tpGameCreated.numPlayers;i++)
+    for (i=0;i<MAX_MULTIPLAYER_PLAYERS;i++)
     {
-        ruworth[i] = (real32)universe.players[i].resourceUnits;
-        totalhumanruworth += ruworth[i];
-    }
-
-    if (tpGameCreated.numPlayers) totalhumanruworth /= tpGameCreated.numPlayers;
-
-    if (totalhumanruworth)
-    for (i=tpGameCreated.numPlayers;i<universe.numPlayers;i++)
-    {
-        ruworth[i] = totalhumanruworth;     // assume cmpt players ru worth is equal to avg of human players
-    }
-
-
-    for (i=0;i<universe.numPlayers;i++)
-    {
-        totalshipworth += shipworth[i];
-        totalruworth += ruworth[i];
-    }
-
-    // we now have shipworth and ruworth for each player.  Let's calculate worth
-
-    for(i=0;i<universe.numPlayers;i++)
-    {
-        worth[i] = getPlayerBountyWorthDeterm(shipworth[i],ruworth[i],totalshipworth,totalruworth);
-        totalWorth += worth[i];
-    }
-
-    for(i=0;i<universe.numPlayers;i++)
-    {
-        cap = (udword)((worth[i]/totalWorth)*maxValue);
-
-        if (cap > 250) cap = 250;
-
-        universe.players[i].bounty = (ubyte)cap;
+        worth = (real32)universe.players[i].resourceUnits + shipworth[i];
+        cat_playerBountyWorth[i] = (worth <= 0.0f) ? 1.0f : worth;
     }
 }
 
-
-/*-----------------------------------------------------------------------------
-    Name        : getPlayerBountyWorthDeterm
-    Description : Calculates an arbitrary number based on many different factors
-                  of how a player is doing
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-
-//skewing values...player is assumed to have this many before actual statistics start taking over
-#define BOUNTY_MIN_RESOURCE_SKEW            2000.0f
-#define BOUNTY_MIN_RESOURCES_POSSESION_SKEW 2000.0f
-
-//weight multipliers...each category is multiplied by these multipliers
-//to give more importance to one particular topic
-#define I_resourcesCollected    TW_Bounty_ResourcesCollected;
-#define I_resourcesInPossesion  TW_Bounty_ResourcesInPossesion;
-#define I_currentShipWorth      TW_Bounty_CurrentShipWorth;
-#define I_AllyStrength          TW_Bounty_AllyStrength;
-#define I_ResourcesKilled       TW_Bounty_ResourcesKilled;
-
-real32 getPlayerBountyWorthDeterm(real32 shipworth,real32 ruworth,real32 totalshipworth,real32 totalruworth)
-{
-    real32 playerCurrentShipWorth;
-    real32 playerRUWorth;
-    real32 worth;
-
-    if(totalshipworth == 0.0f)
-    {
-        playerCurrentShipWorth = 0.0f;
-    }
-    else
-    {
-        playerCurrentShipWorth = shipworth / totalshipworth;
-        playerCurrentShipWorth *= I_currentShipWorth;
-    }
-
-    if (totalruworth == 0.0f)
-    {
-        playerRUWorth = 0.0f;
-    }
-    else
-    {
-        playerRUWorth = ruworth;
-        playerRUWorth *=  TW_Bounty_ResourcesInPossesion/totalruworth;
-    }
-
-    worth = playerCurrentShipWorth + playerRUWorth;
-
-    return worth;
-}
+// CAT: no getPlayerBountyWorthDeterm (its only caller, HW1's calculatePlayerBounties, is gone)
 
 /*-----------------------------------------------------------------------------
     Name        : getBountyOnShip

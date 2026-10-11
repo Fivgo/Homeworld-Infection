@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -22,9 +22,16 @@
 #                    etg\*.script and etg\*.ebg of the cataclysm.big TOC, "etgtest:" log lines; with --etg-ticks N > 0
 #                    also /catEtgEffectTest N (a sample of the loaded effects, created with the parameters the game
 #                    passes, run for N universe ticks); quits
+#                    mission: /oracleMission <ticks> /oracleDump <run>/run.hwo (M2-R4 rest-oracle,
+#                    docs/m2-r4-rest-oracle.md): the headless Mission01 oracle run: single player starts at once (as sp),
+#                    no animatic, the task clock advances one universe tick per frame (so the run does not depend on the
+#                    wall clock), no /debugScreenshots next-level loop; "oracle: mission tick N" lines every 256 ticks,
+#                    quits after <ticks> ticks with "oracle: mission run done"; needs --timeout of several minutes under
+#                    ASan (about 10 ticks/s)
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
+#   --mission-ticks N mission mode: universe ticks to run (default 3000)
 #   --etg-ticks N    etg mode: ticks of the effect self-test (default 128; 0 = parse test only)
-#   --perturb T      oracle mode: one extra gamerand() before tick T (/oracleSelfTestPerturb; tests the compare tool)
+#   --perturb T      oracle or mission mode: one extra gamerand() before tick T (/oracleSelfTestPerturb; tests the compare tool)
 #   --hwo            any other mode: also write the oracle stream to <run>/run.hwo (/oracleDump)
 #   --timeout N      seconds (default 60)
 #   --driver D       offscreen (default; falls back to dummy if the offscreen driver cannot set a video mode) | dummy
@@ -79,7 +86,7 @@ fi
 label=${1:?usage: m2_harness.sh <label> [--mode sp|fe] [--timeout N] [--driver D] [--data DIR] [-- engine args]}
 shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
-oticks=512; perturb=""; hwo=0; etgticks=128
+oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -88,6 +95,7 @@ while [[ $# -gt 0 ]]; do
 		--data) data=$2; shift ;;
 		--bin) bin=$(realpath -- "$2"); shift ;;
 		--oracle-ticks) oticks=$2; shift ;;
+		--mission-ticks) mticks=$2; shift ;;
 		--etg-ticks) etgticks=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
@@ -111,6 +119,9 @@ grep -q -a "/logFileLoads" "$bin" || args=(/window /nodebugInt /settingspath "$o
 [[ "$mode" == textures ]] && args+=(/catTexturesTest)
 if [[ "$mode" == oracle ]]; then
 	args+=(/oracleSelfTest "$oticks" /oracleDump "$out/run.hwo")
+	[[ -n "$perturb" ]] && args+=(/oracleSelfTestPerturb "$perturb")
+elif [[ "$mode" == mission ]]; then
+	args+=(/oracleMission "$mticks" /oracleDump "$out/run.hwo")
 	[[ -n "$perturb" ]] && args+=(/oracleSelfTestPerturb "$perturb")
 elif [[ $hwo -eq 1 ]]; then
 	args+=(/oracleDump "$out/run.hwo")
@@ -183,11 +194,12 @@ grep -q "feScreenPush: pushed screen 1" "$L" && milestone="Main_game_screen"
 grep -q "New single player game started" "$L" && milestone="single player started"
 grep -qi "Mission01.mission\|LevelLoad\|levelLoad" "$out/FileLoads.log" "$L" 2>/dev/null && \
 	grep -q "New single player game started" "$L" && milestone="level load (mission file read)"
-grep -q "debugScreenshots univUpdateCounter" "$L" && milestone="universe running (univUpdateCounter > 0)"
+grep -q "debugScreenshots univUpdateCounter\|oracle: mission tick" "$L" && milestone="universe running (univUpdateCounter > 0)"
 grep -q "shipstatic: self-test done" "$L" && milestone="ship statics self-test done"
 grep -q "meshtest: self-test done" "$L" && milestone="mesh self-test done"
 grep -q "texturetest: self-test done" "$L" && milestone="texture self-test done"
 grep -q "oracle: self-test done" "$L" && milestone="oracle self-test done"
+grep -q "oracle: mission run done" "$L" && milestone="oracle mission run done"
 grep -q "etgtest: self-test done" "$L" && milestone="etg parse self-test done"
 grep -q "etgtest: effect self-test done" "$L" && milestone="etg effect self-test done"
 
@@ -218,7 +230,8 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	echo "file loads: $nload; ASan errors: $asan_n; LeakSanitizer at exit: ${leak_sum:-no unsuppressed leak}"
 	echo "ship statics: $(grep -c 'shipstatic: loaded' "$L") loaded, $(grep -c 'shipstatic: .* not found' "$L") not found (disabled), $(grep -c 'shipstatic: other' "$L") other .shp; $(grep -h 'shipstatic: self-test done' "$L" | sed 's/^.*shipstatic: //' | head -n 1)"
 	[[ "$mode" == meshes ]] && echo "meshes: $(grep -c . "$out/meshes.list" 2>/dev/null) listed, $(grep -c 'meshtest: loaded' "$L") .geo/.peo loaded, $(grep -c 'meshtest: mad loaded' "$L") .mad loaded, $(grep 'meshtest: .*loaded' "$L" | grep -c -v ' bad=0$') with bad=; $(grep -h 'meshtest: self-test done' "$L" | sed 's/^.*meshtest: //' | head -n 1)"
-	[[ -f "$out/run.hwo" ]] && echo "oracle: $(grep -h 'oracle: self-test done' "$L" | sed 's/^.*oracle: //' | head -n 1); run.hwo $(stat -c %s "$out/run.hwo") bytes, sha256 $(sha256sum "$out/run.hwo" | cut -c1-16)"
+	[[ -f "$out/run.hwo" ]] && echo "oracle: $(grep -h 'oracle: self-test done\|oracle: mission run done' "$L" | sed 's/^.*oracle: //' | head -n 1); run.hwo $(stat -c %s "$out/run.hwo") bytes, sha256 $(sha256sum "$out/run.hwo" | cut -c1-16)"
+	[[ "$mode" == mission ]] && echo "mission: last tick line: $(grep -h 'oracle: mission tick' "$L" | tail -n 1 | sed 's/^.*oracle: //'); ships loaded $(grep -c 'shipstatic: loaded' "$L")"
 	[[ "$mode" == textures ]] && echo "textures: $(grep -h 'texturetest: listing lookups\|texturetest: self-test done' "$L" | sed 's/^.*texturetest: //' | paste -sd';')"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"
 	echo "engine glows:$(grep -c -i 'engineglows' "$out/FileLoads.log" 2>/dev/null) mesh/mex loads from misc\\EngineGlows in FileLoads.log"

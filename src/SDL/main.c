@@ -391,6 +391,12 @@ bool32 OracleSelfTestPerturbSet(char *string)
     oracleSetSelfTestPerturb(string);
     return TRUE;
 }
+
+bool32 OracleMissionSet(char *string)
+{
+    oracleSetMission(string);
+    return TRUE;
+}
 #endif
 
 bool32 HeapSizeSet(char *string)
@@ -933,7 +939,8 @@ commandoption commandOptions[] =
     // HWI-ORACLE: checksum-oracle stream (Game/OracleDump.c, docs/m2-r2-oracle.md), not a Cataclysm option
     entryFnParam("/oracleDump",     OracleDumpSet, " <file> - write the checksum-oracle stream (.hwo) to file."),
     entryFnParam("/oracleSelfTest", OracleSelfTestSet, " <ticks> - run the oracle's scripted lockstep start for <ticks> universe ticks, then exit."),
-    entryFnParam("/oracleSelfTestPerturb", OracleSelfTestPerturbSet, " <tick> - oracle self-test only: draw one extra gamerand() at <tick>."),
+    entryFnParam("/oracleSelfTestPerturb", OracleSelfTestPerturbSet, " <tick> - oracle self-test or mission run: draw one extra gamerand() at <tick>."),
+    entryFnParam("/oracleMission",  OracleMissionSet, " <ticks> - headless oracle run: start single player at once, no animatic, one universe tick per frame, exit after <ticks> ticks."),
 #endif
 
     END_COMMAND_OPTION,

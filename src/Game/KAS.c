@@ -236,7 +236,7 @@ void kasMissionStart(char *name, KASInitFunction initFunction, KASWatchFunction 
     CurrentMissionWatchFunction = watchFunction;
 
     //hyperspace init
-    hsStaticInit(LabelledVectorsUsed);
+    hsStaticInit();     // CAT: no argument (hsStaticInit 0x004901b0)
 
     initFunction();         // must go last - save game is called at end of this function, we want everything setup
 }
