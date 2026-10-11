@@ -18,14 +18,17 @@
 #include "Collision.h"
 #include "CommandDefs.h"
 #include "CommandNetwork.h"
+#include "ConsMgr.h"
 #include "FastMath.h"
 #include "MadLinkIn.h"
 #include "Memory.h"
 #include "NetCheck.h"
 #include "Ping.h"
 #include "Randy.h"
+#include "Salvage.h"
 #include "Select.h"
 #include "Ships.h"
+#include "ShipSelect.h"
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
 #include "SpeechEvent.h"
@@ -40,6 +43,39 @@
 #define DEBUG_PASSIVE_ATTACK  0
 #define DEBUG_LAUNCH_SHIP     0
 #define DEBUG_COMMAND_LAYER   0
+
+/*-----------------------------------------------------------------------------
+    CAT (M2-R4 command): state of this file against cataclysm.exe. Ported: protectShip, protectShipsAvg,
+    ClearProtecting, the shipHasJust* functions, RemoveShipFromBeingTargeted (4 arguments), clScuttle, ShipHasToLaunch,
+    clCreateShip, clShipDied, and the new cat_shipHasJustBeenSalvaged, cat_clStartExternalBuildTimer,
+    cat_clExternalBuildUpdate, cat_shipIsLiveWorker (each marked CAT at the change).
+    CAT-TODO(M2-R4 command follow-up; docs/m2-r4-command.md "What is left"): the MODIFIED bodies below are still HW1's.
+      - RemoveShipsFromDoingStuff 0x00444810 takes a third argument, a reason code (0xb launch, 0xd parade, 0xe died,
+        0x10 unlink, 0x11 mimic, 0x20 formation, 0x65 parade of a dead ship ...), sets disable reasons
+        (cat_shipSetDisableReason), frees the link state and has no RemoveShipReferencesFromExtraAttackInfo; every
+        caller passes its code.
+      - FreeCommandToDoContents 0x004440f0 / FreeLastOrder 0x00444490: cat_clLinkCleanup, disable reasons, unClampObj;
+        no tacticsAttackCommandVoided (absent from Cataclysm).
+      - processAttackToDo 0x00441c10, processAttackToDoInFormation 0x00442fb0, delegateCommand 0x004427a0,
+        processPassiveAttackToDo 0x00441ab0: fleet battle chatter, FOW visibility (cat_fowCanPlayerSeeShip), mothership
+        module targets (cat_gunPickMothershipModuleTarget), crystals, clWrapHalt.
+      - processMoveToDo 0x00443cb0 (4 arguments, CalculateMoveToPoints, Sentinel spheres), ChangeOrderToMove
+        0x004460d0, clMoveThese 0x004467c0 (11 arguments), clMove 0x00446d90 (cat_clCalculateMoveToOffsets,
+        cat_tacticsRemoveRetreatingShips; no MakeShipsMobile, no salCapExtraSpecialOrderCleanUp).
+      - processMpHyperspaceingToDo 0x004436a0, ChangeOrderToHyperSpace 0x004470f0, clMpHyperspaceThese 0x004472a0,
+        clMpHyperspace 0x004474a0; ChangeOrderToAttack 0x00448460, clAttackThese 0x00448620 and clAttack 0x00448950
+        (cat_clAddAttachedModulesToTargets, MakeShipsOnlyFollowConstraints); ChangeOrderToPassiveAttack 0x00448b30,
+        clPassiveAttack 0x00448ce0; clSpecial 0x004492c0 (salvagers, FillInFormationSpecifics); clRUTransfer
+        0x00449990; clHaltThese 0x00449b50, clHalt 0x00449e80; clProtect 0x0044af20; clSetMilitaryParade 0x0044b220
+        (component class 10 skipped); clHoldingPattern 0x0044b550 (clFormation with 4 arguments); clProcess
+        0x0044b950 (orders 11-16, see CommandDefs.h); clPostProcess 0x0044cf80; GroupShip 0x0044b320.
+      - clLaunchShip 0x0044a220: the ship's CustShipLaunchCommand slot can refuse, no launch from an attributesParam
+        0x400 receiver for non-external types, InitializeDockVars(ship, receiver, 2) instead of
+        dockPrepareSingleShipForLaunch/dockInitShipForLaunch (Dock.c, M2-R4 #3); LaunchAllInternalShipsOfPlayer
+        0x0044a510 (no FillInCarrierMothershipInfo, a class-0 mothership); processLaunchShipToDo (Dock, M2-R4 #3).
+      - The orders 11-17 themselves: cat_clLink/Unlink/Mimic/Research/PointOrder/UpgradeShips 0x0044d3b0..0x0044de80,
+        cat_processLinkToDo/UnlinkToDo/ResearchToDo, and the other cat_cl* functions of 0x00444060..0x0044e150.
+-----------------------------------------------------------------------------*/
 
 /*=============================================================================
     Private Functions:
@@ -321,7 +357,8 @@ void protectShip(Ship *ship, Ship *protectThisShip, bool32 passiveAttacked)
         protectThisShipSize = shipSize;     // if guarding a smaller ship, give more room
     }
 
-    if(isCapitalShip(ship) || ship->shiptype == GravWellGenerator || ship->shiptype == CloakGenerator)
+    // CAT: protectShip 0x004411c0 keeps the capital range for both grav-well generators and no cloak generator
+    if(isCapitalShip(ship) || ship->shiptype == kGravWellGenerator || ship->shiptype == tGravWellGenerator)
     {
         desiredrange = PROTECT_GET_THIS_CLOSE_CAP + shipSize + protectThisShipSize;
     }
@@ -331,7 +368,8 @@ void protectShip(Ship *ship, Ship *protectThisShip, bool32 passiveAttacked)
     }
 
     // Let's have some ships like the ResourceController follow behind the ship so we don't accidentally block them.
-    if (ship->shiptype == ResourceController)
+    // CAT: the ships that follow behind are the processors (sProcessor 16, bProcessor 51; protectShip 0x004411c0)
+    if ((ship->shiptype == sProcessor) || (ship->shiptype == bProcessor))
     {
         real32 followbehind = desiredrange * RESCONTROLLER_FOLLOW_BEHIND;      // follow behind 1.5 radii
         matGetVectFromMatrixCol3(heading,protectThisShip->rotatable.rotinfo.coordsys);
@@ -345,10 +383,7 @@ void protectShip(Ship *ship, Ship *protectThisShip, bool32 passiveAttacked)
 
     dontrotate = ((passiveAttacked) & (bool32)((ShipStaticInfo *)ship->staticinfo)->rotateToRetaliate);
 
-    if (ship->shiptype == DDDFrigate)
-    {
-        DDDFrigateMakeSureItCanGuard(ship);
-    }
+    // CAT: no DDDFrigate (protectShip 0x004411c0 / protectShipsAvg 0x004413f0 have no DDDFrigateMakeSureItCanGuard)
 
     if (protectThisShip->dockvars.dockship == ship)     // if docking with me
     {
@@ -361,7 +396,7 @@ void protectShip(Ship *ship, Ship *protectThisShip, bool32 passiveAttacked)
 
     if (dist < desiredrange)
     {
-        if ((ship->shipOrDerelict.specialFlags2 & SPECIAL_2_CircularGuard) ||
+        if ((ship->shipOrDerelict.specialFlags & SPECIAL_CircularGuard) ||   // CAT: specialFlags in the exe
             (getVectDistSloppy(protectThisShip->obj.posinfo.velocity) < PROTECT_STILL_VELOCITY) )
         {
 juststeady:
@@ -474,7 +509,9 @@ void protectShipsAvg(Ship *ship,ProtectCommand *protectShips,bool32 passiveAttac
     vecSub(diff,ship->obj.posinfo.position,guardposition);
     dist = getVectDistSloppy(diff);
 
-    if(isCapitalShip(ship) || ship->shiptype == GravWellGenerator || ship->shiptype == CloakGenerator)
+    // CAT: protectShipsAvg 0x004413f0: capital range for both races' grav-well and cloak generators (64, 79, 63, 77)
+    if(isCapitalShip(ship) || ship->shiptype == kGravWellGenerator || ship->shiptype == tGravWellGenerator ||
+       ship->shiptype == kCloakGenerator || ship->shiptype == tCloakGenerator)
     {
         desiredrange = PROTECT_GET_THIS_CLOSE_CAP + shipSize;
     }
@@ -487,22 +524,17 @@ void protectShipsAvg(Ship *ship,ProtectCommand *protectShips,bool32 passiveAttac
 
     dontrotate = ((passiveAttacked) & (bool32)((ShipStaticInfo *)ship->staticinfo)->rotateToRetaliate);
 
-    if (ship->shiptype == DDDFrigate)
-    {
-        DDDFrigateMakeSureItCanGuard(ship);
-    }
+    // CAT: no DDDFrigate (protectShip 0x004411c0 / protectShipsAvg 0x004413f0 have no DDDFrigateMakeSureItCanGuard)
 
     anyshipdockingwithme = FALSE;
 
-    if (ship->staticinfo->canReceiveSomething)
+    // CAT: the exe checks every protected ship, with no canReceiveSomething gate (protectShipsAvg 0x004413f0)
+    for (i=0;i<numShips;i++)
     {
-        for (i=0;i<numShips;i++)
+        if (protectShips->ShipPtr[i]->dockvars.dockship == ship)
         {
-            if (protectShips->ShipPtr[i]->dockvars.dockship == ship)
-            {
-                anyshipdockingwithme = TRUE;
-                break;
-            }
+            anyshipdockingwithme = TRUE;
+            break;
         }
     }
 
@@ -513,7 +545,7 @@ void protectShipsAvg(Ship *ship,ProtectCommand *protectShips,bool32 passiveAttac
 
     if (dist < desiredrange)
     {
-        if ((ship->shipOrDerelict.specialFlags2 & SPECIAL_2_CircularGuard) ||
+        if ((ship->shipOrDerelict.specialFlags & SPECIAL_CircularGuard) ||   // CAT: specialFlags in the exe
             (getVectDistSloppy(protectShipsAvgVel) < PROTECT_STILL_VELOCITY))
         {
 juststeady:
@@ -3199,9 +3231,16 @@ void ClearProtecting(CommandToDo *command)
     if (command->ordertype.attributes & COMMAND_MASK_FORMATION)
     {
 //        command->formation.formAroundProtectedShip = FALSE;
-        if ((command->formation.formationtype == SPHERE_FORMATION) && (command->selection->numShips > 0))
+        // CAT: ClearProtecting 0x004447b0: a sphere needs at least 2 ships (HW1: 1), and a force-field sphere around the
+        //      protected ship becomes a force-field wall
+        if ((command->formation.formationtype == SPHERE_FORMATION) && (command->selection->numShips >= 2))
         {
             // sphere formation was surrounding protected ship, so let's undo this
+            formationContentHasChanged(command);
+        }
+        else if (command->formation.formationtype == FORCEFIELD_SPHERE_FORMATION)
+        {
+            command->formation.formationtype = FORCEFIELD_WALL_FORMATION;
             formationContentHasChanged(command);
         }
     }
@@ -3708,9 +3747,11 @@ void clMissileDied(CommandLayer *comlayer,MissilePtr missile)
 ----------------------------------------------------------------------------*/
 void shipHasJustCloaked(Ship *ship)
 {
-    RemoveShipFromBeingTargeted(&universe.mainCommandLayer,ship,REMOVE_CLOAKED);
+    RemoveShipFromBeingTargeted(&universe.mainCommandLayer,ship,REMOVE_CLOAKED,NULL);
+    // CAT: "can the current player still see it" is Cataclysm's detection test (shipHasJustCloaked 0x004452f0 calls
+    //      sub_53F9F0 = cat_shipDetectedByPlayer where HW1 asks proximityCanPlayerSeeShip)
     if(ship->playerowner != universe.curPlayerPtr &&
-       !proximityCanPlayerSeeShip(universe.curPlayerPtr,ship))
+       !cat_shipDetectedByPlayer(ship,universe.curPlayerPtr->playerIndex))
     {           //if ship isn't players...remove it from camera stack
         ccRemoveShip(&universe.mainCameraCommand,ship);
     }
@@ -3718,51 +3759,41 @@ void shipHasJustCloaked(Ship *ship)
 
 void shipHasJustDisappeared(Ship *ship)
 {
-    RemoveShipFromBeingTargeted(&universe.mainCommandLayer,ship,REMOVE_DISAPPEARED);
+    RemoveShipFromBeingTargeted(&universe.mainCommandLayer,ship,REMOVE_DISAPPEARED,NULL);
 }
 
 /*-----------------------------------------------------------------------------
     Name        : shipHasJustBeenDisabled
     Description : cleans up the game such that the ship that has just been disabled isn't
                   being attacked by ships, etc.
-    Inputs      :
+    Inputs      : CAT: catKeepInCamera - TRUE keeps the ship on the camera stack (the exe's two callers,
+                  0x00429aa2 in the Beast weapon and cat_salvageSpecialTarget 0x004fb6f7, both pass 1)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void shipHasJustBeenDisabled(Ship *ship)
+void shipHasJustBeenDisabled(Ship *ship,bool32 catKeepInCamera)
 {
-    RemoveShipFromBeingTargeted(&universe.mainCommandLayer,ship,REMOVE_DISABLED);
-    ccRemoveShip(&universe.mainCameraCommand,ship);
-    switch (ship->shiptype)
+    RemoveShipFromBeingTargeted(&universe.mainCommandLayer,ship,REMOVE_DISABLED,NULL);
+    if (!catKeepInCamera)
     {
-        case DDDFrigate:
-            DDDFrigateJustDisabled(ship);
-            break;
-
-        case CloakGenerator:
-            cloakGeneratorJustDisabled(ship);
-            break;
-
-        case GravWellGenerator:
-            GravWellGeneratorJustDisabled(ship);
-            break;
-
-        default:
-            break;
+        ccRemoveShip(&universe.mainCameraCommand,ship);
+    }
+    // CAT: only the grav-well generators of both races have a disable hook (shipHasJustBeenDisabled 0x00445360: types
+    //      64/79); no DDDFrigate or cloak generator case, and the three mad animations close for every ship type
+    if ((ship->shiptype == kGravWellGenerator) || (ship->shiptype == tGravWellGenerator))
+    {
+        GravWellGeneratorJustDisabled(ship);
     }
     //if ship doesn't have the animation it won't matter
     madLinkInCloseGunsShip(ship);
+    madLinkInPreDockingShip(ship);
+    madLinkInCloseSpecialShip(ship);
+}
 
-    if(ship->shiptype != SensorArray)
-    {
-        madLinkInPreDockingShip(ship);
-    }
-
-    if(ship->shiptype != SensorArray)
-    {
-        //we don't want to do this for the sensor array
-        madLinkInCloseSpecialShip(ship);
-    }
+// CAT: new (cat_shipHasJustBeenSalvaged 0x0044b450): the salvaged ship stops being a target of player's commands
+void cat_shipHasJustBeenSalvaged(Ship *ship,struct Player *player)
+{
+    RemoveShipFromBeingTargeted(&universe.mainCommandLayer,ship,REMOVE_CAT_SALVAGED,player);
 }
 
 // removeShipsFromDockingWithThisShip
@@ -3820,7 +3851,18 @@ void removeShipsFromDockingWithThisShip(Ship *shiptoremove)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void RemoveShipFromBeingTargeted(CommandLayer *comlayer,ShipPtr shiptoremove,udword removeFlag)
+// CAT: RemoveShipFromBeingTargeted 0x004453c0 takes a fourth argument, the player for REMOVE_CAT_SALVAGED (only that
+//      player's commands are touched; cat_shipHasJustBeenSalvaged 0x0044b450 passes it). Other deltas from HW1, all
+//      from the exe body: the hyperspacing pass no longer ends the command's processing (the exe falls through to
+//      the protect/attack/order checks); it and the dock order drop only the ships whose dockship is the ship (no
+//      busyingThisShip, no AdvanceSupportFrigate latch case); the salvager checks use Cataclysm's salvagers
+//      (cat_shipIsSalvager, the salvager block's target, CustShipRemoveShipReferences); "can still see it" is the
+//      Cataclysm detection test cat_shipDetectedByPlayer (sub_53F9F0) for the owner of the command's first ship;
+//      an attack on a crystal is kept when the crystal is disabled; ClearProtecting is inlined (same body); the
+//      special order has the salvagers drop their references (cat_salvageRemoveShipReferences) instead of
+//      salCapCleanUpCloakingTarget; the parade order only loses its protect/attack attributes (the inlined
+//      ChangeOrderToHalt skips the halt for a parade, 0x004458f9); unknown orders are ignored (no assert).
+void RemoveShipFromBeingTargeted(CommandLayer *comlayer,ShipPtr shiptoremove,udword removeFlag,struct Player *catPlayer)
 {
     Node *todonode;
     Node *nextnode;
@@ -3830,138 +3872,97 @@ void RemoveShipFromBeingTargeted(CommandLayer *comlayer,ShipPtr shiptoremove,udw
     udword SHIP_JUST_DISABLED_FLAG = removeFlag & REMOVE_DISABLED;
     udword SHIP_DISAPPEARED_FLAG = removeFlag & REMOVE_DISAPPEARED;
     udword SHIP_HYPERSPACEING_FLAG = removeFlag & REMOVE_HYPERSPACING;
+    udword SHIP_SALVAGED_FLAG = removeFlag & REMOVE_CAT_SALVAGED;
+    SelectCommand *selection;
+    sdword i;
+
+// CAT: the exe's visibility test: removed unless the ship was cloaked and the command's owner still detects it
+#define CL_CAN_REMOVE(todo) (SHIP_DISAPPEARED_FLAG || !CLOAKED_REMOVAL_FLAG ||                              \
+        !cat_shipDetectedByPlayer(shiptoremove, (todo)->selection->ShipPtr[0]->playerowner->playerIndex))
+
     todonode = comlayer->todolist.head;
 
     while (todonode != NULL)
     {
         todo = (CommandToDo *)listGetStructOfNode(todonode);
+        selection = todo->selection;
+
+        // CAT: a salvaged ship is only dropped from the commands of the given player (0x0044540c)
+        if (SHIP_SALVAGED_FLAG && (selection->numShips > 0) && (selection->ShipPtr[0]->playerowner != catPlayer))
+        {
+            todonode = todonode->next;
+            continue;
+        }
 
         //if ship is hyperspaceing out...via mp hp move
         if(SHIP_HYPERSPACEING_FLAG)
         {
             //prevent ships from docking with it!
-
             if(todo->ordertype.order == COMMAND_DOCK)
             {
-                SelectCommand *selection = todo->selection;
-                sdword numShips = selection->numShips;
-                bool32 removefromdocking;
-                Ship *ship;
-                sdword i;
-                for (i=0;i<numShips;i++)
+                for (i=0;i<selection->numShips;i++)
                 {
-                    ship = selection->ShipPtr[i];
-                    removefromdocking = FALSE;
-                    if (ship->dockvars.dockship == shiptoremove)
+                    if (selection->ShipPtr[i]->dockvars.dockship == shiptoremove)
                     {
-                        removefromdocking = TRUE;
-                        if(ship->dockvars.dockship->shiptype == AdvanceSupportFrigate)
-                        {
-                            if(ship->dockvars.dockstate2 != ASF_WAITLATCHPOINT)
-                            {
-                                removefromdocking = FALSE;
-                            }
-                        }
+                        RemoveShipFromDocking(selection->ShipPtr[i]);
                     }
-                    else if(ship->dockvars.busyingThisShip == shiptoremove)
-                    {
-                        removefromdocking = TRUE;
-                        if(ship->dockvars.busyingThisShip->shiptype == AdvanceSupportFrigate)
-                        {
-                            if(ship->dockvars.dockstate2 != ASF_WAITLATCHPOINT)
-                            {
-                                removefromdocking = FALSE;
-                            }
-                        }
-                    }
-                    if (removefromdocking)
-                        RemoveShipFromDocking(ship);
                 }
             }
-            else if(todo->ordertype.order == COMMAND_SPECIAL)
+            else if((todo->ordertype.order == COMMAND_SPECIAL) && !SHIP_SALVAGED_FLAG)
             {
-                sdword i;
                 for(i=0;i<todo->selection->numShips;i++)
                 {
-                    if(todo->selection->ShipPtr[i]->shiptype == SalCapCorvette)
+                    Ship *salvager = todo->selection->ShipPtr[i];
+                    if (cat_shipIsSalvager(salvager) && (cat_salvageGetTarget(salvager) != NULL) &&
+                        (cat_salvageGetTarget(salvager) == shiptoremove))
                     {
-                        if((((SalCapCorvetteSpec *)(todo->selection->ShipPtr[i])->ShipSpecifics))->target != NULL &&
-                           ((Ship *)(((SalCapCorvetteSpec *)(todo->selection->ShipPtr[i])->ShipSpecifics))->target) == shiptoremove)
+                        if(salvager->staticinfo->custshipheader.CustShipRemoveShipReferences != NULL)
                         {
-                            if(((ShipStaticInfo *)todo->selection->ShipPtr[i]->staticinfo)->custshipheader.CustShipRemoveShipReferences != NULL)
-                            {
-                                ((ShipStaticInfo *)todo->selection->ShipPtr[i]->staticinfo)->custshipheader.CustShipRemoveShipReferences(todo->selection->ShipPtr[i], shiptoremove);
-                            }
+                            salvager->staticinfo->custshipheader.CustShipRemoveShipReferences(salvager, shiptoremove);
                         }
                     }
                 }
-                if ( SHIP_DISAPPEARED_FLAG ||
-                (!(CLOAKED_REMOVAL_FLAG &&
-                proximityCanPlayerSeeShip(todo->selection->ShipPtr[0]->playerowner,shiptoremove))) )
-            {
-                if (!SHIP_JUST_DISABLED_FLAG)
+                if (CL_CAN_REMOVE(todo) && !SHIP_JUST_DISABLED_FLAG && (todo->specialtargets != NULL))
                 {
-                    if (todo->specialtargets)
-                    {
-                        clRemoveShipFromSelection(todo->specialtargets,shiptoremove);
-                    }
+                    clRemoveShipFromSelection(todo->specialtargets,shiptoremove);
                 }
             }
-
-            }
-            todonode = todonode->next;
-            goto readyfornextnode;
         }
 
         if(REMOVE_PROTECT_FLAG)
         {
-            if (todo->ordertype.attributes & COMMAND_MASK_PROTECTING)
+            if ((todo->ordertype.attributes & COMMAND_MASK_PROTECTING) && CL_CAN_REMOVE(todo))
             {
-                if ( SHIP_DISAPPEARED_FLAG ||
-                   (!(CLOAKED_REMOVAL_FLAG &&
-                    proximityCanPlayerSeeShip(todo->selection->ShipPtr[0]->playerowner,shiptoremove))) )
+                clRemoveShipFromSelection((SelectCommand *)todo->protect,shiptoremove);
+
+                if (todo->protect->numShips == 0)
                 {
-                    clRemoveShipFromSelection((SelectCommand *)todo->protect,shiptoremove);
+                    ClearProtecting(todo);
 
-                    if (todo->protect->numShips == 0)
+                    if ((todo->ordertype.attributes == 0) && (todo->ordertype.order == COMMAND_NULL))
                     {
-                        ClearProtecting(todo);
-
-                        if (todo->ordertype.attributes == 0)
-                        {
-                            if (todo->ordertype.order == COMMAND_NULL)
-                            {
-                                nextnode = todonode->next;
-                                FreeCommandToDoContents(todo);
-                                listDeleteNode(todonode);
-                                todonode = nextnode;
-                                goto readyfornextnode;
-                            }
-                        }
+                        nextnode = todonode->next;
+                        FreeCommandToDoContents(todo);
+                        listDeleteNode(todonode);
+                        todonode = nextnode;
+                        continue;
                     }
                 }
             }
         }
-        if (todo->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
+        if ((todo->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING) && CL_CAN_REMOVE(todo))
         {
-            dbgAssertOrIgnore(todo->ordertype.order != COMMAND_ATTACK);
-            if ( SHIP_DISAPPEARED_FLAG ||
-                (!(CLOAKED_REMOVAL_FLAG &&
-                    proximityCanPlayerSeeShip(todo->selection->ShipPtr[0]->playerowner,shiptoremove))) )
+            if (clRemoveShipFromSelection((SelectCommand *)todo->attack,shiptoremove))
             {
-                if (clRemoveShipFromSelection((SelectCommand *)todo->attack,shiptoremove))
-                {
-                    RemoveAttackTargetFromExtraAttackInfo((SpaceObjRotImpTarg *)shiptoremove,todo);
-                }
+                RemoveAttackTargetFromExtraAttackInfo((SpaceObjRotImpTarg *)shiptoremove,todo);
             }
         }
 
         switch (todo->ordertype.order)
         {
             case COMMAND_ATTACK:
-                if ( SHIP_DISAPPEARED_FLAG ||
-                    (!(CLOAKED_REMOVAL_FLAG &&
-                    proximityCanPlayerSeeShip(todo->selection->ShipPtr[0]->playerowner,shiptoremove))) )
+                // CAT: a disabled crystal stays a target (cat_shipIsCrystal, 0x004456b0)
+                if (CL_CAN_REMOVE(todo) && (!SHIP_JUST_DISABLED_FLAG || !cat_shipIsCrystal(shiptoremove)))
                 {
                     if (clRemoveShipFromSelection((SelectCommand *)todo->attack,shiptoremove))
                     {
@@ -3971,24 +3972,15 @@ void RemoveShipFromBeingTargeted(CommandLayer *comlayer,ShipPtr shiptoremove,udw
                 break;
 
             case COMMAND_SPECIAL:
-                if ( SHIP_DISAPPEARED_FLAG ||
-                    (!(CLOAKED_REMOVAL_FLAG &&
-                    proximityCanPlayerSeeShip(todo->selection->ShipPtr[0]->playerowner,shiptoremove))) )
+                if (!SHIP_SALVAGED_FLAG && CL_CAN_REMOVE(todo) && !SHIP_JUST_DISABLED_FLAG && (todo->specialtargets != NULL))
                 {
-                    if (!SHIP_JUST_DISABLED_FLAG)
+                    clRemoveShipFromSelection(todo->specialtargets,shiptoremove);
+                    for(i=0;i<todo->selection->numShips;i++)
                     {
-                        if (todo->specialtargets)
+                        // CAT: the exe's trJunkYardDawg case is a compiled-out nullsubReturnFalse
+                        if (cat_shipIsSalvager(todo->selection->ShipPtr[i]))
                         {
-                            sdword h;
-                            clRemoveShipFromSelection(todo->specialtargets,shiptoremove);
-                            for(h=0;h<todo->selection->numShips;h++)
-                            {
-                                if(todo->selection->ShipPtr[h]->shiptype == SalCapCorvette ||
-                                    todo->selection->ShipPtr[h]->shiptype == JunkYardDawg)
-                                {
-                                    salCapCleanUpCloakingTarget(todo->selection->ShipPtr[h],shiptoremove);
-                                }
-                            }
+                            cat_salvageRemoveShipReferences(todo->selection->ShipPtr[i],shiptoremove);
                         }
                     }
                 }
@@ -3997,16 +3989,11 @@ void RemoveShipFromBeingTargeted(CommandLayer *comlayer,ShipPtr shiptoremove,udw
             case COMMAND_DOCK:
                 if (!SHIP_DISAPPEARED_FLAG)
                 {
-                    SelectCommand *selection = todo->selection;
-                    sdword numShips = selection->numShips;
-                    Ship *ship;
-                    sdword i;
-                    for (i=0;i<numShips;i++)
+                    for (i=0;i<selection->numShips;i++)
                     {
-                        ship = selection->ShipPtr[i];
-                        if ((ship->dockvars.dockship == shiptoremove) || (ship->dockvars.busyingThisShip == shiptoremove))
+                        if (selection->ShipPtr[i]->dockvars.dockship == shiptoremove)
                         {
-                            RemoveShipFromDocking(ship);
+                            RemoveShipFromDocking(selection->ShipPtr[i]);
                         }
                     }
                 }
@@ -4018,14 +4005,13 @@ void RemoveShipFromBeingTargeted(CommandLayer *comlayer,ShipPtr shiptoremove,udw
                 {
                     Ship *ship = todo->selection->ShipPtr[0];
 
-                    dbgAssertOrIgnore(todo->selection->numShips == 1);
                     RemoveShipFromLaunching(ship);
 
                     nextnode = todonode->next;
                     FreeCommandToDoContents(todo);
                     listDeleteNode(todonode);
                     todonode = nextnode;
-                    goto readyfornextnode;
+                    continue;
                 }
                 break;
 
@@ -4037,7 +4023,7 @@ void RemoveShipFromBeingTargeted(CommandLayer *comlayer,ShipPtr shiptoremove,udw
                     FreeCommandToDoContents(todo);
                     listDeleteNode(todonode);
                     todonode = nextnode;
-                    goto readyfornextnode;
+                    continue;
                 }
                 break;
 
@@ -4045,25 +4031,26 @@ void RemoveShipFromBeingTargeted(CommandLayer *comlayer,ShipPtr shiptoremove,udw
                 if (!SHIP_DISAPPEARED_FLAG)
                 if (shiptoremove == todo->militaryParade->aroundShip)
                 {
-                    ChangeOrderToHalt(todo);
+                    // CAT: the exe's inlined ChangeOrderToHalt (0x00445898..0x00445930): the attributes are cleared, and
+                    //      the halt itself is skipped because the order is a parade
+                    if (todo->ordertype.attributes & COMMAND_MASK_PROTECTING)
+                    {
+                        ClearProtecting(todo);
+                    }
+                    if (todo->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
+                    {
+                        ClearPassiveAttacking(todo);
+                    }
+                    bitClear(todo->ordertype.attributes,COMMAND_MASK_ATTACKING_AND_MOVING);
                 }
                 break;
 
-            case COMMAND_NULL:
-            case COMMAND_MOVE:
-            case COMMAND_MP_HYPERSPACING:
-            case COMMAND_COLLECT_RESOURCES:
-            case COMMAND_HALT:
-                break;
-
             default:
-                dbgAssertOrIgnore(FALSE);
                 break;
         }
         todonode = todonode->next;
-readyfornextnode:
-        ;
     }
+#undef CL_CAN_REMOVE
 }
 
 /*=============================================================================
@@ -5012,7 +4999,7 @@ void clMpHyperspace(CommandLayer *comlayer,SelectCommand *selectcom,vector from,
     //remove ships from being targeted...
     for(i=0;i<selectcom->numShips;i++)
     {
-        RemoveShipFromBeingTargeted(comlayer,selectcom->ShipPtr[i],REMOVE_PROTECT|REMOVE_HYPERSPACING);
+        RemoveShipFromBeingTargeted(comlayer,selectcom->ShipPtr[i],REMOVE_PROTECT|REMOVE_HYPERSPACING,NULL);   // CAT: fourth argument 0 (clMpHyperspace 0x004475a3)
     }
     sizeofcopycom = sizeofSelectCommand(selectcom->numShips);
     copycom = memAlloc(sizeofcopycom,"cc3(copycom)", Pyrophoric);
@@ -6940,6 +6927,14 @@ void clScuttle(CommandLayer *comlayer,SelectCommand *selectcom)
 
     for (i=0;i<numShips;i++)
     {
+        // CAT: clScuttle 0x0044a150: in the tutorial the sMothership is not scuttled. CAT-TODO(M2-R4 #4): a ship with
+        //      catShipFlags 0x80 whose float at exe Ship+0x4E4 is nonzero is not scuttled either (neither state is
+        //      ported, so the test is FALSE here), and a mimicking ship (CAT_SHIPFLAG_Mimic) drops its disguise
+        //      (cat_mimicUnmimic(ship, 0)) whether or not it is scuttled
+        if ((tutorial==TUTORIAL_ONLY) && (selectcom->ShipPtr[i]->shiptype == sMothership))
+        {
+            continue;
+        }
         selectcom->ShipPtr[i]->deathtime = universe.totaltimeelapsed + frandombetween(SCUTTLE_SHIPDEATHTIMEMIN,SCUTTLE_SHIPDEATHTIMEMAX);
     }
 
@@ -7252,6 +7247,13 @@ void clSetResearch(udword type, udword playernum, udword labnum, udword tech)
     }
 }
 
+// CAT: a worker that is still a ship (cat_shipIsLiveWorker 0x005c8e00: objtype ship and sWorker/bWorker). Its home is
+//      the Worker port (M2-R4 #4); ShipHasToLaunch is its only command-layer reader.
+bool32 cat_shipIsLiveWorker(Ship *ship)
+{
+    return (ship->header.objtype == OBJ_ShipType) && ((ship->shiptype == sWorker) || (ship->shiptype == bWorker));
+}
+
 bool32 ShipHasToLaunch(Ship *InsideShip, Ship *ship)
 {
     if (singlePlayerGame)
@@ -7262,17 +7264,30 @@ bool32 ShipHasToLaunch(Ship *InsideShip, Ship *ship)
         }
     }
 
+    // CAT: ShipHasToLaunch 0x0044a780: a ship built in another player's factory always launches; swarmers
+    //      (sSwarmer 9, bSwarmer 43) never do
+    if (ship->playerowner->playerIndex != InsideShip->playerowner->playerIndex)
+    {
+        return TRUE;
+    }
+    if ((ship->shiptype == bSwarmer) || (ship->shiptype == sSwarmer))
+    {
+        return FALSE;
+    }
+
     if (ship->shipOrDerelict.specialFlags & SPECIAL_STAY_TILL_EXPLICITLAUNCH)
     {
         return FALSE;
     }
 
-    if ( (ship->staticinfo->shipclass==CLASS_Fighter) &&
+    // CAT: micro-class ships count with the fighters (classes 6 and 11)
+    if ( ((ship->staticinfo->shipclass==CLASS_Fighter) || (ship->staticinfo->shipclass==CLASS_Micro)) &&
          (InsideShip->shipsInsideMe->FightersInsideme <=
           InsideShip->staticinfo->maxDockableFighters) )
         return (FALSE);
 
-    if ( (ship->staticinfo->shipclass==CLASS_Corvette) &&
+    // CAT: live workers count with the corvettes (cat_shipIsLiveWorker)
+    if ( ((ship->staticinfo->shipclass==CLASS_Corvette) || cat_shipIsLiveWorker(ship)) &&
          (InsideShip->shipsInsideMe->CorvettesInsideme <=
           InsideShip->staticinfo->maxDockableCorvettes) )
         return (FALSE);
@@ -7300,7 +7315,8 @@ Ship *clCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uw
 
 
     mothership = player->PlayerMothership;
-    if ((mothership) && (mothership->shiptype == Carrier))
+    // CAT: a carrier-class "mothership" counts as the first carrier (clCreateShip 0x0044a840 tests shipclass 2)
+    if ((mothership) && (mothership->staticinfo->shipclass == CLASS_Carrier))
     {
         carrier1 = mothership;
         mothership = NULL;
@@ -7365,17 +7381,10 @@ Ship *clCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uw
         shiplagtotals[shipType]--;
     }
 
-    // if ship is a research ship and player is curplayer or aiplayer
-
-    // ****** IMPORTANT we have changed the research so that it is deterministic on all machines.
-    if (ship->staticinfo->shiptype==ResearchShip)
-    {
-/*        if ( (&universe.players[playerIndex]==universe.curPlayerPtr) ||
-             (universe.players[playerIndex].aiPlayer!=NULL) )
-        {*/
-            rmActivateFreeLab(&universe.players[playerIndex]);
-//        }
-    }
+    // CAT: no research ship and no rmActivateFreeLab (clCreateShip 0x0044a840). CAT-TODO(M2-R4 #5): the exe counts the
+    //      ship in the player's game stats by class for every type but the swarmers (sSwarmer, bSwarmer), twice for
+    //      types 4, 5 and 38 (universe.gameStats.playerStats, the GameStats layout of Stats.c). The exe also passes
+    //      built 5 and the creator to its 7-argument univCreateShip; the tree's 1 has the same bit 0.
 
     // put ship inside creator
     dockPutShipInside(ship,creator);
@@ -7522,6 +7531,81 @@ void clBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uwor
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_clStartExternalBuildTimer
+    Description : CAT: new (0x0044aa30): marks the first ship of the selection with SPECIAL_2_CatExternalBuildTimer;
+                  cat_shipUpdateExternalBuildAndAI 0x00543f10 runs and clears it
+----------------------------------------------------------------------------*/
+void cat_clStartExternalBuildTimer(CommandLayer *comlayer,SelectCommand *selectcom)
+{
+    (void)comlayer;
+    if (selectcom->numShips != 0)
+    {
+        bitSet(selectcom->ShipPtr[0]->shipOrDerelict.specialFlags2,SPECIAL_2_CatExternalBuildTimer);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_clExternalBuildUpdate
+    Description : CAT: new (0x0044dfc0): one step of an external build. The health grows with the progress
+                  (health += (progress - catBuildProgress) * maxhealth, at most maxhealth); CAT_EXTBUILD_DONE also
+                  ends the build (SPECIAL_2_CatBeingBuilt cleared; a Sect ship activates its research module) and
+                  CAT_EXTBUILD_CANCEL deletes the ship. comlayer, playerIndex and creator are unused (the network
+                  packet carries them)
+----------------------------------------------------------------------------*/
+static void clExternalBuildAdvance(Ship *ship,real32 progress)
+{
+    real32 maxhealth = ship->staticinfo->health.maxhealth;     // exe statinfo+0xA4
+
+    ship->targetable.health += (progress - ship->catBuildProgress) * maxhealth;
+    ship->catBuildProgress = progress;
+    if (ship->targetable.health > maxhealth)
+    {
+        ship->targetable.health = maxhealth;
+    }
+}
+
+void cat_clExternalBuildUpdate(CommandLayer *comlayer,uword playerIndex,Ship *creator,Ship *ship,real32 progress,sdword mode)
+{
+    (void)comlayer;
+    (void)playerIndex;
+    (void)creator;
+
+    if (ship == NULL)
+    {
+        return;     // the exe calls a compiled-out debug message here (0x0044dfc8)
+    }
+    switch (mode)
+    {
+        case CAT_EXTBUILD_DONE:
+            if (ship->catBuildProgress < 1.0f)      // the exe compares with the double 1.0 at 0x0072a548
+            {
+                clExternalBuildAdvance(ship,progress);
+            }
+            bitClear(ship->shipOrDerelict.specialFlags2,SPECIAL_2_CatBeingBuilt);
+            if (ship->shiprace == RACE_Sect)
+            {
+                // CAT-TODO(M2-R4 #5): cat_rmResearchModuleActivated(ship->playerowner, ship->shiptype, TRUE)
+                //      0x004f4530 (ResearchAPI's research modules)
+            }
+            cmDirtyShipInfo();
+            break;
+
+        case CAT_EXTBUILD_CANCEL:
+            bitClear(ship->shipOrDerelict.specialFlags2,SPECIAL_2_CatBeingBuilt);
+            univReallyDeleteThisShipRightNow(ship);
+            cmDirtyShipInfo();
+            break;
+
+        case CAT_EXTBUILD_PROGRESS:
+            clExternalBuildAdvance(ship,progress);
+            break;
+
+        default:
+            break;
+    }
+}
+
+/*-----------------------------------------------------------------------------
     Name        : FindShipsWereGuarding
     Description : finds ships we're guarding, either directly or indirectly
     Inputs      :
@@ -7577,7 +7661,7 @@ bool32 FindShipsWereGuarding(CommandToDo *originalus,SelectCommand *us,GrowSelec
 
 /*-----------------------------------------------------------------------------
     Name        : CheckCircularGuard
-    Description : Checks for circular guard, and if it is sets the bit SPECIAL_2_CircularGuard for each ship otherwise clears it
+    Description : Checks for circular guard, and if it is sets the bit SPECIAL_CircularGuard for each ship otherwise clears it
     Inputs      :
     Outputs     :
     Return      :
@@ -7596,7 +7680,7 @@ void CheckCircularGuard(CommandToDo *command)
 
         for (i=0;i<selection->numShips;i++)
         {
-            bitSet(selection->ShipPtr[i]->shipOrDerelict.specialFlags2,SPECIAL_2_CircularGuard);
+            bitSet(selection->ShipPtr[i]->shipOrDerelict.specialFlags,SPECIAL_CircularGuard);   // CAT: specialFlags in the exe
         }
     }
     else
@@ -7606,7 +7690,7 @@ void CheckCircularGuard(CommandToDo *command)
 
         for (i=0;i<selection->numShips;i++)
         {
-            bitClear(selection->ShipPtr[i]->shipOrDerelict.specialFlags2,SPECIAL_2_CircularGuard);
+            bitClear(selection->ShipPtr[i]->shipOrDerelict.specialFlags,SPECIAL_CircularGuard);   // CAT: specialFlags in the exe
         }
     }
 
@@ -7936,28 +8020,39 @@ void GroupShip(CommandLayer *comlayer,ShipPtr ship,ShipPtr aroundShip)
 void clShipDied(CommandLayer *comlayer,ShipPtr deadship)
 {
     SelectCommand selection;
+    Node *node;
+    CommandToDo *paradeAroundDeadShip = NULL;
+
+    // CAT: clShipDied 0x0044b470: the ships of a parade around the dead ship stop first (a copy of the parade's
+    //      selection goes through RemoveShipsFromDoingStuff, the exe's reason 0x65)
+    for (node = comlayer->todolist.head; node != NULL; node = node->next)
+    {
+        CommandToDo *todo = (CommandToDo *)listGetStructOfNode(node);
+        if ((todo->ordertype.order == COMMAND_MILITARY_PARADE) && (todo->militaryParade->aroundShip == deadship))
+        {
+            paradeAroundDeadShip = todo;
+            break;
+        }
+    }
+    if (paradeAroundDeadShip != NULL)
+    {
+        MaxSelection paradeShips;
+        cat_selSelectionCopy(&paradeShips,(MaxSelection *)paradeAroundDeadShip->selection);
+        RemoveShipsFromDoingStuff(comlayer,(SelectCommand *)&paradeShips);
+    }
 
     selection.numShips = 1;
     selection.ShipPtr[0] = deadship;
 
     RemoveShipsFromDoingStuff(comlayer,&selection);
 
-    RemoveShipFromBeingTargeted(comlayer,deadship,REMOVE_PROTECT);
+    RemoveShipFromBeingTargeted(comlayer,deadship,REMOVE_PROTECT,NULL);   // CAT: fourth argument 0 (clShipDied 0x0044b4ee)
 
     // Update player unit caps info
     unitCapDeleteShip(deadship,deadship->playerowner);
 
-    // if ship is a research ship and player is curplayer or aiplayer
-
-    // ****** IMPORTANT we have changed the research so that it is deterministic on all machines.
-    if (deadship->staticinfo->shiptype==ResearchShip)
-    {
-/*        if ( (deadship->playerowner==universe.curPlayerPtr) ||
-             (deadship->playerowner->aiPlayer!=NULL) )
-        {*/
-            rmDeactivateLab(deadship->playerowner);
-//        }
-    }
+    // CAT: no research ship / rmDeactivateLab. CAT-TODO(M2-R4 #5): a Sect ship calls cat_rmResearchModuleDied(player,
+    //      shiptype) 0x004f4620, any other bMothership cat_rmMothershipLabLost(player) 0x004f4700 (research modules)
 }
 
 /*-----------------------------------------------------------------------------

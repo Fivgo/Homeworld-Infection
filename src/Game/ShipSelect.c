@@ -27,20 +27,10 @@
 #include "Tweak.h"
 #include "Universe.h"
 
-// CAT: Cataclysm formation types 9 and 10 (the exe tests command->formation.formationtype == 9 / == 10, e.g.
-//      isShipPassiveAttackCapable 0x00511b10, cat_shipIsSentinelInField 0x005c6ec0); their names and the formations
-//      themselves come with the Formation port (M2-R4 #2), so no command carries them yet
-#define CAT_FORMATION_9     9
-#define CAT_FORMATION_10    10
-
-// CAT: Cataclysm-only command orders after COMMAND_MP_HYPERSPACING (10) that cat_selMakeShipsProtectCapable 0x00511f00
-//      tests; their names come with the CommandLayer port (M2-R4 #2)
-#define CAT_COMMAND_11      11
-#define CAT_COMMAND_12      12
-#define CAT_COMMAND_14      14
-#define CAT_COMMAND_15      15
-#define CAT_COMMAND_16      16
-#define CAT_COMMAND_17      17
+// CAT: the Cataclysm formation types 9/10 (the exe tests command->formation.formationtype == 9 / == 10, e.g.
+//      isShipPassiveAttackCapable 0x00511b10, cat_shipIsSentinelInField 0x005c6ec0) and the command orders 11-17
+//      that cat_selMakeShipsProtectCapable 0x00511f00 tests are FORCEFIELD_*_FORMATION (FormationDefs.h) and
+//      COMMAND_CAT_* (CommandDefs.h) since the M2-R4 command port
 
 /*-----------------------------------------------------------------------------
     Name        : AddSpaceObjToSelectionBeforeIndex
@@ -448,8 +438,8 @@ bool32 isShipPassiveAttackCapable(Ship *ship)
     // CAT: a ship in one of the two new formations (sentinel fields) or being built cannot passive-attack
     //      (isShipPassiveAttackCapable 0x00511b10)
     if ((ship->command != NULL) && (ship->command->ordertype.attributes & COMMAND_MASK_FORMATION) &&
-        ((ship->command->formation.formationtype == CAT_FORMATION_10) ||
-         (ship->command->formation.formationtype == CAT_FORMATION_9)))
+        ((ship->command->formation.formationtype == FORCEFIELD_SPHERE_FORMATION) ||
+         (ship->command->formation.formationtype == FORCEFIELD_WALL_FORMATION)))
     {
         return FALSE;
     }
@@ -1693,7 +1683,8 @@ SelectCommand *selectAllPlayersShips(struct Player *player)
 void MakeSelectionNonResearchShips(SelectCommand *selectcom)
 {
     // CAT: Cataclysm has no research ships (the exe has no MakeSelectionNonResearchShips), so nothing is removed.
-    //      Kept for its unported HW1 caller (CommandWrap.c: M2-R4 #2).
+    //      [audit: M2-R4 command: its last caller, clWrapDock, is ported (ioUpdateShipTotals 0x00452d60), so nothing
+    //      calls it any more; kept only for the HW1 prototype in ShipSelect.h]
     (void)selectcom;
 }
 
@@ -2246,12 +2237,12 @@ void cat_selMakeShipsProtectCapable(SelectCommand *selection, bool32 check)
                 case COMMAND_LAUNCH_SHIP:
                 case COMMAND_BUILDING_SHIP:
                 case COMMAND_MP_HYPERSPACING:
-                case CAT_COMMAND_11:
-                case CAT_COMMAND_12:
-                case CAT_COMMAND_14:
-                case CAT_COMMAND_15:
-                case CAT_COMMAND_16:
-                case CAT_COMMAND_17:
+                case COMMAND_CAT_LINK:
+                case COMMAND_CAT_UNLINK:
+                case COMMAND_CAT_POINT:
+                case COMMAND_CAT_MIMIC:
+                case COMMAND_CAT_RESEARCH:
+                case COMMAND_CAT_17:
                     remove = TRUE;
                     break;
                 default:
@@ -2824,8 +2815,8 @@ bool32 cat_shipIsSentinelInField(Ship *ship)                        // 0x005c6ec
 {
     return ((ship->shiptype == sSentinel) || (ship->shiptype == bSentinel)) && (ship->command != NULL) &&
            (ship->command->ordertype.attributes & COMMAND_MASK_FORMATION) &&
-           ((ship->command->formation.formationtype == CAT_FORMATION_10) ||
-            (ship->command->formation.formationtype == CAT_FORMATION_9));
+           ((ship->command->formation.formationtype == FORCEFIELD_SPHERE_FORMATION) ||
+            (ship->command->formation.formationtype == FORCEFIELD_WALL_FORMATION));
 }
 
 bool32 cat_shipIsSentinelFieldActive(Ship *ship)                    // 0x005c6e50

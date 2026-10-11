@@ -1526,15 +1526,15 @@
  "0x00452960": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "flash time is the new cat_taskRealTimeElapsed (real time) instead of taskTimeElapsed, and the ships in the ship's docked-ship list get the same flash time",
-  "note": "HW1 one store per selected ship",
+  "change": "flash time is cat_taskRealTimeElapsed; the objects clamped to a ship (clampInfo +0x34 list) flash too",
+  "note": "HW1 one store per selected ship; M2-R4 command: ported (the M2-R3 review said docked ships; the list is the clamped-object list at ClampInfo+0x34, read at 0x0045298a)",
   "sample": "reread-R2"
  },
  "0x004531d0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "salvage-corvette block (SalCapCorvette target checks, isThereAnotherTargetForMe, speech) replaced by a cat_shipIsSalvager pass; tutorial flag 0x200000 gates clSpecial",
-  "note": "copy/flash/clSpecial/clSendSpecial skeleton as HW1",
+  "change": "salvage-corvette block replaced by an ignored cat_shipIsSalvager pass; tutorial flag gates clSpecial; the copy always freed",
+  "note": "copy/flash/clSpecial/clSendSpecial skeleton as HW1; M2-R4 command: ported",
   "sample": "MODIFIED/high"
  },
  "0x00453f10": {
@@ -2609,7 +2609,7 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "formationtypeinfo table",
+  "note": "formationtypeinfo table; M2-R4 command: body same; its table (0x0087f998) has FORCEFIELD_WALL_FORMATION 9 and FORCEFIELD_SPHERE_FORMATION 10, ported in Formation.c",
   "sample": "reread-R2"
  },
  "0x00483390": {
@@ -7836,7 +7836,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no cloak-visibility pass, no HW1 self-repair (cat_univShipSelfRepair in the deferred update), Ship +0x600 cleared, every live ship queued for the deferred update",
-  "note": "M2-R4 univupdate: ported except Ship +0x600 (M2-R4 #4)"
+  "note": "M2-R4 univupdate: ported except Ship +0x600 (M2-R4 #4); M2-R4 command: clears specialFlags 0x8000000 = SPECIAL_SalvageTargetAlreadyDriven (HW1 specialFlags2 bit 0); reader moved"
  },
  "0x0054a340": {
   "class": "MODIFIED",
@@ -9443,5 +9443,185 @@
   "",
   "Effect of the tool fixes alone, before the reviewed classes are applied: 117 functions went from automatic IDENTICAL to MODIFIED and 8 from MODIFIED to IDENTICAL; 48 unreviewed functions changed class (all IDENTICAL to MODIFIED). Every reviewed function keeps its reviewed class.",
   ""
- ]
+ ],
+ "0x004411c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "capital range for kGravWellGenerator/tGravWellGenerator (no cloak generator); follow-behind for sProcessor/bProcessor; no DDDFrigateMakeSureItCanGuard; CircularGuard is specialFlags 0x40000000",
+  "note": "M2-R4 command: ported"
+ },
+ "0x004413f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "capital range for both races' grav-well and cloak generators (64/79/63/77); docking-with-me scan without the canReceiveSomething gate; no DDDFrigate; CircularGuard is specialFlags 0x40000000",
+  "note": "M2-R4 command: ported"
+ },
+ "0x004447b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "formation case: a sphere needs >= 2 ships (HW1 > 0) and a FORCEFIELD_SPHERE formation becomes FORCEFIELD_WALL before formationContentHasChanged",
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+ },
+ "0x00444780": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 command: compared with the exe: same (attribute bit 4 cleared, AttackCleanup, attack freed)"
+ },
+ "0x004452f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "RemoveShipFromBeingTargeted with 4 arguments; visibility by sub_53F9F0 (cat_shipDetectedByPlayer) instead of proximityCanPlayerSeeShip",
+  "note": "M2-R4 command: ported"
+ },
+ "0x00445340": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "RemoveShipFromBeingTargeted with 4 arguments",
+  "note": "M2-R4 command: ported"
+ },
+ "0x00445360": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "second argument keeps the ship on the camera stack (both exe callers pass 1); GravWellGeneratorJustDisabled for types 64/79 only; no DDDFrigate/cloak generator; the three madLinkIn closes for every type (no SensorArray test)",
+  "note": "M2-R4 command: ported"
+ },
+ "0x004453c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "4th argument (player) with new flag 0x20 (salvaged: only that player's commands); hyperspacing pass falls through; dock removal by dockship only; Cataclysm salvagers (cat_shipIsSalvager, salvager target, slot 11, cat_salvageRemoveShipReferences); cloak test cat_shipDetectedByPlayer; disabled crystals stay attack targets; parade around the ship only loses its attributes; no default assert",
+  "note": "M2-R4 command: ported (the salvager target is CAT-PROVISIONAL until M2-R4 #3 lays out CatSalvagerInfo)"
+ },
+ "0x0044a150": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "tutorial sMothership skipped; catShipFlags 0x80 with nonzero Ship+0x4E4 not scuttled; mimics unmimic (cat_mimicUnmimic)",
+  "note": "M2-R4 command: ported except the 0x80/+0x4E4 case and the unmimic (CAT-TODO M2-R4 #4)"
+ },
+ "0x0044a780": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "another player's ship always launches; swarmers (9, 43) never; micro class counts with fighters, live workers (cat_shipIsLiveWorker) with corvettes",
+  "note": "M2-R4 command: ported"
+ },
+ "0x0044a840": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "carrier-class mothership counts as carrier 1; univCreateShip(..., built 5, creator, 0); game stats by class (twice for types 4/5/38, none for swarmers); no ResearchShip/rmActivateFreeLab",
+  "note": "M2-R4 command: ported except the stats (CAT-TODO M2-R4 #5)"
+ },
+ "0x0044b470": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "members of a parade around the dead ship leave it first; RemoveShipsFromDoingStuff reason codes 0x65/0xe; research modules (cat_rmResearchModuleDied for Sect, cat_rmMothershipLabLost for bMothership); no rmDeactivateLab",
+  "note": "M2-R4 command: ported except the reason codes and the research calls (CAT-TODO)"
+ },
+ "0x004529e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no tutGameMessage; SpeechEventsForFuel reduced to an empty scan",
+  "note": "M2-R4 command: ported"
+ },
+ "0x00452ae0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "pause check with opPauseOrders; cat_shipSetDisableReason(ship,1,6) instead of clearing SOF_Selectable",
+  "note": "M2-R4 command: ported"
+ },
+ "0x00452d60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ioUpdateShipTotals for any dock type but retire (no MakeSelectionNonResearchShips); Cataclysm dock types 7/10 and their speech",
+  "note": "M2-R4 command: ported except the dock-type numbering and speech (CAT-TODO M2-R4 #3)"
+ },
+ "0x00452ca0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no formation check; 4th argument passed to clFormation/clSendFormation",
+  "note": "M2-R4 command: check removed; the 4th argument is CAT-TODO with clFormation"
+ },
+ "0x00453000": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the resource flashes with cat_taskRealTimeElapsed",
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+ },
+ "0x00453390": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "pause check with opPauseOrders (HW1: any pause)",
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+ },
+ "0x00453820": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "pause check with opPauseOrders (HW1: any pause)",
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+ },
+ "0x00453500": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "an empty selection does nothing",
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+ },
+ "0x00452c00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 command: compared with the exe: same (tutorial bit 0x2000 = bAttack)"
+ },
+ "0x00453300": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 command: compared with the exe: same"
+ },
+ "0x004530a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 command: compared with the exe: same"
+ },
+ "0x004538b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 command: compared with the exe: same"
+ },
+ "0x004ac820": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "2 arguments (msg, flags); 25-line scroll ring, cat_ioMessageScroll, soundEventPlay",
+  "note": "M2-R4 command: CAT-TODO stage 3 (message scroller)"
+ },
+ "0x00484c80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "4th argument (force-field level, +0x288); accepts 0-6, 9, 10; per-ship CustShipFormationCommand veto; 12/24-ship caps for types 10/9; passive attack cleared for force fields",
+  "note": "M2-R4 command: accepted types ported; the rest CAT-TODO"
+ },
+ "0x00484950": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "4 arguments: the force-field level stored at +0x288; formationSpecificInfo (+0x28C) cleared for types 0-6, 9, 10; formationArrageCrazyOptimum with more arguments",
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; CAT-TODO with clFormation"
+ },
+ "0x0053eab0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no exempt types; mothership modules (cat_univMothershipModuleTypesGet / beast variant) count as ships and in classtotals[CLASS_Component]",
+  "note": "M2-R4 command: SPECIAL_InUnitCaps is specialFlags 0x20000000 (HW1 specialFlags2 0x4); readers moved"
+ },
+ "0x0053ec00": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "no exempt types (HW1 skipped Drone, TargetDrone, HeadShotAsteroid, CryoTray)",
+  "note": "M2-R4 command: SPECIAL_InUnitCaps is specialFlags 0x20000000 (HW1 specialFlags2 0x4); readers moved"
+ },
+ "0x005b4760": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the removed ship's in-gravwell flag is cleared in specialFlags (and 0xefffffff on Ship+0x1C8, 0x005b479d), not HW1's specialFlags2 bit 1; otherwise as HW1 (find the node, clear the two dont*ever bits, listDeleteNode)",
+  "note": "M2-R4 command audit: body compared with the exe; edited by the port (SPECIAL_ShipInGravwell moved words) but left IDENTICAL and unreviewed"
+ }
 }

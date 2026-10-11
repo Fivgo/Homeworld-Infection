@@ -5201,14 +5201,14 @@ void unitCapCreateShip(Ship *ship, Player *player)
     {
         return;
     }
-    if (bitTest(ship->shipOrDerelict.specialFlags2,SPECIAL_2_InUnitCaps))
+    if (bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_InUnitCaps))   // CAT: specialFlags in the exe
     {
         return;
     }
     player->totalships++;
     player->shiptotals[ship->shiptype]++;
     player->classtotals[ship->staticinfo->shipclass]++;
-    bitSet(ship->shipOrDerelict.specialFlags2,SPECIAL_2_InUnitCaps);
+    bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_InUnitCaps);   // CAT: specialFlags in the exe
 
     if (ship->shiptype == sMothership)
     {
@@ -5372,7 +5372,7 @@ void unitCapDeleteShip(Ship *ship, Player *player)
 //    }
     // CAT: no exempt types (unitCapDeleteShip 0x0053ec00; HW1 skipped Drone, TargetDrone, HeadShotAsteroid, CryoTray)
     if ((cdEnabled) &&
-        ( (bitTest(ship->shipOrDerelict.specialFlags2,SPECIAL_2_InUnitCaps)) ))
+        ( (bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_InUnitCaps)) ))   // CAT: specialFlags in the exe
     {
         player->totalships--;
 
@@ -5400,7 +5400,7 @@ void unitCapDeleteShip(Ship *ship, Player *player)
             player->classtotals[ship->staticinfo->shipclass] = 0;
             dbgMessagef("WARNING: classtotals of class %d went below 0",ship->staticinfo->shipclass);
         }
-        bitClear(ship->shipOrDerelict.specialFlags2,SPECIAL_2_InUnitCaps);
+        bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_InUnitCaps);   // CAT: specialFlags in the exe
     }
 }
 

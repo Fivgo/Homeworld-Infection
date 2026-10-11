@@ -67,6 +67,8 @@ _Static_assert(sizeof(CatSalvagerStatics) == 0x14, "0x14 bytes used of the 0x18-
 
 CatSalvagerInfo *cat_salvageGetSalvagerInfo(Ship *ship);
 CatSalvageDepot *cat_salvageGetDepotInfo(Ship *ship);
+bool32 cat_shipIsSalvager(Ship *ship);
+Ship *cat_salvageGetTarget(Ship *ship);
 
 void cat_salvageStaticInit(char *directory, char *filename, ShipStaticInfo *statinfo);
 void cat_salvageInit(Ship *ship);

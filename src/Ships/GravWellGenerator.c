@@ -150,7 +150,7 @@ void GravWellGeneratorDied(Ship *ship)
        //do maintenance here if any needed, otherwise remove loop :)
        bitClear(gravstruct->ship->dontapplyforceever,1);
        bitClear(gravstruct->ship->dontrotateever,1);
-       bitClear(gravstruct->ship->shipOrDerelict.specialFlags2, SPECIAL_2_ShipInGravwell);
+       bitClear(gravstruct->ship->shipOrDerelict.specialFlags, SPECIAL_ShipInGravwell);   // CAT: specialFlags in the exe
        gravnode = gravnode->next;
     }
     listDeleteAll(&spec->GravList);        //delete the list
@@ -383,7 +383,7 @@ void GravWellGeneratorAddObj(Ship *ship,  Ship *objtoadd)
     if (!ShipInGravField(ship,objtoadd))
     {   //Ship is already in field, so don't add
         //re set variable in case it was claered b4.
-        bitSet(objtoadd->shipOrDerelict.specialFlags2,SPECIAL_2_ShipInGravwell);
+        bitSet(objtoadd->shipOrDerelict.specialFlags,SPECIAL_ShipInGravwell);   // CAT: specialFlags in the exe
         return;
     }
 
@@ -409,7 +409,7 @@ void GravWellGeneratorAddObj(Ship *ship,  Ship *objtoadd)
     listAddNode(&spec->GravList,&newgravstruct->objnode,newgravstruct);
 
 
-    bitSet(objtoadd->shipOrDerelict.specialFlags2,SPECIAL_2_ShipInGravwell);
+    bitSet(objtoadd->shipOrDerelict.specialFlags,SPECIAL_ShipInGravwell);   // CAT: specialFlags in the exe
 
 }
 
@@ -465,7 +465,7 @@ void GravWellGeneratorRemoveShipReferences(Ship *ship,Ship *shiptoremove)
     {
         bitClear(gravstruct->ship->dontapplyforceever,1);
         bitClear(gravstruct->ship->dontrotateever,1);
-        bitClear(shiptoremove->shipOrDerelict.specialFlags2,SPECIAL_2_ShipInGravwell);
+        bitClear(shiptoremove->shipOrDerelict.specialFlags,SPECIAL_ShipInGravwell);   // CAT: specialFlags in the exe
         listDeleteNode(gravnode);     //delete nodes memory...may not work as I think...ask gary..
         break;             //done so break and return
     }

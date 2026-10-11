@@ -74,6 +74,32 @@ CatSalvagerInfo *cat_salvageGetSalvagerInfo(Ship *ship)                     // 0
     }
 }
 
+// CAT (M2-R4 command): the salvager types (cat_shipIsSalvager 0x004f8f60: sWorker, bWorker, kSalCapCorvette,
+//      tSalCapCorvette, p1StandardCorvette; trJunkYardDawg reaches a compiled-out nullsubReturnFalse and is no salvager)
+bool32 cat_shipIsSalvager(Ship *ship)                                       // 0x004f8f60
+{
+    switch (ship->shiptype)
+    {
+        case sWorker:
+        case bWorker:
+        case kSalCapCorvette:
+        case tSalCapCorvette:
+        case p1StandardCorvette:
+            return TRUE;
+        default:
+            return FALSE;
+    }
+}
+
+// CAT-PROVISIONAL (M2-R4 command): the salvager's current target, the dword at +0x04 of its salvager block (read by
+//      RemoveShipFromBeingTargeted 0x004453c0). CatSalvagerInfo is opaque until M2-R4 #3 lays it out, so no target
+//      is known yet; #3 replaces this with the field.
+Ship *cat_salvageGetTarget(Ship *ship)
+{
+    (void)ship;
+    return NULL;
+}
+
 CatSalvageDepot *cat_salvageGetDepotInfo(Ship *ship)                        // the switch of cat_salvageDepotInit
 {
     ubyte *specifics = (ubyte *)ship->ShipSpecifics;

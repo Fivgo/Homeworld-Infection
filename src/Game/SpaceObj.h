@@ -1698,73 +1698,136 @@ typedef struct ShipID
 //If howDidIDie isn't set with the above, it is assumed to have been POOFED out of existence.
 //#define DEATH_By_Poofing                888 //somewheres in the code this ship was poofed out of existence.
 
-//ship struct "specialflags" defines
-#define SPECIAL_StopForResearchDocking              BIT0
-#define SPECIAL_Kamikaze                            BIT1
-#define SPECIAL_BrokenFormation                     BIT2
-#define SPECIAL_KamikazeCrazyFast                   BIT3
-#define SPECIAL_SpeedBurst                          BIT4
-#define SPECIAL_SpeedBurstCooling                   BIT5
-#define SPECIAL_BurstFiring                         BIT6
-#define SPECIAL_SinglePlayerWithinHyperSpaceRange   BIT7
-#define SPECIAL_SinglePlayerLimitSpeed              BIT8
-#define SPECIAL_BUSY_BECAUSE_SALVAGE_DOCKING        BIT9
-#define SPECIAL_Harvested                           BIT10
-#define SPECIAL_EXITING_DOOR                        BIT11
-#define SPECIAL_STAY_TILL_EXPLICITLAUNCH            BIT12
-#define SPECIAL_KasSpecialDamageModifier            BIT13
-#define SPECIAL_Finished_Resource                   BIT14  //flag indicates when a resource collector has just finished collecting resources from one particular resource (computer player specific)
-#define SPECIAL_Resourcing                          BIT15  //flag indicates when a resource collector has started resourcing - computer player specific
-#define SPECIAL_SinglePlayerInParade                BIT16
-#define SPECIAL_rowGettingOutOfWay                  BIT17
-#define SPECIAL_ATTACKMOVECANCEL                    BIT18
-#define SPECIAL_FriendlyStatus                      BIT19  //set by KAS - player's ships don't autoretaliate against this ship.  Also allows you to dock with them.
-#define SPECIAL_IsASalvager                         BIT20  //used by junkyard dawg and salcap corvette...elminates double checks of the ship types!
-#define SPECIAL_SalvagerHasSomethingAttachedAndIsDoingSomethingElse BIT21
-#define SPECIAL_AttackFromAbove                     BIT22
-#define SPECIAL_SalvagedTargetGoingIntoDockWithShip BIT23
-#define SPECIAL_SalvageTakingHomeTechnology         BIT24
-#define SPECIAL_Hyperspacing                        BIT25
-#define SPECIAL_ForcedAttackStatus                  BIT26  //ship is in combat status, despite not actually attacking ships (must be turned off - doesn't expire)
-
-// CAT (M2-R3 ships-a): the exe's specialFlags bit 19 (0x80000), set on every Cataclysm salvager by cat_salvageInit
-//      0x004f9010. It takes BIT27 (free in this tree) and not HW1's SPECIAL_IsASalvager (BIT20), because HW1 code that
-//      tests SPECIAL_IsASalvager reads HW1's SalCapCorvetteSpec from the ship; until the M2-R4 #2 renumbering
-#define SPECIAL_CatSalvager                         BIT27
-#define SPECIAL_LaunchedFromKas                     BIT28
-#define SPECIAL_KasCheckDoneLaunching               BIT29
-#define SPECIAL_Launching                           BIT30  //indicates ship is launching
-#define SPECIAL_ParadeNeedTomoveCloser              BIT31
-
+// CAT (M2-R4 command, subsystem `flags`): Ship.specialFlags (exe Ship+0x1C8) and Ship.specialFlags2 (exe Ship+0x1CC)
+//      at cataclysm.exe's bits. Method: tools/m2_specialflags_scan.py lists every masked access to the two words in
+//      the exe's disassembly (immediates, register immediates, byte accesses, shifted loads) per exe function and joins
+//      it with the HW1 names the same function uses in GoK; each HW1 flag below sits where its HW1 functions' exe bodies
+//      test or set it, each new flag where its setter (mostly a KAS function) puts it. Cataclysm dropped HW1's AI
+//      resourcing pair (14/15) and three HW1 salvage flags (21/23/24), added a KAS repair modifier at 13, and moved HW1's
+//      specialFlags2 bits 0-3 into specialFlags 27-30; of HW1's specialFlags2 it keeps only DontPlowThroughEnemyShips
+//      (now bit 0), the rest of that word is Cataclysm's. Per-bit evidence: docs/m2-r4-command.md "flags".
+//      HW1 flags with no exe bit are CAT-DORMANT and defined 0, as the retired SOF_* flags: setting one does nothing
+//      and testing one is FALSE, which is what the exe does at those HW1 sites (none of its bodies touches such a bit).
+//      Their remaining readers belong to the owners named per flag. Bits of the exe words with no access found:
+//      specialFlags 4, 5, 9, 10, 11, 26, 31; specialFlags2 1, 2, 5, 7, 8, 9, 10, 30, 31.
+#define SPECIAL_StopForResearchDocking              0x00000001  // CAT: kept: cat_dockShipDocksAtShip 0x00465860 tests it (no exe setter found)
+#define SPECIAL_Kamikaze                            0x00000002  // processAttackToDo, delegateCommand, tacticsGetShipsMaxVelocity 0x00529450
+#define SPECIAL_BrokenFormation                     0x00000004  // processFormationToDo, AttackCleanup; the Mimic/MCV/P1StandardCorvette/CruiseMissile attacks set 0x6 (Kamikaze|BrokenFormation)
+#define SPECIAL_KamikazeCrazyFast                   0x00000008  // doKamikazeAttack 0x005b1a50, tacticsGetShipsMaxVelocity
+#define SPECIAL_SpeedBurst                          0x00000000  // CAT-DORMANT: retired (HW1 0x10): no speed burst in the exe (tacticsGetShipsMaxVelocity tests only 0x2/0x8/0x100); Tactics.c readers: M2-R4 #5
+#define SPECIAL_SpeedBurstCooling                   0x00000000  // CAT-DORMANT: retired (HW1 0x20), as SPECIAL_SpeedBurst
+#define SPECIAL_BurstFiring                         0x00000040  // doBurstFire 0x005b5100, cat_gunCreateBullet 0x0048bb00
+#define SPECIAL_SinglePlayerWithinHyperSpaceRange   0x00000080  // CalculateRollCall, TellHyperspacingShipsToReady 0x00517770, spGoNowHyperspaceCB 0x005173a0
+#define SPECIAL_SinglePlayerLimitSpeed              0x00000100  // kasfShipsSetMaxVelocity 0x004938f0, kasfTeamSetMaxVelocity 0x00493860, tacticsGetShipsMaxVelocity
+#define SPECIAL_BUSY_BECAUSE_SALVAGE_DOCKING        0x00000000  // CAT-DORMANT: retired (HW1 0x200; HW1 salvage only, SalCapCorvette.c: M2-R4 #3)
+#define SPECIAL_Harvested                           0x00000000  // CAT-DORMANT: retired (HW1 0x400; HW1 salvage only: M2-R4 #3)
+#define SPECIAL_EXITING_DOOR                        0x00000000  // CAT-DORMANT: retired (HW1 0x800): no exe access; Dock.c readers: M2-R4 #3
+#define SPECIAL_STAY_TILL_EXPLICITLAUNCH            0x00001000  // InitializeDockVars 0x00463c40, ShipHasToLaunch 0x0044a780, RemoveShipFromLaunching 0x00465590
+#define SPECIAL_CatKasSpecialRepairModifier         0x00002000  // CAT: new: kasfShipsSetRepairFactor 0x00493a10 / kasfShipsClearRepairFactor 0x00493a60
+#define SPECIAL_KasSpecialDamageModifier            0x00004000  // CAT: was 0x2000. kasfShipsSetDamageFactor 0x00493980, gunShoot 0x0048b5b0, missileShoot 0x0048aac0
+#define SPECIAL_Finished_Resource                   0x00000000  // CAT-DORMANT: retired (HW1 0x4000, HW1 AI resourcing; AIMoves.c/ResCollect.c readers: stage 4 / M2-R4 #3)
+#define SPECIAL_Resourcing                          0x00000000  // CAT-DORMANT: retired (HW1 0x8000), as SPECIAL_Finished_Resource
+#define SPECIAL_SinglePlayerInParade                0x00008000  // CAT: was 0x10000. spGoNowHyperspaceCB, TellHyperspacingShipsToReady set 0x8080 where HW1 sets WithinHyperSpaceRange|InParade
+#define SPECIAL_rowGettingOutOfWay                  0x00010000  // CAT: was 0x20000. rowFlyShipOutOfWay 0x00414280, PrepareShipsForCommand 0x00441000 and 25 more
+#define SPECIAL_ATTACKMOVECANCEL                    0x00020000  // CAT: was 0x40000. clProcess 0x0044b950 sets, ChangeOrderToMove 0x004460d0 tests
+#define SPECIAL_FriendlyStatus                      0x00040000  // CAT: was 0x80000. kasfShipsSetNonRetaliation 0x00495da0, selShipUnderMouse 0x00506550, MakeTargetsOnlyEnemyShips 0x00512970; CrystalInit, SlipgateInit set it
+#define SPECIAL_CatSalvager                         0x00080000  // CAT: Cataclysm's salvager mark: cat_salvageInit 0x004f9010 sets it; collCheckShipShipColl 0x0043ade0, aishipFlyToPointAvoidingObjsFunc 0x00414610, selStatusDraw0 0x00507f10 test it where HW1 tests SPECIAL_IsASalvager
+#define SPECIAL_IsASalvager                         0x00000000  // CAT-DORMANT: retired (HW1 0x100000): HW1's salvager mark, whose readers cast HW1's SalCapCorvetteSpec; the exe's sites test SPECIAL_CatSalvager with the Cataclysm salvage block (M2-R4 #3)
+#define SPECIAL_SalvagerHasSomethingAttachedAndIsDoingSomethingElse 0x00000000  // CAT-DORMANT: retired (HW1 0x200000, HW1 salvage: M2-R4 #3)
+#define SPECIAL_AttackFromAbove                     0x00100000  // CAT: was 0x400000. attackSideStep 0x00421fa0; RemoveShipFromAttacking 0x004477c0 clears 0x100006
+#define SPECIAL_SalvagedTargetGoingIntoDockWithShip 0x00000000  // CAT-DORMANT: retired (HW1 0x800000, HW1 salvage: M2-R4 #3/#4)
+#define SPECIAL_SalvageTakingHomeTechnology         0x00000000  // CAT-DORMANT: retired (HW1 0x1000000, HW1 salvage; Dock.c/KASFunc.c readers: M2-R4 #3, stage 6)
+#define SPECIAL_Hyperspacing                        0x00200000  // CAT: was 0x2000000. CalculateHyperspaceTimeForShip 0x005178a0 sets, UpdateArrivingShip 0x00518170 clears, attackPassive 0x00421c30 tests
+#define SPECIAL_ForcedAttackStatus                  0x00400000  // CAT: was 0x4000000. kasfForceCombatStatus 0x00493d70; cat_univShipSelfRepair 0x005433d0 reads it as "in combat"
+#define SPECIAL_LaunchedFromKas                     0x00800000  // CAT: was 0x10000000. kasfLaunch 0x004947c0 sets 0x1800000, aiplayerShipLaunchedCallback 0x00411390 tests
+#define SPECIAL_KasCheckDoneLaunching               0x01000000  // CAT: was 0x20000000. kasfLaunch sets, kasfTeamFinishedLaunching 0x004948a0 tests
+#define SPECIAL_Launching                           0x02000000  // CAT: was 0x40000000. clLaunchShip 0x0044a220 tests (no exe setter found)
+#define SPECIAL_ParadeNeedTomoveCloser              0x00000000  // CAT-DORMANT: retired (HW1 0x80000000): processMilitaryParadeToDo 0x00485280 touches neither word
+#define SPECIAL_SalvageTargetAlreadyDriven          0x08000000  // CAT: was specialFlags2 0x1. univSetupShipForControl 0x0054a230 clears it first thing, where HW1 clears SPECIAL_2_SalvageTargetAlreadyDriven
+#define SPECIAL_ShipInGravwell                      0x10000000  // CAT: was specialFlags2 0x2. GravWellGeneratorAddObj 0x005b4570 sets; gunShoot, univBulletCollidedWithTarget test
+#define SPECIAL_InUnitCaps                          0x20000000  // CAT: was specialFlags2 0x4. unitCapCreateShip 0x0053eab0 sets, unitCapDeleteShip 0x0053ec00 tests/clears
+#define SPECIAL_CircularGuard                       0x40000000  // CAT: was specialFlags2 0x8. clProtect 0x0044af20 sets/clears; protectShip 0x004411c0, protectShipsAvg test
 
 //////////SPECIAL_2 Flags
-#define SPECIAL_2_SalvageTargetAlreadyDriven        BIT0
-#define SPECIAL_2_ShipInGravwell                    BIT1
-#define SPECIAL_2_InUnitCaps                        BIT2
-#define SPECIAL_2_CircularGuard                     BIT3
-#define SPECIAL_2_NoMoreDockingAllowed              BIT4
-#define SPECIAL_2_DontPlowThroughEnemyShips         BIT5
-#define SPECIAL_2_BusiedDockPoint                   BIT6
-#define SPECIAL_2_DisabledForever                   BIT7
-// CAT (M2-R3 selection): two Cataclysm specialFlags2 states the selection filters test. The exe keeps them at bit 3
-//      (0x8: ship being built externally, cleared by cat_clExternalBuildUpdate 0x0044dfc0; HW1's CircularGuard bit, which
-//      Cataclysm moved into specialFlags, clProtect 0x0044af20) and bit 13 (0x2000: ship being salvaged,
-//      cat_salvageIsBeingSalvaged 0x004f7c00). The specialFlags/specialFlags2 renumbering belongs to the CommandLayer
-//      port (M2-R4 #2); until then they take free bits of this tree's specialFlags2.
-#define SPECIAL_2_CatBeingBuilt                     BIT8
-#define SPECIAL_2_CatBeingSalvaged                  BIT9
-// CAT (M2-R3 ships-a): the exe's specialFlags2 bit 13 is also set by cat_salvageDepotInit 0x004fc7c0 on every salvage
-//      depot (carriers, motherships, processors, bHeavyCruiser), so it marks a ship as a depot; this name says so. Same
-//      bit as SPECIAL_2_CatBeingSalvaged (cat_salvageIsBeingSalvaged 0x004f7c00 only tests it).
+#define SPECIAL_2_DontPlowThroughEnemyShips         0x00000001  // CAT: was 0x20. aishipFlyToPointAvoidingObjsFunc 0x00414610 tests it (0x004151c5) where HW1 does
+#define SPECIAL_2_CatBeingBuilt                     0x00000008  // CAT: built externally: univCreateShip 0x00542320 sets, cat_clExternalBuildUpdate 0x0044dfc0 and cat_shipUpdateExternalBuildAndAI 0x00543f10 clear, kasfShipUnderConstruction 0x00493400 returns it; about 60 exe readers
+#define SPECIAL_2_CatKasAttackCapable               0x00000010  // CAT: kasfShipsAttackCapable 0x00498100 writes (bCapable & 1) << 4 (no reader found)
+#define SPECIAL_2_CatNoAvoidance                    0x00000040  // CAT: aishipFlyToPointAvoidingObjsFunc skips avoiding when set; cat_dockShipDocksAtShip, kasfMakeShipCamera 0x00498290, cat_leechProcess 0x005b6f30, cat_salvageSpecialTarget 0x004faad0, RammingFrigateHouseKeep set it; RemoveShipFromDocking/Launching, LaunchCleanup, cat_clLinkCleanup 0x00444060 clear it (name chosen here)
+#define SPECIAL_2_CatHarvesting                     0x00000800  // CAT: processCollectResource 0x004f2130 and cat_rescollectStopHarvest 0x004f2450 clear it (no setter found; name chosen here)
+#define SPECIAL_2_CatSentinelFormation              0x00001000  // CAT: SentinelFormationCommand 0x005c6df0 sets/clears (name chosen here)
+#define SPECIAL_2_CatBeingSalvaged                  0x00002000  // CAT: cat_salvageIsBeingSalvaged 0x004f7c00 returns it
+// CAT (M2-R3 ships-a): the same bit is set by cat_salvageDepotInit 0x004fc7c0 on every salvage depot (carriers,
+//      motherships, processors, bHeavyCruiser), so it marks a ship as a depot; this name says so.
 #define SPECIAL_2_CatSalvageDepot                   SPECIAL_2_CatBeingSalvaged
-// CAT (M2-R3 ships-a): the exe's specialFlags2 bit 15, set by kasfShipsSetBeastInfectionUnlimited 0x00498a60 and
-//      cleared by cat_beastWeaponInit 0x0042a040; a free bit of this tree until the M2-R4 #2 renumbering
-#define SPECIAL_2_CatBeastInfectionUnlimited        BIT10
-// CAT (M2-R3 ships-a): the exe's specialFlags2 bit 20 (0x100000). Ships with it get no mothership health warning
-//      (MothershipHouseKeep 0x005bcad0), no battle pings or death screams (battlePingEvaluate 0x00424110), no support-
-//      unit accounting (cat_suShipAdded 0x00459a90) and special docking rules (ThisShipCanDockWith 0x00464290). Its
-//      setter and meaning are not pinned; a free bit of this tree until the M2-R4 #2 renumbering
-#define SPECIAL_2_CatExempt20                       BIT11
+#define SPECIAL_2_CatParalyzed                      0x00004000  // CAT: kasfShipsParalyze 0x00493420 writes (paralyze & 1) << 14; cat_empCanAffectShip 0x005add30, ACVSpecialTarget test it
+#define SPECIAL_2_CatBeastInfectionUnlimited        0x00008000  // CAT: kasfShipsSetBeastInfectionUnlimited 0x00498a60 sets, cat_beastWeaponInit 0x0042a040 clears
+#define SPECIAL_2_CatBeastified                     0x00010000  // CAT: cat_univBeastInfectionUpdate 0x00543860 sets; kasfShipsSelectBeastified 0x00498ae0 selects by it
+#define SPECIAL_2_CatSalvaged                       0x00020000  // CAT: cat_salvageDepotProcessGeneric 0x004f9500 sets; kasfShipsSelectSalvaged 0x00498b30 selects by it
+#define SPECIAL_2_CatSalvagedFlag18                 0x00040000  // CAT: cat_salvageDepotProcessGeneric writes it with SPECIAL_2_CatSalvaged (set when the depot's +0x32C block word +0x24 is 0; meaning not pinned)
+#define SPECIAL_2_CatExternalBuildTimer             0x00080000  // CAT: cat_clStartExternalBuildTimer 0x0044aa30 sets, cat_shipUpdateExternalBuildAndAI clears, ModuleShipDied tests
+// CAT (M2-R3 ships-a): bit 20 (0x100000): ships with it get no mothership health warning (MothershipHouseKeep
+//      0x005bcad0), no battle pings or death screams (battlePingEvaluate 0x00424110), no support-unit accounting
+//      (cat_suShipAdded 0x00459a90) and special docking rules (ThisShipCanDockWith 0x00464290). M2-R4: its setter is
+//      cat_shipSetSUExempt 0x005b4020, (exempt & 1) << 20.
+#define SPECIAL_2_CatExempt20                       0x00100000
+#define SPECIAL_2_CatKasBulimia                     0x00200000  // CAT: kasfShipsSetBulimia 0x0049a030 writes it; CollectResources 0x004f17a0 tests
+#define SPECIAL_2_CatKasNaggarok                    0x00400000  // CAT: kasfEnableNaggarok 0x0049a220 writes it; cat_rkoCanTarget 0x005c4050, RKOHouseKeep test
+#define SPECIAL_2_CatBeastWeaponAutoAttack          0x00800000  // CAT: kasfEnableBeastWeaponAutoAttack 0x0049a400 writes it; cat_shipUpdateExternalBuildAndAI tests
+#define SPECIAL_2_CatInvincibleInWidescreen         0x01000000  // CAT: kasfShipsSetInvincibleInWidescreen 0x0049abd0 writes it; ApplyDamageToTarget 0x00546250 tests
+#define SPECIAL_2_CatSalvageTargeted                0x02000000  // CAT: cat_salvageSpecialTarget sets, cat_salvageDetach 0x004f88b0 clears; cat_shipIsTargetableBy 0x0052a080, cat_empCanAffectShip test (name chosen here)
+#define SPECIAL_2_CatResourcing                     0x04000000  // CAT: processCollectResource sets, rescollectFindNearestResource 0x004f11f0 tests/clears (name chosen here)
+#define SPECIAL_2_CatStayMimicked                   0x08000000  // CAT: kasfSetStayMimicked 0x0049a850 writes (b & 1) << 27; cat_mimicCleanup 0x005b8ea0 tests
+#define SPECIAL_2_CatSUProvided                     0x10000000  // CAT: cat_suShipProvidesSU 0x00459a60 / cat_suShipAdded set, cat_suShipRemoved 0x00459ae0 tests/clears (name chosen here)
+#define SPECIAL_2_CatSlipgate                       0x20000000  // CAT: SlipgateInit 0x005c7250 sets; ThisShipCanDockWith tests it on the dock target (name chosen here)
+// CAT-DORMANT: HW1 specialFlags2 bits with no exe counterpart (retired, defined 0): NoMoreDockingAllowed (HW1 0x10,
+//      ShipDocksAtJunkYardHQ, a dropped type: M2-R4 #4), BusiedDockPoint (0x40) and DisabledForever (0x80) (HW1
+//      salvage in SalCapCorvette.c/Carrier.c/Mothership.c: M2-R4 #3/#4; the exe's MothershipDied 0x005bb9c0 tests
+//      SPECIAL_2_CatBeingBuilt where HW1 tests DisabledForever on its drop targets).
+#define SPECIAL_2_NoMoreDockingAllowed              0x00000000
+#define SPECIAL_2_BusiedDockPoint                   0x00000000
+#define SPECIAL_2_DisabledForever                   0x00000000
+
+// CAT (M2-R4 command): static checks. The live flags of each word are distinct bits (their OR equals their sum) and
+//      cover exactly the bits the exe uses; the values the M2-R3 ports quoted are these.
+#define CAT_SPECIAL_LIVE_FLAGS \
+    SPECIAL_StopForResearchDocking, SPECIAL_Kamikaze, SPECIAL_BrokenFormation, SPECIAL_KamikazeCrazyFast, \
+    SPECIAL_BurstFiring, SPECIAL_SinglePlayerWithinHyperSpaceRange, SPECIAL_SinglePlayerLimitSpeed, \
+    SPECIAL_STAY_TILL_EXPLICITLAUNCH, SPECIAL_CatKasSpecialRepairModifier, SPECIAL_KasSpecialDamageModifier, \
+    SPECIAL_SinglePlayerInParade, SPECIAL_rowGettingOutOfWay, SPECIAL_ATTACKMOVECANCEL, SPECIAL_FriendlyStatus, \
+    SPECIAL_CatSalvager, SPECIAL_AttackFromAbove, SPECIAL_Hyperspacing, SPECIAL_ForcedAttackStatus, \
+    SPECIAL_LaunchedFromKas, SPECIAL_KasCheckDoneLaunching, SPECIAL_Launching, SPECIAL_SalvageTargetAlreadyDriven, \
+    SPECIAL_ShipInGravwell, SPECIAL_InUnitCaps, SPECIAL_CircularGuard
+#define CAT_SPECIAL_2_LIVE_FLAGS \
+    SPECIAL_2_DontPlowThroughEnemyShips, SPECIAL_2_CatBeingBuilt, SPECIAL_2_CatKasAttackCapable, \
+    SPECIAL_2_CatNoAvoidance, SPECIAL_2_CatHarvesting, SPECIAL_2_CatSentinelFormation, SPECIAL_2_CatBeingSalvaged, \
+    SPECIAL_2_CatParalyzed, SPECIAL_2_CatBeastInfectionUnlimited, SPECIAL_2_CatBeastified, SPECIAL_2_CatSalvaged, \
+    SPECIAL_2_CatSalvagedFlag18, SPECIAL_2_CatExternalBuildTimer, SPECIAL_2_CatExempt20, SPECIAL_2_CatKasBulimia, \
+    SPECIAL_2_CatKasNaggarok, SPECIAL_2_CatBeastWeaponAutoAttack, SPECIAL_2_CatInvincibleInWidescreen, \
+    SPECIAL_2_CatSalvageTargeted, SPECIAL_2_CatResourcing, SPECIAL_2_CatStayMimicked, SPECIAL_2_CatSUProvided, \
+    SPECIAL_2_CatSlipgate
+#define CAT_FLAGS_OR25(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y) \
+    ((unsigned long long)(a)|(b)|(c)|(d)|(e)|(f)|(g)|(h)|(i)|(j)|(k)|(l)|(m)|(n)|(o)|(p)|(q)|(r)|(s)|(t)|(u)|(v)|(w)|(x)|(y))
+#define CAT_FLAGS_SUM25(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y) \
+    ((unsigned long long)(a)+(b)+(c)+(d)+(e)+(f)+(g)+(h)+(i)+(j)+(k)+(l)+(m)+(n)+(o)+(p)+(q)+(r)+(s)+(t)+(u)+(v)+(w)+(x)+(y))
+#define CAT_FLAGS_OR23(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w) \
+    ((unsigned long long)(a)|(b)|(c)|(d)|(e)|(f)|(g)|(h)|(i)|(j)|(k)|(l)|(m)|(n)|(o)|(p)|(q)|(r)|(s)|(t)|(u)|(v)|(w))
+#define CAT_FLAGS_SUM23(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w) \
+    ((unsigned long long)(a)+(b)+(c)+(d)+(e)+(f)+(g)+(h)+(i)+(j)+(k)+(l)+(m)+(n)+(o)+(p)+(q)+(r)+(s)+(t)+(u)+(v)+(w))
+#define CAT_FLAGS_APPLY(m, ...) m(__VA_ARGS__)
+_Static_assert(CAT_FLAGS_APPLY(CAT_FLAGS_OR25, CAT_SPECIAL_LIVE_FLAGS) ==
+               CAT_FLAGS_APPLY(CAT_FLAGS_SUM25, CAT_SPECIAL_LIVE_FLAGS), "two specialFlags share a bit");
+_Static_assert(CAT_FLAGS_APPLY(CAT_FLAGS_OR25, CAT_SPECIAL_LIVE_FLAGS) == 0x7BFFF1CFull,
+               "specialFlags: the 25 bits cataclysm.exe uses (all but 4, 5, 9, 10, 11, 26, 31)");
+_Static_assert(CAT_FLAGS_APPLY(CAT_FLAGS_OR23, CAT_SPECIAL_2_LIVE_FLAGS) ==
+               CAT_FLAGS_APPLY(CAT_FLAGS_SUM23, CAT_SPECIAL_2_LIVE_FLAGS), "two specialFlags2 flags share a bit");
+_Static_assert(CAT_FLAGS_APPLY(CAT_FLAGS_OR23, CAT_SPECIAL_2_LIVE_FLAGS) == 0x3FFFF859ull,
+               "specialFlags2: the 23 bits cataclysm.exe uses (0, 3, 4, 6, 11-29)");
+_Static_assert(SPECIAL_FriendlyStatus == 0x40000 && SPECIAL_Hyperspacing == 0x200000 &&
+               SPECIAL_CircularGuard == 0x40000000 && SPECIAL_CatSalvager == 0x80000 &&
+               (SPECIAL_Kamikaze | SPECIAL_BrokenFormation) == 0x6, "specialFlags at cataclysm.exe's bits");
+_Static_assert(SPECIAL_2_CatBeingBuilt == 0x8 && SPECIAL_2_CatBeingSalvaged == 0x2000 &&
+               SPECIAL_2_CatBeastInfectionUnlimited == 0x8000 && SPECIAL_2_CatExempt20 == 0x100000,
+               "specialFlags2 at cataclysm.exe's bits");
 
 // CAT (M2-R3 selection): Ship.catShipFlags (exe Ship+0x18)
 #define CAT_SHIPFLAG_Mimic                          BIT3    // set by MimicInit 0x005b8360, MCVInit 0x005b8130, P1StandardCorvetteInit 0x005be660
@@ -1941,6 +2004,8 @@ typedef struct Ship         // Ship object
     udword catUpgradeFlags;         // exe Ship+0x3F4: CAT_UPGRADE_* (cat_shipHasUpgrade 0x00514210; cat_shipUpgradesInit 0x005140a0 clears it)
     bool32 catDissolving;           // exe Ship+0x570: set by cat_shipDissolveStart 0x004603d0, cleared by cat_shipDissolveInit 0x00460220
     bool32 catUpgrading;            // exe Ship+0x598: set by cat_clUpgradeShips 0x0044de80, cleared by cat_univShipDeferredUpdate 0x005447b0
+    real32 catBuildProgress;        // exe Ship+0x3E8: external build progress 0..1 (univCreateShip 0x00542320 sets 0 for a
+                                    //   ship built externally, else 1.0; cat_clExternalBuildUpdate 0x0044dfc0 advances it)
     udword sizeofShipSpecifics;
     udword ShipSpecifics[1];        //this member must go last
 } Ship;

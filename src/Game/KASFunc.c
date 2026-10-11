@@ -1530,7 +1530,7 @@ void SelectionSwitchPlayerOwner(SelectCommand *selection)
     for (i=0;i<numShips;i++)
     {
         ship = selection->ShipPtr[i];
-        RemoveShipFromBeingTargeted(&universe.mainCommandLayer,ship,REMOVE_PROTECT);      // remove ships from being targeted when switching sides
+        RemoveShipFromBeingTargeted(&universe.mainCommandLayer,ship,REMOVE_PROTECT,NULL);      // remove ships from being targeted when switching sides (CAT: fourth argument 0, SelectionSwitchPlayerOwner 0x00493fe1)
         if (ship->playerowner == &universe.players[0])
         {
             // going from human's ships to kas ships

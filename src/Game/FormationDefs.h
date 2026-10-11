@@ -14,6 +14,13 @@
 #define CUSTOM_FORMATION    6    // F11
 #define NO_FORMATION        7
 #define SAME_FORMATION      8    // for computer player
+// CAT: Cataclysm's two force-field formations (Sentinel fields), named as in the exe's formation name table
+//      (NumStrXlate at 0x0087f998, read by StrToTypeOfFormation 0x00481190): FORCEFIELD_WALL_FORMATION 9
+//      (SetFormationOffsetsForForceFieldWall 0x00481ef0), FORCEFIELD_SPHERE_FORMATION 10 (formationSpecificsSphere
+//      0x00481880, cat_formationSphereSentinelLinks 0x004815d0); FillInFormationSpecifics 0x00484950 treats both as
+//      the six hot-key formations and CUSTOM
+#define FORCEFIELD_WALL_FORMATION   9
+#define FORCEFIELD_SPHERE_FORMATION 10
 
 // -----------------------------------------------------------------------------
 

@@ -123,6 +123,7 @@ void cmCloseTextures(void);
 void cmForceBuildShipType(ShipType type);
 
 void cmReset(void); // Free carrier ship pointers used by construction manager
+void cmDirtyShipInfo(void);   // CAT: declared for cat_clExternalBuildUpdate 0x0044dfc0 (CommandLayer.c)
 
 //start the construction manager.  It will kill itself when you hit the quit button.
 sdword cmConstructionBegin(regionhandle region, smemsize ID, udword event, udword data);

@@ -144,6 +144,21 @@ void clFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation
 sdword clDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockType,ShipPtr dockwith);
 Ship *clCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator);
 void clBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator);
+
+// CAT: external build (Cataclysm's big ships, statinfo->externalBuild). univCreateShip 0x00542320 creates such a ship
+//      with health 0, catBuildProgress 0 and SPECIAL_2_CatBeingBuilt when its built argument has bit 0 set; the
+//      construction manager then drives it through cat_clExternalBuildUpdate (cmDeterministicBuildProcess 0x004592a0,
+//      cmDeterministicBuildCancel 0x00459040). CAT-PROVISIONAL: that driver is ConsMgr.c's (M2-R4 #5 / stage 3) and
+//      not ported, and the tree's ConsMgr still builds every type inside the factory and creates it at the end
+//      (clCreateShip, built 1), so the univCreateShip branch stays off until the driver lands: with it on, an
+//      externally built type would be created at health 0 and never finish.
+#define CAT_EXTERNAL_BUILD_DRIVER   0
+#define CAT_EXTBUILD_DONE           0   // the build finished (cat_clExternalBuildUpdate mode 0)
+#define CAT_EXTBUILD_CANCEL         1   // the build was cancelled: the ship is deleted (mode 1)
+#define CAT_EXTBUILD_PROGRESS       2   // progress update (mode 2)
+void cat_clStartExternalBuildTimer(CommandLayer *comlayer,SelectCommand *selectcom);
+void cat_clExternalBuildUpdate(CommandLayer *comlayer,uword playerIndex,Ship *creator,Ship *ship,real32 progress,sdword mode);
+bool32 cat_shipIsLiveWorker(Ship *ship);   // CAT: 0x005c8e00 (home: the Worker port, M2-R4 #4)
 void clCollectResource(CommandLayer *comlayer,SelectCommand *selectcom,ResourcePtr resource);
 CommandToDo *clProtect(CommandLayer *comlayer,SelectCommand *selectcom,ProtectCommand *protectcom);
 void clSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *targets);
@@ -221,15 +236,22 @@ void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom);
 #define REMOVE_DISABLED         4
 #define REMOVE_DISAPPEARED      8
 #define REMOVE_HYPERSPACING     16
+// CAT: new: a salvaged ship, removed only from the commands of the player given as the fourth argument
+//      (cat_shipHasJustBeenSalvaged 0x0044b450 passes 0x20; RemoveShipFromBeingTargeted 0x004453c0)
+#define REMOVE_CAT_SALVAGED     32
 
 // Removes ship from being targeted in the command layer
-void RemoveShipFromBeingTargeted(CommandLayer *comlayer,ShipPtr shiptoremove,udword removeFlag);
+// CAT: fourth argument catPlayer, used with REMOVE_CAT_SALVAGED; every other caller passes NULL (0x004453c0)
+void RemoveShipFromBeingTargeted(CommandLayer *comlayer,ShipPtr shiptoremove,udword removeFlag,struct Player *catPlayer);
+
+// CAT: a ship was salvaged: drop it from the commands of player (cat_shipHasJustBeenSalvaged 0x0044b450)
+void cat_shipHasJustBeenSalvaged(Ship *ship,struct Player *player);
 
 // cleans up game when a ship goes out of view..
 void shipHasJustCloaked(Ship *ship);
 
 // cleans up game when a ship becomes disabled
-void shipHasJustBeenDisabled(Ship *ship);
+void shipHasJustBeenDisabled(Ship *ship,bool32 catKeepInCamera);   // CAT: second argument (0x00445360)
 
 // when ship just disappeared (SOF_Hide) e.g. univRemoveShipFromOutside
 void shipHasJustDisappeared(Ship *ship);

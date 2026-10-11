@@ -39,4 +39,6 @@ void clWrapSetMilitaryParade(CommandLayer *comlayer,SelectCommand *selectcom);
 void clWrapRUTransfer(CommandLayer *comlayer,sdword fromIndex,sdword toIndex, sdword resourceUnits,ubyte flags);
 void clWrapMpHyperspace(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to);
 void clWrapResearch(udword type, udword playernum, udword labnum, udword tech);
+void cat_clWrapStartExternalBuildTimer(CommandLayer *comlayer,SelectCommand *selectcom);   // CAT: 0x00453660
+void cat_clWrapExternalBuildUpdate(CommandLayer *comlayer,uword playerIndex,Ship *creator,Ship *ship,real32 progress,sdword mode);   // CAT: 0x00453a00
 #endif

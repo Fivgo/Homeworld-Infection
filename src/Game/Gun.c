@@ -978,7 +978,7 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
         ship->attackvars.myWingmanIs->shipisattacking = TRUE;
         //dbgMessagef("Ship %i is attacking (gun - wingman)", ship->attackvars.myWingmanIs->shipID.shipNumber);
     }
-    if(ship->shipOrDerelict.specialFlags2 & SPECIAL_2_ShipInGravwell)
+    if(ship->shipOrDerelict.specialFlags & SPECIAL_ShipInGravwell)   // CAT: specialFlags in the exe
     {
         //ship is in gravwell
         return; //don't let it fire.

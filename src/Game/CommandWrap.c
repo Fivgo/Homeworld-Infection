@@ -14,6 +14,8 @@
 #include "MultiplayerGame.h"
 #include "Options.h"
 #include "Select.h"
+#include "ShipSelect.h"
+#include "Timer.h"
 #include "Ships.h"
 #include "SoundEvent.h"
 #include "SpeechEvent.h"
@@ -30,6 +32,9 @@
     Outputs     : Modifies global gMessage variable
     Return      : void
 ----------------------------------------------------------------------------*/
+// CAT-TODO(stage 3): clCommandMessage 0x004ac820 lives in Cataclysm's message scroller (InfoOverlay area): two
+//      arguments (msg, flags), a 25-line ring of 0x224-byte entries that scrolls with cat_ioMessageScroll, a sound
+//      (soundEventPlay); HW1's gMessage slots stay until the UI port
 void clCommandMessage(char CommandMessage[MAX_MESSAGE_LENGTH])
 {
     ubyte i = 0;
@@ -58,33 +63,28 @@ void clCommandMessage(char CommandMessage[MAX_MESSAGE_LENGTH])
 void clFlashShips(SelectCommand *selection)
 {
     udword i;
+    sdword j;
 
     for (i = 0; i < selection->numShips; i++)
     {
-        selection->ShipPtr[i]->targetable.flashtimer = taskTimeElapsed;
-    }
-}
-
-void SpeechEventsForFuel(SelectCommand *selectcom)
-{
-    sdword i;
-    for(i=0;i<selectcom->numShips;i++)
-    {
-        if(selectcom->ShipPtr[0]->fuel == 0.0f)
+        Ship *ship = selection->ShipPtr[i];
+        // CAT: clFlashShips 0x00452960: the flash time is real time (cat_taskRealTimeElapsed), and the objects clamped to
+        //      a ship (its clampInfo's clamped-object list, +0x34) flash with it
+        ship->targetable.flashtimer = cat_taskRealTimeElapsed;
+        if ((ship->header.objtype == OBJ_ShipType) && (ship->guidance.clampInfo != NULL) &&
+            (ship->guidance.clampInfo->clampedObjs != NULL))
         {
-            /////////////////////
-            //fuel speech event....
-            //event num: COMM_Strike_OutOfFuelMove
-            //battle chatter
-
-
-            //////////////////
-            return;
+            SelectCommand *clamped = (SelectCommand *)ship->guidance.clampInfo->clampedObjs;
+            for (j = 0; j < clamped->numShips; j++)
+            {
+                clamped->ShipPtr[j]->targetable.flashtimer = cat_taskRealTimeElapsed;
+            }
         }
     }
-
-
 }
+
+// CAT: SpeechEventsForFuel is gone: Cataclysm has no fuel, and clWrapMove 0x004529e0 keeps only an empty scan of the
+//      selection in its place (no effect)
 
 void clWrapMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to)
 {
@@ -106,15 +106,10 @@ void clWrapMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vect
 #endif
     }
 
-    SpeechEventsForFuel(selectcom);
-
     // ships selected to move flash for a few frames to indicate the selection
     if ((!multiPlayerGame) && (!recordFakeSendPackets))
     {
-        if (tutorial)
-        {
-            tutGameMessage("Game_MoveIssued");
-        }
+        // CAT: no fuel speech and no tutorial message (clWrapMove 0x004529e0)
         clMove(comlayer,selectcom,from,to);
     }
     else
@@ -127,7 +122,8 @@ void clWrapMpHyperspace(CommandLayer *comlayer,SelectCommand *selectcom,vector f
 {
     udword i;
 
-    if (playPackets|universePause) return;
+    // CAT: paused orders are allowed with opPauseOrders, as for the other wraps (clWrapMpHyperspace 0x00452ae0)
+    if (playPackets || (universePause && !opPauseOrders) ) return;
 
     //makeShipsControllable(selectcom,COMMAND_MP_HYPERSPACING);
     if (selectcom->numShips == 0) return;
@@ -154,7 +150,8 @@ void clWrapMpHyperspace(CommandLayer *comlayer,SelectCommand *selectcom,vector f
     }
     for(i=0;i<selectcom->numShips;)
     {
-        bitClear(selectcom->ShipPtr[i]->header.flags,SOF_Selectable);
+        // CAT: the ship is disabled for reason 6 (hyperspacing) instead of losing SOF_Selectable (clWrapMpHyperspace 0x00452ae0)
+        cat_shipSetDisableReason(selectcom->ShipPtr[i],TRUE,6);
         if(clRemoveShipFromSelection(&selSelected, selectcom->ShipPtr[i]))
         {
             ioUpdateShipTotals();
@@ -201,10 +198,8 @@ void clWrapFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfForma
     makeShipsControllable(selectcom,COMMAND_NULL);
     if (selectcom->numShips == 0) return;
 
-    if (formation > NO_FORMATION && formation != PARADE_FORMATION)
-    {
-        dbgFatalf(DBG_Loc,"Invalid formation %d",formation);
-    }
+    // CAT: no formation check here (clWrapFormation 0x00452ca0; clFormation checks). CAT-TODO: the exe's wrap takes and
+    //      passes on clFormation's fourth argument (the force-field level), see clFormation
 
     if ((!universe.aiplayerProcessing) && (!((tutorial==TUTORIAL_ONLY) && !tutEnable.bFormation)))
     {
@@ -237,9 +232,13 @@ void clWrapDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockTyp
     makeShipsControllable(selectcom,COMMAND_DOCK);
     if (selectcom->numShips == 0) return;
 
+    // CAT: clWrapDock 0x00452d60: no research ships to drop (MakeSelectionNonResearchShips is gone); for any dock type
+    //      but retire (the exe's dock type 7) it refreshes the ship totals instead. CAT-TODO(M2-R4 #3): Cataclysm's
+    //      dock types are numbers (7 retire, 10 ...), not HW1's DOCK_* bits; the speech below (exe: 0x400106a for
+    //      retire, 0x4000801 for type 10, 0x4000803 otherwise, through speechEventQueue) follows with them
     if(!(dockType & DOCK_FOR_RETIRE))
     {
-         MakeSelectionNonResearchShips(selectcom);
+         ioUpdateShipTotals();
     }
 
     if (selectcom->numShips == 0)
@@ -373,7 +372,7 @@ void clWrapCollectResource(CommandLayer *comlayer,SelectCommand *selectcom,Resou
 
         if (resource != NULL)
         {
-            resource->targetable.flashtimer = taskTimeElapsed;
+            resource->targetable.flashtimer = cat_taskRealTimeElapsed;   // CAT: real time (clWrapCollectResource 0x00453000)
         }
 #if CL_TEXTFEEDBACK
         if (enableTextFeedback) clCommandMessage("Harvest Command Received");
@@ -420,10 +419,8 @@ void clWrapProtect(CommandLayer *comlayer,SelectCommand *selectcom,ProtectComman
 
 void clWrapSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *targets)
 {
-    sdword i,sals;
     SelectCommand *copycom=NULL;
     sdword sizeofcopycom;
-	Ship *salptr = NULL;
     if (playPackets || (universePause && !opPauseOrders) ) return;
 
     makeShipsControllable(selectcom,COMMAND_SPECIAL);
@@ -451,96 +448,19 @@ void clWrapSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialComman
 #endif
     }
 
-    if(selectcom->ShipPtr[0]->playerowner == universe.curPlayerPtr)
+    // CAT: clWrapSpecial 0x004531d0: HW1's salvage-corvette block (the "not enough corvettes" and salvage speech, the
+    //      salvage corvettes ordered one by one) is gone. The exe only runs cat_shipIsSalvager over the selection of
+    //      the current player's targeted order and ignores the result, so nothing of it is kept here. The copy is
+    //      always freed (HW1 leaked it on the tutorial return).
+    if ((!multiPlayerGame) && (!recordFakeSendPackets))
     {
-        //count number of salcap corvettes
-        sals = 0;
-        for(i=0;i<selectcom->numShips;i++)
-        {
-            if(selectcom->ShipPtr[i]->shiptype == SalCapCorvette)
-            {
-                salptr=selectcom->ShipPtr[i];
-				sals++;
-            }
-        }
-        if(sals > 0)
-        {
-            //some salcaps in list
-            //make sure sals > numNeededToSalvage of first target...
-            if(targets->TargetPtr[0]->header.objtype == OBJ_ShipType)
-			{
-                Ship* targetShip = (Ship*)targets->TargetPtr[0];
-				if(!(targetShip->obj.attributes & ATTRIBUTES_StripTechnology))
-                {
-                    //target isn't a technology whore.
-                    if(targetShip->shipOrDerelict.salvageInfo != NULL)
-    				{
-    					//if it is NULL we wouldn't care because you would only need
-    					//one salcap which we for sure have
-    					if(targetShip->shipOrDerelict.salvageInfo->numNeededForSalvage - targetShip->shipOrDerelict.salvageNumTagged[universe.curPlayerIndex] > sals)
-    					{
-    						//number still needed minus number
-    						//already going for target is more than just ordered
-    						///need more
-    						//play speech event
-    						speechEvent(salptr, SP_Pilot_SCVetteNotEnough, 0);
-    						goto nonormalsalevent;
-    					}
-    				}
-                }
-			}
-			if(isThereAnotherTargetForMe(selectcom->ShipPtr[0],(SelectAnyCommand *)targets))
-			{
-				speechEvent(selectcom->ShipPtr[0], COMM_SCVette_Salvage, 0);
-			}
-        }
-		
-        /* salvage command given */
-nonormalsalevent:;
-    }
-        if ((!multiPlayerGame) && (!recordFakeSendPackets))
-    {
-        if((tutorial==TUTORIAL_ONLY) && !tutEnable.bSpecial)
-            return;
-
-        for(i=0;i<copycom->numShips;)
-        {
-            if(copycom->ShipPtr[i]->shiptype == SalCapCorvette)
-            {
-                //sal in thing, remove and order seperatly
-                SelectCommand selectOne;
-                selectOne.numShips = 1;
-                selectOne.ShipPtr[0] = copycom->ShipPtr[i];
-                clSpecial(comlayer,&selectOne,targets);
-                copycom->numShips--;
-                copycom->ShipPtr[i] = copycom->ShipPtr[copycom->numShips];
-                continue;
-            }
-            i++;
-        }
-        if (copycom->numShips > 0)
+        if (!((tutorial==TUTORIAL_ONLY) && !tutEnable.bSpecial) && (copycom->numShips > 0))
         {
             clSpecial(comlayer,copycom,targets);
         }
     }
     else
     {
-
-        for(i=0;i<copycom->numShips;)
-        {
-            if(copycom->ShipPtr[i]->shiptype == SalCapCorvette)
-            {
-                //sal in thing, remove and order seperatly
-                SelectCommand selectOne;
-                selectOne.numShips = 1;
-                selectOne.ShipPtr[0] = copycom->ShipPtr[i];
-                clSendSpecial(comlayer,&selectOne,targets);
-                copycom->numShips--;
-                copycom->ShipPtr[i] = copycom->ShipPtr[copycom->numShips];
-                continue;
-            }
-            i++;
-        }
         if (copycom->numShips > 0)
         {
             clSendSpecial(comlayer,copycom,targets);
@@ -577,7 +497,8 @@ void clWrapHalt(CommandLayer *comlayer,SelectCommand *selectcom)
 
 void clWrapScuttle(CommandLayer *comlayer,SelectCommand *selectcom)
 {
-    if (playPackets|universePause) return;
+    // CAT: paused orders are allowed with opPauseOrders (clWrapScuttle 0x00453390)
+    if (playPackets || (universePause && !opPauseOrders) ) return;
 
     //makeShipsControllable(selectcom);     // always allow scuttling (in case ship gets stuck in dock bay or something)
     if (selectcom->numShips == 0) return;
@@ -647,6 +568,7 @@ void clWrapLaunchMultipleShips(CommandLayer *comlayer,SelectCommand *selectcom,S
 void clWrapSetTactics(CommandLayer *comlayer,SelectCommand *selectcom,TacticsType tacticstype)
 {
     if (playPackets || (universePause && !opPauseOrders) ) return;
+    if (selectcom->numShips == 0) return;     // CAT: an empty selection does nothing (clWrapSetTactics 0x00453500)
 
     if (!universe.aiplayerProcessing)
     {
@@ -685,7 +607,8 @@ void clWrapRUTransfer(CommandLayer *comlayer,sdword fromIndex,sdword toIndex, sd
 
 void clWrapSetKamikaze(CommandLayer *comlayer,SelectCommand *selectcom)
 {
-    if (playPackets|universePause) return;
+    // CAT: paused orders are allowed with opPauseOrders (clWrapSetKamikaze 0x00453820)
+    if (playPackets || (universePause && !opPauseOrders) ) return;
 
     makeShipsControllable(selectcom,COMMAND_NULL);
     if (selectcom->numShips == 0) return;
@@ -746,5 +669,31 @@ void clWrapResearch(udword type, udword playernum, udword labnum, udword tech)
     else
     {
         clSendResearch(type, playernum, labnum, tech);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    CAT: the external-build wraps (cat_clWrapStartExternalBuildTimer 0x00453660, cat_clWrapExternalBuildUpdate
+    0x00453a00). Unlike the order wraps they ignore universePause. CAT-TODO(stage 5): in a network or recorded
+    game the exe sends clSendMisc(comlayer, selectcom, 11, 0) / cat_clSendExternalBuildUpdatePacket 0x004523a0
+    instead; those packets are not ported, so such a game does nothing here yet.
+----------------------------------------------------------------------------*/
+void cat_clWrapStartExternalBuildTimer(CommandLayer *comlayer,SelectCommand *selectcom)
+{
+    if (playPackets || (selectcom->numShips == 0)) return;
+
+    if ((!multiPlayerGame) && (!recordFakeSendPackets))
+    {
+        cat_clStartExternalBuildTimer(comlayer,selectcom);
+    }
+}
+
+void cat_clWrapExternalBuildUpdate(CommandLayer *comlayer,uword playerIndex,Ship *creator,Ship *ship,real32 progress,sdword mode)
+{
+    if (playPackets) return;
+
+    if ((!multiPlayerGame) && (!recordFakeSendPackets))
+    {
+        cat_clExternalBuildUpdate(comlayer,playerIndex,creator,ship,progress,mode);
     }
 }

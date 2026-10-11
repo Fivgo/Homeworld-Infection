@@ -1139,7 +1139,7 @@ sdword salCapFlyToWithinDockingRange(Ship *ship)
     maxpushvelocity = salCapGetMaxPushingVelocity(ship,(Ship *)spec->target);
     if(spec->target->header.objtype == OBJ_ShipType)
     {
-        if(spec->target->specialFlags2 & SPECIAL_2_SalvageTargetAlreadyDriven)
+        if(spec->target->specialFlags & SPECIAL_SalvageTargetAlreadyDriven)   // CAT: specialFlags in the exe
         {
             goto dontflyme1;
         }
@@ -1148,7 +1148,7 @@ sdword salCapFlyToWithinDockingRange(Ship *ship)
     salCapTrackHeadingAndUp(spec->target,0.999f);
     if(spec->target->header.objtype == OBJ_ShipType)
     {
-        spec->target->specialFlags2 |= SPECIAL_2_SalvageTargetAlreadyDriven;
+        spec->target->specialFlags |= SPECIAL_SalvageTargetAlreadyDriven;   // CAT: specialFlags in the exe
     }
 dontflyme1:;
 
@@ -2124,7 +2124,7 @@ reachedit:
             bitClear(spec->target->header.flags, SOF_Selectable);
             bitSet(spec->target->header.flags,SOF_Disabled);
             bitSet(spec->target->header.flags,SOF_DontDrawTrails);
-            shipHasJustBeenDisabled((Ship *)spec->target);
+            shipHasJustBeenDisabled((Ship *)spec->target,FALSE);   // CAT: HW1 behaviour (dormant HW1 salvage)
 
             if(spec->target->header.objtype == OBJ_ShipType)
             {
@@ -2504,7 +2504,7 @@ bool32 DropTargetInShip(Ship *dockwith,sdword *targetDepotState, ShipOrDerelict 
             selection.numShips = 1;
             selection.ShipPtr[0] = (Ship *)target;
             RemoveShipsFromDoingStuff(&universe.mainCommandLayer,&selection);
-            shipHasJustBeenDisabled((Ship *)target);
+            shipHasJustBeenDisabled((Ship *)target,FALSE);   // CAT: HW1 behaviour (dormant HW1 salvage)
         }
         if(salCapFlyToDockingPoint2(dockwith,target,*dockindex))
         {

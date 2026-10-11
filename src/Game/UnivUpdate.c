@@ -2078,6 +2078,22 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     //      state (0x00542b0a: cat_univShipMeshStateCreate 0x00541cd0)
     newship->obj.catEffectBlock = NULL;
     cat_univShipMeshStateCreate(&newship->obj);
+    // CAT: then the external build state (0x00542ac4..0x00542b10): an externalBuild type created with bit 0 of built
+    //      set starts at health 0, progress 0 and SPECIAL_2_CatBeingBuilt; every other ship at full health, progress
+    //      1.0, flag clear. CAT-PROVISIONAL: CAT_EXTERNAL_BUILD_DRIVER (CommandLayer.h) keeps the first case off
+    //      until ConsMgr's external-build driver is ported
+    if (CAT_EXTERNAL_BUILD_DRIVER && shipstaticinfo->externalBuild && (built & 1))
+    {
+        newship->targetable.health = 0.0f;
+        newship->catBuildProgress = 0.0f;
+        bitSet(newship->shipOrDerelict.specialFlags2,SPECIAL_2_CatBeingBuilt);
+    }
+    else
+    {
+        newship->targetable.health = shipstaticinfo->health.maxhealth;
+        newship->catBuildProgress = 1.0f;
+        bitClear(newship->shipOrDerelict.specialFlags2,SPECIAL_2_CatBeingBuilt);
+    }
     return newship;
 }
 
@@ -3743,7 +3759,7 @@ void univBulletCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target,
     {
         if(target->header.objtype == OBJ_ShipType )
         {
-            if(((Ship *)target)->shipOrDerelict.specialFlags2 & SPECIAL_2_ShipInGravwell)
+            if(((Ship *)target)->shipOrDerelict.specialFlags & SPECIAL_ShipInGravwell)   // CAT: specialFlags in the exe
             {
                 goto nobulletmasstransfer;
             }
@@ -4709,9 +4725,14 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
         cmRemoveFactory(ship);
     }
 
-    // CAT: externally built ships (0x00547d97). CAT-TODO(M2-R4 #2): cat_cmExternalBuildShipDied 0x00455960 (the
-    //      build queue entry that waits for the ship) and the clearing of specialFlags2 bit 0x8 (being built), whose
-    //      renumbering is M2-R4 #2's. A docked externally built ship leaves the dock
+    // CAT: externally built ships (0x00547d97). CAT-TODO(M2-R4 #5, ConsMgr's external-build driver):
+    //      cat_cmExternalBuildShipDied 0x00455960 (the build queue entry that waits for the ship). Then the exe clears
+    //      SPECIAL_2_CatBeingBuilt (0x00547dab) [audit: ported by the M2-R4 command audit; the flag is at the exe's bit
+    //      since that port]. A docked externally built ship leaves the dock
+    if (ship->staticinfo->externalBuild)
+    {
+        bitClear(ship->shipOrDerelict.specialFlags2,SPECIAL_2_CatBeingBuilt);
+    }
     if (ship->staticinfo->externalBuild && ship->dockvars.dockship != NULL)
     {
         RemoveShipFromDocking(ship);
@@ -6440,8 +6461,8 @@ void univSetupShipForControl(Ship *ship)
     ship->autostabilizeship = TRUE;
 
     //clear this flag incase it is a target of a salcapcorvette
-    // CAT: specialFlags 0x08000000 in the exe (the flags' renumbering is M2-R4 #2)
-    bitClear(ship->shipOrDerelict.specialFlags2,SPECIAL_2_SalvageTargetAlreadyDriven);
+    // CAT: specialFlags 0x08000000 in the exe (SPECIAL_SalvageTargetAlreadyDriven since the M2-R4 command port)
+    bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_SalvageTargetAlreadyDriven);   // CAT: specialFlags in the exe
     // CAT-TODO(M2-R4 #4): the exe also clears a Cataclysm ship word at Ship +0x600 here (0x0054a26b)
     // memory of attackers fades away...
     if (ship->recentlyAttacked)
@@ -8257,7 +8278,7 @@ void cat_univShipSelfRepair(Ship *ship)
     bool32 inCombat;
     real32 repairTime, repairDamage;
 
-    // CAT: the forced-attack bit is specialFlags 0x400000 in the exe (renumbering: M2-R4 #2)
+    // CAT: the forced-attack bit is specialFlags 0x400000 in the exe (SPECIAL_ForcedAttackStatus since the M2-R4 command port)
     inCombat = bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_ForcedAttackStatus) ||
                (ship->recentlyAttacked != 0) || (ship->shipisattacking != 0);
     repairTime = inCombat ? shipstatic->repairCombatTime : shipstatic->repairTime;
@@ -8419,7 +8440,7 @@ void cat_univSetShipPosition(Ship *ship, vector *position)
 /*-----------------------------------------------------------------------------
     Name        : cat_univPlayerHasFlaggedShip (Cataclysm 0x0054d200)
     Description : TRUE if the current player owns a ship that is being built (specialFlags2 bit 0x8;
-                  SPECIAL_2_CatBeingBuilt, renumbered by M2-R4 #2). Caller: spHyperspaceButtonPushed (stage 6).
+                  SPECIAL_2_CatBeingBuilt). Caller: spHyperspaceButtonPushed (stage 6).
     Inputs      :
     Outputs     :
     Return      : bool32

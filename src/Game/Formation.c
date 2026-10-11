@@ -59,6 +59,25 @@ bool8 FORMATION_TRAVEL_SLOWEST_SHIP = TRUE;
 
 real32 TARGETDRONE_FORMATION_SIZE = 1000.0f;
 
+/*-----------------------------------------------------------------------------
+    CAT (M2-R4 command): state of this file against cataclysm.exe. Ported: the formation name table (types 9/10) and
+    clFormation's accepted types; the parade code of M2-R3 (GetShipSlot, PutShipInMilitaryParade,
+    CreateMilitaryGroupAroundShip, the parade scripts). CAT-TODO(M2-R4 command follow-up, docs/m2-r4-command.md
+    "What is left"): the force-field formations (Sentinel fields) are not built yet:
+      - FormationCommand gains the force-field level at exe +0x288 (before formationSpecificInfo, +0x28C), set by
+        FillInFormationSpecifics 0x00484950 (a fourth argument; formationSpecificInfo cleared for types 0-6, 9, 10);
+      - clFormation 0x00484c80 (4 arguments: the per-ship CustShipFormationCommand veto, 12/24-ship caps, the
+        passive-attack clear) and clWrapFormation, clHoldingPattern, clSendFormation with it;
+      - FormationCalculateOffsets 0x00483620 (SetFormationOffsetsForForceFieldWall 0x00481ef0 for 9, the Sentinel
+        sphere for 10, disable reasons), formationSpecificsSphere 0x00481880 (2 arguments,
+        cat_formationSentinelFieldLevel, cat_formationSphereSentinelLinks), createSphereStaticInfo 0x00481410
+        (MAX_SENTINELS_IN_FORCE_FIELD_SPHERE);
+      - setFormationToDo 0x00482a00 and setMilitaryParade 0x00485790 (cat_univSetShipPosition), processFormationToDo
+        0x00482b90 (cat_formationShipMoveToSteady / NotToObscuredPoints), GetShipsTravelVel 0x004833d0 (speed
+        multiplier, Sentinel field), processMilitaryParadeToDo 0x00485280 (no ParadeNeedTomoveCloser flag: the exe
+        touches neither specialFlags word; with the flag retired the HW1 test below reduces to "within 300"),
+        paradeSetTweakables 0x004850d0.
+-----------------------------------------------------------------------------*/
 static NumStrXlate formationtypeinfo[] =
 {
     { (uword)DELTA_FORMATION,  strdollar(DELTA_FORMATION) },
@@ -70,6 +89,9 @@ static NumStrXlate formationtypeinfo[] =
     { (uword)CUSTOM_FORMATION, strdollar(CUSTOM_FORMATION) },
     { (uword)NO_FORMATION, strdollar(NO_FORMATION) },
     { (uword)SAME_FORMATION, strdollar(SAME_FORMATION) },
+    // CAT: the exe's table (0x0087f998, StrToTypeOfFormation 0x00481190) has the two force-field formations too
+    { (uword)FORCEFIELD_WALL_FORMATION, strdollar(FORCEFIELD_WALL_FORMATION) },
+    { (uword)FORCEFIELD_SPHERE_FORMATION, strdollar(FORCEFIELD_SPHERE_FORMATION) },
     { 0,NULL }
 };
 
@@ -2546,9 +2568,25 @@ void clFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation
     vector majorityshipsmoveto;
     GrowSelection majorityshipsattacking;
 
-    if (formation > NO_FORMATION && formation != PARADE_FORMATION)
+    // CAT: clFormation 0x00484c80 accepts the six hot-key formations, CUSTOM and the two force-field formations; NO,
+    //      SAME and PARADE are invalid. CAT-TODO(M2-R4 #4 / this port's follow-up): the exe's clFormation takes a fourth
+    //      argument (the force-field level, stored at FormationCommand +0x288 by FillInFormationSpecifics), lets each
+    //      ship's CustShipFormationCommand slot (34) veto it, caps a force-field sphere at 12 and a wall at 24 ships
+    //      (the rest leave the selection), and clears passive attacking when a formation becomes a force field
+    switch (formation)
     {
-        dbgFatalf(DBG_Loc,"Invalid formation %d",formation);
+        case DELTA_FORMATION:
+        case BROAD_FORMATION:
+        case DELTA3D_FORMATION:
+        case CLAW_FORMATION:
+        case WALL_FORMATION:
+        case SPHERE_FORMATION:
+        case CUSTOM_FORMATION:
+        case FORCEFIELD_WALL_FORMATION:
+        case FORCEFIELD_SPHERE_FORMATION:
+            break;
+        default:
+            dbgFatalf(DBG_Loc,"Invalid formation %d",formation);
     }
 
     if (selectcom->numShips < ABSOLUTE_MIN_SHIPS_IN_FORMATION)

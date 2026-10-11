@@ -75,8 +75,9 @@ void P1StandardCorvetteAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdi
 
     // CAT: P1StandardCorvetteAttack 0x005be6e0: a mimicking corvette attacks straight on (too-close range 1000)
     //      and, once facing the target (heading . trajectory > 0.5), sets specialFlags 0x6 in the exe's numbering
-    //      (CAT-PROVISIONAL: the specialFlags renumbering is M2-R4 #2 and mimic mode is never entered before M2-R4 #4,
-    //      so the flag is not set here); otherwise the HW1 side-step attack
+    //      (SPECIAL_Kamikaze | SPECIAL_BrokenFormation since the M2-R4 command port; CAT-PROVISIONAL: mimic mode is
+    //      never entered before M2-R4 #4, so the flag is not set here yet [audit: M2-R4 command, the renumbering part
+    //      of this note was stale]); otherwise the HW1 side-step attack
     if (spec->mimicMode == 1)
     {
         attackStraightForward(ship,target,maxdist,1000.0f);
