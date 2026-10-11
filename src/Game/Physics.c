@@ -12,6 +12,7 @@
 
 #include "Attributes.h"
 #include "Battle.h"
+#include "BeastWeapon.h"
 #include "Collision.h"
 #include "Debug.h"
 #include "FastMath.h"
@@ -19,6 +20,9 @@
 #include "Matrix.h"
 #include "MultiplayerGame.h"
 #include "Select.h"
+#include "Sensors.h"
+#include "ShipSelect.h"
+#include "SinglePlayer.h"
 #include "SoundEvent.h"
 #include "Tactics.h"
 #include "Tweak.h"
@@ -50,6 +54,16 @@ void physApplyForceToObj(SpaceObj *obj,real32 force,uword transdir)
         if(((Ship *)obj)->dontapplyforceever)
         {
             //we don't want to try and fly anywheres with this ship obviously!
+            return;
+        }
+
+        // CAT: in single player a ship that is decelerating out of a hyperspace jump, or in the hyperspace effect
+        //      (hsState neither inactive nor finished), is not pushed (physApplyForceToObj 0x004e43f0)
+        if (singlePlayerGame && (((Ship *)obj)->shipSinglePlayerGameInfo != NULL) &&
+            ((((Ship *)obj)->shipSinglePlayerGameInfo->shipHyperspaceState == SHIPHYPERSPACE_DECELERATE) ||
+             ((((Ship *)obj)->shipSinglePlayerGameInfo->hsState != HS_INACTIVE) &&
+              (((Ship *)obj)->shipSinglePlayerGameInfo->hsState != HS_FINISHED))))
+        {
             return;
         }
 
@@ -138,18 +152,29 @@ void physApplyRotToObj(SpaceObjRot *obj,real32 torque,uword rotdir)
     Outputs     :
     Return      : true if the bullet should now be deleted
 ----------------------------------------------------------------------------*/
+// CAT-TODO(M2-R4 #4): cat_dfgFieldContainsPoint 0x005b0df0 (is the point inside a DFG frigate's field?) belongs to
+//      the DFG frigate code of ship code B; no field until then
+static bool32 cat_dfgFieldContainsPoint(vector *point)
+{
+    (void)point;
+    return FALSE;
+}
+
 bool32 physUpdateBulletPosVel(Bullet *bullet,real32 phystimeelapsed)
 {
-    vector d;
+    vector d = { 0.0f, 0.0f, 0.0f };
     Ship *ship;
     vector gunheadingInWorldCoordSys;
     vector positionInWorldCoordSys, offset1, offset0;
     Gun *gun;
     GunStatic *gunstatic;
 
+    // CAT: physUpdateBulletPosVel 0x004e45b0 switches on the bullet's weapon word (Bullet +0x108, SpaceObj.h): the ion
+    //      beam follows its gun, the laser stays where it is, the Beast weapon's beam is steered by its weapon, every
+    //      other bullet moves and remembers where it was (Bullet +0x158)
     switch (bullet->bulletType)
     {
-        case BULLET_Beam:
+        case WEAPON_ION:
             ship = bullet->owner;
             if (ship != NULL)
             {
@@ -194,11 +219,18 @@ bool32 physUpdateBulletPosVel(Bullet *bullet,real32 phystimeelapsed)
                 }
             }
             break;
-        case BULLET_Laser:  //don't do move lasers
+        case WEAPON_LASER:  //don't do move lasers
+        case CAT_BULLET_HW1DefenseLaser:    // CAT-DORMANT (SpaceObj.h)
+            break;
+        case WEAPON_BEASTINFECT:
+            cat_beastWeaponBulletUpdate(bullet);
             break;
         default:
             // d = vt
-            vecScalarMultiply(d,bullet->obj.posinfo.velocity,phystimeelapsed);
+            d.x = phystimeelapsed * bullet->obj.posinfo.velocity.x;
+            d.y = phystimeelapsed * bullet->obj.posinfo.velocity.y;
+            d.z = phystimeelapsed * bullet->obj.posinfo.velocity.z;
+            bullet->catPrevPosition = bullet->obj.posinfo.position;
 
             // x = x + d
             vecAddTo(bullet->obj.posinfo.position,d);
@@ -209,14 +241,32 @@ bool32 physUpdateBulletPosVel(Bullet *bullet,real32 phystimeelapsed)
     SET_MOVING_LINEARLY(bullet->obj.posinfo.isMoving);
 
     bullet->timelived += phystimeelapsed;
-    if (bullet->timelived > bullet->totallifetime)
+    // CAT: a bullet cannot expire in the frame it was created in (Bullet +0x13C, catMoved)
+    if (bullet->catMoved == TRUE)
     {
-        return TRUE;
+        if (bullet->timelived > bullet->totallifetime)
+        {
+            return TRUE;
+        }
     }
     else
     {
-        return FALSE;
+        bullet->catMoved = TRUE;
     }
+    // CAT: a big-gun shell goes after its range, or when it enters a DFG field
+    if (bullet->soundType == GS_BigGun)
+    {
+        bullet->catBigGunTravelled += fsqrt(d.x * d.x + d.y * d.y + d.z * d.z);
+        if (bullet->catBigGunTravelled > bullet->catBigGunRange)
+        {
+            return TRUE;
+        }
+        if (cat_dfgFieldContainsPoint(&bullet->obj.posinfo.position))
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 //TODO(type safety, 2026-04-24): Get rid of these.
@@ -259,21 +309,51 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
     vecMultiplyByScalar(a,phystimeelapsed);
 
     // v = v + at
-    vecAddTo(obj->obj.posinfo.velocity,a);
+    // CAT: a drifting ship is not accelerated (physUpdateObjPosVelShip 0x004e4950: Ship+0x550)
+    if (!obj->catDrifting)
+    {
+        vecAddTo(obj->obj.posinfo.velocity,a);
+    }
 
     if (Real32ToUdword(obj->obj.posinfo.velocity.x) | Real32ToUdword(obj->obj.posinfo.velocity.y) | Real32ToUdword(obj->obj.posinfo.velocity.z))
     {
+        real32 maxspeed;
+
         SET_MOVING_LINEARLY(obj->obj.posinfo.isMoving);
 
         // cap velocity vector
-        speedmult = tacticsGetShipsMaxVelocity(((Ship *)obj));
-        vecCapVectorSloppy(&obj->obj.posinfo.velocity,speedmult);
+        // CAT: the top speed carries the speed multiplier; a drifting ship may go up to 1400, falling back to its own
+        //      top speed over the first half of its drift (0x0088d730 1400, 0x0088d734 0.5); outside single player the
+        //      velocity is kept inside the universe (cat_physClampVelocityToUniverse 0x004e4850)
+        speedmult = cat_shipGetSpeedMultiplier(obj) * tacticsGetShipsMaxVelocity(((Ship *)obj));
+        maxspeed = speedmult;
+        if (obj->catDrifting)
+        {
+            real32 fraction;
+
+            if (speedmult < 1400.0f)
+            {
+                maxspeed = 1400.0f;
+            }
+            fraction = cat_timerFractionElapsed(&obj->catDriftTimer);
+            if ((fraction < 0.5f) && (0.0f < 1400.0f - speedmult))
+            {
+                maxspeed = (1.0f - fraction) * (1400.0f - speedmult) + speedmult;
+            }
+        }
+        vecCapVectorSloppy(&obj->obj.posinfo.velocity,maxspeed);
+        if (!singlePlayerGame)
+        {
+            cat_physClampVelocityToUniverse(obj);
+        }
 
         // d = vt
         vecScalarMultiply(d,obj->obj.posinfo.velocity,phystimeelapsed);
 
         // x = x + d
         vecAddTo(obj->obj.posinfo.position,d);
+        // CAT-TODO(stage 3): a ship that sees through the fog of war updates its player's FOW grid from the old to the
+        //      new position (cat_shipAffectsFOW, cat_univShipFOWUpdate)
 
     }
     else
@@ -299,8 +379,9 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
                             vecZeroVector(d);
                             vecZeroVector(obj->obj.posinfo.velocity);
                         }
-                        else
+                        else if (!obj->catHelpless && !obj->catDrifting)
                         {
+                            // CAT: a helpless or drifting ship keeps its speed (0x004e4a9c)
                             obj->obj.posinfo.velocity.x *= SHIP_CRAZY_FRICTION;
                             obj->obj.posinfo.velocity.y *= SHIP_CRAZY_FRICTION;
                             obj->obj.posinfo.velocity.z *= SHIP_CRAZY_FRICTION;
@@ -308,7 +389,8 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
                     }
                 }
             }
-            else if ((shipstaticinfo->maxfuel != 0.0f) && obj->obj.posinfo.isMoving && ((obj->header.flags & SOF_Clamped) == 0) )  // clamped objs don't burn fuel
+            // CAT: no fuel in Cataclysm (physUpdateObjPosVelShip has no fuel burn and no fuel chatter)
+            else if (FALSE && (shipstaticinfo->maxfuel != 0.0f) && obj->obj.posinfo.isMoving && ((obj->header.flags & SOF_Clamped) == 0) )  // clamped objs don't burn fuel
             {
                 // ship burns fuel
                 if ( ((Ship *)obj)->fuel > 0.0f)
@@ -824,7 +906,15 @@ void physUpdateObjPosVelBasic(SpaceObj *obj,real32 phystimeelapsed)
     {
         SET_MOVING_LINEARLY(obj->posinfo.isMoving);
 
-        vecCapVectorSloppy(&obj->posinfo.velocity,staticheader->maxvelocity);
+        // CAT: a ship's top speed carries its speed multiplier (physUpdateObjPosVelBasic 0x004e5720)
+        if (obj->header.objtype == OBJ_ShipType)
+        {
+            vecCapVectorSloppy(&obj->posinfo.velocity,cat_shipGetSpeedMultiplier((Ship *)obj) * staticheader->maxvelocity);
+        }
+        else
+        {
+            vecCapVectorSloppy(&obj->posinfo.velocity,staticheader->maxvelocity);
+        }
 
         // d = vt
         vecScalarMultiply(d,obj->posinfo.velocity,phystimeelapsed);
@@ -837,6 +927,27 @@ void physUpdateObjPosVelBasic(SpaceObj *obj,real32 phystimeelapsed)
     {
         SET_MOVING_IMMOBILE(obj->posinfo.isMoving);
         vecZeroVector(d);
+    }
+
+    // CAT: a drifting asteroid that is no killer and was not pushed this frame slows down and stops
+    //      (physUpdateObjPosVelBasic 0x004e5720: DONT_DRIFT_FRICTION, CONSIDERED_STILL_LO/HI)
+    if ((obj->header.objtype == OBJ_AsteroidType) && !bitTest(obj->header.flags, SOF_Dead) && obj->posinfo.isMoving &&
+        !(Real32ToUdword(a.x) | Real32ToUdword(a.y) | Real32ToUdword(a.z)) &&
+        !(obj->attributes & CAT_ATTRIBUTES_KillerCollision))
+    {
+        if ((isBetweenExclusive(obj->posinfo.velocity.x,CONSIDERED_STILL_LO,CONSIDERED_STILL_HI)) &&
+            (isBetweenExclusive(obj->posinfo.velocity.y,CONSIDERED_STILL_LO,CONSIDERED_STILL_HI)) &&
+            (isBetweenExclusive(obj->posinfo.velocity.z,CONSIDERED_STILL_LO,CONSIDERED_STILL_HI)))
+        {
+            SET_MOVING_IMMOBILE(obj->posinfo.isMoving);
+            vecZeroVector(obj->posinfo.velocity);
+        }
+        else
+        {
+            obj->posinfo.velocity.x *= DONT_DRIFT_FRICTION;
+            obj->posinfo.velocity.y *= DONT_DRIFT_FRICTION;
+            obj->posinfo.velocity.z *= DONT_DRIFT_FRICTION;
+        }
     }
 
     if (bitTest(obj->header.flags,SOF_Rotatable))
@@ -922,4 +1033,51 @@ void physUpdateObjPosVelBasic(SpaceObj *obj,real32 phystimeelapsed)
     }
 
     vecZeroVector(obj->posinfo.force);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_physApplyForceToVelocity
+    Description : CAT: turns the object's force straight into velocity for this frame (cat_physApplyForceToVelocity
+                  0x004e4390: velocity += force * oneOverMass * dt; a blast throws a drifting ship with it)
+    Inputs      : ship
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_physApplyForceToVelocity(Ship *ship)
+{
+    real32 oneOverMass = ship->staticinfo->common.oneOverMass;
+
+    ship->obj.posinfo.velocity.x = oneOverMass * ship->obj.posinfo.force.x * universe.phystimeelapsed + ship->obj.posinfo.velocity.x;
+    ship->obj.posinfo.velocity.y = oneOverMass * ship->obj.posinfo.force.y * universe.phystimeelapsed + ship->obj.posinfo.velocity.y;
+    ship->obj.posinfo.velocity.z = oneOverMass * ship->obj.posinfo.force.z * universe.phystimeelapsed + ship->obj.posinfo.velocity.z;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_physClampVelocityToUniverse
+    Description : CAT: a ship within 300 of the universe's edge stops moving outwards on that axis
+                  (cat_physClampVelocityToUniverse 0x004e4850; multiplayer only)
+    Inputs      : ship
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_physClampVelocityToUniverse(Ship *ship)
+{
+    real32 limitY = smUniverseSizeY - 300.0f;
+    real32 limitZ = smUniverseSizeZ - 300.0f;
+    vector *position = &ship->obj.posinfo.position;
+    vector *velocity = &ship->obj.posinfo.velocity;
+
+    if (((smUniverseSizeX - 300.0f < position->x) && (0.0f < velocity->x)) ||
+        ((position->x < -(smUniverseSizeX - 300.0f)) && (velocity->x < 0.0f)))
+    {
+        velocity->x = 0.0f;
+    }
+    if (((limitY < position->y) && (0.0f < velocity->y)) || ((position->y < -limitY) && (velocity->y < 0.0f)))
+    {
+        velocity->y = 0.0f;
+    }
+    if (((limitZ < position->z) && (0.0f < velocity->z)) || ((position->z < -limitZ) && (velocity->z < 0.0f)))
+    {
+        velocity->z = 0.0f;
+    }
 }

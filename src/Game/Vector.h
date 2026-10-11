@@ -140,5 +140,6 @@ void vecLineIntersectWithXZPlane(vector *result, vector *linepoint1,vector *line
 void vecLineIntersectWithPlane(vector *dest, vector *Vplane, vector *Vnormal, vector *Vline, vector *Vdirection);
 void vecVectorsBlend(vector *result, vector *start, vector *end, real32 factor);
 real32 cat_vecDistance(vector *a, vector *b);                                    // CAT: 0x00550d60
+void cat_vecPlaneNormalFrom3Points(vector *a, vector *b, vector *c, vector *normal);   // CAT: 0x00550c90
 
 #endif

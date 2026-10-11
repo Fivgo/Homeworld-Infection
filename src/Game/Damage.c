@@ -250,8 +250,10 @@ void dmgAddEffectToShip(Ship* ship, Effect* effect, sdword level)
                   are not already playing
     Return      :
 ----------------------------------------------------------------------------*/
-void dmgPlayEffect(Ship* ship, etglod* effect, sdword level)
+void dmgPlayEffect(Ship* ship, etglod* effect, sdword level, real32 limitFraction)
 {
+    sdword chance;
+
     etgeffectstatic* stat;
     sdword LOD;
     real32 floatDamage, floatSize;
@@ -264,6 +266,30 @@ void dmgPlayEffect(Ship* ship, etglod* effect, sdword level)
     if (effect == NULL)
     {
         //no effect to play
+        return;
+    }
+
+    // CAT: dmgPlayEffect 0x00462340 takes the health ratio over the level's limit (limitFraction, 0..1) and plays the
+    //      effect with a chance of 1 in 1 + 20 * limitFraction (truncated) per frame, from random stream 0; a crystal
+    //      flashes instead (Ship +0x4D0..+0x4D8, the stun timers, for 0.5 s)
+    chance = 1 - (sdword)(limitFraction * -20.0f);
+    if (chance < 0)
+    {
+        chance = 1;
+    }
+    if ((ship->shiptype == dCrystal0) || (ship->shiptype == dCrystal1))
+    {
+        if ((chance > 0) && ((ranRandom(RANDOM_STREAM_0) % (udword)chance) != 0))
+        {
+            return;
+        }
+        ship->catBeastStunStart = universe.totaltimeelapsed;
+        ship->catBeastStunEnd = ship->catBeastStunStart + 0.5f;
+        ship->catBeastStunState = 2;
+        return;
+    }
+    if ((chance > 0) && ((ranRandom(RANDOM_STREAM_0) % (udword)chance) != 0))
+    {
         return;
     }
 
@@ -313,9 +339,8 @@ void dmgPlayEffect(Ship* ship, etglod* effect, sdword level)
     floatSize = ship->staticinfo->common.staticCollInfo.collspheresize;
     intSize = Real32ToUdword(floatSize);
 
-#if ETG_DISABLEABLE
-    if (etgEffectsEnabled && etgDamageEffectsEnabled)
-#endif
+    // CAT: no ETG enable switches here; an effect over its frequency is not created (etgFrequencyExceeded)
+    if ((stat != NULL) && !etgFrequencyExceeded(stat))
     {
 #if DMG_WORLDSPACE
         Effect* effect;
@@ -340,7 +365,10 @@ void dmgPlayEffect(Ship* ship, etglod* effect, sdword level)
                                          &coordsys, ship->magnitudeSquared, EAF_NLips | EAF_Velocity | EAF_OwnerCoordSys,
                                          2, SCALECAST(intDamage), SCALECAST(intSize));
 #endif
-        dmgAddEffectToShip(ship, effect, level);
+        if (effect != NULL)
+        {
+            dmgAddEffectToShip(ship, effect, level);
+        }
     }
 }
 
@@ -477,8 +505,10 @@ void dmgShipThink(Ship* ship)
         return;
     }
 
-    ssinfo = ship->shipSinglePlayerGameInfo;
-    if (ssinfo != NULL && ssinfo->hsState != HS_INACTIVE)
+    // CAT: dmgShipThink 0x004627b0 skips a ship being built externally (specialFlags2 0x8), not a hyperspacing one,
+    //      and passes dmgPlayEffect the health ratio over the level's limit
+    (void)ssinfo;
+    if (bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
     {
         return;
     }
@@ -507,7 +537,7 @@ void dmgShipThink(Ship* ship)
 
         if (healthRatio <= DMG_StrikeLightLimit)
         {
-            dmgPlayEffect(ship, etgDamageEffectTable[shipClass][DMG_Light], DMG_Light);
+            dmgPlayEffect(ship, etgDamageEffectTable[shipClass][DMG_Light], DMG_Light, healthRatio / DMG_StrikeLightLimit);
         }
         else
         {
@@ -529,7 +559,7 @@ void dmgShipThink(Ship* ship)
 
         if (healthRatio <= DMG_LightLimit)
         {
-            dmgPlayEffect(ship, etgDamageEffectTable[shipClass][DMG_Light], DMG_Light);
+            dmgPlayEffect(ship, etgDamageEffectTable[shipClass][DMG_Light], DMG_Light, healthRatio / DMG_LightLimit);
         }
         else
         {
@@ -538,7 +568,7 @@ void dmgShipThink(Ship* ship)
 
         if (healthRatio <= DMG_HeavyLimit)
         {
-            dmgPlayEffect(ship, etgDamageEffectTable[shipClass][DMG_Heavy], DMG_Heavy);
+            dmgPlayEffect(ship, etgDamageEffectTable[shipClass][DMG_Heavy], DMG_Heavy, healthRatio / DMG_HeavyLimit);
         }
         else
         {
@@ -547,7 +577,7 @@ void dmgShipThink(Ship* ship)
 
         if (healthRatio <= DMG_DyingLimit)
         {
-            dmgPlayEffect(ship, etgDamageEffectTable[shipClass][DMG_Dying], DMG_Dying);
+            dmgPlayEffect(ship, etgDamageEffectTable[shipClass][DMG_Dying], DMG_Dying, healthRatio / DMG_DyingLimit);
         }
         else
         {

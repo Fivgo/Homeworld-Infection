@@ -61,6 +61,7 @@
 #include "Tutor.h"
 #include "Tweak.h"
 #include "Universe.h"
+#include "Blast.h"
 #include "utility.h"
 
 
@@ -73,7 +74,7 @@
 /*-----------------------------------------------------------------------------
     CAT: per-player ship counters (statics of the exe's UnivUpdate.c; names chosen here). The KAS functions
     kasfGetShipCountSalvaged/Beastified and kasfGetNumberShipsPlayerKilled/Lost read them, the salvage depot
-    (M2-R4 #3) and ApplyDamageToTarget's attacker argument (M2-R4 #3) count into them, univupdateInit 0x0054af40 and
+    (M2-R4 #3) and ApplyDamageToTarget's attacker argument (M2-R4 combat) count into them, univupdateInit 0x0054af40 and
     univUpdateReset 0x0054acd0 clear them, SaveUniverse/LoadUniverse save them (cat_saveShipCounters 0x00540130,
     cat_loadShipCounters 0x005401d0; CAT-TODO(saves): not wired into this tree's save format yet).
 -----------------------------------------------------------------------------*/
@@ -1956,6 +1957,14 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
         newship->gunInfo = NULL;
     }
 
+    // CAT (M2-R4 combat): the upgrade state (univCreateShip 0x00542320 at 0x00542a2b): the type's starting armour and
+    //      each gun's first weapon, then the player's research, except for an NIS ship (bit 2 of built)
+    cat_shipUpgradesInit(newship);
+    if (!(built & 2))
+    {
+        cat_shipApplyUpgrades(newship);
+    }
+
     // CAT (M2-R4 combat): no HW1 per-object salvage points (setSalvageInfo is gone): Cataclysm's salvage points are
     //      the DPT_Salvage/DPT_SalvageLatch dock points of the target, held in dockInfo (Salvage.c)
 
@@ -2153,10 +2162,10 @@ void univUpdateAllPosVelMinorObjs()
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-// CAT-PROVISIONAL(M2-R4 #3): the exe's bullets carry the firing gun's weapon word (bullet +0x108 = Gun +0x00,
-//      WEAPON_*: cat_gunCreateBullet 0x0048bb00 at 0x0048bb90; cat_shipApplyUpgrades 0x00514490 raises it from
-//      PROJECTILE to ENERGY). Neither the Gun word nor the bullet field is ported, so no bullet has a weapon type yet.
-#define CAT_BULLET_WEAPON_TYPE(bullet)      ((void)(bullet), (sdword)-1)
+// CAT (M2-R4 combat): the exe's bullets carry the firing gun's weapon word (bullet +0x108 = Gun +0x00, WEAPON_*:
+//      cat_gunCreateBullet 0x0048bb00 at 0x0048bb90; cat_shipApplyUpgrades 0x00514490 raises it from PROJECTILE to
+//      ENERGY), in the field HW1 calls bulletType (SpaceObj.h)
+#define CAT_BULLET_WEAPON_TYPE(bullet)      ((bullet)->bulletType)
 
 /*-----------------------------------------------------------------------------
     Name        : cat_shipGetAimPoint (Cataclysm 0x00415af0)
@@ -2340,9 +2349,8 @@ void univUpdateAllPosVelBullets()
                 // CAT: the burst explosion is keyed on the bullet's burst flag (bullet +0x10c, set by
                 //      cat_gunCreateBullet 0x0048bb00 when the firing ship has specialFlags 0x40, burst firing),
                 //      not on HW1's BULLET_SpecialBurst type; its damage is scaled by cat_weaponDamageVsArmour(the
-                //      bullet's sound type, armour 0) 0x00514460 (0x0054319d). CAT-PROVISIONAL: neither the flag nor
-                //      the weapon-vs-armour table is ported (M2-R4 #3), so the HW1 test and a factor of 1 stand in
-                if(bullet->bulletType == BULLET_SpecialBurst)
+                //      bullet's sound type, armour 0) 0x00514460 (0x0054319d) [M2-R4 combat]
+                if (bullet->catBurst)
                 {
                     etgLOD = etgSpecialPurposeEffectTable[EGT_BURST_EXPLOSION_EFFECT];
 
@@ -2382,7 +2390,9 @@ void univUpdateAllPosVelBullets()
                         }
                     }
 
-                    pointExplosionInSpace(&bullet->obj.posinfo.position,burstRadius,bullet->damage,bullet->playerowner->playerIndex);
+                    pointExplosionInSpace(&bullet->obj.posinfo.position,burstRadius,
+                                          cat_weaponDamageVsArmour(bullet->soundType, 0) * bullet->damage,
+                                          bullet->playerowner->playerIndex);
                 }
 
                 // CAT: a Sect big-gun shell explodes where it dies and loses its ping (0x005431d6: sound type
@@ -2938,10 +2948,8 @@ void MakeNewGasCloudStaticInfo(GasCloud *gascloud)
 #define HYPERING_IN_DAMAGE    twHyperingInDamage
 #define HYPERED_INTO_DAMAGE   twHyperedIntoDamage
 
-// CAT: the attribute bit of the exe's killer collisions (ApplyDamageToCollidingObjects 0x00545540 tests attribute word
-//      bit 0x200; HW1 used ATTRIBUTES_KillerCollDamage 0x10 / ATTRIBUTES_HeadShotKillerCollDamage 0x400). The level
-//      loader's attribute names are M2-R4 #5's, so the bit is spelled out here (name chosen here)
-#define CAT_ATTRIBUTES_KillerCollision      0x0200
+// CAT: the attribute bit of the exe's killer collisions, CAT_ATTRIBUTES_KillerCollision 0x200 (Attributes.h; moved there
+//      by M2-R4 combat for collCheckShipResourceColl)
 
 void ApplyDamageToCollidingObjects(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *obj2,vector *distvector,real32 dist)
 {
@@ -2954,7 +2962,7 @@ void ApplyDamageToCollidingObjects(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *
 
     // CAT: Cataclysm's collisions do no damage, except a killer collision: when exactly one of the two objects has the
     //      killer attribute, both take the smaller of their healths (cause 9 / 10 and the other object as attacker in
-    //      the exe's 7-argument ApplyDamageToTarget, M2-R4 #3) and the hit effect of Sect very-large plasma bombs
+    //      the 7-argument ApplyDamageToTarget, M2-R4 combat) and the hit effect of Sect very-large plasma bombs
     //      (etgGunEventTable[0][GS_VeryLargePlasmaBomb][EGT_GunHit], 0x00c412c4) plays on the killer object
     //      (ApplyDamageToCollidingObjects 0x00545540). The distance arguments are no longer used.
     (void)distvector;
@@ -2965,8 +2973,9 @@ void ApplyDamageToCollidingObjects(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *
         return;
     }
     damage = min(obj1->health, obj2->health);
-    ApplyDamageToTarget(obj1,damage,0,DEATH_Killed_By_Collision,99);
-    ApplyDamageToTarget(obj2,damage,0,DEATH_Killed_By_Collision,99);
+    // CAT: each side is the other's attacker (ApplyDamageToCollidingObjects 0x00545500: call sites 9 and 10)
+    ApplyDamageToTarget(obj1,damage,0,DEATH_Killed_By_Collision,99,(Ship *)obj2,9);
+    ApplyDamageToTarget(obj2,damage,0,DEATH_Killed_By_Collision,99,(Ship *)obj1,10);
 
     target = (obj1->obj.attributes & CAT_ATTRIBUTES_KillerCollision) ? obj1 : obj2;
     etgLOD = etgGunEventTable[0][GS_VeryLargePlasmaBomb][EGT_GunHit];
@@ -3386,7 +3395,7 @@ void ApplyRockToTarget(SpaceObjRotImpTarg *target,real32 projectilemass)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-// CAT-TODO(M2-R4 #3): MakeExplosionRockBumpables 0x00545f00 calls the 7-argument ApplyDamageToTarget.
+// CAT (M2-R4 combat): MakeExplosionRockBumpables 0x00545f00 calls the 7-argument ApplyDamageToTarget (the ship as attacker).
 void MakeExplosionRockBumpables(Ship *ship,bool32 scuttle)
 {
     Node *objnode = universe.ImpactableList.head;
@@ -3467,10 +3476,11 @@ void MakeExplosionRockBumpables(Ship *ship,bool32 scuttle)
 
             if (damage > 0)
             {
+                // CAT: the exploding ship is the attacker (MakeExplosionRockBumpables 0x00545f00: call sites 11, 12)
                 if(ship->playerowner != NULL)
-                    ApplyDamageToTarget((SpaceObjRotImpTarg *)obj,damage,0,DEATH_Killed_By_Player_Explosion,ship->playerowner->playerIndex);
+                    ApplyDamageToTarget((SpaceObjRotImpTarg *)obj,damage,0,DEATH_Killed_By_Player_Explosion,ship->playerowner->playerIndex,ship,11);
                 else
-                    ApplyDamageToTarget((SpaceObjRotImpTarg *)obj,damage,0,DEATH_Killed_By_Dead_Player,99);
+                    ApplyDamageToTarget((SpaceObjRotImpTarg *)obj,damage,0,DEATH_Killed_By_Dead_Player,99,ship,12);
             }
         }
 
@@ -3492,31 +3502,31 @@ nextnode:
     Outputs     :
     Return      : returns TRUE if damage was fatal damage
 ----------------------------------------------------------------------------*/
-// CAT-TODO(M2-R4 #3, with #5 for the stats): ApplyDamageToTarget 0x00546250 is not ported yet. It takes two more
-//      arguments (the attacking ship and a cause code), redirects damage from a ship part (SOF_CatShipPart) to its
-//      parent, skips damage while an NIS runs, for KAS-derelict ships (catShipFlags bit 2) and for invulnerable ships,
-//      calls cat_tacticsEvasiveRetreatToDock, keeps the killer's and the loser's kill counts (catShipsKilledByClass,
-//      catShipsLostByClass) and experience (cat_shipUpdateExperienceLevel), and no longer has slave ships.
-bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoundType soundType,sdword damageHow,sdword playerIndex)
+// CAT (M2-R4 combat): ApplyDamageToTarget 0x00546250 takes two more arguments: the attacking ship (or NULL) and a code
+//      for the call site (the exe's callers pass 1..0x48; the body never reads it). A Dreadnought part
+//      (CLASS_Component with SOF_CatShipPart) passes its damage to the ship it is clamped to. A ship takes no damage
+//      in an NIS, as a KAS derelict (catShipFlags 0x4), or while the NIS bars are fully closed unless it is marked
+//      (specialFlags2 0x1000000) or a kamikaze. Other objects lose the health first; every hit may send an evasive
+//      ship home (cat_tacticsEvasiveRetreatToDock). A kill counts for the attacker (per class, its experience, the
+//      player's kill table; a Swarmer's kill goes to the ship in its specifics +0x0C) and against the loser's player.
+//      No HW1 slave ships.
+bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoundType soundType,sdword damageHow,sdword playerIndex,
+                           struct Ship *attacker,sdword callSite)
 {
     bool32 targetWasAlive = ((target->header.flags & SOF_Dead) == 0);
     real32 previousHealth = target->health;
     real32 maxHealth;
+    Ship *ship;
+    Ship *killer;
+    ShipClass shipclass;
 
-    if (nisIsRunning)
-    {                                                       //do no damage during an NIS
-        return FALSE;
+    (void)callSite;
+    if (target->header.objtype != OBJ_ShipType)
+    {
+        target->health -= damagetaken;
     }
+    cat_tacticsEvasiveRetreatToDock((Ship *)target);
 
-    if(target->header.flags & SOF_Slaveable)
-    {    //target is a ship and is slaveable
-         Ship* ship = (Ship*)target;
-         if(ship->slaveinfo->flags & SF_SLAVE)
-         {    //object is a slave
-             target = &ship->slaveinfo->Master->targetable;            //potential reprocussions
-         }
-    }
-    target->health -= damagetaken;
     switch (target->header.objtype)
     {
         case OBJ_AsteroidType:
@@ -3525,11 +3535,7 @@ bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoun
                 AddTargetToDeleteList(target,soundType,1);
                 return TRUE;                    //used by effect
             }
-            else
-            {
-                return FALSE;
-            }
-            break;
+            return FALSE;
 
         case OBJ_DustType:
             switch (soundType)
@@ -3542,29 +3548,49 @@ bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoun
                     DustCloudChargesUp((DustCloud*)target, (sdword)damagetaken, targetWasAlive);
                     return FALSE;
                 default:
-                    break;
+                    return FALSE;
             }
-
-            return FALSE;
 
         case OBJ_DerelictType:
             if (((Derelict *)target)->derelicttype == HyperspaceGate)
             {
                 hsDerelictTakesDamage((Derelict *)target);
             }
-            goto fallthrough;
+            break;
 
-        case OBJ_ShipType: {
-            Ship* ship = (Ship*)target;
+        case OBJ_ShipType:
+            ship = (Ship *)target;
+            if ((ship->staticinfo->shipclass == CLASS_Component) && bitTest(ship->header.flags, SOF_CatShipPart) &&
+                (ship->guidance.clampInfo != NULL) && (ship->guidance.clampInfo->host != NULL))
+            {
+                target = ship->guidance.clampInfo->host;
+                ship = (Ship *)target;
+            }
+            if (nisIsRunning)
+            {                                                   //do no damage during an NIS
+                return FALSE;
+            }
+            if (bitTest(ship->catShipFlags, CAT_SHIPFLAG_Orphaned))
+            {
+                return FALSE;
+            }
+            if (nisFullyScissored && !bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatInvincibleInWidescreen) &&
+                !bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_Kamikaze))
+            {
+                return FALSE;
+            }
+            target->health -= damagetaken;
             switch(damageHow)
             {
                 case DEATH_Killed_By_Player:
                 case DEATH_Killed_By_Kamikaze:
                 case DEATH_Killed_By_Player_Explosion:
+                    // CAT-TODO(M2-R4 #5): the exe's game stats are Cataclysm's layout (0x00b63504 + (player * 0x1FE +
+                    //      owner) * 4); HW1's damage-done table stands in
                     universe.gameStats.playerStats[playerIndex].pointsOfDamageDoneToWho[ship->playerowner->playerIndex] += damagetaken;
                     break;
             }
-            maxHealth = target->staticinfo->maxhealth;
+            maxHealth = ship->staticinfo->health.maxhealth;
             if (previousHealth /  maxHealth >= BAT_InTheRedFactor)
             {                                               //it wasn't in the red
                 if (target->health / maxHealth < BAT_InTheRedFactor)
@@ -3572,38 +3598,56 @@ bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoun
                     bitSet(ship->chatterBits, BCB_DamageInTheRed);//flag as such
                 }
             }
-        // purposefully fall through
-fallthrough:;
+            break;
+
         default:
-            if ((target->health <= 0) && (targetWasAlive))      // target just died, so add to DeleteShipList
-            {
-                if(target->header.objtype == OBJ_ShipType)
-                {
-                    ship->howDidIDie = damageHow;
-                    ship->whoKilledMe = playerIndex; //if was collision death, who cares
-                    bountyShipWasKilled(ship);
-                }
-                if(target->header.flags & SOF_Slaveable)
-                {    //target is a ship and is slaveable
-                    if(!(ship->slaveinfo->flags & SF_DEAD))   //if we haven't added then already
-                    {
-                        addSlavesToDeleteList((Ship *)target,soundType);
-                    }
-                    if(!(target->header.flags & SOF_Dead))
-                        AddTargetToDeleteList(target,soundType,1);
-                }
-                else
-                {
-                    AddTargetToDeleteList(target,soundType,1);
-                }
-                return TRUE;                    //used by effect
-            }
-            else
-            {
-                return FALSE;
-            }
-        } break;
+            break;
     }
+
+    if ((target->health > 0.0f) || (!targetWasAlive))
+    {
+        return FALSE;
+    }
+
+    // target just died, so add to the delete list
+    if (target->header.objtype == OBJ_ShipType)
+    {
+        ship = (Ship *)target;
+        shipclass = ship->staticinfo->shipclass;
+        ship->howDidIDie = damageHow;
+        ship->whoKilledMe = playerIndex; //if was collision death, who cares
+        bountyShipWasKilled(ship);
+        if ((damageHow >= DEATH_Killed_By_Player) && (damageHow <= DEATH_Killed_By_Kamikaze))
+        {
+            ship->catKilledByPlayer = playerIndex;
+        }
+        if ((attacker != NULL) && (attacker->header.objtype == OBJ_ShipType) && !bitTest(attacker->header.flags, SOF_Dead) &&
+            (attacker->playerowner != ship->playerowner))
+        {
+            killer = attacker;
+            if ((attacker->shiptype == sSwarmer) || (attacker->shiptype == bSwarmer))
+            {
+                // CAT-PROVISIONAL (M2-R4 #4): a Swarmer's kill counts for the ship at its specifics +0x0C (Ship+0x644);
+                //      the Swarmer header is ship code B's, so no Swarmer has one yet
+                killer = NULL;
+            }
+            if (killer != NULL)
+            {
+                killer->catKillsByClass[shipclass]++;
+                // CAT-TODO(M2-R4 #5): cat_shipUpdateExperienceLevel 0x005147d0 (the experience level, Ship+0x5F8)
+            }
+            if (attacker->playerowner->playerIndex < MAX_MULTIPLAYER_PLAYERS)
+            {
+                catShipsKilledByClass[attacker->playerowner->playerIndex][shipclass]++;
+            }
+        }
+        if (ship->playerowner->playerIndex < MAX_MULTIPLAYER_PLAYERS)
+        {
+            catShipsLostByClass[ship->playerowner->playerIndex][shipclass]++;
+        }
+    }
+    AddTargetToDeleteList(target,soundType,1);
+    return TRUE;                    //used by effect
 }
 
 /*-----------------------------------------------------------------------------
@@ -3613,7 +3657,7 @@ fallthrough:;
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-// CAT-TODO(M2-R4 #3): pointExplosionInSpace 0x00546780 calls the 7-argument ApplyDamageToTarget.
+// CAT (M2-R4 combat): pointExplosionInSpace 0x00546780 calls the 7-argument ApplyDamageToTarget.
 void pointExplosionInSpace(vector *position,real32 blastRadius,real32 maxDamage,sdword playerIndex)
 {
     Node *objnode = universe.ImpactableList.head;
@@ -3680,7 +3724,8 @@ void pointExplosionInSpace(vector *position,real32 blastRadius,real32 maxDamage,
         if (obj->header.flags & SOF_Targetable)
         {
             // calculate damage based on blast as a % of maxhealth
-            ApplyDamageToTarget((SpaceObjRotImpTarg *)obj,maxDamage,0,DEATH_Killed_By_Player_Explosion,playerIndex);
+            // CAT: the exe passes the target itself as the attacker (pointExplosionInSpace 0x00546780, call site 13)
+            ApplyDamageToTarget((SpaceObjRotImpTarg *)obj,maxDamage,0,DEATH_Killed_By_Player_Explosion,playerIndex,(Ship *)obj,13);
         }
 
 nextnode:
@@ -3724,9 +3769,16 @@ void univBulletCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target,
     }
 
     // CAT: the damage is the bullet's damage scaled by its weapon against the target's armour level
-    //      (cat_weaponDamageVsArmour 0x00514460(sound type, Ship +0x3F0 armour level; 0 for other targets)).
-    //      CAT-PROVISIONAL(M2-R4 #3): the weapon-vs-armour table and the armour level are not ported, factor 1
-    damagetaken = bullet->damage;
+    //      (cat_weaponDamageVsArmour 0x00514460(sound type, Ship +0x3F0 armour level; 0 for other targets),
+    //      0x00546a8d / 0x00546c4a) [M2-R4 combat]
+    if (target->header.objtype == OBJ_ShipType)
+    {
+        damagetaken = cat_weaponDamageVsArmour(bullet->soundType, ((Ship *)target)->catArmourLevel) * bullet->damage;
+    }
+    else
+    {
+        damagetaken = cat_weaponDamageVsArmour(bullet->soundType, 0) * bullet->damage;
+    }
     if (target->header.objtype == OBJ_ShipType)
     {
         Ship *ship = (Ship *)target;
@@ -3827,22 +3879,22 @@ nobulletmasstransfer:
         }
     }
 
-    // CAT-TODO(M2-R4 #3): ApplyDamageToTarget 0x00546250 takes two more arguments here: the attacking ship (for its
-    //      experience and the kill counts) and a cause code (0xE with an owner, 0xF without)
+    // CAT (M2-R4 combat): ApplyDamageToTarget 0x00546250 takes two more arguments here: the attacking ship (for its
+    //      experience and the kill counts) and a call-site code (0xE with an owner, 0xF without)
     if(bulletowner != NULL && bulletowner->playerowner != NULL)
-        fatalHit = ApplyDamageToTarget(target,damagetaken,bullet->soundType,DEATH_Killed_By_Player,bulletowner->playerowner->playerIndex);
+        fatalHit = ApplyDamageToTarget(target,damagetaken,bullet->soundType,DEATH_Killed_By_Player,bulletowner->playerowner->playerIndex,bulletowner,14);
     else
-        fatalHit = ApplyDamageToTarget(target,damagetaken,bullet->soundType,DEATH_Killed_By_Dead_Player,99);
+        fatalHit = ApplyDamageToTarget(target,damagetaken,bullet->soundType,DEATH_Killed_By_Dead_Player,99,bulletowner,15);
 
 hiteffect:
     //delete the bullet effect
-    // CAT: the exe keeps the flight effect of beams and of Beast infection bullets (weapon word 2 or 8, 0x00546b5a);
-    //      CAT-TODO(M2-R4 #3): with no weapon word on this tree's bullets the HW1 beam test stands in
+    // CAT: the exe keeps the flight effect of beams and of Beast infection bullets (weapon word 2 or 8, 0x00546b5a)
+    //      [M2-R4 combat: the weapon word]
 
 #if ETG_DISABLEABLE
-    if (bullet->effect != NULL && etgEffectsEnabled && bullet->bulletType != BULLET_Beam)
+    if (bullet->effect != NULL && etgEffectsEnabled && bullet->bulletType != WEAPON_ION && bullet->bulletType != WEAPON_BEASTINFECT)
 #else
-    if (bullet->effect != NULL && bullet->bulletType != BULLET_Beam)
+    if (bullet->effect != NULL && bullet->bulletType != WEAPON_ION && bullet->bulletType != WEAPON_BEASTINFECT)
 #endif
     {
         etgEffectDelete(bullet->effect);
@@ -3938,9 +3990,11 @@ hiteffect:
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-// CAT-TODO(M2-R4 #3): univMissileCollidedWithTarget 0x00547080 takes a new first argument (apply damage, as
-//      univBulletCollidedWithTarget), uses battleChatterFleetAttempt and the 7-argument ApplyDamageToTarget.
-void univMissileCollidedWithTarget(SpaceObjRotImpTarg *target,StaticInfo *targetstaticheader,Missile *missile,real32 collideLineDist,sdword collSide)
+// CAT: univMissileCollidedWithTarget 0x00547080 takes a new first argument as univBulletCollidedWithTarget does:
+//      without it only the hit effect plays. All four callers (collCheckMissileShipColl 0x0043d330,
+//      collCheckMissileResourceColl 0x0043d720, collCheckMissileDerelictColl 0x0043d970, collCheckMissileMineColl
+//      0x0043dbb0) pass 1.
+void univMissileCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target,StaticInfo *targetstaticheader,Missile *missile,real32 collideLineDist,sdword collSide)
 {
     real32 damagetaken = missile->damage;
     Ship *missileowner = missile->owner;
@@ -3957,6 +4011,12 @@ void univMissileCollidedWithTarget(SpaceObjRotImpTarg *target,StaticInfo *target
     real32 targetScale;
     real32 damageMult = 1.0f;
 
+    if (!applyDamage)
+    {
+        fatalHit = FALSE;
+        goto hiteffect;
+    }
+
     if(target->header.objtype == OBJ_ShipType)
     {
         Ship* ship = (Ship*)target;
@@ -3964,6 +4024,8 @@ void univMissileCollidedWithTarget(SpaceObjRotImpTarg *target,StaticInfo *target
         {
             if(missile->FORCE_DROPPED)
             {
+                // CAT-TODO(stage 3): the exe calls battleChatterFleetAttempt(-1, 0x34 / 0x35, hot-key group or -1,
+                //      NULL) instead (0x005470e2)
                 ////////////////////
                 //target hit by force drop mines..local players ship
                 //speech event num: STAT_Grp_InMineField
@@ -4008,10 +4070,8 @@ void univMissileCollidedWithTarget(SpaceObjRotImpTarg *target,StaticInfo *target
         {
             if (missileowner->playerowner == ship->playerowner)
             {                                               //if it's friendly fire
-        //!!! why only in non-debug???
-#ifndef HW_BUILD_FOR_DEBUGGING
+                // CAT: the retail exe always applies it (0x00547244); HW1 skipped it in debug builds
                 damagetaken *= friendlyFireModifier;
-#endif
                 bitSet(ship->chatterBits, BCB_FriendlyFire);
             }
             else if (allianceIsShipAlly(ship, missileowner->playerowner))
@@ -4034,10 +4094,11 @@ void univMissileCollidedWithTarget(SpaceObjRotImpTarg *target,StaticInfo *target
     }
 
     if(missileowner != NULL && missileowner->playerowner != NULL)
-        fatalHit = ApplyDamageToTarget(target,damagetaken,missile->soundType,DEATH_Killed_By_Player,missileowner->playerowner->playerIndex);
+        fatalHit = ApplyDamageToTarget(target,damagetaken,missile->soundType,DEATH_Killed_By_Player,missileowner->playerowner->playerIndex,missileowner,16);
     else
-        fatalHit = ApplyDamageToTarget(target,damagetaken,missile->soundType,DEATH_Killed_By_Dead_Player,99);
+        fatalHit = ApplyDamageToTarget(target,damagetaken,missile->soundType,DEATH_Killed_By_Dead_Player,99,missileowner,17);
 
+hiteffect:
     if (missile->hitEffect != NULL)
     {
         LOD = target->obj.currentLOD;
@@ -4680,8 +4741,12 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
     ship->header.flags |= SOF_Dead;
     bitClear(ship->header.flags,SOF_Selectable);
 
-    // CAT-TODO(M2-R4 #3, salvage): in single player a ship that is the AI's salvage depot stops being it
-    //      (cat_salvageGetAIDepotShip 0x004fd2f0 == ship -> cat_salvageSetAIDepotShip(NULL) 0x004fd2e0)
+    // CAT (M2-R4 combat): in single player the AI's salvage depot stops being it (0x00547d37: cat_salvageGetAIDepotShip 0x004fd2f0
+    //      == ship -> cat_salvageSetAIDepotShip(NULL) 0x004fd2e0)
+    if (singlePlayerGame && (cat_salvageGetAIDepotShip() == ship))
+    {
+        cat_salvageSetAIDepotShip(NULL);
+    }
 
     // CAT: the ship's CustShipDied comes first (statinfo +0x144, 0x00547d60), before the factory and launch updates
     if(((ShipStaticInfo *)ship->staticinfo)->custshipheader.CustShipDied != NULL)
@@ -5453,15 +5518,12 @@ void univDeleteDeadResources()
             }
         }
 
-        // CAT-TODO(M2-R4 #3, asteroid break pieces): the exe breaks every dying asteroid whose attribute word
-        //      (exe +0x38) lacks bit 0x200, whatever its resource value (univDeleteDeadResources 0x00549270); the HW1
-        //      test stays until BreakAsteroidUp (ResCollect.c) is ported
-        if (resource->header.objtype == OBJ_AsteroidType)
+        // CAT (M2-R4 combat): the exe breaks every dying asteroid that is no killer (attribute bit 0x200), whatever
+        //      its resource value (univDeleteDeadResources 0x00549270; BreakAsteroidUp in ResCollect.c)
+        if ((resource->header.objtype == OBJ_AsteroidType) &&
+            !(resource->obj.attributes & CAT_ATTRIBUTES_KillerCollision))
         {
-            if (resource->resourcevalue > 0)
-            {
-                BreakAsteroidUp((Asteroid *)resource);
-            }
+            BreakAsteroidUp((Asteroid *)resource);
         }
 
         univReallyDeleteThisResourceRightNow(resource);
@@ -5824,9 +5886,11 @@ bool32 univObjectOutsideWorld(SpaceObj *obj)
     Outputs     :
     Return      : returns the nearest resource (or NULL if none found)
 ----------------------------------------------------------------------------*/
-// CAT-TODO(M2-R4 #3): univFindNearestResource 0x00549c50 takes a fourth argument and checks the fog of war
-//      (fowIsValidW, fowGetVisitedW), the player's technology (cat_rmTechSetHas) and stealth (0x0053f9f0), with a
-//      random pick.
+// CAT-TODO(M2-R4 #5): univFindNearestResource 0x00549c50 takes a fourth argument and checks the fog of war
+//      (fowIsValidW, fowGetVisitedW on the FOW pointer at Player+0x6500), the player's technology (cat_rmTechSetHas
+//      on Player+0x2A4) and stealth (0x0053f9f0) for an asteroid another player's ship holds, with a random pick, and
+//      drops resources outside the movement limits (pieMovePointClipToLimits) instead of univObjectOutsideWorld.
+//      It needs the Player layout (#5); M2-R4 #3 ported its callers (rescollectFindNearestResource 0x004f11f0).
 Resource *univFindNearestResource(Ship *ship,real32 volumeRadius,vector *volumePosition)
 {
     Node *objnode = universe.ResourceList.head;
@@ -8277,9 +8341,7 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
     {
         // CAT-TODO(stage 3): for the current player the exe shows a command message first (clCommandMessage
         //      0x004ac820, string 0x00bb5008, red)
-        // CAT-TODO(M2-R4 #5): ApplyDamageToTarget 0x00546250 takes 7 arguments (here 0x13, 0x29a, the owner, 0, 8);
-        //      this tree's takes 5
-        ApplyDamageToTarget(&ship->targetable, 5000.0f, (GunSoundType)0x13, 0x29a, newOwner->playerIndex);
+        ApplyDamageToTarget(&ship->targetable, 5000.0f, (GunSoundType)0x13, 0x29a, newOwner->playerIndex, NULL, 8);
         ship->catBeastConvertTime = 0.0f;
         bitClear(ship->header.flags, SOF_Crazy|SOF_Disabled);
         return NULL;
@@ -8415,11 +8477,66 @@ void cat_univShipDeferredUpdate(Ship *ship)
     {
         return;
     }
-    // CAT-TODO(M2-R4 #3/#4): then (0x00544867..0x005449c4): a queued attack target (Ship +0x4B0) becomes a clAttack;
-    //      Sentinel field timers (Ship +0x97C/+0x980); the protected-speed limit (Ship +0x5C4) is reset when its
-    //      timer has run out (M2-R4 #2); cat_shipDissolveUpdate; the stun/EMP timers at Ship +0x4D0..+0x4DC (M2-R4 #4)
+    // CAT (M2-R4 combat): a queued attack target becomes an attack order (0x00544867)
+    if (ship->catQueuedAttackTarget != NULL)
+    {
+        SelectCommand selectone;
+        AttackCommand attackone;
+
+        selectone.numShips = 1;
+        selectone.ShipPtr[0] = ship;
+        attackone.numTargets = 1;
+        attackone.TargetPtr[0] = (TargetPtr)ship->catQueuedAttackTarget;
+        clAttack(&universe.mainCommandLayer, &selectone, &attackone);
+        ship->catQueuedAttackTarget = NULL;
+    }
+    // CAT-TODO(M2-R4 #4/#2): then Sentinel field timers (Ship +0x97C/+0x980); the protected-speed limit (Ship +0x5C4)
+    //      is reset when its timer has run out (M2-R4 #2); cat_shipDissolveUpdate (M2-R4 #4)
+    // CAT (M2-R4 combat): the stun timers of a Beast hit (0x005448ca): when the stun period is over, a hit ship
+    //      (state 1) is stunned again after 0.4..1.2 s for 1.5..3 s, or at its spin time when that is set; an infected
+    //      one (state 2) is released
+    if ((ship->catBeastStunState != 0) && (universe.totaltimeelapsed > ship->catBeastStunStart) &&
+        (universe.totaltimeelapsed > ship->catBeastStunEnd))
+    {
+        if (ship->catBeastStunState == 1)
+        {
+            if (ship->catBeastSpin < 0.0f)
+            {
+                ship->catBeastStunStart = (real32)ranRandom(RANDOM_GAME) * 1.8626453e-10f + 0.4f + universe.totaltimeelapsed;
+            }
+            else
+            {
+                ship->catBeastStunStart = ship->catBeastSpin;
+            }
+            ship->catBeastStunEnd = (real32)ranRandom(RANDOM_GAME) * 3.4924597e-10f + 1.5f + ship->catBeastStunStart;
+        }
+        else
+        {
+            ship->catBeastStunState = 0;
+        }
+    }
     cat_univShipSelfRepair(ship);
-    // CAT-TODO(M2-R4 #3/#4/#5/#2): then the gun burst state (Ship +0x610, Gun +0x84/+0x78/+0x7C), the end of an
+    // CAT (M2-R4 combat): a burst that has run 0.1 s past its fire time ends (0x00544995: every gun but an ion beam in
+    //      its burst state)
+    if (ship->catBurstFiring && (ship->gunInfo != NULL))
+    {
+        sdword i;
+        Gun *gun;
+
+        for (i = 0; i < ship->gunInfo->numGuns; i++)
+        {
+            gun = &ship->gunInfo->guns[i];
+            if ((gun->catWeaponType != WEAPON_ION) && (gun->burstState == 1) &&
+                (gun->useBurstFireTime + (real32)0.1 < universe.totaltimeelapsed - gun->burstStartTime))
+            {
+                gun->burstState = 2;
+                ship->catBurstFiring = FALSE;
+                gun->burstStartTime = universe.totaltimeelapsed;
+                soundEventBurstStop(ship, NULL);
+            }
+        }
+    }
+    // CAT-TODO(M2-R4 #4/#5/#2): then the end of an
     //      upgrade (catUpgrading with its end time at Ship +0x5A0: cat_shipSetDisableReason(ship, 0, 0),
     //      cat_shipApplyUpgrades, speech 0x2000895), the debug re-upgrade switch 0x00a751c0, cat_shipUpdateDrift,
     //      the stealth detection (static catTypeFlags 0x20000, every 0x0072bd60-masked tick), and for live ships
@@ -8891,8 +9008,9 @@ bool32 univUpdate(real32 phystimeelapsed)
         univUpdateAllPosVelDerelicts();
         univUpdateAllPosVelResources();
         univUpdateAllPosVelShips();     // also does a univCheckShipStates
-        // CAT: then the blasts and the bullet effects a load asked for (cat_blastUpdateAll 0x00516320,
-        //      CAT-TODO(M2-R4 #3); cat_univRecreateBulletEffectsIfNeeded 0x0054d330)
+        // CAT: then the blasts and the bullet effects a load asked for (cat_blastUpdateAll 0x00516320 [M2-R4 combat];
+        //      cat_univRecreateBulletEffectsIfNeeded 0x0054d330)
+        cat_blastUpdateAll();
         cat_univRecreateBulletEffectsIfNeeded();
 
     }
@@ -8995,3 +9113,38 @@ void univKillPlayer(sdword i,sdword playerdeathtype)
     writeGameStatsToFile(filename);
 }
 
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univPointInUniverse
+    Description : CAT: is the point inside the universe box (+- smUniverseSize on each axis)? (cat_univPointInUniverse
+                  0x005c1f70)
+    Inputs      : pos
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+bool32 cat_univPointInUniverse(vector *pos)
+{
+    bool32 inside = (pos->x <= smUniverseSizeX);
+
+    if (pos->x < -smUniverseSizeX)
+    {
+        inside = FALSE;
+    }
+    if (smUniverseSizeY < pos->y)
+    {
+        inside = FALSE;
+    }
+    if (pos->y < -smUniverseSizeY)
+    {
+        inside = FALSE;
+    }
+    if (smUniverseSizeZ < pos->z)
+    {
+        inside = FALSE;
+    }
+    if (pos->z < -smUniverseSizeZ)
+    {
+        return FALSE;
+    }
+    return inside;
+}

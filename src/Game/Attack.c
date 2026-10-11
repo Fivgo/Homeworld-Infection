@@ -48,7 +48,10 @@ bool32 needToGoToSameVerticalPlane(Ship *ship,SpaceObjRotImpTarg *target, real32
 {
     real32 ydist,speedSqr;
 
-    if ((ship->shiptype == Carrier) || (ship->shiptype == MissileDestroyer) || (ship->shiptype == P1Mothership))
+    // CAT: every carrier-class ship, the processors, the Dreadnought, the Turanic missile destroyer and the P1
+    //      mothership always level out (needToGoToSameVerticalPlane 0x00421a60)
+    if ((ship->staticinfo->shipclass == CLASS_Carrier) || (ship->shiptype == sProcessor) || (ship->shiptype == bProcessor) ||
+        (ship->shiptype == tMissileDestroyer) || (ship->shiptype == sDreadnought) || (ship->shiptype == p1Mothership))
     {
         return TRUE;
     }
@@ -368,7 +371,9 @@ dontgotosameplane:
         aitrackHeading(ship,&trajectory,FLYSHIP_ATTACKACCURACY);
     }
 
-    if (shootguns)
+    // CAT: a mimic that is mimicking does not shoot (attackStraightForward 0x00421cf0: catShipFlags 0x8 and
+    //      cat_shipIsMimicking)
+    if (shootguns && !(bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic) && cat_shipIsMimicking(ship)))
     {
         if (ship->attackvars.multipleAttackTargets)
         {

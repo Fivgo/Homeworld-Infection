@@ -16,7 +16,7 @@ typedef struct
 
 struct CommandLayer;
 
-void ChangeSingleShipToCollectResource(struct CommandToDo *command);
+void ChangeSingleShipToCollectResource(struct CommandToDo *command,Resource *resource);   // CAT: + resource (0x004f12c0)
 
 // returns TRUE if resource is already being targeted for harvesting
 bool32 ResourceAlreadyBeingHarvested(struct CommandLayer *comlayer,struct CommandToDo *IAmThisCommand,Resource *resource);
@@ -45,9 +45,6 @@ void Fix_ShipXHarvestsResourceY(Ship *ship);
 
 void R1ResourcerAttacksShip(struct Ship *ship,struct SpaceObjRotImpTarg *target,bool32 passiveAttacking);
 void removeResourcerFromAttacking(Ship *ship);
-
-extern real32 ASTEROIDBREAK_LO_ROTATE;
-extern real32 ASTEROIDBREAK_HI_ROTATE;
 
 extern real32 ASTEROID_LO_ROTATE[NUM_ASTEROIDTYPES];
 extern real32 ASTEROID_HI_ROTATE[NUM_ASTEROIDTYPES];

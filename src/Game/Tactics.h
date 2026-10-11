@@ -172,6 +172,7 @@ bool32 tacticsAreStrikeCraftInSelection(SelectCommand *selection);
 bool32 tacticsHasShipRetreatedFromShip(Ship *shipA, Ship *shipB);
 
 void tacticsMakeShipsNotLookForOtherShips(SelectCommand *selection);
+void cat_tacticsEvasiveRetreatToDock(Ship *ship);                         // CAT: 0x00529f90 (M2-R4 combat)
 
 extern real32 IONCANNON_TARGETS_FIGHTER_ANGLE;
 extern real32 IONCANNON_TARGETS_CORVETTE_ANGLE;

@@ -2937,7 +2937,7 @@ void kasfShipsDamage(GrowSelection *ships, sdword points)
         return;
 
     for (i = 0; i < ships->selection->numShips; ++i)
-        ApplyDamageToTarget((struct SpaceObjRotImpTarg *)ships->selection->ShipPtr[i], (real32)points, 0, 0, 0);
+        ApplyDamageToTarget((struct SpaceObjRotImpTarg *)ships->selection->ShipPtr[i], (real32)points, 0, 0, 0, NULL, 0x1e);   // CAT: 7 arguments (kasfShipsDamage 0x00496080)
 }
 
 

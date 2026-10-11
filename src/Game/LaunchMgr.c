@@ -78,6 +78,47 @@ static sdword lmRenderEverythingCounter;
 
 bool32 lmActive = FALSE;
 
+// CAT: the module slots (0x00a4478c). CAT-TODO(M2-R4 #4): cat_lmFillInModuleSlots 0x0049e9f0, which fills them from
+//      the sMothership's module list when lmLaunchBegin 0x0049e1e0 opens the screen, needs the module ships' list
+//      (cat_moduleIterate 0x005afed0 family, Ships/ModuleShip.c); the slot draw callbacks are stage 3. Until then
+//      the slots stay empty.
+Ship *cat_lmModuleSlots[CAT_LM_NUM_MODULE_SLOTS];
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_lmModuleSlotsRemoveType
+    Description : CAT: empties the module slots that hold a ship of the given type and packs the rest to the front,
+                  keeping their order (cat_lmModuleSlotsRemoveType 0x0049e970)
+    Inputs      : type - the ship type that leaves the slots
+----------------------------------------------------------------------------*/
+void cat_lmModuleSlotsRemoveType(ShipType type)
+{
+    sdword i, j;
+
+    for (i = 0; i < CAT_LM_NUM_MODULE_SLOTS; i++)
+    {
+        if ((cat_lmModuleSlots[i] != NULL) && (cat_lmModuleSlots[i]->shiptype == type))
+        {
+            cat_lmModuleSlots[i] = NULL;
+        }
+    }
+    // each empty slot but the last takes the next filled slot after it
+    for (i = 0; i < CAT_LM_NUM_MODULE_SLOTS - 1; i++)
+    {
+        if (cat_lmModuleSlots[i] == NULL)
+        {
+            for (j = i + 1; j < CAT_LM_NUM_MODULE_SLOTS; j++)
+            {
+                if (cat_lmModuleSlots[j] != NULL)
+                {
+                    cat_lmModuleSlots[i] = cat_lmModuleSlots[j];
+                    cat_lmModuleSlots[j] = NULL;
+                    break;
+                }
+            }
+        }
+    }
+}
+
 extern ShipType svShipType;
 bool32 lmPaletted;
 

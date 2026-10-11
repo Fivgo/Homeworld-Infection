@@ -1161,7 +1161,7 @@ void battleAccountForLosses(Ship *ship, battleping *battlePing)
     real32 lossPower, lossValue;
     real32 timeSinceLoss;
 
-    lossPower = gunShipFirePower(ship->staticinfo, ship->tacticstype);
+    lossPower = gunShipFirePower(ship->staticinfo);
     lossValue = (real32)ship->staticinfo->buildCost;
 
     if (ship->playerowner == universe.curPlayerPtr)
@@ -1345,7 +1345,7 @@ void battlePingEvaluate(void *voidPing, battleping *battlePing)
         if (/*ship->shiprace > R2 || */ship->playerowner == universe.curPlayerPtr)
         {                                                   //if this is a friendly ship (thus we can hear it speak)
             //count up the power and cost of your ships
-            friendlyPower += gunShipFirePower(ship->staticinfo, ship->tacticstype);
+            friendlyPower += gunShipFirePower(ship->staticinfo);
 //            friendlyValue += (real32)ship->staticinfo->buildCost * ship->targetable.health / ship->staticinfo->health.maxhealth;
             friendlyValue += (real32)ship->staticinfo->buildCost;
 
@@ -1495,13 +1495,13 @@ void battlePingEvaluate(void *voidPing, battleping *battlePing)
         {                                                   //not a player ship
             if (allianceIsShipAlly(ship, universe.curPlayerPtr))
             {                                               //!!! consider your allies in the battle
-                friendlyPower += gunShipFirePower(ship->staticinfo, ship->tacticstype);
+                friendlyPower += gunShipFirePower(ship->staticinfo);
 //                friendlyValue += (real32)ship->staticinfo->buildCost * ship->targetable.health / ship->staticinfo->health.maxhealth;
                 friendlyValue += (real32)ship->staticinfo->buildCost;
             }
             else
             {
-                enemyPower += gunShipFirePower(ship->staticinfo, ship->tacticstype);
+                enemyPower += gunShipFirePower(ship->staticinfo);
 //                enemyValue += (real32)ship->staticinfo->buildCost * ship->targetable.health / ship->staticinfo->health.maxhealth;
                 enemyValue += (real32)ship->staticinfo->buildCost;
             }

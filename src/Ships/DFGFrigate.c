@@ -84,8 +84,8 @@ void univDFGFieldEffect(Ship *ship, Bullet *bullet,real32 totaltimeelapsed)
 
     // CAT: the field detonates a Sect big-gun shell outright (univDFGFieldEffect 0x005b0940: cat_isBigGunBullet ->
     //      cat_bigGunBulletExplode, then the shell, its effect and its ping are deleted).
-    //      CAT-PROVISIONAL: no bullet carries the WEAPON_BIGGUN type before the bullet/big-gun ports (M2-R4 #3/#4),
-    //      so cat_isBigGunBullet is FALSE and the detonation is not written yet
+    //      CAT-TODO(M2-R4 #4): cat_bigGunBulletExplode and the deletion belong to the big-gun block of ship code B;
+    //      until then the field only leaves a big-gun shell alone (the bullet weapon word is ported, M2-R4 combat)
     if (cat_isBigGunBullet((SpaceObj *)bullet))
     {
         return;
@@ -136,10 +136,9 @@ void univDFGFieldEffect(Ship *ship, Bullet *bullet,real32 totaltimeelapsed)
 #endif
         {                                                   //if there is a deflection effect
 //            matCreateCoordSysFromHeading(&newCoordsys,&shiptobullet);
-            // CAT-PROVISIONAL: the exe scales the damage by cat_weaponDamageVsArmour(bullet weapon type, 0)
-            //      0x00514460 (and by etgSoftwareScalarHit in software rendering) before the magnitude; the
-            //      weapon-vs-armour table and the bullet's weapon type are M2-R4 #3, so the factor is 1 here
-            floatDamage = (real32)bullet->damage;
+            // CAT: the exe scales the damage by cat_weaponDamageVsArmour(the bullet's damage type, 0) 0x00514460 (and by
+            //      etgSoftwareScalarHit in software rendering, which this tree does not have) before the magnitude
+            floatDamage = cat_weaponDamageVsArmour(bullet->soundType, 0) * (real32)bullet->damage;
             floatDamage *= ship->magnitudeSquared;
             intDamage = Real32ToUdword(floatDamage);
             etgEffectCreate(stat, ship, &bullet->obj.posinfo.position, NULL, &tmpmatrix, ship->magnitudeSquared, EAF_Velocity | EAF_NLips, 1, intDamage);

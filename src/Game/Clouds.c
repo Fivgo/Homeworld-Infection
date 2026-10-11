@@ -1450,7 +1450,7 @@ void cloudCapLightningDistanceWithSuppliedRadius(lightning* l, real32 radius)
 ----------------------------------------------------------------------------*/
 void cloudApplyDamage(SpaceObjRotImpTarg* target, real32 damagetaken)
 {
-    ApplyDamageToTarget(target, damagetaken, GS_SmallIonCannon,DEATH_Killed_By_Cloud,99);
+    ApplyDamageToTarget(target, damagetaken, GS_SmallIonCannon,DEATH_Killed_By_Cloud,99,NULL,4);    // CAT: 7 arguments (cloudZapLoop 0x00438d40)
 }
 
 /*-----------------------------------------------------------------------------

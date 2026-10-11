@@ -346,7 +346,9 @@ static sdword cat_salvageDepotPointType(ShipType targettype, Ship *depot)
     switch (targettype)
     {
         case dBigGunUnit:
-            return (depot->shiptype == sMothership) ? DPT_Swarmer_In : DPT_Mothership_Out;   // 0x12 + (0xB if not)
+            // 0x12 + (0xB if not): DPT_Destroyer_EB at an sMothership, else DPT_SalvageProcess [M2-R4 combat resume:
+            //      the WIP had DPT_Swarmer_In/DPT_Mothership_Out, 21/34, a miscount of the enum]
+            return (depot->shiptype == sMothership) ? DPT_Destroyer_EB : DPT_SalvageProcess;
         case dMessagePod:
         case dBuoy:
             return DPT_Med_In;
@@ -548,7 +550,7 @@ bool32 cat_salvageCheckTarget(Player *player, Ship *target, sword *reasons) // 0
             case RACE_Derelict:
                 // the exe prints "SALVAGING: %s is using Sect's conversion rules for salvaging." and uses them
             case RACE_Sect:
-                if (!singlePlayerGame && (target->shiptype > sMothershipOreCanArmour) && (target->shiptype < kAdvanceSupportFrigate) &&
+                if (!singlePlayerGame && (target->shiptype >= bRecon) && (target->shiptype <= bMissileCorvette) &&
                     (cat_salvageUnconvertType(target->shiptype) == -1))
                 {
                     count[CAT_SALVAGE_REASON_NoSupport]++;
@@ -1048,7 +1050,7 @@ static bool32 cat_salvageApproachTarget(Ship *salvager, Ship *target)
         switch (salvager->shiptype)
         {
             case dBigGunUnit:
-                type = (target->shiptype == sMothership) ? DPT_Swarmer_In : DPT_Mothership_Out;
+                type = (target->shiptype == sMothership) ? DPT_Destroyer_EB : DPT_SalvageProcess;     // 0x12 / 0x1d
                 break;
             case dMessagePod:
             case dBuoy:
@@ -1298,7 +1300,7 @@ bool32 cat_salvageSpecialTarget(Ship *ship, void *custom)                  // 0x
             if (cat_linkFlyIntoPosition(ship, statics->centerDockPoint, info->target, info->attachPoint))
             {
                 if ((info->target->shiptype < bRecon) || (info->target->shiptype > bMissileCorvette) ||
-                    ((ship->shiptype > sMothershipOreCanArmour) && (ship->shiptype < kAdvanceSupportFrigate)) ||
+                    ((ship->shiptype >= bRecon) && (ship->shiptype <= bMissileCorvette)) ||
                     cat_shipHasUpgrade(ship, 0x400000))
                 {
                     info->state = CAT_SALVAGE_CLAMP;
@@ -1406,7 +1408,9 @@ bool32 cat_salvageSpecialTarget(Ship *ship, void *custom)                  // 0x
             {
                 // every 10 s: is another depot now more than 1000 closer?
                 depot = cat_salvageFindNearestDepot(ship, info->target);
-                if (depot != info->dockwith)
+                // CAT: the exe reads the new depot's position unchecked (NULL + 0x58 when no depot takes the target any
+                //      more, an access violation); here no depot means no change
+                if ((depot != NULL) && (depot != info->dockwith))
                 {
                     real32 olddist = cat_vecDistance(&info->target->obj.posinfo.position, &info->dockwith->obj.posinfo.position);
                     real32 diff = olddist - cat_vecDistance(&info->target->obj.posinfo.position, &depot->obj.posinfo.position);
@@ -1761,7 +1765,7 @@ ShipType cat_salvageConvertType(Ship *salvaged, Ship *depot)                // 0
     switch (depot->shiprace)
     {
         case RACE_Beast:
-            if ((depot->shiptype > sMothershipOreCanArmour) && (depot->shiptype < kAdvanceSupportFrigate))
+            if ((depot->shiptype >= bRecon) && (depot->shiptype <= bMissileCorvette))
             {
                 if (salvaged->staticinfo->beastAttacksRequired != -1)
                 {
@@ -1777,7 +1781,7 @@ ShipType cat_salvageConvertType(Ship *salvaged, Ship *depot)                // 0
         case RACE_Traders:
         case RACE_Derelict:
         case RACE_Sect:
-            if ((salvaged->shiptype <= sMothershipOreCanArmour) || (salvaged->shiptype >= kAdvanceSupportFrigate))
+            if ((salvaged->shiptype < bRecon) || (salvaged->shiptype > bMissileCorvette))
             {
                 return salvaged->shiptype;
             }

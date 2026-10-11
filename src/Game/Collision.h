@@ -22,6 +22,9 @@ real32 collCheckRectLine(SpaceObjRotImp *obj1,vector *univpoint,vector *univdir,
 bool32 collCheckRectPoint(SpaceObjRotImp *obj1,vector *point);
 bool32 collCheckRectInRect(SpaceObjRotImp *obj1,SpaceObjRotImp *obj2);
 bool32 collCheckLineOfSight(Ship* source, Ship* target, vector* sourcePosition, vector* direction);
+bool32 kamikazeCheck(SpaceObjRotImpTarg *obj1, SpaceObjRotImpTarg *obj2);   // CAT: 0x0043ab20 (also cat_kamikazeCheckHit's)
+bool32 cat_collLineTriangleIntersect(vector *p0, vector *p1, vector *a, vector *b, vector *c, vector *normal, real32 *t);   // CAT: 0x0043a6b0
+sdword cat_collLineSentinelFieldIntersect(Ship *sentinel, vector *start, vector *dir, real32 *t);   // CAT: 0x0043abf0
 
 #define collAddSpaceObjToCollBlobs(obj) bobAddObjToNearestBlob(&universe.collBlobList,obj)
 #define collAddSpaceObjToSpecificBlob(tblob,tobj) bobAddObjToSpecificBlob(tblob,tobj)

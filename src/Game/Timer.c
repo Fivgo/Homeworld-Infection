@@ -323,3 +323,22 @@ bool32 cat_timerExpired(CatTimer *t)                                        // 0
 
     return ((now - t->startTime) < t->duration) ? FALSE : TRUE;
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_timerFractionElapsed
+    Description : CAT: how much of a CatTimer's duration has passed (0 for a timer without a duration; unclamped)
+                  (cat_timerFractionElapsed 0x005284c0)
+    Inputs      : t
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+real32 cat_timerFractionElapsed(CatTimer *t)
+{
+    real32 now = t->realTime ? cat_taskRealTimeElapsed : universe.totaltimeelapsed;
+
+    if (t->duration <= 0.0f)
+    {
+        return 0.0f;
+    }
+    return (now - t->startTime) / t->duration;
+}

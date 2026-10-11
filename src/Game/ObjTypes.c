@@ -439,14 +439,6 @@ static NumStrXlate gunsizeinfo[] =
     { 0,NULL }
 };
 
-static NumStrXlate salvagepointtypeinfo[] =
-{
-    { (uword)Heading, strdollar(Heading) },
-    { (uword)Up, strdollar(Up) },
-    { (uword)AttachPoint, strdollar(AttachPoint) },
-
-    { 0,NULL }
-};
 
 static NumStrXlate navlighttypeinfo[] =
 {
@@ -733,11 +725,6 @@ char *DockPointTypeToStr(DockPointType dockpointtype)
     return NumToStr(dockpointtypeinfo,(uword)dockpointtype);
 }
 
-char *SalvagePointTypeToStr(SalvagePointType salvagepointtype)
-{
-    return NumToStr(salvagepointtypeinfo,(uword)salvagepointtype);
-}
-
 char *ExplosionTypeToStr(EffectType type)
 {
     return NumToStr(explosiontypeinfo,(uword)type);
@@ -864,11 +851,6 @@ sdword cat_StrToWeaponType(char *str)
 sdword cat_StrToGunSize(char *str)
 {
     return StrToNum(gunsizeinfo,str);
-}
-
-SalvagePointType StrToSalvagePointType(char *str)
-{
-    return StrToNum(salvagepointtypeinfo,str);
 }
 
 BulletType StrToBulletType(char *str)

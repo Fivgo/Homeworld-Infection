@@ -158,11 +158,12 @@ Derelict *univAddHyperspaceGateAsDerelict(hvector *posAndRotation);
 
 void ObjectsCollided(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *obj2,real32 colldist,vector *distvector,real32 dist,real32 distsquared);
 void ApplyDamageToCollidingObjects(SpaceObjRotImpTarg *obj1,SpaceObjRotImpTarg *obj2,vector *distvector,real32 dist);
-bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoundType soundType,sdword damageHow,sdword playerIndex);
+bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoundType soundType,sdword damageHow,sdword playerIndex,
+                           struct Ship *attacker,sdword callSite);   // CAT: 7 arguments (0x00546250)
 
 // CAT: new first argument applyDamage (0x00546a20; FALSE for the beam frames that only draw the hit)
 void univBulletCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target,StaticInfo *targetstaticheader,Bullet *bullet,real32 collideLineDist,sdword collSide);
-void univMissileCollidedWithTarget(SpaceObjRotImpTarg *target,StaticInfo *targetstaticheader,Missile *missile,real32 collideLineDist,sdword collSide);
+void univMissileCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target,StaticInfo *targetstaticheader,Missile *missile,real32 collideLineDist,sdword collSide);
 
 SelectCommand *getEnemiesWithinProximity(Ship *thisship,real32 retaliateZone);
 
@@ -205,6 +206,7 @@ bool32 cat_univPlayerHasFlaggedShip(void);                                      
 sdword cat_univGetShipCountSalvaged(sdword shipType, sdword playerIndex);                       // 0x00540030
 sdword cat_univGetShipCountBeastified(sdword shipType, sdword playerIndex);                     // 0x00540080
 Ship *cat_univConvertShip(Ship *ship, ShipType newType, struct Player *newOwner);                 // 0x00543950
+bool32 cat_univPointInUniverse(vector *pos);                                                      // 0x005c1f70
 bool32 cat_univBeastInfectionUpdate(Ship *ship);                                                 // 0x00543860
 void cat_univShipSalvagedCountInc(sdword a, sdword b);                                          // 0x005400d0
 sdword cat_univGetNumberShipsPlayerKilled(sdword playerIndex, sdword shipClass);                // 0x005400f0

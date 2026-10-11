@@ -19,6 +19,10 @@
 #define ATTRIBUTES_StartInHS                0x0080
 #define ATTRIBUTES_Defector                 0x0100
 #define ATTRIBUTES_HeadShotVelToMothership  0x0200
+// CAT: Cataclysm's killer-collision bit (ApplyDamageToCollidingObjects 0x00545540, collCheckShipResourceColl 0x0043bac0
+//      test attribute word bit 0x200; HW1 used ATTRIBUTES_KillerCollDamage 0x10). The level loader's attribute names
+//      are M2-R4 #5's, so the bit is spelled out here (name chosen here)
+#define CAT_ATTRIBUTES_KillerCollision      0x0200
 #define ATTRIBUTES_HeadShotKillerCollDamage 0x0400
 #define ATTRIBUTES_Regrow                   0x0800
 

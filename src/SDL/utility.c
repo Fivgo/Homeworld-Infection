@@ -99,6 +99,7 @@
 #include "UIControls.h"
 #include "Undo.h"
 #include "Universe.h"
+#include "Blast.h"
 #include "UnivUpdate.h"
 #include "Mesh.h"           // CAT: /catMeshLoadTest (port diagnostic)
 #include "OracleDump.h"     // HWI-ORACLE: gameStart exit record, /oracleSelfTest
@@ -1828,6 +1829,12 @@ void gameStart(char *loadfilename)
         cat_speechEventLoadRaceVoice(universe.players[universe.curPlayerIndex].race);
     }
 #endif
+    // CAT (M2-R4 combat): a new game starts with empty blast lists and fresh lightning tables (gameStart 0x005a9290;
+    //      a loaded game rebuilds them in its loader, cat_loadUniverseList5e288: the save format is the user's saves')
+    if (loadfilename == NULL)
+    {
+        cat_blastInit();
+    }
 
     //now start the level
     if (tutorial==1)

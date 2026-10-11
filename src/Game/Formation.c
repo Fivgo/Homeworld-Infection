@@ -23,7 +23,6 @@
 #include "Globals.h"
 #include "Memory.h"
 #include "ProximitySensor.h"
-#include "SalCapCorvette.h"
 #include "SinglePlayer.h"
 #include "StatScript.h"
 #include "StringSupport.h"

@@ -2871,9 +2871,11 @@ void dockRemoveShipFromInside(Ship *ship,Ship *dockwith)
         {
             listDeleteNode(node);
             lmUpdateShipsInside();
-            if (ship->staticinfo->shipclass==CLASS_Fighter)
+            // CAT: dockRemoveShipFromInside 0x004632e0 counts as dockPutShipInside does: micro ships as fighters,
+            //      resource ships as corvettes [audit: M2-R4 combat changed only the increment]
+            if ((ship->staticinfo->shipclass==CLASS_Fighter) || (ship->staticinfo->shipclass==CLASS_Micro))
                 dockwith->shipsInsideMe->FightersInsideme--;
-            else if (ship->staticinfo->shipclass==CLASS_Corvette)
+            else if ((ship->staticinfo->shipclass==CLASS_Corvette) || (ship->staticinfo->shipclass==CLASS_Resource))
                 dockwith->shipsInsideMe->CorvettesInsideme--;
 
             return;
@@ -4607,14 +4609,12 @@ sdword **ResourceLatchPoints[] = {
 // enter the Mothership via salvage, it makes sense that it should
 // always exit that way too, so we use that information instead.
 
-// Also be careful of the code in src/Ships/SalCapCorvette.* that is
-// attempting to do the same thing... (Needs to be unified)
 
 bool32 shipStaticIndicatesBigHangerBayForRace(ShipStaticInfo *ship_static, sdword race)
 {
     // CAT (M2-R4 combat): HW1 read the needBigR1/needBigR2 salvage statics here; Cataclysm has no HW1 salvage statics
-    //      (CAT_SALVAGESTATICINFO is always NULL), so the small hangar bay is always the answer. The HW1 launch code
-    //      around this is the dock port's (Dock.c, Cataclysm dock types).
+    //      (SpaceObj.h), so the small hangar bay is always the answer (the HW1 launch code around this has no exe
+    //      counterpart: shipStaticIndicatesBigHangerBayForRace is a GoK helper).
     (void)ship_static;
     (void)race;
 

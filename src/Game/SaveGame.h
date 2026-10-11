@@ -29,7 +29,7 @@
 
 #define SAVE_PING                       0x00001000
 #define IDTOPTRTABLE                    0x00000f00
-#define SAVE_SALVAGEINFO                0x00000e00
+#define SAVE_SALVAGEINFO                0x00000e00  // CAT-DORMANT (M2-R4 combat): HW1's salvage-info chunk; nothing writes or reads it
 #define SAVESTRING                      0x00000d00
 #define PATH                            0x00000c00
 #define AITEAMMOVE                      0x00000b00

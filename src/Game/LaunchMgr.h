@@ -47,6 +47,12 @@ LaunchShipsAvailable;
 
 extern bool32 lmActive;
 
+// CAT: the launch manager's seven module slots (the 0x00a4478c array): the sMothership's attached modules, one per
+//      slot, filled by cat_lmFillInModuleSlots 0x0049e9f0 when the screen opens and drawn by cat_lmModuleSlot1..7Draw
+#define CAT_LM_NUM_MODULE_SLOTS 7
+extern Ship *cat_lmModuleSlots[CAT_LM_NUM_MODULE_SLOTS];
+void cat_lmModuleSlotsRemoveType(ShipType type);    // CAT: 0x0049e970
+
 
 /*=============================================================================
     Function Prototypes:

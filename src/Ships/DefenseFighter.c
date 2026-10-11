@@ -133,7 +133,7 @@ void defensefightertargetbullet(Ship *ship, Bullet *bullettotarget)
     laser->obj.cameraDistanceSquared = ship->obj.cameraDistanceSquared;
 
     laser->soundType = gunstatic->gunsoundtype;
-    laser->bulletType = BULLET_Laser;
+    laser->bulletType = CAT_BULLET_HW1DefenseLaser;     // CAT-DORMANT (SpaceObj.h)
     laser->owner = ship;
     laser->gunowner = gun;
     laser->target = NULL;

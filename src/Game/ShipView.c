@@ -666,7 +666,7 @@ void svFirepowerRender(featom *atom, regionhandle region)
     }
     else
     {
-        firepower = (uword) gunShipFirePower(info, Neutral);
+        firepower = (uword) gunShipFirePower(info);
     }
     if(firepower != 0)
     {

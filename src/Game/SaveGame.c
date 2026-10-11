@@ -20,6 +20,7 @@
 #include "ConsMgr.h"
 #include "Damage.h"
 #include "File.h"
+#include "Gun.h"
 #include "LevelLoad.h"
 #include "Light.h"
 #include "LinkedList.h"
@@ -28,7 +29,6 @@
 #include "Objectives.h"
 #include "Ping.h"
 #include "Randy.h"
-#include "SalCapCorvette.h"
 #include "Select.h"
 #include "Sensors.h"
 #include "SinglePlayer.h"
@@ -1336,6 +1336,8 @@ void LoadGunInfo(Ship *ship)
     for (i=0;i<loadedGunInfo->numGuns;i++)
     {
         loadedGunInfo->guns[i].gunstatic = &ship->staticinfo->gunStaticInfo->gunstatics[i];
+        // CAT (M2-R4 combat): the gun's two damage types come from its weapons and size (LoadShip 0x00500490)
+        cat_gunStaticSetSoundTypes(loadedGunInfo->guns[i].gunstatic);
     }
 }
 

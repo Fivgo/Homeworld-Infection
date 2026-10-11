@@ -188,32 +188,6 @@ MEXDockingChunk *mexGetDockChunk(void *mex,char *dockname)
     return NULL;
 }
 
-MEXSalvageChunk *mexGetSalChunk(void *mex,char *salvagename)
-{
-    MEXFileHeader *header = (MEXFileHeader *)mex;
-    MEXChunk *curmexchunk = (MEXChunk *) ( ((ubyte *)mex) + sizeof(MEXFileHeader) );
-    uword numChunks = header->nChunks;
-    uword i;
-
-    for (i=0;i<numChunks;i++)
-    {
-        if (strcasecmp(curmexchunk->type,"Sal") == 0)
-        {
-            if (strcasecmp(curmexchunk->name,"SALVAGE") == 0)
-            {
-                if (strcasecmp(((MEXSalvageChunk *)curmexchunk)->Name,salvagename) == 0)
-                {
-                    return (MEXSalvageChunk *)curmexchunk;
-                }
-            }
-        }
-
-        curmexchunk = (MEXChunk *)(((ubyte *)curmexchunk) + sizeof(MEXChunk) + curmexchunk->chunkSize);
-    }
-
-    return NULL;
-}
-
 
 MEXNAVLightChunk *mexGetNAVLightChunk(void *mex,char *navLightName)
 {
@@ -399,38 +373,8 @@ void mexGetDockStaticInfo(DockStaticInfo *dockstaticinfo,void *mex)
     }
 }
 
-void mexGetSalvageStaticInfo(SalvageStaticInfo *salvagestaticinfo,void *mex)
-{
-    sdword i;
-    MEXSalvageChunk *salchunk;
-    sdword numSalvagePoints = salvagestaticinfo->numSalvagePoints;
-    SalvageStaticPoint *salvagestaticpoint;
-
-    if (mex == NULL)
-    {
-        dbgMessage("WARNING: Salvage info not retrieved. Mesh extensions not loaded");
-        return;
-    }
-
-    for (i=0;i<numSalvagePoints;i++)
-    {
-        salvagestaticpoint = &salvagestaticinfo->salvageStaticPoints[i];
-        salvagestaticpoint->number = i;
-        salchunk = mexGetSalChunk(mex,salvagestaticpoint->name);
-        if (salchunk != NULL)
-        {
-            salvagestaticpoint->position = salchunk->position;
-
-            mexVecToVec(&salvagestaticpoint->conenormal,&salchunk->normal);
-
-            salvagestaticpoint->coneangle = (real32)cos(DEG_TO_RAD(salchunk->coneAngle + salchunk->edgeAngle));
-        }
-        else
-        {
-            dbgMessagef("WARNING: Could not find salvage point in mex at %x",mex);
-        }
-    }
-}
+// CAT (M2-R4 combat): no mexGetSalChunk/mexGetSalvageStaticInfo (HW1 salvage points; cataclysm.exe's mex readers
+//      0x004b7130..0x004b7680 have no salvage chunk reader)
 
 void mexGetNAVLightStaticInfo(NAVLightStaticInfo *navlightstaticinfo,StaticInfo *staticheader)
 {

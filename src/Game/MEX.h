@@ -114,23 +114,6 @@ typedef struct tagMEXDockingChunk
     char            dockName[20];       // Actual name.
 } MEXDockingChunk;
 
-typedef struct tagMEXSalvageChunk
-{
-    // Generic stuff.
-    char            type[4];
-    char            name[8];            // Always "SALVAGE"
-    udword          chunkSize;
-
-    // Specific stuff...
-    vector          position;
-    vector          normal;
-
-    real32          coneAngle;
-    real32          edgeAngle;
-
-    char            Name[20];       // Actual name.
-} MEXSalvageChunk;
-
 typedef struct tagMEXNAVLightChunk
 {
     // Generic stuff.
@@ -165,13 +148,11 @@ RepairNozzleStatic *mexGetRepairNozzleStatic(void *mex);
 TractorBeamStatic *mexGetTractorBeamStatic(void *mex);
 void mexGetGunStaticInfo(GunStaticInfo *gunstaticinfo,void *mex);
 void mexGetDockStaticInfo(DockStaticInfo *dockstaticinfo,void *mex);
-void mexGetSalvageStaticInfo(SalvageStaticInfo *salvagestaticinfo,void *mex);
 void mexGetNAVLightStaticInfo(NAVLightStaticInfo *navlightstaticinfo, StaticInfo *staticheader);   // CAT: the header, not the mex (0x004b7680)
 void mexSetCollisionInfo(StaticCollInfo *staticCollInfo,void *mex,real32 forwardScale,real32 upScale,real32 rightScale, real32 xslide, real32 yslide, real32 zslide);
 void mexSetEngineNozzle(ShipStaticInfo *statinfo, void* mex, sdword index);   // CAT: statinfo, not the offset
 void mexVecToVec(vector *dest, vector *source);
 MEXDockingChunk *mexGetDockChunk(void *mex,char *dockname);
-MEXSalvageChunk *mexGetSalChunk(void *mex,char *salvagename);
 MEXNAVLightChunk *mexGetNAVLightChunk(void *mex,char *navLightName);
 
 #endif

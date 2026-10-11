@@ -7,6 +7,7 @@
 
 #include "Carrier.h"
 #include "Mothership.h"
+#include "LaunchMgr.h"
 
 #include "AITrack.h"
 #include "Attack.h"
@@ -28,6 +29,7 @@
 #include "SoundEvent.h"
 #include "StringsOnly.h"
 #include "Universe.h"
+#include "Blast.h"
 #include "UnivUpdate.h"
 #include "utility.h"
 
@@ -283,8 +285,12 @@ void MothershipRemoveShipReferences(Ship *ship,Ship *shiptoremove)
                 spec->bigGunChargeEffect = NULL;
             }
         }
-        // CAT-PROVISIONAL: with the launch manager open (0x00a446e8), a removed component-class ship of the same
-        //      player leaves its module slots (cat_lmModuleSlotsRemoveType 0x0049e970, LaunchMgr.c, M2-R4 #3)
+        // with the launch manager open, a removed component-class ship of the same player leaves its module slots
+        if (lmActive && (shiptoremove->playerowner == ship->playerowner) &&
+            (shiptoremove->staticinfo->shipclass == CLASS_Component))
+        {
+            cat_lmModuleSlotsRemoveType(shiptoremove->shiptype);
+        }
     }
     if (cat_shipHasBeastWeapon(ship))
     {
@@ -376,7 +382,10 @@ static void beastMothershipSelfDamage(Ship *ship)                           // 0
     if (ship->targetable.health <= minhealth)
     {
         spec->beastSystemActive = FALSE;
-        // CAT-PROVISIONAL: cat_lmBeastSystemsOff (LaunchMgr.c, M2-R4 #3) switches the systems off and tells the UI
+        // CAT: the exe calls cat_lmBeastSystemsOff 0x0049fc30 here: cat_clWrapSetBeastSystem 0x004535f0 with 0, which
+        //      in a single-player game is cat_clSetBeastSystem 0x0044e120 (it only stores the state, as below).
+        // CAT-TODO(M2-R4 #4): the multiplayer path (clSendMisc misc command 10) needs cat_clWrapSetBeastSystem in
+        //      CommandWrap.c; the launch manager's LM_BeastSystemsSet radio button reset is stage 3
         spec->beastSystemState = 0;
         return;
     }
@@ -477,15 +486,27 @@ void MothershipHouseKeep(Ship *ship)
 void MothershipDied(Ship *ship)
 {
     // CAT: MothershipDied 0x005bb9c0: a blast at the wreck, the weapon and depot close, and the ships clamped to it
-    //      that are being built get their build timer set to now + 1 s
-    // CAT-PROVISIONAL: cat_blastCreate(2, position, owner) (0x00515a50, the shock-wave blast list) is M2-R4 #3
+    //      that are being built die a second later (Ship+0x2FC, deathtime) [M2-R4 combat: the blast, the clamp list]
+    cat_blastCreate(CAT_BLAST_MOTHERSHIP, ship->obj.posinfo.position.x, ship->obj.posinfo.position.y,
+                    ship->obj.posinfo.position.z, ship->playerowner->playerIndex);
     if (cat_shipHasBeastWeapon(ship))
     {
         cat_beastWeaponClose(ship);
     }
     cat_salvageDepotDied(ship);
-    // CAT-PROVISIONAL: the exe sets Ship+0x2FC (a build timer) of every clamped ship with specialFlags2 bit 3 (being
-    //      built) to now + 1; the external-build state is CommandLayer's (M2-R4 #2)
+    if ((ship->guidance.clampInfo != NULL) && (ship->guidance.clampInfo->clampedObjs != NULL))
+    {
+        CatClampedList *clamped = ship->guidance.clampInfo->clampedObjs;
+        sdword i;
+
+        for (i = 0; i < clamped->numShips; i++)
+        {
+            if (bitTest(clamped->ShipPtr[i]->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+            {
+                clamped->ShipPtr[i]->deathtime = universe.totaltimeelapsed + 1.0f;
+            }
+        }
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -575,10 +596,8 @@ sdword cat_mothershipModuleSlotGet(Ship *mothership, sdword moduleType)     // 0
 
 bool32 cat_isBigGunBullet(SpaceObj *obj)                                   // 0x005bcf80
 {
-    // the exe: a bullet whose weapon type is WEAPON_BIGGUN (7).
-    // CAT-PROVISIONAL: this tree's Bullet has no weapon type yet (M2-R4 #3), so no bullet is a big-gun shell
-    (void)obj;
-    return FALSE;
+    // a bullet whose weapon type is WEAPON_BIGGUN (7): Bullet +0x108, the weapon word (M2-R4 combat)
+    return (obj->header.objtype == OBJ_BulletType) && (((Bullet *)obj)->bulletType == WEAPON_BIGGUN);
 }
 
 /*-----------------------------------------------------------------------------

@@ -64,12 +64,7 @@ typedef enum
     LaunchPoint,            // HW1 only, dormant
 } DockPointType;
 
-typedef enum
-{
-    Heading,
-    Up,
-    AttachPoint,
-} SalvagePointType;
+// CAT (M2-R4 combat): no HW1 SalvagePointType (Heading/Up/AttachPoint of the HW1 salvage statics, gone with them)
 
 typedef enum
 {
@@ -466,8 +461,6 @@ sdword cat_StrToWeaponType(char *str);      // CAT: cat_StrToWeaponType 0x004d71
 sdword cat_StrToGunSize(char *str);         // CAT: cat_StrToGunSize 0x004d70f0
 char *DockPointTypeToStr(DockPointType dockpointtype);
 
-SalvagePointType StrToSalvagePointType(char *str);
-char *SalvagePointTypeToStr(SalvagePointType salvagepointtype);
 
 char *GunSoundTypeToStr(GunSoundType gunsoundtype);
 GunSoundType StrToGunSoundType(char *str);

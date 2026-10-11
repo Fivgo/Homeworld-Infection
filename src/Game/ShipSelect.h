@@ -373,6 +373,11 @@ bool32 cat_shipCanSalvage(Ship *ship);
 real32 cat_shipGetSpeedMultiplier(Ship *ship);                      // CAT: 0x00514940 (M2-R4 combat)
 bool32 cat_salvageTargetAllowed(Ship *target);                      // CAT: 0x00513920 (M2-R4 combat)
 bool32 cat_shipHasUpgrade(Ship *ship, udword flag);
+real32 cat_weaponDamageVsArmour(sdword damageType, sdword armourLevel);   // CAT: 0x00514460 (M2-R4 combat)
+real32 cat_gunStaticBaseDamage(GunStatic *gunstatic);                     // CAT: 0x00514600 (M2-R4 combat)
+real32 cat_shipGetDamageMultiplier(Ship *ship);                           // CAT: 0x005148f0 (M2-R4 combat)
+void cat_shipUpgradesInit(Ship *ship);                                    // CAT: 0x005140a0 (M2-R4 combat)
+void cat_shipApplyUpgrades(Ship *ship);                                   // CAT: 0x00514490 (M2-R4 combat)
 real32 cat_upgradeFlagsBaseTime(udword flags);
 real32 cat_shipUpgradeFlagsTime(Ship *ship, udword flags);
 
@@ -385,9 +390,11 @@ bool32 cat_shipIsSentinelFieldActive(Ship *ship);
 bool32 cat_leechIsLeeching(Ship *ship);
 sdword cat_acvLinkState(Ship *ship);
 bool32 cat_acolyteCanFireLinkedWeapon(Ship *ship);
+bool32 cat_shipIsAcolyteOrDerelict(Ship *ship);                      // CAT: 0x005ad360 (M2-R4 combat)
 bool32 cat_salvageDepotHoldsCrystal(Ship *ship);
 bool32 cat_mothershipBigGunActive(Ship *ship);
 bool32 cat_shipDetectedByPlayer(Ship *ship, sdword playerIndex);
+sdword cat_shipStealthTargetState(Ship *ship, struct Player *player);   // CAT: 0x0053ff30 (M2-R4 combat)
 void cat_shipSetDisableReason(Ship *ship, sdword value, sdword reason);
 bool32 cat_shipIsAcolyte(Ship *ship);
 void cat_shipStealthDetectedSet(Ship *ship, sdword playerIndex, bool32 detected, bool32 silent);

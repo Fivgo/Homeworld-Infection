@@ -585,97 +585,246 @@ void collUpdateObjsInCollBlobs(void)
     }
 }
 
-bool32 kamikazeCheck(SpaceObjRotImpTarg *obj1, SpaceObjRotImpTarg *obj2)
+// CAT (M2-R4 combat): are a and b one and the same, or clamped to each other or to the same host?
+//      (cat_shipsClampedTogether 0x005bfbd0)
+static bool32 cat_shipsClampedTogether(SpaceObjRotImpTargGuidance *a, SpaceObjRotImpTargGuidance *b)
 {
-    real32 damage1,damage2;
-    sdword ret = FALSE;
-    sdword killer1type,killer1index;
-    sdword killer2type,killer2index;
-    // TODO(type safety, 2026-04-21): If you're gonna freely cast them as Ships, why bother taking objects in the first place?
-    // Change arguments to take Ship*
-    Ship const *ship1,*ship2;
-    ship1 = (Ship *)obj1;
-    ship2 = (Ship *)obj2;
+    bool32 together = FALSE;
 
-    killer1type = killer2type = DEATH_Killed_By_Collision;
-    killer1index = killer2index = 99;
-    damage1=0.0f;
-    damage2=0.0f;
-
-    if(ship1->header.objtype == OBJ_ShipType)
+    if (a == b)
     {
-        if(bitTest(ship1->shipOrDerelict.specialFlags,SPECIAL_Kamikaze))
-        {
-            //vector einsteinVel;
-            //real32 shipvel,damFactor;
-            //vecSub(einsteinVel,obj1->obj.posinfo.velocity,obj2->obj.posinfo.velocity);
-            //shipvel = fsqrt(vecMagnitudeSquared(einsteinVel));
-            //damFactor = shipvel/ship1->staticinfo->common.maxvelocity;
-            if(ship1->attackvars.attacktarget == obj2)
-            {
-                //ship was kamikazeeing and has collided with it's target
-                if(obj2->header.objtype == OBJ_ShipType)
-                {
-                    damage1 = ship2->staticinfo->health.maxhealth;//*damFactor;
-                }
-                else
-                {
-                    damage1 = ship1->staticinfo->health.maxhealth+1;   //set very big so kamikaze ship dies
-                }
-                damage2 = kamikazeDamage[ship1->shiptype];//*damFactor;
-                if (ship2->staticinfo->shipclass == CLASS_Fighter || ship2->staticinfo->shipclass == CLASS_Corvette)
-                {                                           //if target was a strike craft
-                    damage2 = min(damage2, ship1->staticinfo->health.maxhealth);//make sure strike craft cannot destroy targets more powerful than themselves
-                }
-                killer1type = DEATH_Killed_By_Kamikaze;
-                killer1index = ship1->playerowner->playerIndex;
-                ret = TRUE;
-            }
-        }
+        return TRUE;
     }
-
-    //if ship 2 was kamikazing
-    if(ship2->header.objtype == OBJ_ShipType)
+    if ((a == NULL) || (b == NULL) || (a->header.objtype != OBJ_ShipType) || (b->header.objtype != OBJ_ShipType) ||
+        (a->clampInfo == NULL) || (b->clampInfo == NULL))
     {
-        if(bitTest(ship2->shipOrDerelict.specialFlags,SPECIAL_Kamikaze))
-        {
-            //vector einsteinVel;
-            //real32 shipvel,damFactor;
-            //vecSub(einsteinVel,obj1->obj.posinfo.velocity,obj2->obj.posinfo.velocity);
-            //shipvel = fsqrt(vecMagnitudeSquared(einsteinVel));
-            //vecSub(einsteinVel,obj1->obj.posinfo.velocity,obj2->obj.posinfo.velocity);
-            //shipvel = fsqrt(vecMagnitudeSquared(einsteinVel));
-            //damFactor = shipvel/ship2->staticinfo->common.maxvelocity;
-            if(ship2->attackvars.attacktarget == obj1)
-            {
-                //ship was kamikazeeing and has collided with it's target
-                if(obj1->header.objtype == OBJ_ShipType)
-                {
-                    damage2 += ship1->staticinfo->health.maxhealth;//*damFactor;
-                }
-                else
-                {
-                    damage2 += ship2->staticinfo->health.maxhealth+1;   //set very big so kamikaze ship dies
-                }
-                damage1 += kamikazeDamage[ship2->shiptype];//*damFactor;
-                if (ship1->staticinfo->shipclass == CLASS_Fighter || ship1->staticinfo->shipclass == CLASS_Corvette)
-                {                                           //if target was a strike craft
-                    damage1 = min(damage1, ship2->staticinfo->health.maxhealth);//make sure strike craft cannot destroy targets more powerful than themselves
-                }
-
-                killer2type = DEATH_Killed_By_Kamikaze;
-                killer2index = ship2->playerowner->playerIndex;
-                ret = TRUE;
-            }
-        }
-    }
-    if(!ret)
         return FALSE;
+    }
+    if ((a->clampInfo->host != NULL) && (a->clampInfo->host == b->clampInfo->host))
+    {
+        together = TRUE;
+    }
+    if ((SpaceObjRotImpTargGuidance *)a->clampInfo->host == b)
+    {
+        together = TRUE;
+    }
+    if ((SpaceObjRotImpTargGuidance *)b->clampInfo->host == a)
+    {
+        return TRUE;
+    }
+    return together;
+}
 
-    ApplyDamageToTarget(obj1,damage1,0,killer2type,killer2index); //99 so as to register as invalid if it tries to get used (cause it shouldn't)
-    ApplyDamageToTarget(obj2,damage2,0,killer1type,killer1index);
+// CAT (M2-R4 combat): the damage factor of a ramming mimic (cat_shipGetRamDamageScale 0x005b9980): with upgrade 0x80
+//      the ship's specifics +0x138 (Ship+0x770), else 1. CAT-PROVISIONAL (M2-R4 #4): the mimic/P1 standard corvette
+//      specifics are ship code B's, so the upgraded factor reads as 1 until then
+static real32 cat_shipGetRamDamageScale(Ship *ship)
+{
+    (void)ship;
+    return 1.0f;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_kamikazeCheckShip
+    Description : CAT: does ship, a kamikaze, hit other? Fills in the damage to itself (selfDamage) and to the other
+                  (otherDamage), and how and by whom the other dies (cat_kamikazeCheckShip 0x0043a980). A kamikaze
+                  hits its attack target, or a ship clamped with it, or any enemy ship that is not a mimic. A Beast
+                  cruise missile infects an infectable ship (Mission 7's prison ships take beastAttacksRequired hits
+                  and a tenth of their health per hit); everything else takes the type's kamikaze damage. The kamikaze
+                  itself takes 9999 x its max health and stops.
+    Inputs      : ship, other
+    Outputs     : selfDamage, otherDamage, otherHow, otherKillerIndex
+    Return      : TRUE if ship hits other as a kamikaze
+----------------------------------------------------------------------------*/
+static bool32 cat_kamikazeCheckShip(Ship *ship, SpaceObjRotImpTarg *other, real32 *selfDamage, real32 *otherDamage,
+                                    sdword *otherHow, sdword *otherKillerIndex)
+{
+    bool32 otherIsShip;
+
+    if ((ship->header.objtype != OBJ_ShipType) || !bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_Kamikaze))
+    {
+        return FALSE;
+    }
+    otherIsShip = (other->header.objtype == OBJ_ShipType);
+    if (!cat_shipsClampedTogether((SpaceObjRotImpTargGuidance *)ship->attackvars.attacktarget, (SpaceObjRotImpTargGuidance *)other))
+    {
+        if (otherIsShip)
+        {
+            if (bitTest(((Ship *)other)->catShipFlags, CAT_SHIPFLAG_Mimic))
+            {
+                return FALSE;
+            }
+            if (ship->playerowner == ((Ship *)other)->playerowner)
+            {
+                return FALSE;
+            }
+        }
+    }
+    if (otherIsShip && (ship->shiptype == bCruiseMissile) && (((Ship *)other)->staticinfo->beastAttacksRequired >= 0) &&
+        (singlePlayerGame || (cat_shipHasUpgrade(ship, 0x10000) && (ship->playerowner != ((Ship *)other)->playerowner))))
+    {
+        Ship *target = (Ship *)other;
+
+        target->catKamikazeInfectionHits++;
+        if (!singlePlayerGame || (target->shiptype != dPrisonShip) ||
+            (target->staticinfo->beastAttacksRequired <= target->catKamikazeInfectionHits))
+        {
+            cat_beastInfectShip(target, ship);
+        }
+        else
+        {
+            *otherDamage = target->targetable.health * 0.1f;
+        }
+    }
+    else
+    {
+        *otherDamage = kamikazeDamage[ship->shiptype];
+    }
+    if (bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic))
+    {
+        *otherDamage = cat_shipGetRamDamageScale(ship) * *otherDamage;
+    }
+    *selfDamage = ship->staticinfo->health.maxhealth * 9999.0f;
+    *otherHow = DEATH_Killed_By_Kamikaze;
+    *otherKillerIndex = ship->playerowner->playerIndex;
+    ship->obj.posinfo.velocity.x = 0.0f;
+    ship->obj.posinfo.velocity.y = 0.0f;
+    ship->obj.posinfo.velocity.z = 0.0f;
     return TRUE;
 }
+
+// CAT (M2-R4 combat): kamikazeCheck 0x0043ab20 asks cat_kamikazeCheckShip for both objects (one object's damage to the
+//      other overwrites its own self damage) and, if either hits, damages both with GS 0 (call sites 5 and 6, each
+//      the other's attacker). The four ship collision functions inline the same code.
+bool32 kamikazeCheck(SpaceObjRotImpTarg *obj1, SpaceObjRotImpTarg *obj2)
+{
+    real32 damage1 = 0.0f, damage2 = 0.0f;
+    sdword how1 = DEATH_Killed_By_Collision, how2 = DEATH_Killed_By_Collision;
+    sdword killer1 = 99, killer2 = 99;
+    bool32 hit1, hit2;
+
+    hit1 = cat_kamikazeCheckShip((Ship *)obj1, obj2, &damage1, &damage2, &how2, &killer2);
+    hit2 = cat_kamikazeCheckShip((Ship *)obj2, obj1, &damage2, &damage1, &how1, &killer1);
+    if (!hit2 && !hit1)
+    {
+        return FALSE;
+    }
+    ApplyDamageToTarget(obj1,damage1,GS_LargeEnergyCannon,how1,killer1,(Ship *)obj2,5);
+    ApplyDamageToTarget(obj2,damage2,GS_LargeEnergyCannon,how2,killer2,(Ship *)obj1,6);
+    return TRUE;
+}
+/*-----------------------------------------------------------------------------
+    Name        : cat_collLineTriangleIntersect
+    Description : CAT: does the line from p0 through p1 cross the triangle a, b, c at or beyond p0? The parameter of the
+                  crossing along p0->p1 goes to *t (cat_collLineTriangleIntersect 0x0043a6b0; normal may be NULL, then
+                  it is computed from the corners)
+    Inputs      : p0, p1, a, b, c, normal
+    Outputs     : t
+    Return      : TRUE if it crosses inside the triangle
+----------------------------------------------------------------------------*/
+bool32 cat_collLineTriangleIntersect(vector *p0, vector *p1, vector *a, vector *b, vector *c, vector *normal, real32 *t)
+{
+    vector planeNormal, hit, edge, edgeNormal;
+    vector *corner;
+    real32 denom;
+    sdword i;
+
+    if (normal == NULL)
+    {
+        normal = &planeNormal;
+        cat_vecPlaneNormalFrom3Points(c, b, a, normal);
+    }
+    denom = (p0->z - p1->z) * normal->z + (p0->x - p1->x) * normal->x + (p0->y - p1->y) * normal->y;
+    if ((-1e-07f < denom) && (denom < 1e-07f))
+    {
+        return FALSE;                                       // parallel to the plane
+    }
+    *t = ((p0->z - a->z) * normal->z + (p0->x - a->x) * normal->x + (p0->y - a->y) * normal->y) / denom;
+    if (*t < 0.0f)
+    {
+        return FALSE;
+    }
+    hit.x = *t * (p1->x - p0->x) + p0->x;
+    hit.y = *t * (p1->y - p0->y) + p0->y;
+    hit.z = *t * (p1->z - p0->z) + p0->z;
+    for (i = 0; i < 3; i++)
+    {
+        switch (i)
+        {
+            case 0:  corner = a; vecSub(edge, *b, *a); break;
+            case 1:  corner = b; vecSub(edge, *c, *b); break;
+            default: corner = c; vecSub(edge, *a, *c); break;
+        }
+        edgeNormal.x = edge.y * normal->z - edge.z * normal->y;
+        edgeNormal.y = edge.z * normal->x - edge.x * normal->z;
+        edgeNormal.z = edge.x * normal->y - edge.y * normal->x;
+        vecNormalize(&edgeNormal);
+        if ((corner->x - hit.x) * edgeNormal.x + (corner->y - hit.y) * edgeNormal.y + (corner->z - hit.z) * edgeNormal.z < 0.0f)
+        {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+// CAT-PROVISIONAL (M2-R4 #4): an active Sentinel's field is a fan of triangles from the Sentinel to pairs of its
+//      partners (Sentinel specifics: the count at Ship+0x640, the pairs from Ship+0x644). The Sentinel header is on
+//      DefaultShipHeader until ship code B ports it, so no Sentinel has a field (cat_shipIsSentinelFieldActive is FALSE
+//      and no caller gets here).
+static sdword cat_sentinelFieldTriangles(Ship *sentinel, Ship *(**pairs)[2])
+{
+    (void)sentinel;
+    *pairs = NULL;
+    return 0;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_collLineSentinelFieldIntersect
+    Description : CAT: the first triangle of sentinel's field the ray from start along dir crosses (its parameter in *t),
+                  or -1 (cat_collLineSentinelFieldIntersect 0x0043abf0)
+    Inputs      : sentinel, start, dir
+    Outputs     : t
+    Return      : the triangle index or -1
+----------------------------------------------------------------------------*/
+sdword cat_collLineSentinelFieldIntersect(Ship *sentinel, vector *start, vector *dir, real32 *t)
+{
+    Ship *(*pairs)[2];
+    sdword num = cat_sentinelFieldTriangles(sentinel, &pairs);
+    sdword i, nearest = -1;
+    real32 nearestT = 1e21f;
+    vector end;
+
+    vecAdd(end, *start, *dir);
+    for (i = 0; i < num; i++)
+    {
+        if (cat_collLineTriangleIntersect(start, &end, &sentinel->obj.posinfo.position, &pairs[i][0]->obj.posinfo.position,
+                                          &pairs[i][1]->obj.posinfo.position, NULL, t) && (*t < nearestT))
+        {
+            nearestT = *t;
+            nearest = i;
+        }
+    }
+    if (nearest != -1)
+    {
+        *t = nearestT;
+    }
+    return nearest;
+}
+
+// CAT (M2-R4 combat): an sLeech that is attached to a ship (cat_shipIsLeech 0x005b7fd0 and its specifics +0x48,
+//      cat_leechGetSpecifics 0x005b7ff0). CAT-PROVISIONAL (M2-R4 #4): the Leech header is ship code B's; no Leech
+//      is attached until then
+static bool32 cat_leechIsAttached(Ship *ship)
+{
+    return (ship->shiptype == sLeech) && FALSE;
+}
+
+// CAT (M2-R4 combat): a live dRKO (cat_shipIsRKO 0x005c54c0)
+static bool32 cat_shipIsRKO(Ship *ship)
+{
+    return (ship->header.objtype == OBJ_ShipType) && (ship->shiptype == dRKO);
+}
+
 /*-----------------------------------------------------------------------------
     Name        : cat_collClampExempt
     Description : CAT: the clamp test collCheckShipShipColl 0x0043ade0 and collCheckBigShipSmallShipColl 0x0043b460
@@ -900,6 +1049,8 @@ void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
                     {
                         if(!kamikazeCheck(&obj1->targetable, &obj2->targetable))    //return true if kamikaze collision is true
                         {
+                            // CAT-TODO(M2-R4 #4): the exe first lets a ramming frigate act (cat_rammingFrigateCollide
+                            //      0x005c14a0: latch, release, infect); the RammingFrigate header is ship code B's
                             if (obj1->playerowner == obj2->playerowner)
                             {
                                 goto dontapplydamage;      // don't apply bonk damage for own ships
@@ -921,6 +1072,18 @@ void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
                                 }
                             }
                             else if (cat_shipIsSalvager(obj2) && (cat_salvageGetSalvagerInfo(obj2)->noDamageTarget == obj1))
+                            {
+                                goto dontapplydamage;
+                            }
+
+                            // CAT: a Leech that is attached does no bump damage (Leech specifics +0x48), and nothing
+                            //      bumps an RKO (collCheckShipShipColl 0x0043ade0: cat_shipIsLeech, cat_leechGetSpecifics,
+                            //      cat_shipIsRKO)
+                            if (cat_leechIsAttached(obj1) || cat_leechIsAttached(obj2))
+                            {
+                                goto dontapplydamage;
+                            }
+                            if (cat_shipIsRKO(obj1) || cat_shipIsRKO(obj2))
                             {
                                 goto dontapplydamage;
                             }
@@ -1126,6 +1289,8 @@ void collCheckBigShipSmallShipColl(blob *thisBlob)
                     {
                         if(!kamikazeCheck(&obj1->targetable,&obj2->targetable))    //return true if kamikaze collision is true
                         {
+                            // CAT-TODO(M2-R4 #4): the exe first lets a ramming frigate act (cat_rammingFrigateCollide
+                            //      0x005c14a0: latch, release, infect); the RammingFrigate header is ship code B's
                             if (obj1->playerowner == obj2->playerowner)
                             {
                                 goto dontapplydamage;
@@ -1141,6 +1306,12 @@ void collCheckBigShipSmallShipColl(blob *thisBlob)
                             //      tests both ships)
                             if ((cat_shipIsSalvager(obj1) && (cat_salvageGetSalvagerInfo(obj1)->noDamageTarget == obj2)) ||
                                 (cat_shipIsSalvager(obj2) && (cat_salvageGetSalvagerInfo(obj2)->noDamageTarget == obj1)))
+                            {
+                                goto dontapplydamage;
+                            }
+
+                            // CAT: a Leech that is attached does no bump damage (collCheckBigShipSmallShipColl 0x0043b460)
+                            if (cat_leechIsAttached(obj1) || cat_leechIsAttached(obj2))
                             {
                                 goto dontapplydamage;
                             }
@@ -1306,12 +1477,19 @@ void collCheckShipResourceColl(blob *thisBlob)
                     {
                         if(!kamikazeCheck(&obj1->targetable,&obj2->targetable))    //return true if kamikaze collision is true
                         {
-                            if (obj1->shiptype != ResourceCollector)   // ResourceCollector's have special armor because they always collect resources
+                            // CAT: collCheckShipResourceColl 0x0043bac0: every resource-class ship (not HW1's
+                            //      ResourceCollector type) has the special armour, except against a killer resource;
+                            //      a collision with a killer resource does not bounce
+                            if ((obj1->staticinfo->shipclass != CLASS_Resource) ||
+                                ((obj2->obj.attributes | obj1->obj.attributes) & CAT_ATTRIBUTES_KillerCollision))
                             {
                                 ApplyDamageToCollidingObjects(&obj1->targetable,&obj2->targetable,&distvector,dist);
                             }
 
-                            ObjectsCollided(&obj1->targetable,&obj2->targetable,colldist,&distvector,dist,distsquared);
+                            if (!((obj2->obj.attributes | obj1->obj.attributes) & CAT_ATTRIBUTES_KillerCollision))
+                            {
+                                ObjectsCollided(&obj1->targetable,&obj2->targetable,colldist,&distvector,dist,distsquared);
+                            }
                         }
                         else
                         {
@@ -1797,24 +1975,80 @@ void collCheckBeamColl(blob *thisBlob,Bullet *bullet)
 
     if (minbeamTarget != NULL)        // beam only collides with closest target
     {
+        bool32 applyDamage = TRUE;
+
         dbgAssertOrIgnore(minbeamCollideLineDist >= 0.0f);
+
+        // CAT: collCheckBeamColl 0x0043c900: a beam that hits an sSentinel / bSentinel with its field up only draws
+        //      the hit (univBulletCollidedWithTarget's first argument 0). The exe also pushes a seventh value (1, 2, 3
+        //      per call) that univBulletCollidedWithTarget 0x00546a20 never reads.
+        if ((minbeamTarget->header.objtype == OBJ_ShipType) &&
+            ((((Ship *)minbeamTarget)->shiptype == sSentinel) || (((Ship *)minbeamTarget)->shiptype == bSentinel)) &&
+            cat_shipIsSentinelFieldActive((Ship *)minbeamTarget))
+        {
+            // CAT-TODO(M2-R4 #4): cat_sentinelFieldBulletHit 0x005c6c60 (target, NULL, bullet) first, the field's
+            //      response (Sentinel.c)
+            applyDamage = FALSE;
+        }
 
         // don't apply beam damage every tick, correct with update rate factor
         if ((universe.univUpdateCounter % (UNIVERSE_UPDATE_RATE_FACTOR)) == 0) {
-            // CAT: collCheckBeamColl 0x0043c900 passes 0 on the beam frames that only draw the hit (CAT-TODO(M2-R4 #3))
-            univBulletCollidedWithTarget(TRUE, minbeamTarget,&minbeamTarget->staticinfo->common,bullet,minbeamCollideLineDist,minbeamCollSide);
+            univBulletCollidedWithTarget(applyDamage, minbeamTarget,&minbeamTarget->staticinfo->common,bullet,minbeamCollideLineDist,minbeamCollSide);
         }
         bullet->beamtraveldist = minbeamCollideLineDist;
     }
     else
     {
         bullet->beamtraveldist = bullet->lengthmag;
+
+        // CAT: collCheckBeamColl 0x0043c900: a Beast beam (GS_BeastWeapon) that hits nothing else still shows its hit
+        //      on its own target when its line crosses the target's box: no damage (first argument 0), the beam keeps
+        //      its full length
+        if ((bullet->soundType == GS_BeastWeapon) && (bullet->target != NULL))
+        {
+            if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)bullet->target,&bullet->obj.posinfo.position,&bullet->bulletheading,bullet->traveldist,&collSide)) >= 0.0f)
+            {
+                univBulletCollidedWithTarget(FALSE, bullet->target,&bullet->target->staticinfo->common,bullet,collideLineDist,collSide);
+            }
+        }
     }
     //adjust length of effect associated with bullet, if applicable
     if (bullet->effect != NULL)
     {
         ((real32 *)bullet->effect->variable)[SCALESHIFT(ETG_LengthVariable)] = bullet->beamtraveldist;
     }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_collBulletDFGFieldCheck
+    Description : CAT: a bDFGFrigate / tDFGFrigate target whose field radius holds the bullet acts on it
+                  (cat_collBulletDFGFieldCheck 0x0043cd10, univDFGFieldEffect)
+    Inputs      : bullet, target
+    Return      : TRUE when the field destroyed the bullet (univDFGFieldEffect 0x005b0940 returns 1 only after it
+                  detonated a big-gun shell)
+----------------------------------------------------------------------------*/
+static bool32 cat_collBulletDFGFieldCheck(Bullet *bullet, SpaceObjRotImpTarg *target)
+{
+    vector diff;
+    Ship *ship;
+
+    if (target->header.objtype != OBJ_ShipType)
+    {
+        return FALSE;
+    }
+    ship = (Ship *)target;
+    if ((ship->shiptype != bDFGFrigate) && (ship->shiptype != tDFGFrigate))
+    {
+        return FALSE;
+    }
+    vecSub(diff, target->impactable.collInfo.collPosition, bullet->obj.posinfo.position);
+    if (vecMagnitudeSquared(diff) < ((DFGFrigateStatics *)ship->staticinfo->custstatinfo)->DFGFrigateFieldRadiusSqr)
+    {
+        univDFGFieldEffect(ship, bullet, universe.totaltimeelapsed);
+        // CAT-TODO(M2-R4 #4): TRUE when univDFGFieldEffect detonated a big-gun shell (the big-gun block); it never
+        //      does before ship code B, so the bullet always goes on
+    }
+    return FALSE;
 }
 
 /*-----------------------------------------------------------------------------
@@ -1871,12 +2105,16 @@ void collCheckBulletTargetColl(blob *thisBlob)
 
         deletebulletflag = FALSE;
 
+        // CAT: by weapon (collCheckBulletTargetColl 0x0043cd90 switches on Bullet +0x108): the ion beam and the Beast
+        //      weapon collide as beams, the laser does not collide at all
         switch (bullet->bulletType)
         {
-            case BULLET_Beam:
+            case WEAPON_ION:
+            case WEAPON_BEASTINFECT:
                 collCheckBeamColl(thisBlob,bullet);
                 break;
-            case BULLET_Laser:
+            case WEAPON_LASER:
+            case CAT_BULLET_HW1DefenseLaser:    // CAT-DORMANT
                 break;              //don't do collision detection for lasers
             default:
                 pass = 0;
@@ -1984,7 +2222,30 @@ passagain:
                         goto nextpass;
                     }
 
-                    if ((target->header.objtype != OBJ_ShipType) || (((Ship *)target)->shiptype != DFGFrigate && ((Ship *)target)->shiptype != DefenseFighter))
+                    // CAT: an enemy bullet whose line crosses an active Sentinel field within this frame's travel hits the
+                    //      field (collCheckBulletTargetColl 0x0043cd90): only the hit is drawn (first argument 0) and the
+                    //      bullet is deleted. No Sentinel has a field before ship code B (cat_shipIsSentinelFieldActive).
+                    if ((target->header.objtype == OBJ_ShipType) &&
+                        ((((Ship *)target)->shiptype == sSentinel) || (((Ship *)target)->shiptype == bSentinel)) &&
+                        cat_shipIsSentinelFieldActive((Ship *)target) &&
+                        (bullet->playerowner != ((Ship *)target)->playerowner))
+                    {
+                        real32 fieldDist;
+
+                        if ((cat_collLineSentinelFieldIntersect((Ship *)target, &bullet->obj.posinfo.position, &bullet->bulletheading, &fieldDist) != -1) &&
+                            (fieldDist < bullet->traveldist))
+                        {
+                            // CAT-TODO(M2-R4 #4): cat_sentinelFieldBulletHit 0x005c6c60 (target, triangle, bullet) first.
+                            //      The exe passes the side its last collCheckRectLine left behind; -1 here.
+                            univBulletCollidedWithTarget(FALSE, target, targetstaticheader, bullet, fieldDist, -1);
+                            deletebulletflag = TRUE;
+                            goto nextbullet;
+                        }
+                    }
+
+                    // CAT: no field-radius exemption for a DFG frigate (collCheckBulletTargetColl 0x0043cd90 tests every target
+                    //      against its collision sphere first); the exemption stays for the dormant HW1 DefenseFighter
+                    if ((target->header.objtype != OBJ_ShipType) || (((Ship *)target)->shiptype != DefenseFighter))
                     {
                         if (ABS(distcheck) > (targetstaticheader->staticCollInfo.collspheresize+bullet->traveldist))
                         {
@@ -2003,6 +2264,13 @@ passagain:
                         goto nexttarget;
                     }
 
+                    // CAT: a DFG frigate's field acts on the bullet here (cat_collBulletDFGFieldCheck 0x0043cd10); a bullet
+                    //      the field destroyed is done with for this frame
+                    if (cat_collBulletDFGFieldCheck(bullet, target))
+                    {
+                        goto nextbullet;
+                    }
+
                     // Check for collisions between bullet and target here:
 
 #if COLLISION_CHECK_STATS
@@ -2015,16 +2283,7 @@ passagain:
 
                     if (target->header.objtype == OBJ_ShipType)
                     {
-                        if(((Ship *)target)->shiptype == DFGFrigate)
-                        {       //if target is a dfgf,
-                            DFGFrigateStatics *DFGFstatics;
-
-                            DFGFstatics = (DFGFrigateStatics *) ((ShipStaticInfo *)(((Ship *)target)->staticinfo))->custstatinfo;
-                            if(distsquared < DFGFstatics->DFGFrigateFieldRadiusSqr)
-                            {   //and bullet is within its field radius...affect the bullet
-                                univDFGFieldEffect((Ship *)target,bullet,universe.totaltimeelapsed);
-                            }
-                        }
+                        // CAT: HW1's DFGFrigate test is cat_collBulletDFGFieldCheck above
                         if(((Ship *)target)->shiptype == DefenseFighter)
                         {    //if target is a DefenseFighter
                             DefenseFighterStatics *defensestatics;
@@ -2049,6 +2308,8 @@ passagain:
 							{
 								if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)target,&bullet->obj.posinfo.position,&bullet->bulletheading,bullet->traveldist,&collSide)) >= 0.0f)
 								{
+									// CAT-TODO(stage 3): for a ship whose static info sets bUseRayTriangleIntersectionForHitLocation the exe
+									//      moves the hit onto the mesh (cat_meshLineIntersect 0x004b5910, when its switch 0x00752c48 is on)
 									univBulletCollidedWithTarget(TRUE, target,targetstaticheader,bullet,collideLineDist,collSide);   // CAT: 1 (collCheckBulletTargetColl 0x0043cd90)
 									deletebulletflag = TRUE;
 									goto nextbullet;
@@ -2247,7 +2508,7 @@ passagain:
 					{
 						if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)target,&missile->obj.posinfo.position,&missileheading,missile->maxtraveldist,&collSide)) >= 0.0f)
 						{
-							univMissileCollidedWithTarget((SpaceObjRotImpTarg *)target,targetstaticheader,missile,collideLineDist,collSide);
+							univMissileCollidedWithTarget(TRUE, (SpaceObjRotImpTarg *)target,targetstaticheader,missile,collideLineDist,collSide);   // CAT: 1 (all four exe callers)
 							AddMissileToDeleteMissileList(missile, -1);
 							goto nextmissile;
 						}
@@ -2412,7 +2673,7 @@ void collCheckMissileResourceColl(blob *thisBlob,MissileType missileType)
 					{
 						if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)target,&missile->obj.posinfo.position,&missileheading,missile->maxtraveldist,&collSide)) >= 0.0f)
 						{
-							univMissileCollidedWithTarget((SpaceObjRotImpTarg *)target,targetstaticheader,missile,collideLineDist,collSide);
+							univMissileCollidedWithTarget(TRUE, (SpaceObjRotImpTarg *)target,targetstaticheader,missile,collideLineDist,collSide);   // CAT: 1 (all four exe callers)
 							AddMissileToDeleteMissileList(missile, -1);
 							goto nextmissile;
 						}
@@ -2566,7 +2827,7 @@ void collCheckMissileDerelictColl(blob *thisBlob,MissileType missileType)
 					{
 						if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)target,&missile->obj.posinfo.position,&missileheading,missile->maxtraveldist,&collSide)) >= 0.0f)
 						{
-							univMissileCollidedWithTarget((SpaceObjRotImpTarg *)target,targetstaticheader,missile,collideLineDist,collSide);
+							univMissileCollidedWithTarget(TRUE, (SpaceObjRotImpTarg *)target,targetstaticheader,missile,collideLineDist,collSide);   // CAT: 1 (all four exe callers)
 							AddMissileToDeleteMissileList(missile, -1);
 							goto nextmissile;
 						}
@@ -2711,7 +2972,7 @@ void collCheckMissileMineColl(blob *thisBlob)
 					{
 						if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)target,&missile->obj.posinfo.position,&missileheading,missile->maxtraveldist,&collSide)) >= 0.0f)
 						{
-							univMissileCollidedWithTarget((SpaceObjRotImpTarg *)target,targetstaticheader,missile,collideLineDist,collSide);
+							univMissileCollidedWithTarget(TRUE, (SpaceObjRotImpTarg *)target,targetstaticheader,missile,collideLineDist,collSide);   // CAT: 1 (all four exe callers)
 							AddMissileToDeleteMissileList(missile, -1);
 							goto nextmissile;
 						}

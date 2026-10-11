@@ -129,6 +129,9 @@ void cat_clampUnclampAllFromShip(SpaceObjRotImpTargGuidance *ship)
 {
     // CAT: new (cat_clampUnclampAllFromShip 0x00434900): unclamps the first clamped object until the ship's clamp
     //      info has gone or holds none
+    //      [audit: the exe tests the list only on entry and then loops while the clamp info exists, so for a ship
+    //      that is clamped itself (its clamp info outlives its list) it would read the freed list's NULL + 8; the
+    //      port stops when the list is gone, which is the same in every case that does not crash]
     while ((ship->clampInfo != NULL) && (ship->clampInfo->clampedObjs != NULL))
     {
         unClampObj((SpaceObjRotImpTargGuidance *)ship->clampInfo->clampedObjs->ShipPtr[0]);

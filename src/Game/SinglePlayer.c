@@ -55,6 +55,7 @@
 #include "Tutor.h"
 #include "Tweak.h"
 #include "Universe.h"
+#include "Blast.h"
 #include "UnivUpdate.h"
 #include "utility.h"
 
@@ -2838,6 +2839,9 @@ abortload:
     }
 
     bobInitProperties();
+    // CAT (M2-R4 combat): the blast lists start empty on a new level (singlePlayerLoadNewLevel 0x0051a.., after
+    //      bobResetProperties and cat_fowCreatePlayerGrids; the rest of Cataclysm's next-level flow is stage 6's)
+    cat_blastInit();
 
     singlePlayerGameLoadNewLevelFlag = FALSE;
 }

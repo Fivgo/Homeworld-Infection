@@ -57,35 +57,137 @@ bool32 vanillaGunsMode = FALSE;
 =============================================================================*/
 
 /*-----------------------------------------------------------------------------
-    CAT (M2-R3 ships-a): three Cataclysm gun queries the reused HW1 ship bodies call (DefaultShipFire,
-    GenericInterceptorCanFire, GenericInterceptorPassiveAttack). In the exe each first asks whether the gun is in
-    its upgraded second fire mode (Gun +0x00 == gunstatic->endUpgradeLevel and start != end level) and then uses the
-    "2" keys (firetime2, bulletspeed2). This tree's Gun has no upgrade-level word yet (the exe's Gun is 0x88 bytes
-    with it at +0x00; HW1's is 0x84): the Gun layout and the upgrade runtime are M2-R4 #3 (combat). Until then
-    every gun is in its first mode, which is the exe's path for every gun that is not upgraded (CAT-PROVISIONAL).
+    CAT (M2-R3 ships-a; M2-R4 combat): the Cataclysm gun queries. In the exe each first asks whether the gun is in
+    its upgraded second fire mode: its weapon word (Gun +0x00, Gun.catWeaponType) is the gun's EndUpgradeLevel and
+    that differs from its StartUpgradeLevel (the test is inlined at every user). Then it uses the "2" keys
+    (firetime2, bulletspeed2, bulletlifetime2) and the second sound type (GunStatic +0x08).
 -----------------------------------------------------------------------------*/
-static bool32 cat_gunInSecondMode(Gun *gun)
+bool32 cat_gunInSecondMode(Gun *gun)
 {
-    // CAT-PROVISIONAL: (gun->upgradeLevel == gunstatic->endUpgradeLevel) && (startUpgradeLevel != endUpgradeLevel)
-    //      in the exe; no upgrade level until M2-R4 #3
-    (void)gun;
-    return FALSE;
+    GunStatic *gunstatic = gun->gunstatic;
+
+    return (gun->catWeaponType == gunstatic->endUpgradeLevel) &&
+           (gunstatic->startUpgradeLevel != gunstatic->endUpgradeLevel);
+}
+
+// the damage (sound) type of a weapon of a gun size (cat_gunSoundTypeLookup 0x0048b7c0): GS_* by WEAPON_* and GUNSIZE_*
+sdword cat_gunSoundTypeLookup(sdword weapon, sdword gunSize)              // 0x0048b7c0
+{
+    switch (weapon)
+    {
+        case WEAPON_ENERGY:
+            switch (gunSize)
+            {
+                case GUNSIZE_LARGE:     return GS_LargeEnergyCannon;
+                case GUNSIZE_MEDIUM:    return GS_MediumEnergyCannon;
+                case GUNSIZE_SMALL:     return GS_SmallEnergyCannon;
+                case GUNSIZE_VERYLARGE: return GS_VeryLargeEnergyCannon;
+            }
+            break;
+        case WEAPON_ION:
+            switch (gunSize)
+            {
+                case GUNSIZE_LARGE:     return GS_LargeIonCannon;
+                case GUNSIZE_MEDIUM:    return GS_MediumIonCannon;
+                case GUNSIZE_SMALL:     return GS_SmallIonCannon;
+                case GUNSIZE_VERYLARGE: return GS_VeryLargeIonCannon;
+            }
+            break;
+        case WEAPON_PLASMABOMB:
+            switch (gunSize)
+            {
+                case GUNSIZE_LARGE:     return GS_LargePlasmaBomb;
+                case GUNSIZE_MEDIUM:    return GS_MediumPlasmaBomb;
+                case GUNSIZE_SMALL:     return GS_SmallPlasmaBomb;
+                case GUNSIZE_VERYLARGE: return GS_VeryLargePlasmaBomb;
+            }
+            break;
+        case WEAPON_PROJECTILE:
+            switch (gunSize)
+            {
+                case GUNSIZE_LARGE:     return GS_LargeProjectile;
+                case GUNSIZE_MEDIUM:    return GS_MediumProjectile;
+                case GUNSIZE_SMALL:     return GS_SmallProjectile;
+            }
+            break;
+        case WEAPON_MINE:               return GS_MineLauncher;
+        case WEAPON_MISSILE:            return GS_MissleLauncher;
+        case WEAPON_LASER:              return GS_Laser;
+        case WEAPON_BIGGUN:             return GS_BigGun;
+        case WEAPON_BEASTINFECT:        return GS_BeastWeapon;
+        default:
+            break;
+    }
+    // the exe returns the gun size for a combination it has no row for
+    return gunSize;
+}
+
+// the two damage types of a gun: its first (StartUpgradeLevel) and second (EndUpgradeLevel) weapon at its size, into
+// the HW1 gunsoundtype (+0x04) and bulletType (+0x08) words (cat_gunStaticSetSoundTypes 0x0048b790; called for every
+// gun of a new ship and of a loaded one)
+void cat_gunStaticSetSoundTypes(GunStatic *gunstatic)                     // 0x0048b790
+{
+    gunstatic->gunsoundtype = (GunSoundType)cat_gunSoundTypeLookup(gunstatic->startUpgradeLevel, gunstatic->gunSize);
+    gunstatic->bulletType = (BulletType)cat_gunSoundTypeLookup(gunstatic->endUpgradeLevel, gunstatic->gunSize);
+}
+
+// the damage type a gun fires now (cat_gunGetSoundType 0x0048b8c0, also inlined in cat_gunCreateBullet)
+GunSoundType cat_gunGetSoundType(Gun *gun)                                 // 0x0048b8c0
+{
+    if (cat_gunInSecondMode(gun))
+    {
+        return (GunSoundType)gun->gunstatic->bulletType;
+    }
+    return gun->gunstatic->gunsoundtype;
 }
 
 bool32 cat_gunCanFire(Ship *ship, Gun *gun)                                 // 0x0048a1c0
 {
+    GunStatic *gunstatic = gun->gunstatic;
+    real32 elapsed, latest;
+    sdword i, numSecondMode;
+    Gun *other;
+
     // a dissolving ship does not fire
     if ((ship != NULL) && (ship->catDissolving == TRUE))
     {
         return FALSE;
     }
-    if (cat_gunInSecondMode(gun))
+    if (!cat_gunInSecondMode(gun))
     {
-        // CAT-PROVISIONAL: the second-mode fire-time rules (firetime2 shared between the ship's second-mode guns)
-        //      are M2-R4 #3; unreachable until then
+        return gunCanShoot(ship, gun);
+    }
+
+    elapsed = universe.totaltimeelapsed - gun->lasttimefired;
+    if (gunstatic->firetime2 <= 0.0f)
+    {
+        // the exe prints "Hobbes call Mike upgraded weapon does..." (no firetime2) and uses firetime
+        return gunstatic->firetime < elapsed;
+    }
+    if (elapsed <= gunstatic->firetime2)
+    {
         return FALSE;
     }
-    return gunCanShoot(ship, gun);
+    // the second-mode guns of a ship share firetime2: with n of them, one may fire every firetime2 / n
+    latest = gun->lasttimefired;
+    numSecondMode = 0;
+    for (i = 0; i < ship->gunInfo->numGuns; i++)
+    {
+        other = &ship->gunInfo->guns[i];
+        if (cat_gunInSecondMode(other))
+        {
+            numSecondMode++;
+            if (latest < other->lasttimefired)
+            {
+                latest = other->lasttimefired;
+            }
+        }
+    }
+    if (numSecondMode > 1)
+    {
+        return latest < universe.totaltimeelapsed - gunstatic->firetime2 / (real32)numSecondMode;
+    }
+    return TRUE;
 }
 
 real32 cat_gunGetBulletSpeed(Gun *gun)                                      // 0x0048b8e0
@@ -159,138 +261,105 @@ bool32 gunCanShoot(Ship *ship, Gun *gun)
 {
     GunStatic *gunstatic = gun->gunstatic;
     CommandToDo *command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
+    real32 firetime, healthFraction, compare;
 
-    if(ship->staticinfo->maxfuel != 0.0f)
-    {
-        //ship has fuel///lkets check it
-        if(ship->fuel <= 0.0f)
-        {
-            //ship is out of fuel
-            if(ship->shiptype != MinelayerCorvette)
-            {
-                //out of fuel and not minelayer
-                //so shouldn't shoot guns...out of energy
-                return FALSE;
-            }
-        }
-    }
+    // CAT: gunCanShoot 0x0048a2f0 (the delta map's IDENTICAL; the body is Cataclysm's): no fuel test; a damaged ship
+    //      fires and bursts more slowly (x1.25 below 3/4 health, x1.75 below 1/2, x2.5 below 1/4, x4 below 1/10,
+    //      except the big gun and the Beast weapon); no tactics or formation burst modifiers; the burst state is
+    //      mirrored in Ship+0x610 (catBurstFiring); the passive-attack penalty is checked after a burst as well
+    healthFraction = ship->targetable.health / ship->staticinfo->health.maxhealth;
     if (gunstatic->burstFireTime == 0.0f)  // this gun doesn't fire in bursts
     {
-        if(command != NULL)
+        firetime = gunstatic->firetime;
+        if ((gunstatic->gunsoundtype != GS_BeastWeapon) && (gunstatic->gunsoundtype != GS_BigGun))
         {
-            if(command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING &&
-               !ship->staticinfo->passiveAttackPenaltyExempt)
+            if (healthFraction < 0.1f)
             {
-                //ship is passive attacking, so lets limit its gun fire time
-                if(command->ordertype.attributes & COMMAND_MASK_PROTECTING &&
-                   command->ordertype.attributes & COMMAND_MASK_FORMATION &&
-                   command->formation.formationtype == SPHERE_FORMATION)
-                {
-                    goto dontdospecialpassivefix;
-                }
-                {
-                    real32 firetime = gunstatic->firetime+tacticsInfo.PassiveRetaliationFireTimeModifierLow;
-                    real32 compare = (universe.totaltimeelapsed - gun->lasttimefired);
-                    if(compare > firetime)
-                    {
-                        //pass minimum requirement
-                        firetime += frandombetween(tacticsInfo.PassiveRetaliationFireTimeModifierLow,tacticsInfo.PassiveRetaliationFireTimeModifierHi);
-                        if(compare > firetime)
-                        {
-                            //gun can now fire
-                            return TRUE;
-                        }
-                    }
-                    //it isn't ready to fire
-                    return FALSE;
-                }
+                firetime = firetime * (real32)4.0;
+            }
+            else if (healthFraction < 0.25f)
+            {
+                firetime = firetime * (real32)2.5;
+            }
+            else if (healthFraction < 0.5f)
+            {
+                firetime = firetime * (real32)1.75;
+            }
+            else if (healthFraction < 0.75f)
+            {
+                firetime = firetime * (real32)1.25;
             }
         }
-dontdospecialpassivefix:
-        return ((universe.totaltimeelapsed - gun->lasttimefired) > gunstatic->firetime);
+        return firetime < (universe.totaltimeelapsed - gun->lasttimefired);
     }
-    else                                   // this gun fires in bursts
+
+    // this gun fires in bursts
+    switch (gun->burstState)
     {
-        switch (gun->burstState)
-        {
-            case GUNBURST_STATE_READY:
-readystate:
-                gun->burstStartTime = universe.totaltimeelapsed;
-                gun->burstState = GUNBURST_STATE_BURST;
-                gun->useBurstFireTime = gunstatic->burstFireTime * tacticsInfo.tacticsBurstFireTimeModifier[ship->tacticstype];
-                gun->useBurstWaitTime = gunstatic->burstWaitTime * tacticsInfo.tacticsBurstWaitTimeModifier[ship->tacticstype];
-                if (ship->formationcommand && ship->formationcommand->formation.formationtype == SPHERE_FORMATION && ship->tacticstype != Evasive && ship->formationcommand->ordertype.order == COMMAND_ATTACK)
-                {
-                    gun->useBurstFireTime *= tacticsInfo.tacticsBurstFireTimeSphereModifier;
-                    gun->useBurstWaitTime *= tacticsInfo.tacticsBurstWaitTimeSphereModifier;
-                }
-                else if (ship->attackvars.myLeaderIs)
-                {
-                    gun->useBurstFireTime *= tacticsInfo.tacticsBurstFireTimeWingmanModifier;
-                    gun->useBurstWaitTime *= tacticsInfo.tacticsBurstWaitTimeWingmanModifier;
-                }
-//                soundEventBurstFire(ship, gun);
-                break;
-
-            case GUNBURST_STATE_BURST:
-                if ((universe.totaltimeelapsed - gun->burstStartTime) > gun->useBurstFireTime)
-                {
-                    gun->burstState = GUNBURST_STATE_COOLOFF;
-                    gun->burstStartTime = universe.totaltimeelapsed;
-                    // fall through to GUNBURST_STATE_COOLOFF
-                    soundEventBurstStop(ship, gun);
-                }
-                else
-                {
-                    break;
-                }
-
-            case GUNBURST_STATE_COOLOFF:
-                if ((universe.totaltimeelapsed - gun->burstStartTime) > gun->useBurstWaitTime)
-                {
-                    gun->burstState = GUNBURST_STATE_READY;
-                    goto readystate;
-                }
-                else
-                {
-                    return FALSE;
-                }
-        }
-
-        if(command != NULL)
-        {
-            if(command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING
-                && !ship->staticinfo->passiveAttackPenaltyExempt)
+        case GUNBURST_STATE_BURST:
+            ship->catBurstFiring = TRUE;
+            if ((universe.totaltimeelapsed - gun->burstStartTime) <= gun->useBurstFireTime)
             {
-                //ship is passive attacking, so lets limit its gun fire time
-                if(command->ordertype.attributes & COMMAND_MASK_PROTECTING &&
-                   command->ordertype.attributes & COMMAND_MASK_FORMATION &&
-                   command->formation.formationtype == SPHERE_FORMATION)
-                {
-                    goto dontdospecialpassivefix2;
-                }
-
-                {
-                    real32 firetime = gunstatic->firetime+tacticsInfo.PassiveRetaliationFireTimeModifierLow;
-                    real32 compare = (universe.totaltimeelapsed - gun->lasttimefired);
-                    if(compare > firetime)
-                    {
-                        //pass minimum requirement
-                        firetime += frandombetween(tacticsInfo.PassiveRetaliationFireTimeModifierLow,tacticsInfo.PassiveRetaliationFireTimeModifierHi);
-                        if(compare > firetime)
-                        {
-                            //gun can now fire
-                            return TRUE;
-                        }
-                    }
-                    //it isn't ready to fire
-                    return FALSE;
-                }
+                goto checkfiretime;
             }
-        }
-dontdospecialpassivefix2:
-        return ((universe.totaltimeelapsed - gun->lasttimefired) > gunstatic->firetime);
+            gun->burstState = GUNBURST_STATE_COOLOFF;
+            gun->burstStartTime = universe.totaltimeelapsed;
+            soundEventBurstStop(ship, gun);
+            // fall through to GUNBURST_STATE_COOLOFF
+        case GUNBURST_STATE_COOLOFF:
+            ship->catBurstFiring = FALSE;
+            if ((universe.totaltimeelapsed - gun->burstStartTime) <= gun->useBurstWaitTime)
+            {
+                return FALSE;
+            }
+            gun->burstState = GUNBURST_STATE_READY;
+            // fall through to GUNBURST_STATE_READY
+        case GUNBURST_STATE_READY:
+            gun->burstStartTime = universe.totaltimeelapsed;
+            gun->burstState = GUNBURST_STATE_BURST;
+            gun->useBurstFireTime = gunstatic->burstFireTime;
+            gun->useBurstWaitTime = gunstatic->burstWaitTime;
+            if (healthFraction < 0.1f)
+            {
+                gun->useBurstWaitTime = gunstatic->burstWaitTime * (real32)4.0;
+            }
+            else if (healthFraction < 0.25f)
+            {
+                gun->useBurstWaitTime = gunstatic->burstWaitTime * (real32)2.5;
+            }
+            else if (healthFraction < 0.5f)
+            {
+                gun->useBurstWaitTime = gunstatic->burstWaitTime * (real32)1.75;
+            }
+            else if (healthFraction < 0.75f)
+            {
+                gun->useBurstWaitTime = gunstatic->burstWaitTime * (real32)1.25;
+            }
+            break;
+        default:
+            break;
     }
+
+checkfiretime:
+    if ((command != NULL) && (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING) &&
+        !ship->staticinfo->passiveAttackPenaltyExempt &&
+        !((command->ordertype.attributes & COMMAND_MASK_PROTECTING) &&
+          (command->ordertype.attributes & COMMAND_MASK_FORMATION) &&
+          (command->formation.formationtype == SPHERE_FORMATION)))
+    {
+        //ship is passive attacking, so lets limit its gun fire time
+        firetime = tacticsInfo.PassiveRetaliationFireTimeModifierLow + gunstatic->firetime;
+        compare = universe.totaltimeelapsed - gun->lasttimefired;
+        if ((firetime < compare) &&
+            ((tacticsInfo.PassiveRetaliationFireTimeModifierHi - tacticsInfo.PassiveRetaliationFireTimeModifierLow) *
+             (1.0f / 4294967296.0f) * (real32)gamerand() + tacticsInfo.PassiveRetaliationFireTimeModifierLow + firetime < compare))
+        {
+            //gun can now fire
+            return TRUE;
+        }
+        return FALSE;
+    }
+    return gunstatic->firetime < (universe.totaltimeelapsed - gun->lasttimefired);
 }
 
 /*-----------------------------------------------------------------------------
@@ -371,38 +440,13 @@ bool32 gunOrientGimbleGun(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
     }
     else
     {
+        // CAT: gunOrientGimbleGun 0x0048a5e0 has no HW1 ion-cannon angles against fighters and corvettes
         triggerHappy = gunstatic->triggerHappy;
         maxAngle = gunstatic->cosmaxAngleFromNorm;
         maxAngleSpeed = gunstatic->maxanglespeed;
-        if ((gunstatic->bulletType == BULLET_Beam) && (target->header.objtype == OBJ_ShipType))
-        {
-            ShipClass sclass = ((Ship *)target)->staticinfo->shipclass;
-            if (sclass == CLASS_Fighter)
-            {
-                maxAngle = IONCANNON_TARGETS_FIGHTER_ANGLE;
-                maxAngleSpeed = IONCANNON_TARGETS_FIGHTER_MAXANGLESPEED;
-                triggerHappy = IONCANNON_TARGETS_FIGHTER_TRIGGERHAPPY;
-            }
-            else if (sclass == CLASS_Corvette)
-            {
-                maxAngle = IONCANNON_TARGETS_CORVETTE_ANGLE;
-                maxAngleSpeed = IONCANNON_TARGETS_CORVETTE_MAXANGLESPEED;
-                triggerHappy = IONCANNON_TARGETS_CORVETTE_TRIGGERHAPPY;
-            }
-        }
     }
-    if(ship->staticinfo->shipclass == CLASS_Fighter)
-    {
-        bulletspeed = gunstatic->bulletspeed*tacticsInfo.BulletSpeedBonus[Tactics_Fighter][ship->tacticstype];
-    }
-    else if(ship->staticinfo->shipclass == CLASS_Corvette)
-    {
-        bulletspeed = gunstatic->bulletspeed*tacticsInfo.BulletSpeedBonus[Tactics_Corvette][ship->tacticstype];
-    }
-    else
-    {
-        bulletspeed = gunstatic->bulletspeed;
-    }
+    // CAT: the second fire mode's speed, no HW1 tactics bonus (the exe inlines cat_gunGetBulletSpeed 0x0048b8e0)
+    bulletspeed = cat_gunGetBulletSpeed(gun);
 
 
     if (gunstatic->guntype == GUN_Gimble)
@@ -463,7 +507,10 @@ bool32 gunOrientGimbleGun(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
         gun->anglespeed = 0.0f;
         gun->declinationspeed = 0.0f;
 
-        if ((dotprod >= triggerHappy) && (gunstatic->bulletType != BULLET_Beam))
+        // CAT: a gun whose first weapon is a beam (WEAPON_ION, WEAPON_LASER) keeps tracking while on target (the exe
+        //      tests StartUpgradeLevel where HW1 tests the BULLET_Beam bullet type)
+        if ((dotprod >= triggerHappy) && (gunstatic->startUpgradeLevel != WEAPON_ION) &&
+            (gunstatic->startUpgradeLevel != WEAPON_LASER))
         {
             goto onTargetExitEarly;
         }
@@ -544,11 +591,7 @@ onTargetExitEarly:
             return FALSE;
         }
     }
-    else
-    {
-        dbgAssertOrIgnore(FALSE);
-        return FALSE;
-    }
+    // CAT: any other gun type is not aimed (no assert in the exe)
     return(FALSE);
 }
 
@@ -589,6 +632,16 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
 
     dbgAssertOrIgnore(gunstatic->guntype == GUN_MissileLauncher || gunstatic->guntype == GUN_MineLauncher);
     dbgAssertOrIgnore(gunHasMissiles(gun));
+
+    // CAT: missileShoot 0x0048aac0: a ship being handed to a salvage depot does not fire, nor at such a ship
+    if ((ship->header.objtype == OBJ_ShipType) && (ship->catSalvageDepot != NULL))
+    {
+        return;
+    }
+    if ((target != NULL) && (target->header.objtype == OBJ_ShipType) && (((Ship *)target)->catSalvageDepot != NULL))
+    {
+        return;
+    }
 
     //line-of-sight check
     if (target != NULL && gunstatic->guntype == GUN_MissileLauncher)
@@ -685,7 +738,7 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
     }
 
 
-    missile->soundType = gunstatic->gunsoundtype;
+    missile->soundType = cat_gunGetSoundType(gun);     // CAT: the gun's current damage type
     missile->race = shiprace;
     missile->timelived = 0.0f;
     missile->playerowner = ship->playerowner;
@@ -700,7 +753,12 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
     }
     else
     {   //normal
-        missile->damage = (frandombetween(gunstatic->gunDamageLo[ship->tacticstype],gunstatic->gunDamageHi[ship->tacticstype]));
+        // CAT: the damage is the ship's damage multiplier times the weapon against the target's armour (0 for a target
+        //      that is no ship) times the gun's DamageMult, fixed at launch (missileShoot 0x0048aac0); no HW1 random
+        //      tactics damage
+        sdword armour = ((target != NULL) && (target->header.objtype == OBJ_ShipType)) ? ((Ship *)target)->catArmourLevel : 0;
+
+        missile->damage = cat_shipGetDamageMultiplier(ship) * cat_weaponDamageVsArmour(missile->soundType, armour) * gunstatic->damageMult;
         missile->totallifetime = gunstatic->bulletlifetime;
     }
 
@@ -799,9 +857,8 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
     }
 
     //muzle flash effect trigger and set collision event
-    missile->hitEffect = etgGunEventTable[shipstatic->shiprace][gunstatic->gunsoundtype][EGT_GunHit];//get pointer to bullet effect
-//    missile->hitEffect = etgGunEventTable[shiprace][gunstatic->gunsoundtype][EGT_GunHit];//just get pointer from parent gun
-    etgLOD = etgGunEventTable[shipstatic->shiprace][gunstatic->gunsoundtype][EGT_GunFire];//get pointer to bullet effect
+    missile->hitEffect = etgGunEventTable[shipstatic->shiprace][missile->soundType][EGT_GunHit];//get pointer to bullet effect
+    etgLOD = etgGunEventTable[shipstatic->shiprace][missile->soundType][EGT_GunFire];//get pointer to bullet effect
     if (etgLOD != NULL)
     {
         LOD = ship->obj.currentLOD;
@@ -828,23 +885,27 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
         if (stat != NULL && etgFireEffectsEnabled && !etgFrequencyExceeded(stat))
 #endif
         {                                                       //if there is a gun fire effect
+            real32 typeParam;
+
             matCreateCoordSysFromHeading(&newCoordsys,&gunheadingInWorldCoordSys);
             floatDamage = (real32)missile->damage;
             floatDamage *= ship->magnitudeSquared;
             intDamage = Real32ToUdword(floatDamage);
-            etgEffectCreate(stat, ship, &missile->obj.posinfo.position, NULL, &newCoordsys, 1.0f, EAF_Velocity | EAF_NLips, 1, SCALECAST(intDamage));
+            // CAT: a second effect parameter by launcher type (0x0088153c/40/44: sDreadnought 40, sDestroyer 50, the
+            //      Acolytes -15, else 0)
+            switch (ship->shiptype)
+            {
+                case sDreadnought:  typeParam = 40.0f;  break;
+                case sDestroyer:    typeParam = 50.0f;  break;
+                case sAcolyte:
+                case bAcolyte:      typeParam = -15.0f; break;
+                default:            typeParam = 0.0f;   break;
+            }
+            etgEffectCreate(stat, ship, &missile->obj.posinfo.position, NULL, &newCoordsys, 1.0f, EAF_Velocity | EAF_NLips, 2,
+                            SCALECAST(intDamage), SCALECAST(Real32ToUdword(typeParam)));
         }
     }
-    if(bitTest(ship->header.flags,SOF_CloakGenField))
-    {   //dang decloakage...
-        bitSet(ship->header.flags,SOF_DeCloaking);
-        if(bitTest(ship->header.flags,SOF_Cloaked))
-        {
-            bitClear(ship->header.flags,SOF_Cloaked);
-            ship->shipDeCloakTime = universe.totaltimeelapsed;
-        }
-        bitClear(ship->header.flags,SOF_Cloaking);
-    }
+    // CAT: no HW1 cloak-field decloak here (the exe has none)
     if (target != NULL && target->header.objtype == OBJ_ShipType)
     {                                                       //if we succeeded in shooting at enemy
         ((Ship *)target)->firingAtUs = ship;
@@ -913,85 +974,31 @@ void gunRecoilVectorCompute(vector *dest, real32 recoilLength, real32 lastFired,
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : gunShoot
-    Description : shoots a given gun of the given ship
-    Inputs      : ship  - that which owns gun
-                  gun - gun to fire
-                  target - object being shot at or NULL
+    Name        : cat_gunCreateBullet (Cataclysm 0x0048bb00)
+    Description : CAT: creates the bullet a gun of ship fires at target. gunShoot 0x0048b5b0 calls it with from == NULL
+                  (the bullet leaves the gun's muzzle along the gun's heading); the Beast weapon's cascade calls it
+                  with from == the infected ship (the bullet starts at ship and heads from from to target).
+    Inputs      : ship, gun, from, target (may be NULL), damage
     Outputs     :
-    Return      :
+    Return      : the bullet
 ----------------------------------------------------------------------------*/
-void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
+Bullet *cat_gunCreateBullet(Ship *ship, Gun *gun, SpaceObj *from, SpaceObjRotImpTarg *target, real32 damage)
 {
-    Bullet *bullet;
     GunStatic *gunstatic = gun->gunstatic;
-    ShipStaticInfo *shipstatic;
-    etgeffectstatic *stat;
-    etglod *etgLOD;
-    sdword LOD;
-    real32 floatDamage = 0.0, bulletspeed = 0.0, damagemult = 0.0, healthFactor = 0.0;
+    ShipStaticInfo *shipstatic = ship->staticinfo;
+    bool32 burst = bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_BurstFiring);
+    bool32 secondMode = cat_gunInSecondMode(gun);
+    GunSoundType soundType = cat_gunGetSoundType(gun);
+    Bullet *bullet;
+    vector heading, position, offset0, offset1;
+    real32 bulletspeed = 0.0f, effectDamage, effectLength;
     udword intDamage, intVelocity, intLength;
-    vector offset0, offset1;
-    CommandToDo *shipFormationCommand;
-    vector gunheadingInWorldCoordSys;
-    vector positionInWorldCoordSys;
-
-    vector gunDirection, gunPosition;
-
-    vector recoil;
-    real32 massovertime;
-
-    dbgAssertOrIgnore(gunstatic->guntype != GUN_MissileLauncher);
-
-    //line-of-sight check
-    if (target != NULL)
-    {
-        switch (((ShipStaticInfo*)ship->staticinfo)->shipclass)
-        {
-        case CLASS_Mothership:
-        case CLASS_HeavyCruiser:
-        case CLASS_Destroyer:
-        case CLASS_Carrier:
-        case CLASS_Frigate:
-            matMultiplyMatByVec(&gunDirection, &ship->rotatable.rotinfo.coordsys, &gun->gunheading);
-            matMultiplyMatByVec(&gunPosition, &ship->rotatable.rotinfo.coordsys, &gunstatic->position);
-            vecAddTo(gunPosition, ship->obj.posinfo.position);
-            if (!collCheckLineOfSight(ship, (Ship*)target, &gunPosition, &gunDirection))
-            {
-#if GUN_VERBOSE_LEVEL > 1
-                dbgMessage("line-of-sight obscured, not shooting");
-#endif
-                return;
-            }
-        }
-    }
-
-    //if this is the first gunshot, set the shipisattacking variable
-    //for the ship and his wingman as well (if the wingman exists)
-    if (!ship->shipisattacking)
-    {
-        ship->shipisattacking = TRUE;
-        //dbgMessagef("Ship %i is attacking (gun)", ship->shipID.shipNumber);
-    }
-    if ((ship->attackvars.myWingmanIs)&&(!ship->attackvars.myWingmanIs->shipisattacking))
-    {
-        ship->attackvars.myWingmanIs->shipisattacking = TRUE;
-        //dbgMessagef("Ship %i is attacking (gun - wingman)", ship->attackvars.myWingmanIs->shipID.shipNumber);
-    }
-    if(ship->shipOrDerelict.specialFlags & SPECIAL_ShipInGravwell)   // CAT: specialFlags in the exe
-    {
-        //ship is in gravwell
-        return; //don't let it fire.
-    }
-
-
-    shipstatic = (ShipStaticInfo *)ship->staticinfo;
-
-    gun->lasttimefired = universe.totaltimeelapsed;
+    etglod *etgLOD;
+    etgeffectstatic *stat;
+    sdword LOD;
 
     bullet = memAlloc(sizeof(Bullet),"Bu(Bullet)",Pyrophoric);
-    bullet->obj.catEffectBlock = NULL;                      // CAT: +0x84 cleared first (cat_gunCreateBullet 0x0048bb00)
-
+    bullet->obj.catEffectBlock = NULL;                      // +0x84 cleared first
     bullet->header.objtype = OBJ_BulletType;
     bullet->header.flags = 0;
     bullet->obj.staticinfo = NULL;
@@ -999,186 +1006,95 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
     bullet->obj.currentLOD = ship->obj.currentLOD;
     bullet->obj.collMyBlob = NULL;
     bullet->obj.cameraDistanceSquared = ship->obj.cameraDistanceSquared;
-    cat_univShipMeshStateCreate(&bullet->obj);              // CAT: cat_gunCreateBullet 0x0048bb00 (NULL: not a ship)
+    cat_univShipMeshStateCreate(&bullet->obj);              // NULL: not a ship
 
-
-    //calculate a damage multipler based on several variables
-    //including strike craft being in formation, and their damage
-    switch(ship->staticinfo->shipclass)
-    {
-    case CLASS_Fighter:
-    case CLASS_Corvette:
-        //optimize 'healthfactor' for all game operations
-        //by calculating it once a frame?
-        healthFactor = ship->targetable.health*ship->staticinfo->health.oneOverMaxHealth;
-        if (healthFactor < selShipHealthYellowFactor)
-        {
-            //in the red
-            damagemult = tacticsInfo.tacticsDamageModifierRed;
-        }
-        else if (healthFactor < selShipHealthGreenFactor )
-        {
-            //in the yellow
-            damagemult = tacticsInfo.tacticsDamageModifierYellow;
-        }
-        else
-        {
-            //in the green
-            damagemult = 1.0f;
-        }
-
-        shipFormationCommand = ship->formationcommand;
-        if(shipFormationCommand != NULL)
-        {
-            //in formation..concatenate the damage multipler from above with this new one
-            damagemult *= (shipFormationCommand->formation.formationtype == SPHERE_FORMATION) ?
-                tacticsInfo.tacticsDamageMultiplierInSphereFormation : tacticsInfo.tacticsDamageMultiplierInFormation;
-            break;
-        }
-        break;
-    default:
-        damagemult = 1.0f;
-        break;
-    }
-
-    if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_KasSpecialDamageModifier))
-    {
-        //ship is being 'beefed' up by KAS...add value to damagemultiplier
-        damagemult*=ship->damageModifier;
-    }
-    //set gun damage based on ships tactical state.
-    if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_BurstFiring))
-    {
-        bullet->damageFull = bullet->damage = frandombetween(burstDamageLo[ship->shiprace],burstDamageHi[ship->shiprace])*damagemult;
-        bullet->bulletType = BULLET_SpecialBurst;
-    }
-    else
-    {
-        bullet->damageFull = bullet->damage = frandombetween(gunstatic->gunDamageLo[ship->tacticstype],gunstatic->gunDamageHi[ship->tacticstype])*damagemult;
-        bullet->bulletType = gunstatic->bulletType;
-    }
-
-    bullet->soundType = gunstatic->gunsoundtype;
-
+    bullet->catBurst = burst;
+    bullet->bulletType = gun->catWeaponType;               // the weapon word (SpaceObj.h)
+    bullet->damage = damage;
+    bullet->damageFull = damage;                            // HW1 field; the exe's +0x13C is catMoved
+    bullet->soundType = soundType;
     bullet->owner = ship;
     bullet->playerowner = ship->playerowner;
     bullet->gunowner = gun;
-    if ((target != NULL))// && (target->header.objtype != OBJ_MissileType))
-    {
-        if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_BurstFiring))
-            bullet->target = NULL;
-        else
-            bullet->target = target;
-    }
-    else
-    {
-        bullet->target = NULL;
-    }
-    bullet->bulletColor = etgBulletColor[shipstatic->shiprace][bullet->soundType];
+    bullet->target = ((target != NULL) && !burst) ? target : NULL;
+    bullet->bulletColor = etgBulletColor[shipstatic->shiprace][soundType];
     bullet->bulletmass = gunstatic->bulletmass;
     bullet->lengthmag = gunstatic->bulletlength;
-
     bullet->timelived = 0.0f;
-    if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_BurstFiring))
-    {
-        HeavyCorvetteSpec *spec = (HeavyCorvetteSpec *)ship->ShipSpecifics;
-        bullet->totallifetime = spec->bulletLifeTime;
-    }
-    else
-    {
-        //set bullet life time based on range (and hence add tactics bonuses)
-        if(ship->staticinfo->shipclass == CLASS_Fighter)
-        {
-            bullet->totallifetime = gunstatic->bulletlifetime*tacticsInfo.BulletRangeBonus[Tactics_Fighter][ship->tacticstype];
-        }
-        else if(ship->staticinfo->shipclass == CLASS_Corvette)
-        {
-            bullet->totallifetime = gunstatic->bulletlifetime*tacticsInfo.BulletRangeBonus[Tactics_Corvette][ship->tacticstype];
-        }
-        else
-        {
-            bullet->totallifetime = gunstatic->bulletlifetime;
-        }
-    }
+    bullet->totallifetime = secondMode ? gunstatic->bulletlifetime2 : gunstatic->bulletlifetime;
     bullet->SpecialEffectFlag = 0;
     bullet->DFGFieldEntryTime = 0.0f;
-
-    // now fill in bullet->obj.posinfo
+    bullet->BulletSpeed = 0.0f;
+    bullet->catMoved = FALSE;
+    bullet->catBigGunRange = 0.0f;                          // CAT-TODO(M2-R4 #4): set for GS_BigGun shells by the big gun
+    bullet->catBigGunTravelled = 0.0f;
 
     memset(&(bullet->obj.posinfo),0,sizeof(bullet->obj.posinfo));
 
-    // heading
-    matMultiplyMatByVec(&gunheadingInWorldCoordSys,&ship->rotatable.rotinfo.coordsys,&gun->gunheading);
-    bullet->bulletheading = gunheadingInWorldCoordSys;
-
-    // length of bullet
-    vecScalarMultiply(bullet->lengthvec,gunheadingInWorldCoordSys,gunstatic->bulletlength);
-
-    matCreateCoordSysFromHeading(&bullet->rotatable.rotinfo.coordsys,&gunheadingInWorldCoordSys);
-
-    switch (bullet->bulletType)
+    // heading: the gun's, or from from towards target
+    if (from == NULL)
     {
-        case BULLET_Beam:
-            vecZeroVector(bullet->obj.posinfo.velocity);
-            bullet->traveldist = gunstatic->bulletlength;
-            bullet->beamtraveldist = gunstatic->bulletlength;
-            break;
+        matMultiplyMatByVec(&heading,&ship->rotatable.rotinfo.coordsys,&gun->gunheading);
+    }
+    else
+    {
+        vecSub(heading, target->obj.posinfo.position, from->posinfo.position);
+        vecNormalize(&heading);
+    }
+    bullet->bulletheading = heading;
+    vecScalarMultiply(bullet->lengthvec,heading,gunstatic->bulletlength);
+    matCreateCoordSysFromHeading(&bullet->rotatable.rotinfo.coordsys,&heading);
 
-        default:
-            // velocity
-            if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_BurstFiring))
+    // CAT: what moves depends on the weapon: shells and bolts fly, the ion beam, the laser and the Beast weapon do
+    //      not (the exe's switch on Gun +0x00)
+    switch (gun->catWeaponType)
+    {
+        case WEAPON_PROJECTILE:
+        case WEAPON_ENERGY:
+        case WEAPON_PLASMABOMB:
+        case WEAPON_BIGGUN:
+            if (burst)
             {
-                //fix later
                 bulletspeed = burstSpeed;
             }
             else
             {
-                if(ship->staticinfo->shipclass == CLASS_Fighter)
-                {
-                    bulletspeed = gunstatic->bulletspeed*tacticsInfo.BulletSpeedBonus[Tactics_Fighter][ship->tacticstype];
-                }
-                else if(ship->staticinfo->shipclass == CLASS_Corvette)
-                {
-                    bulletspeed = gunstatic->bulletspeed*tacticsInfo.BulletSpeedBonus[Tactics_Corvette][ship->tacticstype];
-                }
-                else
-                {
-                    bulletspeed = gunstatic->bulletspeed;
-                }
+                bulletspeed = cat_gunGetBulletSpeed(gun);
             }
-
-            vecScalarMultiply(bullet->obj.posinfo.velocity,gunheadingInWorldCoordSys,bulletspeed);
-                // bullettravel
-            bullet->traveldist = bulletspeed * universe.phystimeelapsed;
+            vecScalarMultiply(bullet->obj.posinfo.velocity,heading,bulletspeed);
+            bullet->beamtraveldist = 0.0f;
+            bullet->traveldist = universe.phystimeelapsed * bulletspeed;
+            break;
+        case WEAPON_ION:
+        case WEAPON_LASER:
+        case WEAPON_BEASTINFECT:
+            vecZeroVector(bullet->obj.posinfo.velocity);
+            bullet->traveldist = gunstatic->bulletlength;
+            bullet->beamtraveldist = gunstatic->bulletlength;
+            break;
+        default:
             break;
     }
 
-    if (opShipRecoil)
+    // position: the gun's muzzle, or the ship itself
+    if (from == NULL)
     {
-        if (!shipstatic->common.immobile)     // if ship isn't immobile, apply recoil (opposite force)
-        {
-            massovertime = -bullet->bulletmass / universe.phystimeelapsed;
-            recoil = bullet->obj.posinfo.velocity;
-            vecMultiplyByScalar(recoil,massovertime);
-            physApplyForceVectorToObj(ship,recoil);
-
+        matMultiplyMatByVec(&position,&ship->rotatable.rotinfo.coordsys,&gunstatic->position);
+        if (gunstatic->offset.x != 0.0f)
+        {                                                       //if there is an offset vector
+            matMultiplyMatByVec(&offset0, &gun->curgunorientation, &gunstatic->offset);//offset in gun space
+            matMultiplyMatByVec(&offset1, &ship->rotatable.rotinfo.coordsys, &offset0);//offset in world space
+            vecAddTo(position, offset1);
         }
+        vecAdd(bullet->obj.posinfo.position,position,ship->obj.posinfo.position);
+        bullet->obj.posinfo.position.x += heading.x * gunstatic->barrelLength;
+        bullet->obj.posinfo.position.y += heading.y * gunstatic->barrelLength;
+        bullet->obj.posinfo.position.z += heading.z * gunstatic->barrelLength;
     }
-
-    // position
-    matMultiplyMatByVec(&positionInWorldCoordSys,&ship->rotatable.rotinfo.coordsys,&gunstatic->position);
-
-    //add barrel length
-    if (gunstatic->offset.x != 0.0f)
-    {                                                       //if there is an offset vector
-        matMultiplyMatByVec(&offset0, &gun->curgunorientation, &gunstatic->offset);//offset in gun space
-        matMultiplyMatByVec(&offset1, &ship->rotatable.rotinfo.coordsys, &offset0);//offset in world space
-        vecAdd(positionInWorldCoordSys, positionInWorldCoordSys, offset1);//add to position
+    else
+    {
+        bullet->obj.posinfo.position = ship->obj.posinfo.position;
     }
-    vecAdd(bullet->obj.posinfo.position,positionInWorldCoordSys,ship->obj.posinfo.position);
-    bullet->obj.posinfo.position.x += gunheadingInWorldCoordSys.x * gunstatic->barrelLength;
-    bullet->obj.posinfo.position.y += gunheadingInWorldCoordSys.y * gunstatic->barrelLength;
-    bullet->obj.posinfo.position.z += gunheadingInWorldCoordSys.z * gunstatic->barrelLength;
 
     SET_MOVING_LINEARLY(bullet->obj.posinfo.isMoving);
     bullet->obj.posinfo.haventCalculatedDist = TRUE;
@@ -1196,126 +1112,194 @@ void gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
 
     univAddObjToRenderListIf((SpaceObj *)bullet,&ship->obj);     // add to render list if parent ship is in render list
 
-//    if (gunstatic->burstFireTime == 0.0f)
+    // CAT: the shot sound: a burst gun loops while it bursts, the ion beam loops, every other weapon but the Beast's
+    //      plays a shot
+    if (gunstatic->burstFireTime == 0.0f)
     {
-        if (bullet->bulletType == BULLET_Beam)
+        if (bullet->bulletType == WEAPON_ION)
         {
             soundEventPlay(ship, Gun_WeaponFireLooped, gun);
         }
-        else
+        else if (soundType != GS_BeastWeapon)
         {
             soundEventPlay(ship, Gun_WeaponShot, gun);
         }
     }
+    else if (!ship->soundevent.burstfiring)
+    {
+        soundEventPlay(ship, Gun_WeaponFireLooped, gun);
+    }
 
-    //figure out some parameters for the effects we are about to spawn
-    floatDamage = (real32)bullet->damage;
-    floatDamage *= ship->magnitudeSquared;
-    intDamage = Real32ToUdword(floatDamage);
+    // CAT: the effects' damage parameter is the weapon's base damage against no armour, not the bullet's damage
+    effectDamage = cat_weaponDamageVsArmour(soundType, 0) * gunstatic->damageMult * ship->magnitudeSquared;
+    effectLength = (gunstatic->gunsoundtype == GS_BeastWeapon) ? 0.0f : gunstatic->bulletlength;
+    intDamage = Real32ToUdword(effectDamage);
     intVelocity = Real32ToUdword(bulletspeed);
-    intLength = Real32ToUdword(gunstatic->bulletlength);
+    intLength = (gunstatic->gunsoundtype == GS_BeastWeapon) ? 0 : Real32ToUdword(effectLength);
+
     //create an effect for bullet, if applicable
-    if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_BurstFiring))
+    if (burst)
     {
         etgLOD = etgSpecialPurposeEffectTable[EGT_BURST_BULLET_EFFECT];
     }
     else
     {
-        etgLOD = etgGunEventTable[shipstatic->shiprace][gunstatic->gunsoundtype][EGT_GunBullet];//get pointer to bullet effect
+        etgLOD = etgGunEventTable[shipstatic->shiprace][soundType][EGT_GunBullet];//get pointer to bullet effect
     }
-
+    stat = NULL;
     if (etgLOD != NULL)
     {
-        if (target != NULL)
-        {
-            LOD = min(ship->obj.currentLOD, target->obj.currentLOD);
-        }
-        else
+        if (target == NULL)
         {
             LOD = ship->obj.currentLOD;
         }
-        if (LOD >= etgLOD->nLevels)
-        {
-            stat = NULL;
-        }
         else
+        {
+            LOD = min(ship->obj.currentLOD, target->obj.currentLOD);
+        }
+        if (soundType == GS_BigGun)
+        {
+            LOD = 0;                                        // CAT: a big-gun shell is always drawn at full detail
+        }
+        if (LOD < etgLOD->nLevels)
         {
             stat = etgLOD->level[LOD];
         }
     }
-    else
-    {
-        stat = NULL;
-    }
-    if (univSpaceObjInRenderList(&ship->obj))
-    {
-#if ETG_DISABLEABLE
-        if (stat != NULL && etgBulletEffectsEnabled && etgEffectsEnabled && !etgFrequencyExceeded(stat))
-#else
-        if (stat != NULL && etgBulletEffectsEnabled && !etgFrequencyExceeded(stat))
-#endif
-        {
-            bullet->effect = etgEffectCreate(stat, (Ship *)bullet, NULL, &ship->obj.posinfo.velocity, NULL, 1.0f, EAF_AllButNLips, 3, SCALECAST(intDamage), SCALECAST(intVelocity), SCALECAST(intLength));
-        }
-        else
-        {
-            bullet->effect = NULL;                              //play no effect for this bullet
-        }
-    }
-    else
+    if (((!univSpaceObjInRenderList(&ship->obj)) && (soundType != GS_BigGun)) || (stat == NULL) ||
+        (!etgBulletEffectsEnabled) || etgFrequencyExceeded(stat))
     {
         bullet->effect = NULL;                              //play no effect for this bullet
     }
+    else if (bullet->bulletType == WEAPON_ION)
+    {
+        // CAT: the ion beam's effect also gets the ship type and the barrel length
+        bullet->effect = etgEffectCreate(stat, (Ship *)bullet, NULL, &ship->obj.posinfo.velocity, NULL, 1.0f, EAF_AllButNLips, 5,
+                                         SCALECAST(intDamage), SCALECAST(intVelocity), SCALECAST(intLength),
+                                         SCALECAST(ship->shiptype), SCALECAST(Real32ToUdword(gunstatic->barrelLength)));
+    }
+    else
+    {
+        bullet->effect = etgEffectCreate(stat, (Ship *)bullet, NULL, &ship->obj.posinfo.velocity, NULL, 1.0f, EAF_AllButNLips, 3,
+                                         SCALECAST(intDamage), SCALECAST(intVelocity), SCALECAST(intLength));
+    }
 
     //fire effect trigger and set collision event
-    bullet->hitEffect = etgGunEventTable[shipstatic->shiprace][gunstatic->gunsoundtype][EGT_GunHit];//get pointer to bullet effect
-//    bullet->hitEffect = etgGunEventTable[ship->shiprace][gunstatic->gunsoundtype][EGT_GunHit];//just get pointer from parent gun
-    etgLOD = etgGunEventTable[shipstatic->shiprace][gunstatic->gunsoundtype][EGT_GunFire];//get pointer to bullet effect
-    if (etgLOD != NULL)
+    bullet->hitEffect = etgGunEventTable[shipstatic->shiprace][soundType][EGT_GunHit];
+    etgLOD = etgGunEventTable[shipstatic->shiprace][soundType][EGT_GunFire];
+    if ((etgLOD != NULL) && (ship->obj.currentLOD < etgLOD->nLevels))
     {
-        LOD = ship->obj.currentLOD;
-        if (LOD >= etgLOD->nLevels)
-        {
-            stat = NULL;
-        }
-        else
-        {
-            stat = etgLOD->level[LOD];
-        }
+        stat = etgLOD->level[ship->obj.currentLOD];
     }
     else
     {
         stat = NULL;
     }
-//    stat = etgGunEventTable[ship->shiprace][gunstatic->gunsoundtype][EGT_GunFire];//get gun effect
+    if (univSpaceObjInRenderList(&ship->obj) && (stat != NULL) && etgFireEffectsEnabled && !etgFrequencyExceeded(stat))
+    {                                                       //if there is a gun fire effect
+        etgEffectCreate(stat, ship, &bullet->obj.posinfo.position, &ship->obj.posinfo.velocity, &bullet->rotatable.rotinfo.coordsys, 1.0f, EAF_Velocity, 1, SCALECAST(intDamage));
+    }
 
-    if (univSpaceObjInRenderList(&ship->obj))
+    if (soundType == GS_BigGun)
     {
-#if ETG_DISABLEABLE
-        if (stat != NULL && etgFireEffectsEnabled && etgEffectsEnabled && !etgFrequencyExceeded(stat))
-#else
-        if (stat != NULL && etgFireEffectsEnabled && !etgFrequencyExceeded(stat))
-#endif
-        {                                                       //if there is a gun fire effect
-            etgEffectCreate(stat, ship, &bullet->obj.posinfo.position, &ship->obj.posinfo.velocity, &bullet->rotatable.rotinfo.coordsys, 1.0f, EAF_Velocity, 1, SCALECAST(intDamage));
-        }
+        pingAnomalyObjectPingAdd("BulletBigGun", (SpaceObj *)bullet);
     }
-    if(bitTest(ship->header.flags,SOF_CloakGenField))
-    {
-        bitSet(ship->header.flags,SOF_DeCloaking);
-        if(bitTest(ship->header.flags,SOF_Cloaked))
-        {
-            bitClear(ship->header.flags,SOF_Cloaked);
-            ship->shipDeCloakTime = universe.totaltimeelapsed;
-        }
-        bitClear(ship->header.flags,SOF_Cloaking);
-    }
+    bullet->catPrevPosition = bullet->obj.posinfo.position;
+
+    // CAT: no HW1 recoil and no cloak-field decloak here (the exe has neither)
     if (target != NULL && target->header.objtype == OBJ_ShipType)
     {                                                       //if we succeeded in shooting at enemy
         ((Ship *)target)->firingAtUs = ship;
         ((Ship *)target)->recentlyFiredUpon = RECENT_ATTACK_DURATION;
     }
+    return bullet;
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : gunShoot
+    Description : shoots a given gun of the given ship
+    Inputs      : ship  - that which owns gun
+                  gun - gun to fire
+                  target - object being shot at or NULL
+    Outputs     :
+    Return      : CAT: the bullet, or NULL (gunShoot 0x0048b5b0 returns cat_gunCreateBullet's result)
+----------------------------------------------------------------------------*/
+Bullet *gunShoot(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target)
+{
+    GunStatic *gunstatic = gun->gunstatic;
+    vector gunDirection, gunPosition;
+    real32 damage;
+
+    dbgAssertOrIgnore(gunstatic->guntype != GUN_MissileLauncher);
+
+    // CAT-TODO(M2-R4 #4): a dRKO does not fire at the ship its RKO weapon holds (RKO specifics Ship+0x664); the RKO
+    //      header is on DefaultShipHeader until ship code B ports it
+
+    // CAT: a ship being handed to a salvage depot neither fires nor is fired at (Ship+0x3EC, catSalvageDepot)
+    if ((ship != NULL) && (ship->header.objtype == OBJ_ShipType) && (ship->catSalvageDepot != NULL))
+    {
+        return NULL;
+    }
+
+    //line-of-sight check
+    if (target != NULL)
+    {
+        if ((target->header.objtype == OBJ_ShipType) && (((Ship *)target)->catSalvageDepot != NULL))
+        {
+            return NULL;
+        }
+        // CAT: capital classes (Mothership..Frigate) check the line of sight, except for the big gun
+        if ((ship->staticinfo->shipclass <= CLASS_Frigate) && (gunstatic->gunsoundtype != GS_BigGun))
+        {
+            matMultiplyMatByVec(&gunDirection, &ship->rotatable.rotinfo.coordsys, &gun->gunheading);
+            matMultiplyMatByVec(&gunPosition, &ship->rotatable.rotinfo.coordsys, &gunstatic->position);
+            vecAddTo(gunPosition, ship->obj.posinfo.position);
+            if (!collCheckLineOfSight(ship, (Ship*)target, &gunPosition, &gunDirection))
+            {
+                return NULL;
+            }
+        }
+    }
+
+    //if this is the first gunshot, set the shipisattacking variable
+    //for the ship and his wingman as well (if the wingman exists)
+    if (!ship->shipisattacking)
+    {
+        ship->shipisattacking = TRUE;
+        ship->catAttackStarted = TRUE;
+    }
+    if ((ship->attackvars.myWingmanIs)&&(!ship->attackvars.myWingmanIs->shipisattacking))
+    {
+        ship->attackvars.myWingmanIs->shipisattacking = TRUE;
+        ship->catAttackStarted = TRUE;
+    }
+    if(ship->shipOrDerelict.specialFlags & SPECIAL_ShipInGravwell)   // CAT: specialFlags in the exe
+    {
+        //ship is in gravwell
+        return NULL; //don't let it fire.
+    }
+
+    gun->lasttimefired = universe.totaltimeelapsed;
+
+    // CAT: the damage is the ship's damage multiplier (experience, difficulty) times the gun's DamageMult; the weapon
+    //      against the target's armour scales it on the hit (univBulletCollidedWithTarget). No HW1 health, formation,
+    //      tactics or random damage.
+    damage = cat_shipGetDamageMultiplier(ship) * gunstatic->damageMult;
+    if (bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_KasSpecialDamageModifier))
+    {
+        //ship is being 'beefed' up by KAS...add value to damagemultiplier
+        damage *= ship->damageModifier;
+    }
+
+    // CAT: every shot at a Leech also does it 10 points of damage at once (0x0048b740)
+    if ((target != NULL) && (target->header.objtype == OBJ_ShipType) && (((Ship *)target)->shiptype == sLeech))
+    {
+        ApplyDamageToTarget(target, 10.0f, gunstatic->gunsoundtype, 0x29a, ship->playerowner->playerIndex, ship, 0x12);
+    }
+
+    return cat_gunCreateBullet(ship, gun, NULL, target, damage);
+}
+
 /*-----------------------------------------------------------------------------
     Name        : gunShootGunsAtTarget
     Description : shoots a ship's guns at target
@@ -1336,30 +1320,23 @@ bool32 gunShootGunsAtTarget(Ship *ship,SpaceObjRotImpTarg *target,real32 range,v
     bool32 shotguns = FALSE;
     GunStatic *gunstatic;
     real32 dotprod;
-    real32 bonus;
     real32 triggerHappy;
 
     if (gunInfo == NULL)
     {
-//        dbgMessagef("WARNING: no guns on ship %s %s, tried to shoot",ShipRaceToStr(ship->shiprace),ShipTypeToStr(ship->shiptype));
         return shotguns;
     }
 
+    // CAT-TODO(stage 6): in Mission 15 no ship fires while the KAS variable G_StopShipsFiringOnMission15 is set
+    //      (gunShootGunsAtTarget 0x0048c2e0: cat_kasHashString, cat_kasVarFind; the Cataclysm KAS variables come with
+    //      the kas2c mission code)
+
     numGuns = gunInfo->numGuns;
 
-    if(ship->staticinfo->shipclass == CLASS_Fighter)
-    {
-        bonus = tacticsInfo.BulletRangeBonus[Tactics_Fighter][ship->tacticstype];
-    }
-    else if (ship->staticinfo->shipclass == CLASS_Corvette)
-    {
-        bonus = tacticsInfo.BulletRangeBonus[Tactics_Fighter][ship->tacticstype];
-    }
-    else
-    {
-        bonus = 1.0f;
-    }
-
+    // CAT: gunShootGunsAtTarget 0x0048c2e0: no HW1 tactics range bonus; the big gun and the Beast weapon are not
+    //      fired from here, nor any gun of a dissolving ship; a gun in its second fire mode keeps firetime2
+    //      (cat_gunCanFire, inlined); a fixed gun aims with cat_gunFixedGunAimedAtTarget; an Acolyte or the derelict
+    //      Acolyte does not launch missiles
     for (i=0;i<numGuns;i++)
     {
         gun = &gunInfo->guns[i];
@@ -1373,29 +1350,21 @@ bool32 gunShootGunsAtTarget(Ship *ship,SpaceObjRotImpTarg *target,real32 range,v
             triggerHappy = gunstatic->triggerHappy;
         }
 
-        if(ship->staticinfo->madStatic != NULL)
+        if ((ship->staticinfo->madStatic != NULL) && (ship->staticinfo->madStatic->numGunOpenIndexes > 0) &&
+            (ship->madGunStatus != MAD_STATUS_GUNS_OPEN))
         {
-            //ship has meshanimations
-            if(ship->staticinfo->madStatic->numGunOpenIndexes > 0)
+            //has gun opening animations and the guns are not open
+            if (ship->madGunStatus != MAD_STATUS_GUNS_OPENING)
             {
-                //has gun opening animations
-                if(ship->madGunStatus != MAD_STATUS_GUNS_OPEN &&
-                    ship->madGunStatus != MAD_STATUS_GUNS_OPENING)
-                {
-                    madOpenGunsShip(ship);
-                    return shotguns;
-                }
-                else if(ship->madGunStatus != MAD_STATUS_GUNS_OPEN)
-                {
-                    return shotguns;
-                }
-                //otherwise, we're open..try to fire away!
+                madOpenGunsShip(ship);
             }
+            return shotguns;
         }
 
-        if (range < gunstatic->bulletrange*bonus)
+        if ((range < gunstatic->bulletrange) && (gunstatic->gunsoundtype != GS_BeastWeapon) &&
+            (gunstatic->gunsoundtype != GS_BigGun) && (ship->catDissolving != TRUE))
         {
-            if (gunCanShoot(ship, gun))
+            if (cat_gunCanFire(ship, gun))
             {
                 switch (gunstatic->guntype)
                 {
@@ -1405,7 +1374,7 @@ bool32 gunShootGunsAtTarget(Ship *ship,SpaceObjRotImpTarg *target,real32 range,v
                             matGetVectFromMatrixCol3(shipheading,ship->rotatable.rotinfo.coordsys);
                             dotprod = vecDotProduct(*trajectory,shipheading);
 
-                            if (dotprod >= triggerHappy)
+                            if ((dotprod >= triggerHappy) && !cat_shipIsAcolyteOrDerelict(ship))
                             {
                                 missileShoot(ship,gun,target);
                                 shotguns = TRUE;
@@ -1426,10 +1395,7 @@ bool32 gunShootGunsAtTarget(Ship *ship,SpaceObjRotImpTarg *target,real32 range,v
                         }
                     break;
                     case GUN_Fixed:
-                        matGetVectFromMatrixCol3(shipheading,ship->rotatable.rotinfo.coordsys);
-                        dotprod = vecDotProduct(*trajectory,shipheading);
-
-                        if (dotprod >= triggerHappy)
+                        if (cat_gunFixedGunAimedAtTarget(ship, gun, target, TRUE))
                         {
                             gunShoot(ship,gun,target);
                             shotguns = TRUE;
@@ -1446,19 +1412,11 @@ bool32 gunShootGunsAtTarget(Ship *ship,SpaceObjRotImpTarg *target,real32 range,v
                         break;
 
                     default:
-                        dbgAssertOrIgnore(FALSE);
                         break;
                 }
             }
         }
     }
-/*
-    if (shotguns && target->header.objtype == OBJ_ShipType)
-    {                                                       //if we succeeded in shooting at enemy
-        ((Ship *)target)->firingAtUs = ship;
-        ((Ship *)target)->recentlyFiredUpon = RECENT_ATTACK_DURATION;
-    }
-    */
     return shotguns;
 }
 
@@ -1475,52 +1433,37 @@ bool32 gunShootGunsAtMultipleTargets(Ship *ship)
     sdword numGuns = gunInfo->numGuns;
     Gun *gun;
     sdword i;
-    vector shipheading;
     bool32 shotguns = FALSE;
     GunStatic *gunstatic;
-    real32 dotprod;
     AttackTargets *attackTargets = ship->attackvars.multipleAttackTargets;
     SpaceObjRotImpTarg *target;
-    real32 dist;
-    vector trajectory;
-    real32 temp;
-    real32 triggerHappy;
+    bool32 aimed;
 
     dbgAssertOrIgnore(attackTargets->numAttackTargets == numGuns);      // one attack target for each gun
 
+    // CAT: gunShootGunsAtMultipleTargets 0x0048c690: the big gun and the Beast weapon are skipped; a dissolving ship
+    //      only keeps its slave guns with their drivers; cat_gunCanFire's second-mode rules (inlined); a fixed gun aims
+    //      with cat_gunFixedGunAimedAtTarget; missiles and mines need no heading check
     for (i=0;i<numGuns;i++)
     {
         gun = &gunInfo->guns[i];
         gunstatic = gun->gunstatic;
-        if (bitTest(ship->header.flags, SOF_NISShip))
+        if ((gunstatic->gunsoundtype == GS_BeastWeapon) || (gunstatic->gunsoundtype == GS_BigGun))
         {
-            triggerHappy = NIS_TriggerHappyAngle;
+            continue;
         }
-        else
+        if ((ship->staticinfo->madStatic != NULL) && (ship->staticinfo->madStatic->numGunOpenIndexes > 0) &&
+            (ship->madGunStatus != MAD_STATUS_GUNS_OPEN))
         {
-            triggerHappy = gunstatic->triggerHappy;
-        }
-        if(ship->staticinfo->madStatic != NULL)
-        {
-            //ship has meshanimations
-            if(ship->staticinfo->madStatic->numGunOpenIndexes > 0)
+            //has gun opening animations and the guns are not open
+            if (ship->madGunStatus != MAD_STATUS_GUNS_OPENING)
             {
-                //has gun opening animations
-                if(ship->madGunStatus != MAD_STATUS_GUNS_OPEN &&
-                    ship->madGunStatus != MAD_STATUS_GUNS_OPENING)
-                {
-                    madOpenGunsShip(ship);
-                    return shotguns;
-                }
-                else if(ship->madGunStatus != MAD_STATUS_GUNS_OPEN)
-                {
-                    return shotguns;
-                }
-                //otherwise, we're open..try to fire away!
+                madOpenGunsShip(ship);
             }
+            return shotguns;
         }
 
-        if (gunCanShoot(ship, gun))
+        if ((ship->catDissolving != TRUE) && cat_gunCanFire(ship, gun))
         {
             target = attackTargets->TargetPtr[i];
 
@@ -1529,12 +1472,6 @@ bool32 gunShootGunsAtMultipleTargets(Ship *ship)
                 switch (gunstatic->guntype)
                 {
                     case GUN_MissileLauncher:
-                        if (gunHasMissiles(gun))
-                        {
-                            missileShoot(ship,gun,target);
-                            shotguns = TRUE;
-                        }
-                        break;
                     case GUN_MineLauncher:
                         if (gunHasMissiles(gun))
                         {
@@ -1543,24 +1480,17 @@ bool32 gunShootGunsAtMultipleTargets(Ship *ship)
                         }
                         break;
                     case GUN_Fixed:
-                        aishipGetTrajectory(ship,target,&trajectory);
-                        dist = fsqrt(vecMagnitudeSquared(trajectory));
-                        vecDivideByScalar(trajectory,dist,temp);
-
-                        matGetVectFromMatrixCol3(shipheading,ship->rotatable.rotinfo.coordsys);
-
-                        dotprod = vecDotProduct(trajectory,shipheading);
-
-                        if (dotprod >= triggerHappy)
-                        {
-                            gunShoot(ship,gun,target);
-                            shotguns = TRUE;
-                        }
-                        break;
-
                     case GUN_Gimble:
                     case GUN_NewGimble:
-                        if (gunOrientGimbleGun(ship,gun,target))
+                        if (gunstatic->guntype == GUN_Fixed)
+                        {
+                            aimed = cat_gunFixedGunAimedAtTarget(ship, gun, target, TRUE);
+                        }
+                        else
+                        {
+                            aimed = gunOrientGimbleGun(ship,gun,target);
+                        }
+                        if (aimed)
                         {
                             gunShoot(ship,gun,target);
                             shotguns = TRUE;
@@ -1568,7 +1498,6 @@ bool32 gunShootGunsAtMultipleTargets(Ship *ship)
                         break;
 
                     default:
-                        dbgAssertOrIgnore(FALSE);
                         break;
                 }
             }
@@ -1578,13 +1507,6 @@ bool32 gunShootGunsAtMultipleTargets(Ship *ship)
             gunUpdateSlave(gun, gunInfo, gunstatic->slaveDriver);
         }
     }
-/*
-    if (shotguns && target->header.objtype == OBJ_ShipType)
-    {                                                       //if we succeeded in shooting at enemy
-        ((Ship *)target)->firingAtUs = ship;
-        ((Ship *)target)->recentlyFiredUpon = RECENT_ATTACK_DURATION;
-    }
-*/
     return shotguns;
 }
 
@@ -1736,76 +1658,47 @@ void gunDrawGunInfo(Ship *ship)
 #endif
 
 /*-----------------------------------------------------------------------------
-    Name        : gunFirePower
-    Description : Compute the firepower of a gun for a given tactics setting.
-    Inputs      : gunStatic - static info of the gun
-                  tactic - tactics setting to determine damage for
-    Outputs     : fireTime - the computed rate of fire.  Not set for guns of type BULLET_Beam.
+    Name        : gunShipFirePower
+    Description : the firepower of a ship type: each gun's base damage per second (cat_gunStaticBaseDamage over its
+                  firetime, 1/16 s when it has none); the three interceptor types share their custom firetime between
+                  their guns
+    Inputs      : info
+    Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-real32 gunFirePower(GunStatic *gunStatic, TacticsType tactics, real32 *fireTime)
-{
-    dbgAssertOrIgnore(tactics == Evasive || tactics == Neutral || tactics == Aggressive);
-
-    if (gunStatic->firetime == 0.0f)
-    {
-        *fireTime = UNIVERSE_UPDATE_PERIOD;
-    }
-    else
-    {
-        *fireTime = gunStatic->firetime;
-    }
-    if (gunStatic->bulletType == BULLET_Beam)
-    {
-        return((gunStatic->gunDamageLo[tactics] + gunStatic->gunDamageHi[tactics]) / 2.0f * (real32)UNIVERSE_UPDATE_RATE * gunStatic->bulletlifetime / *fireTime);
-    }
-    else if(gunStatic->burstFireTime != 0.0f)
-    {
-        //burst fire gun..add aditional factor of:
-        //burstfiretime/(burstfiretime_burstwaittime)
-        return(((gunStatic->gunDamageLo[tactics] + gunStatic->gunDamageHi[tactics]) / 2.0f / *fireTime)*(gunStatic->burstFireTime/(gunStatic->burstFireTime+gunStatic->burstWaitTime)));
-    }
-    return((gunStatic->gunDamageLo[tactics] + gunStatic->gunDamageHi[tactics]) / 2.0f / *fireTime);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : gunShipFirePower
-    Description : Compute the firepower for a given ship at some tactics setting
-    Inputs      : info - staticinfo of ship
-                  tactics - what tactic to compute damage for
-    Outputs     :
-    Return      : total damage of the ship
-----------------------------------------------------------------------------*/
-#define GUN_NumberInterceptorTypes      7
-ubyte gunInterceptorTypes[GUN_NumberInterceptorTypes] = {LightInterceptor, HeavyInterceptor, CloakedFighter, P1Fighter, P2Swarmer, P2AdvanceSwarmer, TargetDrone};
-real32 gunShipFirePower(ShipStaticInfo *info, TacticsType tactics)
+// CAT: gunShipFirePower 0x0048cb60 takes the static info only (no tactics) and measures damage with the weapon tables;
+//      HW1's gunFirePower (damage lo/hi per tactics, the beam and burst factors) has no counterpart in the exe. The
+//      interceptor list is the exe's 3-byte table 0x00881534.
+#define GUN_NumberInterceptorTypes      3
+static const ubyte gunInterceptorTypes[GUN_NumberInterceptorTypes] = { kHeavyInterceptor, tHeavyInterceptor, p1Fighter };
+real32 gunShipFirePower(ShipStaticInfo *info)
 {
     sdword index;
-    real32 power = 0.0f, powerThisGun, totalFireRate, fireRate;
-    GenericInterceptorStatics *interceptorstat;
+    real32 power = 0.0f, fireTime, totalFireTime;
+    GunStatic *gunstatic;
 
+    if (info->gunStaticInfo == NULL)
+    {
+        return power;
+    }
     if (memchr(gunInterceptorTypes, info->shiptype, GUN_NumberInterceptorTypes))
     {                                                       //interceptors have a different rate of fire computation
-        interceptorstat = (GenericInterceptorStatics *)info->custstatinfo;
-        totalFireRate = interceptorstat->firetime;
-        if (info->gunStaticInfo != NULL)
+        totalFireTime = ((GenericInterceptorStatics *)info->custstatinfo)->firetime;
+        for (index = 0; index < info->gunStaticInfo->numGuns; index++)
         {
-            for (index = 0; index < info->gunStaticInfo->numGuns; index++)
-            {
-                powerThisGun = gunFirePower(&info->gunStaticInfo->gunstatics[index], tactics, &fireRate);
-                powerThisGun *= fireRate / (totalFireRate * (real32)info->gunStaticInfo->numGuns);
-                power += powerThisGun;
-            }
+            gunstatic = &info->gunStaticInfo->gunstatics[index];
+            fireTime = (gunstatic->firetime == 0.0f) ? 0.0625f : gunstatic->firetime;
+            power = (fireTime / ((real32)info->gunStaticInfo->numGuns * totalFireTime)) *
+                    (cat_gunStaticBaseDamage(gunstatic) / fireTime) + power;
         }
     }
     else
     {
-        if (info->gunStaticInfo != NULL)
+        for (index = 0; index < info->gunStaticInfo->numGuns; index++)
         {
-            for (index = 0; index < info->gunStaticInfo->numGuns; index++)
-            {
-                power += gunFirePower(&info->gunStaticInfo->gunstatics[index], tactics, &fireRate);
-            }
+            gunstatic = &info->gunStaticInfo->gunstatics[index];
+            fireTime = (gunstatic->firetime == 0.0f) ? 0.0625f : gunstatic->firetime;
+            power = cat_gunStaticBaseDamage(gunstatic) / fireTime + power;
         }
     }
     return(power);

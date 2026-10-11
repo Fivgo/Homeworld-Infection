@@ -9623,5 +9623,251 @@
   "confidence": "high",
   "change": "the removed ship's in-gravwell flag is cleared in specialFlags (and 0xefffffff on Ship+0x1C8, 0x005b479d), not HW1's specialFlags2 bit 1; otherwise as HW1 (find the node, clear the two dont*ever bits, listDeleteNode)",
   "note": "M2-R4 command audit: body compared with the exe; edited by the port (SPECIAL_ShipInGravwell moved words) but left IDENTICAL and unreviewed"
+ },
+ "0x0048a2f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no fuel test; a damaged ship fires and bursts more slowly (x1.25 below 3/4 health, x1.75 below 1/2, x2.5 below 1/4, x4 below 1/10; not the big gun or the Beast weapon); no tactics or formation burst modifiers; the burst state is mirrored in Ship+0x610; the passive-attack penalty is also checked after a burst",
+  "note": "M2-R4 combat: the map's IDENTICAL; the body is Cataclysm's and is ported (Gun.c)"
+ },
+ "0x004627b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "skips a ship being built externally (specialFlags2 0x8) instead of a hyperspacing one and passes dmgPlayEffect the health ratio over the damage level's limit",
+  "note": "M2-R4 combat: the map's IDENTICAL; ported (Damage.c)"
+ },
+ "0x004f10f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "one velocity limit (MAX_RESOURCE_VELOCITY_TO_CHASE): HW1's Mission 6 limit and its MAX_RESOURCE_VELOCITY_TO_CHASE_LEVEL6 key are gone",
+  "note": "M2-R4 combat: the map's IDENTICAL; ported (ResCollect.c), the tweakable removed"
+ },
+ "0x004f12c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "takes the resource as a second argument and only searches when it is NULL (clProcess passes 0, cat_clHarvestNearestResource the resource it found); InitShipForResourceCollection is inlined with sWorker/bWorker getting the third harvest callback 0x005c9130",
+  "note": "M2-R4 combat: the map's IDENTICAL; ported (ResCollect.c); the Worker callback stays R1ResourcerHarvestsAsteroid until Worker.c (M2-R4 #4)"
+ },
+ "0x004f1d40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a NULL resource resets rcstate1 and returns (processCollectResource and cat_rescollectStopHarvest stop a harvest that way)",
+  "note": "M2-R4 combat: the map's IDENTICAL; ported; the rest (flags 0x17, ranges, circling) is HW1's"
+ },
+ "0x00423e50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 combat: edited only for gunShipFirePower's one-argument prototype (0x0048cb60)"
+ },
+ "0x005c23b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "M2-R4 combat: its body is also HW1's TurnHarvestEffectOff(ship) without the sound stop (identical-code folding): processCollectResource, FreeLastOrder, RemoveShipsFromDoingStuff and univDeleteDeadShip call it for harvest effects"
+ },
+ "0x004f1a50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "this is HW1's TurnOffAnyResourcingEffects(todo) with the effect stop inlined (ship = selection->ShipPtr[0], does nothing without an effect); no sound stop",
+  "note": "M2-R4 combat: the map's name is wrong (its callers clResourceDied and processCollectResource pass the command); TurnHarvestEffectOff(ship) itself folds into stopRepairEffect 0x005c23b0"
+ },
+ "0x004f1ac0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no harvest sound; the beam length and the resource radius go to etgEffectCreate as real32 values (HW1: integers)",
+  "note": "M2-R4 combat: ported without the sound; the effect parameters stay integers until the ETG port (stage 3)"
+ },
+ "0x004f2130": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a resource moving too fast, taken or outside the world is dropped with the harvest (cat_rescollectStopHarvest 0x004f2450); a found resource is used only below resourcesAtOneTime, else the ship docks (purpose 3); a full ship sets specialFlags2 0x4000000 to resume in its volume; no harvester-done messages or speech; aitrackSteadyShip when the order ends or turns into a dock",
+  "note": "M2-R4 combat: ported (ResCollect.c); the dock purpose stays HW1's DOCK_TO_DEPOSIT_RESOURCES and two unnamed globals (0x00a7519c, 0x00a75190) are left out"
+ },
+ "0x004f11f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "specialFlags2 0x4000000 restarts the volume search with COLLECTRESOURCE_ZONE and is cleared; univFindNearestResource takes a fourth argument (0); outside a volume only the local and AI players search, through cat_clHarvestNearestResource 0x00449790",
+  "note": "M2-R4 combat: ported up to cat_clHarvestNearestResource, which is not (HW1's plain search stands in)"
+ },
+ "0x004f1580": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "breaks into the pieces its .shp lists (NUMBER_OF_ASTEROID_PIECES / AsteroidBreakInfo): offset by the asteroid's matrix, pushed along it by the first value, oriented by the piece matrix, spun by the other three, plus a break sound; HW1's breakinto[] and random scatter are gone",
+  "note": "M2-R4 combat: ported; the break sound is stage 3"
+ },
+ "0x004f17a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a tutorial harvests five times as fast; Bulimia (specialFlags2 0x200000) changes the take; an asteroid's health follows its RUs (warning when negative); 'collector full' battle chatter 0x4B instead of speech; the AI resourcing marks are Ship words (+0x1D4 / +0x1D8)",
+  "note": "M2-R4 combat: ported (ResCollect.c)"
+ },
+ "0x0043ab20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "asks cat_kamikazeCheckShip 0x0043a980 for each object (damage to itself and the other; mimics, Beast cruise-missile infection hits, ships clamped together, the ram damage scale)",
+  "note": "M2-R4 combat: ported; the ram damage scale stays 1.0 until the mimic block (M2-R4 #4)"
+ },
+ "0x0043ade0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "salvagers inside a target's cone do not collide; the exe's clamp test (cat_shipsClampedTogether); ramming frigates act first; no bump damage from a salvager just let go, an attached Leech or between RKO pieces",
+  "note": "M2-R4 combat: ported; the ramming frigate call and the Leech query are M2-R4 #4 (CAT-TODO / provisional FALSE)"
+ },
+ "0x0043b460": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "same Cataclysm tests as collCheckShipShipColl (salvager cone, clamp test, ramming, Leech)",
+  "note": "M2-R4 combat: ported as collCheckShipShipColl"
+ },
+ "0x0043bac0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "every resource-class ship and the killer-collision attribute decide the collision instead of HW1's resource collectors",
+  "note": "M2-R4 combat: ported; CAT_ATTRIBUTES_KillerCollision moved to Attributes.h"
+ },
+ "0x0043c900": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a beam hitting an sSentinel / bSentinel with its field up only draws the hit (cat_sentinelFieldBulletHit, first argument 0); a missed Beast beam (GS_BeastWeapon) still draws its hit on its own target's box; a seventh value 1/2/3 is pushed that univBulletCollidedWithTarget never reads",
+  "note": "M2-R4 combat: ported; cat_sentinelFieldBulletHit is M2-R4 #4; the tree keeps its update-rate cadence"
+ },
+ "0x0043cd90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "switches on the bullet's weapon word (Bullet +0x108: 2 WEAPON_ION and 8 WEAPON_BEASTINFECT go to collCheckBeamColl, 4 WEAPON_LASER is skipped); an enemy bullet crossing an active Sentinel field is drawn and deleted (cat_collLineSentinelFieldIntersect 0x0043abf0, cat_sentinelFieldBulletHit); DFG frigates act through cat_collBulletDFGFieldCheck 0x0043cd10 after the collision-sphere prefilter (no HW1 field-radius exemption); ships with bUseRayTriangleIntersectionForHitLocation move the hit onto the mesh (cat_meshLineIntersect 0x004b5910); univBulletCollidedWithTarget gets 1",
+  "note": "M2-R4 combat: ported except cat_sentinelFieldBulletHit (M2-R4 #4) and the mesh hit location (stage 3)"
+ },
+ "0x0043d330": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "univMissileCollidedWithTarget gets a new first argument, 1",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x0043d720": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "univMissileCollidedWithTarget gets a new first argument, 1",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x0043d970": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "univMissileCollidedWithTarget gets a new first argument, 1",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x0043dbb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "univMissileCollidedWithTarget gets a new first argument, 1",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x004e45b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "switches on the weapon word: WEAPON_LASER does not move, the ion beam is a beam, the Beast weapon is steered; a bullet cannot expire before its first move (+0x13C); a big-gun shell goes after its range or in a DFG field; keeps the previous position (+0x158)",
+  "note": "M2-R4 combat: ported; cat_dfgFieldContainsPoint is M2-R4 #4"
+ },
+ "0x004e4950": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a drifting ship is not accelerated and may reach 1400; top speed times the speed multiplier; helpless or drifting ships keep their speed; no fuel; FOW grid update of fog-seeing ships; universe clamp in multiplayer",
+  "note": "M2-R4 combat: ported; the FOW update is stage 3"
+ },
+ "0x004e5720": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a ship's top speed carries its speed multiplier; a drifting non-killer asteroid that was not pushed slows down and stops",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x0048a5e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no HW1 ion-cannon angles against fighters/corvettes; second fire mode speed, no tactics bonus; beam guns keep tracking on target; other gun types are not aimed",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x0048aac0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no firing by or at a ship being handed to a salvage depot; the missile's damage type is the gun's current one; damage = ship multiplier x weapon vs armour; mesh state; a second effect parameter by launcher type; no cloak-field decloak",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x0048b5b0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "returns the bullet made by cat_gunCreateBullet 0x0048bb00; RKO, salvage-depot and line-of-sight checks; damage = ship multiplier x DamageMult and weapon tables; a Leech shot also does 10 damage",
+  "note": "M2-R4 combat: ported; the RKO hold check is M2-R4 #4"
+ },
+ "0x0048c2e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no tactics range bonus; the big gun and the Beast weapon are not fired here; Mission 15's no-firing KAS variable",
+  "note": "M2-R4 combat: ported; the Mission 15 test is stage 6"
+ },
+ "0x0048c690": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the big gun and the Beast weapon are skipped; a dissolving ship does not fire",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x0048cb60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "takes the static info only (no tactics) and weighs damage with the weapon tables",
+  "note": "M2-R4 combat: ported; gunFirePower removed, Battle.c and ShipView.c callers updated"
+ },
+ "0x00462340": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "fourth argument: the health ratio over the level's limit (0..1) gives the chance; crystals flash; no ETG enable switches",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x00421cf0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a mimic that is mimicking does not shoot",
+  "note": "M2-R4 combat: ported (the mimic query is provisional, M2-R4 #4)"
+ },
+ "0x005af210": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "sCarrier door animation by dock-point occupancy, Beast weapon and depot housekeeping (no drop targets / capture queue)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); M2-R4 combat: door ported (Carrier.c) with cat_madAnimationFinished 0x004b7090; madAnimationStart's number lookup and third argument are stage 3"
+ },
+ "0x005bba70": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "big-gun module loss stops the big gun; launch-manager module slots; Beast weapon and depot",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers); M2-R4 combat: module-slot removal ported (LaunchMgr.c)"
+ },
+ "0x004652c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a ship already inside is not added twice; micro ships count as fighters and resource ships as corvettes; no SalCap target hand-over",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x004960b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ApplyDamageToTarget with 7 arguments (call-site code 0x1e)",
+  "note": "M2-R4 combat: ported"
+ },
+ "0x00434830": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the object leaves its host's clamp list (the host's clamp info goes when the host is freed)",
+  "note": "M2-R4 combat: WIP port re-read against the exe and kept"
+ },
+ "0x00434940": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "called for the host: each object clamped to it runs its physics and follows the host",
+  "note": "M2-R4 combat: WIP port re-read against the exe and kept"
+ },
+ "0x004632e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "micro ships count out as fighters and resource ships as corvettes (the counterpart of dockPutShipInside 0x004652c0); no 'not inside' warning",
+  "note": "M2-R4 combat audit: ported (the port had changed only dockPutShipInside)"
  }
 }

@@ -45,7 +45,12 @@ real32 cat_gunGetBulletSpeed(Gun *gun);
 bool32 cat_gunFixedGunAimedAtTarget(Ship *ship, Gun *gun, SpaceObjRotImpTarg *target, bool32 useGunHeading);
 bool32 gunOrientGimbleGun(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target);
 void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target);
-void gunShoot(Ship *ship,Gun *gun, SpaceObjRotImpTarg *target);
+Bullet *gunShoot(Ship *ship,Gun *gun, SpaceObjRotImpTarg *target);          // CAT: returns the bullet (0x0048b5b0)
+Bullet *cat_gunCreateBullet(Ship *ship, Gun *gun, SpaceObj *from, SpaceObjRotImpTarg *target, real32 damage);   // CAT: 0x0048bb00
+bool32 cat_gunInSecondMode(Gun *gun);                                     // CAT: the second fire mode test the exe inlines
+sdword cat_gunSoundTypeLookup(sdword weapon, sdword gunSize);             // CAT: 0x0048b7c0
+void cat_gunStaticSetSoundTypes(GunStatic *gunstatic);                    // CAT: 0x0048b790
+GunSoundType cat_gunGetSoundType(Gun *gun);                               // CAT: 0x0048b8c0
 bool32 gunShootGunsAtTarget(Ship *ship,SpaceObjRotImpTarg *target,real32 range,vector *trajectory);
 bool32 gunShootGunsAtMultipleTargets(Ship *ship);
 
@@ -59,8 +64,7 @@ void gunDrawGunInfo(Ship *ship);
 void gunGetGunPositionInWorld(vector *positionInWorldCoordSys,matrix *coordsys,Gun *gun);
 
 //compute firepower
-real32 gunFirePower(GunStatic *gunStatic, TacticsType tactics, real32 *fireTime);
-real32 gunShipFirePower(ShipStaticInfo *info, TacticsType tactics);
+real32 gunShipFirePower(ShipStaticInfo *info);                             // CAT: one argument (0x0048cb60)
 
 bool32 gunResetGimbleGuns(Ship *ship);
 

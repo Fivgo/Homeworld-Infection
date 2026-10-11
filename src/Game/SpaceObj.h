@@ -18,6 +18,7 @@
 #include "MaxMultiplayer.h"
 #include "MeshAnim.h"
 #include "Nebulae.h"
+#include "Timer.h"
 #include "ObjTypes.h"
 #include "SoundStructs.h"
 #include "Trails.h"
@@ -175,8 +176,14 @@ typedef struct
     udword numat;
 } MineFormationInfo;
 
+// CAT (M2-R4 combat): the exe's Gun is 0x88 bytes (HW1 0x84): univCreateShip 0x00542320 allocates numGuns * 0x88 + 4,
+//      and every field after the new word at +0x00 is HW1's, 4 bytes on (gunstatic +0x84)
 typedef struct
 {
+    sdword catWeaponType;       // CAT: exe Gun +0x00, the gun's current WEAPON_*: gunstatic->startUpgradeLevel at
+                                //   creation (cat_shipUpgradesInit 0x005140a0), raised to WEAPON_ENERGY by
+                                //   cat_shipApplyUpgrades 0x00514490; == endUpgradeLevel selects the second fire mode
+
     // for GUN_Gimble
     vector gunheading;          // gun heading (relative to ship)
 
@@ -232,55 +239,9 @@ typedef struct
     NAVLightStatic navlightstatics[1];
 } NAVLightStaticInfo;
 
-/*  -------------------------------------------------------
-    Static Salvaging Info
-    - used to define latch on points for salvage
-      capturing vessels
-    ------------------------------------------------------- */
-
-//maximum number of ships that can be captured and waiting inside
-//a mothership or carrier at any one time to pop out after being
-//retrofitted
-#define SALVAGE_MAX_CAPTURABLE  50
-
-typedef struct
-{
-    udword number;
-    SalvagePointType type;
-    vector position;
-    vector conenormal;
-    real32 coneangle;
-    char name[20];
-}SalvageStaticPoint;
-
-typedef struct
-{
-    sdword numSalvagePoints;
-    sdword numNeededForSalvage;
-    sdword needBigR1;
-    sdword needBigR2;
-    sdword willFitCarrier;
-    SalvageStaticPoint headingPoint;
-    SalvageStaticPoint salvageStaticPoints[1];   //ragged array
-} SalvageStaticInfo;
-
-//Non static salvage Information
-typedef struct
-{
-    sdword busy;
-    SalvageStaticPoint *salvageStaticPoint;
-}SalvagePoint;
-
-typedef struct
-{
-    sdword numSalvagePoints;
-    sdword numSalvagePointsFree;
-    sdword numNeededForSalvage;
-    SalvagePoint salvagePoints[1];   //ragged array
-} SalvageInfo;
-
-#define sizeofSalvageStaticInfo(x)  sizeof(SalvageStaticPoint)*(x-1)+sizeof(SalvageStaticInfo)
-#define sizeofSalvageInfo(x)  sizeof(SalvagePoint)*(x) +sizeof(SalvageInfo)
+// CAT (M2-R4 combat): no HW1 salvage statics (SalvageStaticPoint/SalvageStaticInfo/SalvagePoint/SalvageInfo,
+//      SALVAGE_MAX_CAPTURABLE): Cataclysm salvages at the target's DPT_Salvage/DPT_SalvageLatch dock points
+//      (Salvage.c), and cataclysm.exe has neither the NUMBER_OF_SALVAGE_POINTS/SalvagePoint keys nor a mex salvage reader.
 
 /*-----------------------------------------------------------------------------
     Static Docking Information
@@ -554,10 +515,6 @@ typedef struct StaticInfoShipOrDerelict {
     real32 pitchdescend;
 } StaticInfoShipOrDerelict;
 
-// CAT: HW1 code that read statinfo->salvageStaticInfo reads CAT_SALVAGESTATICINFO(statinfo) instead, which is always
-//      NULL: Cataclysm has no HW1-style salvage statics (no NUMBER_OF_SALVAGE_POINTS key, no field). The HW1 salvage
-//      paths behind it are therefore dormant until stage 2 ports Cataclysm's salvage system (DPT_Salvage points).
-#define CAT_SALVAGESTATICINFO(statinfo) ((void)(statinfo), (SalvageStaticInfo *)NULL)
 
 //info for SpaceObjRotImpTarg objects that was once
 //static, but now needs to be non-static
@@ -833,6 +790,8 @@ _Static_assert(sizeof(GunStatic) == 0x11C, "GunStatic is 0x11C bytes in cataclys
 _Static_assert(sizeof(CustShipHeader) == 0x8C, "CustShipHeader is 0x8C bytes in cataclysm.exe");
 _Static_assert(sizeof(ShipStaticInfo) == 0x458, "ShipStaticInfo is 0x458 bytes in cataclysm.exe");
 _Static_assert(sizeof(StaticInfo) == 0xA4, "StaticHeader is 0xA4 bytes in cataclysm.exe");
+_Static_assert(sizeof(Gun) == 0x88, "Gun is 0x88 bytes in cataclysm.exe (univCreateShip 0x00542320)");
+CAT_ASSERT_OFFSET(Gun, gunstatic, 0x84);
 CAT_ASSERT_OFFSET(GunStatic, startUpgradeLevel, 0x0C);
 CAT_ASSERT_OFFSET(GunStatic, gunSize, 0x14);
 CAT_ASSERT_OFFSET(GunStatic, damageMult, 0x18);
@@ -1116,15 +1075,8 @@ typedef struct AsteroidStaticInfo     // CAT: tagged for StatScript.h
     //      asteroidStaticInfos stride in universeStaticInit 0x0053d2a0)
     sdword numBreakPieces;                                                      /*+0xC0*/
     struct AsteroidBreakPiece *breakPieces;                                     /*+0xC4*/
-    // CAT-DORMANT: HW1's shrink/break fields. No Cataclysm key sets them (the exe's asteroid key table 0x008b3008 has
-    //      none), so they stay 0 and ResCollect.c's HW1 shrink/break paths never run; they go when stage 2B ports
-    //      Cataclysm's asteroid breaking (owner: M2-R4 stage-2B combat/resources)
-    bool8 asteroidCanShrink;
-    bool8 asteroidCanBreak;
-    bool8 pad2;
-    bool8 pad3;
-    real32 asteroidMinShrink;
-    udword breakinto[NUM_ASTEROIDTYPES];
+    // CAT: HW1's asteroidCanShrink/asteroidCanBreak/asteroidMinShrink/breakinto[] are gone: no Cataclysm key sets
+    //      them (asteroid key table 0x008b3008) and BreakAsteroidUp 0x004f1580 breaks by the .shp pieces above
 } AsteroidStaticInfo;
 
 // CAT: one AsteroidBreakInfo line of an asteroid .shp, 0x44 bytes (cat_scriptAsteroidPieceParse 0x005280a0:
@@ -1237,7 +1189,7 @@ typedef struct
 //      at +0xC4)
 _Static_assert(offsetof(AsteroidStaticInfo, asteroidtype) == 0xBC, "AsteroidStaticInfo.asteroidtype is at 0xBC in cataclysm.exe");
 _Static_assert(offsetof(AsteroidStaticInfo, breakPieces) == 0xC4, "AsteroidStaticInfo.breakPieces is at 0xC4 in cataclysm.exe");
-_Static_assert(offsetof(AsteroidStaticInfo, asteroidCanShrink) == 0xC8, "AsteroidStaticInfo is 0xC8 bytes in cataclysm.exe before the dormant HW1 fields");
+_Static_assert(sizeof(AsteroidStaticInfo) == 0xC8, "AsteroidStaticInfo is 0xC8 bytes in cataclysm.exe");
 _Static_assert(sizeof(AsteroidBreakPiece) == 0x44, "AsteroidBreakPiece is 0x44 bytes in cataclysm.exe");
 _Static_assert(sizeof(DerelictStaticInfo) == 0x124, "DerelictStaticInfo is 0x124 bytes in cataclysm.exe");
 _Static_assert(sizeof(MissileStaticInfo) == 0x12C, "MissileStaticInfo is 0x12C bytes in cataclysm.exe");
@@ -1736,7 +1688,7 @@ typedef struct ShipID
 #define SPECIAL_BurstFiring                         0x00000040  // doBurstFire 0x005b5100, cat_gunCreateBullet 0x0048bb00
 #define SPECIAL_SinglePlayerWithinHyperSpaceRange   0x00000080  // CalculateRollCall, TellHyperspacingShipsToReady 0x00517770, spGoNowHyperspaceCB 0x005173a0
 #define SPECIAL_SinglePlayerLimitSpeed              0x00000100  // kasfShipsSetMaxVelocity 0x004938f0, kasfTeamSetMaxVelocity 0x00493860, tacticsGetShipsMaxVelocity
-#define SPECIAL_EXITING_DOOR                        0x00000000  // CAT-DORMANT: retired (HW1 0x800): no exe access; Dock.c readers: M2-R4 #3
+#define SPECIAL_EXITING_DOOR                        0x00000000  // CAT-DORMANT: retired (HW1 0x800): no exe access; its Dock.c readers (HW1 carrier/mothership door paths) go with the Cataclysm dock rewrite (M2-R4 #3 follow-up, dock purposes)
 // CAT (M2-R4 combat): HW1's salvage flags (BUSY_BECAUSE_SALVAGE_DOCKING 0x200, Harvested 0x400, IsASalvager
 //      0x100000, SalvagerHasSomethingAttachedAndIsDoingSomethingElse 0x200000, SalvagedTargetGoingIntoDockWithShip
 //      0x800000, SalvageTakingHomeTechnology 0x1000000) were retired by M2-R4 command and are gone with HW1's salvage
@@ -1744,7 +1696,7 @@ typedef struct ShipID
 #define SPECIAL_STAY_TILL_EXPLICITLAUNCH            0x00001000  // InitializeDockVars 0x00463c40, ShipHasToLaunch 0x0044a780, RemoveShipFromLaunching 0x00465590
 #define SPECIAL_CatKasSpecialRepairModifier         0x00002000  // CAT: new: kasfShipsSetRepairFactor 0x00493a10 / kasfShipsClearRepairFactor 0x00493a60
 #define SPECIAL_KasSpecialDamageModifier            0x00004000  // CAT: was 0x2000. kasfShipsSetDamageFactor 0x00493980, gunShoot 0x0048b5b0, missileShoot 0x0048aac0
-#define SPECIAL_Finished_Resource                   0x00000000  // CAT-DORMANT: retired (HW1 0x4000, HW1 AI resourcing; AIMoves.c/ResCollect.c readers: stage 4 / M2-R4 #3)
+#define SPECIAL_Finished_Resource                   0x00000000  // CAT-DORMANT: retired (HW1 0x4000, HW1 AI resourcing): Cataclysm keeps Ship.catResourceFinished / catResourcing (ResCollect.c, M2-R4 combat); the AIMoves.c/AIUtilities.c readers go with stage 4
 #define SPECIAL_Resourcing                          0x00000000  // CAT-DORMANT: retired (HW1 0x8000), as SPECIAL_Finished_Resource
 #define SPECIAL_SinglePlayerInParade                0x00008000  // CAT: was 0x10000. spGoNowHyperspaceCB, TellHyperspacingShipsToReady set 0x8080 where HW1 sets WithinHyperSpaceRange|InParade
 #define SPECIAL_rowGettingOutOfWay                  0x00010000  // CAT: was 0x20000. rowFlyShipOutOfWay 0x00414280, PrepareShipsForCommand 0x00441000 and 25 more
@@ -2019,6 +1971,27 @@ typedef struct Ship         // Ship object
                                     //   0x005b3fe0, cat_shipSetHelpless 0x005b3bd0, cat_shipClearHelpless 0x005b3c80,
                                     //   cat_empShockShip 0x005b3900, cat_shipUpdateDrift 0x005b3d60 recompute it)
     udword catUpgradeFlags;         // exe Ship+0x3F4: CAT_UPGRADE_* (cat_shipHasUpgrade 0x00514210; cat_shipUpgradesInit 0x005140a0 clears it)
+    sdword catKillsByClass[NUM_CLASSES];    // exe Ship+0x5C8: kills of this ship per class (ApplyDamageToTarget 0x00546250;
+                                    //   cat_shipUpdateExperienceLevel 0x005147d0 weighs them into Ship+0x5F8, M2-R4 #5)
+    sbyte catKamikazeInfectionHits; // exe Ship+0x614: Beast cruise-missile hits taken (cat_kamikazeCheckShip 0x0043a980)
+    sdword catKilledByPlayer;       // exe Ship+0x60C: the player whose weapon killed it (ApplyDamageToTarget, damage 666..668)
+    struct Ship *catQueuedAttackTarget; // exe Ship+0x4B0: cat_univShipDeferredUpdate 0x005447b0 turns it into a clAttack and
+                                    //   clears it; cat_beastAttackHit 0x0042af40 sets it for a multiplayer bHeavyCruiser
+    bool8 catAttackStarted;         // exe Ship+0x616: set with shipisattacking by gunShoot 0x0048b5b0 (also for the wingman's
+                                    //   first shot), cleared by RemoveShipFromAttacking and cat_beastWeaponHouseKeep;
+                                    //   read by the blob code (bobBlobItemize, bobUpdateObjsInBlobCollInfo: M2-R4 #5)
+    bool32 catResourceFinished;     // exe Ship+0x1D4: the resource it harvested is used up (CollectResources 0x004f17a0
+                                    //   sets, the AI's aimProcessResourceVolume reads and clears); HW1's specialFlags bit
+    bool32 catResourcing;           // exe Ship+0x1D8: harvesting for the AI (CollectResources clears, aimProcessResourceVolume
+                                    //   sets, aiuShipIsResourcingOrSomething reads); HW1's specialFlags bit
+    bool32 catHelpless;             // exe Ship+0x530: set/cleared by cat_shipSetHelpless/ClearHelpless (M2-R4 #4); a helpless
+                                    //   crazy ship keeps drifting (physUpdateObjPosVelShip 0x004e4950)
+    CatTimer catDriftTimer;         // exe Ship+0x560: the drift's slow-down (cat_shipStartDrift, M2-R4 #4)
+    bool32 catDrifting;             // exe Ship+0x550: set by cat_shipStartDrift, cleared by cat_shipUpdateDrift (M2-R4 #4);
+                                    //   read by cat_blastAffectShip 0x00515d30 and physUpdateObjPosVelShip
+    bool32 catBurstFiring;          // exe Ship+0x610: TRUE in a gun's burst, FALSE in its cool-off (gunCanShoot 0x0048a2f0)
+    sdword catArmourLevel;          // exe Ship+0x3F0: 0..2, the column of cat_damageVsArmourTable a hit on this ship uses
+                                    //   (cat_shipUpgradesInit 0x005140a0, cat_shipApplyUpgrades 0x00514490; M2-R4 combat)
     bool32 catDissolving;           // exe Ship+0x570: set by cat_shipDissolveStart 0x004603d0, cleared by cat_shipDissolveInit 0x00460220
     bool32 catUpgrading;            // exe Ship+0x598: set by cat_clUpgradeShips 0x0044de80, cleared by cat_univShipDeferredUpdate 0x005447b0
     real32 catBuildProgress;        // exe Ship+0x3E8: external build progress 0..1 (univCreateShip 0x00542320 sets 0 for a
@@ -2174,7 +2147,15 @@ typedef struct                                  // Bullet object
     real32 lengthmag;
     real32 traveldist;
     real32 beamtraveldist;                      // only used for BULLET_Beam
-    BulletType bulletType;
+    // CAT (M2-R4 combat): the exe keeps the firing gun's weapon word here (Bullet +0x108 = Gun +0x00, WEAPON_*;
+    //      cat_gunCreateBullet 0x0048bb00), where HW1 keeps the bullet type. Its readers test 2 (WEAPON_ION), which is
+    //      HW1's BULLET_Beam: the ion cannon is Cataclysm's beam. 4 (WEAPON_LASER) does not move
+    //      (physUpdateBulletPosVel 0x004e45b0), 8 (WEAPON_BEASTINFECT) is steered by the Beast weapon.
+    sdword bulletType;                          // CAT: WEAPON_* (was BulletType)
+#define CAT_BULLET_HW1DefenseLaser  100         // CAT-DORMANT: HW1's DefenseFighter laser (BULLET_Laser 3 is WEAPON_PLASMABOMB
+                                                //   now); only the dormant DefenseFighter code makes or tests it (M2-R4 #4)
+    bool32 catBurst;                            // CAT: exe +0x10C: fired while the ship burst-fires (specialFlags
+                                                //   0x40, SPECIAL_BurstFiring); replaces HW1's BULLET_SpecialBurst type
     GunSoundType soundType;
     real32 timelived;
     real32 totallifetime;
@@ -2191,6 +2172,14 @@ typedef struct                                  // Bullet object
     real32 DFGFieldEntryTime;                   //used by DFGF.
     real32 BulletSpeed;
     struct Player *playerowner;
+    // CAT (M2-R4 combat): the exe's Bullet is 0x164 bytes (cat_gunCreateBullet 0x0048bb00). Its +0x13C, where HW1 keeps
+    //      damageFull, is a flag physUpdateBulletPosVel 0x004e45b0 sets after the first frame: a bullet cannot expire
+    //      before it has moved once. Appended here by name; damageFull stays for the HW1 code that reads it.
+    bool32 catMoved;                            // CAT: exe +0x13C
+    real32 catBigGunRange;                      // CAT: exe +0x150: a GS_BigGun shell is deleted after this distance
+    real32 catBigGunTravelled;                  // CAT: exe +0x154: distance a GS_BigGun shell has flown
+    vector catPrevPosition;                     // CAT: exe +0x158: where the bullet was before its last move (its
+                                                //   start until then; physUpdateBulletPosVel 0x004e45b0)
 } Bullet;
 
 typedef Bullet *BulletPtr;

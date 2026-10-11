@@ -16,7 +16,9 @@
 #include "CommandDefs.h"
 #include "Cloak.h"
 #include "CommandLayer.h"
+#include "Gun.h"
 #include "InfoOverlay.h"
+#include "KASFunc.h"
 #include "Memory.h"
 #include "MultiplayerGame.h"
 #include "MaxMultiplayer.h"
@@ -2716,6 +2718,8 @@ bool32 cat_shipCanSalvage(Ship *ship)                               // 0x005138f
     return (ship->header.objtype == OBJ_ShipType) && cat_shipHasUpgrade(ship, CAT_UPGRADE_Salvage);
 }
 
+static sdword cat_shipExperienceLevel(Ship *ship);
+
 // CAT (M2-R4 combat): the factor on a ship's top speed (cat_shipGetSpeedMultiplier 0x00514940): its experience
 //      level's speed scale (cat_experienceSpeedScale 0x0072bb8c: 1.0, 1.1, 1.2, 1.3, 1.4), +0.15 with any of the
 //      upgrade bits 0..2, the Beast mothership's and the ramming frigate's bonuses, minus a health penalty (-0.1
@@ -2726,17 +2730,15 @@ static const real32 cat_experienceSpeedScale[5] = { 1.0f, 1.1f, 1.2f, 1.3f, 1.4f
 real32 cat_shipGetSpeedMultiplier(Ship *ship)                       // 0x00514940
 {
     real32 multiplier, healthFraction;
-    // CAT-PROVISIONAL (M2-R4 #5): the experience level is Ship+0x5F8 in the exe, which this tree's Ship does not
-    //      have yet (experience is the Stats/Player layout's); level 0 until then
-    sdword experience = 0;
+    sdword experience = cat_shipExperienceLevel(ship);     // Ship+0x5F8 (CAT-PROVISIONAL, M2-R4 #5)
 
     multiplier = cat_experienceSpeedScale[experience];
     if (ship->catUpgradeFlags & 0x7)
     {
         multiplier = cat_experienceSpeedScale[experience] + 0.15f;
     }
-    // CAT-TODO(M2-R4 #4): + cat_beastMothershipSpeedBonus 0x005bc9xx for a bMothership and
-    //      + cat_rammingFrigateSpeedMultiplier for every ship (ship code B); both 0 until then
+    // CAT-TODO(M2-R4 #4): + cat_beastMothershipSpeedBonus 0x005bca00 [audit: was "0x005bc9xx"] for a bMothership
+    //      and + cat_rammingFrigateSpeedMultiplier 0x005c2120 for every ship (ship code B); both 0 until then
     healthFraction = ship->targetable.health / ship->staticinfo->health.maxhealth;
     if (healthFraction < 0.1f)
     {
@@ -2781,10 +2783,198 @@ bool32 cat_salvageTargetAllowed(Ship *target)                       // 0x0051392
 }
 
 /*-----------------------------------------------------------------------------
-    CAT: ship upgrades (0x00513f40-0x00514210). The flags live in Ship.catUpgradeFlags; the player-side upgrade
-    state (cat_shipUpgradesInit 0x005140a0, cat_playerUpgradesReset 0x00514100,
-    cat_playerUpdateUpgradesFromResearch 0x00514140) is ported with the research code (M2-R4 #5).
+    CAT: ship upgrades (0x00513f40-0x00514210). The flags live in Ship.catUpgradeFlags, the armour level in
+    Ship.catArmourLevel, each gun's weapon in Gun.catWeaponType. cat_shipUpgradesInit 0x005140a0 and
+    cat_shipApplyUpgrades 0x00514490 are ported (M2-R4 combat); the player-side state they read (Player +0x6504 armour
+    research, +0x650C, +0x652C upgrade bits: cat_playerUpgradesReset 0x00514100, cat_playerUpdateUpgradesFromResearch
+    0x00514140) is the Player layout's (M2-R4 #5).
 ----------------------------------------------------------------------------*/
+// CAT (M2-R4 combat): weapon against armour, 20 damage (gun sound) types x 3 armour levels (cat_damageVsArmourTable
+//      0x0072b228, read from cataclysm.exe). Column 0 is also the base damage (cat_gunStaticBaseDamage 0x00514600).
+static const real32 cat_damageVsArmourTable[NUM_GUN_SOUND_TYPES][3] =
+{
+    { 80.0f, 75.0f, 50.0f },   // GS_LargeEnergyCannon
+    { 16.0f, 14.0f, 9.0f },   // GS_LargeIonCannon
+    { 100.0f, 95.0f, 65.0f },   // GS_LargePlasmaBomb
+    { 40.0f, 28.0f, 26.0f },   // GS_LargeProjectile
+    { 40.0f, 38.0f, 30.0f },   // GS_MediumEnergyCannon
+    { 10.0f, 9.0f, 6.0f },   // GS_MediumIonCannon
+    { 70.0f, 65.0f, 45.0f },   // GS_MediumPlasmaBomb
+    { 20.0f, 15.0f, 14.0f },   // GS_MediumProjectile
+    { 400.0f, 300.0f, 295.0f },   // GS_MineLauncher
+    { 60.0f, 40.0f, 38.0f },   // GS_MissleLauncher
+    { 22.0f, 20.0f, 14.0f },   // GS_SmallEnergyCannon
+    { 5.0f, 4.0f, 3.0f },   // GS_SmallIonCannon
+    { 50.0f, 47.0f, 35.0f },   // GS_SmallPlasmaBomb
+    { 7.0f, 4.0f, 4.0f },   // GS_SmallProjectile
+    { 125.0f, 115.0f, 90.0f },   // GS_VeryLargeEnergyCannon
+    { 36.0f, 33.0f, 25.0f },   // GS_VeryLargeIonCannon
+    { 150.0f, 140.0f, 100.0f },   // GS_VeryLargePlasmaBomb
+    { 10.0f, 10.0f, 8.0f },   // GS_Laser
+    { 0.0f, 0.0f, 0.0f },   // GS_BigGun
+    { 0.0f, 0.0f, 0.0f },   // GS_BeastWeapon
+};
+
+// CAT (M2-R4 combat): per ship type, the armour level a ship starts with and the highest the player's armour research
+//      gives it (cat_shipTypeArmourLevels 0x0072b318, 145 x {start, max}, read from cataclysm.exe)
+static const sdword cat_shipTypeArmourLevels[TOTAL_NUM_SHIPS][2] =
+{
+    {0,1}, {0,1}, {0,1}, {0,1}, {0,1}, {0,1}, {0,2}, {0,2},   // 0..7
+    {0,2}, {0,0}, {0,2}, {0,2}, {0,2}, {0,2}, {0,2}, {0,0},   // 8..15
+    {0,2}, {0,2}, {0,2}, {0,2}, {0,2}, {0,2}, {0,2}, {0,2},   // 16..23
+    {0,2}, {0,2}, {0,2}, {0,2}, {0,2}, {0,2}, {0,2}, {0,2},   // 24..31
+    {0,2}, {0,1}, {0,1}, {0,1}, {0,1}, {0,1}, {0,1}, {0,1},   // 32..39
+    {0,1}, {0,2}, {0,2}, {0,0}, {0,2}, {0,2}, {0,2}, {0,2},   // 40..47
+    {0,2}, {0,2}, {0,0}, {0,2}, {0,2}, {0,2}, {0,2}, {0,2},   // 48..55
+    {0,2}, {0,2}, {0,2}, {0,1}, {0,0}, {0,0}, {0,0}, {0,0},   // 56..63
+    {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0},   // 64..71
+    {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0},   // 72..79
+    {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0},   // 80..87
+    {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0},   // 88..95
+    {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0},   // 96..103
+    {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0},   // 104..111
+    {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0},   // 112..119
+    {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0},   // 120..127
+    {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0},   // 128..135
+    {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0}, {0,0},   // 136..143
+    {0,0},   // 144..144
+};
+
+// CAT (M2-R4 combat): per ship type, the player upgrade bits (CAT_UPGRADE_*) that apply to it (cat_shipTypeUpgradeMasks
+//      0x0072b7a0, read from cataclysm.exe)
+static const udword cat_shipTypeUpgradeMasks[TOTAL_NUM_SHIPS] =
+{
+    0x00800001, 0x04000009, 0x000000a9, 0x00000040, 0x00000211, 0x000000b1, 0x02600100, 0x00200002,   // 0..7
+    0x00200802, 0x00000000, 0x00200404, 0x00000000, 0x00300004, 0x00000000, 0x006c0000, 0x00000000,   // 8..15
+    0x00340000, 0x00807000, 0x00300000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   // 16..23
+    0x00000000, 0x00200004, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   // 24..31
+    0x00000000, 0x00800001, 0x04000009, 0x00000001, 0x00020001, 0x00000001, 0x00000211, 0x00000001,   // 32..39
+    0x00000001, 0x00000002, 0x00000802, 0x00000000, 0x00020002, 0x00008002, 0x00010004, 0x00110004,   // 40..47
+    0x02000100, 0x000c0000, 0x00000000, 0x00140000, 0x00807000, 0x00110000, 0x00000000, 0x00000000,   // 48..55
+    0x00000000, 0x00000000, 0x00010001, 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   // 56..63
+    0x01000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   // 64..71
+    0x00080000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x01000000,   // 72..79
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00800000,   // 80..87
+    0x00000000, 0x00080000, 0x00000000, 0x00000000, 0x00800000, 0x00000000, 0x00020000, 0x00000000,   // 88..95
+    0x00800000, 0x00080020, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   // 96..103
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   // 104..111
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   // 112..119
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   // 120..127
+    0x00000000, 0x00000000, 0x00010000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   // 128..135
+    0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000,   // 136..143
+    0x00000000,   // 144..144
+};
+
+// CAT (M2-R4 combat): damage scale per experience level (cat_experienceDamageScale 0x0072bb78)
+static const real32 cat_experienceDamageScale[5] = { 1.0f, 1.1f, 1.2f, 1.3f, 1.4f };
+
+// CAT-PROVISIONAL (M2-R4 #5): the exe keeps a ship's experience level at Ship+0x5F8 (0..4), which comes with the
+//      Stats/Player layout; every ship is at level 0 until then
+static sdword cat_shipExperienceLevel(Ship *ship)
+{
+    (void)ship;
+    return 0;
+}
+
+// CAT-PROVISIONAL (M2-R4 #5): the player's upgrade state (Player +0x6504 armour level, +0x650C energy-weapon research,
+//      +0x652C upgrade bits); cat_playerUpgradesReset 0x00514100 clears all three for a new game, so a player that
+//      has researched nothing reads 0, which is what these return until the Player layout is ported
+static sdword cat_playerArmourLevel(Player *player)
+{
+    (void)player;
+    return 0;
+}
+
+static bool32 cat_playerHasEnergyWeapons(Player *player)
+{
+    (void)player;
+    return FALSE;
+}
+
+static udword cat_playerUpgradeBits(Player *player)
+{
+    (void)player;
+    return 0;
+}
+
+real32 cat_weaponDamageVsArmour(sdword damageType, sdword armourLevel)   // 0x00514460
+{
+    return cat_damageVsArmourTable[damageType][armourLevel];
+}
+
+real32 cat_gunStaticBaseDamage(GunStatic *gunstatic)                  // 0x00514600
+{
+    return cat_damageVsArmourTable[gunstatic->gunsoundtype][0] * gunstatic->damageMult;
+}
+
+real32 cat_shipGetDamageMultiplier(Ship *ship)                      // 0x005148f0
+{
+    real32 multiplier = cat_experienceDamageScale[cat_shipExperienceLevel(ship)];
+
+    if (ship->shiptype == bMothership)
+    {
+        // CAT-TODO(M2-R4 #4): + cat_beastMothershipDamageBonus 0x005bca30 [audit: was "0x005bc9xx"] (the Beast
+        //      mothership's module bonus)
+    }
+    if ((singlePlayerGame) && (kasfMissionSkillGet() == 0))
+    {
+        multiplier = multiplier + multiplier;
+    }
+    return multiplier;
+}
+
+// a new ship's upgrade state: the type's starting armour, no upgrade bits, each gun in its first weapon
+void cat_shipUpgradesInit(Ship *ship)                               // 0x005140a0
+{
+    GunInfo *gunInfo = ship->gunInfo;
+    sdword i;
+
+    ship->catArmourLevel = cat_shipTypeArmourLevels[ship->shiptype][0];
+    ship->catUpgradeFlags = 0;
+    if (gunInfo != NULL)
+    {
+        for (i = 0; i < gunInfo->numGuns; i++)
+        {
+            gunInfo->guns[i].catWeaponType = gunInfo->guns[i].gunstatic->startUpgradeLevel;
+            cat_gunStaticSetSoundTypes(gunInfo->guns[i].gunstatic);
+        }
+    }
+}
+
+// the player's research applies to a ship: armour up to the type's maximum, the upgrade bits the type takes plus its
+// static ones, and a projectile gun that can switch to energy does so once the player has energy weapons
+void cat_shipApplyUpgrades(Ship *ship)                              // 0x00514490
+{
+    GunInfo *gunInfo = ship->gunInfo;
+    sdword armour = cat_playerArmourLevel(ship->playerowner);
+    sdword i;
+    Gun *gun;
+
+    if (cat_shipTypeArmourLevels[ship->shiptype][1] < armour)
+    {
+        armour = cat_shipTypeArmourLevels[ship->shiptype][1];
+    }
+    ship->catArmourLevel = armour;
+    ship->catUpgradeFlags = (cat_shipTypeUpgradeMasks[ship->shiptype] & cat_playerUpgradeBits(ship->playerowner)) |
+                            ship->staticinfo->unknown450;
+    if (ship->soundevent.burstfiring)
+    {
+        soundEventBurstStop(ship, NULL);
+    }
+    if (gunInfo != NULL)
+    {
+        for (i = 0; i < gunInfo->numGuns; i++)
+        {
+            gun = &gunInfo->guns[i];
+            if ((gun->catWeaponType == WEAPON_PROJECTILE) && (gun->gunstatic->endUpgradeLevel == WEAPON_ENERGY) &&
+                cat_playerHasEnergyWeapons(ship->playerowner))
+            {
+                gun->catWeaponType = WEAPON_ENERGY;
+            }
+        }
+    }
+}
+
 bool32 cat_shipHasUpgrade(Ship *ship, udword flag)                  // 0x00514210
 {
     return (ship->catUpgradeFlags & flag) != 0;
@@ -2908,6 +3098,12 @@ sdword cat_acvLinkState(Ship *ship)
     return 0;
 }
 
+// CAT (M2-R4 combat): sAcolyte, bAcolyte or dAcolyte (cat_shipIsAcolyteOrDerelict 0x005ad360)
+bool32 cat_shipIsAcolyteOrDerelict(Ship *ship)                      // 0x005ad360
+{
+    return (ship->shiptype == sAcolyte) || (ship->shiptype == bAcolyte) || (ship->shiptype == dAcolyte);
+}
+
 bool32 cat_acolyteCanFireLinkedWeapon(Ship *ship)                   // 0x005ada50
 {
     // the third or fourth gun (the linked weapon) must hold missiles; the exe's Gun has a leading upgrade-level
@@ -2961,6 +3157,22 @@ bool32 cat_mothershipBigGunActive(Ship *ship)                       // 0x005bbf6
     //      mothership code is ported in M2-R4 #4 (ship code B). Until then the big gun never fires.
     (void)bigGunReady;
     return FALSE;
+}
+
+// CAT (M2-R4 combat): 1 for player's own ship, 2 for a stealth-type ship player has not detected, else 0
+//      (cat_shipStealthTargetState 0x0053ff30; the per-type detected flags as cat_shipDetectedByPlayer reads them)
+sdword cat_shipStealthTargetState(Ship *ship, Player *player)       // 0x0053ff30
+{
+    if (ship->playerowner == player)
+    {
+        return 1;
+    }
+    if ((player->playerIndex < MAX_MULTIPLAYER_PLAYERS) && (ship->staticinfo->catTypeFlags & 0x20000) &&
+        !cat_shipDetectedByPlayer(ship, player->playerIndex))
+    {
+        return 2;
+    }
+    return 0;
 }
 
 bool32 cat_shipDetectedByPlayer(Ship *ship, sdword playerIndex)     // sub_53F9F0 0x0053f9f0

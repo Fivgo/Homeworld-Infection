@@ -674,6 +674,29 @@ bool32 madAnimationUpdate(Ship *ship, real32 timeElapsed)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_madAnimationFinished
+    Description : CAT: TRUE when ship plays no mesh animation, its animation is paused, or it has reached the end of
+                  the animation (cat_madAnimationFinished 0x004b7090)
+    Inputs      : ship - a ship with mesh animation bindings
+    Return      : TRUE when the animation is over
+    Notes       : the exe keeps the animation *number* in nCurrentAnim and finds its header entry through
+                  madstatic.animIndexes; this tree's madAnimationStart still stores the header index (MeshAnim.c,
+                  stage 3), so the header entry is nCurrentAnim itself here.
+----------------------------------------------------------------------------*/
+bool32 cat_madAnimationFinished(Ship *ship)
+{
+    madanim *anim = ship->madBindings;
+
+    if ((anim->nCurrentAnim != MAD_NoAnimation) &&
+        (anim->time < anim->header->anim[anim->nCurrentAnim].endTime) &&
+        (!anim->bPaused))
+    {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : madAnimationStop
     Description : Stop an animation from playing.
     Inputs      : ship - ship to stop animating

@@ -390,3 +390,28 @@ real32 cat_vecDistance(vector *a, vector *b)
 {
     return fsqrt((a->x - b->x) * (a->x - b->x) + (a->y - b->y) * (a->y - b->y) + (a->z - b->z) * (a->z - b->z));
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_vecPlaneNormalFrom3Points
+    Description : CAT: the unit normal of the plane through a, b, c: (c - b) x (a - b), left as it is when its length
+                  is 0 (cat_vecPlaneNormalFrom3Points 0x00550c90)
+    Inputs      : a, b, c
+    Outputs     : normal
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_vecPlaneNormalFrom3Points(vector *a, vector *b, vector *c, vector *normal)
+{
+    real32 length;
+
+    normal->x = (c->z - b->z) * (a->y - b->y) - (c->y - b->y) * (a->z - b->z);
+    normal->y = (c->x - b->x) * (a->z - b->z) - (c->z - b->z) * (a->x - b->x);
+    normal->z = (c->y - b->y) * (a->x - b->x) - (c->x - b->x) * (a->y - b->y);
+    length = fsqrt(normal->x * normal->x + normal->y * normal->y + normal->z * normal->z);
+    if (length != 0.0f)
+    {
+        length = 1.0f / length;
+        normal->x = length * normal->x;
+        normal->y = length * normal->y;
+        normal->z = length * normal->z;
+    }
+}

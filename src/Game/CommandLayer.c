@@ -8228,7 +8228,9 @@ bool32 salCapCorvettesInSelectionCantDoFormation(SelectCommand *selection)
 
     for(i=0;i<selection->numShips;i++)
     {
-        if(selection->ShipPtr[i]->shiptype == SalCapCorvette)
+        // CAT: any Cataclysm salvager (cat_shipIsSalvager 0x004f8f60), as clProcess 0x0044c448 tests it inline; HW1's
+        //      SalCapCorvette type is a dormant id that no ship has [audit: M2-R4 combat left this HW1 type test]
+        if(cat_shipIsSalvager(selection->ShipPtr[i]))
         {
             if(selection->ShipPtr[i]->shipOrDerelict.specialFlags & SPECIAL_BrokenFormation)
             {
@@ -8830,7 +8832,7 @@ processdock:
 
                             // changing COMMAND_DOCK to COMMAND_COLLECT_RESOURCES
                             FreeLastOrder(command);
-                            ChangeSingleShipToCollectResource(command);
+                            ChangeSingleShipToCollectResource(command,NULL);   // CAT: clProcess 0x0044b950 passes NULL
                         }
                         else
                         {

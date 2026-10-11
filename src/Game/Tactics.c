@@ -14,6 +14,8 @@
 #include "ClassDefs.h"
 #include "CommandDefs.h"
 #include "CommandLayer.h"
+#include "Dock.h"
+#include "ShipSelect.h"
 #include "FastMath.h"
 #include "FEFlow.h"
 #include "FlightMan.h"
@@ -2333,4 +2335,36 @@ bool32 tacticsHasShipRetreatedFromShip(Ship *shipA, Ship *shipB)
         node = node->next;
     }
     return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tacticsEvasiveRetreatToDock
+    Description : CAT: an evasive ship that may dock and has fallen below a third of its health goes home to dock,
+                  unless it is already docking (cat_tacticsEvasiveRetreatToDock 0x00529f90; ApplyDamageToTarget calls
+                  it on every hit)
+    Inputs      : ship (any targetable object; only ships act)
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_tacticsEvasiveRetreatToDock(Ship *ship)
+{
+    // 0x008a89f4 (0.333): the health fraction below which an evasive ship retreats (a constant of the exe's data)
+    const real32 retreatHealthFraction = 0.333f;
+    SelectCommand selectone;
+
+    if ((ship->header.objtype != OBJ_ShipType) || !cat_shipCanSetTactics(ship, TRUE) || (ship->tacticstype != Evasive) ||
+        !cat_shipCanDock(ship, TRUE) ||
+        !(ship->staticinfo->health.oneOverMaxHealth * ship->targetable.health < retreatHealthFraction))
+    {
+        return;
+    }
+    if ((ship->command != NULL) && (ship->command->ordertype.order == COMMAND_DOCK))
+    {
+        return;                                             // already docking
+    }
+    selectone.numShips = 1;
+    selectone.ShipPtr[0] = ship;
+    // CAT-PROVISIONAL (M2-R4 #3 follow-up, dock purposes): the exe passes Cataclysm's dock purpose 0; this tree's
+    //      clDock still takes HW1's DOCK_* bits, so HW1's refuel-and-repair dock stands in for it
+    clDock(&universe.mainCommandLayer, &selectone, DOCK_FOR_BOTHREFUELANDREPAIR, NULL);
 }

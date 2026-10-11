@@ -56,7 +56,6 @@
 #include "ProximitySensor.h"
 #include "rglu.h"
 #include "Region.h"
-#include "SalCapCorvette.h"
 #include "screenshot.h"
 #include "Select.h"
 #include "Shader.h"
@@ -2357,7 +2356,7 @@ static enum WhetherToDraw onRenderEffect(Effect* effect) {
         return DontDraw;
     }
 
-    if (bullet->bulletType != BULLET_Laser) return Draw;
+    if (bullet->bulletType != CAT_BULLET_HW1DefenseLaser) return Draw;    // CAT: HW1's defense laser only (SpaceObj.h)
 
     /** Effect is owned by a defense fighter laser beam
      *
@@ -2608,7 +2607,7 @@ void rndMainViewRenderFunction(Camera *camera)
                 {                                           //if there is no effect for this bullet
                     rndLightingEnable(FALSE);               //draw default line
                     rndTextureEnable(FALSE);
-                    if(((Bullet *)spaceobj)->bulletType == BULLET_Laser)
+                    if(((Bullet *)spaceobj)->bulletType == CAT_BULLET_HW1DefenseLaser)     // CAT: HW1's defense laser only (SpaceObj.h)
                     {   //bullet update 'feature' to draw laser to bullet
                         defenseFighterAdjustLaser(((Bullet *)spaceobj));
                     }

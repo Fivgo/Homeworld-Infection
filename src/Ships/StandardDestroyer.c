@@ -108,8 +108,7 @@ void StandardDestroyerHouseKeep(Ship *ship)
     // CAT: new slot-10 body (StandardDestroyerHouseKeep 0x005c7800): sDestroyer regenerates one missile every
     //      MissileRegenerateTime seconds, once MissileLagVolleyTime has passed since its last volley, into the
     //      missile gun with the fewest missiles that is below its maximum. The exe tests the gun's current WEAPON_*
-    //      type (Gun +0x00) for WEAPON_MISSILE; this tree's Gun has no such word yet (M2-R4 #3), so the gun's first
-    //      weapon type (gunstatic->startUpgradeLevel, the first WEAPON_* key) stands in for it (CAT-PROVISIONAL).
+    //      type (Gun +0x00, Gun.catWeaponType since M2-R4 combat) for WEAPON_MISSILE.
     StandardDestroyerSpec *spec = (StandardDestroyerSpec *)ship->ShipSpecifics;
     StandardDestroyerStatics *sdestroyerstat = (StandardDestroyerStatics *)ship->staticinfo->custstatinfo;
     GunInfo *gunInfo;
@@ -130,7 +129,7 @@ void StandardDestroyerHouseKeep(Ship *ship)
     for (i = 0; i < gunInfo->numGuns; i++)
     {
         gun = &gunInfo->guns[i];
-        if ((gun->gunstatic->startUpgradeLevel == WEAPON_MISSILE) &&
+        if ((gun->catWeaponType == WEAPON_MISSILE) &&
             (gun->numMissiles < ship->staticinfo->gunStaticInfo->gunstatics[i].maxMissiles) &&
             (gun->numMissiles < fewest))
         {

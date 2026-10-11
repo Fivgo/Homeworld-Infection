@@ -32,20 +32,14 @@
 
 real32 COLLECTRESOURCE_DIST = 400.0f;
 real32 MAX_RESOURCE_VELOCITY_TO_CHASE = 50.0f;
-real32 MAX_RESOURCE_VELOCITY_TO_CHASE_LEVEL6 = 50.0f;
 real32 ASTEROID_HARVEST_RANGE = 400.0f;
 real32 ASTEROID_MAXHARVEST_RANGE = 600.0f;
 udword CIRCLE_HARVEST_ASTEROIDS_BIGGEREQUAL_THAN = 2;
 real32 CIRCLE_RIGHT_VELOCITY = 20.0f;
 real32 CIRCLE_RIGHT_THRUST = 0.1f;
 real32 DUSTCLOUD_RU_DAMAGE_RATIO;
-real32 ASTEROID_RU_DAMAGE_RATIO[NUM_ASTEROIDTYPES] = { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f };
-real32 ASTEROIDBREAK_LO_VELOCITY = -200.0f;
-real32 ASTEROIDBREAK_HI_VELOCITY = 200.0f;
-real32 ASTEROIDBREAK_RADIUS_SCALE = 0.7f;
-
-real32 ASTEROIDBREAK_LO_ROTATE = -1.0f;
-real32 ASTEROIDBREAK_HI_ROTATE = 1.0f;
+// CAT: no ASTEROID_RU_DAMAGE_RATIO[] / ASTEROIDBREAK_* tweakables: AsteroidTakesDamage 0x004f1730 and BreakAsteroidUp
+//      0x004f1580 use neither, and cataclysm.exe has none of those key strings
 
 real32 ASTEROID_LO_ROTATE[NUM_ASTEROIDTYPES] = { -1.0f, -1.0f, -1.0f, -1.0f, -1.0f };
 real32 ASTEROID_HI_ROTATE[NUM_ASTEROIDTYPES] = { 1.0f , 1.0f , 1.0f , 1.0f ,  1.0f };
@@ -73,23 +67,12 @@ scriptEntry ResCollectTweaks[] =
 {
     makeEntry(COLLECTRESOURCE_DIST,scriptSetReal32CB),
     makeEntry(MAX_RESOURCE_VELOCITY_TO_CHASE,scriptSetReal32CB),
-    makeEntry(MAX_RESOURCE_VELOCITY_TO_CHASE_LEVEL6,scriptSetReal32CB),
     makeEntry(ASTEROID_HARVEST_RANGE,scriptSetReal32CB),
     makeEntry(ASTEROID_MAXHARVEST_RANGE,scriptSetReal32CB),
     makeEntry(CIRCLE_HARVEST_ASTEROIDS_BIGGEREQUAL_THAN,scriptSetUdwordCB),
     makeEntry(CIRCLE_RIGHT_VELOCITY,scriptSetReal32CB),
     makeEntry(CIRCLE_RIGHT_THRUST,scriptSetReal32CB),
-    makeEntry(ASTEROID_RU_DAMAGE_RATIO[Asteroid0],scriptSetReal32CB),
-    makeEntry(ASTEROID_RU_DAMAGE_RATIO[Asteroid1],scriptSetReal32CB),
-    makeEntry(ASTEROID_RU_DAMAGE_RATIO[Asteroid2],scriptSetReal32CB),
-    makeEntry(ASTEROID_RU_DAMAGE_RATIO[Asteroid3],scriptSetReal32CB),
-    makeEntry(ASTEROID_RU_DAMAGE_RATIO[Asteroid4],scriptSetReal32CB),
     makeEntry(DUSTCLOUD_RU_DAMAGE_RATIO,scriptSetReal32CB),
-    makeEntry(ASTEROIDBREAK_LO_VELOCITY,scriptSetReal32CB),
-    makeEntry(ASTEROIDBREAK_HI_VELOCITY,scriptSetReal32CB),
-    makeEntry(ASTEROIDBREAK_LO_ROTATE,scriptSetReal32CB),
-    makeEntry(ASTEROIDBREAK_HI_ROTATE,scriptSetReal32CB),
-    makeEntry(ASTEROIDBREAK_RADIUS_SCALE,scriptSetReal32CB),
     makeEntry(ASTEROID_LO_ROTATE[Asteroid0],scriptSetReal32CB),
     makeEntry(ASTEROID_HI_ROTATE[Asteroid0],scriptSetReal32CB),
     makeEntry(ASTEROID_LO_ROTATE[Asteroid1],scriptSetReal32CB),
@@ -143,12 +126,9 @@ void InitShipForResourceCollection(Ship *ship,Resource *resource);
 ----------------------------------------------------------------------------*/
 bool32 ResourceMovingTooFast(Resource *resource)
 {
+    // CAT: ResourceMovingTooFast 0x004f10f0 has no Mission 6 limit (no MAX_RESOURCE_VELOCITY_TO_CHASE_LEVEL6 key in
+    //      cataclysm.exe)
     real32 maxvelocitychase = MAX_RESOURCE_VELOCITY_TO_CHASE;
-
-    if (singlePlayerGame && (spGetCurrentMission() == MISSION_6_DIAMOND_SHOALS))
-    {
-        maxvelocitychase = MAX_RESOURCE_VELOCITY_TO_CHASE_LEVEL6;
-    }
 
     if ((ABS(resource->obj.posinfo.velocity.x) > maxvelocitychase) ||
         (ABS(resource->obj.posinfo.velocity.y) > maxvelocitychase) ||
@@ -232,31 +212,50 @@ Resource *rescollectFindNearestResource(Ship *ship,struct CommandToDo *command)
 {
     Resource *resource;
 
-    if (command->collect.resourceVolumeSize)
+    // CAT: rescollectFindNearestResource 0x004f11f0. A harvester that filled up mid-volume (SPECIAL_2_CatResourcing,
+    //      set by processCollectResource) searches COLLECTRESOURCE_ZONE around its volume position again; the flag is
+    //      cleared either way. Outside a volume, only the local player's and the AI players' harvesters search further.
+    if ((command->collect.resourceVolumeSize != 0.0f) || bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatResourcing))
     {
-        resource = univFindNearestResource(ship,command->collect.resourceVolumeSize,&command->collect.resourceVolumePosition);
-        if (resource == NULL)
+        if (bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatResourcing))
         {
-            command->collect.resourceVolumeSize = 0.0f;     // no more resources in this volume, so don't keep looking in it
-            goto novolumelook;
+            command->collect.resourceVolumeSize = COLLECTRESOURCE_ZONE;
+        }
+        bitClear(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatResourcing);
+        // CAT-TODO(M2-R4 #5): the exe passes univFindNearestResource 0x00549c50 a fourth argument, 0 here
+        resource = univFindNearestResource(ship,command->collect.resourceVolumeSize,&command->collect.resourceVolumePosition);
+        if (resource != NULL)
+        {
+            return resource;
+        }
+        command->collect.resourceVolumeSize = 0.0f;     // no more resources in this volume, so don't keep looking in it
     }
-}
-    else
+
+    if ((ship->playerowner != universe.curPlayerPtr) && (ship->playerowner->aiPlayer == NULL))
     {
-novolumelook:
-        resource = univFindNearestResource(ship,0,NULL);
+        return NULL;
     }
+
+    // CAT-TODO(M2-R4 #3 follow-up, dock purposes): the exe goes on with cat_clHarvestNearestResource 0x00449790 (CommandLayer.c:
+    //      univFindNearestResource with its fourth argument, the out-of-resources message and speech (stage 3), the
+    //      dock with type 3 in a multiplayer game, and for a single-ship order FreeLastOrder +
+    //      ChangeSingleShipToCollectResource(command, resource)); until it is ported the nearest resource is HW1's
+    resource = univFindNearestResource(ship,0,NULL);
 
     return resource;
 }
 
-void ChangeSingleShipToCollectResource(struct CommandToDo *command)
+void ChangeSingleShipToCollectResource(struct CommandToDo *command,Resource *resource)
 {
     Ship *ship = command->selection->ShipPtr[0];
-    Resource *resource;
     dbgAssertOrIgnore(command->selection->numShips == 1);
 
-    resource = rescollectFindNearestResource(ship,command);
+    // CAT: ChangeSingleShipToCollectResource 0x004f12c0 takes the resource (clProcess 0x0044b950 passes NULL,
+    //      cat_clHarvestNearestResource 0x00449790 the one it found) and only searches without one
+    if (resource == NULL)
+    {
+        resource = rescollectFindNearestResource(ship,command);
+    }
     InitShipForResourceCollection(ship,resource);
 
     command->ordertype.order = COMMAND_COLLECT_RESOURCES;
@@ -327,25 +326,8 @@ void clCollectResource(CommandLayer *comlayer,SelectCommand *selectcom,ResourceP
     }
 }
 
-void HandleAsteroidScaling(Asteroid *asteroid)
-{
-    AsteroidStaticInfo *asteroidstatic = asteroid->staticinfo;
-    if (asteroidstatic->asteroidCanShrink)
-    {
-        real32 oldscaling = asteroid->scaling;
-
-        asteroid->scaling = (real32)asteroid->resource.resourcevalue / (real32)asteroidstatic->resource.resourcevalue;
-        if (asteroid->scaling < asteroidstatic->asteroidMinShrink)
-        {
-            asteroid->scaling = asteroidstatic->asteroidMinShrink;
-        }
-
-        if (asteroid->scaling != oldscaling)
-        {
-            MakeNewAsteroidStaticInfo(asteroid);
-        }
-    }
-}
+// CAT: HW1's HandleAsteroidScaling is gone: Cataclysm asteroids never shrink (AsteroidTakesDamage 0x004f1730 and
+//      CollectResources 0x004f17a0 never rescale one, and the exe has no asteroidCanShrink/asteroidMinShrink keys)
 
 void HandleDustCloudScaling(DustCloud* dustcloud)
 {
@@ -479,52 +461,39 @@ void DustCloudChargesUp(DustCloud* dustcloud, sdword damagetaken, bool32 targetW
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: BreakAsteroidUp 0x004f1580 is Cataclysm's: the asteroid breaks into the pieces its .shp lists
+//      (AsteroidStaticInfo.breakPieces): each at its offset in the parent's frame, turned by its orientation, pushed
+//      out at params[0] on top of the parent's velocity and spinning at params[1..3]. No HW1 random break-up.
 void BreakAsteroidUp(Asteroid *asteroid)
 {
     AsteroidStaticInfo *asteroidstatic = asteroid->staticinfo;
+    AsteroidBreakPiece *piece;
     Asteroid *newasteroid;
-    AsteroidType asteroidtype;
-    udword j;
-    udword numAsteroidsToMake;
-    vector randpos;
-    real32 randposrange;
-    vector originalvelocity;
-    vector randomvelocity;
+    vector offset, push, position;
+    matrix coordsys;
+    sdword i;
 
     dbgAssertOrIgnore(asteroid->header.objtype == OBJ_AsteroidType);
 
-    // asteroid has been destroyed.  Split it up into multiple asteroids
-    if (asteroidstatic->asteroidCanBreak)
+    // CAT-TODO(stage 3): cat_soundEventAsteroidBreak 0x005215d0 (the break sound)
+    for (i = 0; i < asteroidstatic->numBreakPieces; i++)
     {
-        randposrange = asteroidstatic->common.staticCollInfo.collspheresize * ASTEROIDBREAK_RADIUS_SCALE;
-        originalvelocity = asteroid->obj.posinfo.velocity;
-
-        for (asteroidtype=Asteroid0;asteroidtype<NUM_ASTEROIDTYPES;asteroidtype++)
+        piece = &asteroidstatic->breakPieces[i];
+        matMultiplyMatByVec(&offset, &asteroid->rotatable.rotinfo.coordsys, &piece->position);
+        push = offset;
+        if ((offset.x != 0.0f) || (offset.y != 0.0f) || (offset.z != 0.0f))
         {
-            numAsteroidsToMake = asteroidstatic->breakinto[asteroidtype];
-            for (j=0;j<numAsteroidsToMake;j++)
-            {
-                randpos.x = frandombetween(-randposrange,randposrange);
-                randpos.y = frandombetween(-randposrange,randposrange);
-                randpos.z = frandombetween(-randposrange,randposrange);
-                vecAddTo(randpos,asteroid->impactable.collInfo.collPosition);
-                newasteroid = univAddAsteroid(asteroidtype,&randpos);
-                randomvelocity.x = frandombetween(ASTEROIDBREAK_LO_VELOCITY,ASTEROIDBREAK_HI_VELOCITY);
-                randomvelocity.y = frandombetween(ASTEROIDBREAK_LO_VELOCITY,ASTEROIDBREAK_HI_VELOCITY);
-                randomvelocity.z = frandombetween(ASTEROIDBREAK_LO_VELOCITY,ASTEROIDBREAK_HI_VELOCITY);
-                vecAdd(newasteroid->obj.posinfo.velocity,randomvelocity,originalvelocity);
-                if (asteroid->asteroidtype >= Asteroid2)
-                if (((udword)(gamerand() & 255)) <= ASTEROID_ROTATE_PROB)
-                {
-                    newasteroid->rotatable.rotinfo.rotspeed.x = frandombetween(ASTEROIDBREAK_LO_ROTATE,ASTEROIDBREAK_HI_ROTATE);
-                    newasteroid->rotatable.rotinfo.rotspeed.y = frandombetween(ASTEROIDBREAK_LO_ROTATE,ASTEROIDBREAK_HI_ROTATE);
-                    newasteroid->rotatable.rotinfo.rotspeed.z = frandombetween(ASTEROIDBREAK_LO_ROTATE,ASTEROIDBREAK_HI_ROTATE);
-                }
-                newasteroid->obj.attributes = asteroid->obj.attributes;     // inherit attributes
-                bitClear(newasteroid->obj.attributes,ATTRIBUTES_KillerCollDamage|ATTRIBUTES_HeadShotKillerCollDamage);
-                if (asteroidtype != Asteroid0) univAddObjToRenderListIf((SpaceObj *)newasteroid,(SpaceObj *)asteroid);     // add to render list if parent is in render list
-            }
+            vecNormalizeToLength(&push, piece->params[0]);
         }
+        vecAdd(position, offset, asteroid->obj.posinfo.position);
+        matMultiplyMatByMat(&coordsys, &piece->orientation, &asteroid->rotatable.rotinfo.coordsys);
+        newasteroid = univAddAsteroid(piece->asteroidtype, &position);
+        vecAdd(newasteroid->obj.posinfo.velocity, push, asteroid->obj.posinfo.velocity);
+        newasteroid->rotatable.rotinfo.coordsys = coordsys;
+        newasteroid->rotatable.rotinfo.rotspeed.x = piece->params[1];
+        newasteroid->rotatable.rotinfo.rotspeed.y = piece->params[2];
+        newasteroid->rotatable.rotinfo.rotspeed.z = piece->params[3];
+        univAddObjToRenderListIf((SpaceObj *)newasteroid,(SpaceObj *)asteroid);     // add to render list if parent is in render list
     }
 }
 
@@ -536,32 +505,20 @@ void BreakAsteroidUp(Asteroid *asteroid)
     Outputs     :
     Return      : returns TRUE if should delete asteroid
 ----------------------------------------------------------------------------*/
+// CAT: AsteroidTakesDamage 0x004f1730 is Cataclysm's: an asteroid's resource value follows its health (the static
+//      value times the health fraction, truncated), and it dies when its health is gone; the damage argument is no
+//      longer read, and there is no HW1 RU damage ratio or shrinking
 bool32 AsteroidTakesDamage(Asteroid *asteroid,sdword damagetaken,bool32 targetWasAlive)
 {
-    sdword RUdamage;
+    real32 fraction = 0.0f;
 
-    if (!targetWasAlive)
+    (void)damagetaken;
+    if (asteroid->targetable.health > 0.0f)
     {
-        return FALSE;       // target already dead, so ignore
+        fraction = asteroid->targetable.health / asteroid->staticinfo->health.maxhealth;
     }
-
-    dbgAssertOrIgnore(asteroid->asteroidtype < NUM_ASTEROIDTYPES);
-
-    RUdamage = (sdword) (damagetaken * ASTEROID_RU_DAMAGE_RATIO[asteroid->asteroidtype]);
-    asteroid->resource.resourcevalue -= RUdamage;
-
-    if (asteroid->resource.resourcevalue <= 0)
-    {
-        return TRUE;        // all RU's have been sapped out.  Just kill asteroid
-    }
-
-    if (asteroid->targetable.health <= 0)
-    {
-        return TRUE;
-    }
-
-    HandleAsteroidScaling(asteroid);
-    return FALSE;
+    asteroid->resource.resourcevalue = (sdword)((real32)asteroid->staticinfo->resource.resourcevalue * fraction);
+    return targetWasAlive && (asteroid->targetable.health <= 0.0f);
 }
 
 /*-----------------------------------------------------------------------------
@@ -572,11 +529,14 @@ bool32 AsteroidTakesDamage(Asteroid *asteroid,sdword damagetaken,bool32 targetWa
     Outputs     :
     Return      : TRUE if ship collected resource
 ----------------------------------------------------------------------------*/
+// CAT: CollectResources 0x004f17a0: a tutorial harvests five times as fast; a ship with Bulimia (specialFlags2
+//      0x200000) gets nothing; "full" is battle chatter 0x4B; an asteroid's health follows its resource value; the
+//      clouds scale in place (the asteroid does not shrink: HW1's HandleAsteroidScaling has no counterpart); the AI's
+//      resourcing marks are Ship words now (catResourceFinished, catResourcing)
 bool32 CollectResources(Ship *ship,Resource *resource)
 {
     ShipStaticInfo *shipstatic;
     sdword eat;
-
     bool32 resourceWasAlive;
 
     dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
@@ -598,43 +558,65 @@ bool32 CollectResources(Ship *ship,Resource *resource)
         resourceWasAlive = ((resource->header.flags & SOF_Dead) == 0);
 
         eat = (shipstatic->harvestAmount <= resource->resourcevalue) ? shipstatic->harvestAmount : resource->resourcevalue;
-        ship->resources += eat;
+        if (tutorial == 1)
+        {
+            eat = eat * 5;
+        }
+        if (!bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatKasBulimia))
+        {
+            ship->resources += eat;
+        }
 
         if (ship->resources > shipstatic->maxresources)
         {                                                          // over eated
-            eat -= (ship->resources - shipstatic->maxresources);
+            eat += (shipstatic->maxresources - ship->resources);
             ship->resources = shipstatic->maxresources;
-            speechEvent(ship, STAT_ResCol_Full, 0);
+            // CAT: Cataclysm's "resource collector full" battle chatter (event 0x4B of cataclysm.exe)
+            if (battleCanChatterAtThisTime(0x4b, ship))
+            {
+                battleChatterAttempt(SOUND_EVENT_DEFAULT, 0x4b, ship, ship->shiptype);
+            }
         }
 
         resource->resourcevalue -= eat;
 
+        if (resource->header.objtype == OBJ_AsteroidType)
+        {
+            real32 value = (real32)resource->resourcevalue;
+
+            if (value <= 0.0f)
+            {
+                value = 0.0f;
+            }
+            if (resource->targetable.health < 0.0f)
+            {
+                // the exe prints "WARNING: Asteroid health was %f, setting to zero" here
+                resource->targetable.health = 0.0f;
+            }
+            resource->targetable.health = (value / (real32)resource->staticinfo->resourcevalue) *
+                                          ((AsteroidStaticInfo *)resource->staticinfo)->health.maxhealth;
+        }
+
         if ((resource->resourcevalue <= 0) && (resourceWasAlive))
         {
             AddResourceToDeleteResourceList(resource);
-            bitSet(ship->shipOrDerelict.specialFlags, SPECIAL_Finished_Resource);
-            bitClear(ship->shipOrDerelict.specialFlags, SPECIAL_Resourcing);
-        }
-        else
-        {
-            if (resource->header.objtype == OBJ_AsteroidType)
-            {
-                HandleAsteroidScaling((Asteroid *)resource);
-            }
-            else if (resource->header.objtype == OBJ_DustType)
-            {
-                HandleDustCloudScaling((DustCloud *)resource);
-            }
-            else if (resource->header.objtype == OBJ_GasType)
-            {
-                HandleGasCloudScaling((GasCloud *)resource);
-            }
-            else if (resource->header.objtype == OBJ_NebulaType)
-            {
-                HandleNebulaScaling((Nebula*)resource);
-            }
+            ship->catResourceFinished = TRUE;
+            ship->catResourcing = FALSE;
+            return TRUE;
         }
 
+        if (resource->header.objtype == OBJ_DustType)
+        {
+            HandleDustCloudScaling((DustCloud *)resource);
+        }
+        else if (resource->header.objtype == OBJ_GasType)
+        {
+            HandleGasCloudScaling((GasCloud *)resource);
+        }
+        else if (resource->header.objtype == OBJ_NebulaType)
+        {
+            HandleNebulaScaling((Nebula*)resource);
+        }
     }
 
     return TRUE;
@@ -649,6 +631,9 @@ bool32 CollectResources(Ship *ship,Resource *resource)
 ----------------------------------------------------------------------------*/
 void TurnHarvestEffectOff(Ship *ship)
 {
+    // CAT: stops no harvest sound. The exe folds this body with stopRepairEffect (0x005c23b0 is the copy its callers
+    //      use); 0x004f1a50, which the delta map calls TurnHarvestEffectOff, is TurnOffAnyResourcingEffects with
+    //      this body inlined
     dbgAssertOrIgnore(ship->rceffect != NULL);
 
     if (bitTest(ship->rceffect->staticinfo->specialOps, ESO_SelfDeleting))
@@ -662,8 +647,6 @@ void TurnHarvestEffectOff(Ship *ship)
         univRemoveObjFromRenderList(&ship->rceffect->obj);
         listDeleteNode(&ship->rceffect->header.objlink);
     }
-
-    soundEventStop(ship->soundevent.specialHandle);
 
     ship->rceffect = NULL;
 }
@@ -748,11 +731,9 @@ void TurnHarvestEffectOn(Ship *ship,Resource *resource,vector *trajectory, real3
     if (stat != NULL && !etgFrequencyExceeded(stat))
 #endif
     {
-        if (resource->header.objtype == OBJ_AsteroidType)
-            ship->soundevent.specialHandle = soundEvent(ship, Ship_ResourceAsteroid);
-        else //if (resource->header.objtype == OBJ_DustType)
-            ship->soundevent.specialHandle = soundEvent(ship, Ship_ResourceDustCloud);
-        /* should have other resource types too? */
+        // CAT: TurnHarvestEffectOn 0x004f1ac0 starts no harvest sound (HW1: Ship_ResourceAsteroid/DustCloud).
+        // CAT-TODO(stage 3): the exe passes the beam length and the resource radius to the effect as real32 values;
+        //      this tree's ETG still reads them as integers (SCALECAST), as all its etgEffectCreate callers do
         ship->rceffect = etgEffectCreate(stat, ship, &nozzleposition, &ship->obj.posinfo.velocity, &nozzlecoordsys, 1.0f, EAF_Velocity | EAF_NLips, 2, SCALECAST(intLength), SCALECAST(intWidth));
     }
     else
@@ -830,6 +811,14 @@ void R1ResourcerHarvestsAsteroid(struct Ship *ship,struct Resource *resource)
     real32 resourceRadius;
 
 //    dbgAssertOrIgnore(resource->header.objtype == OBJ_AsteroidType);
+
+    // CAT: R1ResourcerHarvestsAsteroid 0x004f1d40: a NULL resource (processCollectResource 0x004f2130 and
+    //      cat_rescollectStopHarvest 0x004f2450 stop a harvest that way) resets the harvest state
+    if (resource == NULL)
+    {
+        ship->rcstate1 = 0;
+        return;
+    }
 
     switch (ship->rcstate1)
     {
@@ -966,6 +955,11 @@ void InitShipForResourceCollection(Ship *ship,Resource *resource)
     ship->rcstate1 = 0;
     ship->rcstate2 = 0;
 
+    // CAT: the exe inlines this (ChangeSingleShipToCollectResource 0x004f12c0, processCollectResource 0x004f2130):
+    //      sWorker and bWorker harvest with a third callback, the code at 0x005c9130 (no Ghidra function; saved as
+    //      index 2 by PreFix_ShipXHarvestsResourceY 0x004f2090), every other harvester with R1ResourcerHarvestsAsteroid.
+    // CAT-PROVISIONAL(M2-R4 #4): the Worker callback belongs to Worker.c; until it is ported the Workers use
+    //      R1ResourcerHarvestsAsteroid as well
     ship->ShipXHarvestsResourceY = R1ResourcerHarvestsAsteroid;//DefaultShipHarvestsResource;
 }
 
@@ -1011,11 +1005,37 @@ void Fix_ShipXHarvestsResourceY(Ship *ship)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : cat_rescollectStopHarvest
+    Description : CAT: ends a harvest (cat_rescollectStopHarvest 0x004f2450): an AI harvest mark becomes "finished"
+                  and the harvest callback is told to stop (a NULL resource)
+    Inputs      : ship
+----------------------------------------------------------------------------*/
+static void cat_rescollectStopHarvest(Ship *ship)
+{
+    if (ship->catResourcing)
+    {
+        ship->catResourcing = FALSE;
+        bitClear(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatHarvesting);
+        ship->catResourceFinished = TRUE;
+    }
+    if (ship->ShipXHarvestsResourceY != NULL)
+    {
+        ship->ShipXHarvestsResourceY(ship,NULL);
+    }
+}
+
 bool32 processCollectResource(struct CommandToDo *collecttodo)
 {
+    // CAT: processCollectResource 0x004f2130. Against HW1: a resource that moves too fast, is taken or is outside
+    //      the world is dropped together with the harvest (cat_rescollectStopHarvest); a found resource is used only
+    //      while the hold is below resourcesAtOneTime, else the ship goes to dock; a full ship marks itself
+    //      SPECIAL_2_CatResourcing so that it resumes in its volume; the harvester-done messages and speech are gone,
+    //      and the ship is steadied when the order ends or turns into a dock order
     Resource *resource  = collecttodo->collect.resource;
     Ship     *ship      = collecttodo->selection->ShipPtr[0];
     Ship     *dockship;
+    bool32   done;
 
     ShipStaticInfo *shipstatic = (ShipStaticInfo *)ship->staticinfo;
 
@@ -1024,93 +1044,87 @@ bool32 processCollectResource(struct CommandToDo *collecttodo)
 
     if (ship->resources >= shipstatic->maxresources)
     {
-        TurnOffAnyResourcingEffects(collecttodo);
+        if (ship->rceffect != NULL)
+        {
+            TurnHarvestEffectOff(ship);
+        }
         collecttodo->collect.resource = NULL;           // override - don't collect resource if full
-        resource = NULL;
+        bitSet(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatResourcing);
         goto letsdock;
     }
 
-    if (resource == NULL)
+    if (resource != NULL)
     {
-        if ((ship->resources < shipstatic->resourcesAtOneTime) && ((resource = rescollectFindNearestResource(ship,collecttodo)) != NULL))
+        if ((!ResourceMovingTooFast(resource)) &&
+            (!ResourceAlreadyBeingHarvested(&universe.mainCommandLayer,collecttodo,resource)) &&
+            (!(UNIVERSE_WOODPECKER(CHECK_HARV_OUTOFWORLD_RESOURCE_RATE, resource->resourceID.resourceNumber & CHECK_HARV_OUTOFWORLD_RESOURCE_RATE) &&
+               univObjectOutsideWorld((SpaceObj *)resource))))
         {
-#if DEBUG_COLLECT_RESOURCES
-            dbgMessage("Collecting next resource...");
-#endif
-            InitShipForResourceCollection(ship,resource);
-            collecttodo->collect.resource = resource;
-            return FALSE;
-        }
-        else
-        {
-letsdock:
-            if ((ship->resources > 0) && ((dockship = FindNearestShipToDockAt(ship,DOCK_TO_DEPOSIT_RESOURCES)) != NULL))
-            {
-#if DEBUG_COLLECT_RESOURCES
-                dbgMessage("Flying back to deposit resources...");
-#endif
-                // changing COMMAND_COLLECT_RESOURCES to COMMAND_DOCK
-                FreeLastOrder(collecttodo); // free COMMAND_COLLECT_RESOURCES
-                dockChangeSingleShipToDock(collecttodo,ship,dockship,TRUE,DOCK_TO_DEPOSIT_RESOURCES);
+            ship->ShipXHarvestsResourceY(ship,resource);
 
-                return FALSE;
-            }
-            else
-            {
-                if (ship->playerowner->playerIndex)
-                {
-                    tutGameMessage("Game_NonPlayerHarvesterDone");
-                }
-                else
-                {
-                    tutGameMessage("Game_PlayerHarvesterDone");
-                }
-
-                speechEventFleet(STAT_F_ResourcesAllHarvested, 0, ship->playerowner->playerIndex);
-
-                return TRUE;
-            }
-        }
-    }
-    else
-    {
-        if (ResourceMovingTooFast(resource))
-        {
-            // resource moving too fast, so pick a different one.
-            TurnOffAnyResourcingEffects(collecttodo);
-            collecttodo->collect.resource = NULL;
-            return FALSE;
-        }
-
-        if (ResourceAlreadyBeingHarvested(&universe.mainCommandLayer,collecttodo,resource))
-        {
-            // resource already being harvested by someone else, so pick a different one.
-            TurnOffAnyResourcingEffects(collecttodo);
-            collecttodo->collect.resource = NULL;
-            return FALSE;
-        }
-
-        if (UNIVERSE_WOODPECKER(CHECK_HARV_OUTOFWORLD_RESOURCE_RATE, resource->resourceID.resourceNumber & CHECK_HARV_OUTOFWORLD_RESOURCE_RATE))
-        {
-            if (univObjectOutsideWorld((SpaceObj *)resource))
+            if (resource->resourceNotAccessible)
             {
                 TurnOffAnyResourcingEffects(collecttodo);
                 collecttodo->collect.resource = NULL;
-                return FALSE;
+                cat_rescollectStopHarvest(ship);
             }
-        }
-
-        ship->ShipXHarvestsResourceY(ship,resource);
-
-        if (resource->resourceNotAccessible)
-        {
-            TurnOffAnyResourcingEffects(collecttodo);
-            collecttodo->collect.resource = NULL;
             return FALSE;
         }
 
+        // moving too fast, already being harvested by someone else or outside the world: pick another one
+        if (ship->rceffect != NULL)
+        {
+            TurnHarvestEffectOff(ship);
+        }
+        collecttodo->collect.resource = NULL;
+        cat_rescollectStopHarvest(ship);
         return FALSE;
     }
+
+    resource = rescollectFindNearestResource(ship,collecttodo);
+    if (resource == NULL)
+    {
+        // CAT-TODO(M2-R4 #5): the exe also ends the order here (TRUE) when its globals 0x00a7519c and 0x00a75190
+        //      are both set (not named in this tree yet)
+        if (multiPlayerGame)
+        {
+            return TRUE;
+        }
+        goto letsdock;
+    }
+
+    cat_rescollectStopHarvest(ship);
+    if (ship->resources < shipstatic->resourcesAtOneTime)
+    {
+#if DEBUG_COLLECT_RESOURCES
+        dbgMessage("Collecting next resource...");
+#endif
+        InitShipForResourceCollection(ship,resource);
+        collecttodo->collect.resource = resource;
+        return FALSE;
+    }
+
+letsdock:
+    // CAT-TODO(M2-R4 #3 follow-up, dock purposes): the exe docks with purpose 3; this tree's dock code still takes
+    //      HW1's DOCK_TO_DEPOSIT_RESOURCES bit
+    dockship = FindNearestShipToDockAt(ship,DOCK_TO_DEPOSIT_RESOURCES);
+    cat_rescollectStopHarvest(ship);
+    if ((ship->resources > 0) && (dockship != NULL))
+    {
+#if DEBUG_COLLECT_RESOURCES
+        dbgMessage("Flying back to deposit resources...");
+#endif
+        // changing COMMAND_COLLECT_RESOURCES to COMMAND_DOCK
+        FreeLastOrder(collecttodo); // free COMMAND_COLLECT_RESOURCES
+        dockChangeSingleShipToDock(collecttodo,ship,dockship,TRUE,DOCK_TO_DEPOSIT_RESOURCES);
+        done = FALSE;
+    }
+    else
+    {
+        done = TRUE;
+    }
+    aitrackSteadyShip(ship);
+    return done;
 }
 
 
@@ -1200,7 +1214,7 @@ void R1ResourcerAttacksShip(struct Ship *ship,struct SpaceObjRotImpTarg *target,
 
             //CollectResources(ship,resource);
 
-            ApplyDamageToTarget(target,TW_HARVESTER_DAMAGE_PER_SECOND*universe.phystimeelapsed,-1,DEATH_Killed_By_Player,ship->playerowner->playerIndex);
+            ApplyDamageToTarget(target,TW_HARVESTER_DAMAGE_PER_SECOND*universe.phystimeelapsed,-1,DEATH_Killed_By_Player,ship->playerowner->playerIndex,ship,0);   // CAT: 7 arguments (no exe caller here: the dock subsystem's ResCollect port)
 
             vecDivideByScalar(trajectory,dist,temp);
 

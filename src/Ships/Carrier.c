@@ -11,7 +11,9 @@
 #include "BeastWeapon.h"
 #include "Debug.h"
 #include "DefaultShip.h"
+#include "MeshAnim.h"
 #include "Mothership.h"
+#include "Randy.h"
 #include "RepairCorvette.h"
 #include "Salvage.h"
 #include "Select.h"
@@ -149,14 +151,80 @@ void CarrierOrderChanged(Ship *ship)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_carrierDoorAnimate
+    Description : CAT: starts sCarrier's door animation by number (0 closes, 1 opens; CarrierHouseKeep 0x005af210
+                  calls madAnimationStart(ship, number, 0))
+----------------------------------------------------------------------------*/
+static void cat_carrierDoorAnimate(Ship *ship,sdword number)
+{
+    madstatic *mstatic = ship->staticinfo->madStatic;
+    sdword index = number;
+
+    // CAT-TODO(stage 3): the exe's madAnimationStart 0x004b6b90 looks the number up in madstatic.animIndexes itself
+    //      and takes a third argument (0 here); this tree's takes the header index, so the lookup is done here
+    if (mstatic->animsByNumber)
+    {
+        index = (number < mstatic->numAnims) ? mstatic->animIndexes[number] : -1;
+    }
+    if ((index >= 0) && (index < mstatic->header->nAnimations))
+    {
+        madAnimationStart(ship, index);
+    }
+}
+
 void CarrierHouseKeep(Ship *ship)
 {
-    // CAT: CarrierHouseKeep 0x005af210. sCarrier with a dock info animates its door: open (animation 1) when no
-    //      ship is at a dock point of type 6 or 7, close (animation 0) when one is, with a random 5-10 s pause
-    //      before reopening.
-    //      CAT-PROVISIONAL: the door logic reads Cataclysm's DockStaticInfo (dock point types from the 0x50-byte
-    //      header, producer 5 of M2-R3) and DockInfo, and starts animations with madAnimationStart's third argument
-    //      (MeshAnim.c, stage 3); it is ported with those. The rest is the exe's.
+    // CAT: CarrierHouseKeep 0x005af210. An sCarrier with a dock info animates its door: it closes (animation 0) once
+    //      its open animation is over while a ship holds one of its DPT_Med_In / DPT_Med_Out (6 / 7) dock points,
+    //      and reopens (animation 1) a random 5-10 s after the close animation is over and the points are free.
+    CarrierSpec *spec = (CarrierSpec *)ship->ShipSpecifics;
+    DockStaticInfo *dockstatic;
+    sdword i;
+    bool32 pointBusy = FALSE;
+
+    // the exe reads the mesh animation without a test; this tree may load an sCarrier without one
+    if ((ship->shiptype == sCarrier) && (ship->dockInfo != NULL) && (ship->madBindings != NULL) &&
+        (ship->staticinfo->madStatic != NULL))
+    {
+        dockstatic = ship->staticinfo->dockStaticInfo;
+        for (i = 0; i < dockstatic->numDockPoints; i++)
+        {
+            if (((dockstatic->dockstaticpoints[i].type == DPT_Med_In) || (dockstatic->dockstaticpoints[i].type == DPT_Med_Out)) &&
+                (ship->dockInfo->dockpoints[i].thisDockBusy != 0))
+            {
+                pointBusy = TRUE;
+                break;
+            }
+        }
+        if (pointBusy)
+        {
+            if ((spec->doorState == 1) && cat_madAnimationFinished(ship))
+            {
+                cat_carrierDoorAnimate(ship, 0);
+                spec->doorState = 0;
+            }
+            spec->doorTimer = -1.0f;
+        }
+        else if (spec->doorState != 0)
+        {
+            spec->doorTimer = -1.0f;
+        }
+        else if (cat_madAnimationFinished(ship))
+        {
+            if (spec->doorTimer < 0.0f)
+            {
+                spec->doorTimer = (real32)ranRandom(RANDOM_GAME) * (5.0f / 4294967296.0f) + 5.0f + universe.totaltimeelapsed;
+            }
+            else if (universe.totaltimeelapsed >= spec->doorTimer)
+            {
+                cat_carrierDoorAnimate(ship, 1);
+                spec->doorState = 1;
+                spec->doorTimer = -1.0f;
+            }
+        }
+    }
+
     if (cat_shipHasBeastWeapon(ship))
     {
         cat_beastWeaponHouseKeep(ship);
@@ -179,7 +247,7 @@ void CarrierBulletRemoval(Ship *ship, struct Bullet *bullet)
     // CAT: new slot-14 body (CarrierBulletRemoval 0x005af390), shared with the HeavyCruiser and Mothership headers
     if (cat_shipHasBeastWeapon(ship))
     {
-        cat_beastWeaponBulletRemoval(ship, NULL, bullet);
+        cat_beastWeaponBulletRemoval(ship, NULL, (Bullet *)bullet);     // CAT: the slot type names struct Bullet
     }
 }
 

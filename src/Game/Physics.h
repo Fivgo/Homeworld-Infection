@@ -30,4 +30,8 @@ void physUpdateObjPosVelDerelicts(Derelict *obj,real32 phystimeelapsed);
 void physUpdateObjPosVelMissile(Missile *obj,real32 phystimeelapsed);
 void physUpdateObjPosVelBasic(SpaceObj *obj,real32 phystimeelapsed);
 
+void cat_physApplyForceToVelocity(struct Ship *ship);                    // CAT: 0x004e4390 (M2-R4 combat)
+
+void cat_physClampVelocityToUniverse(struct Ship *ship);                 // CAT: 0x004e4850 (M2-R4 combat)
+
 #endif

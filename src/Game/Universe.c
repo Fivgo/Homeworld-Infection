@@ -9,6 +9,7 @@
 
 #include "Universe.h"
 #include "Salvage.h"
+#include "Blast.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -4590,7 +4591,9 @@ void universeReset(void)
 
     // CAT (M2-R4 combat): universeReset 0x0053df80 first calls cat_salvageResetGlobals 0x004f7a90
     cat_salvageResetGlobals();
-    // CAT-TODO: then cat_blastReset 0x00516390 (blast lists, stage 2B) and destroys each player's fog-of-war map (fowDestroy on
+    // CAT (M2-R4 combat): then cat_blastReset 0x00516390 (the blast lists)
+    cat_blastReset();
+    // CAT-TODO: then destroys each player's fog-of-war map (fowDestroy on
     //      Player+0x6500; the Cataclysm Player layout and the FOW are stage 3), and after clReset/ccReset sets the
     //      multiplayer camera mode in a recorded-game playback (cat_mcSetMode/cat_mcResetRequest, stage 3)
     clReset(&universe.mainCommandLayer);
