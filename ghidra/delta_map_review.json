@@ -7919,6 +7919,13 @@
   "note": "TM_NUM_TECHS 50 (research flags are 16-bit)",
   "sample": "reread-R2"
  },
+ "0x0052e1f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "title via TechTypeToNiceString (no race-specific names); the description is a per-race string table (0x00bb3a18 Sect / 0x00bb3abc Beast, indexed by technology), not strGetString(tech + offset); then the HW1 word-wrap",
+  "note": "[audit: M2-R4 rest-oracle] the port dropped HW1's DDDFDFGFTech/CloakDefenseFighter branches only; the string table is stage 3 (CAT-TODO in the file)",
+  "sample": "audit-R4-rest-oracle"
+ },
  "0x0052e980": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -7932,6 +7939,13 @@
   "change": "",
   "note": "TM_TECH_IS_ALREADY_OWNED 2 / FOR_SALE 1",
   "sample": "reread-R2"
+ },
+ "0x0052ea10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "tmTechForSale[tech] = 2 then rmAddTechToPlayer(player, tech): the exe's rmAddTechToPlayer 0x004f2600 takes one technology, HW1's a mask; the port adapted the call",
+  "note": "[audit: M2-R4 rest-oracle] edited IDENTICAL without a review entry; body as the exe",
+  "sample": "audit-R4-rest-oracle"
  },
  "0x0052ea40": {
   "class": "IDENTICAL",
@@ -10438,6 +10452,13 @@
   "change": "",
   "note": "utySinglePlayerGameStart inlined; differences belong to it",
   "sample": "reread-R2"
+ },
+ "0x005acd10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "none in the game code (HWI-ORACLE instrumentation only: /oracleMission advances the task clock by one universe tick per frame under #if HWI_ORACLE, src/SDL/utility.c)",
+  "note": "[audit: M2-R4 rest-oracle] edited IDENTICAL without a review entry; body is HW1's utyTasksDispatch",
+  "sample": "audit-R4-rest-oracle"
  },
  "0x005acd90": {
   "class": "IDENTICAL",

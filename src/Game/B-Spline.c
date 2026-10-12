@@ -189,7 +189,7 @@ real32 bsCurveUpdate(splinecurve *curve, real32 timeElapsed)
 {
     static hvector hermiteVector;
     static real32 lastTime = REALlyNegative;
-    real32 unscaledTime, scaledTime, keyLength, value;
+    real32 unscaledTime, scaledTime, keyLength, value, pinnedTime;
     sdword currentPoint;
     tcb *key0, *key1;
     static tcb *oldKey0 = NULL;
@@ -216,16 +216,19 @@ real32 bsCurveUpdate(splinecurve *curve, real32 timeElapsed)
     }
     currentPoint = curve->currentPoint;                     //faster access to point index
     keyLength = curve->times[currentPoint + 1] - curve->times[currentPoint];
+    pinnedTime = curve->timeElapsed;
     if ((keyLength <= 0.03433333337306976f) && (curve->params[currentPoint].tension != 0.0f) &&
         (curve->params[currentPoint + 1].tension != 0.0f))
     {
-        curve->timeElapsed = curve->times[currentPoint + 1];
+        // [audit: M2-R4 rest-oracle] the exe pins a LOCAL copy of the time (fVar4 in 0x00423040); curve->timeElapsed
+        //      keeps the real time, so the next frame continues from it, not from the key's end
+        pinnedTime = curve->times[currentPoint + 1];
     }
     if (currentPoint >= curve->nPoints)
     {
         return(REALlyBig);
     }
-    unscaledTime = curve->timeElapsed - curve->times[currentPoint];//get time into current control point
+    unscaledTime = pinnedTime - curve->times[currentPoint];  //get time into current control point
     scaledTime = unscaledTime / (keyLength);                //scale time to 1 second range
 
     if (lastTime != scaledTime)

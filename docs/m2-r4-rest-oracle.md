@@ -1,21 +1,28 @@
-<!-- done: layout, oracle, levelload, tools, rest -->
+<!-- done: layout, oracle, levelload, tools, rest, final -->
 # M2-R4 producer 5: the rest of stage 2, the Player layout, oracle stage 2, tools
 
-Status: **done** (subsystems in done-marker order: `layout`, `oracle`, `levelload`, `tools`, `rest`; `final` holds the
-runs). Branch `m2`, worktree `.claude/worktrees/m2`, nothing committed. Scope: docs/m2-r3-summary.md "Plan for
+Status: **done** (subsystems in done-marker order: `layout`, `oracle`, `levelload`, `tools`, `rest`, `final`). Branch
+`m2`, worktree `.claude/worktrees/m2`. The producer was cut off by a usage limit after `rest`; the harness committed its
+55 edited files UNAUDITED as the WIP snapshot `619ba34` (2026-10-11 17:56), and the relaunched producer (this text's
+`final`) resumed from that tree: it changed no `src/` or tool file, only this report, after confirming the WIP tree
+builds and re-running every plain-harness run on it. Scope: docs/m2-r3-summary.md "Plan for
 M2-R4" row 5 and "What is left of stage 2 part A" items 2 and 5. Exe evidence: `ghidra/exports/cataclysm_gog_r6`
 (decompiled.c, functions.csv, symbols.csv, call_graph.csv), tables read from `original/game/cataclysm.exe` (read-only,
 never run; a scratch PE reader, not kept) and the CET headers (`reference/CataclysmEngineTweaks/game/Game/universe.h`
 asserts). Every Cataclysm change in `src/` carries a `CAT:` comment with the exe function and address; oracle
 instrumentation carries `HWI-ORACLE:`.
 
-**DONE WHEN: met.** Two headless Mission01 oracle runs of **6,000 ticks** (and a pair of 3,000) on the plain harness,
-debug build (ASan + UBSan), give byte-identical `.hwo` streams: 1,476,370 B, sha256 `ef442a52b9454a35`, `hwo_compare.py`
-"IDENTICAL: 6001 ticks and 0 packets compared", ASan 0 in both; a run perturbed by one `gamerand()` before tick 3000 is
-reported at tick 3000 / `rng10` / 1 draw ahead, and a copy with one bit of `ships_health` flipped at tick 4000 is reported
-at tick 4000 / `ships_health` (`tools/oracle/mission_test.sh`: MISSION TEST PASS). `tools/m2_layout32.sh` holds
-`Player` 0x6530 and `Universe` 0x3D9BC. fe (`Main_game_screen`), statics 143/145, meshes 1,758/1,758, textures 10,661
-loaded / 0 failed, oracle self-test 512 ticks / 0 sync errors and the ETG self-test are unchanged; details in `final`.
+**DONE WHEN: met** (judged on the WIP tree `619ba34`, clean debug build, plain harness, runs `r4ro-fin2-*`). Two
+headless Mission01 oracle runs of **6,000 ticks** (ASan + UBSan) give byte-identical `.hwo` streams: 1,476,370 B, sha256
+`4bfb8a436bbad1f5` (`cmp` equal; `hwo_compare.py` "IDENTICAL: 6001 ticks and 0 packets compared (ticks 0-6000)"), ASan 0
+in both; a run perturbed by one `gamerand()` before tick 3000 is reported at tick 3000 / `rng10` / "1 draw(s) ahead", and a
+copy of run A with bit 0 of `ships_health` flipped at tick 4000 is reported at tick 4000 / `ships_health`
+(`tools/oracle/mission_test.sh --ticks 6000 --perturb 3000 --copy-tick 4000`: MISSION TEST PASS). The 6,001 `T` records
+are the same as the earlier producer's 6,000-tick pair (`r4ro-s2-mission-a`, built from `3078c10`: "IDENTICAL", only the
+header's build identity differs) and as the **release (-O2) build's** run (`r4ro-fin2-mission-rel`: IDENTICAL, header
+flags 1afeb7ac vs 1fbfa32f). `tools/m2_layout32.sh` holds `Player` 0x6530 and `Universe` 0x3D9BC. fe
+(`Main_game_screen`), statics 143/145, meshes 1,758/1,758, textures 10,661 loaded / 0 not loaded, oracle self-test 512
+ticks / 0 sync errors and the ETG self-test are unchanged; details in `final`.
 
 ## Subsystem `layout`: the Universe and Player layouts (part-A item 2) and the research port they need
 
@@ -48,7 +55,7 @@ Names chosen here (no exe name): `catUnknown08`, `catSensorsHoldRenderList`, `ca
 | `src/Game/GameStats.h` | `PlayerStats` with the three additions and 6 asserts |
 | `src/Game/ConsMgr.h` | `shipinprogress` 0x30 with 3 asserts |
 | `src/Game/ResearchAPI.h` | **rewritten:** the 41-technology enum with the exe's names (`techtypeinfo` 0x008901a8: `TECH_CLOAKING` .. `TECH_DRIVE_CORVETTE`), `CatTechSet` (42 sdwords, flag index 41: 2 = all, -2 = disabled), `TechStatics`, `ResearchTopic` 0x18, `NUM_RESEARCHLABS` 5, `PlayerResearchInfo` 0x6250, `MODULE_*` lab ids (0x008902f8), `TECH_NOTECHNOLOGY` -1 / `TECH_ALLTECHNOLOGY` 2 (the techlevel of `cat_rmTechSetInit`), the new prototypes, 11 asserts. HW1's `TechToBit`, `AllTechnology`, `RM_Disabled`, `rmSetShipDependCB`/`rmSetTechDependCB`, `rmDeactivateLab`, `rmActivateFreeLab`, `rmNumTechRequiredForTech`, `rmTechRequiredForTech`, `rmAllTechRequredForShip`, `rmRemoveAllUnneededTech` are gone (no exe counterpart) |
-| `src/Game/ResearchAPI.c` | **rewritten from the exe (0x004f2530-0x004f4790, 0x005146f0):** the 8 tech-set operations (`cat_rmTechSetAdd` 0x004f3fc0 .. `cat_rmTechSetNot` 0x004f4300), `rmCanBuildShip` with the 3rd argument (hangar check; the six Beast-AI multiplayer cases; the Nomad moon 0x85; the hyperspacing sMothership test on `universe.curPlayerPtr`, as the exe), `rmFindFreeLab(player, tech)` with the per-technology lab type (`cat_techLabType`, 0x00890328) and the Beast single lab, `rmClearResearchlab` without `numlabsresearching`, `rmAssignPlayersLabToResearch` (Beast: one topic at a time), `rmUpdateResearch` (1 s per tick, 8 in the tutorial, `cat_beastMothershipResearchFactor` for the Beast; speech 0x2001033/0x20010bc/0x2001034; `rmClearAllLabs`; `tmTechForSale`), `rmAllTechRequiredforTech(out, player, tech)` (accumulating set closure), `rmTechRequiredForShip` and `cat_rmTechRequiredForShipUpgrade` over one shared counter, `cat_rmAIResearchTech`, `rmResearchTechForShip` (through `clWrapResearch`; falls back to the upgrade technologies), `rmGiveTechToPlayerByType` (highest missing dependency first, upgrades refreshed each step), `rmInitializeResearchStatics` (3 tables, no `MG_CarrierIsMothership`), `rmInitializeResearchStruct` (Sect: `cat_shipTypeGetUpgradeTechs` for types 0..0x20; Beast: lab 0 open, per-type upgrade sets and enabled flags for 0x21..0x3A with the exe's seven special cases), `rmAPIStartup`/`rmResetStaticInfo` (the exe's partial clears), `rmEnableShip` (flag word 0 / -2; the moon always disabled in the MP Sect table), `cat_rmResearchModuleActivated` 0x004f4530 / `cat_rmResearchModuleDied` 0x004f4620 / `cat_rmMothershipLabLost` 0x004f4700 (the Sect modules are the labs: 0x13 -> 3, 0x15 -> 1, 0x16 -> 2, 0x17 -> 4, 0x18 -> 0), `cat_playerShipTypeEnabled`, the script callbacks (`cat_rsShipDependSetCB` 0x004f3dc0 / `cat_rsTechDependSetCB` 0x004f3ec0, one body) and the exe's 128-row `ResearchDepend.script` table (0x0088fb98: `SPRS*`, `MPRS*`, `MPRB*`; no `MPRBTECH_RESEARCH_CLEESAN_ATTACK`). The FOW refreshes around a set change (techs -1, 2, 28) walk the ships whose player has a grid; the grids are NULL until stage 3 (CAT-TODO) |
+| `src/Game/ResearchAPI.c` | **rewritten from the exe (0x004f2530-0x004f4790, 0x005146f0):** the 8 tech-set operations (`cat_rmTechSetAdd` 0x004f3fc0 .. `cat_rmTechSetNot` 0x004f4300), `rmCanBuildShip` with the 3rd argument (hangar check; the six Beast-AI multiplayer cases; the Nomad moon 0x85; the hyperspacing sMothership test on `universe.curPlayerPtr`, as the exe), `rmFindFreeLab(player, tech)` with the per-technology lab type (`cat_techLabType`, 0x00890328) and the Beast single lab, `rmClearResearchlab` without `numlabsresearching`, `rmAssignPlayersLabToResearch` (Beast: one topic at a time), `rmUpdateResearch` (1 s per tick, 8 in the tutorial, `cat_beastMothershipResearchFactor` for the Beast; speech 0x2001033/0x20010bc/0x2001034; `rmClearAllLabs`; `tmTechForSale`), `rmAllTechRequiredforTech(out, player, tech)` (accumulating set closure), `rmTechRequiredForShip` and `cat_rmTechRequiredForShipUpgrade` over one shared counter, `cat_rmAIResearchTech`, `rmResearchTechForShip` (through `clWrapResearch`; falls back to the upgrade technologies), `rmGiveTechToPlayerByType` (highest missing dependency first, upgrades refreshed each step [audit: the decompile's downward scan starts its counter at 0x29 one entry past the set, so whether the exe gives `missing[k]` as `k` or `k+1` is ambiguous in 0x004f38e0; the port reads it as `k`, confidence medium]), `rmInitializeResearchStatics` (3 tables, no `MG_CarrierIsMothership`), `rmInitializeResearchStruct` (Sect: `cat_shipTypeGetUpgradeTechs` for types 0..0x20; Beast: lab 0 open, per-type upgrade sets and enabled flags for 0x21..0x3A with the exe's seven special cases), `rmAPIStartup`/`rmResetStaticInfo` (the exe's partial clears), `rmEnableShip` (flag word 0 / -2; the moon always disabled in the MP Sect table), `cat_rmResearchModuleActivated` 0x004f4530 / `cat_rmResearchModuleDied` 0x004f4620 / `cat_rmMothershipLabLost` 0x004f4700 (the Sect modules are the labs: 0x13 -> 3, 0x15 -> 1, 0x16 -> 2, 0x17 -> 4, 0x18 -> 0), `cat_playerShipTypeEnabled`, the script callbacks (`cat_rsShipDependSetCB` 0x004f3dc0 / `cat_rsTechDependSetCB` 0x004f3ec0, one body) and the exe's 128-row `ResearchDepend.script` table (0x0088fb98: `SPRS*`, `MPRS*`, `MPRB*`; no `MPRBTECH_RESEARCH_CLEESAN_ATTACK`). The FOW refreshes around a set change (techs -1, 2, 28) walk the ships whose player has a grid; the grids are NULL until stage 3 (CAT-TODO) |
 | `src/Game/ShipSelect.c`, `.h` | the provisional player-side upgrade readers now read the Player (`catArmourLevelCap`, `catWeaponAvailable[WEAPON_ENERGY]`, `catUpgradeBits`); new `cat_playerUpgradesReset` 0x00514100, `cat_playerUpdateUpgradesFromResearch` 0x00514140 (armour cap 2/1/0 from TECH_ARMOUR3/2; the 9 weapon types from `cat_weaponUpgradeTechTable` 0x0072bb18; the bits from the 25-row `cat_upgradeFlagTechTable` 0x0072b9e8, {tech, bit, extra}), `cat_shipTypeGetUpgradeTechs` 0x005146f0 (the exe compares the bit INDEX with the table's bit MASKS, so only bits 1, 2, 4 match; ported as is; TECH_ENERGY from a gun's start/end weapon; the armour technologies up to the type's maximum), `cat_shipInitResearchUpgrades` 0x00514af0 (levelload) |
 | `src/Game/Universe.c` | `universeInit` clears the 8 FOW pointers (0x0053de80); `cat_playerGetFOWGrid`; `universeClosePlayers` resets each player's upgrades except player 0 under a warp (0x0053def0); `universeReset` clears the grids (fowDestroy is stage 3) and resets the time compression; `universeClose` starts with the time-compression reset (0x0053e3b0); `initGameStats` zeroes the three new stats |
 | `src/Game/SinglePlayer.c`, `.h` | `cat_spWarpToLevelEnabled` 0x0051bd90 |
@@ -131,7 +138,7 @@ Every MODIFIED / REWRITTEN function of the scope's files was read against the ex
 | `Task.c`, `.h` | **time compression** (0x0052a350-0x0052a4c0): `cat_timeCompressionFactor` (table 0x0072bd14: 1/4 .. 8, default index 2), the eight `cat_taskTimeCompression*` functions, `taskExecuteAllPending` 0x0052a840 scales the ticks (round to nearest, the exe's 1.5 x 2^52 trick) and keeps `cat_taskRealTimeDelta` / `cat_taskRealTimeElapsed` from the unscaled ticks; the resets in `universeReset`, `universeClose`, `animAviPlay`; HW1's `universeTurbo` stays only in the playback turbo path (R2) and GoK's key toggle (stage 3) | `taskStart`'s 4th argument (the name) is GoK's `taskStartName`; `taskCallBackInit`'s "BabyTasks" name likewise |
 | `Tactics.c` | `tacticsShutDown` 0x00529120 (the attack memory only), `tacticsReportMove` 0x00529130 (an empty walk), `tacticsShipDied` 0x00529150 (attack memory only), `tacticsGetShipsMaxVelocity` 0x00529450 (sphere formation 0.7, both kamikaze flags, the single-player limiter; no speed burst, fuel or velocity bonus table) | `tacticsMakeShipsNotLookForOtherShips` 0x005291b0, `tacticsMaxDistToTarget` 0x00529250, `tacticsCheckGuardConditionsDuringAttack` 0x005292f0 IDENTICAL; `tacticsStartUp` 0x005290b0 zeroes fewer tables (the Cataclysm `TacticsInfo` is smaller) but the extra inits are harmless; the HW1-only retreat/dodge/flank code is CAT-DORMANT with its 7 remaining callers named |
 | `Stats.c` | the fight code's static tables (kill rating per type 0x008962d8, class factor 0x00897078, 12 x 12 class matrix 0x008970a8, counter ship per type and race 0x00896e2c, the has-counter bytes 0x008961e8, all read from the exe) and `statShipConstraintsFightingShipsCB` 0x00524b30 / `..CarrierFightingShipsCB` 0x00524bd0 (with the exe's fall-through of the four frigate exceptions into the corvette test), `statsGetMostDangerousShipNonStatConstraints` 0x00524c70, `statsBestShipToBuyToKillShip` 0x00524cf0, `statsNumShipsNeededToKillTarget` 0x00524e40, `statsNumShipsNeededToKillFleet` 0x00524eb0, `statsGetRelativeFleetStrengths` 0x00524ed0, `statsBestShipsToUseToKillTarget` 0x00524ee0 | `SetupShipsForFight`, `statsShowFancyFight`, `statsGatherFightStats` (0x00524120 / 0x00524790 / 0x00525640): the developer fight-stats gatherer (`cat_statsGetPostCombatStats`, a 60 x 60 x 5 table at 0x00bb5140); not ported, no game path reaches them |
-| `B-Spline.c` | `bsCurveUpdate` 0x00423040: a curve on its last key returns the key's value (HW1: REALlyBig), running past the end returns the last value, a zero-length key between tensioned keys pins the time | |
+| `B-Spline.c` | `bsCurveUpdate` 0x00423040: a curve on its last key returns the key's value (HW1: REALlyBig), running past the end returns the last value, a zero-length key between tensioned keys pins the time [audit: the exe pins a LOCAL copy of the time (`fVar4`), not `curve->timeElapsed`; the port wrote the key's end back into the curve, so the next frame would have continued from the key's end instead of the real time. Fixed in the audit: `pinnedTime` local] | |
 | `Captaincy.c` | `captaincyLog` 0x0042ec90: no debug echo, no captaincylog.txt | `TransferCaptaincyStateMachine` 0x0042f270: LAN (stage 5, nice-to-have) |
 | `HS.c` | `hsStaticInit` 0x004901b0: no argument, frees the gate table (callers `KAS.c` updated) | `hsStaticGateRender` 0x00490240: render (`cat_hsGateRectangle`, stage 3) |
 | `Camera.c`, `CameraCommand.c` | `cameraMinimumZoom` 0x0042b9a0 (a mimicking ship zooms to `cat_mimicGetCameraRadius`), `ccGetShipCollCenter` 0x0042cf30 (no slave/master circle) | `cameraControl` (key bindings `kbCommandKeyIsHit`), `ccFocusIsLegalToFocusOn` (`cat_fowCanPlayerSeeShip`), `NewSetFocusPoint`, `CameraChase` (`cat_mcResetRequest`), `ccFocusOnPlayersMothership`, `ccFocusGeneral`, `ccCopyCamera`, `ccFocusOnFleetSmooth`: camera/UI, stage 3 |
@@ -145,33 +152,56 @@ Every MODIFIED / REWRITTEN function of the scope's files was read against the ex
 
 | build | result |
 |---|---|
-| `tools/build.sh --debug` (incremental, final tree) | rc 0, 0 `warning:` / 0 `error:` under `-Werror` (ASan + UBSan) |
-| `tools/build.sh --release` (final tree) | RELEASE_RESULT |
+| `tools/build.sh --debug --clean` (WIP tree `619ba34`, 2026-10-11 relaunch) | rc 0, 0 `warning:` / 0 `error:` under `-Werror` (ASan + UBSan); the incremental build before it was already up to date |
+| `tools/build.sh --release --clean` (same tree) | rc 0, 0 `warning:` / 0 `error:` (-O2, no sanitizers) |
 | `tools/m2_layout32.sh` | OK: ILP32 sizes ShipStaticInfo 1112, GunStatic 284, CustShipHeader 140, polygonobject 116, texreg 52, SENTENCELUT 16, ClampInfo 56, StaticCollInfo 112, AlternativeShips 168, MilitaryParadeCommand 260, ranstream 20, SaveChunk 8, particle 256, eboltSystem 36, **Player 25904 (0x6530), Universe 252348 (0x3D9BC), PlayerStats 2040 (0x7F8), TechStatics 31412 (0x7AB4), shipinprogress 48 (0x30)**; 45 ship files' specifics asserts hold |
 | `tools/oracle/dll/build.sh --clean` | `hwi_oracle.dll` 23,040 B, `hwi_oracle_loader.exe` 5,120 B; `check_sites.py`: all checks passed |
 
-### Plain-harness runs (final tree, `tools/m2_harness.sh`, offscreen + dummy audio, no input; logs in `original/scratch-m2/m2r2-harness/runs/r4ro-final-*`)
+### Plain-harness runs (WIP tree `619ba34`, `tools/m2_harness.sh`, offscreen + dummy audio, no input; logs in `original/scratch-m2/m2r2-harness/runs/r4ro-fin2-*`)
 
-RUN_TABLE
+| run | mode / build | rc / wall | milestone | first stop | ASan / notes |
+|---|---|---|---|---|---|
+| `r4ro-fin2-mission-a`, `-b` | mission 6,000 ticks, debug | 0 / 19 s each | **oracle mission run done** (ticks=6000 records=6003 ships=154) | none (rc 0) | ASan 0 both; `cmp` equal, 1,476,370 B, sha256 `4bfb8a436bbad1f5`; `hwo_compare.py` IDENTICAL 6001 ticks |
+| `r4ro-fin2-mission-perturb` | mission 6,000, `--perturb 3000`, debug | 0 | oracle mission run done | none | ASan 0; FIRST DIVERGENT TICK 3000, origin `rng10`, CAND 1 draw ahead; event records `game-new, perturb, quit` |
+| `r4ro-fin2-mission-a/run.perturbed-copy.hwo` | copy of A, bit 0 of `ships_health` at tick 4000 | | | | FIRST DIVERGENT TICK 4000, 1 field, origin `ships_health` |
+| `r4ro-fin2-mission-rel` | mission 6,000 ticks, **release** | 0 / 4.5 s | oracle mission run done | none | vs `r4ro-fin2-mission-a`: IDENTICAL 6001 ticks (header build flags 1afeb7ac vs 1fbfa32f) |
+| `r4ro-fin2-sp` | sp (`/debugScreenshots`), `--timeout 400`, debug | still running when this report was returned (the run ends at the 400 s timeout, rc 124 as every sp run) [audit: finished: rc 124 at 400.5 s wall, `summary.txt` written] | **universe running**: the last `debugScreenshots univUpdateCounter` line read **1,584** (the R3 runs read 1,248 at a 340 s timeout; this run was given 400 s) [audit: the final `run.log` reads `univUpdateCounter: 2256`; the tick count is a function of the timeout, not of this port] | none in `run.log` so far [audit: none in the finished log either] | 0 `ERROR: AddressSanitizer` lines in `run.log` at 1,584 ticks [audit: 0 at the end too; `summary.txt`: ASan errors 0, no unsuppressed leak, 3,723 file loads]; the harness `summary.txt` is written at the timeout and was not yet present (the two earlier sp runs of this tree, `r4ro-s2-sp` and `r4ro-final-sp`, both: universe running, 1,248 ticks at 340 s, ASan 0, 3,723 file loads) |
+| `r4ro-fin2-fe` | fe, `--timeout 40`, debug | 124 / 40 s (timeout) | **Main_game_screen** | none: still running at the timeout | ASan 0; 232 file loads |
+| `r4ro-fin2-statics` | statics, debug | 0 / 12 s | ship statics self-test done | none | ASan 0; 143 of 145 ship types loaded, 2 not found (disabled) |
+| `r4ro-fin2-meshes` | meshes, debug | 0 / 12 s | mesh self-test done | none | ASan 0; 1,758 listed, 1,729 .geo/.peo + 29 .mad loaded, 0 bad objects |
+| `r4ro-fin2-textures` | textures, debug | 0 / 20 s | texture self-test done | none | ASan 0; 12,403/12,403 listing lookups, 10,661 registered and loaded, 0 not loaded |
+| `r4ro-fin2-oracle` | oracle self-test 512 ticks, debug | 0 / 10 s | oracle self-test done | none | ASan 0; randSyncErr 0 univSyncErr 0 blobSyncErr 0, 772 records, 140,723 B |
+| `r4ro-fin2-oracle-rel-a`, `-b`, `-perturb` | oracle self-test 512, **release** | 0 / 0.4 s each | oracle self-test done | none | a and b `cmp` equal (sha256 `fffe906105ab086c`); `--perturb 300` reported at tick 300 / packet 150, origin `rng10` |
+| `r4ro-fin2-etg` | etg, debug | 0 / 12 s | etg effect self-test done | none | ASan 0; 197 effects loaded, 0 referenced but not loaded, 618 created |
 
-The same suite ran once before the last `rest` edits (`r4ro-s2-*`): identical self-test numbers, a 6,000-tick mission
-pair byte-identical at 1,476,370 B / sha256 `ef442a52b9454a35`, the perturbed run caught at tick 3000 / `rng10`, the
-flipped `ships_health` copy at tick 4000, sp 1,248 ticks ASan 0, and the **release (-O2) 6,000-tick mission stream
-IDENTICAL to the debug (-O0, ASan) one** over all 6,001 `T` records (`hwo_compare.py`: only the header's build identity
-differs). Earlier pairs: `r4ro-mission-a/b` (3,000 ticks, 738,370 B, sha256 `2fa84fe60298f1fa`), `r4ro-mission-probe`
-(300 ticks, 15 s wall).
+Every debug run's only UBSan reports are the known non-fatal misaligned-member kinds of GoK's packed structs
+(`fquant.c:33`, `fescreen`, `etgdecision`, `PATCH`, ...), as in R3.
+
+The same suite ran twice in the cut-off session (`r4ro-s2-*` before the last `rest` edits and `r4ro-final-*`, 3,000-tick
+missions, both from the tree later committed as `619ba34`; builds `3078c109`): the `r4ro-s2-mission-a` 6,000-tick stream
+(1,476,370 B, sha256 `ef442a52b9454a35`) is IDENTICAL to `r4ro-fin2-mission-a` over all 6,001 `T` records, only the
+header's build identity (`3078c109` vs `7d4cc37b`) differs, which is why the whole-file sha256 changed. Earlier pairs:
+`r4ro-mission-a/b` (3,000 ticks, 738,370 B, sha256 `2fa84fe60298f1fa`), `r4ro-mission-probe` (300 ticks, 15 s wall).
 
 ### Delta map
 
-71 review entries (sample `port-R4`), recorded with `tools/delta_map.py mark` and merged; `done_subsystems` +
-`port-R4-rest-oracle`. Nine IDENTICAL functions were found modified and are MODIFIED now: `taskExecuteAllPending`
+70 review entries (sample `port-R4`), recorded with `tools/delta_map.py mark` and merged (`ghidra/delta_map_review.json`
+holds 195 `port-R4` entries: the 125 synced under `tools` plus this round's 70; the map's `reviewed` count went 1,555 ->
+1,612, the difference being the functions that already had a review); `done_subsystems` + `port-R4-rest-oracle`.
+Nine IDENTICAL functions were found modified and are MODIFIED now: `taskExecuteAllPending`
 0x0052a840 (time compression), `tacticsShipDied` 0x00529150 and `tacticsStartUp` 0x005290b0 (one tactics list),
 `rmClearResearchlab` 0x004f28f0, `rmAssignPlayersLabToResearch` 0x004f2960, `rmAPIStartup` 0x004f3c00,
 `rmResetStaticInfo` 0x004f3d30, `rmInitializeResearchStatics` 0x004f39b0 (tech sets, 3 tables), `initGameStats`
 0x0053f100 (the three new stats). Nine MODIFIED functions are IDENTICAL by the R2 convention (inlined callees, a
 name string, GoK's growth heaps): the three `listMergeSort*`, `factor`, `memAllocFunctionSBH`, `memStringDupe`,
 `memReallocFunction`, `regStartup`, `regMoveLinkChild`. Totals after the round: **IDENTICAL 3,066 / MODIFIED 1,277 /
-REWRITTEN 77, reviewed 1,612** (`counts` line refreshed by `merge`). Stage 2 (`tools/m2_stage_counts.py --md`):
+REWRITTEN 77, reviewed 1,612** (`counts` line refreshed by `merge`). [audit: three functions this port edited were
+IDENTICAL in the map with no review entry; the audit added entries (sample `audit-R4-rest-oracle`): `utyTasksDispatch`
+0x005acd10 (IDENTICAL; the edit is HWI-ORACLE instrumentation under `#if HWI_ORACLE`), `PlayerAcquiredTechnology`
+0x0052ea10 (IDENTICAL; the call was adapted to the exe's one-technology `rmAddTechToPlayer`, the body is the exe's) and
+`tmTechInfoDraw` 0x0052e1f0 (MODIFIED: the exe titles with `TechTypeToNiceString` and reads the description from a
+per-race string table at 0x00bb3a18 / 0x00bb3abc, not `strGetString(tech + offset)`; stage 3). Totals now
+**IDENTICAL 3,065 / MODIFIED 1,278 / REWRITTEN 77, reviewed 1,615**.] Stage 2 (`tools/m2_stage_counts.py --md`):
 783 / 589 / 30 (245,967 MODIFIED B) + 808 cat-new. docs/m2-r1-function-deltas.md regenerated (the calibration section
 now names its 1,171 sampled reviews).
 
@@ -179,12 +209,12 @@ now names its 1,171 sampled reviews).
 
 | item | value |
 |---|---|
-| tracked files changed (`git diff --stat`) | GIT_STAT; new: `docs/m2-r4-rest-oracle.md`, `tools/oracle/mission_test.sh` |
-| `src/` lines added carrying `CAT` / `HWI-ORACLE` | CAT_LINES / 5 |
+| tracked files changed (`git diff 3078c10..619ba34 --stat`) | 55 files, +5,027 / -2,660 lines (44 in `src/`, 7 in `tools/`, 2 in `ghidra/`, 2 docs); new: `docs/m2-r4-rest-oracle.md`, `tools/oracle/mission_test.sh`; this report is the only file the relaunch changed |
+| `src/` lines added carrying `CAT` / `HWI-ORACLE` (`git diff 3078c10 -- src`) | 284 / 5 |
 | exe functions ported or re-ported with addresses in the text | about 75 (ResearchAPI.c 36 incl. the 8 set operations and the 3 module functions; Stats.c 8; Tactics.c 4; Bounties.c 3; Alliance.c 2; Crates.c 1; Task.c 9; LevelLoad.c 1; Universe.c 6; ShipSelect.c 4; B-Spline, Captaincy, HS, Camera, CameraCommand 1 each; Blobs 1) |
 | ILP32 asserts added | 36 (Universe.h) + 6 (GameStats.h) + 11 (ResearchAPI.h) + 3 (ConsMgr.h) = 56 |
 | tables read from the exe | techtypeinfo (41), moduletypeinfo (5), cat_techLabType (41), the 128-row ResearchDepend script table, cat_upgradeFlagTechTable (25 x 3), cat_weaponUpgradeTech (9), cat_armourUpgradeTech (3), crate ladders (4 x 12/20), time-compression factors (7), kill ratings (60), class factor (12), class matrix (144), counter ships (120), has-counter bytes (76) |
-| harness runs this round (`runs.txt`) | RUNS_COUNT lines with the `r4ro-` prefix |
+| harness runs this round (`runs.txt`) | 46 lines with the `r4ro-` prefix (47 once `r4ro-fin2-sp` ends), 28 of them this relaunch's `r4ro-fin2-*` and the mission test's runs |
 
 ### What is left, and who owns it
 
