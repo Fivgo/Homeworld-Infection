@@ -38,7 +38,7 @@ Name and classify every function, so the decompilation knows what each piece is.
 - Proof tool: CI matrix; a frame-time log over the soak.
 
 ### Later: additional features
-Reserved for the user's list once the recreation is stable. Known candidates raised so far: UI scaling above 640x480 (the front end is fixed-size art), frame pacing investigation, modern resolutions by default.
+Reserved for the user's list once the recreation is stable. **First approved feature (2026-10-17): render-time interpolation for cutscenes with an in-game toggle, see docs/features/nis-interpolation.md; implemented in M2-R6 after the NIS port.** Other candidates raised so far: UI scaling above 640x480 (the front end is fixed-size art), frame pacing investigation, modern resolutions by default.
 
 ## M2 approach: recommendation
 

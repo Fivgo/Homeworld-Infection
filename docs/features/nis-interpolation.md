@@ -1,0 +1,41 @@
+# Feature: render-time interpolation for cutscenes (NIS), with an in-game toggle
+
+Requested by the user 2026-10-17 after the first play-test: fast camera pans in in-game cutscenes look jittery.
+Status: APPROVED, to be implemented in M2-R6 right after the NIS port (producer 5), as its own commit. The toggle is a
+hard requirement: the user wants A/B comparisons.
+
+## Cause (verified in the source, 2026-10-17)
+- NIS files hold 30 fps keyframes (`NIS_FrameRate 30.0f`) for object position/heading/pitch/bank and camera eye/look/up;
+  `nisStart` fits B-spline curves through them (`bsCurveStart`).
+- `nisUpdateTask` is started with `taskStart(nisUpdateTask, UNIVERSE_UPDATE_PERIOD, 0)` (NIS.c:580) and calls
+  `nisUpdate(NIS, dt)`, which evaluates every curve with `bsCurveUpdate(curve, dt)` and writes object `posinfo`/`rotinfo`
+  and the camera (`nisCameraFlyCompute`) ONCE PER UNIVERSE TICK (16 Hz). CET's anchors confirm the exe's NIS task uses the
+  universe period.
+- The render task runs every display frame and draws the last written poses; nothing in the render path interpolates.
+  At 144 Hz each pose is held ~9 frames, then jumps: visible on fast pans.
+
+## Design (presentation only; the simulation and the oracle stream stay bit-identical)
+1. **Render-time evaluation of the NIS curves.** Add a non-advancing evaluator `bsCurveEvalAt(curve, t)` (the existing
+   `bsCurveUpdate` advances internal state and must stay the tick-time path). Each render frame, when an NIS is playing
+   and interpolation is on, compute `tRender = NIS->timeElapsed + alpha * UNIVERSE_UPDATE_PERIOD * nisPlayFactor`, where
+   `alpha` = fraction of the current tick elapsed at render time (from the task scheduler's accumulator; clamp 0..1),
+   and evaluate the camera curves and each NIS-driven object's curves at `tRender` into RENDER-ONLY transforms
+   (a per-object `renderCoordsys/renderPosition` used by the renderer; the sim fields written by `nisUpdate` are untouched).
+   Events (show/hide/fire/speech/cuts) stay at tick granularity; a camera cut disables blending for that frame.
+2. **Fallback for objects without curves** (ships moved by the sim during an NIS): linear interpolation between the
+   previous and current tick transforms (keep `prevPosition/prevCoordsys` per object), same `alpha`. This is the general
+   mechanism for smooth gameplay motion later; in this feature it is only enabled while an NIS plays.
+3. **Toggle.** Three bindings, one variable `nisInterpolate` (default ON):
+   - Options → Video: a checkbox "Smooth cutscenes" (ship an overridden options screen .fib under the recreation's data
+     dir; docs/formats/fib.md has the format; if the .fib edit cannot be done this round, bind to a free control and
+     say so in STATE.md, but the button is required, not optional);
+   - `Cataclysm.cfg` key `nisInterpolate 0|1` (persisted like the other options);
+   - command line `/noNISInterp` and a dev-console command, for scripted runs.
+4. **Comparison tooling (so changes are measurable, not just eyeballed).** Harness mode `nis`: play a given NIS headless
+   at a fixed frame rate (e.g. 144 fps virtual) with interpolation on and off, dumping per-frame camera pose and the
+   screen-space position of one tracked object; `tools/nis_smoothness.py` reports the max and 95th-percentile per-frame
+   displacement and the count of repeated frames. Expected: identical sim stream in both runs; repeated-frame count
+   drops from ~8 of 9 to 0 with interpolation on.
+5. **Guard-rails.** Interpolation off must reproduce the pre-feature frames exactly (byte-identical oracle stream in
+   both settings; per-frame dump identical with the toggle off). No change to `nisUpdate` semantics, timing, or the KAS
+   runtime. Document in `docs/m2-r6-nis.md`.
