@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -57,12 +57,22 @@
 #                    refers to the first ship and the movement pie plate goes on; every frame then draws the status
 #                    bars, the info panel, the main overlay and the pie plate offscreen; at the end "hudtest: counts"
 #                    lines and "hudtest: done ... result=PASS|FAIL"; quits after <frames> ticks (one tick a frame)
+#                    ui: /catUiTest <ticks> (M2-R6 mainrgn-popup, docs/m2-r6-mainrgn-popup.md): the headless Mission01
+#                    run of the mission mode: at tick 16 the player's fleet is selected through the selection API, at
+#                    tick 24 the right-click popup menu opens for it (and is drawn), at tick 40 every cat_ui* command
+#                    runs once through the command wraps, the menu opens once for an enemy target (a resource while
+#                    Mission01 has no enemy ship, as every r6 run: target=resource) [audit: said enemy only] and
+#                    closes, at tick 48
+#                    the game-stats screen begins (the universe pauses) and is drawn for 8 frames; "uitest:" log
+#                    lines, "uitest: done ... result=PASS|FAIL", then the screen ends (to the main menu) and the engine
+#                    quits; <ticks> is only the mission run's limit (default 400)
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
 #   --mission-ticks N mission mode: universe ticks to run (default 3000)
 #   --dock-ticks N   dock mode: universe ticks to run (default 5000; about 30 s under ASan on the virtual clock)
 #   --command-ticks N command mode: universe ticks to run (default 3000)
 #   --render-frames N render mode: frames (= universe ticks) to run (default 600)
 #   --hud-frames N   hud mode: frames (= universe ticks) to run (default 600)
+#   --ui-ticks N     ui mode: the mission run's tick limit (default 400; the test quits by itself at tick 48 + 8 frames)
 #   --etg-ticks N    etg mode: ticks of the effect self-test (default 128; 0 = parse test only)
 #   --perturb T      oracle or mission mode: one extra gamerand() before tick T (/oracleSelfTestPerturb; tests the compare tool)
 #   --hwo            any other mode: also write the oracle stream to <run>/run.hwo (/oracleDump)
@@ -119,7 +129,7 @@ fi
 label=${1:?usage: m2_harness.sh <label> [--mode sp|fe] [--timeout N] [--driver D] [--data DIR] [-- engine args]}
 shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
-oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600
+oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600; uticks=400
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -133,6 +143,7 @@ while [[ $# -gt 0 ]]; do
 		--command-ticks) cticks=$2; shift ;;
 		--render-frames) rframes=$2; shift ;;
 		--hud-frames) hframes=$2; shift ;;
+		--ui-ticks) uticks=$2; shift ;;
 		--etg-ticks) etgticks=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
@@ -169,6 +180,8 @@ elif [[ "$mode" == render ]]; then
 	args+=(/catRenderTest "$rframes")
 elif [[ "$mode" == hud ]]; then
 	args+=(/catHudTest "$hframes")
+elif [[ "$mode" == ui ]]; then
+	args+=(/catUiTest "$uticks")
 elif [[ $hwo -eq 1 ]]; then
 	args+=(/oracleDump "$out/run.hwo")
 fi
@@ -253,6 +266,7 @@ grep -q "commandtest: done" "$L" && milestone="command self-test done"
 grep -q "rendertest: done" "$L" && milestone="render self-test done"
 grep -q "soundtest: done" "$L" && milestone="sound self-test done"
 grep -q "hudtest: done" "$L" && milestone="hud self-test done"
+grep -q "uitest: done" "$L" && milestone="ui self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately, except the misaligned-access reports on the packed front-end structs that every
@@ -289,6 +303,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == command ]] && echo "commandtest: $(grep -h 'commandtest: link ordered\|commandtest: point ordered\|commandtest: link done\|commandtest: unlink done\|commandtest: done' "$L" | sed 's/^.*commandtest: //' | paste -sd';'); FAIL lines: $(grep -c 'commandtest: FAIL' "$L")"
 	[[ "$mode" == render ]] && echo "rendertest: $(grep -h 'rendertest: counts\|rendertest: done' "$L" | sed 's/^.*rendertest: //' | paste -sd';')"
 	[[ "$mode" == hud ]] && echo "hudtest: $(grep -h 'hudtest: selected\|hudtest: counts\|hudtest: done' "$L" | sed 's/^.*hudtest: //' | paste -sd';')"
+	[[ "$mode" == ui ]] && echo "uitest: $(grep -h 'uitest: ' "$L" | sed 's/^.*uitest: //' | paste -sd';')"
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"
 	echo "engine glows:$(grep -c -i 'engineglows' "$out/FileLoads.log" 2>/dev/null) mesh/mex loads from misc\\EngineGlows in FileLoads.log"

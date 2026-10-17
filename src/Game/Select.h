@@ -118,7 +118,8 @@ extern sdword selClosestDistance;
 /*=============================================================================
     Macros:
 =============================================================================*/
-// CAT: the HW1 macros keep the overlap test (centrePoint FALSE); the exe's band box callers are mainrgn's (M2-R6)
+// CAT: the HW1 macros keep the overlap test (centrePoint FALSE); the exe's band box (cat_mrBandBoxRelease 0x0056a610,
+//      mrSelectHold 0x0056a1e0) calls selRectDragFunction itself (M2-R6 mainrgn-popup)
 #define selRectNone()                       selSelecting.numTargets = 0
 #define selSelectNone()                     selSelected.numShips = 0;   \
                                             ioUpdateShipTotals()

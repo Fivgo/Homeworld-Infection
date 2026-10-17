@@ -68,6 +68,7 @@
 #include "Tutor.h"
 #include "Tweak.h"
 #include "Universe.h"
+#include "PopupMenu.h"
 #include "Blast.h"
 #include "utility.h"
 
@@ -7589,7 +7590,7 @@ void univRemoveShipReferences(Ship *ship)
     // CAT (M2-R5 hud): the ship gives its name back after the hot-key groups (cat_shipNamesRelease 0x0050f660)
     cat_shipNamesRelease(ship);
     mrShipDied(ship);
-    // CAT-TODO(M2-R6 popup menu): cat_popupMenuRemoveShip 0x004ef840 follows mrShipDied (the right-click menu is not ported)
+    cat_popupMenuRemoveShip(ship);                          // CAT: the popup menu forgets the ship (0x004ef840)
     // CAT (M2-R5 hud): the info overlay forgets the ship (cat_ioRemoveShipReferences, univRemoveShipReferences)
     cat_ioRemoveShipReferences(ship);
 }

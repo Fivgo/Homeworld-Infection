@@ -116,4 +116,25 @@ void Mimic_Fix(Ship *ship);                                                     
 void Mimic_PreFix(Ship *ship);                                                      // 0x005b9b90
 void MimicRemoveShipReferences(Ship *ship, Ship *shiptoremove);                     // 0x005b9bf0
 
+// CAT (M2-R6 mainrgn-popup): the disguise lists of the popup menu's mimic submenus (cat_mimicInitDisguiseTables
+//      0x005b9c60 .. cat_mimicItemAdd 0x005ba0d0). Players 0..7 list ship types (the exe's 8-byte rows, 0x54 per player
+//      at 0x00a76310); player 8 ("objects") lists the four asteroid disguises (the row's second word 0..3)
+#define CAT_MIMIC_ITEM_PLAYERS      9           // the rows' players 0..8
+#define CAT_MIMIC_ITEM_MAX          0x54        // rows per player
+#define CAT_MIMIC_PLAYER_OBJECTS    8           // the asteroid disguises' player
+typedef struct CatMimicItem
+{
+    udword type;                                // +0x00 the ship type (players 0..7)
+    udword index;                               // +0x04 the asteroid size 0..3 (player 8)
+} CatMimicItem;
+void cat_mimicInitDisguiseTables(void);                                             // 0x005b9c60
+ubyte cat_mimicGetCurrentPlayer(void);                                              // 0x005b9f20
+void cat_mimicSetCurrentPlayer(ubyte player);                                       // 0x005b9f30
+bool32 cat_mimicPlayerAvailable(ubyte player);                                      // 0x005b9f40
+char *cat_mimicPlayerName(ubyte player);                                            // 0x005b9fa0
+sdword cat_mimicItemCount(ubyte player, bool32 added);                              // 0x005b9ff0
+CatMimicItem *cat_mimicItemGet(ubyte player, udword unused, sdword index);          // 0x005ba020
+char *cat_mimicItemName(ubyte player, udword unused, sdword index);                 // 0x005ba050
+void cat_mimicItemAdd(ubyte player, ShipType type);                                 // 0x005ba0d0
+
 #endif

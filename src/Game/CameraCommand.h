@@ -142,5 +142,6 @@ void ccGetShipCollCenter(Ship *ship, vector *pos, real32 *rad);
 //cull a focus selection to a certain radius
 sdword ccFocusCullRadiusMean(FocusCommand *selection, real32 radiusSqr, vector *centre);
 sdword ccFocusCullRadiusGeneral(FocusCommand *out, FocusCommand *in, real32 radiusSqr, vector *centre);
+bool32 cat_ccShipIsLegalToFocusOn(Ship *ship);                                  // CAT: 0x0042cd40 (M2-R6)
 
 #endif

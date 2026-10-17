@@ -7897,7 +7897,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "two arguments (mode PIE_SPEC_*, the point function), the per-mode draw/callback tables, dbgFatalf for an unknown mode; no udLatestThingPush",
-  "note": "[review: M2-R5 hud] ported (PiePlate.c); callers that only turn it off pass mode 0 as the exe",
+  "note": "[review: M2-R5 hud] ported (PiePlate.c); callers that only turn it off pass mode 0 as the exe | [review: M2-R6 mainrgn-popup] the 0x00b39cbc flag renamed catPieWaypointMode (set by cat_mrWaypointsStart 0x00564e20)",
   "sample": "port-R5-hud"
  },
  "0x004e5e70": {
@@ -8096,6 +8096,13 @@
   "note": "LoadAndFixAnomalyPing inlined (chunk copy, SpaceObjRegistryGetObj fixups, evaluate callback, selection fix)",
   "sample": "reread-R2"
  },
+ "0x004e9850": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the game-on link (psModeEnd inline) also sets the root region's RSF_DrawThisFrame and feRenderEverything; ends with taskExit (kept out, as GoK)",
+  "note": "[review: M2-R6 mainrgn-popup] reclassified from IDENTICAL; ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
  "0x004e9ec0": {
   "class": "IDENTICAL",
   "confidence": "medium",
@@ -8103,12 +8110,40 @@
   "note": "JPEG load and quilt; head checked (filename, PMF_LanguageSpecific language prefix), the rest of the decompile is mangled by __chkstk",
   "sample": "reread-R2"
  },
+ "0x004ea200": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 mainrgn-popup] compared with r6: same",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x004ea240": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the https fix writes one slash (at [6]) only",
+  "note": "[review: M2-R6 mainrgn-popup] reclassified from IDENTICAL; ported (RemoveCommasButNotQuestionMarksFromString)",
+  "sample": "port-R6-mainrgn-popup"
+ },
  "0x004ea470": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "Ghidra drops the sscanf out-arguments",
   "sample": "reread-R2"
+ },
+ "0x004ea700": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "psStartup inline before the glcompat test, so psGLCompat survives (HW1 reset it after); the task named PlugRenderTask",
+  "note": "[review: M2-R6 mainrgn-popup] compared; the SDL tree has no glcompat: unchanged",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x004ea7c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 mainrgn-popup] compared with r6: same",
+  "sample": "port-R6-mainrgn-popup"
  },
  "0x004ea960": {
   "class": "MODIFIED",
@@ -8994,7 +9029,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the overlay's scroll buttons pan (cat_moButton1..4Clicked), the HUD drawn after the render",
-  "note": "[review: M2-R5 hud] the HUD hooks added",
+  "note": "[review: M2-R5 hud] the HUD hooks added | [review: M2-R6 mainrgn-popup] the popup menu draw and hover update added",
   "sample": "port-R5-hud"
  },
  "0x0050c920": {
@@ -9533,7 +9568,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_missionTimerReset at the end",
-  "note": "[review: M2-R5 hud] the call added",
+  "note": "[review: M2-R5 hud] the call added | [review: M2-R6 mainrgn-popup] cat_mimicInitDisguiseTables added",
   "sample": "port-R5-hud"
  },
  "0x0051b340": {
@@ -11754,7 +11789,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no CustShipDied, factory only for player 0 in single player, repair effect, inline bullet/missile clean-up, clamps, ship names, popup menu and info overlay told",
-  "note": "M2-R4 univupdate: ported except clamps (#3), names (#4), popup/overlay (stage 3) | [review: M2-R5 hud] the calls added",
+  "note": "M2-R4 univupdate: ported except clamps (#3), names (#4), popup/overlay (stage 3) | [review: M2-R5 hud] the calls added | [review: M2-R6 mainrgn-popup] cat_popupMenuRemoveShip added",
   "sample": "port-R5-hud"
  },
  "0x0054b550": {
@@ -12615,18 +12650,130 @@
   "note": "RPM_MouseEvents = 0x7ffff; same flag save/set",
   "sample": "IDENTICAL/medium"
  },
+ "0x00563a70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 mainrgn-popup] compared with r6: same",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00563aa0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a derelict stays only if a hyperspace gate or a salvager is selected; own/allied ships go unless of the derelict race; catFlags18 0x10 ships always go",
+  "note": "[review: M2-R6 mainrgn-popup] ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00563b50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "HW1's key table gone: a key child for each of the 256 key ids, key down and up; the big font; no formation font",
+  "note": "[review: M2-R6 mainrgn-popup] ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00563c20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 mainrgn-popup] compared with r6: same",
+  "sample": "port-R6-mainrgn-popup"
+ },
  "0x00563cc0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "harvest hotkey reworked: tutGameMessage(\"KB_Harvest\"/\"Game_ClickHarvest\"), per-ship cat_clHarvestNearestResource when no target, Mimic ships posing as resources (cat_mimicAppearsAsResource/GetFakeResource); univFindNearestResource and the no-RUs speech gone",
-  "note": "",
+  "note": "[review: M2-R6 mainrgn-popup] ported: the resource is the first argument (popup, right click, key); no CSM_Harvest callback",
   "sample": "MODIFIED/high"
+ },
+ "0x005649b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "plain pause test that returns (GoK lost the return); no atom region clear; the one selected ship builds only if a Sect/Beast mothership or carrier not being built and not disabled",
+  "note": "[review: M2-R6 mainrgn-popup] reclassified from IDENTICAL; ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00564a70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 mainrgn-popup] compared with r6: same",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00565210": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_selMakeShipsScuttleable and the retireable ships; the reconfirm on real time; Cataclysm chatter and fleet speech",
+  "note": "[review: M2-R6 mainrgn-popup] ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x005653b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the guard-capable retireable ships dock to retire (purpose 7); tutorial message",
+  "note": "[review: M2-R6 mainrgn-popup] ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x005654b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "plain universePause test (no opPauseOrders); no atom region clear",
+  "note": "[review: M2-R6 mainrgn-popup] reclassified from IDENTICAL; ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00565530": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "plain universePause test (no opPauseOrders); no atom region clear",
+  "note": "[review: M2-R6 mainrgn-popup] reclassified from IDENTICAL; ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00565860": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 mainrgn-popup] compared with r6: same (helpinfoactive 0x00a75298, the help region rect)",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x005659d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "formation 8 is the parade (needs a mothership or carrier); fleet or ship voice; command message; no formation name on the screen",
+  "note": "[review: M2-R6 mainrgn-popup] ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00565da0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "8 mothership types (k/t/s/b carriers, s/b motherships, p1Mothership, trFloatingCity; table 0x008ba39c); skips disabled ships",
+  "note": "[review: M2-R6 mainrgn-popup] reclassified from IDENTICAL; the table fixed (the tree had 6 HW1 aliases), the disabled test was already there",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00566a00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the clicked ship's formation (the parade's ships of its type); HW1's single-click build/research/sensors screens gone",
+  "note": "[review: M2-R6 mainrgn-popup] ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00566b60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the modifier keys first (force attack, multiple select, guard, special popup, focus, attack); then the context order of the Homeworld CSA option; else the formation select",
+  "note": "[review: M2-R6 mainrgn-popup] ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00567750": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the slipgate order: the ships that may enter dock with the gate (purpose 10), the others are told why",
+  "note": "[review: M2-R6 mainrgn-popup] ported",
+  "sample": "port-R6-mainrgn-popup"
  },
  "0x00567930": {
   "class": "REWRITTEN",
   "confidence": "high",
   "change": "selSelectionClick's seventh argument, piePointModeOnOff(mode, NULL)",
-  "note": "[review: M2-R5 hud] call sites updated only",
+  "note": "[review: M2-R5 hud] call sites updated only | [review: M2-R6 mainrgn-popup] the mouse events go to the cat_mr* handlers, the popup menu keys first",
   "sample": "port-R5-hud"
  },
  "0x00567cf0": {
@@ -12636,6 +12783,20 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00567d40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the pulse clock is cat_taskRealTimeElapsed (task real time), not universe.totaltimeelapsed",
+  "note": "[review: M2-R6 mainrgn-popup] reclassified from IDENTICAL; ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00568100": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "first draws the move order's waypoint path legs still to fly (once / loop / patrol out / patrol back, colours 0x0088d78c/90/94, a circle at each point); the end circle inline (primCircleOutline3)",
+  "note": "[review: M2-R6 mainrgn-popup] reclassified from IDENTICAL; ported (toDrawMovePath)",
+  "sample": "port-R6-mainrgn-popup"
+ },
  "0x00568d60": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -12643,12 +12804,47 @@
   "note": "[audit: M2-R5 command-tactics] compared only the formation test: the exe reads ship->command's formation flag and pulse, as cat_shipFormationCommand; the radius product order and the colour choice are stage 3's to re-check (UI)",
   "sample": "audit-R5-command-tactics"
  },
+ "0x00568e30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "draws the move line of every class (HW1 skipped fighters and corvettes); formation test on the command's formation attribute; no ResearchShip faking",
+  "note": "[review: M2-R6 mainrgn-popup] ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00568f00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 mainrgn-popup] compared with r6: same",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00569030": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the ring clock is cat_taskRealTimeElapsed; the ring arrays are laid out differently (not compared further)",
+  "note": "[review: M2-R6 mainrgn-popup] reclassified from IDENTICAL; the clock ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
  "0x00569260": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_moRender, cat_shipPrintDraw, cat_ioUpdateHover, cat_shipPrintDragUpdate after the tick text; no toLegendDraw / mrCommandMessageDraw",
-  "note": "[review: M2-R5 hud] the HUD hooks added (the rest of mrRegionDraw is M2-R6's)",
+  "note": "[review: M2-R5 hud] the HUD hooks added (the rest of mrRegionDraw is M2-R6's) | [review: M2-R6 mainrgn-popup] the band box, the cycled formations/tactics, the popup menu and the game-stats screen drawn",
   "sample": "port-R5-hud"
+ },
+ "0x00569f80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "band box and camera turn stop, point mode off; the software-renderer call does not apply",
+  "note": "[review: M2-R6 mainrgn-popup] ported",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x00569fd0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clears Cataclysm's band-box and right-drag state words (0x00a75284 with selSelecting, 0x00a75288) before saving the tactical overlay",
+  "note": "[review: M2-R6 mainrgn-popup] reclassified from IDENTICAL; ported (the tree also clears its mrHoldRight stand-in)",
+  "sample": "port-R6-mainrgn-popup"
  },
  "0x0056a020": {
   "class": "MODIFIED",
@@ -12663,6 +12859,13 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x0056a1e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the band box picks what the modifier key's order may take (force attack, guard, special targets, focus, attack); own ships without a modifier",
+  "note": "[review: M2-R6 mainrgn-popup] ported",
+  "sample": "port-R6-mainrgn-popup"
  },
  "0x0056c100": {
   "class": "IDENTICAL",
@@ -12741,18 +12944,32 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0056d560": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 mainrgn-popup] compared with r6: same",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x0056d670": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "31 cursor bitmaps (13 new), each mirrored; salvage.LiF for the salvage cursor",
+  "note": "[review: M2-R6 mainrgn-popup] ported (slot table)",
+  "sample": "port-R6-mainrgn-popup"
+ },
  "0x0056e400": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "31 cursor textures created instead of HW1's 18 (new Cataclysm cursor types)",
-  "note": "",
+  "note": "[review: M2-R6 mainrgn-popup] ported: 31 textures",
   "sample": "reread-R2"
  },
  "0x0056e620": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "deletes and clears 31 cursor textures instead of 18",
-  "note": "",
+  "note": "[review: M2-R6 mainrgn-popup] ported: 31 textures",
   "sample": "reread-R2"
  },
  "0x0056e890": {
@@ -12783,6 +13000,13 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0056e8d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 mainrgn-popup] compared with r6: same as HW1 (clamp to the client rect, SetCursorPos); the SDL tree warps the SDL cursor",
+  "sample": "port-R6-mainrgn-popup"
+ },
  "0x0056e940": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -12790,18 +13014,25 @@
   "note": "rectangle copy split into fields",
   "sample": "reread-R2"
  },
+ "0x0056e980": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 mainrgn-popup] compared with r6: same",
+  "sample": "port-R6-mainrgn-popup"
+ },
  "0x0056e9c0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cursor-type switch extended for Cataclysm's added cursor types (cases up to 0x1e+, 31 bitmaps)",
-  "note": "enum renumbered as well",
+  "note": "enum renumbered as well | [review: M2-R6 mainrgn-popup] ported",
   "sample": "reread-R2"
  },
  "0x0056ec50": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "more cursor states (36 case labels vs 23), popup-menu check (cat_popupMenuIsOpen), depth-test toggle and real-time based expiry",
-  "note": "not fully compared",
+  "note": "not fully compared | [review: M2-R6 mainrgn-popup] ported and fully compared: no cursor behind closed NIS scissors with the main region disabled; depth test off; the special-attack hold on real time; the front-end override not in the sensors manager; the plain cursor over the popup menu; GL_QUADS; the last-object time real",
   "sample": "uniform/MODIFIED"
  },
  "0x0056f370": {
@@ -12818,11 +13049,32 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0056f3b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no mouseInfo pass or double-click check: the objective-click cursor, the band-box modifier key cursors (not while playing a recording), then with a context-sensitive option the cursor of cat_mouseGetContextAction's action (jump table 0x0056f70c)",
+  "note": "[review: M2-R6 mainrgn-popup] ported; the action-to-cursor table checked entry by entry",
+  "sample": "port-R6-mainrgn-popup"
+ },
+ "0x0056f750": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Win32: GetCursorPos/SetCursorPos inline instead of mousePositionSet",
+  "note": "[review: M2-R6 mainrgn-popup] compared; the SDL tree reads SDL's mouse state (platform layer), unchanged",
+  "sample": "port-R6-mainrgn-popup"
+ },
  "0x0056f8d0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "mouseCursorHide inlined (mouseIsVisible = FALSE)"
+ },
+ "0x0056f8e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 mainrgn-popup] compared with r6: same (mouseCursorShow inlined)",
+  "sample": "port-R6-mainrgn-popup"
  },
  "0x0056fd10": {
   "class": "IDENTICAL",
@@ -13241,7 +13493,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no mouseSelectCursorSetting; the front end's saved cursor (feShouldSaveMouseCursor, cat_mouseSaveCursorUnder / RestoreCursorUnder) skips the clear; shameless plug; screenshot from a flag; trNoPalResizePool after mainReinitRGL",
-  "note": "[review: M2-R5 render] render half as the tree; the front-end / mouse parts are a CAT-TODO(M2-R6 front end and mouse) in render.c",
+  "note": "[review: M2-R5 render] render half as the tree; the front-end / mouse parts are a CAT-TODO(M2-R6 front end and mouse) in render.c | [review: M2-R6 mainrgn-popup] the mouse part ported: mouseSetCursorSetting only (no mouseSelectCursorSetting); the cursor save/restore is decision 28",
   "sample": "port-R5-render"
  },
  "0x0057ad80": {
@@ -14259,6 +14511,13 @@
   "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
   "sample": "port-R5-render"
  },
+ "0x005a9290": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "(not reviewed in full) a new game calls cat_mimicInitDisguiseTables",
+  "note": "[review: M2-R6 mainrgn-popup] only that call checked and added",
+  "sample": "port-R6-mainrgn-popup"
+ },
  "0x005aa5e0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -14298,7 +14557,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "cat_shipPrintStartup after mrStartup; cat_overlayIconsStartup, cat_shipNamesInit, cat_gameStatsStartup after prim3dStartup",
-  "note": "[review: M2-R5 hud] the calls added (cat_kbLoadKeyBindings is M2-R6's)",
+  "note": "[review: M2-R5 hud] the calls added (cat_kbLoadKeyBindings is M2-R6's) | [review: M2-R6 mainrgn-popup] cat_popupMenuStartup added",
   "sample": "port-R5-hud"
  },
  "0x005acd10": {
@@ -15004,7 +15263,7 @@
  "_notes_r2": [
   "Tool fixes in `tools/delta_map.py` (M2-R2), for the systemic misses the R1 audit found:",
   "",
-  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` \u2192 `SpaceObjRegistryGetObj`, `aimInterceptShipDied` \u2192 `aimCaptureShipDied`, `aimAdvancedAttackClose` \u2192 `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
+  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` → `SpaceObjRegistryGetObj`, `aimInterceptShipDied` → `aimCaptureShipDied`, `aimAdvancedAttackClose` → `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
   "- **Callee interface changes.** A bound callee whose Cataclysm prototype has real parameter names and another parameter count than its HW1 definition (`timTimer*`, `clCommandMessage`, `spMainScreen`, `hsStaticInit`...), or that the binary map extended with `cat_argN` arguments counted from caller stack cleanup (`clFormation`, `RemoveShipsFromDoingStuff`, `ApplyDamageToTarget`, `tutSetPointerTargetAIVolume`...), makes each caller MODIFIED. Over-declared prototypes are skipped when every call site passes register or stack garbage in the extra slots (`feCurrentScreenDelete(unaff_EDI, unaff_ESI)`), and under-declared ones when the callee reads `in_EAX`/`in_stack_` (`kniTransGrowVertexLists`). `param_N` prototypes are not used, because a double or a by-value struct splits into several slots (`rgluLookAt` 9 -> 12); so `trTextureRegister`'s real 4th argument is still caught only by hand review.",
   "- **One-parameter ETG/particle callables** that take a pointer to their argument slot are MODIFIED (the old rule needed two or more HW1 parameters).",
   "- **KAS hash keys.** A function that calls `kasfScopeName` in HW1 and tests the `0x80000000` hash bit in Cataclysm is MODIFIED.",

@@ -49,7 +49,17 @@
 #include "Objectives.h"
 #include "Options.h"
 #include "Particle.h"
+#include "Mimic.h"
+#include "ModuleShip.h"
+#include "Mothership.h"
+#include "HiveFrigate.h"
+#include "ACV.h"
+#include "Salvage.h"
+#include "Cloak.h"
+#include "Leech.h"
+#include "Vector.h"
 #include "PiePlate.h"
+#include "PopupMenu.h"
 #include "prim2d.h"
 #include "prim3d.h"
 #include "render.h"
@@ -100,8 +110,6 @@ Camera *mrCamera = NULL;
 bool32 mrWhiteOut = FALSE;
 real32 mrWhiteOutT = 0.0f;
 
-//rectangle of currently dragged selection
-rectangle mrSelectionRect;
 sdword mrOldMouseX, mrOldMouseY;
 
 //logic handlers for main region
@@ -263,12 +271,8 @@ mrKeyFunction[] =
 };
 
 //stuff for changing formations
-TypeOfFormation mrNewFormation = NO_FORMATION;  //index of current formation we're selecting
-char *mrFormationName = NULL;                   //if non-NULL, we're in the changing formations state
-real32 mrFormationTime;                         //time a particular formation was set
-bool32   mrDrawFormation=FALSE;
-real32 mrDrawFormationTime=0.0;
-fonthandle mrFormationFont = FONT_InvalidFontHandle;
+// CAT: HW1's formation selection state and font (mrNewFormation, mrFormationName, mrDrawFormation, mrFormationFont) are
+//      gone: Cataclysm cycles the formations with cat_mrFormationCycle 0x00566750
 
 #if MAD_TEST_ANIMATION
 sdword mrTestAnimationIndex = 0;                //index of mesh animation we're testing
@@ -310,7 +314,6 @@ extern real32 pilotupoffset;
 =============================================================================*/
 
 //sdword mrClickedOnPlayer(void);
-void mrSetTheFormation(TypeOfFormation formationtype);
 
 /*=============================================================================
     Functions:
@@ -397,34 +400,29 @@ bool32 salCapCorvetteInSelection(SelectCommand *selection)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void mrRemoveDerelictsAndAllPlayerShipsFromSelecting()
+void mrRemoveDerelictsAndAllPlayerShipsFromSelecting(void)
 {
     sdword i;
     SpaceObjRotImpTarg *target;
-    for(i=0;i<selSelecting.numTargets;)
+    Ship *ship;
+
+    // CAT: mrRemoveDerelictsAndAllPlayerShipsFromSelecting 0x00563aa0: a derelict goes unless it is a hyperspace gate
+    //      or a salvager is selected (cat_shipIsSalvager); an own or allied ship goes unless it is of the derelict
+    //      race (RACE_Derelict ships are kept), and a ship flagged 0x10 (catFlags18) goes always
+    for (i = 0; i < selSelecting.numTargets; )
     {
         target = selSelecting.TargetPtr[i];
-        if (target->header.objtype == OBJ_DerelictType)
+        ship = (Ship *)target;
+        if (((target->header.objtype == OBJ_DerelictType) && (((Derelict *)target)->derelicttype != HyperspaceGate) &&
+             !DoAnyShipsFollowConstraints((SelectCommand *)&selSelected, cat_shipIsSalvager)) ||
+            ((target->header.objtype == OBJ_ShipType) &&
+             ((ship->staticinfo->shiprace != RACE_Derelict) || bitTest(ship->header.catFlags18, 0x10)) &&
+             ((ship->playerowner == universe.curPlayerPtr) || allianceIsShipAlly(ship, universe.curPlayerPtr) ||
+              bitTest(ship->header.catFlags18, 0x10))))
         {
-            if (((Derelict *)target)->derelicttype != HyperspaceGate)
-            {
-                if(!salCapCorvetteInSelection((SelectCommand *)&selSelected))
-                {
-                    //special case luke suggested hack
-                    goto removeit;
-                }
-            }
-        }
-        if (target->header.objtype == OBJ_ShipType)
-        {
-            if ((((Ship *)target)->playerowner == universe.curPlayerPtr) ||
-                (allianceIsShipAlly((Ship *)target, universe.curPlayerPtr)))     // CAT: no HW1 Drone (M2-R4 ships-b)
-            {
-removeit:
-                selSelecting.numTargets--;
-                selSelecting.TargetPtr[i] = selSelecting.TargetPtr[selSelecting.numTargets];
-                continue;
-            }
+            selSelecting.numTargets--;
+            selSelecting.TargetPtr[i] = selSelecting.TargetPtr[selSelecting.numTargets];
+            continue;
         }
         i++;
     }
@@ -459,7 +457,9 @@ void mrProbeHack()
 ----------------------------------------------------------------------------*/
 void mrStartup(void)
 {
-    sdword index;
+    // CAT: mrStartup 0x00563b50: the main region with HW1's mouse events (0x2836f6c), a key child for each of the
+    //      256 key ids, key down and up (the key bindings decide what a key does; cat_mrKeyChildrenAlloc's loop), and
+    //      the big font. HW1's key table (mrKeyFunction) and the formation font are gone
     ghMainRegion = regChildAlloc(NULL, 0, 0, 0,             //create main region
                    MAIN_WindowWidth, MAIN_WindowHeight, 0,
                    RPE_LeftClickButton | RPE_HoldLeft |
@@ -467,17 +467,9 @@ void mrStartup(void)
                    RPE_WheelUp | RPE_WheelDown | RPE_DoubleLeft | RPE_DoubleCentre);
     regDrawFunctionSet(ghMainRegion, mrRegionDraw);         //set it's functions
     regFunctionSet(ghMainRegion, (regionfunction) mrRegionProcess);
-
-    for (index = 0; mrKeyFunction[index].nKeys != 0; index++)
-    {                                                       //now set all the keys
-        regKeyChildAlloc(ghMainRegion, mrKeyFunction[index].key[0], mrKeyFunction[index].filter,
-                         (regionfunction) mrRegionProcess, mrKeyFunction[index].nKeys,
-                         mrKeyFunction[index].key[0], mrKeyFunction[index].key[1],
-                         mrKeyFunction[index].key[2], mrKeyFunction[index].key[3]);
-    }
+    cat_mrKeyChildrenAlloc(ghMainRegion, (regionfunction) mrRegionProcess);
 
     mrBigFont = frFontRegister("Arial_b17.hff");
-    mrFormationFont = frFontRegister("default.hff");
 }
 
 /*-----------------------------------------------------------------------------
@@ -492,36 +484,2106 @@ void mrShutdown(void)
     regRegionDelete(ghMainRegion);
 }
 
-/*-----------------------------------------------------------------------------
-    Callback functions for right-click menus:
------------------------------------------------------------------------------*/
-void mrDockingOrders(char *string, featom *atom)
+/*=============================================================================
+    CAT (M2-R6 mainrgn-popup): Cataclysm's main region. The mouse handlers of mrRegionProcess 0x00567930
+    (cat_mrPressLeft .. cat_mrReleaseLeftCB 0x0056af10 .. 0x0056b6a0), the band box (cat_mrBandBoxRelease
+    0x0056a610, cat_mrSelectRectDraw 0x0056ac00, mrSelectHold 0x0056a1e0), the special commands the popup menu and the
+    key commands run (cat_ui* 0x00563e20 .. 0x00566510) and the orders the exe reaches through its key-command table
+    (move, dock, waypoints, upgrade, the slipgate, hyperspace; functions the export does not list, named here by
+    their key commands). Names of the variables are chosen here from their uses.
+=============================================================================*/
+bool32 catMrSelecting = FALSE;                  // 0x00a75284: the left button is down for a band box
+sdword catMrRightMode = 0;                      // 0x00a75288: 2 while the right button turns the camera
+sdword catMrWaypointMode = 0;                   // 0x00a752b4: 0 once, 1 a loop, 2 end to end (cat_uiSetWaypointMode)
+vector catMrWaypoints[CAT_MR_MAX_WAYPOINTS];    // 0x00b39bc0
+sdword catMrWaypointCount = 0;                  // 0x00b39cb0
+bool32 catMrHomeworldCSA = FALSE;               // 0x00a7526c: the options' OP_HomeworldCSA (cat_opHomeworldCSA 0x004d9f30)
+bool32 catMrRightClickCSA = TRUE;               // 0x008b9ec8: the options' OP_RightClickCSA (default 1)
+static sdword catMrFormationCycleType = 0;      // 0x00a75264
+static real32 catMrFormationCycleTime = 0.0f;   // 0x00a75268
+static bool32 catMrFormationCyclePending = FALSE;   // 0x00a752a4: mrRegionDraw sets it after the delay
+static sdword catMrTacticsCycleType = 0;        // 0x00b39cb4
+static real32 catMrTacticsCycleTime = 0.0f;     // 0x00a7525c
+static bool32 catMrTacticsCyclePending = FALSE; // 0x00a752ac
+bool32 catMrWaypointCentre = FALSE;             // 0x00a75270: an option (Options.c 0x004d9fde, M2-R6 front end)
+#define CAT_MR_CYCLE_DELAY          1.0f        // 0x0072a4c4: a cycled formation / tactic is set 1 s after the key
+
+// CAT: the exe's tutorial gates test bits of its own tutEnable word 0x00ba2e58 (and 0x00ba2e5c); the Cataclysm
+//      tutorial flags are stage 6's, so outside the tutorial everything is enabled and inside it the word is read raw.
+//      CAT-TODO(stage 6 tutorial): the exe's tutGameEnableFlags layout
+static bool32 catMrTutEnabled(udword bit)
 {
-    if ((tutorial==TUTORIAL_ONLY) && !tutEnable.bDock)
+    return (tutorial != TUTORIAL_ONLY) || ((*(udword *)&tutEnable & bit) != 0);
+}
+
+// CAT: the exe asks its key bindings whether a command's key is held (kbCommandKeyIsHit 0x0054ec60 with Cataclysm's
+//      command numbers). CAT-TODO(M2-R6 key bindings): the loaded bindings (cat_kbCommandKeyMatch); until the key
+//      binding port the install's default_keys.cfg bindings of the band-box modifiers are tested here:
+//      7 Ship_Special Z, 0x4A Bandbox_Guard G, 0x4B Bandbox_Attack CTRL, 0x4C Bandbox_ForceAttack CTRL+SHIFT,
+//      0x4D Bandbox_Focus ALT, 0x4E Multiple_Select SHIFT (cat_kbModifiersMatch 0x0054eb40: the other modifiers up)
+bool32 catMrKbHeld(sdword command)
+{
+    bool32 shift = keyIsHit(SHIFTKEY) || keyIsHit(RSHIFTKEY);
+    bool32 ctrl = keyIsHit(CONTROLKEY) || keyIsHit(RCONTROLKEY);
+    bool32 alt = keyIsHit(ALTKEY) || keyIsHit(RALTKEY);
+
+    switch (command)
+    {
+        case CAT_KB_ShipSpecial:        return keyIsHit(ZKEY) && !shift && !ctrl && !alt;
+        case CAT_KB_BandboxGuard:       return keyIsHit(GKEY) && !shift && !ctrl && !alt;
+        case CAT_KB_BandboxAttack:      return ctrl && !shift && !alt;
+        case CAT_KB_BandboxForceAttack: return ctrl && shift && !alt;
+        case CAT_KB_BandboxFocus:       return alt && !shift && !ctrl;
+        case CAT_KB_MultipleSelect:     return shift && !ctrl && !alt;
+        default:                        return FALSE;
+    }
+}
+
+// the exe's guard of every order: no recording playing, not paused, the main region enabled
+#define CAT_MR_ORDERS_ALLOWED()     (!playPackets && !universePause && !mrDisabled)
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mrKeyChildrenAlloc                            0x00563be0
+    Description : Key children for the 256 key ids (down and up) of a region, as mrStartup does inline.
+----------------------------------------------------------------------------*/
+void cat_mrKeyChildrenAlloc(regionhandle region, regionfunction function)
+{
+    sdword ID;
+
+    for (ID = 0; ID < 0x100; ID++)
+    {
+        regKeyChildAlloc(region, ID, RPE_KeyDown | RPE_KeyUp, function, 1, ID, 0, 0, 0);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_uiShipDamageFraction                          0x005c9c60
+    Description : The health fraction of a ship's most damaged part (itself or a module).
+----------------------------------------------------------------------------*/
+real32 cat_uiShipDamageFraction(Ship *ship)
+{
+    Ship *module, *worst = ship;
+    real32 fraction, worstFraction;
+
+    worstFraction = ship->targetable.health / ship->staticinfo->health.maxhealth;
+    for (module = cat_moduleIterFirst(ship); module != NULL; module = cat_moduleIterNext())
+    {
+        fraction = module->targetable.health / module->staticinfo->health.maxhealth;
+        if (fraction < worstFraction)
+        {
+            worst = module;
+            worstFraction = fraction;
+        }
+    }
+    return worst->targetable.health / worst->staticinfo->health.maxhealth;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_uiFindNearestSpecialTarget                    0x00563e20
+    Description : The nearest ship for a special order without a target: kind 0 a salvage target, 1 an ally to repair
+                  (within 1e6 of the nearest the most damaged), 2 an enemy, 3 an enemy the EMP can affect; never the
+                  ship itself, a dead or hidden ship, or a point the fog of war hides.
+----------------------------------------------------------------------------*/
+Ship *cat_uiFindNearestSpecialTarget(Ship *ship, sdword kind)
+{
+    Ship *other, *nearest = NULL;
+    Node *node;
+    real32 distance, nearestDistance = 1e21f;
+    bool32 take;
+
+    if ((universe.curPlayerPtr->catFOWGrid == NULL) && FALSE)
+    {
+        return NULL;
+    }
+    // CAT: the exe returns NULL when the player has no fog-of-war grid (Player+0x6500); every player has one there
+    //      (cat_fowCreatePlayerGrids at levelInit). CAT-TODO(M2-R6 FOW): until the FOW port creates them the test is
+    //      left to cat_selPositionHiddenByFOW below
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        other = (Ship *)listGetStructOfNode(node);
+        if ((other == ship) || bitTest(other->header.flags, SOF_Dead | SOF_Hide))
+        {
+            continue;
+        }
+        take = FALSE;
+        switch (kind)
+        {
+            case 0:
+                take = cat_salvageTargetAllowed(other) && !cat_selPositionHiddenByFOW(&other->obj.posinfo.position, FALSE);
+                break;
+            case 1:
+                take = allianceIsShipAlly(other, universe.curPlayerPtr);
+                break;
+            case 2:
+                take = !allianceIsShipAlly(other, universe.curPlayerPtr) && !cat_shipIsCrystal(other) &&
+                       !cat_shipIsUntargetable(other) && !cat_selPositionHiddenByFOW(&other->obj.posinfo.position, FALSE);
+                // CAT: the exe falls through into kind 3's test (no break); the result is kind 2's or kind 3's
+                take = take || (!allianceIsShipAlly(other, universe.curPlayerPtr) && !cat_shipIsCrystal(other) &&
+                                !cat_shipIsUntargetable(other) && cat_empCanAffectShip(other, NULL) &&
+                                !cat_selPositionHiddenByFOW(&other->obj.posinfo.position, FALSE));
+                break;
+            case 3:
+                take = !allianceIsShipAlly(other, universe.curPlayerPtr) && !cat_shipIsCrystal(other) &&
+                       !cat_shipIsUntargetable(other) && cat_empCanAffectShip(other, NULL) &&
+                       !cat_selPositionHiddenByFOW(&other->obj.posinfo.position, FALSE);
+                break;
+            default:
+                break;
+        }
+        if (!take)
+        {
+            continue;
+        }
+        distance = (other->obj.posinfo.position.x - ship->obj.posinfo.position.x) * (other->obj.posinfo.position.x - ship->obj.posinfo.position.x) +
+                   (other->obj.posinfo.position.y - ship->obj.posinfo.position.y) * (other->obj.posinfo.position.y - ship->obj.posinfo.position.y) +
+                   (other->obj.posinfo.position.z - ship->obj.posinfo.position.z) * (other->obj.posinfo.position.z - ship->obj.posinfo.position.z);
+        if (distance < nearestDistance)
+        {
+            nearest = other;
+            nearestDistance = distance;
+        }
+        else if ((kind == 1) && (distance - nearestDistance < 1000000.0f) &&
+                 (cat_uiShipDamageFraction(other) < cat_uiShipDamageFraction(nearest)))
+        {                                                   // a nearly as near ally that is more damaged
+            nearest = other;
+            nearestDistance = distance;
+        }
+    }
+    return nearest;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_uiSpecialTargetCommand                        0x00564060
+    Description : A special order of the (not busy) selection: 0 salvage, 1 repair, 2 leech, 3 swarm, 4 EMP,
+                  5 infect, 6 ram, 7 fire the linked missiles; on the given targets, else each ship on its nearest one.
+----------------------------------------------------------------------------*/
+void cat_uiSpecialTargetCommand(SelectCommand *targets, sdword ability)
+{
+    MaxSelection selection;
+    SelectCommand single;
+    SelectCommand oneTarget;
+    sword reasons[9];
+    bool32 speak = TRUE, said, saidCrystal = FALSE, saidInfection = FALSE, saidSupport = FALSE, saidTech = FALSE;
+    sdword index, kind;
+    Ship *ship, *target;
+
+    cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+    cat_selMakeShipsNotBusy((SelectCommand *)&selection);
+    switch (ability)
+    {
+        case 0:                                             // salvage: drop the targets it may not take, saying why
+            if (targets != NULL)
+            {
+                cat_selMakeShipsHaveUpgrade((SelectCommand *)&selection, CAT_UPGRADE_Salvage);
+                index = 0;
+                while (index < targets->numShips)
+                {
+                    memset(reasons, 0, sizeof(reasons));
+                    if (cat_salvageCheckTargetReasons(universe.curPlayerPtr, targets->ShipPtr[index], reasons))
+                    {
+                        index++;
+                        continue;
+                    }
+                    if (reasons[CAT_SALVAGE_REASON_NoSupport] > 0)
+                    {
+                        if (!saidTech)
+                        {
+                            clCommandMessage(strGetString(strSalvageTargetHasIncompatibleTech), 0xff0000ff);
+                            saidTech = TRUE;
+                        }
+                    }
+                    else if ((reasons[CAT_SALVAGE_REASON_NoSupportType] > 0) &&
+                             (reasons[CAT_SALVAGE_REASON_NoSupportType] != reasons[CAT_SALVAGE_REASON_Friendly]))
+                    {
+                        speak = FALSE;
+                        speechEventQueue(NULL, 0x200103a, -1, -1, 0, -1, -1, 5.0f, -1);
+                        if (!saidSupport)
+                        {
+                            clCommandMessage(strGetString(strNotEnoughSupportUnitsToSalvage), 0xff0000ff);
+                            saidSupport = TRUE;
+                        }
+                    }
+                    else if ((reasons[CAT_SALVAGE_REASON_NoBeastUpgrade] > 0) &&
+                             (reasons[CAT_SALVAGE_REASON_NoBeastUpgrade] != reasons[CAT_SALVAGE_REASON_Friendly]))
+                    {
+                        speak = FALSE;
+                        if (!saidInfection)
+                        {
+                            clCommandMessage(strGetString(strDepotNeedsInfectionTech), 0xff0000ff);
+                            saidInfection = TRUE;
+                        }
+                    }
+                    else if (reasons[CAT_SALVAGE_REASON_NoCrystalUpgrade] > 0)
+                    {
+                        speak = FALSE;
+                        if (!saidCrystal)
+                        {
+                            clCommandMessage(strGetString(strWorkerNeedsCrystalTech), 0xff0000ff);
+                            saidCrystal = TRUE;
+                        }
+                    }
+                    targets->numShips--;
+                    targets->ShipPtr[index] = targets->ShipPtr[targets->numShips];
+                }
+            }
+            break;
+        case 1:
+            cat_selMakeShipsRepairCapable((SelectCommand *)&selection);
+            break;
+        case 2:
+            cat_selMakeShipsLeechCapable((SelectCommand *)&selection, TRUE);
+            break;
+        case 3:
+            cat_selMakeShipsHaveUpgrade((SelectCommand *)&selection, 0x800);
+            break;
+        case 4:
+            cat_selMakeShipsHaveUpgrade((SelectCommand *)&selection, CAT_UPGRADE_ACVEMP);
+            if (selection.numShips < 1)
+            {
+                return;
+            }
+            cat_selMakeShipsNotLinkedACVs((SelectCommand *)&selection);
+            if (selection.numShips < 1)
+            {
+                clCommandMessage(strGetString(strCantEMPTargets), 0xff0000ff);
+                return;
+            }
+            break;
+        case 5:
+            cat_selMakeShipsHaveUpgrade((SelectCommand *)&selection, 0x10000);
+            break;
+        case 6:
+            cat_selMakeShipsRammingFrigates((SelectCommand *)&selection, TRUE);
+            break;
+        case 7:
+            cat_selMakeShipsAcolyteLinkFire((SelectCommand *)&selection);
+            break;
+        default:
+            break;
+    }
+    if (selection.numShips <= 0)
+    {
+        return;
+    }
+    if (targets != NULL)
+    {
+        switch (ability)
+        {
+            case 0:
+                cat_clWrapSpecialTarget(&universe.mainCommandLayer, (SelectCommand *)&selection, (SpecialCommand *)targets, TRUE);
+                if (speak)
+                {
+                    cat_clSpecialTargetSpeech((SelectCommand *)&selection);
+                }
+                break;
+            case 1:
+                cat_clWrapSpecialTarget(&universe.mainCommandLayer, (SelectCommand *)&selection, (SpecialCommand *)targets, FALSE);
+                break;
+            default:
+                clWrapSpecial(&universe.mainCommandLayer, (SelectCommand *)&selection, (SpecialCommand *)targets);
+                break;
+        }
+        return;
+    }
+    said = FALSE;
+    for (index = 0; index < selection.numShips; index++)
+    {                                                       // each ship on its own nearest target
+        ship = selection.ShipPtr[index];
+        switch (ability)
+        {
+            case 0:  kind = 0; break;
+            case 1:  kind = 1; break;
+            case 4:  kind = 3; break;
+            default: kind = 2; break;
+        }
+        target = cat_uiFindNearestSpecialTarget(ship, kind);
+        if (target == NULL)
+        {
+            if (!said)
+            {
+                switch (ability)
+                {
+                    case 0: cat_ioMessageAdd(strGetString(strNoShipToSalvageFound), 0xff0000ff, 1, ship); break;
+                    case 1: cat_ioMessageAdd(strGetString(strNoShipToRepairFound), 0xff0000ff, 1, ship); break;
+                    case 2: cat_ioMessageAdd(strGetString(strNoShipToLeechFound), 0xff0000ff, 1, ship); break;
+                    case 3: cat_ioMessageAdd(strGetString(strNoShipToSwarmFound), 0xff0000ff, 1, ship); break;
+                    case 4: cat_ioMessageAdd(strGetString(strNoShipToEMPFound), 0xff0000ff, 1, ship); break;
+                    case 5: cat_ioMessageAdd(strGetString(strNoShipToInfectFound), 0xff0000ff, 1, ship); break;
+                    case 6: cat_ioMessageAdd(strGetString(strNoShipToRamFound), 0xff0000ff, 1, ship); break;
+                    case 7: cat_ioMessageAdd(strGetString(strNoShipToFireMissileAtFound), 0xff0000ff, 1, ship); break;
+                    default: break;
+                }
+                said = TRUE;
+            }
+            continue;
+        }
+        single.numShips = 1;
+        single.ShipPtr[0] = ship;
+        oneTarget.numShips = 1;
+        oneTarget.ShipPtr[0] = target;
+        switch (ability)
+        {
+            case 0:
+                cat_clWrapSpecialTarget(&universe.mainCommandLayer, &single, (SpecialCommand *)&oneTarget, TRUE);
+                if (speak)
+                {
+                    cat_clSpecialTargetSpeech(&single);
+                }
+                break;
+            case 1:
+                cat_clWrapSpecialTarget(&universe.mainCommandLayer, &single, (SpecialCommand *)&oneTarget, FALSE);
+                break;
+            default:
+                clWrapSpecial(&universe.mainCommandLayer, &single, (SpecialCommand *)&oneTarget);
+                break;
+        }
+    }
+}
+
+// the special orders on targets (NULL: the nearest ones), each with the exe's guard (0x00564030 .. 0x00564750)
+void cat_uiSpecialSalvage(SelectCommand *targets)           // 0x00564030
+{
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_uiSpecialTargetCommand(targets, 0);
+    }
+}
+
+void cat_uiSpecialRepair(SelectCommand *targets)            // 0x00564630
+{
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_uiSpecialTargetCommand(targets, 1);
+    }
+}
+
+void cat_uiSpecialLeech(SelectCommand *targets)             // 0x00564660
+{
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_uiSpecialTargetCommand(targets, 2);
+    }
+}
+
+void cat_uiSpecialEMP(SelectCommand *targets)               // 0x00564690
+{
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_uiSpecialTargetCommand(targets, 4);
+    }
+}
+
+void cat_uiSpecialSwarm(SelectCommand *targets)             // 0x005646c0
+{
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_uiSpecialTargetCommand(targets, 3);
+    }
+}
+
+void cat_uiSpecialInfect(SelectCommand *targets)            // 0x005646f0
+{
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_uiSpecialTargetCommand(targets, 5);
+    }
+}
+
+void cat_uiSpecialRam(SelectCommand *targets)               // 0x00564720
+{
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_uiSpecialTargetCommand(targets, 6);
+    }
+}
+
+void cat_uiSpecialFireMissile(SelectCommand *targets)       // 0x00564750
+{
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_uiSpecialTargetCommand(targets, 7);
+    }
+}
+
+// a special activation of each selected ship that passes 'test', one ship per order (0x00564780 .. 0x00564920)
+static void catUiActivateEach(bool32 (*test)(Ship *ship))
+{
+    SelectCommand single;
+    sdword index;
+
+    if (!CAT_MR_ORDERS_ALLOWED())
+    {
+        return;
+    }
+    for (index = 0; index < selSelected.numShips; index++)
+    {
+        if (test(selSelected.ShipPtr[index]))
+        {
+            single.numShips = 1;
+            single.ShipPtr[0] = selSelected.ShipPtr[index];
+            clWrapSpecial(&universe.mainCommandLayer, &single, NULL);
+        }
+    }
+}
+
+static bool32 catUiHiveReady(Ship *ship)
+{
+    return cat_shipHasUpgrade(ship, 0x800) && cat_hiveFrigateSwarmReady(ship);
+}
+
+static bool32 catUiCanCloak(Ship *ship)
+{
+    return cat_shipHasUpgrade(ship, 0x20000) && !cat_shipIsCloakedFully(ship);
+}
+
+static bool32 catUiCanDecloak(Ship *ship)
+{
+    return cat_shipHasUpgrade(ship, 0x20000) && cat_shipIsCloakedFully(ship);
+}
+
+void cat_uiReleaseHiveSwarm(void)                           // 0x00564780: the ready hives release their swarms
+{
+    catUiActivateEach(catUiHiveReady);
+}
+
+void cat_uiSiegeCannonCancel(void)                          // 0x00564810: the motherships stop the big gun
+{
+    catUiActivateEach(cat_mothershipBigGunActive);
+}
+
+void cat_uiCloakShips(void)                                 // 0x00564890
+{
+    catUiActivateEach(catUiCanCloak);
+}
+
+void cat_uiDecloakShips(void)                               // 0x00564920
+{
+    catUiActivateEach(catUiCanDecloak);
+}
+
+void cat_uiSetWaypointMode(sdword mode)                     // 0x00565100
+{
+    switch (mode)
+    {
+        case 0:
+            catMrWaypointMode = 0;
+            clCommandMessage(strGetString(strWaypointModeNormal), 0xffffffff);
+            break;
+        case 1:
+            catMrWaypointMode = 1;
+            clCommandMessage(strGetString(strWaypointModePatrolCircular), 0xffffffff);
+            break;
+        case 2:
+            catMrWaypointMode = 2;
+            clCommandMessage(strGetString(strWaypointModePatrolEndToEnd), 0xffffffff);
+            break;
+        default:
+            break;
+    }
+}
+
+void cat_uiHaltSelection(void)                              // 0x00565190: halt, and cancel the upgrades
+{
+    if (!CAT_MR_ORDERS_ALLOWED())
+    {
+        return;
+    }
+    if (!catMrTutEnabled(0x8000))
     {
         mrMenuDontDisappear = TRUE;
         return;
     }
+    cat_selMakeShipsHaltable((SelectCommand *)&selSelected, TRUE);
+    if (selSelected.numShips > 0)
+    {
+        clWrapHalt(&universe.mainCommandLayer, (SelectCommand *)&selSelected);
+        cat_clWrapUpgradeShips(&universe.mainCommandLayer, (SelectCommand *)&selSelected, TRUE);
+    }
+}
 
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+void cat_uiLink(void)                                       // 0x00565570
+{
+    MaxSelection selection;
+
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+        cat_selMakeShipsHaveUpgrade((SelectCommand *)&selection, CAT_UPGRADE_Link);
+        cat_selMakeShipsNotBusy((SelectCommand *)&selection);
+        if (selection.numShips > 0)
+        {
+            cat_clWrapLink(&universe.mainCommandLayer, (SelectCommand *)&selection);
+        }
+    }
+}
+
+void cat_uiUnlink(void)                                     // 0x005655e0
+{
+    MaxSelection selection;
+
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+        cat_selMakeShipsHaveUpgrade((SelectCommand *)&selection, CAT_UPGRADE_MimicSmall);
+        cat_selMakeShipsNotBusy((SelectCommand *)&selection);
+        if (selection.numShips > 0)
+        {
+            cat_clWrapUnlink(&universe.mainCommandLayer, (SelectCommand *)&selection);
+        }
+    }
+}
+
+void cat_uiUnmimic(void)                                    // 0x00565770: the mimicking ships drop their disguises
+{
+    MaxSelection notMimicking, selection;
+    sdword index;
+    Ship *ship;
+
+    if (!CAT_MR_ORDERS_ALLOWED())
     {
         return;
     }
-
-    makeShipsDockCapable((SelectCommand *)&selSelected); //filter ships that can't dock
-
-    if (selSelected.numShips > 0)
+    notMimicking.numShips = 0;
+    for (index = 0; index < selSelected.numShips; index++)
     {
-        soundEvent(NULL, UI_Click);
-        clWrapDock(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_DOCK_SUPPORT,NULL);  // CAT-TODO(stage 3 UI): HW1 menu body kept with purpose 0; the exe's mrDockingOrders 0x00567750 is the slipgate order (purpose 10, the gate as host) [audit: M2-R5 layout-dock]
+        ship = selSelected.ShipPtr[index];
+        if (!cat_shipHasUpgrade(ship, CAT_UPGRADE_Mimic) || !cat_shipIsMimicking(ship))
+        {
+            cat_selSelectionAddShip(&notMimicking, ship);
+        }
+    }
+    cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+    MakeShipsNotIncludeTheseShips((SelectCommand *)&selection, (SelectCommand *)&notMimicking);
+    cat_selMakeShipsNotBusy((SelectCommand *)&selection);
+    if (selection.numShips > 0)
+    {
+        cat_clWrapMimic(&universe.mainCommandLayer, (SelectCommand *)&selection, 0, 0xffffffff, 0xffffffff, 0xffffffff);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mrSetTactics                                  0x00565c30
+    Description : The (not busy) selection's tactics, with the speech and the message (evasive only for small ships).
+----------------------------------------------------------------------------*/
+void cat_mrSetTactics(sdword tactic, bool32 showMessage)
+{
+    MaxSelection selection;
+
+    if (!CAT_MR_ORDERS_ALLOWED())
+    {
+        return;
+    }
+    cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+    cat_selMakeShipsNotBusy((SelectCommand *)&selection);
+    if (tactic == Evasive)
+    {
+        cat_selMakeShipsNotBigShips((SelectCommand *)&selection);
+    }
+    if (selection.numShips <= 0)
+    {
+        return;
+    }
+    if (tactic == Evasive)
+    {
+        speechEventQueue(selSelected.ShipPtr[0], 0x400080d, selSelected.ShipPtr[0]->shiptype, -1, -1, -1, -1, 0.0f, -1);
+        tutGameMessage("KB_TacticsEvasive");
+    }
+    else if (tactic == Neutral)
+    {
+        speechEventQueue(selSelected.ShipPtr[0], 0x400080e, selSelected.ShipPtr[0]->shiptype, -1, -1, -1, -1, 0.0f, -1);
+        tutGameMessage("KB_TacticsNeutral");
+    }
+    else if (tactic == Aggressive)
+    {
+        speechEventQueue(selSelected.ShipPtr[0], 0x400080f, selSelected.ShipPtr[0]->shiptype, -1, -1, -1, -1, 0.0f, -1);
+        tutGameMessage("KB_TacticsAggressive");
+    }
+    clWrapSetTactics(&universe.mainCommandLayer, (SelectCommand *)&selection, tactic);
+    if (showMessage && (tactic >= Evasive) && (tactic <= Aggressive))
+    {                                                       // CAT-FIX: the exe reads an unset string index otherwise
+        clCommandMessage(strGetString(str_GM_TacticsSetToEvasive + tactic), 0xffffffff);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mrFormationCycle / cat_mrTacticsCycle          0x00566750 / 0x00566860
+    Description : The next / previous formation (delta .. sphere) or tactic; the message now, the order 1 s later
+                  (mrRegionDraw sets it once the keys stop).
+----------------------------------------------------------------------------*/
+void cat_mrFormationCycle(bool32 backwards)
+{
+    char *message = NULL;
+
+    if (selSelected.numShips < 2)
+    {
+        return;
+    }
+    if (catMrFormationCycleTime < universe.realtimeelapsed)
+    {
+        catMrFormationCycleType = clSelectionAlreadyInFormation(&universe.mainCommandLayer, (SelectCommand *)&selSelected);
+    }
+    if ((catMrFormationCycleType == NO_FORMATION) || (catMrFormationCycleType == SAME_FORMATION))
+    {
+        catMrFormationCycleType = DELTA_FORMATION;
+    }
+    else if (!backwards)
+    {
+        catMrFormationCycleType++;
+        if (catMrFormationCycleType > SPHERE_FORMATION)
+        {
+            catMrFormationCycleType = DELTA_FORMATION;
+        }
+    }
+    else if (catMrFormationCycleType == DELTA_FORMATION)
+    {
+        catMrFormationCycleType = SPHERE_FORMATION;
     }
     else
     {
-        soundEvent(NULL, UI_ClickCancel);
+        catMrFormationCycleType--;
     }
-#if MR_VERBOSE_LEVEL >= 1
-    dbgMessage("Docking orders");
-#endif
+    catMrFormationCycleTime = universe.realtimeelapsed + CAT_MR_CYCLE_DELAY;
+    catMrFormationCyclePending = TRUE;
+    if ((catMrFormationCycleType >= DELTA_FORMATION) && (catMrFormationCycleType <= CUSTOM_FORMATION))
+    {
+        message = strGetString(str_GM_DeltaFormation + catMrFormationCycleType);
+        clCommandMessage(message, 0xffffffff);
+    }
+    soundEventPlay(NULL, 0x108, NULL);
+}
+
+void cat_mrTacticsCycle(bool32 backwards)
+{
+    if (selSelected.numShips <= 0)
+    {
+        return;
+    }
+    if (catMrTacticsCycleTime < universe.realtimeelapsed)
+    {
+        catMrTacticsCycleType = selSelected.ShipPtr[0]->tacticstype;
+    }
+    if (!backwards)
+    {
+        catMrTacticsCycleType++;
+        if (catMrTacticsCycleType > 2)
+        {
+            catMrTacticsCycleType = 0;
+        }
+    }
+    else
+    {
+        catMrTacticsCycleType--;
+        if (catMrTacticsCycleType < 0)
+        {
+            catMrTacticsCycleType = 2;
+        }
+    }
+    catMrTacticsCycleTime = universe.realtimeelapsed + CAT_MR_CYCLE_DELAY;
+    catMrTacticsCyclePending = TRUE;
+    clCommandMessage(strGetString(str_GM_TacticsSetToEvasive + catMrTacticsCycleType), 0xffffffff);
+    soundEventPlay(NULL, 0x108, NULL);
+}
+
+// mrRegionDraw 0x00569260: a cycled formation / tactic is ordered once its delay has passed
+static void catMrCyclesApply(void)
+{
+    if (catMrFormationCyclePending && catMrTutEnabled(0x80) && (catMrFormationCycleTime < universe.realtimeelapsed))
+    {
+        mrSetTheFormation(catMrFormationCycleType, TRUE, FALSE);
+        catMrFormationCyclePending = FALSE;
+        catMrFormationCycleType = DELTA_FORMATION;
+    }
+    if (catMrTacticsCyclePending && catMrTutEnabled(0x80) && (catMrTacticsCycleTime < universe.realtimeelapsed))
+    {
+        cat_mrSetTactics(catMrTacticsCycleType, TRUE);
+        catMrTacticsCyclePending = FALSE;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_uiProtectFormation                            0x00565f30
+    Description : The force-field ships of the selection: without protectees a force-field wall (3 or more ships);
+                  else a force-field sphere of up to 12 round each protectee (not a Sentinel), joining the sphere
+                  already round it and breaking a plain sphere it is in.
+----------------------------------------------------------------------------*/
+void cat_uiProtectFormation(SelectCommand *protectees)
+{
+    MaxSelection selection, group;
+    SelectCommand protect;
+    SelectCommand *existing;
+    CommandToDo *command;
+    Node *node;
+    sdword index, i;
+    Ship *ship;
+
+    if (!CAT_MR_ORDERS_ALLOWED() || !catMrTutEnabled(0x80))
+    {
+        return;
+    }
+    cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+    cat_selMakeShipsHaveAbilityUpgrade((SelectCommand *)&selection);
+    if (selection.numShips <= 0)
+    {
+        return;
+    }
+    if (protectees == NULL)
+    {
+        soundEventPlay(NULL, 0x108, NULL);
+        if (selection.numShips > 2)
+        {
+            speechEventQueue(selection.ShipPtr[1], 0x400088f, selection.ShipPtr[1]->shiptype, -1, -1, -1, -1, 0.0f, -1);
+            clWrapFormation(&universe.mainCommandLayer, (SelectCommand *)&selection, FORCEFIELD_WALL_FORMATION, 0);
+            clCommandMessage(strGetString(str_GM_ChangeToForceFieldWall), 0xffffffff);
+        }
+        else
+        {
+            speechEventQueue(selection.ShipPtr[0], 0x4000810, selection.ShipPtr[0]->shiptype, -1, -1, -1, -1, 0.0f, -1);
+        }
+        return;
+    }
+    for (index = 0; (index < protectees->numShips) && (selection.numShips > 0); index++)
+    {
+        ship = protectees->ShipPtr[index];
+        if ((ship->shiptype == sSentinel) || (ship->shiptype == bSentinel))
+        {
+            continue;
+        }
+        protect.numShips = 1;
+        protect.ShipPtr[0] = ship;
+        existing = NULL;
+        for (node = universe.mainCommandLayer.todolist.head; node != NULL; node = node->next)
+        {                                                   // the formations protecting it
+            command = (CommandToDo *)listGetStructOfNode(node);
+            if (bitTest(command->ordertype.attributes, COMMAND_MASK_PROTECTING) &&
+                ShipInSelection(command->protect, ship) && bitTest(command->ordertype.attributes, COMMAND_MASK_FORMATION))
+            {
+                if (command->formation.formationtype == SPHERE_FORMATION)
+                {
+                    if (command->selection->numShips > 0)
+                    {
+                        clWrapFormation(&universe.mainCommandLayer, command->selection, DELTA_FORMATION, 0);
+                    }
+                }
+                else if (command->formation.formationtype == FORCEFIELD_SPHERE_FORMATION)
+                {
+                    existing = command->selection;
+                }
+            }
+        }
+        if (existing != NULL)
+        {
+            cat_selSelectionCopy(&group, (MaxSelection *)existing);
+        }
+        else
+        {
+            group.numShips = 0;
+        }
+        for (i = 0; (i < selection.numShips) && (group.numShips < 12); i++)
+        {
+            if (!ShipInSelection((SelectCommand *)&group, selection.ShipPtr[i]))
+            {
+                cat_selSelectionAddShip(&group, selection.ShipPtr[i]);
+            }
+        }
+        MakeShipsNotIncludeTheseShips((SelectCommand *)&selection, (SelectCommand *)&group);
+        soundEventPlay(NULL, 0x108, NULL);
+        if (group.numShips > 2)
+        {
+            speechEventQueue(group.ShipPtr[1], 0x400088f, group.ShipPtr[1]->shiptype, -1, -1, -1, -1, 0.0f, -1);
+            clWrapProtect(&universe.mainCommandLayer, (SelectCommand *)&group, &protect);
+            clWrapFormation(&universe.mainCommandLayer, (SelectCommand *)&group, FORCEFIELD_SPHERE_FORMATION, 0);
+            clCommandMessage(strGetString(str_GM_ChangeToForceFieldSphereFront), 0xffffffff);
+        }
+        else
+        {
+            speechEventQueue(group.ShipPtr[0], 0x4000810, group.ShipPtr[0]->shiptype, -1, -1, -1, -1, 0.0f, -1);
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_uiProtectFormationCancel                      0x00566250
+    Description : The force-field formations the selected ships lead fall back: a sphere to a sphere, a wall to a
+                  wall.
+----------------------------------------------------------------------------*/
+void cat_uiProtectFormationCancel(void)
+{
+    MaxAnySelection selection;
+    CommandToDo *command;
+    sdword index;
+    Ship *ship;
+
+    if (!CAT_MR_ORDERS_ALLOWED())
+    {
+        return;
+    }
+    selSelectionCopy(&selection, (MaxAnySelection *)&selSelected);
+    cat_selMakeShipsHaveAbilityUpgrade((SelectCommand *)&selection);
+    for (index = 0; index < selection.numTargets; index++)
+    {
+        ship = (Ship *)selection.TargetPtr[index];
+        command = ship->command;
+        if ((command == NULL) || !bitTest(command->ordertype.attributes, COMMAND_MASK_FORMATION) ||
+            (command->selection->ShipPtr[0] != ship))
+        {
+            continue;
+        }
+        if (command->formation.formationtype == FORCEFIELD_SPHERE_FORMATION)
+        {
+            soundEventPlay(NULL, 0x108, NULL);
+            clWrapFormation(&universe.mainCommandLayer, ship->command->selection, SPHERE_FORMATION, 0);
+        }
+        else if (command->formation.formationtype == FORCEFIELD_WALL_FORMATION)
+        {
+            soundEventPlay(NULL, 0x108, NULL);
+            clWrapFormation(&universe.mainCommandLayer, ship->command->selection, WALL_FORMATION, 0);
+        }
+    }
+}
+
+void cat_uiFireSiegeCannon(void)                            // 0x00566340: the mothership's big gun aims
+{
+    Ship *mothership;
+
+    if (!CAT_MR_ORDERS_ALLOWED() || (universe.curPlayerPtr->PlayerMothership == NULL))
+    {
+        return;
+    }
+    if (singlePlayerGame && !catSpBigGunAllowed)
+    {
+        clCommandMessage(strGetString(strCantFireBigGun), 0xffffffff);
+        return;
+    }
+    mothership = universe.curPlayerPtr->PlayerMothership;
+    if (cat_mothershipHasBigGunModule(mothership))
+    {                                                       // the mothership becomes the selection
+        selSelected.numShips = 1;
+        selSelected.ShipPtr[0] = mothership;
+        ioUpdateShipTotals();
+        cat_bigGunFireCommand(mothership);
+    }
+}
+
+void cat_uiFireDreadnoughtCannon(void)                      // 0x005663f0: the dreadnoughts' repulse
+{
+    MaxSelection selection;
+
+    cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_selMakeShipsHaveUpgrade((SelectCommand *)&selection, CAT_UPGRADE_DreadnoughtCannon);
+        cat_selMakeShipsNotBusy((SelectCommand *)&selection);
+        if (selection.numShips > 0)
+        {
+            clWrapSpecial(&universe.mainCommandLayer, (SelectCommand *)&selection, NULL);
+        }
+    }
+}
+
+void cat_uiSetLeechAction(ubyte action)                     // 0x00566470: spy (6), leech (7), vent (8)
+{
+    MaxSelection selection;
+
+    cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_selMakeShipsLeechCapable((SelectCommand *)&selection, TRUE);
+        cat_selMakeShipsNotBusy((SelectCommand *)&selection);
+        if (selection.numShips > 0)
+        {
+            cat_clWrapSetLeechAction(&universe.mainCommandLayer, (SelectCommand *)&selection, action);
+        }
+    }
+}
+
+void cat_uiUnleech(void)                                    // 0x00566510
+{
+    MaxSelection selection;
+
+    cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_selMakeShipsLeeching((SelectCommand *)&selection);
+        cat_selMakeShipsNotBusy((SelectCommand *)&selection);
+        if (selection.numShips > 0)
+        {
+            cat_clWrapUnleech(&universe.mainCommandLayer, (SelectCommand *)&selection);
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mrMimicTarget                                 0x00567860
+    Description : The mimics pose as the clicked ship, or (for anything else) as an asteroid: a random one, the MCVs
+                  a large one.
+----------------------------------------------------------------------------*/
+void cat_mrMimicTarget(SpaceObj *target)
+{
+    MaxSelection selection;
+    SelectCommand single;
+    sdword index;
+    Ship *ship;
+
+    cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+    if (selection.numShips <= 0)
+    {
+        return;
+    }
+    if (target->header.objtype == OBJ_ShipType)
+    {
+        cat_clWrapMimic(&universe.mainCommandLayer, (SelectCommand *)&selection, 1, ((Ship *)target)->shiptype,
+                        ((Ship *)target)->playerowner->playerIndex, 0);
+        return;
+    }
+    for (index = 0; index < selection.numShips; index++)
+    {
+        ship = selection.ShipPtr[index];
+        single.numShips = 1;
+        single.ShipPtr[0] = ship;
+        cat_clWrapMimic(&universe.mainCommandLayer, &single, 2, 0, CAT_MIMIC_PLAYER_OBJECTS, (ship->shiptype == sMCV) ? 3 : 1);
+    }
+}
+
+bool32 cat_mrTacticalOverlayGet(void)                       // 0x0056a080
+{
+    return mrDrawTactical;
+}
+
+/*-----------------------------------------------------------------------------
+    The orders of the key-command table that live in the main region (functions the export does not list; the key
+    command each serves in brackets).
+-----------------------------------------------------------------------------*/
+// [Move] 0x0056a090: the movement pie plate with the move callback (the sensors manager for a far point)
+void cat_mrMoveShips(void)
+{
+    vector dist;
+
+    tutGameMessage("KB_Move");
+    if (playPackets || mrDisabled)
+    {
+        return;
+    }
+    if (!catMrTutEnabled(0x200))
+    {
+        mrMenuDontDisappear = TRUE;
+        return;
+    }
+    cat_selMakeShipsMobileNotBusy((SelectCommand *)&selSelected);
+    makeShipsControllable((SelectCommand *)&selSelected, COMMAND_MOVE);
+    if ((catMrRightMode != 0) || catMrSelecting || (selSelected.numShips < 1))
+    {
+        return;
+    }
+    selCentrePointCompute();
+    vecSub(dist, selCentrePoint, universe.mainCameraCommand.actualcamera.eyeposition);
+    if (piePointSpecMode == PSM_Idle)
+    {
+        if (vecMagnitudeSquared(dist) > (real32)MAX_MOVE_DISTANCE)
+        {                                                   // too far: move in the sensors manager
+            if (!smSensorsActive)
+            {
+                smSensorsBegin(NULL, NULL);
+                piePointModeOnOff(PIE_SPEC_Move, cat_mrMoveCallback);
+                return;
+            }
+        }
+        piePointModeOnOff(PIE_SPEC_Move, cat_mrMoveCallback);
+        return;
+    }
+    soundEventPlay(NULL, 0x117, NULL);
+    piePointModeOnOff(PIE_SPEC_Move, cat_mrMoveCallback);
+}
+
+// 0x00564a90: the pie plate's point: an MP hyperspace jump, or a move there (the ships with
+//      evasive tactics and a move order switch to neutral)
+void cat_mrMoveCallback(vector *point)
+{
+    MaxSelection selection;
+    vector destination = *point;
+    sdword index;
+    Ship *ship;
+
+    MakeShipsMobile((SelectCommand *)&selSelected, TRUE);
+    if ((selSelected.numShips > 0) && !isnan((double)destination.x) && !isnan((double)destination.y) &&
+        !isnan((double)destination.z))
+    {
+        cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+        index = 0;
+        while (index < selection.numShips)
+        {                                                   // CAT: keeps the aggressive ships moving already
+            ship = selection.ShipPtr[index];
+            if ((ship->tacticstype == Aggressive) && (ship->command != NULL) &&
+                (ship->command->ordertype.order == COMMAND_ATTACK))
+            {
+                index++;
+            }
+            else
+            {
+                selection.numShips--;
+                selection.ShipPtr[index] = selection.ShipPtr[selection.numShips];
+            }
+        }
+        if (selection.numShips > 0)
+        {
+            clWrapSetTactics(&universe.mainCommandLayer, (SelectCommand *)&selection, Neutral);
+        }
+        if (MP_HyperSpaceFlag)
+        {
+            vector dist;
+            vecSub(dist, selCentrePoint, destination);
+            if (universe.curPlayerPtr->resourceUnits < (sdword)hyperspaceCost(fsqrt(vecMagnitudeSquared(dist)),
+                                                                              (SelectCommand *)&selSelected))
+            {
+                if (battleCanChatterAtThisTime(BCE_CannotComply, selSelected.ShipPtr[0]))
+                {
+                    battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CannotComply, selSelected.ShipPtr[0], SOUND_EVENT_DEFAULT);
+                }
+            }
+            else
+            {
+                clWrapMpHyperspace(&universe.mainCommandLayer, (SelectCommand *)&selSelected, selCentrePoint, destination);
+            }
+        }
+        else
+        {
+            clWrapMove(&universe.mainCommandLayer, (SelectCommand *)&selSelected, CAT_MOVEPATH_ONCE, selCentrePoint, 1,
+                       &destination);
+            if (selSelected.ShipPtr[0]->staticinfo->shipclass == CLASS_Mothership)
+            {
+                speechEventQueue(NULL, 0x4000801, selSelected.ShipPtr[0]->shiptype, -1, 0,
+                                 selSelected.ShipPtr[0]->playerowner->playerIndex, -1, 5.0f, -1);
+            }
+            else
+            {
+                speechEventQueue(selSelected.ShipPtr[0], 0x4000801, selSelected.ShipPtr[0]->shiptype, -1, -1, -1, -1,
+                                 0.0f, -1);
+            }
+        }
+    }
+    soundEventPlay(NULL, 0x117, NULL);
+    piePointModeOnOff(PIE_SPEC_None, NULL);
+}
+
+// 0x00564d70: a waypoint added (at most 20; the last one is replaced beyond that)
+void cat_mrWaypointAdd(vector *point)
+{
+    if (catMrWaypointCount >= CAT_MR_MAX_WAYPOINTS - 1)
+    {
+        catMrWaypoints[CAT_MR_MAX_WAYPOINTS - 1] = *point;
+    }
+    else
+    {
+        catMrWaypoints[catMrWaypointCount] = *point;
+        catMrWaypointCount++;
+        soundEventPlay(NULL, 0x118, NULL);
+    }
+    if (catMrWaypointCentre && smSensorsActive)
+    {
+        // CAT-TODO(M2-R6 sensors): the sensors manager looks at the last waypoint (0x00a5b1f0..0x00a5b1f8); the
+        //      option is off by default (0x00a75270) and set by the options screen (M2-R6 front end)
+    }
+}
+
+// [Waypoints] 0x00564e20: waypoint mode on
+void cat_mrWaypointsStart(void)
+{
+    vector dist;
+
+    if (!catMrTutEnabled(0x800))
+    {
+        return;
+    }
+    if (piePointSpecMode != PSM_Idle)
+    {
+        piePointModeOnOff(PIE_SPEC_None, NULL);
+    }
+    MakeShipsMobile((SelectCommand *)&selSelected, TRUE);
+    if ((catMrRightMode != 0) || catMrSelecting || (selSelected.numShips < 1))
+    {
+        return;
+    }
+    selCentrePointCompute();
+    vecSub(dist, selCentrePoint, universe.mainCameraCommand.actualcamera.eyeposition);
+    if (piePointSpecMode != PSM_Idle)
+    {
+        return;
+    }
+    if (catMrRightClickCSA && (vecMagnitudeSquared(dist) > (real32)MAX_MOVE_DISTANCE))
+    {
+        smSensorsBegin(NULL, NULL);
+    }
+    piePointModeOnOff(PIE_SPEC_Waypoint, cat_mrWaypointAdd);
+    catMrWaypointCount = 0;
+    catPieWaypointMode = TRUE;
+}
+
+// [Waypoints] 0x00564f40: the path ordered (normal, a loop or end to end)
+void cat_mrWaypointsEnd(void)
+{
+    sdword pathType;
+
+    if (!catMrTutEnabled(0x1000))
+    {
+        return;
+    }
+    if ((selSelected.numShips > 0) && (catMrWaypointCount > 0))
+    {
+        MakeShipsMobile((SelectCommand *)&selSelected, TRUE);
+        switch (catMrWaypointMode)
+        {
+            case 0:  pathType = CAT_MOVEPATH_ONCE; break;
+            case 1:  pathType = CAT_MOVEPATH_LOOP; break;
+            case 2:  pathType = CAT_MOVEPATH_PATROL_OUT; break;
+            default: pathType = CAT_MOVEPATH_ONCE; break;   // CAT-FIX: the exe passes an uninitialised word
+        }
+        clWrapMove(&universe.mainCommandLayer, (SelectCommand *)&selSelected, pathType, selCentrePoint,
+                   catMrWaypointCount, catMrWaypoints);
+        speechEventQueue(selSelected.ShipPtr[0], 0x4000801, selSelected.ShipPtr[0]->shiptype, -1, -1, -1, -1, 0.0f, -1);
+        soundEventPlay(NULL, 0x118, NULL);
+        if (tutorial == TUTORIAL_ONLY)
+        {
+            switch (catMrWaypointMode)
+            {
+                case 0: tutGameMessage("WaypointNormal"); break;
+                case 1: tutGameMessage("WaypointCircular"); break;
+                case 2: tutGameMessage("WaypointEndToEnd"); break;
+                default: break;
+            }
+        }
+    }
+    if (piePointSpecMode != PSM_Idle)
+    {
+        piePointModeOnOff(PIE_SPEC_None, NULL);
+    }
+}
+
+// [Waypoints] 0x00565070: start or end the waypoints
+void cat_mrWaypointsToggle(void)
+{
+    if (catPieWaypointMode)
+    {
+        cat_mrWaypointsEnd();
+    }
+    else
+    {
+        cat_mrWaypointsStart();
+    }
+}
+
+// [Toggle_Waypoint_Modes] 0x00565090: normal -> loop -> end to end -> normal
+void cat_mrWaypointModeCycle(void)
+{
+    switch (catMrWaypointMode)
+    {
+        case 0:
+            catMrWaypointMode = 1;
+            clCommandMessage(strGetString(strWaypointModePatrolCircular), 0xffffffff);
+            break;
+        case 1:
+            catMrWaypointMode = 2;
+            clCommandMessage(strGetString(strWaypointModePatrolEndToEnd), 0xffffffff);
+            break;
+        case 2:
+            catMrWaypointMode = 0;
+            clCommandMessage(strGetString(strWaypointModeNormal), 0xffffffff);
+            break;
+        default:
+            break;
+    }
+}
+
+// [Cancel_Last_Waypoint] 0x00565170
+void cat_mrWaypointRemoveLast(void)
+{
+    catMrWaypointCount--;
+    if (catMrWaypointCount < 0)
+    {
+        catMrWaypointCount = 0;
+    }
+}
+
+// [Dock] 0x00563c30: dock for support at the nearest host (purpose 0)
+void cat_mrDockShips(void)
+{
+    if (!CAT_MR_ORDERS_ALLOWED())
+    {
+        return;
+    }
+    if (!catMrTutEnabled(0x40))
+    {
+        mrMenuDontDisappear = TRUE;
+        return;
+    }
+    MakeShipsGuardCapable((SelectCommand *)&selSelected, TRUE);
+    if (selSelected.numShips > 0)
+    {
+        soundEventPlay(NULL, 0x108, NULL);
+        clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&selSelected, CAT_DOCK_SUPPORT, NULL);
+    }
+    else
+    {
+        soundEventPlay(NULL, 0x10a, NULL);
+    }
+}
+
+// [Upgrade_Ships] 0x00565650: the upgradable ships upgrade (those that upgrade by docking dock for it, purpose 0)
+void cat_mrUpgradeShips(void)
+{
+    MaxSelection inPlace, byDocking, notUpgradable;
+    sdword index;
+    Ship *ship;
+
+    if (!CAT_MR_ORDERS_ALLOWED())
+    {
+        return;
+    }
+    inPlace.numShips = 0;
+    byDocking.numShips = 0;
+    notUpgradable.numShips = 0;
+    for (index = 0; index < selSelected.numShips; index++)
+    {
+        ship = selSelected.ShipPtr[index];
+        if (ship->shipOrDerelict.catDisabled)
+        {
+            continue;
+        }
+        if (!cat_shipIsUpgradable(ship))
+        {
+            cat_selSelectionAddShip(&notUpgradable, ship);
+        }
+        else if (ship->staticinfo->UpgradeByDocking)
+        {
+            cat_selSelectionAddShip(&byDocking, ship);
+        }
+        else
+        {
+            cat_selSelectionAddShip(&inPlace, ship);
+        }
+    }
+    (void)notUpgradable;
+    if (inPlace.numShips > 0)
+    {
+        cat_clWrapUpgradeShips(&universe.mainCommandLayer, (SelectCommand *)&inPlace, FALSE);
+    }
+    if (byDocking.numShips > 0)
+    {
+        cat_ioMessageAdd(strGetString(strUpgradingByDockingNotification), 0xffffffff, 1, byDocking.ShipPtr[0]);
+        clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&byDocking, CAT_DOCK_SUPPORT, NULL);
+    }
+}
+
+// [Focus_On_Mothership] 0x00565e80: the next mothership (a carrier counts) is focused
+void cat_mrFocusOnMothership(void)
+{
+    FocusCommand focus;
+
+    if ((tutorial == TUTORIAL_ONLY) && !((*((udword *)&tutEnable + 1) & 0x10000) != 0))
+    {                                                       // CAT-TODO(stage 6 tutorial): the second flag word
+        return;
+    }
+    if ((mrMothershipPtr == NULL) ||
+        ((universe.mainCameraCommand.currentCameraStack != NULL) &&
+         (universe.mainCameraCommand.currentCameraStack->focus.numShips == 1) &&
+         (universe.mainCameraCommand.currentCameraStack->focus.ShipPtr[0] == mrMothershipPtr)))
+    {
+        mrMothershipPtr = mrNextMothershipPtr(mrMothershipPtr);
+    }
+    if ((mrMothershipPtr == NULL) || bitTest(mrMothershipPtr->header.flags, SOF_Dead))
+    {
+        return;
+    }
+    focus.numShips = 1;
+    focus.ShipPtr[0] = mrMothershipPtr;
+    if (smSensorsActive)
+    {
+        selSelectionCopy((MaxAnySelection *)&selSelecting, (MaxAnySelection *)&focus);
+        smCullAndFocusSelecting();
+    }
+    else
+    {
+        ccFocus(&universe.mainCameraCommand, &focus);
+    }
+    soundEventPlay(NULL, 0x108, NULL);
+}
+
+// [Enter_Slipgate] 0x005665a0: the selection docks with the nearest visited slipgate (purpose 10)
+void cat_mrEnterSlipgate(void)
+{
+    vector centre = { 0.0f, 0.0f, 0.0f };
+    real32 distance, nearestDistance = 1e21f;
+    Ship *gate = NULL, *ship;
+    Node *node;
+    sdword index;
+
+    if (!CAT_MR_ORDERS_ALLOWED())
+    {
+        return;
+    }
+    for (index = 0; index < selSelected.numShips; index++)
+    {
+        vecAddTo(centre, selSelected.ShipPtr[index]->obj.posinfo.position);
+    }
+    vecDivideByScalar(centre, (real32)selSelected.numShips, distance);
+    if (!singlePlayerGame || (singlePlayerGameInfo.currentMission != 15))
+    {
+        // CAT-TODO(M2-R6 FOW): the exe selects the player's grid (fowSelect) and takes the slipgates whose cell was
+        //      visited (fowGetVisitedW == 1); until the FOW port that is cat_selPositionHiddenByFOW's answer
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            ship = (Ship *)listGetStructOfNode(node);
+            if (bitTest(ship->staticinfo->catTypeFlags, 0x4000) &&
+                !cat_selPositionHiddenByFOW(&ship->obj.posinfo.position, TRUE))
+            {
+                distance = cat_vecDistance(&centre, &ship->obj.posinfo.position);
+                if (distance < nearestDistance)
+                {
+                    nearestDistance = distance;
+                    gate = ship;
+                }
+            }
+        }
+    }
+    if (gate == NULL)
+    {
+        clCommandMessage(strGetString(strNoSlipgateFoundNotify), 0xff0000ff);
+        return;
+    }
+    cat_selMakeShipsDockCapableFor((SelectCommand *)&selSelected, gate->shiptype, TRUE);
+    if (selSelected.numShips > 0)
+    {
+        clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&selSelected, CAT_DOCK_SLIPGATE, gate);
+    }
+}
+
+// [Hyperspace] 0x00566920: the single-player hyperspace button, or the multiplayer jump through the pie plate
+void cat_mrHyperspace(void)
+{
+    if (singlePlayerGame)
+    {
+        if (singlePlayerGameInfo.playerCanHyperspace)
+        {
+            spHyperspaceButtonPushed();
+        }
+        return;
+    }
+    // CAT-TODO(stage 5 multiplayer options): the multiplayer jump needs bit 0x4000 of the game options word
+    //      0x008860ec (the Cataclysm tpGameCreated layout); it counts as clear, as with the option off
+    if (TRUE)
+    {
+        return;
+    }
+    cat_selMakeShipsMobileNotBusy((SelectCommand *)&selSelected);
+    makeShipsControllable((SelectCommand *)&selSelected, COMMAND_MP_HYPERSPACING);
+    makeSelectionHyperspaceCapable((SelectCommand *)&selSelected);
+    if (selSelected.numShips == 0)
+    {
+        if (piePointSpecMode != PSM_Idle)
+        {
+            soundEventPlay(NULL, 0x117, NULL);
+            piePointModeOnOff(PIE_SPEC_None, NULL);
+        }
+        clCommandMessage(strGetString(strNoHyperspacingShipsAvailable), 0xff0000ff);
+        return;
+    }
+    if (!smSensorsActive)
+    {
+        smSensorsBegin(NULL, NULL);
+    }
+    if (!smSensorsDisable && !smZoomingIn)
+    {
+        MP_HyperSpaceFlag = TRUE;
+        if (piePointSpecMode == PSM_Idle)
+        {
+            soundEventPlay(NULL, 0x116, NULL);
+            piePointModeOnOff(PIE_SPEC_Move, cat_mrMoveCallback);
+        }
+    }
+}
+
+// [Escape] 0x0054f5f0 (the key-command table's callback; mrKeyPress's Escape until the key-binding port): the first
+//      thing that is up goes away (the fleet-intelligence text, the chat buffer, the NIS, the point mode, the band
+//      box, the popup menu, the selection, the sensors manager), else the in-game menu opens
+void cat_mrEscape(void)
+{
+    if (singlePlayerGame && popupTextNumLines)
+    {
+        popupTextNumLines = 0;
+        return;
+    }
+    if (multiPlayerGame && ViewingBuffer)
+    {
+        gcCancelViewingBuffer();
+        return;
+    }
+    if (thisNisPlaying != NULL)
+    {
+        if ((nisCameraCutTime == 0.0f) && (nisScissorFadeIn == 0.0f))
+        {
+            nisGoToEnd(thisNisPlaying);
+        }
+        return;
+    }
+    if (piePointSpecMode != PSM_Idle)
+    {
+        if (catMrTutEnabled(0x8000))
+        {
+            piePointModeOnOff(PIE_SPEC_None, NULL);
+            soundEventPlay(NULL, 0x117, NULL);
+        }
+        return;
+    }
+    if (catMrSelecting)
+    {
+        catMrSelecting = FALSE;
+        selSelecting.numTargets = 0;
+        return;
+    }
+    if (cat_popupMenuIsOpen())
+    {
+        cat_popupMenuClose();
+        return;
+    }
+    if ((selSelected.numShips > 0) && catMrTutEnabled(0x100000))
+    {
+        soundEventPlay(NULL, 0x108, NULL);
+        selSelected.numShips = 0;
+        ioUpdateShipTotals();
+        return;
+    }
+    if (smSensorsActive)
+    {
+        smSensorsClose(NULL, NULL);
+        return;
+    }
+    if (!multiPlayerGame)
+    {
+        universePause = TRUE;
+    }
+    soundEventPlay(NULL, 0x108, NULL);
+    gpStartInGameEscapeMenu();
+}
+
+/*-----------------------------------------------------------------------------
+    The mouse (mrRegionProcess's handlers and the band box)
+-----------------------------------------------------------------------------*/
+// the rectangle from the anchor to the mouse (+1 on the far sides), as each band-box function builds it
+static void catMrBandRect(rectangle *rect)
+{
+    rect->x0 = mrOldMouseX;
+    rect->x1 = mouseCursorX();
+    if (mouseCursorX() < mrOldMouseX)
+    {
+        rect->x0 = mouseCursorX();
+        rect->x1 = mrOldMouseX;
+    }
+    rect->y0 = mrOldMouseY;
+    rect->y1 = mouseCursorY();
+    if (mouseCursorY() < mrOldMouseY)
+    {
+        rect->y0 = mouseCursorY();
+        rect->y1 = mrOldMouseY;
+    }
+    rect->x1++;
+    rect->y1++;
+}
+
+static bool32 catMrMouseMovedFromAnchor(void)
+{
+    return (abs(mouseCursorX() - mrOldMouseX) >= selClickBoxWidth) || (abs(mouseCursorY() - mrOldMouseY) >= selClickBoxHeight);
+}
+
+void cat_mrHoldLeft(sdword sensors)                         // 0x0056aee0
+{
+    if (!mrDisabled && catMrSelecting)
+    {
+        mrSelectHold(&universe.mainCameraCommand.actualcamera, sensors);
+    }
+}
+
+void cat_mrPressLeft(void)                                  // 0x0056af10: the band box's anchor
+{
+    if (!cat_popupMenuIsOpen() && !cat_shipPrintDragStart() && (catMrRightMode == 0) && (piePointSpecMode == PSM_Idle))
+    {
+        mrOldMouseX = mouseCursorX();
+        mrOldMouseY = mouseCursorY();
+        catMrSelecting = TRUE;
+    }
+}
+
+void cat_mrReleaseLeft(sdword sensors)                      // 0x0056af60
+{
+    if (cat_popupMenuIsOpen())
+    {
+        cat_popupMenuClick();
+        return;
+    }
+    cat_shipPrintDragEnd();
+    if (mouseRightButton())
+    {
+        return;
+    }
+    if ((piePointSpecMode == PSM_XY) || (piePointSpecMode == PSM_Z))
+    {
+        cat_piePointSpecExecute();
+        return;
+    }
+    if (catMrSelecting)
+    {
+        if (!cat_mrBandBoxRelease(&universe.mainCameraCommand.actualcamera, sensors))
+        {
+            cat_mrClickRelease(sensors, FALSE);
+        }
+        catMrSelecting = FALSE;
+        selSelecting.numTargets = 0;
+        piePointModePause(FALSE);
+    }
+}
+
+void cat_mrPressRight(void)                                 // 0x0056afe0: the camera turns while it is held
+{
+    if (cat_shipPrintIsDragging() || cat_gameStatsIsActive())
+    {
+        return;
+    }
+    if (cat_popupMenuIsOpen())
+    {
+        if (!cat_popupMenuClickIfTarget() && cat_popupMenuMouseInside())
+        {
+            return;
+        }
+        cat_popupMenuClose();
+    }
+    if (catMrSelecting)
+    {
+        catMrSelecting = FALSE;
+        selSelecting.numTargets = 0;
+    }
+    piePointModePause(TRUE);
+    catMrRightMode = 2;
+    mrHoldRight = mrCameraMotion;
+    mrOldMouseX = mouseCursorX();
+    mrOldMouseY = mouseCursorY();
+    mouseCursorHide();
+    if (helpinfoactive)
+    {
+        mousePositionSet(helpinforegion->rect.x0 / 2, MAIN_WindowHeight / 2);
+    }
+    else
+    {
+        mousePositionSet(MAIN_WindowWidth / 2, MAIN_WindowHeight / 2);
+    }
+    mrMouseHasMoved = 0;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mrReleaseRight                                0x0056b0b0
+    Description : The right button up: the camera stops turning; a click (the mouse hardly moved) on an object the
+                  selection can act on gives the context order (cat_mouseGetContextAction), any other click the
+                  popup menu of the selection's orders.
+----------------------------------------------------------------------------*/
+void cat_mrReleaseRight(sdword sensors)
+{
+    CatTargetActions selectionActions, targetActions;
+    MaxSelection targets, selection;
+    sdword action, ability;
+    Node *node;
+    Ship *clicked, *found;
+
+    if (cat_shipPrintIsDragging() || cat_popupMenuMouseInside() || cat_gameStatsIsActive())
+    {
+        return;
+    }
+    piePointModePause(FALSE);
+    if (catMrRightMode == 2)
+    {
+        mousePositionSet(mrOldMouseX, mrOldMouseY);
+        if (!mrDisabled || (spHyperspaceRollCallScreen != NULL))
+        {
+            mouseCursorShow();
+        }
+        catMrRightMode = 0;
+        mrHoldRight = mrNULL;
+        mouseClipToRect(NULL);
+    }
+    if (mrDisabled || (mrMouseHasMoved > MR_MouseMovementClickLimit))
+    {
+        return;
+    }
+    if (piePointSpecMode != PSM_Idle)
+    {
+        cat_popupMenuOpen(NULL, NULL);
+        return;
+    }
+    clicked = selSelectionClick(sensors ? universe.SpaceObjList.head : universe.RenderList.head,
+                                &universe.mainCameraCommand.actualcamera, mouseCursorX(), mouseCursorY(), TRUE, TRUE,
+                                sensors != 0);
+    if ((clicked == NULL) || smSensorsActive || (!catMrRightClickCSA && (tutorial != TUTORIAL_ONLY)) ||
+        ShipInSelection((SelectCommand *)&selSelected, clicked))
+    {
+        cat_popupMenuOpen(NULL, NULL);
+        return;
+    }
+    cat_selComputeTargetActions(&selectionActions, (MaxSelection *)&selSelected);
+    targets.numShips = 1;
+    targets.ShipPtr[0] = clicked;
+    cat_selComputeTargetActions(&targetActions, &targets);
+    action = cat_mouseGetContextAction(&selectionActions, &targetActions, (MaxSelection *)&selSelected, clicked);
+    if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 10) && (clicked->shiptype == dBigGun))
+    {                                                       // mission 10: the big gun is salvaged through its unit
+        found = NULL;
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            if (((Ship *)listGetStructOfNode(node))->shiptype == dBigGunUnit)
+            {
+                found = (Ship *)listGetStructOfNode(node);
+            }
+        }
+        if (found == NULL)
+        {
+            cat_popupMenuOpen(NULL, NULL);
+            return;
+        }
+        if (CAT_MR_ORDERS_ALLOWED())
+        {
+            cat_uiSpecialTargetCommand((SelectCommand *)&targets, 0);
+        }
+        soundEventPlay(NULL, 0x109, NULL);
+        return;
+    }
+    switch (action)
+    {
+        case CAT_CA_None:
+            cat_popupMenuOpen(NULL, NULL);
+            return;
+        case CAT_CA_Harvest:
+            mrHarvestResources((char *)clicked, NULL);
+            soundEventPlay(NULL, 0x109, NULL);
+            return;
+        case CAT_CA_Salvage:
+            ability = 0;
+            break;
+        case CAT_CA_Attack:
+            if (targets.numShips > 0)
+            {
+                MakeShipsAttackCapable((SelectCommand *)&selection, (SelectCommand *)&selSelected, TRUE);
+                cat_selSelectionCopy((MaxSelection *)&selSelected, &selection);
+                if (selSelected.numShips > 0)
+                {
+                    cat_selMakeTargetsAttackable((SelectCommand *)&targets, FALSE);
+                    MakeShipsNotIncludeTheseShips((SelectCommand *)&targets, (SelectCommand *)&selSelected);
+                    if (targets.numShips > 0)
+                    {
+                        speechEventAttack();
+                        clWrapAttack(&universe.mainCommandLayer, (SelectCommand *)&selSelected, (AttackCommand *)&targets);
+                        tutGameMessage("Game_BandBoxForceAttack");
+                    }
+                }
+            }
+            soundEventPlay(NULL, 0x109, NULL);
+            tutGameMessage("ClickAttack");
+            return;
+        case CAT_CA_Repair:
+            ability = 1;
+            break;
+        case CAT_CA_ProtectFormation:
+            cat_uiProtectFormation((SelectCommand *)&targets);
+            soundEventPlay(NULL, 0x109, NULL);
+            return;
+        case CAT_CA_SlipgateSmall:
+        case CAT_CA_SlipgateMedium:
+        case CAT_CA_SlipgateLarge:
+            mrDockingOrders(clicked);
+            soundEventPlay(NULL, 0x109, NULL);
+            return;
+        case CAT_CA_Dock:
+            cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+            MakeShipsGuardCapable((SelectCommand *)&selection, TRUE);
+            clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&selection, CAT_DOCK_SUPPORT, clicked);
+            soundEventPlay(NULL, 0x109, NULL);
+            return;
+        case CAT_CA_Leech:
+            ability = 2;
+            break;
+        case CAT_CA_Link:
+            cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+            cat_selSelectionAddShip(&selection, clicked);
+            if (selection.numShips > 0)
+            {
+                cat_clWrapLink(&universe.mainCommandLayer, (SelectCommand *)&selection);
+            }
+            soundEventPlay(NULL, 0x109, NULL);
+            return;
+        case CAT_CA_Mimic:
+            cat_mrMimicTarget((SpaceObj *)clicked);
+            soundEventPlay(NULL, 0x109, NULL);
+            return;
+        case CAT_CA_EMP:            ability = 4; break;
+        case CAT_CA_Swarm:          ability = 3; break;
+        case CAT_CA_Ram:            ability = 6; break;
+        case CAT_CA_FireMissiles:   ability = 7; break;
+        case CAT_CA_Infect:         ability = 5; break;
+        default:
+            return;
+    }
+    if (CAT_MR_ORDERS_ALLOWED())
+    {
+        cat_uiSpecialTargetCommand((SelectCommand *)&targets, ability);
+    }
+    soundEventPlay(NULL, 0x109, NULL);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mrClickRelease                                0x0056ad50
+    Description : A click (no band box): the overlay first, then the object under the mouse (or the one that was
+                  under it a moment ago), else the selection is cleared (not with the multiple-select key).
+    Inputs      : sensors - 0 the main view (the render list), 1 the sensors manager (all objects);
+                  doubleClick - passed on to mrObjectClick
+----------------------------------------------------------------------------*/
+void cat_mrClickRelease(sdword sensors, bool32 doubleClick)
+{
+    Node *list = (sensors == 0) ? universe.RenderList.head : universe.SpaceObjList.head;
+    Ship *ship;
+
+    if (mrDisabled)
+    {                                                       // the stats screen takes the click
+        cat_kbCommandExecute(sensors, CAT_KB_SkipSensors);
+        cat_gameStatsClick();
+        return;
+    }
+    if (cat_ioClick(catMrKbHeld(CAT_KB_MultipleSelect)) || (catMrRightMode != 0))
+    {
+        return;
+    }
+    ship = selSelectionClick(list, &universe.mainCameraCommand.actualcamera, mouseCursorX(), mouseCursorY(), TRUE, TRUE,
+                             sensors != 0);
+    if (ship != NULL)
+    {
+        if (catMrTutEnabled(0x40000))
+        {
+            mrObjectClick(ship, doubleClick);
+        }
+        return;
+    }
+    if ((mouseCursorObjLast != NULL) && (universe.realtimeelapsed <= mrFastMoveShipClickTime + mouseCursorLastObjTime) &&
+        (abs(mouseCursorX() - mouseCursorLastX) < mrFastMoveShipClickX) &&
+        (abs(mouseCursorY() - mouseCursorLastY) < mrFastMoveShipClickY))
+    {                                                       // the object was under the mouse a moment ago
+        if (catMrTutEnabled(0x40000) && bitTest(mouseCursorObjLast->header.flags, SOF_Selectable))
+        {
+            mrObjectClick((Ship *)mouseCursorObjLast, doubleClick);
+        }
+        return;
+    }
+    if (!catMrKbHeld(CAT_KB_MultipleSelect) && catMrTutEnabled(0x100000))
+    {
+        selSelected.numShips = 0;
+        ioUpdateShipTotals();
+    }
+}
+
+void cat_mrReleaseLeftCB(sdword sensors)                    // 0x0056b6a0: a double click
+{
+    if (!cat_shipPrintIsDragging() && !cat_popupMenuIsOpen() && !cat_gameStatsIsActive())
+    {
+        cat_mrClickRelease(sensors, TRUE);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mrBandBoxRelease                              0x0056a610
+    Description : The left button up after a band box (the mouse moved from the anchor): by the modifier key a
+                  force attack, add to the selection, guard, the special popup on the boxed objects, a focus, an
+                  attack, or (none) the boxed ships become the selection.
+    Return      : FALSE if it was no band box (a click)
+----------------------------------------------------------------------------*/
+bool32 cat_mrBandBoxRelease(Camera *camera, sdword sensors)
+{
+    Node *list;
+    rectangle rect;
+    MaxSelection selection;
+    sdword index;
+    char *eventName;
+    Ship *ship;
+
+    if (universePause || mrDisabled)
+    {
+        return FALSE;
+    }
+    sensors = (sensors == 1);
+    if ((abs(mouseCursorX() - mrOldMouseX) < selClickBoxWidth) && (abs(mouseCursorY() - mrOldMouseY) < selClickBoxHeight))
+    {
+        return FALSE;
+    }
+    catMrBandRect(&rect);
+    mrSelectHold(camera, sensors);
+    list = sensors ? universe.SpaceObjList.head : universe.RenderList.head;
+    if (catMrKbHeld(CAT_KB_BandboxForceAttack))
+    {
+        if (!playPackets && (selSelecting.numTargets > 0))
+        {
+            MakeShipsAttackCapable((SelectCommand *)&selection, (SelectCommand *)&selSelected, TRUE);
+            cat_selSelectionCopy((MaxSelection *)&selSelected, &selection);
+            if (selSelected.numShips > 0)
+            {
+                cat_selMakeTargetsAttackable((SelectCommand *)&selSelecting, FALSE);
+                MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting, (SelectCommand *)&selSelected);
+                if (selSelecting.numTargets > 0)
+                {
+                    speechEventAttack();
+                    clWrapAttack(&universe.mainCommandLayer, (SelectCommand *)&selSelected, (AttackCommand *)&selSelecting);
+                    tutGameMessage("Game_BandBoxForceAttack");
+                }
+            }
+        }
+        goto done;
+    }
+    if (catMrKbHeld(CAT_KB_MultipleSelect))
+    {
+        if ((piePointSpecMode != PSM_XY) && catMrTutEnabled(0x80000))
+        {
+            selRectDragAddFunction(list, camera, &rect, sensors);
+            ioUpdateShipTotals();
+            tutGameMessage("MultipleSelect");
+        }
+        goto done;
+    }
+    if (catMrKbHeld(CAT_KB_BandboxGuard))
+    {
+        if (!playPackets && (selSelecting.numTargets > 0))
+        {
+            cat_selMakeShipsProtectCapable((SelectCommand *)&selSelected, TRUE);
+            if (selSelected.numShips > 0)
+            {
+                MakeShipsFriendlyAndAlliesShips((SelectCommand *)&selSelecting, universe.curPlayerPtr);
+                MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting, (SelectCommand *)&selSelected);
+                if (selSelecting.numTargets > 0)
+                {
+                    speechEventQueue(NULL, 0x4001061, -1, -1, 0, selSelected.ShipPtr[0]->playerowner->playerIndex, -1,
+                                     5.0f, -1);
+                    clWrapProtect(&universe.mainCommandLayer, (SelectCommand *)&selSelected, (ProtectCommand *)&selSelecting);
+                    tutGameMessage("Game_BandBoxGuard");
+                }
+            }
+        }
+        goto done;
+    }
+    if (catMrKbHeld(CAT_KB_ShipSpecial))
+    {
+        if (!playPackets)
+        {
+            MakeShipsSpecialTargetCapable((SelectCommand *)&selSelected, FALSE, TRUE);
+            if (selSelected.numShips > 0)
+            {
+                mrSpecialBandBox = TRUE;
+                MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting, (SelectCommand *)&selSelected);
+                MakeTargetsNotIncludeMissiles((SelectAnyCommand *)&selSelecting);
+                if (selSelecting.numTargets > 0)
+                {
+                    cat_popupMenuOpen(CAT_PM_TARGET_KEYCOMMAND, (MaxSelection *)&selSelecting);
+                    tutGameMessage("Game_BandBoxSpecial");
+                }
+            }
+        }
+        goto done;
+    }
+    if (catMrKbHeld(CAT_KB_BandboxFocus))
+    {
+        if (selSelecting.numTargets > 0)
+        {
+            if (sensors != 1)
+            {
+                ccFocusClose(&universe.mainCameraCommand, (FocusCommand *)&selSelecting);
+                selSelecting.numTargets = 0;
+                tutGameMessage("Game_BandBoxFocus");
+                eventName = "AltFocus";
+                goto message;
+            }
+            index = 0;
+            while (index < selSelecting.numTargets)
+            {                                               // the sensors manager focuses on what it may
+                ship = (Ship *)selSelecting.TargetPtr[index];
+                if ((ship->header.objtype == OBJ_ShipType) && !cat_ccShipIsLegalToFocusOn(ship))
+                {
+                    selSelecting.numTargets--;
+                    selSelecting.TargetPtr[index] = selSelecting.TargetPtr[selSelecting.numTargets];
+                }
+                else
+                {
+                    index++;
+                }
+            }
+            if (selSelecting.numTargets > 0)
+            {
+                smCullAndFocusSelecting();
+            }
+        }
+        eventName = "AltFocus";
+        goto message;
+    }
+    if (catMrKbHeld(CAT_KB_BandboxAttack))
+    {
+        if (playPackets)
+        {
+            goto done;
+        }
+        if (selSelecting.numTargets > 0)
+        {
+            MakeShipsAttackCapable((SelectCommand *)&selection, (SelectCommand *)&selSelected, TRUE);
+            cat_selSelectionCopy((MaxSelection *)&selSelected, &selection);
+            if (selSelected.numShips > 0)
+            {
+                cat_selMakeTargetsAttackable((SelectCommand *)&selSelecting, FALSE);
+                MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting, (SelectCommand *)&selSelected);
+                MakeTargetsOnlyNonForceAttackTargets((SelectAnyCommand *)&selSelecting, universe.curPlayerPtr);
+                if (selSelecting.numTargets > 0)
+                {
+                    speechEventAttack();
+                    clWrapAttack(&universe.mainCommandLayer, (SelectCommand *)&selSelected, (AttackCommand *)&selSelecting);
+                    tutGameMessage("Game_BandBoxAttack");
+                }
+            }
+        }
+        eventName = "BandAttack";
+        goto message;
+    }
+    // no modifier: the boxed ships are the selection
+    if ((piePointSpecMode == PSM_XY) ||
+        ((tutorial == TUTORIAL_ONLY) && (!catMrTutEnabled(0x80000) || ((selSelecting.numTargets == 0) && !catMrTutEnabled(0x100000)))))
+    {
+        goto done;
+    }
+    selRectDragFunction(list, &universe.mainCameraCommand.actualcamera, &rect, (SpaceObjRotImpTarg **)selSelected.ShipPtr,
+                        &selSelected.numShips, TRUE, FALSE, FALSE, sensors);
+    ioUpdateShipTotals();
+    if (selSelected.numShips < 1)
+    {
+        goto done;
+    }
+    if (!playPackets)
+    {
+        if ((universe.curPlayerPtr->PlayerMothership != NULL) &&
+            selShipInSelection(selSelected.ShipPtr, selSelected.numShips, universe.curPlayerPtr->PlayerMothership) &&
+            (universe.curPlayerPtr->PlayerMothership->staticinfo->shipclass == CLASS_Mothership))
+        {                                                   // the mothership's fleet voice
+            speechEventQueue(NULL, 0x4000800, universe.curPlayerPtr->PlayerMothership->shiptype, -1, 0,
+                             selSelected.ShipPtr[0]->playerowner->playerIndex, -1, 5.0f, -1);
+        }
+        else
+        {
+            speechEventQueue(selSelected.ShipPtr[0], 0x4000800, selSelected.ShipPtr[0]->shiptype, -1, -1, -1, -1, 0.0f, -1);
+        }
+    }
+    eventName = "Game_BandBoxSelect";
+message:
+    tutGameMessage(eventName);
+done:
+    ioUpdateShipTotals();
+    selSelecting.numTargets = 0;
+    return TRUE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mrSelectRectDraw                              0x0056ac00
+    Description : The band box in the modifier's colour, with the boxed objects; a small box outlines the object
+                  under the mouse instead.
+----------------------------------------------------------------------------*/
+void cat_mrSelectRectDraw(sdword sensors)
+{
+    rectangle rect;
+    color c;
+    Ship *ship;
+
+    if (catMrKbHeld(CAT_KB_BandboxGuard))
+    {
+        c = CAT_MR_BAND_GUARD;
+    }
+    else if (catMrKbHeld(CAT_KB_BandboxFocus))
+    {
+        c = CAT_MR_BAND_FOCUS;
+    }
+    else if (catMrKbHeld(CAT_KB_BandboxAttack))
+    {
+        c = CAT_MR_BAND_ATTACK;
+    }
+    else if (catMrKbHeld(CAT_KB_BandboxForceAttack))
+    {
+        c = CAT_MR_BAND_FORCEATTACK;
+    }
+    else if (catMrKbHeld(CAT_KB_ShipSpecial))
+    {
+        c = CAT_MR_BAND_SPECIAL;
+    }
+    else
+    {
+        c = CAT_MR_BAND_SELECT;
+    }
+    // CAT: the exe's own rectangle (not catMrBandRect's order of tests, the same box)
+    rect.x1 = mouseCursorX();
+    rect.x0 = mrOldMouseX;
+    if (mouseCursorX() < mrOldMouseX)
+    {
+        rect.x1 = mrOldMouseX;
+        rect.x0 = mouseCursorX();
+    }
+    rect.y1 = mouseCursorY();
+    rect.y0 = mrOldMouseY;
+    if (mouseCursorY() < mrOldMouseY)
+    {
+        rect.y1 = mrOldMouseY;
+        rect.y0 = mouseCursorY();
+    }
+    rect.x1++;
+    rect.y1++;
+    if ((mrFastMoveShipClickX < rect.x1 - rect.x0) || (mrFastMoveShipClickY < rect.y1 - rect.y0))
+    {
+        if (sensors == 0)
+        {
+            selSelectingDraw();
+        }
+        primRectOutline2(&rect, 1, c);
+    }
+    else if ((sensors == 0) &&
+             ((ship = selSelectionClick(universe.RenderList.head, &universe.mainCameraCommand.actualcamera, mouseCursorX(),
+                                        mouseCursorY(), TRUE, TRUE, FALSE)) != NULL) &&
+             (cat_moMouseOverObjective() == 0))
+    {
+        cat_selShipScreenRectDraw(ship, c);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Callback functions for right-click menus:
+-----------------------------------------------------------------------------*/
+void mrDockingOrders(Ship *gate)
+{
+    MaxSelection selection;
+    sdword index;
+
+    // CAT: mrDockingOrders 0x00567750 is Cataclysm's slipgate order (the HW1 menu callback is gone): the ships that
+    //      may enter the gate dock with it (purpose 10); the others are told why
+    cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+    cat_selMakeShipsDockCapableFor((SelectCommand *)&selection, gate->shiptype, TRUE);
+    if (selection.numShips != 0)
+    {
+        clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&selection, CAT_DOCK_SLIPGATE, gate);
+    }
+    if (selection.numShips != selSelected.numShips)
+    {
+        if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 15))
+        {
+            clCommandMessage(strGetString(strNotAllShipsCanEnterSlipgateBecauseOfMission15), 0xff0000ff);
+            return;
+        }
+        for (index = 0; index < selSelected.numShips; index++)
+        {
+            if (!cat_shipClassCanUseSlipgate(selSelected.ShipPtr[index]->staticinfo->shipclass, gate->shiptype))
+            {
+                clCommandMessage(strGetString(strNotAllShipsCanEnterSlipgate), 0xff0000ff);
+                return;
+            }
+        }
+        clCommandMessage(strGetString(strNotAllShipsCanEnterSlipgateBusy), 0xff0000ff);
+    }
 }
 
 
@@ -532,7 +2594,7 @@ void mrDeltaFormation(char *string, featom *atom)
         mrMenuDontDisappear = TRUE;
         return;
     }
-    mrSetTheFormation(DELTA_FORMATION);
+    mrSetTheFormation(DELTA_FORMATION, TRUE, FALSE);
 }
 
 
@@ -548,7 +2610,7 @@ void mrBroadFormation(char *string, featom *atom)
         mrMenuDontDisappear = TRUE;
         return;
     }
-    mrSetTheFormation(BROAD_FORMATION);
+    mrSetTheFormation(BROAD_FORMATION, TRUE, FALSE);
 }
 
 
@@ -564,7 +2626,7 @@ void mrXFormation(char *string, featom *atom)
         mrMenuDontDisappear = TRUE;
         return;
     }
-    mrSetTheFormation(DELTA3D_FORMATION);
+    mrSetTheFormation(DELTA3D_FORMATION, TRUE, FALSE);
 }
 
 
@@ -580,7 +2642,7 @@ void mrClawFormation(char *string, featom *atom)
         mrMenuDontDisappear = TRUE;
         return;
     }
-    mrSetTheFormation(CLAW_FORMATION);
+    mrSetTheFormation(CLAW_FORMATION, TRUE, FALSE);
 }
 
 
@@ -596,7 +2658,7 @@ void mrWallFormation(char *string, featom *atom)
         mrMenuDontDisappear = TRUE;
         return;
     }
-    mrSetTheFormation(WALL_FORMATION);
+    mrSetTheFormation(WALL_FORMATION, TRUE, FALSE);
 }
 
 
@@ -612,7 +2674,7 @@ void mrSphereFormation(char *string, featom *atom)
         mrMenuDontDisappear = TRUE;
         return;
     }
-    mrSetTheFormation(SPHERE_FORMATION);
+    mrSetTheFormation(SPHERE_FORMATION, TRUE, FALSE);
 }
 
 
@@ -628,75 +2690,96 @@ void mrCustomFormation(char *string, featom *atom)
         mrMenuDontDisappear = TRUE;
         return;
     }
-    mrSetTheFormation(CUSTOM_FORMATION);
+    mrSetTheFormation(CUSTOM_FORMATION, TRUE, FALSE);
 }
 
 
 void mrHarvestResources(char *string, featom *atom)
 {
-    MaxSelection tempSelection;
-    Resource *nearestresource;
+    MaxSelection workers;
+    SelectCommand single;
+    Resource *resource = (Resource *)string;
+    bool32 first;
+    sdword index;
 
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    // CAT: mrHarvestResources 0x00563cc0 takes the resource to harvest in place of the menu string (the popup menu,
+    //      the right-click order and the Harvest key pass it, NULL for the nearest one per worker); a hidden mimic
+    //      posing as a resource gives its fake asteroid
+    (void)atom;
+    if (!CAT_MR_ORDERS_ALLOWED())
     {
         return;
     }
-
-    if ((tutorial==TUTORIAL_ONLY) && !tutEnable.bHarvest)
+    if (!catMrTutEnabled(0x4000))
     {
         mrMenuDontDisappear = TRUE;
         return;
     }
-
-    if (selSelected.numShips > 0)
+    tutGameMessage("KB_Harvest");
+    if (selSelected.numShips <= 0)
     {
-        if (MakeShipsHarvestCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected, TRUE))   // CAT: workers-only argument (mrHarvestResources 0x00563cc0 passes 1)
-        {
-            nearestresource = univFindNearestResource(tempSelection.ShipPtr[0],0,NULL);
-            if (nearestresource != NULL)
-            {
-                soundEvent(NULL, UI_ClickAccept);
-                speechEvent(tempSelection.ShipPtr[0], COMM_ResCol_Harvest, (nearestresource->header.objtype - OBJ_AsteroidType));
-                clWrapCollectResource(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,NULL);
-                soundEventStartEngine(tempSelection.ShipPtr[0]);
-            }
-            else
-            {
-                soundEvent(NULL, UI_ClickCancel);
-                speechEvent(tempSelection.ShipPtr[0], COMM_ResCol_NoMoreRUs, 0);
-            }
-        }
+        return;
     }
+    MakeShipsHarvestCapable((SelectCommand *)&workers, (SelectCommand *)&selSelected, TRUE);
+    if (workers.numShips <= 0)
+    {
+        return;
+    }
+    if (resource == NULL)
+    {                                                       // each worker to its nearest resource
+        first = TRUE;
+        for (index = 0; index < workers.numShips; index++)
+        {
+            single.numShips = 1;
+            single.ShipPtr[0] = workers.ShipPtr[index];
+            cat_clHarvestNearestResource(&universe.mainCommandLayer, &single, TRUE, first);
+            first = FALSE;
+        }
+        return;
+    }
+    if ((((SpaceObj *)resource)->header.objtype == OBJ_ShipType) &&
+        cat_mimicAppearsAsResource((Ship *)resource, universe.curPlayerPtr))
+    {
+        resource = cat_mimicGetFakeResource((Ship *)resource);
+    }
+    speechEventQueue(workers.ShipPtr[0], 0x40008a3, workers.ShipPtr[0]->shiptype, -1, -1, -1, -1, 0.0f, -1);
+    clWrapCollectResource(&universe.mainCommandLayer, (SelectCommand *)&workers, resource);
+    soundEventPlay(workers.ShipPtr[0], 0x400, NULL);
+    tutGameMessage("Game_ClickHarvest");
 }
 
 
 void mrBuildShips(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    Ship *ship;
 
-    if ((tutorial==TUTORIAL_ONLY) && !tutEnable.bBuildManager)
+    // CAT: mrBuildShips 0x005649b0: a plain pause test that returns (GoK's lost its return), no clearing of the
+    //      atom's region; the one selected ship builds only when it is a Sect or Beast mothership or carrier, not
+    //      being built itself and not disabled
+    if ((playPackets) || (universePause) || (mrDisabled))
+    {
+        return;
+    }
+
+    if ((tutorial==TUTORIAL_ONLY) && !catMrTutEnabled(0x4))
     {
         mrMenuDontDisappear = TRUE;
         return;
     }
 
-    if ((atom != NULL) && ((regionhandle)atom->region != NULL))
-    {
-        bitClear(((regionhandle)atom->region)->status,RSF_CurrentSelected);
-    }
-
     soundEvent(NULL, UI_Click);
-    if (selSelected.numShips == 1)
+    ship = selSelected.ShipPtr[0];
+    if ((selSelected.numShips == 1) && !bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt) &&
+        !ship->shipOrDerelict.catDisabled &&
+        ((ship->shiptype == sMothership) || (ship->shiptype == sCarrier) || (ship->shiptype == bMothership) ||
+         (ship->shiptype == bCarrier)))
     {
-        cmConstructionBegin(ghMainRegion,(smemsize)selSelected.ShipPtr[0], 0, 0);
+        cmConstructionBegin(ghMainRegion,(smemsize)ship, 0, 0);
     }
     else
     {
         cmConstructionBegin(ghMainRegion, 0, 0, 0);
     }
-#if MR_VERBOSE_LEVEL >= 1
-    dbgMessage("Build ships.");
-#endif
 }
 
 
@@ -712,58 +2795,10 @@ void mrTradeStuff(char *string, featom *atom)
 //nn: this function isn't used when your in the sensors manager (smDispatch is used there).
 void mrMoveShips(char *string, featom *atom)
 {
-    vector dist;
-
-    if ((playPackets) || (mrDisabled))
-    {
-        return;
-    }
-
-    if((tutorial==TUTORIAL_ONLY) && !tutEnable.bMove)
-    {
-        mrMenuDontDisappear = TRUE;
-        return;
-    }
-
-    makeShipsNotIncludeSinglePlayerMotherships((SelectCommand *)&selSelected);
-    makeShipsControllable((SelectCommand *)&selSelected,COMMAND_MOVE);
-    if(mrNeedProbeHack())                                   //performs needed stuff for probe hack and
-    {                                                       //removes probes from selection if other ships there!
-        mrProbeHack();
-    }
-    else
-    {
-        if (mrHoldRight != mrNULL || mrHoldLeft != mrNULL)
-        {
-            return;
-        }
-        else if (selSelected.numShips >= 1)
-        {   //single probe not selected so do normal movement....
-    //        universe.mainCameraCommand.actualcamera
-            selCentrePointCompute();
-            vecSub(dist,selCentrePoint,universe.mainCameraCommand.actualcamera.lookatpoint);
-            if ((piePointSpecMode!=PSM_Idle)||(vecMagnitudeSquared(dist) <= MAX_MOVE_DISTANCE))
-            {
-                if (piePointSpecMode!=PSM_Idle)
-                {
-                    soundEvent(NULL, UI_MovementGUIoff);
-                }
-                mrRemoveAllProbesFromSelection();
-                piePointModeOnOff(PIE_SPEC_Move, NULL);
-            }
-            else
-            {
-                if (piePointSpecMode==PSM_Idle)
-                {
-                    smSensorsBegin(NULL,NULL);
-                    piePointModeOnOff(PIE_SPEC_Move, NULL);
-                }
-            }
-        }
-    }
-#if MR_VERBOSE_LEVEL >= 1
-    dbgMessage("Move ships.");
-#endif
+    // CAT: Cataclysm's Move command (0x0056a090, cat_mrMoveShips); HW1's movement start is gone
+    (void)string;
+    (void)atom;
+    cat_mrMoveShips();
 }
 
 
@@ -798,110 +2833,99 @@ void mrCancel(char *string, featom *atom)
 
 void mrScuttle(char *string, featom *atom)
 {
-    static real32 confirmTime=-7.0f;    //initial value
+    static real32 confirmTime = -7.0f;                      // 0x008ba398
 
-    if ((playPackets) || (universePause) || (mrDisabled))
+    (void)string;
+    (void)atom;
+    // CAT: mrScuttle 0x00565210: the scuttleable (cat_selMakeShipsScuttleable) and retireable ships; the two presses
+    //      within the reconfirm time are on the real-time clock, with the Cataclysm battle chatter and fleet speech
+    if (!CAT_MR_ORDERS_ALLOWED())
     {
         return;
     }
-
-    if ((tutorial==TUTORIAL_ONLY) && !tutEnable.bScuttle)
+    if (!catMrTutEnabled(0x10000))
     {
         mrMenuDontDisappear = TRUE;
         return;
     }
-    if(selSelected.numShips == 0)
+    if (selSelected.numShips == 0)
+    {
         return;
-
-    if (!singlePlayerGame)
+    }
+    if (!singlePlayerGame && bitTest(tpGameCreated.flag, MG_CaptureCapitalShip))
     {
-        if (bitTest(tpGameCreated.flag,MG_CaptureCapitalShip))
-        {
-            MakeShipsNonCapital((SelectCommand *)&selSelected);
-            if(selSelected.numShips > 0)
+        MakeShipsNonCapital((SelectCommand *)&selSelected);
+        if (selSelected.numShips < 1)
+        {                                                   // CAT: the exe chatters when nothing is left
+            if (battleCanChatterAtThisTime(BCE_CannotComply, selSelected.ShipPtr[0]))
             {
-                if (battleCanChatterAtThisTime(BCE_CannotComply, selSelected.ShipPtr[0]))
-                {
-                    battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CannotComply, selSelected.ShipPtr[0], SOUND_EVENT_DEFAULT);
-                }
-                return;     // don't allow scuttling on levels where you have to capture ships!
+                battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CannotComply, selSelected.ShipPtr[0], SOUND_EVENT_DEFAULT);
             }
+            return;
         }
     }
-    if (selSelected.numShips > 0)
+    cat_selMakeShipsScuttleable((SelectCommand *)&selSelected, TRUE);
+    makeShipsRetireable((SelectCommand *)&selSelected);
+    if (selSelected.numShips <= 0)
     {
-        if((universe.totaltimeelapsed - confirmTime) < TW_ScuttleReconfirmTime)
-        {
-            tutGameMessage("Game_ScuttleConfirm");
-
-            soundEvent(NULL, UI_Click);
-            confirmTime = -TW_SCUTTLE_CONFIRM_TIME;
-            clWrapScuttle(&universe.mainCommandLayer,(SelectCommand *)&selSelected);
-#if MR_VERBOSE_LEVEL >= 1
-        dbgMessage("Scuttle.");
-#endif
-        }
-        else
-        {
-            /////////////////
-            //reconfrim speech event:  FLEET Event
-            //event num: COMM_F_ScuttleReaffirm
-            if(battleCanChatterAtThisTime(BCE_COMM_F_ScuttleReaffirm, selSelected.ShipPtr[0]))
-            {
-                battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_COMM_F_ScuttleReaffirm, SOUND_EVENT_DEFAULT, &selSelected.ShipPtr[0]->obj.posinfo.position);
-            }
-            //speechEventFleet(COMM_F_ScuttleReaffirm,0,universe.curPlayerIndex);
-            ////////////////////
-            tutGameMessage("Game_ScuttleRequest");
-            confirmTime = universe.totaltimeelapsed;
-#if MR_VERBOSE_LEVEL >= 1
-        dbgMessage("Scuttle. Reconfirm.");
-#endif
-        }
+        return;
     }
+    if ((universe.realtimeelapsed - confirmTime) < TW_ScuttleReconfirmTime)
+    {
+        tutGameMessage("Game_ScuttleConfirm");
+        soundEventPlay(NULL, 0x108, NULL);
+        if (battleCanChatterAtThisTime(0x55, selSelected.ShipPtr[0]))
+        {
+            battleChatterAttempt(SOUND_EVENT_DEFAULT, 0x55, selSelected.ShipPtr[0], selSelected.ShipPtr[0]->shiptype);
+        }
+        confirmTime = -TW_SCUTTLE_CONFIRM_TIME;
+        clWrapScuttle(&universe.mainCommandLayer, (SelectCommand *)&selSelected);
+        return;
+    }
+    speechEventQueue(NULL, 0x4002088, -1, -1, 0, selSelected.ShipPtr[0]->playerowner->playerIndex, -1, 5.0f, -1);
+    tutGameMessage("Game_ScuttleRequest");
+    confirmTime = universe.realtimeelapsed;
 }
 
 
 void mrRetire(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause) || (mrDisabled))
+    (void)string;
+    (void)atom;
+    // CAT: mrRetire 0x005653b0: the guard-capable, retireable ships dock to retire (purpose 7)
+    if (!CAT_MR_ORDERS_ALLOWED())
     {
         return;
     }
-
-    if ((tutorial==TUTORIAL_ONLY) && !tutEnable.bRetire)
+    if (!catMrTutEnabled(0x20000))
     {
         mrMenuDontDisappear = TRUE;
         return;
     }
-    if(selSelected.numShips == 0)
-        return;
-
-    if (!singlePlayerGame)
+    if (selSelected.numShips == 0)
     {
-        if (bitTest(tpGameCreated.flag,MG_CaptureCapitalShip))
+        return;
+    }
+    if (!singlePlayerGame && bitTest(tpGameCreated.flag, MG_CaptureCapitalShip))
+    {
+        MakeShipsNonCapital((SelectCommand *)&selSelected);
+        if (selSelected.numShips > 0)
         {
-            //filter out capital ships
-            MakeShipsNonCapital((SelectCommand *)&selSelected);
-            if(selSelected.numShips > 0)
+            if (battleCanChatterAtThisTime(BCE_CannotComply, selSelected.ShipPtr[0]))
             {
-                if (battleCanChatterAtThisTime(BCE_CannotComply, selSelected.ShipPtr[0]))
-                {
-                    battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CannotComply, selSelected.ShipPtr[0], SOUND_EVENT_DEFAULT);
-                }
-                return;     // don't allow scuttling on levels where you have to capture ships!
+                battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CannotComply, selSelected.ShipPtr[0], SOUND_EVENT_DEFAULT);
             }
+            return;
         }
     }
-    makeShipsRetireable((SelectCommand *)&selSelected); //filter ships that can't dock
+    MakeShipsGuardCapable((SelectCommand *)&selSelected, TRUE);
+    makeShipsRetireable((SelectCommand *)&selSelected);
     if (selSelected.numShips > 0)
     {
-        soundEvent(NULL, UI_Click);
-        clWrapDock(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_DOCK_RETIRE,NULL);   // CAT: purpose 7 (mrRetire 0x005653b0) [audit: M2-R5 layout-dock]
+        soundEventPlay(NULL, 0x108, NULL);
+        clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&selSelected, CAT_DOCK_RETIRE, NULL);
     }
-#if MR_VERBOSE_LEVEL >= 1
-    dbgMessage("Retire orders");
-#endif
+    tutGameMessage("KB_Retire");
 }
 
 
@@ -933,14 +2957,10 @@ void mrHyperspace(char *string, featom *atom)
 
 void mrLaunch(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    // CAT: mrLaunch 0x005654b0: a plain pause test (no opPauseOrders) and no clearing of the atom's region
+    if ((playPackets) || (universePause) || (mrDisabled))
     {
         return;
-    }
-
-    if ((atom != NULL) && ((regionhandle)atom->region != NULL))
-    {
-        bitClear(((regionhandle)atom->region)->status,RSF_CurrentSelected);
     }
 
     soundEvent(NULL, UI_Click);
@@ -958,14 +2978,10 @@ void mrLaunch(char *string, featom *atom)
 }
 void mrResearch(char *string, featom *atom)
 {
-    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    // CAT: mrResearch 0x00565530: a plain pause test (no opPauseOrders) and no clearing of the atom's region
+    if ((playPackets) || (universePause) || (mrDisabled))
     {
         return;
-    }
-
-    if ((atom != NULL) && ((regionhandle)atom->region != NULL))
-    {
-        bitClear(((regionhandle)atom->region)->status,RSF_CurrentSelected);
     }
 
     soundEvent(NULL, UI_Click);
@@ -1170,96 +3186,158 @@ void mrNULL(void)
     ;                                                       //do nothing
 }
 //drag the selection box
-void mrSelectHold(void)
+void mrSelectHold(Camera *camera, sdword sensors)
 {
-    bool32 bFriendlies, bEnemies;
-    MaxSelection tempSelection;
+    MaxSelection selection;
+    rectangle rect;
+    Node *list;
+    bool32 anyRace = FALSE, enemies = FALSE, friends = FALSE;   // the special kinds: anything, others, friends
+    sdword index;
+    ShipStaticInfo *staticinfo;
 
-    if (abs(mouseCursorX() - mrOldMouseX) >= selClickBoxWidth ||
-        abs(mouseCursorY() - mrOldMouseY) >= selClickBoxHeight)
-    {                                                       //if mouse has moved from anchor point
-        mrSelectRectBuild(&mrSelectionRect, mrOldMouseX, mrOldMouseY);//create a selection rect
-        if (guardKeyIsHit()) {                                        // guard mode
-            selRectDrag(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
-            if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
-            {                           // if in recorded packet playback then can't issue a gaurd order.
-                selRectNone();
-            }
-        } else if (keyIsHit(CONTROLKEY)) {
-            if (keyIsHit(SHIFTKEY))
-            {                                               //ctrl-shift - select anything targetable
-                selRectDragAnythingToAttack(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
-                if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
-                {                           // if in recorded packet playback then can't issue a gaurd order.
-                    selRectNone();
-                }
-            }
-            else
-            {                                               //ctrl - select all enemies
-                selRectDragAnythingToAttack(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
-                if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
-                {                           // if in recorded packet playback then can't issue a gaurd order.
-                    selRectNone();
-                }
-
-                if (!MakeShipsSingleClickSpecialCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected))
-                {                                           //if no ships single-click special attack capable
-                    mrRemoveDerelictsAndAllPlayerShipsFromSelecting();
-                }
-
-                if (ShiptypeInSelection((SelectCommand *)&selSelected, SalCapCorvette))
-                {
-                    MakeTargetsSalvageable((SelectAnyCommand *)&selSelecting, universe.curPlayerPtr);
-                }
-                else
-                {
-                    MakeTargetsOnlyNonForceAttackTargets((SelectAnyCommand *)&selSelecting, universe.curPlayerPtr);//always remove allied/player ships from selection
-                }
-            }
-        } else if (keyIsHit(ALTKEY) || keyIsHit(RALTKEY)) { // alt - select any ships
-            selRectDragAnybody(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
-        } else if (kbCommandKeyIsHit(kbSHIP_SPECIAL)) { // special action modifier
-            if (mrCanZBandBox(&bFriendlies, &bEnemies))
-            {
-                if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
-                {                           // if in recorded packet playback then can't issue a gaurd order.
-                    selRectNone();
-                }
-
-                if (bEnemies)
-                {                                           //select enemies and friends
-                    selRectDragAnybody(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
-                }
-                else
-                {                                           //select just friends
-                    selRectDrag(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
-                }
-                if (!bFriendlies)
-                {                                           //remove friends from selection
-                    if (ShiptypeInSelection((SelectCommand *)&selSelected, SalCapCorvette))
-                    {
-                        MakeTargetsSalvageable((SelectAnyCommand *)&selSelecting, universe.curPlayerPtr);
-                    }
-                    else
-                    {
-                        mrRemoveDerelictsAndAllPlayerShipsFromSelecting();
-                    }
-                }
-            }
-            else
-            {
-                selRectNone();
-            }
-        } else { // select player's ships
-            selRectDrag(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
+    // CAT: mrSelectHold 0x0056a1e0, Cataclysm's: the band box picks into selSelecting what the modifier key's order
+    //      may take (force attack, guard, the special order's targets by the selection's special kinds, focus,
+    //      attack), the player's ships without a modifier; the multiple-select key adds own ships
+    if (universePause || mrDisabled)
+    {
+        selSelecting.numTargets = 0;
+    }
+    sensors = (sensors == 1);
+    if (mrDisabled)
+    {
+        return;
+    }
+    if ((abs(mouseCursorX() - mrOldMouseX) < selClickBoxWidth) && (abs(mouseCursorY() - mrOldMouseY) < selClickBoxHeight))
+    {
+        selSelecting.numTargets = 0;
+        return;
+    }
+    catMrBandRect(&rect);
+    list = sensors ? universe.SpaceObjList.head : universe.RenderList.head;
+    if (catMrKbHeld(CAT_KB_BandboxForceAttack))
+    {
+        if (playPackets)
+        {
+            return;
         }
+        cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+        MakeShipsAttackCapable((SelectCommand *)&selection, (SelectCommand *)&selSelected, TRUE);
+        if (selection.numShips < 1)
+        {
+            selSelecting.numTargets = 0;
+            return;
+        }
+        selRectDragFunction(list, &universe.mainCameraCommand.actualcamera, &rect, selSelecting.TargetPtr,
+                            &selSelecting.numTargets, FALSE, TRUE, TRUE, sensors);
+        return;
     }
-    else
-    {                                                       //else mouse hasn't moved far enough
-        mrSelectionRect.x0 = mrSelectionRect.x1 =           //select nothing
-            mrSelectionRect.y0 = mrSelectionRect.y1 = 0;
-        selRectNone();
+    if (catMrKbHeld(CAT_KB_MultipleSelect))
+    {
+        selRectDragFunction(list, &universe.mainCameraCommand.actualcamera, &rect, selSelecting.TargetPtr,
+                            &selSelecting.numTargets, TRUE, FALSE, FALSE, sensors);
+        return;
     }
+    if (catMrKbHeld(CAT_KB_BandboxGuard))
+    {
+        if (playPackets)
+        {
+            return;
+        }
+        cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+        cat_selMakeShipsProtectCapable((SelectCommand *)&selection, TRUE);
+        if (selection.numShips < 1)
+        {
+            selSelecting.numTargets = 0;
+            return;
+        }
+        selRectDragFunction(list, camera, &rect, selSelecting.TargetPtr, &selSelecting.numTargets, FALSE, FALSE, FALSE,
+                            sensors);
+        MakeShipsFriendlyAndAlliesShips((SelectCommand *)&selSelecting, universe.curPlayerPtr);
+        MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting, (SelectCommand *)&selSelected);
+        return;
+    }
+    if (catMrKbHeld(CAT_KB_ShipSpecial))
+    {
+        if (playPackets)
+        {
+            return;
+        }
+        if (selSelected.numShips < 1)
+        {
+            selSelecting.numTargets = 0;
+            return;
+        }
+        for (index = 0; index < selSelected.numShips; index++)
+        {                                                   // what the selection's special orders target
+            staticinfo = selSelected.ShipPtr[index]->staticinfo;
+            if (staticinfo->custshipheader.CustShipSpecialTarget != NULL)
+            {
+                if (!staticinfo->canSpecialBandBoxFriendlies || staticinfo->unknownFlag212)
+                {
+                    enemies = TRUE;
+                }
+                if (staticinfo->canSpecialBandBoxFriendlies)
+                {
+                    friends = TRUE;
+                }
+                if (staticinfo->unknownFlag213)
+                {
+                    anyRace = TRUE;
+                }
+            }
+        }
+        if (!friends && !enemies && !anyRace)
+        {
+            selSelecting.numTargets = 0;
+            return;
+        }
+        if (anyRace)
+        {                                                   // anything at all
+            selRectDragFunction(list, &universe.mainCameraCommand.actualcamera, &rect, selSelecting.TargetPtr,
+                                &selSelecting.numTargets, FALSE, TRUE, FALSE, sensors);
+        }
+        else if (enemies)
+        {                                                   // any player's ships
+            selRectDragFunction(list, &universe.mainCameraCommand.actualcamera, &rect, selSelecting.TargetPtr,
+                                &selSelecting.numTargets, FALSE, FALSE, FALSE, sensors);
+        }
+        else
+        {                                                   // the player's ships
+            selRectDragFunction(list, &universe.mainCameraCommand.actualcamera, &rect, selSelecting.TargetPtr,
+                                &selSelecting.numTargets, TRUE, FALSE, FALSE, sensors);
+        }
+        if (!friends)
+        {
+            mrRemoveDerelictsAndAllPlayerShipsFromSelecting();
+        }
+        return;
+    }
+    if (catMrKbHeld(CAT_KB_BandboxFocus))
+    {
+        selRectDragFunction(list, &universe.mainCameraCommand.actualcamera, &rect, selSelecting.TargetPtr,
+                            &selSelecting.numTargets, FALSE, FALSE, FALSE, sensors);
+        return;
+    }
+    if (catMrKbHeld(CAT_KB_BandboxAttack))
+    {
+        if (playPackets)
+        {
+            return;
+        }
+        cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+        MakeShipsAttackCapable((SelectCommand *)&selection, (SelectCommand *)&selSelected, TRUE);
+        if (selection.numShips < 1)
+        {
+            selSelecting.numTargets = 0;
+            return;
+        }
+        selRectDragFunction(list, &universe.mainCameraCommand.actualcamera, &rect, selSelecting.TargetPtr,
+                            &selSelecting.numTargets, FALSE, TRUE, TRUE, sensors);
+        MakeTargetsOnlyNonForceAttackTargets((SelectAnyCommand *)&selSelecting, universe.curPlayerPtr);
+        return;
+    }
+    selRectDragFunction(list, &universe.mainCameraCommand.actualcamera, &rect, selSelecting.TargetPtr,
+                        &selSelecting.numTargets, TRUE, FALSE, FALSE, sensors);
 }
 //rotate and/or zoom the camera
 //nn: mouse wheel zoom doesn't call this code (at least in game and sensors manager)
@@ -1330,7 +3408,7 @@ void mrKeyRelease(sdword ID)
             }
             break;
         case ZKEY:
-            if (selSelected.numShips > 0 && mrHoldLeft == mrNULL && mrSpecialBandBox == FALSE)
+            if (selSelected.numShips > 0 && !catMrSelecting && mrSpecialBandBox == FALSE)
             {
                 selSelectionCopy((MaxAnySelection *)&tempSelection, (MaxAnySelection *)&selSelected);
                 MakeShipsSpecialActivateCapable((SelectCommand *)&tempSelection, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
@@ -1361,63 +3439,63 @@ void mrKeyRelease(sdword ID)
 #if MR_KEYBOARD_CHEATS
 void mrScanDebugCodes(sdword ID);
 #endif
-void gpStartInGameEscapeMenu(void);
 
 bool32 NoModifierKeyPressed(void)
 {
     return !(keyIsHit(SHIFTKEY) || keyIsHit(CONTROLKEY) || keyIsHit(ALTKEY) || keyIsHit(RALTKEY));
 }
 
-void mrSetTheFormation(TypeOfFormation formationtype)
+void mrSetTheFormation(TypeOfFormation formationtype, bool32 showMessage, bool32 shipVoice)
 {
-    char msgName[256];      // for the tutorial message
-
-    if((tutorial==TUTORIAL_ONLY) && !tutEnable.bFormation)
-        return;
-
-    strcpy(msgName, "Game_Formation_");
-
-    makeShipsFormationCapable((SelectCommand *)&selSelected);
-
-    if(selSelected.numShips > 0)
+    // CAT: mrSetTheFormation 0x005659d0: formation 8 is the parade (a mothership or carrier needed), else the
+    //      formation with the fleet voice (or the second ship's voice, shipVoice) and the message (showMessage); the
+    //      HW1 formation name on the screen is gone
+    if (!CAT_MR_ORDERS_ALLOWED() || !catMrTutEnabled(0x80))
     {
-        if (MothershipOrCarrierIndexInSelection((SelectCommand *)&selSelected) >= 0)
-        {
-            soundEvent(NULL, UI_Click);
-            mrNewFormation = PARADE_FORMATION;
-            mrFormationName = strGetString(strPARADE_FORMATION);
-            speechEvent(selSelected.ShipPtr[0], COMM_SetFormation, SPEECH_PARADE_FORMATION);
-            clWrapSetMilitaryParade(&universe.mainCommandLayer,(SelectCommand *)&selSelected);
-
-            strcat(msgName, strGetString(strPARADE_FORMATION));
-        }
-        else
-        {
-            soundEvent(NULL, UI_Click);
-            mrNewFormation = formationtype;
-            mrFormationName = TypeOfFormationToNiceStr(formationtype);
-            if (formationtype == CUSTOM_FORMATION)
-            {
-                speechEvent(selSelected.ShipPtr[0], COMM_SetFormation, formationtype+1);
-            }
-            else
-            {
-                speechEvent(selSelected.ShipPtr[0], COMM_SetFormation, formationtype);
-            }
-            clWrapFormation(&universe.mainCommandLayer,     //set new formation
-                        (SelectCommand *)&selSelected,formationtype,0);   // CAT-TODO(stage 3 UI): the force-field level of the formation menu
-
-            strcat(msgName, TypeOfFormationToStr(formationtype));
-
-        }
+        return;
     }
-
-    // Draw the formation set to the screen
-    mrDrawFormationTime = universe.totaltimeelapsed;
-    mrDrawFormation = TRUE;
-
-    tutGameMessage(msgName);
-    mrFormationName = NULL;
+    makeShipsFormationCapable((SelectCommand *)&selSelected);
+    if (selSelected.numShips <= 0)
+    {
+        return;
+    }
+    if (formationtype == SAME_FORMATION)
+    {
+        if (MothershipOrCarrierIndexInSelection((SelectCommand *)&selSelected) == -1)
+        {
+            clCommandMessage(strGetString(str_GM_NeedMothershipOrCarrierForParadeFormation), 0xffffffff);
+            return;
+        }
+        soundEventPlay(NULL, 0x108, NULL);
+        speechEventQueue(NULL, 0x4001062, SAME_FORMATION, -1, 0, selSelected.ShipPtr[0]->playerowner->playerIndex, -1,
+                         5.0f, -1);
+        clWrapSetMilitaryParade(&universe.mainCommandLayer, (SelectCommand *)&selSelected);
+        tutGameMessage("Game_Formation");
+        if (showMessage)
+        {
+            clCommandMessage(strGetString(str_GM_ChangeToMilitaryParade), 0xffffffff);
+        }
+        return;
+    }
+    soundEventPlay(NULL, 0x108, NULL);
+    if (!shipVoice)
+    {
+        speechEventQueue(NULL, 0x4001062, (formationtype == CUSTOM_FORMATION) ? NO_FORMATION : formationtype, -1, 0,
+                         selSelected.ShipPtr[0]->playerowner->playerIndex, -1, 5.0f, -1);
+    }
+    else
+    {
+        speechEventQueue(selSelected.ShipPtr[1], 0x4000890, selSelected.ShipPtr[1]->shiptype, -1, -1, -1, -1, 0.0f, -1);
+    }
+    clWrapFormation(&universe.mainCommandLayer, (SelectCommand *)&selSelected, formationtype, 0);
+    if (formationtype == DELTA_FORMATION)
+    {
+        tutGameMessage("Delta_Formation");
+    }
+    if (showMessage && (formationtype <= CUSTOM_FORMATION))
+    {
+        clCommandMessage(strGetString(str_GM_ChangeToDeltaFormation + formationtype), 0xffffffff);
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -1428,8 +3506,12 @@ void mrSetTheFormation(TypeOfFormation formationtype)
     Return      : TRUE if motherhip in focus, FALSE otherwise.
 ----------------------------------------------------------------------------*/
 #define MR_ONLY_MOTHERSHIP          1                       //1=focus only on mothership, 0 = focus on mothership along with other ships
-#define MR_NumberMothershipTypes    6                       // CAT: no HW1 P2Mothership or P3Megaship (M2-R4 ships-b)
-ubyte mrMothershipShipTypes[] = {Carrier, Mothership, P1Mothership, FloatingCity, ResearchStation, JunkYardHQ, 0};
+// CAT: the exe's eight types (mrMothershipShipTypes 0x008ba39c, memchr(..., 8) in mrNextMothershipPtr 0x00565da0):
+//      the four carriers, both motherships, p1Mothership and the floating city (HW1: Carrier, Mothership,
+//      P1Mothership, P2Mothership, P3Megaship, FloatingCity)
+#define MR_NumberMothershipTypes    8
+ubyte mrMothershipShipTypes[MR_NumberMothershipTypes] = {kCarrier, tCarrier, sCarrier, bCarrier, sMothership, bMothership,
+                                                         p1Mothership, trFloatingCity};
 Ship *mrMothershipPtr = NULL;
 bool32 mrMothershipInFocus(Ship *mothership)
 {
@@ -1497,9 +3579,11 @@ Ship *mrNextMothershipPtr(Ship *mothership)
         {                                                   //if we've come all the way back to the player's mothership
             return(NULL);
         }
+        // CAT: the exe's eight mothership types and a test that the ship is not disabled (mrNextMothershipPtr
+        //      0x00565da0)
         if (ship->playerowner == universe.curPlayerPtr &&
             memchr(mrMothershipShipTypes, ship->shiptype, MR_NumberMothershipTypes) &&
-            bitTest(ship->header.flags, SOF_Selectable))
+            bitTest(ship->header.flags, SOF_Selectable) && !ship->shipOrDerelict.catDisabled)
         {                                                   //if it's the player's ship and it's a mothership type
             break;                                          //use this one as the mothership
         }
@@ -1814,54 +3898,8 @@ altCase:
             break;
 processEscapeKey:
     case ESCKEY:
-
-            if (singlePlayerGame && popupTextNumLines)
-            {
-                popupTextNumLines = 0;
-            }
-            else if ( (multiPlayerGame) && (ViewingBuffer) )
-            {
-                gcCancelViewingBuffer();
-            }
-            else if (thisNisPlaying)
-            {                                               // single player game NIS playing
-                if (nisCameraCutTime == 0.0f && nisScissorFadeIn == 0.0f)
-                {                                           //if not just starting the NIS
-                    nisGoToEnd(thisNisPlaying);             //abort; skip the NIS
-                }                                           //else you can't skip NIS.  Is this acceptable?
-            }
-            else if (piePointSpecMode != PSM_Idle)
-            {
-                piePointModeOnOff(PIE_SPEC_Move, NULL);
-                soundEvent(NULL, UI_MovementGUIoff);
-            }
-            else if (mrHoldLeft == mrSelectHold)
-            {
-                mrHoldLeft = mrNULL;
-                mrSelectionRect.x0 = mrSelectionRect.x1 =   //clear selection rectangle
-                    mrSelectionRect.y0 = mrSelectionRect.y1 = 0;
-                selSelecting.numTargets = 0;
-            }
-            else if ((selSelected.numShips > 0) &&
-                     ((!(tutorial==TUTORIAL_ONLY)) || tutEnable.bCancelSelect))
-            {
-                soundEvent(NULL, UI_Click);
-                tutGameMessage("KB_SelectCancel");
-                selSelected.numShips = 0;
-                ioUpdateShipTotals();
-            }
-            else
-            {
-                if (!multiPlayerGame)
-                {
-                    universePause = TRUE;
-                }
-                soundEvent(NULL, UI_Click);
-                PossiblyResetTaskbar();
-                //feScreenStart(ghMainRegion, "In_game_esc_menu");
-                tutGameMessage("SP_EscMenu");
-                gpStartInGameEscapeMenu();
-            }
+            // CAT: Cataclysm's Escape command (0x0054f5f0); CAT-TODO(M2-R6 key bindings): bound through the key table
+            cat_mrEscape();
             break;
         case ARRLEFT:
 #if NIS_TEST
@@ -1910,58 +3948,10 @@ processEscapeKey:
             }
             break;
         case TABKEY:
-            if (selSelected.numShips >= MIN_SHIPS_IN_FORMATION)
-            {
-                if (MothershipOrCarrierIndexInSelection((SelectCommand *)&selSelected) >= 0)
-                {
-                    mrNewFormation = PARADE_FORMATION;
-                    mrFormationName = strGetString(strPARADE_FORMATION);
-                    mrFormationTime = universe.totaltimeelapsed;
-                    mrDrawFormationTime = universe.totaltimeelapsed;
-                    mrDrawFormation = TRUE;
-                }
-                else
-                {
-                    if (mrNewFormation > LAST_CYCLE_FORMATION)
-                    {
-                        mrNewFormation = DELTA_FORMATION;
-                    }
-                    else
-                    {
-                        if (keyIsHit(SHIFTKEY))
-                        {
-                            if (mrNewFormation == FIRST_CYCLE_FORMATION)
-                            {
-                                mrNewFormation = LAST_CYCLE_FORMATION;
-                            }
-                            else
-                            {
-                                mrNewFormation--;
-                            }
-
-                            tutGameMessage("KB_FormationPrevious");
-                        }
-                        else
-                        {
-                            if (mrNewFormation == LAST_CYCLE_FORMATION)
-                            {
-                                mrNewFormation = FIRST_CYCLE_FORMATION;
-                            }
-                            else
-                            {
-                                mrNewFormation++;
-                            }
-
-                            tutGameMessage("KB_FormationNext");
-                        }
-                    }
-                    mrFormationName = TypeOfFormationToNiceStr(mrNewFormation);
-                    mrFormationTime = universe.totaltimeelapsed;
-                    mrDrawFormationTime = universe.totaltimeelapsed;
-                    mrDrawFormation = TRUE;
-                }
-                soundEvent(NULL, UI_Click);
-            }
+            // CAT: TAB is Cataclysm's Toggle_Ship_Info (command 0x54, 0x00550490; HW1 cycled the formations here).
+            //      CAT-TODO(M2-R6 key bindings): bound through the key table
+            catShipPrintOn = !catShipPrintOn;
+            soundEventPlay(NULL, catShipPrintOn ? 0x138 : 0x139, NULL);
             break;
         case AKEY:
 /*            if (keyIsHit(CONTROLKEY))
@@ -2034,7 +4024,7 @@ cancelfocus:
             if (NoModifierKeyPressed())
             {
                 tutGameMessage("KB_Dock");
-                mrDockingOrders(NULL, NULL);
+                cat_mrDockShips();                          // CAT: the Dock command (0x00563c30)
             }
 #if MR_SOUND_RELOAD_VOLUMES
             else if (keyIsHit(CONTROLKEY))
@@ -2172,47 +4162,24 @@ cancelfocus:
             }
             break;
 
+        // CAT: the install's Next_Tactic_Level '[' / Prev_Tactic_Level ']' (cat_mrTacticsCycle 0x00566860, the
+        //      order 1 s after the last press) and GammaDown / GammaUp on ALT+[ / ALT+] (HW1: the tactics popup,
+        //      SHIFT for the gamma). CAT-TODO(M2-R6 key bindings): bound through the key table
         case LBRACK:
-            if(keyIsHit(SHIFTKEY))
+            if (keyIsHit(ALTKEY) || keyIsHit(RALTKEY))
             {
                 shGammaDown();
                 break;
             }
-            if(selSelected.numShips > 0)
-            {
-                sdword curTactics = selSelected.ShipPtr[0]->tacticstype;
-                curTactics--;
-                if(curTactics < 0)
-                    curTactics = 2;
-
-                soundEvent(NULL, UI_Click);
-
-                tacticsPopUpSetUp(curTactics);
-                clWrapSetTactics(&universe.mainCommandLayer,(SelectCommand *)&selSelected,curTactics);
-
-                tutGameMessage("KB_TacticsPrevious");
-            }
+            cat_mrTacticsCycle(FALSE);
             break;
         case RBRACK:
-            if(keyIsHit(SHIFTKEY))
+            if (keyIsHit(ALTKEY) || keyIsHit(RALTKEY))
             {
                 shGammaUp();
                 break;
             }
-            if(selSelected.numShips > 0)
-            {
-                sdword curTactics = selSelected.ShipPtr[0]->tacticstype;
-                curTactics++;
-                if(curTactics > 2)
-                    curTactics = 0;
-
-                soundEvent(NULL, UI_Click);
-
-                tacticsPopUpSetUp(curTactics);
-                clWrapSetTactics(&universe.mainCommandLayer,(SelectCommand *)&selSelected,curTactics);
-
-                tutGameMessage("KB_TacticsNext");
-            }
+            cat_mrTacticsCycle(TRUE);
             break;
         case JKEY:
             if ((!singlePlayerGame) && (bitTest(tpGameCreated.flag,MG_Hyperspace)))
@@ -2541,31 +4508,13 @@ docapslock:
             break;
 
         case F2KEY:
-            if((selSelected.numShips > 0) && ((!(tutorial==TUTORIAL_ONLY)) || tutEnable.bEvasive))
-            {
-                tutGameMessage("KB_TacticsEvasive");
-                tacticsPopUpSetUp(Evasive);
-                clWrapSetTactics(&universe.mainCommandLayer,(SelectCommand *)&selSelected,Evasive);
-                soundEvent(NULL, UI_ClickAccept);
-            }
+            cat_mrSetTactics(Evasive, TRUE);                  // CAT: Tactics_Evasive (cat_mrSetTactics 0x00565c30)
             break;
         case F3KEY:
-            if((selSelected.numShips > 0) && ((!(tutorial==TUTORIAL_ONLY)) || tutEnable.bNeutral))
-            {
-                tutGameMessage("KB_TacticsNeutral");
-                tacticsPopUpSetUp(Neutral);
-                clWrapSetTactics(&universe.mainCommandLayer,(SelectCommand *)&selSelected,Neutral);
-                soundEvent(NULL, UI_ClickAccept);
-            }
+            cat_mrSetTactics(Neutral, TRUE);                  // CAT: Tactics_Neutral (cat_mrSetTactics 0x00565c30)
             break;
         case F4KEY:
-            if((selSelected.numShips > 0) && ((!(tutorial==TUTORIAL_ONLY)) || tutEnable.bAgressive))
-            {
-                tutGameMessage("KB_TacticsAggressive");
-                tacticsPopUpSetUp(Aggressive);
-                clWrapSetTactics(&universe.mainCommandLayer,(SelectCommand *)&selSelected,Aggressive);
-                soundEvent(NULL, UI_ClickAccept);
-            }
+            cat_mrSetTactics(Aggressive, TRUE);                  // CAT: Tactics_Aggressive (cat_mrSetTactics 0x00565c30)
             break;
         case F5KEY:
         case F6KEY:
@@ -2585,10 +4534,12 @@ docapslock:
                     (void)gpQuickLoad();
                 }
             }
-            if (selSelected.numShips >= MIN_SHIPS_IN_FORMATION)
-            {
-                mrSetTheFormation(ID - F5KEY);
-            }
+            // CAT: Formation_Delta .. Formation_Custom on F5..F11 and Formation_Parade on F12 (mrSetTheFormation 0x005659d0
+            //      with the message; the exe has no minimum here, makeShipsFormationCapable filters)
+            mrSetTheFormation(ID - F5KEY, TRUE, FALSE);
+            break;
+        case F12KEY:
+            mrSetTheFormation(SAME_FORMATION, TRUE, FALSE);
             break;
 
         case SS_SCREENSHOT_KEY:
@@ -2673,11 +4624,28 @@ docapslock:
             soundEvent(NULL, UI_Click);
             zoomOutNow = TRUE;
             break;
+        // CAT: the install's Prev_Formation ',' / Next_Formation '.' (cat_mrFormationCycle 0x00566750) and, with SHIFT,
+        //      Prev_Music_Track / Next_Music_Track (0x00523ca0 / 0x00523c50). CAT-TODO(M2-R6 key bindings): bound
+        //      through the key table
         case LESSTHAN:
-            musicEventPrevTrack();
+            if (keyIsHit(SHIFTKEY) || keyIsHit(RSHIFTKEY))
+            {
+                musicEventPrevTrack();
+            }
+            else
+            {
+                cat_mrFormationCycle(TRUE);
+            }
             break;
         case GREATERTHAN:
-            musicEventNextTrack();
+            if (keyIsHit(SHIFTKEY) || keyIsHit(RSHIFTKEY))
+            {
+                musicEventNextTrack();
+            }
+            else
+            {
+                cat_mrFormationCycle(FALSE);
+            }
             break;
 
         default:
@@ -2690,547 +4658,8 @@ docapslock:
     mrLastKeyTime = universe.totaltimeelapsed;
 }
 
-//bit fields for the action mask
-#define MAM_Info                0x00000001
-#define MAM_Formations          0x00000002
-#define MAM_Tactics             0x00000004
-#define MAM_Move                0x00000008
-#define MAM_Scuttle             0x00000010
-#define MAM_Retire              0x00000020
-#define MAM_Divider             0x00000040
-#define MAM_Dock                0x00000080
-#define MAM_Launch              0x00000100
-#define MAM_Harvest             0x00000200
-#define MAM_Build               0x00000400
-#define MAM_Research            0x00000800
-#define MAM_Trade               0x00001000
-#define MAM_Hyperspace          0x00002000
-#define MAM_BasicSet            (MAM_Info | MAM_Formations | MAM_Tactics | MAM_Move)
-#define MAM_MedSet              MAM_BasicSet | MAM_Scuttle
-#define MAM_ExtSet              MAM_BasicSet | MAM_Scuttle | MAM_Retire
-
-struct
-{
-    udword mask;
-    char *string;
-}
-mrActionString[] =
-{
-    {MAM_Info,          "CSM_Info"},
-    {MAM_Formations,    "Group_menu-TO-Group_Formations_submenu"},
-    {MAM_Tactics,       "Group_menu-TO-Group_Tactics_submenu"},
-    {MAM_Move,          "CSM_Move"},
-    {MAM_Scuttle,       "CSM_Scuttle"},
-    {MAM_Retire,        "CSM_Retire"},
-    {MAM_Dock,          "CSM_Dock"},
-    {MAM_Hyperspace,    "CSM_Hyperspace"},
-    {MAM_Launch,        "CSM_Launch"},
-    {MAM_Harvest,       "CSM_Harvest"},
-    {MAM_Build,         "CSM_Build"},
-    {MAM_Research,      "CSM_Research"},
-    {MAM_Trade,         "CSM_Trade"},
-    {0,      NULL},
-};
-// CAT-PROVISIONAL: re-keyed to the 145 Cataclysm types. The exe copy of this table was not located. The values are the HW1 values of each type's HW1
-//      counterpart (same ship, any race); Cataclysm-only types get the default. Stage 3 replaces this table.
-udword mrMenuActionsByShipType[TOTAL_NUM_SHIPS] =
-{
-    MAM_ExtSet,                                        //sRecon (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sAcolyte (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMimic (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sLeech (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sACV (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMCV (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sRammingFrigate (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMultiBeamFrigate (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sHiveFrigate (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sSwarmer (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sDreadnought (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sDreadnoughtCannon (Cataclysm-only: default)
-    MAM_ExtSet | MAM_Divider | MAM_Build | MAM_Launch, //sCarrier (HW1 Carrier)
-    MAM_ExtSet,                                        //sCarrierSupport (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sWorker (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sRepairDroid (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sProcessor (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sSentinel (Cataclysm-only: default)
-    MAM_BasicSet | MAM_Divider | MAM_Scuttle | MAM_Build | MAM_Launch, //sMothership (HW1 Mothership)
-    MAM_ExtSet,                                        //sMothershipSpecial (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMothershipEngineering (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMothershipArmour (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMothershipMicro (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMothershipWeapons (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMothershipDockingBay (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sDestroyer (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMothershipSupport (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMothershipCommand (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMothershipEnginesLower (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMothershipEnginesUpper (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMothershipLowerSpine (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMothershipBigGun (Cataclysm-only: default)
-    MAM_ExtSet,                                        //sMothershipOreCanArmour (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bRecon (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bAcolyte (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bInterceptor (Cataclysm-only: default)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //bCloakedFighter (HW1 CloakedFighter)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //bAttackBomber (HW1 AttackBomber)
-    MAM_ExtSet,                                        //bACV (Cataclysm-only: default)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //bMultiGunCorvette (HW1 MultiGunCorvette)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //bHeavyCorvette (HW1 HeavyCorvette)
-    MAM_ExtSet,                                        //bMultiBeamFrigate (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bHiveFrigate (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bSwarmer (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bIonArrayFrigate (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bDFGFrigate (HW1 DFGFrigate)
-    MAM_ExtSet,                                        //bHeavyCruiser (HW1 HeavyCruiser)
-    MAM_ExtSet | MAM_Divider | MAM_Build | MAM_Launch, //bCarrier (HW1 Carrier)
-    MAM_ExtSet,                                        //bRammingFrigate (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bWorker (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bRepairDroid (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bProcessor (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bSentinel (Cataclysm-only: default)
-    MAM_BasicSet | MAM_Divider | MAM_Scuttle | MAM_Build | MAM_Launch, //bMothership (HW1 Mothership)
-    MAM_ExtSet,                                        //bMothershipDockingBay (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bMothershipEnginesLower (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bSectMoship (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bMothershipSupport (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bCruiseMissile (Cataclysm-only: default)
-    MAM_ExtSet,                                        //bMissileCorvette (Cataclysm-only: default)
-    MAM_ExtSet,                                        //kAdvanceSupportFrigate (HW1 AdvanceSupportFrigate)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kAttackBomber (HW1 AttackBomber)
-    MAM_ExtSet | MAM_Divider | MAM_Build | MAM_Launch, //kCarrier (HW1 Carrier)
-    MAM_ExtSet,                                        //kCloakGenerator (HW1 CloakGenerator)
-    MAM_ExtSet,                                        //kGravWellGenerator (HW1 GravWellGenerator)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kHeavyCorvette (HW1 HeavyCorvette)
-    MAM_ExtSet,                                        //kHeavyCruiser (HW1 HeavyCruiser)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kHeavyDefender (HW1 HeavyDefender)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kHeavyInterceptor (HW1 HeavyInterceptor)
-    MAM_ExtSet,                                        //kIonCannonFrigate (HW1 IonCannonFrigate)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kMultiGunCorvette (HW1 MultiGunCorvette)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kProximitySensor (HW1 ProximitySensor)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //kSalCapCorvette (HW1 SalCapCorvette)
-    MAM_ExtSet,                                        //kStandardDestroyer (HW1 StandardDestroyer)
-    MAM_ExtSet,                                        //tAdvanceSupportFrigate (HW1 AdvanceSupportFrigate)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tAttackBomber (HW1 AttackBomber)
-    MAM_ExtSet | MAM_Divider | MAM_Build | MAM_Launch, //tCarrier (HW1 Carrier)
-    MAM_ExtSet,                                        //tCloakGenerator (HW1 CloakGenerator)
-    MAM_ExtSet,                                        //tDFGFrigate (HW1 DFGFrigate)
-    MAM_ExtSet,                                        //tGravWellGenerator (HW1 GravWellGenerator)
-    MAM_ExtSet,                                        //tHeavyCruiser (HW1 HeavyCruiser)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tHeavyDefender (HW1 HeavyDefender)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tHeavyInterceptor (HW1 HeavyInterceptor)
-    MAM_ExtSet,                                        //tIonCannonFrigate (HW1 IonCannonFrigate)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tMinelayerCorvette (HW1 MinelayerCorvette)
-    MAM_ExtSet,                                        //tMissileDestroyer (HW1 MissileDestroyer)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tMultiGunCorvette (HW1 MultiGunCorvette)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tProximitySensor (HW1 ProximitySensor)
-    MAM_ExtSet | MAM_Divider | MAM_Harvest | MAM_Dock, //tResourceCollector (HW1 ResourceCollector)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //tSalCapCorvette (HW1 SalCapCorvette)
-    MAM_ExtSet,                                        //tStandardDestroyer (HW1 StandardDestroyer)
-    MAM_ExtSet,                                        //tStandardFrigate (HW1 StandardFrigate)
-    MAM_ExtSet,                                        //p1Outpost (Cataclysm-only: default)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //p1Fighter (HW1 P1Fighter)
-    MAM_ExtSet,                                        //p1IonArrayFrigate (HW1 P1IonArrayFrigate)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //p1MissileCorvette (HW1 P1MissileCorvette)
-    MAM_ExtSet,                                        //p1Mothership (HW1 P1Mothership)
-    MAM_ExtSet | MAM_Divider | MAM_Dock,               //p1StandardCorvette (HW1 P1StandardCorvette)
-    MAM_ExtSet,                                        //trFloatingCity (HW1 FloatingCity)
-    MAM_ExtSet,                                        //trCargoBarge (HW1 CargoBarge)
-    MAM_ExtSet,                                        //trMiningBase (HW1 MiningBase)
-    MAM_ExtSet,                                        //trResearchStation (HW1 ResearchStation)
-    MAM_ExtSet,                                        //trJunkYardDawg (HW1 JunkYardDawg)
-    MAM_ExtSet,                                        //trJunkYardHQ (Cataclysm-only: default)
-    MAM_ExtSet,                                        //trGhostship (Cataclysm-only: default)
-    MAM_ExtSet,                                        //trJunk_LGun (Cataclysm-only: default)
-    MAM_ExtSet,                                        //trJunk_SGun (Cataclysm-only: default)
-    MAM_ExtSet,                                        //trResearchStationBridge (Cataclysm-only: default)
-    MAM_ExtSet,                                        //trResearchStationTower (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dRKO (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dBigGun (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dBigGunUnit (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dSlipgateSmall (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dSlipgateMedium (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dSlipgateLarge (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dCrate (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dJunk1PartA (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dJunk1Shell (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dJunk1Strut (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dJunk2Shipwreck (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dJunk3Boiler (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dJunk3BoilerCasing (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dMessagePod (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dBuoy (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dFirstPlanet (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dDeadPlanet (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dCrystal0 (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dCrystal1 (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dBeastDockingBay (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dNISBuoy (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dBeastMothership (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dNomadMoon (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dNomadFieldEmitter (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dAcolyte (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dPrisonShip (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dPrisonShipInfected (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dSlipgateNode (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dKushanCarrier (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dIonArrayFrigate (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dIonCannonFrigate (HW1 IonCannonFrigate)
-    MAM_ExtSet,                                        //dEcclesiam (Cataclysm-only: default)
-    MAM_ExtSet,                                        //dEcclesiamInfected (Cataclysm-only: default)
-    MAM_ExtSet,                                        //nisLightSource1 (Cataclysm-only: default)
-    MAM_ExtSet,                                        //nisLightSource2 (Cataclysm-only: default)
-    MAM_ExtSet                                         //nisLensflareSource1 (Cataclysm-only: default)
-};
-
-char *mrMenuItemByFormation[] =
-{
-    /* DELTA_FORMATION   */ "CSM_DeltaFormation",
-    /* BROAD_FORMATION   */ "CSM_BroadFormation",
-    /* DELTA3D_FORMATION */ "CSM_XFormation",
-    /* CLAW_FORMATION    */ "CSM_ClawFormation",
-    /* WALL_FORMATION    */ "CSM_WallFormation",
-    /* SPHERE_FORMATION  */ "CSM_SphereFormation",
-    /* CUSTOM_FORMATION  */ "CSM_PicketFormation",
-};
-
-char *mrMenuItemByTactic[] =
-{
-    /* Evasive,     */ "CSM_Evasive",
-    /* Neutral,     */ "CSM_Neutral",
-    /* Aggressive,  */ "CSM_Agressive",
-};
-
-/*-----------------------------------------------------------------------------
-    Name        : mrAtomSortCompare
-    Description : Callback for sorting an atom list by y position.
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-int mrAtomSortCompare(const void *p0, const void *p1)
-{
-//    return(((featom *)p0)->y - ((featom *)p1)->y);
-    if (((featom *)p0)->y > ((featom *)p1)->y)
-    {
-        return(1);
-    }
-    else if (((featom *)p0)->y == ((featom *)p1)->y)
-    {
-        return(((featom *)p1)->width - ((featom *)p0)->width);
-    }
-    else
-    {
-        return(-1);
-    }
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : mrDeleteAllAtomsWithin
-    Description : Delete all atoms from the atom list of specified screen that
-                    are within the bounds of the specified atom
-    Inputs      : screen - screen to delete atoms from
-                  atomIndex - index of atom to get the bounds from
-    Outputs     : Will delete at least 1 atom, the one specified.
-    Return      : lowest index of a deleted atom
-----------------------------------------------------------------------------*/
-sdword mrDeleteAllAtomsWithin(fescreen *screen, sdword atomIndex)
-{
-    sdword index, j, lowest = SDWORD_Max;
-    sdword thisX, thisY, thisWidth, thisHeight;
-
-    thisX = screen->atoms[atomIndex].x;                     //remember location of this atom
-    thisY = screen->atoms[atomIndex].y;
-    thisWidth = screen->atoms[atomIndex].width;
-    thisHeight = screen->atoms[atomIndex].height;
-    for (index = 0; index < screen->nAtoms; index++)
-    {                                                       //search all atoms
-        if (screen->atoms[index].x >= thisX && screen->atoms[index].y >= thisY &&
-            screen->atoms[index].x + screen->atoms[index].width <= thisX + thisWidth &&
-            screen->atoms[index].y + screen->atoms[index].height <= thisY + thisHeight)
-        {                                                   //if atom is inside the specified atom
-            lowest = min(index, lowest);                    //remember the lowest index
-            for (j = index; j < screen->nAtoms - 1; j++)
-            {                                               //move the rest of the list back 1 space
-                screen->atoms[j] = screen->atoms[j + 1];
-            }
-            index--;                                        //one less atom to check
-            screen->nAtoms--;
-        }
-    }
-    dbgAssertOrIgnore(lowest != SDWORD_Max);
-    return(lowest);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : mrMenuDisplay
-    Description : Display a right-click menu for a certain set of ships
-    Inputs      : actionMask - bit fields for ship types
-                  currentFormation - what formation the selected ships are in, if any
-                  tacticsBits - one bit for each type of tactic present in the group
-    Outputs     : finds best matching menu in mrRightClickTable and starts it.
-    Return      : void
-----------------------------------------------------------------------------*/
-void mrMenuDisplay(udword actionMask, TypeOfFormation currentFormation, udword tacticsBits)
-{
-#define NUMBER_GAPS         12
-    fescreen *newScreen, *staticScreen;
-    sdword index, j;
-    char *name;
-    sdword nGaps = 0;
-    struct
-    {
-        sdword position, height;
-    }
-    gap[NUMBER_GAPS];
-    featom *atom;
-
-    //set the selected bit for the current formation
-    staticScreen = feScreenFind("Group_Formations_submenu");
-    for (index = 0; index < staticScreen->nAtoms; index++)
-    {                                                       //clear all atoms of the selected bit
-        bitClear(staticScreen->atoms[index].status, FAS_Checked);
-    }
-    //now set the formation bit on the correct formation
-    if (currentFormation != NO_FORMATION)
-    {
-        atom = feAtomFindInScreen(staticScreen, mrMenuItemByFormation[currentFormation]);
-        dbgAssertOrIgnore(atom != NULL);
-        bitSet(atom->status, FAS_Checked);
-    }
-    //set the selected bit(s) for the current tactics
-    staticScreen = feScreenFind("Group_Tactics_submenu");
-    for (index = 0; index < staticScreen->nAtoms; index++)
-    {                                                       //clear all atoms of the selected bit
-        bitClear(staticScreen->atoms[index].status, FAS_Checked);
-    }
-    for (index = 0; index < NUM_TACTICS_TYPES; index++)
-    {
-        if (tacticsBits & (1 << index))
-        {
-            atom = feAtomFindInScreen(staticScreen, mrMenuItemByTactic[index]);
-            dbgAssertOrIgnore(atom != NULL);
-            bitSet(atom->status, FAS_Checked);
-        }
-    }
-    //take the full menu and remove any atoms which represent the entries we are to remove
-    staticScreen = feScreenFind("RightClickMenu");          //find the screen
-    newScreen = memAlloc(sizeof(fescreen), "tempMenu", 0);  //allocate the temp screen
-    *newScreen = *staticScreen;                             //copy the static screen to the temp screen
-    if (staticScreen->nLinks > 0)
-    {
-        newScreen->links = memAlloc(sizeof(felink) * staticScreen->nLinks, "tempMenuLink", 0);
-        memcpy(newScreen->links, staticScreen->links, sizeof(felink) * staticScreen->nLinks);
-    }
-    else
-    {
-        newScreen->links = NULL;
-    }
-    newScreen->atoms = memAlloc(sizeof(featom) * staticScreen->nAtoms, "tempMenuAtoms", 0);
-    memcpy(newScreen->atoms, staticScreen->atoms, sizeof(featom) * staticScreen->nAtoms);
-    qsort(newScreen->atoms, staticScreen->nAtoms, sizeof(featom), mrAtomSortCompare);
-
-    //scan through the menu and remove useless atoms
-    for (index = 0; index < newScreen->nAtoms; index++)
-    {
-        if (bitTest(newScreen->atoms[index].flags, FAF_Function))
-        {                                                   //if a function atom
-            name = newScreen->atoms[index].name;             //keep pointer to string
-            for (j = 0; mrActionString[j].string != 0; j++)
-            {                                               //for all possible actions
-                if ((actionMask & mrActionString[j].mask) == 0)
-                {                                           //if this action is not to be
-                    if (feNamesEqual(name, mrActionString[j].string))
-                    {                                       //and this atom has the action name
-                        dbgAssertOrIgnore(nGaps < NUMBER_GAPS);
-                        gap[nGaps].position = newScreen->atoms[index].y;
-                        gap[nGaps].height = newScreen->atoms[index].height;
-                        nGaps++;
-                        index = mrDeleteAllAtomsWithin(newScreen, index);
-                        index--;
-                        break;
-                    }
-                }
-            }
-        }
-        if (newScreen->atoms[index].type == FA_Divider)
-        {                                                   //if this is a divider
-            if (!bitTest(actionMask, MAM_Divider))
-            {                                               //if we are not allowed dividers
-                dbgAssertOrIgnore(nGaps < NUMBER_GAPS);
-                gap[nGaps].position = newScreen->atoms[index].y;
-                gap[nGaps].height = newScreen->atoms[index].height;
-                nGaps++;
-                index = mrDeleteAllAtomsWithin(newScreen, index);
-                index--;
-            }
-        }
-        if ((newScreen->atoms[index].name != 0) && (feNamesEqual(newScreen->atoms[index].name, "Disappear")))
-        {                                                   //remove weird artefact showing up
-                                                            //TODO: where does that entry come from?
-            index = mrDeleteAllAtomsWithin(newScreen, index);
-            index--;
-        }
-    }
-    //now scan through the remaining atoms and move up any atoms below a given gap
-    for (index = nGaps - 1; index >= 0; index--)
-    {                                                       //for each gap
-        for (j = 0; j < newScreen->nAtoms; j++)
-        {                                                   //for each atom
-            if (newScreen->atoms[j].y >= gap[index].position)
-            {                                               //move all atoms up
-                newScreen->atoms[j].y -= gap[index].height;
-            }
-        }
-        newScreen->atoms[0].height -= gap[index].height;//decrease height of screen
-    }
-    //start the actual menu
-    feMenuStart(ghMainRegion, newScreen, mouseCursorX(), mouseCursorY());
-    feTempMenuScreen = newScreen;
-#undef NUMBER_GAPS
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : mrClickedOnPlayer
-    Description : returns the a pointer to the player you right clicked on.  NULL otherwise/
-    Inputs      : none
-    Outputs     : player clicked on or NULL
-    Return      : void
-----------------------------------------------------------------------------*/
-/*sdword mrClickedOnPlayer(void)
-{
-    fonthandle oldfont;
-    rectangle  playerColorRect;
-    sdword     index;
-
-    if ((mrDrawTactical)&&(multiPlayerGame)&&(multiPlayerGameUnderWay))
-    {
-        oldfont = fontMakeCurrent(selGroupFont2);
-
-        playerColorRect.y1 = TO_PLAYERLIST_Y-fontHeight("M");
-        playerColorRect.y0 = playerColorRect.y1-fontHeight("M");
-        playerColorRect.x0 = TO_PLAYERLIST_X;
-        playerColorRect.x1 = playerColorRect.x0 + fontHeight(" ");
-
-        //draw the list of player names/colors
-        for (index = universe.numPlayers - 1; index >= 0; index--)
-        {
-            playerColorRect.x1 = fontWidth(playerNames[index]) + fontHeight(" ")*2;
-            if ((mouseInRect(&playerColorRect)) && (index!=sigsPlayerIndex))
-            {
-                return (index);
-            }
-            playerColorRect.y0 -= fontHeight("M")+1;//update the position
-            playerColorRect.y1 -= fontHeight("M")+1;
-        }
-
-        fontMakeCurrent(oldfont);
-    }
-
-    return (-1);
-}*/
-
-
-/*-----------------------------------------------------------------------------
-    Name        : mrRightClickMenu
-    Description : Process right-click at current mouse location
-    Inputs      : void
-    Outputs     : sees what ship was ckicked on and performs appropriate action.
-    Return      : void
-----------------------------------------------------------------------------*/
-void mrRightClickMenu(void)
-{
-    Ship *ship;
-    udword actionMask = 0, shipSelected = 0;
-    sdword index;
-    TypeOfFormation formation;
-    udword tacticsBits = 0;
-    fescreen *screen;
-    rectangle playerColorRect;
-
-    playerColorRect.x0 = TO_PLAYERLIST_X;
-    playerColorRect.x1 = MAIN_WindowWidth;
-    playerColorRect.y0 = 0;
-    playerColorRect.y1 = MAIN_WindowHeight-TO_PLAYERLIST_Y;
-
-    if((tutorial==TUTORIAL_ONLY) && !tutEnable.bContextMenus)
-        return;
-
-    if ((ship = selSelectionClick(universe.RenderList.head,
-            &(universe.mainCameraCommand.actualcamera),
-            mouseCursorX(), mouseCursorY(), FALSE, FALSE, FALSE)) != NULL)   // CAT: 7th argument (M2-R5 hud)
-    {                                                       //if right clicked on a ship
-        if (ship->playerowner == universe.curPlayerPtr)
-        {
-            if (ship->header.flags & SOF_Selectable)               // make sure it is selectable
-            {
-                if (selSelected.numShips == 0)
-                {                                           //if no ships selected
-                    selSelectionSetSingleShip(ship);        //select this cat
-                    tacticsBits = ship->tacticstype;
-
-                    if(tutorial)
-                        tutFEContextMenuShipType = ship->shiptype;
-
-                    mrMenuDisplay(mrMenuActionsByShipType[ship->shiptype], NO_FORMATION, tacticsBits);
-                }
-                else
-                {                                           //else there are ships selected
-                    for (index = 0; index < selSelected.numShips; index++)
-                    {
-                        if (selSelected.ShipPtr[index] == ship)
-                        {                                   //if this is the clicked-upon ship
-                            shipSelected = TRUE;
-                        }                                   //build ship-type mask
-                        actionMask |= mrMenuActionsByShipType[selSelected.ShipPtr[index]->shiptype];
-                        tacticsBits |= 1 << selSelected.ShipPtr[index]->tacticstype;
-                    }
-                    if (shipSelected)
-                    {                                       //if ckicked on a selected ship
-                        formation = clSelectionAlreadyInFormation(&universe.mainCommandLayer,
-                                            (SelectCommand *)(&selSelected));
-
-                        if(tutorial)
-                            tutFEContextMenuShipType = ship->shiptype;
-
-                        mrMenuDisplay(actionMask, formation, tacticsBits);//display a menu
-                    }
-                }
-                soundEvent(NULL, UI_Click);
-            }
-        }
-        else
-        {
-#if MR_VERBOSE_LEVEL >= 1
-            dbgMessagef("Try clicking on some of your own ships!");
-#endif
-        }
-    }
-    else if ( ((playerClickedOn = smClickedOnPlayer(&playerColorRect))!=-1) &&
-              (playerClickedOn < sigsNumPlayers) &&
-              (mrDrawTactical)&&(multiPlayerGame)&&(multiPlayerGameUnderWay) &&
-              (universe.players[sigsPlayerIndex].playerState != PLAYER_DEAD) &&
-              (universe.players[playerClickedOn].playerState != PLAYER_DEAD))
-    {
-        if (bitTest(universe.curPlayerPtr->Allies,PLAYER_MASK(playerClickedOn)))
-        {
-            screen = feScreenFind("PlayerListRightClickAlly");
-
-            feMenuStart(ghMainRegion, screen, mouseCursorX(), mouseCursorY());
-        }
-        else
-        {
-            screen = feScreenFind("PlayerListRightClick");
-
-            feMenuStart(ghMainRegion, screen, mouseCursorX(), mouseCursorY());
-        }
-    }
-#if MR_VERBOSE_LEVEL >= 1
-    else
-    {
-        dbgMessagef("Din't click on nuttin'!");
-    }
-#endif
-}
+// CAT: HW1's right-click menu (the action masks, mrMenuActionsByShipType, mrMenuDisplay, mrRightClickMenu and the player
+//      list menus) is gone: Cataclysm's right click is cat_mrReleaseRight 0x0056b0b0 with the popup menu (PopupMenu.c)
 
 #if MR_TEST_HPB
 #define MR_ROTATE_SCALAR        0.007f
@@ -3307,104 +4736,45 @@ void mrFormationShips(MaxSelection *selection, Ship *ship)
 {
     SelectCommand *formSelection;
     MaxSelection selectedInFormation;
-    bool32 parade, groupselect = FALSE;
-    //sdword i;
+    bool32 parade;
 
-    // CAT: no HW1 Probe (M2-R4 ships-b)
-
+    // CAT: mrFormationShips 0x00566a00: the clicked ship's formation (the parade's ships of its type), unless it is
+    //      already the selection or the ship is selected and the multiple-select key is held; HW1's single-click
+    //      build / research / sensors screens of a selected mothership are gone
     formSelection = getShipAndItsCommandSelection(&universe.mainCommandLayer, ship, &parade);
     MakeShipsSelectable(formSelection);
     if (formSelection->numShips > 1)
-    {                                                           //if this ship is actually in formation
-        if (parade)
+    {
+        if (!parade)
         {
-            selSelectionCopyByType(selection, (MaxSelection *)formSelection,
-                             ship->shiptype);
-
-            selSelectionCopyByType(&selectedInFormation, &selSelected,
-                             ship->staticinfo->shiptype);
-            groupselect = TRUE;
-
+            selSelectionCopy((MaxAnySelection *)selection, (MaxAnySelection *)formSelection);
+            selSelectionCopy((MaxAnySelection *)&selectedInFormation, (MaxAnySelection *)&selSelected);
         }
         else
         {
-            selSelectionCopy((MaxAnySelection *)selection, (MaxAnySelection *)formSelection);
-
-            selSelectionCopy((MaxAnySelection *)&selectedInFormation, (MaxAnySelection *)&selSelected);
-            groupselect = TRUE;
+            selSelectionCopyByType(selection, (MaxSelection *)formSelection, ship->shiptype);
+            selSelectionCopyByType(&selectedInFormation, (MaxSelection *)&selSelected, ship->staticinfo->shiptype);
         }
-
-        if (selSelectionCompare((MaxAnySelection *)(selection),
-                                (MaxAnySelection *)(&selectedInFormation)) == 0)
-        {                                                   //if the current selection is the same as the formation clicked on
-            selection->numShips = 0;
-        }
-        if (selShipInSelection(selSelected.ShipPtr, selSelected.numShips, ship) && keyIsHit(SHIFTKEY))
+        if (selSelectionCompare((MaxAnySelection *)selection, (MaxAnySelection *)&selectedInFormation) == 0)
         {
             selection->numShips = 0;
         }
-
+        if (selShipInSelection(selSelected.ShipPtr, selSelected.numShips, ship) && (keyIsHit(SHIFTKEY) || keyIsHit(RSHIFTKEY)))
+        {
+            selection->numShips = 0;
+        }
         if (selection->numShips == 0)
-        {                                                   //if everything was pruned
-            selection->ShipPtr[0] = ship;                   //select at least this ship
+        {
+            selection->ShipPtr[0] = ship;
             selection->numShips = 1;
-            groupselect = FALSE;
         }
         tutGameMessage("Game_ClickSelectGroup");
+        memFree(formSelection);
+        return;
     }
-    else
-    {
-        selection->ShipPtr[0] = ship;                       //select just this ship
-        selection->numShips = 1;
-    }
+    selection->ShipPtr[0] = ship;
+    selection->numShips = 1;
     memFree(formSelection);
-
-/*
-    for(i=0;i<selSelected.numShips;)
-    {
-        if(selSelected.ShipPtr[i]->playerowner != universe.curPlayerPtr)
-        {
-            selSelected.numShips--;
-            selSelected.ShipPtr[i]=selSelected.ShipPtr[selSelected.numShips];
-            continue;
-        }
-        i++;
-    }
-*/
-    //free the formation selection
-    // CAT: the label "gotselection" went with the HW1 Probe case (M2-R4 ships-b)
-#if MR_GUI_SINGLECLICK
-    if (selSelected.numShips == 1 && selection->numShips == 1 && selSelected.ShipPtr[0] == selection->ShipPtr[0])
-    {
-        switch (selSelected.ShipPtr[0]->shiptype)
-        {
-            case Carrier:
-            case Mothership:
-/*
-                if (mouseCursorSelect.numShips > 0)
-                {
-                    selSelectionCopy((MaxAnySelection *)&selSelected,
-                                     (MaxAnySelection *)&mouseCursorSelect);
-                    mouseCursorSelect.numShips = 0;
-                    makeShipsDockCapable((SelectCommand *)&selSelected); //filter ships that can't dock
-                    clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&selSelected,
-                               CAT_DOCK_SUPPORT, (Ship *)mouseCursorObjPtr);
-                }
-                else
-                {
-*/
-                    cmConstructionBegin(ghMainRegion,(smemsize)selSelected.ShipPtr[0], 0, 0);
-//                }
-                break;
-                rmResearchGUIBegin(ghMainRegion,(smemsize)selSelected.ShipPtr[0], 0, 0);
-                break;
-                smSensorsBegin(NULL, NULL);
-                break;
-            default:
-                break;
-        }
-    }
-#endif //MR_GUI_SINGLECLICK
 }
 
 /*-----------------------------------------------------------------------------
@@ -3414,275 +4784,321 @@ void mrFormationShips(MaxSelection *selection, Ship *ship)
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
-void mrObjectClick(Ship *ship)
+void mrObjectClick(Ship *ship, bool32 doubleClick)
 {
-    ProtectCommandMax6 protectOne;
-    AttackCommandMax6 attackOne;
-    MaxSelection tempSelection;
-    bool32 bFriendlies, bEnemies;
-    bool32 bForceAttackEnemies = FALSE;
+    CatTargetActions selectionActions, targetActions;
+    MaxSelection targets, selection;
+    sdword action, ability, index;
+    Node *node;
+    Ship *found;
 
-//    dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-    if (guardKeyIsHit() && ship->header.objtype == OBJ_ShipType) {
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+    // CAT: mrObjectClick 0x00566b60, Cataclysm's: the modifier keys (force attack, multiple select, guard, the special
+    //      popup on the ship, focus, attack) first; then, outside the sensors manager and for a ship not selected, the
+    //      context order of the Homeworld CSA option (the right-click order of cat_mrReleaseRight, on a left click,
+    //      some only on a double click); else the clicked own ship (its formation) is selected
+    if (universePause || mrDisabled)
+    {
+        return;
+    }
+    targets.numShips = (ship != NULL) ? 1 : 0;
+    targets.ShipPtr[0] = ship;
+    if (catMrKbHeld(CAT_KB_BandboxForceAttack))
+    {
+        if (playPackets || (targets.numShips < 1))
         {
-            return;  // playing back a recorded game do nothing!
+            return;
         }
-        if (!mrDisabled && selSelected.numShips > 0)
-        {                                                   //ctrl-alt/g click: guard
-            if ((ship->playerowner == universe.curPlayerPtr) || allianceIsShipAlly(ship,universe.curPlayerPtr))
+        MakeShipsAttackCapable((SelectCommand *)&selection, (SelectCommand *)&selSelected, TRUE);
+        cat_selSelectionCopy((MaxSelection *)&selSelected, &selection);
+        if (selSelected.numShips < 1)
+        {
+            return;
+        }
+        cat_selMakeTargetsAttackable((SelectCommand *)&targets, FALSE);
+        MakeShipsNotIncludeTheseShips((SelectCommand *)&targets, (SelectCommand *)&selSelected);
+        if (targets.numShips < 1)
+        {
+            return;
+        }
+        speechEventAttack();
+        clWrapAttack(&universe.mainCommandLayer, (SelectCommand *)&selSelected, (AttackCommand *)&targets);
+        tutGameMessage("Game_BandBoxForceAttack");
+        return;
+    }
+    if (catMrKbHeld(CAT_KB_MultipleSelect))
+    {
+        if ((ship->header.objtype == OBJ_ShipType) && (ship->playerowner == universe.curPlayerPtr))
+        {
+            if (!selShipInSelection(selSelected.ShipPtr, selSelected.numShips, ship))
             {
-                if (!ShipInSelection((SelectCommand *)&selSelected,ship))
-                {
-                    MakeShipsGuardCapable((SelectCommand *)&selSelected, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
-
-                    if (selSelected.numShips > 0)
-                    {
-                        protectOne.numShips = 1;
-                        protectOne.ShipPtr[0] = ship;
-
-                        speechEvent(selSelected.ShipPtr[0], COMM_Guard, 0);
-                        clWrapProtect(&universe.mainCommandLayer,(SelectCommand *)&selSelected,(ProtectCommand *)&protectOne);
-                        tutGameMessage("Game_ClickGuard");
-                    }
-                }
+                selSelectionAddSingleShip((MaxSelection *)&selSelected, ship);
             }
+            else
+            {
+                selSelectionRemoveSingleShip((MaxSelection *)&selSelected, ship);
+            }
+            ioUpdateShipTotals();
         }
-    } else if (keyIsHit(ALTKEY) || keyIsHit(RALTKEY)) { // alt-click: focus on a ship
-#if MR_CAN_FOCUS_ROIDS
-        if ((mrCanFocusRoids && !multiPlayerGame) || ship->header.objtype == OBJ_ShipType || ship->header.objtype == OBJ_DerelictType)
-#else
-        if (ship->header.objtype == OBJ_ShipType || ship->header.objtype == OBJ_DerelictType)
-#endif
+        tutGameMessage("MultipleSelect");
+        return;
+    }
+    if (catMrKbHeld(CAT_KB_BandboxGuard))
+    {
+        if (playPackets || (targets.numShips < 1))
         {
-            selSelecting.TargetPtr[0] = (SpaceObjRotImpTarg *)ship; //make a temporary dummy selection
-            selSelecting.numTargets = 1;
-
-            tutGameMessage("Game_ClickFocus");
-            ccFocusClose(&universe.mainCameraCommand,
-                    (FocusCommand *)&selSelecting);         //focus on these ships
-            selSelecting.numTargets = 0;
+            return;
         }
-    } else if (kbCommandKeyIsHit(kbSHIP_SPECIAL)) { // z-key: special target operation
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+        cat_selMakeShipsProtectCapable((SelectCommand *)&selSelected, TRUE);
+        if (selSelected.numShips < 1)
         {
-            return;  // playing back a recorded game do nothing!
+            return;
         }
-        if (mrCanZBandBox(&bFriendlies, &bEnemies))
-        {                                                   //if we can z-bandbox
-            selSelecting.numTargets = 1;
-            selSelecting.TargetPtr[0] = (SpaceObjRotImpTarg *)ship;
-            if (bEnemies)
-            {                                               //if we're salvaging
-                if (ShiptypeInSelection((SelectCommand *)&selSelected, SalCapCorvette))
-                {                                           //get only salvageable ships
-                    MakeTargetsSalvageable((SelectAnyCommand *)&selSelecting, universe.curPlayerPtr);
+        MakeShipsFriendlyAndAlliesShips((SelectCommand *)&targets, universe.curPlayerPtr);
+        MakeShipsNotIncludeTheseShips((SelectCommand *)&targets, (SelectCommand *)&selSelected);
+        if (targets.numShips < 1)
+        {
+            return;
+        }
+        speechEventQueue(NULL, 0x4001061, -1, -1, 0, selSelected.ShipPtr[0]->playerowner->playerIndex, -1, 5.0f, -1);
+        clWrapProtect(&universe.mainCommandLayer, (SelectCommand *)&selSelected, (ProtectCommand *)&targets);
+        tutGameMessage("Game_BandBoxGuard");
+        return;
+    }
+    if (catMrKbHeld(CAT_KB_ShipSpecial))
+    {
+        if (playPackets)
+        {
+            return;
+        }
+        MakeShipsSpecialTargetCapable((SelectCommand *)&selSelected, FALSE, TRUE);
+        if (selSelected.numShips < 1)
+        {
+            return;
+        }
+        selSelecting.numTargets = 1;
+        selSelecting.TargetPtr[0] = (SpaceObjRotImpTarg *)ship;
+        cat_popupMenuOpen(CAT_PM_TARGET_KEYCOMMAND, (MaxSelection *)&selSelecting);
+        tutGameMessage("Game_ClickSpecial");
+        return;
+    }
+    if (catMrKbHeld(CAT_KB_BandboxFocus))
+    {
+        selSelecting.numTargets = 1;
+        selSelecting.TargetPtr[0] = (SpaceObjRotImpTarg *)ship;
+        if (smSensorsActive)
+        {
+            index = 0;
+            while (index < selSelecting.numTargets)
+            {
+                found = (Ship *)selSelecting.TargetPtr[index];
+                if ((found->header.objtype == OBJ_ShipType) && !cat_ccShipIsLegalToFocusOn(found))
+                {
+                    selSelecting.numTargets--;
+                    selSelecting.TargetPtr[index] = selSelecting.TargetPtr[selSelecting.numTargets];
                 }
                 else
-                {                                           //select enemies only
-                    MakeTargetsOnlyNonForceAttackTargets((SelectAnyCommand *)&selSelecting, universe.curPlayerPtr);
+                {
+                    index++;
                 }
             }
-            else if (bFriendlies)
-            {                                               //select friendlies only
-                MakeShipsFriendlyShips((SelectCommand *)&selSelecting, universe.curPlayerPtr);
-            }
-            MakeShipsSpecialTargetCapable((SelectCommand *)&selSelected, bFriendlies, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
-            if (selSelected.numShips > 0)   // check again in case we eliminated some of our ships
+            if (selSelecting.numTargets > 0)
             {
-                MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting,(SelectCommand *)&selSelected);
-//                MakeTargetsNotIncludeMissiles((SelectAnyCommand *)&selSelecting);
-
-                if (selSelecting.numTargets > 0)// check again in case we eliminated all targets
-                {
-                    clWrapSpecial(&universe.mainCommandLayer,(SelectCommand *)&selSelected,(SpecialCommand *)&selSelecting);
-                    tutGameMessage("Game_ClickSpecial");
-                }
+                smCullAndFocusSelecting();
             }
-            selSelecting.numTargets = 0;
+            tutGameMessage("AltFocus");
+            return;
         }
-    } else if ((ship->header.objtype == OBJ_DerelictType ||
-                (ship->header.objtype == OBJ_ShipType && (!allianceIsShipAlly(ship, universe.curPlayerPtr)))) &&
-               keyIsHit(CONTROLKEY) && keyIsHit(SHIFTKEY)) { // control-shift-click on derelict or enemy:attack
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+        ccFocusClose(&universe.mainCameraCommand, (FocusCommand *)&selSelecting);
+        selSelecting.numTargets = 0;
+        tutGameMessage("Game_BandBoxFocus");
+        tutGameMessage("AltFocus");
+        return;
+    }
+    if (catMrKbHeld(CAT_KB_BandboxAttack))
+    {
+        if (playPackets)
         {
-            return;  // playing back a recorded game do nothing!
+            return;
         }
-        goto regularEnemyCase;
-    } else if (((ship->header.objtype == OBJ_DerelictType) || (ship->header.objtype == OBJ_ShipType)) &&
-               (MakeShipsSingleClickSpecialCapable((SelectCommand *)&tempSelection,
-                                                   (SelectCommand *)&selSelected))) { // single-click special ships
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+        if (targets.numShips > 0)
         {
-            return;  // playing back a recorded game do nothing!
-        }
-        selSelecting.numTargets = 1;                        //selSelecting = targets, tempSelection = singlclickspecialactivate ships
-        selSelecting.TargetPtr[0] = (SpaceObjRotImpTarg *)ship;
-
-        //make sure the target is a single click special capable target
-        if (ShiptypeInSelection((SelectCommand *)&tempSelection, SalCapCorvette))
-        {
-            MakeTargetsSalvageable((SelectAnyCommand *)&selSelecting, universe.curPlayerPtr);
-        }
-        else
-        {
-            MakeTargetsOnlyNonForceAttackTargets((SelectAnyCommand *)&selSelecting, universe.curPlayerPtr);
-        }
-
-        if (selSelecting.numTargets)
-        {
-            clWrapSpecial(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,(SpecialCommand *)&selSelecting);
-            selSelecting.numTargets = 0;
-            goto regularEnemyCase;
-        }
-        else if (ship->header.objtype != OBJ_DerelictType)
-        {
-            if (ship->playerowner == universe.curPlayerPtr)
+            MakeShipsAttackCapable((SelectCommand *)&selection, (SelectCommand *)&selSelected, TRUE);
+            cat_selSelectionCopy((MaxSelection *)&selSelected, &selection);
+            if (selSelected.numShips > 0)
             {
-                goto regularFriendlyCase;
+                cat_selMakeTargetsAttackable((SelectCommand *)&targets, FALSE);
+                MakeShipsNotIncludeTheseShips((SelectCommand *)&targets, (SelectCommand *)&selSelected);
+                MakeTargetsOnlyNonForceAttackTargets((SelectAnyCommand *)&targets, universe.curPlayerPtr);
+                if (targets.numShips > 0)
+                {
+                    speechEventAttack();
+                    clWrapAttack(&universe.mainCommandLayer, (SelectCommand *)&selSelected, (AttackCommand *)&targets);
+                    tutGameMessage("Game_BandBoxAttack");
+                }
             }
-            else if (!allianceIsShipAlly(ship, universe.curPlayerPtr))
+        }
+        tutGameMessage("ClickAttack");
+        return;
+    }
+    if (!smSensorsActive && !playPackets && !ShipInSelection((SelectCommand *)&selSelected, ship))
+    {                                                       // the context order on a left click
+        cat_selComputeTargetActions(&selectionActions, (MaxSelection *)&selSelected);
+        cat_selComputeTargetActions(&targetActions, &targets);
+        action = cat_mouseGetContextAction(&selectionActions, &targetActions, (MaxSelection *)&selSelected, ship);
+        ability = -1;
+        if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 10) && (ship->shiptype == dBigGun) && doubleClick)
+        {
+            found = NULL;
+            for (node = universe.ShipList.head; node != NULL; node = node->next)
             {
-                goto regularEnemyCase;
-            }
-        }
-    } else if ((ship->header.objtype == OBJ_AsteroidType || ship->header.objtype == OBJ_DustType) && keyIsHit(CONTROLKEY) &&
-               keyIsHit(SHIFTKEY)) { // ctrl-shift-click resource: force attack
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
-        {
-            return;  // playing back a recorded game do nothing!
-        }
-        goto regularEnemyCase;
-    } else if ((ship->header.objtype == OBJ_AsteroidType || ship->header.objtype == OBJ_DustType) &&
-               MakeShipsHarvestCapable((SelectCommand *)&tempSelection,
-                                       (SelectCommand *)&selSelected, TRUE)) { // there are harvesters present
-        // CAT: workers-only argument TRUE, as the UI caller mrHarvestResources 0x00563cc0 passes 1 (the exe's
-        //      mrObjectClick 0x00566b60 has no MakeShipsHarvestCapable call; stage 3 ports its own test) [audit]
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
-        {
-            return;  // playing back a recorded game do nothing!
-        }
-        speechEvent(tempSelection.ShipPtr[0], COMM_ResCol_Harvest, (ship->header.objtype - OBJ_AsteroidType));
-        clWrapCollectResource(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,(Resource *)ship);
-        soundEventStartEngine(tempSelection.ShipPtr[0]);
-        tutGameMessage("Game_ClickHarvest");
-    } else if ((ship->header.objtype == OBJ_AsteroidType) &&
-               (ship->obj.attributes & (ATTRIBUTES_KillerCollDamage | ATTRIBUTES_HeadShotKillerCollDamage))) {
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
-        {
-            return;  // playing back a recorded game do nothing!
-        }
-        goto regularEnemyCase;
-    } else if ((ship->header.objtype == OBJ_DerelictType) && (((Derelict *)ship)->derelicttype == HyperspaceGate)) {
-        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
-        {
-            return;  // playing back a recorded game do nothing!
-        }
-        goto regularEnemyCase;
-    } else if (!mrDisabled) {
-        if (ship->header.objtype == OBJ_ShipType)
-        {
-            if (ship->playerowner == universe.curPlayerPtr)
-            {                                               //clicked on a friendly ship
-regularFriendlyCase:
-                if (keyIsHit(CONTROLKEY) && keyIsHit(SHIFTKEY))
-                {                                           //ctrl-shift-click friendly ship: attack
-                    if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
-                    {
-                        return;  // playing back a recorded game do nothing!
-                    }
-                    bForceAttackEnemies = TRUE;
-                    goto regularEnemyCase;
-                }
-                else if (ship->header.flags & SOF_Selectable)
+                if (((Ship *)listGetStructOfNode(node))->shiptype == dBigGunUnit)
                 {
-                    if (keyIsHit(SHIFTKEY))
-                    {                                       //shift click:add/remove to/from selection
-                        if (selShipInSelection(selSelected.ShipPtr, selSelected.numShips, ship))
-                        {                                   //if ship already selected
-                            selSelectionRemoveSingleShip(&selSelected, ship);
-                        }
-                        else
-                        {
-                            selSelectionAddSingleShip(&selSelected, ship);
-                        }
-                        ioUpdateShipTotals();
-                    }
-                    else
-                    {                                       //regular click: select just this ship
-                        mrFormationShips(&tempSelection, ship);
-                        selSelectionCopy((MaxAnySelection *)(&selSelected),
-                                         (MaxAnySelection *)(&tempSelection));
-                        ioUpdateShipTotals();
-
-                        if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
-                        {
-                            return;  // playing back a recorded game do nothing!
-                        }
-                        if (selShipInSelection(tempSelection.ShipPtr, tempSelection.numShips, universe.curPlayerPtr->PlayerMothership)
-                            && (universe.curPlayerPtr->PlayerMothership->shiptype == Mothership))
-                        {                                   //if the mothership was in selection clicked
-                            speechEventFleet(COMM_F_MoShip_Selected,0,universe.curPlayerIndex);
-                        }
-                        else
-                        {                                   //no mothership: regular selection
-                            speechEvent(ship, COMM_Selection, 0);
-                        }
-                    }
+                    found = (Ship *)listGetStructOfNode(node);
                 }
             }
-            else    // must be clicking on enemy ship
+            if (found == NULL)
             {
-                if ((playPackets) || (universePause && !opPauseOrders) || (mrDisabled))
+                goto selectIt;
+            }
+            ability = 0;
+            goto specialOrder;
+        }
+        switch (action)
+        {
+            case CAT_CA_Harvest:
+                if (catMrHomeworldCSA)
                 {
-                    return;// playing back a recorded game do nothing!
+                    mrHarvestResources((char *)ship, NULL);
+                    soundEventPlay(NULL, 0x109, NULL);
+                    return;
                 }
-                if (ship->shiptype == FloatingCity) //trader ship
+                break;
+            case CAT_CA_Salvage:
+                if (catMrHomeworldCSA)
                 {
-
-                    tmTradeBegin(ghMainRegion, 0, 0, 0);
-
+                    ability = 0;
+                    goto specialOrder;
                 }
-                else if (ship->shiptype == JunkYardHQ)
+                break;
+            case CAT_CA_Attack:
+            case CAT_CA_EMP:
+            case CAT_CA_Swarm:
+            case CAT_CA_FireMissiles:
+            case CAT_CA_Infect:
+                // CAT: a left click on an enemy attacks it whatever its context (the exe's cases 3, 0xd, 0xe, 0x10 and
+                //      0x11 all attack; the special orders are the right click's)
+                if (targets.numShips > 0)
                 {
-                    makeShipsDockCapable((SelectCommand *)&selSelected); //filter ships that can't dock
-                    clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&selSelected,
-                               CAT_DOCK_SUPPORT, ship);
-                }
-                else if (!allianceIsShipAlly(ship, universe.curPlayerPtr))
-                {
-regularEnemyCase:
+                    MakeShipsAttackCapable((SelectCommand *)&selection, (SelectCommand *)&selSelected, TRUE);
+                    cat_selSelectionCopy((MaxSelection *)&selSelected, &selection);
                     if (selSelected.numShips > 0)
                     {
-                        if (MakeShipsAttackCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected, TRUE))   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
-                        {                                   //if there are ships that can attack
-                            if (!selShipInSelection(selSelected.ShipPtr, selSelected.numShips, ship))
-                            {                               //if not attacking your own ship
-                                attackOne.numTargets = 1;
-                                attackOne.TargetPtr[0] = (SpaceObjRotImpTarg *)ship;
-
-                                if (bForceAttackEnemies)
-                                {                           //if it's a forced attack on friendlies
-                                    selSelecting.numTargets = 1;
-                                    selSelecting.TargetPtr[0] = (SpaceObjRotImpTarg *)ship;
-                                    if (speechEventAttack())
-                                    {
-                                        clWrapAttack(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,(SelectAnyCommand *)&attackOne);
-                                        selSelecting.numTargets = 0;
-                                    }
-                                }
-                                else
-                                {                           //else regular attack on enemies
-                                    speechEvent(tempSelection.ShipPtr[0], COMM_Attack, 0);
-                                    clWrapAttack(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,(SelectAnyCommand *)&attackOne);
-                                    tutGameMessage("Game_ClickAttack");
-                                }
-                            }
+                        cat_selMakeTargetsAttackable((SelectCommand *)&targets, FALSE);
+                        MakeShipsNotIncludeTheseShips((SelectCommand *)&targets, (SelectCommand *)&selSelected);
+                        if (targets.numShips > 0)
+                        {
+                            speechEventAttack();
+                            clWrapAttack(&universe.mainCommandLayer, (SelectCommand *)&selSelected, (AttackCommand *)&targets);
+                            tutGameMessage("Game_BandBoxForceAttack");
                         }
                     }
                 }
-            }
+                soundEventPlay(NULL, 0x109, NULL);
+                tutGameMessage("ClickAttack");
+                return;
+            case CAT_CA_Repair:
+                if (catMrHomeworldCSA && doubleClick)
+                {
+                    ability = 1;
+                    goto specialOrder;
+                }
+                break;
+            case CAT_CA_ProtectFormation:
+                if (catMrHomeworldCSA && doubleClick)
+                {
+                    cat_uiProtectFormation((SelectCommand *)&targets);
+                    soundEventPlay(NULL, 0x109, NULL);
+                    return;
+                }
+                break;
+            case CAT_CA_SlipgateSmall:
+            case CAT_CA_SlipgateMedium:
+            case CAT_CA_SlipgateLarge:
+                if (catMrHomeworldCSA)
+                {
+                    mrDockingOrders(ship);
+                    soundEventPlay(NULL, 0x109, NULL);
+                    return;
+                }
+                break;
+            case CAT_CA_Dock:
+                if (catMrHomeworldCSA && doubleClick)
+                {
+                    cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+                    MakeShipsGuardCapable((SelectCommand *)&selection, TRUE);
+                    clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&selection, CAT_DOCK_SUPPORT, ship);
+                    soundEventPlay(NULL, 0x109, NULL);
+                    return;
+                }
+                break;
+            case CAT_CA_Leech:
+                ability = 2;
+                goto specialOrder;
+            case CAT_CA_Link:
+                if (catMrHomeworldCSA && doubleClick)
+                {
+                    cat_selSelectionCopy(&selection, (MaxSelection *)&selSelected);
+                    cat_selSelectionAddShip(&selection, ship);
+                    if (selection.numShips > 0)
+                    {
+                        cat_clWrapLink(&universe.mainCommandLayer, (SelectCommand *)&selection);
+                    }
+                    soundEventPlay(NULL, 0x109, NULL);
+                    return;
+                }
+                break;
+            case CAT_CA_Mimic:
+                if (catMrHomeworldCSA)
+                {
+                    cat_mrMimicTarget((SpaceObj *)ship);
+                    soundEventPlay(NULL, 0x109, NULL);
+                    return;
+                }
+                break;
+            case CAT_CA_Ram:
+                ability = 6;
+                goto specialOrder;
+            default:
+                break;
         }
+    }
+    goto selectIt;
+specialOrder:
+    if (!playPackets && !universePause && !mrDisabled)
+    {
+        cat_uiSpecialTargetCommand((SelectCommand *)&targets, ability);
+    }
+    soundEventPlay(NULL, 0x109, NULL);
+    return;
+selectIt:
+    if ((ship->header.objtype == OBJ_ShipType) && (ship->playerowner == universe.curPlayerPtr))
+    {                                                       // an own ship: it (its formation) is the selection
+        mrFormationShips(&selection, ship);
+        selSelectionCopy((MaxAnySelection *)&selSelected, (MaxAnySelection *)&selection);
+        ioUpdateShipTotals();
+        if (playPackets)
+        {
+            return;
+        }
+        if ((universe.curPlayerPtr->PlayerMothership != NULL) &&
+            selShipInSelection(selection.ShipPtr, selection.numShips, universe.curPlayerPtr->PlayerMothership) &&
+            (universe.curPlayerPtr->PlayerMothership->staticinfo->shipclass == CLASS_Mothership))
+        {
+            speechEventQueue(NULL, 0x4000800, universe.curPlayerPtr->PlayerMothership->shiptype, -1, 0,
+                             universe.curPlayerIndex, -1, 5.0f, -1);
+            return;
+        }
+        speechEventQueue(ship, 0x4000800, ship->shiptype, -1, -1, -1, -1, 0.0f, -1);
     }
 }
 
@@ -3695,445 +5111,72 @@ regularEnemyCase:
 ----------------------------------------------------------------------------*/
 udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
 {
-    Ship *ship = NULL;
-    bool32 bFriendlies, bEnemies;
-    MaxSelection tempSelection;
-
-
-    rectangle defaultRect = {0, 0, MAIN_WindowWidth, MAIN_WindowHeight};
-
+    (void)reg;
+    (void)data;
+    // CAT: mrRegionProcess 0x00567930 is REWRITTEN in Cataclysm: the mouse events go to cat_mrPressLeft /
+    //      cat_mrReleaseLeft / cat_mrPressRight / cat_mrReleaseRight / cat_mrHoldLeft and the band box, the keys to the
+    //      key bindings (cat_kbKeyPress 0x0054e7c0, the popup menu's keys first). CAT-TODO(M2-R6 key bindings): the key
+    //      events still go to HW1's mrKeyPress / mrKeyRelease (with the popup's keys and the stats screen's first)
+    //      until the key-binding port
     while (feMenuLevel > 0)
     {
         feMenuDisappear(NULL, NULL);
     }
-    if (smZoomingIn || smZoomingOut)
+    if (CAT_MR_CONSOLE_OPEN() || smZoomingIn || smZoomingOut)
     {
         return(0);
     }
 
     switch (event)
     {
+        case RPE_WheelUp:
+            wheel_up = TRUE;
+            break;
+        case RPE_WheelDown:
+            wheel_down = TRUE;
+            break;
         case RPE_HoldLeft:
-            mrHoldLeft();                                   //call current hold function
+            cat_mrHoldLeft(0);
             break;
         case RPE_HoldRight:
-            mrHoldRight();                                  //call current hold function
+            if (catMrRightMode == 2)
+            {
+                mrCameraMotion();
+            }
             break;
-       case RPE_PressLeft:
-            if (mrHoldRight == mrNULL)
-            {                                               //if mouse idle or selecting
-#if MR_TEST_HPB
-                if (keyIsHit(OKEY))
-                {
-                    mrHoldLeft = mrHeadingPitchHold;
-                }
-                else
-#endif
-                if (piePointSpecMode == PSM_Idle)
-                {
-                    mrOldMouseX = mouseCursorX();           //store anchor point
-                    mrOldMouseY = mouseCursorY();
-                    mrHoldLeft = mrSelectHold;              //set to select mode
-                }
-                else if (keyIsHit(ALTKEY) || keyIsHit(RALTKEY))
-                {
-                    mrOldMouseX = mouseCursorX();           //store anchor point
-                    mrOldMouseY = mouseCursorY();
-                    mrHoldLeft = mrSelectHold;              //set to select mode
-                    piePointModePause(TRUE);
-                }
-            }                                               //else just go from rotate into zoom mode
+        case RPE_PressLeft:
+            cat_mrPressLeft();
             break;
         case RPE_PressRight:
-#if MR_TEST_HPB
-            if (keyIsHit(OKEY))
-            {
-                mrHoldRight = mrBankHold;
-                break;
-            }
-            else
-#endif
-            if (mrHoldLeft == mrSelectHold)
-            {                                               //if currently selecting
-                mrHoldLeft = mrNULL;                        //stop selecting
-                mrSelectionRect.x0 = mrSelectionRect.x1 =           //select nothing
-                    mrSelectionRect.y0 = mrSelectionRect.y1 = 0;
-                selRectNone();
-            }
-#if !MR_TEST_HPB
-            else
-            {                                               //else just right button pressed
-                dbgAssertOrIgnore(mrHoldLeft == mrNULL);            //should be in idle mode.  Make sure.
-            }
-#endif
-            piePointModePause(TRUE);                         //pause point specification for the camera motion
-            mrHoldRight = mrCameraMotion;                   //set to zoom/rotate mode
-            mrOldMouseX = mouseCursorX();                   //save current mouse location for later restoration
-            mrOldMouseY = mouseCursorY();
-            mouseCursorHide();                              //hide cursor and move to centre of the screen
-
-            if (helpinfoactive)
-            {
-                mousePositionSet(helpinforegion->rect.x0 / 2, MAIN_WindowHeight / 2);
-            }
-            else
-            {
-                mousePositionSet(MAIN_WindowWidth / 2, MAIN_WindowHeight / 2);
-            }
-
-            mrMouseHasMoved = 0;                            //mouse hasn't moved yet
+            cat_mrPressRight();
+            break;
+        case RPE_ReleaseLeft:
+            cat_mrReleaseLeft(0);
+            break;
+        case RPE_ReleaseRight:
+            cat_mrReleaseRight(0);
             break;
         case RPE_DoubleLeft:
-            if (mouseCursorObjPtr != NULL)
+            if (!cat_shipPrintIsDragging() && !cat_popupMenuIsOpen() && !cat_gameStatsIsActive())
             {
-                if (!mouseLDoubleClick())
-                {
-                    if (mouseCursorSelect.numShips > 0)
-                    {
-                        selSelectionCopy((MaxAnySelection *)&selSelected,
-                                         (MaxAnySelection *)&mouseCursorSelect);
-                        ioUpdateShipTotals();\
-                        mouseCursorSelect.numShips = 0;
-                        tutGameMessage("Game_DoubleClickDock");
-                        makeShipsDockCapable((SelectCommand *)&selSelected); //filter ships that can't dock
-                        clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&selSelected,
-                                   CAT_DOCK_SUPPORT, (Ship *)mouseCursorObjPtr);
-                        mouseDrawType(small_docking);           //may need to have "docking" as well
-                        break;
-                    }
-                }
-                else
-                {
-                    //mouseLDoubleClick returned true, so break outta here
-                    break;
-                }
+                cat_mrClickRelease(0, TRUE);
             }
-            goto plainOldClickAction;
-        case RPE_ReleaseLeft:
-            if (mouseRightButton())
-            {                                               //if in zoom mode
-                ;                                           //stay in camera movement mode
-            }
-            else if (piePointSpecMode == PSM_XY || piePointSpecMode == PSM_Z)
-            {                                               //if the movement mechanism is up
-                vector destination;
-
-                if ((tutorial==TUTORIAL_ONLY) && !tutEnable.bMoveIssue)
-                {
-                    break;
-                }
-
-                MakeShipsMobile((SelectCommand *)&selSelected, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
-                if (selSelected.numShips > 0)
-                {                                           //if some ships are selected
-#if PIE_MOVE_NEARTO
-                    if (selClosestTarget != NULL)
-                    {                                       //if there's a ship under the mouse
-                        destination = selClosestTarget->obj.posinfo.position;
-                    }
-                    else
-#endif //PIE_MOVE_NEARTO
-                    if (piePointSpecZ != 0.0f)
-                    {                                       //if a height was specified
-                        destination = pieHeightPoint;
-                    }
-                    else
-                    {
-                        destination = piePlanePoint;         //else move to point on plane
-                    }
-
-                    if (!(isnan((double)destination.x) || isnan((double)destination.x) || isnan((double)destination.x)))
-                    {
-                        clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_MOVEPATH_ONCE,selCentrePoint,1,&destination);   // CAT-TODO(stage 3 UI): the waypoint move UI; a one-point path
-//                        tutGameMessage("Game_MoveIssued");
-                        if (selSelected.ShipPtr[0]->shiptype == Mothership)
-                        {
-                            speechEventFleetSpec(selSelected.ShipPtr[0], COMM_F_MoShip_Move, 0, universe.curPlayerIndex);
-                        }
-                        else
-                        {
-                            speechEvent(selSelected.ShipPtr[0], COMM_Move, 0);
-                        }
-                    }
-
-                    soundEvent(NULL, UI_MovementGUIoff);
-                }
-                else
-                {
-                    soundEvent(NULL, UI_MovementGUIoff);
-                }
-
-                piePointModeOnOff(PIE_SPEC_Move, NULL);
-//                piePointSpecMode = PSM_Idle;                 //no more selecting
-                break;
-            }
-            else if (mrHoldLeft == mrSelectHold)
-            {                                               //if selecting
-                if (abs(mouseCursorX() - mrOldMouseX) >= selClickBoxWidth ||
-                    abs(mouseCursorY() - mrOldMouseY) >= selClickBoxHeight)
-                {                                           //if selection rect dragged
-                    mrSelectRectBuild(&mrSelectionRect, mrOldMouseX, mrOldMouseY);//select a group of ships
-                    if (((keyIsHit(ALTKEY) && keyIsHit(CONTROLKEY)) || keyIsHit(GKEY) || (keyIsHit(RALTKEY) && (keyIsHit(CONTROLKEY)))))
-                    {                                       //alt key pressed
-                        if (mrDisabled) goto endReleaseButtonLogic;
-
-                        selRectDragAnybody(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);//most recent selection
-                        if (selSelecting.numTargets > 0)
-                        {                                   //if some ships within band-box
-                            if (selSelected.numShips > 0)   // if we have our own ships selected
-                            {
-                                MakeShipsFriendlyAndAlliesShips((SelectCommand *)&selSelecting,universe.curPlayerPtr);
-                                MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting,(SelectCommand *)&selSelected);
-
-
-                                MakeShipsGuardCapable((SelectCommand *)&selSelected, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
-
-                                if ((selSelecting.numTargets > 0) && (selSelected.numShips > 0))      // check again in case we removed all the ships
-                                {
-                                    speechEvent(selSelected.ShipPtr[0], COMM_Guard, 0);
-                                    clWrapProtect(&universe.mainCommandLayer,(SelectCommand *)&selSelected,(ProtectCommand *)&selSelecting);
-                                    tutGameMessage("Game_BandBoxGuard");
-                                }
-                            }
-                            selSelecting.numTargets = 0;
-                        }
-                    }
-                    else if (keyIsHit(ALTKEY) || keyIsHit(RALTKEY))
-                    {                                       //alt-bandbox: focus
-                        selRectDragAnybody(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);//most recent selection
-                        if (selSelecting.numTargets != 0)
-                        {                                   //if some ships within band-box
-
-                            ccFocusClose(&(universe.mainCameraCommand),
-                                    (FocusCommand *)&selSelecting);//focus on these ships
-                            selSelecting.numTargets = 0;
-                            tutGameMessage("Game_BandBoxFocus");
-                        }
-                    }
-                    else if (keyIsHit(CONTROLKEY))
-                    {                                       //CTRL-bandbox: attack selected ships
-                        if (mrDisabled) goto endReleaseButtonLogic;
-
-                        if (MakeShipsSingleClickSpecialCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected))
-                        {                                       //if some ships single-click special attack capable
-                            selRectDragAnybody(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);//most recent selection
-
-                            if (ShiptypeInSelection((SelectCommand *)&tempSelection, SalCapCorvette))
-                            {
-                                MakeTargetsSalvageable((SelectAnyCommand *)&selSelecting, universe.curPlayerPtr);
-                            }
-                            else
-                            {
-                                MakeTargetsOnlyNonForceAttackTargets((SelectAnyCommand *)&selSelecting,universe.curPlayerPtr);
-                            }
-
-                            if (selSelecting.numTargets != 0)
-                            {
-                                clWrapSpecial(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,(SpecialCommand *)&selSelecting);
-                            }
-                        }
-                        selRectDragAnythingToAttack(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);//most recent selection
-                        if (selSelecting.numTargets > 0)
-                        {                                   //if some ships within band-box
-                            if (selSelected.numShips > 0)       // if we have our own ships selected
-                            {
-                                MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting,(SelectCommand *)&selSelected);
-                                if (!keyIsHit(SHIFTKEY))    //CTRL-Shift bandbox: force attack
-                                {
-                                    MakeTargetsOnlyNonForceAttackTargets((SelectAnyCommand *)&selSelecting,universe.curPlayerPtr);
-                                }
-/*
-                                if (MakeShipsSingleClickSpecialCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected))
-                                {                                       //if some ships single-click special attack capable
-                                    clWrapSpecial(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,(SpecialCommand *)&selSelecting);
-                                }
-*/
-                                MakeShipsAttackCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
-
-                                if ((selSelecting.numTargets > 0) && (tempSelection.numShips > 0))      // check again in case we removed all the ships
-                                {
-                                    if (speechEventAttack())
-                                    {
-                                        clWrapAttack(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,(AttackCommand *)&selSelecting);
-                                        if(keyIsHit(SHIFTKEY))    //CTRL-Shift bandbox: force attack
-                                            tutGameMessage("Game_BandBoxForceAttack");
-                                        tutGameMessage("Game_BandBoxAttack");
-                                    }
-                                }
-                            }
-                            selSelecting.numTargets = 0;
-                        }
-                    }
-                    else if (kbCommandKeyIsHit(kbSHIP_SPECIAL))
-                    {                                       //z-bandbox: special action
-                        if (mrDisabled) goto endReleaseButtonLogic;
-
-                        if (mrCanZBandBox(&bFriendlies, &bEnemies))
-                        {                                   //if we can z-bandbox
-                            if (bEnemies)
-                            {                               //select enemies and friends
-                                selRectDragAnybody(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
-                            }
-                            else
-                            {                               //select just friends
-                                selRectDrag(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);
-                            }
-                            if (!bFriendlies)
-                            {
-                                if (ShiptypeInSelection((SelectCommand *)&selSelected, SalCapCorvette))
-                                {
-                                    MakeTargetsSalvageable((SelectAnyCommand *)&selSelecting, universe.curPlayerPtr);
-                                }
-                                else
-                                {
-                                    //remove friends from selection
-                                    mrRemoveDerelictsAndAllPlayerShipsFromSelecting();
-                                }
-                            }
-                        }
-                        else
-                        {                                   //can't select anything
-                            selRectNone();
-                        }
-                        if (selSelecting.numTargets > 0)
-                        {                                   //if some ships within band-box
-                            MakeShipsSpecialTargetCapable((SelectCommand *)&selSelected, bFriendlies, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
-                            if (selSelected.numShips > 0)   // check again in case we eliminated some of our ships
-                            {
-                                mrSpecialBandBox = TRUE;
-                                MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting,(SelectCommand *)&selSelected);
-                                MakeTargetsNotIncludeMissiles((SelectAnyCommand *)&selSelecting);
-
-                                if (selSelecting.numTargets > 0)// check again in case we eliminated all targets
-                                {
-                                    clWrapSpecial(&universe.mainCommandLayer,(SelectCommand *)&selSelected,(SpecialCommand *)&selSelecting);
-                                    tutGameMessage("Game_BandBoxSpecial");
-                                }
-                            }
-                            selSelecting.numTargets = 0;
-                        }
-                    }
-                    else
-                    {                                       //plain bandbox: select ships
-                        if((!mrDisabled && piePointSpecMode != PSM_Waiting) && ((!(tutorial==TUTORIAL_ONLY)) || tutEnable.bBandSelect))
-                        {
-                            if (keyIsHit(SHIFTKEY))
-                            {                               //if shift-band-boxing
-                                selRectSelectAdd(&(universe.mainCameraCommand.actualcamera),
-                                                 &mrSelectionRect);
-                            }
-                            else
-                            {                               //else plain band-boxing
-                                if((!(tutorial==TUTORIAL_ONLY)) ||              // if the tutorial isn't running OR
-                                    ((selSelecting.numTargets != 0) || ((selSelecting.numTargets == 0) && tutEnable.bCancelSelect)))
-                                {                           //band-selecting no ships disabled if tutorial's cancel select disabled
-                                    selRectSelect(&(universe.mainCameraCommand.actualcamera),
-                                                  &mrSelectionRect);
-                                    if ((selSelected.numShips > 0) && (!playPackets) && (!universePause && opPauseOrders) )  
-                                    {
-                                        if (selShipInSelection(selSelected.ShipPtr, selSelected.numShips, universe.curPlayerPtr->PlayerMothership)
-                                            && (universe.curPlayerPtr->PlayerMothership->shiptype == Mothership))
-                                        {                                   //if the mothership was in selection clicked
-                                            speechEventFleet(COMM_F_MoShip_Selected,0,universe.curPlayerIndex);
-                                        }
-                                        else
-                                        {                                   //no mothership: regular selection
-                                            speechEvent(selSelected.ShipPtr[0], COMM_Selection, 0);
-                                        }
-                                    }
-                                }
-                            }
-
-                            ioUpdateShipTotals();
-
-                            selSelecting.numTargets = 0;
-                        }
-                    }
-                }
-                else
-                {                                           //no band-box, just a click
-plainOldClickAction:
-                    if (mrHoldRight == mrNULL)
-                    {
-                        ship = selSelectionClick(universe.RenderList.head,
-                            &(universe.mainCameraCommand.actualcamera),
-                            mouseCursorX(), mouseCursorY(), TRUE, TRUE, FALSE);   // CAT: 7th argument (M2-R5 hud)
-
-                        if (ship != NULL)
-                        {                                       //if mouse over a ship
-#ifndef _MACOSX_FIX_MISC
-// Mac OS X: the [ALT] + [left mouse button] hack does not work 
-// in the tutorial unless we ignore this check
-                            if((!(tutorial==TUTORIAL_ONLY)) || tutEnable.bClickSelect)
-#endif
-                            {
-                                mrObjectClick(ship);
-                            }
-                        }
-                        else
-                        {                                       //else select nothing
-                            if (mouseCursorObjLast != NULL &&   //if mouse recently over an object
-                                mouseCursorObjLast->header.objtype == OBJ_ShipType &&//a ship to be particular
-                                mouseCursorLastObjTime + mrFastMoveShipClickTime >= universe.totaltimeelapsed && //recently enough
-                                abs(mouseCursorX() - mouseCursorLastX) < mrFastMoveShipClickX && //in roughly it's current position
-                                abs(mouseCursorY() - mouseCursorLastY) < mrFastMoveShipClickY)
-                            {
-                                if((!(tutorial==TUTORIAL_ONLY)) || tutEnable.bClickSelect)
-                                    mrObjectClick((Ship *)mouseCursorObjLast);//pretend we just clicked on this ship
-                            }
-                            else if (!keyIsHit(SHIFTKEY))            //if shift key not pressed
-                            {
-                                if((!(tutorial==TUTORIAL_ONLY)) || tutEnable.bCancelSelect)
-                                    selSelectNone();
-                            }
-                        }
-                    }
-                }
-endReleaseButtonLogic:
-                mrSelectionRect.x0 = mrSelectionRect.x1 =   //clear selection rectangle
-                    mrSelectionRect.y0 = mrSelectionRect.y1 = 0;
-                mrHoldLeft = mrNULL;                        //idle mode
-                piePointModePause(FALSE);
-            }
-#if MR_TEST_HPB
-            if (mrHoldLeft == mrHeadingPitchHold)
-            {
-                mrHoldLeft = mrNULL;                        //idle mode
-            }
-            if (mrHoldRight == mrBankHold)
-            {
-                mrHoldRight = mrNULL;
-            }
-#endif
-            break;
-    case RPE_ReleaseRight:
-            if (helpinfoactive)
-            {
-
-            }
-            if (mrHoldRight == mrCameraMotion)
-            {                                               //if in camera movement mode
-                piePointModePause(FALSE);                    //unpause point specification for the camera motion
-                mousePositionSet(mrOldMouseX, mrOldMouseY); //restore mouse position
-                //mouseCursorShow();                          //show mouse cursor
-                mouseCursorShow();
-                mrHoldRight = mrNULL;                       //idle mode
-                //mouseClipToRect(&defaultRect);
-                mouseClipToRect(NULL);
-
-                if (!mrDisabled && mrMouseHasMoved <= MR_MouseMovementClickLimit)
-                {                                           //if it's moved a fair bit
-                    mrRightClickMenu();                     //process the right click
-                }
-            }
-#if MR_TEST_HPB
-            if (mrHoldRight == mrBankHold)
-            {
-                mrHoldRight = mrNULL;
-            }
-#endif
             break;
         case RPE_KeyDown:
+            if (gameIsRunning || cat_gameStatsIsActive())
+            {
+                if (mrDisabled)
+                {                                           // the stats screen ends on Escape or X
+                    if (cat_gameStatsIsActive() && ((ID == ESCKEY) || (ID == XKEY)))
+                    {
+                        cat_gameStatsEnd();
+                    }
+                }
+                if (cat_popupMenuIsOpen() && cat_popupMenuKeyPress(ID))
+                {
+                    break;
+                }
+            }
             if (!(smZoomingIn | smZoomingOut))
             {
                 mrKeyPress(ID);
@@ -4144,12 +5187,6 @@ endReleaseButtonLogic:
             {
                 mrKeyRelease(ID);
             }
-            break;
-        case RPE_WheelUp:
-            wheel_up = TRUE;
-            break;
-        case RPE_WheelDown:
-            wheel_down = TRUE;
             break;
         default:
 #if MR_VERBOSE_LEVEL >= 2
@@ -4275,10 +5312,12 @@ bool32 toDrawPulsedLine(vector linestart, vector lineend, real32 pulsesize, colo
 
     pulse_at_beginning = FALSE;
 
-    if (universe.totaltimeelapsed != lasttime)
+    // CAT: toDrawPulsedLine 0x00567d40 runs the pulse on the task's real time (cat_taskRealTimeElapsed), not the
+    //      universe's game time
+    if (cat_taskRealTimeElapsed != lasttime)
     {
-        pulsestartfraction += (universe.totaltimeelapsed - lasttime)/TO_PULSE_SPEED_SCALE;
-        lasttime            = universe.totaltimeelapsed;
+        pulsestartfraction += (cat_taskRealTimeElapsed - lasttime)/TO_PULSE_SPEED_SCALE;
+        lasttime            = cat_taskRealTimeElapsed;
 
         // - first check is for the very first iteration of toDrawPulsedLine where
         //   "universe.totaltimeelapsed" will be much larger that "lasttime" and
@@ -4444,6 +5483,110 @@ void toDrawMoveToEndCircle(ShipPtr ship, bool32 pulse, color linecolor, color pu
     Outputs     : See "description"
     Return      : void
 ----------------------------------------------------------------------------*/
+// CAT: the waypoint path's colours by path type (toDrawMoveToLine 0x00568100: 0x0088d78c once, 0x0088d790 a loop,
+//      0x0088d794 a patrol)
+#define TO_PATH_ONCE_COLOR              0xfff7b591
+#define TO_PATH_LOOP_COLOR              0xffcd59ac
+#define TO_PATH_PATROL_COLOR            0xffad7982
+
+// one leg of the path and the circle at its end point (glBegin(GL_LINES) as the exe, no smoothing)
+static void toDrawPathLeg(vector *from, vector *to, vector *circle, color c)
+{
+    glBegin(GL_LINES);
+    glColor3ub(colRed(c), colGreen(c), colBlue(c));
+    glVertex3fv((GLfloat *)from);
+    glVertex3fv((GLfloat *)to);
+    glEnd();
+    primCircleOutline3(circle, TO_MOVETO_ENDCIRCLE_RADIUS, 32, 0, c, Z_AXIS);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : toDrawMovePath
+    Description : CAT: the legs of a waypoint move still to fly (toDrawMoveToLine 0x00568100's loop over the
+                  move order's points, inline in the exe): once, the legs after the current point; a loop, all but
+                  the leg into the current point (the first leg closes the loop); a patrol out or back, the legs on
+                  either side of the current point by the direction. A leg that starts at the current point starts at
+                  the ship's moveTo (its own point), or for the patrol's turning leg at the ship.
+----------------------------------------------------------------------------*/
+static void toDrawMovePath(ShipPtr ship)
+{
+    CommandToDo *command = ship->command;
+    MoveCommand *move;
+    sdword index, cur, last;
+
+    if ((command == NULL) || (command->ordertype.order != COMMAND_MOVE) || (command->move.numPoints <= 0))
+    {
+        return;
+    }
+    move = &command->move;
+    for (index = 0; index < move->numPoints; index++)
+    {
+        cur = move->curPoint;
+        last = move->numPoints - 1;
+        switch (move->pathType)
+        {
+            case CAT_MOVEPATH_ONCE:
+                if (index > cur)
+                {
+                    toDrawPathLeg((index - 1 == cur) ? &ship->moveTo : &move->points[index - 1], &move->points[index],
+                                  &move->points[index], TO_PATH_ONCE_COLOR);
+                }
+                break;
+            case CAT_MOVEPATH_LOOP:
+                if (index != cur)
+                {
+                    if (index == 0)
+                    {
+                        toDrawPathLeg((last == cur) ? &ship->moveTo : &move->points[last], &move->points[0],
+                                      &move->points[0], TO_PATH_LOOP_COLOR);
+                    }
+                    else
+                    {
+                        toDrawPathLeg((index - 1 == cur) ? &ship->moveTo : &move->points[index - 1],
+                                      &move->points[index], &move->points[index], TO_PATH_LOOP_COLOR);
+                    }
+                }
+                break;
+            case CAT_MOVEPATH_PATROL_OUT:
+                if (index < cur - 1)
+                {
+                    toDrawPathLeg(&move->points[index + 1], &move->points[index], &move->points[index],
+                                  TO_PATH_PATROL_COLOR);
+                }
+                else if (index == cur - 1)
+                {
+                    toDrawPathLeg(&ship->obj.posinfo.position, &move->points[index], &move->points[index],
+                                  TO_PATH_PATROL_COLOR);
+                }
+                else if ((index >= cur) && (index < last))
+                {
+                    toDrawPathLeg((index == cur) ? &ship->moveTo : &move->points[index], &move->points[index + 1],
+                                  &move->points[index + 1], TO_PATH_PATROL_COLOR);
+                }
+                break;
+            case CAT_MOVEPATH_PATROL_BACK:
+                if (index > cur + 1)
+                {
+                    toDrawPathLeg(&move->points[index - 1], &move->points[index], &move->points[index],
+                                  TO_PATH_PATROL_COLOR);
+                }
+                else if (index == cur + 1)
+                {
+                    toDrawPathLeg(&ship->obj.posinfo.position, &move->points[index], &move->points[index],
+                                  TO_PATH_PATROL_COLOR);
+                }
+                else if (index < cur)
+                {
+                    toDrawPathLeg((index + 1 == cur) ? &ship->moveTo : &move->points[index + 1], &move->points[index],
+                                  &move->points[index], TO_PATH_PATROL_COLOR);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+}
+
 void toDrawMoveToLine(ShipPtr ship, color linecolor, color pulsecolor)
 {
     vector shipfront, shipright, dirfrontproj, dirrightproj, dirvect, dirproj,
@@ -4454,6 +5597,8 @@ void toDrawMoveToLine(ShipPtr ship, color linecolor, color pulsecolor)
     //initialize a bunch of vectors and distances
     shipradius  = ship->magnitudeSquared*ship->staticinfo->common.staticCollInfo.approxcollspheresize;
     pulsesize   = 2*shipradius;
+
+    toDrawMovePath(ship);                                   // CAT: the waypoint path's legs first (0x00568100)
 
     matGetVectFromMatrixCol3(shipfront, ship->rotatable.rotinfo.coordsys);
     matGetVectFromMatrixCol2(shipright, ship->rotatable.rotinfo.coordsys);
@@ -4589,62 +5734,57 @@ void toDrawMoveCircle(ShipPtr ship, real32 scale, color linecolor, color pulseco
 ----------------------------------------------------------------------------*/
 void toMoveLineDraw(ShipPtr ship, real32 scale)
 {
-    vector temp1;
-    real32 temp2;
     bool32   primEnabled;
     color  linecolor;
     color  pulsecolor;
 
-    if ((ship->staticinfo->shipclass != CLASS_Corvette) &&
-        (ship->staticinfo->shipclass != CLASS_Fighter))
+    // CAT: toMoveLineDraw 0x00568e30 draws the move line of every class (HW1 skipped fighters and corvettes)
+    //do da graphics setting up stuff
+    primEnabled = primModeEnabled;
+    if (primEnabled)
     {
-        //do da graphics setting up stuff
-        primEnabled = primModeEnabled;
-        if (primEnabled)
-        {
-            primModeClear2();
-        }
-        rndLightingEnable(FALSE);
-        rndTextureEnable(FALSE);
+        primModeClear2();
+    }
+    rndLightingEnable(FALSE);
+    rndTextureEnable(FALSE);
 
-        //setup color: attack moves different from normal moves
-        if ((ship->command != NULL) && (ship->command->ordertype.order == COMMAND_ATTACK))
-        {
-            linecolor  = TO_ATT_MOVE_LINE_COLOR;
-            pulsecolor = TO_ATT_MOVE_LINE_PULSE_COLOR;
-        }
-        else
-        {
-            linecolor  = TO_MOVE_LINE_COLOR;
-            pulsecolor = TO_MOVE_LINE_PULSE_COLOR;
-        }
+    //setup color: attack moves different from normal moves
+    if ((ship->command != NULL) && (ship->command->ordertype.order == COMMAND_ATTACK))
+    {
+        linecolor  = TO_ATT_MOVE_LINE_COLOR;
+        pulsecolor = TO_ATT_MOVE_LINE_PULSE_COLOR;
+    }
+    else
+    {
+        linecolor  = TO_MOVE_LINE_COLOR;
+        pulsecolor = TO_MOVE_LINE_PULSE_COLOR;
+    }
 
-        //if a ship is in a formation but not the leader
-        if ((cat_shipFormationCommand(ship))&&(ship!=cat_shipFormationCommand(ship)->selection->ShipPtr[0]))
-        {
-            //only draw the moveto circle
-            toDrawMoveCircle(ship, scale, linecolor, pulsecolor);
-        }
-        // CAT: no HW1 ResearchShip line drawing (M2-R4 ships-b)
-        else
-        {
-            //den draw da linez
-            toDrawMoveToLine(ship, linecolor, pulsecolor);
+    //if a ship is in a formation but not the leader
+    if ((cat_shipFormationCommand(ship))&&(ship!=cat_shipFormationCommand(ship)->selection->ShipPtr[0]))
+    {
+        //only draw the moveto circle
+        toDrawMoveCircle(ship, scale, linecolor, pulsecolor);
+    }
+    // CAT: no HW1 ResearchShip line drawing (M2-R4 ships-b)
+    else
+    {
+        //den draw da linez
+        toDrawMoveToLine(ship, linecolor, pulsecolor);
 
-            if (cat_shipFormationCommand(ship))   // CAT: no Ship.formationcommand
-            {
-                cat_shipFormationCommand(ship)->formation.pulse = pulse_at_beginning;
-            }
-
-            //toDrawMoveFromLine(ship);
-            toDrawMoveCircle(ship, scale, linecolor, pulsecolor);
+        if (cat_shipFormationCommand(ship))   // CAT: no Ship.formationcommand
+        {
+            cat_shipFormationCommand(ship)->formation.pulse = pulse_at_beginning;
         }
 
-        //den do sum more graphics non-setting up stuff
-        if (primEnabled)
-        {
-            primModeSet2();
-        }
+        //toDrawMoveFromLine(ship);
+        toDrawMoveCircle(ship, scale, linecolor, pulsecolor);
+    }
+
+    //den do sum more graphics non-setting up stuff
+    if (primEnabled)
+    {
+        primModeSet2();
     }
 }
 
@@ -5306,8 +6446,9 @@ void toDrawRadialIndicator4(ShipPtr ship, real32 radius, real32 scale,color pass
    {
         vecScalarMultiply(circlestart,head,radius);
 
-        circle4_timeelapsed[count] = universe.totaltimeelapsed - circle4_lasttime[count];
-        circle4_lasttime[count] = universe.totaltimeelapsed;
+        // CAT: toDrawRadialIndicator4 0x00569030 runs the rings on the task's real time (cat_taskRealTimeElapsed)
+        circle4_timeelapsed[count] = cat_taskRealTimeElapsed - circle4_lasttime[count];
+        circle4_lasttime[count] = cat_taskRealTimeElapsed;
         if(circle4delay[count] <= 0.0f)
         {
             circle4delay[count] = 0.0f;
@@ -5434,6 +6575,11 @@ void mrRegionDraw(regionhandle reg)
                 nisStaticDraw(nisStatic[index]);
             }
         }
+        if (cat_gameStatsIsActive())
+        {                                                   // CAT: the game-stats screen (cat_gameStatsDraw 0x004896b0)
+            cat_gameStatsDraw();
+            catUiSelfTestStatsFrame();                      // HWI-TEST(M2-R6 ui self-test): counts the frame
+        }
 
         /*
         if (!rndScissorEnabled)
@@ -5492,10 +6638,9 @@ void mrRegionDraw(regionhandle reg)
     }
 
     selSelectedDraw();                                      //draw overlays for selected ships, if any
-    if (mrHoldLeft == mrSelectHold)                         //and then draw the current selection progress
-    {
-        selSelectingDraw();
-        primRectOutline2(&mrSelectionRect, 1, TW_SELECT_BOX_COLOR);
+    if (catMrSelecting && !mrDisabled)
+    {                                                       // CAT: the band box (cat_mrSelectRectDraw 0x0056ac00)
+        cat_mrSelectRectDraw(0);
     }
 
 #if SP_DEBUGKEYS
@@ -5527,19 +6672,7 @@ void mrRegionDraw(regionhandle reg)
 
     //glDisable(GL_SCISSOR_TEST);
 
-    //this should be reworked to use the actual formation CSM
-
-    dbgAssertOrIgnore(mrFormationFont != FONT_InvalidFontHandle);
-    if (mrDrawFormation && (!((tutorial==TUTORIAL_ONLY) && !tutEnable.bFormation)))
-    {
-        fonthandle oldFont = fontMakeCurrent(mrFormationFont);
-        fontPrint(0, 0, colWhite, TypeOfFormationToNiceStr(mrNewFormation));
-
-        if (universe.totaltimeelapsed - mrDrawFormationTime >= MR_FormationDelay)
-            mrDrawFormation = FALSE;
-        fontMakeCurrent(oldFont);
-    }
-
+    // CAT: HW1's formation name on the screen is gone (Cataclysm gives a message, mrSetTheFormation 0x005659d0)
     if (printCaptainMessage)
     {
         fonthandle fhSave;
@@ -5580,51 +6713,9 @@ void mrRegionDraw(regionhandle reg)
         }
     }
 
-    if ((mrFormationName != NULL) && (!((tutorial==TUTORIAL_ONLY) && !tutEnable.bFormation)))                            //if changing formations
-    {
-        //fontPrint(0, 0, colWhite, mrFormationName);
-        if (universe.totaltimeelapsed - mrFormationTime >= MR_FormationDelay)
-        {                                                   //if on this formation long enough
-            char msgName[128];
-
-            //mrFormationName = TypeOfFormationToStr(mrNewFormation);
-            mrFormationTime = universe.totaltimeelapsed;
-
-            makeShipsFormationCapable((SelectCommand *)&selSelected);
-            if(selSelected.numShips >0)
-            {
-                // check again if mothership or carrier in - don't want them in delta, etc.
-                if (MothershipOrCarrierIndexInSelection((SelectCommand *)&selSelected) >= 0)
-                {
-                    mrNewFormation = PARADE_FORMATION;
-                }
-
-                strcpy(msgName, "Game_Formation_");
-                if (mrNewFormation == PARADE_FORMATION)
-                {
-                    strcat(msgName, strGetString(strPARADE_FORMATION));
-                }
-                else
-                {
-                    strcat(msgName, TypeOfFormationToStr(mrNewFormation));
-                }
-                tutGameMessage(msgName);
-
-                mrFormationName = NULL;                         //no longer selecting formations
-                if (mrNewFormation == PARADE_FORMATION)
-                {
-                    speechEvent(selSelected.ShipPtr[0], COMM_SetFormation, SPEECH_PARADE_FORMATION);
-                    clWrapSetMilitaryParade(&universe.mainCommandLayer,(SelectCommand *)&selSelected);
-                }
-                else
-                {
-                    speechEvent(selSelected.ShipPtr[0], COMM_SetFormation, mrNewFormation);
-                    clWrapFormation(&universe.mainCommandLayer,     //set new formation
-                        (SelectCommand *)&selSelected,mrNewFormation,0);   // CAT-TODO(stage 3 UI): the force-field level of the formation menu
-                }
-            }
-        }
-    }
+    // CAT: a cycled formation or tactic is ordered once its delay has passed (mrRegionDraw 0x00569260; HW1's
+    //      formation selection state is gone)
+    catMrCyclesApply();
 
     mrBigMessageDraw();
 
@@ -5635,15 +6726,17 @@ void mrRegionDraw(regionhandle reg)
     }
 
     // CAT (M2-R5 hud): mrRegionDraw 0x00569260 then draws the main overlay, the ship info panel of the first selected
-    //      ship when it is the player's, and updates the overlay's hover state and the panel's drag. CAT-TODO(M2-R6
-    //      popup menu): cat_popupMenuDraw and cat_popupMenuUpdateHover(0) around them
+    //      ship when it is the player's, the popup menu (M2-R6 mainrgn-popup), and updates the overlay's hover state,
+    //      the panel's drag and the popup's hover
     cat_moRender();
     if (selSelected.numShips > 0 && selSelected.ShipPtr[0]->playerowner == universe.curPlayerPtr)
     {
         cat_shipPrintDraw(selSelected.ShipPtr[0]);
     }
+    cat_popupMenuDraw();
     cat_ioUpdateHover();
     cat_shipPrintDragUpdate();
+    cat_popupMenuUpdateHover(FALSE);
 
     //compute animating stipple pattern every time mainrgn is drawn
     pieLineStippleCounter += pieLineStippleSpeed;
@@ -5719,9 +6812,16 @@ void mrRegionDraw(regionhandle reg)
 ----------------------------------------------------------------------------*/
 void mrReset(void)
 {
-    mrHoldRight = mrHoldLeft = mrNULL;                      //in case player was band-boxing or rotating
+    // CAT: mrReset 0x00569f80: the band box and the camera turn stop, the point mode goes off (piePointModeOnOff); the
+    //      exe's software-renderer call (RGLtype 0) does not apply to this tree's GL
+    catMrSelecting = FALSE;
+    catMrRightMode = 0;
+    mrHoldRight = mrHoldLeft = mrNULL;
     mouseCursorShow();
-    piePointSpecMode = PSM_Idle;                             //in case player was moving
+    if (piePointSpecMode != PSM_Idle)
+    {
+        piePointModeOnOff(PIE_SPEC_None, NULL);
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -5734,16 +6834,16 @@ void mrReset(void)
 ----------------------------------------------------------------------------*/
 void mrNISStarting(void)
 {
-    if (mrHoldLeft != mrNULL)
-    {                                                       //if player is selecting
-        mrSelectionRect.x0 = mrSelectionRect.x1 =           //selecting nothing
-            mrSelectionRect.y0 = mrSelectionRect.y1 = 0;
+    // CAT: mrNISStarting 0x00569fd0 on Cataclysm's state words: the band box and the camera turn stop
+    if (catMrSelecting)
+    {
         selRectNone();
-        mrHoldLeft = mrNULL;
+        catMrSelecting = FALSE;
     }
-    if (mrHoldRight != mrNULL)
-    {                                                       //if rotating mouse
-        mrHoldRight = mrNULL;                               //stop it!
+    if (catMrRightMode != 0)
+    {
+        catMrRightMode = 0;
+        mrHoldRight = mrNULL;
     }
     mrSaveTactical = mrDrawTactical;                        //turn off the tactical overlay
     mrDrawTactical = FALSE;
@@ -5759,16 +6859,16 @@ void mrNISStarting(void)
 ----------------------------------------------------------------------------*/
 void mrNISStopping(void)
 {
-    if (mrHoldLeft != mrNULL)
-    {                                                       //if player is selecting
-        mrSelectionRect.x0 = mrSelectionRect.x1 =           //selecting nothing
-            mrSelectionRect.y0 = mrSelectionRect.y1 = 0;
+    // CAT: mrNISStopping 0x0056a020 on Cataclysm's state words
+    if (catMrSelecting)
+    {
         selRectNone();
-        mrHoldLeft = mrNULL;
+        catMrSelecting = FALSE;
     }
-    if (mrHoldRight != mrNULL)
-    {                                                       //if rotating mouse
-        mrHoldRight = mrNULL;                               //stop it!
+    if (catMrRightMode != 0)
+    {
+        catMrRightMode = 0;
+        mrHoldRight = mrNULL;
     }
     mrDrawTactical = mrSaveTactical;                        //turn on the tactical overlay if it was on before
 }

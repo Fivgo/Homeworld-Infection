@@ -432,7 +432,8 @@ fecallback utyCallbacks[] =
 //    {utyInGameLoad,             "IG_LoadGame"},
 //    {utyInGameSave,             "IG_SaveGame"},
 //    {utySaveRecordedGame,       "IG_SaveRecordedGame"},
-    {mrDockingOrders,           "CSM_Dock"},                //menu commands
+    // CAT: no CSM_Dock callback (the exe's table names CSM_Hyperspace only); mrDockingOrders 0x00567750 is the
+    //      slipgate order now
     {mrDeltaFormation,          "CSM_DeltaFormation"},
     {mrBroadFormation,          "CSM_BroadFormation"},
     {mrXFormation,              "CSM_XFormation"},
@@ -440,7 +441,7 @@ fecallback utyCallbacks[] =
     {mrWallFormation,           "CSM_WallFormation"},
     {mrSphereFormation,         "CSM_SphereFormation"},
     {mrCustomFormation,         "CSM_PicketFormation"},
-    {mrHarvestResources,        "CSM_Harvest"},
+    // CAT: no CSM_Harvest either: mrHarvestResources 0x00563cc0 takes the resource where the menu passed its name
     {mrBuildShips,              "CSM_Build"},
     {mrTradeStuff,              "CSM_Trade"},
     {mrMoveShips,               "CSM_Move"},

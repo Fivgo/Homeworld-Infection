@@ -1448,8 +1448,7 @@ void horseRaceRender(void)
     if (ShouldHaveMousePtr)
     {
         // set the cursor type, reset the variables then draw the mouse cursor
-        mouseSelectCursorSetting();
-        mouseSetCursorSetting();
+        mouseSetCursorSetting();                           // CAT: no mouseSelectCursorSetting (gone from Cataclysm)
         mousePoll();
         mouseDraw();                                        //draw mouse atop everything
     }

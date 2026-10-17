@@ -34,6 +34,7 @@ void primEndPointSize3Fade(void);
 
 //draw 3D lines
 void primLine3(vector *p1, vector *p2, color c);
+void cat_primLine3Smooth(vector *p1, vector *p2, color c1, color c2);   // CAT: 0x00572320 (M2-R6 mainrgn-popup)
 void primLineThick3(vector *p1, vector *p2, real32 thickness, color c);
 
 //draw 3D 'pizza dish' circle using poly fans

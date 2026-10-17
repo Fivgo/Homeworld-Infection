@@ -11,8 +11,8 @@
 //      cat_shipIsMimicking, cat_mimicGetApparentShipType, cat_mimicGetSelectRadius, cat_mimicAppearsAlliedTo,
 //      cat_mimicAppearsAsResource and cat_mimicAppearsAsDerelict moved here from ShipSelect.c (their declarations
 //      stay in ShipSelect.h); cat_shipGetRamDamageScale moved here from Collision.c (it was a static stand-in).
-//      Not ported here: the mimic menu tables and their save chunks (cat_mimicInitDisguiseTables 0x005b9c60 ..
-//      cat_saveGameMiscChunks 0x005ba170, the disguise list of the special-order menu: stage 3 UI).
+//      The mimic menu tables (cat_mimicInitDisguiseTables 0x005b9c60 .. cat_mimicItemAdd 0x005ba0d0) are at the end
+//      (M2-R6 mainrgn-popup); CAT-TODO(the user's saves): their save chunks (cat_saveGameMiscChunks 0x005ba170).
 
 #include "Mimic.h"
 
@@ -23,6 +23,10 @@
 #include "CommandLayer.h"
 #include "Damage.h"
 #include "Globals.h"
+#include "Alliance.h"
+#include "ObjTypes.h"
+#include "SinglePlayer.h"
+#include "StringsOnly.h"
 #include "Memory.h"
 #include "Randy.h"
 #include "SaveGame.h"
@@ -1085,3 +1089,169 @@ CustShipHeader MimicHeader =
     .CustShipAttack = MimicAttack,
     .CustShipHaltCommand = MimicHaltCommand,
 };
+
+/*=============================================================================
+    CAT (M2-R6 mainrgn-popup): the popup menu's disguise lists (cat_mimicInitDisguiseTables 0x005b9c60 ..
+    cat_mimicItemAdd 0x005ba0d0). gameStart 0x005a9290 and singlePlayerLoadNewLevel 0x0051ac80 build them; kasfMimic's
+    KAS functions add types (stage 6).
+=============================================================================*/
+static CatMimicItem catMimicItems[CAT_MIMIC_ITEM_PLAYERS][CAT_MIMIC_ITEM_MAX];         // 0x00a76310
+static sdword catMimicItemCountAll[CAT_MIMIC_ITEM_PLAYERS + 1];                     // 0x00a77ab0: rows listed
+static sdword catMimicItemCountBase[CAT_MIMIC_ITEM_PLAYERS + 1];                    // 0x00a762e8: rows of the base set
+static ubyte catMimicCurrentPlayer = 0;                                             // 0x00a77ad4
+// CAT: the exe's 0x00a77ab0 has 9 words before 0x00a77ad4 (the current player byte), so its count of player 9 reads
+//      that byte; player 9 never lists rows here (nothing builds or opens it: the player list stops at 8)
+
+// the base disguise sets by race: Somtaaw (race 0) and Beast (race 1), as the exe writes them
+static const udword catMimicSectTypes[] = { sRecon, sAcolyte, sLeech, sSentinel, sACV, sWorker, sMultiBeamFrigate,
+                                            sRammingFrigate, sHiveFrigate };
+static const udword catMimicBeastTypes[] = { bRecon, bSentinel, bInterceptor, bAttackBomber, bACV, bWorker,
+                                             bMultiBeamFrigate, bHiveFrigate, bRammingFrigate, bDFGFrigate };
+
+void cat_mimicInitDisguiseTables(void)                                              // 0x005b9c60
+{
+    sdword player, index, numPlayers;
+
+    if (singlePlayerGame)
+    {
+        catMimicItemCountAll[0] = 0;
+        catMimicItemCountBase[0] = 0;
+        catMimicItemCountAll[1] = 0;
+        catMimicItemCountBase[1] = 0;
+        catMimicItemCountAll[CAT_MIMIC_PLAYER_OBJECTS] = 0;
+        catMimicItemCountBase[CAT_MIMIC_PLAYER_OBJECTS] = 0;
+        catMimicCurrentPlayer = 0;
+        return;
+    }
+    numPlayers = universe.numPlayers;
+    for (player = 0; player < numPlayers; player++)
+    {
+        if (universe.players[player].race == 0)
+        {
+            for (index = 0; index < (sdword)(sizeof(catMimicSectTypes) / sizeof(catMimicSectTypes[0])); index++)
+            {
+                catMimicItems[player][index].type = catMimicSectTypes[index];
+            }
+            catMimicItemCountAll[player] = 9;
+            catMimicItemCountBase[player] = 5;
+        }
+        else if (universe.players[player].race == 1)
+        {
+            for (index = 0; index < (sdword)(sizeof(catMimicBeastTypes) / sizeof(catMimicBeastTypes[0])); index++)
+            {
+                catMimicItems[player][index].type = catMimicBeastTypes[index];
+            }
+            catMimicItemCountAll[player] = 10;
+            catMimicItemCountBase[player] = 5;
+        }
+    }
+    for (player = numPlayers; player < 8; player++)
+    {
+        catMimicItemCountAll[player] = 0;
+    }
+    for (index = 0; index < 4; index++)
+    {                                                           // the asteroid disguises: random, small, medium, large
+        catMimicItems[CAT_MIMIC_PLAYER_OBJECTS][index].index = index;
+    }
+    catMimicItemCountAll[CAT_MIMIC_PLAYER_OBJECTS] = 4;
+    catMimicItemCountBase[CAT_MIMIC_PLAYER_OBJECTS] = 3;
+    catMimicCurrentPlayer = 0;
+}
+
+ubyte cat_mimicGetCurrentPlayer(void)                                               // 0x005b9f20
+{
+    return catMimicCurrentPlayer;
+}
+
+void cat_mimicSetCurrentPlayer(ubyte player)                                        // 0x005b9f30
+{
+    catMimicCurrentPlayer = player;
+}
+
+bool32 cat_mimicPlayerAvailable(ubyte player)                                       // 0x005b9f40
+{
+    if (singlePlayerGame)
+    {                                                           // the player, the computer, the objects, player 9
+        return (player == 0) || (player == 1) || (player == 8) || (player == 9);
+    }
+    if ((player != CAT_MIMIC_PLAYER_OBJECTS) && (player >= universe.numPlayers))
+    {
+        return FALSE;
+    }
+    return TRUE;
+}
+
+char *cat_mimicPlayerName(ubyte player)                                             // 0x005b9fa0
+{
+    if (player > 7)
+    {                                                           // 8: "objects" (9 reads the next string, as the exe)
+        return strGetString(strMimicTypePlayer1 + player);
+    }
+    if (singlePlayerGame)
+    {
+        return strGetString((player == 1) ? strMimicTypeComputerPlayer : strMimicTypeCurrentPlayer);
+    }
+    return playerNames[player];
+}
+
+sdword cat_mimicItemCount(ubyte player, bool32 added)                               // 0x005b9ff0
+{
+    if (player > CAT_MIMIC_ITEM_PLAYERS)
+    {                                                           // CAT-FIX: the exe reads past its two count arrays
+        return 0;
+    }
+    return added ? catMimicItemCountAll[player] : catMimicItemCountBase[player];
+}
+
+CatMimicItem *cat_mimicItemGet(ubyte player, udword unused, sdword index)          // 0x005ba020
+{
+    (void)unused;
+    // CAT-FIX: the exe has no bound; player 9 (never listed) maps to player 8's rows instead of past the table
+    if (player >= CAT_MIMIC_ITEM_PLAYERS)
+    {
+        player = CAT_MIMIC_PLAYER_OBJECTS;
+    }
+    return &catMimicItems[player][index];
+}
+
+char *cat_mimicItemName(ubyte player, udword unused, sdword index)                 // 0x005ba050
+{
+    (void)unused;
+    if (player > 7)
+    {
+        if (player == CAT_MIMIC_PLAYER_OBJECTS)
+        {
+            switch (catMimicItems[CAT_MIMIC_PLAYER_OBJECTS][index].index)
+            {
+                case 0: return strGetString(strMimicItemRandomAsteroid);
+                case 1: return strGetString(strMimicItemSmallAsteroid);
+                case 2: return strGetString(strMimicItemMediumAsteroid);
+                case 3: return strGetString(strMimicItemLargeAsteroid);
+                default: break;
+            }
+        }
+        // CAT-FIX: the exe returns its stack argument here (no string); an empty name instead
+        return "";
+    }
+    return ShipTypeToNiceStr((ShipType)catMimicItems[player][index].type);
+}
+
+void cat_mimicItemAdd(ubyte player, ShipType type)                                  // 0x005ba0d0
+{
+    if (player == CAT_MIMIC_PLAYER_OBJECTS)
+    {                                                           // the four asteroid disguises again
+        sdword index;
+        for (index = 0; index < 4; index++)
+        {
+            catMimicItems[CAT_MIMIC_PLAYER_OBJECTS][index].index = index;
+        }
+        catMimicItemCountAll[CAT_MIMIC_PLAYER_OBJECTS] = 4;
+        catMimicItemCountBase[CAT_MIMIC_PLAYER_OBJECTS] = 3;
+        return;
+    }
+    if ((player < CAT_MIMIC_ITEM_PLAYERS) && (catMimicItemCountAll[player] < CAT_MIMIC_ITEM_MAX))
+    {                                                           // CAT-FIX: the exe does not bound the row index
+        catMimicItems[player][catMimicItemCountAll[player]].type = type;
+        catMimicItemCountAll[player]++;
+    }
+}

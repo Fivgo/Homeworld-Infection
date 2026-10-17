@@ -69,6 +69,8 @@ void horseRaceInit(void);
 void horseRaceShutdown(void);
 
 void hrProcessPacket(ChatPacket *packet);
+void hrInitBackground(void);
+void hrShutdownBackground(void);
 
 void recievedHorsePacketCB(ubyte *packet,udword sizeofpacket);
 

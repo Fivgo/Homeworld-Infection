@@ -88,4 +88,12 @@ bool32 kbCommandKeyIsHit(udword command);
 
 void kbInitKeyBindings(void);
 
+// CAT (M2-R6 mainrgn-popup): Cataclysm's key commands (KeyBindings.c's end)
+void cat_kbCommandExecute(udword state, sdword command);                        // 0x0054eb10
+void cat_kbCommandKeyString(sdword command, char *out);                         // 0x0054e960
+bool32 cat_kbCommandKeyMatch(udword state, sdword command, udword key, bool32 execute);   // 0x0054ebc0
+void cat_kbLeechCB(udword state);                                               // 0x0054eff0
+void cat_kbMimicShipsCB(udword state);                                          // 0x0054f0d0
+void cat_kbMimicPlayersCB(udword state);                                        // 0x0054f130
+
 #endif

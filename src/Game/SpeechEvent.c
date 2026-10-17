@@ -2022,8 +2022,8 @@ void musicEventPrevTrack(void)
 }
 #else
 
-// CAT: HW1's < / > track keys (mrKeyPress). The exe has no such functions; kept here on the one music stream until
-//      the main-region port decides (CAT-TODO(M2-R6 main region): mrKeyPress's LESSTHAN / GREATERTHAN keys)
+// CAT: the next / previous music track key commands 0x60 / 0x61 (0x00550510 / 0x00550520) call these
+//      (0x00523c50 / 0x00523ca0): HW1's bodies with Cataclysm's 0x19 non-fixed tracks
 void musicEventNextTrack(void)
 {
     if (!singlePlayerGame && enableSpeech)
@@ -2053,6 +2053,18 @@ void musicEventPrevTrack(void)
    }
 }
 #endif
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_musicRadioReset
+    Description : CAT: the pilot lines over track 0x28 start over (cat_gameStatsBegin 0x00489e90 writes the three
+                  words inline after playing the track)
+----------------------------------------------------------------------------*/
+void cat_musicRadioReset(void)
+{
+    catMusicRadioCount = 0;
+    catMusicRadioNext = 0x1e;
+    catMusicRadioLast = 0;
+}
 
 sdword musicEventCurrentTrack(void)
 {

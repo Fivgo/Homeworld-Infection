@@ -111,15 +111,16 @@ extern bool32 pieVisualizeExtents;
 //movement mechanism functions
 // CAT (M2-R5 hud): piePointModeOnOff 0x004e5c90 takes what the point is for and the function that gets it
 //      (cat_piePointSpecExecute 0x004e8500). The callers that only turn it off pass PIE_SPEC_None (0) as the exe;
-//      the HW1 callers that turn it on (main region, sensors) pass PIE_SPEC_Move and no function until their ports
-//      (M2-R6) give them the exe's
+//      the main region passes the exe's functions since M2-R6 mainrgn-popup (cat_mrMoveCallback, cat_mrWaypointAdd,
+//      the big gun's cat_bigGunFirePoint); the HW1 callers left (the sensors manager's) pass PIE_SPEC_Move and no
+//      function until their port
 #define PIE_SPEC_None               0
 #define PIE_SPEC_Move               1
 #define PIE_SPEC_MoveNoLines        2
 #define PIE_SPEC_BigGun             3
 #define PIE_SPEC_Waypoint           4
 extern sdword piePointSpecType;
-extern bool32 catPieTradeMove;
+extern bool32 catPieWaypointMode;
 void piePointModeOnOff(sdword mode, void (*callback)(vector *point));
 void cat_piePointSpecExecute(void);                                     // CAT: 0x004e8500
 void cat_pieCompassDraw(vector *centre, color colour, real32 radius);   // CAT: 0x004e7240

@@ -11,6 +11,8 @@
 
 #include "Camera.h"
 #include "FEFlow.h"
+#include "Formation.h"
+#include "ShipSelect.h"
 #include "SpaceObj.h"
 #include "Types.h"
 
@@ -80,7 +82,6 @@ extern Camera *mrCamera;
 extern void (*mrHoldLeft)(void);
 extern void (*mrHoldRight)(void);
 
-extern char *mrMenuItemByTactic[];
 
 extern bool32 helpinfoactive;
 
@@ -89,6 +90,8 @@ extern sdword mrLastKeyPressed;
 extern real32 mrLastKeyTime;
 
 extern bool32 mrDisabled;
+extern bool32 mrDrawTactical;
+extern bool32 mrSpecialBandBox;                 // 0x00b39ba0
 
 #if MR_CAN_FOCUS_ROIDS
 extern bool32 mrCanFocusRoids;
@@ -110,7 +113,7 @@ udword mrRegionProcess(struct tagRegion *reg, sdword ID, udword event, udword da
 void mrRegionDraw(regionhandle reg);
 
 //right-click callback functions
-void mrDockingOrders(char *string, featom *atom);
+void mrDockingOrders(Ship *gate);                       // CAT: the slipgate order (0x00567750)
 void mrDeltaFormation(char *string, featom *atom);
 void mrBroadFormation(char *string, featom *atom);
 void mrXFormation(char *string, featom *atom);
@@ -145,7 +148,7 @@ sdword mrCursorText(SpaceObj *cursorobj);
 void mrEnable(void);
 void mrDisable(void);
 void mrNULL(void);
-void mrSelectHold(void);
+void mrSelectHold(Camera *camera, sdword sensors);      // CAT: 0x0056a1e0
 void mrShipDied(Ship *ship);
 void mrTacticalOverlayState(bool32 bTactical);
 
@@ -160,5 +163,109 @@ void mrRemoveAllProbesFromSelection();
 //nis strangeness prevention:
 void mrNISStarting(void);
 void mrNISStopping(void);
+
+/*=============================================================================
+    CAT (M2-R6 mainrgn-popup): Cataclysm's main region (mainrgn.c's "Cataclysm's main region" block)
+=============================================================================*/
+#define CAT_MR_MAX_WAYPOINTS            20          // 0x00b39bc0 .. 0x00b39cb0: the waypoints of a path
+
+// Cataclysm's key commands the main region names (the rows of the exe's command table 0x008b6310, numbered by the
+//      install's default_keys.cfg order); the others are KeyBindings.c's
+#define CAT_KB_Move                     0x01
+#define CAT_KB_ShipSpecial              0x07
+#define CAT_KB_Escape                   0x5A
+#define CAT_KB_BandboxGuard             0x4A
+#define CAT_KB_BandboxAttack            0x4B
+#define CAT_KB_BandboxForceAttack       0x4C
+#define CAT_KB_BandboxFocus             0x4D
+#define CAT_KB_MultipleSelect           0x4E
+#define CAT_KB_NextMusicTrack           0x60
+#define CAT_KB_PrevMusicTrack           0x61
+#define CAT_KB_SkipSensors              0x6B
+
+// the band box's colour by its modifier (cat_mrSelectRectDraw 0x0056ac00: 0x0072bdec .. 0x0072be00)
+#define CAT_MR_BAND_GUARD               0xfffa0000
+#define CAT_MR_BAND_FOCUS               0xff646464
+#define CAT_MR_BAND_FORCEATTACK         0xff6464fa
+#define CAT_MR_BAND_ATTACK              0xff0000ff
+#define CAT_MR_BAND_SPECIAL             0xff64644b
+#define CAT_MR_BAND_SELECT              0xffffffff
+
+// the developer console is open (0x00a2dcd4, cat_consoleOpen): CAT-TODO(M2-R6 console): the console port
+#define CAT_MR_CONSOLE_OPEN()           FALSE
+
+extern bool32 catMrSelecting;                   // 0x00a75284
+extern sdword catMrRightMode;                   // 0x00a75288
+extern sdword catMrWaypointMode;                // 0x00a752b4
+extern vector catMrWaypoints[CAT_MR_MAX_WAYPOINTS];
+extern sdword catMrWaypointCount;
+extern bool32 catMrHomeworldCSA;                // 0x00a7526c
+extern bool32 catMrRightClickCSA;               // 0x008b9ec8
+extern bool32 catMrWaypointCentre;              // 0x00a75270
+extern bool32 mrMenuDontDisappear;              // 0x00a752b0
+extern Ship *mrMothershipPtr;                   // 0x00a752c0
+
+bool32 catMrKbHeld(sdword command);
+void cat_mrKeyChildrenAlloc(regionhandle region, regionfunction function);              // 0x00563be0
+real32 cat_uiShipDamageFraction(Ship *ship);                                            // 0x005c9c60
+Ship *cat_uiFindNearestSpecialTarget(Ship *ship, sdword kind);                          // 0x00563e20
+void cat_uiSpecialTargetCommand(SelectCommand *targets, sdword ability);                // 0x00564060
+void cat_uiSpecialSalvage(SelectCommand *targets);                                      // 0x00564030
+void cat_uiSpecialRepair(SelectCommand *targets);                                       // 0x00564630
+void cat_uiSpecialLeech(SelectCommand *targets);                                        // 0x00564660
+void cat_uiSpecialEMP(SelectCommand *targets);                                          // 0x00564690
+void cat_uiSpecialSwarm(SelectCommand *targets);                                        // 0x005646c0
+void cat_uiSpecialInfect(SelectCommand *targets);                                       // 0x005646f0
+void cat_uiSpecialRam(SelectCommand *targets);                                          // 0x00564720
+void cat_uiSpecialFireMissile(SelectCommand *targets);                                  // 0x00564750
+void cat_uiReleaseHiveSwarm(void);                                                      // 0x00564780
+void cat_uiSiegeCannonCancel(void);                                                     // 0x00564810
+void cat_uiCloakShips(void);                                                            // 0x00564890
+void cat_uiDecloakShips(void);                                                          // 0x00564920
+void cat_uiSetWaypointMode(sdword mode);                                                // 0x00565100
+void cat_uiHaltSelection(void);                                                         // 0x00565190
+void cat_uiLink(void);                                                                  // 0x00565570
+void cat_uiUnlink(void);                                                                // 0x005655e0
+void cat_uiUnmimic(void);                                                               // 0x00565770
+void cat_mrSetTactics(sdword tactic, bool32 showMessage);                               // 0x00565c30
+void cat_uiProtectFormation(SelectCommand *protectees);                                 // 0x00565f30
+void cat_uiProtectFormationCancel(void);                                                // 0x00566250
+void cat_uiFireSiegeCannon(void);                                                       // 0x00566340
+void cat_uiFireDreadnoughtCannon(void);                                                 // 0x005663f0
+void cat_uiSetLeechAction(ubyte action);                                                // 0x00566470
+void cat_uiUnleech(void);                                                               // 0x00566510
+void cat_mrFormationCycle(bool32 backwards);                                            // 0x00566750
+void cat_mrTacticsCycle(bool32 backwards);                                              // 0x00566860
+void cat_mrMimicTarget(SpaceObj *target);                                               // 0x00567860
+bool32 cat_mrTacticalOverlayGet(void);                                                  // 0x0056a080
+bool32 cat_mrBandBoxRelease(Camera *camera, sdword sensors);                            // 0x0056a610
+void cat_mrSelectRectDraw(sdword sensors);                                              // 0x0056ac00
+void cat_mrClickRelease(sdword sensors, bool32 doubleClick);                            // 0x0056ad50
+void cat_mrHoldLeft(sdword sensors);                                                    // 0x0056aee0
+void cat_mrPressLeft(void);                                                             // 0x0056af10
+void cat_mrReleaseLeft(sdword sensors);                                                 // 0x0056af60
+void cat_mrPressRight(void);                                                            // 0x0056afe0
+void cat_mrReleaseRight(sdword sensors);                                                // 0x0056b0b0
+void cat_mrReleaseLeftCB(sdword sensors);                                               // 0x0056b6a0
+// the key commands' orders of the main region (functions the export does not list)
+void cat_mrMoveShips(void);                                                             // 0x0056a090 [Move]
+void cat_mrMoveCallback(vector *point);                                                 // 0x00564a90
+void cat_mrWaypointAdd(vector *point);                                                  // 0x00564d70
+void cat_mrWaypointsStart(void);                                                        // 0x00564e20
+void cat_mrWaypointsEnd(void);                                                          // 0x00564f40
+void cat_mrWaypointsToggle(void);                                                       // 0x00565070 [Waypoints]
+void cat_mrWaypointModeCycle(void);                                                     // 0x00565090
+void cat_mrWaypointRemoveLast(void);                                                    // 0x00565170
+void cat_mrDockShips(void);                                                             // 0x00563c30 [Dock]
+void cat_mrUpgradeShips(void);                                                          // 0x00565650 [Upgrade_Ships]
+void cat_mrFocusOnMothership(void);                                                     // 0x00565e80
+void cat_mrEnterSlipgate(void);                                                         // 0x005665a0
+void cat_mrHyperspace(void);                                                            // 0x00566920 [Hyperspace]
+void cat_mrEscape(void);                                                                // 0x0054f5f0 [Escape]
+void mrSetTheFormation(TypeOfFormation formationtype, bool32 showMessage, bool32 shipVoice);   // CAT: 0x005659d0
+void mrObjectClick(Ship *ship, bool32 doubleClick);                                    // CAT: 0x00566b60
+void mrFormationShips(MaxSelection *selection, Ship *ship);                             // 0x00566a00
+Ship *mrNextMothershipPtr(Ship *mothership);                                            // 0x00565da0
+void mrRemoveDerelictsAndAllPlayerShipsFromSelecting(void);                             // 0x00563aa0
 
 #endif

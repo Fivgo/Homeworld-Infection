@@ -197,9 +197,9 @@ sdword piePointSpecType = PIE_SPEC_None;            // 0x00a50c94
 void (*piePointSpecCallback)(vector *point) = NULL; // 0x00a50cc0
 // the line colours per kind (exe data 0x0088d79c / 0x0088d7a0 / 0x0088d7a4, all white)
 static color pieMoveLineColour = colWhite, pieBigGunLineColour = colWhite, pieWaypointLineColour = colWhite;
-// CAT: 0x00b39cbc, set by mrTradeStuff 0x00564f2c (the trader move of the main region, M2-R6) and cleared by
+// CAT: 0x00b39cbc, set by cat_mrWaypointsStart 0x00564e20 (waypoint mode of the main region) and cleared by
 //      piePointModeOnOff: the plane is drawn in 0x0088d798's colour. Name chosen here
-bool32 catPieTradeMove = FALSE;
+bool32 catPieWaypointMode = FALSE;
 static color pieTradePlaneColour = 0xff60c678;     // 0x0088d798
 
 /*-----------------------------------------------------------------------------
@@ -221,7 +221,7 @@ void piePointModeOnOff(sdword mode, void (*callback)(vector *point))
         piePlaneDrawCallback = NULL;
         pieMovementCursorDrawCallback = NULL;
         piePointSpecCallback = NULL;
-        catPieTradeMove = FALSE;                // 0x00b39cbc
+        catPieWaypointMode = FALSE;                // 0x00b39cbc
         MP_HyperSpaceFlag = FALSE;              // 0x00a5b21c
         return;
     }
@@ -265,8 +265,9 @@ void piePointModeOnOff(sdword mode, void (*callback)(vector *point))
             tutGameMessage("WaypointStart");
             pieLineDrawCallback = pieAllShipsToPiePlateDraw;
             piePlaneDrawCallback = piePlaneDraw;
-            // CAT-TODO(M2-R6 main region): the exe's waypoint cursor 0x004e6e70 (a function the export does not list)
-            //      comes with the waypoint mode's callers
+            // CAT-TODO(M2-R7 waypoint draw): the exe's waypoint cursor 0x004e6e70 (a function the export does not list:
+            //      the waypoints so far as lines and circles, with a jitter drawn from ranRandomFn(0) while 0x0088d7a8
+            //      is set); the waypoint mode's callers are ported (cat_mrWaypointsStart 0x00564e20)
             pieMovementCursorDrawCallback = pieMovementCursorDraw;
             moveLineColor = pieWaypointLineColour;
             break;
@@ -932,7 +933,7 @@ void piePlaneDraw(real32 distance)
     glPushAttrib(GL_LIGHTING);
     glDisable(GL_LIGHTING);
     texture = rndTextureEnable(FALSE);
-    pieColor = catPieTradeMove ? pieTradePlaneColour : TW_MOVE_POINT_LINE_COLOR;
+    pieColor = catPieWaypointMode ? pieTradePlaneColour : TW_MOVE_POINT_LINE_COLOR;
     cat_pieCompassDraw(&selCentrePoint, pieColor, distance);
     pieScreenSizeOfCircleCompute(&piePlanePoint, selAverageSize, &scaledSize, &nSegments);
     primCircleOutlineZ(&piePlanePoint, scaledSize, nSegments, pieColor);

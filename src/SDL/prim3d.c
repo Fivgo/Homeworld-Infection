@@ -757,3 +757,39 @@ void prim3dShutdown(void)
 }
 
 
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_primLine3Smooth                               0x00572320
+    Description : CAT (M2-R6 mainrgn-popup): a 3D line shaded from c1 at p1 to c2 at p2, antialiased (with blending
+                  on for it) where the GL has line smoothing (glCapFeatureExists(GL_LINE_SMOOTH)), as the exe's
+----------------------------------------------------------------------------*/
+void cat_primLine3Smooth(vector *p1, vector *p2, color c1, color c2)
+{
+    GLboolean blendOn = GL_TRUE;
+    bool32 smooth = TRUE;                   // the SDL port has no glcaps: line smoothing is always there (as primLine3)
+
+    if (smooth)
+    {
+        blendOn = glIsEnabled(GL_BLEND);
+        if (!blendOn)
+        {
+            glEnable(GL_BLEND);
+        }
+        glEnable(GL_LINE_SMOOTH);
+        rndAdditiveBlends(FALSE);
+    }
+    glBegin(GL_LINES);
+    glColor4ub(colRed(c1), colGreen(c1), colBlue(c1), colAlpha(c1));
+    glVertex3fv((const GLfloat *)p1);
+    glColor4ub(colRed(c2), colGreen(c2), colBlue(c2), colAlpha(c2));
+    glVertex3fv((const GLfloat *)p2);
+    glEnd();
+    if (smooth)
+    {
+        if (!blendOn)
+        {
+            glDisable(GL_BLEND);
+        }
+        glDisable(GL_LINE_SMOOTH);
+    }
+}

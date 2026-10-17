@@ -155,6 +155,7 @@ void soundEventStopTrack(sdword tracknum, real32 fadetime);
 void musicEventNextTrack(void);
 void musicEventPrevTrack(void);
 sdword musicEventCurrentTrack(void);
+void cat_musicRadioReset(void);                                     // CAT: inline in 0x00489e90
 
 /* Setup and Control functions */
 void soundEventSFXVol(real32);

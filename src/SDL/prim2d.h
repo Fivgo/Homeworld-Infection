@@ -111,6 +111,8 @@ void primRectOutline2(rectangle *rect, sdword thickness, color c);
 void primBeveledRectOutline(rectangle *rect, sdword thickness, color c, uword xb, uword yb);
 void primRoundRectOutline(rectangle *rect, sdword thickness, color c, uword xb, uword yb);
 void primRectShaded2(rectangle *rect, color *c); // color *c is a pointer to an array of 4 color values
+void cat_primRectSolidTexturedFullRectBlendC2(rectangle *rect, color c);       // CAT: 0x00570300 (M2-R6 mainrgn-popup)
+void cat_primRectShadedHorizontal2(rectangle *rect, color cLeft, color cRight);  // CAT: 0x00570610 (M2-R6 mainrgn-popup)
 
 #define OL_UL   0x01
 #define OL_UR   0x02

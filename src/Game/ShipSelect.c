@@ -3658,3 +3658,249 @@ bool32 cat_spShipCanHyperspace(Ship *ship)                          // 0x0051765
     }
     return can;
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_selComputeTargetActions                       0x00513a00
+    Description : CAT (M2-R6 mainrgn-popup): what the ships of a selection can do and what they are as targets
+                  (CatTargetActions, 0x29 dwords). The popup menu, the right-click order and the cursor compute it for
+                  the player's selection and for the clicked objects.
+    Inputs      : out - filled; targets - the ships (any objects)
+    Return      : out
+----------------------------------------------------------------------------*/
+CatTargetActions *cat_selComputeTargetActions(CatTargetActions *out, MaxSelection *targets)
+{
+    CatTargetActions actions;
+    sword reasons[9];
+    bool32 leechSeen = FALSE;
+    Ship *ship;
+    sdword index;
+
+    memset(&actions, 0, sizeof(actions));
+    if (targets->numShips > 0)
+    {                                                       // the "all ships" words start TRUE
+        for (index = CAT_TA_AllLeech; index <= CAT_TA_AllForceField; index++)
+        {
+            actions.flag[index] = TRUE;
+        }
+    }
+    for (index = 0; index < targets->numShips; index++)
+    {
+        ship = targets->ShipPtr[index];
+        if ((ship->header.objtype >= OBJ_AsteroidType) && (ship->header.objtype <= OBJ_DustType))
+        {
+            actions.flag[CAT_TA_Resource] = TRUE;
+        }
+        else if ((ship->header.objtype == OBJ_MissileType) && (((Missile *)ship)->missileType == MISSILE_Mine))
+        {
+            actions.flag[CAT_TA_Enemy] = TRUE;
+        }
+        else if ((ship->header.objtype == OBJ_ShipType) && (ship->playerowner != NULL))
+        {
+            if (allianceIsShipAlly(ship, universe.curPlayerPtr))
+            {                                               // the exe's mission-2 exception: dMessagePod
+                if (!((singlePlayerGameInfo.currentMission == 2) && (ship->shiptype == dMessagePod)))
+                {
+                    actions.flag[CAT_TA_Ally] = TRUE;
+                }
+            }
+            else if (cat_mimicAppearsAsResource(ship, universe.curPlayerPtr))
+            {
+                actions.flag[CAT_TA_Resource] = TRUE;
+            }
+            else if (cat_mimicAppearsAlliedTo(ship, universe.curPlayerPtr))
+            {
+                actions.flag[CAT_TA_Ally] = TRUE;
+            }
+            else if (!cat_shipIsCrystal(ship) && !bitTest(ship->staticinfo->catTypeFlags, 0x4000) &&
+                     !bitTest(ship->header.catFlags18, 0x10) && (ship->shiptype != dEcclesiamInfected))
+            {
+                actions.flag[CAT_TA_Enemy] = TRUE;
+            }
+            if (ship->header.objtype == OBJ_ShipType)
+            {
+                if (cat_shipHasUpgrade(ship, CAT_UPGRADE_Repair) && (ship->shiptype != sProcessor) &&
+                    (ship->shiptype != bProcessor))
+                {
+                    actions.flag[CAT_TA_Repair] = TRUE;
+                }
+                if ((ship->header.objtype == OBJ_ShipType) && cat_shipHasUpgrade(ship, CAT_UPGRADE_Salvage))
+                {
+                    actions.flag[CAT_TA_Salvage] = TRUE;
+                }
+            }
+            // CAT-TODO(stage 5 multiplayer options): the multiplayer harvest test reads bit 0x20 of the game options
+            //      word 0x008860ec (the Cataclysm tpGameCreated layout); it counts as clear here, as in Salvage.c
+            if ((ship->staticinfo->shipclass == CLASS_Resource) && (ship->staticinfo->harvestAmount > 0) &&
+                singlePlayerGame && !ship->shipOrDerelict.catDisabled &&
+                ((ship->shiptype == sWorker) || (ship->shiptype == bWorker)))
+            {
+                actions.flag[CAT_TA_Harvest] = TRUE;
+            }
+            if ((ship->staticinfo->custshipheader.CustShipAttack != NULL) && !cat_shipIsSentinelInField(ship) &&
+                !ship->shipOrDerelict.catDisabled)
+            {
+                actions.flag[CAT_TA_CanAttack] = TRUE;
+            }
+            memset(reasons, 0, sizeof(reasons));
+            if ((singlePlayerGame && (singlePlayerGameInfo.currentMission == 10) && (ship->shiptype == dBigGun)) ||
+                cat_salvageCheckTargetReasons(universe.curPlayerPtr, ship, reasons) ||
+                ((reasons[CAT_SALVAGE_REASON_NoPoints] <= 0) && (reasons[CAT_SALVAGE_REASON_Friendly] <= 0) &&
+                 (reasons[CAT_SALVAGE_REASON_Asteroid] <= 0) && (reasons[CAT_SALVAGE_REASON_Dust] <= 0) &&
+                 (reasons[CAT_SALVAGE_REASON_Forbidden] <= 0)))
+            {
+                actions.flag[CAT_TA_Salvageable] = TRUE;
+            }
+            if (ship->shiptype == dSlipgateSmall)
+            {
+                actions.flag[CAT_TA_SlipgateSmall] = TRUE;
+            }
+            else if (ship->shiptype == dSlipgateMedium)
+            {
+                actions.flag[CAT_TA_SlipgateMedium] = TRUE;
+            }
+            else if (ship->shiptype == dSlipgateLarge)
+            {
+                actions.flag[CAT_TA_SlipgateLarge] = TRUE;
+            }
+            if (cat_shipHasUpgrade(ship, CAT_UPGRADE_ACVEMP))
+            {
+                actions.flag[CAT_TA_EMP] = TRUE;
+            }
+            else
+            {
+                actions.flag[CAT_TA_AllEMP] = FALSE;
+            }
+            if (cat_shipHasUpgrade(ship, 0x800))
+            {                                               // the hive frigate's swarm
+                actions.flag[CAT_TA_Hive] = TRUE;
+                if (cat_hiveFrigateSwarmReady(ship))
+                {
+                    actions.flag[CAT_TA_HiveReady] = TRUE;
+                }
+            }
+            else
+            {
+                actions.flag[CAT_TA_AllHive] = FALSE;
+            }
+            if (cat_mothershipHasBigGunModule(ship))
+            {
+                actions.flag[CAT_TA_BigGun] = TRUE;
+                if (cat_mothershipBigGunFiring(ship))
+                {
+                    actions.flag[CAT_TA_BigGunFiring] = TRUE;
+                }
+            }
+            if (cat_shipHasUpgrade(ship, CAT_UPGRADE_Link))
+            {
+                actions.flag[CAT_TA_Link] = TRUE;
+            }
+            else if (cat_shipHasUpgrade(ship, CAT_UPGRADE_MimicSmall))
+            {
+                actions.flag[CAT_TA_Unlink] = TRUE;
+            }
+            if (cat_shipHasUpgrade(ship, CAT_UPGRADE_Leech))
+            {
+                actions.flag[CAT_TA_Leech] = TRUE;
+                if (cat_leechIsLeeching(ship) == TRUE)
+                {
+                    actions.flag[CAT_TA_Leeching] = TRUE;
+                }
+                if (!leechSeen)
+                {
+                    actions.leechAction = cat_leechGetAction(ship);
+                    leechSeen = TRUE;
+                }
+                else if (actions.leechAction != cat_leechGetAction(ship))
+                {
+                    actions.leechAction = 0;
+                }
+            }
+            else
+            {
+                actions.flag[CAT_TA_AllLeech] = FALSE;
+            }
+            if (cat_shipHasUpgrade(ship, CAT_UPGRADE_Mimic))
+            {
+                actions.flag[CAT_TA_Mimic] = TRUE;
+                if (cat_shipIsMimicking(ship) == TRUE)
+                {
+                    actions.flag[CAT_TA_Mimicking] = TRUE;
+                }
+                if (ship->shiptype == sMCV)
+                {
+                    actions.flag[CAT_TA_MCV] = TRUE;
+                }
+            }
+            else
+            {
+                actions.flag[CAT_TA_AllMimic] = FALSE;
+            }
+            if (cat_shipHasUpgrade(ship, CAT_UPGRADE_DreadnoughtCannon))
+            {
+                actions.flag[CAT_TA_DreadnoughtCannon] = TRUE;
+            }
+            if (cat_shipCanUseBeastWeapon(ship))
+            {
+                actions.flag[CAT_TA_BeastWeapon] = TRUE;
+            }
+            else
+            {
+                actions.flag[CAT_TA_AllBeastWeapon] = FALSE;
+            }
+            if ((ship->shiptype == sRammingFrigate) || (ship->shiptype == bRammingFrigate))
+            {
+                actions.flag[CAT_TA_Ram] = TRUE;
+            }
+            else
+            {
+                actions.flag[CAT_TA_AllRam] = FALSE;
+            }
+            if (cat_shipHasUpgrade(ship, CAT_UPGRADE_Ability1) || cat_shipHasUpgrade(ship, CAT_UPGRADE_Ability2) ||
+                cat_shipHasUpgrade(ship, CAT_UPGRADE_Ability3))
+            {
+                actions.flag[CAT_TA_ForceField] = TRUE;
+                if ((ship->command != NULL) && bitTest(ship->command->ordertype.attributes, COMMAND_MASK_FORMATION) &&
+                    ((ship->command->formation.formationtype == FORCEFIELD_SPHERE_FORMATION) ||
+                     (ship->command->formation.formationtype == FORCEFIELD_WALL_FORMATION)))
+                {
+                    actions.flag[CAT_TA_InForceField] = TRUE;
+                }
+            }
+            else
+            {
+                actions.flag[CAT_TA_AllForceField] = FALSE;
+            }
+            if (cat_shipHasUpgrade(ship, 0x20000))
+            {                                               // the cloaking upgrade
+                if (cat_shipIsCloakedFully(ship))
+                {
+                    actions.flag[CAT_TA_Decloak] = TRUE;
+                }
+                else
+                {
+                    actions.flag[CAT_TA_Cloak] = TRUE;
+                }
+            }
+            if (cat_acolyteCanFireLinkedWeapon(ship))
+            {
+                actions.flag[CAT_TA_AcolyteLinkFire] = TRUE;
+            }
+            else
+            {
+                actions.flag[CAT_TA_AllAcolyteLinkFire] = FALSE;
+            }
+        }
+        else
+        {                                                   // a derelict, a bullet, an effect: the "all" words but
+            actions.flag[CAT_TA_AllLeech] = FALSE;          //  the acolyte's are cleared (as the exe, 0x00513ed6)
+            actions.flag[CAT_TA_AllMimic] = FALSE;
+            actions.flag[CAT_TA_AllEMP] = FALSE;
+            actions.flag[CAT_TA_AllHive] = FALSE;
+            actions.flag[CAT_TA_AllRam] = FALSE;
+            actions.flag[CAT_TA_AllBeastWeapon] = FALSE;
+            actions.flag[CAT_TA_AllForceField] = FALSE;
+        }
+    }
+    *out = actions;
+    return out;
+}

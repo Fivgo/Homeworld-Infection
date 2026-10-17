@@ -172,10 +172,15 @@ typedef struct ShipSinglePlayerGameInfo
 extern SinglePlayerGameInfo singlePlayerGameInfo;
 extern bool32 singlePlayerGameLoadNewLevelFlag;
 extern bool32 hyperspaceFails;
+extern regionhandle spHyperspaceRollCallScreen;     // 0x00a6ada0
 extern bool32 singlePlayerHyperspacingInto;
 extern bool32 spCollectResourcesAtEndOfMission;
 
 void spHyperspaceButtonPushed(void);
+// CAT (M2-R6 mainrgn-popup)
+extern bool32 catSpBigGunAllowed;                       // 0x00894108
+sdword cat_spPlayerCanHyperspace(void);                 // 0x005193b0
+char *cat_spMissionFlagValue(void);                     // 0x0051c120
 
 void spHyperspaceSelectionIn(SelectCommand *selection,hvector *destination);
 void spHyperspaceSelectionOut(SelectCommand *selection);

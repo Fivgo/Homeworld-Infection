@@ -75,6 +75,7 @@
 #include "Mission15.h"
 #include "Mission16.h"
 #include "Tutorial1.h"
+#include "Mimic.h"
 
 #ifdef _MSC_VER
     #define strcasecmp _stricmp
@@ -2836,6 +2837,8 @@ abortload:
     // CAT (M2-R4 combat): the blast lists start empty on a new level (singlePlayerLoadNewLevel 0x0051a.., after
     //      bobResetProperties and cat_fowCreatePlayerGrids; the rest of Cataclysm's next-level flow is stage 6's)
     cat_blastInit();
+    // CAT (M2-R6 mainrgn-popup): the mimic lists start over with the level (singlePlayerLoadNewLevel 0x0051b1fe)
+    cat_mimicInitDisguiseTables();
     // CAT (M2-R5 hud): the overlay's mission timer restarts with the level (cat_missionTimerReset 0x004acb80, after
     //      cat_mimicInitDisguiseTables in singlePlayerLoadNewLevel)
     cat_missionTimerReset();
@@ -4094,3 +4097,31 @@ void LoadSinglePlayerGame(void)
     LoadGrowSelectionAndFix(&singlePlayerGameInfo.ShipsToHyperspace);
 }
 
+
+/*=============================================================================
+    CAT (M2-R6 mainrgn-popup): the single-player bits the popup menu reads
+=============================================================================*/
+// 0x00894108: the mothership's big gun may fire (data default 1; a KAS function at 0x0049ac30 clears it: stage 6).
+//      Name chosen here
+bool32 catSpBigGunAllowed = TRUE;
+
+// 0x00894424: per mission, the hyperspace row says "next level" (1) or "hyperspace" (0) (cat_spMissionFlagValue)
+static const bool32 catSpMissionNextLevel[] = { 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0 };
+
+sdword cat_spPlayerCanHyperspace(void)                  // 0x005193b0
+{
+    return (singlePlayerGame && singlePlayerGameInfo.playerCanHyperspace) ? 1 : 0;
+}
+
+char *cat_spMissionFlagValue(void)                      // 0x0051c120: the popup menu's hyperspace row's text
+{
+    sdword mission = singlePlayerGameInfo.currentMission;
+
+    // CAT-FIX: the exe indexes its table by the mission unchecked
+    if ((mission >= 0) && (mission < (sdword)(sizeof(catSpMissionNextLevel) / sizeof(catSpMissionNextLevel[0]))) &&
+        catSpMissionNextLevel[mission])
+    {
+        return strGetString(strSinglePlayerNextLevel);
+    }
+    return strGetString(strSinglePlayerHyperspace);
+}

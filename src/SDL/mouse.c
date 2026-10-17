@@ -25,6 +25,9 @@
 #include "main.h"
 #include "mainrgn.h"
 #include "Memory.h"
+#include "Mimic.h"
+#include "PopupMenu.h"
+#include "BeastWeapon.h"
 #include "NIS.h"
 #include "render.h"
 #include "ResearchGUI.h"
@@ -131,44 +134,55 @@ static color mouseCursorEdgeColor    = MC_EdgeColor;
 fonthandle mouseCursorFont = 0;
 
 //cursor bitmaps
-static lifheader *mouseNormalBitmap              = NULL;
-static lifheader *mouseAddShipsBitmap            = NULL;
-static lifheader *mouseFocusNoSelectBitmap       = NULL;
-static lifheader *mouseBandBoxAttackBitmap       = NULL;
-static lifheader *mouseForceAttackBitmap         = NULL;
-static lifheader *mouseGuardBitmap               = NULL;
-static lifheader *mouseSpecialAttackBitmap       = NULL;
-static lifheader *mouseSpecialOpActivateBitmap   = NULL;
-static lifheader *mouseSpecialOpDeactivateBitmap = NULL;
-static lifheader *mouseGUIBitmap                 = NULL;
-static lifheader *mouseResourceBitmap            = NULL;
-static lifheader *mouseDockingBitmap             = NULL;
-static lifheader *mouseResearchBitmap            = NULL;
-static lifheader *mouseSensorsBitmap             = NULL;
-static lifheader *mouseBuildBitmap               = NULL;
-static lifheader *mouseSalvageBitmap             = NULL;
-static lifheader *mouseSupportBitmap             = NULL;
-static lifheader *mouseTradersBitmap             = NULL;
-
-
-static GLuint tex_Normal = 0;
-static GLuint tex_AddShips = 0;
-static GLuint tex_FocusNoSelect = 0;
-static GLuint tex_BandBoxAttack = 0;
-static GLuint tex_ForceAttack = 0;
-static GLuint tex_Guard = 0;
-static GLuint tex_SpecialAttack = 0;
-static GLuint tex_SpecialOpActivate = 0;
-static GLuint tex_SpecialOpDeactivate = 0;
-static GLuint tex_GUI = 0;
-static GLuint tex_Resource = 0;
-static GLuint tex_Docking = 0;
-static GLuint tex_Research = 0;
-static GLuint tex_Sensors = 0;
-static GLuint tex_Build = 0;
-static GLuint tex_Salvage = 0;
-static GLuint tex_Support = 0;
-static GLuint tex_Traders = 0;
+// CAT: Cataclysm's 31 cursor bitmaps and their textures (mouseStartup 0x0056d670: 0x00a75810 .., mouseInitGL 0x0056e400:
+//      0x00a75890 ..), 32 slots with slot 3 unused (HW1 kept 18 named statics)
+#define MC_SLOT_NUMBER              32
+static char *mouseBitmapFiles[MC_SLOT_NUMBER] =
+{
+    MC_PATH"cursor.LiF",                // 0 normal_mouse, movement
+    MC_PATH"add.LiF",                   // 1 add_ships
+    MC_PATH"eye.LiF",                   // 2 focus_no_select
+    NULL,                               // 3 (unused)
+    MC_PATH"attack.LiF",                // 4 band_box_attack
+    MC_PATH"exclaim.LiF",               // 5 force_attack
+    MC_PATH"shield.LiF",                // 6 m_guard
+    MC_PATH"special_activate.LiF",      // 7 special_attack
+    MC_PATH"special_activate.LiF",      // 8 special_op_activate
+    MC_PATH"special_deactivate.LiF",    // 9 special_op_deactivate
+    MC_PATH"dialog.LiF",                // 10 gui
+    MC_PATH"resource.LiF",              // 11 resource
+    MC_PATH"dock.LiF",                  // 12 docking, small_docking
+    MC_PATH"dialog.LiF",                // 13 research
+    MC_PATH"dialog.LiF",                // 14 sensors
+    MC_PATH"dialog.LiF",                // 15 build
+    MC_PATH"salvage.LiF",               // 16 salvage (CAT: HW1 drew special_activate.LiF)
+    MC_PATH"support.LiF",               // 17 support
+    MC_PATH"force_field.LiF",           // 18 force_field (CAT: new from here)
+    MC_PATH"trader.LiF",                // 19 traders
+    MC_PATH"slipgate_small.LiF",        // 20
+    MC_PATH"slipgate_medium.LiF",       // 21
+    MC_PATH"slipgate_large.LiF",        // 22
+    MC_PATH"leech.LiF",                 // 23
+    MC_PATH"link.LiF",                  // 24
+    MC_PATH"mimic.LiF",                 // 25
+    MC_PATH"emp.LiF",                   // 26
+    MC_PATH"swarm.LiF",                 // 27
+    MC_PATH"fire_missile.LiF",          // 28
+    MC_PATH"ramming.LiF",               // 29
+    MC_PATH"beast_weapon.LiF",          // 30
+    MC_PATH"objectives.LiF",            // 31
+};
+static lifheader *mouseBitmaps[MC_SLOT_NUMBER];
+static GLuint mouseTextures[MC_SLOT_NUMBER];
+// a cursor type's slot (the switches of mouseGetLIF 0x0056e9c0 and mouseDraw 0x0056ec50; -1 none: the triangle)
+static const sbyte mouseCursorSlot[end_cursor_type] =
+{
+    0, -1, -1, 1, 2, 0, 4, 5, 6, 7, 8, 9, 10, 11, -1, 12, 12, 13, 14, 15, 16, 17, 18, 19, -1, -1, -1, 20, 21, 22,
+    23, 24, 25, 26, 27, 28, 29, 30, 31
+};
+// the special-attack cursor stays a second (mouseDraw: 0x00a75920 / 0x00a75924, real time)
+static mouseCursor mouseHoldType = normal_mouse;
+static real32 mouseHoldExpire = 0.0f;
 
 
 static mouseInfoType mouseInfo = {0, 0, 0, MC_NO_SHIP};
@@ -266,6 +280,8 @@ void mouseCreateGLHandle(lifheader* lif, GLuint* thandle)
 ----------------------------------------------------------------------------*/
 sdword mouseStartup(void)
 {
+    sdword slot;
+
     /*
     RECT clientRect, windowRect;
     POINT mousePoint;
@@ -278,43 +294,20 @@ sdword mouseStartup(void)
     */
     SDL_GetMouseState(&mouseCursorXPosition, &mouseCursorYPosition);
 
-    mouseNormalBitmap              = trLIFFileLoad(MC_NORMAL_BM, NonVolatile);
-    mouseAddShipsBitmap            = trLIFFileLoad(MC_ADD_SHIPS_BM, NonVolatile);
-    mouseFocusNoSelectBitmap       = trLIFFileLoad(MC_FOCUS_NO_SELECT_BM, NonVolatile);
-    mouseBandBoxAttackBitmap       = trLIFFileLoad(MC_BAND_BOX_ATTACK_BM, NonVolatile);
-    mouseForceAttackBitmap         = trLIFFileLoad(MC_FORCE_ATTACK_BM, NonVolatile);
-    mouseGuardBitmap               = trLIFFileLoad(MC_GUARD_BM, NonVolatile);
-    mouseSpecialAttackBitmap       = trLIFFileLoad(MC_SPECIAL_ATTACK_BM, NonVolatile);
-    mouseSpecialOpActivateBitmap   = trLIFFileLoad(MC_SPECIAL_OP_ACTIVATE_BM, NonVolatile);
-    mouseSpecialOpDeactivateBitmap = trLIFFileLoad(MC_SPECIAL_OP_DEACTIVATE_BM, NonVolatile);
-    mouseGUIBitmap                 = trLIFFileLoad(MC_GUI_BM, NonVolatile);
-    mouseResourceBitmap            = trLIFFileLoad(MC_RESOURCE_BM, NonVolatile);
-    mouseDockingBitmap             = trLIFFileLoad(MC_DOCKING_BM, NonVolatile);
-    mouseResearchBitmap            = trLIFFileLoad(MC_RESEARCH_BM, NonVolatile);
-    mouseSensorsBitmap             = trLIFFileLoad(MC_SENSORS_BM, NonVolatile);
-    mouseBuildBitmap               = trLIFFileLoad(MC_BUILD_BM, NonVolatile);
-    mouseSalvageBitmap             = trLIFFileLoad(MC_SALVAGE_BM, NonVolatile);
-    mouseSupportBitmap             = trLIFFileLoad(MC_SUPPORT_BM, NonVolatile);
-    mouseTradersBitmap             = trLIFFileLoad(MC_TRADERS_BM, NonVolatile);
-
-    mouseMirrorBitmap((udword *)mouseNormalBitmap->data, mouseNormalBitmap->width, mouseNormalBitmap->height);
-    mouseMirrorBitmap((udword *)mouseAddShipsBitmap->data, mouseAddShipsBitmap->width, mouseAddShipsBitmap->height);
-    mouseMirrorBitmap((udword *)mouseFocusNoSelectBitmap->data, mouseFocusNoSelectBitmap->width, mouseFocusNoSelectBitmap->height);
-    mouseMirrorBitmap((udword *)mouseBandBoxAttackBitmap->data, mouseBandBoxAttackBitmap->width, mouseBandBoxAttackBitmap->height);
-    mouseMirrorBitmap((udword *)mouseForceAttackBitmap->data, mouseForceAttackBitmap->width, mouseForceAttackBitmap->height);
-    mouseMirrorBitmap((udword *)mouseGuardBitmap->data, mouseGuardBitmap->width, mouseGuardBitmap->height);
-    mouseMirrorBitmap((udword *)mouseSpecialAttackBitmap->data, mouseSpecialAttackBitmap->width, mouseSpecialAttackBitmap->height);
-    mouseMirrorBitmap((udword *)mouseSpecialOpActivateBitmap->data, mouseSpecialOpActivateBitmap->width, mouseSpecialOpActivateBitmap->height);
-    mouseMirrorBitmap((udword *)mouseSpecialOpDeactivateBitmap->data, mouseSpecialOpDeactivateBitmap->width, mouseSpecialOpDeactivateBitmap->height);
-    mouseMirrorBitmap((udword *)mouseGUIBitmap->data, mouseGUIBitmap->width, mouseGUIBitmap->height);
-    mouseMirrorBitmap((udword *)mouseResourceBitmap->data, mouseResourceBitmap->width, mouseResourceBitmap->height);
-    mouseMirrorBitmap((udword *)mouseDockingBitmap->data, mouseDockingBitmap->width, mouseDockingBitmap->height);
-    mouseMirrorBitmap((udword *)mouseResearchBitmap->data, mouseResearchBitmap->width, mouseResearchBitmap->height);
-    mouseMirrorBitmap((udword *)mouseSensorsBitmap->data, mouseSensorsBitmap->width, mouseSensorsBitmap->height);
-    mouseMirrorBitmap((udword *)mouseBuildBitmap->data, mouseBuildBitmap->width, mouseBuildBitmap->height);
-    mouseMirrorBitmap((udword *)mouseSalvageBitmap->data, mouseSalvageBitmap->width, mouseSalvageBitmap->height);
-    mouseMirrorBitmap((udword *)mouseSupportBitmap->data, mouseSupportBitmap->width, mouseSupportBitmap->height);
-    mouseMirrorBitmap((udword *)mouseTradersBitmap->data, mouseTradersBitmap->width, mouseTradersBitmap->height);
+    for (slot = 0; slot < MC_SLOT_NUMBER; slot++)
+    {                                                       // CAT: the 31 cursors, each mirrored
+        if (mouseBitmapFiles[slot] != NULL)
+        {
+            mouseBitmaps[slot] = trLIFFileLoad(mouseBitmapFiles[slot], NonVolatile);
+        }
+    }
+    for (slot = 0; slot < MC_SLOT_NUMBER; slot++)
+    {
+        if (mouseBitmaps[slot] != NULL)
+        {
+            mouseMirrorBitmap((udword *)mouseBitmaps[slot]->data, mouseBitmaps[slot]->width, mouseBitmaps[slot]->height);
+        }
+    }
 
     /*mouseDoubleClickTime = GetDoubleClickTime() / 1000.0f;*/
     mouseDoubleClickTime = 0.5f;  /* Consistent with HandleEvent() in main.c. */
@@ -334,24 +327,15 @@ sdword mouseStartup(void)
 ----------------------------------------------------------------------------*/
 void mouseInitGL(void)
 {
-    mouseCreateGLHandle(mouseNormalBitmap, &tex_Normal);
-    mouseCreateGLHandle(mouseAddShipsBitmap, &tex_AddShips);
-    mouseCreateGLHandle(mouseFocusNoSelectBitmap, &tex_FocusNoSelect);
-    mouseCreateGLHandle(mouseBandBoxAttackBitmap, &tex_BandBoxAttack);
-    mouseCreateGLHandle(mouseForceAttackBitmap, &tex_ForceAttack);
-    mouseCreateGLHandle(mouseGuardBitmap, &tex_Guard);
-    mouseCreateGLHandle(mouseSpecialAttackBitmap, &tex_SpecialAttack);
-    mouseCreateGLHandle(mouseSpecialOpActivateBitmap, &tex_SpecialOpActivate);
-    mouseCreateGLHandle(mouseSpecialOpDeactivateBitmap, &tex_SpecialOpDeactivate);
-    mouseCreateGLHandle(mouseGUIBitmap, &tex_GUI);
-    mouseCreateGLHandle(mouseResourceBitmap, &tex_Resource);
-    mouseCreateGLHandle(mouseDockingBitmap, &tex_Docking);
-    mouseCreateGLHandle(mouseResearchBitmap, &tex_Research);
-    mouseCreateGLHandle(mouseSensorsBitmap, &tex_Sensors);
-    mouseCreateGLHandle(mouseBuildBitmap, &tex_Build);
-    mouseCreateGLHandle(mouseSalvageBitmap, &tex_Salvage);
-    mouseCreateGLHandle(mouseSupportBitmap, &tex_Support);
-    mouseCreateGLHandle(mouseTradersBitmap, &tex_Traders);
+    sdword slot;
+
+    for (slot = 0; slot < MC_SLOT_NUMBER; slot++)
+    {                                                       // CAT: 31 textures (0x0056e400)
+        if (mouseBitmaps[slot] != NULL)
+        {
+            mouseCreateGLHandle(mouseBitmaps[slot], &mouseTextures[slot]);
+        }
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -363,46 +347,18 @@ void mouseInitGL(void)
 ----------------------------------------------------------------------------*/
 void mouseReset(void)
 {
+    sdword slot;
+
     if (mouseGLInitialized)
     {
-        glDeleteTextures(1, &tex_Normal);
-        glDeleteTextures(1, &tex_AddShips);
-        glDeleteTextures(1, &tex_FocusNoSelect);
-        glDeleteTextures(1, &tex_BandBoxAttack);
-        glDeleteTextures(1, &tex_ForceAttack);
-        glDeleteTextures(1, &tex_Guard);
-        glDeleteTextures(1, &tex_SpecialAttack);
-        glDeleteTextures(1, &tex_SpecialOpActivate);
-        glDeleteTextures(1, &tex_SpecialOpDeactivate);
-        glDeleteTextures(1, &tex_GUI);
-        glDeleteTextures(1, &tex_Resource);
-        glDeleteTextures(1, &tex_Docking);
-        glDeleteTextures(1, &tex_Research);
-        glDeleteTextures(1, &tex_Sensors);
-        glDeleteTextures(1, &tex_Build);
-        glDeleteTextures(1, &tex_Salvage);
-        glDeleteTextures(1, &tex_Support);
-        glDeleteTextures(1, &tex_Traders);
-
-        tex_Normal = 0;
-        tex_AddShips = 0;
-        tex_FocusNoSelect = 0;
-        tex_BandBoxAttack = 0;
-        tex_ForceAttack = 0;
-        tex_Guard = 0;
-        tex_SpecialAttack = 0;
-        tex_SpecialOpActivate = 0;
-        tex_SpecialOpDeactivate = 0;
-        tex_GUI = 0;
-        tex_Resource = 0;
-        tex_Docking = 0;
-        tex_Research = 0;
-        tex_Sensors = 0;
-        tex_Build = 0;
-        tex_Salvage = 0;
-        tex_Support = 0;
-        tex_Traders = 0;
-
+        for (slot = 0; slot < MC_SLOT_NUMBER; slot++)
+        {                                                   // CAT: 31 textures (0x0056e620)
+            if (mouseBitmaps[slot] != NULL)
+            {
+                glDeleteTextures(1, &mouseTextures[slot]);
+            }
+            mouseTextures[slot] = 0;
+        }
         mouseGLInitialized = FALSE;
     }
 }
@@ -839,53 +795,12 @@ void mouseInfoReset(void)
 
 lifheader* mouseGetLIF(void)
 {
-    switch (mouseCursorType)
+    // CAT: Cataclysm's cursor types (0x0056e9c0)
+    if ((mouseCursorType < 0) || (mouseCursorType >= end_cursor_type) || (mouseCursorSlot[mouseCursorType] < 0))
     {
-        case no_mouse:
-        case rotate_camera:
-        case zoom_camera:
-            return NULL;
-        case normal_mouse:
-        case movement:
-            return mouseNormalBitmap;
-        case add_ships:
-            return mouseAddShipsBitmap;
-        case focus_no_select:
-            return mouseFocusNoSelectBitmap;
-        case band_box_attack:
-            return mouseBandBoxAttackBitmap;
-        case force_attack:
-            return mouseForceAttackBitmap;
-        case m_guard:
-            return mouseGuardBitmap;
-        case special_attack:
-            return mouseSpecialAttackBitmap;
-        case special_op_activate:
-            return mouseSpecialOpActivateBitmap;
-        case special_op_deactivate:
-            return mouseSpecialOpDeactivateBitmap;
-        case gui:
-            return mouseGUIBitmap;
-        case resource:
-            return mouseResourceBitmap;
-        case docking:
-        case small_docking:
-            return mouseDockingBitmap;
-        case research:
-            return mouseResearchBitmap;
-        case sensors:
-            return mouseSensorsBitmap;
-        case build:
-            return mouseBuildBitmap;
-        case salvage:
-            return mouseSalvageBitmap;
-        case support:
-            return mouseSupportBitmap;
-        case traders:
-            return mouseTradersBitmap;
-        default:
-            return NULL;
+        return NULL;
     }
+    return mouseBitmaps[(sdword)mouseCursorSlot[mouseCursorType]];
 }
 
 /*-----------------------------------------------------------------------------
@@ -900,7 +815,6 @@ lifheader* mouseGetLIF(void)
                     be called near the end rendering, before a buffer swap.
                   Checks to see if the mouse is inside or outside the client area
 ----------------------------------------------------------------------------*/
-extern regionhandle spHyperspaceRollCallScreen;
 #define SX primScreenToGLX
 #define SY primScreenToGLY
 void mouseDraw(void)
@@ -908,9 +822,7 @@ void mouseDraw(void)
     bool32 primModeOn = TRUE;
     lifheader *texture = NULL;
     GLuint thandle = 0;
-    bool32 textureMouse;
-    static mouseCursor mousehold = normal_mouse;
-    static real32 mouseholdexpire = 0.0;
+    sdword slot;
 
     if (mouseWillBeVisible > 0)
     {
@@ -923,16 +835,18 @@ void mouseDraw(void)
     {
         return;                                             //don't draw mouse if not visible
     }
+    // CAT: no cursor while the main region is disabled behind closed NIS scissors in a game (mouseDraw 0x0056ec50)
+    if (nisFullyScissored && mrDisabled && gameIsRunning)
+    {
+        return;
+    }
 
-    textureMouse = TRUE;
-
-    if (textureMouse && !mouseGLInitialized)
+    // CAT: the exe tests its GL-or-software flag (0x00b3a700) here; the SDL port always draws the textured cursor
+    if (!mouseGLInitialized)
     {
         mouseInitGL();
         mouseGLInitialized = TRUE;
     }
-
-    //mousePoll();
 
     if (!primModeEnabled)
     {
@@ -943,153 +857,73 @@ void mouseDraw(void)
     glEnable(GL_BLEND);
     rndAdditiveBlends(FALSE);
     rndTextureEnvironment(RTE_Modulate);
+    cat_rndDepthTestEnable(FALSE);                          // CAT: the cursor draws without the depth test
 
-    if ((mousehold != normal_mouse) && (mouseCursorType == normal_mouse))
+    // CAT: the special-attack cursor held for a second of real time (HW1: game time, any held type)
+    if ((mouseHoldType != normal_mouse) && (mouseCursorType == normal_mouse))
     {
-        if (mouseholdexpire >= universe.totaltimeelapsed)
+        if (mouseHoldExpire < universe.realtimeelapsed)
         {
-            mouseCursorType = mousehold;
+            mouseHoldType = normal_mouse;
         }
-        else //mousehold has expired
+        else
         {
-            mousehold = normal_mouse;
+            mouseCursorType = mouseHoldType;
         }
     }
 
-    //if a front end screen is on (but not the hyperspace roll call screen)
+    //if a front end screen is on (but not the hyperspace roll call screen nor the sensors manager: CAT)
     //all mouse settings are overridden
     //if the movement pieplate is on, all mouse settings except for
     // the focus_no_select setting is overridden
-    if (((feStackIndex > 0) && (!spHyperspaceRollCallScreen)) ||
+    if (((feStackIndex > 0) && (!spHyperspaceRollCallScreen) && (!smSensorsActive)) ||
         ((bitTest(mouseCursorMode, MCM_Pointmode)) && (mouseCursorType != focus_no_select)))
     {
         mouseCursorType = normal_mouse;
     }
+    if (cat_popupMenuIsOpen())
+    {                                                       // CAT: the plain cursor over the popup menu
+        mouseCursorType = normal_mouse;
+    }
 
-    switch (mouseCursorType)
+    if ((mouseCursorType == no_mouse) || (mouseCursorType == rotate_camera) || (mouseCursorType == zoom_camera))
     {
-        case no_mouse:
-        case rotate_camera:
-        case zoom_camera:
-            //temporary solution
-            goto finish;
-            //do nothing
-            break;
-        case normal_mouse:
-        case movement:
-            texture = mouseNormalBitmap;
-            thandle = tex_Normal;
-            break;
-        case add_ships:
-            texture = mouseAddShipsBitmap;
-            thandle = tex_AddShips;
-            break;
-        case focus_no_select:
-            texture = mouseFocusNoSelectBitmap;
-            thandle = tex_FocusNoSelect;
-            break;
-        case band_box_attack:
-            texture = mouseBandBoxAttackBitmap;
-            thandle = tex_BandBoxAttack;
-            break;
-        case force_attack:
-            texture = mouseForceAttackBitmap;
-            thandle = tex_ForceAttack;
-            break;
-        case m_guard:
-            texture = mouseGuardBitmap;
-            thandle = tex_Guard;
-            break;
-        case special_attack:
-            if (mousehold == normal_mouse)
-            {
-                mousehold = special_attack;
-                mouseholdexpire = universe.totaltimeelapsed + (real32)MC_MOUSEHOLDTIME;
-            }
-            texture = mouseSpecialAttackBitmap;
-            thandle = tex_SpecialAttack;
-            break;
-        case special_op_activate:
-            texture = mouseSpecialOpActivateBitmap;
-            thandle = tex_SpecialOpActivate;
-            break;
-        case special_op_deactivate:
-            texture = mouseSpecialOpDeactivateBitmap;
-            thandle = tex_SpecialOpDeactivate;
-            break;
-        case gui:
-            texture = mouseGUIBitmap;
-            thandle = tex_GUI;
-            break;
-        case resource:
-            texture = mouseResourceBitmap;
-            thandle = tex_Resource;
-            break;
-        case docking:
-        case small_docking:
-            texture = mouseDockingBitmap;
-            thandle = tex_Docking;
-            break;
-        case research:
-            texture = mouseResearchBitmap;
-            thandle = tex_Research;
-            break;
-        case sensors:
-            texture = mouseSensorsBitmap;
-            thandle = tex_Sensors;
-            break;
-        case build:
-            texture = mouseBuildBitmap;
-            thandle = tex_Build;
-            break;
-        case salvage:
-            texture = mouseSalvageBitmap;
-            thandle = tex_Salvage;
-            break;
-        case support:
-            texture = mouseSupportBitmap;
-            thandle = tex_Support;
-            break;
-        case traders:
-            texture = mouseTradersBitmap;
-            thandle = tex_Traders;
-            break;
-        default:
-            break;
+        goto finish;
+    }
+    if ((mouseCursorType >= 0) && (mouseCursorType < end_cursor_type) && (mouseCursorSlot[mouseCursorType] >= 0))
+    {
+        slot = mouseCursorSlot[mouseCursorType];
+        texture = mouseBitmaps[slot];
+        thandle = mouseTextures[slot];
+        if ((mouseCursorType == special_attack) && (mouseHoldType == normal_mouse))
+        {
+            mouseHoldType = special_attack;
+            mouseHoldExpire = universe.realtimeelapsed + (real32)MC_MOUSEHOLDTIME;
+        }
     }
     if (texture != NULL)
     {
-        if (textureMouse)
-        {
-            bool32 texOn;
+        bool32 texOn;
 
-            trClearCurrent();
-            texOn = rndTextureEnable(TRUE);
-            glBindTexture(GL_TEXTURE_2D, thandle);
+        trClearCurrent();
+        texOn = rndTextureEnable(TRUE);
+        glBindTexture(GL_TEXTURE_2D, thandle);
 
-            glColor3ub(255,255,255);
+        glColor3ub(255,255,255);
 
-            glBegin(GL_TRIANGLE_STRIP);
-            glTexCoord2f(0.0f, 0.0f);
-            glVertex2f(SX(mouseCursorXPosition), SY(mouseCursorYPosition));
-            glTexCoord2f(0.0f, 1.0f);
-            glVertex2f(SX(mouseCursorXPosition), SY(mouseCursorYPosition + texture->height));
-            glTexCoord2f(1.0f, 0.0f);
-            glVertex2f(SX(mouseCursorXPosition + texture->width), SY(mouseCursorYPosition));
-            glTexCoord2f(1.0f, 1.0f);
-            glVertex2f(SX(mouseCursorXPosition + texture->width), SY(mouseCursorYPosition + texture->height));
-            glEnd();
+        // CAT: one quad (GL_QUADS, the exe's corner order); the exe's own 0.325 pixel centre is not taken (decision 29)
+        glBegin(GL_QUADS);
+        glTexCoord2f(0.0f, 0.0f);
+        glVertex2f(SX(mouseCursorXPosition), SY(mouseCursorYPosition));
+        glTexCoord2f(0.0f, 1.0f);
+        glVertex2f(SX(mouseCursorXPosition), SY(mouseCursorYPosition + texture->height));
+        glTexCoord2f(1.0f, 1.0f);
+        glVertex2f(SX(mouseCursorXPosition + texture->width), SY(mouseCursorYPosition + texture->height));
+        glTexCoord2f(1.0f, 0.0f);
+        glVertex2f(SX(mouseCursorXPosition + texture->width), SY(mouseCursorYPosition));
+        glEnd();
 
-            rndTextureEnable(texOn);
-        }
-        else
-        {   
-#ifndef __EMSCRIPTEN__
-            glRasterPos2f(primScreenToGLX(mouseCursorXPosition),
-                          primScreenToGLY(mouseCursorYPosition + texture->height));
-            glDrawPixels(texture->width, texture->height, GL_RGBA, GL_UNSIGNED_BYTE, texture->data);
-#endif
-        }
+        rndTextureEnable(texOn);
     }
     else
     {
@@ -1104,6 +938,7 @@ void mouseDraw(void)
     {
         primModeClearFunction2();
     }
+    cat_rndDepthTestEnable(FALSE);      // CAT: the exe passes 0x00a75928, a word nothing writes: the test stays off
     mouseCursorOverDistance = REALlyBig;
     mouseCursorOverShipType = MC_NO_SHIP;
 
@@ -1118,12 +953,10 @@ void mouseDraw(void)
     if (mouseCursorObjPtr != NULL)
     {                                                       //if the mouse is over an object
         mouseCursorObjLast = mouseCursorObjPtr;             //remember where and when it was
-        mouseCursorLastObjTime = universe.totaltimeelapsed;
+        mouseCursorLastObjTime = universe.realtimeelapsed;  // CAT: real time (0x008ba74c)
         mouseCursorLastX = mouseCursorX();
         mouseCursorLastY = mouseCursorY();
     }
-    //rndGLStateLog("MouseDraw (end)");
-//    glPopAttrib();
 }
 #undef SX
 #undef SY
@@ -1211,6 +1044,8 @@ void mouseCursorClear(udword mode)
                   that.  Poor function...  overworked, underpaid, ugly,
                   unappreciated,  just not having a good life.
                   Be kind to it...
+                  CAT: not in Cataclysm (rndRenderTask 0x0057a910 calls mouseSetCursorSetting only, which
+                  needs no mouseInfo); no caller since M2-R6 mainrgn-popup, kept for mouseLDoubleClick's mouseInfo
     Inputs      :
     Outputs     :
     Return      :
@@ -1259,7 +1094,7 @@ void mouseSelectCursorSetting(void)
                         bitSet(mouseInfo.flags, MCF_BuildGUI);
                         break;
                     // CAT: the ResearchShip / SensorArray / DDDFrigate cases are gone with the types (M2-R4 ships-b retire;
-                    //      the research and sensors GUI flags of Cataclysm's modules are stage 3 UI)
+                    //      Cataclysm has no mouseSelectCursorSetting at all, see its header)
                     case CloakGenerator:
                     case CloakedFighter:
                         if (bitTest(ship->header.flags, SOF_Cloaked))
@@ -1466,209 +1301,86 @@ void mouseSelectCursorSetting(void)
 ----------------------------------------------------------------------------*/
 void mouseSetCursorSetting(void)
 {
+    // CAT: Cataclysm's (0x0056f3b0): no mouseInfo pass (mouseSelectCursorSetting is gone) and no double-click
+    //      check; the band-box modifiers' cursors, then, with a context-sensitive option, the cursor of what a
+    //      right click on the object under the mouse would do (cat_mouseGetContextAction, catMouseContextActions)
+    CatTargetActions selection, target, scratch;
+    MaxSelection one;
+    sdword action;
+
     if (!gameIsRunning)
     {
         return;
     }
-
-    mouseDrawType(normal_mouse);
-
-    //check if a double click task needs to be performed
-    //mouse draw type will be set accordingly by this process
-    if (mouseDoubleClickCheck())
-    {
-        return;
-    }
-
-    // if the player is disabled, only a few cursor bitmaps are shown
+    mouseCursorType = normal_mouse;
     if (mrDisabled)
     {
-        if (keyIsHit(ALTKEY) || keyIsHit(RALTKEY))
+        return;
+    }
+    selection = *cat_selComputeTargetActions(&scratch, &selSelected);
+    memset(&target, 0, sizeof(target));
+    if (mouseCursorObjPtr != NULL)
+    {
+        one.numShips = 1;
+        one.ShipPtr[0] = (Ship *)mouseCursorObjPtr;
+        target = *cat_selComputeTargetActions(&scratch, &one);
+    }
+    if (cat_moClickedFlagConsume())
+    {                                                       // the main overlay's objective was clicked
+        mouseCursorType = objectives;
+        return;
+    }
+    // CAT-TODO(M2-R6 key bindings): kbCommandKeyIsHit of the commands; catMrKbHeld tests their default keys
+    if (catMrKbHeld(CAT_KB_BandboxForceAttack))
+    {
+        if (!playPackets)
         {
-            mouseDrawType(focus_no_select);
-            return;
+            mouseCursorType = force_attack;
         }
         return;
     }
-
-    if (!bitTest(mouseInfo.flags, MCF_DisableAll))
+    if (catMrKbHeld(CAT_KB_MultipleSelect))
     {
-        if (mouseInfo.ship_selected)
+        mouseCursorType = add_ships;
+        return;
+    }
+    if (catMrKbHeld(CAT_KB_BandboxGuard))
+    {
+        if (!playPackets)
         {
-            //forced attack
-            if (keyIsHit(SHIFTKEY) && keyIsHit(CONTROLKEY))
-            {
-                mouseDrawType(force_attack);
-                return;
-            }
-            //select multiple ships using the shift key
-            if (keyIsHit(SHIFTKEY))
-            {
-                mouseDrawType(add_ships);
-                return;
-            }
-            //guard ships
-            if (guardKeyIsHit()) {
-                mouseDrawType(m_guard);
-                return;
-            }
-            //activate/deactivate special attack
-            if (kbCommandKeyIsHit(kbSHIP_SPECIAL))
-            {
-                if (bitTest(mouseInfo.flags, MCF_SpecialAttack))
-                {
-                    mouseDrawType(special_attack);
-                    return;
-                }
-                else if (bitTest(mouseInfo.flags, MCF_SpecialSupport))
-                {
-                    mouseDrawType(support);
-                    return;
-                }
-                else if (bitTest(mouseInfo.flags, MCF_Salvage))
-                {
-                    mouseDrawType(salvage);
-                    return;
-                }
-            }
-            //forced focus
-            if (keyIsHit(ALTKEY) || keyIsHit(RALTKEY))
-            {
-                mouseDrawType(focus_no_select);
-                return;
-            }
-            //attack
-            if (keyIsHit(CONTROLKEY))
-            {
-                if (mouseInfo.ship_selected != mouseInfo.resource)
-                {
-                    mouseDrawType(band_box_attack);
-                }
-                return;
-            }
-
-            //speed things up - if cursorover isn't a special
-            //case, don't bother going through all these if statements
-            if (mouseInfo.cursorover == MC_NO_SHIP)
-            {
-                return;
-            }
-
-            // if the mouse is over the traders
-            if (mouseInfo.cursorover == traders)
-            {
-                mouseDrawType(traders);
-            }
-            //if a dockable ship is selected and the mouse cursor is over
-            //a ship capable of accepting dockable ships
-            else if ((bitTest(mouseInfo.flags, MCF_Dockable)) &&
-                     (mouseInfo.cursorover == docking))
-            {
-                mouseDrawType(docking);
-            }
-            //same as above, but with small dockable ships (fighters & corvettes)
-            else if ((bitTest(mouseInfo.flags, MCF_SmallDockable)) &&
-                     (!bitTest(mouseInfo.flags, MCF_SupportOverItself)) &&
-                     ((mouseInfo.cursorover == docking) || (mouseInfo.cursorover == small_docking)))
-            {
-                mouseDrawType(small_docking);
-            }
-            // if a support capable ship is selected and the mouse is over a ship
-            else if (((mouseInfo.cursorover != enemy_ship) &&
-                      (mouseInfo.cursorover != allied_ship) &&
-                      (mouseInfo.cursorover != resource) &&
-                      (mouseInfo.cursorover != derelict) &&
-                      (mouseInfo.cursorover != traders)) &&
-                     ((mouseInfo.cursorover == support) ||
-                      (bitTest(mouseInfo.flags, MCF_SpecialSupport) &&
-                       !bitTest(mouseInfo.flags, MCF_SupportOverItself))))
-            {
-                mouseDrawType(support);
-            }
-            //if the mouse is over a selected ship with a special operation and that
-            //special operation has already been deployed
-            else if ((bitTest(mouseInfo.flags, MCF_SpecialOpDeployed)) &&
-                     (mouseInfo.cursorover == special_op_activate))
-            {
-                mouseDrawType(special_op_deactivate);
-            }
-            //if the mouse is over a selected ship with a special operation and that
-            //special operation has no been deployed
-            else if ((bitTest(mouseInfo.flags, MCF_SpecialOp)) &&
-                     (mouseInfo.cursorover == special_op_activate))
-            {
-                mouseDrawType(special_op_activate);
-            }
-            //if the mouse is over a selected ship that has a GUI associated with it
-            else if ((bitTest(mouseInfo.flags, MCF_GUICapable)) &&
-                     (mouseInfo.cursorover == gui))
-            {
-                mouseDrawType(gui);
-            }
-            //if the mouse is over a selected build capable ship
-            else if ((bitTest(mouseInfo.flags, MCF_BuildGUI)) &&
-                     (mouseInfo.cursorover == build))
-            {
-                mouseDrawType(build);
-            }
-            //if the mouse is over a selected research ship
-            else if ((bitTest(mouseInfo.flags, MCF_ResearchGUI)) &&
-                     (mouseInfo.cursorover == research))
-            {
-                mouseDrawType(research);
-            }
-            //if the mouse is over a selected sensors array
-            else if ((bitTest(mouseInfo.flags, MCF_SensorsGUI)) &&
-                     (mouseInfo.cursorover == sensors))
-            {
-                mouseDrawType(sensors);
-            }
-            //if a resource ship is selected and the mouse is over a resource
-            else if ((mouseInfo.resource) && (mouseInfo.cursorover == resource))
-            {
-                mouseDrawType(resource);
-            }
-            //if only salvage corvettes are selected and the mouse is over an enemy ship
-            else if (bitTest(mouseInfo.flags, MCF_SalvageOnly) &&
-                     ((mouseInfo.cursorover == enemy_ship) ||
-                      (mouseInfo.cursorover == salvage)))
-            {
-                mouseDrawType(salvage);
-            }
-            //if a combat ship is selected and the mouse is over an enemy ship
-            else if (!(bitTest(mouseInfo.flags, MCF_NonCombat)) &&
-                     (mouseInfo.cursorover == enemy_ship))
-            {
-                mouseDrawType(band_box_attack);
-            }
-//            else if (mouseInfo.cursorover == allied_ship)
-//            {
-//                mouseDrawType(gui);
-//            }
-            //if a singleclickspecialactivate ship is selected and the mouse is over a derelict
-            else if (bitTest(mouseInfo.flags, MCF_SingleClickSpecialActivate) &&
-                     (mouseInfo.cursorover == derelict))
-            {
-                mouseDrawType(salvage);
-            }
+            mouseCursorType = m_guard;
         }
-        //if ships are being selected
-        else if (bitTest(mouseInfo.flags, MCF_ShipSelecting) && keyIsHit(SHIFTKEY))
+        return;
+    }
+    if (catMrKbHeld(CAT_KB_ShipSpecial))
+    {
+        if (!playPackets)
         {
-            mouseDrawType(add_ships);
+            mouseCursorType = special_attack;
         }
-        else
+        return;
+    }
+    if (catMrKbHeld(CAT_KB_BandboxFocus))
+    {
+        mouseCursorType = focus_no_select;
+        return;
+    }
+    if (catMrKbHeld(CAT_KB_BandboxAttack))
+    {
+        if (!playPackets)
         {
-            //forced focus
-            if (keyIsHit(ALTKEY) || keyIsHit(RALTKEY))
-            {
-                mouseDrawType(focus_no_select);
-            }
-            //if the mouse is over the trader ship
-            else if (mouseInfo.cursorover == traders)
-            {
-                mouseDrawType(traders);
-            }
+            mouseCursorType = band_box_attack;
+        }
+        return;
+    }
+    if (((tutorial == TUTORIAL_ONLY) || (catMrHomeworldCSA == TRUE) || (catMrRightClickCSA == TRUE)) &&
+        (mouseCursorObjPtr != NULL) && (catMrSelecting != TRUE) && !smSensorsActive &&
+        !ShipInSelection((SelectCommand *)&selSelected, (Ship *)mouseCursorObjPtr))
+    {
+        action = cat_mouseGetContextAction(&selection, &target, &selSelected, (Ship *)mouseCursorObjPtr);
+        if ((action > CAT_CA_None) && (action < CAT_CA_Number))
+        {
+            mouseCursorType = (mouseCursor)catMouseContextActions[action].cursor;
         }
     }
 }
@@ -1874,3 +1586,214 @@ void mouseEnable(void)
 }
 
 
+
+/*=============================================================================
+    CAT (M2-R6 mainrgn-popup): the context actions
+=============================================================================*/
+// the exe's two jump tables over cat_mouseGetContextAction's result: mouseSetCursorSetting's (0x0056f70c, actions
+//      1..17) gives the cursor, cat_mrReleaseRight's (0x0056b650, 0..17) the right-click order
+const CatContextActionInfo catMouseContextActions[CAT_CA_Number] =
+{
+    { normal_mouse,    CAT_CAO_Popup,    -1 },      // 0 none: the popup menu
+    { resource,        CAT_CAO_Harvest,  -1 },      // 1 harvest
+    { salvage,         CAT_CAO_Special,   0 },      // 2 salvage
+    { band_box_attack, CAT_CAO_Attack,   -1 },      // 3 attack
+    { support,         CAT_CAO_Special,   1 },      // 4 repair
+    { force_field,     CAT_CAO_Protect,  -1 },      // 5 the force-field sphere
+    { slipgate_small,  CAT_CAO_Slipgate, -1 },      // 6
+    { slipgate_medium, CAT_CAO_Slipgate, -1 },      // 7
+    { slipgate_large,  CAT_CAO_Slipgate, -1 },      // 8
+    { small_docking,   CAT_CAO_Dock,     -1 },      // 9 dock
+    { leech,           CAT_CAO_Special,   2 },      // 10 leech
+    { link_cursor,     CAT_CAO_Link,     -1 },      // 11 link
+    { mimic,           CAT_CAO_Mimic,    -1 },      // 12 mimic
+    { emp,             CAT_CAO_Special,   4 },      // 13 EMP
+    { swarm,           CAT_CAO_Special,   3 },      // 14 swarm
+    { ramming,         CAT_CAO_Special,   6 },      // 15 ram
+    { fire_missile,    CAT_CAO_Special,   7 },      // 16 the linked missiles
+    { beast_weapon,    CAT_CAO_Special,   5 },      // 17 infect
+};
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mouseGetContextAction                         0x0056f8f0
+    Description : What a click on 'ship' does for the selection 'ships' (their CatTargetActions 'selection' and the
+                  object's 'target'): a resource to harvest; an enemy to leech, EMP, swarm, ram, fire missiles at,
+                  infect (when every selected ship can; with the Homeworld CSA option those are a plain attack) or
+                  attack; an ally to repair or to protect in a force-field sphere; a slipgate; a salvage target; an
+                  own ship to dock with or link with; a ship to mimic (one the disguise list has) or an asteroid.
+    Return      : CAT_CA_* (CAT_CA_None for no context action)
+----------------------------------------------------------------------------*/
+sdword cat_mouseGetContextAction(CatTargetActions *selection, CatTargetActions *target, MaxSelection *ships, Ship *ship)
+{
+    udword *s = selection->flag, *t = target->flag;
+    sdword action = CAT_CA_None, index, count;
+    bool32 all;
+    ubyte player;
+    CatMimicItem *item;
+
+    if (playPackets)
+    {
+        return CAT_CA_None;
+    }
+    if (t[CAT_TA_Resource] == 0)
+    {
+        if (t[CAT_TA_Enemy] == 0)
+        {
+            if (t[CAT_TA_Ally] == 0)
+            {                                               // a slipgate (the selection's own ships), or salvage
+                if (t[CAT_TA_SlipgateSmall] != 0)
+                {
+                    if (s[CAT_TA_Ally] != 0)
+                    {
+                        return CAT_CA_SlipgateSmall;
+                    }
+                }
+                else if (t[CAT_TA_SlipgateMedium] != 0)
+                {
+                    if (s[CAT_TA_Ally] != 0)
+                    {
+                        return CAT_CA_SlipgateMedium;
+                    }
+                }
+                else if (t[CAT_TA_SlipgateLarge] != 0)
+                {
+                    if (s[CAT_TA_Ally] != 0)
+                    {
+                        return CAT_CA_SlipgateLarge;
+                    }
+                }
+                else if ((t[CAT_TA_Salvageable] != 0) && (s[CAT_TA_Salvage] != 0))
+                {
+                    return CAT_CA_Salvage;
+                }
+            }
+            else
+            {                                               // an ally: repair (by non-combat ships), protect
+                if ((s[CAT_TA_Repair] != 0) && (s[CAT_TA_CanAttack] == 0))
+                {
+                    return CAT_CA_Repair;
+                }
+                if ((s[CAT_TA_AllForceField] != 0) && (t[CAT_TA_ForceField] == 0))
+                {
+                    return CAT_CA_ProtectFormation;
+                }
+            }
+        }
+        else
+        {                                                   // an enemy: what every selected ship can do
+            if (s[CAT_TA_AllLeech] != 0)
+            {
+                return CAT_CA_Leech;
+            }
+            if (s[CAT_TA_AllEMP] != 0)
+            {
+                return catMrHomeworldCSA ? CAT_CA_Attack : CAT_CA_EMP;
+            }
+            if (s[CAT_TA_AllHive] != 0)
+            {
+                return catMrHomeworldCSA ? CAT_CA_Attack : CAT_CA_Swarm;
+            }
+            if (s[CAT_TA_AllRam] != 0)
+            {
+                return catMrHomeworldCSA ? CAT_CA_Attack : CAT_CA_Ram;
+            }
+            if (s[CAT_TA_AllAcolyteLinkFire] != 0)
+            {
+                return catMrHomeworldCSA ? CAT_CA_Attack : CAT_CA_FireMissiles;
+            }
+            if ((s[CAT_TA_AllBeastWeapon] != 0) && (cat_beastGetAttackStaticInfo(ship) != NULL))
+            {
+                return catMrHomeworldCSA ? CAT_CA_Attack : CAT_CA_Infect;
+            }
+        }
+    }
+    else if ((s[CAT_TA_Harvest] != 0) && (s[CAT_TA_CanAttack] == 0))
+    {
+        return CAT_CA_Harvest;
+    }
+    if ((t[CAT_TA_Enemy] != 0) && (s[CAT_TA_CanAttack] != 0))
+    {
+        return CAT_CA_Attack;
+    }
+    if ((t[CAT_TA_Salvageable] != 0) && (s[CAT_TA_CanAttack] == 0) && (s[CAT_TA_Salvage] != 0))
+    {
+        return CAT_CA_Salvage;
+    }
+    if ((ship->header.objtype == OBJ_ShipType) && (ship->playerowner == universe.curPlayerPtr) && (ships->numShips > 0))
+    {                                                       // an own ship: dock with it, link with it
+        if (!bitTest(ship->header.flags, SOF_Dead) && !ship->shipOrDerelict.catDisabled && !cat_shipIsUntargetable(ship))
+        {
+            all = TRUE;
+            for (index = 0; index < ships->numShips; index++)
+            {
+                if (!ThisShipCanDockWith(ships->ShipPtr[index], ship, 0, FALSE))
+                {
+                    all = FALSE;
+                }
+            }
+            if (all)
+            {
+                action = CAT_CA_Dock;
+            }
+        }
+        if (cat_shipHasUpgrade(ship, CAT_UPGRADE_Link))
+        {
+            all = TRUE;
+            for (index = 0; index < ships->numShips; index++)
+            {
+                if (!cat_shipHasUpgrade(ships->ShipPtr[index], CAT_UPGRADE_Link) ||
+                    (ships->ShipPtr[index]->shiptype != ship->shiptype))
+                {
+                    all = FALSE;
+                }
+            }
+            if (all)
+            {
+                return CAT_CA_Link;
+            }
+        }
+        if (action != CAT_CA_None)
+        {
+            return action;
+        }
+    }
+    if (s[CAT_TA_AllMimic] != 0)
+    {                                                       // a ship the disguise list has, or an asteroid
+        if (ship->header.objtype == OBJ_ShipType)
+        {
+            player = (ubyte)ship->playerowner->playerIndex;
+            // CAT: the exe passes the target's sMCV word (CatTargetActions +0x5C) as the list's "added" flag
+            count = cat_mimicItemCount(player, t[CAT_TA_MCV]);
+            all = FALSE;
+            for (index = 0; index < count; index++)
+            {
+                item = cat_mimicItemGet(player, t[CAT_TA_MCV], index);
+                if (item->type == (udword)ship->shiptype)
+                {
+                    all = TRUE;
+                }
+            }
+            if (all)
+            {
+                return CAT_CA_Mimic;
+            }
+        }
+        else if (ship->header.objtype == OBJ_AsteroidType)
+        {
+            action = CAT_CA_Mimic;
+        }
+    }
+    return action;
+}
+
+// cat_mouseSaveCursorUnder 0x0056ebb0 / cat_mouseRestoreCursorUnder 0x0056eb40: while the front end asks for it
+//      (feShouldSaveMouseCursor) the exe saves the pixels under the cursor before drawing it and puts them back after
+//      the page flip (through glcompat's glcCursorUnder, or the software renderer's hooks). GoK's SDL build redraws
+//      every frame and has no glcompat ("Decisions" 28), so the front end never asks and there is nothing to save
+void cat_mouseSaveCursorUnder(void)
+{
+}
+
+void cat_mouseRestoreCursorUnder(void)
+{
+}

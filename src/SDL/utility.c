@@ -109,6 +109,8 @@
 
 #include "main.h"
 #include "avi.h"
+#include "Mimic.h"
+#include "PopupMenu.h"
 
 #ifdef _WIN32
     #include <windows.h>
@@ -476,7 +478,8 @@ fecallback utyCallbacks[] =
 //    {utyInGameLoad,             "IG_LoadGame"},
 //    {utyInGameSave,             "IG_SaveGame"},
 //    {utySaveRecordedGame,       "IG_SaveRecordedGame"},
-    {mrDockingOrders,           "CSM_Dock"},                //menu commands
+    // CAT: no CSM_Dock callback (the exe's table names CSM_Hyperspace only); mrDockingOrders 0x00567750 is the
+    //      slipgate order now
     {mrDeltaFormation,          "CSM_DeltaFormation"},
     {mrBroadFormation,          "CSM_BroadFormation"},
     {mrXFormation,              "CSM_XFormation"},
@@ -484,7 +487,7 @@ fecallback utyCallbacks[] =
     {mrWallFormation,           "CSM_WallFormation"},
     {mrSphereFormation,         "CSM_SphereFormation"},
     {mrCustomFormation,         "CSM_PicketFormation"},
-    {mrHarvestResources,        "CSM_Harvest"},
+    // CAT: no CSM_Harvest either: mrHarvestResources 0x00563cc0 takes the resource where the menu passed its name
     {mrBuildShips,              "CSM_Build"},
     {mrTradeStuff,              "CSM_Trade"},
     {mrMoveShips,               "CSM_Move"},
@@ -2006,6 +2009,11 @@ abortloading:
 
     bobInitProperties();
 
+    if (loadfilename == NULL)
+    {                                                       // CAT: a new game's mimic lists (gameStart 0x005a9a.. -> 0x005b9c60)
+        cat_mimicInitDisguiseTables();
+    }
+
     if (!hrAbortLoadingGame)
     {
         rndSetClearColor(universe.backgroundColor|0xff000000);
@@ -2188,6 +2196,29 @@ void gameEnd(void)
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : cat_utyMultiplayerQuitNotify
+    Description : CAT: the end of a multiplayer game told to the others, as gameEnd does it (0x005aa0f0; the game
+                  stats screen's only call, cat_gameStatsBegin)
+----------------------------------------------------------------------------*/
+void cat_utyMultiplayerQuitNotify(void)
+{
+    if (multiPlayerGame)
+    {
+        SendInGameQuittingPacket(sigsPlayerIndex);
+        TransferCaptaincyGameEnded();
+        if (TitanActive)
+        {
+            titanPumpEngine();
+        }
+        SDL_Delay(100);     // Give titan some time to handle this
+        if (TitanActive)
+        {
+            titanGameEnded();
+        }
+    }
+}
+
 void utyMultiplayerGameStart(char *name, featom *atom)
 {
     mgStartMultiPlayerGameScreens(ghMainRegion,0,0,0, FALSE);
@@ -4114,6 +4145,7 @@ DONE_INTROS:
     // Startup the information overlay, must occur after mrStartup()
     ioStartup();
     utySet2(SS2_InfoOverlay);
+    cat_popupMenuStartup();                                 // CAT: the popup menu, after ioStartup (utyGameSystemsInit 0x005abe70)
 
     utySet(SSA_Render);
     lightStartup();

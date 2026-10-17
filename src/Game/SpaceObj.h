@@ -1843,6 +1843,7 @@ _Static_assert(SPECIAL_2_CatBeingBuilt == 0x8 && SPECIAL_2_CatBeingSalvaged == 0
 
 
 // CAT (M2-R3 selection): Ship.catUpgradeFlags bits the selection code tests (names chosen here from their users)
+#define CAT_UPGRADE_Link                            0x00000008  // cat_selComputeTargetActions 0x00513a00 (the link action)
 #define CAT_UPGRADE_Leech                           0x00000040  // cat_shipCanLeech 0x005136a0
 #define CAT_UPGRADE_Ability1                        0x00001000  // cat_selMakeShipsHaveAbilityUpgrade 0x00512330
 #define CAT_UPGRADE_Ability2                        0x00002000

@@ -63,6 +63,7 @@ extern char TutorialSavedGamesPath[];
 
 //startup/shutdown
 void gpStartup(void);
+void gpStartInGameEscapeMenu(void);
 void gpShutdown(void);
 void gpReset(void);
 
@@ -86,6 +87,14 @@ void cat_gameStatsButtonDraw(rectangle *rect, char *text, sdword hotkeyIndex, fo
                              sdword iconLeft, sdword iconLeftMouse, sdword iconMid, sdword iconMidMouse,
                              sdword iconRight, sdword iconRightMouse, bool32 wholeHover);       // 0x00489470
 void cat_gameStatsStartup(void);                                                            // 0x00489e50
+real32 cat_gameStatsValueGet(sdword row, sdword column);                                    // 0x00488970
+void cat_gameStatsValuePrint(sdword row, sdword column, char *out);                         // 0x00488a50
+void cat_gameStatsPlayerRowFill(sdword playerIndex, sdword *row);                           // 0x00488c80
+void cat_gameStatsLayoutCompute(void);                                                      // 0x00488e70
+void cat_gameStatsEnd(void);                                                                // 0x00489290
+void cat_gameStatsClick(void);                                                              // 0x004892e0
+void cat_gameStatsDraw(void);                                                               // 0x004896b0
+void cat_gameStatsBegin(void);                                                              // 0x00489e90
 bool32 cat_gameStatsIsActive(void);                                                         // 0x0048a050
 
 #endif

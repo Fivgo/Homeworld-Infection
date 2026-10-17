@@ -186,6 +186,7 @@ void utyClipMouse(sdword clip);
 void utyNewGameStart(char *name, featom *atom);
 void utyGameQuit(char *name, featom *atom);
 void utyGameQuitToMain(char *name, featom *atom);
+void cat_utyMultiplayerQuitNotify(void);                         // CAT: 0x005aa0f0
 
 //load/save options from disk
 void utyOptionsFileRead(void);

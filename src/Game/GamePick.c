@@ -32,6 +32,19 @@
 #include "SoundEvent.h"
 #include "StringsOnly.h"
 #include "Universe.h"
+#include <stdio.h>
+#include "StringSupport.h"
+#include "GameStats.h"
+#include "Key.h"
+#include "glinc.h"
+#include "render.h"
+#include "Teams.h"
+#include "SpeechEvent.h"
+#include "Sensors.h"
+#include "ResearchAPI.h"
+#include "PopupMenu.h"
+#include "HorseRace.h"
+#include "Alliance.h"
 #include "mouse.h"
 #include "OverlayIcons.h"
 #include "Timer.h"
@@ -44,6 +57,7 @@
 #ifdef _MSC_VER
     #include <io.h>
     #define strcasecmp _stricmp
+    #define strncasecmp _strnicmp
 #else
     #include <dirent.h>
     #include <strings.h>
@@ -1369,8 +1383,520 @@ void cat_gameStatsStartup(void)
     catGameStatsButtonFont = frFontRegister("default.hff");
     catGameStatsTitleFont = frFontRegister("Arial_b17.hff");
     cat_timerStartRealTime(&catGameStatsBarTimer, 2.0f);
-    (void)catGameStatsFont;
-    (void)catGameStatsTitleFont;
+    (void)catGameStatsTitleFont;                    // the exe registers it; no reader was found
+}
+
+/*-----------------------------------------------------------------------------
+    CAT (M2-R6 mainrgn-popup): the rest of the game-stats screen (cat_gameStatsValueGet 0x00488970 ..
+    cat_gameStatsBegin 0x00489e90, hud's deferral). One row of 17 values per player; the table shows them by
+    column, the bar graph the selected column; Up / Down or a click on a column's picker select it; Exit (a click,
+    Escape or X) quits to the main menu. Layout data: the exe's 0x00881400 .. 0x00881438 and its 17 titles
+    (0x008813b8).
+-----------------------------------------------------------------------------*/
+#define CAT_GS_COLUMNS          17
+#define CAT_GS_ROW_WORDS        17          // 0x44 bytes per player row
+#define CAT_GS_EXIT_DY          40          // 0x00881400: the exit button 40 px above the screen bottom
+#define CAT_GS_EXIT_WIDTH       200         // 0x00881404
+#define CAT_GS_EXIT_HEIGHT      30          // 0x00881408
+#define CAT_GS_EXIT_CAP         30          // 0x0088140c
+#define CAT_GS_TITLE_X          10          // 0x00881410
+#define CAT_GS_PLAYER_X         28          // 0x00881414
+#define CAT_GS_GAP_X            10          // 0x00881418
+#define CAT_GS_PICKER_GAP       10          // 0x0088141c
+#define CAT_GS_TOP              20          // 0x00881420
+#define CAT_GS_PANEL_WIDTH      640         // 0x00881424
+#define CAT_GS_PANEL_HEIGHT     480         // 0x00881428
+#define CAT_GS_HEADER_GAP       30          // 0x0088142c
+#define CAT_GS_ICON             35          // 0x00881430
+#define CAT_GS_LINE_GAP         1           // 0x00881434
+#define CAT_GS_BACKDROP         0xd2323232  // 0x00881438
+
+// the column titles (0x008813b8)
+static const sdword catGameStatsTitles[CAT_GS_COLUMNS] =
+{
+    str_GSD_SurvivalTime, str_GSD_PlayersKilled, str_GSD_ResourcesHarvested, str_GSD_CrystalsHarvested,
+    str_GSD_TechResearched, str_GSD_FightersBuilt, str_GSD_FightersLost, str_GSD_FightersKilled,
+    str_GSD_FrigatesBuilt, str_GSD_FrigatesLost, str_GSD_FrigatesKilled, str_GSD_DestroyersBuilt,
+    str_GSD_DestroyersLost, str_GSD_DestroyersKilled, str_GSD_NonCombatBuilt, str_GSD_NonCombatLost,
+    str_GSD_NonCombatKilled
+};
+// a column's word of a player's row (cat_gameStatsValueGet / cat_gameStatsValuePrint)
+static const sdword catGameStatsWordOfColumn[CAT_GS_COLUMNS] = { 0, 1, 2, 3, 4, 13, 9, 5, 14, 10, 6, 15, 11, 7, 16, 12, 8 };
+
+static sdword *catGameStatsRows = NULL;             // 0x00a43c7c: numPlayers rows of 17 words
+static bool32 catGameStatsShown = FALSE;            // 0x00a43c80
+static sdword catGameStatsOrder[MAX_MULTIPLAYER_PLAYERS];   // 0x00a43818: the players by survival time
+static sdword catGameStatsColumn = 0;               // 0x00a43b88: the selected column
+static rectangle catGameStatsPanel;                 // 0x00a43838
+static rectangle catGameStatsPickerRight[CAT_GS_COLUMNS];   // 0x00a43848: the column picker's right cap
+static rectangle catGameStatsPlayerIcon[MAX_MULTIPLAYER_PLAYERS];   // 0x00a43958
+static rectangle catGameStatsPlayerColumn[MAX_MULTIPLAYER_PLAYERS]; // 0x00a439d8: a player's column of values
+static rectangle catGameStatsPickerLeft[CAT_GS_COLUMNS];    // 0x00a43a58: the column picker's left cap
+static rectangle catGameStatsGraph;                 // 0x00a43b68: the bar graph
+static sdword catGameStatsPlayerY[MAX_MULTIPLAYER_PLAYERS]; // 0x00a43b8c
+static sdword catGameStatsPlayerX[MAX_MULTIPLAYER_PLAYERS]; // 0x00a43bac
+static rectangle catGameStatsHeader;                // 0x00a43bd0
+static sdword catGameStatsTitleX[CAT_GS_COLUMNS];   // 0x00a43be0
+static sdword catGameStatsTitleY[CAT_GS_COLUMNS];   // 0x00a43c24
+static rectangle catGameStatsExit;                  // 0x00a43c68
+
+real32 cat_gameStatsValueGet(sdword row, sdword column)                                     // 0x00488970
+{
+    if ((column < 0) || (column >= CAT_GS_COLUMNS))
+    {
+        return 0.0f;
+    }
+    return (real32)catGameStatsRows[row * CAT_GS_ROW_WORDS + catGameStatsWordOfColumn[column]];
+}
+
+void cat_gameStatsValuePrint(sdword row, sdword column, char *out)                          // 0x00488a50
+{
+    sdword value;
+
+    if ((column < 0) || (column >= CAT_GS_COLUMNS))
+    {
+        return;
+    }
+    value = catGameStatsRows[row * CAT_GS_ROW_WORDS + catGameStatsWordOfColumn[column]];
+    if (column == 0)
+    {                                                       // the survival time h:mm:ss
+        sprintf(out, "%d:%02d:%02d", value / 3600, (value / 60) % 60, value % 60);
+        return;
+    }
+    sprintf(out, "%d", value);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_gameStatsPlayerRowFill                        0x00488c80
+    Description : A player's row: survival time (the time of death, else the game time), players killed, RUs
+                  harvested, crystals, technologies researched, and per group (strike craft = fighters + corvettes +
+                  micro, frigates, capital = heavy cruisers + destroyers, non-combat = carriers + resource +
+                  non-combat + components) the ships built, killed and lost.
+----------------------------------------------------------------------------*/
+void cat_gameStatsPlayerRowFill(sdword playerIndex, sdword *row)
+{
+    PlayerStats *stats = &universe.gameStats.playerStats[playerIndex];
+    sdword tech;
+
+    row[0] = (sdword)stats->timeOfDeath;
+    if (row[0] == 0)
+    {
+        row[0] = (sdword)universe.totaltimeelapsed;
+    }
+    row[1] = stats->catStat7D0;
+    row[2] = stats->totalResourceUnitsCollected;
+    row[3] = stats->catStat28;
+    row[4] = 0;
+    for (tech = 0; tech < 0x29; tech++)
+    {
+        if (cat_rmTechSetHas((sdword *)&universe.players[playerIndex].researchinfo.HasTechnology, tech))
+        {
+            row[4]++;
+        }
+    }
+    row[13] = stats->catBuiltForEachClass[CLASS_Fighter] + stats->catBuiltForEachClass[CLASS_Corvette] +
+              stats->catBuiltForEachClass[CLASS_Micro];
+    row[5] = stats->totalKillsForEachClass[CLASS_Fighter] + stats->totalKillsForEachClass[CLASS_Corvette] +
+             stats->totalKillsForEachClass[CLASS_Micro];
+    row[9] = stats->totalLossesForEachClass[CLASS_Fighter] + stats->totalLossesForEachClass[CLASS_Corvette] +
+             stats->totalLossesForEachClass[CLASS_Micro];
+    row[14] = stats->catBuiltForEachClass[CLASS_Frigate];
+    row[6] = stats->totalKillsForEachClass[CLASS_Frigate];
+    row[10] = stats->totalLossesForEachClass[CLASS_Frigate];
+    row[15] = stats->catBuiltForEachClass[CLASS_HeavyCruiser] + stats->catBuiltForEachClass[CLASS_Destroyer];
+    row[7] = stats->totalKillsForEachClass[CLASS_HeavyCruiser] + stats->totalKillsForEachClass[CLASS_Destroyer];
+    row[11] = stats->totalLossesForEachClass[CLASS_HeavyCruiser] + stats->totalLossesForEachClass[CLASS_Destroyer];
+    row[16] = stats->catBuiltForEachClass[CLASS_Carrier] + stats->catBuiltForEachClass[CLASS_Resource] +
+              stats->catBuiltForEachClass[CLASS_NonCombat] + stats->catBuiltForEachClass[CLASS_Component];
+    row[8] = stats->totalKillsForEachClass[CLASS_Carrier] + stats->totalKillsForEachClass[CLASS_Resource] +
+             stats->totalKillsForEachClass[CLASS_NonCombat] + stats->totalKillsForEachClass[CLASS_Component];
+    row[12] = stats->totalLossesForEachClass[CLASS_Carrier] + stats->totalLossesForEachClass[CLASS_Resource] +
+              stats->totalLossesForEachClass[CLASS_NonCombat] + stats->totalLossesForEachClass[CLASS_Component];
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_gameStatsLayoutCompute                        0x00488e70
+    Description : The panel (640 x 480 centred), the player names down the left, the column titles right-aligned
+                  under them with their pickers, a column of values per player, the exit button at the bottom.
+----------------------------------------------------------------------------*/
+void cat_gameStatsLayoutCompute(void)
+{
+    sdword h, headerH, maxW = 0, colW, x, y, index, width, numPlayers = universe.numPlayers;
+
+    fontMakeCurrent(catGameStatsFont);
+    h = fontHeight("");
+    headerH = CAT_GS_LINE_GAP * 7 + h * 8;
+    for (index = 0; index < CAT_GS_COLUMNS; index++)
+    {
+        width = fontWidth(strGetString(catGameStatsTitles[index]));
+        if (maxW < width)
+        {
+            maxW = width;
+        }
+    }
+    catGameStatsPanel.x0 = (MAIN_WindowWidth - CAT_GS_PANEL_WIDTH) / 2;
+    catGameStatsPanel.x1 = catGameStatsPanel.x0 + CAT_GS_PANEL_WIDTH;
+    catGameStatsPanel.y0 = (MAIN_WindowHeight - CAT_GS_PANEL_HEIGHT) / 2;
+    catGameStatsPanel.y1 = CAT_GS_PANEL_HEIGHT + catGameStatsPanel.y0;
+    colW = (catGameStatsPanel.x1 - (CAT_GS_PICKER_GAP + h) * 2 - CAT_GS_GAP_X - CAT_GS_TITLE_X - catGameStatsPanel.x0 -
+            maxW) / 8;
+    catGameStatsExit.x0 = (MAIN_WindowWidth - CAT_GS_EXIT_WIDTH) / 2;
+    catGameStatsExit.y0 = MAIN_WindowHeight - CAT_GS_EXIT_DY;
+    catGameStatsExit.x1 = catGameStatsExit.x0 + CAT_GS_EXIT_WIDTH;
+    catGameStatsExit.y1 = CAT_GS_EXIT_HEIGHT + catGameStatsExit.y0;
+    x = CAT_GS_PLAYER_X + catGameStatsPanel.x0;
+    y = (8 - numPlayers) * h + CAT_GS_TOP + catGameStatsPanel.y0;
+    for (index = 0; index < numPlayers; index++)
+    {
+        catGameStatsPlayerX[index] = x;
+        catGameStatsPlayerY[index] = y;
+        y += CAT_GS_LINE_GAP + h;
+    }
+    for (index = 0; index < CAT_GS_COLUMNS; index++)
+    {
+        catGameStatsTitleX[index] = (CAT_GS_TITLE_X + catGameStatsPanel.x0 + maxW) -
+                                    fontWidth(strGetString(catGameStatsTitles[index]));
+        if (index < 1)
+        {
+            catGameStatsTitleY[index] = CAT_GS_ICON + CAT_GS_HEADER_GAP + CAT_GS_TOP + catGameStatsPanel.y0 + headerH + h;
+        }
+        else
+        {
+            catGameStatsTitleY[index] = catGameStatsTitleY[index - 1] + h;
+            if ((index == 5) || (index == 8) || (index == 11) || (index == 14))
+            {                                               // half a line between the groups
+                catGameStatsTitleY[index] = catGameStatsTitleY[index - 1] + h + h / 2;
+            }
+        }
+        catGameStatsPickerLeft[index].x0 = fontWidth(strGetString(catGameStatsTitles[index])) + CAT_GS_PICKER_GAP +
+                                           catGameStatsTitleX[index];
+        catGameStatsPickerLeft[index].x1 = catGameStatsPickerLeft[index].x0 + h;
+        catGameStatsPickerLeft[index].y0 = catGameStatsTitleY[index];
+        catGameStatsPickerLeft[index].y1 = catGameStatsTitleY[index] + h;
+        catGameStatsPickerRight[index].x0 = CAT_GS_PICKER_GAP + numPlayers * colW + catGameStatsPickerLeft[index].x1;
+        catGameStatsPickerRight[index].x1 = catGameStatsPickerRight[index].x0 + h;
+        catGameStatsPickerRight[index].y0 = catGameStatsPickerLeft[index].y0;
+        catGameStatsPickerRight[index].y1 = catGameStatsPickerLeft[index].y1;
+    }
+    catGameStatsHeader.x0 = catGameStatsPanel.x0;
+    catGameStatsHeader.y0 = catGameStatsTitleY[0] - h;
+    catGameStatsHeader.x1 = catGameStatsPickerLeft[0].x0;
+    catGameStatsHeader.y1 = catGameStatsTitleY[CAT_GS_COLUMNS - 1] + h * 2;
+    x = catGameStatsPickerLeft[0].x1;
+    for (index = 0; index < MAX_MULTIPLAYER_PLAYERS; index++)
+    {
+        catGameStatsPlayerColumn[index].x0 = x;
+        catGameStatsPlayerColumn[index].y0 = CAT_GS_ICON + CAT_GS_HEADER_GAP + CAT_GS_TOP + catGameStatsPanel.y0 + headerH + h;
+        catGameStatsPlayerColumn[index].x1 = x + colW;
+        catGameStatsPlayerColumn[index].y1 = catGameStatsTitleY[CAT_GS_COLUMNS - 1] + h;
+        x += colW;
+    }
+    for (index = 0; index < MAX_MULTIPLAYER_PLAYERS; index++)
+    {                                                       // the player numbers' icons over their columns
+        catGameStatsPlayerIcon[index].x0 = catGameStatsPlayerColumn[index].x0 + (colW - CAT_GS_ICON) / 2;
+        catGameStatsPlayerIcon[index].x1 = catGameStatsPlayerIcon[index].x0 + CAT_GS_ICON;
+        catGameStatsPlayerIcon[index].y0 = (catGameStatsPlayerColumn[index].y0 - CAT_GS_ICON) - h;
+        catGameStatsPlayerIcon[index].y1 = catGameStatsPlayerIcon[index].y0 + CAT_GS_ICON;
+    }
+    catGameStatsPanel.x0 -= 10;
+    catGameStatsPanel.x1 += 10;
+    catGameStatsPanel.y0 = catGameStatsPlayerY[0] - 10;
+    catGameStatsGraph.y0 = catGameStatsPlayerY[0];
+    catGameStatsPanel.y1 = catGameStatsHeader.y1 + 10;
+    catGameStatsGraph.x0 = catGameStatsPlayerX[0];
+    catGameStatsGraph.y1 = fontHeight("") + catGameStatsPlayerY[(numPlayers > 0) ? numPlayers - 1 : 0];
+    catGameStatsGraph.x1 = catGameStatsPlayerColumn[MAX_MULTIPLAYER_PLAYERS - 1].x1;
+}
+
+// the players by survival time, longest first (a bubble sort that restarts after each swap, as the exe's)
+static void catGameStatsSort(void)
+{
+    sdword index, swap;
+
+    for (index = 0; index < universe.numPlayers; index++)
+    {
+        catGameStatsOrder[index] = index;
+    }
+    index = 0;
+    while (index < universe.numPlayers - 1)
+    {
+        if (cat_gameStatsValueGet(catGameStatsOrder[index + 1], 0) > cat_gameStatsValueGet(catGameStatsOrder[index], 0))
+        {
+            swap = catGameStatsOrder[index];
+            catGameStatsOrder[index] = catGameStatsOrder[index + 1];
+            catGameStatsOrder[index + 1] = swap;
+            index = 0;
+        }
+        else
+        {
+            index++;
+        }
+    }
+    cat_timerStartRealTime(&catGameStatsBarTimer, 2.0f);
+}
+
+void cat_gameStatsEnd(void)                                                                 // 0x00489290
+{
+    universePause = FALSE;
+    mrRenderMainScreen = TRUE;
+    memFree(catGameStatsRows);
+    catGameStatsRows = NULL;
+    mrEnable();
+    catGameStatsActive = FALSE;
+    hrShutdownBackground();
+    utyGameQuitToMain(NULL, NULL);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_gameStatsClick                                0x004892e0
+    Description : A click: the exit button ends the screen; a column's picker selects that column (the bars grow
+                  again over 2 s).
+----------------------------------------------------------------------------*/
+void cat_gameStatsClick(void)
+{
+    sdword column;
+
+    if (!catGameStatsActive)
+    {
+        return;
+    }
+    if ((catGameStatsExit.x0 <= mouseCursorXPosition) && (catGameStatsExit.y0 <= mouseCursorYPosition) &&
+        (mouseCursorXPosition < catGameStatsExit.x1) && (mouseCursorYPosition < catGameStatsExit.y1))
+    {
+        cat_gameStatsEnd();
+        return;
+    }
+    for (column = 0; column < CAT_GS_COLUMNS; column++)
+    {
+        if ((catGameStatsPickerLeft[column].x0 <= mouseCursorXPosition) &&
+            (catGameStatsPickerLeft[column].y0 <= mouseCursorYPosition) &&
+            (mouseCursorXPosition < catGameStatsPickerRight[column].x1) &&
+            (mouseCursorYPosition < catGameStatsPickerLeft[column].y1))
+        {
+            catGameStatsColumn = column;
+            catGameStatsSort();
+            if (!catGameStatsShown)
+            {
+                catGameStatsShown = TRUE;
+            }
+            soundEventPlay(NULL, 0x109, NULL);
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_gameStatsDraw                                 0x004896b0
+    Description : The screen: the translucent panel in the popup menu's frame, the exit button, the 17 titles with
+                  every player's values (the selected column green, the hovered or selected one with its picker), the
+                  bar graph of the selected column (each player's name, race icon and team-colour bar growing over
+                  2 s) and the players' number icons.
+----------------------------------------------------------------------------*/
+void cat_gameStatsDraw(void)
+{
+    fonthandle oldFont;
+    rectangle box, inner, bar;
+    sdword column, slot, player, left, right, mid;
+    real32 maxValue, fraction, grow;
+    color c;
+    char text[136];
+
+    oldFont = fontMakeCurrent(catGameStatsFont);
+    // CAT: the exe reads the arrow keys' states directly (keyScanCode VK_DOWN / VK_UP), every frame they are down
+    if (keyIsHit(ARRDOWN) || keyIsHit(ARRUP))
+    {
+        catGameStatsColumn += keyIsHit(ARRDOWN) ? 1 : -1;
+        if (catGameStatsColumn < 0)
+        {
+            catGameStatsColumn = CAT_GS_COLUMNS - 1;
+        }
+        else if (catGameStatsColumn >= CAT_GS_COLUMNS)
+        {
+            catGameStatsColumn = 0;
+        }
+        catGameStatsSort();
+        if (!catGameStatsShown)
+        {
+            catGameStatsShown = TRUE;
+        }
+    }
+    rndTextureEnable(FALSE);
+    rndLightingEnable(FALSE);
+    glDisable(GL_BLEND);
+    glDisable(GL_DEPTH_TEST);
+    if (!primModeEnabled)
+    {
+        primModeSet2();
+    }
+    inner.x0 = catGameStatsPanel.x0;
+    inner.y0 = catGameStatsPlayerIcon[0].y0 - 6;
+    inner.x1 = catGameStatsPanel.x1;
+    inner.y1 = catGameStatsPickerLeft[CAT_GS_COLUMNS - 1].y1;
+    box.x0 = inner.x0 - 16;
+    box.y0 = inner.y0 - 16;
+    box.x1 = inner.x1 + 16;
+    box.y1 = inner.y1 + 16;
+    primRectTranslucent2(&box, CAT_GS_BACKDROP);
+    cat_popupMenuDrawFrame(&inner, FALSE, 0x14);
+    cat_gameStatsButtonDraw(&catGameStatsExit, strGetString(str_GSD_Exit), 1, catGameStatsButtonFont, CAT_GS_EXIT_CAP,
+                            CAT_OI_Stats_Exit_Button_Left, CAT_OI_Stats_Exit_Button_Left_Mouse,
+                            CAT_OI_Stats_Exit_Button_Mid, CAT_OI_Stats_Exit_Button_Mid_Mouse,
+                            CAT_OI_Stats_Exit_Button_Right, CAT_OI_Stats_Exit_Button_Right_Mouse, TRUE);
+    for (column = 0; column < CAT_GS_COLUMNS; column++)
+    {
+        c = (column & 1) ? 0xffb4b4b4 : 0xffffffff;
+        if (catGameStatsColumn == column)
+        {
+            c = 0xff00ff00;
+        }
+        fontPrint(catGameStatsTitleX[column], catGameStatsTitleY[column], c,
+                  strGetString(catGameStatsTitles[column]));
+        left = -1;
+        if ((catGameStatsPickerLeft[column].x0 <= mouseCursorXPosition) &&
+            (catGameStatsPickerLeft[column].y0 <= mouseCursorYPosition) &&
+            (mouseCursorXPosition < catGameStatsPickerRight[column].x1) &&
+            (mouseCursorYPosition < catGameStatsPickerLeft[column].y1))
+        {
+            left = CAT_OI_Stats_Picker_1_Mouse;
+            right = CAT_OI_Stats_Picker_2_Mouse;
+            mid = CAT_OI_Stats_Picker_Mid_Mouse;
+        }
+        else if (column == catGameStatsColumn)
+        {
+            left = CAT_OI_Stats_Picker_1;
+            right = CAT_OI_Stats_Picker_2;
+            mid = CAT_OI_Stats_Picker_Mid;
+        }
+        if (left != -1)
+        {                                                   // the picker: the left cap, the right cap, the middle
+            cat_overlayIconDraw(left, catGameStatsPickerLeft[column].y0, catGameStatsPickerLeft[column].x0,
+                                catGameStatsPickerLeft[column].x1 - catGameStatsPickerLeft[column].x0,
+                                catGameStatsPickerLeft[column].y1 - catGameStatsPickerLeft[column].y0, 0xffffffff);
+            cat_overlayIconDraw(right, catGameStatsPickerRight[column].y0, catGameStatsPickerRight[column].x0,
+                                catGameStatsPickerRight[column].x1 - catGameStatsPickerRight[column].x0,
+                                catGameStatsPickerRight[column].y1 - catGameStatsPickerRight[column].y0, 0xffffffff);
+            cat_overlayIconDraw(mid, catGameStatsPickerLeft[column].y0, catGameStatsPickerLeft[column].x1,
+                                catGameStatsPickerRight[column].x0 - catGameStatsPickerLeft[column].x1,
+                                catGameStatsPickerRight[column].y1 - catGameStatsPickerRight[column].y0, 0xffffffff);
+        }
+        for (slot = 0; slot < universe.numPlayers; slot++)
+        {                                                   // the values, right-aligned in the players' columns
+            cat_gameStatsValuePrint(catGameStatsOrder[slot], column, text);
+            fontPrint(catGameStatsPlayerColumn[slot].x1 - fontWidth(text), catGameStatsTitleY[column], c, text);
+        }
+    }
+    maxValue = 0.0f;
+    for (slot = 0; slot < universe.numPlayers; slot++)
+    {
+        if (maxValue < cat_gameStatsValueGet(catGameStatsOrder[slot], catGameStatsColumn))
+        {
+            maxValue = cat_gameStatsValueGet(catGameStatsOrder[slot], catGameStatsColumn);
+        }
+    }
+    box.x0 = catGameStatsGraph.x0 - 16;
+    box.y0 = catGameStatsGraph.y0 - 16;
+    box.x1 = catGameStatsGraph.x1 + 16;
+    box.y1 = catGameStatsGraph.y1 + 16;
+    primRectSolid2(&box, 0xff000000);
+    cat_popupMenuDrawFrame(&catGameStatsGraph, FALSE, 0x14);
+    for (slot = 0; slot < universe.numPlayers; slot++)
+    {
+        player = catGameStatsOrder[slot];
+        grow = cat_timerFractionElapsed(&catGameStatsBarTimer);
+        fraction = 0.0f;
+        if (maxValue > 0.0f)
+        {
+            fraction = cat_gameStatsValueGet(player, catGameStatsColumn) / maxValue;
+        }
+        sprintf(text, "%d. %s", slot + 1, playerNames[player]);
+        if (player == universe.curPlayerIndex)
+        {
+            c = 0xff00ff00;
+        }
+        else
+        {                                                   // allies blue, enemies red
+            c = allianceArePlayersAllied(&universe.players[player], universe.curPlayerPtr) ? 0xffff0000 : 0xff0000ff;
+        }
+        if ((catGameStatsPlayerColumn[slot].x0 <= mouseCursorXPosition) &&
+            (catGameStatsPlayerColumn[slot].y0 <= mouseCursorYPosition) &&
+            (mouseCursorXPosition < catGameStatsPlayerColumn[slot].x1) &&
+            (mouseCursorYPosition < catGameStatsPlayerColumn[slot].y1))
+        {
+            c = 0xffffffff;
+        }
+        fontPrint(fontHeight("") + catGameStatsPlayerX[slot] + 5, catGameStatsPlayerY[slot], c, text);
+        cat_overlayIconDraw((universe.players[player].race != 0) ? CAT_OI_BeastMothership : CAT_OI_SectMothership,
+                            catGameStatsPlayerY[slot], catGameStatsPlayerX[slot], fontHeight(""), fontHeight(""),
+                            0xffffffff);
+        if (fraction > grow)
+        {                                                   // the bar grows to its length over 2 s
+            fraction = grow;
+        }
+        bar.x0 = catGameStatsPlayerColumn[0].x0;
+        bar.x1 = (sdword)((real32)(catGameStatsPlayerColumn[MAX_MULTIPLAYER_PLAYERS - 1].x1 - bar.x0) * fraction) + bar.x0;
+        bar.y0 = catGameStatsPlayerY[slot];
+        bar.y1 = fontHeight("") + bar.y0 - 1;
+        if (bar.x0 < bar.x1)
+        {
+            cat_primRectShadedHorizontal2(&bar, teColorSchemes[player].textureColor.base, 0xffffffff);
+        }
+        primLine2(catGameStatsPlayerColumn[slot].x1, catGameStatsPlayerColumn[slot].y0, catGameStatsPlayerColumn[slot].x1,
+                  catGameStatsPlayerColumn[slot].y1, 0xffffffff);
+        cat_overlayIconDraw(CAT_OI_Stats_First + slot, catGameStatsPlayerIcon[slot].y0, catGameStatsPlayerIcon[slot].x0,
+                            catGameStatsPlayerIcon[slot].x1 - catGameStatsPlayerIcon[slot].x0,
+                            catGameStatsPlayerIcon[slot].y1 - catGameStatsPlayerIcon[slot].y0, 0xffffffff);
+    }
+    fontMakeCurrent(oldFont);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_gameStatsBegin                                0x00489e90
+    Description : The end of a game: the universe pauses, the main region stops taking orders, the rows are taken
+                  from the game statistics, the loading screen's background starts, and the stats music only when
+                  the player is called "TerryStats" (any case). [audit: was "unless"; the exe's _strnicmp result 0
+                  plays it]
+----------------------------------------------------------------------------*/
+void cat_gameStatsBegin(void)
+{
+    sdword player;
+
+    if (smSensorsActive)
+    {
+        smSensorsCloseForGood();
+    }
+    mrDisable();
+    universePause = TRUE;
+    mrRenderMainScreen = FALSE;                     // 0x008b9ecc (globalsInit, cmClose and cmConstructionBegin write it too)
+    catGameStatsShown = FALSE;
+    if (!catGameStatsActive)
+    {
+        catGameStatsRows = memAlloc(universe.numPlayers * CAT_GS_ROW_WORDS * sizeof(sdword), "catGameStatsRows", 0);
+        for (player = 0; player < universe.numPlayers; player++)
+        {
+            cat_gameStatsPlayerRowFill(player, &catGameStatsRows[player * CAT_GS_ROW_WORDS]);
+        }
+        catGameStatsActive = TRUE;
+        hrInitBackground();
+        cat_gameStatsLayoutCompute();
+        catGameStatsColumn = 0;
+        catGameStatsSort();
+        if (!catGameStatsShown)
+        {
+            catGameStatsShown = TRUE;
+        }
+        mouseCursorShow();
+        catMrRightMode = 0;
+        cat_utyMultiplayerQuitNotify();
+    }
+    soundEventStopSFX(0.5f);
+    soundEventPause(FALSE);
+    mrReset();
+    // CAT: the exe plays track 0x28 only when _strnicmp (0x006929d0) says the player IS "TerryStats" (0x0048a026
+    //      jne skips it otherwise) [audit: was the inverted, case-sensitive test]
+    if (strncasecmp(playerNames[universe.curPlayerIndex], "TerryStats", MAX_PERSONAL_NAME_LEN) == 0)
+    {
+        soundEventPlayMusic(0x28);                  // the game-statistics track (SpeechEvent.c CAT_MUSIC_GAME_STATS)
+        cat_musicRadioReset();
+    }
 }
 
 /*-----------------------------------------------------------------------------

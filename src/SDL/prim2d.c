@@ -1211,3 +1211,66 @@ real32 primPointLineIntersection(real32 xp, real32 yp, real32 x0, real32 y0, rea
     return((y0 - y1) * xp + (x1 - x0) * yp + (x0 * y1 - y0 * x1));
 }
 
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_primRectSolidTexturedFullRectBlendC2          0x00570300
+    Description : CAT (M2-R6 mainrgn-popup): the bound texture over the whole rectangle (texture 0..1 on both axes),
+                  tinted by c, blended (blending switched on for it, polygon stipple off), as the exe's.
+                  The exe converts with HW1's (x + 0.325) / W pixel centre; GoK's primScreenToGLX has no offset
+                  ("Decisions" 29), so the quad sits 0.325 px up-left of the exe's
+----------------------------------------------------------------------------*/
+void cat_primRectSolidTexturedFullRectBlendC2(rectangle *rect, color c)
+{
+    GLboolean blendOn, stippleOn;
+
+    glColor4ub(colRed(c), colGreen(c), colBlue(c), colAlpha(c));
+    rndTextureEnable(TRUE);
+    blendOn = glIsEnabled(GL_BLEND);
+    stippleOn = glIsEnabled(GL_POLYGON_STIPPLE);
+    if (!blendOn)
+    {
+        glEnable(GL_BLEND);
+    }
+    if (stippleOn)
+    {
+        glDisable(GL_POLYGON_STIPPLE);
+    }
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0f, 0.0f);
+    glVertex2f(primScreenToGLX(rect->x0), primScreenToGLY(rect->y0));
+    glTexCoord2f(0.0f, 1.0f);
+    glVertex2f(primScreenToGLX(rect->x0), primScreenToGLY(rect->y1));
+    glTexCoord2f(1.0f, 1.0f);
+    glVertex2f(primScreenToGLX(rect->x1), primScreenToGLY(rect->y1));
+    glTexCoord2f(1.0f, 0.0f);
+    glVertex2f(primScreenToGLX(rect->x1), primScreenToGLY(rect->y0));
+    glEnd();
+    if (!blendOn)
+    {
+        glDisable(GL_BLEND);
+    }
+    if (stippleOn)
+    {
+        glEnable(GL_POLYGON_STIPPLE);
+    }
+    rndTextureEnable(FALSE);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_primRectShadedHorizontal2                     0x00570610
+    Description : CAT (M2-R6 mainrgn-popup): a rectangle shaded from cLeft on its left edge to cRight on its right
+                  (the game-stats bars). As the exe's, without the 0.325 pixel-centre offset ("Decisions" 29)
+----------------------------------------------------------------------------*/
+void cat_primRectShadedHorizontal2(rectangle *rect, color cLeft, color cRight)
+{
+    glBegin(GL_QUADS);
+    glColor4ub(colRed(cLeft), colGreen(cLeft), colBlue(cLeft), colAlpha(cLeft));
+    glVertex2f(primScreenToGLX(rect->x0), primScreenToGLY(rect->y0));
+    glColor4ub(colRed(cLeft), colGreen(cLeft), colBlue(cLeft), colAlpha(cLeft));
+    glVertex2f(primScreenToGLX(rect->x0), primScreenToGLY(rect->y1));
+    glColor4ub(colRed(cRight), colGreen(cRight), colBlue(cRight), colAlpha(cRight));
+    glVertex2f(primScreenToGLX(rect->x1), primScreenToGLY(rect->y1));
+    glColor4ub(colRed(cRight), colGreen(cRight), colBlue(cRight), colAlpha(cRight));
+    glVertex2f(primScreenToGLX(rect->x1), primScreenToGLY(rect->y0));
+    glEnd();
+}

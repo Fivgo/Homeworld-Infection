@@ -70,6 +70,7 @@ void cat_ioObjectivesClear(void);                                               
 void cat_ioMessageScroll(void);                                                             // 0x004ac6b0
 void cat_ioMessageAdd(char *text, udword colour, udword type, void *data);                  // 0x004ac940
 void cat_ioCommandMessage(char *text, udword colour);                                       // clCommandMessage 0x004ac820's body
+void cat_ioFocusLastMessageShip(void);                                                      // 0x004ac740
 void cat_ioCycleMode(bool32 forward);                                                       // 0x004acb40
 void cat_missionTimerReset(void);                                                           // 0x004acb80
 void cat_missionTimerSave(void);                                                            // 0x004acbb0

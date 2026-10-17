@@ -421,5 +421,67 @@ bool32 cat_mimicAppearsAsResource(Ship *ship, struct Player *player);
 bool32 cat_mimicAppearsAsDerelict(Ship *ship, struct Player *player);
 bool32 cat_spShipCanHyperspace(Ship *ship);
 
+// CAT (M2-R6 mainrgn-popup): what a selection can do and what it is as a target, 0x29 dwords (cat_selComputeTargetActions
+//      0x00513a00 fills it for the selection and for the clicked targets; the popup menu, the right-click order
+//      cat_mrReleaseRight 0x0056b0b0 and the cursor mouseSetCursorSetting 0x0056f3b0 read it). Names chosen here from
+//      the tests that set each word.
+typedef enum
+{
+    CAT_TA_Harvest = 0,             // a Worker that may harvest (class 7, harvestAmount > 0, not disabled)
+    CAT_TA_Salvage,                 // upgrade 0x80000 (CAT_UPGRADE_Salvage)
+    CAT_TA_Repair,                  // upgrade 0x40000 (CAT_UPGRADE_Repair), not a Processor
+    CAT_TA_CanAttack,               // has an attack function, not a Sentinel in a field, not disabled
+    CAT_TA_Enemy,                   // a target: an enemy ship (or a mine) that may be attacked
+    CAT_TA_Ally,                    // a target: an allied ship (or a mimic that looks allied)
+    CAT_TA_Resource,                // a target: a resource (or a mimic posing as one)
+    CAT_TA_Salvageable,             // a target: may be salvaged (cat_salvageCheckTargetReasons)
+    CAT_TA_SlipgateSmall,           // a target: dSlipgateSmall / Medium / Large
+    CAT_TA_SlipgateMedium,
+    CAT_TA_SlipgateLarge,
+    CAT_TA_Hive,                    // upgrade 0x800 (the hive frigate's swarm)
+    CAT_TA_HiveReady,               //  and the swarm is ready
+    CAT_TA_EMP,                     // upgrade 0x200 (CAT_UPGRADE_ACVEMP)
+    CAT_TA_Leech,                   // upgrade 0x40 (CAT_UPGRADE_Leech)
+    CAT_TA_Leeching,                //  and leeching now
+    CAT_TA_BigGun,                  // a mothership with the big-gun module
+    CAT_TA_BigGunFiring,            //  and firing it
+    CAT_TA_Link,                    // upgrade 0x8 (CAT_UPGRADE_Link)
+    CAT_TA_Unlink,                  // else upgrade 0x10
+    CAT_TA_BeastWeapon,             // cat_shipCanUseBeastWeapon
+    CAT_TA_Ram,                     // a ramming frigate (sRammingFrigate / bRammingFrigate)
+    CAT_TA_Mimic,                   // upgrade 0x20 (CAT_UPGRADE_Mimic)
+    CAT_TA_MCV,                     //  and an sMCV
+    CAT_TA_Mimicking,               //  and mimicking now
+    CAT_TA_DreadnoughtCannon,       // upgrade 0x400
+    CAT_TA_ForceField,              // upgrade 0x1000 / 0x2000 / 0x4000 (the protect formation)
+    CAT_TA_InForceField,            //  and in a force-field formation now (the command's formation 9 or 10)
+    CAT_TA_Cloak,                   // upgrade 0x20000, not cloaked
+    CAT_TA_Decloak,                 // upgrade 0x20000, cloaked
+    CAT_TA_Unused30,
+    CAT_TA_AcolyteLinkFire,         // cat_acolyteCanFireLinkedWeapon
+    CAT_TA_AllLeech,                // every ship of the selection can leech (32..39 start TRUE when there are ships)
+    CAT_TA_AllEMP,
+    CAT_TA_AllMimic,
+    CAT_TA_AllHive,
+    CAT_TA_AllRam,
+    CAT_TA_AllBeastWeapon,
+    CAT_TA_AllAcolyteLinkFire,
+    CAT_TA_AllForceField,
+    CAT_TA_NumberFlags              // 40; the leech action follows
+} CatTargetActionIndex;
+
+typedef struct CatTargetActions
+{
+    udword flag[CAT_TA_NumberFlags];    // +0x00
+    ubyte leechAction;                  // +0xA0 the leech action all leeches share (cat_leechGetAction), else 0
+    ubyte pad[3];
+} CatTargetActions;
+
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(CatTargetActions) == 0x29 * 4, "cat_selComputeTargetActions copies 0x29 dwords");
+#endif
+
+CatTargetActions *cat_selComputeTargetActions(CatTargetActions *out, MaxSelection *targets);   // CAT: 0x00513a00
+
 #endif
 

@@ -37,6 +37,7 @@
 #include "Globals.h"
 #include "glinc.h"
 #include "Key.h"
+#include "KeyBindings.h"
 #include "main.h"
 #include "mainrgn.h"
 #include "mainswitches.h"
@@ -46,6 +47,7 @@
 #include "Objectives.h"
 #include "OverlayIcons.h"
 #include "PiePlate.h"
+#include "PopupMenu.h"
 #include "prim2d.h"
 #include "render.h"
 #include "ResearchAPI.h"
@@ -325,15 +327,15 @@ static color catMoTipEnemyOutline = 0xffa0a0a0, catMoTipEnemyText = 0xff0000ff, 
 static color catMoTipAllyOutline = 0xffa0a0a0, catMoTipAllyText = 0xffffc000, catMoTipAllyBox = 0x64000000;      // 0x0072ac28 ..
 static color catMoTipOwnOutline = 0xffa0a0a0, catMoTipOwnText = 0xff00ff00, catMoTipOwnBox = 0x644b644b;         // 0x0072ac34 ..
 
-// CAT-TODO(M2-R6 key bindings / console / popup menu): the overlay asks for Cataclysm key commands held
-//      (kbCommandKeyIsHit 0x0054ec60 with the exe's ids: 0x41..0x44 the camera buttons, 0x62 the ship-info key, 100..102
-//      the debug key lists), runs commands (cat_kbCommandExecute 0x0054f..), and tests the developer console
-//      (0x00a2dcd4) and the popup menu (cat_popupMenuIsOpen 0x004ec710). The exe's command table, the console and the
-//      popup menu come with M2-R6; until then no such key is held, no command runs, the console and the menu are closed
+// CAT-TODO(M2-R6 key bindings / console): the overlay asks for Cataclysm key commands held (kbCommandKeyIsHit
+//      0x0054ec60 with the exe's ids: 0x41..0x44 the camera buttons, 0x62 the ship-info key, 100..102 the debug key
+//      lists) and tests the developer console (0x00a2dcd4); until those ports no such key is held and the console is
+//      closed. [M2-R6 mainrgn-popup: the commands run through the key-command table (cat_kbCommandExecute 0x0054eb10,
+//      KeyBindings.c) and the popup menu is PopupMenu.c's]
 #define CAT_KB_HELD(command)        FALSE
-#define CAT_KB_EXECUTE(sensors, command)    ((void)(sensors), (void)(command))
+#define CAT_KB_EXECUTE(sensors, command)    cat_kbCommandExecute((sensors) != 0, (command))
 #define CAT_CONSOLE_OPEN()          FALSE
-#define CAT_POPUP_MENU_OPEN()       FALSE
+#define CAT_POPUP_MENU_OPEN()       cat_popupMenuIsOpen()   // CAT (M2-R6 mainrgn-popup): PopupMenu.c
 
 /*=============================================================================
     The HW1 interface the managers still call (no exe counterpart)
@@ -694,6 +696,50 @@ void cat_ioCommandMessage(char *text, udword colour)
     LockMutex(gMessageMutex);
     catIoMessageInsert(text, colour);
     UnLockMutex(gMessageMutex);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_ioFocusLastMessageShip                        0x004ac740
+    Description : CAT (M2-R6 mainrgn-popup): Focus_On_LastShipToSpeak: the newest shown message line about a ship
+                  selects it and focuses on it (the sensors manager culls and focuses). The export does not list
+                  the function (the key-command table's 0x3D row points at it); name chosen here.
+----------------------------------------------------------------------------*/
+void cat_ioFocusLastMessageShip(void)
+{
+    FocusCommand focus;
+    sdword line, index;
+    Ship *ship;
+
+    for (line = 0; line < catIoMessagesShown; line++)
+    {
+        index = catIoMessageCount - line - 1;
+        if ((index < 0) || (catIoMessages[index].type != 1))
+        {
+            continue;
+        }
+        ship = (Ship *)catIoMessages[index].data;
+        if (ship != NULL)
+        {
+            selSelected.numShips = 1;
+            selSelected.ShipPtr[0] = ship;
+            selSelecting.numTargets = 1;
+            selSelecting.TargetPtr[0] = (SpaceObjRotImpTarg *)ship;
+            ioUpdateShipTotals();
+            soundEventPlay(NULL, 0x108, NULL);
+            if (!smSensorsActive)
+            {
+                focus.numShips = 1;
+                focus.ShipPtr[0] = ship;
+                soundEventPlay(NULL, 0x137, NULL);
+                ccFocus(&universe.mainCameraCommand, &focus);
+            }
+            else
+            {
+                smCullAndFocusSelecting();
+            }
+        }
+        return;
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -2327,7 +2373,7 @@ void cat_ioUpdateHover(void)
 
     catIoHover = FALSE;
     if (piePointSpecMode != PSM_Idle || (cat_shipPrintActive() && CAT_KB_HELD(0x62)) || CAT_CONSOLE_OPEN() ||
-        CAT_POPUP_MENU_OPEN() || mrDisabled || mrHoldLeft == mrSelectHold)
+        CAT_POPUP_MENU_OPEN() || mrDisabled || catMrSelecting)
     {
         for (index = 0; index < TOTAL_NUM_SHIPS; index++)
         {

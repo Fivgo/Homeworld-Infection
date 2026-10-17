@@ -5091,14 +5091,14 @@ DEFINE_TASK(rndRenderTask)
             }
         }
 
-        // CAT-TODO(M2-R6 front end and mouse): rndRenderTask 0x0057a910 has no mouseSelectCursorSetting (gone from
-        //      Cataclysm); while the front end asks for it (feShouldSaveMouseCursor) it neither clears the buffers nor
-        //      draws over the saved cursor (cat_mouseSaveCursorUnder / cat_mouseRestoreCursorUnder around the flip), it
-        //      draws the shameless plug and takes screenshots from a flag (ssSaveScreenshot's second argument), and
-        //      resizes the texture pool after mainReinitRGL (trNoPalResizePool). The render half (clears, regions,
-        //      scissor bars, subtitles, sync status, the fill counter) is as here.
-        // set the cursor type, reset the variables then draw the mouse cursor
-        mouseSelectCursorSetting();
+        // CAT (M2-R6 mainrgn-popup): rndRenderTask 0x0057a910 sets the cursor without mouseSelectCursorSetting (gone
+        //      from Cataclysm). The front end's saved cursor (feShouldSaveMouseCursor, cat_mouseSaveCursorUnder /
+        //      cat_mouseRestoreCursorUnder around the flip) is the Win32 GL front buffer's (decision 28: SDL redraws the
+        //      whole frame). CAT-TODO(M2-R6 front end): while the front end asks for that save, the exe neither clears
+        //      the buffers nor redraws them; it draws the shameless plug and takes screenshots from a flag
+        //      (ssSaveScreenshot's second argument), and resizes the texture pool after mainReinitRGL
+        //      (trNoPalResizePool). The render half (clears, regions, scissor bars, subtitles, sync status, the fill
+        //      counter) is as here.
         mouseSetCursorSetting();
         
         mouseDraw();                                        //draw mouse atop everything

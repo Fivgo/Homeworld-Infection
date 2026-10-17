@@ -63,6 +63,7 @@
 #include "Tutor.h"
 #include "Tweak.h"
 #include "Universe.h"
+#include "PopupMenu.h"
 #include "UnivUpdate.h"
 #include "utility.h"
 #include "Vector.h"
@@ -147,6 +148,22 @@ bool32 smSensorsActive = FALSE;
 //      universeReset 0x0053df80 clears it); in mission 3 the band box takes no mine in the sensors manager without it
 //      (selRectDragFunction 0x005053a0). Name chosen here
 bool32 catSmShowMines = FALSE;
+// CAT (M2-R6 mainrgn-popup): the sensors-view options (the popup menu's sensors-view submenu shows them checked, the
+//      ToggleSV_* key commands flip them; cat_opHomeworldClassic 0x004da2c0 / cat_opCataclysmDefault set them). The
+//      exe's defaults (data 0x00892b48 .. 0x00892b70 all 1; 0x00a5b19c / 0x00a5b1a4 bss 0). Names chosen here from the
+//      menu rows. CAT-TODO(M2-R6 sensors): the sensors manager draws by them; CAT-TODO(M2-R6 front end): the options
+bool32 catSmViewDecorativeAsteroids = TRUE;         // 0x00892b48 (OP_Dust)
+bool32 catSmViewResources = TRUE;                   // 0x00892b4c (OP_Resources)
+bool32 catSmViewFOWRanges = TRUE;                   // 0x00892b50 (OP_SensorsSphere)
+bool32 catSmViewBackground = TRUE;                  // 0x00892b54 (OP_Background)
+bool32 catSmViewAreasVisited = TRUE;                // 0x00892b58 (OP_AreaExplored)
+bool32 catSmViewIcons = TRUE;                       // 0x00892b5c (OP_CapitalShipOverlay)
+bool32 catSmViewShipMeshes = TRUE;                  // 0x00892b60
+bool32 catSmViewPieplateLines = TRUE;               // 0x00892b64
+bool32 catSmViewObjectivePointers = TRUE;           // 0x00892b6c (OP_ObjectivePointers)
+bool32 catSmViewSlipgatePaths = TRUE;               // 0x00892b70 (OP_SlipgatePaths)
+bool32 catSmViewAreasOccupied = FALSE;              // 0x00a5b19c (OP_SensorsWireframe)
+bool32 catSmViewCompass = FALSE;                    // 0x00a5b1a4 (OP_Compass)
 
 bool32 smSensorsDisable = FALSE;
 
@@ -3205,16 +3222,18 @@ void smViewportRender(featom *atom, regionhandle region)
     {
         nisStaticDraw(nisStatic[NIS_SMStaticIndex]);
     }
-    // CAT (M2-R5 hud): smViewportRender 0x0050c... ends with the main overlay, the ship info panel and the overlay's
-    //      hover update, as mrRegionDraw (CAT-TODO(M2-R6 popup menu / sensors): cat_popupMenuDraw and
-    //      cat_popupMenuUpdateHover(0) between them; the rest of the Cataclysm sensors render is M2-R6 sensors')
+    // CAT (M2-R5 hud, M2-R6 mainrgn-popup): smViewportRender 0x0050c... ends with the main overlay, the ship info
+    //      panel, the popup menu and the hover updates, as mrRegionDraw (the rest of the Cataclysm sensors render,
+    //      such as its band box by cat_mrSelectRectDraw, is M2-R6 sensors')
     cat_moRender();
     if (selSelected.numShips > 0 && selSelected.ShipPtr[0]->playerowner == universe.curPlayerPtr)
     {
         cat_shipPrintDraw(selSelected.ShipPtr[0]);
     }
+    cat_popupMenuDraw();
     cat_ioUpdateHover();
     cat_shipPrintDragUpdate();
+    cat_popupMenuUpdateHover(FALSE);
 }
 
 /*-----------------------------------------------------------------------------
@@ -3380,7 +3399,7 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                     {
                         if(mrNeedProbeHack())
                         {   //looks like we need a little probe hacksy poo here too
-                            clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_MOVEPATH_ONCE,selCentrePoint,1,&destination);   // CAT-TODO(stage 3 UI): the waypoint move UI; a one-point path
+                            clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_MOVEPATH_ONCE,selCentrePoint,1,&destination);   // CAT-TODO(M2-R6 sensors): the sensors manager's move order (the waypoint UI is mainrgn's); a one-point path
                             speechEventFleetSpec(selSelected.ShipPtr[0], COMM_F_Probe_Deployed, 0, universe.curPlayerIndex);
                         }
                         else
@@ -3410,7 +3429,7 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                             else
                             {
                                 //normal pieplate movement
-                                clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_MOVEPATH_ONCE,selCentrePoint,1,&destination);   // CAT-TODO(stage 3 UI): the waypoint move UI; a one-point path
+                                clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_MOVEPATH_ONCE,selCentrePoint,1,&destination);   // CAT-TODO(M2-R6 sensors): the sensors manager's move order (the waypoint UI is mainrgn's); a one-point path
                                 if (selSelected.ShipPtr[0]->shiptype == Mothership)
                                 {
                                     speechEventFleetSpec(selSelected.ShipPtr[0], COMM_F_MoShip_Move, 0, universe.curPlayerIndex);

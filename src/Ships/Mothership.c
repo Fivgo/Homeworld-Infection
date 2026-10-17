@@ -35,6 +35,9 @@
 #include "UnivUpdate.h"
 #include "utility.h"
 #include "InfoOverlay.h"
+#include "Sensors.h"
+#include "Select.h"
+#include "PiePlate.h"
 
 // CAT: Mothership.c follows cataclysm.exe's Mothership block (0x005bb730..0x005bd730): the Sect mothership (big gun,
 //      module slots, death sequence), the Beast mothership (infection weapon, "beast systems"), trGhostship, all
@@ -861,6 +864,81 @@ void cat_effectDeleteNow(Effect *effect)
 /*-----------------------------------------------------------------------------
     CAT: Cataclysm mothership queries
 -----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : cat_bigGunFirePoint                               0x005bbce0
+    Description : CAT (M2-R6 mainrgn-popup): the big gun's point mode chose its target: the sensors manager closes,
+                  the point mode goes off, and the last mothership of the selection gets the point order.
+----------------------------------------------------------------------------*/
+static void cat_bigGunFirePoint(vector *point)
+{
+    SelectCommand one;
+    Ship *mothership = NULL;
+    sdword index;
+
+    one.numShips = 1;
+    if (smSensorsActive)
+    {
+        smSensorsCloseForGood();
+    }
+    piePointModeOnOff(PIE_SPEC_None, NULL);
+    for (index = 0; index < selSelected.numShips; index++)
+    {
+        if (selSelected.ShipPtr[index]->shiptype == sMothership)
+        {
+            mothership = selSelected.ShipPtr[index];
+        }
+    }
+    if (mothership != NULL)
+    {
+        one.ShipPtr[0] = mothership;
+        cat_clWrapPointOrder(&universe.mainCommandLayer, &one, point);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_bigGunFireCommand                             0x005bc0c0
+    Description : CAT (M2-R6 mainrgn-popup): the Fire big gun order of the player's Sect mothership with a finished
+                  big gun module: a "charging" message while the gun reloads, else the big gun's point mode (in the
+                  sensors manager).
+----------------------------------------------------------------------------*/
+void cat_bigGunFireCommand(Ship *mothership)
+{
+    if ((mothership->playerowner != universe.curPlayerPtr) || !cat_mothershipHasBigGunModule(mothership))
+    {
+        return;
+    }
+    if (!cat_bigGunIsCharged(mothership))
+    {
+        cat_ioMessageAdd(strGetString(strNotifyBigGunCharging), 0xff0000ff, 1, mothership);
+        return;
+    }
+    if (piePointSpecMode != PSM_Idle)
+    {
+        piePointModeOnOff(PIE_SPEC_None, NULL);
+    }
+    piePointModeOnOff(PIE_SPEC_BigGun, cat_bigGunFirePoint);
+    if (!smSensorsActive)
+    {
+        smSensorsBegin(NULL, NULL);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_bigGunIsCharged                               0x005bd440
+    Description : CAT (M2-R6 mainrgn-popup): the big gun has reloaded (its fire time less the 11 s charge has passed
+                  since it last fired)
+----------------------------------------------------------------------------*/
+bool32 cat_bigGunIsCharged(Ship *ship)
+{
+    Gun *gun = cat_mothershipGetBigGun(ship);
+
+    if (gun == NULL)
+    {   // CAT-FIX: the exe reads the gun without a test (a mothership without the big gun's gun faults)
+        return FALSE;
+    }
+    return cat_bigGunReloaded(gun);
+}
+
 Gun *cat_mothershipGetBigGun(Ship *ship)                                    // 0x005bb790
 {
     // the first gun whose static +0x04 is 0x12 (see beastMothershipSelfDamage on that field)

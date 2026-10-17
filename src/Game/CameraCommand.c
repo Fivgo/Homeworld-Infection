@@ -10,6 +10,9 @@
 #include "CameraCommand.h"
 
 #include "Alliance.h"
+#include "NIS.h"
+#include "mainrgn.h"
+#include "Cloak.h"
 #include "FastMath.h"
 #include "Select.h"
 #include "Sensors.h"
@@ -173,6 +176,44 @@ vector   Vect, LookAt;
       pShipNode = pShipNode->next;
    }
     return(FALSE);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_ccShipIsLegalToFocusOn                        0x0042cd40
+    Description : CAT (M2-R6 mainrgn-popup): whether the current player may focus the camera on a ship or a mine:
+                  always once the player is dead; else an ally's ship, one the player sees through the fog of war,
+                  or any while the NIS scissors are closed or the developer console is open.
+----------------------------------------------------------------------------*/
+bool32 cat_ccShipIsLegalToFocusOn(Ship *ship)
+{
+    Player *player = universe.curPlayerPtr;
+    bool32 sees;
+
+    if (player->playerState == PLAYER_DEAD)
+    {
+        return TRUE;
+    }
+    if ((ship->header.objtype == OBJ_ShipType) ||
+        ((ship->header.objtype == OBJ_MissileType) && (((Missile *)ship)->missileType == MISSILE_Mine)))
+    {
+        if (allianceIsShipAlly(ship, player))
+        {
+            return TRUE;
+        }
+        // cat_fowCanPlayerSeeShip(player, ship, FALSE) 0x0047e810 without a grid (no grid exists before the FOW port):
+        //      a human player, or a ship not fully cloaked, is seen. CAT-TODO(M2-R6 FOW): the grid branch, and the
+        //      stealth detection call (0x0053f9f0) that also lets an AI player see a cloaked ship
+        sees = (player->aiPlayer == NULL) || !cat_shipIsCloakedFully(ship);
+        if (sees)
+        {
+            return TRUE;
+        }
+        if (nisFullyScissored || CAT_MR_CONSOLE_OPEN())
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 bool32 ccFocusIsLegal(CameraStackEntry *entry)

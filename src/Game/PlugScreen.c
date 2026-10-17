@@ -175,6 +175,10 @@ void psLinkDraw(regionhandle region)
                     case PLT_GameOn:
                         psFadeState = PFS_None;
                         psModeEnd();
+                        // CAT: psLinkDraw 0x004e9850 (psModeEnd inline) then redraws the whole screen: the root region
+                        //      draws this frame and the front end renders everything
+                        bitSet(regRootRegion.status, RSF_DrawThisFrame);
+                        feRenderEverything = TRUE;
                         regRecursiveSetDirty(ghMainRegion);
                         glEnable(GL_BLEND);
                         psFadeState = PFS_FromBlack;
@@ -447,7 +451,7 @@ void RemoveCommasButNotQuestionMarksFromString(char *field)
     if ((linkPtr = strstr(field, "https:")) != NULL)
     {                                                       //Major hack!  The link for "To Order" has every imaginable format character in the URL including double slash and question mark
         linkPtr[6] = '/';
-        linkPtr[7] = '/';
+        // CAT: psPlugLinkSet 0x004ea240 (which inlines this) writes the one slash at [6] only
     }
     while (*fieldptr != 0)
     {
