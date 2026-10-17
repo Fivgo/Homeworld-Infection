@@ -8,6 +8,12 @@ hard requirement: the user wants A/B comparisons.
 Whatever the camera focuses on moves smoothly; every other ship and asteroid looks a frame behind, and the effect grows
 with the relative velocity of camera and object. The user's ruling: this is a core engine issue, not a cinematic one,
 to be fixed for good in the recreation.
+Refinement (same day): it is not the size of the combined velocity but how TANGENTIAL the relative motion is. An
+asteroid near the screen centre travelling straight away from the camera looks correct; objects crossing the view
+stutter. Reading: the visible jump is the per-tick SCREEN-SPACE displacement, i.e. the relative velocity's component
+across the line of sight divided by distance (angular velocity). Depth-only motion changes apparent size by a fraction
+of a pixel per tick, so the 16 Hz stepping is invisible there; lateral motion moves many pixels per tick. The camera
+lock on the focus cancels the focus's angular motion and nobody else's, which is why only unfocused objects stutter.
 
 ## Cause (verified in the source, 2026-10-17)
 - **Gameplay:** every object's position is written once per universe tick (16 Hz) and drawn as-is. The camera is the
@@ -50,7 +56,7 @@ to be fixed for good in the recreation.
      say so in STATE.md, but the button is required, not optional);
    - `Cataclysm.cfg` keys `objInterpolate 0|1` and `nisInterpolate 0|1` (persisted like the other options);
    - command line `/noInterp` (both off) and `/noNISInterp`, plus dev-console commands, for scripted runs.
-4. **Comparison tooling (so changes are measurable, not just eyeballed).** Harness mode `motion`: run a mission headless at a fixed virtual frame rate (144 fps) with the camera focused on one ship and a second ship crossing the view; dump per-frame screen-space positions of both; report max and 95th-percentile per-frame displacement and repeated-frame counts for focused vs unfocused objects, interpolation on and off. Plus harness mode `nis`: play a given NIS headless
+4. **Comparison tooling (so changes are measurable, not just eyeballed).** Harness mode `motion`: run a mission headless at a fixed virtual frame rate (144 fps) with the camera focused on one ship and a second ship crossing the view; dump per-frame screen-space positions of both; report max and 95th-percentile per-frame SCREEN-SPACE displacement (pixels, i.e. angular motion) and repeated-frame counts for focused vs unfocused objects, interpolation on and off; include one object moving across the view and one moving along the line of sight, since only the first shows the defect. Plus harness mode `nis`: play a given NIS headless
    at a fixed frame rate (e.g. 144 fps virtual) with interpolation on and off, dumping per-frame camera pose and the
    screen-space position of one tracked object; `tools/nis_smoothness.py` reports the max and 95th-percentile per-frame
    displacement and the count of repeated frames. Expected: identical sim stream in both runs; repeated-frame count
