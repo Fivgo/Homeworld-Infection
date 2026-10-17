@@ -58,7 +58,10 @@ case "$mode" in
     cat <<MSG
 == Cataclysm Oracle: RECORD a reference game ==
 The GOG game opens in a $DESK window with the checksum oracle attached (this is the real game: sound is on).
- 1. Start a SKIRMISH from the menus: a small map, one AI opponent, default settings.
+ 1. Start a SKIRMISH: Main menu -> Multiplayer -> Skirmish (small map, one AI opponent, default settings).
+    NOT the campaign: the engine's recorded-game feature exists only for skirmish/multiplayer games.
+    (2026-10-17: a campaign session crashed at the first order and its recording could not replay.)
+    If you start a campaign mission anyway, the oracle refuses to record and says so in its log.
  2. Play normally for about 10 minutes (build, harvest, move, attack). Save the game once if you like.
  3. The oracle stops recording by itself at tick $STOP; then quit the game normally.
 Recording name: $NAME
@@ -67,7 +70,10 @@ MSG
     launch "mode=record:$NAME;stop=$STOP;out=$NAME-rec.hwo"; rc=$?
     echo "game exited with code $rc"
     dest="$(collect rec | tail -1)"
-    if [[ -f "$GAME/SavedGames/RecordedGames/$NAME" ]]; then
+    if grep -q 'refused' "$GAME/$NAME-rec.hwo.log" 2>/dev/null; then
+      echo "ORACLE REFUSED TO RECORD: $(grep refused "$GAME/$NAME-rec.hwo.log" | tail -1)"
+      echo "Start a SKIRMISH (Main menu -> Multiplayer -> Skirmish), not the campaign, and run this again."
+    elif [[ -f "$GAME/SavedGames/RecordedGames/$NAME" ]]; then
       echo "RECORDING OK: $NAME ($(stat -c %s "$GAME/SavedGames/RecordedGames/$NAME") B). Next: run 'Cataclysm Oracle: Verify'."
     else
       echo "No recording file was written. Check $dest/*.log (the DLL logs why: identity check, hook sites, mode)."

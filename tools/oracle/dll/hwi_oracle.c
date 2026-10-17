@@ -58,6 +58,27 @@ DLLIMPORT BOOL WINAPI FlushInstructionCache(HANDLE, const void *, size_t);
 DLLIMPORT HANDLE WINAPI GetCurrentProcess(void);
 DLLIMPORT void WINAPI ExitProcess(unsigned int);
 DLLIMPORT void WINAPI OutputDebugStringA(const char *);
+DLLIMPORT void *WINAPI AddVectoredExceptionHandler(DWORD, void *);
+
+/* ---- crash reporter (2026-10-17): first-chance access violations and the game's own int3 (dbgFatalf, when
+   dbgInt3Enabled) are logged with address, module, registers, stack top, ebp-chain return addresses and the
+   fatal-message buffer, then the exception continues to its normal fate (EXCEPTION_CONTINUE_SEARCH).
+   Layouts are the i386 WinNT ones. ---- */
+typedef struct { DWORD ExceptionCode, ExceptionFlags; void *ExceptionRecord, *ExceptionAddress; DWORD NumberParameters; DWORD ExceptionInformation[15]; } CR_EXCEPTION_RECORD;
+typedef struct { CR_EXCEPTION_RECORD *ExceptionRecord; uint8_t *ContextRecord; } CR_EXCEPTION_POINTERS;
+#define CR_CTX(ctx, off) (*(uint32_t *)((ctx) + (off)))      /* i386 CONTEXT: Edi 156 Esi 160 Ebx 164 Edx 168 Ecx 172 Eax 176 Ebp 180 Eip 184 Esp 196 */
+#define CAT_FATAL_TEXT 0x00C42C00u                             /* lpText buffer filled by dbgFatalf (vsnprintf, 0x7ff) */
+static void crash_report(CR_EXCEPTION_POINTERS *ep);
+static uint32_t cr_tick = 0;                                  /* last tick seen by the per-tick path, for the crash line */
+static int32_t WINAPI crash_handler(CR_EXCEPTION_POINTERS *ep)
+{
+    static int busy = 0;
+    DWORD code = ep->ExceptionRecord->ExceptionCode;
+    if (code != 0xC0000005u && code != 0x80000003u && code != 0xC0000094u && code != 0xC000001Du) return 0;
+    if (busy) return 0;
+    busy = 1; crash_report(ep); busy = 0;
+    return 0;                                                  /* EXCEPTION_CONTINUE_SEARCH */
+}
 
 /* MSVC targets reference _fltused when a translation unit touches floating point (the univGetChecksum return) */
 int _fltused = 0;
@@ -335,6 +356,7 @@ static uint16_t owner_index(uint32_t player)
 
 static void fill_tick(HwoTick *t)
 {
+    cr_tick = (uint32_t)RD32(CAT_univUpdateCounter);
     uint32_t node, ship, cmd, i, crc = 0, s, shipsWalked = 0, shipsBad = 0;
     uint16_t id, order, attr;
 
@@ -484,6 +506,15 @@ static int recordingStarted = 0, recordingStopped = 0, playbackEnded = 0;
 static void start_recording(void)
 {
     static char path[64];
+    /* 2026-10-17: the engine's recorded-game feature is multiplayer/skirmish only (GamePick.c guards it with
+       multiPlayerGame; single-player saves have a different chunk layout). Recording the campaign crashed the game at
+       the first order and produced a recording that cannot replay, so refuse instead. */
+    if (RD32(CAT_singlePlayerGame) != 0 || RD32(CAT_multiPlayerGame) == 0)
+    {
+        emit_event(HWO_EV_NOTE, "refused: recording needs a SKIRMISH (multiplayer-type) game; the campaign cannot be recorded by the engine");
+        log_line("refused: recording needs a SKIRMISH (Main menu -> Multiplayer -> Skirmish); the campaign cannot be recorded by the engine. Nothing recorded.", NULL, NULL);
+        return;
+    }
     str_cpy(path, "SavedGames\\RecordedGames\\", sizeof(path));
     str_cat(path, cfg.name, sizeof(path));
     /* the game's own in-game record button path (IG_SaveRecordedGame 0x00487EF0 calls the same function): it only
@@ -768,6 +799,50 @@ static int install_entry(uint32_t site, uint32_t len, void *detour, void **tramp
     return patch_branch(site, len, 0xE9, detour);
 }
 
+static void crash_report(CR_EXCEPTION_POINTERS *ep)
+{
+    char line[900], h[12], d[12]; uint32_t addr = (uint32_t)(uintptr_t)ep->ExceptionRecord->ExceptionAddress, i;
+    uint8_t *c = ep->ContextRecord; uint32_t esp = CR_CTX(c, 196);
+    HMODULE self = GetModuleHandleA("hwi_oracle.dll");
+    str_cpy(line, "CRASH code=", sizeof line); hex32(h, ep->ExceptionRecord->ExceptionCode); str_cat(line, h, sizeof line);
+    str_cat(line, " addr=", sizeof line); hex32(h, addr); str_cat(line, h, sizeof line);
+    if (addr >= 0x00400000u && addr < 0x00400000u + 0x00894000u) { str_cat(line, " in cataclysm.exe+", sizeof line); hex32(h, addr - 0x00400000u); str_cat(line, h, sizeof line); }
+    else if (self && addr >= (uint32_t)(uintptr_t)self && addr < (uint32_t)(uintptr_t)self + 0x20000u) { str_cat(line, " in hwi_oracle.dll+", sizeof line); hex32(h, addr - (uint32_t)(uintptr_t)self); str_cat(line, h, sizeof line); }
+    else str_cat(line, " (other module)", sizeof line);
+    if (ep->ExceptionRecord->ExceptionCode == 0xC0000005u && ep->ExceptionRecord->NumberParameters >= 2)
+    { str_cat(line, ep->ExceptionRecord->ExceptionInformation[0] ? " write to " : " read of ", sizeof line); hex32(h, ep->ExceptionRecord->ExceptionInformation[1]); str_cat(line, h, sizeof line); }
+    str_cat(line, " tick=", sizeof line); dec32(d, cr_tick); str_cat(line, d, sizeof line);
+    log_line(line, NULL, NULL);
+    str_cpy(line, "CRASH regs eax=", sizeof line); hex32(h, CR_CTX(c,176)); str_cat(line, h, sizeof line);
+    str_cat(line, " ebx=", sizeof line); hex32(h, CR_CTX(c,164)); str_cat(line, h, sizeof line);
+    str_cat(line, " ecx=", sizeof line); hex32(h, CR_CTX(c,172)); str_cat(line, h, sizeof line);
+    str_cat(line, " edx=", sizeof line); hex32(h, CR_CTX(c,168)); str_cat(line, h, sizeof line);
+    str_cat(line, " esi=", sizeof line); hex32(h, CR_CTX(c,160)); str_cat(line, h, sizeof line);
+    str_cat(line, " edi=", sizeof line); hex32(h, CR_CTX(c,156)); str_cat(line, h, sizeof line);
+    str_cat(line, " ebp=", sizeof line); hex32(h, CR_CTX(c,180)); str_cat(line, h, sizeof line);
+    str_cat(line, " esp=", sizeof line); hex32(h, esp); str_cat(line, h, sizeof line);
+    str_cat(line, " eip=", sizeof line); hex32(h, CR_CTX(c,184)); str_cat(line, h, sizeof line);
+    log_line(line, NULL, NULL);
+    str_cpy(line, "CRASH stack", sizeof line);
+    for (i = 0; i < 24; i++) { str_cat(line, " ", sizeof line); hex32(h, RD32(esp + 4u * i)); str_cat(line, h, sizeof line); }
+    log_line(line, NULL, NULL);
+    str_cpy(line, "CRASH stack2", sizeof line);
+    for (i = 24; i < 64; i++) { str_cat(line, " ", sizeof line); hex32(h, RD32(esp + 4u * i)); str_cat(line, h, sizeof line); }
+    log_line(line, NULL, NULL);
+    { char nm[72]; uint32_t j; const char *g1 = (const char *)(uintptr_t)CAT_recordPacketSaveFileName, *g2 = (const char *)(uintptr_t)CAT_recordPacketFileName;
+      for (j = 0; j < 64 && g1[j]; j++) nm[j] = (g1[j] >= 0x20 && g1[j] < 0x7F) ? g1[j] : '?'; nm[j] = 0; log_line("CRASH recordPacketSaveFileName=", nm, NULL);
+      for (j = 0; j < 64 && g2[j]; j++) nm[j] = (g2[j] >= 0x20 && g2[j] < 0x7F) ? g2[j] : '?'; nm[j] = 0; log_line("CRASH recordPacketFileName=", nm, NULL); }
+    { uint32_t bp = CR_CTX(c,180); str_cpy(line, "CRASH above-ebp", sizeof line);   /* 96 dwords from ebp+8: the callers' frames, scanned offline for return addresses */
+      for (i = 0; i < 96; i++) { str_cat(line, " ", sizeof line); hex32(h, RD32(bp + 8u + 4u * i)); str_cat(line, h, sizeof line); if ((i & 31) == 31) { log_line(line, NULL, NULL); str_cpy(line, "CRASH above-ebp", sizeof line); } } }
+    { uint32_t ebp = CR_CTX(c,180), n = 0; str_cpy(line, "CRASH frames", sizeof line);
+      while (ebp > 0x10000u && ebp < 0x7FFF0000u && n < 12) { uint32_t ret = RD32(ebp + 4); str_cat(line, " ", sizeof line); hex32(h, ret); str_cat(line, h, sizeof line); ebp = RD32(ebp); n++; }
+      log_line(line, NULL, NULL); }
+    { const char *t = (const char *)(uintptr_t)CAT_FATAL_TEXT; char txt[320]; uint32_t n = 0;
+      uint32_t k = 0; while (k < 8 && (t[k] == '\n' || t[k] == '\r' || t[k] == '\t')) k++;   /* the format starts with a newline */
+      while (n < sizeof txt - 1 && t[k+n] != 0) { char ch = t[k+n]; txt[n] = (ch >= 0x20 && ch < 0x7F) ? ch : (ch == '\n' ? '|' : '?'); n++; }
+      txt[n] = 0; if (n) log_line("CRASH fatal-text: ", txt, NULL); }
+}
+
 static void attach(void)
 {
     static char hooks[160];
@@ -780,6 +855,7 @@ static void attach(void)
         return;
     }
     if (!open_outputs()) return;
+    AddVectoredExceptionHandler(1, (void *)crash_handler);             /* crash reporter */
     if (!check_all_sites())
     {
         emit_event(HWO_EV_HOOKS, "REFUSED: a hook site differs from hook_sites.h; nothing patched");

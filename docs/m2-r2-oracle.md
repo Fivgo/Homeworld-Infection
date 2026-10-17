@@ -335,3 +335,21 @@ Untracked and not for git: `build/oracle-tools/` (scratch helpers `dec.py`, `pe.
 | new tracked files | 12 (2 src, 3 tools/oracle, 6 tools/oracle/dll, 1 doc) |
 | modified tracked files | 13 |
 
+
+## 2026-10-17: first live session, findings
+
+1. **Skirmish only.** The user's first session was campaign Mission 1. The engine's recorded-game feature is
+   multiplayer-only (`GamePick.c` guards it with `multiPlayerGame`; single-player saves carry the mission chunks before
+   the background chunk, `SaveGame.c:682-797`). Recording it anyway crashed the game with an access violation at the
+   first order (tick 3367, the first `P` record with `cmds=1`), and the replay of that recording died in `dbgFatalf`
+   with `fileSizeGet: can't find file '?'` from `LoadGame -> btgLoad`, the MP loader reading the wrong chunk as the
+   background name. The DLL now refuses `record:` unless `multiPlayerGame && !singlePlayerGame` (0x00A43C94 /
+   0x00A43C9C) and logs why; `record_reference.sh` and the shortcuts say SKIRMISH ONLY. The campaign recording was
+   set aside as `oracle01-campaign-INVALID`.
+2. **Crash reporter in the DLL.** A vectored exception handler logs, for access violations and the game's own
+   `dbgFatalf` int3: code, address and module, registers, 24+40 stack dwords, 96 dwords above `ebp` (scan them for
+   return addresses with the r6 function table to get the call chain), the ebp chain, the recording name globals and
+   the fatal-text buffer at 0x00C42C00. Lines start with `CRASH`. `record_reference.sh` also runs the game with
+   `WINEDEBUG=+seh` and keeps the Wine log under `original/oracle/`.
+3. The single-player save written during that session (`SavedGames/SinglePlayer/01`, 1.1 MB) is a valid mission
+   save for the save-format work.

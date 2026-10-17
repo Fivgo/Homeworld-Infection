@@ -64,6 +64,8 @@
 #define CAT_MissileList             0x00B62B2Cu /* universe + 0x12C */
 #define CAT_univUpdateCounter       0x00B62BACu
 #define CAT_numPlayers              0x00B674F8u /* uword (universe.numPlayers) */
+#define CAT_singlePlayerGame        0x00A43C9Cu /* bool32 (symbols.csv r6); recording is refused when set */
+#define CAT_multiPlayerGame         0x00A43C94u /* bool32 (symbols.csv r6); recording needs it set (skirmish/LAN) */
 #define CAT_players                 0x00B67500u /* Player[], stride 0x6530 */
 #define CAT_PLAYER_STRIDE           0x6530u
 #define CAT_PLAYER_resourceUnits    0x4u        /* VERIFIED (M2-R4 rest-oracle): CET universe.h asserts; gameStart 0x005a9290 writes it; the Player layout is in src/Game/Universe.h */
