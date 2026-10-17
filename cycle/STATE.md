@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-17 10:36
+Last checkpoint: 2026-10-17 11:12
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -187,27 +187,80 @@ from 3,110 / 1,234 / 76 (1,374 reviewed) to **3,065 / 1,278 / 77 (1,615 reviewed
 modified. Stage 2 is now **783 / 589 / 30 (245,967 MODIFIED B) + 808 cat-new**, with 573 of the 808 cat-new names in
 the tree; stage 3 is 928 / 263 / 7 (175,469 B) + 450 cat-new (338 not in the tree). 125 harness runs this round.
 
-### M2-R5 plan (stage-2 close-out + stage 3 part A; details and the M2-R6 table in docs/m2-r4-summary.md "Plan for M2-R5 and M2-R6")
+### M2-R5: COMPLETE 2026-10-17 (stage-2 close-out + stage 3 part A: layout + dock purposes, command layer + formations + tactics, render/GL, sound and speech, HUD)
 
-5 producers in sequence + 5 auditors + integrate (11 agents). Counts: HW1-matched I / M / R functions (MODIFIED +
-REWRITTEN bytes) by HW1 file, then the cat-new functions not yet defined in `src/`, from `ghidra/delta_map.json` at
-the end of R4. Every producer compares each IDENTICAL body in its scope and runs the engine only through
-`tools/m2_harness.sh`. The remaining stage-2 items go first (producers 1 and 2).
+Summary, exit test and the M2-R6 plan: [docs/m2-r5-summary.md](../docs/m2-r5-summary.md). Workflow
+`cycle/workflows/m2-r5.js` in two runs (`wf_2afecf39-75d`, cut off by the weekly limit on 2026-10-12 with layout-dock
+produced but unaudited, WIP snapshot `f59e2ef`; `wf_9f1eaba2-4de`, relaunched 2026-10-16 after the weekly reset with
+the ports, audits and probe on opus (high) and integrate on fable (max), the layout-dock audit first), 12 agents. Each
+port was checkpointed by its auditor. The R5 plan as launched (5 producers, scopes, done-whens) is in
+docs/m2-r4-summary.md "Plan for M2-R5 and M2-R6"; it replaced the table that stood here.
 
-| # | producer | scope | I / M / R (M+R bytes) | cat-new left | done when |
+**R5 exit test: MET** (this integrate step, clean builds at 02e8e4d plus the step's nine marker edits, plain harness,
+silent). Debug `hwi-engine` (ASan + UBSan):
+- **Mission01 headless (oracle mode `mission`):** two 6,000-tick runs (`r5-integrate-mission-a/b`, 24 s each) are
+  byte-identical (1,476,370 B, 6,001 `T` records, 154 ships), **ASan 0**; the perturbed run is caught at tick 3000 /
+  `rng10` / 1 draw ahead and the flipped `ships_health` bit at tick 4000; the release build gives the same 6,001 `T`
+  records (`r5-integrate-mission-rel`, 4.8 s); `tools/oracle/mission_test.sh`: **MISSION TEST PASS**. The stream is
+  IDENTICAL to the hud, sound and command-tactics audits' streams; the baseline moved once this round
+  (command-tactics, from tick 0 in `ships_pos` / `univcheck`: decision 30).
+- **sp:** universe running, 1,248 ticks at the 340 s timeout (a shared machine), ASan 0, no leak (`r5-integrate-sp`).
+  **fe:** `Main_game_screen`, ASan 0 (284 file loads: R4's 232 plus the HUD's start-up data).
+- **Self-tests:** rc 0, ASan 0: statics 143/145 (108 StaticInits), meshes 1,758/1,758, textures 10,661 / 0 not
+  loaded, oracle 512 ticks 0 sync errors, etg 9/9 scripts, 618 effects (R4's numbers). **The five new ones:** dock,
+  command, render, sound (**0 `fquant.c` / `fqcodec.c` UBSan reports, 0 `struct PATCH` reports**) and hud, all
+  `result=PASS`. **Release oracle self-test: `SELFTEST PASS`**, 27 RNG streams. Every quitting run rc 0 (16 of 16).
+- **Builds:** `tools/build.sh --debug`/`--release` `--clean`: `[308/308]`, 0 warnings under `-Werror` (debug
+  82,303,928 B, release 5,023,224 B); `tools/m2_layout32.sh` OK, now with **`Ship` 0x63C (`health` 0x170)**,
+  `SpaceObj` 0x98 (the attribute dword at +0x38), `Missile` 0x258, `Bullet` 0x164, `Derelict` 0x294, `Asteroid` 0x1B4,
+  `CommandToDo` 0x330, `TacticsInfo` 0x9C4, `PATCH` 0x38 and the HUD structs.
+- **No `CAT-TODO` / `CAT-PROVISIONAL` in `src/` names an M2-R4 or M2-R5 owner**: this step settled the last nine (the
+  `catQueuedAttackTarget` clear and the gun-word copy of a converted ship ported from the disassembly, three dead
+  extra arguments closed, four re-targets with reasons; all tagged `[integrate: M2-R5]`).
+- UBSan kinds left: `fescreen` (M2-R6 producer 2), the ETG / particle opcode kinds and `BTG.c:388` (stage-1/2 LP64
+  artefacts, listed, not blocking).
+
+| item | report | result | audit | commit |
+|---|---|---|---|---|
+| layout-dock | [docs/m2-r5-layout-dock.md](../docs/m2-r5-layout-dock.md) | **Layout:** `Ship` 0x63C / `health` 0x170 / the +0x38 attribute dword, `SpaceObj` 0x98, `ShipOrDerelict` 0x238, `Missile` / `Bullet` / `Derelict` / `Asteroid`, the slave trade deleted. **Dock:** `Dock.c` rewritten on the purposes 0..10 (`cat_dockGetDockClass`, the 17-state cone machine, `clDock`, `cat_dockFinishedDocking`, `cat_clHarvestNearestResource`; 95 HW1 functions and 60 tweakables gone; every stand-in replaced). **Experience:** `cat_shipUpdateExperienceLevel` + 7 upgrade helpers. **97 IDENTICAL compared** (2 modified; `fsqrt` is HW1's table in the exe: decision 23). `/catDockTest` + mode `dock` | 0.895, PASS-WITH-FIXES (the self-test's carrier / processor coverage open: M2-R6 #4) | 6f64a21 |
+| command-tactics | [docs/m2-r5-command-tactics.md](../docs/m2-r5-command-tactics.md) | `CommandToDo` 0x330 with the waypoint `MoveCommand`; orders 11-16 and their `cat_process*ToDo`, the link flight, 10 wraps (packets: stage 5); the remaining `CommandLayer.c` bodies; `clFormation`'s 4th argument, the force-field wall and sphere with the Sentinel links, the leader's collision centre; the exe's `TacticsInfo` 0x9C4 + 198-row table, 12 retaliation functions, `univCheckShipState`; 55 IDENTICAL compared (14 modified). `/catCommandTest` + mode `command` | 0.943, PASS-WITH-FIXES | 84a9d05 |
+| render | [docs/m2-r5-render.md](../docs/m2-r5-render.md) | `cat_rndRenderObjectList` with the render state block and the depth-sorted pass, the Cataclysm main view, `meshSetFade`'s 8 channels, the render-time LOD; lens flares, fog layers, BTG's flashes; the ship renderers (Sentinel fields at 79 segments, Dreadnought charge, Nomad beam, blasts, droid proxies), `cat_meshLineIntersect`; every unread GL function compared (22 ported). `/catRenderTest` + mode `render` | 0.944, PASS-WITH-FIXES | af90827 |
+| sound | [docs/m2-r5-sound.md](../docs/m2-r5-sound.md) | the fq codec at the exe (both `fquant.c` UBSan kinds gone), the mixer with the aligned bank patch table (every `PATCH` report gone), Cataclysm's sound events (92-row LUT, `GunSpecEvents.lut`), speech (3 queues + music, the exe's ids with HW1 ids muted, the race voice, alerts, letterbox, the 62-track music machine), battle chatter (88 rows verified); 13 R3/R4 CAT-TODOs now calls. `/catSoundTest` + mode `sound` | 0.85, PASS-WITH-FIXES (fixed the clean-build break: kas2c and `\|`) | a47a8a6 |
+| hud | [docs/m2-r5-hud.md](../docs/m2-r5-hud.md) | status bars + picking at the exe bodies, the ship info panel (`ShipPrint.c`), ship names (`ShipNames.c`), 53 overlay icons (`OverlayIcons.c`), `InfoOverlay.c` rewritten (main overlay, message scroller, mission timer), pie plate + compass, `ShipView.c` from the disassembly, escape menu, loading screen; 40 IDENTICAL compared (5 modified). `/catHudTest` + mode `hud`. Deferred: the game-stats screen (M2-R6 #1) | 0.913, PASS-WITH-FIXES | 02e8e4d |
+
+Round size (`git diff 1434b90`): 188 tracked files, +34,852 / -21,031; `src/` 170 files, +24,521 / -16,852 with 2,476
+added lines carrying `CAT`; 6 new `src/` files, 0 deleted. Delta map: IDENTICAL / MODIFIED / REWRITTEN went from
+3,065 / 1,278 / 77 (1,615 reviewed) to **3,009 / 1,334 / 77 (2,162 reviewed)**; 56 IDENTICAL bodies were found
+modified. Stage 2 is now **765 / 607 / 30 (253,494 MODIFIED B) + 808 cat-new** (650 defined in the tree); stage 3 is
+896 / 295 / 7 (187,650 B) + 450 cat-new (223 defined). The tree carries 40 `CAT-FIX` (R4: 7), 188 `CAT-TODO`, 22
+`CAT-PROVISIONAL`. 181 harness runs this round.
+
+### M2-R6 plan (stage 3 part B; details, the counting method and the stage-3 exit test in docs/m2-r5-summary.md "Plan for M2-R6")
+
+5 producers in sequence + 5 auditors + integrate (11 agents). Counts: HW1-matched I / M / R functions by HW1 file
+(MODIFIED + REWRITTEN bytes; then the MODIFIED / REWRITTEN bodies still unread), and the cat-new functions not yet
+defined in `src/` (by name prefix, else by the nearest HW1-matched function), from `ghidra/delta_map.json` at the end
+of R5. Every producer compares each IDENTICAL body in its scope, runs the engine only through `tools/m2_harness.sh`,
+writes its `CAT-TODO`s on one line with the owner first, and (producers 4 and 5) records the mission-stream hash
+before and after.
+
+| # | producer | scope | I / M / R (M+R bytes); unread | cat-new left | done when |
 |---|---|---|---|---|---|
-| 1 | layout pass + dock purposes + flight/math compares | **first:** `Ship` pinned at 0x63C (`health` 0x170), one +0x18 field, the +0x38 attribute dword, Bullet/Missile layouts; then `Dock.c`/`LaunchMgr.c`: purposes 0..10, `cat_dockGetDockClass`, `cat_dockShipDocksAtShip` and its cone helpers, `ThisShipCanDockWith`'s 4th argument, `clDock`, the REWRITTEN dock-point functions, `cat_clHarvestNearestResource`, the hive/slipgate/Leech/Worker/Processor stand-ins and the carrier door; the experience level; the 97 IDENTICAL bodies of `FlightMan.c` and the math files | 108 / 20 / 3 (8,123 B) | 14 / 7,629 B | `m2_layout32.sh` holds `Ship` 0x63C; a scripted `/catDockTest` (harness mode `dock`) docks and launches a carrier's and a processor's ships through the Cataclysm purposes, ASan 0; no HW1 dock path left; mission streams still identical |
-| 2 | command layer follow-up + force-field formations + tactics | the remaining `CommandLayer.c`/`CommandWrap.c` MODIFIED bodies, the orders 11-16 and their `cat_process*ToDo`, the link flight, the force-field wall and sphere with the Sentinel links, `clFormation`'s 4th argument, the Cataclysm `TacticsInfo` and `cat_tacticsRetaliate*`, `COMMAND_CAT_POINT` for the big gun; the 75 uncompared IDENTICAL bodies | 80 / 79 / 2 (53,636 B; 16 bodies ported in R4) | 40 / 15,044 B | every MODIFIED body ported or owned outside stage 2; a scripted `/catCommandTest` (link, unlink, point, mimic, research orders; a Sentinel wall and sphere) ends in the exe's states, ASan 0; sp as before |
-| 3 | render/GL | `render.c` (`cat_rndRenderObjectList` 9,890 B with the glow state, fade, dissolve, mimic flags), lens flares, fog layers, billboards, `Shader.c`, `Light.c`, `Clipper.c`, `prim2d/3d.c`, `glcompat.c`, `rinit`, `BTG.c`, `Trails.c`, `Ping.c`, `debugwnd.c`, `Transformer.c`; the renderer halves the ship ports left (Sentinel field, Dreadnought charge, Nomad beam, blast lightning, droid proxies, `cat_meshLineIntersect`, damage points) | 218 / 36 / 0 (27,544 B) | 71 / 36,696 B | a `/catRenderTest` renders N Mission01 frames offscreen through the Cataclysm object list and logs object / lens-flare / fog counts > 0, ASan 0, mission stream unchanged; fe unchanged |
-| 4 | sound and speech | `SoundEvent*.c` (13,629 MODIFIED B), `SpeechEvent.c`, `smixer.c`, `soundlow.c`, `sstream.c`, `mixfft.c`, the fq codec (follows the binary), `Subtitle.c`, `Battle.c`; every sound/speech `CAT-TODO` of R3/R4 becomes a call | 122 / 44 / 1 (35,711 B) | 17 / 2,771 B | a `/catSoundTest` (harness mode `sound`) decodes a stream of each of the 3 audio banks into the dummy device and looks up the 88 chatter events: ASan 0, **0 UBSan reports in `fquant.c`/`fqcodec.c`** |
-| 5 | HUD: status bars + picking, ship info panel, overlays, pie plate, game-stats screen | the 25 `cat_shipPrint*`/`cat_selStatus*`/`cat_selHealth*` functions with `selStatusDraw0/1/2` and the picking API, `ShipView.c`, `InfoOverlay.c`, `Tactical.c` (`cat_mo*` main overlay), `PiePlate.c`, `TaskBar.c`, `Scroller.c`, the message scroller, `GamePick.c` + `cat_gameStats*`, `HorseRace.c`, ship names, overlay icons | 40 / 22 / 2 (15,938 B) | 100 / 43,905 B | a `/catHudTest` selects Mission01's ships through the selection API and draws bars, panel, overlays and pie plate offscreen for N frames, ASan 0; fe and sp unchanged |
+| 1 | main region, mouse, popup menu, game-stats screen | `mainrgn.c`, `mouse.c`, `PlugScreen.c`: the band box, `cat_mouseGetContextAction`, the right-click popup menu (`cat_popupMenu*`, 31 functions, 19 KB), the `cat_ui*` special commands (link, unlink, mimic, leech, EMP, swarm, ram, siege cannon, cloak, halt, the protect formation), the mimic menu, `cat_bigGunFireCommand`, `cat_selComputeTargetActions`, the tactics / formation keys, the music keys; the game-stats screen (hud's deferral: `cat_gameStats*` x8, `cat_popupMenuDrawFrame`, `cat_primRectShadedHorizontal2`) | 36 / 23 / 1 (19,329 B); 15 | 90 / 38,322 B | a scripted `/catUiTest` (mode `ui`) opens the popup menu for a Mission01 selection, runs each `cat_ui*` command once through the wraps, closes it and shows the game-stats screen once; the exe's context-action table reproduced; ASan 0; sp, fe and the mission stream unchanged |
+| 2 | front-end flow, screens, controls, fonts, strings, options, subtitles | `FEFlow.c`, `FEReg.c`, `UIControls.c`, `font.c`, `FontReg.c`, `ScenPick.c`, `ColPick.c`, `Options.c` (19 unread; the Cataclysm toggle set `cat_op*`, `cat_opSetAllDefaults`, Homeworld-classic, `OP_ExperienceMessages`, texture detail with the precache), `Demo.c`, `Titan.c`, `bink.c`, `StringSupport.c` (the 1,705-string readers), `Subtitle.c` (the rest of `subTitlesDraw`); the `fescreen` UBSan kind; the Bink term and the voice preview | 282 / 48 / 2 (17,627 B); 41 | 33 / 4,757 B | `/catFeScreensTest` pushes and pops every screen of the install's 22 `.fib` files once: ASan 0 and **0 `fescreen` UBSan reports**; `/catStringsTest` resolves all 1,705 ids; the option set at the exe's defaults round-trips; fe `Main_game_screen` |
+| 3 | start-up, main, utility, key bindings, console | `main.c` (15 unread: the exe's start-up and command line, the GL start-up as far as SDL allows), `utility.c` (11 unread: `utyGameSystemsPreInit` / `Shutdown`, `gameStart` / `gameEnd`, `utyGameQuit`; `cat_utyGameQuitToMainOrStats`, the toggles), `KeyBindings.c` + `cat_kb*` (`default_keys.cfg` load / save / reload, key-to-string, conflicts, the 10 hot-key groups, `cat_keyNameStringsInit`), `Key.c`, the developer console (`cat_console*`, 17 functions, 9.5 KB: `experienceships`, `upgradeships`, `alltech`, the config file, the 0x00a751c0 toggle), the debug-key overlay, `screenshot.c`'s message (`cat_dd*` is the Win32 debug window: not applicable) | 89 / 39 / 0 (29,297 B); 29 | 89 / 21,025 B | the install's `default_keys.cfg` round-trips through the Cataclysm key-binding code (`/catKeysTest`); a scripted `/catConsoleTest` runs the command table headless, ASan 0; start-up as the exe's `main` (the R2 workaround list stays empty); fe and sp unchanged |
+| 4 | construction, research, trade, launch managers; sensors; the external-build driver | `ConsMgr.c` (19 unread: **`cmDeterministicBuildProcess` 0x004592a0 / `Cancel` 0x00459040**, `cmCanBuildShipType`'s 3rd argument, `cmUpdateFactory`; `cat_shipUpdateExternalBuildAndAI`, `cat_cmExternalBuild*`, `cat_cmBuildJobFinished`, the SU bar and `cat_su*`, `cat_mothershipModuleSlotSet`; **`CAT_EXTERNAL_BUILD_DRIVER` to 1**), `ResearchGUI.c` (11 unread; `cat_rmAcquireShipTechs`, the print lists), `TradeMgr.c`, `LaunchMgr.c` (7 unread; the module-slot draws), `Sensors.c` (`cat_sm*`: ships, blobs, resources, mines, bounds, the viewport scene), `cat_rsMPRBShipDependSetCB`; the dock self-test's carrier / processor leg and the ACV judgement | 73 / 56 / 1 (30,789 B); 41 | 41 / 17,274 B | a scripted `/catBuildTest` (mode `build`) builds an externally built type and an internal one in a headless Mission01 run with the driver on: the ship appears at health 0 and finishes, ASan 0, two runs give identical streams; the dock self-test gets an sCarrier and an sProcessor host leg and judges the two ACVs; the sensors frame of `/catHudTest`; the research screen's tech sets at the exe's |
+| 5 | NIS, animatic, mesh animation + repair droids, fog of war, camera | `NIS.c` (114 IDENTICAL to compare, 16 unread; the 27 `cat_nis*` script callbacks), `Animatic.c`; `MeshAnim.c` / `MadLinkIn.c` (`madAnimationStart`'s third argument, the exe's madanim layout, `cat_madAnimClear`, the animation sounds); the repair droids (`droidCreateArray` / `UpdateArray` / `cat_droidFreeArray` and helpers, `Ship+0x4C0`); the FOW (`cat_fow*` / `fow*`: `cat_fowCreatePlayerGrids` at `levelInit`, the cubes, the boundary, `cat_univShipFOW*`, the stealth update, `cat_fowCanPlayerSeeShip` at its waiting sites, the picking helpers' grid, the FOW saves); the camera UI (`CameraCommand.c` 7 unread, `cat_mc*` motion cues, `cat_cc*`); the beam's sixth argument | 184 / 39 / 0 (20,083 B); 29 | 74 / 21,546 B | `/catNisParseTest` parses every NIS and NIS script of the install, ASan 0; `Player.catFOWGrid` non-NULL for every player in a Mission01 run and the stealth update runs; the camera bodies at the exe's; the dock self-test's Worker reaches its paused jack animation; the droids update and render; **the mission stream re-baselined**: the pre-droid pair IDENTICAL to R5's `645f94c69d68319e` records, the post-droid pair byte-identical with the change confined to the stream-0 fields, both in the report |
 
-**R5 integrate (exit):** the stage-2 exit test still holds (two 6,000-tick Mission01 streams identical, ASan 0; sp; fe;
-self-tests; release `SELFTEST PASS`; rc 0; layout32 with `Ship` 0x63C); the new `dock`, `command`, `render`, `sound`
-and HUD self-tests complete with ASan 0; no `CAT-TODO`/`CAT-PROVISIONAL` in `src/` still names an M2-R4 owner. **M2-R6**
-(stage 3 part B: main region + popup menu, FE flow/screens/strings/options, start-up + key bindings + console,
-construction/research/trade/launch managers + sensors manager with `CAT_EXTERNAL_BUILD_DRIVER` 1, NIS + FOW + camera)
-and the stage-3 exit test are in the summary.
+**R6 integrate (stage-3 exit):** from a clean build on the plain harness: fe `Main_game_screen`, `/catFeScreensTest`
+with 0 `fescreen` reports, `/catStringsTest` 1,705 / 1,705; the dock, command, render, sound, hud, ui, keys, console,
+build and nis self-tests ASan 0; sp 1,248+ ticks at 340 s with the Cataclysm HUD and renderers drawing; two
+6,000-tick Mission01 streams identical in debug and release on the new baseline (its hash and the moved fields
+stated against R5's); `/catBuildTest` with `CAT_EXTERNAL_BUILD_DRIVER 1`; the old self-tests unchanged or better;
+every quit rc 0; layout32 OK; no `CAT-TODO` / `CAT-PROVISIONAL` naming an M2-R5 or M2-R6 owner. Then stage 4 (AI:
+386 / 91 / 2, 23 cat-new; the `CAT-TODO(stage 4 AI)` stand-ins, the `aishipFlyToPointAvoidingObjsFunc` and
+corvette-cone items first), stage 5 (LAN, nice-to-have) and stage 6 (missions: the kas2c code, the NIS-first start,
+`levelPreInit`'s Beast marking, the asteroid box, the letterbox callers; `CAT_HW1_MISSION_SCRIPTS` retired).
 
 ### Decisions the user owns
 
@@ -237,14 +290,15 @@ and the stage-3 exit test are in the summary.
   rounds build what does not need them. The hooks are ready: `saveCatLoadHook` (`src/Game/SaveGame.c`) for the
   saves; `tools/oracle/` and docs/m2-r2-oracle.md "What is left" 1 for the recording.
 
-**Still open (the user's; none blocks M2-R4):**
+**Still open (the user's; none blocks M2-R6):**
 6. **First reference recording.** Which skirmish map and player setup you record through the menus as the first
    oracle reference.
 8. **Two saves** from the M0 play-test (one mission, one skirmish), for `tools/formats/savegame_probe.py` and
    `saveCatLoadHook`. Without them the save layout stays code-derived.
 10. **The first live oracle session is yours** (goes with 6). Copy `build/oracle-dll/hwi_oracle.dll` and
     `hwi_oracle_loader.exe` next to `cataclysm.exe`, record one skirmish, then make two playback runs; the procedure
-    is in docs/m2-r2-oracle.md "What is left" 1. Until then three things are unverified: that the DLL loads under
+    is in docs/m2-r2-oracle.md "What is left" 1, and since M2-R5 one command
+    (`tools/oracle/record_reference.sh record` / `verify`, commit 1ad47c6). Until then three things are unverified: that the DLL loads under
     Proton, that the H6 trigger works, and that `vqpc` gives 1/16 s per tick.
 - The M0 play-test sign-off (docs/PLAN.md).
 
@@ -281,6 +335,42 @@ and the stage-3 exit test are in the summary.
     request is dropped or a Cataclysm type stands in (`CAT-TODO(stage 4 AI)`, 14 sites).
 22. **The `Ship` prefix is not yet the exe's** (`health` at ILP32 0x15C, exe 0x170; `Ship` not pinned at 0x63C). The
     oracle hashes `health` by name, so the streams are unaffected; the pin is M2-R5 producer 1's first item.
+
+**New from M2-R5** (each has a default in the tree; say if you want otherwise; details in docs/m2-r5-summary.md
+"Decisions"):
+23. **`fsqrt`.** The exe keeps HW1's table square root (`fsqrt` 0x00472860, `fmathInit` 0x004728c0); this tree maps
+    `fsqrt` to `sqrtf` (GoK). Default: `sqrtf` stays. Switching changes every distance in the simulation and every
+    oracle baseline, so it is yours to call; the reference recording will show it first.
+24. **Chosen names** where the exe's are unknown: `catRetreating` 0x1D0, `catObjReserved88[4]`, `catShipReserved5B0`,
+    `catMissileReserved248[3]`, `catNavLightStatic` 0x634, `catDamageFactor`, `catMaxVelocity`;
+    `CAT_SHIPFLAG_Launching` / `Bit7`; `CAT_ATTRIBUTES_DockBaysClosed` 0x400, `DockWithEnemies` 0x40000, `BlastHit`
+    0x20000, `BlastImmune` 0x10000; the dock purposes `CAT_DOCK_*` 0..10 and states `CAT_DOCKSTATE_*` 0..17;
+    `CAT_MOVEPATH_*`, `CAT_UPGRADE_Link`; `CAT_SPEECH_ACTOR_FLEET_INTEL` (actor 0x2000), the game-stats music track
+    0x28, `catBatLastStatus*`; the HUD structs. `COMMAND_CAT_13` / `COMMAND_CAT_17` stay defined but unused (no setter).
+25. **HWI deviations where the exe would fault or leak** (40 `CAT-FIX` markers, 7 in R4): the dock helpers' -1-class
+    and point-index guards, `FillInCarrierMothershipInfo`'s four-slot array, `flightmanEndoverInit`'s allocation
+    size, the 8-byte alignment of a ship's extra blocks, the freed `getShipAndItsFormation` copy, the lens-flare
+    element bound, `musicEventUpdateVolume`'s restart level, `cat_soundEventBlast` / `AsteroidBreak` testing
+    `enableSFX`, `catIoMessageInsert`'s 0x1ff bound.
+26. **HW1-named speech ids are muted** (`HW1_SPEECH_ID` 0x400): about 90 HW1-named speech call sites stay silent until
+    each port passes the exe's id. Default: keep (the alternative is a bulk conversion now).
+27. **Four battle-chatter events have id 0 in the exe** (entries 76 / 77 / 81 / 87) and never speak; the tree too.
+28. **GoK's GL backend stays** (`rndLoadTarga`'s `GL_CLAMP_TO_EDGE` where the exe uses `GL_REPEAT`; glcompat, the
+    RGL / Glide / D3D device lists, the Transformer, the WGL set-up), as do SDL's audio layer in place of the exe's
+    DirectSound / waveOut thread and no DirectDraw debug window.
+29. **The 0.325 pixel-centre offset** of the exe's screen-to-GL conversion was dropped tree-wide by GoK, so the band
+    box and the icon quads sit 0.325 px off the exe's. Default: GoK's; a renderer decision (M2-R6 producer 1 or you).
+30. **The mission-stream baseline moved in command-tactics** (from tick 0 in `ships_pos` / `univcheck`; the cause
+    was not isolated: the formation centre at the leader's collision centre and the ported command-layer bodies,
+    both the exe's). Default: the new baseline (`645f94c69d68319e` in this step's build) is accepted; the reference
+    recording is the real check; M2-R6's droid port will move it again (the plan's re-baseline rule).
+31. **Medium-confidence readings kept:** `catRetreating`'s meaning; `cat_clUnlink` may create a command with no
+    ships (as the exe; not a CAT-FIX); the dock state names; the two reserved `Ship` words.
+32. **The integrate step's two small ports** (the `catQueuedAttackTarget` clear in
+    `univRemoveAllShipReferencesFromSpecialShips`, the gun-word copy in `cat_univConvertShip`) are grounded in the
+    disassembly and unaudited; the M2-R6 audits may re-check them.
+33. **The dock self-test's coverage gap** (no sCarrier / sProcessor host leg, the ACVs and the Worker logged, not
+    judged) is carried to M2-R6 producer 4 instead of blocking R5.
 
 ## Opus workflows in flight
 

@@ -1930,7 +1930,10 @@ static void cat_salvageDepotProcessCrystal(Ship *depot, sdword slot)
             crystalspec->processing = FALSE;
             cat_salvageFreePoint(crystal, depot);
             unClampObj((SpaceObjRotImpTargGuidance *)crystal);
-            univReallyDeleteThisShipRightNow(crystal);  // CAT-TODO(M2-R4 #1 follow-up): the exe passes a second argument, 1
+            // CAT: the exe's call pushes a second word, 1, which univReallyDeleteThisShipRightNow 0x00548f00 never reads
+            //      (it calls univDeleteDeadShip(ship, -1), unlinks the impactable and wipes the ship): no port
+            //      [integrate: M2-R5; was an M2-R4 #1 follow-up TODO]
+            univReallyDeleteThisShipRightNow(crystal);
             depotslot->ship = NULL;
             depotslot->startTime = 0.0f;
             depotslot->endTime = 0.0f;

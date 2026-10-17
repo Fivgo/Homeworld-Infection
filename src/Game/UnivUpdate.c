@@ -1805,14 +1805,17 @@ void InitializeShowingDamage(Ship* ship)
     Outputs     :
     Return      : address of ship created
 ----------------------------------------------------------------------------*/
-// CAT-TODO(M2-R4 #3/#4/#5): univCreateShip 0x00542320 is ported only as far as the mesh state (below). The exe
-//      takes 7 arguments and adds the ship to the universe itself unless a flag says not to (univAddShip is gone); it
-//      allocates the 0x63C-byte Ship with the gun (0x88 per gun), mad and precise-selection blocks behind it, sets up
-//      repair droids (droidCreateArray 0x005c3070, M2-R6 ships), damage points (cat_dmgShipLoadDamagePoints 0x00462950
-//      = dmgGetLights, called here), upgrades (cat_shipUpgradesInit/ApplyUpgrades), dock
-//      info (cat_dockInitShipDockInfo), external build state, the factory only for the four builder types, the
-//      mothership modules (cat_univCreateMothershipModules), experience, stealth, dissolve and ship names, the FOW
-//      cube, and the helplessness of Beast-race ships in multiplayer.
+// CAT: univCreateShip 0x00542320 takes 7 arguments and adds the ship to the universe itself unless a flag says not to;
+//      this tree keeps HW1's split (univCreateShip creates, univAddShip adds and makes the mothership modules). Of the
+//      exe's work here, done since M2-R4: the 0x63C-byte Ship with the gun (0x88 per gun), mad and precise-selection
+//      blocks behind it, the damage points (cat_dmgShipLoadDamagePoints 0x00462950 = dmgGetLights, in
+//      InitializeShowingDamage), upgrades (cat_shipUpgradesInit/ApplyUpgrades), dock info (cat_dockInitShipDockInfo),
+//      the mothership modules (cat_univCreateMothershipModules), experience, stealth, dissolve, ship names and the
+//      multiplayer derelicts' helplessness. Not yet, with the owner [integrate: M2-R5; was an M2-R4 #3/#4/#5 TODO]:
+//      CAT-TODO(M2-R6 ships): the repair-droid array (droidCreateArray 0x005c3070 -> Ship+0x4C0, NULL here);
+//      CAT-TODO(M2-R6 ConsMgr): cat_suShipAdded 0x00459a90 (the support units), the external-build start at health 0
+//      behind CAT_EXTERNAL_BUILD_DRIVER (below) and the factory block for the four builder types only;
+//      CAT-TODO(M2-R6 FOW): the FOW cube (fowActivateCubeW with cat_shipGetFOWRadius once the ship is added).
 Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built)
 {
     Ship *newship;
@@ -2640,9 +2643,12 @@ void univUpdateAllPosVelResources()
         if ((resource->header.flags & (SOF_DontApplyPhysics|SOF_NISShip)) == 0)
         {
             physUpdateObjPosVelBasic(&resource->obj,universe.phystimeelapsed);
-            // CAT-TODO(M2-R4 #3 asteroids, #5 level-load attributes): univUpdateAllPosVelResources 0x005432d0 then
-            //      clamps a resource whose attribute word (exe +0x38) has bit 0x200 into the box +-(exe +0x1A8,
-            //      +0x1AC, +0x1B0), a per-asteroid bound this tree does not have yet
+            // CAT-TODO(stage 6 level load / KAS): univUpdateAllPosVelResources 0x005432d0 then clamps a resource whose
+            //      attribute dword (exe +0x38) has bit 0x200 into the box +-(exe +0x1A8, +0x1AC, +0x1B0): three of the
+            //      reserved dwords of this tree's Asteroid (SpaceObj.h), which nothing writes yet. The box is level
+            //      data: neither univAddAsteroid 0x00540a30 nor scriptSetResourcesCB 0x004a07b0 stores it, so its
+            //      writer is a mission-script path; port the clamp with that writer and name the three fields then
+            //      [integrate: M2-R5; was an M2-R4 #3 asteroids, #5 level-load attributes TODO]
         }
 
         if (resource->resourceNotAccessible > 0)
@@ -4483,11 +4489,16 @@ void univRemoveAllShipReferencesFromSpecialShips(Ship *shiptoremove)
 
         univRemoveAllShipReferencesFromSpecialShip(shiptoremove,ship);
 
-        // CAT: the ship stops docking with it (univRemoveAllShipReferencesFromSpecialShips 0x005476e0).
-        //      CAT-TODO(M2-R4 #4): and drops it as a queued attack target (exe Ship +0x4B0)
+        // CAT: the ship stops docking with it and drops it as its queued attack target (Ship +0x4B0; only the ships of
+        //      the ShipList, not the ones in hyperspace below) (univRemoveAllShipReferencesFromSpecialShips 0x005476e0)
+        //      [integrate: M2-R5; was an M2-R4 #4 TODO]
         if (ship->dockvars.dockship == shiptoremove)
         {
             ship->dockvars.dockship = NULL;
+        }
+        if (ship->catQueuedAttackTarget == shiptoremove)
+        {
+            ship->catQueuedAttackTarget = NULL;
         }
         // CAT: the exe then looks for an inside-ship entry that holds the ship itself (not shiptoremove) and, if it
         //      finds one, deletes it, updates the launch manager and counts it out by shiptoremove's class
@@ -8526,6 +8537,7 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
     sdword resources;
     udword upgradeFlags;
     sdword armourLevel;             // CAT (M2-R5 layout-dock): Ship+0x3F0
+    sdword i, nguns;                // [integrate: M2-R5] the gun-word copy
     vector position, velocity, force;
     bool16 isMoving;
 
@@ -8569,24 +8581,37 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
     armourLevel = ship->catArmourLevel;
     resources = ship->resources;
 
-    // CAT-TODO(M2-R4 #3..#5): univCreateShip 0x00542320 takes 7 arguments and adds the ship itself; univAddShip is
-    //      this tree's equivalent
+    // CAT: univCreateShip 0x00542320 takes 7 arguments and adds the ship itself; univAddShip is this tree's equivalent
+    //      (the split is this tree's, see univCreateShip: no port) [integrate: M2-R5; was an M2-R4 #3..#5 TODO]
     newship = univAddShip(newType, GetValidRaceForShipType(newType), &position, newOwner, 0);
 
-    // CAT-TODO(M2-R4 combat, the gun word): the exe copies each gun's current-weapon word from the old ship to the new
-    //      one (Gun +0x00, the first min(numGuns) guns)
+    // CAT: the exe copies each gun's current-weapon word (Gun +0x00, catWeaponType) from the old ship to the new one,
+    //      the first min(numGuns) guns (cat_univConvertShip 0x00543950, the 0x88-stride loop at 0x00543ad6)
+    //      [integrate: M2-R5; was an M2-R4 combat, the gun word TODO]
+    if ((ship->gunInfo != NULL) && (newship->gunInfo != NULL))
+    {
+        nguns = min(ship->gunInfo->numGuns, newship->gunInfo->numGuns);
+        for (i = 0; i < nguns; i++)
+        {
+            newship->gunInfo->guns[i].catWeaponType = ship->gunInfo->guns[i].catWeaponType;
+        }
+    }
 
     univAddObjToRenderListIf((SpaceObj *)newship, (SpaceObj *)ship);
     unitCapCreateShip(newship, newship->playerowner);
     // CAT-TODO(M2-R6 research): the exe copies the old type's 0xA8-byte research/upgrade block of the old owner (Player
     //      +0x350) to the new type's block of the new owner
 
-    univDeleteDeadShip(ship, -1);   // CAT-TODO(M2-R4 #1 follow-up): the exe passes a third argument, 1
+    // CAT: the exe pushes a third word, 1 (0x00543ba8), which univDeleteDeadShip 0x00547d00 never reads (its body uses
+    //      ship and deathBy only): no port [integrate: M2-R5; was an M2-R4 #1 follow-up TODO]
+    univDeleteDeadShip(ship, -1);
     if (ship->impactable.impactablelink.belongto != NULL)
     {
         listRemoveNode(&ship->impactable.impactablelink);
     }
-    univWipeShipOutOfExistence(ship);   // CAT-TODO(M2-R4 #1 follow-up): the exe passes a second argument, 2
+    // CAT: the exe pushes a second word, 2 (0x00543bce), which univWipeShipOutOfExistence 0x005477d0 never reads: no
+    //      port [integrate: M2-R5; was an M2-R4 #1 follow-up TODO]
+    univWipeShipOutOfExistence(ship);
 
     newship->obj.posinfo.velocity = velocity;
     newship->obj.posinfo.force = force;
