@@ -13,6 +13,8 @@
 //      ShipDisable.c and RammingFrigate.c (M2-R4 ships-b).
 
 #include "Blast.h"
+
+#include "Attributes.h"
 #include "RammingFrigate.h"
 #include "ShipDisable.h"
 
@@ -283,11 +285,15 @@ static void cat_blastAffectShip(CatBlast *blast, Ship *ship)
         damage = ((damage + blast->damageConst) + blast->damageOverDist / dist) + blast->damageOverDistSq / distSq;
         damage = blast->damageOverSqrtDist / fsqrt(dist) + damage;
     }
-    // CAT-PROVISIONAL (M2-R4 #5): a type-1 blast marks the ship (attribute word bit 0x20000) and spares a ship with
-    //      bit 0x10000; the exe's attribute word is a dword at +0x38, this tree's SpaceObj still has HW1's uword
-    //      attributes plus attributesParam there (the Universe/level-load layout pass), so the mark is not kept and no
-    //      ship is spared yet
-    if (!bitTest(ship->header.flags, SOF_CatShipPart))
+    // CAT (M2-R5 layout-dock): a large shockwave (type 1) marks the ship with the attribute dword's bit 0x20000
+    //      (SpaceObj +0x38, CAT_ATTRIBUTES_BlastHit) and spares a ship carrying bit 0x10000 (CAT_ATTRIBUTES_BlastImmune);
+    //      cat_blastAffectShip 0x00515d30, 0x00515fa5..0x00515fd0
+    if (blast->type == CAT_BLAST_SHOCKWAVE_LARGE)
+    {
+        bitSet(ship->obj.attributes, CAT_ATTRIBUTES_BlastHit);
+    }
+    if (!bitTest(ship->header.flags, SOF_CatShipPart) &&
+        ((blast->type != CAT_BLAST_SHOCKWAVE_LARGE) || !bitTest(ship->obj.attributes, CAT_ATTRIBUTES_BlastImmune)))
     {
         ApplyDamageToTarget(&ship->targetable, damage * blast->damageScale, GS_LargeEnergyCannon, DEATH_Killed_By_Player,
                             blast->playerIndex, NULL, 2);

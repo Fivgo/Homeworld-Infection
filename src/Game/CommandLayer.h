@@ -148,7 +148,7 @@ void clBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uwor
 // CAT: external build (Cataclysm's big ships, statinfo->externalBuild). univCreateShip 0x00542320 creates such a ship
 //      with health 0, catBuildProgress 0 and SPECIAL_2_CatBeingBuilt when its built argument has bit 0 set; the
 //      construction manager then drives it through cat_clExternalBuildUpdate (cmDeterministicBuildProcess 0x004592a0,
-//      cmDeterministicBuildCancel 0x00459040). CAT-PROVISIONAL: that driver is ConsMgr.c's (M2-R4 #5 / stage 3) and
+//      cmDeterministicBuildCancel 0x00459040). CAT-PROVISIONAL: that driver is ConsMgr.c's (M2-R6 ConsMgr) and
 //      not ported, and the tree's ConsMgr still builds every type inside the factory and creates it at the end
 //      (clCreateShip, built 1), so the univCreateShip branch stays off until the driver lands: with it on, an
 //      externally built type would be created at health 0 and never finish.
@@ -160,6 +160,7 @@ void cat_clStartExternalBuildTimer(CommandLayer *comlayer,SelectCommand *selectc
 void cat_clExternalBuildUpdate(CommandLayer *comlayer,uword playerIndex,Ship *creator,Ship *ship,real32 progress,sdword mode);
 bool32 cat_shipIsLiveWorker(Ship *ship);   // CAT: 0x005c8e00 (Ships/Worker.c)
 void clCollectResource(CommandLayer *comlayer,SelectCommand *selectcom,ResourcePtr resource);
+Resource *cat_clHarvestNearestResource(CommandLayer *comlayer,SelectCommand *selectcom,bool32 fromUI,bool32 firstOfSelection);   // CAT: 0x00449790 (M2-R5 dock)
 CommandToDo *clProtect(CommandLayer *comlayer,SelectCommand *selectcom,ProtectCommand *protectcom);
 void clSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *targets);
 void clHalt(CommandLayer *comlayer,SelectCommand *selectcom);

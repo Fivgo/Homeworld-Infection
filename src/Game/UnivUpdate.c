@@ -104,8 +104,10 @@ sdword catMultiplayerAutoSaveNumber = 0;
 #endif
 
 // CAT: the deferred-update ship list (see cat_univShipDeferredUpdate below)
-static GrowSelection catDeferredShipList;
 static void catDeferredShipListReset(void);
+// CAT (M2-R5 layout-dock): the exe's debug switch 0x00a751c0 (re-apply every ship's upgrades each tick; a console
+//      toggle, stage 3). Name chosen here.
+static bool32 catDebugReapplyUpgrades = FALSE;
 
 static void catShipCountersReset(void)
 {
@@ -858,6 +860,8 @@ Missile *univAddMissile(ShipRace race)
     {
        missile->guidance.nonstatvars.turnspeed[i] = missile->staticinfo->guidance.turnspeedstat[i];
     }
+    // CAT (M2-R5 layout): the 16th NonStats float, the static top speed (univAddMissile 0x00540c70 at 0x00540e6f)
+    missile->guidance.nonstatvars.catMaxVelocity = missile->staticinfo->common.maxvelocity;
 
     missile->soundType = GS_MissleLauncher;
     missile->race = race;
@@ -1755,10 +1759,10 @@ void InitializeNavLights(Ship *newship)
 
         dbgAssertOrIgnore(numNAVLights > 0);
 
-        newship->navLightInfo = memAlloc(sizeofNavLightInfo(numNAVLights),"navlightInfo",NonVolatile);
-        newship->navLightInfo->numLights = numNAVLights;
+        newship->shipOrDerelict.navLightInfo = memAlloc(sizeofNavLightInfo(numNAVLights),"navlightInfo",NonVolatile);
+        newship->shipOrDerelict.navLightInfo->numLights = numNAVLights;
 
-        for (i=0,curnavlight=&newship->navLightInfo->navLights[0],curnavlightstatic=&navlightstaticinfo->navlightstatics[0];i<numNAVLights;i++,curnavlight++,curnavlightstatic++)
+        for (i=0,curnavlight=&newship->shipOrDerelict.navLightInfo->navLights[0],curnavlightstatic=&navlightstaticinfo->navlightstatics[0];i<numNAVLights;i++,curnavlight++,curnavlightstatic++)
         {
             curnavlight->navlightstatic = curnavlightstatic;
             curnavlight->lightstate = 0;
@@ -1767,7 +1771,7 @@ void InitializeNavLights(Ship *newship)
     }
     else
     {
-        newship->navLightInfo = NULL;
+        newship->shipOrDerelict.navLightInfo = NULL;
     }
 }
 
@@ -1825,6 +1829,10 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     {
         sizeship += sizespec - sizeof(udword);
     }
+    // CAT-FIX (M2-R5 layout): the precise-selection and mesh-animation blocks behind the ship need 8-byte alignment on
+    //      LP64 (madanim holds pointers; memFree reads its cookie there). With the exe's 0x63C-byte Ship plus a
+    //      specifics block the sum is not always a multiple of 8, so the extra blocks start at the next multiple
+    sizeship = (sizeship + 7) & ~(udword)7;
     totalsize = sizeship;
     if (shipstaticinfo->common.staticCollInfo.preciseSelection != 0xff)
     {                                                       //account for the local precise selection
@@ -1848,8 +1856,14 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     newship->catSalvagePointIndex = -1;
     newship->catSalvagePlayer = -1;
     newship->dockvars.catDockPointIndex = -1;
-
-    newship->sizeofShipSpecifics = sizespec;
+    // CAT (M2-R5 layout): the other non-zero initial words of univCreateShip: +0x60C = -1 (catKilledByPlayer,
+    //      0x0054240b), +0x5B0 = 1 (0x00542863; no reader found), +0x3DC and +0x3E0 = 1.0 (damageModifier and the
+    //      KAS damage factor, 0x005426d4), +0x1B8 = the static top speed (0x005425f3)
+    newship->catKilledByPlayer = -1;
+    newship->catShipReserved5B0 = 1;
+    newship->catDamageFactor = 1.0f;
+    newship->guidance.nonstatvars.catMaxVelocity = shipstaticinfo->common.maxvelocity;
+    newship->catNavLightStatic = shipstaticinfo->navlightStaticInfo;    // +0x634 (0x005423fc)
     newship->shipDeCloakTime = -20.0f;                  //initialize to a negative number so if a battle occurs at time 0.0f or anytime near by, then it will not screw up.
     newship->header.objtype = OBJ_ShipType;
     newship->header.flags = SOF_Rotatable + SOF_Impactable + SOF_Selectable + SOF_Targetable;
@@ -2008,31 +2022,7 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     // CAT (M2-R4 combat): no HW1 per-object salvage points (setSalvageInfo is gone): Cataclysm's salvage points are
     //      the DPT_Salvage/DPT_SalvageLatch dock points of the target, held in dockInfo (Salvage.c)
 
-    if (shipstaticinfo->dockStaticInfo != NULL)
-    {
-        DockStaticInfo *dockstaticinfo = shipstaticinfo->dockStaticInfo;
-        sdword numDockPoints = dockstaticinfo->numDockPoints;
-        DockStaticPoint *curdockstaticpoint;
-        DockPoint *curdockpoint;
-
-        dbgAssertOrIgnore(numDockPoints > 0);
-
-        newship->dockInfo = memAlloc(sizeofDockInfo(numDockPoints),"dockInfo",NonVolatile);
-        newship->dockInfo->busyness = 0;
-        newship->dockInfo->numDockPoints = numDockPoints;
-        // CAT (M2-R4 combat): cat_dockInitShipDockInfo 0x00463bb0 clears the 0x23 per-type busy counts
-        memset(newship->dockInfo->catNumBusyOfType, 0, sizeof(newship->dockInfo->catNumBusyOfType));
-
-        for (i=0,curdockpoint=&newship->dockInfo->dockpoints[0],curdockstaticpoint=&dockstaticinfo->dockstaticpoints[0];i<numDockPoints;i++,curdockpoint++,curdockstaticpoint++)
-        {
-            curdockpoint->dockstaticpoint = curdockstaticpoint;
-            curdockpoint->thisDockBusy = 0;
-        }
-    }
-    else
-    {
-        newship->dockInfo = NULL;
-    }
+    cat_dockInitShipDockInfo(newship);                      // CAT (M2-R5 dock): 0x00463bb0, as univCreateShip calls it (0x005428b4)
 
     InitializeNavLights(newship);
 
@@ -2060,10 +2050,10 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     /* init the sound variables for this ship */
     soundEventInitStruct(&newship->soundevent);
 
-    if (((ShipStaticInfo *)newship->staticinfo)->custshipheader.CustShipInit)
-    {
-        ((ShipStaticInfo *)newship->staticinfo)->custshipheader.CustShipInit(newship);
-    }
+    // CAT (M2-R5 dock): the type's CustShipInit runs after the mesh-animation bindings are set up, as univCreateShip
+    //      0x00542320 orders it (bindings dupe 0x005428cc, mad bindings 0x00542917 and the initial mad state, then the
+    //      init slot at 0x00542a75): ModuleShipInit starts an animation on an sMothershipCommand, which needs
+    //      madBindings. HW1 called the init first (moved below)
 
     //lightning effect stuff
     newship->lightning[0] = NULL;
@@ -2111,6 +2101,11 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
 
     }
 
+    if (((ShipStaticInfo *)newship->staticinfo)->custshipheader.CustShipInit)
+    {
+        ((ShipStaticInfo *)newship->staticinfo)->custshipheader.CustShipInit(newship);
+    }
+
     //determine what color scheme to use
     if ((playerowner->playerIndex < MAX_MULTIPLAYER_PLAYERS) && (shipstaticinfo->shipOrDerelict.teamColor[playerowner->playerIndex]))
     {                                                       //if this player's default scheme woudl be a good color
@@ -2147,18 +2142,25 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
         newship->catBuildProgress = 1.0f;
         bitClear(newship->shipOrDerelict.specialFlags2,SPECIAL_2_CatBeingBuilt);
     }
+    // CAT (M2-R5 layout-dock): the exe zeroes the kills per class (Ship+0x5C8) and calls cat_shipUpdateExperienceLevel
+    //      0x005147d0 once per class (0x00542bf0; the level comes out 0 and no message is posted); one call here
+    for (i = 0; i < NUM_CLASSES; i++)
+    {
+        newship->catKillsByClass[i] = 0;
+    }
+    cat_shipUpdateExperienceLevel(newship);
     // CAT (M2-R4 ships-b): the stealth flags (cat_shipStealthInit 0x0053fce0, call at 0x00542c15)
     cat_shipStealthInit(newship);
     // CAT (M2-R4 ships-b): after the stealth state the exe resets the dissolve state (0x00542c1b:
     //      cat_shipDissolveInit 0x00460220), and in multiplayer a derelict-race ship that is no crystal and is
-    //      targetable is a KAS derelict, helpless for good (0x00542c00..0x00542c5a: catShipFlags bit 4,
+    //      targetable is a KAS derelict, helpless for good (0x00542c00..0x00542c5a: catFlags18 bit 4,
     //      cat_shipSetHelpless(ship, 1e21)). CAT-TODO(stage 3/5 recorder): the exe also takes this path while a game
     //      is recorded (0x00a7519c && 0x00a75190)
     cat_shipDissolveInit(newship);
     if (multiPlayerGame && (shiptype >= DERELICT_FIRST_SHIP) && (shiptype <= DERELICT_LAST_SHIP) &&
         !cat_shipIsCrystal(newship) && !cat_shipIsUntargetable(newship))
     {
-        bitSet(newship->catShipFlags, CAT_SHIPFLAG_KasDerelict);
+        bitSet(newship->header.catFlags18, CAT_SHIPFLAG_KasDerelict);
         cat_shipSetHelpless(newship, 1e21f);
     }
     return newship;
@@ -2236,7 +2238,7 @@ void cat_univCreateMothershipModules(Ship *host, ShipRace race, vector *pos, str
         clampObjToObj((SpaceObjRotImpTargGuidance *)module, (SpaceObjRotImpTargGuidance *)host);
         bitSet(module->header.flags, SOF_CatShipPart);
     }
-    // CAT-TODO(M2-R4 #5): gameOptionNoModules is bit 0x8 of the multiplayer game options word 0x008860ec (the
+    // CAT-TODO(stage 5 multiplayer options): gameOptionNoModules is bit 0x8 of the multiplayer game options word 0x008860ec (the
     //      Cataclysm tpGameCreated layout); until that layout is ported the option counts as off
     if ((!singlePlayerGame) && (!gameOptionNoModules) && (host->shiptype == sMothership))
     {
@@ -2705,7 +2707,7 @@ void univUpdateAllPosVelShips()
             {
                 growSelectAddShip(&universe.HousekeepShipList,ship);
             }
-            growSelectAddShip(&catDeferredShipList,ship);
+            growSelectAddShip(&universe.catSelection1A0,ship);
         }
         //update mesh animations
         // CAT: ships whose .shp numbers their animations (madstatic.animsByNumber, the ANIM keys) skip the HW1
@@ -2755,7 +2757,7 @@ void univUpdateAllPosVelShips()
 
     // CAT: the deferred updates run before the housekeeps (0x00545147)
     {
-        SelectCommand *deferredSelection = catDeferredShipList.selection;
+        SelectCommand *deferredSelection = universe.catSelection1A0.selection;
 
         for (i = 0; i < deferredSelection->numShips; i++)
         {
@@ -2792,7 +2794,7 @@ void univUpdateAllPosVelShips()
     }
 
     growSelectReset(&universe.HousekeepShipList);       // don't need to keep track of them anymore
-    growSelectReset(&catDeferredShipList);
+    growSelectReset(&universe.catSelection1A0);
     growSelectReset(&ClampedShipList);       // don't need to keep track of them anymore
 }
 
@@ -3480,24 +3482,6 @@ void AddTargetToDeleteList(SpaceObjRotImpTarg *target,GunSoundType soundType,sdw
     }
 }
 
-void addSlavesToDeleteList(Ship *master, GunSoundType deathtype)
-{
-    Node *slavenode;
-    Ship *slave;
-
-    dbgAssertOrIgnore(master->slaveinfo->flags & SF_MASTER);  //only master should have been added at first!
-    slavenode = master->slaveinfo->slaves.head;
-    master->slaveinfo->flags |= SF_DEAD;
-    while(slavenode != NULL)
-    {
-        slave = (Ship *) listGetStructOfNode(slavenode);
-        slave->slaveinfo->flags |= SF_DEAD;
-        if(!(slave->header.flags & SOF_Dead))
-            AddTargetToDeleteList((SpaceObjRotImpTarg *)slave,deathtype,1);
-        slavenode = slavenode->next;
-    }
-}
-
 void ApplyExplosionRockToTarget(SpaceObjRotImp *obj,real32 blaststrength)
 {
     obj->rotatable.rotinfo.torque.x += frandombetween(YAWEXPLOSIONROCKLO,YAWEXPLOSIONROCKHI) * blaststrength;
@@ -3629,7 +3613,7 @@ nextnode:
 // CAT (M2-R4 combat): ApplyDamageToTarget 0x00546250 takes two more arguments: the attacking ship (or NULL) and a code
 //      for the call site (the exe's callers pass 1..0x48; the body never reads it). A Dreadnought part
 //      (CLASS_Component with SOF_CatShipPart) passes its damage to the ship it is clamped to. A ship takes no damage
-//      in an NIS, as a KAS derelict (catShipFlags 0x4), or while the NIS bars are fully closed unless it is marked
+//      in an NIS, as a KAS derelict (catFlags18 0x4), or while the NIS bars are fully closed unless it is marked
 //      (specialFlags2 0x1000000) or a kamikaze. Other objects lose the health first; every hit may send an evasive
 //      ship home (cat_tacticsEvasiveRetreatToDock). A kill counts for the attacker (per class, its experience, the
 //      player's kill table; a Swarmer's kill goes to the ship in its specifics +0x0C) and against the loser's player.
@@ -3694,7 +3678,7 @@ bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoun
             {                                                   //do no damage during an NIS
                 return FALSE;
             }
-            if (bitTest(ship->catShipFlags, CAT_SHIPFLAG_Orphaned))
+            if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Orphaned))
             {
                 return FALSE;
             }
@@ -3709,8 +3693,8 @@ bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoun
                 case DEATH_Killed_By_Player:
                 case DEATH_Killed_By_Kamikaze:
                 case DEATH_Killed_By_Player_Explosion:
-                    // CAT-TODO(M2-R4 #5): the exe's game stats are Cataclysm's layout (0x00b63504 + (player * 0x1FE +
-                    //      owner) * 4); HW1's damage-done table stands in
+                    // CAT: the exe's table is playerStats[playerIndex] + 0x7D4 + owner * 4 (0x00b63504 + (player * 0x1FE +
+                    //      owner) * 4), which is pointsOfDamageDoneToWho at the GameStats layout's +0x7D4 (M2-R5 layout-dock)
                     universe.gameStats.playerStats[playerIndex].pointsOfDamageDoneToWho[ship->playerowner->playerIndex] += damagetaken;
                     break;
             }
@@ -3758,7 +3742,7 @@ bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoun
             if (killer != NULL)
             {
                 killer->catKillsByClass[shipclass]++;
-                // CAT-TODO(M2-R4 #5): cat_shipUpdateExperienceLevel 0x005147d0 (the experience level, Ship+0x5F8)
+                cat_shipUpdateExperienceLevel(killer);      // CAT (M2-R5 layout-dock): 0x005147d0, the level from the kills
             }
             if (attacker->playerowner->playerIndex < MAX_MULTIPLAYER_PLAYERS)
             {
@@ -4324,6 +4308,22 @@ void univRemoveAllTargetReferencesFromBullets(SpaceObjRotImpTarg *target)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : cat_univClampResourceTimer
+    Description : CAT: a missile that loses its target self-destructs within 5 seconds (cataclysm.exe 0x00547530,
+                  its binary-map name; univReallyDeleteThisResourceRightNow 0x005490d0 and univDeleteDeadResources
+                  0x00549270 call it for a missile whose target resource died, univRemoveAllTargetReferencesFromMissiles
+                  0x00547570 inlines the same clamp): totallifetime is capped at timelived + the tweak 0x008b5c68 (5.0)
+    Inputs      : missile (the exe accepts NULL)
+----------------------------------------------------------------------------*/
+void cat_univClampResourceTimer(Missile *missile)
+{
+    if ((missile != NULL) && (missile->totallifetime - missile->timelived > CAT_MISSILE_LOST_TARGET_LIFE))
+    {
+        missile->totallifetime = missile->timelived + CAT_MISSILE_LOST_TARGET_LIFE;
+    }
+}
+
 void univRemoveAllTargetReferencesFromMissiles(SpaceObjRotImpTarg *target)
 {
     Node *objnodemissile = universe.MissileList.head;
@@ -4343,12 +4343,7 @@ void univRemoveAllTargetReferencesFromMissiles(SpaceObjRotImpTarg *target)
         if (missile->target == target)
         {
             missile->target = NULL;
-            // CAT: a missile that loses its target self-destructs within 5 seconds
-            //      (univRemoveAllTargetReferencesFromMissiles 0x00547570)
-            if (missile->totallifetime - missile->timelived > CAT_MISSILE_LOST_TARGET_LIFE)
-            {
-                missile->totallifetime = missile->timelived + CAT_MISSILE_LOST_TARGET_LIFE;
-            }
+            cat_univClampResourceTimer(missile);        // CAT: within 5 s (univRemoveAllTargetReferencesFromMissiles 0x00547570 inlines it)
         }
 
         objnodemissile = objnodemissile->next;
@@ -4921,7 +4916,7 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
         cmRemoveFactory(ship);
     }
 
-    // CAT: externally built ships (0x00547d97). CAT-TODO(M2-R4 #5, ConsMgr's external-build driver):
+    // CAT: externally built ships (0x00547d97). CAT-TODO(M2-R6 ConsMgr, the external-build driver):
     //      cat_cmExternalBuildShipDied 0x00455960 (the build queue entry that waits for the ship). Then the exe clears
     //      SPECIAL_2_CatBeingBuilt (0x00547dab) [audit: ported by the M2-R4 command audit; the flag is at the exe's bit
     //      since that port]. A docked externally built ship leaves the dock
@@ -5026,9 +5021,9 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
             // CAT: the exe's software-renderer branch (RGL device 0: size and scale x0.75, mode one level down,
             //      0x00547f9b) cannot run here: this tree renders with GL only
 
-            // CAT-PROVISIONAL(M2-R4 #5): the exe divides by the ship's top speed times its speed multiplier
-            //      (cat_shipGetSpeedMultiplier 0x00514940: experience, upgrades, health, ram and Beast bonuses)
-            maxVelocity = ship->staticinfo->common.maxvelocity;
+            // CAT (M2-R5 layout-dock): the exe divides by the ship's top speed times its speed multiplier
+            //      (cat_shipGetSpeedMultiplier 0x00514940: experience, upgrades, health, ram and Beast bonuses; 0x00548010)
+            maxVelocity = cat_shipGetSpeedMultiplier(ship) * ship->staticinfo->common.maxvelocity;
             if (maxVelocity != 0.0f)
             {
                 velMagnitude = fsqrt(vecMagnitudeSquared(ship->obj.posinfo.velocity));
@@ -5143,9 +5138,9 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
 
     IDToPtrTableObjDied(&ShipIDToPtr,ship->shipID.shipNumber);
 
-    // CAT: the ship's entry is set to NULL rather than removed (cat_growSelectNullShip 0x00511b10 at 0x00548300).
-    //      CAT-TODO(M2-R4 #5): the exe does the same for a second universe grow-selection (universe +0x?, called
-    //      unk1 in the export, 0x005482f2), which is not in this tree's Universe yet
+    // CAT: the ship's entry is set to NULL rather than removed (cat_growSelectNullShip 0x00511b10 at 0x00548300), and
+    //      the same for the deferred-update selection (universe +0x1A0, unk1 in the export, 0x005482f2) [M2-R5 layout-dock]
+    cat_growSelectNullShip(&universe.catSelection1A0,ship);
     cat_growSelectNullShip(&universe.HousekeepShipList,ship);
 
     // Remove ships that are destroyed from any current selection
@@ -5183,7 +5178,7 @@ void DisableAllPlayersShips(sdword playerIndex)
                 ship->header.flags |= SOF_Crazy;
                 ship->deathtime = universe.totaltimeelapsed + frandombetween(PLAYERLOSE_SHIPDEATHTIMEMIN,PLAYERLOSE_SHIPDEATHTIMEMAX);
                 // CAT: a mimic drops its disguise (DisableAllPlayersShips 0x00548450: cat_mimicUnmimic(ship, 0)) [M2-R4 ships-b]
-                if (bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic))
+                if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic))
                 {
                     cat_mimicUnmimic(ship, FALSE);
                 }
@@ -5459,7 +5454,7 @@ bool32 univFindBackupMothership(struct Player *player)
     return FALSE;
 }
 
-// CAT-TODO(M2-R4 #5, stage 3): univKillOtherPlayersIfDead 0x00548c70 closes the construction, launch and research
+// CAT-TODO(stage 3): univKillOtherPlayersIfDead 0x00548c70 closes the construction, launch and research
 //      managers (cmCloseIfOpen, lmCloseIfOpen, rmCloseIfOpen), looks at the hyperspace ether too, and calls the
 //      three-argument univKillPlayer.
 void univKillOtherPlayersIfDead(Ship *ship)
@@ -6099,7 +6094,7 @@ bool32 univObjectOutsideWorld(SpaceObj *obj)
     Outputs     :
     Return      : returns the nearest resource (or NULL if none found)
 ----------------------------------------------------------------------------*/
-// CAT-TODO(M2-R4 #5): univFindNearestResource 0x00549c50 takes a fourth argument and checks the fog of war
+// CAT-TODO(M2-R6 FOW): univFindNearestResource 0x00549c50 takes a fourth argument and checks the fog of war
 //      (fowIsValidW, fowGetVisitedW on the FOW pointer at Player+0x6500), the player's technology (cat_rmTechSetHas
 //      on Player+0x2A4) and stealth (0x0053f9f0) for an asteroid another player's ship holds, with a random pick, and
 //      drops resources outside the movement limits (pieMovePointClipToLimits) instead of univObjectOutsideWorld.
@@ -6267,17 +6262,18 @@ real32 univGetChecksum(sdword *numShipsInChecksum)
                 if (ship->dockInfo != NULL)
                 {
                     DockInfo *dockInfo = ship->dockInfo;
+                    sdword numDockPoints = ship->staticinfo->dockStaticInfo->numDockPoints;   // CAT (M2-R5 dock): the count is the static's
                     sdword i;
 #if BINNETLOG
                     binnetlogShipDockInfo bnd;
                     udword orflag = 1;
                     bnd.header = makenetcheckHeader('S','D','S','D');
-                    bnd.busyness = dockInfo->busyness;
-                    bnd.numDockPoints = dockInfo->numDockPoints;
+                    bnd.busyness = 0;                           // CAT: no busyness in the exe's DockInfo
+                    bnd.numDockPoints = numDockPoints;
                     bnd.thisDockBusy = 0;
-                    for (i=0;i<dockInfo->numDockPoints;i++)
+                    for (i=0;i<numDockPoints;i++)
                     {
-                        if (dockInfo->dockpoints[i].thisDockBusy)
+                        if (dockInfo->thisDockBusy[i])
                         {
                             bnd.thisDockBusy |= orflag;
                         }
@@ -6285,10 +6281,10 @@ real32 univGetChecksum(sdword *numShipsInChecksum)
                     }
                     fwrite(&bnd, sizeof(bnd), 1 ,netlogfile);
 #else
-                    fprintf(netlogfile,"B:%d P:",dockInfo->busyness);
-                    for (i=0;i<dockInfo->numDockPoints;i++)
+                    fprintf(netlogfile,"B:%d P:",0);
+                    for (i=0;i<numDockPoints;i++)
                     {
-                        fprintf(netlogfile," %d",dockInfo->dockpoints[i].thisDockBusy ? 1 : 0);
+                        fprintf(netlogfile," %d",dockInfo->thisDockBusy[i] ? 1 : 0);
                     }
                     fprintf(netlogfile,"\n");
 #endif
@@ -6345,7 +6341,7 @@ real32 univGetChecksum(sdword *numShipsInChecksum)
                 bi.totallifetime = bullet->totallifetime;
                 bi.traveldist = bullet->traveldist;
                 bi.damage = bullet->damage;
-                bi.damageFull = bullet->damageFull;
+                bi.damageFull = bullet->damage;       // CAT (M2-R5 layout): HW1's damageFull is gone (exe +0x13C is catMoved)
                 bi.DFGFieldEntryTime = bullet->DFGFieldEntryTime;
                 bi.BulletSpeed = 0.0f;
                 bi.collBlobSortDist = (bullet->obj.collMyBlob) ? bullet->obj.collMyBlob->sortDistance : 0.0f;
@@ -6364,7 +6360,7 @@ real32 univGetChecksum(sdword *numShipsInChecksum)
                         bullet->totallifetime,
                         bullet->traveldist,
                         bullet->damage,
-                        bullet->damageFull,
+                        bullet->damage,                 // CAT (M2-R5 layout): HW1's damageFull is gone
                         bullet->DFGFieldEntryTime,
                         bullet->BulletSpeed);
 
@@ -6577,14 +6573,12 @@ udword univCalcShipChecksum(void)
         shipcheck += ship->attackvars.attacksituation;
         shipcheck += ship->attackvars.attackevents;
 
-        shipcheck += Real32ToUdword(ship->dockvars.destination.x);
-        shipcheck += Real32ToUdword(ship->dockvars.destination.y);
-        shipcheck += Real32ToUdword(ship->dockvars.destination.z);
-
+        // CAT (M2-R5 dock): the exe's five dock words (HW1's destination and sub-states are gone). CAT-TODO(stage 5):
+        //      univGetChecksum's Cataclysm body decides which of them it sums
+        shipcheck += Real32ToUdword(ship->dockvars.catDockDistance);
         shipcheck += (udword)ship->dockvars.dockstate;
-        shipcheck += (udword)ship->dockvars.dockstate2;
-        shipcheck += (udword)ship->dockvars.dockstate3;
-        shipcheck += (udword)ship->dockvars.reserveddocking;
+        shipcheck += (udword)ship->dockvars.catDockPointIndex;
+        shipcheck += Real32ToUdword(ship->dockvars.catDockTime);
 
         shipcheck += (udword)ship->visibleToWho;
         shipcheck += (udword)ship->visibleToWhoPreviousFrame;
@@ -6767,7 +6761,7 @@ void univSetupShipForControl(Ship *ship)
         growSelectAddShip(&universe.HousekeepShipList,ship);
     }
     // CAT: every live ship gets a deferred update after the ship loop (0x0054a31f)
-    growSelectAddShip(&catDeferredShipList,ship);
+    growSelectAddShip(&universe.catSelection1A0,ship);
 }
 
 /*-----------------------------------------------------------------------------
@@ -6800,7 +6794,7 @@ void univSetupShipsForControl()
     }
 
     // CAT: the deferred updates run before the housekeeps (0x0054a39e)
-    deferredSelection = catDeferredShipList.selection;
+    deferredSelection = universe.catSelection1A0.selection;
     for (i = 0; i < deferredSelection->numShips; i++)
     {
         if (deferredSelection->ShipPtr[i] != NULL)
@@ -6822,7 +6816,7 @@ void univSetupShipsForControl()
     }
 
     growSelectReset(&universe.HousekeepShipList);       // don't need to keep track of them anymore
-    growSelectReset(&catDeferredShipList);
+    growSelectReset(&universe.catSelection1A0);
 }
 
 // CAT-TODO(M2-R4 #4/#5): getEnemiesWithinProximity 0x0054a3f0 tests cat_shipIsTargetableBy and the stealth
@@ -7122,7 +7116,7 @@ DONT_MOVE_ME_YET:
                     selectone.numShips = 1;
                     selectone.ShipPtr[0] = ship;
 
-                    clDock(&universe.mainCommandLayer,&selectone,DOCK_TO_DEPOSIT_RESOURCES | DOCK_FOR_REFUELREPAIR,NULL);
+                    clDock(&universe.mainCommandLayer,&selectone,CAT_DOCK_DEPOSIT_RESOURCES,NULL);
                 }
             }
             else
@@ -7416,10 +7410,10 @@ void univFreeEffectContents(Effect *effect)
 ----------------------------------------------------------------------------*/
 void univFreeDerelictContents(Derelict *derelict)
 {
-    if (derelict->navLightInfo)
+    if (derelict->shipOrDerelict.navLightInfo)
     {
-        memFree(derelict->navLightInfo);
-        derelict->navLightInfo = NULL;
+        memFree(derelict->shipOrDerelict.navLightInfo);
+        derelict->shipOrDerelict.navLightInfo = NULL;
     }
     if(derelict->guidance.clampInfo != NULL)
     {
@@ -7685,8 +7679,9 @@ void univRemoveShipReferences(Ship *ship)
 
     IDToPtrTableObjDied(&ShipIDToPtr,ship->shipID.shipNumber);
 
-    // CAT: the entry is set to NULL rather than removed (cat_growSelectNullShip 0x00511b10). CAT-TODO(M2-R4 #5): the
-    //      same for the second universe grow-selection (unk1 in the export), not in this tree's Universe yet
+    // CAT: the entry is set to NULL rather than removed (cat_growSelectNullShip 0x00511b10), in the deferred-update
+    //      selection too (universe +0x1A0, unk1 in the export) [M2-R5 layout-dock]
+    cat_growSelectNullShip(&universe.catSelection1A0,ship);
     cat_growSelectNullShip(&universe.HousekeepShipList,ship);
 
     // Remove ships that are destroyed from any hot key groups
@@ -7709,7 +7704,7 @@ void univFreeShipContents(Ship *ship)
     udword i;
 
     // CAT: the ship's per-vertex mesh state and +0x84 block go first (univFreeShipContents 0x0054b550).
-    //      CAT-TODO(M2-R4 #5): cat_suShipRemoved 0x00459ae0 (support units) comes before them in the exe
+    //      CAT-TODO(M2-R6 ConsMgr): cat_suShipRemoved 0x00459ae0 (support units) comes before them in the exe
     cat_univMeshStateFree(&ship->obj);
     cat_univFreeEffectBlock(&ship->obj);
 
@@ -7739,10 +7734,10 @@ void univFreeShipContents(Ship *ship)
         ship->pRepairDroids = NULL;
     }*/
 
-    if (ship->navLightInfo)
+    if (ship->shipOrDerelict.navLightInfo)
     {
-        memFree(ship->navLightInfo);
-        ship->navLightInfo = NULL;
+        memFree(ship->shipOrDerelict.navLightInfo);
+        ship->shipOrDerelict.navLightInfo = NULL;
     }
     if(ship->guidance.clampInfo != NULL)
     {
@@ -7783,11 +7778,6 @@ void univFreeShipContents(Ship *ship)
         ship->dockInfo = NULL;
     }
 
-    if(ship->slaveinfo != NULL)
-    {
-        dockDealWithDeadSlaveable(ship);
-    }
-
     if (ship->shipsInsideMe)
     {
         FreeShipsInsideMe(ship);
@@ -7820,7 +7810,7 @@ void univupdateCloseAllObjectsAndMissionSpheres()
 
     univCloseFastNetworkIDLookups();
     growSelectClose(&universe.HousekeepShipList);
-    growSelectClose(&catDeferredShipList);                  // CAT: the deferred-update list (unk1 in the export)
+    growSelectClose(&universe.catSelection1A0);             // CAT: the deferred-update list (unk1 in the export)
     growSelectClose(&ClampedShipList);
 
     gameIsEnding = TRUE;    //set global flag to indicate to other functions that the game is ending
@@ -8400,20 +8390,18 @@ void univCheckRegrowResources(void)
 
 /*=============================================================================
     CAT: the per-ship deferred update. In the exe univSetupShipForControl 0x0054a230 puts every live ship on a
-    universe grow-selection (unk1 in the export, after HousekeepShipList), and after the ship loop
-    univUpdateAllPosVelShips 0x00544f40 / univSetupShipsForControl 0x0054a340 run cat_univShipDeferredUpdate on each,
-    before the CustShipHousekeeps. That selection is not in this tree's Universe yet (its layout is M2-R4 #5), so
-    it is a file static here.
+    universe grow-selection (unk1 in the export, after HousekeepShipList: universe.catSelection1A0 since M2-R4
+    rest-oracle; this list uses it since M2-R5 layout-dock), and after the ship loop univUpdateAllPosVelShips
+    0x00544f40 / univSetupShipsForControl 0x0054a340 run cat_univShipDeferredUpdate on each, before the
+    CustShipHousekeeps.
 =============================================================================*/
-static GrowSelection catDeferredShipList;
-
 static void catDeferredShipListReset(void)
 {
-    if (catDeferredShipList.selection == NULL)
+    if (universe.catSelection1A0.selection == NULL)
     {
-        growSelectInit(&catDeferredShipList);
+        growSelectInit(&universe.catSelection1A0);
     }
-    growSelectReset(&catDeferredShipList);
+    growSelectReset(&universe.catSelection1A0);
 }
 
 /*-----------------------------------------------------------------------------
@@ -8451,14 +8439,13 @@ static void catUnivTellShipsToDropReferences(SpaceObj *obj)
     }
 }
 
-// CAT: the exe's +0x18 word of an object: Ship.catShipFlags for ships (M2-R3 selection), the header word otherwise
-#define CAT_OBJ_FLAGS18(obj)    (*(((obj)->header.objtype == OBJ_ShipType) ? &((Ship *)(obj))->catShipFlags : \
-                                                                               &(obj)->header.catHeader18))
+// CAT: the exe's +0x18 word of an object (SpaceObjHeader.catFlags18, one field for every object type since the M2-R5
+//      layout pass; it was Ship.catShipFlags for ships, bridged by CAT_OBJ_FLAGS18)
 #define CAT_OBJFLAG18_RemoveReferences  0x100
 
 void cat_univRemoveObjReferencesFromShips(SpaceObj *obj)
 {
-    CAT_OBJ_FLAGS18(obj) |= CAT_OBJFLAG18_RemoveReferences;
+    obj->header.catFlags18 |= CAT_OBJFLAG18_RemoveReferences;
     catUnivTellShipsToDropReferences(obj);
 }
 
@@ -8643,6 +8630,7 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
     real32 health, savedRotInfo[15];
     sdword resources;
     udword upgradeFlags;
+    sdword armourLevel;             // CAT (M2-R5 layout-dock): Ship+0x3F0
     vector position, velocity, force;
     bool16 isMoving;
 
@@ -8679,6 +8667,7 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
     isMoving = ship->obj.posinfo.isMoving;
     health = ship->targetable.health;
     upgradeFlags = ship->catUpgradeFlags;
+    armourLevel = ship->catArmourLevel;
     resources = ship->resources;
 
     // CAT-TODO(M2-R4 #2..#5): univCreateShip 0x00542320 takes 7 arguments and adds the ship itself; univAddShip is
@@ -8690,7 +8679,7 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
 
     univAddObjToRenderListIf((SpaceObj *)newship, (SpaceObj *)ship);
     unitCapCreateShip(newship, newship->playerowner);
-    // CAT-TODO(M2-R4 #5): the exe copies the old type's 0xA8-byte research/upgrade block of the old owner (Player
+    // CAT-TODO(M2-R6 research): the exe copies the old type's 0xA8-byte research/upgrade block of the old owner (Player
     //      +0x350) to the new type's block of the new owner
 
     univDeleteDeadShip(ship, -1);   // CAT-TODO(M2-R4 #1 follow-up): the exe passes a third argument, 1
@@ -8715,7 +8704,8 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
     {
         newship->resources = newship->staticinfo->maxresources;
     }
-    // CAT-TODO(M2-R4 #5): the exe also copies Ship+0x3F0 (an upgrade word next to the upgrade flags)
+    // CAT (M2-R5 layout-dock): the armour level (Ship+0x3F0) and the upgrade flags (+0x3F4) carry over (0x00543d6f)
+    newship->catArmourLevel = armourLevel;
     newship->catUpgradeFlags = upgradeFlags;
     univUpdateObjRotInfo((SpaceObjRot *)newship);
 
@@ -8731,7 +8721,7 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
         {
             // CAT-TODO(stage 4): a computer player's new ship (not a bProcessor) is sent to dock, 1 in 10 with dock type
             //      7 (clWrapDock with universe.aiplayerProcessing set); a bProcessor acquires the old ship's techs
-            //      (cat_rmAcquireShipTechs, M2-R4 #5); for the current player the exe compares the new owner's
+            //      (cat_rmAcquireShipTechs, M2-R6 research); for the current player the exe compares the new owner's
             //      research with the type's tech sets and shows "new technology" messages (cat_ioMessageAdd, stage 3)
         }
     }
@@ -8791,10 +8781,10 @@ bool32 cat_univBeastInfectionUpdate(Ship *ship)
 ----------------------------------------------------------------------------*/
 void cat_univShipDeferredUpdate(Ship *ship)
 {
-    if (bitTest(ship->catShipFlags, CAT_OBJFLAG18_RemoveReferences))
+    if (bitTest(ship->header.catFlags18, CAT_OBJFLAG18_RemoveReferences))
     {                                                       // 0x005447b7
         catUnivTellShipsToDropReferences((SpaceObj *)ship);
-        bitClear(ship->catShipFlags, CAT_OBJFLAG18_RemoveReferences);
+        bitClear(ship->header.catFlags18, CAT_OBJFLAG18_RemoveReferences);
     }
     // CAT (M2-R4 combat): an infected ship that turns Beast ends the update (0x00544829)
     if (cat_univBeastInfectionUpdate(ship))
@@ -8866,11 +8856,23 @@ void cat_univShipDeferredUpdate(Ship *ship)
             }
         }
     }
-    // CAT-TODO(M2-R4 #5): then the end of an
-    //      upgrade (catUpgrading with its end time at Ship +0x5A0: cat_shipSetDisableReason(ship, 0, 0),
-    //      cat_shipApplyUpgrades, speech 0x2000895) and the debug re-upgrade switch 0x00a751c0
+    // CAT (M2-R5 layout-dock): the end of an upgrade (cat_univShipDeferredUpdate 0x005447b0, 0x00544a4e: catUpgrading
+    //      with its end time at Ship+0x5A0 passed: the ship is enabled again, its upgrades applied and the "upgrade
+    //      complete" speech 0x2000895 queued for the owner), then the debug re-upgrade switch (0x00a751c0: a console
+    //      toggle, stage 3; file static here)
+    if (ship->catUpgrading && (ship->catUpgradeEnd < universe.totaltimeelapsed))
+    {
+        ship->catUpgrading = FALSE;
+        cat_shipSetDisableReason(ship, 0, 0);
+        cat_shipApplyUpgrades(ship);
+        speechEventQueue(NULL, 0x2000895, -1, -1, 0, ship->playerowner->playerIndex, -1, 5.0f, -1);
+    }
+    if (catDebugReapplyUpgrades)
+    {
+        cat_shipApplyUpgrades(ship);
+    }
     cat_shipUpdateDrift(ship);                              // CAT: 0x005b3d60 (M2-R4 ships-b)
-    // CAT-TODO(M2-R4 #5): then the stealth detection of the catTypeFlags 0x20000 types on every 16th tick by ship
+    // CAT-TODO(M2-R6 FOW): then the stealth detection of the catTypeFlags 0x20000 types on every 16th tick by ship
     //      number (cat_shipStealthDetectionUpdate 0x0053fd90: a player detects the ship when one of its detector ships,
     //      catTypeFlags 0x10000 with upgrade 0x800000, is within its FOW radius, cat_shipGetFOWRadius 0x00514a30, which
     //      needs the research tech sets cat_rmTechSetHas), and for live ships cat_shipUpdateExternalBuildAndAI
@@ -9388,7 +9390,7 @@ bool32 univUpdate(real32 phystimeelapsed)
     return FALSE;
 }
 
-// CAT-TODO(M2-R4 #5, stage 3): univKillPlayer 0x0054ce20 takes a third argument, closes the construction, launch
+// CAT-TODO(stage 3): univKillPlayer 0x0054ce20 takes a third argument, closes the construction, launch
 //      and research managers and no longer writes the game stats file.
 void univKillPlayer(sdword i,sdword playerdeathtype)
 {

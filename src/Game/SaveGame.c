@@ -1341,28 +1341,13 @@ void LoadGunInfo(Ship *ship)
     }
 }
 
+// CAT (M2-R5 dock): the exe's DockInfo is 0x24 + 4n plain words (no pointers): saved and loaded as a block of the
+//      static's point count; nothing to fix up
 void SaveDockInfo(Ship *ship)
 {
-    DockInfo *originalDockInfo = ship->dockInfo;
-    DockInfo *savecontents;
     SaveChunk *chunk;
-    sdword i;
 
-    chunk = CreateChunk(BASIC_STRUCTURE|SAVE_DOCKINFO,sizeofDockInfo(originalDockInfo->numDockPoints),originalDockInfo);
-    savecontents = chunkContents(chunk);
-
-    for (i=0;i<originalDockInfo->numDockPoints;i++)
-    {
-        if (savecontents->dockpoints[i].dockstaticpoint == NULL)
-        {
-            savecontents->dockpoints[i].dockstaticpoint = (DockStaticPoint*)-1;
-        }
-        else
-        {
-            savecontents->dockpoints[i].dockstaticpoint = (DockStaticPoint*)savecontents->dockpoints[i].dockstaticpoint->dockindex;
-        }
-    }
-
+    chunk = CreateChunk(BASIC_STRUCTURE|SAVE_DOCKINFO,sizeofDockInfo(ship->staticinfo->dockStaticInfo->numDockPoints),ship->dockInfo);
     SaveThisChunk(chunk);
     memFree(chunk);
 }
@@ -1370,18 +1355,16 @@ void SaveDockInfo(Ship *ship)
 void LoadDockInfo(Ship *ship)
 {
     DockInfo *loadedDockInfo;
-    DockInfo *originalDockInfo;
     SaveChunk *chunk;
     sdword size;
 
     chunk = LoadNextChunk();
     VerifyChunkNoSize(chunk,BASIC_STRUCTURE|SAVE_DOCKINFO);
 
-    originalDockInfo = (DockInfo *)chunkContents(chunk);
-    size = sizeofDockInfo(originalDockInfo->numDockPoints);
+    size = sizeofDockInfo(ship->staticinfo->dockStaticInfo->numDockPoints);
     dbgAssertOrIgnore(size == chunk->contentsSize);
     loadedDockInfo = memAlloc(size,"dockInfo",NonVolatile);
-    memcpy(loadedDockInfo,originalDockInfo,size);
+    memcpy(loadedDockInfo,chunkContents(chunk),size);
 
     memFree(chunk);
 
@@ -1390,22 +1373,7 @@ void LoadDockInfo(Ship *ship)
 
 void FixDockInfo(Ship *ship)
 {
-    DockInfo *dockInfo = ship->dockInfo;
-    DockPoint *dockPoint;
-    sdword i;
-
-    for (i=0;i<dockInfo->numDockPoints;i++)
-    {
-        dockPoint = &dockInfo->dockpoints[i];
-        if (dockPoint->dockstaticpoint == (DockStaticPoint*)-1)
-        {
-            dockPoint->dockstaticpoint = NULL;
-        }
-        else
-        {
-            dockPoint->dockstaticpoint = &ship->staticinfo->dockStaticInfo->dockstaticpoints[(sdword)dockPoint->dockstaticpoint];
-        }
-    }
+    (void)ship;
 }
 
 // CAT (M2-R4 combat): no SaveSalvageInfo/LoadSalvageInfo/FixSalvageInfo: Cataclysm has no HW1 per-object salvage
@@ -1596,60 +1564,8 @@ void LoadShipsInsideMe(Ship *ship)
     LoadLinkedListOfInsideShips(&ship->shipsInsideMe->insideList);
 }
 
-void SaveSlaveInfo(Ship *ship)
-{
-    SaveChunk *chunk;
-    SlaveInfo *savecontents;
-
-    dbgAssertOrIgnore(ship->slaveinfo);
-
-    chunk = CreateChunk(BASIC_STRUCTURE|SAVE_SLAVEINFO,sizeof(SlaveInfo),ship->slaveinfo);
-    savecontents = (SlaveInfo *)chunkContents(chunk);
-
-    savecontents->Master = (Ship*)SpaceObjRegistryGetID((SpaceObj *)savecontents->Master);
-
-    SaveThisChunk(chunk);
-    memFree(chunk);
-
-    if (ship->slaveinfo->flags & SF_MASTER)
-    {
-        SaveLinkedListOfSpaceObjs(&ship->slaveinfo->slaves);
-    }
-}
-
-void LoadSlaveInfo(Ship *ship)
-{
-    SaveChunk *chunk;
-    SlaveInfo *slaveinfo;
-
-    chunk = LoadNextChunk();
-    VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_SLAVEINFO,sizeof(SlaveInfo));
-
-    slaveinfo = memAlloc(sizeof(SlaveInfo),"SlaveInfo",0);
-    memcpy(slaveinfo,chunkContents(chunk),sizeof(SlaveInfo));
-    memFree(chunk);
-
-    if (slaveinfo->flags & SF_MASTER)
-    {
-        JustLoadLinkedListOfSpaceObjs(&slaveinfo->slaves);
-    }
-
-    ship->slaveinfo = slaveinfo;
-}
-
-void SlaveAddToSlaveListCB(LinkedList *list,SpaceObj *obj);
-
-void FixSlaveInfo(Ship *ship)
-{
-    SlaveInfo *slaveinfo = ship->slaveinfo;
-
-    slaveinfo->Master = SpaceObjRegistryGetShip((sdword)slaveinfo->Master);
-
-    if (slaveinfo->flags & SF_MASTER)
-    {
-        FixLinkedListOfSpaceObjs(&slaveinfo->slaves,SlaveAddToSlaveListCB);
-    }
-}
+// CAT (M2-R5 layout): SaveSlaveInfo / LoadSlaveInfo / FixSlaveInfo are gone with HW1's slave trade (no SlaveInfo in
+//      the exe's Ship; SOF_Slaveable has no bit)
 
 void FixShipsInsideMe(Ship *ship)
 {
@@ -1694,9 +1610,8 @@ void CopyPointersFromRealShipStaticInfo(ShipStaticInfo *dynamicstaticinfo,ShipSt
     dynamicstaticinfo->dockOverideInfo = realstaticinfo->dockOverideInfo;
     dynamicstaticinfo->navlightStaticInfo = realstaticinfo->navlightStaticInfo;
     dynamicstaticinfo->resNozzleStatic = realstaticinfo->resNozzleStatic;
-    // CAT: no tractorEmitterStatic in Cataclysm (CopyPointersFromRealShipStaticInfo 0x004ffc60 copies none)
-    dynamicstaticinfo->ShipXDocksAtShipY = realstaticinfo->ShipXDocksAtShipY;
-    dynamicstaticinfo->LaunchShipXFromShipY = realstaticinfo->LaunchShipXFromShipY;
+    // CAT: no tractorEmitterStatic in Cataclysm (CopyPointersFromRealShipStaticInfo 0x004ffc60 copies none), and no
+    //      HW1 dock callbacks (M2-R5 dock)
 }
 
 void SaveClampInfo(ClampInfo *clampInfo)
@@ -1781,19 +1696,7 @@ void SaveShip(Ship *ship)
     savecontents->attackvars.myWingmanIs = (Ship*)SpaceObjRegistryGetID((SpaceObj *)ship->attackvars.myWingmanIs);
 
     savecontents->dockvars.dockship = (Ship*)SpaceObjRegistryGetID((SpaceObj *)savecontents->dockvars.dockship);
-    savecontents->dockvars.busyingThisShip = (Ship*)SpaceObjRegistryGetID((SpaceObj *)savecontents->dockvars.busyingThisShip);
-
-    if (ship->dockvars.dockstaticpoint == NULL)
-    {
-        savecontents->dockvars.dockstaticpoint = (DockStaticPoint *)-1;
-    }
-    else
-    {
-        dbgAssertOrIgnore(ship->dockvars.dockship);
-        savecontents->dockvars.dockstaticpoint = (DockStaticPoint *)savecontents->dockvars.dockstaticpoint->dockindex;
-    }
-
-    // ship->dockvars.customdockinfo saved in chunk if non-NULL;
+    // CAT (M2-R5 dock): the other four dock words are plain values
 
     savecontents->rceffect = NULL;
 
@@ -1869,21 +1772,10 @@ void SaveShip(Ship *ship)
         SaveAttackTargets(ship->attackvars.multipleAttackTargets);
     }
 
-    if (ship->dockvars.customdockinfo != NULL)
-    {
-        SaveStructureWithSize(ship->dockvars.customdockinfo);
-    }
-
     if (ship->damageLights)
     {
         dbgAssertOrIgnore(ship->nDamageLights > 0);
         SaveStructureOfSize(ship->damageLights,ship->nDamageLights*sizeof(DamageLightStatic));
-    }
-
-    if (ship->header.flags & SOF_Slaveable)
-    {
-        dbgAssertOrIgnore(ship->slaveinfo);
-        SaveSlaveInfo(ship);
     }
 
     if (ship->gunInfo != NULL)
@@ -1995,20 +1887,10 @@ Ship *LoadShip(SaveChunk *chunk)
         ship->attackvars.multipleAttackTargets = LoadAttackTargets();
     }
 
-    if (ship->dockvars.customdockinfo != NULL)
-    {
-        ship->dockvars.customdockinfo = LoadStructureWithSize();
-    }
-
     if (ship->damageLights != NULL)
     {
         dbgAssertOrIgnore(ship->nDamageLights > 0);
         ship->damageLights = LoadStructureOfSize(ship->nDamageLights*sizeof(DamageLightStatic));
-    }
-
-    if (ship->header.flags & SOF_Slaveable)
-    {
-        LoadSlaveInfo(ship);
     }
 
     if (ship->gunInfo != NULL)
@@ -2083,26 +1965,6 @@ void FixShip(Ship *ship)
     ship->attackvars.myWingmanIs = SpaceObjRegistryGetShip((sdword)ship->attackvars.myWingmanIs);
 
     ship->dockvars.dockship = SpaceObjRegistryGetShip((sdword)ship->dockvars.dockship);
-    ship->dockvars.busyingThisShip = SpaceObjRegistryGetShip((sdword)ship->dockvars.busyingThisShip);
-
-    if (ship->dockvars.dockstaticpoint == (DockStaticPoint *)-1)
-    {
-        ship->dockvars.dockstaticpoint = NULL;
-    }
-    else
-    {
-        Ship *dockingwith = ship->dockvars.dockship;
-        dbgAssertOrIgnore(dockingwith);
-        ship->dockvars.dockstaticpoint = &dockingwith->staticinfo->dockStaticInfo->dockstaticpoints[(sdword)ship->dockvars.dockstaticpoint];
-    }
-
-    if (ship->dockvars.dockship)
-        ship->dockvars.launchpoints = GetLaunchPoints(shipstaticinfo,ship->dockvars.dockship->staticinfo);
-
-    if (ship->header.flags & SOF_Slaveable)
-    {
-        FixSlaveInfo(ship);
-    }
 
     if (ship->dockInfo != NULL)
     {
@@ -2918,14 +2780,6 @@ void MineAddToMineListCB(LinkedList *list,SpaceObj *obj)
     dbgAssertOrIgnore(mine->header.objtype == OBJ_MissileType);
     listAddNode(list,&mine->formationLink,obj);
 #undef mine
-}
-
-void SlaveAddToSlaveListCB(LinkedList *list,SpaceObj *obj)
-{
-#define ship ((Ship *)obj)
-    dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
-    listAddNode(list,&ship->slavelink,obj);
-#undef ship
 }
 
 typedef struct SaveSelSpaceObj {

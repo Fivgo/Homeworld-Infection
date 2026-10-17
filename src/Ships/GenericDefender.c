@@ -249,7 +249,7 @@ static void cat_kamikazeSteer(Ship *ship, Ship *target, real32 range)    // 0x00
     real32 speed, closing;
 
     if ((target->header.objtype != OBJ_ShipType) || bitTest(target->header.flags, SOF_CatDocking) ||
-        bitTest(target->catShipFlags, CAT_SHIPFLAG_Orphaned))
+        bitTest(target->header.catFlags18, CAT_SHIPFLAG_Orphaned))
     {
         return;
     }
@@ -393,7 +393,7 @@ void doKamikazeAttack(Ship *ship,SpaceObjRotImpTarg *target)
                 }
             }
         }
-        else if (!(bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic) && cat_shipIsMimicking(ship)))
+        else if (!(bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic) && cat_shipIsMimicking(ship)))
         {
             // CAT: a mimicking ship holds its fire (0x005b1a50)
             gunShootGunsAtTarget(ship,target,range,&trajectory);

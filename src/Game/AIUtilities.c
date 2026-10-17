@@ -4008,7 +4008,7 @@ void aiuSwarmDock(SelectCommand *ships, SelectCommand *pods)
 
     if (pods->numShips == 1)
     {
-        aiuWrapDock(ships, DOCK_AT_SPECIFIC_SHIP, pods->ShipPtr[0]);
+        aiuWrapDock(ships, CAT_DOCK_SUPPORT, pods->ShipPtr[0]);
         return;
     }
 
@@ -4027,13 +4027,8 @@ void aiuSwarmDock(SelectCommand *ships, SelectCommand *pods)
 
             vecSub(diff,dockat->obj.posinfo.position,ship->obj.posinfo.position);
             dist = fsqrt(vecMagnitudeSquared(diff));
-            busyadddist = BUSY_ADD_TO_DISTANCE;
-
-            if (dockat->dockInfo->busyness >= dockat->staticinfo->canHandleNumShipsDocking)
-            {
-                dist += busyadddist * (dockat->dockInfo->busyness+1 - dockat->staticinfo->canHandleNumShipsDocking);
-                   // if this ship is busy, make it seem like it is further away
-            }
+            // CAT (M2-R5 dock): no HW1 busyness term (DockInfo has none in the exe). CAT-TODO(stage 4 AI): the exe's
+            //      aiuSendShipsToDockWithPods counterpart, if any (HW1's fuel pods do not exist in Cataclysm)
 
             if (dist < mindist)
             {
@@ -4046,7 +4041,7 @@ void aiuSwarmDock(SelectCommand *ships, SelectCommand *pods)
     }
     for (i=0;i<pods->numShips;i++)
     {
-        aiuWrapDock(dockgroups[i], DOCK_AT_SPECIFIC_SHIP, pods->ShipPtr[i]);
+        aiuWrapDock(dockgroups[i], CAT_DOCK_SUPPORT, pods->ShipPtr[i]);
         aiumemFree(dockgroups[i]);
     }
 }

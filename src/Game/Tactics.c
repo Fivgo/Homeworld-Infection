@@ -2170,7 +2170,5 @@ void cat_tacticsEvasiveRetreatToDock(Ship *ship)
     }
     selectone.numShips = 1;
     selectone.ShipPtr[0] = ship;
-    // CAT-PROVISIONAL (M2-R4 #3 follow-up, dock purposes): the exe passes Cataclysm's dock purpose 0; this tree's
-    //      clDock still takes HW1's DOCK_* bits, so HW1's refuel-and-repair dock stands in for it
-    clDock(&universe.mainCommandLayer, &selectone, DOCK_FOR_BOTHREFUELANDREPAIR, NULL);
+    clDock(&universe.mainCommandLayer, &selectone, CAT_DOCK_SUPPORT, NULL);     // the exe's purpose 0 (M2-R5 dock)
 }

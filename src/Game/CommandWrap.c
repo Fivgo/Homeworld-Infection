@@ -232,11 +232,9 @@ void clWrapDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockTyp
     makeShipsControllable(selectcom,COMMAND_DOCK);
     if (selectcom->numShips == 0) return;
 
-    // CAT: clWrapDock 0x00452d60: no research ships to drop (MakeSelectionNonResearchShips is gone); for any dock type
-    //      but retire (the exe's dock type 7) it refreshes the ship totals instead. CAT-TODO(M2-R4 #3): Cataclysm's
-    //      dock types are numbers (7 retire, 10 ...), not HW1's DOCK_* bits; the speech below (exe: 0x400106a for
-    //      retire, 0x4000801 for type 10, 0x4000803 otherwise, through speechEventQueue) follows with them
-    if(!(dockType & DOCK_FOR_RETIRE))
+    // CAT: clWrapDock 0x00452d60: no research ships to drop (MakeSelectionNonResearchShips is gone); for any purpose
+    //      but retire (7) it refreshes the ship totals instead (M2-R5 dock: the purposes)
+    if (dockType != CAT_DOCK_RETIRE)
     {
          ioUpdateShipTotals();
     }
@@ -269,22 +267,24 @@ void clWrapDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockTyp
 
     if (!universe.aiplayerProcessing)
     {
-        if (selectcom->ShipPtr[0]->dockvars.dockship != NULL)
+        Ship *ship = selectcom->ShipPtr[0];
+
+        if (ship->dockvars.dockship != NULL)
         {
-            if (dockType == DOCK_FOR_RETIRE)
+            // CAT: the exe's speech by purpose (0x00452ed6): the fleet's retire line for 7, the ship's slipgate line for 10,
+            //      its dock line otherwise, all through speechEventQueue. CAT-TODO(M2-R5 sound): the event ids 0x400106a,
+            //      0x4000801 and 0x4000803 are passed as the exe does; the speech table that resolves them is stage 3's
+            if (dockType == CAT_DOCK_RETIRE)
             {
-                if (isCapitalShip(selectcom->ShipPtr[0]))
-                {
-                    speechEvent(selectcom->ShipPtr[0], COMM_Cap_Retire, 0);
-                }
-                else
-                {
-                    speechEvent(selectcom->ShipPtr[0], COMM_Strike_Retired, 0);
-                }
+                speechEventQueue(NULL, 0x400106a, -1, -1, 0, ship->playerowner->playerIndex, -1, 5.0f, -1);
+            }
+            else if (dockType == CAT_DOCK_SLIPGATE)
+            {
+                speechEventQueue(ship, 0x4000801, ship->shiptype, -1, -1, -1, -1, 0.0f, -1);
             }
             else
             {
-                speechEvent(selectcom->ShipPtr[0], COMM_Strike_Dock, selectcom->ShipPtr[0]->dockvars.dockship->shiptype);
+                speechEventQueue(ship, 0x4000803, ship->shiptype, -1, -1, -1, -1, 0.0f, -1);
             }
         }
     }

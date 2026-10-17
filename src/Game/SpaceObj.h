@@ -301,22 +301,17 @@ typedef struct
     - not an independent object, but part of Ship
 -----------------------------------------------------------------------------*/
 
+// CAT (M2-R4 combat, M2-R5 dock): Cataclysm's per-ship dock info is 0x24 + 4n bytes (cat_dockInitShipDockInfo
+//      0x00463bb0 allocates numDockPoints x 4 + 0x24 and zeroes it): a count of the ships holding a point of each
+//      dock point type at +0x00 (0x23 bytes, ThisShipCanDockWith 0x00464290 tests it against
+//      DockStaticInfo.numOfType), then one busy word per dock point at +0x24 (dockReserveDockPoint 0x00464610 sets
+//      it, RemoveShipFromDocking 0x00465360 clears it). HW1's busyness and per-point static pointers are gone; the
+//      point count is the static's.
 typedef struct
 {
-    DockStaticPoint *dockstaticpoint;
-    udword thisDockBusy;
-} DockPoint;
-
-// CAT (M2-R4 combat): Cataclysm's per-ship dock info is 0x24 + 4n bytes (cat_dockInitShipDockInfo 0x00463bb0): a
-//      byte per dock point type counting the busy points of that type (+0x00..+0x22), then a busy word per point
-//      (+0x24 + 4i, this tree's dockpoints[i].thisDockBusy). dockReserveDockPoint 0x00464610, RemoveShipFromDocking
-//      0x00465360 and the salvage code (Salvage.c) keep both. The counts are added here by name.
-typedef struct
-{
-    sdword busyness;
-    sdword numDockPoints;
-    ubyte catNumBusyOfType[NUM_DOCKPOINT_TYPES];    // CAT: exe DockInfo+0x00
-    DockPoint dockpoints[1];
+    ubyte catNumBusyOfType[NUM_DOCKPOINT_TYPES];    // +0x00 exe DockInfo+0x00
+    ubyte pad23;
+    sdword thisDockBusy[1];                         // +0x24 one per dock point
 } DockInfo;
 
 typedef struct
@@ -523,6 +518,11 @@ typedef struct
     real32 thruststrength[NUM_TRANS_DEGOFFREEDOM];
     real32 rotstrength[NUM_ROT_DEGOFFREEDOM];
     real32 turnspeed[NUM_TURN_TYPES];
+    // CAT (M2-R5 layout): a 16th float: the exe's NonStats is 0x40 bytes (Ship +0x17C..+0x1BC, clampInfo at +0x1BC).
+    //      univCreateShip 0x00542320 and univAddMissile 0x00540c70 store staticheader.maxvelocity here (0x005425f3,
+    //      0x00540e6f); the speed code reads the static value through cat_shipGetSpeedMultiplier, so this copy is
+    //      kept for the layout. Name chosen here.
+    real32 catMaxVelocity;
 } NonStats;
 
 /*=============================================================================
@@ -748,8 +748,11 @@ typedef struct ShipStaticInfo
     DockOverideInfo *dockOverideInfo;           /*+0x3F4*/
     ResNozzleStatic *resNozzleStatic;           /*+0x3F8*/
     RepairNozzleStatic *repairNozzleStatic;     /*+0x3FC*/
-    bool32 (*ShipXDocksAtShipY) (struct CommandToDo *docktodo,struct Ship *ship,struct Ship *dockwith);  /*+0x400*/
-    bool32 (*LaunchShipXFromShipY) (struct Ship *ship,struct Ship *dockwith);                           /*+0x404*/
+    // CAT (M2-R5 dock): HW1's per-type dock callbacks ShipXDocksAtShipY / LaunchShipXFromShipY: the two slots are in the
+    //      exe's layout but InitStatShipInfo 0x0053bab0 never sets them and nothing calls through them (the dock state
+    //      machine cat_dockShipDocksAtShip 0x00465860 is generic). Kept as dormant words for the layout.
+    void *catStaticDormant400;                  /*+0x400*/
+    void *catStaticDormant404;                  /*+0x404*/
 
     bool32 bUseRayTriangleIntersectionForHitLocation;   /*+0x408 CAT: key, default TRUE */
     real32 linkDistance;                        /*+0x40C CAT: key, default 0 */
@@ -877,7 +880,7 @@ CAT_ASSERT_OFFSET(ShipStaticInfo, dockStaticInfo, 0x3F0);
 CAT_ASSERT_OFFSET(ShipStaticInfo, dockOverideInfo, 0x3F4);
 CAT_ASSERT_OFFSET(ShipStaticInfo, resNozzleStatic, 0x3F8);
 CAT_ASSERT_OFFSET(ShipStaticInfo, repairNozzleStatic, 0x3FC);
-CAT_ASSERT_OFFSET(ShipStaticInfo, ShipXDocksAtShipY, 0x400);
+CAT_ASSERT_OFFSET(ShipStaticInfo, catStaticDormant400, 0x400);
 CAT_ASSERT_OFFSET(ShipStaticInfo, bUseRayTriangleIntersectionForHitLocation, 0x408);
 CAT_ASSERT_OFFSET(ShipStaticInfo, linkDistance, 0x40C);
 CAT_ASSERT_OFFSET(ShipStaticInfo, RamDamage, 0x418);
@@ -1255,17 +1258,9 @@ typedef struct
     vector torque;          // torque acting on object
 } RotInfo;
 
-#define     SF_SLAVE    0x01
-#define     SF_MASTER   0x02
-#define     SF_DEAD     0x04
-typedef struct
-{
-    udword flags;           //indicates status of Slavery
-    struct Ship *Master;           //
-    vector offset;          //ships position in MASTER space
-    matrix coordsys;        //ships orientation in MASTER space
-    LinkedList slaves;      //Defined only if a master (master not in list)
-} SlaveInfo;
+// CAT (M2-R5 layout): HW1's SlaveInfo (ship slavery: masters, slaves, SF_*) is gone. The exe has no slavery
+//      (SOF_Slaveable has no bit, decision 15; Dock.c's dockMakeMaster family has no exe counterpart) and its Ship
+//      has no slavelink/slaveinfo slots.
 
 /*-----------------------------------------------------------------------------
 Layout of co-ordinate system:
@@ -1378,11 +1373,14 @@ typedef struct
     Node objlink;
     ObjType objtype;        // object type (ship or bullet, etc)
     udword flags;           // flags whether the object is rotatable, etc.
-    // CAT: two new header dwords before staticinfo (the exe's objects have staticinfo at +0x20, HW1 +0x18):
-    //      +0x18 is cleared by etgEffectCreate 0x004709ed (meaning not known yet); +0x1c is set to 1 by the ETG
-    //      callable omitParentShipFromRenderList (cat_etgParentShipOmitFromRenderList 0x00470190) and cleared for
-    //      world-rendered effects (0x00470ba3); its reader is the render list builder (not ported yet)
-    udword catHeader18;
+    // CAT: two new header dwords before staticinfo (the exe's objects have staticinfo at +0x20, HW1 +0x18).
+    //      +0x18 is one flag word for every object type (M2-R5 layout: it was Ship.catShipFlags for ships and
+    //      catHeader18 otherwise, bridged by CAT_OBJ_FLAGS18): the CAT_SHIPFLAG_* bits (Mimic, KasDerelict, NoTactics,
+    //      Orphaned) and CAT_OBJFLAG18_RemoveReferences 0x100 (cat_univRemoveObjReferencesFromShips 0x00543f10 on any
+    //      object); etgEffectCreate 0x004709ed clears it. +0x1c is set to 1 by the ETG callable
+    //      omitParentShipFromRenderList (cat_etgParentShipOmitFromRenderList 0x00470190) and cleared for
+    //      world-rendered effects (0x00470ba3); its reader is the render list builder (stage 3)
+    udword catFlags18;
     udword catOmitFromRenderList;
 } SpaceObjHeader;
 
@@ -1436,10 +1434,16 @@ typedef struct
     Node renderlink;        // link for rendering list
     ubyte currentLOD;       // current level of detail
     ubyte renderedLODs;     //what LODs have been rendered already
-    uword attributes;               // settable attributes from mission editor
-    sword attributesParam;           // parameter for attributes, set from mission editor
-    ubyte attributesPad[2];          // leftover, free space
-    real32 cameraDistanceSquared;    // distance to camera (for sound, level of detail)
+    // CAT (M2-R5 layout): the exe's mission attribute word is a dword at +0x38 (kasfShipsAttributesSet 0x004933d0
+    //      stores the whole dword; the killer-collision bit 0x200, the blast bits 0x10000/0x20000 of
+    //      cat_blastAffectShip 0x00515d30 and the crystal option read it), with HW1's uword slot at +0x36 unused and
+    //      the attributes parameter a sword at +0x3C (univAddAsteroid 0x00540a30 clears the word there);
+    //      cameraDistanceSquared follows at +0x40 (CET)
+    ubyte catPad36[2];               // +0x36: unused (HW1's uword attributes slot)
+    udword attributes;               // +0x38: settable attributes from mission editor (CAT_ATTRIBUTES_* / ATTRIBUTES_*)
+    sword attributesParam;           // +0x3C: parameter for attributes, set from mission editor
+    ubyte attributesPad[2];          // +0x3E: leftover, free space
+    real32 cameraDistanceSquared;    // +0x40: distance to camera (for sound, level of detail)
     vector cameraDistanceVector;     // vector to camera (camera eyeposition - obj->posinfo.position)
     real32 collOptimizeDist;         // distance used for optimizing collision checking
     struct blob *collMyBlob;         // collision blob I belong to
@@ -1452,6 +1456,11 @@ typedef struct
     ubyte *catEffectBlock;           // exe +0x84: a one-byte block the effect creators allocate (etgEffectCreate,
                                      //   etgCreateEffects, etgSpawnNewEffect: memAlloc(1)), NULL for every other
                                      //   object; every free path frees it. No reader was found (render, stage 3)
+    // CAT (M2-R5 layout): four more dwords before rotinfo, which the exe keeps at +0x98 (cat_dockShipDocksAtShip
+    //      0x00465860 and TurnHarvestEffectOn 0x004f1ac0 pass ship+0x98 as the coordinate system; collInfo then starts
+    //      at +0xD4, impactablelink at +0x160 and health at +0x170). Every creator zeroes them with the object
+    //      (memAlloc + clear); no reader of +0x88..+0x94 on an object pointer was found in the exe. Reserved here.
+    udword catObjReserved88[4];      // exe +0x88 .. +0x94
 } SpaceObj;
 
 typedef SpaceObj *SpaceObjPtr;
@@ -1539,6 +1548,9 @@ typedef struct SpaceObjRotImpTargGuidance {
     ClampInfo* clampInfo;
 } SpaceObjRotImpTargGuidance; // used by missiles, ships, derelicts
 
+// CAT (M2-R3 selection): number of catDisableReason slots (cat_shipSetDisableReason 0x005b3fe0 scans 13 dwords)
+#define CAT_NUM_DISABLE_REASONS                     13
+
 typedef struct ShipOrDerelict
 {
     union {
@@ -1559,14 +1571,33 @@ typedef struct ShipOrDerelict
     //      0x0043ade0); Cataclysm salvages at DPT_Salvage dock points (Salvage.c)
 
     //must come next to be compatible with Derelict in aiship stuff
-    ubyte aistate;                  // AI state variable
+    ubyte aistate;                  // +0x1C0 AI state variable
     ubyte pad1[2];
-    sbyte putOnDoor;
-    struct Ship *dockingship;       // if non-NULL, indicates no collisions should occur with this ship
-    udword specialFlags;            //general purpose ship flags, see above for defines
-    udword specialFlags2;           //more general purpose ship flags, see above for defines
-    sdword salvageNumTagged[MAX_MULTIPLAYER_PLAYERS];        //number of salcaps vying for ship...used to disperese them amonst many targets
-} ShipOrDerelict;   // ships, derelicts
+    sbyte putOnDoor;                // +0x1C3
+    struct Ship *dockingship;       // +0x1C4 if non-NULL, indicates no collisions should occur with this ship
+    udword specialFlags;            // +0x1C8 general purpose ship flags, see above for defines
+    udword specialFlags2;           // +0x1CC more general purpose ship flags, see above for defines
+    // CAT (M2-R5 layout): the exe's prefix between specialFlags2 and the per-player salvage counts (+0x1D0..+0x214),
+    //      shared with derelicts (univAddDerelictByStatInfo 0x00541000 clears the same bytes). The fields were
+    //      appended to Ship by name in M2-R3/R4; they move here at the exe's offsets.
+    bool32 catRetreating;           // +0x1D0: set to 1 by battlePingEvaluate 0x00428b70 when the retreat chatter
+                                    //   (event 0x18) plays for a ship below batRetreatModifier x the ping's strength;
+                                    //   cleared by every new order (PrepareOneShipForCommand 0x00441890, clHalt,
+                                    //   ChangeOrderToMove/Attack/Protect/HyperSpace/PassiveAttack, cat_clLink/Mimic/
+                                    //   PointOrder, RemoveShipFromBeingTargeted). Name chosen here.
+    bool32 catResourceFinished;     // +0x1D4: the resource it harvested is used up (CollectResources 0x004f17a0
+                                    //   sets, the AI's aimProcessResourceVolume reads and clears); HW1's specialFlags bit
+    bool32 catResourcing;           // +0x1D8: harvesting for the AI (CollectResources clears, aimProcessResourceVolume
+                                    //   sets, aiuShipIsResourcingOrSomething reads); HW1's specialFlags bit
+    sdword catDisableReason[CAT_NUM_DISABLE_REASONS];   // +0x1DC: cat_shipSetDisableReason 0x005b3fe0 sets [reason]
+    bool32 catDisabled;             // +0x210: TRUE while any catDisableReason[] is nonzero (cat_shipSetDisableReason
+                                    //   0x005b3fe0, cat_shipSetHelpless 0x005b3bd0, cat_shipClearHelpless 0x005b3c80,
+                                    //   cat_empShockShip 0x005b3900, cat_shipUpdateDrift 0x005b3d60 recompute it)
+    sdword salvageNumTagged[MAX_MULTIPLAYER_PLAYERS];   // +0x214: number of salvagers vying for the ship, per player
+                                    //   (univCreateShip 0x00542320 zeroes 8 dwords at +0x214; Salvage.c reads them)
+    NAVLightInfo *navLightInfo;     // +0x234: InitializeNavLights 0x00542040 stores the block at +0x234 of a ship or a
+                                    //   derelict (both creators call it)
+} ShipOrDerelict;   // ships, derelicts: 0x238 bytes
 
 typedef struct TargetID
 {
@@ -1622,22 +1653,22 @@ typedef struct
     uword pad;
 } SpecificAttackVars;
 
+// CAT (M2-R5 dock): cataclysm.exe's dock variables are five words at Ship+0x494 (the cone state machine of
+//      cat_dockShipDocksAtShip 0x00465860 keeps nothing else per ship). HW1's destination, dockstate2/3,
+//      reserveddocking, dockstaticpoint, customdockinfo and launchpoints are gone with its per-type dock paths.
+//      Names chosen here where the exe's are unknown.
 typedef struct
 {
-    struct Ship *dockship;
-    struct Ship *busyingThisShip;
-    vector destination;
-    ubyte dockstate;
-    ubyte dockstate2;
-    ubyte dockstate3;
-    sbyte reserveddocking;
-    DockStaticPoint *dockstaticpoint;
-    void *customdockinfo;
-    sdword **launchpoints;
-    // CAT (M2-R4 combat): the index of the dock point this ship holds on dockship, or -1 (exe Ship+0x4A0, dockvars
-    //      +0x0C: univCreateShip 0x00542320 and InitializeDockVars 0x00463c40 set -1, dockReserveDockPoint 0x00464610
-    //      sets it, RemoveShipFromDocking 0x00465360 frees the point; the salvage depots use it for towed pods)
-    sdword catDockPointIndex;
+    struct Ship *dockship;          // +0x494 the host (InitializeDockVars 0x00463c40; NULL when not docking)
+    real32 catDockDistance;         // +0x498 the dock point's distance for the fly-in: cat_dockFindNearestDockPoint
+                                    //   0x00464660 stores the ship's distance clamped to [mindist, maxdist],
+                                    //   cat_dockFindLaunchPoint 0x004649b0 the point's mindist
+    sdword dockstate;               // +0x49C CAT_DOCKSTATE_* (Dock.h)
+    sdword catDockPointIndex;       // +0x4A0 the index of the dock point held on dockship, or -1 (univCreateShip
+                                    //   0x00542320 and InitializeDockVars set -1, the point finders and
+                                    //   dockReserveDockPoint 0x00464610 set it, RemoveShipFromDocking 0x00465360 frees it;
+                                    //   the salvage depots use it for towed pods)
+    real32 catDockTime;             // +0x4A4 universe time the docked/latched ship may leave (dock states 8, 9, 0xD, 0xE)
 } SpecificDockVars;
 
 typedef struct ShipID
@@ -1683,12 +1714,12 @@ typedef struct ShipID
 #define SPECIAL_Kamikaze                            0x00000002  // processAttackToDo, delegateCommand, tacticsGetShipsMaxVelocity 0x00529450
 #define SPECIAL_BrokenFormation                     0x00000004  // processFormationToDo, AttackCleanup; the Mimic/MCV/P1StandardCorvette/CruiseMissile attacks set 0x6 (Kamikaze|BrokenFormation)
 #define SPECIAL_KamikazeCrazyFast                   0x00000008  // doKamikazeAttack 0x005b1a50, tacticsGetShipsMaxVelocity
-#define SPECIAL_SpeedBurst                          0x00000000  // CAT-DORMANT: retired (HW1 0x10): no speed burst in the exe (tacticsGetShipsMaxVelocity tests only 0x2/0x8/0x100); Tactics.c readers: M2-R4 #5
+#define SPECIAL_SpeedBurst                          0x00000000  // CAT-DORMANT: retired (HW1 0x10): no speed burst in the exe (tacticsGetShipsMaxVelocity tests only 0x2/0x8/0x100); Tactics.c readers: M2-R5 command-tactics
 #define SPECIAL_SpeedBurstCooling                   0x00000000  // CAT-DORMANT: retired (HW1 0x20), as SPECIAL_SpeedBurst
 #define SPECIAL_BurstFiring                         0x00000040  // doBurstFire 0x005b5100, cat_gunCreateBullet 0x0048bb00
 #define SPECIAL_SinglePlayerWithinHyperSpaceRange   0x00000080  // CalculateRollCall, TellHyperspacingShipsToReady 0x00517770, spGoNowHyperspaceCB 0x005173a0
 #define SPECIAL_SinglePlayerLimitSpeed              0x00000100  // kasfShipsSetMaxVelocity 0x004938f0, kasfTeamSetMaxVelocity 0x00493860, tacticsGetShipsMaxVelocity
-#define SPECIAL_EXITING_DOOR                        0x00000000  // CAT-DORMANT: retired (HW1 0x800): no exe access; its Dock.c readers (HW1 carrier/mothership door paths) go with the Cataclysm dock rewrite (M2-R4 #3 follow-up, dock purposes)
+#define SPECIAL_EXITING_DOOR                        0x00000000  // CAT-DORMANT: retired (HW1 0x800): no exe access; its HW1 Dock.c readers (the carrier/mothership door paths) went with the M2-R5 dock rewrite [audit: M2-R5 layout-dock]
 // CAT (M2-R4 combat): HW1's salvage flags (BUSY_BECAUSE_SALVAGE_DOCKING 0x200, Harvested 0x400, IsASalvager
 //      0x100000, SalvagerHasSomethingAttachedAndIsDoingSomethingElse 0x200000, SalvagedTargetGoingIntoDockWithShip
 //      0x800000, SalvageTakingHomeTechnology 0x1000000) were retired by M2-R4 command and are gone with HW1's salvage
@@ -1794,7 +1825,7 @@ _Static_assert(SPECIAL_2_CatBeingBuilt == 0x8 && SPECIAL_2_CatBeingSalvaged == 0
                SPECIAL_2_CatBeastInfectionUnlimited == 0x8000 && SPECIAL_2_CatExempt20 == 0x100000,
                "specialFlags2 at cataclysm.exe's bits");
 
-// CAT (M2-R3 selection): Ship.catShipFlags (exe Ship+0x18)
+// CAT (M2-R3 selection): bits of the +0x18 word (SpaceObjHeader.catFlags18; exe Ship+0x18)
 #define CAT_SHIPFLAG_Mimic                          BIT3    // set by MimicInit 0x005b8360, MCVInit 0x005b8130, P1StandardCorvetteInit 0x005be660
 #define CAT_SHIPFLAG_KasDerelict                    BIT4    // kasfShipsSetDerelict 0x00498510
 #define CAT_SHIPFLAG_NoTactics                      BIT1    // cat_shipCanSetTactics 0x005135e0 refuses it (setter not located)
@@ -1802,9 +1833,10 @@ _Static_assert(SPECIAL_2_CatBeingBuilt == 0x8 && SPECIAL_2_CatBeingSalvaged == 0
 //      (CarrierDied 0x005af3f0, MothershipHouseKeep 0x005bcad0); read by cat_salvageCheckTarget 0x004f7eb0 and
 //      cat_kamikazeSteer 0x005b16f0. Name chosen here.
 #define CAT_SHIPFLAG_Orphaned                       BIT2
+// CAT (M2-R5 dock): set by InitializeDockVars 0x00463c40 for the launch purpose (2) with dock state 10, cleared by
+//      RemoveShipFromLaunching 0x00465590, LaunchCleanup 0x004679b0 and processLaunchShipToDo 0x00466b00. Name chosen.
+#define CAT_SHIPFLAG_Launching                      BIT0
 
-// CAT (M2-R3 selection): number of Ship.catDisableReason slots (cat_shipSetDisableReason 0x005b3fe0 scans 13 dwords)
-#define CAT_NUM_DISABLE_REASONS                     13
 
 // CAT (M2-R3 selection): Ship.catUpgradeFlags bits the selection code tests (names chosen here from their users)
 #define CAT_UPGRADE_Leech                           0x00000040  // cat_shipCanLeech 0x005136a0
@@ -1831,7 +1863,7 @@ _Static_assert(SPECIAL_2_CatBeingBuilt == 0x8 && SPECIAL_2_CatBeingSalvaged == 0
 
 struct Resource;
 
-typedef struct Ship         // Ship object
+typedef struct Ship         // Ship object: cataclysm.exe's 0x63C-byte layout (M2-R5 layout pass)
 {
     union {
         struct {
@@ -1846,225 +1878,237 @@ typedef struct Ship         // Ship object
         SpaceObjRotImpTargGuidance guidance;
         ShipOrDerelict shipOrDerelict;
     };
-    //TODO(type safety, 2026-04-24): Merge into ShipOrDerelict
-    NAVLightInfo *navLightInfo;
-    // HERE UP SAME for Derelicts and Ships
-
-    Node shiplink;
-    vector moveTo;                  // move destination of the ship
-    vector moveFrom;                // where the ship is moving from
-    vector formationOffset;         // offset in formation
-    vector formationHeading;        // heading in formation (optional)
-    vector engineOffset;    // engine nozzle offset from position in object coordinates.
-    vector enginePosition;  // engine position in universe
-    struct Ship *rowGetOutOfWay;    // Right of way - ship to get out of way of
-    vector rowOriginalPoint;        // Right of way - my original point
-    vector rowOutOfWayPoint;        // Right of way - point to go to be out of way
-    ShipType shiptype;
-    ShipRace shiprace;
+    // CAT (M2-R5 layout): every field below is at its cataclysm.exe offset (univCreateShip 0x00542320 initialises
+    //      most of them; CET's spaceobj.h asserts 40 of them; the cat* fields carry the function that set or read
+    //      them when they were found). HW1's slavelink/slaveinfo, sizeofShipSpecifics and the extra dock vars are
+    //      gone. The ILP32 asserts are below the struct.
+    sdword catSalvagePlayer;        // +0x238: index of the player whose salvagers reached it first, -1 none
+                                    //   (univCreateShip stores -1 at 0x005423f6; Salvage.c)
+    Node shiplink;                  // +0x23C
+    vector moveTo;                  // +0x24C move destination of the ship
+    vector moveFrom;                // +0x258 where the ship is moving from
+    vector formationOffset;         // +0x264 offset in formation
+    vector formationHeading;        // +0x270 heading in formation (optional)
+    vector engineOffset;            // +0x27C engine nozzle offset from position in object coordinates.
+    vector enginePosition;          // +0x288 engine position in universe
+    struct Ship *rowGetOutOfWay;    // +0x294 Right of way - ship to get out of way of
+    vector rowOriginalPoint;        // +0x298 Right of way - my original point
+    vector rowOutOfWayPoint;        // +0x2A4 Right of way - point to go to be out of way
+    ShipType shiptype;              // +0x2B0
+    ShipRace shiprace;              // +0x2B4
     //*******Tactics stuff start
     //FIX LATER to support fewer variables using bitmasks
-    TacticsType tacticstype;        //ships current tactcis setting
-    bool32 isDodging;                 //flag, true if ship is performing a dodge
-    real32 DodgeTime;               //variable used to control when a ship will stop dodging
-    uword  DodgeDir;
+    TacticsType tacticstype;        // +0x2B8 ships current tactcis setting
+    bool32 isDodging;               // +0x2BC flag, true if ship is performing a dodge
+    real32 DodgeTime;               // +0x2C0 variable used to control when a ship will stop dodging
+    uword  DodgeDir;                // +0x2C4
     uword  pad2;
-    bool32 tacticsFormationVar1;      //variable for formation attacking
-    udword DodgeFlag;               //info flag for dodging
-    sdword tactics_ordertype;       //ships order type convulved into the Tactics Domain
-    udword tacticsTalk;             //var used for intership comunication
-    sdword tacticsNeedToFlightMan;  //same as above
+    bool32 tacticsFormationVar1;    // +0x2C8 variable for formation attacking
+    udword DodgeFlag;               // +0x2CC info flag for dodging
+    sdword tactics_ordertype;       // +0x2D0 ships order type convulved into the Tactics Domain
+    udword tacticsTalk;             // +0x2D4 var used for intership comunication
+    sdword tacticsNeedToFlightMan;  // +0x2D8 same as above
     //*******Tactics stuff end
-    sdword dockwaitforNorm;
-    real32 timeCreated;
-    sdword kamikazeState;
-    vector kamikazeVector;
-    real32 speedBurstTime;
-    real32 singlePlayerSpeedLimiter;  // limiter of ships maxvelocity, single player game only!
-    real32 deathtime;       // time at which this ship should blow up, if SOF_Crazy is set
+    sdword dockwaitforNorm;         // +0x2DC
+    real32 timeCreated;             // +0x2E0
+    sdword kamikazeState;           // +0x2E4
+    vector kamikazeVector;          // +0x2E8
+    real32 speedBurstTime;          // +0x2F4
+    real32 singlePlayerSpeedLimiter;// +0x2F8 limiter of ships maxvelocity, single player game only!
+    real32 deathtime;               // +0x2FC time at which this ship should blow up, if SOF_Crazy is set
     //mad animation variabes
-    udword madAnimationFlags;       //general purpose flags for mad animations
-    udword madGunStatus;            //gun status
-    udword madWingStatus;           //wing animation status
-    udword madDoorStatus;
-    udword madSpecialStatus;
-    udword cuedAnimationIndex;            //Animation index waiting in the wings to be played
-    udword cuedAnimationType;      //cue of animation types (guns, wings, etc...)
-    udword nextAnim;
-    udword soundEventAnimationTypeFlag;    //opening,closing,damaged_opening,damaged_closing
-    sdword forceCancelDock;
-    real32 gravwellTimeEffect;      //time the gravwell effect sould be played again
+    udword madAnimationFlags;       // +0x300 general purpose flags for mad animations
+    udword madGunStatus;            // +0x304 gun status
+    udword madWingStatus;           // +0x308 wing animation status
+    udword madDoorStatus;           // +0x30C
+    udword madSpecialStatus;        // +0x310
+    udword cuedAnimationIndex;      // +0x314 Animation index waiting in the wings to be played
+    udword cuedAnimationType;       // +0x318 cue of animation types (guns, wings, etc...)
+    udword nextAnim;                // +0x31C
+    udword soundEventAnimationTypeFlag;    // +0x320 opening,closing,damaged_opening,damaged_closing
+    sdword forceCancelDock;         // +0x324
+    real32 gravwellTimeEffect;      // +0x328 time the gravwell effect sould be played again
     //
-    struct Player *playerowner;
-    sdword resources;
-    real32 fuel;
-    real32 lastTimeRepaired;
-    real32 magnitudeSquared;        // most recent scaling factor
-    struct Ship *gettingrocked;     // ship which is rocking you (shooting you)
-    struct Ship *recentAttacker;    // ship which has attacked you recently (ie, not just this AI tick) -- see recentlyAttacked
-    struct Ship *firingAtUs;        // ship which has recently fired upon us (but needn't have hit) see recentlyFiredUpon
-    bool8 shipidle;                 // flag to indicate if ship has no command to execute
-    bool8 autostabilizeship;        // if TRUE, we should stabilize the ship
+    struct Player *playerowner;     // +0x32C
+    sdword resources;               // +0x330
+    real32 fuel;                    // +0x334 (univCreateShip 0x005427c4 still stores maxfuel; nothing burns it)
+    real32 lastTimeRepaired;        // +0x338
+    real32 magnitudeSquared;        // +0x33C most recent scaling factor
+    struct Ship *gettingrocked;     // +0x340 ship which is rocking you (shooting you)
+    struct Ship *recentAttacker;    // +0x344 ship which has attacked you recently (ie, not just this AI tick) -- see recentlyAttacked
+    struct Ship *firingAtUs;        // +0x348 ship which has recently fired upon us (but needn't have hit) see recentlyFiredUpon
+    bool8 shipidle;                 // +0x34C flag to indicate if ship has no command to execute
+    bool8 autostabilizeship;        // +0x34D if TRUE, we should stabilize the ship
     ubyte autostabilizestate;       // state of autostabilization
     ubyte autostabilizewait;        // how many frames to wait before stabilizing in autostabilize
-    ubyte aistateattack;            // AI attack state variable
+    ubyte aistateattack;            // +0x350 AI attack state variable
     ubyte flightmanState1;          // generic state variables for flight maneuvers
     ubyte flightmanState2;          // generic state variables for flight maneuvers
     ubyte rcstate1;                 // state variable for resource collecting
-    ubyte rcstate2;                 // state variable for resource collecting
+    ubyte rcstate2;                 // +0x354 state variable for resource collecting
     ubyte aistatecommand;
-    sbyte dontrotateever;
-    sbyte dontapplyforceever;
-    bool8 shipisattacking;
-    sbyte colorScheme;              //what color scheme does this ship use?
+    sbyte dontrotateever;           // +0x356
+    sbyte dontapplyforceever;       // +0x357
+    bool8 shipisattacking;          // +0x358
+    sbyte colorScheme;              // +0x359 what color scheme does this ship use?
     ubyte recentlyAttacked;         // counts down from RECENT_ATTACK_DURATION -- see recentAttacker
     ubyte recentlyFiredUpon;        // same, see firingAtUs
-    ubyte chatterBits;              // flags for battle chatter
+    ubyte chatterBits;              // +0x35C flags for battle chatter
     ubyte rowState;                 // state variable for right of way
-    real32 aidescend;               // AI variable for capital ships descending
-    udword flightman;               // current flight maneuver handle
-    void *flightmanInfo;            // pointer to any additional flight maneuver info
-    struct CommandToDo *formationcommand;   // pointer to formationcommand, if ship in formation
-    struct CommandToDo *command;    // pointer to ship's current command, if any
-    SpecificAttackVars attackvars;  // attack information
-    SpecificDockVars dockvars;      // dock information
-    struct Effect *rceffect;        // effect variable for resource collecting
-    void (*ShipXHarvestsResourceY)(struct Ship *ship,struct Resource *resource);    // function pointer for resource collecting
-    sdword visibleToWho;              //bitmask flag indicating to which players this ship is visible to...relevant only if ship is cloaked
-    sdword visibleToWhoPreviousFrame; //same as above, but relevant for the previous univupdate frame
-    sdword howDidIDie;              //defined above: Set when a ship is set to die, that way, at somepoint (hopefully) we can tell how the bitch died.
-    sdword whoKilledMe;             //playerIndex of the player that killed this ship
-    udword nDamageLights;
-    DamageLightStatic* damageLights;
-    struct Effect* showingDamage[3][3];
-    vector holdingPatternPos;
-    real32 damageModifier;
-    real32 passiveAttackCancelTimer;
-
-    //later will make most of these into a single flag
-    udword tractorbeaminfo;
-    udword tractorvector;
-    struct Player *tractorbeam_playerowner;
-    sdword tractorstate;            //info variable for tractorbeaming state
-    sdword tractorPosinfo[4];        //more tractor info!
-    sdword hyperspacePing;          //true or false flag indicating if the ship has had a hyperspace ping created for it...NON-deterministic!
-
-    sdword needNewLeader;
-    struct Ship *newDockWithTransfer;
-    sdword newDockIndexTransfer;
-
-    real32 shipDeCloakTime;         //time is set when a ship decloaks...this time is used to give decloaking ships an advantage
-    shiptrail* trail[MAX_NUM_TRAILS];   //ship's engine trail(s)
-    ShipID shipID;
-    uword hotKeyGroup;              // what hot-key group this ship belongs to
-    sdword retaliateSpeechVar;
-    real32 retaliateSpeechTime;
-
-    SOUNDEVENT soundevent;
-    Node slavelink;                 //Nodal link for slavery info
-    SlaveInfo *slaveinfo;           //pointer to struct of info regarding ships slavery status
-    GunInfo *gunInfo;
-    DockInfo *dockInfo;
-    ShipsInsideMe *shipsInsideMe;
-    shipbindings *bindings;         //ship hierarchy bindings
-    madanim *madBindings;
-//    RepairDroid *pRepairDroids;     // Alex's repair droid stuff...
-    struct ShipSinglePlayerGameInfo *shipSinglePlayerGameInfo;     // stuff for the single player game
-    void* lightning[2];             //lightning effect stuff
-    // CAT (M2-R3 selection): per-ship Cataclysm state read by the selection filters (ShipSelect.c, Select.c). The exe
-    //      keeps these in its own Ship layout (0x63C bytes, univCreateShip 0x00542320 zeroes them); this tree's Ship
-    //      is GoK's, so they are appended here by name. Their setters are ported with the code that owns them.
-    udword catShipFlags;            // exe Ship+0x18, CAT_SHIPFLAG_* below
-    sdword catDisableReason[CAT_NUM_DISABLE_REASONS];   // exe Ship+0x1DC, cat_shipSetDisableReason 0x005b3fe0 sets [reason]
-    bool32 catDisabled;             // exe Ship+0x210: TRUE while any catDisableReason[] is nonzero (cat_shipSetDisableReason
-                                    //   0x005b3fe0, cat_shipSetHelpless 0x005b3bd0, cat_shipClearHelpless 0x005b3c80,
-                                    //   cat_empShockShip 0x005b3900, cat_shipUpdateDrift 0x005b3d60 recompute it)
-    udword catUpgradeFlags;         // exe Ship+0x3F4: CAT_UPGRADE_* (cat_shipHasUpgrade 0x00514210; cat_shipUpgradesInit 0x005140a0 clears it)
-    sdword catKillsByClass[NUM_CLASSES];    // exe Ship+0x5C8: kills of this ship per class (ApplyDamageToTarget 0x00546250;
-                                    //   cat_shipUpdateExperienceLevel 0x005147d0 weighs them into Ship+0x5F8, M2-R4 #5)
-    sbyte catKamikazeInfectionHits; // exe Ship+0x614: Beast cruise-missile hits taken (cat_kamikazeCheckShip 0x0043a980)
-    sdword catKilledByPlayer;       // exe Ship+0x60C: the player whose weapon killed it (ApplyDamageToTarget, damage 666..668)
-    struct Ship *catQueuedAttackTarget; // exe Ship+0x4B0: cat_univShipDeferredUpdate 0x005447b0 turns it into a clAttack and
-                                    //   clears it; cat_beastAttackHit 0x0042af40 sets it for a multiplayer bHeavyCruiser
-    bool8 catAttackStarted;         // exe Ship+0x616: set with shipisattacking by gunShoot 0x0048b5b0 (also for the wingman's
-                                    //   first shot), cleared by RemoveShipFromAttacking and cat_beastWeaponHouseKeep;
-                                    //   read by the blob code (bobBlobItemize, bobUpdateObjsInBlobCollInfo: M2-R4 #5)
-    bool32 catResourceFinished;     // exe Ship+0x1D4: the resource it harvested is used up (CollectResources 0x004f17a0
-                                    //   sets, the AI's aimProcessResourceVolume reads and clears); HW1's specialFlags bit
-    bool32 catResourcing;           // exe Ship+0x1D8: harvesting for the AI (CollectResources clears, aimProcessResourceVolume
-                                    //   sets, aiuShipIsResourcingOrSomething reads); HW1's specialFlags bit
-    bool32 catHelpless;             // exe Ship+0x530: set/cleared by cat_shipSetHelpless/ClearHelpless (ShipDisable.c); a helpless
-                                    //   crazy ship keeps drifting (physUpdateObjPosVelShip 0x004e4950)
-    CatTimer catDriftTimer;         // exe Ship+0x560: the drift's timer (cat_shipStartDrift, ShipDisable.c)
-    bool32 catDrifting;             // exe Ship+0x550: set by cat_shipStartDrift, cleared by cat_shipUpdateDrift (ShipDisable.c);
-                                    //   read by cat_blastAffectShip 0x00515d30 and physUpdateObjPosVelShip
-    bool32 catBurstFiring;          // exe Ship+0x610: TRUE in a gun's burst, FALSE in its cool-off (gunCanShoot 0x0048a2f0)
-    sdword catArmourLevel;          // exe Ship+0x3F0: 0..2, the column of cat_damageVsArmourTable a hit on this ship uses
-                                    //   (cat_shipUpgradesInit 0x005140a0, cat_shipApplyUpgrades 0x00514490; M2-R4 combat)
-    bool32 catDissolving;           // exe Ship+0x570: set by cat_shipDissolveStart 0x004603d0, cleared by cat_shipDissolveInit 0x00460220
-    bool32 catUpgrading;            // exe Ship+0x598: set by cat_clUpgradeShips 0x0044de80, cleared by cat_univShipDeferredUpdate 0x005447b0
-    real32 catBuildProgress;        // exe Ship+0x3E8: external build progress 0..1 (univCreateShip 0x00542320 sets 0 for a
+    ubyte catPad35E[2];
+    real32 aidescend;               // +0x360 AI variable for capital ships descending
+    udword flightman;               // +0x364 current flight maneuver handle
+    void *flightmanInfo;            // +0x368 pointer to any additional flight maneuver info
+    struct CommandToDo *formationcommand;   // +0x36C pointer to formationcommand, if ship in formation
+    struct CommandToDo *command;    // +0x370 pointer to ship's current command, if any
+    SpecificAttackVars attackvars;  // +0x374 attack information
+    struct Effect *rceffect;        // +0x38C effect variable for resource collecting (RemoveShipsFromDoingStuff 0x00442110)
+    void (*ShipXHarvestsResourceY)(struct Ship *ship,struct Resource *resource);    // +0x390 function pointer for resource collecting
+    sdword visibleToWho;            // +0x394 bitmask flag indicating to which players this ship is visible to...relevant only if ship is cloaked
+    sdword visibleToWhoPreviousFrame; // +0x398 same as above, but relevant for the previous univupdate frame
+    sdword howDidIDie;              // +0x39C defined above: Set when a ship is set to die, that way, at somepoint (hopefully) we can tell how the bitch died.
+    sdword whoKilledMe;             // +0x3A0 playerIndex of the player that killed this ship
+    udword nDamageLights;           // +0x3A4
+    DamageLightStatic* damageLights;// +0x3A8
+    struct Effect* showingDamage[3][3]; // +0x3AC
+    vector holdingPatternPos;       // +0x3D0 (processHoldingPattern 0x00446f40)
+    real32 damageModifier;          // +0x3DC 1.0 at creation
+    real32 catDamageFactor;         // +0x3E0 CAT: 1.0 at creation (0x005426e0); kasfShipsSetDamageFactor 0x00493980 stores
+                                    //   damagePercent / 100 here, gunShoot 0x0048b5b0, missileShoot 0x0048aac0 and the
+                                    //   Beast weapon scale their damage by it. Name chosen here.
+    real32 passiveAttackCancelTimer;// +0x3E4 (clHalt 0x00443a10 stores TW_GLOBAL_PASSIVE_ATTACK_CANCEL_MODIFIER + now)
+    real32 catBuildProgress;        // +0x3E8 CAT: external build progress 0..1 (univCreateShip 0x00542320 sets 0 for a
                                     //   ship built externally, else 1.0; cat_clExternalBuildUpdate 0x0044dfc0 advances it)
-    // CAT (M2-R4 combat): the salvage state of a ship as a salvage target (Salvage.c). univCreateShip 0x00542320
-    //      zeroes the block and sets catSalvagePlayer -1, catSalvagePointIndex -1 and catSalvageNotifyTime
-    //      CAT_SALVAGE_NEVER (0x6258d727, 1e21). Names chosen here from their users.
-    sdword catSalvagePlayer;        // exe Ship+0x238: index of the player whose salvagers reached it first, -1 none
-    struct Ship *catSalvageDepot;   // exe Ship+0x3EC: the depot it is being delivered to (cat_salvageDeliverToDepot)
-    bool8 catSalvageConverting;     // exe Ship+0x504: drawn as its converted type (cat_salvageDepotProcessGeneric)
-    real32 catSalvageConvertStart;  // exe Ship+0x508
-    real32 catSalvageConvertEnd;    // exe Ship+0x50C
-    shipbindings *catSalvageConvertBindings;    // exe Ship+0x510: cat_univMeshBindingsDupeNoGuns of the new type
-    ubyte catSalvageConvertColor;   // exe Ship+0x514: the new owner's colour scheme
-    vector catDockLatchHeading;     // exe Ship+0x5A4: last cone heading of cat_dockFlyToConeOriginLatch 0x00464b30
-    // CAT (M2-R4 ships-b): the Workers repairing this ship (cat_workerRepairTarget 0x005c89a0, cat_workerChooseRepairTarget
-    //      0x005c7d60). Names chosen here.
-    sdword catRepairIdleWorkers;    // exe Ship+0x600: Workers sent to it while it was at full health
-    sdword catRepairWorkers;        // exe Ship+0x604: Workers repairing it
-    struct Ship *catSalvageBigGun;  // exe Ship+0x608: a towed dBigGunUnit's dBigGun, or the salvager's; a Worker also keeps its repair
-                                    //   target here (cat_workerRepairTarget 0x005c89a0)
-    sbyte catSalvagePointIndex;     // exe Ship+0x615: the dock point it holds on its target or depot, -1 none
-    real32 catSalvageNotifyTime;    // exe Ship+0x618: last "more salvagers needed" message (real time)
-    real32 catSalvageDepotCheckTime;// exe Ship+0x61C: last nearest-depot check (cat_salvageSpecialTarget state 10)
-    // CAT (M2-R4 combat): the Beast infection state (BeastWeapon.c, cat_univBeastInfectionUpdate 0x00543860).
-    //      Names chosen here from their users.
-    sdword catBeastStunState;       // exe Ship+0x4D0: 1 hit (stunned), 2 infected (cat_beastAttackHit 0x0042af40)
-    real32 catBeastStunStart;       // exe Ship+0x4D4
-    real32 catBeastStunEnd;         // exe Ship+0x4D8
-    real32 catBeastSpin;            // exe Ship+0x4DC: -1.0 when hit
-    sdword catBeastHits;            // exe Ship+0x4E0: infection hits taken (beastAttacksRequired converts)
-    real32 catBeastConvertTime;     // exe Ship+0x4E4: when the infected ship turns Beast, 0 = not infected
-    struct Ship *catBeastInfector;  // exe Ship+0x4E8
-    struct Player *catBeastInfectorOwner;   // exe Ship+0x4EC
-    real32 catBeastCascadeTime;     // exe Ship+0x4F0: last infection hit
-    real32 catBeastCascadePoints;   // exe Ship+0x4F4: cascade points left to pass on
-    real32 catBeastCascadeEnd;      // exe Ship+0x4F8
-    shipbindings *catBeastBindings; // exe Ship+0x4FC: bindings of the Beast type it turns into
-    ubyte catBeastColor;            // exe Ship+0x500: the infector's colour scheme
-    // CAT (M2-R4 ships-b): the helpless / EMP / drift state (cat_empShockShip 0x005b3900, cat_shipSetHelpless
-    //      0x005b3bd0, cat_shipClearHelpless 0x005b3c80, cat_shipStartDrift 0x005b3b40, cat_shipUpdateDrift
-    //      0x005b3d60). Names chosen here from their users.
-    bool8 catEmpStunned;            // exe Ship+0x528: set by the first EMP shock, cleared with the helplessness;
-                                    //   while set the ship's velocity decays (x0.9 per update)
-    sdword catEmpShockCount;        // exe Ship+0x52C: EMP strength taken so far
-    CatTimer catHelplessTimer;      // exe Ship+0x534
-    bool32 catHelplessSavedDisabled;    // exe Ship+0x544: SOF_Disabled before the helplessness
-    bool32 catHelplessSavedCrazy;       // exe Ship+0x548: SOF_Crazy before the helplessness
-    sdword catHelplessSavedAutostabilize;   // exe Ship+0x54C: autostabilizeship before the helplessness
-    vector catDriftVelocity;        // exe Ship+0x554: the velocity when the drift started
-    // CAT (M2-R4 ships-b): the dissolve state (Dissolve.c, cat_shipDissolveInit 0x00460220 .. cat_shipDissolveStop
-    //      0x00460c70). Names chosen here.
-    bool32 catDissolveEffectsOn;    // exe Ship+0x574: 1 from cat_shipDissolveInit, 0 after cat_shipDissolveStop
-    vector catDissolvePoint;        // exe Ship+0x578: the point the ship dissolves into
-    CatTimer catDissolveTimer;      // exe Ship+0x584
-    struct Effect *catDissolveEffect;   // exe Ship+0x594
-    sbyte catRKOMissilesTaken;      // exe Ship+0x518: missiles a dRKO has gained from eating this ship (RKOHouseKeep
-                                    //   0x005c4260, its only user; name chosen here)
+    struct Ship *catSalvageDepot;   // +0x3EC CAT: the depot it is being delivered to (cat_salvageDeliverToDepot)
+    sdword catArmourLevel;          // +0x3F0 CAT: 0..2, the column of cat_damageVsArmourTable a hit on this ship uses
+                                    //   (cat_shipUpgradesInit 0x005140a0, cat_shipApplyUpgrades 0x00514490; M2-R4 combat)
+    udword catUpgradeFlags;         // +0x3F4 CAT: CAT_UPGRADE_* (cat_shipHasUpgrade 0x00514210; cat_shipUpgradesInit 0x005140a0 clears it)
+    //later will make most of these into a single flag
+    // CAT: HW1's tractor block is still zeroed by univCreateShip (9 dwords at +0x3F8..+0x418, 0x00542740); nothing in
+    //      the exe tractors a ship
+    udword tractorbeaminfo;         // +0x3F8
+    udword tractorvector;           // +0x3FC
+    struct Player *tractorbeam_playerowner; // +0x400
+    sdword tractorstate;            // +0x404 info variable for tractorbeaming state
+    sdword tractorPosinfo[4];       // +0x408 more tractor info!
+    sdword hyperspacePing;          // +0x418 true or false flag indicating if the ship has had a hyperspace ping created for it...NON-deterministic!
+                                    //   (processMpHyperspaceingToDo 0x00442e10)
+    sdword needNewLeader;           // +0x41C
+    struct Ship *newDockWithTransfer;   // +0x420
+    sdword newDockIndexTransfer;    // +0x424
+    real32 shipDeCloakTime;         // +0x428 time is set when a ship decloaks...this time is used to give decloaking ships an advantage
+    shiptrail* trail[MAX_NUM_TRAILS];   // +0x42C ship's engine trail(s)
+    ShipID shipID;                  // +0x43C
+    uword hotKeyGroup;              // +0x43E what hot-key group this ship belongs to
+    sdword retaliateSpeechVar;      // +0x440
+    real32 retaliateSpeechTime;     // +0x444
+    SOUNDEVENT soundevent;          // +0x448 (soundEventInitStruct at 0x005428b4; hyperspaceHandle +0x45C)
+    GunInfo *gunInfo;               // +0x490
+    SpecificDockVars dockvars;      // +0x494 dock information (CAT: the exe's five words; see SpecificDockVars)
+    DockInfo *dockInfo;             // +0x4A8 (cat_dockInitShipDockInfo 0x00463bb0)
     // CAT (M2-R4 ships-b): the ship that made this one (exe Ship+0x4AC: the 6th argument of univCreateShip 0x00542320,
     //      0 for an ordinary ship; NomadMoonInit, cat_dreadnoughtCreateCannon, cat_univCreateMothershipModules and the
     //      external build pass the maker; the construction manager reads it). Name chosen here.
-    struct Ship *catCreator;
-    udword sizeofShipSpecifics;
-    udword ShipSpecifics[1];        //this member must go last
+    struct Ship *catCreator;        // +0x4AC
+    struct Ship *catQueuedAttackTarget; // +0x4B0 CAT: cat_univShipDeferredUpdate 0x005447b0 turns it into a clAttack and
+                                    //   clears it; cat_beastAttackHit 0x0042af40 sets it for a multiplayer bHeavyCruiser
+    ShipsInsideMe *shipsInsideMe;   // +0x4B4
+    shipbindings *bindings;         // +0x4B8 ship hierarchy bindings
+    madanim *madBindings;           // +0x4BC
+    void *catRepairDroids;          // +0x4C0 CAT: the repair-droid array (droidCreateArray 0x0046a8b0 at univCreateShip
+                                    //   0x005427e8 for a Somtaaw ship with nRepairDroids; HW1's commented pRepairDroids).
+                                    //   The droid runtime is stage 3's (the proxies are rendering); NULL until then
+    struct ShipSinglePlayerGameInfo *shipSinglePlayerGameInfo;     // +0x4C4 stuff for the single player game
+    void* lightning[2];             // +0x4C8 lightning effect stuff (HW1; no exe reader of +0x4C8/+0x4CC found)
+    // CAT (M2-R4 combat): the Beast infection state (BeastWeapon.c, cat_univBeastInfectionUpdate 0x00543860).
+    //      Names chosen here from their users.
+    sdword catBeastStunState;       // +0x4D0: 1 hit (stunned), 2 infected (cat_beastAttackHit 0x0042af40)
+    real32 catBeastStunStart;       // +0x4D4
+    real32 catBeastStunEnd;         // +0x4D8
+    real32 catBeastSpin;            // +0x4DC: -1.0 when hit
+    sdword catBeastHits;            // +0x4E0: infection hits taken (beastAttacksRequired converts)
+    real32 catBeastConvertTime;     // +0x4E4: when the infected ship turns Beast, 0 = not infected
+    struct Ship *catBeastInfector;  // +0x4E8
+    struct Player *catBeastInfectorOwner;   // +0x4EC
+    real32 catBeastCascadeTime;     // +0x4F0: last infection hit
+    real32 catBeastCascadePoints;   // +0x4F4: cascade points left to pass on
+    real32 catBeastCascadeEnd;      // +0x4F8
+    shipbindings *catBeastBindings; // +0x4FC: bindings of the Beast type it turns into
+    ubyte catBeastColor;            // +0x500: the infector's colour scheme
+    ubyte catPad501[3];
+    // CAT (M2-R4 combat): the salvage state of a ship as a salvage target (Salvage.c). univCreateShip 0x00542320
+    //      zeroes the block and sets catSalvagePlayer -1, catSalvagePointIndex -1 and catSalvageNotifyTime
+    //      CAT_SALVAGE_NEVER (0x6258d727, 1e21). Names chosen here from their users.
+    bool8 catSalvageConverting;     // +0x504: drawn as its converted type (cat_salvageDepotProcessGeneric)
+    ubyte catPad505[3];
+    real32 catSalvageConvertStart;  // +0x508
+    real32 catSalvageConvertEnd;    // +0x50C
+    shipbindings *catSalvageConvertBindings;    // +0x510: cat_univMeshBindingsDupeNoGuns of the new type
+    ubyte catSalvageConvertColor;   // +0x514: the new owner's colour scheme
+    ubyte catPad515[3];
+    sbyte catRKOMissilesTaken;      // +0x518: missiles a dRKO has gained from eating this ship (RKOHouseKeep
+                                    //   0x005c4260, its only user; name chosen here)
+    ubyte catPad519[3];
+    udword catShipReserved51C[3];   // +0x51C..+0x524: zeroed with the ship, no user found
+    // CAT (M2-R4 ships-b): the helpless / EMP / drift state (cat_empShockShip 0x005b3900, cat_shipSetHelpless
+    //      0x005b3bd0, cat_shipClearHelpless 0x005b3c80, cat_shipStartDrift 0x005b3b40, cat_shipUpdateDrift
+    //      0x005b3d60). Names chosen here from their users.
+    bool8 catEmpStunned;            // +0x528: set by the first EMP shock, cleared with the helplessness;
+                                    //   while set the ship's velocity decays (x0.9 per update)
+    ubyte catPad529[3];
+    sdword catEmpShockCount;        // +0x52C: EMP strength taken so far
+    bool32 catHelpless;             // +0x530: set/cleared by cat_shipSetHelpless/ClearHelpless (ShipDisable.c); a helpless
+                                    //   crazy ship keeps drifting (physUpdateObjPosVelShip 0x004e4950)
+    CatTimer catHelplessTimer;      // +0x534
+    bool32 catHelplessSavedDisabled;    // +0x544: SOF_Disabled before the helplessness
+    bool32 catHelplessSavedCrazy;       // +0x548: SOF_Crazy before the helplessness
+    sdword catHelplessSavedAutostabilize;   // +0x54C: autostabilizeship before the helplessness
+    bool32 catDrifting;             // +0x550: set by cat_shipStartDrift, cleared by cat_shipUpdateDrift (ShipDisable.c);
+                                    //   read by cat_blastAffectShip 0x00515d30 and physUpdateObjPosVelShip
+    vector catDriftVelocity;        // +0x554: the velocity when the drift started
+    CatTimer catDriftTimer;         // +0x560: the drift's timer (cat_shipStartDrift, ShipDisable.c)
+    // CAT (M2-R4 ships-b): the dissolve state (Dissolve.c, cat_shipDissolveInit 0x00460220 .. cat_shipDissolveStop
+    //      0x00460c70). Names chosen here.
+    bool32 catDissolving;           // +0x570: set by cat_shipDissolveStart 0x004603d0, cleared by cat_shipDissolveInit 0x00460220
+    bool32 catDissolveEffectsOn;    // +0x574: 1 from cat_shipDissolveInit, 0 after cat_shipDissolveStop
+    vector catDissolvePoint;        // +0x578: the point the ship dissolves into
+    CatTimer catDissolveTimer;      // +0x584
+    struct Effect *catDissolveEffect;   // +0x594
+    bool32 catUpgrading;            // +0x598: set by cat_clUpgradeShips 0x0044de80, cleared by cat_univShipDeferredUpdate 0x005447b0
+    real32 catUpgradeStart;         // +0x59C CAT: cat_clUpgradeShips 0x0044de80 stores the start time (M2-R5 command follow-up)
+    real32 catUpgradeEnd;           // +0x5A0 CAT: and the end time, which cat_univShipDeferredUpdate waits for
+    vector catDockLatchHeading;     // +0x5A4 CAT: last cone heading of cat_dockFlyToConeOriginLatch 0x00464b30
+                                    //   (cat_dockShipDocksAtShip 0x00465860 stores it when the ship is inside the cone)
+    udword catShipReserved5B0;      // +0x5B0: univCreateShip 0x00542320 stores 1 (0x00542863); no reader found
+    CatTimer catBuildTimer;         // +0x5B4 CAT: the external build timer (CET buildTimer; cat_clWrapStartExternalBuildTimer)
+    real32 catProtectedSpeedLimit;  // +0x5C4 CAT: the escort group's speed (cat_univLimitProtectedShipSpeed 0x00544e00,
+                                    //   GetShipsTravelVel; M2-R5 command follow-up)
+    sdword catKillsByClass[NUM_CLASSES];    // +0x5C8: kills of this ship per class (ApplyDamageToTarget 0x00546250;
+                                    //   cat_shipUpdateExperienceLevel 0x005147d0 weighs them)
+    sdword catExperienceLevel;      // +0x5F8 CAT: 0..4 (cat_shipUpdateExperienceLevel 0x005147d0; cat_shipGetSpeedMultiplier,
+                                    //   cat_shipGetDamageMultiplier, the selection filters)
+    real32 catExperienceMessageTime;// +0x5FC CAT: real time of the last "promoted" message (cat_shipUpdateExperienceLevel)
+    // CAT (M2-R4 ships-b): the Workers repairing this ship (cat_workerRepairTarget 0x005c89a0, cat_workerChooseRepairTarget
+    //      0x005c7d60). Names chosen here.
+    sdword catRepairIdleWorkers;    // +0x600: Workers sent to it while it was at full health
+    sdword catRepairWorkers;        // +0x604: Workers repairing it
+    struct Ship *catSalvageBigGun;  // +0x608: a towed dBigGunUnit's dBigGun, or the salvager's; a Worker also keeps its repair
+                                    //   target here (cat_workerRepairTarget 0x005c89a0)
+    sdword catKilledByPlayer;       // +0x60C: the player whose weapon killed it (ApplyDamageToTarget, damage 666..668)
+    bool32 catBurstFiring;          // +0x610: TRUE in a gun's burst, FALSE in its cool-off (gunCanShoot 0x0048a2f0)
+    sbyte catKamikazeInfectionHits; // +0x614: Beast cruise-missile hits taken (cat_kamikazeCheckShip 0x0043a980)
+    sbyte catSalvagePointIndex;     // +0x615: the dock point it holds on its target or depot, -1 none
+    bool8 catAttackStarted;         // +0x616: set with shipisattacking by gunShoot 0x0048b5b0 (also for the wingman's
+                                    //   first shot), cleared by RemoveShipFromAttacking and cat_beastWeaponHouseKeep;
+                                    //   read by the blob code (bobBlobItemize, bobUpdateObjsInBlobCollInfo)
+    ubyte catPad617;
+    real32 catSalvageNotifyTime;    // +0x618: last "more salvagers needed" message (real time)
+    real32 catSalvageDepotCheckTime;// +0x61C: last nearest-depot check (cat_salvageSpecialTarget state 10)
+    real32 catDockStateTime;        // +0x620 CAT: when a slipgate transit state (0x10/0x11) began (cat_dockShipDocksAtShip)
+    CatTimer catLinkTimer;          // +0x624 CAT: the link order's timer (cat_processLinkToDo 0x00467b40; M2-R5 command follow-up)
+    NAVLightStaticInfo *catNavLightStatic;  // +0x634 CAT: a copy of the static's navlightStaticInfo (univCreateShip
+                                    //   0x005423fc); no reader found. Name chosen here.
+    udword ShipSpecifics[1];        // +0x638 this member must go last
 } Ship;
 
 typedef Ship *ShipPtr;
@@ -2119,8 +2163,13 @@ typedef struct
     MineFormationInfo *formationinfo;
     sdword formation_number_X;
     sdword formation_number_Y;
-    ubyte colorScheme;
+    ubyte colorScheme;              // +0x244
     ubyte pad[3];
+    // CAT (M2-R5 layout): the exe's Missile is 0x258 bytes (univAddMissile 0x00540c70 allocates 600, LoadSpaceObj
+    //      0x00501660 the same); HW1's fields end at +0x248. The +0x254 float scales the selection circle when it is
+    //      nonzero (Select.c, M2-R3); the other three have no reader found. Names chosen here.
+    udword catMissileReserved248[3];    // +0x248 .. +0x250
+    real32 catMissileScale;         // +0x254
 } Missile;
 
 typedef Missile *MissilePtr;
@@ -2202,16 +2251,16 @@ typedef struct                                  // Bullet object
     real32 bulletmass;
     etglod *hitEffect;                          //effect to play when it hits
     Effect *effect;                             //effect to play as it flies
-    real32 damage;                              //current damage of bullet
-    real32 damageFull;                          //unadjusted (initial) damage
-    udword SpecialEffectFlag;                   //Used by special ships to see if they have affected this bullet
-    real32 DFGFieldEntryTime;                   //used by DFGF.
-    real32 BulletSpeed;
-    struct Player *playerowner;
+    real32 damage;                              // +0x138 current damage of bullet
+    // CAT (M2-R5 layout): HW1's damageFull (+0x13C) is gone: the exe keeps catMoved there (below)
     // CAT (M2-R4 combat): the exe's Bullet is 0x164 bytes (cat_gunCreateBullet 0x0048bb00). Its +0x13C, where HW1 keeps
     //      damageFull, is a flag physUpdateBulletPosVel 0x004e45b0 sets after the first frame: a bullet cannot expire
-    //      before it has moved once. Appended here by name; damageFull stays for the HW1 code that reads it.
+    //      before it has moved once. M2-R5 layout: at the exe's offsets (the prefix is the exe's; damageFull is gone).
     bool32 catMoved;                            // CAT: exe +0x13C
+    udword SpecialEffectFlag;                   // +0x140 Used by special ships to see if they have affected this bullet
+    real32 DFGFieldEntryTime;                   // +0x144 used by DFGF.
+    real32 BulletSpeed;                         // +0x148
+    struct Player *playerowner;                 // +0x14C
     real32 catBigGunRange;                      // CAT: exe +0x150: a GS_BigGun shell is deleted after this distance
     real32 catBigGunTravelled;                  // CAT: exe +0x154: distance a GS_BigGun shell has flown
     vector catPrevPosition;                     // CAT: exe +0x158: where the bullet was before its last move (its
@@ -2244,15 +2293,16 @@ typedef struct
         SpaceObjRotImpTargGuidance guidance;
         ShipOrDerelict shipOrDerelict;
     };
-    NAVLightInfo *navLightInfo;
     // HERE UP SAME for Derelicts and Ships
-
-    Node derelictlink;
-    DerelictID derelictID;
-    sbyte colorScheme;              //what color scheme does this ship use?
+    // CAT (M2-R5 layout): the exe's Derelict is 0x294 bytes (univAddDerelictByStatInfo 0x00541000, LoadSpaceObj
+    //      0x00501660), HW1's fields after the shared prefix: derelictlink +0x238, derelictID +0x248 (0x00541077),
+    //      colorScheme +0x24A (0x00541306), the sound handles +0x250 (-1 at 0x0054119b), nextRandomTime +0x258,
+    //      creationTime +0x28C, derelicttype +0x290
+    Node derelictlink;              // +0x238
+    DerelictID derelictID;          // +0x248
+    sbyte colorScheme;              // +0x24A what color scheme does this ship use?
     ubyte pad[3];
-
-    sdword ambientSoundHandle;      //used by sound engine to keep track of the ambient sound the derelict makes
+    sdword ambientSoundHandle;      // +0x250 used by sound engine to keep track of the ambient sound the derelict makes
     sdword randomSoundHandle;       //used by sound engine to keep track of the random ambient sound the derelict makes
     real32 nextRandomTime;          //time to play the next random ambient sound
 
@@ -2265,8 +2315,8 @@ typedef struct
     sdword needNewLeader;
     struct Ship *newDockWithTransfer;
     sdword newDockIndexTransfer;
-    real32 creationTime;
-    DerelictType derelicttype;
+    real32 creationTime;            // +0x28C
+    DerelictType derelicttype;      // +0x290
 } Derelict;
 
 typedef Derelict *DerelictPtr;
@@ -2325,11 +2375,15 @@ typedef struct Asteroid
         Resource resource;
     };
 
-    AsteroidType asteroidtype;  // asteroid specific information
-    real32 scaling;
+    AsteroidType asteroidtype;  // +0x198 asteroid specific information
+    real32 scaling;             // +0x19C
+    // CAT (M2-R5 layout): the exe's Asteroid is 0x1B4 bytes (univAddAsteroid 0x00540a30, LoadSpaceObj 0x00501660):
+    //      five dwords follow scaling, of which only +0x1A4 has a known user
+    udword catAsteroidReserved1A0;  // +0x1A0
     // CAT (M2-R4 ships-b): the mimic posing as this asteroid (exe Asteroid+0x1A4: MimicHouseKeep 0x005b8f30 sets it on
     //      the fake asteroid of cat_univAddMimicResource 0x005408b0; NULL for a real asteroid). Name chosen here.
-    struct Ship *catMimicShip;
+    struct Ship *catMimicShip;      // +0x1A4
+    udword catAsteroidReserved1A8[3];   // +0x1A8 .. +0x1B0
 } Asteroid;
 
 /*-----------------------------------------------------------------------------
@@ -2436,6 +2490,189 @@ extern GodWritePacketHeader *godUniverseSnapShotHeader;
 #endif
 
 /*=============================================================================
+    CAT (M2-R5 layout): the object layouts of cataclysm.exe on ILP32 (tools/m2_layout32.sh). Sources: univCreateShip
+    0x00542320 (0x63C-byte ships, the field stores decoded in docs/m2-r5-layout-dock.md), univAddAsteroid 0x00540a30
+    (0x1B4), univAddMissile 0x00540c70 (0x258), univAddDerelictByStatInfo 0x00541000 (0x294), LoadSpaceObj 0x00501660
+    (bullet 0x164, asteroid 0x1B4, nebula 0x1A8, derelict 0x294, missile 0x258), univAddDustCloud (0x1A4),
+    univAddGasCloud (0x1A0) and CET's spaceobj.h ASSERT_OFFSET list for Ship.
+=============================================================================*/
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(SpaceObjHeader) == 0x20, "SpaceObjHeader: staticinfo is at +0x20 in cataclysm.exe");
+_Static_assert(sizeof(SpaceObj) == 0x98, "SpaceObj: rotinfo is at +0x98 in cataclysm.exe");
+CAT_ASSERT_OFFSET(SpaceObj, attributes, 0x38);
+CAT_ASSERT_OFFSET(SpaceObj, attributesParam, 0x3C);
+CAT_ASSERT_OFFSET(SpaceObj, cameraDistanceSquared, 0x40);
+CAT_ASSERT_OFFSET(SpaceObj, collMyBlob, 0x54);
+CAT_ASSERT_OFFSET(SpaceObj, posinfo, 0x58);
+CAT_ASSERT_OFFSET(SpaceObj, catMeshState, 0x80);
+CAT_ASSERT_OFFSET(SpaceObjRot, rotinfo, 0x98);
+CAT_ASSERT_OFFSET(SpaceObjRotImp, collInfo, 0xD4);
+CAT_ASSERT_OFFSET(SpaceObjRotImp, collInfo.precise, 0x14C);
+CAT_ASSERT_OFFSET(SpaceObjRotImp, impactablelink, 0x160);
+CAT_ASSERT_OFFSET(SpaceObjRotImpTarg, health, 0x170);
+CAT_ASSERT_OFFSET(SpaceObjRotImpTargGuidance, nonstatvars, 0x17C);
+CAT_ASSERT_OFFSET(SpaceObjRotImpTargGuidance, nonstatvars.catMaxVelocity, 0x1B8);
+CAT_ASSERT_OFFSET(SpaceObjRotImpTargGuidance, clampInfo, 0x1BC);
+_Static_assert(sizeof(ShipOrDerelict) == 0x238, "ShipOrDerelict: the shared ship/derelict prefix ends at +0x238");
+CAT_ASSERT_OFFSET(ShipOrDerelict, aistate, 0x1C0);
+CAT_ASSERT_OFFSET(ShipOrDerelict, putOnDoor, 0x1C3);
+CAT_ASSERT_OFFSET(ShipOrDerelict, dockingship, 0x1C4);
+CAT_ASSERT_OFFSET(ShipOrDerelict, specialFlags, 0x1C8);
+CAT_ASSERT_OFFSET(ShipOrDerelict, specialFlags2, 0x1CC);
+CAT_ASSERT_OFFSET(ShipOrDerelict, catRetreating, 0x1D0);
+CAT_ASSERT_OFFSET(ShipOrDerelict, catResourceFinished, 0x1D4);
+CAT_ASSERT_OFFSET(ShipOrDerelict, catDisableReason, 0x1DC);
+CAT_ASSERT_OFFSET(ShipOrDerelict, catDisabled, 0x210);
+CAT_ASSERT_OFFSET(ShipOrDerelict, salvageNumTagged, 0x214);
+CAT_ASSERT_OFFSET(ShipOrDerelict, navLightInfo, 0x234);
+// the Ship (CET's 40 offsets and the cat* fields' sources)
+CAT_ASSERT_OFFSET(Ship, catSalvagePlayer, 0x238);
+CAT_ASSERT_OFFSET(Ship, shiplink, 0x23C);
+CAT_ASSERT_OFFSET(Ship, enginePosition, 0x288);
+CAT_ASSERT_OFFSET(Ship, shiptype, 0x2B0);
+CAT_ASSERT_OFFSET(Ship, shiprace, 0x2B4);
+CAT_ASSERT_OFFSET(Ship, tacticstype, 0x2B8);
+CAT_ASSERT_OFFSET(Ship, isDodging, 0x2BC);
+CAT_ASSERT_OFFSET(Ship, DodgeTime, 0x2C0);
+CAT_ASSERT_OFFSET(Ship, tacticsFormationVar1, 0x2C8);
+CAT_ASSERT_OFFSET(Ship, tactics_ordertype, 0x2D0);
+CAT_ASSERT_OFFSET(Ship, tacticsTalk, 0x2D4);
+CAT_ASSERT_OFFSET(Ship, tacticsNeedToFlightMan, 0x2D8);
+CAT_ASSERT_OFFSET(Ship, dockwaitforNorm, 0x2DC);
+CAT_ASSERT_OFFSET(Ship, timeCreated, 0x2E0);
+CAT_ASSERT_OFFSET(Ship, madAnimationFlags, 0x300);
+CAT_ASSERT_OFFSET(Ship, madGunStatus, 0x304);
+CAT_ASSERT_OFFSET(Ship, madWingStatus, 0x308);
+CAT_ASSERT_OFFSET(Ship, madDoorStatus, 0x30C);
+CAT_ASSERT_OFFSET(Ship, madSpecialStatus, 0x310);
+CAT_ASSERT_OFFSET(Ship, cuedAnimationIndex, 0x314);
+CAT_ASSERT_OFFSET(Ship, cuedAnimationType, 0x318);
+CAT_ASSERT_OFFSET(Ship, playerowner, 0x32C);
+CAT_ASSERT_OFFSET(Ship, resources, 0x330);
+CAT_ASSERT_OFFSET(Ship, fuel, 0x334);
+CAT_ASSERT_OFFSET(Ship, gettingrocked, 0x340);
+CAT_ASSERT_OFFSET(Ship, shipidle, 0x34C);
+CAT_ASSERT_OFFSET(Ship, autostabilizeship, 0x34D);
+CAT_ASSERT_OFFSET(Ship, dontrotateever, 0x356);
+CAT_ASSERT_OFFSET(Ship, colorScheme, 0x359);
+CAT_ASSERT_OFFSET(Ship, command, 0x370);
+CAT_ASSERT_OFFSET(Ship, attackvars.multipleAttackTargets, 0x374);
+CAT_ASSERT_OFFSET(Ship, attackvars.attacktarget, 0x378);
+CAT_ASSERT_OFFSET(Ship, attackvars.myLeaderIs, 0x37C);
+CAT_ASSERT_OFFSET(Ship, attackvars.myWingmanIs, 0x380);
+CAT_ASSERT_OFFSET(Ship, attackvars.flightmansLeft, 0x384);
+CAT_ASSERT_OFFSET(Ship, attackvars.attacksituation, 0x386);
+CAT_ASSERT_OFFSET(Ship, attackvars.attackevents, 0x388);
+CAT_ASSERT_OFFSET(Ship, rceffect, 0x38C);
+CAT_ASSERT_OFFSET(Ship, visibleToWho, 0x394);
+CAT_ASSERT_OFFSET(Ship, howDidIDie, 0x39C);
+CAT_ASSERT_OFFSET(Ship, nDamageLights, 0x3A4);
+CAT_ASSERT_OFFSET(Ship, damageLights, 0x3A8);
+CAT_ASSERT_OFFSET(Ship, showingDamage, 0x3AC);
+CAT_ASSERT_OFFSET(Ship, holdingPatternPos, 0x3D0);
+CAT_ASSERT_OFFSET(Ship, damageModifier, 0x3DC);
+CAT_ASSERT_OFFSET(Ship, catDamageFactor, 0x3E0);
+CAT_ASSERT_OFFSET(Ship, passiveAttackCancelTimer, 0x3E4);
+CAT_ASSERT_OFFSET(Ship, catBuildProgress, 0x3E8);
+CAT_ASSERT_OFFSET(Ship, catSalvageDepot, 0x3EC);
+CAT_ASSERT_OFFSET(Ship, catArmourLevel, 0x3F0);
+CAT_ASSERT_OFFSET(Ship, catUpgradeFlags, 0x3F4);
+CAT_ASSERT_OFFSET(Ship, tractorbeaminfo, 0x3F8);
+CAT_ASSERT_OFFSET(Ship, hyperspacePing, 0x418);
+CAT_ASSERT_OFFSET(Ship, needNewLeader, 0x41C);
+CAT_ASSERT_OFFSET(Ship, shipDeCloakTime, 0x428);
+CAT_ASSERT_OFFSET(Ship, trail, 0x42C);
+CAT_ASSERT_OFFSET(Ship, shipID, 0x43C);
+CAT_ASSERT_OFFSET(Ship, hotKeyGroup, 0x43E);
+CAT_ASSERT_OFFSET(Ship, soundevent, 0x448);
+CAT_ASSERT_OFFSET(Ship, soundevent.hyperspaceHandle, 0x45C);
+CAT_ASSERT_OFFSET(Ship, gunInfo, 0x490);
+CAT_ASSERT_OFFSET(Ship, dockvars.dockship, 0x494);
+CAT_ASSERT_OFFSET(Ship, dockvars.catDockDistance, 0x498);
+CAT_ASSERT_OFFSET(Ship, dockvars.dockstate, 0x49C);
+CAT_ASSERT_OFFSET(Ship, dockvars.catDockPointIndex, 0x4A0);
+CAT_ASSERT_OFFSET(Ship, dockvars.catDockTime, 0x4A4);
+CAT_ASSERT_OFFSET(Ship, dockInfo, 0x4A8);
+CAT_ASSERT_OFFSET(Ship, catCreator, 0x4AC);
+CAT_ASSERT_OFFSET(Ship, shipsInsideMe, 0x4B4);
+CAT_ASSERT_OFFSET(Ship, bindings, 0x4B8);
+CAT_ASSERT_OFFSET(Ship, madBindings, 0x4BC);
+CAT_ASSERT_OFFSET(Ship, catRepairDroids, 0x4C0);
+CAT_ASSERT_OFFSET(Ship, shipSinglePlayerGameInfo, 0x4C4);
+CAT_ASSERT_OFFSET(Ship, catBeastStunState, 0x4D0);
+CAT_ASSERT_OFFSET(Ship, catBeastBindings, 0x4FC);
+CAT_ASSERT_OFFSET(Ship, catSalvageConverting, 0x504);
+CAT_ASSERT_OFFSET(Ship, catSalvageConvertColor, 0x514);
+CAT_ASSERT_OFFSET(Ship, catRKOMissilesTaken, 0x518);
+CAT_ASSERT_OFFSET(Ship, catEmpStunned, 0x528);
+CAT_ASSERT_OFFSET(Ship, catHelpless, 0x530);
+CAT_ASSERT_OFFSET(Ship, catHelplessTimer, 0x534);
+CAT_ASSERT_OFFSET(Ship, catDrifting, 0x550);
+CAT_ASSERT_OFFSET(Ship, catDriftTimer, 0x560);
+CAT_ASSERT_OFFSET(Ship, catDissolving, 0x570);
+CAT_ASSERT_OFFSET(Ship, catDissolveEffect, 0x594);
+CAT_ASSERT_OFFSET(Ship, catUpgrading, 0x598);
+CAT_ASSERT_OFFSET(Ship, catUpgradeEnd, 0x5A0);
+CAT_ASSERT_OFFSET(Ship, catDockLatchHeading, 0x5A4);
+CAT_ASSERT_OFFSET(Ship, catBuildTimer, 0x5B4);
+CAT_ASSERT_OFFSET(Ship, catProtectedSpeedLimit, 0x5C4);
+CAT_ASSERT_OFFSET(Ship, catKillsByClass, 0x5C8);
+CAT_ASSERT_OFFSET(Ship, catExperienceLevel, 0x5F8);
+CAT_ASSERT_OFFSET(Ship, catRepairIdleWorkers, 0x600);
+CAT_ASSERT_OFFSET(Ship, catSalvageBigGun, 0x608);
+CAT_ASSERT_OFFSET(Ship, catKilledByPlayer, 0x60C);
+CAT_ASSERT_OFFSET(Ship, catBurstFiring, 0x610);
+CAT_ASSERT_OFFSET(Ship, catKamikazeInfectionHits, 0x614);
+CAT_ASSERT_OFFSET(Ship, catSalvagePointIndex, 0x615);
+CAT_ASSERT_OFFSET(Ship, catAttackStarted, 0x616);
+CAT_ASSERT_OFFSET(Ship, catSalvageNotifyTime, 0x618);
+CAT_ASSERT_OFFSET(Ship, catDockStateTime, 0x620);
+CAT_ASSERT_OFFSET(Ship, catLinkTimer, 0x624);
+CAT_ASSERT_OFFSET(Ship, catNavLightStatic, 0x634);
+CAT_ASSERT_OFFSET(Ship, ShipSpecifics, 0x638);
+_Static_assert(sizeof(Ship) == 0x63C, "Ship is 0x63C bytes in cataclysm.exe (univCreateShip 0x00542320)");
+// the Missile (univAddMissile 0x00540c70: the HW1 fields in HW1's order after the exe's prefix)
+_Static_assert(sizeof(Missile) == 0x258, "Missile is 0x258 bytes in cataclysm.exe (univAddMissile allocates 600)");
+CAT_ASSERT_OFFSET(Missile, trail, 0x1C0);
+CAT_ASSERT_OFFSET(Missile, missilelink, 0x1D0);
+CAT_ASSERT_OFFSET(Missile, missileType, 0x1E0);
+CAT_ASSERT_OFFSET(Missile, playerowner, 0x1F8);
+CAT_ASSERT_OFFSET(Missile, missileID, 0x210);
+CAT_ASSERT_OFFSET(Missile, colorScheme, 0x244);
+CAT_ASSERT_OFFSET(Missile, catMissileScale, 0x254);
+// the Bullet (cat_gunCreateBullet 0x0048bb00, CET's two asserts)
+_Static_assert(sizeof(Bullet) == 0x164, "Bullet is 0x164 bytes in cataclysm.exe");
+CAT_ASSERT_OFFSET(Bullet, bulletlink, 0xD4);
+CAT_ASSERT_OFFSET(Bullet, bulletType, 0x108);
+CAT_ASSERT_OFFSET(Bullet, owner, 0x11C);
+CAT_ASSERT_OFFSET(Bullet, catMoved, 0x13C);
+CAT_ASSERT_OFFSET(Bullet, playerowner, 0x14C);
+CAT_ASSERT_OFFSET(Bullet, catBigGunRange, 0x150);
+CAT_ASSERT_OFFSET(Bullet, catPrevPosition, 0x158);
+// the Derelict and the resources
+_Static_assert(sizeof(Derelict) == 0x294, "Derelict is 0x294 bytes in cataclysm.exe");
+CAT_ASSERT_OFFSET(Derelict, derelictlink, 0x238);
+CAT_ASSERT_OFFSET(Derelict, derelictID, 0x248);
+CAT_ASSERT_OFFSET(Derelict, colorScheme, 0x24A);
+CAT_ASSERT_OFFSET(Derelict, ambientSoundHandle, 0x250);
+CAT_ASSERT_OFFSET(Derelict, nextRandomTime, 0x258);
+CAT_ASSERT_OFFSET(Derelict, needNewLeader, 0x280);
+CAT_ASSERT_OFFSET(Derelict, creationTime, 0x28C);
+CAT_ASSERT_OFFSET(Derelict, derelicttype, 0x290);
+_Static_assert(sizeof(Resource) == 0x198, "Resource: the resource prefix ends at +0x198 in cataclysm.exe");
+CAT_ASSERT_OFFSET(Resource, resourcelink, 0x17C);
+CAT_ASSERT_OFFSET(Resource, resourceID, 0x18C);
+CAT_ASSERT_OFFSET(Resource, resourcevalue, 0x190);
+CAT_ASSERT_OFFSET(Resource, resourceVolume, 0x194);
+_Static_assert(sizeof(Asteroid) == 0x1B4, "Asteroid is 0x1B4 bytes in cataclysm.exe");
+CAT_ASSERT_OFFSET(Asteroid, asteroidtype, 0x198);
+CAT_ASSERT_OFFSET(Asteroid, catMimicShip, 0x1A4);
+_Static_assert(sizeof(Nebula) == 0x1A8, "Nebula is 0x1A8 bytes in cataclysm.exe");
+_Static_assert(sizeof(GasCloud) == 0x1A0, "GasCloud is 0x1A0 bytes in cataclysm.exe");
+_Static_assert(sizeof(DustCloud) == 0x1A4, "DustCloud is 0x1A4 bytes in cataclysm.exe");
+#endif
+
+/*=============================================================================
     Macros:
 =============================================================================*/
 
@@ -2443,7 +2680,7 @@ extern GodWritePacketHeader *godUniverseSnapShotHeader;
 #define sizeofGunStaticInfo(n) (sizeof(GunStaticInfo) + (n-1)*sizeof(GunStatic))
 #define sizeofDockStaticInfo(n) (sizeof(DockStaticInfo) + (n-1)*sizeof(DockStaticPoint))
 #define sizeofNavLightStaticInfo(n) (sizeof(NAVLightStaticInfo) + (n-1)*sizeof(NAVLightStatic))
-#define sizeofDockInfo(n) (sizeof(DockInfo) + (n-1)*sizeof(DockPoint))
+#define sizeofDockInfo(n) (sizeof(DockInfo) + ((n)-1)*sizeof(sdword))   // CAT: 0x24 + 4n (cat_dockInitShipDockInfo 0x00463bb0)
 #define sizeofNavLightInfo(n) (sizeof(NAVLightInfo) + (n-1)*sizeof(NAVLight))
 
 //#define isCapitalShip(ship) (((ShipStaticInfo *)((ship)##->staticinfo))->shipclass <= CLASS_Frigate)

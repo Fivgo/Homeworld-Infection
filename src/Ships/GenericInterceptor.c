@@ -233,7 +233,7 @@ bool32 GenericInterceptorCanFire(Ship *ship,SpaceObjRotImpTarg *target,vector *t
     (void)trajectory;
     (void)triggerHappy;
 
-    if (bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic) && cat_shipIsMimicking(ship))
+    if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic) && cat_shipIsMimicking(ship))
     {
         return FALSE;
     }

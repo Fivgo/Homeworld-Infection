@@ -132,7 +132,7 @@ void MothershipInit(Ship *ship)
 
 static void cat_mothershipFlagOrphanedModules(Ship *ship)
 {
-    // the component-class ships clamped to the host get the "orphaned" flag (catShipFlags bit 2) when it dies
+    // the component-class ships clamped to the host get the "orphaned" flag (catFlags18 bit 2) when it dies
     // (CarrierDied 0x005af3f0, MothershipHouseKeep 0x005bcad0)
     SelectCommand *clamped;
     sdword i;
@@ -146,7 +146,7 @@ static void cat_mothershipFlagOrphanedModules(Ship *ship)
     {
         if (clamped->ShipPtr[i]->staticinfo->shipclass == CLASS_Component)
         {
-            bitSet(clamped->ShipPtr[i]->catShipFlags, CAT_SHIPFLAG_Orphaned);
+            bitSet(clamped->ShipPtr[i]->header.catFlags18, CAT_SHIPFLAG_Orphaned);
         }
     }
 }

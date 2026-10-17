@@ -16,7 +16,7 @@
 #include "SpaceObj.h"
 
 // CAT: 0x168 bytes in cataclysm.exe (P1StandardCorvetteHeader sizeofShipSpecifics 360). In Cataclysm the P1 standard
-//      corvette is a mimic (the Mimic/MCV specifics, P1StandardCorvetteInit 0x005be660 sets catShipFlags Mimic) and a
+//      corvette is a mimic (the Mimic/MCV specifics, P1StandardCorvetteInit 0x005be660 sets catFlags18 Mimic) and a
 //      salvager (salvager block at +0x13C, cat_salvageGetSalvagerInfo 0x004f8ec0 returns Ship+0x774). The first 0x13C
 //      bytes are the mimic block of sMimic/sMCV (Mimic.h) [M2-R4 ships-b].
 typedef struct

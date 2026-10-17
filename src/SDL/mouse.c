@@ -720,7 +720,7 @@ bool32 mouseDoubleClickCheck(void)
                     mouseCursorSelect.numShips = 0;
                     makeShipsDockCapable((SelectCommand *)&selSelected); //filter ships that can't dock
                     clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&selSelected,
-                               DOCK_AT_SPECIFIC_SHIP, (Ship *)mouseCursorObjPtr);
+                               CAT_DOCK_SUPPORT, (Ship *)mouseCursorObjPtr);
                     mouseDrawType(small_docking);     //may need to have "docking" as well
                 }
                 return TRUE;

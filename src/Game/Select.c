@@ -235,10 +235,6 @@ void selRectDragFunction(Node *startNode, Camera *camera, rectangle *screenRect,
                 !cat_shipDetectedByPlayer(ship, universe.curPlayerPtr->playerIndex)) {
                 continue;
             }
-            if (bitTest(ship->header.flags, SOF_Slaveable) && !bitTest(ship->slaveinfo->flags, SF_MASTER)) {
-                // don't add slaves/draw slaves seletion circles
-                continue;
-            }
             if (bAttack && ship->staticinfo->cannotForceAttackIfOwnShip &&
                 (ship->playerowner == universe.curPlayerPtr)) {
                 // don't allow anysort of attacking of own cryotrays
@@ -500,9 +496,6 @@ Ship *selSelectionClick(Node *listHead, Camera *camera, sdword x, sdword y, bool
                 goto nextship;
             }
         }
-        if(bitTest(ship->header.flags,SOF_Slaveable))
-           if(!bitTest(ship->slaveinfo->flags, SF_MASTER))
-               goto nextship;   //don't let slaves get single clicked!
         if ((ship->impactable.collInfo.selCircleRadius > 0) && ((ship->header.flags & SOF_Dead) == 0))   //and it is in front of the camera
         {
             //here we do a test of the overlap of the selection rect
@@ -787,63 +780,7 @@ void selCircleCompute(hmatrix *modelView, hmatrix *projection, SpaceObjRotImpTar
 
     collision = &target->impactable.collInfo;
 
-    //Research Ship SLAVEABLE ship addition
-
-    if(bitTest(target->header.flags,SOF_Slaveable))
-    {    //object is slaveable...
-        if(bitTest(((Ship *)target)->slaveinfo->flags,SF_MASTER))
-        {   //object is a master...so calculate Biggey selection circle based on all slave circles
-            master = ((Ship *)target);
-            slavenode = master->slaveinfo->slaves.head;
-            centre.x = master->impactable.collInfo.collPosition.x;
-            centre.y = master->impactable.collInfo.collPosition.y;
-            centre.z = master->impactable.collInfo.collPosition.z;
-            centre.w = 1.0f;
-
-            while(slavenode != NULL)
-            {
-                slave = (Ship *) listGetStructOfNode(slavenode);
-                centre.x += slave->impactable.collInfo.collPosition.x;                    //vector at centre of target
-                centre.y += slave->impactable.collInfo.collPosition.y;
-                centre.z += slave->impactable.collInfo.collPosition.z;
-                slavenode = slavenode->next;
-            }
-            centre.x /= (real32 )(master->slaveinfo->slaves.num+1);
-            centre.y /= (real32 )(master->slaveinfo->slaves.num+1);
-            centre.z /= (real32 )(master->slaveinfo->slaves.num+1);
-            vecSub(distvec,centre,master->impactable.collInfo.collPosition);
-            dist = vecMagnitudeSquared(distvec);
-            hmatMultiplyHMatByHVec(&selCameraSpace, modelView, &centre);//in camera space
-            radius = selCameraSpace;
-            dist = fsqrt(dist);
-            radius.x += dist + (master->staticinfo->common.staticCollInfo.collspheresize);
-            hmatMultiplyHMatByHVec(&screenSpace, projection, &selCameraSpace);//in screen space
-            hmatMultiplyHMatByHVec(&radiusProjected, projection, &radius);
-            collision->selCircleX = screenSpace.x / screenSpace.w;
-            collision->selCircleY = screenSpace.y / screenSpace.w;
-            collision->selCircleRadius = (radiusProjected.x - screenSpace.x) / screenSpace.w;
-            goto checkUnderMouse;                           //check the mouse cursor thing
-        }
-        else
-        {    //object is a slave...do nothing at moment
-            centre.x = collision->collPosition.x;                    //vector at centre of target
-            centre.y = collision->collPosition.y;
-            centre.z = collision->collPosition.z;
-            centre.w = 1.0f;
-            hmatMultiplyHMatByHVec(&selCameraSpace, modelView, &centre);//in camera space
-            radius = selCameraSpace;                                   //project another point to determine selection sphere size
-            radius.x += (target->staticinfo->common.staticCollInfo.collspheresize);
-            hmatMultiplyHMatByHVec(&screenSpace, projection, &selCameraSpace);//in screen space
-            hmatMultiplyHMatByHVec(&radiusProjected, projection, &radius);
-            collision->selCircleX = screenSpace.x / screenSpace.w;
-            collision->selCircleY = screenSpace.y / screenSpace.w;
-            collision->selCircleRadius = (radiusProjected.x - screenSpace.x) / screenSpace.w;
-            //collision->selCircleX = screenSpace.x / screenSpace.w;
-            //collision->selCircleY = screenSpace.y / screenSpace.w;
-            //collision->selCircleRadius = 0.0f;
-            return;
-        }
-    }
+    // CAT (M2-R5 layout): HW1's slaveable branch (a master's circle around its slaves) is gone with the slave trade
 
     centre.x = collision->collPosition.x;                    //vector at centre of target
     centre.y = collision->collPosition.y;
@@ -1013,7 +950,7 @@ void selCircleCompute(hmatrix *modelView, hmatrix *projection, SpaceObjRotImpTar
     }
     else
     {
-checkUnderMouse:
+        // CAT (M2-R5 layout): HW1 jumped here (checkUnderMouse) from the slaveable branch, which is gone
         selectRect.x0 = primGLToScreenX(collision->selCircleX - collision->selCircleRadius) - selClickMargin;
         selectRect.x1 = primGLToScreenX(collision->selCircleX + collision->selCircleRadius) + selClickMargin;
         selectRect.y0 = primGLToScreenY(collision->selCircleY + collision->selCircleRadius) - selClickMargin;
@@ -2020,7 +1957,7 @@ vector selCentrePointComputeGeneral(MaxSelection *selection, real32 *average_siz
         //      but add nothing), a mimic's select radius, and a scale of 1 where magnitudeSquared is 0
         if (ship->header.objtype == OBJ_ShipType)
         {
-            radius = bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic) ? cat_mimicGetSelectRadius(ship)
+            radius = bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic) ? cat_mimicGetSelectRadius(ship)
                                                                     : ship->staticinfo->common.staticCollInfo.collspheresize;
             scale = (ship->magnitudeSquared != 0.0f) ? ship->magnitudeSquared : 1.0f;
         }
@@ -2515,7 +2452,7 @@ void selSelectionDimensions(hmatrix *modelView, hmatrix *projection, SelectComma
             ship = selection->ShipPtr[index];
             vecSub(distance, centre, ship->obj.posinfo.position);//distance to mean
             // CAT: a mimic's select radius (selSelectionDimensions 0x00509250)
-            radius = bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic) ? cat_mimicGetSelectRadius(ship)
+            radius = bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic) ? cat_mimicGetSelectRadius(ship)
                                                                     : ship->staticinfo->common.staticCollInfo.collspheresize;
             radius = vecMagnitudeSquared(distance) + radius * radius;//square of distance
             if (radius > maxRadius)

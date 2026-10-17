@@ -62,6 +62,7 @@ void cat_lmFillInModuleSlots(void);                 // CAT: 0x0049e9f0 (M2-R4 sh
 //start the launch manager.  It will kill itself when you hit the launch button.
 sdword lmLaunchBegin(regionhandle region, smemsize ID, udword event, udword data);
 void   lmUpdateShipsInside(void);
+bool32 cat_lmShipAutoLaunchOn(Ship *host);       // CAT: 0x0049fb00 (M2-R5 dock)
 void   lmStartup(void);
 void   lmShutdown(void);
 void   lmCloseIfOpen(void);

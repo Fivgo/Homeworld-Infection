@@ -7120,7 +7120,7 @@ memsize etgCreateEffects(etgarg *args)
         newEffect->obj.catEffectBlock = memAlloc(1, "EffectBlock", 0);  //      (etgCreateEffects 0x004704e0)
         newEffect->header.objtype = OBJ_EffectType;
         newEffect->header.flags = SOF_Rotatable;
-        newEffect->header.catHeader18 = 0;                  // CAT: cleared as the exe does (0x00470669)
+        newEffect->header.catFlags18 = 0;                  // CAT: cleared as the exe does (0x00470669)
         newEffect->staticinfo = stat;
         ClearNode(newEffect->obj.renderlink);
         newEffect->obj.currentLOD = effect->obj.currentLOD;
@@ -7233,7 +7233,7 @@ Effect* etgEffectCreate(etgeffectstatic* stat, Ship* owner, vector* pos, vector*
     {
         bitSet(newEffect->header.flags, SOF_OwnerCoordSys);
     }
-    newEffect->header.catHeader18 = 0;                      // CAT: cleared (0x004709ea)
+    newEffect->header.catFlags18 = 0;                      // CAT: cleared (0x004709ea)
     newEffect->staticinfo = stat;             //save static info
     ClearNode(newEffect->obj.renderlink);                       //no in render list
     newEffect->obj.currentLOD = 0;//owner ? ((Ship *)owner)->obj.currentLOD : 0;
@@ -7447,7 +7447,7 @@ memsize etgSpawnNewEffect(etgarg *args)
     newEffect->obj.catMeshState = NULL;                     // CAT: +0x80 cleared, +0x84 = a one-byte block
     newEffect->obj.catEffectBlock = memAlloc(1, "EffectBlock", 0);  //      (etgSpawnNewEffect 0x00470c50)
     newEffect->header.objtype = OBJ_EffectType;
-    newEffect->header.catHeader18 = 0;                      // CAT: cleared as the exe does
+    newEffect->header.catFlags18 = 0;                      // CAT: cleared as the exe does
     if (etgEffOffset.attachParent && effect->owner != NULL)
     {
         newEffect->header.flags = SOF_Rotatable | SOF_AttachPosition | SOF_AttachVelocity;

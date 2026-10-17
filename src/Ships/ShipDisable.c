@@ -27,12 +27,12 @@ static void catShipRecomputeDisabled(Ship *ship)
 {
     sdword i;
 
-    ship->catDisabled = FALSE;
+    ship->shipOrDerelict.catDisabled = FALSE;
     for (i = 0; i < CAT_NUM_DISABLE_REASONS; i++)
     {
-        if (ship->catDisableReason[i] != 0)
+        if (ship->shipOrDerelict.catDisableReason[i] != 0)
         {
-            ship->catDisabled = TRUE;
+            ship->shipOrDerelict.catDisabled = TRUE;
         }
     }
 }
@@ -45,7 +45,7 @@ static void catShipRecomputeDisabled(Ship *ship)
 void cat_shipSetDisableReason(Ship *ship, sdword value, sdword reason)
 {
     dbgAssertOrIgnore((reason >= 0) && (reason < CAT_NUM_DISABLE_REASONS));
-    ship->catDisableReason[reason] = value;
+    ship->shipOrDerelict.catDisableReason[reason] = value;
     catShipRecomputeDisabled(ship);
 }
 
@@ -56,7 +56,7 @@ static void catShipBecomeHelpless(Ship *ship, real32 duration)
     udword flags = ship->header.flags;
 
     ship->catHelpless = TRUE;
-    ship->catDisableReason[CAT_DISABLE_REASON_Helpless] = 1;
+    ship->shipOrDerelict.catDisableReason[CAT_DISABLE_REASON_Helpless] = 1;
     catShipRecomputeDisabled(ship);
     ship->catHelplessSavedDisabled = bitTest(flags, SOF_Disabled) ? 1 : 0;
     ship->catHelplessSavedCrazy = bitTest(flags, SOF_Crazy) ? 1 : 0;
@@ -70,7 +70,7 @@ static void catShipBecomeHelpless(Ship *ship, real32 duration)
 // autostabilize come back (a ship that still moves stabilises), and the EMP stun ends
 static void catShipEndHelpless(Ship *ship)
 {
-    ship->catDisableReason[CAT_DISABLE_REASON_Helpless] = 0;
+    ship->shipOrDerelict.catDisableReason[CAT_DISABLE_REASON_Helpless] = 0;
     catShipRecomputeDisabled(ship);
     ship->header.flags = (ship->header.flags & ~(SOF_Crazy | SOF_Disabled)) |
                          (((ship->catHelplessSavedDisabled & 1) << 2 | (ship->catHelplessSavedCrazy & 1)) << 21);
@@ -193,13 +193,13 @@ void cat_shipSetSUExempt(Ship *ship, bool32 exempt)
     {
         if (!bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))
         {
-            // CAT-TODO(M2-R4 #5): cat_suShipRemoved(ship) 0x00459ae0 (the support-unit count, ConsMgr.c)
+            // CAT-TODO(M2-R6 ConsMgr): cat_suShipRemoved(ship) 0x00459ae0 (the support-unit count, ConsMgr.c)
         }
     }
     else if ((exempt == 0) && bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))
     {
         bitClear(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20);
-        // CAT-TODO(M2-R4 #5): cat_suShipAdded(ship, ship->playerowner) 0x00459a90
+        // CAT-TODO(M2-R6 ConsMgr): cat_suShipAdded(ship, ship->playerowner) 0x00459a90
     }
     ship->shipOrDerelict.specialFlags2 = (ship->shipOrDerelict.specialFlags2 & ~SPECIAL_2_CatExempt20) |
                                          ((exempt & 1) ? SPECIAL_2_CatExempt20 : 0);

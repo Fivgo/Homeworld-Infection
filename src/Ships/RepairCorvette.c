@@ -381,9 +381,7 @@ bool32 refuelRepairShips(Ship *ship, SelectAnyCommand *targets,real32 rangetoRef
 
         //"speech event?  Switching to Emergency Docking Fuel Supply?
         //cldock
-        // CAT-PROVISIONAL: the exe passes Cataclysm's dock type 0 with dockwith = ship (Cataclysm renumbered the
-        //      dock types; clDock and Dock.c are M2-R4 #3), so HW1's DOCK_AT_SPECIFIC_SHIP stays until then
-        clDock(&universe.mainCommandLayer,&selectOne,DOCK_AT_SPECIFIC_SHIP,ship);
+        clDock(&universe.mainCommandLayer,&selectOne,CAT_DOCK_SUPPORT,ship);    // the exe's purpose 0 with dockwith = ship (refuelRepairShips 0x005c1d10)
         targets->numTargets--;
         if(targets->numTargets <= 0)
             return TRUE;

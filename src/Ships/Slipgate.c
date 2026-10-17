@@ -7,8 +7,8 @@
 // =============================================================================
 
 // CAT: new file (M2-R4 ships-b). Each body follows the r6 decompile of its exe function (address on each). The gates
-//      are opened, paired and closed by the KAS (stage 6); the crossing itself is the dock code's purpose 10 (M2-R4
-//      #3 follow-up, dock purposes).
+//      are opened, paired and closed by the KAS (stage 6); the crossing itself is the dock code's purpose 10
+//      (CAT_DOCK_SLIPGATE, Dock.c; M2-R5 dock).
 
 #include "Slipgate.h"
 
@@ -152,7 +152,7 @@ void SlipgateInit(Ship *ship)                                                   
     spec->unknown1C = 0;
     spec->unknown20 = 0;
     bitSet(ship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus);
-    bitSet(ship->catShipFlags, CAT_SHIPFLAG_Orphaned);
+    bitSet(ship->header.catFlags18, CAT_SHIPFLAG_Orphaned);
     bitClear(ship->header.flags, SOF_Selectable);
     bitSet(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatSlipgate);
     for (i = 0; i < 3; i++)
@@ -203,17 +203,14 @@ static void cat_slipgateDockWaitingShips(Ship *gate, Ship *ship)                
     selection->numShips = 0;
     for (i = 0; i < num; i++)
     {
-        // CAT-PROVISIONAL (M2-R4 #3 follow-up, dock purposes): the exe tests and docks with Cataclysm's dock purpose
-        //      10 (ThisShipCanDockWith(ship, gate, 10, 0), clDock(..., 10, gate)); this tree's dock code still takes
-        //      HW1's DOCK_* bits, so DOCK_AT_SPECIFIC_SHIP stands in
-        if (ThisShipCanDockWith(candidates[i], gate, DOCK_AT_SPECIFIC_SHIP))
+        if (ThisShipCanDockWith(candidates[i], gate, CAT_DOCK_SLIPGATE, FALSE))     // the exe's purpose 10 (M2-R5 dock)
         {
             selection->ShipPtr[selection->numShips++] = candidates[i];
         }
     }
     if (selection->numShips > 0)
     {
-        clDock(&universe.mainCommandLayer, selection, DOCK_AT_SPECIFIC_SHIP, gate);
+        clDock(&universe.mainCommandLayer, selection, CAT_DOCK_SLIPGATE, gate);
     }
 }
 

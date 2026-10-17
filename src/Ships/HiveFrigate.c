@@ -39,24 +39,11 @@ HiveFrigateStatics HiveFrigateStaticBeast;      // 0x00a7aca0: bHiveFrigate
 #define HIVE_SPEECH_ORDER           0x40008a9
 #define HIVE_CHATTER_LAUNCHED       0x2d
 
-// CAT-PROVISIONAL (M2-R4 #3 follow-up, dock purposes): the exe calls clDock with Cataclysm's dock purposes: 0 (the
-//      hive docks with a ship), 1 (swarmers return into the hive and stay) and 2 (swarmers leave the hive). This tree's
-//      clDock still takes HW1's DOCK_* bits: 0 and 1 use the nearest HW1 orders; 2 has none (HW1 launches with
-//      clLaunchShip, with different rules), so it is not issued and the swarmers stay inside until the dock purposes
-//      are ported.
+// CAT (M2-R5 dock): HiveFrigateHouseKeep 0x005b57d0 calls clDock with Cataclysm's dock purposes: 0 (the hive docks
+//      with a ship), 1 (swarmers return into the hive and stay) and 2 (swarmers leave the hive through the dock command)
 static void hiveFrigateDock(SelectCommand *selection, sdword purpose, Ship *dockwith)
 {
-    switch (purpose)
-    {
-        case 0:
-            clDock(&universe.mainCommandLayer, selection, DOCK_FOR_BOTHREFUELANDREPAIR, dockwith);
-            break;
-        case 1:
-            clDock(&universe.mainCommandLayer, selection, DOCK_AT_SPECIFIC_SHIP | DOCK_STAY_TILL_EXPLICITLAUNCH, dockwith);
-            break;
-        default:
-            break;
-    }
+    clDock(&universe.mainCommandLayer, selection, (DockType)purpose, dockwith);
 }
 
 void HiveFrigateStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)  // 0x005b54b0

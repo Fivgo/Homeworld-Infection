@@ -37,7 +37,7 @@ void MCVInit(Ship *ship)                                                        
     {
         spec->unknown4C[i] = 0;
     }
-    bitSet(ship->catShipFlags, CAT_SHIPFLAG_Mimic);
+    bitSet(ship->header.catFlags18, CAT_SHIPFLAG_Mimic);
     spec->mimic.mode = MIMIC_Off;
     spec->mimic.fade = 0.0f;
     spec->mimic.apparentBindings = NULL;

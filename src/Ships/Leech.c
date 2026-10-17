@@ -104,7 +104,7 @@ static bool32 leechShipHasFreePoint(Ship *ship)
 
     for (i = 0; i < dockstaticinfo->numDockPoints; i++)
     {
-        if ((dockstaticinfo->dockstaticpoints[i].type == DPT_Leech) && (ship->dockInfo->dockpoints[i].thisDockBusy == 0))
+        if ((dockstaticinfo->dockstaticpoints[i].type == DPT_Leech) && (ship->dockInfo->thisDockBusy[i] == 0))
         {
             return TRUE;
         }
@@ -184,7 +184,7 @@ static bool32 cat_leechReserveLatchPoint(Ship *ship)                            
     free = memAlloc(dockstaticinfo->numDockPoints * sizeof(sdword), "LeechFree", 0);
     for (i = 0; i < dockstaticinfo->numDockPoints; i++)
     {
-        if ((dockstaticinfo->dockstaticpoints[i].type == DPT_Leech) && (target->dockInfo->dockpoints[i].thisDockBusy == 0))
+        if ((dockstaticinfo->dockstaticpoints[i].type == DPT_Leech) && (target->dockInfo->thisDockBusy[i] == 0))
         {
             free[num++] = i;
         }
@@ -192,7 +192,7 @@ static bool32 cat_leechReserveLatchPoint(Ship *ship)                            
     if (num != 0)
     {
         spec->latchPoint = free[ranRandom(RANDOM_GAME) % (udword)num];
-        target->dockInfo->dockpoints[spec->latchPoint].thisDockBusy = 1;
+        target->dockInfo->thisDockBusy[spec->latchPoint] = 1;
     }
     found = (num != 0);
     memFree(free);
@@ -206,7 +206,7 @@ static void leechFreeLatchPoint(LeechSpec *spec)
     {
         if (spec->target != NULL)
         {
-            spec->target->dockInfo->dockpoints[spec->latchPoint].thisDockBusy = 0;
+            spec->target->dockInfo->thisDockBusy[spec->latchPoint] = 0;
         }
         spec->latchPoint = -1;
     }
@@ -792,13 +792,12 @@ void LeechHouseKeep(Ship *ship)                                                 
     {
         spec->returnToDock = 0;
         spec->returning = 1;
-        // CAT: the exe passes a memAlloc'd one-ship selection it never frees; a stack one here.
-        //      CAT-PROVISIONAL (M2-R4 #3 follow-up, dock purposes): the exe docks with purpose 3; this tree's dock code
-        //      still takes HW1's DOCK_TO_DEPOSIT_RESOURCES bit
+        // CAT: the exe passes a memAlloc'd one-ship selection it never frees; a stack one here. Purpose 3
+        //      (LeechHouseKeep 0x005b7270; M2-R5 dock)
         selectone.numShips = 1;
         selectone.ShipPtr[0] = ship;
-        dockwith = FindNearestShipToDockAt(ship, DOCK_TO_DEPOSIT_RESOURCES);
-        clWrapDock(&universe.mainCommandLayer, &selectone, DOCK_TO_DEPOSIT_RESOURCES, dockwith);
+        dockwith = FindNearestShipToDockAt(ship, CAT_DOCK_DEPOSIT_RESOURCES);
+        clWrapDock(&universe.mainCommandLayer, &selectone, CAT_DOCK_DEPOSIT_RESOURCES, dockwith);
     }
     if ((ship->resources < 1) && spec->returning)
     {

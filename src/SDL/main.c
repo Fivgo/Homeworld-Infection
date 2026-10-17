@@ -61,6 +61,7 @@
 #include "Universe.h"
 #include "ETG.h"            // CAT: /catEtgParseTest, /catEtgEffectTest (port diagnostics)
 #include "Mesh.h"           // CAT: /catMeshLoadTest (port diagnostic)
+#include "Dock.h"           // CAT: /catDockTest (port diagnostic, M2-R5 dock)
 #include "texreg.h"         // CAT: /catTexturesTest (port diagnostic)
 #include "OracleDump.h"     // HWI-ORACLE: /oracleDump, /oracleSelfTest
 
@@ -368,6 +369,14 @@ bool32 CatEtgParseTestSet(char *string)
 bool32 CatEtgEffectTestSet(char *string)
 {
     catEtgEffectSelfTestTicks = (sdword)strtol(string, NULL, 10);
+    return TRUE;
+}
+
+// CAT: port diagnostic: /catDockTest <ticks> (Dock.c catDockSelfTestTick: the scripted dock self-test on the headless
+//      Mission01 run, M2-R5 dock)
+bool32 CatDockTestSet(char *string)
+{
+    catDockSelfTestSet(string);
     return TRUE;
 }
 
@@ -933,6 +942,7 @@ commandoption commandOptions[] =
     // CAT: port diagnostics, not Cataclysm options (ETG.c catEtgRunParseSelfTest, catEtgRunEffectSelfTest)
     entryFnParam("/catEtgParseTest",    CatEtgParseTestSet, " <listfile> - start the effects module and load every etg script and effect named in listfile, then exit."),
     entryFnParam("/catEtgEffectTest",   CatEtgEffectTestSet, " <ticks> - with /catEtgParseTest: create a sample of the effects and run them for <ticks> universe ticks."),
+    entryFnParam("/catDockTest",        CatDockTestSet, " <ticks> - headless Mission01 run: dock, deposit, harvest and launch orders with no input, exit after <ticks> ticks."),
     // CAT: port diagnostic, not a Cataclysm option (texreg.c catTexturesRunSelfTest)
     entryVr("/catTexturesTest",     catTexturesSelfTest, TRUE, " - load textures.ll and register/load every texture it lists, then exit."),
 #if HWI_ORACLE

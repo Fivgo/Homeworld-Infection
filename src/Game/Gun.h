@@ -48,6 +48,7 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target);
 Bullet *gunShoot(Ship *ship,Gun *gun, SpaceObjRotImpTarg *target);          // CAT: returns the bullet (0x0048b5b0)
 Bullet *cat_gunCreateBullet(Ship *ship, Gun *gun, SpaceObj *from, SpaceObjRotImpTarg *target, real32 damage);   // CAT: 0x0048bb00
 bool32 cat_gunInSecondMode(Gun *gun);                                     // CAT: the second fire mode test the exe inlines
+SpaceObjRotImpTarg *cat_gunPickMothershipModuleTarget(Ship *ship, SpaceObjRotImpTarg *target);   // CAT: 0x0048b950 (M2-R5 layout-dock)
 sdword cat_gunSoundTypeLookup(sdword weapon, sdword gunSize);             // CAT: 0x0048b7c0
 void cat_gunStaticSetSoundTypes(GunStatic *gunstatic);                    // CAT: 0x0048b790
 GunSoundType cat_gunGetSoundType(Gun *gun);                               // CAT: 0x0048b8c0

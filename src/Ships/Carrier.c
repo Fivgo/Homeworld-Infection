@@ -34,7 +34,9 @@ typedef struct
 CarrierStatics CarrierStatic;
 
 // CAT: one block per race that has a carrier: Sect (0x00ab73e0), Beast (0x00ab73c0), Kushan (0x00ab7420),
-//      Taiidan (0x00ab7400), Derelict (0x00ab7440: dKushanCarrier) (CarrierStaticInit 0x005aefb0); HW1 had R1/R2
+//      Taiidan (0x00ab7400), Derelict (0x00ab7440: dKushanCarrier) (CarrierStaticInit 0x005aefb0); HW1 had R1/R2.
+//      cat_carrierVariantStaticInit 0x005af4a0 (custstatinfo = 0x00ab73b0 for race 2, else 0x00ab73ac) has no caller
+//      and no header slot in the exe (M2-R5 layout-dock: not ported)
 CarrierStatics CarrierStaticSect;
 CarrierStatics CarrierStaticBeast;
 CarrierStatics CarrierStaticKushan;
@@ -170,7 +172,7 @@ void CarrierHouseKeep(Ship *ship)
         for (i = 0; i < dockstatic->numDockPoints; i++)
         {
             if (((dockstatic->dockstaticpoints[i].type == DPT_Med_In) || (dockstatic->dockstaticpoints[i].type == DPT_Med_Out)) &&
-                (ship->dockInfo->dockpoints[i].thisDockBusy != 0))
+                (ship->dockInfo->thisDockBusy[i] != 0))
             {
                 pointBusy = TRUE;
                 break;
@@ -274,7 +276,7 @@ bool32 cat_carrierDoorAnimUpdate(Ship *ship, sdword dockstate)
     Name        : cat_carrierCountSupportModules
     Description : CAT (M2-R4 ships-b): the finished sCarrierSupport modules clamped to ship (not SPECIAL_2_CatBeingBuilt)
                   (cat_carrierCountSupportModules 0x005af460; called by cmUpdateShipAvailable and unitCapCanCreateShip,
-                  M2-R4 #5)
+                  M2-R4 rest-oracle)
 ----------------------------------------------------------------------------*/
 sdword cat_carrierCountSupportModules(Ship *ship)
 {
@@ -316,7 +318,7 @@ void CarrierDied(Ship *ship)
         {
             if (clamped->ShipPtr[i]->staticinfo->shipclass == CLASS_Component)
             {
-                bitSet(clamped->ShipPtr[i]->catShipFlags, CAT_SHIPFLAG_Orphaned);
+                bitSet(clamped->ShipPtr[i]->header.catFlags18, CAT_SHIPFLAG_Orphaned);
             }
         }
     }

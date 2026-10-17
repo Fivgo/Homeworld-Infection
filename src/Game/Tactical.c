@@ -225,14 +225,6 @@ void toAllShipsDraw(void)
             goto nextnode;                                  //don't draw it
         }
 
-        if(impactable->header.flags & SOF_Slaveable)
-        {
-            if(((Ship*)impactable)->slaveinfo->flags & SF_SLAVE)
-            {
-                goto nextnode;          //don't draw TO for SLAVES of some master ship
-            }
-        }
-
         if (impactable->header.objtype == OBJ_MissileType)
         {
             Missile* mine = (Missile*)impactable;

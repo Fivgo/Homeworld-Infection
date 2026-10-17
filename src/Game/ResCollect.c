@@ -224,7 +224,7 @@ Resource *rescollectFindNearestResource(Ship *ship,struct CommandToDo *command)
             command->collect.resourceVolumeSize = COLLECTRESOURCE_ZONE;
         }
         bitClear(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatResourcing);
-        // CAT-TODO(M2-R4 #5): the exe passes univFindNearestResource 0x00549c50 a fourth argument, 0 here
+        // CAT-TODO(M2-R6 FOW): the exe passes univFindNearestResource 0x00549c50 a fourth argument, 0 here
         resource = univFindNearestResource(ship,command->collect.resourceVolumeSize,&command->collect.resourceVolumePosition);
         if (resource != NULL)
         {
@@ -238,11 +238,15 @@ Resource *rescollectFindNearestResource(Ship *ship,struct CommandToDo *command)
         return NULL;
     }
 
-    // CAT-TODO(M2-R4 #3 follow-up, dock purposes): the exe goes on with cat_clHarvestNearestResource 0x00449790 (CommandLayer.c:
-    //      univFindNearestResource with its fourth argument, the out-of-resources message and speech (stage 3), the
-    //      dock with type 3 in a multiplayer game, and for a single-ship order FreeLastOrder +
-    //      ChangeSingleShipToCollectResource(command, resource)); until it is ported the nearest resource is HW1's
-    resource = univFindNearestResource(ship,0,NULL);
+    // CAT (M2-R5 dock): the exe goes on with cat_clHarvestNearestResource 0x00449790 for a one-ship selection, with no
+    //      message and no speech (rescollectFindNearestResource 0x004f11f0)
+    {
+        SelectCommand selectone;
+
+        selectone.numShips = 1;
+        selectone.ShipPtr[0] = ship;
+        resource = cat_clHarvestNearestResource(&universe.mainCommandLayer,&selectone,FALSE,FALSE);
+    }
 
     return resource;
 }
@@ -602,8 +606,8 @@ bool32 CollectResources(Ship *ship,Resource *resource)
         if ((resource->resourcevalue <= 0) && (resourceWasAlive))
         {
             AddResourceToDeleteResourceList(resource);
-            ship->catResourceFinished = TRUE;
-            ship->catResourcing = FALSE;
+            ship->shipOrDerelict.catResourceFinished = TRUE;
+            ship->shipOrDerelict.catResourcing = FALSE;
             return TRUE;
         }
 
@@ -1028,11 +1032,11 @@ void Fix_ShipXHarvestsResourceY(Ship *ship)
 ----------------------------------------------------------------------------*/
 static void cat_rescollectStopHarvest(Ship *ship)
 {
-    if (ship->catResourcing)
+    if (ship->shipOrDerelict.catResourcing)
     {
-        ship->catResourcing = FALSE;
+        ship->shipOrDerelict.catResourcing = FALSE;
         bitClear(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatHarvesting);
-        ship->catResourceFinished = TRUE;
+        ship->shipOrDerelict.catResourceFinished = TRUE;
     }
     if (ship->ShipXHarvestsResourceY != NULL)
     {
@@ -1099,7 +1103,7 @@ bool32 processCollectResource(struct CommandToDo *collecttodo)
     resource = rescollectFindNearestResource(ship,collecttodo);
     if (resource == NULL)
     {
-        // CAT-TODO(M2-R4 #5): the exe also ends the order here (TRUE) when its globals 0x00a7519c and 0x00a75190
+        // CAT-TODO(stage 5 recorder): the exe also ends the order here (TRUE) when its globals 0x00a7519c and 0x00a75190
         //      are both set (not named in this tree yet)
         if (multiPlayerGame)
         {
@@ -1120,9 +1124,7 @@ bool32 processCollectResource(struct CommandToDo *collecttodo)
     }
 
 letsdock:
-    // CAT-TODO(M2-R4 #3 follow-up, dock purposes): the exe docks with purpose 3; this tree's dock code still takes
-    //      HW1's DOCK_TO_DEPOSIT_RESOURCES bit
-    dockship = FindNearestShipToDockAt(ship,DOCK_TO_DEPOSIT_RESOURCES);
+    dockship = FindNearestShipToDockAt(ship,CAT_DOCK_DEPOSIT_RESOURCES);      // the exe's purpose 3 (M2-R5 dock)
     cat_rescollectStopHarvest(ship);
     if ((ship->resources > 0) && (dockship != NULL))
     {
@@ -1131,7 +1133,7 @@ letsdock:
 #endif
         // changing COMMAND_COLLECT_RESOURCES to COMMAND_DOCK
         FreeLastOrder(collecttodo); // free COMMAND_COLLECT_RESOURCES
-        dockChangeSingleShipToDock(collecttodo,ship,dockship,TRUE,DOCK_TO_DEPOSIT_RESOURCES);
+        dockChangeSingleShipToDock(collecttodo,ship,dockship,TRUE,CAT_DOCK_DEPOSIT_RESOURCES);
         done = FALSE;
     }
     else

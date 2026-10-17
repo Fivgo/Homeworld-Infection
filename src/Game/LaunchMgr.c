@@ -1664,6 +1664,47 @@ void lmShutdown(void)
     Outputs     : none
     Return      : void
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : cat_lmShipAutoLaunchOn
+    Description : CAT: whether ships docked inside host launch again on their own (cataclysm.exe 0x0049fb00;
+                  cat_dockShipDocksAtShip asks in dock state 8): TRUE unless host is one of the player's
+                  mothership-class or carrier-class ships whose autolaunch bit (Player.autoLaunch: bit 0 the
+                  mothership, bits 1..3 the three carriers of FillInCarrierMothershipInfo) is off; in single player
+                  only the local player's ships without the SPECIAL_2_CatExempt20 flag are subject to the bits
+    Inputs      : host
+----------------------------------------------------------------------------*/
+bool32 cat_lmShipAutoLaunchOn(Ship *host)
+{
+    Ship *mothership;
+    Ship *carriers[4];      // CAT-FIX: FillInCarrierMothershipInfo fills four slots (the exe's frame holds three and
+                            //      overruns into its own locals); the exe tests the first three
+    sdword i;
+    udword bit = 2;
+
+    if (singlePlayerGame && ((host->playerowner->playerIndex != 0) || (host->shipOrDerelict.specialFlags2 & SPECIAL_2_CatExempt20)))
+    {
+        return TRUE;
+    }
+    if ((host->staticinfo->shipclass != CLASS_Mothership) && (host->staticinfo->shipclass != CLASS_Carrier))
+    {
+        return TRUE;
+    }
+    mothership = host;
+    FillInCarrierMothershipInfo(host->playerowner,&mothership,carriers);
+    if (mothership == host)
+    {
+        return (host->playerowner->autoLaunch & 1) != 0;
+    }
+    for (i = 0; i < 3; i++, bit <<= 1)
+    {
+        if (carriers[i] == host)
+        {
+            return (host->playerowner->autoLaunch & bit) != 0;
+        }
+    }
+    return TRUE;
+}
+
 void lmUpdateShipsInside(void)
 {
     uword i;

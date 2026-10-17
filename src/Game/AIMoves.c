@@ -1824,30 +1824,18 @@ sdword aimProcessDock(AITeam *team)
             actualHealth += team->shipList.selection->ShipPtr[i]->targetable.health;
         }
 
-        //if the ships' health is low, dock for refuel and repair
-        if (100 *actualHealth/maxHealth < AIM_DOCK_REPAIRHEALTH_TRIGGER)
-        {
-            dockType = DOCK_FOR_BOTHREFUELANDREPAIR;
-        }
-        else
-        {
-            dockType = DOCK_FOR_REFUEL;
-        }
-
-        if ((dockMoveFlags & dockmoveFlags_AtShip) && (thisMove->params.dock.dockAt))
-        {
-            dockType = DOCK_AT_SPECIFIC_SHIP;       // override all previous decisions
-            dockAt = thisMove->params.dock.dockAt;
-        }
-
-        if (dockMoveFlags & dockmoveFlags_Stay)
-        {
-            dockType |= DOCK_STAY_TILL_EXPLICITLAUNCH;
-        }
-
+        // CAT (M2-R5 dock): aimProcessDock 0x00409350 turns the move flags into Cataclysm's dock purpose: 1 (stay) or
+        //      0 (support), plus 8 for an instant dock (9 / 8); the host only when the AtShip flag names one. HW1's
+        //      health-based refuel/repair choice is gone. CAT-TODO(stage 4 AI): the rest of the body
+        (void)maxHealth; (void)actualHealth;
+        dockType = (dockMoveFlags & dockmoveFlags_Stay) ? CAT_DOCK_STAY : CAT_DOCK_SUPPORT;
         if (dockMoveFlags & dockmoveFlags_Instantaneously)
         {
-            dockType |= DOCK_INSTANTANEOUSLY;
+            dockType += CAT_DOCK_SUPPORT_INSTANT;
+        }
+        if ((dockMoveFlags & dockmoveFlags_AtShip) && (thisMove->params.dock.dockAt))
+        {
+            dockAt = thisMove->params.dock.dockAt;
         }
 
         aiuWrapDock(team->shipList.selection, dockType, dockAt);
@@ -3124,7 +3112,7 @@ sdword aimProcessResourceVolume(AITeam *team)
                     if (100*ship->resources/ship->staticinfo->maxresources > 90)
                     {
                         selone.ShipPtr[0] = ship;
-                        aiuWrapDock(&selone, DOCK_TO_DEPOSIT_RESOURCES, NULL);
+                        aiuWrapDock(&selone, CAT_DOCK_DEPOSIT_RESOURCES, NULL);
 //                        aiplayerLog((aiIndex, "Resourcer %i docking", i));
                     }
                     else if (biggestResource)
@@ -3146,7 +3134,7 @@ sdword aimProcessResourceVolume(AITeam *team)
                 if (100*ship->resources/ship->staticinfo->maxresources > 90)
                 {
                     selone.ShipPtr[0] = ship;
-                    aiuWrapDock(&selone, DOCK_TO_DEPOSIT_RESOURCES, NULL);
+                    aiuWrapDock(&selone, CAT_DOCK_DEPOSIT_RESOURCES, NULL);
 //                    aiplayerLog((aiIndex, "Resourcer %i docking", i));
                 }
                 bitClear(ship->shipOrDerelict.specialFlags, SPECIAL_Finished_Resource);

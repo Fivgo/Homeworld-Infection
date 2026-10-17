@@ -371,9 +371,9 @@ dontgotosameplane:
         aitrackHeading(ship,&trajectory,FLYSHIP_ATTACKACCURACY);
     }
 
-    // CAT: a mimic that is mimicking does not shoot (attackStraightForward 0x00421cf0: catShipFlags 0x8 and
+    // CAT: a mimic that is mimicking does not shoot (attackStraightForward 0x00421cf0: catFlags18 0x8 and
     //      cat_shipIsMimicking)
-    if (shootguns && !(bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic) && cat_shipIsMimicking(ship)))
+    if (shootguns && !(bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic) && cat_shipIsMimicking(ship)))
     {
         if (ship->attackvars.multipleAttackTargets)
         {

@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "AIShip.h"
+#include "AIUtilities.h"
 #include "Collision.h"
 #include "CommandDefs.h"
 #include "Debug.h"
@@ -1012,7 +1013,6 @@ Bullet *cat_gunCreateBullet(Ship *ship, Gun *gun, SpaceObj *from, SpaceObjRotImp
     bullet->catBurst = burst;
     bullet->bulletType = gun->catWeaponType;               // the weapon word (SpaceObj.h)
     bullet->damage = damage;
-    bullet->damageFull = damage;                            // HW1 field; the exe's +0x13C is catMoved
     bullet->soundType = soundType;
     bullet->owner = ship;
     bullet->playerowner = ship->playerowner;
@@ -1949,3 +1949,63 @@ void gunTuneGun(Ship *ship)
 }
 #endif
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_gunPickMothershipModuleTarget
+    Description : CAT (M2-R5 layout-dock): a wingman's target on a module-carrying mothership
+                  (cat_gunPickMothershipModuleTarget 0x0048b950; processAttackToDo 0x00441c10 calls it with the
+                  leader's target). For an sCarrier, sMothership or bMothership target that has clamped objects, the
+                  nearest clamped object of CLASS_Component to the ship (by collision position) wins; the
+                  sMothership and bMothership start from their first clamped object (their special module), the
+                  sCarrier from the carrier itself. Anything else is returned as is.
+    Inputs      : ship, target (may be NULL)
+    Return      : the object to attack
+----------------------------------------------------------------------------*/
+SpaceObjRotImpTarg *cat_gunPickMothershipModuleTarget(Ship *ship, SpaceObjRotImpTarg *target)
+{
+    Ship *host = (Ship *)target;
+    CatClampedList *clamped;
+    SpaceObjRotImpTarg *best;
+    real32 bestDistSquared, distSquared;
+    sdword i;
+
+    if (target == NULL)
+    {
+        return NULL;
+    }
+    if ((target->header.objtype != OBJ_ShipType) ||
+        ((host->shiptype != sCarrier) && (host->shiptype != sMothership) && (host->shiptype != bMothership)))
+    {
+        return target;
+    }
+    if ((host->guidance.clampInfo == NULL) || ((clamped = host->guidance.clampInfo->clampedObjs) == NULL) ||
+        (clamped->numShips <= 0))
+    {
+        return target;
+    }
+    bestDistSquared = aiuFindDistanceSquared(ship->impactable.collInfo.collPosition, target->impactable.collInfo.collPosition);
+    if ((host->shiptype == sMothership) || (host->shiptype == bMothership))
+    {
+        best = (SpaceObjRotImpTarg *)clamped->ShipPtr[0];
+        i = 1;
+    }
+    else
+    {
+        best = target;
+        i = 0;
+    }
+    for ( ; i < clamped->numShips; i++)
+    {
+        Ship *module = clamped->ShipPtr[i];
+
+        if (module->staticinfo->shipclass == CLASS_Component)
+        {
+            distSquared = aiuFindDistanceSquared(ship->impactable.collInfo.collPosition, module->impactable.collInfo.collPosition);
+            if (distSquared < bestDistSquared)
+            {
+                bestDistSquared = distSquared;
+                best = (SpaceObjRotImpTarg *)module;
+            }
+        }
+    }
+    return best;
+}

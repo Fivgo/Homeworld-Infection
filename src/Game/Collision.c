@@ -15,6 +15,8 @@
 #include "Salvage.h"
 
 #include "Alliance.h"
+#include "CommandDefs.h"
+#include "CommandLayer.h"
 #include "Debug.h"
 #include "FastMath.h"
 #include "NIS.h"
@@ -648,7 +650,7 @@ static bool32 cat_kamikazeCheckShip(Ship *ship, SpaceObjRotImpTarg *other, real3
     {
         if (otherIsShip)
         {
-            if (bitTest(((Ship *)other)->catShipFlags, CAT_SHIPFLAG_Mimic))
+            if (bitTest(((Ship *)other)->header.catFlags18, CAT_SHIPFLAG_Mimic))
             {
                 return FALSE;
             }
@@ -678,7 +680,7 @@ static bool32 cat_kamikazeCheckShip(Ship *ship, SpaceObjRotImpTarg *other, real3
     {
         *otherDamage = kamikazeDamage[ship->shiptype];
     }
-    if (bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic))
+    if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic))
     {
         *otherDamage = cat_shipGetRamDamageScale(ship) * *otherDamage;
     }
@@ -876,6 +878,64 @@ static bool32 cat_collClampExempt(Ship *obj1, Ship *obj2)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_collSentinelFieldExempt
+    Description : CAT (M2-R5 layout-dock): cat_collSentinelFieldExempt 0x0043acc0. An sSentinel / bSentinel with its
+                  field up does not collide with a ship that is not on a kamikaze run (SPECIAL_Kamikaze); a Sentinel
+                  whose field is down, when the other ship is no Sentinel, does not collide with the first ship of
+                  the protect order it is on (its command's COMMAND_MASK_PROTECTING selection).
+    Inputs      : the two ships
+    Return      : TRUE when the pair is exempt from collision
+----------------------------------------------------------------------------*/
+static bool32 cat_collSentinelFieldExempt(Ship *obj1, Ship *obj2)
+{
+    Ship *sentinel1 = NULL, *active1 = NULL;
+    Ship *sentinel2 = NULL, *active2 = NULL;
+    CommandToDo *command;
+
+    if ((obj1->shiptype == sSentinel) || (obj1->shiptype == bSentinel))
+    {
+        sentinel1 = obj1;
+        if (cat_shipIsSentinelFieldActive(obj1))
+        {
+            active1 = obj1;
+        }
+    }
+    if ((obj2->shiptype == sSentinel) || (obj2->shiptype == bSentinel))
+    {
+        sentinel2 = obj2;
+        if (cat_shipIsSentinelFieldActive(obj2))
+        {
+            active2 = obj2;
+        }
+    }
+    if ((active1 != NULL) && !bitTest(obj2->shipOrDerelict.specialFlags, SPECIAL_Kamikaze))
+    {
+        return TRUE;
+    }
+    if ((active2 != NULL) && !bitTest(obj1->shipOrDerelict.specialFlags, SPECIAL_Kamikaze))
+    {
+        return TRUE;
+    }
+    if (sentinel1 == NULL)
+    {
+        if (sentinel2 == NULL)
+        {
+            return FALSE;
+        }
+        command = sentinel2->command;
+        return ((command != NULL) && (command->ordertype.attributes & COMMAND_MASK_PROTECTING) &&
+                (command->protect->numShips > 0) && (command->protect->ShipPtr[0] == obj1));
+    }
+    if (sentinel2 == NULL)
+    {
+        command = sentinel1->command;
+        return ((command != NULL) && (command->ordertype.attributes & COMMAND_MASK_PROTECTING) &&
+                (command->protect->numShips > 0) && (command->protect->ShipPtr[0] == obj2));
+    }
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : collCheckShipShipColl
     Description : checks collisions between ships and ships, and impacts a force
                   on each one (equal and opposite forces)
@@ -964,12 +1024,11 @@ void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
                 goto nocollision;
             }
 
-            if(bitTest(obj1->header.flags, SOF_Slaveable) && bitTest(obj2->header.flags,SOF_Slaveable))
-            {    //both objects are slaveable...see if commonly linked.
-                if(obj1->slaveinfo->Master == obj2->slaveinfo->Master)
-                {
-                    goto nocollision;
-                }
+            // CAT (M2-R5 layout-dock): a Sentinel's field (cat_collSentinelFieldExempt 0x0043acc0; collCheckShipShipColl
+            //      0x0043ade0 calls it here, before the distance test; collCheckBigShipSmallShipColl does not)
+            if (cat_collSentinelFieldExempt(obj1, obj2))
+            {
+                goto nocollision;
             }
 
             // Check for collisions between obj1 and obj2 here:
@@ -1203,14 +1262,6 @@ void collCheckBigShipSmallShipColl(blob *thisBlob)
             if (obj1->shipOrDerelict.dockingship != NULL && obj2->shipOrDerelict.dockingship != NULL)
             {   //special for slaved ships in DOCKING process...silly I know
                 goto nocollision;
-            }
-
-            if(bitTest(obj1->header.flags, SOF_Slaveable) && bitTest(obj2->header.flags,SOF_Slaveable))
-            {    //both objects are slaveable...see if commonly linked.
-                if(obj1->slaveinfo->Master == obj2->slaveinfo->Master)
-                {
-                    goto nocollision;
-                }
             }
 
             // Check for collisions between obj1 and obj2 here:

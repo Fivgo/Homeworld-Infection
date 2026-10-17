@@ -87,6 +87,14 @@ static bool32 cat_shipIsMothership(Ship *ship)
     return (ship->shiptype == sMothership) || (ship->shiptype == bMothership);
 }
 
+// CAT (M2-R5 layout-dock): cat_shipHasRamUpgrade 0x005bf840: the ram upgrade bit (CAT_UPGRADE_RamFrigate). The frigate's
+//      own code tests cat_shipHasUpgrade directly as the exe does; soundEventUpdate 0x0051cd10 (M2-R5 sound) is this
+//      wrapper's only caller
+bool32 cat_shipHasRamUpgrade(Ship *ship)
+{
+    return cat_shipHasUpgrade(ship, CAT_UPGRADE_RamFrigate);
+}
+
 bool32 cat_shipImmuneToRamming(Ship *ship)                                                  // 0x005bf760
 {
     return (ship->shiptype == dRKO) || (ship->shiptype == dNomadMoon) || (ship->shiptype == dNomadFieldEmitter);

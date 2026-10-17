@@ -20,6 +20,7 @@
 #include "CommandNetwork.h"
 #include "ConsMgr.h"
 #include "FastMath.h"
+#include "Gun.h"
 #include "MadLinkIn.h"
 #include "Memory.h"
 #include "NetCheck.h"
@@ -611,58 +612,37 @@ bool32 processLaunchShipToDo(CommandToDo *launchtodo)
 {
     Ship *ship = launchtodo->selection->ShipPtr[0];
     Ship *receiverShip = launchtodo->launchship.receiverShip;
-    ShipStaticInfo *receiverShipStatic = (ShipStaticInfo *)receiverShip->staticinfo;
 
     dbgAssertOrIgnore(launchtodo->selection->numShips == 1);
     dbgAssertOrIgnore(receiverShip);
 
-    /*
-    if(launchtodo->launchship.receiverShip->shipSinglePlayerGameInfo->shipHyperspaceState != SHIPHYPERSPACE_NONE)
+    // CAT (M2-R5 dock): processLaunchShipToDo 0x00466b00: launching one of the four sMothership modules that sit under
+    //      the ore-can armour ejects every sMothershipOreCanArmour clamped to the host (cat_moduleShipEject, 7 s delay,
+    //      10 s); then the launch purpose's state machine; no HW1 hyperspace waits
+    if ((ship->shiptype == sMothershipSpecial) || (ship->shiptype == sMothershipArmour) ||
+        (ship->shiptype == sMothershipMicro) || (ship->shiptype == sMothershipWeapons))
     {
-        if(ship->obj.collMyBlob == NULL)
+        if ((receiverShip->guidance.clampInfo != NULL) && (receiverShip->guidance.clampInfo->clampedObjs != NULL))
         {
-            //carrier/mothership is going into hyperspace...
-            //so halt launching ships!
-            //unless its already outside..then finish it up but quick!
-            return FALSE;
-        }
-    }*/
-    if(!singlePlayerGame)
-    {
-        CommandToDo *shipcommand=getShipAndItsCommand(&universe.mainCommandLayer,launchtodo->launchship.receiverShip);
-        if(shipcommand != NULL)
-        {
-            if(shipcommand->ordertype.order == COMMAND_MP_HYPERSPACING)
+            CatClampedList *clamped = receiverShip->guidance.clampInfo->clampedObjs;
+            sdword i;
+
+            for (i = 0; i < clamped->numShips; i++)
             {
-                //launching ship is hyperspaceing...
-                if(ship->obj.collMyBlob == NULL)
+                if (clamped->ShipPtr[i]->shiptype == sMothershipOreCanArmour)
                 {
-                    //wait
-                    return FALSE;
+                    cat_moduleShipEject(clamped->ShipPtr[i],TRUE,7.0f,10.0f);      // 0x0087929c / 0x008792a0
                 }
+                clamped = receiverShip->guidance.clampInfo->clampedObjs;          // the exe re-reads the list each pass
             }
         }
-
     }
-    else if(singlePlayerGame && singlePlayerGameInfo.hyperspaceState != NO_HYPERSPACE)
+    if (cat_dockShipDocksAtShip(ship,receiverShip,CAT_DOCK_LAUNCH))
     {
-        if(ship->obj.collMyBlob == NULL)
-        {
-            //carrier/mothership is going into hyperspace...
-            //so halt launching ships!
-            //unless its already outside..then finish it up but quick!
-            return FALSE;
-        }
-    }
-    if (receiverShipStatic->LaunchShipXFromShipY(ship,receiverShip))
-    {
-        RemoveShipFromLaunching(ship);
+        RemoveShipFromLaunching(ship);                      // the exe inlines it
         return TRUE;
     }
-    else
-    {
-        return FALSE;
-    }
+    return FALSE;
 }
 
 bool32 isThisShipThreateningMe(SpaceObjRotImpTarg *target,Ship *me)
@@ -1199,6 +1179,9 @@ bool32 processAttackToDo(CommandToDo *attacktodo)
                 {
                     if ((myLeaderTarget = myLeader->attackvars.attacktarget) != NULL)
                     {
+                        // CAT (M2-R5 layout-dock): a wingman whose leader attacks a module-carrying mothership aims at
+                        //      the nearest module instead (cat_gunPickMothershipModuleTarget 0x0048b950, Gun.c)
+                        myLeaderTarget = cat_gunPickMothershipModuleTarget(ship, myLeaderTarget);
                         if (shipstaticinfo->custshipheader.CustShipAttackPassive)
                         {
                             vector leadhead;
@@ -2397,71 +2380,42 @@ bool32 needToWaitForThisShip(Ship *ship)
     SelectCommand *selection;
     sdword i;
 
-    if(ship->shiptype == AdvanceSupportFrigate)
+    // CAT (M2-R5 dock): needToWaitForThisShip 0x004435d0: for a Kushan or Taiidan support frigate, any ship docking with
+    //      it (no HW1 ASF sub-state exemptions) or launching from it while outside; for a mothership-class ship, a ship
+    //      launching from it while outside
+    if ((ship->shiptype == kAdvanceSupportFrigate) || (ship->shiptype == tAdvanceSupportFrigate))
     {
-        //ship is an ASF
-        //lets do a todo list walk!
-        node = universe.mainCommandLayer.todolist.head;
-
-        while(node != NULL)
+        for (node = universe.mainCommandLayer.todolist.head; node != NULL; node = node->next)
         {
-
             command = (CommandToDo *)listGetStructOfNode(node);
             selection = command->selection;
-            if(command->ordertype.order == COMMAND_DOCK)
+            if (command->ordertype.order == COMMAND_DOCK)
             {
-                for(i=0;i<selection->numShips;i++)
+                for (i = 0; i < selection->numShips; i++)
                 {
-                    if(selection->ShipPtr[i]->dockvars.dockship == ship)
+                    if (selection->ShipPtr[i]->dockvars.dockship == ship)
                     {
-                        if(selection->ShipPtr[i]->dockvars.dockstate2 == ASF_WAITLATCHPOINT ||
-                           selection->ShipPtr[i]->dockvars.dockstate2 == ASF_BACKUP ||
-                           selection->ShipPtr[i]->dockvars.dockstate2 == ASF_WAIT ||
-                           selection->ShipPtr[i]->dockvars.dockstate2 == ASF_REFUEL)
-                        {
-                            continue;
-                        }
                         return TRUE;
                     }
                 }
             }
-            else if(command->ordertype.order == COMMAND_LAUNCH_SHIP)
+            else if ((command->ordertype.order == COMMAND_LAUNCH_SHIP) && (command->launchship.receiverShip == ship) &&
+                     (ship->obj.collMyBlob != NULL))
             {
-                if(command->launchship.receiverShip == ship)
-                {
-                    if(ship->obj.collMyBlob != NULL)
-                    {
-                        //ship hsing is launchiong a ship and that ship is outside...so finish it off.
-                        return TRUE;        //need to wait for this ship!
-                    }
-                }
+                return TRUE;
             }
-            node = node->next;
         }
     }
-    else if(ship->shiptype == Mothership)
+    else if (ship->staticinfo->shipclass == CLASS_Mothership)
     {
-        //ship is an ASF
-        //lets do a todo list walk!
-        node = universe.mainCommandLayer.todolist.head;
-
-        while(node != NULL)
+        for (node = universe.mainCommandLayer.todolist.head; node != NULL; node = node->next)
         {
-
             command = (CommandToDo *)listGetStructOfNode(node);
-            selection = command->selection;
-            if(command->ordertype.order == COMMAND_LAUNCH_SHIP)
+            if ((command->ordertype.order == COMMAND_LAUNCH_SHIP) && (command->launchship.receiverShip == ship) &&
+                (command->selection->ShipPtr[0]->obj.collMyBlob != NULL))
             {
-                if(command->launchship.receiverShip == ship)
-                {
-                    if(command->selection->ShipPtr[0]->obj.collMyBlob != NULL)
-                    {
-                        //ship hsing is launchiong a ship and that ship is outside...so finish it off.
-                        return TRUE;        //need to wait for this ship!
-                    }
-                }
+                return TRUE;        //need to wait for this ship!
             }
-            node = node->next;
         }
     }
 
@@ -3773,7 +3727,7 @@ void removeShipsFromDockingWithThisShip(Ship *shiptoremove)
                     for (i=0;i<numShips;i++)
                     {
                         ship = selection->ShipPtr[i];
-                        if ((ship->dockvars.dockship == shiptoremove) || (ship->dockvars.busyingThisShip == shiptoremove))
+                        if (ship->dockvars.dockship == shiptoremove)      // CAT (M2-R5 dock): no HW1 busying host in the exe's dock vars
                         {
                             RemoveShipFromDocking(ship);
                         }
@@ -6803,19 +6757,19 @@ void clScuttle(CommandLayer *comlayer,SelectCommand *selectcom)
     for (i=0;i<numShips;i++)
     {
         // CAT: clScuttle 0x0044a150: in the tutorial the sMothership is not scuttled. CAT-TODO(M2-R4 #4): a ship with
-        //      catShipFlags 0x80 whose float at exe Ship+0x4E4 is nonzero is neither scuttled nor unmimicked (that
+        //      catFlags18 0x80 whose float at exe Ship+0x4E4 is nonzero is neither scuttled nor unmimicked (that
         //      flag is not ported, so the test is FALSE here). A mimic (CAT_SHIPFLAG_Mimic) drops its disguise
         //      (cat_mimicUnmimic(ship, 0)) [M2-R4 ships-b]
         if ((tutorial==TUTORIAL_ONLY) && (selectcom->ShipPtr[i]->shiptype == sMothership))
         {
-            if (bitTest(selectcom->ShipPtr[i]->catShipFlags, CAT_SHIPFLAG_Mimic))
+            if (bitTest(selectcom->ShipPtr[i]->header.catFlags18, CAT_SHIPFLAG_Mimic))
             {
                 cat_mimicUnmimic(selectcom->ShipPtr[i], FALSE);
             }
             continue;
         }
         selectcom->ShipPtr[i]->deathtime = universe.totaltimeelapsed + frandombetween(SCUTTLE_SHIPDEATHTIMEMIN,SCUTTLE_SHIPDEATHTIMEMAX);
-        if (bitTest(selectcom->ShipPtr[i]->catShipFlags, CAT_SHIPFLAG_Mimic))
+        if (bitTest(selectcom->ShipPtr[i]->header.catFlags18, CAT_SHIPFLAG_Mimic))
         {
             cat_mimicUnmimic(selectcom->ShipPtr[i], FALSE);
         }
@@ -6836,29 +6790,43 @@ void clLaunchShip(CommandLayer *comlayer,SelectCommand *selectcom,ShipPtr receiv
     CommandToDo *newcommand;
     SelectCommand *selection;
     Ship *ship = selectcom->ShipPtr[0];
-    ShipStaticInfo *receiverShipStaticInfo = (ShipStaticInfo *)receiverShip->staticinfo;
+    bool32 baysClosed;
 
     dbgAssertOrIgnore(selectcom->numShips == 1);
     dbgAssertOrIgnore(receiverShip != NULL);
-    dbgAssertOrIgnore(receiverShipStaticInfo->canReceiveShips|receiverShipStaticInfo->canReceiveShipsPermanently);
 
+    // CAT (M2-R5 dock): clLaunchShip 0x0044a220: a host whose bays are closed (attribute 0x400) launches only ships that
+    //      were built externally; the type's CustShipLaunchCommand slot may refuse; the ship's dock vars are set up for
+    //      the launch purpose (2) and the state machine of cat_dockShipDocksAtShip does the rest
+    baysClosed = (!ship->staticinfo->externalBuild && (receiverShip->obj.attributes & CAT_ATTRIBUTES_DockBaysClosed));
+    if ((ship->staticinfo->custshipheader.CustShipLaunchCommand != NULL) &&
+        !ship->staticinfo->custshipheader.CustShipLaunchCommand(ship))
+    {
+        return;
+    }
+    if (baysClosed)
+    {
+        return;
+    }
     if (ship->shipOrDerelict.specialFlags & SPECIAL_Launching)
     {
         return;         // already launching
     }
-
     if (ship->shiplink.belongto)
     {
         return;         // already outside
     }
 
+    // CAT-TODO(M2-R5 command follow-up): the exe passes the reason code 0xB (RemoveShipsFromDoingStuff's third argument)
     RemoveShipsFromDoingStuff(comlayer,selectcom);
 
     newcommand = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
     InitCommandToDo(newcommand);
 
-    selection = memAlloc(sizeof(SelectCommand),"ToDoSelection",NonVolatile);
-    memcpy(selection,selectcom,sizeof(SelectCommand));
+    selection = memAlloc(sizeofSelectCommand(1),"ToDoSelection",NonVolatile);
+    selection->numShips = 1;
+    selection->timeLastStatus = selectcom->timeLastStatus;
+    selection->ShipPtr[0] = ship;
 
     newcommand->selection = selection;
     newcommand->ordertype.order = COMMAND_LAUNCH_SHIP;
@@ -6866,17 +6834,79 @@ void clLaunchShip(CommandLayer *comlayer,SelectCommand *selectcom,ShipPtr receiv
 
     newcommand->launchship.receiverShip = receiverShip;
 
-    dockPrepareSingleShipForLaunch(ship,receiverShip);
-    dockInitShipForLaunch(ship);
+    InitializeDockVars(ship,receiverShip,CAT_DOCK_LAUNCH);
 
     InitShipsForAI(selection,TRUE);
 
     PrepareShipsForCommand(newcommand,TRUE);
+    tacticsMakeShipsNotLookForOtherShips(selection);
 
-    //listAddNode(&comlayer->todolist,&newcommand->todonode,newcommand);
     //insert at begining to take priority over other commands that will be occurring
     //i.e. retiring
     listAddNodeBeginning(&comlayer->todolist,&newcommand->todonode,newcommand);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_clHarvestNearestResource
+    Description : CAT: sends the one ship of selectcom to harvest the nearest resource (cataclysm.exe 0x00449790;
+                  rescollectFindNearestResource 0x004f11f0 and the harvest key mrHarvestResources 0x00563cc0 call it).
+                  With no resource left: the out-of-resources message and speech for the local player (once per
+                  10 s of real time, 0x00753304) or the ship's own line when the order came from the UI, and in a
+                  multiplayer (or recorded) game the ship docks to deposit (purpose 3). With one: the UI's
+                  acknowledgement, then for a single-ship command in a single-player game the command is turned into
+                  a collect order in place, else clWrapCollectResource
+    Inputs      : comlayer, selectcom (one ship), fromUI (the harvest key), firstOfSelection (sound and speech once)
+    Return      : the resource when the command was changed in place, else NULL
+----------------------------------------------------------------------------*/
+Resource *cat_clHarvestNearestResource(CommandLayer *comlayer,SelectCommand *selectcom,bool32 fromUI,bool32 firstOfSelection)
+{
+    static real32 catHarvestMessageTime = 0.0f;              // 0x00a2db50
+    Ship *ship = selectcom->ShipPtr[0];
+    CommandToDo *command;
+    Resource *resource;
+    ShipPtr dockwith;
+
+    (void)comlayer;
+    // CAT-TODO(M2-R6 FOW): univFindNearestResource's fourth argument (fog of war: 1 for a player without an AI)
+    resource = univFindNearestResource(ship,0.0f,NULL);
+    if (resource == NULL)
+    {
+        if (!fromUI)
+        {
+            if (catHarvestMessageTime < cat_taskRealTimeElapsed)
+            {
+                catHarvestMessageTime = cat_taskRealTimeElapsed + 10.0f;
+                // CAT-TODO(M2-R5 hud / sound): clCommandMessage(the "no resources" string 0x00bb4de0, 0xff0000ff) and
+                //      speechEventQueue(NULL, 0x2001043, 0, -1, 0, playerIndex, -1, 5.0, -1)
+            }
+        }
+        else
+        {
+            // CAT-TODO(M2-R5 sound): soundEventPlay(NULL, 0x10A, NULL); speechEventQueue(ship, 0x40008a2, shiptype, ...)
+        }
+        if (multiPlayerGame || recordPackets || playPackets)
+        {
+            dockwith = FindNearestShipToDockAt(ship,CAT_DOCK_DEPOSIT_RESOURCES);
+            if (dockwith != NULL)
+            {
+                clWrapDock(&universe.mainCommandLayer,selectcom,CAT_DOCK_DEPOSIT_RESOURCES,dockwith);
+            }
+        }
+        return NULL;
+    }
+    if (fromUI && firstOfSelection)
+    {
+        // CAT-TODO(M2-R5 sound): soundEventPlay(NULL, 0x109, NULL); speechEventQueue(ship, 0x40008a3, ...); soundEventPlay(ship, 0x400, NULL)
+    }
+    command = ship->command;
+    if ((command != NULL) && (command->selection->numShips == 1) && !multiPlayerGame && !recordPackets && !playPackets)
+    {
+        FreeLastOrder(command);
+        ChangeSingleShipToCollectResource(command,resource);
+        return resource;
+    }
+    clWrapCollectResource(&universe.mainCommandLayer,selectcom,resource);
+    return NULL;
 }
 
 /*-----------------------------------------------------------------------------
@@ -7253,16 +7283,24 @@ Ship *clCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uw
     // update unit cap variables
     unitCapCreateShip(ship,&universe.players[playerIndex]);
 
+    // CAT (M2-R5 layout-dock): the player's built-ships-by-class count (PlayerStats+0x2A8, clCreateShip 0x0044a840):
+    //      every type but the swarmers, and the sACV, sMCV and bACV twice (the exe repeats the increment for them).
+    //      No research ship and no rmActivateFreeLab. The exe also passes built 5 and the creator to its 7-argument
+    //      univCreateShip; the tree's 1 has the same bit 0.
+    if ((shipType != sSwarmer) && (shipType != bSwarmer))
+    {
+        universe.gameStats.playerStats[playerIndex].catBuiltForEachClass[ship->staticinfo->shipclass]++;
+        if ((shipType == sACV) || (shipType == sMCV) || (shipType == bACV))
+        {
+            universe.gameStats.playerStats[playerIndex].catBuiltForEachClass[ship->staticinfo->shipclass]++;
+        }
+    }
+
     // update the special internet ghost totals, because of lag.
     if ((multiPlayerGame) && (playerIndex==sigsPlayerIndex))
     {
         shiplagtotals[shipType]--;
     }
-
-    // CAT: no research ship and no rmActivateFreeLab (clCreateShip 0x0044a840). CAT-TODO(M2-R4 #5): the exe counts the
-    //      ship in the player's game stats by class for every type but the swarmers (sSwarmer, bSwarmer), twice for
-    //      types 4, 5 and 38 (universe.gameStats.playerStats, the GameStats layout of Stats.c). The exe also passes
-    //      built 5 and the creator to its 7-argument univCreateShip; the tree's 1 has the same bit 0.
 
     // put ship inside creator
     dockPutShipInside(ship,creator);
@@ -8361,34 +8399,10 @@ void clProcess(CommandLayer *comlayer)
 #endif
                     break;
                 case COMMAND_DOCK:
-                    if (command->dock.dockType & DOCK_INSTANTANEOUSLY)
+                    // CAT (M2-R5 dock): clProcess 0x0044b950 steps the dock command at once (no HW1 fly-in-formation
+                    //      pre-flight on allNearShip / DOCK_INSTANTANEOUSLY; a formation flies in through the per-ship
+                    //      state machine)
                     {
-                        goto processdock;
-                    }
-                    if ((command->dock.allDockingWithSameShip) && (!command->dock.allNearShip))
-                    {
-                        ship = command->selection->ShipPtr[0];
-                        target = ship->dockvars.dockship;
-
-                        if ((target == NULL) || ShipWithinDockRange(ship,target))
-                        {
-                            command->dock.allNearShip = TRUE;
-                            goto processdock;
-                        }
-
-                        if (aishipFlyToShipAvoidingObjs(ship,target,AISHIP_PointInDirectionFlying + AISHIP_CarTurn + AISHIP_DontFlyToObscuredPoints + AISHIP_ReturnImmedIfPointObscured,
-                                command->formation.travelvel) & AISHIP_FLY_OBJECT_IN_WAY)
-                        {
-                            command->dock.allNearShip = TRUE;
-                            goto processdock;
-                        }
-
-                        ship->shipidle = FALSE;
-                        processFormationToDo(command,FALSE,FALSE);
-                    }
-                    else
-                    {
-processdock:
                         if (processDockToDo(command))
                         {
                             if (command->selection->numShips == 0)

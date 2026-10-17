@@ -512,7 +512,7 @@ void mrDockingOrders(char *string, featom *atom)
     if (selSelected.numShips > 0)
     {
         soundEvent(NULL, UI_Click);
-        clWrapDock(&universe.mainCommandLayer,(SelectCommand *)&selSelected,dockGetAppropriateTypeOfDocking((SelectCommand *)&selSelected),NULL);
+        clWrapDock(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_DOCK_SUPPORT,NULL);
     }
     else
     {
@@ -835,7 +835,6 @@ void mrScuttle(char *string, featom *atom)
 
             soundEvent(NULL, UI_Click);
             confirmTime = -TW_SCUTTLE_CONFIRM_TIME;
-            MakeShipMastersIncludeSlaves((SelectCommand *)&selSelected);
             clWrapScuttle(&universe.mainCommandLayer,(SelectCommand *)&selSelected);
 #if MR_VERBOSE_LEVEL >= 1
         dbgMessage("Scuttle.");
@@ -897,8 +896,7 @@ void mrRetire(char *string, featom *atom)
     if (selSelected.numShips > 0)
     {
         soundEvent(NULL, UI_Click);
-        MakeShipMastersIncludeSlaves((SelectCommand *)&selSelected);
-        clWrapDock(&universe.mainCommandLayer,(SelectCommand *)&selSelected,DOCK_FOR_RETIRE,NULL);
+        clWrapDock(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_DOCK_RETIRE,NULL);
     }
 #if MR_VERBOSE_LEVEL >= 1
     dbgMessage("Retire orders");
@@ -2097,7 +2095,6 @@ cancelfocus:
                 soundEvent(NULL, UI_Click);
 
                 tempselected = selSelected;     //copy structure
-				MakeShipMastersIncludeSlaves((SelectCommand *)&tempselected);
 			    ccFocus(&universe.mainCameraCommand,(FocusCommand *)&tempselected);
 			}
             break;
@@ -3390,7 +3387,7 @@ void mrFormationShips(MaxSelection *selection, Ship *ship)
                     mouseCursorSelect.numShips = 0;
                     makeShipsDockCapable((SelectCommand *)&selSelected); //filter ships that can't dock
                     clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&selSelected,
-                               DOCK_AT_SPECIFIC_SHIP, (Ship *)mouseCursorObjPtr);
+                               CAT_DOCK_SUPPORT, (Ship *)mouseCursorObjPtr);
                 }
                 else
                 {
@@ -3443,7 +3440,6 @@ void mrObjectClick(Ship *ship)
                         protectOne.numShips = 1;
                         protectOne.ShipPtr[0] = ship;
 
-                        MakeShipMastersIncludeSlaves((SelectCommand *)&protectOne);
                         speechEvent(selSelected.ShipPtr[0], COMM_Guard, 0);
                         clWrapProtect(&universe.mainCommandLayer,(SelectCommand *)&selSelected,(ProtectCommand *)&protectOne);
                         tutGameMessage("Game_ClickGuard");
@@ -3460,7 +3456,6 @@ void mrObjectClick(Ship *ship)
         {
             selSelecting.TargetPtr[0] = (SpaceObjRotImpTarg *)ship; //make a temporary dummy selection
             selSelecting.numTargets = 1;
-            MakeShipMastersIncludeSlaves((SelectCommand *)&selSelecting);
 
             tutGameMessage("Game_ClickFocus");
             ccFocusClose(&universe.mainCameraCommand,
@@ -3496,7 +3491,6 @@ void mrObjectClick(Ship *ship)
             {
                 MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting,(SelectCommand *)&selSelected);
 //                MakeTargetsNotIncludeMissiles((SelectAnyCommand *)&selSelecting);
-                MakeShipMastersIncludeSlaves((SelectCommand *)&selSelecting);
 
                 if (selSelecting.numTargets > 0)// check again in case we eliminated all targets
                 {
@@ -3652,7 +3646,7 @@ regularFriendlyCase:
                 {
                     makeShipsDockCapable((SelectCommand *)&selSelected); //filter ships that can't dock
                     clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&selSelected,
-                               DOCK_AT_SPECIFIC_SHIP, ship);
+                               CAT_DOCK_SUPPORT, ship);
                 }
                 else if (!allianceIsShipAlly(ship, universe.curPlayerPtr))
                 {
@@ -3665,7 +3659,6 @@ regularEnemyCase:
                             {                               //if not attacking your own ship
                                 attackOne.numTargets = 1;
                                 attackOne.TargetPtr[0] = (SpaceObjRotImpTarg *)ship;
-                                MakeShipMastersIncludeSlaves((SelectCommand *)&attackOne);
 
                                 if (bForceAttackEnemies)
                                 {                           //if it's a forced attack on friendlies
@@ -3803,7 +3796,7 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                         tutGameMessage("Game_DoubleClickDock");
                         makeShipsDockCapable((SelectCommand *)&selSelected); //filter ships that can't dock
                         clWrapDock(&universe.mainCommandLayer, (SelectCommand *)&selSelected,
-                                   DOCK_AT_SPECIFIC_SHIP, (Ship *)mouseCursorObjPtr);
+                                   CAT_DOCK_SUPPORT, (Ship *)mouseCursorObjPtr);
                         mouseDrawType(small_docking);           //may need to have "docking" as well
                         break;
                     }
@@ -3891,7 +3884,6 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                                 MakeShipsFriendlyAndAlliesShips((SelectCommand *)&selSelecting,universe.curPlayerPtr);
                                 MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting,(SelectCommand *)&selSelected);
 
-                                MakeShipMastersIncludeSlaves((SelectCommand *)&selSelecting);
 
                                 MakeShipsGuardCapable((SelectCommand *)&selSelected, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
 
@@ -3910,7 +3902,6 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                         selRectDragAnybody(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);//most recent selection
                         if (selSelecting.numTargets != 0)
                         {                                   //if some ships within band-box
-                            MakeShipMastersIncludeSlaves((SelectCommand *)&selSelecting);
 
                             ccFocusClose(&(universe.mainCameraCommand),
                                     (FocusCommand *)&selSelecting);//focus on these ships
@@ -3925,7 +3916,6 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                         if (MakeShipsSingleClickSpecialCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected))
                         {                                       //if some ships single-click special attack capable
                             selRectDragAnybody(&(universe.mainCameraCommand.actualcamera), &mrSelectionRect);//most recent selection
-                            MakeShipMastersIncludeSlaves((SelectCommand *)&selSelecting);
 
                             if (ShiptypeInSelection((SelectCommand *)&tempSelection, SalCapCorvette))
                             {
@@ -3958,7 +3948,6 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                                 }
 */
                                 MakeShipsAttackCapable((SelectCommand *)&tempSelection, (SelectCommand *)&selSelected, TRUE);   // CAT: skip-disabled argument (UI callers pass 1, e.g. mrObjectClick 0x00566b60)
-                                MakeShipMastersIncludeSlaves((SelectCommand *)&selSelecting);
 
                                 if ((selSelecting.numTargets > 0) && (tempSelection.numShips > 0))      // check again in case we removed all the ships
                                 {
@@ -4013,7 +4002,6 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                                 mrSpecialBandBox = TRUE;
                                 MakeShipsNotIncludeTheseShips((SelectCommand *)&selSelecting,(SelectCommand *)&selSelected);
                                 MakeTargetsNotIncludeMissiles((SelectAnyCommand *)&selSelecting);
-                                MakeShipMastersIncludeSlaves((SelectCommand *)&selSelecting);
 
                                 if (selSelecting.numTargets > 0)// check again in case we eliminated all targets
                                 {

@@ -724,7 +724,7 @@ void cat_shGetTeamColour(real32 *rgb)
     color c;
     real32 r, g, b, maxc;
 
-    if (bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic))
+    if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic))
     {
         // CAT: a mimic shows the team it imitates (cat_mimicGetApparentPlayerIndex 0x005b9760) [M2-R4 ships-b]
         index = cat_mimicGetApparentPlayerIndex(ship);

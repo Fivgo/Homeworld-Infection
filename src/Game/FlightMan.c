@@ -1400,7 +1400,9 @@ void flightmanEndoverInit(Ship *ship,smemsize flags)
     EndoverInfo *rollinfo;
 
     dbgAssertOrIgnore(ship->flightman == FLIGHTMAN_ENDOVER);
-    rollinfo = ship->flightmanInfo = memAlloc(sizeof(RollInfo),"EndoverInfo",0);
+    // CAT-FIX (M2-R5 layout-dock): HW1 and the exe (flightmanEndoverInit 0x0047c590: memAlloc(0xC), size 0x14) allocate a
+    //      RollInfo and write an EndoverInfo into it, 8 bytes past the block; the block is allocated at its real size here
+    rollinfo = ship->flightmanInfo = memAlloc(sizeof(EndoverInfo),"EndoverInfo",0);
     rollinfo->size = sizeof(EndoverInfo);
 
     rollinfo->totalrotated = 0.0f;

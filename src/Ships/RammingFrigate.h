@@ -66,6 +66,7 @@ extern CustShipHeader RammingFrigateHeader;
 
 void RammingFrigateRemoveShipReferences(Ship *ship, Ship *shiptoremove);    // 0x005bfe60
 bool32 cat_shipImmuneToRamming(Ship *ship);                         // 0x005bf760
+bool32 cat_shipHasRamUpgrade(Ship *ship);                           // 0x005bf840 (soundEventUpdate's; M2-R5 layout-dock)
 bool32 cat_shipInfectsOnRam(Ship *ship);                            // 0x005bf790
 void cat_rammingFrigateRelease(Ship *ship, ubyte newstate);         // 0x005bf8a0
 bool32 cat_shipIsLiveRammingFrigate(Ship *ship);                    // 0x005c0a70

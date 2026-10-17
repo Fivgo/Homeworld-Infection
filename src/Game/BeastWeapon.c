@@ -89,14 +89,14 @@ void cat_beastInfectShip(Ship *target, Ship *infector)                      // 0
     ShipType convertTo;
 
     bitSet(target->header.flags, SOF_Crazy|SOF_Disabled);
-    // a random spin direction (catShipFlags bit 7)
+    // a random spin direction (catFlags18 bit 7)
     if ((ranRandom(RANDOM_CAT_SHIPS) % 100) > 50)
     {
-        bitSet(target->catShipFlags, 0x80);
+        bitSet(target->header.catFlags18, 0x80);
     }
     else
     {
-        bitClear(target->catShipFlags, 0x80);
+        bitClear(target->header.catFlags18, 0x80);
     }
     // the exe divides by the one-over-moment fields (StaticInfo +0x1C/+0x20/+0x24)
     target->rotatable.rotinfo.torque.x += (spin * 0.5f) / statinfo->common.oneOverMomentOfInertiaX;

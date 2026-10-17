@@ -2181,7 +2181,7 @@ void rndPostRenderDebug2DStuff(Camera *camera)
     if (selSelected.numShips == 1)
     {
         Ship* ship = selSelected.ShipPtr[0];
-        if (ship->dockvars.reserveddocking != -1 &&
+        if (ship->dockvars.catDockPointIndex != -1 &&
             ship->dockvars.dockship != NULL)
         {
             vector veclen;
@@ -2782,7 +2782,7 @@ dontdraw:
                                         //
                                         // lighting while docking
                                         //
-                                        if (ship->dockvars.reserveddocking != -1 &&
+                                        if (ship->dockvars.catDockPointIndex != -1 &&
                                             ship->dockvars.dockship != NULL)
                                         {
                                             Ship* dockship;

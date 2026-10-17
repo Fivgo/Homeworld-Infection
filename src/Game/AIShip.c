@@ -1098,6 +1098,13 @@ startflying:
             {
                 goto noavoid;
             }
+            // CAT (M2-R5 dock): aishipFlyToPointAvoidingObjsFunc 0x00413e40 also skips avoidance for a ship flagged
+            //      SPECIAL_2_CatNoAvoidance (0x40), which the dock state machine (cat_dockShipDocksAtShip 0x00465860), the
+            //      link order, the Leech, the salvagers and the ramming frigate set while they fly into a hull
+            if (ship->shipOrDerelict.specialFlags2 & SPECIAL_2_CatNoAvoidance)
+            {
+                goto noavoid;
+            }
 
             //don't avoid our target if we are in kamikaze mode
             if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_Kamikaze))
@@ -1424,14 +1431,6 @@ norowcheck:
                         goto nextnode;  // don't check if docking with ship
                     }
 
-                    if((ship->header.flags & SOF_Slaveable) && (avoidShip->header.flags & SOF_Slaveable))
-                    {   //ships are slaveable
-                        // two slaved ships SHOULD NOT try to avoid eachother
-                        if(ship->slaveinfo->Master == avoidShip->slaveinfo->Master)
-                        {   //if slaved to same thing, don't avoid
-                            goto nextnode;
-                        }
-                    }
                 }
 
                 // CAT (M2-R4 combat): a salvager (SPECIAL_CatSalvager) does not avoid its target once inside the

@@ -90,10 +90,8 @@ scriptStructEntry cat_salvageStaticScriptTable[] =
 // CAT: GetShipStaticInfo 0x0053ea50 takes the type only; this tree's still takes a race, which it ignores
 #define cat_salvageStaticInfo(type)     GetShipStaticInfo((type), RACE_Sect)
 
-// CAT: Cataclysm's SpaceObj attributes are a udword at +0x38 (kasfTeamAttributesBitSet 0x00493... ORs a dword; the
-//      blasts set 0x20000). This tree still has HW1's uword, so the bits above 0xFFFF read as 0 until the header
-//      follows (M2-R4 #5, the Universe/Player layout pass).
-#define cat_salvageAttributes(obj)      ((udword)((obj)->attributes))
+// CAT (M2-R5 layout-dock): SpaceObj.attributes is the exe's dword at +0x38; the salvagers test its bit 0x40000
+//      (CAT_ATTRIBUTES_DockWithEnemies, Attributes.h) directly
 
 /*=============================================================================
     The per-ship blocks
@@ -215,7 +213,7 @@ static void cat_salvageFreePoint(Ship *ship, Ship *host)
     {
         point = &host->staticinfo->dockStaticInfo->dockstaticpoints[index];
         host->dockInfo->catNumBusyOfType[point->type]--;
-        host->dockInfo->dockpoints[index].thisDockBusy = 0;
+        host->dockInfo->thisDockBusy[index] = 0;
         ship->catSalvagePointIndex = -1;
     }
 }
@@ -463,7 +461,7 @@ bool32 cat_salvageCheckTarget(Player *player, Ship *target, sword *reasons) // 0
 
     if (target->header.objtype == OBJ_ShipType)
     {
-        if (!(cat_salvageAttributes(&target->obj) & 0x40000) &&
+        if (!bitTest(target->obj.attributes, CAT_ATTRIBUTES_DockWithEnemies) &&
             ((player == target->playerowner) || allianceIsShipAlly(target, player)))
         {
             count[CAT_SALVAGE_REASON_Friendly]++;
@@ -476,7 +474,7 @@ bool32 cat_salvageCheckTarget(Player *player, Ship *target, sword *reasons) // 0
         {
             count[CAT_SALVAGE_REASON_NoPoints]++;
         }
-        if (bitTest(target->catShipFlags, CAT_SHIPFLAG_Orphaned) && (tutorial != 1))
+        if (bitTest(target->header.catFlags18, CAT_SHIPFLAG_Orphaned) && (tutorial != 1))
         {
             count[CAT_SALVAGE_REASON_NoPoints]++;
         }
@@ -486,7 +484,7 @@ bool32 cat_salvageCheckTarget(Player *player, Ship *target, sword *reasons) // 0
         }
         if (cat_shipIsCrystal(target))
         {
-            // CAT-TODO(M2-R4 #5): the multiplayer game option bit 0x20 of 0x008860ec (crystals salvageable) is a game
+            // CAT-TODO(stage 5 multiplayer options): the multiplayer game option bit 0x20 of 0x008860ec (crystals salvageable) is a game
             //      option of the Cataclysm tpGameCreated layout; until it is ported crystals are not salvageable in
             //      multiplayer, as with the bit clear
             if (!singlePlayerGame)
@@ -742,12 +740,12 @@ bool32 cat_salvageGetTargetAttachPoint(Ship *salvager, Ship *target)        // 0
     for (i = 0; i < dockstaticinfo->numDockPoints; i++)
     {
         point = &dockstaticinfo->dockstaticpoints[i];
-        if ((point->type == DPT_SalvageLatch) && (target->dockInfo->dockpoints[i].thisDockBusy == 0))
+        if ((point->type == DPT_SalvageLatch) && (target->dockInfo->thisDockBusy[i] == 0))
         {
             found = i;
             break;
         }
-        if ((point->type == DPT_Salvage) && (target->dockInfo->dockpoints[i].thisDockBusy == 0))
+        if ((point->type == DPT_Salvage) && (target->dockInfo->thisDockBusy[i] == 0))
         {
             lastSalvage = i;
         }
@@ -758,7 +756,7 @@ bool32 cat_salvageGetTargetAttachPoint(Ship *salvager, Ship *target)        // 0
         return FALSE;
     }
     point = &dockstaticinfo->dockstaticpoints[found];
-    target->dockInfo->dockpoints[found].thisDockBusy = 1;
+    target->dockInfo->thisDockBusy[found] = 1;
     target->dockInfo->catNumBusyOfType[point->type]++;
     info->attachPoint = point;
     return TRUE;
@@ -810,7 +808,7 @@ void cat_salvageDetach(Ship *salvager)                                      // 0
         if (info->attachPoint != NULL)
         {
             // the exe indexes the busy words by the point's dockindex field (+0x04)
-            target->dockInfo->dockpoints[info->attachPoint->dockindex].thisDockBusy = 0;
+            target->dockInfo->thisDockBusy[info->attachPoint->dockindex] = 0;
             target->dockInfo->catNumBusyOfType[info->attachPoint->type]--;
             info->attachPoint = NULL;
         }
@@ -1054,13 +1052,13 @@ static bool32 cat_salvageApproachTarget(Ship *salvager, Ship *target)
         for (i = 0; i < numDockPoints; i = index)
         {
             if ((target->staticinfo->dockStaticInfo->dockstaticpoints[i].type == (DockPointType)wanted) &&
-                (target->dockInfo->dockpoints[i].thisDockBusy == 0))
+                (target->dockInfo->thisDockBusy[i] == 0))
             {
                 if (index != -1)
                 {
                     // CAT: the exe counts the busy point under the unadjusted type (Med_In for the Engineering point)
                     target->dockInfo->catNumBusyOfType[type]++;
-                    target->dockInfo->dockpoints[index].thisDockBusy = 1;
+                    target->dockInfo->thisDockBusy[index] = 1;
                     salvager->catSalvagePointIndex = index;
                 }
                 break;
@@ -1422,7 +1420,7 @@ bool32 cat_salvageSpecialTarget(Ship *ship, void *custom)                  // 0x
                 // the first frame of the tow: tell the players
                 sdword event = -1;
 
-                if (!(cat_salvageAttributes(&target->obj) & 0x40000) &&
+                if (!bitTest(target->obj.attributes, CAT_ATTRIBUTES_DockWithEnemies) &&
                     ((universe.curPlayerPtr == target->playerowner) || allianceIsShipAlly(target, universe.curPlayerPtr)) &&
                     (universe.curPlayerIndex == target->playerowner->playerIndex))
                 {

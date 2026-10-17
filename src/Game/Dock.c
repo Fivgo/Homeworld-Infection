@@ -45,6 +45,25 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 #include "Vector.h"
+#include "OracleDump.h"     // CAT: the dock self-test rides on the headless mission run (/oracleMission)
+// CAT (M2-R5 dock): the Cataclysm ships and systems the dock state machine calls
+#include "Acolyte.h"
+#include "ACV.h"
+#include "Attributes.h"
+#include "Carrier.h"
+#include "Crystal.h"
+#include "HiveFrigate.h"
+#include "MeshAnim.h"
+#include "Mimic.h"
+#include "ModuleShip.h"
+#include "RammingFrigate.h"
+#include "ShipDisable.h"
+#include "Slipgate.h"
+#include "Worker.h"
+#include "CommandWrap.h"
+#include "ConsMgr.h"
+#include "AIPlayer.h"
+
 
 #ifdef _MSC_VER
 #define strcasecmp _stricmp
@@ -54,200 +73,12 @@
 
 //#define DEBUG_DOCKING
 
-#define NOT_FINISHED_DOCKING 0
-#define FINISHED_DOCKING_FLYING_BACK 1
-#define FINISHED_DOCKING 2
-#define PERMANENTLY_DOCKED 3
-#define FINISHED_LAUNCHING_FROM_DOCKING 4
-#define FINISHED_RETIREMENT             5
+// CAT (M2-R5 dock): the dock self-test's trace switch (the cone helpers print their per-tick state for the local
+//      player's ships while /catDockTest runs; see the self-test at the end of this file)
+bool32 catDockSelfTestTrace = FALSE;
 
-bool32 isCapitalShipStaticOrBig(ShipStaticInfo *shipstatic);
-
-/*=============================================================================
-    Tweakables:
-=============================================================================*/
-
-real32 LATCH_TOLERANCE = 25.0f;
-
-real32 CONEORIGIN_MINFLYSPEED = -40.0f;
-real32 CONEORIGIN_TOLERANCE = 50.0f;
-
-real32 DRONE_CONEORIGIN_MINFLYSPEED = -40.0f;
-real32 DRONE_CONEORIGIN_TOLERANCE = 25.0f;
-
-real32 BACKOUT_MINFLYSPEED = -80.0f;
-real32 BACKOUT_TOLERANCE = 50.0f;
-
-real32 FLYOUTCONE_MINFLYSPEED = -120.0f;
-real32 FLYOUTCONE_TOLERANCE = 65.0f;
-
-real32 CONEINSIDE_MINFLYSPEED = -80.0f;
-real32 CONEINSIDE_TOLERANCE = 50.0f;
-
-real32 BACKTODESTINATION_MINFLYSPEED = -40.0f;
-real32 BACKTODESTINATION_TOLERANCE = 50.0f;
-
-real32 BUSY_ADD_TO_DISTANCE = 2000.0f;
-real32 BUSY_ADD_TO_DISTANCE_DEPOSITRU = 5000.0f;
-
-real32 R1RESCONTROLLER_FIGHTERLATCHDIST = 0.0f;
-real32 R1RESCONTROLLER_CORVETTELATCHDIST = 0.0f;
-real32 R1RESCONTROLLER_RESOURCERLATCHDIST = 0.0f;
-real32 R1RESCONTROLLER_LATCHMINTIME = 1.0f;
-
-real32 R2RESCONTROLLER_FIGHTERLATCHDIST = 0.0f;
-real32 R2RESCONTROLLER_CORVETTELATCHDIST = 0.0f;
-real32 R2RESCONTROLLER_RESOURCERLATCHDIST = 0.0f;
-real32 R2RESCONTROLLER_LATCHMINTIME = 1.0f;
-
-real32 P2FUELPOD_FIGHTERLATCHDIST = 0.0f;
-real32 P2FUELPOD_LATCHMINTIME = 1.0f;
-
-real32 R1ASF_FIGHTERLATCHDIST = 0.0f;
-real32 R1ASF_CORVETTELATCHDIST = 0.0f;
-real32 R1ASF_LATCHMINTIME = 1.0f;
-
-real32 R2ASF_FIGHTERLATCHDIST = 0.0f;
-real32 R2ASF_CORVETTELATCHDIST = 0.0f;
-real32 R2ASF_LATCHMINTIME = 1.0f;
-
-real32 WAIT_FOR_LATCH_DISTANCE_ROUGH_GUESS_REALLY_RIGHT_NOW = 3333.0f;
-
-real32 R1CARRIER_LATCHMINTIME = 1.0f;
-real32 R1CARRIER_REFUELREPAIRMINTIME = 1.0f;
-
-real32 R2CARRIER_LATCHMINTIME = 1.0f;
-real32 R2CARRIER_REFUELREPAIRMINTIME = 1.0f;
-
-real32 R1MOTHERSHIP_LATCHMINTIME = 1.0f;
-real32 R1MOTHERSHIP_REFUELREPAIRMINTIME = 1.0f;
-
-real32 R2MOTHERSHIP_REFUELREPAIRMINTIME = 1.0f;
-
-real32 P1MOTHERSHIP_REFUELREPAIRMINTIME = 1.0f;
-
-real32 P2MOTHERSHIP_REFUELREPAIRMINTIME = 1.0f;
-
-real32 R1REPCORV_FIGHTERLATCHDIST = 150.0f;
-real32 R1REPCORV_CORVETTELATCHDIST = 300.0f;
-real32 R1REPCORV_LATCHMINTIME = 3.0f;
-
-real32 R2REPCORV_FIGHTERLATCHDIST = 150.0f;
-real32 R2REPCORV_CORVETTELATCHDIST = 300.0f;
-real32 R2REPCORV_LATCHMINTIME = 3.0f;
-
-real32 R1RESCOL_FIGHTERLATCHDIST = 150.0f;
-real32 R1RESCOL_LATCHDIST = 300.0f;
-real32 R1RESCOL_LATCHMINTIME = 3.0f;
-
-real32 R2RESCOL_FIGHTERLATCHDIST = 150.0f;
-real32 R2RESCOL_LATCHDIST = 300.0f;
-real32 R2RESCOL_LATCHMINTIME = 3.0f;
-
-real32 JUNKYARDHQ_LATCHDIST = 300.0f;
-real32 JUNKYARDHQ_LATCHMINTIME = 3.0f;
-
-real32 JUNKYARDHQ_MUSTBENEAR_TO_DOCK = 12000.0f;
-
-real32 DRONE_LAUNCH_VELOCITY = 300.0f;
-
-real32 CARRIERMOTHERDOCK_DELAY_FLYINSIDE = 10.0f;
-real32 CARRIERMOTHERDOCK_DELAY_FLYINSIDE_CORVETTE = 15.0f;
-
-real32 SHIP_NEED_REFUEL_PERCENT = 0.7f;
-real32 SHIP_NEED_REPAIR_PERCENT = 0.7f;
-
-scriptEntry DockTweaks[] =
-{
-    makeEntry(LATCH_TOLERANCE,scriptSetReal32CB),
-    makeEntry(CONEORIGIN_MINFLYSPEED,scriptSetReal32CB),
-    makeEntry(CONEORIGIN_TOLERANCE,scriptSetReal32CB),
-    makeEntry(DRONE_CONEORIGIN_MINFLYSPEED,scriptSetReal32CB),
-    makeEntry(DRONE_CONEORIGIN_TOLERANCE,scriptSetReal32CB),
-    makeEntry(BACKOUT_MINFLYSPEED,scriptSetReal32CB),
-    makeEntry(BACKOUT_TOLERANCE,scriptSetReal32CB),
-    makeEntry(FLYOUTCONE_MINFLYSPEED,scriptSetReal32CB),
-    makeEntry(FLYOUTCONE_TOLERANCE,scriptSetReal32CB),
-    makeEntry(CONEINSIDE_MINFLYSPEED,scriptSetReal32CB),
-    makeEntry(CONEINSIDE_TOLERANCE,scriptSetReal32CB),
-    makeEntry(BACKTODESTINATION_MINFLYSPEED,scriptSetReal32CB),
-    makeEntry(BACKTODESTINATION_TOLERANCE,scriptSetReal32CB),
-    makeEntry(BUSY_ADD_TO_DISTANCE,scriptSetReal32CB),
-    makeEntry(BUSY_ADD_TO_DISTANCE_DEPOSITRU,scriptSetReal32CB),
-
-    makeEntry(R1RESCONTROLLER_FIGHTERLATCHDIST,scriptSetReal32SqrCB),
-    makeEntry(R1RESCONTROLLER_CORVETTELATCHDIST,scriptSetReal32SqrCB),
-    makeEntry(R1RESCONTROLLER_RESOURCERLATCHDIST,scriptSetReal32SqrCB),
-    makeEntry(R1RESCONTROLLER_LATCHMINTIME,scriptSetReal32CB),
-
-    makeEntry(R2RESCONTROLLER_FIGHTERLATCHDIST,scriptSetReal32SqrCB),
-    makeEntry(R2RESCONTROLLER_CORVETTELATCHDIST,scriptSetReal32SqrCB),
-    makeEntry(R2RESCONTROLLER_RESOURCERLATCHDIST,scriptSetReal32SqrCB),
-    makeEntry(R2RESCONTROLLER_LATCHMINTIME,scriptSetReal32CB),
-
-    makeEntry(R1ASF_FIGHTERLATCHDIST,scriptSetReal32SqrCB),
-    makeEntry(R1ASF_CORVETTELATCHDIST,scriptSetReal32SqrCB),
-    makeEntry(R1ASF_LATCHMINTIME,scriptSetReal32CB),
-
-    makeEntry(R2ASF_FIGHTERLATCHDIST,scriptSetReal32SqrCB),
-    makeEntry(R2ASF_CORVETTELATCHDIST,scriptSetReal32SqrCB),
-    makeEntry(R2ASF_LATCHMINTIME,scriptSetReal32CB),
-
-    makeEntry(R1REPCORV_FIGHTERLATCHDIST ,scriptSetReal32SqrCB),
-    makeEntry(R1REPCORV_CORVETTELATCHDIST,scriptSetReal32SqrCB),
-    makeEntry(R1REPCORV_LATCHMINTIME     ,scriptSetReal32CB),
-
-    makeEntry(R2REPCORV_FIGHTERLATCHDIST ,scriptSetReal32SqrCB),
-    makeEntry(R2REPCORV_CORVETTELATCHDIST,scriptSetReal32SqrCB),
-    makeEntry(R2REPCORV_LATCHMINTIME     ,scriptSetReal32CB),
-
-    makeEntry(R1CARRIER_LATCHMINTIME,scriptSetReal32CB),
-    makeEntry(R1CARRIER_REFUELREPAIRMINTIME,scriptSetReal32CB),
-
-    makeEntry(R2CARRIER_LATCHMINTIME,scriptSetReal32CB),
-    makeEntry(R2CARRIER_REFUELREPAIRMINTIME,scriptSetReal32CB),
-
-    makeEntry(R1MOTHERSHIP_LATCHMINTIME,scriptSetReal32CB),
-    makeEntry(R1MOTHERSHIP_REFUELREPAIRMINTIME,scriptSetReal32CB),
-
-    makeEntry(R2MOTHERSHIP_REFUELREPAIRMINTIME,scriptSetReal32CB),
-
-    makeEntry(R1RESCOL_FIGHTERLATCHDIST,scriptSetReal32CB),
-    makeEntry(R1RESCOL_LATCHDIST,scriptSetReal32CB),
-    makeEntry(R1RESCOL_LATCHMINTIME,scriptSetReal32CB),
-
-    makeEntry(R2RESCOL_FIGHTERLATCHDIST,scriptSetReal32CB),
-    makeEntry(R2RESCOL_LATCHDIST,scriptSetReal32CB),
-    makeEntry(R2RESCOL_LATCHMINTIME,scriptSetReal32CB),
-
-    makeEntry(JUNKYARDHQ_LATCHDIST,scriptSetReal32CB),
-    makeEntry(JUNKYARDHQ_LATCHMINTIME,scriptSetReal32CB),
-    makeEntry(JUNKYARDHQ_MUSTBENEAR_TO_DOCK,scriptSetReal32CB),
-
-    makeEntry(DRONE_LAUNCH_VELOCITY,scriptSetReal32CB),
-
-    makeEntry(CARRIERMOTHERDOCK_DELAY_FLYINSIDE,scriptSetReal32CB),
-    makeEntry(CARRIERMOTHERDOCK_DELAY_FLYINSIDE_CORVETTE,scriptSetReal32CB),
-
-    makeEntry(SHIP_NEED_REFUEL_PERCENT,scriptSetReal32CB),
-    makeEntry(SHIP_NEED_REPAIR_PERCENT,scriptSetReal32CB),
-
-    END_SCRIPT_ENTRY
-};
-
-/*=============================================================================
-    Private functions:
-=============================================================================*/
-
-static void dockReserveDockPoint(Ship *ship,Ship *dockwith,sdword dockpointindex);
-static void dockFreeDockPoint(Ship *ship,Ship *dockwith);
-
-static void dockBusyThisShip(Ship *ship,Ship *dockwith);
-static void dockUnbusyThisShip(Ship *ship);
-sdword dockNeedRotationOveride(Ship *dockwith,Ship *ship,DockStaticPoint *dockpointused);
-sdword dockNeedOffsetOveride(Ship *dockwith,Ship *ship,DockStaticPoint *dockpointused);
-
-CommandToDo *findFormationGuardingShip(Ship *ship);
+// CAT (M2-R5 dock): HW1's dock tweakables (LATCH_TOLERANCE .. SHIP_NEED_REPAIR_PERCENT, Dock.script) are gone: cataclysm.exe has
+//      none of them (strings.csv), and the dock paths that read them are gone with it
 
 /*-----------------------------------------------------------------------------
     Name        : GetDirectionVectorOfShip
@@ -580,6 +411,13 @@ bool32 cat_dockFlyToConeOriginLatch(Ship *ship,Ship *dockwith,real32 radius)
             }
         }
     }
+    if (catDockSelfTestTrace && (ship->playerowner == universe.curPlayerPtr) && ((universe.univUpdateCounter % 32) == 0))
+    {
+        dbgMessagef("docktest: latch tick=%u %s#%u dist=%.1f along=%.3f aligned=%d speed=%.1f pos=(%.0f %.0f %.0f) point=(%.0f %.0f %.0f)",
+                    (unsigned)universe.univUpdateCounter, ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber, dist, along, (int)aligned,
+                    fsqrt(vecMagnitudeSquared(ship->obj.posinfo.velocity)), ship->obj.posinfo.position.x, ship->obj.posinfo.position.y,
+                    ship->obj.posinfo.position.z, pointpos.x, pointpos.y, pointpos.z);
+    }
     ship->catDockLatchHeading = conenormal;
     return FALSE;
 }
@@ -776,6 +614,14 @@ bool32 cat_linkFlyIntoPosition(Ship *ship,DockStaticPoint *linkpoint,Ship *host,
         return TRUE;
     }
 
+    if (catDockSelfTestTrace && (ship->playerowner == universe.curPlayerPtr) && ((universe.univUpdateCounter % 32) == 0))
+    {
+        dbgMessagef("docktest: link tick=%u %s#%u dist=%.1f positioned=%d aligned=%d anims=%d/%d mad=%d/%d/%d hostmad=%d/%d/%d",
+                    (unsigned)universe.univUpdateCounter, ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber, fsqrt(distSq),
+                    (int)positioned, (int)aligned, (int)animsReady, (int)hostAnimReady,
+                    (mad != NULL) ? (int)mad->nCurrentAnim : -2, (mad != NULL) ? (int)mad->flags : -2, (mad != NULL) ? (int)mad->bPaused : -2,
+                    (hostmad != NULL) ? (int)hostmad->nCurrentAnim : -2, (hostmad != NULL) ? (int)hostmad->flags : -2, (hostmad != NULL) ? (int)hostmad->bPaused : -2);
+    }
     if (distSq < nearRadiusSq)
     {
         if ((mad != NULL) && (mad->nCurrentAnim != -1) && (mad->flags == 0))
@@ -827,1409 +673,6 @@ flyto:
     Outputs     :
     Return      : returns TRUE if ship is within docking range of target
 ----------------------------------------------------------------------------*/
-bool32 ShipWithinDockRange(Ship *ship,Ship *target)
-{
-    vector diff;
-    real32 distsqr;
-    real32 rangesqr;
-
-    vecSub(diff,ship->obj.posinfo.position,target->obj.posinfo.position);
-    distsqr = vecMagnitudeSquared(diff);
-
-    // CAT: InitStatShipInfo 0x0053bab0 keeps dockShipRange as read; HW1's padded, squared range is formed here until
-    //      the dock code is ported (stage 2)
-    rangesqr = target->staticinfo->dockShipRange;
-    if (rangesqr != 0.0f)
-    {
-        rangesqr += target->staticinfo->common.staticCollInfo.approxcollspheresize;
-        rangesqr *= rangesqr;
-    }
-
-    if (distsqr < rangesqr)
-    {
-        return TRUE;
-    }
-    else
-    {
-        return FALSE;
-    }
-}
-
-sdword ThisShipIs(ShipStaticInfo *shipstatic)
-{
-    if (shipstatic->shipclass == CLASS_Fighter || shipstatic->shiptype == ProximitySensor)
-    {
-        return THISSHIPIS_FIGHTER;
-    }
-    else if (shipstatic->shipclass == CLASS_Corvette)
-    {
-        return THISSHIPIS_CORVETTE;
-    }
-    else if (shipstatic->shiptype == ResourceCollector)
-    {
-        return THISSHIPIS_RESOURCER;
-    }
-    else
-    {
-        return THISSHIPIS_OTHERNONCAPITALSHIP;
-    }
-}
-
-//returns TRUE if the shiptype requires a mothership in order to retire
-bool32 shipRetireNeedsMothership(Ship *ship)
-{
-    // CAT (M2-R4 combat): no HW1 willFitCarrier salvage static (always absent in Cataclysm)
-    {
-        //no salvage lights
-        if(isCapitalShipStatic(ship->staticinfo))
-        {
-            if(ship->staticinfo->shipclass == CLASS_Mothership   ||
-               ship->staticinfo->shipclass == CLASS_HeavyCruiser ||
-               ship->staticinfo->shipclass == CLASS_Carrier ||
-               ship->staticinfo->shipclass == CLASS_Destroyer)     // CAT: no HW1 ResourceController (M2-R4 ships-b)
-            {
-                //too big
-                return TRUE;
-            }
-        }
-    }
-    //lets allow it otherwise
-    return FALSE;
-}
-bool32 ThisShipCanDockWith(Ship *ship,Ship *dockwith,DockType dockType)
-{
-    sdword thisShip;
-
-    if (dockwith->staticinfo->canReceiveSomething)
-    {
-        if ((dockwith->header.flags & (SOF_Dead|SOF_Disabled|SOF_Crazy|SOF_Hyperspace)) == 0)
-        {
-            if (allianceIsShipAlly(ship,dockwith->playerowner) || bitTest(dockwith->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus))
-            {
-                thisShip = ThisShipIs(ship->staticinfo);
-                if(dockType & DOCK_FOR_RETIRE)
-                {
-                    if(dockwith->staticinfo->canReceiveShipsForRetire)
-                    {
-                        if(dockwith->shiptype == ship->shiptype)
-                            return FALSE;
-
-                        if(shipRetireNeedsMothership(ship))
-                        {
-                            //need a 'big' docking bay
-                            if(dockwith->shiptype == Mothership)
-                            {
-                                return TRUE;
-                            }
-                        }
-                        else
-                        {
-                            return TRUE;
-                        }
-                    }
-                }
-                else
-                {
-                    // CAT: no HW1 P2 fuel pod (M2-R4 ships-b)
-                    if ((dockwith->staticinfo->canReceiveTheseShips[thisShip]) &&
-                        (dockwith->shiptype != ship->shiptype))   // ships of same type cannot dock
-                        return TRUE;
-                }
-            }
-        }
-    }
-
-    return FALSE;
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : MakeShipsAbleToDockWithThisShip
-    Description : Makes sure that the ships in this selection are able to dock with
-                  the ship dockwith.
-    Inputs      : selection
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void MakeShipsAbleToDockWithThisShip(SelectCommand *selection,Ship *dockwith,DockType dockType)
-{
-    sdword i;
-
-    for (i=0;i<selection->numShips;)
-    {
-        if (!ThisShipCanDockWith(selection->ShipPtr[i],dockwith,dockType))
-        {
-            // to remove ShipPtr from list, decrement numShips and put last member
-            // of array into slot being deleted.
-            selection->numShips--;
-            selection->ShipPtr[i] = selection->ShipPtr[selection->numShips];
-
-            continue; // we must check same index again because we put last array entry here
-        }
-        i++;
-    }
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : FindNearestShipToDockAt
-    Description : finds nearest ship to dock at
-    Inputs      : ship (which wants to dock), dockType (type of docking desired)
-    Outputs     :
-    Return      : returns nearest ship to dock at
-----------------------------------------------------------------------------*/
-Ship *FindNearestShipToDockAt(Ship *ship,DockType dockType)
-{
-    Node *objnode = universe.ShipList.head;
-    Ship *dockat;
-    vector diff;
-    real32 dist;
-    real32 mindist = (real32)1e20;
-    Ship *closestDockat = NULL;
-    ShipStaticInfo *dockatstatic;
-    ShipStaticInfo *shipstatic = ship->staticinfo;
-    sdword canHandleNumShips;
-    real32 busyadddist;
-
-    // CAT: no HW1 research ship docking (M2-R4 ships-b)
-
-    while (objnode != NULL)
-    {
-        dockat = (Ship *)listGetStructOfNode(objnode);
-        dbgAssertOrIgnore(dockat->header.objtype == OBJ_ShipType);
-
-        if (ThisShipCanDockWith(ship,dockat,dockType))
-        {
-            dockatstatic = dockat->staticinfo;
-
-            if(!(dockat->header.flags & SOF_Disabled))
-            {
-                //ship mustn't be disabled
-                CommandToDo *dockatcommand = getShipAndItsCommand(&universe.mainCommandLayer,dockat);
-                if(dockatcommand != NULL)
-                {
-                    if(dockatcommand->ordertype.order == COMMAND_DOCK)
-                    {
-                        goto dockatbusydontdock;
-                    }
-                }
-                if (((dockType & DOCK_TO_DEPOSIT_RESOURCES) && (dockatstatic->canReceiveResources)) ||
-                   ((dockType & DOCK_FOR_REFUEL) && (dockatstatic->canReceiveShips) && (dockatstatic->pumpFuelRate > 0.0f)) ||
-                   ((dockType & DOCK_FOR_REPAIR) && (dockatstatic->canReceiveShips) && (dockatstatic->repairOtherShipRate > 0)) ||
-                   ((dockType & DOCK_FOR_BOTHREFUELANDREPAIR) && (dockatstatic->canReceiveShips) && (dockatstatic->pumpFuelRate > 0.0f) && (dockatstatic->repairOtherShipRate > 0)) ||
-                   ((dockType & DOCK_PERMANENTLY) && (dockatstatic->canReceiveShipsPermanently)) ||
-                   ((dockType & DOCK_FOR_RETIRE) && (dockatstatic->canReceiveShipsForRetire)))
-                {
-                    vecSub(diff,dockat->obj.posinfo.position,ship->obj.posinfo.position);
-                    dist = fsqrt(vecMagnitudeSquared(diff));
-
-                    if (dockType & DOCK_TO_DEPOSIT_RESOURCES)
-                    {
-                        canHandleNumShips = dockatstatic->canHandleNumShipsDepositingRU;
-                        busyadddist = BUSY_ADD_TO_DISTANCE_DEPOSITRU;
-                    }
-                    else
-                    {
-                        canHandleNumShips = dockatstatic->canHandleNumShipsDocking;
-                        busyadddist = BUSY_ADD_TO_DISTANCE;
-                    }
-
-                    if ((canHandleNumShips > 0) && (dockat->dockInfo->busyness >= canHandleNumShips))
-                    {
-                        dist += busyadddist * (dockat->dockInfo->busyness+1 - canHandleNumShips);
-                           // if this ship is busy, make it seem like it is further away
-                    }
-
-                    if (dockatstatic->shiptype == JunkYardHQ)
-                    {
-                        if (dist > JUNKYARDHQ_MUSTBENEAR_TO_DOCK)
-                        {
-                            dist += REALlyBig;      // don't want to dock at junk yard HQ unless close
-                        }
-                    }
-
-                    if (dockatstatic->shiptype == ResourceCollector)
-                    {
-                        dist += REALlyBig;      // don't want to dock at resource collectors
-                    }
-
-                    if (dist < mindist)
-                    {
-                        mindist = dist;
-                        closestDockat = dockat;
-                    }
-                }
-            }
-        }
-dockatbusydontdock:
-        objnode = objnode->next;
-    }
-
-    return closestDockat;
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : allShipsDockingWithSameShip
-    Description : returns TRUE if all ships in selection are docking with same ship
-    Inputs      : selectcom
-    Outputs     :
-    Return      : returns TRUE if all ships in selection are docking with same ship
-----------------------------------------------------------------------------*/
-bool32 allShipsDockingWithSameShip(SelectCommand *selectcom)
-{
-    sdword numShips = selectcom->numShips;
-    Ship *firstship;
-    Ship *ship;
-    sdword i;
-
-    dbgAssertOrIgnore(numShips > 0);
-
-    firstship = (selectcom->ShipPtr[0])->dockvars.dockship;
-
-    for (i=1;i<numShips;i++)
-    {
-        ship = (selectcom->ShipPtr[i])->dockvars.dockship;
-
-        if (ship != firstship)
-        {
-            return FALSE;
-        }
-    }
-
-    return TRUE;
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : InitializeDockVars
-    Description : Initializes the ship->dockvars based on ship->dockvars.dockShip
-    Inputs      : ship
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void InitializeDockVars(Ship *ship,Ship *dockship,DockType dockType)
-{
-    if (dockType & DOCK_STAY_TILL_EXPLICITLAUNCH)
-    {
-        ship->shipOrDerelict.specialFlags |= SPECIAL_STAY_TILL_EXPLICITLAUNCH;
-    }
-    ship->dockvars.dockship = dockship;
-    if (ship->dockvars.dockship != NULL)
-    {
-        dockBusyThisShip(ship,ship->dockvars.dockship);
-    }
-    else
-    {
-        ship->dockvars.busyingThisShip = NULL;
-    }
-    ship->dockvars.dockstate = 0;
-    ship->dockvars.reserveddocking = -1;
-    ship->dockvars.dockstaticpoint = NULL;
-    ship->dockvars.customdockinfo = NULL;
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : dockGetAppropriateTypeOfDocking
-    Description : returns type of dockType based on repair/refuel state of selection of ships
-    Inputs      : selectcom
-    Outputs     :
-    Return      : dockType to use
-----------------------------------------------------------------------------*/
-DockType dockGetAppropriateTypeOfDocking(SelectCommand *selectcom)
-{
-    sdword numShips = selectcom->numShips;
-    sdword i;
-    Ship *ship;
-    ShipStaticInfo *shipstatic;
-    DockType dockType = DOCK_FOR_BOTHREFUELANDREPAIR;
-    sdword shipsConsidered = 0;
-    sdword shipsFuelConsidered = 0;
-    bool32 shipsNeedRepair = FALSE;
-    bool32 shipsNeedRefuel = FALSE;
-    real32 avgfuel = 0.0f;
-    real32 avghealth = 0.0f;
-
-    for (i=0;i<numShips;i++)
-    {
-        ship = selectcom->ShipPtr[0];
-        shipstatic = ship->staticinfo;
-        if (ship->shiptype == ResourceCollector)
-        {
-            return DOCK_FOR_REFUELREPAIR;
-        }
-        else if (!isCapitalShipStatic(shipstatic))
-        {
-            shipsConsidered++;
-            avghealth += (ship->targetable.health / shipstatic->health.maxhealth);
-
-            if (shipstatic->maxfuel != 0.0f)
-            {
-                avgfuel += (ship->fuel / shipstatic->maxfuel);
-                shipsFuelConsidered++;
-            }
-        }
-    }
-
-    if (shipsConsidered > 0)
-    {
-        avghealth /= shipsConsidered;
-        if (avghealth < SHIP_NEED_REPAIR_PERCENT)
-        {
-            shipsNeedRepair = TRUE;
-        }
-        if (shipsFuelConsidered > 0)
-        {
-            avgfuel /= shipsFuelConsidered;
-            if (avgfuel < SHIP_NEED_REFUEL_PERCENT)
-            {
-                shipsNeedRefuel = TRUE;
-            }
-        }
-
-        if (shipsNeedRepair && shipsNeedRefuel)
-        {
-            dockType = DOCK_FOR_BOTHREFUELANDREPAIR;
-        }
-        else if (shipsNeedRepair)
-        {
-            dockType = DOCK_FOR_REPAIR;
-        }
-        else if (shipsNeedRefuel)
-        {
-            dockType = DOCK_FOR_REFUEL;
-        }
-        else
-        {
-            dockType = DOCK_FOR_REFUELREPAIR;
-        }
-    }
-
-    return dockType;
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : clDock
-    Description : Command to dock
-    Inputs      : selectcom, dockType
-    Outputs     :
-    Return      : the number of ships that are actually docking
-----------------------------------------------------------------------------*/
-sdword clDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockType,ShipPtr dockwith)
-{
-    CommandToDo *newcommand;
-    CommandToDo *alreadycommand;
-    bool8 wasHarvesting = FALSE;
-    SelectCommand *selection;
-    udword sizeofselection;
-    sdword numShips;
-    sdword i;
-    Ship *ship;
-    CollectResourceCommand collect = UNINITIALIZED_RESOURCE_COMMAND;
-
-    if(!(dockType & DOCK_FOR_RETIRE))
-    {
-        MakeShipsNonCapital(selectcom);
-    }
-    else
-    {
-        //docktype is for RETIREMENT
-
-        // CAT: no HW1 research ship / DDD frigate preparation for the retirement (M2-R4 ships-b)
-    }
-
-    // CAT (M2-R4 combat): no salCapExtraSpecialOrderCleanUp (HW1 salvage; clDock 0x00466c70 has no such call)
-
-    if(dockwith !=NULL)
-    {
-        CommandToDo *dockwithcommand = getShipAndItsCommand(&universe.mainCommandLayer,dockwith);
-        if(dockwithcommand != NULL)
-        {
-            if(dockwithcommand->ordertype.order == COMMAND_DOCK)
-            {
-                if(dockType & DOCK_AT_SPECIFIC_SHIP)
-                {
-                    return 0;
-                }
-            }
-        }
-    }
-
-    numShips = selectcom->numShips;
-    if (numShips == 0)
-    {
-#ifdef DEBUG_DOCKING
-        dbgMessage("No Ships To Dock");
-#endif
-        return (numShips);
-    }
-
-    //reset forceCancelDock Parameter
-    for(i=0;i<numShips;i++)
-    {
-        selectcom->ShipPtr[i]->forceCancelDock = FALSE;
-        removeShipsFromDockingWithThisShip(selectcom->ShipPtr[i]);
-    }
-    if (dockType & DOCK_AT_SPECIFIC_SHIP)
-    {
-        if (dockwith == NULL)
-        {
-    #ifdef DEBUG_DOCKING
-            dbgMessage("No Ship to dock with");
-    #endif
-            return (numShips);
-        }
-
-        // Filter out ships that can't dock with dockwith
-        MakeShipsAbleToDockWithThisShip(selectcom,dockwith,dockType);
-
-        numShips = selectcom->numShips;
-
-        if (numShips == 0)
-        {
-    #ifdef DEBUG_DOCKING
-            dbgMessage("No Ships To Dock");
-    #endif
-            return (numShips);
-        }
-    }
-//report the docking order to the tactics retreat layer so
-//as to register the retreat
-    tacticsReportMove(comlayer,selectcom);
-
-    if ((alreadycommand = IsSelectionAlreadyDoingSomething(comlayer,selectcom)) != NULL)
-    {
-        if (alreadycommand->ordertype.attributes & COMMAND_MASK_PROTECTING)
-        {
-            ClearProtecting(alreadycommand);
-        }
-
-        if (alreadycommand->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
-        {
-            ClearPassiveAttacking(alreadycommand);
-        }
-
-        if (alreadycommand->ordertype.order == COMMAND_COLLECT_RESOURCES)
-        {
-            dbgAssertOrIgnore(alreadycommand->selection->numShips == 1);
-            wasHarvesting = TRUE;
-            collect = alreadycommand->collect;
-        }
-        else
-        {
-            FreeLastOrder(alreadycommand);
-
-            alreadycommand->ordertype.order = COMMAND_DOCK;
-
-            alreadycommand->dock.wasHarvesting = FALSE;
-            alreadycommand->dock.formationToGoIntoAfterDockingID = 0;
-            alreadycommand->dock.dockType = dockType;
-            alreadycommand->dock.allNearShip = FALSE;
-            alreadycommand->dock.haveFlyedFarEnoughAway = FALSE;
-            for (i=0;i<numShips;i++)
-            {
-                ship = selectcom->ShipPtr[i];
-                InitializeDockVars(ship,(dockType & DOCK_AT_SPECIFIC_SHIP) ? dockwith : FindNearestShipToDockAt(ship,dockType),dockType);
-            }
-            alreadycommand->dock.allDockingWithSameShip = (bool8)allShipsDockingWithSameShip(selectcom);
-
-            InitShipsForAI(alreadycommand->selection,TRUE);
-
-            PrepareShipsForCommand(alreadycommand,TRUE);
-
-            return (numShips);
-        }
-    }
-
-    RemoveShipsFromDoingStuff(comlayer,selectcom);
-
-    newcommand = memAlloc(sizeof(CommandToDo),"ToDo",0);
-    InitCommandToDo(newcommand);
-
-    if (wasHarvesting)
-    {
-        // copy collect information
-        newcommand->collect = collect;
-    }
-
-    sizeofselection = sizeofSelectCommand(numShips);
-    selection = memAlloc(sizeofselection,"ToDoSelection",0);
-    memcpy(selection,selectcom,sizeofselection);
-
-    newcommand->selection = selection;
-    newcommand->ordertype.order = COMMAND_DOCK;
-    newcommand->ordertype.attributes = 0;
-
-    newcommand->dock.wasHarvesting = wasHarvesting;
-    newcommand->dock.formationToGoIntoAfterDockingID = 0;
-    newcommand->dock.dockType = dockType;
-    newcommand->dock.allNearShip = FALSE;
-    newcommand->dock.haveFlyedFarEnoughAway = FALSE;
-    newcommand->dock.allDockingWithSameShip = (bool8)allShipsDockingWithSameShip(selectcom);
-
-    InitShipsForAI(selection,TRUE);
-
-    PrepareShipsForCommand(newcommand,TRUE);
-
-    //find ship at end so the find function filters the list properly...
-    for (i=0;i<numShips;i++)
-    {
-        ship = selectcom->ShipPtr[i];
-        InitializeDockVars(ship,(dockType & DOCK_AT_SPECIFIC_SHIP) ? dockwith : FindNearestShipToDockAt(ship,dockType),dockType);
-    }
-
-    listAddNode(&comlayer->todolist,&newcommand->todonode,newcommand);
-
-    return (numShips);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : dockChangeSingleShipToDock
-    Description : changes a command for a single ship to COMMAND_DOCK
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void dockChangeSingleShipToDock(struct CommandToDo *command,Ship *ship,Ship *dockship,bool32 wasHarvesting,DockType dockType)
-{
-    dbgAssertOrIgnore(command->selection->numShips == 1);
-
-    if (command->ordertype.attributes & COMMAND_MASK_PROTECTING)
-    {
-        ClearProtecting(command);
-    }
-
-    if (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
-    {
-        ClearPassiveAttacking(command);
-    }
-
-    command->ordertype.order = COMMAND_DOCK;
-
-    command->dock.wasHarvesting = (bool8)wasHarvesting;
-    command->dock.formationToGoIntoAfterDockingID = 0;
-    command->dock.dockType = dockType;
-    command->dock.allDockingWithSameShip = TRUE;
-    command->dock.allNearShip = FALSE;
-    command->dock.haveFlyedFarEnoughAway = FALSE;
-
-    InitializeDockVars(ship,dockship,dockType);
-
-    PrepareShipsForCommand(command,TRUE);
-    InitShipsForAI(command->selection,TRUE);
-}
-
-void dockPrepareSingleShipForLaunch(Ship *ship,Ship *dockship)
-{
-    ship->shipOrDerelict.specialFlags |= SPECIAL_Launching;
-    ship->shipOrDerelict.dockingship = dockship;
-    ship->dockvars.dockship = dockship;
-    ship->dockvars.busyingThisShip = NULL;
-    ship->dockvars.reserveddocking = -1;
-    ship->dockvars.dockstaticpoint = NULL;
-    ship->dockvars.customdockinfo = NULL;
-}
-
-void RemoveShipFromDocking(Ship *ship)
-{
-    bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_STAY_TILL_EXPLICITLAUNCH|SPECIAL_KasCheckDoneLaunching);
-    if(ship->guidance.clampInfo != NULL)
-    {
-        if(&ship->shipOrDerelict.dockingship->targetable == ship->guidance.clampInfo->host)
-        {
-            //host is docking ships...so unclamp
-            //won't unclamp unless it is the right ship
-            unClampObj((SpaceObjRotImpTargGuidance *)ship);
-        }
-    }
-
-    if (ship->dockvars.busyingThisShip != NULL)
-    {
-        dockUnbusyThisShip(ship);
-    }
-    ship->shipOrDerelict.dockingship = NULL;
-    if (ship->dockvars.reserveddocking >= 0)
-    {
-        dockFreeDockPoint(ship,ship->dockvars.dockship);
-    }
-    ship->dockvars.dockship = NULL;
-    ship->dockvars.dockstaticpoint = NULL;
-    if (ship->dockvars.customdockinfo)
-    {
-        memFree(ship->dockvars.customdockinfo);
-        ship->dockvars.customdockinfo = NULL;
-    }
-    madLinkInPostDockingShip(ship);
-}
-
-void RemoveShipFromLaunching(Ship *ship)
-{
-    bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_STAY_TILL_EXPLICITLAUNCH|SPECIAL_KasCheckDoneLaunching);
-    bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_Launching);
-    ship->shipOrDerelict.dockingship = NULL;
-    if (ship->dockvars.reserveddocking >= 0)
-    {
-        dockFreeDockPoint(ship,ship->dockvars.dockship);
-    }
-    ship->dockvars.dockship = NULL;
-    ship->dockvars.dockstaticpoint = NULL;
-    dbgAssertOrIgnore(ship->dockvars.customdockinfo == NULL);
-    madLinkInPostDockingShip(ship);
-
-    battleLaunchWelcomeExchange(ship);
-}
-
-void LaunchCleanup(struct CommandToDo *launchtodo)
-{
-    Ship *ship;
-
-    if (launchtodo->selection->numShips == 0)
-    {
-        return;     // don't need to do cleanup if there are no ships (e.g. they have been removed)
-    }
-
-    ship = launchtodo->selection->ShipPtr[0];
-
-    dbgAssertOrIgnore(launchtodo->selection->numShips == 1);
-    RemoveShipFromLaunching(ship);
-}
-
-sdword dockNeedRotationOveride(Ship *dockwith,Ship *ship,DockStaticPoint *dockpointused)
-{
-    sdword i;
-    if(dockwith->staticinfo->dockOverideInfo != NULL)
-    {
-        for(i=0;i<dockwith->staticinfo->dockOverideInfo->numDockOverides;i++)
-        {
-            if(dockwith->staticinfo->dockOverideInfo->dockOverides[i].shiptype == ship->shiptype)
-            {
-                //this is the overide slot for the ship
-                if(dockwith->staticinfo->dockOverideInfo->dockOverides[i].shiprace == ship->shiprace)
-                {
-                    //correct race?
-                    if(dockwith->staticinfo->dockOverideInfo->dockOverides[i].useNewOrientation==1)
-                    {
-                        //use the offset overide for this one
-                        if(dockwith->staticinfo->dockOverideInfo->dockOverides[i].lightNameUsed)
-                        {
-                            //light specific
-                            if(strcmp(dockpointused->name,dockwith->staticinfo->dockOverideInfo->dockOverides[i].lightName)==0)
-                            {
-                                return i;
-                            }
-                        }
-                        else
-                        {
-                            //light name NOT used so this is good enough
-                            return i;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return(-1);
-}
-sdword dockNeedOffsetOveride(Ship *dockwith,Ship *ship,DockStaticPoint *dockpointused)
-{
-    sdword i;
-    if(dockwith->staticinfo->dockOverideInfo != NULL)
-    {
-        for(i=0;i<dockwith->staticinfo->dockOverideInfo->numDockOverides;i++)
-        {
-            if(dockwith->staticinfo->dockOverideInfo->dockOverides[i].shiptype == ship->shiptype)
-            {
-                //this is the overide slot for the ship
-                if(dockwith->staticinfo->dockOverideInfo->dockOverides[i].shiprace == ship->shiprace)
-                {
-                    //correct race
-                    if(dockwith->staticinfo->dockOverideInfo->dockOverides[i].useNewOffset==1)
-                    {
-                        //use overide slot
-                        if(dockwith->staticinfo->dockOverideInfo->dockOverides[i].lightNameUsed)
-                        {
-                            //light specific
-                            if(strcmp(dockpointused->name,dockwith->staticinfo->dockOverideInfo->dockOverides[i].lightName)==0)
-                            {
-                                //light name is used and this is the one
-                                return i;
-                            }
-                        }
-                        else
-                        {
-                            //don't need light name
-                            return i;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return(-1);
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : DockCleanup
-    Description : cleans up refueling state information
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void DockCleanup(struct CommandToDo *docktodo)
-{
-    sdword i;
-    SelectCommand *selection = docktodo->selection;
-    sdword numShips = selection->numShips;
-
-    for (i=0;i<numShips;i++)
-    {
-        RemoveShipFromDocking(selection->ShipPtr[i]);
-    }
-    madLinkInPostDocking(docktodo,1);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : dockShipRefuelsAtShip
-    Description : ship ship refuels at ship dockwith
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-bool32 dockShipRefuelsAtShip(Ship *ship,Ship *dockwith)
-{
-    ShipStaticInfo *shipstaticinfo = ship->staticinfo;
-    ShipStaticInfo *dockwithstaticinfo = dockwith->staticinfo;
-    bool32 alldone = TRUE;
-
-    dbgAssertOrIgnore(dockwithstaticinfo->canReceiveShips | dockwithstaticinfo->canReceiveResources);
-
-    // Dump off any resource units we have
-    if ((dockwithstaticinfo->canReceiveResources) && (ship->resources > 0))
-    {
-#ifdef DEBUG_DOCKING
-        dbgMessagef("Depositing %d RU",ship->resources);
-#endif
-        ship->playerowner->resourceUnits += ship->resources;
-        universe.gameStats.playerStats[ship->playerowner->playerIndex].totalResourceUnitsCollected += ship->resources;
-        universe.gameStats.playerStats[ship->playerowner->playerIndex].totalResourceUnits += ship->resources;
-        universe.gameStats.totalResourceUnitsCollected+=ship->resources;
-        if ((singlePlayerGame) && (ship->playerowner->playerIndex == 0))
-        {
-            singlePlayerGameInfo.resourceUnitsCollected += ship->resources;
-        }
-        ship->resources = 0;
-        soundEvent(ship, Ship_ResourceTransfer);
-        /* is this said by the collector or the ship it docked with? */
-        speechEvent(ship, STAT_ResCol_ResourcesTransferred, 0);
-    }
-
-    if (dockwithstaticinfo->repairOtherShipRate != 0.0f)
-    {
-        if (ship->targetable.health < shipstaticinfo->health.maxhealth)
-        {
-            if(ship->shiptype == ResourceCollector &&
-               dockwithstaticinfo->repairResourceCollectorRate != 0.0f)
-            {
-                ship->targetable.health += dockwithstaticinfo->repairResourceCollectorRate * shipstaticinfo->health.maxhealth * 0.01f;
-            }
-            else
-            {
-                ship->targetable.health += dockwithstaticinfo->repairOtherShipRate * shipstaticinfo->health.maxhealth * 0.01f;
-            }
-            if (ship->targetable.health > shipstaticinfo->health.maxhealth)
-            {
-                ship->targetable.health = shipstaticinfo->health.maxhealth;
-            }
-            else
-            {
-                alldone = FALSE;
-            }
-        }
-    }
-
-    if (dockwithstaticinfo->pumpFuelRate != 0.0f)
-    {
-        if (ship->fuel < shipstaticinfo->maxfuel)
-        {
-            ship->fuel += dockwithstaticinfo->pumpFuelRate * universe.phystimeelapsed;
-            if (ship->fuel > shipstaticinfo->maxfuel)
-            {
-                ship->fuel = shipstaticinfo->maxfuel;
-            }
-            else
-            {
-                alldone = FALSE;
-            }
-        }
-    }
-    if(ship->forceCancelDock)
-    {
-        //if we've been told to cancel our docking business, then
-        //force this variable TRUE!
-        alldone = TRUE;
-    }
-    return alldone;
-}
-bool32 dockFlyToConeInsideAndAlign(Ship *ship,Ship *dockwith,real32 headingTolerance,real32 dockDistance,ShipRace dockwithRace)
-{
-     DockStaticPoint *dockstaticpoint = ship->dockvars.dockstaticpoint;
-     vector coneheadingInWorldCoordSys;
-     vector conepositionInWorldCoordSys;
-     vector heading;
-     vector destination;
-     bool32 ok=FALSE;
-
-     matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->conenormal);
-     matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->position);
-     vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
-
-
-     vecScalarMultiply(destination,coneheadingInWorldCoordSys,dockDistance);
-     vecAddTo(destination,conepositionInWorldCoordSys);
-
-
-
-     aishipFlyToPointAvoidingObjsWithVel(ship,&destination,AISHIP_DontFlyToObscuredPoints|AISHIP_IgnoreDockWithObscuredPoints|AISHIP_ReturnImmedIfPointObscured, CONEINSIDE_MINFLYSPEED,&dockwith->obj.posinfo.velocity);
-
-     if (MoveReachedDestinationVariable(ship,&destination,100.0f))
-     {
-         ok = TRUE;
-     }
-     if(dockwithRace==R2 && dockwith->shiptype == Mothership)
-     {
-        matGetVectFromMatrixCol3(heading,dockwith->rotatable.rotinfo.coordsys);
-     }
-     else
-     {
-        vecScalarMultiply(heading,coneheadingInWorldCoordSys,-1.0f);
-     }
-     if(aitrackHeading(ship,&heading,headingTolerance))
-     {
-         //faceing correctly
-         if(ok)
-         {
-             //only if we've reached the correct destination as well.
-             return TRUE;
-         }
-     }
-
-     return FALSE;
-}
-bool32 dockFlyToConeOrigin(Ship *ship,Ship *dockwith,real32 tolerance,real32 minflyspeed,bool32 pointAlongConeVector, bool32 faceWithDockwith)
-{
-    vector conepositionInWorldCoordSys,tmpvec;
-    DockStaticPoint *dockstaticpoint = ship->dockvars.dockstaticpoint;
-    sdword flags = 0;
-    sdword overide;
-
-    if((overide = dockNeedOffsetOveride(dockwith,ship,dockstaticpoint)) != -1)
-    {
-        vecAdd(tmpvec,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].offset,dockstaticpoint->position);
-        matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&tmpvec);
-    }
-    else
-    {
-        matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->position);
-    }
-
-    //matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->position);
-    vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
-
-    if (MoveReachedDestinationVariable(ship,&conepositionInWorldCoordSys,tolerance))
-    {
-        return TRUE;
-    }
-    else
-    {
-        if((overide = dockNeedRotationOveride(dockwith,ship,dockstaticpoint)) != -1)
-        {
-            vector desiredHeading,desiredUp;
-            GetDirectionVectorOfShip(&desiredHeading,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading,&(dockwith)->rotatable.rotinfo.coordsys);
-            GetDirectionVectorOfShip(&desiredUp,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up,&(dockwith)->rotatable.rotinfo.coordsys);
-            aitrackHeadingAndUp(ship,&desiredHeading,&desiredUp,FLYSHIP_HEADINGACCURACY);
-            flags = 0;
-        }
-        else if (pointAlongConeVector)
-        {
-            vector heading;
-            vecSub(heading,conepositionInWorldCoordSys,ship->obj.posinfo.position);
-            vecNormalize(&heading);
-            aitrackHeading(ship,&heading,FLYSHIP_HEADINGACCURACY);
-            flags = 0;
-        }
-        else if(faceWithDockwith)
-        {
-            vector heading;
-            matGetVectFromMatrixCol3(heading,dockwith->rotatable.rotinfo.coordsys);
-            aitrackHeading(ship,&heading,0.999f);
-            flags = 0;
-        }
-        else
-        {
-            flags = AISHIP_FirstPointInDirectionFlying + AISHIP_PointInDirectionFlying;
-        }
-        aishipFlyToPointAvoidingObjsWithVel(ship,&conepositionInWorldCoordSys,flags,minflyspeed,&dockwith->obj.posinfo.velocity);
-        return FALSE;
-    }
-}
-
-bool32 dockFlyToConeOriginLatchIfWithin(Ship *ship,Ship *dockwith,real32 withindistsqr)
-{
-    vector conepositionInWorldCoordSys,tmpvec;
-    DockStaticPoint *dockstaticpoint = ship->dockvars.dockstaticpoint;
-    vector desiredHeading;
-    vector desiredUp;
-    vector lefttogo;
-    real32 distsqr;
-    sdword overide;
-
-    dbgAssertOrIgnore(dockstaticpoint->type == LatchPoint);
-
-    if((overide = dockNeedOffsetOveride(dockwith,ship,dockstaticpoint)) != -1)
-    {
-        //matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->conenormal);
-        //vecScalarMultiply(coneheadingInWorldCoordSys,coneheadingInWorldCoordSys,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].offset);
-        //vecAddTo(conepositionInWorldCoordSys,coneheadingInWorldCoordSys);
-        //vecAddTo(conepositionInWorldCoordSys,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].offset);
-        //matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockwith->staticinfo->dockOverideInfo->dockOverides[overide].offset);
-        //vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
-        vecAdd(tmpvec,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].offset,dockstaticpoint->position);
-        matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&tmpvec);
-    }
-    else
-    {
-        matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->position);
-    }
-
-    vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
-
-    if (withindistsqr == 0.0f)
-    {
-        goto latchimmediately;
-    }
-
-
-    vecSub(lefttogo,ship->obj.posinfo.position,conepositionInWorldCoordSys);
-    distsqr = vecMagnitudeSquared(lefttogo);
-
-    if (distsqr > withindistsqr)
-    {
-        aishipFlyToPointAvoidingObjsWithVel(ship,&conepositionInWorldCoordSys,AISHIP_PointInDirectionFlying,-50.0f,&dockwith->obj.posinfo.velocity);
-        return FALSE;
-    }
-    else
-    {
-latchimmediately:
-        if (MoveReachedDestinationVariable(ship,&conepositionInWorldCoordSys,LATCH_TOLERANCE))
-        {
-            ship->obj.posinfo.velocity = dockwith->obj.posinfo.velocity;
-            return TRUE;
-        }
-        else
-        {
-            if((overide = dockNeedRotationOveride(dockwith,ship,dockstaticpoint)) != -1)
-            {
-                GetDirectionVectorOfShip(&desiredHeading,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading,&(dockwith)->rotatable.rotinfo.coordsys);
-                GetDirectionVectorOfShip(&desiredUp,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up,&(dockwith)->rotatable.rotinfo.coordsys);
-            }
-            else
-            {
-                GetDirectionVectorOfShip(&desiredHeading,dockstaticpoint->headingdirection,&(dockwith)->rotatable.rotinfo.coordsys);
-                GetDirectionVectorOfShip(&desiredUp,dockstaticpoint->updirection,&(dockwith)->rotatable.rotinfo.coordsys);
-            }
-            aitrackHeadingAndUp(ship,&desiredHeading,&desiredUp,FLYSHIP_HEADINGACCURACY);
-            aishipFlyToPointAvoidingObjsWithVel(ship,&conepositionInWorldCoordSys,0,-50.0f,&dockwith->obj.posinfo.velocity);
-            return FALSE;
-        }
-    }
-}
-
-bool32 dockFlyToConeOriginLatch(Ship *ship,Ship *dockwith)
-{
-    vector conepositionInWorldCoordSys,tmpvec;
-    DockStaticPoint *dockstaticpoint = ship->dockvars.dockstaticpoint;
-    vector desiredHeading;
-    vector desiredUp;
-    sdword overide;
-
-    dbgAssertOrIgnore(dockstaticpoint->type == LatchPoint);
-
-    if((overide = dockNeedRotationOveride(dockwith,ship,dockstaticpoint)) != -1)
-    {
-        GetDirectionVectorOfShip(&desiredHeading,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading,&(dockwith)->rotatable.rotinfo.coordsys);
-        GetDirectionVectorOfShip(&desiredUp,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up,&(dockwith)->rotatable.rotinfo.coordsys);
-    }
-    else
-    {
-        GetDirectionVectorOfShip(&desiredHeading,dockstaticpoint->headingdirection,&(dockwith)->rotatable.rotinfo.coordsys);
-        GetDirectionVectorOfShip(&desiredUp,dockstaticpoint->updirection,&(dockwith)->rotatable.rotinfo.coordsys);
-    }
-
-    if((overide = dockNeedOffsetOveride(dockwith,ship,dockstaticpoint)) != -1)
-    {
-        //matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->conenormal);
-        //vecScalarMultiply(coneheadingInWorldCoordSys,coneheadingInWorldCoordSys,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].offset);
-        //vecAddTo(conepositionInWorldCoordSys,coneheadingInWorldCoordSys);
-        //vecAddTo(conepositionInWorldCoordSys,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].offset);
-        //matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockwith->staticinfo->dockOverideInfo->dockOverides[overide].offset);
-        //vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
-        vecAdd(tmpvec,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].offset,dockstaticpoint->position);
-        matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&tmpvec);
-    }
-    else
-    {
-        matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->position);
-    }
-
-    vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
-
-
-    if (MoveReachedDestinationVariable(ship,&conepositionInWorldCoordSys,LATCH_TOLERANCE))
-    {
-        ship->obj.posinfo.velocity = dockwith->obj.posinfo.velocity;
-        return TRUE;
-    }
-    else
-    {
-        aitrackHeadingAndUp(ship,&desiredHeading,&desiredUp,FLYSHIP_HEADINGACCURACY);
-        aishipFlyToPointAvoidingObjsWithVel(ship,&conepositionInWorldCoordSys,0,-50.0f,&dockwith->obj.posinfo.velocity);
-        return FALSE;
-    }
-}
-
-bool32 dockBackoutOfConeLatch(Ship *ship,Ship *dockwith)
-{
-    DockStaticPoint *dockstaticpoint = ship->dockvars.dockstaticpoint;
-    real32 backupDistance = dockstaticpoint->flyawaydist;
-    vector coneheadingInWorldCoordSys;
-    vector conepositionInWorldCoordSys;
-    vector destination;
-
-    matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->conenormal);
-
-    matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->position);
-    vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
-
-    vecScalarMultiply(destination,coneheadingInWorldCoordSys,backupDistance);
-    vecAddTo(destination,conepositionInWorldCoordSys);
-
-    if ((MoveReachedDestinationVariable(ship,&destination,BACKOUT_TOLERANCE)))
-    {
-        return TRUE;
-    }
-    else
-    {
-        aishipFlyToPointAvoidingObjsWithVel(ship,&destination,AISHIP_PointInDirectionFlying,BACKOUT_MINFLYSPEED,&dockwith->obj.posinfo.velocity);
-        return FALSE;
-    }
-}
-bool32 dockBackoutOfConeLatchFacingProperly(Ship *ship,Ship *dockwith,real32 withindistsqr)
-{
-    DockStaticPoint *dockstaticpoint = ship->dockvars.dockstaticpoint;
-    real32 backupDistance = dockstaticpoint->flyawaydist;
-    vector coneheadingInWorldCoordSys;
-    vector conepositionInWorldCoordSys;
-    vector destination;
-    vector lefttogo;
-    real32 distsqr;
-    vector desiredHeading;
-    vector desiredUp;
-    sdword overide;
-
-
-    matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->conenormal);
-
-    matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->position);
-    vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
-
-    vecScalarMultiply(destination,coneheadingInWorldCoordSys,backupDistance);
-    vecAddTo(destination,conepositionInWorldCoordSys);
-
-    vecSub(lefttogo,ship->obj.posinfo.position,conepositionInWorldCoordSys);
-    distsqr = vecMagnitudeSquared(lefttogo);
-
-    if (distsqr > withindistsqr)
-    {
-        aishipFlyToPointAvoidingObjsWithVel(ship,&destination,AISHIP_PointInDirectionFlying,BACKOUT_MINFLYSPEED,&dockwith->obj.posinfo.velocity);
-        return FALSE;
-    }
-    else
-    {
-        if (MoveReachedDestinationVariable(ship,&destination,BACKOUT_TOLERANCE))
-        {
-            return TRUE;
-        }
-        else
-        {
-            if((overide = dockNeedRotationOveride(dockwith,ship,dockstaticpoint)) != -1)
-            {
-                GetDirectionVectorOfShip(&desiredHeading,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading,&(dockwith)->rotatable.rotinfo.coordsys);
-                GetDirectionVectorOfShip(&desiredUp,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up,&(dockwith)->rotatable.rotinfo.coordsys);
-            }
-            else
-            {
-                GetDirectionVectorOfShip(&desiredHeading,dockstaticpoint->headingdirection,&(dockwith)->rotatable.rotinfo.coordsys);
-                GetDirectionVectorOfShip(&desiredUp,dockstaticpoint->updirection,&(dockwith)->rotatable.rotinfo.coordsys);
-            }
-            aitrackHeadingAndUp(ship,&desiredHeading,&desiredUp,FLYSHIP_HEADINGACCURACY);
-            aishipFlyToPointAvoidingObjsWithVel(ship,&destination,0,BACKOUT_MINFLYSPEED,&dockwith->obj.posinfo.velocity);
-            return FALSE;
-        }
-    }
-    return FALSE;
-}
-
-bool32 dockFlyOutOfCone(Ship *ship,Ship *dockwith,sdword headingdirection,sdword updirection)
-{
-    DockStaticPoint *dockstaticpoint = ship->dockvars.dockstaticpoint;
-    real32 backupDistance = dockstaticpoint->flyawaydist;
-    vector coneheadingInWorldCoordSys;
-    vector conepositionInWorldCoordSys;
-    vector destination;
-    vector distanceawayVec;
-
-    matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->conenormal);
-
-    matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->position);
-    vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
-
-    vecScalarMultiply(destination,coneheadingInWorldCoordSys,10000.0f);
-    vecAddTo(destination,conepositionInWorldCoordSys);
-
-    vecSub(distanceawayVec,ship->obj.posinfo.position,conepositionInWorldCoordSys);
-    if (vecMagnitudeSquared(distanceawayVec) >= (backupDistance*backupDistance))
-    {
-        return TRUE;
-    }
-    else
-    {
-        udword flags;
-        vector heading;
-        vector up;
-
-        if ((headingdirection >= 0) && (updirection >= 0))
-    {
-            dbgAssertOrIgnore(headingdirection != updirection);
-            GetDirectionVectorOfShip(&heading,headingdirection,&(dockwith)->rotatable.rotinfo.coordsys);
-            GetDirectionVectorOfShip(&up,updirection,&(dockwith)->rotatable.rotinfo.coordsys);
-            aitrackHeadingAndUp(ship,&heading,&up,FLYSHIP_HEADINGACCURACY);
-            flags = 0;
-        }
-        else
-        {
-            flags = AISHIP_PointInDirectionFlying;
-        }
-
-        aishipFlyToPointAvoidingObjsWithVel(ship,&destination,flags,0.0f,&dockwith->obj.posinfo.velocity);
-        return FALSE;
-    }
-}
-
-bool32 dockFlyAboveMothershipDoor(Ship *ship,Ship *dockwith)
-{
-    vector destination;
-    vector dest1;
-    vector heading,up,right;
-    matrix coordsysWS;
-
-    mothershipGetCargoPosition(dockwith,(ShipOrDerelict *)ship,&destination,&coordsysWS,&heading,&up,&right);
-    //madLinkInGetDoorInfo(dockwith,&coordsysWS,&dest1);
-    //matGetVectFromMatrixCol1(heading,coordsysWS);
-    //get tracking up vector
-   // matGetVectFromMatrixCol2(up,coordsysWS);
-    matGetVectFromMatrixCol3(dest1,coordsysWS);
-    vecScalarMultiply(dest1,dest1,-1.0f);
-
-    vecScalarMultiply(dest1,dest1,-1800.0f);
-    vecAddTo(destination,dest1);
-
-    if(MoveReachedDestinationVariable(ship,&destination,250.0f))
-    {
-        return TRUE;
-    }
-    else
-    {
-        aitrackHeadingAndUp(ship,&heading,&up,1.0f);
-        aishipFlyToPointAvoidingObjsWithVel(ship,&destination,AISHIP_PointInDirectionFlying,0.0f,&dockwith->obj.posinfo.velocity);
-        return FALSE;
-    }
-}
-
-#define DOOR_Stage1_Right   -3700.0f
-#define DOOR_Stage1_Up  -1550.0f
-
-bool32 dockFlyToBottomOfDoor1(Ship *ship,Ship *dockwith)
-{
-    vector destination;
-    vector dest1;
-    vector heading,up,right,doorheading,doorup;
-    matrix coordsysWS;
-    //bool32 track = FALSE;
-    bool32 dest = FALSE;
-
-    mothershipGetCargoPosition(dockwith,(ShipOrDerelict *)ship,&destination,&coordsysWS,&heading,&up,&right);
-    //madLinkInGetDoorInfo(dockwith,&coordsysWS,&dest1);
-    matGetVectFromMatrixCol1(doorheading,coordsysWS);
-    //get tracking up vector
-    matGetVectFromMatrixCol2(doorup,coordsysWS);
-    //vecScalarMultiply(up,up,-1.0f);
-
-    vecScalarMultiply(dest1,doorheading,DOOR_Stage1_Right);
-    vecAddTo(destination,dest1);
-    vecScalarMultiply(dest1,up,DOOR_Stage1_Up);
-    vecAddTo(destination,dest1);
-
-    //track = aitrackHeadingAndUp(ship,&heading,&up,0.98f);
-    aishipFlyToPointAvoidingObjsWithVel(ship,&destination,AISHIP_PointInDirectionFlying,0.0f,&dockwith->obj.posinfo.velocity);
-
-
-    if(MoveReachedDestinationVariable(ship,&destination,400.0f))
-    {
-        dest = TRUE;
-    }
-    if(dest)// && track)
-        return TRUE;
-
-    return FALSE;
-}
-
-#define DOOR_Stage2_UpOffset  -2700.0f
-
-bool32 dockFlyToBottomOfDoor2(Ship *ship,Ship *dockwith)
-{
-    vector destination;
-    vector dest1;
-    vector heading,up,right;
-    matrix coordsysWS;
-    bool32 track = FALSE;
-    bool32 dest = FALSE;
-
-    mothershipGetCargoPosition(dockwith,(ShipOrDerelict *)ship,&destination,&coordsysWS,&heading,&up,&right);
-    //madLinkInGetDoorInfo(dockwith,&coordsysWS,&dest1);
-    //matGetVectFromMatrixCol1(heading,coordsysWS);
-    //get tracking up vector
-    //matGetVectFromMatrixCol2(up,coordsysWS);
-    //vecScalarMultiply(up,up,-1.0f);
-
-    vecScalarMultiply(dest1,heading,DOOR_Stage2_UpOffset);
-    vecAddTo(destination,dest1);
-
-    track = aitrackHeadingAndUp(ship,&heading,&up,0.98f);
-    aishipFlyToPointAvoidingObjsWithVel(ship,&destination,0,0.0f,&dockwith->obj.posinfo.velocity);
-
-
-    if(MoveReachedDestinationVariable(ship,&destination,100.0f))
-    {
-        dest = TRUE;
-    }
-    if(dest && track)
-        return TRUE;
-
-    return FALSE;
-}
-bool32 dockFlyToBottomOfDoor3(Ship *ship,Ship *dockwith)
-{
-    vector destination;
-    vector dest1;
-    vector heading,up,right;
-    matrix coordsysWS;
-    bool32 track = FALSE;
-    bool32 dest = FALSE;
-
-    mothershipGetCargoPosition(dockwith,(ShipOrDerelict *)ship,&destination,&coordsysWS,&heading,&up,&right);
-    //madLinkInGetDoorInfo(dockwith,&coordsysWS,&dest1);
-    //matGetVectFromMatrixCol1(heading,coordsysWS);
-    //get tracking up vector
-    //matGetVectFromMatrixCol2(up,coordsysWS);
-    //vecScalarMultiply(up,up,-1.0f);
-
-    vecScalarMultiply(dest1,heading,-2700.0f);
-    vecAddTo(destination,dest1);
-
-    track = aitrackHeadingAndUp(ship,&heading,&up,0.98f);
-    aishipFlyToPointAvoidingObjsWithVel(ship,&destination,0,0.0f,&dockwith->obj.posinfo.velocity);
-
-
-    if(MoveReachedDestinationVariable(ship,&destination,100.0f))
-    {
-        dest = TRUE;
-    }
-    if(dest && track)
-        return TRUE;
-
-    return FALSE;
-}
-
-bool32 dockFlyToDoor(Ship *ship,Ship *dockwith)
-{
-    vector destination;
-    vector heading,up,right;
-    matrix coordsysWS;
-    bool32 track = FALSE;
-    bool32 dest = FALSE;
-
-    mothershipGetCargoPosition(dockwith,(ShipOrDerelict *)ship,&destination,&coordsysWS,&heading,&up,&right);
-    //madLinkInGetDoorInfo(dockwith,&coordsysWS,&dest1);
-    //matGetVectFromMatrixCol1(heading,coordsysWS);
-    //get tracking up vector
-    //matGetVectFromMatrixCol2(up,coordsysWS);
-    //vecScalarMultiply(up,up,-1.0f);
-
-    track = aitrackHeadingAndUp(ship,&heading,&up,1.0f);
-    aishipFlyToPointAvoidingObjsWithVel(ship,&destination,0,0.0f,&dockwith->obj.posinfo.velocity);
-
-
-    if(MoveReachedDestinationVariable(ship,&destination,TW_R1_DOOR_DOCK_TOLERANCE))
-    {
-        dest = TRUE;
-    }
-    if(dest)
-        return TRUE;
-
-    return FALSE;
-}
-
-bool32 dockFlyToConeInside(Ship *ship,Ship *dockwith,real32 dockDistance)
-{
-    DockStaticPoint *dockstaticpoint = ship->dockvars.dockstaticpoint;
-    vector coneheadingInWorldCoordSys;
-    vector conepositionInWorldCoordSys;
-    vector coneToShip;
-    real32 coneToShipMag;
-    real32 dotprod;
-    vector destination;
-
-    matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->conenormal);
-
-    matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->position);
-    vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
-
-    vecSub(coneToShip,ship->obj.posinfo.position,conepositionInWorldCoordSys);
-    coneToShipMag = fsqrt(vecMagnitudeSquared(coneToShip));
-
-    dotprod = vecDotProduct(coneheadingInWorldCoordSys,coneToShip);  // 1.0*coneToShipMag*cos(theta)
-
-    if (dotprod >= (dockstaticpoint->coneangle*coneToShipMag))
-    {
-        return TRUE;
-    }
-
-    vecScalarMultiply(destination,coneheadingInWorldCoordSys,dockDistance);
-    vecAddTo(destination,conepositionInWorldCoordSys);
-
-    if ((MoveReachedDestinationVariable(ship,&destination,CONEINSIDE_TOLERANCE)))
-    {
-rinside:
-        return TRUE;
-    }
-    else
-    {
-        if (aishipFlyToPointAvoidingObjsWithVel(ship,&destination,
-            AISHIP_DontFlyToObscuredPoints|AISHIP_IgnoreDockWithObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_FirstPointInDirectionFlying|AISHIP_PointInDirectionFlying, CONEINSIDE_MINFLYSPEED,&dockwith->obj.posinfo.velocity)
-            & AISHIP_FLY_OBJECT_IN_WAY)
-        {
-            goto rinside;
-        }
-        return FALSE;
-    }
-}
 
 /*-----------------------------------------------------------------------------
     Name        : ClampToWithin
@@ -2262,284 +705,6 @@ real32 ClampToWithin(real32 number,real32 min,real32 max)
     Outputs     : outconepositionInWorldCoordSys, outconeToShip, outconeToShipMagSqr (only valid if docking point was found)
     Return      : index of nearest dock point, or -1 if not found
 ----------------------------------------------------------------------------*/
-sdword dockFindNearestDockPoint(sdword *dockpointindices[],Ship *ship,Ship *dockwith,
-                                vector *outconepositionInWorldCoordSys,vector *outconeToShip,real32 *outconeToShipMagSqr)
-{
-    sdword *curdockpoint = dockpointindices[0];
-    sdword curdockindex;
-    ShipStaticInfo *dockwithstatic = dockwith->staticinfo;
-    DockInfo *dockInfo = dockwith->dockInfo;
-    DockStaticInfo *dockStaticInfo = dockwithstatic->dockStaticInfo;
-    real32 mindistsqr = REALlyBig;
-    sdword minindex = -1;
-    vector conepositionInWorldCoordSys;
-    vector coneToShip;
-    real32 coneToShipMagSqr;
-    DockStaticPoint *dockstaticpoint;
-
-    dbgAssertOrIgnore(dockInfo);
-    dbgAssertOrIgnore(dockStaticInfo);
-    dbgAssertOrIgnore(dockInfo->numDockPoints == dockStaticInfo->numDockPoints);
-
-    while (curdockpoint != NULL)
-    {
-        curdockindex = *curdockpoint;
-        dbgAssertOrIgnore(curdockindex < dockStaticInfo->numDockPoints);
-
-        if (!dockInfo->dockpoints[curdockindex].thisDockBusy)
-        {
-            dockstaticpoint = &dockStaticInfo->dockstaticpoints[curdockindex];
-
-            matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->position);
-            vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
-
-            vecSub(coneToShip,ship->obj.posinfo.position,conepositionInWorldCoordSys);
-
-            coneToShipMagSqr = vecMagnitudeSquared(coneToShip);
-
-            if (coneToShipMagSqr < mindistsqr)
-            {
-                mindistsqr = coneToShipMagSqr;
-                minindex = curdockindex;
-                *outconepositionInWorldCoordSys = conepositionInWorldCoordSys;
-                *outconeToShip = coneToShip;
-                *outconeToShipMagSqr = coneToShipMagSqr;
-            }
-        }
-
-        dockpointindices++;
-        curdockpoint = *dockpointindices;
-    }
-
-    return minindex;
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : dockFindLaunchPoint
-    Description : out of a selection of dock points given by dockpointindices, finds a launch point for
-                  ship to launch from.
-    Inputs      : dockpointindices, ship, dockwith
-    Outputs     :
-    Return      : dockpointindex if found, -1 otherwise
-----------------------------------------------------------------------------*/
-sdword dockFindLaunchPoint(sdword *dockpointindices[],Ship *dockwith)
-{
-    sdword *curlaunchpoint = dockpointindices[0];
-    sdword curlaunchindex;
-    DockInfo *dockInfo = dockwith->dockInfo;
-
-    while (curlaunchpoint != NULL)
-    {
-        curlaunchindex = *curlaunchpoint;
-        dbgAssertOrIgnore(curlaunchindex < dockInfo->numDockPoints);
-
-        if (!dockInfo->dockpoints[curlaunchindex].thisDockBusy)
-        {
-            return curlaunchindex;
-        }
-
-        dockpointindices++;
-        curlaunchpoint = *dockpointindices;
-    }
-
-    return -1;
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : dockFindLaunchPointRandom
-    Description : out of a selection of dock points given by dockpointindices, finds a random point for
-                  ship to launch from.
-    Inputs      : dockpointindices, ship, dockwith
-    Outputs     :
-    Return      : dockpointindex if found, -1 otherwise
-----------------------------------------------------------------------------*/
-sdword dockFindLaunchPointRandom(sdword *dockpointindices[],Ship *dockwith,Ship *ship)
-{
-    sdword *curlaunchpoint = dockpointindices[0];
-    sdword curlaunchindex;
-    DockInfo *dockInfo = dockwith->dockInfo;
-    sdword numDockPoints = dockInfo->numDockPoints;
-    sdword *PotentialIndices;
-    sdword foundNumberIndices = 0;
-    sdword retval;
-
-    PotentialIndices = memAlloc(numDockPoints*sizeof(memsize),"pi(potentialindxs)",Pyrophoric);
-
-    while (curlaunchpoint != NULL)
-    {
-        curlaunchindex = *curlaunchpoint;
-        dbgAssertOrIgnore(curlaunchindex < numDockPoints);
-
-        if (!dockInfo->dockpoints[curlaunchindex].thisDockBusy)
-        {
-            //door check here... maybe check if ship has animation first?
-            if(dockwith->shiprace == R1)
-            {
-                if(dockwith->shiptype == Mothership)
-                {
-                    if(strcasecmp(dockInfo->dockpoints[curlaunchindex].dockstaticpoint->name,"Big") == 0)
-                    {
-                        if(dockwith->madDoorStatus != MAD_STATUS_DOOR_CLOSED)
-                        {
-                            goto busyDockPoint;
-                        }
-                        else
-                        {
-                            ship->shipOrDerelict.specialFlags |= SPECIAL_EXITING_DOOR;
-                        }
-                    }
-                }
-            }
-
-            PotentialIndices[foundNumberIndices] = curlaunchindex;
-            foundNumberIndices++;
-        }
-
-    busyDockPoint:
-
-        dockpointindices++;
-        curlaunchpoint = *dockpointindices;
-    }
-
-    if (foundNumberIndices == 0)
-    {
-        retval = -1;
-    }
-    else if (foundNumberIndices == 1)
-    {
-        retval = PotentialIndices[0];
-    }
-    else
-    {
-        retval = PotentialIndices[randomG(foundNumberIndices)];
-    }
-
-    memFree(PotentialIndices);
-
-    return retval;
-}
-
-void dockUnbusyThisShip(Ship *ship)
-{
-    Ship *busyShip = ship->dockvars.busyingThisShip;
-
-    busyShip->dockInfo->busyness--;
-    dbgAssertOrIgnore(busyShip->dockInfo->busyness >= 0);
-    ship->dockvars.busyingThisShip = NULL;
-}
-
-void dockBusyThisShip(Ship *ship,Ship *dockwith)
-{
-    ship->dockvars.busyingThisShip = dockwith;
-    dockwith->dockInfo->busyness++;
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : dockReserveDockPoint
-    Description : reserves a docking point for use
-    Inputs      : ship, dockwith, dockpointindex
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-static void dockReserveDockPoint(Ship *ship,Ship *dockwith,sdword dockpointindex)
-{
-    dbgAssertOrIgnore(dockpointindex != -1);
-    dbgAssertOrIgnore(ship->dockvars.reserveddocking < 0);    // make sure we already haven't reserved something
-
-    dbgAssertOrIgnore(ship->dockvars.dockship == dockwith);
-    dbgAssertOrIgnore(ship->dockvars.dockstaticpoint->dockindex == dockpointindex);
-
-    ship->dockvars.reserveddocking = (sbyte)dockpointindex;
-    dbgAssertOrIgnore(dockwith->dockInfo->dockpoints[dockpointindex].thisDockBusy == 0);
-    dockwith->dockInfo->dockpoints[dockpointindex].thisDockBusy++;
-
-    //special case advance support frigate docking for corvettes
-    if(dockwith->shiptype == AdvanceSupportFrigate)
-    {
-        if(dockwith->shiprace == R1)
-        {
-            sdword i;
-            for(i = 0;i<dockwith->dockInfo->numDockPoints;i++)
-            {
-                if(dockwith->dockInfo->dockpoints[i].dockstaticpoint->name[0] == 'C')
-                {
-                    //assume this is a corvette docking point!
-                    if(dockwith->dockInfo->dockpoints[i].thisDockBusy)
-                    {
-                        madLinkInOpenSpecialShip(dockwith);
-                        break;
-                    }
-                }
-
-            }
-        }
-    }
-    // CAT: no HW1 ResourceController or P2 fuel pod doors (M2-R4 ships-b)
-
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : dockFreeDockPoint
-    Description : frees a docking point so it can be used by other ships
-    Inputs      : ship, dockwith
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-static void dockFreeDockPoint(Ship *ship,Ship *dockwith)
-{
-    sdword dockpointindex;
-
-    dbgAssertOrIgnore(ship->dockvars.dockship == dockwith);
-
-    dockpointindex = ship->dockvars.dockstaticpoint->dockindex;
-
-    if(strcasecmp(dockwith->dockInfo->dockpoints[dockpointindex].dockstaticpoint->name,"Big") == 0)
-    {
-        if(dockwith->shiptype == Mothership)
-        {
-            if(dockwith->shiprace == R1)
-            {
-                madLinkInCloseDoor(dockwith);
-            }
-        }
-    }
-
-    dbgAssertOrIgnore(ship->dockvars.reserveddocking == (sbyte)dockpointindex);
-    ship->dockvars.reserveddocking = -1;
-
-    dbgAssertOrIgnore(dockwith->dockInfo->dockpoints[dockpointindex].thisDockBusy > 0);
-    dockwith->dockInfo->dockpoints[dockpointindex].thisDockBusy--;
-
-    if(dockwith->shiptype == AdvanceSupportFrigate)
-    {
-        if(dockwith->shiprace == R1)
-        {
-            sdword i,animate;
-            animate = TRUE;
-            for(i = 0;i<dockwith->dockInfo->numDockPoints;i++)
-            {
-                if(dockwith->dockInfo->dockpoints[i].dockstaticpoint->name[0] == 'C')
-                {
-                    //assume this is a corvette docking point!
-                    if(dockwith->dockInfo->dockpoints[i].thisDockBusy)
-                    {
-                        //one is busy
-                        animate = FALSE;
-                        break;
-                    }
-                }
-            }
-            if(animate)
-            {
-                madLinkInCloseSpecialShip(dockwith);
-            }
-        }
-    }
-    // CAT: no HW1 P2 fuel pod or ResourceController doors (M2-R4 ships-b)
-
-
-}
-
 void dockPutShipInside(Ship *ship,Ship *dockwith)
 {
     ShipsInsideMe *shipsInsideMe = dockwith->shipsInsideMe;
@@ -2566,11 +731,6 @@ void dockPutShipInside(Ship *ship,Ship *dockwith)
         dockwith->shipsInsideMe->FightersInsideme++;
     else if ((shipclass == CLASS_Corvette) || (shipclass == CLASS_Resource))
         dockwith->shipsInsideMe->CorvettesInsideme++;
-}
-
-void dockInitShipForLaunch(Ship *ship)
-{
-    ship->dockvars.dockstate3 = 0;
 }
 
 void dockRemoveShipFromInside(Ship *ship,Ship *dockwith)
@@ -2602,12 +762,1695 @@ void dockRemoveShipFromInside(Ship *ship,Ship *dockwith)
     dbgMessagef("Warning: ship %d not inside ship %d but expected",ship->shipID.shipNumber,dockwith->shipID.shipNumber);
 }
 
+/*=============================================================================
+    CAT (M2-R5 dock): the Cataclysm dock system. HW1's per-ship-type dock paths (ShipDocksAtCarrierMother,
+    ShipDocksAtASF, ShipDocksAtResourceCollector, ShipDocksAtJunkYardHQ, the research ships, the DDDF drones, the
+    StaticDockInit / launch-point tables, dockNeedRotationOveride, the busyness bookkeeping, the slave trade: 95 of
+    Dock.c's 123 functions) have no counterpart in cataclysm.exe and are gone. What replaces them:
+      - a dock PURPOSE 0..10 (Dock.h) in place of the DOCK_* bitmask;
+      - cat_dockGetDockClass 0x00463d70: purpose + ship class/type/flags -> the dock point type (DPT_*) used on the host;
+      - ThisShipCanDockWith 0x00464290 with the exe's fourth argument (test the per-type busy counts);
+      - one cone-based state machine for every ship pair, cat_dockShipDocksAtShip 0x00465860, with
+        cat_dockFindNearestDockPoint 0x00464660, cat_dockFindLaunchPoint 0x004649b0, cat_dockFlyOutOfCone 0x004650d0,
+        cat_dockFlyInFrontOfHost 0x00465630, cat_dockCanDockWithBusyHost 0x00463a70 and the M2-R4 cone helpers above;
+      - the REWRITTEN dockReserveDockPoint 0x00464610, RemoveShipFromDocking 0x00465360, RemoveShipFromLaunching
+        0x00465590, and clDock 0x00466c70, processDockToDo 0x00466950, cat_dockFinishedDocking 0x004667f0,
+        dockPutShipOutside 0x00463350, InitializeDockVars 0x00463c40, dockChangeSingleShipToDock 0x004644c0,
+        FindNearestShipToDockAt 0x00465750 at the exe's bodies.
+    Constants read from the exe's .rdata: 0x0072a530 4.0 and 0x0072a7f0 6.0 (dock-time bonuses), 0x0072a7ec 1.5 (the
+    slipgate transit), 0x0072a464 100.0 (fly-in-front threshold), 0x00879298 2.0 (the mothership's front factor),
+    0x0072a7d8 pi (a double), 0x0072a7cc / 0x0072a7d0 +-0.1221730 rad (7 degrees).
+=============================================================================*/
+
+#define CAT_DOCK_TIME_BONUS_RESOURCES   4.0f        // 0x0072a530
+#define CAT_DOCK_TIME_BONUS_DAMAGED     6.0f        // 0x0072a7f0
+#define CAT_DOCK_SLIPGATE_TRANSIT_TIME  1.5f        // 0x0072a7ec
+#define CAT_DOCK_IN_FRONT_DISTANCE      100.0f      // 0x0072a464
+#define CAT_DOCK_MOTHERSHIP_FRONT_SCALE 2.0f        // 0x00879298
+#define CAT_DOCK_SUPPORT_ROT_X          3.1415927f  // 0x0072a7d8 (double pi in the exe)
+#define CAT_DOCK_SUPPORT_ROT_Z          0.12217305f // 0x0072a7cc (7 degrees)
+#define CAT_DOCK_LATCH_RADIUS           4.0f        // cat_dockShipDocksAtShip state 5
+#define CAT_DOCK_IN_FRONT_LIMITVEL      (-80.0f)
+#define CAT_DOCK_PURPOSE_RESOURCE_DEPOSIT_SOUND 0x804
+#define CAT_DOCK_LATCHED_SOUND          0x807
+
+// the dock point (static) a ship holds on its host
+#define catDockPointOf(ship, dockwith)  (&(dockwith)->staticinfo->dockStaticInfo->dockstaticpoints[(ship)->dockvars.catDockPointIndex])
+// the host is a slipgate (dSlipgateSmall / dSlipgateMedium / dSlipgateLarge)
+#define catDockHostIsSlipgate(host)     ((host)->shiptype >= dSlipgateSmall && (host)->shiptype <= dSlipgateLarge)
+// the exe's "pod" set for the hive-swarm reset
+#define catDockHostIsHive(host)         ((host)->shiptype == sHiveFrigate || (host)->shiptype == bHiveFrigate)
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockFreePoint
+    Description : CAT: frees the dock point ship holds on dockwith (the inline of RemoveShipFromDocking 0x00465360,
+                  RemoveShipFromLaunching, LaunchCleanup, processLaunchShipToDo and cat_dockShipDocksAtShip): the
+                  point's busy word and the host's count for the point type
+    Inputs      : ship, dockwith
+----------------------------------------------------------------------------*/
+static void cat_dockFreePoint(Ship *ship,Ship *dockwith)
+{
+    sdword index = ship->dockvars.catDockPointIndex;
+
+    if (index != -1)
+    {
+        DockStaticPoint *point = &dockwith->staticinfo->dockStaticInfo->dockstaticpoints[index];
+
+        dockwith->dockInfo->thisDockBusy[index] = 0;
+        dockwith->dockInfo->catNumBusyOfType[point->type]--;
+        ship->dockvars.catDockPointIndex = -1;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : dockReserveDockPoint
+    Description : reserves dock point dockpointindex of dockwith for ship (cataclysm.exe 0x00464610, REWRITTEN:
+                  the index goes into the ship's dock vars, the host's busy word and per-type count go up; HW1's
+                  door animations and reserveddocking are gone)
+    Inputs      : ship, dockwith, dockpointindex (the exe reads it as a signed byte)
+----------------------------------------------------------------------------*/
+void dockReserveDockPoint(Ship *ship,Ship *dockwith,sdword dockpointindex)
+{
+    sdword index = (sbyte)dockpointindex;
+    DockStaticPoint *point = &dockwith->staticinfo->dockStaticInfo->dockstaticpoints[index];
+
+    ship->dockvars.catDockPointIndex = index;
+    dockwith->dockInfo->thisDockBusy[index] = 1;
+    dockwith->dockInfo->catNumBusyOfType[point->type]++;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockInitShipDockInfo
+    Description : CAT: allocates and clears a ship's dock info (cataclysm.exe 0x00463bb0, called by univCreateShip
+                  0x00542320): numDockPoints x 4 + 0x24 bytes, or NULL for a ship without dock points
+    Inputs      : ship
+----------------------------------------------------------------------------*/
+void cat_dockInitShipDockInfo(Ship *ship)
+{
+    DockStaticInfo *dockstaticinfo = ship->staticinfo->dockStaticInfo;
+
+    if (dockstaticinfo == NULL)
+    {
+        ship->dockInfo = NULL;
+    }
+    else
+    {
+        sdword size = sizeofDockInfo(dockstaticinfo->numDockPoints);
+
+        ship->dockInfo = memAlloc(size,"dockInfo",NonVolatile);
+        memset(ship->dockInfo,0,size);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockGetDockClass
+    Description : CAT: the dock point type (DPT_*) a ship of the given class, type and flags uses on dockwith for a
+                  dock purpose (cataclysm.exe 0x00463d70), or -1 when it cannot dock there for that purpose
+    Inputs      : shipclass, shiptype, externalBuild (the ship static's), typeFlags (the static's catTypeFlags), purpose,
+                  dockwith
+    Return      : the DPT_* index, -1 none
+----------------------------------------------------------------------------*/
+sdword cat_dockGetDockClass(ShipClass shipclass,ShipType shiptype,bool32 externalBuild,udword typeFlags,DockType purpose,Ship *dockwith)
+{
+    ShipStaticInfo *hoststatic = dockwith->staticinfo;
+    DockStaticInfo *dockstaticinfo = hoststatic->dockStaticInfo;
+
+    if (dockstaticinfo == NULL)
+    {
+        return -1;
+    }
+    // Mission 16: a Worker boards the infected Ecclesiam
+    if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 16) && (shiptype == sWorker) &&
+        (dockwith->shiptype == dEcclesiamInfected))
+    {
+        return DPT_CleesanBoarding;
+    }
+    switch (purpose)
+    {
+        case CAT_DOCK_SUPPORT:
+        case CAT_DOCK_SUPPORT_INSTANT:
+            switch (shipclass)
+            {
+                case CLASS_Mothership:
+                case CLASS_HeavyCruiser:
+                case CLASS_Carrier:
+                case CLASS_Destroyer:
+                    return DPT_Large_In;
+                case CLASS_Frigate:
+                    return DPT_Med_In;
+                case CLASS_Corvette:
+                    return (dockstaticinfo->firstOfType[DPT_Small_In] == 0xFF) ? DPT_Corvette_Latch : DPT_Small_In;
+                case CLASS_Fighter:
+                    return (dockstaticinfo->firstOfType[DPT_Small_In] == 0xFF) ? DPT_Fighter_Latch : DPT_Small_In;
+                case CLASS_Resource:
+                    switch (shiptype)
+                    {
+                        case sWorker:
+                            if ((dockwith->shiptype == dEcclesiamInfected) && singlePlayerGame &&
+                                (singlePlayerGameInfo.currentMission == 16))
+                            {
+                                return DPT_Tow;
+                            }
+                            return DPT_Med_In;
+                        case bWorker:
+                            return DPT_Med_In;
+                        case tResourceCollector:
+                            return DPT_Resourcer_RU_Transfer;
+                        default:
+                            return DPT_Large_In;
+                    }
+                case CLASS_NonCombat:
+                    if ((shiptype == dCrystal0) || (shiptype == dCrystal1))
+                    {
+                        return DPT_Crystal_Process;
+                    }
+                    return -1;
+                case CLASS_Micro:
+                    if (shiptype == sLeech)
+                    {
+                        return DPT_Small_In;
+                    }
+                    break;                                  // the swarmer tail below
+                default:
+                    return -1;
+            }
+            break;
+
+        case CAT_DOCK_STAY:
+        case CAT_DOCK_STAY_INSTANT:
+            if (shipclass != CLASS_Micro)
+            {
+                return (shipclass == CLASS_NonCombat) ? DPT_Med_In : DPT_Small_In;
+            }
+            break;                                          // the swarmer tail below
+
+        case CAT_DOCK_LAUNCH:
+            if (hoststatic->catTypeFlags & 0x4000)
+            {                                               // a slipgate host
+                switch (shipclass)
+                {
+                    case CLASS_Mothership:
+                        return DPT_Mothership_Out;
+                    case CLASS_Frigate:
+                        return DPT_Med_Out;
+                    case CLASS_Corvette:
+                    case CLASS_Fighter:
+                    case CLASS_NonCombat:
+                    case CLASS_Component:
+                    case CLASS_Micro:
+                        return DPT_Small_Out;
+                    case CLASS_Resource:
+                        if ((shiptype != sProcessor) && (shiptype != bProcessor))
+                        {
+                            return DPT_Med_Out;
+                        }
+                        return DPT_Large_Out;
+                    default:
+                        return DPT_Large_Out;
+                }
+            }
+            if (externalBuild)
+            {
+                switch (shiptype)
+                {
+                    case sDreadnought:
+                    case sCarrier:
+                    case sProcessor:
+                    case sDestroyer:
+                    case bHeavyCruiser:
+                    case bCarrier:
+                    case bProcessor:
+                        return DPT_Destroyer_EB;
+                    case sCarrierSupport:
+                    case sMothershipSupport:
+                    case bMothershipSupport:
+                        return DPT_Support_EB;
+                    case sMothershipSpecial:
+                    case sMothershipEngineering:
+                    case sMothershipArmour:
+                    case sMothershipMicro:
+                    case sMothershipWeapons:
+                    case sMothershipDockingBay:
+                    case sMothershipBigGun:
+                        return DPT_Module_EB;
+                    default:
+                        break;
+                }
+            }
+            switch (shipclass)
+            {
+                case CLASS_Mothership:
+                case CLASS_HeavyCruiser:
+                case CLASS_Carrier:
+                case CLASS_Destroyer:
+                    return DPT_Large_Out;
+                case CLASS_Frigate:
+                case CLASS_NonCombat:
+                    return DPT_Med_Out;
+                case CLASS_Corvette:
+                case CLASS_Fighter:
+                    return DPT_Small_Out;
+                case CLASS_Resource:
+                    if ((shiptype == sProcessor) || (shiptype == bProcessor))
+                    {
+                        return DPT_Large_Out;
+                    }
+                    return DPT_Med_Out;
+                case CLASS_Micro:
+                    if ((shiptype == sSwarmer) || (shiptype == bSwarmer))
+                    {
+                        return DPT_Swarmer_Out;
+                    }
+                    return DPT_Small_Out;
+                default:
+                    // CAT-FIX: the exe's switch has no default and runs on into the purpose-3 code for a monster or
+                    //      component class; no such ship launches (clLaunchShip's slot refuses), so -1 here
+                    return -1;
+            }
+
+        case CAT_DOCK_DEPOSIT_RESOURCES:
+            if (shiptype == tResourceCollector)
+            {
+                return DPT_Resourcer_RU_Transfer;
+            }
+            if (typeFlags & 0x1)
+            {
+                return DPT_Worker_RU_Transfer;
+            }
+            return (typeFlags & 0x200) ? DPT_Leech_RU_Transfer : -1;
+
+        case CAT_DOCK_LEECH:
+            return DPT_Leech;
+
+        case CAT_DOCK_TOW:
+            return DPT_Tow;
+
+        case CAT_DOCK_RETIRE:
+            switch (shiptype)
+            {
+                case dBigGunUnit:
+                    if ((dockwith->shiptype != sMothership) && (dockwith->shiptype != bMothership))
+                    {
+                        return DPT_SalvageProcess;
+                    }
+                    return DPT_Destroyer_EB;
+                case dMessagePod:
+                    return DPT_Med_In;
+                case dCrystal0:
+                case dCrystal1:
+                    return DPT_Crystal_Process;
+                default:
+                    if (shipclass > CLASS_HeavyCruiser)
+                    {
+                        if (shipclass < CLASS_Frigate)
+                        {
+                            return DPT_Large_In;
+                        }
+                        if ((shipclass == CLASS_Resource) && ((shiptype == sProcessor) || (shiptype == bProcessor)))
+                        {
+                            return DPT_Large_In;
+                        }
+                    }
+                    return DPT_Med_In;
+            }
+
+        case CAT_DOCK_SLIPGATE:
+            if (hoststatic->catTypeFlags & 0x4000)
+            {
+                switch (shipclass)
+                {
+                    case CLASS_Mothership:
+                        return DPT_Mothership_In;
+                    case CLASS_Frigate:
+                        return DPT_Med_In;
+                    case CLASS_Corvette:
+                    case CLASS_Fighter:
+                    case CLASS_NonCombat:
+                    case CLASS_Component:
+                    case CLASS_Micro:
+                        // [audit: M2-R5 layout-dock] the exe's purpose-10 table sends these five classes to "return 0"
+                        //      (0x463e6d), not to the swarmer tail: a swarmer transits a slipgate through DPT_Small_In
+                        return DPT_Small_In;
+                    case CLASS_Resource:
+                        if ((shiptype == sProcessor) || (shiptype == bProcessor))
+                        {
+                            return DPT_Large_In;
+                        }
+                        return DPT_Med_In;
+                    default:
+                        return DPT_Large_In;
+                }
+            }
+            return -1;
+
+        default:
+            return -1;
+    }
+    // the tail: swarmers use their own points, everything else the small bay
+    if ((shiptype == sSwarmer) || (shiptype == bSwarmer))
+    {
+        return DPT_Swarmer_In;
+    }
+    return DPT_Small_In;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockCanDockWithBusyHost
+    Description : CAT: whether ship may dock for purpose at a host whose bays are closed (attribute
+                  CAT_ATTRIBUTES_DockBaysClosed), i.e. latch outside it (cataclysm.exe 0x00463a70)
+    Inputs      : ship, purpose
+    Return      : TRUE for the Mission 16 Worker at the infected Ecclesiam, a ship already holding a latch point,
+                  resourcers and crystals docking for support, and the latch purposes 3..5
+----------------------------------------------------------------------------*/
+bool32 cat_dockCanDockWithBusyHost(Ship *ship,DockType purpose)
+{
+    Ship *dockship = ship->dockvars.dockship;
+
+    if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 16) && (ship->shiptype == sWorker) &&
+        (dockship != NULL) && (dockship->shiptype == dEcclesiamInfected))
+    {
+        return TRUE;
+    }
+    if (dockship != NULL)
+    {
+        // CAT-FIX: the exe reads the point of catDockPointIndex without testing it for -1 (it holds one whenever a
+        //      state after 0 asks); the test is kept explicit here
+        if (ship->dockvars.catDockPointIndex != -1)
+        {
+            DockPointType type = catDockPointOf(ship,dockship)->type;
+            if ((type == DPT_Fighter_Latch) || (type == DPT_Corvette_Latch))
+            {
+                return TRUE;
+            }
+        }
+    }
+    if (purpose == CAT_DOCK_SUPPORT)
+    {
+        if ((ship->shiptype == tResourceCollector) || (ship->shiptype == dCrystal0) || (ship->shiptype == dCrystal1))
+        {
+            return TRUE;
+        }
+    }
+    else if ((purpose >= CAT_DOCK_DEPOSIT_RESOURCES) && (purpose <= CAT_DOCK_TOW))
+    {
+        return TRUE;
+    }
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockHasFreeSlotForShip
+    Description : CAT: whether host has a free launch point for a ship of the given class and type (cataclysm.exe
+                  0x00464910; the construction manager's cmCanBuildShipType / cmDeterministicBuildProcess /
+                  cat_cmFactoryHasFreeSlot ask, stage 3 R6-4). The sMothership without its docking bay module (and
+                  the Ghostship) use the engineering points instead
+    Inputs      : host, shipclass, shiptype, externalBuild, typeFlags
+    Return      : TRUE when the point type has a free point
+----------------------------------------------------------------------------*/
+bool32 cat_dockHasFreeSlotForShip(Ship *host,ShipClass shipclass,ShipType shiptype,bool32 externalBuild,udword typeFlags)
+{
+    DockStaticInfo *dockstaticinfo = host->staticinfo->dockStaticInfo;
+    DockInfo *dockInfo = host->dockInfo;
+    sdword dockclass = cat_dockGetDockClass(shipclass,shiptype,externalBuild,typeFlags,CAT_DOCK_LAUNCH,host);
+
+    if (((host->shiptype == sMothership) && !cat_playerHasCompletedShip(sMothershipDockingBay,host->playerowner)) ||
+        (host->shiptype == trGhostship))
+    {
+        if (dockclass == DPT_Small_Out)
+        {
+            dockclass = DPT_Small_Out_Engineering;
+        }
+        else if (dockclass == DPT_Med_Out)
+        {
+            dockclass = DPT_Med_Out_Engineering;
+            if (dockInfo->catNumBusyOfType[DPT_Med_In] != 0)
+            {
+                return FALSE;
+            }
+        }
+    }
+    // CAT-FIX: the exe indexes the counts with a -1 class for a type that cannot launch; FALSE here
+    if (dockclass < 0)
+    {
+        return FALSE;
+    }
+    return (dockInfo->catNumBusyOfType[dockclass] != dockstaticinfo->numOfType[dockclass]);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockFindNearestDockPoint
+    Description : CAT: picks the free dock point of ship's class on dockwith nearest to ship and reserves it
+                  (cataclysm.exe 0x00464660): the sMothership without its docking bay (and the Ghostship) fall back
+                  to the engineering points; an sCarrier uses its medium bay for both medium types; the clamped
+                  distance to the point goes into dockvars.catDockDistance
+    Inputs      : ship, dockwith, purpose
+    Return      : TRUE when a point is held (also when the sCarrier ship already had one)
+----------------------------------------------------------------------------*/
+bool32 cat_dockFindNearestDockPoint(Ship *ship,Ship *dockwith,DockType purpose)
+{
+    ShipStaticInfo *shipstatic = ship->staticinfo;
+    DockStaticInfo *dockstaticinfo = dockwith->staticinfo->dockStaticInfo;
+    DockInfo *dockInfo = dockwith->dockInfo;
+    sdword dockclass;
+    sdword index, best = -1;
+    real32 bestdistsqr = REALlyBig;
+    vector pointpos, diff;
+    DockStaticPoint *point;
+
+    dockclass = cat_dockGetDockClass(shipstatic->shipclass,shipstatic->shiptype,FALSE,shipstatic->catTypeFlags,purpose,dockwith);
+    // CAT-FIX: the exe indexes with the class before testing it; ThisShipCanDockWith refused a -1 class before this
+    //      is reached, so the test only guards a direct caller
+    if (dockclass < 0)
+    {
+        return FALSE;
+    }
+    if (((dockwith->shiptype == sMothership) || (dockwith->shiptype == trGhostship)) &&
+        (!cat_playerHasCompletedShip(sMothershipDockingBay,dockwith->playerowner) ||
+         (dockInfo->catNumBusyOfType[dockclass] == dockstaticinfo->numOfType[dockclass])))
+    {
+        switch (dockclass)
+        {
+            case DPT_Small_In:
+                dockclass = DPT_Small_In_Engineering;
+                break;
+            case DPT_Small_Out:
+                dockclass = DPT_Small_Out_Engineering;
+                break;
+            case DPT_Med_In:
+                if (dockInfo->catNumBusyOfType[DPT_Med_Out] != 0)
+                {
+                    return FALSE;
+                }
+                dockclass = DPT_Med_In_Engineering;
+                break;
+            case DPT_Med_Out:
+                if (dockInfo->catNumBusyOfType[DPT_Med_In] != 0)
+                {
+                    return FALSE;
+                }
+                dockclass = DPT_Med_Out_Engineering;
+                break;
+            default:
+                break;
+        }
+    }
+    if ((dockwith->shiptype == sCarrier) && ((dockclass == DPT_Med_Out) || (dockclass == DPT_Med_In)))
+    {
+        dockclass = DPT_Med_In;
+        if (ship->dockvars.catDockPointIndex != -1)
+        {
+            return TRUE;
+        }
+    }
+    if (dockInfo->catNumBusyOfType[dockclass] == dockstaticinfo->numOfType[dockclass])
+    {
+        return FALSE;
+    }
+    for (index = dockstaticinfo->firstOfType[dockclass]; index < dockstaticinfo->numDockPoints; index++)
+    {
+        point = &dockstaticinfo->dockstaticpoints[index];
+        if (point->type != (DockPointType)dockclass)
+        {
+            break;
+        }
+        if (dockInfo->thisDockBusy[index] == 0)
+        {
+            real32 distsqr;
+
+            matMultiplyMatByVec(&pointpos,&dockwith->rotatable.rotinfo.coordsys,&point->position);
+            vecAddTo(pointpos,dockwith->obj.posinfo.position);
+            vecSub(diff,ship->obj.posinfo.position,pointpos);
+            distsqr = vecMagnitudeSquared(diff);
+            if (distsqr < bestdistsqr)
+            {
+                best = index;
+                bestdistsqr = distsqr;
+            }
+        }
+    }
+    if (best == -1)
+    {
+        return FALSE;
+    }
+    point = &dockstaticinfo->dockstaticpoints[best];
+    ship->dockvars.catDockDistance = ClampToWithin(fsqrt(bestdistsqr),point->mindist,point->maxdist);
+    dockReserveDockPoint(ship,dockwith,best);
+    return TRUE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockFindLaunchPoint
+    Description : CAT: reserves the first free launch point of ship's class on dockwith (cataclysm.exe 0x004649b0),
+                  with the same engineering and sCarrier fall-backs as the dock point; the point's mindist goes into
+                  dockvars.catDockDistance
+    Inputs      : ship, dockwith
+    Return      : TRUE when a point is held
+----------------------------------------------------------------------------*/
+bool32 cat_dockFindLaunchPoint(Ship *ship,Ship *dockwith)
+{
+    ShipStaticInfo *shipstatic = ship->staticinfo;
+    DockStaticInfo *dockstaticinfo = dockwith->staticinfo->dockStaticInfo;
+    DockInfo *dockInfo = dockwith->dockInfo;
+    sdword dockclass;
+    sdword index;
+    DockStaticPoint *point;
+
+    dockclass = cat_dockGetDockClass(shipstatic->shipclass,shipstatic->shiptype,shipstatic->externalBuild,shipstatic->catTypeFlags,CAT_DOCK_LAUNCH,dockwith);
+    if (dockclass < 0)
+    {
+        return FALSE;                                       // CAT-FIX: the exe indexes with -1 (a class that cannot launch)
+    }
+    if (((dockwith->shiptype == sMothership) && !cat_playerHasCompletedShip(sMothershipDockingBay,dockwith->playerowner)) ||
+        (dockwith->shiptype == trGhostship))
+    {
+        switch (dockclass)
+        {
+            case DPT_Small_In:  dockclass = DPT_Small_In_Engineering;  break;
+            case DPT_Small_Out: dockclass = DPT_Small_Out_Engineering; break;
+            case DPT_Med_In:    dockclass = DPT_Med_In_Engineering;    break;
+            case DPT_Med_Out:   dockclass = DPT_Med_Out_Engineering;   break;
+            default: break;
+        }
+    }
+    if ((dockwith->shiptype == sCarrier) && ((dockclass == DPT_Med_Out) || (dockclass == DPT_Med_In)))
+    {
+        dockclass = DPT_Med_In;
+        if (ship->dockvars.catDockPointIndex != -1)
+        {
+            return TRUE;
+        }
+    }
+    for (index = (sbyte)dockstaticinfo->firstOfType[dockclass]; (index >= 0) && (index < dockstaticinfo->numDockPoints); index++)
+    {
+        point = &dockstaticinfo->dockstaticpoints[index];
+        if (point->type != (DockPointType)dockclass)
+        {
+            return FALSE;
+        }
+        if (dockInfo->thisDockBusy[index] == 0)
+        {
+            ship->dockvars.catDockDistance = point->mindist;
+            dockReserveDockPoint(ship,dockwith,index);
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockFlyOutOfCone
+    Description : CAT: flies ship out along the axis of the dock point it holds on dockwith (cataclysm.exe
+                  0x004650d0): the ship is snapped onto the cone axis, then flies to flyawaydist x 4 along the cone
+                  normal until it is flyawaydist from the origin; an sCarrier's door must have opened first
+    Inputs      : ship, dockwith
+    Return      : TRUE once the ship is out (SPECIAL_KasCheckDoneLaunching is cleared then)
+----------------------------------------------------------------------------*/
+bool32 cat_dockFlyOutOfCone(Ship *ship,Ship *dockwith)
+{
+    DockStaticPoint *point;
+    vector normal, origin, target, diff, onaxis;
+    real32 flyawaydist, t;
+
+    // CAT-FIX: the exe reads the point through dockwith before its NULL test; same order of effects without the read
+    if (dockwith != NULL)
+    {
+        point = catDockPointOf(ship,dockwith);
+        flyawaydist = point->flyawaydist;
+        matMultiplyMatByVec(&normal,&dockwith->rotatable.rotinfo.coordsys,&point->conenormal);
+        matMultiplyMatByVec(&origin,&dockwith->rotatable.rotinfo.coordsys,&point->position);
+        vecAddTo(origin,dockwith->obj.posinfo.position);
+        vecScalarMultiply(target,normal,flyawaydist * CAT_DOCK_TIME_BONUS_RESOURCES);   // x 4.0 (0x0072a530)
+        vecAddTo(target,origin);
+        vecSub(diff,ship->obj.posinfo.position,origin);
+        t = vecDotProduct(diff,normal) / vecDotProduct(normal,normal);
+        vecScalarMultiply(onaxis,normal,t);
+        vecAddTo(onaxis,origin);
+        cat_univSetShipPosition(ship,&onaxis);
+        if ((dockwith->shiptype == sCarrier) && !cat_carrierDoorAnimUpdate(dockwith,point->type))
+        {
+            return FALSE;
+        }
+        if (vecMagnitudeSquared(diff) < flyawaydist * flyawaydist)
+        {
+            aishipFlyToPointAvoidingObjsFunc(ship,&target,0,0.0f,&dockwith->obj.posinfo.velocity);
+            return FALSE;
+        }
+    }
+    bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_KasCheckDoneLaunching);
+    return TRUE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockFlyInFrontOfHost
+    Description : CAT: flies ship to a point one collision sphere (two for the sMothership and the Ghostship) in
+                  front of dockwith (cataclysm.exe 0x00465630; dock state 1)
+    Inputs      : ship, dockwith
+    Return      : TRUE within 100 units of it
+----------------------------------------------------------------------------*/
+bool32 cat_dockFlyInFrontOfHost(Ship *ship,Ship *dockwith)
+{
+    vector unit = { 1.0f, 0.0f, 0.0f };
+    vector point, diff;
+    real32 scale = dockwith->staticinfo->common.staticCollInfo.collspheresize;
+
+    matMultiplyMatByVec(&point,&dockwith->rotatable.rotinfo.coordsys,&unit);
+    if ((dockwith->shiptype == sMothership) || (dockwith->shiptype == trGhostship))
+    {
+        scale *= CAT_DOCK_MOTHERSHIP_FRONT_SCALE;
+    }
+    vecMultiplyByScalar(point,scale);
+    vecAddTo(point,dockwith->obj.posinfo.position);
+    vecSub(diff,point,ship->obj.posinfo.position);
+    if (fsqrt(vecMagnitudeSquared(diff)) >= CAT_DOCK_IN_FRONT_DISTANCE)
+    {
+        // [audit: M2-R5 layout-dock] the exe passes 6 = AISHIP_PointInDirectionFlying | AISHIP_FastAsPossible (AIShip.h: CarTurn is 8)
+        aishipFlyToPointAvoidingObjsFunc(ship,&point,AISHIP_PointInDirectionFlying | AISHIP_FastAsPossible,CAT_DOCK_IN_FRONT_LIMITVEL,&dockwith->obj.posinfo.velocity);
+        return FALSE;
+    }
+    return TRUE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockShipIsInsideHost
+    Description : CAT: whether ship is in host's inside list (cataclysm.exe 0x00468f80; kasfGetDockHost asks)
+    Inputs      : ship, host
+----------------------------------------------------------------------------*/
+bool32 cat_dockShipIsInsideHost(Ship *ship,Ship *host)
+{
+    Node *node;
+
+    if (host->shipsInsideMe != NULL)
+    {
+        for (node = host->shipsInsideMe->insideList.head; node != NULL; node = node->next)
+        {
+            if (((InsideShip *)listGetStructOfNode(node))->ship == ship)
+            {
+                return TRUE;
+            }
+        }
+    }
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : ThisShipCanDockWith
+    Description : whether ship can dock with dockwith for purpose (cataclysm.exe 0x00464290, with the exe's fourth
+                  argument: checkCounts also requires a free point of the ship's dock class)
+    Inputs      : ship, dockwith, purpose, checkCounts
+    Return      : TRUE if it can
+----------------------------------------------------------------------------*/
+bool32 ThisShipCanDockWith(Ship *ship,Ship *dockwith,DockType purpose,bool32 checkCounts)
+{
+    ShipStaticInfo *shipstatic = ship->staticinfo;
+    DockStaticInfo *dockstaticinfo = dockwith->staticinfo->dockStaticInfo;
+    sdword dockclass;
+    bool32 untargetableTested = FALSE;
+
+    dockclass = cat_dockGetDockClass(shipstatic->shipclass,shipstatic->shiptype,FALSE,shipstatic->catTypeFlags,purpose,dockwith);
+    if ((dockwith->shiptype == dRKO) && (ship->shiptype != sMimic) && (ship->shiptype != sMCV) && (ship->shiptype != bCruiseMissile))
+    {
+        return FALSE;
+    }
+    if ((dockwith->shiptype == dBeastMothership) && (ship->playerowner->playerIndex == 0))
+    {
+        return FALSE;
+    }
+    if (dockstaticinfo == NULL)
+    {
+        return FALSE;
+    }
+    if (dockclass == -1)
+    {
+        return FALSE;
+    }
+    if (dockstaticinfo->firstOfType[dockclass] == 0xFF)
+    {
+        return FALSE;
+    }
+    if (ship->shiptype == dockwith->shiptype)
+    {
+        return FALSE;
+    }
+    if ((dockwith->header.flags & SOF_Dead) || (ship->header.flags & SOF_Dead))
+    {
+        return FALSE;
+    }
+    if ((dockwith->obj.attributes & CAT_ATTRIBUTES_DockBaysClosed) && !cat_dockCanDockWithBusyHost(ship,purpose))
+    {
+        return FALSE;
+    }
+    if ((!singlePlayerGame || ((ship->playerowner->playerIndex != 1) && (ship->shipOrDerelict.catDisableReason[1] == 0))) &&
+        (purpose != CAT_DOCK_SLIPGATE))
+    {
+        if (cat_shipIsUntargetable(dockwith))
+        {
+            return FALSE;
+        }
+        if (singlePlayerGame)
+        {
+            if (dockwith->shipOrDerelict.catDisabled)
+            {
+                return FALSE;
+            }
+            untargetableTested = TRUE;
+        }
+    }
+    if (singlePlayerGame && ((singlePlayerGameInfo.currentMission == 7) || (singlePlayerGameInfo.currentMission == 15) ||
+                             (singlePlayerGameInfo.currentMission == 6)) && (ship->playerowner->playerIndex == 0))
+    {
+        if (ship->shipOrDerelict.specialFlags2 & SPECIAL_2_CatExempt20)
+        {
+            goto allyTest;
+        }
+        if (!untargetableTested && cat_shipIsUntargetable(dockwith))
+        {
+            return FALSE;
+        }
+        (void)untargetableTested;
+    }
+    if (!(ship->shipOrDerelict.specialFlags2 & SPECIAL_2_CatExempt20) && (dockwith->shipOrDerelict.specialFlags2 & SPECIAL_2_CatExempt20))
+    {
+        return FALSE;
+    }
+allyTest:
+    if (!allianceIsShipAlly(ship,dockwith->playerowner) && !(ship->obj.attributes & CAT_ATTRIBUTES_DockWithEnemies) &&
+        !(dockwith->shipOrDerelict.specialFlags2 & SPECIAL_2_CatSlipgate))
+    {
+        if (!cat_shipIsCrystal(ship))
+        {
+            return FALSE;
+        }
+        if ((ship->catSalvageDepot == NULL) && (cat_salvageAttachedIterFirst(ship) == NULL))
+        {
+            return FALSE;
+        }
+    }
+    if (!(dockwith->shipOrDerelict.specialFlags2 & SPECIAL_2_CatBeingBuilt) &&
+        (((dockclass != DPT_Fighter_Latch) && (dockclass != DPT_Corvette_Latch)) ||
+         ((shipstatic->dockStaticInfo != NULL) && (shipstatic->dockStaticInfo->centerDockPoint != NULL))) &&
+        (!checkCounts || (dockwith->dockInfo->catNumBusyOfType[dockclass] < dockstaticinfo->numOfType[dockclass])))
+    {
+        return TRUE;
+    }
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : FindNearestShipToDockAt
+    Description : finds the nearest ship that ship can dock with for purpose (cataclysm.exe 0x00465750); for the
+                  launch purpose, the ship it is inside
+    Inputs      : ship, purpose
+    Return      : the host, or NULL
+----------------------------------------------------------------------------*/
+Ship *FindNearestShipToDockAt(Ship *ship,DockType purpose)
+{
+    Node *objnode;
+    Ship *dockat;
+
+    if (purpose != CAT_DOCK_LAUNCH)
+    {
+        real32 mindist = (real32)1e20;
+        Ship *closestDockat = NULL;
+        vector diff;
+        real32 dist;
+
+        for (objnode = universe.ShipList.head; objnode != NULL; objnode = objnode->next)
+        {
+            dockat = (Ship *)listGetStructOfNode(objnode);
+            if (ThisShipCanDockWith(ship,dockat,purpose,FALSE))
+            {
+                vecSub(diff,dockat->obj.posinfo.position,ship->obj.posinfo.position);
+                dist = fsqrt(vecMagnitudeSquared(diff));
+                if (dist < mindist)
+                {
+                    mindist = dist;
+                    closestDockat = dockat;
+                }
+            }
+        }
+        return closestDockat;
+    }
+    for (objnode = universe.ShipList.head; objnode != NULL; objnode = objnode->next)
+    {
+        dockat = (Ship *)listGetStructOfNode(objnode);
+        if (cat_dockShipIsInsideHost(ship,dockat))
+        {
+            return dockat;
+        }
+    }
+    dbgMessagef("DOCKING: Ship %08x (%s) has no ship to launch from",(udword)ship->shipID.shipNumber,ShipTypeToStr(ship->shiptype));
+    return NULL;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : InitializeDockVars
+    Description : initialises ship's dock vars for docking with dockship for purpose (cataclysm.exe 0x00463c40, with
+                  the exe's third argument): the stay flag, the hive swarm reset, the launch state, the closed guns
+                  of the ion array frigates
+    Inputs      : ship, dockship, purpose
+----------------------------------------------------------------------------*/
+void InitializeDockVars(Ship *ship,Ship *dockship,DockType purpose)
+{
+    if ((purpose == CAT_DOCK_STAY) || (purpose == CAT_DOCK_STAY_INSTANT))
+    {
+        bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_STAY_TILL_EXPLICITLAUNCH);
+        // CAT-FIX: the exe reads dockship->shiptype here without a NULL test (a stay order with no host would fault)
+        if ((purpose == CAT_DOCK_STAY_INSTANT) && (dockship != NULL) && catDockHostIsHive(dockship))
+        {
+            cat_hiveFrigateResetSwarm(dockship);
+        }
+    }
+    ship->dockvars.dockship = dockship;
+    if (purpose == CAT_DOCK_LAUNCH)
+    {
+        bitSet(ship->header.catFlags18,CAT_SHIPFLAG_Launching);
+        ship->dockvars.dockstate = CAT_DOCKSTATE_LAUNCH;
+        ship->dockvars.catDockPointIndex = -1;
+        return;
+    }
+    if (((ship->shiptype == bIonArrayFrigate) || (ship->shiptype == p1IonArrayFrigate)) &&
+        ((ship->madGunStatus == MAD_STATUS_GUNS_OPEN) || (ship->madGunStatus == MAD_STATUS_GUNS_OPENING)))
+    {
+        madLinkInCloseGunsShip(ship);
+    }
+    ship->dockvars.dockstate = CAT_DOCKSTATE_APPROACH;
+    ship->dockvars.catDockPointIndex = -1;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : clDock
+    Description : Command to dock (cataclysm.exe 0x00466c70): the selection is filtered by ThisShipCanDockWith for a
+                  given host and by each type's CustShipDockCommand slot; a selection already under command gets its
+                  order changed in place unless it is harvesting (then a new dock command is made, and the ships
+                  resume harvesting after docking for purposes 0, 3 and 10)
+    Inputs      : comlayer, selectcom, purpose, dockwith (NULL: the nearest host per ship)
+    Return      : the number of ships that are actually docking
+----------------------------------------------------------------------------*/
+sdword clDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType purpose,ShipPtr dockwith)
+{
+    CommandToDo *newcommand;
+    CommandToDo *alreadycommand;
+    SelectCommand *selection;
+    sdword numShips = selectcom->numShips;
+    sdword i;
+    Ship *ship;
+    Ship *host;
+    bool8 wasHarvesting = FALSE;
+
+    if (numShips == 0)
+    {
+        return 0;
+    }
+    if (dockwith != NULL)
+    {
+        for (i = 0; i < selectcom->numShips; )
+        {
+            if (!ThisShipCanDockWith(selectcom->ShipPtr[i],dockwith,purpose,FALSE))
+            {
+                selectcom->numShips--;
+                selectcom->ShipPtr[i] = selectcom->ShipPtr[selectcom->numShips];
+                continue;
+            }
+            i++;
+        }
+        numShips = selectcom->numShips;
+        if (numShips == 0)
+        {
+            return 0;
+        }
+    }
+    tacticsReportMove(comlayer,selectcom);
+
+    selection = memAlloc(sizeofSelectCommand(numShips),"ToDoSelection",0);
+    selection->numShips = 0;
+    for (i = 0; i < numShips; i++)
+    {
+        ship = selectcom->ShipPtr[i];
+        if ((ship->staticinfo->custshipheader.CustShipDockCommand == NULL) ||
+            ship->staticinfo->custshipheader.CustShipDockCommand(ship,(sdword)purpose,dockwith))
+        {
+            selection->ShipPtr[selection->numShips++] = ship;
+        }
+    }
+    if (selection->numShips == 0)
+    {
+        memFree(selection);
+        return 0;
+    }
+
+    alreadycommand = IsSelectionAlreadyDoingSomething(comlayer,selection);
+    if (alreadycommand != NULL)
+    {
+        if (alreadycommand->ordertype.attributes & COMMAND_MASK_PROTECTING)
+        {
+            ClearProtecting(alreadycommand);
+        }
+        if (alreadycommand->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
+        {
+            ClearPassiveAttacking(alreadycommand);
+        }
+        if (alreadycommand->ordertype.order != COMMAND_COLLECT_RESOURCES)
+        {
+            FreeLastOrder(alreadycommand);
+            alreadycommand->ordertype.order = COMMAND_DOCK;
+            alreadycommand->dock.wasHarvesting = FALSE;
+            alreadycommand->dock.formationToGoIntoAfterDockingID = 0;
+            alreadycommand->dock.dockType = purpose;
+            alreadycommand->dock.allNearShip = FALSE;
+            alreadycommand->dock.haveFlyedFarEnoughAway = FALSE;
+            for (i = 0; i < selection->numShips; i++)
+            {
+                ship = selection->ShipPtr[i];
+                host = (dockwith != NULL) ? dockwith : FindNearestShipToDockAt(ship,purpose);
+                InitializeDockVars(ship,host,purpose);              // the exe inlines it
+            }
+            alreadycommand->dock.allDockingWithSameShip = TRUE;
+            for (i = 1; i < selection->numShips; i++)
+            {
+                if (selection->ShipPtr[i]->dockvars.dockship != selection->ShipPtr[0]->dockvars.dockship)
+                {
+                    alreadycommand->dock.allDockingWithSameShip = FALSE;
+                    break;
+                }
+            }
+            InitShipsForAI(alreadycommand->selection,TRUE);
+            PrepareShipsForCommand(alreadycommand,TRUE);
+            numShips = selection->numShips;
+            memFree(selection);
+            return numShips;
+        }
+        if ((purpose == CAT_DOCK_SUPPORT) || (purpose == CAT_DOCK_DEPOSIT_RESOURCES) || (purpose == CAT_DOCK_SLIPGATE))
+        {
+            wasHarvesting = TRUE;
+        }
+    }
+
+    // CAT-TODO(M2-R5 command follow-up): the exe passes the reason code 0x1F (RemoveShipsFromDoingStuff's third argument)
+    RemoveShipsFromDoingStuff(comlayer,selection);
+
+    newcommand = memAlloc(sizeof(CommandToDo),"ToDo",0);
+    InitCommandToDo(newcommand);
+    newcommand->selection = selection;
+    newcommand->ordertype.order = COMMAND_DOCK;
+    newcommand->dock.wasHarvesting = wasHarvesting;
+    newcommand->dock.formationToGoIntoAfterDockingID = 0;
+    newcommand->dock.dockType = purpose;
+    newcommand->dock.allNearShip = FALSE;
+    newcommand->dock.haveFlyedFarEnoughAway = FALSE;
+    for (i = 0; i < selection->numShips; i++)
+    {
+        ship = selection->ShipPtr[i];
+        host = (dockwith != NULL) ? dockwith : FindNearestShipToDockAt(ship,purpose);
+        InitializeDockVars(ship,host,purpose);                      // the exe inlines it
+    }
+    newcommand->dock.allDockingWithSameShip = TRUE;
+    for (i = 1; i < selection->numShips; i++)
+    {
+        if (selection->ShipPtr[i]->dockvars.dockship != selection->ShipPtr[0]->dockvars.dockship)
+        {
+            newcommand->dock.allDockingWithSameShip = FALSE;
+            break;
+        }
+    }
+    InitShipsForAI(selection,TRUE);
+    PrepareShipsForCommand(newcommand,TRUE);
+    listAddNode(&comlayer->todolist,&newcommand->todonode,newcommand);
+    return selection->numShips;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : dockChangeSingleShipToDock
+    Description : turns a one-ship command into a dock command (cataclysm.exe 0x004644c0; processCollectResource's
+                  trip home with purpose 3)
+    Inputs      : command, ship, dockship, wasHarvesting, purpose
+----------------------------------------------------------------------------*/
+void dockChangeSingleShipToDock(struct CommandToDo *command,Ship *ship,Ship *dockship,bool32 wasHarvesting,DockType purpose)
+{
+    if (command->ordertype.attributes & COMMAND_MASK_PROTECTING)
+    {
+        ClearProtecting(command);
+    }
+    if (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
+    {
+        ClearPassiveAttacking(command);
+    }
+    command->ordertype.order = COMMAND_DOCK;
+    command->dock.wasHarvesting = (bool8)wasHarvesting;
+    command->dock.formationToGoIntoAfterDockingID = 0;
+    command->dock.dockType = purpose;
+    command->dock.allDockingWithSameShip = TRUE;
+    command->dock.allNearShip = FALSE;
+    command->dock.haveFlyedFarEnoughAway = FALSE;
+    InitializeDockVars(ship,dockship,purpose);                      // the exe inlines it
+    PrepareShipsForCommand(command,TRUE);
+    InitShipsForAI(command->selection,TRUE);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : RemoveShipFromDocking
+    Description : takes ship out of the dock process (cataclysm.exe 0x00465360, REWRITTEN): frees its dock point,
+                  clears the stay flag, SOF_CatDocking and SPECIAL_2_CatNoAvoidance, unclamps it from its host, and
+                  closes a Worker's claws
+    Inputs      : ship
+----------------------------------------------------------------------------*/
+void RemoveShipFromDocking(Ship *ship)
+{
+    if (ship->dockvars.catDockPointIndex != -1)
+    {
+        cat_dockFreePoint(ship,ship->dockvars.dockship);
+    }
+    bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_STAY_TILL_EXPLICITLAUNCH);
+    bitClear(ship->header.flags,SOF_CatDocking);
+    bitClear(ship->shipOrDerelict.specialFlags2,SPECIAL_2_CatNoAvoidance);
+    if ((ship->guidance.clampInfo != NULL) && (ship->guidance.clampInfo->host != NULL))
+    {
+        if ((Ship *)ship->guidance.clampInfo->host != ship->dockvars.dockship)
+        {
+            dbgMessagef("\nDOCKING: %s unclamped from a ship it is not docking with",ShipTypeToStr(ship->shiptype));
+        }
+        unClampObj((SpaceObjRotImpTargGuidance *)ship);
+    }
+    ship->dockvars.dockship = NULL;
+    if ((ship->shiptype == sWorker) || (ship->shiptype == bWorker))
+    {
+        if ((ship->madBindings != NULL) && (ship->madBindings->nCurrentAnim == cat_salvageOpenAnimIndex(ship->shiptype)))
+        {
+            cat_madAnimationStartNumber(ship,cat_salvageCloseAnimIndex(ship->shiptype));   // CAT-TODO(stage 3): the exe passes a third argument, 2
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : RemoveShipFromLaunching
+    Description : takes ship out of the launch process (cataclysm.exe 0x00465590, REWRITTEN): frees its launch
+                  point unless it is a component, clears the stay flag, the launching bit, SOF_CatDocking and
+                  SPECIAL_2_CatNoAvoidance (no welcome chatter, no mesh animation)
+    Inputs      : ship
+----------------------------------------------------------------------------*/
+void RemoveShipFromLaunching(Ship *ship)
+{
+    if ((ship->dockvars.catDockPointIndex != -1) && (ship->staticinfo->shipclass != CLASS_Component))
+    {
+        cat_dockFreePoint(ship,ship->dockvars.dockship);
+        ship->dockvars.dockship = NULL;
+    }
+    bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_STAY_TILL_EXPLICITLAUNCH);
+    bitClear(ship->header.catFlags18,CAT_SHIPFLAG_Launching);
+    bitClear(ship->header.flags,SOF_CatDocking);
+    bitClear(ship->shipOrDerelict.specialFlags2,SPECIAL_2_CatNoAvoidance);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : LaunchCleanup
+    Description : the launch command's clean-up (cataclysm.exe 0x004679b0: RemoveShipFromLaunching inlined for the
+                  one ship of the command)
+    Inputs      : launchtodo
+----------------------------------------------------------------------------*/
+void LaunchCleanup(struct CommandToDo *launchtodo)
+{
+    if (launchtodo->selection->numShips != 0)
+    {
+        RemoveShipFromLaunching(launchtodo->selection->ShipPtr[0]);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : DockCleanup
+    Description : the dock command's clean-up (cataclysm.exe 0x00467970)
+    Inputs      : docktodo
+----------------------------------------------------------------------------*/
+void DockCleanup(struct CommandToDo *docktodo)
+{
+    sdword i;
+    SelectCommand *selection = docktodo->selection;
+    sdword numShips = selection->numShips;
+
+    for (i=0;i<numShips;i++)
+    {
+        RemoveShipFromDocking(selection->ShipPtr[i]);
+    }
+    madLinkInPostDocking(docktodo,1);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockDepositShipResources
+    Description : CAT: the resource deposit of cat_dockShipDocksAtShip 0x00465860 (dock states 5 and 9): a Leech,
+                  Worker or Taiidan resource collector docking for a purpose that reaches a bay or a transfer point
+                  empties its hold into its player's RUs (sound 0x804; the player's stats and the single-player total)
+    Inputs      : ship, purpose
+----------------------------------------------------------------------------*/
+static void cat_dockDepositShipResources(Ship *ship,DockType purpose)
+{
+    switch (purpose)
+    {
+        case CAT_DOCK_SUPPORT:
+        case CAT_DOCK_STAY:
+        case CAT_DOCK_LAUNCH:
+        case CAT_DOCK_DEPOSIT_RESOURCES:
+        case CAT_DOCK_RETIRE:
+        case CAT_DOCK_SUPPORT_INSTANT:
+        case CAT_DOCK_STAY_INSTANT:
+            switch (ship->shiptype)
+            {
+                case sLeech:
+                case sWorker:
+                case bWorker:
+                case tResourceCollector:
+                {
+                    sdword resources = ship->resources;
+
+                    ship->resources = 0;
+                    soundEventPlay(ship,CAT_DOCK_PURPOSE_RESOURCE_DEPOSIT_SOUND,NULL);
+                    cat_dockDepositResourceUnits(ship->playerowner,resources);
+                    break;
+                }
+                default:
+                    break;
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockSetDockTime
+    Description : CAT: the time a docked or latched ship stays (cat_dockShipDocksAtShip states 5 and 7): now, plus
+                  4 s when it carries resources, plus 6 s when it is damaged
+    Inputs      : ship
+----------------------------------------------------------------------------*/
+static void cat_dockSetDockTime(Ship *ship)
+{
+    ship->dockvars.catDockTime = universe.totaltimeelapsed;
+    if ((real32)ship->resources > 0.0f)
+    {
+        ship->dockvars.catDockTime += CAT_DOCK_TIME_BONUS_RESOURCES;
+    }
+    if (ship->targetable.health < ship->staticinfo->health.maxhealth)
+    {
+        ship->dockvars.catDockTime += CAT_DOCK_TIME_BONUS_DAMAGED;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockChatter
+    Description : CAT: the "docking" battle chatter of cat_dockShipDocksAtShip (event 0x4A, or 0x53 for a ship with
+                  resources, with the ship's type as the variable)
+    Inputs      : ship
+----------------------------------------------------------------------------*/
+static void cat_dockChatter(Ship *ship)
+{
+    if (battleCanChatterAtThisTime(0x4A,ship))
+    {
+        battleChatterAttempt(-1,((real32)ship->resources > 0.0f) ? 0x53 : 0x4A,ship,ship->staticinfo->shiptype);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockShipDocksAtShip
+    Description : CAT: the dock state machine of cataclysm.exe 0x00465860, one step for ship docking at dockwith for
+                  purpose (HW1's ShipDocksAtShip role for every ship type)
+    Inputs      : ship, dockwith, purpose
+    Return      : 1 when the ship is done with the dock command (docked and staying, retired, or back outside)
+----------------------------------------------------------------------------*/
+udword cat_dockShipDocksAtShip(Ship *ship,Ship *dockwith,DockType purpose)
+{
+    DockStaticPoint *point;
+    vector trajectory, position;
+    real32 range, dockrange;
+
+    switch (ship->dockvars.dockstate)
+    {
+        case CAT_DOCKSTATE_APPROACH:
+            if ((purpose == CAT_DOCK_SUPPORT_INSTANT) || (purpose == CAT_DOCK_STAY_INSTANT))
+            {
+                univRemoveShipFromOutside(ship);
+                dockPutShipInside(ship,dockwith);
+                if ((dockwith->shiptype != dRKO) && (ship->header.catFlags18 & CAT_SHIPFLAG_Mimic))
+                {
+                    cat_mimicCleanup(ship);
+                }
+                return 1;
+            }
+            dockrange = dockwith->staticinfo->dockShipRange + dockwith->staticinfo->common.staticCollInfo.avoidcollspheresize;
+            aishipGetTrajectory(ship,(SpaceObjRotImpTarg *)dockwith,&trajectory);
+            range = RangeToTarget(ship,(SpaceObjRotImpTarg *)dockwith,&trajectory);
+            if ((range >= dockrange) || !cat_dockFindNearestDockPoint(ship,dockwith,purpose))
+            {
+                aishipGetTrajectory(ship,(SpaceObjRotImpTarg *)dockwith,&trajectory);
+                range = RangeToTarget(ship,(SpaceObjRotImpTarg *)dockwith,&trajectory);
+                if (range < dockrange)
+                {
+                    aitrackForceSteadyShip(ship);
+                    return 0;
+                }
+                aishipFlyToPointAvoidingObjsFunc(ship,&dockwith->obj.posinfo.position,
+                                                 AISHIP_PointInDirectionFlying + AISHIP_CarTurn + AISHIP_DontFlyToObscuredPoints + AISHIP_ReturnImmedIfPointObscured,
+                                                 0.0f,NULL);     // 0x3A
+                return 0;
+            }
+            if (cat_shipIsUntargetable(dockwith) && (purpose == CAT_DOCK_SLIPGATE))
+            {
+                cat_slipgateAddShip(dockwith,ship);
+            }
+            ship->dockvars.dockstate = CAT_DOCKSTATE_FLY_TO_CONE;
+            break;
+
+        case CAT_DOCKSTATE_FLY_IN_FRONT:
+            if (cat_dockFlyInFrontOfHost(ship,dockwith))
+            {
+                ship->dockvars.dockstate = CAT_DOCKSTATE_FLY_TO_CONE;
+                return 0;
+            }
+            break;
+
+        case CAT_DOCKSTATE_FLY_TO_CONE:
+            point = catDockPointOf(ship,dockwith);
+            if (catDockHostIsSlipgate(dockwith))
+            {
+                cat_slipgateOpen(dockwith);
+            }
+            if (cat_dockFlyToConeInside(ship,dockwith,point))
+            {
+                bitSet(ship->shipOrDerelict.specialFlags2,SPECIAL_2_CatNoAvoidance);
+                bitSet(ship->header.flags,SOF_CatDocking);
+                if (cat_dockCanDockWithBusyHost(ship,purpose))
+                {
+                    ship->dockvars.dockstate = CAT_DOCKSTATE_CONE_ORIGIN;
+                    return 0;
+                }
+                ship->dockvars.dockstate = CAT_DOCKSTATE_LATCH;
+                matMultiplyMatByVec(&ship->catDockLatchHeading,&dockwith->rotatable.rotinfo.coordsys,&point->conenormal);
+                return 0;
+            }
+            break;
+
+        case CAT_DOCKSTATE_LATCH:
+            if (catDockHostIsSlipgate(dockwith))
+            {
+                cat_slipgateOpen(dockwith);
+            }
+            if (cat_dockFlyToConeOriginLatch(ship,dockwith,CAT_DOCK_LATCH_RADIUS))
+            {
+                if (catDockHostIsSlipgate(dockwith))
+                {
+                    if (cat_slipgateOpen(dockwith))
+                    {
+                        ship->dockvars.dockstate = CAT_DOCKSTATE_SLIPGATE_WAIT_IN;
+                        ship->catDockStateTime = universe.totaltimeelapsed;
+                        cat_shipReleaseAttachedRammers(ship);
+                        cat_univRemoveObjReferencesFromShips(&ship->obj);
+                        cat_dockFreePoint(ship,dockwith);
+                        return 0;
+                    }
+                    aitrackSteadyShip(ship);
+                    return 0;
+                }
+                {
+                    sdword index = ship->dockvars.catDockPointIndex;
+                    DockStaticInfo *dockstaticinfo = dockwith->staticinfo->dockStaticInfo;
+
+                    univRemoveShipFromOutside(ship);
+                    if (purpose == CAT_DOCK_RETIRE)
+                    {
+                        speechEventQueue(NULL,0x2001040,ship->shiptype,-1,0,ship->playerowner->playerIndex,-1,5.0f,-1);
+                        if (ship->shiprace == 1)
+                        {
+                            // CAT-TODO(M2-R6 research GUI): cat_rmAcquireShipTechs(ship) 0x004f3650: a retired Beast ship's
+                            //      technologies go to its player
+                        }
+                    }
+                    else
+                    {
+                        cat_dockChatter(ship);
+                        dockPutShipInside(ship,dockwith);
+                        ship->dockvars.dockstate = CAT_DOCKSTATE_INSIDE;
+                        // [audit: M2-R5 layout-dock] the exe (0x00465860 state 5) empties the hold BEFORE it tests
+                        //      "resources > 0" for the 4 s bonus, so a depositing Worker gets no bonus; the deposit
+                        //      goes first here too (the order was reversed)
+                        cat_dockDepositShipResources(ship,purpose);
+                        cat_dockSetDockTime(ship);
+                        if ((dockwith->shiptype != dRKO) && (ship->header.catFlags18 & CAT_SHIPFLAG_Mimic))
+                        {
+                            cat_mimicCleanup(ship);
+                        }
+                    }
+                    // an sCarrier keeps a medium point held while the ship is inside (its door); every other point is freed
+                    if ((dockwith->shiptype != sCarrier) ||
+                        ((index != -1) && (dockstaticinfo->dockstaticpoints[index].type != DPT_Med_In) &&
+                         (dockstaticinfo->dockstaticpoints[index].type != DPT_Med_Out)))
+                    {
+                        cat_dockFreePoint(ship,dockwith);
+                    }
+                    if (purpose == CAT_DOCK_RETIRE)
+                    {
+                        ship->command->dock.wasHarvesting = FALSE;
+                        return 1;
+                    }
+                }
+            }
+            break;
+
+        case CAT_DOCKSTATE_CONE_ORIGIN:
+            point = catDockPointOf(ship,dockwith);
+            if (cat_dockFlyToConeOrigin(ship,dockwith,point))
+            {
+                if ((ship->shiptype == sWorker) || (ship->shiptype == bWorker))
+                {
+                    if ((ship->madBindings != NULL) && (ship->madBindings->nCurrentAnim != cat_salvageOpenAnimIndex(ship->shiptype)))
+                    {
+                        cat_madAnimationStartNumber(ship,cat_salvageOpenAnimIndex(ship->shiptype));   // CAT-TODO(stage 3): the exe passes a third argument, 0
+                        madAnimationPause(ship,TRUE);
+                    }
+                }
+                ship->dockvars.dockstate = CAT_DOCKSTATE_LINK_IN;
+                return 0;
+            }
+            break;
+
+        case CAT_DOCKSTATE_LINK_IN:
+        {
+            DockStaticPoint *linkpoint = (ship->staticinfo->dockStaticInfo != NULL) ? ship->staticinfo->dockStaticInfo->centerDockPoint : NULL;
+
+            point = catDockPointOf(ship,dockwith);
+            if (cat_linkFlyIntoPosition(ship,linkpoint,dockwith,point))
+            {
+                cat_dockSetDockTime(ship);
+                clampObjToObj((SpaceObjRotImpTargGuidance *)ship,(SpaceObjRotImpTargGuidance *)dockwith);
+                ship->dockvars.dockstate = CAT_DOCKSTATE_LATCHED;
+                cat_dockChatter(ship);
+                if ((ship->shiptype == bWorker) || (ship->shiptype == sWorker))
+                {
+                    soundEventPlay(ship,CAT_DOCK_LATCHED_SOUND,NULL);
+                    return 0;
+                }
+            }
+            break;
+        }
+
+        case CAT_DOCKSTATE_INSIDE:
+            if (ship->dockvars.catDockTime < universe.totaltimeelapsed)
+            {
+                if ((cat_lmShipAutoLaunchOn(dockwith) || ShipHasToLaunch(dockwith,ship)) &&
+                    !(ship->shipOrDerelict.specialFlags & SPECIAL_STAY_TILL_EXPLICITLAUNCH))
+                {
+                    if (purpose != CAT_DOCK_DEPOSIT_RESOURCES)
+                    {
+                        ship->command->dock.wasHarvesting = FALSE;
+                    }
+                    ship->dockvars.dockstate = CAT_DOCKSTATE_LAUNCH;
+                    return 0;
+                }
+                ship->command->dock.wasHarvesting = FALSE;
+                return 1;
+            }
+            break;
+
+        case CAT_DOCKSTATE_LATCHED:
+            if ((ship->dockvars.catDockTime < universe.totaltimeelapsed) &&
+                !(ship->shipOrDerelict.specialFlags & SPECIAL_StopForResearchDocking))
+            {
+                cat_dockDepositShipResources(ship,purpose);
+                unClampObj((SpaceObjRotImpTargGuidance *)ship);
+                ship->dockvars.dockstate = CAT_DOCKSTATE_FLY_OUT;
+                return 0;
+            }
+            break;
+
+        case CAT_DOCKSTATE_LAUNCH:
+            if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 3) && (ship->shiptype == dEcclesiam))
+            {
+                return 1;
+            }
+            if (!(dockwith->shipOrDerelict.specialFlags & SPECIAL_Hyperspacing) && cat_dockFindLaunchPoint(ship,dockwith))
+            {
+                point = catDockPointOf(ship,dockwith);
+                bitSet(ship->shipOrDerelict.specialFlags2,SPECIAL_2_CatNoAvoidance);
+                bitSet(ship->header.flags,SOF_CatDocking);
+                matMultiplyMatByVec(&position,&dockwith->rotatable.rotinfo.coordsys,&point->position);
+                vecAddTo(position,dockwith->obj.posinfo.position);
+                dockRemoveShipFromInside(ship,dockwith);
+                dockPutShipOutside(ship,dockwith,&position,point->headingdirection,point->updirection);
+                if (catDockHostIsSlipgate(dockwith))
+                {
+                    ship->dockvars.dockstate = CAT_DOCKSTATE_SLIPGATE_WAIT_OUT;
+                    ship->catDockStateTime = universe.totaltimeelapsed;
+                    return 0;
+                }
+                if (!(ship->shipOrDerelict.specialFlags2 & SPECIAL_2_CatBeingBuilt))
+                {
+                    ship->dockvars.dockstate = CAT_DOCKSTATE_FLY_OUT;
+                    if (ship->staticinfo->UpgradeByDocking || cat_shipIsLiveWorker(ship))
+                    {
+                        cat_shipApplyUpgrades(ship);
+                    }
+                    cat_acolyteLinkReset(ship);
+                    cat_acvLinkReset(ship);
+                    ship->targetable.health = ship->staticinfo->health.maxhealth;
+                    bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_SinglePlayerWithinHyperSpaceRange);
+                    return 0;
+                }
+                ship->dockvars.dockstate = CAT_DOCKSTATE_BUILD_ATTACHED;
+                clampObjToObj((SpaceObjRotImpTargGuidance *)ship,(SpaceObjRotImpTargGuidance *)ship->catCreator);
+                cat_shipSetDisableReason(ship,1,4);
+                if (ship->playerowner->aiPlayer != NULL)
+                {
+                    SelectCommand selectone;
+
+                    selectone.numShips = 1;
+                    selectone.ShipPtr[0] = ship;
+                    cat_clWrapStartExternalBuildTimer(&universe.mainCommandLayer,&selectone);
+                    return 0;
+                }
+                // CAT-TODO(M2-R6 ConsMgr, CAT_EXTERNAL_BUILD_DRIVER): cat_cmExternalBuildAttach(ship) 0x00459be0 (the
+                //      construction manager takes over the externally built ship); unreachable while the driver is off
+                return 0;
+            }
+            break;
+
+        case CAT_DOCKSTATE_BUILD_ATTACHED:
+            if (!(ship->shipOrDerelict.specialFlags2 & SPECIAL_2_CatBeingBuilt))
+            {
+                // CAT-TODO(M2-R6 ConsMgr): cat_suShipProvidesSU(ship) 0x00459b00 (the support units)
+                if (ship->staticinfo->shipclass == CLASS_Component)
+                {
+                    return 1;
+                }
+                unClampObj((SpaceObjRotImpTargGuidance *)ship);
+                cat_shipSetDisableReason(ship,0,4);
+                // CAT-TODO(M2-R6 ConsMgr): cat_cmShipDockedReclampCannon(ship) 0x00456f60 (a Dreadnought's cannon)
+                ship->dockvars.dockstate = CAT_DOCKSTATE_FLY_OUT;
+                if (ship->staticinfo->catTypeFlags & 6)
+                {
+                    cmAddFactory(ship,(ship->staticinfo->catTypeFlags >> 2) & 1);
+                    return 0;
+                }
+            }
+            break;
+
+        case CAT_DOCKSTATE_FLY_OUT:
+            if (cat_dockFlyOutOfCone(ship,dockwith))
+            {
+                if (cat_dockCanDockWithBusyHost(ship,purpose))
+                {
+                    if ((ship->shiptype == sWorker) || (ship->shiptype == bWorker))
+                    {
+                        if ((ship->madBindings != NULL) && (ship->madBindings->nCurrentAnim != cat_salvageCloseAnimIndex(ship->shiptype)))
+                        {
+                            cat_madAnimationStartNumber(ship,cat_salvageCloseAnimIndex(ship->shiptype));   // CAT-TODO(stage 3): the exe passes a third argument, 2
+                        }
+                    }
+                }
+                return 1;
+            }
+            break;
+
+        case CAT_DOCKSTATE_SLIPGATE_ENTER:
+            aitrackSteadyShipDriftOnly(ship);
+            cat_slipgateOpen(dockwith);
+            if (ship->dockvars.catDockTime < universe.totaltimeelapsed)
+            {
+                SlipgateSpec *gate = (SlipgateSpec *)dockwith->ShipSpecifics;
+                Ship *partner = gate->partner;
+
+                univRemoveShipFromOutside(ship);
+                dockPutShipInside(ship,partner);
+                ship->dockvars.dockship = partner;
+                ship->dockvars.dockstate = CAT_DOCKSTATE_LAUNCH;
+                ((ubyte *)&gate->unknown1C)[ship->playerowner->playerIndex] = 1;
+                ((ubyte *)&((SlipgateSpec *)partner->ShipSpecifics)->unknown1C)[ship->playerowner->playerIndex] = 1;
+                return 0;
+            }
+            break;
+
+        case CAT_DOCKSTATE_SLIPGATE_EXIT:
+            aitrackSteadyShipDriftOnly(ship);
+            cat_slipgateOpen(dockwith);
+            if (ship->dockvars.catDockTime < universe.totaltimeelapsed)
+            {
+                ship->dockvars.dockstate = CAT_DOCKSTATE_FLY_OUT;
+                return 0;
+            }
+            break;
+
+        case CAT_DOCKSTATE_SLIPGATE_WAIT_IN:
+        case CAT_DOCKSTATE_SLIPGATE_WAIT_OUT:
+            aitrackSteadyShipDriftOnly(ship);
+            cat_slipgateOpen(dockwith);
+            if (ship->catDockStateTime + CAT_DOCK_SLIPGATE_TRANSIT_TIME < universe.totaltimeelapsed)
+            {
+                ship->dockvars.dockstate = (ship->dockvars.dockstate == CAT_DOCKSTATE_SLIPGATE_WAIT_IN) ? CAT_DOCKSTATE_SLIPGATE_ENTER : CAT_DOCKSTATE_SLIPGATE_EXIT;
+                return 0;
+            }
+            break;
+
+        default:
+            break;
+    }
+    return 0;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_dockFinishedDocking
+    Description : CAT: a ship is done with its dock command (cataclysm.exe 0x004667f0): out of the dock process and
+                  the command; a retiring ship refunds its build cost (and its hold, and a crystal's value), marks
+                  Mission 9's KAS variable and is deleted; a ship that flew out is grouped around its host
+    Inputs      : ship, dockwith, command (the dock command)
+----------------------------------------------------------------------------*/
+void cat_dockFinishedDocking(Ship *ship,Ship *dockwith,struct CommandToDo *command)
+{
+    SelectCommand *selection = command->selection;
+
+    RemoveShipFromDocking(ship);
+    clRemoveShipFromSelection(selection,ship);
+    ship->command = NULL;
+    if (command->ordertype.attributes & COMMAND_MASK_FORMATION)
+    {
+        RemoveShipFromFormation(ship);
+        if (selection->numShips > 0)
+        {
+            formationContentHasChanged(command);
+        }
+    }
+    if (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
+    {
+        RemoveShipFromAttacking(ship);
+        RemoveShipReferencesFromExtraAttackInfo(ship,command);
+    }
+    if (command->dock.dockType == CAT_DOCK_RETIRE)
+    {
+        sdword playerIndex = ship->playerowner->playerIndex;
+        // the refund: the decompile shows the __ftol of a float the exe computed before, as HW1's
+        //      TW_RETIRE_MONEYBACK_RATIO x buildCost (medium confidence), plus the ship's hold
+        sdword refund = (sdword)(TW_RETIRE_MONEYBACK_RATIO * (real32)ship->staticinfo->buildCost) + ship->resources;
+
+        if (cat_shipIsCrystal(ship))
+        {
+            refund += ((CrystalSpec *)ship->ShipSpecifics)->resourceValue;
+        }
+        ship->playerowner->resourceUnits += refund;
+        if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 9) && (ship->shiptype == tResourceCollector))
+        {
+            // CAT-TODO(stage 6 KAS): cat_kasVarFindOrCreate(0, cat_kasHashString("G_ResourcersRetired"))->value = 1
+        }
+        universe.gameStats.playerStats[playerIndex].totalRegeneratedResourceUnits += refund;
+        universe.gameStats.playerStats[playerIndex].totalResourceUnits += refund;
+        ship->howDidIDie = DEATH_BY_RETIREMENT;
+        aiplayerShipDied(ship);
+        univDeleteWipeInsideShipOutOfExistence(ship);
+        return;
+    }
+    if ((ship->dockvars.dockstate == CAT_DOCKSTATE_FLY_OUT) && !command->dock.wasHarvesting &&
+        (ship->shiptype != sSwarmer) && (ship->shiptype != bSwarmer))
+    {
+        GroupShip(&universe.mainCommandLayer,ship,dockwith);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : processDockToDo
+    Description : processes a dock command (cataclysm.exe 0x00466950): a ship without a host gets the nearest one;
+                  the others step through cat_dockShipDocksAtShip; a ship that is done leaves the command unless it
+                  was harvesting (then the command ends and the ship goes back to harvesting)
+    Inputs      : docktodo
+    Return      : TRUE when every ship is done
+----------------------------------------------------------------------------*/
+bool32 processDockToDo(CommandToDo *docktodo)
+{
+    SelectCommand *selection = docktodo->selection;
+    DockType purpose = docktodo->dock.dockType;
+    Ship *ship;
+    Ship *dockwith;
+    bool32 alldone = TRUE;
+    sdword i = 0;
+
+    if (selection->numShips < 1)
+    {
+        return TRUE;
+    }
+    do
+    {
+        ship = selection->ShipPtr[i];
+        dockwith = ship->dockvars.dockship;
+        if (dockwith == NULL)
+        {
+            dockwith = FindNearestShipToDockAt(ship,purpose);
+            if (dockwith != NULL)
+            {
+                InitializeDockVars(ship,dockwith,purpose);          // the exe inlines it
+                InitShipAI(ship,TRUE);
+                alldone = FALSE;
+            }
+            i++;
+        }
+        else if (cat_dockShipDocksAtShip(ship,dockwith,purpose) == 0)
+        {
+            alldone = FALSE;
+            i++;
+        }
+        else
+        {
+            if (docktodo->ordertype.attributes & COMMAND_MASK_FORMATION)
+            {
+                RemoveShipFromFormation(ship);
+                if (selection->numShips > 0)
+                {
+                    formationContentHasChanged(docktodo);
+                }
+            }
+            if (docktodo->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
+            {
+                RemoveShipFromAttacking(ship);
+                RemoveShipReferencesFromExtraAttackInfo(ship,docktodo);
+            }
+            if (docktodo->dock.wasHarvesting && (purpose != CAT_DOCK_RETIRE))
+            {
+                i++;                                        // stays in the command, which clProcess turns back to harvesting
+            }
+            else
+            {
+                cat_dockFinishedDocking(ship,dockwith,docktodo);  // removes the ship from the selection: same index again
+            }
+        }
+    } while (i < selection->numShips);
+    return alldone;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : dockPutShipOutside
+    Description : puts a ship that was inside creator back into the universe at createat, heading and up as the
+                  launch point says (cataclysm.exe 0x00463350): into the lists and blobs with its modules, unhidden,
+                  with the creator's velocity; a support module is turned about its axis by the parity of its launch
+                  point (bMothershipSupport also 7 degrees about the host's right); the fog of war is told
+    Inputs      : ship, creator, createat, headingdirection, updirection
+----------------------------------------------------------------------------*/
 void dockPutShipOutside(Ship *ship,Ship *creator,vector *createat,udword headingdirection,udword updirection)
 {
     vector heading;
     vector up;
     vector right;
     sdword i;
+    Ship *module;
 
     dbgAssertOrIgnore(creator);
     if (creator->obj.collMyBlob != NULL)
@@ -2622,20 +2465,69 @@ void dockPutShipOutside(Ship *ship,Ship *creator,vector *createat,udword heading
     listAddNode(&universe.ShipList,&(ship->shiplink),ship);
     listAddNode(&universe.ImpactableList,&(ship->impactable.impactablelink),ship);
 
-    if (creator->header.flags & SOF_Hide)      // if creator is hidden, ship coming out should be hidden too
-        bitSet(ship->header.flags, SOF_Hide);
-    else
-        bitClear(ship->header.flags, SOF_Hide);
-
+    bitClear(ship->header.flags,SOF_Hide);                  // CAT: the exe unhides the ship whatever the creator's state
     univAddObjToRenderListIf((SpaceObj *)ship,(SpaceObj *)creator);     // add to render list if parent ship is in render list
+    for (module = cat_moduleIterFirst(ship); module != NULL; module = cat_moduleIterNext())
+    {
+        univAddObjToRenderListIf((SpaceObj *)module,(SpaceObj *)creator);
+        bitClear(module->header.flags,SOF_Hide);
+    }
     ship->obj.posinfo.position = *createat;
     ship->obj.posinfo.velocity = creator->obj.posinfo.velocity;
 
-    dbgAssertOrIgnore(headingdirection != updirection);
-    GetDirectionVectorOfShip(&heading,headingdirection,&(creator)->rotatable.rotinfo.coordsys);
-    GetDirectionVectorOfShip(&up,updirection,&(creator)->rotatable.rotinfo.coordsys);
+    GetDirectionVectorOfShip(&heading,headingdirection,&creator->rotatable.rotinfo.coordsys);
+    GetDirectionVectorOfShip(&up,updirection,&creator->rotatable.rotinfo.coordsys);
     vecCrossProduct(right,heading,up);   // should not have to normalize because heading, up are unit vectors and angle between them is 90 degrees.
     matCreateMatFromVecs(&ship->rotatable.rotinfo.coordsys,&up,&right,&heading);
+
+    // CAT-TODO(M2-R6 FOW): cat_univShipFOWActivate(ship) 0x00547c40 (the ship's fog-of-war cube comes back)
+
+    // the support modules: turned about the launch point's axis by the parity of the point's index within its type
+    {
+        ShipType type = ship->staticinfo->shiptype;
+        sdword parity = 0;
+        matrix copy, rot;
+
+        if ((type == sMothershipSupport) || (type == sCarrierSupport) || (type == bMothershipSupport))
+        {
+            DockStaticInfo *dockstaticinfo = creator->staticinfo->dockStaticInfo;
+            sdword index = ship->dockvars.catDockPointIndex;
+
+            if (index != -1)
+            {
+                parity = (sbyte)index - (sbyte)dockstaticinfo->firstOfType[dockstaticinfo->dockstaticpoints[index].type];
+            }
+        }
+        if ((type == sMothershipSupport) || (type == sCarrierSupport))
+        {
+            if (parity & 1)
+            {
+                matMakeRotAboutX(&rot,(real32)cos(CAT_DOCK_SUPPORT_ROT_X),(real32)sin(CAT_DOCK_SUPPORT_ROT_X));
+                copy = ship->rotatable.rotinfo.coordsys;
+                matMultiplyMatByMat(&ship->rotatable.rotinfo.coordsys,&copy,&rot);
+            }
+        }
+        else if (type == bMothershipSupport)
+        {
+            if (parity & 2)
+            {
+                real32 angle = (parity & 1) ? -CAT_DOCK_SUPPORT_ROT_Z : CAT_DOCK_SUPPORT_ROT_Z;
+
+                matMakeRotAboutY(&rot,(real32)cos(CAT_DOCK_SUPPORT_ROT_X),(real32)sin(CAT_DOCK_SUPPORT_ROT_X));
+                copy = ship->rotatable.rotinfo.coordsys;
+                matMultiplyMatByMat(&ship->rotatable.rotinfo.coordsys,&copy,&rot);
+                matMakeRotAboutZ(&rot,(real32)cos(angle),(real32)sin(angle));
+                copy = ship->rotatable.rotinfo.coordsys;
+                matMultiplyMatByMat(&ship->rotatable.rotinfo.coordsys,&copy,&rot);
+            }
+            if (parity & 1)
+            {
+                matMakeRotAboutX(&rot,(real32)cos(CAT_DOCK_SUPPORT_ROT_X),(real32)sin(CAT_DOCK_SUPPORT_ROT_X));
+                copy = ship->rotatable.rotinfo.coordsys;
+                matMultiplyMatByMat(&ship->rotatable.rotinfo.coordsys,&copy,&rot);
+            }
+        }
+    }
 
     univUpdateObjRotInfo(&ship->rotatable);
 
@@ -2648,2501 +2540,41 @@ void dockPutShipOutside(Ship *ship,Ship *creator,vector *createat,udword heading
     }
 }
 
-void dockMakeNewStaticInfoForMaster(Ship *master)
-{
-    dbgAssertOrIgnore(!(master->header.flags & SOF_StaticInfoIsDynamic));
-
-
-    master->staticinfo = memAlloc(sizeof(ShipStaticInfo),"ShipStaticInfo",0);
-    *master->staticinfo = *GetShipStaticInfo(master->shiptype,master->shiprace);
-        //asteroidStaticInfos[asteroid->asteroidtype];  // structure copy
-    master->header.flags |= SOF_StaticInfoIsDynamic;
-
-}
-
-void dockFreeMasterStaticMem(Ship *master)
-{
-    if (master->header.flags & SOF_StaticInfoIsDynamic)
-    {
-        memFree(master->staticinfo);
-        bitClear(master->header.flags, SOF_StaticInfoIsDynamic);
-    }
-    //here regenerate static info...not yet though
-    master->staticinfo = GetShipStaticInfo(master->shiptype,master->shiprace);
-    //should probably disperse damages to all slaves...but not now...
-    //don't envision the need to break ships apart
-}
-
-/*=============================================================================
-    Docking SLAVERY code
-    Global Functions for use by anyone anywhere anytime
-=============================================================================*/
-
-//#define DEBUG_SLAVE
 /*-----------------------------------------------------------------------------
-    Name        : dockMakeMaster
-    Description : Turns the ship, master, into a slave receivable ship
-    Inputs      : ship to become a master
-    Outputs     :
-    Return      :
+    Name        : ShipIsRefuelingAtCarrierMother
+    Description : whether ship is inside a carrier for support (cataclysm.exe 0x00467a90: the host is an sCarrier,
+                  bCarrier, tCarrier or kCarrier and the dock state is 8 or 9)
+    Inputs      : ship
 ----------------------------------------------------------------------------*/
-
-void dockMakeMaster(Ship *master)
+bool32 ShipIsRefuelingAtCarrierMother(struct Ship *ship)
 {
-    //Only make masters who aren't anything
-    dbgAssertOrIgnore(master->slaveinfo == NULL);
+    Ship *dockship = ship->dockvars.dockship;
 
-    master->slaveinfo = memAlloc(sizeof(SlaveInfo),"SlaveInfo",0);          //MEMALLOC
-    master->slaveinfo->flags = 0;
-    master->slaveinfo->Master = master;             //own master
-    bitSet(master->slaveinfo->flags,SF_MASTER);
-    listInit(&master->slaveinfo->slaves);
-    bitSet(master->header.flags,SOF_Slaveable);            //set to indicate involved in the slave trade
-#ifdef DEBUG_SLAVE
-dbgMessagef("SLAVE_TRADE: Just made master: %x",master);
-#endif
-    dockMakeNewStaticInfoForMaster(master);
-}
-/*-----------------------------------------------------------------------------
-    Name        : dockAddSlave
-    Description : Slaves 'slavetoadd' to 'master', will take slavetoadd's current
-                    position, and orientation and BIND it permanently to that place relative
-                    to its new 'master'
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-
-void dockAddSlave(Ship *master, Ship *slave)
-{
-    vector tmpvec;
-    matrix tmpmat;
-    Ship *slaveslave;
-    Node *slavenode;
-//    udword i,num;
-    //Only accept fresh non slaves ...later expand to inherit slaves and fellow slaves
-
-    dbgAssertOrIgnore(bitTest(master->slaveinfo->flags,SF_MASTER));
-#ifdef DEBUG_SLAVE
-    dbgMessagef("SLAVE_TRADE: Adding Slave to Master.");
-#endif
-
-    if(slave->slaveinfo != NULL)
-    {   //must be trying to add a master...if not???
-        dbgAssertOrIgnore(bitTest(slave->slaveinfo->flags,SF_MASTER));
-        slavenode = slave->slaveinfo->slaves.head;
-        while(slavenode != NULL)
-        {
-            slaveslave = (Ship *) listGetStructOfNode(slavenode);
-
-            slaveslave->slaveinfo->flags = 0;
-            bitSet(slaveslave->slaveinfo->flags,SF_SLAVE);
-            slaveslave->slaveinfo->Master = master;
-            bitSet(slaveslave->header.flags,SOF_Slaveable);
-
-            bitClear(slaveslave->header.flags,SOF_Selectable);  //make non selectable
-            //bitClear(slave->header.flags,SOF_Targetable);
-
-            listAddNode(&master->slaveinfo->slaves,&slaveslave->slavelink,slave);
-
-            //Store offset with respect to MASTER's object space
-            vecSub(tmpvec,slaveslave->obj.posinfo.position,master->obj.posinfo.position);
-            matMultiplyVecByMat(&slaveslave->slaveinfo->offset,&tmpvec,&master->rotatable.rotinfo.coordsys);
-
-            //Store slaves coordsys with respect to MASTER's object space
-            tmpmat = slaveslave->rotatable.rotinfo.coordsys;
-            matTranspose(&tmpmat);
-            matMultiplyMatByMat(&slaveslave->slaveinfo->coordsys,&tmpmat,&master->rotatable.rotinfo.coordsys);
-            matTranspose(&slaveslave->slaveinfo->coordsys);
-
-            slavenode = slavenode->next;
-        }
-    }
-    else
-    {
-        slave->slaveinfo = memAlloc(sizeof(SlaveInfo),"SlaveInfo",0);      //MEMALLOC
-    }
-    slave->slaveinfo->flags = 0;
-    bitSet(slave->slaveinfo->flags,SF_SLAVE);
-    slave->slaveinfo->Master = master;
-    bitSet(slave->header.flags,SOF_Slaveable);
-
-    bitClear(slave->header.flags,SOF_Selectable);  //make non selectable
-    //bitClear(slave->header.flags,SOF_Targetable);
-
-    listAddNode(&master->slaveinfo->slaves,&slave->slavelink,slave);
-
-    //Store offset with respect to MASTER's object space
-    vecSub(tmpvec,slave->obj.posinfo.position,master->obj.posinfo.position);
-    matMultiplyVecByMat(&slave->slaveinfo->offset,&tmpvec,&master->rotatable.rotinfo.coordsys);
-
-    //Store slaves coordsys with respect to MASTER's object space
-    tmpmat = slave->rotatable.rotinfo.coordsys;
-    matTranspose(&tmpmat);
-    matMultiplyMatByMat(&slave->slaveinfo->coordsys,&tmpmat,&master->rotatable.rotinfo.coordsys);
-    matTranspose(&slave->slaveinfo->coordsys);
-
-    //MOD HEALTH...MAYBE ONLY FOR RESEARCH!
-    //(master->staticinfo)->common.mass += (slave->staticinfo)->common.mass;
-    master->staticinfo->health.maxhealth += slave->staticinfo->health.maxhealth;
-
-    master->staticinfo->health.oneOverMaxHealth = 1.0f/master->staticinfo->health.maxhealth;
-
-
-
-    master->targetable.health += slave->targetable.health;
-    /*
-    for(i=0;i<NUM_TURN_TYPES;i++)
-    {
-        if(master->slaveinfo->slaves.num > 4)
-        {
-            num = 4;
-        }
-        else
-        {
-            num = master->slaveinfo->slaves.num;
-        }
-
-        (master->staticinfo)->turnspeed[i] = (slave->staticinfo)->turnspeed[i]/num;
-    }
-    */
-    //ccRemoveShip(&universe.mainCameraCommand,slave);
-
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : dockRemoveSlave
-    Description : Takes a given slave and removes it from 'masters' control and
-                  allows slave to go on its merry business
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-
-void dockRemoveSlave(Ship *master, Ship *slavetoremove)
-{
-    dbgAssertOrIgnore(bitTest(master->slaveinfo->flags,SF_MASTER));   //is master a master?
-    dbgAssertOrIgnore(slavetoremove->slaveinfo->Master == master);    //this better be a slave of this master
-
-    listRemoveNode(&slavetoremove->slavelink);
-    memFree(slavetoremove->slaveinfo);                        //MEMFREE
-    slavetoremove->slaveinfo = NULL;
-    bitClear(slavetoremove->header.flags,SOF_Slaveable);
-#ifdef DEBUG_SLAVE
-    dbgMessagef("SLAVE_TRADE: Removing Slave");
-#endif
-    //bitSet(slavetoremove->header.flags,SOF_Selectable);
-    master->targetable.health-=slavetoremove->targetable.health;
-}
-
-void dockCrushMaster(Ship *master)
-{
-    Ship *slave;
-    Node *slavenode;
-
-#ifdef DEBUG_SLAVE
-    dbgMessagef("SLAVE_TRADE: Deleteing Master");
-#endif
-
-    dbgAssertOrIgnore(bitTest(master->slaveinfo->flags, SF_MASTER));
-
-    slavenode = master->slaveinfo->slaves.head;
-
-    while(slavenode != NULL)
-    {
-        slave = (Ship *) listGetStructOfNode(slavenode);
-        slavenode = slavenode->next;    //move to next since we are deleting slave next line
-        dockRemoveSlave(master,slave);
-    }
-    dbgAssertOrIgnore(master->slaveinfo->slaves.num == 0);      //makes sure nothing has been left
-    bitClear(master->header.flags, SOF_Slaveable);
-    memFree(master->slaveinfo);                         //MEMFREE
-    master->slaveinfo = NULL;
-    dockFreeMasterStaticMem(master);
-}
-
-void dockKillSlaves(Ship *master)
-{
-    Ship *slave;
-    Node *slavenode;
-
-#ifdef DEBUG_SLAVE
-    dbgMessagef("SLAVE_TRADE: Deleteing Master");
-#endif
-
-    dbgAssertOrIgnore(bitTest(master->slaveinfo->flags, SF_MASTER));
-
-    slavenode = master->slaveinfo->slaves.head;
-
-    while(slavenode != NULL)
-    {
-        slave = (Ship *) listGetStructOfNode(slavenode);
-
-        slavenode = slavenode->next;    //move to next since we are deleting slave next line
-    }
-}
-
-void dockDealWithDeadSlaveable(Ship *ship)
-{
-#ifdef DEBUG_SLAVE
-    dbgMessagef("SLAVE_TRADE: cleaning up dead slave/master");
-#endif
-
-    dbgAssertOrIgnore(bitTest(ship->header.flags,SOF_Slaveable));
-    dbgAssertOrIgnore(ship->slaveinfo != NULL);
-    if(bitTest(ship->slaveinfo->flags,SF_MASTER))
-    {    //dead ship was a master....
-        //for now, destroy hiearchy...but later reassign MAstery to first slave
-        //will prove complicated!
-        dockKillSlaves(ship);
-        dockCrushMaster(ship);
-    }
-    else
-    {
-        dbgAssertOrIgnore(bitTest(ship->slaveinfo->flags,SF_SLAVE));
-        dbgMessage("Slave Died.");
-        dockRemoveSlave(ship->slaveinfo->Master, ship);
-    }
-}
-
-void dockUpdateSlaves(Ship *master)
-{
-    Ship *slave;
-    Node *slavenode;
-    vector tmpvec;
-
-    dbgAssertOrIgnore(bitTest(master->slaveinfo->flags, SF_MASTER));
-
-    slavenode = master->slaveinfo->slaves.head;
-
-    while(slavenode != NULL)
-    {
-        slave = (Ship *) listGetStructOfNode(slavenode);
-        //slave->obj.posinfo.force = master->obj.posinfo.force;
-        //slave->rotatable.rotinfo.torque = master->rotatable.rotinfo.torque;
-        //maybe set velocity, and rot speed here..but not yet...actually...yet
-        //slave->obj.posinfo.velocity = master->obj.posinfo.velocity;
-        //slave->rotatable.rotinfo.rotspeed = master->rotatable.rotinfo.rotspeed;
-        slave->obj.posinfo.isMoving = master->obj.posinfo.isMoving;
-
-        physUpdateObjPosVelShip(slave,universe.phystimeelapsed);   //Update slave finally
-        vecSub(tmpvec,slave->obj.posinfo.position,master->obj.posinfo.position);
-
-        //'decode' slaves location in world space with respect to masters location
-        matMultiplyMatByVec(&tmpvec,&master->rotatable.rotinfo.coordsys,&slave->slaveinfo->offset);
-        vecAdd(slave->obj.posinfo.position, master->obj.posinfo.position, tmpvec);
-
-        //'decode' slaves orientation in world space with respect to Masters.
-        matMultiplyMatByMat(&slave->rotatable.rotinfo.coordsys,&master->rotatable.rotinfo.coordsys, &slave->slaveinfo->coordsys);
-
-        univUpdateObjRotInfo((SpaceObjRot *)slave);
-
-        slavenode = slavenode->next;    //move to next since we are deleting slave next line
-    }
-}
-
-/*=============================================================================
-    Traders JunkYardHQ Docking
-=============================================================================*/
-
-#define JUNKYARDHQ_WAITLATCHPOINT     1
-#define JUNKYARDHQ_FLYTOINSIDECONE    2
-#define JUNKYARDHQ_FLYTOCONEORIGIN    3
-#define JUNKYARDHQ_BACKUP             4
-#define JUNKYARDHQ_WAIT               5
-
-typedef struct
-{
-    sdword size;
-    real32 dockmisc;
-    real32 turnlatchdistsqr;
-    real32 latchmintime;
-    real32 timestamp;
-} AtJunkYardHQDockInfo;
-
-sdword JUNKYARDHQ_Latch;
-
-sdword *JunkYardHQLatchPoints[] = { &JUNKYARDHQ_Latch, NULL };
-
-void JunkYardHQStaticDockInit(ShipStaticInfo *staticinfo)
-{
-    DockStaticInfo *dockStaticInfo = staticinfo->dockStaticInfo;
-
-    JUNKYARDHQ_Latch = dockFindDockIndex("dawg",dockStaticInfo);
-}
-
-bool32 ShipDocksAtJunkYardHQ(struct CommandToDo *docktodo,struct Ship *ship,struct Ship *dockwith)
-{
-    ShipStaticInfo *dockwithstatic = dockwith->staticinfo;
-    DockStaticPoint *dockstaticpoint;
-    vector conepositionInWorldCoordSys;
-    vector coneheadingInWorldCoordSys;
-    vector coneToShip;
-    real32 coneToShipMagSqr;
-    real32 coneToShipMag;
-    real32 dotprod;
-    AtJunkYardHQDockInfo *customdockinfo;
-    sdword dockpointindex;
-    ShipStaticInfo *shipstatic;
-
-    switch (ship->dockvars.dockstate2)
-    {
-        case 0:
-            dbgAssertOrIgnore(ship->dockvars.customdockinfo == NULL);
-            customdockinfo = ship->dockvars.customdockinfo = memAlloc(sizeof(AtJunkYardHQDockInfo),"AtJunkYardHQ",0);
-            customdockinfo->size = sizeof(AtJunkYardHQDockInfo);
-
-            shipstatic = ship->staticinfo;
-
-            customdockinfo->latchmintime = JUNKYARDHQ_LATCHMINTIME;
-            customdockinfo->turnlatchdistsqr = JUNKYARDHQ_LATCHDIST;
-
-            ship->dockvars.dockstate2 = JUNKYARDHQ_WAITLATCHPOINT;
-
-            // deliberately fall through to state REPCORV_WAITLATCHPOINT
-
-        case JUNKYARDHQ_WAITLATCHPOINT:
-            customdockinfo = ship->dockvars.customdockinfo;
-
-            //maybe need to do check here to see if another ship is docking
-            //with this ship if the variable (numshipscan recieve) doesn't
-            //work.
-
-            if (dockwith->shipOrDerelict.specialFlags2 & SPECIAL_2_NoMoreDockingAllowed)
-            {
-                aitrackSteadyShip(ship);
-                return FALSE;
-            }
-
-            dockpointindex = dockFindNearestDockPoint(JunkYardHQLatchPoints,ship,dockwith,
-                                                      &conepositionInWorldCoordSys, &coneToShip, &coneToShipMagSqr);
-
-            if (dockpointindex == -1)
-            {
-                aitrackSteadyShip(ship);
-                return FALSE;
-            }
-
-            dockstaticpoint = &dockwithstatic->dockStaticInfo->dockstaticpoints[dockpointindex];
-
-            ship->dockvars.dockstaticpoint = dockstaticpoint;
-
-            dockReserveDockPoint(ship,dockwith,dockpointindex);
-
-            matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->conenormal);
-
-            coneToShipMag = fsqrt(coneToShipMagSqr);
-            dotprod = vecDotProduct(coneheadingInWorldCoordSys,coneToShip);  // 1.0*coneToShipMag*cos(theta)
-
-            if (dotprod >= (dockstaticpoint->coneangle*coneToShipMag))
-            {
-                // we are in the cone, so fly to centre of cone.
-                ship->dockvars.dockstate2 = JUNKYARDHQ_FLYTOCONEORIGIN;
-                ship->shipOrDerelict.dockingship = dockwith;
-            }
-            else
-            {
-                customdockinfo->dockmisc = ClampToWithin(coneToShipMag,dockstaticpoint->mindist,dockstaticpoint->maxdist);
-                ship->dockvars.dockstate2 = JUNKYARDHQ_FLYTOINSIDECONE;
-            }
-            return FALSE;
-
-        case JUNKYARDHQ_FLYTOINSIDECONE:
-            customdockinfo = ship->dockvars.customdockinfo;
-            if (dockFlyToConeInside(ship,dockwith,customdockinfo->dockmisc))
-            {
-                madLinkInPreDockingShip(ship);
-                ship->dockvars.dockstate2 = JUNKYARDHQ_FLYTOCONEORIGIN;
-                ship->shipOrDerelict.dockingship = dockwith;
-            }
-            return FALSE;
-
-        case JUNKYARDHQ_FLYTOCONEORIGIN:
-            customdockinfo = ship->dockvars.customdockinfo;
-            if (dockFlyToConeOriginLatchIfWithin(ship,dockwith,customdockinfo->turnlatchdistsqr))
-            {
-                clampObjToObj((SpaceObjRotImpTargGuidance *)ship,(SpaceObjRotImpTargGuidance *)dockwith);
-                customdockinfo->timestamp = universe.totaltimeelapsed + customdockinfo->latchmintime;
-                ship->dockvars.dockstate2 = JUNKYARDHQ_WAIT;
-                if (singlePlayerGame)
-                {
-                    AIVar *var;
-                    var = aivarCreate("DockedWJydHQ");
-                    aivarValueSet(var,TRUE);
-                    bitSet(dockwith->shipOrDerelict.specialFlags2,SPECIAL_2_NoMoreDockingAllowed);
-                }
-            }
-            return FALSE;
-
-        case JUNKYARDHQ_WAIT:
-            ship->obj.posinfo.velocity = dockwith->obj.posinfo.velocity;
-            ship->rotatable.rotinfo.rotspeed = dockwith->rotatable.rotinfo.rotspeed;
-            customdockinfo = ship->dockvars.customdockinfo;
-            if ( (universe.totaltimeelapsed > customdockinfo->timestamp) &&
-                 ((ship->shipOrDerelict.specialFlags & SPECIAL_STAY_TILL_EXPLICITLAUNCH) == 0))
-            {
-                ship->dockvars.dockstate2 = JUNKYARDHQ_BACKUP;
-                unClampObj((SpaceObjRotImpTargGuidance *)ship);
-            }
-            return FALSE;
-
-        case JUNKYARDHQ_BACKUP:
-            if (dockBackoutOfConeLatch(ship,dockwith))
-            {
-                ship->shipOrDerelict.dockingship = NULL;
-                dockFreeDockPoint(ship,dockwith);
-                return TRUE;
-            }
-            else
-            {
-                return FALSE;
-            }
-
-        default:
-            dbgAssertOrIgnore(FALSE);
-            return FALSE;
-    }
-}
-
-/*=============================================================================
-    R1/R2 Repair Corvette Docking
-=============================================================================*/
-
-#define REPCORV_WAITLATCHPOINT     1
-#define REPCORV_FLYTOINSIDECONE    2
-#define REPCORV_FLYTOCONEORIGIN    3
-#define REPCORV_REFUEL             4
-#define REPCORV_BACKUP             5
-#define REPCORV_WAIT               6
-
-typedef struct
-{
-    sdword size;
-    real32 dockmisc;
-    sdword latchpointsindex;
-    real32 turnlatchdistsqr;
-    real32 latchmintime;
-    real32 timestamp;
-} AtRepairCorvetteDockInfo;
-
-sdword R1REPCORV_Latch;
-sdword R2REPCORV_Latch;
-
-sdword *R1RepairCorvetteLatchPoints[] = { &R1REPCORV_Latch, NULL };
-sdword *R2RepairCorvetteLatchPoints[] = { &R2REPCORV_Latch, NULL };
-
-sdword **RepairCorvettePoints[] = { R1RepairCorvetteLatchPoints, R2RepairCorvetteLatchPoints };
-
-
-/*=============================================================================
-    R1/R2 Resource Collector Docking
-=============================================================================*/
-
-#define RESCOL_WAITLATCHPOINT     1
-#define RESCOL_FLYTOINSIDECONE    2
-#define RESCOL_FLYTOCONEORIGIN    3
-#define RESCOL_REFUEL             4
-#define RESCOL_BACKUP             5
-#define RESCOL_WAIT               6
-
-typedef struct
-{
-    sdword size;
-    real32 dockmisc;
-    sdword latchpointsindex;
-    real32 turnlatchdistsqr;
-    real32 latchmintime;
-    real32 timestamp;
-} AtResourceCollectorDockInfo;
-
-sdword R1RESCOLFIGHT_Latch;
-sdword R1RESCOLCORV_Latch;
-sdword R2RESCOLFIGHT_Latch;
-sdword R2RESCOLCORV_Latch;
-
-sdword *R1ResourceCollectorLatchPointsFIGH[] = { &R1RESCOLFIGHT_Latch, NULL };
-sdword *R1ResourceCollectorLatchPointsCORV[] = { &R1RESCOLCORV_Latch,  NULL };
-sdword *R2ResourceCollectorLatchPointsFIGH[] = { &R2RESCOLFIGHT_Latch, NULL };
-sdword *R2ResourceCollectorLatchPointsCORV[] = { &R1RESCOLCORV_Latch,  NULL };
-
-sdword **ResourceCollectorPoints[] = { R1ResourceCollectorLatchPointsFIGH, R1ResourceCollectorLatchPointsCORV,R2ResourceCollectorLatchPointsFIGH,R2ResourceCollectorLatchPointsCORV };
-
-void R1ResourceCollectorStaticDockInit(ShipStaticInfo *staticinfo)
-{
-    DockStaticInfo *dockStaticInfo = staticinfo->dockStaticInfo;
-
-    R1RESCOLFIGHT_Latch = dockFindDockIndex("Fight0",dockStaticInfo);
-    R1RESCOLCORV_Latch  = dockFindDockIndex("Corv0",dockStaticInfo);
-}
-
-void R2ResourceCollectorStaticDockInit(ShipStaticInfo *staticinfo)
-{
-    DockStaticInfo *dockStaticInfo = staticinfo->dockStaticInfo;
-
-    R2RESCOLFIGHT_Latch = dockFindDockIndex("Fight0",dockStaticInfo);
-    R2RESCOLCORV_Latch  = dockFindDockIndex("Corv0",dockStaticInfo);
-}
-
-bool32 ShipDocksAtResourceCollector(struct CommandToDo *docktodo,struct Ship *ship,struct Ship *dockwith)
-{
-    ShipStaticInfo *dockwithstatic = dockwith->staticinfo;
-    DockStaticPoint *dockstaticpoint;
-    vector conepositionInWorldCoordSys;
-    vector coneheadingInWorldCoordSys;
-    vector coneToShip;
-    real32 coneToShipMagSqr;
-    real32 coneToShipMag;
-    real32 dotprod;
-    AtResourceCollectorDockInfo *customdockinfo;
-    sdword dockpointindex;
-    ShipStaticInfo *shipstatic;
-
-    switch (ship->dockvars.dockstate2)
-    {
-        case 0:
-            dbgAssertOrIgnore(ship->dockvars.customdockinfo == NULL);
-            customdockinfo = ship->dockvars.customdockinfo = memAlloc(sizeof(AtResourceCollectorDockInfo),"AtRColDock",0);
-            customdockinfo->size = sizeof(AtResourceCollectorDockInfo);
-
-            shipstatic = ship->staticinfo;
-
-            if (dockwithstatic->shiprace == R1)
-            {
-                if (shipstatic->shipclass == CLASS_Corvette)
-                {
-                    customdockinfo->latchpointsindex = 0;
-                    customdockinfo->latchmintime = R1RESCOL_LATCHMINTIME;
-                    customdockinfo->turnlatchdistsqr = R1RESCOL_LATCHDIST*R1RESCOL_LATCHDIST;
-                }
-                else
-                {
-                    customdockinfo->latchpointsindex = 1;
-                    customdockinfo->latchmintime = R1RESCOL_LATCHMINTIME;
-                    customdockinfo->turnlatchdistsqr = R1RESCOL_LATCHDIST*R1RESCOL_LATCHDIST;
-                }
-            }
-            else
-            {
-                dbgAssertOrIgnore(dockwithstatic->shiprace == R2);
-                if (shipstatic->shipclass == CLASS_Corvette)
-                {
-                    customdockinfo->latchpointsindex = 2;
-                    customdockinfo->latchmintime = R2RESCOL_LATCHMINTIME;
-                    customdockinfo->turnlatchdistsqr = R2RESCOL_LATCHDIST*R2RESCOL_LATCHDIST;
-                }
-                else
-                {
-                    customdockinfo->latchpointsindex = 3;
-                    customdockinfo->latchmintime = R2RESCOL_LATCHMINTIME;
-                    customdockinfo->turnlatchdistsqr = R2RESCOL_LATCHDIST*R2RESCOL_LATCHDIST;
-                }
-            }
-
-            ship->dockvars.dockstate2 = RESCOL_WAITLATCHPOINT;
-
-            // deliberately fall through to state REPCORV_WAITLATCHPOINT
-
-        case RESCOL_WAITLATCHPOINT:
-            customdockinfo = ship->dockvars.customdockinfo;
-
-            //maybe need to do check here to see if another ship is docking
-            //with this ship if the variable (numshipscan recieve) doesn't
-            //work.
-
-            dockpointindex = dockFindNearestDockPoint(ResourceCollectorPoints[customdockinfo->latchpointsindex],ship,dockwith,
-                                                      &conepositionInWorldCoordSys, &coneToShip, &coneToShipMagSqr);
-
-            if (dockpointindex == -1)
-            {
-                protectShip(ship,dockwith,FALSE);
-
-                return FALSE;
-            }
-
-            dockstaticpoint = &dockwithstatic->dockStaticInfo->dockstaticpoints[dockpointindex];
-
-            ship->dockvars.dockstaticpoint = dockstaticpoint;
-
-            dockReserveDockPoint(ship,dockwith,dockpointindex);
-
-            matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->conenormal);
-
-            coneToShipMag = fsqrt(coneToShipMagSqr);
-            dotprod = vecDotProduct(coneheadingInWorldCoordSys,coneToShip);  // 1.0*coneToShipMag*cos(theta)
-
-            if (dotprod >= (dockstaticpoint->coneangle*coneToShipMag))
-            {
-                // we are in the cone, so fly to centre of cone.
-                ship->dockvars.dockstate2 = RESCOL_FLYTOCONEORIGIN;
-                ship->shipOrDerelict.dockingship = dockwith;
-            }
-            else
-            {
-                customdockinfo->dockmisc = ClampToWithin(coneToShipMag,dockstaticpoint->mindist,dockstaticpoint->maxdist);
-                ship->dockvars.dockstate2 = RESCOL_FLYTOINSIDECONE;
-            }
-            return FALSE;
-
-        case RESCOL_FLYTOINSIDECONE:
-            customdockinfo = ship->dockvars.customdockinfo;
-            if (dockFlyToConeInside(ship,dockwith,customdockinfo->dockmisc))
-            {
-                madLinkInPreDockingShip(ship);
-                ship->dockvars.dockstate2 = RESCOL_FLYTOCONEORIGIN;
-                ship->shipOrDerelict.dockingship = dockwith;
-            }
-            return FALSE;
-
-        case RESCOL_FLYTOCONEORIGIN:
-            customdockinfo = ship->dockvars.customdockinfo;
-            if (dockFlyToConeOriginLatchIfWithin(ship,dockwith,customdockinfo->turnlatchdistsqr))
-            {
-//                soundEvent(ship, Docking);
-                ship->dockvars.dockstate2 = RESCOL_REFUEL;
-                //speechEvent(dockwith, STAT_RepVette_StartedRepairs, 0);
-                clampObjToObj((SpaceObjRotImpTargGuidance *)ship,(SpaceObjRotImpTargGuidance *)dockwith);
-            }
-            return FALSE;
-
-        case RESCOL_REFUEL:
-            ship->obj.posinfo.velocity = dockwith->obj.posinfo.velocity;
-            ship->rotatable.rotinfo.rotspeed = dockwith->rotatable.rotinfo.rotspeed;
-            customdockinfo = ship->dockvars.customdockinfo;
-            if (dockShipRefuelsAtShip(ship,dockwith))
-            {
-//                soundEvent(dockwith, Acquire);
-                customdockinfo = ship->dockvars.customdockinfo;
-                customdockinfo->timestamp = universe.totaltimeelapsed + customdockinfo->latchmintime;
-                ship->dockvars.dockstate2 = RESCOL_WAIT;
-            }
-            return FALSE;
-
-        case RESCOL_WAIT:
-            ship->obj.posinfo.velocity = dockwith->obj.posinfo.velocity;
-            ship->rotatable.rotinfo.rotspeed = dockwith->rotatable.rotinfo.rotspeed;
-            customdockinfo = ship->dockvars.customdockinfo;
-            if (universe.totaltimeelapsed > customdockinfo->timestamp)
-            {
-//                soundEvent(ship, Launch);
-                ship->dockvars.dockstate2 = RESCOL_BACKUP;
-                //speechEvent(dockwith, STAT_RepVette_FinishedRepairs, 0);
-                unClampObj((SpaceObjRotImpTargGuidance *)ship);
-            }
-            return FALSE;
-
-        case RESCOL_BACKUP:
-            customdockinfo = ship->dockvars.customdockinfo;
-            if (dockBackoutOfConeLatchFacingProperly(ship,dockwith,customdockinfo->turnlatchdistsqr))
-            {
-                ship->shipOrDerelict.dockingship = NULL;
-                dockFreeDockPoint(ship,dockwith);
-                return TRUE;
-            }
-            else
-            {
-                return FALSE;
-            }
-
-        default:
-            dbgAssertOrIgnore(FALSE);
-            return FALSE;
-    }
-}
-
-/*=============================================================================
-    R1/R2 Advance Support Frigate Docking
-=============================================================================*/
-
-/*  -defines moved to dock.h
-#define ASF_WAITLATCHPOINT     1
-#define ASF_FLYTOINSIDECONE    2
-#define ASF_FLYTOCONEORIGIN    3
-#define ASF_REFUEL             4
-#define ASF_BACKUP             5
-#define ASF_WAIT               6
-*/
-typedef struct
-{
-    sdword size;
-    real32 dockmisc;
-    sdword latchpointsindex;
-    real32 turnlatchdistsqr;
-    real32 latchmintime;
-    real32 timestamp;
-} AtASFDockInfo;
-
-sdword R2ASF_Fight0;
-sdword R2ASF_Fight1;
-sdword R2ASF_Fight2;
-sdword R2ASF_Fight3;
-sdword R2ASF_Fight4;
-sdword R2ASF_Fight5;
-sdword R2ASF_Fight6;
-sdword R2ASF_Fight7;
-sdword R2ASF_Fight8;
-sdword R2ASF_Fight9;
-sdword R2ASF_Corv0;
-sdword R2ASF_Corv1;
-sdword R2ASF_Corv2;
-sdword R2ASF_Corv3;
-
-sdword R1ASF_FightL0;
-sdword R1ASF_FightL1;
-sdword R1ASF_FightL2;
-sdword R1ASF_FightL3;
-sdword R1ASF_FightL4;
-sdword R1ASF_FightR0;
-sdword R1ASF_FightR1;
-sdword R1ASF_FightR2;
-sdword R1ASF_FightR3;
-sdword R1ASF_FightR4;
-sdword R1ASF_Corv0;
-sdword R1ASF_Corv1;
-sdword R1ASF_Corv2;
-sdword R1ASF_Corv3;
-
-sdword *R1ASFCorvettePoints[] = { &R1ASF_Corv0, &R1ASF_Corv1, &R1ASF_Corv2, &R1ASF_Corv3, NULL };
-sdword *R1ASFFighterPoints[] = { &R1ASF_FightL0, &R1ASF_FightL1, &R1ASF_FightL2, &R1ASF_FightL3, &R1ASF_FightL4,
-                                 &R1ASF_FightR0, &R1ASF_FightR1, &R1ASF_FightR2, &R1ASF_FightR3, &R1ASF_FightR4, NULL };
-
-sdword *R2ASFCorvettePoints[] = { &R2ASF_Corv0, &R2ASF_Corv1, &R2ASF_Corv2, &R2ASF_Corv3, NULL };
-sdword *R2ASFFighterPoints[] = { &R2ASF_Fight0, &R2ASF_Fight1, &R2ASF_Fight2, &R2ASF_Fight3, &R2ASF_Fight4,
-                                 &R2ASF_Fight5, &R2ASF_Fight6, &R2ASF_Fight7, &R2ASF_Fight8, &R2ASF_Fight9, NULL };
-
-sdword **ASFPoints[] = { R1ASFCorvettePoints, R1ASFFighterPoints, R2ASFCorvettePoints, R2ASFFighterPoints };
-
-void R1ASFStaticDockInit(ShipStaticInfo *staticinfo)
-{
-    DockStaticInfo *dockStaticInfo = staticinfo->dockStaticInfo;
-
-    R1ASF_FightL0 = dockFindDockIndex("FightL0",dockStaticInfo);
-    R1ASF_FightL1 = dockFindDockIndex("FightL1",dockStaticInfo);
-    R1ASF_FightL2 = dockFindDockIndex("FightL2",dockStaticInfo);
-    R1ASF_FightL3 = dockFindDockIndex("FightL3",dockStaticInfo);
-    R1ASF_FightL4 = dockFindDockIndex("FightL4",dockStaticInfo);
-    R1ASF_FightR0 = dockFindDockIndex("FightR0",dockStaticInfo);
-    R1ASF_FightR1 = dockFindDockIndex("FightR1",dockStaticInfo);
-    R1ASF_FightR2 = dockFindDockIndex("FightR2",dockStaticInfo);
-    R1ASF_FightR3 = dockFindDockIndex("FightR3",dockStaticInfo);
-    R1ASF_FightR4 = dockFindDockIndex("FightR4",dockStaticInfo);
-    R1ASF_Corv0 = dockFindDockIndex("Corv0",dockStaticInfo);
-    R1ASF_Corv1 = dockFindDockIndex("Corv1",dockStaticInfo);
-    R1ASF_Corv2 = dockFindDockIndex("Corv2",dockStaticInfo);
-    R1ASF_Corv3 = dockFindDockIndex("Corv3",dockStaticInfo);
-}
-
-void R2ASFStaticDockInit(ShipStaticInfo *staticinfo)
-{
-    DockStaticInfo *dockStaticInfo = staticinfo->dockStaticInfo;
-
-    R2ASF_Fight0 = dockFindDockIndex("Fight0",dockStaticInfo);
-    R2ASF_Fight1 = dockFindDockIndex("Fight1",dockStaticInfo);
-    R2ASF_Fight2 = dockFindDockIndex("Fight2",dockStaticInfo);
-    R2ASF_Fight3 = dockFindDockIndex("Fight3",dockStaticInfo);
-    R2ASF_Fight4 = dockFindDockIndex("Fight4",dockStaticInfo);
-    R2ASF_Fight5 = dockFindDockIndex("Fight5",dockStaticInfo);
-    R2ASF_Fight6 = dockFindDockIndex("Fight6",dockStaticInfo);
-    R2ASF_Fight7 = dockFindDockIndex("Fight7",dockStaticInfo);
-    R2ASF_Fight8 = dockFindDockIndex("Fight8",dockStaticInfo);
-    R2ASF_Fight9 = dockFindDockIndex("Fight9",dockStaticInfo);
-    R2ASF_Corv0 = dockFindDockIndex("Corv0",dockStaticInfo);
-    R2ASF_Corv1 = dockFindDockIndex("Corv1",dockStaticInfo);
-    R2ASF_Corv2 = dockFindDockIndex("Corv2",dockStaticInfo);
-    R2ASF_Corv3 = dockFindDockIndex("Corv3",dockStaticInfo);
-}
-
-bool32 ShipDocksAtASF(struct CommandToDo *docktodo,struct Ship *ship,struct Ship *dockwith)
-{
-    ShipStaticInfo *dockwithstatic = dockwith->staticinfo;
-    DockStaticPoint *dockstaticpoint;
-    vector conepositionInWorldCoordSys;
-    vector coneheadingInWorldCoordSys;
-    vector coneToShip;
-    real32 coneToShipMagSqr;
-    real32 coneToShipMag;
-    real32 dotprod;
-    AtASFDockInfo *customdockinfo;
-    sdword dockpointindex;
-    ShipStaticInfo *shipstatic;
-
-    switch (ship->dockvars.dockstate2)
-    {
-        case 0:
-            dbgAssertOrIgnore(ship->dockvars.customdockinfo == NULL);
-            customdockinfo = ship->dockvars.customdockinfo = memAlloc(sizeof(AtASFDockInfo),"AtASFDock",0);
-            customdockinfo->size = sizeof(AtASFDockInfo);
-
-            shipstatic = ship->staticinfo;
-
-            if (dockwithstatic->shiprace == R1)
-            {
-                if (shipstatic->shipclass == CLASS_Corvette)
-                {
-                    customdockinfo->latchpointsindex = 0;
-                    customdockinfo->turnlatchdistsqr = R1ASF_CORVETTELATCHDIST;
-                    customdockinfo->latchmintime = R1ASF_LATCHMINTIME;
-                }
-                else
-                {
-                    dbgAssertOrIgnore(shipstatic->shipclass == CLASS_Fighter || shipstatic->shiptype == ProximitySensor);
-                    customdockinfo->latchpointsindex = 1;
-                    customdockinfo->turnlatchdistsqr = R1ASF_FIGHTERLATCHDIST;
-                    customdockinfo->latchmintime = R1ASF_LATCHMINTIME;
-                }
-            }
-            else
-            {
-                dbgAssertOrIgnore(dockwithstatic->shiprace == R2);
-                if (shipstatic->shipclass == CLASS_Corvette)
-                {
-                    customdockinfo->latchpointsindex = 2;
-                    customdockinfo->turnlatchdistsqr = R2ASF_CORVETTELATCHDIST;
-                    customdockinfo->latchmintime = R2ASF_LATCHMINTIME;
-                }
-                else
-                {
-                    dbgAssertOrIgnore(shipstatic->shipclass == CLASS_Fighter|| shipstatic->shiptype == ProximitySensor);
-                    customdockinfo->latchpointsindex = 3;
-                    customdockinfo->turnlatchdistsqr = R2ASF_FIGHTERLATCHDIST;
-                    customdockinfo->latchmintime = R2ASF_LATCHMINTIME;
-                }
-            }
-
-            ship->dockvars.dockstate2 = ASF_WAITLATCHPOINT;
-
-            // deliberately fall through to state ASF_WAITLATCHPOINT
-
-        case ASF_WAITLATCHPOINT:
-            customdockinfo = ship->dockvars.customdockinfo;
-
-            dockpointindex = dockFindNearestDockPoint(ASFPoints[customdockinfo->latchpointsindex],ship,dockwith,
-                                                      &conepositionInWorldCoordSys, &coneToShip, &coneToShipMagSqr);
-
-            if (dockpointindex == -1)
-            {
-                protectShip(ship,dockwith,FALSE);
-
-                return FALSE;
-            }
-
-            dockstaticpoint = &dockwithstatic->dockStaticInfo->dockstaticpoints[dockpointindex];
-
-            ship->dockvars.dockstaticpoint = dockstaticpoint;
-
-            dockReserveDockPoint(ship,dockwith,dockpointindex);
-
-            matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->conenormal);
-
-            coneToShipMag = fsqrt(coneToShipMagSqr);
-            dotprod = vecDotProduct(coneheadingInWorldCoordSys,coneToShip);  // 1.0*coneToShipMag*cos(theta)
-
-            if (docktodo->dock.dockType & DOCK_INSTANTANEOUSLY)
-            {
-                vector desiredHeading,desiredUp,desiredRight;
-                vector conepositionInWorldCoordSys;
-
-                matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->position);
-                vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
-
-                GetDirectionVectorOfShip(&desiredHeading,dockstaticpoint->headingdirection,&(dockwith)->rotatable.rotinfo.coordsys);
-                GetDirectionVectorOfShip(&desiredUp,dockstaticpoint->updirection,&(dockwith)->rotatable.rotinfo.coordsys);
-                vecCrossProduct(desiredRight,desiredHeading,desiredUp);
-
-                ship->obj.posinfo.position = conepositionInWorldCoordSys;
-                ship->obj.posinfo.velocity = dockwith->obj.posinfo.velocity;
-                matCreateMatFromVecs(&ship->rotatable.rotinfo.coordsys,&desiredUp,&desiredRight,&desiredHeading);
-
-                univUpdateObjRotInfo(&ship->rotatable);
-
-                ship->shipOrDerelict.dockingship = dockwith;
-                clampObjToObj((SpaceObjRotImpTargGuidance *)ship,(SpaceObjRotImpTargGuidance *)dockwith);
-                customdockinfo->timestamp = universe.totaltimeelapsed + customdockinfo->latchmintime;
-                ship->dockvars.dockstate2 = ASF_WAIT;
-                return FALSE;
-            }
-
-            if (dotprod >= (dockstaticpoint->coneangle*coneToShipMag))
-            {
-                // we are in the cone, so fly to centre of cone.
-                ship->dockvars.dockstate2 = ASF_FLYTOCONEORIGIN;
-                ship->shipOrDerelict.dockingship = dockwith;
-            }
-            else
-            {
-                customdockinfo->dockmisc = ClampToWithin(coneToShipMag,dockstaticpoint->mindist,dockstaticpoint->maxdist);
-                ship->dockvars.dockstate2 = ASF_FLYTOINSIDECONE;
-            }
-            return FALSE;
-
-        case ASF_FLYTOINSIDECONE:
-            customdockinfo = ship->dockvars.customdockinfo;
-            if (dockFlyToConeInside(ship,dockwith,customdockinfo->dockmisc))
-            {
-                madLinkInPreDockingShip(ship);
-                ship->dockvars.dockstate2 = ASF_FLYTOCONEORIGIN;
-                ship->shipOrDerelict.dockingship = dockwith;
-            }
-            return FALSE;
-
-        case ASF_FLYTOCONEORIGIN:
-            customdockinfo = ship->dockvars.customdockinfo;
-            if (dockFlyToConeOriginLatchIfWithin(ship,dockwith,customdockinfo->turnlatchdistsqr))
-            {
-//                soundEvent(ship, Docking);
-                ship->dockvars.dockstate2 = ASF_REFUEL;
-            if (battleCanChatterAtThisTime(BCE_CapitalShipDocked, dockwith))
-            {
-                battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CapitalShipDocked, dockwith, SOUND_EVENT_DEFAULT);
-            }
-//                speechEvent(dockwith, STAT_Cap_ShipDocked, 0);
-                clampObjToObj((SpaceObjRotImpTargGuidance *)ship,(SpaceObjRotImpTargGuidance *)dockwith);
-            }
-            return FALSE;
-
-        case ASF_REFUEL:
-            ship->obj.posinfo.velocity = dockwith->obj.posinfo.velocity;
-            customdockinfo = ship->dockvars.customdockinfo;
-            if (dockShipRefuelsAtShip(ship,dockwith))
-            {
-//                soundEvent(dockwith, Acquire);
-                customdockinfo = ship->dockvars.customdockinfo;
-                customdockinfo->timestamp = universe.totaltimeelapsed + customdockinfo->latchmintime;
-                ship->dockvars.dockstate2 = ASF_WAIT;
-            }
-            return FALSE;
-
-        case ASF_WAIT:
-            ship->obj.posinfo.velocity = dockwith->obj.posinfo.velocity;
-            customdockinfo = ship->dockvars.customdockinfo;
-            if ((universe.totaltimeelapsed > customdockinfo->timestamp) &&
-                ((ship->shipOrDerelict.specialFlags & SPECIAL_STAY_TILL_EXPLICITLAUNCH) == 0))
-            {
-                CommandToDo *command;
-                command = getShipAndItsCommand(&universe.mainCommandLayer,dockwith);
-                if(command != NULL)
-                {
-                    if(command->ordertype.order == COMMAND_MP_HYPERSPACING)
-                    {
-                        return(FALSE);
-                    }
-                }
-
-                //                soundEvent(ship, Launch);
-                ship->dockvars.dockstate2 = ASF_BACKUP;
-                unClampObj((SpaceObjRotImpTargGuidance *)ship);
-            }
-            return FALSE;
-
-        case ASF_BACKUP:
-            if (dockBackoutOfConeLatch(ship,dockwith))
-            {
-                ship->shipOrDerelict.dockingship = NULL;
-                dockFreeDockPoint(ship,dockwith);
-                return TRUE;
-            }
-            else
-            {
-                return FALSE;
-            }
-
-        default:
-            dbgAssertOrIgnore(FALSE);
-            return FALSE;
-    }
-}
-
-/*=============================================================================
-    R1/R2 Resource Controller Docking
-=============================================================================*/
-
-// CAT (M2-R4 ships-b): the HW1 ResourceController docking (states, point tables) is gone with the type
-
-/*=============================================================================
-    Carrier/Mothership Docking
-=============================================================================*/
-
-typedef struct
-{
-    sdword size;
-    real32 dockmisc;
-    real32 timestamp;
-    real32 giveupdockpointat;
-    sdword inpointsindex;
-    sdword resourcelatchpointsindex;
-    real32 latchmintime;
-    real32 refuelrepairmintime;
-} AtCarrierDockInfo;
-
-#define CARRIERMOTHERDOCK_FLYTOINSIDECONE       1
-#define CARRIERMOTHERDOCK_FLYTOCONEORIGIN       2
-#define CARRIERMOTHERDOCK_LATCHFLYTOCONEORIGIN  3
-#define CARRIERMOTHERDOCK_LATCHFLYTOINSIDECONE  4
-#define CARRIERMOTHERDOCK_REFUEL                5
-#define CARRIERMOTHERDOCK_LATCHREFUEL           6
-#define CARRIERMOTHERDOCK_LATCHBACKUP           7
-#define CARRIERMOTHERDOCK_WAITFORLATCH          8
-#define CARRIERMOTHERDOCK_FINDCONE              9
-#define CARRIERMOTHERDOCK_LAUNCH                10
-#define CARRIERMOTHERDOCK_WAIT                  11
-#define CARRIERMOTHERDOCK_LATCHWAIT             12
-#define CARRIERMOTHERDOCK_FOR_RETIRE            13
-#define CARRIERMOTHERDOCK_IN_DOOR               14
-#define CARRIERMOTHERDOCK_FLYTODOOR2            15
-#define CARRIERMOTHERDOCK_FLYTODOOR3            16
-#define CARRIERMOTHERDOCK_FLYTODOOR             17
-#define CARRIERMOTHERDOCK_WAIT_FOR_DOOR_TO_CLOSE 18
-#define CARRIERMOTHERDOCK_FLYTOCONEORIGIN_AND_ALIGN 19
-
-
-
-sdword R1CARRIER_In0;
-sdword R1CARRIER_In1;
-sdword R1CARRIER_Res0;
-sdword R1CARRIER_Res1;
-sdword R1CARRIER_Out0;
-sdword R1CARRIER_Out1;
-sdword R1CARRIER_Frigate;
-
-sdword *R1CarrierResourceLatchPoints[] = { &R1CARRIER_Res0, &R1CARRIER_Res1, NULL };
-sdword *R1CarrierInConePoints[] = { &R1CARRIER_In0, &R1CARRIER_In1, NULL };
-sdword *R1CarrierSmallLaunchPoints[] = { &R1CARRIER_Out0, &R1CARRIER_Out1, NULL };
-sdword *R1CarrierFrigateLaunchPoints[] = { &R1CARRIER_Frigate, NULL };
-sdword *R1CarrierInFrigate[] = { &R1CARRIER_Frigate, NULL };
-
-sdword R2CARRIER_In1;
-sdword R2CARRIER_In2;
-sdword R2CARRIER_Out1;
-sdword R2CARRIER_Out2;
-sdword R2CARRIER_Frigate;
-sdword R2CARRIER_Res0;
-sdword R2CARRIER_Res1;
-
-sdword *R2CarrierResourceLatchPoints[] = { &R2CARRIER_Res0, &R2CARRIER_Res1, NULL };
-sdword *R2CarrierInConePoints[] = { &R2CARRIER_In1, &R2CARRIER_In2, NULL };
-sdword *R2CarrierSmallLaunchPoints[] = { &R2CARRIER_Out1, &R2CARRIER_Out2, NULL };
-sdword *R2CarrierFrigateLaunchPoints[] = { &R2CARRIER_Frigate, NULL };
-sdword *R2CarrierInFrigate[] = { &R2CARRIER_Frigate, NULL };
-
-sdword R1MOTHERSHIP_In;
-sdword R1MOTHERSHIP_In1;
-sdword R1MOTHERSHIP_Out;
-sdword R1MOTHERSHIP_Out1;
-sdword R1MOTHERSHIP_Frigate;
-sdword R1MOTHERSHIP_Big;
-sdword R1MOTHERSHIP_ResU;
-sdword R1MOTHERSHIP_ResD;
-
-sdword *R1MothershipInConePoints[] = { &R1MOTHERSHIP_In, &R1MOTHERSHIP_In1, NULL };
-sdword *R1MothershipSmallLaunchPoints[] = { &R1MOTHERSHIP_Out, &R1MOTHERSHIP_Out1, NULL };
-sdword *R1MothershipFrigateLaunchPoints[] = { &R1MOTHERSHIP_Frigate, NULL };
-sdword *R1MothershipBigLaunchPoints[] = { &R1MOTHERSHIP_Big, NULL };
-sdword *R1MothershipResourceLatchPoints[] = { &R1MOTHERSHIP_ResU, &R1MOTHERSHIP_ResD, NULL };
-sdword *R1MothershipInBig[] = { &R1MOTHERSHIP_Big, NULL };
-sdword *R1MothershipInResearch[] = { &R1MOTHERSHIP_Frigate, NULL };
-
-sdword R2MOTHERSHIP_In0;
-sdword R2MOTHERSHIP_In1;
-sdword R2MOTHERSHIP_Out0;
-sdword R2MOTHERSHIP_Out1;
-sdword R2MOTHERSHIP_Big;
-sdword R2MOTHERSHIP_Res0;
-sdword R2MOTHERSHIP_Res1;
-
-sdword *R2MothershipInConePoints[] = { &R2MOTHERSHIP_In0, &R2MOTHERSHIP_In1, NULL };
-sdword *R2MothershipSmallLaunchPoints[] = { &R2MOTHERSHIP_Out0, &R2MOTHERSHIP_Out1, NULL };
-sdword *R2MothershipBigLaunchPoints[] = { &R2MOTHERSHIP_Big, NULL };
-sdword *R2MothershipResourceLatchPoints[] = { &R2MOTHERSHIP_Res0, &R2MOTHERSHIP_Res1, NULL };
-sdword *R2MothershipInBig[] = { &R2MOTHERSHIP_Big, NULL };
-sdword *R2MothershipInResearch[] = { &R2MOTHERSHIP_Big, NULL };
-
-sdword P1MOTHERSHIP_In;
-sdword P1MOTHERSHIP_Out;
-sdword P1MOTHERSHIP_Out1;
-
-sdword *P1MothershipInConePoints[] = { &P1MOTHERSHIP_In, NULL };
-sdword *P1MothershipSmallLaunchPoints[] = { &P1MOTHERSHIP_Out, &P1MOTHERSHIP_Out1, NULL };
-
-sdword P2MOTHERSHIP_In;
-sdword P2MOTHERSHIP_In1;
-sdword P2MOTHERSHIP_In2;
-sdword P2MOTHERSHIP_In3;
-sdword P2MOTHERSHIP_In4;
-sdword P2MOTHERSHIP_In5;
-sdword P2MOTHERSHIP_In6;
-sdword P2MOTHERSHIP_In7;
-sdword P2MOTHERSHIP_In8;
-sdword P2MOTHERSHIP_In9;
-sdword P2MOTHERSHIP_In10;
-sdword P2MOTHERSHIP_In11;
-sdword P2MOTHERSHIP_Out;
-sdword P2MOTHERSHIP_Out1;
-sdword P2MOTHERSHIP_Out2;
-sdword P2MOTHERSHIP_Out3;
-sdword P2MOTHERSHIP_Out4;
-sdword P2MOTHERSHIP_Out5;
-sdword P2MOTHERSHIP_Out6;
-sdword P2MOTHERSHIP_Out7;
-sdword P2MOTHERSHIP_Out8;
-sdword P2MOTHERSHIP_Out9;
-sdword P2MOTHERSHIP_Out10;
-sdword P2MOTHERSHIP_Out11;
-
-sdword *P2MothershipInConePoints[] = { &P2MOTHERSHIP_In, &P2MOTHERSHIP_In1, &P2MOTHERSHIP_In2, &P2MOTHERSHIP_In3, &P2MOTHERSHIP_In4, &P2MOTHERSHIP_In5,
-                                        &P2MOTHERSHIP_In6, &P2MOTHERSHIP_In7, &P2MOTHERSHIP_In8, &P2MOTHERSHIP_In9, &P2MOTHERSHIP_In10, &P2MOTHERSHIP_In11, NULL };
-sdword *P2MothershipSmallLaunchPoints[] = { &P2MOTHERSHIP_Out, &P2MOTHERSHIP_Out1, &P2MOTHERSHIP_Out2, &P2MOTHERSHIP_Out3, &P2MOTHERSHIP_Out4, &P2MOTHERSHIP_Out5,
-                                        &P2MOTHERSHIP_Out6, &P2MOTHERSHIP_Out7, &P2MOTHERSHIP_Out8, &P2MOTHERSHIP_Out9, &P2MOTHERSHIP_Out10, &P2MOTHERSHIP_Out11, NULL };
-
-void R1CarrierStaticDockInit(ShipStaticInfo *staticinfo)
-{
-    DockStaticInfo *dockStaticInfo = staticinfo->dockStaticInfo;
-
-    R1CARRIER_In0 = dockFindDockIndex("In0",dockStaticInfo);
-    R1CARRIER_In1 = dockFindDockIndex("In1",dockStaticInfo);
-    R1CARRIER_Res0 = dockFindDockIndex("Res0",dockStaticInfo);
-    R1CARRIER_Res1 = dockFindDockIndex("Res1",dockStaticInfo);
-    R1CARRIER_Out0 = dockFindDockIndex("Out0",dockStaticInfo);
-    R1CARRIER_Out1 = dockFindDockIndex("Out1",dockStaticInfo);
-    R1CARRIER_Frigate = dockFindDockIndex("Frigate",dockStaticInfo);
-}
-
-void R2CarrierStaticDockInit(ShipStaticInfo *staticinfo)
-{
-    DockStaticInfo *dockStaticInfo = staticinfo->dockStaticInfo;
-
-    R2CARRIER_In1 = dockFindDockIndex("In1",dockStaticInfo);
-    R2CARRIER_In2 = dockFindDockIndex("In2",dockStaticInfo);
-    R2CARRIER_Out1 = dockFindDockIndex("Out1",dockStaticInfo);
-    R2CARRIER_Out2 = dockFindDockIndex("Out2",dockStaticInfo);
-    R2CARRIER_Frigate = dockFindDockIndex("Frigate",dockStaticInfo);
-    R2CARRIER_Res0 = dockFindDockIndex("Res0",dockStaticInfo);
-    R2CARRIER_Res1 = dockFindDockIndex("Res1",dockStaticInfo);
-}
-
-void R1MothershipStaticDockInit(ShipStaticInfo *staticinfo)
-{
-    DockStaticInfo *dockStaticInfo = staticinfo->dockStaticInfo;
-
-    R1MOTHERSHIP_In      = dockFindDockIndex("In",      dockStaticInfo);
-    R1MOTHERSHIP_In1     = dockFindDockIndex("In1",     dockStaticInfo);
-    
-    R1MOTHERSHIP_Out     = dockFindDockIndex("Out",     dockStaticInfo);
-    R1MOTHERSHIP_Out1    = dockFindDockIndex("Out1",    dockStaticInfo);
-    
-    R1MOTHERSHIP_Frigate = dockFindDockIndex("Frigate", dockStaticInfo);
-    
-    R1MOTHERSHIP_Big     = dockFindDockIndex("Big",     dockStaticInfo);
-    
-    R1MOTHERSHIP_ResU    = dockFindDockIndex("ResU",    dockStaticInfo);
-    R1MOTHERSHIP_ResD    = dockFindDockIndex("ResD",    dockStaticInfo);
-}
-
-void R2MothershipStaticDockInit(ShipStaticInfo *staticinfo)
-{
-    DockStaticInfo *dockStaticInfo = staticinfo->dockStaticInfo;
-
-    R2MOTHERSHIP_In0  = dockFindDockIndex("In0",  dockStaticInfo);
-    R2MOTHERSHIP_In1  = dockFindDockIndex("In1",  dockStaticInfo);
-    
-    R2MOTHERSHIP_Out0 = dockFindDockIndex("Out0", dockStaticInfo);
-    R2MOTHERSHIP_Out1 = dockFindDockIndex("Out1", dockStaticInfo);
-    
-    R2MOTHERSHIP_Big  = dockFindDockIndex("Big",  dockStaticInfo);
-    
-    R2MOTHERSHIP_Res0 = dockFindDockIndex("Res0", dockStaticInfo);
-    R2MOTHERSHIP_Res1 = dockFindDockIndex("Res1", dockStaticInfo);
-}
-
-void P1MothershipStaticDockInit(ShipStaticInfo *staticinfo)
-{
-    DockStaticInfo *dockStaticInfo = staticinfo->dockStaticInfo;
-
-    P1MOTHERSHIP_In   = dockFindDockIndex("In",   dockStaticInfo);
-    
-    P1MOTHERSHIP_Out  = dockFindDockIndex("Out",  dockStaticInfo);
-    P1MOTHERSHIP_Out1 = dockFindDockIndex("Out1", dockStaticInfo);
-}
-
-sdword **InPoints[] = {
-    R1CarrierInConePoints,    R2CarrierInConePoints,
-    R1MothershipInConePoints, R2MothershipInConePoints,
-    P1MothershipInConePoints, P2MothershipInConePoints,
-    R1CarrierInFrigate,       R2CarrierInFrigate,
-    R1MothershipInBig,        R2MothershipInBig,
-    R1MothershipInResearch,   R2MothershipInResearch
-};
-
-sdword **ResourceLatchPoints[] = {
-    R1CarrierResourceLatchPoints,    R2CarrierResourceLatchPoints,
-    R1MothershipResourceLatchPoints, R2MothershipResourceLatchPoints
-};
-
-#define FIND_FREE_LAUNCH_POINT             1
-#define LAUNCH_FROM_LAUNCH_POINT           2
-#define LAUNCH_FROM_MOTHERSHIP_R1_DOOR1    3
-#define LAUNCH_FROM_MOTHERSHIP_R1_DOOR2    4
-
-// Don't use the ship's class to determine which docking bay to use.
-// The Turanic Raider's (p1) Ion Array Frigate requires the large
-// docking bay but since it's classed as a frigate, after salvage it
-// would exit from the small docking bay. Knowing how the ship would
-// enter the Mothership via salvage, it makes sense that it should
-// always exit that way too, so we use that information instead.
-
-
-bool32 shipStaticIndicatesBigHangerBayForRace(ShipStaticInfo *ship_static, sdword race)
-{
-    // CAT (M2-R4 combat): HW1 read the needBigR1/needBigR2 salvage statics here; Cataclysm has no HW1 salvage statics
-    //      (SpaceObj.h), so the small hangar bay is always the answer (the HW1 launch code around this has no exe
-    //      counterpart: shipStaticIndicatesBigHangerBayForRace is a GoK helper).
-    (void)ship_static;
-    (void)race;
-
-    // default to using the small hanger bay - it doesn't sound particularly
-    // sensible but that's the way the .shp configuration is set up
-    return FALSE;
-}
-
-bool32 shipRequiresBigHangerBayWhenDockingWith(Ship *smaller_ship, Ship *larger_ship)
-{
-    if (smaller_ship != NULL && larger_ship != NULL)
-    {
-        return shipStaticIndicatesBigHangerBayForRace(smaller_ship->staticinfo, larger_ship->shiprace);
-    }
-    
-    // use small hanger bay by default
-    return FALSE;
-}
-
-
-sdword **FindR1MothershipLaunchPoints(ShipStaticInfo *shipstatic)
-{
-    if (shipStaticIndicatesBigHangerBayForRace(shipstatic, R1))
-    {
-        return R1MothershipBigLaunchPoints;
-    }
-
-    return R1MothershipSmallLaunchPoints;
-}
-
-sdword **FindR2MothershipLaunchPoints(ShipStaticInfo *shipstatic)
-{
-    if (shipStaticIndicatesBigHangerBayForRace(shipstatic, R2))
-    {
-        return R2MothershipBigLaunchPoints;
-    }
-
-    return R2MothershipSmallLaunchPoints;
-}
-
-sdword **FindP1MothershipLaunchPoints(ShipStaticInfo *shipstatic)
-{
-    //  no capital ships can dock with Pirate 1 Mothership -- July 10/98 - Michael G.
-    return P1MothershipSmallLaunchPoints;
-}
-
-sdword **FindR1CarrierLaunchPoints(ShipStaticInfo *shipstatic)
-{
-    // is this safe?
-    if (isCapitalShipStaticOrBig(shipstatic)
-    ||  shipstatic->shiptype == ResourceCollector)
-    {
-        return R1CarrierFrigateLaunchPoints;
-    }
-    else
-    {
-        return R1CarrierSmallLaunchPoints;
-    }
-}
-
-sdword **FindR2CarrierLaunchPoints(ShipStaticInfo *shipstatic)
-{
-    // is this safe?
-    if (isCapitalShipStaticOrBig(shipstatic)
-    ||  shipstatic->shiptype == ResourceCollector)
-    {
-        return R2CarrierFrigateLaunchPoints;
-    }
-    else
-    {
-        return R2CarrierSmallLaunchPoints;
-    }
-}
-
-sdword **GetLaunchPoints(ShipStaticInfo *shipstatic,ShipStaticInfo *dockwithstatic)
-{
-    if (dockwithstatic->shiptype == Carrier)
-    {
-        if (dockwithstatic->shiprace == R1)
-        {
-            return FindR1CarrierLaunchPoints(shipstatic);
-        }
-        else if (dockwithstatic->shiprace == R2)
-        {
-            return FindR2CarrierLaunchPoints(shipstatic);
-        }
-    }
-    else
-    {
-        if (dockwithstatic->shiprace == R1)
-        {
-            if (dockwithstatic->shiptype == Mothership)
-            {
-                return FindR1MothershipLaunchPoints(shipstatic);
-            }
-        }
-        else if (dockwithstatic->shiprace == R2)
-        {
-            if (dockwithstatic->shiptype == Mothership)
-            {
-                return FindR2MothershipLaunchPoints(shipstatic);
-            }
-        }
-        else if (dockwithstatic->shiprace == P1)
-        {
-            if (dockwithstatic->shiptype == P1Mothership)
-            {
-                return FindP1MothershipLaunchPoints(shipstatic);
-            }
-        }
-        // CAT: no HW1 P2 mothership launch points (M2-R4 ships-b); its point tables stay for the InPoints indexing
-    }
-    
-    return NULL;
-}
-
-bool32 LaunchShipFromCarrierMother(Ship *ship,Ship *dockwith)
-{
-    sdword launchpointindex,overide;
-    DockStaticPoint *dockstaticpoint;
-    ShipStaticInfo *dockwithstatic = dockwith->staticinfo;
-    ShipStaticInfo *shipstatic;
-    vector conepositionInWorldCoordSys;
-    vector heading,up,right;
-    matrix coordsysWS;
-
-    switch (ship->dockvars.dockstate3)
-    {
-        case 0:
-            shipstatic = ship->staticinfo;
-
-            ship->dockvars.launchpoints = GetLaunchPoints(shipstatic,dockwithstatic);
-            dbgAssertOrIgnore(ship->dockvars.launchpoints);
-            ship->dockvars.dockstate3 = FIND_FREE_LAUNCH_POINT;
-            // deliberately fall through to FIND_FREE_LAUNCH_POINT
-
-        case FIND_FREE_LAUNCH_POINT:
-            dbgAssertOrIgnore(ship->dockvars.launchpoints);
-            launchpointindex = dockFindLaunchPointRandom(ship->dockvars.launchpoints,dockwith,ship);
-
-            if (launchpointindex == -1)
-            {
-                return FALSE;
-            }
-
-            dockstaticpoint = &dockwithstatic->dockStaticInfo->dockstaticpoints[launchpointindex];
-
-            ship->dockvars.dockstaticpoint = dockstaticpoint;
-
-            dockReserveDockPoint(ship,dockwith,launchpointindex);
-
-            matMultiplyMatByVec(&conepositionInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->position);
-            vecAddTo(conepositionInWorldCoordSys,dockwith->obj.posinfo.position);
-
-            dockRemoveShipFromInside(ship,dockwith);
-
-            if (dockwithstatic->shiptype == Mothership
-                && dockwithstatic->shiprace == R1
-                && ship->shipOrDerelict.specialFlags & SPECIAL_EXITING_DOOR)
-            {
-                //need special R1 Mothership door docking procedures..sigh
-
-                //at this point the big docking port is free...
-                //I'm assuming the door is closed!
-                #ifdef HW_BUILD_FOR_DEBUGGING
-                dbgAssertOrIgnore(dockwith->madDoorStatus == MAD_STATUS_DOOR_CLOSED);
-                #endif
-                //request door open and attach object to door
-                madLinkInOpenDoor(dockwith);
-
-                //need to start and stop here so a) works with current animation scheme, and b)
-                //lets us get teh door position
-                madAnimationStart(dockwith, dockwith->cuedAnimationIndex);  //start 0th cued animation
-                mothershipGetCargoPosition(dockwith,(ShipOrDerelict *)ship, &conepositionInWorldCoordSys,&coordsysWS,&heading,&up,&right);
-                madAnimationStop(dockwith);
-
-                //put ship outside at wrong orientation..but it will instantly be re-ordered with the attach command
-                //before it is rendered
-                dockPutShipOutside(ship,dockwith,&conepositionInWorldCoordSys,dockstaticpoint->headingdirection,dockstaticpoint->updirection);
-                MothershipAttachObjectToDoor(dockwith,(ShipOrDerelict *)ship);
-                ship->dockvars.dockstate3 = LAUNCH_FROM_MOTHERSHIP_R1_DOOR1;
-            }
-            else
-            {
-                //old school docking procedures
-                vector outpos;
-                if((overide = dockNeedOffsetOveride(dockwith,ship,dockstaticpoint)) != -1)
-                {
-                    vector tmpvec2;
-                    vecAdd(tmpvec2,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].offset,dockstaticpoint->position);
-                    matMultiplyMatByVec(&outpos,&dockwith->rotatable.rotinfo.coordsys,&tmpvec2);
-                    vecAddTo(outpos,dockwith->obj.posinfo.position);
-                }
-                else
-                {
-                    outpos = conepositionInWorldCoordSys;
-                }
-                if((overide = dockNeedRotationOveride(dockwith,ship,dockstaticpoint)) != -1)
-                {
-                    dockPutShipOutside(ship,dockwith,&outpos,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading,dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up);
-                }
-                else
-                {
-                    dockPutShipOutside(ship,dockwith,&outpos,dockstaticpoint->headingdirection,dockstaticpoint->updirection);
-                }
-
-                ship->dockvars.dockstate3 = LAUNCH_FROM_LAUNCH_POINT;
-            }
-
-            return FALSE;
-        case LAUNCH_FROM_MOTHERSHIP_R1_DOOR1:
-            #ifdef HW_BUILD_FOR_DEBUGGING
-            dbgAssertOrIgnore(dockwith->shiprace == R1);
-            dbgAssertOrIgnore(dockwith->shiptype == Mothership);
-            #endif
-
-            if(dockwith->madDoorStatus == MAD_STATUS_DOOR_OPEN)
-            {
-                //door is open
-                MothershipDettachObjectFromDoor(dockwith);
-                ship->dockvars.dockstate3 = LAUNCH_FROM_MOTHERSHIP_R1_DOOR2;
-            }
-            else
-            {
-                //door still opening
-                #ifdef HW_BUILD_FOR_DEBUGGING
-                dbgAssertOrIgnore(dockwith->madDoorStatus == MAD_STATUS_DOOR_OPENING);
-                #endif
-            }
-            return FALSE;
-        case LAUNCH_FROM_MOTHERSHIP_R1_DOOR2:
-            if (dockFlyAboveMothershipDoor(ship,dockwith))
-            {
-                ship->shipOrDerelict.dockingship = NULL;
-                dockFreeDockPoint(ship,dockwith);
-                return TRUE;
-            }
-            else
-            {
-                return FALSE;
-            }
-            break;
-        case LAUNCH_FROM_LAUNCH_POINT:
-            dockstaticpoint = ship->dockvars.dockstaticpoint;
-            dbgAssertOrIgnore(dockstaticpoint);
-            //heading,up
-            {
-                //variables to define launch heading
-                sdword h,u;
-                if((overide = dockNeedRotationOveride(dockwith,ship,dockstaticpoint)) != -1)
-                {
-                    h = dockwith->staticinfo->dockOverideInfo->dockOverides[overide].heading;
-                    u = dockwith->staticinfo->dockOverideInfo->dockOverides[overide].up;
-                }
-                else if(shipRequiresBigHangerBayWhenDockingWith(ship,dockwith) && dockwith->shiptype == Mothership && dockwith->shiprace == R2)
-                {
-                    h = 2;
-                    u=0;
-                }
-                else
-                {
-                    h=-1;
-                    u=-1;
-                }
-                if (dockFlyOutOfCone(ship,dockwith,h,u))
-                {
-                    ship->shipOrDerelict.dockingship = NULL;
-                    dockFreeDockPoint(ship,dockwith);
-                    return TRUE;
-                }
-                else
-                {
-                    return FALSE;
-                }
-            }
-    }
-
-    return FALSE;
-}
-
-#define CARRIERMOTHER_CONE_ALIGN_TOLERANCE  0.99f
-
-bool32 ShipDocksAtCarrierMother(struct CommandToDo *docktodo,struct Ship *ship,struct Ship *dockwith)
-{
-    ShipStaticInfo *dockwithstatic = dockwith->staticinfo;
-    DockStaticPoint *dockstaticpoint;
-    vector conepositionInWorldCoordSys;
-    vector coneheadingInWorldCoordSys;
-    vector coneToShip;
-    real32 coneToShipMagSqr;
-    real32 coneToShipMag;
-    real32 dotprod;
-    AtCarrierDockInfo *customdockinfo;
-    sdword dockpointindex;
-    bool32 resourcercanlatch,flag2;
-
-
-    Player *player = ship->playerowner;
-    Ship *mothership;
-    Ship *carriers[4];
-    udword launchmask = 0;
-
-    FillInCarrierMothershipInfo(player,&mothership,carriers);
-
-    if (dockwith == mothership)
-    {
-        launchmask = BIT0;
-    }
-    else if (dockwith == carriers[0])
-    {
-        launchmask = BIT1;
-    }
-    else if (dockwith == carriers[1])
-    {
-        launchmask = BIT2;
-    }
-    else if (dockwith == carriers[2])
-    {
-        launchmask = BIT3;
-    }
-    else if (dockwith == carriers[3])
-    {
-        launchmask = BIT4;
-    }
-
-    switch (ship->dockvars.dockstate2)
-    {
-        case 0:
-            dbgAssertOrIgnore(ship->dockvars.customdockinfo == NULL);
-            customdockinfo = ship->dockvars.customdockinfo = memAlloc(sizeof(AtCarrierDockInfo),"AtCarrierDock",0);
-            customdockinfo->size = sizeof(AtCarrierDockInfo);
-
-            customdockinfo->giveupdockpointat = 0.0f;
-
-            if (dockwithstatic->shiptype == Carrier)
-            {
-                if (dockwithstatic->shiprace == R1)
-                {
-                    if((docktodo->dock.dockType & DOCK_FOR_RETIRE) &&
-                       shipRequiresBigHangerBayWhenDockingWith(ship,dockwith))
-                    {
-                        customdockinfo->inpointsindex = 6;
-                    }
-                    else
-                    {
-                        customdockinfo->inpointsindex = 0;
-                    }
-                    customdockinfo->resourcelatchpointsindex = 0;
-                    customdockinfo->latchmintime = R1CARRIER_LATCHMINTIME;
-                    customdockinfo->refuelrepairmintime = R1CARRIER_REFUELREPAIRMINTIME;
-                }
-                else
-                {
-                    if((docktodo->dock.dockType & DOCK_FOR_RETIRE) &&
-                       shipRequiresBigHangerBayWhenDockingWith(ship,dockwith))
-                    {
-                        customdockinfo->inpointsindex = 7;
-                    }
-                    else
-                    {
-                        customdockinfo->inpointsindex = 1;
-                    }
-                    customdockinfo->resourcelatchpointsindex = 1;
-                    customdockinfo->latchmintime = R2CARRIER_LATCHMINTIME;
-                    customdockinfo->refuelrepairmintime = R2CARRIER_REFUELREPAIRMINTIME;
-                }
-                resourcercanlatch = TRUE;
-            }
-            else
-            {
-                if (dockwithstatic->shiprace == R1)
-                {
-                    dbgAssertOrIgnore(dockwithstatic->shiptype == Mothership);
-
-                    if((docktodo->dock.dockType & DOCK_FOR_RETIRE) &&
-                       shipRequiresBigHangerBayWhenDockingWith(ship,dockwith))
-                    {
-                        customdockinfo->inpointsindex = 8;
-                    }
-                    else if (ship->staticinfo->shipclass == CLASS_Frigate)     // CAT: no HW1 research ship (M2-R4 ships-b)
-                    {
-                        customdockinfo->inpointsindex = 10;
-                    }
-                    else
-                    {
-                        customdockinfo->inpointsindex = 2;
-                    }
-
-                    customdockinfo->resourcelatchpointsindex = 2;
-                    customdockinfo->latchmintime = R1MOTHERSHIP_LATCHMINTIME;
-                    customdockinfo->refuelrepairmintime = R1MOTHERSHIP_REFUELREPAIRMINTIME;
-                    resourcercanlatch = TRUE;
-                }
-                else
-                if (dockwithstatic->shiprace == R2)
-                {
-                    dbgAssertOrIgnore(dockwithstatic->shiptype == Mothership);
-                    // CAT: no HW1 research ship (M2-R4 ships-b)
-                    if((docktodo->dock.dockType & DOCK_FOR_RETIRE) &&
-                       shipRequiresBigHangerBayWhenDockingWith(ship,dockwith))
-                    {
-                        customdockinfo->inpointsindex = 9;
-                    }
-                    else
-                    {
-                        customdockinfo->inpointsindex = 3;
-                    }
-
-                    customdockinfo->resourcelatchpointsindex = 3;
-                    customdockinfo->latchmintime = 0.0f;
-                    customdockinfo->refuelrepairmintime = R2MOTHERSHIP_REFUELREPAIRMINTIME;
-                    resourcercanlatch = TRUE;
-                }
-                else
-                if (dockwithstatic->shiprace == P1)
-                {
-                    dbgAssertOrIgnore(dockwithstatic->shiptype == P1Mothership);
-                    customdockinfo->inpointsindex = 4;
-                    customdockinfo->resourcelatchpointsindex = -1;
-                    customdockinfo->latchmintime = 0.0f;
-                    customdockinfo->refuelrepairmintime = P1MOTHERSHIP_REFUELREPAIRMINTIME;
-                    resourcercanlatch = FALSE;
-                }
-                else
-                {
-                    // CAT: the HW1 P2 mothership type is gone (M2-R4 ships-b); the race assert stays
-                    dbgAssertOrIgnore(dockwithstatic->shiprace == P2);
-                    customdockinfo->inpointsindex = 5;
-                    customdockinfo->resourcelatchpointsindex = -1;
-                    customdockinfo->latchmintime = 0.0f;
-                    customdockinfo->refuelrepairmintime = P2MOTHERSHIP_REFUELREPAIRMINTIME;
-                    resourcercanlatch = FALSE;
-                }
-
-            }
-
-            if ((resourcercanlatch) && (ship->shiptype == ResourceCollector) && ((docktodo->dock.dockType & (DOCK_PERMANENTLY|DOCK_FOR_RETIRE)) == 0))
-            {
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_WAITFORLATCH;
-                goto waitforlatch;
-            }
-            else
-            {
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_FINDCONE;
-            }
-            // deliberately fall through to CARRIERMOTHERDOCK_FINDCONE
-
-        case CARRIERMOTHERDOCK_FINDCONE:
-            if (docktodo->dock.dockType & DOCK_INSTANTANEOUSLY)
-            {
-                // just directly put ship inside:
-                univRemoveShipFromOutside(ship);
-                dockPutShipInside(ship,dockwith);
-                return PERMANENTLY_DOCKED;
-            }
-
-            customdockinfo = ship->dockvars.customdockinfo;
-            dockpointindex = dockFindNearestDockPoint(InPoints[customdockinfo->inpointsindex],ship,dockwith,
-                                                      &conepositionInWorldCoordSys, &coneToShip, &coneToShipMagSqr);
-
-            if (dockpointindex == -1)
-            {
-                protectShip(ship,dockwith,FALSE);
-
-                ship->dockwaitforNorm = FALSE;
-                return FALSE;
-            }
-            if(docktodo->dock.dockType & DOCK_FOR_RETIRE)
-            {
-                if(!ship->dockwaitforNorm)
-                {
-                    //wait a sec...and let normal launching ships grab the docking point
-                    ship->dockwaitforNorm = TRUE;
-                    return FALSE;
-                }
-            }
-            ship->dockwaitforNorm = FALSE;
-            dockstaticpoint = &dockwithstatic->dockStaticInfo->dockstaticpoints[dockpointindex];
-
-            ship->dockvars.dockstaticpoint = dockstaticpoint;
-
-            dockReserveDockPoint(ship,dockwith,dockpointindex);
-            if (ship->staticinfo->shipclass == CLASS_Fighter)
-                customdockinfo->giveupdockpointat = universe.totaltimeelapsed + CARRIERMOTHERDOCK_DELAY_FLYINSIDE;
-            else if (ship->staticinfo->shipclass == CLASS_Corvette || ship->shiptype == ProximitySensor)
-                customdockinfo->giveupdockpointat = universe.totaltimeelapsed + CARRIERMOTHERDOCK_DELAY_FLYINSIDE_CORVETTE;
-
-            matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->conenormal);
-
-            coneToShipMag = fsqrt(coneToShipMagSqr);
-            dotprod = vecDotProduct(coneheadingInWorldCoordSys,coneToShip);  // 1.0*coneToShipMag*cos(theta)
-
-            if (dotprod >= (dockstaticpoint->coneangle*coneToShipMag))
-            {
-                // we are in the cone, so fly to centre of cone.
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_FLYTOCONEORIGIN;
-                ship->shipOrDerelict.dockingship = dockwith;
-            }
-            else
-            {
-                customdockinfo->dockmisc = ClampToWithin(coneToShipMag,dockstaticpoint->mindist,dockstaticpoint->maxdist);
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_FLYTOINSIDECONE;
-            }
-
-            if(docktodo->dock.dockType & DOCK_FOR_RETIRE)
-            {
-                //enter our own state for retirement
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_FOR_RETIRE;
-            }
-            return FALSE;
-
-waitforlatch:
-        case CARRIERMOTHERDOCK_WAITFORLATCH:
-            customdockinfo = ship->dockvars.customdockinfo;
-            dockpointindex = dockFindNearestDockPoint(ResourceLatchPoints[customdockinfo->resourcelatchpointsindex],ship,dockwith,
-                                                      &conepositionInWorldCoordSys, &coneToShip, &coneToShipMagSqr);
-
-            if (dockpointindex == -1)
-            {
-                protectShip(ship,dockwith,FALSE);
-
-                return FALSE;
-            }
-
-            dockstaticpoint = &dockwithstatic->dockStaticInfo->dockstaticpoints[dockpointindex];
-
-            ship->dockvars.dockstaticpoint = dockstaticpoint;
-
-            dockReserveDockPoint(ship,dockwith,dockpointindex);
-
-            matMultiplyMatByVec(&coneheadingInWorldCoordSys,&dockwith->rotatable.rotinfo.coordsys,&dockstaticpoint->conenormal);
-
-            coneToShipMag = fsqrt(coneToShipMagSqr);
-            dotprod = vecDotProduct(coneheadingInWorldCoordSys,coneToShip);  // 1.0*coneToShipMag*cos(theta)
-
-            if (dotprod >= (dockstaticpoint->coneangle*coneToShipMag))
-            {
-                // we are in the cone, so fly to centre of cone.
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_LATCHFLYTOCONEORIGIN;
-                ship->shipOrDerelict.dockingship = dockwith;
-            }
-            else
-            {
-                customdockinfo->dockmisc = ClampToWithin(coneToShipMag,dockstaticpoint->mindist,dockstaticpoint->maxdist);
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_LATCHFLYTOINSIDECONE;
-            }
-            return FALSE;
-
-        case CARRIERMOTHERDOCK_FLYTOINSIDECONE:
-            customdockinfo = ship->dockvars.customdockinfo;
-            if ((customdockinfo->giveupdockpointat > 0.0f) && (customdockinfo->giveupdockpointat <= universe.totaltimeelapsed))
-            {
-                dockFreeDockPoint(ship,dockwith);
-                ship->dockvars.reserveddocking = -2;            // -2 indicates it was given up for speed reasons, not because docking is totally complete
-                customdockinfo->giveupdockpointat = -1.0f;
-            }
-            if (dockFlyToConeInside(ship,dockwith,customdockinfo->dockmisc))
-            {
-                madLinkInPreDockingShip(ship);
-                ship->shipOrDerelict.dockingship = dockwith;
-                if(docktodo->dock.dockType & DOCK_FOR_RETIRE)
-                {
-                    //docking for retiring...
-                    if(shipRequiresBigHangerBayWhenDockingWith(ship,dockwith))
-                    {
-                        //ship is a capital ship so we need to add an
-                        //extra state to let it align properly to the docking line
-                        ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_FLYTOCONEORIGIN_AND_ALIGN;
-                        return FALSE;
-                    }
-                }
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_FLYTOCONEORIGIN;
-
-            }
-            return FALSE;
-        case CARRIERMOTHERDOCK_FLYTOCONEORIGIN_AND_ALIGN:
-            customdockinfo = ship->dockvars.customdockinfo;
-             if ((customdockinfo->giveupdockpointat > 0.0f) && (customdockinfo->giveupdockpointat <= universe.totaltimeelapsed))
-             {
-                 dockFreeDockPoint(ship,dockwith);
-                 customdockinfo->giveupdockpointat = -1.0f;
-             }
-             if (dockFlyToConeInsideAndAlign(ship,dockwith,CARRIERMOTHER_CONE_ALIGN_TOLERANCE,1000.0f,dockwith->shiprace))
-             {
-                 ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_FLYTOCONEORIGIN;
-             }
-             return FALSE;
-        case CARRIERMOTHERDOCK_FLYTOCONEORIGIN:
-            customdockinfo = ship->dockvars.customdockinfo;
-            if ((customdockinfo->giveupdockpointat > 0.0f) && (customdockinfo->giveupdockpointat <= universe.totaltimeelapsed))
-            {
-                dockFreeDockPoint(ship,dockwith);
-                customdockinfo->giveupdockpointat = -1.0f;
-            }
-            flag2 = (docktodo->dock.dockType & DOCK_FOR_RETIRE) && dockwith->shiptype == Mothership && shipRequiresBigHangerBayWhenDockingWith(ship,dockwith);
-            if (dockFlyToConeOrigin(ship,dockwith,CONEORIGIN_TOLERANCE,CONEORIGIN_MINFLYSPEED,FALSE,flag2))
-            {
-                if(ship->shiptype == CloakedFighter)
-                {
-                    if(bitTest(ship->header.flags,SOF_Cloaked)  || bitTest(ship->header.flags,SOF_Cloaking))
-                    {
-                        bitClear(ship->header.flags,SOF_Cloaking);
-                        bitSet(ship->header.flags,SOF_DeCloaking);
-                    }
-                }
-                if (customdockinfo->giveupdockpointat > 0.0f)
-                {
-                    dockFreeDockPoint(ship,dockwith);
-                    ship->dockvars.reserveddocking = -2;        // -2 indicates it was given up for speed reasons, not because docking is totally complete
-                    customdockinfo->giveupdockpointat = -1.0f;
-                }
-//                soundEvent(ship, Docking);
-                univRemoveShipFromOutside(ship);
-                if(docktodo->dock.dockType & DOCK_FOR_RETIRE)
-                {
-                    //no speech event I thinks...or special one for retirement here!
-                    return TRUE;
-                }
-                dockPutShipInside(ship,dockwith);
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_REFUEL;
-                if (battleCanChatterAtThisTime(BCE_CapitalShipDocked, dockwith))
-                {
-                    battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CapitalShipDocked, dockwith, SOUND_EVENT_DEFAULT);
-                }
-//                speechEvent(dockwith, STAT_Cap_ShipDocked, 0);
-
-                // CAT (M2-R4 combat): no HW1 "technology returned" hand-in (HW1 salvage; its flag is retired)
-
-            }
-            return FALSE;
-
-        case CARRIERMOTHERDOCK_LATCHFLYTOINSIDECONE:
-            customdockinfo = ship->dockvars.customdockinfo;
-            if (dockFlyToConeInside(ship,dockwith,customdockinfo->dockmisc))
-            {
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_LATCHFLYTOCONEORIGIN;
-                ship->shipOrDerelict.dockingship = dockwith;
-            }
-            return FALSE;
-
-        case CARRIERMOTHERDOCK_LATCHFLYTOCONEORIGIN:
-            if (dockFlyToConeOriginLatch(ship,dockwith))
-            {
-//                soundEvent(ship, Docking);
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_LATCHREFUEL;
-                if (battleCanChatterAtThisTime(BCE_CapitalShipDocked, dockwith))
-                {
-                    battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CapitalShipDocked, dockwith, SOUND_EVENT_DEFAULT);
-                }
-//                speechEvent(dockwith, STAT_Cap_ShipDocked, 0);
-                clampObjToObj((SpaceObjRotImpTargGuidance *)ship,(SpaceObjRotImpTargGuidance *)dockwith);
-            }
-            return FALSE;
-        case CARRIERMOTHERDOCK_FOR_RETIRE:
-            if(shipRequiresBigHangerBayWhenDockingWith(ship,dockwith))
-            {
-                if(dockwith->shiprace == R1)
-                {
-                    if(dockwith->shiptype == Mothership)
-                    {
-                        ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_IN_DOOR;
-                        return FALSE;
-                    }
-                }
-            }
-            ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_FLYTOINSIDECONE;
-            return FALSE;;
-        case CARRIERMOTHERDOCK_IN_DOOR:
-            if(dockFlyToBottomOfDoor1(ship,dockwith))
-            {
-                madLinkInOpenDoor(dockwith);
-                ship->shipOrDerelict.dockingship = dockwith;
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_FLYTODOOR2;
-            }
-            return FALSE;
-        case CARRIERMOTHERDOCK_FLYTODOOR2:
-            if(dockFlyToBottomOfDoor2(ship,dockwith))
-            {
-                madLinkInOpenDoor(dockwith);
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_FLYTODOOR3;
-            }
-            return FALSE;
-        case CARRIERMOTHERDOCK_FLYTODOOR3:
-            if(dockFlyToBottomOfDoor3(ship,dockwith))
-            {
-                madLinkInOpenDoor(dockwith);
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_FLYTODOOR;
-            }
-            return FALSE;
-        case CARRIERMOTHERDOCK_FLYTODOOR:
-            if(dockwith->madDoorStatus != MAD_STATUS_DOOR_OPEN)
-            {
-                //wait for door to be open!
-                return FALSE;;
-            }
-            if(dockFlyToDoor(ship,dockwith))
-            {
-                //in position to be clamped to door!
-                MothershipAttachObjectToDoor(dockwith,(ShipOrDerelict *)ship);
-                madLinkInCloseDoor(dockwith);
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_WAIT_FOR_DOOR_TO_CLOSE;
-            }
-            return FALSE;;
-        case CARRIERMOTHERDOCK_WAIT_FOR_DOOR_TO_CLOSE:
-            if(dockwith->madDoorStatus == MAD_STATUS_DOOR_CLOSED)
-            {
-                //door is closed...so retire ship!
-                univRemoveShipFromOutside(ship);
-                return TRUE;
-            }
-            return FALSE;;
-        case CARRIERMOTHERDOCK_REFUEL:
-            if (dockShipRefuelsAtShip(ship,dockwith))
-            {
-//                soundEvent(dockwith, Acquire);
-                customdockinfo = ship->dockvars.customdockinfo;
-                customdockinfo->timestamp = universe.totaltimeelapsed + customdockinfo->refuelrepairmintime;
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_WAIT;
-            }
-            return FALSE;
-
-        case CARRIERMOTHERDOCK_WAIT:
-            customdockinfo = ship->dockvars.customdockinfo;
-            if (universe.totaltimeelapsed > customdockinfo->timestamp)
-            {
-                if ( ( (dockwith->playerowner->autoLaunch & launchmask) || (ShipHasToLaunch(dockwith,ship)) ||
-                       (dockwith->playerowner != ship->playerowner) ) &&
-                           ((ship->shipOrDerelict.specialFlags & SPECIAL_STAY_TILL_EXPLICITLAUNCH) == 0)
-                   )
-                {
-//                    soundEvent(ship, Launch);
-                    dockInitShipForLaunch(ship);
-                    ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_LAUNCH;
-                }
-                else
-                {
-                    return PERMANENTLY_DOCKED;
-                }
-            }
-            return FALSE;
-
-        case CARRIERMOTHERDOCK_LAUNCH:
-            if (LaunchShipFromCarrierMother(ship,dockwith))
-            {
-                return FINISHED_LAUNCHING_FROM_DOCKING;
-            }
-            return FALSE;
-
-        case CARRIERMOTHERDOCK_LATCHREFUEL:
-            ship->obj.posinfo.velocity = dockwith->obj.posinfo.velocity;
-            if (dockShipRefuelsAtShip(ship,dockwith))
-            {
-//                soundEvent(dockwith, Acquire);
-                customdockinfo = ship->dockvars.customdockinfo;
-                customdockinfo->timestamp = universe.totaltimeelapsed + customdockinfo->latchmintime;
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_LATCHWAIT;
-            }
-            return FALSE;
-
-        case CARRIERMOTHERDOCK_LATCHWAIT:
-            ship->obj.posinfo.velocity = dockwith->obj.posinfo.velocity;
-            customdockinfo = ship->dockvars.customdockinfo;
-            if ((universe.totaltimeelapsed > customdockinfo->timestamp) &&
-                ((ship->shipOrDerelict.specialFlags & SPECIAL_STAY_TILL_EXPLICITLAUNCH) == 0))
-            {
-//                soundEvent(ship, Launch);
-                ship->dockvars.dockstate2 = CARRIERMOTHERDOCK_LATCHBACKUP;
-                unClampObj((SpaceObjRotImpTargGuidance *)ship);
-            }
-            return FALSE;
-
-        case CARRIERMOTHERDOCK_LATCHBACKUP:
-            if (dockBackoutOfConeLatch(ship,dockwith))
-            {
-                ship->shipOrDerelict.dockingship = NULL;
-                dockFreeDockPoint(ship,dockwith);
-                return TRUE;
-            }
-            else
-            {
-                return FALSE;
-            }
-
-        default:
-            dbgAssertOrIgnore(FALSE);
-            return FALSE;
-    }
-}
-
-// CAT (M2-R4 ships-b): the HW1 DDD frigate / drone and research-ship docking are gone with those types
-
-
-
-/*=============================================================================
-    General docking:
-=============================================================================*/
-
-// these routines will eventually not be used
-
-bool32 LaunchShipFromDefaultShip(Ship *ship,Ship *dockwith)
-{
-    vector destination;
-    vector heading;
-
-    switch (ship->dockvars.dockstate3)
-    {
-        case 0:
-            dockRemoveShipFromInside(ship,dockwith);
-            dockPutShipOutside(ship,dockwith,&dockwith->obj.posinfo.position,2,0);
-
-            ship->dockvars.dockstate3 = 1;
-
-            return FALSE;
-
-        case 1:
-            matGetVectFromMatrixCol3(heading,dockwith->rotatable.rotinfo.coordsys);
-            vecMultiplyByScalar(heading,1000.0f);
-
-            vecAdd(destination,dockwith->obj.posinfo.position,heading);
-
-            if (MoveReachedDestinationVariable(ship,&destination,50.0f))
-            {
-                ship->shipOrDerelict.dockingship = NULL;
-                return TRUE;
-            }
-            else
-            {
-                aishipFlyToPointAvoidingObjsWithVel(ship,&destination,AISHIP_FirstPointInDirectionFlying + AISHIP_PointInDirectionFlying,-40.0f,&dockwith->obj.posinfo.velocity);
-                return FALSE;
-            }
-    }
-
-    return FALSE;
-}
-
-bool32 ShipDocksAtDefaultShip(struct CommandToDo *docktodo,struct Ship *ship,struct Ship *dockwith)
-{
-    ship->shipOrDerelict.dockingship = dockwith;
-    if (MoveReachedDestinationVariable(ship,&dockwith->obj.posinfo.position,50.0f))
-    {
-        return TRUE;
-    }
-    else
-    {
-        aishipFlyToShipAvoidingObjsWithVel(ship,dockwith,AISHIP_FirstPointInDirectionFlying + AISHIP_PointInDirectionFlying,-40.0f,&dockwith->obj.posinfo.velocity);
-        return FALSE;
-    }
-}
-
-/*=============================================================================
-    Ship docking, at a high level (ignoring individual ship details)
-=============================================================================*/
-
-#define DOCKSHIP_NEARSHIP   1
-#define DOCKSHIP_FLYBACK    2
-#define DOCKSHIP_DONE       3
-
-/*-----------------------------------------------------------------------------
-    Name        : ShipDocksAtShip
-    Description : code to handle a ship docking at another ship
-    Inputs      : ship, dockwith
-    Outputs     :
-    Return      : 1 if ship is finished docking, 0 otherwise
-----------------------------------------------------------------------------*/
-udword ShipDocksAtShip(struct CommandToDo *docktodo,Ship *ship,Ship *dockwith)
-{
-    sdword returnval;
-    vector desireddest;
-
-    if (dockwith != NULL)
-    {
-        switch (ship->dockvars.dockstate)
-        {
-            case 0:
-                if ( (docktodo->dock.dockType & DOCK_INSTANTANEOUSLY) ||
-                     ((docktodo->dock.allNearShip) || ShipWithinDockRange(ship,dockwith)) )
-                {
-rdest:
-                    ship->dockvars.dockstate = DOCKSHIP_NEARSHIP;
-                    ship->dockvars.dockstate2 = 0;
-                    vecSub(ship->dockvars.destination,ship->obj.posinfo.position,dockwith->obj.posinfo.position);
-                    goto nearship;
-                }
-                else
-                {
-                    if (aishipFlyToShipAvoidingObjsWithVel(ship,dockwith,AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_PointInDirectionFlying|AISHIP_CarTurn,0.0f,&dockwith->obj.posinfo.velocity)
-                        & AISHIP_FLY_OBJECT_IN_WAY)
-                    {
-                        goto rdest;
-                    }
-                }
-                ship->shipidle = FALSE;
-                return NOT_FINISHED_DOCKING;
-nearship:
-            case DOCKSHIP_NEARSHIP:
-                returnval = dockwith->staticinfo->ShipXDocksAtShipY(docktodo,ship,dockwith);
-                ship->shipidle = FALSE;
-                if (returnval)
-                {
-                    ship->shipOrDerelict.dockingship = NULL;
-                    if (ship->dockvars.busyingThisShip != NULL)
-                    {
-                        dockUnbusyThisShip(ship);
-                    }
-                    if (returnval == PERMANENTLY_DOCKED)
-                    {
-                        ship->dockvars.dockstate = DOCKSHIP_DONE;
-                        return PERMANENTLY_DOCKED;
-                    }
-                    else if (returnval == FINISHED_LAUNCHING_FROM_DOCKING)
-                    {
-                        ship->dockvars.dockstate = DOCKSHIP_DONE;
-                        return FINISHED_LAUNCHING_FROM_DOCKING;
-                    }
-                    else if(docktodo->dock.dockType & DOCK_FOR_RETIRE)
-                    {
-                        return FINISHED_RETIREMENT;
-                    }
-                    else
-                    {
-                        ship->dockvars.dockstate = DOCKSHIP_FLYBACK;
-                    }
-                }
-                return NOT_FINISHED_DOCKING;
-
-            case DOCKSHIP_FLYBACK:
-                if ((docktodo->dock.wasHarvesting) ||
-                    ((ship->shiptype == ResourceCollector) &&
-                        ((dockwith->shiptype == Mothership) || (dockwith->shiptype == Carrier)))
-                   )
-
-                {
-                    ship->dockvars.dockstate = DOCKSHIP_DONE;
-                    return FINISHED_DOCKING;        // return right away without flying back if harvesting
-                }
-
-                vecAdd(desireddest,dockwith->obj.posinfo.position,ship->dockvars.destination);
-
-                if (MoveReachedDestinationVariable(ship,&desireddest,BACKTODESTINATION_TOLERANCE))
-                {
-reacheddest:
-//                    if (aitrackSteadyShip(ship))
-//                    {
-                        ship->dockvars.dockstate = DOCKSHIP_DONE;
-                        return FINISHED_DOCKING;
-//                    }
-                }
-                else
-                {
-#ifdef DEBUG_DOCKING
-                    dbgMessagef("Returning from docking %x",(udword)ship);
-#endif
-                    if (aishipFlyToPointAvoidingObjsWithVel(ship,&desireddest,AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_PointInDirectionFlying,BACKTODESTINATION_MINFLYSPEED,&dockwith->obj.posinfo.velocity)
-                        & AISHIP_FLY_OBJECT_IN_WAY)
-                    {
-                        goto reacheddest;
-                    }
-                }
-                return FINISHED_DOCKING_FLYING_BACK;
-
-            case DOCKSHIP_DONE:
-                return FINISHED_DOCKING;
-
-            default:
-                dbgAssertOrIgnore(FALSE);
-                return NOT_FINISHED_DOCKING;
-        }
-    }
-    else
-    {
-        aitrackSteadyShip(ship);
-        return FINISHED_DOCKING;
-    }
-}
-// CAT (M2-R4 ships-b): the HW1 P2 fuel pod docking is gone with the type
-
-/*-----------------------------------------------------------------------------
-    Name        : dockInitializeCustomFunctions
-    Description : intializees the custom docking function pointers in statinfo
-    Inputs      : statinfo, type, race
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void dockInitializeCustomFunctions(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
-{
-    statinfo->ShipXDocksAtShipY = ShipDocksAtDefaultShip;
-    statinfo->LaunchShipXFromShipY = LaunchShipFromDefaultShip;
-
-    if (race == R1)
-    {
-        switch (type)
-        {
-            case AdvanceSupportFrigate:
-                statinfo->ShipXDocksAtShipY = ShipDocksAtASF;
-                statinfo->LaunchShipXFromShipY = NULL;
-                R1ASFStaticDockInit(statinfo);
-                break;
-
-            case Carrier:
-                statinfo->ShipXDocksAtShipY = ShipDocksAtCarrierMother;
-                statinfo->LaunchShipXFromShipY = LaunchShipFromCarrierMother;
-                R1CarrierStaticDockInit(statinfo);
-                break;
-
-            case Mothership:
-                statinfo->ShipXDocksAtShipY = ShipDocksAtCarrierMother;
-                statinfo->LaunchShipXFromShipY = LaunchShipFromCarrierMother;
-                R1MothershipStaticDockInit(statinfo);
-                break;
-
-                // CAT: no HW1 RepairCorvette, ResourceController or ResearchShip docking (M2-R4 ships-b)
-
-            case ResourceCollector:
-                statinfo->ShipXDocksAtShipY = ShipDocksAtResourceCollector;
-                statinfo->LaunchShipXFromShipY = NULL;
-                R1ResourceCollectorStaticDockInit(statinfo);
-                break;
-            default:
-                break;
-        }
-    }
-    else if (race == R2)
-    {
-        switch (type)
-        {
-            case AdvanceSupportFrigate:
-                statinfo->ShipXDocksAtShipY = ShipDocksAtASF;
-                statinfo->LaunchShipXFromShipY = NULL;
-                R2ASFStaticDockInit(statinfo);
-                break;
-            case Carrier:
-                statinfo->ShipXDocksAtShipY = ShipDocksAtCarrierMother;
-                statinfo->LaunchShipXFromShipY = LaunchShipFromCarrierMother;
-                R2CarrierStaticDockInit(statinfo);
-                break;
-            case Mothership:
-                statinfo->ShipXDocksAtShipY = ShipDocksAtCarrierMother;
-                statinfo->LaunchShipXFromShipY = LaunchShipFromCarrierMother;
-                R2MothershipStaticDockInit(statinfo);
-                break;
-                // CAT: no HW1 RepairCorvette, ResourceController or ResearchShip docking (M2-R4 ships-b)
-            case ResourceCollector:
-                statinfo->ShipXDocksAtShipY = ShipDocksAtResourceCollector;
-                statinfo->LaunchShipXFromShipY = NULL;
-                R2ResourceCollectorStaticDockInit(statinfo);
-                break;
-            default:
-                break;
-        }
-    }
-    else if (race == P1)
-    {
-        switch (type)
-        {
-            case P1Mothership:
-                statinfo->ShipXDocksAtShipY = ShipDocksAtCarrierMother;
-                statinfo->LaunchShipXFromShipY = LaunchShipFromCarrierMother;
-                P1MothershipStaticDockInit(statinfo);
-                break;
-            default:
-                break;
-        }
-    }
-    else if (race == P2)
-    {
-        // CAT: no HW1 P2 mothership or fuel pod docking (M2-R4 ships-b)
-    }
-    else if (race == Traders)
-    {
-        switch (type)
-        {
-            case JunkYardHQ:
-                statinfo->ShipXDocksAtShipY = ShipDocksAtJunkYardHQ;
-                statinfo->LaunchShipXFromShipY = NULL;
-                JunkYardHQStaticDockInit(statinfo);
-                break;
-            default:
-                break;
-        }
-    }
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : processDockToDo
-    Description : processes a dock command
-    Inputs      :
-    Outputs     : resourceShip, resource
-    Return      : returns TRUE if dock has completed
-----------------------------------------------------------------------------*/
-bool32 processDockToDo(CommandToDo *docktodo)
-{
-    sdword i;
-    SelectCommand *selection = docktodo->selection;
-    Ship *ship;
-    Ship *dockwith;
-    bool32 alldone = TRUE;
-    udword returnval;
-
-    for (i=0;i<selection->numShips; )
-    {
-        ship = selection->ShipPtr[i];
-        dockwith = ship->dockvars.dockship;
-        if (dockwith == NULL)
-        {
-            // ship died, let's potentially find a new one:
-            DockType dockType = docktodo->dock.dockType;
-
-            if (dockType & (DOCK_FOR_BOTHREFUELANDREPAIR|DOCK_FOR_REFUELREPAIR|DOCK_TO_DEPOSIT_RESOURCES|DOCK_PERMANENTLY|DOCK_FOR_RETIRE))
-            {
-                dockwith = FindNearestShipToDockAt(ship,dockType);
-            }
-
-            if (dockwith != NULL)
-            {
-                InitializeDockVars(ship,dockwith,dockType);
-                InitShipAI(ship,TRUE);
-                alldone = FALSE;
-            }
-        }
-        else
-        {
-            returnval = ShipDocksAtShip(docktodo,ship,dockwith);
-            if ((returnval == NOT_FINISHED_DOCKING) ||
-                ((returnval == FINISHED_DOCKING_FLYING_BACK) && (!docktodo->dock.haveFlyedFarEnoughAway)))
-            {
-                alldone = FALSE;
-            }
-            else if(returnval == FINISHED_RETIREMENT)
-            {
-                bool32 removed;
-                RemoveShipFromDocking(ship);
-                if (docktodo->dock.wasHarvesting)
-                {
-                    //clear this flag so when returning from this loop, ship doesn't try to start harvesting again
-                    docktodo->dock.wasHarvesting = FALSE;
-                }
-                removed = clRemoveShipFromSelection(selection,ship);
-                dbgAssertOrIgnore(removed);
-                RemoveShipFromCommand(ship);
-                dockwith->playerowner->resourceUnits += (sdword) (TW_RETIRE_MONEYBACK_RATIO*ship->staticinfo->buildCost);
-                universe.gameStats.playerStats[dockwith->playerowner->playerIndex].totalRegeneratedResourceUnits += (sdword) (TW_RETIRE_MONEYBACK_RATIO*ship->staticinfo->buildCost);
-                universe.gameStats.playerStats[dockwith->playerowner->playerIndex].totalResourceUnits += (sdword) (TW_RETIRE_MONEYBACK_RATIO*ship->staticinfo->buildCost);
-
-                ship->howDidIDie = DEATH_BY_RETIREMENT;
-
-                if(isCapitalShip(ship))
-                {
-                    //speech event for capital ship retired
-                    if(ship->playerowner->playerIndex ==
-                       universe.curPlayerIndex)
-                    {
-                        speechEventFleet(STAT_F_Cap_Retired, ship->shiptype, universe.curPlayerIndex);
-                    }
-                }
-                univDeleteWipeInsideShipOutOfExistence(ship);
-                continue;
-            }
-            else
-            {
-                RemoveShipFromDocking(ship);
-                if (!docktodo->dock.wasHarvesting)
-                {
-                    // this ship is permanently docked, so we should remove it from docktodo->selection
-                    dbgAssertAlwaysDo(clRemoveShipFromSelection(selection,ship));
-
-                    RemoveShipFromCommand(ship);
-
-                    if (docktodo->ordertype.attributes & COMMAND_MASK_FORMATION)
-                    {
-                        // this ship was in formation so we have to do extra work
-                        RemoveShipFromFormation(ship);
-                        if (selection->numShips > 0)
-                        {
-                            formationContentHasChanged(docktodo);
-                        }
-                    }
-
-                    if (docktodo->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
-                    {
-                        RemoveShipFromAttacking(ship);
-                        RemoveShipReferencesFromExtraAttackInfo(ship,docktodo);
-                    }
-
-                    if ((returnval == FINISHED_DOCKING) ||
-                        ((returnval == FINISHED_DOCKING_FLYING_BACK) && (docktodo->dock.haveFlyedFarEnoughAway)))
-                    {
-                        // Let's put into formation and have them follow dockwith ship
-                        CommandToDo *formationgroup = findFormationGuardingShip(dockwith);
-                        if (formationgroup != NULL)
-                        {
-                            AddShipToFormationGroup(ship,formationgroup);
-                        }
-                        else
-                        {
-                            // create new formationgroup
-                            SelectCommand selectone;
-                            SelectCommand protectone;
-                            TypeOfFormation formationtype;
-
-                            docktodo->dock.haveFlyedFarEnoughAway = TRUE;
-
-                            if ((ship->shiptype == ResourceCollector) &&
-                                ((dockwith->shiptype == Mothership) || (dockwith->shiptype == Carrier)) )
-                            {
-                                GroupShip(&universe.mainCommandLayer,ship,dockwith);
-                            }
-                            else
-                            {
-                                if (docktodo->ordertype.attributes & COMMAND_MASK_FORMATION)
-                                {
-                                    formationtype = docktodo->formation.formationtype;
-                                }
-                                else
-                                {
-                                    formationtype = DELTA_FORMATION;
-                                }
-
-                                selectone.numShips = 1;
-                                selectone.ShipPtr[0] = ship;
-                                protectone.numShips = 1;
-                                protectone.ShipPtr[0] = dockwith;
-                                clFormation(&universe.mainCommandLayer,&selectone,formationtype);
-                                formationgroup = clProtect(&universe.mainCommandLayer,&selectone,&protectone);
-                                formationgroup->protectFlags |= PROTECTFLAGS_JUST_FOLLOW;
-                            }
-                        }
-                    }
-                    else if (returnval == FINISHED_LAUNCHING_FROM_DOCKING)
-                    {
-                        GroupShip(&universe.mainCommandLayer,ship,dockwith);
-                    }
-                    // else if (returnval == PERMANENTLY_DOCKED) THEN DO NOTHING
-
-                    continue;       // don't increment counter because we removed ShipPtr[i] and a new one
-                                    // is now in its place
-                }
-            }
-        }
-        i++;
-    }
-
-    if (alldone)
-    {
-        return TRUE;
-    }
-    else
+    if (dockship == NULL)
     {
         return FALSE;
     }
+    if ((dockship->shiptype != sCarrier) && (dockship->shiptype != bCarrier) && (dockship->shiptype != tCarrier) &&
+        (dockship->shiptype != kCarrier))
+    {
+        return FALSE;
+    }
+    return ((ship->dockvars.dockstate == CAT_DOCKSTATE_INSIDE) || (ship->dockvars.dockstate == CAT_DOCKSTATE_LATCHED));
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : ShipIsWaitingForSoftLaunch
+    Description : whether ship is docked and waiting (cataclysm.exe 0x00467a60: a host and dock state 8 or 9)
+    Inputs      : ship
+----------------------------------------------------------------------------*/
+bool32 ShipIsWaitingForSoftLaunch(struct Ship *ship)
+{
+    if ((ship->dockvars.dockship != NULL) &&
+        ((ship->dockvars.dockstate == CAT_DOCKSTATE_INSIDE) || (ship->dockvars.dockstate == CAT_DOCKSTATE_LATCHED)))
+    {
+        return TRUE;
+    }
+    return FALSE;
 }
 
 /*-----------------------------------------------------------------------------
@@ -5182,66 +2614,485 @@ void dockDrawDockInfo(Ship *ship)
 }
 #endif
 
-bool32 ShipIsRefuelingAtCarrierMother(struct Ship *ship)
+/*=============================================================================
+    CAT (M2-R5 dock): the scripted dock self-test, /catDockTest <ticks> (harness mode dock; docs/m2-r5-layout-dock.md).
+    Not in the exe. It runs the headless Mission01 start of /oracleMission (virtual clock, no animatic, quits after
+    <ticks>) and drives the local player's ships through the dock purposes with no input:
+      tick 16    the scripted fleet is created for the local player far from the level's ships (an sMothership, made the
+                 player's mothership as the mission script does, an sProcessor, three Workers, four Acolytes, two Recons,
+                 two ACVs), the player's auto-launch bits are cleared (so docked ships stay inside until told), the
+                 acolytes, recons and ACVs are ordered to dock for support (purpose 0, nearest host), one Worker is
+                 given 250 RUs and ordered to deposit them (purpose 3), another Worker is sent to harvest
+                 (cat_clHarvestNearestResource). The PASS verdict covers the fighters (acolytes, recons) and the
+                 depositing Worker; the two corvette-class ACVs are ordered, logged and launched if they got in, but
+                 not judged: one of them orbits its dock point for minutes before latching (docs/m2-r5-layout-dock.md,
+                 open questions), and the harvesting Worker is only traced
+      every 256  one "docktest:" line per scripted ship (dock state, host, inside/outside, hold, position)
+      ticks/4..  checkpoint A, once every fighter is inside (at the latest at 80% of the ticks): a docked fighter is in a
+                 host's inside list, off the ShipList, in dock state 8, with no command and no host left in its dock vars
+                 (the exe's RemoveShipFromDocking clears it when the command finishes); the depositing Worker is back
+                 outside with an empty hold and the player's RUs are up by 250; then every docked fighter is launched
+                 (clLaunchMultipleShips -> clLaunchShip, purpose 2)
+      ticks-2    checkpoint B: the fighters outside again with no host and no dock command
+      "docktest: done ... result=PASS|FAIL", then the mission run's own quit
+=============================================================================*/
+#define CAT_DOCKTEST_ORDER_TICK     16
+#define CAT_DOCKTEST_DEPOSIT_RUS    250
+#define CAT_DOCKTEST_MAX_SHIPS      64
+
+static sdword catDockSelfTestTicks = 0;
+static bool32 catDockSelfTestOrdered = FALSE;
+static bool32 catDockSelfTestLaunched = FALSE;
+static bool32 catDockSelfTestDone = FALSE;
+static bool32 catDockSelfTestPass = TRUE;
+static sdword catDockSelfTestRUBefore = 0;
+static Ship *catDockSelfTestFighters[CAT_DOCKTEST_MAX_SHIPS];
+static sdword catDockSelfTestNumFighters = 0;
+static Ship *catDockSelfTestCorvettes[CAT_DOCKTEST_MAX_SHIPS];   // the ACVs: ordered and logged, not judged (see the header)
+static sdword catDockSelfTestNumCorvettes = 0;
+static Ship *catDockSelfTestDepositor = NULL;
+static Ship *catDockSelfTestHarvester = NULL;
+
+void catDockSelfTestSet(char *string)
 {
-    if (ship->dockvars.dockship)
+    catDockSelfTestTicks = (sdword)strtol(string, NULL, 10);
+    if (catDockSelfTestTicks <= 0)
     {
-        ShipStaticInfo *dockshipstatic = ship->dockvars.dockship->staticinfo;
-        if (dockshipstatic->ShipXDocksAtShipY == ShipDocksAtCarrierMother)
-        {
-            if (ship->dockvars.dockstate2 == CARRIERMOTHERDOCK_REFUEL)
-            {
-                return TRUE;
-            }
-        }
+        catDockSelfTestTicks = 5000;
     }
-    return FALSE;
+    oracleSetMission(string);                               // the headless Mission01 run with the virtual clock and the quit
 }
 
-bool32 ShipIsWaitingForSoftLaunch(struct Ship *ship)
+bool32 catDockSelfTestRequested(void)
 {
-    if (ship->dockvars.dockship)
-    {
-        ShipStaticInfo *dockshipstatic = ship->dockvars.dockship->staticinfo;
-        if (dockshipstatic->ShipXDocksAtShipY == ShipDocksAtASF)
-        {
-            if (ship->dockvars.dockstate2 == ASF_WAIT)
-            {
-                return TRUE;
-            }
-        }
-        else if (dockshipstatic->ShipXDocksAtShipY == ShipDocksAtCarrierMother)
-        {
-            if (ship->dockvars.dockstate2 == CARRIERMOTHERDOCK_LATCHWAIT)
-            {
-                return TRUE;
-            }
-        }
-    }
-
-    return FALSE;
+    return (catDockSelfTestTicks > 0);
 }
 
-CommandToDo *findFormationGuardingShip(Ship *ship)
+static Ship *catDockSelfTestInsideHostOf(Ship *ship)
 {
-    Node *curnode = universe.mainCommandLayer.todolist.head;
-    CommandToDo *command;
+    Node *node;
 
-    while (curnode != NULL)
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
     {
-        command = (CommandToDo *)listGetStructOfNode(curnode);
+        Ship *host = (Ship *)listGetStructOfNode(node);
 
-        if ((command->ordertype.attributes & (COMMAND_MASK_PROTECTING|COMMAND_MASK_FORMATION)) == (COMMAND_MASK_PROTECTING|COMMAND_MASK_FORMATION))
+        if (cat_dockShipIsInsideHost(ship,host))
         {
-            if (ShipInSelection(command->protect,ship))
-            {
-                return command;
-            }
+            return host;
         }
-
-        curnode = curnode->next;
     }
-
     return NULL;
 }
 
+static bool32 catDockSelfTestShipAlive(Ship *ship)
+{
+    Node *node;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        if ((Ship *)listGetStructOfNode(node) == ship)
+        {
+            return TRUE;
+        }
+    }
+    // inside a host: still alive but off the ShipList
+    return (catDockSelfTestInsideHostOf(ship) != NULL);
+}
+
+static void catDockSelfTestLogShip(const char *tag, Ship *ship)
+{
+    Ship *host = ship->dockvars.dockship;
+    bool32 inside = (catDockSelfTestInsideHostOf(ship) != NULL);
+
+    if ((ship->command != NULL) && (ship->command->ordertype.order == COMMAND_COLLECT_RESOURCES))
+    {
+        Resource *resource = ship->command->collect.resource;
+
+        dbgMessagef("docktest: %s tick=%u %s#%u harvesting resource=%s value=%d rcstate=%d/%d effect=%d", tag, (unsigned)universe.univUpdateCounter,
+                    ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber,
+                    (resource == NULL) ? "none" : ((resource->header.objtype == OBJ_AsteroidType) ? "asteroid" : "other"),
+                    (resource != NULL) ? (int)resource->resourcevalue : -1, (int)ship->rcstate1, (int)ship->rcstate2, (int)(ship->rceffect != NULL));
+    }
+    dbgMessagef("docktest: %s tick=%u %s#%u state=%d host=%s inside=%d outside=%d order=%d hold=%d pos=(%.0f %.0f %.0f) hostpos=(%.0f %.0f %.0f)",
+                tag, (unsigned)universe.univUpdateCounter, ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber,
+                (int)ship->dockvars.dockstate, (host != NULL) ? ShipTypeToStr(host->shiptype) : "none", (int)inside,
+                (int)(ship->shiplink.belongto != NULL), (ship->command != NULL) ? (int)ship->command->ordertype.order : -1,
+                (int)ship->resources, ship->obj.posinfo.position.x, ship->obj.posinfo.position.y, ship->obj.posinfo.position.z,
+                (host != NULL) ? host->obj.posinfo.position.x : 0.0f, (host != NULL) ? host->obj.posinfo.position.y : 0.0f,
+                (host != NULL) ? host->obj.posinfo.position.z : 0.0f);
+}
+
+static void catDockSelfTestExpect(bool32 condition, const char *what, Ship *ship)
+{
+    if (!condition)
+    {
+        catDockSelfTestPass = FALSE;
+        dbgMessagef("docktest: FAIL %s (%s#%u)", what, (ship != NULL) ? ShipTypeToStr(ship->shiptype) : "-",
+                    (ship != NULL) ? (unsigned)ship->shipID.shipNumber : 0u);
+    }
+}
+
+void catDockSelfTestTick(void)
+{
+    sdword tick = (sdword)universe.univUpdateCounter;
+    Player *player = universe.curPlayerPtr;
+    Node *node;
+    Ship *ship;
+    sdword i;
+    SelectCommand *selection;
+
+    if (catDockSelfTestDone || (player == NULL))
+    {
+        return;
+    }
+    if (!catDockSelfTestOrdered && (tick >= CAT_DOCKTEST_ORDER_TICK))
+    {
+        sdword numWorkers = 0;
+
+        catDockSelfTestOrdered = TRUE;
+        catDockSelfTestTrace = TRUE;
+        player->autoLaunch = 0;                             // scripted: docked ships stay inside until launched
+        // a census of what the level put in the universe (the mission file's fleet is player 1's; the player's own
+        // Somtaaw ships come from the kas2c script, which is off under CAT_HW1_MISSION_SCRIPTS 0)
+        {
+            sdword census[MAX_MULTIPLAYER_PLAYERS + 1];
+
+            memset(census,0,sizeof(census));
+            for (node = universe.ShipList.head; node != NULL; node = node->next)
+            {
+                ship = (Ship *)listGetStructOfNode(node);
+                census[(ship->playerowner != NULL) ? ship->playerowner->playerIndex : MAX_MULTIPLAYER_PLAYERS]++;
+            }
+            dbgMessagef("docktest: census before the scripted fleet: player0=%d player1=%d others=%d", (int)census[0], (int)census[1],
+                        (int)(universe.ShipList.num - census[0] - census[1]));
+        }
+        // the scripted fleet for the local player, far from the level's ships: a carrier (the sMothership, 75 dock
+        // points), a processor, three Workers, four Acolytes, two Recons and two ACVs
+        {
+            static const struct { ShipType type; real32 dx, dy, dz; } fleet[] =
+            {
+                { sMothership,     0.0f,     0.0f,    0.0f },
+                { sProcessor,   6000.0f,     0.0f,    0.0f },
+                { sWorker,      3000.0f,  3000.0f,    0.0f },
+                { sWorker,      3000.0f, -3000.0f,    0.0f },
+                { sWorker,      4500.0f,     0.0f, 2500.0f },
+                { sAcolyte,    -5000.0f,  1500.0f,    0.0f },
+                { sAcolyte,    -5000.0f, -1500.0f,    0.0f },
+                { sAcolyte,    -5000.0f,     0.0f, 1500.0f },
+                { sAcolyte,    -5000.0f,     0.0f,-1500.0f },
+                { sRecon,      -6000.0f,  3000.0f,    0.0f },
+                { sRecon,      -6000.0f, -3000.0f,    0.0f },
+                { sACV,        -4000.0f,  3500.0f,    0.0f },
+                { sACV,        -4000.0f, -3500.0f,    0.0f },
+            };
+            vector base;
+            sdword k;
+            real32 limit = universe.radius * 0.8f;
+            real32 bestdist = -1.0f;
+            sdword gx, gy, gz;
+
+            // the fleet goes to the grid point (step 10,000) inside 80% of the world sphere that is farthest from
+            // every ship the level put down, so nothing engages it
+            base.x = base.y = base.z = 0.0f;
+            for (gx = -10; gx <= 10; gx++)
+            {
+                for (gy = -10; gy <= 10; gy++)
+                {
+                    for (gz = -3; gz <= 3; gz++)
+                    {
+                        vector cand, diff;
+                        real32 nearest = REALlyBig;
+
+                        cand.x = gx * 10000.0f; cand.y = gy * 10000.0f; cand.z = gz * 10000.0f;
+                        if (vecMagnitudeSquared(cand) > limit * limit)
+                        {
+                            continue;
+                        }
+                        for (node = universe.ShipList.head; node != NULL; node = node->next)
+                        {
+                            ship = (Ship *)listGetStructOfNode(node);
+                            vecSub(diff,ship->obj.posinfo.position,cand);
+                            if (vecMagnitudeSquared(diff) < nearest)
+                            {
+                                nearest = vecMagnitudeSquared(diff);
+                            }
+                        }
+                        if (nearest > bestdist)
+                        {
+                            bestdist = nearest;
+                            base = cand;
+                        }
+                    }
+                }
+            }
+            dbgMessagef("docktest: world radius %.0f; the scripted fleet goes to (%.0f %.0f %.0f), %.0f from the nearest level ship",
+                        universe.radius, base.x, base.y, base.z, fsqrt(bestdist));
+
+            for (k = 0; k < (sdword)(sizeof(fleet) / sizeof(fleet[0])); k++)
+            {
+                vector pos;
+
+                pos.x = base.x + fleet[k].dx;
+                pos.y = base.y + fleet[k].dy;
+                pos.z = base.z + fleet[k].dz;
+                ship = univAddShip(fleet[k].type,0,&pos,player,0);
+                if (ship == NULL)
+                {
+                    catDockSelfTestExpect(FALSE, "scripted ship created", NULL);
+                    continue;
+                }
+                dbgMessagef("docktest: created %s#%u at (%.0f %.0f %.0f) docks=%d", ShipTypeToStr(ship->shiptype),
+                            (unsigned)ship->shipID.shipNumber, pos.x, pos.y, pos.z,
+                            (ship->staticinfo->dockStaticInfo != NULL) ? (int)ship->staticinfo->dockStaticInfo->numDockPoints : 0);
+                if (fleet[k].type == sMothership)
+                {
+                    // the mission's kas2c script makes the Kuun-Lan the player's mothership; the auto-launch bits of
+                    // cat_lmShipAutoLaunchOn apply to it only then
+                    player->PlayerMothership = ship;
+                }
+            }
+        }
+        selection = memAlloc(sizeofSelectCommand(CAT_DOCKTEST_MAX_SHIPS),"docktest",0);
+        selection->numShips = 0;
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            ship = (Ship *)listGetStructOfNode(node);
+            if (ship->playerowner != player)
+            {
+                continue;
+            }
+            if (((ship->shiptype == sAcolyte) || (ship->shiptype == sRecon) || (ship->shiptype == sACV)) &&
+                (selection->numShips < CAT_DOCKTEST_MAX_SHIPS))
+            {
+                selection->ShipPtr[selection->numShips++] = ship;
+                if (ship->shiptype == sACV)
+                {
+                    catDockSelfTestCorvettes[catDockSelfTestNumCorvettes++] = ship;
+                }
+                else
+                {
+                    catDockSelfTestFighters[catDockSelfTestNumFighters++] = ship;
+                }
+            }
+            else if (ship->shiptype == sWorker)
+            {
+                if (numWorkers == 0)
+                {
+                    catDockSelfTestDepositor = ship;
+                }
+                else if (numWorkers == 1)
+                {
+                    catDockSelfTestHarvester = ship;
+                }
+                numWorkers++;
+            }
+        }
+        catDockSelfTestRUBefore = player->resourceUnits;
+        dbgMessagef("docktest: orders tick=%u fighters=%d corvettes=%d workers=%d RUs=%d ticks=%d", (unsigned)tick,
+                    (int)catDockSelfTestNumFighters, (int)catDockSelfTestNumCorvettes, (int)numWorkers, (int)catDockSelfTestRUBefore,
+                    (int)catDockSelfTestTicks);
+        if (selection->numShips > 0)
+        {
+            sdword docking = clDock(&universe.mainCommandLayer,selection,CAT_DOCK_SUPPORT,NULL);
+            dbgMessagef("docktest: clDock purpose 0: %d of %d fighters and corvettes docking", (int)docking, (int)selection->numShips);
+            for (i = 0; i < catDockSelfTestNumFighters; i++)
+            {
+                catDockSelfTestLogShip("ordered", catDockSelfTestFighters[i]);
+            }
+            for (i = 0; i < catDockSelfTestNumCorvettes; i++)
+            {
+                catDockSelfTestLogShip("ordered", catDockSelfTestCorvettes[i]);
+            }
+        }
+        if (catDockSelfTestDepositor != NULL)
+        {
+            SelectCommand selectone;
+
+            catDockSelfTestDepositor->resources = CAT_DOCKTEST_DEPOSIT_RUS;    // scripted: a hold to deposit
+            selectone.numShips = 1;
+            selectone.ShipPtr[0] = catDockSelfTestDepositor;
+            dbgMessagef("docktest: clDock purpose 3: %d worker(s) depositing %d RUs",
+                        (int)clDock(&universe.mainCommandLayer,&selectone,CAT_DOCK_DEPOSIT_RESOURCES,NULL), CAT_DOCKTEST_DEPOSIT_RUS);
+            catDockSelfTestLogShip("ordered", catDockSelfTestDepositor);
+        }
+        if (catDockSelfTestHarvester != NULL)
+        {
+            SelectCommand selectone;
+
+            selectone.numShips = 1;
+            selectone.ShipPtr[0] = catDockSelfTestHarvester;
+            cat_clHarvestNearestResource(&universe.mainCommandLayer,&selectone,FALSE,FALSE);
+            catDockSelfTestLogShip("harvest", catDockSelfTestHarvester);
+        }
+        memFree(selection);
+        return;
+    }
+    if (!catDockSelfTestOrdered)
+    {
+        return;
+    }
+    if ((tick % 256) == 0)
+    {
+        for (i = 0; i < catDockSelfTestNumFighters; i++)
+        {
+            if (catDockSelfTestShipAlive(catDockSelfTestFighters[i]))
+            {
+                catDockSelfTestLogShip("tick", catDockSelfTestFighters[i]);
+            }
+        }
+        for (i = 0; i < catDockSelfTestNumCorvettes; i++)
+        {
+            if (catDockSelfTestShipAlive(catDockSelfTestCorvettes[i]))
+            {
+                catDockSelfTestLogShip("tick", catDockSelfTestCorvettes[i]);
+            }
+        }
+        if ((catDockSelfTestDepositor != NULL) && catDockSelfTestShipAlive(catDockSelfTestDepositor))
+        {
+            catDockSelfTestLogShip("tick", catDockSelfTestDepositor);
+        }
+        if ((catDockSelfTestHarvester != NULL) && catDockSelfTestShipAlive(catDockSelfTestHarvester))
+        {
+            catDockSelfTestLogShip("tick", catDockSelfTestHarvester);
+        }
+    }
+    if (!catDockSelfTestLaunched && (tick >= catDockSelfTestTicks / 4))
+    {
+        sdword insideCount = 0;
+
+        for (i = 0; i < catDockSelfTestNumFighters; i++)
+        {
+            if (catDockSelfTestInsideHostOf(catDockSelfTestFighters[i]) != NULL)
+            {
+                insideCount++;
+            }
+        }
+        if ((insideCount < catDockSelfTestNumFighters) && (tick < (catDockSelfTestTicks * 4) / 5))
+        {
+            return;                                         // not every fighter is in yet: poll again next tick
+        }
+        catDockSelfTestLaunched = TRUE;
+        insideCount = 0;
+        dbgMessagef("docktest: checkpoint A tick=%u", (unsigned)tick);
+        for (i = 0; i < catDockSelfTestNumFighters; i++)
+        {
+            Ship *host;
+
+            ship = catDockSelfTestFighters[i];
+            catDockSelfTestLogShip("A", ship);
+            host = catDockSelfTestInsideHostOf(ship);
+            // the exe's end state of a support dock that stays: dock state 8, inside a host, off the ShipList, the dock
+            // command finished (RemoveShipFromDocking cleared dockvars.dockship)
+            catDockSelfTestExpect(host != NULL, "fighter in a host's inside list", ship);
+            catDockSelfTestExpect(ship->dockvars.dockstate == CAT_DOCKSTATE_INSIDE, "fighter in dock state 8 (inside)", ship);
+            catDockSelfTestExpect(ship->shiplink.belongto == NULL, "fighter off the ShipList while inside", ship);
+            catDockSelfTestExpect(ship->dockvars.dockship == NULL, "fighter's dock command finished (no host left in its dock vars)", ship);
+            catDockSelfTestExpect(ship->command == NULL, "fighter has no command while docked", ship);
+            if (host != NULL)
+            {
+                insideCount++;
+            }
+        }
+        if (catDockSelfTestDepositor != NULL)
+        {
+            ship = catDockSelfTestDepositor;
+            catDockSelfTestLogShip("A", ship);
+            catDockSelfTestExpect(ship->resources == 0, "depositor's hold emptied", ship);
+            catDockSelfTestExpect(ship->shiplink.belongto != NULL, "depositor back outside", ship);
+            catDockSelfTestExpect(ship->dockvars.dockship == NULL, "depositor has no host", ship);
+            catDockSelfTestExpect(player->resourceUnits == catDockSelfTestRUBefore + CAT_DOCKTEST_DEPOSIT_RUS, "player RUs up by the deposit", ship);
+        }
+        if (catDockSelfTestHarvester != NULL)
+        {
+            ship = catDockSelfTestHarvester;
+            catDockSelfTestLogShip("A", ship);
+            catDockSelfTestExpect((ship->command != NULL) &&
+                                  ((ship->command->ordertype.order == COMMAND_COLLECT_RESOURCES) || (ship->command->ordertype.order == COMMAND_DOCK)),
+                                  "harvester harvesting or bringing its hold home", ship);
+        }
+        for (i = 0; i < catDockSelfTestNumCorvettes; i++)
+        {
+            catDockSelfTestLogShip("A corvette", catDockSelfTestCorvettes[i]);
+        }
+        dbgMessagef("docktest: A inside=%d of %d fighters; RUs %d -> %d", (int)insideCount, (int)catDockSelfTestNumFighters,
+                    (int)catDockSelfTestRUBefore, (int)player->resourceUnits);
+        // launch every docked fighter from its host, host by host
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            Ship *host = (Ship *)listGetStructOfNode(node);
+            SelectCommand *launch;
+
+            if ((host->playerowner != player) || (host->shipsInsideMe == NULL))
+            {
+                continue;
+            }
+            launch = memAlloc(sizeofSelectCommand(CAT_DOCKTEST_MAX_SHIPS),"docktest",0);
+            launch->numShips = 0;
+            for (i = 0; i < catDockSelfTestNumFighters; i++)
+            {
+                if (cat_dockShipIsInsideHost(catDockSelfTestFighters[i],host) && (launch->numShips < CAT_DOCKTEST_MAX_SHIPS))
+                {
+                    launch->ShipPtr[launch->numShips++] = catDockSelfTestFighters[i];
+                }
+            }
+            for (i = 0; i < catDockSelfTestNumCorvettes; i++)
+            {
+                if (cat_dockShipIsInsideHost(catDockSelfTestCorvettes[i],host) && (launch->numShips < CAT_DOCKTEST_MAX_SHIPS))
+                {
+                    launch->ShipPtr[launch->numShips++] = catDockSelfTestCorvettes[i];
+                }
+            }
+            if (launch->numShips > 0)
+            {
+                dbgMessagef("docktest: clLaunchShip: %d fighters from %s#%u", (int)launch->numShips, ShipTypeToStr(host->shiptype),
+                            (unsigned)host->shipID.shipNumber);
+                clLaunchMultipleShips(&universe.mainCommandLayer,launch,host);
+            }
+            memFree(launch);
+        }
+        return;
+    }
+    if (tick >= catDockSelfTestTicks - 2)
+    {
+        sdword outsideCount = 0;
+
+        catDockSelfTestDone = TRUE;
+        dbgMessagef("docktest: checkpoint B tick=%u", (unsigned)tick);
+        for (i = 0; i < catDockSelfTestNumFighters; i++)
+        {
+            ship = catDockSelfTestFighters[i];
+            if (!catDockSelfTestShipAlive(ship))
+            {
+                catDockSelfTestExpect(FALSE, "fighter still exists", NULL);
+                continue;
+            }
+            catDockSelfTestLogShip("B", ship);
+            catDockSelfTestExpect(ship->shiplink.belongto != NULL, "fighter outside again", ship);
+            catDockSelfTestExpect(ship->dockvars.dockship == NULL, "fighter has no host after launch", ship);
+            catDockSelfTestExpect((ship->command == NULL) ||
+                                  ((ship->command->ordertype.order != COMMAND_DOCK) && (ship->command->ordertype.order != COMMAND_LAUNCH_SHIP)),
+                                  "fighter has no dock or launch command left", ship);
+            if (ship->shiplink.belongto != NULL)
+            {
+                outsideCount++;
+            }
+        }
+        for (i = 0; i < catDockSelfTestNumCorvettes; i++)
+        {
+            if (catDockSelfTestShipAlive(catDockSelfTestCorvettes[i]))
+            {
+                catDockSelfTestLogShip("B corvette", catDockSelfTestCorvettes[i]);
+            }
+        }
+        if ((catDockSelfTestDepositor != NULL) && catDockSelfTestShipAlive(catDockSelfTestDepositor))
+        {
+            catDockSelfTestLogShip("B", catDockSelfTestDepositor);
+        }
+        if ((catDockSelfTestHarvester != NULL) && catDockSelfTestShipAlive(catDockSelfTestHarvester))
+        {
+            catDockSelfTestLogShip("B", catDockSelfTestHarvester);
+        }
+        dbgMessagef("docktest: done fighters=%d outside=%d corvettes=%d RUs=%d result=%s", (int)catDockSelfTestNumFighters, (int)outsideCount,
+                    (int)catDockSelfTestNumCorvettes, (int)player->resourceUnits, catDockSelfTestPass ? "PASS" : "FAIL");
+    }
+}

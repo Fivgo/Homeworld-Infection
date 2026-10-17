@@ -161,7 +161,8 @@ void teReset(void)
     scriptSet(NULL, TE_ColorScript, teColorTweaks);
     teRace1Default = teColorSchemes[0].textureColor;
     teRace2Default = teColorSchemes[1].textureColor;
-    if (whichRaceSelected == R2)
+    // CAT (M2-R5 layout-dock): teReset 0x0052b800 swaps the two schemes only outside single player
+    if ((!singlePlayerGame) && (whichRaceSelected == R2))
     {
         swap(teColorSchemes[0], teColorSchemes[1], tempScheme);
     }

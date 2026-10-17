@@ -718,7 +718,7 @@ void spGoNowHyperspaceCB(char *string, featom *atom)
         dbgAssertOrIgnore(mothership);
 
         selectAll = selectAllCurrentPlayersNonHyperspacingShips();
-        clDock(&universe.mainCommandLayer,selectAll,DOCK_PERMANENTLY|DOCK_INSTANTANEOUSLY,NULL);
+        clDock(&universe.mainCommandLayer,selectAll,CAT_DOCK_STAY_INSTANT,NULL);
         memFree(selectAll);
 
         selectAll = selectAllCurrentPlayersHyperspacingShips();
@@ -842,7 +842,7 @@ void TellShipsToDockForHyperspace(void)
     selectAll = selectAllCurrentPlayersNonHyperspacingShips();
     //cancel all the launch orders so we can then tell all ships to dock permanently.
     clCancelAllLaunchOrdersFromPlayer(universe.curPlayerPtr);
-    if (clDock(&universe.mainCommandLayer,selectAll,DOCK_PERMANENTLY,NULL) > 0)
+    if (clDock(&universe.mainCommandLayer,selectAll,CAT_DOCK_STAY,NULL) > 0)
     {
         // moved this here cause I don't want it said if no ships are docking
         speechEventFleet(STAT_F_Hyper_Autodock, 0, universe.curPlayerIndex);

@@ -51,7 +51,6 @@ extern scriptEntry MissphereTweaks[];
 extern scriptEntry StarTweaks[];
 extern scriptEntry Tweaks[];
 extern scriptEntry FlightmanTweaks[];
-extern scriptEntry DockTweaks[];
 extern scriptEntry SoundeventTweaks[];
 extern scriptEntry TrailTweaks[];
 extern scriptEntry ResCollectTweaks[];
@@ -1869,8 +1868,8 @@ void scriptSetTweakableGlobals()
     scriptSet(NULL,"Galaxy.script",StarTweaks);
     scriptSet(NULL,"Tweak.script",Tweaks);
     scriptSet(NULL,"Flightman.script",FlightmanTweaks);
-    // CAT: Dock.script is no longer read (Cataclysm ships none); the DockTweaks globals keep their compiled-in
-    //      defaults (scriptSetTweakableGlobals 0x00527820 goes from Flightman.script straight to Soundevent.script)
+    // CAT: Dock.script is no longer read (Cataclysm ships none, and HW1's DockTweaks are gone with its dock paths;
+    //      scriptSetTweakableGlobals 0x00527820 goes from Flightman.script straight to Soundevent.script)
     scriptSet(NULL,"Soundevent.script",SoundeventTweaks);
     scriptSet(NULL,"Trail.script",TrailTweaks);
     scriptSet(NULL,"Resource.script",ResCollectTweaks);

@@ -270,7 +270,6 @@ void MakeSelectionNotHaveCloakedEnemyShips(SelectCommand *selection, struct Play
 void MakeSelectionNotHaveNonVisibleEnemyShips(SelectCommand *selection, struct Player *curplayer);
 
 // Adds slaves to a selection list if the master is in it
-void MakeShipMastersIncludeSlaves(SelectCommand *selection);
 
 // Removes Research Ships from Selection
 void MakeSelectionNonResearchShips(SelectCommand *selection);
@@ -377,6 +376,8 @@ bool32 cat_shipHasUpgrade(Ship *ship, udword flag);
 real32 cat_weaponDamageVsArmour(sdword damageType, sdword armourLevel);   // CAT: 0x00514460 (M2-R4 combat)
 real32 cat_gunStaticBaseDamage(GunStatic *gunstatic);                     // CAT: 0x00514600 (M2-R4 combat)
 real32 cat_shipGetDamageMultiplier(Ship *ship);                           // CAT: 0x005148f0 (M2-R4 combat)
+void cat_shipUpdateExperienceLevel(Ship *ship);                           // CAT: 0x005147d0 (M2-R5 layout-dock)
+extern sdword cat_opExperienceMessages;                                    // CAT: the OP_ExperienceMessages option 0x00a5e248
 void cat_shipUpgradesInit(Ship *ship);                                    // CAT: 0x005140a0 (M2-R4 combat)
 void cat_shipApplyUpgrades(Ship *ship);                                   // CAT: 0x00514490 (M2-R4 combat)
 void cat_playerUpgradesReset(struct Player *player);                             // CAT: 0x00514100 (M2-R4 rest-oracle)
@@ -384,6 +385,14 @@ void cat_playerUpdateUpgradesFromResearch(struct Player *player);               
 void cat_shipTypeGetUpgradeTechs(ShipType type, sdword *techs);           // CAT: 0x005146f0 (M2-R4 rest-oracle): a CatTechSet
 void cat_shipInitResearchUpgrades(Ship *ship);                             // CAT: 0x00514af0 (M2-R4 rest-oracle)
 real32 cat_upgradeFlagsBaseTime(udword flags);
+// CAT (M2-R5 layout-dock): the upgrade queries of the upgrade UI, cat_clUpgradeShips and cat_rmAcquireShipTechs
+bool32 cat_shipCanUpgradeArmour(Ship *ship);                               // CAT: 0x00514280
+udword cat_shipGetPendingUpgradeFlags(Ship *ship);                         // CAT: 0x005142b0
+bool32 cat_shipGetPendingWeaponUpgrades(Ship *ship, bool32 *out);          // CAT: 0x005142e0 (out: NUM_WEAPON_TYPES flags)
+bool32 cat_shipIsUpgradable(Ship *ship);                                   // CAT: 0x005143c0
+udword cat_shipTypeUpgradeMask(ShipType type);                             // CAT: 0x00514480
+real32 cat_shipGetUpgradeTime(Ship *ship);                                 // CAT: 0x00514540
+void cat_shipGetUpgradeTechs(Ship *ship, sdword *techs);                   // CAT: 0x00514620 (techs: a CatTechSet)
 real32 cat_shipUpgradeFlagsTime(Ship *ship, udword flags);
 
 // CAT: ship-state queries the selection code calls; their exe homes are other subsystems (see ShipSelect.c)

@@ -322,7 +322,7 @@ void ModuleShipDied(Ship *ship)                                                 
     {
         return;
     }
-    // CAT-TODO(M2-R4 #5): cat_cmCancelJobsOfDeadFactory(host) 0x00455ea0 (the construction manager's jobs)
+    // CAT-TODO(M2-R6 ConsMgr): cat_cmCancelJobsOfDeadFactory(host) 0x00455ea0 (the construction manager's jobs)
     clamped = host->guidance.clampInfo->clampedObjs;
     for (i = 0; i < clamped->numShips; i++)
     {

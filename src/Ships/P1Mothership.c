@@ -19,6 +19,8 @@ typedef struct
 } P1MothershipStatics;
 
 P1MothershipStatics P1MothershipStatic;
+// CAT (M2-R5 layout-dock): cat_p1MothershipVariantStaticInit 0x005be5d0 (a 3-float copy of the statics scaled by 0.9 into
+//      0x00a7a800) has no caller and no header slot in the exe: not ported
 
 void P1MothershipStaticInit(char *directory,char *filename,struct ShipStaticInfo *statinfo)
 {

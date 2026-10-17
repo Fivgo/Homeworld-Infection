@@ -259,7 +259,7 @@ void syncDebugDump(char *filename1,sdword counter,bool32 save)
             {
                 us->ship[j].shipOrDerelict.dockingship = (Ship *)-1;
             }
-            us->ship[j].navLightInfo=0;
+            us->ship[j].shipOrDerelict.navLightInfo=0;
 
             us->ship[j].shiplink.next=0;
             us->ship[j].shiplink.prev=0;
@@ -339,10 +339,6 @@ void syncDebugDump(char *filename1,sdword counter,bool32 save)
             {
                 us->ship[j].dockvars.dockship=0;
             }
-            us->ship[j].dockvars.busyingThisShip=0;
-            us->ship[j].dockvars.dockstaticpoint=0;
-            us->ship[j].dockvars.customdockinfo=0;
-            us->ship[j].dockvars.launchpoints=0;
 
             us->ship[j].rceffect=0;
             us->ship[j].ShipXHarvestsResourceY = 0;
@@ -367,12 +363,6 @@ void syncDebugDump(char *filename1,sdword counter,bool32 save)
 
             memset(&us->ship[j].soundevent,0,sizeof(SOUNDEVENT));
 
-            us->ship[j].slavelink.next=0;
-            us->ship[j].slavelink.prev=0;
-            us->ship[j].slavelink.belongto=0;
-            us->ship[j].slavelink.structptr=0;
-
-            us->ship[j].slaveinfo=0;
             us->ship[j].gunInfo=0;
             us->ship[j].dockInfo=0;
             us->ship[j].shipsInsideMe=0;

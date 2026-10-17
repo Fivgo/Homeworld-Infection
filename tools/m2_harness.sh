@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -28,8 +28,16 @@
 #                    wall clock), no /debugScreenshots next-level loop; "oracle: mission tick N" lines every 256 ticks,
 #                    quits after <ticks> ticks with "oracle: mission run done"; needs --timeout of several minutes under
 #                    ASan (about 10 ticks/s)
+#                    dock: /catDockTest <ticks> (M2-R5 layout-dock, docs/m2-r5-layout-dock.md): the headless Mission01
+#                    run of the mission mode with the scripted dock self-test (Dock.c catDockSelfTestTick): at tick 16 the
+#                    player's acolytes, recons and ACVs dock for support (purpose 0), a Worker deposits a scripted hold
+#                    (purpose 3), another harvests; once every fighter is inside its host (at the latest at 80% of the
+#                    ticks) they are checked and launched (purpose 2); at the end they are checked outside; "docktest:"
+#                    log lines, "docktest: done
+#                    ... result=PASS|FAIL"; quits after <ticks> ticks (needs --timeout of several minutes under ASan)
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
 #   --mission-ticks N mission mode: universe ticks to run (default 3000)
+#   --dock-ticks N   dock mode: universe ticks to run (default 5000; about 30 s under ASan on the virtual clock)
 #   --etg-ticks N    etg mode: ticks of the effect self-test (default 128; 0 = parse test only)
 #   --perturb T      oracle or mission mode: one extra gamerand() before tick T (/oracleSelfTestPerturb; tests the compare tool)
 #   --hwo            any other mode: also write the oracle stream to <run>/run.hwo (/oracleDump)
@@ -86,7 +94,7 @@ fi
 label=${1:?usage: m2_harness.sh <label> [--mode sp|fe] [--timeout N] [--driver D] [--data DIR] [-- engine args]}
 shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
-oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000
+oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -96,6 +104,7 @@ while [[ $# -gt 0 ]]; do
 		--bin) bin=$(realpath -- "$2"); shift ;;
 		--oracle-ticks) oticks=$2; shift ;;
 		--mission-ticks) mticks=$2; shift ;;
+		--dock-ticks) dticks=$2; shift ;;
 		--etg-ticks) etgticks=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
@@ -123,6 +132,8 @@ if [[ "$mode" == oracle ]]; then
 elif [[ "$mode" == mission ]]; then
 	args+=(/oracleMission "$mticks" /oracleDump "$out/run.hwo")
 	[[ -n "$perturb" ]] && args+=(/oracleSelfTestPerturb "$perturb")
+elif [[ "$mode" == dock ]]; then
+	args+=(/catDockTest "$dticks")
 elif [[ $hwo -eq 1 ]]; then
 	args+=(/oracleDump "$out/run.hwo")
 fi
@@ -202,6 +213,7 @@ grep -q "oracle: self-test done" "$L" && milestone="oracle self-test done"
 grep -q "oracle: mission run done" "$L" && milestone="oracle mission run done"
 grep -q "etgtest: self-test done" "$L" && milestone="etg parse self-test done"
 grep -q "etgtest: effect self-test done" "$L" && milestone="etg effect self-test done"
+grep -q "docktest: done" "$L" && milestone="dock self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately, except the misaligned-access reports on the packed sound-bank and front-end
@@ -233,6 +245,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ -f "$out/run.hwo" ]] && echo "oracle: $(grep -h 'oracle: self-test done\|oracle: mission run done' "$L" | sed 's/^.*oracle: //' | head -n 1); run.hwo $(stat -c %s "$out/run.hwo") bytes, sha256 $(sha256sum "$out/run.hwo" | cut -c1-16)"
 	[[ "$mode" == mission ]] && echo "mission: last tick line: $(grep -h 'oracle: mission tick' "$L" | tail -n 1 | sed 's/^.*oracle: //'); ships loaded $(grep -c 'shipstatic: loaded' "$L")"
 	[[ "$mode" == textures ]] && echo "textures: $(grep -h 'texturetest: listing lookups\|texturetest: self-test done' "$L" | sed 's/^.*texturetest: //' | paste -sd';')"
+	[[ "$mode" == dock ]] && echo "docktest: $(grep -h 'docktest: orders\|docktest: clDock\|docktest: A inside\|docktest: done' "$L" | sed 's/^.*docktest: //' | paste -sd';'); FAIL lines: $(grep -c 'docktest: FAIL' "$L")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"
 	echo "engine glows:$(grep -c -i 'engineglows' "$out/FileLoads.log" 2>/dev/null) mesh/mex loads from misc\\EngineGlows in FileLoads.log"
 	echo "UBSan report kinds (count, site):"; echo "$ubsan_kinds"

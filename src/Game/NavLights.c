@@ -110,7 +110,7 @@ void RenderNAVLights(Ship *ship)
 
    shipStaticInfo = (ShipStaticInfo *)ship->staticinfo;
 
-    navLightInfo = ship->navLightInfo;
+    navLightInfo = ship->shipOrDerelict.navLightInfo;
    if(shipStaticInfo->navlightStaticInfo && navLightInfo != NULL)
    {
       glDepthMask(GL_FALSE);

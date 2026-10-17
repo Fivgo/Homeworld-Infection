@@ -115,6 +115,7 @@ void univHideJustAboutEverything(void);
 
 void univGetResourceStatistics(sdword *resourceValue,sdword *numHarvestableResources,sdword *numAsteroid0s);
 Resource *univFindNearestResource(Ship *ship,real32 volumeRadius,vector *volumePosition);
+void cat_univClampResourceTimer(Missile *missile);     // CAT: 0x00547530 (M2-R5 dock)
 
 void univRemoveObjFromRenderList(SpaceObj *spaceobj);
 void univAddObjToRenderListIf(SpaceObj *newobj,SpaceObj *ifobj);

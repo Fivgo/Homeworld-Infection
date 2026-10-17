@@ -1750,7 +1750,7 @@ void kasfDockSupportWith(struct AITeam * withTeam)
 
 void kasfShipsDockSupportWith(GrowSelection *ships, GrowSelection *withShips)
 {
-    aiuWrapDock(ships->selection, DOCK_AT_SPECIFIC_SHIP, withShips->selection->ShipPtr[0]);
+    aiuWrapDock(ships->selection, CAT_DOCK_SUPPORT, withShips->selection->ShipPtr[0]);  // purpose 0 (0x00494610)
 }
 
 void kasfDockStay(struct AITeam * withTeam)
@@ -1760,7 +1760,16 @@ void kasfDockStay(struct AITeam * withTeam)
 
 void kasfShipsDockStay(GrowSelection *ships, GrowSelection *withShips)
 {
-    aiuWrapDock(ships->selection, DOCK_AT_SPECIFIC_SHIP|DOCK_STAY_TILL_EXPLICITLAUNCH, withShips->selection->ShipPtr[0]);
+    // CAT: kasfShipsDockStay 0x004946a0: Mission 9's Taiidan resource collectors retire (purpose 7) instead of staying
+    SelectCommand *selection = ships->selection;
+
+    if ((selection->numShips > 0) && (selection->ShipPtr[0]->shiptype == tResourceCollector) &&
+        (singlePlayerGameInfo.currentMission == 9))
+    {
+        aiuWrapDock(selection, CAT_DOCK_RETIRE, withShips->selection->ShipPtr[0]);
+        return;
+    }
+    aiuWrapDock(selection, CAT_DOCK_STAY, withShips->selection->ShipPtr[0]);
 }
 
 void kasfDockStayMothership(void)
@@ -3247,7 +3256,6 @@ void kasfTutCameraFocus(GrowSelection *ships)
         tutGameMessage("KB_Focus");
 
         tempselected = selSelected;     //copy structure
-        MakeShipMastersIncludeSlaves((SelectCommand *)&tempselected);
         ccFocus(&universe.mainCameraCommand,(FocusCommand *)&tempselected);
     }
 
@@ -3302,7 +3310,6 @@ void kasfTutCameraFocusFar(GrowSelection *ships)
         tutGameMessage("KB_Focus");
 
         tempselected = selSelected;     //copy structure
-        MakeShipMastersIncludeSlaves((SelectCommand *)&tempselected);
         ccFocusFar(&universe.mainCameraCommand,(FocusCommand *)&tempselected, &universe.mainCameraCommand.actualcamera);
     }
 

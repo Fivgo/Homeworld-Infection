@@ -2859,13 +2859,8 @@ void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race)
         statinfo->dockStaticInfo->centerDockPoint = cat_dockFindDockStaticPoint("center",statinfo->dockStaticInfo);
     }
 
-    // CAT: InitStatShipInfo 0x0053bab0 has no dockInitializeCustomFunctions step (the exe has no such function): HW1's
-    //      per-type dock set-up looks up HW1 dock-point names ("In", ...) that Cataclysm's ships do not have and
-    //      stops with a fatal error (run ss-r2-statics-iso, sMothership). The two dock callbacks get HW1's default
-    //      handlers as safe defaults so the unported dock code never calls through NULL; Cataclysm's docking
-    //      (DPT_* points, the CustShipDockCommand slot) is stage 2.
-    statinfo->ShipXDocksAtShipY = ShipDocksAtDefaultShip;
-    statinfo->LaunchShipXFromShipY = LaunchShipFromDefaultShip;
+    // CAT: InitStatShipInfo 0x0053bab0 has no dockInitializeCustomFunctions step (the exe has no such function; HW1's
+    //      per-type dock callbacks are gone with the dock purposes, M2-R5 dock)
 
     if (ShipCanHarvest(statinfo))
     {

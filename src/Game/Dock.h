@@ -13,42 +13,62 @@
 #include "ShipSelect.h"
 #include "SpaceObj.h"
 
-#define DOCK_FOR_BOTHREFUELANDREPAIR    1
-#define DOCK_FOR_REFUEL                 2
-#define DOCK_FOR_REPAIR                 4
-#define DOCK_TO_DEPOSIT_RESOURCES       8       // for DockType
-#define DOCK_PERMANENTLY                16
-#define DOCK_FOR_RESEARCH               32      //special docking for Research Ships
-#define DOCK_AT_SPECIFIC_SHIP           64      //dock at a ship specified by user, which is parameter dockwith of clDock
-#define DOCK_FOR_REFUELREPAIR           (DOCK_FOR_REFUEL|DOCK_FOR_REPAIR)
-#define DOCK_STAY_TILL_EXPLICITLAUNCH   128
-#define DOCK_INSTANTANEOUSLY            256
-#define DOCK_FOR_RETIRE                 512
-typedef udword DockType;
+/*=============================================================================
+    CAT (M2-R5 dock): Cataclysm replaces HW1's DOCK_* bitmask with a dock PURPOSE 0..10. clDock 0x00466c70,
+    clWrapDock 0x00452d60, FindNearestShipToDockAt 0x00465750, ThisShipCanDockWith 0x00464290 and
+    cat_dockShipDocksAtShip 0x00465860 take it as their DockType; cat_dockGetDockClass 0x00463d70 turns it, with
+    the ship's class, type and flags, into the dock point type (DPT_*, ObjTypes.h) the ship uses on the host.
+    The numbers are the exe's (the call sites: kasfShipsDockSupportWith 0, kasfShipsDockStay 1, kasfShipsLaunch 2,
+    processCollectResource 3, mrRetire 7, aimProcessDock 8/9, kasfSlipgateDock 10); the names are chosen here.
+=============================================================================*/
+#define CAT_DOCK_SUPPORT                0       // dock for repair/support (HW1's refuel and repair)
+#define CAT_DOCK_STAY                   1       // dock and stay inside until launched (SPECIAL_STAY_TILL_EXPLICITLAUNCH)
+#define CAT_DOCK_LAUNCH                 2       // launch from the host (clLaunchShip; the hive's swarmers)
+#define CAT_DOCK_DEPOSIT_RESOURCES      3       // latch at a resource-transfer point and deposit RUs
+#define CAT_DOCK_LEECH                  4       // DPT_Leech latch
+#define CAT_DOCK_TOW                    5       // DPT_Tow latch
+#define CAT_DOCK_UNUSED6                6       // no dock class (cat_dockGetDockClass returns -1)
+#define CAT_DOCK_RETIRE                 7       // retire: dock, refund the build cost, delete
+#define CAT_DOCK_SUPPORT_INSTANT        8       // as 0 but the ship is put inside at once (no flight)
+#define CAT_DOCK_STAY_INSTANT           9       // as 1 but at once (the single-player hyperspace roll call, hive swarmers)
+#define CAT_DOCK_SLIPGATE               10      // transit through a slipgate pair
+typedef udword DockType;                        // CAT: now the purpose
+
+// CAT (M2-R5 dock): the dock states of cat_dockShipDocksAtShip 0x00465860 (Ship.dockvars.dockstate, exe +0x49C).
+//      Names chosen here from what each state does; the numbers are the exe's.
+#define CAT_DOCKSTATE_APPROACH          0       // fly towards the host, pick the nearest free dock point
+#define CAT_DOCKSTATE_FLY_IN_FRONT      1       // (no setter found) fly in front of the host, then 2
+#define CAT_DOCKSTATE_FLY_TO_CONE       2       // fly into the dock point's cone
+#define CAT_DOCKSTATE_LATCH             5       // fly down the cone to its origin; then inside (or slipgate transit)
+#define CAT_DOCKSTATE_CONE_ORIGIN       6       // a latch point: fly to the cone origin
+#define CAT_DOCKSTATE_LINK_IN           7       // a latch point: fly into position and clamp
+#define CAT_DOCKSTATE_INSIDE            8       // inside the host until catDockTime, then launch or stay
+#define CAT_DOCKSTATE_LATCHED           9       // clamped at a latch point until catDockTime, then deposit and leave
+#define CAT_DOCKSTATE_LAUNCH            10      // find a launch point, put the ship outside
+#define CAT_DOCKSTATE_BUILD_ATTACHED    11      // an externally built ship clamped to its maker
+#define CAT_DOCKSTATE_FLY_OUT           12      // fly out of the cone: done
+#define CAT_DOCKSTATE_SLIPGATE_ENTER    13      // at the gate: into the partner gate
+#define CAT_DOCKSTATE_SLIPGATE_EXIT     14      // out of the partner gate
+#define CAT_DOCKSTATE_SLIPGATE_WAIT_IN  16      // the 1.5 s transit wait before 13
+#define CAT_DOCKSTATE_SLIPGATE_WAIT_OUT 17      // the 1.5 s transit wait before 14
 
 typedef struct
 {
-    DockType dockType;
-    udword formationToGoIntoAfterDockingID;
-    bool8 wasHarvesting;
-    bool8 allDockingWithSameShip;
-    bool8 allNearShip;
-    bool8 haveFlyedFarEnoughAway;
+    DockType dockType;                      // +0x290 CAT: the purpose
+    udword formationToGoIntoAfterDockingID; // +0x294
+    bool8 wasHarvesting;                    // +0x298
+    bool8 allDockingWithSameShip;           // +0x299
+    bool8 allNearShip;                      // +0x29A
+    bool8 haveFlyedFarEnoughAway;           // +0x29B
 } DockCommand;
 
 #if RND_VISUALIZATION
 void dockDrawDockInfo(Ship *ship);
 #endif
 
-void dockInitializeCustomFunctions(ShipStaticInfo *statinfo,ShipType type,ShipRace race);
-// CAT: declared for InitStatShipInfo, which sets them as the safe default dock callbacks (Universe.c)
-bool32 LaunchShipFromDefaultShip(Ship *ship,Ship *dockwith);
-bool32 ShipDocksAtDefaultShip(struct CommandToDo *docktodo,struct Ship *ship,struct Ship *dockwith);
-
 sdword dockFindDockIndex(char *name,DockStaticInfo *dockstaticinfo);
 DockStaticPoint *cat_dockFindDockStaticPoint(char *name,DockStaticInfo *dockstaticinfo);   // CAT: 0x00463d00
-bool32 ThisShipCanDockWith(Ship *ship,Ship *dockwith,DockType dockType);   // CAT: declared for the Cataclysm ships (Slipgate.c, M2-R4 ships-b); the exe's takes a 4th argument (dock purposes follow-up)
-real32 ClampToWithin(real32 number,real32 min,real32 max);   // CAT: declared for Leech.c (M2-R4 ships-b)
+real32 ClampToWithin(real32 number,real32 min,real32 max);
 void GetDirectionVectorOfShip(vector *result,udword direction,matrix *coordsys);   // CAT: takes the frame (0x004631f0)
 // CAT (M2-R4 combat): Cataclysm-only dock helpers (Dock.c; the salvage system and the link code use them)
 void cat_dockDepositResourceUnits(struct Player *player,sdword resourceUnits);             // CAT: 0x00463270
@@ -60,57 +80,41 @@ bool32 cat_dockFlyToConeOriginLatch(Ship *ship,Ship *dockwith,real32 radius);   
 bool32 cat_dockFlyToConeInside(Ship *ship,Ship *dockwith,DockStaticPoint *dockpoint);      // CAT: 0x004671d0
 bool32 cat_dockFlyToConeOrigin(Ship *ship,Ship *dockwith,DockStaticPoint *dockpoint);      // CAT: 0x004673c0
 bool32 cat_linkFlyIntoPosition(Ship *ship,DockStaticPoint *linkpoint,Ship *host,DockStaticPoint *hostpoint);   // CAT: 0x004675c0
-/*static void dockReserveDockPoint(Ship *ship,Ship *dockwith,sdword dockpointindex);*/
-/*void dockReserveDockPoint(Ship *ship,Ship *dockwith,sdword dockpointindex);*/
 
-void dockPutShipInside(Ship *ship,Ship *dockwith);
-void dockInitShipForLaunch(Ship *ship);
-void dockRemoveShipFromInside(Ship *ship,Ship *dockwith);
-void dockPutShipOutside(Ship *ship,Ship *creator,vector *createat,udword headingdirection,udword updirection);
+// CAT (M2-R5 dock): the Cataclysm dock system
+sdword cat_dockGetDockClass(ShipClass shipclass,ShipType shiptype,bool32 externalBuild,udword typeFlags,DockType purpose,Ship *dockwith);   // 0x00463d70
+bool32 cat_dockCanDockWithBusyHost(Ship *ship,DockType purpose);                           // 0x00463a70
+bool32 cat_dockHasFreeSlotForShip(Ship *host,ShipClass shipclass,ShipType shiptype,bool32 externalBuild,udword typeFlags);   // 0x00464910
+void cat_dockInitShipDockInfo(Ship *ship);                                                 // 0x00463bb0
+bool32 cat_dockFindNearestDockPoint(Ship *ship,Ship *dockwith,DockType purpose);           // 0x00464660
+bool32 cat_dockFindLaunchPoint(Ship *ship,Ship *dockwith);                                 // 0x004649b0
+bool32 cat_dockFlyOutOfCone(Ship *ship,Ship *dockwith);                                    // 0x004650d0
+bool32 cat_dockFlyInFrontOfHost(Ship *ship,Ship *dockwith);                                // 0x00465630
+udword cat_dockShipDocksAtShip(Ship *ship,Ship *dockwith,DockType purpose);                // 0x00465860
+void cat_dockFinishedDocking(Ship *ship,Ship *dockwith,struct CommandToDo *command);       // 0x004667f0
+bool32 cat_dockShipIsInsideHost(Ship *ship,Ship *host);                                    // 0x00468f80
+void dockReserveDockPoint(Ship *ship,Ship *dockwith,sdword dockpointindex);                // 0x00464610 (REWRITTEN)
 
-void RemoveShipFromLaunching(Ship *ship);
-void RemoveShipFromDocking(Ship *ship);
+bool32 ThisShipCanDockWith(Ship *ship,Ship *dockwith,DockType purpose,bool32 checkCounts); // 0x00464290: the exe's 4th argument
+Ship *FindNearestShipToDockAt(Ship *ship,DockType purpose);                                // 0x00465750
+void InitializeDockVars(Ship *ship,Ship *dockship,DockType purpose);                       // 0x00463c40
+void dockChangeSingleShipToDock(struct CommandToDo *command,Ship *ship,Ship *dockship,bool32 wasHarvesting,DockType purpose);   // 0x004644c0
+bool32 processDockToDo(struct CommandToDo *docktodo);                                      // 0x00466950
+void RemoveShipFromDocking(Ship *ship);                                                    // 0x00465360 (REWRITTEN)
+void RemoveShipFromLaunching(Ship *ship);                                                  // 0x00465590 (REWRITTEN)
+void DockCleanup(struct CommandToDo *docktodo);                                            // 0x00467970
+void LaunchCleanup(struct CommandToDo *launchtodo);                                        // 0x004679b0
 
-void dockPrepareSingleShipForLaunch(Ship *ship,Ship *dockship);
-void dockChangeSingleShipToDock(struct CommandToDo *command,Ship *ship,Ship *dock,bool32 wasHarvesting,DockType dockType);
-void DockCleanup(struct CommandToDo *docktodo);
-void LaunchCleanup(struct CommandToDo *launchtodo);
-bool32 processDockToDo(struct CommandToDo *docktodo);
+void dockPutShipInside(Ship *ship,Ship *dockwith);                                         // 0x004652c0
+void dockRemoveShipFromInside(Ship *ship,Ship *dockwith);                                  // 0x004632e0
+void dockPutShipOutside(Ship *ship,Ship *creator,vector *createat,udword headingdirection,udword updirection);   // 0x00463350
 
-bool32 ShipWithinDockRange(Ship *ship,Ship *target);
-Ship *FindNearestShipToDockAt(Ship *ship,DockType dockType);
+bool32 ShipIsRefuelingAtCarrierMother(struct Ship *ship);                                  // 0x00467a90
+bool32 ShipIsWaitingForSoftLaunch(struct Ship *ship);                                      // 0x00467a60
 
-// specific docking for certain ships
-
-bool32 ShipIsRefuelingAtCarrierMother(struct Ship *ship);
-bool32 ShipIsWaitingForSoftLaunch(struct Ship *ship);
-void dockMakeMaster(Ship *master);
-void dockAddSlave(Ship *master, Ship *slave);
-
-sdword **GetLaunchPoints(ShipStaticInfo *shipstatic,ShipStaticInfo *dockwithstatic);
-
-DockType dockGetAppropriateTypeOfDocking(SelectCommand *selectcom);
-
-//slaveables...
-void dockDealWithDeadSlaveable(Ship *ship);
-void dockUpdateSlaves(Ship *master);
-void dockCrushMaster(Ship *master);
-
-typedef struct
-{
-    sdword size;
-    real32 dockmisc;
-    sdword docktoindex;
-    sdword dockingindex;
-} AtResearchShipDockInfo;
-
-/*  Defines needed in another file */
-#define ASF_WAITLATCHPOINT     1
-#define ASF_FLYTOINSIDECONE    2
-#define ASF_FLYTOCONEORIGIN    3
-#define ASF_REFUEL             4
-#define ASF_BACKUP             5
-#define ASF_WAIT               6
+// CAT (M2-R5 dock): the scripted dock self-test (/catDockTest <ticks>; harness mode dock), not in the exe
+void catDockSelfTestSet(char *string);
+bool32 catDockSelfTestRequested(void);
+void catDockSelfTestTick(void);
 
 #endif
-

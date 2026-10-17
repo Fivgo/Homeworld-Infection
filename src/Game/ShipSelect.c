@@ -9,6 +9,7 @@
 #include "ShipSelect.h"
 #include "LevelLoad.h"      // CAT: GetAppropriateShipTypeForRace (cat_shipInitResearchUpgrades)
 
+#include <stdio.h>
 #include <string.h>
 
 #include "Alliance.h"
@@ -32,6 +33,7 @@
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
 #include "SpeechEvent.h"
+#include "StringsOnly.h"
 #include "Tweak.h"
 #include "Universe.h"
 
@@ -537,7 +539,7 @@ sdword MakeShipsAttackCapable(SelectCommand *dest, SelectCommand *source, bool32
         //      (MakeShipsAttackCapable 0x00511b60)
         if ((ship->staticinfo->custshipheader.CustShipAttack != NULL) &&
             (!cat_shipIsSentinelInField(ship)) &&
-            ((!skipDisabled) || (!ship->catDisabled)))
+            ((!skipDisabled) || (!ship->shipOrDerelict.catDisabled)))
         {
             dest->ShipPtr[numShips] = ship;
             numShips++;
@@ -588,7 +590,7 @@ sdword MakeShipsHarvestCapable(SelectCommand *dest, SelectCommand *source, bool3
         if (ShipCanHarvest(ship->staticinfo) &&
             (singlePlayerGame || bitTest(tpGameCreated.flag, MG_HarvestinEnabled)) &&
             ((!workersOnly) ||
-             ((!ship->catDisabled) && ((ship->shiptype == sWorker) || (ship->shiptype == bWorker)))))
+             ((!ship->shipOrDerelict.catDisabled) && ((ship->shiptype == sWorker) || (ship->shiptype == bWorker)))))
         {
             dest->ShipPtr[numShips] = ship;
             numShips++;
@@ -642,7 +644,7 @@ void MakeShipsGuardCapable(SelectCommand *selection, bool32 skipDisabled)
     {
         shipstatic = (ShipStaticInfo *)selection->ShipPtr[i]->staticinfo;
         if ((!ShipCanGuard(shipstatic)) ||
-            (skipDisabled && selection->ShipPtr[i]->catDisabled))      // CAT: MakeShipsGuardCapable 0x00511c70
+            (skipDisabled && selection->ShipPtr[i]->shipOrDerelict.catDisabled))      // CAT: MakeShipsGuardCapable 0x00511c70
         {
             // to remove ShipPtr from list, decrement numShips and put last member
             // of array into slot being deleted.
@@ -866,7 +868,7 @@ void MakeShipsSpecialActivateCapable(SelectCommand *selection, bool32 skipDisabl
         shipstatic = (ShipStaticInfo *)ship->staticinfo;
         // CAT: MakeShipsSpecialActivateCapable 0x00512250 (types 3, 0x11, 0x34 stay when disabled)
         if ((shipstatic->custshipheader.CustShipSpecialActivate == NULL) ||
-            (skipDisabled && ship->catDisabled &&
+            (skipDisabled && ship->shipOrDerelict.catDisabled &&
              (ship->shiptype != sLeech) && (ship->shiptype != sSentinel) && (ship->shiptype != bSentinel)))
         {
             // to remove ShipPtr from list, decrement numShips and put last member
@@ -905,7 +907,7 @@ void MakeShipsSpecialTargetCapable(SelectCommand *selection, bool32 bFriendlies,
     {
         shipstatic = (ShipStaticInfo *)selection->ShipPtr[i]->staticinfo;
         if ((shipstatic->custshipheader.CustShipSpecialTarget == NULL) ||
-            (skipDisabled && selection->ShipPtr[i]->catDisabled))
+            (skipDisabled && selection->ShipPtr[i]->shipOrDerelict.catDisabled))
         {
             // to remove ShipPtr from list, decrement numShips and put last member
             // of array into slot being deleted.
@@ -954,7 +956,7 @@ void MakeShipsMobile(SelectCommand *selection, bool32 skipDisabled)
     {
         shipstatic = (ShipStaticInfo *)selection->ShipPtr[i]->staticinfo;
         if ((shipstatic->common.immobile) ||
-            (skipDisabled && selection->ShipPtr[i]->catDisabled))       // CAT: MakeShipsMobile 0x005126b0
+            (skipDisabled && selection->ShipPtr[i]->shipOrDerelict.catDisabled))       // CAT: MakeShipsMobile 0x005126b0
         {
             // CAT: any mothership-class ship of the current player speaks (MakeShipsMobile 0x005126b0 tests shipclass
             //      0); HW1 tested its mothership type
@@ -991,7 +993,7 @@ void makeShipsFormationCapable(SelectCommand *selection)
     {
         ship = selection->ShipPtr[i];
         // CAT: disabled ships cannot go into formation (makeShipsFormationCapable 0x00512780); HW1 removed Probes
-        if (ship->catDisabled)
+        if (ship->shipOrDerelict.catDisabled)
         {
             // to remove ShipPtr from list, decrement numShips and put last member
             // of array into slot being deleted.
@@ -1227,11 +1229,11 @@ void MakeTargetsOnlyNonForceAttackTargets(SelectAnyCommand *selection,Player *cu
         if ((target->header.objtype == OBJ_ShipType) && (!allianceIsShipAlly(ship, curplayer)) &&
             (ship->shiptype != trJunkYardHQ))
         {
-            if (cat_shipIsCrystal(ship) || bitTest(ship->catShipFlags, CAT_SHIPFLAG_KasDerelict))
+            if (cat_shipIsCrystal(ship) || bitTest(ship->header.catFlags18, CAT_SHIPFLAG_KasDerelict))
             {
                 goto remove;
             }
-            if ((ship->playerowner == universe.curPlayerPtr) || (!bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic)) ||
+            if ((ship->playerowner == universe.curPlayerPtr) || (!bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic)) ||
                 ((!cat_mimicAppearsAlliedTo(ship, universe.curPlayerPtr)) &&
                  (!cat_mimicAppearsAsResource(ship, universe.curPlayerPtr)) &&
                  (!cat_mimicAppearsAsDerelict(ship, universe.curPlayerPtr))))
@@ -1523,45 +1525,7 @@ void MakeShipsFriendlyAndAlliesShips(SelectCommand *selection,struct Player *cur
     ioUpdateShipTotals();       // CAT: MakeShipsFriendlyAndAlliesShips 0x00512ea0
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : makeshipMastersincludeslaves(SelectCommand *selection)
-    Description : Checks the list of selected ships and if it finds a Master in the list,
-                  it adds the slaves aswell.
-    Inputs      : selection
-    Outputs     : none
-    Return      : none
-----------------------------------------------------------------------------*/
-void MakeShipMastersIncludeSlaves(SelectCommand *selection)
-{
-    sdword i,count;
-    Node *slavenode;
-    count = selection->numShips;
-
-    for (i=0;i < count;)
-    {
-        if ((selection->ShipPtr[i])->header.flags & SOF_Slaveable)
-        {   //ship is a most likely a master...
-            if ((selection->ShipPtr[i])->slaveinfo->flags & SF_MASTER)
-            {
-                slavenode = (selection->ShipPtr[i])->slaveinfo->slaves.head;
-                while(slavenode != NULL)
-                {
-                    if(selection->numShips < COMMAND_MAX_SHIPS)
-                    {   //haven't reached maximum  so add slave onto end
-                        selection->ShipPtr[selection->numShips] = (Ship *)listGetStructOfNode(slavenode);
-                        selection->numShips++;
-                    }
-                    else
-                    {   //reached max so break.
-                        break;
-                    }
-                    slavenode = slavenode->next;
-                }
-            }
-        }
-        i++;
-    }
-}
+// CAT (M2-R5 layout): HW1's MakeShipMastersIncludeSlaves is gone with the slave trade (no SlaveInfo in the exe's Ship)
 
 /*-----------------------------------------------------------------------------
     Name        : selectAllCurrentPlayersNonHyperspacingShips
@@ -2124,7 +2088,7 @@ void cat_selMakeShipsScuttleable(SelectCommand *selection, bool32 check)
         ship = selection->ShipPtr[i];
         if (check)
         {
-            if (ship->catDisabled)
+            if (ship->shipOrDerelict.catDisabled)
             {
                 selection->numShips--;
                 selection->ShipPtr[i] = selection->ShipPtr[selection->numShips];
@@ -2208,7 +2172,7 @@ void cat_selMakeShipsHaltable(SelectCommand *selection, bool32 check)
     for (i = 0; i < selection->numShips; )
     {
         ship = selection->ShipPtr[i];
-        if (check && ship->catDisabled && (!ship->catUpgrading))
+        if (check && ship->shipOrDerelict.catDisabled && (!ship->catUpgrading))
         {
             selection->numShips--;
             selection->ShipPtr[i] = selection->ShipPtr[selection->numShips];
@@ -2234,7 +2198,7 @@ void cat_selMakeShipsProtectCapable(SelectCommand *selection, bool32 check)
     {
         ship = selection->ShipPtr[i];
         remove = FALSE;
-        if (check && ship->catDisabled)
+        if (check && ship->shipOrDerelict.catDisabled)
         {
             remove = TRUE;
         }
@@ -2337,7 +2301,7 @@ void cat_selMakeShipsRammingFrigates(SelectCommand *selection, bool32 check)
     {
         ship = selection->ShipPtr[i];
         if (((ship->shiptype == sRammingFrigate) || (ship->shiptype == bRammingFrigate)) &&
-            ((!check) || (!ship->catDisabled)))
+            ((!check) || (!ship->shipOrDerelict.catDisabled)))
         {
             i++;
             continue;
@@ -2450,7 +2414,7 @@ void cat_selMakeShipsNotBusy(SelectCommand *selection)
     for (i = 0; i < selection->numShips; )
     {
         ship = selection->ShipPtr[i];
-        if ((!ship->catDisabled) || (ship->shiptype == sLeech) || (ship->shiptype == sSentinel) ||
+        if ((!ship->shipOrDerelict.catDisabled) || (ship->shiptype == sLeech) || (ship->shiptype == sSentinel) ||
             (ship->shiptype == bSentinel))
         {
             i++;
@@ -2562,7 +2526,7 @@ void cat_selMakeShipsDockCapableFor(SelectCommand *selection, ShipType dockTarge
     for (i = 0; i < selection->numShips; )
     {
         ship = selection->ShipPtr[i];
-        if (((!check) || (!ship->catDisabled)) &&
+        if (((!check) || (!ship->shipOrDerelict.catDisabled)) &&
             cat_shipClassCanUseSlipgate(ship->staticinfo->shipclass, dockTargetType))
         {
             i++;
@@ -2625,7 +2589,7 @@ bool32 cat_shipCanMove(Ship *ship, bool32 check)                    // 0x0051354
     {
         return FALSE;
     }
-    if (check && ship->catDisabled)
+    if (check && ship->shipOrDerelict.catDisabled)
     {
         return FALSE;
     }
@@ -2644,7 +2608,7 @@ bool32 cat_shipCanDock(Ship *ship, bool32 check)                    // 0x0051357
     {
         return FALSE;
     }
-    if (check && ship->catDisabled)
+    if (check && ship->shipOrDerelict.catDisabled)
     {
         return FALSE;
     }
@@ -2653,7 +2617,7 @@ bool32 cat_shipCanDock(Ship *ship, bool32 check)                    // 0x0051357
 
 bool32 cat_shipCanBeHalted(Ship *ship, bool32 check)                // 0x005135c0
 {
-    if (check && ship->catDisabled)
+    if (check && ship->shipOrDerelict.catDisabled)
     {
         return FALSE;
     }
@@ -2662,7 +2626,7 @@ bool32 cat_shipCanBeHalted(Ship *ship, bool32 check)                // 0x005135c
 
 bool32 cat_shipCanSetTactics(Ship *ship, bool32 check)              // 0x005135e0
 {
-    if (check && ship->catDisabled)
+    if (check && ship->shipOrDerelict.catDisabled)
     {
         return FALSE;
     }
@@ -2670,7 +2634,7 @@ bool32 cat_shipCanSetTactics(Ship *ship, bool32 check)              // 0x005135e
     {
         return FALSE;
     }
-    return !bitTest(ship->catShipFlags, CAT_SHIPFLAG_NoTactics);
+    return !bitTest(ship->header.catFlags18, CAT_SHIPFLAG_NoTactics);
 }
 
 bool32 cat_shipCanCollectResources(Ship *ship, bool32 check)        // 0x00513620
@@ -2683,7 +2647,7 @@ bool32 cat_shipCanCollectResources(Ship *ship, bool32 check)        // 0x0051362
     {
         return FALSE;
     }
-    if (check && (ship->catDisabled || ((ship->shiptype != sWorker) && (ship->shiptype != bWorker))))
+    if (check && (ship->shipOrDerelict.catDisabled || ((ship->shiptype != sWorker) && (ship->shiptype != bWorker))))
     {
         return FALSE;
     }
@@ -2696,7 +2660,7 @@ bool32 cat_shipCanLeech(Ship *ship, bool32 checkAttached)           // 0x005136a
     {
         return FALSE;
     }
-    if (checkAttached && ship->catDisabled && (!cat_leechIsLeeching(ship)))
+    if (checkAttached && ship->shipOrDerelict.catDisabled && (!cat_leechIsLeeching(ship)))
     {
         return FALSE;
     }
@@ -2723,8 +2687,6 @@ bool32 cat_shipCanSalvage(Ship *ship)                               // 0x005138f
     return (ship->header.objtype == OBJ_ShipType) && cat_shipHasUpgrade(ship, CAT_UPGRADE_Salvage);
 }
 
-static sdword cat_shipExperienceLevel(Ship *ship);
-
 // CAT (M2-R4 combat): the factor on a ship's top speed (cat_shipGetSpeedMultiplier 0x00514940): its experience
 //      level's speed scale (cat_experienceSpeedScale 0x0072bb8c: 1.0, 1.1, 1.2, 1.3, 1.4), +0.15 with any of the
 //      upgrade bits 0..2, the Beast mothership's and the ramming frigate's bonuses, minus a health penalty (-0.1
@@ -2735,7 +2697,7 @@ static const real32 cat_experienceSpeedScale[5] = { 1.0f, 1.1f, 1.2f, 1.3f, 1.4f
 real32 cat_shipGetSpeedMultiplier(Ship *ship)                       // 0x00514940
 {
     real32 multiplier, healthFraction;
-    sdword experience = cat_shipExperienceLevel(ship);     // Ship+0x5F8 (CAT-PROVISIONAL, M2-R4 #5)
+    sdword experience = ship->catExperienceLevel;          // Ship+0x5F8 (M2-R5 layout-dock)
 
     multiplier = cat_experienceSpeedScale[experience];
     if (ship->catUpgradeFlags & 0x7)
@@ -2797,7 +2759,10 @@ bool32 cat_salvageTargetAllowed(Ship *target)                       // 0x0051392
     Ship.catArmourLevel, each gun's weapon in Gun.catWeaponType. cat_shipUpgradesInit 0x005140a0 and
     cat_shipApplyUpgrades 0x00514490 are ported (M2-R4 combat); the player-side state they read (Player +0x6504 armour
     research, +0x650C, +0x652C upgrade bits: cat_playerUpgradesReset 0x00514100, cat_playerUpdateUpgradesFromResearch
-    0x00514140) is the Player layout's (M2-R4 #5).
+    0x00514140) is the Player's (M2-R4 rest-oracle). The six query helpers the upgrade UI and cat_clUpgradeShips read
+    (cat_shipCanUpgradeArmour 0x00514280, cat_shipGetPendingUpgradeFlags 0x005142b0, cat_shipGetPendingWeaponUpgrades
+    0x005142e0, cat_shipIsUpgradable 0x005143c0, cat_shipTypeUpgradeMask 0x00514480, cat_shipGetUpgradeTime 0x00514540,
+    cat_shipGetUpgradeTechs 0x00514620) are M2-R5 layout-dock's.
 ----------------------------------------------------------------------------*/
 // CAT (M2-R4 combat): weapon against armour, 20 damage (gun sound) types x 3 armour levels (cat_damageVsArmourTable
 //      0x0072b228, read from cataclysm.exe). Column 0 is also the base damage (cat_gunStaticBaseDamage 0x00514600).
@@ -2878,12 +2843,71 @@ static const udword cat_shipTypeUpgradeMasks[TOTAL_NUM_SHIPS] =
 // CAT (M2-R4 combat): damage scale per experience level (cat_experienceDamageScale 0x0072bb78)
 static const real32 cat_experienceDamageScale[5] = { 1.0f, 1.1f, 1.2f, 1.3f, 1.4f };
 
-// CAT-PROVISIONAL (M2-R4 #5): the exe keeps a ship's experience level at Ship+0x5F8 (0..4), which comes with the
-//      Stats/Player layout; every ship is at level 0 until then
-static sdword cat_shipExperienceLevel(Ship *ship)
+// CAT (M2-R5 layout-dock): the experience level (cat_shipUpdateExperienceLevel 0x005147d0). A ship's kills per class
+//      (Ship+0x5C8, ApplyDamageToTarget) are weighted by the victim's class (cat_experienceKillWeights 0x0072bbb4:
+//      20 for a mothership down to 1 for a fighter) and the sum is held against the four thresholds of the ship's
+//      own class (cat_experienceThresholds 0x0072bbe4, 12 classes x 4); every threshold passed is a level (0..4,
+//      Ship+0x5F8). Reaching a level while the ExperienceMessages option is on, outside the tutorial, for the local
+//      player's ship that is not disabled, posts "<type> <strShipLevelUpNotify> <strExperienceLevelN>" (string ids
+//      0x605 and 0x5F5..0x5F8, the exe's cat_experienceLevelStrings 0x0072bba4) and sets the message time
+//      (Ship+0x5FC = realtimeelapsed + 2.0, 0x0072a6c0). Callers: ApplyDamageToTarget (a kill), univCreateShip (the
+//      new ship's level 0), cat_processLinkToDo / cat_processUnlinkToDo (the merged kills; M2-R4 link code), the
+//      console's experienceships command (stage 3).
+static const real32 cat_experienceKillWeights[NUM_CLASSES] =                      // 0x0072bbb4, by the victim's class
+    { 20.0f, 8.0f, 10.0f, 9.0f, 5.0f, 3.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+static const real32 cat_experienceThresholds[NUM_CLASSES][4] =                    // 0x0072bbe4, by the ship's class
 {
-    (void)ship;
-    return 0;
+    { 10.0f, 30.0f, 60.0f, 100.0f },    // CLASS_Mothership
+    { 10.0f, 30.0f, 60.0f, 100.0f },    // CLASS_HeavyCruiser
+    { 10.0f, 30.0f, 60.0f, 100.0f },    // CLASS_Carrier
+    {  5.0f, 10.0f, 20.0f,  40.0f },    // CLASS_Destroyer
+    {  3.0f,  6.0f, 12.0f,  16.0f },    // CLASS_Frigate
+    {  2.0f,  4.0f,  6.0f,   8.0f },    // CLASS_Corvette
+    {  1.0f,  2.0f,  3.0f,   4.0f },    // CLASS_Fighter
+    { 10.0f, 30.0f, 60.0f, 100.0f },    // CLASS_Resource
+    { 10.0f, 30.0f, 60.0f, 100.0f },    // CLASS_NonCombat
+    {  2.0f,  4.0f,  6.0f,   8.0f },    // CLASS_MonsterShip
+    { 10.0f, 30.0f, 60.0f, 100.0f },    // CLASS_Component
+    {  2.0f,  4.0f,  6.0f,   8.0f },    // CLASS_Micro
+};
+// the exe's OP_ExperienceMessages option (0x00a5e248; its resets set 0, the saved options restore it). CAT-TODO(M2-R5
+//      hud): the front end's toggle (feToggleButtonSet OP_ExperienceMessages, Options.c) is stage 3's
+sdword cat_opExperienceMessages = 0;
+
+void cat_shipUpdateExperienceLevel(Ship *ship)                      // 0x005147d0
+{
+    real32 experience = 0.0f;
+    sdword level, shipclass;
+
+    if (ship->catExperienceLevel == 4)
+    {
+        return;
+    }
+    for (shipclass = 0; shipclass < NUM_CLASSES; shipclass++)
+    {
+        experience = (real32)ship->catKillsByClass[shipclass] * cat_experienceKillWeights[shipclass] + experience;
+    }
+    ship->catExperienceLevel = 0;
+    shipclass = ship->staticinfo->shipclass;
+    for (level = 0; level < 4; level++)
+    {
+        if (cat_experienceThresholds[shipclass][level] < experience)
+        {
+            ship->catExperienceLevel = level + 1;
+            if (cat_opExperienceMessages && (tutorial != 1) && (ship->playerowner == universe.curPlayerPtr) &&
+                !ship->shipOrDerelict.catDisabled)
+            {
+                char message[256];
+
+                sprintf(message, "%s %s %s", ShipTypeToNiceStr(ship->shiptype), strGetString(strShipLevelUpNotify),
+                        strGetString(strExperienceLevel1 + level));
+                // CAT-TODO(M2-R5 hud): cat_ioMessageAdd(message, 0xff00ff00, 1, ship) 0x004ac940 (the info overlay's
+                //      message list, stage 3); the message is formatted and timed as the exe does
+                (void)message;
+                ship->catExperienceMessageTime = universe.realtimeelapsed + 2.0f;
+            }
+        }
+    }
 }
 
 // CAT (M2-R4 rest-oracle): the player's upgrade state lives in the Player (Universe.h: +0x6504 armour level cap, +0x6508
@@ -3098,7 +3122,7 @@ real32 cat_gunStaticBaseDamage(GunStatic *gunstatic)                  // 0x00514
 
 real32 cat_shipGetDamageMultiplier(Ship *ship)                      // 0x005148f0
 {
-    real32 multiplier = cat_experienceDamageScale[cat_shipExperienceLevel(ship)];
+    real32 multiplier = cat_experienceDamageScale[ship->catExperienceLevel];     // Ship+0x5F8
 
     if (ship->shiptype == bMothership)
     {
@@ -3167,6 +3191,173 @@ void cat_shipApplyUpgrades(Ship *ship)                              // 0x0051449
 bool32 cat_shipHasUpgrade(Ship *ship, udword flag)                  // 0x00514210
 {
     return (ship->catUpgradeFlags & flag) != 0;
+}
+
+// CAT (M2-R5 layout-dock): the upgrade queries. The armour level (Ship+0x3F0) can rise while it is below both the type's
+//      maximum (cat_shipTypeArmourLevels[type][1], 0x0072b31c) and the player's armour research (Player+0x6504).
+bool32 cat_shipCanUpgradeArmour(Ship *ship)                         // 0x00514280
+{
+    return (ship->catArmourLevel < cat_shipTypeArmourLevels[ship->shiptype][1]) &&
+           (ship->catArmourLevel < ship->playerowner->catArmourLevelCap);
+}
+
+// the upgrade bits the player has researched for the type that the ship does not carry yet (Ship+0x3F4)
+udword cat_shipGetPendingUpgradeFlags(Ship *ship)                   // 0x005142b0
+{
+    udword researched = cat_shipTypeUpgradeMasks[ship->shiptype] & ship->playerowner->catUpgradeBits;
+
+    if (researched != ship->catUpgradeFlags)
+    {
+        return ~ship->catUpgradeFlags & researched;
+    }
+    return 0;
+}
+
+// the weapon types (WEAPON_*) a gun of the ship could change to: out[weapon] = 1 per pending change; TRUE if any.
+// A projectile gun whose static ends at WEAPON_ENERGY turns energy once the player has energy weapons; a gun already of
+// a type the player has (Player+0x6508 + type*4) marks its type for 9 <= type (none exist: the switch's cases 0..8 do
+// nothing, 7 only asks cat_mothershipHasBigGunModule), so in practice only the energy change is reported.
+bool32 cat_shipGetPendingWeaponUpgrades(Ship *ship, bool32 *out)     // 0x005142e0
+{
+    GunInfo *gunInfo = ship->gunInfo;
+    bool32 any = FALSE;
+    sdword i, weapon;
+
+    for (i = 0; i < NUM_WEAPON_TYPES; i++)
+    {
+        out[i] = 0;
+    }
+    if ((gunInfo == NULL) || (gunInfo->numGuns < 1))
+    {
+        return FALSE;
+    }
+    for (i = 0; i < gunInfo->numGuns; i++)
+    {
+        weapon = gunInfo->guns[i].catWeaponType;
+        if ((weapon == WEAPON_PROJECTILE) && (gunInfo->guns[i].gunstatic->endUpgradeLevel == WEAPON_ENERGY) &&
+            (ship->playerowner->catWeaponAvailable[WEAPON_ENERGY] != 0))
+        {
+            out[WEAPON_PROJECTILE] = 1;
+            any = TRUE;
+        }
+        else if (ship->playerowner->catWeaponAvailable[weapon] != 0)
+        {
+            if (weapon == 7)
+            {
+                cat_mothershipHasBigGunModule(ship);        // the exe asks and ignores the answer
+            }
+            else if (weapon > 8)
+            {
+                out[weapon] = 1;                            // unreachable with NUM_WEAPON_TYPES 9; kept as the exe
+                any = TRUE;
+            }
+        }
+    }
+    return any;
+}
+
+// TRUE while the ship is not upgrading and has an armour level, upgrade bit or weapon change to take
+bool32 cat_shipIsUpgradable(Ship *ship)                             // 0x005143c0
+{
+    bool32 weapons[NUM_WEAPON_TYPES];
+
+    if (ship->catUpgrading)
+    {
+        return FALSE;
+    }
+    if (cat_shipCanUpgradeArmour(ship))
+    {
+        return TRUE;
+    }
+    if (cat_shipGetPendingUpgradeFlags(ship) != 0)
+    {
+        return TRUE;
+    }
+    return cat_shipGetPendingWeaponUpgrades(ship, weapons);
+}
+
+udword cat_shipTypeUpgradeMask(ShipType type)                       // 0x00514480
+{
+    return cat_shipTypeUpgradeMasks[type];
+}
+
+// the seconds an upgrade of the ship takes: the armour level the player's research allows (cat_armourUpgradeTimes
+// 0x0072b1f8: 10, 20, 30 by Player+0x6504), the pending weapon changes (cat_weaponUpgradeTimes 0x0072b204: 10 s for
+// WEAPON_PROJECTILE and WEAPON_ENERGY, 0 for the rest) and the pending upgrade bits (cat_upgradeFlagsBaseTime), times
+// the type's UpgradeTimeModifier (ShipStaticInfo+0x1F8)
+real32 cat_shipGetUpgradeTime(Ship *ship)                           // 0x00514540
+{
+    static const real32 cat_armourUpgradeTimes[3] = { 10.0f, 20.0f, 30.0f };                            // 0x0072b1f8
+    static const real32 cat_weaponUpgradeTimes[NUM_WEAPON_TYPES] =                                      // 0x0072b204
+        { 10.0f, 10.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+    bool32 weapons[NUM_WEAPON_TYPES];
+    real32 time = 0.0f;
+    sdword i;
+
+    if (cat_shipCanUpgradeArmour(ship))
+    {
+        time = cat_armourUpgradeTimes[ship->playerowner->catArmourLevelCap];
+    }
+    if (cat_shipGetPendingWeaponUpgrades(ship, weapons))
+    {
+        for (i = 0; i < NUM_WEAPON_TYPES; i++)
+        {
+            if (weapons[i])
+            {
+                time = time + cat_weaponUpgradeTimes[i];
+            }
+        }
+    }
+    return (cat_upgradeFlagsBaseTime(cat_shipGetPendingUpgradeFlags(ship)) + time) * ship->staticinfo->upgradeTimeModifier;
+}
+
+// the technologies the SHIP's upgrade state stands for (cat_rmAcquireShipTechs 0x004f2820 gives them to a Processor's
+// owner, M2-R6 research): the technology of every upgrade bit it carries (cat_upgradeFlagTechTable, bit or extra), of
+// every weapon type one of its guns is on (cat_weaponUpgradeTechTable) and of every armour level up to its own
+// (cat_armourUpgradeTechTable, TECH_NONE skipped). techs is a CatTechSet.
+void cat_shipGetUpgradeTechs(Ship *ship, sdword *techs)             // 0x00514620
+{
+    GunInfo *gunInfo = ship->gunInfo;
+    sdword i, j;
+
+    for (i = 0; i < CAT_TECHSET_SIZE; i++)
+    {
+        techs[i] = 0;
+    }
+    for (i = 0; i < 25; i++)
+    {
+        if (ship->catUpgradeFlags & cat_upgradeFlagTechTable[i].bit)
+        {
+            techs[cat_upgradeFlagTechTable[i].tech] = 1;
+        }
+        if (cat_upgradeFlagTechTable[i].extra & ship->catUpgradeFlags)
+        {
+            techs[cat_upgradeFlagTechTable[i].tech] = 1;
+        }
+    }
+    for (i = 0; i < NUM_WEAPON_TYPES; i++)
+    {
+        if ((gunInfo != NULL) && (gunInfo->numGuns > 0))
+        {
+            for (j = 0; j < gunInfo->numGuns; j++)
+            {
+                if ((gunInfo->guns[j].catWeaponType == i) && (cat_weaponUpgradeTech[i] != TECH_NONE))
+                {
+                    techs[cat_weaponUpgradeTech[i]] = 1;        // the exe writes its "none" slot 41 of the 42-entry set
+                }
+            }
+        }
+    }
+    if (ship->catArmourLevel >= 0)
+    {
+        for (i = 0; i <= ship->catArmourLevel; i++)
+        {
+            if (cat_armourUpgradeTech[i] != TECH_NONE)
+            {
+                techs[cat_armourUpgradeTech[i]] = 1;
+            }
+        }
+    }
 }
 
 real32 cat_upgradeFlagsBaseTime(udword flags)                       // 0x00513f40
@@ -3419,7 +3610,7 @@ bool32 cat_spShipCanHyperspace(Ship *ship)                          // 0x0051765
     {
         can = FALSE;
     }
-    if (ship->catDisabled && (ship->staticinfo->shipclass != CLASS_Component))
+    if (ship->shipOrDerelict.catDisabled && (ship->staticinfo->shipclass != CLASS_Component))
     {
         if (ship->shiptype != dEcclesiam)
         {

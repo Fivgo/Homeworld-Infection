@@ -19,6 +19,7 @@
     src/COPYING.REULA.
 =============================================================================*/
 
+#include "Dock.h"           // CAT: catDockSelfTestTick (the dock self-test, M2-R5 dock)
 #include "OracleDump.h"
 
 #if HWI_ORACLE
@@ -480,6 +481,13 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     }
 
     result = univUpdate(phystimeelapsed);
+
+    // CAT (M2-R5 dock): the scripted dock self-test rides on the mission run: its orders and checks happen here, after
+    //      each universe tick (Dock.c catDockSelfTestTick)
+    if (catDockSelfTestRequested() && (universe.univUpdateCounter != before))
+    {
+        catDockSelfTestTick();
+    }
 
     if ((oracleFileName[0] != '\0' || oracleInSelfTest) && universe.univUpdateCounter != before)
     {

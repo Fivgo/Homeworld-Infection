@@ -85,9 +85,11 @@ vector volFindCenter(Volume *vol)
     switch (vol->type)
     {
         case VOLUME_AA_BOX:
-            returnvec.x = (vol->attribs.aaBox.x0 + vol->attribs.aaBox.x1) / 2;
-            returnvec.y = (vol->attribs.aaBox.y0 + vol->attribs.aaBox.y1) / 2;
-            returnvec.z = (vol->attribs.aaBox.z0 + vol->attribs.aaBox.z0) / 2;
+            // CAT (M2-R5 layout-dock): volFindCenter 0x00551140 halves the sums with 0.5 and uses z0 + z1 (HW1's source
+            //      had z0 + z0)
+            returnvec.x = (vol->attribs.aaBox.x0 + vol->attribs.aaBox.x1) * 0.5f;
+            returnvec.y = (vol->attribs.aaBox.y0 + vol->attribs.aaBox.y1) * 0.5f;
+            returnvec.z = (vol->attribs.aaBox.z0 + vol->attribs.aaBox.z1) * 0.5f;
             return returnvec;
             break;
         case VOLUME_SPHERE:
@@ -115,7 +117,8 @@ real32 volFindRadius(Volume *vol)
     {
         case VOLUME_AA_BOX:
             //divides the average side length by two
-            radius = (((vol->attribs.aaBox.x1 - vol->attribs.aaBox.x0) + (vol->attribs.aaBox.y1 - vol->attribs.aaBox.y0) + (vol->attribs.aaBox.z1 - vol->attribs.aaBox.z0))/3)/2;
+            // CAT (M2-R5 layout-dock): volFindRadius 0x005511e0 multiplies by 1/3 (0x0072a520) and 0.5 (0x0072a4c8)
+            radius = ((vol->attribs.aaBox.x1 - vol->attribs.aaBox.x0) + (vol->attribs.aaBox.y1 - vol->attribs.aaBox.y0) + (vol->attribs.aaBox.z1 - vol->attribs.aaBox.z0)) * (1.0f / 3.0f) * 0.5f;
             break;
         case VOLUME_SPHERE:
             radius = vol->attribs.sphere.radius;

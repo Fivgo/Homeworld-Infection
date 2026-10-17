@@ -271,7 +271,7 @@ real32 cameraMinimumZoom(Camera* camera)
         {
             // CAT: a mimicking ship zooms to the radius of what it mimics (cameraMinimumZoom 0x0042b9a0:
             //      Ship+0x18 bit 3 -> cat_mimicGetCameraRadius 0x005b95c0)
-            if (ship->catShipFlags & CAT_SHIPFLAG_Mimic)
+            if (ship->header.catFlags18 & CAT_SHIPFLAG_Mimic)
             {
                 if (cat_mimicGetCameraRadius(ship) > dist)
                 {

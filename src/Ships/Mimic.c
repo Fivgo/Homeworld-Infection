@@ -46,7 +46,7 @@ static const ShipType mimicDisguiseBeastCorvette[6] = { 0x26, 0x31, 0x29, 0x2a, 
 
 static bool32 mimicIsMimic(Ship *ship)
 {
-    return (ship->header.objtype == OBJ_ShipType) && bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic);
+    return (ship->header.objtype == OBJ_ShipType) && bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic);
 }
 
 // a short random delay: (0 - e^(rand * 9.3e-8 * -0.005)) + now, always at most now (the exe's x87 exp: f2xm1/fscale)
@@ -100,7 +100,7 @@ void MimicInit(Ship *ship)                                                      
     MimicSpec *spec = (MimicSpec *)ship->ShipSpecifics;
 
     GenericInterceptorInit(ship);
-    bitSet(ship->catShipFlags, CAT_SHIPFLAG_Mimic);
+    bitSet(ship->header.catFlags18, CAT_SHIPFLAG_Mimic);
     spec->mode = MIMIC_Off;
     spec->fade = 0.0f;
     spec->apparentBindings = NULL;
@@ -964,7 +964,7 @@ real32 cat_shipGetRamDamageScale(Ship *ship)                                    
 
 bool32 cat_shipIsMimicking(Ship *ship)                                                      // 0x005b99b0
 {
-    if (bitTest(ship->catShipFlags, CAT_SHIPFLAG_Mimic))
+    if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic))
     {
         return (((MimicSpec *)ship->ShipSpecifics)->mode != MIMIC_Off);
     }

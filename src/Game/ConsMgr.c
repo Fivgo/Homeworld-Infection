@@ -4564,10 +4564,11 @@ void LoadConsMgrDetermOptional(void)
 ----------------------------------------------------------------------------*/
 bool32 cat_cmHasSupportUnits(ShipType type, Player *player)
 {
-    // CAT-PROVISIONAL (M2-R4 #5): the exe answers TRUE for any computer player in single player and for a type that
+    // CAT-PROVISIONAL (M2-R6 ConsMgr): the exe answers TRUE for any computer player in single player and for a type that
     //      costs no support units (ShipStaticInfo +0x410), else compares the player's support-unit cap and use
     //      (Player +0x0C/+0x10) with the type's cost plus that of the ships in production (ConsMgr's job list).
-    //      Those Player fields come with the Cataclysm Player layout (M2-R4 #5); until then every ship is affordable.
+    //      Those Player fields are in the Player since M2-R4 rest-oracle; the support-unit bookkeeping (cat_suShipAdded /
+    //      cat_suShipRemoved, ConsMgr's job list) is M2-R6 ConsMgr's; until then every ship is affordable.
     (void)type;
     (void)player;
     return TRUE;

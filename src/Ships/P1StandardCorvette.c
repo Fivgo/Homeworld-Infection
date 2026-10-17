@@ -41,7 +41,7 @@ void P1StandardCorvetteInit(Ship *ship)
 
     // CAT: P1StandardCorvetteInit 0x005be660: side-step state, the mimic flag and mimic fields, the salvager
     attackSideStepInit(&spec->attacksidestep);
-    bitSet(ship->catShipFlags, CAT_SHIPFLAG_Mimic);
+    bitSet(ship->header.catFlags18, CAT_SHIPFLAG_Mimic);
     spec->mimic.mode = MIMIC_Off;
     spec->mimic.fade = 0.0f;
     spec->mimic.apparentBindings = NULL;
