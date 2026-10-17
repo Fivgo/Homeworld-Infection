@@ -353,3 +353,20 @@ Untracked and not for git: `build/oracle-tools/` (scratch helpers `dec.py`, `pe.
    `WINEDEBUG=+seh` and keeps the Wine log under `original/oracle/`.
 3. The single-player save written during that session (`SavedGames/SinglePlayer/01`, 1.1 MB) is a valid mission
    save for the save-format work.
+
+## 2026-10-17: second live session (skirmish) and the first replay verification
+
+- The user played a 10-minute skirmish. The DLL's record gate (added after the campaign crash) wrongly refused it:
+  a Cataclysm skirmish is a local game with `multiPlayerGame == 0`. The gate now refuses only `singlePlayerGame != 0`.
+  The game's own in-game record path still wrote a valid skirmish recording, `SavedGames\RecordedGames\sto`
+  (sp=0, 2 players, 80 ship chunks, Mission17 background), covering the last ~30 s of the session (the user's words).
+- **Rungs 1-3 met on `sto`:** two `mode=play:sto;clock=virtual;rng0=split` replays (plain window; the Wine virtual
+  desktop dies with an X11 BadWindow when launched from a script) produced streams of 215 T / 107 P / 4 E records
+  each; `univ`, `stat`, ship positions/velocities/rotations/health and all list hashes are identical to the last
+  tick; the only differing field is `rng_all` from tick 10451 (presentation-side random streams, expected and
+  excluded from GOG-vs-hwi comparison). The game's own sync check against the recording's packets reported
+  `rand 0 univ 0` errors and 78 `blob` errors from frame 10499 in BOTH replays identically: the simulation replays
+  in sync with the live session; the blob counter is a known quirk to examine (collision-blob checksum), not a
+  replay defect.
+- `tools/oracle/record_reference.sh verify` now replays in a plain window and warns when a replay writes no stream.
+- Still needed for the reference: one full 10-minute skirmish recorded through the Record shortcut (now accepted).
