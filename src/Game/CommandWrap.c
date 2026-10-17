@@ -276,8 +276,8 @@ void clWrapDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockTyp
         if (ship->dockvars.dockship != NULL)
         {
             // CAT: the exe's speech by purpose (0x00452ed6): the fleet's retire line for 7, the ship's slipgate line for 10,
-            //      its dock line otherwise, all through speechEventQueue. CAT-TODO(M2-R5 sound): the event ids 0x400106a,
-            //      0x4000801 and 0x4000803 are passed as the exe does; the speech table that resolves them is stage 3's
+            //      its dock line otherwise, all through speechEventQueue with the exe's ids 0x400106a, 0x4000801 and
+            //      0x4000803 (Cataclysm's speech ids: SpeechEvent.h, M2-R5 sound)
             if (dockType == CAT_DOCK_RETIRE)
             {
                 speechEventQueue(NULL, 0x400106a, -1, -1, 0, ship->playerowner->playerIndex, -1, 5.0f, -1);

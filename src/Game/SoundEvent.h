@@ -39,7 +39,8 @@
 
 #define SOUND_EVENT_DEFAULT			-1
 
-#define SOUND_FRONTEND_TRACK		AMB12_FrontEnd
+// CAT: Cataclysm's front-end track is 0x11 (soundEventRestart 0x0051caf0, the utyLoad* functions: musicEventPlay(0x11))
+#define SOUND_FRONTEND_TRACK		0x11
 
 #define SPEECH_HYPERSPACE_DELAY		2.5f
 
@@ -116,10 +117,31 @@ sdword speechEventStop(sdword handle, real32 fadetime, bool32 addstatic);
 sdword speechEventStopAllSpecific(real32 fadetime, sdword speechType);
 #define speechEventStopAll(ft)		speechEventStopAllSpecific(ft, SPEECH_TYPE_SINGLE_PLAYER)
 sdword speechEventActorStop(udword actorMask, real32 fadetime);
-#define speechEventFleetIntelStop(ft)       speechEventActorStop(SPEECH_ACTOR_FLEET_INTELLIGENCE, (ft))
-#define speechEventFleetCommandStop(ft)     speechEventActorStop(SPEECH_ACTOR_FLEET_COMMAND, (ft))
-#define ACTOR_ALL_ACTORS    (SPEECH_ACTOR_FLEET_COMMAND | SPEECH_ACTOR_FLEET_INTELLIGENCE | SPEECH_ACTOR_TRADERS | SPEECH_ACTOR_P2_KADESHI | SPEECH_ACTOR_ALL_ENEMY_SHIPS | SPEECH_ACTOR_AMBASSADOR)
+// CAT: the stops take Cataclysm's actor bits (tutHideText 0x00530ef0: 0x1000; smSensorsSkip / kasfSubtitleReset
+//      0x004976f0: all actors, 0x3ff800)
+#define speechEventFleetIntelStop(ft)       speechEventActorStop(CAT_SPEECH_ACTOR_FLEET_INTEL, (ft))
+#define speechEventFleetCommandStop(ft)     speechEventActorStop(CAT_SPEECH_ACTOR_FLEET_COMMAND, (ft))
+#define ACTOR_ALL_ACTORS    CAT_SPEECH_ACTOR_MASK
 sdword speechEventCleanup(void);
+
+// CAT: Cataclysm's speech extras (SpeechEvent.c): the stealth-ship alerts, the player-name Easter eggs, the letterbox
+void cat_speechAlertsReset(void);                                   // 0x00522ba0
+void cat_speechAlertsNoteShip(Ship *ship, sdword playerIndex);      // 0x00522bc0
+void cat_speechAlertsUpdate(void);                                  // 0x00522ce0
+void cat_speechEasterEggCheck(void);                                // 0x00522dc0
+void cat_soundEventLetterboxVolume(bool32 on);                      // 0x00521770
+extern bool32 catSoundLetterbox;
+// CAT: Cataclysm's sound events (SoundEvent.c)
+struct CatBlast;
+void cat_soundEventBlast(struct CatBlast *blast);                   // 0x0051fc60
+void cat_soundEventAsteroidBreak(SpaceObj *asteroid);               // 0x005215d0
+void cat_soundLevelReset(void);                                     // 0x0051c980
+void cat_madAnimSoundTableInit(void);                               // 0x004b64c0
+sdword cat_madAnimSoundEvent(ShipType shiptype, sdword anim);       // the table's reader (madAnimationUpdate 0x004b6ce0)
+// CAT: port diagnostic, not in the exe: the sound self-test (/catSoundTest, harness mode sound; SpeechEvent.c)
+extern bool32 catSoundSelfTest;
+void catSoundRunSelfTest(void);
+extern bool32 catSpeechPrinceOfSpace;
 
 
 /* Redbook audio functions */

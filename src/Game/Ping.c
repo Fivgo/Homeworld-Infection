@@ -938,6 +938,7 @@ void pingAttackPingsCreate(blob *superBlob)
             battlePing->friendlyValueRecentlyLost =
             battlePing->enemyFirepowerRecentlyLost =
             battlePing->enemyValueRecentlyLost = 0.0f;
+        battlePing->catLastEvaluated = 0.0f;                // CAT: battleping +0x28 (pingAttackPingsCreate 0x004e9350)
         battlePing->nShips = thisBlob->blobObjects->numSpaceObjs;
         memcpy(battlePing->ship, thisBlob->blobObjects->SpaceObjPtr, battlePing->nShips * sizeof(SpaceObj *));
 

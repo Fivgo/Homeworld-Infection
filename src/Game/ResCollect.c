@@ -481,7 +481,7 @@ void BreakAsteroidUp(Asteroid *asteroid)
 
     dbgAssertOrIgnore(asteroid->header.objtype == OBJ_AsteroidType);
 
-    // CAT-TODO(stage 3): cat_soundEventAsteroidBreak 0x005215d0 (the break sound)
+    cat_soundEventAsteroidBreak((SpaceObj *)asteroid);    // CAT: the break sound (BreakAsteroidUp 0x004f1580 calls 0x005215d0)
     for (i = 0; i < asteroidstatic->numBreakPieces; i++)
     {
         piece = &asteroidstatic->breakPieces[i];

@@ -52,6 +52,8 @@
 #define UI_RadioBeepEnd					(33 + UI_Flag)
 
 #define NUM_UI_EVENTS					(UI_RadioBeepEnd - UI_Flag + 1)
+// CAT: the UI ambients are events 0x100..0x107 (soundEventPlay 0x005209f0; HW1 up to UI_Trading)
+#define CAT_UI_LAST_AMBIENT				(7 + UI_Flag)
 
 /* Gun Events */
 #define Gun_WeaponMove					(0 + Gun_Flag)

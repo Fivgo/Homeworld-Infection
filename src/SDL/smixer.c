@@ -39,8 +39,11 @@
 void isoundmixerthreadSDL(void *dummy);
 void isoundmixerqueueSDL();
 sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2);
-sdword isoundmixerdecodeEffect(sbyte *readptr, real32 *writeptr1, real32 *writeptr2, ubyte *exponent, sdword size, uword bitrate, EFFECT *effect);
-#define isoundmixerdecode(a, b, c, d, e, f)		isoundmixerdecodeEffect(a, b, c, d, e, f, NULL);
+// CAT: one decoder without the effect argument: the exe's mixer no longer generates q-noise or runs the tone, break,
+//      noise, limit, filter, delay or acoustic-model effects on a speech stream (isoundmixerprocess 0x0057f850 inlines
+//      the decode as memset/memcpy/fqDequantBlock and calls none of fqGenQNoiseE, fqAddToneE, fqAddBreakE,
+//      fqAddNoiseE, fqLimitE, fqFilterE, fqDelay, fqAcModel)
+sdword isoundmixerdecode(sbyte *readptr, real32 *writeptr1, real32 *writeptr2, ubyte *exponent, sdword size, uword bitrate);
 
 /* variables */
 struct fake_wavehdr {
@@ -50,6 +53,11 @@ struct fake_wavehdr {
 } WaveHead[WO_NUM_BUFFER_BLOCKS];
 
 udword mixerticks = 0;
+
+// CAT: port diagnostic, not in the exe: blocks decoded per stream and output blocks with sound, read by the sound
+//      self-test (/catSoundTest, SpeechEvent.c catSoundRunSelfTest)
+volatile udword catSoundDecodedBlocks[SOUND_MAX_STREAM_BUFFERS];
+volatile udword catSoundAudibleBlocks = 0;
 udword panicdur = 0L;
 udword framecount = 0L;
 
@@ -240,7 +248,6 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 	CHANNEL	*pchan;
 	STREAM *pstream;
 	STREAMQUEUE *pqueue;
-	real32 scaleLevel;
 	sdword chan;
 
 	////////////////////////
@@ -359,8 +366,6 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 		{
 			if(speechchannels[i].status >= SOUND_PLAYING)
 			{
-				scaleLevel = 1.0f;
-
 				pstream = &streams[i];
 				pchan = &speechchannels[i];
 				pqueue = &pstream->queue[pstream->playindex];
@@ -382,10 +387,11 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 					pstream->blockstatus[pstream->readblock] = 2;
 				}
 	
-				amountread = isoundmixerdecodeEffect(pchan->currentpos, pchan->mixbuffer1, pchan->mixbuffer2, pchan->exponentblockL,
-								pchan->fqsize, pchan->bitrate, pqueue->effect);
+				amountread = isoundmixerdecode(pchan->currentpos, pchan->mixbuffer1, pchan->mixbuffer2, pchan->exponentblockL,
+								pchan->fqsize, pchan->bitrate);
 				pchan->currentpos += amountread;
 				pchan->amountread += amountread;
+				catSoundDecodedBlocks[i]++;                     // CAT: port diagnostic (sound self-test)
 				
 				/* figure out any volume fades, pan fades, etc */
 				if (pchan->volticksleft)
@@ -401,12 +407,13 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 						pchan->voltarget = -1;
 					}
 	
-					if ((sword)pchan->volume > SOUND_VOL_MAX)
+					// CAT: the clamp rounds with Relic's rint (fChopT 0x00c16840 in isoundmixerprocess 0x0057f850)
+					if (fqRint(pchan->volume) > SOUND_VOL_MAX)
 					{
 						pchan->volume = SOUND_VOL_MAX;
 					}
 	
-					if ((sword)pchan->volume < SOUND_VOL_MIN)
+					if (fqRint(pchan->volume) < SOUND_VOL_MIN)
 					{
 						pchan->volume = SOUND_VOL_MIN;
 					}
@@ -455,7 +462,7 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 						fqMix(pchan->mixbuffer2,channels[chan].mixbuffer2, 1.0f);	//channels[chan].volfactorL);
 					}
 	
-					/* do the EQ and Delay or Acoustic Model stuff */
+					/* do the EQ */
 					if (pqueue->eq != NULL)
 					{
 						if (pqueue->eq->flags && STREAM_FLAGS_EQ)
@@ -465,54 +472,12 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 							fqEqualize(pchan->mixbuffer2, pqueue->eq->eq);
 						}
 					}
-		
-					if (pqueue->effect != NULL)
-					{
-						// Add tone
-						fqAddToneE(pchan->mixbuffer1, pqueue->effect);
-						fqAddToneE(pchan->mixbuffer2, pqueue->effect);
-				
-						// Generate break
-						fqAddBreakE(pchan->mixbuffer1, pqueue->effect);
-						fqAddBreakE(pchan->mixbuffer2, pqueue->effect);
-						
-						// Add noise
-						fqAddNoiseE(pchan->mixbuffer1, pqueue->effect);
-						fqAddNoiseE(pchan->mixbuffer2, pqueue->effect);
-					
-						// Limit
-						fqLimitE(pchan->mixbuffer1, pqueue->effect);
-						fqLimitE(pchan->mixbuffer2, pqueue->effect);
-	
-						// Filter
-						fqFilterE(pchan->mixbuffer1, pqueue->effect);
-						fqFilterE(pchan->mixbuffer2, pqueue->effect);
-	
-						scaleLevel = pqueue->effect->fScaleLev;
-					}
-		
-					if (pqueue->delay != NULL)
-					{
-						if (pqueue->delay->flags & STREAM_FLAGS_ACMODEL)
-						{
-							fqAcModel(pchan->mixbuffer1, pqueue->delay->eq, pqueue->delay->duration,
-									  pstream->delaybuffer1, DELAY_BUF_SIZE, &(pstream->delaypos1));
-							fqAcModel(pchan->mixbuffer2, pqueue->delay->eq, pqueue->delay->duration,
-									  pstream->delaybuffer2, DELAY_BUF_SIZE, &(pstream->delaypos2));
-						}
-						else if (pqueue->delay->flags & STREAM_FLAGS_DELAY)
-						{
-							fqDelay(pchan->mixbuffer1, pqueue->delay->level, pqueue->delay->duration,
-									  pstream->delaybuffer1, DELAY_BUF_SIZE, &(pstream->delaypos1));
-							fqDelay(pchan->mixbuffer2, pqueue->delay->level, pqueue->delay->duration,
-									  pstream->delaybuffer2, DELAY_BUF_SIZE, &(pstream->delaypos2));
-						}
-					}
+					// CAT: no effect or delay stage and no effect scale level (isoundmixerprocess 0x0057f850)
 				}
 	
 				/* add it to mix buffer */
-				fqMix(mixbuffer1L,pchan->mixbuffer1,pchan->volfactorL * scaleLevel);
-				fqMix(mixbuffer2L,pchan->mixbuffer2,pchan->volfactorL * scaleLevel);
+				fqMix(mixbuffer1L,pchan->mixbuffer1,pchan->volfactorL);
+				fqMix(mixbuffer2L,pchan->mixbuffer2,pchan->volfactorL);
 
 				/* if this is stereo, do the right channel */
 				if (pchan->numchannels == SOUND_STEREO)
@@ -522,41 +487,13 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 					pchan->currentpos += amountread;
 					pchan->amountread += amountread;
 
-					/*****************************************************/
-					/* Shane - The code below never gets called! - Janik */
-					/*****************************************************/
-/*
-					if (pqueue->effect != NULL)
-					{
-						// Add tone
-						fqAddToneE(pchan->mixbuffer1R, pqueue->effect);
-						fqAddToneE(pchan->mixbuffer2R, pqueue->effect);
-				
-						// Generate break
-						fqAddBreakE(pchan->mixbuffer1R, pqueue->effect);
-						fqAddBreakE(pchan->mixbuffer2R, pqueue->effect);
-						
-						// Add noise
-						fqAddNoiseE(pchan->mixbuffer1R, pqueue->effect);
-						fqAddNoiseE(pchan->mixbuffer2R, pqueue->effect);
-
-						// Limit
-						fqLimitE(pchan->mixbuffer1R, pqueue->effect);
-						fqLimitE(pchan->mixbuffer2R, pqueue->effect);
-
-						// Filter
-						fqFilterE(pchan->mixbuffer1R, pqueue->effect);
-						fqFilterE(pchan->mixbuffer2R, pqueue->effect);
-					}
-*/
-
-					fqMix(mixbuffer1R,pchan->mixbuffer1R,pchan->volfactorR * scaleLevel);
-					fqMix(mixbuffer2R,pchan->mixbuffer2R,pchan->volfactorR * scaleLevel);
+					fqMix(mixbuffer1R,pchan->mixbuffer1R,pchan->volfactorR);
+					fqMix(mixbuffer2R,pchan->mixbuffer2R,pchan->volfactorR);
 				}
 				else
 				{
-					fqMix(mixbuffer1R,pchan->mixbuffer1,pchan->volfactorR * scaleLevel);
-					fqMix(mixbuffer2R,pchan->mixbuffer2,pchan->volfactorR * scaleLevel);
+					fqMix(mixbuffer1R,pchan->mixbuffer1,pchan->volfactorR);
+					fqMix(mixbuffer2R,pchan->mixbuffer2,pchan->volfactorR);
 				}
 	
 				/* this is a clock for the fequency filtering/effects */
@@ -622,6 +559,13 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 		{
 			pchan = &channels[i];
 
+			// CAT: a playing channel without a patch is released (isoundmixerprocess 0x0057f850)
+			if (pchan->ppatch == NULL)
+			{
+				SNDreleasebuffer(pchan);
+				continue;
+			}
+
 			if (!pchan->looping)
 			{
 				if (pchan->currentpos >= (sbyte *)pchan->ppatch->datasize)
@@ -670,17 +614,18 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 					pchan->voltarget = -1;
 				}
 
-				if ((sword)pchan->volume > SOUND_VOL_MAX)
+				// CAT: the clamp and the stop test round with Relic's rint (isoundmixerprocess 0x0057f850)
+				if (fqRint(pchan->volume) > SOUND_VOL_MAX)
 				{
 					pchan->volume = SOUND_VOL_MAX;
 				}
 
-				if ((sword)pchan->volume < SOUND_VOL_MIN)
+				if (fqRint(pchan->volume) < SOUND_VOL_MIN)
 				{
 					pchan->volume = SOUND_VOL_MIN;
 				}
 
-				if ((pchan->status == SOUND_STOPPING) && ((sword)pchan->volume == SOUND_VOL_MIN))
+				if ((pchan->status == SOUND_STOPPING) && (fqRint(pchan->volume) == SOUND_VOL_MIN))
 				{
 					SNDreleasebuffer(pchan);
 					continue;
@@ -779,6 +724,19 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 
 	mixerticks++;
 
+	// CAT: port diagnostic (sound self-test): did this block put sound into the output buffer?
+	if (pBuf1 != NULL)
+	{
+		for (i = 0; i < (sdword)nSize1; i++)                // nSize1 counts shorts (fqWriteTBlock)
+		{
+			if (((short *)pBuf1)[i] != 0)
+			{
+				catSoundAudibleBlocks++;
+				break;
+			}
+		}
+	}
+
 #endif // _MAOSX_FIX_ME
 
 	return (SOUND_OK);
@@ -792,7 +750,7 @@ sdword isoundmixerprocess(void *pBuf1, udword nSize1, void *pBuf2, udword nSize2
 	Outputs		:
 	Return		:
 ----------------------------------------------------------------------------*/
-sdword isoundmixerdecodeEffect(sbyte *readptr, real32 *writeptr1, real32 *writeptr2, ubyte *exponent, sdword size, uword bitrate, EFFECT *effect)
+sdword isoundmixerdecode(sbyte *readptr, real32 *writeptr1, real32 *writeptr2, ubyte *exponent, sdword size, uword bitrate)
 {
 #ifdef _MACOSX_FIX_SOUND
     return 0;
@@ -805,11 +763,6 @@ sdword isoundmixerdecodeEffect(sbyte *readptr, real32 *writeptr1, real32 *writep
 	// Check size
 	if(size > dctsize) size=dctsize;
 	
-	if (effect != NULL)
-	{
-		fqGenQNoiseE((char *)tempblock, bitrate, effect);
-	}
-
 	fqDequantBlock((char *)tempblock, writeptr1, writeptr2, exponent,
 					FQ_LEN, bitrate, size);
 

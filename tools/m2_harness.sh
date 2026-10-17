@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -46,6 +46,11 @@
 #                    option goes on, the NIS light source is shown ahead of the camera and a fog line is set; at the end
 #                    "rendertest: counts" lines (objects, sorted objects, trails, lens flares, fog layers, ...) and
 #                    "rendertest: done ... result=PASS|FAIL"; quits after <frames> ticks (one tick a frame)
+#                    sound: /catSoundTest (M2-R5 sound, docs/m2-r5-sound.md): after the start-up, one stream of each audio
+#                    bank (a Music4Cat.wxd track, a SectSpeech.vce and a BeastSpeech.vce sentence) is queued and decoded
+#                    by the mixer through the fq codec into the audio device, which this script forces to SDL's dummy
+#                    driver (nothing is audible); then the 88 battle-chatter events are looked up in both races' tables;
+#                    "soundtest:" log lines, "soundtest: done ... result=PASS|FAIL"; quits (about 30 s on the wall clock)
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
 #   --mission-ticks N mission mode: universe ticks to run (default 3000)
 #   --dock-ticks N   dock mode: universe ticks to run (default 5000; about 30 s under ASan on the virtual clock)
@@ -141,6 +146,7 @@ grep -q -a "/logFileLoads" "$bin" || args=(/window /nodebugInt /settingspath "$o
 [[ "$mode" == sp ]] && args+=(/debugScreenshots)
 [[ "$mode" == statics ]] && args+=(/catShipStaticsTest)
 [[ "$mode" == textures ]] && args+=(/catTexturesTest)
+[[ "$mode" == sound ]] && args+=(/catSoundTest)
 if [[ "$mode" == oracle ]]; then
 	args+=(/oracleSelfTest "$oticks" /oracleDump "$out/run.hwo")
 	[[ -n "$perturb" ]] && args+=(/oracleSelfTestPerturb "$perturb")
@@ -235,15 +241,17 @@ grep -q "etgtest: effect self-test done" "$L" && milestone="etg effect self-test
 grep -q "docktest: done" "$L" && milestone="dock self-test done"
 grep -q "commandtest: done" "$L" && milestone="command self-test done"
 grep -q "rendertest: done" "$L" && milestone="render self-test done"
+grep -q "soundtest: done" "$L" && milestone="sound self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
-# first one is reported separately, except the misaligned-access reports on the packed sound-bank and front-end
-# structs that every run prints (GoK 64-bit artefacts, docs/m2-r1-data-deltas.md 5.4)
+# first one is reported separately, except the misaligned-access reports on the packed front-end structs that every
+# run prints (GoK 64-bit artefacts, docs/m2-r1-data-deltas.md 5.4; the sound-bank 'struct PATCH' ones are fixed since
+# M2-R5 sound and count again)
 # [M2-R3 etg-particles: an ASan report can land in the ubsan.* log (UBSan's log_path wins when both sanitizers write,
 # the same as the LeakSanitizer report below); the stop and the ASan count read both logs]
 stop=$(grep -h -E "Fatal error|Fatal Error|ERROR: AddressSanitizer|AddressSanitizer:DEADLYSIGNAL|Unable to open file|SUMMARY: AddressSanitizer: [a-z-]+ |Assertion of" "$L" "$out"/asan.* "$out"/ubsan.* 2>/dev/null | grep -v "SUMMARY: AddressSanitizer: .* leaked" | head -n 1)
 ubsan1=$(grep -h "runtime error" "$L" "$out"/ubsan.* 2>/dev/null \
-	| grep -v -E "misaligned address .* type '(struct PATCH|struct fescreen|struct featom|struct fibfileheader)'" | head -n 1)
+	| grep -v -E "misaligned address .* type '(struct fescreen|struct featom|struct fibfileheader)'" | head -n 1)
 if [[ -z "$stop" ]]; then
 	if [[ $rc -eq 124 || $rc -eq 137 ]]; then stop="none: still running at the ${tmo}s timeout"; else stop="none found in the log (rc=$rc)"; fi
 fi
@@ -269,6 +277,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == dock ]] && echo "docktest: $(grep -h 'docktest: orders\|docktest: clDock\|docktest: A inside\|docktest: done' "$L" | sed 's/^.*docktest: //' | paste -sd';'); FAIL lines: $(grep -c 'docktest: FAIL' "$L")"
 	[[ "$mode" == command ]] && echo "commandtest: $(grep -h 'commandtest: link ordered\|commandtest: point ordered\|commandtest: link done\|commandtest: unlink done\|commandtest: done' "$L" | sed 's/^.*commandtest: //' | paste -sd';'); FAIL lines: $(grep -c 'commandtest: FAIL' "$L")"
 	[[ "$mode" == render ]] && echo "rendertest: $(grep -h 'rendertest: counts\|rendertest: done' "$L" | sed 's/^.*rendertest: //' | paste -sd';')"
+	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"
 	echo "engine glows:$(grep -c -i 'engineglows' "$out/FileLoads.log" 2>/dev/null) mesh/mex loads from misc\\EngineGlows in FileLoads.log"
 	echo "UBSan report kinds (count, site):"; echo "$ubsan_kinds"

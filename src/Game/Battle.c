@@ -19,6 +19,8 @@
 #include "SoundEvent.h"
 #include "StatScript.h"
 #include "Universe.h"
+#include "SinglePlayer.h"      // CAT: singlePlayerGameInfo (mission 13 has no battle assessment)
+extern real32 nearestShipDistance;  // CAT: SoundEvent.c (battleShipDyingWithTimeToScream)
 
 /*=============================================================================
     Data:
@@ -560,9 +562,14 @@ real32 batBogeyAspect           =   BAT_BogeyAspect;
 real32 batRetreatModifier       =   BAT_RetreatModifier;
 
 //global parameter for controlling how much chatter there is
-udword batGlobalFrequencyModifier = BAT_GlobalFrequencyModifier;
-real32 batGlobalFrequencyMin     = BAT_GlobalFrequencyMin;  //min/max in log base 2 space
-real32 batGlobalFrequencyMax     = BAT_GlobalFrequencyMax;
+// CAT: a float scale of the weights (.data 0x0075074c = 128.0 until the options or the script set it); no
+//      batGlobalFrequencyMin / Max (the exe's script table has neither)
+real32 batGlobalFrequencyModifier = (real32)BAT_GlobalFrequencyModifier;
+
+// CAT: the last status event said and when (battleChatterFleetAttempt 0x00423a50: .data 0x008df9f4 and 0x00750750,
+//      -30.0 at start and after cat_battleChatterReset)
+static battleevent *catBatLastStatusEvent = NULL;
+static real32 catBatLastStatusTime = -30.0f;
 
 //battle chatter tuning pointer
 #if BATTLE_TUNING
@@ -609,8 +616,6 @@ scriptEntry battleTweaks[] =
     makeEntry(batBSNLosing      , scriptSetReal32CB),
     makeEntry(batBogeyAspect    , scriptSetReal32CB),
     makeEntry(batRetreatModifier, scriptSetReal32CB),
-    makeEntry(batGlobalFrequencyMin, scriptSetReal32CB),
-    makeEntry(batGlobalFrequencyMax, scriptSetReal32CB),
     
     END_SCRIPT_ENTRY
 };
@@ -653,6 +658,9 @@ foundName:
 
 /*-----------------------------------------------------------------------------
     Script-parsing callback functions
+    CAT: the exe stores the raw values (batRandomWeightSetCB 0x004232c0: (double)(float)value, no PNG_TaskPeriod
+         scaling) and the two distances squared (batMaxDistanceSetCB 0x00423330, batMinRepeatProximitySetCB
+         0x00423500: value * value in float)
 -----------------------------------------------------------------------------*/
 void batRandomWeightSetCB(char *directory,char *field,void *dataToFillIn)
 {
@@ -660,8 +668,7 @@ void batRandomWeightSetCB(char *directory,char *field,void *dataToFillIn)
     double value;
 
     chat = battleChatterEventFromName(field, &value);
-    dbgAssertOrIgnore(value >= 0.0f);
-    chat->randomWeight = (udword)(value * (real32)BAT_RandomTotal / (real32)PNG_TaskPeriod);
+    chat->randomWeight = (double)(real32)value;
 }
 void batMaxDistanceSetCB(char *directory,char *field,void *dataToFillIn)
 {
@@ -669,8 +676,7 @@ void batMaxDistanceSetCB(char *directory,char *field,void *dataToFillIn)
     double value;
 
     chat = battleChatterEventFromName(field, &value);
-    dbgAssertOrIgnore(value > 0.0f);
-    chat->maxDistance = (double)value;
+    chat->maxDistance = (double)((real32)value * (real32)value);
 }
 void batDistanceExponentSetCB(char *directory,char *field,void *dataToFillIn)
 {
@@ -705,8 +711,7 @@ void batMinRepeatProximitySetCB(char *directory,char *field,void *dataToFillIn)
     double value;
 
     chat = battleChatterEventFromName(field, &value);
-    dbgAssertOrIgnore(value > 0.0f);
-    chat->minRepeatProximity = (double)value;
+    chat->minRepeatProximity = (double)((real32)value * (real32)value);
 }
 void batRepeatProximityExponentSetCB(char *directory,char *field,void *dataToFillIn)
 {
@@ -749,7 +754,7 @@ void batGlobalFrequencyModifierSet(char *directory,char *field,void *dataToFillI
 
     nScanned = sscanf(field, "%f", &value);
     dbgAssertOrIgnore(nScanned == 1);
-    batGlobalFrequencyModifier = (udword)(value * BIT8);
+    batGlobalFrequencyModifier = value;         // CAT: the raw float (batGlobalFrequencyModifierSet 0x00423710)
 }
 
 /*-----------------------------------------------------------------------------
@@ -773,6 +778,23 @@ void battleChatterStartup(void)
 ----------------------------------------------------------------------------*/
 void battleChatterShutdown(void)
 {
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_battleChatterReset
+    Description : CAT: a new level forgets when each event was last said and the last status event
+                  (cat_battleChatterReset 0x00423760, from cat_soundLevelReset)
+----------------------------------------------------------------------------*/
+void cat_battleChatterReset(void)
+{
+    sdword index;
+
+    catBatLastStatusTime = -30.0f;
+    catBatLastStatusEvent = NULL;
+    for (index = 0; index < BCE_LastBCE; index++)
+    {
+        battleChatterEvent[index].lastTimeSpoken = 0.0f;
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -800,6 +822,10 @@ void battleSpeechText(sdword eventNum, char **texts)
 /*-----------------------------------------------------------------------------
     Name        : battleChatterAttempt
     Description : Attempt to make a given chatter event chat
+                  CAT: the exe's test (battleChatterAttempt 0x00423790): one random draw against the raw weight
+                  times the frequency scale, the ship's squared camera distance against the squared maxDistance
+                  (HW1's distance curve and its second draw are gone); only the local player's ships speak; the
+                  capital-ship death line 0x100080c is queued without the ship.
     Inputs      : linkTo - handle of the previously queued event that this one is to follow
                   event - event to attempt to speak
                   ship - ship that'll do the speaking
@@ -808,73 +834,105 @@ void battleSpeechText(sdword eventNum, char **texts)
 ----------------------------------------------------------------------------*/
 sdword battleChatterAttempt(sdword linkTo, sdword event, Ship *ship, sdword variable)
 {
-    vector dist;
-    double distance, result;
     battleevent *chat;
-    udword randomWeight;
+    real32 weight;
 
     dbgAssertOrIgnore(event >= 0 && event < BCE_LastBCE);
     chat = &battleChatterEvent[event];
-//	if (variable == SOUND_EVENT_DEFAULT)
-//		variable = 0;
 #if BATTLE_TUNING
     if (batChatterToTune != NULL && batChatterToTune != chat)
     {                                                       //if we're tuning only chatter event
         return(ERROR);                                      //no jouez-vous
     }
 #endif
-    randomWeight = chat->randomWeight * batGlobalFrequencyModifier / BIT8;
-    if (batRandom() < randomWeight)
-    {                                                       //if it passes random weight test
-        vecSub(dist, mrCamera->eyeposition, ship->obj.posinfo.position);
-        distance = (double)vecMagnitudeSquared(dist);       //get length of vector
-        distance = fmathSqrtDouble(distance);
-        if (distance < chat->maxDistance)
-        {                                                   //if it's not too far away from camera to hear
-            result = 1.0 - distance / chat->maxDistance;
-            dbgAssertOrIgnore(result >= 0.0f && result <= 1.0f);
-            if (chat->expDistance != 1.0)
-            {
-                result = pow(result, chat->expDistance);    //compute point on probability curve
-            }
-            if ((double)batRandom() < result * (double)BAT_RandomTotal)
-            {                                               //if passes camera proximity test
-#if BATTLE_TEXT
-                if(chat->texts != NULL)
-                {
-                    battleSpeechText(chat->eventNumber, chat->texts);
-                }
-#endif
-                chat->lastTimeSpoken = universe.totaltimeelapsed;
-                chat->lastPlaceSpoken = ship->obj.posinfo.position;
-                return(speechEventQueue(ship, chat->eventNumber,
-                    variable, SOUND_EVENT_DEFAULT, SOUND_EVENT_DEFAULT,
-                    universe.curPlayerIndex, linkTo,
-                    (real32)SOUND_EVENT_DEFAULT, SOUND_EVENT_DEFAULT));
-                return(ERROR);
-                //... actual speech event
-            }
-#if BATTLE_VERBOSE_LEVEL >= 2
-            else
-            {
-                dbgMessagef("...Event %d above distance curve.", chat->eventNumber);
-            }
-#endif
-        }
-#if BATTLE_VERBOSE_LEVEL >= 2
-        else
-        {
-            dbgMessagef("...Event %d too far away.", chat->eventNumber);
-        }
-#endif
+    if (universe.curPlayerIndex != ship->playerowner->playerIndex)
+    {
+        return(ERROR);
     }
-#if BATTLE_VERBOSE_LEVEL >= 2
+    weight = batGlobalFrequencyModifier * (real32)chat->randomWeight;
+    if (((real32)batRandom() < weight * (real32)BAT_RandomTotal) &&
+        (ship->obj.cameraDistanceSquared < (real32)chat->maxDistance))
+    {                                                       //if it passes random weight and distance tests
+#if BATTLE_TEXT
+        if(chat->texts != NULL)
+        {
+            battleSpeechText(chat->eventNumber, chat->texts);
+        }
+#endif
+        chat->lastTimeSpoken = universe.totaltimeelapsed;
+        chat->lastPlaceSpoken = ship->obj.posinfo.position;
+        if (chat->eventNumber == 0x100080c)
+        {
+            return(speechEventQueue(NULL, chat->eventNumber,
+                variable, SOUND_EVENT_DEFAULT, SOUND_EVENT_DEFAULT,
+                universe.curPlayerIndex, linkTo,
+                (real32)SOUND_EVENT_DEFAULT, SOUND_EVENT_DEFAULT));
+        }
+        return(speechEventQueue(ship, chat->eventNumber,
+            variable, SOUND_EVENT_DEFAULT, SOUND_EVENT_DEFAULT,
+            universe.curPlayerIndex, linkTo,
+            (real32)SOUND_EVENT_DEFAULT, SOUND_EVENT_DEFAULT));
+    }
+    return(ERROR);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : battleRepeatOK
+    Description : CAT: the wavelength and proximity tests of battleCanChatterAtThisTime 0x004238b0 and
+                  battleChatterFleetAttempt 0x00423a50. With the proximity squared, the exe compares the squared
+                  distance with it and takes squared distance / proximity as the curve's input (HW1: distance /
+                  proximity).
+    Inputs      : chat - the event; where - where it would be said (NULL: no proximity test);
+                  bothInWavelength - TRUE: the proximity test only runs inside the wavelength (battleCanChatter...)
+    Return      : TRUE if it may be said
+----------------------------------------------------------------------------*/
+static bool32 battleRepeatOK(battleevent *chat, vector *where, bool32 bothInWavelength)
+{
+    real32 timeSinceLastSpoken;
+    double result, distanceSq;
+
+    timeSinceLastSpoken = universe.totaltimeelapsed - chat->lastTimeSpoken;
+    if (timeSinceLastSpoken > (real32)chat->minWavelength)
+    {                                                       //if it hasn't been spoken in a coon's age
+        if (bothInWavelength)
+        {
+            return(TRUE);
+        }
+    }
     else
     {
-        dbgMessagef("...Event %d failed randomWeight check.", chat->eventNumber);
+        result = (double)(timeSinceLastSpoken / (real32)chat->minWavelength);
+        if (chat->expWavelength != 1.0)
+        {                                                   //find proper spot on probability curve
+            result = pow(result, chat->expWavelength);
+        }
+        if (result * (double)BAT_RandomTotal <= (double)batRandom())
+        {
+            return(FALSE);
+        }
     }
-#endif
-    return(ERROR);
+    if ((chat->minRepeatProximity > 0.0) && (where != NULL))
+    {                                                       //if we should consider location of last time this event was spoken
+        // [audit: the exe subtracts on the x87 stack (flds, fsubs) and squares and sums there, storing only the double
+        //  sum (fstl; battleCanChatterAtThisTime 0x00423969..0x004239af, battleChatterFleetAttempt 0x00423b54..): the
+        //  differences are not rounded to float first]
+        distanceSq = ((double)where->x - (double)chat->lastPlaceSpoken.x) * ((double)where->x - (double)chat->lastPlaceSpoken.x) +
+                     ((double)where->y - (double)chat->lastPlaceSpoken.y) * ((double)where->y - (double)chat->lastPlaceSpoken.y) +
+                     ((double)where->z - (double)chat->lastPlaceSpoken.z) * ((double)where->z - (double)chat->lastPlaceSpoken.z);
+        if (distanceSq < chat->minRepeatProximity)
+        {
+            result = distanceSq / fmathSqrtDouble(chat->minRepeatProximity);
+            if (chat->expRepeatProximity != 1.0)
+            {
+                result = pow(result, chat->expRepeatProximity);
+            }
+            if (result * (double)BAT_RandomTotal <= (double)batRandom())
+            {
+                return(FALSE);
+            }
+        }
+    }
+    return(TRUE);
 }
 
 /*-----------------------------------------------------------------------------
@@ -890,8 +948,6 @@ sdword battleChatterAttempt(sdword linkTo, sdword event, Ship *ship, sdword vari
 bool32 battleCanChatterAtThisTime(sdword event, Ship *ship)
 {
     battleevent *chat;
-    double timeSinceLastSpoken, result, distance;
-    vector diff;
 
     dbgAssertOrIgnore(event >= 0 && event < BCE_LastBCE);
     chat = &battleChatterEvent[event];
@@ -901,58 +957,15 @@ bool32 battleCanChatterAtThisTime(sdword event, Ship *ship)
         return(ERROR);                                      //no jouez-vous
     }
 #endif
-    timeSinceLastSpoken = (double)(universe.totaltimeelapsed - chat->lastTimeSpoken);
-
-    dbgAssertOrIgnore(chat->minWavelength > 0.0);
-    if (timeSinceLastSpoken > chat->minWavelength)
-    {                                                       //if it hasn't been spoken in a coon's age
-        return(TRUE);
-    }
-    result = timeSinceLastSpoken / chat->minWavelength;
-    if (chat->expWavelength != 1.0f)
-    {                                                       //find proper spot on probability curve
-        result = pow(result, chat->expWavelength);
-    }
-    if ((double)batRandom() >= result * (double)BAT_RandomTotal)
-    {
-#if BATTLE_VERBOSE_LEVEL >= 2
-        dbgMessagef("...Event %d above wavelength curve.", chat->eventNumber);
-#endif
-        return(FALSE);
-    }
-    if (chat->minRepeatProximity > 0.0f)
-    {                                                       //if we should consider location of last time this event was spoken
-        if (ship != NULL)
-        {
-            vecSub(diff, ship->obj.posinfo.position, chat->lastPlaceSpoken);
-        }
-        else
-        {
-            vecSub(diff, mrCamera->eyeposition, chat->lastPlaceSpoken);
-        }
-        distance = fmathSqrtDouble((double)vecMagnitudeSquared(diff));
-        if (distance < chat->minRepeatProximity)
-        {
-            result = distance / chat->minRepeatProximity;
-            if (chat->expRepeatProximity != 1.0f)
-            {
-                result = pow(result, chat->expRepeatProximity);
-            }
-            if ((double)batRandom() >= result * (double)BAT_RandomTotal)
-            {
-#if BATTLE_VERBOSE_LEVEL >= 2
-                dbgMessagef("...Event %d above proximity curve.", chat->eventNumber);
-#endif
-                return(FALSE);
-            }
-        }
-    }
-    return(TRUE);
+    return(battleRepeatOK(chat, (ship != NULL) ? &ship->obj.posinfo.position : &mrCamera->eyeposition, TRUE));
 }
 
 /*-----------------------------------------------------------------------------
     Name        : battleChatterFleetAttempt
     Description : Tries to play a fleet command battle chatter event.
+                  CAT: the exe's version (battleChatterFleetAttempt 0x00423a50): status events are spaced (30 s
+                  after any status event, 60 s after the same one), the weight test is the raw weight times the
+                  frequency scale, and a status-suppressed event is not said in single player.
     Inputs      : linkTo - what speech event to link to, or SOUND_EVENT_DEFAULT
                   event - what event to play
                   variable - variable for speech event or SOUND_EVENT_DEFAULT
@@ -967,10 +980,7 @@ bool32 battleCanChatterAtThisTime(sdword event, Ship *ship)
 sdword battleChatterFleetAttempt(sdword linkTo, sdword event, sdword variable, vector *where)
 {
     battleevent *chat;
-    double timeSinceLastSpoken, result;
-    udword randomWeight;
-    vector diff;
-    real32 distance;
+    real32 weight, wait;
 
     dbgAssertOrIgnore(event >= 0 && event < BCE_LastBCE);
     chat = &battleChatterEvent[event];
@@ -980,49 +990,22 @@ sdword battleChatterFleetAttempt(sdword linkTo, sdword event, sdword variable, v
         return(ERROR);                                      //no jouez-vous
     }
 #endif
-    timeSinceLastSpoken = (double)(universe.totaltimeelapsed - chat->lastTimeSpoken);
-
-    dbgAssertOrIgnore(chat->minWavelength > 0.0);
-    if (timeSinceLastSpoken > chat->minWavelength)
-    {                                                       //if it hasn't been spoken in a coon's age
-        goto readyToPlay;
-    }
-    result = timeSinceLastSpoken / chat->minWavelength;
-    if (chat->expWavelength != 1.0f)
-    {                                                       //find proper spot on probability curve
-        result = pow(result, chat->expWavelength);
-    }
-    if ((double)batRandom() >= result * (double)BAT_RandomTotal)
+    if (chat->statusUpdate)
     {
-#if BATTLE_VERBOSE_LEVEL >= 2
-        dbgMessagef("...Event %d above wavelength curve.", chat->eventNumber);
-#endif
-        return(ERROR);
-    }
-readyToPlay:
-    if (chat->minRepeatProximity > 0.0f && where != NULL)
-    {                                                       //if we should consider location of last time this event was spoken
-        vecSub(diff, *where, chat->lastPlaceSpoken);
-        distance = fmathSqrtDouble((double)vecMagnitudeSquared(diff));
-        if (distance < chat->minRepeatProximity)
+        wait = (chat == catBatLastStatusEvent) ? 60.0f : 30.0f;
+        if (universe.totaltimeelapsed < catBatLastStatusTime + wait)
         {
-            result = distance / chat->minRepeatProximity;
-            if (chat->expRepeatProximity != 1.0f)
-            {
-                result = pow(result, chat->expRepeatProximity);
-            }
-            if ((double)batRandom() >= result * (double)BAT_RandomTotal)
-            {
-#if BATTLE_VERBOSE_LEVEL >= 2
-                dbgMessagef("...Event %d above proximity curve.", chat->eventNumber);
-#endif
-                return(ERROR);
-            }
+            return(ERROR);
         }
     }
 
-    randomWeight = chat->randomWeight * batGlobalFrequencyModifier / BIT8;
-    if (batRandom() < randomWeight)
+    if (!battleRepeatOK(chat, where, FALSE))
+    {
+        return(ERROR);
+    }
+
+    weight = batGlobalFrequencyModifier * (real32)chat->randomWeight;
+    if ((real32)batRandom() < weight * (real32)BAT_RandomTotal)
     {                                                       //if it passes random weight test
 #if BATTLE_TEXT
         if(chat->texts != NULL)
@@ -1035,20 +1018,20 @@ readyToPlay:
             chat->lastPlaceSpoken = *where;
         }
         chat->lastTimeSpoken = universe.totaltimeelapsed;
-        return(speechEventQueue(NULL, chat->eventNumber,
-            variable, SOUND_EVENT_DEFAULT, SOUND_EVENT_DEFAULT,
-            universe.curPlayerIndex, linkTo,
-            (real32)SOUND_EVENT_DEFAULT, SOUND_EVENT_DEFAULT));
-        return(ERROR);
+        if (chat->statusUpdate)
+        {
+            catBatLastStatusTime = universe.totaltimeelapsed;
+            catBatLastStatusEvent = chat;
+        }
+        if (!singlePlayerGame || !chat->statusSuppress)
+        {
+            return(speechEventQueue(NULL, chat->eventNumber,
+                variable, SOUND_EVENT_DEFAULT, SOUND_EVENT_DEFAULT,
+                universe.curPlayerIndex, linkTo,
+                (real32)SOUND_EVENT_DEFAULT, SOUND_EVENT_DEFAULT));
+        }
     }
-#if BATTLE_VERBOSE_LEVEL >= 2
-    else
-    {
-        dbgMessagef("...Event %d failed randomWeight check.", chat->eventNumber);
-    }
-#endif
     return(ERROR);
-
 }
 
 /*-----------------------------------------------------------------------------
@@ -1216,6 +1199,9 @@ void battlePingEvaluateNoFriendlies(void *voidPing, battleping *battlePing)
     Description : Same as regular evaluation, except there are no enemies.
                     We've probably just won a battle, or maybe it's friendly
                     or allied fire.
+                  CAT: the exe's version (battlePingEvaluateNoEnemies 0x00423f80): no mothership-class ship
+                  talks; friendly and allied fire are reported by the fleet (by group number when the ship has
+                  one); the victory line is the fleet's (BCE_BattleWon), then the group's; none in mission 13.
     Inputs      : thisPing - the ping who's evaluation function we are being
                     called from.
                   battlePing - the battle ping we are evaluating
@@ -1227,6 +1213,7 @@ void battlePingEvaluateNoEnemies(void *voidPing, battleping *battlePing)
     Ship *mouthPiece = NULL;
     sdword handle;
     sdword index;
+    sdword group;
     Ship *ship;
     bool32 bFriendlyFire = FALSE;
 
@@ -1236,25 +1223,23 @@ void battlePingEvaluateNoEnemies(void *voidPing, battleping *battlePing)
         ship = battlePing->ship[index];
         dbgAssertOrIgnore(ship->header.objtype == OBJ_ShipType);
         dbgAssertOrIgnore(ship->playerowner != NULL);
-        if (ship->shiptype == Mothership)
+        if (ship->staticinfo->shipclass == CLASS_Mothership)
         {                                                   //don't even have the mothership talking
             continue;
         }
-        if (/*ship->shiprace > R2 || */ship->playerowner == universe.curPlayerPtr)
+        if (ship->playerowner == universe.curPlayerPtr)
         {                                                   //if this is a friendly ship (thus we can hear it speak)
             //Are my guys someone shooting at me?
             if (bitTest(ship->chatterBits, BCB_FriendlyFire))
             {
-                if (selHotKeyGroupNumberTest(ship))
+                group = selHotKeyGroupNumberTest(ship);
+                if (group != 0)
                 {
-                    battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_GroupFriendlyFire, selHotKeyGroupNumberTest(ship), NULL);
+                    battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_GroupFriendlyFire, group, NULL);
                 }
                 else
                 {
-                    if (battleCanChatterAtThisTime(BCE_FriendlyFire, ship))
-                    {
-                        battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_FriendlyFire, ship, SOUND_EVENT_DEFAULT);
-                    }
+                    battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_FriendlyFire, SOUND_EVENT_DEFAULT, NULL);
                 }
                 bitClear(ship->chatterBits, BCB_FriendlyFire);
                 bFriendlyFire = TRUE;
@@ -1262,12 +1247,10 @@ void battlePingEvaluateNoEnemies(void *voidPing, battleping *battlePing)
             //Are my allies someone shooting at me?
             if (bitTest(ship->chatterBits, BCB_AlliedFire))
             {
-                if (selHotKeyGroupNumberTest(ship))
+                group = selHotKeyGroupNumberTest(ship);
+                if (group != 0)
                 {                                           //if allies are attacking a selected group
-                    if (battleCanChatterAtThisTime(BCE_GroupAttackFromAlly, ship))
-                    {
-                        battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_GroupAttackFromAlly, ship, selHotKeyGroupNumberTest(ship));
-                    }
+                    battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_GroupAttackFromAlly, group, NULL);
                 }
                 else
                 {                                           //not a group number; report from fleet command
@@ -1279,23 +1262,14 @@ void battlePingEvaluateNoEnemies(void *voidPing, battleping *battlePing)
         }
     }
     //if there was no friendly fire, it must mean we've just won a battle
-    if (!bFriendlyFire && battlePing->enemyValueRecentlyLost)
+    if ((!singlePlayerGame || (singlePlayerGameInfo.currentMission != 13)) &&
+        !bFriendlyFire && (battlePing->enemyValueRecentlyLost != 0.0f))
     {
         mouthPiece = battleMouthPieceFind(battlePing->ship, battlePing->nShips);
-        if (battleCanChatterAtThisTime(BCE_BattleWon, mouthPiece))
-        {
-            handle = ERROR;
-            if (mouthPiece != NULL)
-            {
-                if (battleCanChatterAtThisTime(BCE_BattleWon, mouthPiece))
-                {
-                    handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_BattleWon, mouthPiece, SOUND_EVENT_DEFAULT);
-                }
-                if (handle == ERROR && selHotKeyGroupNumberTest(mouthPiece))
-                {                                               //if could not play the ship's victory dance
-                    battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_GroupVictory, selHotKeyGroupNumberTest(mouthPiece), &mouthPiece->obj.posinfo.position);
-                }
-            }
+        handle = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_BattleWon, SOUND_EVENT_DEFAULT, NULL);
+        if ((handle == ERROR) && (mouthPiece != NULL) && (selHotKeyGroupNumberTest(mouthPiece) != 0))
+        {                                               //if could not play the fleet's victory line
+            battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_GroupVictory, selHotKeyGroupNumberTest(mouthPiece), &mouthPiece->obj.posinfo.position);
         }
     }
 }
@@ -1304,6 +1278,12 @@ void battlePingEvaluateNoEnemies(void *voidPing, battleping *battlePing)
     Name        : battlePingEvaluate
     Description : Called from the corresponding ping's evaluation function,
                     evaluate the battle ping and maybe make it say something.
+                  CAT: the exe's version (battlePingEvaluate 0x00424110): at most every 8 s per ping and only with
+                  a non-exempt ship of the local player in it; the battle assessments are the fleet's lines
+                  (BCE_StartBattle*, BCE_KickingButt, BCE_WinningBattle, BCE_NeutralBattle, BCE_LosingBattle /
+                  Badly, BCE_NegativeBattle) with the ships' answers; the responses carry the speaker's type; a
+                  retreating ship is marked (catRetreating) and the retreat is the fleet's; the damaged-capital line
+                  is the fleet's, or the "PrinceOfSpace" Easter-egg line; the loss-dependent weights are fixed.
     Inputs      : thisPing - the ping who's evaluation function we are being
                     called from.
                   battlePing - the battle ping we are evaluating
@@ -1316,18 +1296,35 @@ void battlePingEvaluate(void *voidPing, battleping *battlePing)
     Ship *ship;
     real32 enemyPower = 0.0f, friendlyPower = 0.0f;
     real32 enemyValue = 0.0f, friendlyValue = 0.0f;
-    real32 enemyStanding, friendlyStanding, battleStanding;
-    real32 timeSinceLoss, lossPower, lossValue;
-    Ship *mouthPiece = NULL, *mothership;
-    sdword handle;
+    real32 enemyStanding, battleStanding, weight;
+    Ship *mouthPiece = NULL, *mothership, *other;
+    sdword handle, tries;
     CommandToDo *command;
-    //SelectCommand *ships;
     vector diff;
-    udword chances, saveChance[4];
+    double saveChance[4];
+    bool32 bHeard = FALSE;
 
-#if BATTLE_VERBOSE_LEVEL >= 3
-    dbgMessagef("Evaluating ping 0x%x", battlePing);
-#endif
+    if (universe.totaltimeelapsed < battlePing->catLastEvaluated + 8.0f)
+    {
+        return;
+    }
+    battlePing->catLastEvaluated = universe.totaltimeelapsed;
+
+    //is one of the local player's (non-exempt) ships in this battle?
+    for (index = 0; index < battlePing->nShips; index++)
+    {
+        ship = battlePing->ship[index];
+        if ((ship->playerowner == universe.curPlayerPtr) && !bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))
+        {
+            bHeard = TRUE;
+            break;
+        }
+    }
+    if (!bHeard)
+    {
+        return;
+    }
+
     //do a per-ship scan for some events
     for (index = 0; index < battlePing->nShips; index++)
     {
@@ -1338,79 +1335,51 @@ void battlePingEvaluate(void *voidPing, battleping *battlePing)
         {
             continue;   // dead ships shouldn't interfere
         }
-        if (ship->shiptype == Mothership)
+        if (ship->staticinfo->shipclass == CLASS_Mothership)
         {                                                   //don't even have the mothership talking
             continue;
         }
-        if (/*ship->shiprace > R2 || */ship->playerowner == universe.curPlayerPtr)
+        if (ship->playerowner == universe.curPlayerPtr)
         {                                                   //if this is a friendly ship (thus we can hear it speak)
             //count up the power and cost of your ships
             friendlyPower += gunShipFirePower(ship->staticinfo);
-//            friendlyValue += (real32)ship->staticinfo->buildCost * ship->targetable.health / ship->staticinfo->health.maxhealth;
             friendlyValue += (real32)ship->staticinfo->buildCost;
 
-            // do some high-g grunting if flight maneuvers are going on
-//            if (ship->flightman > FLIGHTMAN_DONOTHING)      //!!! is this the proper flightman check?
-//            {
-//                battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_ManeuverGrunts, ship, SOUND_EVENT_DEFAULT);
-//            }
-#if BATTLE_VERBOSE_LEVEL >= 2
-//            else
-//            {
-//                dbgMessagef("...No flightman");
-//            }
-#endif
             //leaders may make snaps at their wingmen
-            if (ship->tacticstype == Evasive)
-            {                                               //if in evasive tactics
-                if (ship->attackvars.myWingmanIs != NULL)
-                {                                           //if ship has a wingman
-                    if (battleCanChatterAtThisTime(BCE_Wingman, ship))
-                    {
-                        battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_Wingman, ship, SOUND_EVENT_DEFAULT);
-                    }
-                }
+            if ((ship->tacticstype == Evasive) && (ship->attackvars.myWingmanIs != NULL) &&
+                battleCanChatterAtThisTime(BCE_Wingman, ship))
+            {
+                battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_Wingman, ship, SOUND_EVENT_DEFAULT);
             }
             //wingman (or another party in the battle) may tell this ship that they have a tail
-            if (ship->recentlyFiredUpon)
-            {                                               //if someone has been attacking
-                dbgAssertOrIgnore(ship->firingAtUs != NULL);
-                if (battleShipOnMyTail(ship, ship->firingAtUs))
-                {
-                    handle = ERROR;
-                    if (ship->tacticstype == Evasive && ship->attackvars.myWingmanIs != NULL)
-                    {                                       //the wingman should say it if possible
-                        mouthPiece = ship->attackvars.myWingmanIs;
-                        if (mouthPiece != NULL && battleCanChatterAtThisTime(BCE_LeaderChased, mouthPiece))
-                        {
-                            handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_LeaderChased, mouthPiece, SOUND_EVENT_DEFAULT);
-                        }
-                    }
-                    else
-                    {                                       //otherwise anybody else could say it
-                        mouthPiece = battleMouthPieceFindAnother(ship, battlePing->ship, battlePing->nShips);
-                        if (mouthPiece != NULL && battleCanChatterAtThisTime(BCE_WingmanChased, mouthPiece))
-                        {                                       //if there is someone to say there is a bogey
-                            handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_WingmanChased, mouthPiece, SOUND_EVENT_DEFAULT);
-                        }
-                    }
-                    if (handle != ERROR)
+            if (ship->recentlyFiredUpon && battleShipOnMyTail(ship, ship->firingAtUs))
+            {
+                handle = ERROR;
+                if (ship->tacticstype == Evasive && ship->attackvars.myWingmanIs != NULL)
+                {                                       //the wingman should say it if possible
+                    mouthPiece = ship->attackvars.myWingmanIs;
+                    if (battleCanChatterAtThisTime(BCE_LeaderChased, mouthPiece))
                     {
-                        if (battleCanChatterAtThisTime(BCE_WingmanChasedRsp, ship))
-                        {
-                            battleChatterAttempt(handle, BCE_WingmanChasedRsp, ship, SOUND_EVENT_DEFAULT);
-                        }
+                        handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_LeaderChased, mouthPiece, SOUND_EVENT_DEFAULT);
                     }
+                }
+                else
+                {                                       //otherwise anybody else could say it
+                    mouthPiece = battleMouthPieceFindAnother(ship, battlePing->ship, battlePing->nShips);
+                    if (mouthPiece != NULL && battleCanChatterAtThisTime(BCE_WingmanChased, mouthPiece))
+                    {                                       //if there is someone to say there is a bogey
+                        handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_WingmanChased, mouthPiece, SOUND_EVENT_DEFAULT);
+                    }
+                }
+                if ((handle != ERROR) && battleCanChatterAtThisTime(BCE_WingmanChasedRsp, ship))
+                {
+                    battleChatterAttempt(handle, BCE_WingmanChasedRsp, ship, ship->shiptype);
                 }
             }
             //say that a ship is recently hit, someone may respond
-            if (ship->recentlyAttacked > BAT_ReallyRecentAttack)
+            if ((ship->recentlyAttacked > BAT_ReallyRecentAttack) && battleCanChatterAtThisTime(BCE_WingmanHit, ship))
             {                                               //if attacked quite recently
-                handle = ERROR;
-                if (battleCanChatterAtThisTime(BCE_WingmanHit, ship))
-                {
-                    handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_WingmanHit, ship, SOUND_EVENT_DEFAULT);
-                }
+                handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_WingmanHit, ship, SOUND_EVENT_DEFAULT);
                 if (handle != ERROR)
                 {
                     if (ship->tacticstype == Evasive && ship->attackvars.myWingmanIs != NULL)
@@ -1423,7 +1392,7 @@ void battlePingEvaluate(void *voidPing, battleping *battlePing)
                     }
                     if (mouthPiece != NULL && battleCanChatterAtThisTime(BCE_WingmanHitRsp, mouthPiece))
                     {
-                        battleChatterAttempt(handle, BCE_WingmanHitRsp, mouthPiece, SOUND_EVENT_DEFAULT);
+                        battleChatterAttempt(handle, BCE_WingmanHitRsp, mouthPiece, mouthPiece->shiptype);
                     }
                 }
             }
@@ -1432,186 +1401,127 @@ void battlePingEvaluate(void *voidPing, battleping *battlePing)
             {
                 if (battleCanChatterAtThisTime(BCE_WingmanDies, ship))
                 {
-                    battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_WingmanDies, ship, SOUND_EVENT_DEFAULT);
+                    battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_WingmanDies, ship, ship->shiptype);
                 }
                 bitClear(ship->chatterBits, BCB_WingmanLost);
             }
             //am I really hurtin'?
             if (bitTest(ship->chatterBits, BCB_DamageInTheRed))
             {
-                handle = ERROR;
-                if (bitTest(battleClassDependencies[ship->staticinfo->shipclass], BCD_Damaged))
-                {                                           //if this class is allowed to complain about damage
-                    if (battleCanChatterAtThisTime(BCE_CapitalShipDamaged, ship))
+                if (bitTest(battleClassDependencies[ship->staticinfo->shipclass], BCD_Damaged) &&
+                    !bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20) &&
+                    (!battleCanChatterAtThisTime(BCE_CapitalShipDamaged, ship) ||
+                     (battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CapitalShipDamaged, ship, ship->shiptype) == ERROR)) &&
+                    battleCanChatterAtThisTime(BCE_CapitalDamagedSpecific, ship))
+                {                                           //the ship could not say it: the fleet reports it
+                    if (!catSpeechPrinceOfSpace)
                     {
-                        handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CapitalShipDamaged, ship, ship->staticinfo->shipclass);
+                        battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_CapitalDamagedSpecific, ship->shiptype, &ship->obj.posinfo.position);
                     }
-                    if (handle == ERROR && battleCanChatterAtThisTime(BCE_CapitalDamagedSpecific, ship))
-                    {
-                        handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CapitalDamagedSpecific, ship, ship->shiptype);
+                    else
+                    {                                       // CAT: the "PrinceOfSpace" Easter egg (cat_speechEasterEggCheck)
+                        speechEventQueue(NULL, 0x200135e, -1, -1, 0, -1, -1, 5.0f, -1);
                     }
                 }
                 bitClear(ship->chatterBits, BCB_DamageInTheRed);
             }
             //see if we're leaving the battle area
             command = ship->command;                        //get the ship's command
-            if (command != NULL)
+            if ((command != NULL) && (command->ordertype.order == COMMAND_MOVE))
             {
-                switch (command->ordertype.order)
-                {
-                    case COMMAND_MOVE:
-                        //... see if he's moving out of the ping
-                        // CAT: the current point of the move path (battlePingEvaluate 0x00428b70 reads +0x20 + 12 x curPoint)
-                        vecSub(diff, thisPing->centre, command->move.points[command->move.curPoint]);
-                        if (fsqrt(vecMagnitudeSquared(diff)) > battlePing->radius * batRetreatModifier)
-                        {                                   //if this ship is moving out of the ping
-                            if (battleCanChatterAtThisTime(BCE_Retreat, ship))
-                            {                               //if we can speak of retreat
-                                handle = ERROR;
-                                if (battleCanChatterAtThisTime(BCE_Retreat, ship))
-                                {
-                                    handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_Retreat, ship, SOUND_EVENT_DEFAULT);
-                                }
-                                if (handle != ERROR)
-                                {
-                                    mouthPiece = battleMouthPieceFindAnother(ship, battlePing->ship, battlePing->nShips);
-                                    if (mouthPiece != NULL)
-                                    {
-                                        battleChatterAttempt(handle, BCE_RetreatRsp, mouthPiece, SOUND_EVENT_DEFAULT);
-                                    }
-                                }
-                            }
-                        }
-                        break;
-/*
-                    case COMMAND_DOCK:
-                        //... see if the dock ship is far enough away
-                        break;
-*/
+                //... see if he's moving out of the ping
+                // CAT: the current point of the move path (+0x20 + 12 x curPoint)
+                vecSub(diff, thisPing->centre, command->move.points[command->move.curPoint]);
+                if (fmathSqrtDouble((double)vecMagnitudeSquared(diff)) > (double)batRetreatModifier * (double)battlePing->radius)
+                {                                   //if this ship is moving out of the ping
+                    ship->shipOrDerelict.catRetreating = TRUE;
+                    handle = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_Retreat, SOUND_EVENT_DEFAULT, NULL);
+                    if (handle != ERROR)
+                    {
+                        battleChatterFleetAttempt(handle, BCE_RetreatRsp, SOUND_EVENT_DEFAULT, NULL);
+                    }
                 }
             }
-            //... other allied-ships tests
         }
         else
         {                                                   //not a player ship
             if (allianceIsShipAlly(ship, universe.curPlayerPtr))
             {                                               //!!! consider your allies in the battle
                 friendlyPower += gunShipFirePower(ship->staticinfo);
-//                friendlyValue += (real32)ship->staticinfo->buildCost * ship->targetable.health / ship->staticinfo->health.maxhealth;
                 friendlyValue += (real32)ship->staticinfo->buildCost;
             }
             else
             {
                 enemyPower += gunShipFirePower(ship->staticinfo);
-//                enemyValue += (real32)ship->staticinfo->buildCost * ship->targetable.health / ship->staticinfo->health.maxhealth;
                 enemyValue += (real32)ship->staticinfo->buildCost;
             }
         }
-        //... other non-allied ship tests
     }
 
     //compute the battle status number (BSN)
-    friendlyStanding = friendlyPower * batStandingFriendlyPower + friendlyValue * batStandingFriendlyValue;
-    enemyStanding = enemyPower * batStandingEnemyPower + enemyValue * batStandingEnemyValue;
-    //... adjust these standings by the recent losses
+    enemyStanding = batStandingEnemyPower * enemyPower + batStandingEnemyValue * enemyValue;
     //save the chances of some events because they will have their randomWeight's modified
     saveChance[0] = battleChatterEvent[BCE_LosingBattle].randomWeight;
     saveChance[1] = battleChatterEvent[BCE_LosingBadly].randomWeight;
     saveChance[2] = battleChatterEvent[BCE_WinningBattle].randomWeight;
     saveChance[3] = battleChatterEvent[BCE_KickingButt].randomWeight;
-    if (battlePing->friendlyValueRecentlyLost)
+    // CAT: after recent losses the losing (winning) lines get the standing-value coefficient, 1.0 without any value
+    //      (HW1 computed a chance from the decayed losses)
+    if (battlePing->friendlyValueRecentlyLost != 0.0f)
     {
-        timeSinceLoss = universe.totaltimeelapsed - battlePing->whenFriendliesLost;
-        lossPower = battlePing->friendlyFirepowerRecentlyLost;
-        lossValue = battlePing->friendlyValueRecentlyLost;
-        if (timeSinceLoss != 0.0f)
-        {
-            lossPower /= (real32)pow((double)timeSinceLoss, (double)batExpLossDevalue);
-            lossValue /= (real32)pow((double)timeSinceLoss, (double)batExpLossDevalue);
-        }
-        if (friendlyValue != 0.0f)
-        {
-            chances = (udword)max(((lossValue / friendlyValue * batStandingFriendlyValue +
-                         lossPower / friendlyPower * batStandingFriendlyValue) * (real32)BAT_RandomTotal), (real32)BAT_RandomTotal);
-        }
-        else
-        {
-            chances = BAT_RandomTotal;
-        }
-        battleChatterEvent[BCE_LosingBattle].randomWeight = chances;
-        battleChatterEvent[BCE_LosingBadly].randomWeight = chances;
+        weight = (friendlyValue != 0.0f) ? batStandingFriendlyValue : 1.0f;
+        battleChatterEvent[BCE_LosingBattle].randomWeight = (double)weight;
+        battleChatterEvent[BCE_LosingBadly].randomWeight = (double)weight;
     }
-    if (battlePing->enemyValueRecentlyLost)
+    if (battlePing->enemyValueRecentlyLost != 0.0f)
     {
-        timeSinceLoss = universe.totaltimeelapsed - battlePing->whenEnemiesLost;
-        lossPower = battlePing->enemyFirepowerRecentlyLost;
-        lossValue = battlePing->enemyValueRecentlyLost;
-        if (timeSinceLoss != 0.0f)
-        {
-            lossPower /= (real32)pow((double)timeSinceLoss, (double)batExpLossDevalue);
-            lossValue /= (real32)pow((double)timeSinceLoss, (double)batExpLossDevalue);
-        }
-        if (enemyValue != 0.0f)
-        {
-            chances = (udword)max(((lossValue / enemyValue * batStandingEnemyValue +
-                         lossPower / enemyPower * batStandingEnemyValue) * (real32)BAT_RandomTotal), (real32)BAT_RandomTotal);
-        }
-        else
-        {
-            chances = BAT_RandomTotal;
-        }
-        battleChatterEvent[BCE_WinningBattle].randomWeight = chances;
-        battleChatterEvent[BCE_KickingButt].randomWeight = chances;
+        weight = (enemyValue != 0.0f) ? batStandingEnemyValue : 1.0f;
+        battleChatterEvent[BCE_WinningBattle].randomWeight = (double)weight;
+        battleChatterEvent[BCE_KickingButt].randomWeight = (double)weight;
     }
 
     if (enemyStanding > 0.0f)
     {
-        battleStanding = friendlyStanding / enemyStanding;
+        battleStanding = (batStandingFriendlyPower * friendlyPower + batStandingFriendlyValue * friendlyValue) / enemyStanding;
     }
     else
     {
         battleStanding = -1.0f;
-        //... play the battle won event here
     }
 
-    mouthPiece = battleMouthPieceFind(battlePing->ship, battlePing->nShips);
+    // the first of up to batMouthpieceTries random ships of the local player does the talking
+    mouthPiece = NULL;
+    for (tries = 1; tries <= batMouthpieceTries; tries++)
+    {
+        other = battlePing->ship[batRandom() % battlePing->nShips];
+        if (other->playerowner == universe.curPlayerPtr)
+        {
+            mouthPiece = other;
+            break;
+        }
+    }
+
     if (mouthPiece != NULL)
     {                                                       //found someone to do the talking; now make him say something
+        handle = ERROR;
         if (battleStanding > batBSNKickingButt)
         {                                                   //> kickingbutt
-            //see if the battle is just starting, and assess it if it is
-            handle = ERROR;
-            if (battleCanChatterAtThisTime(BCE_StartBattleAdvantaged, mouthPiece))
+            if (!singlePlayerGame || (singlePlayerGameInfo.currentMission != 13))
             {
-                if (battleCanChatterAtThisTime(BCE_StartBattleAdvantaged, mouthPiece))
-                {
-                    handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_StartBattleAdvantaged, mouthPiece, SOUND_EVENT_DEFAULT);
-                }
+                handle = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_StartBattleAdvantaged, SOUND_EVENT_DEFAULT, NULL);
                 if (handle != ERROR)
                 {
-                    mouthPiece = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
-                    if (mouthPiece != NULL)
-                    {
-                        battleChatterAttempt(handle, BCE_StartBattleAdvantagedRsp, mouthPiece, SOUND_EVENT_DEFAULT);
-                    }
+                    battleChatterFleetAttempt(handle, BCE_StartBattleAdvantagedRsp, SOUND_EVENT_DEFAULT, NULL);
                 }
-            }
-            if (handle == ERROR)
-            {                                               //battle is not just starting
-                //...kicking butt speech event
-                if (battleCanChatterAtThisTime(BCE_KickingButt, mouthPiece))
+                else
                 {
-                    handle = ERROR;
-                    if (battleCanChatterAtThisTime(BCE_KickingButt, mouthPiece))
-                    {
-                        handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_KickingButt, mouthPiece, SOUND_EVENT_DEFAULT);
-                    }
+                    handle = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_KickingButt, SOUND_EVENT_DEFAULT, NULL);
                     if (handle != ERROR)
                     {
-                        mouthPiece = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
-                        if (mouthPiece != NULL)
+                        other = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
+                        if (other != NULL)
                         {
-                            battleChatterAttempt(handle, BCE_KickingButtRsp, mouthPiece, SOUND_EVENT_DEFAULT);
+                            battleChatterAttempt(handle, BCE_KickingButtRsp, other, other->shiptype);
                         }
                     }
                 }
@@ -1619,191 +1529,102 @@ void battlePingEvaluate(void *voidPing, battleping *battlePing)
         }
         else if (battleStanding > batBSNWinning)
         {                                                   //winning..kickingButt
-            //see if the battle is just starting, and assess it if it is
-            handle = ERROR;
-            if (battleCanChatterAtThisTime(BCE_StartBattleAdvantaged, mouthPiece))
+            handle = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_StartBattleAdvantaged, SOUND_EVENT_DEFAULT, NULL);
+            if (handle != ERROR)
             {
-                handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_StartBattleAdvantaged, mouthPiece, SOUND_EVENT_DEFAULT);
+                battleChatterFleetAttempt(handle, BCE_StartBattleAdvantagedRsp, SOUND_EVENT_DEFAULT, NULL);
+            }
+            else
+            {
+                handle = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_WinningBattle, SOUND_EVENT_DEFAULT, NULL);
                 if (handle != ERROR)
                 {
-                    mouthPiece = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
-                    if (mouthPiece != NULL)
+                    other = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
+                    if (other != NULL)
                     {
-                        battleChatterAttempt(handle, BCE_StartBattleAdvantagedRsp, mouthPiece, SOUND_EVENT_DEFAULT);
+                        battleChatterAttempt(handle, BCE_WinningBattleRsp, other, other->shiptype);
                     }
                 }
-            }
-            if (handle == ERROR)
-            {                                               //battle is not just starting
-                handle = ERROR;
-                if (battleCanChatterAtThisTime(BCE_WinningBattle, mouthPiece))
+                else
                 {
-                    handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_WinningBattle, mouthPiece, SOUND_EVENT_DEFAULT);
+                    handle = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_PositiveBattle, SOUND_EVENT_DEFAULT, NULL);
                     if (handle != ERROR)
                     {
-                        mouthPiece = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
-                        if (mouthPiece != NULL)
-                        {
-                            battleChatterAttempt(handle, BCE_WinningBattleRsp, mouthPiece, SOUND_EVENT_DEFAULT);
-                        }
-                    }
-                }
-                if (handle == ERROR)
-                {
-                    if (battleCanChatterAtThisTime(BCE_PositiveBattle, mouthPiece))
-                    {
-                        if (battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_PositiveBattle, mouthPiece, SOUND_EVENT_DEFAULT) == ERROR)
-                        {
-                            battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_PositiveBattle_More, mouthPiece, SOUND_EVENT_DEFAULT);
-                        }
+                        battleChatterAttempt(handle, BCE_PositiveBattle_More, mouthPiece, mouthPiece->shiptype);
                     }
                 }
             }
         }
         else if (battleStanding > batBSNNeutral)
         {                                                   //neutral..winning
-            //see if the battle is just starting, and assess it if it is
-            handle = ERROR;
-            if (battleCanChatterAtThisTime(BCE_StartBattleFair, mouthPiece))
+            handle = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_StartBattleFair, SOUND_EVENT_DEFAULT, NULL);
+            if (handle != ERROR)
             {
-                handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_StartBattleFair, mouthPiece, SOUND_EVENT_DEFAULT);
-                if (handle != ERROR)
-                {
-                    mouthPiece = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
-                    if (mouthPiece != NULL)
-                    {
-                        battleChatterAttempt(handle, BCE_StartBattleFairRsp, mouthPiece, SOUND_EVENT_DEFAULT);
-                    }
-                }
+                battleChatterFleetAttempt(handle, BCE_StartBattleFairRsp, SOUND_EVENT_DEFAULT, NULL);
             }
-            if (handle == ERROR)
-            {                                               //battle is not just starting
-                if (battleCanChatterAtThisTime(BCE_NeutralBattle, mouthPiece))
-                {
-                    if (battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_NeutralBattle, mouthPiece, SOUND_EVENT_DEFAULT) == ERROR)
-                    {
-                        battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_NeutralBattle_More, mouthPiece, SOUND_EVENT_DEFAULT);
-                    }
-                }
+            else if (battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_NeutralBattle, SOUND_EVENT_DEFAULT, NULL) == ERROR)
+            {
+                battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_NeutralBattle_More, SOUND_EVENT_DEFAULT, NULL);
             }
         }
-        else if (battleStanding > batBSNLosing)
-        {                                                   //losing..neutral
-            handle = ERROR;
+        else if ((battleStanding > batBSNLosing) || (battleStanding > 0.0f))
+        {                                                   //losing..neutral, or losing badly
+            //is the mothership under heavy fire?
             mothership = universe.curPlayerPtr->PlayerMothership;
-            if (mothership != NULL && selShipInSelection(battlePing->ship, battlePing->nShips, mothership))
+            if ((mothership != NULL) && selShipInSelection(battlePing->ship, battlePing->nShips, mothership) &&
+                battleCanChatterAtThisTime(BCE_MothershipLargeAttack, mothership))
             {
-                //ships = mothership->obj.collMyBlob->blobShips;
-                //dbgAssertOrIgnore(ships != NULL);
-                //if (selShipInSelection(ships->ShipPtr, ships->numShips, mothership))
-                //{                                               //if the mothership is involved in this battle
-                    if (battleCanChatterAtThisTime(BCE_MothershipLargeAttack, mothership))
-                    {                                           //say the mothership is under heavy fire
-                        handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_MothershipLargeAttack, mothership, SOUND_EVENT_DEFAULT);
-                        if (handle != ERROR && battleCanChatterAtThisTime(BCE_MothershipLargeAttackResp, mouthPiece))
-                        {
-                            battleChatterAttempt(handle, BCE_MothershipLargeAttackResp, mouthPiece, SOUND_EVENT_DEFAULT);
-                        }
-                    }
-                //}
+                handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_MothershipLargeAttack, mothership, mothership->shiptype);
             }
-            //see if the battle is just starting, and assess it if it is
-            if (handle == ERROR && battleCanChatterAtThisTime(BCE_StartBattleDisadvant, mouthPiece))
-            {
-                handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_StartBattleDisadvant, mouthPiece, SOUND_EVENT_DEFAULT);
-                if (handle != ERROR)
+            if (handle != ERROR)
+            {                                               //the mothership said so: someone answers
+                if (battleCanChatterAtThisTime(BCE_MothershipLargeAttackResp, mouthPiece))
                 {
-                    mouthPiece = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
-                    if (mouthPiece != NULL)
-                    {
-                        battleChatterAttempt(handle, BCE_StartBattleDisadvantRsp, mouthPiece, SOUND_EVENT_DEFAULT);
-                    }
+                    battleChatterAttempt(handle, BCE_MothershipLargeAttackResp, mouthPiece, mothership->shiptype);
                 }
             }
-            if (handle == ERROR)
-            {                                               //battle is not just starting
-                handle = ERROR;
-                if (battleCanChatterAtThisTime(BCE_LosingBattle, mouthPiece))
+            else
+            {
+                handle = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_StartBattleDisadvant, SOUND_EVENT_DEFAULT, NULL);
+                if (handle != ERROR)
                 {
-                    handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_LosingBattle, mouthPiece, SOUND_EVENT_DEFAULT);
+                    battleChatterFleetAttempt(handle, BCE_StartBattleDisadvantRsp, SOUND_EVENT_DEFAULT, NULL);
+                }
+                else if (battleStanding > batBSNLosing)
+                {                                           //losing..neutral
+                    handle = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_LosingBattle, SOUND_EVENT_DEFAULT, NULL);
+                    if (handle != ERROR)
+                    {
+                        other = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
+                        if (other != NULL)
+                        {
+                            battleChatterAttempt(handle, BCE_LosingBattleRsp, other, other->shiptype);
+                        }
+                    }
+                    else if (battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_LosingBattle_More, SOUND_EVENT_DEFAULT, NULL) == ERROR)
+                    {
+                        handle = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_NegativeBattle, SOUND_EVENT_DEFAULT, NULL);
+                        other = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
+                        if ((other != NULL) && (handle != ERROR) && battleCanChatterAtThisTime(BCE_NegativeBattle_More, other) &&
+                            (battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_NegativeBattle_More, other, other->shiptype) == ERROR))
+                        {
+                            battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_NegativeBattle_More2, SOUND_EVENT_DEFAULT, NULL);
+                        }
+                    }
+                }
+                else
+                {                                           //< losing (losing badly)
+                    handle = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_LosingBadly, SOUND_EVENT_DEFAULT, NULL);
                     if (handle == ERROR)
                     {
-                        handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_LosingBattle_More, mouthPiece, SOUND_EVENT_DEFAULT);
+                        handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_LosingBadly_More, mouthPiece, mouthPiece->shiptype);
                     }
                     if (handle != ERROR)
                     {
-                        mouthPiece = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
-                        if (mouthPiece != NULL)
+                        other = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
+                        if (other != NULL)
                         {
-                            battleChatterAttempt(handle, BCE_LosingBattleRsp, mouthPiece, SOUND_EVENT_DEFAULT);
-                        }
-                    }
-                }
-                if (handle == ERROR)
-                {
-                    mouthPiece = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
-                    if (mouthPiece != NULL && battleCanChatterAtThisTime(BCE_NegativeBattle, mouthPiece))
-                    {
-                        if (battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_NegativeBattle, mouthPiece, SOUND_EVENT_DEFAULT) == ERROR)
-                        {
-                            if (battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_NegativeBattle_More, mouthPiece, SOUND_EVENT_DEFAULT) == ERROR)
-                            {
-                                battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_NegativeBattle_More2, mouthPiece, SOUND_EVENT_DEFAULT);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        else if (battleStanding > 0.0f)
-        {                                                   //< losing (losing badly)
-            //see if the battle is just starting, and assess it if it is
-            handle = ERROR;
-            mothership = universe.curPlayerPtr->PlayerMothership;
-            if (mothership != NULL && selShipInSelection(battlePing->ship, battlePing->nShips, mothership))
-            {
-                //ships = mothership->obj.collMyBlob->blobShips;
-                //dbgAssertOrIgnore(ships != NULL);
-                //if (selShipInSelection(ships->ShipPtr, ships->numShips, mothership))
-                //{                                               //if the mothership is involved in this battle
-                    if (battleCanChatterAtThisTime(BCE_MothershipLargeAttack, mothership))
-                    {                                           //say the mothership is under heavy fire
-                        handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_MothershipLargeAttack, mothership, SOUND_EVENT_DEFAULT);
-                        if (handle != ERROR && battleCanChatterAtThisTime(BCE_MothershipLargeAttackResp, mouthPiece))
-                        {
-                            battleChatterAttempt(handle, BCE_MothershipLargeAttackResp, mouthPiece, SOUND_EVENT_DEFAULT);
-                        }
-                    }
-                //}
-            }
-            if (handle == ERROR && battleCanChatterAtThisTime(BCE_StartBattleDisadvant, mouthPiece))
-            {
-                handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_StartBattleDisadvant, mouthPiece, SOUND_EVENT_DEFAULT);
-                if (handle != ERROR)
-                {
-                    mouthPiece = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
-                    if (mouthPiece != NULL)
-                    {
-                        battleChatterAttempt(handle, BCE_StartBattleDisadvantRsp, mouthPiece, SOUND_EVENT_DEFAULT);
-                    }
-                }
-            }
-            if (handle == ERROR)
-            {                                               //battle is not just starting
-                //...losing badly speech events
-                if (battleCanChatterAtThisTime(BCE_LosingBadly, mouthPiece))
-                {
-                    handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_LosingBadly, mouthPiece, SOUND_EVENT_DEFAULT);
-                    if (handle == ERROR)
-                    {
-                        handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_LosingBadly_More, mouthPiece, SOUND_EVENT_DEFAULT);
-                    }
-                    if (handle != ERROR)
-                    {
-                        mouthPiece = battleMouthPieceFindAnother(mouthPiece, battlePing->ship, battlePing->nShips);
-                        if (mouthPiece != NULL)
-                        {
-                            battleChatterAttempt(handle, BCE_LosingBadlyRsp, mouthPiece, SOUND_EVENT_DEFAULT);
+                            battleChatterAttempt(handle, BCE_LosingBadlyRsp, other, other->shiptype);
                         }
                     }
                 }
@@ -1821,74 +1642,70 @@ void battlePingEvaluate(void *voidPing, battleping *battlePing)
 /*-----------------------------------------------------------------------------
     Name        : battleChatterFrequencySet
     Description : Set the battle chatter frequency
+                  CAT: a plain scale, freq100 / 100 (battleChatterFrequencySet 0x00424d80); HW1's pow(2, x) curve
+                  between batGlobalFrequencyMin and Max is gone
     Inputs      : freq100 - value from 0 to 100 (compatible with FE sliders)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
 void battleChatterFrequencySet(sdword freq100)
 {
-    real32 value;
-    value = ((real32)freq100 / 100.0f) * (batGlobalFrequencyMax - batGlobalFrequencyMin) + batGlobalFrequencyMin;
-    batGlobalFrequencyModifier = (udword)((real32)pow(2.0, (double)value) * BIT8);
+    batGlobalFrequencyModifier = (real32)((double)freq100 * 0.01);
 }
 
 /*-----------------------------------------------------------------------------
     Name        : battleShipDyingWithTimeToScream
     Description : Attempt to play one or more death speech events for a given ship's death.
+                  CAT: the exe's version (battleShipDyingWithTimeToScream 0x00424da0): heavy cruisers, carriers,
+                  destroyers, frigates and resource ships say BCE_CapitalShipDies with the fleet's report after
+                  (only the fleet's line, without the ship, when the camera is 5000 or more from the nearest ship
+                  in the main screen); corvettes, fighters and micro ships try the same line, then
+                  BCE_WingmanDies; support-unit exempt ships say nothing.
     Inputs      : ship - ship that is dying
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
 void battleShipDyingWithTimeToScream(Ship *ship)
 {
-    ShipClass shipclass = ship->staticinfo->shipclass;
-    sdword handle = ERROR;
-    Ship *mouthpiece;
-    SelectCommand *ships;
+    sdword handle;
 
-    switch (shipclass)
+    if (bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))
     {
-        case CLASS_Mothership:
-            break;                                          //there's plenty enough death songs for the mothership
+        return;
+    }
+
+    switch (ship->staticinfo->shipclass)
+    {
         case CLASS_HeavyCruiser:
         case CLASS_Carrier:
         case CLASS_Destroyer:
-        case CLASS_Frigate:                                 //capital ships have special death songs
-sameAsCapitalShips:
+        case CLASS_Frigate:
+        case CLASS_Resource:
             if (battleCanChatterAtThisTime(BCE_CapitalShipDies, ship))
             {
-                handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CapitalShipDies, ship, SOUND_EVENT_DEFAULT);
-            }
-            if (handle != ERROR/* && ship->obj.collMyBlob*/)        // blob ptr is always NULL here
-            {
-                //ships = ship->obj.collMyBlob->blobShips;
-                ships = (SelectCommand *)&selSelected;
-                dbgAssertOrIgnore(ships != NULL);
-                mouthpiece = battleMouthPieceFindAnother(ship, ships->ShipPtr, ships->numShips);
-                if (mouthpiece != NULL && battleCanChatterAtThisTime(BCE_CapitalShipDiesReport, mouthpiece))
+                if (mrRenderMainScreen && (nearestShipDistance >= 5000.0f))
                 {
-                    battleChatterAttempt(handle, BCE_CapitalShipDiesReport, mouthpiece, shipclass);
+                    speechEventQueue(NULL, 0x100080c, ship->shiptype, -1, 0, ship->playerowner->playerIndex, -1, 5.0f, -1);
+                    return;
+                }
+                handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CapitalShipDies, ship, ship->shiptype);
+                if (handle != ERROR)
+                {
+                    battleChatterFleetAttempt(handle, BCE_CapitalShipDiesReport, ship->shiptype, &ship->obj.posinfo.position);
                 }
             }
             break;
         case CLASS_Corvette:
-        case CLASS_Fighter:                                 //strike craft have a number of yells.
-            if (battleCanChatterAtThisTime(BCE_WingmanLethal, ship))
+        case CLASS_Fighter:
+        case CLASS_Micro:
+            if ((!battleCanChatterAtThisTime(BCE_CapitalShipDies, ship) ||
+                 (battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CapitalShipDies, ship, ship->shiptype) == ERROR)) &&
+                battleCanChatterAtThisTime(BCE_WingmanDies, ship))
             {
-                handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_WingmanLethal, ship, SOUND_EVENT_DEFAULT);
-            }
-            if (handle == ERROR)
-            {
-                if (battleCanChatterAtThisTime(BCE_HyperspaceAbandoned, ship))
-                {
-                    battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_HyperspaceAbandoned, ship, SOUND_EVENT_DEFAULT);
-                }
+                battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_WingmanDies, ship, ship->shiptype);
             }
             break;
-        case CLASS_Resource:                                //resourcers: same as capital ships
-            goto sameAsCapitalShips;
-            break;
-        case CLASS_NonCombat:                               //nothing for non-combat
+        default:
             break;
     }
 }
@@ -1897,33 +1714,26 @@ sameAsCapitalShips:
     Name        : battleLaunchWelcomeExchange
     Description : Play the lauch/welcome speech event exchange on launch of a
                     new super-capital ship.
-    Inputs      : ship - ship that is just launched
+                  CAT: the fleet's lines (battleLaunchWelcomeExchange 0x00424ef0, REWRITTEN; called by
+                  cat_cmBuildJobFinished with the class and type): BCE_CapitalShipLaunched and its welcome, or
+                  the build report 0x200103d with the type when the chatter does not play.
+    Inputs      : shipclass - class of the ship built; variable - its type
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void battleLaunchWelcomeExchange(Ship *ship)
+void battleLaunchWelcomeExchange(sdword shipclass, sdword variable)
 {
-    sdword handle = ERROR;
-    Ship *mouthpiece;
-    SelectCommand *ships;
+    sdword handle;
 
-    if (!bitTest(battleClassDependencies[ship->staticinfo->shipclass], BCD_LaunchWelcome))
+    if (!bitTest(battleClassDependencies[shipclass], BCD_LaunchWelcome))
     {
          return;
     }
-    if (battleCanChatterAtThisTime(BCE_CapitalShipLaunched, ship))
+    handle = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_CapitalShipLaunched, SOUND_EVENT_DEFAULT, NULL);
+    if (handle != ERROR)
     {
-        handle = battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CapitalShipLaunched, ship, ship->shiptype);
+        battleChatterFleetAttempt(handle, BCE_CapitalShipWelcomed, SOUND_EVENT_DEFAULT, NULL);
+        return;
     }
-    if (handle != ERROR && ship->obj.collMyBlob != NULL)
-    {
-        ships = ship->obj.collMyBlob->blobShips;
-        dbgAssertOrIgnore(ships != NULL);
-        mouthpiece = battleMouthPieceFindAnother(ship, ships->ShipPtr, ships->numShips);
-        if (mouthpiece != NULL)
-        {
-            battleChatterAttempt(handle, BCE_CapitalShipWelcomed, mouthpiece, mouthpiece->shiptype);
-        }
-    }
+    speechEventQueue(NULL, 0x200103d, variable, -1, 0, universe.curPlayerIndex, -1, 5.0f, -1);
 }
-

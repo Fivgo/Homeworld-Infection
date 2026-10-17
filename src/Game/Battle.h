@@ -38,10 +38,12 @@
 #define BAT_Delimiters              " ,\t"
 
 //defaults for events
-#define BAD_RandomWeight            (BAT_RandomTotal / 35)
-#define BAD_MaxDistance             1000.0
+// CAT: the exe's defaults of every entry (.data 0x0074e8d0): randomWeight 1.0 (the raw script value), maxDistance
+//      1e6 (the square of 1000: Cataclysm keeps the distances squared), minWavelength 10.1
+#define BAD_RandomWeight            1.0
+#define BAD_MaxDistance             1000000.0
 #define BAD_ExpDistance             1.0
-#define BAD_MinWavelength           0.0
+#define BAD_MinWavelength           10.1
 #define BAD_ExpWavelength           1.0
 #define BAD_MinProximity            0.0
 #define BAD_ExpProximity            1.0
@@ -104,7 +106,8 @@ typedef struct
     real32 friendlyFirepowerRecentlyLost;       //when, where and how much friendly juice was lost
     real32 friendlyValueRecentlyLost;
     real32 whenFriendliesLost;
-
+    real32 catLastEvaluated;                    // CAT: +0x28, when battlePingEvaluate 0x00424110 last ran on it (it
+                                                //      runs at most every 8 s; pingAttackPingsCreate 0x004e9350 sets 0)
     Ship *ship[1];                              //list of ships in the battle
 }
 battleping;
@@ -114,12 +117,12 @@ typedef struct
 {
     char *eventName;                            //name of event for parsing
     sdword eventNumber;                         //event number
-    udword randomWeight;                        //liklihood of this event being called ( / BAT_RandomTotal)
-    double maxDistance;                         //max distance from camera event can be heard
+    double randomWeight;                        // CAT: the raw script value (+0x08; HW1: a udword / BAT_RandomTotal)
+    double maxDistance;                         // CAT: squared: max distance from camera event can be heard
     double expDistance;                         //exponent of camera distance liklihood curve
     double minWavelength;                       //how often this event can be said (1 / frequency) (0 = ignore)
     double expWavelength;                       //exponent of repeat time liklihood curve
-    double minRepeatProximity;                  //min proximity for a repeat within minWavelength (0 = ignore)
+    double minRepeatProximity;                  // CAT: squared: min proximity for a repeat within minWavelength (0 = ignore)
     double expRepeatProximity;                  //exponent of the proximity probability curve
 #if BATTLE_TEXT
     char **texts;                               //strings of what the ship might say (for debug printing)
@@ -129,7 +132,8 @@ typedef struct
     vector lastPlaceSpoken;                     //where the event was last said
     // CAT: two flags set from BattleChatter.script (keys "battleStatusUpdate", "battleStatusSuppress"; value > 0 sets
     //      them), at +0x50/+0x54 of Cataclysm's 0x58-byte entry (cat_batStatusUpdateSetCB 0x004235f0,
-    //      cat_batStatusSuppressSetCB 0x00423680). Their readers are part of the battle chatter runtime (stage 3).
+    //      cat_batStatusSuppressSetCB 0x00423680). battleChatterFleetAttempt 0x00423a50 spaces the
+    //      status events (30 s; 60 s after the same one) and does not say a suppressed one in single player.
     bool32 statusUpdate;
     bool32 statusSuppress;
 }
@@ -235,7 +239,8 @@ battlechatterevent;
 /*=============================================================================
     Data:
 =============================================================================*/
-extern udword batGlobalFrequencyModifier;       //exported for demo playback
+extern battleevent battleChatterEvent[];        // CAT: exported for the sound self-test (/catSoundTest)
+extern real32 batGlobalFrequencyModifier;       //exported for demo playback; CAT: a float scale (0x0075074c)
 
 /*=============================================================================
     Macros:
@@ -269,6 +274,7 @@ bool32 battleShipOnMyTail(Ship *meShip, Ship *badGuyShip);
 void battleAccountForLosses(Ship *ship, battleping *battlePing);
 void battleChatterFrequencySet(sdword freq100);
 void battleShipDyingWithTimeToScream(Ship *ship);
-void battleLaunchWelcomeExchange(Ship *ship);
+void battleLaunchWelcomeExchange(sdword shipclass, sdword variable);   // CAT: class and type (0x00424ef0)
+void cat_battleChatterReset(void);                                     // CAT: 0x00423760
 
 #endif

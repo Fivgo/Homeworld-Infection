@@ -16,6 +16,7 @@
 #include "SoundStructs.h"
 #include "SpeechEvent.h"
 #include "Subtitle.h"
+#include "SinglePlayer.h"     // CAT: the mission picks a subtitle actor (ssSubtitleRead)
 #include "Switches.h"
 #include "Types.h"
 
@@ -158,7 +159,8 @@ sdword soundstreaminit(void *pstreamer, sdword size, sdword nostreams, streampri
 		debugfunction = printfunction;
 	}
 
-	streamStartThread();
+	// CAT: no thread start here: speechEventInit starts it once every stream exists (soundstreaminit 0x00581da0
+	//      returns after the loop; speechEventInit 0x00521a40 calls streamStartThread last)
 
 	return (SOUND_OK);
 }
@@ -187,7 +189,7 @@ udword soundstreamopenfile(char *pszStreamFile, smemsize *handle)
 		if (!fileExists(pszStreamFile, flags))
 		{
 			/* Death, destruction and general chaos! Should never happen (taken care of in utyGameSystemsInit()...*/
-			dbgFatalf(DBG_Loc, "Homeworld CD not detected.");
+			dbgFatalf(DBG_Loc, "Cataclysm CD not detected.");   // CAT: the exe's text (soundstreamopenfile 0x00581e90)
 		}
     }
 
@@ -249,10 +251,8 @@ sdword soundstreamcreatebuffer(void *pstreambuffer, sdword size, uword bitrate)
 			pstream->playing = FALSE;
 			memset(pstream->buffer, 0, pstream->buffersize);
 
-#ifndef _MACOSX_FIX_SOUND			
-			fqAcModel(NULL, NULL, 0, pstream->delaybuffer1, DELAY_BUF_SIZE, &(pstream->delaypos1));
-			fqAcModel(NULL, NULL, 0, pstream->delaybuffer2, DELAY_BUF_SIZE, &(pstream->delaypos2));
-#endif
+			// CAT: no delay-buffer reset: the exe's mixer has no delay or acoustic-model stage
+			//      (soundstreamcreatebuffer 0x00581f20 calls no fqAcModel)
 
 			break;
 		}
@@ -653,7 +653,8 @@ sdword soundstreamvolume(sdword handle, sword vol, real32 fadetime)
 
 		if ((vol != pchan->voltarget) || stop)
 		{
-			if (vol == (sword)pchan->volume)
+			// CAT: the current level rounded with Relic's rint (soundstreamvolume 0x00582420; HW1 truncated)
+			if (vol == fqRint(pchan->volume))
 			{
 				pchan->voltarget = vol;
 				pchan->volticksleft = 1;
@@ -810,50 +811,75 @@ foundInfo:;
     {
         if (actornum == 0)
         {                                                   //all single-player voices are on the same channel
-            if (bitTest(speechEvent, SPEECH_ACTOR_FLEET_COMMAND))
+            // CAT: Cataclysm's actor bits pick the subtitle actor (ssSubtitleRead 0x00582610); actor 0x8000 depends
+            //      on the mission; an animatic line is always actor 9
+            if (bitTest(speechEvent, 0x1000))
             {
-                actornum = STA_FleetCommand;
+                actornum = 0;
             }
-            else if (bitTest(speechEvent, SPEECH_ACTOR_FLEET_INTELLIGENCE))
+            else if (bitTest(speechEvent, 0x2000))
             {
-                actornum = STA_FleetIntel;
+                actornum = 1;
             }
-            else if (bitTest(speechEvent, SPEECH_ACTOR_TRADERS))
+            else if (bitTest(speechEvent, 0x4000))
             {
-                actornum = STA_Traders;
+                actornum = 0xb;
             }
-            else if (bitTest(speechEvent, SPEECH_ACTOR_P2_KADESHI))
+            else if (bitTest(speechEvent, 0x20000))
             {
-                actornum = STA_Pirates2;
+                actornum = 10;
             }
-            else if (bitTest(speechEvent, SPEECH_ACTOR_ALL_ENEMY_SHIPS))
+            else if (bitTest(speechEvent, 0x10000))
             {
-                actornum = STA_AllEnemyShips;
+                actornum = 8;
             }
-            else if (bitTest(speechEvent, SPEECH_ACTOR_AMBASSADOR))
+            else if (bitTest(speechEvent, 0x40000))
             {
-                actornum = STA_Ambassador;
+                actornum = 5;
             }
-            else if (bitTest(speechEvent, SPEECH_ACTOR_NARRATOR))
+            else if (bitTest(speechEvent, 0x80000))
             {
-                actornum = STA_Narrator;
+                actornum = 6;
             }
-            else if (bitTest(speechEvent, SPEECH_ACTOR_DEFECTOR))
+            else if (bitTest(speechEvent, 0x200000))
             {
-                actornum = STA_Defector;
+                actornum = 0xc;
             }
-            else if (bitTest(speechEvent, SPEECH_ACTOR_EMPEROR))
+            else if (bitTest(speechEvent, 0x8000))
             {
-                actornum = STA_Emperor;
-            }
-            else if (bitTest(speechEvent, SPEECH_ACTOR_KHAR_SELIM))
-            {
-                actornum = STA_KharSelim;
+                if (!singlePlayerGame)
+                {
+                    actornum = 0xc;
+                }
+                else if (singlePlayerGameInfo.currentMission == 2)
+                {
+                    actornum = 2;
+                }
+                else if (singlePlayerGameInfo.currentMission == 1)
+                {
+                    actornum = 4;
+                }
+                else if (singlePlayerGameInfo.currentMission == 0x10)
+                {
+                    actornum = 7;
+                }
+                else if ((singlePlayerGameInfo.currentMission == 0xb) || (singlePlayerGameInfo.currentMission == 0xd) ||
+                         (singlePlayerGameInfo.currentMission == 0xe))
+                {
+                    actornum = 3;
+                }
+                else
+                {
+                    actornum = 0xc;
+                }
             }
             else
             {
-                //dbgFatalf(DBG_Loc, "Invalid actor 0x%x with speech event 0x%x", actornum, speechEvent);
-                ;//just assume fleet command!!!is this valid?
+                actornum = 9;
+            }
+            if (bitTest(speechEvent, SPEECH_TYPE_ANIMATIC))
+            {
+                actornum = 9;
             }
         }
         subTitleAdd(actornum, speechEvent, subTitle, length, time);

@@ -4351,6 +4351,15 @@ DONE_INTROS:
         return(NULL);
     }
 
+    // CAT: /catSoundTest (port diagnostic, M2-R5 sound): decode a stream of each audio bank into the (dummy) audio
+    //      device, look up the battle-chatter events, and quit
+    if (catSoundSelfTest)
+    {
+        catSoundRunSelfTest();
+        utyGameQuit(NULL, NULL);
+        return(NULL);
+    }
+
     // CAT: /catTexturesTest (port diagnostic): load textures.ll, register and load every listed texture, and quit
     if (catTexturesSelfTest)
     {

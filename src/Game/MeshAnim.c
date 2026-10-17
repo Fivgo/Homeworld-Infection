@@ -706,7 +706,9 @@ bool32 cat_madAnimationFinished(Ship *ship)
                   the animation pauses on its last frame and stays current, madAnimationUpdate 0x004b6ce0), in the
                   exe's madanim with the previous animation at +0x10 and the binding swap deferred to the next update
                   (+0x18); with madAnimBindingsDupe 0x004b6a10, madAnimationStop 0x004b6e70 and the per-type
-                  animation sounds 0x00c32660 that is the mesh-animation port, which changes when gun bindings swap
+                  animation sounds 0x00c32660 (the table is in SoundEvent.c since M2-R5 sound: madAnimationUpdate
+                  plays cat_madAnimSoundEvent(shiptype, number) at an animation's first frame) that is the
+                  mesh-animation port, which changes when gun bindings swap
                   back (simulation side), so M2-R5 render left it (docs/m2-r5-render.md).
     Inputs      : ship - a ship with mesh animation bindings, number - the animation number
 ----------------------------------------------------------------------------*/

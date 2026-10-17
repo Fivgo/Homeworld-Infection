@@ -5,7 +5,8 @@
 #   Compiles a one-line translation unit that includes SpaceObj.h with clang -m32 -fsyntax-only, so the
 #   "#if defined(__i386__)" branch of the CAT layout asserts (ShipStaticInfo 0x458, GunStatic 0x11C,
 #   CustShipHeader 0x8C and the field offsets) is evaluated; Mesh.h likewise (polygonobject 0x74, meshdata head
-#   0x20, docs/m2-r2-mesh.md), texreg.h (texreg 0x34) and SoundStructs.h (SENTENCELUT header 0x10,
+#   0x20, docs/m2-r2-mesh.md), texreg.h (texreg 0x34), soundcmn.h (M2-R5 sound: PATCH and PATCH_DISK 0x38, the bank
+#   patch table at +0x0C) and SoundStructs.h (SENTENCELUT header 0x10,
 #   docs/m2-r2-startup.md); since M2-R3 also AITeam.h (AlternativeShips 0xA8), Formation.h (MilitaryParadeCommand
 #   0x104), Randy.h (ranstream 0x14), SaveGame.h (SaveChunk 8) and SpaceObj.h's ClampInfo 0x38 / StaticCollInfo 0x70
 #   (docs/m2-r3-closeout-headers.md); since M2-R3 etg-particles also Particle.h (particle 0x100,
@@ -49,6 +50,7 @@ cat > "$tmp/layout.c" <<'EOF'
 #include "ConsMgr.h"
 #include "CommandLayer.h"
 #include "Tactics.h"
+#include "soundcmn.h"
 char (*cat_ssi)[sizeof(ShipStaticInfo)] = 1;
 char (*cat_gs)[sizeof(GunStatic)] = 1;
 char (*cat_csh)[sizeof(CustShipHeader)] = 1;

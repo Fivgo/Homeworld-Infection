@@ -9,11 +9,17 @@
 #include "SpeechEvent.h"
 
 //#include "bink.h"
+#include "Battle.h"          // CAT: the chatter table (sound self-test)
 #include "Blobs.h"
 #include "Chatting.h"
 #include "File.h"
 #include "fquant.h"
 #include "mainrgn.h"
+#include "Leech.h"          // CAT: cat_leechIsLeeching / cat_leechGetSpecifics (the leech alert)
+#include "Alliance.h"       // CAT: allianceArePlayersAllied (the stealth alerts)
+#include "ShipSelect.h"     // CAT: cat_mimicAppearsAlliedTo, cat_mimicGetApparentShipType
+#include "Sensors.h"        // smSensorsActive
+#include "fqcodec.h"        // CAT: fqRint
 #include "Memory.h"
 #include "NIS.h"
 #include "Randy.h"
@@ -45,31 +51,43 @@
 #define GasClouds       2
 #define DustClouds      3
 
-#define NISSTREAM       0
-#define AMBIENTSTREAM   1
-
 #define STINGER_FADE_TIME   0.5f
 #define MUSIC_FADE_FAST     0.5f
 #define MUSIC_FADE_SLOW     1.0f
 
 #define MUSIC_MIN_FADE  80
 
+// CAT: Cataclysm's two speech EQ slots: eq_fleet.script and eq_intel.script (speechEventInit 0x00521a40 fills
+//      0x00c097c0 and 0x00c097e8, 0x28 bytes apart); HW1 had five speakers with EQ, delay and effect scripts
 #define SPEECH_FLEET        0
-#define SPEECH_STRIKECRAFT  1
-#define SPEECH_CAPSHIPS     2
-#define SPEECH_CONSTRUCTION 3
-#define SPEECH_INTEL        4
-#define SPEECH_PILOT1       1
-#define SPEECH_PILOT2       2
-#define SPEECH_PILOT3       3
-
-#define NUM_SPEAKERS        5
+#define SPEECH_INTEL        1
+#define NUM_SPEECH_EQS      2
 
 #define SE_MAX_QUEUE        10
 
-#define SPEECH_PAUSE        1.5f
+#define SPEECH_PAUSE        1.5f        // CAT: the exe's gap between two speech events (0x0072a7ec)
 
-#define MAX_RELIC_NAMES     33
+// CAT: the Relic player names of the alliance and player-death lines: 25 names of 0x12 characters (.data 0x00895d9c,
+//      compared with _strnicmp by speechEventQueue 0x00522560)
+#define CAT_RELIC_NAMES         25
+#define CAT_RELIC_NAME_LEN      0x12
+
+// CAT: the music (Music4Cat.wxh): 62 tracks, one stream (speechEventInit 0x00521a40, musicEventPlay 0x00523480,
+//      musicEventUpdateVolume 0x00523660)
+#define CAT_MUSIC_NUM_TRACKS        62
+#define CAT_MUSIC_RANDOM_TRACK      0x44e   // musicEventPlay: any of the first 17 tracks
+#define CAT_MUSIC_RANDOM_RANGE      0x11
+#define CAT_MUSIC_TUTORIAL          0x12    // in the main screen at MUSIC_TUTORIAL_VOL
+#define CAT_MUSIC_FIRST_BATTLE      0x13    // tracks below are the ambients
+#define CAT_MUSIC_FIRST_FIXED       0x19    // from here the main screen plays a track at its own level
+#define CAT_MUSIC_GAME_STATS        0x28    // the game-statistics screen's track (cat_gameStatsBegin plays it): pilot
+                                            //   lines over it, its own level in the managers
+#define CAT_MUSIC_NIS_VOLUME        0x29    // the one track set by the NIS volume (HW1: RollCredits)
+#define CAT_MUSIC_TYPE_NIS          4       // track type whose stop also stops the NIS speech (musicEventStop)
+
+#define CAT_SPEECH_ALERT_INTERVAL   60.0f   // cat_speechAlertsUpdate 0x00522ce0 (0x0072a554)
+#define CAT_SPEECH_EASTEREGG_TIME   540.0   // speechQueueUpdate 0x00521eb0 (0x0072bce0, a double)
+#define CAT_SPEECH_EASTEREGG_EVENT  0x20012d1
 
 /*=============================================================================
     Structures
@@ -144,7 +162,15 @@ typedef struct
     sdword      nexttrack;
     sword       targetvol;
     sword       pad;
+    sdword      cat14;      // CAT: +0x14, cleared by speechEventInit 0x00521a40 and read nowhere
 } MUSICINFO;
+
+// CAT: the per-track table speechEventInit 0x00521a40 builds (0x00c09f00, 8 bytes a track): a type and a 0.5 s fade
+typedef struct
+{
+    sdword      type;
+    real32      fadetime;
+} CATMUSICTRACK;
 #endif
 
 
@@ -156,7 +182,6 @@ void speechPlayQueue(SPEECHQUEUE *pSQueue, sdword streamchannel);
 sdword SEselectsentence(sdword actor, sdword event, sdword variable, sdword setvariation, sdword **pOffsets, udword *pDuration);
 void speechQueueUpdate(void);
 sdword SEreorderqueue(SPEECHQUEUE *pSQueue);
-sdword SEcleanqueue(SPEECHQUEUE *pSQueue);
 
 
 /*=============================================================================
@@ -173,11 +198,10 @@ bool32    MoShipMoving[MAX_MULTIPLAYER_PLAYERS] = {FALSE};
 
 ubyte   *pspeechstream;
 
+// CAT: three speech stream buffers (speechEventInit 0x00521a40: 0x00a6ae6c, 0x00a6ae70, 0x00a6ae74)
 ubyte   *pspeechbuffer0;
 ubyte   *pspeechbuffer1;
 ubyte   *pspeechbuffer2;
-ubyte   *pspeechbuffer3;
-ubyte   *pspeechbuffer4;
 
 Ship    *lastshiptospeak = NULL;
 sdword  lastgrouptospeak = -1;
@@ -187,57 +211,67 @@ SENTENCELUT *SentenceLUT;
 PHRASELUT   *PhraseLUT;
 
 /* special fx vars */
-STREAMDELAY streamdelay[NUM_SPEAKERS];
-STREAMEQ    streamEQ[NUM_SPEAKERS];
-EFFECT      cleaneffect[NUM_SPEAKERS];
-EFFECT      mixedeffect[NUM_SPEAKERS];
-EFFECT      damageeffect;
+// CAT: only the EQ of the two speech scripts; no delay, effect or damage scripts (speechEventInit 0x00521a40)
+STREAMEQ    streamEQ[NUM_SPEECH_EQS];
 
 
 /* music variables */
-MUSICINFO   musicinfo[2];
-sdword  musicstreamhandle[2];
+// CAT: one music stream (musicinfo 0x00c0a100, buffer 0x00a6ae8c, header 0x00a6ae90, file 0x00c09efc)
+MUSICINFO   musicinfo;
 smemsize  musicfilehandle;
 ubyte   *pmusicbuffer0;
-ubyte   *pmusicbuffer1;
 MUSICHEADER *musicheader;
-sdword  levelTrack = -1;
+CATMUSICTRACK catMusicTrack[CAT_MUSIC_NUM_TRACKS];
 
-// player names should not exceed MAX_PERSONAL_NAME_LEN characters
-char *relicPlayerNames[MAX_RELIC_NAMES] = {
-    "Rupract",
-    "SpankMaster3000",
-    "SM3K",
-    "Plaz",
-    "dav",
-    "Briscola",
-    "EFMagnet",
-    "Midnight",
-    "Quinn_Deadly",
-    "YourMammaStinks",
-    "Wintermute",
-    "Chimpden",
-    "Lunarboy",
-    "Unspacey",
-    "Antonalogue",
-    "=A=",
-    "B1FF",
-    "Hootchi",
-    "rhithyn",
-    "Psyco-Kitty",
-    "Rasolf",
-    "GargleTroth",
-    "Flako",
-    "Yonderboy",
-    "DrakeBird",
-    "TheDoctor",
-    "Tender",
-    "Killroy",
-    "Rocketboy",
-    "TheEmporersLover",
-    "DrMagneto",
-    "DrTongue",
-    "NoWhere2Camp"
+// CAT: the letterbox flag (0x00a6ae94, cat_soundEventLetterboxVolume 0x00521770): while set, chatter and status
+//      speech are not queued, queued ones play quieter and the music is turned down
+bool32  catSoundLetterbox = FALSE;
+static real32 catSoundLetterboxSFXVol = 10.0f;      // .data 0x00895d98: the SFX level saved by the letterbox (10 = none)
+
+// CAT: the speech alerts for enemy stealth ships (cat_speechAlertsNoteShip 0x00522bc0, cat_speechAlertsUpdate 0x00522ce0)
+bool32  catSpeechAlertCloak = FALSE;                // 0x00c09820
+bool32  catSpeechAlertMimic = FALSE;                // 0x00c09824
+bool32  catSpeechAlertLeech = FALSE;                // 0x00c09814
+real32  catSpeechAlertTime = 0.0f;                  // 0x00c09828
+
+// CAT: the Easter eggs (cat_speechEasterEggCheck 0x00522dc0): a player named "Eegah" gets one line after 9 minutes;
+//      a Somtaaw player named "PrinceOfSpace" changes a battle-chatter line (battlePingEvaluate)
+bool32  catSpeechEasterEgg = FALSE;                 // 0x00c0a0f0
+bool32  catSpeechEasterEggSaid = FALSE;             // 0x00c09ee8
+bool32  catSpeechPrinceOfSpace = FALSE;             // 0x00c0981c
+
+// CAT: the pilot lines over track 0x28 (musicEventUpdateVolume 0x00523660: 0x00a6aea4 / 0x00a6aea8 / 0x00a6aeac)
+static sdword catMusicRadioCount = 0;
+static sdword catMusicRadioNext = 0;
+static sdword catMusicRadioLast = 0;
+
+// CAT: Cataclysm's Relic player names (.data 0x00895d9c, 25 x 0x12; HW1 had 33 others)
+static char catRelicPlayerNames[CAT_RELIC_NAMES][CAT_RELIC_NAME_LEN] = {
+    "RogueTurnip",
+    "Ayanami",
+    "Katsuragi",
+    "Ikari",
+    "Kusanagi",
+    "RandomTask",
+    "DragLine",
+    "ZugZug",
+    "BeastGirl",
+    "Ripley",
+    "Shadow",
+    "DarkLord",
+    "Hobbes",
+    "Sarmel",
+    "Jaysus",
+    "BlondBoy",
+    "Terraformer",
+    "ChoclateChipDonky",
+    "Eegah",
+    "Castewar",
+    "Mecron",
+    "Peanuts",
+    "Egon",
+    "Sabitz",
+    "GayShadow"
 };
 
 /* name of music header file */
@@ -256,6 +290,7 @@ extern bool32 soundpaused;
 /* global volume settings */
 extern real32 volSpeech;
 extern real32 volMusic;
+extern real32 volSFX;
 extern real32 volNIS;
 extern bool32 bVolMusicNoFade;
 
@@ -294,133 +329,28 @@ scriptStructEntry streamEQScriptTable[] =
     END_SCRIPT_STRUCT_ENTRY
 };
 
-scriptStructEntry streamDelaySciptTable[] =
-{
-    { "flags",    scriptSetSdwordCB, &streamdelay[0].flags,    &streamdelay[0] },
-    { "level",    scriptSetReal32CB, &streamdelay[0].level,    &streamdelay[0] },
-    { "duration", scriptSetUdwordCB, &streamdelay[0].duration, &streamdelay[0] },
-    { "eq0",      scriptSetReal32CB, &streamdelay[0].eq[0],    &streamdelay[0] },
-    { "eq1",      scriptSetReal32CB, &streamdelay[0].eq[1],    &streamdelay[0] },
-    { "eq2",      scriptSetReal32CB, &streamdelay[0].eq[2],    &streamdelay[0] },
-    { "eq3",      scriptSetReal32CB, &streamdelay[0].eq[3],    &streamdelay[0] },
-    { "eq4",      scriptSetReal32CB, &streamdelay[0].eq[4],    &streamdelay[0] },
-    { "eq5",      scriptSetReal32CB, &streamdelay[0].eq[5],    &streamdelay[0] },
-    { "eq6",      scriptSetReal32CB, &streamdelay[0].eq[6],    &streamdelay[0] },
-    { "eq7",      scriptSetReal32CB, &streamdelay[0].eq[7],    &streamdelay[0] },
-
-    END_SCRIPT_STRUCT_ENTRY
-};
-
-scriptStructEntry streamEffectScriptTable[] =
-{
-    { "ClockCount",    scriptSetUdwordCB, &cleaneffect[0].nClockCount,    &cleaneffect[0] },
-    { "FilterMinFreq", scriptSetUdwordCB, &cleaneffect[0].nFiltMinFreq,   &cleaneffect[0] },
-    { "FilterMaxFreq", scriptSetUdwordCB, &cleaneffect[0].nFiltMaxFreq,   &cleaneffect[0] },
-    { "ToneMinFreq",   scriptSetUdwordCB, &cleaneffect[0].nToneMinFreq,   &cleaneffect[0] },
-    { "ToneMaxFreq",   scriptSetUdwordCB, &cleaneffect[0].nToneMaxFreq,   &cleaneffect[0] },
-    { "ToneDuration",  scriptSetUdwordCB, &cleaneffect[0].nToneDur,       &cleaneffect[0] },
-    { "ToneMute",      scriptSetUdwordCB, &cleaneffect[0].nToneMute,      &cleaneffect[0] },
-    { "ToneCount",     scriptSetUdwordCB, &cleaneffect[0].nToneCount,     &cleaneffect[0] },
-    { "BreakMaxRate",  scriptSetUdwordCB, &cleaneffect[0].nBreakMaxRate,  &cleaneffect[0] },
-    { "BreakMaxDur",   scriptSetUdwordCB, &cleaneffect[0].nBreakMaxDur,   &cleaneffect[0] },
-    { "QNoiseMaxRate", scriptSetUdwordCB, &cleaneffect[0].nQNoiseMaxRate, &cleaneffect[0] },
-    { "QNoiseMaxDur",  scriptSetUdwordCB, &cleaneffect[0].nQNoiseMaxDur,  &cleaneffect[0] },
-    { "ScaleLevel",    scriptSetReal32CB, &cleaneffect[0].fScaleLev,      &cleaneffect[0] },
-    { "NoiseLevel",    scriptSetReal32CB, &cleaneffect[0].fNoiseLev,      &cleaneffect[0] },
-    { "ToneLevel",     scriptSetReal32CB, &cleaneffect[0].fToneLev,       &cleaneffect[0] },
-    { "LimitLevel",    scriptSetReal32CB, &cleaneffect[0].fLimitLev,      &cleaneffect[0] },
-    { "PitchShift",    scriptSetReal32CB, &cleaneffect[0].fPitchShift,    &cleaneffect[0] },
-
-    END_SCRIPT_STRUCT_ENTRY
-};
-
 
 /*=============================================================================
     Functions
 =============================================================================*/
 void SEloadscripts(void)
 {
-#ifdef HW_GAME_DEMO
-    sdword i;
-#endif
-
 #ifdef _WIN32
 #define SFX_SCRIPT_PATH "SoundFX\\Scripts\\"
 #else
 #define SFX_SCRIPT_PATH "SoundFX/Scripts/"
 #endif
 
+    // CAT: Cataclysm loads only the fleet and intel EQ scripts (the only speech scripts it ships) into its two EQ
+    //      slots and copies band 7 into the unused band 8 (speechEventInit 0x00521a40, SEloadscripts inlined:
+    //      scriptSetStruct of "eq_fleet.script" / "eq_intel.script" with the table at 0x00895f70 into 0x00c097c0 /
+    //      0x00c097e8, then eq[8] = eq[7] for both). No pilot EQ, delay or effect scripts.
     scriptSetStruct(SFX_SCRIPT_PATH, "eq_fleet.script", streamEQScriptTable, (ubyte *)&streamEQ[SPEECH_FLEET]);
     scriptSetStruct(SFX_SCRIPT_PATH, "eq_intel.script", streamEQScriptTable, (ubyte *)&streamEQ[SPEECH_INTEL]);
-#ifndef HW_GAME_DEMO
-    // CAT: Cataclysm loads only the fleet and intel EQ scripts (the only speech scripts it ships) and copies band 7
-    //      into the unused band 8 (speechEventInit 0x00521a40, SEloadscripts inlined: scriptSetStruct of
-    //      "eq_fleet.script"/"eq_intel.script" with the table at 0x00895f70, then eq[8] = eq[7] for both). No pilot EQ,
-    //      delay or effect scripts are read. The EQ slots keep HW1's indices until the speech runtime is ported.
     streamEQ[SPEECH_FLEET].eq[8] = streamEQ[SPEECH_FLEET].eq[7];
     streamEQ[SPEECH_INTEL].eq[8] = streamEQ[SPEECH_INTEL].eq[7];
-#else
-    scriptSetStruct(SFX_SCRIPT_PATH, "eq_pilot1.script", streamEQScriptTable, (ubyte *)&streamEQ[SPEECH_PILOT1]);
-    scriptSetStruct(SFX_SCRIPT_PATH, "eq_pilot2.script", streamEQScriptTable, (ubyte *)&streamEQ[SPEECH_PILOT2]);
-    scriptSetStruct(SFX_SCRIPT_PATH, "eq_pilot3.script", streamEQScriptTable, (ubyte *)&streamEQ[SPEECH_PILOT3]);
-
-    // set last unsused eq band to 1
-    streamEQ[SPEECH_FLEET].eq[8]=1.0F;
-    streamEQ[SPEECH_INTEL].eq[8]=1.0F;
-    streamEQ[SPEECH_PILOT1].eq[8]=1.0F;
-    streamEQ[SPEECH_PILOT2].eq[8]=1.0F;
-    streamEQ[SPEECH_PILOT3].eq[8]=1.0F;
-
-    scriptSetStruct(SFX_SCRIPT_PATH, "delay_fleet.script", streamDelaySciptTable, (ubyte *)&streamdelay[SPEECH_FLEET]);
-    scriptSetStruct(SFX_SCRIPT_PATH, "delay_intel.script", streamDelaySciptTable, (ubyte *)&streamdelay[SPEECH_INTEL]);
-    scriptSetStruct(SFX_SCRIPT_PATH, "delay_strikecraft.script", streamDelaySciptTable, (ubyte *)&streamdelay[SPEECH_STRIKECRAFT]);
-    scriptSetStruct(SFX_SCRIPT_PATH, "delay_capships.script", streamDelaySciptTable, (ubyte *)&streamdelay[SPEECH_CAPSHIPS]);
-    scriptSetStruct(SFX_SCRIPT_PATH, "delay_construction.script", streamDelaySciptTable, (ubyte *)&streamdelay[SPEECH_CONSTRUCTION]);
-
-    // set last unsused eq band to 1
-    streamdelay[SPEECH_FLEET].eq[8]=1.0F;
-    streamdelay[SPEECH_INTEL].eq[8]=1.0F;
-    streamdelay[SPEECH_STRIKECRAFT].eq[8]=1.0F;
-    streamdelay[SPEECH_CAPSHIPS].eq[8]=1.0F;
-    streamdelay[SPEECH_CONSTRUCTION].eq[8]=1.0F;
-
-    scriptSetStruct(SFX_SCRIPT_PATH, "effect_fleet.script", streamEffectScriptTable, (ubyte *)&cleaneffect[SPEECH_FLEET]);
-    scriptSetStruct(SFX_SCRIPT_PATH, "effect_intel.script", streamEffectScriptTable, (ubyte *)&cleaneffect[SPEECH_INTEL]);
-    scriptSetStruct(SFX_SCRIPT_PATH, "effect_strikecraft.script", streamEffectScriptTable, (ubyte *)&cleaneffect[SPEECH_STRIKECRAFT]);
-    scriptSetStruct(SFX_SCRIPT_PATH, "effect_capships.script", streamEffectScriptTable, (ubyte *)&cleaneffect[SPEECH_CAPSHIPS]);
-
-    scriptSetStruct(SFX_SCRIPT_PATH, "effect_damage.script", streamEffectScriptTable, (ubyte *)&damageeffect);
-
-    /* copy the unchanging effects to the mixed effect */
-    for (i = 0;  i < SE_NUM_ACTORS; i++)
-    {
-        mixedeffect[i].nFiltMinFreq = cleaneffect[i].nFiltMinFreq;
-        mixedeffect[i].nFiltMaxFreq = cleaneffect[i].nFiltMaxFreq;
-        mixedeffect[i].fScaleLev = cleaneffect[i].fScaleLev;
-        mixedeffect[i].fLimitLev = cleaneffect[i].fLimitLev;
-    }
-#endif // HW_GAME_DEMO
 
 #undef SFX_SCRIPT_PATH
-}
-
-
-void SEinitdelayEQ(void)
-{
-    sdword i;
-
-    for (i = 0; i < SE_NUM_ACTORS; i++)
-    {
-        streamdelay[i].flags = STREAM_FLAGS_NOEFFECT;
-        streamdelay[i].level = 0.0f;
-        streamdelay[i].duration = 0;
-        memset(streamdelay[i].eq, 0, SOUND_EQ_SIZE * sizeof(real32));
-//      streamEQ[i].flags = STREAM_FLAGS_NOEFFECT;
-//      memset(streamEQ[i].eq, 0, SOUND_EQ_SIZE * sizeof(real32));
-        fqInitE(&cleaneffect[i]);
-        fqInitE(&mixedeffect[i]);
-    }
-    fqInitE(&damageeffect);
 }
 
 
@@ -432,6 +362,18 @@ void soundEventDebugPrint(char *pszInformation)
 }
 
 
+/*-----------------------------------------------------------------------------
+    Name        : speechEventInit
+    Description : CAT: the exe's start-up of the speech and music streams (speechEventInit 0x00521a40). The race's
+                  tables and voice file are loaded before (cat_speechEventLoadRaceVoice 0x005217f0); this creates
+                  the 4 streams (3 speech streams at the LUT's bitrate, 1 music stream at 0x200 bits a block), loads
+                  Music4Cat.wxh and opens Music4Cat.wxd, builds the music track table, loads the two EQ scripts,
+                  resets the 3 speech queues and starts the stream thread. HW1's 5 speech + 2 music streams, the
+                  effect scripts and the demo-build LUT load are gone.
+    Inputs      :
+    Outputs     :
+    Return      : SOUND_OK, or SOUND_ERR when the streamer has no buffers
+----------------------------------------------------------------------------*/
 sdword speechEventInit(void)
 {
     sdword buffersize;
@@ -439,107 +381,10 @@ sdword speechEventInit(void)
     char loadfile[100];
     sdword i, j;
 
-#if FIX_ENDIAN && defined(HW_GAME_DEMO)  // CAT: the LUT byte swaps moved to cat_speechEventLoadRaceVoice
-    sdword p, z;
-#endif
-
-#if 0
-    sdword numoffsets;
-    sdword index;
-#endif
-
-#if defined(HW_GAME_DEMO)
-    // CAT: Cataclysm loads the lookup tables and opens the voice file per race before this function runs
-    //      (cat_speechEventLoadRaceVoice 0x005217f0, called by cat_speechEventInitForRace 0x00521d50); its
-    //      speechEventInit 0x00521a40 starts at soundstreamquery. HW1's single-LUT load is kept for the demo build only.
-    /* load the speech lookup tables */
-    strcpy(loadfile, SOUNDFXDIR);
-#ifdef HW_GAME_DEMO
-    strcat(loadfile, "DLsentence.lut");
-#else
-    strcat(loadfile, "speechsentence_comp.lut");
-#endif
-    fileLoadAlloc(loadfile, (void**)&SentenceLUT, NonVolatile);
-
-#if FIX_ENDIAN
-	SentenceLUT->ID         = FIX_ENDIAN_INT_32( SentenceLUT->ID );
-	SentenceLUT->checksum   = FIX_ENDIAN_INT_32( SentenceLUT->checksum );
-	SentenceLUT->numcolumns = FIX_ENDIAN_INT_16( SentenceLUT->numcolumns );
-	SentenceLUT->numevents  = FIX_ENDIAN_INT_16( SentenceLUT->numevents );
-	SentenceLUT->numactors  = FIX_ENDIAN_INT_16( SentenceLUT->numactors );
-#if defined(HW_GAME_DEMO)
-	SentenceLUT->compbitrate[3] = FIX_ENDIAN_INT_16( SentenceLUT->compbitrate[3] );
-#else
-	SentenceLUT->compbitrate[0] = FIX_ENDIAN_INT_16( SentenceLUT->compbitrate[0] );
-	SentenceLUT->compbitrate[1] = FIX_ENDIAN_INT_16( SentenceLUT->compbitrate[1] );
-	SentenceLUT->compbitrate[2] = FIX_ENDIAN_INT_16( SentenceLUT->compbitrate[2] );
-	SentenceLUT->compbitrate[3] = FIX_ENDIAN_INT_16( SentenceLUT->compbitrate[3] );
-#endif // HW_GAME_DEMO
-	for ( z=0; z< (SentenceLUT->numcolumns*(SentenceLUT->numactors*SentenceLUT->numevents)); z++){
-		SentenceLUT->lookup[z] = FIX_ENDIAN_INT_16( SentenceLUT->lookup[z] );
-	}
-#endif // FIX_ENDIAN
-
-    strcpy(loadfile, SOUNDFXDIR);
-#ifdef HW_GAME_DEMO
-    strcat(loadfile, "DLphrase.lut");
-#else
-    strcat(loadfile, "speechphrase_comp.lut");
-#endif
-    fileLoadAlloc(loadfile, (void**)&PhraseLUT, NonVolatile);
-
-#if FIX_ENDIAN
-	PhraseLUT->ID = FIX_ENDIAN_INT_32( PhraseLUT->ID );
-	PhraseLUT->checksum = FIX_ENDIAN_INT_32( PhraseLUT->checksum );
-	PhraseLUT->numcolumns = FIX_ENDIAN_INT_16( PhraseLUT->numcolumns );
-	PhraseLUT->numsentences = FIX_ENDIAN_INT_16( PhraseLUT->numsentences );
-
-	for ( p=0; p< (PhraseLUT->numcolumns*PhraseLUT->numsentences); p++){
-		PhraseLUT->lookupsy[p] = FIX_ENDIAN_INT_16( PhraseLUT->lookupsy[p] );
-	}
-#endif
-
-    /* verify sentence and phrase luts */
-    if (SentenceLUT->checksum != PhraseLUT->checksum)
-    {
-        dbgMessage("Sentence and Phrase lookup tables do not match.  Not from same generate.");
-        dbgAssertOrIgnore(FALSE);
-    }
-
-#if 0
-    for (i = 0; i < PhraseLUT->numsentences; i++)
-    {
-        numoffsets = PhraseLUT->lookup[(i * PhraseLUT->numcolumns) + 2];
-
-        if (numoffsets > 20)
-        {
-            index = i;
-#if SE_VERBOSE_LEVEL >= 1
-            dbgMessagef("numoffsets %d", numoffsets);
-#endif
-            break;
-        }
-    }
-
-    for (i = 0; i < SentenceLUT->prioritylevels * SentenceLUT->numevents * SentenceLUT->numactors; i++)
-    {
-        if (index == SentenceLUT->lookup[(i*3)+2])
-        {
-#if SE_VERBOSE_LEVEL >= 1
-            dbgMessagef("found it at %d", i);
-#endif
-        }
-    }
-#endif
-#endif // HW_GAME_DEMO (CAT: LUT load moved to cat_speechEventLoadRaceVoice)
     soundstreamquery(SE_NUM_STREAMS, &buffersize, &streamersize);
 
     if (buffersize == 0)
     {
-#if defined(HW_GAME_DEMO)
-        memFree(SentenceLUT);
-        memFree(PhraseLUT);
-#endif // CAT: the caller frees the race LUTs (cat_speechEventInitForRace 0x00521d50)
         /* soundstreamquery failed */
         return (SOUND_ERR);
     }
@@ -548,43 +393,13 @@ sdword speechEventInit(void)
 
     soundstreaminit(pspeechstream, streamersize, SE_NUM_STREAMS, soundEventDebugPrint);
 
-#if defined(HW_GAME_DEMO)
-    /* moved voice file from sfxdir to root */
-    //  strcpy(loadfile, SOUNDFXDIR);
-
-    /* open speech file and compare checksums */
-    strcpy(loadfile,utyVoiceFilename);
-    if (soundstreamopenfile(loadfile, &speechfilehandle) != SentenceLUT->checksum)
-    {
-        dbgMessage("Voice file does not match lookup tables.  Not from same generate.");
-        dbgAssertOrIgnore(FALSE);
-    }
-#endif // CAT: the race voice file is opened by cat_speechEventLoadRaceVoice 0x005217f0
-
-#if defined(HW_GAME_DEMO)
-    pspeechbuffer0 = memAlloc(buffersize, "SpeechBuffer0", NonVolatile);
-        streamhandle[0] = soundstreamcreatebuffer(pspeechbuffer0, buffersize, SentenceLUT->compbitrate[0]);
-    pspeechbuffer1 = memAlloc(buffersize, "SpeechBuffer1", NonVolatile);
-        streamhandle[1] = soundstreamcreatebuffer(pspeechbuffer1, buffersize, SentenceLUT->compbitrate[1]);
-    pspeechbuffer2 = memAlloc(buffersize, "SpeechBuffer2", NonVolatile);
-        streamhandle[2] = soundstreamcreatebuffer(pspeechbuffer2, buffersize, SentenceLUT->compbitrate[2]);
-    pspeechbuffer4 = memAlloc(buffersize, "SpeechBuffer4", NonVolatile);
-        streamhandle[3] = soundstreamcreatebuffer(pspeechbuffer4, buffersize, SentenceLUT->compbitrate[0]);
-#else
-    // CAT: every speech stream uses the LUT's single bitrate at +0x0E (speechEventInit 0x00521a40 creates its three
-    //      speech buffers with *(uword *)(SentenceLUT + 0xe)). HW1's five-stream layout is kept until the speech
-    //      runtime is ported (stage 3).
+    // every speech stream uses the LUT's single bitrate at +0x0E
     pspeechbuffer0 = memAlloc(buffersize, "SpeechBuffer0", NonVolatile);
         streamhandle[0] = soundstreamcreatebuffer(pspeechbuffer0, buffersize, SentenceLUT->compbitrate[0]);
     pspeechbuffer1 = memAlloc(buffersize, "SpeechBuffer1", NonVolatile);
         streamhandle[1] = soundstreamcreatebuffer(pspeechbuffer1, buffersize, SentenceLUT->compbitrate[0]);
     pspeechbuffer2 = memAlloc(buffersize, "SpeechBuffer2", NonVolatile);
         streamhandle[2] = soundstreamcreatebuffer(pspeechbuffer2, buffersize, SentenceLUT->compbitrate[0]);
-    pspeechbuffer3 = memAlloc(buffersize, "SpeechBuffer3", NonVolatile);
-        streamhandle[3] = soundstreamcreatebuffer(pspeechbuffer3, buffersize, SentenceLUT->compbitrate[0]);
-    pspeechbuffer4 = memAlloc(buffersize, "SpeechBuffer4", NonVolatile);
-        streamhandle[4] = soundstreamcreatebuffer(pspeechbuffer4, buffersize, SentenceLUT->compbitrate[0]);
-#endif
 
     /* music stuff */
     /* load the music header file */
@@ -606,19 +421,42 @@ sdword speechEventInit(void)
         dbgAssertOrIgnore(FALSE);
     }
 
+    // CAT: one music stream at 0x200 bits a block (FQ_BR44)
     pmusicbuffer0 = memAlloc(buffersize, "MusicBuffer", NonVolatile);
-        musicinfo[NISSTREAM].handle = soundstreamcreatebuffer(pmusicbuffer0, buffersize, (uword)FQ_BR88);
-    pmusicbuffer1 = memAlloc(buffersize, "MusicBuffer", NonVolatile);
-        musicinfo[AMBIENTSTREAM].handle = soundstreamcreatebuffer(pmusicbuffer1, buffersize, (uword)FQ_BR88);
+        musicinfo.handle = soundstreamcreatebuffer(pmusicbuffer0, buffersize, (uword)FQ_BR44);
 
-    for (i = NISSTREAM; i <= AMBIENTSTREAM; i++)
+    musicinfo.status = SOUND_FREE;
+    musicinfo.tracknum = SOUND_NOTINITED;
+    musicinfo.nexttrack = SOUND_NOTINITED;
+    musicinfo.targetvol = SOUND_DEFAULT;
+    musicinfo.cat14 = 0;
+
+    // CAT: the track types: 0..0x10 and 0x12 type 5 (ambients), 0x11 type 2, 0x13..0x18 type 6 (battle),
+    //      0x19..0x29 type 4 (NIS: stopping one stops the NIS speech), 0x2a..0x3d type 3; every fade 0.5 s
+    for (i = 0; i < CAT_MUSIC_NUM_TRACKS; i++)
     {
-        musicinfo[i].status = SOUND_FREE;
-        musicinfo[i].tracknum = SOUND_DEFAULT;
-        musicinfo[i].targetvol = SOUND_DEFAULT;
+        if (i < 0x11 || i == 0x12)
+        {
+            catMusicTrack[i].type = 5;
+        }
+        else if (i == 0x11)
+        {
+            catMusicTrack[i].type = 2;
+        }
+        else if (i < 0x19)
+        {
+            catMusicTrack[i].type = 6;
+        }
+        else if (i < 0x2a)
+        {
+            catMusicTrack[i].type = 4;
+        }
+        else
+        {
+            catMusicTrack[i].type = 3;
+        }
+        catMusicTrack[i].fadetime = 0.5f;
     }
-
-    SEinitdelayEQ();
 
     SEloadscripts();
 
@@ -637,6 +475,10 @@ sdword speechEventInit(void)
     }
 
     numSinglePlayerEvents = 0;
+
+    // CAT: the stream thread starts here, once the streams exist (speechEventInit 0x00521a40 ends with
+    //      streamStartThread; HW1's soundstreaminit started it)
+    streamStartThread();
 
     return (SOUND_OK);
 }
@@ -780,22 +622,20 @@ sdword cat_speechEventInitForRace(sdword race)
 #endif // HW_GAME_DEMO
 
 
+/*-----------------------------------------------------------------------------
+    Name        : speechEventClose
+    Description : CAT: frees the 8 buffers of the exe (speechEventClose 0x00521e30): the music buffer and header,
+                  the stream structures, the 3 speech buffers and the two LUTs
+----------------------------------------------------------------------------*/
 void speechEventClose(void)
 {
     memFree(pmusicbuffer0);
-    memFree(pmusicbuffer1);
     memFree(musicheader);
 
     memFree(pspeechstream);
     memFree(pspeechbuffer0);
     memFree(pspeechbuffer1);
     memFree(pspeechbuffer2);
-#if defined(HW_GAME_DEMO)
-    memFree(pspeechbuffer4);
-#else
-    memFree(pspeechbuffer3);
-    memFree(pspeechbuffer4);
-#endif
     memFree(SentenceLUT);
     memFree(PhraseLUT);
 }
@@ -812,6 +652,9 @@ void speechEventUpdate(void)
 {
     /* must call this so the streamer gets updated */
     speechQueueUpdate();
+
+    // CAT: then the stealth-ship alerts (speechEventUpdate 0x00521ea0)
+    cat_speechAlertsUpdate();
 }
 
 
@@ -834,49 +677,41 @@ void speechQueueUpdate(void)
         pSQueue = &speechqueue[i];
 
         /* is this channel playing something? */
-        if (pSQueue->status >= SOUND_PLAYING)
+        if ((pSQueue->status >= SOUND_PLAYING) && soundstreamover(streamhandle[i]))
         {
-            /* is it over yet? */
-            if (soundstreamover(streamhandle[i]))
+            /* was it a single player event? */
+            if (pSQueue->current.event & SPEECH_TYPE_SINGLE_PLAYER)
             {
-#if SE_VERBOSE_LEVEL >= 2
-                dbgMessagef("Queue %d, stopped", i);
-#endif
-                /* was it a single player event? */
-                if (pSQueue->current.event & SPEECH_TYPE_SINGLE_PLAYER)
-                {
-                    numSinglePlayerEvents--;
-                }
-                if (pSQueue->nextevent >= SOUND_OK)
-                {
-                    if ((pSQueue->current.event == pSQueue->queue[pSQueue->nextevent].event) &&
-                        (pSQueue->current.variable == pSQueue->queue[pSQueue->nextevent].variable))
-                    {
-                        memset(&pSQueue->queue[pSQueue->nextevent], 0, sizeof(QUEUEEVENT));
-                        pSQueue->queue[pSQueue->nextevent].handle = SOUND_NOTINITED;
-                        pSQueue->queue[pSQueue->nextevent].timeout = -1.0f;
-                    }
-                }
-                pSQueue->current.event = SOUND_DEFAULT;
-                pSQueue->status = SOUND_STOPPED;
-                pSQueue->timeover = universe.totaltimeelapsed;
+                numSinglePlayerEvents--;
             }
-            else
+            if (pSQueue->nextevent >= SOUND_OK)
             {
-                /* should it be shut off? */
+                if ((pSQueue->current.event == pSQueue->queue[pSQueue->nextevent].event) &&
+                    (pSQueue->current.variable == pSQueue->queue[pSQueue->nextevent].variable))
+                {
+                    memset(&pSQueue->queue[pSQueue->nextevent], 0, sizeof(QUEUEEVENT));
+                    pSQueue->queue[pSQueue->nextevent].handle = SOUND_NOTINITED;
+                    pSQueue->queue[pSQueue->nextevent].timeout = -1.0f;
+                    pSQueue->queue[pSQueue->nextevent].event = SOUND_DEFAULT;     // CAT
+                }
             }
+            pSQueue->current.event = SOUND_DEFAULT;
+            pSQueue->status = SOUND_STOPPED;
+            // CAT: the gap is not counted from the end of the line (speechQueueUpdate 0x00521eb0 clears timeover;
+            //      it is set to the start time plus the event's timeout below)
+            pSQueue->timeover = 0.0f;
         }
 
         /* are we ready to play something? */
-#if 0   /* For reasons of Bink... */
-        if ((pSQueue->status == SOUND_STOPPED) && (pSQueue->nextevent >= SOUND_OK) && (!pSQueue->locked) &&
-            (((universe.totaltimeelapsed - pSQueue->timeover) >= SPEECH_PAUSE) || !gameIsRunning || !binkDonePlaying || FalkosFuckedUpTutorialFlag))
-#else
+        // CAT: the exe's test also starts a line at once while a Bink movie plays (speechQueueUpdate 0x00521eb0:
+        //      || !binkDonePlaying, 0x008b6d94; the tutorial flag is 0x00a6c2c0). This build has no Bink player
+        //      (Win32/bink.c is not built; binkDonePlaying would stay TRUE), so that term is always FALSE here.
+        //      CAT-TODO(M2-R6 front end: bink.c): add it back with the movie player.
         if ((pSQueue->status == SOUND_STOPPED) && (pSQueue->nextevent >= SOUND_OK) && (!pSQueue->locked) &&
             (((universe.totaltimeelapsed - pSQueue->timeover) >= SPEECH_PAUSE) || !gameIsRunning || FalkosFuckedUpTutorialFlag))
-#endif
         {
-            /* find the event that we should play */
+            // CAT: timeover = now + the event's timeout
+            pSQueue->timeover = universe.totaltimeelapsed + pSQueue->queue[pSQueue->nextevent].timeout;
 
             /* remove it from the queue */
             memcpy(&pSQueue->current, &pSQueue->queue[pSQueue->nextevent], sizeof(QUEUEEVENT));
@@ -884,8 +719,7 @@ void speechQueueUpdate(void)
             memset(&pSQueue->queue[pSQueue->nextevent], 0, sizeof(QUEUEEVENT));
             pSQueue->queue[pSQueue->nextevent].handle = SOUND_NOTINITED;
             pSQueue->queue[pSQueue->nextevent].timeout = -1.0f;
-
-            /* find the next event */
+            pSQueue->queue[pSQueue->nextevent].event = SOUND_DEFAULT;             // CAT
 
             /* play this one */
             speechPlayQueue(pSQueue, i);
@@ -897,362 +731,84 @@ void speechQueueUpdate(void)
 
             pSQueue->status = SOUND_PLAYING;
         }
-
-        /* find the event that we should play */
-        /* remove it from the queue */
-
-        /* reorder the queue */
-        /* clean up the queue */
-
     }
 
+    // CAT: the "Eegah" Easter egg: one line 9 minutes into the game (speechQueueUpdate 0x00521eb0)
+    if (catSpeechEasterEgg && (universe.totaltimeelapsed > (real32)CAT_SPEECH_EASTEREGG_TIME) && !catSpeechEasterEggSaid)
+    {
+        catSpeechEasterEggSaid = TRUE;
+        speechEventQueue(NULL, CAT_SPEECH_EASTEREGG_EVENT, -1, -1, 0, -1, -1, 5.0f, -1);
+    }
 }
 
 
 /*-----------------------------------------------------------------------------
-    Name        :
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      :
+    Name        : speechPlayQueue
+    Description : CAT: the exe's speech player (speechPlayQueue 0x005220e0): the sentence of the current event goes
+                  to the stream at the speech volume, with the intel EQ, no effects, no radio beeps and no
+                  background patch. HW1's pilot effects (damage noise, breaks, tones), delays and per-actor EQ are
+                  gone.
+    Inputs      : pSQueue - the queue whose current event plays, streamchannel - its stream
 ----------------------------------------------------------------------------*/
 void speechPlayQueue(SPEECHQUEUE *pSQueue, sdword streamchannel)
 {
     sdword i;
     sdword numoffsets;
     udword duration;
-    sdword *phraseoffsets;
-
-    EFFECT *fqeffect = NULL;
-    STREAMEQ *pEQ = NULL;
-    STREAMDELAY *pdelay = NULL;
-    void *ppatch = NULL;
-    sword level = 0;
-    bool32 bookend = FALSE;
-    ShipClass shipclass = 0;
-
-    real32 vol = (real32)SOUND_VOL_MAX;
-    sword pan = SOUND_PAN_CENTER;
-    uword bitrate;
-    sdword actor;
+    sdword *phraseoffsets = NULL;
+    real32 vol;
+    sword level;
+    sword bitrate;
     sdword event;
-    real32 damageratio = 0.0f;
-    real32 mult;
-    sdword actornum;
 
     event = pSQueue->current.event;
-    actornum = pSQueue->current.actornum;
-
-    /* figure out all the filtering etc */
-    if ((event & SPEECH_ACTOR_PILOT) && (!nisIsRunning))//gameIsRunning))
+    if (event == SOUND_DEFAULT)
     {
-        /* this is one of the Pilot actors */
-
-        /* figure out the ship class */
-        if (nisIsRunning)
-        {
-            shipclass = CLASS_Fighter;
-        }
-        else if (pSQueue->current.pShip != NULL)
-        {
-            shipclass = pSQueue->current.pShip->staticinfo->shipclass;
-
-            damageratio = 1.0f - ((real32)pSQueue->current.pShip->targetable.health * (real32)pSQueue->current.pShip->staticinfo->health.oneOverMaxHealth);
-        }
-
-        /* get the appropriate EQ */
-        pEQ = &streamEQ[actornum];
-
-        if (((event & SPEECH_EVENT_MASK) >= (CHAT_Const_DuringBattle & SPEECH_EVENT_MASK)) &&
-            ((event & SPEECH_EVENT_MASK) <= (CHAT_Const_More & SPEECH_EVENT_MASK)))
-        {
-            /* construction has a special delay */
-            pdelay = &streamdelay[SPEECH_CONSTRUCTION];
-            fqeffect = &cleaneffect[SPEECH_CAPSHIPS];
-        }
-
-        if ((shipclass == CLASS_Corvette) || (shipclass == CLASS_Fighter))
-        {
-            /* get the strike craft effects */
-            pdelay = &streamdelay[SPEECH_STRIKECRAFT];
-
-            /* figure out the damage */
-            mult = damageratio * SPEECH_STIKEDAMAGE_MULT;
-
-            mixedeffect[SPEECH_STRIKECRAFT].fScaleLev = cleaneffect[SPEECH_STRIKECRAFT].fScaleLev;
-            mixedeffect[SPEECH_STRIKECRAFT].fNoiseLev = cleaneffect[SPEECH_STRIKECRAFT].fNoiseLev +
-                            ((damageeffect.fNoiseLev - cleaneffect[SPEECH_STRIKECRAFT].fNoiseLev) * mult);
-            mixedeffect[SPEECH_STRIKECRAFT].nBreakMaxRate = damageeffect.nBreakMaxRate;     //(udword)((real32)damageeffect.nBreakMaxRate * mult);
-            mixedeffect[SPEECH_STRIKECRAFT].nBreakMaxDur = (udword)((real32)damageeffect.nBreakMaxDur - ((real32)damageeffect.nBreakMaxDur * mult));
-
-            if (spGetCurrentMission() == MISSION_10_SUPER_NOVA_STATION)
-            {
-                /* use the quantize noise */
-                mixedeffect[SPEECH_STRIKECRAFT].nQNoiseMaxRate = (udword)(damageeffect.nQNoiseMaxRate * SPEECH_STIKEDAMAGE_MULT);
-                mixedeffect[SPEECH_STRIKECRAFT].nQNoiseMaxDur = (udword)(damageeffect.nQNoiseMaxDur * SPEECH_STIKEDAMAGE_MULT);
-            }
-            else
-            {
-                mixedeffect[SPEECH_STRIKECRAFT].nQNoiseMaxRate = 0;
-                mixedeffect[SPEECH_STRIKECRAFT].nQNoiseMaxDur = 0;
-            }
-
-            fqeffect = &mixedeffect[SPEECH_STRIKECRAFT];
-        }
-        else    // if (shipclass != CLASS_Mothership)
-        {
-#if 0
-            if (SPEECH_AMBIENT_ENABLE)
-            {
-                /* if we are adding background ambients to speech */
-                if ((shipclass >= CLASS_HeavyCruiser) && (shipclass <= CLASS_Frigate))
-                {
-                    /* need to check if we should play calm or excited */
-                    ppatch = SNDgetpatch(SpecialEffectBank, SpecEffectEventsLUT->lookup[GetPatch(SpecEffectEventsLUT, 0, Spec_IntCapShipCalm)]);
-                }
-                else if (shipclass == CLASS_Resource)
-                {
-                    /* resources play their bg ambient */
-                    ppatch = SNDgetpatch(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ResourceCollector, ShipCmn_Ambient)]);
-                }
-            }
-#endif
-
-            /* get the capital ship effects */
-            pdelay = &streamdelay[SPEECH_CAPSHIPS];
-
-            mult = damageratio * SPEECH_CAPDAMAGE_MULT;
-
-            mixedeffect[SPEECH_CAPSHIPS].fScaleLev = cleaneffect[SPEECH_CAPSHIPS].fScaleLev;
-            mixedeffect[SPEECH_CAPSHIPS].fNoiseLev = cleaneffect[SPEECH_CAPSHIPS].fNoiseLev +
-                            ((damageeffect.fNoiseLev - cleaneffect[SPEECH_CAPSHIPS].fNoiseLev) * mult);
-            mixedeffect[SPEECH_CAPSHIPS].nBreakMaxRate = damageeffect.nBreakMaxRate;    //(udword)((real32)damageeffect.nBreakMaxRate * mult);
-            mixedeffect[SPEECH_CAPSHIPS].nBreakMaxDur = (udword)((real32)damageeffect.nBreakMaxDur - ((real32)damageeffect.nBreakMaxDur * mult));   //(udword)(damageeffect.nBreakMaxDur * mult);
-
-            if (spGetCurrentMission() == MISSION_10_SUPER_NOVA_STATION)
-            {
-                /* use the quantize noise */
-                mixedeffect[SPEECH_CAPSHIPS].nQNoiseMaxRate = (udword)(damageeffect.nQNoiseMaxRate * SPEECH_CAPDAMAGE_MULT);
-                mixedeffect[SPEECH_CAPSHIPS].nQNoiseMaxDur = (udword)(damageeffect.nQNoiseMaxDur * SPEECH_CAPDAMAGE_MULT);
-            }
-            else
-            {
-                mixedeffect[SPEECH_CAPSHIPS].nQNoiseMaxRate = 0;
-                mixedeffect[SPEECH_CAPSHIPS].nQNoiseMaxDur = 0;
-            }
-
-            /* sound the alarm */
-            mixedeffect[SPEECH_CAPSHIPS].nToneMinFreq = damageeffect.nToneMinFreq;
-            mixedeffect[SPEECH_CAPSHIPS].nToneMaxFreq = damageeffect.nToneMaxFreq;
-            mixedeffect[SPEECH_CAPSHIPS].nToneDur = damageeffect.nToneDur;
-            mixedeffect[SPEECH_CAPSHIPS].nToneMute = damageeffect.nToneMute;
-            mixedeffect[SPEECH_CAPSHIPS].nToneCount = damageeffect.nToneCount;
-            mixedeffect[SPEECH_CAPSHIPS].fToneLev = damageeffect.fToneLev * mult;
-
-            fqeffect = &mixedeffect[SPEECH_CAPSHIPS];
-        }
-
-        if (fqeffect != NULL)
-        {
-            if (event & SPEECH_TYPE_STATUS)
-            {
-                fqeffect->fScaleLev *= SPEECH_STATUS_RATIO;
-            }
-            else if (event & SPEECH_TYPE_CHATTER)
-            {
-                fqeffect->fScaleLev *= SPEECH_CHATTER_RATIO;
-            }
-        }
-
-        /* play radio bookends */
-        bookend = TRUE;
-    }
-    else
-    {
-        /* this is a non-pilot actor */
-
-        actor = (event & SPEECH_ACTOR_MASK);
-
-        switch (actor)
-        {
-            case SPEECH_ACTOR_FLEET_COMMAND:
-#if 0
-                if (SPEECH_AMBIENT_ENABLE)
-                {
-                    ppatch = SNDgetpatch(SpecialEffectBank, SpecEffectEventsLUT->lookup[GetPatch(SpecEffectEventsLUT, 0, Spec_FleetBG)]);
-                }
-#endif
-                pEQ = &streamEQ[SPEECH_FLEET];
-                pdelay = &streamdelay[SPEECH_FLEET];
-                fqeffect = &cleaneffect[SPEECH_FLEET];
-                break;
-
-            case SPEECH_ACTOR_FLEET_INTELLIGENCE:
-#if 0
-                if (SPEECH_AMBIENT_ENABLE)
-                {
-                    ppatch = SNDgetpatch(SpecialEffectBank, SpecEffectEventsLUT->lookup[GetPatch(SpecEffectEventsLUT, 0, Spec_IntelBG)]);
-                }
-#endif
-                pEQ = &streamEQ[SPEECH_INTEL];
-                pdelay = &streamdelay[SPEECH_INTEL];
-                fqeffect = &cleaneffect[SPEECH_INTEL];
-                break;
-
-            case SPEECH_ACTOR_ALL_ENEMY_SHIPS:
-                bookend = TRUE;
-                pdelay = &streamdelay[SPEECH_STRIKECRAFT];
-                fqeffect = &cleaneffect[SPEECH_STRIKECRAFT];
-                fqeffect->fScaleLev = 1.3f;
-                break;
-
-            case  SPEECH_ACTOR_PILOT:
-                if ((streamchannel > 0)  && (streamchannel < SentenceLUT->numactors))
-                {
-                    bookend = TRUE;
-                }
-                pdelay = &streamdelay[SPEECH_STRIKECRAFT];
-                fqeffect = &cleaneffect[SPEECH_STRIKECRAFT];
-#if SE_VERBOSE_LEVEL >= 2
-                dbgMessage("Pilot");
-#endif
-                break;
-            case SPEECH_ACTOR_AMBASSADOR:
-                pdelay = &streamdelay[SPEECH_STRIKECRAFT];
-                fqeffect = &cleaneffect[SPEECH_STRIKECRAFT];
-                fqeffect->fScaleLev = 2.5f;
-                bookend = TRUE;
-                pSQueue->current.actornum = 0;
-#if SE_VERBOSE_LEVEL >= 2
-                dbgMessage("Ambassador");
-#endif
-                break;
-            case SPEECH_ACTOR_TRADERS:
-#if SE_VERBOSE_LEVEL >= 2
-                dbgMessage("Traders");
-#endif
-                break;
-            case SPEECH_ACTOR_P2_KADESHI:
-#if SE_VERBOSE_LEVEL >= 2
-                dbgMessage("Pirates2");
-#endif
-                break;
-            case SPEECH_ACTOR_NARRATOR:
-#if SE_VERBOSE_LEVEL >= 2
-                dbgMessage("Narrator");
-#endif
-                break;
-            case SPEECH_ACTOR_DEFECTOR:
-#if SE_VERBOSE_LEVEL >= 2
-                dbgMessage("Defector");
-#endif
-                break;
-            case SPEECH_ACTOR_EMPEROR:
-#if SE_VERBOSE_LEVEL >= 2
-                dbgMessage("Emperor");
-#endif
-                break;
-            case SPEECH_ACTOR_KHAR_SELIM:
-#if SE_VERBOSE_LEVEL >= 2
-                dbgMessage("KharSelim");
-#endif
-                break;
-
-            default:
-                if ((event == N01_Chatter_Mid) || (event == N01_Chatter_BG))
-                {
-                    vol *= 1.5f;
-                }
-#if SE_VERBOSE_LEVEL >= 2
-                dbgMessage("default");
-#endif
-                break;
-        }
+        return;
     }
 
-    /* get the bitrate for this actor */
-#ifdef HW_GAME_DEMO
-    if (streamchannel < SentenceLUT->numactors)
-    {
-        bitrate = SentenceLUT->compbitrate[streamchannel];
-    }
-    else
-    {
-        /* the extra channel always plays from actor 0 */
-        bitrate = SentenceLUT->compbitrate[0];
-    }
-#else
-    // CAT: the LUT has a single bitrate (speechPlayQueue 0x005220e0: bitrate = *(sword *)(SentenceLUT + 0xe))
+    // the LUT has a single bitrate (*(sword *)(SentenceLUT + 0xe))
     bitrate = SentenceLUT->compbitrate[0];
-#endif
 
     /* get the sentence */
-    numoffsets = SEselectsentence(actornum, (event & SPEECH_EVENT_MASK),
+    numoffsets = SEselectsentence(pSQueue->current.actornum, (event & CAT_SPEECH_EVENT_MASK),
                                   pSQueue->current.variable, pSQueue->current.variation, &phraseoffsets, &duration);
 
     /* scale by the front end volume settings */
-    vol *= volSpeech;
+    vol = volSpeech * (real32)SOUND_VOL_MAX;
 
     /* if this is not a single player event and there is a single player event playing then turn it down */
     if ((numSinglePlayerEvents > 0) && !(event & SPEECH_TYPE_SINGLE_PLAYER))
     {
         vol *= SPEECH_SINGLEPLAYER_RATIO;
     }
+    else if (event & CAT_SPEECH_ACTOR_PILOT)
+    {
+        vol *= 0.75f;                                       // CAT: the pilots a little quieter (0x0072a670)
+    }
+
+    // CAT: during the letterbox, chatter and status lines play quieter still
+    if (catSoundLetterbox && (event & (SPEECH_TYPE_CHATTER | SPEECH_TYPE_STATUS)))
+    {
+        vol *= SPEECH_SINGLEPLAYER_RATIO;
+    }
 
     /* scale the background ambience thats mixed into the speech */
-    level = (sword)(vol * SPEECH_AMBIENT_LEVEL);
+    level = (sword)fqRint(vol * SPEECH_AMBIENT_LEVEL);
 
     /* queue the offsets */
     if ((numoffsets > 0) && (vol >= SPEECH_MIN_PERCEPTABLE_VOL))
     {
-#if 0
-        if (fqeffect != NULL)
-        {
-            dbgMessagef("speechEvent: %d, channel: %d, volume: %f, scale: %f", event & SPEECH_EVENT_MASK, streamchannel, vol, fqeffect->fScaleLev);
-        }
-        else
-        {
-            dbgMessagef("speechEvent: %d, channel: %d, volume: %f", event & SPEECH_EVENT_MASK, streamchannel, vol);
-        }
-#endif
-        if (bookend && enableSFX)
-        {
-            soundstreamqueuewait(streamhandle[streamchannel], (smemsize)UIBank,
-                             (smemsize)UIEventsLUT->lookup[GetPatch(UIEventsLUT, 0, UI_RadioBeepStart)],
-                             SOUND_FLAGS_QUEUEPATCH, (sword)vol, pan, SOUND_MONO, SOUND_DEFAULT, NULL, NULL, NULL, event);
-
-//          soundstreamqueueSilence(streamhandle[stream], SOUND_FLAGS_QUEUESILENCE, vol, pan, SOUND_MONO,
-//                                  SentenceLUT->compbitrate, fqeffect, pEQ, pdelay, SEsilence());
-        }
-
-#if SE_VERBOSE_LEVEL >= 2
-        dbgMessagef("speechEvent: %d, channel: %d, volume: %f",
-                event, streamchannel, vol);
-#endif
-
+        // CAT: every phrase but the last waits for the next one; the volume of those is truncated (__ftol), the
+        //      last one's rounded (Relic's rint), as in the exe
         for (i = 0; i < numoffsets - 1; i++)
         {
-            soundstreamqueuePatch(streamhandle[streamchannel], speechfilehandle, *phraseoffsets++, SOUND_FLAGS_QUEUESTREAM, (sword)vol, pan,
-                                  SOUND_MONO, bitrate, fqeffect, pEQ, pdelay, ppatch, level, 0.0f, 0.0f, pSQueue->current.actornum, event, TRUE);
+            soundstreamqueuePatch(streamhandle[streamchannel], speechfilehandle, *phraseoffsets++, SOUND_FLAGS_QUEUESTREAM, (sword)vol, SOUND_PAN_CENTER,
+                                  SOUND_MONO, bitrate, NULL, &streamEQ[SPEECH_INTEL], NULL, NULL, level, 0.0f, 0.0f, pSQueue->current.actornum, event, TRUE);
         }
 
-        if (bookend && enableSFX)
-        {
-            soundstreamqueuePatch(streamhandle[streamchannel], speechfilehandle, *phraseoffsets++, SOUND_FLAGS_QUEUESTREAM, (sword)vol, pan,
-                                  SOUND_MONO, bitrate, fqeffect, pEQ, pdelay, ppatch, level, 0.0f, 0.0f, pSQueue->current.actornum, event, TRUE);
-
-//          soundstreamqueueSilence(streamhandle[stream], SOUND_FLAGS_QUEUESILENCE, vol, pan, SOUND_MONO,
-//                                  SentenceLUT->compbitrate, fqeffect, pEQ, pdelay, SEsilence());
-
-            soundstreamqueue(streamhandle[streamchannel], (smemsize)UIBank,
-                             (smemsize)UIEventsLUT->lookup[GetPatch(UIEventsLUT, 0, UI_RadioBeepEnd)],
-                             SOUND_FLAGS_QUEUEPATCH, (sword)vol, pan, SOUND_MONO, SOUND_DEFAULT, NULL, NULL, NULL, event);
-        }
-        else
-        {
-            soundstreamqueuePatch(streamhandle[streamchannel], speechfilehandle, *phraseoffsets++, SOUND_FLAGS_QUEUESTREAM, (sword)vol, pan,
-                                  SOUND_MONO, bitrate, fqeffect, pEQ, pdelay, ppatch, level, 0.0f, 0.0f, pSQueue->current.actornum, event, FALSE);
-        }
+        soundstreamqueuePatch(streamhandle[streamchannel], speechfilehandle, *phraseoffsets++, SOUND_FLAGS_QUEUESTREAM, (sword)fqRint(vol), SOUND_PAN_CENTER,
+                              SOUND_MONO, bitrate, NULL, &streamEQ[SPEECH_INTEL], NULL, NULL, level, 0.0f, 0.0f, pSQueue->current.actornum, event, FALSE);
 
         /* figure out the last ship to speak var */
         if (pSQueue->current.pShip != NULL)
@@ -1381,8 +937,6 @@ sdword SEselectsentence(sdword actor, sdword event, sdword variable, sdword setv
     sword *pSentence;
     sdword *pPhrase;
     udword variation;
-    static sdword lastBGvariation = 0;
-    static sdword lastMIDvariation = 0;
 
     pSentence = &SentenceLUT->lookup[(actor * SentenceLUT->numevents + event) * SentenceLUT->numcolumns + 1];   // + 1 is to get past the priority
 
@@ -1419,39 +973,9 @@ sdword SEselectsentence(sdword actor, sdword event, sdword variable, sdword setv
     }
     else
     {                                                       //no variation spec'd, choose one intelligently
-        if (event == (N01_Chatter_Mid & SPEECH_EVENT_MASK))
-        {                                                   //increment the variation if it's mid-ground chatter
-            if (++lastMIDvariation >= numvariations)
-            {
-                lastMIDvariation = 0;
-            }
-            i = lastMIDvariation;
-        }
-        else if (event == (N01_Chatter_BG & SPEECH_EVENT_MASK))
-        {                                                   //inclrement the variation if it's background chatter
-            if (++lastBGvariation >= numvariations)
-            {
-                lastBGvariation = 0;
-            }
-            i = lastBGvariation;
-        }
-        else
-        {                                                   //else it's a regular speech event; choose a random variation somehow
-            i = SENextVariationInSeries(numvariations, &PhraseLUT->lookupsy[(index + variable) * PhraseLUT->numcolumns], maxvariable * PhraseLUT->numcolumns);
-           /*
-            for (i = 0; i < numvariations; i++)
-            {
-                if (PhraseLUT->lookupsy[(index + (i * maxvariable) + variable) * PhraseLUT->numcolumns + 1] >= variation)
-                {
-                    break;
-                }
-            }
-            if (i >= numvariations)
-            {
-                i = numvariations - 1;
-            }
-            */
-        }
+        // CAT: always the random series (SEselectsentence 0x005223c0; HW1's mid- and background-chatter
+        //      rotations of N01_Chatter_Mid / N01_Chatter_BG are gone with those events)
+        i = SENextVariationInSeries(numvariations, &PhraseLUT->lookupsy[(index + variable) * PhraseLUT->numcolumns], maxvariable * PhraseLUT->numcolumns);
 
         phrase = index + (i * maxvariable) + variable;
     }
@@ -1486,11 +1010,15 @@ sdword SEselectsentence(sdword actor, sdword event, sdword variable, sdword setv
     Name        :   speechEventQueue
     Description :   Adds speech events to the queue if there is space for them.  Does trivial rejection on
                     low priority speech events.
+                    CAT: the exe's queue (speechEventQueue 0x00522560): Cataclysm's ids (index 0x7ff up to 0x35e,
+                    actor bits 0x3ff800), three queues chosen by the actor bits, the letterbox rejecting chatter
+                    and status, a mimic disguised as an allied ship answering the enemy's selection with its
+                    apparent type, the 25 Relic names; every event is actor 0 of the race's LUT.
     Inputs      :   object - pointer to a ship object that this speech event is attached to (can be NULL for Fleet Command, etc)
-                    event - event # to play, define in speechevent.h
+                    event - event # to play (Cataclysm's raw id)
                     var - variable that may be attached to an event (ie a build ship event would pass the ship variable #)
                     variation - only used if you want a specific variation of an event to play
-                    actornum - used if you want to override the actor that the speech code has selected
+                    actornum - not used by Cataclysm (every event is actor 0 of the LUT)
                     playernum - the playerindex in the array player in the universe structure, only want to hear your own speech events
                     linkto - handle of the speech event that you want to tie this one to, will play this event directly after that event
                     timeout - amount of time this event can wait in the queue, 0 means play now, < 0 means wait indefinatly and don't drop this from the queue
@@ -1501,199 +1029,171 @@ sdword SEselectsentence(sdword actor, sdword event, sdword variable, sdword setv
 ----------------------------------------------------------------------------*/
 sdword speechEventQueue(void *object, sdword event, sdword var, sdword variation, sdword actornum, sdword playernum, sdword linkto, real32 timeout, sword volume)
 {
-    sdword actor;
     sdword i, j;
     Ship *pShip = NULL;
-    sdword handle = SOUND_ERR;
+    sdword handle;
     SPEECHQUEUE *pSQueue;
     QUEUEEVENT *pQEvent;
     SpaceObj *spaceobject;
-    sdword channel = 0;
-    sdword ally = SOUND_ERR;
+    sdword channel;
+    sdword actorbits;
+    sdword ally;
+
+    (void)actornum;
 
     if (!enableSpeech || soundpaused)
     {
         return (SOUND_ERR);
     }
 
-    if ((event & SPEECH_EVENT_MASK) > SPEECH_LAST_EVENT)
+    if ((event & CAT_SPEECH_EVENT_MASK) > CAT_SPEECH_LAST_EVENT)
     {
-#if SE_VERBOSE_LEVEL >= 1
-        dbgMessagef("speechEventQueue: Tutorial speeech event %d, not implemented", event);
-#endif
         return (SOUND_ERR);
     }
 
-    /* make sure they're not asking for an actor that doesn't exist */
-    if (actornum >= (SentenceLUT->numactors))
+    if (SentenceLUT->numactors == 0)
     {
-        return (handle);
+        return (SOUND_ERR);
     }
 
     /* if an NIS is playing, only want to hear NIS events */
-//  if (nisIsRunning && (event < SPEECH_FIRST_SP_EVENT))
     if (nisIsRunning && !(event & (SPEECH_TYPE_NIS + SPEECH_TYPE_ANIMATIC)))
     {
-        return (handle);
+        return (SOUND_ERR);
     }
 
     /* if single player events are happening, don't want any chatter */
     if ((numSinglePlayerEvents > 0) && (event & SPEECH_TYPE_CHATTER))
     {
-        return (handle);
+        return (SOUND_ERR);
+    }
+
+    // CAT: no chatter or status speech during the letterbox
+    if (catSoundLetterbox && (event & (SPEECH_TYPE_CHATTER | SPEECH_TYPE_STATUS)))
+    {
+        return (SOUND_ERR);
     }
 
     /* toss out events the user doesn't want to hear */
     if ((event & SPEECH_TYPE_CHATTER) && !bChatterOn)
     {
-        return (handle);
+        return (SOUND_ERR);
     }
-    else if ((event & SPEECH_TYPE_STATUS) && !bStatusOn)
+    if ((event & SPEECH_TYPE_STATUS) && !bStatusOn)
     {
-        return (handle);
+        return (SOUND_ERR);
     }
-    else if ((event & SPEECH_TYPE_COMMAND) && !bCommandsOn)
+    if ((event & SPEECH_TYPE_COMMAND) && !bCommandsOn)
     {
-        return (handle);
+        return (SOUND_ERR);
     }
 
-#if 1       // enable when new speech is put in game
-    if (!((event & SPEECH_ACTOR_MASK) & actorFlagsEnabled))
+    if (!((event & CAT_SPEECH_ACTOR_MASK) & actorFlagsEnabled))
     {
-        return (handle);
+        return (SOUND_ERR);
     }
-#endif
 
-    if ((object != NULL) && !(event & SPEECH_ACTOR_FLEET_COMMAND))
+    if (object != NULL)
     {
-        /* this is probably a ship, so this is one of the ALL SHIPS voices */
         spaceobject = (SpaceObj *)object;
 
-        if (!univSpaceObjInRenderList(spaceobject) && ((event & SPEECH_TYPE_STATUS) || (event & SPEECH_TYPE_CHATTER)))
+        if (!(event & CAT_SPEECH_ACTOR_FLEET_COMMAND))
         {
-            if (!(event & SPEECH_TYPE_ALWAYS_PLAY))
+            /* this is probably a ship, so this is one of the ALL SHIPS voices */
+            if (!univSpaceObjInRenderList(spaceobject) && ((event & SPEECH_TYPE_STATUS) || (event & SPEECH_TYPE_CHATTER)))
             {
-                return (SOUND_ERR);        // only do sound events for objects in current mission sphere we are viewing
-            }
-        }
-
-        if (spaceobject->header.objtype != OBJ_ShipType)
-        {
-            return (SOUND_ERR);
-        }
-
-        pShip = (Ship *)object;
-
-        if ((universe.curPlayerIndex != pShip->playerowner->playerIndex) && (!nisIsRunning))
-        {
-            return (SOUND_ERR);
-        }
-
-        if ((event == COMM_Selection) || (event == COMM_AssGrp_Select))
-        {
-            /* Probes and Proximity Sensors are unmanned and shouldn't speak when selected */
-            if ((pShip->staticinfo->shiptype == ProximitySensor))
-            {
-                /* play this sound event instead */
-                soundEvent(pShip, Ship_SelectProbe);
-
-                return (SOUND_OK);
-            }
-            else if ((pShip->staticinfo->maxfuel > 0.0f) && (pShip->fuel <= 0.0f))
-            {
-                if (event == COMM_Selection)
+                if (!(event & SPEECH_TYPE_ALWAYS_PLAY))
                 {
-                    var = SOUND_DEFAULT;
+                    return (SOUND_ERR);        // only do sound events for objects in current mission sphere we are viewing
                 }
-                event = STAT_Strike_OutOfFuel;
             }
-        }
 
-        if (actornum < SOUND_OK)
-        {
-            if ((pShip->soundevent.actorNum <= SOUND_NOTINITED) || (pShip->soundevent.actorNum >= SentenceLUT->numactors))
+            if (spaceobject->header.objtype != OBJ_ShipType)
             {
-                actor = pShip->soundevent.actorNum = SEselectactor();
+                return (SOUND_ERR);
+            }
+
+            pShip = (Ship *)object;
+
+            if ((universe.curPlayerIndex == pShip->playerowner->playerIndex) || nisIsRunning)
+            {
+                if (event != CAT_SPEECH_EVENT_SELECTED)
+                {
+                    goto queueit;
+                }
             }
             else
             {
-                actor = pShip->soundevent.actorNum;
+                // CAT: an enemy ship speaks only to answer its selection, and only a mimic that looks allied,
+                //      with the type it pretends to be (the +0x18 word's CAT_SHIPFLAG_Mimic bit)
+                if (event != CAT_SPEECH_EVENT_SELECTED)
+                {
+                    return (SOUND_ERR);
+                }
+                if (!bitTest(pShip->header.catFlags18, CAT_SHIPFLAG_Mimic))
+                {
+                    return (SOUND_ERR);
+                }
+                if (!cat_mimicAppearsAlliedTo(pShip, universe.curPlayerPtr))
+                {
+                    return (SOUND_ERR);
+                }
+                var = cat_mimicGetApparentShipType(pShip);
             }
+
+            // CAT: a selected ship that is support-unit exempt or still being built says nothing (specialFlags2
+            //      +0x1CC: 0x100000, 0x8)
+            if (bitTest(pShip->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20) || bitTest(pShip->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+            {
+                return (SOUND_ERR);
+            }
+            goto queueit;
         }
-        else
+
+        if (spaceobject->header.objtype == OBJ_ShipType)
         {
-            actor = actornum;
+            pShip = (Ship *)object;
         }
-        channel = actor;
+    }
+
+    if (((udword)playernum != universe.curPlayerIndex) && (!nisIsRunning) && (playernum != SOUND_EVENT_DEFAULT))
+    {
+        return (SOUND_ERR);
+    }
+
+queueit:
+    /* figure out which speech channel to use */
+    // CAT: stream 1 for actor bits 0x1000 and 0x2000, stream 2 for chatter and actor 0x200000, stream 0 otherwise;
+    //      a linked event goes to the stream of its handle
+    actorbits = event & CAT_SPEECH_ACTOR_MASK;
+    if ((actorbits == CAT_SPEECH_ACTOR_FLEET_COMMAND) || (actorbits == CAT_SPEECH_ACTOR_FLEET_INTEL))
+    {
+        channel = 1;
+    }
+    else if ((event & SPEECH_TYPE_CHATTER) || (actorbits == CAT_SPEECH_ACTOR_200000))
+    {
+        channel = 2;
     }
     else
     {
-        if (object != NULL)
-        {
-            spaceobject = (SpaceObj *)object;
-            if (spaceobject->header.objtype == OBJ_ShipType)
-            {
-                pShip = (Ship *)object;
-            }
-        }
-
-        if (((udword)playernum != universe.curPlayerIndex) && (!nisIsRunning) && (playernum != SOUND_EVENT_DEFAULT))
-        {
-            return (SOUND_ERR);
-        }
-
-        /* this is either Fleet Command, Fleet Intel, Traders, Pirates or NIS speech*/
-//      if ()
-//      {
-//      }
-
-        if (actornum < SOUND_OK)
-        {
-            actor = ACTOR_FLEETCOMMAND;
-        }
-        else
-        {
-            actor = actornum;
-        }
-
-        if (event == N01_Chatter_BG)
-        {
-            channel = 4;
-        }
-        else
-        {
-            channel = actor;
-        }
+        channel = 0;
     }
-
-    /* figure out which speech channel to use */
+    if (linkto >= SOUND_OK)
+    {
+        channel = linkto & 0xf;
+    }
     pSQueue = &speechqueue[channel];
 
     /* is the queue full? */
     if (pSQueue->numqueued == SE_MAX_QUEUE)
     {
-        /* should see if I can bump one of these? */
         return (SOUND_ERR);
     }
 
-    /* is this going to time out before it'll play? */
-    if ((timeout > 0.0f) && (pSQueue->timeover > universe.totaltimeelapsed + timeout))
+    /* is this going to time out before it'll play? (the relic-player death line is always queued) */
+    if ((timeout > 0.0f) && (pSQueue->timeover > universe.totaltimeelapsed + timeout) && (event != 0x200102d))
     {
         return (SOUND_ERR);
-    }
-
-    if (actor == SOUND_NOTINITED)
-    {
-        return (handle);
-    }
-
-    if ((event == STAT_Strike_OutOfFuel) && (var > SOUND_DEFAULT))
-    {
-        event = STAT_Group_OutOfFuel;
-    }
-    else if ((event == STAT_Strike_LowOnFuel) && (var > SOUND_DEFAULT))
-    {
-        event = STAT_Group_LowOnFuel;
     }
 
     if (var == SOUND_DEFAULT)
@@ -1707,132 +1207,114 @@ sdword speechEventQueue(void *object, sdword event, sdword var, sdword variation
     }
 
     /* special relic users events */
-    if ((event == COMM_F_AllianceFormed) || (event == COMM_F_AllianceBroken))
+    // CAT: alliance formed / broken (0x400102b / 0x400102c) with a Relic name become 0x200102e / 0x200102f with the
+    //      name's index; the Relic player death (0x200102d) needs a Relic name
+    if ((event == 0x400102b) || (event == 0x400102c))
     {
         ally = var;
         var = 0;
 
-        for (i = 0; i < MAX_RELIC_NAMES; i++)
+        for (i = 0; i < CAT_RELIC_NAMES; i++)
         {
-            if (strncasecmp(playerNames[ally], relicPlayerNames[i], MAX_PERSONAL_NAME_LEN) == 0)
+            if (strncasecmp(playerNames[ally], catRelicPlayerNames[i], CAT_RELIC_NAME_LEN) == 0)
             {
-                if (event == COMM_F_AllianceFormed)
-                {
-                    event = COMM_F_RelicAllianceFormed;
-                }
-                else
-                {
-                    event = COMM_F_RelicAllianceBroken;
-                }
+                event = (event != 0x400102b) + 0x200102e;
                 var = i;
                 break;
             }
         }
     }
-    else if (event == STAT_F_RelicPlayerDies)
+    else if (event == 0x200102d)
     {
-        for (i = 0; i < MAX_RELIC_NAMES; i++)
+        for (i = 0; i < CAT_RELIC_NAMES; i++)
         {
-            if (strncasecmp(playerNames[var], relicPlayerNames[i], MAX_PERSONAL_NAME_LEN) == 0)
+            if (strncasecmp(playerNames[var], catRelicPlayerNames[i], CAT_RELIC_NAME_LEN) == 0)
             {
-                var = i;
                 break;
             }
         }
-        if ((i == MAX_RELIC_NAMES) || (i == universe.curPlayerIndex))
+        if (i == CAT_RELIC_NAMES)
         {
-            return (handle);
+            return (SOUND_ERR);
         }
-    }
-
-    if (gameIsRunning)
-    {
-        if (universe.curPlayerPtr->race == R2)
-        {
-            if (event == A09_Intel_Kushan)
-            {
-                event = A09_Intel_Taiidan;
-            }
-            else if (event == A10_Intel_Kushan)
-            {
-                event = A10_Intel_Taiidan;
-            }
-            else if (event == A12_Defector_Kushan)
-            {
-                event = A12_Defector_Taiidan;
-            }
-        }
+        var = i;
     }
 
     for (i = 0; i < SE_MAX_QUEUE; i++)
     {
         if (pSQueue->queue[i].handle == SOUND_NOTINITED)
         {
-            pQEvent = &pSQueue->queue[i];
-
-            /* put it in this space */
-            if (linkto < SOUND_OK)
-            {
-                handle = SNDcreatehandle(channel);
-                pQEvent->index = 0;
-            }
-            else
-            {
-                handle = linkto;
-                for (j = 0; j < SE_MAX_QUEUE; j++)
-                {
-                    if ((pSQueue->queue[j].handle == linkto) && (pSQueue->queue[j].index == 0))
-                    {
-                        break;
-                    }
-                }
-                if (j < SE_MAX_QUEUE)
-                {
-                    pQEvent->index = pSQueue->queue[j].numlinks++;
-                }
-                else
-                {
-                    /* the one you wanted to link to is gone */
-                    return (SOUND_ERR);
-                }
-            }
-
-#if SE_VERBOSE_LEVEL >= 2
-            dbgMessagef("Speech Event Queued.  Actor: %d, Event: %d", actor, event);
-#endif
-            pQEvent->status = SOUND_OK;
-            pQEvent->actornum = actor;
-
-            if (event & SPEECH_TYPE_GROUP)
-            {
-                pQEvent->pShip = NULL;
-            }
-            else
-            {
-                pQEvent->pShip = pShip;
-            }
-            pQEvent->event = event;
-            pQEvent->variable = var;
-            pQEvent->variation = variation;
-            pQEvent->priority = SentenceLUT->lookup[(actor * SentenceLUT->numevents + (event & SPEECH_EVENT_MASK)) * SentenceLUT->numcolumns];
-            pQEvent->volume = volume;
-
-            pQEvent->timein = universe.totaltimeelapsed;
-            if (timeout >= 0.0f)
-            {
-                pQEvent->timeout = universe.totaltimeelapsed + timeout;
-            }
-            else
-            {
-                pQEvent->timeout = timeout;
-            }
-
-            pQEvent->handle = handle;
-
-            SEreorderqueue(pSQueue);
             break;
         }
     }
+    if (i == SE_MAX_QUEUE)
+    {
+        return (SOUND_ERR);
+    }
+    pQEvent = &pSQueue->queue[i];
+
+    /* put it in this space */
+    if (linkto < SOUND_OK)
+    {
+        handle = SNDcreatehandle(channel);
+        pQEvent->index = 0;
+    }
+    else
+    {
+        handle = linkto;
+        for (j = 0; j < SE_MAX_QUEUE; j++)
+        {
+            if ((pSQueue->queue[j].handle == linkto) && (pSQueue->queue[j].index == 0))
+            {
+                break;
+            }
+        }
+        if (j < SE_MAX_QUEUE)
+        {
+            pQEvent->index = pSQueue->queue[j].numlinks++;
+        }
+        else if (pSQueue->current.handle == linkto)
+        {
+            // CAT: the event it links to may be playing already (speechEventQueue 0x00522560)
+            pQEvent->index = pSQueue->current.numlinks++;
+        }
+        else
+        {
+            /* the one you wanted to link to is gone */
+            return (SOUND_ERR);
+        }
+    }
+
+    pQEvent->status = SOUND_OK;
+    pQEvent->actornum = 0;                                  // CAT: one actor per race LUT
+
+    if (event & SPEECH_TYPE_GROUP)
+    {
+        pQEvent->pShip = NULL;
+    }
+    else
+    {
+        pQEvent->pShip = pShip;
+    }
+    pQEvent->event = event;
+    pQEvent->variable = (var < 0x3c) ? var : 0x3c;          // CAT: the variable is capped at 60
+    pQEvent->variation = variation;
+    pQEvent->priority = SentenceLUT->lookup[(event & CAT_SPEECH_EVENT_MASK) * SentenceLUT->numcolumns];
+    pQEvent->volume = volume;
+
+    pQEvent->timein = universe.totaltimeelapsed;
+    if (timeout < 0.0f)
+    {
+        pQEvent->timeout = timeout;
+    }
+    else
+    {
+        pQEvent->timeout = universe.totaltimeelapsed + timeout;
+    }
+
+    pQEvent->handle = handle;
+
+    SEreorderqueue(pSQueue);
 
     return (handle);
 }
@@ -1860,6 +1342,7 @@ sdword speechEventStop(sdword handle, real32 fadetime, bool32 addstatic)
     Name        : speechEventActorStop
     Description : Stops all speech events from a particular actor.  Queued
                     events are discarded; playing events faded out.
+                  CAT: in all three queues (speechEventActorStop 0x00522a00; HW1 only the first)
     Inputs      : actorMask - bit fields for what actors' speech events to
                     delete.  Same as bit fields added to speech events.
                   fadeTime - amount of time to fade out over.
@@ -1868,23 +1351,25 @@ sdword speechEventStop(sdword handle, real32 fadetime, bool32 addstatic)
 ----------------------------------------------------------------------------*/
 sdword speechEventActorStop(udword actorMask, real32 fadetime)
 {
-    sdword i;
+    sdword i, j;
 
-    dbgAssertOrIgnore((actorMask & (~ACTOR_ALL_ACTORS)) == 0);
-
-    for (i = 0; i < SE_MAX_QUEUE; i++)
+    for (i = 0; i < SE_NUM_ACTORS; i++)
     {
-        if (speechqueue[0].queue[i].event & actorMask)
+        for (j = 0; j < SE_MAX_QUEUE; j++)
         {
-            memset(&speechqueue[0].queue[i], 0, sizeof(QUEUEEVENT));
-            speechqueue[0].queue[i].handle = SOUND_NOTINITED;
-            speechqueue[0].queue[i].timeout = -1.0f;
+            if (speechqueue[i].queue[j].event & actorMask)
+            {
+                memset(&speechqueue[i].queue[j], 0, sizeof(QUEUEEVENT));
+                speechqueue[i].queue[j].handle = SOUND_NOTINITED;
+                speechqueue[i].queue[j].timeout = -1.0f;
+                speechqueue[i].queue[j].event = SOUND_DEFAULT;
+            }
         }
-    }
 
-    if (speechqueue[0].current.event & actorMask)
-    {
-        soundstreamvolume(speechqueue[0].current.handle, -1, fadetime);
+        if (speechqueue[i].current.event & actorMask)
+        {
+            soundstreamvolume(speechqueue[i].current.handle, -1, fadetime);
+        }
     }
 
     return (SOUND_OK);
@@ -1907,6 +1392,7 @@ sdword speechEventStopAllSpecific(real32 fadetime, sdword speechType)
                 memset(&speechqueue[i].queue[j], 0, sizeof(QUEUEEVENT));
                 speechqueue[i].queue[j].handle = SOUND_NOTINITED;
                 speechqueue[i].queue[j].timeout = -1.0f;
+                speechqueue[i].queue[j].event = SOUND_DEFAULT;    // CAT (speechEventStopAllSpecific 0x00522a70)
             }
         }
 
@@ -1944,13 +1430,15 @@ sdword speechEventRemoveShip(Ship *pShip)
                 speechqueue[i].queue[j].handle = SOUND_NOTINITED;
                 speechqueue[i].queue[j].timeout = -1.0f;
                 speechqueue[i].queue[j].pShip = NULL;
+                speechqueue[i].queue[j].event = SOUND_DEFAULT;    // CAT (speechEventRemoveShip 0x00522b00)
             }
         }
 
         /* need to stop the currently playing one */
         if (speechqueue[i].current.pShip == pShip)
         {
-            soundstreamvolume(speechqueue[i].current.handle, -1, 100);
+            // CAT: the exe passes a fade time of -1.0 (HW1: 100)
+            soundstreamvolume(speechqueue[i].current.handle, -1, -1.0f);
             speechqueue[i].current.pShip = NULL;
         }
 
@@ -1961,41 +1449,45 @@ sdword speechEventRemoveShip(Ship *pShip)
 }
 
 
+/*-----------------------------------------------------------------------------
+    Name        : SEreorderqueue
+    Description : CAT: drops the timed-out events, then picks the next event (SEreorderqueue 0x00522e60, with HW1's
+                  SEcleanqueue inlined). Cataclysm orders and keeps events by the top four type bits (0xf0000000):
+                  a timed-out tutorial event is dropped too (HW1 kept tutorial, single-player, NIS and animatic).
+----------------------------------------------------------------------------*/
 sdword SEreorderqueue(SPEECHQUEUE *pSQueue)
 {
     sdword i;
     sdword highpriority = 0;
     bool32 bSomethingQueued = FALSE;
-    /* need to get the next event */
+    udword ti, th;
 
-    SEcleanqueue(pSQueue);
+    for (i = 0; i < SE_MAX_QUEUE; i++)
+    {
+        if ((pSQueue->queue[i].timeout >= 0.0f) && (pSQueue->queue[i].timeout < universe.totaltimeelapsed) &&
+            (((udword)pSQueue->queue[i].event & CAT_SPEECH_TYPE_ORDER_MASK) < SPEECH_TYPE_TUTORIAL))
+        {
+            memset(&pSQueue->queue[i], 0, sizeof(QUEUEEVENT));
+            pSQueue->queue[i].handle = SOUND_NOTINITED;
+            pSQueue->queue[i].timeout = -1.0f;
+            pSQueue->queue[i].event = SOUND_DEFAULT;
+        }
+    }
 
     for (i = 0; i < SE_MAX_QUEUE; i++)
     {
         if (pSQueue->queue[i].handle >= SOUND_OK)
         {
             bSomethingQueued = TRUE;
+            ti = (udword)pSQueue->queue[i].event & CAT_SPEECH_TYPE_ORDER_MASK;
+            th = (udword)pSQueue->queue[highpriority].event & CAT_SPEECH_TYPE_ORDER_MASK;
             if (pSQueue->queue[highpriority].handle < SOUND_OK)
             {
                 highpriority = i;
             }
-            else if ((pSQueue->queue[i].event & SPEECH_TYPE_MASK) > (pSQueue->queue[highpriority].event & SPEECH_TYPE_MASK))
+            else if (ti > th)
             {
                 highpriority = i;
-            }
-            else if ((pSQueue->queue[i].event & SPEECH_TYPE_MASK) == (pSQueue->queue[highpriority].event & SPEECH_TYPE_MASK))
-            {
-                if (pSQueue->queue[i].priority > pSQueue->queue[highpriority].priority)
-                {
-                    highpriority = i;
-                }
-                else if (pSQueue->queue[i].priority == pSQueue->queue[highpriority].priority)
-                {
-                    if (pSQueue->queue[i].timein < pSQueue->queue[highpriority].timein)
-                    {
-                        highpriority = i;
-                    }
-                }
             }
             else if (pSQueue->queue[i].priority > pSQueue->queue[highpriority].priority)
             {
@@ -2020,29 +1512,6 @@ sdword SEreorderqueue(SPEECHQUEUE *pSQueue)
         pSQueue->nextevent = SOUND_NOTINITED;
     }
 
-    return (SOUND_OK);
-}
-
-
-sdword SEcleanqueue(SPEECHQUEUE *pSQueue)
-{
-    sdword i;
-
-    for (i = 0; i < SE_MAX_QUEUE; i++)
-    {
-        if (pSQueue->queue[i].timeout >= 0.0f)
-        {
-            if ((pSQueue->queue[i].timeout < universe.totaltimeelapsed)
-                && ((pSQueue->queue[i].event & SPEECH_TYPE_MASK) < SPEECH_TYPE_TUTORIAL))   // don't throw out Animatic, NIS, Single Player
-            {                                                                               // or Tutorial speech events.
-                /* get ride of this one */
-                /* IS IT LINKED? */
-                memset(&pSQueue->queue[i], 0, sizeof(QUEUEEVENT));
-                pSQueue->queue[i].handle = SOUND_NOTINITED;
-                pSQueue->queue[i].timeout = -1.0f;
-            }
-        }
-    }
     return (SOUND_OK);
 }
 
@@ -2076,466 +1545,15 @@ sdword speechEventCleanup(void)
     return (SOUND_OK);
 }
 
-#else
-
-/*-----------------------------------------------------------------------------
-    Name        :
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-sdword speechEventPlay(void *object, sdword event, sdword var, sdword playernum, sdword variation)
-{
-#if SPEECH
-//    udword i;
-    sdword actor = ACTOR_FLEETCOMMAND;
-    sword vol = SOUND_VOL_MAX;
-    sword pan = SOUND_PAN_CENTER;
-    double dist;
-    float damageratio = 0.0f;
-    float distratio = (float)1.0;
-    Ship *ship;
-    SpaceObj *spaceobject;
-    ShipStaticInfo *shipstatic;
-    sdword curstream = SOUND_ERR;
-    bool32 bookend = FALSE;
-    ShipClass shipclass = 0;
-
-    if (!enableSpeech)
-    {
-        return (SOUND_ERR);
-    }
-
-    if (event == STAT_Cap_ShipDocked)
-    {
-        return (SOUND_ERR);
-    }
-
-    /* figure out if there is a stream free to be played on */
-//    for (i = 0; i < SE_NUM_STREAMS; i++)
-//    {
-//        if (soundstreamnumqueued(streamhandle[i]) == 0)
-//        {
-//            curstream = i;
-//            break;
-//        }
-//    }
-    if (soundstreamnumqueued(streamhandle[0]) == 0)
-    {
-        curstream = 0;
-    }
-
-    if (curstream == SOUND_ERR)
-    {
-        if ((event != COMM_Const_BuildCapShip) || (event != STAT_F_Research_CompletedShip))
-        {
-            return (SOUND_ERR);
-        }
-
-        curstream = 0;
-    }
-
-    if (object != NULL)
-    {
-        spaceobject = (SpaceObj *)object;
-
-        if (spaceobject->header.objtype != OBJ_ShipType)
-        {
-            return (SOUND_ERR);
-        }
-
-        ship = (Ship *)object;
-        shipstatic = (ShipStaticInfo *)ship->staticinfo;
-
-        if (universe.curPlayerIndex != ship->playerowner->playerIndex)
-        {
-            return (SOUND_ERR);
-        }
-
-        if (!univSpaceObjInRenderList(spaceobject))
-        {
-            return (SOUND_ERR);        // only do sound events for objects in current mission sphere we are viewing
-        }
-
-//      if (event >= SPEECH_FIRST_SP_EVENT)
-        if (event & SPEECH_TYPE_SINGLE_PLAYER)
-        {
-            shipclass = CLASS_Fighter;
-        }
-        else
-        {
-            shipclass = ship->staticinfo->shipclass;
-        }
-
-        if (shipclass == CLASS_Mothership)
-        {
-            if (event == COMM_Selection)
-            {
-                event = COMM_F_MoShip_Selected;
-            }
-            playernum = universe.curPlayerIndex;
-        }
-        else
-        {
-            if ((ship->soundevent.actorNum <= SOUND_NOTINITED) || (ship->soundevent.actorNum >= SentenceLUT->numactors))
-            {
-                ship->soundevent.actorNum = actor = SEselectactor();
-            }
-            else
-            {
-                actor = ship->soundevent.actorNum;
-            }
-
-            damageratio = 1.0f - ((real32)ship->targetable.health * (real32)shipstatic->health.oneOverMaxHealth);      // (real32)shipstatic->health.maxhealth);
-
-            dist = fsqrt(spaceobject->obj.cameraDistanceSquared);
-
-            vol = SOUND_VOL_MAX - (sword)(SPEECH_VOL_FACTOR * dist);
-            if (vol < SPEECH_VOL_LOW)
-            {
-                vol = SPEECH_VOL_LOW;
-            }
-            else if (vol > SPEECH_VOL_MAX)
-            {
-                vol = SPEECH_VOL_MAX;
-            }
-
-            /* add the digital bleeps */
-            bookend = TRUE;
-        }
-    }
-
-    if (actor == ACTOR_FLEETCOMMAND)
-    {
-        if ((udword)playernum != universe.curPlayerIndex)
-        {
-            return (SOUND_ERR);
-        }
-
-        if (event == COMM_F_MoShip_Arrived)
-        {
-            if (MoShipMoving[universe.curPlayerIndex])
-            {
-                MoShipMoving[universe.curPlayerIndex] = FALSE;
-            }
-            else
-            {
-                return (SOUND_ERR);
-            }
-        }
-        vol = SPEECH_VOL_MAX;
-    }
-
-    if (SEspeechevent(curstream, actor, event, var, vol, pan, 0.0f, 0.0f, variation, bookend, shipclass) == SOUND_OK)
-    {
-        /* set the last ship to speak variable so the hot key can be used later */
-        if (actor == ACTOR_FLEETCOMMAND)
-        {
-            /* MAKE LAST SHIP BE THE MOTHERSHIP */
-            if (universe.curPlayerPtr != NULL)
-            {
-                lastshiptospeak = universe.curPlayerPtr->PlayerMothership;
-            }
-            else
-            {
-                lastshiptospeak = NULL;
-            }
-        }
-        else
-        {
-            lastshiptospeak = ship;
-        }
-
-    }
-
-
-    if (event == COMM_Cloak_CloakingOn)
-    {
-        if (++actor >= SentenceLUT->numactors - 1)
-        {
-            actor = 1;
-        }
-
-        SEspeechevent(curstream, actor, STAT_Cloak_CloakingOn_Resp, var, vol, pan, 0.0f, 0.0f, variation, bookend, shipclass);
-    }
-    if ((event == STAT_AssGrp_UnderAttack) || (event == STAT_Grp_UnderAttack))
-    {
-        if (++actor >= SentenceLUT->numactors - 1)
-        {
-            actor = 1;
-        }
-
-        SEspeechevent(curstream, actor, STAT_Grp_UnderAttack_Rsp, var, vol, pan, 0.0f, 0.0f, variation, bookend, shipclass);
-    }
-
-    if (event == COMM_F_MoShip_Move)
-    {
-        MoShipMoving[universe.curPlayerIndex] = TRUE;
-    }
-
-    return (streamhandle[curstream]);
 #endif
-}
-
-
-sdword SEspeechevent(sdword stream, sdword actor, sdword event, sdword var, sword vol, sword pan, double dist, float damageratio, sdword setVariation, bool32 bookend, ShipClass shipclass)
-{
-    udword duration = 0;
-    udword variation = 0;
-#if SPEECH
-    uword numvariations;
-    uword maxvar;
-    uword index;
-    udword numoffsets;
-    udword i;
-    udword phrase;
-    EFFECT *fqeffect = NULL;
-    sword priority = 0;
-    sword *pSentence;
-    sdword *pPhrase;
-    STREAMEQ *pEQ = NULL;
-    STREAMDELAY *pdelay = NULL;
-    void *ppatch = NULL;
-    sword level = 0;
-
-// NEW SPEECH
-    udword probability;
-
-    pSentence = &SentenceLUT->lookup[(actor * SentenceLUT->numevents + event) * SentenceLUT->numcolumns];
-
-    priority = *pSentence++;
-    numvariations = *pSentence++;
-
-#if 0
-    for (i = 0; i < SentenceLUT->prioritylevels; i++)
-    {
-        pSentence = &SentenceLUT->lookup[((actor * SentenceLUT->numevents + event) * SentenceLUT->prioritylevels + i) * 3];
-        if (*pSentence > 0)
-        {
-            numvariations = *pSentence++;
-            break;
-        }
-    }
-#endif
-    if (numvariations == 0)
-    {
-        return (SOUND_ERR);
-    }
-
-    if (var < SOUND_OK)
-    {
-        var = 0;
-//      return (SOUND_ERR);
-    }
-
-    maxvar = *pSentence++;
-    index = *pSentence;
-
-    if ((setVariation != SOUND_NOTINITED) && (setVariation < numvariations))
-    {
-        variation = setVariation;
-    }
-    else
-    {
-        variation = ranRandom(RANDOM_SOUND_GAME_THREAD) % numvariations;
-    }
-
-    if (event == COMM_F_Hyper_Engage)
-    {
-        variation = 1;
-    }
-    else if (event == STAT_Grav_Collapse)
-    {
-        variation = 1;
-    }
-
-    phrase = index + (variation * maxvar) + var;
-
-    pPhrase = &PhraseLUT->lookup[phrase * PhraseLUT->numcolumns];
-
-    duration = *pPhrase++;
-// NEW SPEECH
-    probability = *pPhrase++;
-    numoffsets = *pPhrase++;
-
-    if (numoffsets > 0)
-    {
-        for (i = 0; i < numoffsets; i++)
-        {
-            if (*(pPhrase + i) == SOUND_NOTINITED)
-            {
-                // bad, this won't work
-                numoffsets = 0;
-                break;
-            }
-        }
-    }
-
-    /* set up the effect structure */
-//    fqInitE(&fqeffect);
-
-    if (actor != ACTOR_FLEETCOMMAND)
-    {
-        pEQ = &streamEQ[SPEECH_PILOT1];
-
-        if ((event >= CHAT_Const_DuringBattle) && (event <= CHAT_Const_More))
-        {
-            pdelay = &streamdelay[SPEECH_CONSTRUCTION];
-        }
-
-        if ((shipclass == CLASS_Corvette) || (shipclass == CLASS_Fighter))
-        {
-            /* filter the fighters */
-            pdelay = &streamdelay[SPEECH_STRIKECRAFT];
-            fqeffect = &cleaneffect[SPEECH_STRIKECRAFT];
-//          vol = (sword)(vol * 1.5f);
-//          if (vol > SOUND_VOL_MAX)
-//          {
-//              vol = SOUND_VOL_MAX;
-//          }
-        }
-        if ((shipclass >= CLASS_HeavyCruiser) && (shipclass <= CLASS_Frigate))
-        {
-            ppatch = SNDgetpatch(SpecialEffectBank, SpecEffectEventsLUT->lookup[GetPatch(SpecEffectEventsLUT, 0, Spec_IntCapShipCalm)]);
-            level = 128;
-        }
-        if (shipclass == CLASS_Resource)
-        {
-            ppatch = SNDgetpatch(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ResourceCollector, ShipCmn_Ambient)]);
-            level = 128;
-        }
-#if 0
-        /* adjust frequency effects here */
-        fqeffect.nFiltMinFreq = SPEECH_FILTER_LOW;
-        fqeffect.nFiltMaxFreq = SPEECH_FILTER_HIGH;
-
-        fqeffect.fNoiseLev = SPEECH_NOISE_LOW + ((float)dist * SPEECH_NOISE_FACTOR);    /// (float)150.0;
-        if (fqeffect.fNoiseLev > SPEECH_NOISE_HIGH)
-        {
-            fqeffect.fNoiseLev = SPEECH_NOISE_HIGH;
-        }
-        fqeffect.fNoiseLev *= FQ_FNOISE;
-
-        if (damageratio > SPEECH_BREAK_THRESHOLD)
-        {
-            fqeffect.nBreakMaxRate = SPEECH_BREAK_RATE_LOW + (udword)(SPEECH_BREAK_RATE_FACTOR * damageratio);
-            if (fqeffect.nBreakMaxRate > SPEECH_BREAK_RATE_HIGH)
-            {
-                fqeffect.nBreakMaxRate = SPEECH_BREAK_RATE_HIGH;
-            }
-            fqeffect.nBreakMaxDur = SPEECH_BREAK_LENGTH_LOW + (udword)(SPEECH_BREAK_LENGTH_FACTOR * damageratio);
-            if (fqeffect.nBreakMaxDur < SPEECH_BREAK_LENGTH_HIGH)
-            {
-                fqeffect.nBreakMaxDur = SPEECH_BREAK_LENGTH_HIGH;
-            }
-        }
-#endif
-    }
-    else
-    {
-        pEQ = &streamEQ[SPEECH_FLEET];
-    }
-
-    if (numoffsets > 0)
-    {
-        if (bookend && enableSFX)
-        {
-            soundstreamqueue(streamhandle[stream], (smemsize)SpecialEffectBank,
-                             (smemsize)SpecEffectEventsLUT->lookup[GetPatch(SpecEffectEventsLUT, 0, Spec_RadioBeepStart)],
-                             SOUND_FLAGS_QUEUEPATCH, vol, pan, SOUND_MONO, SOUND_DEFAULT, NULL, NULL, NULL, pSQueue->current.event);
-
-//          soundstreamqueueSilence(streamhandle[stream], SOUND_FLAGS_QUEUESILENCE, vol, pan, SOUND_MONO,
-//                                  SentenceLUT->compbitrate, fqeffect, pEQ, pdelay, SEsilence());
-        }
-
-        for (i = 0; i < numoffsets; i++)
-        {
-//            soundstreamqueue(streamhandle[stream], speechfilehandle, *pPhrase++, 0, vol, pan, SOUND_MONO, SentenceLUT->compbitrate, &fqeffect, pEQ, pdelay);
-//            soundstreamqueue(streamhandle[stream], speechfilehandle, *pPhrase++, SOUND_FLAGS_QUEUESTREAM, vol, pan, SOUND_MONO, SentenceLUT->compbitrate, fqeffect, pEQ, pdelay);
-            soundstreamqueuePatch(streamhandle[stream], speechfilehandle, *pPhrase++, SOUND_FLAGS_QUEUESTREAM, vol, pan,
-                                  SOUND_MONO, SentenceLUT->compbitrate, fqeffect, pEQ, pdelay, ppatch, level, 0.0f, actor);
-        }
-
-        if (bookend && enableSFX)
-        {
-//          soundstreamqueueSilence(streamhandle[stream], SOUND_FLAGS_QUEUESILENCE, vol, pan, SOUND_MONO,
-//                                  SentenceLUT->compbitrate, fqeffect, pEQ, pdelay, SEsilence());
-
-            soundstreamqueue(streamhandle[stream], (smemsize)SpecialEffectBank,
-                             (smemsize)SpecEffectEventsLUT->lookup[GetPatch(SpecEffectEventsLUT, 0, Spec_RadioBeepEnd)],
-                             SOUND_FLAGS_QUEUEPATCH, vol, pan, SOUND_MONO, SOUND_DEFAULT, NULL, NULL, NULL, pSQueue->current.event);
-        }
-    }
-#endif
-
-//    dbgMessagef("speechEvent: %d, variable: %d, variation: %d, duration %d msec, text: %s",
-//                event, var, variation, duration, aSpeechEventDebug[event]);
-
-    return (SOUND_OK);
-}
-
-#endif
-
-real32 SEsilence(void)
-{
-    return (0.5f);
-}
-
-
-sdword SEselectactor(void)
-{
-    sdword actor;
-
-#if defined(HW_GAME_DEMO)
-    actor = (ranRandom(RANDOM_SOUND_GAME_THREAD) % 2) + 1;
-#else
-    actor = (ranRandom(RANDOM_SOUND_GAME_THREAD) % 3) + 1;
-#endif
-
-    if (!bActorOn[actor])
-    {
-        actor++;
-
-#if defined(HW_GAME_DEMO)
-            if (actor > 2)
-#else
-            if (actor > 3)
-#endif
-        {
-            actor = 1;
-        }
-
-        if (!bActorOn[actor])
-        {
-            actor++;
-
-#if defined(HW_GAME_DEMO)
-            if (actor > 2)
-#else
-            if (actor > 3)
-#endif
-            {
-                actor = 1;
-            }
-
-            if (!bActorOn[actor])
-            {
-                actor = SOUND_NOTINITED;
-            }
-        }
-    }
-
-    return (actor);
-}
 
 
 /*-----------------------------------------------------------------------------
-    Name        :
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      :
+    Name        : speechEventAttack
+    Description : CAT: the attack order's line (speechEventAttack 0x00523040): 0x4000807 when a forced attack
+                  includes own ships, 0x4000808 for resources only, 0x4000805 otherwise, with the leader's type;
+                  HW1's random refusal of a forced attack on own ships and its per-resource lines are gone.
+    Return      : TRUE
 ----------------------------------------------------------------------------*/
 bool32 speechEventAttack(void)
 {
@@ -2544,12 +1562,18 @@ bool32 speechEventAttack(void)
     Ship *ship;
     sdword  numFriendlies = 0,
             numEnemies = 0,
-            resourceTypes = 0,
             numResources = 0;
+    sdword event = 0x4000805;
     static bool32 lastreturn;
 
     if (keyIsHit(SHIFTKEY))
     {
+        if (selSelecting.numTargets < 1)
+        {
+            lastreturn = TRUE;
+            return (lastreturn);
+        }
+
         for (i = 0; i < selSelecting.numTargets; i++)
         {
             objtype = selSelecting.TargetPtr[i]->header.objtype;
@@ -2567,57 +1591,26 @@ bool32 speechEventAttack(void)
             }
             else if ((objtype >= OBJ_AsteroidType) && (objtype <= OBJ_DustType))
             {
-                resourceTypes |= (1 << objtype);
                 numResources++;
             }
         }
 
-        // are there any friendlies
         if (numFriendlies > 0)
         {
-            // do we attack?
-            if (((ranRandom(RANDOM_SOUND_GAME_THREAD) % 100) <= SPEECH_DISOBEY_FORCEDATTACK) && (lastreturn))
+            event = 0x4000807;
+        }
+        else if (numEnemies < 1)
+        {
+            if (numResources < 1)
             {
-                speechEvent(selSelected.ShipPtr[0], COMM_AttackPlayerUnits_Cond, 0);
-                lastreturn = FALSE;
+                lastreturn = TRUE;
                 return (lastreturn);
             }
-            speechEvent(selSelected.ShipPtr[0], COMM_AttackPlayerUnits, 0);
-        }
-        else if (numEnemies > 0)
-        {
-            //else its only enemies
-            speechEvent(selSelected.ShipPtr[0], COMM_Attack, 0);
-        }
-        // are there any resources
-        else if (numResources > 0)
-        {
-            if (resourceTypes == (1 << OBJ_AsteroidType))
-            {
-                speechEvent(selSelected.ShipPtr[0], COMM_AttackResources, Asteroids);
-            }
-            else if (resourceTypes == (1 << OBJ_NebulaType))
-            {
-                speechEvent(selSelected.ShipPtr[0], COMM_AttackResources, Nebulae);
-            }
-            else if (resourceTypes == (1 << OBJ_GasType))
-            {
-                speechEvent(selSelected.ShipPtr[0], COMM_AttackResources, GasClouds);
-            }
-            else if (resourceTypes == (1 << OBJ_DustType))
-            {
-                speechEvent(selSelected.ShipPtr[0], COMM_AttackResources, DustClouds);
-            }
-            else
-            {
-                speechEvent(selSelected.ShipPtr[0], COMM_AttackResourcesGeneric, 0);
-            }
+            event = 0x4000808;
         }
     }
-    else
-    {
-        speechEvent(selSelected.ShipPtr[0], COMM_Attack, 0);
-    }
+
+    speechEventQueue(selSelected.ShipPtr[0], event, selSelected.ShipPtr[0]->shiptype, -1, -1, -1, -1, 0.0f, -1);
 
     lastreturn = TRUE;
     return (lastreturn);
@@ -2625,349 +1618,182 @@ bool32 speechEventAttack(void)
 
 
 /*-----------------------------------------------------------------------------
-    Name        :
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      :
+    Name        : speechEventUnderAttack
+    Description : CAT: the exe's damage warnings (speechEventUnderAttack 0x00523190). The mothership class and the
+                  component class warn through 0x2001058 (not the Dreadnought cannon or the carrier support
+                  module); off screen, the carrier class and the heavy cruisers through 0x2001066 and a hot-key
+                  group through 0x200105b; on screen, the carrier class, the Workers and the heavy cruisers below
+                  half health say 0x100080b themselves. Support-unit exempt ships say nothing.
+    Inputs      : target - the ship hit
 ----------------------------------------------------------------------------*/
 void speechEventUnderAttack(Ship *target)
 {
-    if (target->playerowner == universe.curPlayerPtr)
+    sdword shipclass, shiptype, group;
+
+    if ((target->playerowner != universe.curPlayerPtr) || bitTest(target->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))
     {
-        if (target->shiptype == Mothership)
+        return;
+    }
+
+    shipclass = target->staticinfo->shipclass;
+    shiptype = target->shiptype;
+
+    if ((shipclass == CLASS_Mothership) || (shipclass == CLASS_Component))
+    {
+        if ((shiptype != sDreadnoughtCannon) && (shiptype != sCarrierSupport) &&
+            (universe.totaltimeelapsed > (universe.curPlayerPtr->timeMoShipAttacked + SPEECH_MOSHIP_WARNING_TIME)))
         {
-            /* need to add some local warnings for MoShip */
-            if (universe.totaltimeelapsed > (universe.curPlayerPtr->timeMoShipAttacked + SPEECH_MOSHIP_WARNING_TIME))
-            {
-                speechEventFleetSpec(target, STAT_F_MoShip_UnderAttack, 0, target->playerowner->playerIndex);
-                universe.curPlayerPtr->timeMoShipAttacked = universe.totaltimeelapsed;
-            }
+            speechEventQueue(target, 0x2001058, 0, -1, 0, target->playerowner->playerIndex, -1, 5.0f, -1);
+            universe.curPlayerPtr->timeMoShipAttacked = universe.totaltimeelapsed;
         }
-        else if (universe.totaltimeelapsed > (target->soundevent.timeLastStatus + SPEECH_WARNING_TIME))
+        return;
+    }
+
+    if (universe.totaltimeelapsed <= (target->soundevent.timeLastStatus + SPEECH_WARNING_TIME))
+    {
+        return;
+    }
+
+    if (!univSpaceObjInRenderList((SpaceObj *)target))
+    {
+        /* global warnings */
+        if ((shipclass == CLASS_Carrier) || (shiptype == kHeavyCruiser) || (shiptype == tHeavyCruiser) ||
+            (shiptype == bHeavyCruiser))
         {
-            if (target->shiptype == ResourceCollector)
+            speechEventQueue(NULL, 0x2001066, shiptype, -1, 0, target->playerowner->playerIndex, -1, 5.0f, -1);
+            target->soundevent.timeLastStatus = universe.totaltimeelapsed;
+            return;
+        }
+        if (selAnyHotKeyTest(target))
+        {
+            group = selHotKeyGroupNumberTest(target);
+            if (universe.totaltimeelapsed > (selHotKeyGroup[group].timeLastStatus + SPEECH_WARNING_TIME))
             {
-                speechEventFleetSpec(target, STAT_F_ResCol_Damaged, 0, target->playerowner->playerIndex);
-                target->soundevent.timeLastStatus = universe.totaltimeelapsed;
-            }
-            else if (univSpaceObjInRenderList((SpaceObj *)target))
-            {
-                /* some local warnings */
-                if (target->shiptype == Carrier)
-                {
-                    speechEvent(target, STAT_Carrier_Damaged, 0);
-                    target->soundevent.timeLastStatus = universe.totaltimeelapsed;
-                }
-                else if (target->shiptype == HeavyCruiser)
-                {
-                    if ((target->targetable.health / target->staticinfo->health.maxhealth) < SEL_ShipHealthYellowFactor)
-                    {
-                        speechEvent(target, STAT_Cruiser_Damaged, 0);
-                        target->soundevent.timeLastStatus = universe.totaltimeelapsed;
-                    }
-                }
-                // CAT: the Workers are Cataclysm's resource ships (speechEventUnderAttack 0x00523190 tests sWorker 0xe and
-                //      bWorker 0x31 where HW1 tested the ResourceController; the exe merges this branch with the
-                //      carrier / heavy-cruiser one above, 0x100080b: stage 3 speech)
-                else if (target->shiptype == sWorker || target->shiptype == bWorker)
-                {
-                    speechEvent(target, STAT_ResCol_Damaged, 0);
-                    target->soundevent.timeLastStatus = universe.totaltimeelapsed;
-                }
-                else if (selAnyHotKeyTest(target) && (universe.totaltimeelapsed > (selHotKeyGroup[selHotKeyGroupNumberTest(target)].timeLastStatus + SPEECH_WARNING_TIME)))
-                {
-                    speechEvent(target, STAT_AssGrp_UnderAttack, selHotKeyGroupNumberTest(target));
-                    selHotKeyGroup[selHotKeyGroupNumberTest(target)].timeLastStatus = universe.totaltimeelapsed;
-                }
-            }
-            else
-            {
-                /* global warnings */
-                if ((target->shiptype == Carrier) || (target->shiptype == HeavyCruiser))
-                {
-                    speechEventFleetSpec(target, STAT_F_SuperCap_Damaged, (target->shiptype == Carrier)?0:1, target->playerowner->playerIndex);
-                    target->soundevent.timeLastStatus = universe.totaltimeelapsed;
-                }
-                else if (selAnyHotKeyTest(target) && (universe.totaltimeelapsed > (selHotKeyGroup[selHotKeyGroupNumberTest(target)].timeLastStatus + SPEECH_WARNING_TIME)))
-                {
-                    speechEventFleet(STAT_F_AssGrp_UnderAttack, selHotKeyGroupNumberTest(target), target->playerowner->playerIndex);
-                    selHotKeyGroup[selHotKeyGroupNumberTest(target)].timeLastStatus = universe.totaltimeelapsed;
-                }
+                speechEventQueue(NULL, 0x200105b, group, -1, 0, target->playerowner->playerIndex, -1, 5.0f, -1);
+                selHotKeyGroup[group].timeLastStatus = universe.totaltimeelapsed;
             }
         }
     }
-}
-
-
-sdword musictranslatetracknum(sdword tracknum)
-{
-    sdword track;
-#ifdef HW_GAME_RAIDER_RETREAT
-    switch (tracknum)
+    else if ((shipclass == CLASS_Carrier) || (shiptype == sWorker) || (shiptype == bWorker) ||
+             (shiptype == kHeavyCruiser) || (shiptype == tHeavyCruiser) || (shiptype == bHeavyCruiser))
     {
-        case AMB_Mission1:
-            track = 0;
-            break;
-        case AMB_Mission2:
-            track = 1;
-            break;
-        case AMB_Mission3:
-            track = 2;
-            break;
-        case AMB_Mission5:
-            track = 3;
-            break;
-        case AMB13_Tutorial:
-            track = 4;
-            break;
-        case NIS01_R1:
-            track = 5;
-            break;
-        case NIS01_R2:
-            track = 6;
-            break;
-        case NIS02:
-            track = 7;
-            break;
-        case NIS03:
-            track = 8;
-            break;
-        case NIS04:
-            track = 9;
-            break;
-        case ANIM00_Sierra:
-            track = 10;
-            break;
-        case ANIM00_Relic:
-            track = 11;
-            break;
-        case ANIM00_Opening:
-            track = 12;
-            break;
-        case ANIM01_02:
-            track = 13;
-            break;
-        case ANIM02_03:
-            track = 14;
-            break;
-        case ANIM03_04:
-            track = 15;
-            break;
-        case B01_TuranicRaidersLong:
-            track = 16;
-            break;
-        case B02_TuranicRaidersShort:
-            track = 17;
-            break;
-        case B04_EvilEmpire:
-            track = 18;
-            break;
-        case RollCredits:
-            track = 19;
-            break;
-        default:
-            if ((tracknum >= MUS_FIRST_AMBIENT) && (tracknum <= MUS_LAST_BATTLE))
-            {
-                track = 0;
-            }
-            else
-            {
-                track = -1;
-            }
-            break;
+        /* some local warnings: below half health */
+        if (target->targetable.health < target->staticinfo->health.maxhealth * 0.5f)
+        {
+            speechEventQueue(target, 0x100080b, shiptype, -1, -1, -1, -1, 0.0f, -1);
+            target->soundevent.timeLastStatus = universe.totaltimeelapsed;
+        }
     }
-#elif defined(HW_GAME_DEMO)
-    if ((tracknum >= MUS_FIRST_AMBIENT) && (tracknum <= MUS_LAST_BATTLE))
+    else if (selAnyHotKeyTest(target))
     {
-        track = 0;
+        group = selHotKeyGroupNumberTest(target);
+        if (universe.totaltimeelapsed > (selHotKeyGroup[group].timeLastStatus + SPEECH_WARNING_TIME))
+        {
+            // the exe passes no player here (-1)
+            speechEventQueue(NULL, 0x200105b, group, -1, 0, -1, -1, 5.0f, -1);
+            selHotKeyGroup[group].timeLastStatus = universe.totaltimeelapsed;
+        }
     }
-    else if (tracknum == NIS01_R1)
-    {
-        track = 1;
-    }
-    else if (tracknum == NIS02)
-    {
-        track = 2;
-    }
-    else if (tracknum == ANIM01_02)
-    {
-        track = 3;
-    }
-    else
-    {
-        track = -1;
-    }
-#else
-    track = tracknum;
-#endif
-    return (track);
-}
-
-
-void MEstarttrack(MUSICINFO *pinfo, MUSICSTREAM *pstream)
-{
-    if (pinfo->tracknum == RollCredits)
-    {
-        pinfo->targetvol = (sword)(pstream->volume * volNIS);
-    }
-    else
-    {
-        pinfo->targetvol = (sword)(pstream->volume * volMusic);
-    }
-
-    soundstreamqueue(pinfo->handle, musicfilehandle,
-                    pstream->offset,
-                    pstream->flags | SOUND_FLAGS_QUEUESTREAM,
-                    pinfo->targetvol,
-                    SOUND_PAN_CENTER,
-                    (sword)pstream->numchannels,
-                    (sword)pstream->bitrate,
-                    NULL, NULL, NULL, -1);
-
-    pinfo->status = SOUND_STARTING;
 }
 
 
 /*-----------------------------------------------------------------------------
-    Name        :
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      :
+    Name        : cat_musicQueueTrack
+    Description : CAT: start a track on the music stream at its level (the start part of musicEventPlay 0x00523480
+                  and of musicEventUpdateVolume's restart, 0x00523660): track 0x29 is set by the NIS volume, the
+                  others by the music volume; the stream status becomes SOUND_STARTING.
+----------------------------------------------------------------------------*/
+static void cat_musicQueueTrack(sdword tracknum)
+{
+    MUSICSTREAM *pmstream = &musicheader->mstreams[tracknum];
+
+    if (tracknum == CAT_MUSIC_NIS_VOLUME)
+    {
+        musicinfo.targetvol = (sword)fqRint((real32)pmstream->volume * volNIS);
+    }
+    else
+    {
+        musicinfo.targetvol = (sword)fqRint((real32)pmstream->volume * volMusic);
+    }
+
+    soundstreamqueuePatch(musicinfo.handle, musicfilehandle, pmstream->offset, pmstream->flags | SOUND_FLAGS_QUEUESTREAM,
+                          musicinfo.targetvol, SOUND_PAN_CENTER, (sword)pmstream->numchannels, (sword)pmstream->bitrate,
+                          NULL, NULL, NULL, NULL, 0, 0.0f, 0.0f, -1, -1, FALSE);
+
+    musicinfo.status = SOUND_STARTING;
+}
+
+
+/*-----------------------------------------------------------------------------
+    Name        : musicEventPlay
+    Description : CAT: Cataclysm's single music stream (musicEventPlay 0x00523480): the track number indexes
+                  Music4Cat.wxh directly; 0x44e picks one of the first 17 tracks at random; a playing track fades
+                  out over 0.5 s first and the new one starts from musicEventUpdateVolume.
+    Inputs      : tracknum - track
+    Return      : SOUND_OK, or SOUND_ERR without speech or for a negative track
 ----------------------------------------------------------------------------*/
 sdword musicEventPlay(sdword tracknum)
 {
-    MUSICINFO *pinfo;
-    MUSICSTREAM *pmstream = &musicheader->mstreams[musictranslatetracknum(tracknum)];
-
-    if (enableSpeech)
+    if (!enableSpeech || (tracknum < 0))
     {
-        if ((tracknum <= MUS_LAST_LEVELTUNE) && (tracknum >= MUS_FIRST_AMBIENT))
-        {
-            levelTrack = tracknum;
-        }
-
-        if ((tracknum >= MUS_FIRST_AMBIENT) && (tracknum <= MUS_LAST_BATTLE))
-        {
-            pinfo = &musicinfo[AMBIENTSTREAM];
-
-            // this is an ambient for the level or a battle track
-            if (!soundstreamover(pinfo->handle))
-            {
-                // stop this track and start the next one
-                pinfo->nexttrack = tracknum;
-                pinfo->status = SOUND_RESTART;
-                pinfo->targetvol = SOUND_VOL_AUTOSTOP;
-                soundstreamvolume(pinfo->handle, pinfo->targetvol, MUSIC_FADE_SLOW);
-
-                return (SOUND_OK);
-            }
-
-            pinfo->tracknum = tracknum;
-
-            if (musicinfo[NISSTREAM].status > SOUND_FREE)
-            {
-                // if the NIS is still playing then wait till its shutting off to start this
-                return (SOUND_OK);
-            }
-
-            MEstarttrack(pinfo, pmstream);
-
-            return (SOUND_OK);
-        }
-        else if ((tracknum >= MUS_FIRST_NIS) && (tracknum <= MUS_LAST_ANIMATIC))
-        {
-            pinfo = &musicinfo[NISSTREAM];
-
-            // this is an NIS or Animatic track
-            if (!soundstreamover(pinfo->handle))
-            {
-                pinfo->nexttrack = tracknum;
-                pinfo->status = SOUND_RESTART;
-                pinfo->targetvol = SOUND_VOL_AUTOSTOP;
-                soundstreamvolume(pinfo->handle, pinfo->targetvol, MUSIC_FADE_FAST);
-
-                return (SOUND_OK);
-            }
-
-            if ((musicinfo[AMBIENTSTREAM].status == SOUND_PLAYING) || (musicinfo[AMBIENTSTREAM].status == SOUND_STARTING))
-            {
-                // shut off the ambient if its playing
-                musicinfo[AMBIENTSTREAM].status = SOUND_STOPPING;
-                soundstreamvolume(musicinfo[AMBIENTSTREAM].handle, SOUND_VOL_AUTOSTOP, MUSIC_FADE_FAST);
-            }
-
-            pinfo->tracknum = tracknum;
-
-            MEstarttrack(pinfo, pmstream);
-
-            if (pinfo->tracknum != RollCredits)
-            {
-                musicinfo[AMBIENTSTREAM].tracknum = SOUND_NOTINITED;
-            }
-
-            return (SOUND_OK);
-        }
+        return (SOUND_ERR);
     }
 
-    return (SOUND_ERR);
+    if (tracknum == CAT_MUSIC_RANDOM_TRACK)
+    {
+        tracknum = ranRandom(RANDOM_STREAM_0) % CAT_MUSIC_RANDOM_RANGE;
+    }
+
+    if (!soundstreamover(musicinfo.handle))
+    {
+        // stop this track and start the next one
+        musicinfo.status = SOUND_RESTART;
+        musicinfo.targetvol = SOUND_VOL_AUTOSTOP;
+        musicinfo.nexttrack = tracknum;
+        soundstreamvolume(musicinfo.handle, SOUND_VOL_AUTOSTOP, MUSIC_FADE_FAST);
+        return (SOUND_OK);
+    }
+
+    musicinfo.nexttrack = SOUND_NOTINITED;
+    musicinfo.tracknum = tracknum;
+    cat_musicQueueTrack(tracknum);
+
+    return (SOUND_OK);
 }
 
 
 /*-----------------------------------------------------------------------------
-    Name        :
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      :
+    Name        : musicEventStop
+    Description : CAT: stops the music stream's track (musicEventStop 0x005235c0); stopping an NIS-type track
+                  also stops the NIS speech. HW1's NIS / ambient stream pair and the return to the level's track
+                  are gone.
+    Inputs      : tracknum - the track, or SOUND_DEFAULT for the current one; fadetime - fade
+    Return      : SOUND_OK, or SOUND_ERR for a track that is not the current one
 ----------------------------------------------------------------------------*/
 sdword musicEventStop(sdword tracknum, real32 fadetime)
 {
     if (enableSpeech)
     {
-        if (tracknum == SOUND_DEFAULT)
+        if ((tracknum == SOUND_DEFAULT) && ((musicinfo.status == SOUND_PLAYING) || (musicinfo.status == SOUND_STARTING)))
         {
-            if ((musicinfo[AMBIENTSTREAM].status == SOUND_PLAYING) || (musicinfo[AMBIENTSTREAM].status == SOUND_STARTING))
-            {
-                tracknum = musicinfo[AMBIENTSTREAM].tracknum;
-            }
-            else if ((musicinfo[NISSTREAM].status == SOUND_PLAYING) || (musicinfo[NISSTREAM].status == SOUND_STARTING))
-            {
-                tracknum = musicinfo[NISSTREAM].tracknum;
-            }
+            tracknum = musicinfo.tracknum;
         }
-        if ((tracknum >= MUS_FIRST_NIS) && (tracknum <= MUS_LAST_ANIMATIC))
-        {
-            /* this is an NIS */
-            if (!soundstreamover(musicinfo[NISSTREAM].handle))
-            {
-                musicinfo[NISSTREAM].targetvol = SOUND_VOL_AUTOSTOP;
-                soundstreamvolume(musicinfo[NISSTREAM].handle, musicinfo[NISSTREAM].targetvol, fadetime);
-            }
-            musicinfo[NISSTREAM].status = SOUND_STOPPING;
 
-            speechEventStopAllSpecific(1.0f, SPEECH_TYPE_NIS);
+        if (tracknum != musicinfo.tracknum)
+        {
+            return (SOUND_ERR);
         }
-        else if ((tracknum >= MUS_FIRST_AMBIENT) && (tracknum <= MUS_LAST_BATTLE))
-        {
-            /* this is the AMBIENT track */
-            if (tracknum != musicinfo[AMBIENTSTREAM].tracknum)
-            {
-                return (SOUND_ERR);
-            }
 
-            if ((musicinfo[AMBIENTSTREAM].status == SOUND_PLAYING) || (musicinfo[AMBIENTSTREAM].status == SOUND_STARTING))
+        if ((musicinfo.status == SOUND_PLAYING) || (musicinfo.status == SOUND_STARTING))
+        {
+            if (catMusicTrack[musicinfo.tracknum].type == CAT_MUSIC_TYPE_NIS)
             {
-                musicinfo[AMBIENTSTREAM].targetvol = SOUND_VOL_AUTOSTOP;
-                soundstreamvolume(musicinfo[AMBIENTSTREAM].handle, musicinfo[AMBIENTSTREAM].targetvol, fadetime);
-                musicinfo[AMBIENTSTREAM].status = SOUND_STOPPING;
-                musicinfo[AMBIENTSTREAM].tracknum = SOUND_ERR;
-                if (tracknum > MUS_LAST_LEVELTUNE)
-                {
-                    musicEventPlay(levelTrack);
-                }
+                speechEventStopAllSpecific(1.0f, SPEECH_TYPE_NIS);
             }
+            musicinfo.targetvol = SOUND_VOL_AUTOSTOP;
+            soundstreamvolume(musicinfo.handle, SOUND_VOL_AUTOSTOP, fadetime);
+            musicinfo.status = SOUND_STOPPING;
+            musicinfo.tracknum = SOUND_NOTINITED;
         }
     }
 
@@ -2976,242 +1802,206 @@ sdword musicEventStop(sdword tracknum, real32 fadetime)
 
 
 /*-----------------------------------------------------------------------------
-    Name        :
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      :
+    Name        : musicEventUpdateVolume
+    Description : CAT: the music stream's state machine (musicEventUpdateVolume 0x00523660): starting, playing at
+                  a level set by the nearest ship's distance and the screen (main screen, sensors manager, other
+                  managers), stopping, restarting with the next track; the letterbox turns the main-screen level
+                  down to 70%; over track 0x28 a random pilot line now and then.
+    Return      : SOUND_OK
 ----------------------------------------------------------------------------*/
 sdword musicEventUpdateVolume(void)
 {
     sword volume;
-    MUSICINFO *pinfo;
+    sword base;
+    real32 f;
     MUSICSTREAM *pmstream;
+    sdword track, event, var;
 
-    if (enableSpeech)
+    if (!enableSpeech)
     {
-        /* Check the AMBIENT */
-        pinfo = &musicinfo[AMBIENTSTREAM];
-        pmstream = &musicheader->mstreams[musictranslatetracknum(pinfo->tracknum)];
+        return (SOUND_OK);
+    }
 
-        if (pinfo->status == SOUND_STARTING)
+    if (musicinfo.status == SOUND_STARTING)
+    {
+        if (soundstreamgetvol(musicinfo.handle) == musicinfo.targetvol)
         {
-            if (soundstreamgetvol(pinfo->handle) == pinfo->targetvol)
-            {
-                pinfo->status = SOUND_PLAYING;
-            }
-            else if ((!soundstreamfading(pinfo->handle)) && (!soundstreamover(pinfo->handle)))
-            {
-                soundstreamvolume(pinfo->handle, pinfo->targetvol, MUSIC_FADE_FAST);
-            }
+            musicinfo.status = SOUND_PLAYING;
         }
-        else if (pinfo->status == SOUND_PLAYING)
+        else if ((!soundstreamfading(musicinfo.handle)) && (!soundstreamover(musicinfo.handle)))
         {
-            if (!soundstreamover(pinfo->handle))
+            soundstreamvolume(musicinfo.handle, musicinfo.targetvol, MUSIC_FADE_FAST);
+        }
+    }
+    else if (musicinfo.status == SOUND_PLAYING)
+    {
+        if (soundstreamover(musicinfo.handle))
+        {
+            musicinfo.status = SOUND_FREE;
+            musicEventPlay(musicinfo.tracknum);
+            // CAT-FIX: the exe then sets the stream's volume to an uninitialised value (the word of its own return
+            //      address at [esp+0xc], 0x0052371a) with the music fade; the restarted track keeps its start level here
+        }
+        else
+        {
+            track = musicinfo.tracknum;
+            pmstream = &musicheader->mstreams[track];
+
+            if (mrRenderMainScreen)
             {
-                if (mrRenderMainScreen)
+                if (track == CAT_MUSIC_TUTORIAL)
                 {
-                    if (pinfo->tracknum == AMB13_Tutorial)
-                    {
-                        /* we're in the tutorial, play the music at a constant volume */
-                        volume = (sword)(pmstream->volume * MUSIC_TUTORIAL_VOL * volMusic);
-                    }
-                    else
-                    {
-                        /* we're in the game, volume depends on the distance from the nearst ship */
-                        volume = (sword)(pmstream->volume * volMusic);
-
-                        if (nearestShipDistance <= MUSIC_DISTANCE_SILENT)
-                        {
-                            if (pinfo->tracknum < MUS_FIRST_BATTLE)
-                            {
-                                if (nearestShipMoving)
-                                {
-                                    volume = (sword)((real32)volume * MUSIC_MINACTIVE_VOL);
-                                }
-                                else
-                                {
-                                    volume = (sword)((real32)volume * MUSIC_MININACTIVE_VOL);
-                                }
-                            }
-                            else
-                            {
-                                volume = (sword)((real32)volume * MUSIC_MINBATTLE_VOL);
-                            }
-                        }
-                        else if (nearestShipDistance <= MUSIC_DISTANCE_MAX)
-                        {
-                            if (pinfo->tracknum < MUS_FIRST_BATTLE)
-                            {
-                                if (nearestShipMoving)
-                                {
-                                    volume = (sword)((real32)volume * (((nearestShipDistance - MUSIC_DISTANCE_SILENT) * musicVolFactor) + MUSIC_MINACTIVE_VOL));
-                                }
-                                else
-                                {
-                                    volume = (sword)((real32)volume * (((nearestShipDistance - MUSIC_DISTANCE_SILENT) * musicInactiveFactor) + MUSIC_MININACTIVE_VOL));
-                                }
-                            }
-                            else
-                            {
-                                volume = (sword)((real32)volume * (((nearestShipDistance - MUSIC_DISTANCE_SILENT) * battleMusicVolFactor) + MUSIC_MINBATTLE_VOL));
-                            }
-                        }
-                        else
-                        {
-                            if (pinfo->tracknum < MUS_FIRST_BATTLE)
-                            {
-                                volume = (sword)((real32)volume * MUSIC_MAXGAME_VOL);
-                            }
-                            else
-                            {
-                                volume = (sword)((real32)volume * MUSIC_MAXBATTLE_VOL);
-                            }
-                        }
-
-
-                        if (volume > pmstream->volume)
-                        {
-                            volume = pmstream->volume;
-                        }
-                        else if (volume < 0)
-                        {
-                            volume = 0;
-                        }
-                    }
+                    /* we're in the tutorial, play the music at a constant volume */
+                    volume = (sword)fqRint((real32)pmstream->volume * volMusic * MUSIC_TUTORIAL_VOL);
+                }
+                else if (track >= CAT_MUSIC_FIRST_FIXED)
+                {
+                    volume = (sword)fqRint((real32)pmstream->volume * volMusic);
                 }
                 else
                 {
-                    if (smSensorsActive)
+                    /* we're in the game, volume depends on the distance from the nearst ship */
+                    base = (sword)fqRint((real32)pmstream->volume * volMusic);
+
+                    if (nearestShipDistance <= MUSIC_DISTANCE_SILENT)
                     {
-                        /* we're in the sensors manager, play the music at the volume defined in the script */
-                        if (pinfo->tracknum < MUS_FIRST_BATTLE)
+                        if (track < CAT_MUSIC_FIRST_BATTLE)
                         {
-                            volume = (sword)(pmstream->volume * MUSIC_SENSORS_VOL * volMusic);
+                            f = (real32)base * (nearestShipMoving ? MUSIC_MINACTIVE_VOL : MUSIC_MININACTIVE_VOL);
                         }
                         else
                         {
-                            volume = (sword)(pmstream->volume * MUSIC_MINBATTLE_VOL * volMusic);
+                            f = (real32)base * MUSIC_MINBATTLE_VOL;
+                        }
+                    }
+                    else if (nearestShipDistance <= MUSIC_DISTANCE_MAX)
+                    {
+                        if (track < CAT_MUSIC_FIRST_BATTLE)
+                        {
+                            if (nearestShipMoving)
+                            {
+                                f = ((nearestShipDistance - MUSIC_DISTANCE_SILENT) * musicVolFactor + MUSIC_MINACTIVE_VOL) * (real32)base;
+                            }
+                            else
+                            {
+                                f = ((nearestShipDistance - MUSIC_DISTANCE_SILENT) * musicInactiveFactor + MUSIC_MININACTIVE_VOL) * (real32)base;
+                            }
+                        }
+                        else
+                        {
+                            f = ((nearestShipDistance - MUSIC_DISTANCE_SILENT) * battleMusicVolFactor + MUSIC_MINBATTLE_VOL) * (real32)base;
                         }
                     }
                     else
                     {
-                        /* we're in one of the other manager screens */
-                        if (pinfo->tracknum < MUS_FIRST_BATTLE)
-                        {
-                            volume = (sword)(pmstream->volume * MUSIC_MANAGERS_VOL * volMusic);
-                        }
-                        else
-                        {
-                            volume = (sword)(pmstream->volume * MUSIC_MINBATTLE_VOL * volMusic);
-                        }
+                        f = (real32)base * ((track < CAT_MUSIC_FIRST_BATTLE) ? MUSIC_MAXGAME_VOL : MUSIC_MAXBATTLE_VOL);
+                    }
+
+                    volume = (sword)fqRint(f);
+                    if (volume > (sword)pmstream->volume)
+                    {
+                        volume = pmstream->volume;
+                    }
+                    else if (volume < 0)
+                    {
+                        volume = 0;
                     }
                 }
 
-                if (!bVolMusicNoFade)
+                // CAT: the letterbox turns the music down (0x0072a628: 0.7)
+                if (catSoundLetterbox)
                 {
-                    soundstreamvolume(pinfo->handle, volume, MUSIC_FADE_TIME);
+                    volume = (sword)fqRint((double)volume * 0.7);
+                }
+            }
+            else if (smSensorsActive)
+            {
+                /* we're in the sensors manager, play the music at the volume defined in the script */
+                if (track < CAT_MUSIC_FIRST_BATTLE)
+                {
+                    volume = (sword)((real32)pmstream->volume * MUSIC_SENSORS_VOL * volMusic);
                 }
                 else
                 {
-                    soundstreamvolume(pinfo->handle, volume, 0.0f);
-                    bVolMusicNoFade = FALSE;
+                    volume = (sword)((real32)pmstream->volume * MUSIC_MINBATTLE_VOL * volMusic);
                 }
             }
             else
             {
-                pinfo->status = SOUND_FREE;
-                musicEventPlay(pinfo->tracknum);
-            }
-        }
-        else if (pinfo->status == SOUND_STOPPING)
-        {
-            if (soundstreamover(pinfo->handle))
-            {
-                pinfo->status = SOUND_FREE;
-            }
-            else if ((pinfo->targetvol != SOUND_VOL_AUTOSTOP) ||
-                (!soundstreamfading(pinfo->handle) &&
-                (soundstreamgetvol(pinfo->handle) > SOUND_VOL_MIN)))
-            {
-                pinfo->targetvol = SOUND_VOL_AUTOSTOP;
-                soundstreamvolume(pinfo->handle, pinfo->targetvol, SOUND_FADE_STOPTIME);
-            }
-        }
-        else if (pinfo->status == SOUND_RESTART)
-        {
-            if (soundstreamover(pinfo->handle))
-            {
-                pinfo->tracknum = pinfo->nexttrack;
-                pinfo->nexttrack = SOUND_NOTINITED;
-                pmstream = &musicheader->mstreams[musictranslatetracknum(pinfo->tracknum)];
-
-                MEstarttrack(pinfo, pmstream);
-            }
-            else if ((pinfo->targetvol != SOUND_VOL_AUTOSTOP) ||
-                (!soundstreamfading(pinfo->handle) &&
-                (soundstreamgetvol(pinfo->handle) > SOUND_VOL_MIN)))
-            {
-                pinfo->targetvol = SOUND_VOL_AUTOSTOP;
-                soundstreamvolume(pinfo->handle, pinfo->targetvol, SOUND_FADE_STOPTIME);
-            }
-        }
-
-        /* Check the NIS track */
-        pinfo = &musicinfo[NISSTREAM];
-
-        if (pinfo->status == SOUND_PLAYING)
-        {
-            if (soundstreamover(pinfo->handle) && !nisIsRunning)
-            {
-                pinfo->status = SOUND_STOPPING;
-            }
-            else if (pinfo->targetvol == SOUND_VOL_AUTOSTOP)
-            {
-                soundstreamvolume(pinfo->handle, pinfo->targetvol, SOUND_FADE_STOPTIME);
-                pinfo->status = SOUND_STOPPING;
-            }
-        }
-        else if (pinfo->status == SOUND_STARTING)
-        {
-            if (!soundstreamover(pinfo->handle))
-                pinfo->status = SOUND_PLAYING;
-        }
-        else if (pinfo->status == SOUND_STOPPING)
-        {
-            if (soundstreamover(pinfo->handle))
-            {
-                pinfo->status = SOUND_FREE;
-                if (pinfo->tracknum <= ANIM00_Relic)
+                /* we're in one of the other manager screens */
+                if (track < CAT_MUSIC_FIRST_BATTLE)
                 {
-                    musicEventPlay(levelTrack);
+                    volume = (sword)((real32)pmstream->volume * MUSIC_MANAGERS_VOL * volMusic);
+                }
+                else if (track == CAT_MUSIC_GAME_STATS)
+                {
+                    volume = (sword)fqRint((real32)pmstream->volume * volMusic);
+                }
+                else
+                {
+                    volume = (sword)((real32)pmstream->volume * MUSIC_MINBATTLE_VOL * volMusic);
                 }
             }
-            else if ((pinfo->targetvol != SOUND_VOL_AUTOSTOP) ||
-                (!soundstreamfading(pinfo->handle) &&
-                (soundstreamgetvol(pinfo->handle) > SOUND_VOL_MIN)))
+
+            if (!bVolMusicNoFade)
             {
-                pinfo->targetvol = SOUND_VOL_AUTOSTOP;
-                soundstreamvolume(pinfo->handle, pinfo->targetvol, SOUND_FADE_STOPTIME);
+                soundstreamvolume(musicinfo.handle, volume, MUSIC_FADE_TIME);
+            }
+            else
+            {
+                soundstreamvolume(musicinfo.handle, volume, 0.0f);
+                bVolMusicNoFade = FALSE;
             }
         }
-        else if (pinfo->status == SOUND_RESTART)
+    }
+    else if ((musicinfo.status == SOUND_STOPPING) || (musicinfo.status == SOUND_RESTART))
+    {
+        if (soundstreamover(musicinfo.handle))
         {
-            if (soundstreamover(pinfo->handle))
+            if (musicinfo.status == SOUND_STOPPING)
             {
-                pinfo->tracknum = pinfo->nexttrack;
-                pinfo->nexttrack = SOUND_NOTINITED;
-                pmstream = &musicheader->mstreams[musictranslatetracknum(pinfo->tracknum)];
+                musicinfo.status = SOUND_FREE;
+            }
+            else
+            {
+                musicinfo.tracknum = musicinfo.nexttrack;
+                musicinfo.nexttrack = SOUND_NOTINITED;
+                cat_musicQueueTrack(musicinfo.tracknum);
+            }
+        }
+        else if ((musicinfo.targetvol != SOUND_VOL_AUTOSTOP) ||
+            (!soundstreamfading(musicinfo.handle) &&
+            (soundstreamgetvol(musicinfo.handle) > SOUND_VOL_MIN)))
+        {
+            musicinfo.targetvol = SOUND_VOL_AUTOSTOP;
+            soundstreamvolume(musicinfo.handle, SOUND_VOL_AUTOSTOP, SOUND_FADE_STOPTIME);
+        }
+    }
 
-                MEstarttrack(pinfo, pmstream);
-            }
-            else if ((pinfo->targetvol != SOUND_VOL_AUTOSTOP) ||
-                (!soundstreamfading(pinfo->handle) &&
-                (soundstreamgetvol(pinfo->handle) > SOUND_VOL_MIN)))
+    // CAT: now and then a random pilot line over the game-statistics track 0x28 (one of 26 events, 0xa1 for the 17th;
+    //      one of 19 variables, the Beast's 33..53), at 60% of the music volume
+    if (musicinfo.tracknum == CAT_MUSIC_GAME_STATS)
+    {
+        catMusicRadioCount++;
+        if (catMusicRadioCount > catMusicRadioNext + catMusicRadioLast)
+        {
+            catMusicRadioLast = catMusicRadioCount;
+            catMusicRadioNext = ranRandom(RANDOM_STREAM_0) % 0x32 + 0x14;
+            if (whichRaceSelected == 1)
             {
-                pinfo->targetvol = SOUND_VOL_AUTOSTOP;
-                soundstreamvolume(pinfo->handle, pinfo->targetvol, SOUND_FADE_STOPTIME);
+                var = ranRandom(RANDOM_STREAM_0) % 0x15 + 0x21;
             }
+            else
+            {
+                var = ranRandom(RANDOM_STREAM_0) % 0x13;
+            }
+            event = ranRandom(RANDOM_STREAM_0) % 0x1a;
+            if (event == 0x10)
+            {
+                event = 0xa1;
+            }
+            speechEventQueue(NULL, event | CAT_SPEECH_EVENT_SELECTED, var, -1, -1, -1, -1, -1.0f,
+                             (sword)fqRint(volMusic * 0.6));
         }
     }
 
@@ -3232,53 +2022,374 @@ void musicEventPrevTrack(void)
 }
 #else
 
+// CAT: HW1's < / > track keys (mrKeyPress). The exe has no such functions; kept here on the one music stream until
+//      the main-region port decides (CAT-TODO(M2-R6 main region): mrKeyPress's LESSTHAN / GREATERTHAN keys)
 void musicEventNextTrack(void)
 {
-    MUSICINFO *pinfo;
-
     if (!singlePlayerGame && enableSpeech)
     {
-        pinfo = &musicinfo[AMBIENTSTREAM];
-
-        pinfo->nexttrack = pinfo->tracknum + 1;
-        if (pinfo->nexttrack > MUS_LAST_BATTLE)
+        musicinfo.nexttrack = musicinfo.tracknum + 1;
+        if (musicinfo.nexttrack >= CAT_MUSIC_FIRST_FIXED)
         {
-            pinfo->nexttrack = MUS_FIRST_AMBIENT;
+            musicinfo.nexttrack = 0;
         }
-
-#if SE_VERBOSE_LEVEL >= 2
-        dbgMessagef("Starting track # %d", pinfo->nexttrack);
-#endif
-        pinfo->status = SOUND_RESTART;
-        soundstreamvolume(pinfo->handle, SOUND_VOL_AUTOSTOP, MUSIC_FADE_FAST);
+        musicinfo.status = SOUND_RESTART;
+        soundstreamvolume(musicinfo.handle, SOUND_VOL_AUTOSTOP, MUSIC_FADE_FAST);
    }
 }
 
 
 void musicEventPrevTrack(void)
 {
-    MUSICINFO *pinfo;
-
     if (!singlePlayerGame && enableSpeech)
     {
-        pinfo = &musicinfo[AMBIENTSTREAM];
-
-        pinfo->nexttrack = pinfo->tracknum - 1;
-        if (pinfo->nexttrack < MUS_FIRST_AMBIENT)
+        musicinfo.nexttrack = musicinfo.tracknum - 1;
+        if (musicinfo.nexttrack < 0)
         {
-            pinfo->nexttrack = MUS_LAST_BATTLE;
+            musicinfo.nexttrack = CAT_MUSIC_FIRST_FIXED - 1;
         }
-
-#if SE_VERBOSE_LEVEL >= 2
-        dbgMessagef("Starting track # %d", pinfo->nexttrack);
-#endif
-        pinfo->status = SOUND_RESTART;
-        soundstreamvolume(pinfo->handle, SOUND_VOL_AUTOSTOP, MUSIC_FADE_FAST);
+        musicinfo.status = SOUND_RESTART;
+        soundstreamvolume(musicinfo.handle, SOUND_VOL_AUTOSTOP, MUSIC_FADE_FAST);
    }
 }
 #endif
 
 sdword musicEventCurrentTrack(void)
 {
-    return (musicinfo[AMBIENTSTREAM].tracknum);
+    return (musicinfo.tracknum);
+}
+
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_speechAlertsReset
+    Description : CAT: clears the three stealth-ship alerts and their timer (cat_speechAlertsReset 0x00522ba0)
+----------------------------------------------------------------------------*/
+void cat_speechAlertsReset(void)
+{
+    catSpeechAlertLeech = FALSE;
+    catSpeechAlertCloak = FALSE;
+    catSpeechAlertMimic = FALSE;
+    catSpeechAlertTime = 0.0f;
+}
+
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_speechAlertsNoteShip
+    Description : CAT: an enemy stealth ship was detected by the local player (cat_speechAlertsNoteShip 0x00522bc0,
+                  from cat_shipStealthDetectedSet): the mimic types raise the mimic alert, a draining leech the
+                  leech alert, the cloaking types the cloak alert.
+    Inputs      : ship - the detected ship; playerIndex - the detecting player
+----------------------------------------------------------------------------*/
+void cat_speechAlertsNoteShip(Ship *ship, sdword playerIndex)
+{
+
+    if ((playerIndex != universe.curPlayerIndex) ||
+        allianceArePlayersAllied(ship->playerowner, &universe.players[playerIndex]))
+    {
+        return;
+    }
+
+    switch (ship->shiptype)
+    {
+        case sMimic:
+        case sMCV:
+        case p1StandardCorvette:
+            catSpeechAlertMimic = TRUE;
+            break;
+        case sLeech:
+            if (cat_leechIsLeeching(ship) && (cat_leechGetSpecifics(ship)->target != NULL))   // the specifics' +0x04
+            {
+                catSpeechAlertLeech = TRUE;
+            }
+            break;
+        case bCloakedFighter:
+        case bIonArrayFrigate:
+        case p1IonArrayFrigate:
+            catSpeechAlertCloak = TRUE;
+            break;
+        default:
+            break;
+    }
+}
+
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_speechAlertsUpdate
+    Description : CAT: says the raised alerts, at most once a minute (cat_speechAlertsUpdate 0x00522ce0, from
+                  speechEventUpdate): cloaked ship 0x200104c, mimic 0x20010ba, leech 0x20010bb.
+----------------------------------------------------------------------------*/
+void cat_speechAlertsUpdate(void)
+{
+    if (catSpeechAlertTime + CAT_SPEECH_ALERT_INTERVAL < universe.totaltimeelapsed)
+    {
+        if (catSpeechAlertCloak)
+        {
+            speechEventQueue(NULL, 0x200104c, -1, -1, 0, -1, -1, 5.0f, -1);
+            catSpeechAlertCloak = FALSE;
+            catSpeechAlertTime = universe.totaltimeelapsed;
+        }
+        if (catSpeechAlertMimic)
+        {
+            speechEventQueue(NULL, 0x20010ba, -1, -1, 0, -1, -1, 5.0f, -1);
+            catSpeechAlertMimic = FALSE;
+            catSpeechAlertTime = universe.totaltimeelapsed;
+        }
+        if (catSpeechAlertLeech)
+        {
+            speechEventQueue(NULL, 0x20010bb, -1, -1, 0, -1, -1, 5.0f, -1);
+            catSpeechAlertLeech = FALSE;
+            catSpeechAlertTime = universe.totaltimeelapsed;
+        }
+    }
+}
+
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_speechEasterEggCheck
+    Description : CAT: the player-name Easter eggs (cat_speechEasterEggCheck 0x00522dc0, from cat_soundLevelReset):
+                  any player named "Eegah" (.data 0x008961a4) arms the 9-minute line of speechQueueUpdate; a local
+                  player named "PrinceOfSpace" (0x00896194) playing the Somtaaw sets the battle-chatter variant.
+----------------------------------------------------------------------------*/
+void cat_speechEasterEggCheck(void)
+{
+    sdword i;
+
+    catSpeechEasterEgg = FALSE;
+    catSpeechEasterEggSaid = FALSE;
+    catSpeechPrinceOfSpace = FALSE;
+
+    for (i = 0; i < universe.numPlayers; i++)
+    {
+        if (strncasecmp(playerNames[i], "Eegah", CAT_RELIC_NAME_LEN) == 0)
+        {
+            catSpeechEasterEgg = TRUE;
+        }
+    }
+
+    if ((strncasecmp(playerNames[universe.curPlayerIndex], "PrinceOfSpace", CAT_RELIC_NAME_LEN) == 0) &&
+        (whichRaceSelected == 0))
+    {
+        catSpeechPrinceOfSpace = TRUE;
+    }
+}
+
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_soundEventLetterboxVolume
+    Description : CAT: the letterbox (the wide-screen KAS calls and the single-player update;
+                  cat_soundEventLetterboxVolume 0x00521770): sets the flag the speech and music read and, in single
+                  player, lowers the SFX volume to 60% (30% in mission 5) and restores it after
+    Inputs      : on - TRUE when the letterbox comes in
+----------------------------------------------------------------------------*/
+void cat_soundEventLetterboxVolume(bool32 on)
+{
+    catSoundLetterbox = on;
+    if (singlePlayerGame)
+    {
+        if (on)
+        {
+            catSoundLetterboxSFXVol = volSFX;
+            // [audit: the exe multiplies by the doubles 0.3 / 0.6 (fmul qword 0x0072a790 / 0x0072a780, bytes dc 0d),
+            //  then stores a float; a float 0.3f / 0.6f product differs by an ulp for about half the levels]
+            if (singlePlayerGameInfo.currentMission == 5)
+            {
+                volSFX = (real32)((double)volSFX * 0.3);
+            }
+            else
+            {
+                volSFX = (real32)((double)volSFX * 0.6);
+            }
+            return;
+        }
+        if (catSoundLetterboxSFXVol < (real32)9.0)
+        {
+            volSFX = catSoundLetterboxSFXVol;
+            catSoundLetterboxSFXVol = 10.0f;
+        }
+    }
+}
+
+
+/*=============================================================================
+    CAT: port diagnostic, not in the exe: the sound self-test (/catSoundTest, harness mode sound; M2-R5 sound,
+    docs/m2-r5-sound.md). After the start-up has opened the three audio banks (Music4Cat.wxd, SectSpeech.vce and
+    BeastSpeech.vce), one stream of each is queued on the stream code as the game queues it and decoded by the mixer
+    (fqDequantBlock / fqDecBlock / fqWriteTBlock) into the audio device, which the harness forces to SDL's dummy
+    driver: nothing reaches the speakers. The 88 battle-chatter events are then looked up in the Somtaaw tables.
+    Log lines "soundtest: ...", the last one "soundtest: done ... result=PASS|FAIL".
+=============================================================================*/
+bool32 catSoundSelfTest = FALSE;
+
+extern volatile udword catSoundDecodedBlocks[];
+extern volatile udword catSoundAudibleBlocks;
+extern udword mixerticks;
+extern battleevent battleChatterEvent[];
+
+/*-----------------------------------------------------------------------------
+    Name        : catSoundTestWaitStream
+    Description : wait (on the wall clock: the mixer runs in SDL's audio thread) until the stream has decoded
+                  minBlocks more blocks and finished, or timeoutMs passes
+    Return      : blocks the mixer decoded on that stream while waiting
+----------------------------------------------------------------------------*/
+static udword catSoundTestWaitStream(sdword handle, udword minBlocks, udword timeoutMs)
+{
+    sdword channel = SNDchannel(handle);
+    udword start, waited = 0;
+
+    if ((channel < 0) || (channel >= SOUND_MAX_STREAM_BUFFERS))
+    {
+        return 0;
+    }
+    start = catSoundDecodedBlocks[channel];
+    while (waited < timeoutMs)
+    {
+        SDL_Delay(10);
+        waited += 10;
+        if (((catSoundDecodedBlocks[channel] - start) >= minBlocks) && soundstreamover(handle))
+        {
+            break;
+        }
+    }
+    return catSoundDecodedBlocks[channel] - start;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : catSoundTestFirstSentence
+    Description : the first event of the race's tables with a sentence (variation 0, variable 0: no random draw)
+    Outputs     : *pEvent, *pOffsets
+    Return      : number of phrase offsets, 0 if none
+----------------------------------------------------------------------------*/
+static sdword catSoundTestFirstSentence(sdword *pEvent, sdword **pOffsets)
+{
+    sdword event, numoffsets;
+    udword duration;
+
+    for (event = 0; event < SentenceLUT->numevents; event++)
+    {
+        if (SentenceLUT->lookup[event * SentenceLUT->numcolumns + 1] == 0)
+        {
+            continue;                                       // no variations
+        }
+        numoffsets = SEselectsentence(0, event, 0, 0, pOffsets, &duration);
+        if (numoffsets > 0)
+        {
+            *pEvent = event;
+            return numoffsets;
+        }
+    }
+    return 0;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : catSoundTestSpeech
+    Description : queue the first sentence of the loaded race on speech stream 0 and let the mixer decode it
+    Return      : blocks decoded
+----------------------------------------------------------------------------*/
+static udword catSoundTestSpeech(char *bank)
+{
+    sdword event = -1, numoffsets, i;
+    sdword *offsets = NULL;
+    udword blocks;
+
+    numoffsets = catSoundTestFirstSentence(&event, &offsets);
+    if (numoffsets <= 0)
+    {
+        dbgMessagef("soundtest: %s: no sentence in the tables (%d events)", bank, SentenceLUT->numevents);
+        return 0;
+    }
+    for (i = 0; i < numoffsets; i++)
+    {
+        soundstreamqueuePatch(streamhandle[0], speechfilehandle, offsets[i], SOUND_FLAGS_QUEUESTREAM,
+                              (sword)SOUND_VOL_MAX, SOUND_PAN_CENTER, SOUND_MONO, SentenceLUT->compbitrate[0], NULL,
+                              &streamEQ[SPEECH_INTEL], NULL, NULL, 0, 0.0f, 0.0f, 0, event, (i < numoffsets - 1));
+    }
+    blocks = catSoundTestWaitStream(streamhandle[0], 8, 15000);
+    dbgMessagef("soundtest: %s: event %d (%d phrases, first at %d, bitrate %d) decoded %u blocks", bank, event,
+                numoffsets, offsets[0], SentenceLUT->compbitrate[0], blocks);
+    return blocks;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : catSoundRunSelfTest
+    Description : CAT: port diagnostic (see above); called by utyGameSystemsInit after the start-up
+----------------------------------------------------------------------------*/
+void catSoundRunSelfTest(void)
+{
+    udword musicBlocks = 0, sectBlocks = 0, beastBlocks = 0, audibleStart;
+    sdword track, i, index, named = 0, numbered = 0, sect = 0, beast = 0, dormant = 0;
+    sdword startRace = 0;
+    bool32 pass;
+    const char *driver = SDL_GetCurrentAudioDriver();
+
+    dbgMessagef("soundtest: start: audio driver %s, SFX %d, speech %d, mixer ticks %u", (driver != NULL) ? driver : "none",
+                enableSFX, enableSpeech, mixerticks);
+    audibleStart = catSoundAudibleBlocks;
+
+    if (enableSpeech && (musicheader != NULL) && (SentenceLUT != NULL))
+    {
+        // the music bank: the first track with data (Music4Cat.wxh lists the streams of Music4Cat.wxd)
+        for (track = 0; track < musicheader->numstreams; track++)
+        {
+            if ((musicheader->mstreams[track].offset > 0) && (musicheader->mstreams[track].bitrate > 0))
+            {
+                break;
+            }
+        }
+        if (track < musicheader->numstreams)
+        {
+            musicEventPlay(track);
+            musicBlocks = catSoundTestWaitStream(musicinfo.handle, 64, 3000);
+            musicEventStop(track, 0.0f);
+            dbgMessagef("soundtest: Music4Cat.wxd: %d streams, track %d (offset %d, bitrate %d, %d channels) decoded %u blocks",
+                        musicheader->numstreams, track, musicheader->mstreams[track].offset,
+                        musicheader->mstreams[track].bitrate, musicheader->mstreams[track].numchannels, musicBlocks);
+            catSoundTestWaitStream(musicinfo.handle, 0, 2000);
+        }
+
+        // the two voice banks: the Somtaaw tables are loaded at start-up, the Beast ones by the race switch
+        startRace = whichRaceSelected;
+        cat_speechEventLoadRaceVoice(0);
+        sectBlocks = catSoundTestSpeech("SectSpeech.vce");
+        cat_speechEventLoadRaceVoice(1);
+        beastBlocks = catSoundTestSpeech("BeastSpeech.vce");
+        cat_speechEventLoadRaceVoice(0);
+
+        // the 88 battle-chatter events in the Somtaaw and the Beast tables (the event index's row of actor 0)
+        for (i = 0; i < BCE_LastBCE; i++)
+        {
+            if (battleChatterEvent[i].eventName != NULL)
+            {
+                named++;
+            }
+            if (battleChatterEvent[i].eventNumber == 0)
+            {
+                dormant++;                                  // the exe's table has 0 there too
+                continue;
+            }
+            numbered++;
+            index = battleChatterEvent[i].eventNumber & CAT_SPEECH_EVENT_MASK;
+            if ((index < SentenceLUT->numevents) && (SentenceLUT->lookup[index * SentenceLUT->numcolumns + 1] != 0))
+            {
+                sect++;
+            }
+        }
+        cat_speechEventLoadRaceVoice(1);
+        for (i = 0; i < BCE_LastBCE; i++)
+        {
+            index = battleChatterEvent[i].eventNumber & CAT_SPEECH_EVENT_MASK;
+            if ((battleChatterEvent[i].eventNumber != 0) && (index < SentenceLUT->numevents) &&
+                (SentenceLUT->lookup[index * SentenceLUT->numcolumns + 1] != 0))
+            {
+                beast++;
+            }
+        }
+        cat_speechEventLoadRaceVoice(startRace);
+        dbgMessagef("soundtest: chatter: %d events, %d named, %d with an id (%d have 0, as in the exe), %d with a Somtaaw sentence, %d with a Beast sentence",
+                    BCE_LastBCE, named, numbered, dormant, sect, beast);
+    }
+
+    pass = enableSpeech && (musicBlocks > 0) && (sectBlocks > 0) && (beastBlocks > 0) && (BCE_LastBCE == 88) &&
+           (named == BCE_LastBCE) && (catSoundAudibleBlocks > audibleStart);
+    dbgMessagef("soundtest: done: music %u, sect %u, beast %u blocks decoded; %u audible output blocks; mixer ticks %u; result=%s",
+                musicBlocks, sectBlocks, beastBlocks, catSoundAudibleBlocks - audibleStart, mixerticks, pass ? "PASS" : "FAIL");
 }

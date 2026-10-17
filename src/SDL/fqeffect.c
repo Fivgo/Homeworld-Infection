@@ -95,9 +95,17 @@ int fqScale(float *aBlock, float fLev) {
 int fqMix(float *aPBlock, float *aSBlock, float fLev) {
 	udword i;
 
-	if (fLev > 0.0) {
+	// CAT: the exe returns only for a level of exactly 0 (a negative level mixes in) and adds without the multiply at
+	//      1.0 (fqMix 0x00558dc0; GoK mixed only for fLev > 0)
+	if (fLev == 0.0F)
+		return OK;
+	if (fLev == 1.0F) {
 		for (i = 0; i < nBSize; i++) {
-			aPBlock[i] += aSBlock[i] * fLev;
+			aPBlock[i] = aSBlock[i] + aPBlock[i];
+		}
+	} else {
+		for (i = 0; i < nBSize; i++) {
+			aPBlock[i] = fLev * aSBlock[i] + aPBlock[i];
 		}
 	}
 
@@ -106,18 +114,21 @@ int fqMix(float *aPBlock, float *aSBlock, float fLev) {
 
 int fqPitchShift(float *aBlock, float fShift) {
 	udword i, ipos;
-	float pos, buf[FQ_DSIZE];
+	double pos;
+	float buf[FQ_SIZE];
 
-	if (fShift != 1.0) {
+	// CAT: the exe keeps the position at full precision (x87) for the compare, the truncation (__ftol) and the
+	//      interpolation, with a FQ_SIZE buffer (fqPitchShift 0x00558e50; GoK rounded it to a float)
+	if (fShift != 1.0F) {
 		for (i = 0; i < nBSize; i++) {
-			pos = (float)i * fShift;
-			if (pos < (float)nBSize) {
-				ipos = (udword)floor(pos);
+			pos = (double)i * (double)fShift;
+			if (pos < (double)nBSize) {
+				ipos = (udword)(sqword)pos;
 				if (ipos > nBSize - 2)
 					ipos = nBSize - 2;
-				buf[i] = (aBlock[ipos + 1] - aBlock[ipos]) * (pos - (float)ipos) + aBlock[ipos];
+				buf[i] = (float)((pos - (double)ipos) * ((double)aBlock[ipos + 1] - (double)aBlock[ipos]) + (double)aBlock[ipos]);
 			} else {
-				buf[i] = 0.0;
+				buf[i] = 0.0F;
 			}
 		}
 
@@ -141,7 +152,9 @@ int fqEqualize(float *aBlock, float *aEq) {
 			jEnd = nBSize;
 
 		if (aEq[i] == 0.0) {
-			memset(&aBlock[aEQBlock[i]], 0, (aEQBlock[i + 1] - aEQBlock[i]) << 2);
+			// CAT: the zeroing stops at the block size too (fqEqualize 0x00558f20: (min(end, nBSize) - start) floats;
+			//      GoK zeroed the whole band)
+			memset(&aBlock[aEQBlock[i]], 0, ((jEnd - aEQBlock[i]) & 0x3fffffff) << 2);
 		} else if (aEq[i] != 1.0) {
 			for (j = aEQBlock[i]; j < jEnd; j++) {
 				aBlock[j] *= aEq[i];

@@ -488,7 +488,7 @@ udword soundbankadd(void *bankaddress)
 	numpatches = bank->numpatches;
 
 	/* point the global patches pointer to the start of the patches */
-	patches = (PATCH *)&bank->firstpatch;
+	patches = SNDbankpatches(bank);   // HWI LP64: the converted bank's aligned table (soundcmn.h)
 
 	/* figure out where the patch data starts */
 	for (i = 0; i < numpatches; i++)
@@ -825,7 +825,8 @@ sdword soundvolumeF(sdword handle, sword vol, real32 fadetime)
 
 		if (vol != pchan->voltarget)
 		{
-			if (vol == (sword)pchan->volume)
+			// CAT: the current level rounded with Relic's rint (soundvolumeF 0x00580f60; HW1 truncated)
+			if (vol == fqRint(pchan->volume))
 			{
 				pchan->voltarget = vol;
 				pchan->volticksleft = 0;
@@ -1499,7 +1500,7 @@ PATCH *SNDgetpatch(void *bankaddress, sdword patnum)
 
 			if (patnum < tempbank->numpatches)
 			{
-				temppatches = (PATCH *)&tempbank->firstpatch;
+				temppatches = SNDbankpatches(tempbank);   // HWI LP64: aligned table (soundcmn.h)
 				ppatch = &temppatches[patnum];
 			}
 		}

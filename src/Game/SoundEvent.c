@@ -28,6 +28,24 @@
 #include "soundlow.h"
 #include "Switches.h"
 #include "VolTweakDefs.h"
+#include "Universe.h"
+#include "Vector.h"
+#include "Battle.h"
+#include "Blast.h"
+#include "Sensors.h"
+#include "NIS.h"
+#include "fqcodec.h"
+#include "ShipSelect.h"
+#include "NomadMoon.h"
+#include "Crystal.h"
+#include "Slipgate.h"
+#include "RKO.h"
+#include "GravWellGenerator.h"
+#include "Mothership.h"
+#include "Worker.h"
+#include "RammingFrigate.h"
+#include "Mimic.h"
+#include "Leech.h"
 
 #define DIRECTSOUND     1
 #define SE_MAX_STRIKECRAFT  10
@@ -241,6 +259,7 @@ BANK   *UIBank;
 
 /* SFX lookup tables */
 SFXLUT  *GunEventsLUT;
+SFXLUT  *GunSpecEventsLUT;      // CAT: the special gun sounds (SEloadbank 0x005200c0, .data 0x00a6ae2c)
 SFXLUT  *ShipCmnEventsLUT;
 SFXLUT  *ShipEventsLUT;
 SFXLUT  *DerelictEventsLUT;
@@ -630,16 +649,11 @@ void soundEventVocalSettings(bool32 bCommands, bool32 bStatus, bool32 bChatter)
 -----------------------------------------------------------------------------*/
 void soundEventHearActor(sdword actornum)
 {
-	udword duration;
-	sdword *phraseoffsets;
-    if ((actornum > 0) && (actornum < 4))
-    {
-		if (SEselectsentence(actornum, (COMM_Selection & SPEECH_EVENT_MASK), 0, 0, &phraseoffsets, &duration) > 0)
-		{
-			soundstreamqueuePatch(streamhandle[actornum], speechfilehandle, *phraseoffsets++, SOUND_FLAGS_QUEUESTREAM, (sword)(SOUND_VOL_MAX * volSpeech), SOUND_PAN_CENTER,
-								  SOUND_MONO, SentenceLUT->compbitrate[actornum], NULL, NULL, NULL, NULL, 0, 0.0f, 0.0f, actornum, COMM_Selection, FALSE);
-		}
-    }
+    // CAT: Cataclysm has one voice per race LUT (numactors 1) and three speech streams, and the exe has no pilot
+    //      voice preview: HW1's preview of pilot voice 1..3 (Options.c's voice buttons) would read past the LUT
+    //      and the stream handles, so it plays nothing. CAT-TODO(M2-R6 front end: Options.c): the exe's options
+    //      have no voice buttons; drop the callers with the options port.
+    (void)actornum;
 }
 
 
@@ -809,6 +823,9 @@ void soundEventInit(sdword race)  // CAT: race selects the speech set (soundEven
 #endif // SPEECH
 
     soundeventinited = TRUE;
+
+    // CAT: the mesh animations' sounds (soundEventInit 0x0051c6e0 ends with cat_madAnimSoundTableInit)
+    cat_madAnimSoundTableInit();
     
 #endif // DIRECTSOUND
 #endif // SOUND
@@ -847,6 +864,7 @@ void soundEventClose(void)
     if (enableSFX)
     {
         memFree(GunEventsLUT);
+        memFree(GunSpecEventsLUT);      // CAT (soundEventClose 0x0051c9a0)
         memFree(ShipCmnEventsLUT);
         memFree(ShipEventsLUT);
         memFree(DerelictEventsLUT);
@@ -1029,41 +1047,95 @@ nextship:
 
 #if 1
 /*-----------------------------------------------------------------------------
-    Name        :
-    Description :
+    Name        : soundEventUpdate
+    Description : CAT: the exe's per-frame update of the object sounds (soundEventUpdate 0x0051cd10). Walks the
+                  render list from the tail as HW1, with Cataclysm's rules:
+                  - derelicts only keep their playing ambients up to date (they are not started here);
+                  - the engine limits (5 strike craft, 3 capital ships) spare the mothership class only, and the
+                    Sentinels keep their field sound; engines stop with a 5 s fade when idle;
+                  - the engine loop is the upgraded one (ShipCmn event 0x404) for a ship with upgrade 9, 11 or 13;
+                    every ship, not only strike craft, gets the heading filter;
+                  - a special loop per type: mimics (the ambient of the type they show), the Leech's drain
+                    (0x824 / 0x825), the ramming frigates (0x813 / 0x81d), the Workers (0x802 / 0x803 / 0x816 /
+                    0x819), the Sentinel field (at most 3), the sMothership big gun (0x83c), the cloakers' hum
+                    (0x83b), the gravwell (0x80d), the SalCap beam (0x816), the RKO (0x80b), the slipgates, the
+                    crystals (0x805), the Nomad moon (0x806);
+                  - the damage loop is the EMP stun (0x832) or the Beast infection (0x838, at most 3);
+                  - the ambient by health (0x401 / 0x402 / 0x407 / 0x408), being built (0x809) or converting
+                    (0x80a); the random ambient by health;
+                  - hyperspace in and out (0x801 / 0x814) for the local player's ships in single player (at most 3);
+                  - the gimbal and burst loops by the gun the burst remembers (at most 4 bursts).
+                  A leech draining a ship below 20 % health raises the leech speech alert.
     Inputs      :
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: the Cataclysm rows the update uses outside the class / gun ranges (SoundEventPrivate.h has the layout)
+#define CAT_ROW_SENTINEL_FIELD  0x17    // the ambient row of class 11
+#define CAT_ROW_SLIPGATE        0x40    // the first special row
+#define CAT_ROW_GRAVWELL        0x43    // the last special row
+#define CAT_ROW_NOMAD_MOON      0x52
+#define CAT_ROW_DERELICT        0x5b
+#define CAT_SFX_MAX_STRIKE      5
+#define CAT_SFX_MAX_CAP         3
+#define CAT_SFX_MAX_SENTINELS   3
+#define CAT_SFX_MAX_INFECTED    3
+#define CAT_SFX_MAX_HYPERSPACE  3
+#define CAT_SFX_MAX_BURSTS      4
+
+// CAT: the patch number of a LUT entry (GetPatch inlined by the exe: a random variation on RAN_SoundGameThread)
+#define catShipPatch(lut, obj, ev)  ((lut)->lookup[GetPatch((lut), (obj), (ev))])
+
+// CAT-TODO(M2-R6 camera): cat_ccIsPilotingShip 0x0042c2e0 / cat_ccIsPilotingThisShip 0x0042c310 read the camera
+//      command's piloting mode, which the camera port brings; until then no ship is piloted
+static bool32 cat_ccIsPilotingShip(void)
+{
+    return FALSE;
+}
+static bool32 cat_ccIsPilotingThisShip(Ship *ship)
+{
+    (void)ship;
+    return cat_ccIsPilotingShip();
+}
+
+static void catSEupdateHandle(sdword handle, sword vol, sword pan, real32 *eq)
+{
+    soundvolumeF(handle, vol, 0.0f);
+    soundpanF(handle, pan, 0.0f);
+    soundequalize(handle, eq);
+}
+
 void soundEventUpdate(void)
 {
 #if SOUND
     Node *objnode = universe.RenderList.tail;
     Ship *ship = NULL;
     ShipClass shipclass;
+    sdword objrow;
     sword vol = 0;
     sword pan = 0;
     real32 dist     = 0.0;
     real32 velocity = 0.0;
     real32 velratio = 1.0f;
+    real32 threshold, healthratio;
     sdword  numships = 0,
-            numcapships = 0;
+            numcapships = 0,
+            numsentinels = 0,
+            numinfected = 0,
+            numhyperspace = 0,
+            numbursts = 0;
     sword shipangle = 0;
-    static real32 tempEQ[SOUND_EQ_SIZE];
+    static real32 tempEQ[SOUND_EQ_SIZE];                    // .bss 0x00a6add0
     GunInfo *gunInfo;
-    sdword i;
+    sdword i, row, gunIndex, event, patch;
     Gun *gun = NULL;
-    bool32 specialon;
     bool32 ambienton;
-	CloakGeneratorSpec *CGspec;
-    GravWellGeneratorSpec *GWspec;
     CommandToDo *command = NULL;
     Derelict *pDerelict = NULL;
-    real32 damageratio = 1.0f;
-    sdword ambient;
-	ShipSinglePlayerGameInfo *shipSinglePlayerGameInfo;
-	bool32 damageOn = FALSE;
-	bool32 noAmbient = FALSE;
+    ShipType apparent;
+    ubyte state;
+    SFXLUT *lut;
+    GunSoundType soundtype;
 
     if (!soundeventinited || soundpaused)
     {
@@ -1073,7 +1145,6 @@ void soundEventUpdate(void)
     // update the music volume
     musicEventUpdateVolume();
 
-
 	if (smSensorsActive || !mrRenderMainScreen)
 	{
 		return;
@@ -1082,84 +1153,51 @@ void soundEventUpdate(void)
     nearestShipDistance = REALlyBig;
     nearestShipMoving = FALSE;
 
-	while (objnode != NULL)
+	while ((objnode != NULL) && enableSFX)
     {
-		noAmbient = FALSE;
         ship = (Ship *)listGetStructOfNode(objnode);
 
-		// only want to do this if sound fx are on
-		if (!enableSFX)
-		{
-			break;
-		}
-
-		// deal with derelicts first
+		// deal with derelicts first: only an ambience that plays is kept up to date
         if (ship->header.objtype == OBJ_DerelictType)
         {
-            // play the derelict ambience here
             pDerelict = (Derelict *)ship;
 
             dist = fsqrt(pDerelict->obj.cameraDistanceSquared);
-
             if (dist < nearestShipDistance)
             {
                 nearestShipDistance = dist;
             }
 
-            if (SEinrange(DerelictAmbience, dist))
-            {
-                vol = SEequalize(DerelictAmbience, dist, tempEQ);
-				pan = getPanAngle(pDerelict->obj.posinfo.position, pDerelict->staticinfo->common.staticCollInfo.approxcollspheresize, dist);
-
-                if ((pDerelict->ambientSoundHandle == SOUND_NOTINITED) ||
-					soundover(pDerelict->ambientSoundHandle))
-                {
-                    pDerelict->ambientSoundHandle = splayEPRV(ShipBank, DerelictEventsLUT->lookup[GetPatch(DerelictEventsLUT, pDerelict->derelicttype, Derelict_Ambience)],
-                                                               tempEQ, pan, SOUND_PRIORITY_LOW, vol);
-                }
-                else
-                {
-                    soundvolume(pDerelict->ambientSoundHandle, vol);
-                    soundpan(pDerelict->ambientSoundHandle, pan);
-                    soundequalize(pDerelict->ambientSoundHandle, tempEQ);
-                }
-
-				// now we have the random ambience
-                if ((pDerelict->randomSoundHandle == SOUND_NOTINITED) ||
-					soundover(pDerelict->randomSoundHandle))
-                {
-                    if (universe.totaltimeelapsed > pDerelict->nextRandomTime)
-                    {
-                        pDerelict->randomSoundHandle = splayEPRV(ShipBank, DerelictEventsLUT->lookup[GetPatch(DerelictEventsLUT, pDerelict->derelicttype, Derelict_RandomAmbience)],
-                                                            tempEQ, pan, SOUND_PRIORITY_LOW, vol);
-                        if (pDerelict->randomSoundHandle == SOUND_NOTINITED)
-                        {
-							pDerelict->nextRandomTime = universe.totaltimeelapsed + RANDOM_AMBIENCE_MINFREQ;
-                        }
-                    }
-                }
-                else
-                {
-                    if (soundover(pDerelict->randomSoundHandle))
-                    {
-                        pDerelict->randomSoundHandle = SOUND_NOTINITED;
-                        pDerelict->nextRandomTime = universe.totaltimeelapsed + RANDOM_AMBIENCE_MINFREQ
-                                                    + ((real32)(ranRandom(RANDOM_SOUND_GAME_THREAD) % RANDOM_AMBIENCE_ADDRANDOM) / 100.0f);
-                    }
-                    else
-                    {
-                        soundvolume(pDerelict->randomSoundHandle, vol);
-                        soundpan(pDerelict->randomSoundHandle, pan);
-                        soundequalize(pDerelict->randomSoundHandle, tempEQ);
-                    }
-                }
-            }
-            else
+            if (!SEinrange(CAT_ROW_DERELICT, dist))
             {
                 SEstopsoundhandle(&(pDerelict->ambientSoundHandle), SOUND_FADE_STOPNOW);
                 SEstopsoundhandle(&(pDerelict->randomSoundHandle), SOUND_FADE_STOPNOW);
+                goto nextship;
             }
 
+            vol = SEequalize(CAT_ROW_DERELICT, dist, tempEQ);
+            pan = getPanAngle(pDerelict->obj.posinfo.position, pDerelict->staticinfo->common.staticCollInfo.approxcollspheresize, dist);
+            if ((pDerelict->ambientSoundHandle != SOUND_NOTINITED) && !soundover(pDerelict->ambientSoundHandle))
+            {
+                catSEupdateHandle(pDerelict->ambientSoundHandle, vol, pan, tempEQ);
+            }
+            if ((pDerelict->randomSoundHandle == SOUND_NOTINITED) || soundover(pDerelict->randomSoundHandle))
+            {
+                if ((pDerelict->nextRandomTime < universe.totaltimeelapsed) && (pDerelict->randomSoundHandle == SOUND_NOTINITED))
+                {
+                    pDerelict->nextRandomTime = RANDOM_AMBIENCE_MINFREQ + universe.totaltimeelapsed;
+                }
+            }
+            else if (!soundover(pDerelict->randomSoundHandle))
+            {
+                catSEupdateHandle(pDerelict->randomSoundHandle, vol, pan, tempEQ);
+            }
+            else
+            {
+                pDerelict->randomSoundHandle = SOUND_NOTINITED;
+                pDerelict->nextRandomTime = (real32)(ranRandom(RANDOM_SOUND_GAME_THREAD) % RANDOM_AMBIENCE_ADDRANDOM) * 0.01f +
+                                            RANDOM_AMBIENCE_MINFREQ + universe.totaltimeelapsed;
+            }
             goto nextship;
         }
         else if (ship->header.objtype != OBJ_ShipType)
@@ -1171,70 +1209,83 @@ void soundEventUpdate(void)
 		// ok, now we're into the SHIP stuff
         shipclass = ship->staticinfo->shipclass;
         dist = fsqrt(ship->obj.cameraDistanceSquared);
-		
+
 		// a little hack here so that these ships have reasonable volume curves
-		if (ship->shiptype == MiningBase)
+		if (ship->shiptype == trMiningBase)
 		{
 			shipclass = CLASS_Mothership;
+            ship->soundevent.coverage = rndComputeOverlap(ship, 0.4f);
 		}
-		else if (ship->shiptype == ResearchStation)
+		else if (ship->shiptype == trResearchStation)
 		{
 			shipclass = CLASS_Carrier;
+            ship->soundevent.coverage = rndComputeOverlap(ship, 0.4f);
 		}
-
-		// need to do this for the ships that aren't playing sounds
-		if (shipclass == CLASS_Fighter)
-		{
-			ship->soundevent.coverage = rndComputeOverlap(ship, 5.0f);
-		}
-		else if (shipclass == CLASS_Corvette)
-		{
-			ship->soundevent.coverage = rndComputeOverlap(ship, 2.2f);
-		}
-		else
-		{
-			// all other ships don't have velocity ratio or have the coverage affect the engine volume
-			ship->soundevent.coverage = rndComputeOverlap(ship, 0.4f);
-		}
-
-        // have we reached the maximum number of sounds for these types of ships?
-		if (((numships >= SFX_MAX_STRIKEENGINES) && ((shipclass == CLASS_Fighter) || (shipclass == CLASS_Corvette))) ||
-            ((numcapships >= SFX_MAX_CAPENGINES) && ((shipclass != CLASS_Fighter) || (shipclass != CLASS_Corvette))))
+        else
         {
-            if ((shipclass != CLASS_Mothership) || (universe.curPlayerIndex != ship->playerowner->playerIndex))
+            // a leech draining a ship below 20 % health raises the leech alert for that ship's player
+            if ((ship->shiptype == sLeech) && cat_leechIsLeeching(ship))
             {
-				SEstopengine(ship, TRUE);
-				SEstopsoundhandle(&(ship->soundevent.specialHandle), SOUND_FADE_STOPNOW);
-				SEstopsoundhandle(&(ship->soundevent.ambientHandle), SOUND_FADE_STOPNOW);
-				SEstopsoundhandle(&(ship->soundevent.damageHandle), SOUND_FADE_STOPNOW);
-				SEstopsoundhandle(&(ship->soundevent.randomHandle), SOUND_FADE_STOPNOW);
-				SEstopsoundhandle(&(ship->soundevent.gunHandle), SOUND_FADE_STOPNOW);
-				SEstopsoundhandle(&(ship->soundevent.hyperspaceHandle), SOUND_FADE_STOPNOW);
-				goto playloopingguns;	// this is only the gun firing sounds
+                Ship *target = cat_leechGetSpecifics(ship)->target;
+
+                if ((target != NULL) && (target->targetable.health / target->staticinfo->health.maxhealth < 0.2f))
+                {
+                    cat_speechAlertsNoteShip(ship, target->playerowner->playerIndex);
+                }
             }
+            if ((shipclass == CLASS_Fighter) || (shipclass == CLASS_Micro))
+            {
+                ship->soundevent.coverage = rndComputeOverlap(ship, 5.0f);
+            }
+            else if (shipclass == CLASS_Corvette)
+            {
+                ship->soundevent.coverage = rndComputeOverlap(ship, 2.2f);
+            }
+            else
+            {
+                ship->soundevent.coverage = rndComputeOverlap(ship, 0.4f);
+            }
+        }
+
+        // have we reached the maximum number of sounds for these types of ships? (the mothership class always plays)
+        if ((((numships >= CAT_SFX_MAX_STRIKE) &&
+              ((shipclass == CLASS_Fighter) || (shipclass == CLASS_Corvette) || (shipclass == CLASS_Micro))) ||
+             (numcapships >= CAT_SFX_MAX_CAP)) && (shipclass != CLASS_Mothership))
+        {
+            SEstopengine(ship, TRUE);
+            SEstopsoundhandle(&(ship->soundevent.specialHandle), SOUND_FADE_STOPNOW);
+            SEstopsoundhandle(&(ship->soundevent.ambientHandle), SOUND_FADE_STOPNOW);
+            SEstopsoundhandle(&(ship->soundevent.damageHandle), SOUND_FADE_STOPNOW);
+            SEstopsoundhandle(&(ship->soundevent.randomHandle), SOUND_FADE_STOPNOW);
+            SEstopsoundhandle(&(ship->soundevent.gunHandle), SOUND_FADE_STOPNOW);
+            SEstopsoundhandle(&(ship->soundevent.hyperspaceHandle), SOUND_FADE_STOPNOW);
+            if ((ship->shiptype == bSentinel) || (ship->shiptype == sSentinel))
+            {
+                goto othersounds;   // the Sentinels keep their field sound
+            }
+            goto playloopingguns;	// this is only the gun firing sounds
         }
 
 		// has this ship just exploded?
 		if (ship->soundevent.engineHandle == SOUND_SHIP_EXPLODED)
 		{
 			soundEventShipRemove(ship);
-
 			goto nextship;
 		}
 
 		// is this ship even in range to be heard?
 		if (!SEinrange(shipclass, dist))
 		{
-			// then shut the engind down if its playing
+			// then shut the engine down if its playing
 			SEstopengine(ship, TRUE);
 			goto othersounds;
 		}
 
 		// need to keep track of the number of ships
-		if ((shipclass != CLASS_Mothership) || (universe.curPlayerIndex != ship->playerowner->playerIndex))
+		if (shipclass != CLASS_Mothership)
 		{
 			numships++;
-			if (isCapitalShip(ship))
+			if (ship->staticinfo->shipIsCapital)
 			{
 				numcapships++;
 			}
@@ -1245,7 +1296,11 @@ void soundEventUpdate(void)
 		vol = SEequalize(shipclass, dist, tempEQ);
 		shipangle = SEgetAngleToCamera(ship);
 		velocity = fsqrt(vecMagnitudeSquared(ship->obj.posinfo.velocity));
-		
+        if (nisIsRunning)
+        {                                                   // in an NIS a ship moves or not
+            velocity = (velocity <= 0.01f) ? 0.0f : 500.0f;
+        }
+
 		// need this for setting the music volume
 		if (dist < nearestShipDistance)
 		{
@@ -1256,12 +1311,12 @@ void soundEventUpdate(void)
 			}
 		}
 
-		// figure out the coverage for this ship (how much it is visibly overlapped on screen)
-		// also figure out the volume scalar for the coverage and the velocity to max velocity ratio
-		if (shipclass == CLASS_Fighter)
+		// the coverage scales the strike craft's engines; they get a velocity ratio
+		if ((shipclass == CLASS_Fighter) || (shipclass == CLASS_Micro))
 		{
-			vol = (sword)(vol * (1.0f - ship->soundevent.coverage));
-			velratio = FIGHTER_VELOCITY_LOWPITCH; //+ (velocity / ship->staticinfo->common.maxvelocity * FIGHTER_VELOCITY_SCALE);
+			velratio = FIGHTER_VELOCITY_LOWPITCH;
+			vol = (sword)fqRint((1.0f - ship->soundevent.coverage) * (real32)vol);
+            // the exe also calls cat_shipGetSpeedMultiplier here and ignores the result
 			if (velratio > FIGHTER_VELOCITY_HIGHPITCH)
 			{
 				velratio = FIGHTER_VELOCITY_HIGHPITCH;
@@ -1269,8 +1324,8 @@ void soundEventUpdate(void)
 		}
 		else if (shipclass == CLASS_Corvette)
 		{
-			vol = (sword)(vol * (1.0f - ship->soundevent.coverage));
-			velratio = CORVETTE_VELOCITY_LOWPITCH; //+ (velocity / ship->staticinfo->common.maxvelocity * CORVETTE_VELOCITY_SCALE);
+			velratio = CORVETTE_VELOCITY_LOWPITCH;
+			vol = (sword)fqRint((1.0f - ship->soundevent.coverage) * (real32)vol);
 			if (velratio > CORVETTE_VELOCITY_HIGHPITCH)
 			{
 				velratio = CORVETTE_VELOCITY_HIGHPITCH;
@@ -1278,474 +1333,654 @@ void soundEventUpdate(void)
 		}
 		else
 		{
-			// all other ships don't have velocity ratio or have the coverage affect the engine volume
 			ship->soundevent.coverage = rndComputeOverlap(ship, 0.4f);
 		}
 
 		// need to figure out if this ship is actually doing something and not just drifting
 		if (ship->soundevent.engineState != SOUND_STARTING)
 		{
-			if ((shipclass == CLASS_Fighter) || (shipclass == CLASS_Corvette))
+            threshold = 0.0f;                               // capital ships play while they move at all
+			if ((shipclass == CLASS_Fighter) || (shipclass == CLASS_Corvette) || (shipclass == CLASS_Micro))
 			{
-				// if this ship isn't actually doing anything, then don't turn on the engines
 				command = getShipAndItsCommand(&universe.mainCommandLayer, ship);
-				if (command != NULL)
+				if (command == NULL)
 				{
-					if ((command->ordertype.order == COMMAND_NULL) ||
-						(command->ordertype.order == COMMAND_MP_HYPERSPACING))
-					{
-						if (velocity <= 100.0f)
-						{
-							vol = 0;
-						}
-					}
-					else if ((command->ordertype.order == COMMAND_MILITARY_PARADE)  &&
-							 (velocity <= 2.0f * SFX_FLOAT_VELOCITY))
-					{
-						vol = 0;
-					}
-					else
-					{
-						if (nisIsRunning && (velocity <= SFX_NIS_FLOAT_VELOCITY))
-						{
-							vol = 0;
-						}
-						else if (velocity <= SFX_FLOAT_VELOCITY)
-						{
-							vol = 0;
-						}
-					}
+                    if (!nisIsRunning)
+                    {
+                        goto engineoff;
+                    }
+                    threshold = SFX_NIS_FLOAT_VELOCITY;
 				}
-				else
-				{
-					vol = 0;
-				}
+                else if ((command->ordertype.order == COMMAND_NULL) || (command->ordertype.order == COMMAND_MP_HYPERSPACING))
+                {
+                    threshold = 100.0f;
+                }
+                else if ((command->ordertype.order == COMMAND_MILITARY_PARADE) && (velocity <= 2.0f * SFX_FLOAT_VELOCITY))
+                {
+                    goto engineoff;
+                }
+                else
+                {
+                    threshold = SFX_FLOAT_VELOCITY;
+                    if (nisIsRunning && (velocity <= SFX_NIS_FLOAT_VELOCITY))
+                    {
+                        goto engineoff;
+                    }
+                }
 			}
-			else
-			{
-				// cap ships should always play unless they're moving
-				if (velocity <= 0.0f)
-				{
-					vol = 0;
-				}
-			}
-
+            if (velocity <= threshold)
+            {
+                goto engineoff;
+            }
 		}
 
 		// ENGINE SOUNDS
 		if (vol <= SOUND_VOL_MIN)
 		{
-			if (ship->soundevent.engineHandle > SOUND_NOTINITED)
-			{
-				SEstopengine(ship, TRUE);
-			}
-			goto othersounds;
+            goto engineoff;
 		}
-		else
-		{
-			if ((ship->soundevent.engineHandle == SOUND_NOTINITED) ||
-				soundover(ship->soundevent.engineHandle))
-			{
-				// start the engine sound
-				if (velratio > 1.0f)
-				{
-					if (shipclass == CLASS_Corvette)
-					{
-						ship->soundevent.engineHandle = splayFPRVL(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Engine)],
-											   tempEQ, velratio, pan, SOUND_PRIORITY_MAX - 1, vol, TRUE, TRUE, FALSE);
-					}
-					else if (shipclass == CLASS_Fighter)
-					{
-						ship->soundevent.engineHandle = splayFPRVL(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Engine)],
-											   tempEQ, velratio, pan, SOUND_PRIORITY_MAX - 2, vol, TRUE, TRUE, FALSE);
-					}
-				}
-				else
-				{
-					ship->soundevent.engineHandle = splayEPRVL(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Engine)],
-										   tempEQ, pan, SOUND_PRIORITY_MAX, vol, TRUE);
-				}
-			}
-			else
-			{
-				if ((ship->soundevent.engineState == SOUND_STARTING) && (velocity > SFX_FLOAT_VELOCITY))
-				{
-					ship->soundevent.engineState = SOUND_PLAYING;
-				}
-	
-				soundvolume(ship->soundevent.engineHandle, vol);
-				soundpan(ship->soundevent.engineHandle, pan);
-				if (velratio > 1.0f)
-				{
-					soundfrequency(ship->soundevent.engineHandle, velratio);
-				}
-				soundequalize(ship->soundevent.engineHandle, tempEQ);
-			}
-	
-			if (shipclass == CLASS_Fighter)
-			{
-				if (FIGHTER_DOPPLER_USEVELOCITY)
-				{
-					soundshipheading(ship->soundevent.engineHandle, shipangle, FIGHTER_DOPPLER_HIGH, FIGHTER_DOPPLER_LOW, velratio, FIGHTER_DOPPLER_SCALE);
-				}
-				else
-				{
-					soundshipheading(ship->soundevent.engineHandle, shipangle, FIGHTER_DOPPLER_HIGH, FIGHTER_DOPPLER_LOW, 1.0f, FIGHTER_DOPPLER_SCALE);
-				}
-			}
-			if (shipclass == CLASS_Corvette)
-			{
-				if (CORVETTE_DOPPLER_USEVELOCITY)
-				{
-					soundshipheading(ship->soundevent.engineHandle, shipangle, CORVETTE_DOPPLER_HIGH, CORVETTE_DOPPLER_LOW, velratio, CORVETTE_DOPPLER_SCALE);
-				}
-				else
-				{
-					soundshipheading(ship->soundevent.engineHandle, shipangle, CORVETTE_DOPPLER_HIGH, CORVETTE_DOPPLER_LOW, 1.0f, CORVETTE_DOPPLER_SCALE);
-				}
-			}
-		}
+        if ((ship->soundevent.engineHandle == SOUND_NOTINITED) || soundover(ship->soundevent.engineHandle))
+        {
+            // start the engine sound: the upgraded engines have their own loop (ShipCmn event 4)
+            event = (cat_shipHasUpgrade(ship, 0xd) + cat_shipHasUpgrade(ship, 0xb) + cat_shipHasUpgrade(ship, 9) != 0) ?
+                    (ShipCmn_Flag + 4) : ShipCmn_Engine;
+            {                                               // (a type past the table plays the patch GetPatch gives, as in the exe)
+                if (velratio <= 1.0f)
+                {
+                    ship->soundevent.engineHandle = splayFPRVL(ShipBank, catShipPatch(ShipCmnEventsLUT, ship->shiptype, event),
+                                                               tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_MAX, vol, TRUE, TRUE, FALSE);
+                }
+                else if (shipclass == CLASS_Corvette)
+                {
+                    ship->soundevent.engineHandle = splayFPRVL(ShipBank, catShipPatch(ShipCmnEventsLUT, ship->shiptype, event),
+                                                               tempEQ, velratio, pan, SOUND_PRIORITY_MAX - 1, vol, TRUE, TRUE, FALSE);
+                }
+                else if ((shipclass == CLASS_Fighter) || (shipclass == CLASS_Micro))
+                {
+                    ship->soundevent.engineHandle = splayFPRVL(ShipBank, catShipPatch(ShipCmnEventsLUT, ship->shiptype, event),
+                                                               tempEQ, velratio, pan, SOUND_PRIORITY_MAX - 2, vol, TRUE, TRUE, FALSE);
+                }
+            }
+        }
+        else
+        {
+            if ((ship->soundevent.engineState == SOUND_STARTING) && (velocity > SFX_FLOAT_VELOCITY))
+            {
+                ship->soundevent.engineState = SOUND_PLAYING;
+            }
+
+            soundvolumeF(ship->soundevent.engineHandle, vol, 0.0f);
+            soundpanF(ship->soundevent.engineHandle, pan, 0.0f);
+            if (velratio > 1.0f)
+            {
+                soundfrequency(ship->soundevent.engineHandle, velratio);
+            }
+            soundequalize(ship->soundevent.engineHandle, tempEQ);
+        }
+
+        // the heading filter: the strike craft's own settings, the corvettes' for every other ship
+        if ((shipclass == CLASS_Fighter) || (shipclass == CLASS_Micro))
+        {
+            soundshipheading(ship->soundevent.engineHandle, shipangle, FIGHTER_DOPPLER_HIGH, FIGHTER_DOPPLER_LOW,
+                             FIGHTER_DOPPLER_USEVELOCITY ? velratio : 1.0f, FIGHTER_DOPPLER_SCALE);
+        }
+        else if (shipclass == CLASS_Corvette)
+        {
+            soundshipheading(ship->soundevent.engineHandle, shipangle, CORVETTE_DOPPLER_HIGH, CORVETTE_DOPPLER_LOW,
+                             CORVETTE_DOPPLER_USEVELOCITY ? velratio : 1.0f, CORVETTE_DOPPLER_SCALE);
+        }
+        else
+        {
+            soundshipheading(ship->soundevent.engineHandle, shipangle, CORVETTE_DOPPLER_HIGH, CORVETTE_DOPPLER_LOW, 1.0f, 1.0f);
+        }
+        goto othersounds;
+
+engineoff:
+        // an idle or silent engine fades out over 5 s
+        if (ship->soundevent.engineHandle > SOUND_NOTINITED)
+        {
+            SEstopengine(ship, FALSE);
+        }
 
 othersounds:
-		// now we deal with the special sounds, ambients, damage ambients and random ambients			
-		if (!SEinrange(shipclass + AMBIENT_OFFSET, dist))
+		// now we deal with the special sounds, ambients, damage ambients and random ambients
+        objrow = shipclass + AMBIENT_OFFSET;
+		if (!SEinrange(objrow, dist) && !((ship->shiptype == dNomadMoon) && SEinrange(CAT_ROW_NOMAD_MOON, dist)))
 		{
-			SEstopsoundhandle(&(ship->soundevent.specialHandle), SOUND_FADE_STOPNOW);
 			SEstopsoundhandle(&(ship->soundevent.ambientHandle), SOUND_FADE_STOPNOW);
 			SEstopsoundhandle(&(ship->soundevent.damageHandle), SOUND_FADE_STOPNOW);
 			SEstopsoundhandle(&(ship->soundevent.randomHandle), SOUND_FADE_STOPNOW);
 			SEstopsoundhandle(&(ship->soundevent.hyperspaceHandle), SOUND_FADE_STOPNOW);
+			SEstopsoundhandle(&(ship->soundevent.specialHandle), SOUND_FADE_STOPNOW);
 			goto playgimbles;
 		}
-		vol = SEequalize(shipclass + AMBIENT_OFFSET, dist, tempEQ);
-		vol = (sword)(vol * (1.0f - ship->soundevent.coverage));
-		specialon = FALSE;
+		vol = SEequalize(objrow, dist, tempEQ);
+		vol = (sword)fqRint((1.0f - ship->soundevent.coverage) * (real32)vol);
 		ambienton = TRUE;
 
+        // the special loops: each case either keeps a special sound (goto specialon) or stops it (break)
 		switch (ship->shiptype)
 		{
-			case CloakedFighter:
-				break;
+			case sMimic:
+			case sMCV:
+			case p1StandardCorvette:
+                // a mimicking ship sounds like the ship it shows
+                if (!SEinrange(objrow, dist) || (((MimicSpec *)ship->ShipSpecifics)->mode != 1))
+                {
+                    break;
+                }
+                apparent = cat_mimicGetApparentShipType(ship);
+                if (apparent == ShipType_Uninitialized)
+                {
+                    break;
+                }
+                if (ship->soundevent.specialHandle == SOUND_NOTINITED)
+                {
+                    vol = SEequalize(objrow, dist, tempEQ);
+                    ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipCmnEventsLUT, apparent, ShipCmn_Ambient),
+                                                                tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+                }
+                vol = SEequalize(objrow, dist, tempEQ);
+                ambienton = FALSE;
+                goto specialon;
 
-			case CloakGenerator:
-				CGspec = (CloakGeneratorSpec *)ship->ShipSpecifics;
-				if (CGspec->CloakOn &&
-					(universe.curPlayerIndex == ship->playerowner->playerIndex))
-				{
-					specialon = TRUE;
-					ambienton = FALSE;
-					
-					if ((ship->soundevent.specialHandle == SOUND_NOTINITED) ||
-						soundover(ship->soundevent.specialHandle))
-					{
-						ship->soundevent.specialHandle = splayEPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_CloakingLoop)],
-																	  tempEQ, pan, SOUND_PRIORITY_MAX, vol, TRUE);
-					}
-				}
-				break;
+			case sLeech:
+                // the leech's drain (states 7 and 8)
+                state = ((LeechSpec *)ship->ShipSpecifics)->state;
+                if (!SEinrange(objrow, dist) || ((state != 7) && (state != 8)))
+                {
+                    break;
+                }
+                if (ship->soundevent.specialHandle == SOUND_NOTINITED)
+                {
+                    vol = SEequalize(shipclass, dist, tempEQ);
+                    ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, (state == 7) ? 0x824 : 0x825),
+                                                                tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+                }
+                vol = SEequalize(shipclass, dist, tempEQ);
+                ambienton = FALSE;
+                goto specialon;
 
-			case GravWellGenerator:
-				GWspec = (GravWellGeneratorSpec *)ship->ShipSpecifics;
-				if (GWspec->GravFieldOn)
-				{
-					if (SEinrange(Spec_GravWellGeneratorOn, dist))
-					{
-						specialon = TRUE;
-						ambienton = FALSE;
+			case sRammingFrigate:
+			case bRammingFrigate:
+                // the ram: charging at an enemy (state 5 with a target to damage) or latched (3, or 5 when upgraded)
+                if (!SEinrange(shipclass, dist))
+                {
+                    break;
+                }
+                state = ((RammingFrigateSpec *)ship->ShipSpecifics)->state;
+                if ((state == 5) && ((RammingFrigateSpec *)ship->ShipSpecifics)->damageTarget)
+                {
+                    if (ship->soundevent.specialHandle == SOUND_NOTINITED)
+                    {
+                        vol = SEequalize(shipclass, dist, tempEQ);
+                        ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, 0x813),
+                                                                    tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+                    }
+                    ambienton = FALSE;
+                    goto specialon;
+                }
+                if ((state != 3) && ((state != 5) || !cat_shipHasRamUpgrade(ship)))
+                {
+                    break;
+                }
+                if (ship->soundevent.specialHandle == SOUND_NOTINITED)
+                {
+                    ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, 0x81d),
+                                                                tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+                }
+                ambienton = FALSE;
+                goto specialon;
 
-						vol = SEequalize(Spec_GravWellGeneratorOn, dist, tempEQ);
+			case sWorker:
+			case bWorker:
+                // harvesting (rcstate1 4), unloading (5), the salvage beam, the repair beam
+                if (!SEinrange(objrow, dist))
+                {
+                    break;
+                }
+                if ((ship->soundevent.specialHandle == SOUND_NOTINITED) || soundover(ship->soundevent.specialHandle))
+                {
+                    if (ship->rcstate1 == 4)
+                    {
+                        event = 0x802;
+                    }
+                    else if (ship->rcstate1 == 5)
+                    {
+                        event = 0x803;
+                    }
+                    else if (((WorkerSpec *)ship->ShipSpecifics)->salvager.tractorBeam)
+                    {
+                        event = 0x816;
+                    }
+                    else if (((WorkerSpec *)ship->ShipSpecifics)->repairEffectOn)
+                    {
+                        event = 0x819;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                    vol = SEequalize(shipclass, dist, tempEQ);
+                    ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, event),
+                                                                tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+                    ambienton = FALSE;
+                    goto specialon;
+                }
+                if ((ship->rcstate1 == 4) || (ship->rcstate1 == 5) || ((WorkerSpec *)ship->ShipSpecifics)->salvager.tractorBeam ||
+                    ((WorkerSpec *)ship->ShipSpecifics)->repairEffectOn)
+                {
+                    vol = SEequalize(shipclass, dist, tempEQ);
+                    ambienton = FALSE;
+                    goto specialon;
+                }
+                break;
 
-						if ((ship->soundevent.specialHandle == SOUND_NOTINITED) ||
-							soundover(ship->soundevent.specialHandle))
-						{
-							ship->soundevent.specialHandle = splayEPRV(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_GravWellGenerator)],
-																		  tempEQ, pan, SOUND_PRIORITY_MAX, vol);
-						}
-					}
-				}
-				break;
+			case sSentinel:
+			case bSentinel:
+                // the force field, for at most 3 Sentinels
+                if (!cat_shipIsSentinelFieldActive(ship))
+                {
+                    break;
+                }
+                if (numsentinels >= CAT_SFX_MAX_SENTINELS)
+                {
+                    ambienton = FALSE;
+                    break;
+                }
+                if (!SEinrange(CAT_ROW_SENTINEL_FIELD, dist))
+                {
+                    break;                                  // the ambient stays on
+                }
+                ambienton = FALSE;
+                if (ship->soundevent.specialHandle == SOUND_NOTINITED)
+                {
+                    vol = SEequalize(CAT_ROW_SENTINEL_FIELD, dist, tempEQ);
+                    ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, 0x800),
+                                                                tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+                }
+                vol = SEequalize(CAT_ROW_SENTINEL_FIELD, dist, tempEQ);
+                numsentinels++;
+                goto specialon;
 
-			case ResourceCollector:
-				if ((ship->rceffect != NULL) && ((ship->soundevent.specialHandle == SOUND_NOTINITED) ||
-												 soundover(ship->soundevent.specialHandle)))
-				{
-					command = getShipAndItsCommand(&universe.mainCommandLayer, ship);
-					if (command != NULL)
-					{
-						if (command->ordertype.order == COMMAND_COLLECT_RESOURCES)
-						{
-							if (command->collect.resource->header.objtype == OBJ_AsteroidType)
-							{
-								ship->soundevent.specialHandle = splayEPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_ResourceAsteroid)],
-																			  tempEQ, pan, SOUND_PRIORITY_MAX, vol, TRUE);
-							}
-							else
-							{
-								ship->soundevent.specialHandle = splayEPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_ResourceDustCloud)],
-																			  tempEQ, pan, SOUND_PRIORITY_MAX, vol, TRUE);
-							}
-							specialon = TRUE;
-							ambienton = FALSE;
-						}
-					}
-				}
-				else if (ship->rceffect != NULL)
-				{
-					specialon = TRUE;
-					ambienton = FALSE;
-				}
-				break;
+			case sMothership:
+                // the big gun charging (state 4)
+                if (!SEinrange(objrow, dist) || (((MothershipSpec *)ship->ShipSpecifics)->bigGunState != 4))
+                {
+                    break;
+                }
+                if (ship->soundevent.specialHandle == SOUND_NOTINITED)
+                {
+                    vol = SEequalize(objrow, dist, tempEQ);
+                    ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, 0x83c),
+                                                                tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+                }
+                vol = SEequalize(objrow, dist, tempEQ);
+                ambienton = FALSE;
+                goto specialon;
 
-			// CAT (M2-R4 combat): both SalCap corvettes, and the beam flag of the Cataclysm salvager block
-			//      (soundEventUpdate 0x0051cd10: cat_salvageGetSalvagerInfo +0x0C); the sound code itself is stage 3's
+			case bCloakedFighter:
+			case bIonArrayFrigate:
+			case p1IonArrayFrigate:
+                // the local player's cloakers hum while visible: the exe tests the float at specifics +0x2C (Ship+0x664)
+                // for all three, the bCloakedFighter's cloak fade (its CatCloakInfo is at +0x18); for the ion array
+                // frigates that word is a detected[] flag
+                if ((universe.curPlayerIndex != ship->playerowner->playerIndex) ||
+                    (*(real32 *)((ubyte *)ship->ShipSpecifics + 0x2C) > 0.0f))
+                {
+                    break;
+                }
+                if (ship->soundevent.specialHandle == SOUND_NOTINITED)
+                {
+                    vol = SEequalize(shipclass, dist, tempEQ);
+                    ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, 0x83b),
+                                                                tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+                }
+                vol = SEequalize(shipclass, dist, tempEQ);
+                ambienton = FALSE;
+                goto specialon;
+
+			case kAdvanceSupportFrigate:
+			case tAdvanceSupportFrigate:
+                // the repair effect: the exe starts no loop here, it only keeps one up to date
+                if (ship->rceffect == NULL)
+                {
+                    break;
+                }
+                ambienton = FALSE;
+                goto specialon;
+
+			case kGravWellGenerator:
+			case tGravWellGenerator:
+                if (!((GravWellGeneratorSpec *)ship->ShipSpecifics)->GravFieldOn || !SEinrange(CAT_ROW_GRAVWELL, dist))
+                {
+                    break;
+                }
+                ambienton = FALSE;
+                vol = SEequalize(CAT_ROW_GRAVWELL, dist, tempEQ);
+                if ((ship->soundevent.specialHandle == SOUND_NOTINITED) || soundover(ship->soundevent.specialHandle))
+                {
+                    ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, 0x80d),
+                                                                tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_MAX, vol, FALSE, TRUE, FALSE);
+                }
+                goto specialon;
+
 			case kSalCapCorvette:
 			case tSalCapCorvette:
 				// is the tractor beam on?
-				if ((cat_salvageGetSalvagerInfo(ship)->tractorBeam) &&
-					(SEinrange(shipclass, dist)))
+				if (!cat_salvageGetSalvagerInfo(ship)->tractorBeam || !SEinrange(shipclass, dist))
 				{
-					// is the sound for it playing?
-					if ((ship->soundevent.specialHandle == SOUND_NOTINITED) ||
-						soundover(ship->soundevent.specialHandle))
-					{
-						ship->soundevent.specialHandle = splayEPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_Salvage)],
-																	  tempEQ, pan, SOUND_PRIORITY_MAX, (sword)(vol * (1.0f - ship->soundevent.coverage)), TRUE);
-					}
-					specialon = TRUE;
-					ambienton = FALSE;
-				}
-				break;
+                    break;
+                }
+                if (ship->soundevent.specialHandle == SOUND_NOTINITED)
+                {
+                    vol = SEequalize(shipclass, dist, tempEQ);
+                    ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, 0x816),
+                                                                tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+                }
+                vol = SEequalize(shipclass, dist, tempEQ);
+                ambienton = FALSE;
+                goto specialon;
 
-			case AdvanceSupportFrigate:
-				if (ship->rceffect != NULL)
-				{
-					if ((ship->soundevent.specialHandle == SOUND_NOTINITED) ||
-						soundover(ship->soundevent.specialHandle))
-					{
-						ship->soundevent.specialHandle = splayEPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_RepairLoop)],
-																	  tempEQ, pan, SOUND_PRIORITY_MAX, vol, TRUE);
-					}
-					specialon = TRUE;
-					ambienton = FALSE;
-				}
-				break;
+            case dRKO:
+                // no ambient during the first two minutes of mission 14; the RKO's own loop in its state 0x10
+                if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 14) && (universe.totaltimeelapsed < 120.0f))
+                {
+                    ambienton = FALSE;
+                }
+                if (!SEinrange(shipclass, dist) || (((RKOSpec *)ship->ShipSpecifics)->state != 0x10))
+                {
+                    break;
+                }
+                if (ship->soundevent.specialHandle == SOUND_NOTINITED)
+                {
+                    vol = SEequalize(shipclass, dist, tempEQ);
+                    ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, 0x80b),
+                                                                tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+                }
+                vol = SEequalize(shipclass, dist, tempEQ);
+                ambienton = TRUE;                           // the RKO keeps its ambient with the loop
+                goto specialon;
+
+            case dSlipgateSmall:
+            case dSlipgateMedium:
+            case dSlipgateLarge:
+                // one-shot sounds when the gate opens (state 1) or closes (3), its loop while not idle; the last
+                // state is kept in soundevent.actorNum
+                if (!SEinrange(CAT_ROW_SLIPGATE, dist))
+                {
+                    break;
+                }
+                state = ((SlipgateSpec *)ship->ShipSpecifics)->state;
+                if ((udword)ship->soundevent.actorNum != (udword)state)
+                {
+                    if ((state == 1) || (state == 3))
+                    {
+                        vol = SEequalize(CAT_ROW_SLIPGATE, dist, tempEQ);
+                        splayFPRVL(ShipBank, catShipPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Flag + ((state == 1) ? 5 : 6)),
+                                   tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+                    }
+                    ship->soundevent.actorNum = state;
+                }
+                if (state == 0)
+                {
+                    break;
+                }
+                if (ship->soundevent.specialHandle == SOUND_NOTINITED)
+                {
+                    vol = SEequalize(CAT_ROW_SLIPGATE, dist, tempEQ);
+                    ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Flag + 2),
+                                                                tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+                }
+                vol = SEequalize(CAT_ROW_SLIPGATE, dist, tempEQ);
+                ambienton = FALSE;
+                goto specialon;
+
+            case dCrystal0:
+            case dCrystal1:
+                // a crystal a depot dissolves
+                if (!((CrystalSpec *)ship->ShipSpecifics)->processing)
+                {
+                    break;
+                }
+                if ((ship->soundevent.specialHandle == SOUND_NOTINITED) || soundover(ship->soundevent.specialHandle))
+                {
+                    ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, 0x805),
+                                                                tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_MAX, vol, TRUE, TRUE, FALSE);
+                }
+                ambienton = FALSE;
+                goto specialon;
+
+            case dNomadMoon:
+                // the moon's field charging (state 1), louder in an NIS
+                if (!SEinrange(CAT_ROW_NOMAD_MOON, dist))
+                {
+                    break;
+                }
+                vol = SEequalize(CAT_ROW_NOMAD_MOON, dist, tempEQ);
+                if (((NomadMoonSpec *)ship->ShipSpecifics)->fieldState != 1)
+                {
+                    break;
+                }
+                if (nisIsRunning)
+                {
+                    vol = SEequalize(CAT_ROW_NOMAD_MOON, dist * 0.25f, tempEQ);
+                }
+                if (ship->soundevent.specialHandle == SOUND_NOTINITED)
+                {
+                    ship->soundevent.specialHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, 0x806),
+                                                                tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+                }
+                ambienton = FALSE;
+                goto specialon;
+
             default:
                 break;
 		}
 
-		// deal with the special sound
-		if ((specialon) && (ship->soundevent.specialHandle != SOUND_NOTINITED))
-		{
-			soundvolume(ship->soundevent.specialHandle, vol);
-			soundpan(ship->soundevent.specialHandle, pan);
-			soundequalize(ship->soundevent.specialHandle, tempEQ);
-		}
-		else if (ship->soundevent.specialHandle > SOUND_NOTINITED)
-		{
-			SEstopsoundhandle(&(ship->soundevent.specialHandle), SOUND_FADE_STOPTIME);
-		}
+        // no special sound: stop the one that plays
+        SEstopsoundhandle(&(ship->soundevent.specialHandle), SOUND_FADE_STOPTIME);
+        goto damagesounds;
 
-		// DAMAGE AMBIENT
+specialon:
+        if (ship->soundevent.specialHandle == SOUND_NOTINITED)
+        {
+            SEstopsoundhandle(&(ship->soundevent.specialHandle), SOUND_FADE_STOPTIME);
+        }
+        else
+        {
+            catSEupdateHandle(ship->soundevent.specialHandle, vol, pan, tempEQ);
+        }
+
+damagesounds:
+		// DAMAGE: the EMP stun loop, or the Beast infection loop (at most 3, not on Beast ships or crystals)
+        if (ship->catBeastStunState == 0)
+        {
+            if (ship->catEmpStunned != 1)
+            {
+                SEstopsoundhandle(&(ship->soundevent.damageHandle), SOUND_FADE_STOPNOW);
+            }
+            else if ((ship->soundevent.damageHandle == SOUND_NOTINITED) || soundover(ship->soundevent.damageHandle))
+            {
+                ship->soundevent.damageHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, 0x832),
+                                                           tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_LOW, vol, FALSE, TRUE, FALSE);
+            }
+            else
+            {
+                catSEupdateHandle(ship->soundevent.damageHandle, vol, pan, tempEQ);
+            }
+        }
+        else if (numinfected < CAT_SFX_MAX_INFECTED)
+        {
+            if (((ship->shiptype < bRecon) || (ship->shiptype > bMissileCorvette)) &&
+                (ship->shiptype != dCrystal0) && (ship->shiptype != dCrystal1))
+            {
+                if (!cat_ccIsPilotingShip())
+                {
+                    vol = SEequalize(objrow, dist, tempEQ);
+                }
+                else if (cat_ccIsPilotingThisShip(ship))
+                {
+                    vol = 0x78;
+                }
+                if ((ship->soundevent.damageHandle == SOUND_NOTINITED) || soundover(ship->soundevent.damageHandle))
+                {
+                    ship->soundevent.damageHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, 0x838),
+                                                               tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_LOW, vol, FALSE, TRUE, FALSE);
+                }
+                else
+                {
+                    catSEupdateHandle(ship->soundevent.damageHandle, vol, pan, tempEQ);
+                }
+                numinfected++;
+            }
+        }
+        else
+        {
+            SEstopsoundhandle(&(ship->soundevent.damageHandle), SOUND_FADE_STOPNOW);
+        }
+
+		// AMBIENT: by health, or being built / converting; the random ambient by health
 		if (ambienton)
 		{
-			ambient = ShipCmn_Ambient;
+            healthratio = ship->targetable.health / ship->staticinfo->health.maxhealth;
+            if (bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+            {
+                event = 0x809;
+            }
+            else if (ship->catSalvageConverting)
+            {
+                event = 0x80a;
+            }
+            else if (healthratio > SFX_DAMAGERATIO_LIGHT)
+            {
+                event = ShipCmn_Ambient;
+            }
+            else if (healthratio > SFX_DAMAGERATIO_MEDIUM)
+            {
+                event = ShipCmn_Flag + 2;
+            }
+            else if (healthratio > SFX_DAMAGERATIO_HEAVY)
+            {
+                event = ShipCmn_Flag + 7;
+            }
+            else
+            {
+                event = ShipCmn_Flag + 8;
+            }
 
-			// if there is already a damage loop playing then stop this one
-			if (damageOn && (ship->soundevent.damageHandle != SOUND_NOTINITED))
+            if (ship->soundevent.lastAmbient != event)
+            {
+                SEstopsoundhandle(&(ship->soundevent.ambientHandle), SOUND_FADE_STOPNOW);
+                ship->soundevent.lastAmbient = event;
+            }
+
+			if ((ship->soundevent.ambientHandle == SOUND_NOTINITED) || soundover(ship->soundevent.ambientHandle))
 			{
-				SEstopsoundhandle(&(ship->soundevent.damageHandle), SOUND_FADE_STOPTIME);
-			}
-
-			// take care of the damage loop
-			if ((ship->soundevent.damageHandle == SOUND_NOTINITED) ||
-				soundover(ship->soundevent.damageHandle))
-			{
-				if (SFX_DAMAGERATIO_ENABLE && !damageOn)
-				{
-					// if the damage ambient stuff is enabled
-					damageratio = (real32)ship->targetable.health * (real32)ship->staticinfo->health.oneOverMaxHealth;
-
-					if (damageratio < SFX_DAMAGERATIO_LIGHT)
-					{
-						damageOn = TRUE;
-						if (damageratio > SFX_DAMAGERATIO_MEDIUM)
-						{
-							ambient = ShipCmn_LightDamage;
-						}
-						else if (damageratio > SFX_DAMAGERATIO_HEAVY)
-						{
-							ambient = ShipCmn_MediumDamage;
-						}
-						else
-						{
-							ambient = ShipCmn_HeavyDamage;
-						}
-						
-						// only play if a damage should be on
-						ship->soundevent.damageHandle = splayEPRV(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ambient)],
-																   tempEQ, pan, SOUND_PRIORITY_LOW, vol);
-					}
-				}
-				
-				ship->soundevent.lastAmbient = ambient;
+                lut = (event & Ship_Flag) ? ShipEventsLUT : ShipCmnEventsLUT;
+				ship->soundevent.ambientHandle = splayFPRVL(ShipBank, catShipPatch(lut, (event & Ship_Flag) ? 0 : ship->shiptype, event),
+														    tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_LOW, vol, FALSE, TRUE, FALSE);
 			}
 			else
 			{
-				if (SFX_DAMAGERATIO_ENABLE && !damageOn)
-				{
-					// this is the closest damaged ship
-					damageratio = (real32)ship->targetable.health * (real32)ship->staticinfo->health.oneOverMaxHealth;
-
-					if (damageratio < SFX_DAMAGERATIO_LIGHT)
-					{
-						damageOn = TRUE;
-						
-						if (damageratio > SFX_DAMAGERATIO_MEDIUM)
-						{
-							ambient = ShipCmn_LightDamage;
-						}
-						else if (damageratio > SFX_DAMAGERATIO_HEAVY)
-						{
-							ambient = ShipCmn_MediumDamage;
-						}
-						else
-						{
-							ambient = ShipCmn_HeavyDamage;
-						}
-
-						if (ship->soundevent.lastAmbient != ambient)
-						{
-							if (ship->soundevent.lastAmbient != ShipCmn_Ambient)
-							{
-								// fade out the old, start the new
-								soundstop(ship->soundevent.damageHandle, 0.2f);
-							}
-
-							ship->soundevent.damageHandle = splayEPRV(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ambient)],
-																	   tempEQ, pan, SOUND_PRIORITY_LOW, vol);
-							ship->soundevent.lastAmbient = ambient;
-						}
-						
-						// set the parameters for the damage sound
-						soundvolume(ship->soundevent.damageHandle, vol);
-						soundpan(ship->soundevent.damageHandle, pan);
-						soundequalize(ship->soundevent.damageHandle, tempEQ);
-					}
-				}
-			}
-
-			// take care of the ambient loop
-			if ((ship->soundevent.ambientHandle == SOUND_NOTINITED) ||
-				soundover(ship->soundevent.ambientHandle))
-			{
-				// play the ambient loop regardless
-				ship->soundevent.ambientHandle = splayEPRV(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_Ambient)],
-														   tempEQ, pan, SOUND_PRIORITY_LOW, vol);
-			}
-			else
-			{
-				// set the parameters for the ambient
-				soundvolume(ship->soundevent.ambientHandle, vol);
-				soundpan(ship->soundevent.ambientHandle, pan);
-				soundequalize(ship->soundevent.ambientHandle, tempEQ);
+                catSEupdateHandle(ship->soundevent.ambientHandle, vol, pan, tempEQ);
 			}
 
 			// now we have the random ambience
 			if (ship->soundevent.randomHandle == SOUND_NOTINITED)
 			{
-				if (universe.totaltimeelapsed > ship->soundevent.nextRandom)
+				if (ship->soundevent.nextRandom < universe.totaltimeelapsed)
 				{
-					ship->soundevent.randomHandle = splayEPRV(ShipBank, ShipCmnEventsLUT->lookup[GetPatch(ShipCmnEventsLUT, ship->shiptype, ShipCmn_RandomAmbient)],
-															   tempEQ, pan, SOUND_PRIORITY_LOW, vol);
+                    if (healthratio > SFX_DAMAGERATIO_MEDIUM)
+                    {
+                        lut = ShipCmnEventsLUT;
+                        patch = catShipPatch(lut, ship->shiptype, ShipCmn_Flag + 3);
+                    }
+                    else if (!bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+                    {
+                        lut = ShipCmnEventsLUT;
+                        patch = catShipPatch(lut, ship->shiptype, ShipCmn_Flag + 9);
+                    }
+                    else
+                    {
+                        lut = ShipEventsLUT;
+                        patch = catShipPatch(lut, 0, 0x820);
+                    }
+					ship->soundevent.randomHandle = splayFPRVL(ShipBank, patch, tempEQ, (real32)SOUND_DEFAULT, pan,
+                                                               SOUND_PRIORITY_LOW, vol, FALSE, TRUE, FALSE);
 					if (ship->soundevent.randomHandle == SOUND_NOTINITED)
 					{
-						ship->soundevent.nextRandom = universe.totaltimeelapsed + RANDOM_AMBIENCE_MINFREQ;
+						ship->soundevent.nextRandom = RANDOM_AMBIENCE_MINFREQ + universe.totaltimeelapsed;
 					}
 				}
 			}
+			else if (!soundover(ship->soundevent.randomHandle))
+			{
+                catSEupdateHandle(ship->soundevent.randomHandle, vol, pan, tempEQ);
+			}
 			else
 			{
-				if (soundover(ship->soundevent.randomHandle))
-				{
-					// this puppy is done, get ready for the next
-					ship->soundevent.randomHandle = SOUND_NOTINITED;
-					ship->soundevent.nextRandom = universe.totaltimeelapsed + RANDOM_AMBIENCE_MINFREQ
-												+ ((real32)(ranRandom(RANDOM_SOUND_GAME_THREAD) % RANDOM_AMBIENCE_ADDRANDOM) / 100.0f);
-				}
-				else
-				{
-					soundvolume(ship->soundevent.randomHandle, vol);
-					soundpan(ship->soundevent.randomHandle, pan);
-					soundequalize(ship->soundevent.randomHandle, tempEQ);
-				}
+				// this puppy is done, get ready for the next (a ship being built sooner)
+				ship->soundevent.randomHandle = SOUND_NOTINITED;
+                if (!bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+                {
+                    ship->soundevent.nextRandom = (real32)(ranRandom(RANDOM_SOUND_GAME_THREAD) % RANDOM_AMBIENCE_ADDRANDOM) * 0.01f +
+                                                  RANDOM_AMBIENCE_MINFREQ + universe.totaltimeelapsed;
+                }
+                else
+                {
+                    ship->soundevent.nextRandom = RANDOM_AMBIENCE_MINFREQ * 0.25f +
+                                                  (real32)(ranRandom(RANDOM_SOUND_GAME_THREAD) % RANDOM_AMBIENCE_ADDRANDOM) * 0.0025f +
+                                                  universe.totaltimeelapsed;
+                }
 			}
 		}
 		else
 		{
-			// out of range so turn these puppies off
 			SEstopsoundhandle(&(ship->soundevent.ambientHandle), SOUND_FADE_STOPNOW);
 			SEstopsoundhandle(&(ship->soundevent.randomHandle), SOUND_FADE_STOPNOW);
 			SEstopsoundhandle(&(ship->soundevent.damageHandle), SOUND_FADE_STOPNOW);
+            ship->soundevent.lastAmbient = SOUND_NOTINITED;
 		}
 
-		// HYPERSPACING
-		shipSinglePlayerGameInfo = ship->shipSinglePlayerGameInfo;
-		if (!singlePlayerGame || (singlePlayerGame && (ship->playerowner != universe.curPlayerPtr)))
+		// HYPERSPACING: the local player's ships in single player (all ships otherwise), at most 3
+		if ((numhyperspace < CAT_SFX_MAX_HYPERSPACE) &&
+            (!singlePlayerGame || ((universe.curPlayerIndex == ship->playerowner->playerIndex) &&
+                                   !bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))))
 		{
-			if (shipSinglePlayerGameInfo->hsState == HS_SLICING_INTO)
+            udword hsState = ship->shipSinglePlayerGameInfo->hsState;
+
+			if ((hsState == HS_SLICING_INTO) || (hsState == HS_SLICING_OUTOF))
 			{
-				if ((ship->soundevent.hyperspaceHandle == SOUND_NOTINITED) ||
-					soundover(ship->soundevent.hyperspaceHandle))
+                numhyperspace++;
+				if ((ship->soundevent.hyperspaceHandle == SOUND_NOTINITED) || soundover(ship->soundevent.hyperspaceHandle))
 				{
-					ship->soundevent.hyperspaceHandle = splayFPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_Hyperdrive)],
+					ship->soundevent.hyperspaceHandle = splayFPRVL(ShipBank, catShipPatch(ShipEventsLUT, 0, (hsState == HS_SLICING_INTO) ? 0x801 : 0x814),
 										   tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_MAX, vol, TRUE, TRUE, FALSE);
 				}
 				else
 				{
-					soundvolume(ship->soundevent.hyperspaceHandle, vol);
-					soundpan(ship->soundevent.hyperspaceHandle, pan);
-					soundequalize(ship->soundevent.hyperspaceHandle, tempEQ);
-				}
-			}
-			else if (shipSinglePlayerGameInfo->hsState == HS_SLICING_OUTOF)
-			{
-				if ((ship->soundevent.hyperspaceHandle == SOUND_NOTINITED) ||
-					soundover(ship->soundevent.hyperspaceHandle))
-				{
-					ship->soundevent.hyperspaceHandle = splayFPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, Ship_HyperdriveOff)],
-										   tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_MAX, vol, TRUE, TRUE, FALSE);
-				}
-				else
-				{
-					soundvolume(ship->soundevent.hyperspaceHandle, vol);
-					soundpan(ship->soundevent.hyperspaceHandle, pan);
-					soundequalize(ship->soundevent.hyperspaceHandle, tempEQ);
+                    catSEupdateHandle(ship->soundevent.hyperspaceHandle, vol, pan, tempEQ);
 				}
 			}
 		}
 
-playgimbles:		
-		// NEW Gimble stuff
+playgimbles:
+		// the gun turrets (the first gun's move row)
 		if (ship->gunInfo != NULL)
 		{
 			gunInfo = ship->gunInfo;
+            row = gunInfo->guns[0].gunstatic->gunsoundtype + GUNMOVE_OFFSET;
 
-			if (SEinrange(ship->gunInfo->guns[0].gunstatic->gunsoundtype + GUNMOVE_OFFSET, dist))
+			if (SEinrange(row, dist))
 			{
-				// check to see if they are playing
-				vol = SEequalize(ship->gunInfo->guns[0].gunstatic->gunsoundtype + GUNMOVE_OFFSET, dist, tempEQ);
-				vol = (sword)(vol * (1.0f - ship->soundevent.coverage));
-
+				vol = (sword)fqRint((1.0f - ship->soundevent.coverage) * (real32)SEequalize(row, dist, tempEQ));
 				for (i = 0; i < gunInfo->numGuns; i++)
 				{
 					gun = &gunInfo->guns[i];
-					if (((gun->gimblehandle != SOUND_NOTINITED) &&
-						!soundover(gun->gimblehandle)) &&
-						(vol > SOUND_VOL_MIN))
+					if ((gun->gimblehandle != SOUND_NOTINITED) && !soundover(gun->gimblehandle) && (vol > SOUND_VOL_MIN))
 					{
-						soundvolume(gun->gimblehandle, vol);
-						soundpan(gun->gimblehandle, pan);
-						soundequalize(gun->gimblehandle, tempEQ);
+                        catSEupdateHandle(gun->gimblehandle, vol, pan, tempEQ);
 					}
 				}
 			}
@@ -1755,44 +1990,52 @@ playgimbles:
 				for (i = 0; i < gunInfo->numGuns; i++)
 				{
 					gun = &gunInfo->guns[i];
-					if (gun->gimblehandle != SOUND_NOTINITED)
-					{
-						SEstopsoundhandle(&(gun->gimblehandle), SOUND_FADE_STOPNOW);
-					}
+                    SEstopsoundhandle(&(gun->gimblehandle), SOUND_FADE_STOPNOW);
 				}
 			}
 		}
 
 playloopingguns:
-		// get the pan from the center of the ship
-		pan = getPanAngle(ship->obj.posinfo.position, ship->staticinfo->common.staticCollInfo.approxcollspheresize, dist);
-
-		// check the burst fire guns
+		// the burst fire loop of the gun the burst remembers, at most 4
 		if (ship->soundevent.burstfiring)
 		{
-			if (SEinrange(ship->gunInfo->guns[0].gunstatic->gunsoundtype + GUNSHOT_OFFSET, dist))
+            numbursts++;
+            gunIndex = (sdword)(memsize)ship->soundevent.gun;
+			if ((numbursts <= CAT_SFX_MAX_BURSTS) &&
+                SEinrange(ship->gunInfo->guns[gunIndex].gunstatic->gunsoundtype + GUNSHOT_OFFSET, dist))
 			{
 				if (ship->aistateattack == STATE_BREAK)
 				{
-					soundEventBurstStop(ship, &ship->gunInfo->guns[0]);
+					soundEventBurstStop(ship, &ship->gunInfo->guns[gunIndex]);
 				}
 				else
 				{
-					vol = SEequalize(ship->gunInfo->guns[0].gunstatic->gunsoundtype + GUNSHOT_OFFSET, dist, tempEQ);
-					vol = (sdword)(vol * (1.0f - (ship->soundevent.coverage * 0.5)));
+                    pan = getPanAngle(ship->obj.posinfo.position, ship->staticinfo->common.staticCollInfo.approxcollspheresize, dist);
+					vol = (sword)fqRint((real32)SEequalize(ship->gunInfo->guns[gunIndex].gunstatic->gunsoundtype + GUNSHOT_OFFSET, dist, tempEQ) *
+                                        (1.0f - ship->soundevent.coverage * 0.5f));
 
-					if (((ship->soundevent.burstHandle == SOUND_NOTINITED) ||	// do I think the sound is done
-						soundover(ship->soundevent.burstHandle)) &&				// is the sound actually not playing
-						(vol > SOUND_VOL_MIN))									// is the volume > 0
+					if (((ship->soundevent.burstHandle == SOUND_NOTINITED) || soundover(ship->soundevent.burstHandle)) &&
+						(vol > SOUND_VOL_MIN))
 					{
-						ship->soundevent.burstHandle = splayEPRVL(GunBank, GunEventsLUT->lookup[GetPatch(GunEventsLUT, ship->gunInfo->guns[0].gunstatic->gunsoundtype, Gun_WeaponFireLooped)],
-														tempEQ, pan, SOUND_PRIORITY_MAX, vol, TRUE);
+                        if ((ship->shiptype == sMultiBeamFrigate) || (ship->shiptype == bMultiBeamFrigate))
+                        {
+                            patch = catShipPatch(GunSpecEventsLUT, 0, 0x8001);
+                        }
+                        else if (ship->shiptype == dAcolyte)
+                        {
+                            patch = catShipPatch(GunSpecEventsLUT, 0, 0x8000);
+                        }
+                        else
+                        {
+                            soundtype = cat_gunGetSoundType(&ship->gunInfo->guns[gunIndex]);
+                            patch = catShipPatch(GunEventsLUT, soundtype, Gun_WeaponFireLooped);
+                        }
+						ship->soundevent.burstHandle = splayFPRVL(GunBank, patch, tempEQ, (real32)SOUND_DEFAULT, pan,
+                                                                  SOUND_PRIORITY_MAX, vol, TRUE, TRUE, FALSE);
 					}
 					else
 					{
-						soundvolume(ship->soundevent.burstHandle, vol);
-						soundpan(ship->soundevent.burstHandle, pan);
-						soundequalize(ship->soundevent.burstHandle, tempEQ);
+                        catSEupdateHandle(ship->soundevent.burstHandle, vol, pan, tempEQ);
 					}
 				}
 			}
@@ -1801,9 +2044,6 @@ playloopingguns:
 				SEstopsoundhandle(&(ship->soundevent.burstHandle), SOUND_FADE_STOPNOW);
 			}
 		}
-
-
-		// do the Ion Carving code here
 
 nextship:
 		objnode = objnode->prev;
@@ -2194,7 +2434,7 @@ void soundEventInitStruct(SOUNDEVENT *pseStruct)
 	pseStruct->randomHandle = SOUND_NOTINITED;
     pseStruct->nextRandom = universe.totaltimeelapsed;
 
-    pseStruct->lastAmbient = ShipCmn_Ambient;
+    pseStruct->lastAmbient = SOUND_NOTINITED;      // CAT: none yet (soundEventInitStruct 0x0051f900; HW1 ShipCmn_Ambient)
 
     pseStruct->timeLastStatus = universe.totaltimeelapsed;
 
@@ -2274,6 +2514,173 @@ void soundEventShipRemove(Ship *ship)
             ship->soundevent.engineHandle = SOUND_NOTINITED;
         }
     }
+}
+
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_madAnimSoundTableInit
+    Description : CAT: the sound event each mesh animation of the first 60 ship types plays when it starts
+                  (cat_madAnimSoundTableInit 0x004b64c0, from soundEventInit; table .bss 0x00c32660, 60 x 6, -1 none):
+                  the doors and jacks of the Acolytes, Mimic, Leech, Ramming frigate, Hives, sCarrier, Workers and
+                  Sentinels. Its reader is madAnimationUpdate 0x004b6ce0 (cat_madAnimSoundEvent below), which the
+                  mesh-animation port brings (MeshAnim.c, CAT-TODO(M2-R6 mesh animation)).
+----------------------------------------------------------------------------*/
+#define CAT_MAD_SOUND_TYPES     60
+#define CAT_MAD_SOUND_ANIMS     6
+static sdword catMadAnimSound[CAT_MAD_SOUND_TYPES][CAT_MAD_SOUND_ANIMS];
+
+void cat_madAnimSoundTableInit(void)
+{
+    sdword i, j;
+
+    for (i = 0; i < CAT_MAD_SOUND_TYPES; i++)
+    {
+        for (j = 0; j < CAT_MAD_SOUND_ANIMS; j++)
+        {
+            catMadAnimSound[i][j] = SOUND_NOTINITED;
+        }
+    }
+    catMadAnimSound[sAcolyte][0] = 0x81a;
+    catMadAnimSound[sAcolyte][1] = 0x81b;
+    catMadAnimSound[sAcolyte][2] = 0x405;
+    catMadAnimSound[sAcolyte][3] = 0x406;
+    catMadAnimSound[sMimic][0] = 0x405;
+    catMadAnimSound[sMimic][1] = 0x406;
+    catMadAnimSound[sLeech][0] = 0x822;
+    catMadAnimSound[sLeech][1] = 0x823;
+    catMadAnimSound[sRammingFrigate][0] = 0x81c;
+    catMadAnimSound[sHiveFrigate][0] = 0x405;
+    catMadAnimSound[sHiveFrigate][1] = 0x406;
+    catMadAnimSound[sCarrier][0] = 0x405;
+    catMadAnimSound[sCarrier][1] = 0x406;
+    catMadAnimSound[sWorker][0] = 0x81e;
+    catMadAnimSound[sWorker][1] = 0x81f;
+    catMadAnimSound[sWorker][2] = 0x406;
+    catMadAnimSound[sWorker][3] = 0x405;
+    catMadAnimSound[sSentinel][0] = 0x405;
+    catMadAnimSound[sSentinel][1] = 0x406;
+    catMadAnimSound[bAcolyte][0] = 0x81a;
+    catMadAnimSound[bAcolyte][1] = 0x81b;
+    catMadAnimSound[bAcolyte][2] = 0x405;
+    catMadAnimSound[bAcolyte][3] = 0x406;
+    catMadAnimSound[bHiveFrigate][0] = 0x405;
+    catMadAnimSound[bHiveFrigate][1] = 0x406;
+    catMadAnimSound[bWorker][0] = 0x81e;
+    catMadAnimSound[bWorker][1] = 0x81f;
+    catMadAnimSound[bWorker][2] = 0x406;
+    catMadAnimSound[bWorker][3] = 0x405;
+    catMadAnimSound[bSentinel][0] = 0x405;
+    catMadAnimSound[bSentinel][1] = 0x406;
+}
+
+// CAT: the event of animation number anim of a ship type, or SOUND_NOTINITED (madAnimationUpdate 0x004b6ce0 plays it
+//      through soundEventPlay at the animation's first frame)
+sdword cat_madAnimSoundEvent(ShipType shiptype, sdword anim)
+{
+    if (((udword)shiptype >= CAT_MAD_SOUND_TYPES) || ((udword)anim >= CAT_MAD_SOUND_ANIMS))
+    {
+        return SOUND_NOTINITED;
+    }
+    return catMadAnimSound[shiptype][anim];
+}
+
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_soundEventBlast
+    Description : CAT: a blast's sound (cat_soundEventBlast 0x0051fc60, from cat_blastUpdate): heard from the point
+                  of the shell nearest the camera (the NIS camera during an NIS, four times nearer), on the big gun's
+                  shot row (0x2a); the blast's event of ShipEvents.lut loops while it is in range.
+    Inputs      : blast - the blast
+----------------------------------------------------------------------------*/
+void cat_soundEventBlast(CatBlast *blast)
+{
+    vector eye, dir, nearest;
+    real32 dist;
+    sword vol, pan;
+    real32 tempEQ[SOUND_EQ_SIZE];
+
+    // CAT-FIX: the exe has no SFX test here and reads the ship LUT, which is NULL when the sound effects are off
+    if (!enableSFX)
+    {
+        return;
+    }
+    if (nisIsRunning)
+    {
+        eye = nisCamera->eyeposition;
+    }
+    else
+    {
+        eye = universe.mainCameraCommand.actualcamera.eyeposition;
+    }
+    vecSub(dir, eye, blast->position);
+    vecNormalize(&dir);
+    vecMultiplyByScalar(dir, blast->radius);
+    vecAdd(nearest, dir, blast->position);
+    dist = cat_vecDistance(&eye, &nearest);
+    if (nisIsRunning)
+    {
+        dist *= 0.25f;
+    }
+
+    if (!SEinrange(GUNSHOT_OFFSET + GS_BigGun, dist))
+    {
+        soundEventStopSound(blast->soundHandle, 0);
+        blast->soundHandle = SOUND_NOTINITED;
+        return;
+    }
+
+    pan = getPanAngle(nearest, 350.0f, dist);
+    vol = SEequalize(GUNSHOT_OFFSET + GS_BigGun, dist, tempEQ);
+    if ((blast->soundHandle == SOUND_NOTINITED) || soundover(blast->soundHandle))
+    {
+        blast->soundHandle = splayFPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, blast->soundEvent)],
+                                        tempEQ, (real32)SOUND_DEFAULT, pan, SOUND_PRIORITY_NORMAL, vol, TRUE, TRUE, FALSE);
+    }
+    soundvolumeF(blast->soundHandle, vol, 0.0f);
+    soundpanF(blast->soundHandle, pan, 0.0f);
+    soundequalize(blast->soundHandle, tempEQ);
+}
+
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_soundEventAsteroidBreak
+    Description : CAT: the sound of an asteroid breaking up (cat_soundEventAsteroidBreak 0x005215d0, from
+                  BreakAsteroidUp): ship event 0x80c on the first explosion row, in the main screen only
+    Inputs      : asteroid - the asteroid
+----------------------------------------------------------------------------*/
+void cat_soundEventAsteroidBreak(SpaceObj *asteroid)
+{
+    real32 dist;
+    sword vol, pan;
+    real32 tempEQ[SOUND_EQ_SIZE];
+
+    // CAT-FIX: !enableSFX: the exe reads the ship LUT without that test (NULL when the sound effects are off)
+    if (!enableSFX || smSensorsActive || !mrRenderMainScreen)
+    {
+        return;
+    }
+    if (SEinrangeSqr(EXPLOSION_OFFSET, asteroid->cameraDistanceSquared))
+    {
+        dist = fsqrt(asteroid->cameraDistanceSquared);
+        vol = SEequalize(EXPLOSION_OFFSET, dist, tempEQ);
+        pan = getPanAngle(asteroid->posinfo.position, 500.0f, dist);
+        splayFPRVL(ShipBank, ShipEventsLUT->lookup[GetPatch(ShipEventsLUT, 0, 0x80c)], tempEQ, (real32)SOUND_DEFAULT,
+                   pan, SOUND_PRIORITY_NORMAL, vol, FALSE, TRUE, FALSE);
+    }
+}
+
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_soundLevelReset
+    Description : CAT: the sound's part of a level start (cat_soundLevelReset 0x0051c980, from levelPreInit): the
+                  speech alerts, the battle chatter's memory, the letterbox off, the player-name Easter eggs
+----------------------------------------------------------------------------*/
+void cat_soundLevelReset(void)
+{
+    cat_speechAlertsReset();
+    cat_battleChatterReset();
+    cat_soundEventLetterboxVolume(FALSE);
+    cat_speechEasterEggCheck();
 }
 
 
@@ -2445,7 +2852,8 @@ sword SEequalize(sdword objtype, real32 distance, real32 *eq)
         }
     }
 
-    return ((sword)vol);
+    // CAT: the volume is rounded with Relic's rint (SEequalize 0x0051ff50; HW1 truncated)
+    return ((sword)fqRint(vol));
 }
 
 
@@ -2626,10 +3034,13 @@ void loadbankAndConvertTo64Bit(char *fileName, void** loadAddress)
     newHeader->numpatches = oldHeader->numpatches;
 
     oldPatch = (PATCH_DISK*)&oldHeader->firstpatch;
-    newPatch = (PATCH*)&newHeader->firstpatch;
+    // HWI LP64: the 8-byte aligned patch table SNDbankpatches reads (soundcmn.h); the data moves by the larger patches
+    // and by the padding before the table
+    newPatch = SNDbankpatches(newHeader);
 
 
-    offset=newHeader->numpatches * (sizeof(PATCH) - sizeof(PATCH_DISK));
+    offset=newHeader->numpatches * (sizeof(PATCH) - sizeof(PATCH_DISK))
+           + (SND_BANK_PATCHES_OFFSET - offsetof(BANK, firstpatch));
     //printf("New data offset =  +%d\n",offset);
 
     loopsize=newHeader->numpatches;
@@ -2701,6 +3112,12 @@ void SEloadbank(void)
 	for ( i=0; i<lt; i++ )
 		GunEventsLUT->lookup[i] = FIX_ENDIAN_INT_16( GunEventsLUT->lookup[i] );
 #endif
+
+    // CAT: the special gun sounds of the multibeam frigates, dAcolyte, the Dreadnought and the destroyers
+    //      (SEloadbank 0x005200c0 loads "GunSpecEvents.lut" after GunEvents.lut; read by soundEventPlay)
+    strcpy(loadfile, SOUNDFXDIR);
+    strcat(loadfile, "GunSpecEvents.lut");
+    fileLoadAlloc(loadfile, (void**)&GunSpecEventsLUT, NonVolatile);
 
     strcpy(loadfile, SOUNDFXDIR);
     strcat(loadfile, "ShipCmnEvents.lut");
@@ -3055,7 +3472,8 @@ sword getPanAngle(vector WorldVector, real32 objsize, real32 distance)
     if(Prright < 0.0f)
        angle = -angle;
 
-    return((sword) (angle*PI_UNDER_180));
+    // CAT: rounded with Relic's rint (getPanAngle 0x005206f0; HW1 truncated)
+    return((sword)fqRint(angle*PI_UNDER_180));
 }
 
 
@@ -3084,7 +3502,8 @@ sword SEgetAngleToCamera(Ship *ship)
 
     angle = (float) acos(dotprod);
 
-    return((sword) (angle*PI_UNDER_180));
+    // CAT: rounded with Relic's rint (SEgetAngleToCamera 0x005208e0; HW1 truncated)
+    return((sword)fqRint(angle*PI_UNDER_180));
 }
 
 

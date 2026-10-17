@@ -4,8 +4,6 @@
 #include "fqcodec.h"
 #include "dct.h"
 
-#define iclamp(x, a, b) (x > a ? a : (x < b ? b : x))
-
 #ifndef PI
 #define PI		3.14159265358979323846F
 #endif
@@ -18,41 +16,46 @@ static float gCHBlock[FQ_HSIZE];
 static float gCBlock[FQ_SIZE];
 static float gCDBlock[FQ_DSIZE];
 
-
-float compress(float sample) {
-  static float limitLev = 0.5 * 32767;
-  if (sample >  limitLev) return  limitLev + log(1.0 + 0.75 * ( sample - limitLev)/limitLev) * limitLev;
-  if (sample < -limitLev) return -limitLev - log(1.0 + 0.75 * (-sample - limitLev)/limitLev) * limitLev;
-  return sample;
-}
-
-
-static void fqWriteTBlockBuf(float *aLBlock, float *aRBlock, short nChan, short *pBuf, udword nSize) {
+// CAT: the time-block writer follows the binary (fqWriteTBlock 0x00558bc0). GoK's version ran every sample through a
+//      soft limiter (compress(), a GoK addition the exe does not have) and restarted the source index at 0 for the
+//      second buffer; the exe rounds each sample with Relic's rint (fqRint), clamps it to [-0x8000, 0x7fff], keeps one
+//      source index across both buffers and fails (-1) past 0x200 source samples.
+static int fqWriteTBlockBuf(float *aLBlock, float *aRBlock, short nChan, short *pBuf, udword nSize, udword *pSrc) {
 	udword i;
+	sdword v = 0;
 
 	if ((pBuf != 0) && (nSize > 0)) {
-		for (i = 0; i < nSize; i += 2) {
-			pBuf[i] = iclamp(rint(compress(aLBlock[i/2])), 32767, -32768);
-			if (nChan <= 1) {
-				pBuf[i + 1] = pBuf[i];
-			} else {
-				pBuf[i + 1] = iclamp(rint(compress(aRBlock[i/2])), 32767, -32768);
+		for (i = 0; i + 1 < nSize; i += 2) {
+			if (*pSrc > FQ_DSIZE)
+				return ERR;
+			v = fqRint(aLBlock[*pSrc]);
+			v = (v < 0x8000) ? ((v < -0x8000) ? -0x8000 : v) : 0x7fff;
+			pBuf[i] = (short)v;
+			if (nChan > 1) {
+				v = fqRint(aRBlock[*pSrc]);
+				v = (v < 0x8000) ? ((v < -0x8000) ? -0x8000 : v) : 0x7fff;
 			}
+			pBuf[i + 1] = (short)v;
+			(*pSrc)++;
 		}
 	}
+	return OK;
 }
 
 int fqWriteTBlock(float *aLBlock, float *aRBlock, short nChan, void *pBuf1, udword nSize1, void *pBuf2, udword nSize2) {
-	fqWriteTBlockBuf(aLBlock, aRBlock, nChan, pBuf1, nSize1);
-	fqWriteTBlockBuf(aLBlock, aRBlock, nChan, pBuf2, nSize2);
-	return OK;
+	udword src = 0;
+
+	if (fqWriteTBlockBuf(aLBlock, aRBlock, nChan, pBuf1, nSize1, &src) != OK)
+		return ERR;
+	return fqWriteTBlockBuf(aLBlock, aRBlock, nChan, pBuf2, nSize2, &src);
 }
 
 int fqDecOver(float *aFPBlock, float *aFSBlock, float *aTPBlock, float *aTSBlock, float *aCBlock, float *aWBlock, udword nSize) {
 	float buf[FQ_DSIZE];
 	udword h = nSize >> 1, i;
 
-	memcpy(aTPBlock, aTSBlock, nSize * sizeof(float));
+	// CAT: the exe copies the whole FQ_DSIZE block, whatever nSize is (fqDecOver 0x00558800)
+	memcpy(aTPBlock, aTSBlock, FQ_DSIZE * sizeof(float));
 	idct(aFPBlock, buf, aCBlock, nSize);
 	idct(aFSBlock, aTSBlock, aCBlock, nSize);
 	for(i = 0; i < h; i++) {
@@ -69,15 +72,20 @@ int fqDecBlock(float *aFPBlock, float *aFSBlock, float *aTPBlock, float *aTSBloc
 
 	if(nMode == 0) {
 		memset(aTSBlock, 0, FQ_DSIZE * sizeof(float));
+		// CAT: the window steps are the exe's float constants PI/128, PI/256, PI/512 (0x0072bdd8, 0x0072bdd4,
+		//      0x0072bdd0), multiplied by the index at full precision; an Initdct failure fails the init
+		//      (fqDecBlock 0x005588c0)
 		for (i = 0; i < FQ_HSIZE; i++)
-			gWHBlock[i] = sin(PI / FQ_HSIZE * i);
+			gWHBlock[i] = (float)sin((double)i * (double)(PI / (float)FQ_HSIZE));
 		for (i = 0; i < FQ_SIZE; i++)
-			gWBlock[i] = sin(PI / FQ_SIZE * i);
+			gWBlock[i] = (float)sin((double)i * (double)(PI / (float)FQ_SIZE));
 		for (i = 0; i < FQ_DSIZE; i++)
-			gWDBlock[i] = sin(PI / FQ_DSIZE * i);
-		Initdct(gCHBlock, FQ_HSIZE);
-		Initdct(gCBlock, FQ_SIZE);
-		Initdct(gCDBlock, FQ_DSIZE);
+			gWDBlock[i] = (float)sin((double)i * (double)(PI / (float)FQ_DSIZE));
+		if (Initdct(gCHBlock, FQ_HSIZE) == ERR)
+			return ERR;
+		if (Initdct(gCBlock, FQ_SIZE) == ERR)
+			return ERR;
+		return (Initdct(gCDBlock, FQ_DSIZE) == ERR) ? ERR : OK;
 	} else {
 		if(nFact == 4) {
 			fqDecOver(aFPBlock, aFSBlock, aTPBlock, aTSBlock, gCHBlock, gWHBlock, FQ_HSIZE);

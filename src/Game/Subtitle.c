@@ -24,6 +24,7 @@
 #include "FEReg.h"
 #include "StringSupport.h"
 #include "Subtitle.h"
+#include "Task.h"           // CAT: cat_taskTimeCompressionResetAndPrint
 
 /*=============================================================================
     Data:
@@ -1232,6 +1233,8 @@ sdword subTitleAdd(sdword actor, sdword speechEvent, char *text, sdword length, 
         memcpy(subNewSubtitles[subNumberNewSubtitles].text, text, length);
         subNewSubtitles[subNumberNewSubtitles].text[length] = 0;
         subNumberNewSubtitles++;
+        // CAT: a new subtitle drops the time compression back to normal (subTitleAdd 0x00584580)
+        cat_taskTimeCompressionResetAndPrint();
     }
     else
     {
@@ -1251,6 +1254,10 @@ sdword subTitleAdd(sdword actor, sdword speechEvent, char *text, sdword length, 
                     because they time out.
     Return      :void
 ----------------------------------------------------------------------------*/
+// CAT-TODO(M2-R5 hud): subTitlesDraw 0x00584620 is Cataclysm's: a translucent backing rectangle
+//      (primRectTranslucent2 with additive blending), cat_fontPrintSubtitle, the info overlay told about the card
+//      (cat_ioSubtitleNotify), no cards while the construction manager is open (cat_cmIsOpen) and the tutorial button
+//      row (cat_tutButtonRowSet); the overlay and manager calls are the HUD / UI ports'. HW1's body stands until then.
 void subTitlesDraw(subregion *region)
 {
     sdword index;

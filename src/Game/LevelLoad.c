@@ -2212,6 +2212,7 @@ void levelPreInit(char *directory,char *pickedMission)
     universeDefaultTeamColors();
     //load the actual mission
     scriptSet(directory, pickedMission, MissionPreloadScriptTable);
+    cat_soundLevelReset();      // CAT: the sound's level reset (levelPreInit 0x004a3230 calls 0x0051c980 after this script)
 
     for (index = 0; index < MAX_MULTIPLAYER_PLAYERS; index++)
     {                                                       //for all players

@@ -7,21 +7,52 @@
 // FC = 11 11 11 00
 // FF = 11 11 11 11
 
+/*-----------------------------------------------------------------------------
+    CAT: Cataclysm's speech event ids (speechEventQueue 0x00522560, speechPlayQueue 0x005220e0, ssSubtitleRead
+    0x00582610, SEreorderqueue 0x00522e60): an 11-bit event index (mask 0x7ff, 863 events: the queue rejects an
+    index above 0x35e), 11 actor bits from 0x800 to 0x200000 (actorFlagsEnabled 0x008954c0 = 0x3ff800), HW1's type
+    bits from 0x400000 up; the queue order compares the top four type bits (0xf0000000). Streams: actor bits 0x1000
+    and 0x2000 play on speech stream 1, chatter and actor 0x200000 on stream 2, everything else on stream 0. Actor
+    names from their readers: 0x800 the ships' pilots (the "selected" event 0x4000800 of speechEventQueue), 0x1000
+    Fleet Command (tutHideText 0x00530ef0 stops it with speechEventActorStop(0x1000)), 0x2000 the other voice of
+    stream 1 (subtitle actor 1; name chosen in HW1's order). Call sites pass the exe's raw ids.
+-----------------------------------------------------------------------------*/
+#define CAT_SPEECH_EVENT_MASK            0x000007FF
+#define CAT_SPEECH_LAST_EVENT            0x35E
+#define CAT_SPEECH_ACTOR_PILOT           0x00000800
+#define CAT_SPEECH_ACTOR_FLEET_COMMAND   0x00001000
+#define CAT_SPEECH_ACTOR_FLEET_INTEL     0x00002000
+#define CAT_SPEECH_ACTOR_200000          0x00200000
+#define CAT_SPEECH_ACTOR_MASK            0x003FF800
+#define CAT_SPEECH_TYPE_ORDER_MASK       0xF0000000
+#define CAT_SPEECH_EVENT_SELECTED        0x04000800  // a ship's "selected" line (speechEventQueue 0x00522560)
+
+/*-----------------------------------------------------------------------------
+    HW1's ids. CAT: Cataclysm has none of HW1's 821 speech events, so an HW1 name is not a Cataclysm id. Every HW1
+    actor flag carries HW1_SPEECH_ID (0x400, HW1's pilot flag), which lies inside Cataclysm's index field, so
+    speechEventQueue rejects each HW1-named event (index > 0x35e) instead of playing an unrelated Cataclysm line. A
+    call site with an HW1 name stays silent until its port passes the exe's id.
+    [audit: the flags add HW1_SPEECH_ID with + (the bits are disjoint, so + is |): the .kas mission scripts include
+    this header through cpp and kas2c (src/tools/kas2c/parser.y) has no '|' operator, so '|' broke every mission
+    script on a clean build]
+-----------------------------------------------------------------------------*/
+#define HW1_SPEECH_ID                    0x00000400
+
 #define SPEECH_EVENT_MASK                0x000003FF  // 1024 (incl. 0) possible speech events
 
 // actor flags
 #define SPEECH_ACTOR_PILOT               0x00000400
-#define SPEECH_ACTOR_FLEET_COMMAND       0x00000800  // Karen; Mothership
-#define SPEECH_ACTOR_FLEET_INTELLIGENCE  0x00001000
-#define SPEECH_ACTOR_TRADERS             0x00002000  // Bentusi
-#define SPEECH_ACTOR_P2_KADESHI          0x00004000  // "Garden" nebula inhabitants
-#define SPEECH_ACTOR_ALL_ENEMY_SHIPS     0x00008000
-#define SPEECH_ACTOR_AMBASSADOR          0x00010000  // Yours, sent to meet the Kadeshi
-#define SPEECH_ACTOR_NARRATOR            0x00020000
-#define SPEECH_ACTOR_DEFECTOR            0x00040000  // Captain Soban
-#define SPEECH_ACTOR_GENERAL             0x00080000
-#define SPEECH_ACTOR_EMPEROR             0x00100000
-#define SPEECH_ACTOR_KHAR_SELIM          0x00200000
+#define SPEECH_ACTOR_FLEET_COMMAND       (0x00000800 + HW1_SPEECH_ID)  // Karen; Mothership
+#define SPEECH_ACTOR_FLEET_INTELLIGENCE  (0x00001000 + HW1_SPEECH_ID)
+#define SPEECH_ACTOR_TRADERS             (0x00002000 + HW1_SPEECH_ID)  // Bentusi
+#define SPEECH_ACTOR_P2_KADESHI          (0x00004000 + HW1_SPEECH_ID)  // "Garden" nebula inhabitants
+#define SPEECH_ACTOR_ALL_ENEMY_SHIPS     (0x00008000 + HW1_SPEECH_ID)
+#define SPEECH_ACTOR_AMBASSADOR          (0x00010000 + HW1_SPEECH_ID)  // Yours, sent to meet the Kadeshi
+#define SPEECH_ACTOR_NARRATOR            (0x00020000 + HW1_SPEECH_ID)
+#define SPEECH_ACTOR_DEFECTOR            (0x00040000 + HW1_SPEECH_ID)  // Captain Soban
+#define SPEECH_ACTOR_GENERAL             (0x00080000 + HW1_SPEECH_ID)
+#define SPEECH_ACTOR_EMPEROR             (0x00100000 + HW1_SPEECH_ID)
+#define SPEECH_ACTOR_KHAR_SELIM          (0x00200000 + HW1_SPEECH_ID)
 
 #define SPEECH_ACTOR_MASK                0x003FFC00
 

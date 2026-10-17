@@ -1,6 +1,7 @@
 #ifndef ___SOUNDCMN_H
 #define ___SOUNDCMN_H
 
+#include <stddef.h>
 #include <SDL2/SDL.h>
 
 #include "File.h"
@@ -70,6 +71,15 @@ typedef struct
     sword           wavepad;
 } PATCH_DISK;
 
+// the bank file's patch: 0x38 bytes, the exe's PATCH (SNDgetpatch 0x00581a90 strides 0x38; bitrate +0x1C, flags +0x1E,
+// waveformat.frequency +0x28)
+_Static_assert(sizeof(PATCH_DISK) == 0x38, "PATCH_DISK is the exe's 0x38-byte PATCH");
+_Static_assert(offsetof(PATCH_DISK, bitrate) == 0x1C && offsetof(PATCH_DISK, flags) == 0x1E, "PATCH_DISK +0x1C/+0x1E");
+_Static_assert(offsetof(PATCH_DISK, waveformat) + offsetof(SDLWAVEFORMAT, frequency) == 0x28, "PATCH_DISK +0x28");
+#ifndef HW_PTR_64
+_Static_assert(sizeof(PATCH) == 0x38, "ILP32 PATCH is the exe's 0x38 bytes");
+#endif
+
 typedef struct
 {
 	udword			id;
@@ -77,6 +87,18 @@ typedef struct
 	sdword			numpatches;
 	sdword			firstpatch;
 } BANK;
+
+/* The patch table of a loaded bank. In the exe (32-bit) the patches start in place at BANK.firstpatch (+0x0C, a
+   0x38-byte PATCH; SNDgetpatch 0x00581a90, splayFPRVL 0x00581720: bank + 0xC + patnum * 0x38). HWI LP64: PATCH holds
+   pointer-sized fields (8-byte alignment), so the converted bank (loadbankAndConvertTo64Bit, SoundEvent.c) puts its
+   table at the next 8-byte boundary, +0x10; reading it at +0x0C was the "misaligned address for type 'struct PATCH'"
+   UBSan report of every run. */
+#ifdef HW_PTR_64
+#define SND_BANK_PATCHES_OFFSET  ((offsetof(BANK, firstpatch) + _Alignof(PATCH) - 1) & ~(_Alignof(PATCH) - 1))
+#else
+#define SND_BANK_PATCHES_OFFSET  offsetof(BANK, firstpatch)
+#endif
+#define SNDbankpatches(bank)     ((PATCH *)((ubyte *)(bank) + SND_BANK_PATCHES_OFFSET))
 
 typedef struct
 {

@@ -1021,7 +1021,7 @@ void tutHideText(void)
     tutRemoveAllPointers();
 
     //kills the speech associated with the text
-    speechEventActorStop(SPEECH_ACTOR_FLEET_COMMAND, 0.1f);
+    speechEventActorStop(CAT_SPEECH_ACTOR_FLEET_COMMAND, 0.1f);   // CAT: Fleet Command's bit (tutHideText 0x00530ef0)
 }
 
 

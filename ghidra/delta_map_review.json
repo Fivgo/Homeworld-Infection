@@ -1131,12 +1131,33 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x004232c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "stores the raw script value as the double at +0x08 ((double)(float)value; HW1 scaled it to a udword by BAT_RandomTotal / PNG_TaskPeriod)",
+  "note": "[review: M2-R5 sound] ported (Battle.c; battleevent.randomWeight is a double)",
+  "sample": "port-R5-sound"
+ },
  "0x00423330": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "stores the square of the distance ((float)v * (float)v); battleChatterAttempt compares it with the squared camera distance",
+  "note": "[review: M2-R5 sound] read against r6 and ported (the earlier IDENTICAL review missed the multiply) (was: IDENTICAL)",
+  "sample": "port-R5-sound"
+ },
+ "0x004233b0": {
   "class": "IDENTICAL",
-  "confidence": "medium",
+  "confidence": "high",
   "change": "",
-  "note": "battleChatterEventFromName inlined",
-  "sample": "uniform/MODIFIED"
+  "note": "[review: M2-R5 sound] read against r6: the raw double; the automatic 'adds strings' is the inlined battleChatterEventFromName table scan",
+  "sample": "port-R5-sound"
+ },
+ "0x00423420": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6: the raw double (inlined name lookup)",
+  "sample": "port-R5-sound"
  },
  "0x00423490": {
   "class": "IDENTICAL",
@@ -1145,12 +1166,61 @@
   "note": "battleChatterEventFromName inlined (scan of the CHAT_* event table + sscanf)",
   "sample": "MODIFIED/medium"
  },
- "0x00423710": {
+ "0x00423500": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "stores the square of the proximity ((float)v * (float)v)",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00423580": {
   "class": "IDENTICAL",
-  "confidence": "medium",
+  "confidence": "high",
   "change": "",
-  "note": "Ghidra dropped the sscanf out-argument and shows a garbage store; the visible call and format are HW1's",
-  "sample": "reread-R2"
+  "note": "[review: M2-R5 sound] read against r6: the raw double (inlined name lookup)",
+  "sample": "port-R5-sound"
+ },
+ "0x00423710": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "stores the scanned float itself in batGlobalFrequencyModifier (a float at 0x0075074c, 128.0 at start; HW1: (udword)(value * 256))",
+  "note": "[review: M2-R5 sound] read against r6 disassembly (sscanf into the field slot, then mov [0x75074c]) and ported; the earlier note's 'garbage store' is this store (was: IDENTICAL)",
+  "sample": "port-R5-sound"
+ },
+ "0x00423740": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6: scriptSet(NULL, BattleChatter.script, the 21-row table at 0x00750758)",
+  "sample": "port-R5-sound"
+ },
+ "0x00423790": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "local player's ships only; one random draw against raw weight x the float frequency scale x 32768 and the squared camera distance against the squared maxDistance (HW1's distance curve and second draw gone); event 0x100080c queued without the ship",
+  "note": "[review: M2-R5 sound] ported",
+  "sample": "port-R5-sound"
+ },
+ "0x004238b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the proximity test compares the squared distance with the squared proximity and takes squared distance / proximity as the curve input (HW1: distance / proximity); the wavelength ratio in float",
+  "note": "[review: M2-R5 sound] read against r6 and its disassembly (fsqrt of the proximity, fdivr) and ported (battleRepeatOK)",
+  "sample": "port-R5-sound"
+ },
+ "0x00423a50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "status-update events spaced (30 s after any, 60 s after the same; last status time 0x00750750, event 0x008df9f4); raw weight x frequency scale; a status-suppressed event is not said in single player",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00423ce0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6: the same two transposed-coordsys bogey tests with batBogeyAspect",
+  "sample": "port-R5-sound"
  },
  "0x00423e50": {
   "class": "IDENTICAL",
@@ -1158,12 +1228,40 @@
   "change": "",
   "note": "M2-R4 combat: edited only for gunShipFirePower's one-argument prototype (0x0048cb60)"
  },
+ "0x00423f80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no mothership-class ship talks; friendly / allied fire reported by the fleet (group events by hot-key number); victory is the fleet's BCE_BattleWon then the group's; nothing in mission 13",
+  "note": "[review: M2-R5 sound] ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00424110": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "runs at most every 8 s per ping (new battleping +0x28) and only with a non-exempt local ship; battle assessments are the fleet's lines with ship answers carrying the speaker's type; retreat marks Ship.catRetreating; damaged-capital report by the fleet or the PrinceOfSpace line 0x200135e; loss-dependent weights fixed to the standing-value coefficient",
+  "note": "[review: M2-R5 sound] ported (Battle.c; Ping.c inits the new field)",
+  "sample": "port-R5-sound"
+ },
  "0x00424d80": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "frequency modifier is now a plain scale of freq100 (one multiply); HW1's pow(2, value) curve between batGlobalFrequencyMin/Max is gone",
-  "note": "",
-  "sample": "MODIFIED/low"
+  "change": "frequency modifier is now a plain scale of freq100 (freq100 x 0.01)",
+  "note": "[review: M2-R5 sound] ported (was: MODIFIED, frequency modifier is now a plain scale of freq100 (one multiply); HW1's pow(2, value) curve between batGlobalFrequencyMin/Max is gone)",
+  "sample": "port-R5-sound"
+ },
+ "0x00424da0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "heavy cruiser / carrier / destroyer / frigate / resource classes: BCE_CapitalShipDies then the fleet's report (or only 0x100080c when the nearest ship is 5000+ away in the main screen); corvette / fighter / micro: the same line, then BCE_WingmanDies; exempt ships silent",
+  "note": "[review: M2-R5 sound] ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00424ef0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "takes (shipclass, variable): the fleet's launch / welcome lines, else the build report 0x200103d; called by cat_cmBuildJobFinished",
+  "note": "[review: M2-R5 sound] ported (the caller is the construction manager's, M2-R6)",
+  "sample": "port-R5-sound"
  },
  "0x00424f50": {
   "class": "IDENTICAL",
@@ -7636,11 +7734,11 @@
   "sample": "reread-R2"
  },
  "0x004e9350": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R5 render] same",
-  "sample": "port-R5-render"
+  "change": "also zeroes the new battleping field +0x28 (when battlePingEvaluate last ran; local_20[10] = 0 before the ship list at +0x2c)",
+  "note": "[audit: M2-R5 sound] edited by the sound port (catLastEvaluated = 0, Ping.c); compared with r6; the rest as the render review",
+  "sample": "audit-R5-sound"
  },
  "0x004e9630": {
   "class": "IDENTICAL",
@@ -8963,6 +9061,13 @@
   "note": "SEsetVol (clamp 0..1) inlined, times volNIS",
   "sample": "reread-R2"
  },
+ "0x0051c2c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6: SEsetVol clamp and volNIS = 1.0 inlined",
+  "sample": "port-R5-sound"
+ },
  "0x0051c330": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -8970,12 +9075,26 @@
   "note": "SEsetVol inlined, times volNIS",
   "sample": "reread-R2"
  },
+ "0x0051c3a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6: SEsetVol clamp and volNIS = 1.0 inlined",
+  "sample": "port-R5-sound"
+ },
  "0x0051c410": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "SEsetVol(level * volNIS) inlined",
   "sample": "reread-R2"
+ },
+ "0x0051c460": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6: SEsetVol clamp and volNIS = 1.0 inlined",
+  "sample": "port-R5-sound"
  },
  "0x0051c4d0": {
   "class": "IDENTICAL",
@@ -9005,6 +9124,20 @@
   "note": "same LUT arithmetic in the head",
   "sample": "uniform/IDENTICAL-low"
  },
+ "0x0051c6e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "takes the race (speech through cat_speechEventInitForRace); ends with cat_madAnimSoundTableInit; the music factors, LUT loads, cardioid table and handles as HW1",
+  "note": "[review: M2-R5 sound] read against r6; the table init is ported (SoundEvent.c), the race part since M2-R2",
+  "sample": "port-R5-sound"
+ },
+ "0x0051c9a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "also frees GunSpecEvents.lut",
+  "note": "[review: M2-R5 sound] ported",
+  "sample": "port-R5-sound"
+ },
  "0x0051cad0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -9012,12 +9145,54 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0051caf0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the front-end track is 0x11 (musicEventPlay(0x11)); soundreinit is DirectSound's (the SDL layer keeps soundpause(FALSE))",
+  "note": "[review: M2-R5 sound] front-end track ported through SOUND_FRONTEND_TRACK; the device reinit is the platform layer",
+  "sample": "port-R5-sound"
+ },
+ "0x0051cb20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6: soundstopallSFX, then soundEventDerelictRemove / soundEventShipRemove inlined per object",
+  "sample": "port-R5-sound"
+ },
+ "0x0051ccd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6",
+  "sample": "port-R5-sound"
+ },
+ "0x0051cd10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm's object sounds: derelict ambients only updated; engine limits spare the mothership class and the Sentinels; idle engines fade over 5 s; upgraded engine loop 0x404; heading filter on every ship; per-type special loops (mimic, Leech, rammers, Workers, Sentinel field x3, big gun, cloakers, gravwell, SalCap, RKO, slipgates, crystals, Nomad moon); EMP-stun / Beast-infection damage loops; ambient by health / being built / converting; single-player hyperspace for the local player x3; bursts by the remembered gun x4; the leech speech alert",
+  "note": "[review: M2-R5 sound] read against r6 (decompile and disassembly for the specifics offsets) and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x0051f900": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "lastAmbient starts at -1 (HW1 ShipCmn_Ambient)",
+  "note": "[review: M2-R5 sound] ported",
+  "sample": "port-R5-sound"
+ },
  "0x0051f960": {
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "drops the CryoTray exemption of the capital-ship death speech (HW1 soundevent.c:2096; the type is gone); the speech is speechEventQueue(NULL, 0x2001065, shiptype, ..) after a shipclass 7 / 10 test",
   "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
   "sample": "port-R4"
+ },
+ "0x0051fb00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6: SEstopengine and SEstopsoundhandle inlined",
+  "sample": "port-R5-sound"
  },
  "0x0051fc10": {
   "class": "IDENTICAL",
@@ -9040,6 +9215,20 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0051ff50": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the volume is rounded with Relic's rint (HW1 truncated)",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x005200c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "also loads GunSpecEvents.lut (after GunEvents.lut); the banks and the other LUTs as HW1",
+  "note": "[review: M2-R5 sound] ported",
+  "sample": "port-R5-sound"
+ },
  "0x005206b0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -9061,12 +9250,33 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x005206f0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the angle is rounded with Relic's rint (HW1 truncated)",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x005208e0": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the angle is rounded with Relic's rint (HW1 truncated)",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
  "0x005209b0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "header-level: the exe's table has 8 hit events (0x00c0a120-0x00c0a180; HW1 7); the Hit_Nick/Hit_Ricochet test compares the index with the event value as HW1 does (never true)",
   "sample": "port-R3"
+ },
+ "0x005209f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm's player: no out-of-view exception; the 92-row LUT layout; UI sounds per race and 0x1c8 -> ship 0x821; gun sounds by cat_gunGetSoundType with the Beast weapon on row 9 and GunSpecEvents.lut for the multibeam frigates, dAcolyte, Dreadnought and destroyers; the burst remembers its gun index; ship events without a range test (Nomad moon nearer in an NIS); explosions 0x1002/4/7 add the 0x100d boom",
+  "note": "[review: M2-R5 sound] read against r6 and ported (SoundEventPlay.c)",
+  "sample": "port-R5-sound"
  },
  "0x005216d0": {
   "class": "IDENTICAL",
@@ -9082,12 +9292,40 @@
   "note": "M2-R4 ships-b retire: was IDENTICAL; whole body read against r6 (ported)",
   "sample": "port-R4"
  },
+ "0x00521a40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "3 speech streams at the LUT's bitrate + 1 music stream at 0x200; Music4Cat.wxh / .wxd; the 62-entry music track table (0x00c09f00); the two EQ scripts; 3 queues; ends with streamStartThread (HW1: 5 + 2 streams, effect/delay scripts, the LUT load)",
+  "note": "[review: M2-R5 sound] read against r6 and ported (SpeechEvent.c)",
+  "sample": "port-R5-sound"
+ },
  "0x00521e30": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "frees 8 buffers instead of HW1's 11 (three of the music/speech buffers or LUTs are gone from the speech module)",
-  "note": "",
-  "sample": "reread-R2"
+  "change": "frees 8 buffers: music buffer and header, stream structures, 3 speech buffers, the two LUTs",
+  "note": "[review: M2-R5 sound] ported (was: MODIFIED, frees 8 buffers instead of HW1's 11 (three of the music/speech buffers or LUTs are gone from the speech module))",
+  "sample": "port-R5-sound"
+ },
+ "0x00521ea0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "speechQueueUpdate then cat_speechAlertsUpdate (no soundupdate)",
+  "note": "[review: M2-R5 sound] ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00521eb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "timeover cleared when a line ends and set to start + timeout when one starts; cleared slots get event -1; the start test with the Bink and tutorial terms; the Eegah Easter egg line 0x20012d1 after 540 s",
+  "note": "[review: M2-R5 sound] ported (the Bink term waits for the movie player, CAT-TODO M2-R6)",
+  "sample": "port-R5-sound"
+ },
+ "0x005220e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "plain speech: volume x volSpeech x 255, single-player ratio or the pilots' 0.75, letterbox ratio; the intel EQ; no effects, delays, radio beeps or background patch; truncated volume for the linked phrases, rint for the last",
+  "note": "[review: M2-R5 sound] ported",
+  "sample": "port-R5-sound"
  },
  "0x00522300": {
   "class": "IDENTICAL",
@@ -9096,19 +9334,96 @@
   "note": "RAN_SoundBothThreads 12",
   "sample": "reread-R2"
  },
- "0x00523190": {
+ "0x005223c0": {
   "class": "MODIFIED",
   "confidence": "medium",
-  "change": "the resource-ship damage warning tests sWorker (0xe) / bWorker (0x31) where HW1 tested ResourceController, merged into one branch with the carrier (shipclass 2) and heavy-cruiser (0x2e, 0x42, 0x50) warnings (speechEventQueue 0x100080b at health < max x factor)",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
-  "sample": "port-R4"
+  "change": "no N01 mid / background chatter rotations: always the random series",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00522560": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm's ids (index 0x7ff up to 0x35e, actors 0x3ff800); three queues by actor bits; letterbox rejects chatter/status; enemy mimics that look allied answer the selection with their apparent type; exempt / building ships silent; 25 Relic names (alliance 0x400102b/c -> 0x200102e/f, death 0x200102d); actor 0; variable capped at 60; links to a playing event",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00522a00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "all three queues (HW1 the first only); cleared slots get event -1",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00522a70": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "cleared slots get event -1",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00522b00": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "cleared slots get event -1; the playing line fades with -1.0 (HW1 100)",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00522e60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "SEcleanqueue inlined; order and drop by the top four type bits (0xf0000000): timed-out tutorial lines are dropped too; cleared slots get event -1",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00522fb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6",
+  "sample": "port-R5-sound"
+ },
+ "0x00523040": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "0x4000807 for a forced attack with own ships, 0x4000808 resources only, 0x4000805 otherwise, with the leader's type; no random refusal, no per-resource lines",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00523190": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "mothership / component class (not the cannon or carrier module) warn 0x2001058; off screen carrier class and heavy cruisers 0x2001066, groups 0x200105b; on screen carrier class, Workers, heavy cruisers below half health 0x100080b; exempt ships silent",
+  "note": "[review: M2-R5 sound] read against r6 and ported (the M2-R4 merged-branch stand-in replaced) (was: MODIFIED, the resource-ship damage warning tests sWorker (0xe) / bWorker (0x31) where HW1 tested ResourceController, merged into one branch with the carrier (shipclass 2) and heavy-cruiser (0x2e, 0x42, 0x50) warnings (speechEventQueue 0x100080b at health < max x factor))",
+  "sample": "port-R5-sound"
+ },
+ "0x00523480": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "one music stream; track 0x44e = random of 17; a playing track fades 0.5 s and the next starts from the update (RESTART); track 0x29 by the NIS volume",
+  "note": "[review: M2-R5 sound] ported",
+  "sample": "port-R5-sound"
+ },
+ "0x005235c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "one stream; an NIS-type track (table type 4) also stops the NIS speech; no return to the level track",
+  "note": "[review: M2-R5 sound] ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00523660": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the single stream's state machine; main-screen level by nearest ship (tutorial 0x12, fixed from 0x19), letterbox x0.7, sensors / managers levels (0x28 its own); the restart after a finished track sets no garbage volume (CAT-FIX of the exe's uninitialised argument); random pilot lines over track 0x28",
+  "note": "[review: M2-R5 sound] read against r6 and its disassembly and ported",
+  "sample": "port-R5-sound"
  },
  "0x00523cf0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
-  "sample": "reread-R2"
+  "note": "[review: M2-R5 sound] read against r6 (the single stream's track) (was: IDENTICAL)",
+  "sample": "port-R5-sound"
  },
  "0x00523d00": {
   "class": "IDENTICAL",
@@ -11126,6 +11441,20 @@
   "note": "clamp and ftol",
   "sample": "reread-R2"
  },
+ "0x005556e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] idct read against r6: prerotation with 0.5f (0x0072a4c8), factor 8.0f / sqrt(size) (0x0072a558), fft, postrotation and reorder as GoK's reconstruction",
+  "sample": "port-R5-sound"
+ },
+ "0x005558d0": {
+  "class": "MODIFIED",
+  "confidence": "low",
+  "change": "step = 1.0f/(float)len in float, then (i + 0.125) * step * 2PI (float 0x0072a594) at full precision (GoK rounded the angle to a float)",
+  "note": "[review: M2-R5 sound] Initdct read against r6 and ported (src/SDL/dct.c)",
+  "sample": "port-R5-sound"
+ },
  "0x00555950": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -11253,11 +11582,25 @@
   "sample": "reread-R2"
  },
  "0x00558800": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "medium",
-  "change": "",
-  "note": "no C source in ad1bb82 (fq library); compared with GoK's reconstruction: Cataclysm copies FQ_DSIZE (0x200) floats where GoK copies nSize, so src/ may need the reconstruction checked, not a Cataclysm port",
-  "sample": "reread-R2"
+  "change": "copies the whole FQ_DSIZE (0x200) block from aTSBlock to aTPBlock whatever nSize is (GoK copied nSize floats)",
+  "note": "[review: M2-R5 sound] fqDecOver read against r6 and ported; the overlap-add loop is the same (was: IDENTICAL)",
+  "sample": "port-R5-sound"
+ },
+ "0x005588c0": {
+  "class": "MODIFIED",
+  "confidence": "low",
+  "change": "the init's window angles are i * the float constants PI/128, PI/256, PI/512 (0x0072bdd8/d4/d0) at full precision, and an Initdct failure fails the init (returns -1); the decode branches are GoK's",
+  "note": "[review: M2-R5 sound] fqDecBlock read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00558bc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no soft limiter (GoK's compress() is not in the exe): each sample is Relic's rint (fChopT + 1.5*2^52, 0x0072a458) clamped to [-0x8000, 0x7fff]; one source index runs across both output buffers (GoK restarted it at 0 for the second); returns -1 past 0x200 source samples",
+  "note": "[review: M2-R5 sound] fqWriteTBlock read against r6 and ported (src/SDL/fqcodec.c, fqRint in fqcodec.h)",
+  "sample": "port-R5-sound"
  },
  "0x00558d70": {
   "class": "IDENTICAL",
@@ -11281,39 +11624,46 @@
   "sample": "reread-R2"
  },
  "0x00558dc0": {
-  "class": "IDENTICAL",
-  "confidence": "low",
-  "change": "",
-  "note": "no C source in ad1bb82 (fq library); differs from GoK's reconstruction: returns when fLev == 0 (GoK: fLev > 0, so negative levels mix in Cataclysm) and has an fLev == 1 add-only path; port the binary's behaviour into src/",
-  "sample": "reread-R2"
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "returns only for fLev == 0 (negative levels mix in; GoK: fLev > 0), a plain add at fLev == 1.0",
+  "note": "[review: M2-R5 sound] fqMix ported (src/SDL/fqeffect.c) (was: IDENTICAL)",
+  "sample": "port-R5-sound"
  },
  "0x00558e50": {
-  "class": "IDENTICAL",
-  "confidence": "high",
-  "change": "",
-  "note": "no C source in ad1bb82; matches GoK's reconstruction",
-  "sample": "reread-R2"
+  "class": "MODIFIED",
+  "confidence": "low",
+  "change": "the position is kept at x87 precision for the compare, the truncation and the interpolation; the work buffer is FQ_SIZE floats",
+  "note": "[review: M2-R5 sound] fqPitchShift ported (was: IDENTICAL)",
+  "sample": "port-R5-sound"
  },
  "0x00558f20": {
-  "class": "IDENTICAL",
-  "confidence": "low",
-  "change": "",
-  "note": "no C source in ad1bb82 (fq library); differs from GoK's reconstruction: the zeroing for a 0.0 band stops at min(band end, nBSize) (GoK zeroes the whole band)",
-  "sample": "reread-R2"
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "a 0.0 band is zeroed only up to min(band end, nBSize) (GoK zeroed the whole band)",
+  "note": "[review: M2-R5 sound] fqEqualize ported (was: IDENTICAL)",
+  "sample": "port-R5-sound"
  },
  "0x00558fd0": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
+  "confidence": "low",
+  "change": "the mask factor is a float division 1.0f / (float)(2^(i+1) - 1) before the multiply (GoK: a double division)",
+  "note": "[review: M2-R5 sound] fqInitDequant read against r6 (constants 10.0f 0x0072a4f0, 1.0f 0x0072a4c4); last-bit precision only (was: IDENTICAL)",
+  "sample": "port-R5-sound"
+ },
+ "0x00559030": {
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "no C source in ad1bb82; matches GoK's reconstruction (FQ_SCALE 10, FQ_EXP 6)",
-  "sample": "reread-R2"
+  "change": "follows the binary where GoK's reconstruction differs: the band and spectrum counters and the spectrum step are bytes (wrap at 256), the band loop also stops when the band index passes 25, both spectrum loops stop at an index above 127; the bit-field load is unaligned",
+  "note": "[review: M2-R5 sound] fqDequantBlock read against r6 and ported (src/SDL/fquant.c); the load through memcpy (no misaligned access), shifts unsigned",
+  "sample": "port-R5-sound"
  },
  "0x00559470": {
-  "class": "IDENTICAL",
-  "confidence": "high",
-  "change": "",
-  "note": "no C source in ad1bb82; matches GoK's reconstruction",
-  "sample": "reread-R2"
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the exe's unsigned bit-field extraction with x86 shift masks (& 31): GoK's signed shift (val << (33 - bits)) overflowed for bits 2 and is undefined for bits 1",
+  "note": "[review: M2-R5 sound] fqSUnpack read against r6 and ported; same values for every reachable input, written without the signed overflow UBSan reported (fquant.c:28) and the misaligned int load (fquant.c:24/33) (was: IDENTICAL)",
+  "sample": "port-R5-sound"
  },
  "0x00559500": {
   "class": "IDENTICAL",
@@ -11721,6 +12071,13 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0056c290": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] transTableSetup read against r6: the 'Prime factor of FFT length too large' printf and exit(1) are there (string 0x008ba70a; the automatic 'drops strings' is the decompiler's argument display)",
+  "sample": "port-R5-sound"
+ },
  "0x0056c350": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -11762,6 +12119,20 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x0056cc70": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 sound] twiddleTransf read against r6: the same omega/twiddle recurrence and the radix 2/3/4/5/8/10/odd switch with the file's constants",
+  "sample": "port-R5-sound"
+ },
+ "0x0056d3f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] fft read against r6: pi = 0x40490fdb, transTableSetup, permute, twiddleTransf per factor",
+  "sample": "port-R5-sound"
  },
  "0x0056d4b0": {
   "class": "IDENTICAL",
@@ -12469,6 +12840,27 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0057f680": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the device part is DirectSound / waveOut (cat_smixPrepareWaveOut); the codec init (fqInitDequant, fqRand(ranRandomFn, 2), fqSqrt, fqSize, two fqDecBlock inits) as the tree",
+  "note": "[review: M2-R5 sound] the SDL device layer stands for the Win32 one; codec part compared",
+  "sample": "port-R5-sound"
+ },
+ "0x0057f850": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no effect, q-noise, delay or acoustic-model stage and no effect scale; volume clamps and the SFX stop test rounded with rint; a channel without a patch is released; the decode inlined",
+  "note": "[review: M2-R5 sound] read against r6 and ported (smixer.c)",
+  "sample": "port-R5-sound"
+ },
+ "0x005804f0": {
+  "class": "MODIFIED",
+  "confidence": "low",
+  "change": "the Win32 waveOut mixer thread",
+  "note": "[review: M2-R5 sound] platform: SDL's audio callback (soundfeedercb) stands for it",
+  "sample": "port-R5-sound"
+ },
  "0x005807a0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -12490,12 +12882,68 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00580900": {
+  "class": "MODIFIED",
+  "confidence": "low",
+  "change": "takes one argument; DirectSound / waveOut start-up and cat_isoundmixerStartThread; clears the channels and the master EQ",
+  "note": "[review: M2-R5 sound] platform: the SDL soundinit stands for it",
+  "sample": "port-R5-sound"
+ },
+ "0x00580a00": {
+  "class": "MODIFIED",
+  "confidence": "low",
+  "change": "DirectSound re-init and cat_smixPrepareWaveOut",
+  "note": "[review: M2-R5 sound] platform layer",
+  "sample": "port-R5-sound"
+ },
+ "0x00580b40": {
+  "class": "MODIFIED",
+  "confidence": "low",
+  "change": "stop all with fade 1.0, wait for the mixer, release DirectSound",
+  "note": "[review: M2-R5 sound] platform layer (soundpause / SDL_CloseAudio in the tree)",
+  "sample": "port-R5-sound"
+ },
+ "0x00580c40": {
+  "class": "MODIFIED",
+  "confidence": "low",
+  "change": "stop all with fade 1.0 and wait while the mixer status is above 1",
+  "note": "[review: M2-R5 sound] platform layer",
+  "sample": "port-R5-sound"
+ },
+ "0x00580e50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6",
+  "sample": "port-R5-sound"
+ },
+ "0x00580f60": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the 'already at this level' test rounds the current volume with rint (HW1 truncated)",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00581090": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6: the pan fade clamp to +-180 and the +-1 minimum",
+  "sample": "port-R5-sound"
+ },
  "0x005812a0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "early-out compares the new heading with the stored one (HW1 compared the handle) and clamps both cardioid factors to [0.4, 1.0]",
   "note": "",
   "sample": "reread-R2"
+ },
+ "0x00581490": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6",
+  "sample": "port-R5-sound"
  },
  "0x00581610": {
   "class": "IDENTICAL",
@@ -12511,11 +12959,18 @@
   "note": "dbg-less range check; SOUND_MAX_VOICES 32",
   "sample": "reread-R2"
  },
+ "0x00581720": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 sound] read against r6: SNDgetpatch (0x38-byte patches), SNDcreatehandle, SNDresetchannel, SNDcalcvolpan and soundfrequency inlined; the automatic 'drops calls' is that inlining",
+  "sample": "port-R5-sound"
+ },
  "0x00581a90": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same [audit: M2-R5 sound: edited by the sound port only for the HWI LP64 aligned patch table (SNDbankpatches); compared with r6 again: bank + 0xC + patnum * 0x38 when soundinited]",
   "sample": "reread-R2"
  },
  "0x00581d40": {
@@ -12532,6 +12987,27 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00581da0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no streamStartThread (speechEventInit starts it)",
+  "note": "[review: M2-R5 sound] ported (sstream.c)",
+  "sample": "port-R5-sound"
+ },
+ "0x00581e90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "'Cataclysm CD not detected.'",
+  "note": "[review: M2-R5 sound] ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00581f20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no fqAcModel reset of the delay buffers",
+  "note": "[review: M2-R5 sound] ported",
+  "sample": "port-R5-sound"
+ },
  "0x00582030": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -12545,6 +13021,20 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00582420": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the 'already at this level' test rounds the current volume with rint (HW1 truncated)",
+  "note": "[review: M2-R5 sound] read against r6 and ported",
+  "sample": "port-R5-sound"
+ },
+ "0x00582610": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm's actor bits pick the subtitle actor (0x1000 -> 0, 0x2000 -> 1, 0x4000 -> 11, 0x20000 -> 10, 0x10000 -> 8, 0x40000 -> 5, 0x80000 -> 6, 0x200000 -> 12, 0x8000 by mission, else 9; animatic -> 9)",
+  "note": "[review: M2-R5 sound] read against r6 and ported (the IDENTICAL class missed it)",
+  "sample": "port-R5-sound"
  },
  "0x005832a0": {
   "class": "IDENTICAL",
@@ -12587,6 +13077,20 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00584580": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a new subtitle resets the time compression (cat_taskTimeCompressionResetAndPrint)",
+  "note": "[review: M2-R5 sound] ported (Subtitle.c)",
+  "sample": "port-R5-sound"
+ },
+ "0x00584620": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm's subtitle drawing: a translucent backing rectangle with additive blending, cat_fontPrintSubtitle, cat_ioSubtitleNotify, no cards while the construction manager is open (cat_cmIsOpen), cat_tutButtonRowSet",
+  "note": "[review: M2-R5 sound] read against r6; not ported: its overlay / manager / tutorial calls are the HUD and UI ports' (CAT-TODO(M2-R5 hud) at the function)",
+  "sample": "port-R5-sound"
  },
  "0x00585650": {
   "class": "IDENTICAL",
@@ -13894,5 +14398,19 @@
   "",
   "Effect of the tool fixes alone, before the reviewed classes are applied: 117 functions went from automatic IDENTICAL to MODIFIED and 8 from MODIFIED to IDENTICAL; 48 unreviewed functions changed class (all IDENTICAL to MODIFIED). Every reviewed function keeps its reviewed class.",
   ""
- ]
+ ],
+ "0x00530ef0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "stops Cataclysm's Fleet Command actor bit 0x1000 (speechEventActorStop(0x1000, 0.1)); HW1 stopped SPEECH_ACTOR_FLEET_COMMAND 0x800",
+  "note": "[audit: M2-R5 sound] edited by the sound port (Tutor.c); compared with r6: the region deletes and the pointer loop as HW1",
+  "sample": "audit-R5-sound"
+ },
+ "0x00580d40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R5 sound] compared with r6: as HW1 (relocates dataoffset / loopstart / loopend / datasize, records the bank's start and end, returns the checksum); the tree's edit is the HWI LP64 aligned patch table (SNDbankpatches), not a Cataclysm delta",
+  "sample": "audit-R5-sound"
+ }
 }

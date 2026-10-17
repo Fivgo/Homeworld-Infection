@@ -10,12 +10,17 @@
 
 int Initdct(float *buf, udword len) {
 	udword i;
-	float f;
+	float step;
+	double f;
 
+	// CAT: the exe's arithmetic (Initdct 0x005558d0): step = 1.0f / (float)len in float, then (i + 0.125) * step *
+	//      2PI (the float 6.2831855 at 0x0072a594) at full precision, and sin/cos of that (GoK rounded the angle to
+	//      a float first)
+	step = 1.0F / (float)len;
 	for (i = 0; i < len >> 2; i++) {
-		f = ((float)i + 0.125) * (PI * 2.0) * (1.0 / (float)len);
-		buf[i] = sin(f);
-		buf[i + (len >> 2)] = cos(f);
+		f = ((double)i + 0.125) * (double)step * (double)(PI * 2.0F);
+		buf[i] = (float)sin(f);
+		buf[i + (len >> 2)] = (float)cos(f);
 	}
 
 	return OK;

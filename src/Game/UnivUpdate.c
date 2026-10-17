@@ -4196,24 +4196,17 @@ void univMissileCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target
         {
             if(missile->FORCE_DROPPED)
             {
-                // CAT-TODO(stage 3): the exe calls battleChatterFleetAttempt(-1, 0x34 / 0x35, hot-key group or -1,
-                //      NULL) instead (0x005470e2)
-                ////////////////////
-                //target hit by force drop mines..local players ship
-                //speech event num: STAT_Grp_InMineField
-                //or STAT_AssGrp_InMineField
-                //use battle chatter
-                if (selHotKeyGroupNumberTest(ship) == SEL_InvalidHotKey) { // not in a group!
-                    if (battleCanChatterAtThisTime(BCE_STAT_Grp_InMineField, ship)) {
-                        battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_Grp_InMineField, ship, SOUND_EVENT_DEFAULT);
-                    }
-                } else {
-                    if (battleCanChatterAtThisTime(BCE_STAT_AssGrp_InMineField, ship)) {
-                        battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_AssGrp_InMineField, ship,
-                                             selHotKeyGroupNumberTest(ship));
-                    }
+                // CAT: the fleet reports it, by hot-key group when the ship has one (univMissileCollidedWithTarget
+                //      0x005470e2: battleChatterFleetAttempt(-1, 0x34 / 0x35, -1 / group, NULL)); no
+                //      battleCanChatterAtThisTime test
+                if (selHotKeyGroupNumberTest(ship) == SEL_InvalidHotKey)
+                {
+                    battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_Grp_InMineField, SOUND_EVENT_DEFAULT, NULL);
                 }
-                //////////////
+                else
+                {
+                    battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_AssGrp_InMineField, selHotKeyGroupNumberTest(ship), NULL);
+                }
             }
         }
     }

@@ -3575,14 +3575,7 @@ bool32 cat_shipDetectedByPlayer(Ship *ship, sdword playerIndex)     // sub_53F9F
     return TRUE;
 }
 
-static void cat_speechAlertsNoteShip(Ship *ship, sdword playerIndex)    // 0x00522bc0
-{
-    // CAT-PROVISIONAL: the exe raises a "stealth ship spotted" speech-alert flag (0x00c09820 for the cloaking types,
-    //      0x00c09824 mimics, 0x00c09814 leeches) when an enemy stealth ship of the local player's view is
-    //      detected; the speech-alert runtime that reads them is stage 3, so nothing is raised here yet.
-    (void)ship;
-    (void)playerIndex;
-}
+// CAT (M2-R5 sound): cat_speechAlertsNoteShip 0x00522bc0 raises the speech alerts (SpeechEvent.c)
 
 void cat_shipStealthDetectedSet(Ship *ship, sdword playerIndex, bool32 detected, bool32 silent)    // 0x0053fad0
 {

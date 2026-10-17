@@ -8,6 +8,8 @@
 #ifndef ___FQCODEC_H
 #define ___FQCODEC_H
 
+#include <math.h>
+
 #include "Types.h"
 
 // General constants
@@ -57,6 +59,14 @@ extern double fChopT;
 #define rint(x)		((fChopT = (double)(x)+FQ_BNUM), *(int*)(&fChopT)) // Fast integer cast
 #endif
 
+// CAT: Relic's rint above (fChopT = x + FQ_BNUM, then the low dword) is what the exe's mixer and time-block writer use
+//      (fqWriteTBlock 0x00558bc0, isoundmixerprocess 0x0057f850: fChopT is .bss 0x00a711f8 / 0x00c16840): round to
+//      nearest even, keep the low 32 bits of the integer. fqRint is that, without the type pun.
+static inline sdword fqRint(double x)
+{
+    return (sdword)(udword)(long long)llrint(x);
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -77,7 +87,6 @@ int fqDecBlock(float *aFPBlock,float *aFSBlock,
 int fqWriteTBlock(float *aLBlock,float *aRBlock,short nChan,
 	void *pBuf1,udword nSize1,void *pBuf2,udword nSize2);
 
-float compress(float sample);
 
 
 #ifdef __cplusplus

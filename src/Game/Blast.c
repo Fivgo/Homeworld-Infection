@@ -427,7 +427,7 @@ static bool32 cat_blastUpdate(CatBlast *blast)
             }
         }
     }
-    // CAT-TODO(stage 3): cat_soundEventBlast 0x0051fc60 (the blast's sound; soundHandle, soundEvent)
+    cat_soundEventBlast(blast);     // CAT: the blast's sound (cat_blastUpdate 0x00516320 calls cat_soundEventBlast 0x0051fc60)
     return TRUE;
 }
 

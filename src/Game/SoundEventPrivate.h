@@ -21,12 +21,17 @@
     Private Defines:
 =============================================================================*/
 
-#define AMBIENT_OFFSET		9
-#define GUNSHOT_OFFSET		18
-#define GUNMOVE_OFFSET		36
-#define SPEC_OFFSET			54
-#define EXPLOSION_OFFSET	58
-#define HIT_OFFSET			65
+// CAT: the rows of Cataclysm's Volume / Range / Frequency LUTs (92 rows: 12 classes' engines, 12 ambients, 20 gun
+//      shots, 20 gun moves, 4 specials, 16 explosions, 8 hits): soundEventPlay 0x005209f0 uses class + 0xc,
+//      gun type + 0x18 / + 0x2c, explosion event - 0xfbc (row 0x52 past 0x100f), hit event - 0x3fac (0x56 for 0x4007)
+#define AMBIENT_OFFSET		12
+#define GUNSHOT_OFFSET		24
+#define GUNMOVE_OFFSET		44
+#define SPEC_OFFSET			64
+#define EXPLOSION_OFFSET	68
+#define HIT_OFFSET			84
+#define CAT_EXPLOSION_LAST_ROW  0x52    // explosions from 0x1010 on
+#define CAT_HIT_CAT7_ROW        0x56    // Hit_Cat7 uses the ricochet row
 
 #ifdef _WIN32
 #define SOUNDFXDIR "SoundFX\\"
@@ -34,13 +39,11 @@
 #define SOUNDFXDIR "SoundFX/"
 #endif
 
-#if defined(HW_GAME_DEMO)
-#define SE_NUM_ACTORS		4
-#else
-#define SE_NUM_ACTORS		5
-#endif
+// CAT: three speech queues and streams plus one music stream (speechEventInit 0x00521a40: soundstreamquery(4, ...),
+//      three speech buffers, one music buffer; speechQueueUpdate 0x00521eb0 walks 3 queues of 0x238 bytes)
+#define SE_NUM_ACTORS		3
 
-#define SE_NUM_STREAMS      (SE_NUM_ACTORS + 2)
+#define SE_NUM_STREAMS      (SE_NUM_ACTORS + 1)
 
 #define ACTOR_FLEETCOMMAND  0
 
@@ -188,6 +191,7 @@ extern SFXLUT  *R2ShipsLUT;
 extern SFXLUT  *SpecialLUT;
 /* new */
 extern SFXLUT	*GunEventsLUT;
+extern SFXLUT	*GunSpecEventsLUT;     // CAT: GunSpecEvents.lut (SEloadbank 0x005200c0, 0x00a6ae2c)
 extern SFXLUT	*ShipCmnEventsLUT;
 extern SFXLUT	*ShipEventsLUT;
 extern SFXLUT	*SpecEffectEventsLUT;

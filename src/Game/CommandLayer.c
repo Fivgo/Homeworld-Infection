@@ -63,8 +63,8 @@
     families, the cleanup functions with their reason codes, clProcess with orders 11-16, the link flight
     (Dock.c), clSpecial, clHalt*, clRUTransfer, the parade and holding-pattern code, clPostProcess, delegateCommand,
     processAttackToDoInFormation, LaunchAllInternalShipsOfPlayer, and the cat_cl* orders 0x00444060..0x0044e150.
-    Left to other stages (with their CAT-TODOs at the call): the speech and sound ids (M2-R5 sound), the command
-    messages (stage 3), the network packets of the new orders (stage 5).
+    Left to other stages (with their CAT-TODOs at the call): the command messages (stage 3), the network packets of
+    the new orders (stage 5). The speech and sound ids are the exe's (Cataclysm's speech runtime, M2-R5 sound).
 -----------------------------------------------------------------------------*/
 
 /*=============================================================================
@@ -6689,8 +6689,8 @@ void clRUTransfer(CommandLayer *comlayer, sdword toIndex, sdword fromIndex, sdwo
         universe.gameStats.playerStats[to].totalResourceUnits += resourceUnits;
         universe.gameStats.playerStats[to].totalResourceUnitsRecieved += resourceUnits;
 
-        // CAT: the exe's sound and speech ids (clRUTransfer 0x00449a5c; CAT-TODO(M2-R5 sound): the tables that resolve
-        //      sound 0x129 and speech 0x4001045 / 0x4001046 are stage 3's). CAT-TODO(stage 3): the receiver also
+        // CAT: the exe's sound and speech ids (clRUTransfer 0x00449a5c: UI sound 0x129, speech 0x4001045 / 0x4001046;
+        //      Cataclysm's ids, SpeechEvent.h, M2-R5 sound). CAT-TODO(M2-R5 hud): the receiver also
         //      gets a command message (sprintf of the string 0x00bb5044 with the units and the giver's playerNames
         //      entry, clCommandMessage 0x004ac820 colour 0xffff0000)
         if (from == universe.curPlayerIndex)
@@ -6846,8 +6846,7 @@ void clHaltThese(CommandLayer *comlayer,SelectCommand *selectcom)
 
     if ((alreadycommand = IsSelectionAlreadyDoingSomething(comlayer,selectcom)) != NULL)
     {
-        // CAT: the exe's speech ids with the ship type as variable (clHaltThese 0x00449c67). CAT-TODO(M2-R5 sound):
-        //      the speech table that resolves 0x4000802 / 0x4000806 is stage 3's
+        // CAT: the exe's speech ids 0x4000802 / 0x4000806 with the ship type as variable (clHaltThese 0x00449c67)
         if (alreadycommand->ordertype.order == COMMAND_MOVE)
         {
             speechEventQueue(selectcom->ShipPtr[0], 0x4000802, selectcom->ShipPtr[0]->shiptype, -1, -1, -1, -1, 0.0f, -1);
@@ -6932,8 +6931,7 @@ void clHalt(CommandLayer *comlayer,SelectCommand *selectcom)
         return;
     }
 
-    // CAT: clHalt 0x00449e80 says so first when the leader was moving or attacking (CAT-TODO(M2-R5 sound): the speech
-    //      table that resolves the ids is stage 3's)
+    // CAT: clHalt 0x00449e80 says so first when the leader was moving or attacking (Cataclysm's speech ids)
     ship = selectcom->ShipPtr[0];
     if (ship->command != NULL)
     {
@@ -7174,13 +7172,16 @@ Resource *cat_clHarvestNearestResource(CommandLayer *comlayer,SelectCommand *sel
             if (catHarvestMessageTime < cat_taskRealTimeElapsed)
             {
                 catHarvestMessageTime = cat_taskRealTimeElapsed + 10.0f;
-                // CAT-TODO(M2-R5 hud / sound): clCommandMessage(the "no resources" string 0x00bb4de0, 0xff0000ff) and
-                //      speechEventQueue(NULL, 0x2001043, 0, -1, 0, playerIndex, -1, 5.0, -1)
+                // CAT-TODO(M2-R5 hud): clCommandMessage(the "no resources" string 0x00bb4de0, 0xff0000ff)
+                // CAT: the fleet says there is nothing to harvest (cat_clHarvestNearestResource 0x00449790)
+                speechEventQueue(NULL, 0x2001043, 0, -1, 0, ship->playerowner->playerIndex, -1, 5.0f, -1);
             }
         }
         else
         {
-            // CAT-TODO(M2-R5 sound): soundEventPlay(NULL, 0x10A, NULL); speechEventQueue(ship, 0x40008a2, shiptype, ...)
+            // CAT: the order's refusal (cat_clHarvestNearestResource 0x00449790): UI sound 0x10a and the ship's line
+            soundEventPlay(NULL, 0x10a, NULL);
+            speechEventQueue(ship, 0x40008a2, ship->shiptype, -1, -1, -1, -1, 0.0f, -1);
         }
         if (multiPlayerGame || recordPackets || playPackets)
         {
@@ -7194,7 +7195,11 @@ Resource *cat_clHarvestNearestResource(CommandLayer *comlayer,SelectCommand *sel
     }
     if (fromUI && firstOfSelection)
     {
-        // CAT-TODO(M2-R5 sound): soundEventPlay(NULL, 0x109, NULL); speechEventQueue(ship, 0x40008a3, ...); soundEventPlay(ship, 0x400, NULL)
+        // CAT: the order's acknowledgement (cat_clHarvestNearestResource 0x00449790): UI sound 0x109, the ship's line, its
+        //      engine (ShipCmn_Engine)
+        soundEventPlay(NULL, 0x109, NULL);
+        speechEventQueue(ship, 0x40008a3, ship->shiptype, -1, -1, -1, -1, 0.0f, -1);
+        soundEventPlay(ship, ShipCmn_Engine, NULL);
     }
     command = ship->command;
     if ((command != NULL) && (command->selection->numShips == 1) && !multiPlayerGame && !recordPackets && !playPackets)
@@ -7417,7 +7422,7 @@ sdword LaunchAllInternalShipsOfPlayer(struct Player *player, udword carriermask)
 ----------------------------------------------------------------------------*/
 // CAT: clAutoLaunch 0x0044a640 (map: IDENTICAL): every bit that is on after the change launches the ships inside
 //      (not only a bit just switched on); the fleet's line is the exe's speech 0x4001068, in every mission
-//      (CAT-TODO(M2-R5 sound): the speech table that resolves it is stage 3's)
+//      (Cataclysm's speech id, SpeechEvent.h)
 void clAutoLaunch(udword OnOff,udword playerIndex)
 {
     Player *player = &universe.players[playerIndex];
