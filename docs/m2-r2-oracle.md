@@ -366,7 +366,8 @@ Untracked and not for git: `build/oracle-tools/` (scratch helpers `dec.py`, `pe.
   tick; the only differing field is `rng_all` from tick 10451 (presentation-side random streams, expected and
   excluded from GOG-vs-hwi comparison). The game's own sync check against the recording's packets reported
   `rand 0 univ 0` errors and 78 `blob` errors from frame 10499 in BOTH replays identically: the simulation replays
-  in sync with the live session; the blob counter is a known quirk to examine (collision-blob checksum), not a
-  replay defect.
+  in sync with the live session; the `blob` counter is really the stats/cheat checksum (design 2.4), which depends on RNG stream 0, seeded from
+  the wall clock in `ranStartup` (design 2.6): expected to differ between any two processes, same as `rng_all`;
+  not a replay defect.
 - `tools/oracle/record_reference.sh verify` now replays in a plain window and warns when a replay writes no stream.
 - Still needed for the reference: one full 10-minute skirmish recorded through the Record shortcut (now accepted).
