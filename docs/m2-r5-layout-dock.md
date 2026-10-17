@@ -15,7 +15,7 @@ field's offset), `univAddAsteroid` 0x00540a30, `univAddMissile` 0x00540c70, `uni
 `LoadSpaceObj` 0x00501660 (the per-type allocation sizes), `InitializeNavLights` 0x00542040, `kasfShipsAttributesSet`
 0x004933d0, `collUpdateCollRectangle` 0x00439cb0, `aitrackStabilizeGuidance` 0x004183f0, `cat_dockShipDocksAtShip`
 0x00465860, `cat_dockInitShipDockInfo` 0x00463bb0, plus CET's `spaceobj.h` (40 `ASSERT_OFFSET`s for `Ship`, two for
-`Bullet`) and a grep of every raw `+ 0xNNN)` user of the slots whose meaning was unknown.
+`Bullet`) [audit: CET's `spaceobj.h` has 66 active `ASSERT_OFFSET(Ship, ...)` lines (and 3 commented out); the tree holds all of them but three, where the exe contradicts CET: `tractorPosinfo` is at 0x408 (CET 0x400; `univCreateShip` zeroes +0x3F8, +0x400, +0x408..+0x414, +0x404 in HW1's order), CET's `beastSystemType` / `beastUnk` 0x650 / 0x654 lie past the exe's 0x63C allocation, and the float CET names `buildProgress` at 0x170 is `health` (`univCreateShip` stores `maxhealth` there)] and a grep of every raw `+ 0xNNN)` user of the slots whose meaning was unknown.
 
 | struct | exe | what changed in the tree (ILP32 asserts in `SpaceObj.h`, run by `tools/m2_layout32.sh`) |
 |---|---|---|
@@ -94,8 +94,8 @@ tweakables and `DockTweaks` (none in the exe's strings; `StatScript.c`), HW1's `
 the `ASF_*` states, `SpecificDockVars`' seven HW1 words (now the exe's five: `dockship`, `catDockDistance`, `dockstate`,
 `catDockPointIndex`, `catDockTime`), `DockInfo`'s busyness and per-point static pointers (now the exe's 0x24 + 4n block:
 `catNumBusyOfType[0x23]`, `thisDockBusy[]`), `ShipStaticInfo`'s two dock callbacks (dormant words `catStaticDormant400/404`
-at the exe's +0x400/+0x404, never set by `InitStatShipInfo`). `Dock.c` went from 5,247 to 3,093 lines (of which 443
-are the self-test) [audit: the report said 2,710 / about 480; `git show 1434b90:src/Game/Dock.c | wc -l` and `wc -l`].
+at the exe's +0x400/+0x404, never set by `InitStatShipInfo`). `Dock.c` went from 5,247 to 3,098 lines (of which 482
+are the self-test block, 2,617..3,098) [audit: the report said 2,710 / about 480; `git show 1434b90:src/Game/Dock.c | wc -l` and `wc -l`] [audit, second pass: the first audit's 3,093 / 443 were off too: `git show f59e2ef:src/Game/Dock.c | wc -l` is 3,098 and the self-test banner starts at line 2,617; 3,105 after this audit's `cat_dockGetDockClass`, refund-comment and CAT-FIX-marker edits].
 
 **Callers converted to purposes** (each with the exe's value at that site): `CommandWrap.c` `clWrapDock` (the exe's body:
 totals refresh for any purpose but 7, speech 0x400106a / 0x4000801 / 0x4000803 by purpose through `speechEventQueue`),
@@ -121,12 +121,11 @@ exe-shaped Ship plus a specifics block is not always a multiple of 8 on LP64; `m
 cookie). `Attributes.h`: `CAT_ATTRIBUTES_DockBaysClosed` 0x400, `CAT_ATTRIBUTES_DockWithEnemies` 0x40000 (names chosen).
 `SpaceObj.h`: `CAT_SHIPFLAG_Launching` BIT0 of the +0x18 word (name chosen).
 
-**CAT-FIXes** (the exe would fault): `cat_dockGetDockClass` returns -1 for a monster/component class launching (the exe's
-switch falls into the purpose-3 code), `cat_dockHasFreeSlotForShip` / `cat_dockFindNearestDockPoint` /
+**CAT-FIXes** (the exe would fault): [audit: removed from this list: `cat_dockGetDockClass` no longer returns -1 for a monster/component class launching; the exe's jump table 0x004641dc sends classes 9, 10 (and above 11) into the purpose-3 code at 0x00463fcf, which returns -1 unless the type flags carry 0x1 / 0x200, without a fault, so the tree now falls through as the exe does] `cat_dockHasFreeSlotForShip` / `cat_dockFindNearestDockPoint` /
 `cat_dockFindLaunchPoint` refuse a -1 class before indexing, `cat_dockCanDockWithBusyHost` tests the point index,
 `cat_dockFlyOutOfCone` reads the point only with a host, `InitializeDockVars` tests the host before the hive reset.
 Medium-confidence readings: the retire refund's float (the decompile shows only its `__ftol`; HW1's
-`TW_RETIRE_MONEYBACK_RATIO x buildCost` is used), the dock state names.
+`TW_RETIRE_MONEYBACK_RATIO x buildCost` is used) [audit: confirmed, no longer medium: the disassembly at 0x0046685e is `fildl 0x238(staticinfo)` / `fmuls 0x00ba1fa8` / `__ftol`, and 0x00ba1fa8 is the variable of the tweak-table entry 0x008ad324 named "TW_RETIRE_MONEYBACK_RATIO"], the dock state names.
 
 **Stand-ins replaced**: the CAT-PROVISIONAL dock stand-ins of `HiveFrigate.c` (purposes 0/1 and the never-issued 2),
 `Slipgate.c`, `Leech.c`, `RepairCorvette.c`, `Tactics.c` and the `CAT-TODO(M2-R4 #3 follow-up, dock purposes)` of
@@ -253,7 +252,7 @@ Every decompile was dumped (`ghidra/exports/cataclysm_gog_r6/decompiled.c`) and 
 findings), plus review notes on the HW1-mapped functions this round edited (`univCreateShip`, `needToWaitForThisShip`,
 `aishipFlyToPointAvoidingObjsFunc`, `FillInCarrierMothershipInfo`, `clCreateShip`, `ApplyDamageToTarget`,
 `collCheckShipShipColl`, `processAttackToDo`, `univDeleteDeadShip`); `m2r5:layout-dock` is in `done_subsystems`. The
-file is written with `tools/delta_map.py`'s `write_compact` (107 lines changed).
+file is written with `tools/delta_map.py`'s `write_compact` (107 lines changed). [audit: the entries were written into `delta_map.json` only, not into `ghidra/delta_map_review.json`, so a `delta_map.py merge` would have put back the other notes of 34 entries (28 of the 97 already had a review note from M2-R1, which the new notes replaced) and a re-classify would drop 72 reviews; `counts` still said 3,065 / 1,278. The audit carried them (with its own: 90 new, 35 updated) into the review file (the 28 old notes kept in front of the new ones), added 19 review entries of its own (7 edited IDENTICAL functions that had none: `aimProcessDock`, `ShipIsRefuelingAtCarrierMother` and `SaveDockInfo` now MODIFIED, `aimProcessResourceVolume`, `kasfShipsDockSupportWith`, `DockCleanup`, `LaunchCleanup`; and the 12 dock bodies it compared), refreshed `counts` (IDENTICAL 3,060, MODIFIED 1,283, REWRITTEN 77, reviewed 1,705; `delta_map.py merge` is now a no-op) and regenerated `docs/m2-r1-function-deltas.md`]
 
 ## Subsystem `final`: builds, runs, what is left
 
@@ -310,5 +309,5 @@ TODOs above (M2-R6); the save of `universe.catSelection1A0` (the exe's `SaveUniv
 that orbits its dock point for minutes before latching (the corvette flight model along the cone, `AIShip.c`, stage 4;
 the dock code matches the exe) and the harvesting Worker's jack animation (`Worker.c`, stage 3 `madAnimationStart`).
 Medium-confidence readings: `catRetreating`'s meaning; the retire refund's float (`TW_RETIRE_MONEYBACK_RATIO x buildCost`
-stands in for the `__ftol` the decompile shows); the dock state names; `catObjReserved88[4]`, `catShipReserved5B0`,
+stands in for the `__ftol` the decompile shows) [audit: confirmed by the disassembly, see `dock`]; the dock state names; `catObjReserved88[4]`, `catShipReserved5B0`,
 `catMissileReserved248[3]`, `catNavLightStatic` have no exe reader found.

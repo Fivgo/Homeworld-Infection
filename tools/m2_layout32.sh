@@ -16,7 +16,7 @@
 #   (docs/m2-r3-ships-a.md); since M2-R4 rest-oracle also Universe.h (Player 0x6530, Universe 0x3D9BC), GameStats.h
 #   (PlayerStats 0x7F8, GameStats 0x47E0), ResearchAPI.h (TechStatics 0x7AB4, PlayerResearchInfo 0x6250) and ConsMgr.h
 #   (shipinprogress 0x30) (docs/m2-r4-rest-oracle.md); since M2-R5 layout-dock also the object layouts of SpaceObj.h
-#   (SpaceObj 0x98 with the attribute dword at +0x38, Ship 0x63C with health at 0x170 and CET's 40 offsets, Missile
+#   (SpaceObj 0x98 with the attribute dword at +0x38, Ship 0x63C with health at 0x170 and CET's Ship offsets [audit: not 40], Missile
 #   0x258, Bullet 0x164, Derelict 0x294, Asteroid 0x1B4; docs/m2-r5-layout-dock.md). Prints the ILP32 sizes on success.
 #   No 32-bit libc is needed: an empty gnu/stubs-32.h shim is created in a temporary directory.
 # Exit status: 0 if every assert holds, 1 otherwise.

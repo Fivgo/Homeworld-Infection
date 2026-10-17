@@ -574,7 +574,7 @@ typedef struct
     bool32 (*CustShipMoveCommand)(struct Ship *ship);                                              /* slot 20, CAT new */
     void (*CustShipAttack) (struct Ship *ship,struct SpaceObjRotImpTarg *target,real32 maxdist);  /* slot 21, CAT moved */
     bool32 (*CustShipDockCommand)(struct Ship *ship, sdword dockType, struct Ship *dockwith);      /* slot 22, CAT new */
-    bool32 (*CustShipLaunchCommand)(struct Ship *ship);                                            /* slot 23, CAT new */
+    bool32 (*CustShipLaunchCommand)(struct Ship *ship, struct Ship *receiverShip);                 /* slot 23, CAT new: clLaunchShip 0x0044a220 passes (ship, receiverShip) [audit: M2-R5 layout-dock] */
     void (*CustShipSlot24)(void);                                                                  /* slots 24-26: no caller found */
     void (*CustShipSlot25)(void);
     void (*CustShipSlot26)(void);
@@ -2525,7 +2525,9 @@ CAT_ASSERT_OFFSET(ShipOrDerelict, catDisableReason, 0x1DC);
 CAT_ASSERT_OFFSET(ShipOrDerelict, catDisabled, 0x210);
 CAT_ASSERT_OFFSET(ShipOrDerelict, salvageNumTagged, 0x214);
 CAT_ASSERT_OFFSET(ShipOrDerelict, navLightInfo, 0x234);
-// the Ship (CET's 40 offsets and the cat* fields' sources)
+// the Ship (CET's Ship offsets, all but three where the exe contradicts CET: tractorPosinfo 0x408 not 0x400, nothing at
+//      0x650 / 0x654 past the 0x63C ship, health not buildProgress at 0x170; and the cat* fields' sources) [audit: M2-R5
+//      layout-dock: was "CET's 40 offsets"; CET has 66]
 CAT_ASSERT_OFFSET(Ship, catSalvagePlayer, 0x238);
 CAT_ASSERT_OFFSET(Ship, shiplink, 0x23C);
 CAT_ASSERT_OFFSET(Ship, enginePosition, 0x288);

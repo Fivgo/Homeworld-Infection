@@ -512,7 +512,7 @@ void mrDockingOrders(char *string, featom *atom)
     if (selSelected.numShips > 0)
     {
         soundEvent(NULL, UI_Click);
-        clWrapDock(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_DOCK_SUPPORT,NULL);
+        clWrapDock(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_DOCK_SUPPORT,NULL);  // CAT-TODO(stage 3 UI): HW1 menu body kept with purpose 0; the exe's mrDockingOrders 0x00567750 is the slipgate order (purpose 10, the gate as host) [audit: M2-R5 layout-dock]
     }
     else
     {
@@ -896,7 +896,7 @@ void mrRetire(char *string, featom *atom)
     if (selSelected.numShips > 0)
     {
         soundEvent(NULL, UI_Click);
-        clWrapDock(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_DOCK_RETIRE,NULL);
+        clWrapDock(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_DOCK_RETIRE,NULL);   // CAT: purpose 7 (mrRetire 0x005653b0) [audit: M2-R5 layout-dock]
     }
 #if MR_VERBOSE_LEVEL >= 1
     dbgMessage("Retire orders");

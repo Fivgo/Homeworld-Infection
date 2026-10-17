@@ -264,12 +264,26 @@
   "note": "aimCreateMoveTeamNoAdd inlined (0x170 alloc, type 6, aimProcessMove) as AIMoves1.c:3126; 10000 is a float constant load; audit sample #16",
   "sample": "audit-R2"
  },
+ "0x00409350": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the dock purpose from the move flags: (flags & 2 stay) ? 1 : 0, +8 when flags & 4 (instant); the host only with flags & 1; no HW1 health-based refuel/repair choice; the wait loop drops ships without a host that are not hidden, or staying ships waiting for a soft launch (0x00409350)",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00409350: the dock-type part is the exe's (ported, AIMoves.c); the rest of the body is a CAT-TODO(stage 4 AI)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
  "0x00409c50": {
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "no HW1 test on the dropped type(s) ResourceController (aiuRescueShipType) (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
   "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
   "sample": "port-R4"
+ },
+ "0x0040ad00": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock audit] the only edit is the dock purpose constant: the exe passes 3 (deposit) at both aiuWrapDock calls (0x0040ad00), the tree CAT_DOCK_DEPOSIT_RESOURCES; body otherwise not re-compared",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x0040b4b0": {
   "class": "IDENTICAL",
@@ -697,6 +711,13 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00414610": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_mimicGetAvoidRadius, cat_salvageGetSalvagerInfo, cat_shipGetSpeedMultiplier, cat_shipIsCloakedFully, sub_53F9F0; drops calls to attackSimple, proximityCanPlayerSeeShip (absent from Cataclysm); adds strings \"\\nWarning: ship %s %s flying with no ...\"; fields +attack, needFix, next, objlink (+3) -HaveMoved, Master, ShipSpecifics, TargetPtr (+44); globals +singlePlayerGame; constants 19, 21 not in body; loops 2 -> 5",
+  "note": "[review: M2-R5 layout-dock] the SPECIAL_2_CatNoAvoidance (specialFlags2 0x40) skip of the exe added (0x00413e40)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x00416b80": {
   "class": "IDENTICAL",
@@ -1481,7 +1502,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "salvagers inside a target's cone do not collide; the exe's clamp test (cat_shipsClampedTogether); ramming frigates act first; no bump damage from a salvager just let go, an attached Leech or between RKO pieces",
-  "note": "M2-R4 combat: ported; the ramming frigate call and the Leech query are M2-R4 #4 (CAT-TODO / provisional FALSE)"
+  "note": "M2-R4 combat: ported; the ramming frigate call and the Leech query are M2-R4 #4 (CAT-TODO / provisional FALSE) | [review: M2-R5 layout-dock] cat_collSentinelFieldExempt 0x0043acc0 called before the distance test as the exe does"
  },
  "0x0043b460": {
   "class": "MODIFIED",
@@ -1620,6 +1641,13 @@
   "note": "same leader/wingman tests (Ghidra mistypes attackvars)",
   "sample": "reread-R2"
  },
+ "0x00441c10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls battleChatterFleetAttempt, cat_fowCanPlayerSeeShip, cat_gunPickMothershipModuleTarget, cat_shipIsCrystal, clWrapHalt; drops calls battleCanChatterAtThisTime, battleChatterAttempt; adds strings \"\\nBad Stuff Going On!!! Ship with no ...\"; calls with a changed parameter count: processMoveToDo 2->4; fields +CustShipClose, collInfo, collMyBlob, mainCommandLayer (+4) -CustShipAttack, CustShipAttackPassive, aistate, aistatecommand (+19); globals +multiPlayerGame; constants 40, 44 not in body",
+  "note": "[review: M2-R5 layout-dock] cat_gunPickMothershipModuleTarget 0x0048b950 on the leader's target in the wingman branch",
+  "sample": "audit-R5-layout-dock-sync"
+ },
  "0x00442680": {
   "class": "MODIFIED",
   "confidence": "medium",
@@ -1631,7 +1659,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "AdvanceSupportFrigate branch: any docking ship whose dockship is this ship makes it wait (HW1 skips ships in ASF_WAITLATCHPOINT/BACKUP/WAIT/REFUEL); enum: kAdvanceSupportFrigate/tAdvanceSupportFrigate (0x3c/0x4a); the Mothership branch tests shipclass == CLASS_Mothership",
-  "note": "launch-ship tests as HW1",
+  "note": "launch-ship tests as HW1 | [review: M2-R5 layout-dock] body is the exe's 0x004435d0 (kAdvanceSupportFrigate / tAdvanceSupportFrigate / CLASS_Mothership)",
   "sample": "reread-R2"
  },
  "0x00444780": {
@@ -1718,12 +1746,26 @@
   "change": "tutorial sMothership skipped; catShipFlags 0x80 with nonzero Ship+0x4E4 not scuttled; mimics unmimic (cat_mimicUnmimic)",
   "note": "M2-R4 command: ported except the 0x80/+0x4E4 case and the unmimic (CAT-TODO M2-R4 #4)"
  },
+ "0x0044a220": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls InitializeDockVars; drops calls to dockInitShipForLaunch, dockPrepareSingleShipForLaunch (absent from Cataclysm); calls with a changed parameter count: RemoveShipsFromDoingStuff 2->3; uses fields HW1 never uses: externalBuild; fields +attributesPad, attributesParam, head, next (+6) -aistate, aistateattack, aistatecommand, attributes (+8)",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x0044a220: as the tree, the CustShipLaunchCommand slot now takes the exe's two arguments (ship, receiverShip) (fixed by the audit; no ship fills the slot yet); RemoveShipsFromDoingStuff's 0xB is a CAT-TODO",
+  "sample": "audit-R5-layout-dock-sync"
+ },
  "0x0044a400": {
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "no HW1 test on the dropped type(s) DDDFrigate (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read: shipsInsideMe tested alone)",
   "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
   "sample": "port-R4"
+ },
+ "0x0044a490": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] unchanged body; its callers pass a 4-slot carrier array (cat_lmShipAutoLaunchOn, CAT-FIX: the exe's 3-slot frame overruns)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x0044a6f0": {
   "class": "IDENTICAL",
@@ -1742,7 +1784,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "carrier-class mothership counts as carrier 1; univCreateShip(..., built 5, creator, 0); game stats by class (twice for types 4/5/38, none for swarmers); no ResearchShip/rmActivateFreeLab",
-  "note": "M2-R4 command: ported except the stats (CAT-TODO M2-R4 #5)"
+  "note": "M2-R4 command: ported except the stats (CAT-TODO M2-R4 #5) | [review: M2-R5 layout-dock] the per-class built counter (PlayerStats+0x2A8; swarmers skipped; sACV/sMCV/bACV twice) ported"
  },
  "0x0044b320": {
   "class": "MODIFIED",
@@ -2092,6 +2134,20 @@
   "change": "skips a ship being built externally (specialFlags2 0x8) instead of a hyperspacing one and passes dmgPlayEffect the health ratio over the damage level's limit",
   "note": "M2-R4 combat: the map's IDENTICAL; ported (Damage.c)"
  },
+ "0x00462a90": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x00462ae0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
  "0x00462cc0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -2112,6 +2168,34 @@
   "change": "micro ships count out as fighters and resource ships as corvettes (the counterpart of dockPutShipInside 0x004652c0); no 'not inside' warning",
   "note": "M2-R4 combat audit: ported (the port had changed only dockPutShipInside)"
  },
+ "0x00463350": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_moduleIterFirst, cat_moduleIterNext, cat_univShipFOWActivate, matMakeRotAboutX, matMakeRotAboutY, matMakeRotAboutZ (+1); fields +m11, m21 -collMyBlob, coordsys, impactablelink, objlink (+6); loops 1 -> 6",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00463350: blobs, lists, unhide, modules, velocity, heading x up, the support-module rotations by the index within the point type as the tree; the tree tests the point index for -1 (the exe does not); cat_univShipFOWActivate is a CAT-TODO(M2-R6 FOW)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x00463c40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_hiveFrigateResetSwarm, madLinkInCloseGunsShip",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00463c40: as the tree; the tree adds a host NULL test before the hive reset (CAT-FIX)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x00464290": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "adds calls cat_dockCanDockWithBusyHost, cat_dockGetDockClass, cat_salvageAttachedIterFirst, cat_shipIsCrystal, cat_shipIsUntargetable; params 3 -> 4 (prototype); globals +singlePlayerGame, singlePlayerGameInfo; constants 19, 22, 25, 26, 40 not in body",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00464290: every test in the exe's order as the tree (dRKO guests, dBeastMothership, statics, class, type, dead, closed bays 0x400, untargetable / disabled, missions 6/7/15 and 0x100000, allies / 0x40000 / slipgate 0x20000000 / crystals, 0x8 being built, latch centre, counts)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x004644c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_hiveFrigateResetSwarm, madLinkInCloseGunsShip; fields -allDockingWithSameShip, allNearShip, attributes, busyingThisShip (+17)",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x004644c0: as the tree (PrepareShipsForCommand before InitShipsForAI)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
  "0x004645e0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -2119,18 +2203,74 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00464610": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "drops calls madLinkInCloseSpecialShip, madLinkInOpenSpecialShip; body 5.0x smaller than predicted; fields -dockInfo, dockpoints, dockstaticpoint, dockvars (+6); constants 26, 41, 67 not in body; loops 2 -> 0",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00464610: as the tree (signed-byte index, busy word, per-type byte count)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
  "0x004652c0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "a ship already inside is not added twice; micro ships count as fighters and resource ships as corvettes; no SalCap target hand-over",
   "note": "M2-R4 combat: ported"
  },
+ "0x00465360": {
+  "class": "REWRITTEN",
+  "confidence": "medium",
+  "change": "adds calls ShipTypeToStr, madAnimationStart; drops calls madLinkInPostDockingShip, memFree; adds strings \"\\nDOCKING CODE: A %s is clamped to so...\"; body 3.3x smaller than predicted; constants 19, 26, 41, 67 not in body; loops 3 -> 0",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00465360: as the tree; the tree tests madBindings for NULL before the Worker's claw animation (the exe does not)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x00465590": {
+  "class": "REWRITTEN",
+  "confidence": "medium",
+  "change": "drops calls battleLaunchWelcomeExchange, madLinkInPostDockingShip; body 4.5x smaller than predicted; constants 19, 26, 41, 67 not in body; loops 3 -> 0",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00465590: as the tree",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x00465750": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "adds calls ShipTypeToStr; drops calls getShipAndItsCommand; adds strings \"DOCKING: Ship %08x (%s) has no ship t...\"; calls with a changed parameter count: ThisShipCanDockWith 3->4; body 9.8x smaller than predicted; fields -Master, ShipSpecifics, busy_docking, busyness (+32); constants 24, 25, 53 not in body; float constants 1e+21 not in body",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00465750: as the tree (the exe passes the squared distance to fsqrt as a double)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
  "0x00466950": {
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "dock loop keeps HW1's shape (FindNearestShipToDockAt, dock vars, ShipDocksAtShip) but adds Hive-frigate swarm reset, madLinkInCloseGunsShip for two ship types, cat_dockShipDocksAtShip/cat_dockFinishedDocking; HW1's formation/protect regrouping after docking is gone",
-  "note": "heavy change; not a rewrite of the skeleton",
+  "note": "heavy change; not a rewrite of the skeleton [review: M2-R5 layout-dock audit] compared with 0x00466950: as the tree",
   "sample": "REWRITTEN/medium"
+ },
+ "0x00466b00": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "adds calls cat_dockShipDocksAtShip, cat_moduleShipEject; drops calls RemoveShipFromLaunching; globals -singlePlayerGame, singlePlayerGameInfo, universe",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00466b00: the ore-can armour ejection for module types 0x13/0x15/0x16/0x17 (7 s, 10 s), cat_dockShipDocksAtShip purpose 2, the inlined RemoveShipFromLaunching: as the tree",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x00466c70": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "adds calls cat_hiveFrigateResetSwarm, madLinkInCloseGunsShip; drops calls MakeShipsNonCapital, MakeShipsOnlyFollowConstraints, getShipAndItsCommand; drops calls to DDDFrigateMakeReadyForHyperspace, removeShipsFromDockingWithThisShip, salCapExtraSpecialOrderCleanUp (absent from Cataclysm); drops strings \"\\nSLAVE_TRADE: Deleteing Master\"; \"\\nSLAVE_TRADE: Removing Slave\"; calls with a changed parameter count: RemoveShipsFromDoingStuff 2->3; fields +belongto, destination, madGunStatus, objlink (+5) -Master, ShipSpecifics, allDockingWithSameShip, allNearShip (+27); globals -universe; constants 24 not in body",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00466c70: the slot filter, the in-place change unless collecting (order 5), wasHarvesting for purposes 0/3/10, the inlined InitializeDockVars, allDockingWithSameShip, InitShipsForAI before PrepareShipsForCommand: as the tree; RemoveShipsFromDoingStuff's 0x1F is a CAT-TODO",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x00467970": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00467970: RemoveShipFromDocking for each ship, then madLinkInPostDocking(docktodo, 1), as the tree",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x004679b0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x004679b0: the exe inlines RemoveShipFromLaunching for the command's one ship; the tree calls it (same effect)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x00467a60": {
   "class": "MODIFIED",
@@ -2138,6 +2278,13 @@
   "change": "tests dock states 8/9 directly instead of HW1's per-dock-type (ASF / carrier-mothership) test",
   "note": "",
   "sample": "MODIFIED/low"
+ },
+ "0x00467a90": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "TRUE when the host is an sCarrier, bCarrier, tCarrier or kCarrier and the dock state is 8 or 9 (HW1 tested the host's dock callback and CARRIERMOTHERDOCK_REFUEL)",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00467a90: the tree body is the exe's (Dock.c)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x00468fb0": {
   "class": "IDENTICAL",
@@ -2896,14 +3043,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "HW1 fmathSqrtDouble (binary-map name fsqrt); double split into two dwords by Ghidra",
+  "note": "HW1 fmathSqrtDouble (binary-map name fsqrt); double split into two dwords by Ghidra [review: M2-R5 layout-dock] compared with 0x00472860: the exe keeps HW1's table fsqrt (fmathInit 0x004728c0 fills 2 x 8192 mantissa entries at 0x00a2e144); this tree's FastMath.h maps fsqrt to sqrtf (GoK's choice) and has no fmathInit: NOT ported, left as an open question for the user (changes every distance in the simulation; the oracle's reference recording will tell)",
   "sample": "reread-R2"
  },
  "0x004728c0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "fmathInitSqrt inlined",
+  "note": "fmathInitSqrt inlined [review: M2-R5 layout-dock] compared with 0x004728c0: the table builder of the exe's fsqrt; absent from this tree (FastMath.h uses sqrtf); see fsqrt",
   "sample": "reread-R2"
  },
  "0x00472ab0": {
@@ -3022,43 +3169,316 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same arithmetic; ROT_PITCHUP=2, untyped Ship offsets",
+  "note": "same arithmetic; ROT_PITCHUP=2, untyped Ship offsets [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "IDENTICAL/medium"
+ },
+ "0x0047afc0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047b010": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x0047b290": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "gamerand = ranRandomFn(RAN_Game=10)",
+  "note": "gamerand = ranRandomFn(RAN_Game=10) [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
+ },
+ "0x0047b2f0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047b3c0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047b410": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047b6b0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047b710": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047b980": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047bba0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047bdc0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047c000": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047c0a0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047c180": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047c1f0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047c2e0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047c3d0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047c410": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047c500": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047c590": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] compared with 0x0047c590: the exe allocates 0xC bytes and writes a 0x14-byte EndoverInfo (size 0x14) like HW1; the tree now allocates sizeof(EndoverInfo) (CAT-FIX, FlightMan.c); amount_to_rotate and increment as the exe",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047c620": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x0047c720": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "Ghidra drops the unused flags parameter",
+  "note": "Ghidra drops the unused flags parameter [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
+ },
+ "0x0047c750": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x0047c7d0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "Ghidra drops the unused flags parameter",
+  "note": "Ghidra drops the unused flags parameter [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
+ },
+ "0x0047c800": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047c8e0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047c930": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047cc20": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047cc70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047d130": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x0047d4c0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "Ghidra drops the unused flags parameter",
+  "note": "Ghidra drops the unused flags parameter [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
+ },
+ "0x0047d4f0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x0047d890": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "gamerand = ranRandomFn(10)",
+  "note": "gamerand = ranRandomFn(10) [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
+ },
+ "0x0047d8e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047dde0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047de90": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047dee0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047df70": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047e0d0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047e210": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047e330": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047e460": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047e590": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0047e6c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x00480d60": {
   "class": "IDENTICAL",
@@ -3533,6 +3953,13 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00494610": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock audit] the only edit is the purpose: the exe passes 0 (0x00494610), the tree CAT_DOCK_SUPPORT",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x004946a0": {
   "class": "MODIFIED",
@@ -4456,46 +4883,144 @@
   "change": "2 arguments (msg, flags); 25-line scroll ring, cat_ioMessageScroll, soundEventPlay",
   "note": "M2-R4 command: CAT-TODO stage 3 (message scroller)"
  },
+ "0x004acbe0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x004acc40": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
  "0x004accb0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "4x4 loop as HW1",
+  "note": "4x4 loop as HW1 [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
  },
  "0x004acd60": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "hmatrixdot macro expanded",
+  "note": "hmatrixdot macro expanded [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "uniform/IDENTICAL"
+ },
+ "0x004ace50": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x004acee0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x004acf30": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x004acf80": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x004acfd0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x004ad010": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x004ad150": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x004ad1a0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "HW1 inline-asm version (#if 1): the three static pointers are stored, then the x87 loop",
+  "note": "HW1 inline-asm version (#if 1): the three static pointers are stored, then the x87 loop [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
  },
  "0x004ad260": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "HW1 inline asm, same arithmetic",
+  "note": "HW1 inline asm, same arithmetic [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
  },
  "0x004ad2f0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "HW1 inline asm, same arithmetic",
+  "note": "HW1 inline asm, same arithmetic [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
+ },
+ "0x004ad380": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x004ad3b0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x004ad3f0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x004ad430": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x004ad470": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x004ad4b0": {
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "matMultiplyMatByMat inlined (scaled copy then identity*scale multiply)",
+  "note": "matMultiplyMatByMat inlined (scaled copy then identity*scale multiply) [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "REWRITTEN/medium"
  },
  "0x004ad5f0": {
@@ -6485,6 +7010,13 @@
   "note": "SpaceObjRegistryRegisterNoCheck inlined",
   "sample": "reread-R2"
  },
+ "0x004ff900": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "saves the 0x24 + 4n DockInfo block as is (no per-point static pointers to fix up; HW1 saved dockstaticpoint indices)",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x004ff900: the tree saves the plain block of the static's point count (SaveGame.c)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
  "0x004ff9b0": {
   "class": "MODIFIED",
   "confidence": "high",
@@ -7777,22 +8309,43 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "Ghidra drops the sscanf out-arguments; trail colour stride 0x30",
+  "note": "Ghidra drops the sscanf out-arguments; trail colour stride 0x30 [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
  },
  "0x0052b750": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "Ghidra drops the sscanf out-arguments",
+  "note": "Ghidra drops the sscanf out-arguments [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
  },
  "0x0052b7c0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "Ghidra drops the sscanf out-arguments",
+  "note": "Ghidra drops the sscanf out-arguments [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
+ },
+ "0x0052b800": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "swaps teColorSchemes[0] and [1] for whichRaceSelected == R2 only when !singlePlayerGame (HW1 swapped in every game); ported",
+  "note": "[review: M2-R5 layout-dock] compared with 0x0052b800: the swap is guarded by singlePlayerGame == 0; the tree lacked the guard (fixed, Teams.c)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0052b890": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0052ba90": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x0052c550": {
   "class": "IDENTICAL",
@@ -8188,14 +8741,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
  },
  "0x00534880": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
  },
  "0x00535290": {
@@ -8279,8 +8832,15 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "memset of udUndoInfo (16 bytes)",
+  "note": "memset of udUndoInfo (16 bytes) [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
+ },
+ "0x00539c50": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x0053a000": {
   "class": "MODIFIED",
@@ -8742,7 +9302,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "7 arguments, adds the ship to the universe itself, 0x63C-byte ship with gun/mad/precise blocks, droids, damage points, upgrades, dock info, external build, mothership modules, experience, stealth, dissolve, names, FOW, mesh state",
-  "note": "M2-R4 univupdate: only the mesh state and +0x84 are ported (CAT-TODO block lists the rest for M2-R4 #2/#3/#4/#5); HW1 Drone/DefenseFighter/CryoTray cases removed"
+  "note": "M2-R4 univupdate: only the mesh state and +0x84 are ported (CAT-TODO block lists the rest for M2-R4 #2/#3/#4/#5); HW1 Drone/DefenseFighter/CryoTray cases removed | [review: M2-R5 layout-dock] CustShipInit now runs after the mesh-animation bindings as the exe orders it; the extra blocks start 8-aligned (CAT-FIX); kills zeroed + cat_shipUpdateExperienceLevel; catNavLightStatic/catDamageFactor/catMaxVelocity set (M2-R5 layout)"
  },
  "0x00543030": {
   "class": "MODIFIED",
@@ -8832,7 +9392,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "7 arguments: ship-part damage redirect, NIS/KAS-derelict/invulnerable skips, evasive retreat, kill counts and experience; no slave ships",
-  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3 with #5); CAT-TODO in the tree"
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3 with #5); CAT-TODO in the tree | [review: M2-R5 layout-dock] cat_shipUpdateExperienceLevel after the killer's kills-by-class increment"
  },
  "0x00546780": {
   "class": "MODIFIED",
@@ -8923,7 +9483,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "CustShipDied first, factory only for player 0 in single player, external-build death, repair effect, launch manager by class, big-ship death explosions (10 parameters), inline bullet/missile clean-up, smObjectDied always, clamps released, no death sound for -1, grow-selection entries nulled",
-  "note": "M2-R4 univupdate: ported except salvage depot, external build, droids, cat_clampUnclampAllFromShip, the second grow-selection and the speed multiplier (owners in the CAT-TODOs)"
+  "note": "M2-R4 univupdate: ported except salvage depot, external build, droids, cat_clampUnclampAllFromShip, the second grow-selection and the speed multiplier (owners in the CAT-TODOs) | [review: M2-R5 layout-dock] the explosion's speed term uses cat_shipGetSpeedMultiplier x maxvelocity as the exe"
  },
  "0x00548450": {
   "class": "MODIFIED",
@@ -9166,60 +9726,130 @@
   "change": "3 arguments, closes construction/launch/research managers, no game stats file",
   "note": "M2-R4 univupdate: compared, not ported (M2-R4 #5, stage 3)"
  },
+ "0x00550770": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x005507d0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x00550820": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x00550880": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
  "0x005508d0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
+ },
+ "0x00550950": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x005509b0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x00550a10": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x00550a90": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "abs() as sign tests",
+  "note": "abs() as sign tests [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
  },
  "0x00550b10": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
  },
  "0x00550b50": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
  },
  "0x00550b90": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
  },
  "0x00550bd0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
  },
  "0x00550c40": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same [review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
   "sample": "reread-R2"
+ },
+ "0x00550da0": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x00550e70": {
+  "class": "IDENTICAL",
+  "confidence": "medium",
+  "change": "",
+  "note": "[review: M2-R5 layout-dock] body compared with the decompile: identical (constants, states and callees match)",
+  "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x00551140": {
+  "class": "MODIFIED",
+  "confidence": "medium",
+  "change": "the AA box centre is (x0+x1)*0.5, (y0+y1)*0.5, (z0+z1)*0.5 (HW1's source had z0+z0 and /2); ported",
+  "note": "[review: M2-R5 layout-dock] compared with 0x00551140: the exe's z uses z0 + z1 and all three halve with 0.5; the tree had HW1's z0 + z0 and /2 (fixed, Volume.c)",
+  "sample": "audit-R5-layout-dock-sync"
  },
  "0x005511e0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "VOLUME_SPHERE 0 / VOLUME_AA_BOX 1",
+  "note": "VOLUME_SPHERE 0 / VOLUME_AA_BOX 1 [review: M2-R5 layout-dock] compared with 0x005511e0: the exe multiplies the AA box's summed extents by 1/3 (0x0072a520) then 0.5; the tree divided by 3 and 2 (now the exe's form, Volume.c); same values otherwise",
   "sample": "reread-R2"
  },
  "0x00551d10": {

@@ -1,6 +1,6 @@
 # Work cycle and resume point
 
-Last checkpoint: 2026-10-11 19:01
+Last checkpoint: 2026-10-16 23:47
 
 **Read this first when resuming.** It is the single source of truth for where the work stands.
 
@@ -27,7 +27,7 @@ Claude Code records no "approaching limit" signal: across a week of transcripts 
 
 <!-- qwen-status -->
 ```
-    claude limited : False (reset 17:50, seen 15:36)
+    claude limited : False (reset 23:00, seen 00:51)
     gpu gate       : BLOCKED (a game is running)
     model          : qwen3.6:27b ctx=8192
     progress       : 12/0 functions proposed -> /home/evanmedinger/Documents/GameDev/Homeworld-Infection/.claude/worktrees/m2/ghidra/proposals/qwen/naming.jsonl

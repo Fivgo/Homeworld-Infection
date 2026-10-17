@@ -3112,7 +3112,7 @@ sdword aimProcessResourceVolume(AITeam *team)
                     if (100*ship->resources/ship->staticinfo->maxresources > 90)
                     {
                         selone.ShipPtr[0] = ship;
-                        aiuWrapDock(&selone, CAT_DOCK_DEPOSIT_RESOURCES, NULL);
+                        aiuWrapDock(&selone, CAT_DOCK_DEPOSIT_RESOURCES, NULL);    // CAT: purpose 3 (aimProcessResourceVolume 0x0040ad00) [audit: M2-R5 layout-dock]
 //                        aiplayerLog((aiIndex, "Resourcer %i docking", i));
                     }
                     else if (biggestResource)
@@ -3134,7 +3134,7 @@ sdword aimProcessResourceVolume(AITeam *team)
                 if (100*ship->resources/ship->staticinfo->maxresources > 90)
                 {
                     selone.ShipPtr[0] = ship;
-                    aiuWrapDock(&selone, CAT_DOCK_DEPOSIT_RESOURCES, NULL);
+                    aiuWrapDock(&selone, CAT_DOCK_DEPOSIT_RESOURCES, NULL);    // CAT: purpose 3 (0x0040ad00) [audit: M2-R5 layout-dock]
 //                    aiplayerLog((aiIndex, "Resourcer %i docking", i));
                 }
                 bitClear(ship->shipOrDerelict.specialFlags, SPECIAL_Finished_Resource);

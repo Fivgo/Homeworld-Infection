@@ -6800,7 +6800,7 @@ void clLaunchShip(CommandLayer *comlayer,SelectCommand *selectcom,ShipPtr receiv
     //      the launch purpose (2) and the state machine of cat_dockShipDocksAtShip does the rest
     baysClosed = (!ship->staticinfo->externalBuild && (receiverShip->obj.attributes & CAT_ATTRIBUTES_DockBaysClosed));
     if ((ship->staticinfo->custshipheader.CustShipLaunchCommand != NULL) &&
-        !ship->staticinfo->custshipheader.CustShipLaunchCommand(ship))
+        !ship->staticinfo->custshipheader.CustShipLaunchCommand(ship,receiverShip))     // [audit: M2-R5 layout-dock] the exe passes both
     {
         return;
     }

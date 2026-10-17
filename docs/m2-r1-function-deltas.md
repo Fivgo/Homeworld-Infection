@@ -1,4 +1,4 @@
-<!-- done: tool, Game a-f, Game g-m, Game n-s, Game t-z, Ships, other, review, write-up, reread:AIAttackMan-AIHandler, reread:AIMoves, reread:AIOrders-AIVar, reread:Alliance-BTG, reread:Camera-ColPick, reread:CommandLayer-Dock, reread:ETG, reread:fastmath-HS, reread:KAS-KASFunc, reread:Key-MEX, reread:MultiplayerGame-NetCheck, reread:NIS-Options, reread:Particle, reread:Physics-ResearchGUI, reread:SaveGame, reread:ScenPick-SinglePlayer, reread:SoundEvent-StringSupport, reread:Tactical-TradeMgr, reread:Tutor-Universe, reread:UnivUpdate-Ships, reread:bink-Light, reread:main-Queue, reread:render-Titan, reread:TitanInterface-utility, audit-reclass-R2, toolfix-R2, m2r3:closeout-review, m2r3:closeout-audit, m2r3:etg-particles-review, m2r3:etg-particles-audit, m2r3:selection-review, m2r4:univupdate-review, m2r4:univupdate-audit, command, m2r4:command-audit, m2r4:combat-review, m2r4:combat-audit, m2r4:ships-b, port-R4-rest-oracle -->
+<!-- done: tool, Game a-f, Game g-m, Game n-s, Game t-z, Ships, other, review, write-up, reread:AIAttackMan-AIHandler, reread:AIMoves, reread:AIOrders-AIVar, reread:Alliance-BTG, reread:Camera-ColPick, reread:CommandLayer-Dock, reread:ETG, reread:fastmath-HS, reread:KAS-KASFunc, reread:Key-MEX, reread:MultiplayerGame-NetCheck, reread:NIS-Options, reread:Particle, reread:Physics-ResearchGUI, reread:SaveGame, reread:ScenPick-SinglePlayer, reread:SoundEvent-StringSupport, reread:Tactical-TradeMgr, reread:Tutor-Universe, reread:UnivUpdate-Ships, reread:bink-Light, reread:main-Queue, reread:render-Titan, reread:TitanInterface-utility, audit-reclass-R2, toolfix-R2, m2r3:closeout-review, m2r3:closeout-audit, m2r3:etg-particles-review, m2r3:etg-particles-audit, m2r3:selection-review, m2r4:univupdate-review, m2r4:univupdate-audit, command, m2r4:command-audit, m2r4:combat-review, m2r4:combat-audit, m2r4:ships-b, port-R4-rest-oracle, m2r5:layout-dock -->
 # M2-R1 function deltas: Cataclysm vs Homeworld 1
 
 Round M2-R1, item 3 of `cycle/M2_BRIEF.md`. For every function the binary map matched to Homeworld 1 (class `hw1:<File>`, plus CET's `hw1_equivalent` entries, the rule behind the 4,426 HW1 matches of docs/binary-map.md round 5), this compares the decompiled Cataclysm body (`ghidra/exports/cataclysm_gog_r6`, since M2-R4; r5 before) with Relic's original source (gardens-of-kadesh root commit `ad1bb82`) and classifies it IDENTICAL, MODIFIED or REWRITTEN. Per-function data: `ghidra/delta_map.json`. Tool: `tools/delta_map.py`. Hand-review verdicts: `ghidra/delta_map_review.json`.
@@ -7,13 +7,13 @@ Round M2-R1, item 3 of `cycle/M2_BRIEF.md`. For every function the binary map ma
 
 | | functions | share | Cataclysm bytes | share of bytes |
 |---|---:|---:|---:|---:|
-| IDENTICAL | 3,066 | 69.4% | 590,159 | 47.6% |
-| MODIFIED | 1,277 | 28.9% | 638,976 | 51.6% |
+| IDENTICAL | 3,060 | 69.2% | 588,719 | 47.5% |
+| MODIFIED | 1,283 | 29.0% | 640,416 | 51.7% |
 | REWRITTEN | 77 | 1.7% | 9,712 | 0.8% |
 | **classified** | **4,420** | | **1,238,847** | |
 | not classified (no HW1 body found) | 6 | | 4,137 | |
 
-Estimated true split, correcting each automatic (class, confidence) bucket by its hand-review agreement (class-level agreement where a bucket has fewer than 5 reviewed functions); reviewed functions count with their reviewed class: IDENTICAL 2,997 functions / 619,898 bytes (50.0% of bytes), MODIFIED 1,387 / 614,216 (49.6%), REWRITTEN 35 / 4,733 (0.4%).
+Estimated true split, correcting each automatic (class, confidence) bucket by its hand-review agreement (class-level agreement where a bucket has fewer than 5 reviewed functions); reviewed functions count with their reviewed class: IDENTICAL 2,999 functions / 607,247 bytes (49.0% of bytes), MODIFIED 1,373 / 625,211 (50.5%), REWRITTEN 48 / 6,389 (0.5%).
 
 ## Key findings
 
@@ -61,43 +61,43 @@ Totals after M2-R2 (re-read, audit reclassifications, tool fixes), against M2-R1
 
 | class | M2-R1 functions | M2-R2 functions | M2-R1 bytes | M2-R2 bytes | M2-R2 share of bytes |
 |---|---:|---:|---:|---:|---:|
-| IDENTICAL | 3,357 | 3,066 | 658,389 | 590,159 | 47.6% |
-| MODIFIED | 983 | 1,277 | 569,953 | 638,976 | 51.6% |
+| IDENTICAL | 3,357 | 3,060 | 658,389 | 588,719 | 47.5% |
+| MODIFIED | 983 | 1,283 | 569,953 | 640,416 | 51.7% |
 | REWRITTEN | 80 | 77 | 10,505 | 9,712 | 0.8% |
 
-**New IDENTICAL agreement estimate.** 3,066 functions are IDENTICAL now: 1,051 by hand review and 2,015 by the tool alone. Applying each automatic bucket's review agreement to the unread ones, about 1,802 of those 2,015 (89.4%) are expected to be truly identical, so about 2,853 of all 3,066 IDENTICAL functions (93.1%) are, against M2-R1's 80% audit estimate. The unread ones sit in the automatic IDENTICAL/high and /medium buckets, which have only 15 and 44 reviewed functions, so this is a rough figure.
+**New IDENTICAL agreement estimate.** 3,060 functions are IDENTICAL now: 1,125 by hand review and 1,935 by the tool alone. Applying each automatic bucket's review agreement to the unread ones, about 1,764 of those 1,935 (91.2%) are expected to be truly identical, so about 2,889 of all 3,060 IDENTICAL functions (94.4%) are, against M2-R1's 80% audit estimate. The unread ones sit in the automatic IDENTICAL/high and /medium buckets, which have only 28 and 111 reviewed functions, so this is a rough figure.
 
 ## Hand review and calibration
 
-1612 functions were reviewed by hand (both bodies read; for long bodies sometimes only the head, as the review note says). The calibration below uses the 1159 reviews drawn as samples (`--calib-samples calibration`: the M2-R1 buckets, the M2-R2 re-read and the audit reclassifications); the ports' targeted reviews (sample `port-*` or none, 453 functions) are excluded because a port reads the functions it suspects of change. Rows: the tool's current automatic class; columns: the reviewed class.
+1705 functions were reviewed by hand (both bodies read; for long bodies sometimes only the head, as the review note says). The calibration below uses the 1252 reviews drawn as samples (`--calib-samples calibration`: the M2-R1 buckets, the M2-R2 re-read and the audit reclassifications); the ports' targeted reviews (sample `port-*` or none, 453 functions) are excluded because a port reads the functions it suspects of change. Rows: the tool's current automatic class; columns: the reviewed class.
 
 | automatic \ reviewed | IDENTICAL | MODIFIED | REWRITTEN | agreement |
 |---|---:|---:|---:|---:|
-| IDENTICAL | 957 | 73 | 1 | 92.8% |
-| MODIFIED | 15 | 101 | 2 | 85.6% |
-| REWRITTEN | 3 | 5 | 2 | 20.0% |
+| IDENTICAL | 1031 | 79 | 1 | 92.8% |
+| MODIFIED | 15 | 111 | 2 | 86.7% |
+| REWRITTEN | 3 | 5 | 5 | 38.5% |
 
 Per automatic bucket (functions in the bucket, reviewed, reviewed class agreeing):
 
 | automatic class | confidence | functions | bytes | reviewed | agree |
 |---|---|---:|---:|---:|---:|
-| IDENTICAL | high | 380 | 119,105 | 15 | 14 (93.3%) |
-| IDENTICAL | medium | 1,873 | 450,016 | 44 | 39 (88.6%) |
+| IDENTICAL | high | 380 | 119,105 | 28 | 27 (96.4%) |
+| IDENTICAL | medium | 1,873 | 450,016 | 111 | 100 (90.1%) |
 | IDENTICAL | low | 989 | 75,172 | 972 | 904 (93.0%) |
-| MODIFIED | high | 682 | 508,751 | 17 | 14 (82.4%) |
-| MODIFIED | medium | 263 | 65,926 | 23 | 19 (82.6%) |
+| MODIFIED | high | 682 | 508,751 | 23 | 20 (87.0%) |
+| MODIFIED | medium | 263 | 65,926 | 27 | 23 (85.2%) |
 | MODIFIED | low | 152 | 9,066 | 78 | 68 (87.2%) |
-| REWRITTEN | high | 43 | 3,342 | 3 | 1 (33.3%) |
-| REWRITTEN | medium | 36 | 7,172 | 5 | 1 (20.0%) |
+| REWRITTEN | high | 43 | 3,342 | 4 | 2 (50.0%) |
+| REWRITTEN | medium | 36 | 7,172 | 7 | 3 (42.9%) |
 | REWRITTEN | low | 2 | 297 | 2 | 0 (0.0%) |
 
-Confidence per class (after review): IDENTICAL 1,322 high / 1,742 medium / 2 low; MODIFIED 937 high / 278 medium / 62 low; REWRITTEN 48 high / 28 medium / 1 low.
+Confidence per class (after review): IDENTICAL 1,324 high / 1,734 medium / 2 low; MODIFIED 938 high / 283 medium / 62 low; REWRITTEN 48 high / 28 medium / 1 low.
 
 ## Per HW1 source file
 
 Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and GoK-only). Bytes are Cataclysm function sizes. `matched` counts the classified functions only; `unres` = matched functions with no HW1 body, additional to `matched` (BitIO.c: 2 classified + 2 unresolved bitio functions). `rev` = hand-reviewed functions in the file.
 
-### Game a-f (1,399 functions, 414,570 bytes, 54.3% of bytes IDENTICAL)
+### Game a-f (1,399 functions, 414,570 bytes, 54.2% of bytes IDENTICAL)
 
 | file | matched | identical | modified | rewritten | bytes identical | bytes modified | bytes rewritten | rev | unres |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -106,11 +106,11 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | AIEvents.c | 15 | 13 | 2 | 0 | 1,203 | 1,162 | 0 | 10 | 0 |
 | AIFleetMan.c | 11 | 5 | 6 | 0 | 1,090 | 4,844 | 0 | 5 | 0 |
 | AIHandler.c | 20 | 15 | 5 | 0 | 1,258 | 3,126 | 0 | 5 | 0 |
-| AIMoves.c | 163 | 155 | 8 | 0 | 22,586 | 5,627 | 0 | 55 | 0 |
+| AIMoves.c | 163 | 154 | 9 | 0 | 22,232 | 5,981 | 0 | 57 | 0 |
 | AIOrders.c | 22 | 3 | 19 | 0 | 233 | 10,761 | 0 | 3 | 0 |
 | AIPlayer.c | 28 | 20 | 8 | 0 | 3,445 | 2,360 | 0 | 8 | 0 |
 | AIResourceMan.c | 13 | 7 | 6 | 0 | 1,377 | 4,201 | 0 | 4 | 0 |
-| AIShip.c | 20 | 15 | 5 | 0 | 4,488 | 6,530 | 0 | 4 | 0 |
+| AIShip.c | 20 | 15 | 5 | 0 | 4,488 | 6,530 | 0 | 5 | 0 |
 | AITeam.c | 44 | 39 | 3 | 2 | 5,450 | 854 | 169 | 11 | 0 |
 | AITrack.c | 19 | 19 | 0 | 0 | 6,816 | 0 | 0 | 5 | 0 |
 | AIUtilities.c | 85 | 63 | 22 | 0 | 15,752 | 8,829 | 0 | 16 | 0 |
@@ -138,23 +138,23 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | Clouds.c | 25 | 21 | 4 | 0 | 6,711 | 7,544 | 0 | 4 | 0 |
 | Collision.c | 25 | 13 | 12 | 0 | 3,578 | 11,578 | 0 | 13 | 0 |
 | ColPick.c | 40 | 38 | 2 | 0 | 10,397 | 653 | 0 | 9 | 0 |
-| CommandLayer.c | 97 | 47 | 49 | 1 | 8,160 | 38,458 | 54 | 29 | 0 |
+| CommandLayer.c | 97 | 47 | 49 | 1 | 8,160 | 38,458 | 54 | 33 | 0 |
 | CommandNetwork.c | 53 | 49 | 4 | 0 | 10,756 | 4,480 | 0 | 13 | 0 |
 | CommandWrap.c | 23 | 12 | 11 | 0 | 1,254 | 2,268 | 0 | 15 | 0 |
 | ConsMgr.c | 50 | 26 | 24 | 0 | 5,216 | 12,187 | 0 | 12 | 0 |
 | Crates.c | 8 | 6 | 2 | 0 | 2,453 | 2,702 | 0 | 2 | 0 |
 | CRC32.c | 2 | 2 | 0 | 0 | 104 | 0 | 0 | 2 | 0 |
 | Damage.c | 7 | 5 | 2 | 0 | 747 | 1,208 | 0 | 4 | 0 |
-| Debug.c | 2 | 2 | 0 | 0 | 183 | 0 | 0 | 0 | 0 |
+| Debug.c | 2 | 2 | 0 | 0 | 183 | 0 | 0 | 2 | 0 |
 | Demo.c | 8 | 6 | 2 | 0 | 1,026 | 599 | 0 | 1 | 0 |
-| Dock.c | 18 | 4 | 11 | 3 | 342 | 4,305 | 492 | 6 | 0 |
+| Dock.c | 18 | 3 | 12 | 3 | 273 | 4,374 | 492 | 18 | 0 |
 | ETG.c | 205 | 111 | 93 | 1 | 16,601 | 16,700 | 64 | 107 | 0 |
 | Eval.c | 6 | 6 | 0 | 0 | 3,298 | 0 | 0 | 1 | 0 |
 | fastmath.c | 2 | 2 | 0 | 0 | 227 | 0 | 0 | 2 | 0 |
 | FEFlow.c | 38 | 34 | 4 | 0 | 9,551 | 1,771 | 0 | 7 | 0 |
 | FEReg.c | 28 | 26 | 2 | 0 | 12,976 | 299 | 0 | 5 | 0 |
 | File.c | 19 | 16 | 3 | 0 | 5,850 | 630 | 0 | 4 | 0 |
-| FlightMan.c | 45 | 45 | 0 | 0 | 13,987 | 0 | 0 | 6 | 0 |
+| FlightMan.c | 45 | 45 | 0 | 0 | 13,987 | 0 | 0 | 45 | 0 |
 | FontReg.c | 6 | 6 | 0 | 0 | 935 | 0 | 0 | 1 | 0 |
 | Formation.c | 33 | 18 | 15 | 0 | 4,105 | 12,524 | 0 | 12 | 0 |
 
@@ -170,7 +170,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | HS.c | 18 | 16 | 1 | 1 | 4,541 | 301 | 39 | 4 | 0 |
 | InfoOverlay.c | 2 | 0 | 1 | 1 | 0 | 431 | 220 | 0 | 0 |
 | KAS.c | 30 | 14 | 13 | 3 | 1,198 | 3,039 | 189 | 6 | 0 |
-| KASFunc.c | 294 | 238 | 35 | 21 | 11,856 | 3,732 | 985 | 133 | 0 |
+| KASFunc.c | 294 | 238 | 35 | 21 | 11,856 | 3,732 | 985 | 134 | 0 |
 | Key.c | 12 | 11 | 1 | 0 | 881 | 39 | 0 | 9 | 0 |
 | KeyBindings.c | 4 | 0 | 4 | 0 | 0 | 573 | 0 | 1 | 0 |
 | LagPrint.c | 4 | 4 | 0 | 0 | 263 | 0 | 0 | 0 | 0 |
@@ -180,7 +180,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | LOD.c | 8 | 7 | 1 | 0 | 898 | 653 | 0 | 2 | 0 |
 | LZSS.c | 1 | 1 | 0 | 0 | 148 | 0 | 0 | 1 | 0 |
 | MadLinkIn.c | 13 | 10 | 3 | 0 | 2,044 | 821 | 0 | 0 | 0 |
-| Matrix.c | 20 | 20 | 0 | 0 | 2,333 | 0 | 0 | 6 | 0 |
+| Matrix.c | 20 | 20 | 0 | 0 | 2,333 | 0 | 0 | 20 | 0 |
 | Memory.c | 14 | 13 | 1 | 0 | 4,040 | 203 | 0 | 6 | 0 |
 | Mesh.c | 33 | 16 | 17 | 0 | 3,690 | 17,139 | 0 | 13 | 0 |
 | MeshAnim.c | 13 | 7 | 6 | 0 | 1,125 | 1,457 | 0 | 7 | 0 |
@@ -189,7 +189,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | MultiplayerLANGame.c | 53 | 43 | 10 | 0 | 8,169 | 4,781 | 0 | 10 | 0 |
 | StubTransform.c | 5 | 4 | 1 | 0 | 880 | 160 | 0 | 4 | 0 |
 
-### Game n-s (1,000 functions, 270,647 bytes, 39.6% of bytes IDENTICAL)
+### Game n-s (1,000 functions, 270,647 bytes, 39.5% of bytes IDENTICAL)
 
 | file | matched | identical | modified | rewritten | bytes identical | bytes modified | bytes rewritten | rev | unres |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -210,7 +210,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | ResCollect.c | 19 | 6 | 12 | 1 | 736 | 4,044 | 109 | 14 | 0 |
 | ResearchAPI.c | 21 | 6 | 15 | 0 | 113 | 5,169 | 0 | 21 | 0 |
 | ResearchGUI.c | 18 | 5 | 12 | 1 | 338 | 7,713 | 11 | 3 | 0 |
-| SaveGame.c | 86 | 63 | 23 | 0 | 8,858 | 15,823 | 0 | 40 | 0 |
+| SaveGame.c | 86 | 62 | 24 | 0 | 8,687 | 15,994 | 0 | 41 | 0 |
 | ScenPick.c | 15 | 9 | 6 | 0 | 1,274 | 3,185 | 0 | 3 | 0 |
 | Scroller.c | 6 | 6 | 0 | 0 | 530 | 0 | 0 | 1 | 0 |
 | Select.c | 29 | 14 | 11 | 4 | 1,364 | 10,476 | 1,631 | 8 | 0 |
@@ -228,7 +228,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | StatScript.c | 42 | 32 | 10 | 0 | 3,472 | 6,165 | 0 | 21 | 0 |
 | StringSupport.c | 5 | 3 | 2 | 0 | 195 | 685 | 0 | 2 | 0 |
 
-### Game t-z (409 functions, 118,515 bytes, 44.5% of bytes IDENTICAL)
+### Game t-z (409 functions, 118,515 bytes, 43.8% of bytes IDENTICAL)
 
 | file | matched | identical | modified | rewritten | bytes identical | bytes modified | bytes rewritten | rev | unres |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -236,20 +236,20 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | Tactics.c | 8 | 3 | 4 | 1 | 640 | 315 | 17 | 8 | 0 |
 | Task.c | 16 | 13 | 3 | 0 | 1,404 | 1,352 | 0 | 5 | 0 |
 | TaskBar.c | 6 | 5 | 1 | 0 | 670 | 679 | 0 | 2 | 0 |
-| Teams.c | 6 | 6 | 0 | 0 | 2,284 | 0 | 0 | 3 | 0 |
+| Teams.c | 6 | 5 | 1 | 0 | 2,142 | 142 | 0 | 6 | 0 |
 | Timer.c | 14 | 5 | 9 | 0 | 274 | 1,912 | 0 | 2 | 0 |
 | TitanNet.c | 35 | 33 | 2 | 0 | 3,170 | 337 | 0 | 15 | 0 |
-| TradeMgr.c | 27 | 25 | 2 | 0 | 3,466 | 1,254 | 0 | 13 | 0 |
+| TradeMgr.c | 27 | 24 | 3 | 0 | 2,916 | 1,804 | 0 | 15 | 0 |
 | Transformer.c | 2 | 1 | 1 | 0 | 71 | 303 | 0 | 0 | 0 |
 | Tutor.c | 63 | 46 | 17 | 0 | 10,290 | 6,371 | 0 | 22 | 0 |
 | Tweak.c | 3 | 3 | 0 | 0 | 205 | 0 | 0 | 2 | 0 |
 | Twiddle.c | 2 | 2 | 0 | 0 | 55 | 0 | 0 | 2 | 0 |
 | UIControls.c | 47 | 43 | 4 | 0 | 15,659 | 1,690 | 0 | 11 | 0 |
-| Undo.c | 2 | 2 | 0 | 0 | 62 | 0 | 0 | 1 | 0 |
+| Undo.c | 2 | 2 | 0 | 0 | 62 | 0 | 0 | 2 | 0 |
 | Universe.c | 56 | 27 | 29 | 0 | 5,923 | 15,192 | 0 | 41 | 0 |
 | UnivUpdate.c | 98 | 44 | 53 | 1 | 5,978 | 33,951 | 386 | 98 | 0 |
-| Vector.c | 14 | 14 | 0 | 0 | 1,246 | 0 | 0 | 7 | 0 |
-| Volume.c | 4 | 4 | 0 | 0 | 1,130 | 0 | 0 | 1 | 0 |
+| Vector.c | 14 | 14 | 0 | 0 | 1,246 | 0 | 0 | 14 | 0 |
+| Volume.c | 4 | 3 | 1 | 0 | 976 | 154 | 0 | 4 | 0 |
 
 ### Ships (137 functions, 27,321 bytes, 30.6% of bytes IDENTICAL)
 
@@ -321,7 +321,7 @@ Grouped as in the round plan (Game a-f, g-m, n-s, t-z, Ships, other = Win32/ and
 | Titan.c | 4 | 3 | 1 | 0 | 256 | 71 | 0 | 2 | 0 |
 | TitanInterface.cpp | 141 | 46 | 84 | 11 | 7,359 | 55,986 | 1,160 | 36 | 3 |
 | Trails.c | 32 | 26 | 6 | 0 | 8,436 | 4,991 | 0 | 7 | 0 |
-| utility.c | 74 | 60 | 14 | 0 | 7,455 | 11,317 | 0 | 10 | 0 |
+| utility.c | 74 | 60 | 14 | 0 | 7,455 | 11,317 | 0 | 11 | 0 |
 
 ## Largest MODIFIED functions
 
@@ -333,7 +333,7 @@ The 60 largest by Cataclysm bytes; `change` is the hand-written line where revie
 | 0x004e0640 | partFillGenericParticles | Particle.c | 6,718 | high |  | adds calls cat_rndLensFlareSourceAdd, memAllocFunction, ranRandomFn; body 2.4x larger than predicted; fields +m11, m21 -additiveBlends, ang, angDelta, angDeltaDist (+81) |
 | 0x004b1d40 | meshSpecObjectRender | Mesh.c | 6,038 | high |  | adds calls cat_meshCurrentMaterialAlt, meshCurrentMaterialDefault, shSpecularColour; params 3 -> 0 (prototype); body 3.8x larger than the file's size ratio predicts, with more branches; fields +x, y, z -iFaceNormal, iMaterial, iV0, iV1 (+12); globals +meshCurrentMaterial; constants 0xb52, 0x1d01 not |
 | 0x0044b950 | clProcess | CommandLayer.c | 5,547 | high |  | adds calls battleChatterFleetAttempt, cat_bigGunProcessFireCommand, cat_mimicCommand, cat_mothershipBigGunActive, cat_processLinkToDo, cat_processResearchToDo (+2); drops calls to ShipWithinDockRange (absent from Cataclysm); calls with a changed parameter count: processMoveToDo 2->4; fields +attribu |
-| 0x00414610 | aishipFlyToPointAvoidingObjsFunc | AIShip.c | 5,298 | high |  | adds calls cat_mimicGetAvoidRadius, cat_salvageGetSalvagerInfo, cat_shipGetSpeedMultiplier, cat_shipIsCloakedFully, sub_53F9F0; drops calls to attackSimple, proximityCanPlayerSeeShip (absent from Cataclysm); adds strings "\nWarning: ship %s %s flying with no ..."; fields +attack, needFix, next, objl |
+| 0x00414610 | aishipFlyToPointAvoidingObjsFunc | AIShip.c | 5,298 | high | yes | adds calls cat_mimicGetAvoidRadius, cat_salvageGetSalvagerInfo, cat_shipGetSpeedMultiplier, cat_shipIsCloakedFully, sub_53F9F0; drops calls to attackSimple, proximityCanPlayerSeeShip (absent from Cataclysm); adds strings "\nWarning: ship %s %s flying with no ..."; fields +attack, needFix, next, objl |
 | 0x005905b0 | TitanInterface_PeerHandleChallenge | TitanInterface.cpp | 4,942 | medium |  | adds calls DirHandleGetHWDirectory, DirHandleGetTitanServers, DirStartPeerLogin, RequestDirectory, cat_TitanInterface_ContestStartPeerLogin, cat_TitanInterface_ProfileStartPeerLogin (+2); drops calls DirFailOver; adds strings "NOTE: TitanInterface::RequestDirector..."; "TitanInterface::ContestFailOv |
 | 0x005197d0 | singlePlayerGameUpdate | SinglePlayer.c | 4,883 | high |  | adds calls AddShipToHyperspace, GroupShipIntoMilitaryParade, PutShipOutsideAt, RemoveShipsFromDoingStuff, aitrackForceSteadyShip, cat_kasHashString (+27); drops calls aivarDestroy, aivarFind, aivarValueGet, soundEventPlay, soundEventPlayMusic; drops calls to aivarFindAnyFSM (absent from Cataclysm);  |
 | 0x005764e0 | rndMainViewRenderFunction | render.c | 4,440 | high |  | adds calls cat_blastRenderAll, cat_lodLevelGetTimed, cat_mcRender, cat_meshHierarchyCount, cat_rndDepthTestEnable, cat_rndFogLayerRender (+18); drops calls RenderNAVLights, cloudKillLightning, cloudRenderAndUpdateLightning, cloudRenderSystem, etgEffectUpdate, hmatMakeHMatFromMat (+13); drops calls t |
@@ -354,7 +354,7 @@ The 60 largest by Cataclysm bytes; `change` is the hand-written line where revie
 | 0x0048aac0 | missileShoot | Gun.c | 2,790 | high | yes | no firing by or at a ship being handed to a salvage depot; the missile's damage type is the gun's current one; damage = ship multiplier x weapon vs armour; mesh state; a second effect parameter by launcher type; no cloak-field decloak |
 | 0x0053d2a0 | universeStaticInit | Universe.c | 2,755 | high | yes | nebulae never closed; 7 mine statics, the Derelict race's always loaded; maxhealthBase and the single-player difficulty health; no Mothership immobile |
 | 0x004cd2b0 | nisStart | NIS.c | 2,733 | high |  | adds calls cat_kasHashString, cat_rndFogLayerOff, cat_rndLensFlareNISSourceAdd; fields +currentPoint, nPoints, timeLastStatus -cam, cameraPath, cameraSplines, camerasInMotion (+29) |
-| 0x00441c10 | processAttackToDo | CommandLayer.c | 2,670 | high |  | adds calls battleChatterFleetAttempt, cat_fowCanPlayerSeeShip, cat_gunPickMothershipModuleTarget, cat_shipIsCrystal, clWrapHalt; drops calls battleCanChatterAtThisTime, battleChatterAttempt; adds strings "\nBad Stuff Going On!!! Ship with no ..."; calls with a changed parameter count: processMoveToD |
+| 0x00441c10 | processAttackToDo | CommandLayer.c | 2,670 | high | yes | adds calls battleChatterFleetAttempt, cat_fowCanPlayerSeeShip, cat_gunPickMothershipModuleTarget, cat_shipIsCrystal, clWrapHalt; drops calls battleCanChatterAtThisTime, battleChatterAttempt; adds strings "\nBad Stuff Going On!!! Ship with no ..."; calls with a changed parameter count: processMoveToD |
 | 0x0054c3f0 | univUpdate | UnivUpdate.c | 2,605 | high | yes | frame step, multiplayer autosave, real-time quit/win, Cataclysm speech ids, no tacticsGlobalUpdate, blasts and bullet-effect recreation after the ship update, inline dead-object loops, KAS save |
 | 0x004e7a70 | piePointSpecDraw | PiePlate.c | 2,501 | high |  | adds calls cat_bigGunMaxRange, cat_smHeightCircleColorGet, cat_vecDistance, vecNormalize; calls with a changed parameter count: piePointModeOnOff 0->2; globals +mouseIsVisible -smUniverseSizeX, smUniverseSizeY; constants 0xba7 not in body |
 | 0x0057f850 | isoundmixerprocess | smixer.c | 2,494 | high |  | drops calls to fqAcModel, fqAddBreakE, fqAddNoiseE, fqAddToneE (+3) (absent from Cataclysm); library calls -memset, printf; loops 2 -> 15 |
@@ -403,14 +403,14 @@ The 60 largest by Cataclysm bytes; `change` is the hand-written line where revie
 | 0x005082c0 | selStatusDraw2 | Select.c | 446 | medium |  | adds calls cat_salvageGetSalvagerInfo, cat_selStatusBarsDraw, cat_selStatusRectCompute; drops calls fontHeight, fontMakeCurrent, fontPrint, fontPrintf, fontWidth, primRectSolid2; body 2.8x smaller than predicted; constan |
 | 0x0058dd30 | TitanInterface_ConnectTo | TitanInterface.cpp | 404 | medium |  | drops calls BuildAddress, ConnectTo; body 2.5x larger than predicted; fields -AddrPart, IP, Port, etherAddr; globals +CONNECT_TIMEOUT; library calls +WONMisc__OpenCmd__OpenCmd, WONMisc__RecvPrefCmd__RecvPrefCmd, WONMisc_ |
 | 0x00545540 | ApplyDamageToCollidingObjects | UnivUpdate.c | 386 | high | yes | no collision damage except a killer collision (attribute bit 0x200 on exactly one object): both take the smaller health, plus a hit effect (etgGunEventTable[0][16][1]) on the killer |
-| 0x00465360 | RemoveShipFromDocking | Dock.c | 266 | medium |  | adds calls ShipTypeToStr, madAnimationStart; drops calls madLinkInPostDockingShip, memFree; adds strings "\nDOCKING CODE: A %s is clamped to so..."; body 3.3x smaller than predicted; constants 19, 26, 41, 67 not in body; |
+| 0x00465360 | RemoveShipFromDocking | Dock.c | 266 | medium | yes | adds calls ShipTypeToStr, madAnimationStart; drops calls madLinkInPostDockingShip, memFree; adds strings "\nDOCKING CODE: A %s is clamped to so..."; body 3.3x smaller than predicted; constants 19, 26, 41, 67 not in body; |
 | 0x00508480 | selStatusDraw3 | Select.c | 266 | medium |  | adds calls cat_selStatusBarsDraw; drops calls fontHeight, fontMakeCurrent, fontPrint, fontWidth; drops calls to primNonAALine2 (absent from Cataclysm); params 1 -> 0 (prototype); constants 0x7fe0 not in body |
 | 0x004d66f0 | poPopupFleetIntelligence | Objectives.c | 257 | high |  | adds calls cat_kasHashString, cat_kasVarFindOrCreate, feDrawCallbackAddMultiple, feScreenStart, mrDisable, spMainScreen; drops calls aivarCreate; adds strings "G_CLICK_"; "Single_Player_Objective"; body 2.5x larger than  |
 | 0x004ab4b0 | ioStartup | InfoOverlay.c | 220 | medium |  | adds calls cat_ioReset, scriptSet; drops calls fontHeight, fontMakeCurrent, regChildAlloc, regDrawFunctionSet, regFunctionSet, regLinkRemove; adds strings "Arial_b17.hff"; "MainOverlay.script"; "SimplixSSK_13.hff" (+1);  |
 | 0x00594d10 | TitanInterface_SendPing | TitanInterface.cpp | 200 | medium |  | drops calls titanDebug; drops strings "EXCEPTION: TitanInterface::SendPing: %s"; params 2 -> 4 (prototype); fields +AddrPart, IP, Port -Pack, what; library calls +Ordinal, WONMisc__EasySocket__getSockAddrIpx, WONMsg__MMs |
 | 0x0058d700 | TitanInterface_GetPatchArgs_dtor | TitanInterface.cpp | 179 | low | yes | compiler-generated destructor of a patch-arguments object; no HW1 source counterpart |
 | 0x005bba70 | MothershipRemoveShipReferences | Mothership.c | 178 | high | yes | big-gun module loss stops the big gun; launch-manager module slots; Beast weapon and depot |
-| 0x00465590 | RemoveShipFromLaunching | Dock.c | 156 | medium |  | drops calls battleLaunchWelcomeExchange, madLinkInPostDockingShip; body 4.5x smaller than predicted; constants 19, 26, 41, 67 not in body; loops 3 -> 0 |
+| 0x00465590 | RemoveShipFromLaunching | Dock.c | 156 | medium | yes | drops calls battleLaunchWelcomeExchange, madLinkInPostDockingShip; body 4.5x smaller than predicted; constants 19, 26, 41, 67 not in body; loops 3 -> 0 |
 | 0x0058ded0 | TitanInterface_ConnectAndSend | TitanInterface.cpp | 136 | high |  | adds calls ConnectTo, SendMsg, titanDebug; drops calls BuildAddress, ConnectAndSend; adds strings "FAIL: TitanInterface::SendMsg!"; params 4 -> 6 (prototype); fields -AddrPart, IP, Port, etherAddr; library calls +WONMisc |
 | 0x0051bdb0 | singlePlayerStartGame | SinglePlayer.c | 134 | medium |  | adds calls cat_spWarpToLevel; drops calls ccFocusOnPlayersMothership, levelInit, levelStartNext, soundEventPlayMusic; adds strings "nis\\n01.nis"; "nis\\n01.script"; drops strings "\nUnsupported mission #%d"; "CloakDefen |
 | 0x004f1730 | AsteroidTakesDamage | ResCollect.c | 109 | medium | yes | asteroid damage model replaced: a value converted with ftol is stored in an asteroid field and the function returns TRUE when targetWasAlive and resourceVolume <= 0; HW1's RU damage ratio, resourcevalue decrement, health |
@@ -422,7 +422,7 @@ The 60 largest by Cataclysm bytes; `change` is the hand-written line where revie
 | 0x00490aa0 | kasPathPtr | KAS.c | 75 | medium |  | drops calls dbgFatalf; adds strings "\nKAS: unresolved reference to path %u"; constants 47 not in body |
 | 0x00495a50 | kasfShipsSelectNearby | KASFunc.c | 75 | high |  | adds calls cat_kasShipsSelectByPredicate; drops calls aiuFindDistanceSquared, growSelectAddShip; body 3.0x smaller than predicted; fields +maxNumShips -ShipPtr, numShips, posinfo, position (+1) |
 | 0x00417e10 | aitMsgSend | AITeam.c | 73 | medium |  | drops calls memAllocFunction, memFree; body 2.0x smaller than predicted |
-| 0x00464610 | dockReserveDockPoint | Dock.c | 70 | high |  | drops calls madLinkInCloseSpecialShip, madLinkInOpenSpecialShip; body 5.0x smaller than predicted; fields -dockInfo, dockpoints, dockstaticpoint, dockvars (+6); constants 26, 41, 67 not in body; loops 2 -> 0 |
+| 0x00464610 | dockReserveDockPoint | Dock.c | 70 | high | yes | drops calls madLinkInCloseSpecialShip, madLinkInOpenSpecialShip; body 5.0x smaller than predicted; fields -dockInfo, dockpoints, dockstaticpoint, dockvars (+6); constants 26, 41, 67 not in body; loops 2 -> 0 |
 | 0x0058f626 | TitanInterface_AuthHandleLogin_tail | TitanInterface.cpp | 67 | high |  | drops calls ReadLoginKey, mgDisplayMessage, titanDebug; drops strings "EXCEPTION: AuthHandleLogin unable to ..."; "EXCEPTION: TitanInterface::AuthHanleL..."; "EXCEPTION: Unable to build AuthLogin ..." (+8); body 14.9x sm |
 | 0x0046ae90 | etgLoadErrorf | ETG.c | 64 | high |  | drops strings "\n%s (%d): Non-fatal error - %s"; "Non-Fatal Error (cancel to debug)"; params 4 -> 3 (prototype); body 2.4x smaller than predicted; globals -dbgFatalErrorString, dbgInt3Enabled, ghMainWindow; library calls |
 | 0x00491d30 | kasfVarCreateSet | KASFunc.c | 61 | high |  | adds calls cat_kasVarFindOrCreate; drops calls aivarCreate, aivarFind, aivarValueSet; KAS hash keys: the name arrives as a hash (high bit = global scope); kasfScopeName string building gone; body 2.2x smaller than predic |

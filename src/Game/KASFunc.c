@@ -1750,7 +1750,7 @@ void kasfDockSupportWith(struct AITeam * withTeam)
 
 void kasfShipsDockSupportWith(GrowSelection *ships, GrowSelection *withShips)
 {
-    aiuWrapDock(ships->selection, CAT_DOCK_SUPPORT, withShips->selection->ShipPtr[0]);  // purpose 0 (0x00494610)
+    aiuWrapDock(ships->selection, CAT_DOCK_SUPPORT, withShips->selection->ShipPtr[0]);  // CAT: purpose 0 (kasfShipsDockSupportWith 0x00494610)
 }
 
 void kasfDockStay(struct AITeam * withTeam)

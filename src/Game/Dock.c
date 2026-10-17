@@ -1023,10 +1023,13 @@ sdword cat_dockGetDockClass(ShipClass shipclass,ShipType shiptype,bool32 externa
                     }
                     return DPT_Small_Out;
                 default:
-                    // CAT-FIX: the exe's switch has no default and runs on into the purpose-3 code for a monster or
-                    //      component class; no such ship launches (clLaunchShip's slot refuses), so -1 here
-                    return -1;
+                    // CAT: a monster or component class (and any class above CLASS_Micro) runs on into the purpose-3
+                    //      code, as the exe's jump table 0x004641dc does (classes 9 and 10 and the "ja" both go to
+                    //      0x00463fcf): the result is then -1 unless the type flags carry 0x1 / 0x200 [audit: M2-R5
+                    //      layout-dock: this was a CAT-FIX returning -1, but the exe does not fault here]
+                    break;
             }
+            // falls through
 
         case CAT_DOCK_DEPOSIT_RESOURCES:
             if (shiptype == tResourceCollector)
@@ -1833,6 +1836,7 @@ void RemoveShipFromDocking(Ship *ship)
     ship->dockvars.dockship = NULL;
     if ((ship->shiptype == sWorker) || (ship->shiptype == bWorker))
     {
+        // CAT-FIX: the exe reads madBindings->nCurrentAnim without a NULL test [audit: M2-R5 layout-dock: marked]
         if ((ship->madBindings != NULL) && (ship->madBindings->nCurrentAnim == cat_salvageOpenAnimIndex(ship->shiptype)))
         {
             cat_madAnimationStartNumber(ship,cat_salvageCloseAnimIndex(ship->shiptype));   // CAT-TODO(stage 3): the exe passes a third argument, 2
@@ -2117,6 +2121,7 @@ udword cat_dockShipDocksAtShip(Ship *ship,Ship *dockwith,DockType purpose)
             {
                 if ((ship->shiptype == sWorker) || (ship->shiptype == bWorker))
                 {
+                    // CAT-FIX: the exe reads madBindings->nCurrentAnim without a NULL test [audit: M2-R5 layout-dock: marked]
                     if ((ship->madBindings != NULL) && (ship->madBindings->nCurrentAnim != cat_salvageOpenAnimIndex(ship->shiptype)))
                     {
                         cat_madAnimationStartNumber(ship,cat_salvageOpenAnimIndex(ship->shiptype));   // CAT-TODO(stage 3): the exe passes a third argument, 0
@@ -2255,6 +2260,7 @@ udword cat_dockShipDocksAtShip(Ship *ship,Ship *dockwith,DockType purpose)
                 {
                     if ((ship->shiptype == sWorker) || (ship->shiptype == bWorker))
                     {
+                        // CAT-FIX: the exe reads madBindings->nCurrentAnim without a NULL test [audit: M2-R5 layout-dock: marked]
                         if ((ship->madBindings != NULL) && (ship->madBindings->nCurrentAnim != cat_salvageCloseAnimIndex(ship->shiptype)))
                         {
                             cat_madAnimationStartNumber(ship,cat_salvageCloseAnimIndex(ship->shiptype));   // CAT-TODO(stage 3): the exe passes a third argument, 2
@@ -2340,8 +2346,8 @@ void cat_dockFinishedDocking(Ship *ship,Ship *dockwith,struct CommandToDo *comma
     if (command->dock.dockType == CAT_DOCK_RETIRE)
     {
         sdword playerIndex = ship->playerowner->playerIndex;
-        // the refund: the decompile shows the __ftol of a float the exe computed before, as HW1's
-        //      TW_RETIRE_MONEYBACK_RATIO x buildCost (medium confidence), plus the ship's hold
+        // the refund: (sdword)(buildCost x TW_RETIRE_MONEYBACK_RATIO), as HW1, plus the ship's hold (0x0046685e: fild
+        //      buildCost, fmuls 0x00ba1fa8 = the tweakable's variable, __ftol) [audit: M2-R5 layout-dock, confirmed]
         sdword refund = (sdword)(TW_RETIRE_MONEYBACK_RATIO * (real32)ship->staticinfo->buildCost) + ship->resources;
 
         if (cat_shipIsCrystal(ship))
@@ -2493,6 +2499,7 @@ void dockPutShipOutside(Ship *ship,Ship *creator,vector *createat,udword heading
             DockStaticInfo *dockstaticinfo = creator->staticinfo->dockStaticInfo;
             sdword index = ship->dockvars.catDockPointIndex;
 
+            // CAT-FIX: the exe reads the point of catDockPointIndex without testing it for -1 [audit: M2-R5 layout-dock: marked]
             if (index != -1)
             {
                 parity = (sbyte)index - (sbyte)dockstaticinfo->firstOfType[dockstaticinfo->dockstaticpoints[index].type];
