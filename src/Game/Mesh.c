@@ -39,6 +39,11 @@
 #include "Hash.h"
 #include "prim3d.h"
 #include "MeshAnim.h"       // CAT: /catMeshLoadTest also loads the .mad files (port diagnostic)
+#include "Particle.h"       // CAT (M2-R5 render): the edge lightning draws electric bolts
+#include "LOD.h"
+#include "FastMath.h"
+#include "Collision.h"   // CAT (M2-R5 render): cat_collLineTriangleIntersect
+#include "ShipDefs.h"
 
 #ifdef _MSC_VER
 #define strcasecmp _stricmp
@@ -64,6 +69,12 @@ static struct CatVertexState *meshCurrentVertexState = NULL;
 //enableCPV is set, with neither when it is not
 #define meshColourLit(NORMAL, OBJECT, IV) \
     if (enableCPV) { meshColourCPV(NORMAL, OBJECT, IV) } else { meshColour(NORMAL) }
+
+//CAT: the specular renderer lights each vertex with its info entry and state when enableCPV is set, with neither when
+//it is not (meshSpecObjectRender 0x004b1d40, meshSpecColour inlined: shSpecularColour's last two arguments)
+#define meshSpecColourCPV(NORMAL, VERTEXLIST, OBJECT, IV, M, MINV) \
+    meshSpecColour((NORMAL), &(VERTEXLIST)[(IV)], (M), (MINV), enableCPV ? MESH_VERTEX_STATE(IV) : NULL, \
+                   enableCPV ? &(OBJECT)->pVertexInfo[(IV)].colourOffset : NULL)
 
 #define MESH_OBJECT_RENDER(O, M, C)\
     if (g_SpecHack)\
@@ -92,6 +103,12 @@ real32 visibleUV[3][2];
 bool32 g_SpecificPoly = FALSE;
 
 void meshSpecObjectRender(polygonobject *object, materialentry *materials, sdword iColorScheme);
+//CAT (M2-R5 render): the exe's material helpers (below meshCurrentMaterialDefault)
+static void cat_meshMaterialTextureAndShade(materialentry *material, sdword iColorScheme);
+static void cat_meshEMPFlickerAmbient(GLfloat *attribs);
+static void cat_meshMaterialSwitch(materialentry *material, sdword iColorScheme);
+//CAT: the exe tests RGLtype (0x00b3a700); this tree draws with OpenGL (GLtype 3, as render.c)
+#define CAT_MESH_RGLTYPE    3
 
 bool32 gSelfIllum;
 
@@ -182,23 +199,33 @@ void meshShutdown()
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : meshSetFade
-    Description :
-    Inputs      :
-    Outputs     :
+    Name        : meshSetFade (Cataclysm 0x004ae700)
+    Description : CAT: the fade has 8 channels (0x00a4c3d8..0x00a4c3f4), each holding 1 - fade; the mesh alpha
+                  (meshFadeAlpha, 0x00885d30) is their product and bFade (0x00a4c450) is set when it is not 1.0.
+                  Channel users (cat_rndRenderObjectList 0x005776f0, rndFade 0x005753d0): 0 distance fade,
+                  2 crystal, 3 Beast-stun overlay, 4 mimic warp, 5 cloak fade, 6 salvage beam, 7 docking.
+                  HW1 had one fade value.
+    Inputs      : channel - 0..7; fade - 0 = opaque, 1 = gone
+    Outputs     : meshFadeAlpha, bFade
     Return      :
 ----------------------------------------------------------------------------*/
-void meshSetFade(real32 fade)
+//CAT: the exe stores the channel only with the shader (usingShader 0x00885d2c)
+static real32 catMeshFadeChannel[MESH_FADE_CHANNELS] = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+void meshSetFade(sdword channel, real32 fade)
 {
-    meshFadeAlpha = 1.0f - fade;
-    if (meshFadeAlpha == 1.0f)
+    sdword i;
+
+    dbgAssertOrIgnore(channel >= 0 && channel < MESH_FADE_CHANNELS);
+    if (usingShader)
     {
-        bFade = FALSE;
+        catMeshFadeChannel[channel] = 1.0f - fade;
     }
-    else
+    meshFadeAlpha = catMeshFadeChannel[0];
+    for (i = 1; i < MESH_FADE_CHANNELS; i++)
     {
-        bFade = TRUE;
+        meshFadeAlpha *= catMeshFadeChannel[i];
     }
+    bFade = (meshFadeAlpha != 1.0f);
 }
 
 /*-----------------------------------------------------------------------------
@@ -1410,21 +1437,24 @@ void meshCurrentMaterialDefault(materialentry *material, sdword iColorScheme)
 {
     GLfloat attribs[4];
     GLenum face;
-#if MESH_TEAM_COLORS
-    color teamAmbient, teamDiffuse;
-    color teamSpecular;
-#endif
-    if (bitTest(material->flags, MDF_2Sided))
+
+    // CAT: the exe's body (meshCurrentMaterialDefault 0x004af790): fade channel 1 starts clear for every material;
+    //      a dissolving ship and the build-in clip plane draw both faces; the ambient takes the render state's tints
+    //      (a Beast ship red only in single player, an attribute-0x200 asteroid blue only, the Naggarok EMP
+    //      flicker); no specular material; a flat material still gets GL_SMOOTH with the per-vertex colour option
+    //      on (enableCPV 0x00c52378); MESH_TEAM_COLORS is off in the exe
+    meshSetFade(1, 0.0f);
+    if (!bitTest(material->flags, MDF_2Sided) && !catRndDissolve && !(catRndFadeFlag && catRndFadeMode == CAT_RND_FADE_CLIP))
+    {
+        face = GL_FRONT;
+        rndBackFaceCullEnable(TRUE);                        //enable culling
+        if (!usingShader) glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_FALSE);   //1-sided lightmodel
+    }
+    else
     {                                                       //if 2-sided material
         face = GL_FRONT_AND_BACK;
         rndBackFaceCullEnable(FALSE);                       //disable culling
         if (!usingShader) glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);    //2-sided lightmodel
-    }
-    else
-    {
-        face = GL_FRONT_AND_BACK;
-        rndBackFaceCullEnable(TRUE);                        //enable culling
-        if (!usingShader) glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_FALSE);   //1-sided lightmodel
     }
 
     gSelfIllum = FALSE;
@@ -1449,139 +1479,235 @@ void meshCurrentMaterialDefault(materialentry *material, sdword iColorScheme)
         rndTextureEnvironment(RTE_Modulate);
     }
 
-#if MESH_TEAM_COLORS
-    if ((material->flags & (MDF_BaseColor | MDF_StripeColor)) == 0)
-    {                                                       //if not a team color polygon
-#endif
-        attribs[0] = (GLfloat)(colRed(material->ambient)) / 255.0f;
-        attribs[1] = (GLfloat)(colGreen(material->ambient)) / 255.0f;
-        attribs[2] = (GLfloat)(colBlue(material->ambient)) / 255.0f;
-        attribs[3] = 1.0f;
-        if (usingShader)
-        {
-            shSetMaterial(attribs, NULL); //shader
-        }
-        else
-        {
-            glMaterialfv(face, GL_AMBIENT, attribs);
-        }
-
-        attribs[0] = (GLfloat)(colRed(material->diffuse)) / 255.0f;
-        attribs[1] = (GLfloat)(colGreen(material->diffuse)) / 255.0f;
-        attribs[2] = (GLfloat)(colBlue(material->diffuse)) / 255.0f;
-        if (bFade)
-        {
-            attribs[3] = meshFadeAlpha;
-        }
-        else
-        {
-            attribs[3] = 1.0f;
-        }
-        
-        if (usingShader)
-        {
-            shSetMaterial(NULL, attribs); //shader
-        }
-        else
-        {
-            glMaterialfv(face, GL_DIFFUSE, attribs);
-        }
-
-        attribs[0] = (GLfloat)(colRed(material->specular)) / 255.0f;
-        attribs[1] = (GLfloat)(colGreen(material->specular)) / 255.0f;
-        attribs[2] = (GLfloat)(colBlue(material->specular)) / 255.0f;
-        glMaterialfv(face, GL_SPECULAR, attribs);
-#if MESH_TEAM_COLORS
+    if (catRndRaceTint && singlePlayerGame)
+    {
+        attribs[0] = (GLfloat)(colRed(material->ambient)) * (1.0f / 255.0f);
+        attribs[1] = 0.0f;
+        attribs[2] = 0.0f;
+    }
+    else if (catRndAsteroidTint)
+    {
+        attribs[0] = 0.0f;
+        attribs[1] = 0.0f;
+        attribs[2] = (GLfloat)(colBlue(material->ambient)) * (1.0f / 255.0f);
+    }
+    else if (catRndEMPFlicker)
+    {
+        cat_meshEMPFlickerAmbient(attribs);
     }
     else
-    {                                                       //it's a team color
-        if (material->flags & MDF_BaseColor)
-        {                                                   //it's a base color poly
-            teamAmbient  = teColorSchemes[iColorScheme].ambient;
-            teamDiffuse  = teColorSchemes[iColorScheme].diffuse;
-            teamSpecular = teColorSchemes[iColorScheme].specular;
-        }
-        else
-        {                                                   //else it's a stripe color
-            teamAmbient  = teColorSchemes[iColorScheme].stripeAmbient;
-            teamDiffuse  = teColorSchemes[iColorScheme].stripeDiffuse;
-            teamSpecular = teColorSchemes[iColorScheme].stripeSpecular;
-        }
-        attribs[0] = (GLfloat)(colRed(teamAmbient)) / 255.0f;
-        attribs[1] = (GLfloat)(colGreen(teamAmbient)) / 255.0f;
-        attribs[2] = (GLfloat)(colBlue(teamAmbient)) / 255.0f;
-        attribs[3] = 1.0f;
-        glMaterialfv(face, GL_AMBIENT, attribs);
-
-        attribs[0] = (GLfloat)(colRed(teamDiffuse)) / 255.0f;
-        attribs[1] = (GLfloat)(colGreen(teamDiffuse)) / 255.0f;
-        attribs[2] = (GLfloat)(colBlue(teamDiffuse)) / 255.0f;
-        if (bFade)
-        {
-            attribs[3] = meshFadeAlpha;
-        }
-        else
-        {
-            attribs[3] = 1.0f;
-        }
-        glMaterialfv(face, GL_DIFFUSE, attribs);
-
-        attribs[0] = (GLfloat)(colRed(teamSpecular)) / 255.0f;
-        attribs[1] = (GLfloat)(colGreen(teamSpecular)) / 255.0f;
-        attribs[2] = (GLfloat)(colBlue(teamSpecular)) / 255.0f;
-        glMaterialfv(face, GL_SPECULAR, attribs);
+    {
+        attribs[0] = (GLfloat)(colRed(material->ambient)) * (1.0f / 255.0f);
+        attribs[1] = (GLfloat)(colGreen(material->ambient)) * (1.0f / 255.0f);
+        attribs[2] = (GLfloat)(colBlue(material->ambient)) * (1.0f / 255.0f);
     }
-#endif //MESH_TEAM_COLORS
-//    if (material->texture != TR_Invalid && !g_WireframeHack)
+    attribs[3] = 1.0f;
+    if (usingShader)
+    {
+        shSetMaterial(attribs, NULL); //shader
+    }
+    else
+    {
+        glMaterialfv(face, GL_AMBIENT, attribs);
+    }
+
+    attribs[0] = (GLfloat)(colRed(material->diffuse)) * (1.0f / 255.0f);
+    attribs[1] = (GLfloat)(colGreen(material->diffuse)) * (1.0f / 255.0f);
+    attribs[2] = (GLfloat)(colBlue(material->diffuse)) * (1.0f / 255.0f);
+    attribs[3] = bFade ? meshFadeAlpha : 1.0f;
+    if (usingShader)
+    {
+        shSetMaterial(NULL, attribs); //shader
+    }
+    else
+    {
+        glMaterialfv(face, GL_DIFFUSE, attribs);
+    }
+
+    cat_meshMaterialTextureAndShade(material, iColorScheme);
+
+    if (usingShader)
+    {
+        shUpdateLighting(); //shader
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_meshMaterialTextureAndShade
+    Description : CAT: the texture and shade model part of meshCurrentMaterialDefault 0x004af790 and
+                  cat_meshCurrentMaterialAlt 0x004afcb0
+----------------------------------------------------------------------------*/
+static void cat_meshMaterialTextureAndShade(materialentry *material, sdword iColorScheme)
+{
+    bool32 smooth;
+
     if (material->bTexturesRegistered && !g_WireframeHack)
     {                                                       //if a textured polygon
-#if MESH_SURFACE_NAME_DEBUG
-        if (material->pName != NULL && (!strcmp(material->pName, "bot1front")))
-        {
-            gTestTexture = TRUE;
-        }
-        else
-        {
-            gTestTexture = FALSE;
-        }
-#endif
         rndTextureEnable(TRUE);
         trMakeCurrent(((trhandle *)material->texture)[iColorScheme]);
-        if (bitTest(material->flags, MPM_Smooth) && enableSmoothing == TRUE)
-        {
-            meshPolyMode = MPM_SmoothTexture;
-            if (!g_SpecHack)
-            {
-                glShadeModel(GL_SMOOTH);
-            }
-        }
-        else
-        {
-            meshPolyMode = MPM_Texture;
-            glShadeModel(GL_FLAT);
-        }
+        smooth = (bitTest(material->flags, MPM_Smooth) && enableSmoothing == TRUE);
+        meshPolyMode = smooth ? MPM_SmoothTexture : MPM_Texture;
     }
     else
     {
         rndTextureEnable(FALSE);
-        if (bitTest(material->flags, MPM_Smooth) && enableSmoothing == TRUE)
+        smooth = (bitTest(material->flags, MPM_Smooth) && enableSmoothing == TRUE);
+        meshPolyMode = smooth ? MPM_Smooth : MPM_Flat;
+    }
+    if (smooth || enableCPV)
+    {
+        if (!g_SpecHack)
         {
-            meshPolyMode = MPM_Smooth;
-            if (!g_SpecHack)
+            glShadeModel(GL_SMOOTH);
+        }
+    }
+    else
+    {
+        glShadeModel(GL_FLAT);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_meshEMPFlickerAmbient
+    Description : CAT: the Naggarok EMP flicker of meshCurrentMaterialDefault 0x004af790 (0x004af8b2): the red and
+                  green ambient swing between 0.45 and 1.0 with the physics time; each material of the frame steps
+                  a copy by 0.1
+----------------------------------------------------------------------------*/
+static real32 catMeshEMPBase[2] = {0.0f, 0.0f};             // 0x00a4b9b8 / 0x00a4b9bc
+static bool32 catMeshEMPRising = FALSE;                     // 0x00a4b9c4
+static real32 catMeshEMPWork[2] = {0.0f, 0.0f};             // 0x00a4b9c8 / 0x00a4b9cc
+static bool32 catMeshEMPWorkRising = FALSE;                 // 0x00a4b9d4
+static void cat_meshEMPFlickerAmbient(GLfloat *attribs)
+{
+    if (catRndEMPFlicker != 2)
+    {
+        catRndEMPFlicker = 2;
+        if (!catMeshEMPRising)
+        {
+            catMeshEMPBase[0] -= universe.phystimeelapsed;
+            catMeshEMPBase[1] -= universe.phystimeelapsed;
+            if (catMeshEMPBase[0] < 0.45f)                  // 0x0072af50
             {
-                glShadeModel(GL_SMOOTH);
+                catMeshEMPRising = TRUE;
+                catMeshEMPBase[0] = 0.45f;
+                catMeshEMPBase[1] = 0.45f;
             }
         }
         else
         {
-            meshPolyMode = MPM_Flat;
-            glShadeModel(GL_FLAT);
+            catMeshEMPBase[0] += universe.phystimeelapsed;
+            catMeshEMPBase[1] += universe.phystimeelapsed;
+            if (catMeshEMPBase[0] > 1.0f)
+            {
+                catMeshEMPRising = FALSE;
+                catMeshEMPBase[0] = 1.0f;
+                catMeshEMPBase[1] = 1.0f;
+            }
+        }
+        catMeshEMPWork[0] = catMeshEMPBase[0];
+        catMeshEMPWork[1] = catMeshEMPBase[1];
+        catMeshEMPWorkRising = catMeshEMPRising;
+    }
+    if (!catMeshEMPWorkRising)
+    {
+        catMeshEMPWork[0] -= 0.1f;
+        catMeshEMPWork[1] -= 0.1f;
+        if (catMeshEMPWork[0] < 0.45f)
+        {
+            catMeshEMPWorkRising = TRUE;
+            catMeshEMPWork[0] = 0.45f;
+            catMeshEMPWork[1] = 0.45f;
         }
     }
-    
+    else
+    {
+        catMeshEMPWork[0] += 0.1f;
+        catMeshEMPWork[1] += 0.1f;
+        if (catMeshEMPWork[0] > 1.0f)
+        {
+            catMeshEMPWorkRising = FALSE;
+            catMeshEMPWork[0] = 1.0f;
+            catMeshEMPWork[1] = 1.0f;
+        }
+    }
+    attribs[0] = catMeshEMPWork[0];
+    attribs[1] = catMeshEMPWork[1];
+    attribs[2] = 1.0f;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_meshCurrentMaterialAlt (Cataclysm 0x004afcb0)
+    Description : CAT: the material of the build-in fade's flipped pass: both faces, a dark blue ambient, the
+                  material's diffuse; on a non-SW device fade channel 1 at 0.75
+----------------------------------------------------------------------------*/
+void cat_meshCurrentMaterialAlt(materialentry *material, sdword iColorScheme)
+{
+    GLfloat attribs[4];
+
+    if (CAT_MESH_RGLTYPE != 0)
+    {
+        meshSetFade(1, 0.75f);                              // the channel holds 0.25 (0x3e800000)
+    }
+    rndBackFaceCullEnable(FALSE);
+    if (!usingShader) glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+    gSelfIllum = FALSE;
+    if (g_ReplaceHack)
+    {
+        rndTextureEnvironment(RTE_Replace);
+    }
+    else if (bitTest(material->flags, MDF_SelfIllum) && !bFade)
+    {
+        rndTextureEnvironment(RTE_Replace);
+    }
+    else
+    {
+        rndTextureEnvironment(RTE_Modulate);
+    }
+    attribs[0] = 0.0f;
+    attribs[1] = 0.0f;
+    attribs[2] = 0.75f;
+    attribs[3] = 1.0f;
     if (usingShader)
     {
-        shUpdateLighting(); //shader
+        shSetMaterial(attribs, NULL);
+    }
+    else
+    {
+        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, attribs);
+    }
+    attribs[0] = (GLfloat)(colRed(material->diffuse)) * (1.0f / 255.0f);
+    attribs[1] = (GLfloat)(colGreen(material->diffuse)) * (1.0f / 255.0f);
+    attribs[2] = (GLfloat)(colBlue(material->diffuse)) * (1.0f / 255.0f);
+    attribs[3] = bFade ? meshFadeAlpha : 1.0f;
+    if (usingShader)
+    {
+        shSetMaterial(NULL, attribs);
+    }
+    else
+    {
+        glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, attribs);
+    }
+    cat_meshMaterialTextureAndShade(material, iColorScheme);
+    if (usingShader)
+    {
+        shUpdateLighting();
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_meshMaterialSwitch
+    Description : CAT: the material switch of every mesh object renderer (meshObjectRender 0x004b0170 and its
+                  siblings): the flipped pass of the build-in fade takes cat_meshCurrentMaterialAlt
+----------------------------------------------------------------------------*/
+static void cat_meshMaterialSwitch(materialentry *material, sdword iColorScheme)
+{
+    if (catRndFadeFlag && catRndFadeMode == CAT_RND_FADE_CLIP && catRndFadeFlip)
+    {
+        cat_meshCurrentMaterialAlt(material, iColorScheme);
+    }
+    else
+    {
+        meshCurrentMaterial(material, iColorScheme);
     }
 }
 
@@ -1636,6 +1762,9 @@ void meshCurrentMaterialTex(materialentry *material, sdword iColorScheme)
 ----------------------------------------------------------------------------*/
 void meshAlmostCurrentMaterial(materialentry* material, sdword iColorScheme)
 {
+    // CAT (M2-R5 render): fade channel 1 starts clear for every material, as in meshCurrentMaterialDefault
+    //      (meshAlmostCurrentMaterial 0x004b0020: meshSetFade(1, 0) inlined)
+    meshSetFade(1, 0.0f);
 //    if (material->texture != TR_Invalid)
     if (material->bTexturesRegistered)
     {
@@ -1668,7 +1797,10 @@ void meshAlmostCurrentMaterial(materialentry* material, sdword iColorScheme)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void meshSpecColour(normalentry* normal, vertexentry* vertex, real32* m, real32* minv)
+// CAT: two new arguments (meshSpecColour 0x004b00c0), passed on to shSpecularColour: the vertex's runtime state and
+//      info entry (NULL, NULL: no glow)
+void meshSpecColour(normalentry* normal, vertexentry* vertex, real32* m, real32* minv, real32* vertexState,
+                    udword* vertexInfo)
 {
     vector vert;
     vector norm;
@@ -1684,7 +1816,7 @@ void meshSpecColour(normalentry* normal, vertexentry* vertex, real32* m, real32*
     colour[1] = specColour[1];
     colour[2] = specColour[2];
     colour[3] = specColour[3];
-    shSpecularColour(specIndex, 0, &vert, &norm, colour, m, minv);
+    shSpecularColour(specIndex, 0, &vert, &norm, colour, m, minv, vertexState, vertexInfo);
     glColor4ub(colour[0], colour[1], colour[2], colour[3]);
 }
 
@@ -1696,7 +1828,7 @@ void meshMorphedSpecColour(vector* normal, real32* m, real32* minv)
     colour[1] = specColour[1];
     colour[2] = specColour[2];
     colour[3] = specColour[3];
-    shSpecularColour(specIndex, 0, NULL, normal, colour, m, minv);
+    shSpecularColour(specIndex, 0, NULL, normal, colour, m, minv, NULL, NULL);   // CAT: no glow (meshMorphedObjectRender 0x004b34f0)
     glColor4ub(colour[0], colour[1], colour[2], colour[3]);
 }
 
@@ -1835,7 +1967,7 @@ void meshObjectRender(polygonobject *object, materialentry *materials, sdword iC
         {                                                   //if a new material
             glEnd();                                        //end current polygon run
             currentMaterial = polygon->iMaterial;           //remember current material
-            meshCurrentMaterial(&materials[currentMaterial], iColorScheme);//set new material
+            cat_meshMaterialSwitch(&materials[currentMaterial], iColorScheme);//set new material (CAT: or the fade's alternative)
             if (enableBlend)
             {
                 glEnable(GL_BLEND);
@@ -2123,7 +2255,7 @@ void meshObjectRenderLit(polygonobject *object, materialentry *materials, sdword
         {                                                   //if a new material
             glEnd();                                        //end current polygon run
             currentMaterial = polygon->iMaterial;           //remember current material
-            meshCurrentMaterial(&materials[currentMaterial], iColorScheme);//set new material
+            cat_meshMaterialSwitch(&materials[currentMaterial], iColorScheme);//set new material (CAT: or the fade's alternative)
             if (bFade)
             {
                 glEnable(GL_BLEND);
@@ -2295,7 +2427,7 @@ void meshSpecObjectRender(polygonobject *object, materialentry *materials, sdwor
         {                                                   //if a new material
             glEnd();                                        //end current polygon run
             currentMaterial = polygon->iMaterial;           //remember current material
-            meshCurrentMaterial(&materials[currentMaterial], iColorScheme);//set new material
+            cat_meshMaterialSwitch(&materials[currentMaterial], iColorScheme);//set new material (CAT: or the fade's alternative)
             glBegin(GL_TRIANGLES);                          //start new run
 #if MESH_MATERIAL_STATS
             nMaterialChanges++;                             //record material stats
@@ -2309,13 +2441,13 @@ void meshSpecObjectRender(polygonobject *object, materialentry *materials, sdwor
                 dbgAssertOrIgnore(polygon->iFaceNormal != UWORD_Max);
                 normal = &normalList[polygon->iFaceNormal];
 
-                meshSpecColour(normal, &vertexList[polygon->iV0], modelview, modelviewInv);
+                meshSpecColourCPV(normal, vertexList, object, polygon->iV0, modelview, modelviewInv);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV0]);
 
-                meshSpecColour(normal, &vertexList[polygon->iV1], modelview, modelviewInv);
+                meshSpecColourCPV(normal, vertexList, object, polygon->iV1, modelview, modelviewInv);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV1]);
 
-                meshSpecColour(normal, &vertexList[polygon->iV2], modelview, modelviewInv);
+                meshSpecColourCPV(normal, vertexList, object, polygon->iV2, modelview, modelviewInv);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV2]);
 
 #if RND_POLY_STATS
@@ -2327,15 +2459,15 @@ void meshSpecObjectRender(polygonobject *object, materialentry *materials, sdwor
                 normal = &normalList[polygon->iFaceNormal];
 
                 glTexCoord2f(polygon->s0, polygon->t0);
-                meshSpecColour(normal, &vertexList[polygon->iV0], modelview, modelviewInv);
+                meshSpecColourCPV(normal, vertexList, object, polygon->iV0, modelview, modelviewInv);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV0]);
 
                 glTexCoord2f(polygon->s1, polygon->t1);
-                meshSpecColour(normal, &vertexList[polygon->iV1], modelview, modelviewInv);
+                meshSpecColourCPV(normal, vertexList, object, polygon->iV1, modelview, modelviewInv);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV1]);
 
                 glTexCoord2f(polygon->s2, polygon->t2);
-                meshSpecColour(normal, &vertexList[polygon->iV2], modelview, modelviewInv);
+                meshSpecColourCPV(normal, vertexList, object, polygon->iV2, modelview, modelviewInv);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV2]);
 
 #if RND_POLY_STATS
@@ -2346,17 +2478,17 @@ void meshSpecObjectRender(polygonobject *object, materialentry *materials, sdwor
             case MPM_Smooth:
                 dbgAssertOrIgnore(vertexList[polygon->iV0].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV0].iVertexNormal];
-                meshSpecColour(normal, &vertexList[polygon->iV0], modelview, modelviewInv);
+                meshSpecColourCPV(normal, vertexList, object, polygon->iV0, modelview, modelviewInv);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV0]);
 
                 dbgAssertOrIgnore(vertexList[polygon->iV1].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV1].iVertexNormal];
-                meshSpecColour(normal, &vertexList[polygon->iV1], modelview, modelviewInv);
+                meshSpecColourCPV(normal, vertexList, object, polygon->iV1, modelview, modelviewInv);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV1]);
 
                 dbgAssertOrIgnore(vertexList[polygon->iV2].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV2].iVertexNormal];
-                meshSpecColour(normal, &vertexList[polygon->iV2], modelview, modelviewInv);
+                meshSpecColourCPV(normal, vertexList, object, polygon->iV2, modelview, modelviewInv);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV2]);
 
 #if RND_POLY_STATS
@@ -2368,19 +2500,19 @@ void meshSpecObjectRender(polygonobject *object, materialentry *materials, sdwor
                 dbgAssertOrIgnore(vertexList[polygon->iV0].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV0].iVertexNormal];
                 glTexCoord2f(polygon->s0, polygon->t0);
-                meshSpecColour(normal, &vertexList[polygon->iV0], modelview, modelviewInv);
+                meshSpecColourCPV(normal, vertexList, object, polygon->iV0, modelview, modelviewInv);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV0]);
 
                 dbgAssertOrIgnore(vertexList[polygon->iV1].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV1].iVertexNormal];
                 glTexCoord2f(polygon->s1, polygon->t1);
-                meshSpecColour(normal, &vertexList[polygon->iV1], modelview, modelviewInv);
+                meshSpecColourCPV(normal, vertexList, object, polygon->iV1, modelview, modelviewInv);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV1]);
 
                 dbgAssertOrIgnore(vertexList[polygon->iV2].iVertexNormal != UWORD_Max);
                 normal = &normalList[vertexList[polygon->iV2].iVertexNormal];
                 glTexCoord2f(polygon->s2, polygon->t2);
-                meshSpecColour(normal, &vertexList[polygon->iV2], modelview, modelviewInv);
+                meshSpecColourCPV(normal, vertexList, object, polygon->iV2, modelview, modelviewInv);
                 glVertex3fv((GLfloat*)&vertexList[polygon->iV2]);
 
 #if RND_POLY_STATS
@@ -2507,7 +2639,7 @@ void meshMorphedObjectRender(
         {
             glEnd();
             currentMaterial = polygon->iMaterial;
-            meshCurrentMaterial(&materials[currentMaterial], iColorScheme);
+            cat_meshMaterialSwitch(&materials[currentMaterial], iColorScheme);   // CAT: or the fade's alternative
             glBegin(GL_TRIANGLES);
 #if MESH_MATERIAL_STATS
             nMaterialChanges++;
@@ -3226,6 +3358,115 @@ void cat_meshApplyBulletHit(vector *hit, real32 radiusSquared, Ship *ship,
     }
 }
 
+/*=============================================================================
+    CAT (M2-R5 render): where a line meets a ship's mesh (cat_meshLineIntersect 0x004b5910 with
+    cat_meshObjectLineIntersect 0x004b55c0 / cat_meshObjectLineIntersectR 0x004b5860). The exe keeps its own
+    40-deep CPU matrix stack (0x00a4b9d8, current matrix 0x00a4c400, depth 0x00a4c4d8, multiplied as GL does by
+    cat_meshMatrixStackMult 0x004b5520); the matrices are passed down here instead. Each object's polygons are
+    tested in object space (the line brought in with the inverse rotation), and a hit goes back to world space.
+=============================================================================*/
+//cat_meshObjectLineIntersect 0x004b55c0: the line start..end against each polygon of one object; a nearer hit, or the
+//first one, sets *found, *bestT and *hit
+static void cat_meshObjectLineIntersect(vector *start, vector *end, polygonobject *object, hmatrix *objectToWorld,
+                                        vector *hit, real32 *bestT, sdword *found)
+{
+    matrix rotation;
+    vector delta, localStart, localEnd, localHit;
+    polyentry *poly;
+    real32 t;
+    sdword i;
+
+    rotation.m11 = objectToWorld->m11; rotation.m21 = objectToWorld->m21; rotation.m31 = objectToWorld->m31;
+    rotation.m12 = objectToWorld->m12; rotation.m22 = objectToWorld->m22; rotation.m32 = objectToWorld->m32;
+    rotation.m13 = objectToWorld->m13; rotation.m23 = objectToWorld->m23; rotation.m33 = objectToWorld->m33;
+    delta.x = start->x - objectToWorld->m14;
+    delta.y = start->y - objectToWorld->m24;
+    delta.z = start->z - objectToWorld->m34;
+    matMultiplyVecByMat(&localStart, &delta, &rotation);
+    delta.x = end->x - objectToWorld->m14;
+    delta.y = end->y - objectToWorld->m24;
+    delta.z = end->z - objectToWorld->m34;
+    matMultiplyVecByMat(&localEnd, &delta, &rotation);
+    for (i = 0; i < object->nPolygons; i++)
+    {
+        poly = &object->pPolygonList[i];
+        if (cat_collLineTriangleIntersect(&localStart, &localEnd, (vector *)&object->pVertexList[poly->iV0],
+                                          (vector *)&object->pVertexList[poly->iV1],
+                                          (vector *)&object->pVertexList[poly->iV2],
+                                          (vector *)&object->pNormalList[poly->iFaceNormal], &t) &&
+            (t < *bestT || *found == 0))
+        {
+            *found = 1;
+            *bestT = t;
+            localHit.x = (localEnd.x - localStart.x) * t + localStart.x;
+            localHit.y = (localEnd.y - localStart.y) * t + localStart.y;
+            localHit.z = (localEnd.z - localStart.z) * t + localStart.z;
+            matMultiplyMatByVec(hit, &rotation, &localHit);
+            hit->x = objectToWorld->m14 + hit->x;
+            hit->y = objectToWorld->m24 + hit->y;
+            hit->z = objectToWorld->m34 + hit->z;
+        }
+    }
+}
+
+//cat_meshObjectLineIntersectR 0x004b5860: the daughters first, then the object
+static void cat_meshObjectLineIntersectR(vector *start, vector *end, polygonobject *object, hmatrix *parentToWorld,
+                                         vector *hit, real32 *bestT, sdword *found)
+{
+    polygonobject *daughter;
+    hmatrix objectToWorld;
+
+    hmatMultiplyHMatByHMat(&objectToWorld, parentToWorld, &object->localMatrix);
+    for (daughter = object->pDaughter; daughter != NULL; daughter = daughter->pSister)
+    {
+        cat_meshObjectLineIntersectR(start, end, daughter, &objectToWorld, hit, bestT, found);
+    }
+    cat_meshObjectLineIntersect(start, end, object, &objectToWorld, hit, bestT, found);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_meshLineIntersect (Cataclysm 0x004b5910)
+    Description : Where the line start..end (beyond start, not limited to end) meets a ship's mesh at a LOD level
+                  (the last level if past it; p1Outpost always uses level 4, 0x00885d44). The nearest hit of
+                  each top-level object is kept, and a later top-level object's hit replaces an earlier one (the exe
+                  resets the best parameter to 1e21 per top-level object, 0x004b59fa).
+    Inputs      : ship, level, start, end
+    Outputs     : hit - the world point
+    Return      : nonzero if the line meets the mesh
+----------------------------------------------------------------------------*/
+sdword cat_meshLineIntersect(Ship *ship, sdword level, vector *start, vector *end, vector *hit)
+{
+    lodinfo *lodInfo = ship->staticinfo->common.LOD;
+    hmatrix shipToWorld, objectToWorld;
+    polygonobject *object, *daughter;
+    real32 bestT;
+    sdword found = 0;
+
+    if (ship->shiptype == p1Outpost)
+    {
+        level = 4;
+    }
+    if (level >= lodInfo->nLevels)
+    {
+        level = lodInfo->nLevels - 1;
+    }
+    hmatMakeHMatFromMat(&shipToWorld, &ship->rotatable.rotinfo.coordsys);
+    shipToWorld.m14 = ship->obj.posinfo.position.x;
+    shipToWorld.m24 = ship->obj.posinfo.position.y;
+    shipToWorld.m34 = ship->obj.posinfo.position.z;
+    for (object = &((meshdata *)lodInfo->level[level].pData)->object[0]; object != NULL; object = object->pSister)
+    {
+        bestT = 1e21f;
+        hmatMultiplyHMatByHMat(&objectToWorld, &shipToWorld, &object->localMatrix);
+        for (daughter = object->pDaughter; daughter != NULL; daughter = daughter->pSister)
+        {
+            cat_meshObjectLineIntersectR(start, end, daughter, &objectToWorld, hit, &bestT, &found);
+        }
+        cat_meshObjectLineIntersect(start, end, object, &objectToWorld, hit, &bestT, &found);
+    }
+    return found;
+}
+
 /*-----------------------------------------------------------------------------
     Name        : meshBindingListRecurse
     Description : Mesh-hierarchy recursion function to handle the creation of
@@ -3319,7 +3560,7 @@ mhbinding *meshBindingFindByName(mhbinding *startBinding, mhbinding *list, meshd
     {                                                       //search rest of list
         if (list->object->pName != NULL)
         {
-            if (strcmp(list->object->pName, name) == 0)
+            if (strcasecmp(list->object->pName, name) == 0)  // CAT: case-insensitive (meshBindingFindByName 0x004b4900: _stricmp)
             {                                               //if names match
                 return(list);                               //all done
             }
@@ -3574,4 +3815,334 @@ void catMeshRunSelfTest(void)
     fclose(list);
     mainAllowPacking = savedAllowPacking;
     dbgMessagef("meshtest: self-test done, %d files, %d with bad objects", nFiles, nBad);
+}
+
+/*=============================================================================
+    CAT (M2-R5 render): the Beast-stun edge lightning and the mimic's warped disguise
+=============================================================================*/
+#define CAT_MESH_EDGE_POLYS_DIV     10          // 0x00885d3c: a tenth of the polygons carry lightning
+#define CAT_MESH_EDGE_STEP_DIV      48          // 0x00885d40
+
+// one object's edge lightning: a run of polygons (a tenth, at least 2) that walks round the object over time, each
+// polygon's first edge drawn as an electric bolt (the particle renderer's, cat_partRenderUnk1System 0x004de880)
+static void cat_meshObjectRenderEdgeEffect(polygonobject *object)                          // 0x004b4a60
+{
+    Ship *ship = (Ship *)catShCurrentObject;
+    ubyte lod = ship->obj.currentLOD;
+    sdword lastLevel = ship->staticinfo->common.LOD->nLevels - 1;
+    sdword polys, step, quarter, k = 0;
+    udword start, end, i;
+    sdword segments;
+    particle p;
+    vertexentry *a, *b;
+
+    polys = object->nPolygons / CAT_MESH_EDGE_POLYS_DIV;
+    if (polys < 2)
+    {
+        polys = 2;
+    }
+    step = object->nPolygons / CAT_MESH_EDGE_STEP_DIV;
+    if (step == 0)
+    {
+        step = 1;
+    }
+    // CAT: the exe adds the ship's address (0x004b4ae4): a per-ship offset; the address here differs, as it does
+    //      between two runs of the exe
+    start = ((udword)lrint((double)(universe.totaltimeelapsed * 10.0f)) + (udword)(memsize)ship) * (udword)step %
+            (udword)object->nPolygons;
+    end = (udword)(((sdword)start + polys) % object->nPolygons);
+    quarter = polys / 4;
+    alodIncPolys(polys);
+    for (i = start; i != end; )
+    {
+        polyentry *poly = &object->pPolygonList[i];
+        a = &object->pVertexList[poly->iV0];
+        b = &object->pVertexList[poly->iV1];
+        memset(&p, 0, sizeof(p));       // CAT-FIX: the exe leaves the fields it does not set (and flags) as stack garbage
+        p.lifespan = 1.0f;
+        p.position.x = b->x;
+        p.position.y = b->y;
+        p.position.z = b->z;
+        p.wVel.x = a->x - b->x;
+        p.wVel.y = a->y - b->y;
+        p.wVel.z = a->z - b->z;
+        p.length = fsqrt(p.wVel.x * p.wVel.x + p.wVel.y * p.wVel.y + p.wVel.z * p.wVel.z);
+        p.scale = p.scaleY = (lod == 0) ? 2.0f : 1.0f;
+        p.illum = 1.0f;
+        if (quarter < k && k < polys - quarter)
+        {
+            p.icolor[0] = 0.8f;
+            p.icolor[1] = 0.8f;
+            p.icolor[2] = 1.0f;
+            p.turbulance = 0.8f;
+        }
+        else
+        {
+            p.icolor[0] = 0.5f;
+            p.icolor[1] = 0.5f;
+            p.icolor[2] = 0.8f;
+            p.turbulance = 0.4f;
+        }
+        segments = (uword)(((lastLevel - (sdword)lod + 1) * 6) / lastLevel);
+        p.segments = (uword)((segments < 2) ? 2 : segments);
+        cat_partRenderEBoltSystem(1, &p, PART_WORLDSPACE);
+        k++;
+        i++;
+        if ((sdword)i >= object->nPolygons)
+        {
+            i %= (udword)object->nPolygons;
+        }
+    }
+}
+
+static void cat_meshObjectRenderEdgeEffectR(polygonobject *object)                         // 0x004b4dc0
+{
+    polygonobject *child;
+
+    glPushMatrix();
+    glMultMatrixf((GLfloat *)&object->localMatrix);
+    for (child = object->pDaughter; child != NULL; child = child->pSister)
+    {
+        cat_meshObjectRenderEdgeEffectR(child);
+    }
+    cat_meshObjectRenderEdgeEffect(object);
+    glPopMatrix();
+}
+
+static mhlocalbinding *cat_meshObjectRenderEdgeEffectHierarchy(mhlocalbinding *binding, polygonobject *object)  // 0x004b4d60
+{
+    polygonobject *child;
+
+    glPushMatrix();
+    glMultMatrixf((GLfloat *)((binding->function == NULL) ? &object->localMatrix : &binding->matrix));
+    binding++;
+    for (child = object->pDaughter; child != NULL; child = child->pSister)
+    {
+        binding = cat_meshObjectRenderEdgeEffectHierarchy(binding, child);
+    }
+    cat_meshObjectRenderEdgeEffect(object);
+    glPopMatrix();
+    return binding;
+}
+
+void cat_meshRenderEdgeEffect(Ship *ship, meshdata *mesh)                                 // 0x004b4e90
+{
+    polygonobject *object, *child;
+
+    (void)ship;
+    for (object = &mesh->object[0]; object != NULL; object = object->pSister)
+    {
+        glPushMatrix();
+        glMultMatrixf((GLfloat *)&object->localMatrix);
+        for (child = object->pDaughter; child != NULL; child = child->pSister)
+        {
+            cat_meshObjectRenderEdgeEffectR(child);
+        }
+        cat_meshObjectRenderEdgeEffect(object);
+        glPopMatrix();
+    }
+    catRndCounts.edgeEffects++;
+}
+
+void cat_meshRenderShipHierarchyEdgeEffect(Ship *ship, meshdata *mesh)                    // 0x004b4e00
+{
+    mhlocalbinding *binding = ship->bindings->localBinding[ship->obj.currentLOD];
+    polygonobject *object, *child;
+
+    // the stored matrices of the last render (the binding functions are not called again)
+    for (object = &mesh->object[0]; object != NULL; object = object->pSister)
+    {
+        glPushMatrix();
+        glMultMatrixf((GLfloat *)((binding->function == NULL) ? &object->localMatrix : &binding->matrix));
+        binding++;
+        for (child = object->pDaughter; child != NULL; child = child->pSister)
+        {
+            binding = cat_meshObjectRenderEdgeEffectHierarchy(binding, child);
+        }
+        cat_meshObjectRenderEdgeEffect(object);
+        glPopMatrix();
+    }
+    catRndCounts.edgeEffects++;
+}
+
+// a vertex pushed toward the sphere of the given radius about the centre by the fade (cat_meshWarpVertex 0x004b5aa0)
+static void cat_meshWarpVertex(GLfloat *out, vector *centre, vertexentry *v, real32 fade, real32 radius)
+{
+    real32 dx = v->x - centre->x, dy = v->y - centre->y, dz = v->z - centre->z;
+    real64 d = sqrt((real64)(dx * dx + dy * dy + dz * dz));
+
+    if (d != 0.0)
+    {
+        d = ((real64)radius - d) / d;
+        out[0] = (real32)(d * (real64)dx) * fade + v->x;
+        out[1] = (real32)(d * (real64)dy) * fade + v->y;
+        out[2] = (real32)(d * (real64)dz * (real64)fade + (real64)v->z);
+    }
+    else
+    {
+        out[0] = v->x;
+        out[1] = v->y;
+        out[2] = v->z;
+    }
+}
+
+// a normal turned toward the radial direction by the fade (cat_meshWarpNormal 0x004b5b70)
+static void cat_meshWarpNormal(vector *out, vector *centre, normalentry *n, real32 fade)
+{
+    real32 keep = 1.0f - fade;
+    real32 dx = centre->x - n->x, dy = centre->y - n->y, dz = centre->z - n->z;
+    real64 d = sqrt((real64)(dx * dx + dy * dy + dz * dz));
+    real64 len = sqrt((real64)(n->x * n->x + n->y * n->y + n->z * n->z));
+
+    if ((real32)d != 0.0f)
+    {
+        len = len / (real64)(real32)d;
+        out->x = (real32)(len * (real64)dx) * fade + keep * n->x;
+        out->y = (real32)(len * (real64)dy) * fade + keep * n->y;
+        out->z = (real32)(len * (real64)dz * (real64)fade + (real64)keep * (real64)n->z);
+        vecNormalize(out);
+    }
+    else
+    {
+        out->x = n->x;
+        out->y = n->y;
+        out->z = n->z;
+    }
+}
+
+// one object of a mimic's disguise, its vertices pushed onto a sphere (the warp) as it fades in: lit in software
+// (shColourSet0) with the GL lighting off
+void cat_meshObjectRenderWarped(struct CatMeshObjectState *slots, polygonobject *object, materialentry *materials,
+                                vector *centre, real32 fade, real32 radius, sdword iColorScheme)   // 0x004b5c90
+{
+    vertexentry *vertexList = object->pVertexList;
+    normalentry *normalList = object->pNormalList;
+    polyentry *polygon = object->pPolygonList;
+    sdword iPoly, currentMaterial = -1, k;
+    GLfloat v[3][3];
+    vector n;
+    uword iv[3];
+
+    (void)slots;
+    glShadeModel(GL_SMOOTH);
+    rndLightingEnable(FALSE);
+    alodIncPolys(object->nPolygons);
+    glBegin(GL_TRIANGLES);
+    for (iPoly = 0; iPoly < object->nPolygons; iPoly++, polygon++)
+    {
+        if (polygon->iMaterial != currentMaterial)
+        {
+            glEnd();
+            currentMaterial = polygon->iMaterial;
+            cat_meshMaterialSwitch(&materials[currentMaterial], iColorScheme);
+            if (bFade)
+            {
+                glEnable(GL_BLEND);
+            }
+            glBegin(GL_TRIANGLES);
+        }
+        iv[0] = polygon->iV0;
+        iv[1] = polygon->iV1;
+        iv[2] = polygon->iV2;
+        switch (meshPolyMode)
+        {
+            case MPM_Flat:
+            case MPM_Texture:
+                cat_meshWarpNormal(&n, centre, &normalList[polygon->iFaceNormal], fade);
+                shColourSet0(&n, NULL, NULL);
+                for (k = 0; k < 3; k++)
+                {
+                    cat_meshWarpVertex(v[k], centre, &vertexList[iv[k]], fade, radius);
+                }
+                for (k = 0; k < 3; k++)
+                {
+                    if (meshPolyMode == MPM_Texture)
+                    {
+                        glTexCoord2f(k == 0 ? polygon->s0 : (k == 1 ? polygon->s1 : polygon->s2),
+                                     k == 0 ? polygon->t0 : (k == 1 ? polygon->t1 : polygon->t2));
+                    }
+                    glVertex3fv(v[k]);
+                }
+                break;
+            case MPM_Smooth:
+            case MPM_SmoothTexture:
+                for (k = 0; k < 3; k++)
+                {
+                    cat_meshWarpVertex(v[k], centre, &vertexList[iv[k]], fade, radius);
+                }
+                for (k = 0; k < 3; k++)
+                {
+                    cat_meshWarpNormal(&n, centre, &normalList[vertexList[iv[k]].iVertexNormal], fade);
+                    shColourSet0(&n, MESH_VERTEX_STATE(iv[k]), &object->pVertexInfo[iv[k]].colourOffset);
+                    if (meshPolyMode == MPM_SmoothTexture)
+                    {
+                        glTexCoord2f(k == 0 ? polygon->s0 : (k == 1 ? polygon->s1 : polygon->s2),
+                                     k == 0 ? polygon->t0 : (k == 1 ? polygon->t1 : polygon->t2));
+                    }
+                    glVertex3fv(v[k]);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+    glEnd();
+    glShadeModel(GL_SMOOTH);
+    if (!usingShader) glLightModelf(GL_LIGHT_MODEL_TWO_SIDE, GL_FALSE);
+    if (bFade)
+    {
+        glDisable(GL_BLEND);
+    }
+    rndLightingEnable(TRUE);
+    catRndCounts.warped++;
+}
+
+static mhlocalbinding *cat_meshObjectRenderWarpedHierarchy(mhlocalbinding *binding, polygonobject *object,
+                                                           materialentry *materials, vector *centre, real32 fade,
+                                                           real32 radius, sdword iColorScheme)       // 0x004b6330
+{
+    polygonobject *daughter;
+    hmatrix *m;
+
+    glPushMatrix();
+    if (binding->function != NULL)
+    {
+        binding->function(binding->flags, &object->localMatrix, &binding->matrix, binding->userData, binding->userID);
+        m = &binding->matrix;
+    }
+    else
+    {
+        m = &object->localMatrix;
+    }
+    glMultMatrixf((GLfloat *)m);
+    shPushLightMatrix(m);
+    binding++;
+    for (daughter = object->pDaughter; daughter != NULL; daughter = daughter->pSister)
+    {
+        binding = cat_meshObjectRenderWarpedHierarchy(binding, daughter, materials, centre, fade, radius, iColorScheme);
+    }
+    cat_meshObjectRenderWarped(NULL, object, materials, centre, fade, radius, iColorScheme);
+    shPopLightMatrix();
+    glPopMatrix();
+    return binding;
+}
+
+void cat_meshRenderShipHierarchyWarped(struct CatMeshState *meshState, shipbindings *bindings, sdword currentLOD,
+                                       meshdata *mesh, vector *centre, real32 fade, real32 radius,
+                                       sdword iColorScheme)                                     // 0x004b6400
+{
+    mhlocalbinding *binding = bindings->localBinding[currentLOD];
+    polygonobject *object;
+
+    (void)meshState;
+    meshCurrentMaterial = g_NoMatSwitch ? meshAlmostCurrentMaterial : meshCurrentMaterialDefault;
+    for (object = &mesh->object[0]; object != NULL; object = object->pSister)
+    {
+        binding = cat_meshObjectRenderWarpedHierarchy(binding, object, mesh->localMaterial, centre, fade, radius,
+                                                      iColorScheme);
+    }
+    if (bindings->postCallback != NULL)
+    {
+        bindings->postCallback(mesh, bindings, currentLOD);
+    }
 }

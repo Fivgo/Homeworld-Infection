@@ -20,6 +20,10 @@
 #include "texreg.h"
 #include "LOD.h"
 #include "Options.h"
+#include "Mimic.h"
+
+#include <math.h>
+#include <SDL2/SDL.h>
 
 extern meshdata *defaultmesh;          // hack for now.  remove later when defaults no longer needed
 
@@ -86,6 +90,17 @@ scriptStructEntry lodScriptTable[] =
 //scaling factor for the LOD's
 real32 lodScaleFactor = LOD_ScaleFactor;
 
+//CAT: the render-time LOD (see LOD.h)
+udword catLodDetail = 0;                        //0x00a4cc38; cat_opSetAllDefaults 0x004db7b0 sets 0 (high) or 2
+udword catLodTimeThreshold = 10;                //0x0088486c (10 in .data until the options set it)
+real32 catLodTimeScale = 0.0f;                  //0x00a75da4
+//CAT: the exe reads the selection circle radius (+0x158) against these (0x0072a674, 0x0072ab84 .. 0x0072ab78)
+#define CAT_LOD_RADIUS_MAX      0.4f
+#define CAT_LOD_RADIUS_1        0.12f
+#define CAT_LOD_RADIUS_2        0.045f
+#define CAT_LOD_RADIUS_3        0.017f
+#define CAT_LOD_RADIUS_4        0.0065f
+
 //fixed version of above factor for debugging reasons
 #if LOD_SCALE_DEBUG
 real32 lodDebugScaleFactor = 0.0f;
@@ -112,9 +127,14 @@ lodinfo *lodTableReadScript(char *directory, char *fileName)
     {                                                       //initialize the lodmaxinfo structure
         lodMaxInfo.level[index].flags = LT_Invalid;
         lodMaxInfo.level[index].pData = NULL;
+        // CAT: the timing fields start empty (lodTableReadScript 0x004a47e0)
+        memset(lodMaxInfo.level[index].catTime, 0, sizeof(lodMaxInfo.level[index].catTime));
+        lodMaxInfo.level[index].catTimeCount = 0;
+        lodMaxInfo.level[index].catTimeMin = 0;
     }
 
     trBaseColorScalar = trStripeColorScalar = 0.0f;
+    lodMaxInfo.catDistanceLOD = FALSE;                      // CAT: 0x00c36188 = 0 before the script is read
     scriptSetStruct(directory, fileName, lodScriptTable, (ubyte *)&lodMaxInfo);//read the script file
     trBaseColorScalar = trStripeColorScalar = 0.0f;
 
@@ -270,7 +290,11 @@ lod *lodLevelGet(void *spaceObj, vector *camera, vector *ship)
     real32 distance;
     //TODO(type safety, 2026-04-24): Take SpaceObj* instead of void*
     SpaceObj *obj = (SpaceObj *)spaceObj;
-    lodinfo *info = obj->staticinfo->LOD;
+    // CAT: the selection circle radius is read first (the exe's 0x004a4d70 reads +0x158 of any object here) and
+    //      the table is the apparent one of a mimic (cat_mimicGetStaticInfo 0x005b9640)
+    real32 radius = ((SpaceObjRotImpTarg *)obj)->impactable.collInfo.selCircleRadius;
+    lodinfo *info = (obj->header.objtype == OBJ_ShipType) ? cat_mimicGetStaticInfo((Ship *)obj) : obj->staticinfo->LOD;
+    udword level;
 
     dbgAssertOrIgnore(info != NULL);                                //verify the LOD table exists
 
@@ -283,28 +307,68 @@ lod *lodLevelGet(void *spaceObj, vector *camera, vector *ship)
         lodScaleFactor = lodDebugScaleFactor;
     }
 #endif
-    if (distance > info->level[obj->currentLOD].bOff * lodScaleFactor)
-    {                                                       //if drop a level of detail
-        do
+    if (!info->catDistanceLOD)
+    {
+        // CAT: by the size on screen: the selection circle radius against 5 bands, from catLodDetail on
+        if (radius < 0.0f || radius > CAT_LOD_RADIUS_MAX)
         {
-            obj->currentLOD++;                                  //go to lower level
-            if (obj->currentLOD >= info->nLevels)
-            {
-                obj->currentLOD = info->nLevels-1;
-                break;
-            }
+            obj->currentLOD = (ubyte)catLodDetail;
         }
-        while (distance > info->level[obj->currentLOD].bOff * lodScaleFactor);
+        else if (radius > CAT_LOD_RADIUS_1)
+        {
+            obj->currentLOD = (ubyte)(catLodDetail + 1);
+        }
+        else if (radius > CAT_LOD_RADIUS_2)
+        {
+            obj->currentLOD = (ubyte)(catLodDetail + 2);
+        }
+        else if (radius > CAT_LOD_RADIUS_3)
+        {
+            obj->currentLOD = (ubyte)(catLodDetail + 3);
+        }
+        else if (radius > CAT_LOD_RADIUS_4)
+        {
+            obj->currentLOD = (ubyte)(catLodDetail + 4);
+        }
+        else
+        {
+            obj->currentLOD = (ubyte)(catLodDetail + 5);
+        }
+        if ((sdword)obj->currentLOD >= info->nLevels)
+        {
+            obj->currentLOD = (ubyte)(info->nLevels - 1);
+        }
     }
     else
     {
-        while (obj->currentLOD > 0 && distance < info->level[obj->currentLOD - 1].bOn * lodScaleFactor)
-        {                                                   //if go higher level of detail
-            obj->currentLOD--;                              //go to higher level
+        if (distance > info->level[obj->currentLOD].bOff * lodScaleFactor)
+        {                                                       //if drop a level of detail
+            do
+            {
+                obj->currentLOD++;                                  //go to lower level
+                if (obj->currentLOD >= info->nLevels)
+                {
+                    obj->currentLOD = info->nLevels-1;
+                    break;
+                }
+            }
+            while (distance > info->level[obj->currentLOD].bOff * lodScaleFactor);
+        }
+        else
+        {
+            while (obj->currentLOD > 0 && distance < info->level[obj->currentLOD - 1].bOn * lodScaleFactor)
+            {                                                   //if go higher level of detail
+                obj->currentLOD--;                              //go to higher level
+            }
+        }
+        // CAT: never above the detail option's first level
+        if (obj->currentLOD < catLodDetail)
+        {
+            obj->currentLOD = (ubyte)(((udword)info->nLevels <= catLodDetail) ? info->nLevels - 1 : catLodDetail);
         }
     }
 
-    if (opNoLODVal) obj->currentLOD = 0;
+    // CAT: no opNoLODVal override here (the exe's main view tests it before it raises levels for time)
 
     dbgAssertOrIgnore(obj->currentLOD >= 0);
     dbgAssertOrIgnore(obj->currentLOD < info->nLevels);             //verify we are within the available levels of detail
@@ -327,7 +391,126 @@ lod *lodLevelGet(void *spaceObj, vector *camera, vector *ship)
         return(&info->level[min(rndLOD, info->nLevels - 1)]);
     }
 #endif
-    return(&info->level[obj->currentLOD]);                  //return pointer to lod structure
+    level = obj->currentLOD;
+    return(&info->level[level]);                            //return pointer to lod structure
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_lodLevelTime
+    Description : CAT: the tail of lodLevelGet 0x004a4d70 / cat_lodLevelGetTimed 0x004a5000: the level's render
+                  time. Measured (catTimeMin) once 4 renders are timed or once a time is known; otherwise, when
+                  the main view has measured the seconds per polygon (catLodTimeScale), estimated from the
+                  level's polygon count and stored in the unmeasured slots.
+    Inputs      : level - the level
+    Outputs     : level->catTimeMin, level->catTime[catTimeCount..3]
+    Return      : performance-counter ticks (0 while nothing is known)
+----------------------------------------------------------------------------*/
+udword cat_lodLevelTime(lod *level)
+{
+    sdword i;
+
+    if (catLodTimeScale != 0.0f)
+    {
+        if (level->catTimeCount > 3 || level->catTimeMin != 0)
+        {
+            return level->catTimeMin;
+        }
+        // CAT: rounded to the nearest integer (the exe adds 1.5 * 2^52, 0x0072a458)
+        level->catTimeMin = (udword)lrint((double)((real32)cat_lodHierarchyCount(level) *
+                                                   (real32)(sdword)SDL_GetPerformanceFrequency() * catLodTimeScale));
+        for (i = level->catTimeCount; i < 4; i++)
+        {
+            level->catTime[i] = level->catTimeMin;
+        }
+    }
+    return level->catTimeMin;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_lodCurrentLevelGet (Cataclysm 0x004a4af0)
+    Description : The current level of an object, from its apparent LOD table (a mimic's disguise)
+    Inputs      : spaceObj - the object
+    Outputs     :
+    Return      : the level
+----------------------------------------------------------------------------*/
+lod *cat_lodCurrentLevelGet(void *spaceObj)
+{
+    SpaceObj *obj = (SpaceObj *)spaceObj;
+    lodinfo *info = (obj->header.objtype == OBJ_ShipType) ? cat_mimicGetStaticInfo((Ship *)obj) : obj->staticinfo->LOD;
+
+    return &info->level[obj->currentLOD];
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_lodLevelGetTimed (Cataclysm 0x004a5000)
+    Description : One pass of the main view's frame-budget loop: an object at the pass's level (0x0072be84:
+                  99, 3, 2, 1, 0, 3, 2, 1, 3, 2, 3) drops one level (not past the last)
+    Inputs      : spaceObj - the object; pass - 1..10
+    Outputs     : spaceObj->currentLOD
+    Return      : the render time of the object's level (cat_lodLevelTime)
+----------------------------------------------------------------------------*/
+static const ubyte catLodPassLevel[11] = {99, 3, 2, 1, 0, 3, 2, 1, 3, 2, 3};
+udword cat_lodLevelGetTimed(void *spaceObj, sdword pass)
+{
+    SpaceObj *obj = (SpaceObj *)spaceObj;
+    lodinfo *info = (obj->header.objtype == OBJ_ShipType) ? cat_mimicGetStaticInfo((Ship *)obj) : obj->staticinfo->LOD;
+
+    if (catLodPassLevel[pass] == obj->currentLOD)
+    {
+        obj->currentLOD++;
+        if ((sdword)obj->currentLOD >= info->nLevels)
+        {
+            obj->currentLOD = (ubyte)(info->nLevels - 1);
+        }
+    }
+    return cat_lodLevelTime(&info->level[obj->currentLOD]);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_lodTimingStart / cat_lodTimingStop (Cataclysm 0x004a4cf0 / 0x004a4d20)
+    Description : Time one render of a level: the first 4 renders are kept; catTimeMin is their least
+                  (QueryPerformanceCounter's low dword in the exe; SDL's counter here)
+    Inputs      : level - the level being rendered
+    Outputs     : level->catTime[], catTimeCount, catTimeMin
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_lodTimingStart(lod *level)
+{
+    if (level->catTimeCount < 4)
+    {
+        level->catTime[level->catTimeCount] = (udword)SDL_GetPerformanceCounter();
+    }
+}
+
+void cat_lodTimingStop(lod *level)
+{
+    sdword i;
+
+    if (level->catTimeCount < 4)
+    {
+        level->catTime[level->catTimeCount] = (udword)SDL_GetPerformanceCounter() - level->catTime[level->catTimeCount];
+        level->catTimeMin = level->catTime[0];
+        for (i = 1; i < 4; i++)
+        {
+            if (level->catTime[i] < level->catTimeMin)
+            {
+                level->catTimeMin = level->catTime[i];
+            }
+        }
+        level->catTimeCount++;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_lodSetTimeThreshold (Cataclysm 0x004a50e0)
+    Description : The frame render budget: counter frequency / framesPerSecond (opDetailThresholdVal: 10 or 30)
+    Inputs      : framesPerSecond
+    Outputs     : catLodTimeThreshold
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_lodSetTimeThreshold(udword framesPerSecond)
+{
+    catLodTimeThreshold = (udword)(SDL_GetPerformanceFrequency() / (Uint64)framesPerSecond);
 }
 
 /*-----------------------------------------------------------------------------

@@ -37,6 +37,7 @@ extern CustShipHeader NomadFieldEmitterHeader;
 Ship *cat_nomadMoonFind(void);                      // 0x005bdc80
 bool32 cat_nomadMoonCanFire(Ship *moon);            // 0x005bdcb0
 bool32 cat_nomadMoonFire(Ship *moon);               // 0x005bdcf0
+void cat_nomadMoonRenderBeam(Ship *moon);           // 0x005be120 (CAT, M2-R5 render)
 sdword cat_nomadMoonEmitterCount(Ship *moon);       // 0x005bdd80
 
 #endif

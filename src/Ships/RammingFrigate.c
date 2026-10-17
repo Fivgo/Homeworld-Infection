@@ -31,6 +31,7 @@
 #include "Globals.h"
 #include "Leech.h"
 #include "Matrix.h"
+#include "Mesh.h"
 #include "MeshAnim.h"
 #include "Mothership.h"
 #include "Physics.h"
@@ -731,15 +732,25 @@ void cat_rammingFrigateForceRelease(Ship *ship)                                 
 // where a line through origin along dir crosses target's mesh, relative to origin
 static bool32 cat_rammingFrigateLineHitsMesh(Ship *target, vector *dir, vector *origin, vector *hit)  // 0x005c0b20
 {
-    // CAT-PROVISIONAL (stage 3, the mesh hit location): the exe intersects the line origin -/+ 500 * dir with the
-    //      target's mesh (cat_meshLineIntersect 0x004b5910 with cat_meshObjectLineIntersect / R and the mesh matrix
-    //      stack, Mesh.c; the collision code's bullet, beam and missile tests use it too, M2-R4 combat "What is
-    //      left"). Without it no line hits, so a ram finds no latch point and turns for another pass.
-    (void)target;
-    (void)dir;
-    (void)origin;
-    (void)hit;
-    (void)RAM_MESH_PROBE;
+    // CAT (M2-R5 render): the line origin -/+ 500 * dir against the target's mesh at LOD 0 (cat_meshLineIntersect
+    //      0x004b5910, Mesh.c); the hit is returned relative to origin
+    vector start, end, meshHit;
+    real32 dy = RAM_MESH_PROBE * dir->y;
+    real32 dz = RAM_MESH_PROBE * dir->z;
+
+    end.x = RAM_MESH_PROBE * dir->x + origin->x;
+    end.y = dy + origin->y;
+    end.z = dz + origin->z;
+    start.x = origin->x - RAM_MESH_PROBE * dir->x;
+    start.y = origin->y - dy;
+    start.z = origin->z - dz;
+    if (cat_meshLineIntersect(target, 0, &start, &end, &meshHit))
+    {
+        hit->x = meshHit.x - origin->x;
+        hit->y = meshHit.y - origin->y;
+        hit->z = meshHit.z - origin->z;
+        return TRUE;
+    }
     return FALSE;
 }
 
@@ -1060,8 +1071,10 @@ static void cat_rammingFrigatePushEffectCreate(Ship *ship)                      
     etglod *etgLOD = etgSpecialPurposeEffectTable[EGT_BULLET_CUTTING_BEAM];
     etgeffectstatic *stat;
     vector nose = { RAM_BEAM_X, 0.0f, RAM_BEAM_Z };     // y: the exe reads the zeroed global 0x00a77b08
-    vector position, start, velocity;
+    vector position, start, end, hit, velocity;
     matrix coordsys;
+    real32 length;
+    udword look;
 
     if ((etgLOD == NULL) || (etgLOD->nLevels <= 0) || ((stat = etgLOD->level[0]) == NULL) || !etgFireEffectsEnabled ||
         etgFrequencyExceeded(stat))
@@ -1072,14 +1085,34 @@ static void cat_rammingFrigatePushEffectCreate(Ship *ship)                      
     coordsys = ship->rotatable.rotinfo.coordsys;
     cat_vecShipLocalToWorld(&position, &nose, ship);
     cat_vecShipLocalToWorld(&start, &nose, ship);
-    // CAT-PROVISIONAL (stage 3, the mesh hit location): the beam's length is where the line start .. start + heading *
-    //      2000 meets the target's mesh (cat_meshLineIntersect 0x004b5910); without that no beam is made, as the exe
-    //      does when the line misses (the cutting damage still applies: cat_rammingFrigateDamageTarget)
-    (void)start;
-    (void)position;
-    (void)velocity;
-    (void)coordsys;
-    (void)RAM_BEAM_LENGTH;
+    // CAT (M2-R5 render): the beam's length is where the line start .. start + heading * 2000 meets the target's mesh
+    //      (cat_meshLineIntersect 0x004b5910 at LOD 0, 0x005c19f4); no beam when it misses or the length is 0. Its
+    //      fourth parameter picks the cutting-beam upgrade's look: 2 for sRammingFrigate, 1 for bRammingFrigate
+    end.x = start.x + RAM_BEAM_LENGTH * ship->rotatable.rotinfo.coordsys.m13;
+    end.y = start.y + ship->rotatable.rotinfo.coordsys.m23 * RAM_BEAM_LENGTH;
+    end.z = start.z + ship->rotatable.rotinfo.coordsys.m33 * RAM_BEAM_LENGTH;
+    if (cat_meshLineIntersect(spec->target, 0, &start, &end, &hit))
+    {
+        length = cat_vecDistance(&start, &hit);
+        if (length != 0.0f)
+        {
+            look = 0;
+            if (cat_shipHasUpgrade(ship, CAT_UPGRADE_RamCuttingBeam))
+            {
+                if (ship->shiptype == sRammingFrigate)
+                {
+                    look = 2;
+                }
+                else if (ship->shiptype == bRammingFrigate)
+                {
+                    look = 1;
+                }
+            }
+            spec->pushEffect = etgEffectCreate(stat, NULL, &position, &velocity, &coordsys, 1.0f, EAF_Full, 4, SCALECAST(0), SCALECAST(0),
+                                               SCALECAST(Real32ToUdword(length)), SCALECAST(look));
+            return;
+        }
+    }
     spec->pushEffect = NULL;
 }
 

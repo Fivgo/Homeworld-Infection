@@ -347,7 +347,7 @@ void ellipsoid_render(ellipseObject* ellipse, real32 radius)
                 colour[2] = gCloudColor[2];
                 colour[3] = gCloudColor[3];
                 shSpecularColour(0, 0, &vertex, (vector*)&ellipse->v[vert[i]].n,
-                                 colour, modelview, modelviewInv);
+                                 colour, modelview, modelviewInv, NULL, NULL);   // CAT: no glow (shSpecularColour 0x0050e280)
                 glColor4ub(colour[0], colour[1], colour[2], colour[3]);
 
                 glVertex3f(x, y, z);

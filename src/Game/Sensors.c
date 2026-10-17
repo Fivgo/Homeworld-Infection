@@ -2254,7 +2254,10 @@ void smZoomUpdate(real32 current, real32 range, bool32 bUpdateCamera)
                              colGreen(smIntBackgroundColor),
                              colBlue(smIntBackgroundColor),
                              255));
-    btgSetColourMultiplier((1.0f - smBackgroundDim) * (1.0f - scrollFactor) + smBackgroundDim);
+    // CAT (M2-R5 render): channel 0 of the per-channel multiplier (btgSetColourMultiplier 0x00429220).
+    // CAT-TODO(M2-R6 sensors): the exe's sensors manager sets only channel 0 to 1.0 (smSensorsCloseForGood); this
+    //      HW1 dimming goes with the sensors manager's port
+    btgSetColourMultiplier(0, (1.0f - smBackgroundDim) * (1.0f - scrollFactor) + smBackgroundDim);
     if (piePointSpecMode != PSM_Idle)
     {
         smCurrentWorldPlaneColor = smWorldPlaneColor;
@@ -2334,7 +2337,7 @@ void smSensorsCloseForGood(void)
     mouseClipToRect(NULL);                                  //make sure mouse does not stay locked to the SM viewport region
     MP_HyperSpaceFlag = FALSE;
     bitClear(tbDisable,TBDISABLE_SENSORS_USE);
-    btgSetColourMultiplier(1.0f);                           //make sure we always come out of the SM with the BTG in good order
+    btgSetColourMultiplier(0, 1.0f);                        //make sure we always come out of the SM with the BTG in good order (CAT: channel 0, smSensorsCloseForGood 0x0050ba90)
 }
 
 void smBlobSphereDraw(blob *closestBlob)

@@ -594,6 +594,8 @@ void dmgShipThink(Ship* ship)
     Outputs     : ship->damageLights, etc
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT (M2-R5 render): compared with cat_dmgShipLoadDamagePoints 0x00462950 (called by univCreateShip 0x00542320): the
+//      same "Dmg" / "Dmg0".."Dmg49" chunk count and copy into Ship +0x3A4 / +0x3A8, 0x18 bytes each
 void dmgGetLights(Ship* ship)
 {
     vector* lightNormal;
@@ -653,12 +655,15 @@ void dmgGetLights(Ship* ship)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT (M2-R5 render): compared with cat_dmgShipFreeDamagePoints 0x00462a50 (univFreeShipContents 0x0054b550), which also clears
+//      the pointer
 void dmgClearLights(Ship* ship)
 {
     if (ship->nDamageLights > 0)
     {
         dbgAssertOrIgnore(ship->damageLights != NULL);
         memFree(ship->damageLights);
+        ship->damageLights = NULL;          // CAT: the exe clears the pointer too (0x00462a6e)
         ship->nDamageLights = 0;
     }
     else

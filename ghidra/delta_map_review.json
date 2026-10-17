@@ -1249,6 +1249,13 @@
   "note": "5-byte thunk: tail jump to btgReset",
   "sample": "reread-R2"
  },
+ "0x00428270": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "sets up the flash table; the fade channel 0 back to 1.0 instead of btgFade = 255",
+  "note": "[review: M2-R5 render] ported (BTG.c)",
+  "sample": "port-R5-render"
+ },
  "0x00428440": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -1277,6 +1284,13 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00428480": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same TGA header skip (idLength + 0x12), BGR swap and inverted alpha, GL texture with GL_REPEAT / GL_NEAREST; the MODIFIED marks are the assert path string and the inlined strcpy/strcat",
+  "sample": "port-R5-render"
+ },
  "0x00428670": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -1284,12 +1298,68 @@
   "note": "glDeleteTextures through the GL function pointer; btgStar stride 0x60",
   "sample": "reread-R2"
  },
+ "0x004286b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004286e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the texture list lookup is case-insensitive (_stricmp)",
+  "note": "[review: M2-R5 render] ported (BTG.c btgTexInList / btgFindTexture); otherwise the same layout read (0x54 header, 0x28 per vertex, 0x24 star header + name, 0x10 per polygon)",
+  "sample": "port-R5-render"
+ },
+ "0x00428a40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same left/right edge lists, sort and polygon re-indexing",
+  "sample": "port-R5-render"
+ },
+ "0x00428b80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same spherical projection (radius CAMERA_CLIP_FAR - 500, theta + 90 degrees); the exe takes real64 x, y",
+  "sample": "port-R5-render"
+ },
+ "0x00428c20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] the corners at +-width/2, height/2 pixels and the centre; GoK's 640/480 scaling and texture coordinates belong to its vertex-array star quads",
+  "sample": "port-R5-render"
+ },
+ "0x00428d10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same: btgZip, the transformed vertices (colour * brightness >> 8, alpha 255), the star corners and the index list; GoK's VBO uploads are its own",
+  "sample": "port-R5-render"
+ },
+ "0x00428e60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the fastBlends flag again; the background flashes (3 slots at 0x008dfa60, random stream 0, not in single-player missions 1 and 2) are added to the copied vertex colours before the blend",
+  "note": "[review: M2-R5 render] ported (BTG.c)",
+  "sample": "port-R5-render"
+ },
  "0x00429220": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "becomes per-channel: (index, value) into an array of colour multipliers with an unchanged-value early-out, then btgFade from it",
-  "note": "HW1: single btgFade = t*255",
+  "note": "HW1: single btgFade = t*255 | [review: M2-R5 render] ported: per-channel multiplier (0x008dfb98: 0 sensors manager, 1 fog layer), btgFade = product * 255",
   "sample": "MODIFIED/low"
+ },
+ "0x00429280": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "btgColorVertices(0) every frame (no fade / background-colour cache), additive blends on before the polygons (blend off)",
+  "note": "[review: M2-R5 render] every-frame colours ported; the star quads are GoK's vertex-array version of the same billboards",
+  "sample": "port-R5-render"
  },
  "0x0042b9a0": {
   "class": "MODIFIED",
@@ -1443,6 +1513,27 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00435810": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same transform / project / viewport map; GoK's actual-window scale is its own",
+  "sample": "port-R5-render"
+ },
+ "0x00435980": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same 8 corners, transform/project and clipTotallyIn",
+  "sample": "port-R5-render"
+ },
+ "0x00435bd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
  "0x004363c0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -1456,6 +1547,13 @@
   "change": "",
   "note": "MAX_LIGHTNING_PALS 3 loop unrolled",
   "sample": "reread-R2"
+ },
+ "0x00436520": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "shSpecularColour's two new arguments 0, 0",
+  "note": "[review: M2-R5 render] the call updated (Clouds.c); the rest of the body is the clouds producer's",
+  "sample": "port-R5-render"
  },
  "0x00436aa0": {
   "class": "MODIFIED",
@@ -1516,6 +1614,13 @@
   "change": "every resource-class ship and the killer-collision attribute decide the collision instead of HW1's resource collectors",
   "note": "M2-R4 combat: ported; CAT_ATTRIBUTES_KillerCollision moved to Attributes.h"
  },
+ "0x0043c570": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a ship with bUseRayTriangleIntersectionForHitLocation stops a beam only where the line meets its mesh (cat_meshLineIntersect, LOD 3)",
+  "note": "[review: M2-R5 render] the mesh test ported (Collision.c); the sixth argument (the Sentinel-field triangle index) is not in this tree's signature",
+  "sample": "port-R5-render"
+ },
  "0x0043c900": {
   "class": "MODIFIED",
   "confidence": "high",
@@ -1526,13 +1631,13 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "switches on the bullet's weapon word (Bullet +0x108: 2 WEAPON_ION and 8 WEAPON_BEASTINFECT go to collCheckBeamColl, 4 WEAPON_LASER is skipped); an enemy bullet crossing an active Sentinel field is drawn and deleted (cat_collLineSentinelFieldIntersect 0x0043abf0, cat_sentinelFieldBulletHit); DFG frigates act through cat_collBulletDFGFieldCheck 0x0043cd10 after the collision-sphere prefilter (no HW1 field-radius exemption); ships with bUseRayTriangleIntersectionForHitLocation move the hit onto the mesh (cat_meshLineIntersect 0x004b5910); univBulletCollidedWithTarget gets 1",
-  "note": "M2-R4 combat: ported except cat_sentinelFieldBulletHit (M2-R4 #4) and the mesh hit location (stage 3)"
+  "note": "M2-R4 combat: ported except cat_sentinelFieldBulletHit (M2-R4 #4) and the mesh hit location (stage 3) | [review: M2-R5 render] the mesh hit location ported (cat_meshLineIntersect at LOD 0x00752c54 = 3; a line that misses the mesh does not hit)"
  },
  "0x0043d330": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "univMissileCollidedWithTarget gets a new first argument, 1",
-  "note": "M2-R4 combat: ported"
+  "note": "M2-R4 combat: ported | [review: M2-R5 render] the missile's mesh test ported (the line along its velocity, LOD 3; no hit when it misses)"
  },
  "0x0043d720": {
   "class": "MODIFIED",
@@ -4332,6 +4437,13 @@
   "note": "ported; KAS.c call updated",
   "sample": "port-R4"
  },
+ "0x00490240": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] compared: same state changes, coordsys +0x98 and collision position +0xE0; cat_hsGateRectangle 0x0048f8b0 is hsRectangle with the colour fixed",
+  "sample": "port-R5-render"
+ },
  "0x00490370": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -5493,6 +5605,13 @@
   "note": "M2-R2 identifiers audit row 28; was IDENTICAL/medium",
   "sample": "port-R3"
  },
+ "0x004a3230": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the previous level's fog layer and lens flare textures go after teReset",
+  "note": "[review: M2-R5 render] fog / lens flare part ported (LevelLoad.c); the other deltas are the level-load producers'",
+  "sample": "port-R5-render"
+ },
  "0x004a4250": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -5521,6 +5640,13 @@
   "note": "listAddNode inlined",
   "sample": "port-R4"
  },
+ "0x004a47e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the per-level timing fields and the distance-LOD switch (0x00c36188) cleared before the script is read",
+  "note": "[review: M2-R5 render] edited IDENTICAL: ported (LOD.c)",
+  "sample": "port-R5-render"
+ },
  "0x004a48c0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -5528,12 +5654,47 @@
   "note": "Ghidra drops the sscanf out-argument",
   "sample": "reread-R2"
  },
+ "0x004a4910": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004a49f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004a4c20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004a4c80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
  "0x004a4cc0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "LT_Mesh test (flags & 7 == 1); Ghidra field names shifted",
   "sample": "reread-R2"
+ },
+ "0x004a4d70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "render-time LOD: the selection circle radius against five bands from the detail option on, mimics by their apparent static (cat_mimicGetStaticInfo), hierarchy counts (cat_lodHierarchyCount), never above the detail option's first level",
+  "note": "[review: M2-R5 render] ported (LOD.c: lodLevelGet, cat_lodLevelGetTimed)",
+  "sample": "port-R5-render"
  },
  "0x004a5100": {
   "class": "IDENTICAL",
@@ -5751,12 +5912,26 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x004ae7b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (GetShipStaticInfo takes the type alone in the exe; the tree's race argument is ignored there)",
+  "sample": "port-R5-render"
+ },
  "0x004ae910": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "trTextureRegister gets the new 4th argument (1) at both calls",
   "note": "callee arity change (audit sample #8); rest as HW1",
   "sample": "reread-R2"
+ },
+ "0x004ae9c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (the paged name built inline, GoK's meshPagedName)",
+  "sample": "port-R5-render"
  },
  "0x004aeb10": {
   "class": "IDENTICAL",
@@ -5772,6 +5947,20 @@
   "note": "M2-R2 mesh report rows 49-72; was IDENTICAL/medium",
   "sample": "port-R3"
  },
+ "0x004af220": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004af370": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
  "0x004af3a0": {
   "class": "MODIFIED",
   "confidence": "high",
@@ -5779,12 +5968,82 @@
   "note": "callee arity, M2-R2 startup report; was IDENTICAL/medium",
   "sample": "port-R3"
  },
+ "0x004af710": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004af790": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "fade channel 1 cleared; a dissolving ship and the build-in clip plane draw both faces; ambient tints from the render state (Beast red in single player, attribute-0x200 asteroid blue, the Naggarok EMP flicker); no specular material; smooth shading with enableCPV",
+  "note": "[review: M2-R5 render] edited IDENTICAL: ported in the objlist subsystem (Mesh.c)",
+  "sample": "port-R5-render"
+ },
+ "0x004b0020": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "fade channel 1 cleared first (meshSetFade(1, 0) inlined)",
+  "note": "[review: M2-R5 render] ported (Mesh.c)",
+  "sample": "port-R5-render"
+ },
+ "0x004b00c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "two new arguments passed on to shSpecularColour",
+  "note": "[review: M2-R5 render] ported (Mesh.c)",
+  "sample": "port-R5-render"
+ },
+ "0x004b0170": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the fade's material switch (default or cat_meshCurrentMaterialAlt), the forced switch at polygon 0x00c32c0c, per-vertex colour with enableCPV (vertex state + info entry, shColourSet0's two new arguments)",
+  "note": "[review: M2-R5 render] ported (Mesh.c; the vertex states come through meshCurrentVertexState set by the hierarchy walkers instead of a new first argument)",
+  "sample": "port-R5-render"
+ },
+ "0x004b0970": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the fade's material switch, per-vertex colour with enableCPV in every smooth mode",
+  "note": "[review: M2-R5 render] ported (Mesh.c)",
+  "sample": "port-R5-render"
+ },
+ "0x004b1d40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the fade's material switch (default / alternative, cat_meshCurrentMaterialAlt), a forced switch at polygon 0x00c32c0c (0 in .bss: the first), and with enableCPV each vertex lit with its info entry and state (meshSpecColour inlined)",
+  "note": "[review: M2-R5 render] ported (Mesh.c: cat_meshMaterialSwitch, meshSpecColourCPV)",
+  "sample": "port-R5-render"
+ },
+ "0x004b34f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the fade's material switch; shSpecularColour's two new arguments 0, 0",
+  "note": "[review: M2-R5 render] ported (Mesh.c)",
+  "sample": "port-R5-render"
+ },
  "0x004b40a0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "material swap around meshMorphedObjectRender",
   "sample": "IDENTICAL/medium"
+ },
+ "0x004b40e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004b4110": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the vertex states of each slot passed down; the lit immediate / transformed paths (cat_meshObjectRenderLitImmediate / Transformed)",
+  "note": "[review: M2-R5 render] ported before M2-R5 (Mesh.c, meshCurrentVertexState); compared",
+  "sample": "port-R5-render"
  },
  "0x004b4280": {
   "class": "MODIFIED",
@@ -5805,6 +6064,20 @@
   "change": "new first argument: the ship's per-vertex mesh state (+0x80); passes level[currentLOD] (or 0) and a running slot index to meshObjectRenderHierarchy; no colour-scheme argument (4 parameters: state, bindings, LOD, mesh)",
   "note": "M2-R4 univupdate audit: found modified (was IDENTICAL, edited by the univupdate port without a review); ported (the state is the new first parameter, the slot index is the binding's offset from the LOD's first binding)"
  },
+ "0x004b4640": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004b46e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same: the exe inlines meshConcatByUserData for the top-level objects",
+  "sample": "port-R5-render"
+ },
  "0x004b47b0": {
   "class": "MODIFIED",
   "confidence": "high",
@@ -5812,12 +6085,40 @@
   "note": "HW1 records object and NULL function only",
   "sample": "reread-R2"
  },
+ "0x004b4840": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "meshBindingListRecurse's parent index (4th argument)",
+  "note": "[review: M2-R5 render] ported before M2-R5 (Mesh.c); compared",
+  "sample": "port-R5-render"
+ },
  "0x004b48b0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "walks the daughter hierarchy releasing bindings recursively (cat_meshBindingListDeleteR) before memFree; extra parameter",
   "note": "",
   "sample": "MODIFIED/low"
+ },
+ "0x004b4900": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the name compare is case-insensitive (_stricmp)",
+  "note": "[review: M2-R5 render] ported (Mesh.c)",
+  "sample": "port-R5-render"
+ },
+ "0x004b4970": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004b49f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
  },
  "0x004b65c0": {
   "class": "IDENTICAL",
@@ -5846,6 +6147,13 @@
   "change": "a matched binding also gets its matrix set to identity (16-dword copy), an unmatched one also gets its object pointer; binding stride 0x58 (HW1 mhlocalbinding 0x54)",
   "note": "name compare as HW1 (nameCRC then strcmp)",
   "sample": "reread-R2"
+ },
+ "0x004b6b90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a third argument, the mode word at madanim +0x08 (loop / back to the previous animation), and the exe's madanim layout",
+  "note": "[review: M2-R5 render] not ported: re-targeted to M2-R6 mesh animation (MeshAnim.c / MadLinkIn.c), it changes when gun bindings swap back",
+  "sample": "port-R5-render"
  },
  "0x004b6e70": {
   "class": "MODIFIED",
@@ -6225,12 +6533,40 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x004c78a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004c78e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "light types: NAVLIGHT_Default drawn while lit, the new NAVLIGHT_FadeOnOff (name table 0x00889d88) always drawn with a fade pulsing over each on/off interval, other types not drawn; past minLOD nothing is drawn (HW1's point sprite primPointSize3Fade dropped)",
+  "note": "[review: M2-R5 render] ported (NavLights.c, ObjTypes.c/.h)",
+  "sample": "port-R5-render"
+ },
  "0x004c8650": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "NEB_VEL_BASE + NEB_VEL_RAN_MULTIPLIER chunk velocity (cloudRandomSphericalPoint) against ad1bb82",
   "note": "the GoK tree already has it (Relic's later source); nothing to change",
   "sample": "port-R4"
+ },
+ "0x004c8b00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "shSpecularColour's two new arguments 0, 0",
+  "note": "[review: M2-R5 render] edited IDENTICAL: the call updated (Nebulae.c)",
+  "sample": "port-R5-render"
+ },
+ "0x004c9430": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "shSpecularColour's two new arguments 0, 0",
+  "note": "[review: M2-R5 render] edited IDENTICAL: the call updated (Nebulae.c)",
+  "sample": "port-R5-render"
  },
  "0x004c9cc0": {
   "class": "IDENTICAL",
@@ -6588,6 +6924,13 @@
   "change": "",
   "note": "StrToNum inlined over the dock-point table",
   "sample": "uniform/MODIFIED"
+ },
+ "0x004d7070": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the name table 0x00889d88 has NAVLIGHT_FadeOnOff (1)",
+  "note": "[review: M2-R5 render] ported (ObjTypes.c / .h)",
+  "sample": "port-R5-render"
  },
  "0x004d7200": {
   "class": "IDENTICAL",
@@ -7201,6 +7544,20 @@
   "note": "2 params instead of 5",
   "sample": "REWRITTEN/medium"
  },
+ "0x004e8540": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004e8610": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (the exe's taskStart takes a task name, \"PingTask\"; the legend times start at -1e21 as pingReset sets them)",
+  "sample": "port-R5-render"
+ },
  "0x004e86a0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -7215,12 +7572,96 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x004e86d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004e87a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004e8850": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a ping other than an anomaly ping is drawn only where cat_selPositionHiddenByFOW 0x00509400 says the fog of war does not hide it; the ping sounds are soundEventPlay ids 0x12C..0x134",
+  "note": "[review: M2-R5 render] the FOW test is a CAT-TODO(M2-R6 FOW) in Ping.c; GoK's one-sound-per-tick guard kept",
+  "sample": "port-R5-render"
+ },
+ "0x004e8f10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004e9000": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004e90b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004e9160": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004e91d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
  "0x004e9200": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x004e9350": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004e9630": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004e96a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x004e96f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
  },
  "0x004e9790": {
   "class": "IDENTICAL",
@@ -7976,6 +8417,20 @@
   "note": "Ghidra loses the returned pointer",
   "sample": "reread-R2"
  },
+ "0x0050b8d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the background multiplier is per channel (btgSetColourMultiplier(0, ...))",
+  "note": "[review: M2-R5 render] the channel form ported (Sensors.c); the rest of the sensors manager is M2-R6's",
+  "sample": "port-R5-render"
+ },
+ "0x0050ba90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "channel 0 back to 1.0",
+  "note": "[review: M2-R5 render] the channel form ported (Sensors.c); the rest is M2-R6's",
+  "sample": "port-R5-render"
+ },
  "0x0050bba0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -7990,12 +8445,40 @@
   "note": "mrUpdateHyperspaceStatus is an empty function in Cataclysm (call goes to nullsub); this function is unchanged",
   "sample": "MODIFIED/low"
  },
+ "0x0050da00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
  "0x0050da80": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x0050dad0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x0050daf0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x0050db30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
  },
  "0x0050db50": {
   "class": "IDENTICAL",
@@ -8025,6 +8508,13 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0050dc60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same as HW1; GoK keeps shBaseColor in 0..1 (+ brightness / 255) for its float colour path, the exe scales both base colours by 255 and rounds the base alpha",
+  "sample": "port-R5-render"
+ },
  "0x0050de20": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -8046,12 +8536,47 @@
   "note": "colReal32 of each channel",
   "sample": "reread-R2"
  },
+ "0x0050dee0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x0050dfe0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "two new arguments (vertex state, info entry) and cat_shColourAddGlow; byte colour clamped at both ends; the lighting toggle",
+  "note": "[review: M2-R5 render] ported before M2-R5 (Shader.c); compared",
+  "sample": "port-R5-render"
+ },
+ "0x0050e280": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "two new arguments (vertex state, info entry): cat_shColourAddGlow at the end when the info entry is given",
+  "note": "[review: M2-R5 render] ported (Shader.c); Clouds.c / Nebulae.c pass NULL, NULL as the exe's ellipsoid_render / nebDrawChunk2 / nebDrawTendril",
+  "sample": "port-R5-render"
+ },
  "0x0050e640": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same affine fast path with the general inverse fallback (head checked)",
   "sample": "reread-R2"
+ },
+ "0x0050eb90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x0050eca0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
  },
  "0x0050ee00": {
   "class": "IDENTICAL",
@@ -8584,6 +9109,20 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00523d00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (random stream 0, the exe clamps only above 255 as GoK's udword min/max does)",
+  "sample": "port-R5-render"
+ },
+ "0x00523f50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (random stream 0, the exe clamps only above 255 as GoK's udword min/max does)",
+  "sample": "port-R5-render"
  },
  "0x00524120": {
   "class": "MODIFIED",
@@ -9234,6 +9773,20 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x0052ef80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the CPU feature test through cat_transCPUIDAvailable",
+  "note": "[review: M2-R5 render] no counterpart: GoK has no Transformer (the x86 SIMD vertex transformer)",
+  "sample": "port-R5-render"
+ },
+ "0x0052f110": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart: GoK has no Transformer",
+  "sample": "port-R5-render"
  },
  "0x0052ff70": {
   "class": "MODIFIED",
@@ -9967,7 +10520,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "7 arguments, adds the ship to the universe itself, 0x63C-byte ship with gun/mad/precise blocks, droids, damage points, upgrades, dock info, external build, mothership modules, experience, stealth, dissolve, names, FOW, mesh state",
-  "note": "M2-R4 univupdate: only the mesh state and +0x84 are ported (CAT-TODO block lists the rest for M2-R4 #2/#3/#4/#5); HW1 Drone/DefenseFighter/CryoTray cases removed | [review: M2-R5 layout-dock] CustShipInit now runs after the mesh-animation bindings as the exe orders it; the extra blocks start 8-aligned (CAT-FIX); kills zeroed + cat_shipUpdateExperienceLevel; catNavLightStatic/catDamageFactor/catMaxVelocity set (M2-R5 layout)"
+  "note": "M2-R4 univupdate: only the mesh state and +0x84 are ported (CAT-TODO block lists the rest for M2-R4 #2/#3/#4/#5); HW1 Drone/DefenseFighter/CryoTray cases removed | [review: M2-R5 layout-dock] CustShipInit now runs after the mesh-animation bindings as the exe orders it; the extra blocks start 8-aligned (CAT-FIX); kills zeroed + cat_shipUpdateExperienceLevel; catNavLightStatic/catDamageFactor/catMaxVelocity set (M2-R5 layout) | [review: M2-R5 render] damage points are dmgGetLights (called); the repair droids re-targeted to M2-R6 ships"
  },
  "0x00543030": {
   "class": "MODIFIED",
@@ -10069,7 +10622,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "new first argument (apply damage), big-gun shells, weapon-vs-armour damage, crystals immune to projectiles/plasma/missiles, Nomad moon vs its emitters, Sentinel fields, armour piercing for both heavy defenders, friendly fire always, float effect parameters, bullet-hit glow",
-  "note": "M2-R4 univupdate: ported except the weapon word/table (M2-R4 #3), cat_bigGunBulletExplodeAt and cat_sentinelFieldBulletHit (M2-R4 #4) and the 7-argument ApplyDamageToTarget"
+  "note": "M2-R4 univupdate: ported except the weapon word/table (M2-R4 #3), cat_bigGunBulletExplodeAt and cat_sentinelFieldBulletHit (M2-R4 #4) and the 7-argument ApplyDamageToTarget | [review: M2-R5 render] the hit glow sets the render state through cat_rndObjectEffectsSetup (0x0054703a)"
  },
  "0x00547080": {
   "class": "MODIFIED",
@@ -10148,7 +10701,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "CustShipDied first, factory only for player 0 in single player, external-build death, repair effect, launch manager by class, big-ship death explosions (10 parameters), inline bullet/missile clean-up, smObjectDied always, clamps released, no death sound for -1, grow-selection entries nulled",
-  "note": "M2-R4 univupdate: ported except salvage depot, external build, droids, cat_clampUnclampAllFromShip, the second grow-selection and the speed multiplier (owners in the CAT-TODOs) | [review: M2-R5 layout-dock] the explosion's speed term uses cat_shipGetSpeedMultiplier x maxvelocity as the exe"
+  "note": "M2-R4 univupdate: ported except salvage depot, external build, droids, cat_clampUnclampAllFromShip, the second grow-selection and the speed multiplier (owners in the CAT-TODOs) | [review: M2-R5 layout-dock] the explosion's speed term uses cat_shipGetSpeedMultiplier x maxvelocity as the exe | [review: M2-R5 render] the repair droids' free re-targeted to M2-R6 ships (random stream 0)"
  },
  "0x00548450": {
   "class": "MODIFIED",
@@ -10369,9 +10922,9 @@
  },
  "0x0054be80": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "per-type render distances, sort-front list, listMergeSort",
-  "note": "M2-R4 univupdate: compared, not ported (stage 3)"
+  "confidence": "high",
+  "change": "the class limits are tweak distances squared once; MonsterShip / Component take the mothership's, Micro the fighter's",
+  "note": "M2-R4 univupdate: compared, not ported (stage 3) | [review: M2-R5 render] ported (UnivUpdate.c, Tweak.c RENDER_LIMIT_* / RENDER_FADE_* plain distances)"
  },
  "0x0054c270": {
   "class": "IDENTICAL",
@@ -10524,12 +11077,33 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00554cd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (the exe multiplies by 1/6)",
+  "sample": "port-R5-render"
+ },
  "0x00554e30": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "floor via CRT; HSV switch",
   "sample": "reread-R2"
+ },
+ "0x00554fd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (the exe multiplies by 1/6)",
+  "sample": "port-R5-render"
+ },
+ "0x00555170": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (colHLSValue inlined three times)",
+  "sample": "port-R5-render"
  },
  "0x005553f0": {
   "class": "IDENTICAL",
@@ -10566,6 +11140,13 @@
   "note": "ddActivate is named cat_ddActivate in the map; logic as HW1",
   "sample": "uniform/MODIFIED"
  },
+ "0x00555c00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] not built: debugwnd.c (the Win32 debug window) is not in GoK's build",
+  "sample": "port-R5-render"
+ },
  "0x00555cf0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -10573,12 +11154,54 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00555d70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] not built: debugwnd.c (the Win32 debug window) is not in GoK's build",
+  "sample": "port-R5-render"
+ },
  "0x00555e30": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "strncmp/strchr loop as HW1",
   "sample": "reread-R2"
+ },
+ "0x00555f80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] not built: debugwnd.c (the Win32 debug window) is not in GoK's build",
+  "sample": "port-R5-render"
+ },
+ "0x00556120": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "\"Cataclysm Debug Window\" / \"Cataclysm.cfg\" and a font chooser",
+  "note": "[review: M2-R5 render] not built: debugwnd.c (the Win32 debug window) is not in GoK's build",
+  "sample": "port-R5-render"
+ },
+ "0x00556570": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "\"Cataclysm Debug Window\" / \"Cataclysm.cfg\" and a font chooser",
+  "note": "[review: M2-R5 render] not built: debugwnd.c (the Win32 debug window) is not in GoK's build",
+  "sample": "port-R5-render"
+ },
+ "0x00556680": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] not built: debugwnd.c (the Win32 debug window) is not in GoK's build",
+  "sample": "port-R5-render"
+ },
+ "0x005566f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] not built: debugwnd.c (the Win32 debug window) is not in GoK's build",
+  "sample": "port-R5-render"
  },
  "0x00557030": {
   "class": "IDENTICAL",
@@ -10692,12 +11315,26 @@
   "note": "no C source in ad1bb82; matches GoK's reconstruction",
   "sample": "reread-R2"
  },
+ "0x00559500": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart: GoK's glcaps (glCapFeatureExists / glCapFastFeature) reports its own GL capabilities, without HW1's RGL address table",
+  "sample": "port-R5-render"
+ },
  "0x005596e0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "RGL = 0 and the 29 NULL_rgl* stubs (several ICF-folded)",
   "sample": "reread-R2"
+ },
+ "0x00559810": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart: GoK's glcaps (glCapFeatureExists / glCapFastFeature) reports its own GL capabilities, without HW1's RGL address table",
+  "sample": "port-R5-render"
  },
  "0x00559870": {
   "class": "IDENTICAL",
@@ -10727,12 +11364,110 @@
   "note": "GetVersionEx test",
   "sample": "reread-R2"
  },
+ "0x00559ba0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart: GoK's glcaps (glCapFeatureExists / glCapFastFeature) reports its own GL capabilities, without HW1's RGL address table",
+  "sample": "port-R5-render"
+ },
+ "0x0055a3f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055a450": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055a520": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
  "0x0055a7b0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "glDeleteTextures through the GL pointer",
   "sample": "reread-R2"
+ },
+ "0x0055a830": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055a940": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055ab60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055ae40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055b070": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055b160": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055b470": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055b810": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the glcompat page flip / activation of the software path",
+  "note": "[review: M2-R5 render] no counterpart: GoK has no glcompat",
+  "sample": "port-R5-render"
+ },
+ "0x0055bf00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055c4b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
  },
  "0x0055c680": {
   "class": "IDENTICAL",
@@ -10748,12 +11483,68 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0055c6c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055c8e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055cb30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055ce10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055ce70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055d020": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
+ "0x0055d1c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart in the tree: GoK has no glcompat (the software / Glide 2D path)",
+  "sample": "port-R5-render"
+ },
  "0x0055d8b0": {
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
   "note": "same clip and store/restore loops (head and inner loop checked)",
   "sample": "reread-R2"
+ },
+ "0x0055d9b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the glcompat page flip / activation of the software path",
+  "note": "[review: M2-R5 render] no counterpart: GoK has no glcompat",
+  "sample": "port-R5-render"
  },
  "0x0055dbe0": {
   "class": "IDENTICAL",
@@ -10776,6 +11567,13 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0055ea60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
  "0x0055eb10": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -10790,6 +11588,20 @@
   "note": "scriptSet(\"Light.script\", lightScriptTable) twice-clear as HW1",
   "sample": "IDENTICAL/medium"
  },
+ "0x0055eb90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x0055ec30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
  "0x0055ed20": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -10803,6 +11615,27 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x0055ed40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x0055ee30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x0055f1a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
  },
  "0x0055f390": {
   "class": "IDENTICAL",
@@ -11020,6 +11853,132 @@
   "change": "",
   "note": "mouseCursorHide inlined (mouseIsVisible = FALSE)"
  },
+ "0x0056fd10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x0056fd90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x0056fdf0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x0056fef0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x00570010": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x00570190": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x005704d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing (GoK's GL backend aside)",
+  "sample": "port-R5-render"
+ },
+ "0x00570780": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x00570910": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "draws with normal blending: rndAdditiveBlends(FALSE) before the quad, the old mode put back after (the RGL path primRectTranslucentRGL2 and the glc path glcRectTranslucent2 are GoK's backend)",
+  "note": "[review: audit M2-R5 render] edited by the port without a review entry; compared with r6 0x00570910: as the exe",
+  "sample": "audit-R5-render"
+ },
+ "0x00570ac0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x00570c30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x00570dd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x00570e40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x00570f00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x005711b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x00571270": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x00571440": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x00571500": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
  "0x00571580": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -11027,12 +11986,89 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x005715a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x005715e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing (GoK's GL backend aside)",
+  "sample": "port-R5-render"
+ },
+ "0x005718b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing (GoK's GL backend aside)",
+  "sample": "port-R5-render"
+ },
+ "0x00571be0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x00571cb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing; the tree is GoK's GL backend (no glcompat software path, no 0.325 pixel-centre offset)",
+  "sample": "port-R5-render"
+ },
+ "0x00572010": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing (GoK's GL backend aside)",
+  "sample": "port-R5-render"
+ },
  "0x00572230": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00572260": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing (GoK's GL backend aside)",
+  "sample": "port-R5-render"
+ },
+ "0x00572400": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing (GoK's GL backend aside)",
+  "sample": "port-R5-render"
+ },
+ "0x005724d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing (GoK's GL backend aside)",
+  "sample": "port-R5-render"
+ },
+ "0x005725f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing (GoK's GL backend aside)",
+  "sample": "port-R5-render"
+ },
+ "0x005726c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing (GoK's GL backend aside)",
+  "sample": "port-R5-render"
  },
  "0x00572a20": {
   "class": "IDENTICAL",
@@ -11054,6 +12090,20 @@
   "change": "",
   "note": "Ghidra merges parameters; same GL sequence",
   "sample": "reread-R2"
+ },
+ "0x00572af0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing (GoK's GL backend aside)",
+  "sample": "port-R5-render"
+ },
+ "0x00572ee0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same drawing (GoK's GL backend aside)",
+  "sample": "port-R5-render"
  },
  "0x005730e0": {
   "class": "IDENTICAL",
@@ -11097,6 +12147,20 @@
   "note": "PIXELFORMATDESCRIPTOR initialiser written field by field",
   "sample": "MODIFIED/medium"
  },
+ "0x00574680": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] the WGL / rauxInitPosition set-up is GoK's SDL window code",
+  "sample": "port-R5-render"
+ },
+ "0x005747d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the deferred sort list cleared, the lens flare source list (0x00b37880) and the Sentinel field queue (0x00b378a0) initialised; no frame-rate key",
+  "note": "[review: M2-R5 render] list set-up ported (render.c); the WGL / Glide context code is GoK's SDL set-up",
+  "sample": "port-R5-render"
+ },
  "0x00574a90": {
   "class": "MODIFIED",
   "confidence": "medium",
@@ -11104,12 +12168,110 @@
   "note": "tail not fully read",
   "sample": "MODIFIED/low"
  },
+ "0x00574b20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
  "0x00574b80": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00574b90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same; the exe also requires a debug byte 0x0087816e that is never cleared (1), and inlines rndAdditiveBlends with a device flag",
+  "sample": "port-R5-render"
+ },
+ "0x00574f80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a ship's sphere test is centred on its collision position (+0xE0)",
+  "note": "[review: M2-R5 render] edited IDENTICAL: ported (render.c)",
+  "sample": "port-R5-render"
+ },
+ "0x00575000": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x005750c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the selection circle and the N-LIPS size cap computed for every visible object, mimics at their apparent scale (cat_mimicGetApparentScale)",
+  "note": "[review: M2-R5 render] ported in the objlist subsystem (render.c)",
+  "sample": "port-R5-render"
+ },
+ "0x005753d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the class fade distances: a carrier's module as a carrier, the Dreadnought's cannon as a destroyer, MonsterShip / Component / Micro classes; asteroids far fade by attribute; meshSetFade(0, ...)",
+  "note": "[review: M2-R5 render] edited IDENTICAL: ported in the objlist subsystem (render.c)",
+  "sample": "port-R5-render"
+ },
+ "0x005757f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the depth test is restored to its previous state after the planet mesh (glIsEnabled), not switched on",
+  "note": "[review: M2-R5 render] ported (render.c)",
+  "sample": "port-R5-render"
+ },
+ "0x005764e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm's main view: cat_rndRenderObjectList with the deferred depth-sorted pass, render-time LOD timing, the fog layer, blasts, lens flares, the Sentinel fields, motion cues (cat_mcRender)",
+  "note": "[review: M2-R5 render] ported in the objlist / flares-fog subsystems (render.c); cat_mcRender is a CAT-TODO(M2-R6 NIS/camera)",
+  "sample": "port-R5-render"
+ },
+ "0x00579e30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same TGA load; the exe wraps with GL_REPEAT where GoK uses GL_CLAMP_TO_EDGE (GoK's choice; NEAREST-filtered full images look the same)",
+  "sample": "port-R5-render"
+ },
+ "0x00579fa0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart: GoK has no shameless plug (a demo-build overlay)",
+  "sample": "port-R5-render"
+ },
+ "0x00579ff0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart: GoK has no shameless plug (a demo-build overlay)",
+  "sample": "port-R5-render"
+ },
+ "0x0057a300": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same multiplayer sync / lag display (the exe prints fewer of the debug error lines; GoK keeps HW1's #if SYNC_CHECK body)",
+  "sample": "port-R5-render"
+ },
+ "0x0057a410": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same letterbox bars (grey 0.5 while fading)",
+  "sample": "port-R5-render"
+ },
+ "0x0057a910": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no mouseSelectCursorSetting; the front end's saved cursor (feShouldSaveMouseCursor, cat_mouseSaveCursorUnder / RestoreCursorUnder) skips the clear; shameless plug; screenshot from a flag; trNoPalResizePool after mainReinitRGL",
+  "note": "[review: M2-R5 render] render half as the tree; the front-end / mouse parts are a CAT-TODO(M2-R6 front end and mouse) in render.c",
+  "sample": "port-R5-render"
  },
  "0x0057ad80": {
   "class": "IDENTICAL",
@@ -11132,12 +12294,68 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0057aed0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (GoK's SDL buffer swap; the device flag 0x00a75ef0 tests are GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
+ "0x0057af10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] no counterpart: GoK drops the perspective-correction hint",
+  "sample": "port-R5-render"
+ },
+ "0x0057af90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (GoK's SDL buffer swap; the device flag 0x00a75ef0 tests are GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
  "0x0057afe0": {
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "only GL_FRONT is cached and applied; any other face returns FALSE without calling glMaterialfv",
   "note": "HW1 also handled GL_FRONT_AND_BACK",
   "sample": "reread-R2"
+ },
+ "0x0057b1a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (GoK's SDL buffer swap; the device flag 0x00a75ef0 tests are GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
+ "0x0057b220": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same state reset; the exe first clears rndMaterialfv's material cache (rndMaterialfv(-1, 0, NULL), a glMaterialfv cache the tree does not keep) and resets the perspective hint GoK dropped",
+  "sample": "port-R5-render"
+ },
+ "0x0057b3b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x0057b670": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (GoK's SDL buffer swap; the device flag 0x00a75ef0 tests are GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
+ "0x0057b6e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (GoK's SDL buffer swap; the device flag 0x00a75ef0 tests are GoK's GL backend)",
+  "sample": "port-R5-render"
  },
  "0x0057b760": {
   "class": "IDENTICAL",
@@ -11174,6 +12392,27 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0057dcf0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the device list is freed with the CRT free; mode strings",
+  "note": "[review: M2-R5 render] GoK's rinit enumerates SDL display modes instead of the RGL / Glide device list",
+  "sample": "port-R5-render"
+ },
+ "0x0057dda0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] GoK's rinit keeps its own mode list",
+  "sample": "port-R5-render"
+ },
+ "0x0057de00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the device list is freed with the CRT free; mode strings",
+  "note": "[review: M2-R5 render] GoK's rinit enumerates SDL display modes instead of the RGL / Glide device list",
+  "sample": "port-R5-render"
+ },
  "0x0057dff0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -11194,6 +12433,20 @@
   "change": "",
   "note": "memFree is free() in rinit.cpp",
   "sample": "reread-R2"
+ },
+ "0x0057e860": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Glide boards through cat_glideQueryBoards and rinMemAlloc",
+  "note": "[review: M2-R5 render] GoK's rinit enumerates SDL display modes (no Glide / RGL devices)",
+  "sample": "port-R5-render"
+ },
+ "0x0057ef80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "hot<n>.jpg under HW_Data\\screenshots\\, then clCommandMessage(\"Screenshot Saved: %s\"); two arguments (pixels)",
+  "note": "[review: M2-R5 render] GoK's own screenshot code kept; the message is a CAT-TODO(M2-R6 HUD messages) in screenshot.c",
+  "sample": "port-R5-render"
  },
  "0x0057f250": {
   "class": "IDENTICAL",
@@ -11671,12 +12924,138 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x005a49d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the glow texture registered with the 4th argument 1; the Cataclysm engine-glow mesh names",
+  "note": "[review: M2-R5 render] ported before M2-R5 (Trails.c); compared",
+  "sample": "port-R5-render"
+ },
+ "0x005a4ac0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x005a4af0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x005a4b40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
  "0x005a4cb0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x005a4cc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the nozzle moves with its mesh object (cat_shipNozzleInfoGet, cat_meshObjectMatrixGet)",
+  "note": "[review: M2-R5 render] ported before M2-R5 (Trails.c); compared",
+  "sample": "port-R5-render"
+ },
+ "0x005a4d90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
+ "0x005a4e10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same",
+  "sample": "port-R5-render"
+ },
+ "0x005a5210": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
+ "0x005a53c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
+ "0x005a5570": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "team colour for every style; top speed with the speed multiplier; nozzle offset not scaled by scaleCap; the Kushan mothership glow like the Sect one",
+  "note": "[review: M2-R5 render] ported (Trails.c); the exe's flat shading under a device flag (0x00a75ef0 & 4) is GoK's GL backend",
+  "sample": "port-R5-render"
+ },
+ "0x005a5be0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "top speed with the speed multiplier; below VELRATIO_THRESH the glow keeps the smallest size instead of not being drawn",
+  "note": "[review: M2-R5 render] ported (Trails.c)",
+  "sample": "port-R5-render"
+ },
+ "0x005a5e90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
+ "0x005a5f90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
+ "0x005a6530": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
+ "0x005a67e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
+ "0x005a6c30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no colour argument: the team colour faded from head to tail, then HW1's random adjust",
+  "note": "[review: M2-R5 render] ported (Trails.c)",
+  "sample": "port-R5-render"
+ },
+ "0x005a6e30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "trailSurpriseColorAdjust's two-argument form (the team colour)",
+  "note": "[review: M2-R5 render] edited IDENTICAL: ported (Trails.c); the fast-blend test is GoK's backend",
+  "sample": "port-R5-render"
+ },
+ "0x005a6f20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
  },
  "0x005a7050": {
   "class": "IDENTICAL",
@@ -11685,12 +13064,33 @@
   "note": "Ghidra merges colour parameters",
   "sample": "reread-R2"
  },
+ "0x005a7120": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
+ "0x005a7310": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_trailShouldDraw 0x005a7240 decides whether a trail is drawn (clamped Leech, dissolving, SOF_DontDrawTrails / SOF_Disabled, being built, the ramming frigate's inactive trail; moving or pushing); the glow sprite and the segments take the ship's team colour",
+  "note": "[review: M2-R5 render] ported (Trails.c)",
+  "sample": "port-R5-render"
+ },
  "0x005a7a40": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x005a7a70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
  },
  "0x005a7ad0": {
   "class": "IDENTICAL",
@@ -11706,6 +13106,13 @@
   "note": "Ghidra drops the sscanf out-arguments",
   "sample": "reread-R2"
  },
+ "0x005a7b60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
  "0x005a7de0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -11713,12 +13120,33 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x005a7f70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
  "0x005a7fd0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x005a8000": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
+ },
+ "0x005a8020": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 render] same (trailLine's flat shading under the device flag 0x00a75ef0 & 4 is GoK's GL backend)",
+  "sample": "port-R5-render"
  },
  "0x005aa5e0": {
   "class": "IDENTICAL",

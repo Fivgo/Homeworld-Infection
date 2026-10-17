@@ -8,7 +8,9 @@
 // =============================================================================
 
 // CAT: new file (M2-R4 combat). Every body follows the exe function named on it. The blast rendering
-//      (cat_blastRenderAll 0x00516750, cat_blastDrawLightning 0x005163b0) is stage 3's and the blast sound
+//      (cat_blastRenderAll 0x00516750, cat_blastDrawLightning 0x005163b0) and the charge lightning of the Dreadnought
+//      and the Nomad moon (cat_dreadnoughtChargeEffect 0x00516a40, cat_nomadMoonBeamEffect 0x00516bb0) are at the end
+//      of the file (M2-R5 render); the blast sound
 //      (cat_soundEventBlast 0x0051fc60) stage 3's; the drift and the ramming-frigate release it triggers are in
 //      ShipDisable.c and RammingFrigate.c (M2-R4 ships-b).
 
@@ -33,6 +35,9 @@
 #include "Universe.h"
 #include "UnivUpdate.h"
 #include "Vector.h"
+
+#include "glinc.h"
+#include "render.h"
 
 // the six templates (0x00893da0, read from cataclysm.exe)
 static const CatBlast cat_blastTemplates[CAT_NUM_BLAST_TYPES] =
@@ -499,4 +504,186 @@ void cat_bigGunBulletRebuildList(void)                                  // 0x005
 bool32 cat_bigGunBulletsInFlight(void)                                  // 0x00516d40
 {
     return cat_blastObjectList.num != 0;
+}
+
+/*=============================================================================
+    CAT (M2-R5 render): the blast renderer and the charge lightning
+=============================================================================*/
+#define CAT_BLAST_LIGHTNING_FRAMES      10              // 0x00894060: lightning in 1 of 10 frames
+#define CAT_BLAST_LIGHTNING_BOLTS       5               // 0x00894044
+#define CAT_BLAST_LIGHTNING_AZ_MIN      0.34906587f     // 0x00894048
+#define CAT_BLAST_LIGHTNING_POLAR_MIN   0.34906587f     // 0x0089404c
+#define CAT_BLAST_LIGHTNING_AZ_MAX      1.0471976f      // 0x00894050
+#define CAT_BLAST_LIGHTNING_POLAR_MAX   0.69813174f     // 0x00894054
+#define CAT_BLAST_BOLT_SEGMENTS         80              // 0x00894058
+#define CAT_BLAST_BOLT_JITTER           3.0f            // 0x0089405c
+#define CAT_BLAST_DOT_BRIGHTNESS        0.7f            // 0x00894064
+#define CAT_BLAST_DOTS_GROWTH           0.4f            // 0x008940a4
+#define CAT_BLAST_DOTS_FADE_START       0.9f            // 0x008940a0
+#define CAT_BLAST_DOT_SPIN              0.017453292f    // 0x0089409c: one degree per frame times the polar angle
+#define CAT_DREADNOUGHT_CHARGE_RADIUS   1000.0f         // 0x00893f80
+#define CAT_NOMAD_BEAM_RADIUS           4300.0f         // 0x00893fe8
+
+// the lightning chain over a blast's shell: 5 bolts, each from where the previous one ended (kept across frames,
+// 0x00a67018..0x00a67020) to a point a random azimuth and polar step further
+static real32 cat_blastLightningRadius = 0.0f;
+static real32 cat_blastLightningAzimuth = 0.0f;
+static real32 cat_blastLightningPolar = 0.0f;
+static void cat_blastDrawLightning(real32 x, real32 y, real32 z, real32 radius)            // 0x005163b0
+{
+    real32 az, polar, newAz, newPolar, sp;
+    vector p0, p1;
+    sdword i;
+
+    if (CAT_BLAST_LIGHTNING_FRAMES != 0 && CAT_BLAST_LIGHTNING_FRAMES > 0 &&
+        (ranRandom(RANDOM_STREAM_0) % CAT_BLAST_LIGHTNING_FRAMES) != 0)
+    {
+        return;
+    }
+    if (cat_blastLightningRadius == 0.0f)
+    {
+        az = (real32)((real64)ranRandom(RANDOM_STREAM_0) * (real64)1.4629181e-09f);   // 0x0072ab64: 2 pi / 2^32
+        polar = cat_blastRandomPolarAngle();
+    }
+    else
+    {
+        az = cat_blastLightningAzimuth;
+        polar = cat_blastLightningPolar;
+    }
+    for (i = 0; i < CAT_BLAST_LIGHTNING_BOLTS; i++)
+    {
+        newAz = (real32)((real64)ranRandom(RANDOM_STREAM_0) * (real64)(CAT_BLAST_LIGHTNING_AZ_MAX - CAT_BLAST_LIGHTNING_AZ_MIN) *
+                         (1.0 / 4294967296.0) + (real64)CAT_BLAST_LIGHTNING_AZ_MIN + (real64)az);
+        newPolar = (real32)((real64)ranRandom(RANDOM_STREAM_0) *
+                            (real64)(CAT_BLAST_LIGHTNING_POLAR_MAX - CAT_BLAST_LIGHTNING_POLAR_MIN) * (1.0 / 4294967296.0) +
+                            (real64)CAT_BLAST_LIGHTNING_POLAR_MIN + (real64)polar);
+        sp = (real32)sin((real64)newPolar);
+        p1.x = (real32)(cos((real64)newAz) * (real64)radius * (real64)sp) + x;
+        p1.y = (real32)(sin((real64)newAz) * (real64)radius * (real64)sp + (real64)y);
+        p1.z = (real32)(cos((real64)newPolar) * (real64)radius) + z;
+        sp = (real32)sin((real64)polar);
+        p0.x = (real32)(cos((real64)az) * (real64)radius * (real64)sp) + x;
+        p0.y = (real32)(sin((real64)az) * (real64)radius * (real64)sp) + y;
+        p0.z = (real32)(cos((real64)polar) * (real64)radius) + z;
+        cat_rndLightningBoltDraw(p1.x, p1.y, p1.z, p0.x, p0.y, p0.z, CAT_BLAST_BOLT_SEGMENTS, CAT_BLAST_BOLT_JITTER);
+        catRndCounts.bolts++;
+        az = newAz;
+        polar = newPolar;
+    }
+    cat_blastLightningRadius = radius;
+    cat_blastLightningAzimuth = az;
+    cat_blastLightningPolar = polar;
+}
+
+// the type 4 and 5 blasts, once their effect is up: the lightning chain and a cloud of green dots on the shell
+// (600 + 240 x the radius fraction, at most 3000, thinning over the last tenth) that circle by their polar angle
+void cat_blastRenderAll(void)                                                               // 0x00516750
+{
+    Node *node = cat_blastList.head;
+    CatBlast *blast;
+    bool32 texture, lighting;
+    real32 fraction, brightness, sp;
+    sdword n, i;
+    vector p, centre;
+
+    while (node != NULL)
+    {
+        blast = &((CatBlastNode *)listGetStructOfNode(node))->blast;
+        node = node->next;
+        if (blast->effectSpawned != 1 || (blast->type != CAT_BLAST_TYPE4 && blast->type != CAT_BLAST_TYPE5))
+        {
+            continue;
+        }
+        texture = rndTextureEnable(FALSE);
+        lighting = rndLightingEnable(FALSE);
+        glColor3f(1.0f, 1.0f, 1.0f);
+        cat_blastDrawLightning(blast->position.x, blast->position.y, blast->position.z, blast->radius);
+        fraction = blast->radius / blast->maxRadius;
+        n = CAT_BLAST_RANDOM_INDEX_RANGE +
+            (sdword)lrint((double)((real64)CAT_BLAST_RANDOM_INDEX_RANGE * (real64)CAT_BLAST_DOTS_GROWTH * (real64)fraction));
+        if (n >= CAT_BLAST_RANDOM_DIRS)
+        {
+            n = CAT_BLAST_RANDOM_DIRS;
+        }
+        if (fraction > CAT_BLAST_DOTS_FADE_START)
+        {
+            n = (sdword)((1.0 - ((real64)fraction - (real64)CAT_BLAST_DOTS_FADE_START) /
+                                ((real64)1.0f - (real64)CAT_BLAST_DOTS_FADE_START)) * (real64)n);
+        }
+        centre = blast->position;
+        for (i = 0; i < n; i++)
+        {
+            real32 *dir = cat_blastRandomDirs[i];
+            real64 polar = (real64)dir[2];
+            if (!(polar > 0.0) && !(polar < (real64)3.1415927f))               // 0x0072a58c
+            {
+                polar = 0.0;
+            }
+            else
+            {
+                polar = (real64)1.5707964f - ((real64)1.5707964f - polar);       // 0x00894098
+            }
+            dir[0] = blast->radius;
+            dir[1] = (real32)((real64)CAT_BLAST_DOT_SPIN * polar + (real64)dir[1]);
+            sp = (real32)sin((real64)dir[2]);
+            p.x = (real32)(cos((real64)dir[1]) * (real64)dir[0] * (real64)sp) + centre.x;
+            p.y = (real32)(sin((real64)dir[1]) * (real64)dir[0] * (real64)sp + (real64)centre.y);
+            p.z = (real32)(cos((real64)dir[2]) * (real64)dir[0]) + centre.z;
+            brightness = (real32)((real64)ranRandom(RANDOM_STREAM_0) * (real64)(1.0f - CAT_BLAST_DOT_BRIGHTNESS) *
+                                  (1.0 / 4294967296.0) + (real64)CAT_BLAST_DOT_BRIGHTNESS);
+            glBegin(GL_POINTS);
+            glColor3f(brightness, 1.0f, brightness);
+            glVertex3f(p.x, p.y, p.z);
+            glEnd();
+        }
+        rndTextureEnable(texture);
+        rndLightingEnable(lighting);
+        catRndCounts.blasts++;
+    }
+}
+
+// a charge point on a circle of the given radius about pos (the angle is the charge fraction), its lightning effect
+// and a bolt to it from the source
+static void cat_chargeLightning(vector *source, vector *pos, real32 frac, real32 radius, vector *point)
+{
+    etgeffectstatic *stat = NULL;
+    vector zero = {0.0f, 0.0f, 0.0f};
+    matrix coordsys;
+    real64 a = (real64)(frac * 6.2831855f);                                    // 0x0072a594
+    real64 s = sin((real64)1.5707963705062866);                                // 0x0072af58 (double)
+    bool32 texture, lighting;
+
+    point->x = (real32)(cos(a) * (real64)radius * s) + pos->x;
+    point->y = (real32)(sin(a) * (real64)radius * s + (real64)pos->y);
+    point->z = (real32)(cos((real64)1.5707963705062866) * (real64)radius) + pos->z;
+    if (etgSpecialPurposeEffectTable[CAT_BLAST_LIGHTNING_EFFECT] != NULL &&
+        etgSpecialPurposeEffectTable[CAT_BLAST_LIGHTNING_EFFECT]->nLevels > 0)
+    {
+        stat = etgSpecialPurposeEffectTable[CAT_BLAST_LIGHTNING_EFFECT]->level[0];
+    }
+    if (!universePause && stat != NULL && !etgFrequencyExceeded(stat))
+    {
+        coordsys = cat_blastLightningCoordsys;
+        etgEffectCreate(stat, NULL, point, &zero, &coordsys, 1.0f, EAF_Full, 0);
+    }
+    texture = rndTextureEnable(FALSE);
+    lighting = rndLightingEnable(FALSE);
+    glColor3f(1.0f, 1.0f, 1.0f);
+    cat_rndLightningBoltDraw(source->x, source->y, source->z, point->x, point->y, point->z,
+                             CAT_BLAST_BOLT_SEGMENTS, CAT_BLAST_BOLT_JITTER);
+    catRndCounts.bolts++;
+    rndTextureEnable(texture);
+    rndLightingEnable(lighting);
+}
+
+void cat_dreadnoughtChargeEffect(vector *pos, real32 frac)                                  // 0x00516a40
+{
+    vector point;
+
+    cat_chargeLightning(pos, pos, frac, CAT_DREADNOUGHT_CHARGE_RADIUS, &point);
+}
+
+void cat_nomadMoonBeamEffect(vector *moon, real32 frac, vector *emitter, vector *point)     // 0x00516bb0
+{
+    cat_chargeLightning(emitter, moon, frac, CAT_NOMAD_BEAM_RADIUS, point);
 }

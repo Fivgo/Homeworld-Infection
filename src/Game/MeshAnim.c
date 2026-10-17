@@ -701,7 +701,13 @@ bool32 cat_madAnimationFinished(Ship *ship)
     Description : CAT (M2-R4 ships-b): starts a mesh animation by its Cataclysm animation *number*, which
                   madAnimationStart 0x004b6b90 looks up in madstatic.animIndexes itself; this tree's madAnimationStart
                   takes the header index, so the lookup is done here (as Carrier.c did for the sCarrier door).
-                  CAT-TODO(stage 3): the exe's third argument (loop) is not passed on.
+                  CAT-TODO(M2-R6 mesh animation, MeshAnim.c / MadLinkIn.c): the exe's third argument is not passed
+                  on. It is a mode word at madanim +0x08 (bit 0 loop, bit 1 go back to the previous animation; else
+                  the animation pauses on its last frame and stays current, madAnimationUpdate 0x004b6ce0), in the
+                  exe's madanim with the previous animation at +0x10 and the binding swap deferred to the next update
+                  (+0x18); with madAnimBindingsDupe 0x004b6a10, madAnimationStop 0x004b6e70 and the per-type
+                  animation sounds 0x00c32660 that is the mesh-animation port, which changes when gun bindings swap
+                  back (simulation side), so M2-R5 render left it (docs/m2-r5-render.md).
     Inputs      : ship - a ship with mesh animation bindings, number - the animation number
 ----------------------------------------------------------------------------*/
 void cat_madAnimationStartNumber(Ship *ship, sdword number)

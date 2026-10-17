@@ -223,8 +223,10 @@ void primRectSolid2(rectangle *rect, color c)
 void primRectTranslucent2(rectangle* rect, color c)
 {
     GLboolean blendOn;
+    sdword additive;
 
     blendOn = glIsEnabled(GL_BLEND);
+    additive = rndAdditiveBlends(FALSE);    // CAT: drawn with normal blending, the mode put back after (primRectTranslucent2 0x00570910)
     if (!blendOn) glEnable(GL_BLEND);
     glBegin(GL_TRIANGLE_STRIP);
     glColor4ub(colRed(c), colGreen(c), colBlue(c), colAlpha(c));
@@ -238,6 +240,7 @@ void primRectTranslucent2(rectangle* rect, color c)
     glEnd();
     
     if (!blendOn) glDisable(GL_BLEND);
+    rndAdditiveBlends(additive);
 }
 
 /*-----------------------------------------------------------------------------

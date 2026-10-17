@@ -8,7 +8,8 @@
 // =============================================================================
 
 // CAT: new file (M2-R4 ships-b). Each body follows the r6 decompile of its exe function (address on each). The
-//      cut plane is drawn by the renderer (cat_rndSetupDissolveFlag 0x005759f0, cat_rndObjectEffectsSetup: stage 3);
+//      cut plane is drawn by the renderer (cat_rndSetupDissolveFlag 0x005759f0, cat_rndRenderObjectList, with the plane
+//      of cat_shipDissolveComputePlane below; M2-R5 render);
 //      this file keeps the state and makes the two effects (etgSpecialPurposeEffectTable[EGT_SUCK_SHIP] for the
 //      sparks, [EGT_RESOURCE_SHIP] for the stream into the point).
 
@@ -334,4 +335,33 @@ void cat_shipDissolveStop(Ship *ship)                                       // 0
         cat_effectDeleteNow(ship->catDissolveEffect);
         ship->catDissolveEffect = NULL;
     }
+}
+
+// CAT (M2-R5 render): the cut plane in the ship's frame: its normal points from the dissolve point back to the ship's
+// centre, and it sweeps from one side of the collision sphere to the other over the dissolve's time
+void cat_shipDissolveComputePlane(Ship *ship, real32 plane[4])                          // 0x00460270
+{
+    vector centre, point, d;
+    real32 r = ship->staticinfo->common.staticCollInfo.collspheresize;
+    real32 t, t2;
+
+    centre = ship->obj.posinfo.position;
+    t = cat_timerFractionElapsed(&ship->catDissolveTimer);
+    if (t > 1.0f)
+    {
+        t = 1.0f;
+    }
+    cat_vecWorldToShipLocal(&centre, &ship->obj.posinfo.position, ship);
+    cat_vecWorldToShipLocal(&point, &ship->catDissolvePoint, ship);
+    d.x = point.x - centre.x;
+    d.y = point.y - centre.y;
+    d.z = point.z - centre.z;
+    vecNormalize(&d);
+    t2 = t + t;
+    plane[0] = -d.x;
+    plane[1] = -d.y;
+    plane[2] = -d.z;
+    plane[3] = (((d.x * r + centre.x) - t2 * d.x * r) * -d.x +
+                ((d.y * r + centre.y) - t2 * d.y * r) * -d.y +
+                ((d.z * r + centre.z) - t2 * d.z * r) * -d.z) * -1.0f;
 }

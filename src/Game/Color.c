@@ -410,3 +410,25 @@ sdword colRGBCompare(color *p0, color *p1, sdword nPixels)
     return(0);
 }
 */
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_colBlendRGBA (Cataclysm 0x00555560)
+    Description : CAT: new. Blend two colours, alpha included: u = round(factor * 256) (255 at most; the exe
+                  keeps only the low byte of a negative u), each channel (c1 * u + c2 * (255 - u)) >> 8
+    Inputs      : c1 - the colour at factor 1, c2 - the colour at factor 0, factor
+    Outputs     :
+    Return      : the blend
+----------------------------------------------------------------------------*/
+color cat_colBlendRGBA(color c1, color c2, real32 factor)
+{
+    sdword u = (sdword)lrint((double)(factor * 256.0f));   // CAT: the exe's 1.5 * 2^52 rounding (0x0072a458)
+    udword a, b, k;
+
+    a = (u < 0x100) ? ((udword)u & 0xff) : 0xff;
+    b = 0xff - a;
+    k  = ((((c2 >> 24) * b + (c1 >> 24) * a) & 0xff00) << 16);
+    k |= ((((c2 >> 16) & 0xff) * b + ((c1 >> 16) & 0xff) * a) << 8) & 0xffff00ff;
+    k |= (((c2 >> 8) & 0xff) * b + ((c1 >> 8) & 0xff) * a) & 0xffffff00;
+    k |= (((c2 & 0xff) * b + (c1 & 0xff) * a) >> 8);
+    return (color)k;
+}

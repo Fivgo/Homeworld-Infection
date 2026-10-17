@@ -1207,7 +1207,7 @@ void nebColourAdjust(vector* vert, vector* norm, real32* m, real32* minv)
         color[1] = nebColor[1];
         color[2] = nebColor[2];
         color[3] = nebColor[3];
-        shSpecularColour(1, 0, vert, norm, color, m, minv);
+        shSpecularColour(1, 0, vert, norm, color, m, minv, NULL, NULL);   // CAT: no glow (shSpecularColour 0x0050e280)
         glColor4ub(color[0], color[1], color[2], color[3]);
     }
 }

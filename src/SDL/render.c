@@ -48,6 +48,27 @@
 #include "NIS.h"
 #include "Objectives.h"
 #include "Particle.h"           // CAT: lens flare sources (catlensflaresource)
+// CAT (M2-R5 render): the Cataclysm object-list renderer's helpers
+#include "ACV.h"
+#include "BeastWeapon.h"
+#include "Blast.h"
+#include "Cloak.h"
+#include "CommandLayer.h"
+#include "Dissolve.h"
+#include "Dreadnought.h"
+#include "FormationDefs.h"
+#include "LOD.h"
+#include "Mimic.h"
+#include "ModuleShip.h"
+#include "NomadMoon.h"
+#include "RepairDroid.h"
+#include "Salvage.h"
+#include "Sentinel.h"
+#include "ShipSelect.h"
+#include "Attributes.h"
+#include "Options.h"
+#include "StatScript.h"
+#define CAT_LF_TRANSPARENT_SHIPTYPE 0x90    // 0x0057bc41: a ship of this type does not block a lens flare
 #include "PiePlate.h"
 #include "prim2d.h"
 #include "prim3d.h"
@@ -58,6 +79,7 @@
 #include "screenshot.h"
 #include "Select.h"
 #include "Shader.h"
+#include "Sensors.h"
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
 #include "StringsOnly.h"
@@ -1125,6 +1147,7 @@ sdword rndSmallInit(rndinitdata* initData, bool32 GL)
     Outputs     : ??
     Return      : ERROR if an error occurred.
 ----------------------------------------------------------------------------*/
+static LinkedList catRndFieldList;               // CAT: below (the Sentinel fields)
 sdword rndInit(rndinitdata *initData)
 {
     static GLfloat  ambientProperties[] = {0.9f, 0.5f, 0.5f, 1.0f};
@@ -1194,6 +1217,11 @@ sdword rndInit(rndinitdata *initData)
 #endif //RND_POLY_STATS
 
     glDepthFunc(GL_LEQUAL);
+
+    // CAT (M2-R5 render): the lens flare source list and the Sentinel field queue start empty (rndInit 0x005747d0 at
+    //      0x00574a05: listInit 0x00b37880, 0x00b378a0)
+    listInit(&catRndLensFlareSourceList);
+    listInit(&catRndFieldList);
 
     return(OKAY);
 }
@@ -1426,7 +1454,16 @@ bool32 rndCameraInside(SpaceObj* spaceobj, Camera* camera)
         collspheresize *= collspheresize;
 
         //sphere test
-        vecSub(dist, spaceobj->posinfo.position, camera->eyeposition);
+        // CAT (M2-R5 render): a ship's sphere is centred on its collision position (rndCameraInside 0x00574f80 at
+        //      0x00574fa7: +0xE0), other objects' on their position
+        if (spaceobj->header.objtype == OBJ_ShipType)
+        {
+            vecSub(dist, ((SpaceObjRotImp *)spaceobj)->collInfo.collPosition, camera->eyeposition);
+        }
+        else
+        {
+            vecSub(dist, spaceobj->posinfo.position, camera->eyeposition);
+        }
         if (vecMagnitudeSquared(dist) > collspheresize)
         {
             //further away than the bounding sphere, trivially reject
@@ -1518,6 +1555,7 @@ bool32 rndShipVisibleUsingCoordSys(SpaceObj* spaceobj, Camera* camera)
     GLfloat projection[16], modelview[16];
     hmatrix coordMatrixForGL;
     bool32    result;
+    real32 scale;
 
     glGetFloatv(GL_PROJECTION_MATRIX, projection);
     glGetFloatv(GL_MODELVIEW_MATRIX,  modelview);
@@ -1538,12 +1576,73 @@ bool32 rndShipVisibleUsingCoordSys(SpaceObj* spaceobj, Camera* camera)
     hmatPutVectIntoHMatrixCol4(spaceobj->posinfo.position, coordMatrixForGL);
     glMultMatrixf((GLfloat*)&coordMatrixForGL);
 
+    // CAT: the selection circle and the N-LIPS size cap are computed here for every visible object
+    //      (rndShipVisibleUsingCoordSys 0x005750c0; HW1 did both in the main view's ship case): a ship's cap
+    //      scales its mesh (Ship.magnitudeSquared, from a mimic's disguise when it mimics) and its selection
+    //      circle, and the ships clamped to it get the same scale; a clamped ship keeps its host's. A missile's cap
+    //      is its own (Missile.catMissileScale).
+    selCircleCompute(&rndCameraMatrix, &rndProjectionMatrix, (SpaceObjRotImpTarg *)spaceobj);
+    if (spaceobj->header.objtype == OBJ_ShipType)
+    {
+        Ship *ship = (Ship *)spaceobj;
+        ClampInfo *clamp = ship->guidance.clampInfo;
+
+        if (clamp == NULL || clamp->host == NULL)
+        {
+            if (selCameraSpace.z < 0.0f && ship->staticinfo->scaleCap != 0.0f)
+            {
+                real32 cap = bitTest(spaceobj->header.catFlags18, CAT_SHIPFLAG_Mimic) ?
+                             cat_mimicGetApparentScale(ship) : ship->staticinfo->scaleCap;
+                scale = 1.0f - (twnLipsBaseOffset + selCameraSpace.z) * cap;
+                if (scale < 1.0f)
+                {
+                    scale = 1.0f;
+                }
+                ship->magnitudeSquared = scale;
+                ship->impactable.collInfo.selCircleRadius *= scale;
+            }
+            else
+            {
+                ship->magnitudeSquared = 1.0f;
+            }
+            if (clamp != NULL && clamp->clampedObjs != NULL)
+            {
+                sdword i;
+                for (i = 0; i < clamp->clampedObjs->numShips; i++)
+                {
+                    Ship *clamped = clamp->clampedObjs->ShipPtr[i];
+                    clamped->magnitudeSquared = ship->magnitudeSquared;
+                    clamped->impactable.collInfo.selCircleRadius *= ship->magnitudeSquared;
+                }
+            }
+        }
+    }
+    else if (spaceobj->header.objtype == OBJ_MissileType)
+    {
+        Missile *missile = (Missile *)spaceobj;
+        real32 cap = ((MissileStaticInfo *)missile->staticinfo)->scaleCap;
+
+        if (selCameraSpace.z < 0.0f && cap != 0.0f)
+        {
+            scale = 1.0f - (twnLipsBaseOffset + selCameraSpace.z) * cap;
+            if (scale < 1.0f)
+            {
+                scale = 1.0f;
+            }
+            missile->catMissileScale = scale;
+        }
+        else
+        {
+            missile->catMissileScale = 1.0f;
+        }
+    }
+
     result = rndShipVisible(spaceobj, camera);
 
-    glMatrixMode(GL_PROJECTION_MATRIX);
+    glMatrixMode(GL_PROJECTION);
     glLoadMatrixf(projection);
 
-    glMatrixMode(GL_MODELVIEW_MATRIX);
+    glMatrixMode(GL_MODELVIEW);
     glLoadMatrixf(modelview);
 
     return result;
@@ -1557,17 +1656,18 @@ bool32 rndShipVisibleUsingCoordSys(SpaceObj* spaceobj, Camera* camera)
                   camera - the camera
     Outputs     :
     Return      : TRUE if the ship is not visible (totally faded), FALSE otherwise
+    Note        : CAT: the exe's body (rndFade 0x005753d0): HW1's 1.3 multiplier on both distances (0x0072be90; GoK
+                  had set it to 1.0), the new classes (MonsterShip as a mothership, Micro as a fighter, a Component
+                  by its type), an asteroid with attribute 0x200 at the carrier distances, a derelict's
+                  CustShipInit slot as its fade (the exe reads the derelict static's +0x114 there); fade channel 0;
+                  no far-clip fade (a GoK addition)
 ----------------------------------------------------------------------------*/
+#define RND_FADE_MULT   1.3f                            // CAT: 0x0072be90
 bool32 rndFade(SpaceObj* spaceobj, Camera* camera)
 {
     vector distvec;
     real32 distsqr0, distsqr1, distsqr;
     real32 fadedist, maxdist, mindist;
-
-    // Not sure when and why the 1.3 multiplier was introduced
-    // but culling of render objects, based on renderlistLimitSqr, doesn't include this multiplier
-    // and hence some objects won't ever fade and just disappear suddenly.
-    real32 mult = 1.0f; //1.3f;
 
     vecSub(distvec, camera->lookatpoint, spaceobj->posinfo.position);
     distsqr0 = vecMagnitudeSquared(distvec);
@@ -1579,9 +1679,12 @@ bool32 rndFade(SpaceObj* spaceobj, Camera* camera)
 
     if (spaceobj->header.objtype == OBJ_ShipType)
     {
-        switch (((ShipStaticInfo*)spaceobj->staticinfo)->shipclass)
+        ShipStaticInfo *info = (ShipStaticInfo *)spaceobj->staticinfo;
+        switch (info->shipclass)
         {
         case CLASS_Mothership:
+        case CLASS_MonsterShip:
+        mothership:
             fadedist = RENDER_FADE_MOTHERSHIP;
             maxdist  = RENDER_LIMIT_MOTHERSHIP;
             break;
@@ -1597,15 +1700,12 @@ bool32 rndFade(SpaceObj* spaceobj, Camera* camera)
             fadedist = RENDER_FADE_DESTROYER;
             maxdist  = RENDER_LIMIT_DESTROYER;
             break;
-        case CLASS_Frigate:
-            fadedist = RENDER_FADE_FRIGATE;
-            maxdist  = RENDER_LIMIT_FRIGATE;
-            break;
         case CLASS_Corvette:
             fadedist = RENDER_FADE_CORVETTE;
             maxdist  = RENDER_LIMIT_CORVETTE;
             break;
         case CLASS_Fighter:
+        case CLASS_Micro:
             fadedist = RENDER_FADE_FIGHTER;
             maxdist  = RENDER_LIMIT_FIGHTER;
             break;
@@ -1617,106 +1717,98 @@ bool32 rndFade(SpaceObj* spaceobj, Camera* camera)
             fadedist = RENDER_FADE_NONCOMBAT;
             maxdist  = RENDER_LIMIT_NONCOMBAT;
             break;
+        case CLASS_Component:
+            // CAT: a carrier's module as a carrier, the Dreadnought's cannon as a destroyer, the rest as motherships
+            if (info->shiptype == sCarrierSupport)
+            {
+                fadedist = RENDER_FADE_CARRIER;
+                maxdist  = RENDER_LIMIT_CARRIER;
+            }
+            else if (info->shiptype == sDreadnoughtCannon)
+            {
+                fadedist = RENDER_FADE_DESTROYER;
+                maxdist  = RENDER_LIMIT_DESTROYER;
+            }
+            else
+            {
+                goto mothership;
+            }
+            break;
+        case CLASS_Frigate:
         default:
             fadedist = RENDER_FADE_FRIGATE;     //happy medium
             maxdist  = RENDER_LIMIT_FRIGATE;
         }
 
-        if (((ShipStaticInfo*)spaceobj->staticinfo)->renderlistFade != 0.0f)
+        if (info->renderlistFade != 0.0f)
         {
-            fadedist = ((ShipStaticInfo*)spaceobj->staticinfo)->renderlistFade;
-            maxdist  = ((ShipStaticInfo*)spaceobj->staticinfo)->renderlistLimitSqr;
+            fadedist = info->renderlistFade;
+            maxdist  = fsqrt(info->renderlistLimitSqr);
         }
-
-        fadedist *= mult;
-        maxdist = mult * fsqrt(maxdist);
+        fadedist *= RND_FADE_MULT;
     }
     else if (spaceobj->header.objtype == OBJ_DerelictType)
     {
-        if (((DerelictStaticInfo*)spaceobj->staticinfo)->renderlistFade != 0.0f)
+        DerelictStaticInfo *info = (DerelictStaticInfo *)spaceobj->staticinfo;
+        if (info->renderlistFade != 0.0f)
         {
-            fadedist = ((DerelictStaticInfo*)spaceobj->staticinfo)->renderlistFade;
-            maxdist  = ((DerelictStaticInfo*)spaceobj->staticinfo)->renderlistLimitSqr;
+            fadedist = info->renderlistFade * RND_FADE_MULT;
+            maxdist  = fsqrt(info->renderlistLimitSqr);
         }
         else if (spaceobj->header.flags & SOF_BigObject)
         {
-            fadedist = RENDER_MAXVIEWABLE_FADE;
-            maxdist  = RENDER_MAXVIEWABLE_DISTANCE_SQR;
+            fadedist = RENDER_MAXVIEWABLE_FADE * RND_FADE_MULT;
+            maxdist  = fsqrt(RENDER_MAXVIEWABLE_DISTANCE_SQR);
         }
         else
         {
-            fadedist = RENDER_VIEWABLE_FADE;
-            maxdist  = RENDER_VIEWABLE_DISTANCE_SQR;
+            fadedist = RENDER_VIEWABLE_FADE * RND_FADE_MULT;
+            maxdist  = fsqrt(RENDER_VIEWABLE_DISTANCE_SQR);
         }
-
-        fadedist *= mult;
-        maxdist = mult * fsqrt(maxdist);
+    }
+    else if (spaceobj->header.objtype == OBJ_AsteroidType && bitTest(spaceobj->attributes, CAT_RND_ATTR_ASTEROID_FAR))
+    {
+        fadedist = RENDER_FADE_CARRIER * RND_FADE_MULT;
+        maxdist  = RENDER_LIMIT_CARRIER;
     }
     else
     {
         if (spaceobj->header.flags & SOF_BigObject)
         {
-            fadedist = mult * RENDER_MAXVIEWABLE_FADE;
-            maxdist  = mult * fsqrt(RENDER_MAXVIEWABLE_DISTANCE_SQR);
+            fadedist = RENDER_MAXVIEWABLE_FADE * RND_FADE_MULT;
+            maxdist  = fsqrt(RENDER_MAXVIEWABLE_DISTANCE_SQR);
         }
         else
         {
-            fadedist = mult * RENDER_VIEWABLE_FADE;
-            maxdist  = mult * fsqrt(RENDER_VIEWABLE_DISTANCE_SQR);
+            fadedist = RENDER_VIEWABLE_FADE * RND_FADE_MULT;
+            maxdist  = fsqrt(RENDER_VIEWABLE_DISTANCE_SQR);
         }
     }
 
-    mindist = maxdist - fadedist;
-    fadedist *= fadedist;
+    mindist = maxdist * RND_FADE_MULT - fadedist;
     mindist *= mindist;
-
-    real32 fadeAmount = 0.0f;
 
     if (distsqr < mindist || g_ReplaceHack)
     {
-        fadeAmount = 0.0f;
+        meshSetFade(0, 0.0f);
     }
-    else if (distsqr < mindist+fadedist)
+    else if (mindist + fadedist * fadedist <= distsqr)
     {
-        fadeAmount = (distsqr - mindist) / fadedist;
-    }
-    else
-    {
-        fadeAmount = 1.0f;
-    }
-
-    // When the camera eye is far from an object it can happen
-    // that the object is rendered further away then the camera far clip plane and
-    // gets only partially rendered (if at all). Lets fade out the object gracefully before that happens.
-    real32 cameraDistFade = 0.1f * CAMERA_CLIP_FAR;
-    real32 cameraDist = fsqrt(distsqr1);
-    if (cameraDist > (CAMERA_CLIP_FAR - cameraDistFade))
-    {
-        fadeAmount = min(1.0f, max(fadeAmount, (cameraDist - (CAMERA_CLIP_FAR - cameraDistFade))/cameraDistFade));
-    }
-
-    if (fadeAmount >= 1.0f)
-    {
-        meshSetFade(1.0f);
+        meshSetFade(0, 1.0f);
         return TRUE;
     }
-    else if (fadeAmount > 0.0f)
-    {
-        meshSetFade(fadeAmount);
-        rndAdditiveBlends(FALSE);
-    }
     else
     {
-        meshSetFade(0.0f);
+        meshSetFade(0, (distsqr - mindist) / (fadedist * fadedist));
+        rndAdditiveBlends(FALSE);
     }
-
 
     return FALSE;
 }
 
 void rndUnFade()
 {
-    meshSetFade(0.0f);
+    meshSetFade(0, 0.0f);
 }
 
 /*-----------------------------------------------------------------------------
@@ -1736,6 +1828,7 @@ void rndRenderAHomeworld(void* voidCamera, void *voidWorld)
     vector *position;
     meshdata *worldMesh;
     hmatrix coordMatrixForGL;
+    GLboolean depthOn;
     sdword colorScheme = world->colorScheme;
 
     planetScale = world->staticinfo->scaleFactor;
@@ -1753,9 +1846,19 @@ void rndRenderAHomeworld(void* voidCamera, void *voidWorld)
     glScalef(planetScale, planetScale, planetScale);
 
     rndNormalizeEnable(TRUE);
+    // CAT (M2-R5 render): the depth test is put back as it was, not switched on (rndRenderAHomeworld 0x005757f0 at
+    //      0x005758e2 / 0x0057594e)
+    depthOn = glIsEnabled(GL_DEPTH_TEST);
     glDisable(GL_DEPTH_TEST);
     meshObjectRender(&worldMesh->object[0], worldMesh->localMaterial, colorScheme);
-    glEnable(GL_DEPTH_TEST);
+    if (depthOn)
+    {
+        glEnable(GL_DEPTH_TEST);
+    }
+    else
+    {
+        glDisable(GL_DEPTH_TEST);
+    }
     rndNormalizeEnable(FALSE);
 
     glPopMatrix();
@@ -2339,80 +2442,1537 @@ void rndMainViewAllButRenderFunction(Camera *camera)
     ;
 }
 
-enum WhetherToDraw {
-    Draw = 1,
-    DontDraw = 0,
-};
+/*=============================================================================
+    CAT: the per-object render state of the Cataclysm renderer (cataclysm.exe 0x00c32c00..0x00c32c9b; the object
+    pointer at 0x00c32c00 is catShCurrentObject in Shader.c). cat_rndRenderObjectList 0x005776f0 and
+    cat_rndObjectEffectsSetup 0x00575c90 set it per object; the mesh renderers (Mesh.c) read the fade, dissolve and
+    tint flags. Names chosen here.
+=============================================================================*/
+bool8  catRndEdgeEffect = FALSE;            // 0x00c32c04: the Beast-stun edge lightning (Ship +0x4D0..+0x4D8)
+bool8  catRndFadeFlag = FALSE;              // 0x00c32c08: a fade by clip plane (build-in) or the ship-view fade
+ubyte  catRndFadeMode = 0;                  // 0x00c32c09: CAT_RND_FADE_*
+bool8  catRndFadeFlip = FALSE;              // 0x00c32c0a: the second pass of the build-in fade
+real32 catRndFadeT = 0.0f;                  // 0x00c32c10
+bool8  catRndBeastStun = FALSE;             // 0x00c32c50: a ship turning into a Beast ship (Ship +0x4E4)
+real32 catRndBeastStunT = 0.0f;             // 0x00c32c54: 0 .. 1 of the change
+sbyte  catRndTimedPhase = 0;                // 0x00c32c58: the salvage conversion's phase 1..3 (Ship +0x508 / +0x50C)
+real32 catRndTimedT = 0.0f;                 // 0x00c32c5c: the phase's progress
+real32 catRndTimedFrac = 0.0f;              // 0x00c32c60: the conversion's progress
+bool8  catRndDissolve = FALSE;              // 0x00c32c64: the dissolve cut plane is on (Dissolve.c)
+bool8  catRndRaceTint = FALSE;              // 0x00c32c78: a Beast ship's red ambient (single player)
+bool8  catRndAsteroidTint = FALSE;          // 0x00c32c79: an asteroid with attribute 0x200 (no red/green ambient)
+ubyte  catRndEMPFlicker = 0;                // 0x00c32c7a: 1 = a moving ship the Naggarok EMP hit, 2 = flicker running
+bool8  catRndMimic = FALSE;                 // 0x00c32c7c: a mimic that has started a disguise (MimicSpec.started)
+real32 catRndMimicFade = 0.0f;              // 0x00c32c80: MimicSpec.fade
+lodinfo *catRndMimicLOD = NULL;             // 0x00c32c84: MimicSpec.apparentLOD
+shipbindings *catRndMimicBindings = NULL;   // 0x00c32c88: MimicSpec.apparentBindings
+sdword catRndMimicColor = 0;                // 0x00c32c8c: MimicSpec.apparentColor
+sdword catRndMimicRace = 0;                 // 0x00c32c90: MimicSpec.apparentRace
+real32 catRndMimicRadius = 0.0f;            // 0x00c32c94: MimicSpec.apparentRadius
+bool32 catRndMimicOn = FALSE;               // 0x00c32c98: MimicSpec.mode == MIMIC_On
+//CAT: the ship view's selection time (0x00a5e264, set by svSelectShip; the ship view is the HUD's, M2-R5 hud):
+//     cat_rndSetupFadeFlag fades a NULL object in over 1.5 s from it
+real32 catRndShipViewSelectTime = 0.0f;
 
-static enum WhetherToDraw onRenderEffect(Effect* effect) {
-    SpaceObj* effectowner = (SpaceObj*)effect->owner;
-    if (effectowner == NULL) return Draw;
-    if (effectowner->header.objtype != OBJ_BulletType) return Draw;
+//CAT: the exe's build-in fade mode (0x00878168: 1 in .data, no writer) and its console switches (0x00878171 trails
+//     pass, 0x008bab28 reset of the wireframe hacks after a ship: both 1 in .data, no writer)
+#define CAT_RND_FADE_MODE_BUILD     CAT_RND_FADE_CLIP
+static const bool8 catRndDrawTrails = TRUE;
+static const bool32 catRndResetHacksAfterShip = TRUE;
+//CAT: the exe's renderer tests RGL (0x00b3a6d8: the rgl.dll device is in use) and RGLtype (0x00b3a700: SWtype 0,
+//     GLIDEtype 1, D3Dtype 2, GLtype 3). This tree draws with OpenGL only (as GoK), i.e. RGL FALSE and GLtype; the
+//     RGL-only calls (glPixelTransferf flash, the rgl fog, rglFeature) and the D3D near-plane halving drop out.
+#define CAT_RND_RGLTYPE_GL          3
+#define CAT_RND_RGLTYPE             CAT_RND_RGLTYPE_GL
+//CAT: glCapFeatureExists(RGL_BROKEN_MIXED_DEPTHTEST 0x9003) is TRUE only on a D3D device with broken depth
+#define CAT_RND_BROKEN_MIXED_DEPTH  FALSE
+//CAT: the perspective-correction hints of the exe's inlined rndPerspectiveCorrection (glHint
+//     GL_PERSPECTIVE_CORRECTION_HINT, mainNoPerspective 0x00a74d5c) are not issued: GoK dropped
+//     rndPerspectiveCorrection, and the hint has no effect on a current GL
 
-    // effect is owned by a bullet
-    Bullet* bullet = (Bullet*)effectowner;
-    if (bullet->bulletType == BULLET_Beam && bullet->timelived <= UNIVERSE_UPDATE_PERIOD) {
-        return DontDraw;
+//CAT: the depth-sorted list of the objects drawn after the opaque pass (0x00a75d10..0x00a75d20)
+static sdword catRndSortMode = 0;           // 0x00a75d10: 0 none, 1 the opaque pass (collect), 2 the sorted pass
+static SpaceObj **catRndSortList = NULL;    // 0x00a75d14
+static sdword catRndSortCount = 0;          // 0x00a75d18
+static sdword catRndSortMax = 0;            // 0x00a75d1c
+static sdword catRndSortIndex = 0;          // 0x00a75d20
+
+//CAT: the Sentinel force-field formations already queued this frame (0x00b378a0; nodes of 0x18 bytes:
+//     {formation, Node, queued})
+typedef struct CatRndFieldNode
+{
+    struct CommandToDo *formation;
+    Node link;
+    bool32 queued;
+} CatRndFieldNode;
+
+//CAT: a module (CLASS_Component) answers for its host (0x00577aeb, 0x00578049, 0x005793ca)
+static Ship *cat_rndShipOrClampHost(Ship *ship)
+{
+    ClampInfo *clamp = ship->guidance.clampInfo;
+
+    if (ship->staticinfo->shipclass == CLASS_Component && clamp != NULL && clamp->host != NULL)
+    {
+        return (Ship *)clamp->host;
     }
+    return ship;
+}
 
-    // CAT: HW1's defense-fighter laser (its beam followed the bullet, defenseFighterAdjustLaser) is gone with the
-    //      type (M2-R4 ships-b retire): every other bullet effect is drawn as is
+//CAT: counters for the render self-test (port diagnostic, not in the exe: /catRenderTest, catRenderSelfTestFrame)
+CatRndCounts catRndCounts;
 
-    return Draw;
+/*-----------------------------------------------------------------------------
+    Name        : cat_kasNaggarokEMPHitShip (Cataclysm 0x00575b30)
+    Description : TRUE if the mission's Naggarok EMP (KAS variable G_NaggarokEMP) has hit the ship more often than
+                  its EMP shock count (Ship +0x52C)
+    Inputs      : ship
+    Outputs     :
+    Return      : TRUE / FALSE
+----------------------------------------------------------------------------*/
+bool32 cat_kasNaggarokEMPHitShip(Ship *ship)
+{
+    // CAT-TODO(stage 6 KAS): the exe looks the variable up in the hashed KAS variable store
+    //      (cat_kasVarFind(0, cat_kasHashString("G_NaggarokEMP")) 0x00491b20, entry {scope, hash, value}) and
+    //      returns value > ship->catEmpShockCount. The store is the kas2c mission code's (stage 6); until it is
+    //      ported no mission sets the variable (as CAT_HW1_MISSION_SCRIPTS 0), so no ship has been hit
+    (void)ship;
+    return FALSE;
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : rndMainViewRenderFunction
+    Name        : cat_rndShipEMPdAndMoving (Cataclysm 0x00575ae0)
+    Description : TRUE for a ship the Naggarok EMP hit that is still moving (|v|^2 > 0.01)
+----------------------------------------------------------------------------*/
+bool32 cat_rndShipEMPdAndMoving(Ship *ship)
+{
+    vector *v = &ship->obj.posinfo.velocity;
+
+    return cat_kasNaggarokEMPHitShip(ship) && (v->z * v->z + v->y * v->y + v->x * v->x > 0.01f);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndSetupDissolveFlag (Cataclysm 0x005759f0)
+----------------------------------------------------------------------------*/
+void cat_rndSetupDissolveFlag(SpaceObj *obj)
+{
+    catRndDissolve = FALSE;
+    if (obj != NULL && obj->header.objtype == OBJ_ShipType && cat_shipDissolveIsActive((Ship *)obj))
+    {
+        catRndDissolve = TRUE;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndSetupFadeFlag (Cataclysm 0x00575a20)
+    Description : A ship being built (SPECIAL_2_CatBeingBuilt) is cut by a clip plane at its build progress; with
+                  no object, the ship view fades its ship in over 1.5 s after the selection
+----------------------------------------------------------------------------*/
+void cat_rndSetupFadeFlag(SpaceObj *obj)
+{
+    real32 t;
+    real64 whole;
+
+    catRndFadeFlag = FALSE;
+    if (obj == NULL)
+    {
+        t = (cat_taskRealTimeElapsed - catRndShipViewSelectTime) * (2.0f / 3.0f);   // 0x0072be94
+        if (t < 1.0)
+        {
+            catRndFadeFlag = TRUE;
+            catRndFadeT = (real32)modf((real64)t, &whole);
+            catRndFadeMode = CAT_RND_FADE_VIEW;
+            catRndFadeFlip = FALSE;
+        }
+    }
+    else if (obj->header.objtype == OBJ_ShipType && bitTest(((Ship *)obj)->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+    {
+        catRndFadeFlag = TRUE;
+        catRndFadeMode = CAT_RND_FADE_MODE_BUILD;
+        catRndFadeFlip = FALSE;
+        catRndFadeT = 1.0f - ((Ship *)obj)->catBuildProgress;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndSetupTimedEffectPhase (Cataclysm 0x00575b70)
+    Description : The salvage conversion's phase (Ship catSalvageConvertStart/End): 1 for the first tenth (an
+                  eased rise), 2 to nine tenths (linear), 3 for the last tenth (eased)
+----------------------------------------------------------------------------*/
+void cat_rndSetupTimedEffectPhase(SpaceObj *obj)
+{
+    Ship *ship = (Ship *)obj;
+    real64 x;
+
+    catRndTimedPhase = 0;
+    if (obj != NULL && obj->header.objtype == OBJ_ShipType && universe.totaltimeelapsed < ship->catSalvageConvertEnd)
+    {
+        catRndTimedFrac = (universe.totaltimeelapsed - ship->catSalvageConvertStart) /
+                          (ship->catSalvageConvertEnd - ship->catSalvageConvertStart);
+        if (catRndTimedFrac < 0.1f)
+        {
+            catRndTimedPhase = 1;
+            x = (real64)catRndTimedFrac * (real64)10.0f;                         // 0x0072bea0
+        }
+        else if (catRndTimedFrac < 0.9f)
+        {
+            catRndTimedPhase = 2;
+            catRndTimedT = (catRndTimedFrac - 0.1f) * 1.2500001f;               // 0x0072be9c
+            return;
+        }
+        else
+        {
+            catRndTimedPhase = 3;
+            x = ((real64)catRndTimedFrac - (real64)0.9f) * (real64)9.999998f;    // 0x0072be98
+        }
+        catRndTimedT = (real32)(1.0 - (cos((x + 1.0) * (real64)1.5707964f) + 1.0));
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndSetupMimicFlag (Cataclysm 0x00575c60)
+----------------------------------------------------------------------------*/
+void cat_rndSetupMimicFlag(SpaceObj *obj)
+{
+    catRndMimic = FALSE;
+    if (obj != NULL && bitTest(obj->header.catFlags18, CAT_SHIPFLAG_Mimic) &&
+        ((MimicSpec *)((Ship *)obj)->ShipSpecifics)->started)
+    {
+        catRndMimic = TRUE;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndBeastStunSetup / cat_rndMimicParamsSetup
+    Description : the two halves of cat_rndSetupObjectEffectParams 0x00575f40 (inlined into
+                  cat_rndRenderObjectList 0x00577f1e)
+----------------------------------------------------------------------------*/
+static void cat_rndSetupObjectEffectParamsInline(Ship *ship)
+{
+    real32 duration;
+    MimicSpec *spec;
+
+    if (catRndBeastStun)
+    {
+        duration = cat_beastTimeSpentStunned(ship->shiptype);
+        if (nisIsRunning)
+        {
+            duration = 4.0f;                                                    // 0x0072a530
+        }
+        catRndBeastStunT = 1.0f - (ship->catBeastConvertTime - universe.totaltimeelapsed) / duration;
+        if (catRndBeastStunT > 1.0f)
+        {
+            catRndBeastStunT = 1.0f;
+        }
+    }
+    if (catRndMimic)
+    {
+        spec = (MimicSpec *)ship->ShipSpecifics;
+        catRndMimicFade = spec->fade;
+        catRndMimicLOD = spec->apparentLOD;
+        catRndMimicRadius = spec->apparentRadius;
+        catRndMimicBindings = spec->apparentBindings;
+        catRndMimicColor = spec->apparentColor;
+        catRndMimicRace = spec->apparentRace;
+        catRndMimicOn = (spec->mode == MIMIC_On);
+    }
+}
+
+void cat_rndSetupObjectEffectParams(SpaceObj *obj)
+{
+    if (obj != NULL)
+    {
+        cat_rndSetupObjectEffectParamsInline((Ship *)obj);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndSetupObjectFlags
+    Description : the flag block every object renderer starts with (cat_rndRenderObjectList 0x005776f0,
+                  cat_rndObjectEffectsSetup 0x00575c90, the trail pass of rndMainViewRenderFunction 0x00576f10):
+                  edge lightning, Beast race, Naggarok EMP, build fade, Beast stun, conversion phase, mimic, dissolve
+----------------------------------------------------------------------------*/
+static void cat_rndSetupObjectFlags(SpaceObj *obj)
+{
+    Ship *ship = (Ship *)obj;
+    bool32 isShip = (obj != NULL && obj->header.objtype == OBJ_ShipType);
+
+    catShCurrentObject = obj;
+    catRndEdgeEffect = FALSE;
+    if (isShip && !bitTest(obj->header.catFlags18, CAT_SHIPFLAG_Mimic) && ship->catBeastStunState != 0 &&
+        ship->catBeastStunStart <= universe.totaltimeelapsed && universe.totaltimeelapsed < ship->catBeastStunEnd)
+    {
+        catRndEdgeEffect = TRUE;
+    }
+    catRndRaceTint = (isShip && ship->shiprace == RACE_Beast);
+    catRndEMPFlicker = (isShip && ship->shiptype == dRKO && cat_rndShipEMPdAndMoving(ship)) ? 1 : 0;
+    cat_rndSetupFadeFlag(obj);
+    catRndBeastStun = FALSE;
+    if (isShip && (universe.totaltimeelapsed < ship->catBeastConvertTime ||
+                   (ship->catBeastConvertTime != 0.0f && nisIsRunning)))
+    {
+        catRndBeastStun = TRUE;
+    }
+    cat_rndSetupTimedEffectPhase(obj);
+    cat_rndSetupMimicFlag(obj);
+    cat_rndSetupDissolveFlag(obj);
+    catRndAsteroidTint = FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndObjectEffectsSetup (Cataclysm 0x00575c90)
+    Description : Set the render state for an object outside the main view (the ship view, the bullet-hit glow)
+----------------------------------------------------------------------------*/
+void cat_rndObjectEffectsSetup(SpaceObj *obj)
+{
+    cat_rndSetupObjectFlags(obj);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndSortObjectsByDepth (Cataclysm 0x00577660)
+    Description : mode 1 empties the deferred list (the opaque pass collects into it), mode 2 sorts it farthest
+                  first (SpaceObj.cameraDistanceSquared) and starts the sorted pass, mode 0 ends it
+----------------------------------------------------------------------------*/
+void cat_rndSortObjectsByDepth(sdword mode)
+{
+    sdword i, j;
+    SpaceObj *swap;
+
+    catRndSortMode = mode;
+    if (mode == 1)
+    {
+        catRndSortCount = 0;
+    }
+    else if (mode == 2)
+    {
+        catRndSortIndex = 0;
+        for (i = 0; i < catRndSortCount; i++)
+        {
+            for (j = i + 1; j < catRndSortCount; j++)
+            {
+                if (catRndSortList[i]->cameraDistanceSquared < catRndSortList[j]->cameraDistanceSquared)
+                {
+                    swap = catRndSortList[i];
+                    catRndSortList[i] = catRndSortList[j];
+                    catRndSortList[j] = swap;
+                }
+            }
+        }
+    }
+}
+
+static void cat_rndSortListAdd(SpaceObj *obj)
+{
+    if (catRndSortCount == catRndSortMax)
+    {
+        catRndSortList = memRealloc(catRndSortList, (catRndSortMax + 16) * sizeof(SpaceObj *), "catRndSortList",
+                                    NonVolatile);
+        catRndSortMax += 16;
+    }
+    catRndSortList[catRndSortCount++] = obj;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndDepthTestEnable (Cataclysm 0x0057ae40)
+    Description : Enable or disable the depth test (and, on a device with broken mixed depth tests, the depth mask)
+    Return      : the previous depth test state
+----------------------------------------------------------------------------*/
+bool32 cat_rndDepthTestEnable(bool32 enable)
+{
+    bool32 old = glIsEnabled(GL_DEPTH_TEST);
+
+    if (enable)
+    {
+        glEnable(GL_DEPTH_TEST);
+        if (CAT_RND_BROKEN_MIXED_DEPTH)
+        {
+            glDepthMask(GL_TRUE);
+        }
+    }
+    else if (CAT_RND_RGLTYPE != 0 && CAT_RND_BROKEN_MIXED_DEPTH)
+    {
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+    }
+    else
+    {
+        glDisable(GL_DEPTH_TEST);
+    }
+    return old;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_meshHierarchyCount / cat_lodHierarchyCount (Cataclysm 0x00575ea0 / 0x00575ee0)
+    Description : the polygons of an object and its children / of a level's mesh (every top-level object)
+----------------------------------------------------------------------------*/
+sdword cat_meshHierarchyCount(polygonobject *object)
+{
+    sdword count = 0;
+    polygonobject *child;
+
+    for (child = object->pDaughter; child != NULL; child = child->pSister)
+    {
+        count += cat_meshHierarchyCount(child);
+    }
+    return count + object->nPolygons;
+}
+
+sdword cat_lodHierarchyCount(lod *level)
+{
+    meshdata *mesh = (meshdata *)level->pData;
+    polygonobject *object, *child;
+    sdword count = 0, sub;
+
+    if (mesh == NULL)
+    {
+        return 0;
+    }
+    for (object = &mesh->object[0]; object != NULL; object = object->pSister)
+    {
+        sub = 0;
+        for (child = object->pDaughter; child != NULL; child = child->pSister)
+        {
+            sub += cat_meshHierarchyCount(child);
+        }
+        count += sub + object->nPolygons;
+    }
+    return count;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndLightningBoltDraw (Cataclysm 0x00576010)
+    Description : A jagged line strip of <segments> segments from p1 to p2: every inner vertex moves by a random
+                  offset in [-a, a] per axis (stream 0), a = |step * jitter| / 2; the first fifth of the segments
+                  is pulled back toward the straight line
+    Inputs      : x1..z2 - the ends; segments; jitter - the offset scale
+----------------------------------------------------------------------------*/
+void cat_rndLightningBoltDraw(real32 x1, real32 y1, real32 z1, real32 x2, real32 y2, real32 z2, sdword segments,
+                              real32 jitter)
+{
+    vector step, line, bolt;
+    real32 length, amp, twoAmp, negAmp, k;
+    sdword i, remaining, pullCount;
+    vector pull;
+
+    step.x = x2 - x1;
+    step.y = y2 - y1;
+    step.z = z2 - z1;
+    length = fsqrt(step.z * step.z + step.y * step.y + step.x * step.x);
+    vecNormalize(&step);
+    if (step.x == 0.0f && step.y == 0.0f && step.z == 0.0f)
+    {
+        step.z = 1.0f;
+    }
+    k = length / (real32)segments;
+    step.x *= k;
+    step.y *= k;
+    step.z *= k;
+    {
+        real32 sx = step.x * jitter, sy = step.y * jitter, sz = step.z * jitter;
+        amp = fsqrt(sz * sz + sy * sy + sx * sx) * 0.5f;
+    }
+
+    glBegin(GL_LINE_STRIP);
+    line.x = bolt.x = x1;
+    line.y = bolt.y = y1;
+    line.z = bolt.z = z1;
+    glVertex3f(x1, y1, z1);
+    pullCount = segments / 5;                                                   // 0x0072be5c
+    remaining = segments;
+    for (i = 0; i < segments; i++, remaining--)
+    {
+        line.x += step.x;
+        line.y += step.y;
+        line.z += step.z;
+        bolt.x += step.x;
+        bolt.y += step.y;
+        bolt.z += step.z;
+        if (i < segments - 1)
+        {
+            negAmp = -amp;
+            twoAmp = amp - negAmp;
+            bolt.x = (real32)((real64)ranRandom(RANDOM_STREAM_0) * twoAmp * (1.0 / 4294967296.0) + negAmp + bolt.x);
+            bolt.y = (real32)((real64)ranRandom(RANDOM_STREAM_0) * twoAmp * (1.0 / 4294967296.0) + negAmp + bolt.y);
+            bolt.z = (real32)((real64)ranRandom(RANDOM_STREAM_0) * twoAmp * (1.0 / 4294967296.0) + negAmp + bolt.z);
+            if (remaining < pullCount)
+            {
+                k = (real32)remaining;
+                pull.x = (line.x - bolt.x) / k;
+                pull.y = (line.y - bolt.y) / k;
+                pull.z = (line.z - bolt.z) / k;
+                bolt.x += pull.x;
+                bolt.y += pull.y;
+                bolt.z += pull.z;
+            }
+        }
+        glVertex3f(bolt.x, bolt.y, bolt.z);
+    }
+    glEnd();
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndLinkLightningDraw (Cataclysm 0x00576330)
+    Description : An ACV that is linking draws lightning to each ship of its EMP list, in 1 of 5 frames per ship
+                  (stream 0); segments and jitter by LOD from 0x0072be60
+----------------------------------------------------------------------------*/
+static const struct { sdword segments; real32 jitter; } catRndLinkBolt[4] =
+    { {320, 1.5f}, {140, 2.0f}, {80, 3.0f}, {80, 3.0f} };
+#define CAT_RND_LINK_BOLT_CHANCE    5                                           // 0x0072be80
+void cat_rndLinkLightningDraw(Ship *ship)
+{
+    bool32 lighting, texture;
+    GrowSelection *targets;
+    sdword lod, i;
+    Ship *target;
+
+    if (!cat_acvIsLinking(ship))
+    {
+        return;
+    }
+    lighting = rndLightingEnable(FALSE);
+    texture = rndTextureEnable(FALSE);
+    targets = cat_acvGetSpecifics(ship);
+    glColor3f(1.0f, 1.0f, 0.9f);                                                // 0x008bab14..0x008bab1c
+    lod = ship->obj.currentLOD;
+    if (lod >= 3)
+    {
+        lod = 3;
+    }
+    if (targets->selection != NULL)
+    {
+        for (i = 0; i < targets->selection->numShips; i++)
+        {
+            if ((CAT_RND_LINK_BOLT_CHANCE < 1 || (ranRandom(RANDOM_STREAM_0) % CAT_RND_LINK_BOLT_CHANCE) == 0) &&
+                (target = targets->selection->ShipPtr[i]) != NULL)
+            {
+                cat_rndLightningBoltDraw(ship->obj.posinfo.position.x, ship->obj.posinfo.position.y,
+                                         ship->obj.posinfo.position.z, target->obj.posinfo.position.x,
+                                         target->obj.posinfo.position.y, target->obj.posinfo.position.z,
+                                         catRndLinkBolt[lod].segments, catRndLinkBolt[lod].jitter);
+            }
+        }
+    }
+    rndLightingEnable(lighting);
+    rndTextureEnable(texture);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndConversionBoxDraw
+    Description : the salvage conversion's scan box (the part of cat_rndRenderObjectList 0x00578645..0x00579045
+                  drawn in the sorted pass): the ship's bounding box grows (phase 1), holds (2) or shrinks (3);
+                  green ticks on its 8 corners with lines to the centre, a cross and ticks on the plane that
+                  sweeps along x, and 19 magenta bands on that plane (lit by a bouncing pulse in phase 2, at
+                  random in phase 3)
+    Inputs      : ship - the ship being converted
+----------------------------------------------------------------------------*/
+static void cat_rndConversionBoxDraw(Ship *ship)
+{
+    StaticCollInfo *sci = &ship->staticinfo->common.staticCollInfo;
+    bool32 texture, lighting, cull;
+    ubyte band[20];
+    real32 sweep, scale, tick, half[3], o[3], s[3], c[3], x1, yc, zc, xa, xb, y, z, bandHeight, y0;
+    ubyte green;
+    sdword i, j, pos, dir, corner;
+
+    texture = rndTextureEnable(FALSE);
+    lighting = rndLightingEnable(FALSE);
+    cull = (glIsEnabled(GL_CULL_FACE) != 0);
+
+    switch (catRndTimedPhase)
+    {
+        case 1:
+            sweep = 1.0f;
+            break;
+        case 2:
+            sweep = 1.0f - catRndTimedT;
+            break;
+        case 3:
+        default:
+            sweep = 0.0f;
+            break;
+    }
+
+    // the pulse position (truncated as __ftol): (1 * uplength * 36 * T) mod 36 + 1 (0x008bab24 = 1, 0x0072beb0 =
+    //      36), folded to bounce between 1 and 19
+    pos = (sdword)((real64)(real32)1 * (real64)sci->uplength * 36.0 * (real64)catRndTimedT) % 0x24 + 1;
+    dir = 1;
+    if (pos > 0x13)
+    {
+        pos = 0x25 - pos;
+        dir = -1;
+    }
+    switch (catRndTimedPhase)
+    {
+        case 1:
+            memset(band, 0, sizeof(band));
+            break;
+        case 2:
+            memset(band, 0x10, sizeof(band));
+            for (i = 0; i < 10; i++)
+            {
+                band[pos] = (ubyte)(band[pos] + (ubyte)(i * 0xe));
+                pos += dir;
+                if (pos == 0x14)
+                {
+                    pos = 0x12;
+                    dir = -dir;
+                }
+                else if (pos == 0)
+                {
+                    pos = 2;
+                    dir = -dir;
+                }
+            }
+            break;
+        case 3:
+            band[0] = 0;
+            band[0x13] = 0;
+            for (i = 1; i < 0x13; i++)
+            {
+                ubyte r = (ubyte)ranRandom(RANDOM_STREAM_0);
+                ubyte limit = (ubyte)(sdword)((real64)catRndTimedT * 255.0);           // 0x0072a588
+                if (r > limit)
+                {
+                    ubyte r2 = (ubyte)ranRandom(RANDOM_STREAM_0);
+                    ubyte range = (ubyte)(sdword)((real64)(1.0f - catRndTimedT) * 9.0);  // 0x0072beac
+                    band[i] = (ubyte)((((r2 % (range + 1)) & 0xff) * 0xff) / 0x11);
+                }
+                else
+                {
+                    band[i] = 0;
+                }
+            }
+            break;
+    }
+
+    switch (catRndTimedPhase)
+    {
+        case 1:
+            scale = 2.0f - catRndTimedT;
+            break;
+        case 2:
+            scale = 1.0f;
+            break;
+        case 3:
+        default:
+            scale = 1.0f - catRndTimedT * 0.25f;
+            break;
+    }
+    if (scale == 1.0f)
+    {
+        o[0] = sci->collrectoffset.x;
+        o[1] = sci->collrectoffset.y - 100.0f;
+        o[2] = sci->collrectoffset.z - 100.0f;
+        s[0] = sci->uplength;
+        s[1] = sci->rightlength + 200.0f;                                      // 0x0072a440
+        s[2] = sci->forwardlength + 200.0f;
+    }
+    else
+    {
+        half[0] = sci->uplength * 0.5f;
+        half[1] = sci->rightlength * 0.5f;
+        half[2] = sci->forwardlength * 0.5f;
+        c[0] = half[0] * scale;
+        c[1] = half[1] * scale + 100.0f;
+        c[2] = half[2] * scale + 100.0f;
+        o[0] = half[0] + sci->collrectoffset.x - c[0];
+        o[1] = half[1] + sci->collrectoffset.y - c[1];
+        o[2] = half[2] + sci->collrectoffset.z - c[2];
+        s[0] = c[0] + c[0];
+        s[1] = c[1] + c[1];
+        s[2] = c[2] + c[2];
+    }
+    switch (catRndTimedPhase)
+    {
+        case 1:
+            tick = (1.0f - catRndTimedT) * 100.0f + 15.0f;                       // 0x0072ab44
+            green = (ubyte)(sdword)((real64)catRndTimedT * 252.0);                // 0x0072bea8
+            break;
+        case 2:
+            tick = 15.0f;
+            green = 0xfc;
+            break;
+        case 3:
+        default:
+            tick = 15.0f;
+            green = 0;
+            break;
+    }
+
+    glDisable(GL_ALPHA_TEST);
+    rndAdditiveBlends(TRUE);
+    glEnable(GL_BLEND);
+    glDisable(GL_CULL_FACE);
+    glBegin(GL_LINES);
+    for (corner = 0; corner < 8; corner++)
+    {
+        if (green == 0)
+        {
+            continue;
+        }
+        c[0] = ((corner & 4) ? s[0] : 0.0f) + o[0];
+        c[1] = ((corner & 2) ? s[1] : 0.0f) + o[1];
+        c[2] = ((corner & 1) ? s[2] : 0.0f) + o[2];
+        glColor4ub(0, 0, 0, 0xff);
+        for (j = 0; j < 3; j++)
+        {
+            glVertex3f(c[0] + (j == 0 ? tick : 0.0f), c[1] + (j == 1 ? tick : 0.0f), c[2] + (j == 2 ? tick : 0.0f));
+            glColor4ub(0, green, 0, 0xff);
+            glVertex3f(c[0], c[1], c[2]);
+            glVertex3f(c[0], c[1], c[2]);
+            glColor4ub(0, 0, 0, 0xff);
+            glVertex3f(c[0] - (j == 0 ? tick : 0.0f), c[1] - (j == 1 ? tick : 0.0f), c[2] - (j == 2 ? tick : 0.0f));
+        }
+        glVertex3f(s[0] * 0.5f + o[0], s[1] * 0.5f + o[1], s[2] * 0.5f + o[2]);
+        glColor4ub(0, (ubyte)(green >> 2), 0, 0xff);
+        glVertex3f(c[0], c[1], c[2]);
+    }
+    if (green != 0)
+    {
+        glColor4ub(0, (ubyte)(green >> 2), 0, 0xff);
+        x1 = s[0] * sweep + o[0];
+        zc = s[2] * 0.5f + o[2];
+        yc = s[1] * 0.5f + o[1];
+        for (i = 0; i < 4; i++)
+        {
+            y = ((i & 2) ? s[1] : 0.0f) + o[1];
+            z = ((i & 1) ? s[2] : 0.0f) + o[2];
+            glVertex3f(x1, yc, zc);
+            glVertex3f(x1, y, z);
+        }
+        xa = x1 - tick;
+        xb = s[0] * sweep + tick + o[0];
+        for (i = 0; i < 4; i++)
+        {
+            y = ((i & 1) ? s[1] : 0.0f) + o[1];
+            z = ((i & 2) ? s[2] : 0.0f) + o[2];
+            glColor4ub(0, 0, 0, 0xff);
+            glVertex3f(xa, y, z);
+            glColor4ub(0, green, 0, 0xff);
+            glVertex3f(x1, y, z);
+            glVertex3f(x1, y, z);
+            glColor4ub(0, 0, 0, 0xff);
+            glVertex3f(xb, y, z);
+        }
+    }
+    glEnd();
+
+    glBegin(GL_QUADS);
+    x1 = s[0] * sweep + o[0];
+    bandHeight = s[1] * (1.0f / 19.0f);                                         // 0x0072bea4
+    for (i = 0; i < 0x13; i++)
+    {
+        y0 = (real32)i * s[1] * (1.0f / 19.0f) + o[1];
+        glColor4ub(band[i], 0, band[i], 0xff);
+        glVertex3f(x1, y0, o[2]);
+        glVertex3f(x1, y0, o[2] + s[2]);
+        glColor4ub(band[i + 1], 0, band[i + 1], 0xff);
+        glVertex3f(x1, bandHeight + y0, o[2] + s[2]);
+        glVertex3f(x1, bandHeight + y0, o[2]);
+    }
+    glEnd();
+
+    rndTextureEnable(texture);
+    rndLightingEnable(lighting);
+    if (cull)
+    {
+        glEnable(GL_CULL_FACE);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndShipMeshDraw
+    Description : the mesh call of cat_rndRenderObjectList: through the ship's bindings
+                  (meshRenderShipHierarchy) or as one mesh (meshRender with the LOD's slots); a NULL state for the
+                  Beast, conversion and mimic meshes
+----------------------------------------------------------------------------*/
+static void cat_rndShipMeshDraw(struct CatMeshState *state, shipbindings *bindings, sdword lod, meshdata *mesh,
+                                sdword colorScheme)
+{
+    if (bindings != NULL)
+    {
+        meshRenderShipHierarchy(state, bindings, lod, mesh, colorScheme);
+    }
+    else
+    {
+        cat_meshRenderState((state != NULL) ? state->level[lod] : NULL, mesh, colorScheme);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndRenderObjectList (Cataclysm 0x005776f0)
+    Description : Render one object of the main view's render list. Ships pass through up to three passes of the
+                  same LOD: the cloak's fade and wireframe, the build-in clip plane and its flipped half, the
+                  Beast-stun change to the Beast mesh, the dissolve cut plane, the salvage conversion (clip plane
+                  in the opaque pass, scan box in the sorted pass), the mimic's crossfade to its disguise. Objects
+                  that need blending (fading, stunned, mimicking, converting, crystal, at a slipgate) go to the
+                  depth-sorted list during the opaque pass (cat_rndSortObjectsByDepth mode 1) and are drawn by the
+                  sorted pass (mode 2); effects always wait for it.
+    Inputs      : camera - the main camera; obj - the object; notEffect - nonzero skips an effect in the sorted pass
+    Outputs     : catShCurrentObject and the render state flags
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_rndRenderObjectList(Camera *camera, SpaceObj *obj, sdword notEffect)
+{
+    Ship *ship = (Ship *)obj;
+    Ship *host;
+    lod *level;
+    hmatrix coordMatrixForGL;
+    GLdouble plane[4];
+    bool32 deferred, renderNow, displayEffect = FALSE, rendered, again, cloakFlag;
+    real32 cloakFade, fade;
+    sdword pass, i, colorScheme, playerIndex;
+    ShipSinglePlayerGameInfo *ssinfo;
+    CatRndFieldNode *field;
+    ShipStaticInfo *beastStatic;
+    lightning *l;
+
+    cat_rndSetupObjectFlags(obj);
+    catRndAsteroidTint = FALSE;
+    g_WireframeHack = FALSE;
+    meshSetFade(7, 0.0f);
+
+    switch (obj->header.objtype)
+    {
+        case OBJ_ShipType:
+            deferred = FALSE;
+            renderNow = TRUE;
+            // CAT: the mimic test reads the "disguise on" copy (0x00c32c98) before this object sets it further down
+            //      (0x00577fcf): the value the previous mimic drawn left, as the exe
+            if (catRndBeastStun || catRndFadeFlag || (catRndMimic && !catRndMimicOn))
+            {
+                deferred = TRUE;
+                renderNow = FALSE;
+            }
+            if (catRndTimedPhase != 0)
+            {
+                deferred = TRUE;
+                renderNow = TRUE;
+            }
+            if (cat_shipIsCrystal(ship))
+            {
+                deferred = TRUE;
+                renderNow = FALSE;
+            }
+            host = cat_rndShipOrClampHost(ship);
+            if (host->dockvars.dockship != NULL && !host->staticinfo->externalBuild &&
+                host->dockvars.dockship->shiptype >= dSlipgateSmall && host->dockvars.dockship->shiptype <= dSlipgateLarge)
+            {
+                deferred = TRUE;
+                renderNow = FALSE;
+            }
+            if (catRndSortMode != 2 && deferred)
+            {
+                cat_rndSortListAdd(obj);
+                if (!renderNow)
+                {
+                    break;
+                }
+            }
+            if (ship->staticinfo->common.LOD == NULL)
+            {
+                ship->impactable.collInfo.selCircleRadius = -1.0f;
+                break;
+            }
+            if (cat_shipIsCloakedFully(ship) && ship->playerowner != universe.curPlayerPtr &&
+                !cat_shipDetectedByPlayer(ship, universe.curPlayerPtr->playerIndex))
+            {
+                break;
+            }
+            playerIndex = ship->playerowner->playerIndex;
+            if (ship->shiptype == sACV || ship->shiptype == bACV)
+            {
+                cat_rndLinkLightningDraw(ship);
+            }
+            if (ship->shiptype == dNomadMoon)
+            {
+                cat_nomadMoonRenderBeam(ship);
+            }
+            cat_dreadnoughtRenderCharge(ship);
+            if ((ship->shiptype == sSentinel || ship->shiptype == bSentinel) && ship->command != NULL &&
+                bitTest(ship->command->ordertype.attributes, COMMAND_MASK_FORMATION) &&
+                (ship->command->formation.formationtype == FORCEFIELD_SPHERE_FORMATION ||
+                 ship->command->formation.formationtype == FORCEFIELD_WALL_FORMATION))
+            {
+                // CAT: each force-field formation is queued once per frame (0x00b378a0)
+                for (field = NULL, i = 0; ; )
+                {
+                    Node *node;
+                    for (node = catRndFieldList.head; node != NULL; node = node->next)
+                    {
+                        field = (CatRndFieldNode *)listGetStructOfNode(node);
+                        if (field->formation == ship->command)
+                        {
+                            break;
+                        }
+                    }
+                    if (node != NULL)
+                    {
+                        if (!field->queued)
+                        {
+                            cat_sentinelFieldQueue(camera, ship->command);
+                            field->queued = TRUE;
+                        }
+                    }
+                    else
+                    {
+                        field = memAlloc(sizeof(CatRndFieldNode), "catRndField", 0);
+                        listAddNode(&catRndFieldList, &field->link, field);
+                        field->formation = ship->command;
+                        field->queued = TRUE;
+                        cat_sentinelFieldQueue(camera, ship->command);
+                    }
+                    break;
+                }
+            }
+
+            glPushMatrix();
+            level = cat_lodCurrentLevelGet(ship);
+            if (cat_taskRealTimeElapsed - ship->targetable.flashtimer < FLASH_TIMER)
+            {
+                g_ReplaceHack = TRUE;                   // CAT: the RGL glPixelTransferf flash is not drawn (RGL)
+            }
+            switch (level->flags & LM_LODType)
+            {
+                case LT_Invalid:
+                case LT_NULL:
+                    break;
+                case LT_Mesh:
+                    displayEffect = hsShouldDisplayEffect(ship);
+                    hmatMakeHMatFromMat(&coordMatrixForGL, &ship->rotatable.rotinfo.coordsys);
+                    hmatPutVectIntoHMatrixCol4(obj->posinfo.position, coordMatrixForGL);
+                    glMultMatrixf((GLfloat *)&coordMatrixForGL);
+                    if (ship->staticinfo->shipclass == CLASS_Component && ((ModuleShipSpec *)ship->ShipSpecifics)->spinning)
+                    {
+                        // CAT: an ejected module spins about its collision sphere centre (0x00577d92)
+                        vector *centre = &ship->staticinfo->common.staticCollInfo.collsphereoffset;
+                        ModuleShipSpec *spec = (ModuleShipSpec *)ship->ShipSpecifics;
+                        glTranslatef(centre->x, centre->y, centre->z);
+                        glRotatef(spec->spinAngle * 57.295776f, spec->spinAxis.x, spec->spinAxis.y, spec->spinAxis.z);
+                        glTranslatef(-centre->x, -centre->y, -centre->z);
+                    }
+                    shPushLightMatrix(&coordMatrixForGL);
+                    if (ship->staticinfo->scaleCap != 0.0f)
+                    {
+                        // CAT: the N-LIPS scale rndShipVisibleUsingCoordSys computed (Ship.magnitudeSquared)
+                        glEnable(GL_RESCALE_NORMAL);
+                        rndNormalization = TRUE;
+                        glScalef(ship->magnitudeSquared, ship->magnitudeSquared, ship->magnitudeSquared);
+                    }
+                    colorScheme = ship->colorScheme;
+                    pass = 0;
+                    plane[0] = 0.0;
+                    plane[1] = 0.0;
+                    plane[2] = -1.0;
+                    plane[3] = -1.0;
+                    rendered = rndFade(obj, camera);
+                    ssinfo = ship->shipSinglePlayerGameInfo;
+                    cat_lodTimingStart(level);
+                    if (ssinfo != NULL && ssinfo->shipHyperspaceState == SHIPHYPERSPACE_NONE)
+                    {
+                        ssinfo = NULL;
+                    }
+                    cat_rndSetupObjectEffectParamsInline(ship);
+                    do
+                    {
+                        cloakFade = 0.0f;
+                        again = FALSE;
+                        meshSetFade(6, cat_salvageTargetHasBeam(ship) ? cat_salvageDepotSlotProgress(ship) : 0.0f);
+                        meshSetFade(2, cat_shipIsCrystal(ship) ? CAT_RND_CRYSTAL_FADE : 0.0f);
+                        if (obj->header.objtype == OBJ_ShipType)
+                        {
+                            // CAT: a ship docking or launching fades in or out over 1.5 s (a module by its host)
+                            host = cat_rndShipOrClampHost(ship);
+                            if (host->command != NULL && host->command->ordertype.order == COMMAND_DOCK &&
+                                (host->dockvars.dockstate == 0x10 || host->dockvars.dockstate == 0xd ||
+                                 host->dockvars.dockstate == 0x11 || host->dockvars.dockstate == 0xe))
+                            {
+                                fade = (universe.totaltimeelapsed - host->catDockStateTime) * (2.0f / 3.0f);
+                                if (!(fade < 1.0f))
+                                {
+                                    fade = 1.0f;
+                                }
+                                else if (fade < 0.0f)
+                                {
+                                    fade = 0.0f;
+                                }
+                                meshSetFade(7, (host->dockvars.dockstate == 0x10 || host->dockvars.dockstate == 0xd) ?
+                                               fade : 1.0f - fade);
+                            }
+                        }
+                        cloakFlag = cat_cloakGetFadeState(ship, &cloakFade);
+                        if (cloakFlag)
+                        {
+                            if (pass == 0)
+                            {
+                                meshSetFade(5, cloakFade);
+                                if (cloakFade > 0.1f)
+                                {
+                                    again = TRUE;
+                                }
+                            }
+                            else
+                            {
+                                meshSetFade(5, 0.0f);
+                                g_WireframeHack = TRUE;
+                            }
+                        }
+                        else
+                        {
+                            meshSetFade(5, 0.0f);
+                            if (cat_shipIsCloakedFully(ship) && ship->playerowner == universe.curPlayerPtr)
+                            {
+                                g_WireframeHack = TRUE;
+                            }
+                        }
+                        if (catRndFadeFlag && catRndFadeMode == CAT_RND_FADE_CLIP)
+                        {
+                            if (!catRndFadeFlip)
+                            {
+                                plane[3] = (GLdouble)(ship->staticinfo->common.staticCollInfo.forwardlength *
+                                                      ((Ship *)catShCurrentObject)->catBuildProgress +
+                                                      ship->staticinfo->common.staticCollInfo.collrectoffset.z);
+                            }
+                            else
+                            {
+                                plane[2] = -plane[2];
+                                plane[3] = -plane[3];
+                                if (CAT_RND_RGLTYPE == 0)
+                                {
+                                    g_WireframeHack = TRUE;
+                                    g_HiddenRemoval = FALSE;
+                                }
+                            }
+                            glClipPlane(GL_CLIP_PLANE0, plane);
+                            if (!catRndFadeFlip)
+                            {
+                                glEnable(GL_CLIP_PLANE0);
+                            }
+                        }
+                        if (catRndBeastStun)
+                        {
+                            if (pass == 0)
+                            {
+                                if (catRndBeastStunT == 1.0f || CAT_RND_RGLTYPE == 0)
+                                {
+                                    rendered = TRUE;
+                                }
+                            }
+                            else if (pass == 1)
+                            {
+                                // the Beast version of the ship over it, 1% larger
+                                catRndRaceTint = TRUE;
+                                if (CAT_RND_RGLTYPE != 0)
+                                {
+                                    meshSetFade(3, 1.0f - catRndBeastStunT);
+                                }
+                                beastStatic = GetShipStaticInfo(cat_beastGetAttackStaticInfo(ship)->convertTo, R2);
+                                meshRenders++;
+                                if (!nisIsRunning && !bitTest(universe.mainCameraCommand.ccMode, CCMODE_PILOT_SHIP) &&
+                                    rndCameraInside(obj, camera))
+                                {
+                                    g_WireframeHack = TRUE;
+                                    g_HiddenRemoval = FALSE;
+                                }
+                                glScalef(1.01f, 1.01f, 1.01f);                  // 0x3f8147ae
+                                cat_rndShipMeshDraw(NULL, ship->catBeastBindings, obj->currentLOD,
+                                                    (meshdata *)beastStatic->common.LOD->level[obj->currentLOD].pData,
+                                                    ship->catBeastColor);
+                                meshSetFade(3, 0.0f);
+                                rendered = TRUE;
+                            }
+                        }
+                        if (catRndDissolve)
+                        {
+                            real32 dissolvePlane[4];
+                            cat_shipDissolveComputePlane(ship, dissolvePlane);
+                            plane[0] = (GLdouble)dissolvePlane[0];
+                            plane[1] = (GLdouble)dissolvePlane[1];
+                            plane[2] = (GLdouble)dissolvePlane[2];
+                            plane[3] = (GLdouble)dissolvePlane[3];
+                            glClipPlane(GL_CLIP_PLANE0, plane);
+                            glEnable(GL_CLIP_PLANE0);
+                            glDisable(GL_CULL_FACE);
+                        }
+                        if (catRndTimedPhase != 0)
+                        {
+                            if (catRndSortMode == 1)
+                            {
+                                // the opaque pass: the ship cut at the scan plane, then the converted ship's half
+                                if (catRndTimedPhase == 2 && pass == 0)
+                                {
+                                    plane[0] = -1.0;
+                                    plane[1] = 0.0;
+                                    plane[2] = 0.0;
+                                    plane[3] = (GLdouble)((1.0f - catRndTimedT) * ship->staticinfo->common.staticCollInfo.uplength +
+                                                          ship->staticinfo->common.staticCollInfo.collrectoffset.x);
+                                    glClipPlane(GL_CLIP_PLANE0, plane);
+                                    glEnable(GL_CLIP_PLANE0);
+                                }
+                                else if ((catRndTimedPhase == 2 && pass == 1) || catRndTimedPhase == 3)
+                                {
+                                    ShipStaticInfo *convertStatic;
+                                    catRndRaceTint = FALSE;
+                                    convertStatic = GetShipStaticInfo(cat_salvageConvertType(ship, ship->catSalvageDepot),
+                                                                      ship->shiprace);
+                                    if (catRndTimedPhase == 2)
+                                    {
+                                        plane[3] = -plane[3];
+                                        plane[0] = -plane[0];
+                                        glClipPlane(GL_CLIP_PLANE0, plane);
+                                    }
+                                    meshRenders++;
+                                    if (!nisIsRunning && !bitTest(universe.mainCameraCommand.ccMode, CCMODE_PILOT_SHIP) &&
+                                        rndCameraInside(obj, camera))
+                                    {
+                                        g_WireframeHack = TRUE;
+                                        g_HiddenRemoval = FALSE;
+                                    }
+                                    cat_rndShipMeshDraw(NULL, ship->catSalvageConvertBindings, obj->currentLOD,
+                                                        (meshdata *)convertStatic->common.LOD->level[obj->currentLOD].pData,
+                                                        ship->catSalvageConvertColor);
+                                    rendered = TRUE;
+                                }
+                            }
+                            else
+                            {
+                                cat_rndConversionBoxDraw(ship);
+                                rendered = TRUE;
+                            }
+                        }
+
+                        meshSetFade(4, 0.0f);
+                        if (catRndMimic)
+                        {
+                            lodinfo *mimicLOD = catRndMimicLOD;
+                            sdword mimicLevel = obj->currentLOD;
+                            meshdata *mimicMesh;
+                            if (mimicLevel >= mimicLOD->nLevels)
+                            {
+                                mimicLevel = mimicLOD->nLevels - 1;
+                            }
+                            mimicMesh = (meshdata *)mimicLOD->level[mimicLevel].pData;
+                            if (mimicMesh == NULL)
+                            {
+                                mimicLevel--;
+                                mimicMesh = (meshdata *)mimicLOD->level[mimicLevel].pData;
+                            }
+                            if (catRndMimicOn)
+                            {
+                                if (catRndMimicRace == RACE_Beast)
+                                {
+                                    catRndRaceTint = TRUE;
+                                }
+                                cat_rndShipMeshDraw(NULL, catRndMimicBindings, mimicLevel, mimicMesh, catRndMimicColor);
+                                meshRenders++;
+                                rendered = TRUE;
+                                catRndRaceTint = FALSE;
+                            }
+                            else
+                            {
+                                // the crossfade: its own mesh fading out, the disguise warping in
+                                if (catRndMimicFade > 0.25f)
+                                {
+                                    meshSetFade(4, 1.0f - catRndMimicFade);
+                                    cat_rndShipMeshDraw(NULL, ship->bindings, obj->currentLOD, (meshdata *)level->pData,
+                                                        colorScheme);
+                                    meshRenders++;
+                                }
+                                meshSetFade(4, catRndMimicFade);
+                                if (catRndMimicRace == RACE_Beast)
+                                {
+                                    catRndRaceTint = TRUE;
+                                }
+                                if (catRndMimicBindings != NULL)
+                                {
+                                    cat_meshRenderShipHierarchyWarped(NULL, catRndMimicBindings, mimicLevel, mimicMesh,
+                                                                      &ship->staticinfo->common.staticCollInfo.collsphereoffset,
+                                                                      catRndMimicFade, catRndMimicRadius, catRndMimicColor);
+                                }
+                                else
+                                {
+                                    cat_meshObjectRenderWarped(NULL, &mimicMesh->object[0], mimicMesh->localMaterial,
+                                                               &ship->staticinfo->common.staticCollInfo.collsphereoffset,
+                                                               catRndMimicFade, catRndMimicRadius, catRndMimicColor);
+                                }
+                                meshRenders++;
+                                meshSetFade(4, 0.0f);
+                                rendered = TRUE;
+                                catRndRaceTint = FALSE;
+                            }
+                        }
+                        else if (!rendered)
+                        {
+                            meshRenders++;
+                            if (!nisIsRunning && !bitTest(universe.mainCameraCommand.ccMode, CCMODE_PILOT_SHIP) &&
+                                rndCameraInside(obj, camera))
+                            {
+                                g_WireframeHack = TRUE;
+                                g_HiddenRemoval = FALSE;
+                            }
+                            if (ssinfo != NULL && ssinfo->hsState != HS_INACTIVE && ssinfo->hsState != HS_FINISHED)
+                            {
+                                if (ssinfo->staticHyperspaceGate)
+                                {
+                                    hsNoGate(TRUE);
+                                }
+                                hsContinue(ship, displayEffect);
+                                if (ssinfo->staticHyperspaceGate)
+                                {
+                                    hsNoGate(FALSE);
+                                }
+                            }
+                            // lighting while docking (a module by its host)
+                            host = cat_rndShipOrClampHost(ship);
+                            if (host->dockvars.dockship != NULL && !host->staticinfo->externalBuild)
+                            {
+                                Ship *dockship = host->dockvars.dockship;
+                                real32 nearVal = dockship->staticinfo->dockLightNear;
+                                real32 farVal = dockship->staticinfo->dockLightFar;
+                                real32 t = rndDockScalar(host, dockship, nearVal, farVal);
+                                if (host->dockvars.catDockPointIndex != -1)
+                                {
+                                    switch (dockship->staticinfo->dockStaticInfo->dockstaticpoints[host->dockvars.catDockPointIndex].type)
+                                    {
+                                        case 0: case 1: case 2: case 3: case 6: case 7: case 8: case 9: case 10:
+                                        case 0xb: case 0x15: case 0x16: case 0x21: case 0x22:
+                                            shDockLightColor(dockship->staticinfo->dockLightColor);
+                                            shDockLight(t);
+                                            break;
+                                        default:
+                                            break;
+                                    }
+                                }
+                            }
+                            if (ssinfo == NULL || ssinfo->hsState != HS_FINISHED || singlePlayerGameInfo.hyperspaceFails)
+                            {
+                                cat_rndShipMeshDraw(ship->obj.catMeshState, ship->bindings, obj->currentLOD,
+                                                    (meshdata *)level->pData, colorScheme);
+                                g_SpecificPoly = FALSE;     // CAT: 0x00a4c44c cleared after the mesh
+                                g_WireframeHack = FALSE;
+                                obj->renderedLODs |= (ubyte)(1 << obj->currentLOD);
+                                if (pass == 0 && (!deferred || !renderNow || catRndSortMode == 2))
+                                {
+                                    RenderNAVLights(ship);
+                                }
+                                if (catRndResetHacksAfterShip)
+                                {
+                                    g_WireframeHack = FALSE;
+                                    g_HiddenRemoval = TRUE;
+                                }
+                            }
+                            shDockLight(0.0f);
+                        }
+
+                        // the next pass?
+                        if (catRndBeastStun && pass == 0 && catRndBeastStunT > 0.0f)
+                        {
+                            again = TRUE;
+                        }
+                        if (catRndFadeFlag && catRndFadeMode == CAT_RND_FADE_CLIP)
+                        {
+                            if (pass == 0)
+                            {
+                                catRndFadeFlip = TRUE;
+                                again = TRUE;
+                            }
+                            else
+                            {
+                                glDisable(GL_CLIP_PLANE0);
+                            }
+                        }
+                        if (catRndDissolve)
+                        {
+                            glEnable(GL_CULL_FACE);
+                            glDisable(GL_CLIP_PLANE0);
+                        }
+                        if (catRndTimedPhase == 2 && catRndSortMode == 1)
+                        {
+                            if (pass == 0)
+                            {
+                                again = TRUE;
+                            }
+                            else
+                            {
+                                glDisable(GL_CLIP_PLANE0);
+                            }
+                        }
+                        pass++;
+                    }
+                    while (again);
+
+                    meshSetFade(0, 0.0f);
+                    cat_lodTimingStop(level);
+                    shPopLightMatrix();
+                    glDisable(GL_RESCALE_NORMAL);
+                    rndNormalization = FALSE;
+                    if (cat_shipHasUpgrade(ship, CAT_UPGRADE_RepairDroids) && enableRepairbots &&
+                        ship->staticinfo->shiprace == R1 && ship->catRepairDroids != NULL && obj->currentLOD < 3)
+                    {
+                        cat_droidRenderArray((CatRepairDroidArray *)ship->catRepairDroids);
+                    }
+                    break;
+                case LT_SubPixel:
+                    rndTextureEnable(FALSE);
+                    rndLightingEnable(FALSE);
+                    primPointSize3(&obj->posinfo.position, ship->impactable.collInfo.selCircleRadius,
+                                   toPlayerColor[playerIndex]);
+                    rndLightingEnable(TRUE);
+                    break;
+                default:
+                    dbgFatalf(DBG_Loc, "Unsupported LOD type 0x%x", level->flags);
+                    break;
+            }
+            g_ReplaceHack = FALSE;
+            for (i = 0; i < 2; i++)
+            {
+                l = (lightning *)ship->lightning[i];
+                if (l != NULL)
+                {
+                    cloudRenderAndUpdateLightning(l, obj->currentLOD);
+                    l->countdown--;
+                    if (l->countdown == 0)
+                    {
+                        cloudKillLightning(l);
+                        ship->lightning[i] = NULL;
+                    }
+                }
+            }
+            if (catRndEdgeEffect && level->pData != NULL)
+            {
+                if (ship->bindings == NULL)
+                {
+                    cat_meshRenderEdgeEffect(ship, (meshdata *)level->pData);
+                }
+                else
+                {
+                    cat_meshRenderShipHierarchyEdgeEffect(ship, (meshdata *)level->pData);
+                }
+            }
+            glPopMatrix();
+            ssinfo = ship->shipSinglePlayerGameInfo;
+            if (ssinfo != NULL && ssinfo->hsState != HS_INACTIVE && ssinfo->hsState != HS_FINISHED)
+            {
+                if (ssinfo->staticHyperspaceGate)
+                {
+                    hsNoGate(TRUE);
+                }
+                hsEnd(ship, displayEffect);
+                if (ssinfo->staticHyperspaceGate)
+                {
+                    hsNoGate(FALSE);
+                }
+            }
+            catRndCounts.ships++;
+            break;
+
+        case OBJ_BulletType:
+        {
+            Bullet *bullet = (Bullet *)obj;
+            vector to;
+
+            if (bullet->effect != NULL)
+            {
+                break;
+            }
+            rndLightingEnable(FALSE);
+            rndTextureEnable(FALSE);
+            // CAT: bullet type 4 is the HW1 defense fighter's laser (cat_defenseFighterRenderBeams 0x005b04a0 moves
+            //      it onto its owner's gun): the type is dropped (M2-R4 ships-b), the line is drawn as is
+            if (bullet->bulletType != CAT_BULLET_TYPE_8 &&
+                !(bullet->bulletType == BULLET_Beam && bullet->timelived <= UNIVERSE_UPDATE_PERIOD))
+            {
+                vecAdd(to, obj->posinfo.position, bullet->lengthvec);
+                primLine3(&obj->posinfo.position, &to, bullet->bulletColor);
+            }
+            rndLightingEnable(TRUE);
+            catRndCounts.bullets++;
+            break;
+        }
+
+        case OBJ_EffectType:
+        {
+            Effect *effect = (Effect *)obj;
+            SpaceObj *owner = (SpaceObj *)effect->owner;
+
+            if (catRndSortMode != 2)
+            {
+                cat_rndSortListAdd(obj);                // effects are drawn in the sorted pass
+                break;
+            }
+            if (notEffect)
+            {
+                break;
+            }
+            if (owner != NULL && owner->header.objtype == OBJ_BulletType)
+            {
+                Bullet *bullet = (Bullet *)owner;
+                if (bullet->bulletType == CAT_BULLET_TYPE_8)
+                {
+                    etgEffectUpdate(effect, 0.0f);
+                    etgEffectDraw(effect);
+                    catRndCounts.effects++;
+                    break;
+                }
+                if (bullet->bulletType == BULLET_Beam && bullet->timelived <= UNIVERSE_UPDATE_PERIOD)
+                {
+                    break;
+                }
+            }
+            etgEffectDraw(effect);
+            catRndCounts.effects++;
+            break;
+        }
+
+        case OBJ_DerelictType:
+            if (((DerelictStaticInfo *)obj->staticinfo)->worldRender || ((Derelict *)obj)->derelicttype == HyperspaceGate)
+            {
+                break;
+            }
+            // fall through
+        case OBJ_AsteroidType:
+        case OBJ_GasType:
+        case OBJ_DustType:
+        case OBJ_MissileType:
+        {
+            SpaceObjRotImpTarg *targetable = (SpaceObjRotImpTarg *)obj;
+
+            if (obj->staticinfo->LOD == NULL)
+            {
+                break;
+            }
+            glPushMatrix();
+            level = cat_lodCurrentLevelGet(obj);
+            if (cat_taskRealTimeElapsed - targetable->flashtimer < FLASH_TIMER)
+            {
+                g_ReplaceHack = TRUE;
+            }
+            switch (level->flags & LM_LODType)
+            {
+                case LT_Invalid:
+                case LT_NULL:
+                    break;
+                case LT_Mesh:
+                    g_RndPosition = obj->posinfo.position;
+                    hmatMakeHMatFromMat(&coordMatrixForGL, &targetable->rotatable.rotinfo.coordsys);
+                    hmatPutVectIntoHMatrixCol4(obj->posinfo.position, coordMatrixForGL);
+                    glMultMatrixf((GLfloat *)&coordMatrixForGL);
+                    shPushLightMatrix(&coordMatrixForGL);
+                    if (obj->header.objtype == OBJ_AsteroidType)
+                    {
+                        real32 scaling = ((Asteroid *)obj)->scaling;
+                        if (scaling != 1.0f)
+                        {
+                            glScalef(scaling, scaling, scaling);
+                        }
+                        if (bitTest(obj->attributes, CAT_RND_ATTR_ASTEROID_FAR))
+                        {
+                            catRndAsteroidTint = TRUE;
+                        }
+                    }
+                    colorScheme = 0;
+                    if (obj->header.objtype == OBJ_GasType || obj->header.objtype == OBJ_DustType)
+                    {
+                        cat_lodTimingStart(level);
+                        rndFade(obj, camera);
+                        meshRenders++;
+                        cloudRenderSystem(level->pData, ((DustCloud *)obj)->stub, obj->currentLOD);
+                        meshSetFade(0, 0.0f);
+                        cat_lodTimingStop(level);
+                        shPopLightMatrix();
+                        catRndCounts.clouds++;
+                        break;
+                    }
+                    if (obj->header.objtype == OBJ_MissileType)
+                    {
+                        colorScheme = ((Missile *)obj)->colorScheme;
+                    }
+                    else if (obj->header.objtype == OBJ_DerelictType)
+                    {
+                        colorScheme = ((Derelict *)obj)->colorScheme;
+                    }
+                    cat_lodTimingStart(level);
+                    rndFade(obj, camera);
+                    meshRenders++;
+                    if (obj->header.objtype == OBJ_MissileType && ((MissileStaticInfo *)obj->staticinfo)->scaleCap != 0.0f)
+                    {
+                        real32 s = ((Missile *)obj)->catMissileScale;
+                        glEnable(GL_RESCALE_NORMAL);
+                        rndNormalization = TRUE;
+                        glScalef(s, s, s);
+                    }
+                    cat_meshRenderState(NULL, (meshdata *)level->pData, colorScheme);
+                    obj->renderedLODs |= (ubyte)(1 << obj->currentLOD);
+                    meshSetFade(0, 0.0f);
+                    cat_lodTimingStop(level);
+                    shPopLightMatrix();
+                    if (bitTest(obj->attributes, CAT_RND_ATTR_ASTEROID_FAR))
+                    {
+                        catRndAsteroidTint = FALSE;
+                    }
+                    catRndCounts.objects++;
+                    break;
+                case LT_SubPixel:
+                    rndTextureEnable(FALSE);
+                    rndLightingEnable(FALSE);
+                    primPointSize3(&obj->posinfo.position, targetable->impactable.collInfo.selCircleRadius,
+                                   obj->staticinfo->LOD->pointColor);
+                    rndLightingEnable(TRUE);
+                    break;
+                default:
+                    dbgFatalf(DBG_Loc, "Unsupported LOD type 0x%x", level->flags);
+                    break;
+            }
+            g_ReplaceHack = FALSE;
+            glPopMatrix();
+            break;
+        }
+
+        case OBJ_NebulaType:
+            break;
+        default:
+            dbgFatalf(DBG_Loc, "Undefined object type %d", obj->header.objtype);
+    }
+    catShCurrentObject = NULL;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : rndMainViewRenderFunction (Cataclysm 0x005764e0)
     Description : Render a mission sphere as referenced by a specific camera.
     Inputs      : camera - pointer to a camera structure which includes a
                     mission sphere.
     Outputs     : ??
     Return      : void
-    Note        : Because much of the functionality of this function is mirrored
-                    in rndMainViewAllButRenderFunction, any drastic changes to
-                    rndMainViewRenderFunction will have to be made to
-                    rndMainViewAllButRenderFunction.
+    Note        : CAT: Cataclysm's main view: the visible objects are collected first, their levels of detail
+                  chosen (and raised pass by pass while the frame's render time estimate exceeds the budget,
+                  catLodTimeThreshold), then drawn through cat_rndRenderObjectList: an opaque pass, the minor
+                  render list's points, a depth-sorted pass of the blended objects with the Sentinel fields behind
+                  them, then a trail pass, the motion cues, blasts, hyperspace gates, nebulae, the fog layer and the
+                  lens flares. Because much of the functionality of this function is mirrored in
+                  rndMainViewAllButRenderFunction, any drastic changes to rndMainViewRenderFunction will have to be
+                  made to rndMainViewAllButRenderFunction.
 ----------------------------------------------------------------------------*/
 void rndMainViewRenderFunction(Camera *camera)
 {
     Node *objnode;
     SpaceObj *spaceobj;
-    udword i,numstars;
+    udword i, numstars;
     Star3d *star;
-//    hvector cameraSpace, eyeSpace;
-    vector to;
-    lod *level;
-    ShipStaticInfo *shipStaticInfo;
-    sdword playerIndex;
-    hmatrix coordMatrixForGL;
-    // matrix scaledMatrix;
-    // real32 scaleFactor;
-    // meshdata *worldMesh;
-    static sdword shipTrails;
-#if SHOW_TRAIL_STATS
-    extern sdword trailsUpdated, trailsNotUpdated;
-#endif
-    extern sdword trailsRendered;
-    sdword colorScheme;
-    bool32 displayEffect = FALSE;
-
+    LinkedList visible;
+    udword pass, total;
     sdword asteroid0Count;
-
-    real32 scaledOffset[3];
-    static real32 cameraOffset[3] = {0.0f, 0.0f, 0.0f};
-    static bool32   cameraFloating = FALSE;
+    real32 declination, distScale, offset[3];
+    static real32 cameraOffset[3] = {0.0f, 0.0f, 0.0f};             // 0x00a75db0..0x00a75db8
+    static real32 floatTime0 = 0.0f, floatTime1 = 0.0f;             // 0x00a75d9c / 0x00a75da0
+    static real32 lastFloat0 = 0.0f, lastFloat1 = 0.0f;             // 0x00a75d94 / 0x00a75d98
+    static bool32 cameraFloating = FALSE;                           // 0x00a75dbc
+    extern sdword trailsRendered;
 
     mouseCursorObjPtr  = NULL;               //Falko: got an obscure crash where mouseCursorObjPtr was mangled, will this work?
+    meshSetFade(3, 0.0f);                    // CAT: the Beast-stun channel starts clear
 
     dbgAssertOrIgnore(camera != NULL); //verify parameters
 
-#if 0   /* Bink stuff... */
-    if (!binkDonePlaying)
-    {                               //!!! can be cleaned up using the render function pointer
-        return;
-    }
-#endif
-
+    // CAT: the exe returns while a Bink movie plays (binkDonePlaying 0x008b6d94); GoK plays its movies elsewhere
     primModeClear2();                                       //go to 3D rendering mode
 
     glMatrixMode(GL_PROJECTION);
@@ -2423,11 +3983,14 @@ void rndMainViewRenderFunction(Camera *camera)
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
+    // CAT: the camera float (0x0057659a): the offsets scale with the camera's declination and stop with the
+    //      universe paused (HW1's rndCameraOffset0/1 inlined)
     if (gameIsRunning && !nisIsRunning && piePointSpecMode == PSM_Idle && !universePause)
     {
         if (!cameraFloating)
         {
-            rndResetFloatTime();
+            lastFloat0 = cat_taskRealTimeElapsed;
+            lastFloat1 = cat_taskRealTimeElapsed;
         }
         cameraFloating = TRUE;
     }
@@ -2439,23 +4002,47 @@ void rndMainViewRenderFunction(Camera *camera)
             cameraOffset[0] = cameraOffset[1] = cameraOffset[2] = 0.0f;
         }
     }
-
-    if (bitTest(universe.mainCameraCommand.ccMode,CCMODE_PILOT_SHIP))
+    if (bitTest(universe.mainCameraCommand.ccMode, CCMODE_PILOT_SHIP))
     {
         cameraFloating = FALSE;
         cameraOffset[0] = cameraOffset[1] = cameraOffset[2] = 0.0f;
     }
-
-    if (cameraFloating && !debugScreenshots)
+    else if (cameraFloating)
     {
-        cameraOffset[0] = CAMERA_FLOAT_OFFSET_SCALAR0 * rndCameraOffset0();
-        cameraOffset[1] = CAMERA_FLOAT_OFFSET_SCALAR1 * rndCameraOffset1();
-        cameraOffset[2] = (0.5f * cameraOffset[0]) + (0.5f * cameraOffset[1]);
+        real64 et;
+        declination = (real32)(cos((real64)camera->declination) * (real64)0.8f + (real64)0.2f);  // 0x0072a5d4 / 0x0072a510
+        if (!universePause)
+        {
+            floatTime0 += cat_taskRealTimeElapsed - lastFloat0;
+        }
+        lastFloat0 = cat_taskRealTimeElapsed;
+        et = (real64)CAMERA_FLOAT_SCALAR0 * (real64)floatTime0;
+        cameraOffset[0] = (real32)((sin(et) - cos(et * 0.5)) * (real64)CAMERA_FLOAT_OFFSET_SCALAR0 * (real64)declination);
+        if (!universePause)
+        {
+            floatTime1 += cat_taskRealTimeElapsed - lastFloat1;
+        }
+        lastFloat1 = cat_taskRealTimeElapsed;
+        et = (real64)CAMERA_FLOAT_SCALAR1 * (real64)floatTime1;
+        cameraOffset[1] = (real32)((cos(et * 0.5) + sin(et)) * (real64)CAMERA_FLOAT_OFFSET_SCALAR1 * (real64)declination);
+        cameraOffset[2] = cameraOffset[0] * 0.5f + cameraOffset[1] * 0.5f;
     }
-    rndScaleCameraOffsets(scaledOffset, camera, cameraOffset);
-    rgluLookAt(camera->eyeposition.x + scaledOffset[2],
-               camera->eyeposition.y + scaledOffset[0],
-               camera->eyeposition.z + scaledOffset[1],
+    distScale = CAMERA_FLOAT_DIST_SCALAR * camera->distance;
+    if (distScale > 1.0f)
+    {
+        offset[0] = distScale * cameraOffset[0];
+        offset[1] = distScale * cameraOffset[1];
+        offset[2] = distScale * cameraOffset[2];
+    }
+    else
+    {
+        offset[0] = cameraOffset[0];
+        offset[1] = cameraOffset[1];
+        offset[2] = cameraOffset[2];
+    }
+    rgluLookAt(camera->eyeposition.x + offset[2],
+               camera->eyeposition.y + offset[0],
+               camera->eyeposition.z + offset[1],
                camera->lookatpoint.x, camera->lookatpoint.y, camera->lookatpoint.z,
                camera->upvector.x, camera->upvector.y, camera->upvector.z);
     //get local copy of matrices
@@ -2465,14 +4052,13 @@ void rndMainViewRenderFunction(Camera *camera)
     //position light(s) in world
     lightPositionSet();
 
-    rndPreRenderDebugStuff(camera);
-
-    //!!! should this be here?  It does not sound like it.
     if (feRenderEverything)
     {
         glClear(GL_COLOR_BUFFER_BIT);
         feRenderEverything = FALSE;
     }
+
+    cat_rndFogLayerUpdate();                                // CAT: the fog layer follows the camera (0x00576808)
 
 //draw the texture-mapped background
 #if RND_BACKGROUND_STATIC
@@ -2513,49 +4099,39 @@ void rndMainViewRenderFunction(Camera *camera)
         primErrorMessagePrint();
         glDisable(GL_DEPTH_TEST);                           //and infinitely far away
         primErrorMessagePrint();
-        if (singlePlayerGame && spGetCurrentMission() == MISSION_13_THE_KAROS_GRAVEYARD)
-        {
-            // third arg = draw stars => don't draw stars at Karos graveyard since the large
-            // hulks would obscure them but if we're not drawing backgrounds for performance
-            // reasons anyway, then draw stars to provide player with orientation reference
-            rndBackgroundRender(BG_RADIUS, camera, !showBackgrounds);
-        }
-        else
-        {
-            rndBackgroundRender(BG_RADIUS, camera, TRUE);
-        }
+        // CAT: the stars are always drawn (HW1's Karos graveyard exception is gone, 0x0057692e)
+        rndBackgroundRender(BG_RADIUS, camera, TRUE);
 
         rndTextureEnvironment(RTE_Modulate);
         glEnable(GL_DEPTH_TEST);                            //re-enable depth test
+        glDepthMask(GL_TRUE);
         primErrorMessagePrint();
         rndLightingEnable(TRUE);                            //and lighting
         primErrorMessagePrint();
 #if RND_BACKGROUND_STATIC
     glPopMatrix();
 #endif
-#if !LIGHT_PLAYER_COLORS
-//    lightDefaultLightSet();
     lightSetLighting();
-#endif
 
     //render all worlds in the universe
-    for (i = 0; i < UNIV_NUMBER_WORLDS; i++)
+    // CAT: only with the backgrounds option on (showBackgrounds 0x008b8624); a world effect keeps the depth test
+    //      state it found (cat_rndDepthTestEnable 0x0057ae40)
+    if (showBackgrounds)
     {
-        if (universe.world[i] != NULL)
-        {                                                   //if this one defined
+        for (i = 0; i < UNIV_NUMBER_WORLDS; i++)
+        {
+            if (universe.world[i] == NULL)
+            {
+                break;
+            }
             if (universe.world[i]->header.objtype == OBJ_DerelictType)
-            {                                               //if it's a derelict
+            {
                 rndRenderAHomeworld(camera, universe.world[i]);
             }
             else
-            {                                               //else it must be a world effect
-                dbgAssertOrIgnore(universe.world[i]->header.objtype == OBJ_EffectType);
+            {
                 rndRenderAWorldEffect(camera, (Effect *)universe.world[i]);
             }
-        }
-        else
-        {                                                   //stop processing worlds
-            break;
         }
     }
     if (rndPreObjectCallback != NULL)
@@ -2565,602 +4141,75 @@ void rndMainViewRenderFunction(Camera *camera)
         rc();
     }
 
-#if PIE_MOVE_NEARTO
-    //clear out the 'move near to' info
-    selClosestTarget = NULL;
-    selClosestDistance = SDWORD_Max;
-#endif //PIE_MOVE_NEARTO
-
-    trailsRendered = shipTrails = 0;
+    trailsRendered = 0;
     alodSetPolys(0);
 
-    objnode = universe.RenderList.head;
-
-    while (objnode != NULL)
+    // CAT: collect the visible objects (0x00576b22): ships of a type below 0x8E not omitted from the render list
+    //      and every object but bullets and effects pass the view test (rndShipVisibleUsingCoordSys, which also
+    //      sets the selection circle); bullets and effects always go
+    listInit(&visible);
+    for (objnode = universe.RenderList.head; objnode != NULL; objnode = objnode->next)
     {
         spaceobj = (SpaceObj *)listGetStructOfNode(objnode);
         dbgAssertOrIgnore(spaceobj->renderlink.belongto != NULL);
-
-        g_WireframeHack = FALSE;
-
-        switch (spaceobj->header.objtype)
+        if (spaceobj->header.objtype == OBJ_ShipType)
         {
-            case OBJ_BulletType:                            //type bullet
-                if (((Bullet *)spaceobj)->effect == NULL)
-                {                                           //if there is no effect for this bullet
-                    rndLightingEnable(FALSE);               //draw default line
-                    rndTextureEnable(FALSE);
-                    // CAT: no defense-fighter laser case (the type is gone; M2-R4 ships-b retire)
-                    if (((Bullet *)spaceobj)->bulletType == BULLET_Beam)
-                    {
-                        if(((Bullet *)spaceobj)->timelived <= UNIVERSE_UPDATE_PERIOD)
-                        {
-                            goto dontdraw;
-                        }
-                    }
-                    vecAdd(to,spaceobj->posinfo.position,((Bullet *)spaceobj)->lengthvec);
-                    primLine3(&spaceobj->posinfo.position, &to, ((Bullet *)spaceobj)->bulletColor);
-dontdraw:
-                    rndLightingEnable(TRUE);
-                }
-                break;
-            case OBJ_EffectType: { // if type effect
-                Effect* effect = (Effect*)spaceobj;
-                if (onRenderEffect(effect) == Draw) {
-                    etgEffectDraw(effect);
-                }
-            } break;
-            case OBJ_ShipType: {
-                Ship* ship = (Ship*)spaceobj;
-                if (ship->staticinfo->common.LOD != NULL)
-                {
-                    if(!bitTest(ship->header.flags,SOF_Cloaked) ||
-                       ship->playerowner == universe.curPlayerPtr ||
-                       (proximityCanPlayerSeeShip(universe.curPlayerPtr,ship)))       //if ship isn't cloaked or it is the players
-                    {
-                        //put the ship into the mission map array
-//                        mmAddShipToMapArray((ShipPtr)spaceobj);
-                        shipStaticInfo = (ShipStaticInfo *)spaceobj->staticinfo;
-                        playerIndex = (sdword)ship->playerowner->playerIndex;
-                        dbgAssertOrIgnore((spaceobj->header.flags & SOF_Rotatable) != 0);
-                        selCircleCompute(&rndCameraMatrix, &rndProjectionMatrix, &ship->targetable);//compute selection circle
-
-#if RND_VISUALIZATION
-    #if DEBUG_COLLISIONS
-                        collDrawCollisionInfo((SpaceObjRotImp *)spaceobj);
-    #else
-                        if (RENDER_BOXES)
-                        {
-                            collDrawCollisionInfo((SpaceObjRotImp *)spaceobj);
-                        }
-    #endif
-#endif
-
-                        glPushMatrix();
-                        level = lodLevelGet((void *)spaceobj, &camera->eyeposition, &ship->impactable.collInfo.collPosition);
-
-                        if (taskTimeElapsed-ship->targetable.flashtimer < FLASH_TIMER)
-                        {
-                            g_ReplaceHack = TRUE;
-                        }
-
-                        switch (level->flags & LM_LODType)
-                        {
-                            case LT_Invalid:
-                                break;
-                            case LT_Mesh:
-                                displayEffect = hsShouldDisplayEffect(ship);
-#if LIGHT_PLAYER_COLORS
-                                lightPlayerColorLightSet(playerIndex);
-#endif //LIGHT_PLAYER_COLORS
-                                hmatMakeHMatFromMat(&coordMatrixForGL,&ship->rotatable.rotinfo.coordsys);
-                                hmatPutVectIntoHMatrixCol4(spaceobj->posinfo.position,coordMatrixForGL);
-                                glMultMatrixf((float *)&coordMatrixForGL);//ship's rotation matrix
-                                shPushLightMatrix(&coordMatrixForGL);
-                                if (selCameraSpace.z < 0.0f)
-                                {
-                                    //ship->magnitudeSquared = 1.0f - selCameraSpace.z * shipStaticInfo->NLIPS;
-#if RND_SCALECAP_TWEAK
-                                    if (selSelected.numShips == 1 &&
-                                        selSelected.ShipPtr[0]->staticinfo == shipStaticInfo)
-                                    {
-                                        if (keyIsHit(ONEKEY))
-                                        {
-                                            shipStaticInfo->scaleCap -= scaleCapSlopeDelta;
-                                            dbgMessagef(scaleCapString, "\nN-LIPS = %f", shipStaticInfo->scaleCap);
-                                            sprintf(scaleCapString, "N-LIPS = %f", shipStaticInfo->scaleCap);
-                                        }
-                                        if (keyIsHit(TWOKEY))
-                                        {
-                                            shipStaticInfo->scaleCap += scaleCapSlopeDelta;
-                                            dbgMessagef(scaleCapString, "\nN-LIPS = %f", shipStaticInfo->scaleCap);
-                                            sprintf(scaleCapString, "N-LIPS = %f", shipStaticInfo->scaleCap);
-                                        }
-                                    }
-#endif //RND_SCALECAP_TWEAK
-
-                                    if (shipStaticInfo->scaleCap != 0.0f)
-                                    {                   //if there's a scaling cap
-                                        real32 scaleFactor;
-                                        glEnable(GL_RESCALE_NORMAL);
-                                        rndNormalization = TRUE;
-                                        scaleFactor = 1.0f - selCameraSpace.z * shipStaticInfo->scaleCap;
-#if RND_VERBOSE_LEVEL >= 1
-                                        if (isnan((double)scaleFactor))
-                                        {
-                                            dbgMessage("-- scaleFactor is NaN --");
-                                        }
-#endif
-                                        ship->magnitudeSquared = scaleFactor;
-                                        glScalef(scaleFactor, scaleFactor, scaleFactor);
-                                        ship->impactable.collInfo.selCircleRadius *= scaleFactor;
-                                    }
-                                    else
-                                    {
-                                        ship->magnitudeSquared = 1.0f;
-                                    }
-                                }
-                                else                        //don't even bother rendering if behind camera
-                                {
-                                    ship->magnitudeSquared = 1.0f;
-//!!!                                    break;
-                                }
-// CAT: no scaleFactor in Cataclysm's ShipStaticInfo (key dropped from ShipStaticScriptTable 0x008b2428), so the
-//      debug-only SO_CLOOGE_SCALE ship scaling is gone
-#if 0
-                                if (shipStaticInfo->scaleFactor != 1.0f)
-                                {
-                                    glScalef(shipStaticInfo->scaleFactor,
-                                             shipStaticInfo->scaleFactor,
-                                             shipStaticInfo->scaleFactor);
-                                }
-#endif
-#if RND_VISUALIZATION
-                                if (dockLines) dockDrawDockInfo(ship);
-                                if (gunLines) gunDrawGunInfo(ship);
-                                // CAT (M2-R4 combat): no HW1 salvage-point lines (dockDrawSalvageInfo is gone with HW1's salvage)
-#endif
-
- /*
-                                switch (shipStaticInfo->shiprace)
-                                {
-                                    case R1:
-                                    case R2:
-                                        i = ship->playerowner->playerIndex;
-                                        dbgAssertOrIgnore(i >= 0 && i < 8);//!!!
-                                        break;
-                                    default:
-                                        i = 0;
-                                        break;
-                                }
-*/
-                                i = ship->colorScheme;
-                                dbgAssertOrIgnore(i >= 0 && i < MAX_MULTIPLAYER_PLAYERS);
-                                if (bitTest(spaceobj->header.flags,SOF_Cloaked))
-                                {
-                                    g_WireframeHack = (bool8)((ship->playerowner == universe.curPlayerPtr) || proximityCanPlayerSeeShip(universe.curPlayerPtr,ship));
-                                }
-
-                                if (rndShipVisible(spaceobj, camera))
-                                {
-                                    bool32 result = rndFade(spaceobj, camera);
-                                    ShipSinglePlayerGameInfo* ssinfo = ship->shipSinglePlayerGameInfo;
-
-                                    if (ssinfo != NULL)
-                                    {
-                                        if (ssinfo->shipHyperspaceState == SHIPHYPERSPACE_NONE)
-                                        {
-                                            ssinfo = NULL;
-                                        }
-                                    }
-
-                                    if (!result)
-                                    {
-                                        meshRenders++;
-
-                                        if (rndInsideShip(spaceobj, camera))
-                                        {
-                                            g_WireframeHack = TRUE;
-                                            g_HiddenRemoval = FALSE;
-                                        }
-
-                                        if (ssinfo != NULL &&
-                                            ssinfo->hsState != HS_INACTIVE &&
-                                            ssinfo->hsState != HS_FINISHED)
-                                        {
-                                            if (ssinfo->staticHyperspaceGate)
-                                            {
-                                                hsNoGate(TRUE);
-                                            }
-                                            hsContinue(ship, displayEffect);
-                                            if (ssinfo->staticHyperspaceGate)
-                                            {
-                                                hsNoGate(FALSE);
-                                            }
-                                        }
-
-                                        //
-                                        // lighting while docking
-                                        //
-                                        if (ship->dockvars.catDockPointIndex != -1 &&
-                                            ship->dockvars.dockship != NULL)
-                                        {
-                                            Ship* dockship;
-                                            real32 t, nearVal, farVal;
-
-                                            dockship = ship->dockvars.dockship;
-                                            nearVal = dockship->staticinfo->dockLightNear;
-                                            farVal  = dockship->staticinfo->dockLightFar;
-                                            t = rndDockScalar(ship,
-                                                              ship->dockvars.dockship,
-                                                              nearVal, farVal);
-                                            shDockLightColor(dockship->staticinfo->dockLightColor);
-                                            shDockLight(t);
-                                        }
-
-                                        if ((ssinfo != NULL &&
-                                             (ssinfo->hsState != HS_FINISHED || singlePlayerGameInfo.hyperspaceFails)) ||
-                                            ssinfo == NULL)
-                                        {
-#if DEBUG_VISIBLE_POLYS
-                                            extern sdword visiblePoly;
-                                            extern bool32 g_Points;
-                                            extern bool32 g_SpecificPoly;
-#endif
-                                            // CAT: the ship is the current render object of the per-vertex glow
-                                            //      (0x00c32c00, set per object by cat_rndRenderObjectList 0x005776f0)
-                                            //      and its per-vertex mesh state goes to the mesh renderer
-                                            //      (0x00578c08: meshRenderShipHierarchy(ship+0x80, ...); meshRender
-                                            //      gets the LOD's slots)
-                                            catShCurrentObject = spaceobj;
-                                            if (ship->bindings != NULL)
-                                            {
-                                                meshRenderShipHierarchy(ship->obj.catMeshState, ship->bindings,
-                                                        ship->obj.currentLOD,
-                                                        (meshdata *)level->pData, i);
-#if DEBUG_VISIBLE_POLYS
-                                                if (visiblePoly >= 0)
-                                                {
-                                                    g_SpecificPoly = TRUE;
-                                                    g_WireframeHack = TRUE;
-                                                    glScalef(1.02f, 1.02f, 1.02f);
-                                                    meshRenderShipHierarchy(ship->obj.catMeshState, ship->bindings,
-                                                                            ship->obj.currentLOD,
-                                                                            (meshdata*)level->pData, i);
-                                                    g_WireframeHack = FALSE;
-                                                    glScalef(1.01f, 1.01f, 1.01f);
-                                                    g_Points = TRUE;
-                                                    meshRenderShipHierarchy(ship->obj.catMeshState, ship->bindings,
-                                                                            ship->obj.currentLOD,
-                                                                            (meshdata*)level->pData, i);
-                                                    g_Points = FALSE;
-                                                    g_SpecificPoly = FALSE;
-                                                }
-#endif
-                                            }
-                                            else
-                                            {
-                                                cat_meshRenderState((ship->obj.catMeshState != NULL) ?
-                                                                    ship->obj.catMeshState->level[ship->obj.currentLOD] : NULL,
-                                                                    (meshdata *)level->pData, i);
-#if DEBUG_VISIBLE_POLYS
-                                                if (visiblePoly >= 0)
-                                                {
-                                                    g_SpecificPoly = TRUE;
-                                                    g_WireframeHack = TRUE;
-                                                    glScalef(1.02f, 1.02f, 1.02f);
-                                                    meshRender((meshdata *)level->pData, i);
-                                                    g_WireframeHack = FALSE;
-                                                    glScalef(1.01f, 1.01f, 1.01f);
-                                                    g_Points = TRUE;
-                                                    meshRender((meshdata *)level->pData, i);
-                                                    g_Points = FALSE;
-                                                    g_SpecificPoly = FALSE;
-                                                }
-#endif
-                                            }
-                                            catShCurrentObject = NULL;      // CAT: as cat_rndRenderObjectList does when it is done
-                                            spaceobj->renderedLODs |= (1 << spaceobj->currentLOD);
-
-                                            //navlights
-                                            if (!bitTest(ship->header.flags, SOF_Cloaked))
-                                            {
-                                                RenderNAVLights(ship);
-                                            }
-                                        }
-
-                                        g_WireframeHack = FALSE;
-                                        g_HiddenRemoval = TRUE;
-
-                                        shDockLight(0.0f);
-
-#if DEBUG_VERBOSE_SHIP_STATS
-                                        if (rndDisplayFrameRate)
-                                        {
-                                            shipsAtLOD[spaceobj->currentLOD]++;
-                                            {
-                                                meshdata* mesh = (meshdata*)level->pData;
-                                                polysAtLOD[spaceobj->currentLOD] += mesh->object[0].nPolygons;
-                                            }
-                                        }
-#endif
-                                    }
-
-                                    rndUnFade();
-                                }
-                                shPopLightMatrix();
-
-                                glDisable(GL_RESCALE_NORMAL);
-                                rndNormalization = FALSE;
-                                break;
-                            case LT_TinySprite:
-                                dbgFatalf(DBG_Loc, "Unsupported LOD type 0x%x", level->flags);
-                                break;
-                            case LT_SubPixel:
-                                rndTextureEnable(FALSE);
-                                rndLightingEnable(FALSE);
-                                primPointSize3(&spaceobj->posinfo.position,
-                                    ship->impactable.collInfo.selCircleRadius,
-                                    toPlayerColor[playerIndex]);
-                                rndLightingEnable(TRUE);
-                                break;
-                            case LT_Function:
-                                dbgFatalf(DBG_Loc, "Unsupported LOD type 0x%x", level->flags);
-                                break;
-                            case LT_NULL:
-                                break;
-                            default:
-                                dbgFatalf(DBG_Loc, "Unsupported LOD type 0x%x", level->flags);
-                        }
-
-                        if (g_ReplaceHack)
-                        {
-                            g_ReplaceHack = FALSE;
-                        }
-
-                        {
-                            udword index;
-                            for (index = 0; index < 2; index++)
-                            {
-                                if (ship->lightning[index] != NULL)
-                                {
-                                    lightning* l = (lightning*)ship->lightning[index];
-                                    cloudRenderAndUpdateLightning(l, spaceobj->currentLOD);
-
-                                    l->countdown--;
-                                    if (l->countdown == 0)
-                                    {
-                                        cloudKillLightning(l);
-                                        ship->lightning[index] = NULL;
-                                    }
-                                }
-                            }
-                        }
-
-                        glPopMatrix();
-
-                        {
-                            ShipSinglePlayerGameInfo* ssinfo = ship->shipSinglePlayerGameInfo;
-
-                            if (ssinfo != NULL &&
-                                ssinfo->hsState != HS_INACTIVE &&
-                                ssinfo->hsState != HS_FINISHED)
-                            {
-                                if (ssinfo->staticHyperspaceGate)
-                                {
-                                    hsNoGate(TRUE);
-                                }
-                                hsEnd(ship, displayEffect);
-                                if (ssinfo->staticHyperspaceGate)
-                                {
-                                    hsNoGate(FALSE);
-                                }
-                            }
-                        }
-
-                        rndFade(spaceobj, camera);
-                        if (!bitTest(spaceobj->header.flags, SOF_Cloaked) || (ship->playerowner == universe.curPlayerPtr) || proximityCanPlayerSeeShip(universe.curPlayerPtr,ship))
-
-                        {
-                            udword idx;
-                            for (idx = 0; idx < MAX_NUM_TRAILS; idx++)
-                            {
-                                if (ship->trail[idx] != NULL)
-                                {
-                                    trailDraw(&ship->enginePosition,
-                                              ship->trail[idx],
-                                              spaceobj->currentLOD,
-                                              ship->colorScheme);
-                                }
-                            }
-                        }
-                        rndUnFade();
-                    }
-                }
-                else
-                {                                           //else behind camera
-                    ship->impactable.collInfo.selCircleRadius = -1.0f;
-                }
-            } break;
-            case OBJ_DerelictType: {
-                Derelict* derelict = (Derelict*)spaceobj;
-                if (derelict->staticinfo->worldRender)
-                {                                           //if it's a world derelict
-                    break;                                  //render as normal
-                }
-
-                if (derelict->derelicttype == HyperspaceGate)
-                {
-                    selCircleCompute(&rndCameraMatrix, &rndProjectionMatrix, &derelict->targetable);//compute selection circle
-
-#if RND_VISUALIZATION
-                    if (RENDER_BOXES)
-                    {
-                        collDrawCollisionInfo(&derelict->impactable);
-                    }
-#endif
-                    break;
-                }
-            } //else fall through
-            case OBJ_AsteroidType:
-            case OBJ_DustType:
-            case OBJ_GasType:
-            case OBJ_MissileType:
-                //cloaked effect hack...change later when implement 'stages maybe'
-                if(bitTest(spaceobj->header.flags,SOF_Cloaked))
-                    break;   //if it isn't cloaked, or it is and it is the local players field draw it
-
-                if (spaceobj->staticinfo->LOD != NULL)
-                {
-                    dbgAssertOrIgnore((spaceobj->header.flags & (SOF_Rotatable+SOF_Impactable+SOF_Targetable)) != 0);
-                    SpaceObjRotImpTarg* targetable = (SpaceObjRotImpTarg*)spaceobj;
-
-                    //add this space object to the mission map array
-//                    mmAddObjToMapArray(spaceobj);
-
-                    selCircleCompute(&rndCameraMatrix, &rndProjectionMatrix, targetable);//compute selection circle
-
-#if RND_VISUALIZATION
-#if DEBUG_COLLISIONS
-                    collDrawCollisionInfo((SpaceObjRotImp *)spaceobj);
-#else
-                    if (RENDER_BOXES)
-                    {
-                        collDrawCollisionInfo(&targetable->impactable);
-                    }
-#endif
-#endif
-
-                    glPushMatrix();
-                    level = lodLevelGet((void *)spaceobj, &camera->eyeposition, &targetable->impactable.collInfo.collPosition);
-
-                    if (taskTimeElapsed- targetable->flashtimer < FLASH_TIMER)
-                    {
-                        g_ReplaceHack = TRUE;
-                    }
-
-                    switch (level->flags & LM_LODType)
-                    {
-                        case LT_Invalid:
-                            break;
-                        case LT_Mesh:
-#if LIGHT_PLAYER_COLORS
-//                            lightDefaultLightSet();
-//!!!                            lightSetLighting();
-#endif
-                            g_RndPosition = spaceobj->posinfo.position;
-                            hmatMakeHMatFromMat(&coordMatrixForGL, &targetable->rotatable.rotinfo.coordsys);
-                            hmatPutVectIntoHMatrixCol4(spaceobj->posinfo.position,coordMatrixForGL);
-                            glMultMatrixf((float *)&coordMatrixForGL);//ship's rotation matrix
-                            shPushLightMatrix(&coordMatrixForGL);
-
-                            if (spaceobj->header.objtype == OBJ_AsteroidType)
-                            {
-                                real32 scaling = ((Asteroid *)spaceobj)->scaling;
-                                if (scaling != 1.0f)
-                                {
-                                    glScalef(scaling,scaling,scaling);
-                                }
-                            }
-
-                            // CAT (M2-R4 combat): no HW1 salvage-point lines for derelicts (dockDrawSalvageInfo is gone)
-                            colorScheme = 0;
-                            switch (spaceobj->header.objtype)
-                            {
-                            case OBJ_GasType:
-                            case OBJ_DustType:
-                                rndFade(spaceobj, camera);
-                                meshRenders++;
-                                cloudRenderSystem((void*)level->pData, ((DustCloud*)spaceobj)->stub, spaceobj->currentLOD);
-//                                shipsAtLOD[spaceobj->currentLOD]++;
-                                rndUnFade();
-                                break;
-                            case OBJ_MissileType:
-                                colorScheme = ((Missile *)spaceobj)->colorScheme;
-                                goto renderDefault;
-                            case OBJ_DerelictType:
-                                colorScheme = ((Derelict *)spaceobj)->colorScheme;
-                                //fall through
-renderDefault:
-                            default:
-                                if (rndShipVisible(spaceobj, camera))
-                                {
-                                    rndFade(spaceobj, camera);
-
-                                    rndGLStateLog("Before Derelict");
-                                    meshRenders++;
-                                    meshRender((meshdata *)level->pData,colorScheme);
-                                    spaceobj->renderedLODs |= (1 << spaceobj->currentLOD);
-                                    rndGLStateLog("After Derelict");
-                                    //navlights
-                                    if (spaceobj->header.objtype == OBJ_DerelictType && !bitTest(spaceobj->header.flags, SOF_Cloaked))
-                                    {
-                                        RenderNAVLights((Ship*)spaceobj);
-                                    }
-
-#if DEBUG_VERBOSE_SHIP_STATS
-                                    if (rndDisplayFrameRate)
-                                    {
-                                        shipsAtLOD[spaceobj->currentLOD]++;
-                                        {
-                                            meshdata* mesh = (meshdata*)level->pData;
-                                            polysAtLOD[spaceobj->currentLOD] += mesh->object[0].nPolygons;
-                                        }
-                                    }
-#endif
-                                    rndUnFade();
-                                }
-                            }
-                            shPopLightMatrix();
-                            break;
-
-                        case LT_TinySprite:
-                            dbgFatalf(DBG_Loc, "Unsupported LOD type 0x%x", level->flags);
-                            break;
-                        case LT_SubPixel:
-                            rndTextureEnable(FALSE);
-                            rndLightingEnable(FALSE);
-                            primPointSize3(&spaceobj->posinfo.position,
-                                           targetable->impactable.collInfo.selCircleRadius,
-                                           spaceobj->staticinfo->LOD->pointColor);
-                            rndLightingEnable(TRUE);
-                            break;
-                        case LT_Function:
-                            dbgFatalf(DBG_Loc, "Unsupported LOD type 0x%x", level->flags);
-                            break;
-                        case LT_NULL:
-                            break;
-                        default:
-                            dbgFatalf(DBG_Loc, "Unsupported LOD type 0x%x", level->flags);
-                    }
-
-                    if (g_ReplaceHack)
-                    {
-                        g_ReplaceHack = FALSE;
-                    }
-
-                    glPopMatrix();
-
-                    if (spaceobj->header.objtype == OBJ_MissileType)
-                    {
-                        Missile* mis = (Missile*)spaceobj;
-
-                        if (mis->trail != NULL)
-                        {
-                            playerIndex = (sdword)mis->playerowner->playerIndex;
-                            mistrailDraw(&mis->enginePosition, mis->trail,
-                                         spaceobj->currentLOD, mis->colorScheme);
-                        }
-                    }
-                }
-                break;
-            case OBJ_NebulaType:
-                //do nothing
-                break;
-            default:
-                dbgFatalf(DBG_Loc, "Undefined object type %d", spaceobj->header.objtype);
+            if (((Ship *)spaceobj)->shiptype > CAT_RND_MAX_VISIBLE_SHIPTYPE || spaceobj->header.catOmitFromRenderList)
+            {
+                continue;
+            }
         }
-        objnode = objnode->next;
+        if (spaceobj->header.objtype != OBJ_BulletType && spaceobj->header.objtype != OBJ_EffectType &&
+            !rndShipVisibleUsingCoordSys(spaceobj, camera))
+        {
+            continue;
+        }
+        listAddNode(&visible, &spaceobj->catVisibleLink, spaceobj);
+    }
+
+    // CAT: the levels of detail (0x00576bac): pass 0 chooses them (lodLevelGet), each further pass raises the ones
+    //      at that pass's level while the estimated render time exceeds the budget (at most 10 passes)
+    pass = 0;
+    do
+    {
+        total = 0;
+        for (objnode = visible.head; objnode != NULL; objnode = objnode->next)
+        {
+            spaceobj = (SpaceObj *)listGetStructOfNode(objnode);
+            switch (spaceobj->header.objtype)
+            {
+                case OBJ_ShipType:
+                case OBJ_AsteroidType:
+                case OBJ_GasType:
+                case OBJ_DustType:
+                case OBJ_DerelictType:
+                case OBJ_MissileType:
+                    if (spaceobj->staticinfo->LOD != NULL)
+                    {
+                        if (pass == 0)
+                        {
+                            total += cat_lodLevelTime(lodLevelGet(spaceobj, &camera->eyeposition,
+                                                    &((SpaceObjRotImpTarg *)spaceobj)->impactable.collInfo.collPosition));
+                        }
+                        else
+                        {
+                            total += cat_lodLevelGetTimed(spaceobj, (sdword)pass);
+                        }
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+    while (!opNoLODVal && total > catLodTimeThreshold && ++pass < 11);
+
+    // the opaque pass
+    cat_rndSortObjectsByDepth(1);
+    for (objnode = visible.head; objnode != NULL; objnode = objnode->next)
+    {
+        cat_rndRenderObjectList(camera, (SpaceObj *)listGetStructOfNode(objnode), 0);
+        catRndCounts.listed++;
     }
 
     //
@@ -3170,9 +4219,9 @@ renderDefault:
     rndLightingEnable(FALSE);
     g_WireframeHack = FALSE;
     glPointSize(1.0f);
+    meshSetFade(0, 0.0f);
 
     asteroid0Count = 0;
-
     objnode = universe.MinorRenderList.head;
     while (objnode != NULL)
     {
@@ -3203,21 +4252,134 @@ renderDefault:
     }
     rndLightingEnable(TRUE);
 
+    // CAT: the sorted pass (0x00576e15): farthest first, each after the Sentinel field segments behind it
+    cat_rndSortObjectsByDepth(2);
+    while (catRndSortIndex < catRndSortCount)
+    {
+        spaceobj = catRndSortList[catRndSortIndex++];
+        if (spaceobj == NULL)
+        {
+            break;
+        }
+        cat_sentinelFieldsRenderBehind(camera, spaceobj);
+        cat_rndRenderObjectList(camera, spaceobj, 0);
+        catRndCounts.sorted++;
+    }
+    cat_sentinelFieldsRenderRest();
+    cat_rndSortObjectsByDepth(0);
+
+    // CAT: the trail pass (0x00576e8b): ship and missile trails, after every mesh
+    if (catRndDrawTrails)
+    {
+        for (objnode = universe.RenderList.head; objnode != NULL; objnode = objnode->next)
+        {
+            spaceobj = (SpaceObj *)listGetStructOfNode(objnode);
+            if (spaceobj->header.objtype == OBJ_ShipType)
+            {
+                Ship *ship = (Ship *)spaceobj;
+                cat_rndSetupObjectFlags(spaceobj);
+                if (!bitTest(spaceobj->header.flags, SOF_Cloaked) &&
+                    (!cat_shipIsCloakedFully(ship) || ship->playerowner == universe.curPlayerPtr ||
+                     cat_shipDetectedByPlayer(ship, universe.curPlayerPtr->playerIndex)))
+                {
+                    udword idx;
+                    rndFade(spaceobj, camera);
+                    for (idx = 0; idx < MAX_NUM_TRAILS; idx++)
+                    {
+                        if (ship->trail[idx] != NULL)
+                        {
+                            trailDraw(&ship->enginePosition, ship->trail[idx], spaceobj->currentLOD, ship->colorScheme);
+                            catRndCounts.trails++;
+                        }
+                    }
+                }
+            }
+            else if (spaceobj->header.objtype == OBJ_MissileType)
+            {
+                Missile *mis = (Missile *)spaceobj;
+                cat_rndSetupObjectFlags(spaceobj);
+                if (mis->trail != NULL)
+                {
+                    rndFade(spaceobj, camera);
+                    mistrailDraw(&mis->enginePosition, mis->trail, spaceobj->currentLOD, mis->colorScheme);
+                    catRndCounts.trails++;
+                }
+            }
+        }
+    }
+    catShCurrentObject = NULL;
+    meshSetFade(0, 0.0f);
+
+    // CAT-TODO(M2-R6 NIS/camera): the motion cues (cat_mcRender 0x0042c630 with 0x00c49400, when the switch
+    //      0x008b8844 is on; kasfSetMotionCues sets it) are the camera producer's
+    cat_blastRenderAll();
+
+    // CAT: forget the force-field formations not queued this frame (0x0057736d)
+    {
+        Node *node = catRndFieldList.head, *next;
+        while (node != NULL)
+        {
+            CatRndFieldNode *field = (CatRndFieldNode *)listGetStructOfNode(node);
+            next = node->next;
+            if (field->queued)
+            {
+                field->queued = FALSE;
+            }
+            else
+            {
+                listDeleteNode(node);
+            }
+            node = next;
+        }
+    }
+
     //hyperspace
     hsStaticRender();
 
-    alodAdjustScaleFactor();
-
     nebRender();
+    cat_rndFogLayerRender();                                // CAT (0x005773f8)
+    cat_rndLensFlaresRender();                              // CAT (0x005773fd)
+
+    // CAT: measure the seconds per polygon once 20 or more ship levels have been timed (0x00577402)
+    if (catLodTimeScale == 0.0f)
+    {
+        real32 frequency = (real32)(real64)SDL_GetPerformanceFrequency();
+        real32 time = 0.0f;
+        udword levels = 0, polys = 0;
+        for (objnode = universe.RenderList.head; objnode != NULL; objnode = objnode->next)
+        {
+            spaceobj = (SpaceObj *)listGetStructOfNode(objnode);
+            if (spaceobj->header.objtype == OBJ_ShipType)
+            {
+                lodinfo *info = spaceobj->staticinfo->LOD;
+                sdword lv;
+                for (lv = 0; lv < info->nLevels; lv++)
+                {
+                    if (info->level[lv].catTimeMin != 0)
+                    {
+                        polys += (udword)cat_lodHierarchyCount(&info->level[lv]);
+                        levels++;
+                        time = (real32)(real64)info->level[lv].catTimeMin + time;
+                    }
+                }
+            }
+        }
+        if (levels >= 20)
+        {
+            catLodTimeScale = (time / frequency) / (real32)polys;
+            dbgMessagef("LOD timing: %u levels, %u polygons, %g s per polygon", levels, polys, (double)catLodTimeScale);
+        }
+    }
 
     if (rndPostObjectCallback != NULL)
     {                                                       //render the post-object callback if needed
         rndPostObjectCallback();
         rndPostObjectCallback = NULL;
     }
-    rndPostRenderDebug3DStuff(camera);
     primModeSet2();
-    rndPostRenderDebug2DStuff(camera);
+    // CAT: the exe has no HW1 debug overlays here (rndPreRenderDebugStuff / rndPostRenderDebug3DStuff /
+    //      rndPostRenderDebug2DStuff); its "Pilot View Offset" print (switch 0x008dfbcc, 0 in .data) is a tuning aid
+    catRndCounts.frames++;
 }
 
 GLuint plug_handle = 0;
@@ -3929,6 +5091,12 @@ DEFINE_TASK(rndRenderTask)
             }
         }
 
+        // CAT-TODO(M2-R6 front end and mouse): rndRenderTask 0x0057a910 has no mouseSelectCursorSetting (gone from
+        //      Cataclysm); while the front end asks for it (feShouldSaveMouseCursor) it neither clears the buffers nor
+        //      draws over the saved cursor (cat_mouseSaveCursorUnder / cat_mouseRestoreCursorUnder around the flip), it
+        //      draws the shameless plug and takes screenshots from a flag (ssSaveScreenshot's second argument), and
+        //      resizes the texture pool after mainReinitRGL (trNoPalResizePool). The render half (clears, regions,
+        //      scissor bars, subtitles, sync status, the fill counter) is as here.
         // set the cursor type, reset the variables then draw the mouse cursor
         mouseSelectCursorSetting();
         mouseSetCursorSetting();
@@ -4645,7 +5813,7 @@ void rndFlush(void)
 
 /*-----------------------------------------------------------------------------
     CAT: lens flare source list (new in Cataclysm). The exe keeps every source on one list at 0x00b37880;
-    cat_rndLensFlaresRender 0x0057bec0 (stage 3, not ported yet) walks it.
+    cat_rndLensFlaresRender 0x0057bec0 (below) walks it.
 -----------------------------------------------------------------------------*/
 LinkedList catRndLensFlareSourceList;
 
@@ -4659,7 +5827,7 @@ LinkedList catRndLensFlareSourceList;
 void cat_rndLensFlareSourceAdd(struct catlensflaresource *source)
 {
     listAddNode(&catRndLensFlareSourceList, &source->link, source);
-    source->visibility = 0;
+    source->fade = 0.0f;
     source->state = 2;
 }
 
@@ -4673,4 +5841,880 @@ void cat_rndLensFlareSourceAdd(struct catlensflaresource *source)
 void cat_rndLensFlareSourceRemove(struct catlensflaresource *source)
 {
     listRemoveNode(&source->link);
+}
+
+/*=============================================================================
+    CAT (M2-R5 render): the lens flares. A mission's "LensFlare <name>" line loads LensFlares\<name>.script
+    (cat_scriptSetLensFlareCB 0x0057b8c0): a texture, its cells (Texture) and the flare's elements (Element), each
+    drawn along the line from the source's screen position through the screen centre. Up to 8 sources are drawn a
+    frame, the nearest ones; a source fades in while nothing blocks its line to the eye and out while something does.
+=============================================================================*/
+#define CAT_LF_MAX_ELEMENTS         48          // 0x00a75ad0 .. 0x00a75dd0
+#define CAT_LF_MAX_TEXTURES         17          // 0x00a759b8 .. 0x00a75ad0
+#define CAT_LF_MAX_VISIBLE          8           // 0x00b37820
+#define CAT_LF_PIXEL_OFFSET         0.325f      // 0x0072a858: HW1's pixel-centre offset of the 2D primitives
+typedef struct CatLensFlareElement
+{
+    real32 radius;                  // +0x00 a part of the screen height
+    real32 offset;                  // +0x04 along the line: 1 the source, 0 the centre, -1 its reflection
+    sbyte  texture;                 // +0x08 a cell, or -1 hex, -2 circle, -3 light-centre circle (the rim a quarter),
+                                    //       -4 dark-centre circle (the centre a quarter) [audit: -3 / -4 were swapped]
+    ubyte  pad[3];
+    color  c;                       // +0x0C
+} CatLensFlareElement;
+typedef struct CatLensFlareCell
+{
+    real32 u, v, w, h;              // texture coordinates (pixels / 256)
+} CatLensFlareCell;
+static trhandle catLfTexture = 0;                               // 0x00a75d4c (0 = none, as the exe)
+static CatLensFlareElement catLfElements[CAT_LF_MAX_ELEMENTS];  // 0x00a75ad0
+static sdword catLfNumElements = 0;                             // 0x00a75dd0
+static CatLensFlareCell catLfCells[CAT_LF_MAX_TEXTURES];        // 0x00a759b8
+static sdword catLfNumCells = 0;                                // 0x00a75dcc
+static real32 catLfFadeoutFrameSize = 1.2f;                     // 0x008baba8
+static catlensflaresource *catLfVisible[CAT_LF_MAX_VISIBLE];    // 0x00b37820
+static sdword catLfNumVisible = 0;                              // 0x00a75dc8
+static catlensflaresource catLfNISSource;                       // 0x00b37b60: the NIS's light source
+
+static void cat_rndSplitPathName(char *path, char *base);
+static void cat_lfTextureFileSetCB(char *directory, char *field, void *dataToFillIn)      // 0x0057b820
+{
+    char name[256], base[256], path[512];
+
+    if (sscanf(field, "%s", name) == 1)
+    {
+        cat_rndSplitPathName(name, base);
+        snprintf(path, sizeof(path), "LensFlares\\%s", base);
+        cat_rndLensFlareTextureUnload();
+        catLfTexture = trTextureRegister(path, NULL, &catLfTexture, TRUE);
+    }
+}
+
+static void cat_lfElementSetCB(char *directory, char *field, void *dataToFillIn)          // 0x0057b970
+{
+    real32 radius, offset;
+    sdword texture, r, g, b;
+
+    if (sscanf(field, "%f %f %d %d %d %d", &radius, &offset, &texture, &r, &g, &b) == 6)
+    {
+        // CAT-FIX: the exe does not check the element count (48 fit before the next variable)
+        if (catLfNumElements >= CAT_LF_MAX_ELEMENTS)
+        {
+            return;
+        }
+        catLfElements[catLfNumElements].radius = radius;
+        catLfElements[catLfNumElements].offset = offset;
+        catLfElements[catLfNumElements].texture = (sbyte)texture;
+        catLfElements[catLfNumElements].c = ((((udword)b | 0xffffff00) << 8 | (udword)g) << 8) | (udword)r;
+        catLfNumElements++;
+    }
+}
+
+static void cat_lfTextureSetCB(char *directory, char *field, void *dataToFillIn)          // 0x0057ba00
+{
+    sdword x, y, w, h;
+
+    if (sscanf(field, "%d %d %d %d", &x, &y, &w, &h) == 4)
+    {
+        if (catLfNumCells >= CAT_LF_MAX_TEXTURES)           // CAT-FIX: as cat_lfElementSetCB
+        {
+            return;
+        }
+        catLfCells[catLfNumCells].u = (real32)x * (1.0f / 256.0f);
+        catLfCells[catLfNumCells].v = (real32)y * (1.0f / 256.0f);
+        catLfCells[catLfNumCells].w = (real32)w * (1.0f / 256.0f);
+        catLfCells[catLfNumCells].h = (real32)h * (1.0f / 256.0f);
+        catLfNumCells++;
+    }
+}
+
+static scriptEntry catLensFlareScriptTable[] =                  // 0x008babb0
+{
+    { "Element",          cat_lfElementSetCB,  NULL },
+    { "FadeoutFrameSize", scriptSetReal32CB,   &catLfFadeoutFrameSize },
+    { "Texture",          cat_lfTextureSetCB,  NULL },
+    { "TextureFile",      cat_lfTextureFileSetCB, NULL },
+    END_SCRIPT_ENTRY
+};
+
+// the base name of a path (the exe's _splitpath + _makepath with no directory and no extension)
+static void cat_rndSplitPathName(char *path, char *base)
+{
+    char *s = path, *slash;
+    char *dot;
+
+    slash = strrchr(s, '\\');
+    if (slash == NULL || (strrchr(s, '/') != NULL && strrchr(s, '/') > slash))
+    {
+        slash = strrchr(s, '/');
+    }
+    if (slash != NULL)
+    {
+        s = slash + 1;
+    }
+    strcpy(base, s);
+    dot = strrchr(base, '.');
+    if (dot != NULL)
+    {
+        *dot = '\0';
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_scriptSetLensFlareCB (Cataclysm 0x0057b8c0, a mission script callback with no name in the
+                  map; name chosen here)
+    Description : "LensFlare <name>": read LensFlares\<name>.script
+----------------------------------------------------------------------------*/
+void cat_scriptSetLensFlareCB(char *directory, char *field, void *dataToFillIn)
+{
+    char name[256], base[256], path[512];
+
+    catLfNumElements = 0;
+    cat_rndLensFlareTextureUnload();
+    if (sscanf(field, "%s", name) == 1)
+    {
+        cat_rndSplitPathName(name, base);
+        snprintf(path, sizeof(path), "LensFlares\\%s.script", base);
+        catLfNumCells = 0;
+        scriptSet(NULL, path, catLensFlareScriptTable);
+    }
+}
+
+void cat_rndLensFlareTextureUnload(void)                                                  // 0x0057b800
+{
+    if (catLfTexture != 0)
+    {
+        trTextureUnregister(catLfTexture);
+        catLfTexture = 0;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndLensFlareSourceVisibility (Cataclysm 0x0057bad0)
+    Description : Fade a source in or out by its line of sight and put it on the frame's visible list (8 slots: a
+                  new slot while there are fewer, else the farthest source farther than this one, else slot 0)
+----------------------------------------------------------------------------*/
+static void cat_rndLensFlareSourceVisibility(catlensflaresource *src)
+{
+    vector diff, dir;
+    real32 dist, sx, sy, radius, a, b, e;
+    sdword slot, i, side;
+    Node *node;
+    bool32 occluded = FALSE;
+
+    if (!src->enabled)
+    {
+        src->drawn = FALSE;
+        return;
+    }
+    src->drawn = TRUE;
+    diff.x = mrCamera->eyeposition.x - src->position.x;
+    diff.y = mrCamera->eyeposition.y - src->position.y;
+    diff.z = mrCamera->eyeposition.z - src->position.z;
+    dist = getVectDistSloppy(diff);
+    if (catLfNumVisible < CAT_LF_MAX_VISIBLE)
+    {
+        slot = catLfNumVisible++;
+    }
+    else
+    {
+        slot = 0;
+        for (i = 1; i < catLfNumVisible; i++)
+        {
+            if (catLfVisible[i] == NULL || !catLfVisible[i]->drawn)
+            {
+                slot = i;
+                break;
+            }
+            if (catLfVisible[i]->distance > catLfVisible[slot]->distance && dist < catLfVisible[i]->distance)
+            {
+                slot = i;
+            }
+        }
+    }
+
+    if (src->state == 2)
+    {
+        dir = diff;
+        vecNormalize(&dir);
+        for (node = universe.ShipList.head; node != NULL && !occluded; node = node->next)
+        {
+            Ship *ship = (Ship *)listGetStructOfNode(node);
+            if (ship->header.objtype == OBJ_ShipType && ship->shiptype >= dSlipgateSmall && ship->shiptype <= dSlipgateLarge)
+            {
+                continue;
+            }
+            if (collCheckRectLine((SpaceObjRotImp *)ship, &src->position, &dir, dist, &side) != -1.0f &&
+                (ship->header.objtype != OBJ_ShipType || ship->shiptype != CAT_LF_TRANSPARENT_SHIPTYPE))
+            {
+                occluded = TRUE;
+            }
+        }
+        for (node = universe.ResourceList.head; node != NULL && !occluded; node = node->next)
+        {
+            if (collCheckRectLine((SpaceObjRotImp *)listGetStructOfNode(node), &src->position, &dir, dist, &side) != -1.0f)
+            {
+                occluded = TRUE;
+            }
+        }
+    }
+    else if (src->state == 1)
+    {
+        occluded = TRUE;
+    }
+    if (occluded)
+    {
+        if (src->fade > 0.0f)
+        {
+            src->fade *= 0.6f;                                                  // 0x0072af48
+            if (src->fade < 1e-9)                                               // 0x0072beb8
+            {
+                src->drawn = FALSE;
+            }
+        }
+    }
+    else if (src->fade < 1.0f)
+    {
+        src->fade = (1.0f - src->fade) * 0.4f + src->fade;                      // 0x0072a674
+        if (src->fade > 1.0f)
+        {
+            src->fade = 1.0f;
+        }
+    }
+
+    if (src->drawn)
+    {
+        selCircleComputeGeneral(&rndCameraMatrix, &rndProjectionMatrix, &src->position, 1.0f, &sx, &sy, &radius);
+        if (radius > 0.0f)
+        {
+            if (ABS(sx) <= 1.0 && ABS(sy) <= 1.0)
+            {
+                src->edgeFade = 1.0f;
+            }
+            else
+            {
+                a = catLfFadeoutFrameSize - ABS(sx);
+                b = catLfFadeoutFrameSize - ABS(sy);
+                e = (a < b) ? a : b;
+                src->edgeFade = (e > 0.0f) ? e / (catLfFadeoutFrameSize - 1.0f) : 0.0f;
+            }
+            if (src->edgeFade > 0.0f)
+            {
+                src->screenX = (real32)(MAIN_WindowWidth / 2 + (sdword)lrint((double)((real32)MAIN_WindowWidth * sx * 0.5f)));
+                src->screenY = (real32)(MAIN_WindowHeight / 2 - (sdword)lrint((double)((real32)MAIN_WindowHeight * sy * 0.5f)));
+                src->distance = dist;
+                catLfVisible[slot] = src;
+                return;
+            }
+        }
+        src->drawn = FALSE;
+    }
+    catLfVisible[slot] = src;
+}
+
+// a screen position (pixels) in the 2D mode's coordinates (-1..1, y up)
+#define CAT_LF_X(x)     ((((x) + CAT_LF_PIXEL_OFFSET) / (real32)MAIN_WindowWidth) * 2.0f - 1.0f)
+#define CAT_LF_Y(y)     (1.0f - (((y) + CAT_LF_PIXEL_OFFSET) / (real32)MAIN_WindowHeight) * 2.0f)
+
+static real32 cat_lfClampColour(real32 v)
+{
+    if (v < 0.0f)
+    {
+        return 0.0f;
+    }
+    if (!(v <= 255.0f))
+    {
+        return 255.0f;
+    }
+    return v;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndLensFlaresRender (Cataclysm 0x0057bec0)
+    Description : Draw the lens flares of the visible sources (with the lens flare option on)
+----------------------------------------------------------------------------*/
+void cat_rndLensFlaresRender(void)
+{
+    bool32 lighting = rndLightingEnable(FALSE);
+    bool32 texture = rndTextureEnable(TRUE);
+    Node *node;
+    sdword i, j, segs, n;
+    catlensflaresource *src;
+    CatLensFlareElement *el;
+    real32 dx, dy, intensity, size, x, y, r, g, b, outer[3];
+    bool32 oldTexture, oldLighting, cull, blend, stipple;
+    udword oldEnv;
+    real64 angle, step;
+
+    if (catLfTexture != 0 && enableLensFlare)
+    {
+        catLfNumVisible = 0;
+        for (node = catRndLensFlareSourceList.head; node != NULL; node = node->next)
+        {
+            cat_rndLensFlareSourceVisibility((catlensflaresource *)listGetStructOfNode(node));
+        }
+        primModeSet2();
+        glDepthMask(GL_FALSE);
+        for (i = 0; i < catLfNumVisible; i++)
+        {
+            src = catLfVisible[i];
+            if (src == NULL || !src->drawn)
+            {
+                continue;
+            }
+            dx = src->screenX - (real32)(MAIN_WindowWidth / 2);
+            dy = src->screenY - (real32)(MAIN_WindowHeight / 2);
+            intensity = src->edgeFade * src->fade * src->brightness;
+            if (intensity != 0.0f)
+            {
+                catRndCounts.lensFlares++;
+                for (j = 0; j < catLfNumElements; j++)
+                {
+                    el = &catLfElements[j];
+                    size = (real32)MAIN_WindowHeight * el->radius;
+                    x = dx * el->offset + (real32)(MAIN_WindowWidth / 2);
+                    y = dy * el->offset + (real32)(MAIN_WindowHeight / 2);
+                    oldTexture = rndTextureEnabled;
+                    blend = FALSE;
+                    stipple = FALSE;
+                    if (el->texture >= 0)
+                    {
+                        rndTextureEnable(TRUE);
+                        oldLighting = rndLightingEnable(FALSE);
+                        trMakeCurrent(catLfTexture);
+                        if (bitTest(trStructureGet(catLfTexture)->flags, TRF_Alpha))
+                        {
+                            glEnable(GL_BLEND);
+                            glDisable(GL_ALPHA_TEST);
+                            rndAdditiveBlends(TRUE);
+                        }
+                        oldEnv = rndTextureEnvironment(RTE_Modulate);
+                        cull = glIsEnabled(GL_CULL_FACE);
+                    }
+                    else
+                    {
+                        rndTextureEnable(FALSE);
+                        oldLighting = rndLightingEnable(FALSE);
+                        glEnable(GL_BLEND);
+                        glDisable(GL_ALPHA_TEST);
+                        rndAdditiveBlends(TRUE);
+                        oldEnv = rndTextureEnvironment(RTE_Modulate);
+                        cull = glIsEnabled(GL_CULL_FACE);
+                        blend = glIsEnabled(GL_BLEND);
+                        stipple = glIsEnabled(GL_POLYGON_STIPPLE);
+                        if (!blend)
+                        {
+                            glEnable(GL_BLEND);
+                        }
+                        if (stipple)
+                        {
+                            glDisable(GL_POLYGON_STIPPLE);
+                        }
+                    }
+                    glDisable(GL_CULL_FACE);
+                    r = cat_lfClampColour((real32)colRed(el->c) * intensity);
+                    g = cat_lfClampColour((real32)colGreen(el->c) * intensity);
+                    b = cat_lfClampColour((real32)colBlue(el->c) * intensity);
+                    if (el->texture >= 0)
+                    {
+                        CatLensFlareCell *cell = &catLfCells[(sdword)el->texture];
+                        glColor3f(r * (1.0f / 256.0f), g * (1.0f / 256.0f), b * (1.0f / 256.0f));
+                        glBegin(GL_QUADS);
+                        glTexCoord2f(cell->u, cell->v);
+                        glVertex2f(CAT_LF_X(x - size), CAT_LF_Y(y - size));
+                        glTexCoord2f(cell->u + cell->w, cell->v);
+                        glVertex2f(CAT_LF_X(x + size), CAT_LF_Y(y - size));
+                        glTexCoord2f(cell->u + cell->w, cell->v + cell->h);
+                        glVertex2f(CAT_LF_X(x + size), CAT_LF_Y(y + size));
+                        glTexCoord2f(cell->u, cell->v + cell->h);
+                        glVertex2f(CAT_LF_X(x - size), CAT_LF_Y(y + size));
+                    }
+                    else
+                    {
+                        // the drawn shapes (jump table 0x0057caac, indexed by type + 4): -1 hex; -2 circle; -3 light
+                        // centre (the rim a quarter); -4 dark centre (the centre a quarter) [audit: was "-3 dark
+                        // centre, -4 light centre"; the code below, as the exe's cases 0x0057c597 / 0x0057c616, is right]
+                        segs = 6;
+                        outer[0] = r;
+                        outer[1] = g;
+                        outer[2] = b;
+                        if (el->texture != -1)
+                        {
+                            segs = (sdword)(el->radius * 40.0f * 4.0f);                // 0x0072bec0, 0x0072a530
+                            if (segs < 6)
+                            {
+                                segs = 6;
+                            }
+                            else if (segs > 32)
+                            {
+                                segs = 32;
+                            }
+                            if (el->texture == -3)
+                            {
+                                r *= 0.25f;
+                                g *= 0.25f;
+                                b *= 0.25f;
+                            }
+                            else if (el->texture == -4)
+                            {
+                                outer[0] = r * 0.25f;
+                                outer[1] = g * 0.25f;
+                                outer[2] = b * 0.25f;
+                            }
+                        }
+                        glColor3f(outer[0] * (1.0f / 256.0f), outer[1] * (1.0f / 256.0f), outer[2] * (1.0f / 256.0f));
+                        glBegin(GL_TRIANGLE_FAN);
+                        glVertex2f(CAT_LF_X(x), CAT_LF_Y(y));
+                        glColor3f(r * (1.0f / 256.0f), g * (1.0f / 256.0f), b * (1.0f / 256.0f));
+                        step = 6.2831854820251465 / (real64)segs;                  // 0x0072a500
+                        angle = 0.0;
+                        for (n = 0; n < segs; n++)
+                        {
+                            glVertex2f((real32)((((real64)x + cos(angle) * (real64)size + (real64)CAT_LF_PIXEL_OFFSET) /
+                                                 (real64)MAIN_WindowWidth) * 2.0 - 1.0),
+                                       (real32)(1.0 - (((real64)y + sin(angle) * (real64)size + (real64)CAT_LF_PIXEL_OFFSET) /
+                                                       (real64)MAIN_WindowHeight) * 2.0));
+                            angle += step;
+                        }
+                        glVertex2f(CAT_LF_X(x + size), CAT_LF_Y(y));
+                    }
+                    glEnd();
+                    catRndCounts.lensFlareElements++;
+                    glDisable(GL_BLEND);
+                    rndTextureEnvironment(oldEnv);
+                    rndAdditiveBlends(FALSE);
+                    rndTextureEnable(oldTexture);
+                    // CAT: the exe restores the lighting state onto the texture state (0x0057c886 / 0x0057c94e: its
+                    //      "lighting" restore enables or disables GL_TEXTURE_2D); kept
+                    rndTextureEnable(oldLighting);
+                    if (cull)
+                    {
+                        glEnable(GL_CULL_FACE);
+                    }
+                    if (el->texture < 0)
+                    {
+                        if (!blend)
+                        {
+                            glDisable(GL_BLEND);
+                        }
+                        if (stipple)
+                        {
+                            glEnable(GL_POLYGON_STIPPLE);
+                        }
+                    }
+                }
+            }
+            if (src->visible)
+            {
+                src->state = 1;
+            }
+        }
+        glDepthMask(GL_TRUE);
+        primModeClear2();
+    }
+    rndLightingEnable(lighting);
+    rndTextureEnable(texture);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndLensFlareNISSource* (Cataclysm 0x0057cac0 .. 0x0057cb40)
+    Description : the NIS's own light source (nisStart adds it, nisUpdate moves it, nisObjectHide / nisObjectShow
+                  hide and show it, nisStop removes it)
+----------------------------------------------------------------------------*/
+void cat_rndLensFlareNISSourceAdd(void)                                                   // 0x0057cac0
+{
+    catLfNISSource.visible = 0;
+    listAddNode(&catRndLensFlareSourceList, &catLfNISSource.link, &catLfNISSource);
+    catLfNISSource.fade = 0.0f;
+    catLfNISSource.enabled = 0;
+    catLfNISSource.brightness = 1.0f;
+    catLfNISSource.state = 0;
+}
+
+void cat_rndLensFlareNISSourceRemove(void)                                                // 0x0057cb10
+{
+    listRemoveNode(&catLfNISSource.link);
+}
+
+void cat_rndLensFlareNISSourceSetPosition(sdword unused, vector *position)                // 0x0057cb20
+{
+    catLfNISSource.position = *position;
+}
+
+void cat_rndLensFlareNISSourceEnable(sdword unused, sdword show)                          // 0x0057cb40
+{
+    if (enableLensFlare && CAT_RND_RGLTYPE != 0)
+    {
+        catLfNISSource.state = (show == 0);
+        catLfNISSource.enabled = 1;
+    }
+}
+
+/*=============================================================================
+    CAT (M2-R5 render): the fog layer: two scrolling cloud textures over the screen, tinted by the mission's fog
+    colour ("Fog r g b r g b speed density", cat_scriptSetFogCB 0x0057cb70); the NIS fades it (cat_rndFogLayerFadeTo)
+    and switches it off (cat_rndFogLayerOff). Its fade channel of the background multiplier darkens the BTG while
+    the fog fades to or from density 0. The state block is the render state's 0x00c32c14..0x00c32c4c.
+=============================================================================*/
+#define CAT_FOG_TEXTURE     "race_derelict\\dplasmacloud\\rl0\\lod0\\cloud"     // 0x008bab7c
+#define CAT_FOG_DENSITY_SCALE   1.0e7f          // 0x0072afa0 (the script's density)
+#define CAT_FOG_INTENSITY_SCALE 3.3333333e-08f  // 0x0072bed0 (density to colour scale)
+bool8  catRndFogOn = FALSE;                     // 0x00c32c14
+color  catRndFogColor[2] = {0, 0};              // 0x00c32c18 / 0x00c32c1c (the second is not drawn)
+real32 catRndFogSpeed = 0.0f;                   // 0x00c32c20
+real32 catRndFogDensity = 0.0f;                 // 0x00c32c24
+static color  catRndFogToColor[2];              // 0x00c32c28 / 0x00c32c2c
+static real32 catRndFogToSpeed;                 // 0x00c32c30
+static real32 catRndFogToDensity;               // 0x00c32c34
+static color  catRndFogFromColor[2];            // 0x00c32c38 / 0x00c32c3c
+static real32 catRndFogFromSpeed;               // 0x00c32c40
+static real32 catRndFogFromDensity;             // 0x00c32c44
+static real32 catRndFogFadeStart;               // 0x00c32c48
+static real32 catRndFogFadeEnd = 0.0f;          // 0x00c32c4c: 0 no fade running
+static trhandle catRndFogTexture = 0;           // 0x00a75d50
+// the two layers (0x00a75cf8 .. 0x00a75d3c): scroll speeds, tile sizes and offsets; set on the first draw
+static real32 catRndFogUSpeed[2], catRndFogVSpeed[2], catRndFogTile[2], catRndFogU[2], catRndFogV[2];
+static bool32 catRndFogLayersInit = TRUE;       // 0x008babe0 (1 in .data)
+static real32 catRndFogLastTime = 0.0f;         // 0x00a75dd4
+
+void cat_rndFogLayerTextureUnload(void)                                                   // 0x0057b7b0
+{
+    if (catRndFogTexture != 0)
+    {
+        trTextureUnregister(catRndFogTexture);
+        catRndFogTexture = 0;
+    }
+}
+
+void cat_rndFogLayerTextureLoad(void)                                                     // 0x0057b7d0
+{
+    if (catRndFogTexture == 0)
+    {
+        catRndFogTexture = trTextureRegister(CAT_FOG_TEXTURE, NULL, &catRndFogOn, TRUE);
+    }
+}
+
+static color cat_rndFogColorFromInts(sdword r, sdword g, sdword b)
+{
+    return (((((udword)b & 0xff) | 0xffffff00) << 8 | ((udword)g & 0xff)) << 8) | ((udword)r & 0xff);
+}
+
+void cat_scriptSetFogCB(char *directory, char *field, void *dataToFillIn)                 // 0x0057cb70
+{
+    sdword r1, g1, b1, r2, g2, b2;
+    real32 speed, density;
+
+    catRndFogOn = FALSE;
+    btgSetColourMultiplier(1, 1.0f);
+    if (field[0] == '\0')
+    {
+        cat_rndFogLayerTextureUnload();
+        catRndFogFadeEnd = 0.0f;
+        catRndFogSpeed = 0.0f;
+        catRndFogDensity = 0.0f;
+        catRndFogColor[0] = 0;
+        catRndFogColor[1] = 0;
+    }
+    else if (sscanf(field, "%d %d %d %d %d %d %f %f", &r1, &g1, &b1, &r2, &g2, &b2, &speed, &density) == 8)
+    {
+        // CAT: the exe's sscanf is stopped by the commas of the mission files ("Fog 0,0,0,0,0,0,0,0"): only r1 is
+        //      read and nothing changes (the mission scripts' fog lines are all zeros); a later NIS sets the fog
+        density = (real32)((real64)density * 10000000.0);
+        catRndFogSpeed = speed;
+        catRndFogDensity = density;
+        catRndFogColor[0] = cat_rndFogColorFromInts(r1, g1, b1);
+        catRndFogColor[1] = cat_rndFogColorFromInts(r2, g2, b2);
+        catRndFogFadeEnd = 0.0f;
+        if (density <= 0.0f)
+        {
+            cat_rndFogLayerTextureUnload();
+            catRndFogOn = FALSE;
+        }
+        else
+        {
+            cat_rndFogLayerTextureLoad();
+            catRndFogOn = TRUE;
+        }
+    }
+}
+
+void cat_rndFogLayerOff(void)                                                             // 0x0057cd20
+{
+    catRndFogOn = FALSE;
+    btgSetColourMultiplier(1, 1.0f);
+}
+
+void cat_rndFogLayerFadeTo(real32 time, color c1, color c2, real32 speed, real32 density)   // 0x0057cd40
+{
+    if (time > 0.0f)
+    {
+        catRndFogFromColor[0] = catRndFogColor[0];
+        catRndFogFadeEnd = universe.totaltimeelapsed + time;
+        catRndFogFromColor[1] = catRndFogColor[1];
+        catRndFogFromSpeed = catRndFogSpeed;
+        catRndFogFromDensity = catRndFogDensity;
+        catRndFogFadeStart = universe.totaltimeelapsed;
+        catRndFogToSpeed = speed;
+        catRndFogToDensity = density;
+        catRndFogToColor[0] = c1;
+        catRndFogToColor[1] = c2;
+    }
+    else
+    {
+        catRndFogSpeed = speed;
+        catRndFogFadeEnd = 0.0f;
+        catRndFogDensity = density;
+        catRndFogColor[0] = c1;
+        catRndFogColor[1] = c2;
+    }
+}
+
+// a channel blended between two colours by t, truncated (the exe's __ftol)
+static color cat_rndFogBlendColor(color from, color to, real32 t)
+{
+    sdword r = (sdword)(((real32)colRed(to) - (real32)colRed(from)) * t + (real32)colRed(from));
+    sdword g = (sdword)(((real32)colGreen(to) - (real32)colGreen(from)) * t + (real32)colGreen(from));
+    sdword b = (sdword)(((real32)colBlue(to) - (real32)colBlue(from)) * t + (real32)colBlue(from));
+
+    return cat_rndFogColorFromInts(r, g, b);
+}
+
+void cat_rndFogLayerUpdate(void)                                                          // 0x0057ce00
+{
+    real32 t, to, from;
+
+    if (!catRndFogOn)
+    {
+        btgSetColourMultiplier(1, 1.0f);
+    }
+    else if (catRndFogFadeEnd != 0.0f)
+    {
+        if (catRndFogFadeEnd <= universe.totaltimeelapsed)
+        {
+            catRndFogSpeed = catRndFogToSpeed;
+            catRndFogColor[0] = catRndFogToColor[0];
+            catRndFogColor[1] = catRndFogToColor[1];
+            catRndFogDensity = catRndFogToDensity;
+            catRndFogFadeEnd = 0.0f;
+            btgSetColourMultiplier(1, (catRndFogToDensity == 0.0f) ? 1.0f : 0.0f);
+            return;
+        }
+        t = (universe.totaltimeelapsed - catRndFogFadeStart) / (catRndFogFadeEnd - catRndFogFadeStart);
+        catRndFogSpeed = (catRndFogToSpeed - catRndFogFromSpeed) * t + catRndFogFromSpeed;
+        catRndFogDensity = (catRndFogToDensity - catRndFogFromDensity) * t + catRndFogFromDensity;
+        catRndFogColor[0] = cat_rndFogBlendColor(catRndFogFromColor[0], catRndFogToColor[0], t);
+        catRndFogColor[1] = cat_rndFogBlendColor(catRndFogFromColor[1], catRndFogToColor[1], t);
+        to = (catRndFogToDensity != 0.0f) ? 0.0f : 1.0f;
+        from = (catRndFogFromDensity != 0.0f) ? 0.0f : 1.0f;
+        btgSetColourMultiplier(1, (real32)(((real64)to - (real64)from) * (real64)t + (real64)from));
+    }
+}
+
+void cat_rndFogLayerRender(void)                                                          // 0x0057d2c0
+{
+    real32 s, d, r, g, b, x0, x1, y0, y1;
+    sdword i;
+    bool32 lighting, texture, cull;
+    udword oldEnv;
+
+    if (!catRndFogOn || CAT_RND_RGLTYPE == 0 || catRndFogTexture == 0)
+    {
+        return;
+    }
+    s = catRndFogDensity * CAT_FOG_INTENSITY_SCALE;
+    if (!(s <= 1.0f))
+    {
+        s = 1.0f;
+    }
+    else if (s == 0.0f)
+    {
+        return;
+    }
+    if (catRndFogLayersInit)
+    {
+        for (i = 0; i < 2; i++)
+        {
+            catRndFogU[i] = 0.0f;
+            catRndFogV[i] = 0.5f;
+            catRndFogUSpeed[i] = (i & 1) ? 0.05f : -0.0505f;                    // 0x0072a654 / 0x0072becc
+            catRndFogVSpeed[i] = (i & 1) ? 0.005f : -0.015f;                    // 0x0072bec8 / 0x0072bec4
+            catRndFogTile[i] = (i & 1) ? 0.25f : 0.2f;                          // 0x0072a450 / 0x0072a510
+        }
+        catRndFogLayersInit = FALSE;
+    }
+    else
+    {
+        d = universe.totaltimeelapsed - catRndFogLastTime;
+        catRndFogLastTime = universe.totaltimeelapsed;
+        d = catRndFogSpeed * d;
+        for (i = 0; i < 2; i++)
+        {
+            catRndFogU[i] = d * catRndFogUSpeed[i] + catRndFogU[i];
+            catRndFogV[i] = d * catRndFogVSpeed[i] + catRndFogV[i];
+            if (catRndFogU[i] > 100.0f)
+            {
+                catRndFogU[i] -= 100.0f;
+                catRndFogV[i] -= 100.0f;
+            }
+        }
+    }
+    primModeSet2();
+    trMakeCurrent(catRndFogTexture);
+    glEnable(GL_BLEND);
+    glDisable(GL_ALPHA_TEST);
+    rndAdditiveBlends(TRUE);
+    glDepthMask(GL_FALSE);
+    oldEnv = rndTextureEnvironment(RTE_Modulate);
+    cull = glIsEnabled(GL_CULL_FACE);
+    glDisable(GL_CULL_FACE);
+    r = cat_lfClampColour((real32)colRed(catRndFogColor[0]) * s);
+    g = cat_lfClampColour((real32)colGreen(catRndFogColor[0]) * s);
+    b = cat_lfClampColour((real32)colBlue(catRndFogColor[0]) * s);
+    lighting = rndLightingEnable(FALSE);
+    texture = rndTextureEnable(TRUE);
+    glColor3f(r * (1.0f / 256.0f), g * (1.0f / 256.0f), b * (1.0f / 256.0f));
+    x0 = CAT_LF_X(0.0f);
+    x1 = CAT_LF_X((real32)MAIN_WindowWidth);
+    y0 = CAT_LF_Y(0.0f);
+    y1 = CAT_LF_Y((real32)MAIN_WindowHeight);
+    for (i = 0; i < 2; i++)
+    {
+        glBegin(GL_QUADS);
+        glTexCoord2f(catRndFogU[i], catRndFogV[i]);
+        glVertex2f(x0, y0);
+        glTexCoord2f(catRndFogU[i], catRndFogTile[i] + catRndFogV[i]);
+        glVertex2f(x0, y1);
+        glTexCoord2f(catRndFogTile[i] + catRndFogU[i], catRndFogTile[i] + catRndFogV[i]);
+        glVertex2f(x1, y1);
+        glTexCoord2f(catRndFogTile[i] + catRndFogU[i], catRndFogV[i]);
+        glVertex2f(x1, y0);
+        glEnd();
+        catRndCounts.fogLayers++;
+    }
+    glDisable(GL_BLEND);
+    rndAdditiveBlends(FALSE);
+    rndTextureEnvironment(oldEnv);
+    if (cull)
+    {
+        glEnable(GL_CULL_FACE);
+    }
+    glDepthMask(GL_TRUE);
+    primModeClear2();
+    rndLightingEnable(lighting);
+    rndTextureEnable(texture);
+}
+
+/*=============================================================================
+    CAT: port diagnostic, not in the exe: /catRenderTest <frames> (harness mode render). The headless Mission01 run
+    of /oracleMission (one universe tick a frame, no input) renders through the Cataclysm object-list renderer; at
+    tick 16 it closes the sensors manager the headless start opens (the player has no ships before the mission
+    script runs, so the camera has no focus) and focuses the camera on the first 20 ships, switches the lens flare
+    option on (Homeworld.cfg "enableLensFlare", off in the harness's config), shows the NIS light source ahead of
+    the camera (cat_rndLensFlareNISSource*, as an NIS does) and sets a fog line (cat_scriptSetFogCB, as a mission's
+    "Fog" line; Mission01's is all zeros); at the end it logs the
+    renderer's counts: "rendertest: done ... result=PASS|FAIL" (PASS: objects, sorted objects, lens flares and fog
+    layers all drawn). None of these touches the simulation (no random draw, no game state); the camera focus does
+    change which objects are on the render list, so this run is not a stream reference (the mission mode is).
+=============================================================================*/
+static sdword catRenderSelfTestTicks = 0;
+static bool32 catRenderSelfTestStarted = FALSE;
+static bool32 catRenderSelfTestDone = FALSE;
+static sdword catRenderSelfTestPlayerShips = 0;
+#define CAT_RENDER_TEST_START_TICK  16
+#define CAT_RENDER_TEST_FOG         "60 80 120 30 40 60 1.0 3.0"
+
+void catRenderSelfTestSet(char *string)
+{
+    catRenderSelfTestTicks = (sdword)strtol(string, NULL, 10);
+    if (catRenderSelfTestTicks <= 0)
+    {
+        catRenderSelfTestTicks = 600;
+    }
+    oracleSetMission(string);                       // the headless Mission01 run with the virtual clock and the quit
+}
+
+bool32 catRenderSelfTestRequested(void)
+{
+    return (catRenderSelfTestTicks > 0);
+}
+
+void catRenderSelfTestTick(void)
+{
+    char fog[] = CAT_RENDER_TEST_FOG;
+    vector dir, pos;
+    bool32 pass;
+
+    if (!catRenderSelfTestStarted && (sdword)universe.univUpdateCounter >= CAT_RENDER_TEST_START_TICK && mrCamera != NULL)
+    {
+        catRenderSelfTestStarted = TRUE;
+        memset(&catRndCounts, 0, sizeof(catRndCounts));
+        enableLensFlare = TRUE;
+        // the main view: out of the sensors manager (the headless start has no camera focus and opens it) and the
+        // camera on the player's ships (any ships when it has none)
+        {
+            FocusCommand *focus = memAlloc(sizeofSelectCommand(20), "rendertestfocus", 0);
+            Node *node;
+            focus->numShips = 0;
+            for (node = universe.ShipList.head; node != NULL && focus->numShips < 20; node = node->next)
+            {
+                Ship *ship = (Ship *)listGetStructOfNode(node);
+                if (ship->playerowner == universe.curPlayerPtr)
+                {
+                    focus->ShipPtr[focus->numShips++] = ship;
+                }
+            }
+            catRenderSelfTestPlayerShips = focus->numShips;
+            for (node = universe.ShipList.head; node != NULL && focus->numShips == 0; node = node->next)
+            {
+                focus->ShipPtr[focus->numShips++] = (Ship *)listGetStructOfNode(node);
+            }
+            if (smSensorsActive)
+            {
+                smSensorsCloseForGood();
+            }
+            ccCameraTimeoutOverride = TRUE;     // a focus on ships not the player's stays (no sensors manager)
+            ccFocusGeneral(&universe.mainCameraCommand, focus, FALSE);
+            memFree(focus);
+        }
+        cat_rndLensFlareNISSourceAdd();
+        cat_rndLensFlareNISSourceEnable(0, TRUE);
+        cat_scriptSetFogCB(NULL, fog, NULL);
+        dbgMessagef("rendertest: started tick=%u lensflare=%d fog=%d density=%g",
+                    (unsigned)universe.univUpdateCounter, (int)enableLensFlare, (int)catRndFogOn, (double)catRndFogDensity);
+        dbgMessagef("rendertest: camera eye=(%.0f %.0f %.0f) lookat=(%.0f %.0f %.0f) distance=%.0f ships=%d player ships=%d renderlist=%d",
+                    (double)mrCamera->eyeposition.x, (double)mrCamera->eyeposition.y, (double)mrCamera->eyeposition.z,
+                    (double)mrCamera->lookatpoint.x, (double)mrCamera->lookatpoint.y, (double)mrCamera->lookatpoint.z,
+                    (double)mrCamera->distance, (int)universe.ShipList.num, (int)catRenderSelfTestPlayerShips, (int)universe.RenderList.num);
+    }
+    if (catRenderSelfTestStarted && !catRenderSelfTestDone && mrCamera != NULL)
+    {
+        // the source stays 60000 units ahead of the camera, up and to the side of the view centre (as an NIS moves
+        // its source every update)
+        vecSub(dir, mrCamera->lookatpoint, mrCamera->eyeposition);
+        vecNormalize(&dir);
+        vecScalarMultiply(pos, dir, 60000.0f);
+        vecAddTo(pos, mrCamera->eyeposition);
+        pos.x += mrCamera->upvector.x * 8000.0f;
+        pos.y += mrCamera->upvector.y * 8000.0f;
+        pos.z += mrCamera->upvector.z * 8000.0f;
+        cat_rndLensFlareNISSourceSetPosition(0, &pos);
+    }
+    if (catRenderSelfTestStarted && !catRenderSelfTestDone && (sdword)universe.univUpdateCounter + 1 >= catRenderSelfTestTicks)
+    {
+        catRenderSelfTestDone = TRUE;
+        pass = (catRndCounts.frames > 0 && catRndCounts.objects + catRndCounts.ships > 0 &&
+                catRndCounts.lensFlares > 0 && catRndCounts.lensFlareElements > 0 && catRndCounts.fogLayers > 0);
+        dbgMessagef("rendertest: counts frames=%u listed=%u sorted=%u ships=%u objects=%u clouds=%u bullets=%u effects=%u "
+                    "trails=%u", catRndCounts.frames, catRndCounts.listed, catRndCounts.sorted, catRndCounts.ships,
+                    catRndCounts.objects, catRndCounts.clouds, catRndCounts.bullets, catRndCounts.effects,
+                    catRndCounts.trails);
+        dbgMessagef("rendertest: counts lensflares=%u lensflareElements=%u foglayers=%u fieldSegments=%u bolts=%u "
+                    "blasts=%u edgeEffects=%u warped=%u lodTimeScale=%g", catRndCounts.lensFlares,
+                    catRndCounts.lensFlareElements, catRndCounts.fogLayers, catRndCounts.fieldSegments,
+                    catRndCounts.bolts, catRndCounts.blasts, catRndCounts.edgeEffects, catRndCounts.warped,
+                    (double)catLodTimeScale);
+        dbgMessagef("rendertest: done tick=%u frames=%u objects=%u lensflares=%u foglayers=%u result=%s",
+                    (unsigned)universe.univUpdateCounter, catRndCounts.frames, catRndCounts.objects + catRndCounts.ships,
+                    catRndCounts.lensFlares, catRndCounts.fogLayers, pass ? "PASS" : "FAIL");
+    }
 }

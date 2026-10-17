@@ -101,7 +101,7 @@ void RenderNAVLights(Ship *ship)
    NAVLightStatic *navLightStatic;
    vector origin = {0.0f, 0.0f, 0.0f};
    NAVLightStaticInfo *navLightStaticInfo;
-   real32 fade;
+   real32 fade, lightFade;
    bool32 lightOn;
    extern bool32 bFade;
    extern real32 meshFadeAlpha;
@@ -143,7 +143,21 @@ void RenderNAVLights(Ship *ship)
 				navLight->lightstate = 1 - navLight->lightstate;
 			}
 
-			if(navLight->lightstate)
+			// CAT (M2-R5 render): RenderNAVLights 0x004c78e0 at 0x004c79c6: a NAVLIGHT_Default light is drawn while
+			//      it is lit; a NAVLIGHT_FadeOnOff light is always drawn and pulses: its fade times the part of the current on/off
+			//      interval still to run, from 1 down while off and from 0 up while on; other types are not drawn.
+			//      Past its LOD nothing is drawn (HW1's point sprite went with primPointSize3Fade)
+			lightFade = fade;
+			if (navLightStatic->lightType == NAVLIGHT_FadeOnOff)
+			{
+				lightFade = (navLight->lastTimeFlashed - universe.totaltimeelapsed) /
+				            (navLight->lightstate ? navLightStatic->flashrateon : navLightStatic->flashrateoff) * fade;
+				if (navLight->lightstate)
+				{
+					lightFade = 1.0f - lightFade;
+				}
+			}
+			if (((navLightStatic->lightType == NAVLIGHT_Default) && navLight->lightstate) || (navLightStatic->lightType == NAVLIGHT_FadeOnOff))
 			{
 				if (ship->obj.currentLOD <= (sdword)navLightStatic->minLOD)
 				{
@@ -151,28 +165,14 @@ void RenderNAVLights(Ship *ship)
 
 					if(navLightStatic->texturehandle == TR_InvalidHandle)
 					{
-						primCircleSolid3Fade(&origin, navLightStatic->size, 10, navLightStatic->color, fade);
+						primCircleSolid3Fade(&origin, navLightStatic->size, 10, navLightStatic->color, lightFade);
 					}
 					else
 					{
-						primSolidTexture3Fade(&origin, navLightStatic->size, navLightStatic->color, navLightStatic->texturehandle, fade);
+						primSolidTexture3Fade(&origin, navLightStatic->size, navLightStatic->color, navLightStatic->texturehandle, lightFade);
 					}
 
 					navLightBillboardDisable();
-				}
-				else
-				{
-					color tempColor;
-
-                    tempColor = colRGB(colRed(navLightStatic->color) * 2 / 3,
-					                   colGreen(navLightStatic->color) * 2 / 3,
-									   colBlue(navLightStatic->color) * 2 / 3);
-
-                    rndTextureEnable(FALSE);
-                    rndAdditiveBlends(TRUE);
-                    glEnable(GL_POINT_SMOOTH);
-                    primPointSize3Fade(&navLightStatic->position, 2.0f, tempColor, fade);
-                    glDisable(GL_POINT_SMOOTH);
 				}
 			}
       }

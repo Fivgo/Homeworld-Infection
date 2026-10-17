@@ -10,7 +10,7 @@
 //      cat_shipIsSentinelFieldActive 0x005c6e50 and cat_shipIsSentinelInField 0x005c6ec0 moved here from ShipSelect.c
 //      (their declarations stay in ShipSelect.h). The field's drawing (cat_sentinelFieldSegmentAdd 0x005c5b20,
 //      cat_sentinelFieldsRenderBehind / RenderRest, cat_sentinelFieldQueueSegment 0x005c5ec0, cat_sentinelFieldQueue
-//      0x005c67b0, cat_sentinelFieldSegmentDraw 0x005c60a0) is the renderer's: stage 3.
+//      0x005c67b0, cat_sentinelFieldSegmentDraw 0x005c60a0) is at the end of the file (M2-R5 render).
 
 #include "Sentinel.h"
 
@@ -33,6 +33,16 @@
 #include "StatScript.h"
 #include "UnivUpdate.h"
 #include "Universe.h"
+
+#include "Color.h"
+#include "glinc.h"
+#include "Particle.h"
+#include "prim3d.h"
+#include "render.h"
+#include "texreg.h"
+#include "Randy.h"
+#include "Trails.h"
+extern trhandle g_glowHandle;      // Trails.c (0x00a761e0, trailStartup)
 
 AttackSideStepParameters SentinelStaticSect;    // 0x00a7a5e0: sSentinel
 AttackSideStepParameters SentinelStaticBeast;   // 0x00a7a5f0: bSentinel
@@ -423,3 +433,319 @@ CustShipHeader SentinelHeader =
     .CustShipAttack = SentinelAttack,
     .CustShipFormationCommand = SentinelFormationCommand,
 };
+
+/*=============================================================================
+    CAT (M2-R5 render): the force field's drawing. The main view queues every Sentinel formation's triangles once a
+    frame (cat_sentinelFieldQueue from cat_rndRenderObjectList), sorted far to near by the distance of their centres
+    from the eye; the sorted pass draws the ones behind each blended object first (cat_sentinelFieldsRenderBehind)
+    and the rest at the end (cat_sentinelFieldsRenderRest).
+=============================================================================*/
+// [audit: M2-R5 render] the cap is 0x22 + (RGLtype != 0 ? 0x2d : 0) (0x005c5b20 reads RGLtype 0x00b3a700, not RGL
+//      0x00b3a6d8): 34 only on the software renderer (SWtype 0), 79 on GLtype, which this tree is (CAT_RND_RGLTYPE)
+#define CAT_SENTINEL_SEGMENTS_GL        (0x22 + 0x2d)   // the queue holds 79 segments (34 on the software renderer)
+typedef struct CatSentinelSegment                   // 0x38 bytes (0x00a77b98)
+{
+    SentinelSpec *a, *b, *c;
+    vector pa, pb, pc;
+    real32 distance;
+    struct CatSentinelSegment *next;
+} CatSentinelSegment;
+static CatSentinelSegment catSentinelSegments[CAT_SENTINEL_SEGMENTS_GL];
+static CatSentinelSegment *catSentinelQueue = NULL;     // 0x00a78d18: farthest first
+static sdword catSentinelSegmentCount = 0;              // 0x00a78d1c
+static bool32 catSentinelDrawing = FALSE;               // 0x00a78d20 (no reader)
+// the edge colours (0x00a78d28..0x00a78d3c, .bss with no writer: always 0) blended to the tables of 0x008c67e0:
+// per charge level {edge, mid, fill}
+static const color catSentinelEdgeBase[3][2] = { {0, 0}, {0, 0}, {0, 0} };
+static const color catSentinelColors[3][3] =
+{
+    { 0xffff0000, 0xffff0000, 0x64c80000 },
+    { 0xff00ff00, 0xff00ff00, 0x6400c800 },
+    { 0xff0000ff, 0xff0000ff, 0x640000c8 },
+};
+#define CAT_SENTINEL_FLASH_COLOR        0x96ffffffu     // 0x008c6804
+#define CAT_SENTINEL_VERTEX_COLOR       0xff0000ffu     // 0x008c67dc
+#define CAT_SENTINEL_EDGE_LEVEL         0.75f   // 0x008c67cc
+#define CAT_SENTINEL_MID_LEVEL          0.25f   // 0x008c67d0
+#define CAT_SENTINEL_VERTEX_LEVEL       0.65f   // 0x008c67d4
+#define CAT_SENTINEL_VERTEX_SIZE        4.0f    // 0x008c67d8
+#define CAT_SENTINEL_HIT_TIME           10.0f   // 0x008c67c0
+
+// queue a segment, keeping the list sorted far to near; a full queue replaces its farthest segment if this one is
+// nearer
+static void cat_sentinelFieldSegmentAdd(Camera *camera, SentinelSpec *a, SentinelSpec *b, SentinelSpec *c,
+                                        vector *pa, vector *pb, vector *pc, real32 distance)        // 0x005c5b20
+{
+    CatSentinelSegment *seg, *node, *prev;
+
+    (void)camera;
+    if (catSentinelSegmentCount < CAT_SENTINEL_SEGMENTS_GL)
+    {
+        seg = &catSentinelSegments[catSentinelSegmentCount++];
+    }
+    else
+    {
+        if (catSentinelQueue->distance <= distance)
+        {
+            return;
+        }
+        seg = catSentinelQueue;
+        catSentinelQueue = catSentinelQueue->next;
+    }
+    if (seg == NULL)
+    {
+        return;
+    }
+    prev = NULL;
+    for (node = catSentinelQueue; node != NULL; node = node->next)
+    {
+        if (node->distance < distance)
+        {
+            break;
+        }
+        prev = node;
+        if (node->next == NULL)
+        {
+            break;
+        }
+    }
+    if (prev != NULL)
+    {
+        seg->next = prev->next;
+        prev->next = seg;
+    }
+    else
+    {
+        seg->next = catSentinelQueue;
+        catSentinelQueue = seg;
+    }
+    seg->a = a;
+    seg->b = b;
+    seg->c = c;
+    seg->pa = *pa;
+    seg->pb = *pb;
+    seg->pc = *pc;
+    seg->distance = distance;
+}
+
+// the field emitter's position: the static's dock point of type 0x19 in world space
+static void cat_sentinelEmitterPosition(vector *out, Ship *ship)
+{
+    DockStaticInfo *dock = ship->staticinfo->dockStaticInfo;
+    sbyte index = (sbyte)dock->firstOfType[0x19];
+
+    matMultiplyMatByVec(out, &ship->rotatable.rotinfo.coordsys, &dock->dockstaticpoints[index].position);
+    vecAddTo(*out, ship->obj.posinfo.position);
+}
+
+static void cat_sentinelFieldQueueSegment(Camera *camera, Ship *a, Ship *b, Ship *c)          // 0x005c5ec0
+{
+    vector pa, pb, pc, centre;
+
+    if (((SentinelSpec *)a->ShipSpecifics)->fieldLevel > 0.0)
+    {
+        cat_sentinelEmitterPosition(&pa, a);
+        cat_sentinelEmitterPosition(&pb, b);
+        cat_sentinelEmitterPosition(&pc, c);
+        centre.x = (pb.x + pa.x + pc.x) * (1.0f / 3.0f) - camera->eyeposition.x;
+        centre.y = (pb.y + pa.y + pc.y) * (1.0f / 3.0f) - camera->eyeposition.y;
+        centre.z = (pb.z + pa.z + pc.z) * (1.0f / 3.0f) - camera->eyeposition.z;
+        cat_sentinelFieldSegmentAdd(camera, (SentinelSpec *)a->ShipSpecifics, (SentinelSpec *)b->ShipSpecifics,
+                                    (SentinelSpec *)c->ShipSpecifics, &pa, &pb, &pc,
+                                    fsqrt(centre.x * centre.x + centre.y * centre.y + centre.z * centre.z));
+    }
+}
+
+void cat_sentinelFieldQueue(Camera *camera, struct CommandToDo *formation)                    // 0x005c67b0
+{
+    SelectCommand *selection = formation->selection;
+    SentinelSpec *spec;
+    sdword i, j;
+
+    for (i = 0; i < selection->numShips; i++)
+    {
+        spec = (SentinelSpec *)selection->ShipPtr[i]->ShipSpecifics;
+        for (j = 0; j < spec->numLinks; j++)
+        {
+            cat_sentinelFieldQueueSegment(camera, selection->ShipPtr[i], spec->links[j].a, spec->links[j].b);
+        }
+    }
+}
+
+// the midpoint as the exe's x87 code rounds it: x in extended precision, y and z through float temporaries
+static void cat_sentinelMidpoint(vector *m, vector *a, vector *b)
+{
+    real32 dy = b->y - a->y, dz = b->z - a->z;
+
+    m->x = (real32)(((real64)b->x - (real64)a->x) * 0.5 + (real64)a->x);
+    dy = (real32)((real64)dy * 0.5);
+    dz = (real32)((real64)dz * 0.5);
+    m->y = dy + a->y;
+    m->z = dz + a->z;
+}
+
+// one segment: its two edges from the first emitter (bright at the emitters, fading toward the middle as the field
+// comes up), the filled triangle once the field is up (flickering while it comes up, flashing when hit) and a glow
+// on each emitter
+static void cat_sentinelFieldSegmentDraw(CatSentinelSegment *seg)                               // 0x005c60a0
+{
+    SentinelSpec *spec = seg->a;
+    real32 sinceHit = universe.totaltimeelapsed - spec->lastHitTime;
+    real32 f, g, x, size;
+    color edge = 0, mid = 0, fill = 0, c;
+    vector m, zero = {0.0f, 0.0f, 0.0f};
+    bool32 depth;
+    sdword level = spec->chargeLevel;
+
+    rndAdditiveBlends(TRUE);
+    glEnable(GL_BLEND);
+    glDisable(GL_CULL_FACE);
+    rndLightingEnable(FALSE);
+    rndTextureEnable(FALSE);
+    glBegin(GL_LINES);
+    f = spec->fieldLevel / CAT_SENTINEL_EDGE_LEVEL;
+    if (!(f < 1.0f))
+    {
+        f = 1.0f;
+    }
+    if (level >= 0 && level <= 2)
+    {
+        edge = cat_colBlendRGBA(catSentinelEdgeBase[level][0], catSentinelColors[level][0], 1.0f - f);
+    }
+    g = (spec->fieldLevel - CAT_SENTINEL_EDGE_LEVEL) / CAT_SENTINEL_MID_LEVEL;
+    if (!(g < 1.0f))
+    {
+        g = 1.0f;
+    }
+    else if (!(g > 0.0f))
+    {
+        g = 0.0f;
+    }
+    if (level >= 0 && level <= 2)
+    {
+        mid = cat_colBlendRGBA(catSentinelEdgeBase[level][1], catSentinelColors[level][1], 1.0f - g);
+    }
+    cat_sentinelMidpoint(&m, &seg->pa, &seg->pb);
+    glColor4ub(colRed(edge), colGreen(edge), colBlue(edge), colAlpha(edge));
+    glVertex3f(seg->pa.x, seg->pa.y, seg->pa.z);
+    glColor4ub(colRed(mid), colGreen(mid), colBlue(mid), colAlpha(mid));
+    glVertex3f(m.x, m.y, m.z);
+    glVertex3f(m.x, m.y, m.z);
+    glColor4ub(colRed(edge), colGreen(edge), colBlue(edge), colAlpha(edge));
+    glVertex3f(seg->pb.x, seg->pb.y, seg->pb.z);
+    cat_sentinelMidpoint(&m, &seg->pa, &seg->pc);
+    glColor4ub(colRed(edge), colGreen(edge), colBlue(edge), colAlpha(edge));
+    glVertex3f(seg->pa.x, seg->pa.y, seg->pa.z);
+    glColor4ub(colRed(mid), colGreen(mid), colBlue(mid), colAlpha(mid));
+    glVertex3f(m.x, m.y, m.z);
+    glVertex3f(m.x, m.y, m.z);
+    glColor4ub(colRed(edge), colGreen(edge), colBlue(edge), colAlpha(edge));
+    glVertex3f(seg->pc.x, seg->pc.y, seg->pc.z);
+    glEnd();
+
+    if (spec->fieldLevel == 1.0)
+    {
+        fill = (level >= 0 && level <= 2) ? catSentinelColors[level][2] : mid;
+        x = 1.0f - spec->fade;
+        if (x < 0.5f)
+        {
+            c = cat_colBlendRGBA(CAT_SENTINEL_FLASH_COLOR, fill,
+                                 (real32)((real64)ranRandom(RANDOM_STREAM_0) * (1.0 / 4294967296.0)));
+        }
+        else if (x < 0.8f)
+        {
+            c = CAT_SENTINEL_FLASH_COLOR;
+        }
+        else
+        {
+            c = cat_colBlendRGBA(CAT_SENTINEL_FLASH_COLOR, fill, (1.0f - x) * 5.0f);   // 0x0072c010
+        }
+        rndAdditiveBlends(TRUE);
+        glEnable(GL_BLEND);
+        glDisable(GL_CULL_FACE);
+        rndLightingEnable(FALSE);
+        rndTextureEnable(FALSE);
+        if (sinceHit <= CAT_SENTINEL_HIT_TIME)
+        {
+            real32 v = (CAT_SENTINEL_HIT_TIME - sinceHit) / CAT_SENTINEL_HIT_TIME;
+            if (v > 0.0f && level >= 0 && level <= 2)
+            {
+                c = cat_colBlendRGBA(CAT_SENTINEL_FLASH_COLOR, catSentinelColors[level][2], v);
+            }
+        }
+        glColor4ub(colRed(c), colGreen(c), colBlue(c), colAlpha(c));
+        glBegin(GL_TRIANGLES);
+        glVertex3f(seg->pa.x, seg->pa.y, seg->pa.z);
+        glVertex3f(seg->pb.x, seg->pb.y, seg->pb.z);
+        glVertex3f(seg->pc.x, seg->pc.y, seg->pc.z);
+        glEnd();
+
+        g = spec->fieldLevel / CAT_SENTINEL_VERTEX_LEVEL;
+        if (!(g <= 1.0f))
+        {
+            g = 1.0f;
+        }
+        size = CAT_SENTINEL_VERTEX_SIZE * g;
+        depth = cat_rndDepthTestEnable(FALSE);
+        rndTextureEnvironment(RTE_Modulate);
+        if (g_glowHandle != TR_InvalidHandle)
+        {
+            trMakeCurrent(g_glowHandle);
+            partFilter(TRUE);
+            rndBillboardEnable(&seg->pa);
+            primSolidTexture3(&zero, size, CAT_SENTINEL_VERTEX_COLOR, g_glowHandle);
+            rndBillboardDisable();
+            rndBillboardEnable(&seg->pb);
+            primSolidTexture3(&zero, size, CAT_SENTINEL_VERTEX_COLOR, g_glowHandle);
+            rndBillboardDisable();
+            rndBillboardEnable(&seg->pc);
+            primSolidTexture3(&zero, size, CAT_SENTINEL_VERTEX_COLOR, g_glowHandle);
+        }
+        else
+        {
+            rndBillboardEnable(&seg->pa);
+            primCircleSolid3(&zero, size, 16, CAT_SENTINEL_VERTEX_COLOR);
+            rndBillboardDisable();
+            rndBillboardEnable(&seg->pb);
+            primCircleSolid3(&zero, size, 16, CAT_SENTINEL_VERTEX_COLOR);
+            rndBillboardDisable();
+            rndBillboardEnable(&seg->pc);
+            primCircleSolid3(&zero, size, 16, CAT_SENTINEL_VERTEX_COLOR);
+        }
+        rndBillboardDisable();
+        cat_rndDepthTestEnable(depth);
+    }
+    glEnable(GL_CULL_FACE);
+    glDisable(GL_BLEND);
+    rndLightingEnable(TRUE);
+    catRndCounts.fieldSegments++;
+}
+
+void cat_sentinelFieldsRenderBehind(Camera *camera, SpaceObj *obj)                            // 0x005c5c20
+{
+    real32 distance = 0.0f;
+
+    catSentinelDrawing = TRUE;
+    if (obj != NULL)
+    {
+        vector d;
+        vecSub(d, obj->posinfo.position, camera->eyeposition);
+        distance = fsqrt(d.x * d.x + d.y * d.y + d.z * d.z);
+    }
+    for (; catSentinelQueue != NULL && distance < catSentinelQueue->distance; catSentinelQueue = catSentinelQueue->next)
+    {
+        cat_sentinelFieldSegmentDraw(catSentinelQueue);
+    }
+}
+
+void cat_sentinelFieldsRenderRest(void)                                                        // 0x005c5cb0
+{
+    catSentinelDrawing = TRUE;
+    for (; catSentinelQueue != NULL && 0.0f < catSentinelQueue->distance; catSentinelQueue = catSentinelQueue->next)
+    {
+        cat_sentinelFieldSegmentDraw(catSentinelQueue);
+    }
+    catSentinelDrawing = FALSE;
+    catSentinelSegmentCount = 0;
+    catSentinelQueue = NULL;
+}

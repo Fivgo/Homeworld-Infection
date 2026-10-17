@@ -12,6 +12,7 @@
 #include <stddef.h>
 
 #include "SpaceObj.h"
+#include "Camera.h"
 
 #define SENTINEL_MAX_LINKS      100
 
@@ -53,5 +54,10 @@ void cat_sentinelFieldBulletHit(Ship *sentinel, void *unused, Bullet *bullet);  
 void cat_sentinelFieldMissileHit(Ship *sentinel, void *unused, Missile *missile);          // 0x005c6cd0
 bool32 cat_shipIsSentinelInSphere(Ship *ship);                                  // 0x005c6e80
 sdword cat_sentinelFieldLinks(Ship *sentinel, SentinelLink **links);            // CAT: the list the exe reads inline
+// CAT (M2-R5 render): the force field's drawing
+struct CommandToDo;
+void cat_sentinelFieldQueue(Camera *camera, struct CommandToDo *formation);    // 0x005c67b0
+void cat_sentinelFieldsRenderBehind(Camera *camera, SpaceObj *obj);            // 0x005c5c20
+void cat_sentinelFieldsRenderRest(void);                                       // 0x005c5cb0
 
 #endif

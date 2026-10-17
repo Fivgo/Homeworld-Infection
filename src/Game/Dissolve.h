@@ -19,6 +19,7 @@
 
 void cat_vecShipLocalToWorld(vector *out, vector *local, Ship *ship);  // 0x004601d0
 void cat_vecWorldToShipLocal(vector *out, vector *pos, Ship *ship);    // 0x005c85b0
+void cat_shipDissolveComputePlane(Ship *ship, real32 plane[4]);        // 0x00460270 (CAT, M2-R5 render)
 void cat_shipDissolveInit(Ship *ship);                                  // 0x00460220
 bool32 cat_shipDissolveIsActive(Ship *ship);                            // 0x00460250
 void cat_shipDissolveStart(Ship *ship, vector *point, real32 time);     // 0x004603d0

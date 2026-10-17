@@ -34,8 +34,10 @@ void shShutdown(void);
 void shTransformNormal(vector* out, vector* in, real32* m);
 void shTransformVertex(vector* out, vector* in, real32* m);
 real32 shPow(real32 a, real32 b);
+// CAT: two new arguments (shSpecularColour 0x0050e280): the vertex's runtime state and info entry, passed on to
+//      cat_shColourAddGlow when the info entry is given (NULL, NULL: no glow)
 void shSpecularColour(sdword specInd, sdword side, vector* vobj, vector* norm,
-                      ubyte* color, real32* m, real32* minv);
+                      ubyte* color, real32* m, real32* minv, real32* vertexState, udword* vertexInfo);
 void shColour(sdword side, vector* norm, ubyte* color, real32* minv);
 void shColourSet(sdword side, vector* norm, real32* minv);
 void shColourSet0(vector* norm, real32* vertexState, udword* vertexInfo);  // CAT: + vertex state and info entry (0x0050dfe0)

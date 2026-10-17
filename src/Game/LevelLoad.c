@@ -1,4 +1,5 @@
 #include "LevelLoad.h"
+#include "render.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -140,6 +141,9 @@ scriptStructEntry MissionScriptTable[] =
     { "MissionSphere", scriptSetMissionSphereCB, 0, 0 },
     { "Lighting",      scriptSetLightingCB,      0, 0 },
     { "Background",    scriptSetBackgroundCB,    0, 0 },
+    // CAT (M2-R5 render): the mission script table 0x00883b80 also reads the lens flare and the fog layer
+    { "LensFlare",     cat_scriptSetLensFlareCB, 0, 0 },
+    { "Fog",           cat_scriptSetFogCB,       0, 0 },
 
     END_SCRIPT_STRUCT_ENTRY
 };
@@ -2201,6 +2205,10 @@ void levelPreInit(char *directory,char *pickedMission)
     universeFlagEverythingNeeded();
     //set default color schemes
     teReset();
+    // CAT (M2-R5 render): the last level's fog layer and lens flare go (levelPreInit 0x004a3230: after teReset)
+    cat_rndFogLayerOff();
+    cat_rndFogLayerTextureUnload();
+    cat_rndLensFlareTextureUnload();
     universeDefaultTeamColors();
     //load the actual mission
     scriptSet(directory, pickedMission, MissionPreloadScriptTable);

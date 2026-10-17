@@ -123,6 +123,9 @@ static void _ssSaveScreenshot(ubyte* buf, const char* targetFilename)
 }
 
 
+// CAT-TODO(M2-R6 HUD messages): Cataclysm's ssSaveScreenshot 0x0057ef80 (called by rndRenderTask with the pixels read
+//      back) names the file hot<n>.jpg under HW_Data\screenshots\ and then shows "Screenshot Saved: %s" through
+//      clCommandMessage; GoK's screenshot code (this file) keeps its own names and paths and shows no message.
 void ssTakeScreenshot(const char* filename)
 {
     ubyte* screenshot_buffer =

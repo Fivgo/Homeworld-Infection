@@ -8,7 +8,8 @@
 // =============================================================================
 
 // CAT: new file (M2-R4 ships-b). Each body follows the r6 decompile of its exe function (address on each). The
-//      charging beam is drawn by cat_nomadMoonRenderBeam 0x005be120 (cat_nomadMoonBeamEffect, the renderer: stage 3).
+//      charging beam is drawn by cat_nomadMoonRenderBeam 0x005be120 (at the end of the file; cat_nomadMoonBeamEffect in
+//      Blast.c; M2-R5 render).
 
 #include "NomadMoon.h"
 
@@ -215,3 +216,26 @@ CustShipHeader NomadFieldEmitterHeader =
     .CustShipStaticInit = nullsubStaticInit,
     .CustShipInit = nullsubShip,
 };
+
+// CAT (M2-R5 render): while the field charges, a beam from each emitter to a point circling the moon (the two
+// emitters at opposite fractions)
+void cat_nomadMoonRenderBeam(Ship *moon)                                                    // 0x005be120
+{
+    NomadMoonSpec *spec = (NomadMoonSpec *)moon->ShipSpecifics;
+    real32 frac;
+    vector point;
+
+    if (spec->fieldState == 1)
+    {
+        frac = cat_timerFractionElapsed(&spec->fieldTimer);
+        if (spec->emitter[0] != NULL)
+        {
+            cat_nomadMoonBeamEffect(&moon->obj.posinfo.position, frac, &spec->emitter[0]->obj.posinfo.position, &point);
+        }
+        if (spec->emitter[1] != NULL)
+        {
+            cat_nomadMoonBeamEffect(&moon->obj.posinfo.position, 1.0f - frac, &spec->emitter[1]->obj.posinfo.position,
+                                    &point);
+        }
+    }
+}

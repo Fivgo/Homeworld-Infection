@@ -84,19 +84,26 @@ typedef struct
 // CAT: a lens flare source (cat_rndLensFlareSourceAdd 0x0057baa0 / cat_rndLensFlareSourceRemove 0x0057ba90 keep them
 //      on one list, rendered by cat_rndLensFlaresRender 0x0057bec0). Each particle of a PART_LENSFLARES system owns
 //      one (partFillGenericParticles 0x004e0640 allocates 0x40 bytes, partUpdateSystem copies the particle position
-//      into it, cat_partSystemFreeAttachments 0x004e2500 removes and frees it). Fields after the position are named
-//      by their initial values only; their use is in the lens flare renderer (stage 3).
+//      into it, cat_partSystemFreeAttachments 0x004e2500 removes and frees it); the NIS has one more (render.c).
+//      [M2-R5 render: the fields after +0x12 named by their use in cat_rndLensFlareSourceVisibility 0x0057bad0 and
+//      cat_rndLensFlaresRender.]
 typedef struct catlensflaresource
 {
     vector position;                //+0x00 world position of the source
-    real32 brightness;              //+0x0c 1.0 at creation
-    ubyte  enabled;                 //+0x10 1 at creation
-    ubyte  state;                   //+0x11 1 at creation, 2 once on the list
-    ubyte  visible;                 //+0x12 1 at creation
+    real32 brightness;              //+0x0c 1.0 at creation: scales the flare's colour
+    ubyte  enabled;                 //+0x10 1 at creation; 0 = never drawn
+    ubyte  state;                   //+0x11 0 shown (fades in), 1 hidden (fades out), 2 test the line of sight
+                                    //      (1 at creation, 2 once on the list; a drawn particle system sets 0, the
+                                    //      renderer sets 1 after drawing when visible is set)
+    ubyte  visible;                 //+0x12 1 at creation (the NIS source: 0)
     ubyte  pad0;
-    udword unknown14;               //+0x14
-    udword visibility;              //+0x18 0 when added to the list
-    udword unknown1c[4];            //+0x1c
+    ubyte  drawn;                   //+0x14 drawn this frame
+    ubyte  pad15[3];
+    real32 fade;                    //+0x18 0 .. 1, rises by 40% of the rest a frame in sight, falls by 40% out of it
+    real32 edgeFade;                //+0x1c 1 inside the screen, falling to 0 at the fade-out frame
+    real32 distance;                //+0x20 from the eye (sloppy)
+    real32 screenX;                 //+0x24 pixels
+    real32 screenY;                 //+0x28
     Node   link;                    //+0x2c link in the lens flare source list
 } catlensflaresource;
 
@@ -169,6 +176,9 @@ typedef struct
     //flags
     udword flags;                   //0xfc
 } particle;
+
+//CAT (M2-R5 render): the electric-bolt renderer, also drawn by the Beast-stun edge lightning (Mesh.c)
+udword cat_partRenderEBoltSystem(udword n, particle *p, udword flags);         // 0x004de880 (cat_partRenderUnk1System)
 #if defined(__i386__)
 // CAT: exe layout of a particle (tools/m2_layout32.sh evaluates these)
 _Static_assert(sizeof(particle) == 0x100, "CAT: particle is 0x100 bytes in the exe");

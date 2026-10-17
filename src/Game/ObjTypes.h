@@ -108,6 +108,7 @@ typedef enum
 typedef enum
 {
     NAVLIGHT_Default,
+    NAVLIGHT_FadeOnOff,         // CAT: pulses instead of flashing (the exe's name table 0x00889d88, RenderNAVLights 0x004c78e0)
 } NAVLightType;
 
 typedef enum

@@ -1003,9 +1003,11 @@ real32 gl_pow(real32 a, real32 b)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: the vertex's own colour / glow is added last when its info entry is given (shSpecularColour 0x0050e280 at
+//      0x0050e62a: cat_shColourAddGlow(color, color + 1, color + 2, vertexState, vertexInfo))
 void shSpecularColour(
     sdword specInd, sdword side, vector* vobj, vector* norm, ubyte* color,
-    real32* m, real32* minv)
+    real32* m, real32* minv, real32* vertexState, udword* vertexInfo)
 {
     vector veye = {0.0f, 0.0f, 1.0f};
     vector xnorm, xvobj;
@@ -1099,6 +1101,10 @@ void shSpecularColour(
 
         color[1] = (ubyte)((real32)color[1] * CLAMP(alpha, 0.0f, 0.92f));
         color[3] = (ubyte)(fade * (real32)color[3] * CLAMP(alpha, 0.0f, 1.0f));
+    }
+    if (vertexInfo != NULL)
+    {
+        cat_shColourAddGlow(&color[0], &color[1], &color[2], vertexState, vertexInfo);
     }
 }
 

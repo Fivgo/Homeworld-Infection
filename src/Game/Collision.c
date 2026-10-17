@@ -27,6 +27,44 @@
 #include "Tactics.h"
 #include "Universe.h"
 #include "UnivUpdate.h"
+#include "Mesh.h"          // CAT (M2-R5 render): cat_meshLineIntersect
+
+// CAT (M2-R5 render): a ship whose static info sets bUseRayTriangleIntersectionForHitLocation (+0x408) is hit only
+//      where a bullet's or beam's line meets its mesh, the missiles' line likewise (the exe's switches 0x00752c48 and
+//      0x00752c4c, both 1, and the mesh LOD levels 0x00752c54 and 0x00752c50, both 3; nothing changes them)
+static bool32 catCollMeshHitBullets = TRUE;             // 0x00752c48
+static bool32 catCollMeshHitMissiles = TRUE;            // 0x00752c4c
+static sdword catCollMeshHitMissileLevel = 3;           // 0x00752c50
+static sdword catCollMeshHitBulletLevel = 3;            // 0x00752c54
+
+// CAT: the box hit at collideLineDist along the line from start along dir, moved on to target's mesh: FALSE if the line
+//      misses the mesh, else *collideLineDist gains the distance from the box hit to the mesh hit
+//      (collCheckBulletTargetColl 0x0043cd90 at 0x0043d219, collCheckBeamCollWithTargetsInBlob 0x0043c570 at 0x0043c81e)
+static bool32 cat_collMeshHitDistance(Ship *target, vector *start, vector *dir, real32 *collideLineDist)
+{
+    vector boxHit, meshHit;
+    real32 dx, dy, dz;
+
+    boxHit.x = *collideLineDist * dir->x + start->x;
+    boxHit.y = *collideLineDist * dir->y + start->y;
+    boxHit.z = *collideLineDist * dir->z + start->z;
+    if (!cat_meshLineIntersect(target, catCollMeshHitBulletLevel, start, &boxHit, &meshHit))
+    {
+        return FALSE;
+    }
+    dx = meshHit.x - boxHit.x;
+    dy = meshHit.y - boxHit.y;
+    dz = meshHit.z - boxHit.z;
+    *collideLineDist = (real32)(fsqrt(dx * dx + dy * dy + dz * dz) + *collideLineDist);
+    return TRUE;
+}
+
+// CAT: does target need the mesh test (a ship with bUseRayTriangleIntersectionForHitLocation, the switch on)?
+static bool32 cat_collUsesMeshHit(SpaceObj *target, bool32 enabled)
+{
+    return (target->header.objtype == OBJ_ShipType) &&
+           ((ShipStaticInfo *)target->staticinfo)->bUseRayTriangleIntersectionForHitLocation && enabled;
+}
 
 
 BlobProperties collBlobProperties;
@@ -1907,9 +1945,25 @@ bulletchecks++;
 						}
 						if (collideLineDist < *minbeamCollideLineDist)
 						{
-							*minbeamCollideLineDist = collideLineDist;
-							*minbeamTarget = target;
-							*minbeamCollSide = collSide;
+							// CAT (M2-R5 render): a ship with bUseRayTriangleIntersectionForHitLocation stops the beam only
+							//      where the line meets its mesh, and only if that is still the nearest (0x0043c7a7..0x0043c81e)
+							if (cat_collUsesMeshHit((SpaceObj *)target, catCollMeshHitBullets) && (collideLineDist > 0.0f))
+							{
+								if (cat_collMeshHitDistance((Ship *)target, &bullet->obj.posinfo.position, &bullet->bulletheading,
+															&collideLineDist) &&
+									(collideLineDist < *minbeamCollideLineDist))
+								{
+									*minbeamCollideLineDist = collideLineDist;
+									*minbeamTarget = target;
+									*minbeamCollSide = collSide;
+								}
+							}
+							else
+							{
+								*minbeamCollideLineDist = collideLineDist;
+								*minbeamTarget = target;
+								*minbeamCollSide = collSide;
+							}
 						}
 					}
 				}
@@ -2334,8 +2388,14 @@ passagain:
 							{
 								if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)target,&bullet->obj.posinfo.position,&bullet->bulletheading,bullet->traveldist,&collSide)) >= 0.0f)
 								{
-									// CAT-TODO(stage 3): for a ship whose static info sets bUseRayTriangleIntersectionForHitLocation the exe
-									//      moves the hit onto the mesh (cat_meshLineIntersect 0x004b5910, when its switch 0x00752c48 is on)
+									// CAT (M2-R5 render): a ship with bUseRayTriangleIntersectionForHitLocation is hit only where the
+									//      line meets its mesh, and the hit moves there (0x0043d1a5..0x0043d219)
+									if (cat_collUsesMeshHit((SpaceObj *)target, catCollMeshHitBullets) && (collideLineDist > 0.0f) &&
+										!cat_collMeshHitDistance((Ship *)target, &bullet->obj.posinfo.position, &bullet->bulletheading,
+																 &collideLineDist))
+									{
+										goto nexttarget;
+									}
 									univBulletCollidedWithTarget(TRUE, target,targetstaticheader,bullet,collideLineDist,collSide);   // CAT: 1 (collCheckBulletTargetColl 0x0043cd90)
 									deletebulletflag = TRUE;
 									goto nextbullet;
@@ -2557,6 +2617,19 @@ passagain:
 					{
 						if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)target,&missile->obj.posinfo.position,&missileheading,missile->maxtraveldist,&collSide)) >= 0.0f)
 						{
+							// CAT (M2-R5 render): a ship with bUseRayTriangleIntersectionForHitLocation is hit only if the line
+							//      from the missile along its velocity meets its mesh (0x0043d604..0x0043d685)
+							if (cat_collUsesMeshHit((SpaceObj *)target, catCollMeshHitMissiles))
+							{
+								vector pathEnd, meshHit;
+
+								vecAdd(pathEnd, missile->obj.posinfo.position, missile->obj.posinfo.velocity);
+								if (!cat_meshLineIntersect((Ship *)target, catCollMeshHitMissileLevel,
+														   &missile->obj.posinfo.position, &pathEnd, &meshHit))
+								{
+									goto nexttarget;
+								}
+							}
 							univMissileCollidedWithTarget(TRUE, (SpaceObjRotImpTarg *)target,targetstaticheader,missile,collideLineDist,collSide);   // CAT: 1 (all four exe callers)
 							AddMissileToDeleteMissileList(missile, -1);
 							goto nextmissile;

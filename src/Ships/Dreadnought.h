@@ -59,5 +59,6 @@ bool32 cat_dreadnoughtHasCannonUpgrade(Ship *ship);                 // 0x005b129
 real32 cat_dreadnoughtChargeFraction(Ship *ship);                   // 0x005b12c0
 void cat_dreadnoughtCreateCannon(Ship *ship);                       // 0x005b12f0
 void cat_dreadnoughtReclampCannon(Ship *ship);                      // 0x005b13b0
+void cat_dreadnoughtRenderCharge(Ship *ship);                       // 0x005b1110 (CAT, M2-R5 render)
 
 #endif

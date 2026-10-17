@@ -1459,8 +1459,9 @@ typedef struct
     // CAT (M2-R5 layout): four more dwords before rotinfo, which the exe keeps at +0x98 (cat_dockShipDocksAtShip
     //      0x00465860 and TurnHarvestEffectOn 0x004f1ac0 pass ship+0x98 as the coordinate system; collInfo then starts
     //      at +0xD4, impactablelink at +0x160 and health at +0x170). Every creator zeroes them with the object
-    //      (memAlloc + clear); no reader of +0x88..+0x94 on an object pointer was found in the exe. Reserved here.
-    udword catObjReserved88[4];      // exe +0x88 .. +0x94
+    //      (memAlloc + clear). [M2-R5 render: it is a list node: rndMainViewRenderFunction 0x00576b7b puts every
+    //      visible object on a frame-local list through it (lea eax,[esi+0x88]; listAddNode). Name chosen here.]
+    Node catVisibleLink;             // exe +0x88 .. +0x94
 } SpaceObj;
 
 typedef SpaceObj *SpaceObjPtr;
@@ -2018,9 +2019,9 @@ typedef struct Ship         // Ship object: cataclysm.exe's 0x63C-byte layout (M
     ShipsInsideMe *shipsInsideMe;   // +0x4B4
     shipbindings *bindings;         // +0x4B8 ship hierarchy bindings
     madanim *madBindings;           // +0x4BC
-    void *catRepairDroids;          // +0x4C0 CAT: the repair-droid array (droidCreateArray 0x0046a8b0 at univCreateShip
-                                    //   0x005427e8 for a Somtaaw ship with nRepairDroids; HW1's commented pRepairDroids).
-                                    //   The droid runtime is stage 3's (the proxies are rendering); NULL until then
+    void *catRepairDroids;          // +0x4C0 CAT: the repair-droid array (droidCreateArray 0x005c3070 at univCreateShip
+                                    //   0x00542659 for a Somtaaw ship with nRepairDroids; HW1's commented pRepairDroids).
+                                    //   The droid runtime is M2-R6 ships' (RepairDroid.h); NULL until then
     struct ShipSinglePlayerGameInfo *shipSinglePlayerGameInfo;     // +0x4C4 stuff for the single player game
     void* lightning[2];             // +0x4C8 lightning effect stuff (HW1; no exe reader of +0x4C8/+0x4CC found)
     // CAT (M2-R4 combat): the Beast infection state (BeastWeapon.c, cat_univBeastInfectionUpdate 0x00543860).
@@ -2160,6 +2161,12 @@ typedef struct
     sdword haveCheckedForLoss;
     MissileID missileID;
     uword pad2;
+    // CAT (M2-R5 render): 12 bytes the exe has before the mine fields: missileShoot 0x0048ac6e..0x0048ad27 writes
+    //      mineAIState +0x220, formation_position +0x224, FORCE_DROPPED +0x230, formationLink +0x234,
+    //      formationinfo +0x244, formation_number_X/Y +0x248/+0x24C and the colour scheme byte +0x250 (also
+    //      nisColorScheme 0x004d07b0 and the renderer, cat_rndRenderObjectList 0x00579b08 / the trail pass 0x005770d3).
+    //      No reader of +0x214..+0x21F found; name chosen here.
+    udword catMissileReserved214[3];            // +0x214
     udword mineAIState;                         //ai state of missile MINES
     vector formation_position;                  //vector that records the position the mine WANTS to be in while in formation
     sdword FORCE_DROPPED;                       //flag..true if force_dropped...used for variable selection
@@ -2167,12 +2174,11 @@ typedef struct
     MineFormationInfo *formationinfo;
     sdword formation_number_X;
     sdword formation_number_Y;
-    ubyte colorScheme;              // +0x244
+    ubyte colorScheme;              // +0x250 (CAT, M2-R5 render: HW1's +0x244 moved by the 12 bytes above)
     ubyte pad[3];
     // CAT (M2-R5 layout): the exe's Missile is 0x258 bytes (univAddMissile 0x00540c70 allocates 600, LoadSpaceObj
-    //      0x00501660 the same); HW1's fields end at +0x248. The +0x254 float scales the selection circle when it is
-    //      nonzero (Select.c, M2-R3); the other three have no reader found. Names chosen here.
-    udword catMissileReserved248[3];    // +0x248 .. +0x250
+    //      0x00501660 the same). The +0x254 float scales the selection circle when it is nonzero (Select.c, M2-R3)
+    //      and the mesh (cat_rndRenderObjectList 0x00579b92, when the static's +0x110 is nonzero). Name chosen here.
     real32 catMissileScale;         // +0x254
 } Missile;
 
@@ -2644,7 +2650,10 @@ CAT_ASSERT_OFFSET(Missile, missilelink, 0x1D0);
 CAT_ASSERT_OFFSET(Missile, missileType, 0x1E0);
 CAT_ASSERT_OFFSET(Missile, playerowner, 0x1F8);
 CAT_ASSERT_OFFSET(Missile, missileID, 0x210);
-CAT_ASSERT_OFFSET(Missile, colorScheme, 0x244);
+CAT_ASSERT_OFFSET(Missile, mineAIState, 0x220);
+CAT_ASSERT_OFFSET(Missile, formationLink, 0x234);
+CAT_ASSERT_OFFSET(Missile, formationinfo, 0x244);
+CAT_ASSERT_OFFSET(Missile, colorScheme, 0x250);
 CAT_ASSERT_OFFSET(Missile, catMissileScale, 0x254);
 // the Bullet (cat_gunCreateBullet 0x0048bb00, CET's two asserts)
 _Static_assert(sizeof(Bullet) == 0x164, "Bullet is 0x164 bytes in cataclysm.exe");

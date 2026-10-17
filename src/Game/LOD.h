@@ -67,6 +67,11 @@ typedef struct
     //these matrices will be in the same order as they will be rendered.
 //    hmatrix **startMatrix;                      //pointers to the starting hierarchy matrices
     mhbinding *hBindings;                       //hierarchy bindings, same order as matrices
+    //CAT: render-time measurement per level (0x38-byte level in the exe; cat_lodTimingStart 0x004a4cf0 /
+    //     cat_lodTimingStop 0x004a4d20 fill it, lodLevelGet 0x004a4d70 estimates it from the polygon count)
+    udword catTime[4];                          //+0x20: the first 4 render times, performance-counter ticks
+    ubyte catTimeCount;                         //+0x30: how many of catTime are measured (4 = done)
+    udword catTimeMin;                          //+0x34: the least of catTime (or the estimate)
 }
 lod;
 //LOD structure found in the StaticInfo for all spaceobjs
@@ -77,6 +82,9 @@ typedef struct
 #if LOD_AUTO_SAVE
     char *fileName;                             //name of the name of the LOD file
 #endif
+    bool8 catDistanceLOD;                       //CAT: +8: TRUE = choose the level by distance (HW1), FALSE = by the
+                                                //     selection circle; lodTableReadScript 0x004a47e0 clears it and
+                                                //     no LOD script sets it
     lod level[1];                               //actual LOD info for <n> levels
 }
 lodinfo;
@@ -88,6 +96,7 @@ typedef struct
 #if LOD_AUTO_SAVE
     char *fileName;                             //name of the name of the LOD file
 #endif
+    bool8 catDistanceLOD;                       //CAT: as lodinfo
     lod level[LOD_NumberLevels];                //actual LOD info
 }
 lodmaxinfo;
@@ -104,6 +113,11 @@ extern sdword lodDrawingMode;
 //scaling factor for the LOD's
 extern real32 lodScaleFactor;
 
+//CAT: the render-time LOD (lodLevelGet 0x004a4d70, cat_lodLevelGetTimed 0x004a5000)
+extern udword catLodDetail;                     //0x00a4cc38: the first level used (cat_opLODDetail 0x004d9d20)
+extern udword catLodTimeThreshold;              //0x0088486c: frame render budget, counter ticks
+extern real32 catLodTimeScale;                  //0x00a75da4: seconds per polygon, measured by the main view
+
 #if LOD_SCALE_DEBUG
 extern real32 lodDebugScaleFactor;
 #endif
@@ -119,6 +133,15 @@ extern real32 lodDebugScaleFactor;
 lodinfo *lodTableReadScript(char *directory, char *fileName);
 
 lod *lodLevelGet(void *spaceObj, vector *camera, vector *ship);
+//CAT: the exe's lodLevelGet returns the level's render time; here lodLevelGet keeps HW1's return and the time is
+//     cat_lodLevelTime's (the tail of lodLevelGet 0x004a4d70)
+udword cat_lodLevelTime(lod *level);
+lod *cat_lodCurrentLevelGet(void *spaceObj);                    //0x004a4af0
+udword cat_lodLevelGetTimed(void *spaceObj, sdword pass);       //0x004a5000
+void cat_lodTimingStart(lod *level);                            //0x004a4cf0
+void cat_lodTimingStop(lod *level);                             //0x004a4d20
+void cat_lodSetTimeThreshold(udword framesPerSecond);           //0x004a50e0
+sdword cat_lodHierarchyCount(lod *level);                       //0x00575ee0
 lod *lodPanicLevelGet(void *spaceObj, vector *camera, vector *ship);
 void lodAllMeshesRecolorize(lodinfo *LOD);
 sdword lodHierarchySizeCompute(lodinfo *LOD);

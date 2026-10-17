@@ -677,6 +677,8 @@ scriptEntry utyOptionsList[] =
     {"detailThreshold",         scriptSetUdwordCB, &opDetailThresholdVal},
     {"enableSmoothing",         scriptSetUdwordCB, &enableSmoothing},
     {"enableCPV",               scriptSetUdwordCB, &enableCPV},        // CAT: options table row 0x008c14c0 (after enableSmoothing)
+    {"enableLensFlare",         scriptSetUdwordCB, &enableLensFlare},  // CAT (M2-R5 render): row 0x008c14cc
+    {"enableRepairbots",        scriptSetUdwordCB, &enableRepairbots}, // CAT (M2-R5 render): row 0x008c14d8
     {"showBackgrounds",         scriptSetUdwordCB, &showBackgrounds},
     {"texLinearFiltering",      scriptSetUdwordCB, &texLinearFiltering},
     {"enableStipple",           scriptSetUdwordCB, &enableStipple},

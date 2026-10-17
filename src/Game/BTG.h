@@ -78,6 +78,6 @@ void btgLoadTextures(void);
 void btgLoad(char* filename);
 void btgConvertVerts(void);
 void btgRender(void);
-void btgSetColourMultiplier(real32 t);
+void btgSetColourMultiplier(sdword index, real32 t);    // CAT: per channel (0x00429220): 0 sensors manager, 1 fog layer
 
 #endif

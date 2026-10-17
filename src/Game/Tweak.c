@@ -75,24 +75,27 @@ real32 RENDER_VIEWABLE_FADE = 3500.0f;
 real32 RENDER_MAXVIEWABLE_FADE = 4500.0f;
 real32 BG_RADIUS = 20000.0f;
 
-real32 RENDER_LIMIT_MOTHERSHIP = (20000.0f*20000.0f);
-real32 RENDER_FADE_MOTHERSHIP = (10000.0f*10000.0f);
-real32 RENDER_LIMIT_HEAVYCRUISER = (10000.0f*10000.0f);
-real32 RENDER_FADE_HEAVYCRUISER = (10000.0f*10000.0f);
-real32 RENDER_LIMIT_CARRIER = (10000.0f*10000.0f);
-real32 RENDER_FADE_CARRIER = (10000.0f*10000.0f);
-real32 RENDER_LIMIT_DESTROYER = (10000.0f*10000.0f);
-real32 RENDER_FADE_DESTROYER = (10000.0f*10000.0f);
-real32 RENDER_LIMIT_FRIGATE = (10000.0f*10000.0f);
-real32 RENDER_FADE_FRIGATE = (10000.0f*10000.0f);
-real32 RENDER_LIMIT_CORVETTE = (10000.0f*10000.0f);
-real32 RENDER_FADE_CORVETTE = (10000.0f*10000.0f);
-real32 RENDER_LIMIT_FIGHTER = (10000.0f*10000.0f);
-real32 RENDER_FADE_FIGHTER = (10000.0f*10000.0f);
-real32 RENDER_LIMIT_RESOURCE = (10000.0f*10000.0f);
-real32 RENDER_FADE_RESOURCE = (10000.0f*10000.0f);
-real32 RENDER_LIMIT_NONCOMBAT = (10000.0f*10000.0f);
-real32 RENDER_FADE_NONCOMBAT = (10000.0f*10000.0f);
+// CAT (M2-R5 render): the class render limits and fades are distances, not squares (defaults 0x008ac450..0x008ac494:
+//      20000 / 10000; their tweak entries use scriptSetReal32CB, 0x008ac880..); univUpdateRenderList 0x0054be80
+//      squares the limits, rndFade 0x005753d0 reads them as they are. GoK read the limits squared.
+real32 RENDER_LIMIT_MOTHERSHIP = 20000.0f;
+real32 RENDER_FADE_MOTHERSHIP = 10000.0f;
+real32 RENDER_LIMIT_HEAVYCRUISER = 10000.0f;
+real32 RENDER_FADE_HEAVYCRUISER = 10000.0f;
+real32 RENDER_LIMIT_CARRIER = 10000.0f;
+real32 RENDER_FADE_CARRIER = 10000.0f;
+real32 RENDER_LIMIT_DESTROYER = 10000.0f;
+real32 RENDER_FADE_DESTROYER = 10000.0f;
+real32 RENDER_LIMIT_FRIGATE = 10000.0f;
+real32 RENDER_FADE_FRIGATE = 10000.0f;
+real32 RENDER_LIMIT_CORVETTE = 10000.0f;
+real32 RENDER_FADE_CORVETTE = 10000.0f;
+real32 RENDER_LIMIT_FIGHTER = 10000.0f;
+real32 RENDER_FADE_FIGHTER = 10000.0f;
+real32 RENDER_LIMIT_RESOURCE = 10000.0f;
+real32 RENDER_FADE_RESOURCE = 10000.0f;
+real32 RENDER_LIMIT_NONCOMBAT = 10000.0f;
+real32 RENDER_FADE_NONCOMBAT = 10000.0f;
 
 real32 VERYBIGSHIP_SIZE = 1500.0f;
 
@@ -416,6 +419,9 @@ real32 twHyperedIntoDamage;
 real32 TW_BURST_ATTACK_FORCE_MODIFIER;
 
 real32 armourPiercingModifier = 1.5f;
+// CAT (M2-R5 render): the camera-space depth offset of the N-LIPS size cap (0x008ac5e8, tweak entry 0x008adb40;
+//      rndShipVisibleUsingCoordSys 0x005750c0)
+real32 twnLipsBaseOffset = 1000.0f;
 
 // CAT (M2-R4 combat): the salvage tweakables (cataclysm.exe 0x008ac5dc..0x008ac608, names in the tweak table; the
 //      values are the exe's defaults). Read by Salvage.c.
@@ -537,23 +543,23 @@ scriptEntry Tweaks[] =
     makeEntry(RENDER_VIEWABLE_FADE, scriptSetReal32CB),
     makeEntry(RENDER_MAXVIEWABLE_FADE, scriptSetReal32CB),
     makeEntry(BG_RADIUS,scriptSetReal32CB),
-    makeEntry(RENDER_LIMIT_MOTHERSHIP, scriptSetReal32SqrCB),
+    makeEntry(RENDER_LIMIT_MOTHERSHIP, scriptSetReal32CB),
     makeEntry(RENDER_FADE_MOTHERSHIP, scriptSetReal32CB),
-    makeEntry(RENDER_LIMIT_HEAVYCRUISER, scriptSetReal32SqrCB),
+    makeEntry(RENDER_LIMIT_HEAVYCRUISER, scriptSetReal32CB),
     makeEntry(RENDER_FADE_HEAVYCRUISER, scriptSetReal32CB),
-    makeEntry(RENDER_LIMIT_CARRIER, scriptSetReal32SqrCB),
+    makeEntry(RENDER_LIMIT_CARRIER, scriptSetReal32CB),
     makeEntry(RENDER_FADE_CARRIER, scriptSetReal32CB),
-    makeEntry(RENDER_LIMIT_DESTROYER, scriptSetReal32SqrCB),
+    makeEntry(RENDER_LIMIT_DESTROYER, scriptSetReal32CB),
     makeEntry(RENDER_FADE_DESTROYER, scriptSetReal32CB),
-    makeEntry(RENDER_LIMIT_FRIGATE, scriptSetReal32SqrCB),
+    makeEntry(RENDER_LIMIT_FRIGATE, scriptSetReal32CB),
     makeEntry(RENDER_FADE_FRIGATE, scriptSetReal32CB),
-    makeEntry(RENDER_LIMIT_CORVETTE, scriptSetReal32SqrCB),
+    makeEntry(RENDER_LIMIT_CORVETTE, scriptSetReal32CB),
     makeEntry(RENDER_FADE_CORVETTE, scriptSetReal32CB),
-    makeEntry(RENDER_LIMIT_FIGHTER, scriptSetReal32SqrCB),
+    makeEntry(RENDER_LIMIT_FIGHTER, scriptSetReal32CB),
     makeEntry(RENDER_FADE_FIGHTER, scriptSetReal32CB),
-    makeEntry(RENDER_LIMIT_RESOURCE, scriptSetReal32SqrCB),
+    makeEntry(RENDER_LIMIT_RESOURCE, scriptSetReal32CB),
     makeEntry(RENDER_FADE_RESOURCE, scriptSetReal32CB),
-    makeEntry(RENDER_LIMIT_NONCOMBAT, scriptSetReal32SqrCB),
+    makeEntry(RENDER_LIMIT_NONCOMBAT, scriptSetReal32CB),
     makeEntry(RENDER_FADE_NONCOMBAT, scriptSetReal32CB),
     makeEntry(VERYBIGSHIP_SIZE,scriptSetReal32CB),
     makeEntry(OUT_OF_FUEL_FRICTION,scriptSetReal32CB),
@@ -1021,6 +1027,7 @@ scriptEntry Tweaks[] =
     makeEntry(TW_BURST_ATTACK_FORCE_MODIFIER,scriptSetReal32CB),
 
     makeEntry(armourPiercingModifier,scriptSetReal32CB),
+    makeEntry(twnLipsBaseOffset,scriptSetReal32CB),     // CAT (M2-R5 render): after armourPiercingModifier, as the exe
 
     // CAT (M2-R4 combat): the salvage tweakables (Salvage.c)
     makeEntry(twSalTransSpeed,scriptSetReal32CB),

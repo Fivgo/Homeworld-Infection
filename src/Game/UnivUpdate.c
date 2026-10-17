@@ -1807,7 +1807,8 @@ void InitializeShowingDamage(Ship* ship)
 // CAT-TODO(M2-R4 #3/#4/#5): univCreateShip 0x00542320 is ported only as far as the mesh state (below). The exe
 //      takes 7 arguments and adds the ship to the universe itself unless a flag says not to (univAddShip is gone); it
 //      allocates the 0x63C-byte Ship with the gun (0x88 per gun), mad and precise-selection blocks behind it, sets up
-//      repair droids, damage points (cat_dmgShipLoadDamagePoints), upgrades (cat_shipUpgradesInit/ApplyUpgrades), dock
+//      repair droids (droidCreateArray 0x005c3070, M2-R6 ships), damage points (cat_dmgShipLoadDamagePoints 0x00462950
+//      = dmgGetLights, called here), upgrades (cat_shipUpgradesInit/ApplyUpgrades), dock
 //      info (cat_dockInitShipDockInfo), external build state, the factory only for the four builder types, the
 //      mothership modules (cat_univCreateMothershipModules), experience, stealth, dissolve and ship names, the FOW
 //      cube, and the helplessness of Beast-race ships in multiplayer.
@@ -4148,7 +4149,7 @@ hiteffect:
     //      render sets it)
     if (applyDamage && target->header.objtype == OBJ_ShipType)
     {
-        catShCurrentObject = target;
+        cat_rndObjectEffectsSetup((SpaceObj *)target);
         cat_meshApplyBulletHit(&hitLocation, 1.0f, (Ship *)target, cat_meshBulletHitGlowCB, &glowAmount);
         catShCurrentObject = NULL;
     }
@@ -5015,8 +5016,10 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
         DeleteShipsInsideMe(ship);
     }
 
-    // CAT-TODO(stage 3): cat_droidFreeArray(ship +0x4C0) 0x005c32b0, the repair droids: render-side proxies that crawl
-    //      over the hull and make welding effects (M2-R4 ships-b, RepairDroid.h), not in this tree's Ship yet.
+    // CAT-TODO(M2-R6 ships, the repair droids): cat_droidFreeArray(ship +0x4C0) 0x005c32b0. The droids are proxies that
+    //      crawl over the hull and make welding effects; M2-R5 render ported their renderer (cat_droidRenderArray,
+    //      RepairDroid.c), their create / update / free stay with the ship runtime: droidUpdateArray draws from
+    //      random stream 0, which the oracle hashes, so they change the stream (RepairDroid.h). Ship +0x4C0 stays NULL.
     //      HW1's slave clean-up (dockDealWithDeadSlaveable) is gone: no Cataclysm ship is slaveable (SOF_Slaveable 0)
 
 #if ETG_DISABLEABLE
@@ -8020,8 +8023,9 @@ void univUpdateMinorRenderList()
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-// CAT-TODO(stage 3): univUpdateRenderList 0x0054be80 uses per-type render distances (static info +0x3BC for ships,
-//      +0x120 for derelicts, else the class limits), a separate sort-front list and listMergeSort.
+// CAT (M2-R5 render): univUpdateRenderList 0x0054be80 squares the class limits once (the tweaks are distances in
+//      Cataclysm, Tweak.c) and adds the three new classes (MonsterShip and Component as the mothership, Micro as the
+//      fighter, 0x0054bf0d); the rest (the static's own limit, the derelicts, the sort-front list) is HW1's.
 void univUpdateRenderList()
 {
     Node *objnode = universe.SpaceObjList.head;
@@ -8045,15 +8049,18 @@ void univUpdateRenderList()
 
     if (!limited)
     {
-        limits[CLASS_Mothership] = RENDER_LIMIT_MOTHERSHIP;
-        limits[CLASS_HeavyCruiser] = RENDER_LIMIT_HEAVYCRUISER;
-        limits[CLASS_Carrier] = RENDER_LIMIT_CARRIER;
-        limits[CLASS_Destroyer] = RENDER_LIMIT_DESTROYER;
-        limits[CLASS_Frigate] = RENDER_LIMIT_FRIGATE;
-        limits[CLASS_Corvette] = RENDER_LIMIT_CORVETTE;
-        limits[CLASS_Fighter] = RENDER_LIMIT_FIGHTER;
-        limits[CLASS_Resource] = RENDER_LIMIT_RESOURCE;
-        limits[CLASS_NonCombat] = RENDER_LIMIT_NONCOMBAT;
+        limits[CLASS_Mothership] = RENDER_LIMIT_MOTHERSHIP * RENDER_LIMIT_MOTHERSHIP;
+        limits[CLASS_HeavyCruiser] = RENDER_LIMIT_HEAVYCRUISER * RENDER_LIMIT_HEAVYCRUISER;
+        limits[CLASS_Carrier] = RENDER_LIMIT_CARRIER * RENDER_LIMIT_CARRIER;
+        limits[CLASS_Destroyer] = RENDER_LIMIT_DESTROYER * RENDER_LIMIT_DESTROYER;
+        limits[CLASS_Frigate] = RENDER_LIMIT_FRIGATE * RENDER_LIMIT_FRIGATE;
+        limits[CLASS_Corvette] = RENDER_LIMIT_CORVETTE * RENDER_LIMIT_CORVETTE;
+        limits[CLASS_Fighter] = RENDER_LIMIT_FIGHTER * RENDER_LIMIT_FIGHTER;
+        limits[CLASS_Resource] = RENDER_LIMIT_RESOURCE * RENDER_LIMIT_RESOURCE;
+        limits[CLASS_NonCombat] = RENDER_LIMIT_NONCOMBAT * RENDER_LIMIT_NONCOMBAT;
+        limits[CLASS_MonsterShip] = limits[CLASS_Mothership];
+        limits[CLASS_Component] = limits[CLASS_Mothership];
+        limits[CLASS_Micro] = limits[CLASS_Fighter];
         limited = TRUE;
     }
 
@@ -8464,8 +8471,8 @@ void cat_univShipSelfRepair(Ship *ship)
     {
         return;
     }
-    // CAT-TODO(stage 3): Sect ships with repair droids update them here (droidUpdateArray 0x005c32f0, Ship +0x4C0, when the
-    //      droid option 0x00c52374 is on)
+    // CAT-TODO(M2-R6 ships, the repair droids): Sect ships with repair droids update them here (droidUpdateArray
+    //      0x005c32f0, Ship +0x4C0, when the droid option 0x00c52374 is on; random stream 0, RepairDroid.h)
     if ((shipstatic->shipclass == CLASS_Component) ||
         ((ship->targetable.health >= shipstatic->health.maxhealth) && (ship->shiptype != sMothership)))
     {

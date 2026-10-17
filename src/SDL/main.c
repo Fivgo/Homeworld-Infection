@@ -171,6 +171,10 @@ bool32 showBorder = TRUE;
 sdword enableTextures = TRUE;
 sdword enableSmoothing = TRUE;
 sdword enableCPV = FALSE;   // CAT: per-vertex colour (0x00c52378, .bss; set by Homeworld.cfg "enableCPV", /noCPV, the video options)
+sdword enableLensFlare = FALSE;     // CAT (M2-R5 render): lens flares (0x00c52380, .bss; Homeworld.cfg "enableLensFlare",
+                                    //      the video options; cat_rndLensFlaresRender 0x0057bec0)
+sdword enableRepairbots = FALSE;    // CAT (M2-R5 render): the repair droids (0x00c52374, .bss; Homeworld.cfg
+                                    //      "enableRepairbots"; cat_rndRenderObjectList 0x00579727)
 sdword enableStipple = FALSE;
 sdword enableTrails = TRUE;
 #if TR_NIL_TEXTURE
@@ -385,6 +389,14 @@ bool32 CatDockTestSet(char *string)
 bool32 CatCommandTestSet(char *string)
 {
     catCommandSelfTestSet(string);
+    return TRUE;
+}
+
+// CAT: port diagnostic: /catRenderTest <frames> (render.c catRenderSelfTestTick: the render self-test on the headless
+//      Mission01 run, M2-R5 render)
+bool32 CatRenderTestSet(char *string)
+{
+    catRenderSelfTestSet(string);
     return TRUE;
 }
 
@@ -952,6 +964,7 @@ commandoption commandOptions[] =
     entryFnParam("/catEtgEffectTest",   CatEtgEffectTestSet, " <ticks> - with /catEtgParseTest: create a sample of the effects and run them for <ticks> universe ticks."),
     entryFnParam("/catDockTest",        CatDockTestSet, " <ticks> - headless Mission01 run: dock, deposit, harvest and launch orders with no input, exit after <ticks> ticks."),
     entryFnParam("/catCommandTest",     CatCommandTestSet, " <ticks> - headless Mission01 run: link, unlink, mimic, research, point orders and force-field formations with no input, exit after <ticks> ticks."),
+    entryFnParam("/catRenderTest",      CatRenderTestSet, " <frames> - headless Mission01 run through the Cataclysm object-list renderer with a lens flare source and a fog layer, logs the render counts, exit after <frames> ticks."),
     // CAT: port diagnostic, not a Cataclysm option (texreg.c catTexturesRunSelfTest)
     entryVr("/catTexturesTest",     catTexturesSelfTest, TRUE, " - load textures.ll and register/load every texture it lists, then exit."),
 #if HWI_ORACLE

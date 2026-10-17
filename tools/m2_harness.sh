@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -41,10 +41,16 @@
 #                    force-field wall and sphere orders, the linked ACV is unlinked again, the end states are checked at
 #                    the end; "commandtest:" log lines, "commandtest: done ... result=PASS|FAIL"; quits after <ticks>
 #                    ticks (needs --timeout of several minutes under ASan)
+#                    render: /catRenderTest <frames> (M2-R5 render, docs/m2-r5-render.md): the headless Mission01 run of
+#                    the mission mode drawn through the Cataclysm object-list renderer; at tick 16 the lens flare
+#                    option goes on, the NIS light source is shown ahead of the camera and a fog line is set; at the end
+#                    "rendertest: counts" lines (objects, sorted objects, trails, lens flares, fog layers, ...) and
+#                    "rendertest: done ... result=PASS|FAIL"; quits after <frames> ticks (one tick a frame)
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
 #   --mission-ticks N mission mode: universe ticks to run (default 3000)
 #   --dock-ticks N   dock mode: universe ticks to run (default 5000; about 30 s under ASan on the virtual clock)
 #   --command-ticks N command mode: universe ticks to run (default 3000)
+#   --render-frames N render mode: frames (= universe ticks) to run (default 600)
 #   --etg-ticks N    etg mode: ticks of the effect self-test (default 128; 0 = parse test only)
 #   --perturb T      oracle or mission mode: one extra gamerand() before tick T (/oracleSelfTestPerturb; tests the compare tool)
 #   --hwo            any other mode: also write the oracle stream to <run>/run.hwo (/oracleDump)
@@ -101,7 +107,7 @@ fi
 label=${1:?usage: m2_harness.sh <label> [--mode sp|fe] [--timeout N] [--driver D] [--data DIR] [-- engine args]}
 shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
-oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000
+oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -113,6 +119,7 @@ while [[ $# -gt 0 ]]; do
 		--mission-ticks) mticks=$2; shift ;;
 		--dock-ticks) dticks=$2; shift ;;
 		--command-ticks) cticks=$2; shift ;;
+		--render-frames) rframes=$2; shift ;;
 		--etg-ticks) etgticks=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
@@ -144,6 +151,8 @@ elif [[ "$mode" == dock ]]; then
 	args+=(/catDockTest "$dticks")
 elif [[ "$mode" == command ]]; then
 	args+=(/catCommandTest "$cticks")
+elif [[ "$mode" == render ]]; then
+	args+=(/catRenderTest "$rframes")
 elif [[ $hwo -eq 1 ]]; then
 	args+=(/oracleDump "$out/run.hwo")
 fi
@@ -225,6 +234,7 @@ grep -q "etgtest: self-test done" "$L" && milestone="etg parse self-test done"
 grep -q "etgtest: effect self-test done" "$L" && milestone="etg effect self-test done"
 grep -q "docktest: done" "$L" && milestone="dock self-test done"
 grep -q "commandtest: done" "$L" && milestone="command self-test done"
+grep -q "rendertest: done" "$L" && milestone="render self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately, except the misaligned-access reports on the packed sound-bank and front-end
@@ -258,6 +268,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == textures ]] && echo "textures: $(grep -h 'texturetest: listing lookups\|texturetest: self-test done' "$L" | sed 's/^.*texturetest: //' | paste -sd';')"
 	[[ "$mode" == dock ]] && echo "docktest: $(grep -h 'docktest: orders\|docktest: clDock\|docktest: A inside\|docktest: done' "$L" | sed 's/^.*docktest: //' | paste -sd';'); FAIL lines: $(grep -c 'docktest: FAIL' "$L")"
 	[[ "$mode" == command ]] && echo "commandtest: $(grep -h 'commandtest: link ordered\|commandtest: point ordered\|commandtest: link done\|commandtest: unlink done\|commandtest: done' "$L" | sed 's/^.*commandtest: //' | paste -sd';'); FAIL lines: $(grep -c 'commandtest: FAIL' "$L")"
+	[[ "$mode" == render ]] && echo "rendertest: $(grep -h 'rendertest: counts\|rendertest: done' "$L" | sed 's/^.*rendertest: //' | paste -sd';')"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"
 	echo "engine glows:$(grep -c -i 'engineglows' "$out/FileLoads.log" 2>/dev/null) mesh/mex loads from misc\\EngineGlows in FileLoads.log"
 	echo "UBSan report kinds (count, site):"; echo "$ubsan_kinds"

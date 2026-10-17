@@ -80,6 +80,7 @@ extern real32 RENDER_LIMIT_NONCOMBAT;
 extern real32 RENDER_FADE_NONCOMBAT;
 
 extern real32 BG_RADIUS;
+extern real32 twnLipsBaseOffset;                // CAT: 0x008ac5e8 (M2-R5 render)
 
 extern real32 VERYBIGSHIP_SIZE;
 

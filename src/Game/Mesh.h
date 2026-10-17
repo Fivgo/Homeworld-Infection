@@ -433,6 +433,8 @@ struct CatVertexState;
 void cat_meshBulletHitGlowCB(vertexinfo *info, struct CatVertexState *state, void *data);       // 0x004b5820
 void cat_meshApplyBulletHit(vector *hit, real32 radiusSquared, struct Ship *ship,
                             void (*callback)(vertexinfo *, struct CatVertexState *, void *), void *data);  // 0x004b52d0
+//CAT (M2-R5 render): where a line meets a ship's mesh (Mesh.c)
+sdword cat_meshLineIntersect(struct Ship *ship, sdword level, vector *start, vector *end, vector *hit);  // 0x004b5910
 void meshObjectRender(polygonobject *object, materialentry *materials, sdword iColorScheme);
 void meshObjectRenderTex(polygonobject *object, materialentry *material);
 
@@ -451,7 +453,20 @@ void meshHierarchyWalk(meshdata *mesh, meshcallback preMesh, meshcallback postCa
 extern char catMeshSelfTestList[];
 void catMeshRunSelfTest(void);
 
-void meshSetFade(real32 fade);
+//CAT: 8 fade channels (meshSetFade 0x004ae700); see Mesh.c
+#define MESH_FADE_CHANNELS          8
+extern bool32 g_SpecificPoly;
+void meshSetFade(sdword channel, real32 fade);
+//CAT (M2-R5 render): the exe's alternative fade material, the Beast-stun edge lightning, the mimic's warped disguise
+void cat_meshCurrentMaterialAlt(materialentry *material, sdword iColorScheme);                  // 0x004afcb0
+struct Ship;
+void cat_meshRenderEdgeEffect(struct Ship *ship, meshdata *mesh);                               // 0x004b4e90
+void cat_meshRenderShipHierarchyEdgeEffect(struct Ship *ship, meshdata *mesh);                  // 0x004b4e00
+void cat_meshObjectRenderWarped(struct CatMeshObjectState *slots, polygonobject *object, materialentry *materials,
+                                vector *centre, real32 fade, real32 radius, sdword iColorScheme);   // 0x004b5c90
+void cat_meshRenderShipHierarchyWarped(struct CatMeshState *meshState, shipbindings *bindings, sdword currentLOD,
+                                       meshdata *mesh, vector *centre, real32 fade, real32 radius,
+                                       sdword iColorScheme);                                     // 0x004b6400
 void meshSetSpecular(sdword mode, ubyte red, ubyte green, ubyte blue, ubyte alpha); //mode -1 == off
 
 #endif

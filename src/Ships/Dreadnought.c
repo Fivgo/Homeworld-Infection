@@ -7,8 +7,8 @@
 // =============================================================================
 
 // CAT: new file (M2-R4 ships-b). Each body follows the r6 decompile of its exe function (address on each). The
-//      cannon's charge glow (cat_dreadnoughtRenderCharge 0x005b1110, cat_dreadnoughtChargeEffect 0x00516a40) is the
-//      renderer's: stage 3. cat_dreadnoughtVariantStaticInit 0x005b3850 has no caller and no header slot.
+//      cannon's charge glow (cat_dreadnoughtRenderCharge 0x005b1110 here, cat_dreadnoughtChargeEffect 0x00516a40 in
+//      Blast.c) is drawn by the renderer (M2-R5 render). cat_dreadnoughtVariantStaticInit 0x005b3850 has no caller and no header slot.
 
 #include "Dreadnought.h"
 
@@ -310,3 +310,15 @@ CustShipHeader DreadnoughtHeader =
     .CustShip_Fix = Dreadnought_Fix,
     .CustShipAttack = DreadnoughtAttack,
 };
+
+// CAT (M2-R5 render): while the cannon fires, the renderer draws its charge lightning about the cannon
+void cat_dreadnoughtRenderCharge(Ship *ship)                                                // 0x005b1110
+{
+    DreadnoughtSpec *spec = (DreadnoughtSpec *)ship->ShipSpecifics;
+
+    if (ship->shiptype == sDreadnought && spec->cannonFiring && spec->cannon != NULL)
+    {
+        cat_dreadnoughtChargeEffect(&spec->cannon->impactable.collInfo.collPosition,
+                                    cat_timerFractionElapsed(&spec->cannonFireTimer));
+    }
+}

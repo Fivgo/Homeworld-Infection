@@ -22,6 +22,13 @@
 #include "texreg.h"
 #include "Universe.h"
 #include "Vector.h"
+#include "Randy.h"          // CAT (M2-R5 render): the background flashes
+#ifndef _WIN32
+#include <strings.h>
+#endif
+#include "SinglePlayer.h"
+#include "Globals.h"
+#include <math.h>
 
 #ifdef HW_BUILD_FOR_DEBUGGING
     #define BTG_VERBOSE_LEVEL  3    // print extra info
@@ -49,6 +56,37 @@ static GLfloat _bgColor[4];
 static GLubyte _bgByte[4];
 
 static sdword btgFade = 255;
+// CAT (M2-R5 render): the background colour multiplier has channels (0x008dfb98: 0 the sensors manager, 1 the fog
+//      layer; 0.0 in .data) whose product makes btgFade (btgSetColourMultiplier 0x00429220)
+#define BTG_FADE_CHANNELS   2
+static real32 btgFadeChannel[BTG_FADE_CHANNELS] = {0.0f, 0.0f};
+static void btgFadeFromChannels(void)
+{
+    real32 t = 1.0f;
+    sdword i;
+
+    for (i = 0; i < BTG_FADE_CHANNELS; i++)
+    {
+        t *= btgFadeChannel[i];
+    }
+    btgFade = (sdword)(t * 255.0f);
+}
+
+// CAT (M2-R5 render): background "lightning" flashes (btgColorVertices 0x00428e60, the table at 0x008dfa60, set up by
+//      btgReset 0x00428270): three slots, each now and then lights a short run of background vertices, which then
+//      brightens or fades by a random rate per second; the first slot's run moves along the vertex list
+typedef struct CatBtgFlash
+{
+    bool32 advance;                     // +0x00 the run moves one vertex a frame (slot 0 only)
+    sdword minLength, maxLength;        // +0x04 run length - 1 (1..2)
+    sdword minDelay, maxDelay;          // +0x0C ms to the next flash (200..1000)
+    sdword minRate, maxRate;            // +0x14 intensity change per second (-600..300)
+    real32 intensity;                   // +0x1C 0 = idle
+    real32 nextTime;                    // +0x20 universe time of the next flash
+    udword start, end;                  // +0x24 the vertex run
+} CatBtgFlash;
+#define CAT_BTG_FLASHES     3
+static CatBtgFlash catBtgFlash[CAT_BTG_FLASHES];   // 0x008dfa60
 
 typedef struct btgTransVertex
 {
@@ -146,10 +184,35 @@ void btgReset(void)
     lastbg[2] = 255;
     lastbg[3] = 0;
 
-    btgFade = 255;
+    // CAT: channel 0 back to 1.0 (btgReset 0x00428270), not btgFade = 255
+    if (btgFadeChannel[0] != 1.0f || btgFade < 0)
+    {
+        btgFadeChannel[0] = 1.0f;
+        btgFadeFromChannels();
+    }
 
     btgThetaOffset = 0.0f;
     btgPhiOffset = 0.0f;
+
+    // CAT (M2-R5 render): the flash table (btgReset 0x00428270 at 0x004283df)
+    {
+        sdword i;
+        for (i = 0; i < CAT_BTG_FLASHES; i++)
+        {
+            catBtgFlash[i].advance = FALSE;
+            catBtgFlash[i].minLength = 1;
+            catBtgFlash[i].maxLength = 2;
+            catBtgFlash[i].minDelay = 200;
+            catBtgFlash[i].maxDelay = 1000;
+            catBtgFlash[i].minRate = -600;
+            catBtgFlash[i].maxRate = 300;
+            catBtgFlash[i].intensity = 0.0f;
+            catBtgFlash[i].nextTime = 0.0f;
+            catBtgFlash[i].start = 0;
+            catBtgFlash[i].end = 0;
+        }
+        catBtgFlash[0].advance = TRUE;
+    }
 
     universe.backgroundColor = 0;
     rndSetClearColor(colRGBA(0,0,0,255));
@@ -398,7 +461,7 @@ bool32 btgTexInList(char* filename)
     ptex = texList;
     while (ptex != NULL)
     {
-        if (!strcmp(filename, ptex->filename))
+        if (!strcasecmp(filename, ptex->filename))   // CAT: case-insensitive (btgLoad 0x004286e0 inlines the lookup with _stricmp)
         {
             return TRUE;
         }
@@ -423,7 +486,7 @@ void btgFindTexture(char* filename, btgStar* star)
     ptex = texList;
     while (ptex != NULL)
     {
-        if (!strcmp(filename, ptex->filename))
+        if (!strcasecmp(filename, ptex->filename))   // CAT: case-insensitive (btgLoad 0x004286e0 inlines the lookup with _stricmp)
         {
             star->glhandle = ptex->glhandle;
             star->width = ptex->width;
@@ -1216,23 +1279,103 @@ void btgVertexColor(udword nVert)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void btgColorVertices(void)
+// CAT (M2-R5 render): btgColorVertices 0x00428e60 takes HW1's fastBlends flag again (btgRender passes 0), copies the
+//      vertex colours first, adds the flashes to them (not in single-player missions 1 and 2; random stream 0, as the
+//      exe draws them), then blends from the flashed colours
+void btgColorVertices(bool32 fastBlends)
 {
     btgVertex* pVert;
     btgTransVertex* transVert;
-    udword nVert;
+    udword nVert, numVerts = btgHead->numVerts;
     GLubyte r, g, b, a;
+    CatBtgFlash *flash;
+    sdword i, add;
 
-    for (nVert = 0, pVert = btgVerts, transVert = btgTransVerts;
-         nVert < btgHead->numVerts;
-         nVert++, pVert++, transVert++)
+    for (nVert = 0, pVert = btgVerts, transVert = btgTransVerts; nVert < numVerts; nVert++, pVert++, transVert++)
     {
-        a = (pVert->alpha * pVert->brightness * btgFade) >> 16;
-        btgBlendColour(&r, &g, &b, pVert->red, pVert->green, pVert->blue, a);
-        transVert->red = r;
-        transVert->green = g;
-        transVert->blue = b;
-        transVert->alpha = 255;
+        transVert->red = (GLubyte)pVert->red;
+        transVert->green = (GLubyte)pVert->green;
+        transVert->blue = (GLubyte)pVert->blue;
+    }
+
+    if (!singlePlayerGame ||
+        ((singlePlayerGameInfo.currentMission != 1) && (singlePlayerGameInfo.currentMission != 2)))
+    {
+        for (i = 0, flash = catBtgFlash; i < CAT_BTG_FLASHES; i++, flash++)
+        {
+            if (flash->intensity == 0.0f)
+            {
+                if (flash->nextTime < universe.totaltimeelapsed)
+                {
+                    flash->intensity = (real32)(ranRandom(RANDOM_STREAM_0) % 255);
+                    flash->nextTime = ((real32)(ranRandom(RANDOM_STREAM_0) %
+                                                (udword)(flash->maxDelay - flash->minDelay + 1)) +
+                                       (real32)flash->minDelay) * 0.001f + universe.totaltimeelapsed;
+                    flash->start = ranRandom(RANDOM_STREAM_0) % numVerts;
+                    flash->end = flash->start +
+                                 ranRandom(RANDOM_STREAM_0) % (udword)(flash->maxLength - flash->minLength + 1) +
+                                 flash->minLength;
+                    if (flash->end >= numVerts)
+                    {
+                        flash->start = numVerts - 1;    // sic: the exe moves the start, the clamp below the end
+                    }
+                }
+            }
+            else
+            {
+                flash->intensity = ((real32)(ranRandom(RANDOM_STREAM_0) %
+                                             (udword)(flash->maxRate - flash->minRate + 1)) +
+                                    (real32)flash->minRate) * universe.phystimeelapsed + flash->intensity;
+                if (flash->intensity < 0.0f)
+                {
+                    flash->intensity = 0.0f;
+                }
+                if (flash->advance && (flash->end < numVerts - 1))
+                {
+                    flash->end++;
+                    flash->start++;
+                }
+            }
+            if (flash->start < numVerts)
+            {
+                if (flash->end >= numVerts)
+                {
+                    flash->end = numVerts - 1;
+                }
+            }
+            else
+            {
+                flash->end = numVerts - 1;
+                flash->start = numVerts - 1;
+            }
+            for (nVert = flash->start, transVert = btgTransVerts + flash->start; nVert <= flash->end;
+                 nVert++, transVert++)
+            {
+                //the blue channel times 3 * intensity / 765 (0x0072a598), rounded as the exe's fistp trick does
+                add = (sdword)nearbyint((real64)(transVert->blue * 3) * (real64)flash->intensity *
+                                        (real64)(1.0f / 765.0f));
+                transVert->red = ((sdword)transVert->red + add < 256) ? (GLubyte)(transVert->red + add) : 255;
+                transVert->green = ((sdword)transVert->green + add < 256) ? (GLubyte)(transVert->green + add) : 255;
+                transVert->blue = ((sdword)transVert->blue + add < 256) ? (GLubyte)(transVert->blue + add) : 255;
+            }
+        }
+    }
+
+    for (nVert = 0, pVert = btgVerts, transVert = btgTransVerts; nVert < numVerts; nVert++, pVert++, transVert++)
+    {
+        if (fastBlends)
+        {
+            transVert->alpha = (GLubyte)((pVert->alpha * pVert->brightness * btgFade) >> 16);
+        }
+        else
+        {
+            a = (GLubyte)((pVert->alpha * pVert->brightness * btgFade) >> 16);
+            btgBlendColour(&r, &g, &b, transVert->red, transVert->green, transVert->blue, a);
+            transVert->red = r;
+            transVert->green = g;
+            transVert->blue = b;
+            transVert->alpha = 255;
+        }
     }
 }
 
@@ -1243,10 +1386,15 @@ void btgColorVertices(void)
     Outputs     : btgFade global == t * 255
     Return      :
 ----------------------------------------------------------------------------*/
-void btgSetColourMultiplier(real32 t)
+void btgSetColourMultiplier(sdword index, real32 t)
 {
-//    dbgAssertOrIgnore(t >= 0.0f && t <= 1.0f);
-    btgFade = (sdword)(t * 255.0f);
+    // CAT: a channel of the multiplier; btgFade is the product of the channels (btgSetColourMultiplier 0x00429220)
+    if (btgFadeChannel[index] == t && btgFade >= 0)
+    {
+        return;
+    }
+    btgFadeChannel[index] = t;
+    btgFadeFromChannels();
 }
 
 /*-----------------------------------------------------------------------------
@@ -1305,14 +1453,17 @@ void btgRender(void)
     if (useVBO) glBindBuffer(GL_ARRAY_BUFFER, vboTransVerts);
 
     //polys
-    if (btgFade != lastFade || *dnext != *dlast)
+    // CAT (M2-R5 render): the colours are made every frame (btgRender 0x004293dc: btgColorVertices(0) without HW1's
+    //      fade / background compare), so the flashes move
     {
         if (btgFade < 0)
         {
-            btgFade = 255;
+            // CAT: channel 0 to 1.0 and the product again (btgRender 0x00429280)
+            btgFadeChannel[0] = 1.0f;
+            btgFadeFromChannels();
         }
 
-        btgColorVertices();
+        btgColorVertices(FALSE);
 
         if (useVBO) glBufferData(GL_ARRAY_BUFFER, btgHead->numVerts * sizeof(btgTransVertex), btgTransVerts, GL_STATIC_DRAW);
         *dlast = *dnext;

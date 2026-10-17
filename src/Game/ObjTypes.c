@@ -454,6 +454,7 @@ static NumStrXlate gunsizeinfo[] =
 static NumStrXlate navlighttypeinfo[] =
 {
     { (uword)NAVLIGHT_Default, strdollar(NAVLIGHT_Default) },
+    { (uword)NAVLIGHT_FadeOnOff, strdollar(NAVLIGHT_FadeOnOff) },      // CAT: 0x00889d88
     { 0,NULL }
 };
 

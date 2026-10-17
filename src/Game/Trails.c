@@ -33,6 +33,8 @@
 #include "Teams.h"
 #include "UnivUpdate.h"     // CAT: cat_shipNozzleInfoGet, cat_meshObjectMatrixGet
 #include "Universe.h"
+#include "RammingFrigate.h"  // CAT (M2-R5 render): cat_trailShouldDraw
+#include "ShipSelect.h"      // CAT: cat_shipGetSpeedMultiplier
 
 #if defined _MSC_VER
 	#define isnan(x) _isnan(x)
@@ -196,6 +198,13 @@ char* trailMeshNames[TM_NUMDEFS] =
 };
 
 meshdata* trailMeshes[TM_NUMDEFS];
+
+// CAT (M2-R5 render): a colour channel 0..1 as the exe's trail code makes a byte: * 256, rounded, clamped at 255
+static ubyte cat_trailColourByte(real32 c)
+{
+    sdword b = (sdword)nearbyintf(c * 256.0f);
+    return (b < 256) ? (ubyte)b : 255;
+}
 
 sdword trailInsertCount = 0;
 
@@ -834,7 +843,7 @@ void trailDrawCapitalGlow(shiptrail* trail, sdword LOD)
     }
 
 //    maxvel = ship->staticinfo->common.maxvelocity;
-    maxvel = tacticsGetShipsMaxVelocity(ship);
+    maxvel = cat_shipGetSpeedMultiplier(ship) * tacticsGetShipsMaxVelocity(ship);   // CAT: with the speed multiplier (0x005a55d7)
     VECCOPY(&vel, &ship->obj.posinfo.velocity);
     mag = fsqrt(vecMagnitudeSquared(vel));
     velratio = 0.5f * mag / maxvel;
@@ -865,36 +874,24 @@ void trailDrawCapitalGlow(shiptrail* trail, sdword LOD)
     glEnable(GL_BLEND);
     rndAdditiveBlends(TRUE);
 
-    if (trail->style == 4 || trail->style == 5)
+    // CAT (M2-R5 render): the glow has the team colour of the ship (cat_shGetTeamColour 0x0050d460, bytes of colour *
+    //      256 clamped at 255, alpha 160) for every style, not the TRAIL_GLOW_* colours (trailDrawCapitalGlow
+    //      0x005a5570 at 0x005a56cf)
     {
+        real32 team[3];
+        ubyte r, g, b;
+
+        cat_shGetTeamColour(team);
+        r = cat_trailColourByte(team[0]);
+        g = cat_trailColourByte(team[1]);
+        b = cat_trailColourByte(team[2]);
         if (usingShader)
         {
-            meshSetSpecular(2,
-                            (ubyte)TRAIL_GLOW_1_RED,
-                            (ubyte)TRAIL_GLOW_1_GREEN,
-                            (ubyte)TRAIL_GLOW_1_BLUE,
-                            160);
+            meshSetSpecular(2, r, g, b, 160);
         }
         else
         {
-            glColor4ub((GLubyte)TRAIL_GLOW_1_RED, (GLubyte)TRAIL_GLOW_1_GREEN,
-                       (GLubyte)TRAIL_GLOW_1_BLUE, 160);
-        }
-    }
-    else
-    {
-        if (usingShader)
-        {
-            meshSetSpecular(2,
-                            (ubyte)TRAIL_GLOW_2_RED,
-                            (ubyte)TRAIL_GLOW_2_GREEN,
-                            (ubyte)TRAIL_GLOW_2_BLUE,
-                            160);
-        }
-        else
-        {
-            glColor4ub((GLubyte)TRAIL_GLOW_2_RED, (GLubyte)TRAIL_GLOW_2_GREEN,
-                       (GLubyte)TRAIL_GLOW_2_BLUE, 160);
+            glColor4ub(r, g, b, 160);
         }
     }
 
@@ -917,15 +914,8 @@ void trailDrawCapitalGlow(shiptrail* trail, sdword LOD)
         }
         else
         {
-            if (shipstaticinfo->scaleCap != 0.0f)
-            {
-                scaleFactor = 1.0f - selCameraSpace.z * shipstaticinfo->scaleCap;
-                glTranslatef(pos.x * scaleFactor, pos.y * scaleFactor, pos.z * scaleFactor);
-            }
-            else
-            {
-                glTranslatef(pos.x, pos.y, pos.z);
-            }
+            // CAT: the nozzle offset is not scaled by the static's scaleCap (0x005a582d)
+            glTranslatef(pos.x, pos.y, pos.z);
 
             if (trail->scalecap == -1.0f || trail->scalecap == 0.0f)
             {
@@ -1023,8 +1013,8 @@ void trailDrawCapitalGlow(shiptrail* trail, sdword LOD)
     {
         if (moshipGlow)
         {
-            if (shipstaticinfo->shiprace == R1)
-            {
+            if (shipstaticinfo->shiprace == RACE_Sect || shipstaticinfo->shiprace == RACE_Kushan)
+            {                                               // CAT: the Kushan glow too (0x005a5a2b: race 0 or 2)
                 glScalef(1.0f, 1.5f, 1.0f);
                 switch (LOD)
                 {
@@ -1120,7 +1110,9 @@ void trailDrawBillboardedSquareThingz(shiptrail* trail, trailsegment* seg, real3
         trail->ranCounter = (sdword)RANDOM_MAX;
     }
 
-    maxvel = tacticsGetShipsMaxVelocity(ship);
+    // CAT (M2-R5 render): the top speed includes the speed multiplier, and a slow ship's glow keeps the smallest size
+    //      instead of disappearing (trailDrawBillboardedSquareThingz 0x005a5be0 at 0x005a5c44 / 0x005a5cae)
+    maxvel = cat_shipGetSpeedMultiplier(ship) * tacticsGetShipsMaxVelocity(ship);
 
     //scale radius by velocity fn
     VECCOPY(&vel, &ship->obj.posinfo.velocity);
@@ -1128,7 +1120,7 @@ void trailDrawBillboardedSquareThingz(shiptrail* trail, trailsegment* seg, real3
     velratio = mag / maxvel;
     if (velratio < VELRATIO_THRESH)
     {
-        return;
+        velratio = VELRATIO_THRESH;
     }
 
     //grab ship's static glow radius if one exists
@@ -1679,24 +1671,30 @@ void trailLineBillboard(
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-color trailSurpriseColorAdjust(sdword index, sdword max, color c)
+// CAT (M2-R5 render): trailSurpriseColorAdjust 0x005a6c30 takes no colour: a segment's colour is the team colour of the
+//      ship being drawn (cat_shGetTeamColour 0x0050d460), fading from the head (index 0) to the tail, as bytes rounded
+//      and clamped at 255; the random lightening / darkening is HW1's (random streams 15..17)
+color trailSurpriseColorAdjust(sdword index, sdword max)
 {
     ubyte r, g, b;
     ubyte randval;
+    real32 team[3];
+    real32 fade;
+
+    cat_shGetTeamColour(team);
+    fade = (real32)(max - index);
+    r = cat_trailColourByte(fade * team[0] / (real32)max);
+    g = cat_trailColourByte(fade * team[1] / (real32)max);
+    b = cat_trailColourByte(fade * team[2] / (real32)max);
 
     if ((COLOR_ADJUST == 0) || (COLORADJUST_FREQ == 0) || (index > (max - 5)))
     {
-        return c;
+        return colRGB(r,g,b);
     }
-
     if ((sdword)(ranRandom(RANDOM_TRAILS_2) % 100) > COLORADJUST_FREQ)
     {
-        return c;
+        return colRGB(r,g,b);
     }
-
-    r = colRed(c);
-    g = colGreen(c);
-    b = colBlue(c);
 
     randval = (ubyte)(ranRandom(RANDOM_TRAILS_3) % COLOR_ADJUST);
 
@@ -1712,7 +1710,7 @@ color trailSurpriseColorAdjust(sdword index, sdword max, color c)
         g = MAX2(g-randval,0);
         b = MAX2(b-randval,0);
     }
-	
+
     return colRGB(r,g,b);
 }
 
@@ -1747,7 +1745,7 @@ void trailLineSequence(sdword LOD, sdword n, vector vectors[], color* segmentArr
     glBegin(GL_LINE_STRIP);
     for (i = 0; i < n; i++)
     {
-        c = trailSurpriseColorAdjust(i, n, segmentArray[i+(i==0)]);
+        c = trailSurpriseColorAdjust(i, n);         // CAT: the team colour (trailLineSequence 0x005a6e30)
         glColor4ub(colRed(c), colGreen(c), colBlue(c), alpha);
         glVertex3fv((GLfloat*)(vectors + i));
     }
@@ -1880,6 +1878,41 @@ void mistrailDraw(vector* current, missiletrail* trail, sdword LOD, sdword teamI
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : cat_trailShouldDraw (Cataclysm 0x005a7240)
+    Description : Whether a ship's engine trail is drawn: not for a clamped Leech, a dissolving ship, one with
+                  SOF_DontDrawTrails or SOF_Disabled, one being built, or a ramming frigate's trail that is not its
+                  active one; else when the ship moves (a pushing ramming frigate always)
+----------------------------------------------------------------------------*/
+static bool32 cat_trailShouldDraw(Ship *ship, shiptrail *trail)
+{
+    if ((ship->guidance.clampInfo != NULL) && (ship->guidance.clampInfo->host != NULL) && (ship->shiptype == sLeech))
+    {
+        return FALSE;
+    }
+    if (ship->catDissolving == 1)
+    {
+        return FALSE;
+    }
+    if (ship->header.flags & (SOF_DontDrawTrails|SOF_Disabled))
+    {
+        return FALSE;
+    }
+    if (bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+    {
+        return FALSE;
+    }
+    if (!cat_rammingFrigateTrailActive(trail))
+    {
+        return FALSE;
+    }
+    if (cat_shipIsRammingFrigate(ship) && cat_rammingFrigateIsPushing(ship))
+    {
+        return TRUE;
+    }
+    return IS_MOVING_LINEARLY(ship->obj.posinfo.isMoving) ? TRUE : FALSE;
+}
+
 void trailDraw(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex)
 {
     sdword index;
@@ -1903,11 +1936,13 @@ void trailDraw(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex)
         return;
     }
 
-    if (!IS_MOVING_LINEARLY(ship->obj.posinfo.isMoving) || (ship->header.flags & (SOF_DontDrawTrails|SOF_Clamped|SOF_Disabled)))  // clamped objs dont draw trails either
+    // CAT (M2-R5 render): cat_trailShouldDraw 0x005a7240 decides first (trailDraw 0x005a7310 at 0x005a7373); a ship that
+    //      dodges without an order still draws none, as in HW1
+    if (!cat_trailShouldDraw(ship, trail))
     {
         dontdrawtrail = TRUE;
     }
-    else if ((ship->header.flags & SOF_NISShip) == 0)
+    if (!dontdrawtrail && ((ship->header.flags & SOF_NISShip) == 0))
     {
         // for non NIS ships, if they don't have a command or its NULL, don't draw engine trails
         if ((ship->isDodging) || (universe.totaltimeelapsed < ship->DodgeTime))
@@ -1988,9 +2023,14 @@ void trailDraw(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex)
     if (LOD < 3)
     {
         real32 rad = ship->staticinfo->common.staticCollInfo.collspheresize;
-        segmentArray = trail->staticInfo->segmentColor[teamIndex];
+        real32 team[3];
+
         _afterburning = FALSE;
-        trailDrawBillboardedSquareThingz(trail, &lastSegment, rad, ship, segmentArray[2]);
+        // CAT: the engine glow sprite has the ship's team colour * 0.8 (0x005a7524: cat_shGetTeamColour, 0x0072a5d4)
+        cat_shGetTeamColour(team);
+        trailDrawBillboardedSquareThingz(trail, &lastSegment, rad, ship,
+                                         colRGB(cat_trailColourByte(team[0] * 0.8f), cat_trailColourByte(team[1] * 0.8f),
+                                                cat_trailColourByte(team[2] * 0.8f)));
 
         if (lastSegment.wide)
         {
@@ -2101,7 +2141,7 @@ void trailDraw(vector *current, shiptrail *trail, sdword LOD, sdword teamIndex)
                 for (i = 0; i < (n-1); i++)
                 {
                     trailLine(LOD, i, segments,
-                              trailSurpriseColorAdjust(i, n, segmentArray[i+(i==0)])
+                              trailSurpriseColorAdjust(i, n)        // CAT: the team colour (trailDraw 0x005a7310)
 //                              segmentArray[i+(i==0)]
                               , horizontals, verticals, wides);
 

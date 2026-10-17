@@ -63,6 +63,10 @@ void cat_blastCreateSlipgateExplosion(real32 x, real32 y, real32 z);
 void cat_blastCreateBigGunExplosion(real32 x, real32 y, real32 z, sdword playerIndex, real32 damageScale);
 void cat_blastUpdateAll(void);
 void cat_blastRequestEffects(void);
+// CAT (M2-R5 render)
+void cat_blastRenderAll(void);                                                  // 0x00516750
+void cat_dreadnoughtChargeEffect(vector *pos, real32 frac);                     // 0x00516a40
+void cat_nomadMoonBeamEffect(vector *moon, real32 frac, vector *emitter, vector *point);   // 0x00516bb0
 void cat_bigGunBulletTrack(Bullet *bullet);
 void cat_bigGunBulletUntrack(Bullet *bullet);
 void cat_bigGunBulletRebuildList(void);

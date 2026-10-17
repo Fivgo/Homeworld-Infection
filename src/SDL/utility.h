@@ -124,6 +124,8 @@ extern regionhandle ghMainRegion;
 extern sdword enableTextures;
 extern sdword enableSmoothing;
 extern sdword enableCPV;            // CAT: per-vertex colour option (0x00c52378)
+extern sdword enableLensFlare;      // CAT: lens flare option (0x00c52380)
+extern sdword enableRepairbots;     // CAT: repair droid option (0x00c52374)
 extern sdword enableStipple;
 extern ShipRace whichRaceSelected;
 

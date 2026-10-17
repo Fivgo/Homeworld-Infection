@@ -854,6 +854,10 @@ void hsStaticDestroy(hvector* point)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT (M2-R5 render): compared with hsStaticGateRender 0x00490240: the same state changes, the derelict's coordsys
+//      (+0x98) and collision position (+0xE0), and the gate rectangle cat_hsGateRectangle 0x0048f8b0 is this
+//      hsRectangle with the colour fixed at (70, 90, 255) / outline (110, 130, 255), half sizes 0.54 (0x0072a678),
+//      drawn as a quad and a line loop in immediate mode (the same pixels as the vertex arrays here)
 void hsStaticGateRender(hsStaticGate* gate)
 {
     bool32 lightEnabled;

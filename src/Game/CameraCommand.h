@@ -107,6 +107,7 @@ void ccFocus(CameraCommand *cameracommand,FocusCommand *focuscom);
 void ccFocusClose(CameraCommand *cameracommand, FocusCommand *focuscom);
 void ccFocusFar(CameraCommand *cameracommand,FocusCommand *focuscom, Camera *currentCamera);
 void ccFocusOnMyMothership(CameraCommand *cameracommand);
+extern bool32 ccCameraTimeoutOverride;
 void ccFocusOnPlayersMothership(CameraCommand *cameracommand,uword playerindex);
 bool32 ccFocusOnFleet(CameraCommand *cameracommand);
 bool32 ccFocusExact(CameraCommand *cameracommand,CameraCommand *focustocopy);
