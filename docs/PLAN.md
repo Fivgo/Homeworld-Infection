@@ -34,11 +34,11 @@ Name and classify every function, so the decompilation knows what each piece is.
 
 ### M3: native Linux and Windows 11 builds
 - Entry: M2 exit on one platform.
-- Exit: both platforms build from one tree in CI, own their window (SDL2, no gamescope, no Wine), run a one-hour soak at stable frame pacing, and load the same GOG data files.
+- Exit: both platforms build from one tree in CI, own their window (SDL2, no gamescope, no Wine), load the same GOG data files, and run a one-hour soak at 3840x2160 and 144 Hz with stable frame pacing (docs/features/high-refresh-4k.md).
 - Proof tool: CI matrix; a frame-time log over the soak.
 
 ### Later: additional features
-Reserved for the user's list once the recreation is stable. **First approved feature (2026-10-17): render-time motion interpolation (gameplay and cutscenes) with an in-game toggle, see docs/features/motion-interpolation.md; implemented in M2-R6 after the NIS port.** Other candidates raised so far: UI scaling above 640x480 (the front end is fixed-size art), frame pacing investigation, modern resolutions by default.
+Reserved for the user's list once the recreation is stable. **First approved feature (2026-10-17): render-time motion interpolation (gameplay and cutscenes) with an in-game toggle, see docs/features/motion-interpolation.md; implemented in M2-R6 after the NIS port.** **Second target (2026-10-17): 4K at up to 144 fps on a modern system, docs/features/high-refresh-4k.md.** Other candidates raised so far: UI scaling above 640x480 (the front end is fixed-size art), frame pacing investigation, modern resolutions by default.
 
 ## M2 approach: recommendation
 
