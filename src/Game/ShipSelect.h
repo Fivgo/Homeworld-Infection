@@ -365,6 +365,7 @@ bool32 cat_shipCanMove(Ship *ship, bool32 check);
 bool32 cat_shipCanDock(Ship *ship, bool32 check);
 bool32 cat_shipCanBeHalted(Ship *ship, bool32 check);
 bool32 cat_shipCanSetTactics(Ship *ship, bool32 check);
+real32 cat_shipGetFOWRadius(Ship *ship, sdword researchSource);      // CAT: 0x00514a30 (M2-R5 command-tactics)
 bool32 cat_shipCanCollectResources(Ship *ship, bool32 check);
 bool32 cat_shipCanLeech(Ship *ship, bool32 checkAttached);
 bool32 cat_shipCanUnleech(Ship *ship);

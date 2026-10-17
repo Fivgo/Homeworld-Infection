@@ -49,11 +49,14 @@
 #include "Ping.h"
 #include "ProfileTimers.h"
 #include "Randy.h"
+#include "ResCollect.h"
+#include "Salvage.h"
 #include "SaveGame.h"
 #include "Shader.h"         // CAT: catShCurrentObject (the bullet-hit glow)
 #include "Select.h"
 #include "Sensors.h"
 #include "Ships.h"
+#include "ShipSelect.h"
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
 #include "Star3d.h"
@@ -1801,7 +1804,7 @@ void InitializeShowingDamage(Ship* ship)
     Outputs     :
     Return      : address of ship created
 ----------------------------------------------------------------------------*/
-// CAT-TODO(M2-R4 #2/#3/#4/#5): univCreateShip 0x00542320 is ported only as far as the mesh state (below). The exe
+// CAT-TODO(M2-R4 #3/#4/#5): univCreateShip 0x00542320 is ported only as far as the mesh state (below). The exe
 //      takes 7 arguments and adds the ship to the universe itself unless a flag says not to (univAddShip is gone); it
 //      allocates the 0x63C-byte Ship with the gun (0x88 per gun), mad and precise-selection blocks behind it, sets up
 //      repair droids, damage points (cat_dmgShipLoadDamagePoints), upgrades (cat_shipUpgradesInit/ApplyUpgrades), dock
@@ -2647,6 +2650,65 @@ void univUpdateAllPosVelResources()
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_univLimitProtectedShipSpeed
+    Description : every ship that an escort command protects gets that command's group speed as its speed limit
+                  (Ship.catProtectedSpeedLimit, the lowest when several protect it)
+----------------------------------------------------------------------------*/
+// CAT: new (cat_univLimitProtectedShipSpeed 0x00544e00): not for a docking ship, mission 8's tHeavyInterceptors and
+//      mission 9's tResourceCollectors, or a salvager within 750 of its target; a limit below 0 is first raised to
+//      1e21; GetShipsTravelVel's speed of the escorts caps it
+void cat_univLimitProtectedShipSpeed(void)
+{
+    Node *node;
+    CommandToDo *command;
+    real32 travelvel;
+    sdword i;
+    Ship *ship;
+    CatSalvagerInfo *info;
+
+    for (node = universe.mainCommandLayer.todolist.head; node != NULL; node = node->next)
+    {
+        command = (CommandToDo *)listGetStructOfNode(node);
+        if (!(command->ordertype.attributes & COMMAND_MASK_PROTECTING))
+        {
+            continue;
+        }
+        travelvel = GetShipsTravelVel(command->selection,1.0f);
+        for (i = 0; i < command->protect->numShips; i++)
+        {
+            ship = command->protect->ShipPtr[i];
+            if (ship->dockvars.dockship != NULL)
+            {
+                continue;
+            }
+            if (singlePlayerGame &&
+                (((singlePlayerGameInfo.currentMission == 8) && (ship->shiptype == tHeavyInterceptor)) ||
+                 ((singlePlayerGameInfo.currentMission == 9) && (ship->shiptype == tResourceCollector))))
+            {
+                continue;
+            }
+            if (cat_shipIsSalvager(ship))
+            {
+                info = cat_salvageGetSalvagerInfo(ship);
+                if ((info->target != NULL) &&
+                    (cat_vecDistance(&ship->obj.posinfo.position,&info->target->obj.posinfo.position) < 750.0f))   // 0x0072bd70
+                {
+                    continue;
+                }
+            }
+            if (ship->catProtectedSpeedLimit < 0.0f)
+            {
+                ship->catProtectedSpeedLimit = 1e21f;
+            }
+            if (travelvel < ship->catProtectedSpeedLimit)
+            {
+                ship->catProtectedSpeedLimit = travelvel;
+            }
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
     Name        : univUpdateAllPosVelShips
     Description : Exclusive physics updating for ships
     Inputs      :
@@ -2786,10 +2848,10 @@ void univUpdateAllPosVelShips()
         }
     }
 
-    // CAT: every 5 seconds (0x0072bd5c) the protected-speed limits are recomputed (0x005451a1).
-    //      CAT-TODO(M2-R4 #2): cat_univLimitProtectedShipSpeed 0x00544e00 (escort commands' group speed into Ship +0x5C4)
+    // CAT: every 5 seconds (0x0072bd5c) the protected-speed limits are recomputed (0x005451a1)
     if (catProtectedSpeedLimitTime < universe.totaltimeelapsed)
     {
+        cat_univLimitProtectedShipSpeed();
         catProtectedSpeedLimitTime = 5.0f + universe.totaltimeelapsed;
     }
 
@@ -6819,115 +6881,124 @@ void univSetupShipsForControl()
     growSelectReset(&universe.catSelection1A0);
 }
 
-// CAT-TODO(M2-R4 #4/#5): getEnemiesWithinProximity 0x0054a3f0 tests cat_shipIsTargetableBy and the stealth
-//      detection (0x0053f9f0) instead of proximityCanPlayerSeeShip and the decloak timers, and fills a static
-//      selection (no memAlloc). The HW1 FloatingCity/TargetDrone tests stay until then.
+// CAT: getEnemiesWithinProximity 0x0054a3f0 returns a static selection of at most 6 ships (0x00a6ebc8; the next call
+//      reuses it, callers do not free it): the ships of thisship's blob that its owner can target
+//      (cat_shipIsTargetableBy) and has detected (cat_shipDetectedByPlayer), no allies, no friendly or hyperspacing
+//      ships, no disabled or hidden ships, no motherships, within the retaliate zone on each axis; a recently
+//      decloaked ship is seen by chance (TW_*_SEE_*); NULL for a ship without a blob, a trFloatingCity or a ship with
+//      SPECIAL_FriendlyStatus
+#define CAT_ENEMIES_MAX     6
+static struct
+{
+    sdword numShips;
+    real32 timeLastStatus;
+    Ship *ShipPtr[CAT_ENEMIES_MAX];
+} catEnemiesWithinProximity;
+
 SelectCommand *getEnemiesWithinProximity(Ship *thisship,real32 retaliateZone)
 {
     Player *playerowner = thisship->playerowner;
-    blob *thisblob = thisship->obj.collMyBlob;
-    sdword objindex = 0;
-    SelectCommand *blobships = thisblob->blobShips;
-    udword num = blobships->numShips;
-    SelectCommand *select;
-    udword shipIndex = 0;
+    SelectCommand *blobships;
+    udword num;
+    udword objindex;
+    sdword found = 0;
     Ship *ship;
-    vector diff;
-    real32 timesincecloak;
     real32 negRetaliateZone = -retaliateZone;
+    real32 timesincecloak;
+    real32 dx, dy, dz;
 
-    if ((thisship->shiptype == FloatingCity) || (bitTest(thisship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus)))
+    if (thisship->obj.collMyBlob == NULL)
+    {
+        return NULL;
+    }
+    blobships = thisship->obj.collMyBlob->blobShips;
+    num = (udword)blobships->numShips;
+    if ((thisship->shiptype == trFloatingCity) || bitTest(thisship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus))
     {
         return NULL;      // traders get special status, not considered enemy to anyone
     }
-
-    select = memAlloc(sizeofSelectCommand(num),"se(selectenemies)",Pyrophoric);    // worst case scenario
-
-    while (objindex < num)
+    catEnemiesWithinProximity.numShips = 0;
+    if (num == 0)
     {
-        ship = blobships->ShipPtr[objindex];
-
-        if (allianceIsShipAlly(ship,playerowner))
-        {
-            goto nextnode;      // must be enemy ship
-        }
-        if ((ship->shiptype == FloatingCity) || (bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus|SPECIAL_Hyperspacing)))
-        {
-            goto nextnode;      // traders get special status, not considered enemy to anyone
-        }
-        if (bitTest(ship->header.flags,SOF_Cloaked))
-        {
-            if(!proximityCanPlayerSeeShip(thisship->playerowner,ship))
-            {
-                goto nextnode;      // if ship is cloaked, and can't be seen by that ships player..
-            }
-        }
-        timesincecloak = universe.totaltimeelapsed - ship->shipDeCloakTime;
-        if(timesincecloak <= TW_SECOND_SEE_TIME)
-        {
-            if(timesincecloak < TW_NOONE_SEE_TIME)
-            {
-                //ship being considered has decloaked so recently that 'thisship' couldn't
-                //possibly see it yet
-                goto nextnode;
-            }
-            else if(timesincecloak < TW_FIRST_SEE_TIME)
-            {
-                //ship has decloaked so long ago that only a small percentage could see it now
-                if(randombetween(0,100) > TW_FIRST_SEE_PERCENTAGE)
-                {
-                    goto nextnode;
-                }
-            }
-            else if(timesincecloak < TW_SECOND_SEE_TIME)
-            {
-                //ship has decloaked a fair ammount of time ago, and some more ships are likely to see it now
-                if(randombetween(0,100) > TW_SECOND_SEE_PERCENTAGE)
-                {
-                    goto nextnode;
-                }
-            }
-        }
-        if(bitTest(ship->header.flags,SOF_Disabled|SOF_Hide))
-        {
-            //don't attack disabled ships.
-            goto nextnode;
-        }
-        vecSub(diff,ship->obj.posinfo.position,thisship->obj.posinfo.position);
-
-        if (isBetweenExclusive(diff.x,negRetaliateZone,retaliateZone) &&
-            isBetweenExclusive(diff.y,negRetaliateZone,retaliateZone) &&
-            isBetweenExclusive(diff.z,negRetaliateZone,retaliateZone) )
-        {
-            select->ShipPtr[shipIndex++] = ship;
-        }
-
-nextnode:
-        objindex++;
-    }
-
-    if (shipIndex == 0)
-    {
-        memFree(select);
         return NULL;
     }
 
-    select->numShips = shipIndex;
-    return select;
+    for (objindex = 0; objindex < num; objindex++)
+    {
+        if (found >= CAT_ENEMIES_MAX)
+        {
+            break;
+        }
+        ship = blobships->ShipPtr[objindex];
+
+        if (!cat_shipIsTargetableBy(thisship->playerowner, ship) || allianceIsShipAlly(ship, playerowner) ||
+            bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus|SPECIAL_Hyperspacing) ||
+            !cat_shipDetectedByPlayer(ship, thisship->playerowner->playerIndex))
+        {
+            continue;
+        }
+        timesincecloak = universe.totaltimeelapsed - ship->shipDeCloakTime;
+        if (!(timesincecloak > TW_SECOND_SEE_TIME))
+        {
+            if (timesincecloak < TW_NOONE_SEE_TIME)
+            {
+                continue;       // decloaked so recently that thisship cannot see it yet
+            }
+            if (timesincecloak < TW_FIRST_SEE_TIME)
+            {
+                if ((ranRandom(RANDOM_GAME) % 101) > TW_FIRST_SEE_PERCENTAGE)
+                {
+                    continue;
+                }
+            }
+            else if (timesincecloak < TW_SECOND_SEE_TIME)
+            {
+                if ((ranRandom(RANDOM_GAME) % 101) > TW_SECOND_SEE_PERCENTAGE)
+                {
+                    continue;
+                }
+            }
+        }
+        if (bitTest(ship->header.flags, SOF_Disabled|SOF_Hide) || (ship->shiptype == sMothership) ||
+            (ship->shiptype == bMothership))
+        {
+            continue;
+        }
+        dx = ship->obj.posinfo.position.x - thisship->obj.posinfo.position.x;
+        dy = ship->obj.posinfo.position.y - thisship->obj.posinfo.position.y;
+        dz = ship->obj.posinfo.position.z - thisship->obj.posinfo.position.z;
+        if ((negRetaliateZone < dx) && (dx < retaliateZone) && (negRetaliateZone < dy) && (dy < retaliateZone) &&
+            (negRetaliateZone < dz) && (dz < retaliateZone))
+        {
+            catEnemiesWithinProximity.ShipPtr[found++] = ship;
+        }
+    }
+
+    if (found == 0)
+    {
+        return NULL;
+    }
+    catEnemiesWithinProximity.numShips = found;
+    return (SelectCommand *)&catEnemiesWithinProximity;
 }
 
-// CAT-TODO(M2-R4 #2/#4/#5): univCheckShipState 0x0054a650 is not ported yet: the delayed deaths (deathtime) of
-//      disabled, mimicking and Beast-system ships go to AddShipToDeleteShipList with modes 2/3/4, passive attacks
-//      go through cat_tacticsShipAttacked (HW1's tacticsDelegate* / passive-attack helpers are gone), cloaked and
-//      mimicking ships and resource collectors are skipped, and the out-of-world check keeps a ship attacking a
-//      target inside the world. HW1's per-type tests (GravWellGenerator, MiningBase, Drone, ResourceCollector) stay
-//      until then.
+// CAT: univCheckShipState 0x0054a650 (M2-R5 command-tactics). The delayed death (deathtime) kills a grav-well
+//      generator only when derelict (mode 2), a mimicking ship not at all, any other ship (mode 4; a mimic type that
+//      does not mimic, mode 3), disabled or not. The out-of-world check is dead code in the exe: it clips the zero
+//      vector instead of the ship's position (pieMovePointClipToLimits 0x004e76b0 moves its second argument) and
+//      compares the unchanged position, so no ship is ever flown back into the world; it is left out. A ship
+//      retaliates through cat_tacticsShipAttacked: an idle one when its attacker (gettingrocked) is no ally, or on
+//      its passive-attack beat when it is selectable and neither fully cloaked nor mimicking; a moving or docking one
+//      on its moving beat when it is a capital ship (static shipIsCapital +0x2A8). An idle resource collector
+//      that is attacked docks to deposit unless aggressive. No tacticsUpdate (HW1's per-ship tactics are gone).
 void univCheckShipState(Ship *ship)
 {
     SelectCommand selectone;
-    AttackCommand *attack;
+    SelectCommand *attackers;
     CommandToDo *command;
+    sdword mode;
 
+    // CAT: the GoK base's guard against NaN positions is kept (the exe has none): such a ship would poison the blobs
     // kill ships with NaN positions
     // seems to happen on Mission 10 frequently preventing objective to be fullfilled as ships can't be found and killed
     // NOTE: what is causing the NaNs in the first place is unclear at this time.
@@ -6942,28 +7013,33 @@ void univCheckShipState(Ship *ship)
 
     if (ship->deathtime != 0.0f)
     {
-        if ((ship->header.flags & SOF_Dead) == 0)
+        if (ship->header.flags & SOF_Dead)
         {
-            if (universe.totaltimeelapsed >= ship->deathtime)
+            return;
+        }
+        if (universe.totaltimeelapsed >= ship->deathtime)
+        {
+            mode = 0;
+            if ((ship->shiptype == kGravWellGenerator) || (ship->shiptype == tGravWellGenerator))
+            {
+                if (((GravWellGeneratorSpec *)ship->ShipSpecifics)->GravDerelict)
+                {
+                    mode = 2;
+                }
+            }
+            else if (!bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic))
+            {
+                mode = 4;
+            }
+            else if (!cat_shipIsMimicking(ship))
+            {
+                mode = 3;
+            }
+            if (mode != 0)
             {
                 // Self-destruct ship
-                if(!(ship->header.flags & SOF_Disabled))
-                {
-                    //if ship is disabled..it didn't receive the
-                    //self destruct order
-                    ship->targetable.health = 0;
-                    AddShipToDeleteShipList(ship,-1,1);
-                }
-                else if(ship->shiptype == GravWellGenerator)
-                {
-                    if( ((GravWellGeneratorSpec *)ship->ShipSpecifics)->GravDerelict)
-                    {
-                        //if ship is disabled..it didn't receive the
-                        //self destruct order
-                        ship->targetable.health = 0;
-                        AddShipToDeleteShipList(ship,-1,1);
-                    }
-                }
+                ship->targetable.health = 0;
+                AddShipToDeleteShipList(ship,-1,mode);
             }
         }
     }
@@ -6983,7 +7059,7 @@ void univCheckShipState(Ship *ship)
     {
         bool32 isShipSteady;
 
-        if (ship->shiptype == MiningBase)
+        if (ship->shiptype == trMiningBase)
             isShipSteady = aitrackIsShipSteadyAnywhere(ship);       // don't care about orientation up
         else
             isShipSteady = aitrackIsShipSteady(ship);
@@ -7014,271 +7090,79 @@ void univCheckShipState(Ship *ship)
                     }
 
                 case 2:
-                    if (ship->shiptype == MiningBase)
+                    if (ship->shiptype == trMiningBase)
                         aitrackSteadyShipAnywhere(ship);
                     else
                         aitrackSteadyShip(ship);
                     break;
 
                 default:
-                    dbgAssertOrIgnore(FALSE);
                     break;
             }
         }
     }
-
-#ifdef HW_BUILD_FOR_DEBUGGING
-    if (!shipsRetaliate)
-    {
-        return;
-    }
-#endif
 
     if (nisIsRunning)
     {
         return;      // don't autoretaliate if NIS running
     }
 
-    if(!bitTest(ship->header.flags, SOF_Disabled))
-    {
-        tacticsUpdate(ship);    //perform tactical processes for ship
-        if (UNIVERSE_WOODPECKER(CHECK_SHIP_OUTOFWORLD_RATE, ship->shipID.shipNumber & CHECK_SHIP_OUTOFWORLD_RATE))
-        {
-            if (!(singlePlayerGame && (ship->playerowner->playerIndex == 1)))        // don't apply to KAS ships in single player game
-            {
-                if (univObjectOutsideWorld((SpaceObj *)ship))
-                {
-                    vector newdest;
-                    SelectCommand *selectmove = getShipAndItsFormation(&universe.mainCommandLayer,ship);
-                    CommandToDo *commandofship = getShipAndItsCommand(&universe.mainCommandLayer,ship);
-                    dbgAssertOrIgnore(selectmove);
-
-                    if(commandofship != NULL)
-                    {
-                        if(commandofship->ordertype.order == COMMAND_MP_HYPERSPACING)
-                        {
-                            //if ship is hyperspaceing, don't check if its in the world...once it is done, then we can move it!
-                            goto DONT_MOVE_ME_YET;
-                        }
-
-                        if(commandofship->ordertype.order == COMMAND_ATTACK)
-                        {
-                            // let's see if we can find a target that is inside the world and attack that:
-                            SpaceObjRotImpTarg *currenttarget = ship->attackvars.attacktarget;
-                            SpaceObjRotImpTarg *testtarget;
-                            AttackCommand *attack;
-                            sdword i;
-
-                            if (currenttarget)
-                            {
-                                if (!univObjectOutsideWorld((SpaceObj *)currenttarget))
-                                {
-                                    // our target is still in world, so we don't have to move into world
-                                    goto DONT_MOVE_ME_YET;
-                                }
-                            }
-
-                            attack = commandofship->attack;
-                            for (i=0;i<attack->numTargets;i++)
-                            {
-                                testtarget = attack->TargetPtr[i];
-                                if (testtarget == currenttarget)
-                                {
-                                    continue;
-                                }
-
-                                if (!univObjectOutsideWorld((SpaceObj *)testtarget))
-                                {
-                                    ship->attackvars.attacktarget = testtarget;
-                                    goto DONT_MOVE_ME_YET;
-                                }
-                            }
-                        }
-                    }
-                    newdest = ship->obj.posinfo.position;
-                    vecMultiplyByScalar(newdest,FLY_INTO_WORLD_PERCENT_DIST);
-                    clMove(&universe.mainCommandLayer,selectmove,ship->obj.posinfo.position,newdest);
-                    memFree(selectmove);
-                    return;
-                }
-            }
-        }
-    }
-DONT_MOVE_ME_YET:
     if (ship->shipidle)
     {
-        if(!bitTest(ship->header.flags, SOF_Disabled))
+        if (bitTest(ship->header.flags, SOF_Disabled))
         {
-            if (ship->shiptype == ResourceCollector)
-            {
-                if ((ship->gettingrocked != NULL) && (ship->tacticstype != Aggressive))
-                {                                                   // tell ResourceCollector to run away
-                    selectone.numShips = 1;
-                    selectone.ShipPtr[0] = ship;
-
-                    clDock(&universe.mainCommandLayer,&selectone,CAT_DOCK_DEPOSIT_RESOURCES,NULL);
-                }
-            }
-            else
-            {
-                if ((ship->gettingrocked != NULL) && (!allianceIsShipAlly(ship,ship->gettingrocked->playerowner)))
-                {
-                    // attack ship->gettingrocked and its formation
-                    attack = (AttackCommand *)getShipAndItsFormation(&universe.mainCommandLayer,ship->gettingrocked);
-                    dbgAssertOrIgnore(attack->numTargets > 0);
-
-                    command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
-                    if (command != NULL)
-                    {
-                        if (AreAnyShipsPassiveAttackCapable(command->selection))
-                        {
-#ifdef DEBUG_TACTICS
-                            if(tacticsOn)
-#endif
-                            {
-                                tacticsDelegateAttackCommand(ship,command,attack,TRUE,FALSE);
-                            }
-#ifdef DEBUG_TACTICS
-                            else
-                            {
-                                if (canChangeOrderToPassiveAttack(command,attack))
-                                {
-                                    ChangeOrderToPassiveAttack(command,attack);
-                                }
-                            }
-#endif
-                        }
-                    }
-                    else
-                    {
-                        if (isShipPassiveAttackCapable(ship))
-                        {
-                            selectone.numShips = 1;
-                            selectone.ShipPtr[0] = ship;
-#ifdef DEBUG_TACTICS
-                            if(tacticsOn)
-#endif
-                            {
-                                tacticsDelegateSingleAttack(ship,&universe.mainCommandLayer,&selectone,attack,TRUE);
-                            }
-#ifdef DEBUG_TACTICS
-                            else
-                            {
-                                clPassiveAttack(&universe.mainCommandLayer,&selectone,attack);
-                            }
-#endif
-                        }
-                    }
-                    memFree(attack);
-                }
-                else if ((UNIVERSE_WOODPECKER(CHECK_PASSIVE_ATTACK_RATE, ship->shipID.shipNumber & CHECK_PASSIVE_ATTACK_RATE)) && (ship->staticinfo->passiveRetaliateZone != 0.0f))
-                {
-                    if(bitTest(ship->header.flags,SOF_Cloaked) || bitTest(ship->header.flags,SOF_Cloaking))
-                    {   //if a ship is cloaked or it is cloaking, don't passive attack because we
-                        //want to act stealthy :)
-                        return;
-                    }
-
-                    command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
-                    if (command != NULL)
-                    {
-                        if ((canChangeOrderToPassiveAttack(command,NULL)) && (AreAnyShipsPassiveAttackCapable(command->selection)))
-                        {
-                            attack = (AttackCommand *)getEnemiesWithinProximity(ship,ship->staticinfo->passiveRetaliateZone);
-                            if (attack != NULL)
-                            {
-#ifdef DEBUG_TACTICS
-                                if(tacticsOn)
-#endif
-                                {
-                                    tacticsDelegateAttackCommand(ship,command,attack,FALSE,TRUE);
-                                }
-#ifdef DEBUG_TACTICS
-                                else
-                                {
-                                    ChangeOrderToPassiveAttack(command,attack);
-                                }
-#endif
-
-                                memFree(attack);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        if (isShipPassiveAttackCapable(ship))
-                        {
-                            selectone.numShips = 1;
-                            selectone.ShipPtr[0] = ship;
-
-                            attack = (AttackCommand *)getEnemiesWithinProximity(ship,ship->staticinfo->passiveRetaliateZone);
-                            if (attack != NULL)
-                            {
-                                //fix later by removing this and all other tacticsOn checks
-#ifdef DEBUG_TACTICS
-                                if(tacticsOn)
-#endif
-                                {
-                                    tacticsDelegateSingleAttack(ship,&universe.mainCommandLayer,&selectone,attack,FALSE);
-                                }
-#ifdef DEBUG_TACTICS
-                                else
-                                {
-                                    clPassiveAttack(&universe.mainCommandLayer,&selectone,attack);
-                                }
-#endif
-                               memFree(attack);
-                            }
-                        }
-                    }
-                }
-            }
+            return;
         }
-    }
-    else
-    {
-        //ship isn't idle
-        //so lets do a check every so often to see if
-        //ship should attempt passive attacking
-        if(!bitTest(ship->header.flags, SOF_Disabled))
+        if (cat_shipIsCollectingResources(ship))
         {
-            if ((UNIVERSE_WOODPECKER(CHECK_PASSIVE_ATTACK_WHILEMOVING_RATE, ship->shipID.shipNumber & CHECK_PASSIVE_ATTACK_WHILEMOVING_RATE)) && (ship->staticinfo->passiveRetaliateZone != 0.0f) && (isCapitalShip(ship)))
-            {
-
-                command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
-                if (command != NULL)
-                {
-                    if(command->ordertype.order == COMMAND_MOVE
-                    ||command->ordertype.order == COMMAND_DOCK)
-                    {
-                        if(bitTest(ship->header.flags,SOF_Cloaked) || bitTest(ship->header.flags,SOF_Cloaking))
-                        {   //if a ship is cloaked or it is cloaking, don't passive attack because we
-                            //want to act stealthy :)
-                            return;
-                        }
-                        if ((canChangeOrderToPassiveAttack(command,NULL)) && (AreAnyShipsPassiveAttackCapable(command->selection)))
-                        {
-                            attack = (AttackCommand *)getEnemiesWithinProximity(ship,ship->staticinfo->passiveRetaliateZone);
-                            if (attack != NULL)
-                            {
-#ifdef DEBUG_TACTICS
-                                if(tacticsOn)
-#endif
-                                {
-                                    tacticsDelegateAttackCommand(ship,command,attack,FALSE,TRUE);
-                                }
-#ifdef DEBUG_TACTICS
-                                else
-                                {
-                                    ChangeOrderToPassiveAttack(command,attack);
-                                }
-#endif
-                                memFree(attack);
-                            }
-                        }
-                    }
-                }
+            if ((ship->gettingrocked != NULL) && (ship->tacticstype != Aggressive))
+            {                                                   // tell the collector to run away
+                selectone.numShips = 1;
+                selectone.timeLastStatus = 0.0f;     // CAT-FIX: the exe leaves it uninitialised (0x0054aa9b)
+                selectone.ShipPtr[0] = ship;
+                clDock(&universe.mainCommandLayer,&selectone,CAT_DOCK_DEPOSIT_RESOURCES,NULL);
             }
+            return;
+        }
+        if ((ship->gettingrocked != NULL) && !allianceIsShipAlly(ship,ship->gettingrocked->playerowner))
+        {
+            // attack ship->gettingrocked and its formation
+            attackers = getShipAndItsFormation(&universe.mainCommandLayer,ship->gettingrocked);
+            command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
+            cat_tacticsShipAttacked(ship,command,(AttackCommand *)attackers);
+            memFree(attackers);     // CAT-FIX: the exe never frees getShipAndItsFormation's copy here (0x0054ab72)
+            return;
+        }
+        if (UNIVERSE_WOODPECKER(CHECK_PASSIVE_ATTACK_RATE, ship->shipID.shipNumber & CHECK_PASSIVE_ATTACK_RATE) &&
+            (ship->staticinfo->passiveRetaliateZone != 0.0f) && !cat_shipIsCloakedFully(ship) &&
+            !(bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic) && cat_shipIsMimicking(ship)) &&
+            bitTest(ship->header.flags, SOF_Selectable))
+        {
+            command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
+            attackers = getEnemiesWithinProximity(ship,ship->staticinfo->passiveRetaliateZone);
+            cat_tacticsShipAttacked(ship,command,(AttackCommand *)attackers);
+        }
+        return;
+    }
+
+    //ship isn't idle
+    //so lets do a check every so often to see if
+    //ship should attempt passive attacking
+    if (bitTest(ship->header.flags, SOF_Disabled))
+    {
+        return;
+    }
+    if (UNIVERSE_WOODPECKER(CHECK_PASSIVE_ATTACK_WHILEMOVING_RATE, ship->shipID.shipNumber & CHECK_PASSIVE_ATTACK_WHILEMOVING_RATE) &&
+        (ship->staticinfo->passiveRetaliateZone != 0.0f) && ship->staticinfo->shipIsCapital)
+    {
+        command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
+        if ((command != NULL) &&
+            ((command->ordertype.order == COMMAND_MOVE) || (command->ordertype.order == COMMAND_DOCK)) &&
+            !cat_shipIsCloakedFully(ship) &&
+            !(bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic) && cat_shipIsMimicking(ship)))
+        {
+            attackers = getEnemiesWithinProximity(ship,ship->staticinfo->passiveRetaliateZone);
+            cat_tacticsShipAttacked(ship,command,(AttackCommand *)attackers);
         }
     }
 }
@@ -8670,7 +8554,7 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
     armourLevel = ship->catArmourLevel;
     resources = ship->resources;
 
-    // CAT-TODO(M2-R4 #2..#5): univCreateShip 0x00542320 takes 7 arguments and adds the ship itself; univAddShip is
+    // CAT-TODO(M2-R4 #3..#5): univCreateShip 0x00542320 takes 7 arguments and adds the ship itself; univAddShip is
     //      this tree's equivalent
     newship = univAddShip(newType, GetValidRaceForShipType(newType), &position, newOwner, 0);
 
@@ -8749,8 +8633,8 @@ bool32 cat_univBeastInfectionUpdate(Ship *ship)
             selectone.numShips = 1;
             selectone.timeLastStatus = 0.0f;
             selectone.ShipPtr[0] = ship;
-            // CAT: the exe passes RemoveShipsFromDoingStuff 0x00444810 the reason 0x2A (M2-R4 command follow-up)
-            RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone);
+            // CAT: the exe passes RemoveShipsFromDoingStuff 0x00444810 the reason 0x2A
+            RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone,0x2A);
         }
         if (ship->catBeastConvertTime <= universe.totaltimeelapsed)
         {
@@ -8810,7 +8694,11 @@ void cat_univShipDeferredUpdate(Ship *ship)
     {
         ((SentinelSpec *)ship->ShipSpecifics)->disrupted = FALSE;
     }
-    // CAT-TODO(M2-R4 #2): the protected-speed limit (Ship +0x5C4) is reset when its timer has run out
+    // CAT: the protected-speed limit is cleared when it is due to be recomputed (0x005448a7)
+    if (universe.totaltimeelapsed > catProtectedSpeedLimitTime)
+    {
+        ship->catProtectedSpeedLimit = -1.0f;
+    }
     cat_shipDissolveUpdate(ship);                           // CAT: 0x00460850 (M2-R4 ships-b)
     // CAT (M2-R4 combat): the stun timers of a Beast hit (0x005448ca): when the stun period is over, a hit ship
     //      (state 1) is stunned again after 0.4..1.2 s for 1.5..3 s, or at its spin time when that is set; an infected

@@ -94,7 +94,8 @@ bool32 cat_isBigGunBullet(SpaceObj *obj);
 void cat_effectDeleteNow(struct Effect *effect);                    // CAT: 0x005bbbb0 (M2-R4 ships-b)
 // CAT (M2-R4 ships-b): the Sect big gun and the Beast mothership's systems
 real32 cat_bigGunChargeFraction(Ship *ship);                        // 0x005bbb30
-void cat_bigGunProcessFireCommand(Ship *ship, vector *point);       // 0x005bbe80
+struct CommandToDo;
+void cat_bigGunProcessFireCommand(struct CommandToDo *command);    // 0x005bbe80
 real32 cat_bigGunMaxRange(void);                                    // 0x005bceb0
 real32 cat_bigGunDamageFalloff(real32 distance);                    // 0x005bced0
 void cat_bigGunBulletExplode(Bullet *bullet);                       // 0x005bcfa0

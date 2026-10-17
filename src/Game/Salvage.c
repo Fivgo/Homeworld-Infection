@@ -1439,8 +1439,8 @@ bool32 cat_salvageSpecialTarget(Ship *ship, void *custom)                  // 0x
             selectone.ShipPtr[0] = target;
             selectone.numShips = 1;
             selectone.timeLastStatus = 0.0f;
-            // CAT: the exe passes RemoveShipsFromDoingStuff 0x00444810 the reason 0x1A (M2-R4 command follow-up)
-            RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone);
+            // CAT: the exe passes RemoveShipsFromDoingStuff 0x00444810 the reason 0x1A
+            RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone,0x1A);
             bitClear(target->header.flags, SOF_Selectable);
             bitSet(target->header.flags, SOF_Disabled);
             bitSet(target->header.flags, SOF_DontDrawTrails);
@@ -1576,8 +1576,8 @@ void cat_salvageHouseKeep(Ship *ship)                                       // 0
         info->forceDetach = FALSE;
         selectone.numShips = 1;
         selectone.ShipPtr[0] = ship;
-        // CAT: the exe passes RemoveShipsFromDoingStuff 0x00444810 the reason 0x515 (M2-R4 command follow-up)
-        RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone);
+        // CAT: the exe passes RemoveShipsFromDoingStuff 0x00444810 the reason 0x515
+        RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone,0x515);
     }
 }
 
@@ -2073,8 +2073,8 @@ static void cat_salvageDepotReleaseSalvagers(Ship *depot, sdword slot)
                 selectone.numShips = 1;
                 selectone.timeLastStatus = 0.0f;
                 selectone.ShipPtr[0] = ship;
-                // CAT: the exe passes RemoveShipsFromDoingStuff 0x00444810 the reason 0x1C (M2-R4 command follow-up)
-                RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone);
+                // CAT: the exe passes RemoveShipsFromDoingStuff 0x00444810 the reason 0x1C
+                RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone,0x1C);
                 GroupShip(&universe.mainCommandLayer, ship, depot);
             }
             cat_salvageDetach(ship);

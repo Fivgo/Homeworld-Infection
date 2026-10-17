@@ -24,7 +24,8 @@ typedef union
     {
         ubyte pad00[0x44];
         AttackSideStep sidestep;        // +0x44 (Ship+0x67C) attackSideStep
-        udword unknown4C[0x18];         // +0x4C (Ship+0x684) cleared by MCVInit, no other user found
+        sdword linkKills[2][NUM_CLASSES];   // +0x4C (Ship+0x684) the kills of the two linked mimics (cat_processLinkToDo
+                                            //      0x004680a2, cat_processUnlinkToDo 0x00468eaa); cleared by MCVInit
     };
 } MCVSpec;
 #if defined(__i386__) || defined(_M_IX86)

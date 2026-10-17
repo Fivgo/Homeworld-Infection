@@ -7,6 +7,7 @@
 // =============================================================================
 
 #include "Collision.h"
+#include "BeastWeapon.h"
 #include "Leech.h"
 #include "Mimic.h"
 #include "RKO.h"
@@ -660,14 +661,15 @@ static bool32 cat_kamikazeCheckShip(Ship *ship, SpaceObjRotImpTarg *other, real3
             }
         }
     }
-    if (otherIsShip && (ship->shiptype == bCruiseMissile) && (((Ship *)other)->staticinfo->beastAttacksRequired >= 0) &&
+    // CAT: through cat_beastGetAttackStaticInfo 0x00429b70 (0x0043a9f9, 0x0043aa57)
+    if (otherIsShip && (ship->shiptype == bCruiseMissile) && (cat_beastGetAttackStaticInfo((Ship *)other) != NULL) &&
         (singlePlayerGame || (cat_shipHasUpgrade(ship, 0x10000) && (ship->playerowner != ((Ship *)other)->playerowner))))
     {
         Ship *target = (Ship *)other;
 
         target->catKamikazeInfectionHits++;
         if (!singlePlayerGame || (target->shiptype != dPrisonShip) ||
-            (target->staticinfo->beastAttacksRequired <= target->catKamikazeInfectionHits))
+            (cat_beastGetAttackStaticInfo(target)->attacksRequired <= target->catKamikazeInfectionHits))
         {
             cat_beastInfectShip(target, ship);
         }

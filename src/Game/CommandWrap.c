@@ -86,7 +86,8 @@ void clFlashShips(SelectCommand *selection)
 // CAT: SpeechEventsForFuel is gone: Cataclysm has no fuel, and clWrapMove 0x004529e0 keeps only an empty scan of the
 //      selection in its place (no effect)
 
-void clWrapMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to)
+// CAT: clWrapMove 0x004529e0 takes the waypoint path of clMove (pathType, from, numPoints, points)
+void clWrapMove(CommandLayer *comlayer,SelectCommand *selectcom,sdword pathType,vector from,sdword numPoints,vector *points)
 {
     if (playPackets || (universePause && !opPauseOrders) ) return;
 
@@ -110,11 +111,13 @@ void clWrapMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vect
     if ((!multiPlayerGame) && (!recordFakeSendPackets))
     {
         // CAT: no fuel speech and no tutorial message (clWrapMove 0x004529e0)
-        clMove(comlayer,selectcom,from,to);
+        clMove(comlayer,selectcom,pathType,from,numPoints,points);
     }
     else
     {
-        clSendMove(comlayer,selectcom,from,to);
+        // CAT-TODO(stage 5): the exe's clSendMove 0x0044eb20 sends the whole path (its packet is sized by numPoints);
+        //      this tree's packet is HW1's from/to, so a network or recorded move goes to the last point only
+        clSendMove(comlayer,selectcom,from,points[numPoints - 1]);
     }
 }
 
@@ -191,15 +194,15 @@ void clWrapAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand 
     }
 }
 
-void clWrapFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation)
+// CAT: clWrapFormation 0x00452ca0 takes and passes on the force-field level (clFormation's fourth argument)
+void clWrapFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation,sdword catForceFieldLevel)
 {
     if (playPackets || (universePause && !opPauseOrders) ) return;
 
     makeShipsControllable(selectcom,COMMAND_NULL);
     if (selectcom->numShips == 0) return;
 
-    // CAT: no formation check here (clWrapFormation 0x00452ca0; clFormation checks). CAT-TODO: the exe's wrap takes and
-    //      passes on clFormation's fourth argument (the force-field level), see clFormation
+    // CAT: no formation check here (clWrapFormation 0x00452ca0; clFormation checks)
 
     if ((!universe.aiplayerProcessing) && (!((tutorial==TUTORIAL_ONLY) && !tutEnable.bFormation)))
     {
@@ -215,10 +218,11 @@ void clWrapFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfForma
         if((tutorial==TUTORIAL_ONLY) && !tutEnable.bFormation)
             return;
 
-        clFormation(comlayer,selectcom,formation);
+        clFormation(comlayer,selectcom,formation,catForceFieldLevel);
     }
     else
     {
+        // CAT-TODO(stage 5): the exe's formation packet carries the force-field level (clSendFormation 0x0044ef10)
         clSendFormation(comlayer,selectcom,formation);
     }
 }
@@ -696,4 +700,205 @@ void cat_clWrapExternalBuildUpdate(CommandLayer *comlayer,uword playerIndex,Ship
     {
         cat_clExternalBuildUpdate(comlayer,playerIndex,creator,ship,progress,mode);
     }
+}
+
+/*-----------------------------------------------------------------------------
+    CAT: the wraps of Cataclysm's orders (link, unlink, Leech, module slots, Beast system, point, Mimic, upgrade,
+    special target). Like the HW1 wraps they flash the ships (when no AI is ordering) and order directly in a
+    single-player game; a network or recorded game sends the order instead: clSendMisc with the exe's misc command
+    numbers 5-10 (the receiving side of those numbers is stage 5's: CAT-TODO(stage 5)), and for the point, Mimic,
+    upgrade and special-target orders the exe's own packets (cat_clSendPointOrderPacket 0x00452120,
+    cat_clSendMimicPacket 0x00452200, cat_clSendUpgradeShipsPacket 0x004522e0, cat_clSendSpecialTarget 0x00451fc0,
+    cat_clSendSpecialTargetFlagged 0x00452040), which are not ported (CAT-TODO(stage 5)): such a game does nothing
+    there yet. Only the Leech and special-target wraps test universePause (with opPauseOrders).
+----------------------------------------------------------------------------*/
+#define CAT_MISCCOMMAND_LINK            5
+#define CAT_MISCCOMMAND_UNLINK          6
+#define CAT_MISCCOMMAND_LEECHACTION     7
+#define CAT_MISCCOMMAND_UNLEECH         8
+#define CAT_MISCCOMMAND_MODULESLOT      9
+#define CAT_MISCCOMMAND_BEASTSYSTEM     10
+
+// CAT: new (cat_clWrapLink 0x00453940)
+void cat_clWrapLink(CommandLayer *comlayer,SelectCommand *selectcom)
+{
+    if (playPackets || (selectcom->numShips == 0)) return;
+
+    if (!universe.aiplayerProcessing)
+    {
+        clFlashShips(selectcom);
+    }
+
+    if ((!multiPlayerGame) && (!recordFakeSendPackets))
+    {
+        cat_clLink(comlayer,selectcom);
+    }
+    else
+    {
+        clSendMisc(comlayer,selectcom,CAT_MISCCOMMAND_LINK,0);
+    }
+}
+
+// CAT: new (cat_clWrapUnlink 0x004539a0)
+void cat_clWrapUnlink(CommandLayer *comlayer,SelectCommand *selectcom)
+{
+    if (playPackets || (selectcom->numShips == 0)) return;
+
+    if (!universe.aiplayerProcessing)
+    {
+        clFlashShips(selectcom);
+    }
+
+    if ((!multiPlayerGame) && (!recordFakeSendPackets))
+    {
+        cat_clUnlink(comlayer,selectcom);
+    }
+    else
+    {
+        clSendMisc(comlayer,selectcom,CAT_MISCCOMMAND_UNLINK,0);
+    }
+}
+
+// CAT: new (cat_clWrapSetLeechAction 0x00453730)
+void cat_clWrapSetLeechAction(CommandLayer *comlayer,SelectCommand *selectcom,ubyte mode)
+{
+    if (playPackets || (universePause && !opPauseOrders) || (selectcom->numShips == 0)) return;
+
+    if (!universe.aiplayerProcessing)
+    {
+        clFlashShips(selectcom);
+    }
+
+    if ((!multiPlayerGame) && (!recordFakeSendPackets))
+    {
+        cat_clSetLeechAction(comlayer,selectcom,mode);
+    }
+    else
+    {
+        clSendMisc(comlayer,selectcom,CAT_MISCCOMMAND_LEECHACTION,(udword)mode);
+    }
+}
+
+// CAT: new (cat_clWrapUnleech 0x004536b0)
+void cat_clWrapUnleech(CommandLayer *comlayer,SelectCommand *selectcom)
+{
+    if (playPackets || (universePause && !opPauseOrders) || (selectcom->numShips == 0)) return;
+
+    if (!universe.aiplayerProcessing)
+    {
+        clFlashShips(selectcom);
+    }
+
+    if ((!multiPlayerGame) && (!recordFakeSendPackets))
+    {
+        cat_clUnleech(comlayer,selectcom);
+    }
+    else
+    {
+        clSendMisc(comlayer,selectcom,CAT_MISCCOMMAND_UNLEECH,0);
+    }
+}
+
+// CAT: new (cat_clWrapSetModuleSlot 0x00453580): no flash
+void cat_clWrapSetModuleSlot(CommandLayer *comlayer,SelectCommand *selectcom,sdword moduleType,sdword count)
+{
+    if (playPackets || (selectcom->numShips == 0)) return;
+
+    if ((!multiPlayerGame) && (!recordFakeSendPackets))
+    {
+        cat_clSetModuleSlot(comlayer,selectcom,moduleType,count);
+    }
+    else
+    {
+        clSendMisc(comlayer,selectcom,CAT_MISCCOMMAND_MODULESLOT,
+                   cat_clModuleTypeToMiscBits(moduleType) | cat_clModuleSlotToMiscBits(count));
+    }
+}
+
+// CAT: new (cat_clWrapSetBeastSystem 0x004535f0): no flash
+void cat_clWrapSetBeastSystem(CommandLayer *comlayer,Ship *ship,sdword system)
+{
+    SelectCommand selectone;
+
+    if (playPackets) return;
+
+    if ((!multiPlayerGame) && (!recordFakeSendPackets))
+    {
+        cat_clSetBeastSystem(comlayer,ship,system);
+    }
+    else
+    {
+        selectone.numShips = 1;
+        selectone.timeLastStatus = 0.0f;     // CAT-FIX: the exe leaves it uninitialised (0x004535f0)
+        selectone.ShipPtr[0] = ship;
+        clSendMisc(comlayer,&selectone,CAT_MISCCOMMAND_BEASTSYSTEM,(udword)system);
+    }
+}
+
+// CAT: new (cat_clWrapPointOrder 0x00453a70)
+void cat_clWrapPointOrder(CommandLayer *comlayer,SelectCommand *selectcom,vector *point)
+{
+    if (playPackets) return;
+
+    if (!universe.aiplayerProcessing)
+    {
+        clFlashShips(selectcom);
+    }
+
+    if ((!multiPlayerGame) && (!recordFakeSendPackets))
+    {
+        cat_clPointOrder(comlayer,selectcom,point);
+    }
+    // CAT-TODO(stage 5): else cat_clSendPointOrderPacket 0x00452120
+}
+
+// CAT: new (cat_clWrapMimic 0x00453b30)
+void cat_clWrapMimic(CommandLayer *comlayer,SelectCommand *selectcom,udword mode,udword shipType,udword player,udword index)
+{
+    if (playPackets) return;
+
+    if (!universe.aiplayerProcessing)
+    {
+        clFlashShips(selectcom);
+    }
+
+    if ((!multiPlayerGame) && (!recordFakeSendPackets))
+    {
+        cat_clMimic(comlayer,selectcom,mode,shipType,player,index);
+    }
+    // CAT-TODO(stage 5): else cat_clSendMimicPacket 0x00452200
+}
+
+// CAT: new (cat_clWrapUpgradeShips 0x00453ad0)
+void cat_clWrapUpgradeShips(CommandLayer *comlayer,SelectCommand *selectcom,bool32 cancel)
+{
+    if (playPackets) return;
+
+    if (!universe.aiplayerProcessing)
+    {
+        clFlashShips(selectcom);
+    }
+
+    if ((!multiPlayerGame) && (!recordFakeSendPackets))
+    {
+        cat_clUpgradeShips(comlayer,selectcom,cancel);
+    }
+    // CAT-TODO(stage 5): else cat_clSendUpgradeShipsPacket 0x004522e0
+}
+
+// CAT: new (cat_clWrapSpecialTarget 0x00453130): the targets flash
+void cat_clWrapSpecialTarget(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *targets,bool32 flag)
+{
+    if (playPackets || (universePause && !opPauseOrders) || (selectcom->numShips == 0)) return;
+
+    if (!universe.aiplayerProcessing)
+    {
+        clFlashShips((SelectCommand *)targets);
+    }
+
+    if ((!multiPlayerGame) && (!recordFakeSendPackets))
+    {
+        cat_clSpecialTarget(comlayer,selectcom,targets,flag);
+    }
+    // CAT-TODO(stage 5): else cat_clSendSpecialTargetFlagged 0x00452040 (flag set) / cat_clSendSpecialTarget 0x00451fc0
 }

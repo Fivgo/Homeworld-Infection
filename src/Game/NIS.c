@@ -2325,7 +2325,7 @@ void nisHaltAttack(nisplaying *NIS, nisevent *event)
     goodShip = (Ship *)NIS->objectsInMotion[event->shipID].spaceobj;
     selectone.numShips = 1;
     selectone.ShipPtr[0] = goodShip;
-    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,&selectone);
+    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,&selectone,0x21);   // CAT: reason 0x21 as the exe (nisHaltAttack 0x004cf417) [audit: M2-R5 command-tactics]
 }
 void nisFire(nisplaying *NIS, nisevent *event)
 {

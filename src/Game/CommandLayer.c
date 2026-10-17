@@ -15,12 +15,21 @@
 #include "AITrack.h"
 #include "Alliance.h"
 #include "Battle.h"
+#include "Clamp.h"
 #include "Collision.h"
 #include "CommandDefs.h"
 #include "CommandNetwork.h"
 #include "ConsMgr.h"
 #include "FastMath.h"
 #include "Gun.h"
+#include "Leech.h"
+#include "ACV.h"
+#include "Dreadnought.h"
+#include "FEReg.h"
+#include "ResearchGUI.h"
+#include "ResearchAPI.h"
+#include "Worker.h"
+#include "Mothership.h"
 #include "MadLinkIn.h"
 #include "Memory.h"
 #include "NetCheck.h"
@@ -30,6 +39,8 @@
 #include "Select.h"
 #include "Ships.h"
 #include "ShipSelect.h"
+#include "Sentinel.h"
+#include "ShipLink.h"
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
 #include "SpeechEvent.h"
@@ -46,36 +57,14 @@
 #define DEBUG_COMMAND_LAYER   0
 
 /*-----------------------------------------------------------------------------
-    CAT (M2-R4 command): state of this file against cataclysm.exe. Ported: protectShip, protectShipsAvg,
-    ClearProtecting, the shipHasJust* functions, RemoveShipFromBeingTargeted (4 arguments), clScuttle, ShipHasToLaunch,
-    clCreateShip, clShipDied, and the new cat_shipHasJustBeenSalvaged, cat_clStartExternalBuildTimer,
-    cat_clExternalBuildUpdate, cat_shipIsLiveWorker (each marked CAT at the change).
-    CAT-TODO(M2-R4 command follow-up; docs/m2-r4-command.md "What is left"): the MODIFIED bodies below are still HW1's.
-      - RemoveShipsFromDoingStuff 0x00444810 takes a third argument, a reason code (0xb launch, 0xd parade, 0xe died,
-        0x10 unlink, 0x11 mimic, 0x20 formation, 0x65 parade of a dead ship ...), sets disable reasons
-        (cat_shipSetDisableReason), frees the link state and has no RemoveShipReferencesFromExtraAttackInfo; every
-        caller passes its code.
-      - FreeCommandToDoContents 0x004440f0 / FreeLastOrder 0x00444490: cat_clLinkCleanup, disable reasons, unClampObj;
-        no tacticsAttackCommandVoided (absent from Cataclysm).
-      - processAttackToDo 0x00441c10, processAttackToDoInFormation 0x00442fb0, delegateCommand 0x004427a0,
-        processPassiveAttackToDo 0x00441ab0: fleet battle chatter, FOW visibility (cat_fowCanPlayerSeeShip), mothership
-        module targets (cat_gunPickMothershipModuleTarget), crystals, clWrapHalt.
-      - processMoveToDo 0x00443cb0 (4 arguments, CalculateMoveToPoints, Sentinel spheres), ChangeOrderToMove
-        0x004460d0, clMoveThese 0x004467c0 (11 arguments), clMove 0x00446d90 (cat_clCalculateMoveToOffsets,
-        cat_tacticsRemoveRetreatingShips; no MakeShipsMobile, no salCapExtraSpecialOrderCleanUp).
-      - processMpHyperspaceingToDo 0x004436a0, ChangeOrderToHyperSpace 0x004470f0, clMpHyperspaceThese 0x004472a0,
-        clMpHyperspace 0x004474a0; ChangeOrderToAttack 0x00448460, clAttackThese 0x00448620 and clAttack 0x00448950
-        (cat_clAddAttachedModulesToTargets, MakeShipsOnlyFollowConstraints); ChangeOrderToPassiveAttack 0x00448b30,
-        clPassiveAttack 0x00448ce0; clSpecial 0x004492c0 (salvagers, FillInFormationSpecifics); clRUTransfer
-        0x00449990; clHaltThese 0x00449b50, clHalt 0x00449e80; clProtect 0x0044af20; clSetMilitaryParade 0x0044b220
-        (component class 10 skipped); clHoldingPattern 0x0044b550 (clFormation with 4 arguments); clProcess
-        0x0044b950 (orders 11-16, see CommandDefs.h); clPostProcess 0x0044cf80; GroupShip 0x0044b320.
-      - clLaunchShip 0x0044a220: the ship's CustShipLaunchCommand slot can refuse, no launch from an attributesParam
-        0x400 receiver for non-external types, InitializeDockVars(ship, receiver, 2) instead of
-        dockPrepareSingleShipForLaunch/dockInitShipForLaunch (Dock.c, M2-R4 #3); LaunchAllInternalShipsOfPlayer
-        0x0044a510 (no FillInCarrierMothershipInfo, a class-0 mothership); processLaunchShipToDo (Dock, M2-R4 #3).
-      - The orders 11-17 themselves: cat_clLink/Unlink/Mimic/Research/PointOrder/UpgradeShips 0x0044d3b0..0x0044de80,
-        cat_processLinkToDo/UnlinkToDo/ResearchToDo, and the other cat_cl* functions of 0x00444060..0x0044e150.
+    CAT (M2-R4 command, M2-R5 command-tactics): state of this file against cataclysm.exe. Every MODIFIED body of the
+    exe's command layer is ported (each marked CAT at the change; docs/m2-r5-command-tactics.md lists them): the
+    CommandToDo of 0x330 bytes with the waypoint MoveCommand, the move, hyperspace, attack and passive-attack order
+    families, the cleanup functions with their reason codes, clProcess with orders 11-16, the link flight
+    (Dock.c), clSpecial, clHalt*, clRUTransfer, the parade and holding-pattern code, clPostProcess, delegateCommand,
+    processAttackToDoInFormation, LaunchAllInternalShipsOfPlayer, and the cat_cl* orders 0x00444060..0x0044e150.
+    Left to other stages (with their CAT-TODOs at the call): the speech and sound ids (M2-R5 sound), the command
+    messages (stage 3), the network packets of the new orders (stage 5).
 -----------------------------------------------------------------------------*/
 
 /*=============================================================================
@@ -94,10 +83,10 @@ static void AttackCleanup(struct CommandToDo *attacktodo);
 static AttackTargets *allocateMultipleAttackTargets(Ship *ship);
 static void pickMultipleAttackTargets(Ship *ship,AttackCommand *attack);
 void ChangeOrderToHalt(CommandToDo *alreadycommand);
-bool32 processMoveToDo(CommandToDo *movetodo,bool32 passiveAttacked);
+void CalculateMoveToPoints(SelectCommand *selection,vector from,vector to);
+bool32 processMoveToDo(CommandToDo *movetodo,bool32 passiveAttacked,sdword shipIndex,bool32 inFormation);
 bool32 processMpHyperspaceingToDo(CommandToDo *movetodo);
-bool32 processMoveLeaderToDo(CommandToDo *movetodo,bool32 passiveAttacked);
-void clMoveThese(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to);
+void clMoveThese(CommandLayer *comlayer,SelectCommand *selectcom,sdword pathType,vector from,sdword numPoints,vector *points,bool32 catSplit);
 void clMpHyperspaceThese(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to);
 bool32 isSelectionExclusivlyStrikeCraft(SelectCommand *selection);
 bool32 isSelectionExclusivlyStrikeCraftorNoMoveAndAttackShips(SelectCommand *selection);
@@ -225,9 +214,16 @@ void PrepareShipsForCommand(CommandToDo *command,bool32 rowClear)
     {
         ship = selection->ShipPtr[i];
         ship->command = command;
+        ship->shipOrDerelict.catRetreating = FALSE;    // CAT: a new command ends the retreat (PrepareShipsForCommand 0x00441000)
         if ((rowClear) && (ship->shipOrDerelict.specialFlags & SPECIAL_rowGettingOutOfWay))
         {
             rowRemoveShipFromGettingOutOfWay(ship);
+        }
+        // CAT: a Leech given a special order restarts its state machine at state 14 (PrepareShipsForCommand 0x00441000;
+        //      the same lines are inlined in every cl* creator)
+        if ((ship->shiptype == sLeech) && (command->ordertype.order == COMMAND_SPECIAL))
+        {
+            ((LeechSpec *)ship->ShipSpecifics)->state = LEECH_Done;
         }
     }
     tacticsMakeShipsNotLookForOtherShips(command->selection);
@@ -243,6 +239,7 @@ void PrepareShipsForCommand(CommandToDo *command,bool32 rowClear)
 void PrepareOneShipForCommand(Ship *ship,CommandToDo *command,bool32 rowClear)
 {
     ship->command = command;
+    ship->shipOrDerelict.catRetreating = FALSE;    // CAT: PrepareOneShipForCommand 0x00441080
     if ((rowClear) && (ship->shipOrDerelict.specialFlags & SPECIAL_rowGettingOutOfWay))
     {
         rowRemoveShipFromGettingOutOfWay(ship);
@@ -706,6 +703,12 @@ SpaceObjRotImpTarg *FindNewThreateningTarget(Ship *ship,AttackCommand *attack,Sp
         {
             continue;
         }
+        // CAT: FindNewThreateningTarget 0x004417c0 (map: IDENTICAL): not a ship clamped to this ship (a Leech on it)
+        if ((newtarget->header.objtype == OBJ_ShipType) && (((Ship *)newtarget)->guidance.clampInfo != NULL) &&
+            (((Ship *)newtarget)->guidance.clampInfo->host == (SpaceObjRotImpTarg *)ship))
+        {
+            continue;
+        }
         if (isThisShipThreateningMe(newtarget,ship))
         {
             vecSub(dist,newtarget->obj.posinfo.position,ship->obj.posinfo.position);
@@ -970,19 +973,8 @@ bool32 processPassiveAttackToDo(CommandToDo *attacktodo)
                 pickMultipleAttackTargets(ship,attack);
             }
         }
-        if(ship->tacticstype == Evasive)
-        {
-            //ships in evasive don't passive retaliate
-            if(rotate == TRUE)
-            {
-                vector dir;
-                vecSub(dir,target->obj.posinfo.position,ship->obj.posinfo.position);
-                vecNormalize(&dir);
-                aitrackHeading(ship,&dir,0.999f);
-            }
-            continue;
-        }
-
+        // CAT: no Evasive exception (processPassiveAttackToDo 0x00441ab0: every ship passive attacks; HW1 only turned
+        //      an Evasive ship towards its target)
         if (shipstaticinfo->custshipheader.CustShipAttackPassive)
         {
             //dbgAssertOrIgnore(target->header.objtype == OBJ_ShipType);     // only target SHIPs should be passive attacked
@@ -1102,7 +1094,11 @@ bool32 processAttackToDo(CommandToDo *attacktodo)
     {
         //specialized movement + combat
         attackAndMoving = TRUE;             //set flag for future movement reference
-        processMoveToDo(attacktodo,TRUE);   //move the group to the new attack location
+        // CAT: each ship along the move path (processAttackToDo 0x00441c10 calls processMoveToDo per ship)
+        for (i=0;i<attacktodo->selection->numShips;i++)
+        {
+            processMoveToDo(attacktodo,TRUE,i,FALSE);   //move the group to the new attack location
+        }
 
     }
 
@@ -1509,7 +1505,9 @@ void formGroups(SelectCommand *selection,SelectCommand *selectionDefenders,Selec
         if(selection->ShipPtr[a]->staticinfo->shipclass == CLASS_Fighter)     // CAT: no HW1 TargetDrone (M2-R4 ships-b)
         {
             //check if defender, else fighter
-            if(selection->ShipPtr[a]->staticinfo->shiptype == HeavyDefender)     // CAT: no HW1 LightDefender (M2-R4 ships-b)
+            // CAT: both races' heavy defenders (formGroups 0x004426fb: 0x43 and 0x51); no HW1 LightDefender (M2-R4 ships-b)
+            if ((selection->ShipPtr[a]->staticinfo->shiptype == kHeavyDefender) ||
+                (selection->ShipPtr[a]->staticinfo->shiptype == tHeavyDefender))
             {
                 selectionDefenders->ShipPtr[i] = selection->ShipPtr[a];
                 i++;
@@ -1549,6 +1547,9 @@ void formGroups(SelectCommand *selection,SelectCommand *selectionDefenders,Selec
 #define CAPITALS        12
 #define CORVETTES       13
 
+// CAT: delegateCommand 0x004427a0: the interceptor leader's flip-turn state is kept in its command, read as
+//      ship->command whether or not that has COMMAND_MASK_FORMATION (Cataclysm has no Ship.formationcommand); the
+//      followers of a force-field sphere always passive attack (as a sphere's); the minelayer is tMinelayerCorvette (84)
 bool32 delegateCommand(CommandToDo *attacktodo,sdword group,sdword doform, SelectCommand *globalselection)
 {
     sdword i;
@@ -1575,7 +1576,7 @@ bool32 delegateCommand(CommandToDo *attacktodo,sdword group,sdword doform, Selec
     {
         //specialized movement + combat
         attackAndMoving = TRUE;             //set flag for future movement reference
-        processMoveLeaderToDo(attacktodo,TRUE);   //move the group to the new attack location
+        processMoveToDo(attacktodo,TRUE,0,TRUE);   //move the group to the new attack location (CAT: the leader, delegateCommand 0x004427a0)
 
     }
 
@@ -1613,7 +1614,7 @@ bool32 delegateCommand(CommandToDo *attacktodo,sdword group,sdword doform, Selec
 //skipattack:
         if(ship->tacticsTalk != 0)
         {
-            if(ship->formationcommand->formation.flipselectionfixed != TRUE)
+            if(ship->command->formation.flipselectionfixed != TRUE)
             {
                 //lock the leaders formation!
                 //fix later:  this is bad because this 'formation' is
@@ -1624,24 +1625,24 @@ bool32 delegateCommand(CommandToDo *attacktodo,sdword group,sdword doform, Selec
                     //if(ship->flightman == FLIGHTMAN_IMMELMAN)
                     //{
                         //for immelman, lets not fix the formation, it should look good maybe
-                    //    ship->formationcommand->formation.needFix = FALSE;
+                    //    ship->command->formation.needFix = FALSE;
                     //    lockFormation(ship->formationcommand,0);
                     //}
                     //else
                     //{
-                        ship->formationcommand->formation.needFix = TRUE;
+                        ship->command->formation.needFix = TRUE;
                     //do special heading reversal in formation lock so
                     //as to begin forming the new formation rightaway
-                    lockFormation(ship->formationcommand,1);
+                    lockFormation(ship->command,1);
                     //}
                 }
                 else
                 {
-                    ship->formationcommand->formation.needFix = FALSE;
-                    lockFormation(ship->formationcommand,0);
+                    ship->command->formation.needFix = FALSE;
+                    lockFormation(ship->command,0);
                 }
 
-                ship->formationcommand->formation.flipselectionfixed = TRUE;
+                ship->command->formation.flipselectionfixed = TRUE;
                 for(i=1;i<numShips;i++)
                 {
                     flightmanInitFunc(selection->ShipPtr[i],ship->flightman,0);
@@ -1659,13 +1660,13 @@ bool32 delegateCommand(CommandToDo *attacktodo,sdword group,sdword doform, Selec
         }
         else
         {
-            if(ship->formationcommand->formation.flipselectionfixed == TRUE)
+            if(ship->command->formation.flipselectionfixed == TRUE)
             {
                 //only if did flipturn;
-                unlockFormation(ship->formationcommand);
-                if(ship->formationcommand->formation.needFix == TRUE)
+                unlockFormation(ship->command);
+                if(ship->command->formation.needFix == TRUE)
                 {
-                    if(ship->formationcommand->formation.formationtype != WALL_FORMATION)
+                    if(ship->command->formation.formationtype != WALL_FORMATION)
                     {
                         fixFlipTurnSelection(attacktodo->selection,globalselection);
                     }
@@ -1673,13 +1674,13 @@ bool32 delegateCommand(CommandToDo *attacktodo,sdword group,sdword doform, Selec
                     {
                         fixWallFlipTurnSelection(attacktodo->selection);
                     }
-                    ship->formationcommand->formation.needFix = FALSE;
+                    ship->command->formation.needFix = FALSE;
 
                     //negate this bool32 value so the formation status is uptodate.
-                    ship->formationcommand->formation.flipState = !ship->formationcommand->formation.flipState;
+                    ship->command->formation.flipState = !ship->command->formation.flipState;
                 }
             }
-            ship->formationcommand->formation.flipselectionfixed = FALSE;
+            ship->command->formation.flipselectionfixed = FALSE;
         }
 
 
@@ -1722,7 +1723,9 @@ bool32 delegateCommand(CommandToDo *attacktodo,sdword group,sdword doform, Selec
             {
                 //only do the attack if in proper attack state...
                 //quick fix
-                if(attacktodo->formation.formationtype == SPHERE_FORMATION)
+                // CAT: a force-field sphere too (delegateCommand 0x00442a6c)
+                if ((attacktodo->formation.formationtype == SPHERE_FORMATION) ||
+                    (attacktodo->formation.formationtype == FORCEFIELD_SPHERE_FORMATION))
                 {
                     shipstaticinfo->custshipheader.CustShipAttackPassive(ship,(Ship *)target,TRUE);
                     bitSet(ship->dontrotateever,4);
@@ -1878,11 +1881,11 @@ bool32 delegateCommand(CommandToDo *attacktodo,sdword group,sdword doform, Selec
     }
     else if(group == CORVETTES)
     {
-        if(selection->ShipPtr[0]->shiptype == MinelayerCorvette)
+        if(selection->ShipPtr[0]->shiptype == tMinelayerCorvette)
         {
             for(pee=1;pee<selection->numShips;pee++)
             {
-                if(selection->ShipPtr[pee]->shiptype != MinelayerCorvette)
+                if(selection->ShipPtr[pee]->shiptype != tMinelayerCorvette)
                 {
                     tempship = selection->ShipPtr[0];
                     selection->ShipPtr[0] = selection->ShipPtr[pee];
@@ -1938,7 +1941,7 @@ bool32 delegateCommand(CommandToDo *attacktodo,sdword group,sdword doform, Selec
                 //only do the attack if in proper attack state...
                 shipstaticinfo->custshipheader.CustShipAttackPassive(ship,(Ship *)target,TRUE);
             }
-            else if(shipstaticinfo->shiptype == MinelayerCorvette)
+            else if(shipstaticinfo->shiptype == tMinelayerCorvette)
             {
                 bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_BrokenFormation);
                 shipstaticinfo->custshipheader.CustShipAttack(ship,target,ship->staticinfo->bulletRange[ship->tacticstype]);
@@ -2117,13 +2120,10 @@ bool32 processAttackToDoInFormation(CommandToDo *attacktodo)
             ////////////////////
             //Speech Event for end of attack
             //event num:  STAT_Strike_AttackComplete
-            //use battlechatter
+            // CAT: through the fleet, without the can-chatter test (processAttackToDoInFormation 0x004430fd)
             if(attacktodo->selection->ShipPtr[0]->playerowner->playerIndex == universe.curPlayerIndex)
             {
-                if (battleCanChatterAtThisTime(BCE_STAT_Strike_AttackComplete, attacktodo->selection->ShipPtr[0]))
-                {
-                    battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_Strike_AttackComplete, attacktodo->selection->ShipPtr[0], SOUND_EVENT_DEFAULT);
-                }
+                battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_Strike_AttackComplete, SOUND_EVENT_DEFAULT, NULL);
             }
 
             ///////////////
@@ -2136,6 +2136,11 @@ bool32 processAttackToDoInFormation(CommandToDo *attacktodo)
         // we've killed all the ships, so let's stop movement and wait for next command
         for (i=0;i<selection->numShips;i++)
         {
+            // CAT: a ship without a blob ends the attack at once (processAttackToDoInFormation 0x0044313e)
+            if (selection->ShipPtr[i]->obj.collMyBlob == NULL)
+            {
+                return TRUE;
+            }
             //save individual positions
             attacktodo->selection->ShipPtr[i]->holdingPatternPos = selection->ShipPtr[i]->obj.posinfo.position;
             soundEventBurstStop(selection->ShipPtr[i],NULL);
@@ -2199,9 +2204,11 @@ bool32 processAttackToDoInFormation(CommandToDo *attacktodo)
             {
                 soundEventBurstStop(ship,NULL);
 
+                // CAT: the leader's target is shared when it is no ship, a ship without a command (HW1: not in a
+                //      formation; processAttackToDoInFormation 0x0044329c reads Ship+0x370) or focus fire is on
                 if ( leadertarget &&
                      (
-                     ( ((leadertarget->header.objtype != OBJ_ShipType) || (((Ship *)leadertarget)->formationcommand == NULL)) ) ||
+                     ( ((leadertarget->header.objtype != OBJ_ShipType) || (((Ship *)leadertarget)->command == NULL)) ) ||
                      (focusfire)
                      )
                    )
@@ -2219,12 +2226,14 @@ bool32 processAttackToDoInFormation(CommandToDo *attacktodo)
         if(i >= 1)
         {
             if ( leadertarget &&
-                 ((leadertarget->header.objtype != OBJ_ShipType) || (((Ship *)leadertarget)->formationcommand == NULL)) )
+                 ((leadertarget->header.objtype != OBJ_ShipType) || (((Ship *)leadertarget)->command == NULL)) )   // CAT: 0x004432f0
             {
                 attackvars->attacktarget = leadertarget;    // override with leadertarget if we are attacking a ship that isn't in formation
             }
 
-            if(attacktodo->formation.formationtype == SPHERE_FORMATION)
+            // CAT: a force-field sphere too (processAttackToDoInFormation 0x00443300)
+            if ((attacktodo->formation.formationtype == SPHERE_FORMATION) ||
+                (attacktodo->formation.formationtype == FORCEFIELD_SPHERE_FORMATION))
             {
                 //do this check infrequently
                 if (UNIVERSE_WOODPECKER(SPHERE_CHECK_TARGET_MASK, SPHERE_CHECK_TARGET_FRAME))
@@ -2261,7 +2270,9 @@ bool32 processAttackToDoInFormation(CommandToDo *attacktodo)
 
     fakeCommand = *attacktodo;
     formGroups(selection,(SelectCommand *)&selectionDefenders,(SelectCommand *)&selectionCorvettes,(SelectCommand *)&selectionCaptialShips,(SelectCommand *)&selectionInterceptors);
-    if(attacktodo->formation.formationtype == SPHERE_FORMATION)
+    // CAT: a force-field sphere too (processAttackToDoInFormation 0x00443426)
+    if ((attacktodo->formation.formationtype == SPHERE_FORMATION) ||
+        (attacktodo->formation.formationtype == FORCEFIELD_SPHERE_FORMATION))
     {
         //if(attacktodo->formation.enders != TRUE || attacktodo->formation.endership != (Ship *)leadertarget)
         if(attacktodo->formation.enders != TRUE)
@@ -2289,6 +2300,12 @@ bool32 processAttackToDoInFormation(CommandToDo *attacktodo)
     else
     {
         should = TRUE;
+    }
+
+    // CAT: no targets left (the target list is shared with fakeCommand): done (processAttackToDoInFormation 0x0044346b)
+    if (fakeCommand.attack->numTargets <= 0)
+    {
+        return TRUE;
     }
 
     if(selectionInterceptors.numShips > 0)
@@ -2548,9 +2565,10 @@ bool32 processMpHyperspaceingToDo(CommandToDo *movetodo)
         {
             //hyperspaced out!
             hvector movetoplace;
-            movetoplace.x = movetodo->move.destination.x;
-            movetoplace.y = movetodo->move.destination.y;
-            movetoplace.z = movetodo->move.destination.z;
+            // CAT: the destination is the current point of the move path (processMpHyperspaceingToDo 0x00443970)
+            movetoplace.x = movetodo->move.points[movetodo->move.curPoint].x;
+            movetoplace.y = movetodo->move.points[movetodo->move.curPoint].y;
+            movetoplace.z = movetodo->move.points[movetodo->move.curPoint].z;
 
             matGetVectFromMatrixCol3(shipheading,movetodo->selection->ShipPtr[0]->rotatable.rotinfo.coordsys);
             vecSet(othervector,1.0f,0.0f,0.0f);
@@ -2594,10 +2612,8 @@ bool32 processMpHyperspaceingToDo(CommandToDo *movetodo)
             if(movetodo->selection->ShipPtr[i]->playerowner != universe.curPlayerPtr)
             {
                 //ship isn't a local players ship...
-                if(battleCanChatterAtThisTime(BCE_COMM_F_HyperspaceDetected, movetodo->selection->ShipPtr[i]))
-                {
-                    battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_COMM_F_HyperspaceDetected, SOUND_EVENT_DEFAULT, &movetodo->selection->ShipPtr[i]->obj.posinfo.position);
-                }
+                // CAT: no battleCanChatterAtThisTime test and no position (processMpHyperspaceingToDo 0x00443ac4)
+                battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_COMM_F_HyperspaceDetected, SOUND_EVENT_DEFAULT, NULL);
             }
 
 
@@ -2631,7 +2647,8 @@ bool32 processMpHyperspaceingToDo(CommandToDo *movetodo)
             else
             {
                 //individual ship is out of hyperspace...make it selectable!
-                bitSet(movetodo->selection->ShipPtr[i]->header.flags,SOF_Selectable);
+                // CAT: the hyperspace disable reason 6 is cleared instead of setting SOF_Selectable (0x00443b8d)
+                cat_shipSetDisableReason(movetodo->selection->ShipPtr[i],FALSE,6);
             }
         }
         if(donehsflag == FALSE)
@@ -2646,7 +2663,7 @@ bool32 processMpHyperspaceingToDo(CommandToDo *movetodo)
         for(i=0;i<movetodo->selection->numShips;i++)
         {
             //make selectable again!
-            bitSet(movetodo->selection->ShipPtr[i]->header.flags,SOF_Selectable);
+            cat_shipSetDisableReason(movetodo->selection->ShipPtr[i],FALSE,6);   // CAT: as above (0x00443bfc)
         }
         return(TRUE);
         break;
@@ -2686,145 +2703,42 @@ real32 hyperspaceCost(real32 distance,SelectCommand *selection)
 
 /*-----------------------------------------------------------------------------
     Name        : processMoveToDo
-    Description : processes the move command
-    Inputs      : movetodo
+    Description : processes one ship of a move command along its waypoint path
+    Inputs      : movetodo, passiveAttacked, shipIndex (the ship of the selection), inFormation (the leader of a
+                  formation, which flies at the formation's travel velocity)
     Outputs     :
-    Return      :
+    Return      : TRUE when the ship has reached the end of a one-way path and is steady
 ----------------------------------------------------------------------------*/
-bool32 processMoveToDo(CommandToDo *movetodo,bool32 passiveAttacked)
+// CAT: processMoveToDo 0x00443cb0 runs one ship (clProcess calls it for each ship, or for the leader of a formation;
+//      HW1's processMoveLeaderToDo is gone). The ship flies to its moveTo; on arrival the path advances: a one-way path
+//      (0) to the next point, a loop (1) back to the first, a patrol (2/3) turns at either end, each by
+//      CalculateMoveToPoints from the previous point to the new one. The arrival tolerance is 800 between waypoints
+//      and 50 at the last point of a one-way path (250 while dodging). A Sentinel in a force-field sphere never turns
+//      to its direction of flight. There is no final heading (the exe's move has none): the ship only stops.
+bool32 processMoveToDo(CommandToDo *movetodo,bool32 passiveAttacked,sdword shipIndex,bool32 inFormation)
 {
-    sdword i;
     SelectCommand *selection = movetodo->selection;
-    sdword numShips = selection->numShips;
-    Ship *ship;
-    bool32 thisShipDone;
-    bool32 allDone = TRUE;
-    ShipStaticInfo *shipstatic;
+    Ship *ship = selection->ShipPtr[shipIndex];
+    ShipStaticInfo *shipstatic = (ShipStaticInfo *)ship->staticinfo;
+    MoveCommand *move = &movetodo->move;
+    bool32 dontrotate;
     udword aiflags;
     sdword j;
-    bool32 dontrotate;
+    sdword from;
     real32 MOVE_ARRIVE_TOLERANCE;
 
-    dbgAssertOrIgnore(numShips > 0);
-
-    for (i=0;i<numShips;i++)
+    if (movetodo->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING)
     {
-        ship = selection->ShipPtr[i];
-        shipstatic = (ShipStaticInfo *)ship->staticinfo;
-
-        // CAT: no HW1 ResearchShip case (M2-R4 ships-b)
-        {
-            if(movetodo->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING)
-            {
-                dontrotate = TRUE;
-            }
-            else
-            {
-                dontrotate = (passiveAttacked & (bool32)shipstatic->rotateToRetaliate);
-            }
-        }
-
-        thisShipDone = FALSE;
-
-        switch (ship->aistatecommand)
-        {
-        case 0:
-                if ((ship->isDodging) || (universe.totaltimeelapsed < ship->DodgeTime))
-                {
-                    //ship is dodging...be a little more forgiving
-                    MOVE_ARRIVE_TOLERANCE = 250.0f;
-                }
-                else
-                {
-                    MOVE_ARRIVE_TOLERANCE = 50.0f;
-                }
-                if (MoveReachedDestinationVariable(ship,&ship->moveTo,MOVE_ARRIVE_TOLERANCE))
-                {
-                    ship->aistatecommand = 1;
-                    vecZeroVector(ship->moveTo);
-                    vecZeroVector(ship->moveFrom);
-                    if(movetodo->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING)
-                    {
-                        for(j=1;j<movetodo->selection->numShips;j++)
-                        {
-                            vecZeroVector(movetodo->selection->ShipPtr[j]->moveTo);
-                            vecZeroVector(movetodo->selection->ShipPtr[j]->moveFrom);
-                        }
-                    }
-
-                    goto state1;
-                }
-                else
-                {
-                    aiflags = (dontrotate) ? (AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured) : (AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_FirstPointInDirectionFlying|AISHIP_PointInDirectionFlying|AISHIP_CarTurn);
-                    if (aishipFlyToPointAvoidingObjs(ship,&ship->moveTo,aiflags,-20.0f)     /* CAT: no HW1 HeadShotAsteroid (M2-R4 ships-b) */ & AISHIP_FLY_OBJECT_IN_WAY)
-                    {
-                        ship->aistatecommand = 1;
-                        vecZeroVector(ship->moveTo);
-                        vecZeroVector(ship->moveFrom);
-                        if(movetodo->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING)
-                        {
-                            for(j=1;j<movetodo->selection->numShips;j++)
-                            {
-                                vecZeroVector(movetodo->selection->ShipPtr[j]->moveTo);
-                                vecZeroVector(movetodo->selection->ShipPtr[j]->moveFrom);
-                            }
-                        }
-
-                        goto state1;
-                    }
-                }
-                break;
-state1:
-            case 1:
-                if ((dontrotate) ||
-                    ((shipstatic->shipOrDerelict.pitchdescend != 0.0f) && (ship->aidescend < 0.0f)))   // -ve aidescend indicates ship is primarily moving down
-                {
-                    thisShipDone = aitrackSteadyShipDriftOnly(ship);
-                }
-                else
-                {
-                    vector trackthisheading;
-                    vecSet(trackthisheading,movetodo->move.heading.x,movetodo->move.heading.y,0.0f);
-                    vecNormalize(&trackthisheading);
-                    thisShipDone = (aitrackSteadyShipDriftOnly(ship) & aitrackHeadingWithBank(ship,&trackthisheading,FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank));
-                }
-                break;
-        }
-
-        allDone &= thisShipDone;
+        dontrotate = TRUE;
     }
-
-    return allDone;
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : processMoveLeaderToDo
-    Description : processes the move command, but only for the leader (this routine
-                  is only used for ships in formation moving, and the other ships maintain
-                  formation around the leader)
-    Inputs      : movetodo
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-bool32 processMoveLeaderToDo(CommandToDo *movetodo,bool32 passiveAttacked)
-{
-    Ship *ship;
-    SelectCommand *selection = movetodo->selection;
-    ShipStaticInfo *shipstatic;
-    bool32 dontrotate;
-    udword aiflags;
-    sdword j;
-    udword moveresult;
-    real32 MOVE_ARRIVE_TOLERANCE;
-
-    dbgAssertOrIgnore(selection->numShips >= 1);
-
-    ship = selection->ShipPtr[0];
-    shipstatic = (ShipStaticInfo *)ship->staticinfo;
-
-    // CAT: no HW1 ResearchShip case (M2-R4 ships-b)
-    dontrotate = (passiveAttacked & (bool32)shipstatic->rotateToRetaliate);
+    else if (cat_shipIsSentinelInSphere(ship))
+    {
+        dontrotate = TRUE;
+    }
+    else
+    {
+        dontrotate = (passiveAttacked & (bool32)shipstatic->rotateToRetaliate);
+    }
 
     switch (ship->aistatecommand)
     {
@@ -2834,65 +2748,97 @@ bool32 processMoveLeaderToDo(CommandToDo *movetodo,bool32 passiveAttacked)
                 //ship is dodging...be a little more forgiving
                 MOVE_ARRIVE_TOLERANCE = 250.0f;
             }
-            else
+            else if ((move->pathType == CAT_MOVEPATH_ONCE) && (move->curPoint == move->numPoints - 1))
             {
                 MOVE_ARRIVE_TOLERANCE = 50.0f;
             }
-            if (MoveReachedDestinationVariable(ship,&movetodo->move.destination,MOVE_ARRIVE_TOLERANCE))
+            else
             {
-                ship->aistatecommand = 1;
-                vecZeroVector(ship->moveTo);
-                vecZeroVector(ship->moveFrom);
-
-                if(movetodo->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING)
+                MOVE_ARRIVE_TOLERANCE = 800.0f;
+            }
+            if (MoveReachedDestinationVariable(ship,&ship->moveTo,MOVE_ARRIVE_TOLERANCE))
+            {
+                switch (move->pathType)
                 {
-                    for(j=1;j<movetodo->selection->numShips;j++)
-                    {
-                        vecZeroVector(movetodo->selection->ShipPtr[j]->moveTo);
-                        vecZeroVector(movetodo->selection->ShipPtr[j]->moveFrom);
-                    }
+                    case CAT_MOVEPATH_ONCE:
+                        move->curPoint++;
+                        if (move->curPoint < move->numPoints)
+                        {
+                            from = move->curPoint - 1;
+                            break;
+                        }
+                        goto arrived;
+                    case CAT_MOVEPATH_LOOP:
+                        move->curPoint++;
+                        if (move->curPoint >= move->numPoints)
+                        {
+                            move->curPoint = 0;
+                            from = move->numPoints - 1;
+                        }
+                        else
+                        {
+                            from = move->curPoint - 1;
+                        }
+                        break;
+                    case CAT_MOVEPATH_PATROL_OUT:
+                        move->curPoint++;
+                        if (move->curPoint >= move->numPoints)
+                        {
+                            move->pathType = CAT_MOVEPATH_PATROL_BACK;
+                            move->curPoint = move->numPoints - 2;
+                            from = move->numPoints - 1;
+                        }
+                        else
+                        {
+                            from = move->curPoint - 1;
+                        }
+                        break;
+                    case CAT_MOVEPATH_PATROL_BACK:
+                        from = move->curPoint;
+                        move->curPoint--;
+                        if (move->curPoint < 0)
+                        {
+                            move->pathType = CAT_MOVEPATH_PATROL_OUT;
+                            move->curPoint = 1;
+                            from = 0;
+                        }
+                        break;
+                    default:
+                        return FALSE;
                 }
-
-                goto state1;
+                CalculateMoveToPoints(selection,move->points[from],move->points[move->curPoint]);
+                return FALSE;
             }
             else
             {
                 aiflags = (dontrotate) ? (AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured) : (AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_FirstPointInDirectionFlying|AISHIP_PointInDirectionFlying|AISHIP_CarTurn);
-                moveresult = aishipFlyToPointAvoidingObjs(ship,&movetodo->move.destination,aiflags,movetodo->formation.travelvel);
-                if (moveresult & AISHIP_FLY_OBJECT_IN_WAY)
+                if (!(aishipFlyToPointAvoidingObjs(ship,&ship->moveTo,aiflags,inFormation ? movetodo->formation.travelvel : -20.0f) & AISHIP_FLY_OBJECT_IN_WAY))
                 {
-                    vecZeroVector(ship->moveTo);
-                    vecZeroVector(ship->moveFrom);
-                    ship->aistatecommand = 1;
-                    if(movetodo->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING)
-                    {
-                        for(j=1;j<movetodo->selection->numShips;j++)
-                        {
-                            vecZeroVector(movetodo->selection->ShipPtr[j]->moveTo);
-                            vecZeroVector(movetodo->selection->ShipPtr[j]->moveFrom);
-                        }
-                    }
-
-                    goto state1;
+                    return FALSE;
+                }
+            }
+arrived:
+            ship->aistatecommand = 1;
+            vecZeroVector(ship->moveTo);
+            vecZeroVector(ship->moveFrom);
+            if(movetodo->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING)
+            {
+                for(j=1;j<movetodo->selection->numShips;j++)
+                {
+                    vecZeroVector(movetodo->selection->ShipPtr[j]->moveTo);
+                    vecZeroVector(movetodo->selection->ShipPtr[j]->moveFrom);
                 }
             }
             break;
-state1:
+
         case 1:
-            if ((dontrotate) ||
-                ((shipstatic->shipOrDerelict.pitchdescend != 0.0f) && (ship->aidescend < 0.0f)))   // -ve aidescend indicates ship is primarily moving down
-            {
-                return aitrackSteadyShipDriftOnly(ship);
-            }
-            else
-            {
-                vector trackthisheading;
-                vecSet(trackthisheading,movetodo->move.heading.x,movetodo->move.heading.y,0.0f);
-                vecNormalize(&trackthisheading);
-                return (aitrackSteadyShipDriftOnly(ship) & aitrackHeadingWithBank(ship,&trackthisheading,FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank));
-            }
+            break;
+
+        default:
+            return FALSE;
     }
-    return FALSE;
+
+    return aitrackSteadyShipDriftOnly(ship) && (move->pathType == CAT_MOVEPATH_ONCE) && (move->curPoint >= move->numPoints - 1);
 }
 
 // CAT (M2-R4 combat): a ship taken off a special order calls its header's order-changed slot (slot 9): the exe's
@@ -2908,23 +2854,64 @@ void RemoveShipFromSpecial(Ship *shiptoremove)
     }
 }
 
+// CAT: the link block of the linkable types (ShipLink.h): sAcolyte, sACV, sMimic, sMCV, bAcolyte, bACV, the types
+//      cat_clLinkCleanup 0x00444060 and cat_clFindLinkPartner 0x0044d2e0 test; NULL for any other ship
+CatLinkInfo *cat_shipGetLinkInfo(Ship *ship)
+{
+    switch (ship->shiptype)
+    {
+        case sAcolyte:
+        case sACV:
+        case sMimic:
+        case sMCV:
+        case bAcolyte:
+        case bACV:
+            return (CatLinkInfo *)((ubyte *)ship->ShipSpecifics + 0x18);
+        default:
+            return NULL;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_clLinkCleanup
+    Description : breaks the link of a linkable ship: both ships lose the partner, their no-avoidance flag and the
+                  link disable reason (3)
+    Inputs      : ship
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (cat_clLinkCleanup 0x00444060; also inlined in FreeLastOrder 0x00444490 and RemoveShipsFromDoingStuff)
+void cat_clLinkCleanup(Ship *ship)
+{
+    CatLinkInfo *link = cat_shipGetLinkInfo(ship);
+    Ship *partner;
+
+    if (link == NULL)
+    {
+        return;
+    }
+    partner = link->partner;
+    if (partner != NULL)
+    {
+        bitClear(ship->shipOrDerelict.specialFlags2,SPECIAL_2_CatNoAvoidance);
+        link->partner = NULL;
+        bitClear(partner->shipOrDerelict.specialFlags2,SPECIAL_2_CatNoAvoidance);
+        ((CatLinkInfo *)((ubyte *)partner->ShipSpecifics + 0x18))->partner = NULL;     // the exe writes partner+0x650
+        cat_shipSetDisableReason(partner,FALSE,3);
+    }
+    cat_shipSetDisableReason(ship,FALSE,3);
+}
+
 void SpecialCleanup(CommandToDo *command)
 {
     sdword i;
     SelectCommand *selection = command->selection;
     sdword numShips = selection->numShips;
 
-    //for all special ships using the repair effect
+    // CAT: the special order's cleanup only calls each ship's order-changed slot and frees the targets
+    //      (FreeCommandToDoContents 0x004440f0 case 7, FreeLastOrder 0x00444490 case 7): no HW1 repair-beam stop
     for (i=0;i<numShips;i++)
     {
-        if(selection->ShipPtr[i]->rceffect != NULL)
-        {
-            if(selection->ShipPtr[i]->staticinfo->repairBeamCapable)
-            {
-                //ship must be using the repair effect
-                stopRepairEffect(selection->ShipPtr[i]);
-            }
-        }
         RemoveShipFromSpecial(selection->ShipPtr[i]);
     }
 
@@ -2935,11 +2922,14 @@ void SpecialCleanup(CommandToDo *command)
     }
 }
 
+// CAT: the collect order's per-ship cleanup stops the ship's repair-style effect (stopRepairEffect 0x005c23b0 on
+//      Ship+0x38C; FreeCommandToDoContents 0x004440f0 case 5, FreeLastOrder 0x00444490, RemoveShipsFromDoingStuff
+//      0x00444b95), not HW1's TurnHarvestEffectOff
 void RemoveShipFromResourceCollecting(Ship *shiptoremove)
 {
     if (shiptoremove->rceffect != NULL)
     {
-        TurnHarvestEffectOff(shiptoremove);
+        stopRepairEffect(shiptoremove);
     }
     shiptoremove->rcstate1 = 0;
     shiptoremove->rcstate2 = 0;
@@ -2957,12 +2947,32 @@ void CollectResourceCleanup(CommandToDo *command)
     }
 }
 
-void FreeCommandToDoContents(CommandToDo *command)
+// CAT: the link and unlink orders' cleanup (FreeCommandToDoContents 0x004440f0 and FreeLastOrder 0x00444490, cases
+//      11 and 12)
+static void LinkCleanup(CommandToDo *command)
 {
+    sdword i;
+    SelectCommand *selection = command->selection;
+
+    for (i = 0; i < selection->numShips; i++)
+    {
+        cat_clLinkCleanup(selection->ShipPtr[i]);
+    }
+}
+
+// CAT: FreeCommandToDoContents 0x004440f0 takes a second argument, a code its callers pass (RemoveShipsFromDoingStuff
+//      1-11, clProcess); the exe never reads it. No tacticsAttackCommandVoided (a nullsub in its place); the order
+//      cases follow the exe: hyperspace clears the disable reason 6, link/unlink break the links, the Cataclysm orders
+//      14-16 free only the selection.
+void FreeCommandToDoContents(CommandToDo *command,sdword catReason)
+{
+    (void)catReason;
+
     if (command->ordertype.attributes & COMMAND_MASK_PROTECTING)
     {
         memFree(command->protect);
         bitClear(command->ordertype.attributes,COMMAND_MASK_PROTECTING);
+        command->protect = NULL;
     }
 
     if (command->ordertype.attributes & COMMAND_MASK_FORMATION)
@@ -2973,15 +2983,11 @@ void FreeCommandToDoContents(CommandToDo *command)
 
     if (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
     {
-        dbgAssertOrIgnore(command->ordertype.order != COMMAND_ATTACK);
         AttackCleanup(command);
-        dbgAssertOrIgnore(command->attack);
         memFree(command->attack);
         bitClear(command->ordertype.attributes,COMMAND_MASK_PASSIVE_ATTACKING);
+        command->attack = NULL;
     }
-
-    //report dead command to tactics layer
-    tacticsAttackCommandVoided(command);
 
     RemoveShipsFromCommand(command);
 
@@ -2989,70 +2995,8 @@ void FreeCommandToDoContents(CommandToDo *command)
     {
         case COMMAND_ATTACK:
             AttackCleanup(command);
-            dbgAssertOrIgnore(command->attack);
-            memFree(command->attack);
-            break;
-
-        case COMMAND_MOVE:
-            MoveCleanup(command);
-            break;
-        case COMMAND_MP_HYPERSPACING:
-            MpHyperspaceCleanup(command);
-            break;
-
-        case COMMAND_NULL:
-        case COMMAND_HALT:
-        case COMMAND_BUILDING_SHIP:
-            break;
-
-        case COMMAND_COLLECT_RESOURCES:
-            CollectResourceCleanup(command);
-            break;
-
-        case COMMAND_MILITARY_PARADE:
-            dbgAssertOrIgnore(command->militaryParade);
-            FreeMilitaryParadeContents(command->militaryParade);
-            memFree(command->militaryParade);
-            break;
-
-        case COMMAND_LAUNCH_SHIP:
-            LaunchCleanup(command);
-            break;
-
-        case COMMAND_DOCK:
-            DockCleanup(command);
-            break;
-
-        case COMMAND_SPECIAL:
-            SpecialCleanup(command);
-            break;
-
-        default:
-            dbgAssertOrIgnore(FALSE);   // should never get here
-            break;
-    }
-
-    memFree(command->selection);
-}
-
-void FreeLastOrder(CommandToDo *command)
-{
-    sdword dontClearHoldingPattern = FALSE;
-    //report dead command to tactics layer
-    tacticsAttackCommandVoided(command);
-
-    // deliberately do not call
-    // RemoveShipsFromCommand(command)
-    // because last order is being freed in order to be changed, the actual command is not freed.
-
-    switch (command->ordertype.order)
-    {
-        case COMMAND_ATTACK:
-            AttackCleanup(command);
-            dbgAssertOrIgnore(command->attack);
             memFree(command->attack);
             command->attack = NULL;
-            dontClearHoldingPattern = TRUE;
             break;
 
         case COMMAND_MOVE:
@@ -3062,17 +3006,11 @@ void FreeLastOrder(CommandToDo *command)
             MpHyperspaceCleanup(command);
             break;
 
-        case COMMAND_NULL:
-        case COMMAND_HALT:
-        case COMMAND_BUILDING_SHIP:
-            break;
-
         case COMMAND_COLLECT_RESOURCES:
             CollectResourceCleanup(command);
             break;
 
         case COMMAND_MILITARY_PARADE:
-            dbgAssertOrIgnore(command->militaryParade);
             FreeMilitaryParadeContents(command->militaryParade);
             memFree(command->militaryParade);
             command->militaryParade = NULL;
@@ -3090,8 +3028,75 @@ void FreeLastOrder(CommandToDo *command)
             SpecialCleanup(command);
             break;
 
+        case COMMAND_CAT_LINK:
+        case COMMAND_CAT_UNLINK:
+            LinkCleanup(command);
+            break;
+
         default:
-            dbgAssertOrIgnore(FALSE);
+            // COMMAND_NULL, COMMAND_HALT, COMMAND_BUILDING_SHIP, COMMAND_CAT_POINT, COMMAND_CAT_MIMIC,
+            // COMMAND_CAT_RESEARCH: nothing but the selection
+            break;
+    }
+
+    memFree(command->selection);
+    command->selection = NULL;
+}
+
+// CAT: FreeLastOrder 0x00444490 as FreeCommandToDoContents above, for the order only; every order but an attack also
+//      ends the holding pattern
+void FreeLastOrder(CommandToDo *command)
+{
+    sdword dontClearHoldingPattern = FALSE;
+
+    // deliberately do not call
+    // RemoveShipsFromCommand(command)
+    // because last order is being freed in order to be changed, the actual command is not freed.
+
+    switch (command->ordertype.order)
+    {
+        case COMMAND_ATTACK:
+            AttackCleanup(command);
+            memFree(command->attack);
+            command->attack = NULL;
+            dontClearHoldingPattern = TRUE;
+            break;
+
+        case COMMAND_MOVE:
+            MoveCleanup(command);
+            break;
+        case COMMAND_MP_HYPERSPACING:
+            MpHyperspaceCleanup(command);
+            break;
+
+        case COMMAND_COLLECT_RESOURCES:
+            CollectResourceCleanup(command);
+            break;
+
+        case COMMAND_MILITARY_PARADE:
+            FreeMilitaryParadeContents(command->militaryParade);
+            memFree(command->militaryParade);
+            command->militaryParade = NULL;
+            break;
+
+        case COMMAND_LAUNCH_SHIP:
+            LaunchCleanup(command);
+            break;
+
+        case COMMAND_DOCK:
+            DockCleanup(command);
+            break;
+
+        case COMMAND_SPECIAL:
+            SpecialCleanup(command);
+            break;
+
+        case COMMAND_CAT_LINK:
+        case COMMAND_CAT_UNLINK:
+            LinkCleanup(command);
+            break;
+
+        default:
             break;
     }
     if(!dontClearHoldingPattern)
@@ -3107,27 +3112,6 @@ void ClearPassiveAttacking(CommandToDo *command)
     dbgAssertOrIgnore(command->attack);
     memFree(command->attack);
     command->attack = NULL;
-
-/*
-    Locked formation cleanup not needed because a check is done in AttackCleanup to
-    see if a formation is locked and unlocks it if need be...
-*/
-
-/*
-    if(command->ordertype.order == COMMAND_NULL)
-    {
-        //command is a NULL command
-        if(command->ordertype.attributes & COMMAND_MASK_FORMATION)
-        {
-            //command is a NULL command and in FORMATION
-            //There for the formation had to be locked
-            dbgAssertOrIgnore(command->formation.formationLocked);
-
-            //unlock the formation
-            unlockFormation(command);
-        }
-    }
-*/
 }
 
 void ClearProtecting(CommandToDo *command)
@@ -3139,7 +3123,6 @@ void ClearProtecting(CommandToDo *command)
 
     if (command->ordertype.attributes & COMMAND_MASK_FORMATION)
     {
-//        command->formation.formAroundProtectedShip = FALSE;
         // CAT: ClearProtecting 0x004447b0: a sphere needs at least 2 ships (HW1: 1), and a force-field sphere around the
         //      protected ship becomes a force-field wall
         if ((command->formation.formationtype == SPHERE_FORMATION) && (command->selection->numShips >= 2))
@@ -3155,13 +3138,40 @@ void ClearProtecting(CommandToDo *command)
     }
 }
 
-void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom)
+// CAT: the leader/wingman links of the ships that stay in todo, as the exe inlines them in RemoveShipsFromDoingStuff
+//      after each RemoveShipFromAttacking (RemoveShipReferencesFromExtraAttackInfo 0x004479f0 is the same code)
+static void catRemoveShipFromAttackCommand(Ship *shiptoremove,CommandToDo *todo)
+{
+    RemoveShipFromAttacking(shiptoremove);
+    RemoveShipReferencesFromExtraAttackInfo(shiptoremove,todo);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : RemoveShipsFromDoingStuff
+    Description : takes the ships of selectcom out of every command of comlayer
+    Inputs      : comlayer, selectcom, catReason
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: RemoveShipsFromDoingStuff 0x00444810 takes a third argument, a reason code each caller passes (2 attack-move
+//      split, 3 attack-move, 4 move, 5 hyperspace, 0xb launch, 0xd parade, 0xe died, 0xf link, 0x11 mimic, 0x12
+//      point, 0x20 formation ...); the exe never reads it. Per order, as the exe's jump table 0x00445124: the move and
+//      hyperspace orders clear moveTo/moveFrom (hyperspace also its disable reason 6), the collect order stops the
+//      ship's effect, the special order calls the order-changed slot, link/unlink break the ship's link whether or not
+//      it was in that command, the point order (14) and the build order keep their ships, and an emptied command is
+//      freed (FreeCommandToDoContents with the exe's codes). A formation that loses a ship drops to a plain command
+//      at one ship left and is freed at none (HW1: below ABSOLUTE_MIN_SHIPS_IN_FORMATION), except a link/unlink
+//      formation, which is kept; the force-field formations are re-arranged like the others.
+void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom,sdword catReason)
 {
     sdword i;
     ShipPtr shiptoremove;
     Node *todonode;
     CommandToDo *todo;
     SelectCommand *todoselection;
+    sdword freeCode;
+
+    (void)catReason;
 
     for (i=0;i<selectcom->numShips;i++)
     {
@@ -3193,8 +3203,7 @@ void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom)
 
                     if ((todo->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING) || (todo->ordertype.order == COMMAND_ATTACK))
                     {
-                        RemoveShipFromAttacking(shiptoremove);
-                        RemoveShipReferencesFromExtraAttackInfo(shiptoremove,todo);
+                        catRemoveShipFromAttackCommand(shiptoremove,todo);
                     }
 
                     if (todo->ordertype.order == COMMAND_DOCK)
@@ -3217,25 +3226,29 @@ void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom)
                         removeShipFromMpHyperspaceing(shiptoremove);
                     }
 
-                    if (todoselection->numShips < ABSOLUTE_MIN_SHIPS_IN_FORMATION)
+                    if (todoselection->numShips == 0)
                     {
-                        Node *nextnode = todonode->next;
-                        FreeCommandToDoContents(todo);
-                        listDeleteNode(todonode);
-                        todonode = nextnode;
-                        goto readyfornextnode;
+                        if ((todo->ordertype.order != COMMAND_CAT_LINK) && (todo->ordertype.order != COMMAND_CAT_UNLINK))
+                        {
+                            freeCode = 1;
+                            goto freetodo;
+                        }
+                    }
+                    else if (todoselection->numShips < 2)
+                    {
+                        if ((todo->ordertype.order != COMMAND_CAT_LINK) && (todo->ordertype.order != COMMAND_CAT_UNLINK))
+                        {
+                            // one ship left: it is no longer a formation (0x00444a18)
+                            FormationCleanup(todo);
+                            bitClear(todo->ordertype.attributes,COMMAND_MASK_FORMATION);
+                        }
                     }
                     else
                     {
                         setFormationTravelVelocity(todo);
-                        //formationArrangeOptimum(todo);
-                        if (todo->formation.formationtype == WALL_FORMATION)    // leave holes in WALL and SPHERE formations
+                        if ((todo->formation.formationtype == WALL_FORMATION) || (todo->formation.formationtype == SPHERE_FORMATION))
                         {
-                            // CAT: no HW1 TargetDrone wall (M2-R4 ships-b)
-                        }
-                        else if (todo->formation.formationtype == SPHERE_FORMATION)
-                        {
-                            ;       // deliberately do not call formationContentHasChanged for sphere formation
+                            ;       // leave holes in WALL and SPHERE formations
                         }
                         else if (todo->formation.formationtype == CUSTOM_FORMATION)
                         {
@@ -3259,15 +3272,11 @@ void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom)
                         if (clRemoveShipFromSelection(todoselection,shiptoremove))
                         {
                             RemoveShipFromCommand(shiptoremove);
-                            RemoveShipFromAttacking(shiptoremove);
-                            RemoveShipReferencesFromExtraAttackInfo(shiptoremove,todo);
+                            catRemoveShipFromAttackCommand(shiptoremove,todo);
                             if (todoselection->numShips == 0)
                             {
-                                Node *nextnode = todonode->next;
-                                FreeCommandToDoContents(todo);
-                                listDeleteNode(todonode);
-                                todonode = nextnode;
-                                goto readyfornextnode;
+                                freeCode = 2;
+                                goto freetodo;
                             }
                         }
                         break;
@@ -3280,11 +3289,8 @@ void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom)
 
                             if (todoselection->numShips == 0)
                             {
-                                Node *nextnode = todonode->next;
-                                FreeCommandToDoContents(todo);
-                                listDeleteNode(todonode);
-                                todonode = nextnode;
-                                goto readyfornextnode;
+                                freeCode = 3;
+                                goto freetodo;
                             }
                         }
                         break;
@@ -3295,19 +3301,15 @@ void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom)
                             RemoveShipFromCommand(shiptoremove);
                             if (todo->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
                             {
-                                RemoveShipFromAttacking(shiptoremove);
-                                RemoveShipReferencesFromExtraAttackInfo(shiptoremove,todo);
+                                catRemoveShipFromAttackCommand(shiptoremove,todo);
                             }
 
                             RemoveShipFromMoving(shiptoremove);
 
                             if (todoselection->numShips == 0)
                             {
-                                Node *nextnode = todonode->next;
-                                FreeCommandToDoContents(todo);
-                                listDeleteNode(todonode);
-                                todonode = nextnode;
-                                goto readyfornextnode;
+                                freeCode = 4;
+                                goto freetodo;
                             }
                         }
                         break;
@@ -3320,17 +3322,13 @@ void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom)
 
                             if (todo->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
                             {
-                                RemoveShipFromAttacking(shiptoremove);
-                                RemoveShipReferencesFromExtraAttackInfo(shiptoremove,todo);
+                                catRemoveShipFromAttackCommand(shiptoremove,todo);
                             }
 
                             if (todoselection->numShips == 0)
                             {
-                                Node *nextnode = todonode->next;
-                                FreeCommandToDoContents(todo);
-                                listDeleteNode(todonode);
-                                todonode = nextnode;
-                                goto readyfornextnode;
+                                freeCode = 5;
+                                goto freetodo;
                             }
                         }
                         break;
@@ -3338,18 +3336,13 @@ void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom)
                     case COMMAND_SPECIAL:
                         if (clRemoveShipFromSelection(todoselection,shiptoremove))
                         {
-                            dbgAssertOrIgnore((todo->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING) == 0);
-
                             RemoveShipFromCommand(shiptoremove);
                             RemoveShipFromSpecial(shiptoremove);
 
                             if (todoselection->numShips == 0)
                             {
-                                Node *nextnode = todonode->next;
-                                FreeCommandToDoContents(todo);
-                                listDeleteNode(todonode);
-                                todonode = nextnode;
-                                goto readyfornextnode;
+                                freeCode = 6;
+                                goto freetodo;
                             }
                         }
                         break;
@@ -3361,19 +3354,15 @@ void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom)
 
                             if (todo->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
                             {
-                                RemoveShipFromAttacking(shiptoremove);
-                                RemoveShipReferencesFromExtraAttackInfo(shiptoremove,todo);
+                                catRemoveShipFromAttackCommand(shiptoremove,todo);
                             }
 
                             RemoveShipFromMilitaryParade(shiptoremove,todo->militaryParade);
 
                             if (todoselection->numShips == 0)
                             {
-                                Node *nextnode = todonode->next;
-                                FreeCommandToDoContents(todo);
-                                listDeleteNode(todonode);
-                                todonode = nextnode;
-                                goto readyfornextnode;
+                                freeCode = 7;
+                                goto freetodo;
                             }
                         }
                         break;
@@ -3385,18 +3374,14 @@ void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom)
 
                             if (todo->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
                             {
-                                RemoveShipFromAttacking(shiptoremove);
-                                RemoveShipReferencesFromExtraAttackInfo(shiptoremove,todo);
+                                catRemoveShipFromAttackCommand(shiptoremove,todo);
                             }
 
                             RemoveShipFromLaunching(shiptoremove);
                             if (todoselection->numShips == 0)
                             {
-                                Node *nextnode = todonode->next;
-                                FreeCommandToDoContents(todo);
-                                listDeleteNode(todonode);
-                                todonode = nextnode;
-                                goto readyfornextnode;
+                                freeCode = 8;
+                                goto freetodo;
                             }
                         }
                         break;
@@ -3408,46 +3393,61 @@ void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom)
 
                             if (todo->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
                             {
-                                RemoveShipFromAttacking(shiptoremove);
-                                RemoveShipReferencesFromExtraAttackInfo(shiptoremove,todo);
+                                catRemoveShipFromAttackCommand(shiptoremove,todo);
                             }
 
                             RemoveShipFromDocking(shiptoremove);
                             if (todoselection->numShips == 0)
                             {
-                                Node *nextnode = todonode->next;
-                                FreeCommandToDoContents(todo);
-                                listDeleteNode(todonode);
-                                todonode = nextnode;
-                                goto readyfornextnode;
+                                freeCode = 9;
+                                goto freetodo;
                             }
                         }
                         break;
 
-                    case COMMAND_BUILDING_SHIP:
-                        break;
-
                     case COMMAND_MP_HYPERSPACING:
-#ifdef HW_BUILD_FOR_DEBUGGING
-                        dbgMessage("Hyperspaceing ship removed from doing stuff!");
-#endif
                         if (clRemoveShipFromSelection(todoselection,shiptoremove))
                         {
                             RemoveShipFromCommand(shiptoremove);
                             removeShipFromMpHyperspaceing(shiptoremove);
                             if (todoselection->numShips == 0)
                             {
-                                Node *nextnode = todonode->next;
-                                FreeCommandToDoContents(todo);
-                                listDeleteNode(todonode);
-                                todonode = nextnode;
-                                goto readyfornextnode;
+                                freeCode = 10;
+                                goto freetodo;
                             }
                         }
-
                         break;
+
+                    case COMMAND_CAT_LINK:
+                    case COMMAND_CAT_UNLINK:
+                        // CAT: the ship leaves the command (an emptied one stays for cat_processLinkToDo to finish);
+                        //      its link is broken even when it was not in this command (0x00444f81 -> 0x00444fde)
+                        if (clRemoveShipFromSelection(todoselection,shiptoremove))
+                        {
+                            RemoveShipFromCommand(shiptoremove);
+                            if (todo->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
+                            {
+                                catRemoveShipFromAttackCommand(shiptoremove,todo);
+                            }
+                        }
+                        cat_clLinkCleanup(shiptoremove);
+                        break;
+
+                    case COMMAND_CAT_MIMIC:
+                        if (clRemoveShipFromSelection(todoselection,shiptoremove))
+                        {
+                            RemoveShipFromCommand(shiptoremove);
+                            if (todoselection->numShips == 0)
+                            {
+                                freeCode = 11;
+                                goto freetodo;
+                            }
+                        }
+                        break;
+
                     default:
-                        dbgAssertOrIgnore(FALSE);
+                        // COMMAND_BUILDING_SHIP, COMMAND_CAT_POINT, COMMAND_CAT_13, COMMAND_CAT_RESEARCH and above:
+                        // the exe's jump table leaves them alone
                         break;
                 }
 
@@ -3455,8 +3455,15 @@ void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom)
         }
 
         todonode = todonode->next;
-readyfornextnode:
-        ;
+        continue;
+
+freetodo:
+        {
+            Node *nextnode = todonode->next;
+            FreeCommandToDoContents(todo,freeCode);
+            listDeleteNode(todonode);
+            todonode = nextnode;
+        }
     }
 }
 
@@ -3516,7 +3523,7 @@ void clDerelictDied(CommandLayer *comlayer,DerelictPtr derelict)
                 break;
 
             default:
-                dbgAssertOrIgnore(FALSE);
+                // CAT: no assert: the orders 11-17 come here (the exe tests only its few cases)
                 break;
         }
 
@@ -3581,7 +3588,7 @@ void clResourceDied(CommandLayer *comlayer,ResourcePtr resource)
                 break;
 
             default:
-                dbgAssertOrIgnore(FALSE);
+                // CAT: no assert: the orders 11-17 come here (the exe tests only its few cases)
                 break;
         }
 
@@ -3630,7 +3637,7 @@ void clMissileDied(CommandLayer *comlayer,MissilePtr missile)
                 break;
 
             default:
-                dbgAssertOrIgnore(FALSE);
+                // CAT: no assert: the orders 11-17 come here (the exe tests only its few cases)
                 break;
         }
 
@@ -3843,7 +3850,7 @@ void RemoveShipFromBeingTargeted(CommandLayer *comlayer,ShipPtr shiptoremove,udw
                     if ((todo->ordertype.attributes == 0) && (todo->ordertype.order == COMMAND_NULL))
                     {
                         nextnode = todonode->next;
-                        FreeCommandToDoContents(todo);
+                        FreeCommandToDoContents(todo,0xc);
                         listDeleteNode(todonode);
                         todonode = nextnode;
                         continue;
@@ -3909,7 +3916,7 @@ void RemoveShipFromBeingTargeted(CommandLayer *comlayer,ShipPtr shiptoremove,udw
                     RemoveShipFromLaunching(ship);
 
                     nextnode = todonode->next;
-                    FreeCommandToDoContents(todo);
+                    FreeCommandToDoContents(todo,0xd);
                     listDeleteNode(todonode);
                     todonode = nextnode;
                     continue;
@@ -3921,7 +3928,7 @@ void RemoveShipFromBeingTargeted(CommandLayer *comlayer,ShipPtr shiptoremove,udw
                 if (shiptoremove == todo->buildingship.creator)
                 {
                     nextnode = todonode->next;
-                    FreeCommandToDoContents(todo);
+                    FreeCommandToDoContents(todo,0xe);
                     listDeleteNode(todonode);
                     todonode = nextnode;
                     continue;
@@ -3970,6 +3977,10 @@ void clInit(CommandLayer *comlayer)
     listInit(&comlayer->todolist);
 }
 
+// CAT: the real time of the last out-of-resources message (0x00a2db50, cat_clHarvestNearestResource); clClose and
+//      clReset clear it
+static real32 catHarvestMessageTime = 0.0f;
+
 /*-----------------------------------------------------------------------------
     Name        : clClose
     Description : Closes the command layer
@@ -4002,12 +4013,13 @@ void clClose(CommandLayer *comlayer)
             }
         }
 
-        FreeCommandToDoContents(command);
+        FreeCommandToDoContents(command,0xf);
         listDeleteNode(curnode);
 
 dontfreeit:
         curnode = nextnode;
     }
+    catHarvestMessageTime = 0.0f;       // CAT: clClose 0x00445a00 / clReset 0x00445b40 (inlined copy)
 }
 
 /*-----------------------------------------------------------------------------
@@ -4040,14 +4052,19 @@ void clCancelAllLaunchOrdersFromPlayer(struct Player *player)
             {
                 if(command->selection->ShipPtr[i]->playerowner == player)
                 {
-                    if(!ShipCanHyperspace(command->selection->ShipPtr[i]) )
+                    // CAT: clCancelAllLaunchOrdersFromPlayer 0x00445a70 (map: IDENTICAL): capital ships and modules
+                    //      (CLASS_Component) stay; the slot's ship loses its command after the removal (the moved-in
+                    //      ship when another took the slot, as the exe does)
+                    if (!command->selection->ShipPtr[i]->staticinfo->shipIsCapital &&
+                        (command->selection->ShipPtr[i]->staticinfo->shipclass != CLASS_Component))
                     {
                         RemoveShipFromLaunching(command->selection->ShipPtr[i]);
                         if(clRemoveShipFromSelection(command->selection,command->selection->ShipPtr[i]))
                         {
+                            command->selection->ShipPtr[i]->command = NULL;
                             if(command->selection->numShips == 0)
                             {
-                                FreeCommandToDoContents(command);
+                                FreeCommandToDoContents(command,0x10);
                                 listDeleteNode(curnode);
                                 break;
                             }
@@ -4280,19 +4297,138 @@ void CalculateMoveToPoints(SelectCommand *selection,vector from,vector to)
         memFree(movecalcs);
     }
 }
-bool32 selectionHasOtherForceNoAttackAndMoveShips(SelectCommand *selection)
+/*-----------------------------------------------------------------------------
+    Name        : cat_clCalculateMoveToOffsets
+    Description : CalculateMoveToPoints' scaled offsets, written to outOffsets[i] for each ship instead of being added
+                  to the ships' moveTo (a single ship gets offset 0)
+    Inputs      : selection, from, to
+    Outputs     : outOffsets (selection->numShips vectors)
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (cat_clCalculateMoveToOffsets 0x00445e80): the same scaling as CalculateMoveToPoints; ChangeOrderToMove,
+//      clMoveThese and clMove use it to give every ship of a group its own waypoint path
+void cat_clCalculateMoveToOffsets(SelectCommand *selection,vector from,vector to,vector *outOffsets)
 {
+    sdword numShips = selection->numShips;
+    ShipMoveCalcs stackMoveCalcs[NUM_STACK_MOVECALCS];
+    bool32 moveCalcsAllocated = FALSE;
+    ShipMoveCalcs *movecalcs;
     sdword i;
-    for(i=0;i<selection->numShips;i++)
+    vector d,r;
+    real32 dsqr,rsqr,dmag;
+    real32 maxrsqr,maxrmag;
+    real32 scale,doverr;
+
+    if (numShips == 1)
     {
-        if(selection->ShipPtr[i]->staticinfo->cantMoveAndAttack)
+        vecZeroVector(outOffsets[0]);
+        return;
+    }
+
+    vecSub(d,to,from);
+    dsqr = vecMagnitudeSquared(d);
+    dmag = fsqrt(dsqr);
+
+    if (numShips > NUM_STACK_MOVECALCS)
+    {
+        moveCalcsAllocated = TRUE;
+        movecalcs = memAlloc(sizeof(ShipMoveCalcs)*numShips,"movecalcs",0);
+    }
+    else
+    {
+        movecalcs = stackMoveCalcs;
+    }
+
+    maxrsqr = -1.0f;
+
+    for (i=0;i<numShips;i++)
+    {
+        vecSub(r,selection->ShipPtr[i]->obj.posinfo.position,from);
+        movecalcs[i].fromtoship = r;
+        movecalcs[i].totoship = r;
+
+        rsqr = vecMagnitudeSquared(r);
+        if (rsqr > maxrsqr)
         {
-            return TRUE;
+            maxrsqr = rsqr;
         }
     }
-    return FALSE;
+
+    maxrmag = fsqrt(maxrsqr);
+
+    if (dmag < maxrmag)
+    {
+        scale = SHRINKMIN;
+    }
+    else
+    {
+        doverr = dmag / maxrmag;
+
+        if (doverr >= DISTMAXRATIO)
+        {
+            scale = SHRINKMAX;
+        }
+        else
+        {
+            scale = ((doverr - DISTMINRATIO) * (SHRINKMAX - SHRINKMIN) / (DISTMAXRATIO - DISTMINRATIO)) + SHRINKMIN;
+        }
+    }
+
+    if (scale != 1.0f)
+    for (i=0;i<numShips;i++)
+    {
+        vecMultiplyByScalar(movecalcs[i].totoship,scale);
+    }
+
+    for (i=0;i<numShips;i++)
+    {
+        outOffsets[i] = movecalcs[i].totoship;
+    }
+
+    if (moveCalcsAllocated)
+    {
+        memFree(movecalcs);
+    }
 }
-void ChangeOrderToMove(CommandToDo *alreadycommand,vector from,vector to)
+
+// CAT: the ships Cataclysm moves on their own out of an attack-move: fighters, corvettes and the cantMoveAndAttack
+//      types (the inline tests of ChangeOrderToMove 0x004462df..0x0044637c)
+static bool32 catShipMovesOutOfAttackMove(Ship *ship)
+{
+    return (ship->staticinfo->shipclass == CLASS_Fighter) || (ship->staticinfo->shipclass == CLASS_Corvette) ||
+           ship->staticinfo->cantMoveAndAttack;
+}
+
+// CAT: stores a waypoint path in a move order (the inline stores of clMoveThese 0x00446bf2, ChangeOrderToMove
+//      0x00446498 / 0x0044661f, ChangeOrderToHyperSpace 0x004471c5): current point 0
+static void catSetMovePath(CommandToDo *command,sdword pathType,sdword numPoints,vector *points)
+{
+    sdword i;
+
+    dbgAssertOrIgnore(numPoints <= CAT_MOVE_MAX_POINTS);
+    command->move.curPoint = 0;
+    command->move.pathType = pathType;
+    command->move.numPoints = numPoints;
+    for (i = 0; i < numPoints; i++)
+    {
+        command->move.points[i] = points[i];
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : ChangeOrderToMove
+    Description : changes an existing command to a move along a waypoint path
+    Inputs      : alreadycommand, pathType (CAT_MOVEPATH_*), from, numPoints, points
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: ChangeOrderToMove 0x004460d0 takes a waypoint path (HW1: from, to). A group not in formation is split: every
+//      ship but the last left in the command gets its own single-ship move (clMoveThese with the split flag) along the
+//      path shifted by its cat_clCalculateMoveToOffsets offset (the exe always takes ShipPtr[0] and walks the offsets
+//      in order while the removal swaps the last ship into slot 0; kept as the exe does it). An attack becomes an
+//      attack-move only for capital ships: fighters, corvettes and cantMoveAndAttack ships of a mixed group get their
+//      own move (and formation), a group of them only moves. No heading is kept (the exe's move has none).
+void ChangeOrderToMove(CommandToDo *alreadycommand,sdword pathType,vector from,sdword numPoints,vector *points)
 {
     SelectCommand *selectcom = alreadycommand->selection;
     sdword i,j;
@@ -4307,91 +4443,97 @@ void ChangeOrderToMove(CommandToDo *alreadycommand,vector from,vector to)
         ClearPassiveAttacking(alreadycommand);
     }
 
-    if(alreadycommand->ordertype.order == COMMAND_ATTACK)
+    if ((selectcom->numShips > 1) && !(alreadycommand->ordertype.attributes & COMMAND_MASK_FORMATION))
     {
-        //selection is actually attacking...so this should be a move attack
-        if(selectionHasStrikeCraft(alreadycommand->selection) ||
-           selectionHasOtherForceNoAttackAndMoveShips(alreadycommand->selection))
+        vector offsets[COMMAND_MAX_SHIPS];
+        vector shifted[CAT_MOVE_MAX_POINTS];
+        vector shiftedfrom;
+        MaxSelection single;
+
+        cat_clCalculateMoveToOffsets(selectcom,from,points[0],offsets);
+        for (i = 0; (selectcom->numShips > 1) && (i < 99999); i++)
         {
-            //filter strike craft...give strike craft a move order,
-            //and give give capital ships a majik command
-            if(!isSelectionExclusivlyStrikeCraftorNoMoveAndAttackShips(alreadycommand->selection))
+            single.numShips = 1;
+            single.ShipPtr[0] = selectcom->ShipPtr[0];
+            for (j = 0; j < numPoints; j++)
             {
-                //some capitals some strike craft
-                MaxSelection tempSelection;
-                tempSelection.numShips = 0;
-                j = 0;
-
-                dbgAssertOrIgnore(alreadycommand->selection->numShips < COMMAND_MAX_SHIPS);
-
-                for(i=0;i<alreadycommand->selection->numShips;i++)
-                {
-                    if(alreadycommand->selection->ShipPtr[i]->staticinfo->shipclass == CLASS_Fighter ||
-                       alreadycommand->selection->ShipPtr[i]->staticinfo->shipclass == CLASS_Corvette ||
-                       alreadycommand->selection->ShipPtr[i]->staticinfo->cantMoveAndAttack)
-                    {
-                        tempSelection.numShips++;
-                        tempSelection.ShipPtr[j] = alreadycommand->selection->ShipPtr[i];
-                        j++;
-                    }
-                }
-                RemoveShipsFromDoingStuff(&universe.mainCommandLayer,(SelectCommand *)&tempSelection);
-                clMoveThese(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,from,to);
-                if(alreadycommand->ordertype.attributes & COMMAND_MASK_FORMATION)
-                {
-                    clFormation(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,alreadycommand->formation.formationtype);
-                }
-                goto StillDoAttackMoveWithCapitals;
+                vecAdd(shifted[j],points[j],offsets[i]);
             }
-        }
-        else
-        {
-StillDoAttackMoveWithCapitals:
-            //just capital ships in selection
-            if(!bitTest(alreadycommand->selection->ShipPtr[0]->shipOrDerelict.specialFlags,SPECIAL_ATTACKMOVECANCEL))
-            {
-                alreadycommand->ordertype.attributes |= COMMAND_MASK_ATTACKING_AND_MOVING;
-                alreadycommand->move.destination = to;
-                vecSub(alreadycommand->move.heading,to,from);
-                vecNormalize(&alreadycommand->move.heading);
-
-                InitShipsForAI(selectcom,TRUE);
-
-                CalculateMoveToPoints(selectcom,from,to);
-
-                for (i=0;i<selectcom->numShips;i++)
-                {
-                    //selectcom->ShipPtr[i]->moveTo = to;
-                    selectcom->ShipPtr[i]->moveFrom = selectcom->ShipPtr[i]->obj.posinfo.position;
-                    //soundEventStartEngine(selectcom->ShipPtr[i]);
-                }
-                PrepareShipsForCommand(alreadycommand,TRUE);
-                return;
-            }
-            bitClear(alreadycommand->selection->ShipPtr[0]->shipOrDerelict.specialFlags,SPECIAL_ATTACKMOVECANCEL);
+            vecAdd(shiftedfrom,from,offsets[i]);
+            clMoveThese(&universe.mainCommandLayer,(SelectCommand *)&single,pathType,shiftedfrom,numPoints,shifted,TRUE);
         }
     }
 
-    if (alreadycommand->ordertype.order == COMMAND_MOVE)
+    if (alreadycommand->ordertype.order == COMMAND_ATTACK)
     {
-#if DEBUG_COMMAND_LAYER
-        dbgMessage("Changing movement direction");
-#endif
+        bool32 anyAlone = FALSE;
+        bool32 anyCapital = FALSE;
 
+        for (i = 0; i < alreadycommand->selection->numShips; i++)
+        {
+            if (catShipMovesOutOfAttackMove(alreadycommand->selection->ShipPtr[i]))
+            {
+                anyAlone = TRUE;
+            }
+            else
+            {
+                anyCapital = TRUE;
+            }
+        }
+        if (anyAlone && !anyCapital)
+        {
+            goto plainmove;     // only fighters, corvettes and cantMoveAndAttack ships: a move order (0x0044637c)
+        }
+        if (anyAlone)
+        {
+            // some capitals and some strike craft: the strike craft move on their own
+            MaxSelection tempSelection;
+
+            tempSelection.numShips = 0;
+            for (i = 0; i < alreadycommand->selection->numShips; i++)
+            {
+                if (catShipMovesOutOfAttackMove(alreadycommand->selection->ShipPtr[i]))
+                {
+                    tempSelection.ShipPtr[tempSelection.numShips++] = alreadycommand->selection->ShipPtr[i];
+                }
+            }
+            RemoveShipsFromDoingStuff(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,2);
+            clMoveThese(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,pathType,from,numPoints,points,FALSE);
+            if (alreadycommand->ordertype.attributes & COMMAND_MASK_FORMATION)
+            {
+                clFormation(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,alreadycommand->formation.formationtype,
+                            alreadycommand->formation.catForceFieldLevel);
+            }
+        }
+        // just capital ships in the attack: attack-move
+        if (!bitTest(alreadycommand->selection->ShipPtr[0]->shipOrDerelict.specialFlags,SPECIAL_ATTACKMOVECANCEL))
+        {
+            alreadycommand->ordertype.attributes |= COMMAND_MASK_ATTACKING_AND_MOVING;
+            catSetMovePath(alreadycommand,pathType,numPoints,points);
+
+            InitShipsForAI(selectcom,TRUE);
+
+            CalculateMoveToPoints(selectcom,from,points[0]);
+
+            for (i=0;i<selectcom->numShips;i++)
+            {
+                selectcom->ShipPtr[i]->moveFrom = selectcom->ShipPtr[i]->obj.posinfo.position;
+            }
+            PrepareShipsForCommand(alreadycommand,TRUE);
+            return;
+        }
+        bitClear(alreadycommand->selection->ShipPtr[0]->shipOrDerelict.specialFlags,SPECIAL_ATTACKMOVECANCEL);
     }
-    else
+
+plainmove:
+    if (alreadycommand->ordertype.order != COMMAND_MOVE)
     {
-#if DEBUG_COMMAND_LAYER
-        dbgMessage("Changing command to move");
-#endif
         FreeLastOrder(alreadycommand);
 
         alreadycommand->ordertype.order = COMMAND_MOVE;
     }
 
-    alreadycommand->move.destination = to;
-    vecSub(alreadycommand->move.heading,to,from);
-    vecNormalize(&alreadycommand->move.heading);
+    catSetMovePath(alreadycommand,pathType,numPoints,points);
 
     if (alreadycommand->ordertype.attributes & COMMAND_MASK_FORMATION)
     {
@@ -4402,130 +4544,75 @@ StillDoAttackMoveWithCapitals:
         InitShipsForAI(selectcom,TRUE);
     }
 
-    CalculateMoveToPoints(selectcom,from,to);
+    CalculateMoveToPoints(selectcom,from,points[0]);
 
     for (i=0;i<selectcom->numShips;i++)
     {
-        //selectcom->ShipPtr[i]->moveTo   = to;
         selectcom->ShipPtr[i]->moveFrom = selectcom->ShipPtr[i]->obj.posinfo.position;
         soundEventStartEngine(selectcom->ShipPtr[i]);
     }
 
     PrepareShipsForCommand(alreadycommand,TRUE);
-    // CAT: no HW1 Probe move bookkeeping (M2-R4 ships-b)
-
-    return;
 }
 
 /*-----------------------------------------------------------------------------
     Name        : clMoveThese
-    Description : Command to move ships
-    Inputs      : selectcom, from, to
+    Description : Command to move ships along a waypoint path
+    Inputs      : selectcom, pathType, from, numPoints, points, catSplit
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void clMoveThese(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to)
+// CAT: clMoveThese 0x004467c0 takes the waypoint path and a split flag. Without the flag a selection already doing
+//      something changes its order, and the exe then walks the ships that are attacking for a single-point move: it
+//      copies their targets and formation but never fills the selection it passes on, so its
+//      RemoveShipsFromDoingStuff / clFormation / clAttackThese / clMoveThese calls get no ship and do nothing (the
+//      walk is not kept; 0x0044688d stores 0 ships). Then every ship of a group gets its own one-ship move command
+//      (the path shifted by its cat_clCalculateMoveToOffsets offset, the split flag set); a single ship gets the command.
+void clMoveThese(CommandLayer *comlayer,SelectCommand *selectcom,sdword pathType,vector from,sdword numPoints,vector *points,bool32 catSplit)
 {
     CommandToDo *newcommand;
     CommandToDo *alreadycommand;
     SelectCommand *selection;
     udword sizeofselection;
     sdword numShips = selectcom->numShips;
-    sdword i;
+    sdword i,j;
 
     if (numShips == 0)
     {
-#if DEBUG_COMMAND_LAYER
-        dbgMessage("No Ships To Move");
-#endif
         return;
     }
-    // CAT: no HW1 Probe move bookkeeping (M2-R4 ships-b)
-    if ((alreadycommand = IsSelectionAlreadyDoingSomething(comlayer,selectcom)) != NULL)
+    if (!catSplit)
     {
-        ChangeOrderToMove(alreadycommand,from,to);
-
-        return;
-    }
-
-#if DEBUG_COMMAND_LAYER
-    dbgMessage("Received Order to move");
-#endif
-
-
-    {
-        sdword sizeofcopycom;
-        SelectCommand *copycom;
-        CommandToDo *currentShipCommand;
-        sizeofcopycom = sizeofSelectCommand(selectcom->numShips);
-        copycom = memAlloc(sizeofcopycom,"cc1(copycom)", Pyrophoric);
-        memcpy(copycom,selectcom,sizeofcopycom);
-
-
-        for(i=0;i<copycom->numShips;i++)
+        if ((alreadycommand = IsSelectionAlreadyDoingSomething(comlayer,selectcom)) != NULL)
         {
-
-            currentShipCommand = getShipAndItsCommand(&universe.mainCommandLayer,copycom->ShipPtr[i]);
-            if(currentShipCommand != NULL)
-            {
-                //ship is doing something
-                if(currentShipCommand->ordertype.order == COMMAND_ATTACK)
-                {
-                    //ship is attacking
-                    MaxSelection tempSelection;
-                    MaxAnySelection targetSelection;
-                    TypeOfFormation formation = NO_FORMATION;
-                    bool32 needFormation;
-                    sdword j;
-
-                    tempSelection.numShips = 0;
-
-
-                    for(j=0;j<currentShipCommand->selection->numShips;j++)
-                    {
-                        if(ShipInSelection(copycom,currentShipCommand->selection->ShipPtr[j]))
-                        {
-                            tempSelection.ShipPtr[tempSelection.numShips] = currentShipCommand->selection->ShipPtr[j];
-                            tempSelection.numShips++;
-                            clRemoveShipFromSelection(copycom,currentShipCommand->selection->ShipPtr[j]);
-                        }
-                    }
-                    dbgAssertOrIgnore(tempSelection.numShips > 0);
-                    for(j=0;j<currentShipCommand->attack->numTargets;j++)
-                    {
-                        targetSelection.TargetPtr[j] = currentShipCommand->attack->TargetPtr[j];
-                    }
-                    targetSelection.numTargets = currentShipCommand->attack->numTargets;
-
-                    if(currentShipCommand->ordertype.attributes & COMMAND_MASK_FORMATION)
-                    {
-                        formation = currentShipCommand->formation.formationtype;
-                        needFormation = TRUE;
-                    }
-                    else
-                    {
-                        needFormation = FALSE;
-                    }
-                    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,(SelectCommand *)&tempSelection);
-                    if(needFormation)
-                        clFormation(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,formation);
-                    //need to reissue attack because the formation command cancels the attack!
-                    clAttackThese(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,(SelectAnyCommand *)&targetSelection);
-
-                    clMoveThese(&universe.mainCommandLayer,(SelectCommand *)&tempSelection,from,to);
-                }
-            }
-        }
-        sizeofcopycom = sizeofSelectCommand(copycom->numShips);
-        memcpy(selectcom,copycom,sizeofcopycom);
-        memFree(copycom);
-        numShips = selectcom->numShips;
-        if(numShips == 0)
+            ChangeOrderToMove(alreadycommand,pathType,from,numPoints,points);
             return;
+        }
     }
 
+    RemoveShipsFromDoingStuff(comlayer,selectcom,4);
 
-    RemoveShipsFromDoingStuff(comlayer,selectcom);
+    if (selectcom->numShips > 1)
+    {
+        vector offsets[COMMAND_MAX_SHIPS];
+        vector shifted[CAT_MOVE_MAX_POINTS];
+        vector shiftedfrom;
+        MaxSelection single;
+
+        cat_clCalculateMoveToOffsets(selectcom,from,points[0],offsets);
+        for (i = 0; i < selectcom->numShips; i++)
+        {
+            single.numShips = 1;
+            single.ShipPtr[0] = selectcom->ShipPtr[i];
+            for (j = 0; j < numPoints; j++)
+            {
+                vecAdd(shifted[j],points[j],offsets[i]);
+            }
+            vecAdd(shiftedfrom,from,offsets[i]);
+            clMoveThese(comlayer,(SelectCommand *)&single,pathType,shiftedfrom,numPoints,shifted,TRUE);
+        }
+        return;
+    }
 
     newcommand = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
     InitCommandToDo(newcommand);
@@ -4535,19 +4622,16 @@ void clMoveThese(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vec
     memcpy(selection,selectcom,sizeofselection);
 
     newcommand->selection = selection;
-    newcommand->move.destination = to;
-    vecSub(newcommand->move.heading,to,from);
-    vecNormalize(&newcommand->move.heading);
+    catSetMovePath(newcommand,pathType,numPoints,points);
     newcommand->ordertype.order = COMMAND_MOVE;
     newcommand->ordertype.attributes = 0;
 
     InitShipsForAI(selection,TRUE);
 
-    CalculateMoveToPoints(selection,from,to);
+    CalculateMoveToPoints(selection,from,points[0]);
 
     for (i=0;i<numShips;i++)
     {
-        //selection->ShipPtr[i]->moveTo = to;
         selection->ShipPtr[i]->moveFrom = selection->ShipPtr[i]->obj.posinfo.position;
         soundEventStartEngine(selectcom->ShipPtr[i]);
     }
@@ -4559,89 +4643,120 @@ void clMoveThese(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vec
 
 /*-----------------------------------------------------------------------------
     Name        : clMove
-    Description : Command to move ships
-    Inputs      : selectcom, from, to
+    Description : Command to move ships along a waypoint path
+    Inputs      : selectcom, pathType (CAT_MOVEPATH_*), from, numPoints, points
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void clMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to)
+// CAT: clMove 0x00446d90: the waypoint path (HW1: from, to); each ship's header can veto the move (slot 20
+//      CustShipMoveCommand at statinfo+0x158: the exe passes (ship, from, numPoints, points), and every implementer
+//      (ACV, Acolyte, Mothership, RammingFrigate, HiveFrigate) reads only the ship); retreating ships are left out
+//      (cat_tacticsRemoveRetreatingShips); a lone ship of an existing command keeps its own offset into the path. No
+//      MakeShipsMobile (the exe's clMove has no such call) and no salCapExtraSpecialOrderCleanUp.
+void clMove(CommandLayer *comlayer,SelectCommand *selectcom,sdword pathType,vector from,sdword numPoints,vector *points)
 {
     SelectCommand *copycom;
-    udword sizeofcopycom;
     Node *curnode;
     Node *endnode;
     Node *nextnode;
     CommandToDo *command;
-
-    MakeShipsMobile(selectcom, FALSE);   // CAT: skip-disabled argument 0, as game code passes (aiuWrapMove 0x0041eea0); the exe's clMove 0x00446d90 has no such call, its port is M2-R4 #2 [audit]
-    // CAT (M2-R4 combat): no salCapExtraSpecialOrderCleanUp (HW1 salvage; clMove has no counterpart call)
+    sdword i,j;
 
     if (selectcom->numShips < 1)
     {
-#if DEBUG_COMMAND_LAYER
-        dbgMessage("No ships to move");
-#endif
         return;
     }
 
-#ifdef DEBUG_TACTICS
-    if(tacticsOn)
-#endif
+    tacticsReportMove(comlayer,selectcom);
+
+    copycom = memAlloc(sizeofSelectCommand(selectcom->numShips),"cc2(copycom)", Pyrophoric);
+    copycom->numShips = 0;
+    for (i = 0; i < selectcom->numShips; i++)
     {
-        tacticsReportMove(comlayer,selectcom);
+        Ship *ship = selectcom->ShipPtr[i];
+        if ((ship->staticinfo->custshipheader.CustShipMoveCommand == NULL) ||
+            ship->staticinfo->custshipheader.CustShipMoveCommand(ship))
+        {
+            copycom->ShipPtr[copycom->numShips++] = ship;
+        }
     }
+    cat_tacticsRemoveRetreatingShips(copycom);
 
-    sizeofcopycom = sizeofSelectCommand(selectcom->numShips);
-    copycom = memAlloc(sizeofcopycom,"cc2(copycom)", Pyrophoric);
-    memcpy(copycom,selectcom,sizeofcopycom);
-
-    // Now see if the selected ships are already in the command layer, and if so, individually order these groups
-    // to move (to preserve formations)
-
-    curnode = comlayer->todolist.head;
-    endnode = comlayer->todolist.tail;
-
-    while (curnode != NULL)
+    if (copycom->numShips > 0)
     {
-        command = (CommandToDo *)listGetStructOfNode(curnode);
+        // Now see if the selected ships are already in the command layer, and if so, individually order these groups
+        // to move (to preserve formations)
 
-        nextnode = curnode->next;
+        curnode = comlayer->todolist.head;
+        endnode = comlayer->todolist.tail;
 
-        if (TheseShipsAreInSelection(command->selection,copycom))
+        while (curnode != NULL)
         {
-            MakeShipsNotIncludeTheseShips(copycom,command->selection);
-            ChangeOrderToMove(command,from,to);
+            command = (CommandToDo *)listGetStructOfNode(curnode);
+
+            nextnode = curnode->next;
+
+            if (TheseShipsAreInSelection(command->selection,copycom))
+            {
+                MakeShipsNotIncludeTheseShips(copycom,command->selection);
+                if (command->selection->numShips == 1)
+                {
+                    // CAT: a one-ship command moves along the path shifted by that ship's offset in the whole order
+                    //      (0x00446ec4)
+                    vector offsets[COMMAND_MAX_SHIPS];
+                    vector shifted[CAT_MOVE_MAX_POINTS];
+                    vector shiftedfrom;
+
+                    cat_clCalculateMoveToOffsets(selectcom,from,points[0],offsets);
+                    for (i = 0; selectcom->ShipPtr[i] != command->selection->ShipPtr[0]; i++)
+                    {
+                        ;
+                    }
+                    for (j = 0; j < numPoints; j++)
+                    {
+                        vecAdd(shifted[j],points[j],offsets[i]);
+                    }
+                    vecAdd(shiftedfrom,from,offsets[i]);
+                    ChangeOrderToMove(command,pathType,shiftedfrom,numPoints,shifted);
+                }
+                else
+                {
+                    ChangeOrderToMove(command,pathType,from,numPoints,points);
+                }
+            }
+
+            if (copycom->numShips == 0)
+            {
+                break;
+            }
+
+            if (curnode == endnode)
+            {
+                break;
+            }
+            curnode = nextnode;
         }
 
-        if (copycom->numShips == 0)
+        // tell rest of ships left to move too.
+        if (copycom->numShips != 0)
         {
-            break;
+            clMoveThese(comlayer,copycom,pathType,from,numPoints,points,FALSE);
         }
-
-        if (curnode == endnode)
-        {
-            break;
-        }
-        curnode = nextnode;
-    }
-
-    // tell rest of ships left to move too.
-    if (copycom->numShips != 0)
-    {
-        clMoveThese(comlayer,copycom,from,to);
     }
 
     memFree(copycom);
 }
 
 
+// CAT: the Cataclysm grav-well generators are kGravWellGenerator and tGravWellGenerator (clMpHyperspaceThese
+//      0x004472a0 tests types 0x40 / 0x4f and the specifics' field-on flag)
 void TurnAllGravwellsOff(SelectCommand *selectcom)
 {
     sdword i;
 
     for(i=0;i<selectcom->numShips;i++)
     {
-        if(selectcom->ShipPtr[i]->shiptype == GravWellGenerator)
+        if ((selectcom->ShipPtr[i]->shiptype == kGravWellGenerator) || (selectcom->ShipPtr[i]->shiptype == tGravWellGenerator))
         {
             if( ((GravWellGeneratorSpec *)(selectcom->ShipPtr[i]->ShipSpecifics))->GravFieldOn)
             {
@@ -4651,6 +4766,7 @@ void TurnAllGravwellsOff(SelectCommand *selectcom)
     }
 }
 
+// CAT: ChangeOrderToHyperSpace 0x004470f0: the destination is a one-point move path (pathType 0, point 0 = to)
 void ChangeOrderToHyperSpace(CommandToDo *alreadycommand,vector from,vector to)
 {
     SelectCommand *selectcom = alreadycommand->selection;
@@ -4668,21 +4784,15 @@ void ChangeOrderToHyperSpace(CommandToDo *alreadycommand,vector from,vector to)
     {
         dbgMessagef("A little wierd:  Ships that were hyperspaceing have been given an order to hyperspace again.  Ignoreing...");
         return;
-        dbgFatalf(DBG_Loc,"Shouldn't Be able to Order these guys...they're hyperspaceing!");
     }
     else
     {
-#if DEBUG_COMMAND_LAYER
-        dbgMessage("Changing command to Hyperspace");
-#endif
         FreeLastOrder(alreadycommand);
 
         alreadycommand->ordertype.order = COMMAND_MP_HYPERSPACING;
     }
 
-    alreadycommand->move.destination = to;
-    vecSub(alreadycommand->move.heading,to,from);
-    vecNormalize(&alreadycommand->move.heading);
+    catSetMovePath(alreadycommand,CAT_MOVEPATH_ONCE,1,&to);
 
     if (alreadycommand->ordertype.attributes & COMMAND_MASK_FORMATION)
     {
@@ -4693,14 +4803,6 @@ void ChangeOrderToHyperSpace(CommandToDo *alreadycommand,vector from,vector to)
         InitShipsForAI(selectcom,TRUE);
     }
 
-    //CalculateMoveToPoints(selectcom,from,to);
-
-    //for (i=0;i<selectcom->numShips;i++)
-    //{
-    //    //selectcom->ShipPtr[i]->moveTo   = to;
-    //    selectcom->ShipPtr[i]->moveFrom = selectcom->ShipPtr[i]->obj.posinfo.position;
-    //    //soundEventStartEngine(selectcom->ShipPtr[i]);
-    //}
     alreadycommand->hyperSpaceingTime = 0.0f;
     alreadycommand->hyperspaceState = COM_HYPERSPACE_START;
     PrepareShipsForCommand(alreadycommand,TRUE);
@@ -4715,6 +4817,7 @@ void ChangeOrderToHyperSpace(CommandToDo *alreadycommand,vector from,vector to)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: clMpHyperspaceThese 0x004472a0: the destination is a one-point move path
 void clMpHyperspaceThese(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to)
 {
     CommandToDo *newcommand;
@@ -4725,9 +4828,6 @@ void clMpHyperspaceThese(CommandLayer *comlayer,SelectCommand *selectcom,vector 
 
     if (numShips == 0)
     {
-#if DEBUG_COMMAND_LAYER
-        dbgMessage("No Ships To hyperspace");
-#endif
         return;
     }
     if ((alreadycommand = IsSelectionAlreadyDoingSomething(comlayer,selectcom)) != NULL)
@@ -4736,13 +4836,9 @@ void clMpHyperspaceThese(CommandLayer *comlayer,SelectCommand *selectcom,vector 
         return;
     }
 
-#if DEBUG_COMMAND_LAYER
-    dbgMessage("Received Order to hyperspace");
-#endif
-
     TurnAllGravwellsOff(selectcom);
 
-    RemoveShipsFromDoingStuff(comlayer,selectcom);
+    RemoveShipsFromDoingStuff(comlayer,selectcom,5);
 
     newcommand = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
     InitCommandToDo(newcommand);
@@ -4752,9 +4848,7 @@ void clMpHyperspaceThese(CommandLayer *comlayer,SelectCommand *selectcom,vector 
     memcpy(selection,selectcom,sizeofselection);
 
     newcommand->selection = selection;
-    newcommand->move.destination = to;
-    vecSub(newcommand->move.heading,to,from);
-    vecNormalize(&newcommand->move.heading);
+    catSetMovePath(newcommand,CAT_MOVEPATH_ONCE,1,&to);
     newcommand->ordertype.order = COMMAND_MP_HYPERSPACING;
     newcommand->ordertype.attributes = 0;
     newcommand->hyperSpaceingTime = 0.0f;
@@ -4762,16 +4856,6 @@ void clMpHyperspaceThese(CommandLayer *comlayer,SelectCommand *selectcom,vector 
 
     InitShipsForAI(selection,TRUE);
 
-    //CalculateMoveToPoints(selection,from,to);
-
-    /*
-      for (i=0;i<numShips;i++)
-    {
-        //selection->ShipPtr[i]->moveTo = to;
-        selection->ShipPtr[i]->moveFrom = selection->ShipPtr[i]->obj.posinfo.position;
-        soundEventStartEngine(selectcom->ShipPtr[i]);
-    }
-    */
     PrepareShipsForCommand(newcommand,TRUE);
 
     listAddNode(&comlayer->todolist,&newcommand->todonode,newcommand);
@@ -4966,9 +5050,14 @@ SpaceObjRotImpTarg *AttackClosestOpponent(Ship *ship,AttackCommand *attack)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: RemoveShipFromAttacking 0x004477c0 (map: IDENTICAL): a resource-class ship (CLASS_Resource, not HW1's
+//      ResourceCollector type) leaves its resourcer attack; catAttackStarted (+0x616) is cleared with shipisattacking;
+//      the formation is the ship's command when that has the formation flag (Cataclysm has no Ship.formationcommand)
 void RemoveShipFromAttacking(Ship *ship)
 {
-    if(ship->shiptype == ResourceCollector)
+    CommandToDo *formationcommand;
+
+    if(ship->staticinfo->shipclass == CLASS_Resource)
     {
         removeResourcerFromAttacking(ship);
     }
@@ -4982,18 +5071,20 @@ void RemoveShipFromAttacking(Ship *ship)
     ship->attackvars.myLeaderIs = NULL;
     ship->attackvars.myWingmanIs = NULL;
     ship->shipisattacking = FALSE;
+    ship->catAttackStarted = FALSE;
     bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_Kamikaze|SPECIAL_BrokenFormation|SPECIAL_AttackFromAbove);
     if (ship->flightman != FLIGHTMAN_NULL)
     {
         flightmanClose(ship);
     }
-    if(ship->formationcommand != NULL)
+    formationcommand = ship->command;
+    if ((formationcommand != NULL) && (formationcommand->ordertype.attributes & COMMAND_MASK_FORMATION))
     {
-        if(ship->formationcommand->formation.formationLocked)
-            unlockFormation(ship->formationcommand);
+        if(formationcommand->formation.formationLocked)
+            unlockFormation(formationcommand);
 
-        ship->formationcommand->formation.flipselectionfixed = FALSE;
-        ship->formationcommand->formation.needFix = FALSE;
+        formationcommand->formation.flipselectionfixed = FALSE;
+        formationcommand->formation.needFix = FALSE;
     }
     //dbgMessagef("Ship %i is no longer attacking", ship->shipID.shipNumber);
 }
@@ -5025,11 +5116,10 @@ void AttackCleanup(struct CommandToDo *attacktodo)
 
     if(attacktodo->ordertype.attributes & COMMAND_MASK_FORMATION)
     {
-#ifdef DEBUG_TACTICS
-        if(tacticsOn)
-#endif
+        // CAT: AttackCleanup 0x00447880 (map: IDENTICAL): the force-field sphere too, and only with more than one ship
         {
-            if ((attacktodo->formation.formationtype == SPHERE_FORMATION) && (attacktodo->selection->numShips > 0))
+            if (((attacktodo->formation.formationtype == SPHERE_FORMATION) || (attacktodo->formation.formationtype == FORCEFIELD_SPHERE_FORMATION)) &&
+                (attacktodo->selection->numShips > 1))
             {
                 attacktodo->formation.enders = FALSE;
                 //attacktodo->formation.endership = NULL;
@@ -5064,9 +5154,18 @@ void AttackCleanup(struct CommandToDo *attacktodo)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: RemoveShipFromFormation 0x00447950 (REWRITTEN): Cataclysm has no Ship.formationcommand; a ship leaving a
+//      formation loses the formation disable reason (5) and a Sentinel is unclamped from the force field
 void RemoveShipFromFormation(Ship *ship)
 {
-    ship->formationcommand = NULL;
+    if (ship->shipOrDerelict.catDisableReason[5] == 1)
+    {
+        cat_shipSetDisableReason(ship,FALSE,5);
+    }
+    if ((ship->shiptype == sSentinel) || (ship->shiptype == bSentinel))
+    {
+        unClampObj((SpaceObjRotImpTargGuidance *)ship);
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -5126,11 +5225,13 @@ void MoveCleanup(struct CommandToDo *movetodo)
     }
 }
 
+// CAT: the hyperspace disable reason 6 is cleared instead of setting SOF_Selectable (FreeCommandToDoContents 0x004440f0
+//      case 10, FreeLastOrder 0x00444490, RemoveShipsFromDoingStuff 0x00444ee5)
 void removeShipFromMpHyperspaceing(Ship *ship)
 {
     vecZeroVector(ship->moveTo);
     vecZeroVector(ship->moveFrom);
-    bitSet(ship->header.flags,SOF_Selectable);
+    cat_shipSetDisableReason(ship,FALSE,6);
 }
 
 /*-----------------------------------------------------------------------------
@@ -5303,7 +5404,7 @@ void pickMultipleAttackTargets(Ship *ship,AttackCommand *attack)
     real32 dist;
     real32 range;
     real32 temp;
-    real32 dotprod,bonus,gunRange;
+    real32 dotprod,gunRange;
 
     dbgAssertOrIgnore(numShipsToAttack > 0);
     dbgAssertOrIgnore(numAttackTargets > 0);
@@ -5319,19 +5420,6 @@ void pickMultipleAttackTargets(Ship *ship,AttackCommand *attack)
         matMultiplyVecByMat(&thisTargetInfo->targetInShipCoordSys,&targetInWorldCoordSys,&ship->rotatable.rotinfo.coordsys);
         thisTargetInfo->pickedMe = 1.0f;
     }
-    if(ship->staticinfo->shipclass == CLASS_Fighter)
-    {
-        bonus = tacticsInfo.BulletRangeBonus[Tactics_Fighter][ship->tacticstype];
-    }
-    else if(ship->staticinfo->shipclass == CLASS_Corvette)
-    {
-        bonus = tacticsInfo.BulletRangeBonus[Tactics_Corvette][ship->tacticstype];
-    }
-    else
-    {
-        bonus = 1.0f;
-    }
-
     if (ship->staticinfo->shipclass == CLASS_Frigate)
     {
         target = ship->attackvars.attacktarget;
@@ -5357,7 +5445,7 @@ void pickMultipleAttackTargets(Ship *ship,AttackCommand *attack)
         gun = &gunInfo->guns[i];
         gunstatic = gun->gunstatic;
 
-        gunRange = gunstatic->bulletrange*bonus;
+        gunRange = gunstatic->bulletrange;      // CAT: no tactics range bonus (pickMultipleAttackTargets 0x00447b4c)
         bestDist = REALlyBig;
         bestIndex = -1;
 
@@ -5696,16 +5784,22 @@ void InitExtraAttackInfo(SelectCommand *selection,AttackCommand *attack,bool32 f
 /*-----------------------------------------------------------------------------
     Name        : ChangeOrderToAttack
     Description : changes order to attack
-    Inputs      : alreadycommand, attackcom
+    Inputs      : alreadycommand, attackcom, catReason
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void ChangeOrderToAttack(CommandToDo *alreadycommand,AttackCommand *attackcom)
+// CAT: ChangeOrderToAttack 0x00448460 takes a third argument, a reason code (clAttackThese 1, clAttack 2,
+//      clPostProcess 3, clFormation 4) the exe never reads. The new targets get the modules attached to them
+//      (cat_clAddAttachedModulesToTargets 0x004482f0); PrepareShipsForCommand and InitShipsForAI[DontResetAttack] are
+//      inlined in the exe with the same effect.
+void ChangeOrderToAttack(CommandToDo *alreadycommand,AttackCommand *attackcom,sdword catReason)
 {
     AttackCommand *attack;
     udword sizeofattack;
     SelectCommand *selection = alreadycommand->selection;
     bool32 dontresetattack = FALSE;
+
+    (void)catReason;
 
     if (alreadycommand->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
     {
@@ -5739,13 +5833,12 @@ void ChangeOrderToAttack(CommandToDo *alreadycommand,AttackCommand *attackcom)
 #endif
     }
 
-    dbgAssertOrIgnore(AreAllShipsAttackCapable(alreadycommand->selection));
-
     FreeLastOrder(alreadycommand);
 
     sizeofattack = sizeofAttackCommand(attackcom->numTargets);
     attack = memAlloc(sizeofattack,"ToDoAttack",0);
     memcpy(attack,attackcom,sizeofattack);
+    attack = cat_clAddAttachedModulesToTargets(selection,attack);     // CAT: ChangeOrderToAttack 0x0044850c
 
     InitExtraAttackInfo(selection,attack,TRUE);
 
@@ -5770,12 +5863,34 @@ void ChangeOrderToAttack(CommandToDo *alreadycommand,AttackCommand *attackcom)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_clTargetIsLeechOnShip
+    Description : TRUE if target is a Leech clamped to ship
+----------------------------------------------------------------------------*/
+// CAT: inlined in clAttackThese 0x00448683: a ship cannot attack a Leech that is clamped to it
+static bool32 cat_clTargetIsLeechOnShip(SpaceObjRotImpTarg *target,Ship *ship)
+{
+    Ship *leech;
+
+    if (target->header.objtype != OBJ_ShipType)
+    {
+        return FALSE;
+    }
+    leech = (Ship *)target;
+    return (leech->shiptype == sLeech) && (leech->guidance.clampInfo != NULL) &&
+           (leech->guidance.clampInfo->host == (SpaceObjRotImpTarg *)ship);
+}
+
+/*-----------------------------------------------------------------------------
     Name        : clAttackThese
     Description : Command to attack
     Inputs      : selectcom, attackcom
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: clAttackThese 0x00448620: the attackers lose every ship a targeted Leech is clamped to (swap with the last,
+//      selectcom is changed in place), the target check comes before the empty-selection check, the new targets get
+//      the attached modules (cat_clAddAttachedModulesToTargets 0x004482f0), RemoveShipsFromDoingStuff takes reason 6
+//      and ChangeOrderToAttack reason 1
 CommandToDo *clAttackThese(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom)
 {
     CommandToDo *newcommand;
@@ -5784,12 +5899,43 @@ CommandToDo *clAttackThese(CommandLayer *comlayer,SelectCommand *selectcom,Attac
     AttackCommand *attack;
     udword sizeofselection;
     udword sizeofattack;
+    sdword i;
+    sdword j;
+    bool32 leechOnShip;
 
     // for safety
     if (!AreAllShipsAttackCapable(selectcom))
     {
         MakeShipsAttackCapable(selectcom,selectcom, FALSE);   // CAT: skip-disabled argument (clAttack 0x00448950 and the other game-code callers pass 0)
         dbgMessage("WARNING: ships not capable of attacking told to attack");
+    }
+
+    // CAT: clAttackThese 0x00448657: no ship attacks a Leech clamped to it
+    for (i = 0; i < selectcom->numShips; )
+    {
+        leechOnShip = FALSE;
+        for (j = 0; j < attackcom->numTargets; j++)
+        {
+            if (cat_clTargetIsLeechOnShip(attackcom->TargetPtr[j],selectcom->ShipPtr[i]))
+            {
+                leechOnShip = TRUE;
+            }
+        }
+        if (leechOnShip)
+        {
+            selectcom->numShips--;
+            selectcom->ShipPtr[i] = selectcom->ShipPtr[selectcom->numShips];
+        }
+        else
+        {
+            i++;
+        }
+    }
+
+    if (attackcom->numTargets <= 0)
+    {
+        dbgMessage("WARNING: NO SHIPS TO ATTACK.");
+        return NULL;
     }
 
     if (selectcom->numShips == 0)
@@ -5800,12 +5946,6 @@ CommandToDo *clAttackThese(CommandLayer *comlayer,SelectCommand *selectcom,Attac
         return NULL;
     }
 
-    if (attackcom->numTargets <= 0)
-    {
-        dbgMessage("WARNING: NO SHIPS TO ATTACK.");
-        return NULL;
-    }
-
     if ((alreadycommand = IsSelectionAlreadyDoingSomething(comlayer,selectcom)) != NULL)
     {
         if (alreadycommand->ordertype.attributes & COMMAND_MASK_PROTECTING)
@@ -5813,8 +5953,7 @@ CommandToDo *clAttackThese(CommandLayer *comlayer,SelectCommand *selectcom,Attac
             ClearProtecting(alreadycommand);
         }
 
-
-        ChangeOrderToAttack(alreadycommand,attackcom);
+        ChangeOrderToAttack(alreadycommand,attackcom,1);
 
         //link in animation to open guns here:
         //madLinkInOpenGuns(alreadycommand,1);
@@ -5826,8 +5965,6 @@ CommandToDo *clAttackThese(CommandLayer *comlayer,SelectCommand *selectcom,Attac
     dbgMessage("Received Order to attack");
 #endif
 
-    RemoveShipsFromDoingStuff(comlayer,selectcom);
-
     newcommand = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
     InitCommandToDo(newcommand);
 
@@ -5838,6 +5975,11 @@ CommandToDo *clAttackThese(CommandLayer *comlayer,SelectCommand *selectcom,Attac
     sizeofattack = sizeofAttackCommand(attackcom->numTargets);
     attack = memAlloc(sizeofattack,"ToDoAttack",0);
     memcpy(attack,attackcom,sizeofattack);
+
+    // CAT: the exe removes the ships from their commands after the copies (clAttackThese 0x004487c3)
+    RemoveShipsFromDoingStuff(comlayer,selectcom,6);
+
+    attack = cat_clAddAttachedModulesToTargets(selection,attack);     // CAT: clAttackThese 0x004487cf
 
     InitExtraAttackInfo(selection,attack,TRUE);
 
@@ -5860,12 +6002,27 @@ CommandToDo *clAttackThese(CommandLayer *comlayer,SelectCommand *selectcom,Attac
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_clAttackerIsInWorldCB
+    Description : TRUE if ship has a blob, is in an object list and is not hidden
+----------------------------------------------------------------------------*/
+// CAT: new (the unnamed constraint 0x00448920 clAttack passes to MakeShipsOnlyFollowConstraints)
+static bool32 cat_clAttackerIsInWorldCB(Ship *ship)
+{
+    return (ship->obj.collMyBlob != NULL) && (ship->header.objlink.structptr != NULL) && !bitTest(ship->header.flags,SOF_Hide);
+}
+
+/*-----------------------------------------------------------------------------
     Name        : clAttack
     Description : Command to attack
     Inputs      : selectcom, attackcom
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: clAttack 0x00448950 copies the selection first and drops the ships retreating to dock
+//      (cat_tacticsRemoveRetreatingShips 0x00529f70) and those without a blob, out of the object lists or hidden
+//      (cat_clAttackerIsInWorldCB); MakeShipsAttackCapable refills the copy from selectcom; an empty copy is not an
+//      error. A command interrupted while doing a waypoint move with a path type (loop or patrol) saves the move in
+//      catSavedMove, which clProcess resumes when the attack ends (clAttack 0x00448aa3).
 void clAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom)
 {
     SelectCommand *copycom;
@@ -5875,31 +6032,33 @@ void clAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *att
     Node *nextnode;
     CommandToDo *command;
 
-    // for safety
-    if (!AreAllShipsAttackCapable(selectcom))
-    {
-        MakeShipsAttackCapable(selectcom,selectcom, FALSE);   // CAT: skip-disabled argument (clAttack 0x00448950 and the other game-code callers pass 0)
-        dbgMessage("WARNING: ships not capable of attacking told to attack");
-    }
+    sizeofcopycom = sizeofSelectCommand(selectcom->numShips);
+    copycom = memAlloc(sizeofcopycom,"cc2(copycom)", Pyrophoric);
+    memcpy(copycom,selectcom,sizeofcopycom);
 
-    if (selectcom->numShips == 0)
+    cat_tacticsRemoveRetreatingShips(copycom);
+    MakeShipsOnlyFollowConstraints(copycom,cat_clAttackerIsInWorldCB);
+
+    // for safety
+    if (!AreAllShipsAttackCapable(copycom))
     {
-#if DEBUG_COMMAND_LAYER
-        dbgMessage("No Ships As Attackers");
-#endif
-        return;
+        MakeShipsAttackCapable(copycom,selectcom, FALSE);   // CAT: skip-disabled argument (clAttack 0x00448950 and the other game-code callers pass 0)
+        dbgMessage("WARNING: ships not capable of attacking told to attack");
     }
 
     if (attackcom->numTargets <= 0)
     {
         dbgMessage("WARNING: NO SHIPS TO ATTACK.");
+        memFree(copycom);
         return;
     }
     // CAT (M2-R4 combat): no salCapExtraSpecialOrderCleanUp (HW1 salvage; clAttack has no counterpart call)
 
-    sizeofcopycom = sizeofSelectCommand(selectcom->numShips);
-    copycom = memAlloc(sizeofcopycom,"cc2(copycom)", Pyrophoric);
-    memcpy(copycom,selectcom,sizeofcopycom);
+    if (copycom->numShips == 0)
+    {
+        memFree(copycom);
+        return;
+    }
 
     // Now see if the selected ships are already in the command layer, and if so, individually order these groups
     // to move (to preserve formations)
@@ -5922,7 +6081,14 @@ void clAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *att
                 ClearProtecting(command);
             }
 
-            ChangeOrderToAttack(command,attackcom);
+            // CAT: clAttack 0x00448aa3: keep a looping or patrol move to resume after the attack
+            if ((command->ordertype.order == COMMAND_MOVE) && (command->move.pathType != CAT_MOVEPATH_ONCE))
+            {
+                command->catSavedMove = command->move;
+                command->catSavedMoveValid = TRUE;
+            }
+
+            ChangeOrderToAttack(command,attackcom,2);
         }
 
         if (copycom->numShips == 0)
@@ -5945,63 +6111,9 @@ void clAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *att
 
     memFree(copycom);
 }
-/*-----------------------------------------------------------------------------
-    Name        : canChangeOrderToPassiveAttack
-    Description : returns TRUE if alreadycommand can passive attack
-    Inputs      :
-    Outputs     :
-    Return      : returns TRUE if alreadycommand can passive attack
-----------------------------------------------------------------------------*/
-bool32 canChangeOrderToPassiveAttack(CommandToDo *alreadycommand,AttackCommand *attack)
-{
-    if (alreadycommand->ordertype.attributes & COMMAND_MASK_HOLDING_PATTERN)
-    {
-        return FALSE;
-    }
 
-    if (alreadycommand->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
-    {
-        if ((alreadycommand->attack == NULL) || (attack == NULL))
-        {
-            return FALSE;
-        }
-
-        if (!SelectionsAreEquivalent((SelectCommand *)alreadycommand->attack,(SelectCommand *)attack))
-        {
-            return TRUE;
-        }
-    }
-
-    switch (alreadycommand->ordertype.order)
-    {
-        case COMMAND_NULL:
-        case COMMAND_HALT:
-        case COMMAND_MILITARY_PARADE:
-            return TRUE;
-
-        case COMMAND_MOVE:
-        case COMMAND_DOCK:
-#ifdef DEBUG_TACTICS
-            if(tacticsOn)
-#endif
-            {
-                if (!tacticsAreStrikeCraftInSelection(alreadycommand->selection))
-                    return TRUE;        //this is a new exceptions
-                else
-                    return FALSE;
-            }
-        case COMMAND_ATTACK:
-        case COMMAND_MP_HYPERSPACING:
-            return FALSE;
-        case COMMAND_LAUNCH_SHIP:
-        case COMMAND_COLLECT_RESOURCES:
-        case COMMAND_SPECIAL:
-        case COMMAND_BUILDING_SHIP:
-            return FALSE;
-    }
-
-    return TRUE;
-}
+// CAT: no canChangeOrderToPassiveAttack: its HW1 callers (tacticsDelegate*, univCheckShipState) are gone and
+//      clPassiveAttack 0x00448ce0 inlines its own test (cat_clCanChangeOrderToPassiveAttack below)
 
 /*-----------------------------------------------------------------------------
     Name        : ChangeOrderToPassiveAttack
@@ -6016,9 +6128,6 @@ void ChangeOrderToPassiveAttack(CommandToDo *alreadycommand,AttackCommand *attac
     udword sizeofattack;
     SelectCommand *selection = alreadycommand->selection;
     sdword count,i;
-
-    // should check canChangeOrderToPassiveAttack before calling this routine
-    dbgAssertOrIgnore(canChangeOrderToPassiveAttack(alreadycommand,attackcom));
 
     count=0;
     for(i=0;i<alreadycommand->selection->numShips;i++)
@@ -6038,6 +6147,25 @@ void ChangeOrderToPassiveAttack(CommandToDo *alreadycommand,AttackCommand *attac
 #if DEBUG_PASSIVE_ATTACK
     dbgMessage("Changing Order to passive attack");
 #endif
+
+    // CAT: ChangeOrderToPassiveAttack 0x00448b30 frees the targets it replaces: a passive attack's (and the passive
+    //      flag), or else an attack order's (the order stays COMMAND_ATTACK)
+    if (alreadycommand->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
+    {
+        AttackCleanup(alreadycommand);
+        memFree(alreadycommand->attack);
+        bitClear(alreadycommand->ordertype.attributes,COMMAND_MASK_PASSIVE_ATTACKING);
+        alreadycommand->attack = NULL;
+    }
+    else if (alreadycommand->ordertype.order == COMMAND_ATTACK)
+    {
+        AttackCleanup(alreadycommand);
+        if (alreadycommand->attack != NULL)
+        {
+            memFree(alreadycommand->attack);
+            alreadycommand->attack = NULL;
+        }
+    }
 
     sizeofattack = sizeofAttackCommand(attackcom->numTargets);
     attack = memAlloc(sizeofattack,"ToDoAttack",0);
@@ -6064,13 +6192,66 @@ void ChangeOrderToPassiveAttack(CommandToDo *alreadycommand,AttackCommand *attac
     }
 }
 
+// CAT: clPassiveAttack 0x00448ce0 inlines its own canChangeOrderToPassiveAttack: a holding pattern never, a passive
+//      attack on other targets always, a force-field sphere never, and every order but COMMAND_NULL, COMMAND_MOVE,
+//      COMMAND_HALT, COMMAND_MILITARY_PARADE and order 13 never (HW1: a move or dock only without strike craft)
+static bool32 cat_clCanChangeOrderToPassiveAttack(CommandToDo *alreadycommand,AttackCommand *attack)
+{
+    if (alreadycommand->ordertype.attributes & COMMAND_MASK_HOLDING_PATTERN)
+    {
+        return FALSE;
+    }
+
+    if (alreadycommand->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
+    {
+        if ((alreadycommand->attack == NULL) || (attack == NULL))
+        {
+            return FALSE;
+        }
+
+        if (!SelectionsAreEquivalent((SelectCommand *)alreadycommand->attack,(SelectCommand *)attack))
+        {
+            return TRUE;
+        }
+    }
+
+    if ((alreadycommand->ordertype.attributes & COMMAND_MASK_FORMATION) &&
+        (alreadycommand->formation.formationtype == FORCEFIELD_SPHERE_FORMATION))
+    {
+        return FALSE;
+    }
+
+    switch (alreadycommand->ordertype.order)
+    {
+        case COMMAND_ATTACK:
+        case COMMAND_DOCK:
+        case COMMAND_LAUNCH_SHIP:
+        case COMMAND_COLLECT_RESOURCES:
+        case COMMAND_BUILDING_SHIP:
+        case COMMAND_SPECIAL:
+        case COMMAND_MP_HYPERSPACING:
+        case COMMAND_CAT_LINK:
+        case COMMAND_CAT_UNLINK:
+        case COMMAND_CAT_POINT:
+        case COMMAND_CAT_MIMIC:
+        case COMMAND_CAT_RESEARCH:
+        case COMMAND_CAT_17:
+            return FALSE;
+    }
+
+    return TRUE;
+}
+
 /*-----------------------------------------------------------------------------
     Name        : clPassiveAttack
-    Description : Command to attack
+    Description : Command to passive attack
     Inputs      : selectcom, attackcom
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: clPassiveAttack 0x00448ce0: the attackers lose every ship a targeted Leech is clamped to (as clAttackThese);
+//      a changed order says so in battle chatter (the human player's ships, at most every 40 seconds per lead ship);
+//      RemoveShipsFromDoingStuff takes reason 7
 void clPassiveAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom)
 {
     CommandToDo *newcommand;
@@ -6079,7 +6260,33 @@ void clPassiveAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackComma
     AttackCommand *attack;
     udword sizeofselection;
     udword sizeofattack;
-    sdword count,i;
+    sdword count,i,j;
+    bool32 leechOnShip;
+    sdword speechEvent;
+    sdword chatter;
+    Ship *leader;
+
+    // CAT: clPassiveAttack 0x00448cf5: no ship attacks a Leech clamped to it
+    for (i = 0; i < selectcom->numShips; )
+    {
+        leechOnShip = FALSE;
+        for (j = 0; j < attackcom->numTargets; j++)
+        {
+            if (cat_clTargetIsLeechOnShip(attackcom->TargetPtr[j],selectcom->ShipPtr[i]))
+            {
+                leechOnShip = TRUE;
+            }
+        }
+        if (leechOnShip)
+        {
+            selectcom->numShips--;
+            selectcom->ShipPtr[i] = selectcom->ShipPtr[selectcom->numShips];
+        }
+        else
+        {
+            i++;
+        }
+    }
 
     if (selectcom->numShips == 0)
     {
@@ -6099,9 +6306,27 @@ void clPassiveAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackComma
 
     if ((alreadycommand = IsSelectionAlreadyDoingSomething(comlayer,selectcom)) != NULL)
     {
-        if (canChangeOrderToPassiveAttack(alreadycommand,attackcom))
+        if (cat_clCanChangeOrderToPassiveAttack(alreadycommand,attackcom))
         {
             ChangeOrderToPassiveAttack(alreadycommand,attackcom);
+
+            // CAT: clPassiveAttack 0x00448fc8: retaliation chatter (BCE_STAT_Grp_AttackRetaliate, or
+            //      BCE_STAT_AssGrp_AttackRetaliate for a hot-key group, through the fleet; then the repeat line)
+            leader = selectcom->ShipPtr[0];
+            if ((leader->playerowner->playerIndex == universe.curPlayerIndex) &&
+                (universe.totaltimeelapsed >= leader->retaliateSpeechTime + 40.0f))
+            {
+                speechEvent = selAnyHotKeyTest(leader) ? BCE_STAT_AssGrp_AttackRetaliate : BCE_STAT_Grp_AttackRetaliate;
+                chatter = battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, speechEvent, SOUND_EVENT_DEFAULT, NULL);
+                if (chatter != SOUND_EVENT_DEFAULT)
+                {
+                    leader->retaliateSpeechTime = universe.totaltimeelapsed;
+                    if (battleCanChatterAtThisTime(BCE_STAT_Grp_AttackRetaliate_Repeat, leader))
+                    {
+                        battleChatterAttempt(chatter, BCE_STAT_Grp_AttackRetaliate_Repeat, leader, leader->shiptype);
+                    }
+                }
+            }
         }
         else
         {
@@ -6131,8 +6356,6 @@ void clPassiveAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackComma
         return;
     }
 
-    RemoveShipsFromDoingStuff(comlayer,selectcom);
-
     newcommand = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
     InitCommandToDo(newcommand);
 
@@ -6143,6 +6366,9 @@ void clPassiveAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackComma
     sizeofattack = sizeofAttackCommand(attackcom->numTargets);
     attack = memAlloc(sizeofattack,"ToDoAttack",0);
     memcpy(attack,attackcom,sizeofattack);
+
+    // CAT: the exe removes the ships from their commands after the copies (clPassiveAttack 0x00448e72)
+    RemoveShipsFromDoingStuff(comlayer,selectcom,7);
 
     InitExtraAttackInfo(selection,attack,FALSE);
 
@@ -6199,38 +6425,18 @@ void ChangeOrderToSpecial(CommandToDo *alreadycommand,SpecialCommand *targets)
     PrepareShipsForCommand(alreadycommand,TRUE);
 }
 
+// CAT: the constraint 0x00449090 clSpecial passes: kSalCapCorvette or tSalCapCorvette (0x48/0x59)
 bool32 ShipsAreSalCapCorvettes(Ship *ship)
 {
-    if (ship->shiptype == SalCapCorvette)
+    if ((ship->shiptype == kSalCapCorvette) || (ship->shiptype == tSalCapCorvette))
     {
         return TRUE;
     }
     return FALSE;
 }
 
-void clPlaySpeechEventsForSupportCraft(SelectCommand *selection)
-{
-    sdword i;
-
-    if(selection->ShipPtr[0]->playerowner->playerIndex == universe.curPlayerIndex)
-    {
-        //local machines ships...
-        for(i=0;i<selection->numShips;i++)
-        {
-            switch(selection->ShipPtr[i]->shiptype)
-            {
-            case Carrier:
-            case ResourceCollector:
-            case AdvanceSupportFrigate:
-                //I don't think we need battle chatter limiting...
-                speechEvent(selection->ShipPtr[0],COMM_Support,0);
-                return;     //return after first one...all we need!
-            default:
-                break;
-            }
-        }
-    }
-}
+// CAT: no clPlaySpeechEventsForSupportCraft (HW1's COMM_Support line for a carrier, resource collector or support
+//      frigate given a special order): clSpecial 0x004492c0 plays no speech
 
 /*-----------------------------------------------------------------------------
     Name        : clSpecial
@@ -6239,6 +6445,9 @@ void clPlaySpeechEventsForSupportCraft(SelectCommand *selection)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: clSpecial 0x004492c0: an Acolyte or ACV group (sAcolyte, sACV, bAcolyte, bACV leader) given a new special
+//      order keeps the formation type its leader's command had (the new command is a formation of that type with
+//      force-field level 0); no support-craft speech
 void clSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *targets)
 {
     CommandToDo *newcommand;
@@ -6247,6 +6456,9 @@ void clSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *t
     SpecialCommand *specialtargets;
     udword sizeofselection;
     udword sizeofspecialtargets;
+    bool32 catKeepFormation = FALSE;
+    TypeOfFormation catFormation = (TypeOfFormation)-1;
+    Ship *leader;
 
     if (selectcom->numShips == 0)
     {
@@ -6254,6 +6466,24 @@ void clSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *t
         dbgMessage("No Ships for special");
 #endif
         return;
+    }
+
+    // CAT: clSpecial 0x004492ef
+    leader = selectcom->ShipPtr[0];
+    switch (leader->shiptype)
+    {
+        case sAcolyte:
+        case sACV:
+        case bAcolyte:
+        case bACV:
+            if ((leader->command != NULL) && (leader->command->ordertype.attributes & COMMAND_MASK_FORMATION))
+            {
+                catFormation = leader->command->formation.formationtype;
+                catKeepFormation = TRUE;
+            }
+            break;
+        default:
+            break;
     }
 
     // CAT (M2-R4 combat): a lone SalCap corvette already salvaging a ship of the new target list keeps its order
@@ -6272,9 +6502,6 @@ void clSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *t
             return;
         }
     }
-
-    clPlaySpeechEventsForSupportCraft(selectcom);
-
 
     sizeofselection = sizeofSelectCommand(selectcom->numShips);
     selection = memAlloc(sizeofselection,"ToDoSelection",NonVolatile);
@@ -6328,7 +6555,7 @@ void clSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *t
     dbgMessage("Received Order to do special");
 #endif
 
-    RemoveShipsFromDoingStuff(comlayer,selection);
+    RemoveShipsFromDoingStuff(comlayer,selection,8);
 
     newcommand = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
     InitCommandToDo(newcommand);
@@ -6352,6 +6579,17 @@ void clSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *t
     PrepareShipsForCommand(newcommand,TRUE);
 
     listAddNode(&comlayer->todolist,&newcommand->todonode,newcommand);
+
+    // CAT: clSpecial 0x00449623: the Acolyte/ACV formation is rebuilt around the special order
+    if (catKeepFormation)
+    {
+        newcommand->ordertype.attributes |= COMMAND_MASK_FORMATION;
+        newcommand->formation.formationtype = catFormation;
+        newcommand->formation.catForceFieldLevel = 0;
+        FillInFormationSpecifics(newcommand,catFormation,0,TRUE);
+        InitShipsForAI(selection,TRUE);
+        PrepareShipsForCommand(newcommand,TRUE);
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -6438,6 +6676,10 @@ void clRUTransfer(CommandLayer *comlayer, sdword toIndex, sdword fromIndex, sdwo
         if (universe.players[from].playerState == PLAYER_DEAD)
             return;
 
+        // CAT: no transfer the giver cannot pay for (clRUTransfer 0x00449a12)
+        if (universe.players[from].resourceUnits - resourceUnits < 0)
+            return;
+
         universe.players[from].resourceUnits -= resourceUnits;
         universe.players[to].resourceUnits += resourceUnits;
 
@@ -6447,14 +6689,18 @@ void clRUTransfer(CommandLayer *comlayer, sdword toIndex, sdword fromIndex, sdwo
         universe.gameStats.playerStats[to].totalResourceUnits += resourceUnits;
         universe.gameStats.playerStats[to].totalResourceUnitsRecieved += resourceUnits;
 
+        // CAT: the exe's sound and speech ids (clRUTransfer 0x00449a5c; CAT-TODO(M2-R5 sound): the tables that resolve
+        //      sound 0x129 and speech 0x4001045 / 0x4001046 are stage 3's). CAT-TODO(stage 3): the receiver also
+        //      gets a command message (sprintf of the string 0x00bb5044 with the units and the giver's playerNames
+        //      entry, clCommandMessage 0x004ac820 colour 0xffff0000)
         if (from == universe.curPlayerIndex)
         {                                                   //if we've given some away
-            speechEventFleet(COMM_F_ResourcesTransferred, 0, from);
+            speechEventQueue(NULL, 0x4001045, -1, -1, 0, from, -1, 5.0f, -1);
         }
         else if (to == universe.curPlayerIndex)
         {                                                   //if we just got some
-            soundEvent(NULL, UI_ReceivingRUs);
-            speechEventFleet(COMM_F_ResourcesReceived, 0, to);
+            soundEventPlay(NULL, 0x129, NULL);
+            speechEventQueue(NULL, 0x4001046, -1, -1, 0, to, -1, 5.0f, -1);
         }
         break;
     }
@@ -6487,7 +6733,7 @@ void clSetKamikaze(CommandLayer *comlayer,SelectCommand *selectcom)
          {
             if(command->ordertype.order == COMMAND_SPECIAL)
             {
-                if(ship->shiptype == SalCapCorvette)
+                if ((ship->shiptype == kSalCapCorvette) || (ship->shiptype == tSalCapCorvette))   // CAT: both races (clSetKamikaze 0x00449b28)
                 {
                     bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_Kamikaze|SPECIAL_BrokenFormation);
                     continue;
@@ -6535,10 +6781,15 @@ void ChangeOrderToHalt(CommandToDo *alreadycommand)
         bitClear(alreadycommand->ordertype.attributes,COMMAND_MASK_ATTACKING_AND_MOVING);
     }
 
-    FreeLastOrder(alreadycommand);
-    alreadycommand->ordertype.order = COMMAND_HALT;
+    // CAT: a military parade keeps its order (the inlined ChangeOrderToHalt of clProcess 0x0044bfe7 and
+    //      RemoveShipFromBeingTargeted 0x004453c0 test order 9)
+    if (alreadycommand->ordertype.order != COMMAND_MILITARY_PARADE)
+    {
+        FreeLastOrder(alreadycommand);
+        alreadycommand->ordertype.order = COMMAND_HALT;
 
-    PrepareShipsForCommand(alreadycommand,TRUE);
+        PrepareShipsForCommand(alreadycommand,TRUE);
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -6595,13 +6846,15 @@ void clHaltThese(CommandLayer *comlayer,SelectCommand *selectcom)
 
     if ((alreadycommand = IsSelectionAlreadyDoingSomething(comlayer,selectcom)) != NULL)
     {
+        // CAT: the exe's speech ids with the ship type as variable (clHaltThese 0x00449c67). CAT-TODO(M2-R5 sound):
+        //      the speech table that resolves 0x4000802 / 0x4000806 is stage 3's
         if (alreadycommand->ordertype.order == COMMAND_MOVE)
         {
-            speechEvent(selectcom->ShipPtr[0], COMM_MoveCancelled, 0);
+            speechEventQueue(selectcom->ShipPtr[0], 0x4000802, selectcom->ShipPtr[0]->shiptype, -1, -1, -1, -1, 0.0f, -1);
         }
         else if (alreadycommand->ordertype.order == COMMAND_ATTACK)
         {
-            speechEvent(selectcom->ShipPtr[0], COMM_AttackCancelled, 0);
+            speechEventQueue(selectcom->ShipPtr[0], 0x4000806, selectcom->ShipPtr[0]->shiptype, -1, -1, -1, -1, 0.0f, -1);
         }
 
         #ifdef HW_BUILD_FOR_DEBUGGING
@@ -6617,7 +6870,23 @@ void clHaltThese(CommandLayer *comlayer,SelectCommand *selectcom)
     dbgMessage("Received Order to halt");
 #endif
 
-    RemoveShipsFromDoingStuff(comlayer,selectcom);
+    // CAT: ships in a military parade are not halted (clHaltThese 0x00449d3e); the new command holds the ships left
+    for (i=0;i<selectcom->numShips;)
+    {
+        if ((selectcom->ShipPtr[i]->command != NULL) &&
+            (selectcom->ShipPtr[i]->command->ordertype.order == COMMAND_MILITARY_PARADE))
+        {
+            selectcom->numShips--;
+            selectcom->ShipPtr[i] = selectcom->ShipPtr[selectcom->numShips];
+        }
+        else
+        {
+            i++;
+        }
+    }
+    numShips = selectcom->numShips;
+
+    RemoveShipsFromDoingStuff(comlayer,selectcom,0xa);
 
     newcommand = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
     InitCommandToDo(newcommand);
@@ -6663,6 +6932,21 @@ void clHalt(CommandLayer *comlayer,SelectCommand *selectcom)
         return;
     }
 
+    // CAT: clHalt 0x00449e80 says so first when the leader was moving or attacking (CAT-TODO(M2-R5 sound): the speech
+    //      table that resolves the ids is stage 3's)
+    ship = selectcom->ShipPtr[0];
+    if (ship->command != NULL)
+    {
+        if (ship->command->ordertype.order == COMMAND_MOVE)
+        {
+            speechEventQueue(ship, 0x4000802, ship->shiptype, -1, -1, -1, -1, 0.0f, -1);
+        }
+        else if (ship->command->ordertype.order == COMMAND_ATTACK)
+        {
+            speechEventQueue(ship, 0x4000806, ship->shiptype, -1, -1, -1, -1, 0.0f, -1);
+        }
+    }
+
     for(i=0;i<selectcom->numShips;i++)
     {
         ship = selectcom->ShipPtr[i];
@@ -6687,9 +6971,20 @@ void clHalt(CommandLayer *comlayer,SelectCommand *selectcom)
             ship->passiveAttackCancelTimer=0.0f;
     }
 
+    // CAT: clHalt 0x00449f3b: a ship whose CustShipHaltCommand returns FALSE is not halted
     sizeofcopycom = sizeofSelectCommand(selectcom->numShips);
     copycom = memAlloc(sizeofcopycom,"cc2(copycom)", Pyrophoric);
-    memcpy(copycom,selectcom,sizeofcopycom);
+    copycom->numShips = 0;
+    copycom->timeLastStatus = selectcom->timeLastStatus;   // CAT-FIX: the exe leaves it uninitialised (clHalt 0x00449f55)
+    for (i=0;i<selectcom->numShips;i++)
+    {
+        ship = selectcom->ShipPtr[i];
+        if ((ship->staticinfo->custshipheader.CustShipHaltCommand == NULL) ||
+            ship->staticinfo->custshipheader.CustShipHaltCommand(ship))
+        {
+            copycom->ShipPtr[copycom->numShips++] = ship;
+        }
+    }
 
     // Now see if the selected ships are already in the command layer, and if so, individually order these groups
     // to move (to preserve formations)
@@ -6756,10 +7051,15 @@ void clScuttle(CommandLayer *comlayer,SelectCommand *selectcom)
 
     for (i=0;i<numShips;i++)
     {
-        // CAT: clScuttle 0x0044a150: in the tutorial the sMothership is not scuttled. CAT-TODO(M2-R4 #4): a ship with
-        //      catFlags18 0x80 whose float at exe Ship+0x4E4 is nonzero is neither scuttled nor unmimicked (that
-        //      flag is not ported, so the test is FALSE here). A mimic (CAT_SHIPFLAG_Mimic) drops its disguise
-        //      (cat_mimicUnmimic(ship, 0)) [M2-R4 ships-b]
+        // CAT: clScuttle 0x0044a150: in the tutorial the sMothership is not scuttled. A ship with CAT_SHIPFLAG_Bit7
+        //      whose infection timer (catBeastConvertTime) runs is neither scuttled nor unmimicked (0x0044a19d). A mimic
+        //      (CAT_SHIPFLAG_Mimic) drops its disguise (cat_mimicUnmimic(ship, 0)) [M2-R4 ships-b]
+        if (bitTest(selectcom->ShipPtr[i]->header.catFlags18, CAT_SHIPFLAG_Bit7) &&
+            (selectcom->ShipPtr[i]->catBeastConvertTime != 0.0f) &&
+            !((tutorial==TUTORIAL_ONLY) && (selectcom->ShipPtr[i]->shiptype == sMothership)))
+        {
+            continue;
+        }
         if ((tutorial==TUTORIAL_ONLY) && (selectcom->ShipPtr[i]->shiptype == sMothership))
         {
             if (bitTest(selectcom->ShipPtr[i]->header.catFlags18, CAT_SHIPFLAG_Mimic))
@@ -6817,8 +7117,7 @@ void clLaunchShip(CommandLayer *comlayer,SelectCommand *selectcom,ShipPtr receiv
         return;         // already outside
     }
 
-    // CAT-TODO(M2-R5 command follow-up): the exe passes the reason code 0xB (RemoveShipsFromDoingStuff's third argument)
-    RemoveShipsFromDoingStuff(comlayer,selectcom);
+    RemoveShipsFromDoingStuff(comlayer,selectcom,0xb);
 
     newcommand = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
     InitCommandToDo(newcommand);
@@ -6860,7 +7159,6 @@ void clLaunchShip(CommandLayer *comlayer,SelectCommand *selectcom,ShipPtr receiv
 ----------------------------------------------------------------------------*/
 Resource *cat_clHarvestNearestResource(CommandLayer *comlayer,SelectCommand *selectcom,bool32 fromUI,bool32 firstOfSelection)
 {
-    static real32 catHarvestMessageTime = 0.0f;              // 0x00a2db50
     Ship *ship = selectcom->ShipPtr[0];
     CommandToDo *command;
     Resource *resource;
@@ -6997,35 +7295,29 @@ void LaunchAllInternalShipsOfPlayerThatMustBeLaunched(struct Player *player)
     }
 }
 
+// CAT: FillInCarrierMothershipInfo 0x0044a490 (map: IDENTICAL, but modified): the mothership is the player's only when
+//      it is CLASS_Mothership (HW1: a Carrier-type mothership counts as carrier 1), and three carrier slots are filled
+//      from the player's first three cmCarriers (only carrierX[0..2] are cleared and written)
 void FillInCarrierMothershipInfo(struct Player *player,Ship **mothership,Ship *carrierX[])
 {
-    sdword i,j;
+    sdword i;
+    sdword n = 0;
 
     *mothership = NULL;
-    for (i=0;i<4;i++)
-    {
-         carrierX[i] = NULL;
-    }
+    carrierX[0] = NULL;
+    carrierX[1] = NULL;
+    carrierX[2] = NULL;
 
-    *mothership = player->PlayerMothership;
-    if ((*mothership) && ((*mothership)->shiptype == Carrier))
+    if ((player->PlayerMothership != NULL) && (player->PlayerMothership->staticinfo->shipclass == CLASS_Mothership))
     {
-         carrierX[0] = *mothership;
-         *mothership = NULL;
+        *mothership = player->PlayerMothership;
     }
 
     for (i = 0; i < cmNumCarriers; i++)
     {
-        if (cmCarriers[i].owner == player)
+        if ((cmCarriers[i].owner == player) && (n < 3))
         {
-            for (j=0;j<4;j++)       // find first free slot and put it in
-            {
-                if (carrierX[j] == NULL)
-                {
-                    carrierX[j] = cmCarriers[i].ship;
-                    break;
-                }
-            }
+            carrierX[n++] = cmCarriers[i].ship;
         }
     }
 }
@@ -7037,15 +7329,32 @@ void FillInCarrierMothershipInfo(struct Player *player,Ship **mothership,Ship *c
     Outputs     :
     Return      : the number of ships launched
 ----------------------------------------------------------------------------*/
+// CAT: LaunchAllInternalShipsOfPlayer 0x0044a510 builds its own list (no FillInCarrierMothershipInfo): slot 0 the
+//      player's mothership when it is CLASS_Mothership, slots 1-3 the player's first three cmCarriers; only mask bits
+//      0-2 are tested (the mothership and carriers 1 and 2)
 sdword LaunchAllInternalShipsOfPlayer(struct Player *player, udword carriermask)
 {
     Node *objnode = universe.ShipList.head;
     Ship *ship;
-    Ship *mothership;
-    Ship *carriers[4];
+    Ship *slots[4];
+    sdword numCarriers = 0;
     sdword numShips = 0;
+    sdword i;
+    bool32 launchIt;
 
-    FillInCarrierMothershipInfo(player,&mothership,carriers);
+    slots[0] = slots[1] = slots[2] = slots[3] = NULL;
+    if ((player->PlayerMothership != NULL) && (player->PlayerMothership->staticinfo->shipclass == CLASS_Mothership))
+    {
+        slots[0] = player->PlayerMothership;
+    }
+    for (i = 0; i < cmNumCarriers; i++)
+    {
+        if ((cmCarriers[i].owner == player) && (numCarriers < 3))
+        {
+            slots[1 + numCarriers] = cmCarriers[i].ship;
+            numCarriers++;
+        }
+    }
 
     while (objnode != NULL)
     {
@@ -7056,11 +7365,16 @@ sdword LaunchAllInternalShipsOfPlayer(struct Player *player, udword carriermask)
         {
             if (ship->shipsInsideMe)     // CAT: no HW1 DDDFrigate (M2-R4 ships-b)
             {
-                if ( ((carriermask & BIT0) && (ship == mothership)) ||
-                     ((carriermask & BIT1) && (ship == carriers[0])) ||
-                     ((carriermask & BIT2) && (ship == carriers[1])) ||
-                     ((carriermask & BIT3) && (ship == carriers[2])) ||
-                     ((carriermask & BIT4) && (ship == carriers[3])) )
+                launchIt = FALSE;
+                for (i = 0; i < 3; i++)
+                {
+                    if ((carriermask & (1u << i)) && (ship == slots[i]))
+                    {
+                        launchIt = TRUE;
+                        break;
+                    }
+                }
+                if (launchIt)
                 {
                     Node *insidenode = ship->shipsInsideMe->insideList.head;
                     InsideShip *insideship;
@@ -7101,6 +7415,9 @@ sdword LaunchAllInternalShipsOfPlayer(struct Player *player, udword carriermask)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: clAutoLaunch 0x0044a640 (map: IDENTICAL): every bit that is on after the change launches the ships inside
+//      (not only a bit just switched on); the fleet's line is the exe's speech 0x4001068, in every mission
+//      (CAT-TODO(M2-R5 sound): the speech table that resolves it is stage 3's)
 void clAutoLaunch(udword OnOff,udword playerIndex)
 {
     Player *player = &universe.players[playerIndex];
@@ -7116,11 +7433,6 @@ void clAutoLaunch(udword OnOff,udword playerIndex)
             {
                 // changing autoLaunch from Off to On
                 player->autoLaunch |= bit;
-                // tell all internal ships to launch:
-                if (LaunchAllInternalShipsOfPlayer(player, bit) > 0)
-                {
-                    speechevent = TRUE;
-                }
             }
             else
             {
@@ -7128,11 +7440,19 @@ void clAutoLaunch(udword OnOff,udword playerIndex)
                 player->autoLaunch &= ~bit;
             }
         }
+        if (player->autoLaunch & bit)
+        {
+            // tell all internal ships to launch:
+            if (LaunchAllInternalShipsOfPlayer(player, bit) > 0)
+            {
+                speechevent = TRUE;
+            }
+        }
     }
 
-    if (speechevent && (spGetCurrentMission() != MISSION_16_HIIGARA))
-    {                  //fleet command is out of commission in Mission 16, so don't play this
-        speechEventFleet(COMM_F_AutolaunchOn, 0, playerIndex);
+    if (speechevent)
+    {
+        speechEventQueue(NULL, 0x4001068, -1, -1, 0, playerIndex, -1, 5.0f, -1);
     }
 }
 
@@ -7649,7 +7969,9 @@ void ChangeOrderToProtect(CommandToDo *alreadycommand,ProtectCommand *protectcom
 
     if (alreadycommand->ordertype.attributes & COMMAND_MASK_FORMATION)
     {
-        if (alreadycommand->formation.formationtype == SPHERE_FORMATION)
+        // CAT: ChangeOrderToProtect 0x0044ad50 (map: IDENTICAL): a force-field sphere too (0x0044af04)
+        if ((alreadycommand->formation.formationtype == SPHERE_FORMATION) ||
+            (alreadycommand->formation.formationtype == FORCEFIELD_SPHERE_FORMATION))
         {
             // we are now protecting in sphere formation, and we want to surround
             // a ship that we protect when go in sphere formation.  This is different
@@ -7705,7 +8027,7 @@ CommandToDo *clProtect(CommandLayer *comlayer,SelectCommand *selectcom,ProtectCo
     dbgMessage("Received Order to protect");
 #endif
 
-    RemoveShipsFromDoingStuff(comlayer,selectcom);
+    RemoveShipsFromDoingStuff(comlayer,selectcom,0xc);
 
     newcommand = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
     InitCommandToDo(newcommand);
@@ -7777,7 +8099,7 @@ void AddShipToFormationGroup(ShipPtr ship,CommandToDo *group)
 #endif
 
     AddShipToGroup(ship,group);
-    FillInShipFormationStuff(ship,group);
+    // CAT: no FillInShipFormationStuff (a nullsub in GroupShip 0x0044b3d6)
 
     dbgAssertOrIgnore(group->ordertype.attributes & COMMAND_MASK_FORMATION);
     formationContentHasChanged(group);
@@ -7792,9 +8114,17 @@ void AddShipToFormationGroup(ShipPtr ship,CommandToDo *group)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: a CLASS_Component ship (a module) joins no parade (GroupShipIntoMilitaryParade 0x0044b1c0; also inlined in
+//      clSetMilitaryParade 0x0044b2b0)
 void GroupShipIntoMilitaryParade(CommandLayer *comlayer,ShipPtr ship,ShipPtr aroundShip)
 {
-    CommandToDo *militaryGroup = GetMilitaryGroupAroundShip(comlayer,aroundShip);
+    CommandToDo *militaryGroup;
+
+    if (ship->staticinfo->shipclass == CLASS_Component)
+    {
+        return;
+    }
+    militaryGroup = GetMilitaryGroupAroundShip(comlayer,aroundShip);
     if (militaryGroup != NULL)
     {
         AddShipToMilitaryGroup(ship,militaryGroup);
@@ -7847,7 +8177,7 @@ void clSetMilitaryParade(CommandLayer *comlayer,SelectCommand *selectcom)
                 SelectCommand selectone;
                 selectone.ShipPtr[0] = ship;
                 selectone.numShips = 1;
-                RemoveShipsFromDoingStuff(comlayer,&selectone);
+                RemoveShipsFromDoingStuff(comlayer,&selectone,0xd);
                 GroupShipIntoMilitaryParade(comlayer,selectcom->ShipPtr[i],aroundShip);
             }
         }
@@ -7912,13 +8242,13 @@ void clShipDied(CommandLayer *comlayer,ShipPtr deadship)
     {
         MaxSelection paradeShips;
         cat_selSelectionCopy(&paradeShips,(MaxSelection *)paradeAroundDeadShip->selection);
-        RemoveShipsFromDoingStuff(comlayer,(SelectCommand *)&paradeShips);
+        RemoveShipsFromDoingStuff(comlayer,(SelectCommand *)&paradeShips,0x65);
     }
 
     selection.numShips = 1;
     selection.ShipPtr[0] = deadship;
 
-    RemoveShipsFromDoingStuff(comlayer,&selection);
+    RemoveShipsFromDoingStuff(comlayer,&selection,0xe);
 
     RemoveShipFromBeingTargeted(comlayer,deadship,REMOVE_PROTECT,NULL);   // CAT: fourth argument 0 (clShipDied 0x0044b4ee)
 
@@ -8091,7 +8421,7 @@ void clHoldingPattern(CommandLayer *comlayer,CommandToDo *command)
                 //maximum # reached for this group
                 //set their formation,targets,and protection flags accordingly
                 working.numShips = k;
-                clFormation(comlayer,(SelectCommand *)&working,DELTA_FORMATION);
+                clFormation(comlayer,(SelectCommand *)&working,DELTA_FORMATION,0);   // CAT: level 0 (clHoldingPattern 0x0044b6b4) [audit: M2-R5 command-tactics]
 
                 //if group was previously passiveattacking or
                 //protecting set them to doing the same thing again with the
@@ -8109,7 +8439,7 @@ void clHoldingPattern(CommandLayer *comlayer,CommandToDo *command)
         if(k > 0)
         {
             //set remaining ships to formation + other tasks
-            clFormation(comlayer,(SelectCommand *)&working,DELTA_FORMATION);
+            clFormation(comlayer,(SelectCommand *)&working,DELTA_FORMATION,0);   // CAT: level 0 (clHoldingPattern 0x0044b718) [audit: M2-R5 command-tactics]
             //if group was previously passiveattacking or
             //protecting set them to doing the same thing again with the
             //same target list
@@ -8200,6 +8530,93 @@ bool32 processHoldingPattern(CommandToDo *command,SelectCommand *selection)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT: an attack that ends: a looping or patrol move interrupted by the attack resumes (clProcess 0x0044c4f1: a move
+//      to the saved path's first point from moveFrom, then the saved path itself); an attack-move goes on to its
+//      destination; otherwise the attack order is freed
+static void clAttackFinished(CommandToDo *command,bool32 checkAIState)
+{
+    Ship *ship = command->selection->ShipPtr[0];
+    vector to;
+
+    if (command->catSavedMoveValid)
+    {
+        to = command->catSavedMove.points[0];
+        ChangeOrderToMove(command,CAT_MOVEPATH_ONCE,ship->moveFrom,1,&to);
+        command->move = command->catSavedMove;
+        command->catSavedMoveValid = FALSE;
+        return;
+    }
+    if ((command->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING) && (!checkAIState || (ship->aistatecommand == 0)))
+    {
+        to = ship->moveTo;
+        bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_ATTACKMOVECANCEL);
+        ChangeOrderToMove(command,CAT_MOVEPATH_ONCE,ship->moveFrom,1,&to);
+        return;
+    }
+    // free COMMAND_ATTACK stuff
+    FreeLastOrder(command);
+    // attack has finished so convert it back to a formation
+    command->ordertype.order = COMMAND_NULL;
+}
+
+// CAT: an attack-move still under way turns into its move when the targets are far (the woodpecker check of clProcess
+//      0x0044bbb0 / 0x0044c592): the ships go on unless they have arrived, in which case a formation halts
+static void clAttackMoveCheck(CommandToDo *command,bool32 haltIfArrived)
+{
+    Ship *ship;
+    vector to;
+
+    if ((command->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING) &&
+        UNIVERSE_WOODPECKER(CHECK_ATTACKMOVE_TO_MOVE_RATE, CHECK_ATTACKMOVE_TO_MOVE_FRAME) &&
+        (getRangeToClosestTarget(command) >= tacticsInfo.movingAttackTurnsIntoMoveCommandDistanceSqr))
+    {
+        ship = command->selection->ShipPtr[0];
+        if (!haltIfArrived || (ship->aistatecommand == 0))
+        {
+            //it is at this distance that the group of ships turns and hitails it out of there...
+            to = ship->moveTo;
+            bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_ATTACKMOVECANCEL);
+            ChangeOrderToMove(command,CAT_MOVEPATH_ONCE,ship->moveFrom,1,&to);
+        }
+        else
+        {
+            ChangeOrderToHalt(command);
+        }
+    }
+}
+
+// CAT: a move has arrived: the local player's mothership reports it (speech 0x400101a, clProcess 0x0044c6c7 / 0x0044bf77,
+//      where HW1 used COMM_F_MoShip_Arrived), and a retreat that ends there is reported once (battle chatter 0x2e,
+//      BCE_STAT_Grp_RetreatSuccessful; Ship.catRetreating is cleared)
+static void clMoveArrived(CommandToDo *command,bool32 allShips)
+{
+    Ship *mothership = universe.curPlayerPtr->PlayerMothership;
+    bool32 said = FALSE;
+    sdword i;
+
+    if ((mothership != NULL) && (mothership->staticinfo->shipclass == CLASS_Mothership) &&
+        selShipInSelection(command->selection->ShipPtr, command->selection->numShips, mothership))
+    {
+        speechEventFleet(0x400101a, -1, command->selection->ShipPtr[0]->playerowner->playerIndex);
+    }
+    for (i = 0; i < (allShips ? command->selection->numShips : 1); i++)
+    {
+        Ship *ship = command->selection->ShipPtr[i];
+        if (!said && ship->shipOrDerelict.catRetreating)
+        {
+            battleChatterFleetAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_Grp_RetreatSuccessful, SOUND_EVENT_DEFAULT, NULL);
+            said = TRUE;
+        }
+        ship->shipOrDerelict.catRetreating = FALSE;
+    }
+}
+
+// CAT: clProcess 0x0044b950 follows the exe case by case. Besides the waypoint moves (processMoveToDo per ship, the
+//      leader of a formation at the formation's speed), the saved looping move, the force-field sphere around a
+//      protected ship, the retreat chatter and the big gun's halt exemption, it runs Cataclysm's orders: link (11) and
+//      unlink (12) until done, the point order (14, the big gun) and the mimic (15) and research (16) orders once.
+//      In multiplayer a dead ship (SOF_Dead) stops its command too. The finished commands are freed with the exe's
+//      codes (FreeCommandToDoContents' second argument).
 void clProcess(CommandLayer *comlayer)
 {
     Node *curnode = comlayer->todolist.head;
@@ -8207,9 +8624,9 @@ void clProcess(CommandLayer *comlayer)
     Node *nextnode;
     bool32 passiveAttacked;
     bool32 done;
+    udword freeCode;
 
     Ship *ship;
-    Ship *target;
     SpaceObjRotImpTarg *attacktarget;
     sdword i;
     SelectCommand *commandselection;
@@ -8222,37 +8639,19 @@ void clProcess(CommandLayer *comlayer)
     {
         command = (CommandToDo *)listGetStructOfNode(curnode);
 
-#if DEBUG_COMMAND_LAYER
-//        dbgMessagef("clProcessing %d %d",command->ordertype.order,command->ordertype.attributes);
-#endif
-
         commandselection = command->selection;
 
-        if(singlePlayerGame)
+        for (i=0;i<commandselection->numShips;i++)
         {
-            for (i=0;i<commandselection->numShips;i++)
+            ship = commandselection->ShipPtr[i];
+            // CAT: multiplayer stops at Crazy or Dead ships (0x200800), single player at Crazy or hyperspace (0x2200000)
+            if (ship->header.flags & (singlePlayerGame ? (SOF_Hyperspace|SOF_Crazy) : (SOF_Crazy|SOF_Dead)))
             {
-                ship = commandselection->ShipPtr[i];
-                if (ship->header.flags & (SOF_Hyperspace|SOF_Crazy))
-                {
-                    goto nextcommand;       // don't process command if any ships in hyperspace ether or Crazy
-                }
-                ship->autostabilizeship = FALSE; // don't autostabilize ship if ship has a command to do
+                goto nextcommand;
             }
+            ship->autostabilizeship = FALSE; // don't autostabilize ship if ship has a command to do
         }
-        else
-        {
-            //multiplayer version...allowing hyperspace!
-            for (i=0;i<commandselection->numShips;i++)
-            {
-                ship = commandselection->ShipPtr[i];
-                if (ship->header.flags & (SOF_Crazy))
-                {
-                    goto nextcommand;       // don't process command if any ships  Crazy
-                }
-                ship->autostabilizeship = FALSE; // don't autostabilize ship if ship has a command to do
-            }
-        }
+
         if (command->ordertype.attributes & COMMAND_MASK_FORMATION)
         {
             switch (command->ordertype.order)
@@ -8260,166 +8659,49 @@ void clProcess(CommandLayer *comlayer)
                 case COMMAND_ATTACK:
                     ship = command->selection->ShipPtr[0];
                     attacktarget = command->attack->TargetPtr[0];
-#ifdef DEBUG_TACTICS
-                    if(tacticsOn)
-#endif
+                    if ((command->formation.doneInitialAttack) || (command->attack->numTargets == 0) || (TargetWithinAttackRange(ship,attacktarget)))
                     {
+                        command->formation.doneInitialAttack = TRUE;
                         if(!tacticsInfo.holdFormationDuringBattle[ship->tacticstype] || command->selection->numShips == 1)
-                        {   //evasive tactics, so attack as per olden times
-
-                            if ((command->formation.doneInitialAttack) || (command->attack->numTargets == 0) || (TargetWithinAttackRange(ship,attacktarget)))
-                            {
-                                command->formation.doneInitialAttack = TRUE;
-                                if (processAttackToDo(command))
-                                {
-                                    if(command->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING &&
-                                        command->selection->ShipPtr[0]->aistatecommand == 0)
-                                    {
-                                        bitSet(command->selection->ShipPtr[0]->shipOrDerelict.specialFlags,SPECIAL_ATTACKMOVECANCEL);
-                                        ChangeOrderToMove(command,command->selection->ShipPtr[0]->moveFrom,command->selection->ShipPtr[0]->moveTo);
-                                    }
-                                    else
-                                    {
-                                        // free COMMAND_ATTACK stuff
-                                        FreeLastOrder(command);
-                                        // attack has finished so convert it back to a formation
-                                        command->ordertype.order = COMMAND_NULL;
-                                    }
-                                }
-                                else
-                                {
-                                    if(command->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING)
-                                    {
-                                        if(UNIVERSE_WOODPECKER(CHECK_ATTACKMOVE_TO_MOVE_RATE, CHECK_ATTACKMOVE_TO_MOVE_FRAME))
-                                        if(getRangeToClosestTarget(command) >= tacticsInfo.movingAttackTurnsIntoMoveCommandDistanceSqr)
-                                        {
-                                            if(command->selection->ShipPtr[0]->aistatecommand == 0)
-                                            {
-                                                //it is at this distance that the group of ships turns and hitails it out of there...
-                                                bitSet(command->selection->ShipPtr[0]->shipOrDerelict.specialFlags,SPECIAL_ATTACKMOVECANCEL);
-                                                ChangeOrderToMove(command,command->selection->ShipPtr[0]->moveFrom,command->selection->ShipPtr[0]->moveTo);
-                                                break;
-                                            }
-                                            else
-                                            {
-                                                ChangeOrderToHalt(command);
-                                            }
-                                        }
-                                    }
-
-                                }
-                            }
-                            else
-                            {
-                                aishipFlyToShipAvoidingObjs(ship,attacktarget,AISHIP_PointInDirectionFlying + AISHIP_CarTurn,
-                                                            command->formation.travelvel);
-                                ship->shipidle = FALSE;
-                                processFormationToDo(command,FALSE,FALSE);
-                            }
+                        {
+                            done = processAttackToDo(command);   //evasive tactics, so attack as per olden times
                         }
                         else
-                        {  // neutral or aggressive leader tactics,
-                            //formation type is held during combat, be it loose or tight
-                            //command->formation.doneInitialAttack = TRUE;    // we attack in formation anyway, so let's just attack
-                            if ((command->formation.doneInitialAttack) || (command->attack->numTargets == 0) || (TargetWithinAttackRange(ship,attacktarget)))
-                            {
-                                command->formation.doneInitialAttack = TRUE;
-                                if (processAttackToDoInFormation(command))
-                                {
-                                    // free COMMAND_ATTACK stuff
-                                    if(command->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING &&
-                                        command->selection->ShipPtr[0]->aistatecommand == 0)
-                                    {
-                                        //attacking and moving and HAVEN'T reached destination!
-                                        bitSet(command->selection->ShipPtr[0]->shipOrDerelict.specialFlags,SPECIAL_ATTACKMOVECANCEL);
-                                        ChangeOrderToMove(command,command->selection->ShipPtr[0]->moveFrom,command->selection->ShipPtr[0]->moveTo);
-                                    }
-                                    else
-                                    {
-                                        // free COMMAND_ATTACK stuff
-                                        FreeLastOrder(command);
-                                        // attack has finished so convert it back to a formation
-                                        command->ordertype.order = COMMAND_NULL;
-                                    }                                     //command->ordertype.attributes |= COMMAND_MASK_HOLDING_PATTERN;
-                                }
-                                else
-                                {
-                                    if(command->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING)
-                                    {
-                                        if(UNIVERSE_WOODPECKER(CHECK_ATTACKMOVE_TO_MOVE_RATE, CHECK_ATTACKMOVE_TO_MOVE_FRAME))
-                                        if(getRangeToClosestTarget(command) >= tacticsInfo.movingAttackTurnsIntoMoveCommandDistanceSqr)
-                                        {
-                                            if(command->selection->ShipPtr[0]->aistatecommand == 0)
-                                            {
-                                                //it is at this distance that the group of ships turns and hitails it out of there...
-                                                bitSet(command->selection->ShipPtr[0]->shipOrDerelict.specialFlags,SPECIAL_ATTACKMOVECANCEL);
-                                                ChangeOrderToMove(command,command->selection->ShipPtr[0]->moveFrom,command->selection->ShipPtr[0]->moveTo);
-                                                break;
-                                            }
-                                            else
-                                            {
-                                                ChangeOrderToHalt(command);
-                                            }
-                                        }
-                                    }
-
-                                }
-                            }
-                            else
-                            {
-                                aishipFlyToShipAvoidingObjs(ship,attacktarget,AISHIP_PointInDirectionFlying + AISHIP_CarTurn,
-                                                            command->formation.travelvel);
-                                ship->shipidle = FALSE;
-                                processFormationToDo(command,FALSE,FALSE);
-                            }
+                        {
+                            done = processAttackToDoInFormation(command);  // neutral or aggressive leader tactics
+                        }
+                        if (done)
+                        {
+                            clAttackFinished(command,TRUE);
+                        }
+                        else
+                        {
+                            clAttackMoveCheck(command,TRUE);
                         }
                     }
-#ifdef DEBUG_TACTICS
                     else
                     {
-                        if ((command->formation.doneInitialAttack) || (command->attack->numTargets == 0) || (TargetWithinAttackRange(ship,attacktarget)))
-                        {
-                            command->formation.doneInitialAttack = TRUE;
-                            if (processAttackToDo(command))
-                            {
-                                // free COMMAND_ATTACK stuff
-                                FreeLastOrder(command);
-                                // attack has finished so convert it back to a formation
-                                command->ordertype.order = COMMAND_NULL;
-                            }
-                        }
-                        else
-                        {
-                            aishipFlyToShipAvoidingObjs(ship,attacktarget,AISHIP_PointInDirectionFlying + AISHIP_CarTurn,
+                        aishipFlyToShipAvoidingObjs(ship,attacktarget,AISHIP_PointInDirectionFlying + AISHIP_CarTurn,
                                                     command->formation.travelvel);
-                            ship->shipidle = FALSE;
-                            processFormationToDo(command,FALSE,FALSE);
-                        }
+                        ship->shipidle = FALSE;
+                        processFormationToDo(command,FALSE,FALSE);
                     }
-#endif
                     break;
+
                 case COMMAND_DOCK:
                     // CAT (M2-R5 dock): clProcess 0x0044b950 steps the dock command at once (no HW1 fly-in-formation
                     //      pre-flight on allNearShip / DOCK_INSTANTANEOUSLY; a formation flies in through the per-ship
                     //      state machine)
+                    if (processDockToDo(command))
                     {
-                        if (processDockToDo(command))
+                        if (command->selection->numShips == 0)
                         {
-                            if (command->selection->numShips == 0)
-                            {
-                                // All ships have been removed from docking.  Therefore totally wipe out command
-                                nextnode = curnode->next;         // dock command has finished
-                                FreeCommandToDoContents(command);
-                                listDeleteNode(curnode);
-                                curnode = nextnode;
-                                goto readyfornextnode;
-                            }
-                            else
-                            {
-                                FreeLastOrder(command);  // free COMMAND_DOCK
-                                command->ordertype.order = COMMAND_NULL;
-                            }
+                            // All ships have been removed from docking.  Therefore totally wipe out command
+                            freeCode = 0x1f;
+                            goto freecommand;
                         }
+                        FreeLastOrder(command);  // free COMMAND_DOCK
+                        command->ordertype.order = COMMAND_NULL;
                     }
                     break;
 
@@ -8455,21 +8737,22 @@ void clProcess(CommandLayer *comlayer)
 
                 case COMMAND_NULL:
                     passiveAttacked = FALSE;
+                    if (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
+                    {
+                        if (processPassiveAttackToDo(command))
+                        {
+                            ClearPassiveAttacking(command);
+                        }
+                        passiveAttacked = TRUE;
+                        bitClear(command->ordertype.attributes,COMMAND_MASK_HOLDING_PATTERN);
+                    }
                     if (command->ordertype.attributes & COMMAND_MASK_PROTECTING)
                     {
-                        if (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
+                        // CAT: a sphere or a force-field sphere (0x0044ba5b) of more than one ship surrounds the
+                        //      protected ship
+                        if (((command->formation.formationtype == SPHERE_FORMATION) || (command->formation.formationtype == FORCEFIELD_SPHERE_FORMATION)) &&
+                            (command->selection->numShips > 1))
                         {
-                            if (processPassiveAttackToDo(command))
-                            {
-                                ClearPassiveAttacking(command);
-                            }
-                            passiveAttacked = TRUE;
-                            bitClear(command->ordertype.attributes,COMMAND_MASK_HOLDING_PATTERN);
-                        }
-
-//                        if (command->formation.formAroundProtectedShip)
-                        if ((command->formation.formationtype == SPHERE_FORMATION) && (command->selection->numShips > 1))   // for Sphere formation, formation will
-                        {                                                           // surround protected ship.
                             processFormationToDo(command,FALSE,passiveAttacked);
                         }
                         else
@@ -8488,16 +8771,6 @@ void clProcess(CommandLayer *comlayer)
                     }
                     else
                     {
-                        if (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
-                        {
-                            if (processPassiveAttackToDo(command))
-                            {
-                                ClearPassiveAttacking(command);
-                            }
-                            passiveAttacked = TRUE;
-                            bitClear(command->ordertype.attributes,COMMAND_MASK_HOLDING_PATTERN);
-                        }
-
                         if(command->ordertype.attributes & COMMAND_MASK_HOLDING_PATTERN)
                         {
                             if(processHoldingPattern(command,command->selection))
@@ -8510,15 +8783,14 @@ void clProcess(CommandLayer *comlayer)
                             ship = command->selection->ShipPtr[0];
                             if ((passiveAttacked) & (bool32)((ShipStaticInfo *)ship->staticinfo)->rotateToRetaliate)
                             {
-                                //if(ship->tacticstype != Evasive)
-                                    aitrackSteadyShipDriftOnly(ship);
+                                aitrackSteadyShipDriftOnly(ship);
                             }
                             else
                             {
                                 aitrackSteadyShip(ship);
                             }
                         }
-                        if(passiveAttacked)// && command->selection->ShipPtr[0]->tacticstype == Evasive)
+                        if(passiveAttacked)
                             processFormationToDo(command,FALSE,passiveAttacked);
                         else
                             processFormationToDo(command,bitTest(command->ordertype.attributes,COMMAND_MASK_HOLDING_PATTERN) ? FALSE : TRUE,passiveAttacked);
@@ -8532,7 +8804,6 @@ void clProcess(CommandLayer *comlayer)
                     }
                     break;
                 case COMMAND_MOVE:
-                    passiveAttacked = FALSE;
                     if (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
                     {
                         if (processPassiveAttackToDo(command))
@@ -8540,30 +8811,18 @@ void clProcess(CommandLayer *comlayer)
                             ClearPassiveAttacking(command);
                         }
                         bitClear(command->ordertype.attributes,COMMAND_MASK_HOLDING_PATTERN);
-                        //don't set to true as it controls whether or not a ship
-                        //faces in movement direction
-                        //passiveAttacked = TRUE;
+                        //don't set passiveAttacked: it controls whether or not a ship faces in movement direction
                     }
 
-                    if (processMoveLeaderToDo(command,passiveAttacked))
+                    // CAT: the leader along the path at the formation's speed (processMoveToDo(command,0,0,1))
+                    if (processMoveToDo(command,FALSE,0,TRUE))
                     {
                         // reached destination, so change COMMAND_MOVE | COMMAND_MASK_FORMATION to COMMAND_NULL | COMMAND_MASK_FORMATION
-#if DEBUG_FORMATIONS
-                        dbgMessage("Reached Destination in Formation.");
-#endif
-                        if (universe.curPlayerPtr->PlayerMothership != NULL)
-                        {
-                            // Mothership can be carrier, so make sure it is really a mothership
-                            if ((universe.curPlayerPtr->PlayerMothership->shiptype == Mothership) && (selShipInSelection(command->selection->ShipPtr, command->selection->numShips, universe.curPlayerPtr->PlayerMothership)))
-                            {
-                                speechEventFleetSpec(universe.curPlayerPtr->PlayerMothership, COMM_F_MoShip_Arrived, 0, universe.curPlayerIndex);
-                            }
-                        }
-
+                        clMoveArrived(command,FALSE);
                         FreeLastOrder(command); // free COMMAND_MOVE stuff
                         command->ordertype.order = COMMAND_NULL;
                     }
-                    processFormationToDo(command,FALSE,passiveAttacked);
+                    processFormationToDo(command,FALSE,FALSE);
                     break;
 
                 case COMMAND_SPECIAL:
@@ -8578,8 +8837,24 @@ void clProcess(CommandLayer *comlayer)
                     }
                     break;
 
+                case COMMAND_CAT_LINK:
+                    if (cat_processLinkToDo(command))
+                    {
+                        FreeLastOrder(command);
+                        command->ordertype.order = COMMAND_NULL;
+                    }
+                    break;
+
+                case COMMAND_CAT_UNLINK:
+                    if (cat_processUnlinkToDo(command))
+                    {
+                        FreeLastOrder(command);
+                        command->ordertype.order = COMMAND_NULL;
+                    }
+                    break;
+
                 default:
-                    dbgAssertOrIgnore(FALSE);
+                    // CAT: the exe's formation switch has no other case (no assertion)
                     break;
             }
         }
@@ -8591,59 +8866,11 @@ void clProcess(CommandLayer *comlayer)
                     //open guns if in range or if we need to
                     if (processAttackToDo(command))
                     {
-                        if (command->ordertype.attributes & COMMAND_MASK_PROTECTING)
-                        {
-                            if(command->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING)
-                            {
-                                bitSet(command->selection->ShipPtr[0]->shipOrDerelict.specialFlags,SPECIAL_ATTACKMOVECANCEL);
-                                ChangeOrderToMove(command,command->selection->ShipPtr[0]->moveFrom,command->selection->ShipPtr[0]->moveTo);
-                            }
-                            else
-                            {
-                                // free COMMAND_ATTACK stuff
-                                FreeLastOrder(command);
-                                // attack has finished so convert it back to a formation
-                                command->ordertype.order = COMMAND_NULL;
-                            }
-                        }
-                        else
-                        {
-                            /*
-                            nextnode = curnode->next;         // attack has finished
-                            FreeCommandToDoContents(command);
-                            listDeleteNode(curnode);
-                            curnode = nextnode;
-                            goto readyfornextnode;
-                            */
-                            if(command->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING)
-                            {
-                                bitSet(command->selection->ShipPtr[0]->shipOrDerelict.specialFlags,SPECIAL_ATTACKMOVECANCEL);
-                                ChangeOrderToMove(command,command->selection->ShipPtr[0]->moveFrom,command->selection->ShipPtr[0]->moveTo);
-                            }
-                            else
-                            {
-                                // free COMMAND_ATTACK stuff
-                                FreeLastOrder(command);
-                                // attack has finished so convert it back to a formation
-                                command->ordertype.order = COMMAND_NULL;
-                            }
-                            //command->ordertype.attributes |= COMMAND_MASK_HOLDING_PATTERN;
-                        }
+                        clAttackFinished(command,FALSE);
                     }
                     else
                     {
-                        if(command->ordertype.attributes & COMMAND_MASK_ATTACKING_AND_MOVING)
-                        {
-                            if(UNIVERSE_WOODPECKER(CHECK_ATTACKMOVE_TO_MOVE_RATE, CHECK_ATTACKMOVE_TO_MOVE_FRAME))
-                            if(getRangeToClosestTarget(command) >= tacticsInfo.movingAttackTurnsIntoMoveCommandDistanceSqr)
-                            {
-                                //it is at this distance that the group of ships turns and hitails it out of there...
-                                bitSet(command->selection->ShipPtr[0]->shipOrDerelict.specialFlags,SPECIAL_ATTACKMOVECANCEL);
-                                ChangeOrderToMove(command,command->selection->ShipPtr[0]->moveFrom,command->selection->ShipPtr[0]->moveTo);
-                                break;
-                            }
-                        }
-
+                        clAttackMoveCheck(command,FALSE);
                     }
                     break;
                 case COMMAND_MP_HYPERSPACING:
@@ -8655,7 +8882,6 @@ void clProcess(CommandLayer *comlayer)
                     break;
 
                 case COMMAND_MOVE:
-                    passiveAttacked = FALSE;
                     if (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
                     {
                         if (processPassiveAttackToDo(command))
@@ -8663,36 +8889,27 @@ void clProcess(CommandLayer *comlayer)
                             ClearPassiveAttacking(command);
                         }
                         bitClear(command->ordertype.attributes,COMMAND_MASK_HOLDING_PATTERN);
-                        //don't set to true so we face direction we're
-                        //moving
-                        //passiveAttacked = TRUE;
                     }
 
-                    if (processMoveToDo(command,passiveAttacked))
+                    // CAT: every ship along its path (0x0044c6a0)
+                    done = TRUE;
+                    for (i = 0; i < command->selection->numShips; i++)
                     {
-                        if (universe.curPlayerPtr->PlayerMothership != NULL)
-                        {
-                            // Mothership can be carrier, so make sure it is really a mothership
-                            if ((universe.curPlayerPtr->PlayerMothership->shiptype == Mothership) && (selShipInSelection(command->selection->ShipPtr, command->selection->numShips, universe.curPlayerPtr->PlayerMothership)))
-                            {
-                                speechEventFleetSpec(universe.curPlayerPtr->PlayerMothership, COMM_F_MoShip_Arrived, 0, universe.curPlayerIndex);
-                            }
-                        }
-
-                        // CAT: no HW1 Probe arrival speech (M2-R4 ships-b)
-
+                        done &= processMoveToDo(command,FALSE,i,FALSE);
+                    }
+                    if (done)
+                    {
                         if (command->ordertype.attributes & (COMMAND_MASK_PROTECTING|COMMAND_MASK_PASSIVE_ATTACKING))
                         {
+                            clMoveArrived(command,FALSE);
                             FreeLastOrder(command);   // free COMMAND_MOVE stuff
                             command->ordertype.order = COMMAND_NULL;
                         }
                         else
                         {
-                            nextnode = curnode->next;
-                            FreeCommandToDoContents(command);
-                            listDeleteNode(curnode);
-                            curnode = nextnode;
-                            goto readyfornextnode;
+                            clMoveArrived(command,TRUE);
+                            freeCode = 0x1f;
+                            goto freecommand;
                         }
                     }
                     break;
@@ -8702,19 +8919,14 @@ void clProcess(CommandLayer *comlayer)
                     {
                         if (command->dock.wasHarvesting)
                         {
-                            dbgAssertOrIgnore(command->selection->numShips == 1);
-
                             // changing COMMAND_DOCK to COMMAND_COLLECT_RESOURCES
                             FreeLastOrder(command);
                             ChangeSingleShipToCollectResource(command,NULL);   // CAT: clProcess 0x0044b950 passes NULL
                         }
                         else
                         {
-                            nextnode = curnode->next;         // dock command has finished
-                            FreeCommandToDoContents(command);
-                            listDeleteNode(curnode);
-                            curnode = nextnode;
-                            goto readyfornextnode;
+                            freeCode = 0x1d;        // dock command has finished
+                            goto freecommand;
                         }
                     }
                     break;
@@ -8722,22 +8934,18 @@ void clProcess(CommandLayer *comlayer)
                 case COMMAND_SPECIAL:
                     if (processSpecialToDo(command))
                     {
-                        nextnode = curnode->next;         // special command has finished
-                        FreeCommandToDoContents(command);
-                        listDeleteNode(curnode);
-                        curnode = nextnode;
-                        goto readyfornextnode;
+                        freeCode = 0x1d;            // special command has finished
+                        goto freecommand;
                     }
                     break;
 
                 case COMMAND_COLLECT_RESOURCES:
                     if (processCollectResource(command))
                     {
-                        Ship *ship = command->selection->ShipPtr[0];
-                        dbgAssertOrIgnore(command->selection->numShips >= 1);
+                        ship = command->selection->ShipPtr[0];
 
                         nextnode = curnode->next;         // collect resource command has finished
-                        FreeCommandToDoContents(command);
+                        FreeCommandToDoContents(command,0x15);
                         listDeleteNode(curnode);
                         curnode = nextnode;
 
@@ -8753,16 +8961,13 @@ void clProcess(CommandLayer *comlayer)
                 case COMMAND_LAUNCH_SHIP:
                     if (processLaunchShipToDo(command))
                     {
-                        Ship *ship;
                         Ship *receiverShip;
-
-                        dbgAssertOrIgnore(command->selection->numShips == 1);
 
                         ship = command->selection->ShipPtr[0];
                         receiverShip = command->launchship.receiverShip;
 
                         nextnode = curnode->next;
-                        FreeCommandToDoContents(command);
+                        FreeCommandToDoContents(command,0x16);
                         listDeleteNode(curnode);
                         curnode = nextnode;
 
@@ -8795,11 +9000,8 @@ void clProcess(CommandLayer *comlayer)
                         }
                         else
                         {
-                            nextnode = curnode->next;
-                            FreeCommandToDoContents(command);
-                            listDeleteNode(curnode);
-                            curnode = nextnode;
-                            goto readyfornextnode;
+                            freeCode = 0x1f;
+                            goto freecommand;
                         }
                     }
                     break;
@@ -8819,15 +9021,11 @@ void clProcess(CommandLayer *comlayer)
                     break;
 
                 case COMMAND_BUILDING_SHIP:
-                    dbgAssertOrIgnore(command->ordertype.attributes == 0);
                     // don't allow COMMAND_MASK_PASSIVE_ATTACKING, COMMAND_MASK_PROTECTING, COMMAND_MASK_FORMATION
                     if (processBuildingShipToDo(command))
                     {
-                        nextnode = curnode->next;
-                        FreeCommandToDoContents(command);
-                        listDeleteNode(curnode);
-                        curnode = nextnode;
-                        goto readyfornextnode;
+                        freeCode = 0x1e;
+                        goto freecommand;
                     }
                     break;
 
@@ -8835,11 +9033,8 @@ void clProcess(CommandLayer *comlayer)
                     if (command->ordertype.attributes == 0)
                     {
                         // NULL command, and no attributes, so let's remove it from the command layer
-                        nextnode = curnode->next;
-                        FreeCommandToDoContents(command);
-                        listDeleteNode(curnode);
-                        curnode = nextnode;
-                        goto readyfornextnode;
+                        freeCode = 0x1f;
+                        goto freecommand;
                     }
                     if(command->ordertype.attributes & COMMAND_MASK_HOLDING_PATTERN)
                     {
@@ -8852,7 +9047,6 @@ void clProcess(CommandLayer *comlayer)
                         goto readyfornextnode;
                     }
 
-
                     if (command->ordertype.attributes & COMMAND_MASK_PROTECTING)
                     {
                         ProtectCommand *commandprotect = command->protect;
@@ -8861,7 +9055,6 @@ void clProcess(CommandLayer *comlayer)
                         sdword numShips = commandselect->numShips;
                         Ship *protectShipPtr;
                         sdword protectThisShip;
-                        sdword i;
 
                         passiveAttacked = FALSE;
                         if (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
@@ -8874,7 +9067,6 @@ void clProcess(CommandLayer *comlayer)
                             bitClear(command->ordertype.attributes,COMMAND_MASK_HOLDING_PATTERN);
                         }
 
-                        dbgAssertOrIgnore(numShipsToProtect > 0);
                         if (numShipsToProtect == 1)
                         {
                             protectShipPtr = commandprotect->ShipPtr[0];
@@ -8923,16 +9115,55 @@ void clProcess(CommandLayer *comlayer)
                                 if(ship->tacticstype != Evasive)
                                     aitrackSteadyShipDriftOnly(ship);
                             }
-                            else
+                            else if (!cat_mothershipBigGunActive(ship))
                             {
+                                // CAT: a mothership aiming its big gun is not steadied (0x0044c3a8)
                                 aitrackSteadyShip(ship);
                             }
                         }
                     }
                     break;
 
+                case COMMAND_CAT_LINK:
+                    if (cat_processLinkToDo(command))
+                    {
+                        freeCode = 0x1d;
+                        goto freecommand;
+                    }
+                    break;
+
+                case COMMAND_CAT_UNLINK:
+                    if (cat_processUnlinkToDo(command))
+                    {
+                        freeCode = 0x1d;
+                        goto freecommand;
+                    }
+                    break;
+
+                case COMMAND_CAT_POINT:
+                    // CAT: the big gun's point order fires once (cat_bigGunProcessFireCommand 0x005bbe80)
+                    cat_bigGunProcessFireCommand(command);
+                    freeCode = 0x19;
+                    goto freecommand;
+
+                case COMMAND_CAT_MIMIC:
+                    // CAT: every ship takes the disguise once (cat_mimicCommand 0x005b8d70)
+                    for (i = 0; i < command->selection->numShips; i++)
+                    {
+                        cat_mimicCommand(command->selection->ShipPtr[i],(sdword)command->catMimic.mode,(sdword)command->catMimic.shipType,
+                                         (sdword)command->catMimic.player,(sdword)command->catMimic.index);
+                    }
+                    freeCode = 0x1f;
+                    goto freecommand;
+
+                case COMMAND_CAT_RESEARCH:
+                    // CAT: the research order starts or stops one research slot (cat_processResearchToDo 0x0044dc20)
+                    cat_processResearchToDo(command);
+                    freeCode = 0x1b;
+                    goto freecommand;
+
                 default:
-                    dbgAssertOrIgnore(FALSE);
+                    // CAT: no other order reaches the exe's switch (no assertion)
                     break;
             }
 
@@ -8940,7 +9171,13 @@ void clProcess(CommandLayer *comlayer)
 nextcommand:
         curnode = curnode->next;
 readyfornextnode:
-        ;
+        continue;
+
+freecommand:
+        nextnode = curnode->next;
+        FreeCommandToDoContents(command,(sdword)freeCode);
+        listDeleteNode(curnode);
+        curnode = nextnode;
     }
 }
 
@@ -8983,7 +9220,10 @@ void clPostProcess(CommandLayer *comlayer)
                 {
                     if ((command->ordertype.order == COMMAND_NULL) || (command->ordertype.order == COMMAND_MOVE) || (command->ordertype.order == COMMAND_ATTACK))
                     {
-                        if ((command->ordertype.attributes & COMMAND_MASK_FORMATION) && (command->formation.formationtype == SPHERE_FORMATION))
+                        // CAT: a force-field sphere too (clPostProcess 0x0044cfef)
+                        if ((command->ordertype.attributes & COMMAND_MASK_FORMATION) &&
+                            ((command->formation.formationtype == SPHERE_FORMATION) ||
+                             (command->formation.formationtype == FORCEFIELD_SPHERE_FORMATION)))
                         {
                             if (i == 0)     // 0th ship is always protected by a surrounded sphere of ships, and these ships
                             {               // should stay nearby (not attack, just passive attack).
@@ -9020,7 +9260,7 @@ void clPostProcess(CommandLayer *comlayer)
                                 {
                                     newcommand = clProtect(comlayer,(SelectCommand *)&attackingships,command->protect);
                                     //filter gravwell and other related ships for attack during guarding
-                                    ChangeOrderToAttack(newcommand,attack);
+                                    ChangeOrderToAttack(newcommand,attack,3);   // CAT: reason 3 (clPostProcess 0x0044d0ff)
                                 }
                                 memFree(attack);
 //                                memFree(attackingships);
@@ -9160,9 +9400,10 @@ void clPresetShipsToPosition(CommandLayer *comlayer)
     Outputs     :
     Return      : Returns allocated command containing the ship and its formation
 ----------------------------------------------------------------------------*/
+// CAT: the ship's command when it is a formation (getShipAndItsFormation 0x0044d240 tests the command's formation flag)
 CommandToDo *getShipAndItsFormationCommand(CommandLayer *comlayer,ShipPtr ship)
 {
-    return ship->formationcommand;
+    return cat_shipFormationCommand(ship);
 }
 
 /*-----------------------------------------------------------------------------
@@ -9219,6 +9460,697 @@ bool32 CommandInCommandLayer(CommandLayer *comlayer,CommandToDo *searchfor)
 
     return FALSE;
 }
+
+/*=============================================================================
+    CAT (M2-R5 command-tactics): Cataclysm's own orders and command-layer helpers (cataclysm.exe 0x0044d2e0 ..
+    0x0044e150, and the cat_cl* functions placed between the HW1 bodies above). The orders run in clProcess:
+    COMMAND_CAT_LINK / UNLINK (cat_processLinkToDo / cat_processUnlinkToDo in Dock.c, next to the link flight),
+    COMMAND_CAT_POINT (cat_bigGunProcessFireCommand), COMMAND_CAT_MIMIC (cat_mimicCommand), COMMAND_CAT_RESEARCH
+    (cat_processResearchToDo below).
+=============================================================================*/
+
+// CAT: the link upgrade a partner needs (cat_clFindLinkPartner 0x0044d2e0 asks cat_shipHasUpgrade(ship, 8); name
+//      chosen here)
+#define CAT_UPGRADE_Link            0x00000008
+// CAT: the static's type bit of the linked types (sACV, bACV, sMCV: cat_univInitShipTypeFlags 0x0053b8c0 sets 0x40);
+//      only they can unlink (cat_clUnlink 0x0044d7a0; name chosen here)
+#define CAT_TYPEFLAG_Linked         0x00000040
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_clFindLinkPartner
+    Description : the nearest ship of selection, other than ship and still unpaired, of ship's type that has the link
+                  upgrade
+    Inputs      : selection, ship
+    Outputs     :
+    Return      : the partner, or NULL
+----------------------------------------------------------------------------*/
+// CAT: new (cat_clFindLinkPartner 0x0044d2e0): walks universe.ShipList in its order, distance by fsqrt
+Ship *cat_clFindLinkPartner(SelectCommand *selection,Ship *ship)
+{
+    Node *node;
+    Ship *candidate;
+    CatLinkInfo *link;
+    Ship *best = NULL;
+    real32 bestdist = 1e20f;
+    real32 dist;
+    vector diff;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        candidate = (Ship *)listGetStructOfNode(node);
+        if (!cat_shipHasUpgrade(candidate,CAT_UPGRADE_Link) || !ShipInSelection(selection,candidate) ||
+            (ship->shiptype != candidate->shiptype) || (candidate == ship))
+        {
+            continue;
+        }
+        link = (CatLinkInfo *)((ubyte *)candidate->ShipSpecifics + 0x18);     // the exe reads candidate+0x650
+        if (link->partner != NULL)
+        {
+            continue;
+        }
+        vecSub(diff,candidate->obj.posinfo.position,ship->obj.posinfo.position);
+        dist = fsqrt(vecMagnitudeSquared(diff));
+        if (dist < bestdist)
+        {
+            bestdist = dist;
+            best = candidate;
+        }
+    }
+    return best;
+}
+
+// CAT: takes a ship out of a link command being built: no command, no formation disable reason, a Sentinel
+//      unclamped (the inline removals of cat_clLink 0x0044d646 / 0x0044d686)
+static void catLinkDropShip(SelectCommand *selection,sdword index)
+{
+    Ship *ship = selection->ShipPtr[index];
+
+    selection->numShips--;
+    selection->ShipPtr[index] = selection->ShipPtr[selection->numShips];
+    ship->command = NULL;
+    RemoveShipFromFormation(ship);
+}
+
+// CAT: the common head of the order creators that reuse a command whose selection is the same (cat_clLink 0x0044d3dd,
+//      cat_clUnlink 0x0044d830): protecting, a formation and passive attacking are cleared inline, then the last order
+static void catClearCommandForNewOrder(CommandToDo *command)
+{
+    if (command->ordertype.attributes & COMMAND_MASK_PROTECTING)
+    {
+        ClearProtecting(command);
+    }
+    if (command->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING)
+    {
+        ClearPassiveAttacking(command);
+    }
+    if (command->ordertype.attributes & COMMAND_MASK_FORMATION)
+    {
+        FormationCleanup(command);
+        bitClear(command->ordertype.attributes,COMMAND_MASK_FORMATION);
+    }
+    FreeLastOrder(command);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_clLink
+    Description : the link order (COMMAND_CAT_LINK): pairs the linkable ships of selectcom, nearest first; the lower of
+                  each pair leads, the other leaves the command and waits; unpaired ships leave it too
+    Inputs      : comlayer, selectcom
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (cat_clLink 0x0044d3b0)
+void cat_clLink(CommandLayer *comlayer,SelectCommand *selectcom)
+{
+    CommandToDo *command;
+    SelectCommand *selection;
+    sdword sizeofselection;
+    sdword i,j;
+    sdword paired;
+    Ship *ship;
+    Ship *partner;
+
+    if (selectcom->numShips == 0)
+    {
+        return;
+    }
+
+    command = IsSelectionAlreadyDoingSomething(comlayer,selectcom);
+    if (command != NULL)
+    {
+        catClearCommandForNewOrder(command);
+    }
+    else
+    {
+        RemoveShipsFromDoingStuff(comlayer,selectcom,0xf);
+        command = memAlloc(sizeof(CommandToDo),"ToDo",0);
+        InitCommandToDo(command);
+        command->ordertype.attributes = 0;
+    }
+
+    sizeofselection = sizeofSelectCommand(selectcom->numShips);
+    selection = memAlloc(sizeofselection,"ToDoSelection",0);
+    memcpy(selection,selectcom,sizeofselection);
+    if (command->selection != NULL)
+    {
+        memFree(command->selection);
+    }
+    command->selection = selection;
+    command->ordertype.order = COMMAND_CAT_LINK;
+
+    for (i = 0; i < selection->numShips; i++)
+    {
+        cat_clLinkCleanup(selection->ShipPtr[i]);
+    }
+
+    // pair the ships: the ship with the lower z of a pair leads (it stays in the command); its partner and every
+    // ship left without one leave the selection
+    paired = 0;
+    i = 0;
+    while (paired < selection->numShips)
+    {
+        ship = selection->ShipPtr[i];
+        if (((CatLinkInfo *)((ubyte *)ship->ShipSpecifics + 0x18))->partner != NULL)
+        {
+            catLinkDropShip(selection,i);       // already a partner of an earlier ship
+            continue;
+        }
+        partner = cat_clFindLinkPartner(selection,ship);
+        if (partner == NULL)
+        {
+            catLinkDropShip(selection,i);
+            continue;
+        }
+        if (partner->obj.posinfo.position.z < ship->obj.posinfo.position.z)
+        {
+            sdword partnerIndex = -1;
+
+            for (j = 0; j < selection->numShips; j++)
+            {
+                if (selection->ShipPtr[j] == partner)
+                {
+                    partnerIndex = j;
+                }
+            }
+            selection->ShipPtr[i] = partner;
+            selection->ShipPtr[partnerIndex] = ship;
+            cat_linkPairShips(partner,ship);
+        }
+        else
+        {
+            cat_linkPairShips(ship,partner);
+        }
+        paired++;
+        i++;
+    }
+
+    PrepareShipsForCommand(command,TRUE);
+    InitShipsForAI(command->selection,TRUE);
+
+    if (command->todonode.belongto == NULL)
+    {
+        listAddNode(&comlayer->todolist,&command->todonode,command);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_clUnlink
+    Description : the unlink order (COMMAND_CAT_UNLINK) for the linked ships of selectcom (sACV, bACV, sMCV)
+    Inputs      : comlayer, selectcom (ships of other types are taken out of it)
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (cat_clUnlink 0x0044d7a0)
+void cat_clUnlink(CommandLayer *comlayer,SelectCommand *selectcom)
+{
+    CommandToDo *command;
+    SelectCommand *selection;
+    sdword sizeofselection;
+    sdword i;
+
+    if (selectcom->numShips == 0)
+    {
+        return;
+    }
+    for (i = 0; i < selectcom->numShips; )
+    {
+        if (!(selectcom->ShipPtr[i]->staticinfo->catTypeFlags & CAT_TYPEFLAG_Linked))
+        {
+            selectcom->numShips--;
+            selectcom->ShipPtr[i] = selectcom->ShipPtr[selectcom->numShips];
+        }
+        else
+        {
+            i++;
+        }
+    }
+
+    command = IsSelectionAlreadyDoingSomething(comlayer,selectcom);
+    if (command != NULL)
+    {
+        catClearCommandForNewOrder(command);
+    }
+    else
+    {
+        RemoveShipsFromDoingStuff(comlayer,selectcom,0x10);
+        command = memAlloc(sizeof(CommandToDo),"ToDo",0);
+        InitCommandToDo(command);
+        command->ordertype.attributes = 0;
+    }
+
+    sizeofselection = sizeofSelectCommand(selectcom->numShips);
+    selection = memAlloc(sizeofselection,"ToDoSelection",0);
+    memcpy(selection,selectcom,sizeofselection);
+    if (command->selection != NULL)
+    {
+        memFree(command->selection);
+    }
+    command->selection = selection;
+    command->ordertype.order = COMMAND_CAT_UNLINK;
+
+    for (i = 0; i < selection->numShips; i++)
+    {
+        cat_unlinkPrepareShip(selection->ShipPtr[i]);
+    }
+
+    PrepareShipsForCommand(command,TRUE);
+    InitShipsForAI(command->selection,TRUE);
+
+    if (command->todonode.belongto == NULL)
+    {
+        listAddNode(&comlayer->todolist,&command->todonode,command);
+    }
+}
+
+// CAT: the head the one-shot order creators share (cat_clPointOrder 0x0044dd70, cat_clMimic 0x0044da80): a new
+//      command for a copy of selectcom, its ships taken off what they were doing first
+static CommandToDo *catNewCommandForSelection(CommandLayer *comlayer,SelectCommand *selectcom,sdword reason,uword order)
+{
+    CommandToDo *command;
+    SelectCommand *selection;
+    sdword sizeofselection = sizeofSelectCommand(selectcom->numShips);
+
+    command = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
+    InitCommandToDo(command);
+    selection = memAlloc(sizeofselection,"ToDoSelection",NonVolatile);
+    memcpy(selection,selectcom,sizeofselection);
+    RemoveShipsFromDoingStuff(comlayer,selection,reason);
+    command->ordertype.order = order;
+    command->ordertype.attributes = 0;
+    command->selection = selection;
+    return command;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_clPointOrder
+    Description : the point order (COMMAND_CAT_POINT): the big gun of the selection's first ship fires at point
+    Inputs      : comlayer, selectcom, point
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (cat_clPointOrder 0x0044dd70)
+void cat_clPointOrder(CommandLayer *comlayer,SelectCommand *selectcom,vector *point)
+{
+    CommandToDo *command;
+
+    if (selectcom->numShips == 0)
+    {
+        return;
+    }
+    command = catNewCommandForSelection(comlayer,selectcom,0x12,COMMAND_CAT_POINT);
+    command->catPoint.target = *point;
+    PrepareShipsForCommand(command,TRUE);
+    listAddNode(&comlayer->todolist,&command->todonode,command);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_clMimic
+    Description : the mimic order (COMMAND_CAT_MIMIC): every ship takes the disguise mode / shipType / player / index
+    Inputs      : comlayer, selectcom, mode (MIMIC_COMMAND_*), shipType, player, index
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (cat_clMimic 0x0044da80)
+void cat_clMimic(CommandLayer *comlayer,SelectCommand *selectcom,udword mode,udword shipType,udword player,udword index)
+{
+    CommandToDo *command;
+
+    if (selectcom->numShips == 0)
+    {
+        return;
+    }
+    command = catNewCommandForSelection(comlayer,selectcom,0x11,COMMAND_CAT_MIMIC);
+    command->catMimic.mode = mode;
+    command->catMimic.shipType = shipType;
+    command->catMimic.player = player;
+    command->catMimic.index = index;
+    PrepareShipsForCommand(command,TRUE);
+    listAddNode(&comlayer->todolist,&command->todonode,command);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_clResearch
+    Description : the research order (COMMAND_CAT_RESEARCH): starts (mode 0) or stops (mode 1) a research slot
+    Inputs      : comlayer, playerIndex, lab, tech, mode
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (cat_clResearch 0x0044dba0): a command with an empty selection, run once by clProcess
+void cat_clResearch(CommandLayer *comlayer,uword playerIndex,udword lab,udword tech,udword mode)
+{
+    CommandToDo *command;
+    SelectCommand *selection;
+
+    command = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
+    InitCommandToDo(command);
+    selection = memAlloc(sizeofSelectCommand(0),"ToDoSelection",NonVolatile);
+    selection->numShips = 0;
+    selection->timeLastStatus = 0.0f;
+    command->ordertype.attributes = 0;
+    command->selection = selection;
+    command->catResearch.playerIndex = playerIndex;
+    command->catResearch.lab = lab;
+    command->ordertype.order = COMMAND_CAT_RESEARCH;
+    command->catResearch.tech = tech;
+    command->catResearch.mode = mode;
+    listAddNode(&comlayer->todolist,&command->todonode,command);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_processResearchToDo
+    Description : runs a research order: as rmAssignPlayersLabToResearch / rmClearResearchlab, inline
+    Inputs      : command
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (cat_processResearchToDo 0x0044dc20). The start inlines rmAssignPlayersLabToResearch without its Beast
+//      one-topic limit; the stop is rmClearResearchlab's body.
+void cat_processResearchToDo(CommandToDo *command)
+{
+    Player *player = &universe.players[command->catResearch.playerIndex];
+    ResearchLab *lab = &player->researchinfo.researchlabs[command->catResearch.lab];
+    TechnologyType tech = (TechnologyType)command->catResearch.tech;
+    ResearchTopic *topic;
+
+    if (command->catResearch.mode == CAT_RESEARCH_START)
+    {
+        if ((topic = Researching(player,tech)) == NULL)
+        {
+            topic = (ResearchTopic *)memAlloc(sizeof(ResearchTopic),"ResearchTopic",NonVolatile);
+            memset(topic,0,sizeof(ResearchTopic));
+            listAddNode(&player->researchinfo.listoftopics,&topic->link,topic);
+            lab->labstatus = LS_RESEARCHITEM;
+            lab->topic = topic;
+            topic->techresearch = tech;
+            topic->timeleft = (real32)player->researchinfo.techstat->TimeToComplete[tech];
+        }
+        else
+        {
+            lab->labstatus = LS_RESEARCHITEM;
+            lab->topic = topic;
+        }
+        if ((rmGUIActive) && (player == universe.curPlayerPtr))
+        {
+            rmUpdateTechList();
+        }
+    }
+    else if (command->catResearch.mode == CAT_RESEARCH_STOP)
+    {
+        if (lab->labstatus == LS_RESEARCHITEM)
+        {
+            topic = lab->topic;
+            lab->topic = NULL;
+            listDeleteNode(&topic->link);
+            lab->labstatus = LS_NORESEARCHITEM;
+            if ((rmGUIActive) && (player == universe.curPlayerPtr))
+            {
+                rmUpdateTechList();
+            }
+        }
+        else if (lab->labstatus == LS_RESEARCHITEMSOON)
+        {
+            lab->labstatus = LS_NORESEARCHITEM;
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_clUpgradeShips
+    Description : starts (or with cancel stops) the pending upgrades of the selection's ships
+    Inputs      : comlayer, selectcom, cancel
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (cat_clUpgradeShips 0x0044de80): the ships halt and are disabled (reason 0) for the upgrade time; an
+//      instant upgrade applies at once; speech 0x2000894 for the owner when any upgrade takes time
+void cat_clUpgradeShips(CommandLayer *comlayer,SelectCommand *selectcom,bool32 cancel)
+{
+    sdword i;
+    Ship *ship;
+    bool32 anyTimed = FALSE;
+
+    clHalt(comlayer,selectcom);
+    for (i = 0; i < selectcom->numShips; i++)
+    {
+        ship = selectcom->ShipPtr[i];
+        if (!cancel)
+        {
+            ship->catUpgrading = TRUE;
+            ship->catUpgradeStart = universe.totaltimeelapsed;
+            ship->catUpgradeEnd = cat_shipGetUpgradeTime(ship) + universe.totaltimeelapsed;
+            cat_shipSetDisableReason(ship,TRUE,0);
+            if (cat_shipGetPendingUpgradeFlags(ship) & CAT_UPGRADE_DreadnoughtCannon)
+            {
+                cat_dreadnoughtCreateCannon(ship);
+            }
+            if (ship->catUpgradeStart < ship->catUpgradeEnd)
+            {
+                anyTimed = TRUE;
+            }
+            else
+            {
+                // the exe formats a nice-name message here into a nullsub (0x0044df5e)
+                ship->catUpgrading = FALSE;
+                cat_shipSetDisableReason(ship,FALSE,0);
+                cat_shipApplyUpgrades(ship);
+            }
+        }
+        else
+        {
+            ship->catUpgrading = FALSE;
+            cat_shipSetDisableReason(ship,FALSE,0);
+        }
+    }
+    if (anyTimed)
+    {
+        speechEventQueue(NULL, 0x2000894, -1, -1, 0, selectcom->ShipPtr[0]->playerowner->playerIndex, -1, 5.0f, -1);
+    }
+}
+
+// CAT: new (cat_clSpecialTargetSpeech 0x004490b0): the first worker or salvage corvette of a local selection reports
+//      the special order (speech 0x4000896)
+void cat_clSpecialTargetSpeech(SelectCommand *selectcom)
+{
+    sdword i;
+    Ship *ship;
+
+    if (selectcom->ShipPtr[0]->playerowner->playerIndex != universe.curPlayerIndex)
+    {
+        return;
+    }
+    for (i = 0; i < selectcom->numShips; i++)
+    {
+        ship = selectcom->ShipPtr[i];
+        switch (ship->shiptype)
+        {
+            case sWorker:
+            case bWorker:
+            case kSalCapCorvette:
+            case tSalCapCorvette:
+                speechEvent(ship, 0x4000896, ship->shiptype);
+                return;
+            default:
+                break;
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_clSpecialTarget
+    Description : the special order on targets, with the support speech and the workers' flag
+    Inputs      : comlayer, selectcom, targets, flag (a worker's special mode is set to it)
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (cat_clSpecialTarget 0x00449190): for a local selection without flag, the first carrier, worker, support
+//      frigate or resource collector not exempt (SPECIAL_2_CatExempt20) says 0x2000892; then clSpecial; each live
+//      worker's special mode (Ship+0x640) becomes flag != 0
+void cat_clSpecialTarget(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *targets,bool32 flag)
+{
+    sdword i;
+    Ship *ship;
+
+    if ((selectcom->numShips > 0) && !flag && (selectcom->ShipPtr[0]->playerowner->playerIndex == universe.curPlayerIndex))
+    {
+        for (i = 0; i < selectcom->numShips; i++)
+        {
+            ship = selectcom->ShipPtr[i];
+            if ((ship->shiptype == sCarrier) || (ship->shiptype == sWorker) || (ship->shiptype == bCarrier) ||
+                (ship->shiptype == bWorker) || (ship->shiptype == kAdvanceSupportFrigate) || (ship->shiptype == kCarrier) ||
+                (ship->shiptype == tAdvanceSupportFrigate) || (ship->shiptype == tCarrier) || (ship->shiptype == tResourceCollector))
+            {
+                if (!(ship->shipOrDerelict.specialFlags2 & SPECIAL_2_CatExempt20))
+                {
+                    speechEvent(ship, 0x2000892, -1);
+                }
+                break;
+            }
+        }
+    }
+    clSpecial(comlayer,selectcom,targets);
+    for (i = 0; i < selectcom->numShips; i++)
+    {
+        ship = selectcom->ShipPtr[i];
+        if (cat_shipIsLiveWorker(ship))
+        {
+            ((WorkerSpec *)ship->ShipSpecifics)->specialMode = (ubyte)(flag != 0);
+        }
+    }
+}
+
+// CAT: new (cat_clUnleech 0x00449770)
+void cat_clUnleech(CommandLayer *comlayer,SelectCommand *selectcom)
+{
+    RemoveShipsFromDoingStuff(comlayer,selectcom,9);
+}
+
+// CAT: new (cat_clSetLeechAction 0x00449960)
+void cat_clSetLeechAction(CommandLayer *comlayer,SelectCommand *selectcom,ubyte mode)
+{
+    sdword i;
+
+    for (i = 0; i < selectcom->numShips; i++)
+    {
+        cat_leechSetAction(selectcom->ShipPtr[i],mode);
+    }
+}
+
+// CAT: new (cat_clSetModuleSlot 0x0044e0e0): the module slot of the selection's first ship (an sMothership) whose
+//      module type is moduleType gets count
+void cat_clSetModuleSlot(CommandLayer *comlayer,SelectCommand *selectcom,sdword moduleType,sdword count)
+{
+    MothershipSpec *spec;
+    sdword i;
+
+    if (selectcom->numShips == 0)
+    {
+        return;
+    }
+    spec = (MothershipSpec *)selectcom->ShipPtr[0]->ShipSpecifics;
+    for (i = 0; i < CAT_MOTHERSHIP_MODULE_SLOTS; i++)
+    {
+        if (spec->moduleSlots[i].moduleType == moduleType)
+        {
+            spec->moduleSlots[i].count = count;
+        }
+    }
+}
+
+// CAT: new (cat_clSetBeastSystem 0x0044e120): the bMothership's beast system state (Ship+0x650)
+void cat_clSetBeastSystem(CommandLayer *comlayer,Ship *ship,sdword system)
+{
+    ((MothershipSpec *)ship->ShipSpecifics)->beastSystemState = system;
+}
+
+// CAT: the misc-packet bits of the module types and module slots (the exe's tables 0x0072a6d0, 7 pairs, and
+//      0x0072a708, 3 pairs; cat_clModuleTypeToMiscBits 0x0044e130, cat_clModuleSlotToMiscBits 0x0044e150)
+static const sdword catModuleTypeMiscBits[7][2] =
+{
+    { sMothershipSpecial, 0x01 }, { sMothershipArmour, 0x02 }, { sMothershipMicro, 0x04 }, { sMothershipWeapons, 0x08 },
+    { sMothershipDockingBay, 0x10 }, { sMothershipSupport, 0x20 }, { sMothershipBigGun, 0x40 }
+};
+static const sdword catModuleSlotMiscBits[3][2] = { { 0, 0x80 }, { 1, 0x100 }, { 2, 0x200 } };
+
+udword cat_clModuleTypeToMiscBits(sdword moduleType)
+{
+    udword bits = 0;
+    sdword i;
+
+    for (i = 0; i < 7; i++)
+    {
+        if (catModuleTypeMiscBits[i][0] == moduleType)
+        {
+            bits = (udword)catModuleTypeMiscBits[i][1];
+        }
+    }
+    return bits;
+}
+
+udword cat_clModuleSlotToMiscBits(sdword slot)
+{
+    udword bits = 0;
+    sdword i;
+
+    for (i = 0; i < 3; i++)
+    {
+        if (catModuleSlotMiscBits[i][0] == slot)
+        {
+            bits = (udword)catModuleSlotMiscBits[i][1];
+        }
+    }
+    return bits;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_clAddAttachedModulesToTargets
+    Description : expands an attack's targets: an sCarrier brings its clamped modules, an sMothership or bMothership
+                  is replaced by them
+    Inputs      : selection (the attackers; unused), targets (freed)
+    Outputs     :
+    Return      : the new target list
+----------------------------------------------------------------------------*/
+// CAT: new (cat_clAddAttachedModulesToTargets 0x004482f0): the modules are the CLASS_Component ships of the host's
+//      clamped list (ClampInfo +0x34)
+// CAT: one target's entries in the expanded list (counted with out == NULL)
+static sdword catAddTargetAndModules(SpaceObjRotImpTarg *target,TargetPtr *out)
+{
+    sdword n = 0;
+    sdword j;
+    Ship *ship;
+    CatClampedList *list;
+
+    if (target->header.objtype != OBJ_ShipType)
+    {
+        if (out != NULL) out[n] = target;
+        return 1;
+    }
+    ship = (Ship *)target;
+    if (ship->shiptype == sCarrier)
+    {
+        if (out != NULL) out[n] = target;
+        n++;
+    }
+    else if ((ship->shiptype != sMothership) && (ship->shiptype != bMothership))
+    {
+        if (out != NULL) out[n] = target;
+        return 1;
+    }
+    if ((ship->guidance.clampInfo != NULL) && ((list = ship->guidance.clampInfo->clampedObjs) != NULL))
+    {
+        for (j = 0; j < list->numShips; j++)
+        {
+            if (list->ShipPtr[j]->staticinfo->shipclass == CLASS_Component)
+            {
+                if (out != NULL) out[n] = (TargetPtr)list->ShipPtr[j];
+                n++;
+            }
+        }
+    }
+    return n;
+}
+
+AttackCommand *cat_clAddAttachedModulesToTargets(SelectCommand *selection,AttackCommand *targets)
+{
+    sdword count = 0;
+    sdword i;
+    AttackCommand *newtargets;
+
+    (void)selection;
+    for (i = 0; i < targets->numTargets; i++)
+    {
+        count += catAddTargetAndModules(targets->TargetPtr[i],NULL);
+    }
+    newtargets = memAlloc(sizeofSelectCommand(count),"AttackTargets",0);
+    count = 0;
+    for (i = 0; i < targets->numTargets; i++)
+    {
+        count += catAddTargetAndModules(targets->TargetPtr[i],&newtargets->TargetPtr[count]);
+    }
+    newtargets->numTargets = count;
+    memFree(targets);
+    return newtargets;
+}
+
 
 #if BINNETLOG
 
@@ -9408,3 +10340,535 @@ void clChecksum(void)
 
 #endif
 
+
+/*=============================================================================
+    CAT (M2-R5 command-tactics): the scripted command self-test, /catCommandTest <ticks> (harness mode command;
+    docs/m2-r5-command-tactics.md). Not in the exe. It runs the headless Mission01 start of /oracleMission (virtual
+    clock, no animatic, quits after <ticks>) and gives the Cataclysm orders with no input:
+      tick 16    a scripted fleet for the local player far from the level's ships: an sMothership, an sProcessor (the
+                 sphere's protected ship), two sAcolytes and two sMimics (link pairs, with the link upgrade), one more
+                 sMimic (with the mimic upgrade), four sSentinels (a force-field wall) and six (a force-field sphere
+                 around the processor); then the orders: cat_clLink on the acolytes and on the mimic pair,
+                 cat_clMimic (MIMIC_COMMAND_ShipType sRecon: an sMimic may pose as a fighter), cat_clResearch (start TECH_LINK in lab 0),
+                 cat_clPointOrder for the mothership's big gun (when its static has the big gun, gun sound type 0x12;
+                 the gun is scripted charged, the order is given once the charge reads full),
+                 clFormation FORCEFIELD_WALL_FORMATION on four Sentinels, clProtect + clFormation
+                 FORCEFIELD_SPHERE_FORMATION on six
+      tick 17    the order end states the exe's clProcess leaves after one pass: the research lab researching TECH_LINK,
+                 the mimic disguising as sRecon, the big gun aiming; then cat_clResearch stops the research
+      the link   once the acolytes became an sACV (and the mimics an sMCV), cat_clUnlink splits the sACV again
+      every 256  one "commandtest:" line of the states
+      ticks-2    the end states: an sMCV from the mimics, two sAcolytes again from the unlinked sACV, the research lab
+                 idle, every wall and sphere Sentinel in position at field level 1 (the sphere's and the wall leader's field
+                 active) and the sphere's clamped to the processor; "commandtest: done ... result=PASS|FAIL", then the mission run's quit
+=============================================================================*/
+#define CAT_CMDTEST_ORDER_TICK      16
+#define CAT_CMDTEST_MAX             16
+
+static sdword catCommandSelfTestTicks = 0;
+static bool32 catCommandSelfTestOrdered = FALSE;
+static bool32 catCommandSelfTestChecked17 = FALSE;
+static bool32 catCommandSelfTestDone = FALSE;
+static bool32 catCommandSelfTestPass = TRUE;
+static Ship *catCmdTestMothership = NULL;
+static Ship *catCmdTestProcessor = NULL;
+static Ship *catCmdTestMimic = NULL;
+static Ship *catCmdTestWall[4];
+static Ship *catCmdTestSphere[6];
+static sdword catCmdTestNumWall = 0;
+static sdword catCmdTestNumSphere = 0;
+static Ship *catCmdTestACV = NULL;              // the link's result, unlinked again
+static Ship *catCmdTestMCV = NULL;
+static bool32 catCmdTestUnlinkOrdered = FALSE;
+static bool32 catCmdTestPointOrdered = FALSE;
+static bool32 catCmdTestPointAimed = FALSE;
+static bool32 catCmdTestResearchStarted = FALSE;
+static bool32 catCmdTestMimicStarted = FALSE;
+static sdword catCmdTestLinkTick = -1;
+static sdword catCmdTestUnlinkTick = -1;
+static Ship *catCmdTestBefore[CAT_CMDTEST_MAX * 4];    // the player's link types present before the link and unlink
+static sdword catCmdTestNumBefore = 0;
+static Ship *catCmdTestLinkers[4];             // the two acolytes and the two mimics, for the trace
+static bool32 catCmdTestPointPending = FALSE;  // the point order waits for the big gun to be charged
+static sdword catCmdTestPointTick = -1;
+
+void catCommandSelfTestSet(char *string)
+{
+    catCommandSelfTestTicks = (sdword)strtol(string, NULL, 10);
+    if (catCommandSelfTestTicks <= 0)
+    {
+        catCommandSelfTestTicks = 3000;
+    }
+    oracleSetMission(string);                               // the headless Mission01 run with the virtual clock and the quit
+}
+
+bool32 catCommandSelfTestRequested(void)
+{
+    return (catCommandSelfTestTicks > 0);
+}
+
+static void catCmdTestExpect(bool32 condition, const char *what)
+{
+    if (!condition)
+    {
+        catCommandSelfTestPass = FALSE;
+        dbgMessagef("commandtest: FAIL %s (tick %u)", what, (unsigned)universe.univUpdateCounter);
+    }
+}
+
+static bool32 catCmdTestShipLive(Ship *ship)
+{
+    Node *node;
+
+    if (ship == NULL)
+    {
+        return FALSE;
+    }
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        if ((Ship *)listGetStructOfNode(node) == ship)
+        {
+            return !bitTest(ship->header.flags, SOF_Dead);
+        }
+    }
+    return FALSE;
+}
+
+static bool32 catCmdTestWasBefore(Ship *ship)
+{
+    sdword i;
+
+    for (i = 0; i < catCmdTestNumBefore; i++)
+    {
+        if (catCmdTestBefore[i] == ship)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+// the player's ships of type that were not there when the snapshot was taken
+static sdword catCmdTestNewShipsOfType(ShipType type, Ship **out, sdword max)
+{
+    Node *node;
+    Ship *ship;
+    sdword n = 0;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if ((ship->playerowner == universe.curPlayerPtr) && (ship->shiptype == type) && !catCmdTestWasBefore(ship) &&
+            !bitTest(ship->header.flags, SOF_Dead))
+        {
+            if ((out != NULL) && (n < max))
+            {
+                out[n] = ship;
+            }
+            n++;
+        }
+    }
+    return n;
+}
+
+static void catCmdTestSnapshot(void)
+{
+    Node *node;
+    Ship *ship;
+
+    catCmdTestNumBefore = 0;
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if ((ship->playerowner == universe.curPlayerPtr) &&
+            ((ship->shiptype == sAcolyte) || (ship->shiptype == sACV) || (ship->shiptype == sMimic) || (ship->shiptype == sMCV)) &&
+            (catCmdTestNumBefore < CAT_CMDTEST_MAX * 4))
+        {
+            catCmdTestBefore[catCmdTestNumBefore++] = ship;
+        }
+    }
+}
+
+// the exe's end state of a force field: every Sentinel in position at field level 1; field-active the sphere's (each
+// keeps its own) and the wall's leader (a wall member clears its own flag on its update and the leader's update sets
+// it again: cat_sentinelFormationUpdate 0x005c6830)
+static bool32 catCmdTestFieldUp(Ship **ships, sdword num, Ship *clampHost)
+{
+    sdword i;
+    SentinelSpec *spec;
+    bool32 up = (num > 0);
+    Ship *leader = NULL;
+
+    if ((num > 0) && catCmdTestShipLive(ships[0]) && (ships[0]->command != NULL))
+    {
+        leader = ships[0]->command->selection->ShipPtr[0];
+    }
+    for (i = 0; i < num; i++)
+    {
+        if (!catCmdTestShipLive(ships[i]))
+        {
+            return FALSE;
+        }
+        spec = (SentinelSpec *)ships[i]->ShipSpecifics;
+        if (!spec->inPosition || (spec->fieldLevel != 1.0f) ||
+            (((clampHost != NULL) || (ships[i] == leader)) && !spec->fieldActive))
+        {
+            up = FALSE;
+        }
+        if ((clampHost != NULL) &&
+            ((ships[i]->guidance.clampInfo == NULL) || (ships[i]->guidance.clampInfo->host != (SpaceObjRotImpTarg *)clampHost)))
+        {
+            up = FALSE;
+        }
+    }
+    return up;
+}
+
+static void catCmdTestLogField(const char *tag, Ship **ships, sdword num)
+{
+    sdword i, inpos = 0, active = 0, links = 0, clamped = 0;
+    SentinelSpec *spec;
+
+    for (i = 0; i < num; i++)
+    {
+        if (!catCmdTestShipLive(ships[i]))
+        {
+            continue;
+        }
+        spec = (SentinelSpec *)ships[i]->ShipSpecifics;
+        inpos += spec->inPosition ? 1 : 0;
+        active += (spec->fieldLevel == 1.0f) ? 1 : 0;
+        links += spec->numLinks;
+        clamped += ((ships[i]->guidance.clampInfo != NULL) && (ships[i]->guidance.clampInfo->host != NULL)) ? 1 : 0;
+    }
+    dbgMessagef("commandtest: %s sentinels=%d inPosition=%d level1=%d links=%d clamped=%d formation=%d", tag, (int)num,
+                (int)inpos, (int)active, (int)links, (int)clamped,
+                ((num > 0) && (ships[0]->command != NULL) && (ships[0]->command->ordertype.attributes & COMMAND_MASK_FORMATION)) ?
+                    (int)ships[0]->command->formation.formationtype : -1);
+}
+
+void catCommandSelfTestTick(void)
+{
+    sdword tick = (sdword)universe.univUpdateCounter;
+    Player *player = universe.curPlayerPtr;
+    Node *node;
+    Ship *ship;
+    sdword i;
+    MaxSelection sel;
+
+    if (catCommandSelfTestDone || (player == NULL))
+    {
+        return;
+    }
+    if (!catCommandSelfTestOrdered && (tick >= CAT_CMDTEST_ORDER_TICK))
+    {
+        static const struct { ShipType type; real32 dx, dy, dz; } fleet[] =
+        {
+            { sMothership,     0.0f,     0.0f,    0.0f },
+            { sProcessor,   9000.0f,     0.0f,    0.0f },
+            { sAcolyte,    -5000.0f,   600.0f,    0.0f },
+            { sAcolyte,    -5000.0f,  -600.0f,  300.0f },
+            { sMimic,      -5000.0f,  3000.0f,    0.0f },
+            { sMimic,      -5000.0f,  3600.0f,  300.0f },
+            { sMimic,      -6000.0f, -3000.0f,    0.0f },
+            { sSentinel,    3000.0f,  6000.0f,    0.0f },
+            { sSentinel,    3600.0f,  6000.0f,    0.0f },
+            { sSentinel,    4200.0f,  6000.0f,    0.0f },
+            { sSentinel,    4800.0f,  6000.0f,    0.0f },
+            { sSentinel,    9000.0f,  2500.0f,    0.0f },
+            { sSentinel,    9000.0f, -2500.0f,    0.0f },
+            { sSentinel,    9000.0f,     0.0f, 2500.0f },
+            { sSentinel,    9000.0f,     0.0f,-2500.0f },
+            { sSentinel,   11500.0f,     0.0f,    0.0f },
+            { sSentinel,    6500.0f,     0.0f,    0.0f },
+        };
+        vector base;
+        sdword k, gx, gy, gz;
+        real32 limit = universe.radius * 0.8f;
+        real32 bestdist = -1.0f;
+        Ship *acolytes[2], *mimics[2];
+        sdword numAcolytes = 0, numMimics = 0;
+        SelectCommand protectone;
+
+        catCommandSelfTestOrdered = TRUE;
+        // the fleet goes to the grid point (step 10,000) inside 80% of the world sphere farthest from every ship the
+        // level put down, so nothing engages it (as the dock self-test)
+        base.x = base.y = base.z = 0.0f;
+        for (gx = -10; gx <= 10; gx++)
+        {
+            for (gy = -10; gy <= 10; gy++)
+            {
+                for (gz = -3; gz <= 3; gz++)
+                {
+                    vector cand, diff;
+                    real32 nearest = REALlyBig;
+
+                    cand.x = gx * 10000.0f; cand.y = gy * 10000.0f; cand.z = gz * 10000.0f;
+                    if (vecMagnitudeSquared(cand) > limit * limit)
+                    {
+                        continue;
+                    }
+                    for (node = universe.ShipList.head; node != NULL; node = node->next)
+                    {
+                        ship = (Ship *)listGetStructOfNode(node);
+                        vecSub(diff,ship->obj.posinfo.position,cand);
+                        if (vecMagnitudeSquared(diff) < nearest)
+                        {
+                            nearest = vecMagnitudeSquared(diff);
+                        }
+                    }
+                    if (nearest > bestdist)
+                    {
+                        bestdist = nearest;
+                        base = cand;
+                    }
+                }
+            }
+        }
+        dbgMessagef("commandtest: the scripted fleet goes to (%.0f %.0f %.0f), %.0f from the nearest level ship",
+                    base.x, base.y, base.z, fsqrt(bestdist));
+        for (k = 0; k < (sdword)(sizeof(fleet) / sizeof(fleet[0])); k++)
+        {
+            vector pos;
+
+            pos.x = base.x + fleet[k].dx;
+            pos.y = base.y + fleet[k].dy;
+            pos.z = base.z + fleet[k].dz;
+            ship = univAddShip(fleet[k].type,0,&pos,player,0);
+            if (ship == NULL)
+            {
+                catCmdTestExpect(FALSE, "scripted ship created");
+                continue;
+            }
+            ship->catUpgradeFlags |= CAT_UPGRADE_Link | CAT_UPGRADE_Mimic;     // scripted: the link and mimic research
+            dbgMessagef("commandtest: created %s#%u at (%.0f %.0f %.0f)", ShipTypeToStr(ship->shiptype),
+                        (unsigned)ship->shipID.shipNumber, pos.x, pos.y, pos.z);
+            switch (fleet[k].type)
+            {
+                case sMothership: catCmdTestMothership = ship; break;
+                case sProcessor:  catCmdTestProcessor = ship; break;
+                case sAcolyte:    acolytes[numAcolytes++] = ship; break;
+                case sMimic:
+                    if (numMimics < 2) mimics[numMimics++] = ship; else catCmdTestMimic = ship;
+                    break;
+                case sSentinel:
+                    if (catCmdTestNumWall < 4) catCmdTestWall[catCmdTestNumWall++] = ship;
+                    else catCmdTestSphere[catCmdTestNumSphere++] = ship;
+                    break;
+                default: break;
+            }
+        }
+        catCmdTestSnapshot();       // the link's sACV / sMCV are the new ones of their type
+
+        // link: the acolytes, the mimic pair
+        sel.numShips = numAcolytes; sel.timeLastStatus = 0.0f;
+        for (i = 0; i < numAcolytes; i++) sel.ShipPtr[i] = acolytes[i];
+        cat_clLink(&universe.mainCommandLayer,(SelectCommand *)&sel);
+        sel.numShips = numMimics;
+        for (i = 0; i < numMimics; i++) sel.ShipPtr[i] = mimics[i];
+        cat_clLink(&universe.mainCommandLayer,(SelectCommand *)&sel);
+        dbgMessagef("commandtest: link ordered: %d acolytes, %d mimics", (int)numAcolytes, (int)numMimics);
+        for (i = 0; i < 2; i++)
+        {
+            catCmdTestLinkers[i] = (i < numAcolytes) ? acolytes[i] : NULL;
+            catCmdTestLinkers[2 + i] = (i < numMimics) ? mimics[i] : NULL;
+        }
+
+        // mimic: the third mimic poses as a Worker of its own player
+        if (catCmdTestMimic != NULL)
+        {
+            sel.numShips = 1; sel.ShipPtr[0] = catCmdTestMimic;
+            cat_clMimic(&universe.mainCommandLayer,(SelectCommand *)&sel,MIMIC_COMMAND_ShipType,sRecon,player->playerIndex,0);
+        }
+
+        // research: start TECH_LINK in lab 0 (only when the player's research statics are loaded)
+        if (player->researchinfo.techstat != NULL)
+        {
+            cat_clResearch(&universe.mainCommandLayer,player->playerIndex,0,TECH_LINK,CAT_RESEARCH_START);
+        }
+        else
+        {
+            catCmdTestExpect(FALSE, "research statics loaded");
+        }
+
+        // point: the mothership's big gun, once it is charged (the order does nothing before: cat_bigGunProcessFireCommand
+        //      0x005bbe80 tests the reload; a mothership without the big gun's gun would fault, so it gets no order)
+        catCmdTestPointPending = (catCmdTestMothership != NULL) && (cat_mothershipGetBigGun(catCmdTestMothership) != NULL);
+        if (catCmdTestPointPending)
+        {
+            Gun *bigGun = cat_mothershipGetBigGun(catCmdTestMothership);
+
+            bigGun->lasttimefired = universe.totaltimeelapsed - bigGun->gunstatic->firetime;   // scripted: charged
+        }
+        dbgMessagef("commandtest: point pending: %d (big gun %s)", (int)catCmdTestPointPending,
+                    catCmdTestPointPending ? "present" : "absent: no order is given");
+
+        // force-field wall
+        sel.numShips = catCmdTestNumWall;
+        for (i = 0; i < catCmdTestNumWall; i++) sel.ShipPtr[i] = catCmdTestWall[i];
+        clFormation(&universe.mainCommandLayer,(SelectCommand *)&sel,FORCEFIELD_WALL_FORMATION,0);
+
+        // force-field sphere around the processor
+        sel.numShips = catCmdTestNumSphere;
+        for (i = 0; i < catCmdTestNumSphere; i++) sel.ShipPtr[i] = catCmdTestSphere[i];
+        if (catCmdTestProcessor != NULL)
+        {
+            protectone.numShips = 1; protectone.timeLastStatus = 0.0f; protectone.ShipPtr[0] = catCmdTestProcessor;
+            clProtect(&universe.mainCommandLayer,(SelectCommand *)&sel,(ProtectCommand *)&protectone);
+        }
+        clFormation(&universe.mainCommandLayer,(SelectCommand *)&sel,FORCEFIELD_SPHERE_FORMATION,0);
+        dbgMessagef("commandtest: orders tick=%u wall=%d sphere=%d ticks=%d", (unsigned)tick, (int)catCmdTestNumWall,
+                    (int)catCmdTestNumSphere, (int)catCommandSelfTestTicks);
+        return;
+    }
+    if (!catCommandSelfTestOrdered)
+    {
+        return;
+    }
+    if (!catCommandSelfTestChecked17)
+    {
+        ResearchLab *lab = &player->researchinfo.researchlabs[0];
+
+        catCommandSelfTestChecked17 = TRUE;
+        catCmdTestResearchStarted = (lab->labstatus == LS_RESEARCHITEM) && (lab->topic != NULL) &&
+                                    (lab->topic->techresearch == TECH_LINK);
+        catCmdTestExpect(catCmdTestResearchStarted, "research: lab 0 researching TECH_LINK after the start order");
+        if (catCmdTestMimic != NULL)
+        {
+            MimicSpec *spec = (MimicSpec *)catCmdTestMimic->ShipSpecifics;
+
+            catCmdTestMimicStarted = (spec->nextType == sRecon) || (spec->apparentType == sRecon);
+            catCmdTestExpect(catCmdTestMimicStarted, "mimic: the disguise as sRecon is set");
+        }
+        dbgMessagef("commandtest: tick %u: research started=%d mimic set=%d", (unsigned)tick,
+                    (int)catCmdTestResearchStarted, (int)catCmdTestMimicStarted);
+        if (catCmdTestResearchStarted)
+        {
+            cat_clResearch(&universe.mainCommandLayer,player->playerIndex,0,TECH_LINK,CAT_RESEARCH_STOP);
+        }
+        return;
+    }
+    // the point order, once the big gun is charged; its end state one tick later
+    if (catCmdTestPointOrdered && !catCmdTestPointAimed && (catCmdTestPointTick >= 0) && (tick == catCmdTestPointTick + 1))
+    {
+        catCmdTestPointAimed = (((MothershipSpec *)catCmdTestMothership->ShipSpecifics)->bigGunState != CAT_BIGGUN_Idle);
+        catCmdTestExpect(catCmdTestPointAimed, "point: the big gun left its idle state");
+        dbgMessagef("commandtest: point done at tick %u: big gun state %d", (unsigned)tick,
+                    (int)((MothershipSpec *)catCmdTestMothership->ShipSpecifics)->bigGunState);
+    }
+    if (catCmdTestPointPending && catCmdTestShipLive(catCmdTestMothership) &&
+        (cat_bigGunChargeFraction(catCmdTestMothership) >= 1.0f))
+    {
+        vector point;
+
+        catCmdTestPointPending = FALSE;
+        point.x = catCmdTestMothership->obj.posinfo.position.x;
+        point.y = catCmdTestMothership->obj.posinfo.position.y + 20000.0f;
+        point.z = catCmdTestMothership->obj.posinfo.position.z;
+        sel.numShips = 1; sel.timeLastStatus = 0.0f; sel.ShipPtr[0] = catCmdTestMothership;
+        cat_clPointOrder(&universe.mainCommandLayer,(SelectCommand *)&sel,&point);
+        catCmdTestPointOrdered = TRUE;
+        catCmdTestPointTick = tick;
+        dbgMessagef("commandtest: point ordered at tick %u", (unsigned)tick);
+    }
+    // the link's results
+    if ((catCmdTestACV == NULL) && (catCmdTestNewShipsOfType(sACV,&catCmdTestACV,1) > 0))
+    {
+        catCmdTestLinkTick = tick;
+        dbgMessagef("commandtest: link done at tick %u: sACV#%u", (unsigned)tick, (unsigned)catCmdTestACV->shipID.shipNumber);
+    }
+    if ((catCmdTestMCV == NULL) && (catCmdTestNewShipsOfType(sMCV,&catCmdTestMCV,1) > 0))
+    {
+        dbgMessagef("commandtest: mimic link done at tick %u: sMCV#%u", (unsigned)tick, (unsigned)catCmdTestMCV->shipID.shipNumber);
+    }
+    if ((catCmdTestACV != NULL) && !catCmdTestUnlinkOrdered && (tick >= catCmdTestLinkTick + 32))
+    {
+        catCmdTestUnlinkOrdered = TRUE;
+        catCmdTestSnapshot();       // the unlink's sAcolytes are the new ones
+        sel.numShips = 1; sel.timeLastStatus = 0.0f; sel.ShipPtr[0] = catCmdTestACV;
+        cat_clUnlink(&universe.mainCommandLayer,(SelectCommand *)&sel);
+        dbgMessagef("commandtest: unlink ordered at tick %u", (unsigned)tick);
+    }
+    if (catCmdTestUnlinkOrdered && (catCmdTestUnlinkTick < 0) && (catCmdTestNewShipsOfType(sAcolyte,NULL,0) >= 2))
+    {
+        catCmdTestUnlinkTick = tick;
+        dbgMessagef("commandtest: unlink done at tick %u", (unsigned)tick);
+    }
+    if ((tick % 256) == 0)
+    {
+        catCmdTestLogField("wall", catCmdTestWall, catCmdTestNumWall);
+        catCmdTestLogField("sphere", catCmdTestSphere, catCmdTestNumSphere);
+        dbgMessagef("commandtest: tick %u: link=%d mcv=%d unlink=%d lab0=%d", (unsigned)tick, (int)catCmdTestLinkTick,
+                    (int)(catCmdTestMCV != NULL), (int)catCmdTestUnlinkTick, (int)player->researchinfo.researchlabs[0].labstatus);
+        for (i = 0; i < 4; i++)
+        {
+            ship = catCmdTestLinkers[i];
+            if (catCmdTestShipLive(ship))
+            {
+                CatLinkInfo *link = cat_shipGetLinkInfo(ship);
+                real32 dist = -1.0f;
+
+                if ((link != NULL) && (link->partner != NULL))
+                {
+                    vector diff;
+
+                    vecSub(diff,ship->obj.posinfo.position,link->partner->obj.posinfo.position);
+                    dist = fsqrt(vecMagnitudeSquared(diff));
+                }
+                dbgMessagef("commandtest:   %s#%u role=%d partner=%d dist=%.0f order=%d linkDistance=%.0f", ShipTypeToStr(ship->shiptype),
+                            (unsigned)ship->shipID.shipNumber, (link != NULL) ? (int)link->role : -1,
+                            ((link != NULL) && (link->partner != NULL)) ? (int)link->partner->shipID.shipNumber : -1, dist,
+                            (ship->command != NULL) ? (int)ship->command->ordertype.order : -1, ship->staticinfo->linkDistance);
+            }
+        }
+        for (i = 0; i < catCmdTestNumSphere; i++)
+        {
+            ship = catCmdTestSphere[i];
+            if (catCmdTestShipLive(ship) && (catCmdTestProcessor != NULL))
+            {
+                vector offset, diff;
+
+                matMultiplyMatByVec(&offset,&catCmdTestProcessor->rotatable.rotinfo.coordsys,&ship->formationOffset);
+                diff.x = ship->obj.posinfo.position.x - catCmdTestProcessor->impactable.collInfo.collPosition.x - offset.x;
+                diff.y = ship->obj.posinfo.position.y - catCmdTestProcessor->impactable.collInfo.collPosition.y - offset.y;
+                diff.z = ship->obj.posinfo.position.z - catCmdTestProcessor->impactable.collInfo.collPosition.z - offset.z;
+                dbgMessagef("commandtest:   sphere %s#%u err=%.0f off=(%.0f %.0f %.0f) speed=%.0f inPos=%d active=%d order=%d attr=%x",
+                            ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber, fsqrt(vecMagnitudeSquared(diff)),
+                            ship->formationOffset.x, ship->formationOffset.y, ship->formationOffset.z,
+                            fsqrt(vecMagnitudeSquared(ship->obj.posinfo.velocity)),
+                            (int)((SentinelSpec *)ship->ShipSpecifics)->inPosition, (int)((SentinelSpec *)ship->ShipSpecifics)->fieldActive,
+                            (ship->command != NULL) ? (int)ship->command->ordertype.order : -1,
+                            (ship->command != NULL) ? (unsigned)ship->command->ordertype.attributes : 0u);
+            }
+        }
+        if (catCmdTestPointPending && catCmdTestShipLive(catCmdTestMothership))
+        {
+            dbgMessagef("commandtest:   big gun charge %.2f", cat_bigGunChargeFraction(catCmdTestMothership));
+        }
+    }
+    if (tick >= catCommandSelfTestTicks - 2)
+    {
+        catCommandSelfTestDone = TRUE;
+        catCmdTestLogField("wall", catCmdTestWall, catCmdTestNumWall);
+        catCmdTestLogField("sphere", catCmdTestSphere, catCmdTestNumSphere);
+        catCmdTestExpect(!catCmdTestPointPending && (!catCmdTestPointOrdered || catCmdTestPointAimed),
+                         "point: the big gun took the order and left its idle state");
+        catCmdTestExpect(catCmdTestACV != NULL, "link: the acolytes became an sACV");
+        catCmdTestExpect(catCmdTestMCV != NULL, "link: the mimics became an sMCV");
+        catCmdTestExpect(catCmdTestUnlinkTick >= 0, "unlink: the sACV split into two sAcolytes");
+        catCmdTestExpect(!catCmdTestShipLive(catCmdTestACV), "unlink: the sACV is gone");
+        catCmdTestExpect(player->researchinfo.researchlabs[0].labstatus != LS_RESEARCHITEM, "research: lab 0 idle after the stop order");
+        if (catCmdTestMimic != NULL)
+        {
+            catCmdTestExpect(cat_shipIsMimicking(catCmdTestMimic), "mimic: the mimic is disguised");
+        }
+        catCmdTestExpect(catCmdTestFieldUp(catCmdTestWall,catCmdTestNumWall,NULL), "wall: every Sentinel in position with its field up");
+        catCmdTestExpect(catCmdTestFieldUp(catCmdTestSphere,catCmdTestNumSphere,catCmdTestProcessor),
+                         "sphere: every Sentinel in position, field up, clamped to the processor");
+        dbgMessagef("commandtest: done tick=%u link=%d mcv=%d unlink=%d research=%d/%d mimic=%d point=%d/%d result=%s",
+                    (unsigned)tick, (int)catCmdTestLinkTick, (int)(catCmdTestMCV != NULL), (int)catCmdTestUnlinkTick,
+                    (int)catCmdTestResearchStarted, (int)(player->researchinfo.researchlabs[0].labstatus != LS_RESEARCHITEM),
+                    (int)((catCmdTestMimic != NULL) && cat_shipIsMimicking(catCmdTestMimic)),
+                    (int)catCmdTestPointOrdered, (int)catCmdTestPointAimed, catCommandSelfTestPass ? "PASS" : "FAIL");
+    }
+}

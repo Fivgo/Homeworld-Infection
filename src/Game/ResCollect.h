@@ -26,6 +26,8 @@ bool32 ResourceMovingTooFast(Resource *resource);
 
 bool32 processCollectResource(struct CommandToDo *collecttodo);
 
+bool32 cat_shipIsCollectingResources(Ship *ship);     // CAT: 0x004f2500 (M2-R5 command-tactics)
+
 void TurnHarvestEffectOff(Ship *ship);
 
 void TurnOffAnyResourcingEffects(struct CommandToDo *todo);

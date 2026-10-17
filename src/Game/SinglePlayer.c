@@ -737,7 +737,7 @@ void spGoNowHyperspaceCB(char *string, featom *atom)
 //putinparade:
                     selectone.ShipPtr[0] = ship;
                     selectone.numShips = 1;
-                    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,&selectone);
+                    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,&selectone,0x23);   // CAT: reason 0x23 as the exe (spGoNowHyperspaceCB 0x00517408) [audit: M2-R5 command-tactics]
                     aitrackForceSteadyShip(ship);
                     GroupShipIntoMilitaryParade(&universe.mainCommandLayer,ship,mothership);
                     bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_SinglePlayerWithinHyperSpaceRange|SPECIAL_SinglePlayerInParade);
@@ -930,7 +930,7 @@ void TellHyperspacingShipsToReady(void)
 
     //MakeShipsOnlyFollowConstraints(selectAll,AreNotInParadeConstraint);
     MakeShipsNotIncludeLaunchingShips(selectAll);
-    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,selectAll);
+    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,selectAll,0x24);   // CAT: reason 0x24 as the exe (TellHyperspacingShipsToReady 0x0051783f) [audit: M2-R5 command-tactics]
     clSetMilitaryParade(&universe.mainCommandLayer,selectAll);
     memFree(selectAll);
 }
@@ -3207,7 +3207,7 @@ void singlePlayerNisStoppedCB(void)
             }
             if (growselect.selection->numShips > 0)
             {
-                clFormation(&universe.mainCommandLayer,growselect.selection,CUSTOM_FORMATION);
+                clFormation(&universe.mainCommandLayer,growselect.selection,CUSTOM_FORMATION,0);   // CAT: level 0 (singlePlayerNisStoppedCB 0x0051b51d)
             }
             growSelectClose(&growselect);
 

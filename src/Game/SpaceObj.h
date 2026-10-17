@@ -1836,6 +1836,9 @@ _Static_assert(SPECIAL_2_CatBeingBuilt == 0x8 && SPECIAL_2_CatBeingSalvaged == 0
 // CAT (M2-R5 dock): set by InitializeDockVars 0x00463c40 for the launch purpose (2) with dock state 10, cleared by
 //      RemoveShipFromLaunching 0x00465590, LaunchCleanup 0x004679b0 and processLaunchShipToDo 0x00466b00. Name chosen.
 #define CAT_SHIPFLAG_Launching                      BIT0
+// CAT (M2-R5 command-tactics): clScuttle 0x0044a150 does not scuttle a ship with this bit whose infection timer
+//      (catBeastConvertTime, Ship+0x4E4) runs; no setter was located (a register-valued store). Name chosen here.
+#define CAT_SHIPFLAG_Bit7                           BIT7
 
 
 // CAT (M2-R3 selection): Ship.catUpgradeFlags bits the selection code tests (names chosen here from their users)
@@ -2049,7 +2052,8 @@ typedef struct Ship         // Ship object: cataclysm.exe's 0x63C-byte layout (M
     sbyte catRKOMissilesTaken;      // +0x518: missiles a dRKO has gained from eating this ship (RKOHouseKeep
                                     //   0x005c4260, its only user; name chosen here)
     ubyte catPad519[3];
-    udword catShipReserved51C[3];   // +0x51C..+0x524: zeroed with the ship, no user found
+    real32 catLinkHealth[3];        // +0x51C..+0x524: a linked ship's health at the link and its two parents' (cat_processLinkToDo
+                                    //      0x00467f98); cat_processUnlinkToDo 0x00468d19 shares the damage out (M2-R5 command-tactics)
     // CAT (M2-R4 ships-b): the helpless / EMP / drift state (cat_empShockShip 0x005b3900, cat_shipSetHelpless
     //      0x005b3bd0, cat_shipClearHelpless 0x005b3c80, cat_shipStartDrift 0x005b3b40, cat_shipUpdateDrift
     //      0x005b3d60). Names chosen here from their users.

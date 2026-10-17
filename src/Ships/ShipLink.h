@@ -17,7 +17,7 @@
 //      cat_clLinkCleanup 0x00444060, cat_clFindLinkPartner 0x0044d2e0, cat_linkPairShips 0x00467ae0 and
 //      cat_unlinkPrepareShip 0x00468580 (the link orders, COMMAND_CAT_LINK / UNLINK: the command layer's follow-up)
 //      read and write it; the ship files only clear and save it. Names chosen here.
-typedef struct
+typedef struct CatLinkInfo
 {
     struct Ship *partner;               // +0x00 (Ship+0x650) the linked partner, NULL when unlinked
     sdword role;                        // +0x04 (Ship+0x654) 2 leader, 5 follower, 0 unlinking (cat_linkPairShips)

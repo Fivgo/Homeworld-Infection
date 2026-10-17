@@ -23,7 +23,7 @@ typedef struct
 } SentinelLink;
 
 // CAT: new file (M2-R4 ships-b). 0x350 bytes in cataclysm.exe (SentinelHeader 0x008c6830 sizeofShipSpecifics 848)
-typedef struct
+typedef struct SentinelSpec
 {
     bool32 fieldActive;                 // +0x000 (Ship+0x638)
     real32 fieldLevel;                  // +0x004 (Ship+0x63C) 0 .. 1, the field is up at 1.0

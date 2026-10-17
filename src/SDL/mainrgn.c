@@ -1404,7 +1404,7 @@ void mrSetTheFormation(TypeOfFormation formationtype)
                 speechEvent(selSelected.ShipPtr[0], COMM_SetFormation, formationtype);
             }
             clWrapFormation(&universe.mainCommandLayer,     //set new formation
-                        (SelectCommand *)&selSelected,formationtype);
+                        (SelectCommand *)&selSelected,formationtype,0);   // CAT-TODO(stage 3 UI): the force-field level of the formation menu
 
             strcat(msgName, TypeOfFormationToStr(formationtype));
 
@@ -3843,7 +3843,7 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
 
                     if (!(isnan((double)destination.x) || isnan((double)destination.x) || isnan((double)destination.x)))
                     {
-                        clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&selSelected,selCentrePoint,destination);
+                        clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_MOVEPATH_ONCE,selCentrePoint,1,&destination);   // CAT-TODO(stage 3 UI): the waypoint move UI; a one-point path
 //                        tutGameMessage("Game_MoveIssued");
                         if (selSelected.ShipPtr[0]->shiptype == Mothership)
                         {
@@ -4610,7 +4610,7 @@ void toDrawMoveCircle(ShipPtr ship, real32 scale, color linecolor, color pulseco
 
     shipradius = ship->magnitudeSquared*TO_MOVE_LINE_RADIUS_STRETCH*ship->staticinfo->common.staticCollInfo.approxcollspheresize;
 
-    if ((ship->formationcommand)&&(ship->formationcommand->formation.pulse))
+    if ((cat_shipFormationCommand(ship))&&(cat_shipFormationCommand(ship)->formation.pulse))
     {
         primCircleOutline3(&origin, shipradius, 32, 0, pulsecolor, X_AXIS);
     }
@@ -4669,7 +4669,7 @@ void toMoveLineDraw(ShipPtr ship, real32 scale)
         }
 
         //if a ship is in a formation but not the leader
-        if ((ship->formationcommand)&&(ship!=ship->formationcommand->selection->ShipPtr[0]))
+        if ((cat_shipFormationCommand(ship))&&(ship!=cat_shipFormationCommand(ship)->selection->ShipPtr[0]))
         {
             //only draw the moveto circle
             toDrawMoveCircle(ship, scale, linecolor, pulsecolor);
@@ -4680,9 +4680,9 @@ void toMoveLineDraw(ShipPtr ship, real32 scale)
             //den draw da linez
             toDrawMoveToLine(ship, linecolor, pulsecolor);
 
-            if (ship->formationcommand)
+            if (cat_shipFormationCommand(ship))   // CAT: no Ship.formationcommand
             {
-                ship->formationcommand->formation.pulse = pulse_at_beginning;
+                cat_shipFormationCommand(ship)->formation.pulse = pulse_at_beginning;
             }
 
             //toDrawMoveFromLine(ship);
@@ -5669,7 +5669,7 @@ void mrRegionDraw(regionhandle reg)
                 {
                     speechEvent(selSelected.ShipPtr[0], COMM_SetFormation, mrNewFormation);
                     clWrapFormation(&universe.mainCommandLayer,     //set new formation
-                        (SelectCommand *)&selSelected,mrNewFormation);
+                        (SelectCommand *)&selSelected,mrNewFormation,0);   // CAT-TODO(stage 3 UI): the force-field level of the formation menu
                 }
             }
         }

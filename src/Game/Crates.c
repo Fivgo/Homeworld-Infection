@@ -462,8 +462,8 @@ sdword cratesRewardPlayer(Derelict *crate, Player *player)
 
                 cratepos.z += (ship->staticinfo->common.staticCollInfo.collspheresize * 2.0f);
             }
-            // CAT-TODO(M2-R4 command): the exe's clFormation takes a 4th argument, 0 here
-            clFormation(&universe.mainCommandLayer,selectcom,BROAD_FORMATION);
+            // CAT: the exe's clFormation takes a 4th argument, 0 here (cratesRewardPlayer 0x004612ce)
+            clFormation(&universe.mainCommandLayer,selectcom,BROAD_FORMATION,0);
             memFree(selectcom);
             return(CRATE_SHIP);
         }

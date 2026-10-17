@@ -3358,7 +3358,7 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                     {
                         if(mrNeedProbeHack())
                         {   //looks like we need a little probe hacksy poo here too
-                            clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&selSelected,selCentrePoint,destination);
+                            clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_MOVEPATH_ONCE,selCentrePoint,1,&destination);   // CAT-TODO(stage 3 UI): the waypoint move UI; a one-point path
                             speechEventFleetSpec(selSelected.ShipPtr[0], COMM_F_Probe_Deployed, 0, universe.curPlayerIndex);
                         }
                         else
@@ -3388,7 +3388,7 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                             else
                             {
                                 //normal pieplate movement
-                                clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&selSelected,selCentrePoint,destination);
+                                clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_MOVEPATH_ONCE,selCentrePoint,1,&destination);   // CAT-TODO(stage 3 UI): the waypoint move UI; a one-point path
                                 if (selSelected.ShipPtr[0]->shiptype == Mothership)
                                 {
                                     speechEventFleetSpec(selSelected.ShipPtr[0], COMM_F_MoShip_Move, 0, universe.curPlayerIndex);

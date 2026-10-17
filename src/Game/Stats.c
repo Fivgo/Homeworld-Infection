@@ -384,12 +384,12 @@ void SetupShipsForFight(FightStats *fightStats)
 
         if (showStatsFancyFight)
         {
-            if ((showStatsFightF[i] >= 0) && (showStatsFightF[i] < NO_FORMATION)) clFormation(&universe.mainCommandLayer,selection[i],showStatsFightF[i]);
+            if ((showStatsFightF[i] >= 0) && (showStatsFightF[i] < NO_FORMATION)) clFormation(&universe.mainCommandLayer,selection[i],showStatsFightF[i],0);   // CAT: level 0 [audit: M2-R5 command-tactics]
             clSetTactics(&universe.mainCommandLayer,selection[i],showStatsFightT[i]);
         }
         else
         {
-            clFormation(&universe.mainCommandLayer,selection[i],BROAD_FORMATION);
+            clFormation(&universe.mainCommandLayer,selection[i],BROAD_FORMATION,0);   // CAT: level 0 (SetupShipsForFight 0x00524244)
         }
     }
 

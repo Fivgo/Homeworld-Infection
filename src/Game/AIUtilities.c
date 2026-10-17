@@ -4091,7 +4091,8 @@ bool32 aiuWrapMove(SelectCommand *ships, vector destination)
 
     if (aiuFilterSelectableShips(ships, &filtered))
     {
-        clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&filtered, ships->ShipPtr[0]->obj.posinfo.position, destination);
+        // CAT: a one-point path from the first ship (aiuWrapMove 0x0041eea0)
+        clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&filtered,CAT_MOVEPATH_ONCE,ships->ShipPtr[0]->obj.posinfo.position,1,&destination);
         return TRUE;
     }
     return FALSE;
@@ -4131,7 +4132,7 @@ bool32 aiuKasWrapFormation(SelectCommand *ships, TypeOfFormation formation)
 
     if (aiuFilterDisabledShips(ships, &filtered))
     {
-        clWrapFormation(&universe.mainCommandLayer,(SelectCommand *)&filtered, formation);
+        clWrapFormation(&universe.mainCommandLayer,(SelectCommand *)&filtered, formation, 0);   // CAT: level 0 (aiuWrapFormation 0x0041f0b0)
         return TRUE;
     }
     return FALSE;
@@ -4145,7 +4146,7 @@ bool32 aiuWrapFormation(SelectCommand *ships, TypeOfFormation formation)
 
     if (aiuFilterSelectableShips(ships, &filtered))
     {
-        clWrapFormation(&universe.mainCommandLayer,(SelectCommand *)&filtered, formation);
+        clWrapFormation(&universe.mainCommandLayer,(SelectCommand *)&filtered, formation, 0);   // CAT: level 0 (aiuWrapFormation 0x0041f0b0)
         return TRUE;
     }
     return FALSE;

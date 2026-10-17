@@ -166,7 +166,8 @@ bool32 ApplyDamageToTarget(SpaceObjRotImpTarg *target,real32 damagetaken,GunSoun
 void univBulletCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target,StaticInfo *targetstaticheader,Bullet *bullet,real32 collideLineDist,sdword collSide);
 void univMissileCollidedWithTarget(bool32 applyDamage,SpaceObjRotImpTarg *target,StaticInfo *targetstaticheader,Missile *missile,real32 collideLineDist,sdword collSide);
 
-SelectCommand *getEnemiesWithinProximity(Ship *thisship,real32 retaliateZone);
+SelectCommand *getEnemiesWithinProximity(Ship *thisship,real32 retaliateZone);   // CAT: a static selection (do not free)
+void cat_univLimitProtectedShipSpeed(void);   // CAT: 0x00544e00
 
 #define PLAYERKILLED_DROPPEDOUT         -1
 #define PLAYERKILLED_STANDARDDEATH      0

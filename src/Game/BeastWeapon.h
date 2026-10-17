@@ -66,6 +66,20 @@ _Static_assert(sizeof(CatBeastWeaponSpec) == 0x18, "the beast weapon block is 0x
 
 bool32 cat_staticHasBeastWeapon(ShipStaticInfo *statinfo);
 bool32 cat_shipHasBeastWeapon(Ship *ship);
+// CAT: a ship type's Beast-attack statics (ShipStaticInfo +0x3DC: beastAttackCascadeCost, beastAttacksRequired,
+//      beastAttackConvertTo), as cat_beastGetAttackStaticInfo 0x00429b70 hands them out
+typedef struct CatBeastAttackStatic
+{
+    real32 cascadeCost;         // +0x00 (static +0x3DC)
+    sdword attacksRequired;     // +0x04 (static +0x3E0) -1: the type cannot be infected
+    ShipType convertTo;         // +0x08 (static +0x3E4)
+} CatBeastAttackStatic;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(offsetof(ShipStaticInfo, beastAttacksRequired) - offsetof(ShipStaticInfo, beastAttackCascadeCost) == 4, "beast attack block");
+_Static_assert(offsetof(ShipStaticInfo, beastAttackConvertTo) - offsetof(ShipStaticInfo, beastAttackCascadeCost) == 8, "beast attack block");
+#endif
+
+CatBeastAttackStatic *cat_beastGetAttackStaticInfo(Ship *ship);     // CAT: 0x00429b70 (M2-R5 command-tactics)
 void cat_beastWeaponStaticInit(void);
 void cat_beastInfectShip(Ship *target, Ship *infector);
 bool32 cat_beastAttackHit(Ship *source, Ship *target, Bullet *bullet);

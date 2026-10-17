@@ -1543,7 +1543,9 @@ void clProcessSyncPacket(CommandLayer *comlayer,ubyte *packet,udword sizeofPacke
             {
                 NetMoveCommand *movecom = (NetMoveCommand *)curpacket;
                 SelectCommand *moveselection = convertNetSelectionToSelectCommand(&movecom->selection,FALSE,from);
-                clMove(comlayer,moveselection,movecom->from,movecom->to);
+                // CAT-TODO(stage 5): the exe's move packet carries the waypoint path (clProcessSyncPacket 0x00450b40);
+                //      this tree's HW1 packet is a one-point path
+                clMove(comlayer,moveselection,CAT_MOVEPATH_ONCE,movecom->from,1,&movecom->to);
                 memFree(moveselection);
                 curpacket += sizeofNetMoveCommand(movecom->selection.numShips);
             }
@@ -1598,7 +1600,7 @@ void clProcessSyncPacket(CommandLayer *comlayer,ubyte *packet,udword sizeofPacke
             {
                 NetFormationCommand *formationcom = (NetFormationCommand *)curpacket;
                 SelectCommand *formselection = convertNetSelectionToSelectCommand(&formationcom->selection,FALSE,from);
-                clFormation(comlayer,formselection,(TypeOfFormation)formationcom->typeOfFormation);
+                clFormation(comlayer,formselection,(TypeOfFormation)formationcom->typeOfFormation,0);   // CAT-TODO(stage 5): the exe's packet carries the level (clProcessSyncPacket 0x00450c0c)
                 memFree(formselection);
                 curpacket += sizeofNetFormationCommand(formationcom->selection.numShips);
             }

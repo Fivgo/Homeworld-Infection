@@ -54,7 +54,11 @@
 #include "Crystal.h"
 #include "HiveFrigate.h"
 #include "MeshAnim.h"
+#include "MCV.h"
 #include "Mimic.h"
+#include "ShipLink.h"
+#include "CameraCommand.h"
+#include "ShipSelect.h"
 #include "ModuleShip.h"
 #include "RammingFrigate.h"
 #include "ShipDisable.h"
@@ -665,6 +669,518 @@ flyto:
     aishipFlyToPointAvoidingObjsFunc(ship, &targetpos, 0, -120.0f, &host->obj.posinfo.velocity);
     return FALSE;
 }
+
+
+/*=============================================================================
+    CAT (M2-R5 command-tactics): the link orders' per-tick code (cataclysm.exe 0x00467ae0 .. 0x00468650, after the link
+    flight above). Two linkable ships of a type (sAcolyte, bAcolyte, sMimic) fly together and become one sACV, bACV or
+    sMCV; an unlink splits that ship into two again. The link block is ShipLink.h's (CatLinkInfo.role: 2 the leader
+    flying in, 3 aligning, 4 joined and waiting for the animations, 5 the waiting partner; 0 an unlinking ship
+    turning, 1 the second half flying clear).
+=============================================================================*/
+
+#define CAT_LINK_ROLE_UNLINK_TURN   0
+#define CAT_LINK_ROLE_UNLINK_CLEAR  1
+#define CAT_LINK_ROLE_FLY_IN        2
+#define CAT_LINK_ROLE_ALIGN         3
+#define CAT_LINK_ROLE_JOINED        4
+#define CAT_LINK_ROLE_PARTNER       5
+
+static CatLinkInfo *catLinkInfo(Ship *ship)
+{
+    return (CatLinkInfo *)((ubyte *)ship->ShipSpecifics + 0x18);     // Ship+0x650 in every linkable type
+}
+
+// CAT: the kills of the two parents a linked ship keeps (ACVSpec / MCVSpec linkKills, Ship+0x684 and +0x6B4)
+typedef sdword (*CatLinkKills)[NUM_CLASSES];
+static CatLinkKills acvkills(Ship *ship)
+{
+    return (CatLinkKills)((ubyte *)ship->ShipSpecifics + 0x4C);
+}
+
+// CAT: the frame of a linked ship's partner, turned 180 degrees about its heading: -col1, -col2, col3
+//      (cat_processLinkToDo 0x00467bf3 / 0x0046816a, cat_processUnlinkToDo 0x004686b6)
+static void catLinkFlippedFrame(matrix *out,matrix *frame)
+{
+    out->m11 = -frame->m11; out->m21 = -frame->m21; out->m31 = -frame->m31;
+    out->m12 = -frame->m12; out->m22 = -frame->m22; out->m32 = -frame->m32;
+    out->m13 = frame->m13;  out->m23 = frame->m23;  out->m33 = frame->m33;
+}
+
+// CAT: the new ship of a link or unlink takes the old ship's place in the local selection and the camera focus
+//      (cat_processLinkToDo 0x00467f00, cat_processUnlinkToDo 0x00468c69)
+static void catLinkTakeOverSelection(Ship *old,Ship *new1,Ship *new2)
+{
+    if (ShipInSelection((SelectCommand *)&selSelected,old))
+    {
+        cat_selSelectionAddShip(&selSelected,new1);
+        if (new2 != NULL)
+        {
+            cat_selSelectionAddShip(&selSelected,new2);
+        }
+        ioUpdateShipTotals();
+    }
+    if (ShipInSelection((SelectCommand *)&universe.mainCameraCommand.currentCameraStack->focus,old))
+    {
+        MaxSelection focus;
+
+        selSelectionCopy((MaxAnySelection *)&focus,(MaxAnySelection *)&universe.mainCameraCommand.currentCameraStack->focus);
+        cat_selSelectionAddShip(&focus,new1);
+        if (new2 != NULL)
+        {
+            cat_selSelectionAddShip(&focus,new2);
+        }
+        ccFocus(&universe.mainCameraCommand,(FocusCommand *)&focus);
+    }
+}
+
+// CAT: a new ship joins the hot-key group of hotKeyGroup (the exe's encoding: the low nibble is group + 1, bit
+//      group + 5 marks it; cat_processLinkToDo 0x0046800d, cat_processUnlinkToDo 0x00468dfa)
+static void catLinkJoinHotKeyGroup(Ship *ship,uword hotKeyGroup)
+{
+    udword group = (udword)(hotKeyGroup - 1) & 0xf;
+
+    ship->hotKeyGroup = (uword)((((1 << (group + 5)) | ship->hotKeyGroup) & 0xfff0) + 1 + group);
+    selSelectionAddSingleShip(&selHotKeyGroup[group],ship);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_linkPairShips
+    Description : makes leader and follower link partners
+    Inputs      : leader, follower
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (cat_linkPairShips 0x00467ae0): speech 0x400089c; linked Acolytes play animation 2, mimics drop their
+//      disguise
+void cat_linkPairShips(Ship *leader,Ship *follower)
+{
+    catLinkInfo(leader)->partner = follower;
+    catLinkInfo(leader)->role = CAT_LINK_ROLE_FLY_IN;
+    catLinkInfo(follower)->partner = leader;
+    catLinkInfo(follower)->role = CAT_LINK_ROLE_PARTNER;
+    speechEvent(leader, 0x400089c, leader->shiptype);
+    switch (leader->shiptype)
+    {
+        case sAcolyte:
+        case bAcolyte:
+            catLinkInfo(leader)->mode = 2;
+            catLinkInfo(follower)->mode = 2;
+            break;
+        case sMimic:
+            catLinkInfo(leader)->mode = 0;
+            catLinkInfo(follower)->mode = 0;
+            cat_mimicUnmimic(leader,TRUE);
+            cat_mimicUnmimic(follower,TRUE);
+            break;
+        default:
+            break;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_processLinkToDo
+    Description : steps every leader of a link command: fly behind the partner, line up with it, join; when both
+                  animations are over (or 2 s have passed) the pair becomes one ship of the linked type
+    Inputs      : command (COMMAND_CAT_LINK)
+    Outputs     :
+    Return      : TRUE when no leader is still linking
+----------------------------------------------------------------------------*/
+// CAT: new (cat_processLinkToDo 0x00467b80). The exe walks the count it read on entry: a merged leader leaves the
+//      selection (clShipDied swaps the last ship into its slot), and the stale slots it then reads still hold the
+//      swapped ships, so this port does the same.
+bool32 cat_processLinkToDo(CommandToDo *command)
+{
+    SelectCommand *selection = command->selection;
+    sdword numShips = selection->numShips;
+    sdword i,k;
+    bool32 done = TRUE;
+    Ship *ship;
+    Ship *partner;
+    CatLinkInfo *link;
+    real32 linkDist;
+    vector target, mid, heading, up;
+    matrix frame;
+
+    for (i = 0; i < numShips; i++)
+    {
+        ship = selection->ShipPtr[i];
+        link = catLinkInfo(ship);
+        partner = link->partner;
+        if (partner == NULL)
+        {
+            continue;
+        }
+        linkDist = ship->staticinfo->linkDistance;
+        switch (link->role)
+        {
+            case CAT_LINK_ROLE_FLY_IN:
+                // a point 2 x linkDistance below the partner (along -col1), matching its velocity
+                target.x = partner->obj.posinfo.position.x - 2.0f * linkDist * partner->rotatable.rotinfo.coordsys.m11;
+                target.y = partner->obj.posinfo.position.y - 2.0f * linkDist * partner->rotatable.rotinfo.coordsys.m21;
+                target.z = partner->obj.posinfo.position.z - 2.0f * linkDist * partner->rotatable.rotinfo.coordsys.m31;
+                aishipFlyToPointAvoidingObjsWithVel(ship,&target,AISHIP_IgnoreDockWithObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_DontFlyToObscuredPoints|AISHIP_PointInDirectionFlying|AISHIP_FirstPointInDirectionFlying,
+                                                    -80.0f,&partner->obj.posinfo.velocity);
+                if ((ABS(ship->obj.posinfo.position.x - target.x) < 5.0f) &&
+                    (ABS(ship->obj.posinfo.position.y - target.y) < 5.0f) &&
+                    (ABS(ship->obj.posinfo.position.z - target.z) < 5.0f))
+                {
+                    cat_univSetShipPosition(ship,&target);
+                    ship->obj.posinfo.velocity = partner->obj.posinfo.velocity;
+                    link->role = CAT_LINK_ROLE_ALIGN;
+                }
+                done = FALSE;
+                break;
+
+            case CAT_LINK_ROLE_ALIGN:
+                // turn to the partner's flipped frame, held 2 x linkDistance below it; once lined up both meet midway
+                catLinkFlippedFrame(&frame,&partner->rotatable.rotinfo.coordsys);
+                mid.x = partner->obj.posinfo.position.x + linkDist * frame.m11;
+                mid.y = partner->obj.posinfo.position.y + linkDist * frame.m21;
+                mid.z = partner->obj.posinfo.position.z + linkDist * frame.m31;
+                target.x = mid.x + linkDist * frame.m11;
+                target.y = mid.y + linkDist * frame.m21;
+                target.z = mid.z + linkDist * frame.m31;
+                matGetVectFromMatrixCol3(heading,partner->rotatable.rotinfo.coordsys);
+                matGetVectFromMatrixCol1(up,frame);
+                aitrackHeadingAndUp(ship,&heading,&up,FLYSHIP_HEADINGACCURACY);
+                cat_univSetShipPosition(ship,&target);
+                ship->obj.posinfo.velocity = partner->obj.posinfo.velocity;
+                if (cat_matCoordSysAligned(&ship->rotatable.rotinfo.coordsys,&frame,0.9961f))
+                {
+                    cat_univSetShipPosition(ship,&mid);
+                    cat_univSetShipPosition(partner,&mid);
+                    ship->rotatable.rotinfo.coordsys = frame;
+                    ship->obj.posinfo.velocity = partner->obj.posinfo.velocity;
+                    // CAT-TODO(stage 3): madAnimationStart's third argument (0 here)
+                    madAnimationStart(ship,link->mode);
+                    madAnimationStart(partner,catLinkInfo(partner)->mode);
+                    bitSet(ship->header.flags,SOF_CatDocking);
+                    bitSet(partner->header.flags,SOF_CatDocking);
+                    cat_timerStartGameTime(&ship->catLinkTimer,2.0f);
+                    cat_timerStartGameTime(&partner->catLinkTimer,2.0f);
+                    link->role = CAT_LINK_ROLE_JOINED;
+                    cat_shipSetDisableReason(ship,TRUE,3);
+                    cat_shipSetDisableReason(partner,TRUE,3);
+                }
+                done = FALSE;
+                break;
+
+            case CAT_LINK_ROLE_JOINED:
+                catLinkFlippedFrame(&frame,&partner->rotatable.rotinfo.coordsys);
+                cat_univSetShipPosition(ship,&partner->obj.posinfo.position);
+                ship->rotatable.rotinfo.coordsys = frame;
+                ship->obj.posinfo.velocity = partner->obj.posinfo.velocity;
+                if ((ship->madBindings->bPaused && partner->madBindings->bPaused) ||
+                    cat_timerExpired(&ship->catLinkTimer) || cat_timerExpired(&partner->catLinkTimer))
+                {
+                    ShipType linkedType = (ship->shiptype == sAcolyte) ? sACV : (ship->shiptype == sMimic) ? sMCV : bACV;
+                    Ship *linked;
+
+                    linked = univAddShip(linkedType,ship->shiprace,&partner->obj.posinfo.position,ship->playerowner,0);
+                    unitCapCreateShip(linked,linked->playerowner);
+                    if (linked->shiptype == sMCV)
+                    {
+                        // the mimic corvette lies on its side: col1 = partner col2, col2 = -partner col1
+                        matrix *p = &partner->rotatable.rotinfo.coordsys;
+                        matrix *m = &linked->rotatable.rotinfo.coordsys;
+                        m->m11 = p->m12;  m->m21 = p->m22;  m->m31 = p->m32;
+                        m->m12 = -p->m11; m->m22 = -p->m21; m->m32 = -p->m31;
+                        m->m13 = p->m13;  m->m23 = p->m23;  m->m33 = p->m33;
+                    }
+                    else
+                    {
+                        linked->rotatable.rotinfo.coordsys = partner->rotatable.rotinfo.coordsys;
+                    }
+                    univUpdateObjRotInfo(&linked->rotatable);
+                    univAddObjToRenderListIf((SpaceObj *)linked,(SpaceObj *)ship);
+                    catLinkTakeOverSelection(ship,linked,NULL);
+                    // the health of the pair, kept for the unlink: [1] this ship, [2] the partner, [0] the result
+                    linked->catLinkHealth[1] = ship->targetable.health;
+                    linked->catLinkHealth[2] = partner->targetable.health;
+                    linked->targetable.health = linked->catLinkHealth[0] =
+                        (partner->targetable.health / partner->staticinfo->health.maxhealth +
+                         ship->targetable.health / ship->staticinfo->health.maxhealth) * 0.5f * linked->staticinfo->health.maxhealth;
+                    linked->tacticstype = (ship->tacticstype == partner->tacticstype) ? ship->tacticstype : Neutral;
+                    if ((((ship->hotKeyGroup - 1) & 0xf) != 0xf) || (((partner->hotKeyGroup - 1) & 0xf) != 0xf))
+                    {
+                        catLinkJoinHotKeyGroup(linked,(((ship->hotKeyGroup - 1) & 0xf) != 0xf) ? ship->hotKeyGroup : partner->hotKeyGroup);
+                    }
+                    // kills: the pair's sum, and each parent's own count kept for the unlink
+                    for (k = 0; k < NUM_CLASSES; k++)
+                    {
+                        ship->catKillsByClass[k] += partner->catKillsByClass[k];
+                        acvkills(linked)[0][k] = ship->catKillsByClass[k];
+                        acvkills(linked)[1][k] = partner->catKillsByClass[k];
+                    }
+                    cat_shipUpdateExperienceLevel(linked);
+                    if (cat_shipIsAcolyte(ship))
+                    {
+                        ACVSpec *acv = (ACVSpec *)linked->ShipSpecifics;
+
+                        acv->linkStateA = cat_acolyteCanLinkFire(ship);
+                        acv->linkStateB = cat_acolyteCanLinkFire(partner);
+                        acv->linkCanLinkA = cat_acolyteCanLink(ship);
+                        acv->linkCanLinkB = cat_acolyteCanLink(partner);
+                        if (universe.totaltimeelapsed > 2.0f)
+                        {
+                            acv->empState = ACV_EMP_Recharging;
+                            acv->empTime = universe.totaltimeelapsed - 2.0f;
+                        }
+                    }
+                    univReallyDeleteThisShipRightNow(ship);     // the exe passes the code 5
+                    univReallyDeleteThisShipRightNow(partner);  // and 6
+                    soundEventPlay(linked,0x834,NULL);
+                }
+                else
+                {
+                    done = FALSE;
+                }
+                break;
+
+            default:
+                break;
+        }
+    }
+    return done;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_unlinkPrepareShip
+    Description : starts the unlink of a linked ship: it partners itself and turns to its unlink frame
+    Inputs      : ship (sACV, bACV or sMCV)
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (cat_unlinkPrepareShip 0x00468580): speech 0x400089d (an ACV's as a fleet line); the unlink frame is the
+//      ship's own (directions 2 and 0, an MCV 2 and 5, and it drops its disguise)
+void cat_unlinkPrepareShip(Ship *ship)
+{
+    CatLinkInfo *link = catLinkInfo(ship);
+
+    link->partner = ship;
+    link->role = CAT_LINK_ROLE_UNLINK_TURN;
+    link->mode = 0;
+    if ((ship->shiptype != sACV) && (ship->shiptype != bACV))
+    {
+        speechEvent(ship, 0x400089d, ship->shiptype);
+        GetDirectionVectorOfShip(&link->unlinkDirection1,2,&ship->rotatable.rotinfo.coordsys);
+        GetDirectionVectorOfShip(&link->unlinkDirection2,5,&ship->rotatable.rotinfo.coordsys);
+        cat_mcvUnmimic(ship,TRUE);
+        return;
+    }
+    speechEventQueue(NULL, 0x400089d, ship->shiptype, -1, 0, ship->playerowner->playerIndex, -1, 5.0f, -1);
+    GetDirectionVectorOfShip(&link->unlinkDirection1,2,&ship->rotatable.rotinfo.coordsys);
+    GetDirectionVectorOfShip(&link->unlinkDirection2,0,&ship->rotatable.rotinfo.coordsys);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_processUnlinkToDo
+    Description : steps an unlink command: a linked ship turns to its unlink frame, then splits into two ships of the
+                  unlinked type, which fly clear of each other until their animations are over (or 3 s)
+    Inputs      : command (COMMAND_CAT_UNLINK)
+    Outputs     :
+    Return      : TRUE when every ship is done
+----------------------------------------------------------------------------*/
+// CAT: new (cat_processUnlinkToDo 0x00468650). The second half takes the old ship's place in the command; health,
+//      kills and the Acolytes' link guns come back from what the link kept.
+bool32 cat_processUnlinkToDo(CommandToDo *command)
+{
+    SelectCommand *selection = command->selection;
+    sdword i,k;
+    bool32 done = TRUE;
+    Ship *ship;
+    Ship *partner;
+    CatLinkInfo *link;
+
+    for (i = 0; i < selection->numShips; i++)
+    {
+        ship = selection->ShipPtr[i];
+        link = catLinkInfo(ship);
+        partner = link->partner;
+        if (partner == NULL)
+        {
+            continue;
+        }
+        if (link->role == CAT_LINK_ROLE_UNLINK_TURN)
+        {
+            ShipType halfType = (ShipType)-1;
+            sdword anim = -1;
+            Ship *half1, *half2;
+            matrix frame;
+            vector heading, col1, col2, offset, pos;
+            real32 healthFraction;
+            real32 linkDist;
+
+            if (!aitrackHeadingAndUp(ship,&link->unlinkDirection1,&link->unlinkDirection2,0.9996f))
+            {
+                done = FALSE;
+                continue;
+            }
+            switch (ship->shiptype)
+            {
+                case sACV: halfType = sAcolyte;  anim = 3; break;
+                case sMCV: halfType = sMimic;    anim = 1; break;
+                case bACV: halfType = bAcolyte;  anim = 3; break;
+                default: break;
+            }
+            if ((ship->shiptype == sMCV) && (((MimicSpec *)ship->ShipSpecifics)->mode != MIMIC_Off) &&
+                (((MimicSpec *)ship->ShipSpecifics)->mode != MIMIC_Linked))
+            {
+                continue;   // a disguised mimic corvette waits (counted as done, as the exe does)
+            }
+            half1 = univAddShip(halfType,ship->shiprace,&ship->obj.posinfo.position,ship->playerowner,1);
+            unitCapCreateShip(half1,half1->playerowner);
+            half1->obj.posinfo = ship->obj.posinfo;
+            half2 = univAddShip(halfType,ship->shiprace,&ship->obj.posinfo.position,ship->playerowner,1);
+            unitCapCreateShip(half2,half2->playerowner);
+            half2->obj.posinfo = ship->obj.posinfo;
+
+            // the halves sit linkDistance either side of the old ship, half2 turned 180 degrees about the heading
+            matGetVectFromMatrixCol3(heading,ship->rotatable.rotinfo.coordsys);
+            matCreateCoordSysFromHeading(&frame,&heading);
+            matGetVectFromMatrixCol1(col1,frame);
+            matGetVectFromMatrixCol2(col2,frame);
+            linkDist = half1->staticinfo->linkDistance;
+            vecScalarMultiply(offset,col1,linkDist);
+            matCreateMatFromVecs(&half1->rotatable.rotinfo.coordsys,&col1,&col2,&heading);
+            vecAdd(pos,ship->obj.posinfo.position,offset);
+            cat_univSetShipPosition(half1,&pos);
+            vecNegate(col1);
+            vecNegate(col2);
+            matCreateMatFromVecs(&half2->rotatable.rotinfo.coordsys,&col1,&col2,&heading);
+            vecSub(pos,ship->obj.posinfo.position,offset);
+            cat_univSetShipPosition(half2,&pos);
+            if ((ship->shiptype == sMCV) && (((MimicSpec *)ship->ShipSpecifics)->mode == MIMIC_Linked))
+            {
+                cat_mimicCopyFromPartner(half1,ship);
+                cat_mimicCopyFromPartner(half2,ship);
+                ((MimicSpec *)ship->ShipSpecifics)->mode = MIMIC_Off;
+            }
+            univUpdateObjRotInfo(&half1->rotatable);
+            univAddObjToRenderListIf((SpaceObj *)half1,(SpaceObj *)ship);
+            univUpdateObjRotInfo(&half2->rotatable);
+            univAddObjToRenderListIf((SpaceObj *)half2,(SpaceObj *)ship);
+
+            // half2 takes the old ship's slot in the command and flies clear of half1
+            ship->command = NULL;
+            selection->ShipPtr[i] = half2;
+            half2->command = command;
+            catLinkInfo(half1)->partner = half2;
+            catLinkInfo(half1)->mode = -1;
+            catLinkInfo(half2)->partner = half1;
+            catLinkInfo(half2)->mode = -1;
+            catLinkInfo(half2)->role = CAT_LINK_ROLE_UNLINK_CLEAR;
+            // CAT-TODO(stage 3): madAnimationStart's third argument (0 here)
+            madAnimationStart(half1,anim);
+            madAnimationStart(half2,anim);
+            cat_timerStartGameTime(&half1->catLinkTimer,3.0f);
+            cat_timerStartGameTime(&half2->catLinkTimer,3.0f);
+            catLinkTakeOverSelection(ship,half1,half2);
+
+            // health: the damage the linked ship took since the link, shared by fraction, clamped to 1 .. max
+            healthFraction = (ship->targetable.health - ship->catLinkHealth[0]) / ship->staticinfo->health.maxhealth;
+            half1->targetable.health = healthFraction * half1->staticinfo->health.maxhealth + ship->catLinkHealth[1];
+            half2->targetable.health = healthFraction * half2->staticinfo->health.maxhealth + ship->catLinkHealth[2];
+            if (half1->targetable.health < 1.0f)
+            {
+                half1->targetable.health = 1.0f;
+            }
+            else if (half1->staticinfo->health.maxhealth < half1->targetable.health)
+            {
+                half1->targetable.health = half1->staticinfo->health.maxhealth;
+            }
+            if (half2->targetable.health < 1.0f)
+            {
+                half2->targetable.health = 1.0f;
+            }
+            else if (half2->staticinfo->health.maxhealth < half2->targetable.health)
+            {
+                half2->targetable.health = half2->staticinfo->health.maxhealth;
+            }
+            half1->tacticstype = ship->tacticstype;
+            half2->tacticstype = ship->tacticstype;
+            if (((ship->hotKeyGroup - 1) & 0xf) != 0xf)
+            {
+                catLinkJoinHotKeyGroup(half1,ship->hotKeyGroup);
+                catLinkJoinHotKeyGroup(half2,ship->hotKeyGroup);
+            }
+            // kills: each half its parent's count plus half of what the linked ship scored (integer halves)
+            for (k = 0; k < NUM_CLASSES; k++)
+            {
+                sdword kept1 = acvkills(ship)[0][k];
+                sdword kept2 = acvkills(ship)[1][k];
+                sdword share = (ship->catKillsByClass[k] - kept2 - kept1) / 2;
+
+                half1->catKillsByClass[k] = kept1 + share;
+                half2->catKillsByClass[k] = kept2 + share;
+            }
+            cat_shipUpdateExperienceLevel(half1);
+            cat_shipUpdateExperienceLevel(half2);
+            if (cat_shipIsACV(ship))
+            {
+                ACVSpec *acv = (ACVSpec *)ship->ShipSpecifics;
+
+                if (acv->linkStateA)
+                {
+                    cat_acolyteLinkReset(half1);
+                }
+                else
+                {
+                    cat_acolyteLinkGunsOff(half1);
+                }
+                if (acv->linkStateB)
+                {
+                    cat_acolyteLinkReset(half2);
+                }
+                else
+                {
+                    cat_acolyteLinkGunsOff(half2);
+                }
+            }
+            univReallyDeleteThisShipRightNow(ship);     // the exe passes the code 7
+            soundEventPlay(half1,0x835,NULL);
+            done = FALSE;
+        }
+        else if (link->role == CAT_LINK_ROLE_UNLINK_CLEAR)
+        {
+            matrix frame;
+            vector pos;
+            real32 linkDist2 = 2.0f * ship->staticinfo->linkDistance;
+            real32 turn;
+
+            // hold the flipped frame 2 x linkDistance below the other half until both animations are over
+            catLinkFlippedFrame(&frame,&partner->rotatable.rotinfo.coordsys);
+            ship->rotatable.rotinfo.coordsys = frame;
+            pos.x = partner->obj.posinfo.position.x + linkDist2 * frame.m11;
+            pos.y = partner->obj.posinfo.position.y + linkDist2 * frame.m21;
+            pos.z = partner->obj.posinfo.position.z + linkDist2 * frame.m31;
+            cat_univSetShipPosition(ship,&pos);
+            if (!((ship->madBindings->bPaused && partner->madBindings->bPaused) ||
+                  cat_timerExpired(&ship->catLinkTimer) || cat_timerExpired(&partner->catLinkTimer)))
+            {
+                done = FALSE;
+                continue;
+            }
+            if ((ship->shiptype == sMimic) && (((MimicSpec *)ship->ShipSpecifics)->mode == MIMIC_Linked))
+            {
+                cat_mimicResetState(ship);
+                cat_mimicResetState(partner);
+            }
+            link->partner = NULL;
+            catLinkInfo(partner)->partner = NULL;
+            ship->command = NULL;
+            selection->numShips--;
+            selection->ShipPtr[i] = selection->ShipPtr[selection->numShips];   // the swapped-in ship waits a tick
+            madAnimationStop(ship);
+            madAnimationStop(partner);
+            turn = (0.5f <= ship->guidance.nonstatvars.turnspeed[1]) ? 0.5f : ship->guidance.nonstatvars.turnspeed[1];
+            physApplyRotToObj(&ship->rotatable,turn,4);
+        }
+    }
+    return done;
+}
+
 
 /*-----------------------------------------------------------------------------
     Name        : ShipWithinDockRange
@@ -1748,8 +2264,8 @@ sdword clDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType purpose,S
         }
     }
 
-    // CAT-TODO(M2-R5 command follow-up): the exe passes the reason code 0x1F (RemoveShipsFromDoingStuff's third argument)
-    RemoveShipsFromDoingStuff(comlayer,selection);
+    // CAT: the exe passes the reason code 0x1F (RemoveShipsFromDoingStuff's third argument; clDock 0x00466dca)
+    RemoveShipsFromDoingStuff(comlayer,selection,0x1F);
 
     newcommand = memAlloc(sizeof(CommandToDo),"ToDo",0);
     InitCommandToDo(newcommand);

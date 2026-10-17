@@ -1158,7 +1158,7 @@ void kasfTeamHyperspaceOut(void)
 
     aiuFilterDisabledShips(CurrentTeamP->shipList.selection, &filtered);
 
-    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,(SelectCommand *)&filtered);
+    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,(SelectCommand *)&filtered,0x13);   // CAT: reason 0x13 as the exe (kasfTeamHyperspaceOut 0x00493825) [audit: M2-R5 command-tactics]
     spHyperspaceSelectionOut((SelectCommand *)&filtered);
     spHyperspaceDelay = 0.0f;
 }
@@ -1514,7 +1514,7 @@ void SelectionSwitchPlayerOwner(SelectCommand *selection)
     sdword numShips = selection->numShips;
     Ship *ship;
 
-    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,selection);
+    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,selection,0x14);   // CAT: reason 0x14 as the exe (SelectionSwitchPlayerOwner 0x00493f89) [audit: M2-R5 command-tactics]
 
     for (i=0;i<numShips;i++)
     {
@@ -2742,8 +2742,8 @@ sdword kasfSelectedShipsInFormation(sdword formation)
 
     for (i=0;i<selSelected.numShips;i++)
     {
-        if (!selSelected.ShipPtr[i]->formationcommand ||
-            (selSelected.ShipPtr[i]->formationcommand->formation.formationtype != (TypeOfFormation)formation))
+        if (!cat_shipFormationCommand(selSelected.ShipPtr[i]) ||
+            (cat_shipFormationCommand(selSelected.ShipPtr[i])->formation.formationtype != (TypeOfFormation)formation))
         {
             return FALSE;
         }
@@ -2761,7 +2761,7 @@ sdword kasfShipsInFormation(GrowSelection *ships, sdword formation)
     {
         for (i=0;i<ships->selection->numShips;i++)
         {
-            if (ships->selection->ShipPtr[i]->formationcommand)
+            if (cat_shipFormationCommand(ships->selection->ShipPtr[i]))
             {
                 return TRUE;
             }
@@ -2771,8 +2771,8 @@ sdword kasfShipsInFormation(GrowSelection *ships, sdword formation)
     {
         for (i=0;i<ships->selection->numShips;i++)
         {
-            if (ships->selection->ShipPtr[i]->formationcommand &&
-                (ships->selection->ShipPtr[i]->formationcommand->formation.formationtype == (TypeOfFormation)formation))
+            if (cat_shipFormationCommand(ships->selection->ShipPtr[i]) &&
+                (cat_shipFormationCommand(ships->selection->ShipPtr[i])->formation.formationtype == (TypeOfFormation)formation))
             {
                 return TRUE;
             }
@@ -3755,7 +3755,7 @@ void kasfGateShipsIn(GrowSelection *ships, hvector *gatePoint)
 void kasfGateShipsOut(GrowSelection *ships, hvector *gatePoint)
 {
     //hyperspace
-    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,ships->selection);
+    RemoveShipsFromDoingStuff(&universe.mainCommandLayer,ships->selection,0x15);   // CAT: reason 0x15 as the exe (kasfGateShipsOut 0x00497178) [audit: M2-R5 command-tactics]
     spHyperspaceSelectionOutStatic(ships->selection);
 }
 
@@ -3794,7 +3794,7 @@ sdword kasfGateShipsOutNearest(GrowSelection *ships)
     {
         if (closestDistSquared < 4000000)
         {
-            RemoveShipsFromDoingStuff(&universe.mainCommandLayer,selection);
+            RemoveShipsFromDoingStuff(&universe.mainCommandLayer,selection,0);  // CAT: kasfGateShipsOutNearest has no exe counterpart of this call (stage 6): reason 0
             spHyperspaceSelectionOutStatic(selection);
             return TRUE;
         }

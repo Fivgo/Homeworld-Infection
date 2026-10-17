@@ -811,7 +811,7 @@ void LeechHouseKeep(Ship *ship)                                                 
     {
         selectone.numShips = 1;
         selectone.ShipPtr[0] = ship;
-        RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone);  // CAT-TODO(M2-R4 command follow-up): reason 0x2c
+        RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone,0x2C);  // CAT: reason 0x2C as the exe (RemoveShipsFromDoingStuff 0x00444810)
     }
     if ((ship->tacticstype == Aggressive) && ((universe.univUpdateCounter & 0xf) == 0xe) &&
         ((ship->command == NULL) || (ship->command->ordertype.order != COMMAND_SPECIAL)))
@@ -827,7 +827,7 @@ void LeechHouseKeep(Ship *ship)                                                 
         spec->released = 0;
         selectone.numShips = 1;
         selectone.ShipPtr[0] = ship;
-        RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone);  // CAT-TODO(M2-R4 command follow-up): reason 0x515
+        RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone,0x515);  // CAT: reason 0x515 as the exe (RemoveShipsFromDoingStuff 0x00444810)
     }
 }
 

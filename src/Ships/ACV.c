@@ -401,7 +401,7 @@ void ACVInit(Ship *ship)                                                        
 
     for (i = 0; i < 0x18; i++)
     {
-        spec->unknown4C[i] = 0;
+        spec->linkKills[i / NUM_CLASSES][i % NUM_CLASSES] = 0;
     }
     growSelectClose(&spec->empTargets);
     growSelectInit(&spec->empTargets);
@@ -410,8 +410,8 @@ void ACVInit(Ship *ship)                                                        
     spec->attackPending = FALSE;
     spec->linkStateA = 0;
     spec->linkStateB = 0;
-    spec->unknownCC = 0;
-    spec->unknownD0 = 0;
+    spec->linkCanLinkA = 0;
+    spec->linkCanLinkB = 0;
     attackSideStepInit(&spec->sidestep);
 }
 

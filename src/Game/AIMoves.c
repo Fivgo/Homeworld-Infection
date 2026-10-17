@@ -2891,7 +2891,7 @@ sdword aimProcessSwarmPod(AITeam *team)
 
             filtered.numShips = 0;
             aiuFilterDisabledShips(team->shipList.selection, &filtered);
-            RemoveShipsFromDoingStuff(&universe.mainCommandLayer,(SelectCommand *)&filtered);
+            RemoveShipsFromDoingStuff(&universe.mainCommandLayer,(SelectCommand *)&filtered,0);  // CAT: no exe counterpart of this call (aimProcessSwarmPod, stage 4 AI): reason 0
             spHyperspaceSelectionOut((SelectCommand *)&filtered);
             spHyperspaceDelay = 0.0f;
             return TRUE;

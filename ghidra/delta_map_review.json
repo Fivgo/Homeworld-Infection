@@ -716,7 +716,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds calls cat_mimicGetAvoidRadius, cat_salvageGetSalvagerInfo, cat_shipGetSpeedMultiplier, cat_shipIsCloakedFully, sub_53F9F0; drops calls to attackSimple, proximityCanPlayerSeeShip (absent from Cataclysm); adds strings \"\\nWarning: ship %s %s flying with no ...\"; fields +attack, needFix, next, objlink (+3) -HaveMoved, Master, ShipSpecifics, TargetPtr (+44); globals +singlePlayerGame; constants 19, 21 not in body; loops 2 -> 5",
-  "note": "[review: M2-R5 layout-dock] the SPECIAL_2_CatNoAvoidance (specialFlags2 0x40) skip of the exe added (0x00413e40)",
+  "note": "[review: M2-R5 layout-dock] the SPECIAL_2_CatNoAvoidance (specialFlags2 0x40) skip of the exe added (0x00413e40) | [review: M2-R5 command-tactics] the escort speed limit (0x004149c6), the linking Acolyte/Mimic skip (0x00414cb9) and the force-field sphere Sentinel exceptions (0x0041546c) ported; open: the small-target pass skip on static+0x48 < 500 (0x00414c8a) and the Ship+0x608 / mission-type exceptions (0x00414e0e)",
   "sample": "audit-R5-layout-dock-sync"
  },
  "0x00416b80": {
@@ -1615,6 +1615,34 @@
   "note": "same search/swap/shift",
   "sample": "reread-R2"
  },
+ "0x00441000": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clears catRetreating (+0x1D0); a Leech given a special order restarts at state 14",
+  "note": "[review: M2-R5 command-tactics] IDENTICAL in the map, modified",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00441080": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clears catRetreating (+0x1D0)",
+  "note": "[review: M2-R5 command-tactics] IDENTICAL in the map, modified",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x004410c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00441100": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared (TargetPtr[0] in every iteration, as HW1)",
+  "sample": "port-R5-command-tactics"
+ },
  "0x00441190": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -1641,6 +1669,34 @@
   "note": "same leader/wingman tests (Ghidra mistypes attackvars)",
   "sample": "reread-R2"
  },
+ "0x004417c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "skips a target ship clamped to the attacker (a Leech on it)",
+  "note": "[review: M2-R5 command-tactics] IDENTICAL in the map, modified",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x004418c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00441960": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00441ab0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no Evasive exception: every ship of the command passive attacks (HW1 only turned an Evasive ship towards its target)",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
  "0x00441c10": {
   "class": "MODIFIED",
   "confidence": "high",
@@ -1652,8 +1708,22 @@
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "no HW1 test on the dropped type(s) TargetDrone / LightDefender (the type ids do not exist in Cataclysm); r6 tests the defender types 0x43 kHeavyDefender and 0x51 tHeavyDefender (partial read); the tree still has HW1 one-alias HeavyDefender: M2-R4 command follow-up",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun | [review: M2-R5 command-tactics] the defender test covers both races (0x43 kHeavyDefender, 0x51 tHeavyDefender: the tree had only the kHeavyDefender alias)",
   "sample": "port-R4"
+ },
+ "0x004427a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the interceptor leader's flip-turn state is read through ship->command (no Ship.formationcommand); a force-field sphere's followers always passive attack, as a sphere's; the minelayer test is tMinelayerCorvette (84)",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00442fb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "end-of-attack chatter through battleChatterFleetAttempt without the can-chatter test; a ship without a blob ends the attack at once; the leader's target is shared when the target is a ship without a command (HW1: not in a formation); a force-field sphere is handled as a sphere; no targets left after the grouping is done",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
  },
  "0x004435d0": {
   "class": "MODIFIED",
@@ -1661,6 +1731,41 @@
   "change": "AdvanceSupportFrigate branch: any docking ship whose dockship is this ship makes it wait (HW1 skips ships in ASF_WAITLATCHPOINT/BACKUP/WAIT/REFUEL); enum: kAdvanceSupportFrigate/tAdvanceSupportFrigate (0x3c/0x4a); the Mothership branch tests shipclass == CLASS_Mothership",
   "note": "launch-ship tests as HW1 | [review: M2-R5 layout-dock] body is the exe's 0x004435d0 (kAdvanceSupportFrigate / tAdvanceSupportFrigate / CLASS_Mothership)",
   "sample": "reread-R2"
+ },
+ "0x004436a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the destination is the current point of the move path; fleet chatter without the can-chatter test; the hyperspace disable reason 6 is cleared instead of setting SOF_Selectable",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00443c30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00443cb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "runs one ship (4 arguments) along the waypoint path: one-way, loop and patrol paths advance by CalculateMoveToPoints; Sentinels in a sphere are skipped (cat_shipIsSentinelInSphere)",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x004440f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a second argument (the exe's unread reason code); cat_clLinkCleanup for the link orders, disable reason 6 for hyperspace, unClampObj for a force-field sphere; no tacticsAttackCommandVoided",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00444490": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "as FreeCommandToDoContents for the order only; every order but an attack ends the holding pattern",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
  },
  "0x00444780": {
   "class": "IDENTICAL",
@@ -1673,6 +1778,34 @@
   "confidence": "high",
   "change": "formation case: a sphere needs >= 2 ships (HW1 > 0) and a FORCEFIELD_SPHERE formation becomes FORCEFIELD_WALL before formationContentHasChanged",
   "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+ },
+ "0x00444810": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a third argument (the exe's unread reason code); per order as the exe's jump table 0x00445124: move/hyperspace clear moveTo/moveFrom, link/unlink break the link, the point and build orders keep their ships, an emptied command is freed; a formation drops to a plain command at one ship",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00445170": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared; the tree drops HW1's default-case assertion (orders 11-17 reach it)",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00445200": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared; the default-case assertion dropped; TurnHarvestEffectOff is the inlined TurnOffAnyResourcingEffects",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x004452a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared; the default-case assertion dropped",
+  "sample": "port-R5-command-tactics"
  },
  "0x004452f0": {
   "class": "MODIFIED",
@@ -1705,12 +1838,103 @@
   "note": "listInit(&comlayer->todolist)",
   "sample": "IDENTICAL/low"
  },
+ "0x00445a00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clears the out-of-resources message time (0x00a2db50) after freeing the commands",
+  "note": "[review: M2-R5 command-tactics] IDENTICAL in the map, modified",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00445a70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "capital ships and CLASS_Component stay; the slot's ship loses its command after the removal",
+  "note": "[review: M2-R5 command-tactics] IDENTICAL in the map, modified",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00445b40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the same body as clClose (inlined copy)",
+  "note": "[review: M2-R5 command-tactics] IDENTICAL in the map, modified",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00445bb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00445bf0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x004460d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "takes a waypoint path; a group not in formation is split into single-ship moves along the path shifted by cat_clCalculateMoveToOffsets",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x004467c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "takes the waypoint path and a split flag; the exe's walk of the attacking ships for a single-point move never fills its selection (kept as a no-op)",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00446d90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the waypoint path; each ship's CustShipMoveCommand can veto; retreating ships are left out (cat_tacticsRemoveRetreatingShips); a one-ship command moves along the path shifted by that ship's offset",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x004470f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the destination is a one-point move path",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x004472a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the destination is a one-point move path",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x004474a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "RemoveShipFromBeingTargeted with a fourth argument 0; the one-point path",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
  "0x00447740": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "REALlyBig 0x6258d727; same nearest-target loop",
   "sample": "reread-R2"
+ },
+ "0x004477c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the resource-class test, catAttackStarted cleared, the formation is the ship's command",
+  "note": "[review: M2-R5 command-tactics] IDENTICAL in the map, modified",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00447880": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the force-field sphere too, only with more than one ship",
+  "note": "[review: M2-R5 command-tactics] IDENTICAL in the map, modified",
+  "sample": "port-R5-command-tactics"
  },
  "0x00447950": {
   "class": "REWRITTEN",
@@ -1726,6 +1950,20 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x004479f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00447a50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no tactics bullet-range bonus (Cataclysm's TacticsInfo has none): the gun's range is its static bulletrange",
+  "note": "[review: M2-R5 command-tactics] IDENTICAL in the map, modified",
+  "sample": "port-R5-command-tactics"
+ },
  "0x00447d30": {
   "class": "MODIFIED",
   "confidence": "medium",
@@ -1733,18 +1971,95 @@
   "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
   "sample": "port-R4"
  },
+ "0x00447ee0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00448460": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a third argument (the exe's unread reason code: 1 clAttackThese, 2 clAttack, 3 clPostProcess, 4 clFormation); the new targets get their attached modules (cat_clAddAttachedModulesToTargets)",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00448620": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the attackers lose every ship a targeted Leech is clamped to; the target check comes first; attached modules join the targets; RemoveShipsFromDoingStuff reason 6 after the copies",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00448950": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "copies the selection, drops ships retreating to dock and those without a blob, out of the object lists or hidden; a looping or patrol move is saved in catSavedMove for clProcess to resume",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00448b30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "frees the targets it replaces (a passive attack's, or an attack order's); no assertion",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00448ce0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the Leech filter of clAttackThese; its own passive-order test (holding pattern no, other passive targets yes, force-field sphere no, orders 2-7, 10-12, 14-17 no); retaliation chatter (0x37/0x39 through the fleet, then 0x38) at most every 40 s; RemoveShipsFromDoingStuff reason 7",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x004492c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "an Acolyte/ACV group keeps its leader's formation type around the new special order (FillInFormationSpecifics, level 0); no support-craft speech; the SalCap constraint covers both races",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00449720": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00449990": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no transfer the giver cannot pay for; the exe's sound/speech ids; the receiver's command message is a stage-3 CAT-TODO",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
  "0x00449af0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "enum: SalCapCorvette test becomes kSalCapCorvette/tSalCapCorvette (0x48/0x59)",
-  "note": "getShipAndItsCommand inlined; same ATTACK/SPECIAL logic",
+  "note": "getShipAndItsCommand inlined; same ATTACK/SPECIAL logic | [review: M2-R5 command-tactics] the tree's code still had the SalCapCorvette alias (kSalCapCorvette only); now both races as the exe (0x00449b28)",
   "sample": "reread-R2"
+ },
+ "0x00449b50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the exe's speech ids with the ship type; parade ships are not halted (they leave the selection before the new command)",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00449e80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "speech for a moving or attacking leader; ships whose CustShipHaltCommand refuses are not halted",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
  },
  "0x0044a150": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "tutorial sMothership skipped; catShipFlags 0x80 with nonzero Ship+0x4E4 not scuttled; mimics unmimic (cat_mimicUnmimic)",
-  "note": "M2-R4 command: ported except the 0x80/+0x4E4 case and the unmimic (CAT-TODO M2-R4 #4)"
+  "note": "M2-R4 command: ported except the 0x80/+0x4E4 case and the unmimic (CAT-TODO M2-R4 #4) | [review: M2-R5 command-tactics] the CAT_SHIPFLAG_Bit7 + infection-timer exemption ported (0x0044a19d)"
  },
  "0x0044a220": {
   "class": "MODIFIED",
@@ -1752,6 +2067,13 @@
   "change": "adds calls InitializeDockVars; drops calls to dockInitShipForLaunch, dockPrepareSingleShipForLaunch (absent from Cataclysm); calls with a changed parameter count: RemoveShipsFromDoingStuff 2->3; uses fields HW1 never uses: externalBuild; fields +attributesPad, attributesParam, head, next (+6) -aistate, aistateattack, aistatecommand, attributes (+8)",
   "note": "[review: M2-R5 layout-dock audit] compared with 0x0044a220: as the tree, the CustShipLaunchCommand slot now takes the exe's two arguments (ship, receiverShip) (fixed by the audit; no ship fills the slot yet); RemoveShipsFromDoingStuff's 0xB is a CAT-TODO",
   "sample": "audit-R5-layout-dock-sync"
+ },
+ "0x0044a3a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
  },
  "0x0044a400": {
   "class": "MODIFIED",
@@ -1761,11 +2083,25 @@
   "sample": "port-R4"
  },
  "0x0044a490": {
-  "class": "IDENTICAL",
-  "confidence": "medium",
-  "change": "",
-  "note": "[review: M2-R5 layout-dock] unchanged body; its callers pass a 4-slot carrier array (cat_lmShipAutoLaunchOn, CAT-FIX: the exe's 3-slot frame overruns)",
-  "sample": "audit-R5-layout-dock-sync"
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the mothership only when CLASS_Mothership (HW1: a Carrier-type mothership is carrier 1); three carrier slots from the player's first three cmCarriers",
+  "note": "[review: M2-R5 layout-dock] unchanged body; its callers pass a 4-slot carrier array (cat_lmShipAutoLaunchOn, CAT-FIX: the exe's 3-slot frame overruns) | [review: M2-R5 command-tactics] reviewed IDENTICAL before; the exe body differs (ported)",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x0044a510": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "its own list (no FillInCarrierMothershipInfo): a CLASS_Mothership mothership and the first three cmCarriers; mask bits 0-2 only",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x0044a640": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "every bit that is on after the change launches the ships inside; speech 0x4001068 in every mission",
+  "note": "[review: M2-R5 command-tactics] IDENTICAL in the map, modified",
+  "sample": "port-R5-command-tactics"
  },
  "0x0044a6f0": {
   "class": "IDENTICAL",
@@ -1773,6 +2109,13 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x0044a710": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
  },
  "0x0044a780": {
   "class": "MODIFIED",
@@ -1785,6 +2128,62 @@
   "confidence": "high",
   "change": "carrier-class mothership counts as carrier 1; univCreateShip(..., built 5, creator, 0); game stats by class (twice for types 4/5/38, none for swarmers); no ResearchShip/rmActivateFreeLab",
   "note": "M2-R4 command: ported except the stats (CAT-TODO M2-R4 #5) | [review: M2-R5 layout-dock] the per-class built counter (PlayerStats+0x2A8; swarmers skipped; sACV/sMCV/bACV twice) ported"
+ },
+ "0x0044aa50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x0044aaa0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x0044ac50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x0044ad50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the closing formationContentHasChanged also for a force-field sphere",
+  "note": "[review: M2-R5 command-tactics] IDENTICAL in the map, modified",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x0044af20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "RemoveShipsFromDoingStuff reason 0xc after the copies; otherwise as HW1 (CheckCircularGuard inlined)",
+  "note": "[review: M2-R5 command-tactics] compared: no change needed beyond the reason code",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x0044b130": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x0044b1c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a CLASS_Component ship joins no parade",
+  "note": "[review: M2-R5 command-tactics] IDENTICAL in the map, modified",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x0044b220": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "RemoveShipsFromDoingStuff reason 0xd; GroupShipIntoMilitaryParade inlined with its CLASS_Component skip",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
  },
  "0x0044b320": {
   "class": "MODIFIED",
@@ -1799,12 +2198,47 @@
   "change": "members of a parade around the dead ship leave it first; RemoveShipsFromDoingStuff reason codes 0x65/0xe; research modules (cat_rmResearchModuleDied for Sect, cat_rmMothershipLabLost for bMothership); no rmDeactivateLab",
   "note": "M2-R4 command: ported except the reason codes and the research calls (CAT-TODO)"
  },
+ "0x0044b550": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clFormation with 4 arguments (level 0)",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x0044b790": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x0044b950": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the waypoint moves per ship, the saved looping move after an attack, the force-field sphere around a protected ship, orders 11-16 (link, unlink, point, mimic, research), no assertion in the default case",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x0044cf80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a force-field sphere too; ChangeOrderToAttack reason 3",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
  "0x0044d140": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x0044d150": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
  },
  "0x0044d1d0": {
   "class": "IDENTICAL",
@@ -1813,12 +2247,26 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x0044d200": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
  "0x0044d240": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "getShipAndItsFormationCommand inlined",
   "sample": "reread-R2"
+ },
+ "0x0044d2b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
  },
  "0x0044e170": {
   "class": "IDENTICAL",
@@ -1947,6 +2395,27 @@
   "change": "ioUpdateShipTotals for any dock type but retire (no MakeSelectionNonResearchShips); Cataclysm dock types 7/10 and their speech",
   "note": "M2-R4 command: ported except the dock-type numbering and speech (CAT-TODO M2-R4 #3)"
  },
+ "0x00452eb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00452f30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00452fa0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
  "0x00453000": {
   "class": "MODIFIED",
   "confidence": "high",
@@ -1978,11 +2447,39 @@
   "change": "pause check with opPauseOrders (HW1: any pause)",
   "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
  },
+ "0x00453410": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00453460": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x004534b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
  "0x00453500": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "an empty selection does nothing",
   "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+ },
+ "0x004537c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
  },
  "0x00453820": {
   "class": "MODIFIED",
@@ -1995,6 +2492,13 @@
   "confidence": "high",
   "change": "",
   "note": "M2-R4 command: compared with the exe: same"
+ },
+ "0x00453bb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
  },
  "0x00453f10": {
   "class": "IDENTICAL",
@@ -3501,12 +4005,82 @@
   "note": "formationtypeinfo table; M2-R4 command: body same; its table (0x0087f998) has FORCEFIELD_WALL_FORMATION 9 and FORCEFIELD_SPHERE_FORMATION 10, ported in Formation.c",
   "sample": "reread-R2"
  },
+ "0x00481200": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared: the exe's body is HW1's formationBiggestThenClosestOptimum (one sort type)",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00481410": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the 13-ship table entry is the force-field sphere's (MAX_SENTINELS_IN_FORCE_FIELD_SPHERE)",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00481590": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared; the exe also clears each freed entry (ported)",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00481880": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a second argument, the force-field flag: the 13-ship entry, radius forceFieldProtectionDistanceScale x avoidcollspheresize, bottom pole last, offsets turned by the force-field frame, the Sentinel links filled",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00482890": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00482a00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the leader's collision centre (+0xE0); flat formations through cat_univSetShipPosition",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00482b90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the formation is the leader's command; the leader's collision centre; a force-field sphere centred on the protected ship's collision centre and turned with it; cat_formationShipMoveToSteady / NotToObscuredPoints",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
  "0x00483390": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x004833a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x004833d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "speed multiplier per ship; a field Sentinel goes at its protected ship's speed; the escort limit (catProtectedSpeedLimit) caps the others",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00483500": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
  },
  "0x00483520": {
   "class": "IDENTICAL",
@@ -3515,17 +4089,87 @@
   "note": "DELTA/BROAD and DELTA3D/CLAW shift loops checked to the end",
   "sample": "reread-R2"
  },
+ "0x00483620": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "force-field sphere through formationSpecificsSphere with disable reason 5; force-field walls (SetFormationOffsetsForForceFieldWall); other formations clear reason 5",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00484230": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00484310": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
  "0x00484950": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "4 arguments: the force-field level stored at +0x288; formationSpecificInfo (+0x28C) cleared for types 0-6, 9, 10; formationArrageCrazyOptimum with more arguments",
   "note": "M2-R4 command: class change: IDENTICAL body found modified; CAT-TODO with clFormation"
  },
+ "0x00484a30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "returns the majority's move as a waypoint path (path type, point count, current point, the points from the current one, reading past the path's end as the exe does)",
+  "note": "[review: M2-R5 command-tactics] IDENTICAL in the map, modified (the waypoint signature)",
+  "sample": "port-R5-command-tactics"
+ },
  "0x00484c80": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "4th argument (force-field level, +0x288); accepts 0-6, 9, 10; per-ship CustShipFormationCommand veto; 12/24-ship caps for types 10/9; passive attack cleared for force fields",
-  "note": "M2-R4 command: accepted types ported; the rest CAT-TODO"
+  "note": "M2-R4 command: accepted types ported; the rest CAT-TODO | [review: M2-R5 command-tactics] ChangeOrderToAttack reason 4"
+ },
+ "0x00485090": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x004850d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Cataclysm's 12 parade files in the exe's order",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00485280": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the exe's order of the sums; no ParadeNeedTomoveCloser step",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00485760": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00485790": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the exe's order of the sums; cat_univSetShipPosition; no assertion",
+  "note": "[review: M2-R5 command-tactics] ported",
+  "sample": "port-R5-command-tactics"
+ },
+ "0x00485b00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared; the exe also clears each freed slot (ported)",
+  "sample": "port-R5-command-tactics"
  },
  "0x00485b30": {
   "class": "MODIFIED",
@@ -3547,6 +4191,13 @@
   "change": "passes the parade to GetShipSlot as a second argument (0x00485efb push esi, 0x00485efc push ebx)",
   "note": "M2-R3 closeout-headers \"headers\"; was IDENTICAL/medium",
   "sample": "port-R3"
+ },
+ "0x00486020": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 command-tactics] compared",
+  "sample": "port-R5-command-tactics"
  },
  "0x00486050": {
   "class": "MODIFIED",
@@ -4065,6 +4716,20 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00495cc0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R5 command-tactics] compared: as the tree (FALSE for an empty selection, then every ship's command must carry the formation flag with that type); the edit is the retirement of Ship.formationcommand (cat_shipFormationCommand reads ship->command +0x370, flag +0x16 bit 0, type +0x230 as the exe)",
+  "sample": "audit-R5-command-tactics"
+ },
+ "0x00495d10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R5 command-tactics] compared: as the tree (formation -1: any ship with a formation command; else any with that type); the edit is the retirement of Ship.formationcommand (the exe reads ship->command's formation flag)",
+  "sample": "audit-R5-command-tactics"
  },
  "0x00495e80": {
   "class": "IDENTICAL",
@@ -8204,7 +8869,7 @@
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "zeroes 0x244 dwords and sets 2 reals (a smaller TacticsInfo), initialises one tactics list",
-  "note": "the tree's extra inits are harmless; TacticsInfo layout left; was IDENTICAL",
+  "note": "the tree's extra inits are harmless; TacticsInfo layout left; was IDENTICAL | [review: M2-R5 command-tactics] rewritten to the exe: EnemyNearZone and the dodge table zeroed, the two paddings 1.0, no bonus tables, menu or retreat list (Cataclysm's TacticsInfo 0x9C4)",
   "sample": "port-R4"
  },
  "0x00529120": {
@@ -9320,7 +9985,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "deferred updates (unk1 list) before the housekeeps, the host-based clamp scheme, no NIS/slave handling, mad link-in only while an animation plays and not for numbered animations, protected-speed timer",
-  "note": "M2-R4 univupdate: ported except the clamp scheme (M2-R4 #3) and cat_univLimitProtectedShipSpeed (M2-R4 #2)"
+  "note": "M2-R4 univupdate: ported except the clamp scheme (M2-R4 #3) and cat_univLimitProtectedShipSpeed (M2-R4 #2) | [review: M2-R5 command-tactics] cat_univLimitProtectedShipSpeed every 5 s ported"
  },
  "0x005451e0": {
   "class": "IDENTICAL",
@@ -9615,13 +10280,13 @@
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "cat_shipIsTargetableBy and stealth detection, static selection",
-  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #4/#5)"
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #4/#5) | [review: M2-R5 command-tactics] ported: the static 6-ship selection, cat_shipIsTargetableBy, cat_shipDetectedByPlayer, the decloak see-times, no motherships"
  },
  "0x0054a650": {
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "delayed deaths with modes, cat_tacticsShipAttacked, cloak/mimic/collector skips, out-of-world target check",
-  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #2/#4/#5)"
+  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #2/#4/#5) | [review: M2-R5 command-tactics] ported: delayed deaths with modes 2/3/4, retaliation through cat_tacticsShipAttacked, no tacticsUpdate; the out-of-world fly-back is dead code in the exe (it clips the zero vector) and is left out; CAT-FIX: getShipAndItsFormation's copy freed"
  },
  "0x0054acd0": {
   "class": "MODIFIED",
@@ -10194,6 +10859,13 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00568d60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R5 command-tactics] compared only the formation test: the exe reads ship->command's formation flag and pulse, as cat_shipFormationCommand; the radius product order and the colour choice are stage 3's to re-check (UI)",
+  "sample": "audit-R5-command-tactics"
  },
  "0x0056a020": {
   "class": "MODIFIED",

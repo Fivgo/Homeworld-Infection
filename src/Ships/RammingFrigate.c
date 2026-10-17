@@ -923,7 +923,7 @@ static void cat_rammingFrigateLatchTarget(Ship *rammer, Ship *target)           
             {
                 selectone.numShips = 1;
                 selectone.ShipPtr[0] = other;
-                RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone);  // CAT-TODO(M2-R4 command follow-up): reason 0x2d
+                RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone,0x2D);  // CAT: reason 0x2D as the exe (RemoveShipsFromDoingStuff 0x00444810)
             }
         }
         if (!alone)

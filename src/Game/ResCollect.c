@@ -298,7 +298,7 @@ void clCollectResource(CommandLayer *comlayer,SelectCommand *selectcom,ResourceP
     dbgMessage("Received command to harvest");
 #endif
 
-    RemoveShipsFromDoingStuff(comlayer,selectcom);
+    RemoveShipsFromDoingStuff(comlayer,selectcom,0x22);   // CAT: reason 0x22 as the exe (clCollectResource 0x004f1376) [audit: M2-R5 command-tactics]
 
     // add COMMAND_COLLECT_RESOURCES commands for each resource collector:
     for (i=0;i<numShips;i++)
@@ -626,6 +626,14 @@ bool32 CollectResources(Ship *ship,Resource *resource)
     }
 
     return TRUE;
+}
+
+// CAT: new (cat_shipIsCollectingResources 0x004f2500): TRUE if the ship's command is a collect order
+bool32 cat_shipIsCollectingResources(Ship *ship)
+{
+    CommandToDo *command = getShipAndItsCommand(&universe.mainCommandLayer, ship);
+
+    return (command != NULL) && (command->ordertype.order == COMMAND_COLLECT_RESOURCES);
 }
 
 /*-----------------------------------------------------------------------------

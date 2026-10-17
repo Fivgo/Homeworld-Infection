@@ -9,59 +9,44 @@
 
 #include <stdlib.h>
 
+#include "ACV.h"
 #include "Alliance.h"
-#include "Battle.h"
-#include "Blobs.h"
 #include "ClassDefs.h"
 #include "CommandDefs.h"
 #include "CommandLayer.h"
 #include "Dock.h"
-#include "ShipSelect.h"
 #include "FastMath.h"
-#include "FEFlow.h"
-#include "FlightMan.h"
 #include "Formation.h"
-#include "mainrgn.h"
 #include "Memory.h"
-#include "mouse.h"
-#include "Physics.h"
-#include "ProximitySensor.h"
-#include "Randy.h"
-#include "RepairCorvette.h"
+#include "NomadMoon.h"
+#include "RaceDefs.h"
+#include "RammingFrigate.h"
 #include "Select.h"
-#include "SoundEvent.h"
+#include "Sensors.h"
+#include "Sentinel.h"
+#include "ShipSelect.h"
+#include "SinglePlayer.h"
 #include "StatScript.h"
-#include "Tweak.h"
 #include "Types.h"
 #include "Universe.h"
 #include "UnivUpdate.h"
 
-// CAT-DORMANT (M2-R4 rest-oracle): cataclysm.exe's Tactics.c has 8 functions (tacticsStartUp 0x005290b0 ..
-//      tacticsGetShipsMaxVelocity 0x00529450); the retreat / dodge / flank / attack-memory machinery below has no exe
-//      counterpart. 17 of its functions have no caller; the rest (tacticsUpdate, tacticsGlobalUpdate,
-//      tacticsDelegateAttackCommand, tacticsDelegateSingleAttack, tacticsAttackCommandVoided, tacticsPopUpSetUp,
-//      tacticsAreStrikeCraftInSelection) are still called from UnivUpdate.c / CommandLayer.c and go with those files'
-//      remaining CAT-TODOs (M2-R4 univupdate / command).
-// CAT-PROVISIONAL (M2-R4 rest-oracle): HW1's universe.RetreatList (RetreatAtoms) is not in the Cataclysm Universe: the
-//      one tactics list at universe+0x180 holds AttackAtoms (Universe.h). The exe's Tactics.c has 8 functions
-//      (0x005290b0-0x00529450) and no retreat tracking; the HW1 retreat code below keeps its list here until it is
-//      retired with its callers.
-static LinkedList cat_hw1RetreatList;
-
+/*-----------------------------------------------------------------------------
+    CAT (M2-R5 command-tactics): cataclysm.exe's Tactics.c is tacticsStartUp 0x005290b0 .. tacticsGetShipsMaxVelocity
+    0x00529450 (8 HW1 functions) and Cataclysm's retaliation 0x005294c0 .. cat_shipIsTargetableBy 0x0052a080. HW1's
+    retreat tracking, dodging, flanking, order-status bonuses, speed burst, tactics popup and the per-ship
+    tacticsUpdate / tacticsGlobalUpdate / tacticsDelegate* / tacticsAttackCommandVoided have no exe body and are gone
+    with their callers: univCheckShipState 0x0054a650 retaliates through cat_tacticsShipAttacked, clPassiveAttack
+    0x00448ce0 has its own passive-order test. The attack memory (universe.AttackMemory, HW1's AttackAtoms) is kept:
+    the exe still walks and frees it, though no exe code adds to it.
+-----------------------------------------------------------------------------*/
 
 //global data
-BabyCallBack    *tacticsFlashMenuBaby;
-regionhandle    tacticsMenuRegion;
+regionhandle    tacticsMenuRegion = NULL;      // CAT: FEFlow.c still clears it; nothing sets it (no tactics popup)
 
 //special ops tweakables
 real32 kamikazeDamage[TOTAL_NUM_SHIPS];
 real32 kamikazeSpeedBurst;
-real32 kamikazeFuelBurnMult;
-real32 speedBurstMaxVelocityMultiplier;
-real32 speedBurstThrustMult;
-real32 speedBurstDuration;
-real32 speedBurstFuelBurnMult;
-real32 speedBurstCoolDown;
 real32 burstRange;
 real32 burstChargeTime;
 real32 burstCoolDownTime;
@@ -71,10 +56,8 @@ real32 burstSpeed;
 real32 oneOverburstSpeed;
 real32 burstRadius;
 
-real32 ATTACKING_FROM_ABOVE_MIN_DIST = 250.0f;
-real32 ATTACKING_FROM_ABOVE_MIN_RATIO = 2.0f;
-
-real32 OUT_OF_FUEL_VELOCITY_SLOWDOWN = 0.125f;
+real32 ATTACKING_FROM_ABOVE_MIN_DIST = 250.0f;     // 0x008a8078
+real32 ATTACKING_FROM_ABOVE_MIN_RATIO = 2.0f;      // 0x008a807c
 
 real32 IONCANNON_TARGETS_FIGHTER_ANGLE = 0.99939f;
 real32 IONCANNON_TARGETS_CORVETTE_ANGLE = 0.99756f;
@@ -89,353 +72,157 @@ real32 GLOBAL_SHIP_SPEED_MODIFIER = 1.0f;
 
 real32 DELAY_FORMTIGHTNESS_CHANGE = 5.0f;
 
-//local prototypes
-bool32 tacticsShipCanDodge(Ship *ship);
-bool32 tacticsShipIsAffectedByTactics(Ship *ship);
-bool32 tacticsIsShipLookingForAnyOfThese(Ship *ship,SelectCommand *selection);
-bool32 tacticsAreEnemiesNearby(Ship *leadership, Ship *thisship,real32 retaliateZone);
-
-//special ops prototype
-void speedBurstUpdate(Ship *ship);
-
 TacticsInfo tacticsInfo;
 
+// CAT: the exe's TacticsInfotable 0x008a80a0, row for row (HW1's MenuFeedBack, menuPopupTime, RetreatDistance,
+//      bonus, speed-burst, burst-modifier, damage-modifier and OUT_OF_FUEL_VELOCITY_SLOWDOWN rows are gone; the
+//      class rows have Cataclysm's 12 classes, the dodge and kamikaze rows its ship types, the burst damage rows its
+//      four playable races)
 scriptEntry TacticsInfotable[] =
 {
-    { "EnemyNearZone" ,scriptSetReal32CB, &tacticsInfo.EnemyNearZone},
-    { "PassiveRetaliationFireTimeModifierLow" ,scriptSetReal32CB, &tacticsInfo.PassiveRetaliationFireTimeModifierLow},
-    { "PassiveRetaliationFireTimeModifierHi" ,scriptSetReal32CB, &tacticsInfo.PassiveRetaliationFireTimeModifierHi},
-    { "MenuFeedBack_X" ,scriptSetUdwordCB, &tacticsInfo.MenuFeedBack_X},
-    { "MenuFeedBack_Y" ,scriptSetUdwordCB, &tacticsInfo.MenuFeedBack_Y},
-    { "menuPopupTime" ,scriptSetReal32CB, &tacticsInfo.menuPopupTime},
-
+    { "EnemyNearZone", scriptSetReal32CB, &tacticsInfo.EnemyNearZone},
+    { "PassiveRetaliationFireTimeModifierLow", scriptSetReal32CB, &tacticsInfo.PassiveRetaliationFireTimeModifierLow},
+    { "PassiveRetaliationFireTimeModifierHi", scriptSetReal32CB, &tacticsInfo.PassiveRetaliationFireTimeModifierHi},
     makeEntry(ATTACKING_FROM_ABOVE_MIN_DIST,scriptSetReal32CB),
     makeEntry(ATTACKING_FROM_ABOVE_MIN_RATIO,scriptSetReal32CB),
-
-    { "RetreatDistance[CLASS_Mothership]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatDistanceSqr[CLASS_Mothership]},
-    { "RetreatDistance[CLASS_HeavyCruiser]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatDistanceSqr[CLASS_HeavyCruiser]},
-    { "RetreatDistance[CLASS_Carrier]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatDistanceSqr[CLASS_Carrier]},
-    { "RetreatDistance[CLASS_Destroyer]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatDistanceSqr[CLASS_Destroyer]},
-    { "RetreatDistance[CLASS_Frigate]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatDistanceSqr[CLASS_Frigate]},
-    { "RetreatDistance[CLASS_Corvette]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatDistanceSqr[CLASS_Corvette]},
-    { "RetreatDistance[CLASS_Fighter]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatDistanceSqr[CLASS_Fighter]},
-    { "RetreatDistance[CLASS_Resource]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatDistanceSqr[CLASS_Resource]},
-    { "RetreatDistance[CLASS_NonCombat]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatDistanceSqr[CLASS_NonCombat]},
-
-    { "RetreatGetAwayDistance[CLASS_Mothership]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Mothership]},
-    { "RetreatGetAwayDistance[CLASS_HeavyCruiser]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_HeavyCruiser]},
-    { "RetreatGetAwayDistance[CLASS_Carrier]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Carrier]},
-    { "RetreatGetAwayDistance[CLASS_Destroyer]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Destroyer]},
-    { "RetreatGetAwayDistance[CLASS_Frigate]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Frigate]},
-    { "RetreatGetAwayDistance[CLASS_Corvette]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Corvette]},
-    { "RetreatGetAwayDistance[CLASS_Fighter]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Fighter]},
-    { "RetreatGetAwayDistance[CLASS_Resource]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Resource]},
-    { "RetreatGetAwayDistance[CLASS_NonCombat]" ,scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_NonCombat]},
-
-    { "freeRetreatTime" ,scriptSetReal32CB, &tacticsInfo.freeRetreatTime},
-
-    { "AttackMemoryTimeOut" ,scriptSetReal32CB, &tacticsInfo.AttackMemoryTimeOut},
-
-    { "formationPadding[LooseFormation]",scriptSetReal32CB, &tacticsInfo.formationPadding[LooseFormation]},
-    { "formationPadding[TightFormation]",scriptSetReal32CB, &tacticsInfo.formationPadding[TightFormation]},
-
-    { "InterceptorVerticalMultiplier" ,scriptSetReal32CB, &tacticsInfo.InterceptorVerticalMultiplier},
-
-    { "DodgeLowAddTime" ,scriptSetReal32CB, &tacticsInfo.DodgeLowAddTime},
-    { "DodgeHighAddTime" ,scriptSetReal32CB, &tacticsInfo.DodgeHighAddTime},
-
-    // CAT: dodge tweaks keyed by Cataclysm type (TacticsInfotable 0x008a80a0: the DodgeInfo rows of 0x008a81c0..)
-    { "DodgeInfo[DODGE_ONE_TIME][sRecon]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][sRecon]},
-    { "DodgeInfo[DODGE_TWO_TIME][sRecon]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][sRecon]},
-    { "DodgeInfo[DODGE_THRUST_MULT][sRecon]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][sRecon]},
-    { "DodgeInfo[DODGE_WAIT][sRecon]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][sRecon]},
-    { "DodgeInfo[DODGE_ONE_TIME][sAcolyte]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][sAcolyte]},
-    { "DodgeInfo[DODGE_TWO_TIME][sAcolyte]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][sAcolyte]},
-    { "DodgeInfo[DODGE_THRUST_MULT][sAcolyte]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][sAcolyte]},
-    { "DodgeInfo[DODGE_WAIT][sAcolyte]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][sAcolyte]},
-    { "DodgeInfo[DODGE_ONE_TIME][sMimic]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][sMimic]},
-    { "DodgeInfo[DODGE_TWO_TIME][sMimic]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][sMimic]},
-    { "DodgeInfo[DODGE_THRUST_MULT][sMimic]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][sMimic]},
-    { "DodgeInfo[DODGE_WAIT][sMimic]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][sMimic]},
-    { "DodgeInfo[DODGE_ONE_TIME][sLeech]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][sLeech]},
-    { "DodgeInfo[DODGE_TWO_TIME][sLeech]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][sLeech]},
-    { "DodgeInfo[DODGE_THRUST_MULT][sLeech]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][sLeech]},
-    { "DodgeInfo[DODGE_WAIT][sLeech]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][sLeech]},
-    { "DodgeInfo[DODGE_ONE_TIME][sACV]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][sACV]},
-    { "DodgeInfo[DODGE_TWO_TIME][sACV]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][sACV]},
-    { "DodgeInfo[DODGE_THRUST_MULT][sACV]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][sACV]},
-    { "DodgeInfo[DODGE_WAIT][sACV]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][sACV]},
-    { "DodgeInfo[DODGE_ONE_TIME][sMCV]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][sMCV]},
-    { "DodgeInfo[DODGE_TWO_TIME][sMCV]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][sMCV]},
-    { "DodgeInfo[DODGE_THRUST_MULT][sMCV]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][sMCV]},
-    { "DodgeInfo[DODGE_WAIT][sMCV]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][sMCV]},
-    { "DodgeInfo[DODGE_ONE_TIME][bRecon]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bRecon]},
-    { "DodgeInfo[DODGE_TWO_TIME][bRecon]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bRecon]},
-    { "DodgeInfo[DODGE_THRUST_MULT][bRecon]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bRecon]},
-    { "DodgeInfo[DODGE_WAIT][bRecon]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bRecon]},
-    { "DodgeInfo[DODGE_ONE_TIME][bAcolyte]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bAcolyte]},
-    { "DodgeInfo[DODGE_TWO_TIME][bAcolyte]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bAcolyte]},
-    { "DodgeInfo[DODGE_THRUST_MULT][bAcolyte]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bAcolyte]},
-    { "DodgeInfo[DODGE_WAIT][bAcolyte]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bAcolyte]},
-    { "DodgeInfo[DODGE_ONE_TIME][bACV]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bACV]},
-    { "DodgeInfo[DODGE_TWO_TIME][bACV]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bACV]},
-    { "DodgeInfo[DODGE_THRUST_MULT][bACV]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bACV]},
-    { "DodgeInfo[DODGE_WAIT][bACV]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bACV]},
-    { "DodgeInfo[DODGE_ONE_TIME][bAttackBomber]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bAttackBomber]},
-    { "DodgeInfo[DODGE_TWO_TIME][bAttackBomber]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bAttackBomber]},
-    { "DodgeInfo[DODGE_THRUST_MULT][bAttackBomber]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bAttackBomber]},
-    { "DodgeInfo[DODGE_WAIT][bAttackBomber]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bAttackBomber]},
-    { "DodgeInfo[DODGE_ONE_TIME][bCloakedFighter]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bCloakedFighter]},
-    { "DodgeInfo[DODGE_TWO_TIME][bCloakedFighter]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bCloakedFighter]},
-    { "DodgeInfo[DODGE_THRUST_MULT][bCloakedFighter]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bCloakedFighter]},
-    { "DodgeInfo[DODGE_WAIT][bCloakedFighter]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bCloakedFighter]},
-    { "DodgeInfo[DODGE_ONE_TIME][bHeavyCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bHeavyCorvette]},
-    { "DodgeInfo[DODGE_TWO_TIME][bHeavyCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bHeavyCorvette]},
-    { "DodgeInfo[DODGE_THRUST_MULT][bHeavyCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bHeavyCorvette]},
-    { "DodgeInfo[DODGE_WAIT][bHeavyCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bHeavyCorvette]},
-    { "DodgeInfo[DODGE_ONE_TIME][bInterceptor]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bInterceptor]},
-    { "DodgeInfo[DODGE_TWO_TIME][bInterceptor]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bInterceptor]},
-    { "DodgeInfo[DODGE_THRUST_MULT][bInterceptor]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bInterceptor]},
-    { "DodgeInfo[DODGE_WAIT][bInterceptor]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bInterceptor]},
-    { "DodgeInfo[DODGE_ONE_TIME][bMultiGunCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bMultiGunCorvette]},
-    { "DodgeInfo[DODGE_TWO_TIME][bMultiGunCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bMultiGunCorvette]},
-    { "DodgeInfo[DODGE_THRUST_MULT][bMultiGunCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bMultiGunCorvette]},
-    { "DodgeInfo[DODGE_WAIT][bMultiGunCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bMultiGunCorvette]},
-    { "DodgeInfo[DODGE_ONE_TIME][kAttackBomber]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][kAttackBomber]},
-    { "DodgeInfo[DODGE_TWO_TIME][kAttackBomber]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][kAttackBomber]},
-    { "DodgeInfo[DODGE_THRUST_MULT][kAttackBomber]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][kAttackBomber]},
-    { "DodgeInfo[DODGE_WAIT][kAttackBomber]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][kAttackBomber]},
-    { "DodgeInfo[DODGE_ONE_TIME][tAttackBomber]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][tAttackBomber]},
-    { "DodgeInfo[DODGE_TWO_TIME][tAttackBomber]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][tAttackBomber]},
-    { "DodgeInfo[DODGE_THRUST_MULT][tAttackBomber]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][tAttackBomber]},
-    { "DodgeInfo[DODGE_WAIT][tAttackBomber]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][tAttackBomber]},
-    { "DodgeInfo[DODGE_ONE_TIME][kHeavyCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][kHeavyCorvette]},
-    { "DodgeInfo[DODGE_TWO_TIME][kHeavyCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][kHeavyCorvette]},
-    { "DodgeInfo[DODGE_THRUST_MULT][kHeavyCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][kHeavyCorvette]},
-    { "DodgeInfo[DODGE_WAIT][kHeavyCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][kHeavyCorvette]},
-    { "DodgeInfo[DODGE_ONE_TIME][kHeavyDefender]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][kHeavyDefender]},
-    { "DodgeInfo[DODGE_TWO_TIME][kHeavyDefender]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][kHeavyDefender]},
-    { "DodgeInfo[DODGE_THRUST_MULT][kHeavyDefender]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][kHeavyDefender]},
-    { "DodgeInfo[DODGE_WAIT][kHeavyDefender]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][kHeavyDefender]},
-    { "DodgeInfo[DODGE_ONE_TIME][tHeavyDefender]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][tHeavyDefender]},
-    { "DodgeInfo[DODGE_TWO_TIME][tHeavyDefender]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][tHeavyDefender]},
-    { "DodgeInfo[DODGE_THRUST_MULT][tHeavyDefender]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][tHeavyDefender]},
-    { "DodgeInfo[DODGE_WAIT][tHeavyDefender]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][tHeavyDefender]},
-    { "DodgeInfo[DODGE_ONE_TIME][kHeavyInterceptor]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][kHeavyInterceptor]},
-    { "DodgeInfo[DODGE_TWO_TIME][kHeavyInterceptor]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][kHeavyInterceptor]},
-    { "DodgeInfo[DODGE_THRUST_MULT][kHeavyInterceptor]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][kHeavyInterceptor]},
-    { "DodgeInfo[DODGE_WAIT][kHeavyInterceptor]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][kHeavyInterceptor]},
-    { "DodgeInfo[DODGE_ONE_TIME][tHeavyInterceptor]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][tHeavyInterceptor]},
-    { "DodgeInfo[DODGE_TWO_TIME][tHeavyInterceptor]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][tHeavyInterceptor]},
-    { "DodgeInfo[DODGE_THRUST_MULT][tHeavyInterceptor]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][tHeavyInterceptor]},
-    { "DodgeInfo[DODGE_WAIT][tHeavyInterceptor]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][tHeavyInterceptor]},
-    { "DodgeInfo[DODGE_ONE_TIME][tMinelayerCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][tMinelayerCorvette]},
-    { "DodgeInfo[DODGE_TWO_TIME][tMinelayerCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][tMinelayerCorvette]},
-    { "DodgeInfo[DODGE_THRUST_MULT][tMinelayerCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][tMinelayerCorvette]},
-    { "DodgeInfo[DODGE_WAIT][tMinelayerCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][tMinelayerCorvette]},
-    { "DodgeInfo[DODGE_ONE_TIME][kMultiGunCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][kMultiGunCorvette]},
-    { "DodgeInfo[DODGE_TWO_TIME][kMultiGunCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][kMultiGunCorvette]},
-    { "DodgeInfo[DODGE_THRUST_MULT][kMultiGunCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][kMultiGunCorvette]},
-    { "DodgeInfo[DODGE_WAIT][kMultiGunCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][kMultiGunCorvette]},
-    { "DodgeInfo[DODGE_ONE_TIME][tMultiGunCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][tMultiGunCorvette]},
-    { "DodgeInfo[DODGE_TWO_TIME][tMultiGunCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][tMultiGunCorvette]},
-    { "DodgeInfo[DODGE_THRUST_MULT][tMultiGunCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][tMultiGunCorvette]},
-    { "DodgeInfo[DODGE_WAIT][tMultiGunCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][tMultiGunCorvette]},
-    { "DodgeInfo[DODGE_ONE_TIME][kSalCapCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][kSalCapCorvette]},
-    { "DodgeInfo[DODGE_TWO_TIME][kSalCapCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][kSalCapCorvette]},
-    { "DodgeInfo[DODGE_THRUST_MULT][kSalCapCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][kSalCapCorvette]},
-    { "DodgeInfo[DODGE_WAIT][kSalCapCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][kSalCapCorvette]},
-    { "DodgeInfo[DODGE_ONE_TIME][tSalCapCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][tSalCapCorvette]},
-    { "DodgeInfo[DODGE_TWO_TIME][tSalCapCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][tSalCapCorvette]},
-    { "DodgeInfo[DODGE_THRUST_MULT][tSalCapCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][tSalCapCorvette]},
-    { "DodgeInfo[DODGE_WAIT][tSalCapCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][tSalCapCorvette]},
-    { "DodgeInfo[DODGE_ONE_TIME][p1Fighter]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][p1Fighter]},
-    { "DodgeInfo[DODGE_TWO_TIME][p1Fighter]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][p1Fighter]},
-    { "DodgeInfo[DODGE_THRUST_MULT][p1Fighter]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][p1Fighter]},
-    { "DodgeInfo[DODGE_WAIT][p1Fighter]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][p1Fighter]},
-    { "DodgeInfo[DODGE_ONE_TIME][p1MissileCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][p1MissileCorvette]},
-    { "DodgeInfo[DODGE_TWO_TIME][p1MissileCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][p1MissileCorvette]},
-    { "DodgeInfo[DODGE_THRUST_MULT][p1MissileCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][p1MissileCorvette]},
-    { "DodgeInfo[DODGE_WAIT][p1MissileCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][p1MissileCorvette]},
-    { "DodgeInfo[DODGE_ONE_TIME][p1StandardCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][p1StandardCorvette]},
-    { "DodgeInfo[DODGE_TWO_TIME][p1StandardCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][p1StandardCorvette]},
-    { "DodgeInfo[DODGE_THRUST_MULT][p1StandardCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][p1StandardCorvette]},
-    { "DodgeInfo[DODGE_WAIT][p1StandardCorvette]",scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][p1StandardCorvette]},
-
-    { "MaxVelocityBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Evasive]},
-    { "MaxVelocityBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Neutral]},
-    { "MaxVelocityBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Aggressive]},
-
-    { "MaxVelocityBonus[NO_ORDER_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[NO_ORDER_ENEMY][Tactics_Fighter][Evasive]},
-    { "MaxVelocityBonus[NO_ORDER_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[NO_ORDER_ENEMY][Tactics_Fighter][Neutral]},
-    { "MaxVelocityBonus[NO_ORDER_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[NO_ORDER_ENEMY][Tactics_Fighter][Aggressive]},
-
-    { "MaxVelocityBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Evasive]},
-    { "MaxVelocityBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Neutral]},
-    { "MaxVelocityBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Aggressive]},
-
-    { "MaxVelocityBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Evasive]},
-    { "MaxVelocityBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Neutral]},
-    { "MaxVelocityBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Aggressive]},
-
-    { "MaxVelocityBonus[ATTACK_ORDERS][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[ATTACK_ORDERS][Tactics_Fighter][Evasive]},
-    { "MaxVelocityBonus[ATTACK_ORDERS][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[ATTACK_ORDERS][Tactics_Fighter][Neutral]},
-    { "MaxVelocityBonus[ATTACK_ORDERS][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[ATTACK_ORDERS][Tactics_Fighter][Aggressive]},
-
-    { "MaxVelocityBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Evasive]},
-    { "MaxVelocityBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Neutral]},
-    { "MaxVelocityBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Aggressive]},
-
-    { "DamageBonus[Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.DamageBonus[Tactics_Fighter][Evasive]},
-    { "DamageBonus[Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.DamageBonus[Tactics_Fighter][Neutral]},
-    { "DamageBonus[Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.DamageBonus[Tactics_Fighter][Aggressive]},
-
-    { "BulletRangeBonus[Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.BulletRangeBonus[Tactics_Fighter][Evasive]},
-    { "BulletRangeBonus[Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.BulletRangeBonus[Tactics_Fighter][Neutral]},
-    { "BulletRangeBonus[Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.BulletRangeBonus[Tactics_Fighter][Aggressive]},
-
-    { "BulletSpeedBonus[Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.BulletSpeedBonus[Tactics_Fighter][Evasive]},
-    { "BulletSpeedBonus[Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.BulletSpeedBonus[Tactics_Fighter][Neutral]},
-    { "BulletSpeedBonus[Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.BulletSpeedBonus[Tactics_Fighter][Aggressive]},
-
-    { "MaxVelocityBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Evasive]},
-    { "MaxVelocityBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Neutral]},
-    { "MaxVelocityBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "MaxVelocityBonus[NO_ORDER_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[NO_ORDER_ENEMY][Tactics_Corvette][Evasive]},
-    { "MaxVelocityBonus[NO_ORDER_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[NO_ORDER_ENEMY][Tactics_Corvette][Neutral]},
-    { "MaxVelocityBonus[NO_ORDER_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[NO_ORDER_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "MaxVelocityBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Evasive]},
-    { "MaxVelocityBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Neutral]},
-    { "MaxVelocityBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "MaxVelocityBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Evasive]},
-    { "MaxVelocityBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Neutral]},
-    { "MaxVelocityBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "MaxVelocityBonus[ATTACK_ORDERS][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[ATTACK_ORDERS][Tactics_Corvette][Evasive]},
-    { "MaxVelocityBonus[ATTACK_ORDERS][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[ATTACK_ORDERS][Tactics_Corvette][Neutral]},
-    { "MaxVelocityBonus[ATTACK_ORDERS][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[ATTACK_ORDERS][Tactics_Corvette][Aggressive]},
-
-    { "MaxVelocityBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Evasive]},
-    { "MaxVelocityBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Neutral]},
-    { "MaxVelocityBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.MaxVelocityBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "DamageBonus[Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.DamageBonus[Tactics_Corvette][Evasive]},
-    { "DamageBonus[Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.DamageBonus[Tactics_Corvette][Neutral]},
-    { "DamageBonus[Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.DamageBonus[Tactics_Corvette][Aggressive]},
-
-    { "BulletRangeBonus[Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.BulletRangeBonus[Tactics_Corvette][Evasive]},
-    { "BulletRangeBonus[Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.BulletRangeBonus[Tactics_Corvette][Neutral]},
-    { "BulletRangeBonus[Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.BulletRangeBonus[Tactics_Corvette][Aggressive]},
-
-    { "BulletSpeedBonus[Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.BulletSpeedBonus[Tactics_Corvette][Evasive]},
-    { "BulletSpeedBonus[Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.BulletSpeedBonus[Tactics_Corvette][Neutral]},
-    { "BulletSpeedBonus[Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.BulletSpeedBonus[Tactics_Corvette][Aggressive]},
-
-    { "FuelBurnBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Evasive]},
-    { "FuelBurnBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Neutral]},
-    { "FuelBurnBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "FuelBurnBonus[NO_ORDER_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[NO_ORDER_ENEMY][Tactics_Corvette][Evasive]},
-    { "FuelBurnBonus[NO_ORDER_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[NO_ORDER_ENEMY][Tactics_Corvette][Neutral]},
-    { "FuelBurnBonus[NO_ORDER_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[NO_ORDER_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "FuelBurnBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Evasive]},
-    { "FuelBurnBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Neutral]},
-    { "FuelBurnBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "FuelBurnBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Evasive]},
-    { "FuelBurnBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Neutral]},
-    { "FuelBurnBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "FuelBurnBonus[ATTACK_ORDERS][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[ATTACK_ORDERS][Tactics_Corvette][Evasive]},
-    { "FuelBurnBonus[ATTACK_ORDERS][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[ATTACK_ORDERS][Tactics_Corvette][Neutral]},
-    { "FuelBurnBonus[ATTACK_ORDERS][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[ATTACK_ORDERS][Tactics_Corvette][Aggressive]},
-
-    { "FuelBurnBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Evasive]},
-    { "FuelBurnBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Neutral]},
-    { "FuelBurnBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "FuelBurnBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Evasive]},
-    { "FuelBurnBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Neutral]},
-    { "FuelBurnBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Aggressive]},
-
-    { "FuelBurnBonus[NO_ORDER_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[NO_ORDER_ENEMY][Tactics_Fighter][Evasive]},
-    { "FuelBurnBonus[NO_ORDER_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[NO_ORDER_ENEMY][Tactics_Fighter][Neutral]},
-    { "FuelBurnBonus[NO_ORDER_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[NO_ORDER_ENEMY][Tactics_Fighter][Aggressive]},
-
-    { "FuelBurnBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Evasive]},
-    { "FuelBurnBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Neutral]},
-    { "FuelBurnBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Aggressive]},
-
-    { "FuelBurnBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Evasive]},
-    { "FuelBurnBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Neutral]},
-    { "FuelBurnBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Aggressive]},
-
-    { "FuelBurnBonus[ATTACK_ORDERS][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[ATTACK_ORDERS][Tactics_Fighter][Evasive]},
-    { "FuelBurnBonus[ATTACK_ORDERS][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[ATTACK_ORDERS][Tactics_Fighter][Neutral]},
-    { "FuelBurnBonus[ATTACK_ORDERS][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[ATTACK_ORDERS][Tactics_Fighter][Aggressive]},
-
-    { "FuelBurnBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Evasive]},
-    { "FuelBurnBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Neutral]},
-    { "FuelBurnBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.FuelBurnBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Aggressive]},
-
-
-
-    { "ManeuvBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Evasive]},
-    { "ManeuvBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Neutral]},
-    { "ManeuvBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[NO_ORDER_NO_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "ManeuvBonus[NO_ORDER_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[NO_ORDER_ENEMY][Tactics_Corvette][Evasive]},
-    { "ManeuvBonus[NO_ORDER_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[NO_ORDER_ENEMY][Tactics_Corvette][Neutral]},
-    { "ManeuvBonus[NO_ORDER_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[NO_ORDER_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "ManeuvBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Evasive]},
-    { "ManeuvBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Neutral]},
-    { "ManeuvBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "ManeuvBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Evasive]},
-    { "ManeuvBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Neutral]},
-    { "ManeuvBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[MOVE_ORDERS_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "ManeuvBonus[ATTACK_ORDERS][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[ATTACK_ORDERS][Tactics_Corvette][Evasive]},
-    { "ManeuvBonus[ATTACK_ORDERS][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[ATTACK_ORDERS][Tactics_Corvette][Neutral]},
-    { "ManeuvBonus[ATTACK_ORDERS][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[ATTACK_ORDERS][Tactics_Corvette][Aggressive]},
-
-    { "ManeuvBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Evasive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Evasive]},
-    { "ManeuvBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Neutral]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Neutral]},
-    { "ManeuvBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Aggressive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[ATTACK_ORDERS_ENEMY][Tactics_Corvette][Aggressive]},
-
-    { "ManeuvBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Evasive]},
-    { "ManeuvBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Neutral]},
-    { "ManeuvBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[NO_ORDER_NO_ENEMY][Tactics_Fighter][Aggressive]},
-
-    { "ManeuvBonus[NO_ORDER_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[NO_ORDER_ENEMY][Tactics_Fighter][Evasive]},
-    { "ManeuvBonus[NO_ORDER_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[NO_ORDER_ENEMY][Tactics_Fighter][Neutral]},
-    { "ManeuvBonus[NO_ORDER_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[NO_ORDER_ENEMY][Tactics_Fighter][Aggressive]},
-
-    { "ManeuvBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Evasive]},
-    { "ManeuvBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Neutral]},
-    { "ManeuvBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[MOVE_ORDERS_NO_ENEMY][Tactics_Fighter][Aggressive]},
-
-    { "ManeuvBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Evasive]},
-    { "ManeuvBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Neutral]},
-    { "ManeuvBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[MOVE_ORDERS_ENEMY][Tactics_Fighter][Aggressive]},
-
-    { "ManeuvBonus[ATTACK_ORDERS][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[ATTACK_ORDERS][Tactics_Fighter][Evasive]},
-    { "ManeuvBonus[ATTACK_ORDERS][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[ATTACK_ORDERS][Tactics_Fighter][Neutral]},
-    { "ManeuvBonus[ATTACK_ORDERS][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[ATTACK_ORDERS][Tactics_Fighter][Aggressive]},
-
-    { "ManeuvBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Evasive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Evasive]},
-    { "ManeuvBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Neutral]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Neutral]},
-    { "ManeuvBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Aggressive]", scriptSetReal32CB, &tacticsInfo.ManeuvBonus[ATTACK_ORDERS_ENEMY][Tactics_Fighter][Aggressive]},
+    { "RetreatGetAwayDistance[CLASS_Mothership]", scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Mothership]},
+    { "RetreatGetAwayDistance[CLASS_HeavyCruiser]", scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_HeavyCruiser]},
+    { "RetreatGetAwayDistance[CLASS_Carrier]", scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Carrier]},
+    { "RetreatGetAwayDistance[CLASS_Destroyer]", scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Destroyer]},
+    { "RetreatGetAwayDistance[CLASS_Frigate]", scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Frigate]},
+    { "RetreatGetAwayDistance[CLASS_Corvette]", scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Corvette]},
+    { "RetreatGetAwayDistance[CLASS_Fighter]", scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Fighter]},
+    { "RetreatGetAwayDistance[CLASS_Resource]", scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Resource]},
+    { "RetreatGetAwayDistance[CLASS_NonCombat]", scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_NonCombat]},
+    { "RetreatGetAwayDistance[CLASS_MonsterShip]", scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Corvette]},     // CAT: the exe's row points at [CLASS_Corvette] (0x00c523c4)
+    { "RetreatGetAwayDistance[CLASS_Component]", scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Component]},
+    { "RetreatGetAwayDistance[CLASS_Micro]", scriptSetReal32SqrCB, &tacticsInfo.RetreatGetAwayDistSqr[CLASS_Micro]},
+    { "freeRetreatTime", scriptSetReal32CB, &tacticsInfo.freeRetreatTime},
+    { "AttackMemoryTimeOut", scriptSetReal32CB, &tacticsInfo.AttackMemoryTimeOut},
+    { "formationPadding[LooseFormation]", scriptSetReal32CB, &tacticsInfo.formationPadding[LooseFormation]},
+    { "formationPadding[TightFormation]", scriptSetReal32CB, &tacticsInfo.formationPadding[TightFormation]},
+    { "InterceptorVerticalMultiplier", scriptSetReal32CB, &tacticsInfo.InterceptorVerticalMultiplier},
+    { "DodgeLowAddTime", scriptSetReal32CB, &tacticsInfo.DodgeLowAddTime},
+    { "DodgeHighAddTime", scriptSetReal32CB, &tacticsInfo.DodgeHighAddTime},
+    { "DodgeInfo[DODGE_ONE_TIME][sRecon]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][sRecon]},
+    { "DodgeInfo[DODGE_TWO_TIME][sRecon]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][sRecon]},
+    { "DodgeInfo[DODGE_THRUST_MULT][sRecon]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][sRecon]},
+    { "DodgeInfo[DODGE_WAIT][sRecon]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][sRecon]},
+    { "DodgeInfo[DODGE_ONE_TIME][sAcolyte]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][sAcolyte]},
+    { "DodgeInfo[DODGE_TWO_TIME][sAcolyte]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][sAcolyte]},
+    { "DodgeInfo[DODGE_THRUST_MULT][sAcolyte]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][sAcolyte]},
+    { "DodgeInfo[DODGE_WAIT][sAcolyte]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][sAcolyte]},
+    { "DodgeInfo[DODGE_ONE_TIME][sMimic]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][sMimic]},
+    { "DodgeInfo[DODGE_TWO_TIME][sMimic]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][sMimic]},
+    { "DodgeInfo[DODGE_THRUST_MULT][sMimic]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][sMimic]},
+    { "DodgeInfo[DODGE_WAIT][sMimic]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][sMimic]},
+    { "DodgeInfo[DODGE_ONE_TIME][sLeech]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][sLeech]},
+    { "DodgeInfo[DODGE_TWO_TIME][sLeech]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][sLeech]},
+    { "DodgeInfo[DODGE_THRUST_MULT][sLeech]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][sLeech]},
+    { "DodgeInfo[DODGE_WAIT][sLeech]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][sLeech]},
+    { "DodgeInfo[DODGE_ONE_TIME][sACV]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][sACV]},
+    { "DodgeInfo[DODGE_TWO_TIME][sACV]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][sACV]},
+    { "DodgeInfo[DODGE_THRUST_MULT][sACV]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][sACV]},
+    { "DodgeInfo[DODGE_WAIT][sACV]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][sACV]},
+    { "DodgeInfo[DODGE_ONE_TIME][sMCV]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][sMCV]},
+    { "DodgeInfo[DODGE_TWO_TIME][sMCV]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][sMCV]},
+    { "DodgeInfo[DODGE_THRUST_MULT][sMCV]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][sMCV]},
+    { "DodgeInfo[DODGE_WAIT][sMCV]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][sMCV]},
+    { "DodgeInfo[DODGE_ONE_TIME][bRecon]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bRecon]},
+    { "DodgeInfo[DODGE_TWO_TIME][bRecon]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bRecon]},
+    { "DodgeInfo[DODGE_THRUST_MULT][bRecon]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bRecon]},
+    { "DodgeInfo[DODGE_WAIT][bRecon]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bRecon]},
+    { "DodgeInfo[DODGE_ONE_TIME][bAcolyte]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bAcolyte]},
+    { "DodgeInfo[DODGE_TWO_TIME][bAcolyte]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bAcolyte]},
+    { "DodgeInfo[DODGE_THRUST_MULT][bAcolyte]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bAcolyte]},
+    { "DodgeInfo[DODGE_WAIT][bAcolyte]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bAcolyte]},
+    { "DodgeInfo[DODGE_ONE_TIME][bACV]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bACV]},
+    { "DodgeInfo[DODGE_TWO_TIME][bACV]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bACV]},
+    { "DodgeInfo[DODGE_THRUST_MULT][bACV]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bACV]},
+    { "DodgeInfo[DODGE_WAIT][bACV]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bACV]},
+    { "DodgeInfo[DODGE_ONE_TIME][bAttackBomber]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bAttackBomber]},
+    { "DodgeInfo[DODGE_TWO_TIME][bAttackBomber]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bAttackBomber]},
+    { "DodgeInfo[DODGE_THRUST_MULT][bAttackBomber]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bAttackBomber]},
+    { "DodgeInfo[DODGE_WAIT][bAttackBomber]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bAttackBomber]},
+    { "DodgeInfo[DODGE_ONE_TIME][bCloakedFighter]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bCloakedFighter]},
+    { "DodgeInfo[DODGE_TWO_TIME][bCloakedFighter]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bCloakedFighter]},
+    { "DodgeInfo[DODGE_THRUST_MULT][bCloakedFighter]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bCloakedFighter]},
+    { "DodgeInfo[DODGE_WAIT][bCloakedFighter]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bCloakedFighter]},
+    { "DodgeInfo[DODGE_ONE_TIME][bHeavyCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bHeavyCorvette]},
+    { "DodgeInfo[DODGE_TWO_TIME][bHeavyCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bHeavyCorvette]},
+    { "DodgeInfo[DODGE_THRUST_MULT][bHeavyCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bHeavyCorvette]},
+    { "DodgeInfo[DODGE_WAIT][bHeavyCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bHeavyCorvette]},
+    { "DodgeInfo[DODGE_ONE_TIME][bInterceptor]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bInterceptor]},
+    { "DodgeInfo[DODGE_TWO_TIME][bInterceptor]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bInterceptor]},
+    { "DodgeInfo[DODGE_THRUST_MULT][bInterceptor]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bInterceptor]},
+    { "DodgeInfo[DODGE_WAIT][bInterceptor]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bInterceptor]},
+    { "DodgeInfo[DODGE_ONE_TIME][bMultiGunCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][bMultiGunCorvette]},
+    { "DodgeInfo[DODGE_TWO_TIME][bMultiGunCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][bMultiGunCorvette]},
+    { "DodgeInfo[DODGE_THRUST_MULT][bMultiGunCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][bMultiGunCorvette]},
+    { "DodgeInfo[DODGE_WAIT][bMultiGunCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][bMultiGunCorvette]},
+    { "DodgeInfo[DODGE_ONE_TIME][kAttackBomber]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][kAttackBomber]},
+    { "DodgeInfo[DODGE_TWO_TIME][kAttackBomber]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][kAttackBomber]},
+    { "DodgeInfo[DODGE_THRUST_MULT][kAttackBomber]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][kAttackBomber]},
+    { "DodgeInfo[DODGE_WAIT][kAttackBomber]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][kAttackBomber]},
+    { "DodgeInfo[DODGE_ONE_TIME][tAttackBomber]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][tAttackBomber]},
+    { "DodgeInfo[DODGE_TWO_TIME][tAttackBomber]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][tAttackBomber]},
+    { "DodgeInfo[DODGE_THRUST_MULT][tAttackBomber]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][tAttackBomber]},
+    { "DodgeInfo[DODGE_WAIT][tAttackBomber]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][tAttackBomber]},
+    { "DodgeInfo[DODGE_ONE_TIME][kHeavyCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][kHeavyCorvette]},
+    { "DodgeInfo[DODGE_TWO_TIME][kHeavyCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][kHeavyCorvette]},
+    { "DodgeInfo[DODGE_THRUST_MULT][kHeavyCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][kHeavyCorvette]},
+    { "DodgeInfo[DODGE_WAIT][kHeavyCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][kHeavyCorvette]},
+    { "DodgeInfo[DODGE_ONE_TIME][kHeavyDefender]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][kHeavyDefender]},
+    { "DodgeInfo[DODGE_TWO_TIME][kHeavyDefender]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][kHeavyDefender]},
+    { "DodgeInfo[DODGE_THRUST_MULT][kHeavyDefender]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][kHeavyDefender]},
+    { "DodgeInfo[DODGE_WAIT][kHeavyDefender]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][kHeavyDefender]},
+    { "DodgeInfo[DODGE_ONE_TIME][tHeavyDefender]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][tHeavyDefender]},
+    { "DodgeInfo[DODGE_TWO_TIME][tHeavyDefender]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][tHeavyDefender]},
+    { "DodgeInfo[DODGE_THRUST_MULT][tHeavyDefender]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][tHeavyDefender]},
+    { "DodgeInfo[DODGE_WAIT][tHeavyDefender]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][tHeavyDefender]},
+    { "DodgeInfo[DODGE_ONE_TIME][kHeavyInterceptor]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][kHeavyInterceptor]},
+    { "DodgeInfo[DODGE_TWO_TIME][kHeavyInterceptor]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][kHeavyInterceptor]},
+    { "DodgeInfo[DODGE_THRUST_MULT][kHeavyInterceptor]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][kHeavyInterceptor]},
+    { "DodgeInfo[DODGE_WAIT][kHeavyInterceptor]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][kHeavyInterceptor]},
+    { "DodgeInfo[DODGE_ONE_TIME][tHeavyInterceptor]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][tHeavyInterceptor]},
+    { "DodgeInfo[DODGE_TWO_TIME][tHeavyInterceptor]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][tHeavyInterceptor]},
+    { "DodgeInfo[DODGE_THRUST_MULT][tHeavyInterceptor]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][tHeavyInterceptor]},
+    { "DodgeInfo[DODGE_WAIT][tHeavyInterceptor]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][tHeavyInterceptor]},
+    { "DodgeInfo[DODGE_ONE_TIME][tMinelayerCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][tMinelayerCorvette]},
+    { "DodgeInfo[DODGE_TWO_TIME][tMinelayerCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][tMinelayerCorvette]},
+    { "DodgeInfo[DODGE_THRUST_MULT][tMinelayerCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][tMinelayerCorvette]},
+    { "DodgeInfo[DODGE_WAIT][tMinelayerCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][tMinelayerCorvette]},
+    { "DodgeInfo[DODGE_ONE_TIME][kMultiGunCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][kMultiGunCorvette]},
+    { "DodgeInfo[DODGE_TWO_TIME][kMultiGunCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][kMultiGunCorvette]},
+    { "DodgeInfo[DODGE_THRUST_MULT][kMultiGunCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][kMultiGunCorvette]},
+    { "DodgeInfo[DODGE_WAIT][kMultiGunCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][kMultiGunCorvette]},
+    { "DodgeInfo[DODGE_ONE_TIME][tMultiGunCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][tMultiGunCorvette]},
+    { "DodgeInfo[DODGE_TWO_TIME][tMultiGunCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][tMultiGunCorvette]},
+    { "DodgeInfo[DODGE_THRUST_MULT][tMultiGunCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][tMultiGunCorvette]},
+    { "DodgeInfo[DODGE_WAIT][tMultiGunCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][tMultiGunCorvette]},
+    { "DodgeInfo[DODGE_ONE_TIME][kSalCapCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][kSalCapCorvette]},
+    { "DodgeInfo[DODGE_TWO_TIME][kSalCapCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][kSalCapCorvette]},
+    { "DodgeInfo[DODGE_THRUST_MULT][kSalCapCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][kSalCapCorvette]},
+    { "DodgeInfo[DODGE_WAIT][kSalCapCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][kSalCapCorvette]},
+    { "DodgeInfo[DODGE_ONE_TIME][tSalCapCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][tSalCapCorvette]},
+    { "DodgeInfo[DODGE_TWO_TIME][tSalCapCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][tSalCapCorvette]},
+    { "DodgeInfo[DODGE_THRUST_MULT][tSalCapCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][tSalCapCorvette]},
+    { "DodgeInfo[DODGE_WAIT][tSalCapCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][tSalCapCorvette]},
+    { "DodgeInfo[DODGE_ONE_TIME][p1Fighter]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][p1Fighter]},
+    { "DodgeInfo[DODGE_TWO_TIME][p1Fighter]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][p1Fighter]},
+    { "DodgeInfo[DODGE_THRUST_MULT][p1Fighter]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][p1Fighter]},
+    { "DodgeInfo[DODGE_WAIT][p1Fighter]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][p1Fighter]},
+    { "DodgeInfo[DODGE_ONE_TIME][p1MissileCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][p1MissileCorvette]},
+    { "DodgeInfo[DODGE_TWO_TIME][p1MissileCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][p1MissileCorvette]},
+    { "DodgeInfo[DODGE_THRUST_MULT][p1MissileCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][p1MissileCorvette]},
+    { "DodgeInfo[DODGE_WAIT][p1MissileCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][p1MissileCorvette]},
+    { "DodgeInfo[DODGE_ONE_TIME][p1StandardCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_ONE_TIME][p1StandardCorvette]},
+    { "DodgeInfo[DODGE_TWO_TIME][p1StandardCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_TWO_TIME][p1StandardCorvette]},
+    { "DodgeInfo[DODGE_THRUST_MULT][p1StandardCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][p1StandardCorvette]},
+    { "DodgeInfo[DODGE_WAIT][p1StandardCorvette]", scriptSetReal32CB, &tacticsInfo.DodgeInfo[DODGE_WAIT][p1StandardCorvette]},
     { "tacticsGuardReturnToGuardingDistance", scriptSetReal32CB, &tacticsInfo.tacticsGuardReturnToGuardingDistance},
     { "tacticsGuardConditionCheckRate", scriptSetReal32CB, &tacticsInfo.tacticsGuardConditionCheckRate},
     { "tacticsGuardConditionCheckFrame", scriptSetReal32CB, &tacticsInfo.tacticsGuardConditionCheckFrame},
-
-    // CAT: kamikaze damage keyed by Cataclysm type (TacticsInfotable rows 0x008a8754..0x008a88a4)
     { "kamikazeDamage[sRecon]", scriptSetReal32CB, &kamikazeDamage[sRecon]},
     { "kamikazeDamage[sAcolyte]", scriptSetReal32CB, &kamikazeDamage[sAcolyte]},
     { "kamikazeDamage[sMimic]", scriptSetReal32CB, &kamikazeDamage[sMimic]},
@@ -465,114 +252,55 @@ scriptEntry TacticsInfotable[] =
     { "kamikazeDamage[tResourceCollector]", scriptSetReal32CB, &kamikazeDamage[tResourceCollector]},
     { "kamikazeDamage[tSalCapCorvette]", scriptSetReal32CB, &kamikazeDamage[tSalCapCorvette]},
     { "kamikazeDamage[p1Fighter]", scriptSetReal32CB, &kamikazeDamage[p1Fighter]},
-
-    { "kamikazeSpeedBurst", scriptSetReal32CB, &kamikazeSpeedBurst},
-    { "kamikazeFuelBurnMult", scriptSetReal32CB, &kamikazeFuelBurnMult},
-    { "speedBurstMaxVelocityMultiplier", scriptSetReal32CB, &speedBurstMaxVelocityMultiplier},
-    { "speedBurstThrustMult", scriptSetReal32CB, &speedBurstThrustMult},
-    { "speedBurstDuration", scriptSetReal32CB, &speedBurstDuration},
-    { "speedBurstFuelBurnMult", scriptSetReal32CB, &speedBurstFuelBurnMult},
-    { "speedBurstCoolDown", scriptSetReal32CB, &speedBurstCoolDown},
-
-    { "burstRange", scriptSetReal32CB, &burstRange},
-    { "burstChargeTime", scriptSetReal32CB, &burstChargeTime},
-    { "burstCoolDownTime", scriptSetReal32CB, &burstCoolDownTime},
-
-    { "burstDamageLo[R1]", scriptSetReal32CB, &burstDamageLo[R1]},
-    { "burstDamageHi[R1]", scriptSetReal32CB, &burstDamageHi[R1]},
-    { "burstDamageLo[R2]", scriptSetReal32CB, &burstDamageLo[R2]},
-    { "burstDamageHi[R2]", scriptSetReal32CB, &burstDamageHi[R2]},
-    { "burstSpeed", scriptSetReal32CB, &burstSpeed},
-    { "burstRadius", scriptSetReal32CB, &burstRadius},
-
-    { "holdFormationDuringBattle[Evasive]", scriptSetSdwordCB, &tacticsInfo.holdFormationDuringBattle[Evasive]},
-    { "holdFormationDuringBattle[Neutral]", scriptSetSdwordCB, &tacticsInfo.holdFormationDuringBattle[Neutral]},
-    { "holdFormationDuringBattle[Aggressive]", scriptSetSdwordCB, &tacticsInfo.holdFormationDuringBattle[Aggressive]},
-
-    { "tacticsBurstFireTimeModifier[Evasive]", scriptSetReal32CB, &tacticsInfo.tacticsBurstFireTimeModifier[Evasive]},
-    { "tacticsBurstFireTimeModifier[Neutral]", scriptSetReal32CB, &tacticsInfo.tacticsBurstFireTimeModifier[Neutral]},
-    { "tacticsBurstFireTimeModifier[Aggressive]", scriptSetReal32CB, &tacticsInfo.tacticsBurstFireTimeModifier[Aggressive]},
-    { "tacticsBurstWaitTimeModifier[Evasive]", scriptSetReal32CB, &tacticsInfo.tacticsBurstWaitTimeModifier[Evasive]},
-    { "tacticsBurstWaitTimeModifier[Neutral]", scriptSetReal32CB, &tacticsInfo.tacticsBurstWaitTimeModifier[Neutral]},
-    { "tacticsBurstWaitTimeModifier[Aggressive]", scriptSetReal32CB, &tacticsInfo.tacticsBurstWaitTimeModifier[Aggressive]},
-    { "tacticsBurstFireTimeSphereModifier", scriptSetReal32CB, &tacticsInfo.tacticsBurstFireTimeSphereModifier},
-    { "tacticsBurstWaitTimeSphereModifier", scriptSetReal32CB, &tacticsInfo.tacticsBurstWaitTimeSphereModifier},
-    { "tacticsBurstFireTimeWingmanModifier", scriptSetReal32CB, &tacticsInfo.tacticsBurstFireTimeWingmanModifier},
-    { "tacticsBurstWaitTimeWingmanModifier", scriptSetReal32CB, &tacticsInfo.tacticsBurstWaitTimeWingmanModifier},
-
-    { "tacticsDamageMultiplierInFormation", scriptSetReal32CB, &tacticsInfo.tacticsDamageMultiplierInFormation},
-    { "tacticsDamageMultiplierInSphereFormation", scriptSetReal32CB, &tacticsInfo.tacticsDamageMultiplierInSphereFormation},
+    makeEntry(kamikazeSpeedBurst,scriptSetReal32CB),
+    makeEntry(burstRange,scriptSetReal32CB),
+    makeEntry(burstChargeTime,scriptSetReal32CB),
+    makeEntry(burstCoolDownTime,scriptSetReal32CB),
+    { "burstDamageLo[RACE_SECT]", scriptSetReal32CB, &burstDamageLo[RACE_Sect]},
+    { "burstDamageHi[RACE_SECT]", scriptSetReal32CB, &burstDamageHi[RACE_Sect]},
+    { "burstDamageLo[RACE_BEAST]", scriptSetReal32CB, &burstDamageLo[RACE_Beast]},
+    { "burstDamageHi[RACE_BEAST]", scriptSetReal32CB, &burstDamageHi[RACE_Beast]},
+    { "burstDamageLo[RACE_KUSHAN]", scriptSetReal32CB, &burstDamageLo[RACE_Kushan]},
+    { "burstDamageHi[RACE_KUSHAN]", scriptSetReal32CB, &burstDamageHi[RACE_Kushan]},
+    { "burstDamageLo[RACE_TAIDAN]", scriptSetReal32CB, &burstDamageLo[RACE_Taiidan]},
+    { "burstDamageHi[RACE_TAIDAN]", scriptSetReal32CB, &burstDamageHi[RACE_Taiidan]},
+    makeEntry(burstSpeed,scriptSetReal32CB),
+    makeEntry(burstRadius,scriptSetReal32CB),
+    { "holdFormationDuringBattle[Evasive]", scriptSetUdwordCB, &tacticsInfo.holdFormationDuringBattle[Evasive]},
+    { "holdFormationDuringBattle[Neutral]", scriptSetUdwordCB, &tacticsInfo.holdFormationDuringBattle[Neutral]},
+    { "holdFormationDuringBattle[Aggressive]", scriptSetUdwordCB, &tacticsInfo.holdFormationDuringBattle[Aggressive]},
     { "movingAttackTurnsIntoMoveCommandDistance", scriptSetReal32SqrCB, &tacticsInfo.movingAttackTurnsIntoMoveCommandDistanceSqr},
-
-    { "tacticsDamageModifierRed", scriptSetReal32CB, &tacticsInfo.tacticsDamageModifierRed},
-    { "tacticsDamageModifierYellow", scriptSetReal32CB, &tacticsInfo.tacticsDamageModifierYellow},
-
-    makeEntry(OUT_OF_FUEL_VELOCITY_SLOWDOWN,scriptSetReal32CB),
     makeEntry(IONCANNON_TARGETS_FIGHTER_ANGLE,scriptSetCosAngCB),
     makeEntry(IONCANNON_TARGETS_CORVETTE_ANGLE,scriptSetCosAngCB),
     makeEntry(IONCANNON_TARGETS_FIGHTER_TRIGGERHAPPY,scriptSetCosAngCB),
     makeEntry(IONCANNON_TARGETS_CORVETTE_TRIGGERHAPPY,scriptSetCosAngCB),
     makeEntry(IONCANNON_TARGETS_FIGHTER_MAXANGLESPEED,scriptSetAngCB),
     makeEntry(IONCANNON_TARGETS_CORVETTE_MAXANGLESPEED,scriptSetAngCB),
-
     makeEntry(GLOBAL_SHIP_SPEED_MODIFIER,scriptSetReal32CB),
-
     makeEntry(DELAY_FORMTIGHTNESS_CHANGE,scriptSetReal32CB),
 
     END_SCRIPT_ENTRY
 };
 
+// CAT: tacticsStartUp 0x005290b0: EnemyNearZone and the dodge table are zeroed and the two formation paddings set to
+//      1 before Tactics.script is read (HW1's bonus tables, menu and retreat list are gone)
 void tacticsStartUp()
 {
-    sdword x,y,z;
-    tacticsInfo.MenuFeedBack_X = 0;
-    tacticsInfo.MenuFeedBack_Y = 0;
+    sdword x,y;
+
     tacticsInfo.EnemyNearZone = 0;
-    for(x=0;x< NUM_TACTICS_SITUATIONS;x++)
-        for(y=0;y< NUM_TACTICS_APPLICABLE;y++)
-            for(z=0;z< NUM_TACTICS_TYPES;z++)
-                  tacticsInfo.MaxVelocityBonus[x][y][z] = 1.0f;
-
-    for(x=0;x< NUM_TACTICS_SITUATIONS;x++)
-        for(y=0;y< NUM_TACTICS_APPLICABLE;y++)
-            for(z=0;z< NUM_TACTICS_TYPES;z++)
-                  tacticsInfo.FuelBurnBonus[x][y][z] = 1.0f;
-
-    for(x=0;x< NUM_TACTICS_SITUATIONS;x++)
-        for(y=0;y< NUM_TACTICS_APPLICABLE;y++)
-            for(z=0;z< NUM_TACTICS_TYPES;z++)
-                  tacticsInfo.ManeuvBonus[x][y][z] = 1.0f;
-
     for(x=0;x< NUM_DODGE_INFO;x++)
         for(y=0;y< TOTAL_NUM_SHIPS;y++)
            tacticsInfo.DodgeInfo[x][y] = 0.0f;
 
-
-    for(x=0;x< NUM_FORMATION_PADDINGS;x++)
-        tacticsInfo.formationPadding[x] = 1.0f;
-
-
-    for(x=0;x< NUM_TACTICS_APPLICABLE;x++)
-        for(y=0;y< NUM_TACTICS_TYPES;y++)
-        {
-            tacticsInfo.DamageBonus[x][y] = 1.0f;
-            tacticsInfo.BulletRangeBonus[x][y] = 1.0f;
-            tacticsInfo.BulletSpeedBonus[x][y] = 1.0f;
-        }
-#ifdef DEBUG_TACTICS
-    if(!tacticsOn)
-        return;
-#endif
-
+    tacticsInfo.formationPadding[TightFormation] = 1.0f;
+    tacticsInfo.formationPadding[LooseFormation] = 1.0f;
 
     scriptSet(NULL,"Tactics.script",TacticsInfotable);
 
     //precalculate certain variables
     tacticsInfo.tacticsGuardReturnToGuardingDistanceSqr = tacticsInfo.tacticsGuardReturnToGuardingDistance*tacticsInfo.tacticsGuardReturnToGuardingDistance;
     oneOverburstSpeed = 1.0f/burstSpeed;
-    tacticsFlashMenuBaby = NULL;
-    tacticsMenuRegion = NULL;
-    listInit(&cat_hw1RetreatList);
     listInit(&universe.AttackMemory);
 }
 
@@ -581,694 +309,14 @@ void tacticsShutDown()
     // CAT (tacticsShutDown 0x00529120): the attack memory is deleted, nothing else (no menu baby, no menu region)
     listDeleteAll(&universe.AttackMemory);
 }
-extern regionhandle ghMainRegion;
 
-bool32 tacticsDeleteMenu(udword num, void *data, struct BabyCallBack *baby)
-{
-#ifdef DEBUG_TACTICS
-    dbgAssertOrIgnore(tacticsOn);
-#endif
-
-    if(tacticsMenuRegion != NULL)
-    {
-        //only remove menu if it is up...
-        feMenuDisappear(NULL,NULL);
-    }
-    tacticsFlashMenuBaby = NULL;
-    return(TRUE);
-}
+// CAT-DORMANT: the exe has no tacticsPopUpSetUp (HW1's "Group_Tactics_submenu" flash). Its callers, the tactics keys
+//      of mainrgn.c, are stage 3's (the exe's cat_mrSetTactics 0x00565c30 / cat_mrTacticsCycle 0x00566860); until
+//      then the keys set the tactics without a popup, as no exe path shows that menu.
 void tacticsPopUpSetUp(TacticsType tacticstype)
 {
-    fescreen *TacticsScreen = feScreenFind("Group_Tactics_submenu");
-    regionhandle regionptr;
-    featom *babyspice, *atom;
-    sdword index;
-
-#ifdef DEBUG_TACTICS
-    if(!tacticsOn) return;
-#endif
-
-    if(TacticsScreen == NULL)
-    {
-        dbgFatalf(DBG_Loc, "\nCouldn't find menu item for tactics craptics");
-    }
-    //set the correct checked bit for tactics
-    for (index = 0; index < TacticsScreen->nAtoms; index++)
-    {                                                       //clear all atoms of the selected bit
-        bitClear(TacticsScreen->atoms[index].status, FAS_Checked);
-    }
-    atom = feAtomFindInScreen(TacticsScreen, mrMenuItemByTactic[tacticstype]);
-    dbgAssertOrIgnore(atom != NULL);
-    bitSet(atom->status, FAS_Checked);
-
-    if(tacticsFlashMenuBaby != NULL)
-    {
-        taskCallBackRemove(tacticsFlashMenuBaby);
-        if(tacticsMenuRegion != NULL)
-        {
-            feMenuDisappear(NULL,NULL);
-            tacticsMenuRegion = NULL;
-        }
-        tacticsFlashMenuBaby = NULL;
-    }
-    //store this pointer to set another pointer to delete it later...:)
-    tacticsMenuRegion = feMenuStart(ghMainRegion,TacticsScreen, mouseCursorX(), mouseCursorY());
-
-    //disable proccessing functions
-    regionptr = tacticsMenuRegion->child;
-    while(regionptr != NULL)
-    {
-        babyspice = (featom *) regionptr->userID;
-        regionptr->processFunction = &regNULLProcessFunction;
-        regionptr = regionptr->next;
-    }
-    tacticsFlashMenuBaby = taskCallBackRegister(tacticsDeleteMenu, 0, NULL, tacticsInfo.menuPopupTime);
-/*
-    switch(tacticstype)
-    {
-    case Evasive:
-
-        break;
-    case Neutral:
-        break;
-    case Aggressive:
-        break;
-    default:
-        dbgAssertOrIgnore(FALSE);
-    }
-*/
+    (void)tacticstype;
 }
-
-/*********************************************************************************************/
-//  tacticsSetSelectionToTactics(SelectCommand *selection,sdword order_type)
-//
-//  Changes selections tactics_order type to order_type
-/********************************************************************************************/
-
-void tacticsSetSelectionToTactics(SelectCommand *selection,udword orderFlag)
-{
-    sdword i;
-
-    switch(orderFlag)
-    {
-    case ORDER_TYPE_MOVE_ORDERS:
-        break;
-
-    }
-    for(i=0;i<selection->numShips;i++)
-    {
-        selection->ShipPtr[i]->tactics_ordertype = orderFlag;
-    }
-}
-
-void tacticsSetShipToDoDodge(Ship *ship)
-{
-#ifdef DEBUG_TACTICS
-    dbgAssertOrIgnore(tacticsOn);
-#endif
-
-    if(tacticsShipCanDodge(ship))
-    {
-        CommandToDo *command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
-        if (command != NULL)
-        {
-            if(ship->shiptype == SalCapCorvette)
-            {
-                {
-                    if(command->ordertype.order == COMMAND_SPECIAL ||
-                       command->ordertype.order == COMMAND_DOCK)
-                    {
-                        //don't let salcap dodge if this is the case
-                        return;
-                    }
-                }
-            }
-        }
-        if(ship->shipOrDerelict.dockingship != NULL)
-        {
-            //don't dock if in this stage of docking!
-            return;
-        }
-        if (ship->header.flags & SOF_Cloaked)
-        {
-            return;     // cloaked ships don't dodge!
-        }
-
-        if (ship->shipOrDerelict.specialFlags & SPECIAL_Kamikaze)
-        {
-            return;     // kamikaze ships don't dodge!
-        }
-
-        if(ship->tacticstype != Evasive)
-        {
-            CommandToDo *command=getShipAndItsCommand(&universe.mainCommandLayer,ship);
-            if(ship->shiptype != HeavyDefender)
-            {
-                if(command != NULL)
-                {
-                    if(command->ordertype.attributes & COMMAND_MASK_FORMATION)
-                    {
-                        //ship is in sphere..but is the sphere formed?
-                        if(command->formation.formationtype == SPHERE_FORMATION)
-                        {
-                            //as long as we aren't evassive, we shouldn't dodge
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-        if(ship->isDodging == TRUE)
-        {
-            return;
-        }
-        else
-        {
-            //ship isn't currently dodging
-            if(universe.totaltimeelapsed < ship->DodgeTime)
-                return; //ship hasn't cooled down from dodge yet
-        }
-
-        if(ship->flightman != FLIGHTMAN_NULL)
-        {
-            //ship is performing a flightmaneuver...don't dodge
-            if(ship->flightman != FLIGHTMAN_BARREL_ROLL)
-               return;
-        }
-        ship->isDodging = TRUE;
-        ship->DodgeTime = universe.totaltimeelapsed + tacticsInfo.DodgeInfo[DODGE_ONE_TIME][ship->staticinfo->shiptype];
-        ship->DodgeDir = (uword) randombetween(0,TRANS_LEFT);
-        ship->DodgeFlag = 0;
-    }
-}
-
-void tacticsDoDodge(Ship *ship)
-{
-#ifdef DEBUG_TACTICS
-    dbgAssertOrIgnore(tacticsOn);
-#endif
-
-    physApplyForceToObj(&ship->obj,ship->staticinfo->guidance.thruststrengthstat[ship->DodgeDir]*tacticsInfo.DodgeInfo[DODGE_THRUST_MULT][ship->staticinfo->shiptype],ship->DodgeDir);
-    if(universe.totaltimeelapsed > ship->DodgeTime)
-    {
-        //dodge time elapsed...stop dodging
-        if(ship->DodgeFlag == 1)
-        {
-            ship->isDodging = FALSE;
-            ship->DodgeTime = universe.totaltimeelapsed + tacticsInfo.DodgeInfo[DODGE_WAIT][ship->staticinfo->shiptype]+frandombetween(tacticsInfo.DodgeLowAddTime,tacticsInfo.DodgeHighAddTime);
-            return;
-        }
-        switch(ship->DodgeDir)
-        {                                //toggle dodge direction to oposite way
-        case TRANS_UP:
-            ship->DodgeDir = TRANS_DOWN;
-            break;
-        case TRANS_DOWN:
-            ship->DodgeDir = TRANS_UP;
-            break;
-        case TRANS_RIGHT:
-            ship->DodgeDir = TRANS_LEFT;
-            break;
-        case TRANS_LEFT:
-            ship->DodgeDir = TRANS_RIGHT;
-            break;
-        case TRANS_FORWARD:
-            ship->DodgeDir = TRANS_BACKWARD;
-            break;
-        case TRANS_BACKWARD:
-            ship->DodgeDir = TRANS_FORWARD;
-            break;
-        }
-        ship->DodgeTime = universe.totaltimeelapsed + tacticsInfo.DodgeInfo[DODGE_TWO_TIME][ship->staticinfo->shiptype];
-        ship->DodgeFlag = 1;
-    }
-}
-
-bool32 tacticsShipCanDodge(Ship *ship)
-{
-#ifdef DEBUG_TACTICS
-    dbgAssertOrIgnore(tacticsOn);
-#endif
-    if(tacticsInfo.DodgeInfo[DODGE_ONE_TIME][ship->staticinfo->shiptype] == 0.0f)
-    {
-        //ship has dodging turned off
-        return FALSE;
-    }
-
-    if(ship->staticinfo->maxfuel != 0.0f)
-    {
-        //ship has fuel///lkets check it
-        if(ship->fuel <= 0.0f)
-        {
-            //out of fuel...can't dodge
-            return FALSE;
-        }
-    }
-    return(tacticsShipIsAffectedByTactics(ship));
-}
-
-bool32 tacticsShipIsAffectedByTactics(Ship *ship)
-{
-#ifdef DEBUG_TACTICS
-    dbgAssertOrIgnore(tacticsOn);
-#endif
-
-    if(ship->staticinfo->shipclass == CLASS_Fighter ||
-        ship->staticinfo->shipclass == CLASS_Corvette)
-    {
-        return(TRUE);
-    }
-    return(FALSE);
-}
-/*******************************************************************************************
-sdword tacticsGetFormationOptimalState(SelectCommand *selection);
-    returns a type (formationLoose or formationTight) depending on rules for formation formation :)
-    if any agressive pressent, go tight.  That way slowest setting will not screw up formation
-**********************************************************************************************/
-
-sdword tacticsGetFormationOptimalState(SelectCommand *selection)
-{
-    sdword i;
-    //sdword cA,cN,cE;    //counters for different tactics settings in formation
-
-    TacticsType grouptactics = selection->ShipPtr[0]->tacticstype;
-
-#ifdef DEBUG_TACTICS
-    dbgAssertOrIgnore(tacticsOn);
-#endif
-
-    //base formation on leaders tactical settings
-    if(grouptactics != Aggressive)
-    {
-        //check ships for evvasive and neutral settings
-        for(i=0;i<selection->numShips;i++)
-        {
-            //if non-strike craft in formation, maintain tight formation
-            if(!tacticsShipIsAffectedByTactics(selection->ShipPtr[i]))
-                return(TightFormation);
-
-            //for now, loose formations ONLY if ALL evasive...later we'll fix
-            // if(selection->ShipPtr[i]->tacticstype == Aggressive ||
-            //   selection->ShipPtr[i]->tacticstype == Neutral)
-            //   return(TightFormation);
-            switch(selection->ShipPtr[i]->tactics_ordertype)
-            {
-            case MOVE_ORDERS_NO_ENEMY:
-            case NO_ORDER_NO_ENEMY:
-                //no enemy near this ship, so tightness is favourved
-                break;
-            case NO_ORDER_ENEMY:
-            case MOVE_ORDERS_ENEMY:
-            case ATTACK_ORDERS:
-            case ATTACK_ORDERS_ENEMY:
-                //if atleast 1 ship in formation has been told to attack
-                //or is near an enemy, we want loose formations...
-                return(LooseFormation);
-            default:
-                dbgFatalf(DBG_Loc,"\nUnkown tactical order state in ship.");
-            }
-        }
-    }
-    return(TightFormation);
-}
-void tacticsBeFairToRetreaters(Ship *ship, SelectCommand *targets)
-{
-    AttackAtom  *attackatom;
-    Node *node;
-    bool32 flagFreeBe;
-    sdword i,j;
-
-    node = universe.AttackMemory.head;
-
-    //fix later: optimize by having a ship flag set whether or not
-    //a ship is on the look out!!!!
-
-    while(node != NULL)
-    {
-        attackatom = (AttackAtom *)listGetStructOfNode(node);
-        //if a retreat occurred very soon, we won't look for them
-        flagFreeBe = FALSE;
-        if(attackatom->retreatTime > universe.totaltimeelapsed)
-        {
-            for(i=0;i<attackatom->attackerList.numShips;i++)
-            {
-                if(ship == attackatom->attackerList.ShipPtr[i])
-                {
-                    //ship is looking for something
-                    for(j=0;j<targets->numShips;j++)
-                    {
-                        if(targets->ShipPtr[j] == attackatom->retreater)
-                        {
-                            clRemoveShipFromSelection((SelectCommand *)targets,attackatom->retreater);
-                            //fix later...might be able to
-                            //goto next node here, can a ship be in multiple attacklists?
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        node = node->next;
-    }
-}
-
-void BreakUpShipsIntoAttackCapable(SelectCommand *selection,
-                                   MaxSelection *attackSelection,
-                                   MaxSelection *nonAttackSelection)
-{
-    sdword i;
-    Ship *ship;
-
-    for (i=0;i<selection->numShips;i++)
-    {
-        ship = selection->ShipPtr[i];
-        if (isShipAttackCapable(ship))
-        {
-            attackSelection->ShipPtr[attackSelection->numShips++] = ship;
-        }
-        else
-        {
-            nonAttackSelection->ShipPtr[nonAttackSelection->numShips++] = ship;
-        }
-    }
-}
-
-#define SPEECH_RETALIATE_REPEAT 15.0f
-
-void tacticsSpeechForRetaliation(Ship *ship)
-{
-    if(ship->retaliateSpeechTime <= universe.totaltimeelapsed)
-    {
-        if(ship->playerowner == universe.curPlayerPtr)
-        {
-            if(!selAnyHotKeyTest(ship))
-            {
-                if(ship->retaliateSpeechVar == FALSE)
-                {
-                    if (battleCanChatterAtThisTime(BCE_STAT_Grp_AttackRetaliate, ship))
-                    {
-                        battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_Grp_AttackRetaliate, ship, SOUND_EVENT_DEFAULT);
-                        ship->retaliateSpeechVar = TRUE;
-                        ship->retaliateSpeechTime = universe.totaltimeelapsed + SPEECH_RETALIATE_REPEAT;
-                    }
-                }
-                else
-                {
-                    if (battleCanChatterAtThisTime(BCE_STAT_Grp_AttackRetaliate_Repeat, ship))
-                    {
-                        battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_Grp_AttackRetaliate_Repeat, ship, SOUND_EVENT_DEFAULT);
-                        ship->retaliateSpeechVar = FALSE;
-                        ship->retaliateSpeechTime = universe.totaltimeelapsed + SPEECH_RETALIATE_REPEAT;
-                    }
-                }
-            }
-            else
-            {
-                if(ship->retaliateSpeechVar == FALSE)
-                {
-                    if (battleCanChatterAtThisTime(BCE_STAT_AssGrp_AttackRetaliate, ship))
-                    {
-                        battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_AssGrp_AttackRetaliate, ship, selHotKeyGroupNumberTest(ship));
-                        ship->retaliateSpeechVar = TRUE;
-                        ship->retaliateSpeechTime = universe.totaltimeelapsed + SPEECH_RETALIATE_REPEAT;
-                    }
-                }
-                else
-                {
-                    if (battleCanChatterAtThisTime(BCE_STAT_AssGrp_AttackRetaliate_Repeat, ship))
-                    {
-                        battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_AssGrp_AttackRetaliate_Repeat, ship, selHotKeyGroupNumberTest(ship));
-                        ship->retaliateSpeechVar = FALSE;
-                        ship->retaliateSpeechTime = universe.totaltimeelapsed + SPEECH_RETALIATE_REPEAT;
-                    }
-                }
-            }
-        }
-    }
-
-}
-
-
-void tacticsDelegateAttackCommand(Ship *ship,CommandToDo *command, AttackCommand *attack, bool32 gettingRocked,bool32 doingSomething)
-{
-    //ship is in retreat list...so attack it...
-    //
-    //******************
-    //should probably delete that attackmemory item...or at least
-    //certain ships from it...will lookinto that
-    //*******************************
-    MaxSelection attackSelection,nonAttackSelection;
-    attackSelection.numShips = 0;
-    nonAttackSelection.numShips = 0;
-
-    //As long as we're not getting hit right now, we'll
-    //give retreaters a chance to getaway.
-    if(!gettingRocked)
-    {
-#ifdef DEBUG_TACTICS
-//        dbgMessagef("Being Fair to possible Retreaters.");
-#endif
-        tacticsBeFairToRetreaters(ship,(SelectCommand *)attack);
-        if(attack->numTargets < 1)
-            return;
-    }
-
-    //if we're busy, can only passive attack
-    if(doingSomething)
-    {
-        //ship is doing something (moving,docking)
-        //so only passive attack
-        if(command->selection->ShipPtr[0]->tacticstype != Evasive)
-        {
-            if (canChangeOrderToPassiveAttack(command,attack))
-            {
-                ChangeOrderToPassiveAttack(command,attack);
-            }
-        }
-        return;
-    }
-
-    //if ships aren't doing something
-    //AND ships are actually 'on the lookout' for some of these target
-    //we'll full on attack those beeyatches...otherwise..we'll go through
-    //normal passive attacking procedures.
-    if(!doingSomething && tacticsIsShipLookingForAnyOfThese(ship,(SelectCommand *)attack)
-       && ship->shiptype != Mothership)     // don't want to ChangeOrderToAttack for Mothership
-    {
-#ifdef DEBUG_TACTICS
-        dbgMessagef("Attacking Previous Retreaters");
-#endif
-        BreakUpShipsIntoAttackCapable(command->selection,&attackSelection,&nonAttackSelection);
-        if(attackSelection.numShips == command->selection->numShips)
-        {
-            ChangeOrderToAttack(command,attack);
-        }
-        else if(attackSelection.numShips > 0)
-        {
-            RemoveShipsFromDoingStuff(&universe.mainCommandLayer,(SelectCommand *)&nonAttackSelection);
-            dbgAssertOrIgnore(command->selection->numShips > 0);
-            ChangeOrderToAttack(command,attack);
-        }
-        return;
-    }
-
-    switch(ship->tacticstype)
-    {
-    case Aggressive:
-        //give counter attack order
-
-
-#ifdef DEBUG_TACTICS
-        if(doingSomething)
-        {
-            dbgFatalf(DBG_Loc,"\ndoingsomething == TRUE, allowed to retask to full attack!  BAD!");
-        }
-#endif
-        if (ship->shiptype == Mothership)
-        {
-            goto neutralstuff;      // don't want to ChangeOrderToAttack for Mothership
-        }
-
-        /*  //not needed anymore..ships can't fullout attack during movements,docks
-        if(command->ordertype.order == COMMAND_DOCK)
-        {
-            //ships are docking, so only passive attack...
-            if (canChangeOrderToPassiveAttack(command,attack))
-            {
-                ChangeOrderToPassiveAttack(command,attack);
-            }
-            break;
-        }
-        */
-        BreakUpShipsIntoAttackCapable(command->selection,&attackSelection,&nonAttackSelection);
-        if(attackSelection.numShips == command->selection->numShips)
-        {
-            ChangeOrderToAttack(command,attack);
-        }
-        else if(attackSelection.numShips > 0)
-        {
-            RemoveShipsFromDoingStuff(&universe.mainCommandLayer,(SelectCommand *)&nonAttackSelection);
-            dbgAssertOrIgnore(command->selection->numShips > 0);
-            ChangeOrderToAttack(command,attack);
-        }
-        break;
-
-    case Neutral:
-neutralstuff:
-        //passive attack
-        if (canChangeOrderToPassiveAttack(command,attack))
-        {
-            ChangeOrderToPassiveAttack(command,attack);
-        }
-        tacticsSpeechForRetaliation(ship);
-        break;
-    case Evasive:
-        //doc de la design says no passive retaliation at ALL for
-        //evassive tacticized ships
-
-        //not doing this anymore
-
-//        if (canChangeOrderToPassiveAttack(command,attack))
-//        {
- //           ChangeOrderToPassiveAttack(command,attack);
-  //      }
-  //      tacticsSpeechForRetaliation(ship);
-        break;
-    default:
-        break;
-    }
-
-}
-
-
-void tacticsDelegateSingleAttack(Ship *ship,CommandLayer *comlayer,SelectCommand *selectone,AttackCommand *attack, bool32 gettingRocked)
-{
-    CommandToDo *cmtest;
-
-    if(!gettingRocked)
-    {
-#ifdef DEBUG_TACTICS
-//        dbgMessagef("Being Fair to possible Retreaters.");
-#endif
-        tacticsBeFairToRetreaters(ship,(SelectCommand *)attack);
-        if(attack->numTargets < 1)
-            return;
-    }
-
-    if(tacticsIsShipLookingForAnyOfThese(ship,(SelectCommand *)attack))
-    {
-        clAttack(comlayer,selectone,attack);
-#ifdef DEBUG_TACTICS
-        dbgMessagef("Attacking Previous Retreaters");
-#endif
-        return;
-    }
-
-    if(isCapitalShip(ship))
-    {
-        //capital ships only passive attack
-        if(ship->tacticstype != Evasive)
-        {
-            //don't passive retaliate in evassive
-            clPassiveAttack(comlayer,selectone,attack);
-        }
-        return;
-    }
-
-    switch(ship->tacticstype)
-    {
-    case Aggressive:
-        //give counter attack order
-        cmtest = getShipAndItsCommand(comlayer,ship);
-        if(cmtest != NULL)
-        {
-            if(cmtest->ordertype.order == COMMAND_DOCK)
-            {
-                //passive attack
-                clPassiveAttack(comlayer,selectone,attack);
-                break;
-            }
-        }
-        clAttack(comlayer,selectone,attack);
-        break;
-    case Neutral:
-        //passive attack
-        clPassiveAttack(comlayer,selectone,attack);
-        tacticsSpeechForRetaliation(ship);
-        break;
-    case Evasive:
-        //don't passive retaliate any more
-
-        //later don't passive retaliate...simply dodge for now, do it though
-        //clPassiveAttack(comlayer,selectone,attack);
-        //tacticsSpeechForRetaliation(ship);
-        break;
-    default:
-        break;
-    }
-
-}
-
-//name: tacticsRemoveRetreat
-//
-//desc: Removes and deletes the retreat order 'r' from the tactics retreat list
-
-void tacticsRemoveRetreat(RetreatAtom *r)
-{
-    listDeleteNode(&r->retreatLink);
-}
-
-//name: tacticsShipIsRetreatingFromThisCommand
-//
-//desc: checks to see if this ship is retreating from this command
-
-RetreatAtom *tacticsShipIsRetreatingFromThisCommand(Ship *ship, CommandToDo *command)
-{
-    Node *link;
-    RetreatAtom *r;
-
-    link = cat_hw1RetreatList.head;
-
-    while(link != NULL)
-    {
-        r = (RetreatAtom *)listGetStructOfNode(link);
-
-
-        if(r->retreater == ship)
-        {
-            //found ship
-            if(r->fleeingfrom == command)
-            {
-                //found command...
-                return(r);
-            }
-        }
-
-        link = link->next;
-    }
-    return(NULL);
-}
-
-//Name: tacticsSetRetreatFrom
-//
-//Description:  Calculates the average location of a group of ships
-//
-
-void setAveragePosition(vector *vec, SelectCommand *selection)
-{
-    udword i;
-    real32 oneOverShips;
-    vec->x = 0.0f; vec->y = 0.0f; vec->z = 0.0f;
-
-    for(i = 0; i < selection->numShips; i++)
-    {
-        vecAddTo(*vec,selection->ShipPtr[i]->obj.posinfo.position);
-    }
-    oneOverShips = 1.0f/selection->numShips;
-    vecScalarMultiply(*vec,*vec,oneOverShips);
-}
-
 
 //Name: tacticsReportMove
 //
@@ -1331,78 +379,6 @@ deleteNode:
 
     }
 }
-//name tacticsSelCopy(&newattackatom->attackList,lookers);
-//
-//desc: copies contents of one selection to the other
-void tacticsSelCopy(SelectCommand *other,SelectCommand *one)
-{
-    sdword i;
-    for(i=0;i<one->numShips;i++)
-    {
-        other->ShipPtr[i] = one->ShipPtr[i];
-    }
-    other->numShips = one->numShips;
-}
-
-//Name:     tacticsAttackCommandVoided
-//
-//desc:     An attack command has been cleared, we need to remove
-//          references to it
-void tacticsAttackCommandVoided(CommandToDo *command)
-{
-    Node *link,*templink;
-    RetreatAtom *r;
-
-#ifdef DEBUG_TACTICS
-    if(!tacticsOn)
-        return;
-#endif
-
-    link = cat_hw1RetreatList.head;
-    while(link != NULL)
-    {
-        r = (RetreatAtom *) listGetStructOfNode(link);
-        if(r->fleeingfrom == command)
-        {
-            templink = link->next;
-
-            listDeleteNode(link);
-
-            link = templink;
-            continue;
-        }
-
-        link = link->next;
-    }
-}
-
-//Name: tacticsPutOnLookOutfor(Ship *looker, Ship *retreater)
-//
-//desc: Sets the 'looker' ship to be on attack lookout for
-//      retreater.  If, after tunable time (in tactics.script)
-//      retreater comes within looker's passive retaliation zone
-//      and looker isn't doing anything (except waiting to passvie attack
-//      looker will receive full attack orders to attack retreater.
-void tacticsPutOnLookOutFor(SelectCommand *lookers, Ship *retreater)
-{
-    AttackAtom *newattackatom;
-    udword sizeofmem;
-
-    //calculate memory needs cleverly
-    sizeofmem = sizeof(AttackAtom) + sizeof(ShipPtr)*(lookers->numShips-1);
-
-    newattackatom = (AttackAtom *)memAlloc(sizeofmem,"tacticsattackmemory",NonVolatile);
-
-    newattackatom->retreater = retreater;
-    newattackatom->expirytime = universe.totaltimeelapsed+tacticsInfo.AttackMemoryTimeOut;
-    newattackatom->retreatTime = universe.totaltimeelapsed+tacticsInfo.freeRetreatTime;
-
-    tacticsSelCopy(&newattackatom->attackerList,lookers);
-
-    listAddNode(&universe.AttackMemory,&newattackatom->attackLink,newattackatom);
-
-}
-
 //This function will make all ships in selection stop being on the
 //lookout for otherships <if selection is given new order>
 void tacticsMakeShipsNotLookForOtherShips(SelectCommand *selection)
@@ -1446,52 +422,6 @@ nextnode:
     }
 }
 
-//returns true if at least 1 of the ships in list is on the ships target list
-bool32 tacticsIsShipLookingForAnyOfThese(Ship *ship,SelectCommand *selection)
-{
-    AttackAtom  *attackatom;
-    Node *node;
-    sdword i,j;
-
-    node = universe.AttackMemory.head;
-
-    while(node != NULL)
-    {
-        attackatom = (AttackAtom *)listGetStructOfNode(node);
-
-        for(i=0;i<attackatom->attackerList.numShips;i++)
-        {
-            if(ship == attackatom->attackerList.ShipPtr[i])
-            {
-                //ship is looking for something
-                for(j=0;j<selection->numShips;j++)
-                {
-                    if(selection->ShipPtr[j] == attackatom->retreater)
-                        return TRUE;
-                }
-            }
-
-        }
-        node = node->next;
-    }
-    return FALSE;
-}
-bool32 tacticsAreStrikeCraftInSelection(SelectCommand *selection)
-{
-    sdword i;
-    for(i = 0; i< selection->numShips; i++)
-    {
-        if(selection->ShipPtr[i]->header.objtype == OBJ_ShipType)
-        {
-            if(selection->ShipPtr[i]->staticinfo->shipclass == CLASS_Fighter ||
-              selection->ShipPtr[i]->staticinfo->shipclass == CLASS_Corvette)
-            {
-                return TRUE;
-            }
-        }
-    }
-    return FALSE;
-}
 //name : tacticsMaxDistToTarget
 //
 //desc: returns the distance from the furthest ship, to the target
@@ -1521,486 +451,6 @@ real32 tacticsMaxDistToTarget(SelectCommand *selection,SpaceObjRotImpTarg *targe
         }
     }
     return(fsqrt(maxdistsqr));
-}
-
-//function to perform dodging perhaps bad place...
-void tacticsDodgeUpdate(Ship *ship)
-{
-    if(ship->isDodging)
-    {
-        tacticsDoDodge(ship);
-    }
-    else
-    {
-        if(ship->tacticstype != Aggressive)
-        {
-            //do we need to dodge?
-            switch(ship->tactics_ordertype)
-            {
-            case MOVE_ORDERS_NO_ENEMY:
-            case NO_ORDER_NO_ENEMY:
-            case ATTACK_ORDERS:
-                //no enemy near this ship, so no dodging
-                break;
-            case MOVE_ORDERS_ENEMY:
-            case NO_ORDER_ENEMY:
-                tacticsSetShipToDoDodge(ship);
-                break;
-            case ATTACK_ORDERS_ENEMY:
-                //both neutral and evasive tactics dodge during attacks
-                tacticsSetShipToDoDodge(ship);
-                break;
-            }
-        }
-    }
-}
-
-//function to determine if enemy ships are nearby and to determine
-//a ships order type in terms of tactics functions
-void tacticsUpdateOrderStatus(Ship *ship)
-{
-    CommandToDo *command;
-    udword enemyalready;
-    sdword oldOrder = ship->tactics_ordertype;
-    command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
-
-    //scan to see if enemies are near by
-
-    if(UNIVERSE_WOODPECKER(EnemyNearByCheckRate, EnemyNearByCheckFrame))
-    {
-        if(command != NULL)
-        {
-            if(command->tacticalupdatetime < universe.totaltimeelapsed)
-            {
-                command->tacticalupdatetime = universe.totaltimeelapsed;
-                if(tacticsAreEnemiesNearby(command->selection->ShipPtr[0],ship,tacticsInfo.EnemyNearZone))
-                {
-                    //enemies near by..later scan them, but not now
-                    enemyalready = ORDER_TYPE_ENEMY_MASK;
-                }
-                else
-                {
-                    enemyalready = 0;
-                }
-            }
-            else
-            {
-                enemyalready = command->selection->ShipPtr[0]->tactics_ordertype & ORDER_TYPE_ENEMY_MASK;
-            }
-        }
-        else
-        {
-            if(tacticsAreEnemiesNearby(ship,ship,tacticsInfo.EnemyNearZone))
-            {
-                    //enemies near by..later scan them, but not now
-                enemyalready = ORDER_TYPE_ENEMY_MASK;
-            }
-            else
-            {
-                enemyalready = 0;
-            }
-        }
-    }
-    else
-    {
-        enemyalready = ship->tactics_ordertype & ORDER_TYPE_ENEMY_MASK;
-    }
-
-    //set tacitcs_ordertype variable utilizing enemyalready flag set above
-    if (command != NULL)
-    {
-        switch(command->ordertype.order)
-        {
-        case COMMAND_NULL:
-        case COMMAND_MILITARY_PARADE:
-            ship->tactics_ordertype = ORDER_TYPE_NO_ORDERS + enemyalready;
-            break;
-        case COMMAND_MOVE:
-        case COMMAND_DOCK:
-        case COMMAND_LAUNCH_SHIP:
-        case COMMAND_HALT:
-            ship->tactics_ordertype = ORDER_TYPE_MOVE_ORDERS + enemyalready;
-            break;
-        case COMMAND_ATTACK:
-                    //ship->tactics_ordertype = ORDER_TYPE_ATTACK_ORDERS;
-            ship->tactics_ordertype = ORDER_TYPE_ATTACK_ORDERS + enemyalready;
-            break;
-        case COMMAND_SPECIAL:
-            // CAT: no RepairCorvette "don't dodge while repairing" case, Cataclysm has no repair corvette type
-            //      (M2-R4 ships-b retire)
-            ship->tactics_ordertype = ORDER_TYPE_MOVE_ORDERS + enemyalready;
-            break;
-        default:
-            break;
-        }
-        //set command leaders tacticstype to the correct one so we can reference it later when we don't
-        //update the command structure enemy nearby status.
-        command->selection->ShipPtr[0]->tactics_ordertype = ship->tactics_ordertype;    //possibly redundant
-        if(ship->tactics_ordertype != oldOrder)
-        {
-            //order has changed
-            if(command->ordertype.attributes & COMMAND_MASK_FORMATION)
-            {
-                //command is in formation
-                setFormationTravelVelocity(command);
-            }
-        }
-    }
-    else
-    {
-        //ship isn't doing anything anymore...but are enemies near by?
-        //use old info until new info is pumped in
-        ship->tactics_ordertype = ORDER_TYPE_NO_ORDERS + enemyalready;
-    }
-}
-
-//update ships thrusterinfo based on there order type
-void tacticsManeuvUpdate(Ship *ship)
-{
-    sdword i;
-    sdword classType;
-    ShipStaticInfo *shipstaticinfo = ship->staticinfo;
-    real32 manMult;
-
-    manMult = 1.0f;
-    if(shipstaticinfo->shipclass == CLASS_Fighter)
-    {
-        if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_SpeedBurst))
-            manMult = speedBurstThrustMult;
-        classType = Tactics_Fighter;
-    }
-    else
-    {
-        classType = Tactics_Corvette;
-    }
-
-    for(i=0;i<NUM_TRANS_DEGOFFREEDOM;i++)
-    {
-        ship->guidance.nonstatvars.thruststrength[i] = shipstaticinfo->guidance.thruststrengthstat[i]*tacticsInfo.ManeuvBonus[ship->tactics_ordertype][classType][ship->tacticstype]*manMult;
-    }
-    for(i=0;i<NUM_ROT_DEGOFFREEDOM;i++)
-    {
-        ship->guidance.nonstatvars.rotstrength[i] = shipstaticinfo->guidance.rotstrengthstat[i]*tacticsInfo.ManeuvBonus[ship->tactics_ordertype][classType][ship->tacticstype]*manMult;
-    }
-    for(i=0;i<NUM_TURN_TYPES;i++)
-    {
-        ship->guidance.nonstatvars.turnspeed[i] = shipstaticinfo->guidance.turnspeedstat[i]*tacticsInfo.ManeuvBonus[ship->tactics_ordertype][classType][ship->tacticstype]*manMult;
-    }
-}
-
-
-//Name: tacticsUpdate
-//
-//Description:  Called from univupdate.c, this function performs
-//              any tactics related code for this ship
-
-void tacticsUpdate(Ship *ship)
-{
-    sdword oldstate;
-
-
-#ifdef DEBUG_TACTICS
-    if(!tacticsOn)
-        return;
-#endif
-
-
-    //maybe only do this check every so often...
-
-
-    if(ship->staticinfo->shipclass != CLASS_Fighter &&
-              ship->staticinfo->shipclass != CLASS_Corvette)
-    {
-        //ship is a NON strike craft...
-        //don't bother updating crap for it then...
-        return;
-    }
-
-/***********************************/
-    //strike craft ONLY proccessed beyond this point!!!!
-/***********************************/
-
-    //Update status of special Ops speed Burst
-    speedBurstUpdate(ship);
-
-    //update ships thrusterinfo based on there order type
-    tacticsManeuvUpdate(ship);
-
-    //update strike crafts dodging
-    tacticsDodgeUpdate(ship);
-
-    //update ships enemy + order status
-    tacticsUpdateOrderStatus(ship);
-
-    if(ship->formationcommand != NULL)
-    {
-        //ship is in formation, so set formation
-        //check if we haven't processed this formation yet
-        if(universe.totaltimeelapsed > (ship->formationcommand->formation.tacticsUpdate + DELAY_FORMTIGHTNESS_CHANGE))
-        {
-            //set formation update time
-            ship->formationcommand->formation.tacticsUpdate = universe.totaltimeelapsed;
-            //set formation type based on contents...should add elsewhere later...so isn't called all the time
-            oldstate = ship->formationcommand->formation.tacticalState;
-            ship->formationcommand->formation.tacticalState = tacticsGetFormationOptimalState(ship->formationcommand->selection);
-            if((oldstate != ship->formationcommand->formation.tacticalState) && (ship->formationcommand->formation.formationtype != CUSTOM_FORMATION))
-                FormationCalculateOffsets(ship->formationcommand);
-        }
-    }
-}
-
-
-
-//Name: TacticsGlobalUpdate()
-//
-//Desc: Performs any global tactics functions, such as retreat monitoring
-//
-
-void tacticsGlobalUpdate()
-{
-    Node *rnode,*tempnode;
-    AttackAtom *attackatom;
-    RetreatAtom *ratom;
-    Ship *retreater, *retreatedFrom;
-
-#ifdef DEBUG_TACTICS
-    if(!tacticsOn)
-        return;
-#endif
-    //Deal with retreats here:
-
-    if(UNIVERSE_WOODPECKER(RetreatCheckRate, RetreatCheckFrame))
-    {
-        //time to do tactics update
-        vector tempvec2;
-        real32 distsqr;
-
-        rnode = cat_hw1RetreatList.head;
-        while(rnode != NULL)
-        {
-            ratom = (RetreatAtom *) listGetStructOfNode(rnode);
-            retreater = ratom->retreater;
-
-            //tacticsSetRetreatFrom(&tempvec, (SelectCommand *)ratom->fleeingfrom->attack);
-            //vecSub(tempvec2,tempvec,retreater->obj.posinfo.position);
-            vecSub(tempvec2,retreater->obj.posinfo.position,ratom->retreatFrom);
-
-            distsqr = vecMagnitudeSquared(tempvec2);
-
-            if((distsqr - ratom->distanceStartSqr) > tacticsInfo.RetreatDistanceSqr[retreater->staticinfo->shipclass])
-            {
-                vector retreatFromAvgPos;
-                vector tmpvec3;
-                real32 gotawaydistsqr;
-
-                setAveragePosition(&retreatFromAvgPos, (SelectCommand *)ratom->fleeingfrom->selection);
-                vecSub(tmpvec3,retreatFromAvgPos,retreater->obj.posinfo.position);
-                gotawaydistsqr = vecMagnitudeSquared(tmpvec3);
-
-                if (gotawaydistsqr > tacticsInfo.RetreatGetAwayDistSqr[retreater->staticinfo->shipclass])
-                {
-    #ifdef bpasechn
-    #ifdef DEBUG_TACTICS
-                    dbgMessagef("Retreat Satisfied...");
-    #endif
-    #endif
-                    //////////////////////
-                    //Retreat successful speech event!
-
-                    if(retreater->playerowner->playerIndex == universe.curPlayerIndex)
-                    {
-                        //local machines ships RETREATED
-                        //use event num:
-                        //STAT_Grp_RetreatSuccessful
-                        //or STAT_AssGrp_RetreatSuccessful
-                        //battlechatter
-                        if(selHotKeyGroupNumberTest(retreater) == SEL_InvalidHotKey)
-                        {                                   //not in a group!
-                            if (battleCanChatterAtThisTime(BCE_STAT_Grp_RetreatSuccessful, retreater))
-                            {
-                                battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_Grp_RetreatSuccessful, retreater, SOUND_EVENT_DEFAULT);
-                            }
-                        }
-                        else
-                        {
-                            if (battleCanChatterAtThisTime(BCE_STAT_AssGrp_RetreatSuccessful, retreater))
-                            {
-                                battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_AssGrp_RetreatSuccessful, retreater, selHotKeyGroupNumberTest(retreater));
-                            }
-                        }
-                        ////
-                    }
-                    else
-                    {
-                        //local machines enemy retreated FROM
-                        //local player!
-                        //use event number
-                        //STAT_Grp_EnemyRetreated
-                        //or STAT_AssGrp_EnemyRetreated
-                        retreatedFrom = ((SelectCommand *)ratom->fleeingfrom->selection)->ShipPtr[0];
-                        if(selHotKeyGroupNumberTest(retreatedFrom) == SEL_InvalidHotKey)
-                         {                                  //not in a group!
-                             if (battleCanChatterAtThisTime(BCE_STAT_Grp_EnemyRetreated, retreatedFrom))
-                             {
-                                 battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_Grp_EnemyRetreated, retreatedFrom, SOUND_EVENT_DEFAULT);
-                             }
-                         }
-                         else
-                         {
-                             if (battleCanChatterAtThisTime(BCE_STAT_AssGrp_EnemyRetreated, retreatedFrom))
-                             {
-                                 battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_STAT_AssGrp_EnemyRetreated, retreatedFrom, selHotKeyGroupNumberTest(retreatedFrom));
-                             }
-                         }
-
-                    }
-                    if (clRemoveShipFromSelection((SelectCommand *)ratom->fleeingfrom->attack,retreater))
-                    {
-                        RemoveAttackTargetFromExtraAttackInfo((SpaceObjRotImpTarg *)retreater,ratom->fleeingfrom);
-                    }
-
-                    //put retreater into a ship memory list...and then, we check thta list for each ship passive attacking
-                    //if the retreater is in the list along with the passive attacker, we issue an attack command...
-                    //as long as this updata function hasn't killed the memory due to a time out.
-
-                    tacticsPutOnLookOutFor(ratom->fleeingfrom->selection,retreater);
-
-                    tempnode = rnode->next;
-                    tacticsRemoveRetreat(ratom);
-                    rnode = tempnode;
-                    continue;
-                }
-            }
-
-            rnode = rnode->next;
-        }
-    }
-
-    if(UNIVERSE_WOODPECKER(ATTACKMEMORY_CLEANUP_RATE, ATTACKMEMORY_CLEANUP_FRAME))
-    {
-        //perform attackmemory cleanups...
-        rnode = universe.AttackMemory.head;
-        while(rnode != NULL)
-        {
-            attackatom = (AttackAtom *)listGetStructOfNode(rnode);
-            if(attackatom->expirytime < universe.totaltimeelapsed)
-            {
-#ifdef DEBUG_TACTICS
-                dbgMessagef("Attack Lookout timed out");
-#endif
-                tempnode = rnode->next;
-                listDeleteNode(rnode);
-                rnode = tempnode;
-                continue;
-            }
-            rnode = rnode->next;
-        }
-    }
-}
-
-bool32 tacticsAreEnemiesNearby(Ship *leadership,Ship *thisship, real32 retaliateZone)
-{
-    Player *playerowner = thisship->playerowner;
-    blob *thisblob = thisship->obj.collMyBlob;
-    sdword objindex = 0;
-    SelectCommand *blobships = thisblob->blobShips;
-    udword num = blobships->numShips;
-    Ship *ship;
-    vector diff;
-    real32 timesincecloak;
-    real32 negRetaliateZone = -retaliateZone;
-
-    if ((thisship->shiptype == FloatingCity) || (bitTest(thisship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus|SPECIAL_Hyperspacing)))
-    {
-        return FALSE;      // traders get special status, not considered enemy to anyone
-    }
-
-    while (objindex < num)
-    {
-        ship = blobships->ShipPtr[objindex];
-
-        if ((allianceIsShipAlly(ship, playerowner)))
-        {
-            goto nextnode;      // must be enemy ship
-        }
-        if ((ship->shiptype == FloatingCity) || (bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_FriendlyStatus|SPECIAL_Hyperspacing)))
-        {
-            goto nextnode;      // traders get special status, not considered enemy to anyone
-        }
-        if (bitTest(ship->header.flags,SOF_Cloaked))
-        {
-            if(!proximityCanPlayerSeeShip(thisship->playerowner,ship))
-            {
-                goto nextnode;      // if ship is cloaked, and can't be seen by that ships player..
-            }
-        }
-        timesincecloak = universe.totaltimeelapsed - ship->shipDeCloakTime;
-        if(timesincecloak <= TW_SECOND_SEE_TIME)
-        {
-            if(timesincecloak < TW_NOONE_SEE_TIME)
-            {
-                //ship being considered has decloaked so recently that 'thisship' couldn't
-                //possibly see it yet
-                goto nextnode;
-            }
-            else if(timesincecloak < TW_FIRST_SEE_TIME)
-            {
-                //ship has decloaked so long ago that only a small percentage could see it now
-                if(randombetween(0,100) > TW_FIRST_SEE_PERCENTAGE)
-                {
-                    goto nextnode;
-                }
-            }
-            else if(timesincecloak < TW_SECOND_SEE_TIME)
-            {
-                //ship has decloaked a fair ammount of time ago, and some more ships are likely to see it now
-                if(randombetween(0,100) > TW_SECOND_SEE_PERCENTAGE)
-                {
-                    goto nextnode;
-                }
-            }
-        }
-        if(bitTest(ship->header.flags,SOF_Disabled|SOF_Hide))
-        {
-            //don't attack disabled ships.
-            goto nextnode;
-        }
-
-        vecSub(diff,ship->obj.posinfo.position,leadership->obj.posinfo.position);
-
-        if (isBetweenExclusive(diff.x,negRetaliateZone,retaliateZone) &&
-            isBetweenExclusive(diff.y,negRetaliateZone,retaliateZone) &&
-            isBetweenExclusive(diff.z,negRetaliateZone,retaliateZone) )
-        {
-            return TRUE;
-        }
-nextnode:
-        objindex++;
-    }
-
-    return FALSE;
-}
-
-
-void speedBurstUpdate(Ship *ship)
-{
-    if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_SpeedBurst))
-    {
-        if(ship->speedBurstTime < universe.totaltimeelapsed)
-        {
-            bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_SpeedBurst);
-            bitSet(ship->shipOrDerelict.specialFlags,SPECIAL_SpeedBurstCooling);
-            ship->speedBurstTime = universe.totaltimeelapsed+speedBurstCoolDown;
-        }
-    }
-    else if(bitTest(ship->shipOrDerelict.specialFlags,SPECIAL_SpeedBurstCooling))
-    {
-        if(ship->speedBurstTime < universe.totaltimeelapsed)
-        {
-            bitClear(ship->shipOrDerelict.specialFlags,SPECIAL_SpeedBurstCooling);
-        }
-    }
-
 }
 
 /*-----------------------------------------------------------------------------
@@ -2083,64 +533,22 @@ real32 tacticsGetShipsMaxVelocity(Ship *ship)
 }
 
 
-/*-----------------------------------------------------------------------------
-    Name        : tacticsHasShipRetreatedFromShip
-    Description : returns TRUE if:
-                1 -shipA isn't attacking shipB
-
-                2 - ship is listed in the has retreated list
-                Need two checks because ship can be in retreated list, but
-                still be getting attack :(
-
-                will return true if shipA has retreated and shipB
-                is still on lookout for shipA...so time dependant
-    Inputs      :
-    Outputs     :
-    Return      : as above
-----------------------------------------------------------------------------*/
-bool32 tacticsHasShipRetreatedFromShip(Ship *shipA, Ship *shipB)
+// CAT: new (cat_tacticsNotRetreatingToDockCB 0x00529f00): FALSE for an evasive ship that is docking because it is
+//      below a third of its health (the docking cat_tacticsEvasiveRetreatToDock starts), TRUE for any other ship
+bool32 cat_tacticsNotRetreatingToDockCB(Ship *ship)
 {
-    CommandToDo *attackerCommand;
-    Node *node;
-    AttackAtom *aAtom;
-
-    attackerCommand = getShipAndItsCommand(&universe.mainCommandLayer,shipB);
-    if(attackerCommand != NULL)
+    if ((ship->command != NULL) && (ship->command->ordertype.order == COMMAND_DOCK) && (ship->tacticstype == Evasive) &&
+        cat_shipCanDock(ship, TRUE) && (ship->staticinfo->health.oneOverMaxHealth * ship->targetable.health < 0.333f))
     {
-        SelectCommand sel;
-        sel.numShips = 1;
-        sel.ShipPtr[0] = shipA;
-
-        if(TheseShipsAreInSelection((SelectCommand *)attackerCommand->attack,&sel))
-        {
-            //ship is a target, so ship hasn't retreated
-            return FALSE;
-        }
+        return FALSE;
     }
+    return TRUE;
+}
 
-    //shipB isn't attacking shipA, so lets see
-    //if ship is in retreat
-    node = universe.AttackMemory.head;
-    while(node != NULL)
-    {
-        aAtom = (AttackAtom *) listGetStructOfNode(node);
-
-        if(aAtom->retreater == shipA)
-        {
-            //ship has retreated from something
-            SelectCommand sel;
-            sel.numShips = 1;
-            sel.ShipPtr[0] = shipB;
-            if(TheseShipsAreInSelection(&aAtom->attackerList,&sel))
-            {
-                //ship has retreated
-                return TRUE;
-            }
-        }
-
-        node = node->next;
-    }
-    return FALSE;
+// CAT: new (cat_tacticsRemoveRetreatingShips 0x00529f70): the move and attack orders leave such ships alone
+void cat_tacticsRemoveRetreatingShips(SelectCommand *selection)
+{
+    MakeShipsOnlyFollowConstraints(selection, cat_tacticsNotRetreatingToDockCB);
 }
 
 /*-----------------------------------------------------------------------------
@@ -2171,4 +579,526 @@ void cat_tacticsEvasiveRetreatToDock(Ship *ship)
     selectone.numShips = 1;
     selectone.ShipPtr[0] = ship;
     clDock(&universe.mainCommandLayer, &selectone, CAT_DOCK_SUPPORT, NULL);     // the exe's purpose 0 (M2-R5 dock)
+}
+
+/*-----------------------------------------------------------------------------
+    Cataclysm's retaliation (0x005294c0 .. 0x0052a1d0)
+-----------------------------------------------------------------------------*/
+
+// CAT: inlined twice in cat_tacticsFindResponsibleShip 0x005294c0 and once in cat_tacticsShipAttacked 0x00529c20:
+//      a ship answers for itself unless it is a follower of a formation or a component clamped to a host
+static bool32 cat_tacticsShipIsOwnLeader(Ship *ship)
+{
+    CommandToDo *command = ship->command;
+    bool32 own = FALSE;
+
+    if ((command == NULL) || !(command->ordertype.attributes & COMMAND_MASK_FORMATION) || (command->selection == NULL) ||
+        (command->selection->ShipPtr[0] == ship))
+    {
+        own = TRUE;
+    }
+    if ((ship->staticinfo->shipclass == CLASS_Component) && (ship->guidance.clampInfo != NULL) &&
+        (ship->guidance.clampInfo->host != NULL))
+    {
+        own = FALSE;
+    }
+    return own;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tacticsFindResponsibleShip
+    Description : the ship that retaliates for ship: the Nomad moon for its field emitters, a component's host, a
+                  formation's leader
+----------------------------------------------------------------------------*/
+// CAT: new (cat_tacticsFindResponsibleShip 0x005294c0)
+Ship *cat_tacticsFindResponsibleShip(Ship *ship)
+{
+    Ship *responsible;
+    Ship *host;
+
+    if ((ship->shiptype != dNomadFieldEmitter) && cat_tacticsShipIsOwnLeader(ship))
+    {
+        return ship;
+    }
+    if ((ship->shiptype == dNomadFieldEmitter) && ((responsible = cat_nomadMoonFind()) != NULL))
+    {
+        return responsible;
+    }
+    responsible = ship;
+    if ((ship->staticinfo->shipclass == CLASS_Component) && (ship->guidance.clampInfo != NULL) &&
+        ((host = (Ship *)ship->guidance.clampInfo->host) != NULL))
+    {
+        responsible = host;
+        if ((host->shiptype != dNomadFieldEmitter) && cat_tacticsShipIsOwnLeader(host))
+        {
+            return host;
+        }
+    }
+    if (responsible->command != NULL)
+    {
+        return responsible->command->selection->ShipPtr[0];
+    }
+    return responsible;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tacticsMergeAttackTargets
+    Description : dest = the existing targets followed by the attackers not among them; empty when every attacker is
+                  already a target, the attackers alone when there are no existing targets
+----------------------------------------------------------------------------*/
+// CAT: new (cat_tacticsMergeAttackTargets 0x005295c0); dest holds COMMAND_MAX_SHIPS targets (the exe's caller has a
+//      1000-entry buffer)
+void cat_tacticsMergeAttackTargets(AttackCommand *dest,AttackCommand *existing,AttackCommand *attackers)
+{
+    TargetPtr added[COMMAND_MAX_SHIPS];
+    sdword numAdded = 0;
+    sdword i,j;
+    bool32 found;
+
+    dest->numTargets = 0;
+    if ((attackers == NULL) || (attackers->numTargets <= 0))
+    {
+        return;
+    }
+    if ((existing == NULL) || (existing->numTargets < 1))
+    {
+        for (i = 0; i < attackers->numTargets; i++)
+        {
+            dest->TargetPtr[i] = attackers->TargetPtr[i];
+        }
+        dest->numTargets = attackers->numTargets;
+        return;
+    }
+    for (i = 0; i < attackers->numTargets; i++)
+    {
+        found = FALSE;
+        for (j = 0; j < existing->numTargets; j++)
+        {
+            if (existing->TargetPtr[j] == attackers->TargetPtr[i])
+            {
+                found = TRUE;
+            }
+        }
+        if (!found)
+        {
+            added[numAdded++] = attackers->TargetPtr[i];
+        }
+    }
+    if (numAdded > 0)
+    {
+        for (i = 0; i < existing->numTargets; i++)
+        {
+            dest->TargetPtr[i] = existing->TargetPtr[i];
+        }
+        for (j = 0; j < numAdded; j++)
+        {
+            dest->TargetPtr[existing->numTargets + j] = added[j];
+        }
+        dest->numTargets = existing->numTargets + numAdded;
+    }
+}
+
+// CAT: the attackers that ship's owner can target, in place (swap with the last; inlined in cat_tacticsRetaliate,
+//      cat_tacticsRetaliatePassive and cat_tacticsRetaliateEvasive)
+static void cat_tacticsKeepTargetable(Ship *ship,AttackCommand *attackers)
+{
+    Player *player = ship->playerowner;
+    sdword i = 0;
+
+    while (i < attackers->numTargets)
+    {
+        if (!cat_shipIsTargetableBy(player,(Ship *)attackers->TargetPtr[i]))
+        {
+            attackers->numTargets--;
+            attackers->TargetPtr[i] = attackers->TargetPtr[attackers->numTargets];
+        }
+        else
+        {
+            i++;
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tacticsRetaliatePassive
+    Description : the command (or the lone ship) passive attacks the attackers it can target, merged into its
+                  existing targets, when they are in passive attack range
+----------------------------------------------------------------------------*/
+// CAT: new (cat_tacticsRetaliatePassive 0x005296f0); the exe pushes a fourth value (7 with a command, 8 for a lone
+//      ship) clPassiveAttack never reads
+void cat_tacticsRetaliatePassive(Ship *ship,CommandToDo *command,AttackCommand *attackers)
+{
+    MaxAnySelection merged;
+    MaxSelection selection;
+    SelectCommand selectone;
+    AttackCommand *existing = NULL;
+
+    cat_tacticsKeepTargetable(ship,attackers);
+    if ((attackers->numTargets <= 0) || !isShipPassiveAttackCapable(ship))
+    {
+        return;
+    }
+    if ((command != NULL) && (command->attack != NULL))
+    {
+        existing = command->attack;
+    }
+    cat_tacticsMergeAttackTargets((AttackCommand *)&merged,existing,attackers);
+    if (merged.numTargets <= 0)
+    {
+        return;
+    }
+    if (command != NULL)
+    {
+        cat_selSelectionCopy(&selection,(MaxSelection *)command->selection);
+        if (ShipsInPassiveAttackRange((SelectCommand *)&selection,(AttackCommand *)&merged))
+        {
+            clPassiveAttack(&universe.mainCommandLayer,(SelectCommand *)&selection,(AttackCommand *)&merged);
+        }
+    }
+    else
+    {
+        selectone.numShips = 1;
+        selectone.timeLastStatus = 0.0f;     // CAT-FIX: the exe leaves it uninitialised (0x005297f0)
+        selectone.ShipPtr[0] = ship;
+        if (ShipsInPassiveAttackRange(&selectone,(AttackCommand *)&merged))
+        {
+            clPassiveAttack(&universe.mainCommandLayer,&selectone,(AttackCommand *)&merged);
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tacticsAveragePosition
+    Description : the average position of the selection (the first ship's for fewer than two)
+----------------------------------------------------------------------------*/
+// CAT: new (cat_tacticsAveragePosition 0x00529830)
+void cat_tacticsAveragePosition(SelectCommand *selection,vector *vec)
+{
+    sdword i;
+    real32 oneOverNum;
+
+    if (selection->numShips < 2)
+    {
+        *vec = selection->ShipPtr[0]->obj.posinfo.position;
+        return;
+    }
+    vec->x = 0.0f;
+    vec->y = 0.0f;
+    vec->z = 0.0f;
+    for (i = 0; i < selection->numShips; i++)
+    {
+        vec->x = selection->ShipPtr[i]->obj.posinfo.position.x + vec->x;
+        vec->y = selection->ShipPtr[i]->obj.posinfo.position.y + vec->y;
+        vec->z = selection->ShipPtr[i]->obj.posinfo.position.z + vec->z;
+    }
+    oneOverNum = 1.0f / (real32)selection->numShips;
+    vec->x = oneOverNum * vec->x;
+    vec->y = oneOverNum * vec->y;
+    vec->z = oneOverNum * vec->z;
+}
+
+// CAT: the unnamed constraint 0x0052a1e0: no sMothership or bMothership
+static bool32 cat_tacticsNotMothershipCB(Ship *ship)
+{
+    return !((ship->shiptype == sMothership) || (ship->shiptype == bMothership));
+}
+
+// CAT: the unnamed constraint 0x0052a210: no ship that is ramming, a Sentinel in a sphere, a fully linked ACV, a
+//      mothership firing its big gun, being built, an externally built type launching, or within hyperspace range
+static bool32 cat_tacticsCanRetaliateCB(Ship *ship)
+{
+    bool32 busy = FALSE;
+
+    if (cat_rammingFrigateStateActive(ship))
+    {
+        busy = TRUE;
+    }
+    if (cat_shipIsSentinelInSphere(ship))
+    {
+        busy = TRUE;
+    }
+    if (cat_acvIsFullyLinked(ship))
+    {
+        busy = TRUE;
+    }
+    if (cat_mothershipBigGunActive(ship))
+    {
+        busy = TRUE;
+    }
+    if (ship->shipOrDerelict.specialFlags2 & SPECIAL_2_CatBeingBuilt)
+    {
+        busy = TRUE;
+    }
+    else if (ship->staticinfo->externalBuild && (ship->command != NULL) &&
+             (ship->command->ordertype.order == COMMAND_LAUNCH_SHIP))
+    {
+        busy = TRUE;
+    }
+    if (ship->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange)
+    {
+        busy = TRUE;
+    }
+    return !busy;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tacticsRetaliateEvasive
+    Description : an evasive ship's group (not while docking) moves away from the attackers' average position by the
+                  ship's fog-of-war radius (inside the universe), then retaliates passively
+----------------------------------------------------------------------------*/
+// CAT: new (cat_tacticsRetaliateEvasive 0x005298e0)
+void cat_tacticsRetaliateEvasive(Ship *ship,CommandToDo *command,AttackCommand *attackers)
+{
+    MaxSelection movers;
+    bool32 flee = TRUE;
+    vector avg;
+    vector dir;
+    vector dest;
+    real32 radius;
+
+    movers.numShips = 0;
+    if ((command == NULL) || (command->ordertype.order != COMMAND_DOCK))
+    {
+        cat_tacticsKeepTargetable(ship,attackers);
+    }
+    else
+    {
+        flee = FALSE;
+    }
+    if (attackers->numTargets < 1)
+    {
+        flee = FALSE;
+    }
+    else if (flee)
+    {
+        if (command == NULL)
+        {
+            cat_selSelectionAddShip(&movers,ship);
+        }
+        else
+        {
+            selSelectionCopy((MaxAnySelection *)&movers,(MaxAnySelection *)command->selection);
+        }
+        MakeShipsOnlyFollowConstraints((SelectCommand *)&movers,cat_tacticsNotMothershipCB);
+        MakeShipsOnlyFollowConstraints((SelectCommand *)&movers,cat_tacticsCanRetaliateCB);
+        cat_selMakeShipsSameOwnerAsFirst((SelectCommand *)&movers);
+    }
+    if ((movers.numShips > 0) && flee)
+    {
+        cat_tacticsAveragePosition((SelectCommand *)attackers,&avg);
+        radius = cat_shipGetFOWRadius(ship,0);
+        dir.x = ship->obj.posinfo.position.x - avg.x;
+        dir.y = ship->obj.posinfo.position.y - avg.y;
+        dir.z = ship->obj.posinfo.position.z - avg.z;
+        vecNormalize(&dir);
+        dest.x = dir.x * radius + ship->obj.posinfo.position.x;
+        dest.y = dir.y * radius + ship->obj.posinfo.position.y;
+        dest.z = dir.z * radius + ship->obj.posinfo.position.z;
+        if (dest.x > smUniverseSizeX) dest.x = smUniverseSizeX;
+        if (dest.x < -smUniverseSizeX) dest.x = -smUniverseSizeX;
+        if (dest.y > smUniverseSizeY) dest.y = smUniverseSizeY;
+        if (dest.y < -smUniverseSizeY) dest.y = -smUniverseSizeY;
+        if (dest.z > smUniverseSizeZ) dest.z = smUniverseSizeZ;
+        if (dest.z < -smUniverseSizeZ) dest.z = -smUniverseSizeZ;
+        clMove(&universe.mainCommandLayer,(SelectCommand *)&movers,CAT_MOVEPATH_ONCE,ship->obj.posinfo.position,1,&dest);
+    }
+    cat_tacticsRetaliatePassive(ship,command,attackers);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tacticsSelectionHasFlag80Ship
+    Description : TRUE if ship, a ship of its formation or of command is within hyperspace range
+                  (SPECIAL_SinglePlayerWithinHyperSpaceRange)
+----------------------------------------------------------------------------*/
+// CAT: new (cat_tacticsSelectionHasFlag80Ship 0x00529b70): selections of one ship are not searched
+bool32 cat_tacticsSelectionHasFlag80Ship(Ship *ship,CommandToDo *command)
+{
+    CommandToDo *own;
+    SelectCommand *selection;
+    bool32 found = FALSE;
+    sdword i;
+
+    if (ship->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange)
+    {
+        return TRUE;
+    }
+    own = ship->command;
+    if ((own != NULL) && (own->ordertype.attributes & COMMAND_MASK_FORMATION) && ((selection = own->selection) != NULL) &&
+        (selection->numShips > 1))
+    {
+        for (i = 0; i < selection->numShips; i++)
+        {
+            if (selection->ShipPtr[i]->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange)
+            {
+                found = TRUE;
+            }
+        }
+        if (found)
+        {
+            return TRUE;
+        }
+    }
+    if ((command != NULL) && ((selection = command->selection) != NULL) && (selection->numShips > 1))
+    {
+        for (i = 0; i < selection->numShips; i++)
+        {
+            if (selection->ShipPtr[i]->shipOrDerelict.specialFlags & SPECIAL_SinglePlayerWithinHyperSpaceRange)
+            {
+                found = TRUE;
+            }
+        }
+    }
+    return found;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tacticsShipAttacked
+    Description : ship (with its command) was attacked by attackers: the responsible ship retaliates
+----------------------------------------------------------------------------*/
+// CAT: new (cat_tacticsShipAttacked 0x00529c20)
+void cat_tacticsShipAttacked(Ship *ship,CommandToDo *command,AttackCommand *attackers)
+{
+    if ((ship->shiptype == dNomadFieldEmitter) || !cat_tacticsShipIsOwnLeader(ship))
+    {
+        ship = cat_tacticsFindResponsibleShip(ship);
+        command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
+    }
+    cat_tacticsRetaliate(ship,command,attackers);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_tacticsRetaliate
+    Description : ship and its command answer the attackers by their tactics: evasive flees, neutral (and an
+                  aggressive escort) passive attacks, aggressive attacks with the ships able to
+----------------------------------------------------------------------------*/
+// CAT: new (cat_tacticsRetaliate 0x00529cb0): nothing for a hidden ship, one within hyperspace range or a command
+//      that is attacking, docking, launching, collecting, doing a special, halting, hyperspacing, linking,
+//      unlinking, mimicking or doing order 17 [audit: M2-R5 command-tactics: no "building", order 6 is not in the
+//      exe's case list 0x00529d1d]; a linked Acolyte or Mimic does not retaliate. The attackers are copied
+//      (the caller's list is left alone).
+void cat_tacticsRetaliate(Ship *ship,CommandToDo *command,AttackCommand *attackers)
+{
+    bool32 protecting = FALSE;
+    bool32 linked = FALSE;
+    AttackCommand *copy;
+    udword size;
+    MaxSelection attackersOwn;
+    SelectCommand selectone;
+    SelectCommand *source;
+    CatLinkInfo *link;
+
+    if ((attackers == NULL) || cat_tacticsSelectionHasFlag80Ship(ship,command) || bitTest(ship->header.flags,SOF_Hide))
+    {
+        return;
+    }
+    if (command != NULL)
+    {
+        switch (command->ordertype.order)
+        {
+            case COMMAND_ATTACK:
+            case COMMAND_DOCK:
+            case COMMAND_LAUNCH_SHIP:
+            case COMMAND_COLLECT_RESOURCES:
+            case COMMAND_SPECIAL:
+            case COMMAND_HALT:
+            case COMMAND_MP_HYPERSPACING:
+            case COMMAND_CAT_LINK:
+            case COMMAND_CAT_UNLINK:
+            case COMMAND_CAT_MIMIC:
+            case COMMAND_CAT_17:
+                return;
+            default:
+                if (command->ordertype.attributes & COMMAND_MASK_PROTECTING)
+                {
+                    protecting = TRUE;
+                }
+                break;
+        }
+    }
+    link = cat_shipGetLinkInfo(ship);
+    if (cat_shipIsAcolyte(ship) && (link != NULL) && (link->partner != NULL))
+    {
+        linked = TRUE;
+    }
+    if (((ship->shiptype == sMimic) && (link != NULL) && (link->partner != NULL)) || linked)
+    {
+        return;
+    }
+
+    size = sizeofAttackCommand(attackers->numTargets);
+    copy = memAlloc(size,"RetaliateTargets",Pyrophoric);
+    memcpy(copy,attackers,size);
+
+    switch (ship->tacticstype)
+    {
+        case Evasive:
+            cat_tacticsRetaliateEvasive(ship,command,copy);
+            break;
+        case Neutral:
+            cat_tacticsRetaliatePassive(ship,command,copy);
+            break;
+        case Aggressive:
+            if (protecting)
+            {
+                cat_tacticsRetaliatePassive(ship,command,copy);
+                break;
+            }
+            attackersOwn.numShips = 0;
+            cat_tacticsKeepTargetable(ship,copy);
+            if (command == NULL)
+            {
+                selectone.numShips = 1;
+                selectone.timeLastStatus = 0.0f;     // CAT-FIX: the exe leaves it uninitialised (0x00529e2c)
+                selectone.ShipPtr[0] = ship;
+                source = &selectone;
+            }
+            else
+            {
+                source = command->selection;
+            }
+            MakeShipsAttackCapable((SelectCommand *)&attackersOwn,source,FALSE);
+            MakeShipsOnlyFollowConstraints((SelectCommand *)&attackersOwn,cat_tacticsCanRetaliateCB);
+            cat_selMakeShipsSameOwnerAsFirst((SelectCommand *)&attackersOwn);
+            if ((attackersOwn.numShips > 0) && ((command == NULL) || (command->ordertype.order != COMMAND_ATTACK)))
+            {
+                clAttack(&universe.mainCommandLayer,(SelectCommand *)&attackersOwn,copy);
+            }
+            break;
+        default:
+            break;
+    }
+    memFree(copy);
+}
+
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_shipIsTargetableBy
+    Description : TRUE if player (NULL: anyone) can target ship
+----------------------------------------------------------------------------*/
+// CAT: new (cat_shipIsTargetableBy 0x0052a080): not a ship the player has not detected, a crystal, a type with
+//      catTypeFlags 0x4000, a ship being delivered to a salvage depot, an infected ship turning Beast, a salvage
+//      target, a non-ship, the big gun and its unit, the crates, junk, message pod and buoy, the infected Ecclesiam,
+//      or a ship outside the universe box
+bool32 cat_shipIsTargetableBy(Player *player,Ship *ship)
+{
+    bool32 targetable = TRUE;
+    ShipType type;
+
+    if ((player != NULL) && !cat_shipDetectedByPlayer(ship,player->playerIndex))
+    {
+        targetable = FALSE;
+    }
+    type = ship->shiptype;
+    if (cat_shipIsCrystal(ship) || (ship->staticinfo->catTypeFlags & 0x4000) || (ship->catSalvageDepot != NULL) ||
+        (ship->catBeastConvertTime != 0.0f) || (ship->shipOrDerelict.specialFlags2 & SPECIAL_2_CatSalvageTargeted) ||
+        (ship->header.objtype != OBJ_ShipType) ||
+        (type == dBigGun) || (type == dBigGunUnit) || ((type >= dCrate) && (type <= dBuoy)) ||
+        (type == dEcclesiamInfected) ||
+        (ship->obj.posinfo.position.x < -smUniverseSizeX) || (smUniverseSizeX < ship->obj.posinfo.position.x) ||
+        (ship->obj.posinfo.position.y < -smUniverseSizeY) || (smUniverseSizeY < ship->obj.posinfo.position.y) ||
+        (ship->obj.posinfo.position.z < -smUniverseSizeZ) || (smUniverseSizeZ < ship->obj.posinfo.position.z))
+    {
+        targetable = FALSE;
+    }
+    return targetable;
 }

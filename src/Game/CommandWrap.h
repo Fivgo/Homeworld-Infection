@@ -13,9 +13,9 @@
 
 void clCommandMessage(char CommandMessage[MAX_MESSAGE_LENGTH]);
 
-void clWrapMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to);
+void clWrapMove(CommandLayer *comlayer,SelectCommand *selectcom,sdword pathType,vector from,sdword numPoints,vector *points);   // CAT: waypoint path (0x004529e0)
 void clWrapAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom);
-void clWrapFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation);
+void clWrapFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation,sdword catForceFieldLevel);   // CAT: + level (0x00452ca0)
 void clWrapDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockType,ShipPtr dockwith);
 void clWrapCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator);
 void clWrapBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator);
@@ -41,4 +41,14 @@ void clWrapMpHyperspace(CommandLayer *comlayer,SelectCommand *selectcom,vector f
 void clWrapResearch(udword type, udword playernum, udword labnum, udword tech);
 void cat_clWrapStartExternalBuildTimer(CommandLayer *comlayer,SelectCommand *selectcom);   // CAT: 0x00453660
 void cat_clWrapExternalBuildUpdate(CommandLayer *comlayer,uword playerIndex,Ship *creator,Ship *ship,real32 progress,sdword mode);   // CAT: 0x00453a00
+void cat_clWrapLink(CommandLayer *comlayer,SelectCommand *selectcom);                                         // CAT: 0x00453940
+void cat_clWrapUnlink(CommandLayer *comlayer,SelectCommand *selectcom);                                       // CAT: 0x004539a0
+void cat_clWrapSetLeechAction(CommandLayer *comlayer,SelectCommand *selectcom,ubyte mode);                    // CAT: 0x00453730
+void cat_clWrapUnleech(CommandLayer *comlayer,SelectCommand *selectcom);                                      // CAT: 0x004536b0
+void cat_clWrapSetModuleSlot(CommandLayer *comlayer,SelectCommand *selectcom,sdword moduleType,sdword count); // CAT: 0x00453580
+void cat_clWrapSetBeastSystem(CommandLayer *comlayer,Ship *ship,sdword system);                               // CAT: 0x004535f0
+void cat_clWrapPointOrder(CommandLayer *comlayer,SelectCommand *selectcom,vector *point);                     // CAT: 0x00453a70
+void cat_clWrapMimic(CommandLayer *comlayer,SelectCommand *selectcom,udword mode,udword shipType,udword player,udword index);   // CAT: 0x00453b30
+void cat_clWrapUpgradeShips(CommandLayer *comlayer,SelectCommand *selectcom,bool32 cancel);                   // CAT: 0x00453ad0
+void cat_clWrapSpecialTarget(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *targets,bool32 flag);   // CAT: 0x00453130
 #endif

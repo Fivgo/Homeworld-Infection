@@ -1461,7 +1461,8 @@ void battlePingEvaluate(void *voidPing, battleping *battlePing)
                 {
                     case COMMAND_MOVE:
                         //... see if he's moving out of the ping
-                        vecSub(diff, thisPing->centre, command->move.destination);
+                        // CAT: the current point of the move path (battlePingEvaluate 0x00428b70 reads +0x20 + 12 x curPoint)
+                        vecSub(diff, thisPing->centre, command->move.points[command->move.curPoint]);
                         if (fsqrt(vecMagnitudeSquared(diff)) > battlePing->radius * batRetreatModifier)
                         {                                   //if this ship is moving out of the ping
                             if (battleCanChatterAtThisTime(BCE_Retreat, ship))

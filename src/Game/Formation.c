@@ -22,6 +22,9 @@
 #include "Globals.h"
 #include "Memory.h"
 #include "ProximitySensor.h"
+#include "Select.h"
+#include "Sentinel.h"
+#include "ShipSelect.h"
 #include "SinglePlayer.h"
 #include "StatScript.h"
 #include "StringSupport.h"
@@ -58,23 +61,13 @@ bool8 FORMATION_TRAVEL_SLOWEST_SHIP = TRUE;
 real32 TARGETDRONE_FORMATION_SIZE = 1000.0f;
 
 /*-----------------------------------------------------------------------------
-    CAT (M2-R4 command): state of this file against cataclysm.exe. Ported: the formation name table (types 9/10) and
-    clFormation's accepted types; the parade code of M2-R3 (GetShipSlot, PutShipInMilitaryParade,
-    CreateMilitaryGroupAroundShip, the parade scripts). CAT-TODO(M2-R4 command follow-up, docs/m2-r4-command.md
-    "What is left"): the force-field formations (Sentinel fields) are not built yet:
-      - FormationCommand gains the force-field level at exe +0x288 (before formationSpecificInfo, +0x28C), set by
-        FillInFormationSpecifics 0x00484950 (a fourth argument; formationSpecificInfo cleared for types 0-6, 9, 10);
-      - clFormation 0x00484c80 (4 arguments: the per-ship CustShipFormationCommand veto, 12/24-ship caps, the
-        passive-attack clear) and clWrapFormation, clHoldingPattern, clSendFormation with it;
-      - FormationCalculateOffsets 0x00483620 (SetFormationOffsetsForForceFieldWall 0x00481ef0 for 9, the Sentinel
-        sphere for 10, disable reasons), formationSpecificsSphere 0x00481880 (2 arguments,
-        cat_formationSentinelFieldLevel, cat_formationSphereSentinelLinks), createSphereStaticInfo 0x00481410
-        (MAX_SENTINELS_IN_FORCE_FIELD_SPHERE);
-      - setFormationToDo 0x00482a00 and setMilitaryParade 0x00485790 (cat_univSetShipPosition), processFormationToDo
-        0x00482b90 (cat_formationShipMoveToSteady / NotToObscuredPoints), GetShipsTravelVel 0x004833d0 (speed
-        multiplier, Sentinel field), processMilitaryParadeToDo 0x00485280 (no ParadeNeedTomoveCloser flag: the exe
-        touches neither specialFlags word; with the flag retired the HW1 test below reduces to "within 300"),
-        paradeSetTweakables 0x004850d0.
+    CAT (M2-R4 command, M2-R5 command-tactics): state of this file against cataclysm.exe. Ported: the formation name
+    table (types 9/10), the parade code (GetShipSlot, PutShipInMilitaryParade, CreateMilitaryGroupAroundShip, the
+    parade scripts, processMilitaryParadeToDo, setMilitaryParade, paradeSetTweakables) and, in M2-R5, the
+    force-field formations: FormationCommand's force-field level (+0x288, FillInFormationSpecifics' fourth argument),
+    clFormation 0x00484c80 with 4 arguments, FormationCalculateOffsets (SetFormationOffsetsForForceFieldWall, the
+    Sentinel sphere), formationSpecificsSphere, createSphereStaticInfo, setFormationToDo, processFormationToDo and
+    GetShipsTravelVel (each marked CAT at the change; docs/m2-r5-command-tactics.md "formation").
 -----------------------------------------------------------------------------*/
 static NumStrXlate formationtypeinfo[] =
 {
@@ -130,7 +123,9 @@ scriptEntry FormationTweaks[] =
     END_SCRIPT_ENTRY
 };
 
-udword formationSortType[NO_FORMATION] =
+// CAT: 11 entries in the exe (0x0087fb38, all FORMATION_SORT_BIGGEST_THEN_CLOSEST): clFormation 0x00484c80 and
+//      formationArrageCrazyOptimum index it with the force-field formations (9, 10) too
+udword formationSortType[FORCEFIELD_SPHERE_FORMATION + 1] =
 {
     FORMATION_SORT_BIGGEST_THEN_CLOSEST,      //DELTA_FORMATION
     FORMATION_SORT_BIGGEST_THEN_CLOSEST,      //BROAD_FORMATION
@@ -139,6 +134,10 @@ udword formationSortType[NO_FORMATION] =
     FORMATION_SORT_BIGGEST_THEN_CLOSEST,      //WALL_FORMATION
     FORMATION_SORT_BIGGEST_THEN_CLOSEST,      //SPHERE_FORMATION
     FORMATION_SORT_BIGGEST_THEN_CLOSEST,      //CUSTOM_FORMATION
+    FORMATION_SORT_BIGGEST_THEN_CLOSEST,      //NO_FORMATION (never sorted)
+    FORMATION_SORT_BIGGEST_THEN_CLOSEST,      //SAME_FORMATION
+    FORMATION_SORT_BIGGEST_THEN_CLOSEST,      //FORCEFIELD_WALL_FORMATION
+    FORMATION_SORT_BIGGEST_THEN_CLOSEST,      //FORCEFIELD_SPHERE_FORMATION
 };
 
 //prototypes!
@@ -151,10 +150,13 @@ bool32 isCapitalShipStaticOrBig(ShipStaticInfo *shipstatic)
         return TRUE;
     }
 
+    // CAT: both races' cloak and grav-well generators (isCapitalShipStaticOrBig 0x00481130: types 0x3f, 0x40, 0x4d, 0x4f)
     switch (shipstatic->shiptype)   // other cases that are not necessarily covered by isCapitalShipStatic
     {
-        case CloakGenerator:
-        case GravWellGenerator:
+        case kCloakGenerator:
+        case kGravWellGenerator:
+        case tCloakGenerator:
+        case tGravWellGenerator:
             return TRUE;
         default:
             return FALSE;
@@ -315,7 +317,8 @@ void formationBiggestThenClosestOptimum(SelectCommand *selection,TypeOfFormation
     cloakinsel = FALSE;
     for (i=0;i<selection->numShips;i++)
     {
-        if(selection->ShipPtr[i]->shiptype == CloakGenerator)
+        // CAT: both races' cloak generators (formationArrangeOptimum 0x00481200 tests 0x3f and 0x4d)
+        if((selection->ShipPtr[i]->shiptype == kCloakGenerator) || (selection->ShipPtr[i]->shiptype == tCloakGenerator))
         {
             cloakinsel = TRUE;
             cloakindex = i;
@@ -362,6 +365,11 @@ void formationArrangeOptimum(struct CommandToDo *formationtodo)
 }
 
 #define NUM_SPHERE_TABLE_ENTRYS     50
+
+// CAT: a force-field sphere holds 12 Sentinels (clFormation 0x00484c80 caps it at 12) plus the protected ship: the
+//      sphere table entry for 13 ships (createSphereStaticInfo 0x00481410)
+#define MAX_SENTINELS_IN_FORCE_FIELD_SPHERE     12
+static SphereTableEntry *catForceFieldSphereEntry = NULL;
 
 struct SphereStaticInfo *createSphereStaticInfo(void)
 {
@@ -421,6 +429,21 @@ struct SphereStaticInfo *createSphereStaticInfo(void)
 
     }
 
+    // CAT: the table entry of exactly MAX_SENTINELS_IN_FORCE_FIELD_SPHERE ships is the force-field sphere's
+    //      (createSphereStaticInfo 0x00481542: the last entry for 13 ships, kept at 0x00a436f8)
+    catForceFieldSphereEntry = NULL;
+    for (tableindex=0;tableindex<NUM_SPHERE_TABLE_ENTRYS;tableindex++)
+    {
+        if (sphereStaticInfo->sphereTableEntryPtrs[tableindex]->numShipsCanHandle == MAX_SENTINELS_IN_FORCE_FIELD_SPHERE + 1)
+        {
+            catForceFieldSphereEntry = sphereStaticInfo->sphereTableEntryPtrs[tableindex];
+        }
+    }
+    if (catForceFieldSphereEntry == NULL)
+    {
+        dbgFatal(DBG_Loc,"MAX_SENTINELS_IN_FORCE_FIELD_SPHERE is not set to a valid value for handling Spherical Force Fields.");
+    }
+
     return sphereStaticInfo;
 }
 
@@ -439,9 +462,192 @@ void freeSphereStaticInfo(struct SphereStaticInfo *sphereStaticInfo)
     for (i=0;i<numTableEntrys;i++)
     {
         memFree(sphereStaticInfo->sphereTableEntryPtrs[i]);
+        sphereStaticInfo->sphereTableEntryPtrs[i] = NULL;   // CAT: freeSphereStaticInfo 0x00481590 clears the entry
     }
 
     memFree(sphereStaticInfo);
+}
+
+/*-----------------------------------------------------------------------------
+    CAT (M2-R5 command-tactics): the force-field formations of Sentinels (FORCEFIELD_WALL_FORMATION 9,
+    FORCEFIELD_SPHERE_FORMATION 10). Each Sentinel's specifics hold the triangles of the field it spans with its
+    neighbours (SentinelSpec.numLinks / links, Ship+0x640..); the formation code fills them as it lays the ships out.
+-----------------------------------------------------------------------------*/
+
+// CAT: the spacing of a force-field wall (cataclysm.exe 0x0087f960 = 300.0, read by
+//      SetFormationOffsetsForForceFieldWall 0x00481ef0; no script key sets it; name chosen here)
+real32 FORCEFIELD_WALL_SPACING = 300.0f;
+
+// CAT: the frame a force-field sphere's offsets are turned by (cataclysm.exe 0x0072af18: the identity matrix)
+static matrix catForceFieldSphereFrame = { 1.0f, 0.0f, 0.0f,  0.0f, 1.0f, 0.0f,  0.0f, 0.0f, 1.0f };
+
+static SentinelSpec *catSentinelSpec(Ship *ship)
+{
+    return (SentinelSpec *)ship->ShipSpecifics;
+}
+
+static void catSentinelLink(Ship *ship,sdword index,Ship *a,Ship *b)
+{
+    catSentinelSpec(ship)->links[index].a = a;
+    catSentinelSpec(ship)->links[index].b = b;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_formationSphereSentinelLinks
+    Description : the field triangles the Sentinel at position last - first of a force-field sphere spans
+    Inputs      : spec (the Sentinel's), selection, first (the centre ship's index), last (this ship's)
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (cat_formationSphereSentinelLinks 0x004815d0): a fixed table for the 12 places of a 13-ship sphere
+void cat_formationSphereSentinelLinks(SentinelSpec *spec,SelectCommand *selection,sdword first,sdword last)
+{
+    Ship **s = &selection->ShipPtr[first];
+    sdword n = 0;
+
+#define CATLINK(x,y) { spec->links[n].a = s[x]; spec->links[n].b = s[y]; n++; }
+    spec->numLinks = 0;
+    switch (last - first)
+    {
+        case 1:
+            return;
+        case 2:  CATLINK(0,1); break;
+        case 3:  CATLINK(0,2); break;
+        case 4:  CATLINK(0,3); break;
+        case 5:  CATLINK(0,4); CATLINK(1,0); break;
+        case 6:  CATLINK(1,5); break;
+        case 7:  CATLINK(1,6); CATLINK(2,1); break;
+        case 8:  CATLINK(2,7); CATLINK(3,2); break;
+        case 9:  CATLINK(4,3); CATLINK(3,8); break;
+        case 10: CATLINK(5,4); CATLINK(4,9); CATLINK(6,5); break;
+        case 11: CATLINK(6,7); CATLINK(7,8); CATLINK(8,9); CATLINK(9,10); CATLINK(10,6); break;
+        default:
+            return;
+    }
+#undef CATLINK
+    spec->numLinks = n;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_formationSentinelFieldLevel
+    Description : the force-field level of a selection of Sentinels: 2 when all have the third force-field ability,
+                  1 the second, 0 otherwise; every Sentinel gets it as its charge level
+    Inputs      : selection (Sentinels only)
+    Outputs     :
+    Return      : the number of ships
+----------------------------------------------------------------------------*/
+// CAT: new (cat_formationSentinelFieldLevel 0x004817d0): the abilities are CAT_UPGRADE_Ability3 / Ability2
+//      (ABILITY_FORCE_FIELD3 / 2); the level goes to SentinelSpec.chargeLevel (Ship+0x964)
+sdword cat_formationSentinelFieldLevel(SelectCommand *selection)
+{
+    sdword level = 2;
+    sdword i;
+
+    for (i = 0; i < selection->numShips; i++)
+    {
+        if (level == 2)
+        {
+            if (!cat_shipHasUpgrade(selection->ShipPtr[i],CAT_UPGRADE_Ability3))
+            {
+                level = 1;
+                if (!cat_shipHasUpgrade(selection->ShipPtr[i],CAT_UPGRADE_Ability2))
+                {
+                    level = 0;
+                }
+            }
+        }
+        else if (level == 1)
+        {
+            if (!cat_shipHasUpgrade(selection->ShipPtr[i],CAT_UPGRADE_Ability2))
+            {
+                level = 0;
+            }
+        }
+        if ((selection->ShipPtr[i]->shiptype != sSentinel) && (selection->ShipPtr[i]->shiptype != bSentinel))
+        {
+            dbgFatalf(DBG_Loc,"Can only have sentinels forming a spherical force field!");
+        }
+    }
+    for (i = 0; i < selection->numShips; i++)
+    {
+        catSentinelSpec(selection->ShipPtr[i])->chargeLevel = level;
+    }
+    return i;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : SetFormationOffsetsForForceFieldWall
+    Description : lays a force-field wall out: the leader in the middle, then rings of 4, 8 and 12 Sentinels in the
+                  leader's up/right plane, FORCEFIELD_WALL_SPACING apart, each spanning field triangles with its
+                  inner neighbours
+    Inputs      : command
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+// CAT: new (SetFormationOffsetsForForceFieldWall 0x00481ef0); the exe's table, ring by ring
+void SetFormationOffsetsForForceFieldWall(CommandToDo *command)
+{
+    static const struct { real32 x, y; sdword a0, b0, a1, b1; } place[25] =
+    {
+        // the leader, then the ring of 4
+        {  0.0f,  0.0f, -1, -1, -1, -1 },
+        {  1.0f,  0.0f, -1, -1, -1, -1 },
+        {  0.0f,  1.0f,  1,  0, -1, -1 },
+        { -1.0f,  0.0f,  2,  0, -1, -1 },
+        {  0.0f, -1.0f,  3,  0,  0,  1 },
+        // the ring of 8
+        {  1.0f,  1.0f,  1,  2, -1, -1 },
+        {  0.0f,  2.0f,  5,  2, -1, -1 },
+        { -1.0f,  1.0f,  2,  3,  6,  2 },
+        { -2.0f,  0.0f,  7,  3, -1, -1 },
+        { -1.0f, -1.0f,  8,  3,  3,  4 },
+        {  0.0f, -2.0f,  9,  4, -1, -1 },
+        {  1.0f, -1.0f, 10,  4,  4,  1 },
+        {  2.0f,  0.0f, 11,  1,  1,  5 },
+        // the ring of 12 (clFormation caps a force-field wall at 24 ships; a WALL_FORMATION of Sentinels is not capped)
+        {  2.0f,  1.0f, 12,  5, -1, -1 },
+        {  1.0f,  2.0f, 13,  5,  5,  6 },
+        {  0.0f,  3.0f, 14,  6, -1, -1 },
+        { -1.0f,  2.0f,  6,  7, 15,  6 },
+        { -2.0f,  1.0f, 16,  7,  7,  8 },
+        { -3.0f,  0.0f, 17,  8, -1, -1 },
+        { -2.0f, -1.0f, 18,  8,  8,  9 },
+        { -1.0f, -2.0f, 19,  9,  9, 10 },
+        {  0.0f, -3.0f, 20, 10, -1, -1 },
+        {  1.0f, -2.0f, 21, 10, 10, 11 },
+        {  2.0f, -1.0f, 22, 11, 11, 12 },
+        {  3.0f,  0.0f, 23, 12, 12, 13 },
+    };
+    SelectCommand *selection = command->selection;
+    real32 d = FORCEFIELD_WALL_SPACING;
+    sdword i;
+    Ship *ship;
+    SentinelSpec *spec;
+
+    cat_formationSentinelFieldLevel(selection);
+    for (i = 0; i < selection->numShips; i++)
+    {
+        if (i >= (sdword)(sizeof(place) / sizeof(place[0])))
+        {
+            // the exe stops after the 25th place with a nullsub warning ("cannont handle this many sentinels!",
+            // 0x00880cc0)
+            return;
+        }
+        ship = selection->ShipPtr[i];
+        spec = catSentinelSpec(ship);
+        spec->numLinks = 0;
+        vecSet(ship->formationOffset,place[i].x * d,place[i].y * d,0.0f);
+        if (place[i].a0 >= 0)
+        {
+            catSentinelLink(ship,0,selection->ShipPtr[place[i].a0],selection->ShipPtr[place[i].b0]);
+            spec->numLinks = 1;
+        }
+        if (place[i].a1 >= 0)
+        {
+            catSentinelLink(ship,1,selection->ShipPtr[place[i].a1],selection->ShipPtr[place[i].b1]);
+            spec->numLinks = 2;
+        }
+    }
 }
 
 SphereTableEntry *findSphereTableEntry(sdword numShips)
@@ -479,7 +685,9 @@ bool32 sphere_special_proximity_solution(Ship *centreship, SelectCommand *select
    sdword i;
    for(i=1;i<selection->numShips;i++)
    {
-      if(selection->ShipPtr[i]->shiptype != ProximitySensor)
+      // CAT: both races' proximity sensors, as the exe's inlined copy in formationSpecificsSphere tests (0x00481933: 0x47 and
+      //      0x57); this HW1 helper itself has no caller
+      if ((selection->ShipPtr[i]->shiptype != kProximitySensor) && (selection->ShipPtr[i]->shiptype != tProximitySensor))
       {
          //non-proximity sensor detected, return false
          return(FALSE);
@@ -489,7 +697,7 @@ bool32 sphere_special_proximity_solution(Ship *centreship, SelectCommand *select
 
    if(centreship == selection->ShipPtr[0])
       return(TRUE);                          //not protecting anything
-   else if(selection->ShipPtr[0]->shiptype == ProximitySensor)
+   else if ((selection->ShipPtr[0]->shiptype == kProximitySensor) || (selection->ShipPtr[0]->shiptype == tProximitySensor))
       return(TRUE);                          //all proximity sensors
 
    return(FALSE);
@@ -498,117 +706,109 @@ bool32 sphere_special_proximity_solution(Ship *centreship, SelectCommand *select
 /*-----------------------------------------------------------------------------
     Name        : formationSpecificsSphere
     Description : calculates and returns custom information for the specifics of a sphere formation command
-    Inputs      : command
+    Inputs      : command, forceField (TRUE for a force-field sphere of Sentinels)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void formationSpecificsSphere(CommandToDo *command)
+// CAT: formationSpecificsSphere 0x00481880 takes a second argument, the force-field flag. A force-field sphere uses
+//      the 13-ship table entry, sizes itself from the centre ship's forceFieldProtectionDistanceScale x
+//      avoidcollspheresize (no minimum radius), puts the bottom pole last, turns every offset by the exe's
+//      catForceFieldSphereFrame and gives each Sentinel its field triangles (cat_formationSphereSentinelLinks) and
+//      the field level (cat_formationSentinelFieldLevel). Both proximity-sensor types count; no HW1 mission-14
+//      ion-cannon override. A last ship beyond the declinations goes to the bottom pole (the exe returns there).
+void formationSpecificsSphere(CommandToDo *command,sdword forceField)
 {
     SelectCommand *selection = command->selection;
     sdword numShips = selection->numShips;
     sdword shipWorkingOn;
+    sdword centreIndex;
     real32 sphereRadius;
     real32 shipRadius,minrange;
     sdword i,j,k;
     sdword numDeclinations;
-//    sdword totalDeclinations;
     SphereDeclination *sphereDeclination;
     vector declination;
-    vector tempvec;
+    vector tempvec, tempvec2;
     matrix rotaboutz;
     Ship *centreship;
     sdword numShipsIncludingCentre;
     Ship *ship;
-
     SphereTableEntry *tableentry;
-    sdword prox_sol;
-    dbgAssertOrIgnore(numShips > 0);
+    bool32 prox_sol;
+
+    if (forceField)
+    {
+        cat_formationSentinelFieldLevel(selection);
+    }
 
     if (command->ordertype.attributes & COMMAND_MASK_PROTECTING)
     {
-        // We should form around protected ship
-//        command->formation.formAroundProtectedShip = TRUE;
-        dbgAssertOrIgnore(command->protect->numShips > 0);
         centreship = command->protect->ShipPtr[0];
-        shipWorkingOn = 0;
+        centreIndex = 0;
         numShipsIncludingCentre = numShips + 1;
     }
-    else if(command->ordertype.order == COMMAND_ATTACK && command->attack->numTargets)
+    else if ((command->ordertype.order == COMMAND_ATTACK) && command->attack->numTargets && (command->formation.enders == TRUE))
     {
-        if(command->formation.enders == TRUE)
+        centreship = (Ship *)command->selection->ShipPtr[0]->attackvars.attacktarget;
+        if (centreship == NULL)
         {
-            //centreship = command->formation.endership;
-
-            //if this case never happens, we can remove the check..but the check is
-            if(command->selection->ShipPtr[0]->attackvars.attacktarget == NULL)
-            {
-                //don't know if this will happen ever...we'll find out
-                //
-                //
-                //  Tell Bryce about this!
-                //
-                //
-#ifdef DEBUG_TACTICS
-    #ifdef bpasechn
-                dbgNonFatal(DBG_Loc,"AttackTarget is NULL Detected.");
-    #endif
-#endif
-                centreship = (Ship*)command->attack->TargetPtr[0];      //this can't possibly be invalid!
-            }
-            else
-            {
-                centreship = (Ship *)command->selection->ShipPtr[0]->attackvars.attacktarget;
-            }
-            shipWorkingOn = 0;
-            numShipsIncludingCentre = numShips + 1;
+            centreship = (Ship *)command->attack->TargetPtr[0];
         }
-        else
-        {
-            centreship = selection->ShipPtr[0];
-            shipWorkingOn = 1;
-            numShipsIncludingCentre = numShips;
-        }
+        centreIndex = 0;
+        numShipsIncludingCentre = numShips + 1;
     }
     else
     {
         centreship = selection->ShipPtr[0];
-        shipWorkingOn = 1;
+        centreIndex = 1;
         numShipsIncludingCentre = numShips;
     }
 
-    prox_sol = sphere_special_proximity_solution(centreship, selection);
+    // all proximity sensors (of either race) but maybe the centre ship
+    prox_sol = TRUE;
+    for (i = 1; i < selection->numShips; i++)
+    {
+        if ((selection->ShipPtr[i]->shiptype != kProximitySensor) && (selection->ShipPtr[i]->shiptype != tProximitySensor))
+        {
+            prox_sol = FALSE;
+            break;
+        }
+    }
+    if (prox_sol && !((centreship == selection->ShipPtr[0]) || (selection->ShipPtr[0]->shiptype == kProximitySensor) ||
+                      (selection->ShipPtr[0]->shiptype == tProximitySensor)))
+    {
+        prox_sol = FALSE;
+    }
 
     if (numShipsIncludingCentre == 1)
     {
         return;             // if only leader is present, don't need to calculate anything
     }
 
-    // calculate sphereRadius
-
-    if ((prox_sol) && (centreship->shiptype == ProximitySensor))
+    if ((prox_sol) && ((centreship->shiptype == kProximitySensor) || (centreship->shiptype == tProximitySensor)))
     {
         shipRadius = ((ProximitySensorStatics *) ((ShipStaticInfo *)(centreship->staticinfo))->custstatinfo)->SearchRadius;
     }
     else
     {
         shipRadius = centreship->staticinfo->common.staticCollInfo.collspheresize;
-
     }
-//    totalDeclinations = numDeclinations + numDeclinations + 2;
 
-    tableentry = findSphereTableEntry(numShipsIncludingCentre);
+    if (!forceField)
+    {
+        tableentry = findSphereTableEntry(numShipsIncludingCentre);
+    }
+    else
+    {
+        tableentry = catForceFieldSphereEntry;
+    }
     numDeclinations = tableentry->numDeclinations;
 
-    // CAT: no HW1 DDDFrigate drone sphere (M2-R4 ships-b)
-    if(prox_sol)
+    if (prox_sol)
     {
         sphereRadius = shipRadius + ((ProximitySensorStatics *) ((ShipStaticInfo *)(selection->ShipPtr[1]->staticinfo))->custstatinfo)->SearchRadius;
     }
-    else if (singlePlayerGame && spGetCurrentMission() == MISSION_14_BRIDGE_OF_SIGHS && /*numShips > 20*/(selection->ShipPtr[0]->playerowner->playerIndex) && selection->ShipPtr[0]->shiptype == IonCannonFrigate)
-    {                                                                         //^^^^^^^^^^^^^  special case changed to be more general
-        sphereRadius = SINGLEPLAYER_MISSION14_SPHERE_OVERRIDE;
-    }
-    else if (command->formation.enders == TRUE)
+    else if ((command->formation.enders == TRUE) && !forceField)
     {
         minrange = REALlyBig;
         for(k=1;k<numShips;k++)
@@ -618,28 +818,45 @@ void formationSpecificsSphere(CommandToDo *command)
         }
         sphereRadius = minrange*0.9f;
     }
-    else
+    else if (!forceField)
     {
         if (shipRadius > SPHERESIZE_IGNORE_NUMDECLINATIONS)
-            sphereRadius = shipRadius * SPHERE_FORMATION_PADDING_SCALE * 2;
+            sphereRadius = shipRadius * SPHERE_FORMATION_PADDING_SCALE + shipRadius * SPHERE_FORMATION_PADDING_SCALE;
         else
-            sphereRadius = shipRadius * SPHERE_FORMATION_PADDING_SCALE * (real32)((numDeclinations < 2) ? 2 : numDeclinations);
+            sphereRadius = (real32)((numDeclinations < 2) ? 2 : numDeclinations) * SPHERE_FORMATION_PADDING_SCALE * shipRadius;
+    }
+    else
+    {
+        sphereRadius = centreship->staticinfo->forceFieldProtectionDistanceScale *
+                       centreship->staticinfo->common.staticCollInfo.avoidcollspheresize;
     }
 
-    if (sphereRadius < SPHERE_MINIMUM_RADIUS)
+    if ((sphereRadius >= SPHERE_MINIMUM_RADIUS) || forceField)
+    {
+        if (sphereRadius > SPHERE_MAXIMUM_RADIUS)
+        {
+            sphereRadius = SPHERE_MAXIMUM_RADIUS;
+        }
+    }
+    else
     {
         sphereRadius = SPHERE_MINIMUM_RADIUS;
     }
-    else if ((sphereRadius > SPHERE_MAXIMUM_RADIUS) && (sphereRadius != SINGLEPLAYER_MISSION14_SPHERE_OVERRIDE))
-    {
-        sphereRadius = SPHERE_MAXIMUM_RADIUS;
-    }
 
     // position ship at top pole
+    shipWorkingOn = centreIndex;
     ship = selection->ShipPtr[shipWorkingOn];
 
     vecSet(ship->formationOffset,0.0f,0.0f,sphereRadius);
     vecSet(ship->formationHeading,0.0f,0.0f,1.0f);
+    if (forceField)
+    {
+        catSentinelSpec(ship)->numLinks = 0;
+        tempvec = ship->formationOffset;
+        tempvec2 = ship->formationHeading;
+        matMultiplyVecByMat(&ship->formationOffset,&tempvec,&catForceFieldSphereFrame);
+        matMultiplyVecByMat(&ship->formationHeading,&tempvec2,&catForceFieldSphereFrame);
+    }
 
     shipWorkingOn++;
     if (numShips == shipWorkingOn)
@@ -648,21 +865,21 @@ void formationSpecificsSphere(CommandToDo *command)
     }
     ship = selection->ShipPtr[shipWorkingOn];
 
-    // position ship at bottom pole
-    vecSet(ship->formationOffset,0.0f,0.0f,-sphereRadius);
-    vecSet(ship->formationHeading,0.0f,0.0f,-1.0f);
-
-    shipWorkingOn++;
-    if (numShips == shipWorkingOn)
+    if (!forceField)
     {
-        return;
+        // position ship at bottom pole
+        vecSet(ship->formationOffset,0.0f,0.0f,-sphereRadius);
+        vecSet(ship->formationHeading,0.0f,0.0f,-1.0f);
+
+        shipWorkingOn++;
+        if (numShips == shipWorkingOn)
+        {
+            return;
+        }
+        ship = selection->ShipPtr[shipWorkingOn];
     }
-    ship = selection->ShipPtr[shipWorkingOn];
 
     // now position rest of ships.  Look up the table we need for the number of ships we have
-
-    dbgAssertOrIgnore(shipWorkingOn < numShips);
-    dbgAssertOrIgnore(numShips <= tableentry->numShipsCanHandle);
 
     for (i=0,sphereDeclination=&tableentry->sphereDeclinations[0];i<numDeclinations;i++,sphereDeclination++)
     {
@@ -678,20 +895,45 @@ void formationSpecificsSphere(CommandToDo *command)
 
             ship->formationHeading = declination;
             vecScalarMultiply(ship->formationOffset,declination,sphereRadius);
+            if (forceField)
+            {
+                tempvec = ship->formationOffset;
+                tempvec2 = ship->formationHeading;
+                matMultiplyVecByMat(&ship->formationOffset,&tempvec,&catForceFieldSphereFrame);
+                matMultiplyVecByMat(&ship->formationHeading,&tempvec2,&catForceFieldSphereFrame);
+                cat_formationSphereSentinelLinks(catSentinelSpec(ship),selection,centreIndex,shipWorkingOn);
+            }
 
             shipWorkingOn++;
+            if (shipWorkingOn < numShips)
+            {
+                ship = selection->ShipPtr[shipWorkingOn];     // (the exe reads the next slot before its checks)
+            }
+            if ((shipWorkingOn == numShips - 1) && (i == numDeclinations - 1) && (j == sphereDeclination->numAnglePoints - 1))
+            {
+                // the last ship goes to the bottom pole (0x00481d4b)
+                vecSet(ship->formationOffset,0.0f,0.0f,-sphereRadius);
+                vecSet(ship->formationHeading,0.0f,0.0f,-1.0f);
+                if (!forceField)
+                {
+                    return;
+                }
+                cat_formationSphereSentinelLinks(catSentinelSpec(ship),selection,centreIndex,shipWorkingOn);
+                tempvec = ship->formationOffset;
+                tempvec2 = ship->formationHeading;
+                matMultiplyVecByMat(&ship->formationOffset,&tempvec,&catForceFieldSphereFrame);
+                matMultiplyVecByMat(&ship->formationHeading,&tempvec2,&catForceFieldSphereFrame);
+                return;
+            }
             if (numShips == shipWorkingOn)
             {
                 return;
             }
-            ship = selection->ShipPtr[shipWorkingOn];
 
             tempvec = declination;
-            matMultiplyMatByVec(&declination,&rotaboutz,&tempvec);      // later optimize by just having a table of unit
-                                                                        // vectors describing the sphere?
+            matMultiplyMatByVec(&declination,&rotaboutz,&tempvec);
         }
     }
-    dbgAssertOrIgnore(FALSE);       // should return before getting here
 }
 
 // define for a ship moving into formation, without changing heading, and trying to steady formation
@@ -729,103 +971,82 @@ void formationSpecificsSphere(CommandToDo *command)
         }                                                                                                                                                                                                                                                            \
     }
 
-// define for a ship moving into formation, including heading, and trying to steady formation
-#define FormationShipMoveToSteady(desiredpos,head) \
-    {                                                                                                                                                       \
-        real32 tmpdistaway = MoveLeftToGo(ship,&desiredpos);                                                                                                \
-        udword tmpuseflags = AISHIP_PointInDirectionFlying | AISHIP_FastAsPossible|AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_IgnoreFormationObscuredPoints;        \
-                                                                                                                                                            \
-        if (isCapitalShipStaticOrBig(shipstatic))                                                                                                                \
-        {                                                                                                                                                   \
-            if (tmpdistaway <= 500.0f)                                                                                                                      \
-            {                                                                                                                                               \
-                aitrackHeadingWithBank(ship,&(head),FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);                                                           \
-                tmpuseflags = AISHIP_FastAsPossible|AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_IgnoreFormationObscuredPoints;  \
-                if (tmpdistaway <= 100.0f) ship->header.flags |= SOF_DontDrawTrails;                                                                               \
-            }                                                                                                                                               \
-        }                                                                                                                                                   \
-        else if (tmpdistaway <= 100.0f)                                                                                                                     \
-        {                                                                                                                                                   \
-            aitrackHeadingWithBank(ship,&(head),FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);                                                               \
-            tmpuseflags = AISHIP_FastAsPossible|AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_IgnoreFormationObscuredPoints;      \
-            ship->header.flags |= SOF_DontDrawTrails;                                                                                                              \
-        }                                                                                                                                                   \
-                                                                                                                                                            \
-        if (tmpdistaway >= 10.0f)                                                                                                                           \
-        {                                                                                                                                                   \
-            if (aishipFlyToPointAvoidingObjsWithVel(ship,&desiredpos,tmpuseflags,0.0f,&leader->obj.posinfo.velocity) & AISHIP_FLY_OBJECT_IN_WAY)                \
-            {                                                                                                                                               \
-                if (tmpuseflags & AISHIP_PointInDirectionFlying)                                                                                            \
-                {                                                                                                                                           \
-                    aitrackHeadingWithBank(ship,&(head),FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);                                                       \
-                }                                                                                                                                           \
-                aitrackSteadyShipDriftOnly(ship);                                                                                                           \
-            }                                                                                                                                               \
-        }                                                                                                                                                   \
-        else                                                                                                                                                \
-        {                                                                                                                                                   \
-            aitrackSteadyShipDriftOnly(ship);                                                                                                               \
-        }                                                                                                                                                   \
+// CAT: HW1's FormationShipMoveToSteady / FormationShipMoveToNotToObscuredPoints macros are functions in Cataclysm
+//      (cat_formationShipMoveToSteady 0x00482620, cat_formationShipMoveToNotToObscuredPoints 0x00482770); the
+//      capital-ship test is isCapitalShipStaticOrBig's, inline
+void cat_formationShipMoveToSteady(Ship *ship,Ship *leader,vector *desiredpos,vector *head)
+{
+    ShipStaticInfo *shipstatic = (ShipStaticInfo *)ship->staticinfo;
+    real32 tmpdistaway = MoveLeftToGo(ship,desiredpos);
+    udword tmpuseflags = AISHIP_PointInDirectionFlying | AISHIP_FastAsPossible|AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_IgnoreFormationObscuredPoints;
+
+    if (isCapitalShipStaticOrBig(shipstatic))
+    {
+        if (tmpdistaway <= 500.0f)
+        {
+            aitrackHeadingWithBank(ship,head,FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);
+            tmpuseflags = AISHIP_FastAsPossible|AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_IgnoreFormationObscuredPoints;
+            if (tmpdistaway <= 100.0f) ship->header.flags |= SOF_DontDrawTrails;
+        }
+    }
+    else if (tmpdistaway <= 100.0f)
+    {
+        aitrackHeadingWithBank(ship,head,FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);
+        tmpuseflags = AISHIP_FastAsPossible|AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_IgnoreFormationObscuredPoints;
+        ship->header.flags |= SOF_DontDrawTrails;
     }
 
-// define for a ship moving into formation, including heading, and not trying to fly to obscured points
-#define FormationShipMoveToNotToObscuredPoints(desiredpos,head) \
-    {                                                                                                                                                       \
-        real32 tmpdistaway = MoveLeftToGo(ship,&desiredpos);                                                                                                \
-        udword tmpuseflags = AISHIP_PointInDirectionFlying | AISHIP_FastAsPossible|AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_IgnoreFormationObscuredPoints;        \
-                                                                                                                                                            \
-        if (isCapitalShipStaticOrBig(shipstatic))                                                                                                                \
-        {                                                                                                                                                   \
-            if (tmpdistaway <= 500.0f)                                                                                                                      \
-            {                                                                                                                                               \
-                aitrackHeadingWithBank(ship,&(head),FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);                                                           \
-                tmpuseflags = AISHIP_FastAsPossible|AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_IgnoreFormationObscuredPoints;  \
-            }                                                                                                                                               \
-        }                                                                                                                                                   \
-        else if (tmpdistaway <= 100.0f)                                                                                                                     \
-        {                                                                                                                                                   \
-            aitrackHeadingWithBank(ship,&(head),FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);                                                               \
-            tmpuseflags = AISHIP_FastAsPossible|AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_IgnoreFormationObscuredPoints;      \
-        }                                                                                                                                                   \
-                                                                                                                                                            \
-        if (tmpdistaway >= 10.0f)                                                                                                                           \
-        {                                                                                                                                                   \
-            if (aishipFlyToPointAvoidingObjsWithVel(ship,&desiredpos,tmpuseflags,0.0f,&leader->obj.posinfo.velocity) & AISHIP_FLY_OBJECT_IN_WAY)                \
-            {                                                                                                                                               \
-                if (tmpuseflags & AISHIP_PointInDirectionFlying)                                                                                            \
-                {                                                                                                                                           \
-                    aitrackHeadingWithBank(ship,&(head),FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);                                                       \
-                }                                                                                                                                           \
-                aitrackSteadyShipDriftOnly(ship);                                                                                                           \
-            }                                                                                                                                               \
-        }                                                                                                                                                   \
+    if (tmpdistaway >= 10.0f)
+    {
+        if (!(aishipFlyToPointAvoidingObjsWithVel(ship,desiredpos,tmpuseflags,0.0f,&leader->obj.posinfo.velocity) & AISHIP_FLY_OBJECT_IN_WAY))
+        {
+            return;
+        }
+        if (tmpuseflags & AISHIP_PointInDirectionFlying)
+        {
+            aitrackHeadingWithBank(ship,head,FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);
+        }
+    }
+    aitrackSteadyShipDriftOnly(ship);
+}
+
+void cat_formationShipMoveToNotToObscuredPoints(Ship *ship,Ship *leader,vector *desiredpos,vector *head,bool32 pointInDirection)
+{
+    ShipStaticInfo *shipstatic = (ShipStaticInfo *)ship->staticinfo;
+    real32 tmpdistaway = MoveLeftToGo(ship,desiredpos);
+    udword tmpuseflags = AISHIP_FastAsPossible|AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_IgnoreFormationObscuredPoints;
+
+    if (pointInDirection)
+    {
+        tmpuseflags |= AISHIP_PointInDirectionFlying;
     }
 
-// define for a ship moving into formation, including heading
-#define FormationShipMoveTo(desiredpos,head) \
-    {                                                                                                                                                       \
-        real32 tmpdistaway = MoveLeftToGo(ship,&desiredpos);                                                                                                \
-        udword tmpuseflags = AISHIP_PointInDirectionFlying | AISHIP_FastAsPossible;                                                                         \
-                                                                                                                                                            \
-        if (isCapitalShipStaticOrBig(shipstatic))                                                                                                                \
-        {                                                                                                                                                   \
-            if (tmpdistaway <= 500.0f)                                                                                                                      \
-            {                                                                                                                                               \
-                aitrackHeadingWithBank(ship,&(head),FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);                                                           \
-                tmpuseflags = AISHIP_FastAsPossible;                                                                                                        \
-            }                                                                                                                                               \
-        }                                                                                                                                                   \
-        else if (tmpdistaway <= 100.0f)                                                                                                                     \
-        {                                                                                                                                                   \
-            aitrackHeadingWithBank(ship,&(head),FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);                                                               \
-            tmpuseflags = AISHIP_FastAsPossible;                                                                                                            \
-        }                                                                                                                                                   \
-                                                                                                                                                            \
-        if (tmpdistaway >= 10.0f)                                                                                                                           \
-        {                                                                                                                                                   \
-            aishipFlyToPointAvoidingObjsWithVel(ship,&desiredpos,tmpuseflags,0.0f,&leader->obj.posinfo.velocity);                                               \
-        }                                                                                                                                                   \
+    if (isCapitalShipStaticOrBig(shipstatic))
+    {
+        if (tmpdistaway <= 500.0f)
+        {
+            aitrackHeadingWithBank(ship,head,FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);
+            tmpuseflags = AISHIP_FastAsPossible|AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_IgnoreFormationObscuredPoints;
+        }
     }
+    else if (tmpdistaway <= 100.0f)
+    {
+        aitrackHeadingWithBank(ship,head,FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);
+        tmpuseflags = AISHIP_FastAsPossible|AISHIP_DontFlyToObscuredPoints|AISHIP_ReturnImmedIfPointObscured|AISHIP_IgnoreFormationObscuredPoints;
+    }
+
+    if (tmpdistaway >= 10.0f)
+    {
+        if (aishipFlyToPointAvoidingObjsWithVel(ship,desiredpos,tmpuseflags,0.0f,&leader->obj.posinfo.velocity) & AISHIP_FLY_OBJECT_IN_WAY)
+        {
+            if (tmpuseflags & AISHIP_PointInDirectionFlying)
+            {
+                aitrackHeadingWithBank(ship,head,FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);
+            }
+            aitrackSteadyShipDriftOnly(ship);
+        }
+    }
+}
 
 void formationWingmanTrackLeader(struct Ship *ship,struct Ship *leader,bool32 rotate)
 {
@@ -875,12 +1096,14 @@ void formationWingmanTrackLeader(struct Ship *ship,struct Ship *leader,bool32 ro
 }
 
 //function to determine if selection contains nothing but proximity sensors
+// CAT: FormationCalculateOffsets 0x00483759 asks each ship to be a kProximitySensor and a tProximitySensor at once
+//      (jne 0x47; jne 0x57), so only an empty selection passes; the HW1 TargetDrone wall solution is gone
 bool32 need_Proximity_Sensor_Solution(SelectCommand *selection)
 {
    sdword i;
    for(i=0;i<selection->numShips;i++)
    {
-      if(selection->ShipPtr[i]->shiptype != ProximitySensor)
+      if((selection->ShipPtr[i]->shiptype != kProximitySensor) || (selection->ShipPtr[i]->shiptype != tProximitySensor))
       {
          //non-proximity sensor detected, return false
          return(FALSE);
@@ -889,13 +1112,6 @@ bool32 need_Proximity_Sensor_Solution(SelectCommand *selection)
 
    //Entire selection is proximity sensors
    return(TRUE);
-}
-
-//function to determine if selection contains nothing but Target Drones
-bool32 need_TargetDrone_Solution(SelectCommand *selection)
-{
-   // CAT: no HW1 TargetDrone, so only an empty selection is "all target drones" (M2-R4 ships-b)
-   return(selection->numShips <= 0);
 }
 
 
@@ -922,7 +1138,7 @@ void setFormationToDo(struct CommandToDo *formationtodo)
         return;
     }
 
-    position = leader->obj.posinfo.position;
+    position = leader->impactable.collInfo.collPosition;     // CAT: the leader's collision centre (setFormationToDo 0x00482a28; HW1: its position)
 
     /*  Setup formations coordinate system */
     if(formationtodo->formation.formationLocked)
@@ -936,6 +1152,8 @@ void setFormationToDo(struct CommandToDo *formationtodo)
         matGetVectFromMatrixCol3(heading,leader->rotatable.rotinfo.coordsys);
     }
 
+    // CAT: setFormationToDo 0x00482a00: the flat formations (with the force-field wall) place each ship through
+    //      cat_univSetShipPosition; the spheres (with the force-field sphere) set the position directly; no assertion
     switch (formationtodo->formation.formationtype)
     {
         case DELTA_FORMATION:
@@ -944,6 +1162,7 @@ void setFormationToDo(struct CommandToDo *formationtodo)
         case CLAW_FORMATION:
         case WALL_FORMATION:
         case CUSTOM_FORMATION:
+        case FORCEFIELD_WALL_FORMATION:
             for (i=1;i<numShips;i++)
             {
                 ship = selection->ShipPtr[i];
@@ -952,13 +1171,14 @@ void setFormationToDo(struct CommandToDo *formationtodo)
                 matMultiplyMatByVec(&desiredposition,coordsys,&ship->formationOffset);
                 vecAddTo(desiredposition,position);
 
-                ship->obj.posinfo.position = desiredposition;
+                cat_univSetShipPosition(ship,&desiredposition);
                 ship->rotatable.rotinfo.coordsys = *coordsys;
                 univUpdateObjRotInfo((SpaceObjRot *)ship);
             }
             break;
 
         case SPHERE_FORMATION:
+        case FORCEFIELD_SPHERE_FORMATION:
             for (i=1;i<numShips;i++)
             {
                 ship = selection->ShipPtr[i];
@@ -971,11 +1191,44 @@ void setFormationToDo(struct CommandToDo *formationtodo)
             break;
 
         default:
-            dbgAssertOrIgnore(FALSE);
             break;
+    }
+    (void)shipstatic;
+    (void)heading;
+}
+
+// CAT: a formation ship that flies to its place and turns to heading (HW1's FormationShipMoveTo macro, inline in
+//      processFormationToDo 0x00482e16 / 0x004831dc and processMilitaryParadeToDo)
+static void catFormationShipMoveTo(Ship *ship,Ship *leader,vector *desiredpos,vector *head)
+{
+    ShipStaticInfo *shipstatic = (ShipStaticInfo *)ship->staticinfo;
+    real32 tmpdistaway = MoveLeftToGo(ship,desiredpos);
+    udword tmpuseflags = AISHIP_PointInDirectionFlying | AISHIP_FastAsPossible;
+
+    if (isCapitalShipStaticOrBig(shipstatic))
+    {
+        if (tmpdistaway <= 500.0f)
+        {
+            aitrackHeadingWithBank(ship,head,FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);
+            tmpuseflags = AISHIP_FastAsPossible;
+        }
+    }
+    else if (tmpdistaway <= 100.0f)
+    {
+        aitrackHeadingWithBank(ship,head,FLYSHIP_HEADINGACCURACY,shipstatic->shipOrDerelict.sinbank);
+        tmpuseflags = AISHIP_FastAsPossible;
+    }
+
+    if (tmpdistaway >= 10.0f)
+    {
+        aishipFlyToPointAvoidingObjsWithVel(ship,desiredpos,tmpuseflags,0.0f,&leader->obj.posinfo.velocity);
     }
 }
 
+// CAT: processFormationToDo 0x00482b90: the formation to update is the leader's command (Cataclysm has no
+//      Ship.formationcommand); a force-field wall is laid out like the other flat formations, a force-field sphere
+//      like a sphere but turned with the centre ship; the HW1 move macros are cat_formationShipMoveToSteady /
+//      cat_formationShipMoveToNotToObscuredPoints.
 void processFormationToDo(struct CommandToDo *formationtodo,bool32 steadyFormation,bool32 passiveAttacked)
 {
     sdword i;
@@ -992,18 +1245,17 @@ void processFormationToDo(struct CommandToDo *formationtodo,bool32 steadyFormati
     real32 error = 0;
     vector errorvect;
     bool32 calcError = (UNIVERSE_WOODPECKER(FORMATION_ERROR_CALCULATE_RATE, FORMATION_ERROR_CALCULATE_FRAME));
-    // write to leader->formationcommand instead of formationtodo - formationtodo might be a fakeCommand from delegateCommand
-    CommandToDo *formationtomodify = leader->formationcommand;
+    // write to the leader's command instead of formationtodo - formationtodo might be a fakeCommand from delegateCommand
+    CommandToDo *formationtomodify = leader->command;
 
-    dbgAssertOrIgnore(numShips > 0);
     if (numShips == 1)
     {
         formationtomodify->formation.percentmaxspeed = FORMATION_TRAVELVEL_MAXSCALE;
-        setFormationTravelVelocity(formationtomodify);
+        formationtomodify->formation.travelvel = GetShipsTravelVel(formationtomodify->selection,formationtomodify->formation.percentmaxspeed);
         return;
     }
 
-    position = leader->obj.posinfo.position;
+    position = leader->impactable.collInfo.collPosition;     // CAT: the leader's collision centre (processFormationToDo 0x00482bf3; HW1: its position)
 
     /*  Setup formations coordinate system */
     if(formationtodo->formation.formationLocked)
@@ -1025,6 +1277,7 @@ void processFormationToDo(struct CommandToDo *formationtodo,bool32 steadyFormati
         case CLAW_FORMATION:
         case WALL_FORMATION:
         case CUSTOM_FORMATION:
+        case FORCEFIELD_WALL_FORMATION:
             for (i=1;i<numShips;i++)
             {
                 ship = selection->ShipPtr[i];
@@ -1058,11 +1311,11 @@ void processFormationToDo(struct CommandToDo *formationtodo,bool32 steadyFormati
                     {
                         if (steadyFormation)
                         {
-                            FormationShipMoveToSteady(desiredposition,heading)
+                            cat_formationShipMoveToSteady(ship,leader,&desiredposition,&heading);
                         }
                         else
                         {
-                            FormationShipMoveTo(desiredposition,heading)
+                            catFormationShipMoveTo(ship,leader,&desiredposition,&heading);
                         }
                     }
                 }
@@ -1070,51 +1323,32 @@ void processFormationToDo(struct CommandToDo *formationtodo,bool32 steadyFormati
             break;
 
         case SPHERE_FORMATION:
+        case FORCEFIELD_SPHERE_FORMATION:
         {
             bool32 protectsurround = FALSE;
 
-            // CAT: no HW1 Drone (M2-R4 ships-b)
-
+            // CAT: the sphere is centred on the surrounded ship's collision centre (collInfo.collPosition, Ship+0xE0;
+            //      processFormationToDo 0x00482eea / 0x00482f55), where HW1 took its position; the Sentinels' in-position
+            //      test measures from the same point (cat_sentinelFormationUpdate 0x005c6830)
             if (formationtodo->ordertype.attributes & COMMAND_MASK_PROTECTING)
             {
-                dbgAssertOrIgnore(formationtodo->protect->numShips > 0);
                 leader = formationtodo->protect->ShipPtr[0];
-                position = leader->obj.posinfo.position;       // override position
+                position = leader->impactable.collInfo.collPosition;       // override position
                 matGetVectFromMatrixCol3(heading,leader->rotatable.rotinfo.coordsys);
                 protectsurround = TRUE;
                 i = 0;
             }
-            else if (formationtodo->ordertype.order == COMMAND_ATTACK)
+            else if ((formationtodo->ordertype.order == COMMAND_ATTACK) && (formationtodo->formation.enders == TRUE))
             {
-                if(formationtodo->formation.enders == TRUE)
+                Ship *protectship = (Ship *)formationtodo->selection->ShipPtr[0]->attackvars.attacktarget;
+                if (protectship == NULL)
                 {
-                    Ship *protectship;
-                    //protectship = formationtodo->formation.endership;
-                    if(formationtodo->selection->ShipPtr[0]->attackvars.attacktarget == NULL)
-                    {
-                        //don't know if this will happen ever...we'll find out
-                        //
-                        //
-                        //  Tell Bryce about this!
-                        //
-                        //
-#ifdef DEBUG_TACTICS
-                        dbgNonFatal(DBG_Loc,"AttackTarget is NULL Detected.");
-#endif
-                        protectship = (Ship*)formationtodo->attack->TargetPtr[0];       //this can't possibly be invalid!
-                    }
-                    else
-                    {
-                        protectship = (Ship *)formationtodo->selection->ShipPtr[0]->attackvars.attacktarget;
-                    }
-                    //protectship = formationtodo->selection->ShipPtr[0]->attackvars.attacktarget;
-                    leader = protectship;
-                    position = leader->obj.posinfo.position;       // override position
-                    protectsurround = TRUE;
-                    i = 0;
+                    protectship = (Ship*)formationtodo->attack->TargetPtr[0];
                 }
-                else
-                    i=1;
+                leader = protectship;
+                position = protectship->impactable.collInfo.collPosition;       // override position (CAT: as above)
+                protectsurround = TRUE;
+                i = 0;
             }
             else
             {
@@ -1131,7 +1365,16 @@ void processFormationToDo(struct CommandToDo *formationtodo,bool32 steadyFormati
                     ship->shipidle = FALSE;     // don't see shipidle for every 8th ship, and never set the 0th ship's shipidle
                 }
 
-                vecAdd(desiredposition,position,ship->formationOffset);
+                if (formationtodo->formation.formationtype == FORCEFIELD_SPHERE_FORMATION)
+                {
+                    // CAT: the force field turns with its centre ship (0x00482fa6)
+                    matMultiplyMatByVec(&desiredposition,&leader->rotatable.rotinfo.coordsys,&ship->formationOffset);
+                    vecAddTo(desiredposition,position);
+                }
+                else
+                {
+                    vecAdd(desiredposition,position,ship->formationOffset);
+                }
 
                 if (calcError)
                 {
@@ -1163,24 +1406,31 @@ void processFormationToDo(struct CommandToDo *formationtodo,bool32 steadyFormati
                     {
                         if (steadyFormation)
                         {
-                            FormationShipMoveToSteady(desiredposition,ship->formationHeading)
+                            cat_formationShipMoveToSteady(ship,leader,&desiredposition,&ship->formationHeading);
                         }
                         else
                         {
                             if (protectsurround)
                             {
-                                if (IS_MOVING_LINEARLY(leader->obj.posinfo.isMoving))
+                                if (formationtodo->formation.formationtype == FORCEFIELD_SPHERE_FORMATION)
                                 {
-                                    FormationShipMoveToNotToObscuredPoints(desiredposition,heading);
+                                    vector faceheading;
+
+                                    matMultiplyMatByVec(&faceheading,&leader->rotatable.rotinfo.coordsys,&ship->formationHeading);
+                                    cat_formationShipMoveToNotToObscuredPoints(ship,leader,&desiredposition,&faceheading,TRUE);
+                                }
+                                else if (!IS_MOVING_LINEARLY(leader->obj.posinfo.isMoving))
+                                {
+                                    cat_formationShipMoveToNotToObscuredPoints(ship,leader,&desiredposition,&ship->formationHeading,TRUE);
                                 }
                                 else
                                 {
-                                    FormationShipMoveToNotToObscuredPoints(desiredposition,ship->formationHeading);
+                                    cat_formationShipMoveToNotToObscuredPoints(ship,leader,&desiredposition,&heading,TRUE);
                                 }
                             }
                             else
                             {
-                                FormationShipMoveTo(desiredposition,heading)
+                                catFormationShipMoveTo(ship,leader,&desiredposition,&heading);
                             }
                         }
                     }
@@ -1192,7 +1442,6 @@ void processFormationToDo(struct CommandToDo *formationtodo,bool32 steadyFormati
         break;
 
         default:
-            dbgAssertOrIgnore(FALSE);
             break;
     }
 
@@ -1216,20 +1465,8 @@ void processFormationToDo(struct CommandToDo *formationtodo,bool32 steadyFormati
             }
         }
 
-        setFormationTravelVelocity(formationtomodify);
+        formationtomodify->formation.travelvel = GetShipsTravelVel(formationtomodify->selection,formationtomodify->formation.percentmaxspeed);
     }
-}
-
-void formationTypeHasChanged(struct CommandToDo *command)
-{
-    TypeOfFormation formationtype = command->formation.formationtype;
-
-    if (formationSortType[formationtype] != command->formation.sortorder)
-    {
-        formationArrangeOptimum(command);
-    }
-
-    FormationCalculateOffsets(command);
 }
 
 void formationContentHasChanged(struct CommandToDo *command)
@@ -1259,17 +1496,7 @@ TypeOfFormation clSelectionAlreadyInFormation(CommandLayer *comlayer,SelectComma
     return NO_FORMATION;
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : FillInShipFormationStuff
-    Description : Fills in formation stuff in ship
-    Inputs      : ship, formationcommand
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void FillInShipFormationStuff(Ship *ship,struct CommandToDo *formationcommand)
-{
-    ship->formationcommand = formationcommand;
-}
+// CAT: no FillInShipFormationStuff: the exe has a nullsub in its place (Cataclysm has no Ship.formationcommand)
 
 /*-----------------------------------------------------------------------------
     Name        : GetShipsTravelVel
@@ -1278,32 +1505,48 @@ void FillInShipFormationStuff(Ship *ship,struct CommandToDo *formationcommand)
     Outputs     :
     Return      : returns the selection's velocity at which it can all travel, scaled by scalevel
 ----------------------------------------------------------------------------*/
+// CAT: GetShipsTravelVel 0x004833d0: each ship's speed is its maximum velocity times its experience speed multiplier;
+//      a Sentinel holding a force field goes at the speed of the ship it protects; an escort limit
+//      (Ship.catProtectedSpeedLimit, cat_univLimitProtectedShipSpeed) caps the others
 real32 GetShipsTravelVel(SelectCommand *selection,real32 scalevel)
 {
-    real32 minvel = REALlyBig;
-    real32 testvel;
+    real32 minvel = 1e21f;
+    // CAT-FIX: the exe leaves its speed local uninitialised for a field Sentinel without a protected ship (it keeps
+    //      the previous ship's value, or stack garbage for the first ship); starting at the minimum's start value keeps
+    //      such a ship from lowering it
+    real32 testvel = 1e21f;
     sdword i;
     Ship *ship;
+    bool32 fieldSentinel;
 
     for (i=0;i<selection->numShips;i++)
     {
         ship = selection->ShipPtr[i];
-        // cap velocity vector
-        //Get ships max velocity
-        testvel = tacticsGetShipsMaxVelocity(ship);
+        fieldSentinel = FALSE;
+        if (((ship->shiptype == sSentinel) || (ship->shiptype == bSentinel)) && cat_shipIsSentinelFieldActive(ship))
+        {
+            fieldSentinel = TRUE;
+            if ((ship->command != NULL) && (ship->command->protect != NULL) && (ship->command->protect->numShips > 0))
+            {
+                testvel = cat_shipGetSpeedMultiplier(ship->command->protect->ShipPtr[0]) * tacticsGetShipsMaxVelocity(ship->command->protect->ShipPtr[0]);
+            }
+        }
+        else
+        {
+            testvel = tacticsGetShipsMaxVelocity(ship) * cat_shipGetSpeedMultiplier(ship);
+        }
 
         if (testvel < minvel)
         {
             minvel = testvel;
         }
+        if (!fieldSentinel && (0.0f < ship->catProtectedSpeedLimit) && (ship->catProtectedSpeedLimit < minvel))
+        {
+            minvel = ship->catProtectedSpeedLimit;
+        }
     }
 
-    dbgAssertOrIgnore(minvel >= 0.0f);
-    dbgAssertOrIgnore(minvel != REALlyBig);
-
-    minvel *= scalevel;
-
-    return minvel;
+    return minvel * scalevel;
 }
 
 void  setFormationTravelVelocity(CommandToDo *formationcommand)
@@ -1417,11 +1660,50 @@ void FormationCalculateOffsets(struct CommandToDo *formationtodo)
     sdword prox_sol = 0;
     real32 searchRadius = 0.0;
 
-    dbgAssertOrIgnore(numShips > 0);
+    // CAT: FormationCalculateOffsets 0x00483620: a force-field sphere is laid out by formationSpecificsSphere and its
+    //      Sentinels are disabled (reason 5: they take no orders while they hold the field); every other formation
+    //      clears that reason; a wall of Sentinels only, and the force-field wall, are force-field walls
+    if (formationtodo->formation.formationtype == FORCEFIELD_SPHERE_FORMATION)
+    {
+        formationSpecificsSphere(formationtodo,TRUE);
+        for (i = 0; i < selection->numShips; i++)
+        {
+            cat_shipSetDisableReason(selection->ShipPtr[i],TRUE,5);
+        }
+        return;
+    }
+    for (i = 0; i < selection->numShips; i++)
+    {
+        if (selection->ShipPtr[i]->shipOrDerelict.catDisableReason[5] == 1)
+        {
+            cat_shipSetDisableReason(selection->ShipPtr[i],FALSE,5);
+        }
+    }
+    if (formationtodo->formation.formationtype == WALL_FORMATION)
+    {
+        bool32 allSentinels = TRUE;
 
+        for (i = 0; i < numShips; i++)
+        {
+            if ((selection->ShipPtr[i]->shiptype != sSentinel) && (selection->ShipPtr[i]->shiptype != bSentinel))
+            {
+                allSentinels = FALSE;
+            }
+        }
+        if (allSentinels)
+        {
+            SetFormationOffsetsForForceFieldWall(formationtodo);
+            return;
+        }
+    }
     if (formationtodo->formation.formationtype == SPHERE_FORMATION)
     {
-        formationSpecificsSphere(formationtodo);
+        formationSpecificsSphere(formationtodo,FALSE);
+        return;
+    }
+    if (formationtodo->formation.formationtype == FORCEFIELD_WALL_FORMATION)
+    {
+        SetFormationOffsetsForForceFieldWall(formationtodo);
         return;
     }
 
@@ -1433,14 +1715,6 @@ void FormationCalculateOffsets(struct CommandToDo *formationtodo)
     if (prox_sol)
     {
         searchRadius = ((ProximitySensorStatics *)leaderstatic->custstatinfo)->SearchRadius;
-    }
-    else
-    {
-        if ((formationtodo->formation.formationtype == WALL_FORMATION) && (need_TargetDrone_Solution(selection)))
-        {
-            prox_sol = TRUE;
-            searchRadius = TARGETDRONE_FORMATION_SIZE;
-        }
     }
 
     switch (formationtodo->formation.formationtype)
@@ -2294,13 +2568,13 @@ void formationArrageCrazyOptimum(CommandToDo *formationcommand)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void FillInFormationSpecifics(CommandToDo *formationcommand,TypeOfFormation formation,sdword newformation)
+// CAT: FillInFormationSpecifics 0x00484950 takes the force-field level (FormationCommand.catForceFieldLevel, +0x288);
+//      no FillInShipFormationStuff (Cataclysm has no Ship.formationcommand); the force-field formations also start
+//      without specific info, and any other type is left alone (no assertion)
+void FillInFormationSpecifics(CommandToDo *formationcommand,TypeOfFormation formation,sdword catForceFieldLevel,sdword newformation)
 {
-    sdword i;
-    SelectCommand *selection = formationcommand->selection;
-    sdword numShips = selection->numShips;
-
     // fill in formation specifics:
+    formationcommand->formation.catForceFieldLevel = catForceFieldLevel;
     formationcommand->formation.formationtype = formation;
     formationcommand->formation.tacticalState = TightFormation;       //default behavior
     formationcommand->formation.formationLocked = FALSE;                //initialize a formation as unlocked
@@ -2321,14 +2595,6 @@ void FillInFormationSpecifics(CommandToDo *formationcommand,TypeOfFormation form
         formationcommand->formation.flipState = 0;
     }
 
-    for (i=0;i<numShips;i++)
-    {
-        FillInShipFormationStuff(selection->ShipPtr[i],formationcommand);
-    }
-
-//    formationArrangeOptimum(formationcommand);
-//    FormationCalculateOffsets(formationcommand);
-
     formationArrageCrazyOptimum(formationcommand);
 
     switch (formation)
@@ -2340,11 +2606,12 @@ void FillInFormationSpecifics(CommandToDo *formationcommand,TypeOfFormation form
         case WALL_FORMATION:
         case SPHERE_FORMATION:
         case CUSTOM_FORMATION:
+        case FORCEFIELD_WALL_FORMATION:
+        case FORCEFIELD_SPHERE_FORMATION:
             formationcommand->formation.formationSpecificInfo = NULL;
             break;
 
         default:
-            dbgAssertOrIgnore(FALSE);
             break;
     }
 }
@@ -2414,16 +2681,11 @@ void *uofFindObjWithMaxFreq(CountFreqObjs *countFreqObjs)
 }
 
 
-/*-----------------------------------------------------------------------------
-    Name        : MajorityShipsAreDoing
-    Description : returns what majority of ships are doing (attacking or moving)
-    Inputs      : selectcom
-    Outputs     : if COMMAND_MOVE returned, outputs movingto
-                  if COMMAND_ATTACK returned, outputs attacking.  In this case you must
-                    do a growSelectClose on attacking.
-    Return      : returns what majority of ships are doing (attacking or moving)
-----------------------------------------------------------------------------*/
-sdword MajorityShipsAreDoing(SelectCommand *selectcom,vector *movingto,GrowSelection *attacking)
+// CAT: MajorityShipsAreDoing 0x00484a30 returns the majority's move as a path: the most frequent move command's
+//      path type, point count and current point, and its points from the current one on. The exe copies point
+//      curPoint + k for k < numPoints and wraps only when curPoint >= numPoints, so past the path's end it reads the
+//      command's next words (inside the CommandToDo); this port reads them the same way, as bytes.
+sdword MajorityShipsAreDoing(SelectCommand *selectcom,sdword *pathType,sdword *numPoints,vector *points,sdword *curPoint,GrowSelection *attacking)
 {
     sdword numShips = selectcom->numShips;
     sdword i;
@@ -2498,6 +2760,7 @@ sdword MajorityShipsAreDoing(SelectCommand *selectcom,vector *movingto,GrowSelec
             // find a tovector the majority of ships are moving to
             CountFreqObjs countFreqObjs;
             CommandToDo *mostfreqmoveto;
+            sdword k;
 
             uofInit(&countFreqObjs,nummoving);
 
@@ -2518,7 +2781,24 @@ sdword MajorityShipsAreDoing(SelectCommand *selectcom,vector *movingto,GrowSelec
                 return 0;
             }
 
-            *movingto = mostfreqmoveto->move.destination;
+            *pathType = mostfreqmoveto->move.pathType;
+            *numPoints = mostfreqmoveto->move.numPoints;
+            *curPoint = mostfreqmoveto->move.curPoint;
+            for (k = 0; k < mostfreqmoveto->move.numPoints; k++)
+            {
+                sdword cur = mostfreqmoveto->move.curPoint;
+                sdword index = cur + k;
+                sdword prev = (cur - 1 < 0) ? mostfreqmoveto->move.numPoints : cur - 1;
+
+                if (mostfreqmoveto->move.numPoints <= cur)
+                {
+                    index -= mostfreqmoveto->move.numPoints;
+                }
+                if (index != prev)
+                {
+                    memcpy(&points[k],(ubyte *)&mostfreqmoveto->move.points[0] + index * sizeof(vector),sizeof(vector));
+                }
+            }
 
             return COMMAND_MOVE;
         }
@@ -2535,26 +2815,32 @@ sdword MajorityShipsAreDoing(SelectCommand *selectcom,vector *movingto,GrowSelec
 
 /*-----------------------------------------------------------------------------
     Name        : clFormation
-    Description : Command to form a formation
-    Inputs      : selectcom, formation
+    Description : puts the ships of selectcom into a formation
+    Inputs      : comlayer, selectcom, formation, catForceFieldLevel (the force-field formations' level)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void clFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation)
+// CAT: clFormation 0x00484c80: the fourth argument is the force-field level; each ship's header can refuse the
+//      formation (slot 34 CustShipFormationCommand(ship, formation, level)); a force-field sphere takes at most 12
+//      ships and a force-field wall 24 (the others leave the local selection); a formation of one ship is allowed;
+//      a change to a force-field formation stops passive attacking; the same type at the same level does nothing; a
+//      new formation of a majority on the move takes over their path.
+void clFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation,sdword catForceFieldLevel)
 {
     CommandToDo *newcommand;
     CommandToDo *alreadyformation;
     SelectCommand *selection;
     udword sizeofselection;
     sdword majorityshipsare;
-    vector majorityshipsmoveto;
+    sdword pathType = 0, numPoints = 0, curPoint = 0;
+    vector points[CAT_MOVE_MAX_POINTS];   // CAT-FIX: zeroed (the exe's stack copy keeps what it held where MajorityShipsAreDoing skips a point)
     GrowSelection majorityshipsattacking;
+    MaxSelection filtered;
+    sdword i;
+    sdword cap = 0;
 
-    // CAT: clFormation 0x00484c80 accepts the six hot-key formations, CUSTOM and the two force-field formations; NO,
-    //      SAME and PARADE are invalid. CAT-TODO(M2-R4 #4 / this port's follow-up): the exe's clFormation takes a fourth
-    //      argument (the force-field level, stored at FormationCommand +0x288 by FillInFormationSpecifics), lets each
-    //      ship's CustShipFormationCommand slot (34) veto it, caps a force-field sphere at 12 and a wall at 24 ships
-    //      (the rest leave the selection), and clears passive attacking when a formation becomes a force field
+    memset(points,0,sizeof(points));
+
     switch (formation)
     {
         case DELTA_FORMATION:
@@ -2571,79 +2857,90 @@ void clFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation
             dbgFatalf(DBG_Loc,"Invalid formation %d",formation);
     }
 
-    if (selectcom->numShips < ABSOLUTE_MIN_SHIPS_IN_FORMATION)
+    filtered.numShips = 0;
+    for (i = 0; i < selectcom->numShips; i++)
     {
-#if DEBUG_FORMATIONS
-        dbgMessage("Not enough ships to do a formation");
-#endif
+        Ship *ship = selectcom->ShipPtr[i];
+        // the exe passes the level as a third argument; the only implementer, SentinelFormationCommand 0x005c6df0,
+        // reads ship and formation
+        if ((ship->staticinfo->custshipheader.CustShipFormationCommand == NULL) ||
+            ship->staticinfo->custshipheader.CustShipFormationCommand(ship,(sdword)formation))
+        {
+            filtered.ShipPtr[filtered.numShips++] = ship;
+        }
+    }
+    if (filtered.numShips < 1)
+    {
         return;
     }
-
-    //treat cleanup like a halt!
-    // CAT (M2-R4 combat): no salCapExtraSpecialOrderCleanUp (HW1 salvage; clFormation 0x00484c80 has no such call)
-
-
+    if ((formation == FORCEFIELD_SPHERE_FORMATION) && (filtered.numShips > MAX_SENTINELS_IN_FORCE_FIELD_SPHERE))
+    {
+        cap = MAX_SENTINELS_IN_FORCE_FIELD_SPHERE;
+    }
+    else if ((formation == FORCEFIELD_WALL_FORMATION) && (filtered.numShips > 24))
+    {
+        cap = 24;
+    }
+    if (cap != 0)
+    {
+        for (i = cap; i < filtered.numShips; i++)
+        {
+            clRemoveShipFromSelection(&selSelected,filtered.ShipPtr[i]);
+            filtered.ShipPtr[i] = NULL;
+        }
+        filtered.numShips = cap;
+    }
+    selectcom = (SelectCommand *)&filtered;
 
     if ((alreadyformation = IsSelectionAlreadyDoingSomething(comlayer,selectcom)) != NULL)
     {
         if (alreadyformation->ordertype.attributes & COMMAND_MASK_FORMATION)
         {
-            if (alreadyformation->formation.formationtype == formation)
+            if (((formation == FORCEFIELD_SPHERE_FORMATION) || (formation == FORCEFIELD_WALL_FORMATION)) &&
+                (alreadyformation->ordertype.attributes & COMMAND_MASK_PASSIVE_ATTACKING))
             {
-#if DEBUG_FORMATIONS
-        dbgMessage("Already gave that formation order");
-#endif
+                ClearPassiveAttacking(alreadyformation);
+            }
+            if ((alreadyformation->formation.formationtype == formation) &&
+                (alreadyformation->formation.catForceFieldLevel == catForceFieldLevel))
+            {
                 return;
             }
-            else
+            if (alreadyformation->formation.formationSpecificInfo != NULL)
             {
-                if (alreadyformation->formation.formationSpecificInfo != NULL)
-                {
-                    memFree(alreadyformation->formation.formationSpecificInfo);
-                    alreadyformation->formation.formationSpecificInfo = NULL;
-                }
-
-                alreadyformation->formation.formationtype = formation;
-                formationTypeHasChanged(alreadyformation);
-
-                PrepareShipsForCommand(alreadyformation,TRUE);
-#if DEBUG_FORMATIONS
-        dbgMessage("Changing formation");
-#endif
-                return;
+                memFree(alreadyformation->formation.formationSpecificInfo);
+                alreadyformation->formation.formationSpecificInfo = NULL;
             }
-        }
-        else if (alreadyformation->ordertype.order == COMMAND_MOVE)
-        {
-            // Change from normal move command to move in formation
-            alreadyformation->ordertype.attributes |= COMMAND_MASK_FORMATION;
-            FillInFormationSpecifics(alreadyformation,formation,TRUE);
+
+            alreadyformation->formation.catForceFieldLevel = catForceFieldLevel;
+            alreadyformation->formation.formationtype = formation;
+            // HW1's formationTypeHasChanged, inline: re-sort when the sort type changes
+            if ((formationSortType[formation] != alreadyformation->formation.sortorder) &&
+                (alreadyformation->selection->numShips != 1) && (formationSortType[formation] == FORMATION_SORT_BIGGEST_THEN_CLOSEST))
+            {
+                formationBiggestThenClosestOptimum(alreadyformation->selection,formation);
+                alreadyformation->formation.sortorder = FORMATION_SORT_BIGGEST_THEN_CLOSEST;
+            }
+            FormationCalculateOffsets(alreadyformation);
+
             PrepareShipsForCommand(alreadyformation,TRUE);
             return;
         }
-        else if (alreadyformation->ordertype.attributes & COMMAND_MASK_PROTECTING)
+        else if ((alreadyformation->ordertype.order == COMMAND_MOVE) ||
+                 (alreadyformation->ordertype.attributes & COMMAND_MASK_PROTECTING) ||
+                 (alreadyformation->ordertype.order == COMMAND_ATTACK))
         {
+            // Change from normal move, protect or attack command to the same in formation
             alreadyformation->ordertype.attributes |= COMMAND_MASK_FORMATION;
-            FillInFormationSpecifics(alreadyformation,formation,TRUE);
-            PrepareShipsForCommand(alreadyformation,TRUE);
-            return;
-        }
-        else if (alreadyformation->ordertype.order == COMMAND_ATTACK)
-        {
-            alreadyformation->ordertype.attributes |= COMMAND_MASK_FORMATION;
-            FillInFormationSpecifics(alreadyformation,formation,TRUE);
+            FillInFormationSpecifics(alreadyformation,formation,catForceFieldLevel,TRUE);
             PrepareShipsForCommand(alreadyformation,TRUE);
             return;
         }
     }
 
-    majorityshipsare = MajorityShipsAreDoing(selectcom,&majorityshipsmoveto,&majorityshipsattacking);
+    majorityshipsare = MajorityShipsAreDoing(selectcom,&pathType,&numPoints,points,&curPoint,&majorityshipsattacking);
 
-#if DEBUG_FORMATIONS
-    dbgMessage("Received Order to do formation");
-#endif
-
-    RemoveShipsFromDoingStuff(comlayer,selectcom);
+    RemoveShipsFromDoingStuff(comlayer,selectcom,0x20);
 
     newcommand = memAlloc(sizeof(CommandToDo),"ToDo",NonVolatile);
     InitCommandToDo(newcommand);
@@ -2656,7 +2953,7 @@ void clFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation
     newcommand->ordertype.order = COMMAND_NULL;
     newcommand->ordertype.attributes = COMMAND_MASK_FORMATION;
 
-    FillInFormationSpecifics(newcommand,formation,TRUE);
+    FillInFormationSpecifics(newcommand,formation,catForceFieldLevel,TRUE);
 
     InitShipsForAI(selection,TRUE);
 
@@ -2665,11 +2962,13 @@ void clFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation
 
     if (majorityshipsare == COMMAND_MOVE)
     {
-        ChangeOrderToMove(newcommand,selectcom->ShipPtr[0]->obj.posinfo.position,majorityshipsmoveto);
+        // the path from the point before the current one (0x00485002: the copied list's [curPoint - 1], or its last)
+        sdword from = (curPoint - 1 < 0) ? numPoints - 1 : curPoint - 1;
+        ChangeOrderToMove(newcommand,pathType,points[from],numPoints,points);
     }
     else if (majorityshipsare == COMMAND_ATTACK)
     {
-        ChangeOrderToAttack(newcommand,(SelectAnyCommand *)majorityshipsattacking.selection);
+        ChangeOrderToAttack(newcommand,(SelectAnyCommand *)majorityshipsattacking.selection,4);   // CAT: reason 4 (clFormation 0x00485058)
         growSelectClose(&majorityshipsattacking);
     }
 }
@@ -2829,6 +3128,18 @@ void paradeSetTweakables(void)
     scriptSetStruct(NULL,"Parade_bHeavyCruiser.script",ParadeInfoScriptTable,(ubyte *)&paradeTypeInfos[PARADE_BHEAVYCRUISER]);
 }
 
+// CAT: a parade slot's first position and its step, summed in the exe's order (setMilitaryParade 0x00485790,
+//      processMilitaryParadeToDo 0x00485280): offsets heading, right, up, then the position; steps heading, up, right
+static void catParadeSlotPosition(vector *positionat,vector *positionchange,vector *position,vector *up,vector *right,vector *heading,SlotInfo *slotinfo)
+{
+    positionat->x = heading->x * slotinfo->headingoffset + right->x * slotinfo->rightoffset + up->x * slotinfo->upoffset + position->x;
+    positionat->y = heading->y * slotinfo->headingoffset + right->y * slotinfo->rightoffset + up->y * slotinfo->upoffset + position->y;
+    positionat->z = heading->z * slotinfo->headingoffset + right->z * slotinfo->rightoffset + up->z * slotinfo->upoffset + position->z;
+    positionchange->x = heading->x * slotinfo->headingspacing + up->x * slotinfo->upspacing + right->x * slotinfo->rightspacing;
+    positionchange->y = heading->y * slotinfo->headingspacing + up->y * slotinfo->upspacing + right->y * slotinfo->rightspacing;
+    positionchange->z = heading->z * slotinfo->headingspacing + up->z * slotinfo->upspacing + right->z * slotinfo->rightspacing;
+}
+
 /*-----------------------------------------------------------------------------
     Name        : processMilitaryParadeToDo
     Description :
@@ -2882,14 +3193,9 @@ void processMilitaryParadeToDo(struct CommandToDo *command,bool32 passiveAttacke
         thisslotinfo = &paradeTypeInfo->slotinfos[slot];
 
         // calculate starting positonat of this slot
-        positionat = leader->obj.posinfo.position;
-        vecAddToScalarMultiply(positionat,up,thisslotinfo->upoffset);
-        vecAddToScalarMultiply(positionat,right,thisslotinfo->rightoffset);
-        vecAddToScalarMultiply(positionat,heading,thisslotinfo->headingoffset);
-
-        vecScalarMultiply(positionchange,right,thisslotinfo->rightspacing);
-        vecAddToScalarMultiply(positionchange,up,thisslotinfo->upspacing);              // added by MG July 23
-        vecAddToScalarMultiply(positionchange,heading,thisslotinfo->headingspacing);    //
+        // CAT: in the exe's order of the sums (heading + right + up + position; heading + up + right), as
+        //      setMilitaryParade 0x00485790 and processMilitaryParadeToDo 0x00485280 compute them
+        catParadeSlotPosition(&positionat,&positionchange,&leader->obj.posinfo.position,&up,&right,&heading,thisslotinfo);
 
         switch (thisslotinfo->facedirection)
         {
@@ -3051,14 +3357,9 @@ void setMilitaryParade(struct CommandToDo *command)
         thisslotinfo = &paradeTypeInfo->slotinfos[slot];
 
         // calculate starting positonat of this slot
-        positionat = leader->obj.posinfo.position;
-        vecAddToScalarMultiply(positionat,up,thisslotinfo->upoffset);
-        vecAddToScalarMultiply(positionat,right,thisslotinfo->rightoffset);
-        vecAddToScalarMultiply(positionat,heading,thisslotinfo->headingoffset);
-
-        vecScalarMultiply(positionchange,right,thisslotinfo->rightspacing);
-        vecAddToScalarMultiply(positionchange,up,thisslotinfo->upspacing);              // added by MG July 23
-        vecAddToScalarMultiply(positionchange,heading,thisslotinfo->headingspacing);    //
+        // CAT: in the exe's order of the sums (heading + right + up + position; heading + up + right), as
+        //      setMilitaryParade 0x00485790 and processMilitaryParadeToDo 0x00485280 compute them
+        catParadeSlotPosition(&positionat,&positionchange,&leader->obj.posinfo.position,&up,&right,&heading,thisslotinfo);
 
         dbgAssertOrIgnore(thisslot->highestSlotUsed < thisslot->numSubslots);
 
@@ -3067,7 +3368,7 @@ void setMilitaryParade(struct CommandToDo *command)
             ship = thisslot->subslots[subslot].ship;
             if (ship != NULL)
             {
-                ship->obj.posinfo.position = positionat;
+                cat_univSetShipPosition(ship,&positionat);      // CAT: setMilitaryParade 0x00485970
                 switch (thisslotinfo->facedirection)
                 {
                     vector temp1,temp2;
@@ -3093,8 +3394,7 @@ void setMilitaryParade(struct CommandToDo *command)
                         break;
 
                     default:
-                        dbgAssertOrIgnore(FALSE);
-                        break;
+                        break;      // CAT: no assertion (0x00485985)
                 }
                 univUpdateObjRotInfo((SpaceObjRot *)ship);
             }
@@ -3112,6 +3412,7 @@ void FreeMilitaryParadeContents(MilitaryParadeCommand *militaryParade)
     {
         dbgAssertOrIgnore(militaryParade->militarySlots[i]);
         memFree(militaryParade->militarySlots[i]);
+        militaryParade->militarySlots[i] = NULL;        // CAT: FreeMilitaryParadeContents 0x00485b00 clears the slot
     }
 }
 

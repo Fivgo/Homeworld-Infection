@@ -80,6 +80,12 @@ bool32 cat_dockFlyToConeOriginLatch(Ship *ship,Ship *dockwith,real32 radius);   
 bool32 cat_dockFlyToConeInside(Ship *ship,Ship *dockwith,DockStaticPoint *dockpoint);      // CAT: 0x004671d0
 bool32 cat_dockFlyToConeOrigin(Ship *ship,Ship *dockwith,DockStaticPoint *dockpoint);      // CAT: 0x004673c0
 bool32 cat_linkFlyIntoPosition(Ship *ship,DockStaticPoint *linkpoint,Ship *host,DockStaticPoint *hostpoint);   // CAT: 0x004675c0
+// CAT (M2-R5 command-tactics): the link orders' per-tick code (COMMAND_CAT_LINK / UNLINK)
+struct CommandToDo;
+void cat_linkPairShips(Ship *leader,Ship *follower);                                       // CAT: 0x00467ae0
+bool32 cat_processLinkToDo(struct CommandToDo *command);                                   // CAT: 0x00467b80
+void cat_unlinkPrepareShip(Ship *ship);                                                    // CAT: 0x00468580
+bool32 cat_processUnlinkToDo(struct CommandToDo *command);                                 // CAT: 0x00468650
 
 // CAT (M2-R5 dock): the Cataclysm dock system
 sdword cat_dockGetDockClass(ShipClass shipclass,ShipType shiptype,bool32 externalBuild,udword typeFlags,DockType purpose,Ship *dockwith);   // 0x00463d70

@@ -535,7 +535,7 @@ void RKOHouseKeep(Ship *ship)                                                   
                 cat_shipSetDisableReason(target, 1, 0xb);
                 selectone.ShipPtr[0] = target;
                 selectone.numShips = 1;
-                RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone);  // CAT-TODO(M2-R4 command follow-up): reason 0xca
+                RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone,0xCA);  // CAT: reason 0xCA as the exe (RemoveShipsFromDoingStuff 0x00444810)
                 rkoWeaponPoint(ship, &pos);
                 eatTime = RKO_EAT_TIME_DEFAULT;
                 if (0.0f < target->staticinfo->RKOEatMeTime)

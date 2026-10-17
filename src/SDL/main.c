@@ -380,6 +380,14 @@ bool32 CatDockTestSet(char *string)
     return TRUE;
 }
 
+// CAT: port diagnostic: /catCommandTest <ticks> (CommandLayer.c catCommandSelfTestTick: the scripted command self-test
+//      on the headless Mission01 run, M2-R5 command-tactics)
+bool32 CatCommandTestSet(char *string)
+{
+    catCommandSelfTestSet(string);
+    return TRUE;
+}
+
 #if HWI_ORACLE
 // HWI-ORACLE: /oracleDump <file>, /oracleSelfTest <ticks>, /oracleSelfTestPerturb <tick> (Game/OracleDump.c,
 // docs/m2-r2-oracle.md): checksum-oracle instrumentation, not a Cataclysm option
@@ -943,6 +951,7 @@ commandoption commandOptions[] =
     entryFnParam("/catEtgParseTest",    CatEtgParseTestSet, " <listfile> - start the effects module and load every etg script and effect named in listfile, then exit."),
     entryFnParam("/catEtgEffectTest",   CatEtgEffectTestSet, " <ticks> - with /catEtgParseTest: create a sample of the effects and run them for <ticks> universe ticks."),
     entryFnParam("/catDockTest",        CatDockTestSet, " <ticks> - headless Mission01 run: dock, deposit, harvest and launch orders with no input, exit after <ticks> ticks."),
+    entryFnParam("/catCommandTest",     CatCommandTestSet, " <ticks> - headless Mission01 run: link, unlink, mimic, research, point orders and force-field formations with no input, exit after <ticks> ticks."),
     // CAT: port diagnostic, not a Cataclysm option (texreg.c catTexturesRunSelfTest)
     entryVr("/catTexturesTest",     catTexturesSelfTest, TRUE, " - load textures.ll and register/load every texture it lists, then exit."),
 #if HWI_ORACLE

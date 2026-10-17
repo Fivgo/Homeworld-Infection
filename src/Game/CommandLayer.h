@@ -8,6 +8,7 @@
 #ifndef ___COMMANDLAYER_H
 #define ___COMMANDLAYER_H
 
+#include "CommandDefs.h"
 #include "Dock.h"
 #include "Formation.h"
 #include "ResCollect.h"
@@ -37,10 +38,22 @@
 #define COM_HYPERSPACE_WAIT     2
 #define COM_HYPERSPACE_IN       3
 
+// CAT: Cataclysm's move order is a waypoint path (CommandToDo+0x18, 0x108 bytes): HW1's heading/destination pair is
+//      gone. clMoveThese 0x004467c0, ChangeOrderToMove 0x004460d0 and ChangeOrderToHyperSpace 0x004470f0 store the path
+//      type at +0x18, the point count at +0x1C, the points from +0x20 and the current point at +0x11C;
+//      processMoveToDo 0x00443cb0 walks them (CalculateMoveToPoints from point i-1 to point i). Path type names chosen
+//      here from processMoveToDo's switch: 0 once to the last point, 1 a loop, 2/3 a patrol out and back.
+#define CAT_MOVE_MAX_POINTS         21      // (0x11C - 0x20) / 12
+#define CAT_MOVEPATH_ONCE           0
+#define CAT_MOVEPATH_LOOP           1
+#define CAT_MOVEPATH_PATROL_OUT     2
+#define CAT_MOVEPATH_PATROL_BACK    3
 typedef struct
 {
-    vector heading;
-    vector destination;
+    sdword pathType;                        // +0x00 (CommandToDo+0x18) CAT_MOVEPATH_*
+    sdword numPoints;                       // +0x04 (CommandToDo+0x1C)
+    vector points[CAT_MOVE_MAX_POINTS];     // +0x08 (CommandToDo+0x20)
+    sdword curPoint;                        // +0x104 (CommandToDo+0x11C) the point the ships fly to now
 } MoveCommand;
 
 typedef SelectAnyCommand AttackCommand;
@@ -74,22 +87,55 @@ typedef struct
     uword attributes;
 } CommandOrder;
 
+// CAT: the parameters of Cataclysm's orders 14-16 (CommandToDo+0x2DC..+0x307; names chosen from the creators)
+typedef struct
+{
+    vector target;                          // +0x2DC the point the big gun fires at (cat_clPointOrder 0x0044dd70)
+} CatPointCommand;
+typedef struct
+{
+    udword mode;                            // +0x2E8 cat_clMimic 0x0044da80: cat_mimicCommand's arguments
+    udword shipType;                        // +0x2EC
+    udword player;                          // +0x2F0
+    udword index;                           // +0x2F4
+} CatMimicCommand;
+typedef struct
+{
+    uword playerIndex;                      // +0x2F8 cat_clResearch 0x0044dba0
+    uword pad;
+    udword lab;                             // +0x2FC the research slot
+    udword tech;                            // +0x300
+    udword mode;                            // +0x304 CAT_RESEARCH_START / CAT_RESEARCH_STOP (cat_processResearchToDo)
+} CatResearchCommand;
+#define CAT_RESEARCH_START  0
+#define CAT_RESEARCH_STOP   1
+
+// CAT: 0x330 bytes in cataclysm.exe (every creator allocates 0x330 and zeroes 0xCC dwords; CET "Size is now 0x330").
+//      HW1's fields keep their order; Cataclysm's move path (0x108 bytes) and its saved copy, the formation's
+//      force-field level (FormationCommand +0x58) and the parameters of orders 14-16 are new. Offsets from the
+//      exe's users (ILP32 asserts below, tools/m2_layout32.sh).
 typedef struct CommandToDo
 {
-    Node todonode;
-    SelectCommand *selection;
-    CommandOrder ordertype;
-    MoveCommand move;
-    AttackCommand *attack;
-    FormationCommand formation;
-    DockCommand dock;
-    LaunchShipCommand launchship;
-    CollectResourceCommand collect;
-    ProtectCommand *protect;
-    udword protectFlags;
-    SpecialCommand *specialtargets;
-    MilitaryParadeCommand *militaryParade;
-    BuildingShipCommand buildingship;
+    Node todonode;                          // +0x000
+    SelectCommand *selection;               // +0x010
+    CommandOrder ordertype;                 // +0x014
+    MoveCommand move;                       // +0x018
+    bool32 catSavedMoveValid;               // +0x120 CAT: a looping/patrol move interrupted by an attack (clAttack 0x00448950)
+    MoveCommand catSavedMove;               // +0x124 CAT: ... resumed when the attack ends (clProcess 0x0044c53e)
+    AttackCommand *attack;                  // +0x22C
+    FormationCommand formation;             // +0x230
+    DockCommand dock;                       // +0x290
+    LaunchShipCommand launchship;           // +0x29C
+    CollectResourceCommand collect;         // +0x2A0
+    ProtectCommand *protect;                // +0x2B4
+    udword protectFlags;                    // +0x2B8
+    SpecialCommand *specialtargets;         // +0x2BC
+    MilitaryParadeCommand *militaryParade;  // +0x2C0
+    BuildingShipCommand buildingship;       // +0x2C4
+    udword catReserved2D8;                  // +0x2D8 CAT: no exe user found
+    CatPointCommand catPoint;               // +0x2DC CAT: COMMAND_CAT_POINT
+    CatMimicCommand catMimic;               // +0x2E8 CAT: COMMAND_CAT_MIMIC
+    CatResearchCommand catResearch;         // +0x2F8 CAT: COMMAND_CAT_RESEARCH
     real32 tacticalupdatetime;                 //needed for optimal scanning of ship list in enemy detection for tactics
     real32 holdingStartTime;                //time that a command entered a holding pattern
     real32 hyperSpaceingTime;
@@ -99,11 +145,42 @@ typedef struct CommandToDo
     real32 pingUpdateTime;                  //last time this command was processed by pings
     void *updatedPing;                      //what ping it was last updated for
 } CommandToDo;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(MoveCommand) == 0x108, "MoveCommand is 0x108 bytes in cataclysm.exe");
+_Static_assert(sizeof(CommandToDo) == 0x330, "CommandToDo is 0x330 bytes in cataclysm.exe");
+CAT_ASSERT_OFFSET(CommandToDo, move.curPoint, 0x11C);         // processMoveToDo 0x00443cb0
+CAT_ASSERT_OFFSET(CommandToDo, catSavedMoveValid, 0x120);     // clAttack 0x00448ac5
+CAT_ASSERT_OFFSET(CommandToDo, attack, 0x22C);                // FreeCommandToDoContents 0x004440f0
+CAT_ASSERT_OFFSET(CommandToDo, formation.formationtype, 0x230);
+CAT_ASSERT_OFFSET(CommandToDo, formation.catForceFieldLevel, 0x288);
+CAT_ASSERT_OFFSET(CommandToDo, formation.formationSpecificInfo, 0x28C);
+CAT_ASSERT_OFFSET(CommandToDo, dock, 0x290);
+CAT_ASSERT_OFFSET(CommandToDo, protect, 0x2B4);
+CAT_ASSERT_OFFSET(CommandToDo, specialtargets, 0x2BC);        // FreeLastOrder 0x00444490
+CAT_ASSERT_OFFSET(CommandToDo, militaryParade, 0x2C0);
+CAT_ASSERT_OFFSET(CommandToDo, catPoint, 0x2DC);              // cat_clPointOrder 0x0044dd70
+CAT_ASSERT_OFFSET(CommandToDo, catMimic, 0x2E8);              // cat_clMimic 0x0044da80
+CAT_ASSERT_OFFSET(CommandToDo, catResearch, 0x2F8);           // cat_clResearch 0x0044dba0
+CAT_ASSERT_OFFSET(CommandToDo, tacticalupdatetime, 0x308);
+CAT_ASSERT_OFFSET(CommandToDo, holdingStartTime, 0x30C);      // processHoldingPattern 0x0044b790
+CAT_ASSERT_OFFSET(CommandToDo, hyperSpaceingTime, 0x310);     // processMpHyperspaceingToDo 0x004436a0
+CAT_ASSERT_OFFSET(CommandToDo, hyperspaceState, 0x314);
+CAT_ASSERT_OFFSET(CommandToDo, holdingPatternVec, 0x31C);
+#endif
 
 typedef struct CommandLayer
 {
     LinkedList todolist;
 } CommandLayer;
+
+// CAT: Cataclysm has no Ship.formationcommand (no exe code reads or writes Ship+0x36C): a ship's formation is its
+//      command when that carries COMMAND_MASK_FORMATION (getShipAndItsFormation 0x0044d240, RemoveShipFromAttacking
+//      0x004477c0, aishipFlyToPointAvoidingObjsFunc 0x00414610 ...)
+static inline struct CommandToDo *cat_shipFormationCommand(struct Ship *ship)
+{
+    struct CommandToDo *command = ship->command;
+    return ((command != NULL) && (command->ordertype.attributes & COMMAND_MASK_FORMATION)) ? command : NULL;
+}
 
 /*=============================================================================
     Macros:
@@ -136,11 +213,15 @@ void clPostProcess(CommandLayer *comlayer);
 void clChecksum(void);
 
 // Ship Command Layer
-void clMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to);
+// CAT: clMove 0x00446d90 takes a waypoint path: pathType (CAT_MOVEPATH_*), the start point, numPoints points
+void clMove(CommandLayer *comlayer,SelectCommand *selectcom,sdword pathType,vector from,sdword numPoints,vector *points);
+// CAT: new (0x00445e80): the per-ship offsets CalculateMoveToPoints would add
+void cat_clCalculateMoveToOffsets(SelectCommand *selection,vector from,vector to,vector *outOffsets);
 CommandToDo *clAttackThese(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom);
 void clAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom);
 void clPassiveAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom);
-void clFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation);
+// CAT: clFormation 0x00484c80 takes the force-field level as a fourth argument
+void clFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation,sdword catForceFieldLevel);
 sdword clDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockType,ShipPtr dockwith);
 Ship *clCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator);
 void clBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator);
@@ -177,6 +258,29 @@ void clMpHyperspace(CommandLayer *comlayer,SelectCommand *selectcom,vector from,
 void clSetResearch(udword type, udword playernum, udword labnum, udword tech);
 void clDeterministicBuild(udword command, CommandLayer* comlayer, sdword numShips, ShipType shipType, ShipRace shipRace, uword playerIndex, ShipPtr creator);
 
+// CAT: the link orders (ShipLink.h): the link block of a linkable ship (NULL for other types) and the link cleanup
+struct CatLinkInfo *cat_shipGetLinkInfo(Ship *ship);
+void cat_clLinkCleanup(Ship *ship);                                     // CAT: 0x00444060
+
+// CAT (M2-R5 command-tactics): Cataclysm's orders and command-layer helpers (CommandLayer.c, 0x00444060 .. 0x0044e150)
+struct Ship *cat_clFindLinkPartner(SelectCommand *selection,struct Ship *ship);                                 // 0x0044d2e0
+void cat_clLink(CommandLayer *comlayer,SelectCommand *selectcom);                                               // 0x0044d3b0
+void cat_clUnlink(CommandLayer *comlayer,SelectCommand *selectcom);                                             // 0x0044d7a0
+void cat_clMimic(CommandLayer *comlayer,SelectCommand *selectcom,udword mode,udword shipType,udword player,udword index);   // 0x0044da80
+void cat_clResearch(CommandLayer *comlayer,uword playerIndex,udword lab,udword tech,udword mode);              // 0x0044dba0
+void cat_processResearchToDo(struct CommandToDo *command);                                                      // 0x0044dc20
+void cat_clPointOrder(CommandLayer *comlayer,SelectCommand *selectcom,vector *point);                          // 0x0044dd70
+void cat_clUpgradeShips(CommandLayer *comlayer,SelectCommand *selectcom,bool32 cancel);                        // 0x0044de80
+void cat_clSpecialTargetSpeech(SelectCommand *selectcom);                                                       // 0x004490b0
+void cat_clSpecialTarget(CommandLayer *comlayer,SelectCommand *selectcom,SpecialCommand *targets,bool32 flag); // 0x00449190
+void cat_clUnleech(CommandLayer *comlayer,SelectCommand *selectcom);                                            // 0x00449770
+void cat_clSetLeechAction(CommandLayer *comlayer,SelectCommand *selectcom,ubyte mode);                         // 0x00449960
+void cat_clSetModuleSlot(CommandLayer *comlayer,SelectCommand *selectcom,sdword moduleType,sdword count);      // 0x0044e0e0
+void cat_clSetBeastSystem(CommandLayer *comlayer,struct Ship *ship,sdword system);                             // 0x0044e120
+udword cat_clModuleTypeToMiscBits(sdword moduleType);                                                           // 0x0044e130
+udword cat_clModuleSlotToMiscBits(sdword slot);                                                                 // 0x0044e150
+AttackCommand *cat_clAddAttachedModulesToTargets(SelectCommand *selection,AttackCommand *targets);              // 0x004482f0
+
 // does ship have to launch
 bool32 ShipHasToLaunch(Ship *InsideShip, Ship *ship);
 
@@ -185,17 +289,17 @@ void LaunchAllInternalShipsOfPlayerThatMustBeLaunched(struct Player *player);
 sdword LaunchAllInternalShipsOfPlayer(struct Player *player, udword carriermask);
 
 // checks if can ChangeOrderToPassiveAttack
-bool32 canChangeOrderToPassiveAttack(CommandToDo *alreadycommand,AttackCommand *attack);
+bool32 ShipsInPassiveAttackRange(SelectCommand *selection,AttackCommand *attack);
 
 // changes order to passive attack
-// WARNING: Must call canChangeOrderToPassiveAttack to see if you can call this
+// CAT: the callers test the order first (clPassiveAttack 0x00448ce0); ChangeOrderToPassiveAttack frees what it replaces
 void ChangeOrderToPassiveAttack(CommandToDo *alreadycommand,AttackCommand *attackcom);
 
 // changes order to attack
-void ChangeOrderToAttack(CommandToDo *alreadycommand,AttackCommand *attackcom);
+void ChangeOrderToAttack(CommandToDo *alreadycommand,AttackCommand *attackcom,sdword catReason);   // CAT: reason code (0x00448460)
 
 // changes order to move
-void ChangeOrderToMove(CommandToDo *alreadycommand,vector from,vector to);
+void ChangeOrderToMove(CommandToDo *alreadycommand,sdword pathType,vector from,sdword numPoints,vector *points);   // CAT: waypoint path (0x004460d0)
 
 // Returns allocated command containing the ship
 CommandToDo *getShipAndItsCommand(CommandLayer *comlayer,ShipPtr ship);
@@ -229,7 +333,10 @@ void clMissileDied(CommandLayer *comlayer,MissilePtr missile);
 CommandToDo *IsSelectionAlreadyDoingSomething(CommandLayer *comlayer,SelectCommand *selectcom);
 
 // Removes ships in selectcom from doing stuff in the command layer
-void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom);
+// CAT: third argument, a reason code the exe passes but never reads (0x00444810)
+void RemoveShipsFromDoingStuff(CommandLayer *comlayer,SelectCommand *selectcom,sdword catReason);
+// CAT: second argument, a code the exe passes but never reads (0x004440f0)
+void FreeCommandToDoContents(struct CommandToDo *command,sdword catReason);
 
 // values for removeFlag for RemoveShipFromBeingTargeted
 #define REMOVE_PROTECT          1
@@ -324,5 +431,10 @@ void protectShip(Ship *ship,Ship *protectThisShip,bool32 passiveAttacked);
 /*=============================================================================
     Data:
 =============================================================================*/
+
+// CAT (M2-R5 command-tactics): the scripted command self-test (/catCommandTest <ticks>, harness mode command)
+void catCommandSelfTestSet(char *string);
+bool32 catCommandSelfTestRequested(void);
+void catCommandSelfTestTick(void);
 
 #endif

@@ -423,12 +423,13 @@ static void cat_bigGunScatterTarget(Ship *ship, vector *aim, vector *out)  // 0x
     Name        : cat_bigGunProcessFireCommand
     Description : CAT (M2-R4 ships-b): the point order of a Sect mothership (cat_bigGunProcessFireCommand 0x005bbe80):
                   once the big gun has reloaded it aims at a scattered point near the ordered one
-    Inputs      : ship - the mothership (the exe takes the CommandToDo and reads its first ship), point - the
-                  ordered point (the exe's CommandToDo +0x2DC, the COMMAND_CAT_POINT block that this tree's
-                  CommandToDo does not have yet: the point order is an M2-R4 command follow-up)
+    Inputs      : command - the COMMAND_CAT_POINT order: its first ship is the mothership, the ordered point is
+                  CommandToDo.catPoint (+0x2DC) [M2-R5 command-tactics: the exe's signature]
 ----------------------------------------------------------------------------*/
-void cat_bigGunProcessFireCommand(Ship *ship, vector *point)               // 0x005bbe80
+void cat_bigGunProcessFireCommand(struct CommandToDo *command)             // 0x005bbe80
 {
+    Ship *ship = command->selection->ShipPtr[0];
+    vector *point = &command->catPoint.target;
     MothershipSpec *spec = (MothershipSpec *)ship->ShipSpecifics;
 
     if (cat_bigGunReloaded(cat_mothershipGetBigGun(ship)))
@@ -716,10 +717,9 @@ static void beastMothershipSelfDamage(Ship *ship)                           // 0
     {
         spec->beastSystemActive = FALSE;
         // CAT: the exe calls cat_lmBeastSystemsOff 0x0049fc30 here: cat_clWrapSetBeastSystem 0x004535f0 with 0, which
-        //      in a single-player game is cat_clSetBeastSystem 0x0044e120 (it only stores the state, as below).
-        // CAT-TODO(M2-R4 #4): the multiplayer path (clSendMisc misc command 10) needs cat_clWrapSetBeastSystem in
-        //      CommandWrap.c; the launch manager's LM_BeastSystemsSet radio button reset is stage 3
-        spec->beastSystemState = 0;
+        //      in a single-player game is cat_clSetBeastSystem 0x0044e120 (it only stores the state). CAT-TODO(stage 3):
+        //      the launch manager's LM_BeastSystemsSet radio button reset (the rest of cat_lmBeastSystemsOff)
+        cat_clWrapSetBeastSystem(&universe.mainCommandLayer,ship,0);
         return;
     }
     spec->beastSystemActive = TRUE;
@@ -808,7 +808,7 @@ void MothershipHouseKeep(Ship *ship)
         if (warn)
         {
             // CAT-PROVISIONAL: the exe also puts strMothershipHealthLow into the info overlay in red
-            //      (cat_ioMessageAdd 0x004ac940, CommandWrap.c, M2-R4 #2); the speech is Cataclysm's status
+            //      (cat_ioMessageAdd 0x004ac940, the message scroller of stage 3: M2-R5 hud); the speech is Cataclysm's status
             //      event 0x02001057 (Fleet Command)
             speechEventQueue(NULL, 0x02001057, -1, -1, 0, ship->playerowner->playerIndex, -1, 5.0f, -1);
         }

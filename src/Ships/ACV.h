@@ -23,7 +23,8 @@ typedef struct
     ubyte unknown00[0x18];              // +0x00 (Ship+0x638) no reader in the ACV code
     CatLinkInfo link;                   // +0x18 (Ship+0x650)
     AttackSideStep sidestep;            // +0x44 (Ship+0x67C) attackSideStep
-    udword unknown4C[0x18];             // +0x4C (Ship+0x684) cleared by ACVInit, no other user found
+    sdword linkKills[2][NUM_CLASSES];   // +0x4C (Ship+0x684) the kills of the two linked Acolytes (cat_processLinkToDo 0x004680a2;
+                                        //      cat_processUnlinkToDo 0x00468eaa shares them out again); cleared by ACVInit
     GrowSelection empTargets;           // +0xAC (Ship+0x6E4) the ACVs of the pulse and the ships it hit
     real32 empTime;                     // +0xB4 (Ship+0x6EC) when the last pulse started
     ubyte empState;                     // +0xB8 (Ship+0x6F0) ACV_EMP_* below
@@ -32,8 +33,8 @@ typedef struct
     bool32 attackPending;               // +0xC0 (Ship+0x6F8) an attack order on empTarget is due
     sdword linkStateA;                  // +0xC4 (Ship+0x6FC) set to 2 by cat_acvLinkReset
     sdword linkStateB;                  // +0xC8 (Ship+0x700) set to 2 by cat_acvLinkReset
-    udword unknownCC;                   // +0xCC (Ship+0x704) cleared by ACVInit
-    udword unknownD0;                   // +0xD0 (Ship+0x708) cleared by ACVInit
+    sdword linkCanLinkA;                // +0xCC (Ship+0x704) cat_acolyteCanLink of the first Acolyte (cat_processLinkToDo 0x004680ff)
+    sdword linkCanLinkB;                // +0xD0 (Ship+0x708) ... of the second; cleared by ACVInit
 } ACVSpec;
 #if defined(__i386__) || defined(_M_IX86)
 _Static_assert(offsetof(ACVSpec, link) == 0x18, "ACV link block at Ship+0x650 in cataclysm.exe");

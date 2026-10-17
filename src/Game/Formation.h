@@ -69,6 +69,8 @@ typedef struct
     //for the tactical overlay
     bool32 pulse;
     sdword flipState;               //variable used to determine that flipped state of the formation <if it has been flipped or not during a combat turnaround>
+    sdword catForceFieldLevel;      // +0x58 CAT: new: the force-field (Sentinel) formation's level, clFormation's 4th argument
+                                    //      (FillInFormationSpecifics 0x00484950 stores it at CommandToDo+0x288)
     void *formationSpecificInfo;    // if you use this, first sdword of custom structure should be size of structure
 //    bool32 formAroundProtectedShip;
 } FormationCommand;
@@ -170,6 +172,8 @@ typedef struct
 // CAT: 8 + 63 x 4 bytes on the exe's ILP32 layout (GetShipSlot 0x00485b30 reads militarySlots[5]/[6] at +0x1C/+0x20 and
 //      [23]/[24] at +0x64/+0x68 of the parade command)
 _Static_assert(sizeof(MilitaryParadeCommand) == 0x104, "MilitaryParadeCommand is 0x104 bytes in cataclysm.exe");
+// CAT: HW1's 0x5C plus the force-field level (CommandToDo+0x230..+0x290 in cataclysm.exe)
+_Static_assert(sizeof(FormationCommand) == 0x60, "FormationCommand is 0x60 bytes in cataclysm.exe");
 #endif
 _Static_assert(MAX_MILITARY_SLOTS == SLOT_Misc + 1, "SLOT_Misc is the last of the 63 Cataclysm parade slots");
 
@@ -204,7 +208,6 @@ char *TypeOfFormationToNiceStr(TypeOfFormation formation);
 TypeOfFormation NiceStrToTypeOfFormation(char *str);
 
 void formationContentHasChanged(struct CommandToDo *command);
-void formationTypeHasChanged(struct CommandToDo *command);
 void formationArrangeOptimum(struct CommandToDo *formationtodo);
 void processFormationToDo(struct CommandToDo *formationtodo,bool32 steadyFormation,bool32 passiveAttacked);
 void setFormationToDo(struct CommandToDo *formationtodo);
@@ -214,7 +217,17 @@ struct SphereStaticInfo *createSphereStaticInfo(void);
 
 void formationWingmanTrackLeader(struct Ship *ship,struct Ship *leader,bool32 rotate);
 
-void FillInShipFormationStuff(Ship *ship,struct CommandToDo *formationcommand);
+// CAT (M2-R5 command-tactics): the force-field formations and Cataclysm's formation helpers (Formation.c)
+struct SentinelSpec;
+extern real32 FORCEFIELD_WALL_SPACING;
+void cat_formationSphereSentinelLinks(struct SentinelSpec *spec,SelectCommand *selection,sdword first,sdword last);   // 0x004815d0
+sdword cat_formationSentinelFieldLevel(SelectCommand *selection);                                                      // 0x004817d0
+void formationSpecificsSphere(struct CommandToDo *command,sdword forceField);                                          // 0x00481880
+void SetFormationOffsetsForForceFieldWall(struct CommandToDo *command);                                                // 0x00481ef0
+void cat_formationShipMoveToSteady(Ship *ship,Ship *leader,vector *desiredpos,vector *head);                          // 0x00482620
+void cat_formationShipMoveToNotToObscuredPoints(Ship *ship,Ship *leader,vector *desiredpos,vector *head,bool32 pointInDirection);   // 0x00482770
+void FillInFormationSpecifics(struct CommandToDo *formationcommand,TypeOfFormation formation,sdword catForceFieldLevel,sdword newformation);   // 0x00484950
+void formationBiggestThenClosestOptimum(SelectCommand *selection,TypeOfFormation formationtype);
 
 //formation locking variables
 void lockFormation(struct CommandToDo *formationcommand,udword specialEffect);
@@ -235,7 +248,7 @@ sdword formationRemoveShipFromSelection(struct CommandToDo *formationtodo,Ship *
     Data:
 =============================================================================*/
 
-extern udword formationSortType[NO_FORMATION];
+extern udword formationSortType[FORCEFIELD_SPHERE_FORMATION + 1];   // CAT: 11 entries (0x0087fb38)
 extern real32 STRIKECRAFT_PADDING_MODIFIER;
 
 #endif

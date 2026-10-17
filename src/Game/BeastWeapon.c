@@ -140,6 +140,17 @@ void cat_beastInfectShip(Ship *target, Ship *infector)                      // 0
     //      5 s timeout (cat_kasHashString, cat_kasVarFind, kasGrowSelectionPtr)
 }
 
+// CAT: new (cat_beastGetAttackStaticInfo 0x00429b70): the type's Beast-attack statics, NULL when it cannot be
+//      infected (beastAttacksRequired < 0)
+CatBeastAttackStatic *cat_beastGetAttackStaticInfo(Ship *ship)
+{
+    if (ship->staticinfo->beastAttacksRequired >= 0)
+    {
+        return (CatBeastAttackStatic *)&ship->staticinfo->beastAttackCascadeCost;
+    }
+    return NULL;
+}
+
 void cat_beastWeaponStaticInit(void)                                        // 0x00429b90
 {
     // read once, by the first beast-weapon ship's StaticInit
@@ -521,8 +532,8 @@ void cat_beastWeaponHouseKeep(Ship *ship)                                   // 0
                 spec->target = NULL;
                 selectone.numShips = 1;
                 selectone.ShipPtr[0] = ship;
-                // CAT: the exe passes RemoveShipsFromDoingStuff 0x00444810 the reason 0x1D (M2-R4 command follow-up)
-                RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone);
+                // CAT: the exe passes RemoveShipsFromDoingStuff 0x00444810 the reason 0x1D
+                RemoveShipsFromDoingStuff(&universe.mainCommandLayer, &selectone,0x1D);
                 ship->catAttackStarted = FALSE;
             }
         }

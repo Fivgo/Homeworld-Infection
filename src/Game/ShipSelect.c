@@ -2637,6 +2637,42 @@ bool32 cat_shipCanSetTactics(Ship *ship, bool32 check)              // 0x005135e
     return !bitTest(ship->header.catFlags18, CAT_SHIPFLAG_NoTactics);
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_shipGetFOWRadius
+    Description : the ship's fog-of-war radius: its static fowRadius, 1.3 times that with advanced sensors researched,
+                  an eighth of it in single-player mission 6 for any type but sRecon
+----------------------------------------------------------------------------*/
+// CAT: new (cat_shipGetFOWRadius 0x00514a30). researchSource 0 reads the owner's tech set (Player+0x2A4); otherwise
+//      the exe indexes universe.players with the owner pointer itself (0x00514a7b), which reads far outside the
+//      player array. CAT-FIX: the owner's index is used for that path (no tree caller passes nonzero yet).
+real32 cat_shipGetFOWRadius(Ship *ship, sdword researchSource)
+{
+    real32 radius;
+    sdword *techset;
+
+    if (researchSource == 0)
+    {
+        techset = ship->playerowner->researchinfo.HasTechnology;
+    }
+    else
+    {
+        techset = universe.players[ship->playerowner->playerIndex].researchinfo.HasTechnology;
+    }
+    if (cat_rmTechSetHas(techset, TECH_ADVANCED_SENSORS))
+    {
+        radius = 1.3f * ship->staticinfo->fowRadius;            // 0x00893c3c
+    }
+    else
+    {
+        radius = ship->staticinfo->fowRadius;
+    }
+    if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 6) && (ship->shiptype != sRecon))
+    {
+        radius *= 0.125f;                                       // 0x0072a608
+    }
+    return radius;
+}
+
 bool32 cat_shipCanCollectResources(Ship *ship, bool32 check)        // 0x00513620
 {
     if ((ship->staticinfo->shipclass != CLASS_Resource) || (ship->staticinfo->harvestAmount < 1))

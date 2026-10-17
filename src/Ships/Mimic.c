@@ -576,9 +576,15 @@ void cat_mimicCleanup(Ship *ship)                                               
 // the unlink order a fading MCV half gives itself (MimicHouseKeep: a 0xC-byte selection of one, cat_clUnlink 0x0044d7a0)
 static void mimicUnlinkSelf(Ship *ship)
 {
-    // CAT-TODO(M2-R4 command follow-up): cat_clUnlink(&universe, {1, ship}) 0x0044d7a0 (COMMAND_CAT_UNLINK, the link
-    //      orders of the command layer); the modes that reach it (5, 6, 7) are entered by the link code only
-    (void)ship;
+    SelectCommand *selectone;
+
+    // CAT: cat_clUnlink 0x0044d7a0 on a heap selection of one, freed after (MimicHouseKeep 0x005b9320)
+    selectone = memAlloc(sizeofSelectCommand(1),"MimicUnlink",0);
+    selectone->numShips = 1;
+    selectone->timeLastStatus = 0.0f;     // CAT-FIX: the exe leaves it uninitialised (0x005b9323)
+    selectone->ShipPtr[0] = ship;
+    cat_clUnlink(&universe.mainCommandLayer,selectone);
+    memFree(selectone);
 }
 
 void MimicHouseKeep(Ship *ship)                                                             // 0x005b8f30

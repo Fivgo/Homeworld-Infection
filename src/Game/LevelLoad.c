@@ -1374,8 +1374,8 @@ static void scriptSetShipsCB(char *directory,char *field,void *dataToFillIn)
 
             if (formation != -1)
             {
-                // CAT-TODO(M2-R4 command): the exe's clFormation takes a 4th argument, 0 here (scriptSetShipsCB 0x004a13f0)
-                clFormation(&universe.mainCommandLayer,selectcom,formation);
+                // CAT: the exe's clFormation takes a 4th argument, 0 here (scriptSetShipsCB 0x004a1d66)
+                clFormation(&universe.mainCommandLayer,selectcom,formation,0);
             }
 
             memFree(selectcom);
@@ -2269,6 +2269,15 @@ void levelPreInit(char *directory,char *pickedMission)
     }
 
     scriptSet(directory, pickedMission, MissionPreloadScriptTablePass2);
+
+    // CAT: port diagnostic (M2-R5 command-tactics, not in the exe): /catCommandTest also needs the statics of the
+    //      Mimic, the MCV it links into and the Sentinel, which Mission01 does not load
+    if (catCommandSelfTestRequested())
+    {
+        SetInfoNeededForShipAndRelatedStaticInfo(sMimic,RACE_Sect,TRUE);
+        SetInfoNeededForShipAndRelatedStaticInfo(sMCV,RACE_Sect,TRUE);
+        SetInfoNeededForShipAndRelatedStaticInfo(sSentinel,RACE_Sect,TRUE);
+    }
 
     if (singlePlayerGame)
     {

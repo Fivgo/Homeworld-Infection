@@ -488,6 +488,11 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     {
         catDockSelfTestTick();
     }
+    // CAT (M2-R5 command-tactics): the command self-test the same way (CommandLayer.c catCommandSelfTestTick)
+    if (catCommandSelfTestRequested() && (universe.univUpdateCounter != before))
+    {
+        catCommandSelfTestTick();
+    }
 
     if ((oracleFileName[0] != '\0' || oracleInSelfTest) && universe.univUpdateCounter != before)
     {

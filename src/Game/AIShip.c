@@ -11,6 +11,7 @@
 // =============================================================================
 
 #include "AIShip.h"
+#include "ShipLink.h"
 #include "Salvage.h"
 
 #include "AITrack.h"
@@ -833,7 +834,7 @@ void rowSignalShipToGetOutOfWayOfMe(Ship *ship,Ship *me,vector *meToShip,vector 
 ----------------------------------------------------------------------------*/
 void rowSignalLeaderInFormationToGetOutOfWayOfMe(Ship *ship,Ship *me,vector *meToShip,vector *meDirOfTravel)
 {
-    SelectCommand *selection = ship->formationcommand->selection;
+    SelectCommand *selection = cat_shipFormationCommand(ship)->selection;
     //sdword numShips;
     //sdword i;
     Ship *shipi;
@@ -1044,7 +1045,14 @@ startflying:
                 vecZeroVector(targetVec);
             }
 
-            if ((limitvel == 0.0f) && ship->formationcommand && (ship == shipcommand->selection->ShipPtr[0]))
+            // CAT: an escorted ship flies no faster than its escort (Ship.catProtectedSpeedLimit, set by
+            //      cat_univLimitProtectedShipSpeed 0x00544e00; aishipFlyToPointAvoidingObjsFunc 0x004149c6)
+            if (ship->catProtectedSpeedLimit > 0.0f)
+            {
+                limitvel = ship->catProtectedSpeedLimit;
+            }
+
+            if ((limitvel == 0.0f) && cat_shipFormationCommand(ship) && (ship == shipcommand->selection->ShipPtr[0]))   // CAT: no Ship.formationcommand
             {
                 // ship is leader of formation, it may potentially travel slower so other ships can maintain formation
 
@@ -1134,6 +1142,23 @@ startflying:
             {
                 dbgMessagef("Warning: flags %x ship %s %s flying with no blob",ship->header.flags,ShipRaceToStr(ship->shiprace),ShipTypeToStr(ship->shiptype));
                 goto noavoid;
+            }
+
+            // CAT: a linking Acolyte or Mimic (the link order, 11) avoids nothing once its partner is among the blob's
+            //      small targets: it flies into the partner's hull (aishipFlyToPointAvoidingObjsFunc 0x00414cb9)
+            if (((ship->shiptype == sAcolyte) || (ship->shiptype == bAcolyte) || (ship->shiptype == sMimic)) &&
+                (shipcommand != NULL) && (shipcommand->ordertype.order == COMMAND_CAT_LINK))
+            {
+                Ship *partner = ((CatLinkInfo *)((ubyte *)ship->ShipSpecifics + 0x18))->partner;    // Ship+0x650
+                sdword k;
+
+                for (k = 0; k < thisBlob->blobSmallTargets->numTargets; k++)
+                {
+                    if (thisBlob->blobSmallTargets->TargetPtr[k] == (TargetPtr)partner)
+                    {
+                        goto noavoid;
+                    }
+                }
             }
 
             pass = 0;
@@ -1270,7 +1295,7 @@ passagain:
 
                                     if (vecDotProduct(meToShip,meDirOfTravel) > 0.0f)
                                     {
-                                        if (avoidShip->formationcommand)
+                                        if (cat_shipFormationCommand(avoidShip))   // CAT: no Ship.formationcommand
                                         {
                                             rowSignalLeaderInFormationToGetOutOfWayOfMe(avoidShip,ship,&meToShip,&meDirOfTravel);
                                         }
@@ -1459,6 +1484,27 @@ norowcheck:
                     goto nextnode;
                 }
 
+                // CAT: a Sentinel of a force-field sphere avoids neither the other Sentinels of its formation nor the
+                //      ship the sphere surrounds (aishipFlyToPointAvoidingObjsFunc 0x0041546c)
+                if (((ship->shiptype == sSentinel) || (ship->shiptype == bSentinel)) && (shipcommand != NULL) &&
+                    (shipcommand->formation.formationtype == FORCEFIELD_SPHERE_FORMATION))
+                {
+                    sdword k;
+
+                    for (k = 0; k < shipcommand->selection->numShips; k++)
+                    {
+                        if ((void *)shipcommand->selection->ShipPtr[k] == (void *)avoidobj)
+                        {
+                            goto nextnode;
+                        }
+                    }
+                    if ((shipcommand->ordertype.attributes & COMMAND_MASK_PROTECTING) &&
+                        ((void *)shipcommand->protect->ShipPtr[0] == (void *)avoidobj))
+                    {
+                        goto nextnode;
+                    }
+                }
+
                 if (bitTest(avoidobj->header.flags,SOF_Cloaked))    //add cloakfield owner check here!
                 {           //if object being considered is cloaked
                     if(avoidobj->header.objtype == OBJ_ShipType)
@@ -1548,7 +1594,8 @@ norowcheck:
                         Ship* avoidShip = (Ship*)avoidobj;
                         if (bitTest(aishipflags,AISHIP_IgnoreFormationObscuredPoints))
                         {
-                            if (ship->formationcommand == avoidShip->formationcommand)
+                            // CAT: the same formation command, as aishipFlyToPointAvoidingObjsFunc 0x00415ab2 compares the ships' commands
+                            if ((cat_shipFormationCommand(ship) != NULL) && (cat_shipFormationCommand(ship) == avoidShip->command))
                             {
                                 goto skipobscurecheck;
                             }
