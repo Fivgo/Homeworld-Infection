@@ -372,6 +372,10 @@ corvette-cone items first), stage 5 (LAN, nice-to-have) and stage 6 (missions: t
 33. **The dock self-test's coverage gap** (no sCarrier / sProcessor host leg, the ACVs and the Worker logged, not
     judged) is carried to M2-R6 producer 4 instead of blocking R5.
 
+## M2-R6: IN FLIGHT from the user's terminal session 38027cce (2026-10-17 14:2x), NOT from the orchestrator
+
+The orchestrator must NOT launch cycle/workflows/m2-r6.js: it is already running in session 38027cce (Fable, Remote Control). If prompted, reply that R6 is in flight elsewhere and do nothing. Merges to main are handled by that session.
+
 ## Opus workflows in flight
 
 **Observed 2026-10-09:** the session restarts roughly hourly (00:53, 03:53 restarts logged), which kills any agent that has not written its file yet. The sim-subsystems producer ran 36 min and was lost twice. Rule for every long producer: write its output file incrementally per subsystem (the binary-map script now does this and splits sim into three producers).
