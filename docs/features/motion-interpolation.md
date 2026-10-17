@@ -1,10 +1,23 @@
-# Feature: render-time interpolation for cutscenes (NIS), with an in-game toggle
+# Feature: render-time motion interpolation (gameplay and cutscenes), with an in-game toggle
 
 Requested by the user 2026-10-17 after the first play-test: fast camera pans in in-game cutscenes look jittery.
 Status: APPROVED, to be implemented in M2-R6 right after the NIS port (producer 5), as its own commit. The toggle is a
 hard requirement: the user wants A/B comparisons.
 
+## The user's observation (second play-test, 2026-10-17)
+Whatever the camera focuses on moves smoothly; every other ship and asteroid looks a frame behind, and the effect grows
+with the relative velocity of camera and object. The user's ruling: this is a core engine issue, not a cinematic one,
+to be fixed for good in the recreation.
+
 ## Cause (verified in the source, 2026-10-17)
+- **Gameplay:** every object's position is written once per universe tick (16 Hz) and drawn as-is. The camera is the
+  exception: `ccControl` runs every RENDER frame (`SDL/mainrgn.c:5467`), derives the look-at from the focused ships'
+  current positions (`CameraCommand.c:152,166`), and `cameraSetEyePosition` recomputes the eye each frame with
+  time-based easing (`EvalCubic` transitions). So the camera is a continuous per-frame function anchored to the focus
+  ships' 16 Hz positions: the focus moves with the camera (no relative jump), while everything else jumps each tick by
+  its own displacement PLUS the camera's. Exactly the user's observation. Homeworld 1 behaves the same; CET's 64 Hz
+  option only makes the jumps four times smaller.
+- **Cutscenes (NIS):** same root, different path, below.
 - NIS files hold 30 fps keyframes (`NIS_FrameRate 30.0f`) for object position/heading/pitch/bank and camera eye/look/up;
   `nisStart` fits B-spline curves through them (`bsCurveStart`).
 - `nisUpdateTask` is started with `taskStart(nisUpdateTask, UNIVERSE_UPDATE_PERIOD, 0)` (NIS.c:580) and calls
@@ -15,6 +28,12 @@ hard requirement: the user wants A/B comparisons.
   At 144 Hz each pose is held ~9 frames, then jumps: visible on fast pans.
 
 ## Design (presentation only; the simulation and the oracle stream stay bit-identical)
+0. **Gameplay motion (the general case, now the primary deliverable).** Keep per-object `prevPosition/prevCoordsys`
+   (and for bullets/missiles/effects where visible), captured at the start of each universe tick. At render time draw
+   every object at `lerp(prev, cur, alpha)`, `alpha` = fraction of the current tick elapsed (clamped 0..1; 0 when the
+   universe is paused). The camera's focus centre uses the SAME interpolated positions, so the camera and the focused
+   ship stay locked as today while unfocused objects stop lagging. Objects created this tick draw at `cur`. Picking,
+   selection boxes and HUD overlays use the interpolated positions too, so the cursor matches what is drawn.
 1. **Render-time evaluation of the NIS curves.** Add a non-advancing evaluator `bsCurveEvalAt(curve, t)` (the existing
    `bsCurveUpdate` advances internal state and must stay the tick-time path). Each render frame, when an NIS is playing
    and interpolation is on, compute `tRender = NIS->timeElapsed + alpha * UNIVERSE_UPDATE_PERIOD * nisPlayFactor`, where
@@ -25,13 +44,13 @@ hard requirement: the user wants A/B comparisons.
 2. **Fallback for objects without curves** (ships moved by the sim during an NIS): linear interpolation between the
    previous and current tick transforms (keep `prevPosition/prevCoordsys` per object), same `alpha`. This is the general
    mechanism for smooth gameplay motion later; in this feature it is only enabled while an NIS plays.
-3. **Toggle.** Three bindings, one variable `nisInterpolate` (default ON):
-   - Options → Video: a checkbox "Smooth cutscenes" (ship an overridden options screen .fib under the recreation's data
+3. **Toggle.** One UI control, "Smooth motion", driving two internal flags `objInterpolate` and `nisInterpolate` (both default ON, both separately settable from the cfg and the console for A/B tests):
+   - Options → Video: a checkbox "Smooth motion" (ship an overridden options screen .fib under the recreation's data
      dir; docs/formats/fib.md has the format; if the .fib edit cannot be done this round, bind to a free control and
      say so in STATE.md, but the button is required, not optional);
-   - `Cataclysm.cfg` key `nisInterpolate 0|1` (persisted like the other options);
-   - command line `/noNISInterp` and a dev-console command, for scripted runs.
-4. **Comparison tooling (so changes are measurable, not just eyeballed).** Harness mode `nis`: play a given NIS headless
+   - `Cataclysm.cfg` keys `objInterpolate 0|1` and `nisInterpolate 0|1` (persisted like the other options);
+   - command line `/noInterp` (both off) and `/noNISInterp`, plus dev-console commands, for scripted runs.
+4. **Comparison tooling (so changes are measurable, not just eyeballed).** Harness mode `motion`: run a mission headless at a fixed virtual frame rate (144 fps) with the camera focused on one ship and a second ship crossing the view; dump per-frame screen-space positions of both; report max and 95th-percentile per-frame displacement and repeated-frame counts for focused vs unfocused objects, interpolation on and off. Plus harness mode `nis`: play a given NIS headless
    at a fixed frame rate (e.g. 144 fps virtual) with interpolation on and off, dumping per-frame camera pose and the
    screen-space position of one tracked object; `tools/nis_smoothness.py` reports the max and 95th-percentile per-frame
    displacement and the count of repeated frames. Expected: identical sim stream in both runs; repeated-frame count

@@ -509,7 +509,10 @@ static void start_recording(void)
     /* 2026-10-17: the engine's recorded-game feature is multiplayer/skirmish only (GamePick.c guards it with
        multiPlayerGame; single-player saves have a different chunk layout). Recording the campaign crashed the game at
        the first order and produced a recording that cannot replay, so refuse instead. */
-    if (RD32(CAT_singlePlayerGame) != 0 || RD32(CAT_multiPlayerGame) == 0)
+    /* 2026-10-17 (second session): a Cataclysm SKIRMISH is a local game with multiPlayerGame == 0; the engine's own
+       recording path handles that case (recPackInGameStartCBSafeToStart's multiPlayerGame==0 branch) and the game
+       itself wrote a valid skirmish recording. So refuse only the campaign (singlePlayerGame != 0). */
+    if (RD32(CAT_singlePlayerGame) != 0)
     {
         emit_event(HWO_EV_NOTE, "refused: recording needs a SKIRMISH (multiplayer-type) game; the campaign cannot be recorded by the engine");
         log_line("refused: recording needs a SKIRMISH (Main menu -> Multiplayer -> Skirmish); the campaign cannot be recorded by the engine. Nothing recorded.", NULL, NULL);
