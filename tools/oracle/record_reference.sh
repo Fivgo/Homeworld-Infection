@@ -31,8 +31,16 @@ install_dll() {
 }
 launch() {  # $1 = HWI_ORACLE value
   echo "HWI_ORACLE=$1"
-  HWI_ORACLE="$1" "$ROOT/tools/run_game.sh" --no-gamescope --virtual-desktop "$DESK" --exe hwi_oracle_loader.exe -- /logOn
-  return $?
+  # +seh: Wine logs every exception with its address, so a crash leaves a trace in logs/steam-*.log
+  # (2026-10-17: the first recording session crashed with an access violation and left no address).
+  HWI_ORACLE="$1" WINEDEBUG="${WINEDEBUG:-+seh}" "$ROOT/tools/run_game.sh" --no-gamescope --virtual-desktop "$DESK" --wine-log --exe hwi_oracle_loader.exe -- /logOn
+  local rc=$?
+  local L; L="$(ls -t "$ROOT"/logs/steam-*.log 2>/dev/null | head -1)"
+  if [[ -n "$L" ]]; then
+    cp "$L" "$OUTROOT/last-wine-$(date +%Y%m%d-%H%M%S).log" 2>/dev/null
+    grep -E 'Unhandled exception|code=c0000005|code=80000003' "$L" | grep -vE '40010006|406d1388' | tail -3 | sed 's/^/  wine: /'
+  fi
+  return $rc
 }
 collect() {  # $1 = label
   local ts dest; ts="$(date +%Y%m%d-%H%M%S)"; dest="$OUTROOT/$NAME-$1-$ts"; mkdir -p "$dest"
