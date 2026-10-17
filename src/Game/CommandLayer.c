@@ -19,6 +19,7 @@
 #include "Collision.h"
 #include "CommandDefs.h"
 #include "CommandNetwork.h"
+#include "CommandWrap.h"
 #include "ConsMgr.h"
 #include "FastMath.h"
 #include "Gun.h"
@@ -38,6 +39,7 @@
 #include "Salvage.h"
 #include "Select.h"
 #include "Ships.h"
+#include "StringSupport.h"
 #include "ShipSelect.h"
 #include "Sentinel.h"
 #include "ShipLink.h"
@@ -6690,17 +6692,21 @@ void clRUTransfer(CommandLayer *comlayer, sdword toIndex, sdword fromIndex, sdwo
         universe.gameStats.playerStats[to].totalResourceUnitsRecieved += resourceUnits;
 
         // CAT: the exe's sound and speech ids (clRUTransfer 0x00449a5c: UI sound 0x129, speech 0x4001045 / 0x4001046;
-        //      Cataclysm's ids, SpeechEvent.h, M2-R5 sound). CAT-TODO(M2-R5 hud): the receiver also
-        //      gets a command message (sprintf of the string 0x00bb5044 with the units and the giver's playerNames
-        //      entry, clCommandMessage 0x004ac820 colour 0xffff0000)
+        //      Cataclysm's ids, SpeechEvent.h, M2-R5 sound). The receiver also gets a command message (sprintf of
+        //      strReceivedResources with the units and the giver's playerNames entry, clCommandMessage 0x004ac820
+        //      colour 0xffff0000, 0x00449ab3..0x00449add) [M2-R5 hud]
         if (from == universe.curPlayerIndex)
         {                                                   //if we've given some away
             speechEventQueue(NULL, 0x4001045, -1, -1, 0, from, -1, 5.0f, -1);
         }
         else if (to == universe.curPlayerIndex)
         {                                                   //if we just got some
+            char received[256];
+
             soundEventPlay(NULL, 0x129, NULL);
             speechEventQueue(NULL, 0x4001046, -1, -1, 0, to, -1, 5.0f, -1);
+            snprintf(received, sizeof(received), strGetString(strReceivedResources), resourceUnits, playerNames[from]);
+            clCommandMessage(received, 0xffff0000);
         }
         break;
     }
@@ -7172,7 +7178,8 @@ Resource *cat_clHarvestNearestResource(CommandLayer *comlayer,SelectCommand *sel
             if (catHarvestMessageTime < cat_taskRealTimeElapsed)
             {
                 catHarvestMessageTime = cat_taskRealTimeElapsed + 10.0f;
-                // CAT-TODO(M2-R5 hud): clCommandMessage(the "no resources" string 0x00bb4de0, 0xff0000ff)
+                // CAT (M2-R5 hud): the "no resources" command message (0x00bb4de0, red; cat_clHarvestNearestResource)
+                clCommandMessage(strGetString(strNoMoreResourcesVisible), 0xff0000ff);
                 // CAT: the fleet says there is nothing to harvest (cat_clHarvestNearestResource 0x00449790)
                 speechEventQueue(NULL, 0x2001043, 0, -1, 0, ship->playerowner->playerIndex, -1, 5.0f, -1);
             }

@@ -28,6 +28,7 @@
 #include "font.h"
 #include "FontReg.h"
 #include "glinc.h"
+#include "KASFunc.h"
 #include "LinkedList.h"
 #include "main.h"
 #include "Memory.h"
@@ -76,6 +77,7 @@ extern Uint32 utyTimerLast;
 
 real32 HorseRacePlayerDropoutTime = 10.0f;     // tweakable
 color HorseRaceDropoutColor = colRGB(75,75,75);
+color hrChatBoxOutlineColor = colRGB(75,75,75);     // CAT (M2-R5 hud): 0x00881618, the chat box's outline
 
 /*=============================================================================
     data:
@@ -92,6 +94,9 @@ static sdword localbar;
 // Pixels and info about the background image chosen
 static bool32 hrBackgroundInitFrame = 0;
 static long hrBackgroundDirty = 0;
+// CAT (M2-R5 hud): horseRaceInit 0x0048e510 and horseRaceRender 0x0048e70a set the background-dirty count to 3 only
+//      with glcompat active, else to 10000 (the picture is redrawn under the bars every frame of a load)
+#define CAT_HR_BACKGROUND_FRAMES    10000
 bool32 hrBackgroundReinit = FALSE;
 static long hrBackXSize, hrBackYSize;
 static GLfloat hrBackXFrac, hrBackYFrac;
@@ -102,7 +107,7 @@ static bool32 hrScaleMissionLoadingScreens = HR_SCALE_MISSION_LOADING_SCREENS;
 static regionhandle hrDecRegion;
 
 HorseStatus horseracestatus;
-static udword hrProgressCounter = 0;
+// CAT (M2-R5 hud): GoK's hrProgressCounter (the blinking hyperspace ring) is gone with the ring
 
 TTimer hrPlayerDropoutTimers[MAX_MULTIPLAYER_PLAYERS];
 
@@ -207,6 +212,8 @@ void hrDirtyChatBox(void)
     }
 }
 
+// CAT (M2-R5 hud): the exe inlines the bar (hrDrawPlayersProgress 0x0048cf30) and rounds its length to the nearest
+//      pixel (the 0x0072a458 rounding constant) where HW1 truncated; the back colour is unused as in HW1
 void hrBarDraw(rectangle *rect, color back, color fore, real32 percent)
 {
     rectangle temp;
@@ -219,12 +226,21 @@ void hrBarDraw(rectangle *rect, color back, color fore, real32 percent)
 
     temp.x0 = rect->x0;
     temp.y0 = rect->y0;
-    temp.x1 = rect->x0 + (sdword)((rect->x1-rect->x0)*percent);
+    temp.x1 = rect->x0 + (sdword)lrint((double)((real32)(rect->x1-rect->x0)*percent));
     temp.y1 = rect->y1;
 
     primRectSolid2(&temp, fore);
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : hrDrawPlayersProgress                             0x0048cf30
+    Description : The loading bars. CAT (M2-R5 hud): Cataclysm's: the single-player bar alone (GoK's blinking
+                  hyperspace ring and arrows, HW1's horseRaceRender ones, are gone from the exe with their .lif
+                  names), the blend off after a player's black backdrop in multiplayer, and at the bottom left the
+                  software-renderer note (never: the SDL build has no software renderer, CAT_HR_SOFTWARE_RENDERER) and
+                  in a single-player mission the skill level (kasfMissionSkillGet, strSkillVeryEasy..VeryHard)
+----------------------------------------------------------------------------*/
+#define CAT_HR_SOFTWARE_RENDERER    FALSE           // 0x00b3a6d8 && !0x00b3a700 (the RGL software device, no glcompat)
 void hrDrawPlayersProgress(featom *atom, regionhandle region)
 {
     sdword     index;
@@ -233,12 +249,11 @@ void hrDrawPlayersProgress(featom *atom, regionhandle region)
     real32 percent;
     fonthandle currentfont;
     bool32 droppedOut;
+    char *skill;
 
     hrProgressRegion = region;
 
     pos = region->rect;
-
-//  primRectSolid2(&pos, colRGBA(0, 0, 0, 64));
 
     pos.y0+=fontHeight(" ");
     pos.y1=pos.y0+8;
@@ -263,6 +278,7 @@ void hrDrawPlayersProgress(featom *atom, regionhandle region)
                 PlayersAlreadyDrawnDropped[index] = droppedOut;
 
                 primRectSolid2(&outline, colBlack);
+                glDisable(GL_BLEND);                        // CAT: as the exe (0x0048d0ea)
 
                 if (droppedOut)
                 {
@@ -302,43 +318,7 @@ void hrDrawPlayersProgress(featom *atom, regionhandle region)
         {
             percent = horseracestatus.percent[0];
 
-            //dbgMessagef("percent %f",percent);
-
             hrBarDraw(&pos, colBlack, hrSinglePlayerLoadingBarColor/*teColorSchemes[0].textureColor.base*/, percent);
-        }
-
-        // blinking hyperspace destination (render every other call)
-        if (++hrProgressCounter % 2 == 0)
-        {
-            hrBackgroundDirty = 3;  // 1 - nothing happens as decremented before rendered
-                                    // 2 - background is cleared but not redrawn
-                                    // 3 - 3's the charm
-            
-            // hyperspace destination circled in first-person view  
-            #define SP_LOADING_HYPERSPACE_DEST_CIRCLE_X  115
-            #define SP_LOADING_HYPERSPACE_DEST_CIRCLE_Y  342
-            
-            // hyperspace destination arrowed in "as the bird flies" view 
-            #define SP_LOADING_HYPERSPACE_DEST_ARROWS_X  195
-            #define SP_LOADING_HYPERSPACE_DEST_ARROWS_Y  134
-
-            // NB: hrDrawFile deals with coordinate mapping
-
-#ifdef _WIN32
-            hrDrawFile("feman\\loadscreen\\ring.lif",
-                SP_LOADING_HYPERSPACE_DEST_CIRCLE_X, SP_LOADING_HYPERSPACE_DEST_CIRCLE_Y
-            );
-            hrDrawFile("feman\\loadscreen\\arrows.lif",
-                SP_LOADING_HYPERSPACE_DEST_ARROWS_X, SP_LOADING_HYPERSPACE_DEST_ARROWS_Y
-            );
-#else
-            hrDrawFile("feman/loadscreen/ring.lif",
-                SP_LOADING_HYPERSPACE_DEST_CIRCLE_X, SP_LOADING_HYPERSPACE_DEST_CIRCLE_Y
-            );
-            hrDrawFile("feman/loadscreen/arrows.lif",
-                SP_LOADING_HYPERSPACE_DEST_ARROWS_X, SP_LOADING_HYPERSPACE_DEST_ARROWS_Y
-            );
-#endif
         }
     }
     else
@@ -364,6 +344,26 @@ void hrDrawPlayersProgress(featom *atom, regionhandle region)
 
         hrBarDraw(&pos,hrBackBarColor,teColorSchemes[0].textureColor.base,percent);
     }
+    if (CAT_HR_SOFTWARE_RENDERER)
+    {
+        fontPrint(10, MAIN_WindowHeight - 20, colWhite, strGetString(strRenderingInSoftware));
+    }
+    if (singlePlayerGame && (tutorial != TUTORIAL_ONLY))
+    {
+        switch (kasfMissionSkillGet())
+        {
+            case 0: skill = strGetString(strSkillVeryEasy); break;
+            case 1: skill = strGetString(strSkillEasy); break;
+            case 2: skill = strGetString(strSkillNormal); break;
+            case 3: skill = strGetString(strSkillHard); break;
+            case 4: skill = strGetString(strSkillVeryHard); break;
+            default: skill = NULL; break;
+        }
+        if (skill != NULL)
+        {
+            fontPrint(10, MAIN_WindowHeight - 40, colWhite, skill);
+        }
+    }
     fontMakeCurrent(currentfont);
 }
 
@@ -378,7 +378,9 @@ void hrDrawChatBox(featom *atom, regionhandle region)
     currentfont = fontMakeCurrent(playernamefont);
 
     primRectSolid2(&region->rect,colRGB(0,0,0));
-    feStaticRectangleDraw(region);
+    // CAT (M2-R5 hud): a one-pixel outline in the drop-out grey 0x00881618 (hrDrawChatBox 0x0048d410), not the
+    //      atom's static rectangle
+    primRectOutline2(&region->rect, 1, hrChatBoxOutlineColor);
 
     x = region->rect.x0+10;
     y = region->rect.y0;
@@ -390,7 +392,7 @@ void hrDrawChatBox(featom *atom, regionhandle region)
             x = region->rect.x0;
             sprintf(name,"%s >",tpGameCreated.playerInfo[chathistory[i].packetheader.frame].PersonalName);
             fontPrintf(x,y,tpGameCreated.playerInfo[chathistory[i].packetheader.frame].baseColor,"%s",name);
-            x+=fontWidth(name)+10;
+            x+=fontWidth(name)+12;                          // CAT: 12 pixels (0x0048d4b5)
             //fontShadowSet(FS_E | FS_SE | FS_S);
             fontPrintf(x,y,hrChatTextColor,"%s",chathistory[i].message);
             //fontShadowSet(FS_NONE);
@@ -401,30 +403,60 @@ void hrDrawChatBox(featom *atom, regionhandle region)
     fontMakeCurrent(currentfont);
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : hrChooseSinglePlayerBitmap                        0x0048d500
+    Description : CAT (M2-R5 hud): Cataclysm's single-player loading picture: the tutorial's own, a mission's
+                  (SinglePlayer\missionNN\loading.jpg) or, when the level starts after its NIS, the NIS one
+                  (missionNN_NisMM, MM from the exe's table); the bar sits at (243, 235) of the 640x480 layout,
+                  152 x 3, in the colour of missionNN\loading.script ("r g b", else colRGB(255, 63, 63))
+    Inputs      : pFilenameBuffer - receives the picture's name, or "" when there is none
+----------------------------------------------------------------------------*/
+// CAT-TODO(stage 6 single player): 0x00a6adac, set by GetMissionsDirAndFile / singlePlayerLoadNewLevel when the
+//      level is entered from its NIS; until the Cataclysm flow sets it, the plain picture is used
+static bool32 catHrMissionNisVariant = FALSE;
+// the NIS number of each mission's NIS picture (the exe's local table at 0x0048d52d)
+static const sdword catHrMissionNis[18] = { 0, 1, 0, 0, 2, 3, 4, 5, 0, 0, 6, 0, 7, 0, 8, 9, 10, 11 };
+#define CAT_HR_SP_BAR_X             243
+#define CAT_HR_SP_BAR_Y             235             // 234 with glcompat active (0x0048d631)
+#define CAT_HR_SP_BAR_WIDTH         152
+#define CAT_HR_SP_BAR_HEIGHT        3
+
 void hrChooseSinglePlayerBitmap(char* pFilenameBuffer)
 {
     char fname[128];
-    sdword x, y, width, height;
+    char line[72];
+    sdword x, y, width, height, mission;
+    sdword red, green, blue;
+    filehandle handle;
 
     memset(&hrSinglePlayerPos, 0, sizeof(hrSinglePlayerPos));
 
+    mission = spGetCurrentMission();
     //image itself
-#if defined(HW_GAME_RAIDER_RETREAT)
-    if (spGetCurrentMission() == MISSION_5B_TURANIC_RAIDER_PLANETOID)
+    if (tutorial == TUTORIAL_ONLY)
     {
 #ifdef _WIN32
-        sprintf(fname, "SinglePlayer\\mission05_OEM\\loading.jpg");
+        strcpy(fname, "tutorials\\tutorial1\\loading.jpg");
 #else
-        sprintf(fname, "SinglePlayer/mission05_OEM/loading.jpg");
+        strcpy(fname, "tutorials/tutorial1/loading.jpg");
+#endif
+    }
+    else if (!catHrMissionNisVariant)
+    {
+#ifdef _WIN32
+        sprintf(fname, "SinglePlayer\\mission%02d\\loading.jpg", mission);
+#else
+        sprintf(fname, "SinglePlayer/mission%02d/loading.jpg", mission);
 #endif
     }
     else
-#endif
     {
+        // CAT: the exe indexes its 18-entry table unchecked; a mission past it gets NIS 0 here
+        sdword nis = (mission >= 0 && mission < 18) ? catHrMissionNis[mission] : 0;
 #ifdef _WIN32
-        sprintf(fname, "SinglePlayer\\mission%02d\\loading.jpg", spGetCurrentMission());
+        sprintf(fname, "SinglePlayer\\mission%02d_Nis%02d\\loading.jpg", mission, nis);
 #else
-        sprintf(fname, "SinglePlayer/mission%02d/loading.jpg", spGetCurrentMission());
+        sprintf(fname, "SinglePlayer/mission%02d_Nis%02d/loading.jpg", mission, nis);
 #endif
     }
 
@@ -436,33 +468,48 @@ void hrChooseSinglePlayerBitmap(char* pFilenameBuffer)
 
     strcpy(pFilenameBuffer, fname);
 
-    // loading bar position
-    // NB: the single player loading images are not all aligned properly...
-    #define SP_LOADING_IMAGE_PROGRESS_BAR_X        43
-    #define SP_LOADING_IMAGE_PROGRESS_BAR_Y       133
-    #define SP_LOADING_IMAGE_PROGRESS_BAR_WIDTH   151
-    #define SP_LOADING_IMAGE_PROGRESS_BAR_HEIGHT    2
-
+    // loading bar position (GoK's option to scale the pictures to the window keeps its own mapping)
     x      = hrScaleMissionLoadingScreens
-           ? feResRepositionScaledX (SP_LOADING_IMAGE_PROGRESS_BAR_X)
-           : feResRepositionCentredX(SP_LOADING_IMAGE_PROGRESS_BAR_X);
-      
+           ? feResRepositionScaledX (CAT_HR_SP_BAR_X)
+           : feResRepositionCentredX(CAT_HR_SP_BAR_X);
+
     y      = hrScaleMissionLoadingScreens
-           ? feResRepositionScaledY (SP_LOADING_IMAGE_PROGRESS_BAR_Y)
-           : feResRepositionCentredY(SP_LOADING_IMAGE_PROGRESS_BAR_Y);
-    
+           ? feResRepositionScaledY (CAT_HR_SP_BAR_Y)
+           : feResRepositionCentredY(CAT_HR_SP_BAR_Y);
+
     width  = hrScaleMissionLoadingScreens
-           ? (SP_LOADING_IMAGE_PROGRESS_BAR_WIDTH  * FE_SCALE_TO_FIT_FACTOR_RELIC_SCREEN)
-           :  SP_LOADING_IMAGE_PROGRESS_BAR_WIDTH;
-    
+           ? (CAT_HR_SP_BAR_WIDTH  * FE_SCALE_TO_FIT_FACTOR_RELIC_SCREEN)
+           :  CAT_HR_SP_BAR_WIDTH;
+
     height = hrScaleMissionLoadingScreens
-           ? (SP_LOADING_IMAGE_PROGRESS_BAR_HEIGHT * FE_SCALE_TO_FIT_FACTOR_RELIC_SCREEN)
-           :  SP_LOADING_IMAGE_PROGRESS_BAR_HEIGHT;
-    
+           ? (CAT_HR_SP_BAR_HEIGHT * FE_SCALE_TO_FIT_FACTOR_RELIC_SCREEN)
+           :  CAT_HR_SP_BAR_HEIGHT;
+
     hrSinglePlayerPos.x0 = x;
     hrSinglePlayerPos.y0 = y;
     hrSinglePlayerPos.x1 = x + width;
     hrSinglePlayerPos.y1 = y + height;
+
+    // the bar's colour
+#ifdef _WIN32
+    sprintf(fname, "SinglePlayer\\mission%02d\\loading.script", mission);
+#else
+    sprintf(fname, "SinglePlayer/mission%02d/loading.script", mission);
+#endif
+    if (fileExists(fname, 0))
+    {
+        red = green = blue = 0;
+        line[0] = '\0';
+        handle = fileOpen(fname, FF_TextMode);
+        fileLineRead(handle, line, 0x3f);
+        sscanf(line, "%d%d%d", &red, &green, &blue);
+        fileClose(handle);
+        hrSinglePlayerLoadingBarColor = colRGB(red & 0xff, green & 0xff, blue & 0xff);
+    }
+    else
+    {
+        hrSinglePlayerLoadingBarColor = colRGB(255, 63, 63);
+    }
 }
 
 void hrChooseRandomBitmap(char *pFilenameBuffer)
@@ -975,8 +1022,9 @@ void hrChatTextEntry(char *name, featom *atom)
     {
         case CM_AcceptText :
             string = ((textentryhandle)atom->pData)->textBuffer;
+            // CAT-TODO(stage 5 LAN): Cataclysm's sendChatMessage 0x004345e0 takes a fourth argument (0 here)
             sendChatMessage(ALL_PLAYER_MASK^PLAYER_MASK(sigsPlayerIndex),string,(uword)sigsPlayerIndex);
-            dbgMessagef("text entry: %s",string);
+            // CAT: no debug message (an empty stub in the exe, hrChatTextEntry 0x0048e150)
             strcpy(temp.message,string);
             temp.packetheader.frame = (uword)sigsPlayerIndex;
             hrProcessPacket((struct ChatPacket *)&temp);
@@ -1116,7 +1164,7 @@ void horseRaceInit(void)
     playernamefont = frFontRegister(HR_PlayerNameFont);
 
     hrRunning=TRUE;
-    hrBackgroundDirty = 3;
+    hrBackgroundDirty = CAT_HR_BACKGROUND_FRAMES;
     hrBackgroundReinit = FALSE;
 }
 
@@ -1124,11 +1172,14 @@ void horseRaceShutdown(void)
 {
     sdword i;
 
-    if (!ShouldHaveMousePtr) mouseCursorShow();
+    // CAT (M2-R5 hud): horseRaceShutdown 0x0048e530 shows the cursor unconditionally and resets the drop-out timers
+    //      with TTimerInit (Cataclysm has no TTimerClose; the two bodies are the same here); the software
+    //      renderer's tail (0x00b3a6d8) does not apply to the SDL build
+    mouseCursorShow();
 
     for(i=0;i<MAX_MULTIPLAYER_PLAYERS;i++)
     {
-        TTimerClose(&hrPlayerDropoutTimers[i]);
+        TTimerInit(&hrPlayerDropoutTimers[i]);
     }
 
     hrRunning=FALSE;
@@ -1141,8 +1192,7 @@ void horseRaceShutdown(void)
     feScreenDelete(hrBaseRegion);
 
     hrShutdownBackground();
-    hrProgressCounter = 0;
-    
+
     hrBaseRegion = NULL;
     hrProgressRegion = NULL;
     hrChatBoxRegion = NULL;
@@ -1236,7 +1286,7 @@ void horseRaceRender(void)
             hrBackgroundTexture = 0;
         }
         hrBackgroundReinit = FALSE;
-        hrBackgroundDirty = 3;
+        hrBackgroundDirty = CAT_HR_BACKGROUND_FRAMES;
         hrBackgroundInitFrame = 0;
     }
 

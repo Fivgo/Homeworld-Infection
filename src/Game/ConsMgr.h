@@ -179,4 +179,24 @@ void cmBuildTaskFunction(void);
 void LoadConsMgrDetermOptional(void);
 void SaveConsMgrDetermOptional(void);
 
+// CAT (M2-R5 hud): one line of the main overlay's construction list (0x28 bytes in the exe): a ship type and, per
+//      factory slot (0 the mothership, then the player's carriers in factory-list order), the jobs and time left
+typedef struct CatCmJob
+{
+    ShipType type;              // +0x00
+    sdword nJobs[4];            // +0x04
+    sdword totalTime;           // +0x14 the type's buildTime (divided by the single-player factor in a single-player game)
+    sdword timeLeft[4];         // +0x18
+} CatCmJob;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(CatCmJob) == 0x28, "a construction list line is 0x28 bytes in cataclysm.exe");
+#endif
+sdword cat_cmCountJobsForPlayer(struct Player *player, CatCmJob *jobs);     // 0x00459ce0
+
+// CAT (M2-R5 hud): the ship view's readers of the construction manager (names chosen here)
+extern sdword catCmSinglePlayerCostFactor;      // 0x0089419c: the single-player cost divisor (1)
+extern bool32 catCmExtendedInfo;                // 0x00a2dbf0: the CM_ExtendedInfo button's state (the ship descriptions)
+struct tagfeatom;
+void cat_cmExtendedInfoToggle(char *string, struct tagfeatom *atom);                // 0x00454620 (CM_ExtendedInfo)
+
 #endif

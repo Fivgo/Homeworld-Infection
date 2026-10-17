@@ -554,8 +554,9 @@ void cat_taskTimeCompressionApply(void)
     tutGameMessage("TimeCompress");
 }
 
-// 0x0052a3a0: "1/%d %s" below 1, "%d %s" otherwise, as a command message. CAT-TODO(stage 3): the %s argument (a string
-// the decompiler does not show; the exe's clCommandMessage also takes the colour 0xffffffff)
+// 0x0052a3a0: "1/%d %s" below 1, "%d %s" otherwise, as a command message (colour 0xffffffff, ported with the HUD's
+// clCommandMessage). CAT-TODO(stage 3): the %s argument (a string the decompiler does not show) [audit: the colour half
+// of this TODO was stale]
 void cat_taskTimeCompressionPrint(void)
 {
     char buffer[64];
@@ -568,7 +569,7 @@ void cat_taskTimeCompressionPrint(void)
     {
         sprintf(buffer, "%d %s", (sdword)cat_timeCompressionFactor, "");
     }
-    clCommandMessage(buffer);
+    clCommandMessage(buffer, 0xffffffff);
 }
 
 // 0x0052a420: back to the default speed (universeReset, universeClose, nisStartup, animBinkPlay)

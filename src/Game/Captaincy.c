@@ -111,7 +111,7 @@ void captaincyLog(bool32 echotoscreen,char *format, ...)
 
     // CAT: no debug echo and no captaincylog.txt (captaincyLog 0x0042ec90: vsprintf, two stripped debug calls, then
     //      the command message when echoing; the exe's clCommandMessage also takes the colour 0xffffffff)
-    if (echotoscreen) clCommandMessage(buffer);
+    if (echotoscreen) clCommandMessage(buffer, 0xffffffff);
 }
 
 void TransferCaptaincySyncPacketReceivedNotify(void)

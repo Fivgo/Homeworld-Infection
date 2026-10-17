@@ -14,6 +14,7 @@
 #include <string.h>
 
 #include "Camera.h"
+#include "CameraCommand.h"
 #include "ConsMgr.h"
 #include "FastMath.h"
 #include "FEColour.h"
@@ -23,34 +24,34 @@
 #include "glinc.h"
 #include "Gun.h"
 #include "Light.h"
+#include "Mesh.h"
 #include "mouse.h"
+#include "prim2d.h"
 #include "Options.h"
 #include "render.h"
 #include "rglu.h"
+#include "SinglePlayer.h"
 #include "SoundEvent.h"
 #include "StatScript.h"
 #include "StringSupport.h"
 #include "Types.h"
 #include "Tweak.h"
 #include "Universe.h"
+#include "Task.h"
 
-#ifdef _WIN32
-    #include <windows.h>
-#endif
 
+/*=============================================================================
+    CAT (M2-R5 hud): Cataclysm's ship view (cataclysm.exe 0x00514c20..0x005158b0) is the construction manager's
+    rotating model of the selected type with its name, cost and hot key, and with CM_ExtendedInfo the type's
+    description; HW1's six stat panels (SV_Firepower .. SV_Mass, svFirepowerRender .. svMassRender, svShipCoverage,
+    svShipManeuverability) and svDirtyShipView are gone from the exe and retired here.
+=============================================================================*/
 
 /*=============================================================================
     Private Types:
 =============================================================================*/
 
 #define SV_ShipViewName             "SV_ShipView"
-
-#define SV_FirepowerName            "SV_Firepower"
-#define SV_CoverageName             "SV_Coverage"
-#define SV_ManeuverName             "SV_Maneuver"
-#define SV_ArmorName                "SV_Armor"
-#define SV_TopSpeedName             "SV_TopSpeed"
-#define SV_MassName                 "SV_Mass"
 
 #define SV_InitialCameraDistance    900.0f
 
@@ -59,42 +60,35 @@
 #define SV_StatFont                 "HW_EuroseCond_11.hff" //"Small_Fonts_8.hff"
 
 #define SV_ViewMargin               8
+#define SV_TextMargin               10              // CAT: the text starts 10 pixels in (HW1 2 + SV_ViewMargin)
+#define SV_TextColour               colRGB(0xff, 0xc8, 0x00)    // 0xff00c8ff
+#define SV_DescriptionColour        colRGB(0x79, 0xff, 0xee)    // 0xffeeff79
+#define SV_NearClip                 5.0             // CAT: the exe's near plane (a literal, not svCamera.clipPlaneNear)
+#define SV_SpinFeedback             0.5             // 0x0072a480
+#define SV_AutoRotateRate           (1.0f / 6.0f)   // 0x0072afd4: one turn in 6 s
+#define SV_TWOPI                    6.2831854820251465  // 0x0072a500
 
-#define SV_360_ROTATION_SECS        5.0f
-#define SV_PITCH_FLATTEN_SECS       2.0f
+regionhandle svShipViewRegion  = NULL;              // 0x00a5e254
 
-regionhandle svShipViewRegion  = NULL;
-regionhandle svFirepowerRegion = NULL;
-regionhandle svCoverageRegion  = NULL;
-regionhandle svManeuverRegion  = NULL;
-regionhandle svArmorRegion     = NULL;
-regionhandle svTopSpeedRegion  = NULL;
-regionhandle svMassRegion      = NULL;
+fonthandle svShipViewFont = 0;                      // 0x00a5e258
+fonthandle svShipStatFont = 0;                      // 0x00a5e25c
 
-fonthandle svShipViewFont = 0;
-fonthandle svShipStatFont = 0;
+bool32 ReZoom=TRUE;                                 // 0x00893c50
 
-bool32 ReZoom=TRUE;
+real32 savecamMouseX = 0.0f;                        // 0x00a5e260
 
-real32 savecamMouseX = 0.0f;
-
-char svShipViewFontName[SV_FontNameLength] = SV_DefaultFont;
 char svShipStatFontName[SV_FontNameLength] = SV_StatFont;
-
-
-// storage for printing numbers and some strings relating to Ship statistics
-char buf[40];
 
 /*=============================================================================
     Data:
 =============================================================================*/
 
-Camera svCamera;
+Camera svCamera;                                    // 0x00c0a740
 
 real32 svAngle         = -150.0;
 real32 svDeclination   = -20.0;
-real32 svZoomOutScalar = 1.1f;
-real32 svZoomInScalar  = 1.05f;
+real32 svZoomOutScalar = 1.1f;                      // 0x00893cdc
+real32 svZoomInScalar  = 1.05f;                     // 0x00893ce0
 
 scriptEntry ShipViewTweaks[] =
 {
@@ -102,126 +96,70 @@ scriptEntry ShipViewTweaks[] =
     makeEntry(svDeclination, scriptSetReal32CB),
     makeEntry(svZoomInScalar, scriptSetReal32CB),
     makeEntry(svZoomOutScalar,scriptSetReal32CB),
-    
+
     END_SCRIPT_ENTRY
 };
 
-ShipType svShipType = DefaultShip;
+ShipType svShipType = DefaultShip;                  // 0x00893d24
 
-sdword svMouseCentreX = 0;
-sdword svMouseCentreY = 0;
-sdword svMouseLastX   = 0;
-sdword svMouseLastY   = 0;
+sdword svMouseCentreX = 0;                          // 0x00a5e26c
+sdword svMouseCentreY = 0;                          // 0x00a5e270
+sdword svMouseLastX   = 0;                          // 0x00a5e274
+sdword svMouseLastY   = 0;                          // 0x00a5e278
 
-bool8 svMouseInside     = FALSE;
-bool8 svMousePressLeft  = FALSE;
-bool8 svMousePressRight = FALSE;
+bool8 svMouseInside     = FALSE;                    // 0x00a5e27c
+bool8 svMousePressLeft  = FALSE;                    // 0x00a5e27d
+bool8 svMousePressRight = FALSE;                    // 0x00a5e27e
 
-static GLfloat lightPosition0[] = {10000.0f, 1.0f, 1.0f, 0.1f};
+// CAT: the automatic turn: the camera angle at the selection (0 = the user turned the view; 1e-5 stands for an
+//      angle of exactly 0) and, in render.c, the selection's real time (catRndShipViewSelectTime 0x00a5e264, which
+//      also times the fade-in)
+static real32 svAutoRotateStart = 0.0f;             // 0x00a5e268
 
-/*=============================================================================
-    Function Prototypes
-=============================================================================*/
+static GLfloat lightPosition0[] = {10000.0f, 1.0f, 1.0f, 0.1f};    // 0x00893d28
 
-uword svShipCoverage(ShipStaticInfo *statinfo);
-void svShipManeuverability(ShipStaticInfo *statinfo,char *name);
+// ResearchGUI.c's word splitter (no prototype in a header)
+extern char *getWord(char *dest, char *source);
+
+// Mesh.c's wireframe switch (0x00a4c456): the second pass of the fade-in is drawn as lines
+extern bool8 g_WireframeHack;
 
 /*=============================================================================
     Functions:
 =============================================================================*/
 
-
-
 /*-----------------------------------------------------------------------------
-    Name        : svDirtyShipView
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void svDirtyShipView(void)
-{
-    if (svShipViewRegion != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(svShipViewRegion);
-#endif
-        svShipViewRegion->status |= RSF_DrawThisFrame;
-    }
-    if (svFirepowerRegion != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(svFirepowerRegion);
-#endif
-        svFirepowerRegion->status |= RSF_DrawThisFrame;
-    }
-    if (svCoverageRegion != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(svCoverageRegion);
-#endif
-        svCoverageRegion->status |= RSF_DrawThisFrame;
-    }
-    if (svManeuverRegion != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(svManeuverRegion);
-#endif
-        svManeuverRegion->status |= RSF_DrawThisFrame;
-    }
-    if (svArmorRegion != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(svArmorRegion);
-#endif
-        svArmorRegion->status |= RSF_DrawThisFrame;
-    }
-    if (svTopSpeedRegion != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(svTopSpeedRegion);
-#endif
-        svTopSpeedRegion->status |= RSF_DrawThisFrame;
-    }
-    if (svMassRegion != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(svMassRegion);
-#endif
-        svMassRegion->status |= RSF_DrawThisFrame;
-    }
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : svSelectShip
-    Description :
-    Inputs      :
+    Name        : svSelectShip                                      0x00514c20
+    Description : Show a type; a new type restarts the automatic turn and the fade-in from the current angle
+    Inputs      : type - the type, DefaultShip for none
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
 void svSelectShip(ShipType type)
 {
+    if (svShipType != type)
+    {
+        svAutoRotateStart = svCamera.angle;
+        if (svCamera.angle == 0.0f)
+        {
+            svAutoRotateStart = 1e-05f;
+        }
+        catRndShipViewSelectTime = cat_taskRealTimeElapsed;
+    }
     svShipType = type;
-        ReZoom=TRUE;
+    ReZoom = TRUE;
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : svClose
-    Description :
+    Name        : svClose                                           0x00514c70
+    Description : The construction manager closed: no region, no type
     Inputs      :
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
 void svClose(void)
 {
-    svShipViewRegion  = NULL;
-    svFirepowerRegion = NULL;
-    svCoverageRegion  = NULL;
-    svManeuverRegion  = NULL;
-    svArmorRegion     = NULL;
-    svTopSpeedRegion  = NULL;
-    svMassRegion      = NULL;
-
+    svShipViewRegion = NULL;
     svShipType = DefaultShip;
 }
 
@@ -290,10 +228,99 @@ sdword svReadMouseEvent(regionhandle region, sdword ID, udword event, udword dat
 }
 
 
-#define SPIN_FEEDBACK 0.5
 /*-----------------------------------------------------------------------------
-    Name        : svShipViewRender
-    Description : Callback which draws the main ship view.
+    Name        : cat_svShipDescriptionDraw                         0x00514dd0
+    Description : With CM_ExtendedInfo on, the type's description word-wrapped under the cost (the line breaking of
+                  HW1's rmTechInfoDraw: getWord, 15 pixels short of the width, a '\n' ends a line)
+    Inputs      : rect - the view's rectangle, y - the last text line's y
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_svShipDescriptionDraw(rectangle *rect, sdword y)
+{
+    fonthandle oldFont = fontMakeCurrent(svShipViewFont);
+    sdword x = rect->x0;
+    sdword width = rect->x1 - rect->x0 - 15;
+    char text[652], line[100], oldline[100];
+    char *pos, *oldpos;
+    bool32 done, justified;
+
+    y += fontHeight(" ") * 2;
+    if (svShipType == -1)
+    {
+        fontMakeCurrent(oldFont);
+        return;
+    }
+    // the descriptions follow the type order from strsReconInfo; dAcolyte has its own string
+    snprintf(text, sizeof(text), "%s", strGetString((svShipType == dAcolyte) ? strdAcolyteInfo : (strsReconInfo + svShipType)));
+    pos = text;
+    done = FALSE;
+    while (!done)
+    {
+        justified = FALSE;
+        line[0] = '\0';
+        while (!justified)
+        {
+            strcpy(oldline, line);
+            oldpos = pos;
+            pos = getWord(line, pos);
+            if (pos[0] == '\n')
+            {
+                if (fontWidth(line) > width)
+                {
+                    strcpy(line, oldline);
+                    pos = oldpos;
+                    while (pos[0] == ' ')
+                    {
+                        pos++;
+                    }
+                }
+                else
+                {
+                    pos++;
+                    while (pos[0] == ' ')
+                    {
+                        pos++;
+                    }
+                }
+                justified = TRUE;
+            }
+            else
+            {
+                if (fontWidth(line) > width)
+                {
+                    strcpy(line, oldline);
+                    pos = oldpos;
+                    while (pos[0] == ' ')
+                    {
+                        pos++;
+                    }
+                    justified = TRUE;
+                }
+                if (pos[0] == '\0')
+                {
+                    justified = TRUE;
+                    done = TRUE;
+                }
+            }
+        }
+        fontPrint(x + SV_TextMargin, y, SV_DescriptionColour, line);
+        y += fontHeight(" ");
+        if (y > rect->y1 + fontHeight(" "))
+        {
+            done = TRUE;
+        }
+    }
+    fontMakeCurrent(oldFont);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : svShipViewRender                                  0x00515010
+    Description : Callback which draws the main ship view: the model turning by itself (or by the right mouse
+                  button / the wheel), faded in by a clip plane for 1.5 s after a selection (a solid pass and a
+                  wireframe pass, cat_rndSetupFadeFlag), then the name, the cost, the hot key and the description.
+                  CAT: no glcompat in the SDL build (cat_glcActive 0x0055c480 is FALSE), so the exe's glc branches
+                  (draw every other frame into the saved region) are left out.
     Inputs      : standard FE callback
     Outputs     : ..
     Return      : void
@@ -301,28 +328,20 @@ sdword svReadMouseEvent(regionhandle region, sdword ID, udword event, udword dat
 void svShipViewRender(featom* atom, regionhandle region)
 {
     rectangle drawRect;
-    rectangle* rect;
     rectangle viewRect;
+    rectangle darkRect;
     fonthandle currentFont;
     GLint viewPort[4];
     GLint box[4];
+    GLdouble clipPlane[4] = { -1.0, 0.0, 0.0, -1.0 };
     ShipStaticInfo* info;
-    real32 scale;
     sdword width, height;
-    sdword x, y;
-    keyindex key;
+    sdword x, y, index, cost;
+    ubyte key;
     char* keystring;
-    bool32 resetRender = FALSE;
-    char    temp[100];
+    real64 whole;
 
-    // facilitates smooth transition between auto/manual rotation of ship
-    static real32 angle_user_rotated_to       = 0.0f;
-    static real32 declination_user_rotated_to = 0.0f;
-    static real32 time_user_rotated_view      = 0.0f;
-           real32 real_time_angle             = 0.0f;
-    static real32 user_real_angle_offset      = 0.0f;
-    
-    rect = &region->rect;
+    (void)atom;
     viewRect.x0 = 0;
     viewRect.y0 = 0;
     viewRect.x1 = MAIN_WindowWidth  - 1;
@@ -331,13 +350,13 @@ void svShipViewRender(featom* atom, regionhandle region)
 
     if (svShipType != DefaultShip)
     {
-        if (universe.curPlayerPtr)
+        if (universe.curPlayerPtr != NULL)
         {
-            info = GetShipStaticInfoSafe(svShipType, universe.curPlayerPtr->race);
+            info = GetShipStaticInfoSafe(svShipType, 0);
         }
         if (info == NULL)
         {
-            info = GetShipStaticInfoSafe(svShipType, GetValidRaceForShipType(svShipType));
+            info = GetShipStaticInfoSafe(svShipType, 0);
         }
         if (info == NULL)
         {
@@ -346,18 +365,7 @@ void svShipViewRender(featom* atom, regionhandle region)
     }
 
     svShipViewRegion = region;
-
-    if (!resetRender)
-    {
-        if (svMouseInside)
-        {
-            ferDrawFocusWindow(region, lw_focus);
-        }
-        else
-        {
-            ferDrawFocusWindow(region, lw_normal);
-        }
-    }
+    ferDrawFocusWindow(region, svMouseInside ? lw_focus : lw_normal);
 
     soundEventUpdate();
 
@@ -374,95 +382,63 @@ void svShipViewRender(featom* atom, regionhandle region)
         regFunctionSet(region, (regionfunction) svReadMouseEvent);               //set new region handler function
     }
 
-    //scale = *svScale[svShipType];
-        //svCamera.closestZoom  = *svMinZoom[svShipType];
-    //svCamera.farthestZoom = *svMaxZoom[svShipType];
-
-    scale = 1.0f; //*svScale[svShipType];
-
-    if(svShipType != DefaultShip)
+    if (svShipType != DefaultShip)
     {
-        svCamera.closestZoom = info->minimumZoomDistance*svZoomInScalar;
-        svCamera.farthestZoom = (svCamera.closestZoom+info->common.staticCollInfo.approxcollspheresize)*svZoomOutScalar;
-        if(ReZoom)
+        svCamera.closestZoom = svZoomInScalar * info->minimumZoomDistance;
+        svCamera.farthestZoom = (svCamera.closestZoom + info->common.staticCollInfo.approxcollspheresize) * svZoomOutScalar;
+        if (ReZoom)
         {
-            ReZoom=FALSE;
-            cameraZoom(&svCamera,1.0f,FALSE);
+            ReZoom = FALSE;
+            cameraZoom(&svCamera, 1.0f, FALSE);
         }
-
-        if (svMouseInside && (wheel_down || wheel_up))
+        if (svMouseInside)
         {
-            cameraControl(&svCamera, FALSE);
-        }
-        else if (svMouseInside && svMousePressRight)
-        {
-            camMouseX = (svMouseCentreX - mouseCursorX()) * 4;      //was 2
-            camMouseY = (svMouseCentreY - mouseCursorY()) * 4;
-            savecamMouseX = savecamMouseX * SPIN_FEEDBACK +
-                (real32)camMouseX * (1.0f - SPIN_FEEDBACK);
-            cameraControl(&svCamera, FALSE);                         //update the camera
-
-            mouseCursorHide();
-            mousePositionSet(svMouseCentreX, svMouseCentreY); // Reset position so it doesn't walk off region
-
-            // keep track of where the user left the camera so we can sync auto-rotation with it
-            angle_user_rotated_to       = svCamera.angle;
-            declination_user_rotated_to = svCamera.declination;
-            time_user_rotated_view      = universe.totaltimeelapsed;
-        }
-        else // auto rotate ship model
-        {
-            // continual 360 degree yaw rotation
-            real_time_angle = DEG_TO_RAD(remainder(universe.totaltimeelapsed, SV_360_ROTATION_SECS) / SV_360_ROTATION_SECS * 360);
-
-            if (angle_user_rotated_to >= 0.0) {
-                user_real_angle_offset = angle_user_rotated_to - real_time_angle;
-                angle_user_rotated_to = -1.0;
+            if (wheel_up || wheel_down)
+            {                                   // the wheel zooms and stops the automatic turn
+                svAutoRotateStart = 0.0f;
+                cameraControl(&svCamera, FALSE);
             }
-
-            svCamera.angle = real_time_angle + user_real_angle_offset;
-            
-            // collapse pitch to default declination
-            if (time_user_rotated_view > 0.0) {
-                if (universe.totaltimeelapsed > time_user_rotated_view + SV_PITCH_FLATTEN_SECS) {
-                    svCamera.declination = DEG_TO_RAD(svDeclination);
-                    time_user_rotated_view = 0.0;
-                }
-                else {
-                    svCamera.declination = declination_user_rotated_to + (DEG_TO_RAD(svDeclination) - declination_user_rotated_to) * ((universe.totaltimeelapsed - time_user_rotated_view) / SV_PITCH_FLATTEN_SECS);
-                }
+            else if (svMousePressRight)
+            {                                   // the right button turns the model
+                camMouseX = (svMouseCentreX - mouseCursorX()) * 4;
+                camMouseY = (svMouseCentreY - mouseCursorY()) * 4;
+                svAutoRotateStart = 0.0f;
+                savecamMouseX = (real32)(((real32)camMouseX + savecamMouseX) * SV_SpinFeedback);
+                cameraControl(&svCamera, FALSE);
+                mouseCursorHide();
+                mousePositionSet(svMouseCentreX, svMouseCentreY);   // Reset position so it doesn't walk off region
             }
-            
-            if (svMouseInside) mouseCursorShow();
+            else
+            {
+                mouseCursorShow();
+            }
         }
     }
-    //rotation
+    if (svAutoRotateStart != 0.0f)
+    {                                           // one turn in 6 s from the angle at the selection
+        cat_cameraSetAngle(&svCamera, (real32)(svAutoRotateStart +
+            modf((real64)((cat_taskRealTimeElapsed - catRndShipViewSelectTime) * SV_AutoRotateRate), &whole) * SV_TWOPI));
+    }
 
-    drawRect.x0 = rect->x0 + SV_ViewMargin;
-    drawRect.y0 = rect->y0 + SV_ViewMargin;
-    drawRect.x1 = rect->x1 - SV_ViewMargin;
-    drawRect.y1 = rect->y1 - SV_ViewMargin;
+    drawRect.x0 = region->rect.x0 + SV_ViewMargin;
+    drawRect.y0 = region->rect.y0 + SV_ViewMargin;
+    drawRect.x1 = region->rect.x1 - SV_ViewMargin;
+    drawRect.y1 = region->rect.y1 - SV_ViewMargin;
 
     width  = drawRect.x1 - drawRect.x0;
     height = drawRect.y1 - drawRect.y0;
 
     glGetIntegerv(GL_VIEWPORT, viewPort);
 
-    // Fix up the viewport for the ship view
-    // Since we request a fullscreen window and not true fullscreen the MAIN_WindowX values
-    // do not represent the actual render resolution. Only the ship view messes with the
-    // viewport and trips over this disconnect. Fix this up here until we have a clean
-    // solution for UI scaling and windows vs fullscreen rendering.
+    // GoK: Since we request a fullscreen window and not true fullscreen the MAIN_WindowX values do not represent
+    // the actual render resolution; only the ship view sets the viewport and trips over this.
     // original code: glViewport(drawRect.x0, MAIN_WindowHeight - drawRect.y1, width, height);
     float factorX = (float)viewPort[2]/(float)MAIN_WindowWidth;
     float factorY = (float)viewPort[3]/(float)MAIN_WindowHeight;
     glViewport(drawRect.x0 * factorX, viewPort[3] - drawRect.y1 * factorY, width * factorX, height * factorY);
-    
+
     primModeSet2();
-    if (!resetRender)
-    {
-        primRectSolid2(&viewRect, FEC_Background);
-    }
+    primRectSolid2(&viewRect, FEC_Background);
     primModeClear2();
 
     glEnable(GL_SCISSOR_TEST);
@@ -471,20 +447,20 @@ void svShipViewRender(featom* atom, regionhandle region)
     glClear(GL_DEPTH_BUFFER_BIT);
     glDisable(GL_SCISSOR_TEST);
 
-    //svCamera.lookatpoint.x = -info->common.staticCollInfo.collsphereoffset.z * scale;
-    //svCamera.lookatpoint.y = -info->common.staticCollInfo.collsphereoffset.x * scale;
-    //svCamera.lookatpoint.z = -info->common.staticCollInfo.collsphereoffset.y * scale;
+    // CAT: rndPerspectiveCorrection(TRUE) is not issued (render.c: the hint has no effect on a current GL)
+    cat_rndDepthTestEnable(TRUE);
+
     if (svShipType == DefaultShip)
     {
-        svCamera.lookatpoint.x=0.0f;
-        svCamera.lookatpoint.y=0.0f;
-        svCamera.lookatpoint.z=0.0f;
+        svCamera.lookatpoint.x = 0.0f;
+        svCamera.lookatpoint.y = 0.0f;
+        svCamera.lookatpoint.z = 0.0f;
     }
     else
-    {
+    {                                           // CAT: the exe negates only z (HW1 negated all three)
         svCamera.lookatpoint.x = -info->common.staticCollInfo.collsphereoffset.z;
-        svCamera.lookatpoint.y = -info->common.staticCollInfo.collsphereoffset.x;
-        svCamera.lookatpoint.z = -info->common.staticCollInfo.collsphereoffset.y;
+        svCamera.lookatpoint.y = info->common.staticCollInfo.collsphereoffset.y;
+        svCamera.lookatpoint.z = info->common.staticCollInfo.collsphereoffset.x;
     }
 
     cameraSetEyePosition(&svCamera);
@@ -493,11 +469,7 @@ void svShipViewRender(featom* atom, regionhandle region)
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
 
-    rgluPerspective(
-        svCamera.fieldofview,
-        (float)(width) / (float)(height) /*rndAspectRatio*/,    //set projection matrix
-        svCamera.clipPlaneNear,
-        svCamera.clipPlaneFar);
+    rgluPerspective(svCamera.fieldofview, (double)width / (double)height, SV_NearClip, svCamera.clipPlaneFar);
 
     glMatrixMode(GL_MODELVIEW);
 
@@ -525,11 +497,10 @@ void svShipViewRender(featom* atom, regionhandle region)
 
     glLightfv(GL_LIGHT0, GL_POSITION, lightPosition0);      //position light(s) within world
 
-    glScalef(scale, scale, scale);
+    glScalef(1.0f, 1.0f, 1.0f);
 
     if (svShipType != DefaultShip)
     {
-        sdword index;
         //try player index colours first
         index = universe.curPlayerIndex;
         if (info->shipOrDerelict.teamColor[index] == 0)
@@ -544,12 +515,34 @@ void svShipViewRender(featom* atom, regionhandle region)
             }
             if (index == MAX_MULTIPLAYER_PLAYERS)
             {
-                //this ship doesn't have any colour info,
-                //at least avoid a GPF
                 index = universe.curPlayerIndex;
             }
         }
+        // CAT: the effect state of no object: only the fade-in (cat_rndSetupFadeFlag)
+        cat_rndObjectEffectsSetup(NULL);
+        cat_rndSetupObjectEffectParams(NULL);
+        if (catRndFadeFlag)
+        {                                       // the solid part: x below the fade's height up the model
+            clipPlane[3] = catRndFadeT * info->common.staticCollInfo.uplength +
+                           info->common.staticCollInfo.collrectoffset.x;
+            glClipPlane(GL_CLIP_PLANE0, clipPlane);
+            glEnable(GL_CLIP_PLANE0);
+            g_WireframeHack = FALSE;
+        }
         meshRender((meshdata *)info->common.LOD->level[0].pData, index);
+        if (catRndFadeFlag)
+        {                                       // and the rest as a wireframe
+            g_WireframeHack = TRUE;
+            catRndFadeFlip = TRUE;
+            glDisable(GL_CLIP_PLANE0);
+            clipPlane[0] = -clipPlane[0];
+            clipPlane[3] = -clipPlane[3];
+            glClipPlane(GL_CLIP_PLANE0, clipPlane);
+            glEnable(GL_CLIP_PLANE0);
+            meshRender((meshdata *)info->common.LOD->level[0].pData, index);
+            glDisable(GL_CLIP_PLANE0);
+            g_WireframeHack = FALSE;
+        }
     }
 
     glDisable(GL_NORMALIZE);
@@ -563,416 +556,58 @@ void svShipViewRender(featom* atom, regionhandle region)
 
     rndLightingEnable(FALSE);
 
-    x = rect->x0 + 2 + SV_ViewMargin;
-    y = rect->y0 + 2 + SV_ViewMargin;
+    x = region->rect.x0 + SV_TextMargin;
+    y = region->rect.y0 + SV_ViewMargin;
 
-    if (svShipType != DefaultShip && !resetRender)
+    if (catCmExtendedInfo)
+    {                                           // the description gets a darkened panel
+        darkRect.x0 = region->rect.x0 + 3;
+        darkRect.y0 = region->rect.y0 + 3;
+        darkRect.x1 = region->rect.x1 - 3;
+        darkRect.y1 = region->rect.y1 - 3;
+        primRectTranslucent2(&darkRect, colRGBA(0, 0, 0, 0x80));
+    }
+
+    if (svShipType != DefaultShip)
     {
-        fontPrintf(
-            x,
-            y,
-            FEC_ListItemStandard,
-            "%s",
-            ShipTypeToNiceStr(svShipType));
+        fontPrint(x, y, SV_TextColour, ShipTypeToNiceStr(svShipType));
 
         y += fontHeight(" ");
 
-        sprintf(temp, "%s %d %s",strGetString(strSVCost),info->buildCost, strGetString(strSVRUs));
-
-        fontPrintf(
-            x,
-            y,
-            FEC_ListItemStandard,
-            temp);
+        cost = singlePlayerGame ? info->buildCost / catCmSinglePlayerCostFactor : info->buildCost;
+        fontPrintf(x, y, SV_TextColour, "%s %d %s", strGetString(strSVCost), cost, strGetString(strSVRUs));
 
         if (cmPrintHotKey)
         {
-            x = rect->x1 - 2 - SV_ViewMargin;
-            y = rect->y0 + 2 + SV_ViewMargin;
+            x = region->rect.x1 - SV_TextMargin;
+            y = region->rect.y0 + SV_ViewMargin;
 
-            key = cmShipTypeToKey(svShipType);
-            keystring = opKeyToNiceString((keyindex)(key & 0x00ff));
-
-            if (key & CM_SHIFT)
+            // CAT: the exe keeps the key's low byte, so its "[SHIFT-%s]" branch (key & CM_SHIFT) is dead code
+            key = (ubyte)cmShipTypeToKey(svShipType);
+            keystring = opKeyToNiceString((keyindex)key);
+            if (key != 0)
             {
-                width = fontWidthf("[SHIFT-%s]",keystring);
-                fontPrintf(
-                    x-width,
-                    y,
-                    FEC_ListItemStandard,
-                    "[SHIFT-%s]",
-                    keystring);
-            }
-            else if (key)
-            {
-                width = fontWidthf("[%s]",keystring);
-                fontPrintf(
-                    x-width,
-                    y,
-                    FEC_ListItemStandard,
-                    "[%s]",
-                    keystring);
+                width = fontWidthf("[%s]", keystring);
+                fontPrintf(x - width, y, SV_TextColour, "[%s]", keystring);
             }
         }
     }
+    if (catCmExtendedInfo)
+    {
+        cat_svShipDescriptionDraw(&region->rect, y);
+    }
     fontMakeCurrent(currentFont);
 
-    svDirtyShipView();
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : svFirepowerRender
-    Description : Callback which draws the firepower stat in ship view.
-    Inputs      : standard FE callback
-    Outputs     : ..
-    Return      : void
-----------------------------------------------------------------------------*/
-void svFirepowerRender(featom *atom, regionhandle region)
-{
-    rectangle *rect = &region->rect;
-    fonthandle currentFont;
-    uword firepower;
-    char buftemp[50];
-    ShipStaticInfo *info = GetShipStaticInfoSafe(svShipType, universe.curPlayerPtr->race);
-
-    svFirepowerRegion = region;
-
-    if (FELASTCALL(atom))
+    // CAT: HW1's svDirtyShipView, inlined (only the one region is left)
+    if (svShipViewRegion != NULL)
     {
-        svFirepowerRegion = NULL;
-        return;
+        svShipViewRegion->status |= RSF_DrawThisFrame;
     }
-
-    if(svShipType == DefaultShip)
-    {
-        return;
-    }
-    if (info == NULL)
-    {
-        info = GetShipStaticInfoSafe(svShipType, GetValidRaceForShipType(svShipType));
-    }
-    if (info == NULL)
-    {
-        return;
-    }
-
-    currentFont = fontMakeCurrent(svShipStatFont);
-
-    if(info->svFirePower !=0)
-    {
-        firepower = (uword) info->svFirePower;
-    }
-    else
-    {
-        firepower = (uword) gunShipFirePower(info);
-    }
-    if(firepower != 0)
-    {
-        sprintf(buftemp,"%d",firepower);
-    }
-    else
-    {
-        sprintf(buftemp,"%s","-");
-    }
-    sprintf(buf,ShipStatToNiceStr(Firepower),buftemp);
-
-    fontPrintf(
-        rect->x0,
-        rect->y0,
-        FEC_ListItemStandard,
-        "%s",
-        buf);
-
-    fontMakeCurrent(currentFont);
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : svCoverageRender
-    Description : Callback which draws the coverage stat in ship view.
-    Inputs      : standard FE callback
-    Outputs     : ..
-    Return      : void
-----------------------------------------------------------------------------*/
-void svCoverageRender(featom *atom, regionhandle region)
-{
-    rectangle *rect = &region->rect;
-    sdword width;
-    fonthandle currentFont;
-    char buftemp[50];
-    uword coverage;
-    ShipStaticInfo *info = GetShipStaticInfoSafe(svShipType, universe.curPlayerPtr->race);
-
-    svCoverageRegion = region;
-
-    if (FELASTCALL(atom))
-    {
-        svCoverageRegion = NULL;
-        return;
-    }
-
-    if(svShipType == DefaultShip)
-    {
-        return;
-    }
-
-    if (info == NULL)
-    {
-        info = GetShipStaticInfoSafe(svShipType, GetValidRaceForShipType(svShipType));
-    }
-
-    if (info == NULL)
-    {
-        return; //maybe print UNKNOWN!
-    }
-
-    currentFont = fontMakeCurrent(svShipStatFont);
-
-    coverage = svShipCoverage(info);
-    if(coverage != 0)
-    {
-        sprintf(buftemp,"%d %s",coverage,ShipStatToNiceStr(CoverageUnits));
-    }
-    else
-    {
-        sprintf(buftemp,"%s","-");
-    }
-    sprintf(buf,ShipStatToNiceStr(Coverage),buftemp);
-
-    width = fontWidthf("%s",buf);
-
-    fontPrintf(
-        rect->x0,//rect->x1 - width,
-        rect->y0,
-        FEC_ListItemStandard,
-        "%s",buf);
-
-    fontMakeCurrent(currentFont);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : svManeuverRender
-    Description : Callback which draws the maneuver stat in ship view.
-    Inputs      : standard FE callback
-    Outputs     : ..
-    Return      : void
-----------------------------------------------------------------------------*/
-void svManeuverRender(featom *atom, regionhandle region)
-{
-    rectangle *rect = &region->rect;
-    fonthandle currentFont;
-    char maneuverability[100] = "";
-    ShipStaticInfo *info = GetShipStaticInfoSafe(svShipType, universe.curPlayerPtr->race);
-
-    svManeuverRegion = region;
-
-    if (FELASTCALL(atom))
-    {
-        svManeuverRegion = NULL;
-        return;
-    }
-
-    if (svShipType == DefaultShip)
-    {
-        return;
-    }
-    if (info == NULL)
-    {
-        info = GetShipStaticInfoSafe(svShipType, GetValidRaceForShipType(svShipType));
-    }
-    if (info == NULL)
-    {
-        return;
-    }
-
-    currentFont = fontMakeCurrent(svShipStatFont);
-
-    svShipManeuverability(info,maneuverability);
-    sprintf(buf,ShipStatToNiceStr(Maneuver),maneuverability);
-
-    fontPrintf(
-        rect->x0,
-        rect->y0,
-        FEC_ListItemStandard,
-        "%s",buf);
-
-    fontMakeCurrent(currentFont);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : svArmorRender
-    Description : Callback which draws the armor stat in ship view.
-    Inputs      : standard FE callback
-    Outputs     : ..
-    Return      : void
-----------------------------------------------------------------------------*/
-void svArmorRender(featom *atom, regionhandle region)
-{
-    rectangle *rect = &region->rect;
-    sdword width;
-    char buftemp[50];
-
-    fonthandle currentFont;
-    ShipStaticInfo *info = GetShipStaticInfoSafe(svShipType, universe.curPlayerPtr->race);
-
-    svArmorRegion = region;
-
-    if (FELASTCALL(atom))
-    {
-        svArmorRegion = NULL;
-        return;
-    }
-
-    if(svShipType == DefaultShip)
-    {
-        return;
-    }
-    if (info == NULL)
-    {
-        info = GetShipStaticInfoSafe(svShipType, GetValidRaceForShipType(svShipType));
-    }
-    if (info == NULL)
-    {
-        return;
-    }
-
-    svArmorRegion = region;
-
-    currentFont = fontMakeCurrent(svShipStatFont);
-
-    sprintf(buftemp,"%d",(udword) info->health.maxhealth);
-    sprintf(buf,ShipStatToNiceStr(Armor),buftemp);
-
-    width = fontWidthf("%s",buf);
-
-    fontPrintf(
-        rect->x0,//rect->x1 - width,
-        rect->y0,
-        FEC_ListItemStandard,
-        "%s",buf);
-
-    fontMakeCurrent(currentFont);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : svTopSpeedRender
-    Description : Callback which draws the top speed stat in ship view.
-    Inputs      : standard FE callback
-    Outputs     : ..
-    Return      : void
-----------------------------------------------------------------------------*/
-void svTopSpeedRender(featom *atom, regionhandle region)
-{
-    rectangle *rect = &region->rect;
-    fonthandle currentFont;
-    char buftemp[50];
-
-    ShipStaticInfo *info = GetShipStaticInfoSafe(svShipType, universe.curPlayerPtr->race);
-
-    svTopSpeedRegion = region;
-
-    if (FELASTCALL(atom))
-    {
-        svTopSpeedRegion = NULL;
-        return;
-    }
-
-    if(svShipType == DefaultShip)
-    {
-            return;
-    }
-    if (info == NULL)
-    {
-        info = GetShipStaticInfoSafe(svShipType, GetValidRaceForShipType(svShipType));
-    }
-    if (info == NULL)
-    {
-        return;
-    }
-
-    currentFont = fontMakeCurrent(svShipStatFont);
-
-    //sprintf(buf,"%d", (uword)info->common.maxvelocity);
-    //topspeed contains a %d for the numerical location of the maxvelocity
-    // CAT: no Probe dispatch speed, Cataclysm has no probe type (M2-R4 ships-b retire)
-    sprintf(buftemp,"%d",(udword) info->common.maxvelocity);
-    sprintf(buf,ShipStatToNiceStr(TopSpeed),buftemp);
-    fontPrintf(
-        rect->x0,
-        rect->y0,
-        FEC_ListItemStandard,
-        "%s",
-        buf);
-
-
-
-    fontMakeCurrent(currentFont);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : svMassRender
-    Description : Callback which draws the mass stat in ship view.
-    Inputs      : standard FE callback
-    Outputs     : ..
-    Return      : void
-----------------------------------------------------------------------------*/
-void svMassRender(featom *atom, regionhandle region)
-{
-    rectangle *rect = &region->rect;
-    fonthandle currentFont;
-    sdword width;
-    char buftemp[50];
-
-    ShipStaticInfo *info = GetShipStaticInfoSafe(svShipType, universe.curPlayerPtr->race);
-
-    svMassRegion = region;
-
-    if (FELASTCALL(atom))
-    {
-        svMassRegion = NULL;
-        return;
-    }
-
-    if(svShipType == DefaultShip)
-    {
-            return;
-    }
-    if (info == NULL)
-    {
-        info = GetShipStaticInfoSafe(svShipType, GetValidRaceForShipType(svShipType));
-    }
-    if (info == NULL)
-    {
-        return;
-    }
-
-    currentFont = fontMakeCurrent(svShipStatFont);
-
-    //sprintf(buf, "%d", (uword)info->common.mass);
-    //Mass str contains a %d for the mass to expand into
-    sprintf(buftemp,"%d",(udword)info->common.mass);
-    sprintf(buf,ShipStatToNiceStr(Mass),buftemp);
-
-    width = fontWidthf("%s",
-        buf);                       //width of number
-        //ShipTypeStatToNiceStr(svShipType, Mass));//width of number
-
-
-    fontPrintf(
-        rect->x0,//rect->x1 - width,
-        rect->y0,
-        FEC_ListItemStandard,
-        "%s",
-        buf);
-        //ShipTypeStatToNiceStr(svShipType, Mass));
-
-    fontMakeCurrent(currentFont);
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        :  svStartup()
-    Description :
+    Name        : svStartup                                         0x005158b0
+    Description : The camera, the SV_ShipView callback and the two fonts (the view's is always default.hff)
     Inputs      :
     Outputs     :
     Return      :
@@ -986,24 +621,17 @@ void svStartup(void)
 
     feDrawCallbackAdd(SV_ShipViewName, svShipViewRender);   //add render callbacks
 
-    feDrawCallbackAdd(SV_FirepowerName, svFirepowerRender);
-    feDrawCallbackAdd(SV_CoverageName, svCoverageRender);
-    feDrawCallbackAdd(SV_ManeuverName, svManeuverRender);
-    feDrawCallbackAdd(SV_ArmorName, svArmorRender);
-    feDrawCallbackAdd(SV_TopSpeedName, svTopSpeedRender);
-    feDrawCallbackAdd(SV_MassName, svMassRender);
-
     svMouseInside     = FALSE;
     svMousePressLeft  = FALSE;
     svMousePressRight = FALSE;
 
-    svShipViewFont = frFontRegister(svShipViewFontName);
+    svShipViewFont = frFontRegister(SV_DefaultFont);
     svShipStatFont = frFontRegister(svShipStatFontName);
 }
 
 /*-----------------------------------------------------------------------------
     Name        :  svShutdown()
-    Description :
+    Description : CAT: not in the exe (utility.c's HW1 shutdown still calls it)
     Inputs      :
     Outputs     :
     Return      :
@@ -1011,107 +639,3 @@ void svStartup(void)
 void svShutdown(void)
 {
 }
-
-uword svShipCoverage(ShipStaticInfo *statinfo)
-{
-    GunStaticInfo *guninfo = statinfo->gunStaticInfo;
-    GunStatic *gun,*gun2;
-    sdword i,j,numGuns;
-    real32 coverage=0;
-        real32 gunvalue,gunangledif;
-
-    if(guninfo == NULL)
-    {
-        return(0);
-    }
-
-    numGuns = guninfo->numGuns;
-    for(i=0;i<numGuns;i++)
-    {
-        gun = &guninfo->gunstatics[i];
-        switch(gun->guntype)
-        {
-        case GUN_Fixed:
-            //fixed guns don't really increase by anything..
-            //but we'll make it feel better by giving it +1;
-            coverage+=0.1f;
-            break;
-        case GUN_Gimble:
-            gunvalue = (acos(gun->cosmaxAngleFromNorm))*2.0f;
-                        for(j=i+1;j<numGuns;j++)
-                        {
-                                gun2 = &guninfo->gunstatics[i];
-                                //angle difference between normals of two guns.
-                                gunangledif = acos(vecDotProduct(gun->gunnormal,gun2->gunnormal));
-                                gunangledif = gunangledif - acos(gun->cosmaxAngleFromNorm) - acos(gun2->cosmaxAngleFromNorm);
-                                if(gunangledif < 0.0f)
-                                        gunvalue+=gunangledif;
-                                if(gunvalue <= 0.0f)
-                                        break;
-                        }
-                        coverage+=max(gunvalue,0.0f);
-            break;
-        case GUN_NewGimble:
-            coverage = coverage + (min(2*gun->maxturnangle,2*gun->maxdeclination));
-                        break;
-        case GUN_MissileLauncher:
-        case GUN_MineLauncher:
-            coverage=2*PI;
-            goto donecoveragecalc;
-            break;
-
-        }
-    }
-
-donecoveragecalc:
-    coverage = 100.0*coverage/(2*PI);
-    return(min(((uword) coverage),100));
-}
-
-void svShipManeuverability(ShipStaticInfo *statinfo,char *name)
-{
-    sdword man=0;
-    real32 turnspeed;
-    if(statinfo->svManeuverability != 0)
-    {
-        man = statinfo->svManeuverability;
-calcmanjump:
-        switch (man)
-        {
-        case 1:         //very low
-            sprintf(name,"%s",ShipStatToNiceStr(VeryLow));
-            break;
-        case 2:         //low
-            sprintf(name,"%s",ShipStatToNiceStr(Low));
-            break;
-        case 3:         //medium
-            sprintf(name,"%s",ShipStatToNiceStr(Medium));
-            break;
-        case 4:         //high
-            sprintf(name,"%s",ShipStatToNiceStr(High));
-            break;
-        case 5:         //Very High
-            sprintf(name,"%s",ShipStatToNiceStr(VeryHigh));
-            break;
-        default:
-            dbgFatalf(DBG_Loc,"Error Calculating Maneuverability");
-        }
-        return;
-    }
-//calculate maneuverability
-    turnspeed = statinfo->guidance.turnspeedstat[TURN_YAW]+
-                statinfo->guidance.turnspeedstat[TURN_PITCH]+
-                statinfo->guidance.turnspeedstat[TURN_ROLL];
-    if(turnspeed < TW_SV_MAN_VERY_LOW)
-        man=1;
-    else if(turnspeed < TW_SV_MAN_LOW)
-        man=2;
-    else if(turnspeed < TW_SV_MAN_MEDIUM)
-        man=3;
-    else if(turnspeed < TW_SV_MAN_HIGH)
-        man=4;
-    else
-        man=5;
-    goto calcmanjump;
-}
-

@@ -1004,7 +1004,7 @@ sdword tmTradeBegin(regionhandle region, sdword ID, udword event, udword data)
 
     if (piePointSpecMode != PSM_Idle)
     {
-        piePointModeOnOff();
+        piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
     }
 
     if (!tmScreensHandle)

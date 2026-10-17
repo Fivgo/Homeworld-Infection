@@ -966,6 +966,60 @@ void primCircleSolid2(sdword x, sdword y, sdword rad, sdword nSlices, color c)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_primCircleSolidBlend2                         0x00571e50
+    Description : CAT (M2-R5 hud): primCircleSolid2 drawn blended: GL_BLEND on and the polygon stipple off for the
+                  fan (both restored after), the colour's alpha applied. Called by the status bars' upgrade-pending
+                  dot (cat_selStatusUpgradePendingDraw 0x005074f0).
+----------------------------------------------------------------------------*/
+void cat_primCircleSolidBlend2(sdword x, sdword y, sdword rad, sdword nSlices, color c)
+{
+    sdword index;
+    double theta;
+    vector centre;
+    real32 radiusX, radiusY;
+    bool32 cull, blend, stipple;
+
+    cull = glIsEnabled(GL_CULL_FACE) ? TRUE : FALSE;
+    blend = glIsEnabled(GL_BLEND);
+    stipple = glIsEnabled(GL_POLYGON_STIPPLE);
+    if (!blend)
+    {
+        glEnable(GL_BLEND);
+    }
+    if (stipple)
+    {
+        glDisable(GL_POLYGON_STIPPLE);
+    }
+    centre.x = primScreenToGLX(x);
+    centre.y = primScreenToGLY(y);
+    radiusX = primScreenToGLScaleX(rad);
+    radiusY = primScreenToGLScaleY(rad);
+    glColor4ub(colRed(c), colGreen(c), colBlue(c), colAlpha(c));
+    glDisable(GL_CULL_FACE);
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex2f(centre.x, centre.y);
+    for (index = 0, theta = 0.0; index < nSlices; index++)
+    {
+        glVertex2f(centre.x + (real32)(sin(theta)) * radiusX, centre.y + (real32)(cos(theta)) * radiusY);
+        theta += 2.0 * PI / (double)nSlices;
+    }
+    glVertex2f(centre.x, centre.y + radiusY);
+    glEnd();
+    if (cull)
+    {
+        glEnable(GL_CULL_FACE);
+    }
+    if (!blend)
+    {
+        glDisable(GL_BLEND);
+    }
+    if (stipple)
+    {
+        glEnable(GL_POLYGON_STIPPLE);
+    }
+}
+
+/*-----------------------------------------------------------------------------
     Name        : primCircleBorder
     Description : Draw a special type of circle with a solid inner with a
                     alpha ramped outer ring.

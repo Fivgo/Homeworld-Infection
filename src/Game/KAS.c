@@ -851,7 +851,7 @@ void kasTakeADump(void)
         }
     }
     fclose(fp);
-    clCommandMessage("Taking a Dump");
+    clCommandMessage("Taking a Dump", 0xffffffff);
 }
 
 /*-----------------------------------------------------------------------------

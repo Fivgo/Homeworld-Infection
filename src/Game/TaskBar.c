@@ -226,8 +226,7 @@ udword tbBumperProcess(regionhandle region, smemsize ID, udword event, udword da
                 tbRefreshBaby = taskCallBackRegister(tbRefreshBabyFunction, 0, NULL, (real32)TB_RefreshInterval);
                 tbTaskBarActive = TRUE;
                 //dbgMessage("Taskbar on ");
-
-                tutGameMessage("Game_TaskbarOn");
+                // CAT: no tutGameMessage("Game_TaskbarOn") (tbBumperProcess 0x0052b100 sends none)
             }
         }
         else
@@ -238,9 +237,8 @@ udword tbBumperProcess(regionhandle region, smemsize ID, udword event, udword da
                 regRegionScroll(tbBumperRegion, 0, -(tbBumpFullHeight));
                 tbRegionsAttached = TRUE;
 
-                tbTaskBarInit();
-
-                tutGameMessage("Game_TaskbarOn");
+                tbTaskBarInit();                            // CAT: inlined in the exe, the same order
+                // CAT: no tutGameMessage("Game_TaskbarOn")
             }
         }
     }
@@ -266,7 +264,7 @@ udword tbBumperProcess(regionhandle region, smemsize ID, udword event, udword da
                 //regRegionDelete(tbBumperRegion);
 
                 tbTaskBarEnd();
-                tutGameMessage("Game_TaskbarOff");
+                // CAT: no tutGameMessage("Game_TaskbarOff")
             }
         }
     }

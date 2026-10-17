@@ -2937,9 +2937,8 @@ void cat_shipUpdateExperienceLevel(Ship *ship)                      // 0x005147d
 
                 sprintf(message, "%s %s %s", ShipTypeToNiceStr(ship->shiptype), strGetString(strShipLevelUpNotify),
                         strGetString(strExperienceLevel1 + level));
-                // CAT-TODO(M2-R5 hud): cat_ioMessageAdd(message, 0xff00ff00, 1, ship) 0x004ac940 (the info overlay's
-                //      message list, stage 3); the message is formatted and timed as the exe does
-                (void)message;
+                // CAT (M2-R5 hud): the info overlay's message refers to the ship (cat_ioMessageAdd 0x004ac940)
+                cat_ioMessageAdd(message, 0xff00ff00, 1, ship);
                 ship->catExperienceMessageTime = universe.realtimeelapsed + 2.0f;
             }
         }

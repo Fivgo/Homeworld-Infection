@@ -19,7 +19,8 @@ void svShutdown(void);
 void svSelectShip(ShipType type);
 void svClose(void);
 
-void svDirtyShipView(void);
+// CAT (M2-R5 hud): HW1's svDirtyShipView is gone (inlined in svShipViewRender 0x00515010)
+void cat_svShipDescriptionDraw(rectangle *rect, sdword y);                  // 0x00514dd0
 
 void svShipViewRender(featom* atom, regionhandle region);
 

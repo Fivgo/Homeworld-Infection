@@ -11,7 +11,7 @@
 #include "CommandLayer.h"
 #include "Globals.h"
 
-void clCommandMessage(char CommandMessage[MAX_MESSAGE_LENGTH]);
+void clCommandMessage(char *CommandMessage, udword colour);                // CAT: 0x004ac820, the colour as the exe
 
 void clWrapMove(CommandLayer *comlayer,SelectCommand *selectcom,sdword pathType,vector from,sdword numPoints,vector *points);   // CAT: waypoint path (0x004529e0)
 void clWrapAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom);

@@ -49,6 +49,7 @@
 #include "texreg.h"
 #include "Timer.h"
 #include "TradeMgr.h"
+#include "ShipNames.h"
 #include "Tutor.h"
 #include "Universe.h"
 #include "UnivUpdate.h"
@@ -119,7 +120,7 @@ void kasfMissionCompleted(void)
     }
     else
     {
-        clCommandMessage("MISSION COMPLETED");
+        clCommandMessage("MISSION COMPLETED", 0xffffffff);
         // play the end of Mission animatic
         // if you want to finish a level without hyperspacing, you put the stuff that happens here
         speechEventCleanup();
@@ -217,7 +218,7 @@ void kasfVarDestroy(char *name)
 
 void kasfCommandMessage(char *message)
 {
-    clCommandMessage(message);
+    clCommandMessage(message, 0xffffffff);
 }
 
 void kasfTimerCreate(char *name)
@@ -1533,6 +1534,9 @@ void SelectionSwitchPlayerOwner(SelectCommand *selection)
             ship->playerowner = &universe.players[1];
             ship->obj.attributes |= ATTRIBUTES_Defector;
             bitClear(ship->header.flags,SOF_Selectable);
+            // CAT (M2-R5 hud): the ship gives its name back (cat_shipNamesRelease 0x0050f660, call at 0x00494042); the
+            //      exe calls it after the owner is already player 1, so the owner test makes it a no-op (kept)
+            cat_shipNamesRelease(ship);
             // CAT: no DDDFrigateSwitchSides, Cataclysm has no drone frigate (SelectionSwitchPlayerOwner 0x00493f80)
         }
         else
@@ -1543,6 +1547,9 @@ void SelectionSwitchPlayerOwner(SelectCommand *selection)
             bitClear(ship->obj.attributes,ATTRIBUTES_Defector);
 			bitClear(ship->header.flags,SOF_Disabled);
             bitSet(ship->header.flags,SOF_Selectable);
+            // CAT (M2-R5 hud): a named type taken over gets a free name (cat_shipNamesAssign 0x0050f320, call at
+            //      0x004940dd after the unit caps)
+            cat_shipNamesAssign(ship);
             // CAT: no DDDFrigateSwitchSides (the type is gone; SelectionSwitchPlayerOwner 0x00493f80)
         }
     }
@@ -3243,7 +3250,7 @@ void kasfTutCameraFocus(GrowSelection *ships)
         // go to a clean main screen
         if (piePointSpecMode != PSM_Idle)
         {
-            piePointModeOnOff();
+            piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
         }
         spMainScreen();
         ccFocus(&universe.mainCameraCommand, (FocusCommand *)ships->selection);
@@ -3282,7 +3289,7 @@ void kasfTutCameraFocusDerelictType(char *derelictType)
             // go to a clean main screen
             if (piePointSpecMode != PSM_Idle)
             {
-                piePointModeOnOff();
+                piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
             }
             spMainScreen();
 
@@ -3854,9 +3861,9 @@ void kasfSaveLevel(sdword LevelNum, char *LevelName)
 
     sprintf(CurrentLevelName, "%s%s", SinglePlayerSavedGamesPath, LevelName);
     if (SaveGame(CurrentLevelName))
-        clCommandMessage(strGetString(strSavedGame));
+        clCommandMessage(strGetString(strSavedGame), 0xffffffff);
     else
-        clCommandMessage(strGetString(strPatchUnableWriteFile));
+        clCommandMessage(strGetString(strPatchUnableWriteFile), 0xffffffff);
 }
 
 /*-----------------------------------------------------------------------------

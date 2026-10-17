@@ -219,9 +219,6 @@ extern color  rmMarqueeSemiOnColor;
 extern color  rmMarqueeOffColor;
 
 // Info Overlay Tweakables
-extern char   ioShipListFontName[];
-extern color  ioListTextColor;
-extern color  ioSelectedTextColor;
 
 
 // fleet intelligence

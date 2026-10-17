@@ -56,6 +56,7 @@
 #include "ResearchGUI.h"
 #include "screenshot.h"
 #include "Select.h"
+#include "ShipPrint.h"
 #include "Sensors.h"
 #include "Shader.h"
 #include "ShipView.h"
@@ -445,7 +446,7 @@ void mrProbeHack()
     }
     if(!smSensorsDisable && !smZoomingIn)
     {   //if sensors aren't disabled AND we aren't zooming in
-        piePointModeOnOff();
+        piePointModeOnOff(PIE_SPEC_Move, NULL);
     }
 }
 
@@ -748,14 +749,14 @@ void mrMoveShips(char *string, featom *atom)
                     soundEvent(NULL, UI_MovementGUIoff);
                 }
                 mrRemoveAllProbesFromSelection();
-                piePointModeOnOff();
+                piePointModeOnOff(PIE_SPEC_Move, NULL);
             }
             else
             {
                 if (piePointSpecMode==PSM_Idle)
                 {
                     smSensorsBegin(NULL,NULL);
-                    piePointModeOnOff();
+                    piePointModeOnOff(PIE_SPEC_Move, NULL);
                 }
             }
         }
@@ -1831,7 +1832,7 @@ processEscapeKey:
             }
             else if (piePointSpecMode != PSM_Idle)
             {
-                piePointModeOnOff();
+                piePointModeOnOff(PIE_SPEC_Move, NULL);
                 soundEvent(NULL, UI_MovementGUIoff);
             }
             else if (mrHoldLeft == mrSelectHold)
@@ -2227,7 +2228,7 @@ cancelfocus:
                     {
                         //turn it off!
                         soundEvent(NULL, UI_MovementGUIoff);
-                        piePointModeOnOff();
+                        piePointModeOnOff(PIE_SPEC_Move, NULL);
                     }
                 }
                 else
@@ -2243,7 +2244,7 @@ cancelfocus:
                         {
                             //turn it on if it was off!
                             soundEvent(NULL, UI_MovementGUIon);
-                            piePointModeOnOff();
+                            piePointModeOnOff(PIE_SPEC_Move, NULL);
                         }
                     }
                     //we are now going into the sensors manager
@@ -2345,7 +2346,7 @@ cancelfocus:
                 {
                     if (piePointSpecMode!=PSM_Idle)
                     {
-                        piePointModeOnOff();
+                        piePointModeOnOff(PIE_SPEC_Move, NULL);
                     }
                 }
 
@@ -3156,7 +3157,7 @@ void mrRightClickMenu(void)
 
     if ((ship = selSelectionClick(universe.RenderList.head,
             &(universe.mainCameraCommand.actualcamera),
-            mouseCursorX(), mouseCursorY(), FALSE, FALSE)) != NULL)
+            mouseCursorX(), mouseCursorY(), FALSE, FALSE, FALSE)) != NULL)   // CAT: 7th argument (M2-R5 hud)
     {                                                       //if right clicked on a ship
         if (ship->playerowner == universe.curPlayerPtr)
         {
@@ -3862,7 +3863,7 @@ udword mrRegionProcess(regionhandle reg, sdword ID, udword event, udword data)
                     soundEvent(NULL, UI_MovementGUIoff);
                 }
 
-                piePointModeOnOff();
+                piePointModeOnOff(PIE_SPEC_Move, NULL);
 //                piePointSpecMode = PSM_Idle;                 //no more selecting
                 break;
             }
@@ -4056,7 +4057,7 @@ plainOldClickAction:
                     {
                         ship = selSelectionClick(universe.RenderList.head,
                             &(universe.mainCameraCommand.actualcamera),
-                            mouseCursorX(), mouseCursorY(), TRUE, TRUE);
+                            mouseCursorX(), mouseCursorY(), TRUE, TRUE, FALSE);   // CAT: 7th argument (M2-R5 hud)
 
                         if (ship != NULL)
                         {                                       //if mouse over a ship
@@ -4193,58 +4194,8 @@ void mrPlayerNameDraw(sdword playerIndex, sdword x, sdword y)
 }
 */
 
-/*-----------------------------------------------------------------------------
-    Name        : mrCommandMessageDraw
-    Description : Draw the current list of player commands
-    Inputs      : None (uses global variable gMessage)
-    Outputs     : Draws list of latest player commands
-    Return      : void
-----------------------------------------------------------------------------*/
-void mrCommandMessageDraw(void)
-{
-    ubyte  i = MAX_MESSAGES;
-    udword j = MR_MESSAGE_LINE_SPACING;
-
-    LockMutex(gMessageMutex);
-
-    if (gMessage[0].message[0] == '\0')
-        goto done;
-
-    // find the last valid message in global array
-    while (gMessage[i].message[0] == '\0')
-    {
-        i--;
-    }
-
-    // print it
-    fontPrint(MR_MESSAGE_LINE_START, 0, colWhite, gMessage[i].message);
-
-    // print remaining messages in global array
-    while (i > 0)
-    {
-        i--;
-        fontPrint(MR_MESSAGE_LINE_START, j, colWhite, gMessage[i].message);
-        j += MR_MESSAGE_LINE_SPACING;
-    }
-
-    // remove expired messages
-    while ((gMessage[0].MessageExpire < universe.totaltimeelapsed) &&
-           (gMessage[0].message[0] != '\0'))
-    {
-        // shift up remaining messages to fill in void left by expired message
-        while (gMessage[i+1].message[0] != '\0')
-        {
-            strcpy(gMessage[i].message, gMessage[i+1].message);
-            gMessage[i].MessageExpire = gMessage[i+1].MessageExpire;
-            i++;
-        }
-        gMessage[i].message[0]  = '\0';
-        i = 0;
-    }
-
-done:
-    UnLockMutex(gMessageMutex);
-}
+// CAT (M2-R5 hud): HW1's mrCommandMessageDraw (the gMessage lines at the top left) is retired: Cataclysm's
+//      clCommandMessage feeds the info overlay's message scroller (cat_ioMessagesDraw, cat_moRender)
 
 void bigmessageDisplay(char *msg,sdword position)
 {
@@ -5537,7 +5488,7 @@ void mrRegionDraw(regionhandle reg)
         glDisable(GL_TEXTURE_2D);
 
         toAllShipsDraw();                                   //draw tactical overlays
-        toLegendDraw();                                     //draw legend for overlays
+        // CAT (M2-R5 hud): the legend is drawn by the main overlay (cat_moRender, under the player names)
     }
 
     selSelectedDraw();                                      //draw overlays for selected ships, if any
@@ -5675,11 +5626,6 @@ void mrRegionDraw(regionhandle reg)
         }
     }
 
-    if (gMessage[0].message[0] != '\0')
-    {
-        mrCommandMessageDraw();
-    }
-
     mrBigMessageDraw();
 
     //draw the bearing numbers on the horizon line
@@ -5687,6 +5633,17 @@ void mrRegionDraw(regionhandle reg)
     {
         smTickTextDraw();
     }
+
+    // CAT (M2-R5 hud): mrRegionDraw 0x00569260 then draws the main overlay, the ship info panel of the first selected
+    //      ship when it is the player's, and updates the overlay's hover state and the panel's drag. CAT-TODO(M2-R6
+    //      popup menu): cat_popupMenuDraw and cat_popupMenuUpdateHover(0) around them
+    cat_moRender();
+    if (selSelected.numShips > 0 && selSelected.ShipPtr[0]->playerowner == universe.curPlayerPtr)
+    {
+        cat_shipPrintDraw(selSelected.ShipPtr[0]);
+    }
+    cat_ioUpdateHover();
+    cat_shipPrintDragUpdate();
 
     //compute animating stipple pattern every time mainrgn is drawn
     pieLineStippleCounter += pieLineStippleSpeed;

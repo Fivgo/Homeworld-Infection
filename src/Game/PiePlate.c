@@ -22,6 +22,9 @@
 #include "mainrgn.h"
 #include "mouse.h"
 #include "PiePlate.h"
+#include "InfoOverlay.h"
+#include "Vector.h"
+#include "Mothership.h"
 #include "prim2d.h"
 #include "prim3d.h"
 #include "ProximitySensor.h"
@@ -35,6 +38,11 @@
 #include "Tweak.h"
 #include "Undo.h"
 #include "Universe.h"
+
+// CAT (M2-R5 hud): the exe's GL -> screen conversion rounds to the nearest pixel (the 0x0072a458 rounding constant
+//      added in double precision) where HW1's primGLToScreenX truncated
+#define catPieScreenX(x)        (MAIN_WindowWidth / 2 + (sdword)lrint((double)((x) * (real32)MAIN_WindowWidth * 0.5f)))
+#define catPieScreenY(y)        (MAIN_WindowHeight / 2 - (sdword)lrint((double)((y) * (real32)MAIN_WindowHeight * 0.5f)))
 
 #if defined _MSC_VER
 	#define isnan(x) _isnan(x)
@@ -183,33 +191,106 @@ bool32 pieCancelPointSpecMode(sdword userID, ubyte *userData, sdword length)
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
-void piePointModeOnOff(void)
+// CAT (M2-R5 hud): piePointModeOnOff 0x004e5c90's state: what the point is for (PIE_SPEC_*) and the function the
+//      exe calls with the chosen point (cat_piePointSpecExecute 0x004e8500)
+sdword piePointSpecType = PIE_SPEC_None;            // 0x00a50c94
+void (*piePointSpecCallback)(vector *point) = NULL; // 0x00a50cc0
+// the line colours per kind (exe data 0x0088d79c / 0x0088d7a0 / 0x0088d7a4, all white)
+static color pieMoveLineColour = colWhite, pieBigGunLineColour = colWhite, pieWaypointLineColour = colWhite;
+// CAT: 0x00b39cbc, set by mrTradeStuff 0x00564f2c (the trader move of the main region, M2-R6) and cleared by
+//      piePointModeOnOff: the plane is drawn in 0x0088d798's colour. Name chosen here
+bool32 catPieTradeMove = FALSE;
+static color pieTradePlaneColour = 0xff60c678;     // 0x0088d798
+
+/*-----------------------------------------------------------------------------
+    Name        : piePointModeOnOff                                 0x004e5c90
+    Description : CAT: Cataclysm's: switch point specification on for a kind of point (1 a move, 2 a move without
+                  the lines to the ships, 3 the big gun's target, 4 a waypoint) with the function that takes the
+                  chosen point, or off again (any mode while it is on). The exe dropped HW1's undo entry
+                  (udLatestThingPush) and the off message.
+    Inputs      : mode - PIE_SPEC_*; callback - called with the point by cat_piePointSpecExecute (may be NULL)
+----------------------------------------------------------------------------*/
+void piePointModeOnOff(sdword mode, void (*callback)(vector *point))
 {
     if (piePointSpecMode != PSM_Idle)
     {
         mouseCursorClear(MCM_Pointmode);
         piePointSpecMode = PSM_Idle;
-
-//      soundEvent(NULL, UI_MovementGUIoff);
-
-        tutGameMessage("Game_MoveQuit");
+        piePointSpecType = PIE_SPEC_None;
+        pieLineDrawCallback = NULL;
+        piePlaneDrawCallback = NULL;
+        pieMovementCursorDrawCallback = NULL;
+        piePointSpecCallback = NULL;
+        catPieTradeMove = FALSE;                // 0x00b39cbc
+        MP_HyperSpaceFlag = FALSE;              // 0x00a5b21c
+        return;
     }
-    else if (selSelected.numShips != 0)
-    {                                                       //if any ships selected
-        tutGameMessage("Game_Move");
+    if (selSelected.numShips == 0)
+    {
+        return;
+    }
+    soundEvent(NULL, UI_MovementGUIon);
+    mouseCursorSet(MCM_Pointmode);
+    piePointSpecMode = PSM_XY;
+    piePointSpecMouseReset = FALSE;
+    piePointSpecZ = 0.0f;
+    pieLineStippleCounter = 0.0f;
+    selCentrePointCompute();
+    piePlanePoint = selCentrePoint;
+    pieHeightPoint = selCentrePoint;
+    piePointSpecCallback = callback;
+    piePointSpecType = mode;
+    switch (mode)
+    {
+        case PIE_SPEC_Move:
+            tutGameMessage("MoveStart");
+            pieLineDrawCallback = pieAllShipsToPiePlateDraw;
+            piePlaneDrawCallback = piePlaneDraw;
+            pieMovementCursorDrawCallback = pieMovementCursorDraw;
+            moveLineColor = pieMoveLineColour;
+            break;
+        case PIE_SPEC_MoveNoLines:
+            pieLineDrawCallback = NULL;
+            piePlaneDrawCallback = piePlaneDraw;
+            pieMovementCursorDrawCallback = pieMovementCursorDraw;
+            moveLineColor = pieMoveLineColour;
+            break;
+        case PIE_SPEC_BigGun:
+            pieLineDrawCallback = pieAllShipsToPiePlateDraw;
+            piePlaneDrawCallback = piePlaneDraw;
+            pieMovementCursorDrawCallback = pieMovementCursorDraw;
+            moveLineColor = pieBigGunLineColour;
+            break;
+        case PIE_SPEC_Waypoint:
+            tutGameMessage("WaypointStart");
+            pieLineDrawCallback = pieAllShipsToPiePlateDraw;
+            piePlaneDrawCallback = piePlaneDraw;
+            // CAT-TODO(M2-R6 main region): the exe's waypoint cursor 0x004e6e70 (a function the export does not list)
+            //      comes with the waypoint mode's callers
+            pieMovementCursorDrawCallback = pieMovementCursorDraw;
+            moveLineColor = pieWaypointLineColour;
+            break;
+        default:
+            dbgFatalf(DBG_Loc, "\npiePointModeOnOff(): Unhandled EPiePointSpecType (%i)", mode);
+    }
+}
 
-        soundEvent(NULL, UI_MovementGUIon);
+/*-----------------------------------------------------------------------------
+    Name        : cat_piePointSpecExecute                           0x004e8500
+    Description : CAT: hand the chosen point (the height point once a height was given, else the plane point) to the
+                  point mode's function (not in the tutorial unless its move step is enabled).
+----------------------------------------------------------------------------*/
+void cat_piePointSpecExecute(void)
+{
+    vector *point;
 
-        mouseCursorSet(MCM_Pointmode);
-        piePointSpecMode = PSM_XY;
-        piePointSpecMouseReset = FALSE;
-        piePointSpecZ = 0.0f;
-        pieLineStippleCounter = 0.0f;
-        selCentrePointCompute();
-        piePlanePoint.x = pieHeightPoint.x = selCentrePoint.x;
-        piePlanePoint.y = pieHeightPoint.y = selCentrePoint.y;
-        piePlanePoint.z = pieHeightPoint.z = selCentrePoint.z;
-        udLatestThingPush(pieCancelPointSpecMode, 0, NULL, 0);
+    if (tutorial != 1 || tutEnable.bMove)
+    {
+        point = (piePointSpecZ == 0.0f) ? &piePlanePoint : &pieHeightPoint;
+        if (piePointSpecCallback != NULL)
+        {
+            piePointSpecCallback(point);
+        }
     }
 }
 
@@ -221,13 +302,15 @@ void piePointModeOnOff(void)
     Outputs     : Saves current piePointSpecMode to pieOldPointSpecMode
     Return      : void
 ----------------------------------------------------------------------------*/
+// CAT (M2-R5 hud): piePointModePause 0x004e5e70 saves the mode only when it pauses an active one (HW1 saved it on
+//      every pause, so a second pause lost the paused mode)
 void piePointModePause(sdword bPause)
 {
     if (bPause)
     {
-        pieOldPointSpecMode = piePointSpecMode;               //save current spec mode
-        if (piePointSpecMode != PSM_Idle)
+        if (piePointSpecMode != PSM_Waiting && piePointSpecMode != PSM_Idle)
         {                                                   //if pause active point spec mode
+            pieOldPointSpecMode = piePointSpecMode;           //save current spec mode
             piePointSpecMode = PSM_Waiting;                  //pause the specification
         }
     }
@@ -245,8 +328,7 @@ void piePointModePause(sdword bPause)
     Inputs      : modelView/projection - current matrices
                   mouse3D - 3D location to set the mouse to
     Outputs     :
-    Return      : OKAY if the mouse was repositioned properly, ERROR if the
-                    mouse was off-screen.
+    Return      : OKAY (CAT: also when the point is off-screen, as the exe)
 ----------------------------------------------------------------------------*/
 sdword pieMousePosSet3D(hmatrix *modelView, hmatrix *projection, vector *mouse3D)
 {
@@ -259,18 +341,20 @@ sdword pieMousePosSet3D(hmatrix *modelView, hmatrix *projection, vector *mouse3D
     mouseWorld.w = 1.0f;
     hmatMultiplyHMatByHVec(&mouseCamera, modelView, &mouseWorld);//in camera space
     hmatMultiplyHMatByHVec(&mouseScreen, projection, &mouseCamera);//in screen space
+    // CAT: the exe returns 0 (OKAY) in every case (pieMousePosSet3D 0x004e5ec0); no caller reads it
     if (mouseScreen.z <= 0.0f)                              //if point behind camera
     {
-        return(ERROR);
+        return(OKAY);
     }
-    mouseViewX = primGLToScreenX(mouseScreen.x / mouseScreen.w);//get location in viewport coords
-    mouseViewY = primGLToScreenY(mouseScreen.y / mouseScreen.w);
+    // CAT: the exe rounds to the nearest pixel (pieMousePosSet3D 0x004e5ec0: the 0x0072a458 rounding constant)
+    mouseViewX = catPieScreenX(mouseScreen.x / mouseScreen.w);//get location in viewport coords
+    mouseViewY = catPieScreenY(mouseScreen.y / mouseScreen.w);
 
     //dbgMessagef("3d->2d mouse pos: (%.2f, %.2f, %.2f) -> (%d,%d).", mouse3D->x, mouse3D->y, mouse3D->z, mouseViewX, mouseViewY);
     if (mouseViewX < 0 || mouseViewX >= MAIN_WindowWidth || //if offscreen
         mouseViewY < 0 || mouseViewY >= MAIN_WindowHeight)
     {
-        return(ERROR);
+        return(OKAY);
     }
     mousePositionSet(mouseViewX, mouseViewY);
     return(OKAY);
@@ -299,8 +383,9 @@ bool32 pieSameOnScreenPoint(hmatrix *modelView, hmatrix *projection, vector *wor
     {                                                       //if behind camera
         return(FALSE);
     }
-    x0 = primGLToScreenX(screen.x / screen.w);              //get location in viewport coords
-    y0 = primGLToScreenY(screen.y / screen.w);
+    // CAT: rounded to the nearest pixel as the exe (pieSameOnScreenPoint 0x004e5fc0)
+    x0 = catPieScreenX(screen.x / screen.w);                //get location in viewport coords
+    y0 = catPieScreenY(screen.y / screen.w);
     if (x0 < 0 || x0 >= MAIN_WindowWidth ||                 //if offscreen
         y0 < 0 || y0 >= MAIN_WindowHeight)
     {
@@ -316,8 +401,8 @@ bool32 pieSameOnScreenPoint(hmatrix *modelView, hmatrix *projection, vector *wor
     {                                                       //if behind camera
         return(FALSE);
     }
-    x1 = primGLToScreenX(screen.x / screen.w);              //get location in viewport coords
-    y1 = primGLToScreenY(screen.y / screen.w);
+    x1 = catPieScreenX(screen.x / screen.w);                //get location in viewport coords
+    y1 = catPieScreenY(screen.y / screen.w);
     if (x1 < 0 || x1 >= MAIN_WindowWidth ||                 //if offscreen
         y1 < 0 || y1 >= MAIN_WindowHeight)
     {
@@ -427,7 +512,12 @@ void pieDistanceReadoutDraw(vector *movepoint, vector *origin, color c)
     }
 
     //depending on the distance, scale the readout
-    if (distance < 100)
+    // CAT: aiming the big gun shows its damage at that distance instead (pieDistanceReadoutDraw 0x004e61b0)
+    if (piePointSpecType == PIE_SPEC_BigGun)
+    {
+        sprintf(dist_str, "%i %%", (sdword)(cat_bigGunDamageFalloff((real32)distance) * 100.0f));
+    }
+    else if (distance < 100)
     {
         sprintf(dist_str, "%i m", distance);
     }
@@ -464,7 +554,9 @@ void pieDistanceReadoutDraw(vector *movepoint, vector *origin, color c)
     //using the mousecursor position to position the distance readout is more
     //stable, but can't be used when the camera is being moved, so the moveto
     //position is projected onto the screen in that case
-    if ((mrHoldRight == mrNULL) && (smHoldRight == smNULL))
+    // CAT: the exe tests only the main region's right button (0x00a75288), and in the moving-camera case places
+    //      the text from the projected point's screen x for both axes (as written)
+    if (mrHoldRight == mrNULL)
     {
         fontPrint((mouseCursorXPosition + PIE_DIST_READOUT_X_OFFSET),
                   (mouseCursorYPosition + PIE_DIST_READOUT_Y_OFFSET),
@@ -479,13 +571,15 @@ void pieDistanceReadoutDraw(vector *movepoint, vector *origin, color c)
     }
     else
     {
-        fontPrint((primGLToScreenX(screen_x) + PIE_DIST_READOUT_X_OFFSET),
-                  (primGLToScreenY(screen_y) + PIE_DIST_READOUT_Y_OFFSET),
+        sdword screenX = MAIN_WindowWidth / 2 + (sdword)lrint((double)((real32)MAIN_WindowWidth * screen_x * 0.5f));
+        sdword screenY = MAIN_WindowHeight / 2 - (sdword)lrint((double)((real32)MAIN_WindowWidth * screen_x * 0.5f));
+        (void)screen_y;
+        fontPrint(screenX + PIE_DIST_READOUT_X_OFFSET, screenY + PIE_DIST_READOUT_Y_OFFSET,
                   TW_DISTANCE_READOUT_COLOR, dist_str);
         if(MP_HyperSpaceFlag)
         {
-            fontPrint((primGLToScreenX(screen_x) + PIE_RU_READOUT_X_OFFSET),
-                  (primGLToScreenY(screen_y) + PIE_DIST_READOUT_Y_OFFSET+PIE_RU_READOUT_Y_OFFSET+fontHeight("K")),
+            fontPrint(screenX + PIE_RU_READOUT_X_OFFSET,
+                  screenY + PIE_DIST_READOUT_Y_OFFSET+PIE_RU_READOUT_Y_OFFSET+fontHeight("K"),
                   ruReadoutColour, ru_str);
 
         }
@@ -725,23 +819,42 @@ bool32 pieNeedSpecialAttackAndMoveColor(void)
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
+// CAT (M2-R5 hud): pieMovementCursorDraw 0x004e6c50 is HW1's with its dotted line (GoK had dropped the stipple:
+//      glCapFastFeature(GL_LINE_STIPPLE) is TRUE on a GL device, so the stipple is always used here), and with the
+//      sensors manager open the lines are drawn over everything (the depth test off while it was on)
 void pieMovementCursorDraw(real32 distance)
 {
     real32 scaledSize;
     sdword nSegments;
+    bool32 depthTest = FALSE;
 
+    if (smSensorsActive && glIsEnabled(GL_DEPTH_TEST))
+    {
+        depthTest = TRUE;
+        glDisable(GL_DEPTH_TEST);
+    }
     if (ABS(piePointSpecZ) < pieDottedDistance)
     {
+        glEnable(GL_LINE_STIPPLE);
+        glLineStipple(1, (GLushort)pieStipplePattern);
         primLine3(&piePlanePoint, &selCentrePoint, moveLineColor);//draw line from centre to mouse point on x/y plane
+        glDisable(GL_LINE_STIPPLE);
     }
     else
     {                                                       //if point off standard Z-plane
+        glEnable(GL_LINE_STIPPLE);
+        glLineStipple(1, (GLushort)pieStipplePattern);
         primLine3(&pieHeightPoint, &selCentrePoint, moveLineColor);//draw from centre of dish to height point
+        glDisable(GL_LINE_STIPPLE);
         primLine3(&pieHeightPoint, &piePlanePoint, moveLineColor); //TW_MOVE_PIZZA_COLOR tweakable global variable (tweak.*)
         primLine3(&piePlanePoint, &selCentrePoint, moveLineColor);//draw line from centre to mouse point on x/y plane
         //destination circle
         pieScreenSizeOfCircleCompute(&pieHeightPoint, selAverageSize, &scaledSize, &nSegments);
         primCircleOutlineZ(&pieHeightPoint, scaledSize, nSegments, moveLineColor);
+    }
+    if (smSensorsActive && depthTest)
+    {
+        glEnable(GL_DEPTH_TEST);
     }
 }
 
@@ -801,186 +914,197 @@ bool32 pieDestinationInGunRangeOfTargets(void)
 ----------------------------------------------------------------------------*/
 void piePlaneDraw(real32 distance)
 {
-    vector world0, world1, plane;
-    //Ship *mothership;
     real32 scaledSize;
     sdword nSegments;
-    color pieColor,spokeColor,headingColor;
+    bool32 depthWasOn = FALSE;
+    sdword texture;
+    color pieColor;
 
-    if(pieNeedSpecialAttackAndMoveColor())
+    // CAT: piePlaneDraw 0x004e7520 (a gap of the export): the compass (cat_pieCompassDraw) in the trader move's
+    //      colour or TW_MOVE_POINT_LINE_COLOR, then the plane point's circle in the same colour; no dish, spokes or the
+    //      attack-move colours; in the sensors manager without the depth test. The exe pushes GL_LIGHTING (0xb50) as
+    //      an attribute mask, as written
+    if (smSensorsActive && glIsEnabled(GL_DEPTH_TEST))
     {
-        if(pieDestinationInGunRangeOfTargets())
-        {
-            moveLineColor = TW_MOVE_ATTACK_POINT_LINE_COLOR_IN_RANGE;
-        }
-        else
-        {
-            moveLineColor = TW_MOVE_ATTACK_POINT_LINE_COLOR_NOT_IN_RANGE;
-        }
-        pieColor = TW_MOVE_ATTACK_PIE_COLOR;
-        spokeColor = TW_MOVE_ATTACK_SPOKE_COLOR;
-        headingColor = TW_MOVE_HEADING_COLOR;
+        depthWasOn = TRUE;
+        glDisable(GL_DEPTH_TEST);
     }
-    else if(MP_HyperSpaceFlag)
-    {
-        pieColor = TW_MOVE_HYPERSPACE_COLOUR;
-        moveLineColor = TW_MOVE_POINT_HYPERSPACE_LINE_COLOR;
-        spokeColor = TW_MOVE_SPOKE_HYPERSPACE_COLOR;
-        headingColor = TW_MOVE_HEADING_HYPERSPACE_COLOR;
-    }
-    else
-    {
-        pieColor = TW_MOVE_PIZZA_COLOR;
-        moveLineColor = TW_MOVE_POINT_LINE_COLOR;
-        spokeColor = TW_MOVE_SPOKE_COLOR;
-        headingColor = TW_MOVE_HEADING_COLOR;
-    }
-
-    primCircleOutlineZ(&selCentrePoint, piePizzaDishRadius * distance,
-                       piePizzaSlices, pieColor);//TW_MOVE_PIZZA_COLOR tweakable global variable (tweak.*)
-    //get the heading of the mothership for drawing the 'spokes' of the pie plate
-    /*
-    mothership = universe.curPlayerPtr->PlayerMothership;
-    if (mothership != NULL)
-    {
-        matGetVectFromMatrixCol3(pieMotherShipHeading, mothership->rotatable.rotinfo.coordsys);
-        //handle an unlikely case: mothership pointing just about straight 'down'
-        if (pieMotherShipHeading.z >= (1.0f - (real32)1e-6))
-        {
-            pieMotherShipHeading.x = pieMotherShipHeading.z = 0.0f;
-            pieMotherShipHeading.y = 1.0f;
-        }
-        else
-        {
-            pieMotherShipHeading.z = 0;
-            vecNormalize(&pieMotherShipHeading);
-        }
-    }
-    dbgAssertOrIgnore(pieMotherShipHeading.x != REALlyBig);
-    */
-    pieMotherShipHeading.x = pieMotherShipHeading.z = 0.0f;
-    pieMotherShipHeading.y = 1.0f;
-    vecScalarMultiply(plane, pieMotherShipHeading, piePizzaDishRadius * distance);
-    world0.x = selCentrePoint.x + plane.x;
-    world0.y = selCentrePoint.y + plane.y;
-    world0.z = selCentrePoint.z;
-    primLine3(&selCentrePoint, &world0, spokeColor);//headingColor);
-    world0.x = selCentrePoint.x - plane.x;
-    world0.y = selCentrePoint.y - plane.y;
-    primLine3(&selCentrePoint, &world0, spokeColor);
-    world0.x = selCentrePoint.x + plane.y;
-    world0.y = selCentrePoint.y - plane.x;
-    world1.x = selCentrePoint.x - plane.y;
-    world1.y = selCentrePoint.y + plane.x;
-    world1.z = selCentrePoint.z;
-    primLine3(&world1, &world0, spokeColor);
-    //pieOriginDraw(&selCentrePoint, pieOriginSizeCentre * distance, TW_MOVE_ORIGIN_COLOR);  //TW_MOVE_ORIGIN_COLOR tweakable global variable (tweak.*)
-    //plane point circle
+    glPushAttrib(GL_LIGHTING);
+    glDisable(GL_LIGHTING);
+    texture = rndTextureEnable(FALSE);
+    pieColor = catPieTradeMove ? pieTradePlaneColour : TW_MOVE_POINT_LINE_COLOR;
+    cat_pieCompassDraw(&selCentrePoint, pieColor, distance);
     pieScreenSizeOfCircleCompute(&piePlanePoint, selAverageSize, &scaledSize, &nSegments);
-    primCircleOutlineZ(&piePlanePoint, scaledSize, nSegments, moveLineColor);
+    primCircleOutlineZ(&piePlanePoint, scaledSize, nSegments, pieColor);
+    glPopAttrib();
+    if (smSensorsActive && depthWasOn)
+    {
+        glEnable(GL_DEPTH_TEST);
+    }
+    rndTextureEnable(texture);
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : pieMovePointClipToLimits
-    Description : Clips a point to an elliptical cylindrical clipping volume.
-    Inputs      : sizeX, Y, Z - size of the elliptical clipping cylinder, in half-lengths
-                  pointA - where you are moving from
-                  pointB - where you are moving to, this is the point that will be clipped
-    Outputs     : modifies pointB if a valid clipping point found; set to pointA if not.
-                  In cases where there are two possible intersections (i.e.
-                    pointA and B are outside the volume) the one closer to
-                    pointB will be used.
-    Return      : TRUE if a valid intersection found, FALSE otherwise
+    Name        : cat_pieCompassDraw                                0x004e7240
+    Description : CAT: the movement compass around the selection: a circle of the radius, a tick every 15 degrees but
+                  at the four main directions (0.9 to 1 radius), four spokes, and across each spoke a tick every 700
+                  units out to 350 short of the radius (300 long each side). In the sensors manager without the depth
+                  test. Nothing for the colour 0xff000000 (opaque black: cat_smZoomFadeColor's fully faded colour; the exe
+                  compares the dword, cmp ebx,0xff000000 at 0x004e724b) [audit: was 0xff7fffff].
+    Inputs      : centre, colour, radius
 ----------------------------------------------------------------------------*/
-#define SGN(x)      ((x) < 0.0f ? -1.0f : 1.0f)
-bool32 pieMovePointClipToLimits(real32 sizeX, real32 sizeY, real32 sizeZ, vector *pointA, vector *pointB)
+void cat_pieCompassDraw(vector *centre, color colour, real32 radius)
 {
-    real32 discriminant;
-    real32 dx, dy, drSquared, rSquared, D, DSquared;
-    real32 x, y, x1, y1, x2, y2;
-    real32 ellipseAspect;
-    real32 fsqrtResult;
+    static const real32 spokeX[4] = { 0.0f, 1.0f, 0.0f, -1.0f };       // 0x0088d7ac
+    static const real32 spokeY[4] = { 1.0f, 0.0f, -1.0f, 0.0f };       // 0x0088d7bc
+    vector a, b;
+    real32 angle, sine, cosine, along, limit;
+    bool32 depthWasOn = FALSE;
+    sdword index;
 
-#if PIE_VISUALIZE_EXTENTS
-    if (pieVisualizeExtents)
+    if (colour == 0xff000000)
     {
-        vector centre = {0, 0, pointB->z};
-
-        centre.z = sizeZ;
-        primEllipseOutlineZ(&centre, sizeX, sizeY, 64, colFuscia);
-        centre.z = -sizeZ;
-        primEllipseOutlineZ(&centre, sizeX, sizeY, 64, colFuscia);
-        centre.z = pointB->z;
-        primEllipseOutlineZ(&centre, sizeX, sizeY, 64, colWhite);
+        return;
     }
-#endif
-
-    //simplify the problem by converting the problem to line-circle intersection
-    //the circle will have a radius of the ellipses rx (sizeX)
-    ellipseAspect = sizeY / sizeX;
-    x1 = pointA->x;
-    y1 = pointA->y / ellipseAspect;
-    x2 = pointB->x;
-    y2 = pointB->y / ellipseAspect;
-
-    //base equations for line-circle intersection:
-    dx = x2 - x1;
-    dy = y2 - y1;
-    drSquared = dx * dx + dy * dy;
-    D = x1 * y2 - x2 * y1;
-    DSquared = D * D;
-    rSquared = sizeX * sizeX;
-    discriminant = rSquared * drSquared - DSquared;
-
-    if (discriminant < 0.0f)
-    {                                                       //if no intersection
-        pointB->x = pointA->x;
-        pointB->y = pointA->y;
-        return(FALSE);                                      //no clipping because no intersection
+    catHudCounts.compassDraws++;                            // CAT: port diagnostic (the HUD self-test)
+    if (smSensorsActive && glIsEnabled(GL_DEPTH_TEST))
+    {
+        depthWasOn = TRUE;
+        glDisable(GL_DEPTH_TEST);
     }
-
-    fsqrtResult = fsqrt(rSquared * drSquared - DSquared);
-    x1 = (D * dy + SGN(dy) * dx * fsqrtResult) / drSquared;
-    x2 = (D * dy - SGN(dy) * dx * fsqrtResult) / drSquared;
-    y1 = (-D * dx + ABS(dy) * fsqrtResult) / drSquared;
-    y2 = (-D * dx - ABS(dy) * fsqrtResult) / drSquared;
-
-    //convert the computed results back into elliptical coordinates
-    y1 *= ellipseAspect; y2 *= ellipseAspect;
-
-    //see if that point was clipped
-    if (pointB->x >= min(x1, x2) && pointB->x <= max(x1, x2) &&
-        pointB->y >= min(y1, y2) && pointB->y <= max(y1, y2))
-    {                                                       //if between the intersection points
-        ;                                                   //points are fine
-    }
-    else
-    {                                                       //else use whatever intersection closer to specified destination
-        dx = pointB->x - x1;
-        dy = pointB->y - y1;
-        x = ABS(dx * dx + dy * dy);                         //x1,y1
-        dx = pointB->x - x2;
-        dy = pointB->y - y2;
-        y = ABS(dx * dx + dy * dy);                         //x2,y2
-
-        if (x > y)
-        {                                                   //use x2,y2
-            x1 = x2;                                        //x1,y1 is always the closer intersection
-            y1 = y2;
+    rndTextureEnable(FALSE);
+    primCircleOutlineZ(centre, radius, 0x30, colour);
+    for (angle = 0.2617994f; angle < 6.2831855f; angle += 0.2617994f)
+    {
+        sine = (real32)sin(angle);
+        cosine = (real32)cos(angle);
+        if ((sine + 1e-5f < 0.0f || 0.0f < sine - 1e-5f) && (cosine + 1e-5f < 0.0f || 0.0f < cosine - 1e-5f))
+        {
+            a.x = sine * radius * 0.9f + centre->x;
+            a.y = cosine * radius * 0.9f + centre->y;
+            a.z = centre->z;
+            b.x = sine * radius + centre->x;
+            b.y = cosine * radius + centre->y;
+            b.z = a.z;
+            primLine3(&a, &b, colour);
         }
-        pointB->x = x1;
-        pointB->y = y1;
     }
-    if (pointB->z > sizeZ)
+    limit = radius - 350.0f;
+    for (index = 0; index < 4; index++)
     {
-        pointB->z = sizeZ;
+        a.x = spokeX[index] * radius + centre->x;
+        a.y = spokeY[index] * radius + centre->y;
+        a.z = centre->z;
+        primLine3(centre, &a, colour);
+        if (700.0f < limit)
+        {
+            for (along = 700.0f; along < limit; along += 700.0f)
+            {
+                a.x = along * spokeY[index] + spokeX[index] * 300.0f + centre->x;
+                a.y = along * spokeX[index] + spokeY[index] * 300.0f + centre->y;
+                a.z = centre->z;
+                b.x = along * spokeY[index] - spokeX[index] * 300.0f + centre->x;
+                b.y = along * spokeX[index] - spokeY[index] * 300.0f + centre->y;
+                b.z = a.z;
+                primLine3(&a, &b, colour);
+            }
+        }
     }
-    if (pointB->z < -sizeZ)
+    if (smSensorsActive && depthWasOn)
     {
-        pointB->z = -sizeZ;
+        glEnable(GL_DEPTH_TEST);
     }
-    return(TRUE);
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_smHeightCircleColorGet                        0x004e7690
+    Description : CAT: the height circle's colour (0x00892c94) faded with the sensors manager's zoom.
+----------------------------------------------------------------------------*/
+color cat_smHeightCircleColorGet(void)
+{
+    return cat_smZoomFadeColor(0xffb8b838, 0);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : pieMovePointClipToLimits                          0x004e76b0
+    Description : CAT: Cataclysm's (REWRITTEN): the limits are the box +-(smUniverseSize - 8000) on each axis (HW1
+                  clipped to an elliptical cylinder of the given half-lengths). With pointA outside the box pointB is
+                  clamped into it. A pointB outside is moved to where the segment pointA -> pointB leaves the box in x
+                  or y (the nearer one), z clamped; if that point is still outside, pointB becomes pointA.
+    Inputs      : pointA - where you are moving from
+                  pointB - where you are moving to, this is the point that will be clipped
+    Outputs     : modifies pointB
+    Return      : TRUE if pointB ends inside (or was clipped into) the box, FALSE if it was set to pointA
+----------------------------------------------------------------------------*/
+#define PIE_LimitMargin     8000.0f                 // 0x0072a63c
+#define pieClamp(v, lo, hi) ((v) < (lo) ? (lo) : ((v) > (hi) ? (hi) : (v)))
+bool32 pieMovePointClipToLimits(vector *pointA, vector *pointB)
+{
+    real32 limX = smUniverseSizeX - PIE_LimitMargin;
+    real32 limY = smUniverseSizeY - PIE_LimitMargin;
+    real32 limZ = smUniverseSizeZ - PIE_LimitMargin;
+    real32 tx, ty, dx, x, y, z;
+
+    if (pointA->x < -limX || limX < pointA->x || pointA->y < -limY || limY < pointA->y ||
+        pointA->z < -limZ || limZ < pointA->z)
+    {
+        pointB->x = pieClamp(pointB->x, -limX, limX);
+        pointB->y = pieClamp(pointB->y, -limY, limY);
+        pointB->z = pieClamp(pointB->z, -limZ, limZ);
+    }
+    if (-limX <= pointB->x && pointB->x <= limX && -limY <= pointB->y && pointB->y <= limY &&
+        -limZ <= pointB->z && pointB->z <= limZ)
+    {
+        return TRUE;
+    }
+    dx = pointB->x - pointA->x;
+    tx = 1.0f;
+    x = pointB->x;
+    if (pointB->x < -limX)
+    {
+        tx = (-limX - pointA->x) / dx;
+        x = -limX;
+    }
+    else if (limX < pointB->x)
+    {
+        tx = (limX - pointA->x) / dx;
+        x = limX;
+    }
+    ty = 1.0f;
+    y = pointB->y;
+    if (pointB->y < -limY)
+    {
+        ty = (-limY - pointA->y) / (pointB->y - pointA->y);
+        y = -limY;
+    }
+    else if (limY < pointB->y)
+    {
+        ty = (limY - pointA->y) / (pointB->y - pointA->y);
+        y = limY;
+    }
+    if (tx != 1.0f || ty != 1.0f)
+    {
+        if (ty <= tx)
+        {
+            x = ty * dx + pointA->x;
+        }
+        else
+        {
+            y = tx * (pointB->y - pointA->y) + pointA->y;
+        }
+    }
+    z = pieClamp(pointB->z, -limZ, limZ);
+    if (-limX <= x && x <= limX && -limY <= y && y <= limY && -limZ <= z && z <= limZ)
+    {
+        pointB->x = x;
+        pointB->y = y;
+        pointB->z = z;
+        return TRUE;
+    }
+    *pointB = *pointA;
+    return FALSE;
+}
+#undef pieClamp
 #undef SGN
 
 /*-----------------------------------------------------------------------------
@@ -1004,7 +1128,9 @@ void piePointSpecDraw(void)
     real32 moveLength, maxMoveLength;
     real32 windowHeightMinusOne;
     real32 eyeMagnitude;
+    bool32 depthWasOn = FALSE;
 
+    catHudCounts.pieDraws++;                                // CAT: port diagnostic (the HUD self-test)
     mousePoll();
 
     if (pieDistReadFont == 0)
@@ -1014,7 +1140,7 @@ void piePointSpecDraw(void)
 
     if (selSelected.numShips == 0)
     {
-        piePointModeOnOff();
+        piePointModeOnOff(PIE_SPEC_None, NULL);
         return;
     }
     //before recomputing the selection centre point, get the relationship between selection centre, plane point and heightpoint
@@ -1210,6 +1336,17 @@ void piePointSpecDraw(void)
         swapReal32(pieScreen0.y, pieScreen1.y);
     }
 
+    // CAT: aiming the big gun keeps the point within its range (piePointSpecDraw 0x004e7a70)
+    if (piePointSpecType == PIE_SPEC_BigGun && cat_vecDistance(&pieHeightPoint, &selCentrePoint) > cat_bigGunMaxRange())
+    {
+        vector dir;
+        vecSub(dir, pieHeightPoint, selCentrePoint);
+        vecNormalize(&dir);
+        pieHeightPoint.x = cat_bigGunMaxRange() * dir.x + selCentrePoint.x;
+        pieHeightPoint.y = cat_bigGunMaxRange() * dir.y + selCentrePoint.y;
+        pieHeightPoint.z = cat_bigGunMaxRange() * dir.z + selCentrePoint.z;
+    }
+
     //limit dest vector to render list extent
     if (!smSensorsActive)
     {
@@ -1232,19 +1369,31 @@ void piePointSpecDraw(void)
             pieHeightPoint.z = piePlanePoint.z + (pieHeightPoint.z - piePlanePoint.z) * maxMoveLength / moveLength;
         }
     }
+    else if (glIsEnabled(GL_DEPTH_TEST))
+    {                                                       // CAT: the sensors manager draws without the depth test
+        depthWasOn = TRUE;
+        glDisable(GL_DEPTH_TEST);
+    }
 
     //now limit end point to the 'hard' limits of the universe.
     //After all, the universe has hard limits you know.
-    pieMovePointClipToLimits(smUniverseSizeX, smUniverseSizeY, smUniverseSizeZ, &selCentrePoint, &pieHeightPoint);
+    pieMovePointClipToLimits(&selCentrePoint, &pieHeightPoint);   // CAT: two arguments (0x004e76b0)
+    (void)cat_smHeightCircleColorGet();                     // CAT: the exe drops the colour here
     piePlanePoint.x = pieHeightPoint.x;
     piePlanePoint.y = pieHeightPoint.y;
     piePlanePoint.z = selCentrePoint.z;
-    pieDistanceReadoutDraw(&pieHeightPoint, &selCentrePoint, TW_MOVE_ORIGIN_COLOR);
+    if (mouseIsVisible)
+    {                                                       // CAT: only with the mouse cursor shown
+        pieDistanceReadoutDraw(&pieHeightPoint, &selCentrePoint, TW_MOVE_ORIGIN_COLOR);
+    }
 
     //draw the pizza dish with spokes
+    // CAT: the compass's radius is the plane point's distance from the selection (piePointSpecDraw 0x004e7a70)
     if (piePlaneDrawCallback != NULL)
     {
-        piePlaneDrawCallback(distance);
+        vector planeDistance;
+        vecSub(planeDistance, piePlanePoint, selCentrePoint);
+        piePlaneDrawCallback(fmathSqrt(vecMagnitudeSquared(planeDistance)));
     }
     //now draw lines and cross-hairs
     if (pieMovementCursorDrawCallback != NULL)
@@ -1264,6 +1413,10 @@ void piePointSpecDraw(void)
     }
     rndLightingEnable(FALSE);
     primModeSet2();
+    if (smSensorsActive && depthWasOn)
+    {
+        glEnable(GL_DEPTH_TEST);
+    }
 
 #if PIE_MOVE_NEARTO
     //make the ship under cursor glow as a destination of the 'move near to' command
@@ -1291,7 +1444,7 @@ void pieShipDied(struct Ship *ship)
 
     if ((selSelected.numShips == 0) && (piePointSpecMode != PSM_Idle))
     {
-        piePointModeOnOff();
+        piePointModeOnOff(PIE_SPEC_None, NULL);
     }
 }
 
@@ -1304,28 +1457,22 @@ void pieShipDied(struct Ship *ship)
 ----------------------------------------------------------------------------*/
 void piePointModeToggle(sdword bOn)
 {
-    if (bOn && piePointSpecMode == PSM_XY)
+    // CAT: piePointModeToggle 0x004e8480: no Ctrl case and no tutorial messages; going to height mode keeps the
+    //      height point at the plane point while no height was given
+    if (!bOn)
     {
-        if (!keyIsHit(CONTROLKEY))
+        if (piePointSpecMode == PSM_Z)
         {
-            tutGameMessage("Game_MoveZ");
-            mouseClipToRect(NULL);
-            piePointSpecMode = PSM_Z;
-            if (piePointSpecZ == 0.0f)
-            {                                               //if height point not yet specified
-                pieHeightPoint = piePlanePoint;
-            }
-        }
-        else
-        {
-            pieHeightPoint = piePlanePoint;
-            piePointSpecZ = 0.0f;
+            piePointSpecMode = PSM_XY;
         }
     }
-    else if (!bOn && piePointSpecMode == PSM_Z)
+    else if (piePointSpecMode == PSM_XY)
     {
-        tutGameMessage("Game_MoveXY");
-        piePointSpecMode = PSM_XY;
+        piePointSpecMode = PSM_Z;
+        if (piePointSpecZ == 0.0f)
+        {                                               //if height point not yet specified
+            pieHeightPoint = piePlanePoint;
+        }
     }
     piePointSpecMouseReset = TRUE;                           //reset location of mouse cursor
 }

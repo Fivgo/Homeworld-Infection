@@ -60,6 +60,9 @@
 #include "NetCheck.h"
 #include "NIS.h"
 #include "Options.h"
+#include "OverlayIcons.h"
+#include "ShipNames.h"
+#include "ShipPrint.h"
 #include "Particle.h"
 #include "PiePlate.h"
 #include "Ping.h"
@@ -4106,6 +4109,8 @@ DONE_INTROS:
     mrStartup();
     utySet(SSA_MainRegion);
 
+    cat_shipPrintStartup();                                 // CAT (M2-R5 hud): the ship info panel's font, as utyGameSystemsInit
+
     // Startup the information overlay, must occur after mrStartup()
     ioStartup();
     utySet2(SS2_InfoOverlay);
@@ -4268,6 +4273,15 @@ DONE_INTROS:
 
     prim3dStartup();                                        //start the prim 3d stuff
     utySet2(SS2_Prim3D);
+
+    // CAT (M2-R5 hud): the overlay icons (OverlayIcons\OverlayIcons.script), after prim3dStartup as utyGameSystemsInit
+    //      0x005abe70
+    cat_overlayIconsStartup();
+    // CAT (M2-R5 hud): then the carrier and mothership names (shipnames.script, cat_shipNamesInit 0x0050efd0) and the
+    //      game stats screen's fonts and timer (cat_gameStatsStartup 0x00489e50); CAT-TODO(M2-R6 key bindings):
+    //      cat_kbLoadKeyBindings comes between the icons and the names in the exe
+    cat_shipNamesInit();
+    cat_gameStatsStartup();
 
     utySystemStarted = TRUE;
 

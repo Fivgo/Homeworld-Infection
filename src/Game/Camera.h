@@ -60,6 +60,7 @@ typedef struct Camera
 void cameraInit(Camera *camera,real32 distance);
 void cameraJoystickReset(void);
 void cameraRotAngle(Camera *camera,real32 angle);
+void cat_cameraSetAngle(Camera *camera, real32 angle);                     // CAT: 0x0042b940 (the ship view)
 void cameraRotDeclination(Camera *camera,real32 declination);
 void cameraZoom(Camera *camera,real32 zoomfactor, bool32 EnforceShipDistances);
 void cameraSetEyePosition(Camera *camera);

@@ -118,28 +118,29 @@ extern sdword selClosestDistance;
 /*=============================================================================
     Macros:
 =============================================================================*/
+// CAT: the HW1 macros keep the overlap test (centrePoint FALSE); the exe's band box callers are mainrgn's (M2-R6)
 #define selRectNone()                       selSelecting.numTargets = 0
 #define selSelectNone()                     selSelected.numShips = 0;   \
                                             ioUpdateShipTotals()
-#define selRectDrag(c, r)                   selRectDragFunction(universe.RenderList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets,        TRUE, FALSE, FALSE)
-#define selRectDragAnywhere(c, r)           selRectDragFunction(universe.SpaceObjList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, TRUE, FALSE, FALSE)
-#define selRectSelect(c, r)                 selRectDragFunction(universe.RenderList.head, (c), (r), (SpaceObjRotImpTarg **)selSelected.ShipPtr, &selSelected.numShips,        TRUE, FALSE, FALSE);   \
+#define selRectDrag(c, r)                   selRectDragFunction(universe.RenderList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets,        TRUE, FALSE, FALSE, FALSE)
+#define selRectDragAnywhere(c, r)           selRectDragFunction(universe.SpaceObjList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, TRUE, FALSE, FALSE, FALSE)
+#define selRectSelect(c, r)                 selRectDragFunction(universe.RenderList.head, (c), (r), (SpaceObjRotImpTarg **)selSelected.ShipPtr, &selSelected.numShips,        TRUE, FALSE, FALSE, FALSE);   \
                                             ioUpdateShipTotals()
-#define selRectDragAnybody(c, r)            selRectDragFunction(universe.RenderList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, FALSE, FALSE, FALSE)
-#define selRectDragAnybodyAnywhere(c, r)    selRectDragFunction(universe.SpaceObjList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, FALSE, FALSE, FALSE)
-#define selRectSelectAnybody(c, r)          selRectDragFunction(universe.RenderList.head, (c), (r), (SpaceObjRotImpTarg **)selSelected.ShipPtr, &selSelected.numShips, FALSE, FALSE, FALSE);   \
+#define selRectDragAnybody(c, r)            selRectDragFunction(universe.RenderList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, FALSE, FALSE, FALSE, FALSE)
+#define selRectDragAnybodyAnywhere(c, r)    selRectDragFunction(universe.SpaceObjList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, FALSE, FALSE, FALSE, FALSE)
+#define selRectSelectAnybody(c, r)          selRectDragFunction(universe.RenderList.head, (c), (r), (SpaceObjRotImpTarg **)selSelected.ShipPtr, &selSelected.numShips, FALSE, FALSE, FALSE, FALSE);   \
                                             ioUpdateShipTotals()
-#define selRectDragAnybodyToAttack(c, r)    selRectDragFunction(universe.RenderList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, FALSE, FALSE, TRUE)
-#define selRectDragAnybodyAnywhereToAttack(c, r) selRectDragFunction(universe.SpaceObjList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, FALSE, FALSE, TRUE)
-#define selRectSelectAnybodyToAttack(c, r)  selRectDragFunction(universe.RenderList.head, (c), (r), (SpaceObjRotImpTarg **)selSelected.ShipPtr, &selSelected.numShips, FALSE, FALSE, TRUE);   \
+#define selRectDragAnybodyToAttack(c, r)    selRectDragFunction(universe.RenderList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, FALSE, FALSE, TRUE, FALSE)
+#define selRectDragAnybodyAnywhereToAttack(c, r) selRectDragFunction(universe.SpaceObjList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, FALSE, FALSE, TRUE, FALSE)
+#define selRectSelectAnybodyToAttack(c, r)  selRectDragFunction(universe.RenderList.head, (c), (r), (SpaceObjRotImpTarg **)selSelected.ShipPtr, &selSelected.numShips, FALSE, FALSE, TRUE, FALSE);   \
                                             ioUpdateShipTotals()
-#define selRectDragAnything(c, r)           selRectDragFunction(universe.RenderList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, FALSE, TRUE, FALSE)
-#define selRectSelectAnything(c, r)         selRectDragFunction(universe.RenderList.head, (c), (r), selSelected.ShipPtr, &selSelected.numShips, FALSE, TRUE, FALSE);   \
+#define selRectDragAnything(c, r)           selRectDragFunction(universe.RenderList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, FALSE, TRUE, FALSE, FALSE)
+#define selRectSelectAnything(c, r)         selRectDragFunction(universe.RenderList.head, (c), (r), selSelected.ShipPtr, &selSelected.numShips, FALSE, TRUE, FALSE, FALSE);   \
                                             ioUpdateShipTotals()
-#define selRectDragAnythingToAttack(c, r)   selRectDragFunction(universe.RenderList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, FALSE, TRUE, TRUE)
-#define selRectSelectAnythingToAttack(c, r) selRectDragFunction(universe.RenderList.head, (c), (r), selSelected.ShipPtr, &selSelected.numShips, FALSE, TRUE, TRUE);   \
+#define selRectDragAnythingToAttack(c, r)   selRectDragFunction(universe.RenderList.head, (c), (r), selSelecting.TargetPtr, &selSelecting.numTargets, FALSE, TRUE, TRUE, FALSE)
+#define selRectSelectAnythingToAttack(c, r) selRectDragFunction(universe.RenderList.head, (c), (r), selSelected.ShipPtr, &selSelected.numShips, FALSE, TRUE, TRUE, FALSE);   \
                                             ioUpdateShipTotals()
-#define selRectSelectAdd(c, r)              selRectDragAddFunction(universe.RenderList.head, (c), (r))
+#define selRectSelectAdd(c, r)              selRectDragAddFunction(universe.RenderList.head, (c), (r), FALSE)
 #define selSelectionSize(n)                 (sizeof(SelectCommand) + ((n) - 1) * sizeof(ShipPtr))
 #define selSelectionNumber(size)            (((size) - sizeof(sdword)) / sizeof(ShipPtr))
 //#define selHotKeyNumber(n)                  ((uword)((n) | SEL_HotKeyBit))
@@ -175,17 +176,38 @@ sdword selShipInSelection(ShipPtr *shipList, sdword nShips, ShipPtr ship);
 bool32 selShipsInSelection(MaxSelection *dest, MaxSelection *list);
 
 //selections by mouse dragging
-void selRectDragFunction(Node *startNode, Camera *camera, rectangle *rect, SpaceObjRotImpTarg **destList, sdword *destCount, sdword playerSpecific, bool32 selectAnything, bool32 bAttack);
-void selRectDragAddFunction(Node *startNode, Camera *camera, rectangle *rect);
+// CAT: the ninth / fourth argument centrePoint (selRectDragFunction 0x005053a0, selRectDragAddFunction 0x00505cb0)
+void selRectDragFunction(Node *startNode, Camera *camera, rectangle *rect, SpaceObjRotImpTarg **destList, sdword *destCount, sdword playerSpecific, bool32 selectAnything, bool32 bAttack, bool32 centrePoint);
+void selRectDragAddFunction(Node *startNode, Camera *camera, rectangle *rect, bool32 centrePoint);
+bool32 cat_selPositionHiddenByFOW(vector *position, bool32 visited);                       // CAT: 0x00509400
+bool32 cat_selShipSelectableInFOW(Ship *ship);                                            // CAT: 0x0050d3a0
+extern sdword catFowMode;                                                                   // CAT: 0x008b8848
 
 //selection by mouse click (on release)
-Ship *selSelectionClick(Node *listhead, Camera *camera, sdword x, sdword y, bool32 bIncludeDerelicts, bool32 bIncludeResources);
+Ship *selSelectionClick(Node *listhead, Camera *camera, sdword x, sdword y, bool32 bIncludeDerelicts, bool32 bIncludeResources, bool32 pickNothing);   // CAT: 7 arguments (0x00505ed0)
 SpaceObj *selClickFromArray(SpaceObj **list, sdword length, sdword x, sdword y);
 
 //selections by key
 
 //draw selected lists
 void selSelectedDraw(void);
+// CAT (M2-R5 hud): the Cataclysm status bars (cat_selStatusRectCompute 0x00507390 .. cat_selStatusBarsDraw 0x00507bc0)
+void cat_selStatusRectCompute(Ship *ship, sdword lod, rectangle *rect);                     // 0x00507390
+void cat_selStatusUpgradePendingDraw(Ship *ship, sdword lod);                               // 0x005074f0
+void cat_selStatusIconsDraw(Ship *ship, sdword lod);                                        // 0x00507630
+void cat_selStatusHotKeyDraw(Ship *ship, sdword lod);                                       // 0x005076a0
+void cat_selStatusAmmoCountDraw(Ship *ship, sdword lod, sdword barIndex);                   // 0x00507740
+void cat_selStatusStealthDetectDraw(Ship *ship, sdword lod);                                // 0x00507920
+void cat_selStatusBarDraw(Ship *ship, sdword lod, sdword row, real32 *factor, color *c, color *dark);  // 0x00507a10
+void cat_selHealthColorsGet(real32 *factor, color *c, color *dark);                         // 0x00507b00
+void cat_selHealthFactorGet(Ship *ship, real32 *factor);                                    // 0x00507b70
+void cat_selStatusBarsDraw(Ship *ship, sdword lod);                                         // 0x00507bc0
+void selStatusDraw0(Ship *ship);                                                            // 0x00507f10
+void selStatusDraw1(Ship *ship);                                                            // 0x005080f0
+void selStatusDraw2(Ship *ship);                                                            // 0x005082c0
+void selStatusDraw3(Ship *ship);                                                            // 0x00508480
+void selStatusDraw4(Ship *ship);                                                            // 0x00508590
+extern fonthandle selDefaultFont;                                                           // 0x00c0bae8
 void selSelectingDraw(void);
 
 //compute centre of selection

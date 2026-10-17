@@ -21,6 +21,7 @@
 
 #include "Dock.h"           // CAT: catDockSelfTestTick (the dock self-test, M2-R5 dock)
 #include "render.h"         // CAT: catRenderSelfTestTick (the render self-test, M2-R5 render)
+#include "InfoOverlay.h"    // CAT: catHudSelfTestTick (the HUD self-test, M2-R5 hud)
 #include "OracleDump.h"
 
 #if HWI_ORACLE
@@ -498,6 +499,11 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     if (catRenderSelfTestRequested() && (universe.univUpdateCounter != before))
     {
         catRenderSelfTestTick();
+    }
+    // CAT (M2-R5 hud): the HUD self-test the same way (InfoOverlay.c catHudSelfTestTick)
+    if (catHudSelfTestRequested() && (universe.univUpdateCounter != before))
+    {
+        catHudSelfTestTick();
     }
 
     if ((oracleFileName[0] != '\0' || oracleInSelfTest) && universe.univUpdateCounter != before)

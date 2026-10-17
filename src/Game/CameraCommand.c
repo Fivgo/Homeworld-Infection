@@ -1733,3 +1733,25 @@ sdword ccFocusCullRadiusMean(FocusCommand *selection, real32 radiusSqr, vector *
     return(selection->numShips);
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_ccIsPilotingShip                              0x0042c2e0
+    Description : CAT (M2-R5 hud): TRUE while the main camera pilots one ship (CCMODE_PILOT_SHIP with a one-ship
+                  focus). Moved here from SoundEvent.c's stand-in; the status bars skip the piloted ship
+                  (selSelectedDraw 0x005086a0), the sound events voice it (soundEventUpdate).
+----------------------------------------------------------------------------*/
+bool32 cat_ccIsPilotingShip(void)
+{
+    CameraStackEntry *entry = universe.mainCameraCommand.currentCameraStack;
+
+    return (entry->focus.numShips == 1 && bitTest(universe.mainCameraCommand.ccMode, CCMODE_PILOT_SHIP) &&
+            entry->focus.ShipPtr[0]->header.objtype == OBJ_ShipType);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_ccIsPilotingThisShip                          0x0042c310
+    Description : CAT (M2-R5 hud): TRUE while the main camera pilots this ship.
+----------------------------------------------------------------------------*/
+bool32 cat_ccIsPilotingThisShip(Ship *ship)
+{
+    return (cat_ccIsPilotingShip() && universe.mainCameraCommand.currentCameraStack->focus.ShipPtr[0] == ship);
+}

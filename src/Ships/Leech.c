@@ -28,6 +28,7 @@
 #include "SaveGame.h"
 #include "Select.h"
 #include "SoundEvent.h"
+#include "StringSupport.h"
 #include "UnivUpdate.h"
 #include "Universe.h"
 
@@ -775,7 +776,8 @@ void LeechHouseKeep(Ship *ship)                                                 
         leechMsgDue = 0.0f;
         if (leechMsgNoTarget && !leechMsgTargetFound)
         {
-            // CAT-TODO(stage 3): clCommandMessage(the "no target" string 0x00bb507c, colour 0xff2e3def)
+            // CAT (M2-R5 hud): the "no target" command message (string 0x00bb507c, LeechHouseKeep)
+            clCommandMessage(strGetString(strLEECHCANTLEECH), 0xff2e3def);
         }
         leechMsgNoTarget = 0;
         leechMsgTargetFound = 0;

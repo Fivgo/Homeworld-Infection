@@ -56,6 +56,7 @@
 #include "Select.h"
 #include "Sensors.h"
 #include "Ships.h"
+#include "ShipNames.h"
 #include "ShipSelect.h"
 #include "SinglePlayer.h"
 #include "SoundEvent.h"
@@ -2161,6 +2162,9 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     //      cat_shipSetHelpless(ship, 1e21)). CAT-TODO(stage 3/5 recorder): the exe also takes this path while a game
     //      is recorded (0x00a7519c && 0x00a75190)
     cat_shipDissolveInit(newship);
+    // CAT (M2-R5 hud): a local named ship (carrier, mothership) gets the first free name of its type
+    //      (cat_shipNamesAssign 0x0050f320, call at 0x00542c21)
+    cat_shipNamesAssign(newship);
     if (multiPlayerGame && (shiptype >= DERELICT_FIRST_SHIP) && (shiptype <= DERELICT_LAST_SHIP) &&
         !cat_shipIsCrystal(newship) && !cat_shipIsUntargetable(newship))
     {
@@ -5258,7 +5262,7 @@ void DisableAllPlayersShips(sdword playerIndex)
     ioUpdateShipTotals();
     if (piePointSpecMode != PSM_Idle)
     {                                                       //make sure the movement mechanism is off
-        piePointModeOnOff();
+        piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
     }
 }
 
@@ -5269,7 +5273,7 @@ void DisplayPlayerHasBeenDefeatedMessage(sdword playerIndex)
     strcpy(defeatmsg,playerNames[playerIndex]);
     strcat(defeatmsg," ");
     strcat(defeatmsg,strGetString(strPlayerHasDied));
-    clCommandMessage(defeatmsg);
+    clCommandMessage(defeatmsg, 0xff0000ff);
 }
 
 void CheckPlayerWin(void)
@@ -6128,13 +6132,16 @@ nextnode:
     *numAsteroid0s = numasteroid0s;
 }
 
+// CAT (M2-R5 hud): univObjectOutsideWorld 0x00549bb0 clips the zero vector from the object's position
+//      (pieMovePointClipToLimits(&pos, &zero): the box clip moves its second argument) and compares the unchanged
+//      position, so it always returns FALSE in the exe, as here
 bool32 univObjectOutsideWorld(SpaceObj *obj)
 {
     vector pos = obj->posinfo.position;
     vector oldpos = pos;
     vector zero = { 0.0f, 0.0f, 0.0f };
 
-    pieMovePointClipToLimits(smUniverseSizeX,smUniverseSizeY,smUniverseSizeZ,&zero,&pos);
+    pieMovePointClipToLimits(&pos, &zero);
 
     if (vecAreEqual(pos,oldpos))
     {
@@ -7237,9 +7244,10 @@ void univupdateReset()
     // CAT: the sensors manager's render-list hold is cleared (universe+0xB8, univUpdateReset 0x0054acd0)
     universe.catSensorsHoldRenderList = FALSE;
 
-    // CAT: the per-player ship counters are cleared (univUpdateReset 0x0054acd0). CAT-TODO(stage 6):
-    //      cat_missionTimerReset 0x004acb80
+    // CAT: the per-player ship counters are cleared (univUpdateReset 0x0054acd0), and the overlay's mission timer
+    //      restarts (cat_missionTimerReset 0x004acb80) [M2-R5 hud]
     catShipCountersReset();
+    cat_missionTimerReset();
     catShipCounterA = 0;
     catUnivFrameStep = FALSE;
     catProtectedSpeedLimitTime = 0.0f;
@@ -7567,9 +7575,12 @@ void univRemoveShipReferences(Ship *ship)
     // Remove ships that are destroyed from any hot key groups
     univRemoveShipFromHotkeyGroup(ship,FALSE);
 
-    // CAT-TODO: the exe also releases the ship's name (cat_shipNamesRelease 0x0050f660, M2-R4 #4) after the hot-key groups
+    // CAT (M2-R5 hud): the ship gives its name back after the hot-key groups (cat_shipNamesRelease 0x0050f660)
+    cat_shipNamesRelease(ship);
     mrShipDied(ship);
-    // CAT-TODO(stage 3): cat_popupMenuRemoveShip and cat_ioRemoveShipReferences (the info overlay) follow mrShipDied
+    // CAT-TODO(M2-R6 popup menu): cat_popupMenuRemoveShip 0x004ef840 follows mrShipDied (the right-click menu is not ported)
+    // CAT (M2-R5 hud): the info overlay forgets the ship (cat_ioRemoveShipReferences, univRemoveShipReferences)
+    cat_ioRemoveShipReferences(ship);
 }
 
 /*-----------------------------------------------------------------------------
@@ -8535,8 +8546,12 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
 
     if (!cat_cmHasSupportUnits(newType, newOwner) && (ship->catSalvageDepot == NULL))
     {
-        // CAT-TODO(stage 3): for the current player the exe shows a command message first (clCommandMessage
+        // CAT (M2-R5 hud): for the current player the exe shows a command message first (clCommandMessage
         //      0x004ac820, string 0x00bb5008, red)
+        if (newOwner == universe.curPlayerPtr)
+        {
+            clCommandMessage(strGetString(strNotEnoughSupportUnitsToConvert), 0xff0000ff);
+        }
         ApplyDamageToTarget(&ship->targetable, 5000.0f, (GunSoundType)0x13, 0x29a, newOwner->playerIndex, NULL, 8);
         ship->catBeastConvertTime = 0.0f;
         bitClear(ship->header.flags, SOF_Crazy|SOF_Disabled);
@@ -8940,7 +8955,7 @@ bool32 univUpdate(real32 phystimeelapsed)
 
         sprintf(savegamename, TMP_SAVEDGAMES_PATH "multiplayer" TMP_SAVEDGAMES_PATH_SEP "AS%d", catMultiplayerAutoSaveNumber);
         SaveGame(savegamename);
-        clCommandMessage(savegamename);
+        clCommandMessage(savegamename, 0xffffffff);
         catMultiplayerAutoSaveTime = universe.totaltimeelapsed + 200.0f;                 // 0x0072a440
         catMultiplayerAutoSaveNumber++;
         if (catMultiplayerAutoSaveNumber > 10)
@@ -8958,7 +8973,7 @@ bool32 univUpdate(real32 phystimeelapsed)
         {
             sprintf(savegamename,TMP_SAVEDGAMES_PATH "AutoSave%f",universe.totaltimeelapsed);
             SaveGame(savegamename);
-            clCommandMessage(strGetString(strSavedGame));
+            clCommandMessage(strGetString(strSavedGame), 0xffffffff);
         }
         else
         {
@@ -8974,7 +8989,7 @@ bool32 univUpdate(real32 phystimeelapsed)
                     sprintf(savegamename,TMP_SAVEDGAMES_PATH "AutoSaveDebug%d",savenumber);
                     savenumber = (savenumber+1) & 7;
                     SaveGame(savegamename);
-                    clCommandMessage(strGetString(strSavedGame));
+                    clCommandMessage(strGetString(strSavedGame), 0xffffffff);
                 }
             }
         }

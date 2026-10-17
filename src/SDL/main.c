@@ -41,6 +41,8 @@
 #include "NIS.h"
 #include "ObjTypes.h"
 #include "Options.h"
+#include "OverlayIcons.h"
+#include "InfoOverlay.h"
 #include "Particle.h"
 #include "PiePlate.h"
 #include "regkey.h"
@@ -397,6 +399,14 @@ bool32 CatCommandTestSet(char *string)
 bool32 CatRenderTestSet(char *string)
 {
     catRenderSelfTestSet(string);
+    return TRUE;
+}
+
+// CAT: port diagnostic: /catHudTest <frames> (InfoOverlay.c catHudSelfTestTick: the HUD self-test on the headless
+//      Mission01 run, M2-R5 hud)
+bool32 CatHudTestSet(char *string)
+{
+    catHudSelfTestSet(string);
     return TRUE;
 }
 
@@ -964,6 +974,7 @@ commandoption commandOptions[] =
     entryFnParam("/catEtgEffectTest",   CatEtgEffectTestSet, " <ticks> - with /catEtgParseTest: create a sample of the effects and run them for <ticks> universe ticks."),
     entryFnParam("/catDockTest",        CatDockTestSet, " <ticks> - headless Mission01 run: dock, deposit, harvest and launch orders with no input, exit after <ticks> ticks."),
     entryFnParam("/catCommandTest",     CatCommandTestSet, " <ticks> - headless Mission01 run: link, unlink, mimic, research, point orders and force-field formations with no input, exit after <ticks> ticks."),
+    entryFnParam("/catHudTest",         CatHudTestSet, " <frames> - headless Mission01 run with the player's ships selected through the selection API: status bars, ship info panel, main overlay and pie plate drawn offscreen, logs the HUD counts, exit after <frames> ticks."),
     entryFnParam("/catRenderTest",      CatRenderTestSet, " <frames> - headless Mission01 run through the Cataclysm object-list renderer with a lens flare source and a fog layer, logs the render counts, exit after <frames> ticks."),
     // CAT: port diagnostic, not a Cataclysm option (SpeechEvent.c catSoundRunSelfTest, M2-R5 sound) [audit: own comment]
     entryVr("/catSoundTest",        catSoundSelfTest, TRUE, " - decode a stream of Music4Cat.wxd, SectSpeech.vce and BeastSpeech.vce into the audio device, look up the 88 battle-chatter events, then exit."),
@@ -1522,6 +1533,7 @@ void mainShutdownRGL(void)
 ----------------------------------------------------------------------------*/
 void mainResetRender(void)
 {
+    cat_overlayIconsDiscardGL();                            // CAT: mainResetRender 0x00560420 / mainOpenRender 0x00560470
     rndResetGLState();
     feRenderEverything = TRUE;
     frReset();
@@ -1671,6 +1683,7 @@ void mainRestoreRender(void)
 bool32 mainShutdownRenderer(void)
 {
     dbgMessage("mainShutdownRenderer");
+    cat_overlayIconsDiscardGL();                            // CAT: mainShutdownRenderer 0x00561260
 
     mainCloseRender();
     mainShutdownGL();

@@ -9,6 +9,9 @@
 #ifndef ___GAMEPICK_H
 #define ___GAMEPICK_H
 
+#include "font.h"
+#include "prim2d.h"
+
 #include "FEFlow.h"
 #include "Region.h"
 
@@ -76,5 +79,13 @@ bool32 gpQuickLoad(void);
 bool32 gpGetGameName(char *name, featom *atom, char *filename);
 
 sdword gpCountTrainingSavegames(void);
+
+// CAT (M2-R5 hud): the game-stats screen (cat_gameStats*, 0x00488970-0x0048a056) and its button drawer, which the main
+//      overlay's taskbar uses too
+void cat_gameStatsButtonDraw(rectangle *rect, char *text, sdword hotkeyIndex, fonthandle font, sdword capWidth,
+                             sdword iconLeft, sdword iconLeftMouse, sdword iconMid, sdword iconMidMouse,
+                             sdword iconRight, sdword iconRightMouse, bool32 wholeHover);       // 0x00489470
+void cat_gameStatsStartup(void);                                                            // 0x00489e50
+bool32 cat_gameStatsIsActive(void);                                                         // 0x0048a050
 
 #endif

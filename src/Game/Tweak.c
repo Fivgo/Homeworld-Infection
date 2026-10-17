@@ -685,9 +685,8 @@ scriptEntry Tweaks[] =
     makeEntry(rmMarqueeSemiOnColor      , scriptSetRGBCB),
     makeEntry(rmMarqueeOffColor         , scriptSetRGBCB),
 
-    makeEntry(ioShipListFontName        , scriptSetStringCB),
-    makeEntry(ioListTextColor           , scriptSetRGBCB),
-    makeEntry(ioSelectedTextColor       , scriptSetRGBCB),
+    // CAT (M2-R5 hud): ioShipListFontName / ioListTextColor / ioSelectedTextColor are gone with HW1's info overlay
+    //      (no such key in cataclysm.exe's strings)
 
 
     //selection tweaks

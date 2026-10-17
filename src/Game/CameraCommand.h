@@ -118,6 +118,8 @@ void ccCancelFocus(CameraCommand *cameracommand);
 void ccViewToggleMissionSphere(CameraCommand *cameracommand);
 void ccControl(CameraCommand *cameracommand);
 void ccLockOnTargetNow(CameraCommand *cameracommand);
+bool32 cat_ccIsPilotingShip(void);                  // CAT: 0x0042c2e0 (M2-R5 hud)
+bool32 cat_ccIsPilotingThisShip(Ship *ship);        // CAT: 0x0042c310 (M2-R5 hud)
 
 void ccSetModeFlag(CameraCommand *cameracommand,udword ccModeFlag);     // use CCMODE_whatever flags
 void ccClearModeFlag(CameraCommand *cameracommand,udword ccModeFlag);   // use CCMODE_whatever flags

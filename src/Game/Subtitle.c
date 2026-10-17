@@ -14,9 +14,11 @@
 #include "StatScript.h"
 #include "FontReg.h"
 #include "main.h"
+#include "InfoOverlay.h"
 #include "Key.h"
 #include "Universe.h"
 #include "Teams.h"
+#include "Tutor.h"
 #include "mainrgn.h"
 #include "Sensors.h"
 #include "NIS.h"
@@ -1254,10 +1256,11 @@ sdword subTitleAdd(sdword actor, sdword speechEvent, char *text, sdword length, 
                     because they time out.
     Return      :void
 ----------------------------------------------------------------------------*/
-// CAT-TODO(M2-R5 hud): subTitlesDraw 0x00584620 is Cataclysm's: a translucent backing rectangle
-//      (primRectTranslucent2 with additive blending), cat_fontPrintSubtitle, the info overlay told about the card
-//      (cat_ioSubtitleNotify), no cards while the construction manager is open (cat_cmIsOpen) and the tutorial button
-//      row (cat_tutButtonRowSet); the overlay and manager calls are the HUD / UI ports'. HW1's body stands until then.
+// CAT (M2-R5 hud): subTitlesDraw 0x00584620 first tells the info overlay a card is drawn (cat_ioSubtitleNotify(0),
+//      not in the tutorial); that call is ported. CAT-TODO(M2-R6 subtitles): the rest is Cataclysm's: a translucent
+//      backing rectangle (primRectTranslucent2 with additive blending), cat_fontPrintSubtitle, no cards while the
+//      construction manager is open (cat_cmIsOpen), and after a card's picture the tutorial button row
+//      (cat_tutButtonRowSet) and cat_ioSubtitleNotify(its bottom); HW1's body stands until then.
 void subTitlesDraw(subregion *region)
 {
     sdword index;
@@ -1270,6 +1273,11 @@ void subTitlesDraw(subregion *region)
     udword multiplier;
     sdword scroll;
     real32 scrollFloat;
+
+    if (tutorial != TUTORIAL_ONLY)
+    {
+        cat_ioSubtitleNotify(0);
+    }
 
 #if SUB_VISUALIZE_REGION
     primRectSolid2(&region->rect, colBlack);

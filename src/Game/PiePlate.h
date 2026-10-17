@@ -109,7 +109,21 @@ extern bool32 pieVisualizeExtents;
     Functions
 =============================================================================*/
 //movement mechanism functions
-void piePointModeOnOff(void);
+// CAT (M2-R5 hud): piePointModeOnOff 0x004e5c90 takes what the point is for and the function that gets it
+//      (cat_piePointSpecExecute 0x004e8500). The callers that only turn it off pass PIE_SPEC_None (0) as the exe;
+//      the HW1 callers that turn it on (main region, sensors) pass PIE_SPEC_Move and no function until their ports
+//      (M2-R6) give them the exe's
+#define PIE_SPEC_None               0
+#define PIE_SPEC_Move               1
+#define PIE_SPEC_MoveNoLines        2
+#define PIE_SPEC_BigGun             3
+#define PIE_SPEC_Waypoint           4
+extern sdword piePointSpecType;
+extern bool32 catPieTradeMove;
+void piePointModeOnOff(sdword mode, void (*callback)(vector *point));
+void cat_piePointSpecExecute(void);                                     // CAT: 0x004e8500
+void cat_pieCompassDraw(vector *centre, color colour, real32 radius);   // CAT: 0x004e7240
+color cat_smHeightCircleColorGet(void);                                 // CAT: 0x004e7690
 void piePointSpecDraw(void);
 void piePointModeToggle(sdword bOn);
 void piePointModePause(sdword bPause);
@@ -121,7 +135,7 @@ void piePointModeToggle(sdword bOn);
 
 void pieStartup(void);
 
-bool32 pieMovePointClipToLimits(real32 sizeX, real32 sizeY, real32 sizeZ, vector *pointA, vector *pointB);
+bool32 pieMovePointClipToLimits(vector *pointA, vector *pointB);        // CAT: 0x004e76b0 (REWRITTEN, the box clip)
 sdword pieCircleSegmentsCompute(real32 screenRadius);
 
 #endif

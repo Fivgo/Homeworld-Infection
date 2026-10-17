@@ -30,7 +30,9 @@
 #include "Clamp.h"
 #include "CommandDefs.h"
 #include "CommandLayer.h"
+#include "CommandWrap.h"
 #include "ConsMgr.h"
+#include "InfoOverlay.h"
 #include "Debug.h"
 #include "Dock.h"
 #include "ETG.h"
@@ -51,6 +53,7 @@
 #include "SoundEvent.h"
 #include "SpeechEvent.h"
 #include "StatScript.h"
+#include "StringSupport.h"
 #include "Tactics.h"
 #include "Tweak.h"
 #include "Universe.h"
@@ -1110,9 +1113,23 @@ static void cat_salvageNoDepotAbort(Ship *salvager)
     CommandToDo *command;
     sdword i;
 
-    // CAT-TODO(stage 3): for the current player the exe shows a command message (clCommandMessage 0x004ac820, red):
-    //      a crystal without a ship with upgrade 0x100000, or a Beast player without a ship with upgrade 0x10000
-    //      (string table entries 0x00bb4e18 / 0x00bb4e1c)
+    // CAT (M2-R5 hud): for the current player the exe shows a command message (clCommandMessage 0x004ac820, red,
+    //      0x004fa76f..0x004fa830): a crystal without a ship with upgrade 0x100000 (0x00bb4e18), or a Beast salvager's
+    //      target without a ship with upgrade 0x10000 (0x00bb4e1c)
+    if (universe.curPlayerPtr == salvager->playerowner)
+    {
+        if (!cat_shipIsCrystal(target))
+        {
+            if ((salvager->shiprace == RACE_Beast) && !cat_salvagePlayerHasBeastUpgradeShip(salvager->playerowner))
+            {
+                clCommandMessage(strGetString(strDepotNeedsInfectionTech), 0xff0000ff);
+            }
+        }
+        else if (!cat_playerHasSalvageUpgradeShip(salvager->playerowner))
+        {
+            clCommandMessage(strGetString(strWorkerNeedsCrystalTech), 0xff0000ff);
+        }
+    }
 
     if ((target->guidance.clampInfo != NULL) && (target->guidance.clampInfo->clampedObjs != NULL))
     {
@@ -1185,8 +1202,9 @@ bool32 cat_salvageSpecialTarget(Ship *ship, void *custom)                  // 0x
                         if ((pointIndex == 2) && (ship->playerowner == universe.curPlayerPtr) &&
                             (twNotifySalvageTargetTooStrongRate + cat_salvageTooStrongTime < universe.realtimeelapsed))
                         {
-                            // CAT-TODO(stage 3): the exe shows the "target too strong" command message here
-                            //      (clCommandMessage 0x004ac820, string 0x00bb4f08, red)
+                            // CAT (M2-R5 hud): the "target too strong" command message (clCommandMessage 0x004ac820,
+                            //      string 0x00bb4f08, red)
+                            clCommandMessage(strGetString(strTooStrongToSalvage), 0xff0000ff);
                             cat_salvageTooStrongTime = universe.realtimeelapsed;
                         }
                         return FALSE;
@@ -1359,8 +1377,9 @@ bool32 cat_salvageSpecialTarget(Ship *ship, void *custom)                  // 0x
                     {
                         // CAT: Cataclysm's "more salvagers needed" speech event (the exe's literal)
                         speechEventQueue(ship, 0x2000898, -1, -1, -1, -1, -1, 0.0f, -1);
-                        // CAT-TODO(stage 3): and the info-overlay message (cat_ioMessageAdd 0x004ac940, string
+                        // CAT (M2-R5 hud): and the info-overlay message (cat_ioMessageAdd 0x004ac940, string
                         //      0x00bb5038, red)
+                        cat_ioMessageAdd(strGetString(strNeedMoreSalvagers), 0xff0000ff, 1, ship);
                     }
                     info->target->catSalvageNotifyTime = universe.realtimeelapsed;
                     return FALSE;

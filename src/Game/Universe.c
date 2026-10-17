@@ -8,6 +8,9 @@
 =============================================================================*/
 
 #include "Universe.h"
+#include "ShipPrint.h"
+#include "InfoOverlay.h"
+#include "Sensors.h"
 #include "Salvage.h"
 #include "Blast.h"
 
@@ -4638,11 +4641,14 @@ void universeReset(void)
         universe.world[index] = NULL;
     }
 
-    // CAT: the time compression goes back to the default (cat_taskTimeCompressionReset 0x0052a420, universeReset
-    //      0x0053df80). CAT-TODO: cat_ioReset 0x004ab590 (info overlay), cat_shipPrintReset 0x00511500, four UI globals
-    //      (0x00a762dc..0x00a762e4, 0x00a5b1ac) and cat_tutPointerListReset 0x0052f890 (tutorial pointers) around it;
-    //      their subsystems are not ported yet (stage 3 UI, stage 6 tutorial)
+    // CAT: universeReset 0x0053df80 resets the info overlay (cat_ioReset 0x004ab590), the ship info panel's drag
+    //      (cat_shipPrintReset 0x00511500), then the time compression (cat_taskTimeCompressionReset 0x0052a420), and
+    //      clears the sensors manager's mine display (0x00a5b1ac, catSmShowMines). CAT-TODO(M2-R6 front end): three
+    //      UI globals (0x00a762dc..0x00a762e4); CAT-TODO(stage 6 tutorial): cat_tutPointerListReset 0x0052f890
+    cat_ioReset();
+    cat_shipPrintReset();
     cat_taskTimeCompressionReset();
+    catSmShowMines = FALSE;
 }
 
 /*-----------------------------------------------------------------------------

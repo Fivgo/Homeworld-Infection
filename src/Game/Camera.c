@@ -232,6 +232,24 @@ void cameraRotAngle(Camera *camera,real32 angle)
     camAngleVerify(camera);
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_cameraSetAngle                                0x0042b940
+    Description : CAT: set the azimuth and bring it into 0..2pi (by whole turns, unlike camAngleVerify's one step);
+                  the ship view's automatic turn (svShipViewRender)
+----------------------------------------------------------------------------*/
+void cat_cameraSetAngle(Camera *camera, real32 angle)
+{
+    camera->angle = angle;
+    while (camera->angle < 0.0f)
+    {
+        camera->angle += TWOPI;
+    }
+    while (camera->angle > TWOPI)
+    {
+        camera->angle -= TWOPI;
+    }
+}
+
 void cameraRotDeclination(Camera *camera,real32 declination)
 {
     camera->declination += declination;

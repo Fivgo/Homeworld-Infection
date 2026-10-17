@@ -32,6 +32,9 @@
 #include "SoundEvent.h"
 #include "StringsOnly.h"
 #include "Universe.h"
+#include "mouse.h"
+#include "OverlayIcons.h"
+#include "Timer.h"
 #include "utility.h"
 
 #ifdef _WIN32
@@ -772,9 +775,9 @@ void gpOverwriteYes(char *name, featom *atom)
     else
     {
         if (SaveGame(overwritefilename))
-            clCommandMessage(strGetString(strSavedGame));
+            clCommandMessage(strGetString(strSavedGame), 0xffffffff);
         else
-            clCommandMessage(strGetString(strPatchUnableWriteFile));
+            clCommandMessage(strGetString(strPatchUnableWriteFile), 0xffffffff);
         feAllScreensDelete();
         if (!multiPlayerGame)
         {
@@ -817,7 +820,7 @@ void gpSaveGame(char *name, featom *atom)
             return;
         }
 
-        clCommandMessage(strGetString(strSavedGame));
+        clCommandMessage(strGetString(strSavedGame), 0xffffffff);
         feScreenDisappear(NULL, NULL);
         if (!multiPlayerGame)
         {
@@ -847,7 +850,7 @@ void gpSaveGame(char *name, featom *atom)
             return;
         }
 
-        clCommandMessage(strGetString(strSavedGame));
+        clCommandMessage(strGetString(strSavedGame), 0xffffffff);
         feScreenDisappear(NULL, NULL);
         if (!multiPlayerGame)
         {
@@ -964,9 +967,9 @@ void gpStopRecording(char *name, featom *atom)
 void gpSaveGivenGame(char* gamename)
 {
     if (SaveGame(gamename))
-        clCommandMessage(strGetString(strQuickSave));
+        clCommandMessage(strGetString(strQuickSave), 0xffffffff);
     else
-        clCommandMessage(strGetString(strPatchUnableWriteFile));
+        clCommandMessage(strGetString(strPatchUnableWriteFile), 0xffffffff);
 
     if (!multiPlayerGame)
     {
@@ -1173,20 +1176,10 @@ void gpBackPicking(char *name, featom *atom)
     feScreenDisappear(NULL, NULL);
 }
 
-void gpBackToInGameEscapeMenu(char *name, featom *atom)
+// CAT (M2-R5 hud): the escape menu screen of the current kind, shared by gpBackToInGameEscapeMenu and
+//      gpStartInGameEscapeMenu (which inlines it in the exe, 0x004887c0)
+static void catGpEscapeMenuScreenStart(void)
 {
-    feScreenDisappear(NULL, NULL);
-
-#if defined(HW_GAME_DEMO)
-    if ((singlePlayerGame) && (!(utyCreditsSequence|utyPlugScreens)) && (universe.quittime > 0.0f) && (universe.totaltimeelapsed >= universe.quittime))
-#else
-    if ((singlePlayerGame) && (!(utyCreditsSequence)) && (universe.quittime > 0.0f) && (universe.totaltimeelapsed >= universe.quittime))
-#endif
-    {
-        feScreenStart(ghMainRegion, "SP_Game_Over");
-        return;
-    }
-
     switch (escapemenu)
     {
         case ESCAPE_DEFAULT:
@@ -1217,6 +1210,23 @@ void gpBackToInGameEscapeMenu(char *name, featom *atom)
             feScreenStart(ghMainRegion, "In_game_esc_menu_nosave_recording");
             break;
     }
+}
+
+void gpBackToInGameEscapeMenu(char *name, featom *atom)
+{
+    feScreenDisappear(NULL, NULL);
+
+#if defined(HW_GAME_DEMO)
+    if ((singlePlayerGame) && (!(utyCreditsSequence|utyPlugScreens)) && (universe.quittime > 0.0f) && (universe.totaltimeelapsed >= universe.quittime))
+#else
+    if ((singlePlayerGame) && (!(utyCreditsSequence)) && (universe.quittime > 0.0f) && (universe.totaltimeelapsed >= universe.quittime))
+#endif
+    {
+        feScreenStart(ghMainRegion, "SP_Game_Over");
+        return;
+    }
+
+    catGpEscapeMenuScreenStart();
 }
 
 void gpStartInGameEscapeMenu(void)
@@ -1259,9 +1269,114 @@ void gpStartInGameEscapeMenu(void)
     }
 
     mrReset();
-    gpBackToInGameEscapeMenu(NULL, NULL);
+    // CAT: gpStartInGameEscapeMenu 0x004887c0 inlines gpBackToInGameEscapeMenu but tests the quit time against the
+    //      real time (universe.realtimeelapsed), not the game time
+    feScreenDisappear(NULL, NULL);
+#if defined(HW_GAME_DEMO)
+    if ((singlePlayerGame) && (!(utyCreditsSequence|utyPlugScreens)) && (universe.quittime > 0.0f) && (universe.realtimeelapsed >= universe.quittime))
+#else
+    if ((singlePlayerGame) && (!(utyCreditsSequence)) && (universe.quittime > 0.0f) && (universe.realtimeelapsed >= universe.quittime))
+#endif
+    {
+        feScreenStart(ghMainRegion, "SP_Game_Over");
+        return;
+    }
+    catGpEscapeMenuScreenStart();
 }
 
+/*=============================================================================
+    CAT (M2-R5 hud): the game-stats screen
+=============================================================================*/
+static fonthandle catGameStatsFont;                 // 0x00a43c84 default.hff (the table)
+static fonthandle catGameStatsButtonFont;           // 0x00a43c88 default.hff (the buttons)
+static fonthandle catGameStatsTitleFont;            // 0x00a43c8c Arial_b17.hff
+static bool32 catGameStatsActive = FALSE;           // 0x00a43c78
+static CatTimer catGameStatsBarTimer;               // 0x00a43b78: the bars grow over 2 s after a column is picked
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_gameStatsButtonDraw                           0x00489470
+    Description : A three-part button (left cap, middle, right cap icons) with its text centred; with wholeHover the
+                  whole button shows its mouse-over icons, else only the cap under the mouse. With a hot-key index the
+                  text's letter there is white and the rest grey.
+----------------------------------------------------------------------------*/
+void cat_gameStatsButtonDraw(rectangle *rect, char *text, sdword hotkeyIndex, fonthandle font, sdword capWidth,
+                             sdword iconLeft, sdword iconLeftMouse, sdword iconMid, sdword iconMidMouse,
+                             sdword iconRight, sdword iconRightMouse, bool32 wholeHover)
+{
+    sdword left = iconLeft, mid = iconMid, right = iconRight;
+    sdword width, height, x, y;
+    fonthandle oldFont;
+    char head[20], letter[2];
 
+    (void)font;                                     // the exe prints with its own button font
+    if (wholeHover)
+    {
+        if (rect->x0 < mouseCursorXPosition && rect->y0 < mouseCursorYPosition &&
+            mouseCursorXPosition < rect->x1 && mouseCursorYPosition < rect->y1)
+        {
+            left = iconLeftMouse;
+            mid = iconMidMouse;
+            right = iconRightMouse;
+        }
+    }
+    else if (rect->x0 < mouseCursorXPosition && rect->y0 < mouseCursorYPosition &&
+             mouseCursorXPosition < rect->x0 + capWidth && mouseCursorYPosition < rect->y1)
+    {
+        left = iconLeftMouse;
+    }
+    else if (rect->x1 - capWidth < mouseCursorXPosition && rect->y0 < mouseCursorYPosition &&
+             mouseCursorXPosition < rect->x1 && mouseCursorYPosition < rect->y1)
+    {
+        right = iconRightMouse;
+    }
+    cat_overlayIconDraw(left, rect->y0, rect->x0, capWidth, rect->y1 - rect->y0, 0xffffffff);
+    cat_overlayIconDraw(right, rect->y0, rect->x1 - capWidth, capWidth, rect->y1 - rect->y0, 0xffffffff);
+    cat_overlayIconDraw(mid, rect->y0, rect->x0 + capWidth, (rect->x1 - capWidth * 2) - rect->x0, rect->y1 - rect->y0,
+                        0xffffffff);
+    oldFont = fontMakeCurrent(catGameStatsButtonFont);
+    width = ((rect->x1 - rect->x0) - capWidth * 2) - fontWidth(text);
+    height = (rect->y1 - rect->y0) - fontHeight(text);
+    x = width / 2 + rect->x0 + capWidth;
+    y = height / 2 + rect->y0;
+    if (hotkeyIndex == -1)
+    {
+        fontPrintf(x, y, 0xffffffff, "%s", text);
+    }
+    else
+    {
+        strncpy(head, text, sizeof(head) - 1);      // CAT-FIX: the exe copies the whole text into its 20 bytes
+        head[sizeof(head) - 1] = '\0';
+        letter[0] = text[hotkeyIndex];
+        letter[1] = '\0';
+        if (hotkeyIndex < (sdword)sizeof(head))
+        {
+            head[hotkeyIndex] = '\0';
+        }
+        fontPrintf(x, y, 0xffc8c8c8, "%s", head);
+        x += fontWidth(head);
+        fontPrintf(x, y, 0xffffffff, "%s", letter);
+        fontPrintf(x + fontWidth(letter), y, 0xffc8c8c8, "%s", text + hotkeyIndex + 1);
+    }
+    fontMakeCurrent(oldFont);
+}
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_gameStatsStartup                              0x00489e50
+----------------------------------------------------------------------------*/
+void cat_gameStatsStartup(void)
+{
+    catGameStatsFont = frFontRegister("default.hff");
+    catGameStatsButtonFont = frFontRegister("default.hff");
+    catGameStatsTitleFont = frFontRegister("Arial_b17.hff");
+    cat_timerStartRealTime(&catGameStatsBarTimer, 2.0f);
+    (void)catGameStatsFont;
+    (void)catGameStatsTitleFont;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_gameStatsIsActive                             0x0048a050
+----------------------------------------------------------------------------*/
+bool32 cat_gameStatsIsActive(void)
+{
+    return catGameStatsActive;
+}

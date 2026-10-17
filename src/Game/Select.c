@@ -34,6 +34,35 @@
 #include "Tweak.h"
 #include "Tutor.h"
 #include "mainrgn.h"
+// CAT (M2-R5 hud): the status bars' sources and the overlay icons
+#include <math.h>
+#include "ACV.h"
+#include "Acolyte.h"
+#include "BeastWeapon.h"
+#include "CameraCommand.h"
+#include "Cloak.h"
+#include "Dreadnought.h"
+#include "HiveFrigate.h"
+#include "InfoOverlay.h"
+#include "Mothership.h"
+#include "NIS.h"
+#include "OverlayIcons.h"
+#include "ResearchAPI.h"
+#include "Salvage.h"
+#include "Sentinel.h"
+#include "SinglePlayer.h"
+#include "Task.h"
+
+// CAT: the stealth types' bit of ShipStaticInfo.catTypeFlags (cat_univInitShipTypeFlags 0x0053b8c0 sets it for sMimic,
+//      sLeech and sMCV; cat_selStatusStealthDetectDraw 0x00507920 tests it). Name chosen here.
+#define CAT_TYPEFLAG_Stealth    0x00020000
+
+// CAT: the exe rounds its GL-to-screen conversions to the nearest pixel (fadd 1.5 * 2^52 and the low dword:
+//      0x0072a458), where GoK's primGLToScreen* macros truncate
+#define catSelRound(v)          ((sdword)lrint((double)(v)))
+#define catSelScreenX(x)        (MAIN_WindowWidth / 2 + catSelRound((x) * (real32)MAIN_WindowWidth * 0.5f))
+#define catSelScreenY(y)        (MAIN_WindowHeight / 2 - catSelRound((y) * (real32)MAIN_WindowHeight * 0.5f))
+#define catSelScreenScaleX(x)   catSelRound((real32)MAIN_WindowWidth * (x) * 0.5f)
 
 #define DEBUG_COLLISION_SPHERES 0
 
@@ -176,7 +205,70 @@ void selShutdown(void)
                   Also updates the selCentrePoint vector.
     Return      : void
 ----------------------------------------------------------------------------*/
-void selRectDragFunction(Node *startNode, Camera *camera, rectangle *screenRect, SpaceObjRotImpTarg **destList, sdword *destCount, sdword playerSpecific, bool32 selectAnything, bool32 bAttack)
+// CAT (M2-R5 hud): the fog-of-war mode (exe 0x008b8848, default 2; cat_selPositionHiddenByFOW 0x00509400 and
+//      cat_selShipSelectableInFOW 0x0050d3a0 read it: 0 off, 1 the unexplored cells hide, 2 also the cells outside
+//      the grid). Name chosen here; the option that sets it comes with the FOW port (M2-R6)
+sdword catFowMode = 2;
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_selPositionHiddenByFOW                        0x00509400
+    Description : CAT (M2-R5 hud): TRUE if the current player's fog of war hides this point (visited: test the
+                  visited count instead of the live usage count).
+----------------------------------------------------------------------------*/
+bool32 cat_selPositionHiddenByFOW(vector *position, bool32 visited)
+{
+    (void)position;
+    (void)visited;
+    if (catFowMode != 0)
+    {
+        if (universe.curPlayerPtr->catFOWGrid == NULL)
+        {
+            return TRUE;
+        }
+        // CAT-TODO(M2-R6 FOW): with a grid, fowSelect(grid); outside the grid (fowIsValidW) hidden only in mode 2,
+        //      else hidden where fowGetUsageCountW (visited: fowGetVisitedW) < 1. The fow* module and the players'
+        //      grids (cat_fowCreatePlayerGrids at levelInit) come with the FOW port, so no grid exists before it
+    }
+    return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_selShipSelectableInFOW                        0x0050d3a0
+    Description : CAT (M2-R5 hud): whether the current player may select this enemy ship in the sensors manager:
+                  not fully cloaked and not in a hidden cell; in a multiplayer game also not a mimic that poses as
+                  allied, and detected by the player.
+----------------------------------------------------------------------------*/
+bool32 cat_selShipSelectableInFOW(Ship *ship)
+{
+    bool32 selectable = !cat_shipIsCloakedFully(ship);
+
+    if (catFowMode != 0)
+    {
+        if (universe.curPlayerPtr->catFOWGrid == NULL)
+        {
+            selectable = FALSE;
+        }
+        // CAT-TODO(M2-R6 FOW): with a grid, fowSelect(grid); outside the grid unselectable in mode 2, inside
+        //      unselectable where fowGetUsageCountW(ship position) < 1 (see cat_selPositionHiddenByFOW)
+    }
+    if (!singlePlayerGame)
+    {
+        if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic) &&
+            cat_mimicAppearsAlliedTo(ship, universe.curPlayerPtr) == TRUE)
+        {
+            return FALSE;
+        }
+        if (!cat_shipDetectedByPlayer(ship, universe.curPlayerPtr->playerIndex))
+        {
+            return FALSE;
+        }
+    }
+    return selectable;
+}
+
+// CAT: selRectDragFunction 0x005053a0 has a ninth argument: centrePoint (TRUE: a target is in when its selection
+//      circle's centre is inside the rectangle; FALSE: HW1's overlap test)
+void selRectDragFunction(Node *startNode, Camera *camera, rectangle *screenRect, SpaceObjRotImpTarg **destList, sdword *destCount, sdword playerSpecific, bool32 selectAnything, bool32 bAttack, bool32 centrePoint)
 {
     Node *targetnode;
     SpaceObjRotImpTarg *target;
@@ -199,14 +291,22 @@ void selRectDragFunction(Node *startNode, Camera *camera, rectangle *screenRect,
     //this system can later be optimised by only walking through sorted porions
     //of the object list.  However, for now we will walk the entire list.
     selSelecting.numTargets = 0;
-//    targetnode = universe.RenderList.head;                   //get first node in list
     for (targetnode = startNode; targetnode != NULL; targetnode = targetnode->next) {
         target = (SpaceObjRotImpTarg *)listGetStructOfNode(targetnode);
-        if ((target->header.flags & (SOF_Selectable|SOF_Targetable)) == 0) continue;
+        // CAT: an untargetable ship skips the selectable/targetable and hidden tests (selRectDragFunction 0x005053a0)
+        if (!(target->header.objtype == OBJ_ShipType && cat_shipIsUntargetable((Ship *)target)))
+        {
+            if ((target->header.flags & (SOF_Selectable|SOF_Targetable)) == 0) continue;
+            if (target->header.flags & SOF_Hide) continue;
+        }
 
         if (target->impactable.collInfo.selCircleRadius <= 0.0f) continue;
 
         if (target->header.flags & SOF_Dead) continue;
+
+        // CAT: a KAS derelict ship is out, except the big gun's units
+        if (bitTest(target->header.catFlags18, CAT_SHIPFLAG_KasDerelict) &&
+            (target->header.objtype != OBJ_ShipType || ((Ship *)target)->shiptype != dBigGunUnit)) continue;
 
         if (!selectAnything)
         {
@@ -214,20 +314,44 @@ void selRectDragFunction(Node *startNode, Camera *camera, rectangle *screenRect,
             {
                 if (playerSpecific)
                 {
+                    Ship *ship = (Ship *)target;
                     if (!(target->header.flags & SOF_Selectable)) continue;
                     // only own player should be able to select it
-                    if (((Ship *)target)->playerowner != universe.curPlayerPtr) continue;
+                    if (ship->playerowner != universe.curPlayerPtr)
+                    {
+                        // CAT: except an enemy mimic that poses as allied (not as a resource or derelict): it is
+                        //      selected and gives itself away (cat_shipSetDisableReason(ship, 1, 7))
+                        if (!bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic) ||
+                            cat_mimicAppearsAsResource(ship, universe.curPlayerPtr) ||
+                            cat_mimicAppearsAsDerelict(ship, universe.curPlayerPtr) ||
+                            !cat_mimicAppearsAlliedTo(ship, universe.curPlayerPtr)) continue;
+                        cat_shipSetDisableReason(ship, 1, 7);
+                    }
                 }
             }
             else if (target->header.objtype == OBJ_DerelictType)
             {
                 if (playerSpecific) continue;
             }
+            else if (target->header.objtype == OBJ_MissileType)
+            {   // CAT: a mine (not in mission 3's sensors manager before kasfShowMinesInSensors), not hidden by FOW
+                if (((Missile *)target)->missileType != MISSILE_Mine) continue;
+                if (singlePlayerGame && singlePlayerGameInfo.currentMission == 3 && smSensorsActive &&
+                    !catSmShowMines) continue;
+                if (playerSpecific) continue;
+                if (cat_selPositionHiddenByFOW(&target->obj.posinfo.position, FALSE)) continue;
+            }
             else continue;
         }
         if(target->header.objtype == OBJ_ShipType)     //later optimize if ONLY ships are cloaked!
         {
             Ship* ship = (Ship*)target;
+            // CAT: in the sensors manager an enemy ship (not a crystal, not dEcclesiamInfected) must be selectable
+            //      in the player's fog of war (cat_selShipSelectableInFOW)
+            if (smSensorsActive && !allianceArePlayersAllied(ship->playerowner, universe.curPlayerPtr) &&
+                !cat_shipIsCrystal(ship) && universe.curPlayerPtr->playerState != PLAYER_DEAD &&
+                universe.curPlayerPtr->catFOWGrid != NULL && ship->shiptype != dEcclesiamInfected &&
+                !cat_selShipSelectableInFOW(ship)) continue;
             // CAT: a fully cloaked enemy ship the player has not detected is skipped (selRectDragFunction 0x005053a0:
             //      cat_shipIsCloakedFully, sub_53F9F0); HW1 asked the proximity sensors
             if (cat_shipIsCloakedFully(ship) &&          // target is cloaked
@@ -235,24 +359,43 @@ void selRectDragFunction(Node *startNode, Camera *camera, rectangle *screenRect,
                 !cat_shipDetectedByPlayer(ship, universe.curPlayerPtr->playerIndex)) {
                 continue;
             }
+            // CAT: an enemy mimic posing as a resource or derelict only with selectAnything
+            if (ship->playerowner != universe.curPlayerPtr && bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic) &&
+                (cat_mimicAppearsAsResource(ship, universe.curPlayerPtr) ||
+                 cat_mimicAppearsAsDerelict(ship, universe.curPlayerPtr)) && !selectAnything) continue;
             if (bAttack && ship->staticinfo->cannotForceAttackIfOwnShip &&
                 (ship->playerowner == universe.curPlayerPtr)) {
                 // don't allow anysort of attacking of own cryotrays
                 continue;
             }
+            // CAT: not the big gun's units nor an untargetable ship when attacking
+            if (bAttack && (ship->shiptype == dBigGunUnit || cat_shipIsUntargetable(ship))) continue;
         }
         else if (target->header.objtype == OBJ_AsteroidType)
         {
-            if (playerSpecific) continue;
-
-            if (selectAnything || (bAttack && (target->obj.attributes & (ATTRIBUTES_KillerCollDamage|ATTRIBUTES_HeadShotKillerCollDamage))))
-            {
-                ;  // allow this target
-            }
-            else continue;
+            // CAT: only with selectAnything; HW1 also took killer-collision asteroids for an attack
+            if (playerSpecific || !selectAnything) continue;
         }
+        else if (target->header.objtype == OBJ_MissileType)
+        {
+            if (((Missile *)target)->missileType != MISSILE_Mine) continue;
+            if (singlePlayerGame && singlePlayerGameInfo.currentMission == 3 && smSensorsActive &&
+                !catSmShowMines) continue;
+            if (playerSpecific) continue;
+            if (smSensorsActive && cat_selPositionHiddenByFOW(&target->obj.posinfo.position, FALSE)) continue;
+        }
+        else continue;                                      // CAT: derelicts and the rest are not band-boxed
 
-
+        if (centrePoint)
+        {                                                   // CAT: the centre-point test
+            if (!(rect.x0 <= target->impactable.collInfo.selCircleX && target->impactable.collInfo.selCircleX <= rect.x1 &&
+                  rect.y0 <= target->impactable.collInfo.selCircleY && target->impactable.collInfo.selCircleY <= rect.y1))
+            {
+                continue;
+            }
+        }
+        else
+        {
         //here we do a test of the overlap of the selection rect
         //and a rectangle representing the target's selection sphere.
         selectRect.x0 = target->impactable.collInfo.selCircleX - target->impactable.collInfo.selCircleRadius - dragMargin;
@@ -288,18 +431,37 @@ void selRectDragFunction(Node *startNode, Camera *camera, rectangle *screenRect,
             areaUnion = ((unionRect.x1 - unionRect.x0) *
                                  (unionRect.y1 - unionRect.y0));
         }
-        if (areaUnion / areaTotal >= selBandBoxInsideIn)
-        {                                           //if enough of target inside selection box
-//            dbgAssertOrIgnore(*destCount < COMMAND_MAX_SHIPS);
-            if (*destCount < COMMAND_MAX_SHIPS)
+        if (areaUnion / areaTotal < selBandBoxInsideIn)
+        {
+            continue;
+        }
+        }
+        //if enough of target inside selection box (or its centre inside it)
+        if (*destCount < COMMAND_MAX_SHIPS)
+        {
+            // CAT: a component-class ship is its clamp host; a target already in the list is not added again
+            if (target->header.objtype == OBJ_ShipType && ((Ship *)target)->staticinfo->shipclass == CLASS_Component &&
+                ((Ship *)target)->guidance.clampInfo != NULL && ((Ship *)target)->guidance.clampInfo->host != NULL)
             {
-                destList[*destCount] = target;            //add it to selected list
-                (*destCount)++;
+                target = ((Ship *)target)->guidance.clampInfo->host;
             }
-            else
+            for (index = 0; index < *destCount; index++)
             {
-                dbgMessage("Warning: Tried to select too many ships");
+                if (destList[index] == target)
+                {
+                    break;
+                }
             }
+            if (index < *destCount)
+            {
+                continue;
+            }
+            destList[*destCount] = target;            //add it to selected list
+            (*destCount)++;
+        }
+        else
+        {
+            dbgMessage("Warning: Tried to select too many ships");
         }
     }
 }
@@ -310,17 +472,18 @@ void selRectDragFunction(Node *startNode, Camera *camera, rectangle *screenRect,
                     specified rectangle and camera.
     Inputs      : rect - rectangle in viewport space which the user is dragging.
                   camera - which viewport to select in
+                  centrePoint - CAT: passed to selRectDragFunction (0x00505cb0's fourth argument)
     Outputs     : Adds all ships in rectangle to current selection.
                   Also updates the selCentrePoint vector.
     Return      : void
 ----------------------------------------------------------------------------*/
-void selRectDragAddFunction(Node *startNode, Camera *camera, rectangle *rect)
+void selRectDragAddFunction(Node *startNode, Camera *camera, rectangle *rect, bool32 centrePoint)
 {
     sdword index, selectCount;
     MaxSelection selection;
 
     //do a selection into a temporary selection
-    selRectDragFunction(startNode, camera, rect, (SpaceObjRotImpTarg **)selection.ShipPtr, &selection.numShips, TRUE, FALSE, FALSE);
+    selRectDragFunction(startNode, camera, rect, (SpaceObjRotImpTarg **)selection.ShipPtr, &selection.numShips, TRUE, FALSE, FALSE, centrePoint);
     //see if we should be adding or removing these ships
     for (selectCount = index = 0; index < selection.numShips; index++)
     {
@@ -450,7 +613,9 @@ void selSelectionRemoveSingleShip(MaxSelection *dest, Ship *ship)
     Note        : A margin around each ship's selection sphere is added to
                     permit clicking very distant ships.
 ----------------------------------------------------------------------------*/
-Ship *selSelectionClick(Node *listHead, Camera *camera, sdword x, sdword y, bool32 bIncludeDerelicts, bool32 bIncludeResources)
+// CAT: selSelectionClick 0x00505ed0 has a seventh argument, pickNothing: when nonzero no object is picked (the exe
+//      tests it after the cloak test of every object; name chosen here). Positions round to the nearest pixel.
+Ship *selSelectionClick(Node *listHead, Camera *camera, sdword x, sdword y, bool32 bIncludeDerelicts, bool32 bIncludeResources, bool32 pickNothing)
 {
     Node *shipnode;
     Ship *ship;
@@ -473,7 +638,13 @@ Ship *selSelectionClick(Node *listHead, Camera *camera, sdword x, sdword y, bool
         ship = (Ship *)listGetStructOfNode(shipnode);
         if (ship->header.objtype == OBJ_ShipType)
         {
-            ;                                               // CAT: HW1 skipped its drones here; Cataclysm has none
+            // CAT: a selectable ship, or an untargetable one, a crystal or dEcclesiamInfected (HW1 took every ship
+            //      but its drones)
+            if (!bitTest(ship->header.flags, SOF_Selectable) && !cat_shipIsUntargetable(ship) &&
+                !cat_shipIsCrystal(ship) && ship->shiptype != dEcclesiamInfected)
+            {
+                goto nextship;
+            }
         }
         else if (bIncludeResources && (ship->header.objtype == OBJ_AsteroidType || ship->header.objtype == OBJ_DustType))
         {
@@ -496,6 +667,10 @@ Ship *selSelectionClick(Node *listHead, Camera *camera, sdword x, sdword y, bool
                 goto nextship;
             }
         }
+        if (pickNothing)
+        {
+            goto nextship;
+        }
         if ((ship->impactable.collInfo.selCircleRadius > 0) && ((ship->header.flags & SOF_Dead) == 0))   //and it is in front of the camera
         {
             //here we do a test of the overlap of the selection rect
@@ -515,9 +690,9 @@ Ship *selSelectionClick(Node *listHead, Camera *camera, sdword x, sdword y, bool
                     p3 = primPointLineIntersection(xReal, yReal, point[pIndex[base + 3]].x, point[pIndex[base + 3]].y, point[pIndex[base + 0]].x, point[pIndex[base + 0]].y);
                     if (p0 > 0.0f && p1 > 0.0f && p2 > 0.0f && p3 > 0.0f)
                     {                                       //if point inside this poly
-                        distance = ABS(primGLToScreenX(ship->impactable.collInfo.selCircleX) - x) +
-                            ABS(primGLToScreenY(ship->impactable.collInfo.selCircleY) - y) +
-                            primGLToScreenScaleX(ship->impactable.collInfo.selCircleDepth);
+                        distance = ABS(catSelScreenX(ship->impactable.collInfo.selCircleX) - x) +
+                            ABS(catSelScreenY(ship->impactable.collInfo.selCircleY) - y) +
+                            catSelScreenScaleX(ship->impactable.collInfo.selCircleDepth);
                         if (distance < closestDistance)
                         {
                             closestDistance = distance;
@@ -529,18 +704,18 @@ Ship *selSelectionClick(Node *listHead, Camera *camera, sdword x, sdword y, bool
             }
             else
             {
-                selectRect.x0 = primGLToScreenX(ship->impactable.collInfo.selCircleX - ship->impactable.collInfo.selCircleRadius) - selClickMargin;
-                selectRect.x1 = primGLToScreenX(ship->impactable.collInfo.selCircleX + ship->impactable.collInfo.selCircleRadius) + selClickMargin;
-                selectRect.y0 = primGLToScreenY(ship->impactable.collInfo.selCircleY + ship->impactable.collInfo.selCircleRadius) - selClickMargin;
-                selectRect.y1 = primGLToScreenY(ship->impactable.collInfo.selCircleY - ship->impactable.collInfo.selCircleRadius) + selClickMargin;
+                selectRect.x0 = catSelScreenX(ship->impactable.collInfo.selCircleX - ship->impactable.collInfo.selCircleRadius) - selClickMargin;
+                selectRect.x1 = catSelScreenX(ship->impactable.collInfo.selCircleX + ship->impactable.collInfo.selCircleRadius) + selClickMargin;
+                selectRect.y0 = catSelScreenY(ship->impactable.collInfo.selCircleY + ship->impactable.collInfo.selCircleRadius) - selClickMargin;
+                selectRect.y1 = catSelScreenY(ship->impactable.collInfo.selCircleY - ship->impactable.collInfo.selCircleRadius) + selClickMargin;
 
                 //note that this is a rectangular intersection test
                 if ((selectRect.x0 <= x) && (x <= selectRect.x1) &&
                     (selectRect.y0 <= y) && (y <= selectRect.y1))
                 {                                           //found a matching object, return
-                    distance = ABS(primGLToScreenX(ship->impactable.collInfo.selCircleX) - x) +
-                        ABS(primGLToScreenY(ship->impactable.collInfo.selCircleY) - y) +
-                            primGLToScreenScaleX(ship->impactable.collInfo.selCircleDepth);
+                    distance = ABS(catSelScreenX(ship->impactable.collInfo.selCircleX) - x) +
+                        ABS(catSelScreenY(ship->impactable.collInfo.selCircleY) - y) +
+                            catSelScreenScaleX(ship->impactable.collInfo.selCircleDepth);
                     if (distance < closestDistance)
                     {
                         closestDistance = distance;
@@ -550,10 +725,22 @@ Ship *selSelectionClick(Node *listHead, Camera *camera, sdword x, sdword y, bool
                 }
             }
         }
+        else if (catSelScreenX(ship->impactable.collInfo.selCircleX) == mouseCursorXPosition &&
+                 catSelScreenY(ship->impactable.collInfo.selCircleY) == mouseCursorYPosition)
+        {   // CAT: a zero-radius (or dead) object right under the cursor pixel is taken, at the best distance so far
+            closestShip = ship;
+        }
 nextship:
         shipnode = shipnode->next;
     }
 
+    // CAT: a component-class ship picks its clamp host (selSelectionClick 0x00505ed0)
+    if (closestShip != NULL && closestShip->header.objtype == OBJ_ShipType &&
+        closestShip->staticinfo->shipclass == CLASS_Component && closestShip->guidance.clampInfo != NULL &&
+        closestShip->guidance.clampInfo->host != NULL)
+    {
+        return (Ship *)closestShip->guidance.clampInfo->host;
+    }
     return(closestShip);
 }
 
@@ -1112,686 +1299,465 @@ void selSelectionDraw5(Ship *ship)      // PLEASE DON'T COMMENT THIS FUNCTION OU
 }
 #endif
 
-//lod0: health/fuel with outline and hollow centre
+/*-----------------------------------------------------------------------------
+    CAT: the Cataclysm status bars (M2-R5 hud). selStatusDraw0-4 are thin wrappers over cat_selStatusRectCompute
+    0x00507390 and cat_selStatusBarsDraw 0x00507bc0: one row per bar (health, the ACV EMP charge, resources, the Beast
+    weapon, the Dreadnought cannon, the big gun, the cloak charge, the gravwell, the Sentinel field, the upgrade in
+    progress), then the upgrade-pending dot, the disabled icon, the stealth-detect dots, the experience stars, the
+    hot-key number and the ammo / docked count. HW1's per-LOD bodies (health/fuel bars, the "C" cloak letter) are gone.
+----------------------------------------------------------------------------*/
+// CAT: the bar geometry (exe data, not script-adjustable: no script table refers to them)
+static real32 catSelBarWidthFactor = 1.6f;          // 0x00892ab8: bar width over the selection radius in pixels
+static real32 catSelBarHeightFactor = 0.03125f;     // 0x00892abc: bar height over the selection radius in pixels
+static real32 catSelBarMinWidth = 8.0f;             // 0x00892a08
+static real32 catSelBarMinHeight = 2.0f;            // 0x00892a10
+static sdword catSelBarXOffset = -2;                // 0x00892ac0
+static sdword catSelBarWidthAdd = 4;                // 0x00892ac4
+static real32 catSelBarSpacing = 0.0f;              // 0x00a57948: the gap between rows (bss, never written by the exe)
+static real32 catSelUpgradePulsePeriod = 0.5f;      // 0x008929fc
+static real32 catSelUpgradePulseStart = 0.0f;       // 0x00a5794c
+static sdword catSelIconsSizeFactor = 2;            // 0x0072b0b4: experience-star size over the bar height
+// CAT: the bar colours (exe constants)
+static color catSelEMPColor = 0xfffc2732, catSelEMPDarkColor = 0xff9d020a;                 // 0x0072b098 / 0x0072b09c
+static color catSelBeastColor = 0xffff28ff, catSelBeastDarkColor = 0xff640a64;             // 0x0072b090 / 0x0072b094
+static color catSelDreadnoughtColor = 0xff3f8afc, catSelDreadnoughtDarkColor = 0xff0457d5; // 0x00892a18 / 0x00892a1c
+static color catSelBigGunColor = 0xfffc2732, catSelBigGunDarkColor = 0xff7f020a;           // 0x0072b0a0 / 0x0072b0a4
+static color catSelSentinelColor = 0xffff0000, catSelSentinelDarkColor = 0xffa00000;       // 0x0072b0b8 / 0x0072b0bc
+static color catSelUpgradingColor = 0xffb5fdfa, catSelUpgradingDarkColor = 0xff047d77;     // 0x0072b0a8 / 0x0072b0ac
+static color catSelUpgradePendingColor0 = 0xff00ffff, catSelUpgradePendingColor1 = 0x000000ff; // 0x0072b074 / 0x0072b078
+static color catSelDetectedColor = 0xff0000ff, catSelUndetectedColor = 0xff00ff00;        // 0x0072b080 / 0x0072b084
+
+// CAT: cat_selStatusRectCompute 0x00507390: the rectangle of a ship's top bar (x0 / x1 / y0 / y1, one bar high)
+void cat_selStatusRectCompute(Ship *ship, sdword lod, rectangle *rect)
+{
+    sdword x, y, halfWidth, height;
+    real32 radius, pixels, width, fheight;
+
+    (void)lod;
+    x = catSelScreenX(ship->impactable.collInfo.selCircleX);
+    y = catSelScreenY(ship->impactable.collInfo.selCircleY);
+    radius = (ship->impactable.collInfo.selCircleRadius > selMinSelectionRadius) ?
+             ship->impactable.collInfo.selCircleRadius : selMinSelectionRadius;
+    pixels = (real32)catSelScreenScaleX(radius);
+    width = catSelBarWidthFactor * pixels;
+    fheight = catSelBarHeightFactor * pixels;
+    if (width < catSelBarMinWidth)
+    {
+        width = catSelBarMinWidth;
+    }
+    if (fheight < catSelBarMinHeight)
+    {
+        fheight = catSelBarMinHeight;
+    }
+    halfWidth = (sdword)(width * 0.5f);
+    rect->x0 = catSelBarXOffset - halfWidth + x + 1;
+    height = (sdword)fheight;
+    rect->y0 = y - (sdword)(pixels + (real32)height);
+    rect->x1 = (sdword)(width - (fheight + fheight)) + rect->x0 + catSelBarWidthAdd;
+    rect->y1 = rect->y0 + height;
+}
+
+// CAT: cat_selStatusBarDraw 0x00507a10: one bar in row <row> under the top bar: the filled part and the backdrop
+void cat_selStatusBarDraw(Ship *ship, sdword lod, sdword row, real32 *factor, color *c, color *dark)
+{
+    rectangle rect, full, empty;
+    real32 f = *factor;
+    sdword split, offset;
+
+    if (f < 0.0f)
+    {
+        f = 0.0f;
+    }
+    else if (f > 1.0f)
+    {
+        f = 1.0f;
+    }
+    cat_selStatusRectCompute(ship, lod, &rect);
+    catHudCounts.bars++;                                    // CAT: port diagnostic (the HUD self-test)
+    // the exe multiplies on the x87 stack (fild (x1 - x0), fmul factor, __ftol at 0x00507a8e..0x00507a96): the product
+    //      is not rounded to float first [audit: was a float product]
+    split = (sdword)((double)(rect.x1 - rect.x0) * (double)f) + rect.x0;
+    offset = (sdword)(((real32)(rect.y1 - rect.y0) + catSelBarSpacing) * (real32)row);
+    full.x0 = rect.x0;
+    full.x1 = split;
+    full.y0 = rect.y0 + offset;
+    full.y1 = rect.y1 + offset;
+    empty.x0 = split;
+    empty.x1 = rect.x1;
+    empty.y0 = full.y0;
+    empty.y1 = full.y1;
+    primRectSolid2(&full, *c);
+    primRectSolid2(&empty, *dark);
+}
+
+// CAT: cat_selHealthColorsGet 0x00507b00
+void cat_selHealthColorsGet(real32 *factor, color *c, color *dark)
+{
+    if (*factor > selShipHealthGreenFactor)
+    {
+        *c = selShipHealthGreen;
+        *dark = selShipHealthDarkGreen;
+    }
+    else if (*factor > selShipHealthYellowFactor)
+    {
+        *c = selShipHealthYellow;
+        *dark = selShipHealthDarkYellow;
+    }
+    else
+    {
+        *c = selShipHealthRed;
+        *dark = selShipHealthDarkRed;
+    }
+}
+
+// CAT: cat_selHealthFactorGet 0x00507b70: health over the maximum, clamped to [0, 1]
+void cat_selHealthFactorGet(Ship *ship, real32 *factor)
+{
+    *factor = ship->staticinfo->health.oneOverMaxHealth * ship->targetable.health;
+    if (*factor < 0.0f)
+    {
+        *factor = 0.0f;
+    }
+    else if (*factor > 1.0f)
+    {
+        *factor = 1.0f;
+    }
+}
+
+// CAT: cat_selStatusUpgradePendingDraw 0x005074f0: a pulsing dot right of the bars while an allied ship has an
+//      upgrade waiting (weapon, armour or a pending flag)
+void cat_selStatusUpgradePendingDraw(Ship *ship, sdword lod)
+{
+    rectangle rect;
+    bool32 weapons[NUM_WEAPON_TYPES];
+    sdword rad;
+    real32 t;
+
+    if (!allianceIsShipAlly(ship, universe.curPlayerPtr))
+    {
+        return;
+    }
+    if (!cat_shipGetPendingWeaponUpgrades(ship, weapons) && !cat_shipCanUpgradeArmour(ship) &&
+        cat_shipGetPendingUpgradeFlags(ship) == 0)
+    {
+        return;
+    }
+    cat_selStatusRectCompute(ship, lod, &rect);
+    rad = (rect.y1 - rect.y0) / 2;
+    if (cat_taskRealTimeElapsed > catSelUpgradePulsePeriod + catSelUpgradePulseStart ||
+        cat_taskRealTimeElapsed < catSelUpgradePulseStart)
+    {
+        catSelUpgradePulseStart = cat_taskRealTimeElapsed;
+    }
+    t = (cat_taskRealTimeElapsed - catSelUpgradePulseStart) / catSelUpgradePulsePeriod;
+    if (t > 0.5f)
+    {
+        t = (real32)(((double)t - 1.0) * -2.0);
+    }
+    else
+    {
+        t = t + t;
+    }
+    t = (t > 0.5f) ? 1.0f : t + t;
+    cat_primCircleSolidBlend2((rect.y1 - rect.y0) + rect.x1, rad + rect.y0, rad, 20,
+                              cat_colBlendRGBA(catSelUpgradePendingColor0, catSelUpgradePendingColor1, t));
+}
+
+// CAT: cat_selStatusIconsDraw 0x00507630: one experience star per level (Ship.catExperienceLevel, +0x5F8) above the
+//      bars
+void cat_selStatusIconsDraw(Ship *ship, sdword lod)
+{
+    rectangle rect;
+    sdword size, x, y, index;
+
+    cat_selStatusRectCompute(ship, lod, &rect);
+    size = (rect.y1 - rect.y0) * catSelIconsSizeFactor;
+    y = rect.y0 - size;
+    x = rect.x0;
+    for (index = 0; index < ship->catExperienceLevel; index++)
+    {
+        cat_overlayIconDraw(CAT_OI_ExpStar, y, x, size, size, 0xffffffff);
+        x += size;
+    }
+}
+
+// CAT: cat_selStatusHotKeyDraw 0x005076a0: the hot-key group number right of the top bar, in the LOD's font
+void cat_selStatusHotKeyDraw(Ship *ship, sdword lod)
+{
+    rectangle rect;
+    fonthandle font;
+
+    if (selAnyHotKeyTest(ship))
+    {
+        cat_selStatusRectCompute(ship, lod, &rect);
+        font = (lod == 0) ? selGroupFont0 : (lod == 1) ? selGroupFont1 : (lod == 2) ? selGroupFont2 : selGroupFont3;
+        fontMakeCurrent(font);
+        fontPrint(rect.x1, rect.y0 - fontHeight(" "), selHotKeyNumberColor,
+                  selHotKeyString[selHotKeyGroupNumberTest(ship)]);
+    }
+}
+
+// CAT: cat_selStatusAmmoCountDraw 0x00507740: under the last bar, the missiles left (sDreadnought, sDestroyer,
+//      tMissileDestroyer, tMinelayerCorvette, a linkable Acolyte), a hive's swarmers or the docked ship counts
+void cat_selStatusAmmoCountDraw(Ship *ship, sdword lod, sdword barIndex)
+{
+    rectangle rect;
+    sdword count, index, y;
+
+    if (lod > 2)
+    {
+        return;
+    }
+    if (ship->shiptype == sDreadnought || ship->shiptype == sDestroyer || ship->shiptype == tMissileDestroyer ||
+        ship->shiptype == tMinelayerCorvette || cat_acolyteCanLink(ship))
+    {
+        // the exe starts the count at -1 ("none") and adds every missile / mine launcher's missiles to it
+        count = -1;
+        for (index = 0; index < ship->gunInfo->numGuns; index++)
+        {
+            GunStatic *gunstatic = &ship->staticinfo->gunStaticInfo->gunstatics[index];
+            if (gunstatic->guntype == GUN_MissileLauncher || gunstatic->guntype == GUN_MineLauncher)
+            {
+                count += ship->gunInfo->guns[index].numMissiles;
+            }
+        }
+        if (cat_acolyteCanLink(ship))
+        {
+            count = cat_acolyteCanLinkFire(ship);
+            if (count == 0)
+            {
+                count = -1;
+            }
+        }
+        fontMakeCurrent(selDefaultFont);
+        if (count != -1)
+        {
+            cat_selStatusRectCompute(ship, lod, &rect);
+            fontPrintf(rect.x0, (rect.y1 - rect.y0) * (barIndex - 1) + rect.y1, selHotKeyNumberColor,
+                       strGetString(strMissilesLeft), count);
+        }
+    }
+    else if (ship->shipsInsideMe != NULL)
+    {
+        fontMakeCurrent(selDefaultFont);
+        cat_selStatusRectCompute(ship, lod, &rect);
+        y = (rect.y1 - rect.y0) * (barIndex - 1) + rect.y1;
+        if (ship->shiptype == sHiveFrigate || ship->shiptype == bHiveFrigate)
+        {
+            fontPrintf(rect.x0, y, selHotKeyNumberColor, strGetString(strSwarmersInside),
+                       ((HiveFrigateSpec *)ship->ShipSpecifics)->numSwarmers);
+            return;
+        }
+        fontPrintf(rect.x0, y, selHotKeyNumberColor, strGetString(strFightersCorvettesDocked),
+                   (sdword)ship->shipsInsideMe->FightersInsideme, (sdword)ship->shipsInsideMe->CorvettesInsideme);
+        if (tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
+        {
+            tutPointerShipHealthRect->y1 += 5;
+        }
+    }
+}
+
+// CAT: cat_selStatusStealthDetectDraw 0x00507920: for an allied stealth-capable type (ShipStaticInfo +0x1EC bit
+//      0x20000), one dot per player under the bars: red where that player has detected it, green where not
+void cat_selStatusStealthDetectDraw(Ship *ship, sdword lod)
+{
+    rectangle rect;
+    sdword rad, x, index;
+    color c;
+
+    if ((ship->staticinfo->catTypeFlags & CAT_TYPEFLAG_Stealth) == 0 ||
+        !allianceIsShipAlly(ship, universe.curPlayerPtr))
+    {
+        return;
+    }
+    cat_selStatusRectCompute(ship, lod, &rect);
+    rad = (rect.y1 - rect.y0) / 2;
+    x = rad + rect.x0;
+    for (index = 0; index < universe.numPlayers; index++)
+    {
+        c = catSelDetectedColor;
+        if (allianceArePlayersAllied(ship->playerowner, &universe.players[index]) ||
+            !cat_shipDetectedByPlayer(ship, index))
+        {
+            c = catSelUndetectedColor;
+        }
+        primCircleSolid2(x, rad + 2 + rect.y1, rad, 20, c);
+        x += rad * 2;
+    }
+}
+
+// CAT: cat_selStatusBarsDraw 0x00507bc0: the rows of a ship's status bars (see the block comment above)
+void cat_selStatusBarsDraw(Ship *ship, sdword lod)
+{
+    real32 factor;
+    color c, dark;
+    sdword row;
+    rectangle rect;
+
+    catHudCounts.statusBars++;                              // CAT: port diagnostic (the HUD self-test)
+    cat_selHealthFactorGet(ship, &factor);
+    cat_selHealthColorsGet(&factor, &c, &dark);
+    cat_selStatusBarDraw(ship, lod, 0, &factor, &c, &dark);
+    row = 1;
+    if ((ship->shiptype == sACV || ship->shiptype == bACV) && cat_shipHasUpgrade(ship, CAT_UPGRADE_ACVEMP))
+    {
+        factor = cat_acvEMPChargeFraction(ship);
+        cat_selStatusBarDraw(ship, lod, 1, &factor, &catSelEMPColor, &catSelEMPDarkColor);
+        row = 2;
+    }
+    if (ship->staticinfo->maxresources != 0)
+    {
+        factor = (real32)ship->resources / (real32)ship->staticinfo->maxresources;
+        cat_selStatusBarDraw(ship, lod, row, &factor, &selShipResourceColor, &selShipDarkResourceColor);
+        row++;
+    }
+    if (cat_shipCanUseBeastWeapon(ship))
+    {
+        factor = cat_beastWeaponChargeFraction(ship);
+        cat_selStatusBarDraw(ship, lod, row, &factor, &catSelBeastColor, &catSelBeastDarkColor);
+        row++;
+    }
+    if (cat_dreadnoughtHasCannonUpgrade(ship))
+    {
+        factor = cat_dreadnoughtChargeFraction(ship);
+        cat_selStatusBarDraw(ship, lod, row, &factor, &catSelDreadnoughtColor, &catSelDreadnoughtDarkColor);
+        row++;
+    }
+    if (cat_mothershipHasBigGunModule(ship))
+    {
+        factor = cat_bigGunChargeFraction(ship);
+        cat_selStatusBarDraw(ship, lod, row, &factor, &catSelBigGunColor, &catSelBigGunDarkColor);
+        row++;
+    }
+    if (bitTest(ship->header.flags, SOF_CatCloakDevice))
+    {
+        factor = cat_cloakGetChargeFraction(ship);
+        cat_selStatusBarDraw(ship, lod, row, &factor, &selShipResourceColor, &selShipDarkResourceColor);
+        row++;
+    }
+    if (ship->shiptype == kGravWellGenerator || ship->shiptype == tGravWellGenerator)
+    {
+        real32 operationTime = ((GravWellGeneratorStatics *)ship->staticinfo->custstatinfo)->OperationTime;
+        factor = (operationTime - ((GravWellGeneratorSpec *)ship->ShipSpecifics)->TimeOn) / operationTime;
+        cat_selStatusBarDraw(ship, lod, row, &factor, &selShipResourceColor, &selShipDarkResourceColor);
+        row++;
+    }
+    if (ship->shiptype == sSentinel || ship->shiptype == bSentinel)
+    {
+        factor = cat_sentinelFieldChargeFraction((SentinelSpec *)ship->ShipSpecifics);
+        if (factor > 1.0f)
+        {
+            factor = 1.0f;
+        }
+        else if (factor < 0.0f)
+        {
+            factor = 0.0f;
+        }
+        cat_selStatusBarDraw(ship, lod, row, &factor, &catSelSentinelColor, &catSelSentinelDarkColor);
+        row++;
+    }
+    if (ship->catUpgrading)
+    {
+        factor = (universe.totaltimeelapsed - ship->catUpgradeStart) / (ship->catUpgradeEnd - ship->catUpgradeStart);
+        cat_selStatusBarDraw(ship, lod, row, &factor, &catSelUpgradingColor, &catSelUpgradingDarkColor);
+        row++;
+    }
+    cat_selStatusUpgradePendingDraw(ship, lod);
+    if (ship->shipOrDerelict.catDisabled && allianceIsShipAlly(ship, universe.curPlayerPtr))
+    {                                                       // the disabled icon left of the bars, three bars high
+        sdword size;
+        cat_selStatusRectCompute(ship, lod, &rect);
+        size = (rect.y1 - rect.y0) * 3;
+        cat_overlayIconDraw(CAT_OI_X, rect.y0, rect.x0 - size - 1, size, size, 0xffffffff);
+    }
+    cat_selStatusStealthDetectDraw(ship, lod);
+    cat_selStatusIconsDraw(ship, lod);
+    cat_selStatusHotKeyDraw(ship, lod);
+    cat_selStatusAmmoCountDraw(ship, lod, row);
+}
+
+// CAT: the tutorial pointer rectangles of selStatusDraw0-4 (the exe keeps HW1's, sized from the old bar geometry)
+static void catSelStatusTutorialRects(Ship *ship, sdword lod, sdword grow, bool32 groupRect)
+{
+    rectangle rect;
+    sdword x, halfWidth;
+    real32 radius;
+
+    cat_selStatusRectCompute(ship, lod, &rect);
+    x = catSelScreenX(ship->impactable.collInfo.selCircleX);
+    radius = (ship->impactable.collInfo.selCircleRadius > selMinSelectionRadius) ?
+             ship->impactable.collInfo.selCircleRadius : selMinSelectionRadius;
+    halfWidth = catSelRound(selSelectionWidthFactor0 * radius * (real32)MAIN_WindowWidth * 0.5f);
+    cat_selStatusBarsDraw(ship, lod);
+    if (tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
+    {
+        tutPointerShipHealthRect->x0 = x - halfWidth - 2;
+        tutPointerShipHealthRect->x1 = halfWidth + 2 + x;
+        tutPointerShipHealthRect->y0 = rect.y0 - 2;
+        tutPointerShipHealthRect->y1 = rect.y1 + 2;
+    }
+#define CAT_SEL_TUT_GROW()                                                                          \
+    if (groupRect) { if (tutorial && tutPointerShip == ship && tutPointerShipGroupRect) tutPointerShipGroupRect->y1 += grow; } \
+    else { if (tutorial && tutPointerShip == ship && tutPointerShipHealthRect) tutPointerShipHealthRect->y1 += grow; }
+    if ((real32)ship->staticinfo->maxresources != 0.0f)
+    {
+        CAT_SEL_TUT_GROW();
+    }
+    if (ship->shiptype == kCloakGenerator || ship->shiptype == tCloakGenerator ||
+        ship->shiptype == kGravWellGenerator || ship->shiptype == tGravWellGenerator)
+    {
+        CAT_SEL_TUT_GROW();
+    }
+    else if (bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_CatSalvager))
+    {
+        (void)cat_salvageGetSalvagerInfo(ship);             // the exe still calls it and drops the result (HW1's
+    }                                                       // salvage-capture bar is gone)
+#undef CAT_SEL_TUT_GROW
+}
+
+// CAT: selStatusDraw0 0x00507f10 / selStatusDraw1 0x005080f0 / selStatusDraw2 0x005082c0: the bars at LOD 0-2
 void selStatusDraw0(Ship *ship)
 {
-    real32 radius, factor;
-    //sdword health, maxHealth;
-    real32 fuel, maxFuel;
-    sdword x, y, halfWidth;
-    rectangle rect;
-    color healthColor, healthDarkColor, fuelColor, fuelDarkColor, cloakcolor, cloakdarkcolor, gravcolor,gravdarkcolor;
-    sdword resources, maxResources;
-    sdword missilecount = 0;        //keeps track of missiles in missile bearing ships...
-    sdword numGuns;                 //used for missile count
-    sdword i;                       //counter
-    udword cloaktime,maxcloaktime,gravtime,maxgravtime,maxTechTime,techtime;
-
-    x = primGLToScreenX(ship->impactable.collInfo.selCircleX);
-    y = primGLToScreenY(ship->impactable.collInfo.selCircleY);
-    radius = max(ship->impactable.collInfo.selCircleRadius, selMinSelectionRadius);//radius of selection circle
-    halfWidth = primGLToScreenScaleX(radius * selSelectionWidthFactor0);//width of bars
-    //health = (sdword) ship->targetable.health;                                  //get ship health color and size
-    //maxHealth = (sdword) ship->staticinfo->health.maxhealth;
-    //factor = (real32)health / (real32)maxHealthmaxHealth;            //amount percentage of full health
-    factor = ship->targetable.health * ship->staticinfo->health.oneOverMaxHealth;
-
-    if (factor > selShipHealthGreenFactor)
-    {
-        healthColor = selShipHealthGreen;
-        healthDarkColor = selShipHealthDarkGreen;
-    }
-    else if (factor > selShipHealthYellowFactor)
-    {
-        healthColor = selShipHealthYellow;
-        healthDarkColor = selShipHealthDarkYellow;
-    }
-    else
-    {
-        healthColor = selShipHealthRed;
-        healthDarkColor = selShipHealthDarkRed;
-    }
-    //draw contents of health
-    rect.x0 = x - halfWidth;
-    rect.y0 = y - primGLToScreenScaleX(radius);
-    rect.x1 = rect.x0 + ((sdword) ((halfWidth * 2) * factor));
-    rect.y1 = rect.y0 + 4;
-    primRectSolid2(&rect, healthColor);
-    //draw backdrop of health
-    rect.x0 = rect.x1;
-    rect.x1 = x + halfWidth;
-    primRectSolid2(&rect, healthDarkColor);
-
-    if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-    {
-        tutPointerShipHealthRect->x0 = x - halfWidth - 2;
-        tutPointerShipHealthRect->x1 = x + halfWidth + 2;
-        tutPointerShipHealthRect->y0 = rect.y0 - 2;
-        tutPointerShipHealthRect->y1 = rect.y1 + 2;
-    }
-
-    if (selAnyHotKeyTest(ship))
-    {                                                       //if member of a hot-key group
-        fontMakeCurrent(selGroupFont0);
-        fontPrint(rect.x1, rect.y1 + 5 - fontHeight(" "), selHotKeyNumberColor,
-                  selHotKeyString[selHotKeyGroupNumberTest(ship)]);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipGroupRect)
-        {
-            tutPointerShipGroupRect->x0 = rect.x1 - 2;
-            tutPointerShipGroupRect->x1 = rect.x1 + 2 + fontWidth(" ");
-            tutPointerShipGroupRect->y0 = rect.y1 + 5 - fontHeight(" ") - 2;
-            tutPointerShipGroupRect->y1 = rect.y1 + 5 + 2;
-        }
-    }
-    //Add cloaking Status if ship is for some reason cloaked...
-    if(bitTest(ship->header.flags,SOF_Cloaked))    //if the ship is cloaked
-    {
-        fontMakeCurrent(selGroupFont0);
-        fontPrint(x - halfWidth - fontWidth("C") - 1, rect.y1 + 5 - fontHeight(" "), selHotKeyNumberColor, "C");
-    }
-    // CAT: the exe counts missiles for sDreadnought, sDestroyer, tMissileDestroyer, tMinelayerCorvette (and linked
-    //      Acolytes, with the status-bar port): cat_selStatusAmmoCountDraw 0x00507740, types 10, 0x19, 0x55, 0x54
-    if((ship->shiptype == sDreadnought) || (ship->shiptype == sDestroyer) ||
-       (ship->shiptype == tMissileDestroyer) || (ship->shiptype == tMinelayerCorvette))      //ship has missles, so display missile status
-    {
-        GunStatic *gunstatic;
-        numGuns = ship->gunInfo->numGuns;
-        for (i=0;i < numGuns;i++)
-        {
-            //gunstatic = ship->staticinfo->gunStaticInfo->gunstatics[i];
-            gunstatic = &ship->staticinfo->gunStaticInfo->gunstatics[i];
-            if (gunstatic->guntype == GUN_MissileLauncher || gunstatic->guntype == GUN_MineLauncher)
-            {
-                Gun *gun;
-                gun = &ship->gunInfo->guns[i];
-                missilecount += gun->numMissiles;
-            }
-        }
-        fontMakeCurrent(selGroupFont0);
-        fontPrintf(x - halfWidth , rect.y1 + 5, selHotKeyNumberColor, "%d", missilecount);
-    }
-
-    maxFuel = ship->staticinfo->maxfuel;
-    maxResources = ship->staticinfo->maxresources;
-    if (maxFuel != 0.0f)
-    {                                                       //if ship has any fuel
-        fuel = ship->fuel;
-        if (fuel / maxFuel >= selFuelGreenFactor)
-        {
-            fuelColor = selFuelColorGreen;
-            fuelDarkColor = selFuelColorDarkGreen;
-        }
-        else
-        {
-            fuelColor = selFuelColorRed;
-            fuelDarkColor = selFuelColorDarkRed;
-        }
-        //draw inside of fuel
-        rect.x0 = x - halfWidth;
-        rect.y0 += 5;
-        rect.y1 += 5;
-        rect.x1 = rect.x0 + (halfWidth * 2) * (sdword)fuel / (sdword)maxFuel;
-        primRectSolid2(&rect, fuelColor);
-        //draw backdrop of fuel
-        rect.x0 = rect.x1;
-        rect.x1 = x + halfWidth;
-        primRectSolid2(&rect, fuelDarkColor);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-            tutPointerShipHealthRect->y1 += 5;
-    }
-    else if (maxResources != 0.0f)
-    {                                                       //if ship has any resources
-        resources = ship->resources;
-        //draw inside of resources
-        rect.x0 = x - halfWidth;
-        rect.y0 += 5;
-        rect.y1 += 5;
-        rect.x1 = rect.x0 + (halfWidth * 2) * resources / maxResources;
-        primRectSolid2(&rect, selShipResourceColor);
-        //draw backdrop of resources
-        rect.x0 = rect.x1;
-        rect.x1 = x + halfWidth;
-        primRectSolid2(&rect, selShipDarkResourceColor);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-            tutPointerShipHealthRect->y1 += 5;
-    }
-
-    // CAT: no cloak-generator bar: k/tCloakGenerator run on DefaultShipHeader, and the exe draws a cloak
-    //      charge only for SOF_CatCloakDevice ships (cat_selStatusBarsDraw 0x00507bc0, ported with the
-    //      status bars). The gravwell bar is the exe's for k/tGravWellGenerator (types 0x40/0x4f:
-    //      OperationTime at custstatinfo+8, TimeOn at specifics+0x14, as HW1's structs)
-    if((ship->shiptype == kGravWellGenerator) || (ship->shiptype == tGravWellGenerator))
-    {   //if ship is a cloakgenerator, draw cloak status...
-        maxgravtime = (long ) ((GravWellGeneratorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->OperationTime;
-        gravtime = (long ) (maxgravtime - ((GravWellGeneratorSpec *)ship->ShipSpecifics)->TimeOn);
-        //draw inside of cloak time
-        rect.x0 = x - halfWidth;
-        rect.y0 += 5;
-        rect.y1 += 5;
-        rect.x1 = rect.x0 + (halfWidth * 2) * gravtime / maxgravtime;
-        gravcolor =   selShipResourceColor;
-        gravdarkcolor = selShipDarkResourceColor;
-
-        primRectSolid2(&rect, gravcolor);
-        //draw backdrop of cloaking time
-        rect.x0 = rect.x1;
-        rect.x1 = x + halfWidth;
-        primRectSolid2(&rect, gravdarkcolor);    //get better colors later...
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-            tutPointerShipHealthRect->y1 += 5;
-    }
-    // CAT: no salvage-capture tech bar (the exe's status bars draw none; cat_selStatusBarsDraw 0x00507bc0)
-    else if (ship->shipsInsideMe != NULL)                  // CAT: HW1 excluded its DDD frigate (none in Cataclysm)
-    {                                                       //print number of docked ships
-        fontMakeCurrent(selGroupFont3);
-        fontPrintf(x - halfWidth - 1, rect.y1 + 4, selHotKeyNumberColor,
-                   strGetString(strFightersCorvettesDocked), ship->shipsInsideMe->FightersInsideme,
-                   ship->shipsInsideMe->CorvettesInsideme);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-            tutPointerShipHealthRect->y1 += 5;
-    }
+    catSelStatusTutorialRects(ship, 0, 5, FALSE);
 }
-//lod1: 4-pixel health/fuel bar
 void selStatusDraw1(Ship *ship)
 {
-    real32 radius, factor;
-    //sdword health, maxHealth;
-    real32 fuel, maxFuel;
-    sdword x, y, halfWidth;
-    rectangle rect;
-    color healthColor, healthDarkColor, fuelColor, fuelDarkColor, cloakcolor, cloakdarkcolor,gravcolor,gravdarkcolor;
-    sdword resources, maxResources;
-    sdword missilecount = 0;        //keeps track of missiles in missile bearing ships...
-    sdword numGuns;                 //used for missile count
-    sdword i;                       //counter
-    udword maxcloaktime, cloaktime,maxTechTime,techtime;
-
-    x = primGLToScreenX(ship->impactable.collInfo.selCircleX);
-    y = primGLToScreenY(ship->impactable.collInfo.selCircleY);
-    radius = max(ship->impactable.collInfo.selCircleRadius, selMinSelectionRadius);//radius of selection circle
-    halfWidth = primGLToScreenScaleX(radius * selSelectionWidthFactor0);//width of bars
-    //health = (sdword) ship->targetable.health;                                  //get ship health color and size
-    //maxHealth = (sdword) ship->staticinfo->health.maxhealth;
-    //factor = (real32)health / (real32)maxHealth;            //amount percentage of full health
-    factor = ship->targetable.health * ship->staticinfo->health.oneOverMaxHealth;
-    if (factor > selShipHealthGreenFactor)
-    {
-        healthColor = selShipHealthGreen;
-        healthDarkColor = selShipHealthDarkGreen;
-    }
-    else if (factor > selShipHealthYellowFactor)
-    {
-        healthColor = selShipHealthYellow;
-        healthDarkColor = selShipHealthDarkYellow;
-    }
-    else
-    {
-        healthColor = selShipHealthRed;
-        healthDarkColor = selShipHealthDarkRed;
-    }
-    //draw contents of health
-    rect.x0 = x - halfWidth;
-    rect.y0 = y - primGLToScreenScaleX(radius);
-    rect.x1 = rect.x0 + ((sdword) (halfWidth * 2 * factor));
-    rect.y1 = rect.y0 + 3;
-    primRectSolid2(&rect, healthColor);
-    //draw backdrop of health
-    rect.x0 = rect.x1;
-    rect.x1 =  x + halfWidth;
-    primRectSolid2(&rect, healthDarkColor);
-
-    if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-    {
-        tutPointerShipHealthRect->x0 = x - halfWidth - 2;
-        tutPointerShipHealthRect->x1 = x + halfWidth + 2;
-        tutPointerShipHealthRect->y0 = rect.y0 - 2;
-        tutPointerShipHealthRect->y1 = rect.y1 + 2;
-    }
-
-    if (selAnyHotKeyTest(ship))
-    {                                                       //if member of a hot-key group
-        fontMakeCurrent(selGroupFont1);
-        fontPrint(rect.x1, rect.y1 + 4 - fontHeight(" "), selHotKeyNumberColor,
-                  selHotKeyString[selHotKeyGroupNumberTest(ship)]);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipGroupRect)
-        {
-            tutPointerShipGroupRect->x0 = rect.x1 - 2;
-            tutPointerShipGroupRect->x1 = rect.x1 + 2 + fontWidth(" ");
-            tutPointerShipGroupRect->y0 = rect.y1 + 4 - fontHeight(" ") - 2;
-            tutPointerShipGroupRect->y1 = rect.y1 + 4 + 2;
-        }
-    }
-    //Add cloaking Status if ship is for some reason cloaked...
-    if(bitTest(ship->header.flags,SOF_Cloaked))    //if the ship is cloaked
-    {
-        fontMakeCurrent(selGroupFont1);
-        fontPrint(x - halfWidth - fontWidth("C") - 1,rect.y1 + 4 - fontHeight(" ") , selHotKeyNumberColor, "C");
-    }
-    // CAT: the exe counts missiles for sDreadnought, sDestroyer, tMissileDestroyer, tMinelayerCorvette (and linked
-    //      Acolytes, with the status-bar port): cat_selStatusAmmoCountDraw 0x00507740, types 10, 0x19, 0x55, 0x54
-    if((ship->shiptype == sDreadnought) || (ship->shiptype == sDestroyer) ||
-       (ship->shiptype == tMissileDestroyer) || (ship->shiptype == tMinelayerCorvette))     //ship has missles, so display missile status
-    {
-        GunStatic *gunstatic;
-        numGuns = ship->gunInfo->numGuns;
-        for (i=0;i < numGuns;i++)
-        {
-            //gunstatic = ship->staticinfo->gunStaticInfo->gunstatics[i];
-            gunstatic = &ship->staticinfo->gunStaticInfo->gunstatics[i];
-            if (gunstatic->guntype == GUN_MissileLauncher || gunstatic->guntype == GUN_MineLauncher)
-            {
-                Gun *gun;
-                gun = &ship->gunInfo->guns[i];
-                missilecount += gun->numMissiles;
-            }
-        }
-        fontMakeCurrent(selGroupFont1);
-        fontPrintf(x - halfWidth , rect.y1 + 4, selHotKeyNumberColor, "%d", missilecount);
-    }
-
-
-    maxFuel = ship->staticinfo->maxfuel;
-    maxResources = ship->staticinfo->maxresources;
-    if (maxFuel != 0.0f)
-    {                                                       //if ship has any fuel
-        fuel = ship->fuel;
-        if (fuel / maxFuel >= selFuelGreenFactor)
-        {
-            fuelColor = selFuelColorGreen;
-            fuelDarkColor = selFuelColorDarkGreen;
-        }
-        else
-        {
-            fuelColor = selFuelColorRed;
-            fuelDarkColor = selFuelColorDarkRed;
-        }
-        //draw backdrop of fuel
-        rect.y0 += 4;
-        rect.y1 += 4;
-        rect.x0 = x - halfWidth + (halfWidth * 2) * (sdword)fuel / (sdword)maxFuel;
-        primRectSolid2(&rect, fuelDarkColor);
-        //draw main part of fuel
-        rect.x1 = rect.x0;
-        rect.x0 = x - halfWidth;
-        primRectSolid2(&rect, fuelColor);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-            tutPointerShipHealthRect->y1 += 4;
-    }
-    else if (maxResources != 0.0f)
-    {                                                       //if ship has any resources
-        resources = ship->resources;
-        //draw backdrop of resources
-        rect.y0 += 4;
-        rect.y1 += 4;
-        rect.x0 = x - halfWidth + (halfWidth * 2) * resources / maxResources;
-        primRectSolid2(&rect, selShipDarkResourceColor);
-        //draw main part of resources
-        rect.x1 = rect.x0;
-        rect.x0 = x - halfWidth;
-        primRectSolid2(&rect, selShipResourceColor);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-            tutPointerShipHealthRect->y1 += 4;
-    }
-    // CAT: no cloak-generator bar: k/tCloakGenerator run on DefaultShipHeader, and the exe draws a cloak
-    //      charge only for SOF_CatCloakDevice ships (cat_selStatusBarsDraw 0x00507bc0, ported with the
-    //      status bars). The gravwell bar is the exe's for k/tGravWellGenerator (types 0x40/0x4f:
-    //      OperationTime at custstatinfo+8, TimeOn at specifics+0x14, as HW1's structs)
-    if((ship->shiptype == kGravWellGenerator) || (ship->shiptype == tGravWellGenerator))
-    {   //if ship is a cloakgenerator, draw cloak status...
-        udword maxgravtime = (long ) ((GravWellGeneratorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->OperationTime;
-        udword gravtime = (long ) (maxgravtime - ((GravWellGeneratorSpec *)ship->ShipSpecifics)->TimeOn);
-        //draw inside of cloak time
-        rect.x0 = x - halfWidth;
-        rect.y0 += 4;
-        rect.y1 += 4;
-        rect.x1 = rect.x0 + (halfWidth * 2) * gravtime / maxgravtime;
-        gravcolor =   selShipResourceColor;
-        gravdarkcolor = selShipDarkResourceColor;
-
-        primRectSolid2(&rect, gravcolor);
-        //draw backdrop of cloaking time
-        rect.x0 = rect.x1;
-        rect.x1 = x + halfWidth;
-        primRectSolid2(&rect, gravdarkcolor);               //get better colors later...
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-            tutPointerShipHealthRect->y1 += 4;
-    }
-    // CAT: no salvage-capture tech bar (the exe's status bars draw none; cat_selStatusBarsDraw 0x00507bc0)
-    else if (ship->shipsInsideMe != NULL)                  // CAT: HW1 excluded its DDD frigate (none in Cataclysm)
-    {                                                       //print number of docked ships
-        fontMakeCurrent(selGroupFont3);
-        fontPrintf(x - halfWidth - 1, rect.y1 + 4, selHotKeyNumberColor,
-                   strGetString(strFightersCorvettesDocked), ship->shipsInsideMe->FightersInsideme,
-                   ship->shipsInsideMe->CorvettesInsideme);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-            tutPointerShipHealthRect->y1 += 4;
-    }
+    catSelStatusTutorialRects(ship, 1, 4, FALSE);
 }
-//lod2: just health and damage only 2 pixels tall
 void selStatusDraw2(Ship *ship)
 {
-    real32 radius, factor;
-    //sdword health, maxHealth;
-    sdword x, y, halfWidth;
-    rectangle rect;
-    real32 fuel, maxFuel;
-    color healthColor, healthDarkColor, fuelColor, fuelDarkColor, cloakcolor, cloakdarkcolor,gravcolor,gravdarkcolor;
-    sdword resources, maxResources;
-    sdword missilecount = 0;        //keeps track of missiles in missile bearing ships...
-    sdword numGuns;                 //used for missile count
-    sdword i;                       //counter
-    udword maxcloaktime, cloaktime,maxTechTime,techtime;
-
-    x = primGLToScreenX(ship->impactable.collInfo.selCircleX);
-    y = primGLToScreenY(ship->impactable.collInfo.selCircleY);
-    radius = max(ship->impactable.collInfo.selCircleRadius, selMinSelectionRadius);//radius of selection circle
-    halfWidth = primGLToScreenScaleX(radius * selSelectionWidthFactor0);//width of bars
-    //health = (sdword) ship->targetable.health;                                  //get ship health color and size
-    //maxHealth = (sdword) ship->staticinfo->health.maxhealth;
-    //factor = (real32)health / (real32)maxHealth;            //amount percentage of full health
-    factor = ship->targetable.health * ship->staticinfo->health.oneOverMaxHealth;
-    if (factor > selShipHealthGreenFactor)
-    {
-        healthColor = selShipHealthGreen;
-        healthDarkColor = selShipHealthDarkGreen;
-    }
-    else if (factor > selShipHealthYellowFactor)
-    {
-        healthColor = selShipHealthYellow;
-        healthDarkColor = selShipHealthDarkYellow;
-    }
-    else
-    {
-        healthColor = selShipHealthRed;
-        healthDarkColor = selShipHealthDarkRed;
-    }
-    //draw health
-    rect.x0 = x - halfWidth;
-    rect.y0 = y - primGLToScreenScaleX(radius);
-    rect.x1 = rect.x0 + ((sdword) (halfWidth * 2 * factor));
-    rect.y1 = rect.y0 + 2;
-    primRectSolid2(&rect, healthColor);
-    rect.x0 = rect.x1;
-    rect.x1 =  x + halfWidth;
-    primRectSolid2(&rect, healthDarkColor);
-//    y = y - primGLToScreenScaleX(radius);
-//    primNonAALine2(x - halfWidth, y, x + halfWidth, y, healthColor);
-
-    if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-    {
-        tutPointerShipHealthRect->x0 = x - halfWidth - 2;
-        tutPointerShipHealthRect->x1 = x + halfWidth + 2;
-        tutPointerShipHealthRect->y0 = rect.y0 - 2;
-        tutPointerShipHealthRect->y1 = rect.y1 + 2;
-    }
-
-    if (selAnyHotKeyTest(ship))
-    {                                                       //if member of a hot-key group
-        fontMakeCurrent(selGroupFont2);
-        fontPrint(x + halfWidth, rect.y1 + 3 - fontHeight(" "), selHotKeyNumberColor,
-                  selHotKeyString[selHotKeyGroupNumberTest(ship)]);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipGroupRect)
-        {
-            tutPointerShipGroupRect->x0 = rect.x1 - 2;
-            tutPointerShipGroupRect->x1 = rect.x1 + 2 + fontWidth(" ");
-            tutPointerShipGroupRect->y0 = rect.y1 + 3 - fontHeight(" ") - 2;
-            tutPointerShipGroupRect->y1 = rect.y1 + 3 + 2;
-        }
-    }
-    // CAT: the exe counts missiles for sDreadnought, sDestroyer, tMissileDestroyer, tMinelayerCorvette (and linked
-    //      Acolytes, with the status-bar port): cat_selStatusAmmoCountDraw 0x00507740, types 10, 0x19, 0x55, 0x54
-    if((ship->shiptype == sDreadnought) || (ship->shiptype == sDestroyer) ||
-       (ship->shiptype == tMissileDestroyer) || (ship->shiptype == tMinelayerCorvette))    //ship has missles, so display missile status
-    {
-        GunStatic *gunstatic;
-        numGuns = ship->gunInfo->numGuns;
-        for (i=0;i < numGuns;i++)
-        {
-            //gunstatic = ship->staticinfo->gunStaticInfo->gunstatics[i];
-            gunstatic = &ship->staticinfo->gunStaticInfo->gunstatics[i];
-            if (gunstatic->guntype == GUN_MissileLauncher || gunstatic->guntype == GUN_MineLauncher)
-            {
-                Gun *gun;
-                gun = &ship->gunInfo->guns[i];
-                missilecount += gun->numMissiles;
-            }
-        }
-        fontMakeCurrent(selGroupFont2);
-        fontPrintf(x - halfWidth , rect.y1 + 1, selHotKeyNumberColor, "%d", missilecount);
-    }
-
-    //Add cloaking Status if ship is for some reason cloaked...
-    if(bitTest(ship->header.flags,SOF_Cloaked))    //if the ship is cloaked
-    {
-        fontMakeCurrent(selGroupFont2);
-        fontPrint(x - halfWidth - fontWidth("C") - 1, rect.y1 + 1 - fontHeight(" "), selHotKeyNumberColor, "C");
-    }
-    maxFuel = ship->staticinfo->maxfuel;
-    maxResources = ship->staticinfo->maxresources;
-    if (maxFuel != 0.0f)
-    {                                                       //if ship has any fuel
-        fuel = ship->fuel;
-        if (fuel / maxFuel >= selFuelGreenFactor)
-        {
-            fuelColor = selFuelColorGreen;
-            fuelDarkColor = selFuelColorDarkGreen;
-        }
-        else
-        {
-            fuelColor = selFuelColorRed;
-            fuelDarkColor = selFuelColorDarkRed;
-        }
-        //draw backdrop of fuel
-        rect.y0 += 3;
-        rect.y1 += 3;
-        rect.x0 = x - halfWidth + (halfWidth * 2) * (sdword)fuel / (sdword)maxFuel;
-        primRectSolid2(&rect, fuelDarkColor);
-        //draw main part of fuel
-        rect.x1 = rect.x0;
-        rect.x0 = x - halfWidth;
-        primRectSolid2(&rect, fuelColor);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipGroupRect)
-            tutPointerShipGroupRect->y1 += 3;
-    }
-    else if (maxResources != 0.0f)
-    {                                                       //if ship has any resources
-        resources = ship->resources;
-        //draw backdrop of resources
-        rect.y0 += 3;
-        rect.y1 += 3;
-        rect.x0 = x - halfWidth + (halfWidth * 2) * resources / maxResources;
-        primRectSolid2(&rect, selShipDarkResourceColor);
-        //draw main part of resources
-        rect.x1 = rect.x0;
-        rect.x0 = x - halfWidth;
-        primRectSolid2(&rect, selShipResourceColor);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipGroupRect)
-            tutPointerShipGroupRect->y1 += 3;
-    }
-    // CAT: no cloak-generator bar: k/tCloakGenerator run on DefaultShipHeader, and the exe draws a cloak
-    //      charge only for SOF_CatCloakDevice ships (cat_selStatusBarsDraw 0x00507bc0, ported with the
-    //      status bars). The gravwell bar is the exe's for k/tGravWellGenerator (types 0x40/0x4f:
-    //      OperationTime at custstatinfo+8, TimeOn at specifics+0x14, as HW1's structs)
-    if((ship->shiptype == kGravWellGenerator) || (ship->shiptype == tGravWellGenerator))
-    {   //if ship is a cloakgenerator, draw cloak status...
-        udword maxgravtime = (long ) ((GravWellGeneratorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->OperationTime;
-        udword gravtime = (long ) (maxgravtime - ((GravWellGeneratorSpec *)ship->ShipSpecifics)->TimeOn);
-        //draw inside of cloak time
-        rect.x0 = x - halfWidth;
-        rect.y0 += 3;
-        rect.y1 += 3;
-        rect.x1 = rect.x0 + (halfWidth * 2) * gravtime / maxgravtime;
-        gravcolor =   selShipResourceColor;
-        gravdarkcolor = selShipDarkResourceColor;
-
-        primRectSolid2(&rect, gravcolor);
-        //draw backdrop of cloaking time
-        rect.x0 = rect.x1;
-        rect.x1 = x + halfWidth;
-        primRectSolid2(&rect, gravdarkcolor);    //get better colors later...
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipGroupRect)
-            tutPointerShipGroupRect->y1 += 3;
-    }
-    // CAT: no salvage-capture tech bar (the exe's status bars draw none; cat_selStatusBarsDraw 0x00507bc0)
+    catSelStatusTutorialRects(ship, 2, 3, TRUE);
 }
 
-//lod3: health and fuel 1 pixel tall and solid
+// CAT: selStatusDraw3 0x00508480 / selStatusDraw4 0x00508590: the bars at LOD 3-4; the tutorial rectangle is a
+//      4-pixel box around the ship's centre
+static void catSelStatusDrawFar(Ship *ship, sdword lod)
+{
+    sdword x, y, halfWidth;
+    real32 radius;
+
+    x = catSelScreenX(ship->impactable.collInfo.selCircleX);
+    y = catSelScreenY(ship->impactable.collInfo.selCircleY);
+    radius = (ship->impactable.collInfo.selCircleRadius > selMinSelectionRadius) ?
+             ship->impactable.collInfo.selCircleRadius : selMinSelectionRadius;
+    halfWidth = catSelRound(selSelectionWidthFactor0 * radius * (real32)MAIN_WindowWidth * 0.5f);
+    cat_selStatusBarsDraw(ship, lod);
+    if (tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
+    {
+        tutPointerShipHealthRect->x0 = x - halfWidth - 2;
+        tutPointerShipHealthRect->x1 = x + 2 + halfWidth;
+        tutPointerShipHealthRect->y0 = y - 2;
+        tutPointerShipHealthRect->y1 = y + 2;
+    }
+}
 void selStatusDraw3(Ship *ship)
 {
-    real32 radius, factor;
-    //sdword health, maxHealth;
-    sdword x, y, halfWidth;
-    color healthColor, fuelColor;
-    real32 fuel, maxFuel;
-
-    x = primGLToScreenX(ship->impactable.collInfo.selCircleX);
-    y = primGLToScreenY(ship->impactable.collInfo.selCircleY);
-    radius = max(ship->impactable.collInfo.selCircleRadius, selMinSelectionRadius);//radius of selection circle
-    halfWidth = primGLToScreenScaleX(radius * selSelectionWidthFactor0);//width of bars
-    //health = (sdword) ship->targetable.health;                                  //get ship health color and size
-    //maxHealth = (sdword) ship->staticinfo->health.maxhealth;
-    //factor = (real32)health / (real32)maxHealth;            //amount percentage of full health
-    factor = ship->targetable.health * ship->staticinfo->health.oneOverMaxHealth;
-    if (factor > selShipHealthGreenFactor)
-    {
-        healthColor = selShipHealthSolidGreen;
-    }
-    else if (factor > selShipHealthYellowFactor)
-    {
-        healthColor = selShipHealthSolidYellow;
-    }
-    else
-    {
-        healthColor = selShipHealthSolidRed;
-    }
-    //draw health
-    y = y - primGLToScreenScaleX(radius);
-    primNonAALine2(x - halfWidth, y, x + halfWidth, y, healthColor);
-
-    if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-    {
-        tutPointerShipHealthRect->x0 = x - halfWidth - 2;
-        tutPointerShipHealthRect->x1 = x + halfWidth + 2;
-        tutPointerShipHealthRect->y0 = y - 2;
-        tutPointerShipHealthRect->y1 = y + 2;
-    }
-
-    if (selAnyHotKeyTest(ship))
-    {                                                       //if member of a hot-key group
-        fontMakeCurrent(selGroupFont3);
-        fontPrint(x + halfWidth, y + 1 - fontHeight(" "), selHotKeyNumberColor,
-                  selHotKeyString[selHotKeyGroupNumberTest(ship)]);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipGroupRect)
-        {
-            tutPointerShipGroupRect->x0 = x + halfWidth - 2;
-            tutPointerShipGroupRect->x1 = x + halfWidth + 2 + fontWidth(" ");
-            tutPointerShipGroupRect->y0 = y + 1 - fontHeight(" ") - 2;
-            tutPointerShipGroupRect->y1 = y + 1 + 2;
-        }
-    }
-    //Add cloaking Status if ship is for some reason cloaked...
-    if(bitTest(ship->header.flags,SOF_Cloaked))    //if the ship is cloaked
-    {
-        fontMakeCurrent(selGroupFont3);
-        fontPrint(x - halfWidth - fontWidth("C") - 1, y + 1 - fontHeight(" "), selHotKeyNumberColor, "C");
-    }
-    maxFuel = ship->staticinfo->maxfuel;
-    if (maxFuel != 0.0f)
-    {                                                       //if ship has any fuel
-        fuel = ship->fuel;
-        if (fuel / maxFuel >= selFuelGreenFactor)
-        {
-            fuelColor = selFuelColorGreen;
-        }
-        else
-        {
-            fuelColor = selFuelColorRed;
-        }
-        //draw solid fuel bar
-        primNonAALine2(x - halfWidth, y + 2, x + halfWidth, y + 2, fuelColor);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-            tutPointerShipHealthRect->y1 += 2;
-    }
+    catSelStatusDrawFar(ship, 3);
 }
-
-//lod4: health 1 pixel tall and solid
 void selStatusDraw4(Ship *ship)
 {
-    real32 radius, factor;
-    //sdword health, maxHealth;
-    sdword x, y, halfWidth;
-    color healthColor;
-
-    x = primGLToScreenX(ship->impactable.collInfo.selCircleX);
-    y = primGLToScreenY(ship->impactable.collInfo.selCircleY);
-    radius = max(ship->impactable.collInfo.selCircleRadius, selMinSelectionRadius);//radius of selection circle
-    halfWidth = primGLToScreenScaleX(radius * selSelectionWidthFactor0);//width of bars
-    //health = (sdword) ship->targetable.health;                                  //get ship health color and size
-    //maxHealth = (sdword) ship->staticinfo->health.maxhealth;
-    //factor = (real32)health / (real32)maxHealth;            //amount percentage of full health
-    factor = ship->targetable.health * ship->staticinfo->health.oneOverMaxHealth;
-    if (factor > selShipHealthGreenFactor)
-    {
-        healthColor = selShipHealthSolidGreen;
-    }
-    else if (factor > selShipHealthYellowFactor)
-    {
-        healthColor = selShipHealthSolidYellow;
-    }
-    else
-    {
-        healthColor = selShipHealthSolidRed;
-    }
-    //draw health
-    y = y - primGLToScreenScaleX(radius);
-    primNonAALine2(x - halfWidth, y, x + halfWidth, y, healthColor);
-
-    if(tutorial && tutPointerShip == ship && tutPointerShipHealthRect)
-    {
-        tutPointerShipHealthRect->x0 = x - halfWidth - 2;
-        tutPointerShipHealthRect->x1 = x + halfWidth + 2;
-        tutPointerShipHealthRect->y0 = y - 2;
-        tutPointerShipHealthRect->y1 = y + 2;
-    }
-
-    if (selAnyHotKeyTest(ship))
-    {                                                       //if member of a hot-key group
-        fontMakeCurrent(selGroupFont3);
-        fontPrint(x + halfWidth, y + 1 - fontHeight(" "), selHotKeyNumberColor,
-                  selHotKeyString[selHotKeyGroupNumberTest(ship)]);
-
-        if(tutorial && tutPointerShip == ship && tutPointerShipGroupRect)
-        {
-            tutPointerShipGroupRect->x0 = x + halfWidth - 2;
-            tutPointerShipGroupRect->x1 = x + halfWidth + 2 + fontWidth(" ");
-            tutPointerShipGroupRect->y0 = y + 1 - fontHeight(" ") - 2;
-            tutPointerShipGroupRect->y1 = y + 1 + 2;
-        }
-    }
-    //Add cloaking Status if ship is for some reason cloaked...
-    if(bitTest(ship->header.flags,SOF_Cloaked))    //if the ship is cloaked
-    {
-        fontMakeCurrent(selGroupFont3);
-        fontPrint(x - halfWidth - fontWidth("C") - 1, y + 1 - fontHeight(" "), selHotKeyNumberColor, "C");
-    }
+    catSelStatusDrawFar(ship, 4);
 }
-
 
 void selStatusDrawNULL(Ship *ship)
 {
@@ -1830,12 +1796,9 @@ void selSelectedDraw(void)
     Ship *ship;
     fonthandle currentFont = fontCurrentGet();
     sdword currentLOD;
+    CameraStackEntry *entry;
 
-    if (selSelected.numShips == 0)
-    {
-        return;
-    }
-
+    // CAT: selSelectedDraw 0x005086a0 draws also with no selection (the focus ship's health bar below)
     rndTextureEnable(FALSE);
     rndLightingEnable(FALSE);
 
@@ -1846,7 +1809,8 @@ void selSelectedDraw(void)
 
         if (univSpaceObjInRenderList((SpaceObj *)ship))
         {
-            if (ship->impactable.collInfo.selCircleRadius > 0.0f)
+            // CAT: not the ship the camera pilots (cat_ccIsPilotingThisShip 0x0042c310)
+            if (ship->impactable.collInfo.selCircleRadius > 0.0f && !cat_ccIsPilotingThisShip(ship))
             {
                 currentLOD = ship->obj.currentLOD;
                 dbgAssertOrIgnore(currentLOD < SEL_NumberLOD);
@@ -1867,6 +1831,48 @@ void selSelectedDraw(void)
 #endif
 #endif
             }
+        }
+    }
+    // CAT: with advanced sensors (TECH_ADVANCED_SENSORS, 0x1c), the health bar of another player's ship the camera
+    //      focuses alone, outlined in red, while the overlay's alternate print options are off and no NIS is fully
+    //      scissored (selSelectedDraw 0x005086a0)
+    entry = universe.mainCameraCommand.currentCameraStack;
+    if (!cat_moAltPrintOptionsActive() && entry != NULL && entry->focus.numShips == 1)
+    {
+        ship = entry->focus.ShipPtr[0];
+        if (ship->header.objtype == OBJ_ShipType && ship->playerowner != universe.curPlayerPtr &&
+            cat_rmTechSetHas((sdword *)&universe.curPlayerPtr->researchinfo, TECH_ADVANCED_SENSORS) &&
+            !nisFullyScissored && !bitTest(ship->header.catFlags18, CAT_SHIPFLAG_KasDerelict) &&
+            !bitTest(ship->header.flags, SOF_Dead) && !cat_shipIsUntargetable(ship))
+        {
+            real32 factor;
+            color c, dark;
+            rectangle rect, outline;
+
+            currentLOD = ship->obj.currentLOD;
+            cat_selHealthFactorGet(ship, &factor);
+            if (factor > selShipHealthGreenFactor)
+            {
+                c = selShipHealthGreen;
+                dark = selShipHealthDarkGreen;
+            }
+            else if (factor > selShipHealthYellowFactor)
+            {
+                c = selShipHealthYellow;
+                dark = selShipHealthDarkYellow;
+            }
+            else
+            {
+                c = selShipHealthRed;
+                dark = selShipHealthDarkRed;
+            }
+            cat_selStatusBarDraw(ship, currentLOD, 0, &factor, &c, &dark);
+            cat_selStatusRectCompute(ship, currentLOD, &rect);
+            outline.x0 = rect.x0 - 1;
+            outline.x1 = rect.x1 + 1;
+            outline.y0 = rect.y0 - 1;
+            outline.y1 = rect.y1 + 1;
+            primRectOutline2(&outline, 1, 0xff0000ff);
         }
     }
     fontMakeCurrent(currentFont);
@@ -1902,10 +1908,11 @@ void selSelectingDraw(void)
                         x1 = max(x1, point[j].x);
                         y1 = min(y1, point[j].y);
                     }
-                    rect.x0 = primGLToScreenX(x0);
-                    rect.y0 = primGLToScreenY(y0);
-                    rect.x1 = primGLToScreenX(x1);
-                    rect.y1 = primGLToScreenY(y1);
+                    // CAT: rounded to the nearest pixel (selSelectingDraw 0x00508900)
+                    rect.x0 = catSelScreenX(x0);
+                    rect.y0 = catSelScreenY(y0);
+                    rect.x1 = catSelScreenX(x1);
+                    rect.y1 = catSelScreenY(y1);
                 }
                 else
                 {
@@ -1913,16 +1920,13 @@ void selSelectingDraw(void)
                         radius = max(target->impactable.collInfo.selCircleRadius * ((Ship *)target)->staticinfo->tacticalSelectionScale, selMinSelectionRadius);
                     else
                         radius = max(target->impactable.collInfo.selCircleRadius, selMinSelectionRadius);
-                    rect.x0 = primGLToScreenX(target->impactable.collInfo.selCircleX - radius);
-                    rect.x1 = primGLToScreenX(target->impactable.collInfo.selCircleX + radius);
-                    rect.y0 = primGLToScreenY(target->impactable.collInfo.selCircleY + radius);
-                    rect.y1 = primGLToScreenY(target->impactable.collInfo.selCircleY - radius);
+                    rect.x0 = catSelScreenX(target->impactable.collInfo.selCircleX - radius);
+                    rect.x1 = catSelScreenX(target->impactable.collInfo.selCircleX + radius);
+                    rect.y0 = catSelScreenY(target->impactable.collInfo.selCircleY + radius);
+                    rect.y1 = catSelScreenY(target->impactable.collInfo.selCircleY - radius);
                 }
                 primRectOutline2(&rect, 1, selSelectingColor);//!!! note the hard-coded numbers
-                if (tutorial == TUTORIAL_ONLY)
-                {
-                    tutGameMessage("Game_SelectingRect");
-                }
+                // CAT: no "Game_SelectingRect" tutorial message (selSelectingDraw 0x00508900 sends none)
             }
         }
     }

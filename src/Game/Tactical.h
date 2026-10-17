@@ -85,7 +85,7 @@ void toShutdown(void);
 void toAllShipsDraw(void);
 
 //draw legend for overlay
-void toLegendDraw(void);
+sdword toLegendDraw(sdword y);                  // CAT: 0x004a8f00 (drawn by the main overlay from y, returns the y under it)
 
 
 #endif

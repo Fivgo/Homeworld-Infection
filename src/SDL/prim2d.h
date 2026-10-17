@@ -133,6 +133,7 @@ void primLineLoopPoint3F(real32 x, real32 y);
 void primLineLoopEnd2(void);
 //draw solid circular things
 void primCircleSolid2(sdword x, sdword y, sdword rad, sdword nSlices, color c);
+void cat_primCircleSolidBlend2(sdword x, sdword y, sdword rad, sdword nSlices, color c);   // CAT: 0x00571e50 (M2-R5 hud)
 void primCircleBorder(sdword x, sdword y, sdword radInner, sdword radOuter, sdword nSlices, color colInner);
 //2d rectangle utility functions
 void primRectUnion2(rectangle *result, rectangle *r0, rectangle *r1);

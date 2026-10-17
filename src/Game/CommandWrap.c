@@ -25,32 +25,18 @@
 
 
 /*-----------------------------------------------------------------------------
-    Name        : clCommandMessage
-    Description : Inserts a command message into the global gMessage variable
-                  to be displayed on screen later
-    Inputs      : String to be inserted into gMessage
-    Outputs     : Modifies global gMessage variable
+    Name        : clCommandMessage                                  0x004ac820
+    Description : Puts a command message into the info overlay's message scroller
+    Inputs      : CommandMessage - the text, colour - its colour (the exe's second argument)
+    Outputs     : the message list of InfoOverlay.c
     Return      : void
 ----------------------------------------------------------------------------*/
-// CAT-TODO(stage 3): clCommandMessage 0x004ac820 lives in Cataclysm's message scroller (InfoOverlay area): two
-//      arguments (msg, flags), a 25-line ring of 0x224-byte entries that scrolls with cat_ioMessageScroll, a sound
-//      (soundEventPlay); HW1's gMessage slots stay until the UI port
-void clCommandMessage(char CommandMessage[MAX_MESSAGE_LENGTH])
+// CAT (M2-R5 hud): Cataclysm's clCommandMessage(msg, flags) is the message scroller's (a 25-line list of 0x224-byte
+//      entries that scrolls with cat_ioMessageScroll, the new-message sound 0x12a unless the text is strSavedGame):
+//      the body is cat_ioCommandMessage; HW1's gMessage slots and mrCommandMessageDraw are retired
+void clCommandMessage(char *CommandMessage, udword colour)
 {
-    ubyte i = 0;
-
-    LockMutex(gMessageMutex);
-
-    // find the next empty message slot in the global message array
-    while ((i < MAX_MESSAGES)&&(gMessage[i].message[0] != '\0'))
-    {
-        i++;
-    }
-
-    gMessage[i].MessageExpire = universe.totaltimeelapsed + TW_MESSAGE_DELAY_TIME;
-    strcpy(gMessage[i].message, CommandMessage);
-
-    UnLockMutex(gMessageMutex);
+    cat_ioCommandMessage(CommandMessage, colour);
 }
 
 /*-----------------------------------------------------------------------------
@@ -103,7 +89,7 @@ void clWrapMove(CommandLayer *comlayer,SelectCommand *selectcom,sdword pathType,
         clFlashShips(selectcom);
 
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("Move Command Received");
+        if (enableTextFeedback) clCommandMessage("Move Command Received", 0xffffffff);
 #endif
     }
 
@@ -136,7 +122,7 @@ void clWrapMpHyperspace(CommandLayer *comlayer,SelectCommand *selectcom,vector f
         clFlashShips(selectcom);
 
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("Hyperspace Command Received");
+        if (enableTextFeedback) clCommandMessage("Hyperspace Command Received", 0xffffffff);
 #endif
     }
 
@@ -177,7 +163,7 @@ void clWrapAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand 
         clFlashShips((SelectCommand *)attackcom);
 
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("Attack Command Received");
+        if (enableTextFeedback) clCommandMessage("Attack Command Received", 0xffffffff);
 #endif
     }
 
@@ -209,7 +195,7 @@ void clWrapFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfForma
         clFlashShips(selectcom);
 
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("Formation Command Received");
+        if (enableTextFeedback) clCommandMessage("Formation Command Received", 0xffffffff);
 #endif
     }
 
@@ -253,7 +239,7 @@ void clWrapDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockTyp
         clFlashShips(selectcom);
 
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("Dock Command Received");
+        if (enableTextFeedback) clCommandMessage("Dock Command Received", 0xffffffff);
 #endif
     }
 
@@ -305,7 +291,7 @@ void clWrapDeterministicBuild(udword command,
     {
 #if CL_TEXTFEEDBACK
         //@todo verbosify this lame message
-        if (enableTextFeedback) clCommandMessage("New Build Command");
+        if (enableTextFeedback) clCommandMessage("New Build Command", 0xffffffff);
 #endif
     }
 
@@ -326,7 +312,7 @@ void clWrapCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace
     if (!universe.aiplayerProcessing)
     {
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("New Ship Created");
+        if (enableTextFeedback) clCommandMessage("New Ship Created", 0xffffffff);
 #endif
     }
 
@@ -348,7 +334,7 @@ void clWrapBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,
     if (!universe.aiplayerProcessing)
     {
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("New Ship Being Built");
+        if (enableTextFeedback) clCommandMessage("New Ship Being Built", 0xffffffff);
 #endif
     }
 
@@ -379,7 +365,7 @@ void clWrapCollectResource(CommandLayer *comlayer,SelectCommand *selectcom,Resou
             resource->targetable.flashtimer = cat_taskRealTimeElapsed;   // CAT: real time (clWrapCollectResource 0x00453000)
         }
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("Harvest Command Received");
+        if (enableTextFeedback) clCommandMessage("Harvest Command Received", 0xffffffff);
 #endif
     }
 
@@ -406,7 +392,7 @@ void clWrapProtect(CommandLayer *comlayer,SelectCommand *selectcom,ProtectComman
         clFlashShips((SelectCommand *)protectcom);
 
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("Protect Command Received");
+        if (enableTextFeedback) clCommandMessage("Protect Command Received", 0xffffffff);
 #endif
     }
 
@@ -448,7 +434,7 @@ void clWrapSpecial(CommandLayer *comlayer,SelectCommand *selectcom,SpecialComman
         }
 
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("Special Ability Activated");
+        if (enableTextFeedback) clCommandMessage("Special Ability Activated", 0xffffffff);
 #endif
     }
 
@@ -485,7 +471,7 @@ void clWrapHalt(CommandLayer *comlayer,SelectCommand *selectcom)
         clFlashShips(selectcom);
 
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("Halt Command Received");
+        if (enableTextFeedback) clCommandMessage("Halt Command Received", 0xffffffff);
 #endif
     }
 
@@ -512,7 +498,7 @@ void clWrapScuttle(CommandLayer *comlayer,SelectCommand *selectcom)
         clFlashShips(selectcom);
 
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("Scuttle Command Received");
+        if (enableTextFeedback) clCommandMessage("Scuttle Command Received", 0xffffffff);
 #endif
     }
 
@@ -579,7 +565,7 @@ void clWrapSetTactics(CommandLayer *comlayer,SelectCommand *selectcom,TacticsTyp
         clFlashShips(selectcom);
 
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("Tactics Command Received");
+        if (enableTextFeedback) clCommandMessage("Tactics Command Received", 0xffffffff);
 #endif
     }
 
@@ -622,7 +608,7 @@ void clWrapSetKamikaze(CommandLayer *comlayer,SelectCommand *selectcom)
         clFlashShips(selectcom);
 
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("Kamikaze Command Received");
+        if (enableTextFeedback) clCommandMessage("Kamikaze Command Received", 0xffffffff);
 #endif
     }
 
@@ -648,7 +634,7 @@ void clWrapSetMilitaryParade(CommandLayer *comlayer,SelectCommand *selectcom)
         clFlashShips(selectcom);
 
 #if CL_TEXTFEEDBACK
-        if (enableTextFeedback) clCommandMessage("Parade Command Received");
+        if (enableTextFeedback) clCommandMessage("Parade Command Received", 0xffffffff);
 #endif
     }
 

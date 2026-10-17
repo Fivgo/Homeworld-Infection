@@ -186,6 +186,9 @@ fecallback cmCallback[] =
     {cmCancelJobs,          "CM_CancelJobs" },
     {cmPauseJobs,           "CM_PauseJobs"  },
     {cmScroller,            "CM_Scroller"   },
+    // CAT (M2-R5 hud): the exe's table 0x00753a18 also has CM_Research 0x004545e0 and CM_Launch 0x00454600 (close and
+    //      open the research / launch manager; CAT-TODO(M2-R6 ConsMgr)) and CM_ExtendedInfo
+    {cat_cmExtendedInfoToggle, "CM_ExtendedInfo" },
     {NULL,                  NULL            }
 };
 fedrawcallback cmDrawCallback[] =
@@ -3586,7 +3589,7 @@ sdword cmConstructionBegin(regionhandle region, smemsize ID, udword event, udwor
 
     if (piePointSpecMode != PSM_Idle)
     {
-        piePointModeOnOff();
+        piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
     }
 
     if (!cmScreensHandle)
@@ -4574,3 +4577,82 @@ bool32 cat_cmHasSupportUnits(ShipType type, Player *player)
     return TRUE;
 }
 
+// CAT (M2-R5 hud): 0x00894198, the single-player build-time divisor (1; cat_spGameDifficulty 0x0051c16b and kasLoad
+//      set it, stage 6; the build task's other readers come with M2-R6 ConsMgr). Name chosen here
+sdword catCmSinglePlayerBuildFactor = 1;
+// CAT (M2-R5 hud): 0x0089419c, the single-player cost divisor next to it (1 in .data; the same writers); the ship view
+//      divides the build cost it prints by it
+sdword catCmSinglePlayerCostFactor = 1;
+// CAT (M2-R5 hud): 0x00a2dbf0, toggled by the CM_ExtendedInfo button (0x00454620, the exe's callback table 0x00753a18);
+//      the ship view then darkens its panel and prints the type's description (cat_svShipDescriptionDraw)
+bool32 catCmExtendedInfo = FALSE;
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmExtendedInfoToggle                          0x00454620
+    Description : The CM_ExtendedInfo button: the ship descriptions on or off, and the screen's info regions redrawn
+                  (the exe dirties the regions cmDirtyShipInfo does, without its cmUpdateShipAvailable)
+----------------------------------------------------------------------------*/
+void cat_cmExtendedInfoToggle(char *string, featom *atom)
+{
+    (void)string;
+    (void)atom;
+    catCmExtendedInfo = !catCmExtendedInfo;
+    cmDirtyShipInfo();
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmCountJobsForPlayer                          0x00459ce0
+    Description : CAT (M2-R5 hud): the player's ships in construction, one line per type in first-seen order, with the
+                  jobs and time left per factory slot (the mothership's factory is slot 0, the carriers 1, 2, ..):
+                  the main overlay's construction list (cat_moConstructionDraw 0x004a91c0). Returns the lines.
+----------------------------------------------------------------------------*/
+sdword cat_cmCountJobsForPlayer(struct Player *player, CatCmJob *jobs)
+{
+    sdword lineOfType[TOTAL_STD_SHIPS];
+    sdword lines = 0, slot, nextSlot = 1, type, line;
+    Node *node;
+    shipsinprogress *factory;
+    ShipType factoryType;
+
+    for (type = 0; type < TOTAL_STD_SHIPS; type++)
+    {
+        lineOfType[type] = -1;
+    }
+    for (node = listofShipsInProgress.head; node != NULL; node = node->next)
+    {
+        factory = (shipsinprogress *)listGetStructOfNode(node);
+        if (factory->ship->playerowner != player)
+        {
+            continue;
+        }
+        factoryType = factory->ship->shiptype;
+        if (factoryType == sMothership || factoryType == bMothership)
+        {
+            slot = 0;
+        }
+        else
+        {
+            slot = nextSlot++;
+        }
+        for (type = 0; type < TOTAL_STD_SHIPS; type++)
+        {
+            if (factory->progress[type].nJobs > 0)
+            {
+                if (lineOfType[type] == -1)
+                {
+                    line = lines++;
+                    jobs[line].type = factory->progress[type].info->shiptype;
+                    lineOfType[type] = line;
+                    jobs[line].totalTime = singlePlayerGame ? factory->progress[type].info->buildTime / catCmSinglePlayerBuildFactor :
+                                           factory->progress[type].info->buildTime;
+                    jobs[line].nJobs[0] = jobs[line].nJobs[1] = jobs[line].nJobs[2] = jobs[line].nJobs[3] = 0;
+                }
+                line = lineOfType[type];
+                // the exe indexes the slot without a bound (a fifth factory writes into the next line)
+                ((sdword *)&jobs[line].nJobs[0])[slot] = factory->progress[type].nJobs;
+                ((sdword *)&jobs[line].timeLeft[0])[slot] = factory->progress[type].timeLeft;
+            }
+        }
+    }
+    return lines;
+}

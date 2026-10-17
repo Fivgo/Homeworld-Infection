@@ -1854,7 +1854,7 @@ void spHyperspaceSelectionOut(SelectCommand *selection)
         {
             char warningmsg[200];
             sprintf(warningmsg,"Hyperspaced %s tried to hyperspace",ShipTypeToStr(ship->shiptype));
-            clCommandMessage(warningmsg);
+            clCommandMessage(warningmsg, 0xffffffff);
         }
 #endif
     }
@@ -1906,7 +1906,7 @@ void spHyperspaceSelectionOutStatic(SelectCommand *selection)
         {
             char warningmsg[200];
             sprintf(warningmsg,"Hyperspaced %s tried to hyperspace",ShipTypeToStr(ship->shiptype));
-            clCommandMessage(warningmsg);
+            clCommandMessage(warningmsg, 0xffffffff);
         }
 #endif
     }
@@ -2836,6 +2836,9 @@ abortload:
     // CAT (M2-R4 combat): the blast lists start empty on a new level (singlePlayerLoadNewLevel 0x0051a.., after
     //      bobResetProperties and cat_fowCreatePlayerGrids; the rest of Cataclysm's next-level flow is stage 6's)
     cat_blastInit();
+    // CAT (M2-R5 hud): the overlay's mission timer restarts with the level (cat_missionTimerReset 0x004acb80, after
+    //      cat_mimicInitDisguiseTables in singlePlayerLoadNewLevel)
+    cat_missionTimerReset();
 
     singlePlayerGameLoadNewLevelFlag = FALSE;
 }
@@ -3944,7 +3947,7 @@ void singlePlayerCheckDebugKeys(sdword ID)
                 char totalstr[50];
                 univGetResourceStatistics(&total,&numHarvestables,&numAsteroid0s);
                 sprintf(totalstr,"RV=%d #R=%d #A0=%d",total,numHarvestables,numAsteroid0s);
-                clCommandMessage(totalstr);
+                clCommandMessage(totalstr, 0xffffffff);
             }
             return;
     }
@@ -3966,7 +3969,7 @@ void singlePlayerCheckDebugKeys(sdword ID)
                 char totalstr[50];
                 GetFleetStrengthInUniverseOfPlayer(&universe.players[0]);
                 sprintf(totalstr,"Fleet Str = %f",spFleetStr);
-                clCommandMessage(totalstr);
+                clCommandMessage(totalstr, 0xffffffff);
             }
             break;
         case DKEY:

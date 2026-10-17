@@ -34,6 +34,7 @@
 #include "Blast.h"
 #include "UnivUpdate.h"
 #include "utility.h"
+#include "InfoOverlay.h"
 
 // CAT: Mothership.c follows cataclysm.exe's Mothership block (0x005bb730..0x005bd730): the Sect mothership (big gun,
 //      module slots, death sequence), the Beast mothership (infection weapon, "beast systems"), trGhostship, all
@@ -176,7 +177,7 @@ void MothershipAttack(Ship *ship,SpaceObjRotImpTarg *target,real32 maxdist)
         if (ship->playerowner == universe.curPlayerPtr)
         {
             // the exe passes a second argument (-1) to its clCommandMessage
-            clCommandMessage(strGetString(strAbortingBigGunFiring));
+            clCommandMessage(strGetString(strAbortingBigGunFiring), 0xffffffff);
         }
     }
     attackPassive(ship,(Ship *)target);  // Typecast to prevent warning, attackPassive will handle SpaceObjRotImpTarg
@@ -212,7 +213,7 @@ static bool32 cat_mothershipAbortBigGun(Ship *ship)
         }
         if (ship->playerowner == universe.curPlayerPtr)
         {
-            clCommandMessage(strGetString(strAbortingBigGunFiring));
+            clCommandMessage(strGetString(strAbortingBigGunFiring), 0xffffffff);
         }
     }
     return TRUE;
@@ -534,7 +535,7 @@ static void cat_bigGunFiringUpdate(Ship *ship)                              // 0
         if (ship->playerowner != universe.curPlayerPtr)
         {
             // the exe passes a second argument (the colour 0xff0000ff) to its clCommandMessage
-            clCommandMessage(strGetString(strWarnBigGunHasFired));
+            clCommandMessage(strGetString(strWarnBigGunHasFired), 0xff0000ff);
             soundEventPlay(NULL, 0x13d, NULL);
         }
         spec->bigGunState = CAT_BIGGUN_Firing;
@@ -807,9 +808,9 @@ void MothershipHouseKeep(Ship *ship)
                 ((*last > 0.05f) && (healthFraction < 0.05f)));
         if (warn)
         {
-            // CAT-PROVISIONAL: the exe also puts strMothershipHealthLow into the info overlay in red
-            //      (cat_ioMessageAdd 0x004ac940, the message scroller of stage 3: M2-R5 hud); the speech is Cataclysm's status
-            //      event 0x02001057 (Fleet Command)
+            // CAT (M2-R5 hud): strMothershipHealthLow goes into the info overlay in red (cat_ioMessageAdd 0x004ac940,
+            //      before the speech); the speech is Cataclysm's status event 0x02001057 (Fleet Command)
+            cat_ioMessageAdd(strGetString(strMothershipHealthLow), 0xff0000ff, 1, ship);
             speechEventQueue(NULL, 0x02001057, -1, -1, 0, ship->playerowner->playerIndex, -1, 5.0f, -1);
         }
         *last = healthFraction;

@@ -7,6 +7,8 @@
 =============================================================================*/
 
 #include "Sensors.h"
+#include "ShipPrint.h"
+#include "InfoOverlay.h"
 
 #include <float.h>
 #include <math.h>
@@ -141,6 +143,10 @@ real32 smFOWBlobUpdateTime = SM_FOWBlobUpdateTime;
 
 //global flag which says the sensors manager is active
 bool32 smSensorsActive = FALSE;
+// CAT (M2-R5 hud): 0x00a5b1ac, mines shown in the sensors manager (kasfShowMinesInSensors 0x00498490 sets it, stage 6;
+//      universeReset 0x0053df80 clears it); in mission 3 the band box takes no mine in the sensors manager without it
+//      (selRectDragFunction 0x005053a0). Name chosen here
+bool32 catSmShowMines = FALSE;
 
 bool32 smSensorsDisable = FALSE;
 
@@ -2938,9 +2944,9 @@ void smPan(char *name, featom *atom)
         vecAddTo(smCameraLookatPoint, lookVector);          //pan left/right
 
         lookVector.x = lookVector.y = lookVector.z = 0.0f;
-        pieMovePointClipToLimits(smUniverseSizeX * smPanUnivExtentMult,
-                                 smUniverseSizeY * smPanUnivExtentMult,
-                                 smUniverseSizeZ, &lookVector, &smCameraLookatPoint);
+        // CAT (M2-R5 hud): the box clip (0x004e76b0) has no extents; smPan 0x0050bd.. clips the look-at point from
+        //      the zero vector with it (the HW1 pan extent multiplier is gone)
+        pieMovePointClipToLimits(&lookVector, &smCameraLookatPoint);
     }
 //    smCamera.lookatpoint = smCameraLookatPoint;
 }
@@ -3053,19 +3059,22 @@ void smViewportRender(featom *atom, regionhandle region)
     if (!smZoomingIn && !smZoomingOut)
     {                                               //don't move the eye point if zooming
         uicDragX = uicDragY = 0;
-        if (keyIsHit(ARRLEFT))
+        // CAT (M2-R5 hud): the main overlay's four scroll buttons pan as the keys do (cat_moButton1..4Clicked
+        //      0x004aaf70.., smViewportRender); CAT-TODO(M2-R6 key bindings): the keys are the bound commands
+        //      0x41..0x44 (kbCommandKeyIsHit) in the exe
+        if (keyIsHit(ARRLEFT) || cat_moButton1Clicked())
         {                                                       //pan the camera with the cursor keys
             uicDragX -= smCursorPanX * frameTicks / (udword)taskFrequency;
         }
-        if (keyIsHit(ARRRIGHT))
+        if (keyIsHit(ARRRIGHT) || cat_moButton2Clicked())
         {
             uicDragX += smCursorPanX * frameTicks / (udword)taskFrequency;
         }
-        if (keyIsHit(ARRUP))
+        if (keyIsHit(ARRUP) || cat_moButton3Clicked())
         {
             uicDragY -= smCursorPanY * frameTicks / (udword)taskFrequency;
         }
-        if (keyIsHit(ARRDOWN))
+        if (keyIsHit(ARRDOWN) || cat_moButton4Clicked())
         {
             uicDragY += smCursorPanY * frameTicks / (udword)taskFrequency;
         }
@@ -3196,6 +3205,16 @@ void smViewportRender(featom *atom, regionhandle region)
     {
         nisStaticDraw(nisStatic[NIS_SMStaticIndex]);
     }
+    // CAT (M2-R5 hud): smViewportRender 0x0050c... ends with the main overlay, the ship info panel and the overlay's
+    //      hover update, as mrRegionDraw (CAT-TODO(M2-R6 popup menu / sensors): cat_popupMenuDraw and
+    //      cat_popupMenuUpdateHover(0) between them; the rest of the Cataclysm sensors render is M2-R6 sensors')
+    cat_moRender();
+    if (selSelected.numShips > 0 && selSelected.ShipPtr[0]->playerowner == universe.curPlayerPtr)
+    {
+        cat_shipPrintDraw(selSelected.ShipPtr[0]);
+    }
+    cat_ioUpdateHover();
+    cat_shipPrintDragUpdate();
 }
 
 /*-----------------------------------------------------------------------------
@@ -3415,7 +3434,7 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                     }
                 }
 //                piePointSpecMode = PSM_Idle;                 //no more selecting
-                piePointModeOnOff();
+                piePointModeOnOff(PIE_SPEC_Move, NULL);
                 MP_HyperSpaceFlag = FALSE;      //for now..
             }
             else if (smClicking && !smFleetIntel)
@@ -3429,7 +3448,7 @@ udword smViewportProcess(regionhandle region, sdword ID, udword event, udword da
                     smSelectionRect.x1 = mouseCursorX() + smSelectionWidth / 2;
                     smSelectionRect.y0 = mouseCursorY() - smSelectionHeight / 2;
                     smSelectionRect.y1 = mouseCursorY() + smSelectionHeight / 2;
-                    clickedOn = selSelectionClick(universe.SpaceObjList.head, &smCamera, mouseCursorX(), mouseCursorY(), FALSE, FALSE);
+                    clickedOn = selSelectionClick(universe.SpaceObjList.head, &smCamera, mouseCursorX(), mouseCursorY(), FALSE, FALSE, FALSE);   // CAT: 7th argument (M2-R5 hud)
                     if (clickedOn != NULL)
                     {
                         if (clickedOn->playerowner != universe.curPlayerPtr && (!smGhostMode))
@@ -3653,12 +3672,12 @@ void smDispatch(char *name, featom *atom)
                         makeShipsNotIncludeSinglePlayerMotherships((SelectCommand *)&selSelected);
                         if(selSelected.numShips > 0)
                         {                                   //if there are ships we can control
-                            piePointModeOnOff();
+                            piePointModeOnOff(PIE_SPEC_Move, NULL);
                         }
                     }
                     else
                     {                                       //always allow the MM to be turned off
-                        piePointModeOnOff();
+                        piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
                     }
                 }
             }
@@ -3739,7 +3758,7 @@ void smHyperspace(char *name, featom *atom)
         {
             soundEvent(NULL, UI_MovementGUIoff);
             MP_HyperSpaceFlag = FALSE;
-            piePointModeOnOff();
+            piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
         }
     }
     else
@@ -3762,7 +3781,7 @@ void smHyperspace(char *name, featom *atom)
                 if(MP_HyperSpaceFlag)
                 {
                     MP_HyperSpaceFlag = FALSE;
-                    piePointModeOnOff();
+                    piePointModeOnOff(PIE_SPEC_Move, NULL);   // CAT: unguarded toggle, kept on Move (mode 0 would be fatal if it turned the plate on)
                     soundEvent(NULL, UI_MovementGUIoff);
                 }
                 else
@@ -3778,7 +3797,7 @@ void smHyperspace(char *name, featom *atom)
                             //turn it off!
                             soundEvent(NULL, UI_MovementGUIoff);
                             MP_HyperSpaceFlag = FALSE;
-                            piePointModeOnOff();
+                            piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
                         }
                     }
                     else
@@ -3787,7 +3806,7 @@ void smHyperspace(char *name, featom *atom)
                         if (piePointSpecMode == PSM_Idle)
                         {
                             //plate isn't up...turn it on!
-                            piePointModeOnOff();
+                            piePointModeOnOff(PIE_SPEC_Move, NULL);
                         }
                     }
                 }
@@ -3883,7 +3902,7 @@ void smSensorsClose(char *name, featom *atom)
         if(piePointSpecMode != PSM_Idle)
         {   //turn off pie plate movement mech.
             MP_HyperSpaceFlag = FALSE;
-            piePointModeOnOff();
+            piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
         }
     }
     // check to see if pieplate active if it is and out of range turn it off.
@@ -3894,7 +3913,7 @@ void smSensorsClose(char *name, featom *atom)
         if (vecMagnitudeSquared(dist) >= MAX_MOVE_DISTANCE)
         {
             MP_HyperSpaceFlag = FALSE;
-            piePointModeOnOff();
+            piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
         }
     }
 
@@ -3941,7 +3960,7 @@ void smCancelMoveOrClose(char *name, featom *atom)
     MP_HyperSpaceFlag = FALSE;          //no matter what, set to FALSE
     if (piePointSpecMode != PSM_Idle)
     {
-        piePointModeOnOff();
+        piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
         soundEvent(NULL, UI_MovementGUIoff);
     }
     else
@@ -4378,3 +4397,29 @@ void smLoad(void)
     smUpdateParameters();
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_smZoomFadeColor                               0x0050b830
+    Description : CAT (M2-R5 hud): a colour faded by the sensors manager's zoom progress (inverse: fade in). The
+                  exe's fraction is its zoom clock over the zoom time (0x00c0aa1c / 0x00c0aa50, set by
+                  smSensorsBegin); fraction 1 returns the colour, 0 black, else colMultiply.
+                  CAT-TODO(M2-R6 sensors): the Cataclysm zoom clock comes with the sensors manager; until then the
+                  zoom counts as finished (fraction 1)
+----------------------------------------------------------------------------*/
+color cat_smZoomFadeColor(color c, sdword inverse)
+{
+    real32 fraction = 1.0f;
+
+    if (inverse == 1)
+    {
+        fraction = 1.0f - fraction;
+    }
+    if (fraction == 1.0f)
+    {
+        return c;
+    }
+    if (fraction == 0.0f)
+    {
+        return 0xff000000;
+    }
+    return colMultiply(c, fraction);
+}

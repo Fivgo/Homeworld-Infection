@@ -545,12 +545,12 @@ void recPackInGameStartCBSafeToStart(void)
 
     if (!SaveGame(recordPacketSaveFileName))
     {
-        clCommandMessage(strGetString(strPatchUnableWriteFile));
+        clCommandMessage(strGetString(strPatchUnableWriteFile), 0xff0000ff);
         return;
     }
     else
     {
-        clCommandMessage(strGetString(strRecordingGame));
+        clCommandMessage(strGetString(strRecordingGame), 0xffffffff);
     }
 
     recordPackets = TRUE;

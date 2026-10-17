@@ -1526,7 +1526,7 @@
   "class": "REWRITTEN",
   "confidence": "high",
   "change": "vsprintf, two stripped debug calls, clCommandMessage(buffer, 0xffffffff) when echoing; no log file",
-  "note": "ported",
+  "note": "ported | [review: M2-R5 hud] call site updated",
   "sample": "port-R4"
  },
  "0x0042ed50": {
@@ -2233,8 +2233,8 @@
  "0x00449990": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "no transfer the giver cannot pay for; the exe's sound/speech ids; the receiver's command message is a stage-3 CAT-TODO",
-  "note": "[review: M2-R5 command-tactics] ported",
+  "change": "no transfer the giver cannot pay for; the exe's sound/speech ids; the receiver's command message (strReceivedResources, 0xffff0000)",
+  "note": "[review: M2-R5 command-tactics] ported | [review: M2-R5 hud] ported",
   "sample": "port-R5-command-tactics"
  },
  "0x00449af0": {
@@ -2572,83 +2572,92 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no tutGameMessage; SpeechEventsForFuel reduced to an empty scan",
-  "note": "M2-R4 command: ported"
+  "note": "M2-R4 command: ported | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "sample": "port-R5-hud"
  },
  "0x00452ae0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "pause check with opPauseOrders; cat_shipSetDisableReason(ship,1,6) instead of clearing SOF_Selectable",
-  "note": "M2-R4 command: ported"
+  "note": "M2-R4 command: ported | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "sample": "port-R5-hud"
  },
  "0x00452c00": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "M2-R4 command: compared with the exe: same (tutorial bit 0x2000 = bAttack)"
+  "note": "M2-R4 command: compared with the exe: same (tutorial bit 0x2000 = bAttack) | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "sample": "port-R5-hud"
  },
  "0x00452ca0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no formation check; 4th argument passed to clFormation/clSendFormation",
-  "note": "M2-R4 command: check removed; the 4th argument is CAT-TODO with clFormation"
+  "note": "M2-R4 command: check removed; the 4th argument is CAT-TODO with clFormation | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "sample": "port-R5-hud"
  },
  "0x00452d60": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "ioUpdateShipTotals for any dock type but retire (no MakeSelectionNonResearchShips); Cataclysm dock types 7/10 and their speech",
-  "note": "M2-R4 command: ported except the dock-type numbering and speech (CAT-TODO M2-R4 #3)"
+  "note": "M2-R4 command: ported except the dock-type numbering and speech (CAT-TODO M2-R4 #3) | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "sample": "port-R5-hud"
  },
  "0x00452eb0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 command-tactics] compared",
+  "note": "[review: M2-R5 command-tactics] compared | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged [audit: the port's note was missing]",
   "sample": "port-R5-command-tactics"
  },
  "0x00452f30": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 command-tactics] compared",
+  "note": "[review: M2-R5 command-tactics] compared | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
   "sample": "port-R5-command-tactics"
  },
  "0x00452fa0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "[review: M2-R5 command-tactics] compared",
+  "note": "[review: M2-R5 command-tactics] compared | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
   "sample": "port-R5-command-tactics"
  },
  "0x00453000": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the resource flashes with cat_taskRealTimeElapsed",
-  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "sample": "port-R5-hud"
  },
  "0x004530a0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "M2-R4 command: compared with the exe: same"
+  "note": "M2-R4 command: compared with the exe: same | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "sample": "port-R5-hud"
  },
  "0x004531d0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "salvage-corvette block replaced by an ignored cat_shipIsSalvager pass; tutorial flag gates clSpecial; the copy always freed",
-  "note": "copy/flash/clSpecial/clSendSpecial skeleton as HW1; M2-R4 command: ported",
+  "note": "copy/flash/clSpecial/clSendSpecial skeleton as HW1; M2-R4 command: ported | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
   "sample": "MODIFIED/high"
  },
  "0x00453300": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "M2-R4 command: compared with the exe: same"
+  "note": "M2-R4 command: compared with the exe: same | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "sample": "port-R5-hud"
  },
  "0x00453390": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "pause check with opPauseOrders (HW1: any pause)",
-  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "sample": "port-R5-hud"
  },
  "0x00453410": {
   "class": "IDENTICAL",
@@ -2675,7 +2684,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "an empty selection does nothing",
-  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "sample": "port-R5-hud"
  },
  "0x004537c0": {
   "class": "IDENTICAL",
@@ -2688,13 +2698,15 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "pause check with opPauseOrders (HW1: any pause)",
-  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported"
+  "note": "M2-R4 command: class change: IDENTICAL body found modified; ported | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "sample": "port-R5-hud"
  },
  "0x004538b0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "M2-R4 command: compared with the exe: same"
+  "note": "M2-R4 command: compared with the exe: same | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
+  "sample": "port-R5-hud"
  },
  "0x00453bb0": {
   "class": "IDENTICAL",
@@ -2744,6 +2756,13 @@
   "change": "a third loop frees the 5 new support-unit textures (b_Build_Support*.lif)",
   "note": "M2-R2 startup report; was IDENTICAL/medium",
   "sample": "port-R3"
+ },
+ "0x00458390": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "piePointModeOnOff(0, NULL)",
+  "note": "[review: M2-R5 hud] call site updated",
+  "sample": "port-R5-hud"
  },
  "0x004589c0": {
   "class": "MODIFIED",
@@ -2800,6 +2819,13 @@
   "change": "gamerand()/2^32 probabilities; per-race 12-step ship ladders and 20-step technology ladders (double thresholds 0x0072a470..0x0072a7b0); up to 5 tech draws; no mothership gift, no SHIP_PROBS pick",
   "note": "ported",
   "sample": "port-R4"
+ },
+ "0x004618c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] call site of the two-argument box clip (pieMovePointClipToLimits(&centre, location)), as the exe",
+  "sample": "port-R5-hud"
  },
  "0x00462110": {
   "class": "IDENTICAL",
@@ -4437,12 +4463,82 @@
   "note": "same",
   "sample": "uniform/IDENTICAL-low"
  },
+ "0x00487380": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6 (GoK's user-settings path and readdir are platform)",
+  "sample": "port-R5-hud"
+ },
+ "0x00487440": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6 (as gpCountTrainingSavegames)",
+  "sample": "port-R5-hud"
+ },
+ "0x00487670": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
+ },
+ "0x00487700": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
+ },
  "0x00487760": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R5 hud] compared with r6",
   "sample": "reread-R2"
+ },
+ "0x00487770": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
+ },
+ "0x004877d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
+ },
+ "0x004879c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
+ },
+ "0x00488150": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6 (gpLoadGivenGame inlined)",
+  "sample": "port-R5-hud"
+ },
+ "0x004885e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6 (gpDonePicking inlined)",
+  "sample": "port-R5-hud"
+ },
+ "0x004887c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "inlines gpBackToInGameEscapeMenu and tests the quit time against universe.realtimeelapsed",
+  "note": "[review: M2-R5 hud] ported (GamePick.c)",
+  "sample": "port-R5-hud"
  },
  "0x0048a060": {
   "class": "MODIFIED",
@@ -4500,19 +4596,117 @@
   "change": "takes the static info only (no tactics) and weighs damage with the weapon tables",
   "note": "M2-R4 combat: ported; gunFirePower removed, Battle.c and ShipView.c callers updated"
  },
+ "0x0048cf30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the single-player bar alone (no hyperspace ring), GL_BLEND off after a player's backdrop, bars rounded, the software-renderer note and the skill level at the bottom left",
+  "note": "[review: M2-R5 hud] ported (HorseRace.c)",
+  "sample": "port-R5-hud"
+ },
+ "0x0048d410": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a one-pixel outline 0x00881618 instead of feStaticRectangleDraw; the text 12 px after the name",
+  "note": "[review: M2-R5 hud] ported (HorseRace.c)",
+  "sample": "port-R5-hud"
+ },
+ "0x0048d500": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the tutorial picture, missionNN or missionNN_NisMM loading.jpg, the bar at (243, 235) 152 x 3, its colour from missionNN\\loading.script",
+  "note": "[review: M2-R5 hud] ported (HorseRace.c); the NIS flag 0x00a6adac is stage 6's",
+  "sample": "port-R5-hud"
+ },
+ "0x0048d730": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6 (_findfirst vs GoK's readdir)",
+  "sample": "port-R5-hud"
+ },
  "0x0048d9e0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "hrBilinear inlined three times (clamp included)",
+  "note": "hrBilinear inlined three times (clamp included) | [review: M2-R5 hud] compared with r6",
   "sample": "reread-R2"
+ },
+ "0x0048dc00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6 (GoK's stb_image loader)",
+  "sample": "port-R5-hud"
  },
  "0x0048e0c0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R5 hud] compared with r6",
   "sample": "reread-R2"
+ },
+ "0x0048e150": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "sendChatMessage takes a fourth argument (0); no debug message",
+  "note": "[review: M2-R5 hud] partly ported: the fourth argument is CAT-TODO(stage 5 LAN)",
+  "sample": "port-R5-hud"
+ },
+ "0x0048e2b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
+ },
+ "0x0048e3c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the background-dirty count 10000 without glcompat",
+  "note": "[review: M2-R5 hud] read against r6 and ported (was: IDENTICAL)",
+  "sample": "port-R5-hud"
+ },
+ "0x0048e530": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "mouseCursorShow unconditional, TTimerInit for the timers (no TTimerClose)",
+  "note": "[review: M2-R5 hud] ported (HorseRace.c)",
+  "sample": "port-R5-hud"
+ },
+ "0x0048e5f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "horseRaceGetPacketPercent and recievedHorsePacketCB inlined",
+  "note": "[review: M2-R5 hud] read against r6: equivalent, not changed",
+  "sample": "port-R5-hud"
+ },
+ "0x0048e6c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the background-dirty count 10000 without glcompat (3 with); no mouse drawing; Win32 message pump",
+  "note": "[review: M2-R5 hud] ported the count (GoK's SDL loop kept)",
+  "sample": "port-R5-hud"
+ },
+ "0x0048ec80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the packet percent inlined; GetSystemTime clock",
+  "note": "[review: M2-R5 hud] read against r6: equivalent (GoK's SDL clock kept)",
+  "sample": "port-R5-hud"
+ },
+ "0x0048eef0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
+ },
+ "0x0048eff0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
  },
  "0x0048f1a0": {
   "class": "IDENTICAL",
@@ -4591,6 +4785,13 @@
   "note": "memStrncpy of the label likely inlined in the tail (not read)",
   "sample": "uniform/MODIFIED"
  },
+ "0x00491c70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clCommandMessage colour 0xffffffff",
+  "note": "[review: M2-R5 hud] call site updated",
+  "sample": "port-R5-hud"
+ },
  "0x00491cb0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -4602,7 +4803,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "clCommandMessage gets the new 2nd argument (0xffffffff)",
-  "note": "callee arity change",
+  "note": "callee arity change | [review: M2-R5 hud] call site updated",
   "sample": "reread-R2"
  },
  "0x00491ec0": {
@@ -4807,6 +5008,13 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00493f80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "releases the name after the owner change (a no-op, as the exe) and assigns one on the way back",
+  "note": "[review: M2-R5 hud] the cat_shipNames calls added (the rest of the body is stage 6's)",
+  "sample": "port-R5-hud"
  },
  "0x00494510": {
   "class": "IDENTICAL",
@@ -5297,6 +5505,20 @@
   "note": "__thiscall noise",
   "sample": "reread-R2"
  },
+ "0x004967e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "piePointModeOnOff(0, NULL)",
+  "note": "[review: M2-R5 hud] call site updated",
+  "sample": "port-R5-hud"
+ },
+ "0x004969e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "piePointModeOnOff(0, NULL)",
+  "note": "[review: M2-R5 hud] call site updated",
+  "sample": "port-R5-hud"
+ },
  "0x00496b90": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -5471,6 +5693,13 @@
   "change": "",
   "note": "same",
   "sample": "reread-R2"
+ },
+ "0x00497290": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "clCommandMessage colour 0xffffffff",
+  "note": "[review: M2-R5 hud] call sites updated",
+  "sample": "port-R5-hud"
  },
  "0x004973b0": {
   "class": "IDENTICAL",
@@ -5801,11 +6030,33 @@
   "note": "same LZSS loop (bitio calls are classed as library)",
   "sample": "MODIFIED/low"
  },
+ "0x004a8f00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "takes and returns y; no smPlayerNamesDraw",
+  "note": "[review: M2-R5 hud] ported (Tactical.c)",
+  "sample": "port-R5-hud"
+ },
+ "0x004ab4b0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "Cataclysm's overlay: MainOverlay.script print options (cat_moOptionSetCB), cat_ioReset; no HW1 list window region",
+  "note": "[review: M2-R5 hud] rewritten from r6 (InfoOverlay.c)",
+  "sample": "port-R5-hud"
+ },
+ "0x004ab650": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the three ship lists (own, allied, enemy) with the mimic appearance tests, cat_ioUpdateHover",
+  "note": "[review: M2-R5 hud] ported (InfoOverlay.c)",
+  "sample": "port-R5-hud"
+ },
  "0x004ac820": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "2 arguments (msg, flags); 25-line scroll ring, cat_ioMessageScroll, soundEventPlay",
-  "note": "M2-R4 command: CAT-TODO stage 3 (message scroller)"
+  "change": "2 arguments (msg, colour); the overlay's 25-line message list (cat_ioCommandMessage, cat_ioMessageScroll), sound 0x12a unless strSavedGame",
+  "note": "M2-R4 command: CAT-TODO stage 3 (message scroller) | [review: M2-R5 hud] ported (CommandWrap.c -> InfoOverlay.c)",
+  "sample": "port-R5-hud"
  },
  "0x004acbe0": {
   "class": "IDENTICAL",
@@ -6722,6 +6973,13 @@
   "note": "strcpy/strcat inlined; head matches",
   "sample": "MODIFIED/low"
  },
+ "0x004cbbb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clCommandMessage colours red / white",
+  "note": "[review: M2-R5 hud] call sites updated",
+  "sample": "port-R5-hud"
+ },
  "0x004cbd10": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -7621,26 +7879,96 @@
   "change": "a ship's top speed carries its speed multiplier; a drifting non-killer asteroid that was not pushed slows down and stops",
   "note": "M2-R4 combat: ported"
  },
+ "0x004e5b70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6: W/6, 8, 200/80/32/10/4/2/0 with 32/20/16/12/8/6/4 segments",
+  "sample": "port-R5-hud"
+ },
  "0x004e5c60": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same LOD table walk",
+  "note": "same LOD table walk | [review: M2-R5 hud] compared with r6",
   "sample": "reread-R2"
  },
+ "0x004e5c90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "two arguments (mode PIE_SPEC_*, the point function), the per-mode draw/callback tables, dbgFatalf for an unknown mode; no udLatestThingPush",
+  "note": "[review: M2-R5 hud] ported (PiePlate.c); callers that only turn it off pass mode 0 as the exe",
+  "sample": "port-R5-hud"
+ },
  "0x004e5e70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "saves the mode only when it pauses an active one (HW1 saved it on every pause)",
+  "note": "PSM_Idle 0 / PSM_Waiting 1 | [review: M2-R5 hud] read against r6 and ported (was: IDENTICAL)",
+  "sample": "reread-R2"
+ },
+ "0x004e5ec0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "rounds to the nearest pixel (0x0072a458) and returns 0 in every case",
+  "note": "[review: M2-R5 hud] read against r6 and ported (was: IDENTICAL)",
+  "sample": "port-R5-hud"
+ },
+ "0x004e5fc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "rounds both points to the nearest pixel",
+  "note": "[review: M2-R5 hud] read against r6 and ported (was: IDENTICAL)",
+  "sample": "port-R5-hud"
+ },
+ "0x004e61b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the big gun's damage falloff percent (cat_bigGunDamageFalloff), only with mrHoldRight, the screen x for both axes (as the exe)",
+  "note": "[review: M2-R5 hud] ported (PiePlate.c)",
+  "sample": "port-R5-hud"
+ },
+ "0x004e6b90": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "PSM_Idle 0 / PSM_Waiting 1",
-  "sample": "reread-R2"
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
+ },
+ "0x004e6c50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "HW1's stipple kept (GoK had dropped it) and the depth test off while the sensors manager is open",
+  "note": "[review: M2-R5 hud] read against r6 and ported (was: IDENTICAL)",
+  "sample": "port-R5-hud"
  },
  "0x004e76b0": {
   "class": "REWRITTEN",
   "confidence": "high",
   "change": "ellipse-intersection clipping (sizeX/Y/Z params) replaced by clamping both points to the box +-(smUniverseSize - margin)",
-  "note": "2 params instead of 5",
+  "note": "2 params instead of 5 | [review: M2-R5 hud] ported: the box clip (both points clamped to the universe size less 8000), two arguments as the exe",
   "sample": "REWRITTEN/medium"
+ },
+ "0x004e7a70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "big-gun range circle, sensors depth test, cat_smHeightCircleColorGet, the readout only with the mouse visible, the plane distance",
+  "note": "[review: M2-R5 hud] ported (PiePlate.c)",
+  "sample": "port-R5-hud"
+ },
+ "0x004e8440": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "piePointModeOnOff(0, NULL)",
+  "note": "[review: M2-R5 hud] ported (PiePlate.c)",
+  "sample": "port-R5-hud"
+ },
+ "0x004e8480": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no tutGameMessage; mode 17 constant gone",
+  "note": "[review: M2-R5 hud] ported (PiePlate.c)",
+  "sample": "port-R5-hud"
  },
  "0x004e8540": {
   "class": "IDENTICAL",
@@ -8043,7 +8371,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "1 s per tick (8 in the tutorial, Beast mothership factor), speech 0x2001033/0x20010bc/0x2001034, per-race type range, cat_rmTechSetAdd + upgrades, rmClearAllLabs",
-  "note": "ported",
+  "note": "ported | [review: M2-R5 hud] call site updated",
   "sample": "port-R4"
  },
  "0x004f2db0": {
@@ -8186,12 +8514,26 @@
   "note": "VerifyChunk compiled out",
   "sample": "reread-R2"
  },
+ "0x004fdaf0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_missionTimerSave after the single-player chunk",
+  "note": "[review: M2-R5 hud] the call added (cat_saveGameMiscChunks is M2-R6's)",
+  "sample": "port-R5-hud"
+ },
  "0x004fdfc0": {
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "LoadVersionInfo and LoadPreGameInfo inlined; single-player saves carry a second number after currentMission (stored at 0x00894194); the per-player race number is stored as (value != 0) through Ghidra's HW1-layout Player field; HW1's MG_HarvestinEnabled rmEnableShip block at the end is gone",
   "note": "version 0x10ad0027, song number, player names, colour schemes, tpGameCreated as HW1",
   "sample": "reread-R2"
+ },
+ "0x004fe0e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_missionTimerLoad after the single-player chunk",
+  "note": "[review: M2-R5 hud] the call added",
+  "sample": "port-R5-hud"
  },
  "0x004fe770": {
   "class": "IDENTICAL",
@@ -8445,12 +8787,61 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x005050a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
+ },
+ "0x005050b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
+ },
+ "0x005050c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
+ },
+ "0x005050d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
+ },
+ "0x005050e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
+ },
  "0x005052a0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R5 hud] compared with r6",
   "sample": "reread-R2"
+ },
+ "0x005053a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "fourth argument centrePoint (the centre-point test); untargetable ships skip the selectable/targetable/hidden tests; KAS derelicts out except the big gun's units; enemy mimics posing as allied; mines (kasfShowMinesInSensors) not hidden by FOW; sensors-manager enemy selectability; fully cloaked undetected enemies skipped; mimics as resource/derelict only with selectAnything; derelicts not band-boxed; component-class ships pick their clamp host",
+  "note": "[review: M2-R5 hud] ported from the r6 body (Select.c); FOW tests by cat_selShipSelectableInFOW (no grid until M2-R6 FOW)",
+  "sample": "port-R5-hud"
+ },
+ "0x00505cb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "passes centrePoint FALSE to selRectDragFunction",
+  "note": "[review: M2-R5 hud] ported (Select.c)",
+  "sample": "port-R5-hud"
  },
  "0x00505e00": {
   "class": "IDENTICAL",
@@ -8466,12 +8857,68 @@
   "note": "same shift-down removal",
   "sample": "reread-R2"
  },
+ "0x00505ed0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "seventh argument pickNothing; selectable or untargetable/crystal/dEcclesiamInfected ships; fully cloaked undetected skipped; zero-radius object under the cursor pixel taken; component-class ship picks its clamp host; positions rounded to the nearest pixel",
+  "note": "[review: M2-R5 hud] ported (Select.c); callers pass the exe's seventh argument",
+  "sample": "port-R5-hud"
+ },
  "0x005072c0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
   "note": "same three hmat multiplies",
   "sample": "uniform/IDENTICAL"
+ },
+ "0x00507f10": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "Cataclysm's status bars: cat_selStatusRectCompute + cat_selStatusBarsDraw (health, ACV EMP, resources, beast, dreadnought, big gun, cloak, gravwell, sentinel, upgrade rows, the disabled X, experience stars, hot key, ammo, stealth detection)",
+  "note": "[review: M2-R5 hud] ported (Select.c, the 10 cat_selStatus*/cat_selHealth* cat-new)",
+  "sample": "port-R5-hud"
+ },
+ "0x005080f0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "as selStatusDraw0 at the LOD 1 size",
+  "note": "[review: M2-R5 hud] ported (Select.c)",
+  "sample": "port-R5-hud"
+ },
+ "0x005082c0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "as selStatusDraw0 at the LOD 2 size",
+  "note": "[review: M2-R5 hud] ported (Select.c)",
+  "sample": "port-R5-hud"
+ },
+ "0x00508480": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "as selStatusDraw0 at the LOD 3 size",
+  "note": "[review: M2-R5 hud] ported (Select.c)",
+  "sample": "port-R5-hud"
+ },
+ "0x00508590": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the far status: one bar (cat_selStatusBarDraw)",
+  "note": "[review: M2-R5 hud] ported (Select.c)",
+  "sample": "port-R5-hud"
+ },
+ "0x005086a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "draws with no selection too; skips the piloted ship (cat_ccIsPilotingThisShip); mothership-class one LOD finer; the status bars by cat_selStatusBarsDraw; with advanced sensors the health bar of the camera's focus ship of another player",
+  "note": "[review: M2-R5 hud] ported (Select.c)",
+  "sample": "port-R5-hud"
+ },
+ "0x00508900": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "rounds GL to screen to the nearest pixel; no Game_SelectingRect tutorial message",
+  "note": "[review: M2-R5 hud] ported (Select.c)",
+  "sample": "port-R5-hud"
  },
  "0x00508e30": {
   "class": "IDENTICAL",
@@ -8536,12 +8983,33 @@
   "note": "primGLToScreenX/Y inlined; ZEROKEY..NINEKEY loop",
   "sample": "reread-R2"
  },
+ "0x0050bcd0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the box clip of the pan point",
+  "note": "[review: M2-R5 hud] ported",
+  "sample": "port-R5-hud"
+ },
+ "0x0050be70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the overlay's scroll buttons pan (cat_moButton1..4Clicked), the HUD drawn after the render",
+  "note": "[review: M2-R5 hud] the HUD hooks added",
+  "sample": "port-R5-hud"
+ },
  "0x0050c920": {
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
   "note": "mrUpdateHyperspaceStatus is an empty function in Cataclysm (call goes to nullsub); this function is unchanged",
   "sample": "MODIFIED/low"
+ },
+ "0x0050c950": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "piePointModeOnOff(0, NULL)",
+  "note": "[review: M2-R5 hud] call sites updated",
+  "sample": "port-R5-hud"
  },
  "0x0050da00": {
   "class": "IDENTICAL",
@@ -9016,15 +9484,29 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "when the type changes, records a zoom start value and cat_taskRealTimeElapsed for a timed re-zoom",
-  "note": "HW1: set type + ReZoom",
+  "note": "HW1: set type + ReZoom | [review: M2-R5 hud] ported (ShipView.c)",
   "sample": "MODIFIED/low"
  },
  "0x00514c70": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "only one region pointer is cleared (the six stat-bar regions svFirepower..svMass are gone); svShipType reset to 0x91 (DefaultShip in Cataclysm's enum)",
-  "note": "the ship-view screen lost its stat bars",
+  "note": "the ship-view screen lost its stat bars | [review: M2-R5 hud] ported (ShipView.c)",
   "sample": "reread-R2"
+ },
+ "0x00515010": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the automatic turn (cat_cameraSetAngle, one turn in 6 s), the look-at point with only z negated, near plane 5.0, the clip-plane fade-in (solid then wireframe pass, cat_rndObjectEffectsSetup(NULL)), name/cost/hot key at 10 px, the CM_ExtendedInfo backdrop and cat_svShipDescriptionDraw; HW1's six stat panels and svDirtyShipView gone",
+  "note": "[review: M2-R5 hud] ported from r6 disassembly (ShipView.c); no glcompat branches",
+  "sample": "port-R5-hud"
+ },
+ "0x005158b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "registers SV_ShipView only; the view font is always default.hff",
+  "note": "[review: M2-R5 hud] ported (ShipView.c)",
+  "sample": "port-R5-hud"
  },
  "0x005172d0": {
   "class": "IDENTICAL",
@@ -9032,6 +9514,27 @@
   "change": "",
   "note": "Ghidra drops the sscanf out-arguments",
   "sample": "reread-R2"
+ },
+ "0x00518940": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "clCommandMessage colour (debug-build line)",
+  "note": "[review: M2-R5 hud] call site updated",
+  "sample": "port-R5-hud"
+ },
+ "0x00518af0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] the debug-build clCommandMessage line gets its colour argument; body otherwise unchanged",
+  "sample": "port-R5-hud"
+ },
+ "0x0051ac80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_missionTimerReset at the end",
+  "note": "[review: M2-R5 hud] the call added",
+  "sample": "port-R5-hud"
  },
  "0x0051b340": {
   "class": "MODIFIED",
@@ -9705,19 +10208,40 @@
   "note": "HW1's loop over the LanguageStrings rows, returning the row index; only the table (1,705 rows) differs, header-level",
   "sample": "port-R3"
  },
+ "0x00528920": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6: 13 icons, 0.5 / 4 pixel minimum sizes as primScreenToGLScaleX",
+  "sample": "port-R5-hud"
+ },
  "0x00528970": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "NUM_CLASSES+1 icons (13 = Cataclysm's 12 classes + 1, header-level)",
+  "note": "NUM_CLASSES+1 icons (13 = Cataclysm's 12 classes + 1, header-level) | [review: M2-R5 hud] compared with r6",
   "sample": "reread-R2"
+ },
+ "0x005289a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6 (CLASS_Mine -> 12, stricmp)",
+  "sample": "port-R5-hud"
  },
  "0x005289e0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "Ghidra drops the sscanf out-argument",
+  "note": "Ghidra drops the sscanf out-argument | [review: M2-R5 hud] compared with r6",
   "sample": "reread-R2"
+ },
+ "0x00528aa0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the exe's per-ship tests (mimic appearance, slipgates CAT_TYPEFLAG_Slipgate, the sensors list), DFG / gravwell / proximity spheres",
+  "note": "[review: M2-R5 hud] ported (Tactical.c)",
+  "sample": "port-R5-hud"
  },
  "0x005290b0": {
   "class": "MODIFIED",
@@ -9810,19 +10334,47 @@
   "note": "name only",
   "sample": "port-R4"
  },
+ "0x0052b100": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no tutGameMessage calls; tbTaskBarInit inlined (same order)",
+  "note": "[review: M2-R5 hud] ported (TaskBar.c)",
+  "sample": "port-R5-hud"
+ },
  "0x0052b3b0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "RPE_Enter 1 / RPE_Exit 2",
+  "note": "RPE_Enter 1 / RPE_Exit 2 | [review: M2-R5 hud] compared with r6",
   "sample": "reread-R2"
  },
  "0x0052b3f0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R5 hud] compared with r6",
   "sample": "reread-R2"
+ },
+ "0x0052b410": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6 (orders 0/4/8/9 protect, 1 move, 2 attack, 3 dock; tactics 0/1/2)",
+  "sample": "port-R5-hud"
+ },
+ "0x0052b540": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6 (tbFindRegion inlined, stricmp)",
+  "sample": "port-R5-hud"
+ },
+ "0x0052b690": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R5 hud] compared with r6",
+  "sample": "port-R5-hud"
  },
  "0x0052b6d0": {
   "class": "IDENTICAL",
@@ -9997,6 +10549,13 @@
   "change": "title via TechTypeToNiceString (no race-specific names); the description is a per-race string table (0x00bb3a18 Sect / 0x00bb3abc Beast, indexed by technology), not strGetString(tech + offset); then the HW1 word-wrap",
   "note": "[audit: M2-R4 rest-oracle] the port dropped HW1's DDDFDFGFTech/CloakDefenseFighter branches only; the string table is stage 3 (CAT-TODO in the file)",
   "sample": "audit-R4-rest-oracle"
+ },
+ "0x0052e480": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "piePointModeOnOff(0, NULL)",
+  "note": "[review: M2-R5 hud] call site updated",
+  "sample": "port-R5-hud"
  },
  "0x0052e980": {
   "class": "IDENTICAL",
@@ -10179,6 +10738,13 @@
   "change": "",
   "note": "STR_LetterboxBar rect copy",
   "sample": "reread-R2"
+ },
+ "0x00530ef0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "stops Cataclysm's Fleet Command actor bit 0x1000 (speechEventActorStop(0x1000, 0.1)); HW1 stopped SPEECH_ACTOR_FLEET_COMMAND 0x800",
+  "note": "[audit: M2-R5 sound] edited by the sound port (Tutor.c); compared with r6: the region deletes and the pointer loop as HW1",
+  "sample": "audit-R5-sound"
  },
  "0x00532300": {
   "class": "MODIFIED",
@@ -10547,7 +11113,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds calls cat_blastReset, cat_ioReset, cat_mcResetRequest, cat_mcSetMode, cat_playerUpgradesReset, cat_salvageResetGlobals (+8); uses fields HW1 never uses: cat_unknown_6500",
-  "note": "M2-R3 universe-mex: read: the player loop as universeClosePlayers; plus salvage/blast/fow/mc/io/shipPrint/time-compression/tutorial resets of unported subsystems (listed in Universe.c)",
+  "note": "M2-R3 universe-mex: read: the player loop as universeClosePlayers; plus salvage/blast/fow/mc/io/shipPrint/time-compression/tutorial resets of unported subsystems (listed in Universe.c) | [review: M2-R5 hud] the resets added",
   "sample": "port-R4"
  },
  "0x0053e0d0": {
@@ -10835,7 +11401,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "7 arguments, adds the ship to the universe itself, 0x63C-byte ship with gun/mad/precise blocks, droids, damage points, upgrades, dock info, external build, mothership modules, experience, stealth, dissolve, names, FOW, mesh state",
-  "note": "M2-R4 univupdate: only the mesh state and +0x84 are ported (CAT-TODO block lists the rest for M2-R4 #2/#3/#4/#5); HW1 Drone/DefenseFighter/CryoTray cases removed | [review: M2-R5 layout-dock] CustShipInit now runs after the mesh-animation bindings as the exe orders it; the extra blocks start 8-aligned (CAT-FIX); kills zeroed + cat_shipUpdateExperienceLevel; catNavLightStatic/catDamageFactor/catMaxVelocity set (M2-R5 layout) | [review: M2-R5 render] damage points are dmgGetLights (called); the repair droids re-targeted to M2-R6 ships"
+  "note": "M2-R4 univupdate: only the mesh state and +0x84 are ported (CAT-TODO block lists the rest for M2-R4 #2/#3/#4/#5); HW1 Drone/DefenseFighter/CryoTray cases removed | [review: M2-R5 layout-dock] CustShipInit now runs after the mesh-animation bindings as the exe orders it; the extra blocks start 8-aligned (CAT-FIX); kills zeroed + cat_shipUpdateExperienceLevel; catNavLightStatic/catDamageFactor/catMaxVelocity set (M2-R5 layout) | [review: M2-R5 render] damage points are dmgGetLights (called); the repair droids re-targeted to M2-R6 ships | [review: M2-R5 hud] the call added at 0x00542c21",
+  "sample": "port-R5-hud"
  },
  "0x00543030": {
   "class": "MODIFIED",
@@ -11022,7 +11589,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "valid player index only, mimics unmimic, neither mothership careens, hot-key removal inline",
-  "note": "M2-R4 univupdate: ported except cat_mimicUnmimic (M2-R4 #4)"
+  "note": "M2-R4 univupdate: ported except cat_mimicUnmimic (M2-R4 #4) | [review: M2-R5 hud] call site updated",
+  "sample": "port-R5-hud"
  },
  "0x005485e0": {
   "class": "MODIFIED",
@@ -11118,7 +11686,8 @@
   "class": "IDENTICAL",
   "confidence": "medium",
   "change": "",
-  "note": "M2-R4 univupdate: compared: same compare; the export shows pieMovePointClipToLimits with 2 arguments (PiePlate.c, stage 3: prototype not checked here)"
+  "note": "M2-R4 univupdate: compared: same compare; the export shows pieMovePointClipToLimits with 2 arguments (PiePlate.c, stage 3: prototype not checked here) | [review: M2-R5 hud] pieMovePointClipToLimits(&pos, &zero) as the exe (always FALSE)",
+  "sample": "port-R5-hud"
  },
  "0x00549c50": {
   "class": "MODIFIED",
@@ -11160,7 +11729,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "clears realtimeelapsed, the ship counters, the frame-step switch, the protected-speed timer, two grow-selections; mission timer reset; no AttackMemory",
-  "note": "M2-R4 univupdate: ported except the second grow-selection/AttackMemory (M2-R4 #5) and the mission timer (stage 6)"
+  "note": "M2-R4 univupdate: ported except the second grow-selection/AttackMemory (M2-R4 #5) and the mission timer (stage 6) | [review: M2-R5 hud] the call added",
+  "sample": "port-R5-hud"
  },
  "0x0054af40": {
   "class": "MODIFIED",
@@ -11184,7 +11754,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "no CustShipDied, factory only for player 0 in single player, repair effect, inline bullet/missile clean-up, clamps, ship names, popup menu and info overlay told",
-  "note": "M2-R4 univupdate: ported except clamps (#3), names (#4), popup/overlay (stage 3)"
+  "note": "M2-R4 univupdate: ported except clamps (#3), names (#4), popup/overlay (stage 3) | [review: M2-R5 hud] the calls added",
+  "sample": "port-R5-hud"
  },
  "0x0054b550": {
   "class": "MODIFIED",
@@ -11251,7 +11822,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "frame step, multiplayer autosave, real-time quit/win, Cataclysm speech ids, no tacticsGlobalUpdate, blasts and bullet-effect recreation after the ship update, inline dead-object loops, KAS save",
-  "note": "M2-R4 univupdate: ported except cat_blastUpdateAll (#3), cat_kasSaveLevelNow (stage 6) and the stats-screen quit (stage 3)"
+  "note": "M2-R4 univupdate: ported except cat_blastUpdateAll (#3), cat_kasSaveLevelNow (stage 6) and the stats-screen quit (stage 3) | [review: M2-R5 hud] call sites updated",
+  "sample": "port-R5-hud"
  },
  "0x0054ce20": {
   "class": "MODIFIED",
@@ -12022,6 +12594,20 @@
   "note": "same",
   "sample": "reread-R2"
  },
+ "0x00560420": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_overlayIconsDiscardGL",
+  "note": "[review: M2-R5 hud] the call added",
+  "sample": "port-R5-hud"
+ },
+ "0x00561260": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_overlayIconsDiscardGL",
+  "note": "[review: M2-R5 hud] the call added",
+  "sample": "port-R5-hud"
+ },
  "0x00563a40": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -12036,6 +12622,13 @@
   "note": "",
   "sample": "MODIFIED/high"
  },
+ "0x00567930": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "selSelectionClick's seventh argument, piePointModeOnOff(mode, NULL)",
+  "note": "[review: M2-R5 hud] call sites updated only",
+  "sample": "port-R5-hud"
+ },
  "0x00567cf0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -12049,6 +12642,13 @@
   "change": "",
   "note": "[audit: M2-R5 command-tactics] compared only the formation test: the exe reads ship->command's formation flag and pulse, as cat_shipFormationCommand; the radius product order and the colour choice are stage 3's to re-check (UI)",
   "sample": "audit-R5-command-tactics"
+ },
+ "0x00569260": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_moRender, cat_shipPrintDraw, cat_ioUpdateHover, cat_shipPrintDragUpdate after the tick text; no toLegendDraw / mrCommandMessageDraw",
+  "note": "[review: M2-R5 hud] the HUD hooks added (the rest of mrRegionDraw is M2-R6's)",
+  "sample": "port-R5-hud"
  },
  "0x0056a020": {
   "class": "MODIFIED",
@@ -12910,6 +13510,13 @@
   "note": "[review: M2-R5 sound] platform layer",
   "sample": "port-R5-sound"
  },
+ "0x00580d40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[audit: M2-R5 sound] compared with r6: as HW1 (relocates dataoffset / loopstart / loopend / datasize, records the bank's start and end, returns the checksum); the tree's edit is the HWI LP64 aligned patch table (SNDbankpatches), not a Cataclysm delta",
+  "sample": "audit-R5-sound"
+ },
  "0x00580e50": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -13089,7 +13696,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "Cataclysm's subtitle drawing: a translucent backing rectangle with additive blending, cat_fontPrintSubtitle, cat_ioSubtitleNotify, no cards while the construction manager is open (cat_cmIsOpen), cat_tutButtonRowSet",
-  "note": "[review: M2-R5 sound] read against r6; not ported: its overlay / manager / tutorial calls are the HUD and UI ports' (CAT-TODO(M2-R5 hud) at the function)",
+  "note": "[review: M2-R5 sound] read against r6; not ported: its overlay / manager / tutorial calls are the HUD and UI ports' (CAT-TODO(M2-R5 hud) at the function) | [review: M2-R5 hud] partly ported: cat_ioSubtitleNotify(0) first (not in the tutorial); the rest is CAT-TODO(M2-R6 subtitles)",
   "sample": "port-R5-sound"
  },
  "0x00585650": {
@@ -13687,6 +14294,13 @@
   "note": "utySinglePlayerGameStart inlined; differences belong to it",
   "sample": "reread-R2"
  },
+ "0x005abe70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "cat_shipPrintStartup after mrStartup; cat_overlayIconsStartup, cat_shipNamesInit, cat_gameStatsStartup after prim3dStartup",
+  "note": "[review: M2-R5 hud] the calls added (cat_kbLoadKeyBindings is M2-R6's)",
+  "sample": "port-R5-hud"
+ },
  "0x005acd10": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -14143,14 +14757,14 @@
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "aborts a big-gun shot, then attackPassive",
-  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers) | [review: M2-R5 hud] call site updated",
   "sample": "port-R4"
  },
  "0x005bcad0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "death sequence states, Sect big gun / Beast systems dispatch, depot, low-health warnings",
-  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers)",
+  "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers) | [review: M2-R5 hud] the call added",
   "sample": "port-R4"
  },
  "0x005bcdb0": {
@@ -14398,19 +15012,5 @@
   "",
   "Effect of the tool fixes alone, before the reviewed classes are applied: 117 functions went from automatic IDENTICAL to MODIFIED and 8 from MODIFIED to IDENTICAL; 48 unreviewed functions changed class (all IDENTICAL to MODIFIED). Every reviewed function keeps its reviewed class.",
   ""
- ],
- "0x00530ef0": {
-  "class": "MODIFIED",
-  "confidence": "high",
-  "change": "stops Cataclysm's Fleet Command actor bit 0x1000 (speechEventActorStop(0x1000, 0.1)); HW1 stopped SPEECH_ACTOR_FLEET_COMMAND 0x800",
-  "note": "[audit: M2-R5 sound] edited by the sound port (Tutor.c); compared with r6: the region deletes and the pointer loop as HW1",
-  "sample": "audit-R5-sound"
- },
- "0x00580d40": {
-  "class": "IDENTICAL",
-  "confidence": "high",
-  "change": "",
-  "note": "[audit: M2-R5 sound] compared with r6: as HW1 (relocates dataoffset / loopstart / loopend / datasize, records the bank's start and end, returns the checksum); the tree's edit is the HWI LP64 aligned patch table (SNDbankpatches), not a Cataclysm delta",
-  "sample": "audit-R5-sound"
- }
+ ]
 }

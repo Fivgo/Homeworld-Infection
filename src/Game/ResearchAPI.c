@@ -29,6 +29,7 @@
 #include "TradeMgr.h"
 #include "Universe.h"
 #include "Mothership.h"
+#include "InfoOverlay.h"
 
 // CAT (M2-R4 rest-oracle): the whole file follows cataclysm.exe 0x004f2530-0x004f4790 and 0x005146f0. Technology is a
 //      set of 42 sdwords (ResearchAPI.h CatTechSet); HW1's bit masks, labdec[], the research ship's lab activation
@@ -815,8 +816,9 @@ void rmUpdateResearch(void)
                     }
                     if (index == universe.curPlayerIndex)
                     {
-                        // CAT-TODO(stage 3): the exe's clCommandMessage takes a colour (0xffff0000)
-                        clCommandMessage(strGetString(strResearchComplete));
+                        // CAT: the exe's clCommandMessage takes a colour (0xffff0000, rmUpdateResearch 0x004f2a20) [audit: the
+                        //      stale CAT-TODO closed; the hud port passes it]
+                        clCommandMessage(strGetString(strResearchComplete), 0xffff0000);
                     }
 
                     topic->timeleft = 0;
@@ -1464,7 +1466,8 @@ void cat_rmResearchModuleActivated(Player *player, ShipType moduleType, bool32 a
         ((lab != MODULE_Hangar) || (!singlePlayerGame) || (singlePlayerGameInfo.currentMission != 4)))
     {
         speechEventQueue(NULL, 0x2001030, lab, -1, 0, player->playerIndex, -1, 5.0f, -1);
-        // CAT-TODO(stage 3): cat_ioMessageAdd(strGetString(strResearchModuleActivated), 0xffff0000, 2, 0)
+        // CAT (M2-R5 hud): and the overlay message (cat_ioMessageAdd 0x004ac940, type 2: the research)
+        cat_ioMessageAdd(strGetString(strResearchModuleActivated), 0xffff0000, 2, NULL);
     }
     if (player->researchinfo.researchlabs[lab].labstatus == LS_NORESEARCHSHIP)
     {
@@ -1586,4 +1589,52 @@ void cat_rsTechDependSetCB(char *directory, char *field, void *dataToFillIn)
 {
     (void)directory;
     cat_rsDependSetCB(field, dataToFillIn, FALSE);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rmCollectTopicsByLab                          0x004f4380
+    Description : CAT (M2-R5 hud): the player's research topics in technology order, one line per technology (the
+                  first topic of it found): the main overlay's research list (cat_moResearchDraw 0x004a9a00). The total
+                  time is the current player's TimeToComplete (the exe reads universe.curPlayerPtr's tech statics).
+----------------------------------------------------------------------------*/
+sdword cat_rmCollectTopicsByLab(struct Player *player, CatRmTopic *topics)
+{
+    static sdword lineOfTech[NumTechnologies];      // 0x00a57648
+    sdword lines = 0, tech;
+    Node *node;
+    ResearchTopic *topic;
+
+    for (tech = 0; tech < NumTechnologies; tech++)
+    {
+        lineOfTech[tech] = -1;
+    }
+    for (tech = 0; tech < NumTechnologies; tech++)
+    {
+        for (node = player->researchinfo.listoftopics.head; node != NULL; node = node->next)
+        {
+            topic = (ResearchTopic *)listGetStructOfNode(node);
+            if (topic->techresearch == (TechnologyType)tech)
+            {
+                if (topic != NULL)
+                {
+                    CatRmTopic *line;
+                    if (lineOfTech[tech] == -1)
+                    {
+                        lineOfTech[tech] = lines;
+                        line = &topics[lines];
+                        line->tech = (TechnologyType)tech;
+                        lines++;
+                    }
+                    else
+                    {
+                        line = &topics[lineOfTech[tech]];
+                    }
+                    line->timeLeft = topic->timeleft;
+                    line->totalTime = (sdword)(real32)universe.curPlayerPtr->researchinfo.techstat->TimeToComplete[tech];
+                }
+                break;
+            }
+        }
+    }
+    return lines;
 }

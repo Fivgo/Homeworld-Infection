@@ -656,8 +656,7 @@ void cratesGetBestCrateLocation(vector *location)
         //wrap ..if hit edge...alter displacement value
     }
 
-    pieMovePointClipToLimits(smUniverseSizeX,smUniverseSizeY,smUniverseSizeZ,
-                              &centerMotherShips, location);
+    pieMovePointClipToLimits(&centerMotherShips, location);  // CAT: the box clip (0x004e76b0, M2-R5 hud)
 
 }
 

@@ -247,4 +247,13 @@ _Static_assert(offsetof(PlayerResearchInfo, catShipUpgradeTechs) == 0xE4, "catSh
 _Static_assert(offsetof(PlayerResearchInfo, catShipTypeEnabled) == 0x600C, "catShipTypeEnabled at Player+0x62B0");
 #endif
 
+// CAT (M2-R5 hud): one line of the main overlay's research list (0xC bytes in the exe)
+typedef struct CatRmTopic
+{
+    TechnologyType tech;        // +0x00
+    sdword totalTime;           // +0x04 the technology's TimeToComplete
+    real32 timeLeft;            // +0x08 the topic's time left
+} CatRmTopic;
+sdword cat_rmCollectTopicsByLab(struct Player *player, CatRmTopic *topics);     // 0x004f4380
+
 #endif

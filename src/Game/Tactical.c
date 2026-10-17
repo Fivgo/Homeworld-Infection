@@ -11,6 +11,12 @@
 #include <stdio.h>
 
 #include "Alliance.h"
+#include "ProximitySensor.h"
+#include "GravWellGenerator.h"
+#include "DFGFrigate.h"
+#include "Mimic.h"
+#include "ShipSelect.h"
+#include "mainrgn.h"
 #include "Blobs.h"
 #include "Debug.h"
 #include "font.h"
@@ -35,6 +41,7 @@
 
 
 extern fonthandle selGroupFont2;
+extern bool32 mrDrawTactical;                      // mainrgn.c (CAT: toLegendDraw tests it, M2-R5 hud)
 
 //located in mainrgn.c
 void toMoveLineDraw(ShipPtr ship, real32 scale);
@@ -181,21 +188,30 @@ void toVertexAdd(char *directory,char *field,void *dataToFillIn)
 void toFieldSphereDrawGeneral(vector position, real32 radius,color passedColour);
 
 /*-----------------------------------------------------------------------------
-    Name        : toAllShipsDraw
+    Name        : toAllShipsDraw                                    0x00528aa0
     Description : Draw tactical overlays for all ships.
+                  CAT (M2-R5 hud): Cataclysm's: the sensors manager walks the ship list (the main view the render
+                  list); mines and ships are drawn only in the main view; no slipgate (type bit 0x4000), crystal or
+                  race-6 ship (but dAcolyte); an enemy ship only when detected (sub_53F9F0), an enemy mimic posing as a
+                  resource or derelict not at all, one posing as allied with the allied colour and its disguise's
+                  class icon; an own SPECIAL_2_CatExempt20 ship in the allied colour; no mothership-class icon; the
+                  DFG, gravwell and proximity-sensor spheres for the exe's types (no cloak generator sphere).
     Inputs      :
     Outputs     : Draw a tactical display icon overlay for all on-screen ships
     Return      : void
 ----------------------------------------------------------------------------*/
+// CAT: the slipgates' bit of ShipStaticInfo.catTypeFlags (cat_univInitShipTypeFlags 0x0053b8c0 sets 0xc000 for them)
+#define CAT_TYPEFLAG_Slipgate   0x00004000
+
 void toAllShipsDraw(void)
 {
-    Node *objnode = universe.RenderList.head;
-    real32 radius = 0.0, scale = 0.0;
+    Node *objnode = smSensorsActive ? universe.ShipList.head : universe.RenderList.head;
+    real32 radius = 0.0f, scale = 0.0f;
     sdword index = 0, player = 0;
     toicon *icon = NULL;
-    vector zero = {0,0,0};
     color c = colBlack;
     udword intScale = 0;
+    ShipClass shipClass;
 
      // reset usage of classes (for legend)
     for (index = 0; index < (NUM_CLASSES+1); index++)
@@ -209,56 +225,24 @@ void toAllShipsDraw(void)
     rndTextureEnable(FALSE);
     rndLightingEnable(FALSE);
 
-    while (objnode != NULL)
+    for (; objnode != NULL; objnode = objnode->next)
     {
         SpaceObjRotImp* impactable = (SpaceObjRotImp *) listGetStructOfNode(objnode);
-
-        if (impactable->header.flags & SOF_Dead)
-        {
-            goto nextnode;
-        }
-
         CollInfo* collInfo = &impactable->collInfo;
-        radius = collInfo->selCircleRadius;
-        if (radius <= 0.0f)
-        {                                                   //if behind camera
-            goto nextnode;                                  //don't draw it
+
+        if ((impactable->header.flags & SOF_Dead) || collInfo->selCircleRadius <= 0.0f)
+        {
+            continue;
         }
 
         if (impactable->header.objtype == OBJ_MissileType)
         {
             Missile* mine = (Missile*)impactable;
-            if (mine->missileType != MISSILE_Mine)
+            radius = collInfo->selCircleRadius;
+            if (mine->missileType == MISSILE_Mine && mine->playerowner == universe.curPlayerPtr &&
+                radius < TO_MaxFadeSize && !smSensorsActive)
             {
-                goto nextnode;
-            }
-
-            if (mine->playerowner != universe.curPlayerPtr)
-            {
-                goto nextnode;      // only show player's own mines
-            }
-
-            if (radius < TO_MaxFadeSize)
-            {
-
-                //Get an index of the player to get the color.
-#if TO_STANDARD_COLORS
-                if (mine->playerowner == universe.curPlayerPtr)
-                {
-                    c = teFriendlyColor;
-                }
-                else if (allianceArePlayersAllied(mine->playerowner, universe.curPlayerPtr))
-                {
-                    c = teAlliedColor;
-                }
-                else
-                {
-                    c = teHostileColor;
-                }
-#else
-                c = teColorSchemes[mine->colorScheme].tacticalColor;
-#endif
-
+                c = teFriendlyColor;
                 if (radius > TO_FadeStart)
                 {
                     // scale the color - start fading out the overlay
@@ -266,48 +250,49 @@ void toAllShipsDraw(void)
                     intScale = (udword)scale;
                     c = colRGB(colRed(c) / intScale, colGreen(c) / intScale, colBlue(c) / intScale);
                 }
-
                 icon = toClassIcon[NUM_CLASSES];    // NUM_CLASSES indicates Mine
-
-                primLineLoopStart2(1, c);
-
                 radius = max(mineMineTOSize, radius);   //ensure radius not too small
-
+                primLineLoopStart2(1, c);
                 for (index = icon->nPoints - 1; index >= 0; index--)
                 {
-                    primLineLoopPoint3F(collInfo->selCircleX + icon->loc[index].x * radius,
-                                        collInfo->selCircleY + icon->loc[index].y * radius);
+                    primLineLoopPoint3F(radius * icon->loc[index].x + collInfo->selCircleX,
+                                        radius * icon->loc[index].y + collInfo->selCircleY);
                 }
-
                 primLineLoopEnd2();
             }
-
         }
         else if (impactable->header.objtype == OBJ_ShipType)
         {
             Ship* ship = (Ship*)impactable;
-            if (bitTest(ship->header.flags,SOF_Cloaked) && ship->playerowner != universe.curPlayerPtr)
-            {                                                   //if cloaked, and doesn't belong to current player
-                if(!proximityCanPlayerSeeShip(universe.curPlayerPtr,ship))
-                {
-                    goto nextnode;                                  //don't draw it
-                }
+            bool32 own = (ship->playerowner == universe.curPlayerPtr);
+            bool32 mimic = bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic);
+
+            if ((ship->staticinfo->catTypeFlags & CAT_TYPEFLAG_Slipgate) || cat_shipIsCrystal(ship) ||
+                (ship->shiprace == 6 && ship->shiptype != dAcolyte))
+            {
+                continue;
+            }
+            if (!own && !cat_shipDetectedByPlayer(ship, universe.curPlayerPtr->playerIndex))
+            {
+                continue;
+            }
+            if (!own && mimic && (cat_mimicAppearsAsResource(ship, universe.curPlayerPtr) ||
+                                  cat_mimicAppearsAsDerelict(ship, universe.curPlayerPtr)))
+            {
+                continue;
             }
 
-            // CAT: no Drone skip, Cataclysm has no drones (toAllShipsDraw 0x00528aa0)
-
             // tactical overlay (fades out when the ship gets large enough)
-            radius = collInfo->selCircleRadius * ship->staticinfo->tacticalSelectionScale;
+            radius = ship->staticinfo->tacticalSelectionScale * collInfo->selCircleRadius;
 
             if (radius < TO_MaxFadeSize)
             {
-                //Get an index of the player to get the color.
-#if TO_STANDARD_COLORS
-                if (ship->playerowner == universe.curPlayerPtr)
+                if (own)
                 {
-                    c = teFriendlyColor;
+                    c = bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20) ? teAlliedColor : teFriendlyColor;
                 }
-                else if (allianceIsShipAlly(ship, universe.curPlayerPtr))
+                else if (allianceIsShipAlly(ship, universe.curPlayerPtr) ||
+                         (mimic && cat_mimicAppearsAlliedTo(ship, universe.curPlayerPtr)))
                 {
                     c = teAlliedColor;
                 }
@@ -315,9 +300,6 @@ void toAllShipsDraw(void)
                 {
                     c = teHostileColor;
                 }
-#else
-                c = teColorSchemes[ship->colorScheme].tacticalColor;
-#endif
 
                 if (radius > TO_FadeStart)
                 {
@@ -327,60 +309,68 @@ void toAllShipsDraw(void)
                     c = colRGB((colRed(c) * intScale) >> 8, (colGreen(c) * intScale) >> 8, (colBlue(c) * intScale) >> 8);
                 }
 
-                icon = toClassIcon[((ShipStaticInfo *)ship->staticinfo)->shipclass];
-                primLineLoopStart2(1, c);
-
-                radius = max(toMinimumSize, radius);   //ensure radius not too small
-
-                for (index = icon->nPoints - 1; index >= 0; index--)
+                shipClass = ship->staticinfo->shipclass;
+                if (!own && mimic && cat_mimicAppearsAlliedTo(ship, universe.curPlayerPtr))
                 {
-                    primLineLoopPoint3F(collInfo->selCircleX + icon->loc[index].x * radius,
-                                        collInfo->selCircleY + icon->loc[index].y * radius);
+                    icon = toClassIcon[cat_mimicGetApparentShipClass(ship)];
                 }
-
-                primLineLoopEnd2();
-
-                     // mark class as used for this player (for legend)
-                     toClassUsed[ship->staticinfo->shipclass][ship->playerowner->playerIndex] = 1;
+                else
+                {
+                    icon = toClassIcon[shipClass];
+                }
+                if (!smSensorsActive && shipClass != CLASS_Mothership)
+                {
+                    radius = max(toMinimumSize, radius);   //ensure radius not too small
+                    primLineLoopStart2(1, c);
+                    for (index = icon->nPoints - 1; index >= 0; index--)
+                    {
+                        primLineLoopPoint3F(radius * icon->loc[index].x + collInfo->selCircleX,
+                                            radius * icon->loc[index].y + collInfo->selCircleY);
+                    }
+                    primLineLoopEnd2();
+                    // mark class as used for this player (for legend)
+                    toClassUsed[shipClass][ship->playerowner->playerIndex] = 1;
+                }
             }
 
             //for moving ships that belong to the current player, draw the moveline
-            if ((!vecAreEqual(ship->moveTo, zero)) && (ship->playerowner == universe.curPlayerPtr))
+            if ((ship->moveTo.x != 0.0f || ship->moveTo.y != 0.0f || ship->moveTo.z != 0.0f) && own)
             {
                 toMoveLineDraw(ship, scale);
             }
 
             //Draw Special TO's for Special Ships
-            if(ship->playerowner == universe.curPlayerPtr)
+            if (own)
             {
-                switch(ship->shiptype)
+                switch (ship->shiptype)
                 {
-                    case CloakGenerator:
-                        if( ((CloakGeneratorSpec *)ship->ShipSpecifics)->CloakOn)
-                        {
-                            toFieldSphereDraw(ship,((CloakGeneratorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->CloakingRadius, scale,TW_CLOAKGENERATOR_SPHERE_COLOUR);
-                        }
+                    case bDFGFrigate:
+                    case tDFGFrigate:
+                        toFieldSphereDraw(ship, ((DFGFrigateStatics *)ship->staticinfo->custstatinfo)->DFGFrigateFieldRadius,
+                                          scale, TW_DFGF_SPHERE_COLOUR);
                         break;
-                    case DFGFrigate:
-                        toFieldSphereDraw(ship,((DFGFrigateStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->DFGFrigateFieldRadius, scale,TW_DFGF_SPHERE_COLOUR);
-                        break;
-                    case GravWellGenerator:
+                    case kGravWellGenerator:
+                    case tGravWellGenerator:
                         if (((GravWellGeneratorSpec *)ship->ShipSpecifics)->GravFieldOn)
                         {
-                            toFieldSphereDraw(ship,((GravWellGeneratorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->GravWellRadius, scale,TW_GRAVWELL_SPHERE_COLOUR);
+                            toFieldSphereDraw(ship, ((GravWellGeneratorStatics *)ship->staticinfo->custstatinfo)->GravWellRadius,
+                                              scale, TW_GRAVWELL_SPHERE_COLOUR);
                         }
                         break;
-                    case ProximitySensor:
-                        //toFieldSphereDraw(ship,((ProximitySensorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->SearchRadius, scale);
-                        if( ((ProximitySensorSpec *)ship->ShipSpecifics)->sensorState == SENSOR_SENSED
-                        || ((ProximitySensorSpec *)ship->ShipSpecifics)->sensorState == SENSOR_SENSED2)
+                    case kProximitySensor:
+                    case tProximitySensor:
+                        if (((ProximitySensorSpec *)ship->ShipSpecifics)->sensorState == SENSOR_SENSED ||
+                            ((ProximitySensorSpec *)ship->ShipSpecifics)->sensorState == SENSOR_SENSED2)
                         {
-                            toDrawRadialIndicator4(ship,((ProximitySensorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->SearchRadius, scale,TW_PROXIMITY_RING_COLOUR);
-                            toFieldSphereDraw(ship,((ProximitySensorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->SearchRadius, scale,TW_PROXIMITY_SPHERE_COLOUR_FOUND);
+                            toDrawRadialIndicator4(ship, ((ProximitySensorStatics *)ship->staticinfo->custstatinfo)->SearchRadius,
+                                                   scale, TW_PROXIMITY_RING_COLOUR);
+                            toFieldSphereDraw(ship, ((ProximitySensorStatics *)ship->staticinfo->custstatinfo)->SearchRadius,
+                                              scale, TW_PROXIMITY_SPHERE_COLOUR_FOUND);
                         }
                         else
                         {
-                            toFieldSphereDraw(ship,((ProximitySensorStatics *) ((ShipStaticInfo *)(ship->staticinfo))->custstatinfo)->SearchRadius, scale,TW_PROXIMITY_SPHERE_COLOUR);
+                            toFieldSphereDraw(ship, ((ProximitySensorStatics *)ship->staticinfo->custstatinfo)->SearchRadius,
+                                              scale, TW_PROXIMITY_SPHERE_COLOUR);
                         }
                         break;
                     default:
@@ -388,61 +378,39 @@ void toAllShipsDraw(void)
                 }
             }
         }
-
-nextnode:
-        objnode = objnode->next;
     }
-
-#define DEBUG_DRAW_BLOBS 0
-
-#if DEBUG_DRAW_BLOBS
-
-
-    {
-        blob *Blob;
-
-        objnode = universe.collBlobList.head;
-        while (objnode != NULL)
-        {
-            Blob = (blob *)listGetStructOfNode(objnode);
-
-            toFieldSphereDrawGeneral(Blob->centre,Blob->radius,colReddish);
-
-            objnode = objnode->next;
-        }
-    }
-#endif
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : toLegendDraw
+    Name        : toLegendDraw                                      0x004a8f00
     Description : Draw tactical overlay legend.
+                  CAT (M2-R5 hud): drawn by the main overlay (cat_moRender) under the player names, starting at y;
+                  returns the y under it. Only the classes CLASS_HeavyCruiser .. CLASS_NonCombat that some player
+                  showed, the icon then the class name in 0xffff4040; no player list (the overlay draws the names).
     Inputs      : toClassUsed is set with a previous call to toAllShipsDraw()
     Outputs     : Draw a legend for the tactical display icons.
-    Return      : void
+    Return      : the y under the legend
 ----------------------------------------------------------------------------*/
-void toLegendDraw(void)
+sdword toLegendDraw(sdword y)
 {
-    sdword rowHeight, shipClass, pl, y, index, x;
+    sdword rowHeight, shipClass, pl, index, x;
     toicon *icon;
     color col;
     real32 radius;
-    fonthandle fhSave;
-    rectangle playerColorRect;
 
-    fhSave = fontCurrentGet();                  //save the current font
-    fontMakeCurrent(selGroupFont2);  // use a common, fairly small font
+    if (!mrDrawTactical)
+    {
+        return y;
+    }
+    (void)fontCurrentGet();                    // the exe does not restore the font
+    fontMakeCurrent(selGroupFont2);
 
     rowHeight = fontHeight(" "); // used to space the legend
-    y = rowHeight;
-    radius = primScreenToGLScaleX(rowHeight)/2;
+    y += rowHeight;
+    radius = primScreenToGLScaleX(rowHeight) * 0.5f;
     x = (sdword)(rowHeight * 2.5);
 
-#if TO_STANDARD_COLORS
     col = teNeutralColor;
-#else
-    col = teColorSchemes[universe.curPlayerIndex].tacticalColor;
-#endif
     col = colRGB(colRed(col)/TO_IconColorFade, colGreen(col)/TO_IconColorFade, colBlue(col)/TO_IconColorFade);
 
     // draw legend entries for any classes currently displayed
@@ -461,30 +429,15 @@ void toLegendDraw(void)
 
             for (index = icon->nPoints - 1; index >= 0; index--)
             {
-               primLineLoopPoint3F(primScreenToGLX(rowHeight*1.5) + icon->loc[index].x * radius,
-                                          primScreenToGLY(y + rowHeight/2) + icon->loc[index].y * radius);
+               primLineLoopPoint3F(radius * icon->loc[index].x + primScreenToGLX(rowHeight*1.5),
+                                   radius * icon->loc[index].y + primScreenToGLY(y + rowHeight/2));
             }
             primLineLoopEnd2();
 
             // text
-            fontPrint(x, y,
-                   TO_TextColor,
-                   ShipClassToNiceStr((ShipClass)shipClass));
+            fontPrint(x, (rowHeight >> 2) + y, 0xffff4040, ShipClassToNiceStr((ShipClass)shipClass));
             y += rowHeight + 1;
         }
     }
-
-    // draw player names in the bottom left of the screen.
-
-    if (!singlePlayerGame)
-    {
-        playerColorRect.x0 = TO_PLAYERLIST_X;
-        playerColorRect.x1 = MAIN_WindowWidth;
-        playerColorRect.y0 = 0;
-        playerColorRect.y1 = MAIN_WindowHeight-TO_PLAYERLIST_Y;
-
-        smPlayerNamesDraw(&playerColorRect);
-    }
-
-    fontMakeCurrent(fhSave);
+    return y;
 }

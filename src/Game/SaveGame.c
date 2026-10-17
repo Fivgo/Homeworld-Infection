@@ -21,6 +21,7 @@
 #include "Damage.h"
 #include "File.h"
 #include "Gun.h"
+#include "InfoOverlay.h"
 #include "LevelLoad.h"
 #include "Light.h"
 #include "LinkedList.h"
@@ -789,6 +790,9 @@ bool32 SaveGame(char *filename)
     aiplayerSave();
 
     SaveSinglePlayerGame();
+    // CAT (M2-R5 hud): the overlay's mission timer (cat_missionTimerSave 0x004acbb0, after cat_saveGameMiscChunks in
+    //      SaveGame; CAT-TODO(M2-R6 save game): the misc chunks are not ported)
+    cat_missionTimerSave();
 
     if (singlePlayerGame)
     {
@@ -917,6 +921,8 @@ void LoadGame(char *filename)
     aiplayerLoad();
 
     LoadSinglePlayerGame();
+    // CAT (M2-R5 hud): the overlay's mission timer (cat_missionTimerLoad 0x004acbc0, after cat_loadGameMiscChunks)
+    cat_missionTimerLoad();
 
     if (singlePlayerGame)
     {

@@ -1086,17 +1086,8 @@ nextship:
 // CAT: the patch number of a LUT entry (GetPatch inlined by the exe: a random variation on RAN_SoundGameThread)
 #define catShipPatch(lut, obj, ev)  ((lut)->lookup[GetPatch((lut), (obj), (ev))])
 
-// CAT-TODO(M2-R6 camera): cat_ccIsPilotingShip 0x0042c2e0 / cat_ccIsPilotingThisShip 0x0042c310 read the camera
-//      command's piloting mode, which the camera port brings; until then no ship is piloted
-static bool32 cat_ccIsPilotingShip(void)
-{
-    return FALSE;
-}
-static bool32 cat_ccIsPilotingThisShip(Ship *ship)
-{
-    (void)ship;
-    return cat_ccIsPilotingShip();
-}
+// CAT: cat_ccIsPilotingShip 0x0042c2e0 / cat_ccIsPilotingThisShip 0x0042c310 are in CameraCommand.c (M2-R5 hud: the
+//      camera command's CCMODE_PILOT_SHIP with a one-ship focus)
 
 static void catSEupdateHandle(sdword handle, sword vol, sword pan, real32 *eq)
 {

@@ -271,4 +271,7 @@ extern void (*smHoldRight)(void);
 void smSave(void);
 void smLoad(void);
 
+extern bool32 catSmShowMines;                       // CAT: 0x00a5b1ac (M2-R5 hud)
+color cat_smZoomFadeColor(color c, sdword inverse);   // CAT: 0x0050b830 (M2-R5 hud)
+
 #endif
