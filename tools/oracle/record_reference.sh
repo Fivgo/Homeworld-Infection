@@ -29,11 +29,14 @@ install_dll() {
   cp -u "$b/hwi_oracle.dll" "$b/hwi_oracle_loader.exe" "$GAME/" || die "could not copy the DLL into $GAME"
   echo "oracle DLL: $(sha256sum "$GAME/hwi_oracle.dll" | cut -c1-12)  loader: $(stat -c %s "$GAME/hwi_oracle_loader.exe") B  (from $b)"
 }
-launch() {  # $1 = HWI_ORACLE value
+launch() {  # $1 = HWI_ORACLE value; $2 = "plain" to skip the Wine virtual desktop (replays)
   echo "HWI_ORACLE=$1"
+  local vd=(--virtual-desktop "$DESK"); [[ "${2:-}" == plain ]] && vd=()
+  # Unattended replays launched from a script have died at start with an X11 BadWindow when Wine created its
+  # virtual desktop (2026-10-17); a plain window replays fine, so replays use it and record keeps the desktop.
   # +seh: Wine logs every exception with its address, so a crash leaves a trace in logs/steam-*.log
   # (2026-10-17: the first recording session crashed with an access violation and left no address).
-  HWI_ORACLE="$1" WINEDEBUG="${WINEDEBUG:-+seh}" "$ROOT/tools/run_game.sh" --no-gamescope --virtual-desktop "$DESK" --wine-log --exe hwi_oracle_loader.exe -- /logOn
+  HWI_ORACLE="$1" WINEDEBUG="${WINEDEBUG:-+seh}" "$ROOT/tools/run_game.sh" --no-gamescope "${vd[@]}" --wine-log --exe hwi_oracle_loader.exe -- /logOn
   local rc=$?
   local L; L="$(ls -t "$ROOT"/logs/steam-*.log 2>/dev/null | head -1)"
   if [[ -n "$L" ]]; then
@@ -84,7 +87,8 @@ MSG
     install_dll
     for r in a b; do
       echo "== replay $r of 2 (virtual clock, no input; just watch, then it exits by itself) =="
-      launch "mode=play:$NAME;clock=virtual;rng0=split;out=$NAME-play-$r.hwo"; echo "exit code $?"
+      launch "mode=play:$NAME;clock=virtual;rng0=split;out=$NAME-play-$r.hwo" plain; echo "exit code $?"
+      [[ -s "$GAME/$NAME-play-$r.hwo" ]] || echo "WARNING: replay $r wrote no stream (see the newest logs/run_game-*.log)"
     done
     dest="$(collect play | tail -1)"
     echo "== compare the two replays =="
