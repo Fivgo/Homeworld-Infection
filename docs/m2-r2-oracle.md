@@ -371,3 +371,13 @@ Untracked and not for git: `build/oracle-tools/` (scratch helpers `dec.py`, `pe.
   not a replay defect.
 - `tools/oracle/record_reference.sh verify` now replays in a plain window and warns when a replay writes no stream.
 - Still needed for the reference: one full 10-minute skirmish recorded through the Record shortcut (now accepted).
+
+## 2026-10-17 14:44: the reference recording is VERIFIED
+
+`SavedGames\RecordedGames\oracle01` (+ `.pkts`, 384,726 B; GOG stream `original/oracle/oracle01-rec-20261017-140428/oracle01-rec.hwo`,
+ticks 0..12281, record-stop at 9600): two `mode=play:oracle01;clock=virtual;rng0=split` replays each produced 9,601 T /
+4,800 P records; `univ`, `stat`, positions, velocities, rotations, health and all list hashes are IDENTICAL through
+tick 9601 (final univ 4a1ef243, 80 objects). Only `rng_all` differs (from tick 197; the wall-clock-seeded stream 0),
+and the game's own sync check reports `rand 0 univ 0` errors against the live session's packets (blob = stats
+checksum, stream-0 dependent, expected). Streams kept in `original/oracle/oracle01-play-20261017-144421/`. This is
+the reference for oracle mode A (M2-R6 producer 7): the recreation must reproduce `oracle01-rec.hwo` tick for tick.
