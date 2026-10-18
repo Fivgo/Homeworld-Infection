@@ -26,7 +26,7 @@ message, debugwnd.c), `review` (delta-map review entries).
 
 - `src/SDL/utility.c`: `UTY_CONFIG_FILENAME` is `"Cataclysm.cfg"` (string 0x008b6f80, `utyOptionsFileRead`
   0x005a83a0 / `utyOptionsFileWrite` 0x005a84f0). `utyOptionsList` is the exe's table 0x008c1478 .. 0x008c18e0 row for
-  row (95 rows, its order and names, no sections: `PrevColorN.detail`, `PlayerPwd`, `spCurrentSelected`,
+  row (94 rows [audit: said 95; 0x008c1478 .. 0x008c18d4, the terminator at 0x008c18e0], its order and names, no sections: `PrevColorN.detail`, `PlayerPwd`, `spCurrentSelected`,
   `MPGameFlags`, `MultiPlayerGameSetting`, `ResInjInterval`, `ResInjAmmount`, `ResLumpSumTime`, `ResLumpSumAmmount`,
   `DifficultySetting`), then the HWI rows: the exe's registry rows GoK keeps in the file (`deviceCRC`, `deviceIndex`,
   `screenWidth` / `Height` / `Depth`; the exe's `regOptionsList` 0x008c0e58) and GoK's own (`HomeworldDataPath`,
@@ -201,7 +201,7 @@ Read against the r6 decompile and disassembly (`tools/m2_fdec.py`, `tools/m2_fdi
     "Emergence" (class / title 0x008b85b8 / 0x008b85c4; `windowTitle`, render.c `CAT_RND_WINDOW_TITLE`). The R2
     workaround list stays empty: every run below is the plain harness.
   - `ProcessCommandLine` 0x0055f880: a switch whose parameter is missing, or whose function fails, prints the help
-    and ends the start-up (-1; HW1 / GoK went on with the next token). The exe's 63-row table 0x008b8870 (dumped from
+    and ends the start-up (-1; HW1 / GoK went on with the next token). The exe's 64-row table 0x008b8870 [audit: said 63-row; 57 switches and 7 section rows, terminator 0x008b8e70] (dumped from
     the exe) compared with the tree's: rows added `/prepath` (`cat_mainPrependPathSet` 0x0055f3d0, WIP), `/CDpath`
     through `cat_mainCDROMPathSet` 0x0055f3f0 (GoK's `fileCDROMPathSet` keeps the Win32 drive test and the exe's
     message; a set path stops the CD search), `/SaveMPGames` / `/LoadMPGame` (`cat_mainLoadMPGameSet` 0x0055f500, WIP),
@@ -280,7 +280,9 @@ Read against the r6 decompile and disassembly (`tools/m2_fdec.py`, `tools/m2_fdi
 ## review (done)
 
 Every IDENTICAL body of the scope compared with the exe (60 unreviewed: Key.c 3, main.c 6, utility.c 51): one found
-modified (`utySinglePlayerOptions`, ported); the rest identical, or Win32 / rGL bodies where GoK's SDL version stays
+modified (`utySinglePlayerOptions`, ported) [audit: three: `utyShowCredits` and `utyGameQuitToMain` play the
+credits track 0x29 (HW1 `RollCredits` 28), ported here as `CAT_MUSIC_CREDITS` but recorded "compared: identical";
+their review notes are corrected]; the rest identical, or Win32 / rGL bodies where GoK's SDL version stays
 (`mainDevStatsInit`, `mainReinitRGL`, `utyBrowserExec` are not in GoK's tree; `mainSaveRender`, `mainSetupSoftware`,
 `mainCleanupAfterVideo`, `utyClientRectGet`, `utyClipMouse`, `utyToggleKeyStatesRestore`). `keyPressDown` /
 `keyRepeat` inline `keyBufferAdd` with the exe's no-buffer key list 0x00883268 (Win32 codes); the 2-bit `keystick`
@@ -290,7 +292,8 @@ explains the `| 2 & 0xfb` / `& 0xf9` masks.
 was one): Key.c 4 (`keyInit`, `keyPressDown`, `keyRepeat`, `keyClearAllStuckKeys`), KeyBindings.c 4 (all four),
 main.c 23 (every MODIFIED function and the six compared IDENTICALs), screenshot.c 1, utility.c 63 (12 MODIFIED: all but
 `utyForceTopmost` / `utyChangeResolution`, reviewed before; the 51 compared IDENTICALs incl. the Win32 ones), Blobs.c 1 (`bobResetProperties`: the
-jump). `done_subsystems` += `m2r6:startup-keys`; `counts.reviewed` 2460 -> 2549. debugwnd.c's functions were already
+jump). [audit: plus render.c 2 added by the audit: `setupPixelFormat` (the window title) and `rndBackgroundRender`
+(the console's BTG byte), both IDENTICAL bodies this port edited without a startup-keys entry] `done_subsystems` += `m2r6:startup-keys`; `counts.reviewed` 2460 -> 2549. debugwnd.c's functions were already
 reviewed as not built; `cat_dd*` (`cat_ddDelete` 0x005567a0, `cat_ddCreate` 0x005567f0, `cat_ddActivate`
 0x005568d0, `cat_ddErrorString` 0x00556990) are the Win32 DirectDraw debug window: not applicable (cat-new functions
 have no map rows; listed here).
