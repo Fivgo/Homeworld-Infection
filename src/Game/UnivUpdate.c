@@ -1813,12 +1813,12 @@ void InitializeShowingDamage(Ship* ship)
 //      blocks behind it, the damage points (cat_dmgShipLoadDamagePoints 0x00462950 = dmgGetLights, in
 //      InitializeShowingDamage), upgrades (cat_shipUpgradesInit/ApplyUpgrades), dock info (cat_dockInitShipDockInfo),
 //      the mothership modules (cat_univCreateMothershipModules), experience, stealth, dissolve, ship names and the
-//      multiplayer derelicts' helplessness. Not yet, with the owner [integrate: M2-R5; was an M2-R4 #3/#4/#5 TODO]:
+//      multiplayer derelicts' helplessness; since M2-R6 managers the support units (cat_suShipAdded 0x00459a90),
+//      the external-build start at health 0 and the factory block for the four builder types only, with the exe's
+//      6th argument, the creator (Ship+0x4AC). Not yet, with the owner [integrate: M2-R5; was an M2-R4 #3/#4/#5 TODO]:
 //      CAT-TODO(M2-R6 ships): the repair-droid array (droidCreateArray 0x005c3070 -> Ship+0x4C0, NULL here);
-//      CAT-TODO(M2-R6 ConsMgr): cat_suShipAdded 0x00459a90 (the support units), the external-build start at health 0
-//      behind CAT_EXTERNAL_BUILD_DRIVER (below) and the factory block for the four builder types only;
 //      CAT-TODO(M2-R6 FOW): the FOW cube (fowActivateCubeW with cat_shipGetFOWRadius once the ship is added).
-Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built)
+Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built,Ship *creator)
 {
     Ship *newship;
     udword sizespec;
@@ -2052,7 +2052,14 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
         newship->shipsInsideMe = NULL;
     }
 
-    if (shipstaticinfo->canBuildShips)
+    // CAT (M2-R6 managers): only the four builder types become factories here (univCreateShip 0x00542320, 0x0054275a:
+    //      sMothership, sCarrier, bMothership, bCarrier with canBuildShips), not an externally built one that has a
+    //      creator (it becomes one when its build ends, Dock.c CAT_DOCKSTATE_BUILD_ATTACHED), and in single player
+    //      only the local player's
+    if (((creator == NULL) || !shipstaticinfo->externalBuild) &&
+        (!singlePlayerGame || (playerowner->playerIndex == 0)) &&
+        shipstaticinfo->canBuildShips &&
+        ((shiptype == sMothership) || (shiptype == sCarrier) || (shiptype == bMothership) || (shiptype == bCarrier)))
     {
         cmAddFactory(newship,shipstaticinfo->canBuildBigShips);
     }
@@ -2138,8 +2145,8 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     cat_univShipMeshStateCreate(&newship->obj);
     // CAT: then the external build state (0x00542ac4..0x00542b10): an externalBuild type created with bit 0 of built
     //      set starts at health 0, progress 0 and SPECIAL_2_CatBeingBuilt; every other ship at full health, progress
-    //      1.0, flag clear. CAT-PROVISIONAL: CAT_EXTERNAL_BUILD_DRIVER (CommandLayer.h) keeps the first case off
-    //      until ConsMgr's external-build driver is ported
+    //      1.0, flag clear. Since M2-R6 managers ConsMgr's external-build driver brings such a ship to full health
+    //      (CAT_EXTERNAL_BUILD_DRIVER 1, CommandLayer.h)
     if (CAT_EXTERNAL_BUILD_DRIVER && shipstaticinfo->externalBuild && (built & 1))
     {
         newship->targetable.health = 0.0f;
@@ -2152,6 +2159,9 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
         newship->catBuildProgress = 1.0f;
         bitClear(newship->shipOrDerelict.specialFlags2,SPECIAL_2_CatBeingBuilt);
     }
+    // CAT (M2-R6 managers): the support units (cat_suShipAdded 0x00459a90, call at 0x00542b13), before the ship is
+    //      added to the universe
+    cat_suShipAdded(newship, playerowner);
     // CAT (M2-R5 layout-dock): the exe zeroes the kills per class (Ship+0x5C8) and calls cat_shipUpdateExperienceLevel
     //      0x005147d0 once per class (0x00542bf0; the level comes out 0 and no message is posted); one call here
     for (i = 0; i < NUM_CLASSES; i++)
@@ -2159,6 +2169,7 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
         newship->catKillsByClass[i] = 0;
     }
     cat_shipUpdateExperienceLevel(newship);
+    newship->catCreator = creator;      // CAT (M2-R6 managers): the 6th argument (0x00542c0f)
     // CAT (M2-R4 ships-b): the stealth flags (cat_shipStealthInit 0x0053fce0, call at 0x00542c15)
     cat_shipStealthInit(newship);
     // CAT (M2-R4 ships-b): after the stealth state the exe resets the dissolve state (0x00542c1b:
@@ -2188,7 +2199,7 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
 ----------------------------------------------------------------------------*/
 Ship *univAddShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built)
 {
-    Ship *newship = univCreateShip(shiptype,shiprace,shippos,playerowner,built);
+    Ship *newship = univCreateShip(shiptype,shiprace,shippos,playerowner,built,NULL);
 
     collAddSpaceObjToCollBlobs(&newship->obj);
     listAddNode(&universe.SpaceObjList,&(newship->header.objlink),newship);
@@ -4989,12 +5000,13 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
         cmRemoveFactory(ship);
     }
 
-    // CAT: externally built ships (0x00547d97). CAT-TODO(M2-R6 ConsMgr, the external-build driver):
-    //      cat_cmExternalBuildShipDied 0x00455960 (the build queue entry that waits for the ship). Then the exe clears
-    //      SPECIAL_2_CatBeingBuilt (0x00547dab) [audit: ported by the M2-R4 command audit; the flag is at the exe's bit
-    //      since that port]. A docked externally built ship leaves the dock
+    // CAT: externally built ships (0x00547d97): the build job that waits for the ship forgets it
+    //      (cat_cmExternalBuildShipDied 0x00455960, M2-R6 managers), then the exe clears SPECIAL_2_CatBeingBuilt
+    //      (0x00547dab) [audit: ported by the M2-R4 command audit; the flag is at the exe's bit since that port]. A
+    //      docked externally built ship leaves the dock
     if (ship->staticinfo->externalBuild)
     {
+        cat_cmExternalBuildShipDied(ship);
         bitClear(ship->shipOrDerelict.specialFlags2,SPECIAL_2_CatBeingBuilt);
     }
     if (ship->staticinfo->externalBuild && ship->dockvars.dockship != NULL)
@@ -7607,8 +7619,9 @@ void univFreeShipContents(Ship *ship)
 {
     udword i;
 
-    // CAT: the ship's per-vertex mesh state and +0x84 block go first (univFreeShipContents 0x0054b550).
-    //      CAT-TODO(M2-R6 ConsMgr): cat_suShipRemoved 0x00459ae0 (support units) comes before them in the exe
+    // CAT: the support units go first (cat_suShipRemoved 0x00459ae0, M2-R6 managers), then the ship's per-vertex mesh
+    //      state and +0x84 block (univFreeShipContents 0x0054b550)
+    cat_suShipRemoved(ship);
     cat_univMeshStateFree(&ship->obj);
     cat_univFreeEffectBlock(&ship->obj);
 
@@ -8543,9 +8556,6 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
     vector position, velocity, force;
     bool16 isMoving;
 
-    (void)oldOwner;
-    (void)oldType;
-
     ship->catBeastConvertTime = 0.0f;
     if (ship->catBeastBindings != NULL)
     {
@@ -8601,8 +8611,10 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
 
     univAddObjToRenderListIf((SpaceObj *)newship, (SpaceObj *)ship);
     unitCapCreateShip(newship, newship->playerowner);
-    // CAT-TODO(M2-R6 research): the exe copies the old type's 0xA8-byte research/upgrade block of the old owner (Player
-    //      +0x350) to the new type's block of the new owner
+    // CAT (M2-R6 managers): the new type's build requirements of the new owner's tech statics become the old type's of
+    //      the old owner's (0x00543b68: the 0xA8-byte set through Player +0x350, the shared tables)
+    memcpy(newship->playerowner->researchinfo.techstat->TechNeededToBuildShip[newType],
+           oldOwner->researchinfo.techstat->TechNeededToBuildShip[oldType], sizeof(CatTechSet));
 
     // CAT: the exe pushes a third word, 1 (0x00543ba8), which univDeleteDeadShip 0x00547d00 never reads (its body uses
     //      ship and deathBy only): no port [integrate: M2-R5; was an M2-R4 #1 follow-up TODO]
@@ -8645,10 +8657,39 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
         }
         if (!singlePlayerGame)
         {
-            // CAT-TODO(stage 4): a computer player's new ship (not a bProcessor) is sent to dock, 1 in 10 with dock type
-            //      7 (clWrapDock with universe.aiplayerProcessing set); a bProcessor acquires the old ship's techs
-            //      (cat_rmAcquireShipTechs, M2-R6 research); for the current player the exe compares the new owner's
-            //      research with the type's tech sets and shows "new technology" messages (cat_ioMessageAdd, stage 3)
+            if ((newOwner->aiPlayer != NULL) && (newship->shiptype != bProcessor))
+            {
+                // CAT-TODO(stage 4 AI): a computer player's new ship is sent to dock, 1 in 10 (random stream 6) with dock type 7, else 0 (clWrapDock with universe.aiplayerProcessing set; 0x00543e3b), and the function returns
+                return newship;
+            }
+            // CAT (M2-R6 managers): a bProcessor acquires the technologies of what it converted (cat_rmAcquireShipTechs
+            //      0x004f4870); for the current player a type whose build requirements or upgrade technologies the
+            //      player does not hold yet is announced (strNewTechFound for a bProcessor, else
+            //      strNewTechFoundRetire; cat_ioMessageAdd in green)
+            if (newship->shiptype == bProcessor)
+            {
+                cat_rmAcquireShipTechs(newship);
+            }
+            if (universe.curPlayerPtr == newOwner)
+            {
+                CatTechSet test;
+                // [audit: M2-R6 managers: the old owner's rows (0x00543d7f: the owner and type saved from the old
+                //      ship at 0x00543962 / 0x00543968), not the new owner's]
+                sdword *need = oldOwner->researchinfo.techstat->TechNeededToBuildShip[oldType];
+                sdword *upgrades = oldOwner->researchinfo.catShipUpgradeTechs[oldType];
+
+                cat_rmTechSetAnd(test, need, newOwner->researchinfo.HasTechnology);
+                if (cat_rmTechSetEqual(test, need))
+                {
+                    cat_rmTechSetAnd(test, upgrades, newOwner->researchinfo.HasTechnology);
+                    if (cat_rmTechSetEqual(test, upgrades))
+                    {
+                        return newship;
+                    }
+                }
+                cat_ioMessageAdd(strGetString((newship->shiptype == bProcessor) ? strNewTechFound : strNewTechFoundRetire),
+                                 0xff00ff00, 1, newship);
+            }
         }
     }
     return newship;
@@ -8694,6 +8735,299 @@ bool32 cat_univBeastInfectionUpdate(Ship *ship)
         }
     }
     return FALSE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_shipUpdateExternalBuildAndAI (Cataclysm 0x00543f10)
+    Description : CAT (M2-R6 managers): new. The end of cat_univShipDeferredUpdate for a live ship:
+                  1. a computer player's externally built ship builds on its own timer (SPECIAL_2_CatExternalBuildTimer,
+                     set by cat_clStartExternalBuildTimer when the ship reached its build position): the first call
+                     starts the timer for buildTime / 16 s, sets the progress to 1e-6 and charges the build cost; then
+                     the health follows the timer's fraction and at full health the build ends (a Sect module opens
+                     its lab quietly);
+                  2. a computer player's finished ship then, every 256th tick by ship number, upgrades itself
+                     (cat_clWrapUpgradeShips) or docks for it when idle (UpgradeByDocking);
+                  3. every 32nd tick by ship number, with a chance from the difficulty (1, 2, 5, 10, 15 in 201 by the
+                     single-player difficulty 0x008941a0, 1, 5, 10 by the AI level in multiplayer), it uses the special
+                     ability of its type on the enemies within its FOW radius (mimic, leech, EMP, ram, swarm, the
+                     Dreadnought's and the cloaked ships' special, the Beast capital ships' infection), and in
+                     multiplayer, with the same chance again, attacks them (one in 101 attacks every enemy, else only
+                     the AI's primary enemy and whoever is shooting the ship), adding them to a running attack.
+                  Both chance draws are random stream 6 (RANDOM_AI_PLAYER)
+    Inputs      : ship
+----------------------------------------------------------------------------*/
+static void catShipAIAttackOrSpecial(Ship *ship, SelectCommand *enemies, bool32 special)
+{
+    SelectCommand selectone;
+    SpecialCommand *targets;
+    sdword i;
+
+    selectone.numShips = 1;
+    selectone.timeLastStatus = 0.0f;
+    selectone.ShipPtr[0] = ship;
+    if (enemies == NULL)
+    {
+        clWrapSpecial(&universe.mainCommandLayer, &selectone, NULL);
+        return;
+    }
+    (void)special;
+    targets = memAlloc(enemies->numShips * sizeof(TargetPtr) + 8, "catAISpecial", 0);   // the exe's n * 4 + 8
+    for (i = 0; i < enemies->numShips; i++)
+    {
+        targets->TargetPtr[i] = (TargetPtr)enemies->ShipPtr[i];
+    }
+    targets->numTargets = enemies->numShips;
+    clWrapSpecial(&universe.mainCommandLayer, &selectone, targets);
+    memFree(targets);
+}
+
+void cat_shipUpdateExternalBuildAndAI(Ship *ship)
+{
+    ShipStaticInfo *info = ship->staticinfo;
+    SelectCommand selectone;
+    SelectCommand *enemies = NULL;
+    bool32 queried = FALSE;
+    bool32 attackAll;
+    sdword chance = 201;    // the exe compares with the ship pointer for an unknown level: always above 200
+    AttackCommand *attack, *running;
+    sdword i, j, count, oldcount;
+
+    if (bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExternalBuildTimer))
+    {
+        if (ship->catBuildProgress <= 0.0f)
+        {
+            cat_timerStartGameTime(&ship->catBuildTimer, (real32)(info->buildTime / 16));
+            ship->catBuildProgress = 1e-6f;         // 0x358637bd
+            ship->playerowner->resourceUnits -= info->buildCost;
+            return;
+        }
+        ship->catBuildProgress = cat_timerFractionElapsed(&ship->catBuildTimer);
+        if (ship->catBuildProgress > 1.0f)
+        {
+            ship->catBuildProgress = 1.0f;
+        }
+        ship->targetable.health = info->health.maxhealth * ship->catBuildProgress;
+        if (ship->targetable.health < info->health.maxhealth)
+        {
+            return;
+        }
+        ship->targetable.health = info->health.maxhealth;
+        bitClear(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt);
+        if ((ship->shiprace == RACE_Sect) && (info->shipclass == CLASS_Component))
+        {
+            cat_rmResearchModuleActivated(ship->playerowner, ship->shiptype, FALSE);
+        }
+        bitClear(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExternalBuildTimer);
+        return;
+    }
+    if (bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt) || (ship->playerowner->aiPlayer == NULL))
+    {
+        return;
+    }
+    if ((universe.univUpdateCounter & 0xff) == (ship->shipID.shipNumber & 0xff))      // 0x008b5b8c
+    {
+        selectone.numShips = 1;
+        selectone.ShipPtr[0] = ship;
+        if (cat_shipIsUpgradable(ship))
+        {
+            if (!info->UpgradeByDocking)
+            {
+                cat_clWrapUpgradeShips(&universe.mainCommandLayer, &selectone, FALSE);
+            }
+            else if ((ship->command == NULL) || (ship->command->ordertype.order == COMMAND_NULL) ||
+                     (ship->command->ordertype.order == COMMAND_MILITARY_PARADE))
+            {
+                clWrapDock(&universe.mainCommandLayer, &selectone, CAT_DOCK_SUPPORT, NULL);
+            }
+        }
+    }
+    if ((universe.univUpdateCounter & 0x1f) != (ship->shipID.shipNumber & 0x1f))      // 0x008b5b84
+    {
+        return;
+    }
+    if (singlePlayerGame)
+    {
+        switch (catSpDifficultySetting)
+        {
+            case 0: chance = 1; break;
+            case 1: chance = 2; break;
+            case 2: chance = 5; break;
+            case 3: chance = 10; break;
+            case 4: chance = 15; break;
+            default: break;
+        }
+    }
+    else
+    {
+        switch (ship->playerowner->aiPlayer->aiplayerDifficultyLevel)
+        {
+            case 0: chance = 1; break;
+            case 1: chance = 5; break;
+            case 2: chance = 10; break;
+            default: break;
+        }
+    }
+    if ((sdword)(ranRandom(RANDOM_AI_PLAYER) % 201) < chance)
+    {
+        enemies = getEnemiesWithinProximity(ship, cat_shipGetFOWRadius(ship, 0));
+        queried = TRUE;
+        if ((enemies == NULL) || (enemies->numShips < 1))
+        {
+            if (((ship->shiptype == bCloakedFighter) || (ship->shiptype == bIonArrayFrigate)) && !singlePlayerGame &&
+                cat_shipIsCloakedFully(ship))
+            {
+                catShipAIAttackOrSpecial(ship, NULL, TRUE);
+            }
+        }
+        else
+        {
+            switch (ship->shiptype)
+            {
+                case sMimic:
+                case sMCV:
+                    if (!singlePlayerGame && !cat_shipIsMimicking(ship))
+                    {
+                        selectone.numShips = 1;
+                        selectone.ShipPtr[0] = ship;
+                        selectone.timeLastStatus = 0.0f;
+                        cat_clWrapMimic(&universe.mainCommandLayer, &selectone, 1,
+                                        (udword)cat_mimicRandomDisguiseType(ship->shiptype, ship->playerowner->race),
+                                        ship->playerowner->playerIndex, (udword)-1);
+                    }
+                    break;
+                case sLeech:
+                    if (!cat_leechIsLeeching(ship))
+                    {
+                        catShipAIAttackOrSpecial(ship, enemies, TRUE);
+                    }
+                    break;
+                case sACV:
+                case bACV:
+                    if (!singlePlayerGame)
+                    {
+                        catShipAIAttackOrSpecial(ship, enemies, TRUE);
+                    }
+                    break;
+                case sRammingFrigate:
+                case bRammingFrigate:
+                    if (!singlePlayerGame && !cat_shipIsLiveRammingFrigate(ship))
+                    {
+                        catShipAIAttackOrSpecial(ship, enemies, TRUE);
+                    }
+                    break;
+                case sHiveFrigate:
+                case bHiveFrigate:
+                    if (!singlePlayerGame && !cat_hiveFrigateSwarmReady(ship))
+                    {
+                        catShipAIAttackOrSpecial(ship, enemies, TRUE);
+                    }
+                    break;
+                case bCloakedFighter:
+                case bIonArrayFrigate:
+                    if (cat_shipIsCloakedFully(ship))
+                    {
+                        break;
+                    }
+                    // fall through: the Dreadnought's case
+                case sDreadnought:
+                    if (!singlePlayerGame)
+                    {
+                        catShipAIAttackOrSpecial(ship, NULL, TRUE);
+                    }
+                    break;
+                case bHeavyCruiser:
+                case bCarrier:
+                case bMothership:
+                    if (!bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeastWeaponAutoAttack))
+                    {
+                        catShipAIAttackOrSpecial(ship, enemies, TRUE);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+
+    // the attack (0x005444fd)
+    if ((ship->shiptype == sLeech) || (ship->shiptype == sWorker) || (ship->shiptype == bWorker) || singlePlayerGame)
+    {
+        return;
+    }
+    if ((sdword)(ranRandom(RANDOM_AI_PLAYER) % 201) >= chance)
+    {
+        return;
+    }
+    attackAll = (ranRandom(RANDOM_AI_PLAYER) % 101) > 99;
+    if (!queried)
+    {
+        enemies = getEnemiesWithinProximity(ship, cat_shipGetFOWRadius(ship, 0));
+    }
+    if ((enemies == NULL) || (enemies->numShips < 1))
+    {
+        return;
+    }
+    selectone.numShips = 1;
+    selectone.ShipPtr[0] = ship;
+#define CAT_AI_TARGET_WANTED(target) \
+    (attackAll || ((target)->playerowner == ship->playerowner->aiPlayer->primaryEnemyPlayer) || \
+     ((ship->gettingrocked != NULL) && ((target)->playerowner == ship->gettingrocked->playerowner)))
+    if ((ship->command == NULL) || (ship->command->ordertype.order != COMMAND_ATTACK))
+    {
+        attack = memAlloc(enemies->numShips * sizeof(TargetPtr) + 8, "catAIAttack", 0);
+        count = 0;
+        for (i = 0; i < enemies->numShips; i++)
+        {
+            if (CAT_AI_TARGET_WANTED(enemies->ShipPtr[i]))
+            {
+                attack->TargetPtr[count++] = (TargetPtr)enemies->ShipPtr[i];
+            }
+        }
+        if (count < 1)
+        {
+            memFree(attack);
+            return;
+        }
+        attack->numTargets = count;
+    }
+    else
+    {
+        running = ship->command->attack;
+        oldcount = running->numTargets;
+        attack = memAlloc((enemies->numShips + oldcount) * sizeof(TargetPtr) + 8, "catAIAttack", 0);
+        for (i = 0; i < oldcount; i++)
+        {
+            attack->TargetPtr[i] = running->TargetPtr[i];
+        }
+        count = oldcount;
+        for (i = 0; i < enemies->numShips; i++)
+        {
+            if (!CAT_AI_TARGET_WANTED(enemies->ShipPtr[i]))
+            {
+                continue;
+            }
+            for (j = 0; j < oldcount; j++)
+            {
+                if (attack->TargetPtr[j] == (TargetPtr)enemies->ShipPtr[i])
+                {
+                    break;
+                }
+            }
+            if (j == oldcount)
+            {
+                attack->TargetPtr[count++] = (TargetPtr)enemies->ShipPtr[i];
+            }
+        }
+        if (count <= oldcount)
+        {
+            memFree(attack);
+            return;
+        }
+        attack->numTargets = count;
+    }
+#undef CAT_AI_TARGET_WANTED
+    clWrapAttack(&universe.mainCommandLayer, &selectone, attack);
+    memFree(attack);
 }
 
 /*-----------------------------------------------------------------------------
@@ -8805,8 +9139,15 @@ void cat_univShipDeferredUpdate(Ship *ship)
     // CAT-TODO(M2-R6 FOW): then the stealth detection of the catTypeFlags 0x20000 types on every 16th tick by ship
     //      number (cat_shipStealthDetectionUpdate 0x0053fd90: a player detects the ship when one of its detector ships,
     //      catTypeFlags 0x10000 with upgrade 0x800000, is within its FOW radius, cat_shipGetFOWRadius 0x00514a30, which
-    //      needs the research tech sets cat_rmTechSetHas), and for live ships cat_shipUpdateExternalBuildAndAI
-    //      0x00543f10 with universe.aiplayerProcessing set
+    //      needs the research tech sets cat_rmTechSetHas)
+    // CAT (M2-R6 managers): a live ship's external build timer and computer-player use (0x00544ada:
+    //      cat_shipUpdateExternalBuildAndAI 0x00543f10 with universe.aiplayerProcessing set)
+    if (!bitTest(ship->header.flags, SOF_Dead))
+    {
+        universe.aiplayerProcessing = TRUE;
+        cat_shipUpdateExternalBuildAndAI(ship);
+        universe.aiplayerProcessing = FALSE;
+    }
 }
 
 /*-----------------------------------------------------------------------------

@@ -552,6 +552,22 @@ float a,b,c,d,e;
    *m0 = ((((a+a+a)*t)+(b+b))*t)+c;
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_ccEvalCubicVel
+    Description : CAT: new (0x0042d4a0): a Hermite cubic from (y0, m0) to (y1, m1) evaluated at t: y0 and m0 become
+                  the point and the slope there (the sensors manager's slipgate paths)
+----------------------------------------------------------------------------*/
+void cat_ccEvalCubicVel(float *y0, float *m0, float y1, float m1, float t)
+{
+    float e = y1 - *y0;
+    float a = ((m1 + *m0) - e) - e;
+    float b = ((e * 3.0f - m1) - *m0) - *m0;
+    float c = *m0;
+
+    *y0 = ((a * t + b) * t + c) * t + *y0;
+    *m0 = (b + b + a * 3.0f * t) * t + c;
+}
+
 /*----------------------------------------------------------------------------
    EvalCubicAngle - Same as EvalCube, but handles *y0 & y1 in radians
    between 0 and 2PI.  Performs the interpolation along the shortest

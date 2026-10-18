@@ -216,5 +216,6 @@ bool32 utyCapsLockToggleState(void);
 void utyStartDroppedDialog(sdword playernum);
 
 extern sdword utyPlayerDroppedDisplay;
+extern udword catSpDifficultySetting;      // CAT: 0x008941a0, the single-player difficulty (utility.c; read by cat_shipUpdateExternalBuildAndAI)
 
 #endif

@@ -48,10 +48,12 @@ typedef struct
     ShipStaticInfo *info;
     // CAT (M2-R4 rest-oracle): Cataclysm's entry is 0x30 bytes (cmBuildJobsAdd 0x004586c0 and unitCapCanCreateShip
     //      0x0053ece0 index by type * 0x30; LoadConsMgr 0x004598a0 fixes up +0x20 info and +0x2C ship for 0x91 entries);
-    //      the three dwords after info: +0x24 has no reader in the r6 export, +0x28 is tested by unitCapCanCreateShip for
-    //      an externally built type (one queued job of the type is already a ship), +0x2C is the ship under construction
-    //      (SaveConsMgr 0x00459780 saves it by ID). Names chosen here.
-    sdword catUnknown24;
+    //      the three dwords after info are the external build's (M2-R6 managers: read in cmBuildTaskFunction 0x00454940,
+    //      cat_cmExternalBuildAttach 0x00455af0, cat_cmExternalBuildShipDied 0x00455960, cat_cmBuildJobFinished
+    //      0x00453c20): +0x24 the ship has reached its build position (the attach), +0x28 the job's ship exists
+    //      (also tested by unitCapCanCreateShip), +0x2C the ship under construction (SaveConsMgr 0x00459780 saves it by
+    //      ID). Names chosen here.
+    bool32 catExternalShipAttached;
     bool32 catExternalShipStarted;
     struct Ship *catExternalShip;
 }
@@ -59,6 +61,7 @@ shipinprogress;
 
 #if defined(__i386__) || defined(_M_IX86)
 _Static_assert(sizeof(shipinprogress) == 0x30, "shipinprogress is 0x30 bytes in cataclysm.exe (cmBuildJobsAdd 0x004586c0)");
+_Static_assert(offsetof(shipinprogress, catExternalShipAttached) == 0x24, "shipinprogress +0x24 (cat_cmExternalBuildAttach 0x00455af0)");
 _Static_assert(offsetof(shipinprogress, catExternalShipStarted) == 0x28, "shipinprogress +0x28 (unitCapCanCreateShip 0x0053ece0)");
 _Static_assert(offsetof(shipinprogress, catExternalShip) == 0x2C, "shipinprogress +0x2C (SaveConsMgr 0x00459780)");
 #endif
@@ -68,9 +71,14 @@ typedef struct
     Node node;
     struct Ship *ship;
     bool32 canBuildBigShips;
-    shipinprogress progress[TOTAL_STD_SHIPS];
+    shipinprogress progress[TOTAL_NUM_SHIPS];   // CAT: one per ship type, 0x91 (the build task 0x00454940 walks 0x91 entries; HW1 TOTAL_STD_SHIPS)
 }
 shipsinprogress;
+#if defined(__i386__) || defined(_M_IX86)
+// CAT: 0x1B48 bytes, one entry per ship type (cmAddFactory 0x004542f0 allocates 0x1b48)
+_Static_assert(sizeof(shipsinprogress) == 0x1B48, "shipsinprogress is 0x1B48 bytes in cataclysm.exe (cmAddFactory 0x004542f0)");
+_Static_assert(offsetof(shipsinprogress, progress) == 0x18, "shipsinprogress.progress at +0x18 (cmSIP 0x00453f10)");
+#endif
 
 //ships available
 typedef struct
@@ -123,7 +131,6 @@ extern sdword shiplagtotals[TOTAL_NUM_SHIPS];
 
 extern bool32 cmActive;
 
-extern sdword cmMaxJobsPerClass[NUM_CLASSES];
 
 /*=============================================================================
     Functions:
@@ -138,7 +145,27 @@ void cmForceBuildShipType(ShipType type);
 
 void cmReset(void); // Free carrier ship pointers used by construction manager
 void cmDirtyShipInfo(void);   // CAT: declared for cat_clExternalBuildUpdate 0x0044dfc0 (CommandLayer.c)
-bool32 cat_cmHasSupportUnits(ShipType type, struct Player *player);   // CAT: 0x00459b40 (CAT-PROVISIONAL, M2-R6 ConsMgr)
+bool32 cat_cmHasSupportUnits(ShipType type, struct Player *player);   // CAT: 0x00459b40
+
+// CAT (M2-R6 managers): the external build's construction-manager side and the support units
+void cat_cmFactoryMarkDirty(void);                                              // 0x00453c10
+void cat_cmBuildJobFinished(shipinprogress *progress, struct Ship *factory);    // 0x00453c20
+bool32 cat_cmFactoryHasFreeSlot(struct Ship *factoryship, ShipType shiptype, ShipClass shipclass);   // 0x00454920
+void cat_cmExternalBuildShipDied(struct Ship *ship);                            // 0x00455960
+void cat_cmShipDockedReclampCannon(struct Ship *ship);                          // 0x00455ad0
+void cat_cmExternalBuildAttach(struct Ship *ship);                              // 0x00455af0
+void cat_cmCancelJobsOfDeadFactory(struct Ship *creator);                       // 0x00455ea0
+void cat_suShipProvidesSU(struct Ship *ship);                                   // 0x00459a60
+void cat_suShipAdded(struct Ship *ship, struct Player *player);                 // 0x00459a90
+void cat_suShipRemoved(struct Ship *ship);                                      // 0x00459ae0
+sdword cat_cmQueuedSupportUnits(struct Player *player);                         // 0x00459c20
+shipsinprogress *cmFindFactory(struct Ship *ship);
+extern sdword catCmSinglePlayerBuildFactor;     // 0x00894198: the single-player build-time divisor (1)
+// HWI-TEST (M2-R6 managers): /catBuildTest <ticks>, the build self-test on the headless Mission01 run
+void catBuildSelfTestSet(char *string);
+bool32 catBuildSelfTestRequested(void);
+void catBuildSelfTestTick(void);
+void catBuildSelfTestLoadStatic(ShipType type);      // HWI-TEST: a level-excluded static loaded for a self-test
 
 //start the construction manager.  It will kill itself when you hit the quit button.
 sdword cmConstructionBegin(regionhandle region, smemsize ID, udword event, udword data);

@@ -19,6 +19,7 @@
     src/COPYING.REULA.
 =============================================================================*/
 
+#include "ConsMgr.h"        // HWI-TEST: catBuildSelfTestTick (the build self-test, M2-R6 managers)
 #include "Dock.h"           // CAT: catDockSelfTestTick (the dock self-test, M2-R5 dock)
 #include "render.h"         // CAT: catRenderSelfTestTick (the render self-test, M2-R5 render)
 #include "InfoOverlay.h"    // CAT: catHudSelfTestTick (the HUD self-test, M2-R5 hud)
@@ -516,6 +517,11 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     if (catConsoleSelfTestRequested() && (universe.univUpdateCounter != before))
     {
         catConsoleSelfTestTick();
+    }
+    // HWI-TEST (M2-R6 managers): the build self-test the same way (ConsMgr.c catBuildSelfTestTick)
+    if (catBuildSelfTestRequested() && (universe.univUpdateCounter != before))
+    {
+        catBuildSelfTestTick();
     }
 
     if ((oracleFileName[0] != '\0' || oracleInSelfTest) && universe.univUpdateCounter != before)

@@ -8,6 +8,7 @@
 
 #include "ConsMgr.h"
 
+#include "Battle.h"
 #include "CommandLayer.h"
 #include "CommandWrap.h"
 #include "FEColour.h"
@@ -19,8 +20,10 @@
 #include "InfoOverlay.h"
 #include "mainrgn.h"
 #include "mouse.h"
+#include "Mothership.h"
 #include "MultiplayerGame.h"
 #include "Options.h"
+#include "OracleDump.h"     // HWI-TEST: the build self-test rides on the headless mission run (/oracleMission)
 #include "PiePlate.h"
 #include "Ping.h"
 #include "Randy.h"
@@ -35,6 +38,17 @@
 #include "Tutor.h"
 #include "Tweak.h"
 #include "Universe.h"
+#include "UnivUpdate.h"
+#include "Dock.h"
+#include "Dreadnought.h"
+#include "Carrier.h"
+#include "Key.h"
+#include "LaunchMgr.h"
+#include "utility.h"
+#include "LevelLoad.h"
+#include "ShipNames.h"
+#include "ResearchAPI.h"
+#include "ResearchGUI.h"     // HWI-TEST: the build self-test opens the research screen
 
 /*=============================================================================
     Definitions:
@@ -45,6 +59,13 @@
 #define CM_FIBFile              "FEMan/Construction_Manager.fib"
 #endif
 #define CM_ConstructionScreen   "Construction_manager"
+// CAT: the Beast player's screen (cmConstructionBegin 0x00458390: .data 0x00754f20 / 0x00754eec)
+#ifdef _WIN32
+#define CAT_CM_BeastFIBFile             "FEMan\\Beast_Construction_Manager.fib"
+#else
+#define CAT_CM_BeastFIBFile             "FEMan/Beast_Construction_Manager.fib"
+#endif
+#define CAT_CM_BeastConstructionScreen  "Beast_Construction_manager"
 //#define CM_BuildScreen          "Build_screen"
 #define CM_DefaultFont          "default.hff"
 #define CM_ShipListFont         "HW_EuroseCond_11.hff"
@@ -103,11 +124,15 @@ sdword cmSelectRightAdjust = 0;
 
 #define ITEM_CLASS          0
 #define ITEM_SHIP           1
+#define CAT_ITEM_SHIPENABLED 2      // CAT: a ship row listed only when cat_playerShipTypeEnabled (cmUpdateShipAvailable
+                                    //      0x00455410 tests kind 2); every other test is "not a class row" (kind != 0)
 
 #define STAT_CANBUILD       0
 #define STAT_CANTBUILD      1
 #define STAT_PRINT          2
 #define STAT_DONTPRINT      3
+#define CAT_STAT_UNAVAILABLE 4      // CAT: listed but not buildable now: the type's cap, the support units, or a factory
+                                    //      that cannot build (cmUpdateShipAvailable 0x00455410; drawn in grey)
 
 // frame count for red flash when ship limits exceeded
 #define CAPS_REDFRAMECOUNT 5;
@@ -125,17 +150,10 @@ sdword cmSelectRightAdjust = 0;
 // CAT: five decorative support-unit masks/icons, new in Cataclysm (cmLoadTextures 0x00455040, names .data 0x00754a68)
 #define CAT_NUM_CMSUPPORTTEXTURES 5
 
-#define NUM_CMCARRIERS          4
+// CAT: three carrier slots in Cataclysm (cmCarrierX 0x00a2dc4c..0x00a2dc58, the carrier regions 0x00a2dc24..0x00a2dc30;
+//      cmConstructionBegin 0x00458390 fills them inline); the screen has two carrier buttons (CM_Carrier1Draw / 2Draw)
+#define NUM_CMCARRIERS          3
 
-#define CM_MaxJobsMothership    2
-#define CM_MaxJobsHeavyCruiser  2
-#define CM_MaxJobsCarrier       2
-#define CM_MaxJobsDestroyer     2
-#define CM_MaxJobsFrigate       2
-#define CM_MaxJobsCorvette      2
-#define CM_MaxJobsFighter       3
-#define CM_MaxJobsResource      2
-#define CM_MaxJobsNonCombat     2
 
 /*=============================================================================
     Data:
@@ -162,16 +180,25 @@ void cmShipInfoDraw(featom *atom, regionhandle region);
 void cmShipNumbersDraw(featom *atom, regionhandle region);
 void cmTotalRUsDraw(featom *atom, regionhandle region);
 void cmTotalShipsDraw(featom *atom, regionhandle region);
-void cmConnectorDraw(featom *atom, regionhandle region);
 void cmMotherShipDraw(featom *atom, regionhandle region);
 void cmCarrier1Draw(featom *atom, regionhandle region);
 void cmCarrier2Draw(featom *atom, regionhandle region);
-void cmCarrier3Draw(featom *atom, regionhandle region);
-void cmCarrier4Draw(featom *atom, regionhandle region);
+void cat_cmSUBarDraw(featom *atom, regionhandle region);
+void cat_cmFactoryNameDraw(featom *atom, regionhandle region);
+void cat_cmResearch(char *string, featom *atom);
+void cat_cmLaunch(char *string, featom *atom);
 void cmLeftArrowDraw(featom *atom, regionhandle region);
 void cmRightArrowDraw(featom *atom, regionhandle region);
 
 void cmScroller(char *string, featom *atom);
+// CAT (M2-R6 managers): used before their definitions since the list and factory functions moved
+void cmUpdateShipAvailable(void);
+sdword cmSelectAvailable(regionhandle region, sdword ID, udword event, udword data);
+sdword cmRightArrowProcess(regionhandle region, sdword ID, udword event, udword data);
+sdword cmLeftArrowProcess(regionhandle region, sdword ID, udword event, udword data);
+sdword cmSelectMotherShip(regionhandle region, sdword ID, udword event, udword data);
+sdword cmSelectCarrier1(regionhandle region, sdword ID, udword event, udword data);
+sdword cmSelectCarrier2(regionhandle region, sdword ID, udword event, udword data);
 
 void cmFillInCarrierXs(void);
 
@@ -186,8 +213,10 @@ fecallback cmCallback[] =
     {cmCancelJobs,          "CM_CancelJobs" },
     {cmPauseJobs,           "CM_PauseJobs"  },
     {cmScroller,            "CM_Scroller"   },
-    // CAT (M2-R5 hud): the exe's table 0x00753a18 also has CM_Research 0x004545e0 and CM_Launch 0x00454600 (close and
-    //      open the research / launch manager; CAT-TODO(M2-R6 ConsMgr)) and CM_ExtendedInfo
+    // CAT: the exe's table 0x00753a18 also has CM_Research 0x004545e0 and CM_Launch 0x00454600 (M2-R6 managers: close
+    //      this screen and open the research / launch manager) and CM_ExtendedInfo (M2-R5 hud)
+    {cat_cmResearch,        "CM_Research"   },
+    {cat_cmLaunch,          "CM_Launch"     },
     {cat_cmExtendedInfoToggle, "CM_ExtendedInfo" },
     {NULL,                  NULL            }
 };
@@ -199,55 +228,31 @@ fedrawcallback cmDrawCallback[] =
     {cmShipNumbersDraw,         "CM_ShipNumbers"        },
     {cmTotalRUsDraw,            "CM_TotalCost"          },
     {cmTotalShipsDraw,          "CM_TotalShips"         },
-    {cmConnectorDraw,           "CM_ConnectorDraw"      },
+    // CAT (M2-R6 managers): the exe's table 0x00753a60: no CM_ConnectorDraw, two carrier buttons, the support-unit bar
+    //      and the factory's name
     {cmMotherShipDraw,          "CM_MotherShipDraw"     },
     {cmCarrier1Draw,            "CM_Carrier1Draw"       },
     {cmCarrier2Draw,            "CM_Carrier2Draw"       },
-    {cmCarrier3Draw,            "CM_Carrier3Draw"       },
-    {cmCarrier4Draw,            "CM_Carrier4Draw"       },
     {cmLeftArrowDraw,           "CM_LeftArrowDraw"      },
     {cmRightArrowDraw,          "CM_RightArrowDraw"     },
+    {cat_cmSUBarDraw,           "CM_SUBarDraw"          },
+    {cat_cmFactoryNameDraw,     "CM_FactoryNameDraw"    },
     {NULL,                      NULL                    }
 };
 
 extern ShipType svShipType;
 
+// CAT (M2-R6 managers): the exe's six rows (.data 0x00753ad0, virtual-key codes there; this tree's key indices here):
+//      the F keys build a Beast fighter or corvette, F12 a Worker of either race. HW1's rows (with its aliases) are gone
 KeysToShips cmShipTypes[]=
 {
-//    {AKEY|CM_SHIFT,  AdvanceSupportFrigate},
-    {F5KEY,          AttackBomber},
-//    {KKEY,           Carrier},
-    {F4KEY,           CloakedFighter},
-//    {LKEY|CM_SHIFT,  CloakGenerator},
-//    {UKEY,           DFGFrigate},
-//    {GKEY,           GravWellGenerator},
-    {F7KEY,          HeavyCorvette},
-//    {ZKEY,           HeavyCruiser},
-    {F1KEY,          HeavyDefender},
-    {F3KEY,          HeavyInterceptor},
-//    {OKEY,           IonCannonFrigate},
-    {F10KEY,         MinelayerCorvette},
-//    {MKEY|CM_SHIFT,  MissileDestroyer},
-  //{KEY ,           Mothership},
-    {F11KEY,         MultiGunCorvette},
-//    {XKEY|CM_SHIFT,  ProximitySensor},
-    {F12KEY,         ResourceCollector},
-    {F9KEY,          SalCapCorvette},
-//    {YKEY,           StandardDestroyer},
-//    {EKEY,           StandardFrigate},
-  /*{KEY ,           P1Fighter},
-    {KEY ,           P1IonArrayFrigate},
-    {KEY ,           P1MissileCorvette},
-    {KEY ,           P1Mothership},
-    {KEY ,           P1StandardCorvette},
-    {KEY ,           FloatingCity},
-    {KEY ,           CargoBarge},
-    {KEY ,           MiningBase},
-    {KEY ,           ResearchStation},
-    {KEY ,           JunkYardDawg}
-    {KEY ,           JunkYardHQ}
-   */
-
+    {F5KEY,          bAttackBomber},
+    {F4KEY,          bCloakedFighter},
+    {F7KEY,          bHeavyCorvette},
+    {F11KEY,         bMultiGunCorvette},
+    {F12KEY,         bWorker},
+    {F12KEY,         sWorker},
+    {-1,             0}             // CAT: the exe's table has no end row (its loops run into cmMaxIndex 18 after it)
 };
 
 bool32 cmPrintHotKey = FALSE;
@@ -270,15 +275,6 @@ fibfileheader *cmScreensHandle = NULL;
 //handle to construction task
 taskhandle cmBuildTask = -1;
 
-#define NSHIPS_AVAILABLE_R1REG  22 + 5          // Modified by Daly on 04.21.99 (was 20 + 5)
-#define NSHIPS_AVAILABLE_R1BIG  27 + 6
-
-#define NSHIPS_AVAILABLE_R2REG  22 + 5          // Modified by Daly on 04.21.99 (was 20 + 5)
-#define NSHIPS_AVAILABLE_R2BIG  27 + 6
-
-#define NSHIPS_AVAILABLE_P1     4 + 3
-#define NSHIPS_AVAILABLE_P2     4 + 2
-
 regionhandle cmBaseRegion        = NULL;
 regionhandle cmShipInfoRegion    = NULL;
 regionhandle cmShipNumbersRegion = NULL;
@@ -286,204 +282,245 @@ regionhandle cmNumberRUsRegion   = NULL;
 regionhandle cmTotalRUsRegion    = NULL;
 regionhandle cmTotalShipsRegion  = NULL;
 regionhandle cmShipCostsRegion   = NULL;
-regionhandle cmConnectorRegion   = NULL;
 regionhandle cmMotherShipRegion  = NULL;
-regionhandle cmCarrierRegions[NUM_CMCARRIERS] = { NULL, NULL, NULL, NULL };
+regionhandle cmCarrierRegions[NUM_CMCARRIERS] = { NULL, NULL, NULL };
+regionhandle catCmSUBarRegion    = NULL;   // CAT: 0x00a2dc30, the CM_SUBarDraw region (cat_cmFactoryMarkDirty 0x00453c10 redraws it)
+regionhandle cmFactoryNameRegion = NULL;   // CAT: 0x00a2dc34, the CM_FactoryNameDraw region (cat_cmFactoryNameDraw 0x00458920)
 
-/*
-typedef struct
+// CAT (M2-R6 managers): the exe's construction lists (cmUpdateFactory 0x00458180 picks one by the factory's race and
+//      canBuildBigShips). Rows of kind CAT_ITEM_SHIPENABLED are listed only once the player may build the type
+//      (cat_playerShipTypeEnabled 0x004f4780, a Beast ship's technologies: cat_rmAcquireShipTechs)
+// CAT: race 0 (Sect), a factory without canBuildBigShips (.data 0x00753b10, 19 rows)
+shipavailable catCmShipsAvailableSect[] =
 {
-    sdword   disabled;
-    ShipType type;
-} shipdisabled;
-
-//use [0,1], ![FALSE,TRUE] for disabling
-shipdisabled cmShipsDisabled[] =
-{
-    {0, AdvanceSupportFrigate},
-    {1, AttackBomber},
-    {0, Carrier},
-    {0, CloakedFighter},
-    {1, CloakGenerator},
-    {1, DFGFrigate},
-    {1, GravWellGenerator},
-    {0, HeavyCorvette},
-    {1, HeavyCruiser},
-    {0, HeavyDefender},
-    {0, HeavyInterceptor},
-    {0, IonCannonFrigate},
-    {1, MinelayerCorvette},
-    {1, MissileDestroyer},
-    {1, MultiGunCorvette},
-    {0, ProximitySensor},
-    {0, ResourceCollector},
-    {1, SalCapCorvette},
-    {0, StandardDestroyer},
-    {0, StandardFrigate},
-    {-1, 0},
-};
-*/
-
-//ships available for construction
-shipavailable cmShipsAvailableR1Reg[NSHIPS_AVAILABLE_R1REG + 1] =
-{
-    {0,ITEM_CLASS,0,  CLASS_Fighter       ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyDefender       ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyInterceptor    ,  NULL},
-    {0,ITEM_SHIP ,0,  CloakedFighter      ,  NULL},
-    {0,ITEM_SHIP ,0,  AttackBomber        ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Corvette      ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyCorvette       ,  NULL},
-    {0,ITEM_SHIP ,0,  SalCapCorvette      ,  NULL},
-    {0,ITEM_SHIP ,0,  MinelayerCorvette   ,  NULL},
-    {0,ITEM_SHIP ,0,  MultiGunCorvette    ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Resource      ,  NULL},
-    {0,ITEM_SHIP ,0,  ResourceCollector   ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Frigate       ,  NULL},
-    {0,ITEM_SHIP ,0,  StandardFrigate     ,  NULL},
-    {0,ITEM_SHIP ,0,  AdvanceSupportFrigate, NULL},
-    {0,ITEM_SHIP ,0,  IonCannonFrigate    ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_NonCombat     ,  NULL},
-    {0,ITEM_SHIP ,0,  GravWellGenerator   ,  NULL},            // Added by Daly on 04.21.99
-    {0,ITEM_SHIP ,0,  CloakGenerator      ,  NULL},            // Added by Daly on 04.21.99
-    {0,ITEM_SHIP ,0,  ProximitySensor     ,  NULL},
-
-    {-1,0,0, 0                   ,  NULL}
+    {0,ITEM_CLASS           ,0, CLASS_Fighter          , NULL},
+    {0,ITEM_SHIP            ,0, sRecon                 , NULL},
+    {0,ITEM_SHIP            ,0, sAcolyte               , NULL},
+    {0,ITEM_SHIP            ,0, dAcolyte               , NULL},
+    {0,ITEM_SHIP            ,0, sMimic                 , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Corvette         , NULL},
+    {0,ITEM_SHIP            ,0, sACV                   , NULL},
+    {0,ITEM_SHIP            ,0, sMCV                   , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Frigate          , NULL},
+    {0,ITEM_SHIP            ,0, sRammingFrigate        , NULL},
+    {0,ITEM_SHIP            ,0, sMultiBeamFrigate      , NULL},
+    {0,ITEM_SHIP            ,0, sHiveFrigate           , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Micro            , NULL},
+    {0,ITEM_SHIP            ,0, sLeech                 , NULL},
+    {0,ITEM_SHIP            ,0, sSentinel              , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_NonCombat        , NULL},
+    {0,ITEM_SHIP            ,0, sWorker                , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Component        , NULL},
+    {0,ITEM_SHIP            ,0, sCarrierSupport        , NULL},
+    {-1,0,0, 0                      , NULL}
 };
 
-shipavailable cmShipsAvailableR1Big[NSHIPS_AVAILABLE_R1BIG + 1] =
+// CAT: race 0 (Sect), canBuildBigShips (the sMothership) (.data 0x00753c50, 30 rows)
+shipavailable catCmShipsAvailableSectBig[] =
 {
-    {0,ITEM_CLASS,0,  CLASS_Fighter       ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyDefender       ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyInterceptor    ,  NULL},
-    {0,ITEM_SHIP ,0,  CloakedFighter      ,  NULL},
-    {0,ITEM_SHIP ,0,  AttackBomber        ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Corvette      ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyCorvette       ,  NULL},
-    {0,ITEM_SHIP ,0,  SalCapCorvette      ,  NULL},
-    {0,ITEM_SHIP ,0,  MinelayerCorvette   ,  NULL},
-    {0,ITEM_SHIP ,0,  MultiGunCorvette    ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Resource      ,  NULL},
-    {0,ITEM_SHIP ,0,  ResourceCollector   ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Frigate       ,  NULL},
-    {0,ITEM_SHIP ,0,  StandardFrigate     ,  NULL},
-    {0,ITEM_SHIP ,0,  AdvanceSupportFrigate, NULL},
-    {0,ITEM_SHIP ,0,  IonCannonFrigate    ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Destroyer     ,  NULL},
-    {0,ITEM_SHIP ,0,  StandardDestroyer   ,  NULL},
-    {0,ITEM_SHIP ,0,  MissileDestroyer    ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyCruiser        ,  NULL},
-    {0,ITEM_SHIP ,0,  Carrier             ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_NonCombat     ,  NULL},
-    {0,ITEM_SHIP ,0,  ProximitySensor     ,  NULL},
-
-    {0,ITEM_SHIP ,0,  GravWellGenerator   ,  NULL},
-    {0,ITEM_SHIP ,0,  CloakGenerator      ,  NULL},
-
-
-    {-1,0,0, 0                   ,  NULL}
+    {0,ITEM_CLASS           ,0, CLASS_Fighter          , NULL},
+    {0,ITEM_SHIP            ,0, sRecon                 , NULL},
+    {0,ITEM_SHIP            ,0, sAcolyte               , NULL},
+    {0,ITEM_SHIP            ,0, dAcolyte               , NULL},
+    {0,ITEM_SHIP            ,0, sMimic                 , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Corvette         , NULL},
+    {0,ITEM_SHIP            ,0, sACV                   , NULL},
+    {0,ITEM_SHIP            ,0, sMCV                   , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Frigate          , NULL},
+    {0,ITEM_SHIP            ,0, sRammingFrigate        , NULL},
+    {0,ITEM_SHIP            ,0, sMultiBeamFrigate      , NULL},
+    {0,ITEM_SHIP            ,0, sHiveFrigate           , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Destroyer        , NULL},
+    {0,ITEM_SHIP            ,0, sDestroyer             , NULL},
+    {0,ITEM_SHIP            ,0, sDreadnought           , NULL},
+    {0,ITEM_SHIP            ,0, sCarrier               , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Micro            , NULL},
+    {0,ITEM_SHIP            ,0, sLeech                 , NULL},
+    {0,ITEM_SHIP            ,0, sSentinel              , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_NonCombat        , NULL},
+    {0,ITEM_SHIP            ,0, sWorker                , NULL},
+    {0,ITEM_SHIP            ,0, sProcessor             , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Component        , NULL},
+    {0,ITEM_SHIP            ,0, sMothershipSupport     , NULL},
+    {0,ITEM_SHIP            ,0, sMothershipDockingBay  , NULL},
+    {0,ITEM_SHIP            ,0, sMothershipMicro       , NULL},
+    {0,ITEM_SHIP            ,0, sMothershipSpecial     , NULL},
+    {0,ITEM_SHIP            ,0, sMothershipArmour      , NULL},
+    {0,ITEM_SHIP            ,0, sMothershipWeapons     , NULL},
+    {0,ITEM_SHIP            ,0, sMothershipBigGun      , NULL},
+    {-1,0,0, 0                      , NULL}
 };
 
-shipavailable cmShipsAvailableR2Reg[NSHIPS_AVAILABLE_R2REG + 1] =
+// CAT: race 1 (Beast) (.data 0x00753e40, 22 rows)
+shipavailable catCmShipsAvailableBeast[] =
 {
-    {0,ITEM_CLASS,0,  CLASS_Fighter       ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyDefender       ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyInterceptor    ,  NULL},
-    {0,ITEM_SHIP ,0,  AttackBomber        ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Corvette      ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyCorvette       ,  NULL},
-    {0,ITEM_SHIP ,0,  SalCapCorvette      ,  NULL},
-    {0,ITEM_SHIP ,0,  MinelayerCorvette   ,  NULL},
-    {0,ITEM_SHIP ,0,  MultiGunCorvette    ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Resource      ,  NULL},
-    {0,ITEM_SHIP ,0,  ResourceCollector   ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Frigate       ,  NULL},
-    {0,ITEM_SHIP ,0,  StandardFrigate     ,  NULL},
-    {0,ITEM_SHIP ,0,  AdvanceSupportFrigate, NULL},
-    {0,ITEM_SHIP ,0,  DFGFrigate          ,  NULL},
-    {0,ITEM_SHIP ,0,  IonCannonFrigate    ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_NonCombat     ,  NULL},
-    {0,ITEM_SHIP ,0,  GravWellGenerator   ,  NULL},            // Added by Daly on 04.21.99
-    {0,ITEM_SHIP ,0,  CloakGenerator      ,  NULL},            // Added by Daly on 04.21.99
-    {0,ITEM_SHIP ,0,  ProximitySensor     ,  NULL},
-
-    {-1,0,0, 0                   ,  NULL}
+    {0,ITEM_CLASS           ,0, CLASS_Fighter          , NULL},
+    {0,ITEM_SHIP            ,0, bRecon                 , NULL},
+    {0,ITEM_SHIP            ,0, bInterceptor           , NULL},
+    {0,ITEM_SHIP            ,0, bCloakedFighter        , NULL},
+    {0,CAT_ITEM_SHIPENABLED ,0, bAcolyte               , NULL},
+    {0,ITEM_SHIP            ,0, bAttackBomber          , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Corvette         , NULL},
+    {0,ITEM_SHIP            ,0, bMultiGunCorvette      , NULL},
+    {0,ITEM_SHIP            ,0, bHeavyCorvette         , NULL},
+    {0,ITEM_SHIP            ,0, bMissileCorvette       , NULL},
+    {0,ITEM_SHIP            ,0, bCruiseMissile         , NULL},
+    {0,CAT_ITEM_SHIPENABLED ,0, bACV                   , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Frigate          , NULL},
+    {0,ITEM_SHIP            ,0, bIonArrayFrigate       , NULL},
+    {0,ITEM_SHIP            ,0, bDFGFrigate            , NULL},
+    {0,CAT_ITEM_SHIPENABLED ,0, bRammingFrigate        , NULL},
+    {0,CAT_ITEM_SHIPENABLED ,0, bMultiBeamFrigate      , NULL},
+    {0,CAT_ITEM_SHIPENABLED ,0, bHiveFrigate           , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Micro            , NULL},
+    {0,CAT_ITEM_SHIPENABLED ,0, bSentinel              , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_NonCombat        , NULL},
+    {0,ITEM_SHIP            ,0, bWorker                , NULL},
+    {-1,0,0, 0                      , NULL}
 };
 
-shipavailable cmShipsAvailableR2Big[NSHIPS_AVAILABLE_R2BIG + 1] =
+// CAT: race 1 (Beast), canBuildBigShips (.data 0x00753fb0, 28 rows)
+shipavailable catCmShipsAvailableBeastBig[] =
 {
-    {0,ITEM_CLASS,0,  CLASS_Fighter       ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyDefender       ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyInterceptor    ,  NULL},
-    {0,ITEM_SHIP ,0,  AttackBomber        ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Corvette      ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyCorvette       ,  NULL},
-    {0,ITEM_SHIP ,0,  SalCapCorvette      ,  NULL},
-    {0,ITEM_SHIP ,0,  MinelayerCorvette   ,  NULL},
-    {0,ITEM_SHIP ,0,  MultiGunCorvette    ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Resource      ,  NULL},
-    {0,ITEM_SHIP ,0,  ResourceCollector   ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Frigate       ,  NULL},
-    {0,ITEM_SHIP ,0,  StandardFrigate     ,  NULL},
-    {0,ITEM_SHIP ,0,  AdvanceSupportFrigate, NULL},
-    {0,ITEM_SHIP ,0,  DFGFrigate          ,  NULL},
-    {0,ITEM_SHIP ,0,  IonCannonFrigate    ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Destroyer     ,  NULL},
-    {0,ITEM_SHIP ,0,  StandardDestroyer   ,  NULL},
-    {0,ITEM_SHIP ,0,  MissileDestroyer    ,  NULL},
-    {0,ITEM_SHIP ,0,  HeavyCruiser        ,  NULL},
-    {0,ITEM_SHIP ,0,  Carrier             ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_NonCombat     ,  NULL},
-    {0,ITEM_SHIP ,0,  ProximitySensor     ,  NULL},
-
-    {0,ITEM_SHIP ,0,  GravWellGenerator   ,  NULL},
-    {0,ITEM_SHIP ,0,  CloakGenerator      ,  NULL},
-
-
-    {-1,0,0, 0                   ,  NULL}
+    {0,ITEM_CLASS           ,0, CLASS_Fighter          , NULL},
+    {0,ITEM_SHIP            ,0, bRecon                 , NULL},
+    {0,ITEM_SHIP            ,0, bInterceptor           , NULL},
+    {0,ITEM_SHIP            ,0, bCloakedFighter        , NULL},
+    {0,CAT_ITEM_SHIPENABLED ,0, bAcolyte               , NULL},
+    {0,ITEM_SHIP            ,0, bAttackBomber          , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Corvette         , NULL},
+    {0,ITEM_SHIP            ,0, bMultiGunCorvette      , NULL},
+    {0,ITEM_SHIP            ,0, bHeavyCorvette         , NULL},
+    {0,ITEM_SHIP            ,0, bMissileCorvette       , NULL},
+    {0,ITEM_SHIP            ,0, bCruiseMissile         , NULL},
+    {0,CAT_ITEM_SHIPENABLED ,0, bACV                   , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Frigate          , NULL},
+    {0,ITEM_SHIP            ,0, bIonArrayFrigate       , NULL},
+    {0,ITEM_SHIP            ,0, bDFGFrigate            , NULL},
+    {0,CAT_ITEM_SHIPENABLED ,0, bRammingFrigate        , NULL},
+    {0,CAT_ITEM_SHIPENABLED ,0, bMultiBeamFrigate      , NULL},
+    {0,CAT_ITEM_SHIPENABLED ,0, bHiveFrigate           , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Destroyer        , NULL},
+    {0,ITEM_SHIP            ,0, bCarrier               , NULL},
+    {0,ITEM_SHIP            ,0, bHeavyCruiser          , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Micro            , NULL},
+    {0,CAT_ITEM_SHIPENABLED ,0, bSentinel              , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_NonCombat        , NULL},
+    {0,ITEM_SHIP            ,0, bWorker                , NULL},
+    {0,ITEM_SHIP            ,0, bProcessor             , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Component        , NULL},
+    {0,ITEM_SHIP            ,0, bMothershipSupport     , NULL},
+    {-1,0,0, 0                      , NULL}
 };
 
-shipavailable cmShipsAvailableP1[NSHIPS_AVAILABLE_P1 + 1] =
+// CAT: race 2 (Kushan) (.data 0x00754180, 15 rows)
+shipavailable catCmShipsAvailableKushan[] =
 {
-    {0,ITEM_CLASS,0,  CLASS_Fighter       ,  NULL},
-    {0,ITEM_SHIP ,0,  P1Fighter           ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Corvette      ,  NULL},
-    {0,ITEM_SHIP ,0,  P1StandardCorvette  ,  NULL},
-    {0,ITEM_SHIP ,0,  P1MissileCorvette   ,  NULL},
-
-    {0,ITEM_CLASS,0,  CLASS_Frigate       ,  NULL},
-    {0,ITEM_SHIP ,0,  P1IonArrayFrigate   ,  NULL},
-
-    {-1,0,0,0,NULL}
+    {0,ITEM_CLASS           ,0, CLASS_Fighter          , NULL},
+    {0,ITEM_SHIP            ,0, kHeavyDefender         , NULL},
+    {0,ITEM_SHIP            ,0, kHeavyInterceptor      , NULL},
+    {0,ITEM_SHIP            ,0, kAttackBomber          , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Corvette         , NULL},
+    {0,ITEM_SHIP            ,0, kHeavyCorvette         , NULL},
+    {0,ITEM_SHIP            ,0, kSalCapCorvette        , NULL},
+    {0,ITEM_SHIP            ,0, kMultiGunCorvette      , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Frigate          , NULL},
+    {0,ITEM_SHIP            ,0, kAdvanceSupportFrigate , NULL},
+    {0,ITEM_SHIP            ,0, kIonCannonFrigate      , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_NonCombat        , NULL},
+    {0,ITEM_SHIP            ,0, kGravWellGenerator     , NULL},
+    {0,ITEM_SHIP            ,0, kCloakGenerator        , NULL},
+    {0,ITEM_SHIP            ,0, kProximitySensor       , NULL},
+    {-1,0,0, 0                      , NULL}
 };
 
-
-shipavailable cmShipsAvailableP2[NSHIPS_AVAILABLE_P2 + 1] =
+// CAT: race 2 (Kushan), canBuildBigShips (.data 0x00754340, 19 rows)
+shipavailable catCmShipsAvailableKushanBig[] =
 {
-    {0,ITEM_CLASS,0,  CLASS_Fighter       ,  NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Fighter          , NULL},
+    {0,ITEM_SHIP            ,0, kHeavyDefender         , NULL},
+    {0,ITEM_SHIP            ,0, kHeavyInterceptor      , NULL},
+    {0,ITEM_SHIP            ,0, kAttackBomber          , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Corvette         , NULL},
+    {0,ITEM_SHIP            ,0, kHeavyCorvette         , NULL},
+    {0,ITEM_SHIP            ,0, kSalCapCorvette        , NULL},
+    {0,ITEM_SHIP            ,0, kMultiGunCorvette      , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Frigate          , NULL},
+    {0,ITEM_SHIP            ,0, kAdvanceSupportFrigate , NULL},
+    {0,ITEM_SHIP            ,0, kIonCannonFrigate      , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Destroyer        , NULL},
+    {0,ITEM_SHIP            ,0, kStandardDestroyer     , NULL},
+    {0,ITEM_SHIP            ,0, kHeavyCruiser          , NULL},
+    {0,ITEM_SHIP            ,0, kCarrier               , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_NonCombat        , NULL},
+    {0,ITEM_SHIP            ,0, kProximitySensor       , NULL},
+    {0,ITEM_SHIP            ,0, kGravWellGenerator     , NULL},
+    {0,ITEM_SHIP            ,0, kCloakGenerator        , NULL},
+    {-1,0,0, 0                      , NULL}
+};
 
-    {0,ITEM_CLASS,0,  CLASS_Frigate       ,  NULL},
+// CAT: race 3 (Taiidan) (.data 0x00754560, 17 rows)
+shipavailable catCmShipsAvailableTaiidan[] =
+{
+    {0,ITEM_CLASS           ,0, CLASS_Fighter          , NULL},
+    {0,ITEM_SHIP            ,0, tHeavyDefender         , NULL},
+    {0,ITEM_SHIP            ,0, tHeavyInterceptor      , NULL},
+    {0,ITEM_SHIP            ,0, tAttackBomber          , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Corvette         , NULL},
+    {0,ITEM_SHIP            ,0, tSalCapCorvette        , NULL},
+    {0,ITEM_SHIP            ,0, tMinelayerCorvette     , NULL},
+    {0,ITEM_SHIP            ,0, tMultiGunCorvette      , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Frigate          , NULL},
+    {0,ITEM_SHIP            ,0, tStandardFrigate       , NULL},
+    {0,ITEM_SHIP            ,0, tAdvanceSupportFrigate , NULL},
+    {0,ITEM_SHIP            ,0, tDFGFrigate            , NULL},
+    {0,ITEM_SHIP            ,0, tIonCannonFrigate      , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_NonCombat        , NULL},
+    {0,ITEM_SHIP            ,0, tGravWellGenerator     , NULL},
+    {0,ITEM_SHIP            ,0, tCloakGenerator        , NULL},
+    {0,ITEM_SHIP            ,0, tProximitySensor       , NULL},
+    {-1,0,0, 0                      , NULL}
+};
 
-    {-1,0,0,0,NULL}
+// CAT: race 3 (Taiidan), canBuildBigShips (.data 0x00754720, 22 rows)
+shipavailable catCmShipsAvailableTaiidanBig[] =
+{
+    {0,ITEM_CLASS           ,0, CLASS_Fighter          , NULL},
+    {0,ITEM_SHIP            ,0, tHeavyDefender         , NULL},
+    {0,ITEM_SHIP            ,0, tHeavyInterceptor      , NULL},
+    {0,ITEM_SHIP            ,0, tAttackBomber          , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Corvette         , NULL},
+    {0,ITEM_SHIP            ,0, tSalCapCorvette        , NULL},
+    {0,ITEM_SHIP            ,0, tMinelayerCorvette     , NULL},
+    {0,ITEM_SHIP            ,0, tMultiGunCorvette      , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Frigate          , NULL},
+    {0,ITEM_SHIP            ,0, tStandardFrigate       , NULL},
+    {0,ITEM_SHIP            ,0, tAdvanceSupportFrigate , NULL},
+    {0,ITEM_SHIP            ,0, tDFGFrigate            , NULL},
+    {0,ITEM_SHIP            ,0, tIonCannonFrigate      , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Destroyer        , NULL},
+    {0,ITEM_SHIP            ,0, tStandardDestroyer     , NULL},
+    {0,ITEM_SHIP            ,0, tMissileDestroyer      , NULL},
+    {0,ITEM_SHIP            ,0, tHeavyCruiser          , NULL},
+    {0,ITEM_SHIP            ,0, tCarrier               , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_NonCombat        , NULL},
+    {0,ITEM_SHIP            ,0, tProximitySensor       , NULL},
+    {0,ITEM_SHIP            ,0, tGravWellGenerator     , NULL},
+    {0,ITEM_SHIP            ,0, tCloakGenerator        , NULL},
+    {-1,0,0, 0                      , NULL}
+};
+
+// CAT: race 4 (P1), one list (.data 0x00754940, 7 rows)
+shipavailable catCmShipsAvailableP1[] =
+{
+    {0,ITEM_CLASS           ,0, CLASS_Fighter          , NULL},
+    {0,ITEM_SHIP            ,0, p1Fighter              , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Corvette         , NULL},
+    {0,ITEM_SHIP            ,0, p1StandardCorvette     , NULL},
+    {0,ITEM_SHIP            ,0, p1MissileCorvette      , NULL},
+    {0,ITEM_CLASS           ,0, CLASS_Frigate          , NULL},
+    {0,ITEM_SHIP            ,0, p1IonArrayFrigate      , NULL},
+    {-1,0,0, 0                      , NULL}
 };
 
 shipsinprogress *curshipsInProgress;
@@ -494,7 +531,10 @@ CarrierInfo *cmCarriers = NULL;
 sdword cmNumCarriers = 0;
 sdword cmNumPlayersCarriers = 0;
 
-static Ship *cmCarrierX[NUM_CMCARRIERS] = { NULL, NULL, NULL, NULL };     // don't export these for sync reasons
+static Ship *cmCarrierX[NUM_CMCARRIERS] = { NULL, NULL, NULL };     // don't export these for sync reasons
+static ShipRace catCmScreensRace = RACE_Sect;   // CAT: 0x00a2dc00: the race whose screen file is loaded
+Ship *catCmFactoryShip = NULL;      // CAT: 0x00c439b4, the factory the screen shows (set by its draws; name chosen here)
+static bool32 catCmSensorsWereOpen = FALSE;     // CAT: 0x00a2dc38: the sensors manager was open (cmConstructionBegin)
 
 //sdword cmSelectedShip = -1;
 
@@ -506,6 +546,7 @@ color cmProgressTotalColor = CM_ProgressTotalColor;
 color cmStandardTextColor = CM_StandardTextColor;
 color cmClassHeadingTextColor = CM_ClassHeadingTextColor;
 color cmCapsExceededTextColor = CM_CapsExceededTextColor;
+color catCmUnavailableTextColor = colRGB(128, 128, 128);   // CAT: 0x007549dc: a listed type that cannot be built now (stat 4)
 udword cmRefundRatio = CM_RefundRatio;
 real32 cmFloatRefundRatio = CM_FloatRefundRatio;
 
@@ -611,6 +652,7 @@ sdword cmCurrentSelect = 0;
 //font for the ship listing
 fonthandle cmDefaultFont = 0;
 fonthandle cmShipListFont = 0;
+fonthandle catCmFactoryNameFont = 0;       // CAT: 0x00a2dcc0, "EuroseWideHeavy_i13.hff" (cmStartup 0x004552b0)
 char cmDefaultFontName[CM_FontNameLength]  = CM_DefaultFont;
 char cmShipListFontName[CM_FontNameLength] = CM_ShipListFont;
 
@@ -652,44 +694,25 @@ typedef struct cmDetermProgress_t
     sdword   playerIndex;
     ShipPtr  creator;
     bool32     paused;
+    // CAT (M2-R6 managers): the node is 0x48 bytes in Cataclysm (cmDeterministicBuildStart 0x00458e70 allocates 0x48);
+    //      HW1's fields keep their offsets and three words follow for an externally built type (names chosen here):
+    //      +0x3C its ship has reached its build position (cat_cmExternalBuildAttach 0x00455af0), +0x40 its ship
+    //      exists, +0x44 the ship (set by cmDeterministicBuildProcess 0x004592a0)
+    bool32   catAttached;
+    bool32   catShipStarted;
+    struct Ship *catShip;
 } cmDetermProgress_t;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(cmDetermProgress_t) == 0x48, "a deterministic build node is 0x48 bytes in cataclysm.exe");
+_Static_assert(offsetof(cmDetermProgress_t, costPerShip) == 0x1C, "cmDetermProgress_t.costPerShip +0x1C");
+_Static_assert(offsetof(cmDetermProgress_t, playerIndex) == 0x30, "cmDetermProgress_t.playerIndex +0x30");
+_Static_assert(offsetof(cmDetermProgress_t, catAttached) == 0x3C, "cmDetermProgress_t +0x3C");
+#endif
 
 LinkedList cmDetermProgress;
 
-//max number of ship types per class that can be built
-sdword cmClassCapRemap[NUM_CLASSES]=
-{
-    CLASS_Mothership,
-    CLASS_Destroyer,
-    CLASS_Destroyer,
-    CLASS_Destroyer,
-    CLASS_Frigate,
-    CLASS_Corvette,
-    CLASS_Fighter,
-    CLASS_Resource,
-    CLASS_NonCombat,
-    // CAT-PROVISIONAL: the three new classes map to themselves; the exe copy of this table was not located (stage 3)
-    CLASS_MonsterShip,
-    CLASS_Component,
-    CLASS_Micro
-};
-sdword cmMaxJobsPerClass[NUM_CLASSES] =
-{
-    CM_MaxJobsMothership,
-    CM_MaxJobsHeavyCruiser,
-    CM_MaxJobsCarrier,
-    CM_MaxJobsDestroyer,
-    CM_MaxJobsFrigate,
-    CM_MaxJobsCorvette,
-    CM_MaxJobsFighter,
-    CM_MaxJobsResource,
-    CM_MaxJobsNonCombat,
-    // CAT-PROVISIONAL: the three new classes take the NonCombat limit; the exe copy of this table was not located and
-    //      Cataclysm's UnitLimitCaps tables no longer carry MaxJobsPerClass keys (stage 3)
-    CM_MaxJobsNonCombat,
-    CM_MaxJobsNonCombat,
-    CM_MaxJobsNonCombat,
-};
+// CAT (M2-R6 managers): HW1's per-class job caps (cmClassCapRemap, cmMaxJobsPerClass, cmClassCapCanCreateShip) are gone:
+//      the exe's cmIncrement 0x004565a0 asks only the unit caps (unitCapCanCreateShip) and the support units
 
 /*=============================================================================
     Private functions:
@@ -700,18 +723,17 @@ void updateShipView(void)
     udword index;
     bool32   set=TRUE;
 
+    // CAT (M2-R6 managers): updateShipView 0x00453de0 takes any listed row that is not unbuildable (stat 0 or 4: a type at
+    //      its cap still shows its ship), and keeps the viewed type unless its row is unbuildable
     if (curshipview == DefaultShip)
     {
         for (index = 0; cmShipsAvailable[index].nJobs != -1; index++)
         {                                                       //for all available ships
-            if (cmShipsAvailable[index].itemtype==ITEM_SHIP)
+            if ((cmShipsAvailable[index].itemtype != ITEM_CLASS) && (cmShipsAvailable[index].itemstat != STAT_CANTBUILD))
             {
-                if(cmShipsAvailable[index].itemstat==STAT_CANBUILD)
-                {
-                    svSelectShip(cmShipsAvailable[index].info->shiptype);
-                    curshipview = cmShipsAvailable[index].info->shiptype;
-                    break;
-                }
+                svSelectShip(cmShipsAvailable[index].info->shiptype);
+                curshipview = cmShipsAvailable[index].info->shiptype;
+                break;
             }
         }
     }
@@ -719,10 +741,10 @@ void updateShipView(void)
     {
         for (index = 0; cmShipsAvailable[index].nJobs != -1; index++)
         {                                                       //for all available ships
-            if ( (cmShipsAvailable[index].itemtype==ITEM_SHIP) &&
+            if ( (cmShipsAvailable[index].itemtype != ITEM_CLASS) &&
                  (cmShipsAvailable[index].info->shiptype==curshipview) )
             {
-                if (cmShipsAvailable[index].itemstat!=STAT_CANBUILD)
+                if (cmShipsAvailable[index].itemstat == STAT_CANTBUILD)
                 {
                     break;
                 }
@@ -737,19 +759,17 @@ void updateShipView(void)
         {
             for (index = 0; cmShipsAvailable[index].nJobs != -1; index++)
             {                                                       //for all available ships
-                if (cmShipsAvailable[index].itemtype==ITEM_SHIP)
+                if ((cmShipsAvailable[index].itemtype != ITEM_CLASS) && (cmShipsAvailable[index].itemstat != STAT_CANTBUILD))
                 {
-                    if(cmShipsAvailable[index].itemstat==STAT_CANBUILD)
-                    {
-                        svSelectShip(cmShipsAvailable[index].info->shiptype);
-                        curshipview = cmShipsAvailable[index].info->shiptype;
-                        break;
-                    }
+                    svSelectShip(cmShipsAvailable[index].info->shiptype);
+                    curshipview = cmShipsAvailable[index].info->shiptype;
+                    break;
                 }
             }
         }
     }
 }
+
 
 //return the progress pointed to by index
 shipinprogress *cmSIP(udword index)
@@ -787,77 +807,85 @@ void cmWheelPositive(void)
     cmUpperIndex = (sword)ui;
 }
 
-void cmDirtyShipInfo(void)
+// CAT (M2-R6 managers): the screen's region redraw the exe inlines in a dozen places (cmScroller 0x00453f30, cmAddFactory
+//      0x004542f0, the build / cancel / pause buttons, the arrows, the list click ...): every info region and the
+//      mothership and carrier buttons, without cmDirtyShipInfo's list refresh
+static void catCmDirtyRegions(void)
 {
     sdword i;
+
     if (cmShipInfoRegion != NULL)
     {
-#ifdef DEBUG_STOMP
-        regVerify(cmShipInfoRegion);
-#endif
         cmShipInfoRegion->status |= RSF_DrawThisFrame;
     }
     if (cmNumberRUsRegion != NULL)
     {
-#ifdef DEBUG_STOMP
-        regVerify(cmNumberRUsRegion);
-#endif
         cmNumberRUsRegion->status |= RSF_DrawThisFrame;
     }
     if (cmTotalRUsRegion != NULL)
     {
-#ifdef DEBUG_STOMP
-        regVerify(cmTotalRUsRegion);
-#endif
         cmTotalRUsRegion->status |= RSF_DrawThisFrame;
     }
     if (cmTotalShipsRegion != NULL)
     {
-#ifdef DEBUG_STOMP
-        regVerify(cmTotalShipsRegion);
-#endif
         cmTotalShipsRegion->status |= RSF_DrawThisFrame;
     }
     if (cmShipCostsRegion != NULL)
     {
-#ifdef DEBUG_STOMP
-        regVerify(cmShipCostsRegion);
-#endif
         cmShipCostsRegion->status |= RSF_DrawThisFrame;
     }
     if (cmShipNumbersRegion != NULL)
     {
-#ifdef DEBUG_STOMP
-        regVerify(cmShipNumbersRegion);
-#endif
         cmShipNumbersRegion->status |= RSF_DrawThisFrame;
     }
-    if (cmConnectorRegion != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(cmConnectorRegion);
-#endif
-        cmConnectorRegion->status |= RSF_DrawThisFrame;
-    }
-
     if (cmMotherShipRegion != NULL)
     {
-#ifdef DEBUG_STOMP
-        regVerify(cmMotherShipRegion);
-#endif
         cmMotherShipRegion->status |= RSF_DrawThisFrame;
     }
     for (i=0;i<NUM_CMCARRIERS;i++)
     {
         if (cmCarrierRegions[i] != NULL)
         {
-    #ifdef DEBUG_STOMP
-            regVerify(cmCarrierRegions[i]);
-    #endif
             cmCarrierRegions[i]->status |= RSF_DrawThisFrame;
         }
     }
 }
+
+// CAT (M2-R6 managers): the local player's carriers into the three carrier slots (the exe inlines this in cmAddFactory,
+//      cmReset, cmRemoveFactory, cmShutdown, cmConstructionBegin and LoadConsMgr)
+void cmFillInCarrierXs(void)
+{
+    sdword i;
+
+    for (i = 0; i < NUM_CMCARRIERS; i++)
+    {
+        cmCarrierX[i] = NULL;
+    }
+    cmNumPlayersCarriers = 0;
+    for (i = 0; i < cmNumCarriers; i++)
+    {
+        if ((cmCarriers[i].owner == universe.curPlayerPtr) && (cmNumPlayersCarriers < NUM_CMCARRIERS))
+        {
+            cmCarrierX[cmNumPlayersCarriers++] = cmCarriers[i].ship;
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cmDirtyShipInfo
+    Description : refresh the construction screen
+    CAT (M2-R6 managers): only while the screen is open (cmDirtyShipInfo 0x00454550), and the list is refreshed first
+        (cmUpdateShipAvailable)
+----------------------------------------------------------------------------*/
+void cmDirtyShipInfo(void)
+{
+    if (cmBaseRegion != NULL)
+    {
+        cmUpdateShipAvailable();
+        catCmDirtyRegions();
+    }
+}
+
 
 void cmScroller(char *string, featom *atom)
 {
@@ -877,7 +905,7 @@ void cmScroller(char *string, featom *atom)
         sword divs, up;
         real32 mm;
 
-        cmDirtyShipInfo();
+        catCmDirtyRegions();
 
         mm = (real32)shandle->mouseMoved;
         divs = (sword)(mm / shandle->divSize);
@@ -918,17 +946,17 @@ void cmScroller(char *string, featom *atom)
 
             cmUpperIndex = (uword)ind;
         }
-        cmDirtyShipInfo();
+        catCmDirtyRegions();
         break;
     case SC_Thumb:
         break;
     case SC_Negative:
         cmWheelNegative();
-        cmDirtyShipInfo();
+        catCmDirtyRegions();
         break;
     case SC_Positive:
         cmWheelPositive();
-        cmDirtyShipInfo();
+        catCmDirtyRegions();
         break;
     default:
         dbgMessagef("unhandled consMgr scroll event %d", shandle->clickType);
@@ -958,10 +986,17 @@ void cmAddFactory(struct Ship *ship,bool32 canBuildBigShips)
 {
     shipsinprogress *sinprogress;
 
+    // CAT (M2-R6 managers): cmAddFactory 0x004542f0: in single player a disabled ship (catDisabled +0x210) is no
+    //      factory; a carrier is recognised by its class (CLASS_Carrier), not HW1's type; the screen is redrawn only for
+    //      the local player's factory (the regions, no list refresh) and the carrier slots are filled again
+    if (singlePlayerGame && ship->shipOrDerelict.catDisabled)
+    {
+        return;
+    }
     sinprogress = memAlloc(sizeof(shipsinprogress),"sinprogress",NonVolatile);
     memset(sinprogress,0,sizeof(shipsinprogress));
 
-    if (ship->shiptype == Carrier)       // add even if not for the player, because we want cmCarriers to be
+    if (ship->staticinfo->shipclass == CLASS_Carrier)       // add even if not for the player, because we want cmCarriers to be
                                             // deterministic for all machines to prevent sync problems
     {
         cmNumCarriers++;
@@ -972,7 +1007,10 @@ void cmAddFactory(struct Ship *ship,bool32 canBuildBigShips)
     sinprogress->ship = ship;
     sinprogress->canBuildBigShips = canBuildBigShips;
     listAddNode(&listofShipsInProgress,&sinprogress->node,sinprogress);
-    cmDirtyShipInfo();
+    if (universe.curPlayerPtr == ship->playerowner)
+    {
+        catCmDirtyRegions();
+    }
 
     cmFillInCarrierXs();
 }
@@ -984,14 +1022,9 @@ void cmReset(void)
         listDeleteAll(&listofShipsInProgress);
         if (cmCarriers != NULL)
         {
-            sdword i;
             memFree(cmCarriers);
             cmCarriers = NULL;
             cmNumCarriers = 0;
-            for (i=0;i<NUM_CMCARRIERS;i++)
-            {
-                cmCarrierX[i] = NULL;
-            }
         }
     }
 
@@ -1016,12 +1049,22 @@ void cmUnPauseAllJobs(void)
     cmReallyPausedAll = FALSE;
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cmRemoveFactory
+    Description : a factory ship is gone
+    CAT (M2-R6 managers): cmRemoveFactory 0x004546d0: a removed carrier takes its auto-launch bit out of the owner's word
+        (cat_lmShipAutoLaunchBit 0x0049fa60: the higher bits move down one place) and frees its carrier slot; the screen
+        is redrawn for the local player (the regions, no list refresh) and the slots are filled again only when a carrier
+        went
+----------------------------------------------------------------------------*/
 void cmRemoveFactory(struct Ship *ship)
 {
     sdword i, j, k;
+    udword bit, autolaunch;
     Node *node;
     Node *nextnode;
     cmDetermProgress_t *dprog;
+    bool32 carrierRemoved = FALSE;
     shipsinprogress *sinprogress = cmFindFactory(ship);
     if (sinprogress != NULL)
     {
@@ -1051,6 +1094,10 @@ void cmRemoveFactory(struct Ship *ship)
     {
         if (cmCarriers[i].ship == ship)
         {
+            bit = (udword)cat_lmShipAutoLaunchBit(ship);
+            autolaunch = ship->playerowner->autoLaunch;
+            ship->playerowner->autoLaunch = ((~((bit - 1) | bit) & autolaunch) >> 1) | (autolaunch & (bit - 1));
+
             for (k=0;k<NUM_CMCARRIERS;k++)
             {
                 if (cmCarriers[i].ship == cmCarrierX[k])
@@ -1073,212 +1120,326 @@ void cmRemoveFactory(struct Ship *ship)
                 memFree(cmCarriers);
                 cmCarriers = NULL;
             }
-
+            carrierRemoved = TRUE;
             break;
         }
     }
-    cmDirtyShipInfo();
-
-    cmFillInCarrierXs();
+    if (universe.curPlayerPtr == ship->playerowner)
+    {
+        catCmDirtyRegions();
+    }
+    if (carrierRemoved)
+    {
+        cmFillInCarrierXs();
+    }
 }
 
-static bool32 resourcesHaveBeenAboveBefore = TRUE;
 
-// This is not really a task anymore.
-void cmBuildTaskFunction(void)
+static bool32 resourcesHaveBeenAboveBefore = TRUE;      // 0x00754b54
+
+// CAT: the exe's tutorial gates test bits of its own tutEnable word 0x00ba2e58 (as mainrgn.c's catMrTutEnabled): outside
+//      the tutorial everything is enabled. CAT-TODO(stage 6 tutorial): the exe's tutGameEnableFlags layout
+static bool32 catCmTutEnabled(udword bit)
 {
-    static sdword index;
-    static shipinprogress *progress;
-    static Node *node;
-    static shipsinprogress *sinprogress;
-    static Ship *factoryship;
-    static sdword decrement;
+    return (tutorial != TUTORIAL_ONLY) || ((*(udword *)&tutEnable & bit) != 0);
+}
 
-    if ((!gameIsRunning) || (cmReallyPausedAll))
+/*-----------------------------------------------------------------------------
+    CAT (M2-R6 managers): the factory list's helpers for the external build (names chosen here)
+-----------------------------------------------------------------------------*/
+// CAT: the factory entry of type `type` at factory ship `creator` (the loop the exe inlines in cmDeterministicBuildStart
+//      0x00458e70, cmDeterministicBuildProcess 0x004592a0, cat_cmExternalBuildAttach 0x00455af0 ...); NULL when the
+//      ship is no factory (the exe then works on the entry at address 0: those sites carry a CAT-FIX)
+static shipinprogress *catCmFactoryEntry(Ship *creator, ShipType type)
+{
+    shipsinprogress *factory = cmFindFactory(creator);
+
+    return (factory != NULL) ? &factory->progress[type] : NULL;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmFactoryMarkDirty
+    Description : CAT: new (0x00453c10): redraw the construction screen's support-unit bar (0x00a2dc30)
+----------------------------------------------------------------------------*/
+void cat_cmFactoryMarkDirty(void)
+{
+    if (catCmSUBarRegion != NULL)
+    {
+        catCmSUBarRegion->status |= RSF_DrawThisFrame;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmFactoryHasFreeSlot
+    Description : CAT: new (0x00454920): may the factory start an externally built ship of this type now (a free
+                  external dock point of the build purpose, cat_dockHasFreeSlotForShip 0x00464910)
+----------------------------------------------------------------------------*/
+bool32 cat_cmFactoryHasFreeSlot(Ship *factoryship, ShipType shiptype, ShipClass shipclass)
+{
+    return cat_dockHasFreeSlotForShip(factoryship, shipclass, shiptype, TRUE, 0);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmBuildJobFinished
+    Description : CAT: new (0x00453c20): one job of a factory entry is done. An externally built ship gets its last
+                  progress step (done, cat_clWrapExternalBuildUpdate mode 0) and the entry forgets it; any other type
+                  is created now (clWrapCreateShip; the ship-created count 0x00c43740 counts it in multiplayer). Then
+                  the job count, the cost so far and the next job's clock, the welcome speech of a capital class
+                  (battleLaunchWelcomeExchange 0x00424ef0, classes 0..4) and the new-ship ping after the last job.
+                  Replaces the end of HW1's cmBuildTaskFunction; cmDeterministicBuildProcess calls it for an
+                  externally built ship of the local player too
+----------------------------------------------------------------------------*/
+void cat_cmBuildJobFinished(shipinprogress *progress, Ship *factory)
+{
+    ShipStaticInfo *info;
+    ShipClass shipclass;
+
+    if (!gameIsRunning || cmReallyPausedAll || playPackets)
     {
         return;
     }
-
-    if (playPackets)
+    if (progress->info->externalBuild == 1)
     {
-        return;     // don't want to execute this routine which messes up resourceUnits, etc in record playback
+        // CAT-TODO(stage 5 recorder): the exe also skips this while a game is recorded (0x00a7519c && 0x00a75190)
+        if ((progress->catExternalShipStarted == 1) && !multiPlayerGame)
+        {
+            if (progress->catExternalShip != NULL)
+            {
+                cat_clWrapExternalBuildUpdate(&universe.mainCommandLayer, universe.curPlayerIndex, factory,
+                                              progress->catExternalShip, 1.0f, CAT_EXTBUILD_DONE);
+            }
+            progress->catExternalShipStarted = FALSE;
+            progress->catExternalShip = NULL;
+        }
+    }
+    else
+    {
+        if (!multiPlayerGame)
+        {
+            clWrapCreateShip(&universe.mainCommandLayer, progress->info->shiptype, universe.curPlayerPtr->race,
+                             universe.curPlayerIndex, factory);
+        }
+        if (multiPlayerGame)
+        {
+            shiplagtotals[progress->info->shiptype]++;          // 0x00c43740
+        }
+    }
+    cat_cmFactoryMarkDirty();
+    if (progress->nJobs > 0)
+    {
+        info = progress->info;
+        progress->nJobs--;
+        progress->costSoFar -= singlePlayerGame ? info->buildCost / catCmSinglePlayerCostFactor : info->buildCost;
+        if (progress->nJobs > 0)
+        {
+            if (info->shipclass < CLASS_Corvette)
+            {
+                battleLaunchWelcomeExchange(info->shipclass, info->shiptype);
+            }
+            progress->timeFraction = 0;
+            progress->timeLeft = progress->timeStart =
+                singlePlayerGame ? progress->info->buildTime / catCmSinglePlayerBuildFactor : progress->info->buildTime;
+            return;
+        }
+        progress->nJobsTotal = 0;
+        pingNewShipPingCreate(&factory->obj.posinfo.position);
+        shipclass = progress->info->shipclass;
+        if (shipclass < CLASS_Corvette)
+        {
+            battleLaunchWelcomeExchange(shipclass, progress->info->shiptype);
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cmBuildTaskFunction
+    Description : advances every job of the local player's factories one universe tick
+    Inputs      :
+    Outputs     :
+    Return      :
+    CAT (M2-R6 managers): the exe's body (0x00454940): the backspace key skips the sensors manager's speech first; a
+        single-player cost per tick is (buildCost << (17 - the cost divisor 0x0089419c)) / timeStart; nothing is
+        charged or counted down while the universe is paused (0x00a6c5b4); a Beast mothership builds by its build
+        factor (cat_beastMothershipBuildFactor 0x005bca90); an externally built type advances only once its ship
+        exists and has reached its build position (catExternalShipStarted / catExternalShipAttached), and its ship
+        gets the progress (cat_clWrapExternalBuildUpdate mode 2); the end of a job is cat_cmBuildJobFinished. A job of
+        an externally built type that has no ship yet asks for a free build slot (cat_cmFactoryHasFreeSlot) and, but
+        for a module (CLASS_Component) or at a Beast mothership, the docking bay module (cat_playerHasCompletedShip
+        sMothershipDockingBay); with both its ship is created (clWrapCreateShip, at health 0 by univCreateShip) and
+        the job restarts its clock, else only the clock restarts. The speech ids are the exe's
+----------------------------------------------------------------------------*/
+void cmBuildTaskFunction(void)
+{
+    static sdword index;                    // 0x00a2dbd4
+    static shipinprogress *progress;        // 0x00a2dbcc
+    static Node *node;                      // 0x00a2dbd0
+    static shipsinprogress *sinprogress;    // 0x00a2dbc0
+    static Ship *factoryship;               // 0x00a2dbc4
+    static sdword decrement;                // 0x00a2dbd8
+
+    if ((!gameIsRunning) || (cmReallyPausedAll) || playPackets)
+    {
+        return;     // CAT: playPackets as the exe (0x00a7518c); no record playback build
+    }
+    if (keyIsHit(BACKSPACEKEY))
+    {
+        smSensorsSkip(NULL, NULL);          // CAT: keyScanCode[VK_BACK] (0x00c36b88) skips the sensors speech
+    }
+    if (universe.curPlayerPtr->resourceUnits >= 300)
+    {
+        resourcesHaveBeenAboveBefore = TRUE;
     }
 
-/*    taskYield(0);
-
-    while (1)
+    node = listofShipsInProgress.head;
+    while (node != NULL)
     {
-        if ((!gameIsRunning) || (cmReallyPausedAll))
+        sinprogress = (shipsinprogress *)listGetStructOfNode(node);
+        factoryship = sinprogress->ship;
+
+        //this is a patch to avoid a very intermittent crash.
+        if (!factoryship)
         {
-            taskYield(0);
+            node = node->next;
             continue;
         }
-*/
-        if (universe.curPlayerPtr->resourceUnits >= 300)
+
+        if (factoryship->playerowner == universe.curPlayerPtr)
         {
-            resourcesHaveBeenAboveBefore = TRUE;
-        }
-
-        node = listofShipsInProgress.head;
-        while (node != NULL)
-        {
-            sinprogress = (shipsinprogress *)listGetStructOfNode(node);
-            factoryship = sinprogress->ship;
-
-            //this is a patch to avoid a very intermittent crash.
-            if (!factoryship)
+            for (index = 0, progress = &sinprogress->progress[0];
+                 (index < TOTAL_NUM_SHIPS) && (universe.curPlayerPtr->resourceUnits > 0); index++, progress++)
             {
-                node = node->next;
-                continue;
-            }
-
-            if (factoryship->playerowner == universe.curPlayerPtr)
-            {
-                for (index = 0, progress = &sinprogress->progress[0]; index < TOTAL_STD_SHIPS; index++, progress++)
-                {                                                   //for all classes of ships
-                    if (universe.curPlayerPtr->resourceUnits <= 0)
+                if (progress->paused)
+                {
+                    continue;
+                }
+                if ((progress->nJobs > 0) && (progress->timeLeft > 0) &&
+                    ((progress->info->externalBuild != 1) ||
+                     (progress->catExternalShipStarted && progress->catExternalShipAttached)))
+                {
+                    if (singlePlayerGame)
                     {
-                        break;
+                        decrement = ((progress->info->buildCost << ((17 - catCmSinglePlayerCostFactor) & 31)) / progress->timeStart) +
+                                    progress->timeFraction;
+                    }
+                    else
+                    {
+                        decrement = ((progress->info->buildCost << 16) / progress->timeStart) + progress->timeFraction;
+                    }
+                    progress->timeFraction = decrement & 0x0000FFFF; // save fraction bits
+                    decrement >>= 16; // Convert back to integer
+
+                    if (!universePause)
+                    {
+                        if (factoryship->shiptype == bMothership)
+                        {
+                            decrement *= cat_beastMothershipBuildFactor(factoryship);
+                        }
+                        progress->costSoFar += decrement;
+                        if (!multiPlayerGame)
+                        {
+                            universe.curPlayerPtr->resourceUnits -= decrement;
+                        }
+                        if (universe.curPlayerPtr->resourceUnits <= 0)
+                        {
+                            if (resourcesHaveBeenAboveBefore)
+                            {
+                                speechEventQueue(NULL, 0x2001037, 0, -1, 0, factoryship->playerowner->playerIndex, -1, 5.0f, -1);
+                                resourcesHaveBeenAboveBefore = FALSE;
+                            }
+                            if (!multiPlayerGame)
+                            {
+                                universe.curPlayerPtr->resourceUnits = 0;
+                            }
+                        }
+                        if (factoryship->shiptype == bMothership)
+                        {
+                            progress->timeLeft -= cat_beastMothershipBuildFactor(factoryship);
+                        }
+                        else
+                        {
+                            progress->timeLeft--;
+                        }
                     }
 
-                    if (!progress->paused)
+                    if (progress->timeLeft <= 0)
+                    {                                           //if job has ended
+                        if (progress->timeFraction > 32767) // > 0.5, round up and reduce the resourceUnits by 1
+                        {
+                            if (!multiPlayerGame)
+                            {
+                                if (factoryship->shiptype == bMothership)
+                                {
+                                    universe.curPlayerPtr->resourceUnits -= cat_beastMothershipBuildFactor(factoryship);
+                                }
+                                else
+                                {
+                                    universe.curPlayerPtr->resourceUnits--;
+                                }
+                            }
+                            if (universe.curPlayerPtr->resourceUnits <= 0)
+                            {
+                                if (resourcesHaveBeenAboveBefore)
+                                {
+                                    speechEventQueue(NULL, 0x2001047, -1, -1, 0, factoryship->playerowner->playerIndex, -1, 5.0f, -1);
+                                    resourcesHaveBeenAboveBefore = FALSE;
+                                }
+                                if (!multiPlayerGame)
+                                {
+                                    universe.curPlayerPtr->resourceUnits = 0;
+                                }
+                            }
+                        }
+                        cat_cmBuildJobFinished(progress, factoryship);
+                    }
+                    else if (!multiPlayerGame && (progress->info->externalBuild == 1))
                     {
-                        if (progress->nJobs > 0)
-                        {                                               //for each construction job
-                            dbgAssertOrIgnore(progress->info != NULL);
+                        real32 fraction = (real32)(1.0 - (double)progress->timeLeft / (double)progress->timeStart);   // the double 1.0 at 0x0072a548, x87
 
-                            // Simulating fixed point because we need to save fractional bits across frames
-                            // RUs -= 0.5 cannot be simulated properly with integer
-    #if CM_CHEAP_SHIPS
-                            if (cmCheapShips && !multiPlayerGame)
-                            {
-                                decrement = 1;
-                            }
-                            else
-    #endif
-                            {
-                                decrement = ((progress->info->buildCost << 16) / progress->timeStart) + progress->timeFraction;
-                                progress->timeFraction = decrement & 0x0000FFFF; // save fraction bits
-                                decrement >>= 16; // Convert back to integer
-                            }
-
-                            if (!universePause)
-                            {
-                                progress->costSoFar += decrement;
-                                if (!multiPlayerGame)
-                                {
-                                    //xxx
-                                    universe.curPlayerPtr->resourceUnits -= decrement;// decrement RU's
-                                }
-                                if(universe.curPlayerPtr->resourceUnits <= 0)
-                                {
-                                    if (resourcesHaveBeenAboveBefore)
-                                    {
-//                                        speechEventFleet(STAT_F_ResLevels_Nil, 0, universe.curPlayerIndex);
-                                        speechEventFleet(STAT_F_ConstInProgs_ResInsufficient,
-                                                         0,
-                                                         universe.curPlayerIndex);
-                                        resourcesHaveBeenAboveBefore = FALSE;
-                                    }
-                                    if (!multiPlayerGame)
-                                    {
-                                        //xxx
-                                        universe.curPlayerPtr->resourceUnits = 0;
-                                    }
-                                }
-
-        #if CM_CHEAP_SHIPS
-                                if (cmCheapShips && !multiPlayerGame)
-                                {
-                                    progress->timeLeft = 0;
-                                }
-                                else
-        #endif
-                                {
-                                    progress->timeLeft--;                   //decrement the time
-                                }
-                            }
-
-                            if (progress->timeLeft <= 0)
-                            {                                           //if job has ended
-                                if(progress->timeFraction > 32767) // > 0.5, round up and reduce the resourceUnits by 1
-                                {
-                                    if (!multiPlayerGame)
-                                    {
-                                        //xxx
-                                        universe.curPlayerPtr->resourceUnits--;
-                                    }
-                                    if(universe.curPlayerPtr->resourceUnits <= 0)
-                                    {
-                                        if (resourcesHaveBeenAboveBefore)
-                                        {
-                                            speechEventFleet(STAT_F_ResLevels_Nil, 0, universe.curPlayerIndex);
-                                            resourcesHaveBeenAboveBefore = FALSE;
-                                        }
-                                        if (!multiPlayerGame)
-                                        {
-                                            //xxx
-                                            universe.curPlayerPtr->resourceUnits = 0;
-                                        }
-                                    }
-                                }
-
-#if CM_VERBOSE_LEVEL >= 1
-                                dbgMessagef("Construction job #%d has finished a %s",
-                                            index, ShipTypeToNiceStr(progress->info->shiptype));
-#endif
-//                                clWrapRUTransfer(&universe.mainCommandLayer,0,universe.curPlayerPtr->playerIndex,progress->info->buildCost,RUTRANS_BUILTSHIP);
-                                if (!multiPlayerGame)
-                                {
-                                    //xxx
-                                    clWrapCreateShip(&universe.mainCommandLayer,
-                                                     progress->info->shiptype,
-                                                     universe.curPlayerPtr->race,
-                                                     universe.curPlayerIndex,
-                                                     factoryship);
-                                }
-
-                                // fix for lag in internet games
-                                if (multiPlayerGame)
-                                {
-                                    shiplagtotals[progress->info->shiptype] ++;
-                                }
-
-                                progress->nJobs--;                      //one less job
-                                progress->costSoFar -= progress->info->buildCost;
-                                if (progress->nJobs > 0)
-                                {                                       //if still ships to build
-                                    if ((progress->info->shipclass < CLASS_Corvette) ||
-                                        (progress->info->shipclass > CLASS_Fighter))
-                                    {
-                                        speechEventFleet(STAT_F_Const_CapShipComplete,
-                                                         progress->info->shiptype,
-                                                         universe.curPlayerIndex);
-                                    }
-                                    progress->timeFraction = 0; // reset fixed point fractional bits
-                                    progress->timeLeft = progress->timeStart =
-                                        progress->info->buildTime;      //restart the job
-                                }
-                                else
-                                {
-                                    progress->nJobsTotal = 0;          //all jobs for this type complete
-                                    pingNewShipPingCreate(&factoryship->obj.posinfo.position);
-                                    speechEventFleet(STAT_F_Const_CapShipComplete,
-                                                     progress->info->shiptype,
-                                                     universe.curPlayerIndex);
-                                }
-                            }
+                        // CAT: the exe calls a compiled-out function for sMothershipSpecial here (0x00454d9c)
+                        if (progress->catExternalShip != NULL)
+                        {
+                            cat_clWrapExternalBuildUpdate(&universe.mainCommandLayer, universe.curPlayerIndex, factoryship,
+                                                          progress->catExternalShip, fraction, CAT_EXTBUILD_PROGRESS);
+                        }
+                    }
+                }
+                // CAT: an externally built job without a ship (0x00454dcc)
+                if ((progress->nJobs > 0) &&
+                    ((progress->timeLeft == progress->timeStart) || (progress->timeLeft <= 0)) &&
+                    (progress->info->externalBuild == 1) && !progress->catExternalShipStarted)
+                {
+                    if (!cat_cmFactoryHasFreeSlot(factoryship, progress->info->shiptype, progress->info->shipclass) ||
+                        ((progress->info->shipclass != CLASS_Component) && (factoryship->shiptype != bMothership) &&
+                         !cat_playerHasCompletedShip(sMothershipDockingBay, universe.curPlayerPtr)))
+                    {
+                        progress->timeFraction = 0;
+                        progress->timeLeft = progress->timeStart =
+                            singlePlayerGame ? progress->info->buildTime / catCmSinglePlayerBuildFactor : progress->info->buildTime;
+                    }
+                    else
+                    {
+                        if (!multiPlayerGame)
+                        {
+                            progress->catExternalShip = clWrapCreateShip(&universe.mainCommandLayer, progress->info->shiptype,
+                                                                         universe.curPlayerPtr->race, universe.curPlayerIndex,
+                                                                         factoryship);
+                            cat_cmFactoryMarkDirty();
+                        }
+                        progress->timeFraction = 0;
+                        progress->timeLeft = progress->timeStart =
+                            singlePlayerGame ? progress->info->buildTime / catCmSinglePlayerBuildFactor : progress->info->buildTime;
+                        if (!multiPlayerGame)
+                        {
+                            progress->catExternalShipStarted = TRUE;
+                            progress->catExternalShipAttached = FALSE;
                         }
                     }
                 }
             }
-
-            node = node->next;
         }
 
-/*
-        taskYield(0);
-    }*/
+        node = node->next;
+    }
 }
 
 /*=============================================================================
@@ -1444,6 +1605,7 @@ void cmStartup(void)
 //    cmBuildTask = taskStart(cmBuildTaskFunction, CM_TaskServicePeriod, 0);
     cmDefaultFont = frFontRegister(cmDefaultFontName);
     cmShipListFont = frFontRegister(cmShipListFontName);
+    catCmFactoryNameFont = frFontRegister("EuroseWideHeavy_i13.hff");   // CAT: the third font (cmStartup 0x004552b0)
 
     cmStandardTextColor = FEC_ListItemStandard;
 
@@ -1493,23 +1655,6 @@ void cmShutdown(void)
     cmReset();
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : cmConnectorDraw
-    Description : Draws the connector between the image of the ship and
-                  the info. text
-    Inputs      : region
-    Outputs     : connector image
-    Return      : void
-----------------------------------------------------------------------------*/
-void cmConnectorDraw(featom *atom, regionhandle region)
-{
-    sdword centerX  = region->rect.x0 + ((region->rect.x1 - region->rect.x0) / 2);
-
-    cmConnectorRegion = region;
-
-    primLine2(centerX, region->rect.y0, centerX, region->rect.y1, colRGB(255, 0, 0));
-    primCircleSolid2(centerX, region->rect.y1, 3, 16, colRGB(255, 0, 0));
-}
 
 /*-----------------------------------------------------------------------------
     Name        : cmShipDisabled
@@ -1541,47 +1686,106 @@ bool32 cmShipDisabled(ShipType type)
     Inputs      : none
     Outputs     : none
     Return      : void
+    CAT (M2-R6 managers): the exe's body (0x00455410). A ship row is unbuildable (STAT_CANTBUILD) when its kind needs the
+        type enabled and it is not (cat_playerShipTypeEnabled), or the research does not allow it (rmCanBuildShip, its
+        third argument 1 when the shown factory is the sMothership) or its static is not loaded; a buildable row counts in
+        NUMBER_SHIPS_AVAILABLE and is STAT_CANBUILD, or CAT_STAT_UNAVAILABLE at its cap (cdLimitCaps; for the carrier's
+        support module the shown carrier's modules count, cat_carrierCountSupportModules); a row with no cap
+        (cdLimitCaps < 0) is CAT_STAT_UNAVAILABLE too when the player's support units do not cover its supportUnits
+        and the queue (cat_cmQueuedSupportUnits; for the local player or in multiplayer); and every row but a module's
+        is CAT_STAT_UNAVAILABLE while the shown factory is missing, switched off (CAT_ATTRIBUTES_FactoryOff) or
+        hyperspacing. Then the class headers from the end: STAT_PRINT (counted) when any row of the class is listed
 ----------------------------------------------------------------------------*/
+static Ship *catCmShownFactoryShip(void)
+{
+    return (cmCurrentSelect == 0) ? universe.curPlayerPtr->PlayerMothership : cmCarrierX[cmCurrentSelect - 1];
+}
+
 void cmUpdateShipAvailable(void)
 {
     sdword index;
     sdword isclass=STAT_DONTPRINT;
+    bool32 bigFactory;
+    ShipType type;
+    ShipStaticInfo *info;
+    Player *player;
+    Ship *factoryship;
 
     NUMBER_SHIPS_AVAILABLE=0;
 
     for (index = 0; cmShipsAvailable[index].nJobs != -1; index++)
     {
-        if (cmShipsAvailable[index].itemtype==ITEM_SHIP)
+        if (cmShipsAvailable[index].itemtype == ITEM_CLASS)
         {
-            if (rmCanBuildShip(universe.curPlayerPtr, cmShipsAvailable[index].type, TRUE) &&   // CAT: 3rd argument (cmUpdateShipAvailable 0x00455410 passes 1; CAT-TODO stage 3: the body)
-                bitTest(cmShipsAvailable[index].info->common.infoFlags, IF_InfoLoaded))
+            continue;
+        }
+        type = cmShipsAvailable[index].type;
+        bigFactory = (curshipsInProgress != NULL) && (curshipsInProgress->ship->shiptype == sMothership);
+        if ((cmShipsAvailable[index].itemtype == CAT_ITEM_SHIPENABLED) && !cat_playerShipTypeEnabled(universe.curPlayerPtr, type))
+        {
+            cmShipsAvailable[index].itemstat = STAT_CANTBUILD;
+        }
+        else if (!rmCanBuildShip(universe.curPlayerPtr, type, bigFactory) ||
+                 !bitTest(cmShipsAvailable[index].info->common.infoFlags, IF_InfoLoaded))
+        {
+            cmShipsAvailable[index].itemstat = STAT_CANTBUILD;
+        }
+        else
+        {
+            NUMBER_SHIPS_AVAILABLE++;
+            if (cdLimitCaps[type] < 1)
             {
                 cmShipsAvailable[index].itemstat = STAT_CANBUILD;
-                NUMBER_SHIPS_AVAILABLE++;
+            }
+            else if ((type == sCarrierSupport) && (cmCurrentSelect > 0))
+            {
+                cmShipsAvailable[index].itemstat =
+                    (cat_carrierCountSupportModules(cmCarrierX[cmCurrentSelect - 1]) < cdLimitCaps[type]) ? STAT_CANBUILD : CAT_STAT_UNAVAILABLE;
             }
             else
             {
-                cmShipsAvailable[index].itemstat = STAT_CANTBUILD;
+                cmShipsAvailable[index].itemstat =
+                    (universe.curPlayerPtr->shiptotals[type] < cdLimitCaps[type]) ? STAT_CANBUILD : CAT_STAT_UNAVAILABLE;
             }
+        }
+        player = universe.curPlayerPtr;
+        if ((cmShipsAvailable[index].itemstat == STAT_CANBUILD) && (cdLimitCaps[type] < 0))
+        {
+            info = GetShipStaticInfo(type, player->race);
+            if (((player->playerIndex == 0) || !singlePlayerGame) && (info->supportUnits != 0))
+            {
+                if (((udword)player->supportUnitsMax <= (udword)player->supportUnitsUsed) ||
+                    ((udword)player->supportUnitsMax - (udword)player->supportUnitsUsed <
+                     info->supportUnits + (udword)cat_cmQueuedSupportUnits(player)))
+                {
+                    cmShipsAvailable[index].itemstat = CAT_STAT_UNAVAILABLE;
+                }
+            }
+        }
+        factoryship = catCmShownFactoryShip();
+        if (((factoryship == NULL) || bitTest(factoryship->obj.attributes, CAT_ATTRIBUTES_FactoryOff) ||
+             bitTest(factoryship->shipOrDerelict.specialFlags, SPECIAL_Hyperspacing)) &&
+            (cmShipsAvailable[index].itemstat == STAT_CANBUILD) &&
+            (cmShipsAvailable[index].info->shipclass != CLASS_Component))
+        {
+            cmShipsAvailable[index].itemstat = CAT_STAT_UNAVAILABLE;
         }
     }
 
-    for (; index >= 0; index--)
+    for (index--; index >= 0; index--)
     {
-        if (cmShipsAvailable[index].itemtype==ITEM_SHIP)
+        if (cmShipsAvailable[index].itemtype == ITEM_CLASS)
         {
-            if (cmShipsAvailable[index].itemstat == STAT_CANBUILD)
-                isclass=STAT_PRINT;
-        }
-        else if (cmShipsAvailable[index].itemtype==ITEM_CLASS)
-        {
-            cmShipsAvailable[index].itemstat = (sword)isclass;
+            cmShipsAvailable[index].itemstat = (sbyte)isclass;
             if (isclass==STAT_PRINT) NUMBER_SHIPS_AVAILABLE++;
             isclass=STAT_DONTPRINT;
         }
+        else if (cmShipsAvailable[index].itemstat != STAT_CANTBUILD)
+        {
+            isclass=STAT_PRINT;
+        }
     }
 }
-
 
 /*-----------------------------------------------------------------------------
     Name        : cmClose
@@ -1589,33 +1793,32 @@ void cmUpdateShipAvailable(void)
     Inputs      :
     Outputs     : Deletes all regions associated with construction manager
     Return      :
+    CAT (M2-R6 managers): the exe's body (0x00455680): the tutorial gate is its own word's bit 0x2000000; the main view
+        draws again (mrRenderMainScreen), the sounds 0x130 / 0x100, every region forgotten, the ship view closed, the
+        key detour off; the sensors manager opens again when the screen closed it (its saved camera restored first,
+        0x00c0aac0 -> 0x00c0a7e0, 0x17 dwords, and the return flag 0x00a5b230: catSmReopenAfterManager, Sensors.c). No
+        info overlay restore, no taskbar flag
 ----------------------------------------------------------------------------*/
 void cmClose(char *string, featom *atom)
 {                                                           //close the construction manager
     sdword i;
-    if((tutorial==TUTORIAL_ONLY) && !tutEnable.bBuildClose)
+
+    if (!catCmTutEnabled(0x2000000))
+    {
         return;
+    }
 
     cmRenderEverythingCounter = 0;
-
-#if CM_VERBOSE_LEVEL >= 1
-    dbgMessagef("Close construction manager.");
-#endif
     curshipsInProgress = NULL;
     cmUpperIndex=0;
     feScreenDeleteFlags(cmBaseRegion,FE_DONT_DELETE_REGION_IF_SCREEN_NOT_FOUND);
     cmBaseRegion = NULL;
 
-    if (cmIoSaveState)
-        ioEnable();
-
     // enable rendering of main game screen
     mrRenderMainScreen = TRUE;
 
-    /* play the exit sound */
-    soundEvent(NULL, UI_ManagerExit);
-    //restart the sound of space ambient
-    soundEvent(NULL, UI_SoundOfSpace);
+    soundEventPlay(NULL, 0x130, NULL);                   // CAT: the manager exit
+    soundEventPlay(NULL, UI_SoundOfSpace, NULL);         // CAT: 0x100
 
     spUnlockout();
 
@@ -1625,8 +1828,9 @@ void cmClose(char *string, featom *atom)
     cmTotalShipsRegion  = NULL;
     cmShipCostsRegion   = NULL;
     cmShipNumbersRegion = NULL;
-    cmConnectorRegion   = NULL;
     cmMotherShipRegion  = NULL;
+    catCmSUBarRegion    = NULL;
+    cmFactoryNameRegion = NULL;
     for (i=0;i<NUM_CMCARRIERS;i++)
     {
         cmCarrierRegions[i] = NULL;
@@ -1638,46 +1842,57 @@ void cmClose(char *string, featom *atom)
 
     cmPrintHotKey = FALSE;
 
-    // enable taskbar popup window
-    tbDisable = FALSE;
-
     cmActive = FALSE;
 
+    if (catCmSensorsWereOpen)
+    {
+        catSmReopenAfterManager();
+    }
+    // CAT-TODO(stage 6 tutorial): cat_tutButtonsRestoreAfterScreen (the tutorial's buttons come back)
 }
+
+
+
 /*-----------------------------------------------------------------------------
     Name        : cmBuildShips
     Description : Callback function to build selected ships.
     Inputs      :
     Outputs     : Start building all the selected ships
     Return      :
+    CAT (M2-R6 managers): the exe's body (0x00455790, CM_BuildShips, no Ghidra function): the tutorial gate bit
+        0x400000; every queued row becomes jobs at the factory (cmBuildJobsAdd); then the speech: one capital type
+        (classes 0..4) alone gets its own line 0x400103e with the type, anything else the general 0x4001035; the screen
+        regions are redrawn
 ----------------------------------------------------------------------------*/
 void cmBuildShips(char *string, featom *atom)
 {
     sdword index;
     bool32 builtSomething = FALSE;
     bool32 capShipBuilt = FALSE;
+    bool32 otherType = FALSE;
+    ShipType capShipType = 0;
 
-    if((tutorial==TUTORIAL_ONLY) && !tutEnable.bBuildBuildShips)
+    if (!catCmTutEnabled(0x400000))
+    {
         return;
-
-#if CM_VERBOSE_LEVEL >= 1
-    dbgMessagef("Build selected ships..");
-#endif
+    }
 
     for (index = 0; cmShipsAvailable[index].nJobs != -1; index++)
     {                                                       //for all available ships
-/*        if (cmSIP(index)->paused)
-        {
-            cmSIP(index)->paused = FALSE;
-        }*/
         if (cmShipsAvailable[index].nJobs > 0)
         {
+            cmBuildJobsAdd(curshipsInProgress, cmShipsAvailable[index].info, cmShipsAvailable[index].nJobs);
             builtSomething = TRUE;
-            cmBuildJobsAdd(curshipsInProgress,
-                           cmShipsAvailable[index].info,
-                           cmShipsAvailable[index].nJobs);
-            if (cmShipsAvailable[index].info->shipclass <= CLASS_Frigate)
+            if (capShipBuilt)
             {
+                if (capShipType != cmShipsAvailable[index].info->shiptype)
+                {
+                    otherType = TRUE;
+                }
+            }
+            else if (cmShipsAvailable[index].info->shipclass <= CLASS_Frigate)
+            {
+                capShipType = cmShipsAvailable[index].info->shiptype;
                 capShipBuilt = TRUE;
             }
         }
@@ -1690,15 +1905,273 @@ void cmBuildShips(char *string, featom *atom)
 
     if (builtSomething)
     {
-        speechEventFleet(COMM_F_Const_Start, 0, universe.curPlayerIndex);
-        if (capShipBuilt)
+        if (capShipBuilt && !otherType)
         {
-            speechEvent(curshipsInProgress->ship, COMM_Const_BuildCapShip, ranRandom(RANDOM_SOUND_GAME_THREAD) % 26);
+            speechEventQueue(NULL, 0x400103e, capShipType, -1, 0, universe.curPlayerIndex, -1, 5.0f, -1);
+        }
+        else
+        {
+            speechEventQueue(NULL, 0x4001035, 0, -1, 0, universe.curPlayerIndex, -1, 5.0f, -1);
         }
     }
 
-    cmDirtyShipInfo();
+    catCmDirtyRegions();
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : cmCancelJobs
+    Description : Callback to cancel all current jobs
+    CAT (M2-R6 managers): the exe's body (0x00455c10, CM_CancelJobs): the tutorial gate bit 0x1000000; the selected
+        rows' queue cleared (cancelled in the deterministic list in multiplayer); each selected entry of the 0x91
+        refunds its cost so far times cmFloatRefundRatio (single player), deletes its externally built ship
+        (cat_clWrapExternalBuildUpdate mode 1) and is cleared, the external words too; the speech 0x400103b; the regions
+        redrawn. The selection stays
+----------------------------------------------------------------------------*/
+void cmCancelJobs(char *string, featom *atom)
+{
+    sdword index;
+    shipinprogress *progress;
+    bool32 canceled = FALSE;
+
+    if (!catCmTutEnabled(0x1000000))
+    {
+        return;
+    }
+
+    progress = &curshipsInProgress->progress[0];
+
+    for (index = 0; cmShipsAvailable[index].nJobs != -1; index++)
+    {                                                       //for all available ships
+        if ((cmShipsAvailable[index].itemtype != ITEM_CLASS) && progress[cmShipsAvailable[index].type].selected)
+        {
+            cmShipsAvailable[index].nJobs = 0;
+            canceled = TRUE;
+            // CAT-TODO(stage 5 recorder): the exe also sends it while a game is recorded (0x00a7519c && 0x00a75190)
+            if (multiPlayerGame && (cmShipsAvailable[index].info != NULL))
+            {
+                clWrapDeterministicBuild(CMD_CANCEL, &universe.mainCommandLayer, 0, cmShipsAvailable[index].type,
+                                         cmShipsAvailable[index].info->shiprace, universe.curPlayerIndex,
+                                         curshipsInProgress->ship);
+            }
+        }
+    }
+
+    for (index = 0; index < TOTAL_NUM_SHIPS; index++, progress++)
+    {                                                   //for all classes of ships
+        if (!progress->selected)
+        {
+            continue;
+        }
+        if (progress->nJobsTotal != 0)
+        {
+            if (!multiPlayerGame)
+            {
+                universe.curPlayerPtr->resourceUnits += (sdword)((real32)progress->costSoFar * cmFloatRefundRatio);
+            }
+            if (progress->info->externalBuild && (progress->catExternalShipStarted == 1) && !multiPlayerGame)
+            {
+                if (progress->catExternalShip != NULL)
+                {
+                    cat_clWrapExternalBuildUpdate(&universe.mainCommandLayer, universe.curPlayerIndex, curshipsInProgress->ship,
+                                                  progress->catExternalShip, 0.0f, CAT_EXTBUILD_CANCEL);
+                }
+                progress->catExternalShipStarted = FALSE;
+                progress->catExternalShip = NULL;
+            }
+        }
+        progress->timeFraction = 0; // No fixed point fraction bits (used for decrementing RUs)
+        progress->timeStart = progress->timeLeft = 0;   //job all done
+        progress->nJobsTotal = progress->nJobs = 0;     //cancel building jobs
+        progress->catExternalShipAttached = FALSE;
+        progress->catExternalShipStarted = FALSE;
+        progress->catExternalShip = NULL;
+        progress->costSoFar = 0;
+        canceled = TRUE;
+        if (multiPlayerGame && (progress->info != NULL))
+        {
+            clWrapDeterministicBuild(CMD_CANCEL, &universe.mainCommandLayer, 0, progress->info->shiptype,
+                                     progress->info->shiprace, universe.curPlayerIndex, curshipsInProgress->ship);
+        }
+    }
+
+    if (canceled)
+    {
+        speechEventQueue(NULL, 0x400103b, 0, -1, 0, universe.curPlayerIndex, -1, 5.0f, -1);
+    }
+
+    catCmDirtyRegions();
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cmPauseJobs
+    Description : Callback to pause/unpause all current jobs
+    CAT (M2-R6 managers): the exe's body (0x00456060, CM_PauseJobs): the tutorial gate bit 0x800000; the 0x91 entries;
+        the speech 0x4001036 (paused) or 0x400103c (resumed) when a running job changed; the regions redrawn
+----------------------------------------------------------------------------*/
+void cmPauseJobs(char *string, featom *atom)
+{
+    sdword index;
+    shipinprogress *progress;
+    bool32 allpaused = TRUE, changed=FALSE;
+    udword command;
+
+    if (!catCmTutEnabled(0x800000))
+    {
+        return;
+    }
+
+    //all paused?
+    progress = &curshipsInProgress->progress[0];
+    for (index = 0; index < TOTAL_NUM_SHIPS; index++, progress++)
+    {                                                   //for all classes of ships
+        if (allpaused && progress->selected && !progress->paused)
+        {
+            allpaused = FALSE;
+        }
+    }
+
+    //set all jobs to opposite of allpaused
+    progress = &curshipsInProgress->progress[0];
+    for (index = 0; index < TOTAL_NUM_SHIPS; index++, progress++)
+    {                                                   //for all classes of ships
+        if (progress->selected)
+        {
+            progress->paused = !allpaused;
+            if (progress->nJobs>0) changed = TRUE;
+
+            command = progress->paused ? CMD_PAUSE : CMD_UNPAUSE;
+            // CAT-TODO(stage 5 recorder): the exe also sends it while a game is recorded (0x00a7519c && 0x00a75190)
+            if (multiPlayerGame && (progress->info != NULL))
+            {
+                clWrapDeterministicBuild(command, &universe.mainCommandLayer, 0, progress->info->shiptype,
+                                         progress->info->shiprace, universe.curPlayerIndex, curshipsInProgress->ship);
+            }
+        }
+    }
+
+    if (changed)
+    {
+        speechEventQueue(NULL, allpaused ? 0x400103c : 0x4001036, 0, -1, 0, universe.curPlayerIndex, -1, 5.0f, -1);
+    }
+    catCmDirtyRegions();
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmResearch / cat_cmLaunch
+    Description : CAT: new (0x004545e0 CM_Research / 0x00454600 CM_Launch): close the construction manager and open the
+                  research manager (mrResearch) or the launch manager (mrLaunch)
+----------------------------------------------------------------------------*/
+void cat_cmResearch(char *string, featom *atom)
+{
+    cmClose(NULL, NULL);
+    mrResearch(NULL, NULL);
+}
+
+void cat_cmLaunch(char *string, featom *atom)
+{
+    cmClose(NULL, NULL);
+    mrLaunch(NULL, NULL);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmIsOpen
+    Description : CAT: new (0x0045a250): is the construction manager open (the subtitles and the tutorial pointers ask)
+----------------------------------------------------------------------------*/
+sdword cat_cmIsOpen(sdword flags)
+{
+    (void)flags;
+    return (cmBaseRegion != NULL);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmSUBarDraw
+    Description : CAT: new (0x00459f50, the CM_SUBarDraw callback): the support-unit gauge: the region's top and bottom
+                  halves (SupportIcon_Top / _Low), then in a 16-pixel column 4 pixels from the right edge the free share
+                  of the player's support units (1 - used / cap) as a translucent column (SupportMask_Top / _Mid /
+                  _Low blended with 0xc0500000) and over it the share left after the screen's queue
+                  (cat_cmQueuedSupportUnits / cap less) in solid; the column's height is the region's less 22 pixels.
+                  The region redraws itself every frame
+----------------------------------------------------------------------------*/
+static real32 catCmClampUnit(real32 f)
+{
+    if (!(f >= 0.0f))
+    {
+        return 0.0f;        // below 0 or NaN (no support units at all: 0 / 0), as the exe's x87 compare
+    }
+    return (f > 1.0f) ? 1.0f : f;
+}
+
+static void catCmSUBarColumn(sdword x0, sdword x1, sdword top, sdword bottom, bool32 blended)
+{
+    rectangle rect;
+    sdword k;
+    static const sdword tex[3] = { 1, 2, 0 };     // Mask_Mid, Mask_Low, Mask_Top
+
+    for (k = 0; k < 3; k++)
+    {
+        rect.x0 = x0;
+        rect.x1 = x1;
+        if (k == 0)
+        {
+            rect.y0 = top + 6;
+            rect.y1 = bottom;
+        }
+        else if (k == 1)
+        {
+            rect.y0 = bottom - 1;
+            rect.y1 = bottom + 7;
+        }
+        else
+        {
+            rect.y0 = top;
+            rect.y1 = top + 7;
+        }
+        trRGBTextureMakeCurrent(catCmSupportTexture[tex[k]]);
+        if (blended)
+        {
+            cat_primRectSolidTexturedFullRectBlendC2(&rect, 0xc0500000);
+        }
+        else
+        {
+            primRectSolidTextured2(&rect);
+        }
+    }
+}
+
+void cat_cmSUBarDraw(featom *atom, regionhandle region)
+{
+    rectangle rect;
+    Player *player = universe.curPlayerPtr;
+    sdword top, height, x0, x1;
+    real32 freeShare, queuedShare;
+
+    catCmSUBarRegion = region;
+    rect.x0 = region->rect.x0;
+    rect.y0 = region->rect.y0;
+    rect.x1 = region->rect.x1;
+    rect.y1 = (region->rect.y1 - region->rect.y0) / 2 + 1 + region->rect.y0;
+    trRGBTextureMakeCurrent(catCmSupportTexture[3]);
+    primRectSolidTextured2(&rect);
+    rect.x0 = region->rect.x0;
+    rect.y0 = (region->rect.y1 - region->rect.y0) / 2 - 1 + region->rect.y0;
+    rect.x1 = region->rect.x1;
+    rect.y1 = region->rect.y1;
+    trRGBTextureMakeCurrent(catCmSupportTexture[4]);
+    primRectSolidTextured2(&rect);
+
+    top = region->rect.y0 + 4;
+    height = (region->rect.y1 - 4) - top - 14;
+    x0 = region->rect.x1 - 20;
+    x1 = region->rect.x1 - 4;
+    // the x87 divides the unsigned use (a 64-bit fild) by the signed cap
+    freeShare = 1.0f - catCmClampUnit((real32)((double)(udword)player->supportUnitsUsed / (double)player->supportUnitsMax));
+    catCmSUBarColumn(x0, x1, top, (sdword)((real32)height * freeShare) + top + 6, TRUE);
+    queuedShare = catCmClampUnit((real32)((double)(udword)cat_cmQueuedSupportUnits(player) / (double)player->supportUnitsMax));
+    catCmSUBarColumn(x0, x1, top, (sdword)((real32)height * catCmClampUnit(freeShare - queuedShare)) + top + 6, FALSE);
+
+    region->status |= RSF_DrawThisFrame;
+}
+
 
 
 /*-----------------------------------------------------------------------------
@@ -1718,285 +2191,35 @@ void cmForceBuildShipType(ShipType type)
 }
 
 
-/*-----------------------------------------------------------------------------
-    Name        : cmCancelJobs
-    Description : Callback to cancel all current jobs
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void cmCancelJobs(char *string, featom *atom)
+
+
+
+
+// CAT (M2-R6 managers): a list row the screen shows (every list function of the exe tests the same: a ship row that is
+//      not unbuildable, or a printed class header)
+static bool32 catCmRowShown(sdword index)
 {
-    sdword index, jobCount;
-    shipinprogress *progress;
-    sdword refund/*,totalSpent*/;
-    bool32   canceled=FALSE;
-
-    if((tutorial==TUTORIAL_ONLY) && !tutEnable.bBuildCancelJobs)
-        return;
-
-    progress = &curshipsInProgress->progress[0];
-
-    for (index = jobCount = 0; cmShipsAvailable[index].nJobs != -1; index++)
-    {                                                       //for all available ships
-        if ( (cmShipsAvailable[index].itemtype==ITEM_SHIP) &&
-             (progress[cmShipsAvailable[index].type].selected) )
-        {
-            cmShipsAvailable[index].nJobs = 0;
-            canceled = TRUE;
-
-            if (multiPlayerGame)
-            {
-                if (cmShipsAvailable[index].info)
-                {
-                    //xxx
-                    clWrapDeterministicBuild(CMD_CANCEL, &universe.mainCommandLayer,
-                                             0, /*numShips == as.many.as.there.are*/
-                                             cmShipsAvailable[index].type,
-                                             cmShipsAvailable[index].info->shiprace,
-                                             universe.curPlayerIndex,
-                                             curshipsInProgress->ship);
-                }
-            }
-        }
-    }
-    //speechEventFleet(COMM_F_Const_CancelAll, 0, universe.curPlayerIndex);
-
-    for (index = 0; index < TOTAL_STD_SHIPS; index++, progress++)
-    {                                                   //for all classes of ships
-        if (progress->selected)
-        {
-            if (progress->nJobsTotal != 0)
-            {
-                refund = progress->costSoFar;
-                refund = (sdword)((real32)refund * cmFloatRefundRatio);
-//yyy
-/*
-                clWrapRUTransfer(&universe.mainCommandLayer,
-                                 0,
-                                 universe.curPlayerPtr->playerIndex,
-                                 refund, RUTRANS_BUILDCANCEL);
-*/
-                if (!multiPlayerGame)
-                {
-                    //xxx
-                    universe.curPlayerPtr->resourceUnits += refund;
-                }
-            }
-            progress->timeFraction = 0; // No fixed point fraction bits (used for decrementing RUs)
-            progress->timeStart = progress->timeLeft = 0;   //job all done
-            progress->nJobsTotal = progress->nJobs = 0;     //cancel building jobs
-            progress->costSoFar = 0;
-            canceled = TRUE;
-
-            if (multiPlayerGame)
-            {
-                if (progress->info)
-                {
-                    //xxx
-                    clWrapDeterministicBuild(CMD_CANCEL, &universe.mainCommandLayer,
-                                             0, /*numShips == as.many.as.there.are*/
-                                             progress->info->shiptype,
-                                             progress->info->shiprace,
-                                             universe.curPlayerIndex,
-                                             curshipsInProgress->ship);
-                }
-            }
-        }
-    }
-
-    if (canceled == TRUE) speechEventFleet(COMM_F_Const_CancelBatch, 0, universe.curPlayerIndex);
-
-    cmDirtyShipInfo();
+    return ((cmShipsAvailable[index].itemtype != ITEM_CLASS) && (cmShipsAvailable[index].itemstat != STAT_CANTBUILD)) ||
+           ((cmShipsAvailable[index].itemtype == ITEM_CLASS) && (cmShipsAvailable[index].itemstat == STAT_PRINT));
 }
 
-
-/*-----------------------------------------------------------------------------
-    Name        : cmPauseJobs
-    Description : Callback to pause/unpause all current jobs
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void cmPauseJobs(char *string, featom *atom)
+// CAT (M2-R6 managers): the first row of the scrolled list: the (cmUpperIndex + 1)th shown row, else row 0
+static sdword catCmFirstShownRow(void)
 {
-    sdword index;
-    shipinprogress *progress;
-    bool32 allpaused = TRUE, changed=FALSE;
+    sdword index, numlines = 0;
 
-    //speechEventFleet(COMM_F_Const_CancelAll, 0, universe.curPlayerIndex);   // later change to ConstructionCancel
-
-    if((tutorial==TUTORIAL_ONLY) & !tutEnable.bBuildPauseJobs)
-        return;
-
-    //all paused?
-    progress = &curshipsInProgress->progress[0];
-    for (index = 0; (index < TOTAL_STD_SHIPS) && allpaused; index++, progress++)
-    {                                                   //for all classes of ships
-        if (progress->selected)
-        {
-            if (!progress->paused)
-            {
-                allpaused = FALSE;
-            }
-        }
-    }
-
-    //set all jobs to opposite of allpaused
-    progress = &curshipsInProgress->progress[0];
-    for (index = 0; index < TOTAL_STD_SHIPS; index++, progress++)
-    {                                                   //for all classes of ships
-        if (progress->selected)
-        {
-            udword command;
-
-            progress->paused = !allpaused;
-            if (progress->nJobs>0) changed = TRUE;
-
-            command = progress->paused ? CMD_PAUSE : CMD_UNPAUSE;
-            if (multiPlayerGame)
-            {
-                if (progress->info)
-                {
-                    //xxx
-                    clWrapDeterministicBuild(command, &universe.mainCommandLayer,
-                                             0, /*numShips doesn't matter here*/
-                                             progress->info->shiptype,
-                                             progress->info->shiprace,
-                                             universe.curPlayerIndex,
-                                             curshipsInProgress->ship);
-                }
-            }
-        }
-    }
-
-    if (changed)
+    for (index = 0; cmShipsAvailable[index].nJobs != -1; index++)
     {
-        if (!allpaused)
+        if (catCmRowShown(index))
         {
-            speechEventFleet(COMM_F_Const_Pause, 0, universe.curPlayerIndex);
-        }
-        else
-        {
-            speechEventFleet(COMM_F_Const_Resume, 0, universe.curPlayerIndex);
-        }
-    }
-    cmDirtyShipInfo();
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : cmShipCostsDraw
-    Description : Draw the cost of building selected ships.
-    Inputs      : feflow callback
-    Outputs     : ..
-    Return      : void
-----------------------------------------------------------------------------*/
-void cmShipCostsDraw(featom *atom, regionhandle region)
-{
-    sdword x, y, index;
-    rectangle *rect = &region->rect;
-    bool32        newline=FALSE;
-    color c;
-    shipsinprogress *factory;
-    shipinprogress *progress;
-    fonthandle currentFont;
-    sdword  numlines,startind=0;
-
-    currentFont = fontCurrentGet();
-    fontMakeCurrent(cmDefaultFont);
-
-    feStaticRectangleDraw(region);                          //draw standard rectangle
-    primRectSolid2(rect, CM_BackgroundColor);
-    primLine2(rect->x0, rect->y0, rect->x0, rect->y1, colRGB(0, 100, 160));
-
-    cmShipCostsRegion = region;
-
-    numlines = 0;
-
-    for (index=0; cmShipsAvailable[index].nJobs!=-1; index++)
-    {
-        if ( (cmShipsAvailable[index].itemtype==ITEM_SHIP) &&
-             (cmShipsAvailable[index].itemstat != STAT_CANTBUILD) )
-            newline=TRUE;
-        else if ( (cmShipsAvailable[index].itemtype==ITEM_CLASS) &&
-                  (cmShipsAvailable[index].itemstat==STAT_PRINT) )
-            newline = TRUE;
-
-        if (newline)
-        {
-            newline = FALSE;
             numlines++;
-            if (numlines==cmUpperIndex+1)
+            if (numlines == cmUpperIndex + 1)
             {
-                startind = index;
-                break;
+                return index;
             }
         }
     }
-
-    newline=FALSE;
-    numlines=0;
-
-    y = rect->y0 + CM_ASMarginTop;
-    factory = curshipsInProgress;
-
-    for (index=startind;cmShipsAvailable[index].nJobs!=-1; index++)
-    {
-        if (y + fontHeight(" ") >= rect->y1)
-        {
-            break;
-        }
-
-        if ( (cmShipsAvailable[index].itemtype==ITEM_SHIP) &&
-             (cmShipsAvailable[index].itemstat==STAT_CANBUILD) )
-        {
-            progress = &factory->progress[cmShipsAvailable[index].info->shiptype];
-
-            if (cmShipsAvailable[index].nJobs > 0)
-            {                                                   //if this ship already selected
-                c = cmSelectionTextColor;
-            }
-            else
-            {
-                c = cmStandardTextColor;
-            }
-            if (progress->nJobs > 0)
-            {                                                   //if working on this class
-                c = cmBuildingTextColor;
-            }
-
-#if CM_CHEAP_SHIPS
-            if (cmCheapShips && !multiPlayerGame)
-            {
-                x = rect->x1 - CM_ASMarginLeft - fontWidth("1");
-                fontPrint(x, y, c, "1");
-            }
-            else
-#endif
-            {
-                x = rect->x1 - CM_ASMarginLeft - fontWidthf("%d", cmShipsAvailable[index].info->buildCost);
-                fontPrintf(x, y, c, "%d", cmShipsAvailable[index].info->buildCost);
-            }
-
-            newline=TRUE;
-        }
-        else if ( (cmShipsAvailable[index].itemtype==ITEM_CLASS) &&
-                  (cmShipsAvailable[index].itemstat==STAT_PRINT) )
-        {
-            newline=TRUE;
-        }
-
-
-        if (newline)
-        {
-            newline = FALSE;
-
-            y+= fontHeight(" ") + CM_ASInterSpacing;
-        }
-    }
-
-    fontMakeCurrent(currentFont);
-
+    return 0;
 }
 
 /*-----------------------------------------------------------------------------
@@ -2006,78 +2229,45 @@ void cmShipCostsDraw(featom *atom, regionhandle region)
                   yClicked - vertical location clicked on.
     Outputs     :
     Return      : type of ship clicked on or -1 if none
+    CAT (M2-R6 managers): cmSelectShipType 0x00456430: a shown ship row that is not unbuildable (a type at its cap is
+        still picked) and not restricted by the tutorial
 ----------------------------------------------------------------------------*/
 sdword cmSelectShipType(regionhandle region, sdword yClicked)
 {
-    sdword index = 0, y = 0, numlines = 0, startind = 0;
+    sdword index, y;
     fonthandle currentFont;
     bool32 newline = FALSE;
 
     currentFont = fontMakeCurrent(cmDefaultFont);
 
-    numlines = 0;
-
-    for (index=0; cmShipsAvailable[index].nJobs!=-1; index++)
-    {
-        if (cmShipsAvailable[index].itemtype==ITEM_SHIP)
-        {
-            if (cmShipsAvailable[index].itemstat != STAT_CANTBUILD)
-                newline=TRUE;
-        }
-        else if (cmShipsAvailable[index].itemtype==ITEM_CLASS)
-            newline = TRUE;
-
-        if (newline)
-        {
-            newline = FALSE;
-            numlines++;
-            if (numlines==cmUpperIndex+1)
-            {
-                startind = index;
-                break;
-            }
-        }
-    }
-
     y = region->rect.y0 + CM_ASMarginTop;
 
-    for (index=startind;cmShipsAvailable[index].nJobs!=-1; index++)
+    for (index = catCmFirstShownRow(); cmShipsAvailable[index].nJobs != -1; index++)
     {
         if (y + fontHeight(" ") >= region->rect.y1)
         {
             break;
         }
-
-        if ( (cmShipsAvailable[index].itemtype==ITEM_SHIP) &&
-             (cmShipsAvailable[index].itemstat==STAT_CANBUILD) )
+        if (catCmRowShown(index))
         {
-            newline=TRUE;
+            newline = TRUE;
         }
-        else if ( (cmShipsAvailable[index].itemtype==ITEM_CLASS) &&
-                  (cmShipsAvailable[index].itemstat==STAT_PRINT) )
+        if ((yClicked < y + fontHeight(" ") + CM_ASInterSpacing) && newline)
         {
-            newline=TRUE;
-        }
-
-        if ((yClicked < y + fontHeight(" ") + CM_ASInterSpacing)&&(newline))
-        {
-            if ((cmShipsAvailable[index].itemtype==ITEM_SHIP)&&
-                (cmShipsAvailable[index].itemstat==STAT_CANBUILD))
+            if ((cmShipsAvailable[index].itemtype != ITEM_CLASS) && (cmShipsAvailable[index].itemstat != STAT_CANTBUILD))
             {
-                if( (tutorial==TUTORIAL_ONLY) && tutIsBuildShipRestricted((sdword)cmShipsAvailable[index].type) )
-                    return(-1);
-                else
-                    return(index);
+                if ((tutorial==TUTORIAL_ONLY) && tutIsBuildShipRestricted((sdword)cmShipsAvailable[index].type))
+                {
+                    return -1;
+                }
+                return index;
             }
-            else
-                return(-1);
+            return -1;
         }
-
         if (newline)
         {
             newline = FALSE;
-
-            y+= fontHeight(" ") + CM_ASInterSpacing;
+            y += fontHeight(" ") + CM_ASInterSpacing;
         }
     }
 
@@ -2087,197 +2277,109 @@ sdword cmSelectShipType(regionhandle region, sdword yClicked)
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : cmClassCapClassRemap
-    Description : Get the build manager class for a given ship
-    Inputs      : shipType - type of a ship
-                  shipClass - class of said ship
-    Outputs     :
-    Return      : build manager class
+    Name        : cmIncrement
+    Description : one more job of a row on the screen
+    CAT (M2-R6 managers): cmIncrement 0x004565a0: the unit caps (unitCapCanCreateShip), then the support units (the local
+        player or multiplayer, a type that uses them: room for its supportUnits and the queue, cat_cmQueuedSupportUnits),
+        then the shown factory must be able to build (not missing, switched off or hyperspacing; a module always can);
+        a row with jobs already running adds the job to the factory at once (and to the deterministic list in
+        multiplayer), else to the screen's queue. A refused job flashes its row. The viewed ship follows the row and the
+        list is refreshed. HW1's per-class job cap is gone
 ----------------------------------------------------------------------------*/
-ShipClass cmClassCapClassRemap(ShipType shipType, ShipClass shipClass)
+bool32 cmIncrement(shipsinprogress *factory, uword index)
 {
-    // CAT: no ResourceController special case, Cataclysm has no such type (M2-R4 ships-b retire)
-    return(cmClassCapRemap[shipClass]);
+    shipinprogress *progress = &factory->progress[cmShipsAvailable[index].type];
+    Player *player;
+    ShipStaticInfo *info;
+    Ship *factoryship;
+    bool32 added = FALSE;
+
+    if (unitCapCanCreateShip(cmShipsAvailable[index].type, factory, cmShipsAvailable))
+    {
+        player = factory->ship->playerowner;
+        info = GetShipStaticInfo(cmShipsAvailable[index].type, player->race);
+        if (((player->playerIndex == 0) || !singlePlayerGame) && (info->supportUnits != 0) &&
+            (((udword)player->supportUnitsMax <= (udword)player->supportUnitsUsed) ||
+             ((udword)player->supportUnitsMax - (udword)player->supportUnitsUsed <
+              (udword)cat_cmQueuedSupportUnits(player) + info->supportUnits)))
+        {
+            goto refused;
+        }
+        factoryship = catCmShownFactoryShip();
+        if (((factoryship != NULL) && !bitTest(factoryship->obj.attributes, CAT_ATTRIBUTES_FactoryOff) &&
+             !bitTest(factoryship->shipOrDerelict.specialFlags, SPECIAL_Hyperspacing)) ||
+            (cmShipsAvailable[index].info->shipclass == CLASS_Component))
+        {
+            added = TRUE;
+            if (progress->nJobsTotal < 1)
+            {
+                cmShipsAvailable[index].nJobs++;
+            }
+            else
+            {
+                progress->nJobsTotal++;
+                progress->nJobs++;
+                // CAT-TODO(stage 5 recorder): the exe also sends it while a game is recorded (0x00a7519c && 0x00a75190)
+                if (multiPlayerGame)
+                {
+                    clWrapDeterministicBuild(CMD_START, &universe.mainCommandLayer, 1, progress->info->shiptype,
+                                             universe.curPlayerPtr->race, universe.curPlayerIndex, factory->ship);
+                }
+            }
+            goto done;
+        }
+    }
+refused:
+    ShipNumberExceeded = index;
+    ExceededCapsFrames = cat_taskRealTimeElapsed;
+done:
+    svSelectShip(cmShipsAvailable[index].type);
+    curshipview = cmShipsAvailable[index].type;
+    cmUpdateShipAvailable();
+    return added;
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : cmClassCapCanCreateShip
-    Description : Can we build a ship of this class or are all the berths in use?
-    Inputs      : shipType - what type of ship we want to build.
-                  factory - where we want to build it from.
-                  cmShipsAvail - what ships are in the works.
-    Outputs     :
-    Return      : TRUE if we can build it, false otherwise
+    Name        : cmDecrement
+    Description : one job less of a row on the screen
+    CAT (M2-R6 managers): cmDecrement 0x00456760: the screen's queue first; else a running batch of more than one job
+        loses one (0x4001 to the deterministic list in multiplayer); the viewed ship follows the row, the list is refreshed
+        and the result is always TRUE
 ----------------------------------------------------------------------------*/
-bool32 cmClassCapCanCreateShip(ShipType shipType, shipsinprogress *factory, shipavailable *cmShipsAvail)
+bool32 cmDecrement(shipsinprogress *factory, uword index)
 {
-    ShipStaticInfo *shipStaticInfo;
-    ShipClass shipClass;
-    ShipRace shipRace;
-    sdword index, nInThisClass;
-    bool32 shipsQueuedUp[TOTAL_NUM_SHIPS];
+    shipinprogress *progress = &factory->progress[cmShipsAvailable[index].type];
 
-    shipStaticInfo = GetShipStaticInfo(shipType, factory->ship->shiprace);//get static info
-    shipClass = cmClassCapClassRemap(shipType, shipStaticInfo->shipclass); //get ship class
-    shipRace = factory->ship->playerowner->race;            //get race of player who owns ship, not race of ship
-
-    //clear out list of queued ships
-    memset(shipsQueuedUp, 0, TOTAL_NUM_SHIPS * sizeof(bool32));
-
-    //find all ships of same class queued up for construction
-    for (index = nInThisClass = 0; cmShipsAvail[index].nJobs != -1; index++)
+    if (cmShipsAvailable[index].nJobs < 1)
     {
-        shipStaticInfo = GetShipStaticInfo(cmShipsAvail[index].type, shipRace);
-        if (cmShipsAvail[index].nJobs > 0)
-        {                                                   //if this ship being built
-            if (cmClassCapClassRemap(shipStaticInfo->shiptype, shipStaticInfo->shipclass) == shipClass)
-            {                                               //if this job the same class as the one we want to build
-                shipsQueuedUp[shipStaticInfo->shiptype] = TRUE;
-                if (shipStaticInfo->shiptype != shipType)
-                {                                           //don't count this one if it's the one we're clicking on
-                    nInThisClass++;
-                }
-            }
-        }
-    }
-    //find all ships of same class already under construction in this factory
-    for (index = 0; index < TOTAL_STD_SHIPS; index++)
-    {
-        shipStaticInfo = GetShipStaticInfo(index, shipRace);
-        if (factory->progress[index].nJobs > 0)
+        if (progress->nJobs > 1)
         {
-            if (cmClassCapClassRemap(shipStaticInfo->shiptype, shipStaticInfo->shipclass) == shipClass)
-            {                                               //if this job the same class as the one we want to build
-                if (!shipsQueuedUp[index])
-                {
-                    shipsQueuedUp[index] = TRUE;
-                    if (shipStaticInfo->shiptype != shipType)
-                    {                                       //don't count this one if it's the one we're clicking on
-                        nInThisClass++;
-                    }
-                }
-            }
-        }
-    }
-    //find all ships not yet started due to network lag.  This does not seem to know of it's factory.
-    //...or would that be covered by the first check?
-    for (index = 0; index < TOTAL_STD_SHIPS; index++)
-    {
-        shipStaticInfo = GetShipStaticInfo(index, shipRace);
-        if (shiplagtotals[index] > 0)
-        {
-            if (cmClassCapClassRemap(shipStaticInfo->shiptype, shipStaticInfo->shipclass) == shipClass)
-            {                                               //if this job the same class as the one we want to build
-                if (!shipsQueuedUp[index])
-                {
-                    shipsQueuedUp[index] = TRUE;
-                    if (shipStaticInfo->shiptype != shipType)
-                    {                                       //don't count this one if it's the one we're clicking on
-                        nInThisClass++;
-                    }
-                }
-            }
-        }
-    }
-
-    return(nInThisClass < cmMaxJobsPerClass[shipClass]);
-}
-
-bool32 cmIncrement(shipsinprogress *factory, uword index)
-{
-    shipinprogress *progress;
-    bool32 flag = FALSE;
-/*
-    bool32 disabled;
-
-    //ctrl = add 5?
-
-    disabled = cmShipDisabled(cmShipsAvailable[index].type);
-*/
-    progress = &factory->progress[cmShipsAvailable[index].info->shiptype];
-/*
-    if (unitCapCanCreateShip((uword)cmShipsAvailable[index].info->shiptype,factory,cmShipsAvailable) && !disabled)
-*/
-    if (unitCapCanCreateShip((uword)cmShipsAvailable[index].info->shiptype,factory,cmShipsAvailable) &&
-        cmClassCapCanCreateShip((ShipType)cmShipsAvailable[index].info->shiptype,factory,cmShipsAvailable))
-    {
-        flag = TRUE;
-        if (progress->nJobsTotal > 0)
-        {
-            progress->nJobsTotal++;
-            progress->nJobs++;
-
+            progress->nJobs--;
+            progress->nJobsTotal--;
+            // CAT-TODO(stage 5 recorder): the exe also sends it while a game is recorded (0x00a7519c && 0x00a75190)
             if (multiPlayerGame)
             {
-                //xxx
-                clWrapDeterministicBuild(CMD_START, &universe.mainCommandLayer,
-                                         1,
-                                         progress->info->shiptype,
-                                         universe.curPlayerPtr->race,
-                                         universe.curPlayerIndex,
-                                         factory->ship);
+                clWrapDeterministicBuild(CMD_START, &universe.mainCommandLayer, 0x4001, progress->info->shiptype,
+                                         universe.curPlayerPtr->race, universe.curPlayerIndex, factory->ship);
             }
-        }
-        else
-        {
-            cmShipsAvailable[index].nJobs++;
         }
     }
     else
-/*
-    if (!disabled)
-*/
-    {
-        //put sound effect for too many ships HERE
-        ShipNumberExceeded = (uword)index;
-        ExceededCapsFrames = taskTimeElapsed;
-    }
-    svSelectShip(cmShipsAvailable[index].info->shiptype);
-    curshipview = cmShipsAvailable[index].info->shiptype;
-
-    return flag;
-}
-
-
-
-bool32 cmDecrement(shipsinprogress *factory, uword index)
-{
-    shipinprogress *progress;
-    bool32 flag = TRUE, skip = FALSE;
-
-    //ctrl = add 5?
-
-    progress = &factory->progress[cmShipsAvailable[index].info->shiptype];
-    //inactive jobs
-    if (cmShipsAvailable[index].nJobs > 0)
     {
         cmShipsAvailable[index].nJobs--;
-        skip = TRUE;
     }
-    //active jobs
-    if (!skip && progress->nJobs > 1)
-    {
-        progress->nJobs--;
-        progress->nJobsTotal--;
-        dbgMessagef("!! removed a job, jobs %d total %d !!",
-                    progress->nJobs, progress->nJobsTotal);
-
-        if (multiPlayerGame)
-        {
-            //xxx
-            clWrapDeterministicBuild(CMD_START, &universe.mainCommandLayer,
-                                     1 | 0x4000,
-                                     progress->info->shiptype,
-                                     universe.curPlayerPtr->race,
-                                     universe.curPlayerIndex,
-                                     factory->ship);
-        }
-    }
-    svSelectShip(cmShipsAvailable[index].info->shiptype);
-    curshipview = cmShipsAvailable[index].info->shiptype;
-
-    return flag;
+    svSelectShip(cmShipsAvailable[index].type);
+    curshipview = cmShipsAvailable[index].type;
+    cmUpdateShipAvailable();
+    return TRUE;
 }
+
+
+
+
+
+
+
 
 
 
@@ -2358,7 +2460,7 @@ sdword cmRightArrowProcess(regionhandle region, sdword ID, udword event, udword 
         cmWheelPositive();
         scAdjustThumbwheel(g_shandle, cmUpperIndex, cmMaxIndex, (uword)NUMBER_SHIPS_AVAILABLE);
     }
-    cmDirtyShipInfo();
+    catCmDirtyRegions();
     return(0);
 }
 
@@ -2436,133 +2538,77 @@ sdword cmLeftArrowProcess(regionhandle region, sdword ID, udword event, udword d
         cmWheelPositive();
         scAdjustThumbwheel(g_shandle, cmUpperIndex, cmMaxIndex, (uword)NUMBER_SHIPS_AVAILABLE);
     }
-    cmDirtyShipInfo();
+    catCmDirtyRegions();
     return(0);
 }
 
 /*-----------------------------------------------------------------------------
     Name        : cmDrawArrow
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      :
+    Description : the arrows next to the listed ship rows
+    CAT (M2-R6 managers): cmDrawArrow 0x00456ca0: an arrow per shown ship row that is not unbuildable, a filled one for
+        the row under the pressed arrow (cleared once drawn); the exe's colours
 ----------------------------------------------------------------------------*/
 void cmDrawArrow(regionhandle region, bool32 leftArrow)
 {
-    sdword y, index, numlines, startind=0;
-    bool32 newline = FALSE;
-    rectangle *rect = &region->rect;
-    triangle tri;
-    sdword width = rect->x1 - rect->x0 - 4;
-    shipsinprogress *factory;
-    shipinprogress *progress;
+    sdword index, y, height;
     fonthandle currentFont;
+    triangle tri;
+    bool8 active;
 
-    numlines = 0;
-
+    height = region->rect.x1 - region->rect.x0 - 4;
     currentFont = fontMakeCurrent(cmDefaultFont);
-
-    for (index=0; cmShipsAvailable[index].nJobs!=-1; index++)
+    y = region->rect.y0 + CM_ASMarginTop;
+    if (leftArrow)
     {
-        if ( (cmShipsAvailable[index].itemtype==ITEM_SHIP) &&
-             (cmShipsAvailable[index].itemstat != STAT_CANTBUILD) )
-            newline=TRUE;
-        else if ( (cmShipsAvailable[index].itemtype==ITEM_CLASS) &&
-                  (cmShipsAvailable[index].itemstat==STAT_PRINT) )
-            newline = TRUE;
-
-        if (newline)
-        {
-            newline = FALSE;
-            numlines++;
-            if (numlines==cmUpperIndex+1)
-            {
-                startind = index;
-                break;
-            }
-        }
-    }
-
-    newline=FALSE;
-    numlines=0;
-
-    y = rect->y0 + CM_ASMarginTop;
-    factory = curshipsInProgress;
-
-    if(leftArrow)
-    {
-        tri.x0 = rect->x1 - 2;
-        tri.x1 = rect->x0 + 2;
-        tri.x2 = rect->x1 - 2;
+        tri.x0 = region->rect.x1 - 2;
+        tri.x1 = region->rect.x0 + 2;
+        tri.x2 = tri.x0;
     }
     else
     {
-        tri.x0 = rect->x0 + 2;
-        tri.x1 = rect->x0 + 2;
-        tri.x2 = rect->x1 - 2;
+        tri.x0 = region->rect.x0 + 2;
+        tri.x1 = tri.x0;
+        tri.x2 = region->rect.x1 - 2;
     }
-
-    for (index=startind;cmShipsAvailable[index].nJobs!=-1; index++)
+    for (index = catCmFirstShownRow(); cmShipsAvailable[index].nJobs != -1; index++)
     {
-        if (y + fontHeight(" ") >= rect->y1)
+        if (y + fontHeight(" ") >= region->rect.y1)
         {
             break;
         }
-
-        if ( (cmShipsAvailable[index].itemtype==ITEM_SHIP) &&
-             (cmShipsAvailable[index].itemstat==STAT_CANBUILD) )
+        if ((cmShipsAvailable[index].itemtype != ITEM_CLASS) && (cmShipsAvailable[index].itemstat != STAT_CANTBUILD))
         {
-            progress = &factory->progress[cmShipsAvailable[index].info->shiptype];
-
-            if(leftArrow)
+            tri.y0 = y;
+            if (leftArrow)
             {
-                tri.y0 = y;
-                tri.y1 = y + (width / 2);
-                tri.y2 = y + width;
+                tri.y1 = y + height / 2;
+                tri.y2 = y + height;
+                active = cmLeftArrowActive;
             }
             else
             {
-                tri.y0 = y;
-                tri.y1 = y + width;
-                tri.y2 = y + (width / 2);
+                tri.y1 = y + height;
+                tri.y2 = y + height / 2;
+                active = cmRightArrowActive;
             }
-
-            if(((leftArrow && cmLeftArrowActive) || (!leftArrow && cmRightArrowActive)) && (index==cmArrowIndex))
+            if (active && (index == cmArrowIndex))
             {
-                cmLeftArrowActive  = FALSE;
+                cmLeftArrowActive = FALSE;
                 cmRightArrowActive = FALSE;
                 cmArrowIndex = -1;
                 primTriSolid2(&tri, colRGB(200, 0, 0));
             }
-
             primTriOutline2(&tri, 1, colRGB(200, 200, 0));
-
-            newline=TRUE;
+            y += fontHeight(" ") + CM_ASInterSpacing;
         }
-        else if ( (cmShipsAvailable[index].itemtype==ITEM_CLASS) &&
-                  (cmShipsAvailable[index].itemstat==STAT_PRINT) )
+        else if (catCmRowShown(index))
         {
-            newline=TRUE;
-        }
-
-        if (newline)
-        {
-            newline = FALSE;
-
-            y+= fontHeight(" ") + CM_ASInterSpacing;
+            y += fontHeight(" ") + CM_ASInterSpacing;
         }
     }
     fontMakeCurrent(currentFont);
 }
 
-
-/*-----------------------------------------------------------------------------
-    Name        : cmLeftArrowDraw
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
 void cmLeftArrowDraw(featom *atom, regionhandle region)
 {
     if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
@@ -2570,17 +2616,11 @@ void cmLeftArrowDraw(featom *atom, regionhandle region)
         region->flags = RPE_PressLeft | RPE_ReleaseLeft | RPE_HoldLeft |
                         RPE_WheelUp | RPE_WheelDown;        //receive mouse presses from now on
         regFunctionSet(region, (regionfunction)cmLeftArrowProcess);         //set new region handler function
+        regSiblingMoveToFront(region);                      // CAT: cmLeftArrowDraw 0x00456e80
     }
     cmDrawArrow(region, TRUE);
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : cmRightArrowDraw
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
 void cmRightArrowDraw(featom *atom, regionhandle region)
 {
     if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
@@ -2588,59 +2628,172 @@ void cmRightArrowDraw(featom *atom, regionhandle region)
         region->flags = RPE_PressLeft | RPE_ReleaseLeft | RPE_HoldLeft |
                         RPE_WheelUp | RPE_WheelDown;        //receive mouse presses from now on
         regFunctionSet(region, (regionfunction)cmRightArrowProcess);        //set new region handler function
+        regSiblingMoveToFront(region);                      // CAT: cmRightArrowDraw 0x00456ec0
     }
     cmDrawArrow(region, FALSE);
 }
 
 /*-----------------------------------------------------------------------------
     Name        : cmShipNumbersDraw
-    Description : Draw the number of ships being built.
-    Inputs      : feflow callback
-    Outputs     : ..
-    Return      : void
+    Description : the number of ships queued and building per row
+    CAT (M2-R6 managers): cmShipNumbersDraw 0x00456f00: the exe's background and left line, the grey of an unavailable
+        row, the queue plus the running jobs right-aligned 12 pixels in
 ----------------------------------------------------------------------------*/
 void cmShipNumbersDraw(featom *atom, regionhandle region)
 {
-    sdword x, y, index, numShips;
-    rectangle *rect = &region->rect;
-    bool32 newline = FALSE;
-    color c;
-    shipsinprogress *factory;
-    shipinprogress *progress;
+    sdword index, y, number;
     fonthandle currentFont;
-    sdword  numlines,startind=0;
+    shipsinprogress *factory = curshipsInProgress;
+    color c;
 
     currentFont = fontCurrentGet();
     fontMakeCurrent(cmDefaultFont);
-
-    //if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
-    //{                                                       //if region not processed yet
-    //    region->flags = RPE_PressLeft | RPE_PressRight |
-    //                    RPE_WheelUp | RPE_WheelDown;        //receive mouse presses from now on
-    //    regFunctionSet(region, cmSelectNumber);             //set new region handler function
-    //}
-    feStaticRectangleDraw(region);                          //draw standard rectangle
-    primRectSolid2(rect, CM_BackgroundColor);
-    primLine2(rect->x0, rect->y0, rect->x0, rect->y1, colRGB(0, 100, 160));
-
+    feStaticRectangleDraw(region);
+    primRectSolid2(&region->rect, CM_BackgroundColor);
+    primLine2(region->rect.x0, region->rect.y0, region->rect.x0, region->rect.y1, colRGB(0, 100, 160));
     cmShipNumbersRegion = region;
 
-    numlines = 0;
-
-    for (index=0; cmShipsAvailable[index].nJobs!=-1; index++)
+    y = region->rect.y0 + CM_ASMarginTop;
+    for (index = catCmFirstShownRow(); cmShipsAvailable[index].nJobs != -1; index++)
     {
-        if ( (cmShipsAvailable[index].itemtype==ITEM_SHIP) &&
-             (cmShipsAvailable[index].itemstat != STAT_CANTBUILD) )
-            newline=TRUE;
-        else if ( (cmShipsAvailable[index].itemtype==ITEM_CLASS) &&
-                  (cmShipsAvailable[index].itemstat==STAT_PRINT) )
-            newline = TRUE;
-
-        if (newline)
+        if (y + fontHeight(" ") >= region->rect.y1)
         {
-            newline = FALSE;
+            break;
+        }
+        if ((cmShipsAvailable[index].itemtype != ITEM_CLASS) && (cmShipsAvailable[index].itemstat != STAT_CANTBUILD))
+        {
+            if (cmShipsAvailable[index].itemstat == CAT_STAT_UNAVAILABLE)
+            {
+                c = catCmUnavailableTextColor;
+            }
+            else
+            {
+                c = (cmShipsAvailable[index].nJobs > 0) ? cmSelectionTextColor : cmStandardTextColor;
+            }
+            number = factory->progress[cmShipsAvailable[index].type].nJobs;
+            if (number > 0)
+            {
+                c = cmBuildingTextColor;
+            }
+            number += cmShipsAvailable[index].nJobs;
+            fontPrintf(region->rect.x1 - fontWidthf("%d", number) - 12, y, c, "%d", number);
+            y += fontHeight(" ") + CM_ASInterSpacing;
+        }
+        else if (catCmRowShown(index))
+        {
+            y += fontHeight(" ") + CM_ASInterSpacing;
+        }
+    }
+    fontMakeCurrent(currentFont);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cmShipCostsDraw
+    Description : Draw the cost of building selected ships.
+    Inputs      : feflow callback
+    Outputs     : ..
+    Return      : void
+    CAT (M2-R6 managers): the exe's body (0x00456210, the CM_ShipCost callback, no Ghidra function): the background and
+        left line of cmShipNumbersDraw, each listed ship row's build cost (divided by the single-player cost divisor),
+        right-aligned 7 pixels in, in the row's colour
+----------------------------------------------------------------------------*/
+void cmShipCostsDraw(featom *atom, regionhandle region)
+{
+    sdword index, y, cost;
+    fonthandle currentFont;
+    shipsinprogress *factory = curshipsInProgress;
+    color c;
+
+    currentFont = fontCurrentGet();
+    fontMakeCurrent(cmDefaultFont);
+    feStaticRectangleDraw(region);
+    primRectSolid2(&region->rect, CM_BackgroundColor);
+    primLine2(region->rect.x0, region->rect.y0, region->rect.x0, region->rect.y1, colRGB(0, 100, 160));
+    cmShipCostsRegion = region;
+
+    y = region->rect.y0 + CM_ASMarginTop;
+    for (index = catCmFirstShownRow(); cmShipsAvailable[index].nJobs != -1; index++)
+    {
+        if (y + fontHeight(" ") >= region->rect.y1)
+        {
+            break;
+        }
+        if ((cmShipsAvailable[index].itemtype != ITEM_CLASS) && (cmShipsAvailable[index].itemstat != STAT_CANTBUILD))
+        {
+            if (cmShipsAvailable[index].itemstat == CAT_STAT_UNAVAILABLE)
+            {
+                c = catCmUnavailableTextColor;
+            }
+            else
+            {
+                c = (cmShipsAvailable[index].nJobs > 0) ? cmSelectionTextColor : cmStandardTextColor;
+            }
+            if (factory->progress[cmShipsAvailable[index].type].nJobs > 0)
+            {
+                c = cmBuildingTextColor;
+            }
+            cost = singlePlayerGame ? cmShipsAvailable[index].info->buildCost / catCmSinglePlayerCostFactor :
+                                      cmShipsAvailable[index].info->buildCost;
+            fontPrintf(region->rect.x1 - fontWidthf("%d", cost) - 7, y, c, "%d", cost);
+            y += fontHeight(" ") + CM_ASInterSpacing;
+        }
+        else if (catCmRowShown(index))
+        {
+            y += fontHeight(" ") + CM_ASInterSpacing;
+        }
+    }
+    fontMakeCurrent(currentFont);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cmShipInfoDraw
+    Description : Draw the available ships and construction progress
+    CAT (M2-R6 managers): the exe's body (0x004573d0): the class header line ("SuperCapital" for the destroyer class),
+        the grey of an unavailable row, the selection box, the two
+        progress bars in the exe's colours 0xfff9a891 / 0xffef5325 (a job whose clock is at 0 shows 100%), a paused
+        job's green, the refused row's flash; the first row of the scroll counts as shown whatever it is (the exe's
+        loop does that)
+----------------------------------------------------------------------------*/
+void cmShipInfoDraw(featom *atom, regionhandle region)
+{
+    sdword y, index, percent, numlines = 0, startind = 0;
+    rectangle rect = region->rect;
+    color c;
+    shipsinprogress *factory = curshipsInProgress;
+    shipinprogress  *progress;
+    fonthandle currentFont;
+    bool32 first = TRUE;
+    char *classString, *classWord;
+
+    if (cmRenderEverythingCounter > 0)
+    {
+        cmRenderEverythingCounter--;
+        feRenderEverything = TRUE;
+    }
+
+    cmShipInfoRegion = region;
+
+    currentFont = fontMakeCurrent(cmShipListFont);
+
+    if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
+    {                                                       //if region not processed yet
+        region->flags = RPE_PressLeft | RPE_PressRight |
+                        RPE_WheelUp | RPE_WheelDown;        //receive mouse presses from now on
+        regFunctionSet(region, (regionfunction)cmSelectAvailable);          //set new region handler function
+        regFilterSet(region, region->flags | RPE_DoubleLeft | RPE_DoubleRight);
+    }
+    feStaticRectangleDraw(region);                          //draw standard rectangle
+
+    rect.x1 -= 92;                                          // CAT: 0x5c (HW1 CM_ProgressMarginRight 90)
+    primRectSolid2(&rect, CM_BackgroundColor);
+
+    for (index = 0; cmShipsAvailable[index].nJobs != -1; index++)
+    {
+        if (catCmRowShown(index) || first)
+        {
+            first = FALSE;
             numlines++;
-            if (numlines==cmUpperIndex+1)
+            if (numlines == cmUpperIndex + 1)
             {
                 startind = index;
                 break;
@@ -2648,63 +2801,176 @@ void cmShipNumbersDraw(featom *atom, regionhandle region)
         }
     }
 
-    newline=FALSE;
-    numlines=0;
-
-    y = rect->y0 + CM_ASMarginTop;
-    factory = curshipsInProgress;
-
-    for (index=startind;cmShipsAvailable[index].nJobs!=-1; index++)
+    y = region->rect.y0 + CM_ASMarginTop;
+    for (index = startind; cmShipsAvailable[index].nJobs != -1; index++)
     {
-        if (y + fontHeight(" ") >= rect->y1)
+        fontShadowSet(FS_NONE, colBlack);
+        if (y + fontHeight(" ") >= region->rect.y1)
         {
             break;
         }
-
-        if ( (cmShipsAvailable[index].itemtype==ITEM_SHIP) &&
-             (cmShipsAvailable[index].itemstat==STAT_CANBUILD) )
+        if ((cmShipsAvailable[index].itemtype != ITEM_CLASS) && (cmShipsAvailable[index].itemstat != STAT_CANTBUILD))
         {
-            progress = &factory->progress[cmShipsAvailable[index].info->shiptype];
-
-            if (cmShipsAvailable[index].nJobs > 0)
+            progress = &factory->progress[cmShipsAvailable[index].type];
+            if (cmShipsAvailable[index].itemstat == CAT_STAT_UNAVAILABLE)
+            {
+                c = catCmUnavailableTextColor;
+            }
+            else if (cmShipsAvailable[index].nJobs > 0)
             {                                                   //if this ship already selected
                 c = cmSelectionTextColor;
             }
             else
             {
-                c = cmStandardTextColor;
+                c = progress->selected ? FEC_ListItemSelected : cmStandardTextColor;
+            }
+            if (progress->selected)
+            {
+                rect.x0 = region->rect.x0 + CM_SelectBoxX0 + cmSelectLeftAdjust;
+                rect.y0 = y + CM_SelectBoxY0 + cmSelectTopAdjust;
+                rect.x1 = region->rect.x0 + CM_SelectBoxX1 + cmSelectRightAdjust;
+                rect.y1 = y + CM_SelectBoxY1 + cmSelectBottomAdjust;
+                primRectTranslucent2(&rect, FEC_ListItemTranslucent);
+                primRectOutline2(&rect, 1, FEC_ListItemTranslucentBorder);
             }
             if (progress->nJobs > 0)
             {                                                   //if working on this class
-                c = cmBuildingTextColor;
+                c = progress->paused ? CM_PausedColor : cmBuildingTextColor;
+                if ((progress->timeLeft == 0) || (progress->timeStart == 0))
+                {
+                    percent = 100;
+                }
+                else
+                {
+                    percent = 100 - progress->timeLeft * 100 / progress->timeStart;
+                }
+                rect.x0 = region->rect.x0 + 2 + cmSelectLeftAdjust; //increment past border of window
+                rect.y0 = y + CM_SelectBoxY0 + cmSelectTopAdjust;   //draw top bar (progress of current ship)
+                rect.y1 = y + fontHeight(" ") / 2 + cmSelectTopAdjust;
+                rect.x1 = rect.x0 - 1 + cmSelectRightAdjust + (region->rect.x1 - region->rect.x0 - 94) * percent / 100;   // CAT: 0x5e
+                primRectSolid2(&rect, 0xfff9a891);
+
+                if (progress->nJobsTotal * progress->timeStart > 0)
+                {
+                    percent = 100 - (progress->timeLeft + (progress->nJobs - 1) * progress->timeStart) * 100 /
+                                    (progress->timeStart * progress->nJobsTotal);
+                }
+                rect.y0 = rect.y1;                               //draw bottom bar (progress of total job)
+                rect.y1 = y + CM_SelectBoxY1 + cmSelectBottomAdjust - 1;
+                rect.x1 = rect.x0 - 1 + cmSelectRightAdjust + (region->rect.x1 - region->rect.x0 - 94) * percent / 100;
+                primRectSolid2(&rect, 0xffef5325);
+                fontShadowSet(FS_SE, colBlack);
             }
-
-            numShips = cmShipsAvailable[index].nJobs;
-            numShips += progress->nJobs;  //active jobs, too
-
-            x = rect->x1 - CM_ASMarginLeft - fontWidthf("%d", numShips) - 5;
-            fontPrintf(x, y, c, "%d", numShips);
-
-            newline=TRUE;
+            if ((cat_taskRealTimeElapsed - ExceededCapsFrames < FLASH_TIMER) && (ShipNumberExceeded == index))
+            {
+                c = FEC_ListItemInvalid;
+            }
+            fontPrint(region->rect.x0 + 7, y, c, ShipTypeToNiceStr(cmShipsAvailable[index].type));   // CAT: 7 (HW1 9)
+            catCmDirtyRegions();
+            y += fontHeight(" ") + CM_ASInterSpacing;
         }
-        else if ( (cmShipsAvailable[index].itemtype==ITEM_CLASS) &&
-                  (cmShipsAvailable[index].itemstat==STAT_PRINT) )
+        else if ((cmShipsAvailable[index].itemtype == ITEM_CLASS) && (cmShipsAvailable[index].itemstat == STAT_PRINT))
         {
-            newline=TRUE;
-        }
-
-
-        if (newline)
-        {
-            newline = FALSE;
-
-            y+= fontHeight(" ") + CM_ASInterSpacing;
+            if (cmShipsAvailable[index].type == CLASS_Destroyer)
+            {
+                classString = strGetString(strCLASS_SuperCapital);
+            }
+            else
+            {
+                classString = ShipClassToNiceStr(cmShipsAvailable[index].type);
+            }
+            classWord = strGetString(strCLASS_Class);
+            // CAT: the exe prints "%s %s" in the other order when g_bNeedReverseWordsForOtherLanguage (0x00a6c538) is
+            //      set; nothing in the exe writes it, so the class name comes first as here
+            fontPrintf(region->rect.x0 + CM_ASHeadingMarginLeft, y, cmClassHeadingTextColor, "%s %s", classString, classWord);
+            y += fontHeight(" ") + CM_ASInterSpacing;
         }
     }
 
     fontMakeCurrent(currentFont);
-
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : cmTotalRUsDraw
+    Description : Callback to draw total cost of build queue for all ship types
+    CAT (M2-R6 managers): cmTotalRUsDraw 0x00457a00 (IDENTICAL in the map, found modified): the costs divided by the
+        single-player cost divisor and the cost already paid of a running job by the single-player build-time divisor;
+        a running job's remaining cost of every other factory of the local player counts too
+----------------------------------------------------------------------------*/
+static sdword catCmJobRemainingCost(shipinprogress *progress)
+{
+    sdword cost = singlePlayerGame ? progress->info->buildCost / catCmSinglePlayerCostFactor : progress->info->buildCost;
+    sdword buildTime = singlePlayerGame ? progress->info->buildTime / catCmSinglePlayerBuildFactor : progress->info->buildTime;
+    real32 already = (real32)(progress->timeStart - progress->timeLeft) * (real32)cost / (real32)buildTime;
+
+    return progress->nJobs * cost - (sdword)already;
+}
+
+void cmTotalRUsDraw(featom *atom, regionhandle region)
+{
+    sdword width;
+    sdword index, RUs;
+    shipsinprogress *factory, *other;
+    shipinprogress *progress;
+    rectangle rect = region->rect;
+    fonthandle oldfont;
+    Node *node;
+
+    cmTotalRUsRegion = region;
+
+    oldfont = fontMakeCurrent(cmShipListFont);
+
+    factory = curshipsInProgress;
+
+    primModeSet2();
+    primRectSolid2(&rect, CM_BackgroundColor);
+
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(rect.x0, MAIN_WindowHeight - rect.y1, rect.x1 - rect.x0, rect.y1 - rect.y0);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_SCISSOR_TEST);
+
+    for (index = RUs = 0; cmShipsAvailable[index].nJobs != -1; index++)
+    {
+        if (cmShipsAvailable[index].itemtype==ITEM_CLASS)
+        {
+            continue;
+        }
+        progress = &factory->progress[cmShipsAvailable[index].type];
+        RUs += (singlePlayerGame ? cmShipsAvailable[index].info->buildCost / catCmSinglePlayerCostFactor :
+                                   cmShipsAvailable[index].info->buildCost) * cmShipsAvailable[index].nJobs;
+        if (progress->nJobs > 0)
+        {
+            RUs += catCmJobRemainingCost(progress);
+        }
+    }
+    for (node = listofShipsInProgress.head; node != NULL; node = node->next)
+    {
+        other = (shipsinprogress *)listGetStructOfNode(node);
+        if ((other->ship == factory->ship) || (other->ship->playerowner != universe.curPlayerPtr))
+        {
+            continue;
+        }
+        for (index = 0, progress = &other->progress[0]; index < TOTAL_NUM_SHIPS; index++, progress++)
+        {
+            if (progress->nJobs > 0)
+            {
+                RUs += catCmJobRemainingCost(progress);
+            }
+        }
+    }
+    width = fontWidthf("%d", RUs);                          //width of number
+    feStaticRectangleDraw(region);                          //draw regular rectangle as backdrop
+    fontPrintf(region->rect.x1 - width - CM_RUMarginRight,
+               (region->rect.y1 - region->rect.y0 - fontHeight(NULL)) / 2 + region->rect.y0,
+               atom->borderColor, "%d", RUs);
+    fontMakeCurrent(oldfont);
+}
+
+
+
+
+
 
 
 /*-----------------------------------------------------------------------------
@@ -2769,7 +3035,7 @@ sdword cmSelectAvailable(regionhandle region, sdword ID, udword event, udword da
 
                 kprogress = progress;
                 progress = &curshipsInProgress->progress[0];
-                for (i = 0; i < TOTAL_STD_SHIPS; i++, progress++)
+                for (i = 0; i < TOTAL_NUM_SHIPS; i++, progress++)
                 {                                                   //for all classes of ships
                     progress->selected = FALSE;
                 }
@@ -2820,7 +3086,7 @@ sdword cmSelectAvailable(regionhandle region, sdword ID, udword event, udword da
 
                 kprogress = progress;
                 progress = &curshipsInProgress->progress[0];
-                for (i = 0; i < TOTAL_STD_SHIPS; i++, progress++)
+                for (i = 0; i < TOTAL_NUM_SHIPS; i++, progress++)
                 {                                                   //for all classes of ships
                     progress->selected = FALSE;
                 }
@@ -2842,209 +3108,10 @@ sdword cmSelectAvailable(regionhandle region, sdword ID, udword event, udword da
         cmWheelPositive();
         scAdjustThumbwheel(g_shandle, cmUpperIndex, cmMaxIndex, (uword)NUMBER_SHIPS_AVAILABLE);
     }
-    cmDirtyShipInfo();
+    catCmDirtyRegions();
     return(0);
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : cmShipInfoDraw
-    Description : Draw the available ships and construction progress
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void cmShipInfoDraw(featom *atom, regionhandle region)
-{
-    sdword x, y, index, percent;
-    rectangle rect = region->rect;
-    color c;
-    shipsinprogress *factory  = NULL;
-    shipinprogress  *progress = NULL;
-    fonthandle currentFont;
-    bool32       newline = FALSE;
-    sdword     numlines = 0, startind = 0;
-
-    if (cmRenderEverythingCounter > 0)
-    {
-        cmRenderEverythingCounter--;
-        feRenderEverything = TRUE;
-    }
-
-    cmShipInfoRegion = region;
-
-    currentFont = fontMakeCurrent(cmShipListFont);
-
-    if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
-    {                                                       //if region not processed yet
-        region->flags = RPE_PressLeft | RPE_PressRight |
-                        RPE_WheelUp | RPE_WheelDown;        //receive mouse presses from now on
-        regFunctionSet(region, (regionfunction)cmSelectAvailable);          //set new region handler function
-        regFilterSet(region, region->flags | RPE_DoubleLeft | RPE_DoubleRight);
-    }
-    feStaticRectangleDraw(region);                          //draw standard rectangle
-
-    rect.x1 -= CM_ProgressMarginRight;
-    primRectSolid2(&rect, CM_BackgroundColor);
-
-    numlines = 0;
-
-    for (index=0; cmShipsAvailable[index].nJobs!=-1; index++)
-    {
-        if ( (cmShipsAvailable[index].itemtype==ITEM_SHIP) &&
-             (cmShipsAvailable[index].itemstat != STAT_CANTBUILD) )
-            newline=TRUE;
-        else if ( (cmShipsAvailable[index].itemtype==ITEM_CLASS) &&
-                  (cmShipsAvailable[index].itemstat==STAT_PRINT) )
-            newline = TRUE;
-
-        if (newline)
-        {
-            newline = FALSE;
-            numlines++;
-            if (numlines==cmUpperIndex+1)
-            {
-                startind = index;
-                break;
-            }
-        }
-    }
-
-    y = region->rect.y0 + CM_ASMarginTop;
-
-    newline=FALSE;
-    numlines=0;
-
-    factory = curshipsInProgress;
-
-    for (index=startind;cmShipsAvailable[index].nJobs!=-1; index++)
-    {
-        if (y + fontHeight(" ") >= region->rect.y1)
-        {
-            break;
-        }
-
-        if ( (cmShipsAvailable[index].itemtype==ITEM_SHIP) &&
-             (cmShipsAvailable[index].itemstat==STAT_CANBUILD) )
-        {
-            progress = &factory->progress[cmShipsAvailable[index].info->shiptype];
-/*
-            if (cmShipDisabled(cmShipsAvailable[index].type))
-            {
-                c = FEC_ListItemInactive;
-            }
-            else
-*/
-            if (cmShipsAvailable[index].nJobs > 0)
-            {                                                   //if this ship already selected
-                c = cmSelectionTextColor;
-            }
-            else
-            {
-                if (progress->selected)
-                {
-                    c = FEC_ListItemSelected;
-                }
-                else
-                {
-                    c = cmStandardTextColor;
-                }
-            }
-
-            if (progress->selected)
-            {
-                rect.x0 = region->rect.x0 + CM_SelectBoxX0 + cmSelectLeftAdjust;
-                rect.y0 = y + CM_SelectBoxY0 + cmSelectTopAdjust;
-                rect.x1 = region->rect.x0 + CM_SelectBoxX1 + cmSelectRightAdjust;
-                rect.y1 = y + CM_SelectBoxY1 + cmSelectBottomAdjust;
-
-                primRectTranslucent2(&rect, FEC_ListItemTranslucent/*CM_SelectedColorSolid*/);
-                primRectOutline2(&rect, 1, FEC_ListItemTranslucentBorder/*CM_SelectedColorOutline*/);
-            }
-
-            if (progress->nJobs > 0)
-            {                                                   //if working on this class
-                c = cmBuildingTextColor;
-
-                if (progress->paused)
-                    c = CM_PausedColor;
-
-                percent = 100 - progress->timeLeft * 100 / progress->timeStart;
-                rect.x0 = region->rect.x0 + 2 + cmSelectLeftAdjust; //increment past border of window
-                rect.y0 = y + CM_SelectBoxY0 + cmSelectTopAdjust;   //draw top bar (progress of current ship)
-                rect.y1 = y + fontHeight(" ") / 2 + cmSelectTopAdjust;
-                rect.x1 = rect.x0 - 1 + cmSelectRightAdjust + percent * (region->rect.x1 -
-                    region->rect.x0 - CM_ProgressMarginLeft - CM_ProgressMarginRight) / 100;
-                primRectSolid2(&rect, cmProgressShipColor);
-
-                percent = 100 - (progress->timeLeft +
-                    (progress->nJobs - 1) * progress->timeStart) * 100 /
-                    (progress->timeStart * progress->nJobsTotal);
-                rect.y0 = rect.y1;                               //draw bottom bar (progress of total job)
-                rect.y1 = y + CM_SelectBoxY1 + cmSelectBottomAdjust - 1;
-                rect.x1 = rect.x0 - 1 + cmSelectRightAdjust + percent * (region->rect.x1 -
-                    region->rect.x0 - CM_ProgressMarginLeft - CM_ProgressMarginRight) / 100;
-                primRectSolid2(&rect, cmProgressTotalColor);
-            }
-
-            if ((taskTimeElapsed-ExceededCapsFrames < FLASH_TIMER) && (ShipNumberExceeded==index))
-            {
-                c = FEC_ListItemInvalid;//cmCapsExceededTextColor;
-            }
-
-
-            /*
-            if (progress->paused)
-            {
-                rect.x0 = region->rect.x0 + CM_SelectBoxX0+2;
-                rect.y0 = y + CM_SelectBoxY0+2;
-                rect.x1 = region->rect.x0 + CM_SelectBoxX1+2;
-                rect.y1 = y + CM_SelectBoxY1+2;
-
-                primRectOutline2(&rect, 1, CM_PausedColor);
-            }
-              */
-
-
-            //ship fancy name
-            x = region->rect.x0 + CM_ASMarginLeft;
-            fontPrint(x, y, c, ShipTypeToNiceStr(cmShipsAvailable[index].info->shiptype));
-
-            newline = TRUE;
-
-            cmDirtyShipInfo();
-        }
-        else if ( (cmShipsAvailable[index].itemtype==ITEM_CLASS) &&
-                  (cmShipsAvailable[index].itemstat==STAT_PRINT) )
-        {
-            char* classString;
-
-            c = cmClassHeadingTextColor;
-            if (cmShipsAvailable[index].type == CLASS_Destroyer)
-            {
-                classString = strGetString(strCLASS_SuperCapital);
-            }
-            else
-            {
-                classString = ShipClassToNiceStr(cmShipsAvailable[index].type);
-            }
-            fontPrintf(region->rect.x0 + CM_ASHeadingMarginLeft, y,
-                       c, "%s %s", classString, strGetString(strCLASS_Class));
-            //next line
-            newline = TRUE;
-        }
-
-        if (newline)
-        {
-            newline = FALSE;
-
-            y+= fontHeight(" ") + CM_ASInterSpacing;
-            numlines++;
-        }
-    }
-
-    fontMakeCurrent(currentFont);
-//  cmDirtyShipInfo();
-}
 
 /*-----------------------------------------------------------------------------
     Name        : cmNumberRUsDraw
@@ -3080,78 +3147,6 @@ void cmNumberRUsDraw(featom *atom, regionhandle region)
     fontMakeCurrent(oldfont);
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : cmTotalRUsDraw
-    Description : Callback to draw total cost of build queue for all ship types
-    Inputs      :
-    Outputs     :
-    Return      :
-----------------------------------------------------------------------------*/
-void cmTotalRUsDraw(featom *atom, regionhandle region)
-{
-    sdword width;
-    sdword index, RUs;
-    shipsinprogress *factory;
-    shipinprogress *progress;
-    rectangle rect = region->rect;
-    fonthandle oldfont;
-    real32 RUsAlready;
-
-    cmTotalRUsRegion = region;
-
-    oldfont = fontMakeCurrent(cmShipListFont);
-
-    factory = curshipsInProgress;
-
-    primModeSet2();
-    primRectSolid2(&rect, CM_BackgroundColor);
-
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(rect.x0, MAIN_WindowHeight - rect.y1, rect.x1 - rect.x0, rect.y1 - rect.y0);
-    glClear(GL_DEPTH_BUFFER_BIT);
-    glDisable(GL_SCISSOR_TEST);
-
-    for (index = RUs = 0; cmShipsAvailable[index].nJobs != -1; index++)
-    {
-        if (cmShipsAvailable[index].itemtype==ITEM_CLASS)
-        {
-            continue;
-        }
-        progress = &factory->progress[cmShipsAvailable[index].info->shiptype];
-#if CM_CHEAP_SHIPS
-        if (cmCheapShips && !multiPlayerGame)
-        {
-            RUs++;
-        }
-        else
-#endif
-        {
-            RUs += cmShipsAvailable[index].nJobs * cmShipsAvailable[index].info->buildCost;
-        }
-        if (progress->nJobs > 0)
-        {
-            dbgAssertOrIgnore(progress->info != NULL);
-#if CM_CHEAP_SHIPS
-            if (cmCheapShips && !multiPlayerGame)
-            {
-                RUs += progress->nJobs;
-            }
-            else
-#endif
-            {
-                RUs += progress->nJobs * progress->info->buildCost;
-                RUsAlready = (real32)progress->info->buildCost * (real32)(progress->timeStart - progress->timeLeft) / (real32)progress->info->buildTime;
-                RUs -= (sdword)RUsAlready;
-            }
-        }
-    }
-    width = fontWidthf("%d", RUs);                          //width of number
-    feStaticRectangleDraw(region);                          //draw regular rectangle as backdrop
-    fontPrintf(region->rect.x1 - width - CM_RUMarginRight,
-               (region->rect.y1 - region->rect.y0 - fontHeight(NULL)) / 2 + region->rect.y0,
-               atom->borderColor, "%d", RUs);
-    fontMakeCurrent(oldfont);
-}
 
 /*-----------------------------------------------------------------------------
     Name        : cmTotalShipsDraw
@@ -3185,9 +3180,9 @@ void cmTotalShipsDraw(featom *atom, regionhandle region)
 
     for (index = nShips = 0; cmShipsAvailable[index].nJobs != -1; index++)
     {
-        if (cmShipsAvailable[index].itemtype==ITEM_SHIP)
+        if (cmShipsAvailable[index].itemtype != ITEM_CLASS)    // CAT: kind != 0 (cmTotalShipsDraw 0x00457d00)
         {
-            progress = &factory->progress[cmShipsAvailable[index].info->shiptype];
+            progress = &factory->progress[cmShipsAvailable[index].type];
             nShips += cmShipsAvailable[index].nJobs;
             nShips += progress->nJobs;                          //active jobs, too
         }
@@ -3200,374 +3195,242 @@ void cmTotalShipsDraw(featom *atom, regionhandle region)
     fontMakeCurrent(oldfont);
 }
 
+// CAT (M2-R6 managers): the construction list of a factory (cmUpdateFactory 0x00458180, cmUpdateFactoryNoReset
+//      0x00457fc0, cmCanBuildShipType 0x00457e50 choose it inline): by the owner's race (cmUpdate*) or the factory's
+//      race (cmCanBuildShipType), canBuildBigShips picking the big list; NULL for no list
+static shipavailable *catCmShipsAvailableFor(ShipRace race, bool32 big)
+{
+    switch (race)
+    {
+        case RACE_Sect:     return big ? catCmShipsAvailableSectBig : catCmShipsAvailableSect;
+        case RACE_Beast:    return big ? catCmShipsAvailableBeastBig : catCmShipsAvailableBeast;
+        case RACE_Kushan:   return big ? catCmShipsAvailableKushanBig : catCmShipsAvailableKushan;
+        case RACE_Taiidan:  return big ? catCmShipsAvailableTaiidanBig : catCmShipsAvailableTaiidan;
+        case RACE_P1:       return catCmShipsAvailableP1;
+        default:            return NULL;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cmCanBuildShipType
+    Description : can this factory build this type
+    CAT (M2-R6 managers): the exe's body (0x00457e50): the list of the factory's own race (canBuildBigShips of its
+        static); an externally built type only at a mothership-class factory with a free build slot
+        (cat_dockHasFreeSlotForShip); with checkResearch the research (rmCanBuildShip, its third argument 1 when the
+        screen's factory is the sMothership) and a kind-2 row's cat_playerShipTypeEnabled
+----------------------------------------------------------------------------*/
 bool32 cmCanBuildShipType(Ship *factoryship,ShipType shiptype,bool32 checkResearch)
 {
-    ShipStaticInfo *factorystatic;
     shipavailable *shipsavail;
+    ShipStaticInfo *info;
     sdword index;
+    bool32 bigFactory;
 
     if (factoryship == NULL)
     {
         return FALSE;
     }
-
-    factorystatic = factoryship->staticinfo;
-
-    if (factorystatic->shiprace == R1)
+    shipsavail = catCmShipsAvailableFor(factoryship->staticinfo->shiprace, factoryship->staticinfo->canBuildBigShips);
+    if (shipsavail == NULL)
     {
-        if (factorystatic->canBuildBigShips)
-        {
-            shipsavail = cmShipsAvailableR1Big;
-        }
-        else
-        {
-            shipsavail = cmShipsAvailableR1Reg;
-        }
-    }
-    else if (factorystatic->shiprace == R2)
-    {
-        if (factorystatic->canBuildBigShips)
-        {
-            shipsavail = cmShipsAvailableR2Big;
-        }
-        else
-        {
-            shipsavail = cmShipsAvailableR2Reg;
-        }
-    }
-    else if (factorystatic->shiprace == P1)
-    {
-        shipsavail = cmShipsAvailableP1;
-    }
-    else if (factorystatic->shiprace == P2)
-    {
-        shipsavail = cmShipsAvailableP2;
-    }
-    else
-    {
-        dbgAssertOrIgnore(FALSE);           // do we need to deal with P3?
         return FALSE;
     }
-
     for (index = 0; shipsavail[index].nJobs != -1; index++)
     {
-        if (shipsavail[index].itemtype==ITEM_SHIP)
+        if ((shipsavail[index].itemtype == ITEM_CLASS) || (shipsavail[index].type != shiptype))
         {
-            if (shipsavail[index].type == shiptype)
+            continue;
+        }
+        info = GetShipStaticInfo(shiptype, factoryship->staticinfo->shiprace);
+        if (info->externalBuild)
+        {
+            if (factoryship->staticinfo->shipclass != CLASS_Mothership)
             {
-                if (!checkResearch)
-                {
-                    return TRUE;
-                }
-
-                if (rmCanBuildShip(factoryship->playerowner, shiptype, TRUE))     // CAT-TODO(stage 3): cmCanBuildShipType 0x00457e50 passes a computed flag
-                {
-                    return TRUE;
-                }
-                else
-                {
-                    return FALSE;
-                }
+                return FALSE;
+            }
+            if (!cat_dockHasFreeSlotForShip(factoryship, info->shipclass, shiptype, TRUE, 0))
+            {
+                return FALSE;
             }
         }
+        if (checkResearch)
+        {
+            bigFactory = (curshipsInProgress != NULL) && (curshipsInProgress->ship->shiptype == sMothership);
+            if (!rmCanBuildShip(factoryship->playerowner, shiptype, bigFactory))
+            {
+                return FALSE;
+            }
+            if ((shipsavail[index].itemtype == CAT_ITEM_SHIPENABLED) &&
+                !cat_playerShipTypeEnabled(factoryship->playerowner, shiptype))
+            {
+                return FALSE;
+            }
+        }
+        return TRUE;
     }
-
     return FALSE;
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : cmUpdateFactory
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-sdword cmUpdateFactoryNoReset(Ship* shipfactory)
+// CAT (M2-R6 managers): the common part of cmUpdateFactory and cmUpdateFactoryNoReset: the factory (any ship that is no
+//      factory falls back to the local player's mothership; a non-builder fails), its entry and its list
+static Ship *catCmFactorySelect(Ship *shipfactory)
 {
-    ShipRace race;
-
-    if ( (shipfactory == NULL) || (!((ShipStaticInfo *)(shipfactory->staticinfo))->canBuildShips) )
+    if ((shipfactory == NULL) || !shipfactory->staticinfo->canBuildShips)
     {
         shipfactory = universe.curPlayerPtr->PlayerMothership;
     }
-
-    if (shipfactory == NULL)
+    if ((shipfactory == NULL) || !shipfactory->staticinfo->canBuildShips)
     {
-#if CM_VERBOSE_LEVEL >= 1
-        dbgMessagef("Shipfactory dead.  Can't build anything!");
-#endif
-        return(0);
+        return NULL;
     }
-
-    race = shipfactory->playerowner->race;
-
-    if (!((ShipStaticInfo *)(shipfactory->staticinfo))->canBuildShips)
-    {
-#if CM_VERBOSE_LEVEL >= 1
-        dbgMessagef("This ship can't build anything!");
-#endif
-        return(0);
-    }
-
-    //if (bitTest(taskData[cmBuildTask]->flags, TF_Paused))
-    //{                                                       //if build task paused
-    //    taskResume(cmBuildTask);                            //continue it
-    //}
-
     curshipsInProgress = cmFindFactory(shipfactory);
-    dbgAssertOrIgnore(curshipsInProgress != NULL);
-    if (race == R1)
-    {
-        if (curshipsInProgress->canBuildBigShips)
-        {
-            cmShipsAvailable = cmShipsAvailableR1Big;
-        }
-        else
-        {
-            cmShipsAvailable = cmShipsAvailableR1Reg;
-        }
-    }
-    else if (race == R2)
-    {
-        if (curshipsInProgress->canBuildBigShips)
-        {
-            cmShipsAvailable = cmShipsAvailableR2Big;
-        }
-        else
-        {
-            cmShipsAvailable = cmShipsAvailableR2Reg;
-        }
-    }
-    else if (race == P1)
-    {
-        cmShipsAvailable = cmShipsAvailableP1;
-    }
-    else if (race == P2)
-    {
-        cmShipsAvailable = cmShipsAvailableP2;
-    }
-    else
-    {
-        dbgAssertOrIgnore(FALSE);
-    }
-
-    cmDirtyShipInfo();
-    cmUpdateShipAvailable();
-
-    return(1);
+    // CAT-FIX: the exe reads the canBuildBigShips of a NULL entry when the ship is not in the factory list
+    cmShipsAvailable = catCmShipsAvailableFor(shipfactory->playerowner->race,
+                                              (curshipsInProgress != NULL) && curshipsInProgress->canBuildBigShips);
+    return shipfactory;
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : cmUpdateShipsAvailable
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      : void
+    Name        : cmUpdateFactoryNoReset
+    Description : show a factory without resetting the screen's queue
+    CAT (M2-R6 managers): the exe's body (0x00457fc0)
 ----------------------------------------------------------------------------*/
+sdword cmUpdateFactoryNoReset(Ship* shipfactory)
+{
+    if ((catCmFactorySelect(shipfactory) == NULL) || (cmShipsAvailable == NULL))
+    {
+        return 0;
+    }
+    catCmDirtyRegions();
+    cmUpdateShipAvailable();
+    return 1;
+}
+
 void cmUpdateShipsAvailable(void)
 {
-    if (cmCurrentSelect==0)
-    {
-        cmUpdateFactoryNoReset(universe.curPlayerPtr->PlayerMothership);
-    }
-    else
-    {
-        cmUpdateFactoryNoReset(cmCarrierX[cmCurrentSelect-1]);
-    }
+    // CAT: the shown factory's slot (cmUpdateShipsAvailable 0x00458150)
+    cmUpdateFactoryNoReset(catCmShownFactoryShip());
 }
 
 /*-----------------------------------------------------------------------------
     Name        : cmUpdateFactory
-    Description :
-    Inputs      :
-    Outputs     :
-    Return      : void
+    Description : show a factory: its list with an empty queue
+    CAT (M2-R6 managers): the exe's body (0x00458180): the queue cleared, every row's static, the entries' selection
+        cleared (one per list row, from type 0: the exe's loop)
 ----------------------------------------------------------------------------*/
 sdword cmUpdateFactory(Ship* shipfactory)
 {
     sdword index;
-    ShipRace race;
-    shipinprogress *sip;
 
-    if ( (shipfactory == NULL) || (!((ShipStaticInfo *)(shipfactory->staticinfo))->canBuildShips) )
+    if ((catCmFactorySelect(shipfactory) == NULL) || (cmShipsAvailable == NULL))
     {
-        shipfactory = universe.curPlayerPtr->PlayerMothership;
+        return 0;
     }
-
-    if (shipfactory == NULL)
-    {
-#if CM_VERBOSE_LEVEL >= 1
-        dbgMessagef("Shipfactory dead.  Can't build anything!");
-#endif
-        return(0);
-    }
-
-    race = shipfactory->playerowner->race;
-
-    if (!((ShipStaticInfo *)(shipfactory->staticinfo))->canBuildShips)
-    {
-#if CM_VERBOSE_LEVEL >= 1
-        dbgMessagef("This ship can't build anything!");
-#endif
-        return(0);
-    }
-
-    //if (bitTest(taskData[cmBuildTask]->flags, TF_Paused))
-    //{                                                       //if build task paused
-    //    taskResume(cmBuildTask);                            //continue it
-    //}
-
-    curshipsInProgress = cmFindFactory(shipfactory);
-    dbgAssertOrIgnore(curshipsInProgress != NULL);
-    if (race == R1)
-    {
-        if (curshipsInProgress->canBuildBigShips)
-        {
-            cmShipsAvailable = cmShipsAvailableR1Big;
-        }
-        else
-        {
-            cmShipsAvailable = cmShipsAvailableR1Reg;
-        }
-    }
-    else if (race == R2)
-    {
-        if (curshipsInProgress->canBuildBigShips)
-        {
-            cmShipsAvailable = cmShipsAvailableR2Big;
-        }
-        else
-        {
-            cmShipsAvailable = cmShipsAvailableR2Reg;
-        }
-    }
-    else if (race == P1)
-    {
-        cmShipsAvailable = cmShipsAvailableP1;
-    }
-    else if (race == P2)
-    {
-        cmShipsAvailable = cmShipsAvailableP2;
-    }
-    else
-    {
-        dbgAssertOrIgnore(FALSE);
-    }
-
     for (index = 0; cmShipsAvailable[index].nJobs != -1; index++)
-    {                                                       //for all available ships
-        cmShipsAvailable[index].nJobs = 0;                    //no jobs queued yet
-
-        if (cmShipsAvailable[index].itemtype==ITEM_SHIP)
+    {
+        cmShipsAvailable[index].nJobs = 0;
+        if (cmShipsAvailable[index].itemtype != ITEM_CLASS)
         {
-            cmShipsAvailable[index].info =                        //store the static info
-                GetShipStaticInfo(cmShipsAvailable[index].type,
-                                  race);
+            cmShipsAvailable[index].info = GetShipStaticInfo(cmShipsAvailable[index].type, universe.curPlayerPtr->race);
         }
     }
-
-
-    for (index=0; (cmShipsAvailable[index].nJobs!=-1); index++)
+    if (curshipsInProgress != NULL)
     {
-        //if (cmShipsAvailable[index].selected)
-        sip = cmSIP(index);
-
-        sip->selected = FALSE;
-
+        for (index = 0; cmShipsAvailable[index].nJobs != -1; index++)
+        {
+            curshipsInProgress->progress[index].selected = FALSE;
+        }
     }
-
-    cmDirtyShipInfo();
+    catCmDirtyRegions();
     cmUpdateShipAvailable();
-
-    return(1);
+    return 1;
 }
 
 /*-----------------------------------------------------------------------------
     Name        : cmConstructionBegin
-    Description : Region callback handler for starting the construction manager.
-    Inputs      : Standard region callback.
-    Outputs     : Starts up the construction manager and returns.
-    Return      : void
+    Description : open the construction manager
+    CAT (M2-R6 managers): the exe's body (0x00458390): not during a playback or while the game is paused (0x00a6c5b4,
+        the console / game-stats pause) or in a tutorial without its build manager bit; only with a mothership and, in
+        single player, for player 0; an open sensors manager is closed for good and reopened by cmClose; the factory is
+        the clicked ship when it is the player's own non-exempt mothership- or carrier-class ship, else the slot shown
+        last (the mothership; a carrier-class mothership is slot 1); the Beast player gets its own screen file
+        (FEMan\\Beast_Construction_Manager.fib, screen "Beast_Construction_manager"); the sounds 0x12f / 0x104; the
+        main view stops drawing. No info overlay save, no taskbar flag
 ----------------------------------------------------------------------------*/
 sdword cmConstructionBegin(regionhandle region, smemsize ID, udword event, udword data)
 {
-    sdword status = 0;
-    ShipPtr bship=NULL;
+    sdword status;
+    Ship *bship = (Ship *)ID;
+    Player *player = universe.curPlayerPtr;
+    sdword i;
 
-    if (playPackets || (universePause && !opPauseOrders) )
+    if (playPackets || universePause || !catCmTutEnabled(0x4))
     {
         return 0;
     }
-
-    if((tutorial==TUTORIAL_ONLY) && !tutEnable.bBuildManager)
+    if ((player->PlayerMothership == NULL) || (singlePlayerGame && (player->playerIndex != 0)))
     {
         return 0;
     }
-
-    if (smZoomingIn || smZoomingOut || universe.curPlayerPtr->PlayerMothership == NULL)
+    catCmSensorsWereOpen = smSensorsActive;
+    if (smSensorsActive)
     {
-        return(status);
+        smSensorsCloseForGood();
     }
-
     cmFillInCarrierXs();
 
-    bship = (Ship *)ID;
-
-    if ((bship == NULL)||((bship->shiptype!=Mothership)&&(bship->shiptype!=Carrier)))
+    if ((bship != NULL) && (bship->playerowner->playerIndex == player->playerIndex) &&
+        !bitTest(bship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20) &&
+        ((bship->staticinfo->shipclass == CLASS_Mothership) || (bship->staticinfo->shipclass == CLASS_Carrier)))
     {
-        if (cmCurrentSelect==0)
+        if (bship->staticinfo->shipclass == CLASS_Mothership)
         {
-            bship = universe.curPlayerPtr->PlayerMothership;
-            if (universe.curPlayerPtr->PlayerMothership->shiptype == Carrier)
-            {
-                cmCurrentSelect = 1;
-            }
-            else if (universe.curPlayerPtr->PlayerMothership->shiptype == Mothership)
-            {
-                cmCurrentSelect = 0;
-            }
-        }
-        else if (cmCarrierX[cmCurrentSelect-1]!=NULL)
-        {
-            bship = cmCarrierX[cmCurrentSelect-1];
+            cmCurrentSelect = 0;
         }
         else
         {
-            bship = universe.curPlayerPtr->PlayerMothership;
-            if (universe.curPlayerPtr->PlayerMothership->shiptype == Carrier)
+            for (i = 0; i < NUM_CMCARRIERS; i++)
+            {
+                if (bship == cmCarrierX[i])
+                {
+                    cmCurrentSelect = i + 1;
+                    break;
+                }
+            }
+        }
+    }
+    else
+    {
+        bship = NULL;
+        if (cmCurrentSelect != 0)
+        {
+            bship = cmCarrierX[cmCurrentSelect - 1];
+        }
+        if (bship == NULL)
+        {
+            bship = player->PlayerMothership;
+            if (bship->staticinfo->shipclass == CLASS_Carrier)
             {
                 cmCurrentSelect = 1;
             }
-            else if (universe.curPlayerPtr->PlayerMothership->shiptype == Mothership)
+            else if (bship->staticinfo->shipclass == CLASS_Mothership)
             {
                 cmCurrentSelect = 0;
             }
         }
     }
-    else if (bship->shiptype == Mothership)
-    {
-        cmCurrentSelect = 0;
-    }
-    else
-    {
-        sdword i;
-
-        for (i=0;i<NUM_CMCARRIERS;i++)
-        {
-            if (bship == cmCarrierX[i])
-            {
-                cmCurrentSelect = i+1;
-                break;
-            }
-        }
-    }
-
     if (bship == NULL)
     {
-        return status;
+        return 0;
     }
 
     tutGameMessage("Start_BuildManager");
+
+    status = cmUpdateFactory(bship);
+    if (status == 0)
+    {
+        return 0;
+    }
 
     // disable rendering of main screen
     mrRenderMainScreen = FALSE;
@@ -3577,38 +3440,34 @@ sdword cmConstructionBegin(regionhandle region, smemsize ID, udword event, udwor
     // clear the screen
     rndClear();
 
-    // disable taskbar popup window
-    tbDisable = TRUE;
-
-    //mouseEnable();
-    //mouseCursorShow();
-
     spLockout(SPLOCKOUT_MR);
-
-    status = cmUpdateFactory(bship);
 
     if (piePointSpecMode != PSM_Idle)
     {
         piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
     }
 
-    if (!cmScreensHandle)
+    if (cmScreensHandle == NULL)
     {
         feCallbackAddMultiple(cmCallback);                  //add in the callbacks
         feDrawCallbackAddMultiple(cmDrawCallback);
-        cmScreensHandle = feScreensLoad(CM_FIBFile);        //load in the screen
+    }
+    else if (universe.curPlayerPtr->race != catCmScreensRace)
+    {
+        feScreensDelete(cmScreensHandle);
+        cmScreensHandle = NULL;
+    }
+    if (cmScreensHandle == NULL)
+    {
+        catCmScreensRace = (universe.curPlayerPtr->race == RACE_Sect) ? RACE_Sect : RACE_Beast;
+        cmScreensHandle = feScreensLoad((catCmScreensRace == RACE_Sect) ? CM_FIBFile : CAT_CM_BeastFIBFile);
     }
 
     soundEventStopSFX(0.5f);
+    soundEventPlay(NULL, 0x12f, NULL);                      // CAT: the manager intro
+    soundEventPlay(NULL, 0x104, NULL);                      // CAT: the construction manager's ambient
 
-    /* play the intro sound */
-    soundEvent(NULL, UI_ManagerIntro);
-    /* play the build manager ambient */
-    soundEvent(NULL, UI_BuildManager);
-
-    cmIoSaveState = ioDisable();
-
-    cmBaseRegion = feScreenStart(region, CM_ConstructionScreen);//add new regions as siblings of current one
+    cmBaseRegion = feScreenStart(region, (universe.curPlayerPtr->race == RACE_Sect) ? CM_ConstructionScreen : CAT_CM_BeastConstructionScreen);
 
     cmArrowIndex = -1;
 
@@ -3617,15 +3476,219 @@ sdword cmConstructionBegin(regionhandle region, smemsize ID, udword event, udwor
 
     mouseCursorShow();
 
-    opKeyDetour = 0;//2;    //detour keys to cmBuildHotKey
-    cmPrintHotKey = FALSE;//TRUE;
+    opKeyDetour = 0;
+    cmPrintHotKey = FALSE;
 
     updateShipView();
 
     cmActive = TRUE;
+    ExceededCapsFrames = 0.0f;
+    ShipNumberExceeded = 0;
+
+    // CAT-TODO(stage 6 tutorial): cat_tutButtonsHideForScreen 0x005341f0 (the tutorial's buttons hide while the screen is open)
 
     return(status);
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : cmSelectMotherShip / cmSelectCarrier1 / cmSelectCarrier2
+    Description : the factory buttons
+    CAT (M2-R6 managers): the exe's bodies (0x00458780 / 0x00458800 / 0x00458890, region callbacks with no Ghidra
+        function): a left press on another slot shows that factory (cmUpdateFactory), redraws the button and speaks the
+        factory's name (0x400101c with the race's mothership or carrier type by whichRaceSelected), then the viewed ship
+----------------------------------------------------------------------------*/
+static void catCmFactorySpeech(ShipType sectType, ShipType beastType)
+{
+    speechEventQueue(NULL, 0x400101c, (whichRaceSelected == 0) ? sectType : beastType, 0, 0, universe.curPlayerIndex, -1, 5.0f, -1);
+}
+
+sdword cmSelectMotherShip(regionhandle region, sdword ID, udword event, udword data)
+{
+    if ((event == RPE_PressLeft) && (cmCurrentSelect != 0))
+    {
+        cmCurrentSelect = 0;
+        cmUpdateFactory(universe.curPlayerPtr->PlayerMothership);
+        region->status |= RSF_DrawThisFrame;
+        catCmFactorySpeech(sMothership, bMothership);
+        updateShipView();
+    }
+    return 0;
+}
+
+sdword cmSelectCarrierX(regionhandle region, sdword ID, udword event, udword data, udword x)
+{
+    if ((event == RPE_PressLeft) && (cmCarrierX[x - 1] != NULL) && (cmCurrentSelect != (sdword)x))
+    {
+        cmCurrentSelect = x;
+        cmUpdateFactory(cmCarrierX[x - 1]);
+        region->status |= RSF_DrawThisFrame;
+        catCmFactorySpeech(sCarrier, bCarrier);
+        updateShipView();
+    }
+    return 0;
+}
+
+sdword cmSelectCarrier1(regionhandle region, sdword ID, udword event, udword data)
+{
+    return cmSelectCarrierX(region, ID, event, data, 1);
+}
+
+sdword cmSelectCarrier2(regionhandle region, sdword ID, udword event, udword data)
+{
+    return cmSelectCarrierX(region, ID, event, data, 2);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cmDrawShipImage
+    Description : a factory button's picture
+    CAT (M2-R6 managers): the exe's body (0x004589c0) with its third argument: the icon is chosen by slot (0 the
+        mothership's icon1, else icon2) and state (disabled for an empty slot; off; on for the shown factory); the focus
+        window; the texture (no glcompat path in the SDL build); the shown factory's
+        button gets a 2-pixel line up to the name region (cmFactoryNameRegion) and the screen is redrawn whole (RSF_ReallyDirty)
+----------------------------------------------------------------------------*/
+void cmDrawShipImage(regionhandle region, sdword shipID, bool32 present)
+{
+    rectangle rect;
+    sdword index = (shipID != 0) ? 3 : 0;
+    lifheader *image;
+    udword texture;
+    sdword race = (universe.curPlayerPtr->race == RACE_Sect) ? 0 : 1;
+
+    rect.x0 = region->rect.x0 + 2;
+    rect.y0 = region->rect.y0 + 2;
+    rect.x1 = region->rect.x1 - 2;
+    rect.y1 = region->rect.y1 - 2;
+
+    if (!present)
+    {
+        ferDrawFocusWindow(region, lw_normal);
+    }
+    else if (shipID == cmCurrentSelect)
+    {
+        ferDrawFocusWindow(region, lw_focus);
+        index += 2;
+    }
+    else
+    {
+        ferDrawFocusWindow(region, lw_normal);
+        index += 1;
+    }
+    image = cmShipImage[race][index];
+    texture = cmShipTexture[race][index];
+    // CAT: the exe draws the image scaled through glcompat when cat_glcActive 0x0055c480; the SDL build has no glcompat
+    //      (as svShipViewRender), so the texture path
+    if (cmPaletted)
+    {
+        trPalettedTextureMakeCurrent(texture, image->palette);
+    }
+    else
+    {
+        trRGBTextureMakeCurrent(texture);
+    }
+    primRectSolidTextured2(&rect);
+    if (present && (shipID == cmCurrentSelect))
+    {
+        if (cmFactoryNameRegion != NULL)
+        {
+            sdword mid = (rect.x1 - rect.x0) / 2 + rect.x0;
+
+            primLineThick2(mid, cmFactoryNameRegion->rect.y1, mid, region->rect.y0, 2, colWhite);   // name line to the button
+        }
+        if (cmBaseRegion != NULL)
+        {
+            cmBaseRegion->status |= RSF_ReallyDirty;      // CAT: status bit 0x1 (0x00458b74)
+        }
+    }
+}
+
+void cmMotherShipDraw(featom *atom, regionhandle region)
+{
+    Ship *mothership = universe.curPlayerPtr->PlayerMothership;
+
+    // CAT (M2-R6 managers): the exe's body (0x00458b80): a mothership-class mothership makes the button live
+    cmMotherShipRegion = region;
+    if ((mothership != NULL) && (mothership->staticinfo->shipclass == CLASS_Mothership))
+    {
+        if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
+        {
+            region->flags = RPE_DrawEveryFrame | RPE_PressLeft;    // CAT: 0x80002000
+            regFunctionSet(region, (regionfunction)cmSelectMotherShip);
+        }
+        cmDrawShipImage(region, 0, TRUE);
+        catCmFactoryShip = mothership;
+        return;
+    }
+    cmDrawShipImage(region, 0, FALSE);
+}
+
+void cmCarrierXDraw(featom *atom, regionhandle region,udword x)
+{
+    sdword i;
+    udword found = 0;
+
+    // CAT (M2-R6 managers): the exe's body (0x00458bf0): the x-th of the local player's carriers in cmCarriers order
+    cmCarrierRegions[x - 1] = region;
+    for (i = 0; i < cmNumCarriers; i++)
+    {
+        if ((cmCarriers[i].owner == universe.curPlayerPtr) && (++found >= x))
+        {
+            cmCarrierX[x - 1] = cmCarriers[i].ship;
+            if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
+            {
+                region->flags = RPE_DrawEveryFrame | RPE_PressLeft;    // CAT: 0x80002000
+                if (x == 1)
+                {
+                    regFunctionSet(region, (regionfunction)cmSelectCarrier1);
+                }
+                else if (x == 2)
+                {
+                    regFunctionSet(region, (regionfunction)cmSelectCarrier2);
+                }
+            }
+            cmDrawShipImage(region, x, TRUE);
+            catCmFactoryShip = cmCarriers[i].ship;
+            return;
+        }
+    }
+    cmDrawShipImage(region, x, FALSE);
+}
+
+void cmCarrier1Draw(featom *atom, regionhandle region)
+{
+    cmCarrierXDraw(atom, region, 1);
+}
+
+void cmCarrier2Draw(featom *atom, regionhandle region)
+{
+    cmCarrierXDraw(atom, region, 2);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmFactoryNameDraw
+    Description : CAT: new (0x00458920, the CM_FactoryNameDraw callback): the shown factory's name (a human player's
+                  named ship, cat_shipNamesGetName) above a 2-pixel white line along the region's bottom
+----------------------------------------------------------------------------*/
+void cat_cmFactoryNameDraw(featom *atom, regionhandle region)
+{
+    fonthandle oldfont;
+    Ship *factory;
+
+    cmFactoryNameRegion = region;
+    oldfont = fontMakeCurrent(catCmFactoryNameFont);
+    factory = catCmShownFactoryShip();
+    catCmFactoryShip = factory;
+    if ((factory != NULL) && (factory->playerowner->aiPlayer == NULL))
+    {
+        fontPrintf(region->rect.x0, region->rect.y1 - fontHeight(" "), colWhite, "%s", cat_shipNamesGetName(factory));
+    }
+    primLineThick2(region->rect.x0, region->rect.y1, region->rect.x1, region->rect.y1, 2, colWhite);
+    fontMakeCurrent(oldfont);
+}
+
+
+
+
+
 
 /*-----------------------------------------------------------------------------
     Name        : cmBuildJobsAdd
@@ -3645,7 +3708,7 @@ void cmBuildJobsAdd(shipsinprogress *factory, ShipStaticInfo *info, sdword nJobs
 #if CM_VERBOSE_LEVEL >= 1
     dbgMessagef("cmBuildJobAdd: Building %s", ShipTypeToNiceStr(info->shiptype));
 #endif
-    dbgAssertOrIgnore(info->shiptype < TOTAL_STD_SHIPS);                 //make sure we can add a job
+    dbgAssertOrIgnore(info->shiptype < TOTAL_NUM_SHIPS);                 //make sure we can add a job (CAT: 0x91 entries)
     progress = &factory->progress[info->shiptype];         //update the progress
 #if CM_CAP_JOBS_PER_CLASS
     if (factory->progress[info->shiptype].nJobs >= CM_NumberJobsPerClass)
@@ -3655,7 +3718,9 @@ void cmBuildJobsAdd(shipsinprogress *factory, ShipStaticInfo *info, sdword nJobs
 #endif
     if (progress->nJobs == 0)
     {                                                       //if no jobs currently
-        progress->timeLeft = progress->timeStart = info->buildTime;
+        // CAT: the single-player build-time divisor 0x00894198 (cmBuildJobsAdd 0x004586c0)
+        progress->timeLeft = progress->timeStart =
+            singlePlayerGame ? info->buildTime / catCmSinglePlayerBuildFactor : info->buildTime;
         progress->timeFraction = 0; // no fractional bits in fixed point for RU decrement
         progress->paused = FALSE;
         progress->costSoFar = 0;
@@ -3669,6 +3734,7 @@ void cmBuildJobsAdd(shipsinprogress *factory, ShipStaticInfo *info, sdword nJobs
     prevJobsTotal = progress->nJobsTotal;
     progress->nJobsTotal += nJobs;
 
+    // CAT-TODO(stage 5 recorder): the exe also sends it while a game is recorded (0x00a7519c && 0x00a75190)
     if (multiPlayerGame)
     {
         //xxx
@@ -3680,232 +3746,19 @@ void cmBuildJobsAdd(shipsinprogress *factory, ShipStaticInfo *info, sdword nJobs
     }
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : cmSelectMotherShip
-    Description : processes region callback for mouse clicks
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
-sdword cmSelectMotherShip(regionhandle region, sdword ID, udword event, udword data)
-{
-    if ((event == RPE_PressLeft) && (cmCurrentSelect!=0))
-    {
-        cmCurrentSelect = 0;
-        cmUpdateFactory(universe.curPlayerPtr->PlayerMothership);
 
-        dbgAssertOrIgnore(region!=NULL);
-#ifdef DEBUG_STOMP
-        regVerify(region);
-#endif
-        bitSet(region->status, RSF_DrawThisFrame);
 
-//        speechEventFleet(COMM_F_BuildCenterSelected, Mothership, universe.curPlayerIndex); //@@@
-        speechEventFleetVar(COMM_F_BuildCenterSelected, 0, 0, universe.curPlayerIndex);
 
-        updateShipView();
-    }
-    return(0);
-}
 
-/*-----------------------------------------------------------------------------
-    Name        : cmSelectCarrierX
-    Description : processes region callback for mouse clicks
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
-sdword cmSelectCarrierX(regionhandle region, sdword ID, udword event, udword data, udword x)
-{
-    if ((event == RPE_PressLeft) && (cmCarrierX[x-1] != NULL) && (cmCurrentSelect != x))
-    {
-        cmCurrentSelect = x;
-        cmUpdateFactory(cmCarrierX[x-1]);
 
-        dbgAssertOrIgnore(region!=NULL);
-#ifdef DEBUG_STOMP
-        regVerify(region);
-#endif
-        bitSet(region->status, RSF_DrawThisFrame);
 
-//        speechEventFleet(COMM_F_BuildCenterSelected, Carrier, universe.curPlayerIndex);
-        speechEventFleetVar(COMM_F_BuildCenterSelected, 0, 1, universe.curPlayerIndex);
 
-        updateShipView();
-    }
-    return(0);
-}
 
-sdword cmSelectCarrier1(regionhandle region, sdword ID, udword event, udword data)
-{
-    return cmSelectCarrierX(region,ID,event,data,1);
-}
 
-sdword cmSelectCarrier2(regionhandle region, sdword ID, udword event, udword data)
-{
-    return cmSelectCarrierX(region,ID,event,data,2);
-}
 
-sdword cmSelectCarrier3(regionhandle region, sdword ID, udword event, udword data)
-{
-    return cmSelectCarrierX(region,ID,event,data,3);
-}
 
-sdword cmSelectCarrier4(regionhandle region, sdword ID, udword event, udword data)
-{
-    return cmSelectCarrierX(region,ID,event,data,4);
-}
 
-/*-----------------------------------------------------------------------------
-    Name        : cmDrawShipImage
-    Description : draws the button image
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void cmDrawShipImage(regionhandle region, sdword shipID)
-{
-    rectangle rect;
-    udword usetexture;
 
-    // CAT: [audit] six images per race now (icon1/icon2 x disabled/off/on), so HW1's 0/1 picked icon1_disabled and
-    //      icon1_off (the Mothership art for the carrier). Cataclysm's cmDrawShipImage 0x004589c0 takes a third
-    //      argument and picks base (0 or 3) + 0 disabled / +1 off / +2 on (focused); until that rewrite is ported
-    //      (stage 3) this HW1 version shows the enabled, unfocused "_off" image, as lmDrawShipImage does.
-    usetexture = (shipID == 0) ? 1 : 4;
-
-    rect.x0 = region->rect.x0 + CM_SHIP_IMAGE_INSET;
-    rect.y0 = region->rect.y0 + CM_SHIP_IMAGE_INSET;
-    rect.x1 = region->rect.x1 - CM_SHIP_IMAGE_INSET;
-    rect.y1 = region->rect.y1 - CM_SHIP_IMAGE_INSET;
-
-    if (shipID == cmCurrentSelect)
-        ferDrawFocusWindow(region, lw_focus);
-    else
-        ferDrawFocusWindow(region, lw_normal);
-
-    if (cmPaletted)
-    {
-        trPalettedTextureMakeCurrent(cmShipTexture[universe.curPlayerPtr->race][usetexture], cmShipImage[universe.curPlayerPtr->race][usetexture]->palette);
-    }
-    else
-    {
-        trRGBTextureMakeCurrent(cmShipTexture[universe.curPlayerPtr->race][usetexture]);
-    }
-
-    primRectSolidTextured2(&rect);
-    
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : cmMotherShipDraw
-    Description : draws the mothership button
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void cmMotherShipDraw(featom *atom, regionhandle region)
-{
-    Ship *shipfactory = universe.curPlayerPtr->PlayerMothership;
-
-    cmMotherShipRegion = region;
-
-    if (shipfactory != NULL && shipfactory->shiptype == Mothership)
-    {
-        if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
-        {                                         //if region not processed yet
-            region->flags = RPE_PressLeft;        //receive mouse presses from now on
-            region->flags |= RPE_DrawEveryFrame;
-            regFunctionSet(region, (regionfunction)cmSelectMotherShip); //set new region handler function
-        }
-        cmDrawShipImage(region, 0);
-    }
-}
-
-void cmFillInCarrierXs(void)
-{
-    sdword i,insert,index;
-
-    for (i=0;i<NUM_CMCARRIERS;i++)
-    {
-        cmCarrierX[i] = NULL;
-    }
-
-    cmNumPlayersCarriers = 0;
-
-    for (insert=0,index=0;index<cmNumCarriers;index++)
-    {
-        if (cmCarriers[index].owner == universe.curPlayerPtr)
-        {
-            if (insert < NUM_CMCARRIERS)
-            {
-                cmCarrierX[insert++] = cmCarriers[index].ship;
-
-                cmNumPlayersCarriers++;
-            }
-        }
-    }
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : cmCarrierXDraw
-    Description : draws the carrierX button
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void cmCarrierXDraw(featom *atom, regionhandle region,udword x)
-{
-    sdword index, count = 0;
-    cmCarrierRegions[x-1] = region;
-
-    for (index=0;index<cmNumCarriers;index++)
-    {
-        if (cmCarriers[index].owner == universe.curPlayerPtr)
-        {
-            count++;
-            if(count > (x-1))
-            {
-                cmCarrierX[x-1] = cmCarriers[index].ship;
-                if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
-                {                                         //if region not processed yet
-                    region->flags = RPE_PressLeft;        //receive mouse presses from now on
-                    region->flags |= RPE_DrawEveryFrame;
-                    switch (x)
-                    {
-                        case 1: regFunctionSet(region, (regionfunction)cmSelectCarrier1); break;
-                        case 2: regFunctionSet(region, (regionfunction)cmSelectCarrier2); break;
-                        case 3: regFunctionSet(region, (regionfunction)cmSelectCarrier3); break;
-                        case 4: regFunctionSet(region, (regionfunction)cmSelectCarrier4); break;
-                        default: dbgAssertOrIgnore(FALSE); break;
-                    }
-                }
-                cmDrawShipImage(region, x);
-                break;
-            }
-        }
-    }
-}
-
-void cmCarrier1Draw(featom *atom, regionhandle region)
-{
-    cmCarrierXDraw(atom,region,1);
-}
-
-void cmCarrier2Draw(featom *atom, regionhandle region)
-{
-    cmCarrierXDraw(atom,region,2);
-}
-
-void cmCarrier3Draw(featom *atom, regionhandle region)
-{
-    cmCarrierXDraw(atom,region,3);
-}
-
-void cmCarrier4Draw(featom *atom, regionhandle region)
-{
-    cmCarrierXDraw(atom,region,4);
-}
 
 ShipType cmKeyToShipType(uword key)
 {
@@ -3945,72 +3798,61 @@ uword cmShipTypeToKey(ShipType ship)
 
 //detoured keypresses:
 
+//detoured keypresses:
+
+/*-----------------------------------------------------------------------------
+    Name        : cmBuildHotKey
+    Description : a build hot key while the screen's key detour is on
+    CAT (M2-R6 managers): the exe's body (0x00458d40): the key test is on the virtual-key code (A..Z but B, P and C;
+        F1..F12; 1..3); a key in the range that builds nothing is still taken; a found row must be a listed ship row
+        (not unbuildable: a type at its cap still tries); the job goes straight to the factory. CAT-FIX: the exe walks
+        0x91 rows whatever the list's length (past its end row)
+----------------------------------------------------------------------------*/
 bool32 cmBuildHotKey(keyindex key, bool32 shift)
 {
-    shipinprogress *progress;
     uword index;
-    uword skey;
-    bool32 buildhotkey = FALSE;
+    sdword i;
+    sword skey;
     ShipType ship;
+    udword vk = catKeyVkFromKey(key);
 
-    if (((key>=AKEY) && (key<=ZKEY) &&
-     (key!=BKEY) &&
-     (key!=PKEY) &&
-     (key!=CKEY) ) ||
-        ((key>=F1KEY) && (key<=F12KEY))
-        )
+    if (!(((vk >= 'A') && (vk <= 'Z') && (vk != 'B') && (vk != 'P') && (vk != 'C')) ||
+          ((vk >= 0x70) && (vk <= 0x7b)) || ((vk >= '1') && (vk <= '3'))))
     {
-        buildhotkey = TRUE;
-
+        return FALSE;      //don't bypass - it's a standard region key
     }
-    else if ((key>=ONEKEY) && (key<=THREEKEY))
+    skey = (sword)(shift ? (key | CM_SHIFT) : key);
+    for (i = 0; cmShipTypes[i].key != -1; i++)
     {
-        buildhotkey = TRUE;
-    }
-
-    if (buildhotkey)
-    {
-        if (shift)
-            skey = key | CM_SHIFT;
-        else
-            skey = key;
-
-        if ((ship = cmKeyToShipType(skey)) > 0)
+        if (cmShipTypes[i].key == skey)
         {
-            progress = &curshipsInProgress->progress[0];
-            for (index = 0; index < TOTAL_STD_SHIPS; index++, progress++)
-            {
-                if ( (cmShipsAvailable[index].itemtype==ITEM_SHIP) &&
-                  (cmShipsAvailable[index].itemstat==STAT_CANBUILD) )
-                {
-                    if (cmShipsAvailable[index].type == ship)
-                    {
-                        if (cmIncrement(curshipsInProgress,index))
-                        {
-                            cmDecrement(curshipsInProgress,index);
-                            //start building now
-                            cmBuildJobsAdd(curshipsInProgress,
-                              cmShipsAvailable[index].info,
-                              1 /*cmShipsAvailable[index].nJobs*/ );
-
-                        }
-                        else
-                        {
-                            //sound effect
-                        }
-                        break;
-
-                    }
-
-                }
-            }
+            break;
         }
+    }
+    if (cmShipTypes[i].key == -1)
+    {
         return TRUE;
     }
-    else
-        return FALSE;      //don't bypass - it's a standard region key
-
+    ship = cmShipTypes[i].ship;
+    if (ship != 0)
+    {
+        for (index = 0; (index <= 0x90) && (cmShipsAvailable[index].nJobs != -1); index++)
+        {
+            if ((cmShipsAvailable[index].itemtype != ITEM_CLASS) && (cmShipsAvailable[index].itemstat != STAT_CANTBUILD) &&
+                (cmShipsAvailable[index].type == ship))
+            {
+                if (cmIncrement(curshipsInProgress, index))
+                {
+                    cmDecrement(curshipsInProgress, index);
+                    cmBuildJobsAdd(curshipsInProgress, cmShipsAvailable[index].info, 1);    //start building now
+                }
+                break;
+            }
+        }
+    }
+    return TRUE;
 }
+
 
 void cmDeterministicStartup(void)
 {
@@ -4063,33 +3905,24 @@ void cmDeterministicBuildDisplay(void)
     }
 }
 
-bool32 cmDeterministicSanityCheck(cmDetermProgress_t* dprog)
-{
-    bool32 rval = TRUE;
-    Player* player = &universe.players[dprog->playerIndex];
-
-    //check race
-    if (dprog->shipRace != player->race)
-    {
-        rval = FALSE;
-    }
-
-    //check type
-    if (dprog->shipType < STD_FIRST_SHIP ||
-        dprog->shipType > STD_LAST_SHIP)
-    {
-        rval = FALSE;
-    }
-
-    return rval;
-}
-
+/*-----------------------------------------------------------------------------
+    Name        : cmDeterministicBuildStart
+    Description : adds ships to the deterministic build list (multiplayer and recorded games)
+    CAT (M2-R6 managers): the exe's body (0x00458e70): a new node is built from the static of the type alone
+        (GetShipStaticInfo with one argument), the build time and cost are divided by the single-player factors
+        (0x00894198 / 0x0089419c) in a single-player game, the factory entry of the type at the creator loses its
+        external-build attach and started words, and the node is added only for a buildable type (below 0x3c) of the
+        player's race (HW1's cmDeterministicSanityCheck folded in). A "subtract" count (0x4000) for a type with no
+        node is still allocated in the exe and then dropped without being freed: the leak is not reproduced
+        (CAT-FIX), nor the write through the NULL factory entry when the creator is no factory (CAT-FIX)
+----------------------------------------------------------------------------*/
 void cmDeterministicBuildStart(
     sdword numShips, ShipType shipType, ShipRace shipRace, sdword playerIndex, ShipPtr creator)
 {
     Node* node;
     cmDetermProgress_t* dprog;
     ShipStaticInfo* info;
+    shipinprogress* progress;
 
     //look for existing match in cmDetermProgress
     node = cmDetermProgress.head;
@@ -4137,36 +3970,49 @@ void cmDeterministicBuildStart(
     }
 
     //not found, create new node
-    info = GetShipStaticInfo(shipType, shipRace);
-    dprog = (cmDetermProgress_t*)memAlloc(sizeof(cmDetermProgress_t), "dprog_t", NonVolatile);
     if (bitTest(numShips, 0x8000))
     {
         bitClear(numShips, 0x8000);
     }
     if (bitTest(numShips, 0x4000))
     {
-        //we're subtracting from nothing
+        //we're subtracting from nothing (CAT-FIX: the exe allocates the node first and loses it here)
         return;
     }
+    info = GetShipStaticInfo(shipType, shipRace);
+    dprog = (cmDetermProgress_t*)memAlloc(sizeof(cmDetermProgress_t), "dprog_t", NonVolatile);
     dprog->numShips = numShips;
     dprog->shipType = shipType;
     dprog->shipRace = shipRace;
 
-    //@todo is buildTime expressed in universe ticks or seconds ?
-    dprog->ticksForOne = info->buildTime;
+    dprog->ticksForOne = singlePlayerGame ? info->buildTime / catCmSinglePlayerBuildFactor : info->buildTime;
     dprog->ticksLeft = dprog->ticksForOne;
 
-    dprog->costPerShip = info->buildCost;
+    dprog->costPerShip = singlePlayerGame ? info->buildCost / catCmSinglePlayerCostFactor : info->buildCost;
     dprog->costPerTick = (real32)dprog->costPerShip / (real32)dprog->ticksForOne;
     dprog->costSoFar = 0.0f;
 
     dprog->playerIndex = playerIndex;
     dprog->creator = creator;
     dprog->paused = FALSE;
+    dprog->catAttached = FALSE;
+    dprog->catShipStarted = FALSE;
+    dprog->catShip = NULL;
 
-    if (cmDeterministicSanityCheck(dprog))
+    progress = catCmFactoryEntry(creator, shipType);
+    if (progress != NULL)       // CAT-FIX: the exe writes through the entry at address 0 when creator is no factory
+    {
+        progress->catExternalShipAttached = FALSE;
+        progress->catExternalShipStarted = FALSE;
+    }
+
+    if ((dprog->shipType < TOTAL_STD_SHIPS) && (dprog->shipRace == universe.players[dprog->playerIndex].race))
     {
         listAddNode(&cmDetermProgress, &dprog->node, dprog);
+    }
+    else
+    {
+        memFree(dprog);     // CAT-FIX: the exe keeps the unlisted node allocated
     }
 }
 
@@ -4183,10 +4029,19 @@ void cmAdjustRU(cmDetermProgress_t* dprog, sdword amount)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cmDeterministicBuildCancel
+    Description : cancels the deterministic build of a type at a creator and refunds what it cost so far
+    CAT (M2-R6 managers): the exe's body (0x00459040): the refund is the whole cost so far (no refund ratio); an
+        externally built type whose ship exists has that ship deleted (cat_clExternalBuildUpdate mode 1, cancel) and
+        the creator's factory entry forgets it (started word; CAT-FIX: not through the NULL entry of a creator that
+        is no factory)
+----------------------------------------------------------------------------*/
 void cmDeterministicBuildCancel(ShipType shipType, ShipRace shipRace, sdword playerIndex, ShipPtr creator)
 {
     Node* node;
     cmDetermProgress_t* dprog;
+    shipinprogress* progress;
 
     //look for match
     node = cmDetermProgress.head;
@@ -4199,7 +4054,19 @@ void cmDeterministicBuildCancel(ShipType shipType, ShipRace shipRace, sdword pla
             dprog->creator == creator)
         {
             //match found, cancel & refund RUs
-            cmAdjustRU(dprog, (sdword)(dprog->costSoFar * cmFloatRefundRatio));
+            cmAdjustRU(dprog, (sdword)dprog->costSoFar);
+            if (GetShipStaticInfo(dprog->shipType, dprog->shipRace)->externalBuild && (dprog->catShipStarted == 1))
+            {
+                cat_clExternalBuildUpdate(&universe.mainCommandLayer, (uword)dprog->playerIndex, dprog->creator,
+                                          dprog->catShip, 0.0f, CAT_EXTBUILD_CANCEL);
+                dprog->catShipStarted = FALSE;
+                dprog->catShip = NULL;
+                progress = catCmFactoryEntry(dprog->creator, dprog->shipType);
+                if (progress != NULL)
+                {
+                    progress->catExternalShipStarted = FALSE;
+                }
+            }
             listDeleteNode(node);
             return;
         }
@@ -4261,12 +4128,28 @@ void cmDeterministicBuild(udword command, sdword numShips,
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cmDeterministicBuildProcess
+    Description : advances the deterministic build list one universe tick
+    CAT (M2-R6 managers): the exe's body (0x004592a0). An externally built type first waits, at a full clock and with
+        no ship yet, for a free build slot at the creator and (but for a module or at a Beast mothership) the docking
+        bay module; then its ship is created (clCreateShip, counted in shiplagtotals for the local player) and the
+        node waits again until the ship has reached its build position (catAttached). Every other type, and an
+        attached external one, pays its cost per tick (by the Beast mothership's build factor), counts down (by that
+        factor), and at the end an external ship gets its last step (cat_clExternalBuildUpdate done) and the local
+        player's factory entry is finished (cat_cmBuildJobFinished), any other type is created (clCreateShip). An
+        attached external ship gets the progress every tick (mode 2). A paused node, or one whose player has no
+        resource units, waits
+----------------------------------------------------------------------------*/
 void cmDeterministicBuildProcess(void)
 {
     Node* node;
     Node* curNode;
     cmDetermProgress_t* dprog;
     Player* player;
+    ShipStaticInfo* info;
+    shipinprogress* progress;
+    sdword factor;
 
     if (universePause)
     {
@@ -4298,59 +4181,136 @@ void cmDeterministicBuildProcess(void)
             continue;
         }
 
-        if (!dprog->paused)
+        if (dprog->paused || (player->resourceUnits == 0))
         {
-            //increment cost, decrement RUs
-            sdword lastCost, newCost;
-            lastCost = (sdword)dprog->costSoFar;
-            newCost = (sdword)(dprog->costSoFar + dprog->costPerTick);
+            continue;
+        }
+        info = GetShipStaticInfo(dprog->shipType, dprog->shipRace);
 
-            if (player->resourceUnits == 0)
+        if ((dprog->ticksLeft == dprog->ticksForOne) && (info->externalBuild == 1) && (dprog->catShipStarted == 0))
+        {
+            // CAT: the external ship is created once its slot is free (0x004592f5)
+            if (cat_dockHasFreeSlotForShip(dprog->creator, info->shipclass, dprog->shipType, TRUE, 0) &&
+                ((info->shipclass == CLASS_Component) || (dprog->creator->shiptype == bMothership) ||
+                 cat_playerHasCompletedShip(sMothershipDockingBay, dprog->creator->playerowner)))
             {
-                continue;
+                if (dprog->creator->playerowner == universe.curPlayerPtr)
+                {
+                    shiplagtotals[dprog->shipType]++;
+                }
+                dprog->catShip = clCreateShip(&universe.mainCommandLayer, dprog->shipType, dprog->shipRace,
+                                              (uword)dprog->playerIndex, dprog->creator);
+                dprog->catShipStarted = TRUE;
+                dprog->catAttached = FALSE;
+                progress = catCmFactoryEntry(dprog->creator, dprog->shipType);
+                if (progress != NULL)       // CAT-FIX: the exe writes through the entry at address 0 (0x00459447)
+                {
+                    progress->catExternalShipStarted = TRUE;
+                    progress->catExternalShipAttached = FALSE;
+                }
             }
+            continue;
+        }
 
+        if (info->externalBuild && (dprog->catAttached != 1))
+        {
+            continue;
+        }
+        progress = catCmFactoryEntry(dprog->creator, dprog->shipType);
+
+        //increment cost, decrement RUs
+        {
+            sdword lastCost, newCost;
+            real32 costThisTick = dprog->costPerTick;
+
+            lastCost = (sdword)dprog->costSoFar;
+            if (dprog->creator->shiptype == bMothership)
+            {
+                costThisTick = (real32)cat_beastMothershipBuildFactor(dprog->creator) * dprog->costPerTick;
+            }
+            newCost = (sdword)(costThisTick + dprog->costSoFar);
             if (newCost != lastCost)
             {
-                sdword amount = newCost - lastCost;
-                //only adjust RUs if we have enough
-                cmAdjustRU(dprog, -amount);
-
+                cmAdjustRU(dprog, lastCost - newCost);
             }
-
-            dprog->costSoFar += dprog->costPerTick;
+            dprog->costSoFar += costThisTick;
+        }
+        if ((dprog->creator == NULL) || (dprog->creator->shiptype != bMothership))
+        {
             dprog->ticksLeft--;
+        }
+        else
+        {
+            dprog->ticksLeft -= cat_beastMothershipBuildFactor(dprog->creator);
+        }
 
-            if (dprog->ticksLeft <= 0)
+        if (dprog->ticksLeft <= 0)
+        {
+            //finished, make the ship appear
+            if (info->externalBuild == 1)
             {
-                //finished, make the ship appear
+                if (dprog->catShipStarted == 1)
+                {
+                    cat_clExternalBuildUpdate(&universe.mainCommandLayer, (uword)dprog->playerIndex, dprog->creator,
+                                              dprog->catShip, 1.0f, CAT_EXTBUILD_DONE);
+                }
+                dprog->catShipStarted = FALSE;
+                dprog->catShip = NULL;
+                if (progress != NULL)       // CAT-FIX: NULL when the creator is no factory (0x0045963c)
+                {
+                    progress->catExternalShipStarted = FALSE;
+                    progress->catExternalShip = NULL;
+                    if (dprog->creator->playerowner == universe.curPlayerPtr)
+                    {
+                        cat_cmBuildJobFinished(progress, dprog->creator);
+                    }
+                }
+            }
+            else
+            {
                 clCreateShip(&universe.mainCommandLayer,
                              dprog->shipType,
                              dprog->shipRace,
                              (uword)dprog->playerIndex,
                              dprog->creator);
+            }
 
-                //@todo is this adjustment correct ?
-                if (player->resourceUnits > 0)
+            if (player->resourceUnits > 0)
+            {
+                if (dprog->creator->shiptype == bMothership)
                 {
-                    cmAdjustRU(dprog, -1);
-                }
-
-                //back to 0 cost for current ship
-                dprog->costSoFar = 0.0f;
-
-                dprog->numShips--;
-                if (dprog->numShips == 0)
-                {
-                    //no more ships, delete progress node
-                    listDeleteNode(curNode);
+                    factor = cat_beastMothershipBuildFactor(dprog->creator);
+                    if (factor <= player->resourceUnits)
+                    {
+                        cmAdjustRU(dprog, -factor);
+                    }
                 }
                 else
                 {
-                    //still more to go, reset tick counter for next ship
-                    dprog->ticksLeft = dprog->ticksForOne;
+                    cmAdjustRU(dprog, -1);
                 }
             }
+
+            //back to 0 cost for current ship
+            dprog->costSoFar = 0.0f;
+
+            dprog->numShips--;
+            if (dprog->numShips == 0)
+            {
+                //no more ships, delete progress node
+                listDeleteNode(curNode);
+            }
+            else
+            {
+                //still more to go, reset tick counter for next ship
+                dprog->ticksLeft = dprog->ticksForOne;
+            }
+        }
+        else if ((dprog->catAttached != 0) && (info->externalBuild == 1))
+        {
+            cat_clExternalBuildUpdate(&universe.mainCommandLayer, (uword)dprog->playerIndex, dprog->creator, dprog->catShip,
+                                      (real32)(1.0 - (double)dprog->ticksLeft / (double)dprog->ticksForOne),
+                                      CAT_EXTBUILD_PROGRESS);
         }
     }
 }
@@ -4398,14 +4358,17 @@ void Save_shipsinprogress(shipsinprogress *sinprogress)
 
     savecontents->ship = (Ship *)SpaceObjRegistryGetID((SpaceObj *)savecontents->ship);
     dbgAssertOrIgnore((sdword)savecontents->ship != -1);
-    for (i=0;i<TOTAL_STD_SHIPS;i++)
+    // CAT (M2-R6 managers): 0x91 entries, and the externally built ship by its ID (SaveConsMgr 0x00459780)
+    for (i=0;i<TOTAL_NUM_SHIPS;i++)
     {
         savecontents->progress[i].info = (ShipStaticInfo *)ConvertShipStaticInfoToRaceType(savecontents->progress[i].info);
+        savecontents->progress[i].catExternalShip = (Ship *)SpaceObjRegistryGetID((SpaceObj *)savecontents->progress[i].catExternalShip);
     }
 
     SaveThisChunk(chunk);
     memFree(chunk);
 }
+
 
 void SaveConsMgr(void)
 {
@@ -4463,13 +4426,16 @@ shipsinprogress *Load_shipsinprogress(void)
     sinprogress->ship = SpaceObjRegistryGetShip((sdword)sinprogress->ship);
     dbgAssertOrIgnore(sinprogress->ship != NULL);
 
-    for (i=0;i<TOTAL_STD_SHIPS;i++)
+    // CAT (M2-R6 managers): 0x91 entries, and the externally built ship from its ID (LoadConsMgr 0x004598a0)
+    for (i=0;i<TOTAL_NUM_SHIPS;i++)
     {
         sinprogress->progress[i].info = ConvertRaceTypeToShipStaticInfo((sdword)sinprogress->progress[i].info);
+        sinprogress->progress[i].catExternalShip = SpaceObjRegistryGetShip((sdword)sinprogress->progress[i].catExternalShip);
     }
 
     return sinprogress;
 }
+
 
 void LoadConsMgr(void)
 {
@@ -4517,6 +4483,7 @@ void SaveConsMgrDetermListCB(void *stuff)
     cmDetermProgress_t copy = *((cmDetermProgress_t *)stuff);
 
     copy.creator = (ShipPtr)SpaceObjRegistryGetID((SpaceObj *)copy.creator);
+    copy.catShip = (Ship *)SpaceObjRegistryGetID((SpaceObj *)copy.catShip);    // CAT: the exe's callback 0x00459e50
 
     SaveStructureOfSize(&copy,sizeof(copy));
 }
@@ -4525,9 +4492,12 @@ void LoadConsMgrDetermListCB(LinkedList *list)
 {
     cmDetermProgress_t *dp = LoadStructureOfSize(sizeof(cmDetermProgress_t));
     dp->creator = SpaceObjRegistryGetShip((sdword)dp->creator);
+    dp->catShip = SpaceObjRegistryGetShip((sdword)dp->catShip);              // CAT: the exe's callback 0x00459ea0
 
     listAddNode(list,&dp->node,dp);
 }
+
+
 
 #define BUILD_OPTIONAL_FLAG     0xb11db11d
 
@@ -4567,14 +4537,42 @@ void LoadConsMgrDetermOptional(void)
 ----------------------------------------------------------------------------*/
 bool32 cat_cmHasSupportUnits(ShipType type, Player *player)
 {
-    // CAT-PROVISIONAL (M2-R6 ConsMgr): the exe answers TRUE for any computer player in single player and for a type that
-    //      costs no support units (ShipStaticInfo +0x410), else compares the player's support-unit cap and use
-    //      (Player +0x0C/+0x10) with the type's cost plus that of the ships in production (ConsMgr's job list).
-    //      Those Player fields are in the Player since M2-R4 rest-oracle; the support-unit bookkeeping (cat_suShipAdded /
-    //      cat_suShipRemoved, ConsMgr's job list) is M2-R6 ConsMgr's; until then every ship is affordable.
-    (void)type;
-    (void)player;
-    return TRUE;
+    ShipStaticInfo *info = GetShipStaticInfo(type, player->race);
+    ShipStaticInfo *jobinfo;
+    Node *node;
+    cmDetermProgress_t *dprog;
+    udword queued = 0;
+    sdword jobs;
+
+    if ((player->playerIndex != 0) && singlePlayerGame)
+    {
+        return TRUE;        // a computer player of a single-player game
+    }
+    if (info->supportUnits == 0)
+    {
+        return TRUE;
+    }
+    if ((udword)player->supportUnitsMax <= (udword)player->supportUnitsUsed)
+    {
+        return FALSE;
+    }
+    // the support units of the player's deterministic build jobs (an externally built job whose ship is attached
+    //      already counts as a ship)
+    for (node = cmDetermProgress.head; node != NULL; node = node->next)
+    {
+        dprog = (cmDetermProgress_t *)listGetStructOfNode(node);
+        if (dprog->creator->playerowner == player)
+        {
+            jobs = dprog->numShips;
+            jobinfo = GetShipStaticInfo(dprog->shipType, dprog->shipRace);
+            if ((jobs > 0) && (jobinfo->externalBuild == 1) && (dprog->catAttached == 1))
+            {
+                jobs--;
+            }
+            queued += jobinfo->supportUnits * jobs;
+        }
+    }
+    return ((udword)player->supportUnitsMax - (udword)player->supportUnitsUsed) >= info->supportUnits + queued;
 }
 
 // CAT (M2-R5 hud): 0x00894198, the single-player build-time divisor (1; cat_spGameDifficulty 0x0051c16b and kasLoad
@@ -4597,7 +4595,7 @@ void cat_cmExtendedInfoToggle(char *string, featom *atom)
     (void)string;
     (void)atom;
     catCmExtendedInfo = !catCmExtendedInfo;
-    cmDirtyShipInfo();
+    catCmDirtyRegions();
 }
 
 /*-----------------------------------------------------------------------------
@@ -4608,13 +4606,13 @@ void cat_cmExtendedInfoToggle(char *string, featom *atom)
 ----------------------------------------------------------------------------*/
 sdword cat_cmCountJobsForPlayer(struct Player *player, CatCmJob *jobs)
 {
-    sdword lineOfType[TOTAL_STD_SHIPS];
+    sdword lineOfType[TOTAL_NUM_SHIPS];
     sdword lines = 0, slot, nextSlot = 1, type, line;
     Node *node;
     shipsinprogress *factory;
     ShipType factoryType;
 
-    for (type = 0; type < TOTAL_STD_SHIPS; type++)
+    for (type = 0; type < TOTAL_NUM_SHIPS; type++)
     {
         lineOfType[type] = -1;
     }
@@ -4634,7 +4632,7 @@ sdword cat_cmCountJobsForPlayer(struct Player *player, CatCmJob *jobs)
         {
             slot = nextSlot++;
         }
-        for (type = 0; type < TOTAL_STD_SHIPS; type++)
+        for (type = 0; type < TOTAL_NUM_SHIPS; type++)
         {
             if (factory->progress[type].nJobs > 0)
             {
@@ -4655,4 +4653,811 @@ sdword cat_cmCountJobsForPlayer(struct Player *player, CatCmJob *jobs)
         }
     }
     return lines;
+}
+
+/*=============================================================================
+    CAT (M2-R6 managers): the external build's construction-manager side and the support units
+=============================================================================*/
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmExternalBuildAttach
+    Description : CAT: new (0x00455af0): an externally built ship has reached its build position at its creator
+                  (Dock.c's CAT_DOCKSTATE_LAUNCH, cat_dockShipDocksAtShip 0x00465860). In a single-player game the
+                  local human player's factory entry of the type takes the ship and starts its clock
+                  (catExternalShipAttached); in a multiplayer game the creator's deterministic build node of the type
+                  does (catAttached), and the factory entry too
+----------------------------------------------------------------------------*/
+void cat_cmExternalBuildAttach(Ship *ship)
+{
+    shipinprogress *progress = NULL;
+    Node *node;
+    cmDetermProgress_t *dprog;
+
+    // CAT-TODO(stage 5 recorder): the exe treats a recorded game (0x00a7519c && 0x00a75190) as a multiplayer one here
+    if (!playPackets && (ship->playerowner == universe.curPlayerPtr) && (ship->playerowner->aiPlayer == NULL))
+    {
+        progress = catCmFactoryEntry(ship->catCreator, ship->shiptype);
+        if (!multiPlayerGame)
+        {
+            if (progress != NULL)       // CAT-FIX: the exe writes through the entry at address 0 when the creator is no factory
+            {
+                progress->catExternalShip = ship;
+                progress->catExternalShipAttached = TRUE;
+            }
+            return;
+        }
+    }
+    else if (!multiPlayerGame)
+    {
+        return;
+    }
+    for (node = cmDetermProgress.head; node != NULL; node = node->next)
+    {
+        dprog = (cmDetermProgress_t *)listGetStructOfNode(node);
+        if ((dprog->creator == ship->catCreator) && (dprog->shipType == ship->shiptype))
+        {
+            dprog->catAttached = TRUE;
+            progress = catCmFactoryEntry(dprog->creator, dprog->shipType);
+            if (progress != NULL)       // CAT-FIX: as above
+            {
+                progress->catExternalShipAttached = TRUE;
+            }
+            return;
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmExternalBuildShipDied
+    Description : CAT: new (0x00455960): an externally built ship died (univDeleteDeadShip 0x00547d00) while its build
+                  was running. The local human player's factory entry of its type at its creator loses the job (one
+                  job and one of the total less, the clock and fraction cleared, the external words cleared) if it
+                  still held this ship; in a multiplayer game the creator's deterministic build node waits for a new
+                  ship (one ship less, the clock reset, the node's and the factory entry's external words cleared)
+----------------------------------------------------------------------------*/
+void cat_cmExternalBuildShipDied(Ship *ship)
+{
+    shipinprogress *progress;
+    Node *node;
+    cmDetermProgress_t *dprog;
+
+    if (ship->guidance.clampInfo == NULL)
+    {
+        return;         // not clamped to its creator: not being built there
+    }
+    if (!playPackets && (ship->playerowner == universe.curPlayerPtr) && (ship->playerowner->aiPlayer == NULL))
+    {
+        progress = catCmFactoryEntry(ship->catCreator, ship->shiptype);
+        if ((progress != NULL) && (progress->nJobs > 0) && (progress->catExternalShip == ship))
+        {
+            progress->timeFraction = 0;
+            progress->timeLeft = 0;
+            progress->timeStart = 0;
+            progress->nJobsTotal--;
+            progress->nJobs--;
+            // CAT-TODO(stage 5 recorder): not while a game is recorded (0x00a7519c && 0x00a75190)
+            if (!multiPlayerGame)
+            {
+                progress->catExternalShipStarted = FALSE;
+                progress->catExternalShipAttached = FALSE;
+            }
+            progress->catExternalShip = NULL;
+            cmDirtyShipInfo();
+        }
+    }
+    if (!multiPlayerGame)
+    {
+        return;
+    }
+    for (node = cmDetermProgress.head; node != NULL; node = node->next)
+    {
+        dprog = (cmDetermProgress_t *)listGetStructOfNode(node);
+        if ((dprog->creator == ship->catCreator) && (dprog->catShip == ship))
+        {
+            dprog->numShips--;
+            dprog->ticksLeft = dprog->ticksForOne;
+            dprog->catShipStarted = FALSE;
+            dprog->catAttached = FALSE;
+            progress = catCmFactoryEntry(dprog->creator, dprog->shipType);
+            if (progress != NULL)       // CAT-FIX: the exe writes through the entry at address 0 when the creator is no factory
+            {
+                progress->catExternalShipAttached = FALSE;
+                progress->catExternalShipStarted = FALSE;
+            }
+            dprog->catShip = NULL;
+            return;
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmShipDockedReclampCannon
+    Description : CAT: new (0x00455ad0): a Dreadnought that ends its build clamps its cannon again
+                  (cat_dreadnoughtReclampCannon 0x005b13b0; Dock.c's CAT_DOCKSTATE_BUILD_ATTACHED)
+----------------------------------------------------------------------------*/
+void cat_cmShipDockedReclampCannon(Ship *ship)
+{
+    if (ship->shiptype == sDreadnought)
+    {
+        cat_dreadnoughtReclampCannon(ship);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmCancelJobsOfDeadFactory
+    Description : CAT: new (0x00455ea0): the sMothership lost its docking bay module (ModuleShipDied 0x005afe30): every
+                  job of an externally built type but a module at that factory is cancelled. A running job refunds
+                  its cost so far to the local player (single player) and deletes its ship once it exists (but for a
+                  docking bay job; cat_clWrapExternalBuildUpdate mode 1); the entry is cleared; in a multiplayer game
+                  the deterministic build is cancelled too (clWrapDeterministicBuild CMD_CANCEL). Then the "jobs
+                  cancelled" speech (0x400103b) if any job was, and the screen is redrawn. Not in a tutorial unless
+                  its build manager is enabled (tutEnable bit 0x1000000)
+----------------------------------------------------------------------------*/
+void cat_cmCancelJobsOfDeadFactory(Ship *creator)
+{
+    shipsinprogress *factory;
+    shipinprogress *progress;
+    ShipStaticInfo *info;
+    sdword index;
+    bool32 cancelled = FALSE;
+
+    if (!catCmTutEnabled(0x1000000))
+    {
+        return;
+    }
+    factory = cmFindFactory(creator);
+    if (factory == NULL)
+    {
+        return;
+    }
+    for (index = 0, progress = &factory->progress[0]; index < TOTAL_NUM_SHIPS; index++, progress++)
+    {
+        info = progress->info;
+        if ((info == NULL) || !info->externalBuild || (info->shipclass == CLASS_Component))
+        {
+            continue;
+        }
+        if (progress->nJobsTotal != 0)
+        {
+            // CAT-TODO(stage 5 recorder): not while a game is recorded (0x00a7519c && 0x00a75190)
+            if (!multiPlayerGame)
+            {
+                universe.curPlayerPtr->resourceUnits += (sdword)progress->costSoFar;
+            }
+            if (progress->info->externalBuild && (progress->info->shiptype != sMothershipDockingBay) &&
+                (progress->catExternalShipStarted == 1) && !multiPlayerGame)
+            {
+                if (progress->catExternalShip != NULL)
+                {
+                    cat_clWrapExternalBuildUpdate(&universe.mainCommandLayer, universe.curPlayerIndex, creator,
+                                                  progress->catExternalShip, 0.0f, CAT_EXTBUILD_CANCEL);
+                }
+                progress->catExternalShipStarted = FALSE;
+                progress->catExternalShip = NULL;
+            }
+        }
+        progress->timeFraction = 0;
+        progress->timeLeft = 0;
+        progress->timeStart = 0;
+        progress->nJobs = 0;
+        progress->nJobsTotal = 0;
+        progress->catExternalShipAttached = FALSE;
+        progress->catExternalShipStarted = FALSE;
+        progress->catExternalShip = NULL;
+        progress->costSoFar = 0;
+        cancelled = TRUE;
+        if (multiPlayerGame && (progress->info != NULL))
+        {
+            clWrapDeterministicBuild(CMD_CANCEL, &universe.mainCommandLayer, 0, progress->info->shiptype,
+                                     progress->info->shiprace, universe.curPlayerIndex, creator);
+        }
+    }
+    if (cancelled)
+    {
+        speechEventQueue(NULL, 0x400103b, 0, -1, 0, universe.curPlayerIndex, -1, 5.0f, -1);
+    }
+    cmDirtyShipInfo();
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_suShipProvidesSU / cat_suShipAdded / cat_suShipRemoved
+    Description : CAT: new (0x00459a60 / 0x00459a90 / 0x00459ae0): the player's support units (Player +0x0C the cap,
+                  +0x10 the use). A ship that is not SU exempt (SPECIAL_2_CatExempt20) uses its type's supportUnits;
+                  once it is no longer being built it adds its type's providesSU to the cap and is marked
+                  SPECIAL_2_CatSUProvided (an externally built ship does that when its build ends, Dock.c
+                  CAT_DOCKSTATE_BUILD_ATTACHED); a removed ship gives both back
+----------------------------------------------------------------------------*/
+void cat_suShipProvidesSU(Ship *ship)
+{
+    if (!bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+    {
+        ship->playerowner->supportUnitsMax += ship->staticinfo->providesSU;
+        bitSet(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatSUProvided);
+    }
+}
+
+void cat_suShipAdded(Ship *ship, struct Player *player)
+{
+    if (!bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))
+    {
+        player->supportUnitsUsed += ship->staticinfo->supportUnits;
+        if (!bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+        {
+            player->supportUnitsMax += ship->staticinfo->providesSU;
+            bitSet(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatSUProvided);
+        }
+    }
+}
+
+void cat_suShipRemoved(Ship *ship)
+{
+    Player *player = ship->playerowner;
+
+    if (!bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))
+    {
+        player->supportUnitsUsed -= ship->staticinfo->supportUnits;
+        if (bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatSUProvided))
+        {
+            player->supportUnitsMax -= ship->staticinfo->providesSU;
+            bitClear(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatSUProvided);
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_cmQueuedSupportUnits
+    Description : CAT: new (0x00459c20): the support units the open construction screen's queue will use: the jobs
+                  set on the screen (cmShipsAvailable's nJobs) and every job of the player's factories (an externally
+                  built job whose ship is attached counts as a ship already). 0 while no factory is shown
+----------------------------------------------------------------------------*/
+sdword cat_cmQueuedSupportUnits(struct Player *player)
+{
+    shipsinprogress *factory;
+    shipinprogress *progress;
+    shipavailable *avail;
+    Node *node;
+    sdword total = 0;
+    sdword jobs;
+    sdword type;
+
+    if (curshipsInProgress == NULL)
+    {
+        return 0;
+    }
+    for (avail = cmShipsAvailable; avail->nJobs != -1; avail++)
+    {
+        total += GetShipStaticInfo(avail->type, player->race)->supportUnits * avail->nJobs;
+    }
+    for (node = curshipsInProgress->node.belongto->head; node != NULL; node = node->next)
+    {
+        factory = (shipsinprogress *)listGetStructOfNode(node);
+        if (factory->ship->playerowner != player)
+        {
+            continue;
+        }
+        for (type = 0, progress = &factory->progress[0]; type < TOTAL_NUM_SHIPS; type++, progress++)
+        {
+            jobs = progress->nJobs;
+            if ((jobs > 0) && (progress->info->externalBuild == 1) && (progress->catExternalShipAttached == 1))
+            {
+                jobs--;
+            }
+            total += GetShipStaticInfo((ShipType)type, player->race)->supportUnits * jobs;
+        }
+    }
+    return total;
+}
+
+/*=============================================================================
+    HWI-TEST (M2-R6 managers), port diagnostic, not in the exe: /catBuildTest <ticks> (harness mode build;
+    docs/m2-r6-managers.md). It runs the headless Mission01 start of /oracleMission (virtual clock, no animatic, the
+    oracle stream written, quits after <ticks>) and builds ships through the construction manager with no input:
+      tick 16    the local player gets an sMothership (the mission's kas2c script, off under CAT_HW1_MISSION_SCRIPTS 0,
+                 would give it the Kuun-Lan) at the grid point farthest from the level's ships, made its mothership,
+                 and 30,000 RUs; the factory list must hold it (univCreateShip's factory block). Then three jobs are
+                 queued at its factory exactly as the construction screen's build button does (cmBuildJobsAdd): the
+                 docking bay module if the player has none (an externally built module), an sDestroyer (an externally
+                 built ship: it needs the docking bay) and an sAcolyte (built inside)
+      every tick an externally built ship is checked when it appears (health 0, progress 0, SPECIAL_2_CatBeingBuilt,
+                 clamped to its creator once it has reached its build position) and while its build runs (the health
+                 never falls, at most maxhealth); a finished one has full health, progress 1.0, the flag clear and its
+                 job gone from the factory; the internally built ship appears at full health when its job ends
+      every 256  one "buildtest:" line per job (jobs, time left, ship, health, dock state)
+      screens    once every job is finished, the three managers open and close in turn at the mothership, each drawn
+                 for 8 frames (offscreen): the construction screen (its factory name drawn), the research screen (its
+                 technology list rows counted, a lab drawn), the launch screen (its list rows checked against the ships
+                 docked inside, the factory name and the module slots drawn; with a ship in the list, Launch One
+                 launches it and it must leave the mothership within 256 ticks); the player's autolaunch bits are
+                 cleared at tick 16 (as the dock self-test does) so the internally built acolyte stays docked
+      "buildtest: done ... result=PASS|FAIL" after the screens (or at ticks-2), then the mission run's own quit
+=============================================================================*/
+#define CAT_BUILDTEST_ORDER_TICK    16
+#define CAT_BUILDTEST_RUS           30000
+#define CAT_BUILDTEST_JOBS          3
+
+static sdword catBuildSelfTestTicks = 0;
+static bool32 catBuildSelfTestOrdered = FALSE;
+static bool32 catBuildSelfTestDone = FALSE;
+static bool32 catBuildSelfTestPass = TRUE;
+static Ship *catBuildSelfTestFactory = NULL;
+static sdword catBuildSelfTestScreensTick = -1;     // the tick the screens phase began
+static Ship *catBuildSelfTestLaunched = NULL;       // the ship Launch One launched
+static struct
+{
+    ShipType type;
+    bool32 queued;
+    Ship *ship;             // the ship once it exists
+    real32 lastHealth;
+    bool32 seenAttached;    // an external ship: seen clamped to its creator
+    bool32 finished;
+    sdword finishTick;
+} catBuildSelfTestJob[CAT_BUILDTEST_JOBS];
+
+// a type the level excluded (Mission01 does not load the sDestroyer): its static is loaded now as universeStaticInit
+//      would have (the test's own action, not the game's; the dock self-test uses it for its sCarrier)
+void catBuildSelfTestLoadStatic(ShipType type)
+{
+    ShipStaticInfo *info = GetShipStaticInfo(type, RACE_Sect);
+
+    if (bitTest(info->common.infoFlags, IF_InfoLoaded))
+    {
+        return;
+    }
+    SetInfoNeededForShipAndRelatedStaticInfo(type, RACE_Sect, TRUE);
+    InitStatShipInfo(info, type, RACE_Sect);
+    InitStatShipInfoPost(info);
+    bitSet(info->common.infoFlags, IF_InfoLoaded);
+    cat_univSetShipMaxHealth(info);
+    dbgMessagef("buildtest: loaded the static of %s (the level excludes it)", ShipTypeToStr(type));
+}
+
+void catBuildSelfTestSet(char *string)
+{
+    catBuildSelfTestTicks = (sdword)strtol(string, NULL, 10);
+    if (catBuildSelfTestTicks <= 0)
+    {
+        catBuildSelfTestTicks = 7000;
+    }
+    oracleSetMission(string);                               // the headless Mission01 run with the virtual clock and the quit
+}
+
+bool32 catBuildSelfTestRequested(void)
+{
+    return (catBuildSelfTestTicks > 0);
+}
+
+static void catBuildSelfTestExpect(bool32 condition, const char *what, Ship *ship)
+{
+    if (!condition)
+    {
+        catBuildSelfTestPass = FALSE;
+        dbgMessagef("buildtest: FAIL tick=%u %s (%s#%u)", (unsigned)universe.univUpdateCounter, what,
+                    (ship != NULL) ? ShipTypeToStr(ship->shiptype) : "-", (ship != NULL) ? (unsigned)ship->shipID.shipNumber : 0u);
+    }
+}
+
+// a ship of the type that is the player's, made by the factory and not yet tracked (in the ShipList or inside the factory)
+static Ship *catBuildSelfTestFindNew(ShipType type)
+{
+    Node *node;
+    Ship *ship;
+    sdword j;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if ((ship->shiptype != type) || (ship->playerowner != universe.curPlayerPtr) || (ship->catCreator != catBuildSelfTestFactory))
+        {
+            continue;
+        }
+        for (j = 0; j < CAT_BUILDTEST_JOBS; j++)
+        {
+            if (catBuildSelfTestJob[j].ship == ship)
+            {
+                break;
+            }
+        }
+        if (j == CAT_BUILDTEST_JOBS)
+        {
+            return ship;
+        }
+    }
+    if ((catBuildSelfTestFactory != NULL) && (catBuildSelfTestFactory->shipsInsideMe != NULL))
+    {
+        for (node = catBuildSelfTestFactory->shipsInsideMe->insideList.head; node != NULL; node = node->next)
+        {
+            ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+            if ((ship->shiptype == type) && (ship->catCreator == catBuildSelfTestFactory))
+            {
+                for (j = 0; j < CAT_BUILDTEST_JOBS; j++)
+                {
+                    if (catBuildSelfTestJob[j].ship == ship)
+                    {
+                        break;
+                    }
+                }
+                if (j == CAT_BUILDTEST_JOBS)
+                {
+                    return ship;
+                }
+            }
+        }
+    }
+    return NULL;
+}
+
+static void catBuildSelfTestLog(const char *tag, sdword j)
+{
+    shipsinprogress *factory = cmFindFactory(catBuildSelfTestFactory);
+    shipinprogress *progress = (factory != NULL) ? &factory->progress[catBuildSelfTestJob[j].type] : NULL;
+    Ship *ship = catBuildSelfTestJob[j].ship;
+
+    dbgMessagef("buildtest: %s tick=%u %s jobs=%d timeLeft=%d/%d started=%d attached=%d ship=%s#%u health=%.1f/%.1f progress=%.4f built=%d dockstate=%d clamped=%d RUs=%d",
+                tag, (unsigned)universe.univUpdateCounter, ShipTypeToStr(catBuildSelfTestJob[j].type),
+                (progress != NULL) ? (int)progress->nJobs : -1, (progress != NULL) ? (int)progress->timeLeft : -1,
+                (progress != NULL) ? (int)progress->timeStart : -1,
+                (progress != NULL) ? (int)progress->catExternalShipStarted : -1, (progress != NULL) ? (int)progress->catExternalShipAttached : -1,
+                (ship != NULL) ? ShipTypeToStr(ship->shiptype) : "none", (ship != NULL) ? (unsigned)ship->shipID.shipNumber : 0u,
+                (ship != NULL) ? ship->targetable.health : 0.0f, (ship != NULL) ? ship->staticinfo->health.maxhealth : 0.0f,
+                (ship != NULL) ? ship->catBuildProgress : 0.0f,
+                (ship != NULL) ? (int)!bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt) : 0,
+                (ship != NULL) ? (int)ship->dockvars.dockstate : -1,
+                (ship != NULL) ? (int)(ship->guidance.clampInfo != NULL) : 0, (int)universe.curPlayerPtr->resourceUnits);
+}
+
+static void catBuildSelfTestFinish(sdword tick)
+{
+    Player *player = universe.curPlayerPtr;
+
+    catBuildSelfTestDone = TRUE;
+    dbgMessagef("buildtest: done tick=%u driver=%d SU=%d/%d RUs=%d result=%s", (unsigned)tick, (int)CAT_EXTERNAL_BUILD_DRIVER,
+                (int)player->supportUnitsUsed, (int)player->supportUnitsMax, (int)player->resourceUnits,
+                catBuildSelfTestPass ? "PASS" : "FAIL");
+}
+
+// the launch list's rows expected from the ships docked inside the mothership: each listed type once, a class header
+//      for the strike craft (fighter / micro) and one for the corvettes (corvette / resource) when any is docked
+static sdword catBuildSelfTestLaunchRowsExpected(Ship **firstListed)
+{
+    bool32 seen[TOTAL_NUM_SHIPS];
+    bool32 fighters = FALSE, corvettes = FALSE;
+    Node *node;
+    Ship *ship;
+    sdword rows = 0;
+    ShipClass shipclass;
+
+    memset(seen, 0, sizeof(seen));
+    *firstListed = NULL;
+    for (node = catBuildSelfTestFactory->shipsInsideMe->insideList.head; node != NULL; node = node->next)
+    {
+        ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+        if (!lmShipInList[ship->shiptype] || seen[ship->shiptype])
+        {
+            continue;
+        }
+        seen[ship->shiptype] = TRUE;
+        rows++;
+        if (*firstListed == NULL)
+        {
+            *firstListed = ship;
+        }
+        shipclass = ship->staticinfo->shipclass;
+        if ((shipclass == CLASS_Corvette) || (shipclass == CLASS_Resource))
+        {
+            corvettes = TRUE;
+        }
+        else if ((shipclass == CLASS_Fighter) || (shipclass == CLASS_Micro))
+        {
+            fighters = TRUE;
+        }
+    }
+    return rows + (fighters ? 1 : 0) + (corvettes ? 1 : 0);
+}
+
+static bool32 catBuildSelfTestIsInside(Ship *ship)
+{
+    Node *node;
+
+    for (node = catBuildSelfTestFactory->shipsInsideMe->insideList.head; node != NULL; node = node->next)
+    {
+        if (((InsideShip *)listGetStructOfNode(node))->ship == ship)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+// the screens phase: s = ticks since it began
+static void catBuildSelfTestScreens(sdword tick)
+{
+    sdword s = tick - catBuildSelfTestScreensTick;
+    Ship *first;
+    sdword expected;
+
+    if (tick >= catBuildSelfTestTicks - 2)
+    {
+        catBuildSelfTestExpect(FALSE, "the screens phase ended in time", NULL);
+        catBuildSelfTestFinish(tick);
+        return;
+    }
+    switch (s)
+    {
+        case 0:
+            cmConstructionBegin(ghMainRegion, (smemsize)catBuildSelfTestFactory, 0, 0);
+            dbgMessagef("buildtest: screens construction open tick=%u base=%d active=%d", (unsigned)tick,
+                        (int)(cmBaseRegion != NULL), (int)cmActive);
+            catBuildSelfTestExpect((cmBaseRegion != NULL) && cmActive, "the construction screen opens", catBuildSelfTestFactory);
+            break;
+        case 8:
+            dbgMessagef("buildtest: screens construction drawn tick=%u factoryname=%d subar=%d", (unsigned)tick,
+                        (int)(cmFactoryNameRegion != NULL), (int)(catCmSUBarRegion != NULL));
+            catBuildSelfTestExpect(cmFactoryNameRegion != NULL, "the construction screen draws its factory name", NULL);
+            cmClose(NULL, NULL);
+            catBuildSelfTestExpect((cmBaseRegion == NULL) && !cmActive && mrRenderMainScreen, "the construction screen closes", NULL);
+            break;
+        case 9:
+            // the player holds one technology (the test's own grant) and has no research module: in single player
+            //      the list shows the held row under its lab's header and nothing else (rmUpdateTechList)
+            cat_rmTechSetAdd(universe.curPlayerPtr->researchinfo.HasTechnology, TECH_DRIVE_FIGHTER);
+            rmResearchGUIBegin(ghMainRegion, 0, 0, 0);
+            {
+                TechPrintList *row = ((rmTechListWindowHandle != NULL) && (rmTechListWindowHandle->ListTotal == 2) &&
+                                      (rmTechListWindowHandle->listofitems.tail != NULL)) ?
+                                     (TechPrintList *)((listitemhandle)listGetStructOfNode(rmTechListWindowHandle->listofitems.tail))->data : NULL;
+
+                dbgMessagef("buildtest: screens research open tick=%u base=%d active=%d rows=%d last=%d/%d/%d", (unsigned)tick,
+                            (int)(rmBaseRegion != NULL), (int)rmGUIActive,
+                            (rmTechListWindowHandle != NULL) ? (int)rmTechListWindowHandle->ListTotal : -1,
+                            (row != NULL) ? (int)row->itemtype : -1, (row != NULL) ? (int)row->itemID : -1,
+                            (row != NULL) ? (int)row->itemstat : -1);
+                catBuildSelfTestExpect((rmBaseRegion != NULL) && (row != NULL) && (row->itemID == TECH_DRIVE_FIGHTER) &&
+                                       (row->itemstat == STAT_ALREADYHAVE), "the research list shows the held technology under its header", NULL);
+            }
+            break;
+        case 17:
+            dbgMessagef("buildtest: screens research drawn tick=%u modulename=%d lab0=%d", (unsigned)tick,
+                        (int)(catRmModuleNameRegion != NULL), (int)(rmLabRegion[0] != NULL));
+            catBuildSelfTestExpect(rmLabRegion[0] != NULL, "the research screen draws its labs", NULL);
+            rmCloseIfOpen();
+            catBuildSelfTestExpect((rmBaseRegion == NULL) && mrRenderMainScreen, "the research screen closes", NULL);
+            break;
+        case 18:
+            lmLaunchBegin(ghMainRegion, (smemsize)catBuildSelfTestFactory, 0, 0);
+            expected = catBuildSelfTestLaunchRowsExpected(&first);
+            dbgMessagef("buildtest: screens launch open tick=%u base=%d active=%d rows=%d expected=%d first=%s", (unsigned)tick,
+                        (int)(lmBaseRegion != NULL), (int)lmActive, (lmListWindow != NULL) ? (int)lmListWindow->ListTotal : -1,
+                        (int)expected, (first != NULL) ? ShipTypeToStr(first->shiptype) : "none");
+            catBuildSelfTestExpect((lmBaseRegion != NULL) && lmActive && (lmListWindow != NULL), "the launch screen opens", NULL);
+            catBuildSelfTestExpect((lmListWindow != NULL) && (lmListWindow->ListTotal == expected), "the launch list holds the docked ships", NULL);
+            break;
+        case 26:
+            expected = catBuildSelfTestLaunchRowsExpected(&first);
+            dbgMessagef("buildtest: screens launch drawn tick=%u %s", (unsigned)tick, catLmSelfTestState());
+            catBuildSelfTestExpect(catLmSelfTestDrawn(), "the launch screen draws its factory name and module slots", NULL);
+            if ((first != NULL) && (lmListWindow != NULL))
+            {
+                uicListWindowSetCurItem(lmListWindow, uicListFindItemByData(lmListWindow, (ubyte *)(smemsize)first->shiptype));
+                catBuildSelfTestLaunched = first;
+                catLmSelfTestLaunchOne();
+                dbgMessagef("buildtest: screens launch one %s#%u", ShipTypeToStr(first->shiptype), (unsigned)first->shipID.shipNumber);
+            }
+            lmCloseIfOpen();
+            catBuildSelfTestExpect((lmBaseRegion == NULL) && !lmActive && mrRenderMainScreen, "the launch screen closes", NULL);
+            break;
+        default:
+            if (s > 26)
+            {
+                bool32 inside = (catBuildSelfTestLaunched != NULL) && catBuildSelfTestIsInside(catBuildSelfTestLaunched);
+
+                if (!inside || (s >= 26 + 256))
+                {
+                    if (catBuildSelfTestLaunched != NULL)
+                    {
+                        dbgMessagef("buildtest: screens launched %s left=%d after %d ticks dockstate=%d", ShipTypeToStr(catBuildSelfTestLaunched->shiptype),
+                                    (int)!inside, (int)(s - 26), (int)catBuildSelfTestLaunched->dockvars.dockstate);
+                        catBuildSelfTestExpect(!inside, "the launched ship leaves the mothership", catBuildSelfTestLaunched);
+                    }
+                    catBuildSelfTestFinish(tick);
+                }
+            }
+            break;
+    }
+}
+
+void catBuildSelfTestTick(void)
+{
+    sdword tick = (sdword)universe.univUpdateCounter;
+    Player *player = universe.curPlayerPtr;
+    shipsinprogress *factory;
+    ShipStaticInfo *info;
+    Ship *ship;
+    sdword j, finished = 0;
+
+    if (catBuildSelfTestDone || (player == NULL))
+    {
+        return;
+    }
+    if (!catBuildSelfTestOrdered && (tick >= CAT_BUILDTEST_ORDER_TICK))
+    {
+        vector base, pos;
+        Node *node;
+        real32 limit = universe.radius * 0.8f;
+        real32 bestdist = -1.0f;
+        sdword gx, gy, gz;
+
+        catBuildSelfTestOrdered = TRUE;
+        // the grid point (step 10,000) inside 80% of the world sphere farthest from every ship the level put down
+        base.x = base.y = base.z = 0.0f;
+        for (gx = -10; gx <= 10; gx++)
+        {
+            for (gy = -10; gy <= 10; gy++)
+            {
+                for (gz = -3; gz <= 3; gz++)
+                {
+                    vector cand, diff;
+                    real32 nearest = REALlyBig;
+
+                    cand.x = gx * 10000.0f; cand.y = gy * 10000.0f; cand.z = gz * 10000.0f;
+                    if (vecMagnitudeSquared(cand) > limit * limit)
+                    {
+                        continue;
+                    }
+                    for (node = universe.ShipList.head; node != NULL; node = node->next)
+                    {
+                        ship = (Ship *)listGetStructOfNode(node);
+                        vecSub(diff,ship->obj.posinfo.position,cand);
+                        if (vecMagnitudeSquared(diff) < nearest)
+                        {
+                            nearest = vecMagnitudeSquared(diff);
+                        }
+                    }
+                    if (nearest > bestdist)
+                    {
+                        bestdist = nearest;
+                        base = cand;
+                    }
+                }
+            }
+        }
+        pos = base;
+        catBuildSelfTestFactory = univAddShip(sMothership, RACE_Sect, &pos, player, 0);
+        player->PlayerMothership = catBuildSelfTestFactory;
+        player->resourceUnits = CAT_BUILDTEST_RUS;
+        player->autoLaunch = 0;                             // scripted: the acolyte stays docked for the launch screen
+        factory = cmFindFactory(catBuildSelfTestFactory);
+        dbgMessagef("buildtest: orders tick=%u sMothership#%u at (%.0f %.0f %.0f) factory=%d dockingbay=%d SU=%d/%d RUs=%d ticks=%d",
+                    (unsigned)tick, (unsigned)catBuildSelfTestFactory->shipID.shipNumber, pos.x, pos.y, pos.z, (int)(factory != NULL),
+                    (int)cat_playerHasCompletedShip(sMothershipDockingBay, player), (int)player->supportUnitsUsed,
+                    (int)player->supportUnitsMax, (int)player->resourceUnits, (int)catBuildSelfTestTicks);
+        catBuildSelfTestExpect(factory != NULL, "the sMothership is a factory", catBuildSelfTestFactory);
+        if (factory == NULL)
+        {
+            catBuildSelfTestDone = TRUE;
+            dbgMessagef("buildtest: done tick=%u result=FAIL", (unsigned)tick);
+            return;
+        }
+        catBuildSelfTestJob[0].type = sMothershipDockingBay;
+        catBuildSelfTestJob[1].type = sDestroyer;
+        catBuildSelfTestJob[2].type = sAcolyte;
+        for (j = 0; j < CAT_BUILDTEST_JOBS; j++)
+        {
+            if ((catBuildSelfTestJob[j].type == sMothershipDockingBay) && cat_playerHasCompletedShip(sMothershipDockingBay, player))
+            {
+                catBuildSelfTestJob[j].finished = TRUE;     // the mothership came with one
+                continue;
+            }
+            catBuildSelfTestLoadStatic(catBuildSelfTestJob[j].type);
+            info = GetShipStaticInfo(catBuildSelfTestJob[j].type, RACE_Sect);
+            cmBuildJobsAdd(factory, info, 1);
+            catBuildSelfTestJob[j].queued = TRUE;
+            dbgMessagef("buildtest: queued %s external=%d buildTime=%d cost=%d", ShipTypeToStr(info->shiptype),
+                        (int)info->externalBuild, (int)info->buildTime, (int)info->buildCost);
+        }
+        return;
+    }
+    if (!catBuildSelfTestOrdered)
+    {
+        return;
+    }
+    if (catBuildSelfTestScreensTick >= 0)
+    {
+        catBuildSelfTestScreens(tick);
+        return;
+    }
+    factory = cmFindFactory(catBuildSelfTestFactory);
+    for (j = 0; j < CAT_BUILDTEST_JOBS; j++)
+    {
+        if (catBuildSelfTestJob[j].finished)
+        {
+            finished++;
+            continue;
+        }
+        info = GetShipStaticInfo(catBuildSelfTestJob[j].type, RACE_Sect);
+        ship = catBuildSelfTestJob[j].ship;
+        if (ship == NULL)
+        {
+            ship = catBuildSelfTestFindNew(catBuildSelfTestJob[j].type);
+            if (ship == NULL)
+            {
+                continue;
+            }
+            catBuildSelfTestJob[j].ship = ship;
+            catBuildSelfTestJob[j].lastHealth = ship->targetable.health;
+            catBuildSelfTestLog("appeared", j);
+            if (info->externalBuild)
+            {
+                catBuildSelfTestExpect(ship->targetable.health == 0.0f, "an external ship appears at health 0", ship);
+                catBuildSelfTestExpect(ship->catBuildProgress == 0.0f, "an external ship appears at progress 0", ship);
+                catBuildSelfTestExpect(bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt), "an external ship appears being built", ship);
+            }
+            else
+            {
+                catBuildSelfTestExpect(ship->targetable.health == info->health.maxhealth, "an internal ship appears at full health", ship);
+                catBuildSelfTestExpect((factory != NULL) && (factory->progress[info->shiptype].nJobs == 0), "the internal job is gone", ship);
+                catBuildSelfTestJob[j].finished = TRUE;
+                catBuildSelfTestJob[j].finishTick = tick;
+                finished++;
+                continue;
+            }
+        }
+        if (info->externalBuild)
+        {
+            catBuildSelfTestExpect(ship->targetable.health >= catBuildSelfTestJob[j].lastHealth, "the health never falls", ship);
+            catBuildSelfTestExpect(ship->targetable.health <= info->health.maxhealth, "the health stays at most maxhealth", ship);
+            catBuildSelfTestJob[j].lastHealth = ship->targetable.health;
+            if (bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt) && (ship->guidance.clampInfo != NULL) &&
+                (ship->guidance.clampInfo->host == (SpaceObjRotImpTarg *)catBuildSelfTestFactory))
+            {
+                if (!catBuildSelfTestJob[j].seenAttached)
+                {
+                    catBuildSelfTestJob[j].seenAttached = TRUE;
+                    catBuildSelfTestLog("attached", j);
+                }
+            }
+            if (!bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+            {
+                catBuildSelfTestLog("finished", j);
+                catBuildSelfTestExpect(catBuildSelfTestJob[j].seenAttached, "the ship was clamped to its creator while built", ship);
+                // the health is the sum of the per-tick steps (cat_clExternalBuildUpdate), so a float rounding short
+                //      of maxhealth (the exe adds the same steps)
+                catBuildSelfTestExpect(ship->targetable.health >= info->health.maxhealth * 0.999f, "a finished ship has full health", ship);
+                catBuildSelfTestExpect(ship->catBuildProgress == 1.0f, "a finished ship has progress 1.0", ship);
+                catBuildSelfTestExpect((factory != NULL) && (factory->progress[info->shiptype].nJobs == 0) &&
+                                       !factory->progress[info->shiptype].catExternalShipStarted &&
+                                       (factory->progress[info->shiptype].catExternalShip == NULL), "the external job is gone", ship);
+                catBuildSelfTestJob[j].finished = TRUE;
+                catBuildSelfTestJob[j].finishTick = tick;
+                finished++;
+            }
+        }
+    }
+    if ((tick % 256) == 0)
+    {
+        for (j = 0; j < CAT_BUILDTEST_JOBS; j++)
+        {
+            if (catBuildSelfTestJob[j].queued)
+            {
+                catBuildSelfTestLog("tick", j);
+            }
+        }
+    }
+    if ((finished == CAT_BUILDTEST_JOBS) || (tick >= catBuildSelfTestTicks - 2))
+    {
+        for (j = 0; j < CAT_BUILDTEST_JOBS; j++)
+        {
+            catBuildSelfTestExpect(catBuildSelfTestJob[j].finished, "every job finished", catBuildSelfTestJob[j].ship);
+            if (catBuildSelfTestJob[j].queued)
+            {
+                dbgMessagef("buildtest: job %s finished=%d at tick %d", ShipTypeToStr(catBuildSelfTestJob[j].type),
+                            (int)catBuildSelfTestJob[j].finished, (int)catBuildSelfTestJob[j].finishTick);
+            }
+        }
+        if (finished == CAT_BUILDTEST_JOBS)
+        {
+            catBuildSelfTestScreensTick = tick + 1;
+            return;
+        }
+        catBuildSelfTestFinish(tick);
+    }
 }

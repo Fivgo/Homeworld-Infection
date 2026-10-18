@@ -426,8 +426,9 @@ void tmAcceptOffer(char *string, featom *atom)
     tmTechForSale[tmTechSelected] = TM_TECH_IS_ALREADY_OWNED;
 
 
-    //rmAddTechToPlayer(universe.curPlayerPtr, tmTechSelected);
-    rmAddTechToPlayer(universe.curPlayerPtr, tmTechSelected);   // CAT: tech sets; CAT-TODO(stage 3): compare with the exe body
+    // CAT (M2-R6 managers): the exe's tmAcceptOffer (0x0052d810, TM_AcceptOffer, no Ghidra function) adds the technology
+    //      to the player's set alone (cat_rmTechSetAdd 0x004f3fc0), not through rmAddTechToPlayer: no upgrade refresh
+    cat_rmTechSetAdd(universe.curPlayerPtr->researchinfo.HasTechnology, tmTechSelected);
 
     tmtechinfo = -1;
     tmTechSelected = -1;
@@ -878,8 +879,9 @@ void tmTechInfoDraw(featom *atom, regionhandle region)
         y += TM_VertSpacing + fontHeight(" ");
 
         // CAT: no race-specific technology names in Cataclysm (HW1 renamed DDDFDFGFTech/CloakDefenseFighter per race);
-        //      CAT-TODO(stage 3): the exe's tmTechInfoDraw body
-        if (universe.curPlayerPtr->race==R1)
+        //      [M2-R6 managers: compared with the exe's tmTechInfoDraw 0x0052e1f0: the race-0 player reads the R1 info
+        //      strings, any other the R2 ones, as here]
+        if (universe.curPlayerPtr->race==RACE_Sect)    // [audit: M2-R6 managers: the HW1 alias R1 retired]
             strcpy(stringtoprint,strGetString(tmtechinfo+strTechInfoOffsetR1));
         else
             strcpy(stringtoprint,strGetString(tmtechinfo+strTechInfoOffsetR2));
@@ -1101,8 +1103,13 @@ void tmTechImageDraw(featom *atom, regionhandle region)
                 }
             }
 
-            // Build filename for loading texture from file
-            strcpy(filename, TechImagePaths[universe.curPlayerPtr->race]);
+            // Build filename for loading texture from file (CAT: tmTechImageDraw 0x0052e620 has a path for race 0 and 1
+            //      only; CAT-FIX: no path for another race instead of the exe's uninitialised buffer)
+            filename[0] = 0;
+            if (universe.curPlayerPtr->race <= RACE_Beast)
+            {
+                strcpy(filename, TechImagePaths[universe.curPlayerPtr->race]);
+            }
             strcat(filename, TechTypeToString(tmtechinfo));
             strcat(filename,".lif");
 

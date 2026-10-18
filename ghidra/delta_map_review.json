@@ -1698,19 +1698,22 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "salvagers inside a target's cone do not collide; the exe's clamp test (cat_shipsClampedTogether); ramming frigates act first; no bump damage from a salvager just let go, an attached Leech or between RKO pieces",
-  "note": "M2-R4 combat: ported; the ramming frigate call and the Leech query are M2-R4 #4 (CAT-TODO / provisional FALSE) | [review: M2-R5 layout-dock] cat_collSentinelFieldExempt 0x0043acc0 called before the distance test as the exe does"
+  "note": "M2-R4 combat: ported; the ramming frigate call and the Leech query are M2-R4 #4 (CAT-TODO / provisional FALSE) | [review: M2-R5 layout-dock] cat_collSentinelFieldExempt 0x0043acc0 called before the distance test as the exe does | [review: M2-R6 managers] M2-R6 managers: the SOF_CatDocking exemption (unless SPECIAL_2_CatBeingBuilt) for either ship added (0x0043ae38 / 0x0043ae9d); found by the dock self-test",
+  "sample": "port-R6-managers"
  },
  "0x0043b460": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "same Cataclysm tests as collCheckShipShipColl (salvager cone, clamp test, ramming, Leech)",
-  "note": "M2-R4 combat: ported as collCheckShipShipColl"
+  "note": "M2-R4 combat: ported as collCheckShipShipColl | [review: M2-R6 managers] M2-R6 managers: the same SOF_CatDocking exemption added",
+  "sample": "port-R6-managers"
  },
  "0x0043bac0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "every resource-class ship and the killer-collision attribute decide the collision instead of HW1's resource collectors",
-  "note": "M2-R4 combat: ported; CAT_ATTRIBUTES_KillerCollision moved to Attributes.h"
+  "note": "M2-R4 combat: ported; CAT_ATTRIBUTES_KillerCollision moved to Attributes.h | [review: M2-R6 managers] M2-R6 managers: the ship's SOF_CatDocking exemption and the resource's flag added",
+  "sample": "port-R6-managers"
  },
  "0x0043c570": {
   "class": "MODIFIED",
@@ -2828,11 +2831,11 @@
   "sample": "port-R5-command-tactics"
  },
  "0x00452f30": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "[review: M2-R5 command-tactics] compared | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged",
-  "sample": "port-R5-command-tactics"
+  "change": "returns clCreateShip's ship (the exe's return value)",
+  "note": "[review: M2-R5 command-tactics] compared | [review: M2-R5 hud] edited: the HW1 enableTextFeedback line passes clCommandMessage's colour (0xffffffff); the body is otherwise unchanged | [audit: M2-R6 managers] edited IDENTICAL: returns clCreateShip's ship as the exe does (0x00452f30 keeps clCreateShip's eax, 0 after clSendCreateShip; the build task stores it, cmBuildTaskFunction 0x00454940); reclassified MODIFIED",
+  "sample": "audit-R6-managers"
  },
  "0x00452fa0": {
   "class": "IDENTICAL",
@@ -2936,8 +2939,8 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
-  "sample": "reread-R2"
+  "note": "same | [review: M2-R6 managers] compared: same (0x91-entry factories)",
+  "sample": "port-R6-managers"
  },
  "0x00454530": {
   "class": "IDENTICAL",
@@ -2950,8 +2953,8 @@
   "class": "MODIFIED",
   "confidence": "medium",
   "change": "refreshes availability first (cmUpdateShipAvailable) and only dirties the other regions when the ship-info region exists",
-  "note": "HW1 dirties each region independently",
-  "sample": "MODIFIED/low"
+  "note": "HW1 dirties each region independently | [review: M2-R6 managers] only while the screen is open, and cmUpdateShipAvailable first (the R2 note 'each region independently' missed both); ported",
+  "sample": "port-R6-managers"
  },
  "0x004546b0": {
   "class": "IDENTICAL",
@@ -2975,53 +2978,53 @@
   "sample": "port-R3"
  },
  "0x00458390": {
-  "class": "MODIFIED",
+  "class": "REWRITTEN",
   "confidence": "high",
   "change": "piePointModeOnOff(0, NULL)",
-  "note": "[review: M2-R5 hud] call site updated",
-  "sample": "port-R5-hud"
+  "note": "[review: M2-R5 hud] call site updated | [review: M2-R6 managers] re-review (R5 said call site only): pause/tutorial gates, sensors closed and reopened, the clicked-ship rules, the Beast screen file, sounds 0x12f/0x104; ported",
+  "sample": "port-R6-managers"
  },
  "0x004589c0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "new third parameter selects one of four image states per race (disabled/normal/focus) instead of HW1's textured/untextured pair",
-  "note": "",
-  "sample": "MODIFIED/high"
+  "note": "[review: M2-R6 managers] re-review: the third argument (slot present), icon by slot and state, the name line, RSF_ReallyDirty; ported (no glcompat path, decision 28)",
+  "sample": "port-R6-managers"
  },
  "0x00458cb0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
-  "sample": "reread-R2"
+  "note": "same | [review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
  },
  "0x00458cd0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
-  "sample": "reread-R2"
+  "note": "same | [review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
  },
  "0x00458cf0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
-  "sample": "reread-R2"
+  "note": "same | [review: M2-R6 managers] compared: same (the exe's six-row table)",
+  "sample": "port-R6-managers"
  },
  "0x00458e60": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
-  "sample": "reread-R2"
+  "note": "same | [review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
  },
  "0x004598a0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "inlined Load_shipsinprogress (no record of its own): each of the 145 progress entries also fixes up a ship pointer, and static info comes from GetShipStaticInfo(type) instead of ConvertRaceTypeToShipStaticInfo; enum: TOTAL_NUM_SHIPS 145",
-  "note": "SpaceObjRegistryGetShip folded into GetObj (not a delta); cmFillInCarrierXs inlined unchanged; audit reclassification checked by hand",
-  "sample": "audit-R2"
+  "note": "SpaceObjRegistryGetShip folded into GetObj (not a delta); cmFillInCarrierXs inlined unchanged; audit reclassification checked by hand | [review: M2-R6 managers] 0x91 entries and the external ship from its ID (M2-R6 managers); the rest as the R2 note",
+  "sample": "port-R6-managers"
  },
  "0x00460d60": {
   "class": "MODIFIED",
@@ -6573,15 +6576,15 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "a second loop frees the 15 launch-system button textures (R1_Sys{1,2,3}_*.lif)",
-  "note": "M2-R2 startup report; was IDENTICAL/medium",
-  "sample": "port-R3"
+  "note": "M2-R2 startup report; was IDENTICAL/medium | [review: M2-R6 managers] compared: same as the tree (second loop)",
+  "sample": "port-R6-managers"
  },
  "0x0049e1e0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "launch screen gains a Beast launch manager (.fib \"Beast_Launch_Manager\"), module slots (cat_lmFillInModuleSlots), tutorial button hiding and sensors close; HW1's glcFullscreen/ioDisable calls gone",
-  "note": "",
-  "sample": "uniform/MODIFIED"
+  "note": "[review: M2-R6 managers] tutorial gate word 1 bit 0x100, single-player other players, sensors closed and remembered, the passed ship's owner and CatExempt20 tested, two carriers, Sect/Beast screens by race, no ship view/ioDisable/taskbar; ported",
+  "sample": "port-R6-managers"
  },
  "0x0049fc80": {
   "class": "IDENTICAL",
@@ -9736,22 +9739,22 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
-  "sample": "reread-R2"
+  "note": "same | [review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
  },
  "0x004f75f0": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "three cases (1, 3, 4) copy a static tech list up to its -1 terminator with no ShipsNeedTech filter; HW1 has six race/mode cases (SPR1/2, MPR1/2, MPCR1/2) that filter technologies with ShipsNeedTech",
-  "note": "Cataclysm has per-race tech lists instead",
-  "sample": "reread-R2"
+  "note": "Cataclysm has per-race tech lists instead | [review: M2-R6 managers] re-review: copies of the exe's two static lists (0x008913c0 Sect, 0x00891588 Beast); ported",
+  "sample": "port-R6-managers"
  },
  "0x004f7970": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "frees Cataclysm's 15 + 6 research tables (0x00c17ac0/0x00c16800, 0x00c168a0/0x00c17b00)",
-  "note": "M2-R2 startup report; was IDENTICAL/medium",
-  "sample": "port-R3"
+  "note": "M2-R2 startup report; was IDENTICAL/medium | [review: M2-R6 managers] compared: as the tree since R2 (the borrowed pointers gone with rmGUIStartup's hack)",
+  "sample": "port-R6-managers"
  },
  "0x004fd740": {
   "class": "IDENTICAL",
@@ -10338,15 +10341,15 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the background multiplier is per channel (btgSetColourMultiplier(0, ...))",
-  "note": "[review: M2-R5 render] the channel form ported (Sensors.c); the rest of the sensors manager is M2-R6's",
-  "sample": "port-R5-render"
+  "note": "[review: M2-R5 render] the channel form ported (Sensors.c); the rest of the sensors manager is M2-R6's | [review: M2-R6 managers] ported: no scrolling side regions (full-screen viewport), the zoom factor kept (0x00892b74) for the range circles; the BTG dimming is the exe's",
+  "sample": "port-R6-managers"
  },
  "0x0050ba90": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "channel 0 back to 1.0",
-  "note": "[review: M2-R5 render] the channel form ported (Sensors.c); the rest is M2-R6's",
-  "sample": "port-R5-render"
+  "note": "[review: M2-R5 render] the channel form ported (Sensors.c); the rest is M2-R6's | [review: M2-R6 managers] ported: no scroll lists, I/O lock or taskbar flag; the main region's mouse modes cleared; glcompat hook n/a; motion cues CAT-TODO(M2-R6 NIS/camera)",
+  "sample": "port-R6-managers"
  },
  "0x0050bba0": {
   "class": "IDENTICAL",
@@ -10366,8 +10369,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "the overlay's scroll buttons pan (cat_moButton1..4Clicked), the HUD drawn after the render",
-  "note": "[review: M2-R5 hud] the HUD hooks added | [review: M2-R6 mainrgn-popup] the popup menu draw and hover update added",
-  "sample": "port-R5-hud"
+  "note": "[review: M2-R5 hud] the HUD hooks added | [review: M2-R6 mainrgn-popup] the popup menu draw and hover update added | [review: M2-R6 managers] ported: cat_smViewportRenderScene replaces the blob render, the hide flag 0x00a5b228, the band box (cat_mrSelectRectDraw 1), no cursor text or player names",
+  "sample": "port-R6-managers"
  },
  "0x0050c920": {
   "class": "IDENTICAL",
@@ -10380,8 +10383,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "piePointModeOnOff(0, NULL)",
-  "note": "[review: M2-R5 hud] call sites updated",
-  "sample": "port-R5-hud"
+  "note": "[review: M2-R5 hud] call sites updated | [review: M2-R6 managers] ported: a big-gun aim cancelled first, the probe hack a nullsub, the exit sound 0x12e, no taskbar flag",
+  "sample": "port-R6-managers"
  },
  "0x0050da00": {
   "class": "IDENTICAL",
@@ -17098,5 +17101,607 @@
   "change": "",
   "note": "[review: M2-R6 frontend audit] compared with r6: same; the text-card fontPrintN call passes the exe's fourth argument 0 (bAdditive, the push 0x0 at 0x004d5484), which the tree now passes as FALSE",
   "sample": "audit-R6-frontend"
+ },
+ "0x00453de0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: any listed row that is not unbuildable (stat 0 or 4; kind != 0), the viewed type kept unless its row is unbuildable; ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: any listed row that is not unbuildable (stat 0 or 4; kind != 0), the viewed type kept unless its row is unbuildable; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00453f30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the region redraw inlined without cmDirtyShipInfo's list refresh (catCmDirtyRegions); ported",
+  "note": "[review: M2-R6 managers] the region redraw inlined without cmDirtyShipInfo's list refresh (catCmDirtyRegions); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004542f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a disabled ship is no factory in single player; carrier by CLASS_Carrier; regions redrawn for the local player only; the three carrier slots refilled; ported",
+  "note": "[review: M2-R6 managers] a disabled ship is no factory in single player; carrier by CLASS_Carrier; regions redrawn for the local player only; the three carrier slots refilled; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00454480": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same (the carrier slots refilled inline)",
+  "sample": "port-R6-managers"
+ },
+ "0x004546d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a dead carrier's auto-launch bit taken out of the owner's word (cat_lmShipAutoLaunchBit); regions for the local player; slots refilled only when a carrier went; ported",
+  "note": "[review: M2-R6 managers] a dead carrier's auto-launch bit taken out of the owner's word (cat_lmShipAutoLaunchBit); regions for the local player; slots refilled only when a carrier went; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00454940": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the external build (started/attached words, mode-2 progress, slot and docking-bay test, ship created at the job start), Beast factor, single-player divisors, pause, backspace skip, speech ids; ported",
+  "note": "[review: M2-R6 managers] the external build (started/attached words, mode-2 progress, slot and docking-bay test, ship created at the job start), Beast factor, single-player divisors, pause, backspace skip, speech ids; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00455040": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "compared: the 6 icons per race, the arrow slots reset and the 5 support-unit textures are in the tree since R2/R5 (nothing left)",
+  "note": "[review: M2-R6 managers] compared: the 6 icons per race, the arrow slots reset and the 5 support-unit textures are in the tree since R2/R5 (nothing left)",
+  "sample": "port-R6-managers"
+ },
+ "0x004552b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the third font EuroseWideHeavy_i13.hff; ported",
+  "note": "[review: M2-R6 managers] the third font EuroseWideHeavy_i13.hff; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00455320": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
+ },
+ "0x00455410": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "kind-2 rows, rmCanBuildShip's 3rd argument, caps (stat 4), the carrier support module, support units, the factory-off / hyperspace test; ported",
+  "note": "[review: M2-R6 managers] kind-2 rows, rmCanBuildShip's 3rd argument, caps (stat 4), the carrier support module, support units, the factory-off / hyperspace test; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00455680": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "tutorial bit 0x2000000, sounds 0x130/0x100, sensors reopened, no io/taskbar state; ported",
+  "note": "[review: M2-R6 managers] tutorial bit 0x2000000, sounds 0x130/0x100, sensors reopened, no io/taskbar state; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00455920": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
+ },
+ "0x00456430": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: the shown-row test (stat 4 rows pickable); ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: the shown-row test (stat 4 rows pickable); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004565a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "support units, factory-off / hyperspace test, no class caps, the flash, the list refresh; ported",
+  "note": "[review: M2-R6 managers] support units, factory-off / hyperspace test, no class caps, the flash, the list refresh; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00456760": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "0x4001 to the deterministic list, the list refresh, always TRUE; ported",
+  "note": "[review: M2-R6 managers] 0x4001 to the deterministic list, the list refresh, always TRUE; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00456ca0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: the shown-row test, the exe's colours; ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: the shown-row test, the exe's colours; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00456e80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "regSiblingMoveToFront; ported",
+  "note": "[review: M2-R6 managers] regSiblingMoveToFront; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00456ec0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "regSiblingMoveToFront; ported",
+  "note": "[review: M2-R6 managers] regSiblingMoveToFront; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00456f00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: background, left line, stat-4 grey, 12-pixel margin; ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: background, left line, stat-4 grey, 12-pixel margin; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004573d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "stat-4 grey, the exe's bar colours and margins (92/94), x0+7, a 100% bar at clock 0, the first row always counted; ported",
+  "note": "[review: M2-R6 managers] stat-4 grey, the exe's bar colours and margins (92/94), x0+7, a 100% bar at clock 0, the first row always counted; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004578e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
+ },
+ "0x00457a00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: single-player divisors and the player's other factories' running jobs; ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: single-player divisors and the player's other factories' running jobs; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00457d00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: rows of kind != 0 (the kind-2 rows count); ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: rows of kind != 0 (the kind-2 rows count); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00457e50": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the factory race's list, external build only at a mothership-class factory with a free slot, rmCanBuildShip's 3rd argument, kind-2 enable test; ported",
+  "note": "[review: M2-R6 managers] the factory race's list, external build only at a mothership-class factory with a free slot, rmCanBuildShip's 3rd argument, kind-2 enable test; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00457fc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the exe's 9 lists by race and canBuildBigShips; ported (CAT-FIX: a NULL entry)",
+  "note": "[review: M2-R6 managers] the exe's 9 lists by race and canBuildBigShips; ported (CAT-FIX: a NULL entry)",
+  "sample": "port-R6-managers"
+ },
+ "0x00458150": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: the shown slot's factory; ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: the shown slot's factory; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00458180": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the exe's lists, the selection clear loop; ported",
+  "note": "[review: M2-R6 managers] the exe's lists, the selection clear loop; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004586c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: the single-player build-time divisor, the recorder test; ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: the single-player build-time divisor, the recorder test; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00458bf0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the x-th of the player's carriers, the region callbacks for slots 1/2, catCmFactoryShip; ported",
+  "note": "[review: M2-R6 managers] the x-th of the player's carriers, the region callbacks for slots 1/2, catCmFactoryShip; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00458d40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: virtual-key range test, the row test, a range key that builds nothing is taken; ported (CAT-FIX: the 0x91-row walk past the list's end)",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: virtual-key range test, the row test, a range key that builds nothing is taken; ported (CAT-FIX: the 0x91-row walk past the list's end)",
+  "sample": "port-R6-managers"
+ },
+ "0x00458e70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: the static by type, single-player divisors, the factory entry's external words, type < 0x3c and race; ported (CAT-FIX: two leaks, a NULL entry)",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: the static by type, single-player divisors, the factory entry's external words, type < 0x3c and race; ported (CAT-FIX: two leaks, a NULL entry)",
+  "sample": "port-R6-managers"
+ },
+ "0x00459040": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the whole cost refunded, the external ship deleted (mode 1); ported (CAT-FIX: NULL entry)",
+  "note": "[review: M2-R6 managers] the whole cost refunded, the external ship deleted (mode 1); ported (CAT-FIX: NULL entry)",
+  "sample": "port-R6-managers"
+ },
+ "0x00459170": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
+ },
+ "0x004592a0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the external build (slot wait, ship created, attach wait, mode-2/0 updates, cat_cmBuildJobFinished), Beast factor; ported (CAT-FIX: NULL entry)",
+  "note": "[review: M2-R6 managers] the external build (slot wait, ship created, attach wait, mode-2/0 updates, cat_cmBuildJobFinished), Beast factor; ported (CAT-FIX: NULL entry)",
+  "sample": "port-R6-managers"
+ },
+ "0x00459780": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: 0x91 entries and the external ship by ID; ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: 0x91 entries and the external ship by ID; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00459ee0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same (its callback 0x00459e50 also saves the external ship by ID: ported)",
+  "sample": "port-R6-managers"
+ },
+ "0x00459f10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same (its callback 0x00459ea0 restores the external ship: ported)",
+  "sample": "port-R6-managers"
+ },
+ "0x004f4bd0": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the selected lab cleared (0x00891ec0 = -1) and nothing else; ported",
+  "note": "[review: M2-R6 managers] the selected lab cleared (0x00891ec0 = -1) and nothing else; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004f4c50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the row's own lab (catLab), status 1 (or 0 in a tutorial), clWrapResearch type 0, speech 0x4001031, tutorial bit 0x800; ported",
+  "note": "[review: M2-R6 managers] the row's own lab (catLab), status 1 (or 0 in a tutorial), clWrapResearch type 0, speech 0x4001031, tutorial bit 0x800; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004f4e30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the shared close (render counter, tutorial bit 0x2000, sounds 0x130/0x100, regions, sensors reopened); ported",
+  "note": "[review: M2-R6 managers] the shared close (render counter, tutorial bit 0x2000, sounds 0x130/0x100, regions, sensors reopened); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004f5100": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the module icons by lab (off/on), the empty-slot box, the progress bar with the exe's chop rounding and the pulse line; ported (no glcompat path)",
+  "note": "[review: M2-R6 managers] the module icons by lab (off/on), the empty-slot box, the progress bar with the exe's chop rounding and the pulse line; ported (no glcompat path)",
+  "sample": "port-R6-managers"
+ },
+ "0x004f5b90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: the exe's region slot 0x00a57720 and its select handler 0x004f55f0 (the module shown, the list row picked); ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: the exe's region slot 0x00a57720 and its select handler 0x004f55f0 (the module shown, the list row picked); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004f5bd0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: as rmLab2Draw (0x00a57724, handler 0x004f5730); ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: as rmLab2Draw (0x00a57724, handler 0x004f5730); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004f5c10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: as rmLab2Draw (0x00a57728, handler 0x004f5870); ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: as rmLab2Draw (0x00a57728, handler 0x004f5870); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004f5c50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: as rmLab2Draw (0x00a5772c, handler 0x004f59b0); ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: as rmLab2Draw (0x00a5772c, handler 0x004f59b0); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004f5e70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "tech sets (cat_rmTechSetAnd / cat_rmTechSetEqual), the race's types, only for race 2 and not 0x4e (the exe's tests); ported",
+  "note": "[review: M2-R6 managers] tech sets (cat_rmTechSetAnd / cat_rmTechSetEqual), the race's types, only for race 2 and not 0x4e (the exe's tests); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004f60b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no title, the start y, R1/R2 info by race, module infos for 0x29+; ported",
+  "note": "[review: M2-R6 managers] no title, the start y, R1/R2 info by race, module infos for 0x29+; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004f6380": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the module pictures (cat_ModuleTypeToString), the race path, the title over the picture; ported (no glcompat path)",
+  "note": "[review: M2-R6 managers] the module pictures (cat_ModuleTypeToString), the race path, the title over the picture; ported (no glcompat path)",
+  "sample": "port-R6-managers"
+ },
+ "0x004f6ae0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "kind 2/3 rows selectable, the lab follows the selection, tutorial messages; the item draw 0x004f6810 (no Ghidra function) ported as rmDrawTechListItem",
+  "note": "[review: M2-R6 managers] kind 2/3 rows selectable, the lab follows the selection, tutorial messages; the item draw 0x004f6810 (no Ghidra function) ported as rmDrawTechListItem",
+  "sample": "port-R6-managers"
+ },
+ "0x004f6d30": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the exe's tech-set states (held, researching, tutorial / mission allowance 0x00ba4680, multiplayer requirements and the crystals option (technology 0x22 TECH_CRYSTAL_HARVEST) [audit: M2-R6 managers: said the infection option]), the end-row count; ported",
+  "note": "[review: M2-R6 managers] the exe's tech-set states (held, researching, tutorial / mission allowance 0x00ba4680, multiplayer requirements and the crystals option (technology 0x22 TECH_CRYSTAL_HARVEST) [audit: M2-R6 managers: said the infection option]), the end-row count; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004f7140": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "gates, the Beast screen, the race list, the lab buttons, sounds 0x12f/0x106, the default picture; ported",
+  "note": "[review: M2-R6 managers] gates, the Beast screen, the race list, the lab buttons, sounds 0x12f/0x106, the default picture; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x004f76f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "re-review: the LRU slots at -2, the 15 lab icons and 6 Beast frames (R2), the third font; the borrowed HW1 lab image hack removed",
+  "note": "[review: M2-R6 managers] re-review: the LRU slots at -2, the 15 lab icons and 6 Beast frames (R2), the third font; the borrowed HW1 lab image hack removed",
+  "sample": "port-R6-managers"
+ },
+ "0x0052dc70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared (calls, constants, branches): same",
+  "sample": "port-R6-managers"
+ },
+ "0x0052ded0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
+ },
+ "0x0052dff0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared (calls, constants, branches): same",
+  "sample": "port-R6-managers"
+ },
+ "0x0052e420": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same (tmReset inlined)",
+  "sample": "port-R6-managers"
+ },
+ "0x0052e620": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the race path for race 0 / 1 only (CAT-FIX: no path for another race); the rest as HW1",
+  "note": "[review: M2-R6 managers] the race path for race 0 / 1 only (CAT-FIX: no path for another race); the rest as HW1",
+  "sample": "port-R6-managers"
+ },
+ "0x0052e9a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
+ },
+ "0x0052eb00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
+ },
+ "0x0052eb70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same (the keys are the exe's virtual-key bytes)",
+  "sample": "port-R6-managers"
+ },
+ "0x0052ec50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared (calls and branches): same",
+  "sample": "port-R6-managers"
+ },
+ "0x0052eec0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same (100/200/200 bytes, the dialogs, tmTradeDisabled)",
+  "sample": "port-R6-managers"
+ },
+ "0x0052ef20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
+ },
+ "0x0049d080": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same for carriers 1-2 (two-entry bit/shift tables 0x008835f4/0x008835fc; C3 would index past them, no atom on either screen: CAT-FIX guard)",
+  "sample": "port-R6-managers"
+ },
+ "0x0049d300": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "tutorial gate bit 0x100000 of word 2; the close inlined (factory-name region, sounds 0x130/0x100, svClose, sensors reopened 0x00a5b230 + camera copy, tutorial buttons); ported",
+  "note": "[review: M2-R6 managers] tutorial gate bit 0x100000 of word 2; the close inlined (factory-name region, sounds 0x130/0x100, svClose, sensors reopened 0x00a5b230 + camera copy, tutorial buttons); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x0049d4b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no new-item branch (no ship view); class headers also for CLASS_Resource / CLASS_Micro; walk starts on the -1 sentinel (CAT-FIX); ported",
+  "note": "[review: M2-R6 managers] no new-item branch (no ship view); class headers also for CLASS_Resource / CLASS_Micro; walk starts on the -1 sentinel (CAT-FIX); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x0049d980": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "third argument (slot present): image base 0/3 + disabled/off/on, focus window, the line to the factory name, status bit 0x1; ported",
+  "note": "[review: M2-R6 managers] third argument (slot present): image base 0/3 + disabled/off/on, focus window, the line to the factory name, status bit 0x1; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x0049dbb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the named factory ship 0x00c367e4, image with present flag; ported",
+  "note": "[review: M2-R6 managers] the named factory ship 0x00c367e4, image with present flag; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x0049dd60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "compared: the six icon names and the 15 R1_Sys textures (second loop) as in the tree",
+  "note": "[review: M2-R6 managers] compared: the six icon names and the 15 R1_Sys textures (second loop) as in the tree",
+  "sample": "port-R6-managers"
+ },
+ "0x0049dfb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the factory name font EuroseWideHeavy_i13.hff, the \"dont_draw\" draw callback (cat_lmBackgroundDraw 0x0049df90); ported",
+  "note": "[review: M2-R6 managers] the factory name font EuroseWideHeavy_i13.hff, the \"dont_draw\" draw callback (cat_lmBackgroundDraw 0x0049df90); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x0049e040": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
+ },
+ "0x0049e070": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: class headers also for CLASS_Resource / CLASS_Micro (sentinel walk CAT-FIX); ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: class headers also for CLASS_Resource / CLASS_Micro (sentinel walk CAT-FIX); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x0049e520": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: class headers also for CLASS_Resource / CLASS_Micro; ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: class headers also for CLASS_Resource / CLASS_Micro; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x0049e690": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "two carrier slots, close with the tutorial gate, no ship view, the two boxes; CAT-FIX for an empty first slot; ported",
+  "note": "[review: M2-R6 managers] two carrier slots, close with the tutorial gate, no ship view, the two boxes; CAT-FIX for an empty first slot; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x005094b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same (the ring, radial ticks, spokes and graduations as HW1's)",
+  "sample": "port-R6-managers"
+ },
+ "0x005097a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the depth test saved and restored through cat_rndDepthTestEnable; the rest same; ported",
+  "note": "[review: M2-R6 managers] the depth test saved and restored through cat_rndDepthTestEnable; the rest same; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x00509b50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same (also inlined in cat_smViewportRenderScene)",
+  "sample": "port-R6-managers"
+ },
+ "0x0050c580": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: the exit sound 0x12e and the tutorial word bit 0x8000000; ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: the exit sound 0x12e and the tutorial word bit 0x8000000; ported",
+  "sample": "port-R6-managers"
+ },
+ "0x0050cc60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "edited IDENTICAL: close-captioned text fades out alone (subRegion[2] enabled with a card); ported",
+  "note": "[review: M2-R6 managers] edited IDENTICAL: close-captioned text fades out alone (subRegion[2] enabled with a card); ported",
+  "sample": "port-R6-managers"
+ },
+ "0x0050ccc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: no SM_* button callbacks (the screen has only SM_ViewPort), no hold functions",
+  "note": "[review: M2-R6 managers] ported: no SM_* button callbacks (the screen has only SM_ViewPort), no hold functions",
+  "sample": "port-R6-managers"
+ },
+ "0x0050cd50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
+ },
+ "0x0050cdb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: the KAS force-open flag, the full-screen viewport, the exe's region callback 0x0050c7e0 and key children, the reopen from a closing manager (0x00a5b230 + the saved camera 0x00c0a7e0), sound 0x12d",
+  "note": "[review: M2-R6 managers] ported: the KAS force-open flag, the full-screen viewport, the exe's region callback 0x0050c7e0 and key children, the reopen from a closing manager (0x00a5b230 + the saved camera 0x00c0a7e0), sound 0x12d",
+  "sample": "port-R6-managers"
+ },
+ "0x0050d180": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
+ },
+ "0x0050d200": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same",
+  "sample": "port-R6-managers"
+ },
+ "0x0050d290": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 managers] compared: same (smUpdateParameters inlined)",
+  "sample": "port-R6-managers"
+ },
+ "0x00496bc0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the force-open flag 0x00a5b22c around smSensorsBegin wired (M2-R6 managers); the rest of the body not compared here",
+  "note": "[review: M2-R6 managers] the force-open flag 0x00a5b22c around smSensorsBegin wired (M2-R6 managers); the rest of the body not compared here",
+  "sample": "port-R6-managers"
  }
 }

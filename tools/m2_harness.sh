@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -31,8 +31,10 @@
 #                    dock: /catDockTest <ticks> (M2-R5 layout-dock, docs/m2-r5-layout-dock.md): the headless Mission01
 #                    run of the mission mode with the scripted dock self-test (Dock.c catDockSelfTestTick): at tick 16 the
 #                    player's acolytes, recons and ACVs dock for support (purpose 0), a Worker deposits a scripted hold
-#                    (purpose 3), another harvests; once every fighter is inside its host (at the latest at 80% of the
-#                    ticks) they are checked and launched (purpose 2); at the end they are checked outside; "docktest:"
+#                    (purpose 3), another harvests; M2-R6 managers: two more acolytes dock at an sCarrier (the carrier
+#                    leg), a fourth Worker deposits at the sProcessor (the processor leg), and the ACVs are judged; once
+#                    every fighter and ACV is inside its host (at the latest at 80% of the ticks) they are checked and
+#                    launched (purpose 2); at the end they are checked outside; "docktest:"
 #                    log lines, "docktest: done
 #                    ... result=PASS|FAIL"; quits after <ticks> ticks (needs --timeout of several minutes under ASan)
 #                    command: /catCommandTest <ticks> (M2-R5 command-tactics, docs/m2-r5-command-tactics.md): the
@@ -55,7 +57,9 @@
 #                    mode with the HUD on: at tick 16 the camera focuses the player's ships, at tick 64 they are
 #                    band-boxed over the whole screen through the selection API, the ship info panel goes on, a message
 #                    refers to the first ship and the movement pie plate goes on; every frame then draws the status
-#                    bars, the info panel, the main overlay and the pie plate offscreen; at the end "hudtest: counts"
+#                    bars, the info panel, the main overlay and the pie plate offscreen; M2-R6 managers: the last 120
+#                    frames are the sensors manager's (instant transition, the selection as hot-key group 1), drawn
+#                    through the Cataclysm scene (cat_sm*: "hudtest: sensors" counts); at the end "hudtest: counts"
 #                    lines and "hudtest: done ... result=PASS|FAIL"; quits after <frames> ticks (one tick a frame)
 #                    ui: /catUiTest <ticks> (M2-R6 mainrgn-popup, docs/m2-r6-mainrgn-popup.md): the headless Mission01
 #                    run of the mission mode: at tick 16 the player's fleet is selected through the selection API, at
@@ -96,6 +100,16 @@
 #                    typed through its key handler (Enter, TAB, history, backspace, Escape; no OS input), then the tilde
 #                    key scrolls it out; "consoletest:" log lines, "consoletest: done ... result=PASS|FAIL"; quits;
 #                    <ticks> is only the mission run's limit (default 400)
+#                    build: /catBuildTest <ticks> /oracleDump <run>/run.hwo (M2-R6 managers, docs/m2-r6-managers.md): the
+#                    headless Mission01 run of the mission mode, writing the oracle stream: at tick 16 the local player
+#                    gets a scripted sMothership (its factory) and 30,000 RUs, and three jobs are queued at it as the
+#                    construction screen's build button does: the docking bay module (if it has none) and an sDestroyer,
+#                    both built externally (the ship appears at health 0, clamped to the mothership, and is brought to
+#                    full health by the construction manager), and an sAcolyte built inside; the checks run every tick;
+#                    once every job is done the construction, research and launch screens open and draw 8 frames each
+#                    (the research list must show the held technology, the launch list the docked acolyte, which Launch
+#                    One then launches); "buildtest:" log lines, "buildtest: done ... result=PASS|FAIL" after the
+#                    screens; quits after <ticks> ticks (two runs must give byte-identical run.hwo streams)
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
 #   --mission-ticks N mission mode: universe ticks to run (default 3000)
 #   --dock-ticks N   dock mode: universe ticks to run (default 5000; about 30 s under ASan on the virtual clock)
@@ -104,6 +118,7 @@
 #   --hud-frames N   hud mode: frames (= universe ticks) to run (default 600)
 #   --ui-ticks N     ui mode: the mission run's tick limit (default 400; the test quits by itself at tick 48 + 8 frames)
 #   --console-ticks N console mode: the mission run's tick limit (default 400; the test quits once the console is gone)
+#   --build-ticks N  build mode: universe ticks to run (default 7000; the jobs end near tick 5,000)
 #   --etg-ticks N    etg mode: ticks of the effect self-test (default 128; 0 = parse test only)
 #   --perturb T      oracle or mission mode: one extra gamerand() before tick T (/oracleSelfTestPerturb; tests the compare tool)
 #   --hwo            any other mode: also write the oracle stream to <run>/run.hwo (/oracleDump)
@@ -175,7 +190,7 @@ label=${1:?usage: m2_harness.sh <label> [--mode sp|fe] [--timeout N] [--driver D
 shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
 oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600; uticks=400
-conticks=400
+conticks=400; bticks=7000
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -191,6 +206,7 @@ while [[ $# -gt 0 ]]; do
 		--hud-frames) hframes=$2; shift ;;
 		--ui-ticks) uticks=$2; shift ;;
 		--console-ticks) conticks=$2; shift ;;
+		--build-ticks) bticks=$2; shift ;;
 		--etg-ticks) etgticks=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
@@ -234,6 +250,8 @@ elif [[ "$mode" == ui ]]; then
 	args+=(/catUiTest "$uticks")
 elif [[ "$mode" == console ]]; then
 	args+=(/catConsoleTest "$conticks")
+elif [[ "$mode" == build ]]; then
+	args+=(/catBuildTest "$bticks" /oracleDump "$out/run.hwo")
 elif [[ $hwo -eq 1 ]]; then
 	args+=(/oracleDump "$out/run.hwo")
 fi
@@ -334,6 +352,7 @@ grep -q "fescreentest: done" "$L" && milestone="fescreens self-test done"
 grep -q "stringstest: done" "$L" && milestone="strings self-test done"
 grep -q "keystest: done" "$L" && milestone="keys self-test done"
 grep -q "consoletest: done" "$L" && milestone="console self-test done"
+grep -q "buildtest: done" "$L" && milestone="build self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately (the misaligned-access reports on the packed front-end structs, GoK 64-bit artefacts
@@ -370,12 +389,13 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == dock ]] && echo "docktest: $(grep -h 'docktest: orders\|docktest: clDock\|docktest: A inside\|docktest: done' "$L" | sed 's/^.*docktest: //' | paste -sd';'); FAIL lines: $(grep -c 'docktest: FAIL' "$L")"
 	[[ "$mode" == command ]] && echo "commandtest: $(grep -h 'commandtest: link ordered\|commandtest: point ordered\|commandtest: link done\|commandtest: unlink done\|commandtest: done' "$L" | sed 's/^.*commandtest: //' | paste -sd';'); FAIL lines: $(grep -c 'commandtest: FAIL' "$L")"
 	[[ "$mode" == render ]] && echo "rendertest: $(grep -h 'rendertest: counts\|rendertest: done' "$L" | sed 's/^.*rendertest: //' | paste -sd';')"
-	[[ "$mode" == hud ]] && echo "hudtest: $(grep -h 'hudtest: selected\|hudtest: counts\|hudtest: done' "$L" | sed 's/^.*hudtest: //' | paste -sd';')"
+	[[ "$mode" == hud ]] && echo "hudtest: $(grep -h 'hudtest: selected\|hudtest: counts\|hudtest: sensors\|hudtest: done' "$L" | sed 's/^.*hudtest: //' | paste -sd';')"
 	[[ "$mode" == ui ]] && echo "uitest: $(grep -h 'uitest: ' "$L" | sed 's/^.*uitest: //' | paste -sd';')"
 	[[ "$mode" == fescreens ]] && echo "fescreentest: $(grep -c . "$out/fescreens.list" 2>/dev/null) files listed; $(grep -h 'fescreentest: start\|fescreentest: done' "$L" | sed 's/^.*fescreentest: //' | paste -sd';'); FAIL lines: $(grep -c 'fescreentest: FAIL' "$L")"
 	[[ "$mode" == fescreens ]] && echo "optionstest: $(grep -h 'optionstest: ' "$L" | sed 's/^.*optionstest: //' | paste -sd';')"
 	[[ "$mode" == strings ]] && echo "stringstest: $(grep -h 'stringstest: ' "$L" | grep -v 'stringstest: FAIL' | sed 's/^.*stringstest: //' | paste -sd';'); FAIL lines: $(grep -c 'stringstest: FAIL' "$L")"
 	[[ "$mode" == console ]] && echo "consoletest: $(grep -h 'consoletest: ' "$L" | grep -v 'consoletest: FAIL' | sed 's/^.*consoletest: //' | paste -sd';'); FAIL lines: $(grep -c 'consoletest: FAIL' "$L")"
+	[[ "$mode" == build ]] && echo "buildtest: $(grep -h 'buildtest: orders\|buildtest: queued\|buildtest: appeared\|buildtest: attached\|buildtest: finished\|buildtest: job\|buildtest: done' "$L" | sed 's/^.*buildtest: //' | paste -sd';'); FAIL lines: $(grep -c 'buildtest: FAIL' "$L")"
 	[[ "$mode" == keys ]] && echo "keystest: $(grep -h 'keystest: ' "$L" | grep -v 'keystest: FAIL' | sed 's/^.*keystest: //' | paste -sd';'); FAIL lines: $(grep -c 'keystest: FAIL' "$L")"
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"

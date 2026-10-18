@@ -394,6 +394,14 @@ bool32 CatDockTestSet(char *string)
     return TRUE;
 }
 
+// HWI-TEST: port diagnostic: /catBuildTest <ticks> (ConsMgr.c catBuildSelfTestTick: the construction manager builds an
+//      externally built and an internal ship on the headless Mission01 run, M2-R6 managers)
+bool32 CatBuildTestSet(char *string)
+{
+    catBuildSelfTestSet(string);
+    return TRUE;
+}
+
 // CAT: port diagnostic: /catCommandTest <ticks> (CommandLayer.c catCommandSelfTestTick: the scripted command self-test
 //      on the headless Mission01 run, M2-R5 command-tactics)
 bool32 CatCommandTestSet(char *string)
@@ -1040,6 +1048,7 @@ commandoption commandOptions[] =
     entryFnParam("/catEtgParseTest",    CatEtgParseTestSet, " <listfile> - start the effects module and load every etg script and effect named in listfile, then exit."),
     entryFnParam("/catEtgEffectTest",   CatEtgEffectTestSet, " <ticks> - with /catEtgParseTest: create a sample of the effects and run them for <ticks> universe ticks."),
     entryFnParam("/catDockTest",        CatDockTestSet, " <ticks> - headless Mission01 run: dock, deposit, harvest and launch orders with no input, exit after <ticks> ticks."),
+    entryFnParam("/catBuildTest",       CatBuildTestSet, " <ticks> - headless Mission01 run: the construction manager builds a docking bay module, a destroyer (both built externally) and an acolyte at a scripted mothership with no input, logs buildtest lines, exit after <ticks> ticks."),
     entryFnParam("/catCommandTest",     CatCommandTestSet, " <ticks> - headless Mission01 run: link, unlink, mimic, research, point orders and force-field formations with no input, exit after <ticks> ticks."),
     entryFnParam("/catHudTest",         CatHudTestSet, " <frames> - headless Mission01 run with the player's ships selected through the selection API: status bars, ship info panel, main overlay and pie plate drawn offscreen, logs the HUD counts, exit after <frames> ticks."),
     // CAT: port diagnostics, not Cataclysm options (FEFlow.c catFeScreensRunSelfTest, StringSupport.c

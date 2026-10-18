@@ -3347,8 +3347,8 @@ real32 cat_shipGetUpgradeTime(Ship *ship)                           // 0x0051454
     return (cat_upgradeFlagsBaseTime(cat_shipGetPendingUpgradeFlags(ship)) + time) * ship->staticinfo->upgradeTimeModifier;
 }
 
-// the technologies the SHIP's upgrade state stands for (cat_rmAcquireShipTechs 0x004f2820 gives them to a Processor's
-// owner, M2-R6 research): the technology of every upgrade bit it carries (cat_upgradeFlagTechTable, bit or extra), of
+// the technologies the SHIP's upgrade state stands for (cat_rmAcquireShipTechs 0x004f4870 gives them to its
+// owner, ResearchGUI.c since M2-R6 managers): the technology of every upgrade bit it carries (cat_upgradeFlagTechTable, bit or extra), of
 // every weapon type one of its guns is on (cat_weaponUpgradeTechTable) and of every armour level up to its own
 // (cat_armourUpgradeTechTable, TECH_NONE skipped). techs is a CatTechSet.
 void cat_shipGetUpgradeTechs(Ship *ship, sdword *techs)             // 0x00514620

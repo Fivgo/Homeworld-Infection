@@ -39,7 +39,13 @@
 
 #define ITEM_ENDLIST        -1
 #define ITEM_CLASSHEADER    0
-#define ITEM_TECHNOLOGY     1
+#define ITEM_TECHNOLOGY     1   // CAT: a row that is never listed (rmUpdateTechList 0x004f6d30 sets it STAT_CANTRESEARCH);
+                                //      a Beast player's row becomes CAT_ITEM_TECH2 / 3 once a ship brings its technology
+                                //      (cat_rmAcquireShipTechs 0x004f4870)
+// CAT (M2-R6 managers): the listed technology rows of the exe's research lists are kinds 2 and 3 (rmUpdateTechList,
+//      rmTechListWindow 0x004f6ae0; its item draw 0x004f6810 has no Ghidra function). Names chosen here
+#define CAT_ITEM_TECH2      2
+#define CAT_ITEM_TECH3      3
 
 #define STAT_CANRESEARCH    0
 #define STAT_CANTRESEARCH   1
@@ -65,7 +71,7 @@
 #define RM_MarqueeOffColor        colRGB(100, 100, 0)
 
 // CAT: three research tables (rmAPIStartup 0x004f3c00 calls rmSetPrintList(1, SP Sect), (3, MP Sect), (4, Beast));
-//      the HW1 ids 2, 5, 6 have no table. CAT-TODO(stage 3): rmSetPrintList's bodies are HW1's.
+//      the HW1 ids 2, 5, 6 have no table (M2-R6 managers: rmSetPrintList 0x004f75f0 copies the exe's two static lists)
 #define RM_SPRS                   1
 #define RM_SPR1                   RM_SPRS
 #define RM_SPR2                   2
@@ -80,13 +86,23 @@
     Type definitions:
 =============================================================================*/
 
+// CAT (M2-R6 managers): 12 bytes in Cataclysm (rmSetPrintList 0x004f75f0 copies 3 dwords a row): the fourth word is the
+//      lab of a Sect row (rmUpdateTechList reads the lab's state at Player +0x2EC + lab * 8 + 0x74)
 typedef struct
 {
     sword  itemtype;
     sword  itemstat;
     sdword itemID;
+    sdword catLab;
 }
 TechPrintList;
+_Static_assert(sizeof(TechPrintList) == 12, "a research list row is 12 bytes in cataclysm.exe (rmSetPrintList 0x004f75f0)");
+
+// CAT (M2-R6 managers): the research lists (ResearchGUI.c) and their users
+#define CAT_RM_TECHLIST_MAX     192     // the exe's lists 0x00c168c0 / 0x00c17b20 / 0x00c18420 are 0x900 bytes apart
+extern TechPrintList *PlayerTechList;   // 0x00c17aa8
+void cat_rmSelectTechPrintList(void);                       // 0x004f7a40
+ShipType cat_rmBeastPrintIndexToShipType(sdword index);     // 0x004f4790
 
 typedef struct
 {
@@ -122,6 +138,12 @@ LRUPicture;
 
 extern bool32 rmGUIActive;
 
+// HWI-TEST (M2-R6 managers): the build self-test's view of the research screen (ConsMgr.c catBuildSelfTestScreens)
+extern regionhandle rmBaseRegion;
+extern regionhandle rmLabRegion[NUM_RESEARCHLABS];
+extern regionhandle catRmModuleNameRegion;
+extern struct uiclistwindow *rmTechListWindowHandle;
+
 // LRU defines, so that the trade manager can reuse the same LRU cache
 #define RM_TOTALPICS            6
 
@@ -135,7 +157,7 @@ extern LRUPicture pictures[RM_TOTALPICS];
 // function called if something changes in the list stuff
 void rmUpdateTechList(void);
 void rmClearAllLabs(char *string, featom *atom);   // CAT: rmUpdateResearch 0x004f2a20 clears every lab of the GUI
-void rmClearLab(sdword labindex); // Turn off lab selected
+// CAT (M2-R6 managers): HW1's rmClearLab is gone (the exe's RM_ClearLab stops the selected lab's research)
 
 //start the Research Manager.  It will kill itself when you hit the launch button.
 void   rmSetPrintList(udword whichlist, TechStatics *techstat);

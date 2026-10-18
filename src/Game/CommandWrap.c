@@ -305,9 +305,9 @@ void clWrapDeterministicBuild(udword command,
     }
 }
 
-void clWrapCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator)
+Ship *clWrapCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator)
 {
-    if (playPackets) return;
+    if (playPackets) return NULL;   // CAT: the exe returns the flag's value here (0x00452f96); every caller returns first
 
     if (!universe.aiplayerProcessing)
     {
@@ -318,13 +318,13 @@ void clWrapCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace
 
     if ((!multiPlayerGame) && (!recordFakeSendPackets))
     {
-        clCreateShip(comlayer,shipType,shipRace,playerIndex,creator);
+        return clCreateShip(comlayer,shipType,shipRace,playerIndex,creator);
     }
     else
     {
         clSendCreateShip(comlayer,shipType,shipRace,playerIndex,creator);
     }
-
+    return NULL;
 }
 
 void clWrapBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator)

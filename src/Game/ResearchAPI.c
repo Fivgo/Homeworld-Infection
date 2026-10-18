@@ -58,6 +58,8 @@ static const sdword cat_techLabType[NumTechnologies] =
      2,  3,  4,  4,  4,  4,  4,  4,  0,  2,  2,  4,  3,  1,  1,  1,
     -1,  3,  3,  2,  3,  3,  3, -1, -1
 };
+void cat_rsMPRBShipDependSetCB(char *directory, char *field, void *dataToFillIn);   // CAT: 0x004f4430 (below)
+
 
 // CAT: the script table at 0x0088fb98 (128 rows, read from cataclysm.exe). The Beast table has no
 //      MPRBTECH_RESEARCH_CLEESAN_ATTACK row.
@@ -151,8 +153,9 @@ scriptEntry TechnologyDependancies[] =
     makeMPRSTechEntry(TECH_BIOWARHEAD),
     makeMPRSTechEntry(TECH_DRIVE_CORVETTE),
 
-    // CAT: the Beast ship rows go through cat_rsMPRBShipDependSetCB 0x004f4430, whose body is cat_rsShipDependSetCB's
-    { "MPRBShipDepend", cat_rsShipDependSetCB, &cat_BeastTechStatic.TechNeededToBuildShip[0]},
+    // CAT: the Beast ship rows go through cat_rsMPRBShipDependSetCB 0x004f4430 (the script table at 0x0088ffa4), whose
+    //      body is cat_rsShipDependSetCB's (M2-R6 managers: its own function)
+    { "MPRBShipDepend", cat_rsMPRBShipDependSetCB, &cat_BeastTechStatic.TechNeededToBuildShip[0]},
     { "MPRBTechDepend", cat_rsTechDependSetCB, &cat_BeastTechStatic.TechNeededToResearch[0]},
     makeMPRBTechEntry(TECH_CLOAKING),
     makeMPRBTechEntry(TECH_TARGETING_SYSTEMS),
@@ -1580,6 +1583,17 @@ static void cat_rsDependSetCB(char *field, void *dataToFillIn, bool32 shipRow)
 }
 
 void cat_rsShipDependSetCB(char *directory, char *field, void *dataToFillIn)
+{
+    (void)directory;
+    cat_rsDependSetCB(field, dataToFillIn, TRUE);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rsMPRBShipDependSetCB
+    Description : CAT: new (0x004f4430): the multiplayer Beast table's ship rows ("MPRBShipDepend"); the exe's body is
+                  cat_rsShipDependSetCB's, a separate copy
+----------------------------------------------------------------------------*/
+void cat_rsMPRBShipDependSetCB(char *directory, char *field, void *dataToFillIn)
 {
     (void)directory;
     cat_rsDependSetCB(field, dataToFillIn, TRUE);

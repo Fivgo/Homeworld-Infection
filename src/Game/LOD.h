@@ -133,6 +133,7 @@ extern real32 lodDebugScaleFactor;
 lodinfo *lodTableReadScript(char *directory, char *fileName);
 
 lod *lodLevelGet(void *spaceObj, vector *camera, vector *ship);
+lod *cat_lodLevelGetMimic(void *spaceObj, vector *camera, vector *ship);    //CAT: 0x004a4b20 (M2-R6 managers)
 //CAT: the exe's lodLevelGet returns the level's render time; here lodLevelGet keeps HW1's return and the time is
 //     cat_lodLevelTime's (the tail of lodLevelGet 0x004a4d70)
 udword cat_lodLevelTime(lod *level);

@@ -36,6 +36,10 @@
 #define CAT_ATTRIBUTES_DockBaysClosed       0x0400
 #define CAT_ATTRIBUTES_DockWithEnemies      0x00040000
 #define ATTRIBUTES_Regrow                   0x0800
+// CAT (M2-R6 managers): attribute dword bit 0x80000 stops a factory from building anything but modules
+//      (cmUpdateShipAvailable 0x00455410, cmIncrement 0x004565a0 test SpaceObj +0x38 & 0x80000; KAS writes the dword,
+//      kasfShipsAttributesSet 0x004933d0). Name chosen here
+#define CAT_ATTRIBUTES_FactoryOff           0x00080000
 
 #define ATTRIBUTES_SMColor1                 0x1000      // 0 indicates no change, 1 indicates invisible, 2 indicates yellow, 3 indicates green
 #define ATTRIBUTES_SMColor2                 0x2000

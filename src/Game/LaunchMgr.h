@@ -28,10 +28,9 @@
 #define LM_ShipSelectedTextColor    colRGB(255, 255, 105)
 #define LM_Ship2ListTextColor        colRGB(  0, 100, 140)
 #define LM_Ship2SelectedTextColor    colRGB(255, 220, 105)
-#define LM_UsedColor                colRGB(200,  50,  50);
-#define LM_AvailableColor           colRGB(50,  200,  50);
+#define LM_UsedColor                colRGB(200,  50,  50)
+#define LM_AvailableColor           colRGB(50,  200,  50)
 
-#define LM_DefaultFont          "default.hff"
 #define LM_ShipListFont         "HW_EuroseCond_11.hff"
 #define LM_FontNameLength       64
 
@@ -63,11 +62,21 @@ void cat_lmFillInModuleSlots(void);                 // CAT: 0x0049e9f0 (M2-R4 sh
 sdword lmLaunchBegin(regionhandle region, smemsize ID, udword event, udword data);
 void   lmUpdateShipsInside(void);
 bool32 cat_lmShipAutoLaunchOn(Ship *host);       // CAT: 0x0049fb00 (M2-R5 dock)
+sdword cat_lmShipAutoLaunchBit(Ship *host);      // CAT: 0x0049fa60 (M2-R6 managers)
 void   lmStartup(void);
 void   lmShutdown(void);
 void   lmCloseIfOpen(void);
 void   lmFreeTextures(void);
 void   lmLoadTextures(void);
 void   lmLaunchCapableShipDied (Ship *ship);
+void   cat_lmBeastSystemsOff(Ship *mothership);   // CAT: 0x0049fc30 (M2-R6 managers)
+
+// HWI-TEST (M2-R6 managers): the build self-test's view of the launch screen (ConsMgr.c catBuildSelfTestScreens)
+extern regionhandle lmBaseRegion;
+extern bool32 lmShipInList[];
+extern struct uiclistwindow *lmListWindow;
+bool32 catLmSelfTestDrawn(void);
+char  *catLmSelfTestState(void);
+void   catLmSelfTestLaunchOne(void);
 
 #endif

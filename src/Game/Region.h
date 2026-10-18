@@ -112,7 +112,7 @@
 //generic definitions
 #define REG_NumberKeys              4           //max number of keys in validation sequence
 #define REG_ValidationKey           0xf1ab4a55
-#define REG_RenderEventsDefault     512         //default number of loggable render events
+#define REG_RenderEventsDefault     1024        //default number of loggable render events (CAT: 0x400, .data 0x0088f484; HW1 512: the sensors viewport's 256 key children, M2-R6 managers)
 #define REG_TaskFrequency           16          //process regions every update frame
 #define REG_TaskFrequencyOPF        1           //process regions every rendering frame
 #define REG_TaskStackSize           100000      //size of region processing task stack

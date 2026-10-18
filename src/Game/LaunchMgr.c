@@ -4,13 +4,20 @@
 
     Created 5/18/1998 by ddunlop
     Copyright Relic Entertainment, Inc.  All rights reserved.
+
+    CAT (M2-R6 managers): ported to Cataclysm's launch manager (cataclysm.exe 0x0049ccd0..0x0049fc70): two carriers,
+        a Sect and a Beast screen, the Launch One / Construction / Research buttons, the factory name, the Sect
+        mothership's seven module slots with their three systems each, the Beast mothership's systems radio buttons;
+        no ship view selection, no taskbar or input lock-out
 =============================================================================*/
 
 
 #include <stdio.h>
+#include <string.h>
 
 #include "CommandLayer.h"
 #include "CommandWrap.h"
+#include "ConsMgr.h"
 #include "Debug.h"
 #include "FEColour.h"
 #include "FEFlow.h"
@@ -18,27 +25,24 @@
 #include "font.h"
 #include "FontReg.h"
 #include "Globals.h"
-#include "InfoOverlay.h"
 #include "LaunchMgr.h"
 #include "LinkedList.h"
 #include "mainrgn.h"
 #include "Memory.h"
+#include "Mothership.h"
 #include "mouse.h"
 #include "ObjTypes.h"
-#include "Options.h"
-#include "PiePlate.h"
 #include "prim2d.h"
-#include "Randy.h"
 #include "render.h"
-#include "Scroller.h"
+#include "Select.h"
+#include "Sensors.h"
 #include "ShipDefs.h"
+#include "ShipNames.h"
+#include "ShipSelect.h"
 #include "ShipView.h"
 #include "SoundEvent.h"
 #include "SoundEventDefs.h"
-#include "SpeechEvent.h"
 #include "StringsOnly.h"
-#include "Task.h"
-#include "TaskBar.h"
 #include "texreg.h"
 #include "Tutor.h"
 #include "UIControls.h"
@@ -48,15 +52,12 @@
     Defines:
 =============================================================================*/
 
-#define NUM_CARRIER_SHIPS       13 + 2
 #define LM_FIGHTER_SPACER       TOTAL_NUM_SHIPS + 1
 #define LM_CORVETTE_SPACER      TOTAL_NUM_SHIPS + 2
 #define LM_SHIP_IMAGE_INSET     4
 
 
 #define LM_VertSpacing      (fontHeight(" ") >> 1)
-#define LM_HorzSpacing      (fontWidth(" ") >> 1)
-#define LM_BoxSpacing       2
 
 // CAT: six images per race, icon1/icon2 in _disabled/_off/_on states (lmLoadTextures 0x0049dd60: icon table
 //      .data 0x00883508..0x00883520, image/texture tables 0x00a4471c/0x008834d0 of 2 x 6 entries)
@@ -64,29 +65,54 @@
 // CAT: fifteen launch-system button textures R1_Sys{1,2,3}_{disabled,off,off_mouse,off_focus,on}.lif, new in
 //      Cataclysm (lmLoadTextures 0x0049dd60: names table .data 0x0088353c, images 0x00a4474c, textures 0x00883578)
 #define CAT_NUM_LMSYSTEXTURES 15
+#define CAT_LM_SYS_STATES     5         // per system: disabled, off, off_mouse, off_focus, on
+#define CAT_LM_NUM_SYSTEMS    3
 
-#define NUM_LMCARRIERS      4
+// CAT: two carrier buttons (lmCarrierX 0x00a44714..0x00a4471c; HW1 had four)
+#define NUM_LMCARRIERS      2
+
+// CAT: the Beast launch screen (lmLaunchBegin 0x0049e1e0: .data 0x00883924 / 0x008838f0)
+#ifdef _WIN32
+#define CAT_LM_BeastFIBFile         "FEMAN\\Beast_Launch_Manager.fib"
+#else
+#define CAT_LM_BeastFIBFile         "FEMAN/Beast_Launch_Manager.fib"
+#endif
+#define CAT_LM_BeastLaunchScreen    "Beast_Launch_Manager"
+
+// CAT: the factory name font (lmStartup 0x0049dfb0: .data 0x00883478)
+#define CAT_LM_FactoryNameFont      "EuroseWideHeavy_i13.hff"
+
+// CAT: the count printed next to the docking bars (0x0049d6d9: 0xff000080)
+#define CAT_LM_UsedTextColor        colRGB(128, 0, 0)
 
 /*=============================================================================
     Data::
 =============================================================================*/
 
-// hack for Special case Italian crap...
-extern udword strCurLanguage;
+bool32 lmActive = FALSE;                // CAT: 0x00a446e8
 
-static sdword lmRenderEverythingCounter;
+static sdword lmRenderEverythingCounter;    // CAT: 0x00a446e4
+static bool32 catLmSensorsWereOpen;     // CAT: 0x00a446ec, the sensors manager was open when the screen opened
+static sdword catLmScreensRace;         // CAT: 0x00a446f4, the race whose screens lmScreensHandle holds
+static regionhandle catLmFactoryNameRegion = NULL;  // CAT: 0x00a44704, the LM_FactoryNameDraw region
+static fonthandle catLmFactoryNameFont = 0;         // CAT: 0x00a44710
+static Ship *catLmFactoryShip = NULL;   // CAT: 0x00c367e4, the factory whose name LM_FactoryNameDraw prints
 
-bool32 lmActive = FALSE;
-
-// CAT: the module slots (0x00a4478c), filled by cat_lmFillInModuleSlots below; the slot draw callbacks are stage 3
+// CAT: the module slots (0x00a4478c), filled by cat_lmFillInModuleSlots below and drawn by cat_lmModuleSlot1..7Draw
 Ship *cat_lmModuleSlots[CAT_LM_NUM_MODULE_SLOTS];
+
+// CAT: the module system button under the mouse (0x00883604 the slot's module type, 0x00883608 the system, -1 none)
+static sdword catLmHoverModuleType = -1;
+static sdword catLmHoverSystem = -1;
 
 /*-----------------------------------------------------------------------------
     Name        : cat_lmFillInModuleSlots
     Description : CAT (M2-R4 ships-b): the launch screen's module slots of the local player's sMothership, from the
-                  ships clamped to it: docking bay, micro, armour, weapons, special, the weakest support module, big
+                  ships clamped to it: docking bay, weapons, armour, micro, special, the weakest support module, big
                   gun; then the empty slots are filled from the right (cat_lmFillInModuleSlots 0x0049e9f0; called by
-                  lmLaunchBegin 0x0049e1e0 and the first slot's draw callback, stage 3)
+                  lmLaunchBegin 0x0049e1e0 and cat_lmModuleSlot1Draw 0x0049f050)
+    CAT (M2-R6 managers): slots 1 and 3 corrected to the exe's: sMothershipWeapons (0x17) 0x00a44790, sMothershipMicro
+        (0x16) 0x00a44798
 ----------------------------------------------------------------------------*/
 void cat_lmFillInModuleSlots(void)
 {
@@ -116,9 +142,9 @@ void cat_lmFillInModuleSlots(void)
         switch (module->shiptype)
         {
             case sMothershipDockingBay:     cat_lmModuleSlots[0] = module; break;
-            case sMothershipMicro:          cat_lmModuleSlots[1] = module; break;
+            case sMothershipWeapons:        cat_lmModuleSlots[1] = module; break;
             case sMothershipArmour:         cat_lmModuleSlots[2] = module; break;
-            case sMothershipWeapons:        cat_lmModuleSlots[3] = module; break;
+            case sMothershipMicro:          cat_lmModuleSlots[3] = module; break;
             case sMothershipSpecial:        cat_lmModuleSlots[4] = module; break;
             case sMothershipSupport:
                 if ((cat_lmModuleSlots[5] == NULL) || (module->targetable.health < cat_lmModuleSlots[5]->targetable.health))
@@ -182,10 +208,9 @@ void cat_lmModuleSlotsRemoveType(ShipType type)
     }
 }
 
-extern ShipType svShipType;
-bool32 lmPaletted;
+bool32 lmPaletted;                      // CAT: 0x00c367e0
 
-LaunchShipsAvailable shipsavailable[LM_CORVETTE_SPACER+1];
+LaunchShipsAvailable shipsavailable[LM_CORVETTE_SPACER+1];     // CAT: 0x00c36340 (the exe's has 0x91 entries)
 
 // CAT: the launch list in Cataclysm's order (PrintOrder 0x00883340: fighter spacer, 12 strike craft, corvette spacer,
 //      9 corvettes and workers, -1)
@@ -223,7 +248,7 @@ sdword PrintOrder[LM_NUMSHIPS + 1] = {
 };
 
 // This is a bool32 that is TRUE if the ship is in the printlist. dynamically calculated
-// based on the PrintOrder
+// based on the PrintOrder (CAT: 0x00c36800)
 bool32 lmShipInList[TOTAL_NUM_SHIPS];
 
 
@@ -233,10 +258,13 @@ void lmAutoLaunchM(char *string, featom *atom);
 void lmAutoLaunchC1(char *string, featom *atom);
 void lmAutoLaunchC2(char *string, featom *atom);
 void lmAutoLaunchC3(char *string, featom *atom);
-void lmAutoLaunchC4(char *string, featom *atom);
 void lmClose(char *string, featom *atom);
 void lmLaunchAll(char *string, featom *atom);
 void lmShipsToLaunchDraw(char *string, featom *atom);
+void cat_lmConstruction(char *string, featom *atom);
+void cat_lmResearch(char *string, featom *atom);
+void cat_lmBeastSystemsSet(char *string, featom *atom);
+void cat_lmLaunchOne(char *string, featom *atom);
 
 void lmFighterUsedDraw(featom *atom, regionhandle region);
 void lmCorvetteUsedDraw(featom *atom, regionhandle region);
@@ -244,32 +272,48 @@ void lmCorvetteUsedDraw(featom *atom, regionhandle region);
 void lmMotherShipDraw(featom *atom, regionhandle region);
 void lmCarrier1Draw(featom *atom, regionhandle region);
 void lmCarrier2Draw(featom *atom, regionhandle region);
-void lmCarrier3Draw(featom *atom, regionhandle region);
-void lmCarrier4Draw(featom *atom, regionhandle region);
+void cat_lmFactoryNameDraw(featom *atom, regionhandle region);
+void cat_lmModuleSlot1Draw(featom *atom, regionhandle region);
+void cat_lmModuleSlot2Draw(featom *atom, regionhandle region);
+void cat_lmModuleSlot3Draw(featom *atom, regionhandle region);
+void cat_lmModuleSlot4Draw(featom *atom, regionhandle region);
+void cat_lmModuleSlot5Draw(featom *atom, regionhandle region);
+void cat_lmModuleSlot6Draw(featom *atom, regionhandle region);
+void cat_lmModuleSlot7Draw(featom *atom, regionhandle region);
 
+// CAT: the exe's tables (.data 0x008833a0: 12 callbacks; 0x00883408: 13 draw callbacks)
 fecallback lmCallback[] =
 {
-    {lmLaunch,                  "LM_Launch"             },
-    {lmAutoLaunchM,             "LM_AutoLaunchM"        },
-    {lmAutoLaunchC1,            "LM_AutoLaunchC1"       },
-    {lmAutoLaunchC2,            "LM_AutoLaunchC2"       },
-    {lmAutoLaunchC3,            "LM_AutoLaunchC3"       },
-    {lmAutoLaunchC4,            "LM_AutoLaunchC4"       },
-    {lmClose,                   "LM_Close"              },
-    {lmLaunchAll,               "LM_LaunchAll"          },
-    {lmShipsToLaunchDraw,       "LM_ShipsToLaunch"      },
+    {lmLaunch,                  "LM_Launch"             },      // 0x0049ce30
+    {lmAutoLaunchM,             "LM_AutoLaunchM"        },      // 0x0049cfd0
+    {lmAutoLaunchC1,            "LM_AutoLaunchC1"       },      // 0x0049d140
+    {lmAutoLaunchC2,            "LM_AutoLaunchC2"       },      // 0x0049d160
+    {lmAutoLaunchC3,            "LM_AutoLaunchC3"       },      // 0x0049d180
+    {lmClose,                   "LM_Close"              },      // 0x0049d250
+    {lmLaunchAll,               "LM_LaunchAll"          },      // 0x0049d1a0
+    {lmShipsToLaunchDraw,       "LM_ShipsToLaunch"      },      // 0x0049d4b0
+    {cat_lmConstruction,        "LM_Construction"       },      // 0x0049ccd0
+    {cat_lmResearch,            "LM_Research"           },      // 0x0049cd80
+    {cat_lmBeastSystemsSet,     "LM_BeastSystemsSet"    },      // 0x0049fbb0
+    {cat_lmLaunchOne,           "LM_LaunchOne"          },      // 0x0049cf10
     {NULL,                      NULL                    }
 };
 
 fedrawcallback lmDrawCallback[] =
 {
-    {lmFighterUsedDraw,         "LM_FighterUsed"        },
-    {lmCorvetteUsedDraw,        "LM_CorvetteUsed"       },
-    {lmMotherShipDraw,          "LM_MotherShipDraw"     },
-    {lmCarrier1Draw,            "LM_Carrier1Draw"       },
-    {lmCarrier2Draw,            "LM_Carrier2Draw"       },
-    {lmCarrier3Draw,            "LM_Carrier3Draw"       },
-    {lmCarrier4Draw,            "LM_Carrier4Draw"       },
+    {lmFighterUsedDraw,         "LM_FighterUsed"        },      // 0x0049d5e0
+    {lmCorvetteUsedDraw,        "LM_CorvetteUsed"       },      // 0x0049d700
+    {lmMotherShipDraw,          "LM_MotherShipDraw"     },      // 0x0049db40
+    {lmCarrier1Draw,            "LM_Carrier1Draw"       },      // 0x0049dc60
+    {lmCarrier2Draw,            "LM_Carrier2Draw"       },      // 0x0049dce0
+    {cat_lmFactoryNameDraw,     "LM_FactoryNameDraw"    },      // 0x0049d8d0
+    {cat_lmModuleSlot1Draw,     "LM_Module_Slot1"       },      // 0x0049f050
+    {cat_lmModuleSlot2Draw,     "LM_Module_Slot2"       },      // 0x0049f1c0
+    {cat_lmModuleSlot3Draw,     "LM_Module_Slot3"       },      // 0x0049f330
+    {cat_lmModuleSlot4Draw,     "LM_Module_Slot4"       },      // 0x0049f4a0
+    {cat_lmModuleSlot5Draw,     "LM_Module_Slot5"       },      // 0x0049f610
+    {cat_lmModuleSlot6Draw,     "LM_Module_Slot6"       },      // 0x0049f780
+    {cat_lmModuleSlot7Draw,     "LM_Module_Slot7"       },      // 0x0049f8f0
     {NULL,                      NULL                    }
 };
 
@@ -277,17 +321,18 @@ fedrawcallback lmDrawCallback[] =
 void lmReLaunch(Ship *newship);
 
 //flag indicating loaded status of this screen
-fibfileheader *lmScreensHandle = NULL;
+fibfileheader *lmScreensHandle = NULL;  // CAT: 0x00a446f0
 
-regionhandle  lmBaseRegion = NULL;
-ShipsInsideMe *shipsin = NULL;
-Ship          *launchship = NULL;
+regionhandle  lmBaseRegion = NULL;      // CAT: 0x00a446f8
+ShipsInsideMe *shipsin = NULL;          // CAT: 0x00a446fc
+Ship          *launchship = NULL;       // CAT: 0x00a44700
 
-listwindowhandle lmListWindow=NULL;
+listwindowhandle lmListWindow=NULL;     // CAT: 0x00a44708
 
-fonthandle lmShipListFont=0;
+fonthandle lmShipListFont=0;            // CAT: 0x00a4470c
 
-//colors for printing selections and stuff
+//colors for printing selections and stuff (CAT: .data 0x008834b8..0x008834cc; the exe draws with the last two only,
+//      the first two stay tweakable)
 color lmShipListTextColor       = LM_ShipListTextColor;
 color lmShipSelectedTextColor   = LM_ShipSelectedTextColor;
 color lmShip2ListTextColor       = LM_Ship2ListTextColor;
@@ -295,21 +340,16 @@ color lmShip2SelectedTextColor   = LM_Ship2SelectedTextColor;
 color lmUsedColor               = LM_UsedColor;
 color lmAvailableColor          = LM_AvailableColor;
 
-//variables for selection etc...
-
-bool32 lmIoSaveState;
+Ship *lmCarrierX[NUM_LMCARRIERS] = { NULL, NULL };     // CAT: 0x00a44714
 
 
-Ship *lmCarrierX[NUM_LMCARRIERS] = { NULL, NULL, NULL, NULL };
-
-
-trhandle lmShipTexture[MAX_RACES][NUM_LMTEXTURES] =
+trhandle lmShipTexture[MAX_RACES][NUM_LMTEXTURES] =    // CAT: 0x008834d0
 {
     {TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle},
     {TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle, TR_InvalidHandle}
 };
 
-lifheader *lmShipImage[MAX_RACES][NUM_LMTEXTURES] =
+lifheader *lmShipImage[MAX_RACES][NUM_LMTEXTURES] =    // CAT: 0x00a4471c
 {
     { NULL, NULL, NULL, NULL, NULL, NULL },
     { NULL, NULL, NULL, NULL, NULL, NULL }
@@ -359,187 +399,264 @@ trhandle catLmSysTexture[CAT_NUM_LMSYSTEXTURES] =
 lifheader *catLmSysImage[CAT_NUM_LMSYSTEXTURES];
 
 
-sdword lmCurrentSelect = 0;
+sdword lmCurrentSelect = 0;             // CAT: 0x00a44788
 
-char lmShipListFontName[LM_FontNameLength] = LM_ShipListFont;
-
-// Variable to keep track of the ship displayed in the shipview
-ShipType lmcurshipview=DefaultShip;
+char lmShipListFontName[LM_FontNameLength] = LM_ShipListFont;     // CAT: 0x008835b4
 
 
 /*=============================================================================
     Functions:
 =============================================================================*/
 
-void lmUpdateShipView(void)
+// CAT (M2-R6 managers): the tutorial's enable words (0x00ba2e58 / 0x00ba2e5c), as ResearchGUI.c's
+static bool32 catLmTutEnabled1(udword bit)
 {
-    udword index;
-    bool32   set=TRUE;
-    listitemhandle listitem;
+    return (tutorial != TUTORIAL_ONLY) || ((((udword *)&tutEnable)[0] & bit) != 0);
+}
 
-    if (lmcurshipview == DefaultShip)
+static bool32 catLmTutEnabled2(udword bit)
+{
+    return (tutorial != TUTORIAL_ONLY) || ((((udword *)&tutEnable)[1] & bit) != 0);
+}
+
+// CAT (M2-R6 managers): an atom made live or greyed out (FAF_Disabled 0x1000 and RSF_RegionDisabled 0x4, inlined)
+static void catLmAtomEnable(featom *atom, bool32 enable)
+{
+    if (enable)
     {
-        for (index=0; PrintOrder[index]!=-1;index++)
-        {                                                       //for all available ships
-            if ((shipsavailable[PrintOrder[index]].nShips > 0) &&
-                ((PrintOrder[index]!=LM_FIGHTER_SPACER) && (PrintOrder[index]!=LM_CORVETTE_SPACER)))
-            {
-                svSelectShip(PrintOrder[index]);
-                if (lmListWindow!=NULL)
-                {
-                    listitem = uicListFindItemByData(lmListWindow, (ubyte *)PrintOrder[index]);
-                    uicListWindowSetCurItem(lmListWindow, listitem);
-                }
-                lmcurshipview = PrintOrder[index];
-                break;
-            }
-        }
+        bitClear(atom->flags, FAF_Disabled);
+        bitClear(((regionhandle)atom->region)->status, RSF_RegionDisabled);
     }
     else
     {
-        if (shipsavailable[lmcurshipview].nShips > 0)
-        {
-            svSelectShip(lmcurshipview);
-            if (lmListWindow!=NULL)
-            {
-                listitem = uicListFindItemByData(lmListWindow, (ubyte *)lmcurshipview);
-                uicListWindowSetCurItem(lmListWindow, listitem);
-            }
-            set = FALSE;
-        }
-        if (set)
-        {
-            lmcurshipview = DefaultShip;
-            for (index=0; PrintOrder[index]!=-1;index++)
-            {                                                       //for all available ships
-                if ((shipsavailable[PrintOrder[index]].nShips > 0) &&
-                    ((PrintOrder[index]!=LM_FIGHTER_SPACER) && (PrintOrder[index]!=LM_CORVETTE_SPACER)))
-                {
-                    if (lmListWindow!=NULL)
-                    {
-                        listitem = uicListFindItemByData(lmListWindow, (ubyte *)PrintOrder[index]);
-                        uicListWindowSetCurItem(lmListWindow, listitem);
-                    }
+        bitSet(atom->flags, FAF_Disabled);
+        bitSet(((regionhandle)atom->region)->status, RSF_RegionDisabled);
+    }
+}
 
-                    lmcurshipview = PrintOrder[index];
-                    break;
-                }
-            }
-            svSelectShip(lmcurshipview);
+static char *catLmScreenName(void)
+{
+    return (universe.curPlayerPtr->race == RACE_Sect) ? LM_LaunchScreen : CAT_LM_BeastLaunchScreen;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : catLmFillInCarrierXs
+    Description : CAT: the local player's first two carriers in cmCarriers order (inlined by lmLaunchBegin 0x0049e1e0
+                  and lmLaunchCapableShipDied 0x0049e690)
+----------------------------------------------------------------------------*/
+static void catLmFillInCarrierXs(void)
+{
+    sdword i, insert = 0;
+
+    for (i = 0; i < NUM_LMCARRIERS; i++)
+    {
+        lmCarrierX[i] = NULL;
+    }
+    for (i = 0; i < cmNumCarriers; i++)
+    {
+        if ((cmCarriers[i].owner == universe.curPlayerPtr) && (insert < NUM_LMCARRIERS))
+        {
+            lmCarrierX[insert++] = cmCarriers[i].ship;
         }
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : catLmCountShipsInside
+    Description : CAT: shipsavailable from launchship's ships inside (inlined by lmLaunchBegin 0x0049e1e0, lmReLaunch
+                  0x0049e520 and lmUpdateShipsInside 0x0049e070; the last clears only the count and the ship)
+----------------------------------------------------------------------------*/
+static void catLmCountShipsInside(bool32 clearSelected)
+{
+    Node *walk;
+    Ship *shipinside;
+    sdword i;
+
+    shipsin = launchship->shipsInsideMe;
+    for (i = 0; i < TOTAL_NUM_SHIPS; i++)
+    {
+        shipsavailable[i].nShips = 0;
+        if (clearSelected)
+        {
+            shipsavailable[i].bSelected = FALSE;
+        }
+        shipsavailable[i].ship = NULL;
+    }
+    for (walk = shipsin->insideList.head; walk != NULL; walk = walk->next)
+    {
+        shipinside = ((InsideShip *)listGetStructOfNode(walk))->ship;
+        dbgAssertOrIgnore(shipinside->header.objtype == OBJ_ShipType);
+        shipsavailable[shipinside->shiptype].nShips++;
+        shipsavailable[shipinside->shiptype].ship = shipinside;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : catLmListAddShips
+    Description : CAT: the launch list from PrintOrder walked backwards, each docked type added at the head, a class
+                  header after (above) its first ship: corvettes and resource-class ships under the corvette header,
+                  fighters and micro-class ships under the fighter header (inlined by lmShipsToLaunchDraw 0x0049d4b0,
+                  lmUpdateShipsInside 0x0049e070 and lmReLaunch 0x0049e520)
+----------------------------------------------------------------------------*/
+static void catLmListAddShips(void)
+{
+    sdword index, type;
+    ShipClass shipclass;
+    bool32 is_corv = FALSE, is_fight = FALSE;
+
+    // CAT-FIX: the exe's walk starts on the -1 sentinel (PrintOrder 0x0088339c) and reads shipsavailable[-1], outside
+    //      the array; it starts on the last ship here
+    for (index = LM_NUMSHIPS - 1; index >= 0; index--)
+    {
+        type = PrintOrder[index];
+        if ((type != LM_FIGHTER_SPACER) && (type != LM_CORVETTE_SPACER) && (shipsavailable[type].nShips > 0))
+        {
+            uicListAddItem(lmListWindow, (ubyte *)(smemsize)type, UICLI_CanSelect, UICLW_AddToHead);
+            shipclass = shipsavailable[type].ship->staticinfo->shipclass;
+            if ((shipclass == CLASS_Corvette) || (shipclass == CLASS_Resource))
+            {
+                is_corv = TRUE;
+            }
+            else if ((shipclass == CLASS_Fighter) || (shipclass == CLASS_Micro))
+            {
+                is_fight = TRUE;
+            }
+        }
+        else if (((type == LM_FIGHTER_SPACER) && is_fight) || ((type == LM_CORVETTE_SPACER) && is_corv))
+        {
+            uicListAddItem(lmListWindow, (ubyte *)(smemsize)type, 0, UICLW_AddToHead);
+        }
+    }
+}
+
+// CAT: the list rebuilt with the selected row kept (lmUpdateShipsInside 0x0049e070, lmReLaunch 0x0049e520)
+static void catLmListRebuild(void)
+{
+    sdword shipnum = -1;
+
+    if (lmListWindow == NULL)
+    {
+        return;
+    }
+    if (lmListWindow->CurLineSelected != NULL)
+    {
+        shipnum = (sdword)(smemsize)lmListWindow->CurLineSelected->data;
+    }
+    uicListCleanUp(lmListWindow);
+    catLmListAddShips();
+    if (shipnum != -1)
+    {
+        uicListWindowSetCurItem(lmListWindow, uicListFindItemByData(lmListWindow, (ubyte *)(smemsize)shipnum));
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : catLmLaunchSelection
+    Description : CAT: the selection launched from launchship with the "launching" speech (0x4001067), as
+                  LM_LaunchOne 0x0049cf10 ends (LM_Launch / LM_LaunchAll free their selection in between)
+----------------------------------------------------------------------------*/
+static void catLmLaunchSelection(SelectCommand *selection)
+{
+    clWrapLaunchMultipleShips(&universe.mainCommandLayer, selection, launchship);
+    speechEventQueue(NULL, 0x4001067, 0, -1, 0, -1, -1, 5.0f, -1);
+}
 
 /*-----------------------------------------------------------------------------
     Name        : lmLaunch
     Description : process launch button press
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
+    CAT (M2-R6 managers): the exe's body (0x0049ce30, no Ghidra function): the tutorial gate is bit 0x40000 of its second
+        word; every docked ship of the selected row's type launches; the speech is the exe's
 ----------------------------------------------------------------------------*/
 void lmLaunch(char *string, featom*atom)
 {
     Node *walk;
-    ShipPtr shipinside;
-    InsideShip *insideShipStruct;
+    Ship *shipinside;
     sdword countShips = 0;
     sdword i;
     SelectCommand *selection;
     sdword shipnum=-1;
 
-    if((tutorial==TUTORIAL_ONLY) && !tutEnable.bLaunchLaunch)
+    if (!catLmTutEnabled2(0x40000))
+    {
         return;
-
+    }
     if (lmListWindow->CurLineSelected!=NULL)
     {
-        shipnum = (sdword)lmListWindow->CurLineSelected->data;
+        shipnum = (sdword)(smemsize)lmListWindow->CurLineSelected->data;
     }
-
-    walk = shipsin->insideList.head;
-    while (walk !=NULL)
+    for (walk = shipsin->insideList.head; walk != NULL; walk = walk->next)
     {
-        insideShipStruct = (InsideShip *)listGetStructOfNode(walk);
-        shipinside = insideShipStruct->ship;
-        dbgAssertOrIgnore(shipinside->header.objtype == OBJ_ShipType);
-        if (shipnum == shipinside->shiptype)
+        shipinside = ((InsideShip *)listGetStructOfNode(walk))->ship;
+        if (shipnum == (sdword)shipinside->shiptype)
         {
             countShips++;
         }
-        walk = walk->next;
     }
-
     if (countShips > 0)
     {
         selection = memAlloc(sizeofSelectCommand(countShips),"launchships",0);
         selection->numShips = countShips;
-
         i = 0;
-        walk = shipsin->insideList.head;
-        while (walk !=NULL)
+        for (walk = shipsin->insideList.head; walk != NULL; walk = walk->next)
         {
-            insideShipStruct = (InsideShip *)listGetStructOfNode(walk);
-            shipinside = insideShipStruct->ship;
-            dbgAssertOrIgnore(shipinside->header.objtype == OBJ_ShipType);
-            if (shipnum == shipinside->shiptype)
+            shipinside = ((InsideShip *)listGetStructOfNode(walk))->ship;
+            if (shipnum == (sdword)shipinside->shiptype)
             {
                 selection->ShipPtr[i++] = shipinside;
             }
-            walk = walk->next;
         }
-
-        dbgAssertOrIgnore(i == selection->numShips);
         clWrapLaunchMultipleShips(&universe.mainCommandLayer, selection, launchship);
         memFree(selection);
-
-        speechEventFleet(COMM_F_Launch, 0, universe.curPlayerIndex);
+        speechEventQueue(NULL, 0x4001067, 0, -1, 0, -1, -1, 5.0f, -1);
     }
-
-/*
-    feScreenDelete(lmBaseRegion);
-    lmBaseRegion = NULL;
-
-    // play the exit sound
-    soundEvent(NULL, UI_ManagerExit);
-    //restart the sound of space ambient
-    soundEvent(NULL, UI_SoundOfSpace);
-
-    // enable rendering of main game screen
-    mrRenderMainScreen = TRUE;
-    lmActive = FALSE;
-
-    glcFullscreen(FALSE);
-
-    // enable taskbar popup window
-    tbDisable = FALSE;
-*/
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_lmLaunchOne
+    Description : CAT: new (LM_LaunchOne 0x0049cf10, no Ghidra function): the first docked ship of the selected row's type
+                  launches (the tutorial gate as LM_Launch's)
+----------------------------------------------------------------------------*/
+void cat_lmLaunchOne(char *string, featom *atom)
+{
+    Node *walk;
+    Ship *shipinside;
+    SelectCommand selection;
+    sdword shipnum = -1;
+
+    if (!catLmTutEnabled2(0x40000))
+    {
+        return;
+    }
+    if (lmListWindow->CurLineSelected != NULL)
+    {
+        shipnum = (sdword)(smemsize)lmListWindow->CurLineSelected->data;
+    }
+    for (walk = shipsin->insideList.head; walk != NULL; walk = walk->next)
+    {
+        shipinside = ((InsideShip *)listGetStructOfNode(walk))->ship;
+        if (shipnum == (sdword)shipinside->shiptype)
+        {
+            selection.numShips = 1;
+            selection.ShipPtr[0] = shipinside;
+            catLmLaunchSelection(&selection);
+            return;
+        }
+    }
+}
 
 /*-----------------------------------------------------------------------------
-    Name        : lmAutoLaunchX
+    Name        : lmAutoLaunchM / lmAutoLaunchCX
     Description : process autolaunch checkbox
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
+    CAT (M2-R6 managers): the exe's bodies (LM_AutoLaunchM 0x0049cfd0, no Ghidra function; lmAutoLaunchCX 0x0049d080): the
+        mothership's box is live for a mothership-class mothership; a carrier's for a carrier in its slot, bit 1 / 2 of
+        Player.autoLaunch; the box reads checked when the bit is off (stay docked)
 ----------------------------------------------------------------------------*/
 void lmAutoLaunchM(char *string, featom *atom)
 {
-    if (universe.curPlayerPtr->PlayerMothership == NULL)
-    {
-        bitSet(atom->flags, FAF_Disabled);
-        bitSet(((region *)atom->region)->status, RSF_RegionDisabled);
-    }
-    else
-    {
-        bitClear(atom->flags, FAF_Disabled);
-        bitClear(((region *)atom->region)->status, RSF_RegionDisabled);
-    }
+    Ship *mothership = universe.curPlayerPtr->PlayerMothership;
 
-    #ifdef DEBUG_STOMP
-    regVerify((regionhandle)atom->region);
-    #endif
-    bitSet( ((regionhandle)atom->region)->status, RSF_DrawThisFrame);
+    catLmAtomEnable(atom, (mothership != NULL) && (mothership->staticinfo->shipclass == CLASS_Mothership));
+    bitSet(((regionhandle)atom->region)->status, RSF_DrawThisFrame);
 
     if (FEFIRSTCALL(atom))
     {
@@ -561,34 +678,26 @@ void lmAutoLaunchM(char *string, featom *atom)
             newAutoLaunch &= ~BIT0;
         }
         clWrapAutoLaunch(newAutoLaunch,universe.curPlayerIndex);
-        dbgMessagef("Autolaunch sent = %d",newAutoLaunch);
     }
 }
 
 void lmAutoLaunchCX(char *string, featom *atom, udword x)
 {
-    static udword bits[NUM_LMCARRIERS] = { BIT1, BIT2, BIT3, BIT4 };
-    static udword shifts[NUM_LMCARRIERS] = { 1,2,3,4 };
-    udword bit = bits[x-1];
-    udword shift = shifts[x-1];
+    static udword bits[NUM_LMCARRIERS] = { BIT1, BIT2 };       // CAT: .data 0x008835f4
+    static udword shifts[NUM_LMCARRIERS] = { 1, 2 };           // CAT: .data 0x008835fc
+    udword bit, shift;
 
-    dbgAssertOrIgnore((x-1) < NUM_LMCARRIERS);
-
-    if (lmCarrierX[x-1]==NULL)
+    // CAT-FIX: LM_AutoLaunchC3 indexes past both tables in the exe (bits[2] is shifts[0], shifts[2] the module hover
+    //      word 0x00883604); neither launch screen has the atom, so it never runs
+    if ((x < 1) || (x > NUM_LMCARRIERS))
     {
-        bitSet(atom->flags, FAF_Disabled);
-        bitSet(((region *)atom->region)->status, RSF_RegionDisabled);
+        return;
     }
-    else
-    {
-        bitClear(atom->flags, FAF_Disabled);
-        bitClear(((region *)atom->region)->status, RSF_RegionDisabled);
-    }
+    bit = bits[x-1];
+    shift = shifts[x-1];
 
-    #ifdef DEBUG_STOMP
-    regVerify((regionhandle)atom->region);
-    #endif
-    bitSet( ((regionhandle)atom->region)->status, RSF_DrawThisFrame);
+    catLmAtomEnable(atom, lmCarrierX[x-1] != NULL);
+    bitSet(((regionhandle)atom->region)->status, RSF_DrawThisFrame);
 
     if (FEFIRSTCALL(atom))
     {
@@ -596,8 +705,6 @@ void lmAutoLaunchCX(char *string, featom *atom, udword x)
     }
     else
     {
-        // DO NOT CHANGE universe.curPlayerPtr->autoLaunch DIRECTLY OR SYNC ERRORS WILL RESULT.  JUST REQUEST
-        // WANT YOU WANT via clWrapAutoLaunch
         udword newAutoLaunch = universe.curPlayerPtr->autoLaunch;
 
         if (!(FECHECKED(atom)))
@@ -609,7 +716,6 @@ void lmAutoLaunchCX(char *string, featom *atom, udword x)
             newAutoLaunch &= ~bit;
         }
         clWrapAutoLaunch(newAutoLaunch,universe.curPlayerIndex);
-        dbgMessagef("Autolaunch sent = %d",newAutoLaunch);
     }
 }
 
@@ -628,319 +734,178 @@ void lmAutoLaunchC3(char *string, featom *atom)
     lmAutoLaunchCX(string,atom,3);
 }
 
-void lmAutoLaunchC4(char *string, featom *atom)
-{
-    lmAutoLaunchCX(string,atom,4);
-}
-
 /*-----------------------------------------------------------------------------
     Name        : lmLaunchAll
     Description : process LaunchAll button
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
+    CAT (M2-R6 managers): the exe's body (0x0049d1a0, no Ghidra function): the tutorial gate is bit 0x80000 of its second
+        word; every docked ship but a dEcclesiam (0x8c) launches and the screen stays open
 ----------------------------------------------------------------------------*/
 void lmLaunchAll(char *string, featom *atom)
 {
     Node *walk;
-    ShipPtr shipinside;
-    InsideShip *insideShipStruct;
+    Ship *shipinside;
     SelectCommand *selection;
     sdword numShips;
     sdword i;
 
-    if((tutorial==TUTORIAL_ONLY) && !tutEnable.bLaunchLaunchAll)
+    if (!catLmTutEnabled2(0x80000))
+    {
         return;
-
-    feScreenDelete(lmBaseRegion);
-    lmBaseRegion = NULL;
-
-    if (lmIoSaveState)
-        ioEnable();
-
+    }
     numShips = shipsin->insideList.num;
     if (numShips > 0)
     {
         selection = memAlloc(sizeofSelectCommand(numShips),"launchall",0);
-        selection->numShips = numShips;
-
         i = 0;
-        walk = shipsin->insideList.head;
-        while (walk !=NULL)
+        for (walk = shipsin->insideList.head; walk != NULL; walk = walk->next)
         {
-            insideShipStruct = (InsideShip *)listGetStructOfNode(walk);
-            shipinside = insideShipStruct->ship;
-            dbgAssertOrIgnore(shipinside->header.objtype == OBJ_ShipType);
-
-            selection->ShipPtr[i++] = shipinside;
-
-            walk = walk->next;
+            shipinside = ((InsideShip *)listGetStructOfNode(walk))->ship;
+            if (shipinside->shiptype == dEcclesiam)
+            {
+                numShips--;
+            }
+            else
+            {
+                selection->ShipPtr[i++] = shipinside;
+            }
         }
-
-        dbgAssertOrIgnore(i == numShips);
+        selection->numShips = numShips;
         clWrapLaunchMultipleShips(&universe.mainCommandLayer,selection,launchship);
         memFree(selection);
-
-        speechEventFleet(COMM_F_Launch, 0, universe.curPlayerIndex);
+        speechEventQueue(NULL, 0x4001067, 0, -1, 0, -1, -1, 5.0f, -1);
     }
-
-    /* play the exit sound */
-    soundEvent(NULL, UI_ManagerExit);
-    //restart the sound of space ambient
-    soundEvent(NULL, UI_SoundOfSpace);
-
-    // enable rendering of main game screen
-    mrRenderMainScreen = TRUE;
-    lmActive = FALSE;
-
-    // enable taskbar popup window
-    tbDisable = FALSE;
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : lmClose
-    Description : process Close button
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
+    Name        : lmClose / lmCloseIfOpen / cat_lmConstruction / cat_lmResearch
+    Description : close the launch manager
+    CAT (M2-R6 managers): the exe's bodies (lmCloseIfOpen 0x0049d300; LM_Close 0x0049d250, LM_Construction 0x0049ccd0,
+        LM_Research 0x0049cd80 with no Ghidra function): the tutorial gate bit 0x100000 of its second word; the screen
+        deleted, the factory name region forgotten, the sounds 0x130 / 0x100, the main view drawn again, the render
+        counter cleared, the ship view closed, the sensors manager reopened when this screen closed it; the two
+        buttons then open the construction manager / research manager (even when the gate kept the screen)
 ----------------------------------------------------------------------------*/
-void lmClose(char *string, featom *atom)
+static void catLmClose(void)
 {
-    if((tutorial==TUTORIAL_ONLY) && !tutEnable.bLaunchClose)
-        return;
-
-    feScreenDelete(lmBaseRegion);
+    feScreenDeleteFlags(lmBaseRegion, 0);
     lmBaseRegion = NULL;
-
-    if (lmIoSaveState)
-        ioEnable();
-
-    /* play the exit sound */
-    soundEvent(NULL, UI_ManagerExit);
-    //restart the sound of space ambient
-    soundEvent(NULL, UI_SoundOfSpace);
-
-    // enable rendering of main game screen
+    catLmFactoryNameRegion = NULL;
+    soundEventPlay(NULL, 0x130, NULL);                   // CAT: the manager exit
+    soundEventPlay(NULL, UI_SoundOfSpace, NULL);         // CAT: 0x100
     mrRenderMainScreen = TRUE;
     lmActive = FALSE;
-
     lmRenderEverythingCounter = 0;
-
-    // enable taskbar popup window
-    tbDisable = FALSE;
-
-    // shutdown the shipview
     svClose();
+    if (catLmSensorsWereOpen)
+    {
+        catSmReopenAfterManager();
+    }
+    // CAT-TODO(stage 6 tutorial): cat_tutButtonsRestoreAfterScreen 0x00534300 (the tutorial's buttons come back)
+}
+
+void lmClose(char *string, featom *atom)
+{
+    if (catLmTutEnabled2(0x100000))
+    {
+        catLmClose();
+    }
 }
 
 void lmCloseIfOpen(void)
 {
-    if (lmBaseRegion)
+    if ((lmBaseRegion != NULL) && catLmTutEnabled2(0x100000))
     {
-        lmClose(NULL,NULL);
+        catLmClose();
+    }
+}
+
+void cat_lmConstruction(char *string, featom *atom)
+{
+    lmClose(string, atom);
+    mrBuildShips(NULL, NULL);
+}
+
+void cat_lmResearch(char *string, featom *atom)
+{
+    lmClose(string, atom);
+    mrResearch(NULL, NULL);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_lmBeastSystemsSet
+    Description : CAT: new (LM_BeastSystemsSet 0x0049fbb0, no Ghidra function): the Beast mothership's systems radio
+                  buttons, live only for a bMothership; they show its system state (MothershipSpec.beastSystemState,
+                  Ship+0x650) and a press sends the button's state (the atom's pData byte) by cat_clWrapSetBeastSystem
+----------------------------------------------------------------------------*/
+void cat_lmBeastSystemsSet(char *string, featom *atom)
+{
+    Ship *mothership = universe.curPlayerPtr->PlayerMothership;
+
+    if ((mothership == NULL) || (mothership->shiptype != bMothership))
+    {
+        catLmAtomEnable(atom, FALSE);
+        return;
+    }
+    catLmAtomEnable(atom, TRUE);
+    if (FEFIRSTCALL(atom))
+    {
+        feRadioButtonSet(string, ((MothershipSpec *)mothership->ShipSpecifics)->beastSystemState);
+        return;
+    }
+    cat_clWrapSetBeastSystem(&universe.mainCommandLayer, mothership, (ubyte)(smemsize)atom->pData);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_lmBeastSystemsOff
+    Description : CAT: new (0x0049fc30): the Beast mothership's systems switched off (beastMothershipSelfDamage at half
+                  health); with the launch manager open on the local player's bMothership the radio buttons follow
+----------------------------------------------------------------------------*/
+void cat_lmBeastSystemsOff(Ship *mothership)
+{
+    Ship *own;
+
+    cat_clWrapSetBeastSystem(&universe.mainCommandLayer, mothership, 0);
+    own = universe.curPlayerPtr->PlayerMothership;
+    if (lmActive && (own == mothership) && (own != NULL) && (own->shiptype == bMothership))
+    {
+        feRadioButtonSet("LM_BeastSystemsSet", 0);
     }
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : lmSelectShipType
-    Description : Find what type of ship was selected
-    Inputs      : reg - region clicked on
-                  yClicked - vertical location clicked on.
-                  xClicked - horozontal location clicked on.
-    Outputs     :
-    Return      : type of ship clicked on or -1 if none
+    Name        : lmShipItemDraw
+    Description : one row of the launch list
+    CAT (M2-R6 managers): the exe's body (0x0049d3b0, no Ghidra function): the class headers are one string each,
+        strLaunchMgrFighterClass / strLaunchMgrCorvetteClass (HW1's Italian word order special case is gone)
 ----------------------------------------------------------------------------*/
-/*sdword lmSelectShipType(regionhandle region, sdword yClicked, sdword xClicked)
-{
-    sdword index, x, y, yspace, boxclicked=-1, xtab;
-    fonthandle currentFont;
-    sdword shipnum;
-    rectangle rect = region->rect;
-
-    currentFont = fontMakeCurrent(lmShipListFont);
-    yspace = fontHeight(" ") + LM_VertSpacing;
-    fontMakeCurrent(currentFont);
-
-
-    xtab = 0;
-    y    = rect.y0 + LM_VertSpacing;
-    x    = rect.x0 + LM_HorzSpacing;
-
-
-    for (index = 0; PrintOrder[index]!=-1; index++)
-    {
-        if ( (yClicked >= y)&&
-             (yClicked  < y + yspace) )
-        {
-            boxclicked = index;
-            break;
-        }
-        y += yspace;
-    }
-
-    if (boxclicked != -1)
-        for (index=0,shipnum=-1; PrintOrder[index]!=-1;index++)
-        {
-            if (PrintOrder[index] != SPACER)
-            {
-                if (shipsavailable[PrintOrder[index]].nShips > 0)
-                    shipnum++;
-                if (shipnum==boxclicked)
-                {
-                    svSelectShip(PrintOrder[index]);
-                    lmcurshipview = PrintOrder[index];
-                    return(index);
-                }
-            }
-        }
-
-
-
-    return(-1);
-}*/
-
-/*-----------------------------------------------------------------------------
-    Name        : lmSelectAvailable
-    Description : Callback for selecting/deselecting ships
-    Inputs      : standard region callback
-    Outputs     : selects or deselects a ship for launching
-    Return      :
-----------------------------------------------------------------------------*/
-/*sdword lmSelectAvailable(regionhandle region, sdword ID, udword event, udword data)
-{
-    sdword clicked, index;
-
-    if (event == RPE_PressLeft)
-    {
-        if((tutorial==TUTORIAL_ONLY) && !tutEnable.bLaunchSelectShips)
-            return 0;
-
-        clicked = lmSelectShipType(region, mouseCursorY(), mouseCursorX());
-
-        if (clicked != -1)
-        {
-            if (!controlstate)
-            {
-                for (index=0; PrintOrder[index]!=-1; index++)
-                {
-                    shipsavailable[PrintOrder[index]].bSelected = FALSE;
-                }
-            }
-            if (shiftstate)
-            {
-                if (curselected > clicked)
-                    for (index=clicked; index <= curselected; index++ )
-                        shipsavailable[PrintOrder[index]].bSelected = TRUE;
-                else
-                    for (index=curselected; index <= clicked; index++ )
-                        shipsavailable[PrintOrder[index]].bSelected = TRUE;
-            }
-            if (controlstate)
-            {
-                if (shipsavailable[PrintOrder[clicked]].bSelected)
-                    shipsavailable[PrintOrder[clicked]].bSelected = FALSE;
-                else
-                    shipsavailable[PrintOrder[clicked]].bSelected = TRUE;
-            }
-            else
-                shipsavailable[PrintOrder[clicked]].bSelected = TRUE;
-
-
-            if (!shiftstate)
-                curselected = clicked;
-
-            if(tutorial)
-            {
-            char    msg[256];
-
-                strcpy(msg, "Game_Launch_");
-                if(shipsavailable[PrintOrder[clicked]].bSelected)
-                    strcat(msg, "Select_");
-                else
-                    strcat(msg, "Deselect_");
-
-                strcat(msg, ShipTypeToNiceStr(PrintOrder[clicked]));
-                tutGameMessage(msg);
-            }
-        }
-        return(0);
-    }
-    else if (event == RPE_KeyDown)
-    {
-        switch (ID)
-        {
-            case SHIFTKEY : shiftstate=TRUE;
-                return(0);
-            case CONTROLKEY : controlstate=TRUE;
-                return(0);
-        }
-    }
-    else if (event == RPE_KeyUp)
-    {
-        switch (ID)
-        {
-            case SHIFTKEY : shiftstate=FALSE;
-                return(0);
-            case CONTROLKEY : controlstate=FALSE;
-                return(0);
-        }
-    }
-
-
-    return(0);
-}*/
-
 void lmShipItemDraw(rectangle *rect, listitemhandle data)
 {
     fonthandle currentFont;
     char       tempstr[64];
-    color      col, plaincol, selectcol;
+    color      col;
     sdword     x, y;
-    udword     shipnum = (udword)data->data;
+    udword     shipnum = (udword)(smemsize)data->data;
 
     currentFont = fontMakeCurrent(lmShipListFont);
 
-    plaincol = FEC_ListItemStandard;//lmShipListTextColor;
-    selectcol = FEC_ListItemSelected;//lmShipSelectedTextColor;
-
-    if (bitTest(data->flags,UICLI_Selected))
-        col = selectcol;
-    else
-        col = plaincol;
+    col = bitTest(data->flags,UICLI_Selected) ? FEC_ListItemSelected : FEC_ListItemStandard;
 
     x = rect->x0;
     y = rect->y0;
 
-    if ((shipnum!=LM_FIGHTER_SPACER) && (shipnum!=LM_CORVETTE_SPACER))
+    if (shipnum == LM_FIGHTER_SPACER)
+    {
+        fontPrintf(x, y, colRGB(255,200,0), "%s", strGetString(strLaunchMgrFighterClass));
+    }
+    else if (shipnum == LM_CORVETTE_SPACER)
+    {
+        fontPrintf(x, y, colRGB(255,200,0), "%s", strGetString(strLaunchMgrCorvetteClass));
+    }
+    else
     {
         sprintf(tempstr, " %i",shipsavailable[shipnum].nShips);
         fontPrintf(x+fontWidth(" 55 ")-fontWidth(tempstr), y, col,"%s",tempstr);
         fontPrintf(x+fontWidth(" 55 "), y, col," x %s", ShipTypeToNiceStr(shipnum));
-    }
-    else
-    {
-        if (strCurLanguage==4)
-        {
-            if (shipnum == LM_FIGHTER_SPACER)
-            {
-                fontPrintf(x, y, colRGB(255,200,0), "%s %s", strGetString(strCLASS_Class), strGetString(strCLASS_Fighter));
-            }
-            else if (shipnum == LM_CORVETTE_SPACER)
-            {
-                fontPrintf(x, y, colRGB(255,200,0), "%s %s", strGetString(strCLASS_Class), strGetString(strCLASS_Corvette));
-            }
-        }
-        else
-        {
-            if (shipnum == LM_FIGHTER_SPACER)
-            {
-                fontPrintf(x, y, colRGB(255,200,0), "%s %s", strGetString(strCLASS_Fighter), strGetString(strCLASS_Class));
-            }
-            else if (shipnum == LM_CORVETTE_SPACER)
-            {
-                fontPrintf(x, y, colRGB(255,200,0), "%s %s", strGetString(strCLASS_Corvette), strGetString(strCLASS_Class));
-            }
-        }
     }
 
     fontMakeCurrent(currentFont);
@@ -950,15 +915,12 @@ void lmShipItemDraw(rectangle *rect, listitemhandle data)
 /*-----------------------------------------------------------------------------
     Name        : lmShipsToLaunchDraw
     Description : draw Ships to Launch in box for selection
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
+    CAT (M2-R6 managers): the exe's body (0x0049d4b0): the list built on the first call, forgotten on the last; picking
+        a row does nothing more (no ship view)
 ----------------------------------------------------------------------------*/
 void lmShipsToLaunchDraw(char *string, featom *atom)
 {
     fonthandle      oldfont;
-    sdword          index;
-    bool32            is_corv=FALSE, is_fight=FALSE;
 
     if (FEFIRSTCALL(atom))
     {
@@ -976,29 +938,7 @@ void lmShipsToLaunchDraw(char *string, featom *atom)
 
         fontMakeCurrent(oldfont);
 
-        for (index=LM_NUMSHIPS-1;index>=0;index--)
-        {
-            if ( ((PrintOrder[index]!=LM_FIGHTER_SPACER) && (PrintOrder[index]!=LM_CORVETTE_SPACER)) &&
-                 (shipsavailable[PrintOrder[index]].nShips > 0) )
-            {
-                uicListAddItem(lmListWindow, (ubyte *)PrintOrder[index], UICLI_CanSelect, UICLW_AddToHead);
-                if (shipsavailable[PrintOrder[index]].ship->staticinfo->shipclass==CLASS_Corvette)
-                {
-                    is_corv = TRUE;
-                }
-                else if (shipsavailable[PrintOrder[index]].ship->staticinfo->shipclass==CLASS_Fighter)
-                {
-                    is_fight = TRUE;
-                }
-
-            }
-            else if ( ( (PrintOrder[index]==LM_FIGHTER_SPACER) && (is_fight) ) ||
-                      ( (PrintOrder[index]==LM_CORVETTE_SPACER) && (is_corv) )  )
-            {
-                uicListAddItem(lmListWindow, (ubyte *)PrintOrder[index], 0, UICLW_AddToHead);
-            }
-        }
-
+        catLmListAddShips();
         return;
     }
     else if (FELASTCALL(atom))
@@ -1006,96 +946,15 @@ void lmShipsToLaunchDraw(char *string, featom *atom)
         lmListWindow = NULL;
         return;
     }
-    else if (lmListWindow->message == CM_NewItemSelected)
-    {
-        lmcurshipview = (sdword)lmListWindow->CurLineSelected->data;
-        svSelectShip(lmcurshipview);
-    }
-/*    fonthandle currentFont;
-    rectangle  rect = region->rect, select;
-    char       tempstr[64];
-    sdword     index;
-    color      col, plaincol, selectcol;
-    sdword     x, y, xtab;
-
-    currentFont = fontMakeCurrent(lmShipListFont);
-
-    if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
-    {                                                       //if region not processed yet
-        region->flags = RPE_PressLeft;     //receive mouse presses from now on
-        regFunctionSet(region, (regionfunction)lmSelectAvailable);          //set new region handler function
-    }
-    feStaticRectangleDraw(region);                          //draw standard rectangle
-
-    xtab = 0;
-    y    = rect.y0 + LM_VertSpacing;
-    x    = rect.x0 + LM_HorzSpacing;
-
-    plaincol = FEC_ListItemStandard;//lmShipListTextColor;
-    selectcol = FEC_ListItemSelected;//lmShipSelectedTextColor;
-
-
-
-    for (index=0;PrintOrder[index]!=-1;index++)
-    {
-        if (PrintOrder[index]!=SPACER)
-        {
-            if (shipsavailable[PrintOrder[index]].bSelected)
-                col = selectcol;
-            else
-                col = plaincol;
-
-            if (shipsavailable[PrintOrder[index]].nShips > 0)
-            {
-                sprintf(tempstr, " %i",shipsavailable[PrintOrder[index]].nShips);
-                fontPrintf(x+fontWidth(" 55 ")-fontWidth(tempstr), y, col,"%s",tempstr);
-                fontPrintf(x+fontWidth(" 55 "), y, col," x %s", ShipTypeToNiceStr(PrintOrder[index]));
-            }
-            else
-                goto skipnewline;
-        }
-
-        if (index == curselected)
-        {
-            select.x0 = x-LM_BoxSpacing;
-            select.y0 = y-LM_BoxSpacing;
-            select.x1 = x+(((rect.x1-rect.x0)*3)/4);
-            select.y1 = y-LM_BoxSpacing+fontHeight(" ") + LM_VertSpacing;
-            primRectTranslucent2(&select, FEC_ListItemTranslucent);
-            primRectOutline2(&select, 1, FEC_ListItemTranslucentBorder); //selectcol
-        }
-
-
-
-        if (PrintOrder[index]==SPACER)
-        {
-            //xtab = (rect.x1-rect.x0)>>1;
-            //y    = rect.y0 + LM_VertSpacing;
-            plaincol = FEC_ListItemStandard;//lmShip2ListTextColor;
-            selectcol = FEC_ListItemSelected;//lmShip2SelectedTextColor;
-        }
-        else
-        {
-            y += fontHeight(" ") + LM_VertSpacing;
-        }
-
-        x = rect.x0 + xtab + LM_HorzSpacing;
-
-skipnewline:
-        ;
-    }
-
-    fontMakeCurrent(currentFont);*/
 }
 
 /*-----------------------------------------------------------------------------
-    Namems        : lmBarDraw
+    Name        : lmBarDraw
     Description : draws a bar with a background and a foreground and percent used
     Inputs      : rect, backcol, forecol, percent
-    Outputs     : none
-    Return      : void
+    CAT: inlined by the exe's LM_FighterUsed 0x0049d5e0 / LM_CorvetteUsed 0x0049d700 (the foreground is lmUsedColor)
 ----------------------------------------------------------------------------*/
-void lmBarDraw(rectangle *rect, color back, color fore, real32 percent)
+static void lmBarDraw(rectangle *rect, color back, real32 percent)
 {
     rectangle temp;
     primRectSolid2(rect, back);
@@ -1113,14 +972,10 @@ void lmBarDraw(rectangle *rect, color back, color fore, real32 percent)
     primRectSolid2(&temp, lmUsedColor);
 }
 
-
-
 /*-----------------------------------------------------------------------------
-    Name        : lmFighterUsedDraw
-    Description : draw fighter's used bar and number
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
+    Name        : lmFighterUsedDraw / lmCorvetteUsedDraw
+    Description : draw the fighter's / corvette's used bar and number
+    CAT (M2-R6 managers): the exe's bodies (0x0049d5e0 / 0x0049d700, no Ghidra function): the number in 0xff000080
 ----------------------------------------------------------------------------*/
 void lmFighterUsedDraw(featom *atom, regionhandle region)
 {
@@ -1146,21 +1001,13 @@ void lmFighterUsedDraw(featom *atom, regionhandle region)
     if (numused >= launchship->staticinfo->maxDockableFighters)
         numused = launchship->staticinfo->maxDockableFighters;
 
-    lmBarDraw(&region->rect, lmAvailableColor, lmUsedColor, percent);
+    lmBarDraw(&region->rect, lmAvailableColor, percent);
 
-    fontPrintf(region->rect.x1,region->rect.y0,FEC_ListItemStandard/*lmShipListTextColor*/," %i",numused);
+    fontPrintf(region->rect.x1,region->rect.y0,CAT_LM_UsedTextColor," %i",numused);
 
     fontMakeCurrent(currentFont);
 }
 
-
-/*-----------------------------------------------------------------------------
-    Name        : lmCorvetteUsedDraw
-    Description : draw Corvette's used bar and number
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
 void lmCorvetteUsedDraw(featom *atom, regionhandle region)
 {
     real32 percent;
@@ -1179,334 +1026,375 @@ void lmCorvetteUsedDraw(featom *atom, regionhandle region)
     if (numused >= launchship->staticinfo->maxDockableCorvettes)
         numused = launchship->staticinfo->maxDockableCorvettes;
 
-    lmBarDraw(&region->rect, lmAvailableColor, lmUsedColor, percent);
+    lmBarDraw(&region->rect, lmAvailableColor, percent);
 
-    fontPrintf(region->rect.x1,region->rect.y0,FEC_ListItemStandard/*lmShipListTextColor*/," %i",numused);
+    fontPrintf(region->rect.x1,region->rect.y0,CAT_LM_UsedTextColor," %i",numused);
 
     fontMakeCurrent(currentFont);
 }
 
-
-
 /*-----------------------------------------------------------------------------
-    Name        : lmSelectMotherShip
-    Description : processes region callback for mouse clicks
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
+    Name        : lmSelectMotherShip / lmSelectCarrier1 / lmSelectCarrier2
+    Description : the factory buttons
+    CAT (M2-R6 managers): the exe's bodies (0x0049d800 / 0x0049d850 / 0x0049d890, region callbacks with no Ghidra
+        function): a left press on another slot shows that ship's docked ships (lmReLaunch); no ship view
 ----------------------------------------------------------------------------*/
 sdword lmSelectMotherShip(regionhandle region, smemsize ID, udword event, udword data)
 {
-    if (universe.curPlayerPtr->PlayerMothership == NULL) return(0);
-
-    if ((event == RPE_PressLeft) && (lmCurrentSelect != 0))
+    if ((universe.curPlayerPtr->PlayerMothership != NULL) && (event == RPE_PressLeft) && (lmCurrentSelect != 0))
     {
         lmCurrentSelect = 0;
-
-        //lmUpdateFactory(universe.curPlayerPtr->PlayerMothership);
-
-        dbgAssertOrIgnore(region!=NULL);
-#ifdef DEBUG_STOMP
-        regVerify(region);
-#endif
         bitSet(region->status, RSF_DrawThisFrame);
-
         lmReLaunch(universe.curPlayerPtr->PlayerMothership);
-
-        lmUpdateShipView();
     }
-
     return(0);
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : lmSelectCarrierX
-    Description : processes region callback for mouse clicks
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
-sdword lmSelectCarrierX(regionhandle region, smemsize ID, udword event, udword data, udword x)
+static sdword lmSelectCarrierX(regionhandle region, udword event, udword x)
 {
-    if (lmCarrierX[x-1] == NULL) return (0);
-
-    if ((event == RPE_PressLeft) && (lmCurrentSelect != x))
+    if ((lmCarrierX[x-1] != NULL) && (event == RPE_PressLeft) && (lmCurrentSelect != (sdword)x))
     {
         lmCurrentSelect = x;
-
-        dbgAssertOrIgnore(region!=NULL);
-#ifdef DEBUG_STOMP
-        regVerify(region);
-#endif
         bitSet(region->status, RSF_DrawThisFrame);
-
         lmReLaunch(lmCarrierX[x-1]);
-
-        lmUpdateShipView();
     }
-
     return(0);
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : lmSelectCarrier1
-    Description : processes region callback for mouse clicks
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
 sdword lmSelectCarrier1(regionhandle region, smemsize ID, udword event, udword data)
 {
-    return lmSelectCarrierX(region,ID,event,data,1);
+    return lmSelectCarrierX(region,event,1);
 }
 
 sdword lmSelectCarrier2(regionhandle region, smemsize ID, udword event, udword data)
 {
-    return lmSelectCarrierX(region,ID,event,data,2);
-}
-
-sdword lmSelectCarrier3(regionhandle region, smemsize ID, udword event, udword data)
-{
-    return lmSelectCarrierX(region,ID,event,data,3);
-}
-
-sdword lmSelectCarrier4(regionhandle region, smemsize ID, udword event, udword data)
-{
-    return lmSelectCarrierX(region,ID,event,data,4);
+    return lmSelectCarrierX(region,event,2);
 }
 
 /*-----------------------------------------------------------------------------
     Name        : lmDrawShipImage
     Description : draws the button image
-    Inputs      : region
-    Outputs     :
-    Return      : void
+    CAT (M2-R6 managers): the exe's body (0x0049d980): the third argument says whether the slot holds a ship; image base
+        0 (mothership) or 3 (carrier), + 0 disabled, + 1 off, + 2 on for the shown factory, which also gets the
+        2-pixel white line up to the factory name and marks the screen region dirty (status bit 0x1)
 ----------------------------------------------------------------------------*/
-void lmDrawShipImage(regionhandle region, smemsize shipID)
+void lmDrawShipImage(regionhandle region, smemsize shipID, bool32 present)
 {
     rectangle rect;
-    sdword usetexture;
-
-    // CAT: six images per race now (icon1/icon2 x disabled/off/on). Cataclysm's lmDrawShipImage 0x0049d980 takes a
-    //      third argument and picks base (0 or 3) + 0 disabled / +1 off / +2 on (focused); until that rewrite is
-    //      ported (stage 3) this HW1 version shows the enabled, unfocused "_off" image.
-    usetexture = (shipID == 0) ? 1 : 4;
+    sdword index = (shipID != 0) ? 3 : 0;
+    sdword race = universe.curPlayerPtr->race;
 
     rect.x0 = region->rect.x0 + LM_SHIP_IMAGE_INSET;
     rect.y0 = region->rect.y0 + LM_SHIP_IMAGE_INSET;
     rect.x1 = region->rect.x1 - LM_SHIP_IMAGE_INSET;
     rect.y1 = region->rect.y1 - LM_SHIP_IMAGE_INSET;
 
-/*    if (shipID == lmCurrentSelect)
+    if (!present)
+    {
+        ferDrawFocusWindow(region, lw_normal);
+    }
+    else if ((sdword)shipID == lmCurrentSelect)
+    {
         ferDrawFocusWindow(region, lw_focus);
-    else
-        ferDrawFocusWindow(region, lw_normal);*/
-
-    if (lmPaletted)
-    {
-        trPalettedTextureMakeCurrent(lmShipTexture[universe.curPlayerPtr->race][usetexture], lmShipImage[universe.curPlayerPtr->race][usetexture]->palette);
+        index += 2;
     }
     else
     {
-        trRGBTextureMakeCurrent(lmShipTexture[universe.curPlayerPtr->race][usetexture]);
+        ferDrawFocusWindow(region, lw_normal);
+        index += 1;
     }
-
+    // CAT: the exe draws the image scaled through glcompat when cat_glcActive 0x0055c480; the SDL build has no glcompat
+    //      (as svShipViewRender), so the texture path; a race past the two image sets binds no texture, as the exe
+    if ((race == RACE_Sect) || (race == RACE_Beast))
+    {
+        if (lmPaletted)
+        {
+            trPalettedTextureMakeCurrent(lmShipTexture[race][index], lmShipImage[race][index]->palette);
+        }
+        else
+        {
+            trRGBTextureMakeCurrent(lmShipTexture[race][index]);
+        }
+    }
     primRectSolidTextured2(&rect);
+    if (present && ((sdword)shipID == lmCurrentSelect))
+    {
+        if (catLmFactoryNameRegion != NULL)
+        {
+            sdword mid = (rect.x1 - rect.x0) / 2 + rect.x0;
+
+            primLineThick2(mid, catLmFactoryNameRegion->rect.y1, mid, region->rect.y0, 2, colWhite);
+        }
+        if (lmBaseRegion != NULL)
+        {
+            lmBaseRegion->status |= RSF_ReallyDirty;      // CAT: status bit 0x1 (0x0049db34)
+        }
+    }
 }
 
 /*-----------------------------------------------------------------------------
     Name        : lmMotherShipDraw
     Description : draws the mothership button
-    Inputs      : region
-    Outputs     :
-    Return      : void
+    CAT (M2-R6 managers): the exe's body (0x0049db40): live for a mothership-class mothership, which becomes the named
+        factory
 ----------------------------------------------------------------------------*/
 void lmMotherShipDraw(featom *atom, regionhandle region)
 {
-    Ship *shipfactory = universe.curPlayerPtr->PlayerMothership;
+    Ship *mothership = universe.curPlayerPtr->PlayerMothership;
 
-    //lmMotherShipRegion = region;
-
-    if (shipfactory != NULL && shipfactory->shiptype == Mothership)
+    if ((mothership != NULL) && (mothership->staticinfo->shipclass == CLASS_Mothership))
     {
         if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
         {                                         //if region not processed yet
-            region->flags = RPE_PressLeft;        //receive mouse presses from now on
-            region->flags |= RPE_DrawEveryFrame;
+            region->flags = RPE_DrawEveryFrame | RPE_PressLeft;    // CAT: 0x80002000
             regFunctionSet(region, (regionfunction)lmSelectMotherShip); //set new region handler function
         }
-        if (0 == lmCurrentSelect)
-            ferDrawFocusWindow(region, lw_focus);
-        else
-            ferDrawFocusWindow(region, lw_normal);
-
-        lmDrawShipImage(region, 0);
+        lmDrawShipImage(region, 0, TRUE);
+        catLmFactoryShip = mothership;
+        return;
     }
-}
-
-void lmFillInCarrierXs(void)
-{
-    sdword i,insert,index;
-
-    for (i=0;i<NUM_LMCARRIERS;i++)
-    {
-        lmCarrierX[i] = NULL;
-    }
-
-    for (insert=0,index=0;index<cmNumCarriers;index++)
-    {
-        if (cmCarriers[index].owner == universe.curPlayerPtr)
-        {
-            if (insert < NUM_LMCARRIERS)
-            {
-                lmCarrierX[insert++] = cmCarriers[index].ship;
-            }
-        }
-    }
+    lmDrawShipImage(region, 0, FALSE);
 }
 
 /*-----------------------------------------------------------------------------
     Name        : lmCarrierXDraw
     Description : draws the carrierX button
-    Inputs      : region
-    Outputs     :
-    Return      : void
+    CAT (M2-R6 managers): the exe's body (0x0049dbb0): the x-th of the local player's carriers in cmCarriers order
 ----------------------------------------------------------------------------*/
 void lmCarrierXDraw(featom *atom, regionhandle region,udword x)
 {
-    sdword index, count = 0;
-    //lmCarrier2Region = region;
+    sdword index;
+    udword count = 0;
 
     for (index=0;index<cmNumCarriers;index++)
     {
-        if (cmCarriers[index].owner == universe.curPlayerPtr)
+        if ((cmCarriers[index].owner == universe.curPlayerPtr) && (++count > (x-1)))
         {
-            count++;
-            if(count > (x-1))
-            {
-                lmCarrierX[x-1] = cmCarriers[index].ship;
-                if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
-                {                                         //if region not processed yet
-                    region->flags = RPE_PressLeft;        //receive mouse presses from now on
-                    region->flags |= RPE_DrawEveryFrame;
-                    switch (x)
-                    {
-                        case 1: regFunctionSet(region, (regionfunction)lmSelectCarrier1); break;
-                        case 2: regFunctionSet(region, (regionfunction)lmSelectCarrier2); break;
-                        case 3: regFunctionSet(region, (regionfunction)lmSelectCarrier3); break;
-                        case 4: regFunctionSet(region, (regionfunction)lmSelectCarrier4); break;
-                        default: dbgAssertOrIgnore(FALSE); break;
-                    }
+            lmCarrierX[x-1] = cmCarriers[index].ship;
+            if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
+            {                                         //if region not processed yet
+                region->flags = RPE_DrawEveryFrame | RPE_PressLeft;    // CAT: 0x80002000
+                if (x == 1)
+                {
+                    regFunctionSet(region, (regionfunction)lmSelectCarrier1);
                 }
-                lmDrawShipImage(region, x);
-                break;
+                else if (x == 2)
+                {
+                    regFunctionSet(region, (regionfunction)lmSelectCarrier2);
+                }
             }
+            lmDrawShipImage(region, x, TRUE);
+            catLmFactoryShip = cmCarriers[index].ship;
+            return;
         }
     }
+    lmDrawShipImage(region, x, FALSE);
+}
+
+// CAT: the exe's LM_Carrier1Draw 0x0049dc60 / LM_Carrier2Draw 0x0049dce0: the carrier's autolaunch box follows the slot
+static void catLmCarrierDraw(featom *atom, regionhandle region, udword x, char *boxName)
+{
+    catLmAtomEnable(feAtomFindInScreen(feScreenFind(catLmScreenName()), boxName), lmCarrierX[x-1] != NULL);
+    lmCarrierXDraw(atom, region, x);
 }
 
 void lmCarrier1Draw(featom *atom, regionhandle region)
 {
-    featom *batom;
-
-    if (1 == lmCurrentSelect)
-        ferDrawFocusWindow(region, lw_focus);
-    else
-        ferDrawFocusWindow(region, lw_normal);
-
-    batom=feAtomFindInScreen(feScreenFind(LM_LaunchScreen),"LM_AutoLaunchC1");
-    if (lmCarrierX[0]==NULL)
-    {
-        bitSet(batom->flags, FAF_Disabled);
-        bitSet(((regionhandle)batom->region)->status, RSF_RegionDisabled);
-    }
-    else
-    {
-        bitClear(batom->flags, FAF_Disabled);
-        bitClear(((regionhandle)batom->region)->status, RSF_RegionDisabled);
-    }
-
-    lmCarrierXDraw(atom,region,1);
+    catLmCarrierDraw(atom, region, 1, "LM_AutoLaunchC1");
 }
 
 void lmCarrier2Draw(featom *atom, regionhandle region)
 {
-    featom *batom;
-
-    if (2 == lmCurrentSelect)
-        ferDrawFocusWindow(region, lw_focus);
-    else
-        ferDrawFocusWindow(region, lw_normal);
-
-    batom=feAtomFindInScreen(feScreenFind(LM_LaunchScreen),"LM_AutoLaunchC2");
-    if (lmCarrierX[1]==NULL)
-    {
-        bitSet(batom->flags, FAF_Disabled);
-        bitSet(((regionhandle)batom->region)->status, RSF_RegionDisabled);
-    }
-    else
-    {
-        bitClear(batom->flags, FAF_Disabled);
-        bitClear(((regionhandle)batom->region)->status, RSF_RegionDisabled);
-    }
-
-    lmCarrierXDraw(atom,region,2);
+    catLmCarrierDraw(atom, region, 2, "LM_AutoLaunchC2");
 }
 
-void lmCarrier3Draw(featom *atom, regionhandle region)
+/*-----------------------------------------------------------------------------
+    Name        : cat_lmFactoryNameDraw
+    Description : CAT: new (LM_FactoryNameDraw 0x0049d8d0, no Ghidra function): the shown factory's name (a human player's
+                  named ship, cat_shipNamesGetName) above a 2-pixel white line along the region's bottom; nothing until
+                  a factory button has drawn
+----------------------------------------------------------------------------*/
+void cat_lmFactoryNameDraw(featom *atom, regionhandle region)
 {
-    featom *batom;
+    fonthandle oldfont;
+    Ship *factory;
 
-    if (3 == lmCurrentSelect)
-        ferDrawFocusWindow(region, lw_focus);
-    else
-        ferDrawFocusWindow(region, lw_normal);
-
-    batom=feAtomFindInScreen(feScreenFind(LM_LaunchScreen),"LM_AutoLaunchC3");
-    if (lmCarrierX[2]==NULL)
+    catLmFactoryNameRegion = region;
+    if (catLmFactoryShip == NULL)
     {
-        bitSet(batom->flags, FAF_Disabled);
-        bitSet(((regionhandle)batom->region)->status, RSF_RegionDisabled);
+        return;
     }
-    else
+    oldfont = fontMakeCurrent(catLmFactoryNameFont);
+    factory = (lmCurrentSelect == 0) ? universe.curPlayerPtr->PlayerMothership : lmCarrierX[lmCurrentSelect - 1];
+    catLmFactoryShip = factory;
+    if ((factory != NULL) && (factory->playerowner->aiPlayer == NULL))
     {
-        bitClear(batom->flags, FAF_Disabled);
-        bitClear(((regionhandle)batom->region)->status, RSF_RegionDisabled);
+        // CAT: the exe passes the name as the format string
+        fontPrintf(region->rect.x0, region->rect.y1 - fontHeight(" "), colWhite, "%s", cat_shipNamesGetName(factory));
     }
-
-    lmCarrierXDraw(atom,region,3);
+    primLineThick2(region->rect.x0, region->rect.y1, region->rect.x1, region->rect.y1, 2, colWhite);
+    fontMakeCurrent(oldfont);
 }
 
-void lmCarrier4Draw(featom *atom, regionhandle region)
+/*-----------------------------------------------------------------------------
+    Name        : cat_lmModuleSlotXDraw
+    Description : CAT: new (0x0049eb40): a module slot's three system buttons at the slot's right end, 32 x 16 pixels
+                  4 apart from x1 - 0x6c: disabled until the mothership has the upgrade flag 0x200000 (the flag
+                  render.h names CAT_UPGRADE_RepairDroids), then off / off_focus for the module's chosen system
+                  (cat_mothershipModuleSlotGet), off_mouse / on under the mouse
+    Inputs      : region - the slot's region; moduleType - the slot's module type
+----------------------------------------------------------------------------*/
+static void cat_lmModuleSlotXDraw(regionhandle region, sdword moduleType)
 {
-    featom *batom;
+    Ship *mothership = universe.curPlayerPtr->PlayerMothership;
+    rectangle rect;
+    sdword chosen, system, state;
 
-    if (4 == lmCurrentSelect)
-        ferDrawFocusWindow(region, lw_focus);
-    else
-        ferDrawFocusWindow(region, lw_normal);
-
-    batom=feAtomFindInScreen(feScreenFind(LM_LaunchScreen),"LM_AutoLaunchC4");
-    if (lmCarrierX[3]==NULL)
+    if (mothership == NULL)
     {
-        bitSet(batom->flags, FAF_Disabled);
-        bitSet(((regionhandle)batom->region)->status, RSF_RegionDisabled);
+        return;
     }
-    else
+    chosen = cat_mothershipModuleSlotGet(mothership, moduleType);
+    rect.x0 = region->rect.x1 - 0x6c;
+    rect.x1 = region->rect.x1 - 0x4c;
+    rect.y0 = region->rect.y0 + 4;
+    rect.y1 = region->rect.y0 + 0x14;
+    for (system = 0; system < CAT_LM_NUM_SYSTEMS; system++)
     {
-        bitClear(batom->flags, FAF_Disabled);
-        bitClear(((regionhandle)batom->region)->status, RSF_RegionDisabled);
+        if ((universe.curPlayerPtr->PlayerMothership == NULL) ||
+            cat_shipHasUpgrade(universe.curPlayerPtr->PlayerMothership, 0x00200000))
+        {
+            state = (system == chosen) ? 3 : 1;
+            if ((catLmHoverModuleType == moduleType) && (catLmHoverSystem == system))
+            {
+                state++;
+            }
+        }
+        else
+        {
+            state = 0;
+        }
+        // CAT: the texture path (no glcompat in the SDL build, as lmDrawShipImage)
+        trRGBTextureMakeCurrent(catLmSysTexture[system * CAT_LM_SYS_STATES + state]);
+        primRectSolidTextured2(&rect);
+        rect.x0 = rect.x1 + 4;
+        rect.x1 = rect.x1 + 0x24;
     }
-
-    lmCarrierXDraw(atom,region,4);
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : catLmModuleSlotProcess
+    Description : CAT: the module slot regions' callback (0x0049ec60 + 0x90 per slot, region callbacks with no Ghidra
+                  function): the system button under the mouse (the 32-pixel columns 0x20 / 0x44 / 0x68 left of the
+                  slot's right edge, right to left systems 2, 1, 0) is remembered for the draw; a left release picks
+                  it for the module (cat_mothershipModuleSlotSet)
+----------------------------------------------------------------------------*/
+static sdword catLmModuleSlotProcess(regionhandle region, udword event, sdword slot)
+{
+    Ship *mothership = universe.curPlayerPtr->PlayerMothership;
+    Ship *module = cat_lmModuleSlots[slot];
+    sdword edge, system;
+
+    if ((mothership == NULL) || (mothership->shiptype != sMothership) || (module == NULL))
+    {
+        return 0;
+    }
+    edge = region->rect.x1 - 0x20;
+    if (mouseCursorX() > edge)
+    {
+        system = 2;
+    }
+    else if (mouseCursorX() > edge - 0x24)
+    {
+        system = 1;
+    }
+    else
+    {
+        system = (mouseCursorX() > edge - 0x48) ? 0 : -1;
+    }
+    catLmHoverModuleType = module->shiptype;
+    catLmHoverSystem = system;
+    if ((system != -1) && (event == RPE_ReleaseLeft))
+    {
+        cat_mothershipModuleSlotSet(mothership, module->shiptype, system);
+    }
+    return 0;
+}
+
+static sdword catLmModuleSlot1Process(regionhandle region, smemsize ID, udword event, udword data) { return catLmModuleSlotProcess(region, event, 0); }
+static sdword catLmModuleSlot2Process(regionhandle region, smemsize ID, udword event, udword data) { return catLmModuleSlotProcess(region, event, 1); }
+static sdword catLmModuleSlot3Process(regionhandle region, smemsize ID, udword event, udword data) { return catLmModuleSlotProcess(region, event, 2); }
+static sdword catLmModuleSlot4Process(regionhandle region, smemsize ID, udword event, udword data) { return catLmModuleSlotProcess(region, event, 3); }
+static sdword catLmModuleSlot5Process(regionhandle region, smemsize ID, udword event, udword data) { return catLmModuleSlotProcess(region, event, 4); }
+static sdword catLmModuleSlot6Process(regionhandle region, smemsize ID, udword event, udword data) { return catLmModuleSlotProcess(region, event, 5); }
+static sdword catLmModuleSlot7Process(regionhandle region, smemsize ID, udword event, udword data) { return catLmModuleSlotProcess(region, event, 6); }
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_lmModuleSlotDraw
+    Description : CAT: the body of cat_lmModuleSlot1..7Draw (0x0049f050 + 0x170 per slot, the first also refilling the
+                  slots): the region takes every mouse event (flags 0x7ffff) and comes to the front; a filled slot of
+                  an sMothership shows the module's name, its health bar (cat_selHealthFactorGet / ColorsGet, 6 pixels
+                  high along the bottom, 0x72 pixels short of the right edge) and its system buttons; otherwise the
+                  region is cleared to the background colour
+----------------------------------------------------------------------------*/
+static void cat_lmModuleSlotDraw(regionhandle region, sdword slot, regionfunction process)
+{
+    Ship *mothership = universe.curPlayerPtr->PlayerMothership;
+    Ship *module = cat_lmModuleSlots[slot];
+    fonthandle oldfont;
+    rectangle rect;
+    sdword width;
+    real32 factor;
+    color c, dark;
+
+    if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
+    {
+        region->flags = 0x0007ffff;            // CAT: RPE_Enter .. RPE_ReleaseCentre
+        regFunctionSet(region, process);
+        regSiblingMoveToFront(region);
+    }
+    if ((mothership == NULL) || (mothership->shiptype != sMothership) || (module == NULL))
+    {
+        primRectSolid2(&region->rect, FEC_Background);
+        return;
+    }
+    oldfont = fontMakeCurrent(lmShipListFont);
+    fontPrint(region->rect.x0 + 6, region->rect.y0, FEC_ListItemStandard, ShipTypeToNiceStr(module->shiptype));
+    width = (region->rect.x1 - region->rect.x0) - 0x72;
+    cat_selHealthFactorGet(module, &factor);
+    cat_selHealthColorsGet(&factor, &c, &dark);
+    rect.x0 = region->rect.x0 + 6;
+    rect.x1 = region->rect.x0 + width;
+    rect.y1 = region->rect.y1;
+    rect.y0 = rect.y1 - 6;
+    primRectSolid2(&rect, dark);
+    if (factor < 0.0f)
+    {
+        factor = 0.0f;
+    }
+    rect.x1 = (sdword)((real32)width * factor) + region->rect.x0;
+    primRectSolid2(&rect, c);
+    cat_lmModuleSlotXDraw(region, module->shiptype);
+    fontMakeCurrent(oldfont);
+}
+
+void cat_lmModuleSlot1Draw(featom *atom, regionhandle region)
+{
+    cat_lmFillInModuleSlots();
+    cat_lmModuleSlotDraw(region, 0, (regionfunction)catLmModuleSlot1Process);
+}
+
+void cat_lmModuleSlot2Draw(featom *atom, regionhandle region) { cat_lmModuleSlotDraw(region, 1, (regionfunction)catLmModuleSlot2Process); }
+void cat_lmModuleSlot3Draw(featom *atom, regionhandle region) { cat_lmModuleSlotDraw(region, 2, (regionfunction)catLmModuleSlot3Process); }
+void cat_lmModuleSlot4Draw(featom *atom, regionhandle region) { cat_lmModuleSlotDraw(region, 3, (regionfunction)catLmModuleSlot4Process); }
+void cat_lmModuleSlot5Draw(featom *atom, regionhandle region) { cat_lmModuleSlotDraw(region, 4, (regionfunction)catLmModuleSlot5Process); }
+void cat_lmModuleSlot6Draw(featom *atom, regionhandle region) { cat_lmModuleSlotDraw(region, 5, (regionfunction)catLmModuleSlot6Process); }
+void cat_lmModuleSlot7Draw(featom *atom, regionhandle region) { cat_lmModuleSlotDraw(region, 6, (regionfunction)catLmModuleSlot7Process); }
 
 /*-----------------------------------------------------------------------------
     Name        : lmLoadTextures
     Description : load the textures used by the launch manager
-    Inputs      :
-    Outputs     :
-    Return      :
+    CAT: the exe's body (0x0049dd60): IDENTICAL in shape to HW1's but for the six icon names and the second loop
 ----------------------------------------------------------------------------*/
 void lmLoadTextures(void)
 {
@@ -1568,9 +1456,7 @@ void lmLoadTextures(void)
 /*-----------------------------------------------------------------------------
     Name        : lmFreeTextures
     Description : delete the textures used by the launch manager
-    Inputs      :
-    Outputs     :
-    Return      :
+    CAT: the exe's body (0x0049df00): HW1's plus the second loop
 ----------------------------------------------------------------------------*/
 void lmFreeTextures(void)
 {
@@ -1610,11 +1496,20 @@ void lmFreeTextures(void)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_lmBackgroundDraw
+    Description : CAT: new (0x0049df90, the "dont_draw" draw callback lmStartup registers): the standard rectangle
+                  filled with the background colour
+----------------------------------------------------------------------------*/
+static void cat_lmBackgroundDraw(featom *atom, regionhandle region)
+{
+    feStaticRectangleDraw(region);
+    primRectSolid2(&region->rect, FEC_Background);
+}
+
+/*-----------------------------------------------------------------------------
     Name        : lmStartup
     Description : Start up the launch manager
-    Inputs      : none
-    Outputs     : none
-    Return      : void
+    CAT (M2-R6 managers): the exe's body (0x0049dfb0): the factory name font too, and the "dont_draw" draw callback
 ----------------------------------------------------------------------------*/
 void lmStartup(void)
 {
@@ -1623,6 +1518,7 @@ void lmStartup(void)
     lmRenderEverythingCounter = 0;
 
     lmShipListFont = frFontRegister(lmShipListFontName);
+    catLmFactoryNameFont = frFontRegister(CAT_LM_FactoryNameFont);
     lmLoadTextures();
 
     for (index=0;index < TOTAL_NUM_SHIPS; index++)
@@ -1632,20 +1528,18 @@ void lmStartup(void)
 
     for (index=0; PrintOrder[index]!=-1; index++)
     {
-        if ( ((PrintOrder[index]!=LM_FIGHTER_SPACER) && (PrintOrder[index]!=LM_CORVETTE_SPACER)) &&
-             (PrintOrder[index] != -1))
+        if ((PrintOrder[index]!=LM_FIGHTER_SPACER) && (PrintOrder[index]!=LM_CORVETTE_SPACER))
         {    // ship is in the list so add it in
             lmShipInList[PrintOrder[index]] = TRUE;
         }
     }
+    feDrawCallbackAdd("dont_draw", cat_lmBackgroundDraw);
 }
 
 /*-----------------------------------------------------------------------------
     Name        : lmShutdown
     Description : shut down the launch manager
-    Inputs      : none
-    Outputs     : none
-    Return      : void
+    CAT: the exe's body (0x0049e040): IDENTICAL to HW1's
 ----------------------------------------------------------------------------*/
 void lmShutdown(void)
 {
@@ -1658,12 +1552,44 @@ void lmShutdown(void)
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : lmUpdateShipsInside
-    Description : update ship display in launch manager
-    Inputs      : ship that created ship
-    Outputs     : none
-    Return      : void
+    Name        : cat_lmShipAutoLaunchBit
+    Description : CAT: new (0x0049fa60): host's bit in its owner's autoLaunch word (1 the mothership, 2 / 4 / 8 the three
+                  carriers of FillInCarrierMothershipInfo), 0 for any other ship and, in single player, for a ship of a
+                  computer player or with SPECIAL_2_CatExempt20 (cmRemoveFactory 0x004546d0 takes a dead carrier's bit
+                  out of the word)
+    Inputs      : host
 ----------------------------------------------------------------------------*/
+sdword cat_lmShipAutoLaunchBit(Ship *host)
+{
+    Ship *mothership;
+    Ship *carriers[4];      // FillInCarrierMothershipInfo writes three; one spare as in cat_lmShipAutoLaunchOn
+    sdword i;
+    sdword bit = 2;
+
+    if (singlePlayerGame && ((host->playerowner->playerIndex != 0) || (host->shipOrDerelict.specialFlags2 & SPECIAL_2_CatExempt20)))
+    {
+        return 0;
+    }
+    if ((host->staticinfo->shipclass != CLASS_Mothership) && (host->staticinfo->shipclass != CLASS_Carrier))
+    {
+        return 0;
+    }
+    mothership = host;
+    FillInCarrierMothershipInfo(host->playerowner,&mothership,carriers);
+    if (mothership == host)
+    {
+        return 1;
+    }
+    for (i = 0; i < 3; i++, bit <<= 1)
+    {
+        if (carriers[i] == host)
+        {
+            return bit;
+        }
+    }
+    return 0;
+}
+
 /*-----------------------------------------------------------------------------
     Name        : cat_lmShipAutoLaunchOn
     Description : CAT: whether ships docked inside host launch again on their own (cataclysm.exe 0x0049fb00;
@@ -1676,8 +1602,8 @@ void lmShutdown(void)
 bool32 cat_lmShipAutoLaunchOn(Ship *host)
 {
     Ship *mothership;
-    Ship *carriers[4];      // CAT-FIX: FillInCarrierMothershipInfo fills four slots (the exe's frame holds three and
-                            //      overruns into its own locals); the exe tests the first three
+    Ship *carriers[4];      // [M2-R6 managers: FillInCarrierMothershipInfo writes three slots since M2-R5 command
+                            //      (CommandLayer.c); the spare is harmless, the exe tests the first three]
     sdword i;
     udword bit = 2;
 
@@ -1705,179 +1631,115 @@ bool32 cat_lmShipAutoLaunchOn(Ship *host)
     return TRUE;
 }
 
+
+/*-----------------------------------------------------------------------------
+    Name        : lmUpdateShipsInside
+    Description : update ship display in launch manager
+    CAT (M2-R6 managers): the exe's body (0x0049e070): only while the screen is up; the counts and the list rebuilt
+----------------------------------------------------------------------------*/
 void lmUpdateShipsInside(void)
 {
-    uword i;
-    Node *walk;
-    ShipPtr shipinside;
-    InsideShip *insideShipStruct;
-    sdword      index;
-    sdword      shipnum=-1;
-    listitemhandle listitem;
-    bool32            is_corv=FALSE, is_fight=FALSE;
-
     if (lmBaseRegion!=NULL)
     {
-        // get the pointer to the list of ships inside the ship
-        shipsin = launchship->shipsInsideMe;
-
-        for (i=0;i<TOTAL_NUM_SHIPS;i++)
-        {
-            shipsavailable[i].nShips = 0;
-            shipsavailable[i].ship = NULL;
-        }
-
-        walk = shipsin->insideList.head;
-        while (walk !=NULL)
-        {
-            insideShipStruct = (InsideShip *)listGetStructOfNode(walk);
-            shipinside = insideShipStruct->ship;
-            dbgAssertOrIgnore(shipinside->header.objtype == OBJ_ShipType);
-            shipsavailable[shipinside->shiptype].nShips++;
-            shipsavailable[shipinside->shiptype].ship = shipinside;
-            walk = walk->next;
-        }
-
-        if ((lmListWindow!=NULL) && (lmListWindow->CurLineSelected!=NULL))
-        {
-            shipnum = (sdword)lmListWindow->CurLineSelected->data;
-        }
-
-        if (lmListWindow!=NULL)
-        {
-            uicListCleanUp(lmListWindow);
-
-            for (index=LM_NUMSHIPS-1;index>=0;index--)
-            {
-                if ( ((PrintOrder[index]!=LM_FIGHTER_SPACER) && (PrintOrder[index]!=LM_CORVETTE_SPACER)) &&
-                     (shipsavailable[PrintOrder[index]].nShips > 0) )
-                {
-                    uicListAddItem(lmListWindow, (ubyte *)PrintOrder[index], UICLI_CanSelect, UICLW_AddToHead);
-                    if (shipsavailable[PrintOrder[index]].ship->staticinfo->shipclass==CLASS_Corvette)
-                    {
-                        is_corv = TRUE;
-                    }
-                    else if (shipsavailable[PrintOrder[index]].ship->staticinfo->shipclass==CLASS_Fighter)
-                    {
-                        is_fight = TRUE;
-                    }
-
-                }
-                else if ( ( (PrintOrder[index]==LM_FIGHTER_SPACER) && (is_fight) ) ||
-                          ( (PrintOrder[index]==LM_CORVETTE_SPACER) && (is_corv) )  )
-                {
-                    uicListAddItem(lmListWindow, (ubyte *)PrintOrder[index], 0, UICLW_AddToHead);
-                }
-            }
-
-            if (shipnum != -1)
-            {
-                listitem = uicListFindItemByData(lmListWindow, (ubyte *)shipnum);
-                uicListWindowSetCurItem(lmListWindow, listitem);
-            }
-        }
+        catLmCountShipsInside(FALSE);
+        catLmListRebuild();
     }
 }
-
 
 /*-----------------------------------------------------------------------------
     Name        : lmLaunchBegin
     Description : Begin launch manager
     Inputs      : event handles
-    Outputs     :
-    Return      : sdword
+    CAT (M2-R6 managers): the exe's body (0x0049e1e0): no replay, pause (without HW1's opPauseOrders), tutorial gate bit
+        0x100 of its first word, no mothership, or a single-player game's other players; the sensors manager closes
+        and is remembered; the passed ship is used when it is the player's own mothership- or carrier-class ship
+        without SPECIAL_2_CatExempt20, else the remembered slot's; the Sect or Beast screen (loaded again when the race
+        changed), the module slots, no ship view, no input lock-out, no taskbar flag
 ----------------------------------------------------------------------------*/
 sdword lmLaunchBegin(regionhandle region, smemsize ID, udword event, udword data)
 {
-    uword i;
-    Node *walk;
-    ShipPtr shipinside;
-    InsideShip *insideShipStruct;
+    Player *player = universe.curPlayerPtr;
+    Ship *ship = (Ship *)ID;
+    sdword i;
 
-    if (playPackets || (universePause && !opPauseOrders) )
+    if (playPackets || universePause)
     {
         return 0;
     }
-
-    if((tutorial==TUTORIAL_ONLY) && !tutEnable.bLaunch)
+    if (!catLmTutEnabled1(0x100))
     {
-        return (0);
+        return 0;
     }
-
-    launchship = (Ship *)ID;
-
-    if (universe.curPlayerPtr->PlayerMothership == NULL)
+    if (player->PlayerMothership == NULL)
     {
-        return (0);
+        return 0;
     }
-
-    lmFillInCarrierXs();
-    // CAT (M2-R4 ships-b): the exe's lmLaunchBegin 0x0049e1e0 fills the module slots when it opens the screen (the rest
-    //      of its Cataclysm launch screen is stage 3)
-    cat_lmFillInModuleSlots();
-
-    if ((launchship == NULL)||((launchship->shiptype!=Mothership)&&(launchship->shiptype!=Carrier)))
+    if (singlePlayerGame && (player->playerIndex != 0))
     {
-        if (lmCurrentSelect==0)
-        {
-            if (universe.curPlayerPtr->PlayerMothership != NULL)
-            {
-                launchship = universe.curPlayerPtr->PlayerMothership;
+        return 0;
+    }
+    catLmSensorsWereOpen = smSensorsActive;
+    if (smSensorsActive)
+    {
+        smSensorsCloseForGood();
+    }
+    catLmFillInCarrierXs();
 
-                if (universe.curPlayerPtr->PlayerMothership->shiptype == Carrier)
-                {
-                    lmCurrentSelect = 1;
-                }
-                else if (universe.curPlayerPtr->PlayerMothership->shiptype == Mothership)
-                {
-                    lmCurrentSelect = 0;
-                }
-            }
-        }
-        else if (lmCarrierX[lmCurrentSelect-1]!=NULL)
+    launchship = ship;
+    if ((ship != NULL) && (ship->playerowner->playerIndex == player->playerIndex) &&
+        !bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20) &&
+        ((ship->staticinfo->shipclass == CLASS_Mothership) || (ship->staticinfo->shipclass == CLASS_Carrier)))
+    {
+        if (ship->staticinfo->shipclass == CLASS_Mothership)
         {
-            launchship = lmCarrierX[lmCurrentSelect-1];
+            lmCurrentSelect = 0;
         }
         else
         {
-            launchship = universe.curPlayerPtr->PlayerMothership;
-            if (universe.curPlayerPtr->PlayerMothership->shiptype == Carrier)
+            for (i = 0; i < cmNumPlayersCarriers; i++)
+            {
+                // CAT-FIX: the exe compares up to cmNumPlayersCarriers entries of its two-entry array (the next words
+                //      are the image table); the two carrier slots here
+                if (i >= NUM_LMCARRIERS)
+                {
+                    break;
+                }
+                if (ship == lmCarrierX[i])
+                {
+                    lmCurrentSelect = i + 1;
+                    break;
+                }
+            }
+        }
+    }
+    else
+    {
+        launchship = NULL;
+        if (lmCurrentSelect != 0)
+        {
+            launchship = lmCarrierX[lmCurrentSelect - 1];
+        }
+        if (launchship == NULL)
+        {
+            launchship = player->PlayerMothership;
+            if (launchship->staticinfo->shipclass == CLASS_Carrier)
             {
                 lmCurrentSelect = 1;
             }
-            else if (universe.curPlayerPtr->PlayerMothership->shiptype == Mothership)
+            else if (launchship->staticinfo->shipclass == CLASS_Mothership)
             {
                 lmCurrentSelect = 0;
             }
         }
     }
-    else if (launchship->shiptype == Mothership)
-    {
-        lmCurrentSelect = 0;
-    }
-    else
-    {
-        sdword i;
-
-        for (i=0;i<cmNumPlayersCarriers;i++)
-        {
-            if (launchship == lmCarrierX[i])
-            {
-                lmCurrentSelect = i+1;
-                break;
-            }
-        }
-    }
-
     if (launchship == NULL)
     {
-        if (cmNumPlayersCarriers > 0)
+        if (cmNumPlayersCarriers < 1)
         {
-            launchship = lmCarrierX[0];
-            lmCurrentSelect = 1;
+            return 0;
         }
-        else
-            return(0);
+        launchship = lmCarrierX[0];
+        lmCurrentSelect = 1;
     }
 
     // disable rendering of main game screen
@@ -1889,183 +1751,68 @@ sdword lmLaunchBegin(regionhandle region, smemsize ID, udword event, udword data
     // clear the screen
     rndClear();
 
-    // disable taskbar popup window
-    tbDisable = TRUE;
-
-    // get the pointer to the list of ships inside the ship
-    shipsin = launchship->shipsInsideMe;
-
-    for (i=0;i<TOTAL_NUM_SHIPS;i++)
-    {
-        shipsavailable[i].nShips = 0;
-        shipsavailable[i].bSelected = FALSE;
-        shipsavailable[i].ship = NULL;
-    }
-
-    walk = shipsin->insideList.head;
-    while (walk !=NULL)
-    {
-        insideShipStruct = (InsideShip *)listGetStructOfNode(walk);
-        shipinside = insideShipStruct->ship;
-        dbgAssertOrIgnore(shipinside->header.objtype == OBJ_ShipType);
-        shipsavailable[shipinside->shiptype].nShips++;
-        shipsavailable[shipinside->shiptype].ship = shipinside;
-        walk = walk->next;
-    }
+    catLmCountShipsInside(TRUE);
 
     soundEventStopSFX(0.5f);
+    soundEventPlay(NULL, 0x12f, NULL);                      // CAT: the manager intro
+    soundEventPlay(NULL, 0x102, NULL);                      // CAT: the launch manager's ambient
 
-    /* play the intro sound */
-    soundEvent(NULL, UI_ManagerIntro);
-    // play the launch manager ambient
-    soundEvent(NULL, UI_LaunchManager);
-
-    if (!lmScreensHandle)
+    if (lmScreensHandle == NULL)
     {
         feCallbackAddMultiple(lmCallback);                  //add in the callbacks
         feDrawCallbackAddMultiple(lmDrawCallback);
-        lmScreensHandle = feScreensLoad(LM_FIBFile);        //load in the screen
+    }
+    else if (universe.curPlayerPtr->race != catLmScreensRace)
+    {
+        feScreensDelete(lmScreensHandle);
+        lmScreensHandle = NULL;
+    }
+    if (lmScreensHandle == NULL)
+    {
+        catLmScreensRace = (universe.curPlayerPtr->race == RACE_Sect) ? RACE_Sect : RACE_Beast;
+        lmScreensHandle = feScreensLoad((catLmScreensRace == RACE_Sect) ? LM_FIBFile : CAT_LM_BeastFIBFile);
     }
 
-    lmIoSaveState = ioDisable();
-
-    lmBaseRegion = feScreenStart(region, LM_LaunchScreen);  //add new regions as siblings of current one
+    lmBaseRegion = feScreenStart(region, catLmScreenName());  //add new regions as siblings of current one
 
     mouseCursorShow();
 
-    tutGameMessage("Start_LaunchManager");
+    cat_lmFillInModuleSlots();
 
-/*    regKeyChildAlloc(lmBaseRegion, SHIFTKEY,   RPE_KeyDown|RPE_KeyUp, (regionfunction)lmSelectAvailable, 1, SHIFTKEY);
-    regKeyChildAlloc(lmBaseRegion, CONTROLKEY, RPE_KeyDown|RPE_KeyUp, (regionfunction)lmSelectAvailable, 1, CONTROLKEY);*/
-
-    lmUpdateShipView();
+    // CAT-TODO(stage 6 tutorial): cat_tutButtonsHideForScreen 0x005341f0 (the tutorial's buttons hide while the screen is open)
 
     return(0);
 }
 
-
-
 /*-----------------------------------------------------------------------------
-    Name        : lmReLaunchBegin
+    Name        : lmReLaunch
     Description : switch to another carrier or the mothership
-    Inputs      : event handles
-    Outputs     :
-    Return      : sdword
+    CAT: the exe's body (0x0049e520): IDENTICAL in effect to HW1's but for the list's class headers
 ----------------------------------------------------------------------------*/
-
 void lmReLaunch(Ship *newship)
 {
-    uword i;
-    Node *walk;
-    ShipPtr shipinside;
-    InsideShip *insideShipStruct;
-    sdword      index;
-    sdword      shipnum=-1;
-    listitemhandle listitem;
-    bool32            is_corv=FALSE, is_fight=FALSE;
-
     launchship = newship;
-
-    // get the pointer to the list of ships inside the ship
-    shipsin = launchship->shipsInsideMe;
-
-    for (i=0;i<TOTAL_NUM_SHIPS;i++)
-    {
-        shipsavailable[i].nShips = 0;
-        shipsavailable[i].bSelected = FALSE;
-        shipsavailable[i].ship = NULL;
-    }
-
-    walk = shipsin->insideList.head;
-    while (walk !=NULL)
-    {
-        insideShipStruct = (InsideShip *)listGetStructOfNode(walk);
-        shipinside = insideShipStruct->ship;
-        dbgAssertOrIgnore(shipinside->header.objtype == OBJ_ShipType);
-        shipsavailable[shipinside->shiptype].nShips++;
-        shipsavailable[shipinside->shiptype].ship = shipinside;
-        walk = walk->next;
-    }
-
-    if ((lmListWindow!=NULL) && (lmListWindow->CurLineSelected!=NULL))
-    {
-        shipnum = (sdword)lmListWindow->CurLineSelected->data;
-    }
-
-    if (lmListWindow!=NULL)
-    {
-        uicListCleanUp(lmListWindow);
-
-        for (index=LM_NUMSHIPS-1;index>=0;index--)
-        {
-            if ( ((PrintOrder[index]!=LM_FIGHTER_SPACER) && (PrintOrder[index]!=LM_CORVETTE_SPACER)) &&
-                 (shipsavailable[PrintOrder[index]].nShips > 0) )
-            {
-                uicListAddItem(lmListWindow, (ubyte *)PrintOrder[index], UICLI_CanSelect, UICLW_AddToHead);
-
-                if (shipsavailable[PrintOrder[index]].ship->staticinfo->shipclass==CLASS_Corvette)
-                {
-                    is_corv = TRUE;
-                }
-                else if (shipsavailable[PrintOrder[index]].ship->staticinfo->shipclass==CLASS_Fighter)
-                {
-                    is_fight = TRUE;
-                }
-
-            }
-            else if ( ( (PrintOrder[index]==LM_FIGHTER_SPACER) && (is_fight) ) ||
-                      ( (PrintOrder[index]==LM_CORVETTE_SPACER) && (is_corv) )  )
-            {
-                uicListAddItem(lmListWindow, (ubyte *)PrintOrder[index], 0, UICLW_AddToHead);
-            }
-        }
-
-        if (shipnum != -1)
-        {
-            listitem = uicListFindItemByData(lmListWindow, (ubyte *)shipnum);
-            uicListWindowSetCurItem(lmListWindow, listitem);
-        }
-    }
+    catLmCountShipsInside(TRUE);
+    catLmListRebuild();
 }
 
 /*-----------------------------------------------------------------------
    Name        : lmLaunchCapableShipDied
    Description : This function will remove any launch manager references
                  to the ship that just died.
-   Outputs     : no outputs
-   Parameters  : void
-   Return      : void
+   CAT (M2-R6 managers): the exe's body (0x0049e690): the two carrier slots refilled, the shown ship replaced (the slot
+        before it, else the mothership, else the first carrier), the screen closed when nothing is left (the close's
+        tutorial gate as lmCloseIfOpen's); no ship view; the two carrier boxes follow their slots
 -----------------------------------------------------------------------*/
-
 void lmLaunchCapableShipDied(Ship *ship)
 {
-    featom* atom;
+    Player *player = universe.curPlayerPtr;
+    sdword i;
+    bool32 fromSlot;
 
-    // if shipptr passed is not a carrier or mothership then get the players mothership
-/*    launchship = universe.curPlayerPtr->PlayerMothership;
+    catLmFillInCarrierXs();
 
-    if (launchship == ship) launchship = NULL;
-
-    lmCurrentSelect = 0;
-
-    for (i=0;i<NUM_LMCARRIERS;i++)
-    {
-        lmCarrierX[i] = NULL;
-    }
-
-    for (i=0,index=0;index<cmNumCarriers;index++)
-    {
-        if ((cmCarriers[index].owner == universe.curPlayerPtr) && (cmCarriers[index].ship != ship))
-        {
-            if (i < NUM_LMCARRIERS)
-            {
-                lmCarrierX[i++] = cmCarriers[index].ship;
-            }
-        }
-    }*/
-
-    lmFillInCarrierXs();
-
+    fromSlot = FALSE;
     if (launchship == ship)
     {
         launchship = NULL;
@@ -2074,136 +1821,125 @@ void lmLaunchCapableShipDied(Ship *ship)
         {
             lmCurrentSelect = 0;
         }
+        fromSlot = TRUE;
     }
-
-    if ((launchship == NULL)||((launchship->shiptype!=Mothership)&&(launchship->shiptype!=Carrier)))
+    else if (launchship == NULL)
     {
-        if (lmCurrentSelect==0)
-        {
-            if (ship != universe.curPlayerPtr->PlayerMothership)
-            {
-                launchship = universe.curPlayerPtr->PlayerMothership;
-
-                if (universe.curPlayerPtr->PlayerMothership->shiptype == Carrier)
-                {
-                    lmCurrentSelect = 1;
-                }
-                else if (universe.curPlayerPtr->PlayerMothership->shiptype == Mothership)
-                {
-                    lmCurrentSelect = 0;
-                }
-            }
-        }
-        else if (lmCarrierX[lmCurrentSelect-1]!=NULL)
-        {
-            launchship = lmCarrierX[lmCurrentSelect-1];
-        }
-        else
-        {
-            launchship = universe.curPlayerPtr->PlayerMothership;
-            if (universe.curPlayerPtr->PlayerMothership->shiptype == Carrier)
-            {
-                lmCurrentSelect = 1;
-            }
-            else if (universe.curPlayerPtr->PlayerMothership->shiptype == Mothership)
-            {
-                lmCurrentSelect = 0;
-            }
-        }
+        fromSlot = TRUE;
     }
-    else if (launchship->shiptype == Mothership)
+    else if (launchship->staticinfo->shipclass == CLASS_Mothership)
     {
         lmCurrentSelect = 0;
     }
-    else
+    else if (launchship->staticinfo->shipclass == CLASS_Carrier)
     {
-        sdword i;
-
-        for (i=0;i<NUM_LMCARRIERS;i++)
+        for (i = 0; i < NUM_LMCARRIERS; i++)
         {
             if (launchship == lmCarrierX[i])
             {
-                lmCurrentSelect = i+1;
+                lmCurrentSelect = i + 1;
                 break;
+            }
+        }
+    }
+    else
+    {
+        fromSlot = TRUE;
+    }
+
+    if (fromSlot)
+    {
+        if (lmCurrentSelect != 0)
+        {
+            launchship = lmCarrierX[lmCurrentSelect - 1];
+            if (launchship == NULL)
+            {
+                launchship = player->PlayerMothership;
+                if (launchship != NULL)
+                {
+                    if (launchship->staticinfo->shipclass == CLASS_Carrier)
+                    {
+                        lmCurrentSelect = 1;
+                    }
+                    else if (launchship->staticinfo->shipclass == CLASS_Mothership)
+                    {
+                        lmCurrentSelect = 0;
+                    }
+                }
+            }
+        }
+        else if (ship != player->PlayerMothership)
+        {
+            launchship = player->PlayerMothership;
+            if (launchship != NULL)
+            {
+                if (launchship->staticinfo->shipclass == CLASS_Carrier)
+                {
+                    lmCurrentSelect = 1;
+                }
+                else if (launchship->staticinfo->shipclass == CLASS_Mothership)
+                {
+                    lmCurrentSelect = 0;
+                }
             }
         }
     }
 
     if (launchship == NULL)
     {
-        if (cmNumPlayersCarriers > 0)
+        // CAT-FIX: the exe takes the first carrier slot whenever cmNumPlayersCarriers is positive and would read
+        //      through a NULL launchship when that slot is empty (the counter not yet down for the dying carrier)
+        if ((cmNumPlayersCarriers < 1) || (lmCarrierX[0] == NULL))
         {
-            launchship = lmCarrierX[0];
-            lmCurrentSelect = 1;
-        }
-        else
-        {
-            lmClose(NULL, NULL);
+            if (catLmTutEnabled2(0x100000))
+            {
+                catLmClose();
+            }
             return;
         }
+        launchship = lmCarrierX[0];
+        lmCurrentSelect = 1;
     }
 
     lmUpdateShipsInside();
 
-
-    if(shipsavailable[0].nShips > 0)
-    {
-        svSelectShip(shipsavailable[0].ship->shiptype);
-    }
-    else
-    {
-        svSelectShip(DefaultShip);
-    }
-
-    atom=feAtomFindInScreen(feScreenFind(LM_LaunchScreen),"LM_AutoLaunchC1");
-    if (lmCarrierX[0]==NULL)
-    {
-        bitSet(atom->flags, FAF_Disabled);
-        bitSet(((region *)atom->region)->status, RSF_RegionDisabled);
-    }
-    else
-    {
-        bitClear(atom->flags, FAF_Disabled);
-        bitClear(((region *)atom->region)->status, RSF_RegionDisabled);
-    }
-
-    atom=feAtomFindInScreen(feScreenFind(LM_LaunchScreen),"LM_AutoLaunchC2");
-    if (lmCarrierX[1]==NULL)
-    {
-        bitSet(atom->flags, FAF_Disabled);
-        bitSet(((region *)atom->region)->status, RSF_RegionDisabled);
-    }
-    else
-    {
-        bitClear(atom->flags, FAF_Disabled);
-        bitClear(((region *)atom->region)->status, RSF_RegionDisabled);
-    }
-
-    atom=feAtomFindInScreen(feScreenFind(LM_LaunchScreen),"LM_AutoLaunchC3");
-    if (lmCarrierX[2]==NULL)
-    {
-        bitSet(atom->flags, FAF_Disabled);
-        bitSet(((region *)atom->region)->status, RSF_RegionDisabled);
-    }
-    else
-    {
-        bitClear(atom->flags, FAF_Disabled);
-        bitClear(((region *)atom->region)->status, RSF_RegionDisabled);
-    }
-
-    atom=feAtomFindInScreen(feScreenFind(LM_LaunchScreen),"LM_AutoLaunchC4");
-    if (lmCarrierX[3]==NULL)
-    {
-        bitSet(atom->flags, FAF_Disabled);
-        bitSet(((region *)atom->region)->status, RSF_RegionDisabled);
-    }
-    else
-    {
-        bitClear(atom->flags, FAF_Disabled);
-        bitClear(((region *)atom->region)->status, RSF_RegionDisabled);
-    }
-
+    catLmAtomEnable(feAtomFindInScreen(feScreenFind(catLmScreenName()), "LM_AutoLaunchC1"), lmCarrierX[0] != NULL);
+    catLmAtomEnable(feAtomFindInScreen(feScreenFind(catLmScreenName()), "LM_AutoLaunchC2"), lmCarrierX[1] != NULL);
 
     regRecursiveSetDirty(lmBaseRegion);
-//    }
+}
+
+/*=============================================================================
+    HWI-TEST (M2-R6 managers), port diagnostic, not in the exe: the build self-test's view of the launch screen
+    (ConsMgr.c catBuildSelfTestScreens)
+=============================================================================*/
+bool32 catLmSelfTestDrawn(void)
+{
+    sdword i, slots = 0;
+
+    for (i = 0; i < CAT_LM_NUM_MODULE_SLOTS; i++)
+    {
+        slots += (cat_lmModuleSlots[i] != NULL);
+    }
+    return (catLmFactoryNameRegion != NULL) && (catLmFactoryShip != NULL) && (slots > 0);
+}
+
+char *catLmSelfTestState(void)
+{
+    static char line[160];
+    sdword i, slots = 0;
+
+    for (i = 0; i < CAT_LM_NUM_MODULE_SLOTS; i++)
+    {
+        slots += (cat_lmModuleSlots[i] != NULL);
+    }
+    snprintf(line, sizeof(line), "factoryname=%d factory=%s select=%d moduleslots=%d rows=%d",
+             (int)(catLmFactoryNameRegion != NULL), (catLmFactoryShip != NULL) ? ShipTypeToStr(catLmFactoryShip->shiptype) : "none",
+             (int)lmCurrentSelect, (int)slots, (lmListWindow != NULL) ? (int)lmListWindow->ListTotal : -1);
+    return line;
+}
+
+void catLmSelfTestLaunchOne(void)
+{
+    cat_lmLaunchOne(NULL, NULL);
 }

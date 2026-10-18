@@ -73,7 +73,7 @@ void univRotateObjYaw(SpaceObjRot *robj,real32 rot);
 void univRotateObjPitch(SpaceObjRot *robj,real32 rot);
 void univRotateObjRoll(SpaceObjRot *robj,real32 rot);
 
-Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built);
+Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built,struct Ship *creator);   // CAT: the exe's 6th argument (M2-R6 managers)
 Ship *univAddShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built);
 Asteroid *univAddAsteroid(AsteroidType asteroidtype,vector *astpos);
 DustCloud *univAddDustCloud(DustCloudType dustcloudtype,vector *cloudpos);
@@ -198,6 +198,7 @@ extern bool32 catMeshStateDisabled;                             // 0x00c5236c (l
 void cat_bulletHomingUpdate(Bullet *bullet);                                                    // 0x00542cb0
 void cat_univShipSelfRepair(Ship *ship);                                                        // 0x005433d0
 void cat_univShipDeferredUpdate(Ship *ship);                                                    // 0x005447b0 (partial)
+void cat_shipUpdateExternalBuildAndAI(Ship *ship);                                              // 0x00543f10 (M2-R6 managers)
 void cat_univRemoveObjReferencesFromShips(SpaceObj *obj);                                       // 0x0054d350
 void cat_univRequestBulletEffectsRecreate(void);                                                // 0x0054d240
 void cat_univRecreateBulletEffects(void);                                                       // 0x0054d250

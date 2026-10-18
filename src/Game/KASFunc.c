@@ -1537,6 +1537,13 @@ void SelectionSwitchPlayerOwner(SelectCommand *selection)
             // CAT (M2-R5 hud): the ship gives its name back (cat_shipNamesRelease 0x0050f660, call at 0x00494042); the
             //      exe calls it after the owner is already player 1, so the owner test makes it a no-op (kept)
             cat_shipNamesRelease(ship);
+            // CAT (M2-R6 managers): the support units (0x00494050..0x00494068): the ship stops counting for the human
+            //      player unless it is SU exempt, and loses the exemption
+            if (!bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))
+            {
+                cat_suShipRemoved(ship);
+            }
+            cat_shipSetSUExempt(ship, FALSE);
             // CAT: no DDDFrigateSwitchSides, Cataclysm has no drone frigate (SelectionSwitchPlayerOwner 0x00493f80)
         }
         else
@@ -1550,6 +1557,10 @@ void SelectionSwitchPlayerOwner(SelectCommand *selection)
             // CAT (M2-R5 hud): a named type taken over gets a free name (cat_shipNamesAssign 0x0050f320, call at
             //      0x004940dd after the unit caps)
             cat_shipNamesAssign(ship);
+            // CAT (M2-R6 managers): the ship counts for the human player's support units (cat_suShipAdded 0x00459a90,
+            //      call at 0x00494151)
+            // CAT-TODO(stage 6 KAS): the exe's second argument keepSU (without it the ship is disabled and made SU exempt instead), the docked ships switched with it, the FOW, the unit caps and the factory / mothership of the keepSU branch (SelectionSwitchPlayerOwner 0x00493f80)
+            cat_suShipAdded(ship, &universe.players[0]);
             // CAT: no DDDFrigateSwitchSides (the type is gone; SelectionSwitchPlayerOwner 0x00493f80)
         }
     }
@@ -3416,7 +3427,9 @@ void kasfOpenSensors(sdword flag)
     }
 
     spMainScreen();
-    smSensorsBegin(NULL, NULL);
+    catSmForceOpen = TRUE;                  // CAT (M2-R6 managers, sensors): opened past the disable flag (0x00a5b22c,
+    smSensorsBegin(NULL, NULL);             //      kasfOpenSensors 0x00496bc0)
+    catSmForceOpen = FALSE;
 }
 
 void kasfCloseSensors(sdword flag)

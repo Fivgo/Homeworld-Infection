@@ -9,6 +9,7 @@
 // CAT: new file (M2-R4 ships-b). Each body follows the r6 decompile of its exe function (address on each);
 //      cat_shipSetDisableReason moved here from ShipSelect.c, where M2-R3 had put it.
 
+#include "ConsMgr.h"
 #include "ShipDisable.h"
 
 #include "CommandDefs.h"
@@ -193,13 +194,13 @@ void cat_shipSetSUExempt(Ship *ship, bool32 exempt)
     {
         if (!bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))
         {
-            // CAT-TODO(M2-R6 ConsMgr): cat_suShipRemoved(ship) 0x00459ae0 (the support-unit count, ConsMgr.c)
+            cat_suShipRemoved(ship);        // CAT (M2-R6 managers): 0x00459ae0, the support-unit count
         }
     }
     else if ((exempt == 0) && bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))
     {
         bitClear(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20);
-        // CAT-TODO(M2-R6 ConsMgr): cat_suShipAdded(ship, ship->playerowner) 0x00459a90
+        cat_suShipAdded(ship, ship->playerowner);   // CAT (M2-R6 managers): 0x00459a90
     }
     ship->shipOrDerelict.specialFlags2 = (ship->shipOrDerelict.specialFlags2 & ~SPECIAL_2_CatExempt20) |
                                          ((exempt & 1) ? SPECIAL_2_CatExempt20 : 0);

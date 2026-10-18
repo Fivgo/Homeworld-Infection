@@ -2020,7 +2020,7 @@ SelectCommand *CreateTestSelectionOfShips(ShipRace shiprace,ShipType shiptype,sd
     selection->numShips = numShips;
     for (i=0;i<numShips;i++)
     {
-        selection->ShipPtr[i] = univCreateShip(shiptype,shiprace,&position,&universe.players[0],0);
+        selection->ShipPtr[i] = univCreateShip(shiptype,shiprace,&position,&universe.players[0],0,NULL);
     }
 
     return selection;

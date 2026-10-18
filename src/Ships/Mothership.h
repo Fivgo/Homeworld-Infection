@@ -90,6 +90,7 @@ bool32 cat_mothershipBigGunFiring(Ship *ship);
 bool32 cat_mothershipHasBigGunModule(Ship *ship);
 void cat_mothershipStartDeathSequence(Ship *ship, sdword reason);
 sdword cat_mothershipModuleSlotGet(Ship *mothership, sdword moduleType);
+void cat_mothershipModuleSlotSet(Ship *mothership, sdword moduleType, sdword count);   // 0x005bd6a0 (M2-R6 managers)
 bool32 cat_isBigGunBullet(SpaceObj *obj);
 void cat_effectDeleteNow(struct Effect *effect);                    // CAT: 0x005bbbb0 (M2-R4 ships-b)
 // CAT (M2-R4 ships-b): the Sect big gun and the Beast mothership's systems

@@ -720,10 +720,9 @@ static void beastMothershipSelfDamage(Ship *ship)                           // 0
     if (ship->targetable.health <= minhealth)
     {
         spec->beastSystemActive = FALSE;
-        // CAT: the exe calls cat_lmBeastSystemsOff 0x0049fc30 here: cat_clWrapSetBeastSystem 0x004535f0 with 0, which
-        //      in a single-player game is cat_clSetBeastSystem 0x0044e120 (it only stores the state). CAT-TODO(stage 3):
-        //      the launch manager's LM_BeastSystemsSet radio button reset (the rest of cat_lmBeastSystemsOff)
-        cat_clWrapSetBeastSystem(&universe.mainCommandLayer,ship,0);
+        // CAT: cat_lmBeastSystemsOff 0x0049fc30: cat_clWrapSetBeastSystem 0x004535f0 with 0 (in a single-player game
+        //      cat_clSetBeastSystem 0x0044e120, which only stores the state) and the launch manager's radio buttons
+        cat_lmBeastSystemsOff(ship);
         return;
     }
     spec->beastSystemActive = TRUE;
@@ -1019,6 +1018,17 @@ sdword cat_mothershipModuleSlotGet(Ship *mothership, sdword moduleType)     // 0
         }
     }
     return -1;
+}
+
+// CAT (M2-R6 managers): the launch manager's system pick for a module (cat_mothershipModuleSlotSet 0x005bd6a0): a
+//      one-ship selection of the mothership through cat_clWrapSetModuleSlot
+void cat_mothershipModuleSlotSet(Ship *mothership, sdword moduleType, sdword count)     // 0x005bd6a0
+{
+    SelectCommand selection;
+
+    selection.numShips = 1;
+    selection.ShipPtr[0] = mothership;
+    cat_clWrapSetModuleSlot(&universe.mainCommandLayer, &selection, moduleType, count);
 }
 
 bool32 cat_isBigGunBullet(SpaceObj *obj)                                   // 0x005bcf80

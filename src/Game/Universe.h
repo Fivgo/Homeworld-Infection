@@ -367,6 +367,7 @@ ShipStaticInfo *GetShipStaticInfo(ShipType shiptype,ShipRace shiprace);
 ShipStaticInfo *GetShipStaticInfoValidate(ShipType shiptype,ShipRace shiprace); // same as above, but makes sure data loaded
 ShipStaticInfo *GetShipStaticInfoSafe(ShipType shiptype,ShipRace shiprace); // same as above, but always safe (returns NULL if fails)
 void InitStatShipInfo(ShipStaticInfo *statinfo,ShipType type,ShipRace race);
+void InitStatShipInfoPost(ShipStaticInfo *statinfo);    // declared for the build self-test (M2-R6 managers)
 void CloseStatShipInfo(ShipStaticInfo *statinfo);
 void CloseStatAsteroidInfo(AsteroidStaticInfo *asteroidStatInfo);
 void CloseStatDerelictInfo(DerelictStaticInfo *derelictStatInfo);

@@ -17,6 +17,15 @@
 #include <stdlib.h>
 
 #include "Alliance.h"
+#include "Cloak.h"
+#include "Console.h"
+#include "ETG.h"
+#include "Key.h"
+#include "LOD.h"
+#include "Matrix.h"
+#include "Mesh.h"
+#include "Slipgate.h"
+#include "Task.h"
 #include "Battle.h"
 #include "Blobs.h"
 #include "Bounties.h"
@@ -152,8 +161,10 @@ bool32 catSmShowMines = FALSE;
 // CAT (M2-R6 mainrgn-popup): the sensors-view options (the popup menu's sensors-view submenu shows them checked, the
 //      ToggleSV_* key commands flip them; cat_opHomeworldClassic 0x004da2c0 / cat_opCataclysmDefault set them). The
 //      exe's defaults (data 0x00892b48 .. 0x00892b70 all 1; 0x00a5b19c / 0x00a5b1a4 bss 0). Names chosen here from the
-//      menu rows. CAT-TODO(M2-R6 sensors): the sensors manager draws by them. The options screen sets them (Options.c
-//      cat_opDust .. cat_opCapitalShipOverlay, M2-R6 frontend) and the options file keeps them (the Show* rows)
+//      menu rows. [M2-R6 managers: the sensors scene (cat_smViewportRenderScene and the cat_sm* draws) reads the
+//      decorative asteroids, resources, meteors, FOW ranges, background, icons, ship meshes, slipgate paths, compass
+//      and universe extents words; the other words have no reader in the scene.] The options screen sets them
+//      (Options.c cat_opDust .. cat_opCapitalShipOverlay, M2-R6 frontend) and the options file keeps them (the Show* rows)
 bool32 catSmViewDecorativeAsteroids = TRUE;         // 0x00892b48 (OP_Dust)
 bool32 catSmViewResources = TRUE;                   // 0x00892b4c (OP_Resources)
 bool32 catSmViewFOWRanges = TRUE;                   // 0x00892b50 (OP_SensorsSphere)
@@ -173,6 +184,12 @@ bool32 catSmViewMeteors = TRUE;                     // 0x00892b68 (.data 1)
 bool32 catSmViewUniverseExtents = FALSE;            // 0x00a5b1a0 (.bss)
 
 bool32 smSensorsDisable = FALSE;
+// CAT (M2-R6 managers, sensors): the sensors manager's new state words (names chosen here)
+bool32 catSmHideViewport = FALSE;   // 0x00a5b228: the viewport draws nothing (singlePlayerGameUpdate sets it at
+                                    //      mission 1's end, nisStart clears it; those writers are stage 6's)
+bool32 catSmForceOpen = FALSE;      // 0x00a5b22c: kasfOpenSensors 0x00496bc0 opens it past the disable flag
+bool32 catSmReopen = FALSE;         // 0x00a5b230: a closing manager reopens it (catSmReopenAfterManager)
+Camera catSmSavedCamera;            // 0x00c0a7e0: the sensors camera saved by a closing manager
 
 //for updating blobs
 sdword smRenderCount;
@@ -257,160 +274,160 @@ udword   smSensorWeirdness=0;
 regionhandle smHyperspaceRegion = NULL;
 
 //what ships have a TO in the SM
-// CAT-PROVISIONAL: re-keyed to the 145 Cataclysm types. The exe copy of this table was not located. The values are the HW1 values of each type's HW1
-//      counterpart (same ship, any race); Cataclysm-only types get the default. Stage 3 replaces this table.
+// CAT (M2-R6 managers, sensors): the exe's table (.data 0x00892ba8, one byte per type, generated from the exe's data;
+//      cat_smShipsDraw reads SM_Mesh, pingListDraw SM_Exclude); replaces the M2-R2 provisional HW1 re-keying
 ubyte smShipTypeRenderFlags[TOTAL_NUM_SHIPS] =
 {
-    0,                                                 //sRecon (Cataclysm-only: default)
-    0,                                                 //sAcolyte (Cataclysm-only: default)
-    0,                                                 //sMimic (Cataclysm-only: default)
-    0,                                                 //sLeech (Cataclysm-only: default)
-    0,                                                 //sACV (Cataclysm-only: default)
-    0,                                                 //sMCV (Cataclysm-only: default)
-    0,                                                 //sRammingFrigate (Cataclysm-only: default)
-    0,                                                 //sMultiBeamFrigate (Cataclysm-only: default)
-    0,                                                 //sHiveFrigate (Cataclysm-only: default)
-    0,                                                 //sSwarmer (Cataclysm-only: default)
-    0,                                                 //sDreadnought (Cataclysm-only: default)
-    0,                                                 //sDreadnoughtCannon (Cataclysm-only: default)
-    SM_TO | SM_Mesh,                                   //sCarrier (HW1 Carrier)
-    0,                                                 //sCarrierSupport (Cataclysm-only: default)
-    0,                                                 //sWorker (Cataclysm-only: default)
-    0,                                                 //sRepairDroid (Cataclysm-only: default)
-    0,                                                 //sProcessor (Cataclysm-only: default)
-    0,                                                 //sSentinel (Cataclysm-only: default)
-    SM_Mesh | SM_Exclude,                              //sMothership (HW1 Mothership)
-    0,                                                 //sMothershipSpecial (Cataclysm-only: default)
-    0,                                                 //sMothershipEngineering (Cataclysm-only: default)
-    0,                                                 //sMothershipArmour (Cataclysm-only: default)
-    0,                                                 //sMothershipMicro (Cataclysm-only: default)
-    0,                                                 //sMothershipWeapons (Cataclysm-only: default)
-    0,                                                 //sMothershipDockingBay (Cataclysm-only: default)
-    0,                                                 //sDestroyer (Cataclysm-only: default)
-    0,                                                 //sMothershipSupport (Cataclysm-only: default)
-    0,                                                 //sMothershipCommand (Cataclysm-only: default)
-    0,                                                 //sMothershipEnginesLower (Cataclysm-only: default)
-    0,                                                 //sMothershipEnginesUpper (Cataclysm-only: default)
-    0,                                                 //sMothershipLowerSpine (Cataclysm-only: default)
-    0,                                                 //sMothershipBigGun (Cataclysm-only: default)
-    0,                                                 //sMothershipOreCanArmour (Cataclysm-only: default)
-    0,                                                 //bRecon (Cataclysm-only: default)
-    0,                                                 //bAcolyte (Cataclysm-only: default)
-    0,                                                 //bInterceptor (Cataclysm-only: default)
-    0,                                                 //bCloakedFighter (HW1 CloakedFighter)
-    0,                                                 //bAttackBomber (HW1 AttackBomber)
-    0,                                                 //bACV (Cataclysm-only: default)
-    0,                                                 //bMultiGunCorvette (HW1 MultiGunCorvette)
-    0,                                                 //bHeavyCorvette (HW1 HeavyCorvette)
-    0,                                                 //bMultiBeamFrigate (Cataclysm-only: default)
-    0,                                                 //bHiveFrigate (Cataclysm-only: default)
-    0,                                                 //bSwarmer (Cataclysm-only: default)
-    0,                                                 //bIonArrayFrigate (Cataclysm-only: default)
-    SM_TO,                                             //bDFGFrigate (HW1 DFGFrigate)
-    SM_TO | SM_Mesh,                                   //bHeavyCruiser (HW1 HeavyCruiser)
-    SM_TO | SM_Mesh,                                   //bCarrier (HW1 Carrier)
-    0,                                                 //bRammingFrigate (Cataclysm-only: default)
-    0,                                                 //bWorker (Cataclysm-only: default)
-    0,                                                 //bRepairDroid (Cataclysm-only: default)
-    0,                                                 //bProcessor (Cataclysm-only: default)
-    0,                                                 //bSentinel (Cataclysm-only: default)
-    SM_Mesh | SM_Exclude,                              //bMothership (HW1 Mothership)
-    0,                                                 //bMothershipDockingBay (Cataclysm-only: default)
-    0,                                                 //bMothershipEnginesLower (Cataclysm-only: default)
-    0,                                                 //bSectMoship (Cataclysm-only: default)
-    0,                                                 //bMothershipSupport (Cataclysm-only: default)
-    0,                                                 //bCruiseMissile (Cataclysm-only: default)
-    0,                                                 //bMissileCorvette (Cataclysm-only: default)
-    SM_TO,                                             //kAdvanceSupportFrigate (HW1 AdvanceSupportFrigate)
-    0,                                                 //kAttackBomber (HW1 AttackBomber)
-    SM_TO | SM_Mesh,                                   //kCarrier (HW1 Carrier)
-    SM_TO,                                             //kCloakGenerator (HW1 CloakGenerator)
-    SM_TO,                                             //kGravWellGenerator (HW1 GravWellGenerator)
-    0,                                                 //kHeavyCorvette (HW1 HeavyCorvette)
-    SM_TO | SM_Mesh,                                   //kHeavyCruiser (HW1 HeavyCruiser)
-    0,                                                 //kHeavyDefender (HW1 HeavyDefender)
-    0,                                                 //kHeavyInterceptor (HW1 HeavyInterceptor)
-    SM_TO,                                             //kIonCannonFrigate (HW1 IonCannonFrigate)
-    0,                                                 //kMultiGunCorvette (HW1 MultiGunCorvette)
-    SM_Exclude,                                        //kProximitySensor (HW1 ProximitySensor)
-    0,                                                 //kSalCapCorvette (HW1 SalCapCorvette)
-    SM_TO,                                             //kStandardDestroyer (HW1 StandardDestroyer)
-    SM_TO,                                             //tAdvanceSupportFrigate (HW1 AdvanceSupportFrigate)
-    0,                                                 //tAttackBomber (HW1 AttackBomber)
-    SM_TO | SM_Mesh,                                   //tCarrier (HW1 Carrier)
-    SM_TO,                                             //tCloakGenerator (HW1 CloakGenerator)
-    SM_TO,                                             //tDFGFrigate (HW1 DFGFrigate)
-    SM_TO,                                             //tGravWellGenerator (HW1 GravWellGenerator)
-    SM_TO | SM_Mesh,                                   //tHeavyCruiser (HW1 HeavyCruiser)
-    0,                                                 //tHeavyDefender (HW1 HeavyDefender)
-    0,                                                 //tHeavyInterceptor (HW1 HeavyInterceptor)
-    SM_TO,                                             //tIonCannonFrigate (HW1 IonCannonFrigate)
-    0,                                                 //tMinelayerCorvette (HW1 MinelayerCorvette)
-    SM_TO,                                             //tMissileDestroyer (HW1 MissileDestroyer)
-    0,                                                 //tMultiGunCorvette (HW1 MultiGunCorvette)
-    SM_Exclude,                                        //tProximitySensor (HW1 ProximitySensor)
-    SM_TO,                                             //tResourceCollector (HW1 ResourceCollector)
-    0,                                                 //tSalCapCorvette (HW1 SalCapCorvette)
-    SM_TO,                                             //tStandardDestroyer (HW1 StandardDestroyer)
-    SM_TO,                                             //tStandardFrigate (HW1 StandardFrigate)
-    0,                                                 //p1Outpost (Cataclysm-only: default)
-    0,                                                 //p1Fighter (HW1 P1Fighter)
-    SM_TO,                                             //p1IonArrayFrigate (HW1 P1IonArrayFrigate)
-    0,                                                 //p1MissileCorvette (HW1 P1MissileCorvette)
-    SM_TO | SM_Mesh,                                   //p1Mothership (HW1 P1Mothership)
-    0,                                                 //p1StandardCorvette (HW1 P1StandardCorvette)
-    SM_TO | SM_Mesh,                                   //trFloatingCity (HW1 FloatingCity)
-    SM_TO,                                             //trCargoBarge (HW1 CargoBarge)
-    SM_TO | SM_Mesh,                                   //trMiningBase (HW1 MiningBase)
-    SM_TO | SM_Mesh,                                   //trResearchStation (HW1 ResearchStation)
-    0,                                                 //trJunkYardDawg (HW1 JunkYardDawg)
-    SM_TO,                                             //trJunkYardHQ (HW1 JunkYardHQ)
-    0,                                                 //trGhostship (HW1 Ghostship)
-    0,                                                 //trJunk_LGun (HW1 Junk_LGun)
-    0,                                                 //trJunk_SGun (HW1 Junk_SGun)
-    0,                                                 //trResearchStationBridge (HW1 ResearchStationBridge)
-    0,                                                 //trResearchStationTower (HW1 ResearchStationTower)
-    0,                                                 //dRKO (Cataclysm-only: default)
-    0,                                                 //dBigGun (Cataclysm-only: default)
-    0,                                                 //dBigGunUnit (Cataclysm-only: default)
-    0,                                                 //dSlipgateSmall (Cataclysm-only: default)
-    0,                                                 //dSlipgateMedium (Cataclysm-only: default)
-    0,                                                 //dSlipgateLarge (Cataclysm-only: default)
-    0,                                                 //dCrate (Cataclysm-only: default)
-    0,                                                 //dJunk1PartA (Cataclysm-only: default)
-    0,                                                 //dJunk1Shell (Cataclysm-only: default)
-    0,                                                 //dJunk1Strut (Cataclysm-only: default)
-    0,                                                 //dJunk2Shipwreck (Cataclysm-only: default)
-    0,                                                 //dJunk3Boiler (Cataclysm-only: default)
-    0,                                                 //dJunk3BoilerCasing (Cataclysm-only: default)
-    0,                                                 //dMessagePod (Cataclysm-only: default)
-    0,                                                 //dBuoy (Cataclysm-only: default)
-    0,                                                 //dFirstPlanet (Cataclysm-only: default)
-    0,                                                 //dDeadPlanet (Cataclysm-only: default)
-    0,                                                 //dCrystal0 (Cataclysm-only: default)
-    0,                                                 //dCrystal1 (Cataclysm-only: default)
-    0,                                                 //dBeastDockingBay (Cataclysm-only: default)
-    0,                                                 //dNISBuoy (Cataclysm-only: default)
-    0,                                                 //dBeastMothership (Cataclysm-only: default)
-    0,                                                 //dNomadMoon (Cataclysm-only: default)
-    0,                                                 //dNomadFieldEmitter (Cataclysm-only: default)
-    0,                                                 //dAcolyte (Cataclysm-only: default)
-    0,                                                 //dPrisonShip (Cataclysm-only: default)
-    0,                                                 //dPrisonShipInfected (Cataclysm-only: default)
-    0,                                                 //dSlipgateNode (Cataclysm-only: default)
-    0,                                                 //dKushanCarrier (Cataclysm-only: default)
-    0,                                                 //dIonArrayFrigate (Cataclysm-only: default)
-    SM_TO,                                             //dIonCannonFrigate (HW1 IonCannonFrigate)
-    0,                                                 //dEcclesiam (Cataclysm-only: default)
-    0,                                                 //dEcclesiamInfected (Cataclysm-only: default)
-    0,                                                 //nisLightSource1 (Cataclysm-only: default)
-    0,                                                 //nisLightSource2 (Cataclysm-only: default)
-    0                                                  //nisLensflareSource1 (Cataclysm-only: default)
+    0,                                                 //sRecon
+    0,                                                 //sAcolyte
+    0,                                                 //sMimic
+    0,                                                 //sLeech
+    0,                                                 //sACV
+    0,                                                 //sMCV
+    SM_TO,                                             //sRammingFrigate
+    SM_TO,                                             //sMultiBeamFrigate
+    SM_TO,                                             //sHiveFrigate
+    SM_Exclude,                                        //sSwarmer
+    SM_TO | SM_Mesh,                                   //sDreadnought
+    SM_Exclude,                                        //sDreadnoughtCannon
+    SM_TO | SM_Mesh,                                   //sCarrier
+    SM_Exclude,                                        //sCarrierSupport
+    SM_TO,                                             //sWorker
+    SM_Exclude,                                        //sRepairDroid
+    SM_TO | SM_Mesh,                                   //sProcessor
+    0,                                                 //sSentinel
+    SM_Mesh | SM_Exclude,                              //sMothership
+    SM_Mesh | SM_Exclude,                              //sMothershipSpecial
+    SM_Mesh | SM_Exclude,                              //sMothershipEngineering
+    SM_Mesh | SM_Exclude,                              //sMothershipArmour
+    SM_Mesh | SM_Exclude,                              //sMothershipMicro
+    SM_Mesh | SM_Exclude,                              //sMothershipWeapons
+    SM_Mesh | SM_Exclude,                              //sMothershipDockingBay
+    SM_Mesh | SM_Exclude,                              //sDestroyer
+    SM_Mesh | SM_Exclude,                              //sMothershipSupport
+    SM_Mesh | SM_Exclude,                              //sMothershipCommand
+    SM_Mesh | SM_Exclude,                              //sMothershipEnginesLower
+    SM_Mesh | SM_Exclude,                              //sMothershipEnginesUpper
+    SM_Mesh | SM_Exclude,                              //sMothershipLowerSpine
+    SM_Mesh | SM_Exclude,                              //sMothershipBigGun
+    SM_Mesh | SM_Exclude,                              //sMothershipOreCanArmour
+    0,                                                 //bRecon
+    0,                                                 //bAcolyte
+    0,                                                 //bInterceptor
+    0,                                                 //bCloakedFighter
+    0,                                                 //bAttackBomber
+    0,                                                 //bACV
+    0,                                                 //bMultiGunCorvette
+    0,                                                 //bHeavyCorvette
+    SM_TO,                                             //bMultiBeamFrigate
+    SM_TO,                                             //bHiveFrigate
+    SM_Exclude,                                        //bSwarmer
+    SM_TO,                                             //bIonArrayFrigate
+    SM_TO,                                             //bDFGFrigate
+    SM_TO | SM_Mesh,                                   //bHeavyCruiser
+    SM_TO | SM_Mesh,                                   //bCarrier
+    SM_TO,                                             //bRammingFrigate
+    SM_TO,                                             //bWorker
+    SM_Exclude,                                        //bRepairDroid
+    SM_TO | SM_Mesh,                                   //bProcessor
+    0,                                                 //bSentinel
+    SM_Mesh | SM_Exclude,                              //bMothership
+    SM_Mesh | SM_Exclude,                              //bMothershipDockingBay
+    SM_Mesh | SM_Exclude,                              //bMothershipEnginesLower
+    SM_Mesh | SM_Exclude,                              //bSectMoship
+    SM_Mesh | SM_Exclude,                              //bMothershipSupport
+    0,                                                 //bCruiseMissile
+    0,                                                 //bMissileCorvette
+    SM_TO,                                             //kAdvanceSupportFrigate
+    0,                                                 //kAttackBomber
+    SM_TO | SM_Mesh,                                   //kCarrier
+    0,                                                 //kCloakGenerator
+    0,                                                 //kGravWellGenerator
+    0,                                                 //kHeavyCorvette
+    SM_TO | SM_Mesh,                                   //kHeavyCruiser
+    0,                                                 //kHeavyDefender
+    0,                                                 //kHeavyInterceptor
+    SM_TO,                                             //kIonCannonFrigate
+    0,                                                 //kMultiGunCorvette
+    SM_Exclude,                                        //kProximitySensor
+    0,                                                 //kSalCapCorvette
+    SM_TO,                                             //kStandardDestroyer
+    SM_TO,                                             //tAdvanceSupportFrigate
+    0,                                                 //tAttackBomber
+    SM_TO | SM_Mesh,                                   //tCarrier
+    0,                                                 //tCloakGenerator
+    SM_TO,                                             //tDFGFrigate
+    0,                                                 //tGravWellGenerator
+    SM_TO | SM_Mesh,                                   //tHeavyCruiser
+    0,                                                 //tHeavyDefender
+    0,                                                 //tHeavyInterceptor
+    SM_TO,                                             //tIonCannonFrigate
+    0,                                                 //tMinelayerCorvette
+    SM_TO,                                             //tMissileDestroyer
+    0,                                                 //tMultiGunCorvette
+    SM_Exclude,                                        //tProximitySensor
+    SM_TO,                                             //tResourceCollector
+    0,                                                 //tSalCapCorvette
+    SM_TO,                                             //tStandardDestroyer
+    SM_TO,                                             //tStandardFrigate
+    SM_TO,                                             //p1Outpost
+    0,                                                 //p1Fighter
+    SM_TO,                                             //p1IonArrayFrigate
+    0,                                                 //p1MissileCorvette
+    SM_TO | SM_Mesh,                                   //p1Mothership
+    0,                                                 //p1StandardCorvette
+    SM_TO | SM_Mesh,                                   //trFloatingCity
+    SM_TO,                                             //trCargoBarge
+    SM_TO | SM_Mesh,                                   //trMiningBase
+    SM_TO | SM_Mesh,                                   //trResearchStation
+    0,                                                 //trJunkYardDawg
+    0,                                                 //trJunkYardHQ
+    SM_TO | SM_Mesh,                                   //trGhostship
+    0,                                                 //trJunk_LGun
+    0,                                                 //trJunk_SGun
+    0,                                                 //trResearchStationBridge
+    0,                                                 //trResearchStationTower
+    SM_Mesh | SM_Exclude,                              //dRKO
+    SM_Mesh | SM_Exclude,                              //dBigGun
+    SM_Mesh | SM_Exclude,                              //dBigGunUnit
+    0,                                                 //dSlipgateSmall
+    0,                                                 //dSlipgateMedium
+    0,                                                 //dSlipgateLarge
+    SM_Mesh | SM_Exclude,                              //dCrate
+    SM_Mesh | SM_Exclude,                              //dJunk1PartA
+    SM_Mesh | SM_Exclude,                              //dJunk1Shell
+    SM_Mesh | SM_Exclude,                              //dJunk1Strut
+    SM_Mesh | SM_Exclude,                              //dJunk2Shipwreck
+    SM_Mesh | SM_Exclude,                              //dJunk3Boiler
+    SM_Mesh | SM_Exclude,                              //dJunk3BoilerCasing
+    0,                                                 //dMessagePod
+    0,                                                 //dBuoy
+    0,                                                 //dFirstPlanet
+    0,                                                 //dDeadPlanet
+    0,                                                 //dCrystal0
+    0,                                                 //dCrystal1
+    SM_Mesh | SM_Exclude,                              //dBeastDockingBay
+    0,                                                 //dNISBuoy
+    SM_Mesh | SM_Exclude,                              //dBeastMothership
+    SM_Mesh | SM_Exclude,                              //dNomadMoon
+    0,                                                 //dNomadFieldEmitter
+    0,                                                 //dAcolyte
+    0,                                                 //dPrisonShip
+    0,                                                 //dPrisonShipInfected
+    0,                                                 //dSlipgateNode
+    SM_Mesh | SM_Exclude,                              //dKushanCarrier
+    0,                                                 //dIonArrayFrigate
+    0,                                                 //dIonCannonFrigate
+    0,                                                 //dEcclesiam
+    0,                                                 //dEcclesiamInfected
+    0,                                                 //nisLightSource1
+    0,                                                 //nisLightSource2
+    0                                                  //nisLensflareSource1
 };
-// CAT: re-keyed to Cataclysm's 8 derelict types (ObjTypes.h). CAT-PROVISIONAL: the exe's sensors manager was rewritten
-//      (smBlobDrawClear and its callers are absent) and has no such table; HW1 drew none of the kept types as a mesh
-//      (Crate, Homeworld, PlanetOfOrigin(_scarred), HyperspaceGate were 0), and the three new planet-like types follow
-//      them. Stage 3 (sensors manager) owns the real behaviour.
+// CAT: re-keyed to Cataclysm's 8 derelict types (ObjTypes.h). The exe has no such table: its sensors scene
+//      (cat_smViewportRenderScene, M2-R6 managers) draws derelicts as crate points only; the table is read by HW1's blob
+//      render (smBlobDrawClear and its callers), which nothing calls since the sensors port (left in the file, not in
+//      the exe). All 0: HW1 drew none of the kept types as a mesh.
 ubyte smDerelictTypeMesh[NUM_DERELICTTYPES] =
 {
     0,                                          //Crate
@@ -771,11 +788,7 @@ void smHorizonLineDraw(void *voidCam, hmatrix *modelView, hmatrix *projection, r
 
     fontMakeCurrent(mouseCursorFont);
 
-    if (glIsEnabled(GL_DEPTH_TEST))
-    {
-        isEnabled = TRUE;
-        glDisable(GL_DEPTH_TEST);
-    }
+    isEnabled = cat_rndDepthTestEnable(FALSE);              // CAT: smHorizonLineDraw 0x005097a0
     for (smTickTextIndex = 0; angle < endAngle; angle += smHorizTickAngle)
     {
         endPoint.x = cam->lookatpoint.x + (real32)cos((double)(angle + smHorizTickAngle)) * distance;//position of current point
@@ -838,10 +851,7 @@ void smHorizonLineDraw(void *voidCam, hmatrix *modelView, hmatrix *projection, r
         primLine3(&endPoint, &horizPoint, smCurrentWorldPlaneColor);
         startPoint = endPoint;                              //draw from this point to next point next time through
     }
-    if (isEnabled)
-    {
-        glEnable(GL_DEPTH_TEST);
-    }
+    cat_rndDepthTestEnable(isEnabled);
     fontMakeCurrent(oldFont);
 }
 #undef cam
@@ -961,7 +971,7 @@ void smBlobDrawClear(Camera *camera, blob *thisBlob, hmatrix *modelView, hmatrix
                     }
                     if(ship->playerowner == universe.curPlayerPtr)
                     {
-                        if(ship->shiptype == GravWellGenerator)
+                        if(ship->shiptype == kGravWellGenerator)     // [audit: M2-R6 managers: HW1 alias retired, same value; HW1's blob render, uncalled]
                         {
                             if (((GravWellGeneratorSpec *)ship->ShipSpecifics)->GravFieldOn)
                             {
@@ -1994,8 +2004,8 @@ blob *smBlobsDraw(Camera *camera, LinkedList *list, hmatrix *modelView, hmatrix 
     if (smTacticalOverlay)
     {
         oldFont = fontMakeCurrent(selGroupFont3);
-        carrier = ShipTypeToNiceStr(Carrier);
-        mothership = ShipTypeToNiceStr(Mothership);
+        carrier = ShipTypeToNiceStr(kCarrier);         // [audit: M2-R6 managers: HW1 aliases retired, same values;
+        mothership = ShipTypeToNiceStr(sMothership);   //      HW1's blob render, uncalled]
         carrierHalfWidth = fontWidth(carrier) / 2;
         mothershipHalfWidth = fontWidth(mothership) / 2;
     }
@@ -2231,85 +2241,41 @@ real32 smLookFactorGet(real32 current, real32 range)
 ----------------------------------------------------------------------------*/
 void smZoomUpdate(real32 current, real32 range, bool32 bUpdateCamera)
 {
-    real32 scrollFactor;
-    real32 eyeFactor;
-    real32 lookFactor;
-    sdword index, delta, val;
+    real32 factor;
     vector distvec;
 
-    scrollFactor = smScrollFactorGet(current, range);
-    eyeFactor = lookFactor = scrollFactor;
-//    eyeFactor = smEyeFactorGet(current, range);
-//    lookFactor = smLookFactorGet(current, range);
-
-    //animate the sides of the sensors manager screen
-    val = (sdword)((real32)smScrollDistLeft * scrollFactor);
-    delta = val - smScrollLeft;
-    smScrollLeft = val;
-    smViewRectangle.x0 += delta;
-    for (index = 0; index < smScrollCountLeft; index++)
-    {
-        regRegionScroll(smScrollListLeft[index], delta, 0);
-    }
-    val = (sdword)((real32)smScrollDistTop * scrollFactor);
-    delta = val - smScrollTop;
-    smScrollTop = val;
-    smViewRectangle.y0 += delta;
-    for (index = 0; index < smScrollCountTop; index++)
-    {
-        regRegionScroll(smScrollListTop[index], 0, delta);
-    }
-    val = (sdword)((real32)smScrollDistRight * scrollFactor);
-    delta = val - smScrollRight;
-    smScrollRight = val;
-    smViewRectangle.x1 -= delta;
-    for (index = 0; index < smScrollCountRight; index++)
-    {
-        regRegionScroll(smScrollListRight[index], -delta, 0);
-    }
-    val = (sdword)((real32)smScrollDistBottom * scrollFactor);
-    delta = val - smScrollBottom;
-    smScrollBottom = val;
-    smViewRectangle.y1 -= delta;
-    for (index = 0; index < smScrollCountBottom; index++)
-    {
-        regRegionScroll(smScrollListBottom[index], 0, -delta);
-    }
-
-    smIntBackgroundColor = colMultiplyClamped(smBackgroundColor, scrollFactor);
-    smIntBlobColor = colMultiplyClamped(smBlobColor, scrollFactor);
-    smIntBlobColorHigh = colMultiplyClamped(smBlobColorHigh, scrollFactor);
-    smIntBlobColorLow = colMultiplyClamped(smBlobColorLow, scrollFactor);
+    // CAT (M2-R6 managers, sensors): the exe's body (0x0050b8d0): no screen-side scrolling (the Cataclysm viewport is
+    //      the whole screen); the background and blob colours, the clear colour, the BTG dimmed through channel 0
+    //      (the exe keeps HW1's dimming here; smSensorsCloseForGood resets it), the world plane colour (undimmed while
+    //      the movement pie is up), the far clip blend, the camera blend, and the factor kept for the range circles
+    factor = smScrollFactorGet(current, range);
+    smIntBackgroundColor = colMultiplyClamped(smBackgroundColor, factor);
+    smIntBlobColor = colMultiplyClamped(smBlobColor, factor);
+    smIntBlobColorHigh = colMultiplyClamped(smBlobColorHigh, factor);
+    smIntBlobColorLow = colMultiplyClamped(smBlobColorLow, factor);
     rndSetClearColor(colRGBA(colRed(smIntBackgroundColor),
                              colGreen(smIntBackgroundColor),
                              colBlue(smIntBackgroundColor),
                              255));
-    // CAT (M2-R5 render): channel 0 of the per-channel multiplier (btgSetColourMultiplier 0x00429220).
-    // CAT-TODO(M2-R6 sensors): the exe's sensors manager sets only channel 0 to 1.0 (smSensorsCloseForGood); this
-    //      HW1 dimming goes with the sensors manager's port
-    btgSetColourMultiplier(0, (1.0f - smBackgroundDim) * (1.0f - scrollFactor) + smBackgroundDim);
+    btgSetColourMultiplier(0, (1.0f - factor) * (1.0f - smBackgroundDim) + smBackgroundDim);
     if (piePointSpecMode != PSM_Idle)
     {
         smCurrentWorldPlaneColor = smWorldPlaneColor;
     }
     else
     {
-        smCurrentWorldPlaneColor = colMultiplyClamped(smWorldPlaneColor, scrollFactor);
+        smCurrentWorldPlaneColor = colMultiplyClamped(smWorldPlaneColor, factor);
     }
     //blend between the far clip distances of the 2 cameras
-    smCurrentCameraDistance = (smCamera.clipPlaneFar - mrCamera->clipPlaneFar) * scrollFactor + mrCamera->clipPlaneFar;
-
-    //animate the camera position based upon the current zoom factors
+    smCurrentCameraDistance = (smCamera.clipPlaneFar - mrCamera->clipPlaneFar) * factor + mrCamera->clipPlaneFar;
     if (bUpdateCamera)
     {
-        vecVectorsBlend(&smCamera.lookatpoint, &smLookStart, &smLookEnd, lookFactor);
-        vecVectorsBlend(&smCamera.eyeposition, &smEyeStart, &smEyeEnd, eyeFactor);
-
+        vecVectorsBlend(&smCamera.lookatpoint, &smLookStart, &smLookEnd, factor);
+        vecVectorsBlend(&smCamera.eyeposition, &smEyeStart, &smEyeEnd, factor);
         vecSub(distvec, smCamera.eyeposition, smCamera.lookatpoint);
-//        distvec.z *= -1.0f;
         GetDistanceAngleDeclination(&smCamera, &distvec);
     }
-    //mouseClipToRect(NULL);
+    catSmZoomFactor = factor;
 }
 
 /*-----------------------------------------------------------------------------
@@ -2321,53 +2287,40 @@ void smZoomUpdate(real32 current, real32 range, bool32 bUpdateCamera)
 ----------------------------------------------------------------------------*/
 void smSensorsCloseForGood(void)
 {
-#if SM_VERBOSE_LEVEL >= 1
-    dbgMessage("smSensorsCloseForGood");
-#endif
+    // CAT (M2-R6 managers, sensors): the exe's body (0x0050ba90): no scroll lists, I/O lock or taskbar flag; the main
+    //      region's mouse modes cleared (catMrRightMode / catMrSelecting), the BTG multiplier back to 1
     if (tutorial)
     {
         tutGameMessage("Game_SensorsClose");
     }
     mrRenderMainScreen = TRUE;
-    feScreenDelete(smBaseRegion);
-//    bobListDelete(&smBlobList);
-//    glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
+    feScreenDeleteFlags(smBaseRegion, 0);
+    smBaseRegion = NULL;
     rndSetClearColor(colRGBA(colRed(universe.backgroundColor),
                              colGreen(universe.backgroundColor),
                              colBlue(universe.backgroundColor),
                              255));
     smSensorsActive = FALSE;
     universe.dontUpdateRenderList = FALSE;
-    if (smScrollListLeft) memFree(smScrollListLeft);
-    if (smScrollListRight) memFree(smScrollListRight);
-    if (smScrollListTop) memFree(smScrollListTop);
-    if (smScrollListBottom) memFree(smScrollListBottom);
+    // CAT: the exe calls a glcompat hook here (0x00b3a70c with 0x5001 when 0x00b3a6d8); no glcompat in the SDL build
     universe.mainCameraCommand.actualcamera.ignoreZoom = FALSE;
     mouseCursorShow();
-    mrHoldLeft = mrHoldRight = mrNULL;
-    if (ioSaveState)
+    catMrRightMode = 0;
+    catMrSelecting = FALSE;
+    if (smFocusOnMothershipOnClose)
     {
-        ioEnable();
-    }
-
-    if(smFocusOnMothershipOnClose)
-    {
-//      CameraStackEntry *entry;
-//      entry = currentCameraStackEntry(&universe.mainCameraCommand);
-
         ccFocusOnMyMothership(&universe.mainCameraCommand);
         smFocusOnMothershipOnClose = FALSE;
-
-//      if(entry != currentCameraStackEntry(&universe.mainCameraCommand))
-//          listDeleteNode(&entry->stacklink);
     }
-
     smZoomingIn = FALSE;
     smZoomingOut = FALSE;
     mouseClipToRect(NULL);                                  //make sure mouse does not stay locked to the SM viewport region
     MP_HyperSpaceFlag = FALSE;
-    bitClear(tbDisable,TBDISABLE_SENSORS_USE);
-    btgSetColourMultiplier(0, 1.0f);                        //make sure we always come out of the SM with the BTG in good order (CAT: channel 0, smSensorsCloseForGood 0x0050ba90)
+    btgSetColourMultiplier(0, 1.0f);                        //make sure we always come out of the SM with the BTG in good order
+    if (catMotionCues)
+    {
+        // CAT-TODO(M2-R6 NIS/camera): cat_mcSetMode(&cues 0x00c49400, 1) and cat_mcResetRequest(&cues) (the cat_mc* port)
+    }
 }
 
 void smBlobSphereDraw(blob *closestBlob)
@@ -2975,22 +2928,885 @@ void smPan(char *name, featom *atom)
 //    smCamera.lookatpoint = smCameraLookatPoint;
 }
 
+/*=============================================================================
+    CAT (M2-R6 managers, sensors): Cataclysm's sensors scene. The exe has no blob render (smBlobsDraw,
+    smBlobDrawClear, smBlobDrawCloudy and their helpers are absent); cat_smViewportRenderScene 0x0050b4b0 draws, in
+    the sensors camera: the background and the worlds, the player's sensor-range circles, the universe bounds, the
+    decorative asteroids, the mines, the crates, the resources, the ships (points, meshes for the SM_Mesh types,
+    class icons, slipgate paths), the compass (world plane, horizon ticks), the pings and the hot-key numbers. The
+    fog of war hides what the player's grid has not seen: cat_selPositionHiddenByFOW (Select.c) is the exe's inlined
+    test; no grid exists before the FOW port (CAT-TODO(M2-R6 FOW) in Select.c [audit: said stage 3 FOW]), so with the mode on (the default 2)
+    every grid-tested point is hidden, as the exe would with a NULL grid.
+=============================================================================*/
+// the exe's GL -> screen conversion rounds to the nearest pixel (the 1.5 * 2^52 constant 0x0072a458), as PiePlate.c
+#define catSmScreenX(x)         (MAIN_WindowWidth / 2 + (sdword)lrint((double)((x) * (real32)MAIN_WindowWidth * 0.5f)))
+#define catSmScreenY(y)         (MAIN_WindowHeight / 2 - (sdword)lrint((double)((y) * (real32)MAIN_WindowHeight * 0.5f)))
+#define catSmScreenScaleX(r)    ((sdword)lrint((double)((r) * (real32)MAIN_WindowWidth * 0.5f)))
+
+// the scene's colours (.data 0x00893048 .. 0x0089307c; names chosen here from their users)
+static color catSmOwnResourceColor  = 0xff00ff00;      // 0x00893048 the player's resource-class ships
+static color catSmOwnColor          = 0xff00ff00;      // 0x0089304c the player's ships (point and icon)
+static color catSmAlliedColor       = 0xffffc000;      // 0x00893050 allies (and the player's exempt ships)
+static color catSmEnemyColor        = 0xff0000ff;      // 0x00893054
+static color catSmDerelictColor     = 0xff787878;      // 0x00893058 a KAS derelict (CAT_SHIPFLAG_KasDerelict)
+static color catSmCrystalColor      = 0xffff00ff;      // 0x0089305c
+static color catSmCrateColor        = 0xff00ffff;      // 0x00893060
+static color catSmAsteroidDustColor = 0xff788ea2;      // 0x0089306c the decorative minor objects
+static color catSmMeteorColor       = 0xff9696c8;      // 0x00893070
+static color catSmAsteroidColor     = 0xff5a78b4;      // 0x00893074 (also a mimic posing as a resource)
+static color catSmDustColor         = 0xff6e8cc8;      // 0x00893078
+static color catSmMineColor         = 0xff2070ff;      // 0x0089307c
+static color catSmRangeFarColor     = 0xff800000;      // 0x00893080 the farthest sensor-range circle
+static color catSmRangeNearColor    = 0xff400000;      // 0x00893084 the nearest
+static real32 catSmRangeOverlap     = 0.5f;            // 0x00893098 a circle inside a bigger one of the same blob
+static color catSmUniverseBoundsColor = 0xffa26b40;    // 0x00892c90
+// the zoom's progress 0..1 (0x00892b74, data 1.0; smZoomUpdate stores it): the range circles fade in by it
+real32 catSmZoomFactor = 1.0f;
+// HWI: the sensors render self-test's counts (InfoOverlay.c catHudSelfTestTick), not in the exe
+CatSmDrawCounts catSmDrawCounts;
+
+extern bool32 rndTextureEnabled;                    // render.c (0x00a75d74)
+extern real32 toMinimumSize;                        // Tactical.c (0x00bb35e8)
+extern bool8 g_WireframeHack;                       // Mesh.c (0x00a4c456)
+
+#define CAT_SM_SLIPGATE_SEGMENTS    20              // 0x0072b0d0
+#define CAT_SM_BIG_POINT_RADIUS     45.0f           // 0x0072b0e4: a collision sphere above draws a 2-pixel point
+#define CAT_TYPEFLAG_Slipgate       0x00004000      // StaticInfo.catTypeFlags (as Tactical.c)
+
+// the point size of a resource, mine or crate: 2 pixels above the collision sphere radius 45 (inlined by the exe)
+static void catSmBigPoint(SpaceObj *obj, color c)
+{
+    glPointSize((obj->staticinfo->staticCollInfo.collspheresize > CAT_SM_BIG_POINT_RADIUS) ? 2.0f : 1.0f);
+    primPoint3(&obj->posinfo.position, c);
+    glPointSize(1.0f);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_smShipBlipType
+    Description : CAT: new (0x0050a280): the class icon a ship gets in the sensors manager (an index into
+                  toClassIcon): 0 a mothership-class ship, 2 the carriers, 1 the heavy cruisers and the dreadnought,
+                  8 the three trader structures, 7 the processors, 3 the RKO and the destroyer, else -1 (none)
+----------------------------------------------------------------------------*/
+sdword cat_smShipBlipType(Ship *ship)
+{
+    if (ship->staticinfo->shipclass == CLASS_Mothership)
+    {
+        return 0;
+    }
+    switch (ship->shiptype)
+    {
+        case sCarrier: case bCarrier: case tCarrier: case kCarrier:
+            return 2;
+        case bHeavyCruiser: case kHeavyCruiser: case tHeavyCruiser: case sDreadnought:
+            return 1;
+        case trFloatingCity: case trMiningBase: case trResearchStation:
+            return 8;
+        case sProcessor: case bProcessor:
+            return 7;
+        case dRKO: case sDestroyer:
+            return 3;
+        default:
+            return -1;
+    }
+}
+
+// the sensor-range circle list's entry (12 bytes in the exe)
+typedef struct
+{
+    sdword shown;
+    Ship *ship;
+    real32 distance;
+} CatSmRangeEntry;
+
+// farthest first (0x00509bc0 never returns 0)
+static int catSmRangeCompare(const void *p0, const void *p1)
+{
+    return (((CatSmRangeEntry *)p0)->distance > ((CatSmRangeEntry *)p1)->distance) ? -1 : 1;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_smSensorRangeBlobsDraw
+    Description : CAT: new (0x00509be0): with the sensors-sphere option, a screen-space circle of each of the
+                  player's visible ships' fog-of-war radius (not a clamped component), but for a circle that lies
+                  mostly inside a bigger one of the same collision blob; far circles first, shaded from the near
+                  colour to the far one, faded in with the zoom; fuzzy (primCircleBorder) by smFuzzyBlobs
+----------------------------------------------------------------------------*/
+void cat_smSensorRangeBlobsDraw(hmatrix *modelView, hmatrix *projection)
+{
+    CatSmRangeEntry *list = NULL;
+    Node *node;
+    Ship *ship;
+    sdword count, i, j, pass, x, y, radius, border, nSlices;
+    real32 nearest = 1e21f, farthest = 0.0f;           // 0x6258d727
+    real32 ri, dx, dy, dz, d, destX, destY, destRadius, t;
+    bool32 stipple = FALSE;
+    color c;
+
+    if (!catSmViewFOWRanges)
+    {
+        return;
+    }
+    count = 0;
+    for (pass = 0; pass < 2; pass++)
+    {
+        count = 0;
+        for (node = universe.ShipList.head; node != NULL; node = node->next)
+        {
+            ship = (Ship *)listGetStructOfNode(node);
+            if ((ship->staticinfo->shipclass == CLASS_Component) && (ship->guidance.clampInfo != NULL) &&
+                (ship->guidance.clampInfo->host != NULL))
+            {
+                continue;
+            }
+            if (bitTest(ship->header.flags, SOF_Hide) || (ship->playerowner != universe.curPlayerPtr))
+            {
+                continue;
+            }
+            if (pass == 1)
+            {
+                list[count].ship = ship;
+                list[count].shown = 1;
+            }
+            count++;
+        }
+        if (count == 0)
+        {
+            break;
+        }
+        if (pass == 0)
+        {
+            list = memAlloc(count * sizeof(CatSmRangeEntry), "smRangeBlobs", 0);
+        }
+    }
+    for (i = 0; i < count; i++)
+    {
+        for (j = 0; j < count; j++)
+        {
+            if (!list[i].shown)
+            {
+                break;
+            }
+            if ((i == j) || (list[j].shown != 1) || (list[i].ship->obj.collMyBlob != list[j].ship->obj.collMyBlob))
+            {
+                continue;
+            }
+            if (cat_shipGetFOWRadius(list[i].ship, 0) < cat_shipGetFOWRadius(list[j].ship, 0))
+            {
+                // the exe compares against the smaller radius twice (its own radius, read again)
+                ri = cat_shipGetFOWRadius(list[i].ship, 0);
+                dx = list[i].ship->obj.posinfo.position.x - list[j].ship->obj.posinfo.position.x;
+                dy = list[i].ship->obj.posinfo.position.y - list[j].ship->obj.posinfo.position.y;
+                dz = list[i].ship->obj.posinfo.position.z - list[j].ship->obj.posinfo.position.z;
+                if (dx * dx + dy * dy + dz * dz < catSmRangeOverlap * cat_shipGetFOWRadius(list[i].ship, 0) * ri)
+                {
+                    list[i].shown = 0;
+                }
+            }
+        }
+    }
+    for (i = 0; i < count; i++)
+    {
+        if (list[i].shown)
+        {
+            dx = smCamera.eyeposition.x - list[i].ship->obj.posinfo.position.x;
+            dy = smCamera.eyeposition.y - list[i].ship->obj.posinfo.position.y;
+            dz = smCamera.eyeposition.z - list[i].ship->obj.posinfo.position.z;
+            d = (real32)sqrt((double)(dx * dx + dy * dy + dz * dz));
+            list[i].distance = d;
+            if (d > farthest)
+            {
+                farthest = d;
+            }
+            if (d < nearest)
+            {
+                nearest = d;
+            }
+        }
+    }
+    if (list != NULL)
+    {
+        qsort(list, count, sizeof(CatSmRangeEntry), catSmRangeCompare);
+    }
+    primModeSet2();
+    if (glIsEnabled(GL_POLYGON_STIPPLE))
+    {
+        stipple = TRUE;
+        glDisable(GL_POLYGON_STIPPLE);
+    }
+    for (i = 0; i < count; i++)
+    {
+        if (!list[i].shown)
+        {
+            continue;
+        }
+        selCircleComputeGeneral(modelView, projection, &list[i].ship->obj.posinfo.position,
+                                cat_shipGetFOWRadius(list[i].ship, 0), &destX, &destY, &destRadius);
+        if (destRadius <= 0.0f)
+        {
+            continue;
+        }
+        x = catSmScreenX(destX);
+        y = catSmScreenY(destY);
+        radius = catSmScreenScaleX(destRadius);
+        border = catSmScreenScaleX(smCircleBorder * destRadius);
+        nSlices = border * 30 / MAIN_WindowHeight + 8;
+        if (nSlices > 29)
+        {
+            nSlices = 30;
+        }
+        t = (list[i].distance - nearest) / (farthest - nearest);
+        if (!(t >= 0.0f))
+        {
+            t = 0.0f;                                   // also the 0 / 0 of a single circle (NaN), as the exe
+        }
+        else if (t > 1.0f)
+        {
+            t = 1.0f;
+        }
+        c = colBlend(catSmRangeNearColor, catSmRangeFarColor, t);
+        c = colBlend(c, smIntBackgroundColor, catSmZoomFactor);
+        if (!smFuzzyBlobs)
+        {
+            primCircleSolid2(x, y, border, nSlices, c);
+        }
+        else
+        {
+            primCircleBorder(x, y, radius, border, nSlices, c);
+        }
+        catSmDrawCounts.rangeCircles++;
+    }
+    if (stipple)
+    {
+        glEnable(GL_POLYGON_STIPPLE);
+    }
+    primModeClear2();
+    cat_rndDepthTestEnable(FALSE);
+    rndLightingEnable(FALSE);
+    rndTextureEnable(FALSE);
+    if (list != NULL)
+    {
+        memFree(list);
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_smShipMeshDraw
+    Description : CAT: new (0x0050a0d0): a ship drawn as its mesh in the sensors manager (the level chosen by the
+                  selection circle, a mimic's apparent mesh: cat_lodLevelGetMimic), lit and textured, with the
+                  modules clamped to it, while the wireframe switch is off; FALSE when the level is no mesh
+----------------------------------------------------------------------------*/
+bool32 cat_smShipMeshDraw(Ship *ship)
+{
+    lod *level = cat_lodLevelGetMimic((SpaceObj *)ship, &smCamera.eyeposition, &ship->obj.posinfo.position);
+    lod *moduleLevel;
+    hmatrix coordMatrix;
+    sdword lightOn, textureOn, i, scheme;
+    CatClampedList *clamped;
+    Ship *module;
+    bool8 wireframe;
+
+    if ((level->flags & LM_LODType) != LT_Mesh)
+    {
+        return FALSE;
+    }
+    scheme = ship->colorScheme;
+    glPushMatrix();
+    hmatMakeHMatFromMat(&coordMatrix, &ship->rotatable.rotinfo.coordsys);
+    hmatPutVectIntoHMatrixCol4(ship->obj.posinfo.position, coordMatrix);
+    glMultMatrixf((GLfloat *)&coordMatrix);
+    lightOn = rndLightingEnable(TRUE);
+    textureOn = rndTextureEnable(TRUE);
+    shPushLightMatrix(&coordMatrix);
+    if (rndShipVisible((SpaceObj *)ship, &smCamera))
+    {
+        wireframe = g_WireframeHack;
+        g_WireframeHack = FALSE;
+        if (ship->bindings != NULL)
+        {
+            meshRenderShipHierarchy(NULL, ship->bindings, ship->obj.currentLOD, (meshdata *)level->pData, scheme);
+        }
+        else
+        {
+            meshRender((meshdata *)level->pData, scheme);
+        }
+        clamped = (ship->guidance.clampInfo != NULL) ? ship->guidance.clampInfo->clampedObjs : NULL;
+        if (clamped != NULL)
+        {
+            for (i = 0; i < clamped->numShips; i++)
+            {
+                module = clamped->ShipPtr[i];
+                moduleLevel = cat_lodLevelGetMimic((SpaceObj *)module, &smCamera.eyeposition, &module->obj.posinfo.position);
+                if (module->bindings != NULL)
+                {
+                    meshRenderShipHierarchy(NULL, module->bindings, module->obj.currentLOD, (meshdata *)moduleLevel->pData, scheme);
+                }
+                else
+                {
+                    meshRender((meshdata *)moduleLevel->pData, scheme);
+                }
+            }
+        }
+        g_WireframeHack = wireframe;
+        catSmDrawCounts.meshes++;
+    }
+    shPopLightMatrix();
+    rndLightingEnable(lightOn);
+    rndTextureEnable(textureOn);
+    glPopMatrix();
+    return TRUE;
+}
+
+// a slipgate's path to its partner: a cubic between the two gates' forward axes, swaying with the real-time clock
+//      (inlined by cat_smShipsDraw)
+static void catSmSlipgatePathDraw(Ship *gate, Ship *partner, color c)
+{
+    vector start = gate->obj.posinfo.position, prev = start, point, velocity, local, startVelocity, endVelocity;
+    real32 dx = gate->obj.posinfo.position.x - partner->obj.posinfo.position.x;
+    real32 dy = gate->obj.posinfo.position.y - partner->obj.posinfo.position.y;
+    real32 dz = gate->obj.posinfo.position.z - partner->obj.posinfo.position.z;
+    real32 distance = (real32)sqrt((double)(dx * dx + dy * dy + dz * dz));
+    real32 t;
+    sdword index;
+
+    local.x = 0.0f;
+    local.y = 0.0f;
+    local.z = ((real32)sin(0.05f * cat_taskRealTimeElapsed * PI) * 0.1f + 1.2f) * distance;
+    matMultiplyMatByVec(&endVelocity, &partner->rotatable.rotinfo.coordsys, &local);
+    local.z = -distance * ((real32)cos(0.05f * cat_taskRealTimeElapsed * PI) * 0.1f + 1.2f);
+    matMultiplyMatByVec(&startVelocity, &gate->rotatable.rotinfo.coordsys, &local);
+    for (index = 1; index < CAT_SM_SLIPGATE_SEGMENTS; index++)
+    {
+        t = (real32)index / (real32)(CAT_SM_SLIPGATE_SEGMENTS - 1);
+        velocity = startVelocity;
+        point = start;
+        cat_ccEvalCubicVel(&point.x, &velocity.x, partner->obj.posinfo.position.x, endVelocity.x, t);
+        cat_ccEvalCubicVel(&point.y, &velocity.y, partner->obj.posinfo.position.y, endVelocity.y, t);
+        cat_ccEvalCubicVel(&point.z, &velocity.z, partner->obj.posinfo.position.z, endVelocity.z, t);
+        primLine3(&prev, &point, c);
+        prev = point;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_smShipsDraw
+    Description : CAT: new (0x0050a310): every ship of the universe in the sensors manager: the selection circle
+                  computed for a selectable/targetable (or untargetable) ship; hidden: SOF_Hide, components,
+                  swarmers, an enemy the player may not select while it has a grid, a selected ship in the off half
+                  of the flash; a slipgate draws its effect and its path to its partner instead; a crystal is always
+                  drawn; a ship of an SM_Mesh type (a mimic's apparent type) as its mesh, else a 2-pixel point in its
+                  relation's colour; with the icons option a ship with a class icon gets it in the blip colour
+----------------------------------------------------------------------------*/
+void cat_smShipsDraw(hmatrix *modelView, hmatrix *projection)
+{
+    Node *node;
+    Ship *ship;
+    SlipgateSpec *gate;
+    Ship *partner;
+    sdword blip, index;
+    bool32 visible, needPoint, flashOn;
+    color blipColor = 0, c;
+    toicon *icon;
+    real32 scale;
+    ShipType apparent;
+
+    flashOn = (fmod((double)cat_taskRealTimeElapsed, (double)smSelectedFlashSpeed) > smSelectedFlashSpeed * 0.5);
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        visible = TRUE;
+        if (bitTest(ship->header.flags, SOF_Selectable | SOF_Targetable) || cat_shipIsUntargetable(ship))
+        {
+            selCircleCompute(modelView, projection, (SpaceObjRotImpTarg *)ship);
+        }
+        if (bitTest(ship->header.flags, SOF_Hide))
+        {
+            visible = FALSE;
+        }
+        if (!allianceArePlayersAllied(ship->playerowner, universe.curPlayerPtr))
+        {
+            if ((universe.curPlayerPtr->catFOWGrid != NULL) && (universe.curPlayerPtr->playerState != PLAYER_DEAD) &&
+                !cat_selShipSelectableInFOW(ship))
+            {
+                visible = FALSE;
+            }
+            blip = cat_smShipBlipType(ship);
+            if (blip != -1)
+            {
+                blipColor = catSmEnemyColor;
+            }
+        }
+        else
+        {
+            blip = cat_smShipBlipType(ship);
+            if (blip != -1)
+            {
+                blipColor = ((ship->playerowner == universe.curPlayerPtr) &&
+                             !bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20)) ? catSmOwnColor : catSmAlliedColor;
+            }
+        }
+        if (ship->staticinfo->shipclass == CLASS_Component)
+        {
+            visible = FALSE;
+        }
+        if ((ship->shiptype == sSwarmer) || (ship->shiptype == bSwarmer))
+        {
+            visible = FALSE;
+        }
+        if (ShipInSelection((SelectCommand *)&selSelected, ship) && !flashOn)
+        {
+            visible = FALSE;
+        }
+        if (ship->staticinfo->catTypeFlags & CAT_TYPEFLAG_Slipgate)
+        {
+            gate = (SlipgateSpec *)ship->ShipSpecifics;
+            if ((gate->effect != NULL) && !cat_selPositionHiddenByFOW(&ship->obj.posinfo.position, TRUE))
+            {
+                etgEffectUpdate(gate->effect, 0.0f);
+                etgEffectDraw(gate->effect);                // CAT: the exe passes 1 (draw as well as update)
+            }
+            cat_rndDepthTestEnable(FALSE);
+            rndTextureEnabled = TRUE;                   // CAT: the exe forces the disable (0x00a75d74 = 1)
+            rndTextureEnable(FALSE);
+            partner = gate->partner;
+            // each pair once: from the gate at the higher address (the exe compares the pointers)
+            if (catSmViewSlipgatePaths && (partner != NULL) && ((smemsize)ship > (smemsize)partner) &&
+                !cat_selPositionHiddenByFOW(&partner->obj.posinfo.position, TRUE))
+            {
+                // the per-player "seen" bytes at Ship+0x654 (SlipgateSpec.unknown1C / unknown20)
+                if (((ubyte *)&gate->unknown1C)[universe.curPlayerIndex] ||
+                    ((ubyte *)&((SlipgateSpec *)partner->ShipSpecifics)->unknown1C)[universe.curPlayerIndex])
+                {
+                    catSmSlipgatePathDraw(ship, partner, gate->color);
+                    catSmDrawCounts.slipgatePaths++;
+                }
+            }
+            visible = FALSE;
+        }
+        if (cat_shipIsCrystal(ship))
+        {
+            visible = TRUE;
+        }
+        else if (!visible)
+        {
+            continue;
+        }
+        needPoint = TRUE;
+        if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic) && cat_shipIsMimicking(ship) &&
+            ((sdword)cat_mimicGetApparentShipType(ship) >= 0) && (ship->playerowner != universe.curPlayerPtr))
+        {
+            apparent = cat_mimicGetApparentShipType(ship);
+            if (bitTest(smShipTypeRenderFlags[apparent], SM_Mesh) && catSmViewShipMeshes && cat_smShipMeshDraw(ship))
+            {
+                needPoint = FALSE;
+            }
+            cat_rndDepthTestEnable(FALSE);
+        }
+        else if (bitTest(smShipTypeRenderFlags[ship->shiptype], SM_Mesh) && catSmViewShipMeshes)
+        {
+            if (cat_smShipMeshDraw(ship))
+            {
+                needPoint = FALSE;
+            }
+            cat_rndDepthTestEnable(FALSE);
+        }
+        if (needPoint)
+        {
+            if (ship->playerowner == universe.curPlayerPtr)
+            {
+                if (bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))
+                {
+                    c = catSmAlliedColor;
+                }
+                else
+                {
+                    c = (ship->staticinfo->shipclass == CLASS_Resource) ? catSmOwnResourceColor : catSmOwnColor;
+                }
+            }
+            else if (allianceArePlayersAllied(ship->playerowner, universe.curPlayerPtr) ||
+                     (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic) && cat_mimicAppearsAlliedTo(ship, universe.curPlayerPtr)))
+            {
+                c = catSmAlliedColor;
+            }
+            else if (cat_shipIsCrystal(ship))
+            {
+                c = catSmCrystalColor;
+            }
+            else if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic) && cat_mimicAppearsAsResource(ship, universe.curPlayerPtr))
+            {
+                if (!singlePlayerGame)
+                {
+                    continue;                           // a mimic posing as a resource: nothing in a multiplayer game
+                }
+                c = catSmAsteroidColor;
+            }
+            else if (bitTest(ship->header.catFlags18, CAT_SHIPFLAG_KasDerelict))
+            {
+                c = catSmDerelictColor;
+            }
+            else
+            {
+                c = catSmEnemyColor;
+            }
+            glPointSize(2.0f);
+            primPoint3(&ship->obj.posinfo.position, c);
+            glPointSize(1.0f);
+            catSmDrawCounts.shipPoints++;
+        }
+        if (catSmViewIcons && (blip != -1) && (ship->impactable.collInfo.selCircleDepth > 0.0f))
+        {
+            icon = toClassIcon[blip];
+            scale = ship->staticinfo->tacticalSelectionScale * ship->impactable.collInfo.selCircleRadius;
+            if (!(scale > toMinimumSize))
+            {
+                scale = toMinimumSize;
+            }
+            primModeSet2();
+            primLineLoopStart2(1, blipColor);
+            for (index = icon->nPoints - 1; index >= 0; index--)
+            {
+                primLineLoopPoint3F(scale * icon->loc[index].x + ship->impactable.collInfo.selCircleX,
+                                    scale * icon->loc[index].y + ship->impactable.collInfo.selCircleY);
+            }
+            primLineLoopEnd2();
+            primModeClear2();
+            glDisable(GL_DEPTH_TEST);
+            rndLightingEnable(FALSE);
+            rndTextureEnable(FALSE);
+            catSmDrawCounts.icons++;
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_smShipHotkeyNumbersDraw
+    Description : CAT: new (0x0050ab50): the hot-key group number next to each selected ship of a group, in the
+                  group font 3, skipping a ship whose label would sit within five label widths (both axes) of one
+                  already printed for the same group
+----------------------------------------------------------------------------*/
+void cat_smShipHotkeyNumbersDraw(void)
+{
+    static sdword labelX[COMMAND_MAX_SHIPS], labelY[COMMAND_MAX_SHIPS];
+    sdword group, index, j, count, x, y, dx, dy, width;
+    Ship *ship;
+    bool32 free;
+
+    fontMakeCurrent(selGroupFont3);                     // the exe leaves it current
+    for (group = 0; group < SEL_NumberHotKeyGroups; group++)
+    {
+        count = 0;
+        for (index = 0; index < selHotKeyGroup[group].numShips; index++)
+        {
+            ship = selHotKeyGroup[group].ShipPtr[index];
+            if (!ShipInSelection((SelectCommand *)&selSelected, ship))
+            {
+                continue;
+            }
+            x = catSmScreenX(ship->impactable.collInfo.selCircleX);
+            y = catSmScreenY(ship->impactable.collInfo.selCircleY);
+            free = TRUE;
+            for (j = 0; (j < count) && free; j++)
+            {
+                width = fontWidth(selHotKeyString[group]) * 5;
+                dx = labelX[j] - x;
+                if (dx < 0)
+                {
+                    dx = -dx;
+                }
+                if (dx < width)
+                {
+                    dy = labelY[j] - y;
+                    if (dy < 0)
+                    {
+                        dy = -dy;
+                    }
+                    if (dy < width)
+                    {
+                        free = FALSE;
+                    }
+                }
+            }
+            if (!free || (count >= COMMAND_MAX_SHIPS))
+            {
+                continue;
+            }
+            labelX[count] = x;
+            labelY[count] = y;
+            fontPrint(x, y - fontHeight(" "), selHotKeyNumberColor, selHotKeyString[group]);
+            count++;
+            catSmDrawCounts.hotkeyNumbers++;
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_smResourcesDraw
+    Description : CAT: new (0x0050ae00): the resources as points: meteors (the killer-collision attribute) with the
+                  meteors option, asteroids (not one a mimic poses as) and dust clouds with the resources option,
+                  where the grid has seen them
+----------------------------------------------------------------------------*/
+void cat_smResourcesDraw(hmatrix *modelView, hmatrix *projection)
+{
+    Node *node;
+    SpaceObjRotImpTarg *resource;
+    bool32 meteor;
+
+    for (node = universe.ResourceList.head; node != NULL; node = node->next)
+    {
+        resource = (SpaceObjRotImpTarg *)listGetStructOfNode(node);
+        meteor = FALSE;
+        if (bitTest(resource->header.flags, SOF_Selectable | SOF_Targetable))
+        {
+            selCircleCompute(modelView, projection, resource);
+        }
+        if (catSmViewMeteors && bitTest(resource->obj.attributes, CAT_ATTRIBUTES_KillerCollision))
+        {
+            if (!cat_selPositionHiddenByFOW(&resource->obj.posinfo.position, TRUE))
+            {
+                catSmBigPoint((SpaceObj *)resource, catSmMeteorColor);
+                catSmDrawCounts.resources++;
+            }
+            meteor = TRUE;
+        }
+        if (catSmViewResources && !meteor)
+        {
+            if (resource->header.objtype == OBJ_AsteroidType)
+            {
+                if ((((Asteroid *)resource)->catMimicShip == NULL) &&
+                    !cat_selPositionHiddenByFOW(&resource->obj.posinfo.position, TRUE))
+                {
+                    catSmBigPoint((SpaceObj *)resource, catSmAsteroidColor);
+                    catSmDrawCounts.resources++;
+                }
+            }
+            else if (resource->header.objtype == OBJ_DustType)
+            {
+                if (!cat_selPositionHiddenByFOW(&resource->obj.posinfo.position, TRUE))
+                {
+                    catSmBigPoint((SpaceObj *)resource, catSmDustColor);
+                    catSmDrawCounts.resources++;
+                }
+            }
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_smBoundsEdgeDraw / cat_smUniverseBoundsDraw
+    Description : CAT: new (0x0050b090 / 0x0050b150): with the universe-extents option, the twelve edges of the
+                  universe box as corner ticks (5% of each edge from both ends, fading to black), in the bounds
+                  colour faded with the zoom
+----------------------------------------------------------------------------*/
+static void cat_smBoundsEdgeDraw(vector *p0, vector *p1, color c)
+{
+    vector d, a, b;
+
+    d.x = (p1->x - p0->x) * 0.05f;                      // 0x0072b0cc
+    d.y = 0.05f * (p1->y - p0->y);
+    d.z = 0.05f * (p1->z - p0->z);
+    a.x = d.x + p0->x;
+    a.y = d.y + p0->y;
+    a.z = d.z + p0->z;
+    b.x = p1->x - d.x;
+    b.y = p1->y - d.y;
+    b.z = p1->z - d.z;
+    cat_primLine3Smooth(p0, &a, c, 0xff000000);
+    cat_primLine3Smooth(p1, &b, c, 0xff000000);
+}
+
+void cat_smUniverseBoundsDraw(void)
+{
+    vector p000, p001, p010, p011, p100, p101, p110, p111;
+    color c;
+
+    if (!catSmViewUniverseExtents)
+    {
+        return;
+    }
+    c = cat_smZoomFadeColor(catSmUniverseBoundsColor, 0);  // inlined in the exe
+    if (c == 0xff000000)
+    {
+        return;
+    }
+    p000.x = -smUniverseSizeX; p000.y = -smUniverseSizeY; p000.z = -smUniverseSizeZ;
+    p001 = p000; p001.z = smUniverseSizeZ;
+    p010 = p000; p010.y = smUniverseSizeY;
+    p011 = p001; p011.y = smUniverseSizeY;
+    p100 = p000; p100.x = smUniverseSizeX;
+    p101 = p001; p101.x = smUniverseSizeX;
+    p110 = p010; p110.x = smUniverseSizeX;
+    p111.x = smUniverseSizeX; p111.y = smUniverseSizeY; p111.z = smUniverseSizeZ;
+    cat_smBoundsEdgeDraw(&p000, &p001, c);
+    cat_smBoundsEdgeDraw(&p000, &p010, c);
+    cat_smBoundsEdgeDraw(&p000, &p100, c);
+    cat_smBoundsEdgeDraw(&p011, &p001, c);
+    cat_smBoundsEdgeDraw(&p011, &p010, c);
+    cat_smBoundsEdgeDraw(&p011, &p111, c);
+    cat_smBoundsEdgeDraw(&p101, &p001, c);
+    cat_smBoundsEdgeDraw(&p101, &p100, c);
+    cat_smBoundsEdgeDraw(&p101, &p111, c);
+    cat_smBoundsEdgeDraw(&p110, &p010, c);
+    cat_smBoundsEdgeDraw(&p110, &p100, c);
+    cat_smBoundsEdgeDraw(&p110, &p111, c);
+    catSmDrawCounts.boundsFrames++;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_smMinesDraw
+    Description : CAT: new (0x0050b380): the mines as points where the grid sees them (live usage), but in single
+                  player mission 3 only once the mission shows them (catSmShowMines)
+----------------------------------------------------------------------------*/
+void cat_smMinesDraw(hmatrix *modelView, hmatrix *projection)
+{
+    Node *node;
+    Missile *missile;
+
+    for (node = universe.MissileList.head; node != NULL; node = node->next)
+    {
+        missile = (Missile *)listGetStructOfNode(node);
+        if (missile->missileType != MISSILE_Mine)
+        {
+            continue;
+        }
+        if (bitTest(missile->header.flags, SOF_Selectable | SOF_Targetable))
+        {
+            selCircleCompute(modelView, projection, (SpaceObjRotImpTarg *)missile);
+        }
+        if (cat_selPositionHiddenByFOW(&missile->obj.posinfo.position, FALSE))
+        {
+            continue;
+        }
+        if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 3) && !catSmShowMines)
+        {
+            continue;
+        }
+        catSmBigPoint((SpaceObj *)missile, catSmMineColor);
+        catSmDrawCounts.mines++;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_smViewportRenderScene
+    Description : CAT: new (0x0050b4b0): the sensors manager's scene in the current matrices (see the section
+                  comment above); the depth test is off while it draws and restored after
+----------------------------------------------------------------------------*/
+void cat_smViewportRenderScene(hmatrix *modelView, hmatrix *projection)
+{
+    bool32 depth = cat_rndDepthTestEnable(FALSE);
+    Node *node;
+    Derelict *derelict;
+    sdword index;
+    udword crates;
+    vector centre;
+    fonthandle oldFont;
+
+    catSmDrawCounts.scenes++;
+    if (catSmViewBackground)
+    {
+        glPushMatrix();
+        glTranslatef(smCamera.eyeposition.x, smCamera.eyeposition.y, smCamera.eyeposition.z);
+        rndBackgroundRender(BG_RADIUS, &smCamera, FALSE);
+        glPopMatrix();
+        lightSetLighting();
+        rndLightingEnable(TRUE);
+        for (index = 0; index < UNIV_NUMBER_WORLDS; index++)
+        {
+            if (universe.world[index] == NULL)
+            {
+                break;
+            }
+            if (universe.world[index]->header.objtype == OBJ_DerelictType)
+            {
+                rndRenderAHomeworld(&smCamera, universe.world[index]);
+            }
+        }
+    }
+    cat_smSensorRangeBlobsDraw(modelView, projection);
+    primModeClear2();
+    lightPositionSet();
+    rndLightingEnable(FALSE);
+    rndTextureEnable(FALSE);
+    cat_smUniverseBoundsDraw();
+    if (universe.curPlayerPtr->catFOWGrid != NULL)
+    {
+        // CAT-TODO(stage 3 FOW): fowSelect(grid); fowRender(&smCamera) (0x0047f810: the explored cells)
+    }
+    if (catSmViewDecorativeAsteroids)
+    {
+        for (node = universe.MinorSpaceObjList.head; node != NULL; node = node->next)
+        {
+            primPoint3(&((SpaceObj *)listGetStructOfNode(node))->posinfo.position, catSmAsteroidDustColor);
+        }
+    }
+    cat_smMinesDraw(modelView, projection);
+    if (universe.numCratesInWorld != 0)
+    {
+        crates = 0;
+        for (node = universe.DerelictList.head; (node != NULL) && (crates < universe.numCratesInWorld); node = node->next)
+        {
+            derelict = (Derelict *)listGetStructOfNode(node);
+            if (derelict->derelicttype != Crate)
+            {
+                continue;
+            }
+            crates++;
+            if (!cat_selPositionHiddenByFOW(&derelict->obj.posinfo.position, FALSE))
+            {
+                catSmBigPoint((SpaceObj *)derelict, catSmCrateColor);
+            }
+        }
+    }
+    cat_smResourcesDraw(modelView, projection);
+    cat_smShipsDraw(modelView, projection);
+    if (catSmViewCompass)
+    {
+        centre.x = smCentreWorldPlane ? 0.0f : smCamera.lookatpoint.x;
+        centre.y = smCentreWorldPlane ? 0.0f : smCamera.lookatpoint.y;
+        centre.z = 0.0f;
+        smWorldPlaneDraw(&centre, TRUE, smCurrentWorldPlaneColor);
+        smHorizonLineDraw(&smCamera, modelView, projection, smCurrentCameraDistance);
+        primModeSet2();
+        oldFont = fontCurrentGet();                     // smTickTextDraw, inlined
+        fontMakeCurrent(mouseCursorFont);
+        for (smTickTextIndex--; smTickTextIndex >= 0; smTickTextIndex--)
+        {
+            fontPrint(smTickText[smTickTextIndex].x, smTickText[smTickTextIndex].y,
+                      smCurrentWorldPlaneColor, smTickText[smTickTextIndex].text);
+        }
+        fontMakeCurrent(oldFont);
+        primModeClear2();
+        catSmDrawCounts.compassFrames++;
+    }
+    primModeSet2();
+    pingListDraw(&smCamera, modelView, projection, &smViewRectangle);
+    cat_smShipHotkeyNumbersDraw();
+    primModeClear2();
+    cat_rndDepthTestEnable(depth);
+}
+
 /*-----------------------------------------------------------------------------
     Name        : smViewportRender
-    Description : Callback which draws the main sensors manager viewport.
-    Inputs      : standard FE callback
-    Outputs     : ..
-    Return      : void
+    Description : the sensors manager viewport's draw callback
+    CAT (M2-R6 managers, sensors): the exe's body (0x0050be70): nothing while catSmHideViewport is set; the zoom in
+        and out as HW1 (the ambient 0x101 at the end of the zoom out, the space ambient 0x100 at the focus
+        transition), the pan by the bound keys and the overlay's buttons, the cubic pan; the camera matrices, then the
+        scene (cat_smViewportRenderScene: no blobs, no cursor text, no player names), the movement pie, the hot-key
+        groups with the tactical overlay, the NIS static, the tactical overlay, the band box (cat_mrSelectRectDraw),
+        the main overlay, the ship info panel, the popup menu and the hover updates; the depth test off while it
+        draws (the early returns of the zoom leave it off, as the exe)
 ----------------------------------------------------------------------------*/
 void smViewportRender(featom *atom, regionhandle region)
 {
-    blob *selectedBlob;
     CameraStackEntry *curentry = currentCameraStackEntry(&universe.mainCameraCommand);
-    sdword frameTicks, sensorLevel;
+    sdword frameTicks;
     real32 frameStep;
     vector rememberVec, diffVec;
-    sdword index;
+    bool32 depth;
 
+    if (catSmHideViewport)
+    {
+        return;
+    }
+    depth = cat_rndDepthTestEnable(FALSE);
     frameTicks = utyNFrameTicks;
     if (frameTicks > smMaxFrameTicks)
         frameTicks = smMaxFrameTicks;
@@ -3006,7 +3822,7 @@ void smViewportRender(featom *atom, regionhandle region)
         smZoomUpdate(smZoomTime, smCurrentZoomLength, TRUE);
         if (smZoomTime >= smCurrentZoomLength)
         {                                                   //if done zooming out
-            soundEvent(NULL, UI_SensorsManager);
+            soundEventPlay(NULL, 0x101, NULL);              // CAT: the sensors manager's ambient
             smZoomingOut = FALSE;                           //stop zooming
         }
         if (smZoomTime < smCurrentMainViewZoomLength)
@@ -3015,57 +3831,44 @@ void smViewportRender(featom *atom, regionhandle region)
             universe.mainCameraCommand.actualcamera.ignoreZoom = TRUE;
             return;                                         //let mainrgn.c handle the rendering
         }
-        else
-        {                                                   //else we're in the SM rendering part
-            mrRenderMainScreen = FALSE;
-
-            dbgAssertOrIgnore(smZoomTime >= smCurrentMainViewZoomLength);
-            universe.mainCameraCommand.actualcamera.ignoreZoom = FALSE;
-        }
+        mrRenderMainScreen = FALSE;
+        universe.mainCameraCommand.actualcamera.ignoreZoom = FALSE;
     }
     else if (smZoomingIn)
     {
-        dbgAssertOrIgnore(smEyeStart.x < (real32)1e19 && smEyeStart.x > (real32)-1e19);
         smZoomTime -= frameStep;
         smZoomUpdate(smZoomTime, smCurrentZoomLength, TRUE);
         if (smZoomTime <= 0.0f)
         {                                                   //fully zoomed in
             smZoomingIn = FALSE;
-            //...actually close the sensors manager
             smSensorsCloseForGood();                        //stop zooming in already!
         }
-
         if (smZoomTime >= smCurrentMainViewZoomLength)
         {                                                   //if in sm part of zoom
             cameraCopyPositionInfo(&universe.mainCameraCommand.actualcamera, &smCamera);
             universe.mainCameraCommand.actualcamera.ignoreZoom = TRUE;
         }
+        else if (!smFocusTransition)
+        {                                                   //if at transition point
+            smFocusTransition = TRUE;                       //make sure we only do this once a zoom
+            if (smFocus)
+            {
+                universe.mainCameraCommand.actualcamera.ignoreZoom = FALSE;
+                ccFocusFar(&universe.mainCameraCommand, smFocusCommand, &universe.mainCameraCommand.actualcamera);
+                memFree(smFocusCommand);
+                smFocusCommand = NULL;
+            }
+            mrRenderMainScreen = TRUE;
+            soundEventPlay(NULL, UI_SoundOfSpace, NULL);    // CAT: 0x100
+        }
         else
-        {                                                   //else rendering main game screen
-            if (!smFocusTransition)
-            {                                               //if at transition point
-                smFocusTransition = TRUE;                   //make sure we only do this once a zoom
-                //... execute the ccfocus thingus
-                if (smFocus)
-                {
-                    universe.mainCameraCommand.actualcamera.ignoreZoom = FALSE;
-                    ccFocusFar(&universe.mainCameraCommand, smFocusCommand, &universe.mainCameraCommand.actualcamera);
-                    memFree(smFocusCommand);
-                    smFocusCommand = NULL;
-                }
-                mrRenderMainScreen = TRUE;
-
-                soundEvent(NULL, UI_SoundOfSpace);
+        {                                                   //else the transition has already been made
+            if (!smFocus && smZoomTime > 0.0f)
+            {                                               //if not at end of zoom in with no focus
+                cameraCopyPositionInfo(&universe.mainCameraCommand.actualcamera, &smCamera);
+                universe.mainCameraCommand.actualcamera.ignoreZoom = TRUE;
             }
-            else
-            {                                               //else the transition has already been made
-                if (!smFocus && smZoomTime > 0.0f)
-                {                                           //if not at end of zoom in with no focus
-                    cameraCopyPositionInfo(&universe.mainCameraCommand.actualcamera, &smCamera);
-                    universe.mainCameraCommand.actualcamera.ignoreZoom = TRUE;
-                }
-                return;
-            }
+            return;
         }
     }
     else
@@ -3073,15 +3876,14 @@ void smViewportRender(featom *atom, regionhandle region)
         smCurrentWorldPlaneColor = smWorldPlaneColor;
         smCurrentCameraDistance = smCamera.clipPlaneFar;
     }
-    smViewportRegion->rect = smViewRectangle;
     if (piePointSpecMode != PSM_Idle)
     {
         smCurrentWorldPlaneColor = colMultiplyClamped(smCurrentWorldPlaneColor, smMovementWorldPlaneDim);
     }
 
     //perform some render-time monkey work of the camera position
-    if (!smZoomingIn && !smZoomingOut)
-    {                                               //don't move the eye point if zooming
+    if (!smZoomingIn && !smZoomingOut && !cat_popupMenuIsOpen())
+    {                                               //don't move the eye point if zooming (CAT: or with the popup menu)
         uicDragX = uicDragY = 0;
         // CAT (M2-R5 hud): the main overlay's four scroll buttons pan as the keys do (cat_moButton1..4Clicked
         //      0x004aaf70.., smViewportRender); the keys are the bound commands Pan_Sensors_Left .. Down 0x41..0x44
@@ -3150,88 +3952,34 @@ void smViewportRender(featom *atom, regionhandle region)
     glGetFloatv(GL_MODELVIEW_MATRIX, (GLfloat *)(&rndCameraMatrix));
     glGetFloatv(GL_PROJECTION_MATRIX, (GLfloat *)(&rndProjectionMatrix));
 
-    //Draw the BTG background
-    glPushMatrix();
-    glTranslatef(smCamera.eyeposition.x, smCamera.eyeposition.y, smCamera.eyeposition.z);
-    rndBackgroundRender(BG_RADIUS, &smCamera, FALSE);  //render the background
-    glPopMatrix();
-
-    lightSetLighting();
-    rndLightingEnable(TRUE);
-
-    //render all worlds in the universe
-    for (index = 0; index < UNIV_NUMBER_WORLDS; index++)
-    {
-        if (universe.world[index] != NULL)
-        {
-            if (universe.world[index]->header.objtype == OBJ_DerelictType)
-            {
-                rndRenderAHomeworld(&smCamera, universe.world[index]);
-            }
-        }
-        else
-        {
-            break;
-        }
-    }
-
-    //update and draw all the sensors manager blobs
-    smRenderCount++;
-    if (smRenderCount >= smBlobUpdateRate)
-    {
-        smRenderCount = 0;
-    }
-    if (smGhostMode)
-    {
-        sensorLevel = 2;
-    }
-    else
-    {
-        sensorLevel = universe.curPlayerPtr->sensorLevel;
-    }
-    glGetFloatv(GL_MODELVIEW_MATRIX, (GLfloat *)(&rndCameraMatrix));
-    glGetFloatv(GL_PROJECTION_MATRIX, (GLfloat *)(&rndProjectionMatrix));
-
-    selectedBlob = smBlobsDraw(&smCamera, &universe.collBlobList, &rndCameraMatrix, &rndProjectionMatrix, universe.curPlayerPtr->sensorLevel);
+    cat_smViewportRenderScene(&rndCameraMatrix, &rndProjectionMatrix);
 
     if (piePointSpecMode != PSM_Idle)
     {                                                       //draw point spec
         mrCamera = &smCamera;                               //point spec draw uses mrCamera
-        pieLineDrawCallback = NULL;
-        piePlaneDrawCallback = piePlaneDraw;
-        pieMovementCursorDrawCallback = pieMovementCursorDraw;
         piePointSpecDraw();                                 //draw the movement mechanism
     }
 
     primModeSet2();
 
-    //draw the tactical overlay, if applicable
     if (smTacticalOverlay)
     {
-#if !TO_STANDARD_COLORS
-        if (!singlePlayerGame)
-        {                                                   //only print player names if multi-player game is underway
-            smPlayerNamesDraw(&smViewRectangle);            //draw the list of player names
-        }
-#endif
         smHotkeyGroupsDraw();
-    }
-    if (smHoldRight == smNULL && smHoldLeft == smNULL)
-    {
-        smCursorTextDraw(&smViewRectangle, selectedBlob, universe.curPlayerPtr->sensorLevel);
-    }
-
-    if (smHoldLeft == smSelectHold)                         //and then draw the current selection progress
-    {
-        primRectOutline2(&smSelectionRect, 1, TW_SELECT_BOX_COLOR);
     }
     if (nisStatic[NIS_SMStaticIndex] != NULL)
     {
         nisStaticDraw(nisStatic[NIS_SMStaticIndex]);
     }
-    // CAT (M2-R5 hud, M2-R6 mainrgn-popup): smViewportRender 0x0050c... ends with the main overlay, the ship info
-    //      panel, the popup menu and the hover updates, as mrRegionDraw (the rest of the Cataclysm sensors render,
-    //      such as its band box by cat_mrSelectRectDraw, is M2-R6 sensors')
+    if (mrDrawTactical)
+    {
+        rndTextureEnable(FALSE);
+        glDisable(GL_TEXTURE_2D);
+        toAllShipsDraw();
+    }
+    if (catMrSelecting)
+    {
+        cat_mrSelectRectDraw(1);                            // the band box, sensors flavour
+    }
     cat_moRender();
     if (selSelected.numShips > 0 && selSelected.ShipPtr[0]->playerowner == universe.curPlayerPtr)
     {
@@ -3241,6 +3989,7 @@ void smViewportRender(featom *atom, regionhandle region)
     cat_ioUpdateHover();
     cat_shipPrintDragUpdate();
     cat_popupMenuUpdateHover(FALSE);
+    cat_rndDepthTestEnable(depth);
 }
 
 /*-----------------------------------------------------------------------------
@@ -3292,7 +4041,9 @@ void smCullAndFocusSelecting(void)
     sdword index, nToFocusOn;
     vector centre = {0.0f, 0.0f, 0.0f};
 
-    if ((tutorial==TUTORIAL_ONLY) && !tutEnable.bSensorsClose)
+    // CAT (M2-R6 managers, sensors): smCullAndFocusSelecting 0x0050c580: the gate is bit 0x8000000 of the first word
+    //      (as smSensorsClose), the exit sound 0x12e
+    if ((tutorial == TUTORIAL_ONLY) && !(((udword *)&tutEnable)[0] & 0x8000000))
     {
         return;
     }
@@ -3313,8 +4064,7 @@ void smCullAndFocusSelecting(void)
     dbgAssertOrIgnore(!smZoomingOut);
     smZoomingIn = TRUE;
 
-    /* call the sound event for closing the Sensors manager */
-    soundEvent(NULL, UI_SensorsExit);
+    soundEventPlay(NULL, 0x12e, NULL);                      // CAT: the sensors manager's exit
 
     smFocusTransition = FALSE;
     smEyeEnd = smCamera.eyeposition;
@@ -3350,317 +4100,62 @@ void smCullAndFocusSelecting(void)
 ----------------------------------------------------------------------------*/
 udword smViewportProcess(regionhandle region, sdword ID, udword event, udword data)
 {
-//    Ship *ship;
-//    void *a, *b;
-    if ((smZoomingIn)||(smZoomingOut))
+    // CAT (M2-R6 managers, sensors): the exe's region callback (0x0050c7e0, no Ghidra function) replaces HW1's
+    //      own band box, focus and move handling: nothing while zooming; the wheel flags, the main region's mouse
+    //      handlers in their sensors flavour (cat_mrHoldLeft / cat_mrPressLeft / cat_mrReleaseLeft / cat_mrPressRight /
+    //      cat_mrReleaseRight / cat_mrReleaseLeftCB with 1), the camera turn while the right button turns it, the keys to
+    //      the key bindings (sensors 1); the middle button (key id 4) focuses the selection outside the fleet intel
+    if (smZoomingIn || smZoomingOut)
     {
         return 0;
     }
-
     switch (event)
     {
-        case RPE_HoldLeft:
-            smHoldLeft();                                   //call current hold function
-            break;
-        case RPE_HoldRight:
-            smHoldRight();                                  //call current hold function
-            break;
-        case RPE_PressLeft:
-            mouseClipToRect(&smViewRectangle);
-            if (smHoldRight == smNULL && (!smFleetIntel))
-            {
-                smClicking = TRUE;
-            }
-            if (smHoldRight == smNULL && (!smFleetIntel))
-            {
-                mrOldMouseX = mouseCursorX();               //store anchor point
-                mrOldMouseY = mouseCursorY();
-                smHoldLeft = smSelectHold;                  //set to select mode
-                smSelectionRect.x0 = smSelectionRect.x1 =   //select nothing
-                    smSelectionRect.y0 = smSelectionRect.y1 = 0;
-            }
-            break;
-        case RPE_ReleaseLeft:
-            if ((piePointSpecMode & (PSM_XY | PSM_Z)) != 0)
-            {                                               //if specified a point
-                vector destination;
-
-                dbgAssertOrIgnore(!smFleetIntel);
-                MakeShipsMobile((SelectCommand *)&selSelected, TRUE);   // CAT: skip-disabled argument (UI callers pass 1)
-                if (selSelected.numShips > 0)
-                {
-                    if (piePointSpecZ != 0.0f)
-                    {                                       //if a height was specified
-                        destination = pieHeightPoint;
-                    }
-                    else
-                    {
-                        destination = piePlanePoint;         //else move to point on plane
-                    }
-
-             /** !!!!  We should put the speech event AFTER incase the movement destination is
-                        invalid...in the probes case this could be often...very often   **/
-                    /**  Done :)  **/
-                    /** Hooray !! **/
-                    if (!(isnan((double)destination.x) || isnan((double)destination.x) || isnan((double)destination.x)))
-                    {
-                        if(mrNeedProbeHack())
-                        {   //looks like we need a little probe hacksy poo here too
-                            clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_MOVEPATH_ONCE,selCentrePoint,1,&destination);   // CAT-TODO(M2-R6 sensors): the sensors manager's move order (the waypoint UI is mainrgn's); a one-point path
-                            speechEventFleetSpec(selSelected.ShipPtr[0], COMM_F_Probe_Deployed, 0, universe.curPlayerIndex);
-                        }
-                        else
-                        {   //move normally
-                            if(MP_HyperSpaceFlag)
-                            {
-                                vector distancevec;
-                                real32 cost;
-                                //we're in hyperspace pieplate mode!
-                                vecSub(distancevec,selCentrePoint,destination);
-                                cost = hyperspaceCost(fsqrt(vecMagnitudeSquared(distancevec)),(SelectCommand *)&selSelected);
-                                if(universe.curPlayerPtr->resourceUnits < ((sdword)cost))
-                                {
-                                    //can't afford it!
-                                    //good speech event?
-                                    if (battleCanChatterAtThisTime(BCE_CannotComply, selSelected.ShipPtr[0]))
-                                    {
-                                        battleChatterAttempt(SOUND_EVENT_DEFAULT, BCE_CannotComply, selSelected.ShipPtr[0], SOUND_EVENT_DEFAULT);
-                                    }
-                                }
-                                else
-                                {
-                                    //make unselectable in wrap function
-                                    clWrapMpHyperspace(&universe.mainCommandLayer,(SelectCommand *)&selSelected,selCentrePoint,destination);
-                                }
-                            }
-                            else
-                            {
-                                //normal pieplate movement
-                                clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&selSelected,CAT_MOVEPATH_ONCE,selCentrePoint,1,&destination);   // CAT-TODO(M2-R6 sensors): the sensors manager's move order (the waypoint UI is mainrgn's); a one-point path
-                                if (selSelected.ShipPtr[0]->shiptype == Mothership)
-                                {
-                                    speechEventFleetSpec(selSelected.ShipPtr[0], COMM_F_MoShip_Move, 0, universe.curPlayerIndex);
-                                }
-                                else
-                                {
-                                    speechEvent(selSelected.ShipPtr[0], COMM_Move, 0);
-                                }
-                            }
-                        }
-
-                        //untoggle correct button!
-                        if(MP_HyperSpaceFlag)
-                        {
-                            feToggleButtonSet(SM_Hyperspace, FALSE);
-                        }
-                        else
-                        {
-                            feToggleButtonSet(SM_Dispatch, FALSE);
-                        }
-                    }
-                }
-//                piePointSpecMode = PSM_Idle;                 //no more selecting
-                piePointModeOnOff(PIE_SPEC_Move, NULL);
-                MP_HyperSpaceFlag = FALSE;      //for now..
-            }
-            else if (smClicking && !smFleetIntel)
-            {
-                Ship *clickedOn = NULL;
-
-                if (ABS(mouseCursorX() - mrOldMouseX) < selClickBoxWidth &&
-                    ABS(mouseCursorY() - mrOldMouseY) < selClickBoxHeight)
-                {                                           //if mouse has moved much
-                    smSelectionRect.x0 = mouseCursorX() - smSelectionWidth / 2;
-                    smSelectionRect.x1 = mouseCursorX() + smSelectionWidth / 2;
-                    smSelectionRect.y0 = mouseCursorY() - smSelectionHeight / 2;
-                    smSelectionRect.y1 = mouseCursorY() + smSelectionHeight / 2;
-                    clickedOn = selSelectionClick(universe.SpaceObjList.head, &smCamera, mouseCursorX(), mouseCursorY(), FALSE, FALSE, FALSE);   // CAT: 7th argument (M2-R5 hud)
-                    if (clickedOn != NULL)
-                    {
-                        if (clickedOn->playerowner != universe.curPlayerPtr && (!smGhostMode))
-                        {
-                            clickedOn = FALSE;
-                        }
-                    }
-                }
-                else
-                {
-                    mrSelectRectBuild(&smSelectionRect, mrOldMouseX, mrOldMouseY);//create a selection rect
-                }
-                if (smHoldRight == smNULL)
-                {
-                    if (smGhostMode)
-                    {
-                        selRectDragAnybodyAnywhere(&smCamera, &smSelectionRect);//and select anything
-                    }
-                    else
-                    {
-//                        selRectDragAnywhere(&smCamera, &smSelectionRect);//and select anything
-                        selRectDragAnybodyAnywhere(&smCamera, &smSelectionRect);//and select anything
-                        MakeShipsFriendlyAndAlliesShips((SelectCommand *)&selSelecting, universe.curPlayerPtr);
-                        makeShipsNotBeDisabled((SelectCommand *)&selSelecting);
-                    }
-                    if (clickedOn != NULL)
-                    {
-                        if(!(clickedOn->header.flags & SOF_Disabled))
-                        {
-                            selSelectionAddSingleShip((MaxSelection *)(&selSelecting), clickedOn);
-                        }
-                    }
-                    smCullAndFocusSelecting();
-                }
-            }
-            mouseClipToRect(NULL);
-            smHoldLeft = smNULL;
-            smClicking = FALSE;
-            break;
-        case RPE_PressRight:
-#ifdef _LINUX_FIX_ME
-            mouseClipToRect(&smViewRectangle);
-#endif
-            smHoldLeft = smNULL;
-            smHoldRight = mrCameraMotion;
-            mrOldMouseX = mouseCursorX();                   //save current mouse location for later restoration
-            mrOldMouseY = mouseCursorY();
-            mouseCursorHide();                              //hide cursor and move to centre of the screen
-            mousePositionSet(MAIN_WindowWidth / 2, MAIN_WindowHeight / 2);
-            mrMouseHasMoved = 0;                            //mouse hasn't moved yet
-            region->rect.x0 = region->rect.y0 = 0;          //make it's rectangle full-screen
-            region->rect.x1 = MAIN_WindowWidth;
-            region->rect.y1 = MAIN_WindowHeight;
-            smClicking = FALSE;
-            piePointModePause(TRUE);                         //pause the point spec mode
-            break;
-        case RPE_ReleaseRight:
-            mouseClipToRect(NULL);
-            if (smHoldRight == mrCameraMotion)
-            {                                               //if in camera movement mode
-                mousePositionSet(mrOldMouseX, mrOldMouseY); //restore mouse position
-                mouseCursorShow();                          //show mouse cursor
-                smHoldRight = smNULL;                       //idle mode
-            }
-            //region->rect = smViewRectangle;                 //restore origional rectangle
-            piePointModePause(FALSE);
+        case RPE_WheelDown:
+            wheel_down = TRUE;
             break;
         case RPE_WheelUp:
             wheel_up = TRUE;
             break;
-        case RPE_WheelDown:
-            wheel_down = TRUE;
+        case RPE_HoldLeft:
+            cat_mrHoldLeft(1);
+            break;
+        case RPE_HoldRight:
+            if (catMrRightMode == 2)
+            {
+                mrCameraMotion();
+            }
+            break;
+        case RPE_PressLeft:
+            cat_mrPressLeft();                              // the exe passes 1, which the function ignores
+            break;
+        case RPE_PressRight:
+            cat_mrPressRight();
+            break;
+        case RPE_ReleaseLeft:
+            cat_mrReleaseLeft(1);
+            break;
+        case RPE_ReleaseRight:
+            cat_mrReleaseRight(1);
             break;
         case RPE_KeyDown:
-            if (smZoomingOut)
-            {                                               //if sensors manager is just starting
-                break;                                      //don't process key clicks
+            cat_kbKeyPress(1, ID);
+            if ((catKeyVkFromKey(ID) == 0x04) && !smFleetIntel)
+            {                                               // the middle button
+                selSelectionCopy((MaxAnySelection *)&selSelecting, (MaxAnySelection *)&selSelected);
+                smCullAndFocusSelecting();
             }
-            switch (ID)
-            {
-                case SHIFTKEY:
-                    if (smHoldRight != mrCameraMotion)
-                    {
-                        piePointModeToggle(TRUE);
-                    }
-                    break;
-                case MMOUSE_BUTTON:
-                case FKEY:
-                    if (!smFleetIntel)
-                    {
-                        selSelectionCopy((MaxAnySelection *)&selSelecting,(MaxAnySelection *)&selSelected);
-                        smCullAndFocusSelecting();
-                    }
-                    break;
-
-#if SM_TOGGLE_SENSOR_LEVEL
-                case LKEY:
-                    smToggleSensorsLevel();
-                    break;
-#endif
-
-                case ZEROKEY:
-                case ONEKEY:
-                case TWOKEY:
-                case THREEKEY:
-                case FOURKEY:
-                case FIVEKEY:
-                case SIXKEY:
-                case SEVENKEY:
-                case EIGHTKEY:
-                case NINEKEY:
-                    if (!smFleetIntel)
-                    {
-                        if (keyIsHit(ALTKEY) || keyIsHit(RALTKEY))
-                        {                                   //alt-# select and focus on a hot key group
-altCase:
-                            if (selHotKeyGroup[NUMKEYNUM(ID)].numShips != 0)
-                            {
-                                selSelectionCopy((MaxAnySelection *)&selSelected,(MaxAnySelection *)&selHotKeyGroup[NUMKEYNUM(ID)]);
-                                selSelectionCopy((MaxAnySelection *)&selSelecting,(MaxAnySelection *)&selSelected);
-                                if(MP_HyperSpaceFlag)
-                                {
-                                    makeSelectionHyperspaceCapable((SelectCommand *)&selSelected);
-                                }
-                                smCullAndFocusSelecting();
-#if SM_VERBOSE_LEVEL >= 2
-                                dbgMessagef("Hot key group %d selected and focused upon.", NUMKEYNUM(ID));
-#endif
-                            }
-                        }
-                        else if (ID == mrLastKeyPressed && universe.totaltimeelapsed <= mrLastKeyTime + mrNumberDoublePressTime)
-                        {                                   //double-#: focus on hot-key group
-                            tutGameMessage("KB_GroupSelectFocus");
-                            goto altCase;                   //same as alt-#
-                        }
-                        else
-                        {                                   //plain# select a hot key group
-                            if (selHotKeyGroup[NUMKEYNUM(ID)].numShips != 0)
-                            {
-                                tutGameMessage("KB_GroupSelect");
-
-                                selSelectHotKeyGroup(&selHotKeyGroup[NUMKEYNUM(ID)]);
-                                selHotKeyNumbersSet(NUMKEYNUM(ID));
-#if SEL_ERROR_CHECKING
-                                selHotKeyGroupsVerify();
-#endif
-                                if(MP_HyperSpaceFlag)
-                                {
-                                    makeSelectionHyperspaceCapable((SelectCommand *)&selSelected);
-                                }
-
-                                ioUpdateShipTotals();
-                                if (selSelected.numShips > 0)
-                                {
-                                    soundEvent(NULL, UI_Click);
-                                    speechEvent(selHotKeyGroup[NUMKEYNUM(ID)].ShipPtr[0], COMM_AssGrp_Select, NUMKEYNUM(ID));
-                                }
-                            }
-                        }
-                    }
-                    break;
-            }
-            mrLastKeyPressed = ID;
-            mrLastKeyTime = universe.totaltimeelapsed;
             break;
         case RPE_KeyUp:
-            if (smZoomingOut)
-            {                                               //if sensors manager is just starting
-                break;                                      //don't process key clicks
-            }
-            switch (ID)
-            {
-                case SHIFTKEY:
-                    if (smHoldRight != mrCameraMotion)
-                    {
-                        piePointModeToggle(FALSE);
-                    }
-                    break;
-            }
+            cat_kbKeyRelease(1, ID);
             break;
-#if SM_VERBOSE_LEVEL >= 1
+        case RPE_DoubleLeft:
+            cat_mrReleaseLeftCB(1);
+            break;
         default:
-            dbgMessagef("smViewportProcess: unimplemented or unsupported event 0x%x. ID 0x%x, data 0x%x", event, ID, data);
-#endif
+            break;
     }
-    return(0);
+    return 0;
 }
 
 /*-----------------------------------------------------------------------------
@@ -3870,28 +4365,26 @@ void smSensorsClose(char *name, featom *atom)
     vector direction,dist;
     real32 dStart;
 
-    if ((tutorial==TUTORIAL_ONLY) && !tutEnable.bSensorsClose)
+    // CAT (M2-R6 managers, sensors): the exe's body (0x0050c950): the tutorial gate is bit 0x8000000 of its first
+    //      word; a big-gun aim (pie type 3) is cancelled first; the exit sound 0x12e; HW1's probe hack is a nullsub
+    //      (mrNeedProbeHack returns FALSE); no taskbar flag
+    if ((tutorial == TUTORIAL_ONLY) && !(((udword *)&tutEnable)[0] & 0x8000000))
     {
         return;
     }
-
-//    dbgAssertOrIgnore(!smFleetIntel);
     if (smZoomingIn || smZoomingOut)
     {                                                       //if hit while already zooming
         return;
     }
-#if SM_VERBOSE_LEVEL >= 1
-    dbgMessage("smSensorsClose");
-#endif
-
-
-    if(smFocusOnMothershipOnClose)
+    if ((piePointSpecType == PIE_SPEC_BigGun) && (piePointSpecMode != PSM_Idle))
+    {
+        piePointModeOnOff(PIE_SPEC_None, NULL);
+    }
+    if (smFocusOnMothershipOnClose)
     {
         ccFocusOnMyMothership(&universe.mainCameraCommand);
         smFocusOnMothershipOnClose = FALSE;
     }
-
-    //!!! Jason: set the value of smLookStart to the centre of the focussed ships.
     ccLockOnTargetNow(&universe.mainCameraCommand);
 
     smLookStart = universe.mainCameraCommand.actualcamera.lookatpoint;
@@ -3905,11 +4398,9 @@ void smSensorsClose(char *name, featom *atom)
     vecNormalize(&direction);
     vecMultiplyByScalar(direction, dStart);
     vecSub(smEyeStart, smLookStart, direction);
-    dbgAssertOrIgnore(!smZoomingOut);
     smZoomingIn = TRUE;
 
-    /* call the sound event for closing the Sensors manager */
-    soundEvent(NULL, UI_SensorsExit);
+    soundEventPlay(NULL, 0x12e, NULL);                      // CAT: the sensors manager's exit
 
     smFocusTransition = FALSE;
     smInitialDistance = smCamera.distance;
@@ -3920,17 +4411,7 @@ void smSensorsClose(char *name, featom *atom)
     smTempCamera.eyeposition = smEyeStart;
     mrCamera = &smTempCamera;
     univUpdateRenderList();
-    dbgAssertOrIgnore(smEyeStart.x < (real32)1e19 && smEyeStart.x > (real32)-1e19);
 
-//Probe Hack Start   ******************
-    if(mrNeedProbeHack())
-    {
-        if(piePointSpecMode != PSM_Idle)
-        {   //turn off pie plate movement mech.
-            MP_HyperSpaceFlag = FALSE;
-            piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
-        }
-    }
     // check to see if pieplate active if it is and out of range turn it off.
     if (piePointSpecMode!=PSM_Idle)
     {
@@ -3942,15 +4423,19 @@ void smSensorsClose(char *name, featom *atom)
             piePointModeOnOff(PIE_SPEC_None, NULL);   // CAT: off, mode 0 as the exe
         }
     }
-
-//Probe Hack END     ******************
-
     MP_HyperSpaceFlag = FALSE;
-    bitClear(tbDisable,TBDISABLE_SENSORS_USE);
 }
 
 void smSensorsSkip(char *name, featom *atom)
 {
+    // CAT (M2-R6 managers, sensors): smSensorsSkip 0x0050cc60: with close-captioned text showing (its region
+    //      enabled, a card in use: 0x00abd2c2 / 0x00abd2d0) only that region fades out and the speech goes on
+    if (subRegion[STR_CloseCaptioned].bEnabled && (subRegion[STR_CloseCaptioned].cardIndex > 0))
+    {
+        subMessageEnded = 2;
+        subTitlesFadeOut(&subRegion[STR_CloseCaptioned], smSkipFadeoutTime);
+        return;
+    }
     subMessageEnded = 2;                                 //the fleet intel thing was skipped
     speechEventActorStop(ACTOR_ALL_ACTORS, smSkipFadeoutTime);
     subTitlesFadeOut(&subRegion[STR_LetterboxBar], smSkipFadeoutTime);
@@ -4022,18 +4507,16 @@ fecallback smCallbacks[] =
 
 void smStartup(void)
 {
+    // CAT (M2-R6 managers, sensors): the exe's body (0x0050ccc0): the tweaks, the viewport's draw callback, the
+    //      camera, the parameters; the Cataclysm screen has only SM_ViewPort, so no button callbacks are added (the
+    //      exe has none of HW1's SM_* button names) and there is no hold-function pair
     scriptSet(NULL, "sensors.script", smTweaks);
     feDrawCallbackAdd(SM_ViewportName, smViewportRender);   //add render callback
-    feCallbackAddMultiple(smCallbacks);
 
     cameraInit(&smCamera, SM_InitialCameraDist);
     smUpdateParameters();
 
-    smHoldRight = smNULL;
-    smHoldLeft = smNULL;
     MP_HyperSpaceFlag = FALSE;      //set to FALSE...should manage itself from here on...
-
-//    listInit(&smBlobList);
 }
 
 /*-----------------------------------------------------------------------------
@@ -4066,6 +4549,20 @@ void smShutdown(void)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : catSmReopenAfterManager
+    Description : HWI helper (M2-R6 managers), the sequence the exe inlines in cmClose 0x00455680, lmCloseIfOpen
+                  0x0049d300 and rmCloseIfOpen 0x004f4e30 when the closing manager had closed the sensors manager:
+                  the return flag 0x00a5b230, the camera saved when the sensors manager opened (0x00c0aac0) copied
+                  back (to 0x00c0a7e0), then smSensorsBegin
+----------------------------------------------------------------------------*/
+void catSmReopenAfterManager(void)
+{
+    catSmReopen = TRUE;                                     // 0x00a5b230
+    catSmSavedCamera = smCamera;                            // 0x00c0aac0 -> 0x00c0a7e0, 0x17 dwords
+    smSensorsBegin(NULL, NULL);
+}
+
+/*-----------------------------------------------------------------------------
     Name        : smSensorsBegin
     Description : Starts the sensors manager
     Inputs      : name, atom - ignored
@@ -4074,197 +4571,48 @@ void smShutdown(void)
 ----------------------------------------------------------------------------*/
 void smSensorsBegin(char *name, featom *atom)
 {
-    regionhandle baseRegion, reg;
-    sdword index, diff;
+    regionhandle reg;
+    sdword index;
     fescreen *screen;
-    featom *pAtom;
-    sdword smViewExpandLeft;
-    sdword smViewExpandRight;
-    sdword smViewExpandTop;
-    sdword smViewExpandBottom;
     char *screenName;
 
+    // CAT (M2-R6 managers, sensors): the exe's body (0x0050cdb0): opened when the KAS opens it (catSmForceOpen,
+    //      kasfOpenSensors 0x00496bc0) or when it is not disabled and the tutorial allows it (bit 0x8 of its first
+    //      word); the viewport is the whole screen (no scrolling side regions), its callback the exe's
+    //      (smViewportProcess) with the filter 0x36f6c and the main region's key children; the zoom starts from the
+    //      main camera, or from the sensors camera a closing manager saved (catSmReopen, catSmReopenAfterManager),
+    //      in which case it starts at the main-view end of the zoom; the intro sound 0x12d; no toggle buttons, no
+    //      I/O lock, no taskbar hook
     bitClear(ghMainRegion->status, RSF_MouseInside);
-    mrHoldLeft = mrHoldRight = mrNULL;                      //prevent a wierd bug
+    catMrRightMode = 0;
+    catMrSelecting = FALSE;
 
-    if(smSensorsDisable || ((tutorial==TUTORIAL_ONLY) && !tutEnable.bSensorsManager))
+    if (!catSmForceOpen && (smSensorsDisable || ((tutorial == TUTORIAL_ONLY) && !(((udword *)&tutEnable)[0] & 0x8))))
     {
         return;
     }
-
-    ioSaveState = ioDisable();
-
-    tbSensorsHook();
-
     screenName = smFleetIntel ? SM_FleetIntelScreenName : SM_ScreenName;
     screen = feScreenFind(screenName);
-    smBaseRegion = baseRegion = feScreenStart(ghMainRegion, screenName);
+    smBaseRegion = feScreenStart(ghMainRegion, screenName);
     //now find the user region the sensors manager is rendered in
-    reg = baseRegion->child;
+    reg = smBaseRegion->child;
     smViewportRegion = NULL;
     for (index = 1; index < screen->nAtoms; index++)
     {
-//        reg = (regionhandle)screen->atoms[index].region;
-        regVerify(reg);
         if (((featom *)reg->userID)->pData == (ubyte *)smViewportRender) //if this is a user region
         {
             smBackgroundColor = ((featom *)reg->userID)->contentColor;
-//            glClearColor(colUbyteToReal(colRed(smBackgroundColor)),
-//                         colUbyteToReal(colGreen(smBackgroundColor)),
-//                         colUbyteToReal(colBlue(smBackgroundColor)), 1.0f);
-
             smViewportRegion = reg;                         //this must be the region
             break;
         }
         reg = reg->next;
     }
-    dbgAssertOrIgnore(smViewportRegion != NULL);
     regFunctionSet(smViewportRegion, (regionfunction) smViewportProcess);
-    regFilterSet(smViewportRegion, SM_ViewportFilter);
-    smViewRectangle = smViewportRegion->rect;
-
-    /*
-    index = 640 - (smViewRectangle.x1 - smViewRectangle.x0);
-    index >>= 1;
-    index++;
-    smViewRectangle.x0 = index;
-    smViewRectangle.x1 = MAIN_WindowWidth - index;
-    */
-    //now let's go through all the regions and build lists of regions outside the
-    //main viewport.  These regions are to scroll onto the screen during the zoom.
-    reg = baseRegion->child;
-    smScrollListTop = smScrollListLeft = smScrollListRight = smScrollListBottom = NULL;
-    smScrollCountLeft = smScrollCountTop = smScrollCountRight = smScrollCountBottom = 0;
-    smScrollDistLeft = smScrollDistTop = smScrollDistRight = smScrollDistBottom = 0;
-    smScrollLeft = smScrollTop = smScrollRight = smScrollBottom = 0;
-    for (index = 1; index < screen->nAtoms; index++, reg = reg->next)
-    {
-//        reg = (regionhandle)screen->atoms[index].region;
-        regVerify(reg);
-        pAtom = (featom *)reg->userID;
-        if (reg->rect.x1 <= smViewportRegion->rect.x0)
-        {                                                   //if off left
-            smScrollCountLeft++;
-            smScrollListLeft = memRealloc(smScrollListLeft, smScrollCountLeft * sizeof(region**), "ScrollListLeft", 0);
-            smScrollListLeft[smScrollCountLeft - 1] = reg;
-            continue;
-        }
-        if (reg->rect.y1 <= smViewportRegion->rect.y0)
-        {                                                   //if off top
-            smScrollCountTop++;
-            smScrollListTop = memRealloc(smScrollListTop, smScrollCountTop * sizeof(region**), "ScrollListTop", 0);
-            smScrollListTop[smScrollCountTop - 1] = reg;
-            continue;
-        }
-        if (reg->rect.x0 >= smViewportRegion->rect.x1)
-        {                                                   //if off right
-            smScrollCountRight++;
-            smScrollListRight = memRealloc(smScrollListRight, smScrollCountRight * sizeof(region**), "ScrollListRight", 0);
-            smScrollListRight[smScrollCountRight - 1] = reg;
-            continue;
-        }
-        if (reg->rect.y0 >= smViewportRegion->rect.y1)
-        {                                                   //if off bottom
-            smScrollCountBottom++;
-            smScrollListBottom = memRealloc(smScrollListBottom, smScrollCountBottom * sizeof(region**), "ScrollListBottom", 0);
-            smScrollListBottom[smScrollCountBottom - 1] = reg;
-            continue;
-        }
-    }
-    //compute pan distance to get these rectangles to work in high-rez
-    smViewExpandLeft    = (MAIN_WindowWidth - 640) / 2;
-    smViewExpandRight   = (MAIN_WindowWidth - 640) - smViewExpandLeft;
-    smViewExpandTop     = (MAIN_WindowHeight - 480) / 2;
-    smViewExpandBottom  = (MAIN_WindowHeight - 480) - smViewExpandTop;
-    //let's figure out how far we'll have to scroll each of these lists
-    for (index = 0; index < smScrollCountLeft; index++)
-    {
-        smScrollDistLeft = max(smScrollDistLeft, smScrollListLeft[index]->rect.x1 - smScrollListLeft[index]->rect.x0);
-    }
-    for (index = 0; index < smScrollCountTop; index++)
-    {
-        if (smFleetIntel && index == smScrollCountTop - 1)
-        {                                                   //consider the last region as a letterbox bar
-            dbgAssertOrIgnore(smScrollListTop[index]->drawFunction == feStaticRectangleDraw);
-            diff = smScrollListTop[index]->rect.y1 - smScrollListTop[index]->rect.y0;
-            diff = (diff) * MAIN_WindowHeight / 480 - diff;
-            smScrollListTop[index]->rect.y1 += diff;
-            smViewportRegion->rect.y0 += diff;
-            smViewRectangle.y0 += diff;
-        }
-        smScrollDistTop = max(smScrollDistTop, smScrollListTop[index]->rect.y1 - smScrollListTop[index]->rect.y0);
-    }
-    for (index = 0; index < smScrollCountRight; index++)
-    {
-        smScrollDistRight = max(smScrollDistRight, smScrollListRight[index]->rect.x1 - smScrollListRight[index]->rect.x0);
-    }
-    for (index = 0; index < smScrollCountBottom; index++)
-    {
-        if (smFleetIntel && index == smScrollCountBottom - 1)
-        {                                                   //consider the last region as a letterbox bar
-            dbgAssertOrIgnore(smScrollListBottom[index]->drawFunction == feStaticRectangleDraw);
-            diff = smScrollListBottom[index]->rect.y1 - smScrollListBottom[index]->rect.y0;
-            diff = (diff) * MAIN_WindowHeight / 480 - diff;
-            smScrollListBottom[index]->rect.y0 -= diff;
-            smViewportRegion->rect.y1 -= diff;
-            smViewRectangle.y1 -= diff;
-        }
-        smScrollDistBottom = max(smScrollDistBottom, smScrollListBottom[index]->rect.y1 - smScrollListBottom[index]->rect.y0);
-    }
-    //unt finally, let's scroll them far enough to be off-screen
-    for (index = 0; index < smScrollCountLeft; index++)
-    {
-        if (smScrollListLeft[index]->rect.y0 <= smViewRectangle.y0)
-        {
-            smScrollListLeft[index]->rect.y0 -= smViewExpandTop;
-        }
-        if (smScrollListLeft[index]->rect.y1 >= smViewRectangle.y1)
-        {
-            smScrollListLeft[index]->rect.y1 += smViewExpandBottom;
-        }
-        regRegionScroll(smScrollListLeft[index], -smScrollDistLeft - smViewExpandLeft, 0);
-    }
-    for (index = 0; index < smScrollCountTop; index++)
-    {
-        if (smScrollListTop[index]->rect.x0 <= smViewRectangle.x0)
-        {
-            smScrollListTop[index]->rect.x0 -= smViewExpandLeft;
-        }
-        if (smScrollListTop[index]->rect.x1 >= smViewRectangle.x1)
-        {
-            smScrollListTop[index]->rect.x1 += smViewExpandRight;
-        }
-        regRegionScroll(smScrollListTop[index], 0, -smScrollDistTop - smViewExpandTop);
-    }
-    for (index = 0; index < smScrollCountRight; index++)
-    {
-        if (smScrollListRight[index]->rect.y0 <= smViewRectangle.y0)
-        {
-            smScrollListRight[index]->rect.y0 -= smViewExpandTop;
-        }
-        if (smScrollListRight[index]->rect.y1 >= smViewRectangle.y1)
-        {
-            smScrollListRight[index]->rect.y1 += smViewExpandBottom;
-        }
-        regRegionScroll(smScrollListRight[index], smScrollDistRight + smViewExpandRight, 0);
-    }
-    for (index = 0; index < smScrollCountBottom; index++)
-    {
-        if (smScrollListBottom[index]->rect.x0 <= smViewRectangle.x0)
-        {
-            smScrollListBottom[index]->rect.x0 -= smViewExpandLeft;
-        }
-        if (smScrollListBottom[index]->rect.x1 >= smViewRectangle.x1)
-        {
-            smScrollListBottom[index]->rect.x1 += smViewExpandRight;
-        }
-        regRegionScroll(smScrollListBottom[index], 0, smScrollDistBottom + smViewExpandBottom);
-    }
-    //set the view rectangle to full screen size, to be scaled as we go zoom back
-    smViewRectangle.x0 -= smScrollDistLeft + smViewExpandLeft;
-    smViewRectangle.y0 -= smScrollDistTop + smViewExpandTop;
-    smViewRectangle.x1 += smScrollDistRight + smViewExpandRight;
-    smViewRectangle.y1 += smScrollDistBottom + smViewExpandBottom;
+    regFilterSet(smViewportRegion, 0x36f6c);
+    smViewRectangle.x0 = 0;
+    smViewRectangle.y0 = 0;
+    smViewRectangle.x1 = MAIN_WindowWidth;
+    smViewRectangle.y1 = MAIN_WindowHeight;
     smViewportRegion->rect = smViewRectangle;
     smZoomTime = 0.0f;
     if (smInstantTransition && !smFleetIntel)
@@ -4279,68 +4627,45 @@ void smSensorsBegin(char *name, featom *atom)
     }
 
     //figure out the start/end points for the camera animation
-    smLookStart = universe.mainCameraCommand.actualcamera.lookatpoint;
-    smEyeStart = universe.mainCameraCommand.actualcamera.eyeposition;
-    //smLookEnd.x = smLookEnd.y = smLookEnd.z = 0.0f;
-    smLookEnd = universe.mainCameraCommand.actualcamera.lookatpoint;
-    smCameraLookatPoint = smLookEnd;
+    if (!catSmReopen)
+    {
+        smEyeStart = universe.mainCameraCommand.actualcamera.eyeposition;
+        smCameraLookatPoint = universe.mainCameraCommand.actualcamera.lookatpoint;
+    }
+    else
+    {
+        smEyeStart = catSmSavedCamera.eyeposition;
+        smCameraLookatPoint = catSmSavedCamera.lookatpoint;
+    }
+    vecSub(smEyeEnd, smEyeStart, smCameraLookatPoint);
     smCameraLookVelocity.x = smCameraLookVelocity.y = smCameraLookVelocity.z = 0.0f;
-    vecSub(smEyeEnd, smEyeStart, smLookStart);
+    smLookEnd = smCameraLookatPoint;
+    smLookStart = smCameraLookatPoint;
     vecNormalize(&smEyeEnd);
-    vecMultiplyByScalar(smEyeEnd, smInitialDistance);
-    vecAddTo(smEyeEnd, smLookEnd);
     smZoomingIn = FALSE;
     smZoomingOut = TRUE;
-
-//    mrRenderMainScreen = FALSE;
-    feToggleButtonSet(SM_TacticalOverlay, smTacticalOverlay);
-    feToggleButtonSet(SM_Resource       , smResources);
-    feToggleButtonSet(SM_NonResource    , smNonResources);
-    feToggleButtonSet(SM_Dispatch       , piePointSpecMode != PSM_Idle);
-
+    vecMultiplyByScalar(smEyeEnd, smInitialDistance);
+    vecAddTo(smEyeEnd, smLookEnd);
+    if (catSmReopen)
+    {
+        smZoomTime = smMainViewZoomLength;
+        smCurrentZoomLength = smMainViewZoomLength;
+        smZoomUpdate(smMainViewZoomLength, smMainViewZoomLength, TRUE);
+        mrRenderMainScreen = FALSE;
+        catSmReopen = FALSE;
+    }
     mouseClipToRect(NULL);
-    smHoldLeft = smNULL;
-    smHoldRight = smNULL;
-//    bobListCreate(&smBlobProperties, &smBlobList, universe.curPlayerIndex);
 
     smSensorsActive = TRUE;
 
     soundEventStopSFX(0.5f);
-
-    /* call the sound event for opening the Sensors manager */
-    soundEvent(NULL, UI_SensorsIntro);
+    soundEventPlay(NULL, 0x12d, NULL);                      // CAT: the sensors manager's intro
 
     universe.dontUpdateRenderList = TRUE;
-    smRenderCount = 0;
-
-    //add any additional key messages the sensors manager will need
-    regKeyChildAlloc(smViewportRegion, SHIFTKEY,      RPE_KeyUp | RPE_KeyDown, (regionfunction) smViewportProcess, 1, SHIFTKEY);
-    regKeyChildAlloc(smViewportRegion, MKEY,          RPE_KeyUp | RPE_KeyDown, (regionfunction) smViewportProcess, 1, MKEY);
-    regKeyChildAlloc(smViewportRegion, FKEY,          RPE_KeyUp | RPE_KeyDown, (regionfunction) smViewportProcess, 1, FKEY);
-    regKeyChildAlloc(smViewportRegion, MMOUSE_BUTTON, RPE_KeyUp | RPE_KeyDown, (regionfunction) smViewportProcess, 1, MMOUSE_BUTTON);
-
-    regKeyChildAlloc(smViewportRegion, ARRLEFT,  RPE_KeyUp | RPE_KeyDown, (regionfunction) smViewportProcess, 1, ARRLEFT );
-    regKeyChildAlloc(smViewportRegion, ARRRIGHT, RPE_KeyUp | RPE_KeyDown, (regionfunction) smViewportProcess, 1, ARRRIGHT);
-    regKeyChildAlloc(smViewportRegion, ARRUP,    RPE_KeyUp | RPE_KeyDown, (regionfunction) smViewportProcess, 1, ARRUP   );
-    regKeyChildAlloc(smViewportRegion, ARRDOWN,  RPE_KeyUp | RPE_KeyDown, (regionfunction) smViewportProcess, 1, ARRDOWN );
-
-#if SM_TOGGLE_SENSOR_LEVEL
-    regKeyChildAlloc(smViewportRegion, LKEY, RPE_KeyUp | RPE_KeyDown, (regionfunction) smViewportProcess, 1, LKEY);
-#endif
-
-
-    for (index = FIRSTNUMKEY; index < FIRSTNUMKEY+10; index++)
-    {
-        regKeyChildAlloc(smViewportRegion, index, RPE_KeyUp | RPE_KeyDown, (regionfunction) smViewportProcess, 1, index);
-    }
+    // CAT: the exe calls a glcompat hook here (0x00b3a70c with 0x5000 when 0x00b3a6d8); no glcompat in the SDL build
+    cat_mrKeyChildrenAlloc(smViewportRegion, (regionfunction) smViewportProcess);
     mouseCursorShow();
     cameraCopyPositionInfo(&smCamera, mrCamera);
-    if (smFleetIntel)
-    {                                                       //if we are in the fleet intel screen, no movement mechanism!
-        piePointSpecMode = SPM_Idle;
-    }
-
-    bitSet(tbDisable,TBDISABLE_SENSORS_USE);
 }
 
 /*-----------------------------------------------------------------------------
@@ -4427,14 +4752,25 @@ void smLoad(void)
     Name        : cat_smZoomFadeColor                               0x0050b830
     Description : CAT (M2-R5 hud): a colour faded by the sensors manager's zoom progress (inverse: fade in). The
                   exe's fraction is its zoom clock over the zoom time (0x00c0aa1c / 0x00c0aa50, set by
-                  smSensorsBegin); fraction 1 returns the colour, 0 black, else colMultiply.
-                  CAT-TODO(M2-R6 sensors): the Cataclysm zoom clock comes with the sensors manager; until then the
-                  zoom counts as finished (fraction 1)
+                  smSensorsBegin); fraction 1 returns the colour, 0 black, else colMultiply. [M2-R6 managers: the
+                  sensors manager's clock now (smZoomTime / smCurrentZoomLength)]
 ----------------------------------------------------------------------------*/
 color cat_smZoomFadeColor(color c, sdword inverse)
 {
-    real32 fraction = 1.0f;
+    real32 fraction;
 
+    // CAT (M2-R6 managers, sensors): the zoom clock is the sensors manager's (0x00c0aa1c / 0x00c0aa50), clamped to 0..1;
+    //      outside the sensors manager the clock is 0 (and before the first opening 0 / 0), so the colour is black
+    //      (the callers draw nothing for it), as the exe
+    fraction = (smCurrentZoomLength != 0.0f) ? smZoomTime / smCurrentZoomLength : 0.0f;
+    if (!(fraction >= 0.0f))
+    {
+        fraction = 0.0f;
+    }
+    else if (fraction > 1.0f)
+    {
+        fraction = 1.0f;
+    }
     if (inverse == 1)
     {
         fraction = 1.0f - fraction;

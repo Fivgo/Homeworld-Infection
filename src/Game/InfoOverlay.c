@@ -2990,8 +2990,12 @@ bool32 cat_ioClick(bool32 select)
     list, the ship info panel is switched on, a message refers to the first ship, and the movement pie plate is
     switched on (piePointModeOnOff); then every frame draws the status bars, the info panel, the main overlay and
     the pie plate. The headless start gives Mission01's fleet to player 1, so the test views the HUD as that player
-    (universe.curPlayerPtr). At the end "hudtest: counts" lines and "hudtest: done ... result=PASS|FAIL" (PASS: at least one ship
-    band-boxed, status bars, info panel, overlay frames, selection lines, messages, support units, pie plate and compass all drawn).
+    (universe.curPlayerPtr). HWI-TEST (M2-R6 managers): the last 120 frames are the sensors manager's (the selection
+    becomes hot-key group 1, smSensorsBegin with the instant transition), drawn through the Cataclysm scene
+    (cat_smViewportRenderScene and the cat_sm* draws, counted in catSmDrawCounts). At the end "hudtest: counts" and
+    "hudtest: sensors" lines and "hudtest: done ... result=PASS|FAIL" (PASS: at least one ship band-boxed, status bars,
+    info panel, overlay frames, selection lines, messages, support units, pie plate and compass all drawn; the sensors
+    frames drew scenes, range circles, ships and hot-key numbers).
     Nothing of this touches the simulation; the pie plate's sound event and the camera focus make this run no
     stream reference (the mission mode is).
 =============================================================================*/
@@ -3002,6 +3006,8 @@ static bool32 catHudSelfTestSelected = FALSE;
 static bool32 catHudSelfTestDone = FALSE;
 static sdword catHudSelfTestFormerPlayer = -1;
 static sdword catHudSelfTestBoxed = 0;
+static bool32 catHudSelfTestSensors = FALSE;
+#define CAT_HUD_TEST_SENSORS_FRAMES 120             // HWI-TEST (M2-R6 managers): the last frames are the sensors manager's
 #define CAT_HUD_TEST_START_TICK     16
 #define CAT_HUD_TEST_SELECT_TICK    64
 
@@ -3108,6 +3114,31 @@ void catHudSelfTestTick(void)
                     (unsigned)universe.univUpdateCounter, (int)boxed, (int)playerShips, (int)selSelected.numShips,
                     (int)selSelecting.numTargets, (int)piePointSpecMode);
     }
+    // HWI-TEST (M2-R6 managers, sensors): the sensors frames: the selection becomes hot-key group 1 and the sensors
+    //      manager opens with the instant transition (the test's settings) for the last frames, drawn through the
+    //      Cataclysm scene (cat_smViewportRenderScene and the cat_sm* draws; catSmDrawCounts)
+    if (catHudSelfTestSelected && !catHudSelfTestSensors && (sdword)universe.univUpdateCounter >= catHudSelfTestTicks - CAT_HUD_TEST_SENSORS_FRAMES)
+    {
+        bool32 instant = smInstantTransition;
+
+        catHudSelfTestSensors = TRUE;
+        selHotKeyGroup[1].numShips = 0;
+        for (index = 0; index < selSelected.numShips; index++)
+        {
+            selHotKeyGroup[1].ShipPtr[selHotKeyGroup[1].numShips++] = selSelected.ShipPtr[index];
+        }
+        memset(&catSmDrawCounts, 0, sizeof(catSmDrawCounts));
+        if (smSensorsActive)
+        {
+            smSensorsCloseForGood();
+        }
+        smFleetIntel = FALSE;
+        smInstantTransition = TRUE;
+        smSensorsBegin(NULL, NULL);
+        smInstantTransition = instant;
+        dbgMessagef("hudtest: sensors open tick=%u active=%d hotkeygroup=%d", (unsigned)universe.univUpdateCounter,
+                    (int)smSensorsActive, (int)selHotKeyGroup[1].numShips);
+    }
     if (catHudSelfTestSelected && !catHudSelfTestDone && (sdword)universe.univUpdateCounter + 1 >= catHudSelfTestTicks)
     {
         catHudSelfTestDone = TRUE;
@@ -3115,6 +3146,13 @@ void catHudSelfTestTick(void)
                 catHudCounts.infoPanels > 0 && catHudCounts.infoLines > 0 && catHudCounts.selectedLines > 0 &&
                 catHudCounts.selectingLines > 0 && catHudCounts.messageLines > 0 && catHudCounts.supportUnits > 0 &&
                 catHudCounts.pieDraws > 0 && catHudCounts.compassDraws > 0);
+        // the sensors frames drew the scene, the player's range circles, its ships and the hot-key numbers
+        pass = pass && (catSmDrawCounts.scenes > 0) && (catSmDrawCounts.rangeCircles > 0) &&
+               (catSmDrawCounts.shipPoints + catSmDrawCounts.meshes > 0) && (catSmDrawCounts.hotkeyNumbers > 0);
+        dbgMessagef("hudtest: sensors scenes=%u rangecircles=%u shippoints=%u meshes=%u icons=%u slipgatepaths=%u hotkeys=%u resources=%u mines=%u bounds=%u compass=%u",
+                    catSmDrawCounts.scenes, catSmDrawCounts.rangeCircles, catSmDrawCounts.shipPoints, catSmDrawCounts.meshes,
+                    catSmDrawCounts.icons, catSmDrawCounts.slipgatePaths, catSmDrawCounts.hotkeyNumbers,
+                    catSmDrawCounts.resources, catSmDrawCounts.mines, catSmDrawCounts.boundsFrames, catSmDrawCounts.compassFrames);
         dbgMessagef("hudtest: counts frames=%u statusbars=%u bars=%u icons=%u infopanels=%u infolines=%u",
                     catHudCounts.frames, catHudCounts.statusBars, catHudCounts.bars, catHudCounts.icons,
                     catHudCounts.infoPanels, catHudCounts.infoLines);

@@ -1564,8 +1564,9 @@ void cat_mrWaypointAdd(vector *point)
     }
     if (catMrWaypointCentre && smSensorsActive)
     {
-        // CAT-TODO(M2-R6 sensors): the sensors manager looks at the last waypoint (0x00a5b1f0..0x00a5b1f8); the
-        //      option is off by default (0x00a75270) and set by the options screen (M2-R6 front end)
+        // CAT (M2-R6 managers, sensors): the sensors manager pans to the last waypoint (smCameraLookatPoint
+        //      0x00a5b1f0); the option is off by default (0x00a75270) and set by the options screen (M2-R6 front end)
+        smCameraLookatPoint = catMrWaypoints[catMrWaypointCount - 1];
     }
 }
 

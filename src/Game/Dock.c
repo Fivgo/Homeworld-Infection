@@ -33,6 +33,7 @@
 #include "Physics.h"
 #include "prim3d.h"
 #include "Randy.h"
+#include "ResearchAPI.h"
 #include "Salvage.h"
 #include "Select.h"
 #include "SinglePlayer.h"
@@ -620,9 +621,11 @@ bool32 cat_linkFlyIntoPosition(Ship *ship,DockStaticPoint *linkpoint,Ship *host,
 
     if (catDockSelfTestTrace && (ship->playerowner == universe.curPlayerPtr) && ((universe.univUpdateCounter % 32) == 0))
     {
-        dbgMessagef("docktest: link tick=%u %s#%u dist=%.1f positioned=%d aligned=%d anims=%d/%d mad=%d/%d/%d hostmad=%d/%d/%d",
+        dbgMessagef("docktest: link tick=%u %s#%u dist=%.1f positioned=%d aligned=%d anims=%d/%d hostvel=(%.1f %.1f %.1f) docking=%d/%d mad=%d/%d/%d hostmad=%d/%d/%d",
                     (unsigned)universe.univUpdateCounter, ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber, fsqrt(distSq),
                     (int)positioned, (int)aligned, (int)animsReady, (int)hostAnimReady,
+                    host->obj.posinfo.velocity.x, host->obj.posinfo.velocity.y, host->obj.posinfo.velocity.z,
+                    (int)(ship->shipOrDerelict.dockingship != NULL), (int)(host->shipOrDerelict.dockingship != NULL),
                     (mad != NULL) ? (int)mad->nCurrentAnim : -2, (mad != NULL) ? (int)mad->flags : -2, (mad != NULL) ? (int)mad->bPaused : -2,
                     (hostmad != NULL) ? (int)hostmad->nCurrentAnim : -2, (hostmad != NULL) ? (int)hostmad->flags : -2, (hostmad != NULL) ? (int)hostmad->bPaused : -2);
     }
@@ -2594,10 +2597,11 @@ udword cat_dockShipDocksAtShip(Ship *ship,Ship *dockwith,DockType purpose)
                     if (purpose == CAT_DOCK_RETIRE)
                     {
                         speechEventQueue(NULL,0x2001040,ship->shiptype,-1,0,ship->playerowner->playerIndex,-1,5.0f,-1);
-                        if (ship->shiprace == 1)
+                        if (ship->shiprace == RACE_Beast)
                         {
-                            // CAT-TODO(M2-R6 research GUI): cat_rmAcquireShipTechs(ship) 0x004f3650: a retired Beast ship's
-                            //      technologies go to its player
+                            // CAT (M2-R6 managers): a retired Beast ship's technologies go to its player
+                            //      (cat_rmAcquireShipTechs 0x004f4870)
+                            cat_rmAcquireShipTechs(ship);
                         }
                     }
                     else
@@ -2743,8 +2747,9 @@ udword cat_dockShipDocksAtShip(Ship *ship,Ship *dockwith,DockType purpose)
                     cat_clWrapStartExternalBuildTimer(&universe.mainCommandLayer,&selectone);
                     return 0;
                 }
-                // CAT-TODO(M2-R6 ConsMgr, CAT_EXTERNAL_BUILD_DRIVER): cat_cmExternalBuildAttach(ship) 0x00459be0 (the
-                //      construction manager takes over the externally built ship); unreachable while the driver is off
+                // CAT (M2-R6 managers): the construction manager takes over the externally built ship
+                //      (cat_cmExternalBuildAttach 0x00455af0, call at 0x00465f9f)
+                cat_cmExternalBuildAttach(ship);
                 return 0;
             }
             break;
@@ -2752,14 +2757,14 @@ udword cat_dockShipDocksAtShip(Ship *ship,Ship *dockwith,DockType purpose)
         case CAT_DOCKSTATE_BUILD_ATTACHED:
             if (!(ship->shipOrDerelict.specialFlags2 & SPECIAL_2_CatBeingBuilt))
             {
-                // CAT-TODO(M2-R6 ConsMgr): cat_suShipProvidesSU(ship) 0x00459b00 (the support units)
+                cat_suShipProvidesSU(ship);         // CAT (M2-R6 managers): 0x00459a60, the support units it provides
                 if (ship->staticinfo->shipclass == CLASS_Component)
                 {
                     return 1;
                 }
                 unClampObj((SpaceObjRotImpTargGuidance *)ship);
                 cat_shipSetDisableReason(ship,0,4);
-                // CAT-TODO(M2-R6 ConsMgr): cat_cmShipDockedReclampCannon(ship) 0x00456f60 (a Dreadnought's cannon)
+                cat_cmShipDockedReclampCannon(ship);    // CAT (M2-R6 managers): 0x00455ad0, a Dreadnought's cannon
                 ship->dockvars.dockstate = CAT_DOCKSTATE_FLY_OUT;
                 if (ship->staticinfo->catTypeFlags & 6)
                 {
@@ -3142,19 +3147,21 @@ void dockDrawDockInfo(Ship *ship)
     Not in the exe. It runs the headless Mission01 start of /oracleMission (virtual clock, no animatic, quits after
     <ticks>) and drives the local player's ships through the dock purposes with no input:
       tick 16    the scripted fleet is created for the local player far from the level's ships (an sMothership, made the
-                 player's mothership as the mission script does, an sProcessor, three Workers, four Acolytes, two Recons,
-                 two ACVs), the player's auto-launch bits are cleared (so docked ships stay inside until told), the
-                 acolytes, recons and ACVs are ordered to dock for support (purpose 0, nearest host), one Worker is
-                 given 250 RUs and ordered to deposit them (purpose 3), another Worker is sent to harvest
-                 (cat_clHarvestNearestResource). The PASS verdict covers the fighters (acolytes, recons) and the
-                 depositing Worker; the two corvette-class ACVs are ordered, logged and launched if they got in, but
-                 not judged: one of them orbits its dock point for minutes before latching (docs/m2-r5-layout-dock.md,
-                 open questions), and the harvesting Worker is only traced
+                 player's mothership as the mission script does, an sProcessor, an sCarrier, four Workers, six Acolytes,
+                 two Recons, two ACVs), the player's auto-launch bits are cleared (so docked ships stay inside until
+                 told), four acolytes, the recons and the ACVs are ordered to dock for support (purpose 0, nearest host:
+                 the mothership), the other two acolytes to dock for support at the sCarrier (the carrier leg, M2-R6
+                 managers), one Worker is given 250 RUs and ordered to deposit them (purpose 3, nearest host), another
+                 250 RUs at the sProcessor (the processor leg, M2-R6 managers), another Worker is sent to harvest
+                 (cat_clHarvestNearestResource). The PASS verdict covers the fighters (acolytes, recons), the carrier
+                 leg (in the sCarrier's inside list at checkpoint A), the two ACVs (judged since M2-R6 managers, as the
+                 fighters), both depositing Workers (the processor leg's must have had the sProcessor as its host); the
+                 harvesting Worker is only traced
       every 256  one "docktest:" line per scripted ship (dock state, host, inside/outside, hold, position)
-      ticks/4..  checkpoint A, once every fighter is inside (at the latest at 80% of the ticks): a docked fighter is in a
+      ticks/4..  checkpoint A, once every fighter and ACV is inside (at the latest at 80% of the ticks): a docked fighter is in a
                  host's inside list, off the ShipList, in dock state 8, with no command and no host left in its dock vars
                  (the exe's RemoveShipFromDocking clears it when the command finishes); the depositing Worker is back
-                 outside with an empty hold and the player's RUs are up by 250; then every docked fighter is launched
+                 outside with an empty hold and the player's RUs are up by 500 (both deposits); then every docked fighter is launched
                  (clLaunchMultipleShips -> clLaunchShip, purpose 2)
       ticks-2    checkpoint B: the fighters outside again with no host and no dock command
       "docktest: done ... result=PASS|FAIL", then the mission run's own quit
@@ -3175,6 +3182,13 @@ static Ship *catDockSelfTestCorvettes[CAT_DOCKTEST_MAX_SHIPS];   // the ACVs: or
 static sdword catDockSelfTestNumCorvettes = 0;
 static Ship *catDockSelfTestDepositor = NULL;
 static Ship *catDockSelfTestHarvester = NULL;
+// M2-R6 managers: the carrier and processor host legs
+static Ship *catDockSelfTestCarrier = NULL;
+static Ship *catDockSelfTestProcessor = NULL;
+static Ship *catDockSelfTestCarrierFighters[2];
+static sdword catDockSelfTestNumCarrierFighters = 0;
+static Ship *catDockSelfTestProcDepositor = NULL;
+static bool32 catDockSelfTestProcHostSeen = FALSE;      // the processor leg's Worker had the sProcessor as its host
 
 void catDockSelfTestSet(char *string)
 {
@@ -3292,21 +3306,26 @@ void catDockSelfTestTick(void)
         // the scripted fleet for the local player, far from the level's ships: a carrier (the sMothership, 75 dock
         // points), a processor, three Workers, four Acolytes, two Recons and two ACVs
         {
-            static const struct { ShipType type; real32 dx, dy, dz; } fleet[] =
+            // leg: 0 the nearest-host orders below, 1 the carrier leg, 2 the processor leg (M2-R6 managers)
+            static const struct { ShipType type; real32 dx, dy, dz; sdword leg; } fleet[] =
             {
-                { sMothership,     0.0f,     0.0f,    0.0f },
-                { sProcessor,   6000.0f,     0.0f,    0.0f },
-                { sWorker,      3000.0f,  3000.0f,    0.0f },
-                { sWorker,      3000.0f, -3000.0f,    0.0f },
-                { sWorker,      4500.0f,     0.0f, 2500.0f },
-                { sAcolyte,    -5000.0f,  1500.0f,    0.0f },
-                { sAcolyte,    -5000.0f, -1500.0f,    0.0f },
-                { sAcolyte,    -5000.0f,     0.0f, 1500.0f },
-                { sAcolyte,    -5000.0f,     0.0f,-1500.0f },
-                { sRecon,      -6000.0f,  3000.0f,    0.0f },
-                { sRecon,      -6000.0f, -3000.0f,    0.0f },
-                { sACV,        -4000.0f,  3500.0f,    0.0f },
-                { sACV,        -4000.0f, -3500.0f,    0.0f },
+                { sMothership,     0.0f,     0.0f,    0.0f, 0 },
+                { sProcessor,   6000.0f,     0.0f,    0.0f, 0 },
+                { sWorker,      3000.0f,  3000.0f,    0.0f, 0 },
+                { sWorker,      3000.0f, -3000.0f,    0.0f, 0 },
+                { sWorker,      4500.0f,     0.0f, 2500.0f, 0 },
+                { sAcolyte,    -5000.0f,  1500.0f,    0.0f, 0 },
+                { sAcolyte,    -5000.0f, -1500.0f,    0.0f, 0 },
+                { sAcolyte,    -5000.0f,     0.0f, 1500.0f, 0 },
+                { sAcolyte,    -5000.0f,     0.0f,-1500.0f, 0 },
+                { sRecon,      -6000.0f,  3000.0f,    0.0f, 0 },
+                { sRecon,      -6000.0f, -3000.0f,    0.0f, 0 },
+                { sACV,        -4000.0f,  3500.0f,    0.0f, 0 },
+                { sACV,        -4000.0f, -3500.0f,    0.0f, 0 },
+                { sCarrier,        0.0f, 12000.0f,    0.0f, 1 },
+                { sAcolyte,    -3000.0f, 13500.0f,    0.0f, 1 },
+                { sAcolyte,    -3000.0f, 10500.0f,    0.0f, 1 },
+                { sWorker,      9000.0f,  1500.0f,    0.0f, 2 },
             };
             vector base;
             sdword k;
@@ -3358,6 +3377,7 @@ void catDockSelfTestTick(void)
                 pos.x = base.x + fleet[k].dx;
                 pos.y = base.y + fleet[k].dy;
                 pos.z = base.z + fleet[k].dz;
+                catBuildSelfTestLoadStatic(fleet[k].type);  // Mission01 excludes the sCarrier (M2-R6 managers)
                 ship = univAddShip(fleet[k].type,0,&pos,player,0);
                 if (ship == NULL)
                 {
@@ -3373,6 +3393,25 @@ void catDockSelfTestTick(void)
                     // cat_lmShipAutoLaunchOn apply to it only then
                     player->PlayerMothership = ship;
                 }
+                else if (fleet[k].type == sProcessor)
+                {
+                    catDockSelfTestProcessor = ship;
+                }
+                else if (fleet[k].leg == 1)
+                {
+                    if (fleet[k].type == sCarrier)
+                    {
+                        catDockSelfTestCarrier = ship;
+                    }
+                    else if (catDockSelfTestNumCarrierFighters < 2)
+                    {
+                        catDockSelfTestCarrierFighters[catDockSelfTestNumCarrierFighters++] = ship;
+                    }
+                }
+                else if (fleet[k].leg == 2)
+                {
+                    catDockSelfTestProcDepositor = ship;
+                }
             }
         }
         selection = memAlloc(sizeofSelectCommand(CAT_DOCKTEST_MAX_SHIPS),"docktest",0);
@@ -3380,9 +3419,10 @@ void catDockSelfTestTick(void)
         for (node = universe.ShipList.head; node != NULL; node = node->next)
         {
             ship = (Ship *)listGetStructOfNode(node);
-            if (ship->playerowner != player)
+            if ((ship->playerowner != player) || (ship == catDockSelfTestCarrierFighters[0]) ||
+                (ship == catDockSelfTestCarrierFighters[1]) || (ship == catDockSelfTestProcDepositor))
             {
-                continue;
+                continue;                                   // the host legs' ships get their own orders below
             }
             if (((ship->shiptype == sAcolyte) || (ship->shiptype == sRecon) || (ship->shiptype == sACV)) &&
                 (selection->numShips < CAT_DOCKTEST_MAX_SHIPS))
@@ -3447,6 +3487,36 @@ void catDockSelfTestTick(void)
             cat_clHarvestNearestResource(&universe.mainCommandLayer,&selectone,FALSE,FALSE);
             catDockSelfTestLogShip("harvest", catDockSelfTestHarvester);
         }
+        // M2-R6 managers: the carrier leg (support at the sCarrier) and the processor leg (a deposit at the sProcessor)
+        if ((catDockSelfTestCarrier != NULL) && (catDockSelfTestNumCarrierFighters > 0))
+        {
+            selection->numShips = 0;
+            for (i = 0; i < catDockSelfTestNumCarrierFighters; i++)
+            {
+                selection->ShipPtr[selection->numShips++] = catDockSelfTestCarrierFighters[i];
+            }
+            dbgMessagef("docktest: clDock purpose 0 at %s#%u (docks=%d): %d of %d carrier-leg fighters docking",
+                        ShipTypeToStr(catDockSelfTestCarrier->shiptype), (unsigned)catDockSelfTestCarrier->shipID.shipNumber,
+                        (catDockSelfTestCarrier->staticinfo->dockStaticInfo != NULL) ? (int)catDockSelfTestCarrier->staticinfo->dockStaticInfo->numDockPoints : 0,
+                        (int)clDock(&universe.mainCommandLayer,selection,CAT_DOCK_SUPPORT,catDockSelfTestCarrier), (int)selection->numShips);
+            for (i = 0; i < catDockSelfTestNumCarrierFighters; i++)
+            {
+                catDockSelfTestLogShip("ordered", catDockSelfTestCarrierFighters[i]);
+            }
+        }
+        if ((catDockSelfTestProcessor != NULL) && (catDockSelfTestProcDepositor != NULL))
+        {
+            SelectCommand selectone;
+
+            catDockSelfTestProcDepositor->resources = CAT_DOCKTEST_DEPOSIT_RUS;    // scripted: a hold to deposit
+            selectone.numShips = 1;
+            selectone.ShipPtr[0] = catDockSelfTestProcDepositor;
+            dbgMessagef("docktest: clDock purpose 3 at %s#%u: %d worker(s) depositing %d RUs", ShipTypeToStr(catDockSelfTestProcessor->shiptype),
+                        (unsigned)catDockSelfTestProcessor->shipID.shipNumber,
+                        (int)clDock(&universe.mainCommandLayer,&selectone,CAT_DOCK_DEPOSIT_RESOURCES,catDockSelfTestProcessor),
+                        CAT_DOCKTEST_DEPOSIT_RUS);
+            catDockSelfTestLogShip("ordered", catDockSelfTestProcDepositor);
+        }
         memFree(selection);
         return;
     }
@@ -3454,8 +3524,24 @@ void catDockSelfTestTick(void)
     {
         return;
     }
+    if ((catDockSelfTestProcDepositor != NULL) && (catDockSelfTestProcessor != NULL) &&
+        (catDockSelfTestProcDepositor->dockvars.dockship == catDockSelfTestProcessor))
+    {
+        catDockSelfTestProcHostSeen = TRUE;
+    }
     if ((tick % 256) == 0)
     {
+        for (i = 0; i < catDockSelfTestNumCarrierFighters; i++)
+        {
+            if (catDockSelfTestShipAlive(catDockSelfTestCarrierFighters[i]))
+            {
+                catDockSelfTestLogShip("tick", catDockSelfTestCarrierFighters[i]);
+            }
+        }
+        if ((catDockSelfTestProcDepositor != NULL) && catDockSelfTestShipAlive(catDockSelfTestProcDepositor))
+        {
+            catDockSelfTestLogShip("tick", catDockSelfTestProcDepositor);
+        }
         for (i = 0; i < catDockSelfTestNumFighters; i++)
         {
             if (catDockSelfTestShipAlive(catDockSelfTestFighters[i]))
@@ -3490,7 +3576,29 @@ void catDockSelfTestTick(void)
                 insideCount++;
             }
         }
-        if ((insideCount < catDockSelfTestNumFighters) && (tick < (catDockSelfTestTicks * 4) / 5))
+        // M2-R6 managers: the ACVs and the carrier leg are waited for too (they are judged), and the processor leg's
+        //      Worker must be back outside with its hold emptied
+        for (i = 0; i < catDockSelfTestNumCorvettes; i++)
+        {
+            if (catDockSelfTestInsideHostOf(catDockSelfTestCorvettes[i]) != NULL)
+            {
+                insideCount++;
+            }
+        }
+        for (i = 0; i < catDockSelfTestNumCarrierFighters; i++)
+        {
+            if (catDockSelfTestInsideHostOf(catDockSelfTestCarrierFighters[i]) != NULL)
+            {
+                insideCount++;
+            }
+        }
+        if ((catDockSelfTestProcDepositor != NULL) && ((catDockSelfTestProcDepositor->resources != 0) ||
+                                                        (catDockSelfTestProcDepositor->shiplink.belongto == NULL)))
+        {
+            insideCount--;
+        }
+        if ((insideCount < catDockSelfTestNumFighters + catDockSelfTestNumCorvettes + catDockSelfTestNumCarrierFighters) &&
+            (tick < (catDockSelfTestTicks * 4) / 5))
         {
             return;                                         // not every fighter is in yet: poll again next tick
         }
@@ -3523,7 +3631,25 @@ void catDockSelfTestTick(void)
             catDockSelfTestExpect(ship->resources == 0, "depositor's hold emptied", ship);
             catDockSelfTestExpect(ship->shiplink.belongto != NULL, "depositor back outside", ship);
             catDockSelfTestExpect(ship->dockvars.dockship == NULL, "depositor has no host", ship);
-            catDockSelfTestExpect(player->resourceUnits == catDockSelfTestRUBefore + CAT_DOCKTEST_DEPOSIT_RUS, "player RUs up by the deposit", ship);
+            catDockSelfTestExpect(player->resourceUnits == catDockSelfTestRUBefore + 2 * CAT_DOCKTEST_DEPOSIT_RUS, "player RUs up by both deposits", ship);
+        }
+        if (catDockSelfTestProcDepositor != NULL)
+        {
+            ship = catDockSelfTestProcDepositor;
+            catDockSelfTestLogShip("A processor leg", ship);
+            catDockSelfTestExpect(catDockSelfTestProcHostSeen, "processor-leg worker's host was the sProcessor", ship);
+            catDockSelfTestExpect(ship->resources == 0, "processor-leg worker's hold emptied", ship);
+            catDockSelfTestExpect(ship->shiplink.belongto != NULL, "processor-leg worker back outside", ship);
+            catDockSelfTestExpect(ship->dockvars.dockship == NULL, "processor-leg worker has no host", ship);
+        }
+        for (i = 0; i < catDockSelfTestNumCarrierFighters; i++)
+        {
+            ship = catDockSelfTestCarrierFighters[i];
+            catDockSelfTestLogShip("A carrier leg", ship);
+            catDockSelfTestExpect(catDockSelfTestInsideHostOf(ship) == catDockSelfTestCarrier, "carrier-leg fighter inside the sCarrier", ship);
+            catDockSelfTestExpect(ship->dockvars.dockstate == CAT_DOCKSTATE_INSIDE, "carrier-leg fighter in dock state 8 (inside)", ship);
+            catDockSelfTestExpect(ship->shiplink.belongto == NULL, "carrier-leg fighter off the ShipList while inside", ship);
+            catDockSelfTestExpect(ship->command == NULL, "carrier-leg fighter has no command while docked", ship);
         }
         if (catDockSelfTestHarvester != NULL)
         {
@@ -3535,7 +3661,13 @@ void catDockSelfTestTick(void)
         }
         for (i = 0; i < catDockSelfTestNumCorvettes; i++)
         {
-            catDockSelfTestLogShip("A corvette", catDockSelfTestCorvettes[i]);
+            ship = catDockSelfTestCorvettes[i];
+            catDockSelfTestLogShip("A corvette", ship);
+            // M2-R6 managers: the ACVs are judged as the fighters
+            catDockSelfTestExpect(catDockSelfTestInsideHostOf(ship) != NULL, "ACV in a host's inside list", ship);
+            catDockSelfTestExpect(ship->dockvars.dockstate == CAT_DOCKSTATE_INSIDE, "ACV in dock state 8 (inside)", ship);
+            catDockSelfTestExpect(ship->shiplink.belongto == NULL, "ACV off the ShipList while inside", ship);
+            catDockSelfTestExpect(ship->command == NULL, "ACV has no command while docked", ship);
         }
         dbgMessagef("docktest: A inside=%d of %d fighters; RUs %d -> %d", (int)insideCount, (int)catDockSelfTestNumFighters,
                     (int)catDockSelfTestRUBefore, (int)player->resourceUnits);
@@ -3563,6 +3695,13 @@ void catDockSelfTestTick(void)
                 if (cat_dockShipIsInsideHost(catDockSelfTestCorvettes[i],host) && (launch->numShips < CAT_DOCKTEST_MAX_SHIPS))
                 {
                     launch->ShipPtr[launch->numShips++] = catDockSelfTestCorvettes[i];
+                }
+            }
+            for (i = 0; i < catDockSelfTestNumCarrierFighters; i++)
+            {
+                if (cat_dockShipIsInsideHost(catDockSelfTestCarrierFighters[i],host) && (launch->numShips < CAT_DOCKTEST_MAX_SHIPS))
+                {
+                    launch->ShipPtr[launch->numShips++] = catDockSelfTestCarrierFighters[i];
                 }
             }
             if (launch->numShips > 0)
@@ -3600,12 +3739,21 @@ void catDockSelfTestTick(void)
                 outsideCount++;
             }
         }
-        for (i = 0; i < catDockSelfTestNumCorvettes; i++)
+        // M2-R6 managers: the ACVs and the carrier leg are judged outside again as the fighters
+        for (i = 0; i < catDockSelfTestNumCorvettes + catDockSelfTestNumCarrierFighters; i++)
         {
-            if (catDockSelfTestShipAlive(catDockSelfTestCorvettes[i]))
+            ship = (i < catDockSelfTestNumCorvettes) ? catDockSelfTestCorvettes[i] : catDockSelfTestCarrierFighters[i - catDockSelfTestNumCorvettes];
+            if (!catDockSelfTestShipAlive(ship))
             {
-                catDockSelfTestLogShip("B corvette", catDockSelfTestCorvettes[i]);
+                catDockSelfTestExpect(FALSE, "ACV / carrier-leg fighter still exists", NULL);
+                continue;
             }
+            catDockSelfTestLogShip((i < catDockSelfTestNumCorvettes) ? "B corvette" : "B carrier leg", ship);
+            catDockSelfTestExpect(ship->shiplink.belongto != NULL, "ACV / carrier-leg fighter outside again", ship);
+            catDockSelfTestExpect(ship->dockvars.dockship == NULL, "ACV / carrier-leg fighter has no host after launch", ship);
+            catDockSelfTestExpect((ship->command == NULL) ||
+                                  ((ship->command->ordertype.order != COMMAND_DOCK) && (ship->command->ordertype.order != COMMAND_LAUNCH_SHIP)),
+                                  "ACV / carrier-leg fighter has no dock or launch command left", ship);
         }
         if ((catDockSelfTestDepositor != NULL) && catDockSelfTestShipAlive(catDockSelfTestDepositor))
         {
@@ -3615,7 +3763,8 @@ void catDockSelfTestTick(void)
         {
             catDockSelfTestLogShip("B", catDockSelfTestHarvester);
         }
-        dbgMessagef("docktest: done fighters=%d outside=%d corvettes=%d RUs=%d result=%s", (int)catDockSelfTestNumFighters, (int)outsideCount,
-                    (int)catDockSelfTestNumCorvettes, (int)player->resourceUnits, catDockSelfTestPass ? "PASS" : "FAIL");
+        dbgMessagef("docktest: done fighters=%d outside=%d corvettes=%d carrierleg=%d processorleg=%d RUs=%d result=%s", (int)catDockSelfTestNumFighters, (int)outsideCount,
+                    (int)catDockSelfTestNumCorvettes, (int)catDockSelfTestNumCarrierFighters, (int)(catDockSelfTestProcDepositor != NULL),
+                    (int)player->resourceUnits, catDockSelfTestPass ? "PASS" : "FAIL");
     }
 }

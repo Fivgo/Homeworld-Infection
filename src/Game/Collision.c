@@ -983,6 +983,19 @@ static bool32 cat_collSentinelFieldExempt(Ship *obj1, Ship *obj2)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    CAT (M2-R6 managers, found by the dock self-test's processor leg): a ship with SOF_CatDocking (docking, attached
+    or launching; Dock.c sets it once the ship is in its host's cone) takes part in no ship-ship, big-small or
+    ship-resource collision, unless it is an externally built ship being built (SPECIAL_2_CatBeingBuilt): the exe's
+    collCheckShipShipColl 0x0043ade0, collCheckBigShipSmallShipColl 0x0043b460 and collCheckShipResourceColl
+    0x0043bac0 test both words of either object before anything else (a resource only the flag). Without it a docking
+    Worker pushed the light sProcessor away from its own dock point for good.
+----------------------------------------------------------------------------*/
+static bool32 catCollDockingExempt(Ship *ship)
+{
+    return bitTest(ship->header.flags, SOF_CatDocking) && !bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt);
+}
+
 void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
 {
     sdword obj1index = 0;
@@ -1021,6 +1034,10 @@ void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
     while (obj1index < numShips)
     {
         obj1 = selection->ShipPtr[obj1index];
+        if (catCollDockingExempt(obj1))
+        {
+            goto nextobj1;                                  // CAT: 0x0043ae38
+        }
         obj1collspheresize = obj1->staticinfo->common.staticCollInfo.collspheresize;
         maxdistCollPossible = obj1collspheresize + maxShipCollSphereSize;
 
@@ -1038,6 +1055,11 @@ void collCheckShipShipColl(blob *thisBlob,bool32 checkSmallShips)
             if (checkdist > maxdistCollPossible)
             {
                 goto nextobj1;
+            }
+
+            if (catCollDockingExempt(obj2))
+            {
+                goto nocollision;                           // CAT: 0x0043ae9d
             }
 
             if ((obj1->obj.posinfo.isMoving | obj2->obj.posinfo.isMoving) == FALSE)     // assume objects not moving can't collide
@@ -1241,6 +1263,10 @@ void collCheckBigShipSmallShipColl(blob *thisBlob)
     while (obj1index < numShips1)
     {
         obj1 = selection1->ShipPtr[obj1index];
+        if (catCollDockingExempt(obj1))
+        {
+            goto nextobj1;                                  // CAT: collCheckBigShipSmallShipColl 0x0043b460
+        }
         obj1collspheresize = obj1->staticinfo->common.staticCollInfo.collspheresize;
         maxdistCollPossible = obj1collspheresize + maxShipCollSphereSize;
 
@@ -1278,6 +1304,11 @@ void collCheckBigShipSmallShipColl(blob *thisBlob)
             if (checkdist > maxdistCollPossible)
             {
                 goto nextobj1;
+            }
+
+            if (catCollDockingExempt(obj2))
+            {
+                goto nocollision;
             }
 
             if ((obj1->obj.posinfo.isMoving | obj2->obj.posinfo.isMoving) == FALSE)     // assume objects not moving can't collide
@@ -1463,6 +1494,10 @@ void collCheckShipResourceColl(blob *thisBlob)
     while (obj1index < numShips)
     {
         obj1 = selection->ShipPtr[obj1index];
+        if (catCollDockingExempt(obj1))
+        {
+            goto nextobj1;                                  // CAT: collCheckShipResourceColl 0x0043bac0
+        }
         obj1collspheresize = obj1->staticinfo->common.staticCollInfo.collspheresize;
         maxdistCollPossible = obj1collspheresize + maxResourceCollSphereSize;
 
@@ -1497,6 +1532,11 @@ void collCheckShipResourceColl(blob *thisBlob)
             if ((distcheck = obj2->obj.collOptimizeDist - obj1->obj.collOptimizeDist) > maxdistCollPossible)
             {
                 goto nextobj1;
+            }
+
+            if (bitTest(obj2->header.flags, SOF_CatDocking))
+            {
+                goto nocollision;                           // CAT: the resource's flag alone
             }
 
             if ((absdistcheck = ABS(distcheck)) > maxdistCollPossible)

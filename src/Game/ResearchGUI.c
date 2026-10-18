@@ -44,38 +44,11 @@
 #include "Tutor.h"
 #include "UIControls.h"
 #include "Universe.h"
+#include "Sensors.h"
+#include "ShipSelect.h"
+#include "utility.h"
+#include <string.h>
 
-// CAT (M2-R4 rest-oracle): tech-set helpers for the HW1 mask arithmetic this file still carries (CAT-TODO stage 3)
-static void cat_rmTechSetCopy(sdword *out, sdword *a)
-{
-    sdword i;
-    for (i = 0; i < CAT_TECHSET_SIZE; i++)
-    {
-        out[i] = a[i];
-    }
-}
-
-// every technology of need is in have
-static bool32 cat_rmTechSetCovers(sdword *have, sdword *need)
-{
-    sdword i;
-    if (have[CAT_TECHSET_FLAG] == CAT_TECHSET_ALL)
-    {
-        return TRUE;
-    }
-    if (need[CAT_TECHSET_FLAG] == CAT_TECHSET_ALL)
-    {
-        return FALSE;
-    }
-    for (i = 0; i < NumTechnologies; i++)
-    {
-        if ((need[i] == 1) && (have[i] != 1))
-        {
-            return FALSE;
-        }
-    }
-    return TRUE;
-}
 
 #ifndef SW_Render
     #ifdef _WIN32
@@ -88,270 +61,73 @@ static bool32 cat_rmTechSetCovers(sdword *have, sdword *need)
     Defines:
 =============================================================================*/
 
-#define RM_LabIcon              "Research_icon.lif"
+// CAT (M2-R6 managers): the research manager is the exe's (0x004f4bd0 .. 0x004f7a40): five lab buttons (the Sect
+//      modules, or the Beast's one lab), the module's name over the picture, the Beast's animation ("PussyBlob"), the
+//      technology list of the race's exe list, and buttons to the construction and launch managers. HW1's tech brief,
+//      lab connectors, sixth lab, marquees, select-all and class headings are gone.
+#ifdef _WIN32
+#define CAT_RM_BeastFIBFile         "FEMan\\Beast_Research_Manager.fib"
+#else
+#define CAT_RM_BeastFIBFile         "FEMan/Beast_Research_Manager.fib"
+#endif
+#define CAT_RM_BeastResearchScreen  "Beast_Research_Manager"
+#define CAT_RM_DefaultImage         "Default_Research_Image.lif"   // 0x0089224c
 
-
-// defines for spacing
-#define RM_VertSpacing          (fontHeight(" ") >> 1)
-#define RM_HorzSpacing          (fontWidth(" "))
-#define RM_InfoWidth            (region->rect.x1 - region->rect.x0)
-
-// defines for the headings in the tech list box
-#define WeaponHeading           0
-#define ConstructionHeading     1
-#define InterdictionHeading     2
-#define SupportHeading          3
-
-
-// defines for the buttons sizing
-#define LB_BUTTONSIZE           45
-#define LB_HALFBUTTON           (LB_BUTTONSIZE/2)
-#define LB_BUTTONSPACE          6
-#define LB_BUTTONWIDTH          25
-
-// defines for the pregeneration of the circle data
-#define CIRCLE_POINTS           150
-#define CIRCLE_XRADIUS          0.06875
-#define CIRCLE_YRADIUS          0.09166666666667
-
-// defines for the pulse effect
-#define PULSE_INC               2048
-#define FIXED16_ONE             65536
-#define PULSE_COLOR             colRGB(200, 200, 200)
-
-// defines for the pictures LRM caching
-
-#define RM_DSINIT               0
-#define RM_DSNORMAL             1
-#define RM_DSDRAW               2
-#define RM_DSERASE              3
-
-#define RM_MARQUEERAD           3
-#define RM_NUMMARQUEE           3
-#define RM_MARQUEESPACE         7
-#define RM_MARQUEE_Y_SPACE      18
-#define RM_MARQUEE_HEIGHT       (LB_BUTTONSIZE - (RM_MARQUEE_Y_SPACE * 2))
-#define RM_MARQUEE_HALF_HEIGHT  (RM_MARQUEE_HEIGHT / 2)
-#define RM_MARQUEERATE          3.0
 #define RM_TEXTURE_INSET        3
-#define RM_LAB_INSET            5
-
-#define NUMTECHSINLIST          43      // CAT-PROVISIONAL (stage 3): 41 technologies + heading + end
 
 /*=============================================================================
     Data:
 =============================================================================*/
 
-static sdword rmRenderEverythingCounter;
+static sdword rmRenderEverythingCounter;    // 0x00a576ec
 
-double chop_temp;
+double chop_temp;                           // 0x00c16840: the exe's fast float-to-int (+ 2^52 * 1.5)
 
-bool32 rmPaletted;
+bool32 rmPaletted;                          // 0x00c1689c
 
-fonthandle rmTechListFont=0;
-fonthandle rmTechInfoFont=0;
+fonthandle rmTechListFont=0;                // 0x00a576fc
+fonthandle rmTechInfoFont=0;                // 0x00a57700
+fonthandle catRmHeadingFont = 0;            // 0x00a57704: "EuroseWideHeavy_i8.hff" (.data 0x008912f0)
 char rmTechListFontName [RM_FontNameLength] = RM_TechListFont;
 char rmTechInfoFontName [RM_FontNameLength] = RM_TechInfoFont;
 
 //flag indicating loaded status of this screen
-fibfileheader *rmScreensHandle = NULL;
+fibfileheader *rmScreensHandle = NULL;      // 0x00a57708
+static ShipRace catRmScreensRace = RACE_Sect;   // 0x00a5770c
 
-regionhandle  rmTechBriefRegion = NULL;
-regionhandle  rmTechImageRegion = NULL;
-regionhandle  rmTechListRegion  = NULL;
-regionhandle  rmBaseRegion      = NULL;
+regionhandle  rmTechImageRegion = NULL;     // 0x00a57710
+regionhandle  rmTechBriefRegion = NULL;     // 0x00a57714: cleared and redrawn by the exe, never set (HW1's brief)
+regionhandle  rmBaseRegion      = NULL;     // 0x00a57718
+regionhandle  rmLabRegion[NUM_RESEARCHLABS] = { NULL, NULL, NULL, NULL, NULL };   // 0x00a5771c .. 0x00a5772c
+regionhandle  catRmModuleNameRegion = NULL; // 0x00a57730
+regionhandle  catRmBlobRegion = NULL;       // 0x00a57734
 
-regionhandle rmLab1Region = NULL;
-regionhandle rmLab2Region = NULL;
-regionhandle rmLab3Region = NULL;
-regionhandle rmLab4Region = NULL;
-regionhandle rmLab5Region = NULL;
-regionhandle rmLab6Region = NULL;
+listwindowhandle rmTechListWindowHandle = NULL;     // 0x00a57738
 
-regionhandle rmConnectorRegion = NULL;
+static sdword catRmBlobFrame = 0;           // 0x00a5773c
+static real32 catRmBlobTime = 0.0f;         // 0x00a57740
+// is TRUE if GUI is active FALSE otherwise.
+bool32 rmGUIActive=FALSE;                   // 0x00a57744
+static bool32 catRmSensorsWereOpen = FALSE; // 0x00a57748
+lifheader      *rmCurTechImage = NULL;      // 0x00a5774c
+static real32 catRmLastTime = 0.0f;         // 0x00a57750: the marquee's and the animation's clock (both draws set it)
+real32          marqueetime = 0.0f;         // 0x00a57754
+bool32 rmExtendedInfoActive = FALSE;        // 0x00a57758
 
-regionhandle rmLabConnector1Region = NULL;
-regionhandle rmLabConnector2Region = NULL;
-regionhandle rmLabConnector3Region = NULL;
-regionhandle rmLabConnector4Region = NULL;
-regionhandle rmLabConnector5Region = NULL;
-regionhandle rmLabConnector6Region = NULL;
+sdword          rmCurrentLab = -1;          // 0x00891ec0: the selected lab (rmClearAllLabs clears it)
+TechnologyType  techinfo = -1;              // 0x00891f50: the shown technology (0x29 + lab: the lab's module)
+TechnologyType  rmCurTechTexture = -1;      // 0x00891f58
+sdword          rmCurIndex = -1;            // 0x00891f4c
+udword          rmCurTexture = TR_InvalidInternalHandle;   // 0x00891f54
 
-listwindowhandle rmTechListWindowHandle = NULL;
+// the Beast animation's frame sequence (0x00891ee4)
+static const sdword catRmBlobFrames[10] = { 1, 2, 3, 4, 5, 4, 3, 2, 1, 0 };
 
-// callbacks for ui elements
-
-void rmSelectAll(char *string, featom *atom);
-void rmClearAllLabs(char *string, featom *atom);
-void rmClearSelectedLab(char *string, featom *atom);
-void rmResearchItem(char *string, featom *atom);
-void rmExitMenu(char *string, featom *atom);
-void rmTechListWindow(char *string, featom *atom);
-void rmExtendedInfo(char *string, featom *atom);
-
-// callbacks for user draw areas
-
-void rmLab1Draw(featom *atom, regionhandle region);
-void rmLab2Draw(featom *atom, regionhandle region);
-void rmLab3Draw(featom *atom, regionhandle region);
-void rmLab4Draw(featom *atom, regionhandle region);
-void rmLab5Draw(featom *atom, regionhandle region);
-void rmLab6Draw(featom *atom, regionhandle region);
-void rmLabConnector1Draw(featom *atom, regionhandle region);
-void rmLabConnector2Draw(featom *atom, regionhandle region);
-void rmLabConnector3Draw(featom *atom, regionhandle region);
-void rmLabConnector4Draw(featom *atom, regionhandle region);
-void rmLabConnector5Draw(featom *atom, regionhandle region);
-void rmLabConnector6Draw(featom *atom, regionhandle region);
-void rmConnectorDraw(featom *atom, regionhandle region);
-void rmTechBriefDraw(featom *atom, regionhandle region);
-void rmTechImageDraw(featom *atom, regionhandle region);
-
-fecallback rmCallback[] =
-{
-    {rmSelectAll            ,   "RM_SelectAll"          },
-    {rmClearAllLabs         ,   "RM_ClearAllLabs"       },
-    {rmClearSelectedLab     ,   "RM_ClearLab"           },
-    {rmResearchItem         ,   "RM_ResearchItem"       },
-    {rmExitMenu             ,   "RM_ExitMenu"           },
-    {rmTechListWindow       ,   "RM_TechListWindow"     },
-    {rmExtendedInfo         ,   "RM_ExtendedInfo"       },
-    {NULL,                      NULL                    }
-};
-
-fedrawcallback rmDrawCallback[] =
-{
-    {rmLab1Draw,                "RM_Lab1Draw"           },
-    {rmLab2Draw,                "RM_Lab2Draw"           },
-    {rmLab3Draw,                "RM_Lab3Draw"           },
-    {rmLab4Draw,                "RM_Lab4Draw"           },
-    {rmLab5Draw,                "RM_Lab5Draw"           },
-    {rmLab6Draw,                "RM_Lab6Draw"           },
-    {rmLabConnector1Draw,       "RM_LabConnector1Draw"  },
-    {rmLabConnector2Draw,       "RM_LabConnector2Draw"  },
-    {rmLabConnector3Draw,       "RM_LabConnector3Draw"  },
-    {rmLabConnector4Draw,       "RM_LabConnector4Draw"  },
-    {rmLabConnector5Draw,       "RM_LabConnector5Draw"  },
-    {rmLabConnector6Draw,       "RM_LabConnector6Draw"  },
-    {rmConnectorDraw,           "RM_ConnectorDraw"      },
-    {rmTechBriefDraw,           "RM_TechBriefDraw"       },
-    {rmTechImageDraw,           "RM_TechImageDraw"      },
-    {NULL,                      NULL                    }
-};
-
-
-// CAT-PROVISIONAL (stage 3, research GUI): HW1's four class headings with the 41 Cataclysm technologies in enum order;
-//      the exe's research screen (rmGUIStartup 0x004f76f0, rmUpdateTechList 0x004f6d30) has its own list and layout
-TechPrintList PlayerTechListStatic[NUMTECHSINLIST] =
-{
-    {ITEM_CLASSHEADER   ,   0               ,   WeaponHeading           },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_CLOAKING                   },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_TARGETING_SYSTEMS          },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_PLASMA_WEAPONS             },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_MEDIUM_GUNS                },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_DEFENSE_FIELD              },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_HEAVY_GUNS                 },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_REPAIR                     },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_SALVAGE                    },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_DRIVE_FIGHTER              },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ADRIVE_FIGHTER             },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_DRIVE_FRIGATE              },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ADRIVE_FRIGATE             },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_DRIVE_DESTROYER            },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ADRIVE_DESTROYER           },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ARMOUR2                    },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ARMOUR3                    },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_SUPPORT_SYSTEMS            },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_MICRO_SHIP                 },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ENERGY                     },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ION                        },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_MISSILE                    },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_REPULSE                    },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_EMP                        },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_EXPLOSIVE_CHARGE           },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_LINK                       },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_MIMIC                      },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_AFTERBURNER                },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_BIG_GUN                    },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_ADVANCED_SENSORS           },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_FORCE_FIELD1               },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_FORCE_FIELD2               },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_FORCE_FIELD3               },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_INFECT                     },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_REPAIRBOTS                 },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_CRYSTAL_HARVEST            },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_RESEARCH_CLEESAN_ATTACK    },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_BEAST_VACCINE              },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_PHASED_TELEMETRY           },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_INERTIALESS_DRIVE          },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_BIOWARHEAD                 },
-    {ITEM_TECHNOLOGY    ,   0               ,   TECH_DRIVE_CORVETTE             },
-    {ITEM_ENDLIST       ,   0               ,   0                       }
-};
-
-
-TechPrintList SinglePlayerR1TechList[NUMTECHSINLIST];
-TechPrintList SinglePlayerR2TechList[NUMTECHSINLIST];
-
-TechPrintList MultiPlayerR1TechList[NUMTECHSINLIST];
-TechPrintList MultiPlayerR2TechList[NUMTECHSINLIST];
-
-TechPrintList MultiPlayerCR1TechList[NUMTECHSINLIST];
-TechPrintList MultiPlayerCR2TechList[NUMTECHSINLIST];
-
-TechNames TechImageNames[]=
-{
-    {"NewAlloys.lif"                },
-    {"MassDrive1Kt.lif"             },
-    {"CoolingSystems.lif"           },
-    {"CloakDefenseFighter.lif"      },
-    {"TargetingSystems.lif"         },
-    {"PlasmaWeapons.lif"            },
-    {"Chassis1.lif"                 },
-    {"MassDrive10Kt.lif"            },
-    {"MediumGuns.lif"               },
-    {"MineLayerTech.lif"            },
-    {"Chassis2.lif"                 },
-    {"AdvancedCoolingSystems.lif"   },
-    {"MassDrive100Kt.lif"           },
-    {"FireControl.lif"              },
-    {"SupportRefuelTech.lif"        },
-    {"AdvanceTacticalSupport.lif"   },
-    {"IonWeapons.lif"               },
-    {"DDDFDFGFTech.lif"             },
-    {"Chassis3.lif"                 },
-    {"MassDrive1Mt.lif"             },
-    {"AdvancedFireControl.lif"      },
-    {"MissileWeapons.lif"           },
-    {"ConstructionTech.lif"         },
-    {"HeavyGuns.lif"                },
-    {"ProximityDetector.lif"        },
-    {"SensorsArrayTech.lif"         },
-    {"GravityWellGeneratorTech.lif" },
-    {"CloakGeneratorTech.lif"       },
-    {"RepairTech.lif"               },
-    {"SalvageTech.lif"              },
-    {NULL                           }
-};
-
-char* TechImagePaths[]=
-{
-#ifdef _WIN32
-    "ResearchGUI\\Race1\\",
-    "ResearchGUI\\Race2\\",
-#else
-    "ResearchGUI/Race1/",
-    "ResearchGUI/Race2/",
-#endif
-    NULL
-};
-
-TechPrintList *PlayerTechList;
-
-//colors for printing selections and stuff
-
+//colors for printing selections and stuff (.data 0x00891f0c)
 color rmSelectionTextColor     = RM_SelectionTextColor;
 color rmResearchingTextColor   = RM_ResearchingTextColor;
+color catRmTech3TextColor      = colRGB(0, 215, 155);      // 0x00891f14: a CAT_ITEM_TECH3 row
+color catRmTech3HaveTextColor  = colRGB(0, 130, 94);       // 0x00891f18: a CAT_ITEM_TECH3 row already researched
 color rmCantResearchTextColor  = RM_CantResearchTextColor;
 color rmStandardTextColor      = RM_StandardTextColor;
 color rmClassHeadingTextColor  = RM_ClassHeadingTextColor;
@@ -365,29 +141,29 @@ color rmMarqueeOnColor         = RM_MarqueeOnColor;
 color rmMarqueeSemiOnColor     = RM_MarqueeSemiOnColor;
 color rmMarqueeOffColor        = RM_MarqueeOffColor;
 
-sdword rmCurIndex=-1;
-TechnologyType  techinfo=-1;
-
-// is TRUE if GUI is active FALSE otherwise.
-bool32 rmGUIActive=FALSE;
-
 // List of lab buttons
-LabPrintList labbuttons[NUM_RESEARCHLABS];
+LabPrintList labbuttons[NUM_RESEARCHLABS];  // 0x00c16860
 
 // image variables for technology bitmap
-LRUPicture      pictures[RM_TOTALPICS];
-udword          rmCurTexture   = TR_InvalidInternalHandle;
-lifheader      *rmCurTechImage = NULL;
-TechnologyType  rmCurTechTexture = -1;
-sdword          drawstate;
-udword          rmLabTexture[MAX_RACES] = { TR_InvalidInternalHandle, TR_InvalidInternalHandle };
-lifheader      *rmLabImage[MAX_RACES] = { NULL, NULL };
+LRUPicture      pictures[RM_TOTALPICS];     // 0x00c16780
+
+char* TechImagePaths[]=                     // 0x00891e70
+{
+#ifdef _WIN32
+    "ResearchGUI\\Race1\\",
+    "ResearchGUI\\Race2\\",
+#else
+    "ResearchGUI/Race1/",
+    "ResearchGUI/Race2/",
+#endif
+    NULL
+};
 
 // CAT: Cataclysm's research art (rmGUIStartup 0x004f76f0). Somtaaw (Race1): 15 lab buttons
 //      "ResearchGUI\Race1\" + "Research_icon_" + {Hangar,Armour,Engineering,Special,Weapons}_{disabled,off,on}.lif
 //      (.data 0x00891e7c, names table 0x00891e80; images 0x00c17ac0, textures 0x00c16800). Beast (Race2): 6 animation
 //      frames "ResearchGUI\Race2\" + "bresearch_ani_" + "01".."06" ".lif" (.data 0x00891ec4, 0x00891ec8; images
-//      0x00c168a0, textures 0x00c17b00). HW1's single "Research_icon.lif" per race does not exist in Cataclysm.
+//      0x00c168a0, textures 0x00c17b00)
 #define CAT_RM_NUM_LABICONS     15
 #define CAT_RM_NUM_BEASTFRAMES  6
 char *catRmLabIcons[CAT_RM_NUM_LABICONS] =
@@ -411,805 +187,717 @@ udword          catRmBeastTexture[CAT_RM_NUM_BEASTFRAMES] =
     TR_InvalidInternalHandle, TR_InvalidInternalHandle, TR_InvalidInternalHandle
 };
 lifheader      *catRmBeastImage[CAT_RM_NUM_BEASTFRAMES];
-fonthandle      catRmHeadingFont = 0;   // CAT: third research font, "EuroseWideHeavy_i8.hff" (.data 0x008912f0)
 
-// variable for marque light position
-real32          marqueetime=0.0;
-real32          marqueepos=0;
+// callbacks for ui elements (the exe's table 0x00891330)
+void rmClearAllLabs(char *string, featom *atom);
+void rmClearSelectedLab(char *string, featom *atom);
+void rmResearchItem(char *string, featom *atom);
+void rmExitMenu(char *string, featom *atom);
+void rmTechListWindow(char *string, featom *atom);
+void rmExtendedInfo(char *string, featom *atom);
+void cat_rmConstruction(char *string, featom *atom);
+void cat_rmLaunch(char *string, featom *atom);
 
-bool32 rmExtendedInfoActive = FALSE;
+// callbacks for user draw areas (the exe's table 0x00891378)
+void rmLab1Draw(featom *atom, regionhandle region);
+void rmLab2Draw(featom *atom, regionhandle region);
+void rmLab3Draw(featom *atom, regionhandle region);
+void rmLab4Draw(featom *atom, regionhandle region);
+void rmLab5Draw(featom *atom, regionhandle region);
+void rmTechImageDraw(featom *atom, regionhandle region);
+void cat_rmModuleNameDraw(featom *atom, regionhandle region);
+void cat_rmPussyBlobDraw(featom *atom, regionhandle region);
 
-bool32 rmIoSaveState;
+fecallback rmCallback[] =
+{
+    {rmClearAllLabs         ,   "RM_ClearAllLabs"       },
+    {rmClearSelectedLab     ,   "RM_ClearLab"           },
+    {rmResearchItem         ,   "RM_ResearchItem"       },
+    {rmExitMenu             ,   "RM_ExitMenu"           },
+    {rmTechListWindow       ,   "RM_TechListWindow"     },
+    {rmExtendedInfo         ,   "RM_ExtendedInfo"       },
+    {cat_rmConstruction     ,   "RM_Construction"       },
+    {cat_rmLaunch           ,   "RM_Launch"             },
+    {NULL,                      NULL                    }
+};
 
-uword researchingthistopic;
-bool32 multipleresearchersselected;
-ResearchTopic *multipleresearchtopic;
-/*=============================================================================
-    Function Prototypes:
-=============================================================================*/
+fedrawcallback rmDrawCallback[] =
+{
+    {rmLab1Draw,                "RM_Lab1Draw"           },
+    {rmLab2Draw,                "RM_Lab2Draw"           },
+    {rmLab3Draw,                "RM_Lab3Draw"           },
+    {rmLab4Draw,                "RM_Lab4Draw"           },
+    {rmLab5Draw,                "RM_Lab5Draw"           },
+    {rmTechImageDraw,           "RM_TechImageDraw"      },
+    {cat_rmModuleNameDraw,      "RM_ModuleNameDraw"     },
+    {cat_rmPussyBlobDraw,       "RM_PussyBlob"          },
+    {NULL,                      NULL                    }
+};
 
-void   rmUpdateTechList(void);
-sdword rmSelectTechType(regionhandle region, sdword yClicked);
-void   SelectTechWindow(void);
+// CAT: the Sect research list (.data 0x008913c0, rmSetPrintList 0x004f75f0 lists 1 and 3): a header per lab (itemID the lab's name index, catLab the lab), then its technologies
+TechPrintList catRmSectTechListStatic[38] =
+{
+    {ITEM_CLASSHEADER,  0, 4, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_FIGHTER, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_FRIGATE, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_DESTROYER, 0},
+    {CAT_ITEM_TECH2,    0, TECH_LINK, 0},
+    {CAT_ITEM_TECH3,    0, TECH_ADRIVE_FIGHTER, 0},
+    {CAT_ITEM_TECH3,    0, TECH_ADRIVE_FRIGATE, 0},
+    {CAT_ITEM_TECH3,    0, TECH_ADRIVE_DESTROYER, 0},
+    {ITEM_CLASSHEADER,  0, 5, 1},
+    {CAT_ITEM_TECH3,    0, TECH_ARMOUR2, 1},
+    {CAT_ITEM_TECH3,    0, TECH_ARMOUR3, 1},
+    {CAT_ITEM_TECH3,    0, TECH_FORCE_FIELD1, 1},
+    {CAT_ITEM_TECH3,    0, TECH_FORCE_FIELD2, 1},
+    {CAT_ITEM_TECH3,    0, TECH_FORCE_FIELD3, 1},
+    {ITEM_CLASSHEADER,  0, 6, 2},
+    {CAT_ITEM_TECH2,    0, TECH_MIMIC, 2},
+    {CAT_ITEM_TECH2,    0, TECH_SUPPORT_SYSTEMS, 2},
+    {CAT_ITEM_TECH2,    0, TECH_AFTERBURNER, 2},
+    {CAT_ITEM_TECH3,    0, TECH_REPAIR, 2},
+    {CAT_ITEM_TECH3,    0, TECH_SALVAGE, 2},
+    {CAT_ITEM_TECH3,    0, TECH_RESEARCH_CLEESAN_ATTACK, 2},
+    {ITEM_CLASSHEADER,  0, 7, 3},
+    {CAT_ITEM_TECH2,    0, TECH_MICRO_SHIP, 3},
+    {CAT_ITEM_TECH2,    0, TECH_PHASED_TELEMETRY, 3},
+    {CAT_ITEM_TECH3,    0, TECH_ADVANCED_SENSORS, 3},
+    {CAT_ITEM_TECH3,    0, TECH_REPAIRBOTS, 3},
+    {CAT_ITEM_TECH3,    0, TECH_BEAST_VACCINE, 3},
+    {CAT_ITEM_TECH3,    0, TECH_CRYSTAL_HARVEST, 3},
+    {CAT_ITEM_TECH3,    0, TECH_INERTIALESS_DRIVE, 3},
+    {ITEM_CLASSHEADER,  0, 8, 4},
+    {CAT_ITEM_TECH2,    0, TECH_ION, 4},
+    {CAT_ITEM_TECH2,    0, TECH_MISSILE, 4},
+    {CAT_ITEM_TECH2,    0, TECH_BIG_GUN, 4},
+    {CAT_ITEM_TECH3,    0, TECH_ENERGY, 4},
+    {CAT_ITEM_TECH3,    0, TECH_EMP, 4},
+    {CAT_ITEM_TECH3,    0, TECH_EXPLOSIVE_CHARGE, 4},
+    {CAT_ITEM_TECH3,    0, TECH_REPULSE, 4},
+    {ITEM_ENDLIST,       0, 0,  0}
+};
+
+// CAT: the Beast research list (.data 0x00891588, rmSetPrintList list 4): a header per ship (itemID a print index, cat_rmBeastPrintIndexToShipType 0x004f4790), then the technologies that upgrade it (-1: an empty row)
+TechPrintList catRmBeastTechListStatic[190] =
+{
+    {ITEM_CLASSHEADER,  0, 9, 0},
+    {CAT_ITEM_TECH3,    0, TECH_SUPPORT_SYSTEMS, 0},
+    {CAT_ITEM_TECH3,    0, TECH_INFECT, 0},
+    {CAT_ITEM_TECH3,    0, TECH_CRYSTAL_HARVEST, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ENERGY, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR3, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_CLASSHEADER,  0, 10, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ENERGY, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ADRIVE_FIGHTER, 0},
+    {CAT_ITEM_TECH3,    0, TECH_ADVANCED_SENSORS, 0},
+    {ITEM_CLASSHEADER,  0, 11, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR3, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_REPAIR, 0},
+    {CAT_ITEM_TECH3,    0, TECH_SALVAGE, 0},
+    {ITEM_CLASSHEADER,  0, 12, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ENERGY, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR3, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_REPAIR, 0},
+    {CAT_ITEM_TECH3,    0, TECH_CRYSTAL_HARVEST, 0},
+    {ITEM_CLASSHEADER,  0, 13, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_DRIVE_FIGHTER, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ENERGY, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ADRIVE_FIGHTER, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_LINK, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_MISSILE, 0},
+    {ITEM_CLASSHEADER,  0, 14, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_DRIVE_FIGHTER, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_LINK, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ENERGY, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ADRIVE_FIGHTER, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_EMP, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_CLASSHEADER,  0, 29, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_AFTERBURNER, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ION, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR3, 0},
+    {ITEM_CLASSHEADER,  0, 15, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_DRIVE_FRIGATE, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ION, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR3, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ADRIVE_FRIGATE, 0},
+    {ITEM_CLASSHEADER,  0, 16, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_DRIVE_FRIGATE, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_MICRO_SHIP, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ENERGY, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR3, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ADRIVE_FRIGATE, 0},
+    {ITEM_CLASSHEADER,  0, 17, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_MICRO_SHIP, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ENERGY, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR3, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_FORCE_FIELD1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_FORCE_FIELD2, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_FORCE_FIELD3, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ADVANCED_SENSORS, 0},
+    {ITEM_CLASSHEADER,  0, 18, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_FIGHTER, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ADRIVE_FIGHTER, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ENERGY, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_CLASSHEADER,  0, 19, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_FIGHTER, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {CAT_ITEM_TECH2,    0, TECH_CLOAKING, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ADRIVE_FIGHTER, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ENERGY, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_CLASSHEADER,  0, 20, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_FIGHTER, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {CAT_ITEM_TECH2,    0, TECH_PLASMA_WEAPONS, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ADRIVE_FIGHTER, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_CLASSHEADER,  0, 21, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_CORVETTE, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {CAT_ITEM_TECH2,    0, TECH_BIOWARHEAD, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR3, 0},
+    {CAT_ITEM_TECH3,    0, TECH_INFECT, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_CLASSHEADER,  0, 22, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_CORVETTE, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {CAT_ITEM_TECH2,    0, TECH_MISSILE, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_CLASSHEADER,  0, 23, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_CORVETTE, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {CAT_ITEM_TECH2,    0, TECH_TARGETING_SYSTEMS, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ENERGY, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_CLASSHEADER,  0, 24, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_CORVETTE, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {CAT_ITEM_TECH2,    0, TECH_MEDIUM_GUNS, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ENERGY, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_CLASSHEADER,  0, 25, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_FRIGATE, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DEFENSE_FIELD, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ADRIVE_FRIGATE, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR3, 0},
+    {ITEM_CLASSHEADER,  0, 26, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_FRIGATE, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {CAT_ITEM_TECH2,    0, TECH_ION, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {CAT_ITEM_TECH3,    0, TECH_CLOAKING, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ADRIVE_FRIGATE, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR3, 0},
+    {ITEM_CLASSHEADER,  0, 27, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_DESTROYER, 0},
+    {CAT_ITEM_TECH2,    0, TECH_HEAVY_GUNS, 0},
+    {CAT_ITEM_TECH2,    0, TECH_ION, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ENERGY, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR3, 0},
+    {CAT_ITEM_TECH3,    0, TECH_INFECT, 0},
+    {ITEM_CLASSHEADER,  0, 28, 0},
+    {CAT_ITEM_TECH2,    0, TECH_DRIVE_DESTROYER, 0},
+    {CAT_ITEM_TECH2,    0, TECH_SUPPORT_SYSTEMS, 0},
+    {ITEM_TECHNOLOGY,   0, -1, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ENERGY, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR2, 0},
+    {ITEM_TECHNOLOGY,   0, TECH_ARMOUR3, 0},
+    {CAT_ITEM_TECH3,    0, TECH_INFECT, 0},
+    {CAT_ITEM_TECH3,    0, TECH_CRYSTAL_HARVEST, 0},
+    {ITEM_ENDLIST,       0, 0,  0}
+};
+
+// CAT: the lists the game works on (rmSetPrintList fills them; cat_rmSelectTechPrintList picks one into PlayerTechList)
+TechPrintList SinglePlayerR1TechList[CAT_RM_TECHLIST_MAX];     // 0x00c17b20 (list 1: single-player Sect)
+TechPrintList SinglePlayerR2TechList[CAT_RM_TECHLIST_MAX];     // 0x00c171c0 (a single-player Beast player: nothing fills it)
+TechPrintList MultiPlayerR1TechList[CAT_RM_TECHLIST_MAX];      // 0x00c18420 (list 3: multiplayer Sect)
+TechPrintList MultiPlayerR2TechList[CAT_RM_TECHLIST_MAX];      // 0x00c168c0 (list 4: Beast)
+
+TechPrintList *PlayerTechList;              // 0x00c17aa8
 
 /*=============================================================================
     Functions:
 =============================================================================*/
 
-void rmDirtyTechInfo(void)
+// CAT (M2-R6 managers): the exe's tutorial gates test bits of its two tutEnable words 0x00ba2e58 / 0x00ba2e5c (as
+//      mainrgn.c's catMrTutEnabled); outside the tutorial everything is enabled.
+//      CAT-TODO(stage 6 tutorial): the exe's tutGameEnableFlags layout
+static bool32 catRmTutEnabled1(udword bit)
 {
+    return (tutorial != TUTORIAL_ONLY) || ((((udword *)&tutEnable)[0] & bit) != 0);
+}
+
+static bool32 catRmTutEnabled2(udword bit)
+{
+    return (tutorial != TUTORIAL_ONLY) || ((((udword *)&tutEnable)[1] & bit) != 0);
+}
+
+// CAT (M2-R6 managers): the mission's research allowance (0x00ba4680, TradeMgr.c's tmTechResearchable: AllowPlayerToResearch)
+static bool32 catRmResearchAllowed(TechnologyType tech)
+{
+    return tmTechResearchable[tech] != 0;
+}
+
+// CAT (M2-R6 managers): the multiplayer option that allows the crystal-harvest research (bit 0x20 of the game options word
+//      0x008860ec, the crystals option of Salvage.c) [audit: M2-R6 managers: said the Beast infection; the exe tests
+//      technology 0x22 = TECH_CRYSTAL_HARVEST, rmUpdateTechList 0x004f6d30]
+// CAT-TODO(stage 5 multiplayer options): the Cataclysm tpGameCreated layout; until then the crystals option counts as off
+static bool32 catRmGameOptionCrystals(void)
+{
+    return FALSE;
+}
+
+// CAT (M2-R6 managers): the screen's regions the exe redraws after a list change (rmUpdateTechList 0x004f6d30)
+static void catRmDirtyRegions(void)
+{
+    sdword i;
+
     if (rmTechBriefRegion != NULL)
     {
-#ifdef DEBUG_STOMP
-        regVerify(rmTechBriefRegion);
-#endif
         rmTechBriefRegion->status |= RSF_DrawThisFrame;
     }
-    if (rmTechImageRegion != NULL)
+    for (i = 0; i < NUM_RESEARCHLABS; i++)
     {
-#ifdef DEBUG_STOMP
-        regVerify(rmTechImageRegion);
-#endif
-        rmTechImageRegion->status |= RSF_DrawThisFrame;
-    }
-    if (rmConnectorRegion != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmConnectorRegion);
-#endif
-        rmConnectorRegion->status |= RSF_DrawThisFrame;
-    }
-}
-
-void rmDirtyTechList(void)
-{
-    if (rmTechListRegion != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmTechListRegion);
-#endif
-        rmTechListRegion->status |= RSF_DrawThisFrame;
-    }
-
-    if (rmLab1Region != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmLab1Region);
-#endif
-        rmLab1Region->status |= RSF_DrawThisFrame;
-    }
-    if (rmLab2Region != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmLab2Region);
-#endif
-        rmLab2Region->status |= RSF_DrawThisFrame;
-    }
-    if (rmLab3Region != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmLab3Region);
-#endif
-        rmLab3Region->status |= RSF_DrawThisFrame;
-    }
-    if (rmLab4Region != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmLab4Region);
-#endif
-        rmLab4Region->status |= RSF_DrawThisFrame;
-    }
-    if (rmLab5Region != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmLab5Region);
-#endif
-        rmLab5Region->status |= RSF_DrawThisFrame;
-    }
-    if (rmLab6Region != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmLab6Region);
-#endif
-        rmLab6Region->status |= RSF_DrawThisFrame;
-    }
-
-    if (rmLabConnector1Region != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmLabConnector1Region);
-#endif
-        rmLabConnector1Region->status |= RSF_DrawThisFrame;
-    }
-    if (rmLabConnector2Region != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmLabConnector2Region);
-#endif
-        rmLabConnector2Region->status |= RSF_DrawThisFrame;
-    }
-    if (rmLabConnector3Region != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmLabConnector3Region);
-#endif
-        rmLabConnector3Region->status |= RSF_DrawThisFrame;
-    }
-    if (rmLabConnector4Region != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmLabConnector4Region);
-#endif
-        rmLabConnector4Region->status |= RSF_DrawThisFrame;
-    }
-    if (rmLabConnector5Region != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmLabConnector5Region);
-#endif
-        rmLabConnector5Region->status |= RSF_DrawThisFrame;
-    }
-    if (rmLabConnector6Region != NULL)
-    {
-#ifdef DEBUG_STOMP
-        regVerify(rmLabConnector6Region);
-#endif
-        rmLabConnector6Region->status |= RSF_DrawThisFrame;
-    }
-}
-
-void rmSelectAll(char *string, featom *atom)
-{
-    sdword index;
-
-    for (index=0; index<NUM_RESEARCHLABS; index++)
-    {
-        if (labbuttons[index].lab->labstatus==LS_NORESEARCHITEM)
+        if (rmLabRegion[i] != NULL)
         {
-            labbuttons[index].selected = TRUE;
+            rmLabRegion[i]->status |= RSF_DrawThisFrame;
         }
     }
+    if (catRmBlobRegion != NULL)
+    {
+        catRmBlobRegion->status |= RSF_DrawThisFrame;
+    }
 }
 
-// This function is called when a technology has just finished being researched.  This is so the technology list window
-// can be updated.  The lab highlight border is turned off.
-void rmClearLab(sdword labindex)
+// CAT (M2-R6 managers): a technology's picture into the LRU cache (the exe inlines this in rmTechImageDraw 0x004f6380 and
+//      rmResearchGUIBegin 0x004f7140): a cached one is made current, else the least recently used slot is freed and the
+//      file loaded (paletted)
+static void catRmPictureUse(sdword index)
 {
-/*    rmUpdateTechList();
-
-    // Regenerate list because something has just finished being researched
-    uicListCleanUp(rmTechListWindowHandle);
-    for (index=0;PlayerTechList[index].itemtype!=ITEM_ENDLIST; index++)
+    if (pictures[index].techTexture == TR_InvalidInternalHandle)
     {
-        if ( (PlayerTechList[index].itemstat != STAT_CANTPRINT) &&
-             (PlayerTechList[index].itemstat != STAT_CANTRESEARCH) )
+        pictures[index].techTexture = trPalettedTextureCreate(pictures[index].techImage->data, pictures[index].techImage->palette,
+                                                              pictures[index].techImage->width, pictures[index].techImage->height);
+    }
+    else
+    {
+        trPalettedTextureMakeCurrent(pictures[index].techTexture, pictures[index].techImage->palette);
+    }
+    rmCurTexture = pictures[index].techTexture;
+    rmCurTechTexture = techinfo;
+    rmCurIndex = index;
+}
+
+static void catRmPictureLoad(char *filename)
+{
+    sdword index, lru = 0;
+    real32 time = (real32)1.0e22;
+
+    for (index = 0; index < RM_TOTALPICS; index++)
+    {
+        if (pictures[index].timestamp < time)
         {
-            if (PlayerTechList[index].itemtype == ITEM_CLASSHEADER)
-                uicListAddItem(rmTechListWindowHandle, (ubyte *)&PlayerTechList[index], 0, UICLW_AddToTail);
-            else
-                uicListAddItem(rmTechListWindowHandle, (ubyte *)&PlayerTechList[index], UICLI_CanSelect, UICLW_AddToTail);
+            time = pictures[index].timestamp;
+            lru  = index;
+        }
+        if ((pictures[index].tech == techinfo) && (pictures[index].race == (sdword)universe.curPlayerPtr->race))
+        {
+            catRmPictureUse(index);
+            rmCurTechImage = pictures[lru].techImage;       // the exe stores the LRU slot's image here
+            pictures[index].timestamp = universe.totaltimeelapsed;
+            return;
         }
     }
-    rmTechListWindowHandle->CurLineSelected = NULL;
-
-    SelectTechWindow();*/
-
-    labbuttons[labindex].selected = FALSE;
+    if (pictures[lru].techImage != NULL)
+    {
+        memFree(pictures[lru].techImage);
+        pictures[lru].techImage = NULL;
+    }
+    if (pictures[lru].techTexture != TR_InvalidInternalHandle)
+    {
+        trRGBTextureDelete(pictures[lru].techTexture);
+        pictures[lru].techTexture = TR_InvalidInternalHandle;
+    }
+    pictures[lru].techImage = trLIFFileLoad(filename, NonVolatile);
+    catRmPictureUse(lru);
+    rmCurTechImage = pictures[lru].techImage;
+    pictures[lru].tech = techinfo;
+    pictures[lru].race = universe.curPlayerPtr->race;
+    pictures[lru].timestamp = universe.totaltimeelapsed;
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : rmClearAllLabs
+    Description : CAT (M2-R6 managers): the exe's body (0x004f4bd0, RM_ClearAllLabs; rmUpdateResearch calls it): no lab
+                  selected any more
+----------------------------------------------------------------------------*/
 void rmClearAllLabs(char *string, featom *atom)
 {
-    sdword index;
-
-    for (index=0; index<NUM_RESEARCHLABS; index++)
-    {
-        rmClearResearchlab(universe.curPlayerPtr,index);
-        labbuttons[index].selected = FALSE;
-    }
+    rmCurrentLab = -1;
 }
 
-
+/*-----------------------------------------------------------------------------
+    Name        : rmClearSelectedLab
+    Description : CAT (M2-R6 managers): the exe's body (0x004f4be0, RM_ClearLab, no Ghidra function): the selected lab
+                  stops its research (clWrapResearch type 1) and the speech 0x4001032; the tutorial gate bit 0x1000 of its
+                  second word
+----------------------------------------------------------------------------*/
 void rmClearSelectedLab(char *string, featom *atom)
 {
-    sdword index;
-   bool32 halted = FALSE;
-
-    for (index=0; index<NUM_RESEARCHLABS; index++)
+    if ((rmCurrentLab == -1) || (labbuttons[rmCurrentLab].lab->labstatus != LS_RESEARCHITEM))
     {
-        if ((labbuttons[index].selected) &&
-            (labbuttons[index].lab->labstatus==LS_RESEARCHITEM) )
-        {
-            if((tutorial==TUTORIAL_ONLY) && !tutEnable.bResearchClearLab)
-                return;
-
-            if (!multiPlayerGame)
-            {
-                rmClearResearchlab(universe.curPlayerPtr,index);
-            }
-            else
-            {
-                clWrapResearch(RESEARCH_SUBCOMMAND_STOP, universe.curPlayerIndex, index, 0);
-            }
-            //labbuttons[index].selected = FALSE;
-            halted = TRUE;
-        }
+        return;
     }
-
-   if (halted)
-   {
-      speechEventFleet(COMM_F_Research_Stop, 0, universe.curPlayerIndex);
-   }
+    if ((tutorial == TUTORIAL_ONLY) && !catRmTutEnabled2(0x1000))
+    {
+        return;
+    }
+    clWrapResearch(1, universe.curPlayerIndex, rmCurrentLab, 0);
+    speechEventQueue(NULL, 0x4001032, -1, -1, 0, universe.curPlayerIndex, -1, 5.0f, -1);
 }
 
-
+/*-----------------------------------------------------------------------------
+    Name        : rmResearchItem
+    Description : research the selected technology
+    CAT (M2-R6 managers): the exe's body (0x004f4c50): the row's own lab (catLab) starts researching it when it is free
+        (or, in a tutorial, not built yet): clWrapResearch type 0 with the lab and the technology, the speech 0x4001031;
+        that lab becomes the selected one; a technology already held is refused; the tutorial gate bit 0x800
+----------------------------------------------------------------------------*/
 void rmResearchItem(char *string, featom *atom)
 {
-    sdword          index;
-    bool32            found=FALSE;
-    TechPrintList  *tech;
+    TechPrintList *row;
+    ResearchLab *lab;
 
-    if (rmTechListWindowHandle->CurLineSelected!=NULL)
+    if ((rmTechListWindowHandle->CurLineSelected == NULL) ||
+        ((row = (TechPrintList *)rmTechListWindowHandle->CurLineSelected->data)->itemstat == STAT_ALREADYHAVE))
     {
-        tech = (TechPrintList*)rmTechListWindowHandle->CurLineSelected->data;
-
-        if (tech->itemstat!=STAT_ALREADYHAVE)
-        {
-         if((tutorial==TUTORIAL_ONLY) && !tutEnable.bResearchResearch)
-            return;
-
-            for (index=0; index<NUM_RESEARCHLABS; index++)
-            {
-                if ((labbuttons[index].selected) &&
-                    (labbuttons[index].lab->labstatus==LS_NORESEARCHITEM) )
-                {
-                    if (!multiPlayerGame)
-                    {
-                        rmAssignPlayersLabToResearch(universe.curPlayerPtr,index,tech->itemID);
-                    }
-                    else
-                    {
-                        clWrapResearch(RESEARCH_SUBCOMMAND_START, universe.curPlayerIndex, index, tech->itemID);
-                        labbuttons[index].lab->labstatus = LS_RESEARCHITEMSOON; // LS_NORESEARCHSHIP
-                        labbuttons[index].lab->topic = NULL;
-                    }
-
-                    labbuttons[index].pulsepos = 0;
-                    labbuttons[index].selected = FALSE;
-                    found = TRUE;
-               if (universe.curPlayerPtr->race == R1)
-               {
-                  speechEventFleet(COMM_F_Research_R1_Start, tech->itemID, universe.curPlayerIndex);
-               }
-               else if (universe.curPlayerPtr->race == R2)
-               {
-                  speechEventFleet(COMM_F_Research_R2_Start, tech->itemID, universe.curPlayerIndex);
-               }
-                }
-            }
-            if (found==FALSE)
-            {
-                index = rmFindFreeLab(universe.curPlayerPtr, tech->itemID);   // CAT: the lab of the technology's module (0x004f2870)
-                if (index!=-1)
-                {
-                    if (!multiPlayerGame)
-                    {
-                        rmAssignPlayersLabToResearch(universe.curPlayerPtr,index,tech->itemID);
-                    }
-                    else
-                    {
-                        clWrapResearch(RESEARCH_SUBCOMMAND_START, universe.curPlayerIndex, index, tech->itemID);
-                        labbuttons[index].lab->labstatus = LS_RESEARCHITEMSOON; // LS_NORESEARCHSHIP
-                        labbuttons[index].lab->topic = NULL;
-                    }
-
-               if (universe.curPlayerPtr->race == R1)
-               {
-                  speechEventFleet(COMM_F_Research_R1_Start, tech->itemID, universe.curPlayerIndex);
-               }
-               else if (universe.curPlayerPtr->race == R2)
-               {
-                  speechEventFleet(COMM_F_Research_R2_Start, tech->itemID, universe.curPlayerIndex);
-               }
-                }
-            }
-#ifdef DEBUG_STOMP
-            regVerify((regionhandle)&rmTechListWindowHandle->reg);
-#endif
-            rmTechListWindowHandle->reg.status |= RSF_DrawThisFrame;
-        }
+        return;
     }
+    if ((tutorial == TUTORIAL_ONLY) && !catRmTutEnabled2(0x800))
+    {
+        return;
+    }
+    lab = labbuttons[row->catLab].lab;
+    if ((lab->labstatus == LS_NORESEARCHITEM) || ((tutorial != 0) && (lab->labstatus == LS_NORESEARCHSHIP)))
+    {
+        lab->labstatus = LS_RESEARCHITEMSOON;
+        lab->topic = NULL;
+        clWrapResearch(0, universe.curPlayerIndex, row->catLab, row->itemID);
+        labbuttons[row->catLab].pulsepos = 0;
+        speechEventQueue(NULL, 0x4001031, -1, -1, 0, universe.curPlayerIndex, -1, 5.0f, -1);
+    }
+    rmCurrentLab = row->catLab;
+    if (rmBaseRegion != NULL)
+    {
+        rmBaseRegion->status |= RSF_ReallyDirty;
+    }
+    rmTechListWindowHandle->reg.status |= RSF_DrawThisFrame;
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : rmExitMenu / rmCloseIfOpen / cat_rmConstruction / cat_rmLaunch
+    Description : close the research manager
+    CAT (M2-R6 managers): the exe's bodies (rmCloseIfOpen 0x004f4e30; RM_ExitMenu 0x004f4d40, RM_Construction 0x004f4f20,
+        RM_Launch 0x004f5010 with no Ghidra function): the render counter cleared, the tutorial gate bit 0x2000 of its
+        second word, the message "RM_Close", the screen deleted, the main view drawn again, the sounds 0x130 / 0x100,
+        the shown technology forgotten, the GUI inactive, the regions forgotten, the sensors manager reopened when this
+        screen closed it; the two buttons then open the construction / launch manager
+----------------------------------------------------------------------------*/
+static bool32 catRmClose(void)
+{
+    sdword i;
+
+    rmRenderEverythingCounter = 0;
+    if ((tutorial == TUTORIAL_ONLY) && !catRmTutEnabled2(0x2000))
+    {
+        return FALSE;
+    }
+    tutGameMessage("RM_Close");
+    feCurrentScreenDelete();
+    rmBaseRegion = NULL;
+    mrRenderMainScreen = TRUE;
+    soundEventPlay(NULL, 0x130, NULL);
+    soundEventPlay(NULL, UI_SoundOfSpace, NULL);
+    spUnlockout();
+    rmCurTechTexture = -1;
+    techinfo = -1;
+    rmGUIActive = FALSE;
+    rmTechImageRegion = NULL;
+    rmTechBriefRegion = NULL;
+    for (i = 0; i < NUM_RESEARCHLABS; i++)
+    {
+        rmLabRegion[i] = NULL;
+    }
+    catRmModuleNameRegion = NULL;
+    catRmBlobRegion = NULL;
+    if (catRmSensorsWereOpen)
+    {
+        catSmReopenAfterManager();
+    }
+    // CAT-TODO(stage 6 tutorial): cat_tutButtonsRestoreAfterScreen (the tutorial's buttons come back)
+    return TRUE;
+}
 
 void rmExitMenu(char *string, featom *atom)
 {
-    rmRenderEverythingCounter = 0;
-
-    // used to be this
-    //feScreenDelete(rmBaseRegion);
-    // whoever this caused a memory leak, should use feCurrentScreenDelete to close the current screen
-    //
-    if((tutorial==TUTORIAL_ONLY) && !tutEnable.bResearchClose)
-        return;
-
-    feCurrentScreenDelete();
-    rmBaseRegion = NULL;
-
-    if (rmIoSaveState)
-        ioEnable();
-
-    // enable rendering of main game screen
-    mrRenderMainScreen = TRUE;
-
-    /* play the exit sound */
-    soundEvent(NULL, UI_ManagerExit);
-    //restart the sound of space ambient
-    soundEvent(NULL, UI_SoundOfSpace);
-
-    spUnlockout();
-
-    rmGUIActive = FALSE;
-
-    rmCurTechTexture = -1;
-    rmTechBriefRegion = NULL;
-    rmTechImageRegion = NULL;
-    rmTechListRegion  = NULL;
-
-    rmLab1Region = NULL;
-    rmLab2Region = NULL;
-    rmLab3Region = NULL;
-    rmLab4Region = NULL;
-    rmLab5Region = NULL;
-    rmLab6Region = NULL;
-
-    rmConnectorRegion = NULL;
-
-    rmLabConnector1Region = NULL;
-    rmLabConnector2Region = NULL;
-    rmLabConnector3Region = NULL;
-    rmLabConnector4Region = NULL;
-    rmLabConnector5Region = NULL;
-    rmLabConnector6Region = NULL;
-
-    // enable taskbar popup window
-    tbDisable = FALSE;
-
-    techinfo = -1;
+    catRmClose();
 }
 
 void rmCloseIfOpen(void)
 {
-    if (rmBaseRegion)
+    if (rmBaseRegion != NULL)
     {
-        rmExitMenu(NULL,NULL);
+        catRmClose();
     }
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : rmMarqueePulse
-    Description :
-    Inputs      : LabPrintList & region info
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
-void rmMarqueePulse(LabPrintList *labprint, regionhandle region)
+void cat_rmConstruction(char *string, featom *atom)
 {
-    sdword count, index;
-    sdword x, y;
-    rectangle *rect = &region->rect;
-    primLine2(rect->x0, rect->y0, rect->x1, rect->y0, rmStandardTextColor);
-    primLine2(rect->x0, rect->y1, rect->x1, rect->y1, rmStandardTextColor);
+    catRmClose();
+    mrBuildShips(NULL, NULL);       // the exe opens it even when the gate kept the screen
+}
 
-    x = rect->x0 + RM_MARQUEESPACE;
-    y = rect->y0 + ((rect->y1 - rect->y0) >> 1);
-
-    if ((labprint->selected) && (labprint->lab->labstatus==LS_RESEARCHITEM))
-    {
-        for (count=(int)(marqueepos),index=0;index<RM_NUMMARQUEE;index++)
-        {
-            if (count==0)
-            {
-                count=2;
-                primCircleSolid2(x,y,RM_MARQUEERAD,20,rmMarqueeOnColor);
-            }else if (count==1)
-            {
-                primCircleSolid2(x,y,RM_MARQUEERAD,20,rmMarqueeSemiOnColor);
-                count--;
-            }
-            else
-            {
-                primCircleSolid2(x,y,RM_MARQUEERAD,20,rmMarqueeOffColor);
-                count--;
-            }
-            x+=RM_MARQUEESPACE;
-        }
-    }
-    else
-    {
-        for (index=0;index<RM_NUMMARQUEE;index++)
-        {
-            primCircleSolid2(x,y,RM_MARQUEERAD,20,rmMarqueeOffColor);
-            x+=RM_MARQUEESPACE;
-        }
-    }
+void cat_rmLaunch(char *string, featom *atom)
+{
+    catRmClose();
+    mrLaunch(NULL, NULL);
 }
 
 /*-----------------------------------------------------------------------------
     Name        : rmDrawLabButton
-    Description : draws lab button
-    Inputs      :
-    Outputs     :
-    Return      : void
+    Description : a lab button: the module's icon (off, or on for the selected lab), and while it researches the
+                  progress bar
+    CAT (M2-R6 managers): the exe's body (0x004f5100): an empty slot (no module) is a black box with a red outline; an
+        idle lab its icon over a red-outlined bar; a researching lab its icon and the shaded progress bar (rounded with
+        the exe's chop), the selected one with the sweeping pulse line; "ResearchAlmost" for the tutorial
 ----------------------------------------------------------------------------*/
+static void catRmLabIconDraw(rectangle *rect, sdword icon)
+{
+    if (rmPaletted)
+    {
+        trPalettedTextureMakeCurrent(catRmLabTexture[icon], catRmLabImage[icon]->palette);
+    }
+    else
+    {
+        trRGBTextureMakeCurrent(catRmLabTexture[icon]);
+    }
+    primRectSolidTextured2(rect);       // CAT: no glcompat path in the SDL build (decision 28)
+}
+
 void rmDrawLabButton(LabPrintList *labprint, regionhandle region)
 {
-    color progressColor[4]; // Shaded values
-    ferfocuswindowstate state;
-    rectangle rect, progressRect;
-    real32 percent, width;
-    sdword pos;
-    PlayerResearchInfo *research = &universe.curPlayerPtr->researchinfo;
-
-    rect.x0 = region->rect.x0 + RM_LAB_INSET;
-    rect.y0 = region->rect.y0 + RM_LAB_INSET;
-    rect.x1 = region->rect.x1 - RM_LAB_INSET;
-    rect.y1 = region->rect.y1 - RM_LAB_INSET;
-
-    progressRect.x0 = rect.x0;
-    progressRect.y0 = rect.y1 - 10;
-    progressRect.x1 = rect.x1;
-    progressRect.y1 = rect.y1;
-
-    if (labprint->selected)
-        state = lw_focus;
-    else
-        state = lw_normal;
-
-    ferDrawFocusWindow(region, state);
-
-    switch (labprint->lab->labstatus)
-    {
-    case LS_NORESEARCHSHIP :
-        primRectSolid2(&rect, colRGB(0, 0, 0));                    // clear area
-        primRectOutline2(&progressRect, 1, rmNoResearchItemColor); // draw empty progress bar
-        break;
-
-    default:
-    case LS_NORESEARCHITEM :
-        primRectSolid2(&rect, colRGB(0, 0, 0));                // clear area
-        primRectOutline2(&progressRect, 1, colRGB(255, 0, 0)); // draw empty active progress bar
-
-        rect.x0 += 5;
-        rect.x1 -= 5;
-        rect.y1 = progressRect.y0 - RM_TEXTURE_INSET; // put above the progress bar
-
-        if (rmPaletted)
-        {
-            trPalettedTextureMakeCurrent(rmLabTexture[universe.curPlayerPtr->race], rmLabImage[universe.curPlayerPtr->race]->palette);
-        }
-        else
-        {
-            trRGBTextureMakeCurrent(rmLabTexture[universe.curPlayerPtr->race]);
-        }
-
-        primRectSolidTextured2(&rect);
-        break;
-
-    case LS_RESEARCHITEM :
-        primRectOutline2(&progressRect, 1, colRGB(255, 0, 0));
-
-        rect.x0 += 5;
-        rect.x1 -= 5;
-        rect.y1 = progressRect.y0 - RM_TEXTURE_INSET; // put above the progress bar
-
-        if (rmPaletted)
-        {
-            trPalettedTextureMakeCurrent(rmLabTexture[universe.curPlayerPtr->race], rmLabImage[universe.curPlayerPtr->race]->palette);
-        }
-        else
-        {
-            trRGBTextureMakeCurrent(rmLabTexture[universe.curPlayerPtr->race]);
-        }
-
-        primRectSolidTextured2(&rect);
-        
-        // compute progress bar length
-        percent = (real32)((1.0 - (real32)labprint->lab->topic->timeleft/(real32)research->techstat->TimeToComplete[labprint->lab->topic->techresearch]));
-
-        // Make the progress rectangle fit within the red border
-        progressRect.x0++;
-        progressRect.x1--;
-        progressRect.y0++;
-        progressRect.y1--;
-
-        if (labprint->selected)
-        {
-            pos = ((progressRect.x1 - progressRect.x0) * labprint->pulsepos) >> 16;
-            pos = progressRect.x0 + pos;
-
-            primLine2(pos, progressRect.y0 + 1, pos, progressRect.y1 - 1, 0);
-
-            if (labprint->pulsepos > FIXED16_ONE)
-            {
-                labprint->pulsepos = 0;
-            }
-            else
-                labprint->pulsepos += PULSE_INC;
-
-            pos = ((progressRect.x1 - progressRect.x0) * labprint->pulsepos) >> 16;
-            pos = progressRect.x0 + pos;
-
-            primLine2(pos, progressRect.y0 + 1, pos, progressRect.y1 - 1, PULSE_COLOR);
-        }
-
-        width = ((real32)(progressRect.x1 - progressRect.x0)) * percent;
-        progressRect.x1 = progressRect.x0 + (int)(width);
-
-        progressColor[0] = rmProgressDoneColor0;
-        progressColor[1] = rmProgressDoneColor0;
-        progressColor[2] = rmProgressDoneColor1;
-        progressColor[3] = rmProgressDoneColor1;
-
-        primRectShaded2(&progressRect, progressColor);
-
-        break;
-        case LS_RESEARCHITEMSOON :
-            primRectSolid2(&rect, colRGB(0, 0, 0));                // clear area
-            primRectOutline2(&progressRect, 1, colRGB(255, 0, 0)); // draw empty active progress bar
-
-            rect.x0 += 5;
-            rect.x1 -= 5;
-            rect.y1 = progressRect.y0 - RM_TEXTURE_INSET; // put above the progress bar
-
-            if (rmPaletted)
-            {
-                trPalettedTextureMakeCurrent(rmLabTexture[universe.curPlayerPtr->race], rmLabImage[universe.curPlayerPtr->race]->palette);
-            }
-            else
-            {
-                trRGBTextureMakeCurrent(rmLabTexture[universe.curPlayerPtr->race]);
-            }
-
-            primRectSolidTextured2(&rect);
-            break;
-
-    }
-}
-
-//update selection list
-void SelectTechWindow(void)
-{
-    udword         index;
-    listitemhandle listitem;
-
-    for (index=0;PlayerTechList[index].itemtype!=ITEM_ENDLIST; index++)
-    {
-        if ( (PlayerTechList[index].itemstat != STAT_CANTPRINT) &&
-             (PlayerTechList[index].itemstat != STAT_CANTRESEARCH) )
-        {
-            if ((PlayerTechList[index].itemtype == ITEM_TECHNOLOGY) && (PlayerTechList[index].itemID == techinfo))
-            {
-                listitem = uicListFindItemByData(rmTechListWindowHandle, (ubyte *)&PlayerTechList[index]);
-                uicListWindowSetCurItem(rmTechListWindowHandle, listitem);
-            }
-        }
-    }
-
-    /*
-    not implemented yet
-
-    listitemhandle  item;
-
-    Node           *walk,*count;
-    bool32            found=FALSE;
-    listitemhandle  iteminfo, newpos;
-    sdword          i, relativecount;
-
-    walk = listwindow->listofitems.head;
-
-    while (walk != NULL)
-    {
-        listhandle->CurLineSelected->data)->itemID
-CurLineSelected == item
-
-        if (item == listGetStructOfNode(walk))
-        {
-            found = TRUE;
-            break;
-        }
-        walk = walk->next;
-    }
-
-
-    bitClear(rmTechListWindowHandle->CurLineSelected->flags,UICLI_Selected);
-    listhandle->CurLineSelected = item;
-    bitSet(rmTechListWindowHandle->CurLineSelected->flags,UICLI_Selected);
-
-    */
-
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : rmSelectAvailableLab
-    Description : processes region callback for mouse clicks
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
-void rmSelectAvailableLab(regionhandle region, udword event, sdword labID)
-{
-    sdword         labindex;
+    rectangle bar, image;
+    sdword labid = labprint->labid;
+    sdword icon, x;
     ResearchTopic *topic;
+    real32 fraction;
+    sdword chop[2];
+    color c[4];
 
-    if (event == RPE_PressLeft)
-    {                                                       //left press (select/add job)
-        dbgAssertOrIgnore(region!=NULL);
-#ifdef DEBUG_STOMP
-        regVerify(region);
-#endif
-        bitSet(region->status, RSF_DrawThisFrame);
-        rmDirtyTechInfo();
+    image.x0 = region->rect.x0 + 5;
+    image.y0 = region->rect.y0 + 5;
+    image.x1 = region->rect.x1 - 5;
+    image.y1 = region->rect.y1 - 5;
+    bar.x0 = image.x0;
+    bar.x1 = image.x1;
+    bar.y1 = image.y1;
+    bar.y0 = region->rect.y1 - 15;
 
-        if (labbuttons[labID].lab->labstatus!=LS_NORESEARCHSHIP)
+    ferDrawFocusWindow(region, (rmCurrentLab == labid - 1) ? lw_focus : lw_normal);
+    if (labprint->lab->labstatus == LS_NORESEARCHSHIP)
+    {
+        primRectSolid2(&image, colBlack);
+        primRectOutline2(&bar, 1, rmNoResearchItemColor);
+        return;
+    }
+    if (labprint->lab->labstatus != LS_RESEARCHITEM)
+    {
+        primRectSolid2(&image, colBlack);
+    }
+    primRectOutline2(&bar, 1, colRGB(255, 0, 0));
+    image.x0 += 5;
+    image.y1 = bar.y0 - 3;
+    image.x1 -= 5;
+    icon = (rmCurrentLab == labid - 1) ? labid + 9 : labid + 4;
+    catRmLabIconDraw(&image, icon);
+    if (labprint->lab->labstatus != LS_RESEARCHITEM)
+    {
+        return;
+    }
+
+    topic = labprint->lab->topic;
+    fraction = 1.0f - topic->timeleft /
+               (real32)universe.curPlayerPtr->researchinfo.techstat->TimeToComplete[topic->techresearch];
+    if (fraction > 0.0f)
+    {
+        tutGameMessage("ResearchAlmost");
+    }
+    bar.x0 += 1;
+    bar.x1 -= 1;
+    if (rmCurrentLab == labid - 1)
+    {
+        x = ((bar.x1 - bar.x0) * labprint->pulsepos >> 16) + bar.x0;
+        primLine2(x, bar.y0 + 2, x, bar.y1 - 3, colBlack);
+        if (labprint->pulsepos <= 0x10000)
         {
-            if(tutorial)
-            {
-                char gameMessage[128];
+            labprint->pulsepos += 0x800;
+        }
+        else
+        {
+            labprint->pulsepos = 0;
+        }
+        x = ((bar.x1 - bar.x0) * labprint->pulsepos >> 16) + bar.x0;
+        primLine2(x, bar.y0 + 2, x, bar.y1 - 3, colRGB(200, 200, 200));
+    }
+    bar.y0 += 1;
+    bar.y1 -= 2;
+    chop_temp = (double)((real32)(bar.x1 - bar.x0) * fraction) + 6755399441055744.0;     // 0x0072a458
+    memcpy(chop, &chop_temp, sizeof(chop));
+    bar.x1 = chop[0] + bar.x0;
+    c[0] = rmProgressDoneColor0;
+    c[1] = rmProgressDoneColor0;
+    c[2] = rmProgressDoneColor1;
+    c[3] = rmProgressDoneColor1;
+    primRectShaded2(&bar, c);
+}
 
-                if((tutorial==TUTORIAL_ONLY) && !tutEnable.bResearchSelectLab)
-                    return;
+/*-----------------------------------------------------------------------------
+    Name        : rmLab1Draw .. rmLab5Draw and their region handlers
+    Description : CAT (M2-R6 managers): the exe's bodies (rmLab1Draw 0x004f5af0 with the marquee clock, rmLab2Draw ..
+                  rmLab5Draw 0x004f5b90 .. 0x004f5c50; the handlers 0x004f54c0 .. 0x004f59b0): a left press on a lab that
+                  exists selects it, shows its module (technology 0x29 + lab) and picks the module's row in the list
+                  ("RM_LabSelect <n>" in a tutorial, its gate bit 0x400)
+----------------------------------------------------------------------------*/
+static void catRmLabSelect(sdword lab, regionhandle region)
+{
+    TechPrintList *row;
+    char message[16];
 
-                strcpy(gameMessage, "RM_LabSelect ");
-                gameMessage[14] = '0' + labID;
-                tutGameMessage(gameMessage);
-            }
-
-            topic = labbuttons[labID].lab->topic;
-            if (topic != NULL)
-            {
-                if (multipleresearchersselected)
-                {
-                    for (labindex=0; labindex<NUM_RESEARCHLABS; labindex++)
-                    {
-                        if (labID == labindex)
-                            labbuttons[labindex].selected = TRUE;
-                        else
-                            labbuttons[labindex].selected = FALSE;
-                    }
-                    multipleresearchersselected = FALSE;
-                }
-                else
-                {
-                    researchingthistopic = 0;
-                    for (labindex=0; labindex<NUM_RESEARCHLABS; labindex++)
-                    {
-                        if (labbuttons[labindex].lab->topic == topic)
-                        {
-                            researchingthistopic++;
-                            labbuttons[labindex].selected = TRUE;
-                        }
-                        else
-                            labbuttons[labindex].selected = FALSE;
-                    }
-                    multipleresearchersselected = (researchingthistopic > 1);
-
-                }
-                techinfo = topic->techresearch;
-                SelectTechWindow();
-            }
-            else
-            {
-                labbuttons[labID].selected = (sword)!labbuttons[labID].selected;
-                for (labindex=0; labindex<NUM_RESEARCHLABS; labindex++)
-                {
-                    if (labbuttons[labindex].lab->topic != NULL)
-                    {
-                        labbuttons[labindex].selected = FALSE;
-/*                        if (labbuttons[labindex].lab->topic->techresearch==techinfo)
-                        {
-                            if (rmTechListWindowHandle->CurLineSelected!=NULL)
-                            {
-                                techinfo = PlayerTechList[((TechPrintList*)rmTechListWindowHandle->CurLineSelected->data)->itemID].itemID;
-                            }
-                            else
-                                techinfo = -1;
-                        }*/
-                    }
-                }
-                techinfo = -1;
-                uicListWindowSetCurItem(rmTechListWindowHandle, NULL);
-
-                multipleresearchersselected=FALSE;
-            }
+    region->status |= RSF_DrawThisFrame;
+    if (rmTechImageRegion != NULL)
+    {
+        rmTechImageRegion->status |= RSF_DrawThisFrame;
+    }
+    if (labbuttons[lab].lab->labstatus == LS_NORESEARCHSHIP)
+    {
+        return;
+    }
+    if (tutorial != 0)
+    {
+        if ((tutorial == TUTORIAL_ONLY) && !catRmTutEnabled2(0x400))
+        {
+            return;
+        }
+        sprintf(message, "RM_LabSelect %c", '0' + (char)lab);
+        tutGameMessage(message);
+    }
+    rmCurrentLab = lab;
+    techinfo = (TechnologyType)(NumTechnologies + lab);
+    if (rmBaseRegion != NULL)
+    {
+        rmBaseRegion->status |= RSF_ReallyDirty;
+    }
+    for (row = PlayerTechList; row->itemtype != ITEM_ENDLIST; row++)
+    {
+        if ((row->itemstat != STAT_CANTPRINT) && (row->itemstat != STAT_CANTRESEARCH) &&
+            ((row->itemtype == CAT_ITEM_TECH2) || (row->itemtype == CAT_ITEM_TECH3)) && (row->itemID == techinfo))
+        {
+            uicListWindowSetCurItem(rmTechListWindowHandle, uicListFindItemByData(rmTechListWindowHandle, (ubyte *)row));
         }
     }
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : rmSelectLab1
-    Description : processes region callback for mouse clicks
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
-sdword rmSelectLab1(regionhandle region, sdword ID, udword event, udword data)
+#define CAT_RM_LAB_HANDLER(n)                                                                   \
+static sdword catRmSelectLab##n(regionhandle region, sdword ID, udword event, udword data)     \
+{                                                                                               \
+    if (event == RPE_PressLeft)                                                                 \
+    {                                                                                           \
+        catRmLabSelect(n - 1, region);                                                          \
+    }                                                                                           \
+    return 0;                                                                                   \
+}
+CAT_RM_LAB_HANDLER(1)
+CAT_RM_LAB_HANDLER(2)
+CAT_RM_LAB_HANDLER(3)
+CAT_RM_LAB_HANDLER(4)
+CAT_RM_LAB_HANDLER(5)
+
+static void catRmLabDraw(regionhandle region, sdword lab, regionfunction handler)
 {
-    rmSelectAvailableLab(region, event, 0);
-    return(0);
+    if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
+    {
+        region->flags = RPE_DrawEveryFrame | RPE_PressLeft;    // 0x80002000
+        regFunctionSet(region, handler);
+    }
+    rmLabRegion[lab] = region;
+    rmDrawLabButton(&labbuttons[lab], region);
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : rmSelectLab2
-    Description : processes region callback for mouse clicks
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
-sdword rmSelectLab2(regionhandle region, sdword ID, udword event, udword data)
-{
-    rmSelectAvailableLab(region, event, 1);
-    return(0);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : rmSelectLab3
-    Description : processes region callback for mouse clicks
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
-sdword rmSelectLab3(regionhandle region, sdword ID, udword event, udword data)
-{
-    rmSelectAvailableLab(region, event, 2);
-    return(0);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : rmSelectLab4
-    Description : processes region callback for mouse clicks
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
-sdword rmSelectLab4(regionhandle region, sdword ID, udword event, udword data)
-{
-    rmSelectAvailableLab(region, event, 3);
-    return(0);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : rmSelectLab5
-    Description : processes region callback for mouse clicks
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
-sdword rmSelectLab5(regionhandle region, sdword ID, udword event, udword data)
-{
-    rmSelectAvailableLab(region, event, 4);
-    return(0);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : rmSelectLab6
-    Description : processes region callback for mouse clicks
-    Inputs      : region info
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
-sdword rmSelectLab6(regionhandle region, sdword ID, udword event, udword data)
-{
-    rmSelectAvailableLab(region, event, 5);
-    return(0);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : rmLab1Draw
-    Description : draws the lab buttons along with the status of the lab.
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
 void rmLab1Draw(featom *atom, regionhandle region)
 {
     if (rmRenderEverythingCounter > 0)
@@ -1217,199 +905,105 @@ void rmLab1Draw(featom *atom, regionhandle region)
         rmRenderEverythingCounter--;
         feRenderEverything = TRUE;
     }
-
-    if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
-    {                                         //if region not processed yet
-        region->flags = RPE_PressLeft;        //receive mouse presses from now on
-        region->flags |= RPE_DrawEveryFrame;
-        regFunctionSet(region, (regionfunction)rmSelectLab1); //set new region handler function
+    marqueetime += (taskTimeElapsed - catRmLastTime) * 3.0f;      // 0x0072a534 (HW1 RM_MARQUEERATE)
+    if (marqueetime > 2.0f)                                     // the double 2.0 at 0x0072a5c0
+    {
+        marqueetime -= 2.0f;
     }
-
-    rmLab1Region = region;
-    rmDrawLabButton(&labbuttons[0], region);
+    catRmLastTime = taskTimeElapsed;
+    catRmLabDraw(region, 0, (regionfunction)catRmSelectLab1);
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : rmLab2Draw
-    Description : draws the lab buttons along with the status of the lab.
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
 void rmLab2Draw(featom *atom, regionhandle region)
 {
-    if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
-    {                                         //if region not processed yet
-        region->flags = RPE_PressLeft;        //receive mouse presses from now on
-        region->flags |= RPE_DrawEveryFrame;
-        regFunctionSet(region, (regionfunction)rmSelectLab2); //set new region handler function
-    }
-
-    rmLab2Region = region;
-    rmDrawLabButton(&labbuttons[1], region);
+    catRmLabDraw(region, 1, (regionfunction)catRmSelectLab2);
 }
 
-
-/*-----------------------------------------------------------------------------
-    Name        : rmLab3Draw
-    Description : draws the lab buttons along with the status of the lab.
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
 void rmLab3Draw(featom *atom, regionhandle region)
 {
-    if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
-    {                                         //if region not processed yet
-        region->flags = RPE_PressLeft;        //receive mouse presses from now on
-        region->flags |= RPE_DrawEveryFrame;
-        regFunctionSet(region, (regionfunction)rmSelectLab3); //set new region handler function
-    }
-
-    rmLab3Region = region;
-    rmDrawLabButton(&labbuttons[2], region);
+    catRmLabDraw(region, 2, (regionfunction)catRmSelectLab3);
 }
 
-
-/*-----------------------------------------------------------------------------
-    Name        : rmLab4Draw
-    Description : draws the lab buttons along with the status of the lab.
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
 void rmLab4Draw(featom *atom, regionhandle region)
 {
-    if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
-    {                                         //if region not processed yet
-        region->flags = RPE_PressLeft;        //receive mouse presses from now on
-        region->flags |= RPE_DrawEveryFrame;
-        regFunctionSet(region, (regionfunction)rmSelectLab4); //set new region handler function
-    }
-
-    rmLab4Region = region;
-    rmDrawLabButton(&labbuttons[3], region);
+    catRmLabDraw(region, 3, (regionfunction)catRmSelectLab4);
 }
 
-
-/*-----------------------------------------------------------------------------
-    Name        : rmLab5Draw
-    Description : draws the lab buttons along with the status of the lab.
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
 void rmLab5Draw(featom *atom, regionhandle region)
 {
-    if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
-    {                                         //if region not processed yet
-        region->flags = RPE_PressLeft;        //receive mouse presses from now on
-        region->flags |= RPE_DrawEveryFrame;
-        regFunctionSet(region, (regionfunction)rmSelectLab5); //set new region handler function
+    catRmLabDraw(region, 4, (regionfunction)catRmSelectLab5);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rmModuleNameDraw
+    Description : CAT: new (0x004f4b60, RM_ModuleNameDraw, no Ghidra function): the selected lab's module name (the
+                  string strHANGAR_HEADING + lab) in the heading font, black shadow 2 pixels down-right, then white
+----------------------------------------------------------------------------*/
+void cat_rmModuleNameDraw(featom *atom, regionhandle region)
+{
+    fonthandle oldfont;
+
+    catRmModuleNameRegion = region;
+    if (rmCurrentLab == -1)
+    {
+        return;
     }
-
-    rmLab5Region = region;
-    rmDrawLabButton(&labbuttons[4], region);
+    oldfont = fontMakeCurrent(catRmHeadingFont);
+    fontPrint(region->rect.x0 + 2, region->rect.y0 + 2, colBlack, strGetString(strHANGAR_HEADING + rmCurrentLab));
+    fontPrint(region->rect.x0, region->rect.y0, colWhite, strGetString(strHANGAR_HEADING + rmCurrentLab));
+    fontMakeCurrent(oldfont);
 }
 
-
 /*-----------------------------------------------------------------------------
-    Name        : rmLab6Draw
-    Description : draws the lab buttons along with the status of the lab.
-    Inputs      : region
-    Outputs     :
-    Return      : void
+    Name        : cat_rmPussyBlobDraw
+    Description : CAT: new (0x004f5c90, RM_PussyBlob): the Beast's research animation: a frame every 0.1 s of the task
+                  clock (the sequence 1-5-1-0, the sound 0x13c when it wraps to the start while anything is researched)
+                  while the first lab researches; frame 0 when it is idle or starting. The region draws every frame
 ----------------------------------------------------------------------------*/
-void rmLab6Draw(featom *atom, regionhandle region)
+void cat_rmPussyBlobDraw(featom *atom, regionhandle region)
 {
-    if (region->flags == 0 || region->flags == RPE_DrawFunctionAdded)
-    {                                         //if region not processed yet
-        region->flags = RPE_PressLeft;        //receive mouse presses from now on
-        region->flags |= RPE_DrawEveryFrame;
-        regFunctionSet(region, (regionfunction)rmSelectLab6); //set new region handler function
+    rectangle rect = region->rect;
+    sdword frame = 0;
+
+    catRmBlobRegion = region;
+    region->flags |= RPE_DrawEveryFrame;
+    catRmBlobTime += taskTimeElapsed - catRmLastTime;
+    if (catRmBlobTime > 0.1f)                                   // 0x0072a4d4
+    {
+        if ((catRmBlobFrame == 0) && rmResearchingAnything(universe.curPlayerPtr))
+        {
+            soundEventPlay(NULL, 0x13c, NULL);
+        }
+        catRmBlobFrame++;
+        catRmBlobTime = 0.0f;
+        if (catRmBlobFrame > 9)
+        {
+            catRmBlobFrame = 0;
+        }
     }
-
-    rmLab6Region = region;
-    rmDrawLabButton(&labbuttons[5], region);
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : rmLabConnector1Draw
-    Description : draws the lab connector between the status box and diagram.
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void rmLabConnector1Draw(featom *atom, regionhandle region)
-{
-    rmLabConnector1Region = region;
-    rmMarqueePulse(&labbuttons[0], region);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : rmLabConnector2Draw
-    Description : draws the lab connector between the status box and diagram.
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void rmLabConnector2Draw(featom *atom, regionhandle region)
-{
-    rmLabConnector2Region = region;
-    rmMarqueePulse(&labbuttons[1], region);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : rmLabConnector3Draw
-    Description : draws the lab connector between the status box and diagram.
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void rmLabConnector3Draw(featom *atom, regionhandle region)
-{
-    rmLabConnector3Region = region;
-    rmMarqueePulse(&labbuttons[2], region);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : rmLabConnector4Draw
-    Description : draws the lab connector between the status box and diagram.
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void rmLabConnector4Draw(featom *atom, regionhandle region)
-{
-    rmLabConnector4Region = region;
-    rmMarqueePulse(&labbuttons[3], region);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : rmLabConnector5Draw
-    Description : draws the lab connector between the status box and diagram.
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void rmLabConnector5Draw(featom *atom, regionhandle region)
-{
-    rmLabConnector5Region = region;
-    rmMarqueePulse(&labbuttons[4], region);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : rmLabConnector6Draw
-    Description : draws the lab connector between the status box and diagram.
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void rmLabConnector6Draw(featom *atom, regionhandle region)
-{
-    rmLabConnector6Region = region;
-    rmMarqueePulse(&labbuttons[5], region);
+    catRmLastTime = taskTimeElapsed;
+    switch (universe.curPlayerPtr->researchinfo.researchlabs[0].labstatus)
+    {
+        case LS_NORESEARCHITEM:
+        case LS_RESEARCHITEMSOON:
+            catRmBlobFrame = 0;
+            frame = 0;
+            break;
+        case LS_RESEARCHITEM:
+            frame = catRmBlobFrames[catRmBlobFrame];
+            break;
+        default:
+            break;      // the exe draws frame 0 (its frame variable still holds the region pointer: CAT-FIX)
+    }
+    if (rmPaletted)
+    {
+        trPalettedTextureMakeCurrent(catRmBeastTexture[frame], catRmBeastImage[frame]->palette);
+    }
+    else
+    {
+        trRGBTextureMakeCurrent(catRmBeastTexture[frame]);
+    }
+    primRectSolidTextured2(&rect);
 }
 
 char *getWord(char *dest, char *source)
@@ -1435,286 +1029,151 @@ char *getWord(char *dest, char *source)
     return(source);
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : getShipBuild
+    Description : the ships the shown technology would make buildable, appended to dest
+    CAT (M2-R6 managers): the exe's body (0x004f5e70): the race's ship types, a type whose requirement set the held
+        technologies plus this one cover but the held ones alone do not (cat_rmTechSetAnd / cat_rmTechSetEqual); only for
+        a player of race 2 (the exe's test; no Cataclysm player has it) and never the type 0x4e
+----------------------------------------------------------------------------*/
 char *getShipBuild(char *dest)
 {
     PlayerResearchInfo *researchinfo = &universe.curPlayerPtr->researchinfo;
-    TechStatics        *techstat = researchinfo->techstat;
-    CatTechSet          hasPlusTech;
-    sdword              index;
-    bool32                first=TRUE;
+    CatTechSet hasPlusTech, test;
+    sdword *need;
+    ShipType type;
+    bool32 first = TRUE;
 
-    // CAT-TODO(stage 3): HW1's mask arithmetic on tech sets (the exe's getShipBuild compares sets with
-    //      cat_rmTechSetEqual); a ship is listed when the technology in hand completes its requirements
-    cat_rmTechSetCopy(hasPlusTech, researchinfo->HasTechnology);
-    hasPlusTech[techinfo] = 1;
-    for (index=0;index<STD_LAST_SHIP;index++)
+    memcpy(hasPlusTech, researchinfo->HasTechnology, sizeof(CatTechSet));
+    cat_rmTechSetAdd(hasPlusTech, techinfo);
+    for (type = FirstShipTypeOfRace[universe.curPlayerPtr->race]; type < LastShipTypeOfRace[universe.curPlayerPtr->race]; type++)
     {
-        if (cat_rmTechSetCovers(hasPlusTech, techstat->TechNeededToBuildShip[index]))
+        need = researchinfo->techstat->TechNeededToBuildShip[type];
+        cat_rmTechSetAnd(test, need, hasPlusTech);
+        if (!cat_rmTechSetEqual(test, need))
         {
-            if (!cat_rmTechSetCovers(researchinfo->HasTechnology, techstat->TechNeededToBuildShip[index]))
-            {
-                if ( ( (universe.curPlayerPtr->race == R1) &&
-                       (index != DFGFrigate              )  ) |
-                     ( (universe.curPlayerPtr->race == R2) &&
-                       (index != CloakedFighter          )  ) )
-                {
-                    if (!first)
-                    {
-                        strcat(dest,", ");
-                    }
-                    if (first)
-                    {
-                        strcat(dest,"\n\n");
-                        strcat(dest,strGetString(strCanBuild));
-                        strcat(dest,"\n");
-                    }
-                    strcat(dest," ");
-                    strcat(dest,ShipTypeToNiceStr(index));
-                    first = FALSE;
-                }
-            }
+            continue;
         }
+        cat_rmTechSetAnd(test, researchinfo->HasTechnology, need);
+        if (cat_rmTechSetEqual(test, need) || (universe.curPlayerPtr->race != 2) || (type == 0x4e))
+        {
+            continue;
+        }
+        if (first)
+        {
+            strcat(dest, "\n\n");
+            strcat(dest, strGetString(strCanBuild));
+            strcat(dest, "\n");
+        }
+        else
+        {
+            strcat(dest, ", ");
+        }
+        strcat(dest, " ");
+        strcat(dest, ShipTypeToNiceStr(type));
+        first = FALSE;
     }
-
     return (dest);
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : rmTechTexturePrepare
-    Description : prepares texture for use in the research manager.
-    Inputs      : index into pictures structure.
-    Outputs     : none
-    Return      : void
-----------------------------------------------------------------------------*/
-void rmTechTexturePrepare(sdword index)
-{
-    if (pictures[index].techTexture == TR_InvalidInternalHandle)
-    {
-        pictures[index].techTexture = trPalettedTextureCreate(pictures[index].techImage->data, pictures[index].techImage->palette, pictures[index].techImage->width, pictures[index].techImage->height);
-        rmCurTexture = pictures[index].techTexture;
-        rmCurIndex = index;
-    }
-    else
-    {
-        trPalettedTextureMakeCurrent(pictures[index].techTexture, pictures[index].techImage->palette);
-        rmCurTexture = pictures[index].techTexture;
-        rmCurIndex = index;
-    }
-}
-
-
-/*-----------------------------------------------------------------------------
     Name        : rmExtendedInfo
-    Description :
-    Inputs      : none
-    Outputs     : none
-    Return      : void
+    Description : CAT (M2-R6 managers): the exe's body (0x004f6090, RM_ExtendedInfo): the description over the picture on
+                  or off, the picture redrawn
 ----------------------------------------------------------------------------*/
 void rmExtendedInfo(char *string, featom *atom)
 {
     rmExtendedInfoActive = !rmExtendedInfoActive;
-    rmDirtyTechInfo();
+    if (rmTechImageRegion != NULL)
+    {
+        rmTechImageRegion->status |= RSF_DrawThisFrame;
+    }
 }
-
 
 /*-----------------------------------------------------------------------------
     Name        : rmTechInfoDraw
     Description : Draws technology text to the window.
-    Inputs      : region
-    Outputs     : technology info.
-    Return      : void
+    CAT (M2-R6 managers): the exe's body (0x004f60b0): no title line (rmTechImageDraw prints it), the text starts one
+        and a half lines and 16 pixels down; a technology's description by race (the R1 / R2 info strings) with the ships
+        it enables (getShipBuild), a module's (0x29 + lab) from the R2 table's continuation (the module infos)
 ----------------------------------------------------------------------------*/
 void rmTechInfoDraw(regionhandle region)
 {
     fonthandle  currentFont;
-    sdword      x,y, width;
+    sdword      x,y;
     char       *pos, *oldpos;
     char        oldline[100], line[100];
     char        stringtoprint[650];
-    bool32        justified, done;
+    bool32      justified, done;
 
-    //rmTechInfoRegion = region;
-
-    //feStaticRectangleDraw(region); //draw standard rectangle
-
-    //currentFont = fontMakeCurrent(rmTechListFont);
+    if (techinfo == -1)
+    {
+        return;
+    }
     currentFont = fontMakeCurrent(rmTechInfoFont);
 
     x = region->rect.x0 + 15;
-    y = region->rect.y0 + 5;
+    y = (fontHeight(" ") >> 1) + fontHeight(" ") + 16 + region->rect.y0;
 
-    if (techinfo != -1)
+    if (techinfo < NumTechnologies)
     {
-        fontPrintf(x,y,FEC_ListItemStandard/*rmResearchingTextColor*/,"%s",
-                   RaceSpecificTechTypeToNiceString(techinfo, universe.curPlayerPtr->race));
-
-        y += RM_VertSpacing + fontHeight(" ");
-
-        //fontMakeCurrent(rmTechInfoFont);
-
-        // CAT: no race-specific technology names (HW1 renamed DDDFDFGFTech/CloakDefenseFighter per race);
-        //      CAT-TODO(stage 3): the exe's research screen body
-        if (universe.curPlayerPtr->race==R1)
-            strcpy(stringtoprint,strGetString(techinfo+strTechInfoOffsetR1));
-        else
-            strcpy(stringtoprint,strGetString(techinfo+strTechInfoOffsetR2));
-
+        strcpy(stringtoprint, strGetString(techinfo + ((universe.curPlayerPtr->race == RACE_Sect) ? strTechInfoOffsetR1 : strTechInfoOffsetR2)));
         getShipBuild(stringtoprint);
-
-        pos = stringtoprint;
-
-        done = FALSE;
-        while (!done)
-        {
-            justified = FALSE;
-            line[0]=0;
-            while (!justified)
-            {
-                strcpy(oldline, line);
-                oldpos = pos;
-                pos = getWord(line, pos);
-
-                if (pos[0] == '\n')
-                {
-                    if ((width = fontWidth(line)) > RM_InfoWidth - 15)
-                    {
-                        strcpy(line, oldline);
-                        pos = oldpos;
-                        while (pos[0] == ' ') pos++;
-                        justified = TRUE;
-                    }
-                    else
-                    {
-                        justified = TRUE;
-                        pos++;
-                        while ( pos[0] == ' ' ) pos++;
-                    }
-                }
-                else
-                {
-                    if ( (width=fontWidth(line)) > RM_InfoWidth - 15)
-                    {
-                        strcpy(line, oldline);
-                        pos = oldpos;
-                        while ( pos[0] == ' ' ) pos++;
-
-                        justified = TRUE;
-                    }
-                    if (pos[0]==0)
-                    {
-                        justified = TRUE;
-                        done      = TRUE;
-                    }
-                }
-            }
-
-            fontPrintf(x,y,rmStandardTextColor,"%s",line);
-            y += fontHeight(" ");
-            if (y > region->rect.y1 + fontHeight(" ")) done=TRUE;
-        }
+    }
+    else
+    {
+        strcpy(stringtoprint, strGetString(techinfo + strTechInfoOffsetR2));
     }
 
-    fontMakeCurrent(currentFont);
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : rmTechBriefDraw
-    Description :
-    Inputs      : region
-    Outputs     :
-    Return      : void
-----------------------------------------------------------------------------*/
-void rmTechBriefDraw(featom *atom, regionhandle region)
-{
-    fonthandle  currentFont;
-    sdword      x,y;
-    rectangle   rect;
-    //char       *pos, *oldpos;
-    //char        oldline[100], line[100];
-    //char        stringtoprint[650];
-    //bool32        justified, done;
-
-    rmTechBriefRegion = region;
-    rect = region->rect;
-
-    feStaticRectangleDraw(region); //draw standard rectangle
-    rect.x0 += 2;
-    rect.y0 += 2;
-    rect.x1 -= 2;
-    rect.y1 -= 2;
-    primRectSolid2(&rect, atom->contentColor);
-
-    currentFont = fontMakeCurrent(rmTechListFont);
-    //currentFont = fontMakeCurrent(rmTechInfoFont);
-
-    x = region->rect.x0 + 15;
-    y = region->rect.y0 + 5;
-
-    if (techinfo != -1)
+    pos = stringtoprint;
+    done = FALSE;
+    while (!done)
     {
-        fontPrintf(x,y,FEC_ListItemStandard/*rmResearchingTextColor*/,"%s",TechTypeToNiceString(techinfo));
-
-        /*
-        y += RM_VertSpacing + fontHeight(" ");
-
-        //fontMakeCurrent(rmTechInfoFont);
-
-        if (universe.curPlayerPtr->race==R1)
+        justified = FALSE;
+        line[0]=0;
+        while (!justified)
         {
-            dbgAssertOrIgnore(strGetString(techinfo+strTechInfoOffsetR1)!=NULL);
-            strcpy(stringtoprint,strGetString(techinfo+strTechInfoOffsetR1));
-        }
-        else
-        {
-            dbgAssertOrIgnore(strGetString(techinfo+strTechInfoOffsetR2)!=NULL);
-            strcpy(stringtoprint,strGetString(techinfo+strTechInfoOffsetR2));
-        }
+            strcpy(oldline, line);
+            oldpos = pos;
+            pos = getWord(line, pos);
 
-        getShipBuild(stringtoprint);
-
-        pos = stringtoprint;
-
-        done = FALSE;
-        while (!done)
-        {
-            justified = FALSE;
-            line[0]=0;
-            while (!justified)
+            if (pos[0] == '\n')
             {
-                strcpy(oldline, line);
-                oldpos = pos;
-                pos = getWord(line, pos);
-
-                if (pos[0] == '\n')
+                if (fontWidth(line) > region->rect.x1 - region->rect.x0 - 15)
+                {
+                    strcpy(line, oldline);
+                    pos = oldpos;
+                    while (pos[0] == ' ') pos++;
+                    justified = TRUE;
+                }
+                else
                 {
                     justified = TRUE;
                     pos++;
                     while ( pos[0] == ' ' ) pos++;
                 }
-                else
+            }
+            else
+            {
+                if (fontWidth(line) > region->rect.x1 - region->rect.x0 - 15)
                 {
-                    if ( (width=fontWidth(line)) > RM_InfoWidth - 15)
-                    {
-                        strcpy(line, oldline);
-                        pos = oldpos;
-                        while ( pos[0] == ' ' ) pos++;
+                    strcpy(line, oldline);
+                    pos = oldpos;
+                    while ( pos[0] == ' ' ) pos++;
 
-                        justified = TRUE;
-                    }
-                    if (pos[0]==0)
-                    {
-                        justified = TRUE;
-                        done      = TRUE;
-                    }
+                    justified = TRUE;
+                }
+                if (pos[0]==0)
+                {
+                    justified = TRUE;
+                    done      = TRUE;
                 }
             }
-
-            fontPrintf(x,y,rmStandardTextColor,"%s",line);
-            y += fontHeight(" ");
-            if (y > region->rect.y1 + fontHeight(" ")) done=TRUE;
         }
-        */
+
+        fontPrintf(x,y,rmStandardTextColor,"%s",line);
+        y += fontHeight(" ");
+        if (y > region->rect.y1 + fontHeight(" ")) done=TRUE;
     }
 
     fontMakeCurrent(currentFont);
@@ -1722,585 +1181,442 @@ void rmTechBriefDraw(featom *atom, regionhandle region)
 
 /*-----------------------------------------------------------------------------
     Name        : rmTechImageDraw
-    Description : Loads in, decompresses and draws the tech picture.
-    Inputs      : none
-    Outputs     : loads in rmTechImage and creates rmTechTexture
-    Return      : void
+    Description : the shown technology's picture
+    CAT (M2-R6 managers): the exe's body (0x004f6380): the picture of a technology or of a lab's module (0x29 + lab:
+        cat_ModuleTypeToString) from the race's directory, through the LRU cache; the description over it when the
+        extended info is on; a technology's name as its title (0x00891f24 colour, the info font, 15 / 11 pixels in)
 ----------------------------------------------------------------------------*/
 void rmTechImageDraw(featom *atom, regionhandle region)
 {
-    char      filename[128];
-    sdword    index, lru = 0;
-    real32    time=(real32)1.0e22;
+    char filename[128];
     rectangle textureRect;
+    fonthandle oldfont;
 
     rmTechImageRegion = region;
+    feStaticRectangleDraw(region);
 
-    feStaticRectangleDraw(region); //draw standard rectangle
-
-    if (techinfo != -1)
+    if (techinfo == rmCurTechTexture)
     {
-        if (techinfo != rmCurTechTexture)
-        {
-            for (index=0;index<RM_TOTALPICS;index++) // RM_TOTALPICS is the size of the cache
-            {
-                // Find least recently used texture
-                if (pictures[index].timestamp < time)
-                {
-                    time = pictures[index].timestamp;
-                    lru  = index;
-                }
-                // If already cached, use it and exit this routine
-                if ( (pictures[index].tech==techinfo) &&
-                     (pictures[index].race==universe.curPlayerPtr->race) )
-                {
-                    rmTechTexturePrepare(index);
-                    rmCurTechTexture = techinfo;
-                    rmCurTechImage = pictures[lru].techImage;
-                    rmCurIndex = index;
-                    pictures[index].timestamp = universe.totaltimeelapsed;
-
-                    textureRect.x0 = region->rect.x0+RM_TEXTURE_INSET;
-                    textureRect.y0 = region->rect.y0+RM_TEXTURE_INSET;
-                    textureRect.x1 = region->rect.x1-RM_TEXTURE_INSET;
-                    textureRect.y1 = region->rect.y1-RM_TEXTURE_INSET;
-
-                    primRectSolidTextured2(&textureRect);
-                    
-                    if (rmExtendedInfoActive)
-                    {
-                        primRectTranslucent2(&textureRect, colRGBA(0, 0, 0, 128));
-                        rmTechInfoDraw(region);
-                    }
-                    return;
-                }
-            }
-
-            // Build filename for loading texture from file
-            strcpy(filename, TechImagePaths[universe.curPlayerPtr->race]);
-            strcat(filename, TechTypeToString(techinfo));
-            strcat(filename,".lif");
-
-            // Remove oldest (least recently used) texture from memory
-            if (pictures[lru].techImage != NULL)
-            {
-                memFree(pictures[lru].techImage);
-                pictures[lru].techImage = NULL;
-            }
-            if (pictures[lru].techTexture != TR_InvalidInternalHandle)
-            {
-                trRGBTextureDelete(pictures[lru].techTexture);
-                pictures[lru].techTexture = TR_InvalidInternalHandle;
-            }
-
-            // Load the image into LRU cache
-            pictures[lru].techImage = trLIFFileLoad(filename, NonVolatile);
-            dbgAssertOrIgnore(pictures[lru].techImage->flags & TRF_Paletted);
-
-            rmTechTexturePrepare(lru);
-            rmCurTechTexture = techinfo;
-            rmCurTechImage = pictures[lru].techImage;
-            pictures[lru].tech = techinfo;
-            pictures[lru].race = universe.curPlayerPtr->race;
-            pictures[lru].timestamp = universe.totaltimeelapsed;
-        }
-        else
-        {
-            trPalettedTextureMakeCurrent(pictures[rmCurIndex].techTexture,
-                                         pictures[rmCurIndex].techImage->palette);
-        }
-
-        textureRect.x0 = region->rect.x0 + RM_TEXTURE_INSET;
-        textureRect.y0 = region->rect.y0 + RM_TEXTURE_INSET;
-        textureRect.x1 = region->rect.x1 - RM_TEXTURE_INSET;
-        textureRect.y1 = region->rect.y1 - RM_TEXTURE_INSET;
-
-        primRectSolidTextured2(&textureRect);
-        
-        if (rmExtendedInfoActive)
-        {
-            primRectTranslucent2(&textureRect, colRGBA(0, 0, 0, 128));
-            rmTechInfoDraw(region);
-        }
+        trPalettedTextureMakeCurrent(pictures[rmCurIndex].techTexture, pictures[rmCurIndex].techImage->palette);
     }
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : rmConnectorDraw
-    Description : Draws the connector between the picture of the technology and
-                  the info. text
-    Inputs      : region
-    Outputs     : connector image
-    Return      : void
-----------------------------------------------------------------------------*/
-void rmConnectorDraw(featom *atom, regionhandle region)
-{
-    rmConnectorRegion = region;
-
-    if (techinfo != -1)
+    else
     {
-        sdword centerX  = region->rect.x0 + ((region->rect.x1 - region->rect.x0) / 2);
+        filename[0] = 0;
+        if (universe.curPlayerPtr->race <= RACE_Beast)
+        {
+            strcpy(filename, TechImagePaths[universe.curPlayerPtr->race]);
+        }
+        strcat(filename, (techinfo >= NumTechnologies) ? cat_ModuleTypeToString(techinfo - NumTechnologies) : TechTypeToString(techinfo));
+        strcat(filename, ".lif");
+        catRmPictureLoad(filename);
+    }
 
-        primLine2(centerX, region->rect.y0, centerX, region->rect.y1, colRGB(255, 0, 0));
-        primCircleSolid2(centerX, region->rect.y1, 3, 16, colRGB(255, 0, 0));
+    textureRect.x0 = region->rect.x0 + RM_TEXTURE_INSET;
+    textureRect.y0 = region->rect.y0 + RM_TEXTURE_INSET;
+    textureRect.x1 = region->rect.x1 - RM_TEXTURE_INSET;
+    textureRect.y1 = region->rect.y1 - RM_TEXTURE_INSET;
+    primRectSolidTextured2(&textureRect);       // CAT: no glcompat path in the SDL build (decision 28)
+
+    if (techinfo == -1)
+    {
+        return;
+    }
+    if (rmExtendedInfoActive)
+    {
+        primRectTranslucent2(&textureRect, colRGBA(0, 0, 0, 128));
+        rmTechInfoDraw(region);
+    }
+    if ((techinfo >= 0) && (techinfo < NumTechnologies))
+    {
+        oldfont = fontMakeCurrent(rmTechInfoFont);
+        fontPrint(region->rect.x0 + 15, region->rect.y0 + 11, rmClassHeadingTextColor,
+                  RaceSpecificTechTypeToNiceString(techinfo, universe.curPlayerPtr->race));
+        fontMakeCurrent(oldfont);
     }
 }
 
 /*-----------------------------------------------------------------------------
     Name        : rmDrawTechListItem
-    Description : This function draws each item in the technology list.
-    Inputs      : rectangle, and a pointer to the item handle.
-    Outputs     :
-    Return      : void
+    Description : one row of the technology list
+    CAT (M2-R6 managers): the exe's item draw (0x004f6810, no Ghidra function): a header (printable) in the heading
+        colour by its name string (0xbb39a0 + id: strHANGAR_HEADING - 2 + id); a technology row indented four spaces by
+        its race name, its colour by kind and state (researchable: kind 2 the list's standard colour, kind 3 green;
+        unresearchable grey; researching the researching colour over a shaded progress bar of the topic; held: kind 2
+        the list's 0xba1e88 colour, kind 3 dark green, with a green dot); a selected row is drawn in the standard colours
 ----------------------------------------------------------------------------*/
 void rmDrawTechListItem(rectangle *rect, listitemhandle data)
 {
-    TechPrintList *techprint=(TechPrintList *)data->data;
-    sdword              x, y;
-    color               c = colBlack;
-    Player             *player=universe.curPlayerPtr;
-    PlayerResearchInfo *research=&universe.curPlayerPtr->researchinfo;
-    ResearchTopic      *topic;
-    TechnologyType      tech;
-    char                temp[64];
-    real32              percent;
-    rectangle           bar;
-    fonthandle          oldfont;
-    color               progressColor[4];
-
-    x = rect->x0;
-    y = rect->y0;
+    TechPrintList *row = (TechPrintList *)data->data;
+    Player *player = universe.curPlayerPtr;
+    sdword x = rect->x0, y = rect->y0;
+    char text[100];
+    color c = 0;
+    fonthandle oldfont;
+    ResearchTopic *topic;
+    rectangle bar;
+    real32 fraction;
+    sdword width;
+    color shades[4];
 
     oldfont = fontMakeCurrent(rmTechListFont);
-
-    if (techprint->itemtype==ITEM_TECHNOLOGY)
+    fontShadowSet(FS_NONE, colBlack);
+    text[0] = 0;
+    if (row->itemtype == ITEM_CLASSHEADER)
     {
-        tech = techprint->itemID;
-
-        sprintf(temp, "%s", RaceSpecificTechTypeToNiceString(tech, player->race));
-
-        switch (techprint->itemstat)
+        if (row->itemstat != STAT_CANPRINT)
         {
-            case STAT_CANRESEARCH :
-                x += RM_HorzSpacing<<2;
-                c = FEC_ListItemStandard;//rmStandardTextColor;
-            break;
-            case STAT_CANTRESEARCH :
-                x += RM_HorzSpacing<<2;
+            fontMakeCurrent(oldfont);
+            return;
+        }
+        sprintf(text, "%s", strGetString(strHANGAR_HEADING - 4 + row->itemID));
+        c = rmClassHeadingTextColor;
+    }
+    else if ((row->itemtype == CAT_ITEM_TECH2) || (row->itemtype == CAT_ITEM_TECH3))
+    {
+        sprintf(text, "%s", RaceSpecificTechTypeToNiceString(row->itemID, player->race));
+        switch (row->itemstat)
+        {
+            case STAT_CANRESEARCH:
+                x += 4 * fontWidth(" ");
+                c = (row->itemtype == CAT_ITEM_TECH2) ? FEC_ListItemStandard : catRmTech3TextColor;
+                break;
+            case STAT_CANTRESEARCH:
+                x += 4 * fontWidth(" ");
                 c = rmCantResearchTextColor;
-            break;
-            case STAT_RESEARCHING :
-                x += RM_HorzSpacing<<2;
-                if ((topic=Researching(player,tech))!=NULL)
+                break;
+            case STAT_RESEARCHING:
+                x += 4 * fontWidth(" ");
+                topic = Researching(player, row->itemID);
+                if (topic != NULL)
                 {
-                    percent = (real32)((real32)topic->timeleft/(real32)research->techstat->TimeToComplete[tech]);
-                    bar.x0 = x-2;
-                    bar.y0 = y/*-2*/;
-                    bar.x1 = rect->x1-2;
-                    bar.y1 = y+fontHeight(" ") + 2;
-                    primRectSolid2(&bar, rmProgressToGoColor);
-                    bar.x1 -= (udword)((real32)( (rect->x1-2) - (x-2))*percent);
-
-                    progressColor[0] = rmProgressDoneColor0;
-                    progressColor[1] = rmProgressDoneColor0;
-                    progressColor[2] = rmProgressDoneColor1;
-                    progressColor[3] = rmProgressDoneColor1;
-
-                    primRectShaded2(&bar, progressColor);
-
-#ifdef DEBUG_STOMP
-                    regVerify((regionhandle)&rmTechListWindowHandle->reg);
-#endif
+                    fraction = topic->timeleft / (real32)player->researchinfo.techstat->TimeToComplete[row->itemID];
+                    bar.x0 = x - 2;
+                    bar.y0 = y;
+                    bar.x1 = rect->x1 - 2;
+                    bar.y1 = fontHeight(" ") + y + 2;
+                    primRectSolid2(&bar, 0xff754f09);
+                    width = (sdword)((real32)(rect->x1 - x) * fraction);
+                    bar.x1 = rect->x1 - 2 - width;
+                    shades[0] = 0xffef5325;
+                    shades[1] = 0xfff9a891;
+                    shades[2] = 0xffef5325;
+                    shades[3] = 0xfffbb09b;
+                    primRectShaded2(&bar, shades);
                     rmTechListWindowHandle->reg.status |= RSF_DrawThisFrame;
                 }
                 c = rmResearchingTextColor;
-            break;
-            case STAT_ALREADYHAVE :
-                x += RM_HorzSpacing<<2;
-                c = FEC_ListItemInactive;//rmStandardTextColor;
-                primCircleSolid2(x-7,y+5,3,20,rmResearchingTextColor);
-            break;
+                fontShadowSet(FS_SE, colBlack);
+                break;
+            case STAT_ALREADYHAVE:
+                x += 4 * fontWidth(" ");
+                c = (row->itemtype == CAT_ITEM_TECH2) ? FEC_ListItemInactive : catRmTech3HaveTextColor;
+                primCircleSolid2(x - 7, y + 5, 3, 20, colRGB(0, 139, 0));
+                break;
+            default:
+                break;      // the exe draws stat 3 in a colour it reads from its argument (never listed)
         }
-        if (bitTest(data->flags,UICLI_Selected))
+        if (bitTest(data->flags, UICLI_Selected))
         {
-            if (techprint->itemstat == STAT_RESEARCHING)
+            if (row->itemstat == STAT_RESEARCHING)
             {
-                c = rmResearchingTextColor;//rmSelectionTextColor;
+                c = rmResearchingTextColor;
+                fontShadowSet(FS_SE, colBlack);
             }
             else
             {
-                c = FEC_ListItemSelected;//rmSelectionTextColor;
+                c = (row->itemtype == CAT_ITEM_TECH2) ? FEC_ListItemStandard : catRmTech3TextColor;
             }
         }
     }
-    else if ( (techprint->itemtype==ITEM_CLASSHEADER) &&
-              (techprint->itemstat==STAT_CANPRINT) )
+    else
     {
-        sprintf(temp,"%s",strGetString(techprint->itemID+strTechHeadingOffset));
-        c = rmClassHeadingTextColor;
+        fontMakeCurrent(oldfont);
+        return;
     }
-
-    fontPrintf(x,y,c,"%s",temp);
-
+    fontPrint(x, y, c, text);
     fontMakeCurrent(oldfont);
-
-    marqueepos += (real32)((taskTimeElapsed - marqueetime) * RM_MARQUEERATE);
-    if (marqueepos > (real32)(RM_NUMMARQUEE / 3) + 1.0)
-    {
-        marqueepos -= (real32)(RM_NUMMARQUEE / 3) + 1.0;
-    }
-    marqueetime = taskTimeElapsed;
 }
-
 
 /*-----------------------------------------------------------------------------
     Name        : rmTechListWindow
-    Description : This function handle messages from the technology listwindow.
-    Inputs      : none
-    Outputs     : none
-    Return      : void
+    Description : the technology list's callback
+    CAT (M2-R6 managers): the exe's body (0x004f6ae0): created with the list font's line and a half; every printable
+        row is added (a technology row selectable); a selection shows its technology and lab ("RM_TechSelect_<name>" in
+        a tutorial, its gate bit 0x200 of the second word; a module row by cat_ModuleTypeToString); a double click
+        researches it ("RM_DoubleClick")
 ----------------------------------------------------------------------------*/
 void rmTechListWindow(char *string, featom *atom)
 {
-    fonthandle oldfont;
-    sdword     index;
+    TechPrintList *row;
+    char message[64];
+    sdword index;
 
-    if (FEFIRSTCALL(atom))
+    if ((atom != NULL) && FEFIRSTCALL(atom))
     {
-        oldfont = fontMakeCurrent(rmTechListFont);
+        fontMakeCurrent(rmTechListFont);
         rmTechListWindowHandle = (listwindowhandle)atom->pData;
-
-        uicListWindowInit(rmTechListWindowHandle,
-                          NULL,         //  title draw, no title
-                          NULL,         //  title click process, no title
-                          0,            //  title height, no title
-                          rmDrawTechListItem,           // item draw funtcion
-                          fontHeight(" ")+RM_VertSpacing, // item height
-                          UICLW_CanSelect);
-
-        for (index=0;PlayerTechList[index].itemtype!=ITEM_ENDLIST; index++)
+        uicListWindowInit(rmTechListWindowHandle, NULL, NULL, 0, rmDrawTechListItem,
+                          (fontHeight(" ") >> 1) + fontHeight(" "), UICLW_CanSelect);
+        for (index = 0; PlayerTechList[index].itemtype != ITEM_ENDLIST; index++)
         {
-            if ( (PlayerTechList[index].itemstat != STAT_CANTPRINT) &&
-                 (PlayerTechList[index].itemstat != STAT_CANTRESEARCH) )
+            if ((PlayerTechList[index].itemstat == STAT_CANTPRINT) || (PlayerTechList[index].itemstat == STAT_CANTRESEARCH))
             {
-                if (PlayerTechList[index].itemtype == ITEM_CLASSHEADER)
-                    uicListAddItem(rmTechListWindowHandle, (ubyte *)&PlayerTechList[index], 0, UICLW_AddToTail);
-                else
-                    uicListAddItem(rmTechListWindowHandle, (ubyte *)&PlayerTechList[index], UICLI_CanSelect, UICLW_AddToTail);
+                continue;
+            }
+            if (PlayerTechList[index].itemtype == ITEM_CLASSHEADER)
+            {
+                uicListAddItem(rmTechListWindowHandle, (ubyte *)&PlayerTechList[index], 0, UICLW_AddToTail);
+            }
+            else if ((PlayerTechList[index].itemtype == CAT_ITEM_TECH2) || (PlayerTechList[index].itemtype == CAT_ITEM_TECH3))
+            {
+                uicListAddItem(rmTechListWindowHandle, (ubyte *)&PlayerTechList[index], UICLI_CanSelect, UICLW_AddToTail);
             }
         }
         return;
-    } else if (FELASTCALL(atom))
+    }
+    if ((atom != NULL) && FELASTCALL(atom))
     {
         rmTechListWindowHandle = NULL;
         return;
     }
-
-
-    switch (rmTechListWindowHandle->message)
+    if (rmTechListWindowHandle->message == CM_NewItemSelected)
     {
-        case CM_NewItemSelected:
+        if ((tutorial == TUTORIAL_ONLY) && !catRmTutEnabled2(0x200))
         {
-            if((tutorial==TUTORIAL_ONLY) && !tutEnable.bResearchSelectTech)
-                return;
-
-            techinfo = ((TechPrintList*)rmTechListWindowHandle->CurLineSelected->data)->itemID;
-            rmDirtyTechInfo();
-
-            if ( ((TechPrintList*)rmTechListWindowHandle->CurLineSelected->data)->itemstat==STAT_RESEARCHING)
-            {
-                for (index=0; index<NUM_RESEARCHLABS; index++)
-                {
-                    multipleresearchersselected=0;
-                    if ((labbuttons[index].lab->topic)&&(labbuttons[index].lab->topic->techresearch==techinfo))
-                    {
-                        labbuttons[index].selected = TRUE;
-                        multipleresearchersselected++;
-                    }
-                    else
-                        labbuttons[index].selected = FALSE;
-                    multipleresearchersselected= (multipleresearchersselected>1);
-                }
-            }
-            else
-            {
-                for (index=0; index<NUM_RESEARCHLABS; index++)
-                {
-                    if (labbuttons[index].lab->labstatus == LS_RESEARCHITEM)
-                    {
-                        labbuttons[index].selected = FALSE;
-                    }
-                }
-            }
-
-            if(tutorial)
-            {
-                char gameMessage[128];
-
-                strcpy(gameMessage, "RM_TechSelect_");
-                strcat(gameMessage, TechTypeToString(techinfo));
-                tutGameMessage(gameMessage);
-            }
+            return;
         }
-        break;
-
-        case CM_DoubleClick:
-
-            if (tutorial)
-            {
-                tutGameMessage("RM_DoubleClick");
-            }
-            rmResearchItem(NULL, NULL);
-        break;
-
-
-
+        row = (TechPrintList *)rmTechListWindowHandle->CurLineSelected->data;
+        techinfo = row->itemID;
+        if (rmTechImageRegion != NULL)
+        {
+            rmTechImageRegion->status |= RSF_DrawThisFrame;
+        }
+        rmCurrentLab = row->catLab;
+        if (rmBaseRegion != NULL)
+        {
+            rmBaseRegion->status |= RSF_ReallyDirty;
+        }
+        if (tutorial == TUTORIAL_ONLY)
+        {
+            sprintf(message, "RM_TechSelect_%s", (techinfo < NumTechnologies) ? TechTypeToString(techinfo) :
+                                                                                cat_ModuleTypeToString(techinfo - NumTechnologies));
+            tutGameMessage(message);
+        }
+    }
+    else if (rmTechListWindowHandle->message == CM_DoubleClick)
+    {
+        if (tutorial == TUTORIAL_ONLY)
+        {
+            tutGameMessage("RM_DoubleClick");
+        }
+        rmResearchItem(NULL, NULL);
     }
 }
 
 /*-----------------------------------------------------------------------------
     Name        : rmUpdateTechList
-    Description : updates the status of the technology list.
-    Inputs      : none
-    Outputs     : none
-    Return      : void
+    Description : the list's states from the player's research
+    CAT (M2-R6 managers): the exe's body (0x004f6d30): a technology row (kind 2 / 3) is held (STAT_ALREADYHAVE),
+        researching, or, in a tutorial, researchable when the tutorial allows it (tutBuildRestrict's research twin
+        0x00ba4680); in multiplayer researchable when its lab exists and the held technologies cover its requirements
+        (cat_rmTechSetAnd / cat_rmTechSetEqual), the crystal harvest (technology 34) only with the game option 0x20;
+        in single player researchable when the mission allows it (the same tutorial table) and its lab exists; a
+        kind-1 row is never listed. A header is printable when any of its rows is shown. The list is rebuilt when the
+        count of shown rows changed (the shown technology stays selected), and the screen redrawn
 ----------------------------------------------------------------------------*/
 void rmUpdateTechList(void)
 {
-    PlayerResearchInfo *research=&universe.curPlayerPtr->researchinfo;
+    Player *player = universe.curPlayerPtr;
+    PlayerResearchInfo *research = &player->researchinfo;
+    CatTechSet have, test;
+    sdword index, count = 0;
+    sword headerstat = STAT_CANTPRINT;
     TechnologyType tech;
-    sdword index, canprint=STAT_CANTPRINT;
-    sdword count=0;
-//    ubyte *data=NULL;
+    sdword *need;
 
-    for (index=0;PlayerTechList[index].itemtype!=ITEM_ENDLIST; index++)
+    memcpy(have, research->HasTechnology, sizeof(CatTechSet));
+    for (index = 0; PlayerTechList[index].itemtype != ITEM_ENDLIST; index++)
     {
-        if (PlayerTechList[index].itemtype==ITEM_TECHNOLOGY)
+        if ((PlayerTechList[index].itemtype == CAT_ITEM_TECH2) || (PlayerTechList[index].itemtype == CAT_ITEM_TECH3))
         {
-            tech    = PlayerTechList[index].itemID;
-
-            if (cat_rmTechSetHas(research->HasTechnology, tech))     // CAT: tech sets (CAT-TODO stage 3: the exe body)
+            tech = PlayerTechList[index].itemID;
+            if (cat_rmTechSetHas(have, tech))
             {
                 PlayerTechList[index].itemstat = STAT_ALREADYHAVE;
             }
-            else if (Researching(universe.curPlayerPtr,tech)!=NULL)
+            else if (Researching(player, tech) != NULL)
             {
                 PlayerTechList[index].itemstat = STAT_RESEARCHING;
             }
-            else if (singlePlayerGame)
+            else if (tutorial == TUTORIAL_ONLY)
             {
-                if ( tmTechResearchable[tech] )
+                PlayerTechList[index].itemstat = (catRmResearchAllowed(tech)) ? STAT_CANRESEARCH : STAT_CANTRESEARCH;
+            }
+            else if (!singlePlayerGame)
+            {
+                need = research->techstat->TechNeededToResearch[tech];
+                cat_rmTechSetAnd(test, have, need);
+                if ((research->researchlabs[PlayerTechList[index].catLab].labstatus == LS_NORESEARCHSHIP) ||
+                    !cat_rmTechSetEqual(test, need))
                 {
-                    PlayerTechList[index].itemstat = STAT_CANRESEARCH;
+                    PlayerTechList[index].itemstat = STAT_CANTRESEARCH;
+                }
+                else if ((tech == TECH_CRYSTAL_HARVEST) && !catRmGameOptionCrystals())   // [audit: was TECH_INFECT (32); the exe: 0x22]
+                {
+                    PlayerTechList[index].itemstat = STAT_CANTRESEARCH;
                 }
                 else
                 {
-                    PlayerTechList[index].itemstat = STAT_CANTRESEARCH;
+                    PlayerTechList[index].itemstat = STAT_CANRESEARCH;
                 }
             }
             else
             {
-                if (cat_rmTechSetCovers(research->HasTechnology, research->techstat->TechNeededToResearch[tech]))
-                {
-                    PlayerTechList[index].itemstat = STAT_CANRESEARCH;
-                }
-                else
-                {
-                    PlayerTechList[index].itemstat = STAT_CANTRESEARCH;
-                }
+                PlayerTechList[index].itemstat =
+                    (!catRmResearchAllowed(tech) || (research->researchlabs[PlayerTechList[index].catLab].labstatus == LS_NORESEARCHSHIP)) ?
+                    STAT_CANTRESEARCH : STAT_CANRESEARCH;
             }
         }
+        else if (PlayerTechList[index].itemtype == ITEM_TECHNOLOGY)
+        {
+            PlayerTechList[index].itemstat = STAT_CANTRESEARCH;
+        }
     }
-
+    // from the end row down (the exe counts the end row too, hence the - 1 below)
     for (; index >= 0; index--)
     {
-        if( (PlayerTechList[index].itemtype == ITEM_TECHNOLOGY) &&
-         (PlayerTechList[index].itemstat != STAT_CANTRESEARCH) )
+        if (((PlayerTechList[index].itemtype == CAT_ITEM_TECH2) || (PlayerTechList[index].itemtype == CAT_ITEM_TECH3)) &&
+            (PlayerTechList[index].itemstat != STAT_CANTRESEARCH))
         {
-            canprint=STAT_CANPRINT;
+            headerstat = STAT_CANPRINT;
         }
-        else if (PlayerTechList[index].itemtype==ITEM_CLASSHEADER)
+        else if (PlayerTechList[index].itemtype == ITEM_CLASSHEADER)
         {
-            PlayerTechList[index].itemstat = (sword)canprint;
-
-            canprint=STAT_CANTPRINT;
+            PlayerTechList[index].itemstat = headerstat;
+            headerstat = STAT_CANTPRINT;
         }
-        if ( (PlayerTechList[index].itemstat != STAT_CANTPRINT) &&
-             (PlayerTechList[index].itemstat != STAT_CANTRESEARCH) )
+        if ((PlayerTechList[index].itemstat != STAT_CANTPRINT) && (PlayerTechList[index].itemstat != STAT_CANTRESEARCH))
         {
             count++;
         }
     }
-    count--;
-
-    // Regenerate list because something has just finished being researched
-
-    if ( (rmTechListWindowHandle!=NULL) &&
-         (count != rmTechListWindowHandle->ListTotal))
-    {
-        uicListCleanUp(rmTechListWindowHandle);
-        for (index=0;PlayerTechList[index].itemtype!=ITEM_ENDLIST; index++)
-        {
-            if ( (PlayerTechList[index].itemstat != STAT_CANTPRINT) &&
-                 (PlayerTechList[index].itemstat != STAT_CANTRESEARCH) )
-            {
-                if (PlayerTechList[index].itemtype == ITEM_CLASSHEADER)
-                    uicListAddItem(rmTechListWindowHandle, (ubyte *)&PlayerTechList[index], 0, UICLW_AddToTail);
-                else
-                    uicListAddItem(rmTechListWindowHandle, (ubyte *)&PlayerTechList[index], UICLI_CanSelect, UICLW_AddToTail);
-            }
-        }
-
-        SelectTechWindow();
-
-        rmDirtyTechList();
-    }
 
     if (rmTechListWindowHandle != NULL)
     {
-    #ifdef DEBUG_STOMP
-        regVerify((regionhandle)&rmTechListWindowHandle->reg);
-    #endif
+        if (count - 1 != rmTechListWindowHandle->ListTotal)
+        {
+            uicListCleanUp(rmTechListWindowHandle);
+            for (index = 0; PlayerTechList[index].itemtype != ITEM_ENDLIST; index++)
+            {
+                if ((PlayerTechList[index].itemstat == STAT_CANTPRINT) || (PlayerTechList[index].itemstat == STAT_CANTRESEARCH))
+                {
+                    continue;
+                }
+                if (PlayerTechList[index].itemtype == ITEM_CLASSHEADER)
+                {
+                    uicListAddItem(rmTechListWindowHandle, (ubyte *)&PlayerTechList[index], 0, UICLW_AddToTail);
+                }
+                else if ((PlayerTechList[index].itemtype == CAT_ITEM_TECH2) || (PlayerTechList[index].itemtype == CAT_ITEM_TECH3))
+                {
+                    uicListAddItem(rmTechListWindowHandle, (ubyte *)&PlayerTechList[index], UICLI_CanSelect, UICLW_AddToTail);
+                }
+            }
+            for (index = 0; PlayerTechList[index].itemtype != ITEM_ENDLIST; index++)
+            {
+                if ((PlayerTechList[index].itemstat != STAT_CANTPRINT) && (PlayerTechList[index].itemstat != STAT_CANTRESEARCH) &&
+                    ((PlayerTechList[index].itemtype == CAT_ITEM_TECH2) || (PlayerTechList[index].itemtype == CAT_ITEM_TECH3)) &&
+                    (PlayerTechList[index].itemID == techinfo))
+                {
+                    uicListWindowSetCurItem(rmTechListWindowHandle,
+                                            uicListFindItemByData(rmTechListWindowHandle, (ubyte *)&PlayerTechList[index]));
+                }
+            }
+            catRmDirtyRegions();
+        }
         rmTechListWindowHandle->reg.status |= RSF_DrawThisFrame;
     }
-
-    rmDirtyTechList();
+    catRmDirtyRegions();
 }
 
-
 /*-----------------------------------------------------------------------------
-    Name        : rmResearchBegin
-    Description : brings up research manager GUI
-    Inputs      : standard region event handles
-    Outputs     : success fail
-    Return      :
+    Name        : rmResearchGUIBegin
+    Description : open the research manager
+    CAT (M2-R6 managers): the exe's body (0x004f7140): not during a playback or the console / game-stats pause, only with
+        a mothership-class mothership and, in single player, for player 0; an open sensors manager is closed for good and
+        reopened on close; the tutorial gate bit 0x10; the race's screen file and screen (the Beast's
+        Beast_Research_Manager); the race's list; the five lab buttons on the player's labs; the sounds 0x12f / 0x106;
+        the default picture (Default_Research_Image.lif) for the shown technology unless it is cached
 ----------------------------------------------------------------------------*/
 sdword rmResearchGUIBegin(regionhandle region, smemsize ID, udword event, udword data)
 {
     sdword index;
+    char filename[128];
 
-    if (playPackets || (universePause && !opPauseOrders) )
+    if (playPackets || universePause || (universe.curPlayerPtr == NULL) ||
+        (universe.curPlayerPtr->PlayerMothership == NULL) ||
+        (universe.curPlayerPtr->PlayerMothership->staticinfo->shipclass != CLASS_Mothership) ||
+        (singlePlayerGame && (universe.curPlayerPtr->playerIndex != 0)))
+    {
+        return 0;
+    }
+    catRmSensorsWereOpen = smSensorsActive;
+    if (smSensorsActive)
+    {
+        smSensorsCloseForGood();
+    }
+    if ((tutorial == TUTORIAL_ONLY) && !catRmTutEnabled1(0x10))
     {
         return 0;
     }
 
-    for(index=0; index<NUM_RESEARCHLABS; index++)
-    {
-        if(universe.curPlayerPtr->researchinfo.researchlabs[index].labstatus != LS_NORESEARCHSHIP)
-            break;
-    }
-
-    if(index == NUM_RESEARCHLABS)
-    {
-      // Don't have any research labs!
-      return (0);
-    }
-
-    if((tutorial==TUTORIAL_ONLY) && !tutEnable.bResearchManager)
-        return (0);
-
-    // disable rendering of main screen
     mrRenderMainScreen = FALSE;
-
     rmRenderEverythingCounter = (tutorial == TUTORIAL_ONLY) ? 4 : 0;
-
-    // clear the screen
     rndClear();
-
-    // disable taskbar popup window
-    tbDisable = TRUE;
-
-    //mouseEnable();
-    //mouseCursorShow();
-
     spLockout(SPLOCKOUT_MR);
 
-    if (!rmScreensHandle)
+    if (rmScreensHandle == NULL)
     {
         feCallbackAddMultiple(rmCallback);                  //add in the callbacks
         feDrawCallbackAddMultiple(rmDrawCallback);
-        rmScreensHandle = feScreensLoad(RM_FIBFile);        //load in the screen
+    }
+    else if (universe.curPlayerPtr->race != catRmScreensRace)
+    {
+        feScreensDelete(rmScreensHandle);
+        rmScreensHandle = NULL;
+    }
+    if (rmScreensHandle == NULL)
+    {
+        catRmScreensRace = (universe.curPlayerPtr->race == RACE_Sect) ? RACE_Sect : RACE_Beast;
+        rmScreensHandle = feScreensLoad((catRmScreensRace == RACE_Sect) ? RM_FIBFile : CAT_RM_BeastFIBFile);
     }
 
-    if (!singlePlayerGame)
-    {
-        if (bitTest(tpGameCreated.flag,MG_CarrierIsMothership))
-        {
-            if (universe.curPlayerPtr->race==R1)
-                PlayerTechList = &MultiPlayerCR1TechList[0];
-            else
-                PlayerTechList = &MultiPlayerCR2TechList[0];
-        }
-        else
-        {
-            if (universe.curPlayerPtr->race==R1)
-                PlayerTechList = &MultiPlayerR1TechList[0];
-            else
-                PlayerTechList = &MultiPlayerR2TechList[0];
-        }
-    }
-    else
-    {
-        if (universe.curPlayerPtr->race==R1)
-            PlayerTechList = &SinglePlayerR1TechList[0];
-        else
-            PlayerTechList = &SinglePlayerR2TechList[0];
-    }
+    cat_rmSelectTechPrintList();
 
     for (index=0;index<NUM_RESEARCHLABS;index++)
     {
         labbuttons[index].lab = &universe.curPlayerPtr->researchinfo.researchlabs[index];
+        labbuttons[index].labid = (sword)(index + 1);
         labbuttons[index].selected = FALSE;
-        labbuttons[index].labid = (uword) (index+1);
         labbuttons[index].pulsepos = 0;
     }
 
     soundEventStopSFX(0.5f);
-
-    /* play the intro sound */
-    soundEvent(NULL, UI_ManagerIntro);
-    /* start the research ambient sound */
-    soundEvent(NULL, UI_ResearchManager);
+    soundEventPlay(NULL, 0x12f, NULL);
+    soundEventPlay(NULL, 0x106, NULL);
 
     rmUpdateTechList();
 
-    rmIoSaveState = ioDisable();
-
-    rmBaseRegion = feScreenStart(region, RM_ResearchScreen);  //add new regions as siblings of current one
+    rmBaseRegion = feScreenStart(region, (universe.curPlayerPtr->race == RACE_Sect) ? RM_ResearchScreen : CAT_RM_BeastResearchScreen);
+    strcpy(filename, TechImagePaths[(universe.curPlayerPtr->race == RACE_Sect) ? 0 : 1]);
+    strcat(filename, CAT_RM_DefaultImage);
+    catRmPictureLoad(filename);
 
     rmGUIActive = TRUE;
-
     tutGameMessage("Start_ResearchManager");
-
     mouseCursorShow();
-
-//    rmExtendedInfoActive = FALSE;
-
     mouseCursorShow();
-
-    return (0);
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : ShipsNeedTech
-    Description : rerturns true if a ship needs the technology specified.
-    Inputs      : techstatics
-    Outputs     : TRUE/FALSE
-    Return      : bool32
-----------------------------------------------------------------------------*/
-bool32 ShipsNeedTech(TechStatics *techstat, TechnologyType tech)
-{
-    sdword index;
-
-    for (index=0;index<STD_LAST_SHIP;index++)
-    {
-        if (techstat->TechNeededToBuildShip[index][tech] == 1)      // CAT: tech sets
-        {
-            return(TRUE);
-        }
-    }
-    return(FALSE);
+    // CAT-TODO(stage 6 tutorial): cat_tutButtonsHideForScreen 0x005341f0 (the tutorial's buttons hide while the screen is open)
+    return 0;
 }
 
 /*-----------------------------------------------------------------------------
@@ -2309,130 +1625,182 @@ bool32 ShipsNeedTech(TechStatics *techstat, TechnologyType tech)
     Inputs      : none
     Outputs     : none
     Return      : void
+    CAT (M2-R6 managers): the exe's body (0x004f75f0): list 1 (single-player Sect) and 3 (multiplayer Sect) are copies of
+        the exe's Sect list, list 4 (Beast) of its Beast list, whole (no filter by the ships that need a technology);
+        techstat is not read
 ----------------------------------------------------------------------------*/
+static void catRmCopyPrintList(TechPrintList *dest, TechPrintList *source)
+{
+    sdword index;
+
+    for (index = 0; source[index].itemtype != ITEM_ENDLIST; index++)
+    {
+        dest[index] = source[index];
+    }
+    dest[index].itemtype = ITEM_ENDLIST;
+}
+
 void rmSetPrintList(udword whichlist, TechStatics *techstat)
 {
-    sdword index, copycount;
-
+    (void)techstat;
     switch (whichlist)
     {
-        case RM_SPR1 :
-            for (copycount=0,index=0;index<NUMTECHSINLIST; index++)
-            {
-                if (PlayerTechListStatic[index].itemtype==ITEM_TECHNOLOGY)
-                {
-                    if (ShipsNeedTech(techstat, PlayerTechListStatic[index].itemID))
-                    {
-                        SinglePlayerR1TechList[copycount] = PlayerTechListStatic[index];
-                        copycount++;
-                    }
-                }
-                else
-                {
-                    SinglePlayerR1TechList[copycount] = PlayerTechListStatic[index];
-                    copycount++;
-                }
-            }
+        case RM_SPRS:
+            catRmCopyPrintList(SinglePlayerR1TechList, catRmSectTechListStatic);
             break;
-        case RM_SPR2 :
-            for (copycount=0,index=0;index<NUMTECHSINLIST; index++)
-            {
-                if (PlayerTechListStatic[index].itemtype==ITEM_TECHNOLOGY)
-                {
-                    if (ShipsNeedTech(techstat, PlayerTechListStatic[index].itemID))
-                    {
-                        SinglePlayerR2TechList[copycount] = PlayerTechListStatic[index];
-                        copycount++;
-                    }
-                }
-                else
-                {
-                    SinglePlayerR2TechList[copycount] = PlayerTechListStatic[index];
-                    copycount++;
-                }
-            }
+        case RM_MPRS:
+            catRmCopyPrintList(MultiPlayerR1TechList, catRmSectTechListStatic);
             break;
-        case RM_MPR1 :
-            for (copycount=0,index=0;index<NUMTECHSINLIST; index++)
-            {
-                if (PlayerTechListStatic[index].itemtype==ITEM_TECHNOLOGY)
-                {
-                    if (ShipsNeedTech(techstat, PlayerTechListStatic[index].itemID))
-                    {
-                        MultiPlayerR1TechList[copycount] = PlayerTechListStatic[index];
-                        copycount++;
-                    }
-                }
-                else
-                {
-                    MultiPlayerR1TechList[copycount] = PlayerTechListStatic[index];
-                    copycount++;
-                }
-            }
+        case RM_MPRB:
+            catRmCopyPrintList(MultiPlayerR2TechList, catRmBeastTechListStatic);
             break;
-        case RM_MPR2 :
-            for (copycount=0,index=0;index<NUMTECHSINLIST; index++)
-            {
-                if (PlayerTechListStatic[index].itemtype==ITEM_TECHNOLOGY)
-                {
-                    if (ShipsNeedTech(techstat, PlayerTechListStatic[index].itemID))
-                    {
-                        MultiPlayerR2TechList[copycount] = PlayerTechListStatic[index];
-                        copycount++;
-                    }
-                }
-                else
-                {
-                    MultiPlayerR2TechList[copycount] = PlayerTechListStatic[index];
-                    copycount++;
-                }
-            }
-            break;
-        case RM_MPCR1 :
-            for (copycount=0,index=0;index<NUMTECHSINLIST; index++)
-            {
-                if (PlayerTechListStatic[index].itemtype==ITEM_TECHNOLOGY)
-                {
-                    if (ShipsNeedTech(techstat, PlayerTechListStatic[index].itemID))
-                    {
-                        MultiPlayerCR1TechList[copycount] = PlayerTechListStatic[index];
-                        copycount++;
-                    }
-                }
-                else
-                {
-                    MultiPlayerCR1TechList[copycount] = PlayerTechListStatic[index];
-                    copycount++;
-                }
-            }
-            break;
-        case RM_MPCR2 :
-            for (copycount=0,index=0;index<NUMTECHSINLIST; index++)
-            {
-                if (PlayerTechListStatic[index].itemtype==ITEM_TECHNOLOGY)
-                {
-                    if (ShipsNeedTech(techstat, PlayerTechListStatic[index].itemID))
-                    {
-                        MultiPlayerCR2TechList[copycount] = PlayerTechListStatic[index];
-                        copycount++;
-                    }
-                }
-                else
-                {
-                    MultiPlayerCR2TechList[copycount] = PlayerTechListStatic[index];
-                    copycount++;
-                }
-            }
+        default:
             break;
     }
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_rmSelectTechPrintList
+    Description : CAT: new (0x004f7a40): the current player's research list: single player the Sect list 1 (a Beast
+                  player the unfilled one), multiplayer list 3 (Sect) or 4 (Beast)
+----------------------------------------------------------------------------*/
+void cat_rmSelectTechPrintList(void)
+{
+    if (singlePlayerGame)
+    {
+        PlayerTechList = (universe.curPlayerPtr->race != RACE_Sect) ? SinglePlayerR2TechList : SinglePlayerR1TechList;
+        return;
+    }
+    PlayerTechList = (universe.curPlayerPtr->race == RACE_Sect) ? MultiPlayerR1TechList : MultiPlayerR2TechList;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rmBeastPrintIndexToShipType
+    Description : CAT: new (0x004f4790): the ship type of a Beast list header (print index 10..29; -1 for any other,
+                  9 included)
+----------------------------------------------------------------------------*/
+ShipType cat_rmBeastPrintIndexToShipType(sdword index)
+{
+    static const ShipType types[20] =
+    {
+        bRecon, bWorker, bProcessor, bAcolyte, bACV, bMultiBeamFrigate, bHiveFrigate, bSentinel, bInterceptor,
+        bCloakedFighter, bAttackBomber, bCruiseMissile, bMissileCorvette, bMultiGunCorvette, bHeavyCorvette,
+        bDFGFrigate, bIonArrayFrigate, bHeavyCruiser, bCarrier, bRammingFrigate
+    };
+
+    if ((index < 10) || (index > 29))
+    {
+        return (ShipType)-1;
+    }
+    return types[index - 10];
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_rmAcquireShipTechs
+    Description : CAT: new (0x004f4870): a retired (Dock.c) or converted (cat_univConvertShip 0x00543950) Beast ship
+                  brings the technologies of its upgrades to its player (only when the player's first lab word is
+                  set): the ship's upgrade technologies (cat_shipGetUpgradeTechs), or every technology when the ship's
+                  or the player's row of its type says all, are ORed into the player's upgrade row of the type, and
+                  the type becomes buildable (catShipTypeEnabled). For the local human player the research list is
+                  marked first: under every header whose ship is this type or an enabled one, the rows of the type's
+                  build technologies become CAT_ITEM_TECH2 and the rows of the new upgrade technologies
+                  CAT_ITEM_TECH3 (the technologies 7, 16, 28, 32, 33 and 34 never; 24 not for a bAcolyte / bACV); the
+                  open research screen is refreshed
+----------------------------------------------------------------------------*/
+static bool32 catRmAcquireSkipsTech(sdword tech)
+{
+    return (tech == TECH_REPAIRBOTS) || (tech == TECH_SALVAGE) || (tech == TECH_CRYSTAL_HARVEST) ||
+           (tech == TECH_SUPPORT_SYSTEMS) || (tech == TECH_INFECT) || (tech == TECH_ADVANCED_SENSORS);
+}
+
+static void catRmAcquireMarkRows(Ship *ship, sdword tech, sword kind)
+{
+    TechPrintList *row;
+    ShipType headertype;
+    bool32 underHeader = TRUE;
+
+    for (row = PlayerTechList; row->itemtype != ITEM_ENDLIST; row++)
+    {
+        if (row->itemtype == ITEM_CLASSHEADER)
+        {
+            headertype = cat_rmBeastPrintIndexToShipType(row->itemID);
+            // CAT-FIX: the exe reads catShipTypeEnabled[-1] for a header that maps to no type (print index 9)
+            underHeader = (headertype == ship->shiptype) ||
+                          ((headertype != (ShipType)-1) && ship->playerowner->researchinfo.catShipTypeEnabled[headertype]);
+        }
+        else if (underHeader && (row->itemtype == ITEM_TECHNOLOGY) && (row->itemID == tech))
+        {
+            row->itemtype = kind;
+        }
+    }
+}
+
+void cat_rmAcquireShipTechs(Ship *ship)
+{
+    Player *player = ship->playerowner;
+    CatTechSet techs;
+    sdword tech;
+    sdword *buildtechs;
+
+    if (player->researchinfo.researchlabs[0].labstatus == 0)
+    {
+        return;
+    }
+    cat_shipGetUpgradeTechs(ship, techs);
+    if ((techs[CAT_TECHSET_FLAG] == CAT_TECHSET_ALL) ||
+        (player->researchinfo.catShipUpgradeTechs[ship->shiptype][CAT_TECHSET_FLAG] == CAT_TECHSET_ALL))
+    {
+        cat_rmTechSetClear(techs);
+        techs[CAT_TECHSET_FLAG] = CAT_TECHSET_ALL;
+    }
+    else
+    {
+        for (tech = 0; tech < NumTechnologies; tech++)
+        {
+            techs[tech] |= player->researchinfo.catShipUpgradeTechs[ship->shiptype][tech];
+        }
+        techs[CAT_TECHSET_FLAG] = 0;
+    }
+    if ((player == universe.curPlayerPtr) && (universe.curPlayerPtr->aiPlayer == NULL))
+    {
+        cat_rmSelectTechPrintList();
+        buildtechs = player->researchinfo.techstat->TechNeededToBuildShip[ship->shiptype];
+        for (tech = 0; tech < NumTechnologies; tech++)
+        {
+            if (catRmAcquireSkipsTech(tech) || ((ship->shiptype == bAcolyte) && (tech == TECH_LINK)))
+            {
+                continue;
+            }
+            if ((buildtechs[CAT_TECHSET_FLAG] == CAT_TECHSET_ALL) || (buildtechs[tech] == 1))
+            {
+                catRmAcquireMarkRows(ship, tech, CAT_ITEM_TECH2);
+            }
+        }
+        for (tech = 0; tech < NumTechnologies; tech++)
+        {
+            if (catRmAcquireSkipsTech(tech) || ((ship->shiptype == bACV) && (tech == TECH_LINK)))
+            {
+                continue;
+            }
+            if ((techs[CAT_TECHSET_FLAG] == CAT_TECHSET_ALL) || (techs[tech] == 1))
+            {
+                catRmAcquireMarkRows(ship, tech, CAT_ITEM_TECH3);
+            }
+        }
+        if (rmBaseRegion != NULL)
+        {
+            rmUpdateTechList();
+        }
+    }
+    memcpy(player->researchinfo.catShipUpgradeTechs[ship->shiptype], techs, sizeof(CatTechSet));
+    player->researchinfo.catShipTypeEnabled[ship->shiptype] = TRUE;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : rmGUIStartup
     Description : Initializes the Research Manager GUI
-    Inputs      : none
-    Outputs     : none
-    Return      : void
+    CAT (M2-R6 managers): rmGUIStartup 0x004f76f0: the LRU slots (no image, no texture, technology and race -2), the
+        Somtaaw lab buttons and the Beast animation frames (rmPaletted follows the last image), the three fonts
 ----------------------------------------------------------------------------*/
 void rmGUIStartup(void)
 {
@@ -2444,55 +1812,11 @@ void rmGUIStartup(void)
     for (index=0;index<RM_TOTALPICS;index++)
     {
         pictures[index].techImage   = NULL;
-        pictures[index].tech        = -1;
-        pictures[index].race        = -1;
-        pictures[index].timestamp   = 0.0;
         pictures[index].techTexture = TR_InvalidInternalHandle;
+        pictures[index].tech        = -2;
+        pictures[index].race        = -2;
+        pictures[index].timestamp   = 0.0;
     }
-
-#if 0   // CAT: HW1's per-race "Research_icon.lif" (replaced below)
-    for(index=0; index < MAX_RACES; index++)
-    {
-        //if( rmLabTexture[index] == TR_InvalidInternalHandle)
-        {
-            // Build filename for loading texture from file
-            strcpy(filename, TechImagePaths[index]);
-            strcat(filename, RM_LabIcon);
-
-            // Load the image
-            rmLabImage[index] = trLIFFileLoad(filename, NonVolatile);
-            if (bitTest(rmLabImage[index]->flags, TRF_Paletted))
-            {
-                rmPaletted = TRUE;
-            }
-            else
-            {
-                rmPaletted = FALSE;
-            }
-
-            if (rmPaletted)
-            {
-                rmLabTexture[index] = trPalettedTextureCreate(
-                    rmLabImage[index]->data,
-                    rmLabImage[index]->palette,
-                    rmLabImage[index]->width,
-                    rmLabImage[index]->height);
-            }
-            else
-            {
-                rmLabTexture[index] = trRGBTextureCreate(
-                    (color*)rmLabImage[index]->data,
-                    rmLabImage[index]->width,
-                    rmLabImage[index]->height,
-                    TRUE);
-            }
-
-            //trPalettedTextureMakeCurrent(rmLabTexture[index], rmLabImage[index]->palette);
-        }
-    }
-#endif
-    // CAT: load the Somtaaw lab buttons and the Beast animation frames (rmGUIStartup 0x004f76f0, two loops; each
-    //      image paletted or RGB, rmPaletted follows the last one loaded, as in the exe's flag at 0x00c1689c)
     for (index = 0; index < CAT_RM_NUM_LABICONS; index++)
     {
         strcpy(filename, TechImagePaths[0]);
@@ -2529,13 +1853,6 @@ void rmGUIStartup(void)
                                                           catRmBeastImage[index]->width, catRmBeastImage[index]->height, TRUE);
         }
     }
-    // CAT: HW1's lab-icon draw code (rmDrawLab*, stage 3) still reads rmLabImage/rmLabTexture[race]; until it is
-    //      ported they borrow (do not own) the Somtaaw "Engineering_on" button and the first Beast frame
-    rmLabImage[0]   = catRmLabImage[12];
-    rmLabTexture[0] = catRmLabTexture[12];
-    rmLabImage[1]   = catRmBeastImage[0];
-    rmLabTexture[1] = catRmBeastTexture[0];
-
     rmCurTexture   = TR_InvalidInternalHandle;
     rmCurTechImage = NULL;
     rmCurTechTexture = -1;
@@ -2548,9 +1865,7 @@ void rmGUIStartup(void)
 /*-----------------------------------------------------------------------------
     Name        : rmGUIShutdown
     Description : shuts down the research managers GUI
-    Inputs      : none
-    Outputs     : none
-    Return      : void
+    CAT: rmGUIShutdown 0x004f7970: the screens, the LRU slots, the lab buttons and the Beast frames
 ----------------------------------------------------------------------------*/
 void rmGUIShutdown(void)
 {
@@ -2575,14 +1890,6 @@ void rmGUIShutdown(void)
             trRGBTextureDelete(pictures[index].techTexture);
             pictures[index].techTexture = TR_InvalidInternalHandle;
         }
-    }
-
-    // CAT: rmLabImage/rmLabTexture only borrow entries of the tables below (rmGUIStartup); drop them, then free the
-    //      Cataclysm research art (rmGUIShutdown 0x004f7970, second and third loops)
-    for(index=0;index<MAX_RACES;index++)
-    {
-        rmLabImage[index] = NULL;
-        rmLabTexture[index] = TR_InvalidInternalHandle;
     }
     for (index = 0; index < CAT_RM_NUM_LABICONS; index++)
     {

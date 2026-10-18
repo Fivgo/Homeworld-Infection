@@ -699,3 +699,51 @@ sdword lodAutoSave(lodinfo *LOD)
     return(0);
 }
 #endif
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_lodLevelGetMimic
+    Description : CAT: new (0x004a4b20, the sensors manager's mesh draw): the object's camera distance updated and its
+                  level chosen by the selection circle radius alone (the five bands of lodLevelGet without the detail
+                  offset; a negative radius takes the last band), in the table a mimic shows (cat_mimicGetStaticInfo)
+    Inputs      : spaceObj - a ship; camera, ship - the eye and the ship's position
+    Outputs     : spaceObj->cameraDistanceVector / cameraDistanceSquared / currentLOD
+    Return      : the level
+----------------------------------------------------------------------------*/
+lod *cat_lodLevelGetMimic(void *spaceObj, vector *camera, vector *ship)
+{
+    SpaceObj *obj = (SpaceObj *)spaceObj;
+    real32 radius = ((SpaceObjRotImpTarg *)obj)->impactable.collInfo.selCircleRadius;
+    lodinfo *info = cat_mimicGetStaticInfo((Ship *)obj);
+
+    vecSub(obj->cameraDistanceVector,*camera,*ship);
+    obj->cameraDistanceSquared = vecMagnitudeSquared(obj->cameraDistanceVector);
+    if (!(radius <= CAT_LOD_RADIUS_MAX))
+    {
+        obj->currentLOD = 0;
+    }
+    else if (!(radius <= CAT_LOD_RADIUS_1))
+    {
+        obj->currentLOD = 1;
+    }
+    else if (!(radius <= CAT_LOD_RADIUS_2))
+    {
+        obj->currentLOD = 2;
+    }
+    else if (!(radius <= CAT_LOD_RADIUS_3))
+    {
+        obj->currentLOD = 3;
+    }
+    else if (!(radius <= CAT_LOD_RADIUS_4))
+    {
+        obj->currentLOD = 4;
+    }
+    else
+    {
+        obj->currentLOD = 5;
+    }
+    if ((sdword)obj->currentLOD >= info->nLevels)
+    {
+        obj->currentLOD = (ubyte)(info->nLevels - 1);
+    }
+    return &info->level[obj->currentLOD];
+}

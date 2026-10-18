@@ -137,6 +137,7 @@ void GetDistanceAngleDeclination(Camera *camera,vector *distvec);
 
 //cubic curve evaluation:
 void EvalCubic( float *y0, float *m0, float y1, float t );
+void cat_ccEvalCubicVel(float *y0, float *m0, float y1, float m1, float t);   // CAT: 0x0042d4a0 (M2-R6 managers)
 void ccGetShipCollCenter(Ship *ship, vector *pos, real32 *rad);
 
 //cull a focus selection to a certain radius

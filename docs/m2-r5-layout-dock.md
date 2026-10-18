@@ -307,7 +307,8 @@ words in the sync checksum).
 TODOs above (M2-R6); the save of `universe.catSelection1A0` (the exe's `SaveUniverse` 0x005034c0 saves it after
 `HousekeepShipList`; this tree's `SaveGame.c` does not yet: stage 5 save games); the `fsqrt` decision (user); the ACV
 that orbits its dock point for minutes before latching (the corvette flight model along the cone, `AIShip.c`, stage 4;
-the dock code matches the exe) and the harvesting Worker's jack animation (`Worker.c`, stage 3 `madAnimationStart`).
+the dock code matches the exe) [M2-R6 managers: does not persist: with the exe's `SOF_CatDocking` collision exemption
+added to `Collision.c` both ACVs are inside by tick 1250 (without it the late one at ~2048); docs/m2-r6-managers.md `dock`] and the harvesting Worker's jack animation (`Worker.c`, stage 3 `madAnimationStart`).
 Medium-confidence readings: `catRetreating`'s meaning; the retire refund's float (`TW_RETIRE_MONEYBACK_RATIO x buildCost`
 stands in for the `__ftol` the decompile shows) [audit: confirmed by the disassembly, see `dock`]; the dock state names; `catObjReserved88[4]`, `catShipReserved5B0`,
 `catMissileReserved248[3]`, `catNavLightStatic` have no exe reader found.

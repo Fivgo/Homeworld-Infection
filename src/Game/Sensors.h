@@ -10,7 +10,9 @@
 #define ___SENSORS_H
 
 #include "FEFlow.h"
+#include "Camera.h"
 #include "Matrix.h"
+#include "SpaceObj.h"
 #include "ShipDefs.h"
 
 /*=============================================================================
@@ -227,6 +229,23 @@ extern udword smSensorWeirdness;
 
 extern sdword MP_HyperSpaceFlag;
 
+// CAT (M2-R6 managers, sensors): the Cataclysm sensors manager's new state (Sensors.c)
+extern bool32 catSmHideViewport;                    // 0x00a5b228
+extern bool32 catSmForceOpen;                       // 0x00a5b22c (kasfOpenSensors)
+extern bool32 catSmReopen;                          // 0x00a5b230
+extern Camera catSmSavedCamera;                     // 0x00c0a7e0
+extern Camera smCamera;                             // 0x00c0aac0
+extern vector smCameraLookatPoint;                  // 0x00a5b1f0 (the pan's target)
+extern real32 catSmZoomFactor;                      // 0x00892b74
+
+// HWI: the sensors scene's draw counts for the HUD self-test (InfoOverlay.c catHudSelfTestTick), not in the exe
+typedef struct
+{
+    udword scenes, rangeCircles, shipPoints, meshes, icons, slipgatePaths, hotkeyNumbers, resources, mines,
+           boundsFrames, compassFrames;
+} CatSmDrawCounts;
+extern CatSmDrawCounts catSmDrawCounts;
+
 /*=============================================================================
     Functions:
 =============================================================================*/
@@ -242,6 +261,19 @@ void smPlayerNamesDraw(rectangle *viewportRect);
 
 //activate the sensors manager.  It will stop itself
 void smSensorsBegin(char *name, featom *atom);
+void catSmReopenAfterManager(void);     // HWI helper (M2-R6 managers): a manager's close reopens the sensors manager
+udword smViewportProcess(regionhandle region, sdword ID, udword event, udword data);   // CAT: 0x0050c7e0
+
+// CAT (M2-R6 managers, sensors): the Cataclysm sensors scene (0x00509be0 .. 0x0050b4b0)
+void cat_smSensorRangeBlobsDraw(hmatrix *modelView, hmatrix *projection);  // 0x00509be0
+bool32 cat_smShipMeshDraw(Ship *ship);                              // 0x0050a0d0
+sdword cat_smShipBlipType(Ship *ship);                              // 0x0050a280
+void cat_smShipsDraw(hmatrix *modelView, hmatrix *projection);             // 0x0050a310
+void cat_smShipHotkeyNumbersDraw(void);                                    // 0x0050ab50
+void cat_smResourcesDraw(hmatrix *modelView, hmatrix *projection);         // 0x0050ae00
+void cat_smUniverseBoundsDraw(void);                                       // 0x0050b150
+void cat_smMinesDraw(hmatrix *modelView, hmatrix *projection);             // 0x0050b380
+void cat_smViewportRenderScene(hmatrix *modelView, hmatrix *projection);   // 0x0050b4b0
 
 //explicitly close sensors manager
 void smSensorsClose(char *name, featom *atom);

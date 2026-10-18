@@ -177,6 +177,7 @@ struct Player;
 //      filled bit masks; these fill tech sets)
 void cat_rsShipDependSetCB(char *directory, char *field, void *dataToFillIn);
 void cat_rsTechDependSetCB(char *directory, char *field, void *dataToFillIn);
+void cat_rsMPRBShipDependSetCB(char *directory, char *field, void *dataToFillIn);    // CAT: 0x004f4430 (M2-R6 managers)
 
 char *RaceSpecificTechTypeToNiceString(TechnologyType tech, ShipRace race);
 char *TechTypeToNiceString(TechnologyType tech);
@@ -227,6 +228,8 @@ void cat_rmResearchModuleActivated(struct Player *player, ShipType moduleType, b
 void cat_rmResearchModuleDied(struct Player *player, ShipType moduleType);
 void cat_rmMothershipLabLost(struct Player *player);                             // CAT: 0x004f4700
 bool32 cat_playerShipTypeEnabled(struct Player *player, ShipType type);         // CAT: 0x004f4780
+struct Ship;
+void cat_rmAcquireShipTechs(struct Ship *ship);                                 // CAT: 0x004f4870 (ResearchGUI.c: it marks the research list)
 
 //start the Research Manager.
 void   rmAPIStartup(void);

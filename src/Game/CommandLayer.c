@@ -7608,7 +7608,9 @@ Ship *clCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uw
     dbgAssertOrIgnore(playerIndex < universe.numPlayers);
 
     // create ship
-    ship = univCreateShip(shipType,shipRace,&creator->obj.posinfo.position,&universe.players[playerIndex],1);
+    // CAT (M2-R6 managers): the creator is univCreateShip's 6th argument (clCreateShip 0x0044a840 passes it: an externally
+    //      built type then starts at health 0 and is no factory yet)
+    ship = univCreateShip(shipType,shipRace,&creator->obj.posinfo.position,&universe.players[playerIndex],1,creator);
 
     gameStatsAddShip(ship,playerIndex);
 

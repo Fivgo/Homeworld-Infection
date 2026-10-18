@@ -74,8 +74,7 @@ static void hiveFrigateMakeSwarmer(Ship *ship, sdword slot)
     // CAT: the exe passes built 5 (bit 0 built, bit 2 not added to the universe) and the hive as the creator; this
     //      tree's univCreateShip never adds the ship and takes built 1 for "built"
     swarmer = univCreateShip((ship->shiprace == RACE_Beast) ? bSwarmer : sSwarmer, ship->shiprace,
-                             &ship->obj.posinfo.position, ship->playerowner, 1);
-    swarmer->catCreator = ship;
+                             &ship->obj.posinfo.position, ship->playerowner, 1, ship);
     gameStatsAddShip(swarmer, ship->playerowner->playerIndex);
     bitClear(swarmer->header.flags, SOF_Selectable);
     swarmerspec = (SwarmerSpec *)swarmer->ShipSpecifics;

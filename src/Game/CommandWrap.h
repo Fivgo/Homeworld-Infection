@@ -17,7 +17,9 @@ void clWrapMove(CommandLayer *comlayer,SelectCommand *selectcom,sdword pathType,
 void clWrapAttack(CommandLayer *comlayer,SelectCommand *selectcom,AttackCommand *attackcom);
 void clWrapFormation(CommandLayer *comlayer,SelectCommand *selectcom,TypeOfFormation formation,sdword catForceFieldLevel);   // CAT: + level (0x00452ca0)
 void clWrapDock(CommandLayer *comlayer,SelectCommand *selectcom,DockType dockType,ShipPtr dockwith);
-void clWrapCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator);
+// CAT (M2-R6 managers): returns the new ship (clWrapCreateShip 0x00452f30 returns clCreateShip's ship, NULL when it
+//      sends the order; cmBuildTaskFunction 0x00454940 keeps it)
+Ship *clWrapCreateShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator);
 void clWrapBuildShip(CommandLayer *comlayer,ShipType shipType,ShipRace shipRace,uword playerIndex,ShipPtr creator);
 
 void clWrapDeterministicBuild(udword command,
