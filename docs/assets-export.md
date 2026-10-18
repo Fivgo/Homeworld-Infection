@@ -181,3 +181,57 @@ pixel checksum (`pixels_sha1`) to find identical textures.
    preference) are UNVERIFIED there; the return tool should confirm with one texture first.
 7. **The recreation** can load the PNGs directly. If it keeps `meshLoad`'s `.peo` preference it needs the rebuilt pages;
    loading the `.geo` with the individual textures avoids pages entirely.
+
+## Modular ships: assembled models (`tools/assets/assemble_modular.py`)
+
+Added 2026-10-17. Three hulls are built from parts that are ships of their own: `race_sect/smothership` (the Kuun-Lan),
+`race_beast/bmothership` and `race_sect/scarrier`. The tool reads the parts' exported OBJs and writes, per hull,
+`<hull>_assembled_lod<N>.obj|.mtl` (one OBJ object per part, materials renamed `<label>__<name>` and pointing at the
+parts' own PNGs) and `<hull>_assembly.json` (category, dock point, transform and checks per part). It also writes a
+user-facing section into the export's `README.md` between marker comments. A full export deletes all of this, so run
+the tool again after every export:
+
+```
+python3 tools/assets/assemble_modular.py              # LOD 0 of all three hulls (under a second)
+python3 tools/assets/assemble_modular.py --lods all --blender   # every LOD, plus a headless Blender import check
+```
+
+How each part is placed (code in `.claude/worktrees/m2/src`, read-only):
+
+* **Made with the ship:** `cat_univCreateMothershipModules` (`Game/UnivUpdate.c:2219-2267`) puts each module at the
+  host's position and clamps it (`Game/Clamp.c:28-52`). Host and module both start with `defaultshipmatrix`
+  (`Game/UnivUpdate.c:351`), so the clamp offset is zero and the relative rotation is the identity. The module meshes
+  are authored in the mothership's own frame. Independent check: every vertex of Relic's merged lower-section mesh
+  `race_beast/bsectmoship` coincides with a vertex of the identity-placed lower spine, docking bay or lower engines.
+* **Built in play:** the external-build launch (`Game/Dock.c:2700-2716`) puts the part at host + dock point position
+  (the raw MEX `Dok` chunk, `Game/MEX.c:354`, from the `.mex` named by the hull's `pMexData`) and orients it with
+  columns (up, right, heading) from the `.shp` heading/up codes (`dockPutShipOutside`, `Game/Dock.c:2969-3003`). The
+  seven `DPT_Module_EB` points of the Kuun-Lan all sit at the origin with heading forward and up up, so this gives the
+  identity too, the same as the code path above.
+* **Supports** (`DPT_Support_EB`, `Game/Dock.c:1500-1503`) go to their own points and are turned by the parity of the
+  point's index within its type (`Game/Dock.c:3013-3050`, exe `0x00463350`): Sect and carrier odd points
+  `* RotX(pi)`; Beast bit 2 `* RotY(pi) * RotZ(+-7 deg)`, then bit 1 `* RotX(pi)`. The constants were read from the
+  exe (`0x0072a7d8` pi, `0x0072a7cc` +7 degrees, `0x0072a7d0` -7 degrees). The support positions are the same in all
+  five LOD `.mex` files.
+* **Axes:** a part transform (M, t) in game space is applied to the exported OBJ as v' = A (M A^T v + t) with
+  A = `to_obj_axes`.
+
+Which parts start with the ship comes from `cat_univMothershipModuleTypesGet` and
+`cat_univBeastMothershipModuleTypesGet` (`Game/Universe.c:5350-5424`). `smothershipgenetics` is cut content: the
+Kuun-Lan `.shp` lists a `Genetics` dock point and the mesh exists, but there is no ship type, `.shp` or unit cap.
+`bcarrier` has no module or support dock points and is not assembled. `bsectmoship` is never attached to a hull by
+code.
+
+Validation (LOD 0; every check passes; the tool exits 1 on any failure):
+
+| check | smothership | bmothership | scarrier |
+|---|---|---|---|
+| objects (parts, supports numbered) | 26 | 15 | 7 |
+| v / f written = sum over parts = manifest counts | 1,111 / 1,574 | 694 / 848 | 526 / 753 |
+| every `usemtl` defined, every `map_*` and mask path exists | yes | yes | yes |
+| every part's box touches another part's box | yes | yes | yes |
+| support pairs mirrored left/right (worst error, units) | 6 pairs (0.000) | 6 pairs (0.434) | 3 pairs (0.000) |
+| headless Blender 5.2.2 import: objects, faces, images loaded | 26, 1,574, 81/81 | 15, 848, 19/19 | 7, 753, 41/41 |
+
+The Beast's upper and lower struts overlap by about 10 units where they meet, and their outer edges line up with
+the hull's half-width. That fits the 7-degree turn of the lower struts.
