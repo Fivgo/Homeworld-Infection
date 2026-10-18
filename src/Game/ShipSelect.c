@@ -3542,6 +3542,56 @@ void cat_shipStealthInit(Ship *ship)                                // 0x0053fce
     }
 }
 
+// CAT (M2-R6 nis-fow-camera): a stealthy ship's detection by every player (cat_shipStealthDetectionUpdate 0x0053fd90;
+//      cat_univShipDeferredUpdate calls it for the catTypeFlags 0x20000 types every 16th tick by ship number): the
+//      owner's allies detect it (except player 1 in single-player mission 14), and so does every player with a
+//      detector ship (catTypeFlags 0x10000 with upgrade 0x800000) whose FOW radius reaches it. The flags are set
+//      (aloud) where a player detects it, and for a leech also where it is no longer detected.
+void cat_shipStealthDetectionUpdate(Ship *ship)
+{
+    bool32 detected[MAX_MULTIPLAYER_PLAYERS];
+    sdword index;
+    Node *node;
+    Ship *detector;
+    double radius, dx, dy, dz;      // the exe's x87 sum (53-bit precision control)
+
+    for (index = 0; index < MAX_MULTIPLAYER_PLAYERS; index++)
+    {
+        detected[index] = FALSE;
+    }
+    for (index = 0; index < universe.numPlayers; index++)
+    {
+        if (allianceArePlayersAllied(ship->playerowner, &universe.players[index]) &&
+            (!singlePlayerGame || (singlePlayerGameInfo.currentMission != 14) || (ship->playerowner->playerIndex != 1)))
+        {
+            detected[index] = TRUE;
+        }
+    }
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        detector = (Ship *)listGetStructOfNode(node);
+        if (bitTest(detector->staticinfo->catTypeFlags, 0x10000) && cat_shipHasUpgrade(detector, 0x800000) &&
+            !detected[detector->playerowner->playerIndex])
+        {
+            radius = cat_shipGetFOWRadius(detector, 0);
+            dx = (double)ship->obj.posinfo.position.x - (double)detector->obj.posinfo.position.x;
+            dy = (double)ship->obj.posinfo.position.y - (double)detector->obj.posinfo.position.y;
+            dz = (double)ship->obj.posinfo.position.z - (double)detector->obj.posinfo.position.z;
+            if (dx * dx + dy * dy + dz * dz < radius * radius)
+            {
+                detected[detector->playerowner->playerIndex] = TRUE;
+            }
+        }
+    }
+    for (index = 0; index < universe.numPlayers; index++)
+    {
+        if (detected[index] || (ship->shiptype == sLeech))
+        {
+            cat_shipStealthDetectedSet(ship, index, detected[index], FALSE);
+        }
+    }
+}
+
 bool32 cat_shipDetectedByPlayer(Ship *ship, sdword playerIndex)     // sub_53F9F0 0x0053f9f0
 {
     // Ship types with the stealth type flag (catTypeFlags 0x20000: sMimic, sLeech, sMCV, bCloakedFighter,

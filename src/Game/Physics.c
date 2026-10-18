@@ -17,6 +17,7 @@
 #include "Collision.h"
 #include "Debug.h"
 #include "FastMath.h"
+#include "FOW.h"
 #include "Gun.h"
 #include "Matrix.h"
 #include "MultiplayerGame.h"
@@ -279,6 +280,7 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
 {
     vector a;
     vector d;
+    vector oldPosition;     // CAT: the position before the move (the FOW update)
     StaticInfo *staticheader = &obj->staticinfo->common;
     ShipStaticInfo *shipstaticinfo;
     bool32 coordsysChanged = FALSE;
@@ -345,9 +347,14 @@ void physUpdateObjPosVelShip(Ship *obj,real32 phystimeelapsed)
         vecScalarMultiply(d,obj->obj.posinfo.velocity,phystimeelapsed);
 
         // x = x + d
+        oldPosition = obj->obj.posinfo.position;
         vecAddTo(obj->obj.posinfo.position,d);
-        // CAT-TODO(stage 3): a ship that sees through the fog of war updates its player's FOW grid from the old to the
-        //      new position (cat_shipAffectsFOW, cat_univShipFOWUpdate)
+        // CAT (M2-R6 nis-fow-camera): a ship that affects the fog of war moves its cube on its player's grid from the
+        //      old to the new position (physUpdateObjPosVelShip 0x004e4950: cat_shipAffectsFOW, cat_univShipFOWUpdate)
+        if (cat_shipAffectsFOW(obj))
+        {
+            cat_univShipFOWUpdate(obj, &oldPosition, &obj->obj.posinfo.position);
+        }
 
     }
     else

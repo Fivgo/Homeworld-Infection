@@ -19,6 +19,7 @@
 //#include "bink.h"
 #include "BTG.h"
 #include "CameraCommand.h"
+#include "Console.h"          // CAT: catMotionCues (M2-R6 nis-fow-camera)
 #include "Clipper.h"
 #include "Clouds.h"
 #include "Collision.h"
@@ -4316,8 +4317,13 @@ void rndMainViewRenderFunction(Camera *camera)
     catShCurrentObject = NULL;
     meshSetFade(0, 0.0f);
 
-    // CAT-TODO(M2-R6 NIS/camera): the motion cues (cat_mcRender 0x0042c630 with 0x00c49400, when the switch
-    //      0x008b8844 is on; kasfSetMotionCues sets it) are the camera producer's
+    // CAT (M2-R6 nis-fow-camera): the motion cues, when the switch is on (rndMainViewRenderFunction 0x005764e0 at 0x00577360:
+    //      cat_mcRender 0x0042c630 with the state 0x00c49400 while catMotionCues 0x008b8844; kasfSetMotionCues and the
+    //      console's "cameracues" set it). A requested reset scatters the points with random stream 0.
+    if (catMotionCues)
+    {
+        cat_mcRender(camera, &catMotionCueState);
+    }
     cat_blastRenderAll();
 
     // CAT: forget the force-field formations not queued this frame (0x0057736d)
@@ -6624,6 +6630,7 @@ void cat_rndFogLayerRender(void)                                                
     change which objects are on the render list, so this run is not a stream reference (the mission mode is).
 =============================================================================*/
 static sdword catRenderSelfTestTicks = 0;
+static Ship *catRenderSelfTestDroidShip = NULL;    // M2-R6 nis-fow-camera: the damaged ship whose droids are drawn
 static bool32 catRenderSelfTestStarted = FALSE;
 static bool32 catRenderSelfTestDone = FALSE;
 static sdword catRenderSelfTestPlayerShips = 0;
@@ -6656,6 +6663,42 @@ void catRenderSelfTestTick(void)
         catRenderSelfTestStarted = TRUE;
         memset(&catRndCounts, 0, sizeof(catRndCounts));
         enableLensFlare = TRUE;
+        // M2-R6 nis-fow-camera: the repair droids: the option on, and the first ship with droids (the player's if it
+        //      has one; Mission01's ships at this tick are all player 1's) damaged to half health with the self-repair
+        //      upgrade (0x200000), so they launch (droidUpdateArray) and are drawn; the camera focuses it below
+        enableRepairbots = TRUE;
+        {
+            Node *node;
+            udword withDroids = 0;
+            for (node = universe.ShipList.head; node != NULL; node = node->next)
+            {
+                Ship *ship = (Ship *)listGetStructOfNode(node);
+                if (ship->catRepairDroids != NULL)
+                {
+                    withDroids++;
+                    if ((catRenderSelfTestDroidShip == NULL) ||
+                        ((ship->playerowner == universe.curPlayerPtr) && (catRenderSelfTestDroidShip->playerowner != universe.curPlayerPtr)))
+                    {
+                        catRenderSelfTestDroidShip = ship;
+                    }
+                }
+            }
+            if (catRenderSelfTestDroidShip == NULL)
+            {                                   // none in the universe (the player's Sect fleet is still in the
+                                                // hyperspace ether at this tick): a scripted sProcessor (5 droids)
+                vector at = { 10000.0f, 10000.0f, 0.0f };
+                catRenderSelfTestDroidShip = univAddShip(sProcessor, RACE_Sect, &at, universe.curPlayerPtr, 0);
+            }
+            if ((catRenderSelfTestDroidShip != NULL) && (catRenderSelfTestDroidShip->catRepairDroids != NULL))
+            {
+                catRenderSelfTestDroidShip->catUpgradeFlags |= CAT_UPGRADE_RepairDroids;
+                catRenderSelfTestDroidShip->targetable.health = catRenderSelfTestDroidShip->staticinfo->health.maxhealth * 0.5f;
+            }
+            dbgMessagef("rendertest: droids shipsWithDroids=%u ship=%s#%u numDroids=%d", (unsigned)withDroids,
+                        (catRenderSelfTestDroidShip != NULL) ? ShipTypeToStr(catRenderSelfTestDroidShip->shiptype) : "none",
+                        (catRenderSelfTestDroidShip != NULL) ? (unsigned)catRenderSelfTestDroidShip->shipID.shipNumber : 0u,
+                        ((catRenderSelfTestDroidShip != NULL) && (catRenderSelfTestDroidShip->catRepairDroids != NULL)) ? (int)((CatRepairDroidArray *)catRenderSelfTestDroidShip->catRepairDroids)->numDroids : 0);
+        }
         // the main view: out of the sensors manager (the headless start has no camera focus and opens it) and the
         // camera on the player's ships (any ships when it has none)
         {
@@ -6671,6 +6714,10 @@ void catRenderSelfTestTick(void)
                 }
             }
             catRenderSelfTestPlayerShips = focus->numShips;
+            if ((focus->numShips == 0) && (catRenderSelfTestDroidShip != NULL))
+            {                                   // M2-R6 nis-fow-camera: close on the droids' ship
+                focus->ShipPtr[focus->numShips++] = catRenderSelfTestDroidShip;
+            }
             for (node = universe.ShipList.head; node != NULL && focus->numShips == 0; node = node->next)
             {
                 focus->ShipPtr[focus->numShips++] = (Ship *)listGetStructOfNode(node);
@@ -6710,7 +6757,8 @@ void catRenderSelfTestTick(void)
     {
         catRenderSelfTestDone = TRUE;
         pass = (catRndCounts.frames > 0 && catRndCounts.objects + catRndCounts.ships > 0 &&
-                catRndCounts.lensFlares > 0 && catRndCounts.lensFlareElements > 0 && catRndCounts.fogLayers > 0);
+                catRndCounts.lensFlares > 0 && catRndCounts.lensFlareElements > 0 && catRndCounts.fogLayers > 0 &&
+                catRndCounts.droids > 0);           // M2-R6 nis-fow-camera: the repair droids drawn
         dbgMessagef("rendertest: counts frames=%u listed=%u sorted=%u ships=%u objects=%u clouds=%u bullets=%u effects=%u "
                     "trails=%u", catRndCounts.frames, catRndCounts.listed, catRndCounts.sorted, catRndCounts.ships,
                     catRndCounts.objects, catRndCounts.clouds, catRndCounts.bullets, catRndCounts.effects,
@@ -6720,6 +6768,7 @@ void catRenderSelfTestTick(void)
                     catRndCounts.lensFlareElements, catRndCounts.fogLayers, catRndCounts.fieldSegments,
                     catRndCounts.bolts, catRndCounts.blasts, catRndCounts.edgeEffects, catRndCounts.warped,
                     (double)catLodTimeScale);
+        dbgMessagef("rendertest: counts droids=%u droidUpdates=%u", catRndCounts.droids, catDroidUpdates);
         dbgMessagef("rendertest: done tick=%u frames=%u objects=%u lensflares=%u foglayers=%u result=%s",
                     (unsigned)universe.univUpdateCounter, catRndCounts.frames, catRndCounts.objects + catRndCounts.ships,
                     catRndCounts.lensFlares, catRndCounts.fogLayers, pass ? "PASS" : "FAIL");

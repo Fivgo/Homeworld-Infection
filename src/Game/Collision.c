@@ -1908,8 +1908,17 @@ bool32 collCheckLineOfSight(Ship* source, Ship* target, vector* sourcePosition, 
     }
 }
 
-void collCheckBeamCollWithTargetsInBlob(Bullet *bullet,blob *thisBlob,real32 *minbeamCollideLineDist,SpaceObjRotImpTarg **minbeamTarget,sdword *minbeamCollSide)
+// CAT (M2-R6 nis-fow-camera): the exe's sixth argument (collCheckBeamCollWithTargetsInBlob 0x0043c570): the triangle of a
+//      Sentinel field the beam stops at (-1: none). A beam of another player that crosses an sSentinel's / bSentinel's
+//      active field (cat_collLineSentinelFieldIntersect 0x0043abf0) nearer than the nearest hit so far stops there
+//      (side 0, the triangle index out) and the Sentinel is not tested further; every other hit sets the index to -1.
+//      The exe's seventh argument is the beam length, its caller's third (collCheckBeamColl 0x0043c900 is passed
+//      bullet->traveldist, Bullet+0x100, by collCheckBulletTargetColl 0x0043d2e5), so the tree reads bullet->traveldist.
+//      The length test is the exe's v*v - dsqr < length*length (0x0043c6eb; HW1 tested v - sqrt(dsqr) < length).
+void collCheckBeamCollWithTargetsInBlob(Bullet *bullet,blob *thisBlob,real32 *minbeamCollideLineDist,SpaceObjRotImpTarg **minbeamTarget,sdword *minbeamCollSide,sdword *minbeamFieldTriangle)
 {
+    sdword fieldTriangle;
+    real32 fieldDist;
     SelectAnyCommand *targetselection;
     sdword numTargets;
 
@@ -1956,6 +1965,21 @@ bulletwalks++;
             goto beamnexttarget;
         }
 
+        // CAT: an active Sentinel field of another player (0x0043c5c7..0x0043c642)
+        if ((target->header.objtype == OBJ_ShipType) &&
+            ((((Ship *)target)->shiptype == sSentinel) || (((Ship *)target)->shiptype == bSentinel)) &&
+            cat_shipIsSentinelFieldActive((Ship *)target) && (bullet->playerowner != ((Ship *)target)->playerowner) &&
+            ((fieldTriangle = cat_collLineSentinelFieldIntersect((Ship *)target, &bullet->obj.posinfo.position,
+                                                                 &bullet->bulletheading, &fieldDist)) != -1) &&
+            (fieldDist < *minbeamCollideLineDist))
+        {
+            *minbeamCollideLineDist = fieldDist;
+            *minbeamTarget = target;
+            *minbeamCollSide = 0;
+            *minbeamFieldTriangle = fieldTriangle;
+            goto beamnexttarget;
+        }
+
         // Check for collisions between bullet and target here:
 
 #if COLLISION_CHECK_STATS
@@ -1970,11 +1994,11 @@ bulletchecks++;
 			dsqr = targetstaticheader->staticCollInfo.collspheresizeSqr - (distsquared - (v*v));
 			if (dsqr > 0)
 			{
-				d = fsqrt(dsqr);
-				if ((v-d) < bullet->traveldist)
+				if ((double)v * (double)v - (double)dsqr < (double)bullet->traveldist * (double)bullet->traveldist)    // CAT: the exe's x87 test (HW1: v - sqrt(dsqr) < traveldist)
 				{
 					if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)target,&bullet->obj.posinfo.position,&bullet->bulletheading,bullet->traveldist,&collSide)) >= 0.0f)
 					{
+						d = fsqrt(dsqr);
 						if (collideLineDist == 0.0f)
 						{
 							collideLineDist = v-d;
@@ -1996,6 +2020,7 @@ bulletchecks++;
 									*minbeamCollideLineDist = collideLineDist;
 									*minbeamTarget = target;
 									*minbeamCollSide = collSide;
+									*minbeamFieldTriangle = -1;
 								}
 							}
 							else
@@ -2003,6 +2028,7 @@ bulletchecks++;
 								*minbeamCollideLineDist = collideLineDist;
 								*minbeamTarget = target;
 								*minbeamCollSide = collSide;
+								*minbeamFieldTriangle = -1;
 							}
 						}
 					}
@@ -2027,6 +2053,7 @@ void collCheckBeamColl(blob *thisBlob,Bullet *bullet)
     real32 minbeamCollideLineDist = REALlyBig;
     SpaceObjRotImpTarg *minbeamTarget = NULL;
     sdword minbeamCollSide = -1;
+    sdword minbeamFieldTriangle = -1;       // CAT: the Sentinel-field triangle the beam stops at (M2-R6 nis-fow-camera)
     Node *blobnode = universe.collBlobList.head;
     blob *checkBlob;
 
@@ -2050,11 +2077,12 @@ void collCheckBeamColl(blob *thisBlob,Bullet *bullet)
 				dsqr = bullet->target->staticinfo->common.staticCollInfo.collspheresizeSqr - (distsquared - (v*v));
 				if (dsqr > 0)
 				{
-					d = fsqrt(dsqr);
-					if ((v-d) < bullet->traveldist)
+					// CAT: the exe's length test (collCheckBeamColl 0x0043c900 at 0x0043c9e4; HW1: v - sqrt(dsqr) < traveldist)
+					if ((double)v * (double)v - (double)dsqr < (double)bullet->traveldist * (double)bullet->traveldist)
 					{
 						if ((collideLineDist = collCheckRectLine((SpaceObjRotImp *)bullet->target,&bullet->obj.posinfo.position,&bullet->bulletheading,bullet->traveldist,&collSide)) >= 0.0f)
 						{
+							d = fsqrt(dsqr);
 							if (collideLineDist == 0.0f)
 							{
 								collideLineDist = v-d;
@@ -2079,7 +2107,7 @@ void collCheckBeamColl(blob *thisBlob,Bullet *bullet)
         }
     }
 
-    collCheckBeamCollWithTargetsInBlob(bullet,thisBlob,&minbeamCollideLineDist,&minbeamTarget,&minbeamCollSide);
+    collCheckBeamCollWithTargetsInBlob(bullet,thisBlob,&minbeamCollideLineDist,&minbeamTarget,&minbeamCollSide,&minbeamFieldTriangle);
 
     // do line-blob collision test for all other blobs in universe:
     while (blobnode != NULL)
@@ -2100,10 +2128,10 @@ void collCheckBeamColl(blob *thisBlob,Bullet *bullet)
 			dsqr = (checkBlob->radius*checkBlob->radius) - (distsquared - (v*v));
 			if (dsqr > 0)
 			{
-				d = fsqrt(dsqr);
-				if ((v-d) < bullet->traveldist)
+				// CAT: the exe's length test (0x0043cb4a; it computes and drops the square root)
+				if ((double)v * (double)v - (double)dsqr < (double)bullet->traveldist * (double)bullet->traveldist)
 				{
-					collCheckBeamCollWithTargetsInBlob(bullet,checkBlob,&minbeamCollideLineDist,&minbeamTarget,&minbeamCollSide);
+					collCheckBeamCollWithTargetsInBlob(bullet,checkBlob,&minbeamCollideLineDist,&minbeamTarget,&minbeamCollSide,&minbeamFieldTriangle);
 				}
 			}
 		}
@@ -2118,7 +2146,14 @@ void collCheckBeamColl(blob *thisBlob,Bullet *bullet)
         // CAT: collCheckBeamColl 0x0043c900: a beam that hits an sSentinel / bSentinel with its field up only draws
         //      the hit (univBulletCollidedWithTarget's first argument 0). The exe also pushes a seventh value (1, 2, 3
         //      per call) that univBulletCollidedWithTarget 0x00546a20 never reads.
-        if ((minbeamTarget->header.objtype == OBJ_ShipType) &&
+        // CAT (M2-R6 nis-fow-camera): a beam stopped at a field triangle hits the field with the triangle as the
+        //      (unused) second argument (0x0043cbb5)
+        if (minbeamFieldTriangle != -1)
+        {
+            cat_sentinelFieldBulletHit((Ship *)minbeamTarget, (void *)(smemsize)minbeamFieldTriangle, bullet);
+            applyDamage = FALSE;
+        }
+        else if ((minbeamTarget->header.objtype == OBJ_ShipType) &&
             ((((Ship *)minbeamTarget)->shiptype == sSentinel) || (((Ship *)minbeamTarget)->shiptype == bSentinel)) &&
             cat_shipIsSentinelFieldActive((Ship *)minbeamTarget))
         {

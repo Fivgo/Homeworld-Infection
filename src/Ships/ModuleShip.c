@@ -126,9 +126,8 @@ void ModuleShipInit(Ship *ship)                                                 
     }
     if (ship->shiptype == sMothershipCommand)
     {
-        // CAT-TODO(stage 3): the exe starts animation number 0 looping (madAnimationStart(ship, 0, 1)); this tree's
-        //      madAnimationStart takes the header index and no loop argument (MeshAnim.c)
-        cat_madAnimationStartNumber(ship, 0);
+        // CAT: the exe starts animation number 0 looping (ModuleShipInit 0x005af799: madAnimationStart(ship, 0, 1))
+        madAnimationStart(ship, 0, MAD_ModeLoop);
     }
 }
 

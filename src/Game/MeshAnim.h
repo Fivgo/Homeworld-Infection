@@ -9,6 +9,8 @@
 #ifndef ___MESHANIM_H
 #define ___MESHANIM_H
 
+#include <stddef.h>
+
 #include "B-Spline.h"
 #include "CRC32.h"
 #include "Mesh.h"
@@ -136,13 +138,21 @@ _Static_assert(sizeof(madstatic) == 0x90, "madstatic is 0x90 bytes in cataclysm.
 #endif
 
 //structure of animation data stored within a ship
+// CAT (M2-R6 nis-fow-camera): the exe's madanim (cat_madAnimClear 0x004b69d0 clears 0x38 bytes, madAnimationStart
+//      0x004b6b90 / madAnimationUpdate 0x004b6ce0 / madAnimationStop 0x004b6e70 use the words): flags is the mode
+//      madAnimationStart's third argument sets (MAD_ModeLoop, MAD_ModeBackToPrevious; 0 pauses on the last frame),
+//      nCurrentAnim the animation NUMBER (madstatic.animIndexes maps it to the header's index when animsByNumber),
+//      two new words: the previous animation (+0x10) and the deferred binding swap (+0x18: set by the start, done by
+//      the next update)
 typedef struct
 {
     madheader *header;                          //static animation data
     sdword totalSize;                           //size of this structure, bindings, motion curves and the whole bit
-    udword flags;                               //flags for this animation
-    sdword nCurrentAnim;                        //animation we're currently on, or MAD_NoAnimation for none
-    bool32   bPaused;                             //TRUE when the animation is paused
+    udword flags;                               // +0x08 CAT: the mode (madAnimationStart's third argument)
+    sdword nCurrentAnim;                        // +0x0C animation number we're currently on, or MAD_NoAnimation for none
+    sdword catPreviousAnim;                     // +0x10 CAT: the animation before it (MAD_NoAnimation for none)
+    bool32   bPaused;                             // +0x14 TRUE when the animation is paused
+    sdword catBindingSwapPending;               // +0x18 CAT: 1 after a start: the next update swaps in the animation bindings; -1 done
     real32 startTime;                           //time the animation starts at
     real32 time;                                //time within the animation, from starttime to endtime inclusive
     real32 timeElapsed;                         //time elapsed since last rendered
@@ -151,6 +161,17 @@ typedef struct
     shipbindings bindings;                      //animation bindings for this ship, must be last in list; variable size
 }
 madanim;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(offsetof(madanim, catBindingSwapPending) == 0x18, "madanim +0x18 in cataclysm.exe (madAnimationUpdate 0x004b6ce0)");
+_Static_assert(offsetof(madanim, curves) == 0x28, "madanim.curves at 0x28 (madAnimBindingsDupe 0x004b6a10)");
+_Static_assert(offsetof(madanim, saveBindings) == 0x2C, "madanim.saveBindings at 0x2C");
+_Static_assert(offsetof(madanim, bindings) == 0x30, "madanim.bindings at 0x30");
+#endif
+
+// CAT: the modes of madAnimationStart's third argument (madanim.flags; madAnimationUpdate 0x004b6ce0 tests bit 0, then bit 1)
+#define MAD_ModePauseAtEnd      0x00000000      // the animation pauses on its last frame and stays current
+#define MAD_ModeLoop            0x00000001      // it loops
+#define MAD_ModeBackToPrevious  0x00000002      // it ends as madAnimationStop does (bindings back, current -> previous)
 
 
 typedef struct
@@ -210,12 +231,13 @@ void madHeaderDelete(madheader *header);
 void madAnimBindingsDupe(struct Ship *ship, struct ShipStaticInfo *staticInfo,bool32 LoadingGame);
 
 //play an animation
-void madAnimationStart(struct Ship *ship, sdword animNumber);
+void madAnimationStart(struct Ship *ship, sdword animNumber, sdword mode);     // CAT: the exe's third argument (M2-R6 nis-fow-camera)
+void cat_madAnimClear(madanim *anim);                                           // CAT: 0x004b69d0
 void madAnimationPause(struct Ship *ship, bool32 bFreeze);
 bool32 madAnimationUpdate(struct Ship *ship, real32 timeElapsed);
 void madAnimationStop(struct Ship *ship);
 bool32 cat_madAnimationFinished(struct Ship *ship);     // CAT: 0x004b7090 (M2-R4 combat: the sCarrier door)
-void cat_madAnimationStartNumber(struct Ship *ship, sdword number);    // CAT: madAnimationStart's number lookup (M2-R4 ships-b)
+sdword cat_madAnimIndexOfNumber(struct Ship *ship, sdword number);     // CAT: the animIndexes lookup the exe inlines
 
 //find things in animations
 sdword madAnimIndexFindByName(madheader *header, char *name);

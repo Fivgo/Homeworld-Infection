@@ -995,9 +995,9 @@
  "0x00420a20": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "FOW cubes of every gridded ship off before and on after the change (cat_playerGetFOWGrid, cat_shipAffectsFOW, cat_univShipFOW*)",
-  "note": "ported; the grids are stage 3",
-  "sample": "port-R4"
+  "change": "FOW cubes of every gridded ship off before and on after the change (cat_playerGetFOWGrid, cat_shipAffectsFOW, cat_univShipFOW*); allianceSetAlliance: the FOW cube off / on loops ported (cat_shipAffectsFOW, cat_univShipFOWDeactivate / Activate)",
+  "note": "ported; the grids are stage 3 | [review: M2-R6 nis-fow-camera] allianceSetAlliance: the FOW cube off / on loops ported (cat_shipAffectsFOW, cat_univShipFOWDeactivate / Activate)",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x00420ec0": {
   "class": "MODIFIED",
@@ -1469,9 +1469,9 @@
  "0x0042bab0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "key bindings through kbCommandKeyIsHit(0x45/0x46)",
-  "note": "stage 3 UI",
-  "sample": "port-R4"
+  "change": "compared again: the wheel, key-command and mouse paths are the exe's (cameraZoom / the rotations inlined); GoK's joystick path (camJoy*) is kept, inactive without a joystick",
+  "note": "[review: M2-R6 nis-fow-camera] compared again: the wheel, key-command and mouse paths are the exe's (cameraZoom / the rotations inlined); GoK's joystick path (camJoy*) is kept, inactive without a joystick",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x0042beb0": {
   "class": "IDENTICAL",
@@ -1718,15 +1718,16 @@
  "0x0043c570": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "a ship with bUseRayTriangleIntersectionForHitLocation stops a beam only where the line meets its mesh (cat_meshLineIntersect, LOD 3)",
-  "note": "[review: M2-R5 render] the mesh test ported (Collision.c); the sixth argument (the Sentinel-field triangle index) is not in this tree's signature",
-  "sample": "port-R5-render"
+  "change": "a ship with bUseRayTriangleIntersectionForHitLocation stops a beam only where the line meets its mesh (cat_meshLineIntersect, LOD 3); collCheckBeamCollWithTargetsInBlob: the sixth argument (the Sentinel-field triangle out, -1 for every other hit) and the field branch (another player's beam crossing an active sSentinel / bSentinel field nearer than the nearest hit) ported; the seventh argument is the beam length (collCheckBeamColl's third, Bullet+0x100 = traveldist); the length test is v*v - dsqr < length*length (HW1: v - sqrt(dsqr) < length)",
+  "note": "[review: M2-R5 render] the mesh test ported (Collision.c); the sixth argument (the Sentinel-field triangle index) is not in this tree's signature | [review: M2-R6 nis-fow-camera] collCheckBeamCollWithTargetsInBlob: the sixth argument (the Sentinel-field triangle out, -1 for every other hit) and the field branch (another player's beam crossing an active sSentinel / bSentinel field nearer than the nearest hit) ported; the seventh argument is the beam length (collCheckBeamColl's third, Bullet+0x100 = traveldist); the length test is v*v - dsqr < length*length (HW1: v - sqrt(dsqr) < length)",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x0043c900": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "a beam hitting an sSentinel / bSentinel with its field up only draws the hit (cat_sentinelFieldBulletHit, first argument 0); a missed Beast beam (GS_BeastWeapon) still draws its hit on its own target's box; a seventh value 1/2/3 is pushed that univBulletCollidedWithTarget never reads",
-  "note": "M2-R4 combat: ported; cat_sentinelFieldBulletHit is M2-R4 #4; the tree keeps its update-rate cadence"
+  "change": "a beam hitting an sSentinel / bSentinel with its field up only draws the hit (cat_sentinelFieldBulletHit, first argument 0); a missed Beast beam (GS_BeastWeapon) still draws its hit on its own target's box; a seventh value 1/2/3 is pushed that univBulletCollidedWithTarget never reads; collCheckBeamColl: the triangle local (-1), passed to both blob calls; a triangle hit goes to cat_sentinelFieldBulletHit with it (no damage) before the old field-active test; the missile-target and blob-loop length tests v*v - dsqr < length*length",
+  "note": "M2-R4 combat: ported; cat_sentinelFieldBulletHit is M2-R4 #4; the tree keeps its update-rate cadence | [review: M2-R6 nis-fow-camera] collCheckBeamColl: the triangle local (-1), passed to both blob calls; a triangle hit goes to cat_sentinelFieldBulletHit with it (no damage) before the old field-active test; the missile-target and blob-loop length tests v*v - dsqr < length*length",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x0043cd90": {
   "class": "MODIFIED",
@@ -2123,9 +2124,9 @@
  "0x00441c10": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "adds calls battleChatterFleetAttempt, cat_fowCanPlayerSeeShip, cat_gunPickMothershipModuleTarget, cat_shipIsCrystal, clWrapHalt; drops calls battleCanChatterAtThisTime, battleChatterAttempt; adds strings \"\\nBad Stuff Going On!!! Ship with no ...\"; calls with a changed parameter count: processMoveToDo 2->4; fields +CustShipClose, collInfo, collMyBlob, mainCommandLayer (+4) -CustShipAttack, CustShipAttackPassive, aistate, aistatecommand (+19); globals +multiPlayerGame; constants 40, 44 not in body",
-  "note": "[review: M2-R5 layout-dock] cat_gunPickMothershipModuleTarget 0x0048b950 on the leader's target in the wingman branch",
-  "sample": "audit-R5-layout-dock-sync"
+  "change": "adds calls battleChatterFleetAttempt, cat_fowCanPlayerSeeShip, cat_gunPickMothershipModuleTarget, cat_shipIsCrystal, clWrapHalt; drops calls battleCanChatterAtThisTime, battleChatterAttempt; adds strings \"\\nBad Stuff Going On!!! Ship with no ...\"; calls with a changed parameter count: processMoveToDo 2->4; fields +CustShipClose, collInfo, collMyBlob, mainCommandLayer (+4) -CustShipAttack, CustShipAttackPassive, aistate, aistatecommand (+19); globals +multiPlayerGame; constants 40, 44 not in body; processAttackToDo: the prelude 0x00441c34..0x00441ce7 ported: with no target the owner can see (a crystal ship counts, else cat_fowCanPlayerSeeShip(owner, target, 1)) a multiplayer game halts (clWrapHalt), a single-player one takes the no-target path unless the leader has specialFlags2 0x100000; the recorder term is a stage-5 CAT-TODO",
+  "note": "[review: M2-R5 layout-dock] cat_gunPickMothershipModuleTarget 0x0048b950 on the leader's target in the wingman branch | [review: M2-R6 nis-fow-camera] processAttackToDo: the prelude 0x00441c34..0x00441ce7 ported: with no target the owner can see (a crystal ship counts, else cat_fowCanPlayerSeeShip(owner, target, 1)) a multiplayer game halts (clWrapHalt), a single-player one takes the no-target path unless the leader has specialFlags2 0x100000; the recorder term is a stage-5 CAT-TODO",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x00442680": {
   "class": "MODIFIED",
@@ -3173,9 +3174,9 @@
  "0x00463350": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "adds calls cat_moduleIterFirst, cat_moduleIterNext, cat_univShipFOWActivate, matMakeRotAboutX, matMakeRotAboutY, matMakeRotAboutZ (+1); fields +m11, m21 -collMyBlob, coordsys, impactablelink, objlink (+6); loops 1 -> 6",
-  "note": "[review: M2-R5 layout-dock audit] compared with 0x00463350: blobs, lists, unhide, modules, velocity, heading x up, the support-module rotations by the index within the point type as the tree; the tree tests the point index for -1 (the exe does not); cat_univShipFOWActivate is a CAT-TODO(M2-R6 FOW)",
-  "sample": "audit-R5-layout-dock-sync"
+  "change": "adds calls cat_moduleIterFirst, cat_moduleIterNext, cat_univShipFOWActivate, matMakeRotAboutX, matMakeRotAboutY, matMakeRotAboutZ (+1); fields +m11, m21 -collMyBlob, coordsys, impactablelink, objlink (+6); loops 1 -> 6; dockPutShipOutside: cat_univShipFOWActivate ported",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00463350: blobs, lists, unhide, modules, velocity, heading x up, the support-module rotations by the index within the point type as the tree; the tree tests the point index for -1 (the exe does not); cat_univShipFOWActivate is a CAT-TODO(M2-R6 FOW) | [review: M2-R6 nis-fow-camera] dockPutShipOutside: cat_univShipFOWActivate ported",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x00463c40": {
   "class": "MODIFIED",
@@ -5694,9 +5695,9 @@
  "0x00493f80": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "releases the name after the owner change (a no-op, as the exe) and assigns one on the way back",
-  "note": "[review: M2-R5 hud] the cat_shipNames calls added (the rest of the body is stage 6's)",
-  "sample": "port-R5-hud"
+  "change": "releases the name after the owner change (a no-op, as the exe) and assigns one on the way back; SelectionSwitchPlayerOwner: its FOW part stays with the stage-6 KAS CAT-TODO",
+  "note": "[review: M2-R5 hud] the cat_shipNames calls added (the rest of the body is stage 6's) | [review: M2-R6 nis-fow-camera] SelectionSwitchPlayerOwner: its FOW part stays with the stage-6 KAS CAT-TODO",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x00494510": {
   "class": "IDENTICAL",
@@ -7182,16 +7183,16 @@
  "0x004b6b90": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "a third argument, the mode word at madanim +0x08 (loop / back to the previous animation), and the exe's madanim layout",
-  "note": "[review: M2-R5 render] not ported: re-targeted to M2-R6 mesh animation (MeshAnim.c / MadLinkIn.c), it changes when gun bindings swap back",
-  "sample": "port-R5-render"
+  "change": "madAnimationStart: ported with the third argument (the mode, stored last at +0x08), the number mapped through animIndexes, the previous-animation word, the deferred binding swap (+0x18), the participation bit of the number; CAT-FIX for an invalid number",
+  "note": "[review: M2-R6 nis-fow-camera] madAnimationStart: ported with the third argument (the mode, stored last at +0x08), the number mapped through animIndexes, the previous-animation word, the deferred binding swap (+0x18), the participation bit of the number; CAT-FIX for an invalid number",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x004b6e70": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "pauses a running animation first (madAnimationPause(ship,0)) and restores saved bindings only when present (clearing them); keeps the previous anim index",
-  "note": "HW1 just restores bindings and sets MAD_NoAnimation",
-  "sample": "MODIFIED/medium"
+  "change": "madAnimationStop: unpause, restore the bindings only if swapped and forget them, current -> previous ported",
+  "note": "[review: M2-R6 nis-fow-camera] madAnimationStop: unpause, restore the bindings only if swapped and forget them, current -> previous ported",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x004b6ed0": {
   "class": "MODIFIED",
@@ -9126,8 +9127,9 @@
  "0x004e4950": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "a drifting ship is not accelerated and may reach 1400; top speed times the speed multiplier; helpless or drifting ships keep their speed; no fuel; FOW grid update of fog-seeing ships; universe clamp in multiplayer",
-  "note": "M2-R4 combat: ported; the FOW update is stage 3"
+  "change": "a drifting ship is not accelerated and may reach 1400; top speed times the speed multiplier; helpless or drifting ships keep their speed; no fuel; FOW grid update of fog-seeing ships; universe clamp in multiplayer; physUpdateObjPosVelShip: the FOW update (cat_shipAffectsFOW, cat_univShipFOWUpdate from the old to the new position) ported",
+  "note": "M2-R4 combat: ported; the FOW update is stage 3 | [review: M2-R6 nis-fow-camera] physUpdateObjPosVelShip: the FOW update (cat_shipAffectsFOW, cat_univShipFOWUpdate from the old to the new position) ported",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x004e5720": {
   "class": "MODIFIED",
@@ -9271,9 +9273,9 @@
  "0x004e8850": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "a ping other than an anomaly ping is drawn only where cat_selPositionHiddenByFOW 0x00509400 says the fog of war does not hide it; the ping sounds are soundEventPlay ids 0x12C..0x134",
-  "note": "[review: M2-R5 render] the FOW test is a CAT-TODO(M2-R6 FOW) in Ping.c; GoK's one-sound-per-tick guard kept",
-  "sample": "port-R5-render"
+  "change": "a ping other than an anomaly ping is drawn only where cat_selPositionHiddenByFOW 0x00509400 says the fog of war does not hide it; the ping sounds are soundEventPlay ids 0x12C..0x134; pingListDraw: the FOW test ported (a ping other than TOMask 4 = anomaly only where cat_selPositionHiddenByFOW does not hide its centre)",
+  "note": "[review: M2-R5 render] the FOW test is a CAT-TODO(M2-R6 FOW) in Ping.c; GoK's one-sound-per-tick guard kept | [review: M2-R6 nis-fow-camera] pingListDraw: the FOW test ported (a ping other than TOMask 4 = anomaly only where cat_selPositionHiddenByFOW does not hide its centre)",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x004e8f10": {
   "class": "IDENTICAL",
@@ -10348,8 +10350,8 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "channel 0 back to 1.0",
-  "note": "[review: M2-R5 render] the channel form ported (Sensors.c); the rest is M2-R6's | [review: M2-R6 managers] ported: no scroll lists, I/O lock or taskbar flag; the main region's mouse modes cleared; glcompat hook n/a; motion cues CAT-TODO(M2-R6 NIS/camera)",
-  "sample": "port-R6-managers"
+  "note": "[review: M2-R5 render] the channel form ported (Sensors.c); the rest is M2-R6's | [review: M2-R6 managers] ported: no scroll lists, I/O lock or taskbar flag; the main region's mouse modes cleared; glcompat hook n/a; motion cues CAT-TODO(M2-R6 NIS/camera) | [audit: M2-R6 nis-fow-camera] the motion cues are ported now (catMotionCues on: cat_mcSetMode(&catMotionCueState, 1), cat_mcResetRequest)",
+  "sample": "audit-R6-nis-fow-camera"
  },
  "0x0050bba0": {
   "class": "IDENTICAL",
@@ -10907,9 +10909,9 @@
  "0x0051ac80": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "cat_missionTimerReset at the end",
-  "note": "[review: M2-R5 hud] the call added | [review: M2-R6 mainrgn-popup] cat_mimicInitDisguiseTables added",
-  "sample": "port-R5-hud"
+  "change": "cat_missionTimerReset at the end; singlePlayerLoadNewLevel: cat_fowCreatePlayerGrids after bobResetProperties ported (CAT-FIX: the previous level's grid freed first)",
+  "note": "[review: M2-R5 hud] the call added | [review: M2-R6 mainrgn-popup] cat_mimicInitDisguiseTables added | [review: M2-R6 nis-fow-camera] singlePlayerLoadNewLevel: cat_fowCreatePlayerGrids after bobResetProperties ported (CAT-FIX: the previous level's grid freed first)",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x0051b340": {
   "class": "MODIFIED",
@@ -12760,9 +12762,9 @@
  "0x0053df80": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "adds calls cat_blastReset, cat_ioReset, cat_mcResetRequest, cat_mcSetMode, cat_playerUpgradesReset, cat_salvageResetGlobals (+8); uses fields HW1 never uses: cat_unknown_6500",
-  "note": "M2-R3 universe-mex: read: the player loop as universeClosePlayers; plus salvage/blast/fow/mc/io/shipPrint/time-compression/tutorial resets of unported subsystems (listed in Universe.c) | [review: M2-R5 hud] the resets added",
-  "sample": "port-R4"
+  "change": "adds calls cat_blastReset, cat_ioReset, cat_mcResetRequest, cat_mcSetMode, cat_playerUpgradesReset, cat_salvageResetGlobals (+8); uses fields HW1 never uses: cat_unknown_6500; universeReset: fowDestroy on each player's grid (Player+0x6500) is now ported; the motion cues restart in mode 1 with catMotionCues",
+  "note": "M2-R3 universe-mex: read: the player loop as universeClosePlayers; plus salvage/blast/fow/mc/io/shipPrint/time-compression/tutorial resets of unported subsystems (listed in Universe.c) | [review: M2-R5 hud] the resets added | [review: M2-R6 nis-fow-camera] universeReset: fowDestroy on each player's grid (Player+0x6500) is now ported; the motion cues restart in mode 1 with catMotionCues",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x0053e0d0": {
   "class": "MODIFIED",
@@ -12787,10 +12789,10 @@
  },
  "0x0053ea10": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "fowSelect(Player+0x6500)",
-  "note": "M2-R3 universe-mex: read: not ported (FOW, stage 3)",
-  "sample": "port-R4"
+  "confidence": "high",
+  "change": "universeSwitchToPlayer: fowSelect of the player's grid ported",
+  "note": "[review: M2-R6 nis-fow-camera] universeSwitchToPlayer: fowSelect of the player's grid ported",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x0053ea50": {
   "class": "MODIFIED",
@@ -13048,9 +13050,9 @@
  "0x00542320": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "7 arguments, adds the ship to the universe itself, 0x63C-byte ship with gun/mad/precise blocks, droids, damage points, upgrades, dock info, external build, mothership modules, experience, stealth, dissolve, names, FOW, mesh state",
-  "note": "M2-R4 univupdate: only the mesh state and +0x84 are ported (CAT-TODO block lists the rest for M2-R4 #2/#3/#4/#5); HW1 Drone/DefenseFighter/CryoTray cases removed | [review: M2-R5 layout-dock] CustShipInit now runs after the mesh-animation bindings as the exe orders it; the extra blocks start 8-aligned (CAT-FIX); kills zeroed + cat_shipUpdateExperienceLevel; catNavLightStatic/catDamageFactor/catMaxVelocity set (M2-R5 layout) | [review: M2-R5 render] damage points are dmgGetLights (called); the repair droids re-targeted to M2-R6 ships | [review: M2-R5 hud] the call added at 0x00542c21",
-  "sample": "port-R5-hud"
+  "change": "7 arguments, adds the ship to the universe itself, 0x63C-byte ship with gun/mad/precise blocks, droids, damage points, upgrades, dock info, external build, mothership modules, experience, stealth, dissolve, names, FOW, mesh state; univCreateShip: the repair-droid array (droidCreateArray at 0x00542659 for a Sect static with nRepairDroids), cat_madAnimClear and the start state by built & 1 (0x00542a1a), and the FOW cube on the add path (cat_univAddShipModules, cat_univShipFOWActivate) ported",
+  "note": "M2-R4 univupdate: only the mesh state and +0x84 are ported (CAT-TODO block lists the rest for M2-R4 #2/#3/#4/#5); HW1 Drone/DefenseFighter/CryoTray cases removed | [review: M2-R5 layout-dock] CustShipInit now runs after the mesh-animation bindings as the exe orders it; the extra blocks start 8-aligned (CAT-FIX); kills zeroed + cat_shipUpdateExperienceLevel; catNavLightStatic/catDamageFactor/catMaxVelocity set (M2-R5 layout) | [review: M2-R5 render] damage points are dmgGetLights (called); the repair droids re-targeted to M2-R6 ships | [review: M2-R5 hud] the call added at 0x00542c21 | [review: M2-R6 nis-fow-camera] univCreateShip: the repair-droid array (droidCreateArray at 0x00542659 for a Sect static with nRepairDroids), cat_madAnimClear and the start state by built & 1 (0x00542a1a), and the FOW cube on the add path (cat_univAddShipModules, cat_univShipFOWActivate) ported",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x00543030": {
   "class": "MODIFIED",
@@ -13187,8 +13189,9 @@
  "0x005477d0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "FOW cube removal, two Cataclysm blocks freed, mission-13 free-directly flag, objlink deleted only if listed",
-  "note": "M2-R4 univupdate: ported except FOW (stage 3) and the two blocks (M2-R4 #4)"
+  "change": "FOW cube removal, two Cataclysm blocks freed, mission-13 free-directly flag, objlink deleted only if listed; univWipeShipOutOfExistence: the FOW cube taken away first (cat_univShipFOWDeactivate) ported",
+  "note": "M2-R4 univupdate: ported except FOW (stage 3) and the two blocks (M2-R4 #4) | [review: M2-R6 nis-fow-camera] univWipeShipOutOfExistence: the FOW cube taken away first (cat_univShipFOWDeactivate) ported",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x00547900": {
   "class": "MODIFIED",
@@ -13200,8 +13203,9 @@
  "0x00547990": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "inline missile loop with the 5 s self-destruct, smObjectDied always, AI told in multiplayer only, module ships hidden, FOW, attacker fields cleared",
-  "note": "M2-R4 univupdate: ported except modules (M2-R4 #4) and FOW (stage 3)"
+  "change": "inline missile loop with the 5 s self-destruct, smObjectDied always, AI told in multiplayer only, module ships hidden, FOW, attacker fields cleared; univRemoveShipFromOutside: the second argument (FOW cube off when set; 1 from cat_dockShipDocksAtShip x3 and UpdateHyperspacingShip, 0 from the inlined InstantlyHyperspaceOut copies) ported",
+  "note": "M2-R4 univupdate: ported except modules (M2-R4 #4) and FOW (stage 3) | [review: M2-R6 nis-fow-camera] univRemoveShipFromOutside: the second argument (FOW cube off when set; 1 from cat_dockShipDocksAtShip x3 and UpdateHyperspacingShip, 0 from the inlined InstantlyHyperspaceOut copies) ported",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x00547b70": {
   "class": "MODIFIED",
@@ -13230,8 +13234,9 @@
  "0x00547d00": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "CustShipDied first, factory only for player 0 in single player, external-build death, repair effect, launch manager by class, big-ship death explosions (10 parameters), inline bullet/missile clean-up, smObjectDied always, clamps released, no death sound for -1, grow-selection entries nulled",
-  "note": "M2-R4 univupdate: ported except salvage depot, external build, droids, cat_clampUnclampAllFromShip, the second grow-selection and the speed multiplier (owners in the CAT-TODOs) | [review: M2-R5 layout-dock] the explosion's speed term uses cat_shipGetSpeedMultiplier x maxvelocity as the exe | [review: M2-R5 render] the repair droids' free re-targeted to M2-R6 ships (random stream 0)"
+  "change": "CustShipDied first, factory only for player 0 in single player, external-build death, repair effect, launch manager by class, big-ship death explosions (10 parameters), inline bullet/missile clean-up, smObjectDied always, clamps released, no death sound for -1, grow-selection entries nulled; univDeleteDeadShip: cat_droidFreeArray on Ship+0x4C0 ported",
+  "note": "M2-R4 univupdate: ported except salvage depot, external build, droids, cat_clampUnclampAllFromShip, the second grow-selection and the speed multiplier (owners in the CAT-TODOs) | [review: M2-R5 layout-dock] the explosion's speed term uses cat_shipGetSpeedMultiplier x maxvelocity as the exe | [review: M2-R5 render] the repair droids' free re-targeted to M2-R6 ships (random stream 0) | [review: M2-R6 nis-fow-camera] univDeleteDeadShip: cat_droidFreeArray on Ship+0x4C0 ported",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x00548450": {
   "class": "MODIFIED",
@@ -13339,9 +13344,10 @@
  },
  "0x00549c50": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "fourth argument, FOW, technology and stealth checks, random pick",
-  "note": "M2-R4 univupdate: compared, not ported (M2-R4 #3)"
+  "confidence": "high",
+  "change": "univFindNearestResource: ported with the fourth argument (the fog of war for a player without an AI), the attribute 0x200 test, the mimic-asteroid test with its stream-0 draw, and the exe's clip test (pieMovePointClipToLimits on a copy, which drops nothing) in place of univObjectOutsideWorld",
+  "note": "[review: M2-R6 nis-fow-camera] univFindNearestResource: ported with the fourth argument (the fog of war for a player without an AI), the attribute 0x200 test, the mimic-asteroid test with its stream-0 draw, and the exe's clip test (pieMovePointClipToLimits on a copy, which drops nothing) in place of univObjectOutsideWorld",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x00549f50": {
   "class": "MODIFIED",
@@ -13408,8 +13414,9 @@
  "0x0054b550": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "support units told, mesh state and +0x84 freed first, droids, damage points",
-  "note": "M2-R4 univupdate: mesh state and +0x84 ported; support units (#5), droids (#4) and damage points (#3) left"
+  "change": "support units told, mesh state and +0x84 freed first, droids, damage points; univFreeShipContents: cat_droidFreeArray ported; CAT-FIX in univMeshBindingsDelete (saveBindings NULL while a started animation waits for its swap)",
+  "note": "M2-R4 univupdate: mesh state and +0x84 ported; support units (#5), droids (#4) and damage points (#3) left | [review: M2-R6 nis-fow-camera] univFreeShipContents: cat_droidFreeArray ported; CAT-FIX in univMeshBindingsDelete (saveBindings NULL while a started animation waits for its swap)",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x0054b780": {
   "class": "MODIFIED",
@@ -15161,9 +15168,9 @@
  "0x005764e0": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "Cataclysm's main view: cat_rndRenderObjectList with the deferred depth-sorted pass, render-time LOD timing, the fog layer, blasts, lens flares, the Sentinel fields, motion cues (cat_mcRender)",
-  "note": "[review: M2-R5 render] ported in the objlist / flares-fog subsystems (render.c); cat_mcRender is a CAT-TODO(M2-R6 NIS/camera)",
-  "sample": "port-R5-render"
+  "change": "Cataclysm's main view: cat_rndRenderObjectList with the deferred depth-sorted pass, render-time LOD timing, the fog layer, blasts, lens flares, the Sentinel fields, motion cues (cat_mcRender); rndMainViewRenderFunction: the motion cues (cat_mcRender at 0x00577360 with catMotionCues) ported",
+  "note": "[review: M2-R5 render] ported in the objlist / flares-fog subsystems (render.c); cat_mcRender is a CAT-TODO(M2-R6 NIS/camera) | [review: M2-R6 nis-fow-camera] rndMainViewRenderFunction: the motion cues (cat_mcRender at 0x00577360 with catMotionCues) ported",
+  "sample": "port-R6-nis-fow-camera"
  },
  "0x00579e30": {
   "class": "IDENTICAL",
@@ -17065,36 +17072,6 @@
   "note": "M2-R3 ships-a (read against the r5 decompile while porting the reused HW1 ship headers): identical (the attackSideStep(spec, statics) body the exe also uses for HeavyCorvetteHeader and MultiGunCorvetteHeader slot 21 (ICF))",
   "sample": "port-R4"
  },
- "_notes": [
-  "## Key findings",
-  "",
-  "1. **Most of the matched engine is free.** By function count about three quarters of the HW1-matched functions show no change the tool can see; by bytes a little over half. Adjusted with the hand-review agreement rates (table below), IDENTICAL covers about 56% of the matched bytes, MODIFIED about 43%, REWRITTEN under 1%; the split after M2-R2 is 51% / 48% / 1% (M2-R1: 53% / 46% / 1%). The MODIFIED bytes sit in a few hundred large functions (165 MODIFIED functions are 1,000 bytes or larger): UI/front-end, rendering, AI and the ship/unit code. Small leaf functions are almost all identical.",
-  "2. **Many changes come from a handful of systemic Cataclysm changes.** Porting them once, in headers or shared helpers, covers dozens of functions each:",
-  "   - **No fuel.** `aieHandlerSetFuelLow` does not exist in Cataclysm, and 18 AI functions drop their call to it (`aiaSendRecon`, `aioCreate*`...).",
-  "   - **Selection filters refresh the info overlay.** 30 functions in ShipSelect.c and elsewhere add an `ioUpdateShipTotals()` call after filtering.",
-  "   - **AI move set-up macro.** 62 AI move functions reference a `\"\\naimProcess<Name>\"` string. Cataclysm's InitNewMove/FixMoveFuncPtrs-style macro in AITeam.h stores the process-function name. That is one header change, and the tool does not count it per function.",
-  "   - **ETG and particle calling convention.** The functions that ETG scripts call (`etgFadd/Fmult/...`, `partSet*`/`partModify*`) read their arguments from one array pointer instead of separate parameters. 147 functions (Particle.c 84, ETG.c 62, SoundEventPlay.c 1) carry this change, many of them with nothing else changed. M2-R1 counted 76; M2-R2 added the one-parameter callables (`etgSin(real32 *ang)`, `partSetScale`...), which take a pointer to their argument slot where HW1 took the value.",
-  "   - **KAS keyed by hashes.** KAS timers take `(scopeHash, nameHash)` instead of a name (Timer.c, `timTimerStart(udword scopeHash, udword nameHash)`). KAS variables go through new `cat_kasVar*` functions, and `cat_kasHashString` is called from 15 matched functions. The `kasfShipsSelect*` family collapses into `cat_kasShipsSelectByPredicate` (11 REWRITTEN).",
-  "   - **New salvage system.** The SalCapCorvette.c entry points delegate to new `cat_salvage*` code (REWRITTEN), and 29 other functions call `cat_salvage*` [audit: was \"37 other\"; 37 is the total including the 8 SalCapCorvette.c functions that call cat_salvage*, counted from calls_added/calls_new_cataclysm in delta_map.json].",
-  "   - **Renumbered races and ship types.** Race and ship-type tests use Cataclysm's enum values (races 0/1/2/3/5; ship types such as 0x3f/0x40/0x4d/0x4f). Some filters test more types than HW1 did. Where only the enum value differs, the function is IDENTICAL in source. Where a test names other types (per-race Cataclysm types replacing HW1's, added or dropped types), M2-R2 marks it MODIFIED with a change line starting `enum:`.",
-  "   - **New features threaded through HW1 code.** 386 non-identical functions call at least one Cataclysm-only (`cat-new`) function. The most frequent are cloaking (`cat_shipIsCloakedFully`, 15 callers), crystals (11), speed multipliers (11), beast weapons (10), disable reasons (9), upgrades (`cat_playerUpdateUpgradesFromResearch`, 8), plus module slots and support units.",
-  "   - **Debug output.** HW1 calls `dbgMessagef` directly in 54 matched functions and `dbgMessage` in 44, some of them the same functions, and the Cataclysm binary has neither function. They are treated as compiled out, not as a change.",
-  "3. **Inlining is common in the Cataclysm build.** It inlines small helpers from the same source file (`partHeaderSize`, `aiuFindDistanceSquared`, `nisNewEvent`, `StrToNum`, `opOptionsCancelHelper`...). The tool counts a dropped same-file callee as inlined and expects that callee's strings, fields and constants in the caller. A port must not mistake this inlining for a source change.",
-  "4. **Some binary-map names look wrong.** [M2-R2: settled. 0x00404090 `aieCheckEnemyNearby` is HW1 `aieCheckHealthLow` and 0x00404150 `aieCheckEnemyNotNearby` is `aieCheckHealthHigh` (both IDENTICAL; HW1's enemy-nearby checks are inlined in `aieExecute`); 0x004aeb10 `meshFixupPacoUV` is `meshObjectFixupPacoUV`. Proposals: `ghidra/proposals/m2-r2-name-fixes.json`. `RemoveShipFromFormation` 0x00447950 is named right: the same body is inlined in `RemoveShipsFromDoingStuff` where HW1 calls it, so Cataclysm replaced the body (REWRITTEN).] M2-R1 text: the bodies are unrelated to the HW1 function: `aieCheckEnemyNearby` 0x00404090 and `RemoveShipFromFormation` 0x00447950. `TitanInterface_GetPatch_2` 0x0058c6e0 is a 9-parameter Cataclysm routine [audit: wrong for GetPatch_2: its body is HW1's TitanInterface::GetPatch thread launcher extended to 9 parameters (allocates an argument object, copies the strings into it, calls _beginthread(TitanInterface_GetPatch,0,args) and calls the failure callback passed as parameter 8 when that returns -1), so the binary-map name fits and the function is MODIFIED, not REWRITTEN]. These are flagged REWRITTEN/low with a note.",
-  "5. **Limits.** The tool compares features, not semantics. A changed condition or constant that adds no call, string, field or global is invisible to it. Reading found several such changes in functions the tool called IDENTICAL: `lgLaunchLAN` (protocol retry removed), `bsCurveUpdate` (end-of-curve value), `aioCreateMine` (race test), `timTimerCreateSetStart` (hash keys behind inlined callees). That is why the IDENTICAL buckets agree with review only 88-92% of the time (M2-R2; M2-R1: 82-98% on fewer reviews). In M2, IDENTICAL means \"port verbatim, then let the checksum oracle catch the rest\"."
- ],
- "_notes_r2": [
-  "Tool fixes in `tools/delta_map.py` (M2-R2), for the systemic misses the R1 audit found:",
-  "",
-  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` → `SpaceObjRegistryGetObj`, `aimInterceptShipDied` → `aimCaptureShipDied`, `aimAdvancedAttackClose` → `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
-  "- **Callee interface changes.** A bound callee whose Cataclysm prototype has real parameter names and another parameter count than its HW1 definition (`timTimer*`, `clCommandMessage`, `spMainScreen`, `hsStaticInit`...), or that the binary map extended with `cat_argN` arguments counted from caller stack cleanup (`clFormation`, `RemoveShipsFromDoingStuff`, `ApplyDamageToTarget`, `tutSetPointerTargetAIVolume`...), makes each caller MODIFIED. Over-declared prototypes are skipped when every call site passes register or stack garbage in the extra slots (`feCurrentScreenDelete(unaff_EDI, unaff_ESI)`), and under-declared ones when the callee reads `in_EAX`/`in_stack_` (`kniTransGrowVertexLists`). `param_N` prototypes are not used, because a double or a by-value struct splits into several slots (`rgluLookAt` 9 -> 12); so `trTextureRegister`'s real 4th argument is still caught only by hand review.",
-  "- **One-parameter ETG/particle callables** that take a pointer to their argument slot are MODIFIED (the old rule needed two or more HW1 parameters).",
-  "- **KAS hash keys.** A function that calls `kasfScopeName` in HW1 and tests the `0x80000000` hash bit in Cataclysm is MODIFIED.",
-  "- **Deterministic output.** The inlined-callee walk was capped at 12 callees in set order, so `PYTHONHASHSEED` changed 10-11 records per run. It now walks in sorted order; repeated `python3 -I` runs give byte-identical JSON.",
-  "",
-  "Effect of the tool fixes alone, before the reviewed classes are applied: 117 functions went from automatic IDENTICAL to MODIFIED and 8 from MODIFIED to IDENTICAL; 48 unreviewed functions changed class (all IDENTICAL to MODIFIED). Every reviewed function keeps its reviewed class.",
-  ""
- ],
  "0x004d51f0": {
   "class": "IDENTICAL",
   "confidence": "high",
@@ -17703,5 +17680,1176 @@
   "change": "the force-open flag 0x00a5b22c around smSensorsBegin wired (M2-R6 managers); the rest of the body not compared here",
   "note": "[review: M2-R6 managers] the force-open flag 0x00a5b22c around smSensorsBegin wired (M2-R6 managers); the rest of the body not compared here",
   "sample": "port-R6-managers"
+ },
+ "0x00420f50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (the 19-entry listing cleared, Movies\\animatics.lst read; HW1's level assert compiled out)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x00421860": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported into GoK's animAviPlay / animAviDecode / animAviEnd (Bink is replaced by GoK's avi player): cat_taskTimeCompressionReset first, universe.realtimeelapsed saved, zeroed and restored with the total time, the decode callback (0x004217d0) converts frames by the movie's frame rate (Bink's 0x00a70f1c; the animatics are 30 fps, GoK assumed 15) and sets the real time too; soundstopallSFX(0,1) = soundstopall; the glide/RGL display callbacks are GoK-backend",
+  "note": "[review: M2-R6 nis-fow-camera] ported into GoK's animAviPlay / animAviDecode / animAviEnd (Bink is replaced by GoK's avi player): cat_taskTimeCompressionReset first, universe.realtimeelapsed saved, zeroed and restored with the total time, the decode callback (0x004217d0) converts frames by the movie's frame rate (Bink's 0x00a70f1c; the animatics are 30 fps, GoK assumed 15) and sets the real time too; soundstopallSFX(0,1) = soundstopall; the glide/RGL display callbacks are GoK-backend",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042b650": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (camAngleVerify / camDeclinationVerify inlined)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042b760": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042b7d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: the exe's Camera is 0x5C bytes; cameraInit also clears +0x55 (catSnapToFocus) and +0x58 (catScriptedDistance)",
+  "note": "[review: M2-R6 nis-fow-camera] ported: the exe's Camera is 0x5C bytes; cameraInit also clears +0x55 (catSnapToFocus) and +0x58 (catScriptedDistance) | [audit: M2-R6 nis-fow-camera] also: the exe clears only lookatpoint.x and oldlookatpoint.x (0x0042b7ea/0x0042b7ed); the tree clears all three (CAT-FIX comment)",
+  "sample": "audit-R6-nis-fow-camera"
+ },
+ "0x0042ba50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042bee0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same structure (the exe scales the look vector by a constant, GoK's tree by 0.49 with the field of view; kept: GoK backend)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042cdd0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: a focus ship counts when cat_ccShipIsLegalToFocusOn allows it (dead player, ally, seen through the fog of war, NIS scissors / console up), within MaxCamDistSquared; then any allied ship near the look-at point",
+  "note": "[review: M2-R6 nis-fow-camera] ported: a focus ship counts when cat_ccShipIsLegalToFocusOn allows it (dead player, ally, seen through the fog of war, NIS scissors / console up), within MaxCamDistSquared; then any allied ship near the look-at point",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042cf60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: the collision centres read directly, a mimicking ship zooms to cat_mimicGetCameraRadius, a minimum zoom of at least 0.1 replaces the collision radius, the eye direction normalised in single precision and the distance summed as floats",
+  "note": "[review: M2-R6 nis-fow-camera] ported: the collision centres read directly, a mimicking ship zooms to cat_mimicGetCameraRadius, a minimum zoom of at least 0.1 replaces the collision radius, the eye direction normalised in single precision and the distance summed as floats",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042d380": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (natural logs, x87 precision)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042d510": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: CCMODE_PILOT_SHIP with a one-ship focus is cat_ccChaseCamFromShip (no pilotView switch, HW1's cameraSetEyePositionBasedOnShip gone), else the flag is cleared; the up vector always reset; the snap after a scripted call (Camera +0x55: the trackers restart on the target with log base 0, the scripted distance +0x58 applied, then the render lists updated); CAMERA_SET also asks the motion cues to reset",
+  "note": "[review: M2-R6 nis-fow-camera] ported: CCMODE_PILOT_SHIP with a one-ship focus is cat_ccChaseCamFromShip (no pilotView switch, HW1's cameraSetEyePositionBasedOnShip gone), else the flag is cleared; the up vector always reset; the snap after a scripted call (Camera +0x55: the trackers restart on the target with log base 0, the scripted distance +0x58 applied, then the render lists updated); CAMERA_SET also asks the motion cues to reset",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042da90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (the cosine clamp)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042db30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (field order checked with the exe's 0x5C Camera: transition 1, action 0, zoomInCloseAsPossible 1, dontFocusOnMe = the base entry)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042dbd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042dc30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: spFindCameraAttitude only outside single player; in single player mission 2 the camera starts on the other side (angle - CAMERA_MOTHERSHIPFOCUS_ANGLE)",
+  "note": "[review: M2-R6 nis-fow-camera] ported: spFindCameraAttitude only outside single player; in single player mission 2 the camera starts on the other side (angle - CAMERA_MOTHERSHIPFOCUS_ANGLE)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042de20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same as ccClose + ccInit",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042deb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: no proxInFocusSelection (an empty stub in the exe), transTimeStamp from cat_taskRealTimeElapsed",
+  "note": "[review: M2-R6 nis-fow-camera] ported: no proxInFocusSelection (an empty stub in the exe), transTimeStamp from cat_taskRealTimeElapsed",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042e1f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042e230": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: transTimeStamp from cat_taskRealTimeElapsed",
+  "note": "[review: M2-R6 nis-fow-camera] ported: transTimeStamp from cat_taskRealTimeElapsed",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042e310": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: GetDistanceAngleDeclination inlined without the cosine clamp",
+  "note": "[review: M2-R6 nis-fow-camera] ported: GetDistanceAngleDeclination inlined without the cosine clamp",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042e3d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: no return at the base entry (the exe focuses where the walk stopped), transTimeStamp from cat_taskRealTimeElapsed",
+  "note": "[review: M2-R6 nis-fow-camera] ported: no return at the base entry (the exe focuses where the walk stopped), transTimeStamp from cat_taskRealTimeElapsed",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042e4c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: transTimeStamp from cat_taskRealTimeElapsed",
+  "note": "[review: M2-R6 nis-fow-camera] ported: transTimeStamp from cat_taskRealTimeElapsed",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042e580": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042e6d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: a toggle (a second call cancels the fleet focus), ViewEntireMissphere set, UserControlled kept, transTimeStamp from cat_taskRealTimeElapsed",
+  "note": "[review: M2-R6 nis-fow-camera] ported: a toggle (a second call cancels the fleet focus), ViewEntireMissphere set, UserControlled kept, transTimeStamp from cat_taskRealTimeElapsed",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042e730": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042e7c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (ccCollapseFocusStack / ccFocusIsLegal inlined)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042e990": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042ea50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x0042eb00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a3a10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "levelInit: SetSMMissionTweaks inlined with the universe box grown by 5000 per axis (0x0072a618) before smUpdateParameters, then cat_fowCreatePlayerGrids 0x004a38c0 (the local player's grid); the rest as before (mission script, motherships, switch to curPlayer, focus, RUs, music)",
+  "note": "[review: M2-R6 nis-fow-camera] levelInit: SetSMMissionTweaks inlined with the universe box grown by 5000 per axis (0x0072a618) before smUpdateParameters, then cat_fowCreatePlayerGrids 0x004a38c0 (the local player's grid); the rest as before (mission script, motherships, switch to curPlayer, focus, RUs, music)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a3c80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "levelStartNext: the same inlined SetSMMissionTweaks with the +5000 universe margin (the map's IDENTICAL missed the margin); no grid here",
+  "note": "[review: M2-R6 nis-fow-camera] levelStartNext: the same inlined SetSMMissionTweaks with the +5000 universe margin (the map's IDENTICAL missed the margin); no grid here",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a51a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madLinkInUpdateMeshAnimations: a cued animation starts with mode 0 and plays its sound (no stop / unpause first: the exe's madAnimationStart does it), no HW1 Mothership door upkeep, no Ship_MoshipDoorClosed sound at the door's end",
+  "note": "[review: M2-R6 nis-fow-camera] madLinkInUpdateMeshAnimations: a cued animation starts with mode 0 and plays its sound (no stop / unpause first: the exe's madAnimationStart does it), no HW1 Mothership door upkeep, no Ship_MoshipDoorClosed sound at the door's end",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a5420": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madLinkInSetUpInitialBuiltMadState: only when madstatic.animsByNumber is 0; mode 0; races 0..6, only the Kushan kHeavyDefender (0x43) starts with closed guns (HW1's R1 / R2 cases gone)",
+  "note": "[review: M2-R6 nis-fow-camera] madLinkInSetUpInitialBuiltMadState: only when madstatic.animsByNumber is 0; mode 0; races 0..6, only the Kushan kHeavyDefender (0x43) starts with closed guns (HW1's R1 / R2 cases gone)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a54c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madLinkInSetUpInitialPlacedMadState: as the built one (animsByNumber 0 only; kHeavyDefender guns closed)",
+  "note": "[review: M2-R6 nis-fow-camera] madLinkInSetUpInitialPlacedMadState: as the built one (animsByNumber 0 only; kHeavyDefender guns closed)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a5560": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madOpenGunsShip: MODIFIED (the map's IDENTICAL): the cued sound is 0x405 for damaged and undamaged openings (HW1 ShipCmn_AnimOpening / DamagedOpen 0x406 / 0x408); picks ranRandomFn(10) % n as randombetween",
+  "note": "[review: M2-R6 nis-fow-camera] madOpenGunsShip: MODIFIED (the map's IDENTICAL): the cued sound is 0x405 for damaged and undamaged openings (HW1 ShipCmn_AnimOpening / DamagedOpen 0x406 / 0x408); picks ranRandomFn(10) % n as randombetween",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a5660": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madLinkInCloseGuns: MODIFIED (the map's IDENTICAL): skips bIonArrayFrigate (0x2C) and p1IonArrayFrigate (0x5E)",
+  "note": "[review: M2-R6 nis-fow-camera] madLinkInCloseGuns: MODIFIED (the map's IDENTICAL): skips bIonArrayFrigate (0x2C) and p1IonArrayFrigate (0x5E)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a56b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madLinkInCloseGunsShip: MODIFIED (the map's IDENTICAL): cued sound 0x406 for every closing (HW1 0x407 / 0x409)",
+  "note": "[review: M2-R6 nis-fow-camera] madLinkInCloseGunsShip: MODIFIED (the map's IDENTICAL): cued sound 0x406 for every closing (HW1 0x407 / 0x409)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a57c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] madLinkInPostDocking: compared: same loop",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a5800": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madLinkInPostDockingShip: MODIFIED (the map's IDENTICAL): cued sound 0x405",
+  "note": "[review: M2-R6 nis-fow-camera] madLinkInPostDockingShip: MODIFIED (the map's IDENTICAL): cued sound 0x405",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a5910": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madLinkInPreDockingShip: MODIFIED (the map's IDENTICAL): cued sound 0x406",
+  "note": "[review: M2-R6 nis-fow-camera] madLinkInPreDockingShip: MODIFIED (the map's IDENTICAL): cued sound 0x406",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a5a20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madLinkInOpenDoor: MODIFIED (the map's IDENTICAL): cued sound 0x405 (HW1 0x406)",
+  "note": "[review: M2-R6 nis-fow-camera] madLinkInOpenDoor: MODIFIED (the map's IDENTICAL): cued sound 0x405 (HW1 0x406)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a5ae0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madLinkInCloseDoor: MODIFIED (the map's IDENTICAL): cued sound 0x406 (HW1 0x407)",
+  "note": "[review: M2-R6 nis-fow-camera] madLinkInCloseDoor: MODIFIED (the map's IDENTICAL): cued sound 0x406 (HW1 0x407)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a5ba0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madLinkInOpenSpecialShip: MODIFIED (the map's IDENTICAL): cued sound 0x405",
+  "note": "[review: M2-R6 nis-fow-camera] madLinkInOpenSpecialShip: MODIFIED (the map's IDENTICAL): cued sound 0x405",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004a5cb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madLinkInCloseSpecialShip: MODIFIED (the map's IDENTICAL): cued sound 0x406",
+  "note": "[review: M2-R6 nis-fow-camera] madLinkInCloseSpecialShip: MODIFIED (the map's IDENTICAL): cued sound 0x406",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004b6720": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madAnimBindingUpdate: MODIFIED (the map's IDENTICAL): returns FALSE with no animation, maps nCurrentAnim (a number) through madstatic.animIndexes, loops by the madanim mode word (+0x08 bit 0), not the header's MAF_Loop; no fatal for a missing restart keyframe",
+  "note": "[review: M2-R6 nis-fow-camera] madAnimBindingUpdate: MODIFIED (the map's IDENTICAL): returns FALSE with no animation, maps nCurrentAnim (a number) through madstatic.animIndexes, loops by the madanim mode word (+0x08 bit 0), not the header's MAF_Loop; no fatal for a missing restart keyframe",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004b6a10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madAnimBindingsDupe: the exe's layout (curves +0x28, postCallback +0x34, localBinding +0x38); not loading: current -> previous (+0x10), current -1, unpaused; cat_univMeshBindingsLinkParents",
+  "note": "[review: M2-R6 nis-fow-camera] madAnimBindingsDupe: the exe's layout (curves +0x28, postCallback +0x34, localBinding +0x38); not loading: current -> previous (+0x10), current -1, unpaused; cat_univMeshBindingsLinkParents",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004b6ce0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "madAnimationUpdate: the deferred swap, the per-type animation sound at the first frame (cat_madAnimSoundEvent, 0x00c32660), the end by the mode: loop (bit 0), pause on the last frame and stay current (0), or stop (bit 1)",
+  "note": "[review: M2-R6 nis-fow-camera] madAnimationUpdate: the deferred swap, the per-type animation sound at the first frame (cat_madAnimSoundEvent, 0x00c32660), the end by the mode: loop (bit 0), pause on the last frame and stay current (0), or stop (bit 1)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004b6f20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] madAnimationPause: compared: same (nullsubReturnFalse = madAnimBindingPause)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004b7000": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] Fix_madBindings: compared: same (the exe's field offsets)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cc4c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (nisPause(FALSE) inlined at the end of the fly-in)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cc600": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: the KAS letterbox finish at the end of the scissor fade-in (cat_kasWideScreenActive / cat_kasWideScreenInFinish: stage 6 KAS, CAT-TODO), the frame-step flag 0x00a6ed74 cleared during the fade-in, 0x00a4cacc (set by singlePlayerGameUpdate) keeps the letterbox at the NIS's end instead of clearing nisFullyScissored; no test-NIS or teaser branch",
+  "note": "[review: M2-R6 nis-fow-camera] ported: the KAS letterbox finish at the end of the scissor fade-in (cat_kasWideScreenActive / cat_kasWideScreenInFinish: stage 6 KAS, CAT-TODO), the frame-step flag 0x00a6ed74 cleared during the fade-in, 0x00a4cacc (set by singlePlayerGameUpdate) keeps the letterbox at the NIS's end instead of clearing nisFullyScissored; no test-NIS or teaser branch",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cc8f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: cat_taskTimeCompressionReset after the task start; the exe's taskStart takes the task name as a fourth argument (GoK's has none)",
+  "note": "[review: M2-R6 nis-fow-camera] ported: cat_taskTimeCompressionReset after the task start; the exe's taskStart takes the task name as a fourth argument (GoK's has none)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cc930": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cca90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004ccba0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cccb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: ship races 0..6 (the seven Cataclysm races), univCreateShip(type, race, pos, player, 0, 0, 1) = cat_univAddShipModules(..., 0, TRUE) (placed, upgrades applied, no automatic sMothership modules outside mission 1); an NIS sMothership gets copies of the modules in the hyperspace ether (cat_spGetHyperspaceModuleTypes), kept in 0x00a4ca38 / 0x00a4cb80, the support module on the player's support module's dock point (dockReserveDockPoint, turned round by parity), clamped; mission 1 adds a unit-capped docking bay; the generic object case cannot create (CAT-FIX NULL); cat_clampUpdateAttachedObjects after the one-keyframe placement",
+  "note": "[review: M2-R6 nis-fow-camera] ported: ship races 0..6 (the seven Cataclysm races), univCreateShip(type, race, pos, player, 0, 0, 1) = cat_univAddShipModules(..., 0, TRUE) (placed, upgrades applied, no automatic sMothership modules outside mission 1); an NIS sMothership gets copies of the modules in the hyperspace ether (cat_spGetHyperspaceModuleTypes), kept in 0x00a4ca38 / 0x00a4cb80, the support module on the player's support module's dock point (dockReserveDockPoint, turned round by parity), clamped; mission 1 adds a unit-capped docking bay; the generic object case cannot create (CAT-FIX NULL); cat_clampUpdateAttachedObjects after the one-keyframe placement",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cd2b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: catSmHideViewport cleared, cat_rndLensFlareNISSourceAdd, cat_rndFogLayerOff, the fadeSet flag 0x00a4cb4c cleared with the fades; the RGL hook (0x00b3a6d8/0x00b3a610) is GoK-backend; nisFocusMaxRadius is inlined (same formula)",
+  "note": "[review: M2-R6 nis-fow-camera] ported: catSmHideViewport cleared, cat_rndLensFlareNISSourceAdd, cat_rndFogLayerOff, the fadeSet flag 0x00a4cb4c cleared with the fades; the RGL hook (0x00b3a6d8/0x00b3a610) is GoK-backend; nisFocusMaxRadius is inlined (same formula)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cdd60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: NIS lens flare source removed, fog texture unloaded / off / faded to 0, SFX stopped over 0.5 s, the NIS module copies deleted, ship races 0..6, a mothership's clamped modules apply physics again (CAT-FIX guards), the effect pointer cleared, the music always stopped (no fast-forward test), subTitlesUpdate + subReset, mrCamera = &defaultCamera at the end",
+  "note": "[review: M2-R6 nis-fow-camera] ported: NIS lens flare source removed, fog texture unloaded / off / faded to 0, SFX stopped over 0.5 s, the NIS module copies deleted, ship races 0..6, a mothership's clamped modules apply physics again (CAT-FIX guards), the effect pointer cleared, the music always stopped (no fast-forward test), subTitlesUpdate + subReset, mrCamera = &defaultCamera at the end",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004ce2e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (including HW1's read of currentPos[6] after the curve loop)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004ce5d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004ce600": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: univUpdateRenderList and univUpdateMinorRenderList after moving the camera",
+  "note": "[review: M2-R6 nis-fow-camera] ported: univUpdateRenderList and univUpdateMinorRenderList after moving the camera",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004ce780": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: waits while a movie plays (binkDonePlaying 0x008b6d94 = GoK's aviIsPlaying), a ship moves through cat_univSetShipPosition, then cat_clampUpdateAttachedObjects and the nisLightSource1/2 and nisLensflareSource1 ships set cat_lightSetPosition(0/1) / cat_rndLensFlareNISSourceSetPosition; the rest (trail zeroing at 300, the velocity cap on type < 7, events, loop) as HW1",
+  "note": "[review: M2-R6 nis-fow-camera] ported: waits while a movie plays (binkDonePlaying 0x008b6d94 = GoK's aviIsPlaying), a ship moves through cat_univSetShipPosition, then cat_clampUpdateAttachedObjects and the nisLightSource1/2 and nisLensflareSource1 ships set cat_lightSetPosition(0/1) / cat_rndLensFlareNISSourceSetPosition; the rest (trail zeroing at 300, the velocity cap on type < 7, events, loop) as HW1",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004ced60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: the seven Cataclysm ship races (cases 0..6; HW1 0..5 with R1..Traders); the Sect/Beast swap of NHF_RacesSwapped",
+  "note": "[review: M2-R6 nis-fow-camera] ported: the seven Cataclysm ship races (cases 0..6; HW1 0..5 with R1..Traders); the Sect/Beast swap of NHF_RacesSwapped",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004ceff0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (nisRemoveObjectReference inlined for the test and the playing NIS)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cf150": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (inlined per NIS)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cf240": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cf2c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: a bMothership attacks through clSpecial",
+  "note": "[review: M2-R6 nis-fow-camera] ported: a bMothership attacks through clSpecial",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cf400": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "compared: RemoveShipsFromDoingStuff reason 0x21 (ported in M2-R5), otherwise same",
+  "note": "[review: M2-R6 nis-fow-camera] compared: RemoveShipsFromDoingStuff reason 0x21 (ported in M2-R5), otherwise same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cf470": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: a ship's clamped parts are added to the render list and unhidden with it; the nisLensflareSource1 ship enables the NIS lens flare",
+  "note": "[review: M2-R6 nis-fow-camera] ported: a ship's clamped parts are added to the render list and unhidden with it; the nisLensflareSource1 ship enables the NIS lens flare",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cf5d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: a ship's clamped parts hidden with it, the NIS lens flare disabled for nisLensflareSource1, soundEventShipRemove for a ship",
+  "note": "[review: M2-R6 nis-fow-camera] ported: a ship's clamped parts hidden with it, the NIS lens flare disabled for nisLensflareSource1, soundEventShipRemove for a ship",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cf6e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cf710": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (soundEventPlay(obj, event, NULL))",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cf840": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: the variation argument is the ship's type (obj+0x2B0), not the event's parameter",
+  "note": "[review: M2-R6 nis-fow-camera] ported: the variation argument is the ship's type (obj+0x2B0), not the event's parameter",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cf8b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (timeout 5.0)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cf8f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: timeout 0.0 (HW1's fleet macro 5.0)",
+  "note": "[review: M2-R6 nis-fow-camera] ported: timeout 0.0 (HW1's fleet macro 5.0)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cfa40": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (random stream 9, ABGR texels)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cfe30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (nisStaticOffExp inlined)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cfe70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (opcode 0x3a = NEO_HideDerelict)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cff00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004cffa0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0050": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the team label is hashed (cat_kasHashString) for kasAddShipToTeam: stage 6 KAS (CAT-TODO); the rest same",
+  "note": "[review: M2-R6 nis-fow-camera] the team label is hashed (cat_kasHashString) for kasAddShipToTeam: stage 6 KAS (CAT-TODO); the rest same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0170": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0240": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (0x2C-byte card copied)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d02d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (sound 0x124)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0320": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0460": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0710": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d07b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (byte stores for ship, missile, derelict)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0800": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: madAnimationStart's third argument 0 (M2-R6 mesh animation)",
+  "note": "[review: M2-R6 nis-fow-camera] ported: madAnimationStart's third argument 0 (M2-R6 mesh animation)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0920": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (nCurrentAnim at madanim +0x0C)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0950": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (bPaused at madanim +0x14)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0990": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (time at madanim +0x20)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d09e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0ca0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (codes 0x2a..0x2c)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0ce0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0de0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0e30": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: memStringDupe (no NV pool)",
+  "note": "[review: M2-R6 nis-fow-camera] ported: memStringDupe (no NV pool)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0ef0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0f10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d0fb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d1050": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d10f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d1250": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (opcode 6)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d12d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d1380": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (no range check in the exe: the debug check of the tree removed, nislet01 keys events at its own length)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d13e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d1460": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d14e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d1560": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d15e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d1b00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (actor << 29, 0xE0000000 without ACTOR)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d1e10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d1f60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (current object -1)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d20b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d2290": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: an event of no object (shipID 0), sscanf \"%f\" into param[0] (GoK's tree had scanf \"%d\" from stdin)",
+  "note": "[review: M2-R6 nis-fow-camera] ported: an event of no object (shipID 0), sscanf \"%f\" into param[0] (GoK's tree had scanf \"%d\" from stdin)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d2470": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: swaps the Sect and the Beast unless the player is race 2 (the Kushan)",
+  "note": "[review: M2-R6 nis-fow-camera] ported: swaps the Sect and the Beast unless the player is race 2 (the Kushan)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d24d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d2680": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d2790": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d2820": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d2890": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d2ac0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (including HW1's second sscanf of the field)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d2bd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d2cd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d2d50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d2dd0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d2e80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d2fa0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: an optional \", <n>\" second parameter into param[1] (read by nisBlackFadeSet into 0x00a4cb4c)",
+  "note": "[review: M2-R6 nis-fow-camera] ported: an optional \", <n>\" second parameter into param[1] (read by nisBlackFadeSet into 0x00a4cb4c)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d30b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d31e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d3290": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d35d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d3650": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d36d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d37d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d3850": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d3900": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d3980": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d3a00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d3a80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d3b00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d3c20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d3ed0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d3f50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (the decompile's constant stores are stack reads of the scanned values)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d4230": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d42d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d4380": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: memStringDupe (no NV pool); the rest same",
+  "note": "[review: M2-R6 nis-fow-camera] ported: memStringDupe (no NV pool); the rest same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d44f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d45a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the selection label is hashed (cat_kasHashString): stage 6 KAS (CAT-TODO); the rest same",
+  "note": "[review: M2-R6 nis-fow-camera] the selection label is hashed (cat_kasHashString): stage 6 KAS (CAT-TODO); the rest same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d4650": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d46d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d48a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same (derelict id NUM_DERELICTTYPES 8 + index)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d4a00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "ported: the seven Cataclysm ship races (cases 0..6) and the Missile test among them; the file read with GoK's 64-bit loader",
+  "note": "[review: M2-R6 nis-fow-camera] ported: the seven Cataclysm ship races (cases 0..6) and the Missile test among them; the file read with GoK's 64-bit loader",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d4fe0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "compared: frees the same events (StartNewNIS, TextCard, MeshAnimationStart, NewEnvironment, SMPTEOn, StaticOn); the exe also NULLs the string block and frees a generic object with CloseStatInfo; not ported (no effect)",
+  "note": "[review: M2-R6 nis-fow-camera] compared: frees the same events (StartNewNIS, TextCard, MeshAnimationStart, NewEnvironment, SMPTEOn, StaticOn); the exe also NULLs the string block and frees a generic object with CloseStatInfo; not ported (no effect)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d50f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d5520": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same callees (font print of the SMPTE string)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x004d5a30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R6 nis-fow-camera] compared: same callees and random stream 9 (GL through glcompat in the exe)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x00500950": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "FixShip: the repair droids made anew after the type's Fix (droidCreateArray for a Sect ship with nRepairDroids, else NULL); the rest of the body not compared here",
+  "note": "[review: M2-R6 nis-fow-camera] FixShip: the repair droids made anew after the type's Fix (droidCreateArray for a Sect ship with nRepairDroids, else NULL); the rest of the body not compared here",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x005034c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "SaveUniverse: cat_saveSavePlayerFOW 0x004ff6b0 in the player loop after the research info ported (the rest of the body not compared here)",
+  "note": "[review: M2-R6 nis-fow-camera] SaveUniverse: cat_saveSavePlayerFOW 0x004ff6b0 in the player loop after the research info ported (the rest of the body not compared here)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x00503910": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "LoadUniverse: cat_saveLoadPlayerFOW 0x004ff7e0 in the player loop ported (the rest of the body not compared here)",
+  "note": "[review: M2-R6 nis-fow-camera] LoadUniverse: cat_saveLoadPlayerFOW 0x004ff7e0 in the player loop ported (the rest of the body not compared here)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x00517af0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "UpdateHyperspacingShip: univRemoveShipFromOutside(ship, 1) (the rest of the body not compared here)",
+  "note": "[review: M2-R6 nis-fow-camera] UpdateHyperspacingShip: univRemoveShipFromOutside(ship, 1) (the rest of the body not compared here)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "0x005180a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "PutShipOutsideAt: cat_univShipFOWActivate after the position (the rest of the body not compared)",
+  "note": "[review: M2-R6 nis-fow-camera] PutShipOutsideAt: cat_univShipFOWActivate after the position (the rest of the body not compared)",
+  "sample": "port-R6-nis-fow-camera"
+ },
+ "_notes": [
+  "## Key findings",
+  "",
+  "1. **Most of the matched engine is free.** By function count about three quarters of the HW1-matched functions show no change the tool can see; by bytes a little over half. Adjusted with the hand-review agreement rates (table below), IDENTICAL covers about 56% of the matched bytes, MODIFIED about 43%, REWRITTEN under 1%; the split after M2-R2 is 51% / 48% / 1% (M2-R1: 53% / 46% / 1%). The MODIFIED bytes sit in a few hundred large functions (165 MODIFIED functions are 1,000 bytes or larger): UI/front-end, rendering, AI and the ship/unit code. Small leaf functions are almost all identical.",
+  "2. **Many changes come from a handful of systemic Cataclysm changes.** Porting them once, in headers or shared helpers, covers dozens of functions each:",
+  "   - **No fuel.** `aieHandlerSetFuelLow` does not exist in Cataclysm, and 18 AI functions drop their call to it (`aiaSendRecon`, `aioCreate*`...).",
+  "   - **Selection filters refresh the info overlay.** 30 functions in ShipSelect.c and elsewhere add an `ioUpdateShipTotals()` call after filtering.",
+  "   - **AI move set-up macro.** 62 AI move functions reference a `\"\\naimProcess<Name>\"` string. Cataclysm's InitNewMove/FixMoveFuncPtrs-style macro in AITeam.h stores the process-function name. That is one header change, and the tool does not count it per function.",
+  "   - **ETG and particle calling convention.** The functions that ETG scripts call (`etgFadd/Fmult/...`, `partSet*`/`partModify*`) read their arguments from one array pointer instead of separate parameters. 147 functions (Particle.c 84, ETG.c 62, SoundEventPlay.c 1) carry this change, many of them with nothing else changed. M2-R1 counted 76; M2-R2 added the one-parameter callables (`etgSin(real32 *ang)`, `partSetScale`...), which take a pointer to their argument slot where HW1 took the value.",
+  "   - **KAS keyed by hashes.** KAS timers take `(scopeHash, nameHash)` instead of a name (Timer.c, `timTimerStart(udword scopeHash, udword nameHash)`). KAS variables go through new `cat_kasVar*` functions, and `cat_kasHashString` is called from 15 matched functions. The `kasfShipsSelect*` family collapses into `cat_kasShipsSelectByPredicate` (11 REWRITTEN).",
+  "   - **New salvage system.** The SalCapCorvette.c entry points delegate to new `cat_salvage*` code (REWRITTEN), and 29 other functions call `cat_salvage*` [audit: was \"37 other\"; 37 is the total including the 8 SalCapCorvette.c functions that call cat_salvage*, counted from calls_added/calls_new_cataclysm in delta_map.json].",
+  "   - **Renumbered races and ship types.** Race and ship-type tests use Cataclysm's enum values (races 0/1/2/3/5; ship types such as 0x3f/0x40/0x4d/0x4f). Some filters test more types than HW1 did. Where only the enum value differs, the function is IDENTICAL in source. Where a test names other types (per-race Cataclysm types replacing HW1's, added or dropped types), M2-R2 marks it MODIFIED with a change line starting `enum:`.",
+  "   - **New features threaded through HW1 code.** 386 non-identical functions call at least one Cataclysm-only (`cat-new`) function. The most frequent are cloaking (`cat_shipIsCloakedFully`, 15 callers), crystals (11), speed multipliers (11), beast weapons (10), disable reasons (9), upgrades (`cat_playerUpdateUpgradesFromResearch`, 8), plus module slots and support units.",
+  "   - **Debug output.** HW1 calls `dbgMessagef` directly in 54 matched functions and `dbgMessage` in 44, some of them the same functions, and the Cataclysm binary has neither function. They are treated as compiled out, not as a change.",
+  "3. **Inlining is common in the Cataclysm build.** It inlines small helpers from the same source file (`partHeaderSize`, `aiuFindDistanceSquared`, `nisNewEvent`, `StrToNum`, `opOptionsCancelHelper`...). The tool counts a dropped same-file callee as inlined and expects that callee's strings, fields and constants in the caller. A port must not mistake this inlining for a source change.",
+  "4. **Some binary-map names look wrong.** [M2-R2: settled. 0x00404090 `aieCheckEnemyNearby` is HW1 `aieCheckHealthLow` and 0x00404150 `aieCheckEnemyNotNearby` is `aieCheckHealthHigh` (both IDENTICAL; HW1's enemy-nearby checks are inlined in `aieExecute`); 0x004aeb10 `meshFixupPacoUV` is `meshObjectFixupPacoUV`. Proposals: `ghidra/proposals/m2-r2-name-fixes.json`. `RemoveShipFromFormation` 0x00447950 is named right: the same body is inlined in `RemoveShipsFromDoingStuff` where HW1 calls it, so Cataclysm replaced the body (REWRITTEN).] M2-R1 text: the bodies are unrelated to the HW1 function: `aieCheckEnemyNearby` 0x00404090 and `RemoveShipFromFormation` 0x00447950. `TitanInterface_GetPatch_2` 0x0058c6e0 is a 9-parameter Cataclysm routine [audit: wrong for GetPatch_2: its body is HW1's TitanInterface::GetPatch thread launcher extended to 9 parameters (allocates an argument object, copies the strings into it, calls _beginthread(TitanInterface_GetPatch,0,args) and calls the failure callback passed as parameter 8 when that returns -1), so the binary-map name fits and the function is MODIFIED, not REWRITTEN]. These are flagged REWRITTEN/low with a note.",
+  "5. **Limits.** The tool compares features, not semantics. A changed condition or constant that adds no call, string, field or global is invisible to it. Reading found several such changes in functions the tool called IDENTICAL: `lgLaunchLAN` (protocol retry removed), `bsCurveUpdate` (end-of-curve value), `aioCreateMine` (race test), `timTimerCreateSetStart` (hash keys behind inlined callees). That is why the IDENTICAL buckets agree with review only 88-92% of the time (M2-R2; M2-R1: 82-98% on fewer reviews). In M2, IDENTICAL means \"port verbatim, then let the checksum oracle catch the rest\"."
+ ],
+ "_notes_r2": [
+  "Tool fixes in `tools/delta_map.py` (M2-R2), for the systemic misses the R1 audit found:",
+  "",
+  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` \u2192 `SpaceObjRegistryGetObj`, `aimInterceptShipDied` \u2192 `aimCaptureShipDied`, `aimAdvancedAttackClose` \u2192 `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
+  "- **Callee interface changes.** A bound callee whose Cataclysm prototype has real parameter names and another parameter count than its HW1 definition (`timTimer*`, `clCommandMessage`, `spMainScreen`, `hsStaticInit`...), or that the binary map extended with `cat_argN` arguments counted from caller stack cleanup (`clFormation`, `RemoveShipsFromDoingStuff`, `ApplyDamageToTarget`, `tutSetPointerTargetAIVolume`...), makes each caller MODIFIED. Over-declared prototypes are skipped when every call site passes register or stack garbage in the extra slots (`feCurrentScreenDelete(unaff_EDI, unaff_ESI)`), and under-declared ones when the callee reads `in_EAX`/`in_stack_` (`kniTransGrowVertexLists`). `param_N` prototypes are not used, because a double or a by-value struct splits into several slots (`rgluLookAt` 9 -> 12); so `trTextureRegister`'s real 4th argument is still caught only by hand review.",
+  "- **One-parameter ETG/particle callables** that take a pointer to their argument slot are MODIFIED (the old rule needed two or more HW1 parameters).",
+  "- **KAS hash keys.** A function that calls `kasfScopeName` in HW1 and tests the `0x80000000` hash bit in Cataclysm is MODIFIED.",
+  "- **Deterministic output.** The inlined-callee walk was capped at 12 callees in set order, so `PYTHONHASHSEED` changed 10-11 records per run. It now walks in sorted order; repeated `python3 -I` runs give byte-identical JSON.",
+  "",
+  "Effect of the tool fixes alone, before the reviewed classes are applied: 117 functions went from automatic IDENTICAL to MODIFIED and 8 from MODIFIED to IDENTICAL; 48 unreviewed functions changed class (all IDENTICAL to MODIFIED). Every reviewed function keeps its reviewed class.",
+  ""
+ ],
+ "0x005ab180": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_mcResetRequest, cat_mcSetMode; constants 58 not in body; loops 5 -> 9",
+  "note": "[review: M2-R6 startup-keys] ported: shiplagtotals cleared in every game; the motion cues (cat_mcSetMode / cat_mcResetRequest) are CAT-TODO(M2-R6 NIS/camera) | [audit: M2-R6 nis-fow-camera] the motion cues are ported now (catMotionCues on: cat_mcSetMode(&catMotionCueState, 1), cat_mcResetRequest at the end; utility.c)",
+  "sample": "audit-R6-nis-fow-camera"
  }
 }

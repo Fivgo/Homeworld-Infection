@@ -127,9 +127,8 @@ void MothershipInit(Ship *ship)
     }
     if (ship->shiptype == trGhostship)
     {
-        // CAT-PROVISIONAL: the exe starts mesh animation 0 looping (madAnimationStart(ship, 0, 1)); this tree's
-        //      madAnimationStart has no loop argument yet (MeshAnim.c, stage 3), so it plays once
-        madAnimationStart(ship, 0);
+        // CAT: the exe starts mesh animation 0 looping (MothershipInit 0x005bb99b: madAnimationStart(ship, 0, 1))
+        madAnimationStart(ship, 0, MAD_ModeLoop);
     }
     cat_salvageDepotInit(ship);
 }
@@ -552,7 +551,7 @@ static void cat_bigGunFiringUpdate(Ship *ship)                              // 0
                 {
                     if (spec->bigGunChargeEffectState == 1)
                     {
-                        cat_madAnimationStartNumber(module, 0);  // CAT-TODO(stage 3): the exe passes a third argument, 0
+                        madAnimationStart(module, 0, 0);  // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
                     }
                     break;
                 }

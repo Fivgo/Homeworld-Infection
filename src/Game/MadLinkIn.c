@@ -13,7 +13,7 @@
 
 #include "Debug.h"
 #include "MadLinkInDefs.h"
-#include "Mothership.h"
+#include "RaceDefs.h"
 #include "Randy.h"
 #include "SoundEvent.h"
 #include "SoundEventDefs.h"
@@ -23,6 +23,15 @@
 
 
 #define DEBUG_MESH_ANIMATIONS  0
+
+// CAT (M2-R6 nis-fow-camera): the sound events the cue functions store for an animation's start (Ship+0x320): the exe
+//      stores 0x405 for every opening (guns, wings, door, special, damaged or not) and 0x406 for every closing
+//      (madOpenGunsShip 0x004a5560, madLinkInCloseGunsShip 0x004a56b0, madLinkInPostDockingShip 0x004a5800,
+//      madLinkInPreDockingShip 0x004a5910, madLinkInOpenDoor 0x004a5a20, madLinkInCloseDoor 0x004a5ae0,
+//      madLinkInOpenSpecialShip 0x004a5ba0, madLinkInCloseSpecialShip 0x004a5cb0); HW1 stored ShipCmn_AnimOpening /
+//      Closing / DamagedOpen / DamagedClose (0x406..0x409). Names chosen here.
+#define CAT_SHIPCMN_ANIM_OPEN   (ShipCmn_Flag + 5)
+#define CAT_SHIPCMN_ANIM_CLOSE  (ShipCmn_Flag + 6)
 
 //Variables in ship structure to support mesh animations (amongst others)
 //    udword madAnimationFlags;        //general purpose flags for mad animations
@@ -38,33 +47,20 @@
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT (M2-R6 nis-fow-camera): madLinkInUpdateMeshAnimations 0x004a51a0: a cued animation starts with mode 0 (the
+//      exe's madAnimationStart takes care of a playing one) and plays its cued sound; no HW1 Mothership door upkeep;
+//      the door's end plays no extra "Ka-chunk" (the exe has no Ship_MoshipDoorClosed call)
 void madLinkInUpdateMeshAnimations(Ship *ship)
 {
     if(bitTest(ship->madAnimationFlags,MAD_NEED_TO_START_NEW_ANIMATION))
     {
         //we need to switch to a new animation for some odd reason
-        if(ship->madBindings->nCurrentAnim != MAD_NoAnimation)
-        {
-            if(ship->madBindings->bPaused)
-            {
-                //animation is paused...well,unpause it
-                //so as to fix a bug in lukes code!
-                madAnimationPause(ship,!ship->madBindings->bPaused);
-            }
-            madAnimationStop(ship);
-        }
-        madAnimationStart(ship, ship->cuedAnimationIndex);  //start 0th cued animation
+        madAnimationStart(ship, ship->cuedAnimationIndex, MAD_ModePauseAtEnd);  //start 0th cued animation
 		/* play special animation sound here */
 		soundEvent(ship, ship->soundEventAnimationTypeFlag);
         bitClear(ship->madAnimationFlags,MAD_NEED_TO_START_NEW_ANIMATION);
-        if(ship->shiptype == Mothership)
-        {
-            MothershipDoorUpKeep(ship);
-        }
         return;
     }
-
-
 
     //time to start animation
 
@@ -86,7 +82,7 @@ void madLinkInUpdateMeshAnimations(Ship *ship)
             ship->cuedAnimationType = MAD_ANIMATION_NOTHING;
             ship->madGunStatus = MAD_STATUS_GUNS_CLOSED;
             //setup closed gun hack...
-            madAnimationStart(ship, ship->staticinfo->madStatic->gunOpenIndexes[0]);    //start 0th animation
+            madAnimationStart(ship, ship->staticinfo->madStatic->gunOpenIndexes[0], MAD_ModePauseAtEnd);    //start 0th animation
             madAnimationPause(ship,!ship->madBindings->bPaused);
             break;
         case MAD_ANIMATION_WINGS_OPENING:
@@ -97,21 +93,18 @@ void madLinkInUpdateMeshAnimations(Ship *ship)
             ship->cuedAnimationType = MAD_ANIMATION_NOTHING;
             ship->madWingStatus = MAD_STATUS_WINGS_CLOSED;
             //setup closed gun hack...
-            madAnimationStart(ship, ship->staticinfo->madStatic->PostDockIndexes[0]);   //start 0th animation
+            madAnimationStart(ship, ship->staticinfo->madStatic->PostDockIndexes[0], MAD_ModePauseAtEnd);   //start 0th animation
             madAnimationPause(ship,!ship->madBindings->bPaused);
             break;
         case MAD_ANIMATION_DOOR_OPENING:
             ship->cuedAnimationType = MAD_ANIMATION_NOTHING;
             ship->madDoorStatus = MAD_STATUS_DOOR_OPEN;
-            madAnimationStart(ship, ship->staticinfo->madStatic->DoorCloseIndexes[0]);  //start 0th animaiton
+            madAnimationStart(ship, ship->staticinfo->madStatic->DoorCloseIndexes[0], MAD_ModePauseAtEnd);  //start 0th animaiton
             madAnimationPause(ship,!ship->madBindings->bPaused);
             break;
         case MAD_ANIMATION_DOOR_CLOSING:
             ship->cuedAnimationType = MAD_ANIMATION_NOTHING;
             ship->madDoorStatus = MAD_STATUS_DOOR_CLOSED;
-			// play the mothership door closed sound (big Ka-chunk)
-			// this is in addition to the closing sound which is triggered at the start of closing
-			soundEvent(ship, Ship_MoshipDoorClosed);
             break;
         case MAD_ANIMATION_SPECIAL_OPENING:
             ship->cuedAnimationType = MAD_ANIMATION_NOTHING;
@@ -120,7 +113,7 @@ void madLinkInUpdateMeshAnimations(Ship *ship)
         case MAD_ANIMATION_SPECIAL_CLOSING:
             ship->cuedAnimationType = MAD_ANIMATION_NOTHING;
             ship->madSpecialStatus = MAD_STATUS_SPECIAL_CLOSED;
-            madAnimationStart(ship, ship->staticinfo->madStatic->specialOpenIndexes[0]);    //start 0th animaiton
+            madAnimationStart(ship, ship->staticinfo->madStatic->specialOpenIndexes[0], MAD_ModePauseAtEnd);    //start 0th animaiton
             madAnimationPause(ship,!ship->madBindings->bPaused);
             break;
         }
@@ -163,10 +156,6 @@ void madLinkInUpdateMeshAnimations(Ship *ship)
             ship->nextAnim = 0;
         }
     }
-    if(ship->shiptype == Mothership)
-    {
-        MothershipDoorUpKeep(ship);
-    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -178,52 +167,39 @@ void madLinkInUpdateMeshAnimations(Ship *ship)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT (M2-R6 nis-fow-camera): madLinkInSetUpInitialBuiltMadState 0x004a5420: only for a type that does not number its animations
+//      (madstatic.animsByNumber 0), started with mode 0 and paused; the one type with a start-up state is the Kushan
+//      kHeavyDefender (guns closed); the other Cataclysm races have none (HW1's R1/R2 cases retired)
 void madLinkInSetUpInitialBuiltMadState(Ship *ship)
 {
 #if DEBUG_MESH_ANIMATIONS
     dbgAssertOrIgnore(ship->madBindings != NULL);
 #endif
 
-    if(ship->staticinfo->madStatic->needStartBuiltAnimation)
+    if (ship->staticinfo->madStatic->needStartBuiltAnimation && !ship->staticinfo->madStatic->animsByNumber)
     {
         //if ship has need to be set to a specific starting animation
-        madAnimationStart(ship, ship->staticinfo->madStatic->startBuiltAnimationIndex);
+        madAnimationStart(ship, ship->staticinfo->madStatic->startBuiltAnimationIndex, MAD_ModePauseAtEnd);
         madAnimationPause(ship, !ship->madBindings->bPaused);
         switch(ship->shiprace)
         {
-        case R1:
-            switch(ship->shiptype)
-            {
-                case HeavyDefender:
-                    ship->madGunStatus = MAD_STATUS_GUNS_CLOSED;
-                    break;
-                    ship->madWingStatus = MAD_STATUS_WINGS_CLOSED;
-                    break;
-                default:
-                    break;
-            }
+        case RACE_Sect:
+        case RACE_Beast:
+        case RACE_Taiidan:
+        case RACE_P1:
+        case RACE_Traders:
+        case RACE_Derelict:
             break;
-        case R2:
-            switch(ship->shiptype)
+        case RACE_Kushan:
+            if (ship->shiptype == kHeavyDefender)
             {
-                case HeavyCorvette:
-                    ship->madWingStatus = MAD_STATUS_WINGS_CLOSED;
-                    break;
-                    
-                default:
-                    break;
+                ship->madGunStatus = MAD_STATUS_GUNS_CLOSED;
             }
-            break;
-        case P1:
-        case P2:
-        case P3:
-        case Traders:
             break;
         default:
             dbgFatalf(DBG_Loc,"\nUnknown race type with a start up mesh animation (1).");
         }
     }
-
 }
 /*-----------------------------------------------------------------------------
     Name        : madLinkInSetUpInitialBuiltMadState
@@ -234,40 +210,39 @@ void madLinkInSetUpInitialBuiltMadState(Ship *ship)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT (M2-R6 nis-fow-camera): madLinkInSetUpInitialPlacedMadState 0x004a54c0: only for a type that does not number its animations
+//      (madstatic.animsByNumber 0), started with mode 0 and paused; the one type with a start-up state is the Kushan
+//      kHeavyDefender (guns closed); the other Cataclysm races have none (HW1's R1/R2 cases retired)
 void madLinkInSetUpInitialPlacedMadState(Ship *ship)
 {
 #if DEBUG_MESH_ANIMATIONS
     dbgAssertOrIgnore(ship->madBindings != NULL);
 #endif
 
-    if(ship->staticinfo->madStatic->needStartPlacedAnimation)
+    if (ship->staticinfo->madStatic->needStartPlacedAnimation && !ship->staticinfo->madStatic->animsByNumber)
     {
         //if ship has need to be set to a specific starting animation
-        madAnimationStart(ship, ship->staticinfo->madStatic->startPlacedAnimationIndex);
+        madAnimationStart(ship, ship->staticinfo->madStatic->startPlacedAnimationIndex, MAD_ModePauseAtEnd);
         madAnimationPause(ship, !ship->madBindings->bPaused);
         switch(ship->shiprace)
         {
-        case R1:
-            switch(ship->shiptype)
-            {
-                case HeavyDefender:
-                    ship->madGunStatus = MAD_STATUS_GUNS_CLOSED;
-                    break;
-                default:
-                    break;
-            }
+        case RACE_Sect:
+        case RACE_Beast:
+        case RACE_Taiidan:
+        case RACE_P1:
+        case RACE_Traders:
+        case RACE_Derelict:
             break;
-        case R2:
-        case P1:
-        case P2:
-        case P3:
-        case Traders:
+        case RACE_Kushan:
+            if (ship->shiptype == kHeavyDefender)
+            {
+                ship->madGunStatus = MAD_STATUS_GUNS_CLOSED;
+            }
             break;
         default:
             dbgFatalf(DBG_Loc,"\nUnknown race type with a start up mesh animation (1).");
         }
     }
-
 }
 
 //General Comment:
@@ -309,7 +284,7 @@ void madOpenGunsShip(Ship *ship)
             //and ship has damaged animations as well
             animIndex = randombetween(0,(ship->staticinfo->madStatic->numGunOpenDamagedIndexes-1));
             ship->cuedAnimationIndex = ship->staticinfo->madStatic->gunOpenDamagedIndexes[animIndex];
-			ship->soundEventAnimationTypeFlag = ShipCmn_AnimDamagedOpen;
+			ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_OPEN;     // CAT: 0x405 for every opening animation (the exe)
 
         }
         else
@@ -317,7 +292,7 @@ void madOpenGunsShip(Ship *ship)
             //ships health is normalish..use normal gun anims
             animIndex = randombetween(0,(ship->staticinfo->madStatic->numGunOpenIndexes-1));
             ship->cuedAnimationIndex = ship->staticinfo->madStatic->gunOpenIndexes[animIndex];
-			ship->soundEventAnimationTypeFlag = ShipCmn_AnimOpening;
+			ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_OPEN;     // CAT: 0x405 for every opening animation (the exe)
         }
         ship->cuedAnimationType = MAD_ANIMATION_GUN_OPENING;
         ship->madGunStatus = MAD_STATUS_GUNS_OPENING;
@@ -351,6 +326,8 @@ void madLinkInOpenGuns(CommandToDo *command,udword priority)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT (M2-R6 nis-fow-camera): the ion array frigates keep their guns out (madLinkInCloseGuns 0x004a5660 skips
+//      bIonArrayFrigate 0x2C and p1IonArrayFrigate 0x5E)
 void madLinkInCloseGuns(CommandToDo *command,udword priority)
 {
     sdword i;
@@ -359,7 +336,10 @@ void madLinkInCloseGuns(CommandToDo *command,udword priority)
     for(i=0;i<command->selection->numShips;i++)
     {
         ship = command->selection->ShipPtr[i];
-        madLinkInCloseGunsShip(ship);
+        if ((ship->shiptype != bIonArrayFrigate) && (ship->shiptype != p1IonArrayFrigate))
+        {
+            madLinkInCloseGunsShip(ship);
+        }
     }
 }
 
@@ -396,14 +376,14 @@ void madLinkInCloseGunsShip(Ship *ship)
             //and ship has damaged animations as well
             animIndex = randombetween(0,(ship->staticinfo->madStatic->numGunCloseDamagedIndexes-1));
             ship->cuedAnimationIndex = ship->staticinfo->madStatic->gunCloseDamagedIndexes[animIndex];
-			ship->soundEventAnimationTypeFlag = ShipCmn_AnimDamagedClose;
+			ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_CLOSE;    // CAT: 0x406 for every closing animation (the exe)
         }
         else
         {
             //ships health is normalish..use normal gun anims
             animIndex = randombetween(0,(ship->staticinfo->madStatic->numGunCloseIndexes-1));
             ship->cuedAnimationIndex = ship->staticinfo->madStatic->gunCloseIndexes[animIndex];
-			ship->soundEventAnimationTypeFlag = ShipCmn_AnimClosing;
+			ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_CLOSE;    // CAT: 0x406 for every closing animation (the exe)
 		}
         ship->cuedAnimationType = MAD_ANIMATION_GUN_CLOSING;
         ship->madGunStatus = MAD_STATUS_GUNS_CLOSING;
@@ -472,14 +452,14 @@ void madLinkInPostDockingShip(Ship *ship)
             //and ship has damaged animations as well
             animIndex = randombetween(0,(ship->staticinfo->madStatic->numPostDockDamagedIndexes-1));
             ship->cuedAnimationIndex = ship->staticinfo->madStatic->PostDockDamagedIndexes[animIndex];
-			ship->soundEventAnimationTypeFlag = ShipCmn_AnimDamagedOpen;
+			ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_OPEN;     // CAT: 0x405 for every opening animation (the exe)
 		}
         else
         {
             //ships health is normalish..use normal gun anims
             animIndex = randombetween(0,(ship->staticinfo->madStatic->numPostDockIndexes-1));
             ship->cuedAnimationIndex = ship->staticinfo->madStatic->PostDockIndexes[animIndex];
-			ship->soundEventAnimationTypeFlag = ShipCmn_AnimOpening;
+			ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_OPEN;     // CAT: 0x405 for every opening animation (the exe)
         }
         ship->cuedAnimationType = MAD_ANIMATION_WINGS_OPENING;
         ship->madWingStatus = MAD_STATUS_WINGS_OPENING;
@@ -547,14 +527,14 @@ void madLinkInPreDockingShip(Ship *ship)
             //and ship has damaged animations as well
             animIndex = randombetween(0,(ship->staticinfo->madStatic->numDockDamagedIndexes-1));
             ship->cuedAnimationIndex = ship->staticinfo->madStatic->DockDamagedIndexes[animIndex];
-			ship->soundEventAnimationTypeFlag = ShipCmn_AnimDamagedClose;
+			ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_CLOSE;    // CAT: 0x406 for every closing animation (the exe)
         }
         else
         {
             //ships health is normalish..use normal gun anims
             animIndex = randombetween(0,(ship->staticinfo->madStatic->numDockIndexes-1));
             ship->cuedAnimationIndex = ship->staticinfo->madStatic->DockIndexes[animIndex];
-            ship->soundEventAnimationTypeFlag = ShipCmn_AnimClosing;
+            ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_CLOSE;    // CAT: 0x406 for every closing animation (the exe)
         }
         ship->cuedAnimationType = MAD_ANIMATION_WINGS_CLOSING;
         ship->madWingStatus = MAD_STATUS_WINGS_CLOSING;
@@ -604,7 +584,7 @@ void madLinkInOpenDoor(Ship *ship)
         ship->cuedAnimationType = MAD_ANIMATION_DOOR_OPENING;
         ship->madDoorStatus = MAD_STATUS_DOOR_OPENING;
         bitSet(ship->madAnimationFlags,MAD_NEED_TO_START_NEW_ANIMATION);
-		ship->soundEventAnimationTypeFlag = ShipCmn_AnimOpening;
+		ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_OPEN;     // CAT: 0x405 for every opening animation (the exe)
     }
 }
 
@@ -650,7 +630,7 @@ void madLinkInCloseDoor(Ship *ship)
         ship->cuedAnimationType = MAD_ANIMATION_DOOR_CLOSING;
         ship->madDoorStatus = MAD_STATUS_DOOR_CLOSING;
         bitSet(ship->madAnimationFlags,MAD_NEED_TO_START_NEW_ANIMATION);
-		ship->soundEventAnimationTypeFlag = ShipCmn_AnimClosing;
+		ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_CLOSE;    // CAT: 0x406 for every closing animation (the exe)
     }
 }
 
@@ -725,14 +705,14 @@ void madLinkInOpenSpecialShip(Ship *ship)
             //and ship has damaged animations as well
             animIndex = randombetween(0,(ship->staticinfo->madStatic->numSpecialOpenDamagedIndexes-1));
             ship->cuedAnimationIndex = ship->staticinfo->madStatic->specialOpenDamagedIndexes[animIndex];
-            ship->soundEventAnimationTypeFlag = ShipCmn_AnimDamagedOpen;
+            ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_OPEN;     // CAT: 0x405 for every opening animation (the exe)
         }
         else
         {
             //ships health is normalish..use normal gun anims
             animIndex = randombetween(0,(ship->staticinfo->madStatic->numSpecialOpenIndexes-1));
             ship->cuedAnimationIndex = ship->staticinfo->madStatic->specialOpenIndexes[animIndex];
-			ship->soundEventAnimationTypeFlag = ShipCmn_AnimOpening;
+			ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_OPEN;     // CAT: 0x405 for every opening animation (the exe)
         }
         ship->cuedAnimationType = MAD_ANIMATION_SPECIAL_OPENING;
         ship->madSpecialStatus = MAD_STATUS_SPECIAL_OPENING;
@@ -783,14 +763,14 @@ void madLinkInCloseSpecialShip(Ship *ship)
             //and ship has damaged animations as well
             animIndex = randombetween(0,(ship->staticinfo->madStatic->numSpecialCloseDamagedIndexes-1));
             ship->cuedAnimationIndex = ship->staticinfo->madStatic->specialCloseDamagedIndexes[animIndex];
-			ship->soundEventAnimationTypeFlag = ShipCmn_AnimDamagedClose;
+			ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_CLOSE;    // CAT: 0x406 for every closing animation (the exe)
         }
         else
         {
             //ships health is normalish..use normal gun anims
             animIndex = randombetween(0,(ship->staticinfo->madStatic->numSpecialCloseIndexes-1));
             ship->cuedAnimationIndex = ship->staticinfo->madStatic->specialCloseIndexes[animIndex];
-			ship->soundEventAnimationTypeFlag = ShipCmn_AnimClosing;
+			ship->soundEventAnimationTypeFlag = CAT_SHIPCMN_ANIM_CLOSE;    // CAT: 0x406 for every closing animation (the exe)
         }
         ship->cuedAnimationType = MAD_ANIMATION_SPECIAL_CLOSING;
         ship->madSpecialStatus = MAD_STATUS_SPECIAL_CLOSING;

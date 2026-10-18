@@ -18,5 +18,6 @@ void unClampObj(SpaceObjRotImpTargGuidance *obj);
 void updateClampedObject(SpaceObjRotImpTargGuidance *obj);
 void cat_clampUnclampAllFromShip(SpaceObjRotImpTargGuidance *ship);         // CAT: 0x00434900
 void cat_updateClampedObjectNoPhysics(SpaceObjRotImpTargGuidance *obj);    // CAT: 0x00434ab0
+void cat_clampUpdateAttachedObjects(SpaceObjRotImpTargGuidance *host);      // CAT: 0x00434b50 (M2-R6 nis-fow-camera)
 
 #endif

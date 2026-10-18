@@ -32,6 +32,7 @@
 #include "glinc.h"
 #include "HS.h"
 #include "InfoOverlay.h"
+#include "FOW.h"              // CAT: the fog of war (M2-R6 nis-fow-camera)
 #include "LaunchMgr.h"
 #include "LevelLoad.h"
 #include "MadLinkIn.h"
@@ -49,6 +50,7 @@
 #include "Ping.h"
 #include "ProfileTimers.h"
 #include "Randy.h"
+#include "RepairDroid.h"     // CAT: the repair droids (M2-R6 nis-fow-camera)
 #include "ResCollect.h"
 #include "Salvage.h"
 #include "SaveGame.h"
@@ -114,6 +116,8 @@ static void catDeferredShipListReset(void);
 //      here. [M2-R6 startup-keys: no code of the exe writes it (its only access is this reader in
 //      cat_univShipDeferredUpdate +0x2d3) and the console's command table (Console.c) has no row for it: it stays 0]
 static bool32 catDebugReapplyUpgrades = FALSE;
+// HWI-TEST (M2-R6 nis-fow-camera): how often cat_shipStealthDetectionUpdate ran (the mission run prints it)
+udword catStealthDetectionUpdates = 0;
 
 static void catShipCountersReset(void)
 {
@@ -1672,7 +1676,12 @@ void univMeshBindingsDelete(Ship *ship)
 {
     if (ship->madBindings && ship->madBindings->nCurrentAnim != MAD_NoAnimation)
     {                                                       //if there's a mesh animation going on
-        ship->bindings = ship->madBindings->saveBindings;   //restore old bindings
+        // CAT-FIX: the exe (univFreeShipContents 0x0054b550) restores saveBindings unchecked, which is NULL while a
+        //      started animation still waits for its binding swap (madanim +0x18), and so leaks the gun bindings
+        if (ship->madBindings->saveBindings != NULL)
+        {
+            ship->bindings = ship->madBindings->saveBindings;   //restore old bindings
+        }
     }
     if (ship->bindings == NULL)
     {
@@ -1800,6 +1809,45 @@ void InitializeShowingDamage(Ship* ship)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_univShipFOWActivate / cat_univShipFOWDeactivate
+    Description : CAT (M2-R6 nis-fow-camera): the ship's cube goes on (off) its player's fog-of-war grid
+                  (cat_univShipFOWActivate 0x00542240, cat_univShipFOWDeactivate 0x005422b0): a ship that affects the
+                  fog of war (cat_shipAffectsFOW) lights the cells within its FOW radius (cat_shipGetFOWRadius, the
+                  owner's tech set); the selected grid is put back after
+----------------------------------------------------------------------------*/
+void cat_univShipFOWActivate(Ship *ship)
+{
+    void *grid = cat_playerGetFOWGrid(ship->playerowner);
+    void *previous;
+
+    if (grid != NULL)
+    {
+        previous = fowSelect(grid);
+        if (cat_shipAffectsFOW(ship))
+        {
+            fowActivateCubeW(ship->obj.posinfo.position, cat_shipGetFOWRadius(ship, 0));
+        }
+        fowSelect(previous);
+    }
+}
+
+void cat_univShipFOWDeactivate(Ship *ship)
+{
+    void *grid = cat_playerGetFOWGrid(ship->playerowner);
+    void *previous;
+
+    if (grid != NULL)
+    {
+        previous = fowSelect(grid);
+        if (cat_shipAffectsFOW(ship))
+        {
+            fowDeactivateCubeW(ship->obj.posinfo.position, cat_shipGetFOWRadius(ship, 0));
+        }
+        fowSelect(previous);
+    }
+}
+
+/*-----------------------------------------------------------------------------
     Name        : univCreateShip
     Description : creates a ship, but does not add it to the universe
     Inputs      : shiptype, shiprace, shippos, playerowner,
@@ -1816,8 +1864,8 @@ void InitializeShowingDamage(Ship* ship)
 //      multiplayer derelicts' helplessness; since M2-R6 managers the support units (cat_suShipAdded 0x00459a90),
 //      the external-build start at health 0 and the factory block for the four builder types only, with the exe's
 //      6th argument, the creator (Ship+0x4AC). Not yet, with the owner [integrate: M2-R5; was an M2-R4 #3/#4/#5 TODO]:
-//      CAT-TODO(M2-R6 ships): the repair-droid array (droidCreateArray 0x005c3070 -> Ship+0x4C0, NULL here);
-//      CAT-TODO(M2-R6 FOW): the FOW cube (fowActivateCubeW with cat_shipGetFOWRadius once the ship is added).
+//      the FOW cube (cat_univAddShipModules, where the ship is added: the exe's add path) and the repair-droid array
+//      (droidCreateArray 0x005c3070 -> Ship+0x4C0) since M2-R6 nis-fow-camera.
 Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built,Ship *creator)
 {
     Ship *newship;
@@ -1943,10 +1991,18 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     newship->hyperspacePing=FALSE;
     newship->gravwellTimeEffect=0.0f;
     newship->passiveAttackCancelTimer=0.0f;
-    // Alex's Repair Droid stuff...
-//    newship->pRepairDroids = memAlloc(sizeof(RepairDroid), "RDroid", NonVolatile);
-
     univInitSpaceObjPosRot(&newship->obj,shippos,FALSE);
+    // CAT (M2-R6 nis-fow-camera): a Sect type with nRepairDroids gets its droid array (univCreateShip 0x00542320 at
+    //      0x00542659: droidCreateArray 0x005c3070 -> Ship+0x4C0; the exe prints "Failed to allocate %i repair droids"
+    //      when it returns NULL); HW1's commented pRepairDroids allocation is gone
+    if ((shipstaticinfo->nRepairDroids == 0) || (shipstaticinfo->shiprace != RACE_Sect))
+    {
+        newship->catRepairDroids = NULL;
+    }
+    else
+    {
+        newship->catRepairDroids = droidCreateArray(newship, (sdword)shipstaticinfo->nRepairDroids);
+    }
 
     newship->tractorbeaminfo = 0;
     newship->tractorbeam_playerowner = NULL;
@@ -2083,9 +2139,8 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     {
         newship->madBindings = (madanim *)extraPointer;
         extraPointer += sizeof(madanim);
+        cat_madAnimClear(newship->madBindings);             // CAT: 0x004b69d0 (univCreateShip, M2-R6 nis-fow-camera)
         newship->madBindings->header = shipstaticinfo->madStatic->header;
-        newship->madBindings->nCurrentAnim = -1;
-        newship->madBindings->time = 0.0f;
         newship->madBindings->totalSize = madAssedSize;
         madAnimBindingsDupe(newship, shipstaticinfo, FALSE);
 
@@ -2099,21 +2154,15 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
         newship->cuedAnimationIndex = 0;
         newship->cuedAnimationType = 0;
 
-        if(built == 1)
+        // CAT (M2-R6 nis-fow-camera): built bit 0 picks the built state, anything else the placed one (univCreateShip
+        //      0x00542320 at 0x00542a1a; HW1's NIS value 2 and its fatal error are gone)
+        if (built & 1)
         {
             madLinkInSetUpInitialBuiltMadState(newship);
         }
-        else if(built == 0)
-        {
-            madLinkInSetUpInitialPlacedMadState(newship);
-        }
-        else if(built == 2)
-        {
-            //ignore since it wasn't built or placed (nis ship)
-        }
         else
         {
-            dbgFatalf(DBG_Loc,"\nUnknown create ship state.");
+            madLinkInSetUpInitialPlacedMadState(newship);
         }
 
     }
@@ -2199,12 +2248,30 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
 ----------------------------------------------------------------------------*/
 Ship *univAddShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built)
 {
+    return cat_univAddShipModules(shiptype,shiprace,shippos,playerowner,built,FALSE);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univAddShipModules
+    Description : CAT (M2-R6 nis-fow-camera): univAddShip with the exe's 7th argument of univCreateShip 0x00542320:
+                  set, an sMothership gets no module ships outside mission 1 (0x00542bba); the NIS passes it
+                  (nisNewObjectCreate 0x004cccb0 makes the modules itself). Name chosen here.
+    Inputs      : shiptype, shiprace, shippos, playerowner, built - as univAddShip; noSMothershipModules - the 7th
+                  argument
+    Return      : address of ship added
+----------------------------------------------------------------------------*/
+Ship *cat_univAddShipModules(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built,bool32 noSMothershipModules)
+{
     Ship *newship = univCreateShip(shiptype,shiprace,shippos,playerowner,built,NULL);
 
     collAddSpaceObjToCollBlobs(&newship->obj);
     listAddNode(&universe.SpaceObjList,&(newship->header.objlink),newship);
     listAddNode(&universe.ShipList,&(newship->shiplink),newship);
     listAddNode(&universe.ImpactableList,&(newship->impactable.impactablelink),newship);
+    // CAT (M2-R6 nis-fow-camera): once added, the ship lights its cube on its player's fog-of-war grid (univCreateShip
+    //      0x00542320 at 0x00542b5a: cat_playerGetFOWGrid, fowSelect, cat_shipAffectsFOW, fowActivateCubeW with
+    //      cat_shipGetFOWRadius(ship, 0), the grid put back)
+    cat_univShipFOWActivate(newship);
 
     // CAT: no CryoTray case (an HW1-only type)
 
@@ -2213,7 +2280,10 @@ Ship *univAddShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Pla
     //      set outside mission 1); this tree's univCreateShip neither adds ships nor has that argument, so the
     //      modules are made here, for every mothership added to the universe (a ship only created, e.g. by the
     //      fight statistics, gets none)
-    cat_univCreateMothershipModules(newship, shiprace, shippos, playerowner, built);
+    if ((shiptype != sMothership) || !noSMothershipModules || (singlePlayerGameInfo.currentMission == 1))
+    {
+        cat_univCreateMothershipModules(newship, shiprace, shippos, playerowner, built);
+    }
 
     return newship;
 }
@@ -4640,8 +4710,10 @@ bool32 catWipeShipFreeDirectly = FALSE;
 void univWipeShipOutOfExistence(Ship *ship)
 {
     dbgAssertOrIgnore(ship != NULL);
-    // CAT-TODO(stage 3 FOW): the exe first takes the ship's fog-of-war cube away (cat_playerGetFOWGrid, fowSelect,
-    //      cat_shipAffectsFOW, fowDeactivateCubeW(position, cat_shipGetFOWRadius(ship, 0), 0) at 0x005477d0)
+    // CAT (M2-R6 nis-fow-camera): the exe first takes the ship's fog-of-war cube away (univWipeShipOutOfExistence
+    //      0x005477d0: cat_playerGetFOWGrid, fowSelect, cat_shipAffectsFOW, fowDeactivateCubeW(position,
+    //      cat_shipGetFOWRadius(ship, 0)), the grid put back)
+    cat_univShipFOWDeactivate(ship);
     // CAT: then the two Cataclysm binding blocks go (exe Ship +0x4FC, +0x510) [M2-R4 ships-b]
     if (ship->catBeastBindings != NULL)
     {
@@ -4720,7 +4792,7 @@ void univDeleteWipeInsideShipOutOfExistence(Ship *ship)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
-void univRemoveShipFromOutside(Ship *ship)
+void univRemoveShipFromOutside(Ship *ship, bool32 fowDeactivate)
 {
     Node *node;
     Missile *missile;
@@ -4810,9 +4882,14 @@ void univRemoveShipFromOutside(Ship *ship)
             module->header.flags |= SOF_Hide;
         }
     }
-    // CAT-TODO(stage 3 FOW): with its second argument set, the exe also takes
-    //      the ship's fog-of-war cube away (fowDeactivateCubeW(..., 1)); the argument gates nothing else, so this
-    //      tree keeps the one-argument form until the fog of war is ported.
+    // CAT (M2-R6 nis-fow-camera): with its second argument set the exe also takes the ship's fog-of-war cube away
+    //      (univRemoveShipFromOutside 0x00547990 at 0x00547acb: cat_playerGetFOWGrid, fowSelect, cat_shipAffectsFOW,
+    //      fowDeactivateCubeW with cat_shipGetFOWRadius(ship, 0)); the argument gates nothing else. Docking and the
+    //      hyperspace arrival pass 1, the instant hyperspace exits 0 (the cube stays until the ship comes back).
+    if (fowDeactivate)
+    {
+        cat_univShipFOWDeactivate(ship);
+    }
     // CAT: the ship forgets who was attacking it (0x00547b4a..0x00547b65)
     ship->gettingrocked = NULL;
     ship->recentAttacker = NULL;
@@ -5038,10 +5115,10 @@ void univDeleteDeadShip(Ship *ship, sdword deathBy)
         DeleteShipsInsideMe(ship);
     }
 
-    // CAT-TODO(M2-R6 ships, the repair droids): cat_droidFreeArray(ship +0x4C0) 0x005c32b0. The droids are proxies that
-    //      crawl over the hull and make welding effects; M2-R5 render ported their renderer (cat_droidRenderArray,
-    //      RepairDroid.c), their create / update / free stay with the ship runtime: droidUpdateArray draws from
-    //      random stream 0, which the oracle hashes, so they change the stream (RepairDroid.h). Ship +0x4C0 stays NULL.
+    // CAT (M2-R6 nis-fow-camera): the repair droids go here already (univDeleteDeadShip 0x00547d00:
+    //      cat_droidFreeArray 0x005c32b0 on Ship+0x4C0, then NULL)
+    cat_droidFreeArray((CatRepairDroidArray *)ship->catRepairDroids);
+    ship->catRepairDroids = NULL;
     //      HW1's slave clean-up (dockDealWithDeadSlaveable) is gone: no Cataclysm ship is slaveable (SOF_Slaveable 0)
 
 #if ETG_DISABLEABLE
@@ -6184,12 +6261,19 @@ bool32 univObjectOutsideWorld(SpaceObj *obj)
     Outputs     :
     Return      : returns the nearest resource (or NULL if none found)
 ----------------------------------------------------------------------------*/
-// CAT-TODO(M2-R6 FOW): univFindNearestResource 0x00549c50 takes a fourth argument and checks the fog of war
-//      (fowIsValidW, fowGetVisitedW on the FOW pointer at Player+0x6500), the player's technology (cat_rmTechSetHas
-//      on Player+0x2A4) and stealth (0x0053f9f0) for an asteroid another player's ship holds, with a random pick, and
-//      drops resources outside the movement limits (pieMovePointClipToLimits) instead of univObjectOutsideWorld.
-//      It needs the Player layout (#5); M2-R4 #3 ported its callers (rescollectFindNearestResource 0x004f11f0).
-Resource *univFindNearestResource(Ship *ship,real32 volumeRadius,vector *volumePosition)
+// CAT (M2-R6 nis-fow-camera): univFindNearestResource 0x00549c50 with the exe's fourth argument fogOfWar (1 from a
+//      harvest order of a player without an AI, cat_clHarvestNearestResource 0x00449790; 0 elsewhere): besides HW1's
+//      tests it skips a resource with attribute bit 0x200, and an asteroid a mimic poses as (Asteroid +0x1A4) when the
+//      mimic is the ship's own player's, or that player has not detected it, or (fogOfWar 0 only) the player has
+//      TECH_ADVANCED_SENSORS (28) and a stream-0 draw (2^-25 * 1.5625 * r <= 5.0, 0x0072bd74 / 0x0072a624) does not
+//      let it through [audit: M2-R6 nis-fow-camera: the comment had the detection test inverted; the code is the
+//      exe's]; and with fogOfWar set (while 0x00a75188 is 0) a resource in an unvisited cell of the player's
+//      grid. The exe's out-of-world test is pieMovePointClipToLimits on a copy of the position, compared with a second
+//      copy: the clip only writes its second argument, so no resource is dropped (HW1 tested univObjectOutsideWorld).
+//      CAT-TODO(stage 5 recorder): the exe skips the fog-of-war test while the recorder flag 0x00a75188 is set (0x00549eac)
+#define CAT_MIMIC_RESOURCE_PICK_SCALE   0x1.9p-25f          // 0x0072bd74 (0x33480000)
+#define CAT_MIMIC_RESOURCE_PICK_LIMIT   5.0f                // 0x0072a624
+Resource *univFindNearestResource(Ship *ship,real32 volumeRadius,vector *volumePosition,bool32 fogOfWar)
 {
     Node *objnode = universe.ResourceList.head;
     vector diff;
@@ -6197,6 +6281,9 @@ Resource *univFindNearestResource(Ship *ship,real32 volumeRadius,vector *volumeP
     real32 mindist = (real32)1e20;
     Resource *closestResource = NULL;
     Resource *resource;
+    vector position, clipA, clipB;
+    Ship *mimic;
+    void *grid;
 
     while (objnode != NULL)
     {
@@ -6205,6 +6292,25 @@ Resource *univFindNearestResource(Ship *ship,real32 volumeRadius,vector *volumeP
         if (nisIsRunning && (resource->targetable.health >= REALlyBig))
         {
             goto nextnode;       // don't pick NIS resources
+        }
+
+        if (bitTest(resource->obj.attributes, CAT_ATTRIBUTES_KillerCollision))
+        {
+            goto nextnode;       // CAT: attribute bit 0x200 (0x00549c9a)
+        }
+
+        if ((resource->header.objtype == OBJ_AsteroidType) && ((mimic = ((Asteroid *)resource)->catMimicShip) != NULL))
+        {                       // CAT: a mimic posing as this asteroid (0x00549ca6)
+            if ((mimic->playerowner == ship->playerowner) ||
+                !cat_shipDetectedByPlayer(mimic, ship->playerowner->playerIndex))
+            {
+                goto nextnode;
+            }
+            if (!fogOfWar && cat_rmTechSetHas(ship->playerowner->researchinfo.HasTechnology, TECH_ADVANCED_SENSORS) &&
+                ((double)ranRandom(RANDOM_STREAM_0) * (double)CAT_MIMIC_RESOURCE_PICK_SCALE > (double)CAT_MIMIC_RESOURCE_PICK_LIMIT))
+            {
+                goto nextnode;
+            }
         }
 
         if (ResourceMovingTooFast(resource))
@@ -6242,9 +6348,23 @@ Resource *univFindNearestResource(Ship *ship,real32 volumeRadius,vector *volumeP
             }
         }
 
-        if (univObjectOutsideWorld(&resource->obj))
+        // CAT: the exe's clip test (0x00549e12..0x00549e9e) instead of univObjectOutsideWorld
+        position = resource->obj.posinfo.position;
+        clipA = position;
+        vecZeroVector(clipB);
+        pieMovePointClipToLimits(&clipA, &clipB);
+        if ((clipA.x != position.x) || (clipA.y != position.y) || (clipA.z != position.z))
         {
             goto nextnode;
+        }
+        // CAT: with fogOfWar, not in an unvisited cell of the player's grid (0x00549ea4)
+        if (fogOfWar && ((grid = ship->playerowner->catFOWGrid) != NULL))
+        {
+            fowSelect(grid);
+            if (fowIsValidW(position.x, position.y, position.z) && (fowGetVisitedW(position) == 0))
+            {
+                goto nextnode;
+            }
         }
 
         vecSub(diff,resource->obj.posinfo.position,ship->obj.posinfo.position);
@@ -7267,7 +7387,7 @@ void univupdateReset()
     growSelectClose(&ClampedShipList);
     growSelectInit(&ClampedShipList);
     // CAT: the sensors manager's render-list hold is cleared (universe+0xB8, univUpdateReset 0x0054acd0)
-    universe.catSensorsHoldRenderList = FALSE;
+    universe.dontUpdateRenderList = FALSE;
 
     // CAT: the per-player ship counters are cleared (univUpdateReset 0x0054acd0), and the overlay's mission timer
     //      restarts (cat_missionTimerReset 0x004acb80) [M2-R5 hud]
@@ -7644,12 +7764,9 @@ void univFreeShipContents(Ship *ship)
         ship->shipSinglePlayerGameInfo = NULL;
     }
 
-    // Remove repair droids...
-/*    if(ship->pRepairDroids)
-    {
-        memFree(ship->pRepairDroids);
-        ship->pRepairDroids = NULL;
-    }*/
+    // CAT (M2-R6 nis-fow-camera): the repair droids go (univFreeShipContents 0x0054b550: cat_droidFreeArray 0x005c32b0)
+    cat_droidFreeArray((CatRepairDroidArray *)ship->catRepairDroids);
+    ship->catRepairDroids = NULL;
 
     if (ship->shipOrDerelict.navLightInfo)
     {
@@ -8501,8 +8618,13 @@ void cat_univShipSelfRepair(Ship *ship)
     {
         return;
     }
-    // CAT-TODO(M2-R6 ships, the repair droids): Sect ships with repair droids update them here (droidUpdateArray
-    //      0x005c32f0, Ship +0x4C0, when the droid option 0x00c52374 is on; random stream 0, RepairDroid.h)
+    // CAT (M2-R6 nis-fow-camera): a Sect ship with repair droids updates them here while the droid option
+    //      (enableRepairbots 0x00c52374) is on (cat_univShipSelfRepair 0x005433d0 at 0x00543490: droidUpdateArray
+    //      0x005c32f0; random stream 0, RepairDroid.c)
+    if (enableRepairbots && (shipstatic->shiprace == RACE_Sect) && (ship->catRepairDroids != NULL))
+    {
+        droidUpdateArray((CatRepairDroidArray *)ship->catRepairDroids);
+    }
     if ((shipstatic->shipclass == CLASS_Component) ||
         ((ship->targetable.health >= shipstatic->health.maxhealth) && (ship->shiptype != sMothership)))
     {
@@ -9136,10 +9258,16 @@ void cat_univShipDeferredUpdate(Ship *ship)
         cat_shipApplyUpgrades(ship);
     }
     cat_shipUpdateDrift(ship);                              // CAT: 0x005b3d60 (M2-R4 ships-b)
-    // CAT-TODO(M2-R6 FOW): then the stealth detection of the catTypeFlags 0x20000 types on every 16th tick by ship
-    //      number (cat_shipStealthDetectionUpdate 0x0053fd90: a player detects the ship when one of its detector ships,
-    //      catTypeFlags 0x10000 with upgrade 0x800000, is within its FOW radius, cat_shipGetFOWRadius 0x00514a30, which
-    //      needs the research tech sets cat_rmTechSetHas)
+    // CAT (M2-R6 nis-fow-camera): then the stealth detection of the catTypeFlags 0x20000 types on every 16th tick by
+    //      ship number (0x00544a8a: (univUpdateCounter & 0xf, 0x0072bd60) == (Ship+0x43C shipNumber & 0xf);
+    //      cat_shipStealthDetectionUpdate 0x0053fd90: a player detects the ship when one of its detector ships,
+    //      catTypeFlags 0x10000 with upgrade 0x800000, is within its FOW radius)
+    if (bitTest(ship->staticinfo->catTypeFlags, 0x20000) &&
+        ((universe.univUpdateCounter & 0xf) == (ship->shipID.shipNumber & 0xf)))
+    {
+        catStealthDetectionUpdates++;
+        cat_shipStealthDetectionUpdate(ship);
+    }
     // CAT (M2-R6 managers): a live ship's external build timer and computer-player use (0x00544ada:
     //      cat_shipUpdateExternalBuildAndAI 0x00543f10 with universe.aiplayerProcessing set)
     if (!bitTest(ship->header.flags, SOF_Dead))
@@ -9148,6 +9276,77 @@ void cat_univShipDeferredUpdate(Ship *ship)
         cat_shipUpdateExternalBuildAndAI(ship);
         universe.aiplayerProcessing = FALSE;
     }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_univShipFOWUpdate
+    Description : CAT (M2-R6 nis-fow-camera): a moving ship's cube on its player's fog-of-war grid
+                  (cat_univShipFOWUpdate 0x00544b10): when the ship's cell changes, the cube leaves the old cell and
+                  goes on at the new one; if the new cube has unvisited cells and the last notice is more than 10 s
+                  of real time old (0x0072bd58, 0x00a6ed68), the first non-allied, non-crystal ship of the universe in
+                  an unvisited cell of the new cube is announced in the overlay: a targetable one detected by the
+                  current player as "enemy spotted" (red; not Mission 7's dPrisonShip, type 0x86), an untargetable one (a
+                  slipgate) as "slipgate spotted" (blue)
+    Inputs      : ship, oldPos (the position before the move), newPos
+----------------------------------------------------------------------------*/
+#define FOW_SPOTTED_NOTICE_INTERVAL     10.0f               // 0x0072bd58
+static real32 catFOWLastSpottedNotice = 0.0f;              // 0x00a6ed68
+
+void cat_univShipFOWUpdate(Ship *ship, vector *oldPos, vector *newPos)
+{
+    void *grid = cat_playerGetFOWGrid(ship->playerowner);
+    void *previous;
+    sdword ox, oy, oz, r, nx, ny, nz, sx, sy, sz;
+    bool32 found;
+    Node *node;
+    Ship *other;
+
+    if (grid == NULL)
+    {
+        return;     // CAT-FIX: the exe restores the selected grid from an unset local here
+    }
+    previous = fowSelect(grid);
+    fowWorldToGrid(oldPos->x, oldPos->y, oldPos->z, cat_shipGetFOWRadius(ship, 0), &ox, &oy, &oz, &r);
+    fowWorldToGrid(newPos->x, newPos->y, newPos->z, 0.0f, &nx, &ny, &nz, NULL);
+    if ((ox != nx) || (oy != ny) || (oz != nz))
+    {
+        fowDeactivateCube(ox, oy, oz, r);
+        if ((ship->playerowner->catFOWGrid != NULL) && fowCubeHasUnvisited(nx, ny, nz, r) &&
+            (FOW_SPOTTED_NOTICE_INTERVAL + catFOWLastSpottedNotice < universe.realtimeelapsed))
+        {
+            found = FALSE;
+            for (node = universe.ShipList.head; (node != NULL) && !found; node = node->next)
+            {
+                other = (Ship *)listGetStructOfNode(node);
+                found = FALSE;
+                if (allianceIsShipAlly(other, universe.curPlayerPtr) || cat_shipIsCrystal(other))
+                {
+                    continue;
+                }
+                fowWorldToGrid(other->obj.posinfo.position.x, other->obj.posinfo.position.y,
+                               other->obj.posinfo.position.z, 0.0f, &sx, &sy, &sz, NULL);
+                if ((sx <= nx + r) && (nx - r <= sx) && (sy <= ny + r) && (ny - r <= sy) &&
+                    (sz <= nz + r) && (nz - r <= sz) && (fowGetVisited(sx, sy, sz) == 0))
+                {
+                    catFOWLastSpottedNotice = universe.realtimeelapsed;
+                    if (cat_shipIsUntargetable(other))
+                    {
+                        cat_ioMessageAdd(strGetString(strSlipgateSpottedNotification), 0xffff0000, 1, ship);
+                    }
+                    else if (!cat_shipIsCrystal(other) &&
+                             (!singlePlayerGame || (singlePlayerGameInfo.currentMission != 7) ||
+                              (other->shiptype != dPrisonShip)) &&
+                             cat_shipDetectedByPlayer(other, universe.curPlayerIndex))
+                    {
+                        cat_ioMessageAdd(strGetString(strEnemySpottedNotification), 0xff0000ff, 1, ship);
+                    }
+                    found = TRUE;
+                }
+            }
+        }
+        fowActivateCube(nx, ny, nz, r);
+    }
+    fowSelect(previous);
 }
 
 /*-----------------------------------------------------------------------------
@@ -9234,14 +9433,18 @@ void cat_univDeleteBulletNow(Bullet *bullet)
 /*-----------------------------------------------------------------------------
     Name        : cat_univSetShipPosition (Cataclysm 0x0054d180)
     Description : Moves a ship to a position (Clamp.c, Dock.c, Formation.c use it in the exe; not ported yet).
-                  CAT-TODO(stage 3 FOW): a ship that affects the fog of war first moves its cube
-                  (cat_univShipFOWUpdate 0x00544b10).
+                  A ship that affects the fog of war first moves its cube (cat_univShipFOWUpdate 0x00544b10;
+                  M2-R6 nis-fow-camera).
     Inputs      : ship, position
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
 void cat_univSetShipPosition(Ship *ship, vector *position)
 {
+    if (cat_shipAffectsFOW(ship))
+    {
+        cat_univShipFOWUpdate(ship, &ship->obj.posinfo.position, position);
+    }
     ship->obj.posinfo.position = *position;
 }
 

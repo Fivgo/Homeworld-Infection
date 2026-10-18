@@ -26,6 +26,7 @@
 #include "PopupMenu.h"      // CAT: catUiSelfTestTick (the ui self-test, M2-R6 mainrgn-popup)
 #include "Console.h"        // CAT: catConsoleSelfTestTick (the console self-test, M2-R6 startup-keys)
 #include "OracleDump.h"
+#include "RepairDroid.h"     // HWI-TEST: catDroidUpdates (M2-R6 nis-fow-camera)
 
 #if HWI_ORACLE
 
@@ -544,6 +545,19 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
                      (unsigned)oracleRecords, (unsigned)universe.ShipList.num);
             oracleEmitEvent(HWO_EV_QUIT, text);
             fprintf(stdout, "oracle: mission run done %s file=%s\n", text, oracleFileName);
+            // HWI-TEST (M2-R6 nis-fow-camera): the fog-of-war state of the run (stdout only, not in the stream): each
+            //      player's grid pointer (cat_fowCreatePlayerGrids gives one to the local player, curPlayer, as the exe)
+            //      and how often the stealth detection ran
+            {
+                udword index;
+                fprintf(stdout, "oracle: mission fow players=%u curPlayer=%u", (unsigned)universe.numPlayers, (unsigned)curPlayer);
+                for (index = 0; index < universe.numPlayers; index++)
+                {
+                    fprintf(stdout, " grid%u=%s", (unsigned)index, (universe.players[index].catFOWGrid != NULL) ? "set" : "NULL");
+                }
+                fprintf(stdout, " stealthUpdates=%u repairbots=%d droidUpdates=%u\n", (unsigned)catStealthDetectionUpdates,
+                        (int)enableRepairbots, (unsigned)catDroidUpdates);
+            }
             fflush(stdout);
             oracleClose();
             oracleFailed = TRUE;                    // the stream is complete: nothing may reopen (and truncate) it

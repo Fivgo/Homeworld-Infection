@@ -209,3 +209,34 @@ void cat_updateClampedObjectNoPhysics(SpaceObjRotImpTargGuidance *obj)
     obj->obj.posinfo.velocity = obj->clampInfo->host->obj.posinfo.velocity;
     univUpdateObjRotInfo((SpaceObjRot *)obj);
 }
+
+/*-----------------------------------------------------------------------------
+    Name        :   cat_clampUpdateAttachedObjects
+    Description :   puts every object clamped to host at its clamp offset in host's frame, one level deep, without
+                    physics, velocity or rotation info (the NIS moves its ships by hand: nisNewObjectCreate 0x004cccb0
+                    and nisUpdate 0x004ce780 call it for an NIS ship)
+    Inputs      :   host - the object the others are clamped to
+    Outputs     :
+    Return      :
+----------------------------------------------------------------------------*/
+void cat_clampUpdateAttachedObjects(SpaceObjRotImpTargGuidance *host)
+{
+    sdword i;
+    SpaceObjRotImpTargGuidance *clamped;
+    vector tmpvec;
+
+    // CAT: new (cat_clampUpdateAttachedObjects 0x00434b50, located in M2-R6 nis-fow-camera: it sits after
+    //      cat_updateClampedObjectNoPhysics in the exe's Clamp.c block and has no caller outside NIS.c)
+    if ((host->clampInfo == NULL) || (host->clampInfo->clampedObjs == NULL))
+    {
+        return;
+    }
+    for (i = 0; i < host->clampInfo->clampedObjs->numShips; i++)
+    {
+        clamped = (SpaceObjRotImpTargGuidance *)host->clampInfo->clampedObjs->ShipPtr[i];
+        matMultiplyMatByVec(&tmpvec, &host->rotatable.rotinfo.coordsys, &clamped->clampInfo->clampOffset);
+        vecAdd(clamped->obj.posinfo.position, host->obj.posinfo.position, tmpvec);
+        matMultiplyMatByMat(&clamped->rotatable.rotinfo.coordsys, &host->rotatable.rotinfo.coordsys,
+                            &clamped->clampInfo->clampCoordsys);
+    }
+}

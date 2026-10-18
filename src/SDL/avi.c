@@ -76,6 +76,11 @@ AVCodecParserContext *parser   = NULL;
 
 int aviMovieExpandFactor = 1;
 
+// CAT (M2-R6 nis-fow-camera): the movie's frame rate. The exe's animatic decode callback (0x004217d0) converts the
+//      frame number to seconds by Bink's frame rate (0x00a70f1c); Cataclysm's animatics are 30 frames a second (HW1's
+//      were 15, which GoK's player assumed: the animatics played at half speed). aviStart reads it from the stream.
+real32 aviFrameRate = 15.0f;
+
 #ifdef HW_ENABLE_MOVIES_WIN32	/* Disable AVI code outside of Windows. */
 
 PAVISTREAM    g_VidStream;      //the AVI video stream
@@ -383,8 +388,8 @@ dbgMessagef("aviPlayLoop: frameFinished=%d  packet.data=%x   packet.size=%d ", f
 
             frame++;
 
-            // Videos are played at 15 fps, try to keep framse in sync to that
-            while (SDL_GetTicks() < (start_time + ((frame * 1000) / 15)))
+            // CAT: paced at the movie's own frame rate (aviFrameRate; GoK assumed 15 fps)
+            while (SDL_GetTicks() < (start_time + (Uint32)((real32)frame * 1000.0f / aviFrameRate)))
                 SDL_Delay(1);
         }
         av_packet_unref(&packet);
@@ -442,6 +447,17 @@ int aviStart(char* filename)
     if(videoStream==-1) {
         dbgMessage("aviStart: No Video Stream found");
         return FALSE;
+    }
+
+    // CAT: the stream's own frame rate (see aviFrameRate)
+    {
+        AVRational rate = pFormatCtx->streams[videoStream]->avg_frame_rate;
+
+        if (rate.num <= 0 || rate.den <= 0)
+        {
+            rate = pFormatCtx->streams[videoStream]->r_frame_rate;
+        }
+        aviFrameRate = (rate.num > 0 && rate.den > 0) ? (real32)rate.num / (real32)rate.den : 15.0f;
     }
 
 

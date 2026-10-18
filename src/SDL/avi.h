@@ -44,6 +44,7 @@ void aviIntroPlay(void);
 int aviGetSamples(void* pBuf, long* pNumSamples, long nBufSize);
 
 extern int aviIsPlaying;
+extern real32 aviFrameRate;     // CAT (M2-R6 nis-fow-camera): the movie's frame rate (the exe's 0x00a70f1c)
 
 
 

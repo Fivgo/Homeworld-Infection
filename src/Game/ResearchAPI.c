@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 #include "CommandDefs.h"
+#include "FOW.h"
 #include "CommandLayer.h"
 #include "CommandWrap.h"
 #include "ConsMgr.h"
@@ -297,9 +298,8 @@ TechnologyType StrToTechType(char *tech)
 
 // CAT: the technologies that change what a player's ships reveal (cat_rmTechSetAdd 0x004f3fc0 and cat_rmTechSetInit
 //      0x004f4210 test -1, 2 and 28): the fog-of-war cubes of every ship with a grid are taken down before the set
-//      changes and put back after. CAT-TODO(stage 3 FOW): cat_shipAffectsFOW 0x..., cat_univShipFOWDeactivate /
-//      cat_univShipFOWActivate; until stage 3 creates the grids (cat_fowCreatePlayerGrids) cat_playerGetFOWGrid is
-//      NULL for every player and the loops do nothing, as in the exe.
+//      changes and put back after (cat_shipAffectsFOW 0x00480ce0, cat_univShipFOWDeactivate 0x005422b0 /
+//      cat_univShipFOWActivate 0x00542240; M2-R6 nis-fow-camera). Only the local player has a grid.
 static bool32 cat_rmTechAffectsFOW(sdword tech)
 {
     return ((tech == -1) || (tech == TECH_PLASMA_WEAPONS) || (tech == TECH_ADVANCED_SENSORS));
@@ -315,7 +315,10 @@ static void cat_rmFOWDeactivateAll(void)
         ship = (Ship *)listGetStructOfNode(node);
         if (cat_playerGetFOWGrid(ship->playerowner) != NULL)
         {
-            // CAT-TODO(stage 3 FOW): if (cat_shipAffectsFOW(ship)) cat_univShipFOWDeactivate(ship);
+            if (cat_shipAffectsFOW(ship))
+            {
+                cat_univShipFOWDeactivate(ship);
+            }
         }
     }
 }
@@ -330,7 +333,10 @@ static void cat_rmFOWActivateAll(void)
         ship = (Ship *)listGetStructOfNode(node);
         if (cat_playerGetFOWGrid(ship->playerowner) != NULL)
         {
-            // CAT-TODO(stage 3 FOW): if (cat_shipAffectsFOW(ship)) cat_univShipFOWActivate(ship);
+            if (cat_shipAffectsFOW(ship))
+            {
+                cat_univShipFOWActivate(ship);
+            }
         }
     }
 }

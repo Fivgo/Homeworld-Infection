@@ -8,6 +8,8 @@
 =============================================================================*/
 
 #include "Universe.h"
+#include "Console.h"          // CAT: catMotionCues (M2-R6 nis-fow-camera)
+#include "FOW.h"            // CAT: the fog of war (M2-R6 nis-fow-camera)
 #include "Leech.h"          // CAT: cat_leechMessagesReset (universeReset)
 #include "ShipPrint.h"
 #include "InfoOverlay.h"
@@ -4566,7 +4568,7 @@ void universeInit(void)
 }
 
 // CAT: 0x00480d10: the grid a player's ships are seen through; in multiplayer an ally of the local player shares the local
-//      player's grid. The grids themselves are stage 3 (cat_fowCreatePlayerGrids 0x004a38c0), so this is NULL until then.
+//      player's grid. cat_fowCreatePlayerGrids 0x004a38c0 (LevelLoad.c) gives a grid to the local player only.
 void *cat_playerGetFOWGrid(Player *player)
 {
     if (!multiPlayerGame)
@@ -4618,15 +4620,24 @@ void universeReset(void)
     // CAT (M2-R4 combat): then cat_blastReset 0x00516390 (the blast lists)
     cat_blastReset();
     // CAT: then each player's fog-of-war grid goes (universeReset 0x0053df80: fowDestroy on Player+0x6500 of players
-    //      0..7). CAT-TODO(stage 3 FOW): fowDestroy; the pointer is NULL until stage 3 creates the grids.
+    //      0..7) [M2-R6 nis-fow-camera]
     for (index = 0; index < MAX_MULTIPLAYER_PLAYERS; index++)
     {
-        universe.players[index].catFOWGrid = NULL;
+        if (universe.players[index].catFOWGrid != NULL)
+        {
+            fowDestroy(universe.players[index].catFOWGrid);
+            universe.players[index].catFOWGrid = NULL;
+        }
     }
-    // CAT-TODO(stage 3): after clReset/ccReset the exe sets the multiplayer camera mode in a recorded-game playback
-    //      (cat_mcSetMode/cat_mcResetRequest)
     clReset(&universe.mainCommandLayer);
     ccReset(&universe.mainCameraCommand);
+    // CAT (M2-R6 nis-fow-camera): with the motion cues on (catMotionCues 0x008b8844) they restart in mode 1
+    //      (universeReset 0x0053df80; the M2-R4 note read this as a recorded-game camera mode)
+    if (catMotionCues)
+    {
+        cat_mcSetMode(&catMotionCueState, 1);
+        cat_mcResetRequest(&catMotionCueState);
+    }
 
     pingAllPingsDelete();
 
@@ -5122,8 +5133,8 @@ void universeSwitchToPlayer(uword playerIndex)
     dbgAssertOrIgnore(playerIndex < universe.numPlayers);
     universe.curPlayerIndex = playerIndex;
     universe.curPlayerPtr = &universe.players[universe.curPlayerIndex];
-    // CAT-TODO(stage 3 FOW): universeSwitchToPlayer 0x0053ea10 also selects the player's fog-of-war map
-    //      (fowSelect(Player+0x6500))
+    // CAT (M2-R6 nis-fow-camera): universeSwitchToPlayer 0x0053ea10 also selects the player's fog-of-war grid
+    fowSelect(universe.curPlayerPtr->catFOWGrid);
 }
 
 /*-----------------------------------------------------------------------------

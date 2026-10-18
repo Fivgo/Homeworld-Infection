@@ -352,11 +352,11 @@ bool32 SentinelFormationCommand(Ship *ship, sdword formation)                   
     if ((formation != FORCEFIELD_WALL_FORMATION) && (formation != FORCEFIELD_SPHERE_FORMATION))
     {
         bitClear(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatSentinelFormation);
-        cat_madAnimationStartNumber(ship, 1);       // CAT-TODO(stage 3): the exe passes a third argument, 2
+        madAnimationStart(ship, 1, 2);       // CAT: the exe's third argument, 2 (M2-R6 nis-fow-camera)
         return TRUE;
     }
     bitSet(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatSentinelFormation);
-    cat_madAnimationStartNumber(ship, 0);           // CAT-TODO(stage 3): the exe passes a third argument, 0
+    madAnimationStart(ship, 0, 0);           // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
     return TRUE;
 }
 

@@ -294,7 +294,7 @@ void airAddedResourceCollector(Ship *ship)
     }
     else
     {
-        resource = univFindNearestResource(ship, 0, NULL);
+        resource = univFindNearestResource(ship, 0, NULL, FALSE);   // CAT: the exe's 4th argument 0 (airAddedResourceCollector 0x00412865)
 
         selectone.numShips = 1;
         selectone.ShipPtr[0] = ship;

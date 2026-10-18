@@ -10,6 +10,7 @@
 // CAT: new file (M2-R4 ships-b). Each body follows the r6 decompile of its exe function (address on each).
 
 #include "HiveFrigate.h"
+#include "FOW.h"
 
 #include "AIShip.h"
 #include "Attack.h"
@@ -471,8 +472,13 @@ void HiveFrigateHouseKeep(Ship *ship)                                           
     {
         return;
     }
-    // CAT-TODO(stage 3 FOW): a target the player cannot see (cat_fowCanPlayerSeeShip(owner, target, 1) 0x0047f480)
-    //      cancels the special order (clWrapSpecial with no targets); without the fog of war every target is seen
+    // CAT (M2-R6 nis-fow-camera): a target the player cannot see (cat_fowCanPlayerSeeShip(owner, target, 1)
+    //      0x0047e810) cancels the special order (clWrapSpecial with no targets, HiveFrigateHouseKeep 0x005b5b30)
+    if ((spec->target != NULL) && !cat_fowCanPlayerSeeShip(ship->playerowner, (Ship *)spec->target, TRUE))
+    {
+        hiveFrigateSelectSelf((SelectCommand *)&selectone, ship);
+        clWrapSpecial(&universe.mainCommandLayer, (SelectCommand *)&selectone, NULL);
+    }
 
     switch (spec->swarmState)
     {
@@ -488,7 +494,7 @@ void HiveFrigateHouseKeep(Ship *ship)                                           
             }
             if (spec->doorsOpen)
             {
-                cat_madAnimationStartNumber(ship, 1);       // CAT-TODO(stage 3): the exe passes a third argument, 0
+                madAnimationStart(ship, 1, 0);       // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
                 spec->doorsOpen = 0;
             }
             // fall through
@@ -547,7 +553,7 @@ void HiveFrigateHouseKeep(Ship *ship)                                           
             spec->swarmState = HIVE_Launching;
             if (!spec->doorsOpen)
             {
-                cat_madAnimationStartNumber(ship, 0);       // CAT-TODO(stage 3): the exe passes a third argument, 0
+                madAnimationStart(ship, 0, 0);       // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
                 spec->doorsOpen = 1;
                 return;
             }
@@ -698,7 +704,7 @@ void HiveFrigateHouseKeep(Ship *ship)                                           
             spec->swarmState = HIVE_Idle;
             if (spec->doorsOpen)
             {
-                cat_madAnimationStartNumber(ship, 1);       // CAT-TODO(stage 3): the exe passes a third argument, 0
+                madAnimationStart(ship, 1, 0);       // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
                 spec->doorsOpen = 0;
             }
             break;
@@ -740,7 +746,7 @@ void HiveFrigateHouseKeep(Ship *ship)                                           
             spec->swarmState = HIVE_Idle;
             if (spec->doorsOpen)
             {
-                cat_madAnimationStartNumber(ship, 1);       // CAT-TODO(stage 3): the exe passes a third argument, 0
+                madAnimationStart(ship, 1, 0);       // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
                 spec->doorsOpen = 0;
             }
             break;

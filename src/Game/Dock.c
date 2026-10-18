@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "Dock.h"
+#include "FOW.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -595,8 +596,8 @@ bool32 cat_linkFlyIntoPosition(Ship *ship,DockStaticPoint *linkpoint,Ship *host,
              (targetpos.y - ship->obj.posinfo.position.y) * (targetpos.y - ship->obj.posinfo.position.y) +
              (targetpos.z - ship->obj.posinfo.position.z) * (targetpos.z - ship->obj.posinfo.position.z);
 
-    // CAT: the exe's madanim +0x08 is the mode madAnimationStart 0x004b6b90 stores (its third argument, stage 3);
-    //      this tree keeps it in madanim.flags
+    // CAT: the exe's madanim +0x08 is the mode madAnimationStart 0x004b6b90 stores (its third argument; madanim.flags,
+    //      MeshAnim.c since M2-R6 nis-fow-camera)
     mad = ship->madBindings;
     hostmad = (host->header.objtype == OBJ_ShipType) ? host->madBindings : NULL;
     animsReady = TRUE;
@@ -855,9 +856,9 @@ bool32 cat_processLinkToDo(CommandToDo *command)
                     cat_univSetShipPosition(partner,&mid);
                     ship->rotatable.rotinfo.coordsys = frame;
                     ship->obj.posinfo.velocity = partner->obj.posinfo.velocity;
-                    // CAT-TODO(stage 3): madAnimationStart's third argument (0 here)
-                    madAnimationStart(ship,link->mode);
-                    madAnimationStart(partner,catLinkInfo(partner)->mode);
+                    // CAT: madAnimationStart's third argument, 0 (cat_processLinkToDo 0x004683ad / 0x004683c5; M2-R6 nis-fow-camera)
+                    madAnimationStart(ship,link->mode,MAD_ModePauseAtEnd);
+                    madAnimationStart(partner,catLinkInfo(partner)->mode,MAD_ModePauseAtEnd);
                     bitSet(ship->header.flags,SOF_CatDocking);
                     bitSet(partner->header.flags,SOF_CatDocking);
                     cat_timerStartGameTime(&ship->catLinkTimer,2.0f);
@@ -1074,9 +1075,9 @@ bool32 cat_processUnlinkToDo(CommandToDo *command)
             catLinkInfo(half2)->partner = half1;
             catLinkInfo(half2)->mode = -1;
             catLinkInfo(half2)->role = CAT_LINK_ROLE_UNLINK_CLEAR;
-            // CAT-TODO(stage 3): madAnimationStart's third argument (0 here)
-            madAnimationStart(half1,anim);
-            madAnimationStart(half2,anim);
+            // CAT: madAnimationStart's third argument, 0 (cat_processUnlinkToDo 0x00468c0d / 0x00468c3b; M2-R6 nis-fow-camera)
+            madAnimationStart(half1,anim,MAD_ModePauseAtEnd);
+            madAnimationStart(half2,anim,MAD_ModePauseAtEnd);
             cat_timerStartGameTime(&half1->catLinkTimer,3.0f);
             cat_timerStartGameTime(&half2->catLinkTimer,3.0f);
             catLinkTakeOverSelection(ship,half1,half2);
@@ -2358,7 +2359,7 @@ void RemoveShipFromDocking(Ship *ship)
         // CAT-FIX: the exe reads madBindings->nCurrentAnim without a NULL test [audit: M2-R5 layout-dock: marked]
         if ((ship->madBindings != NULL) && (ship->madBindings->nCurrentAnim == cat_salvageOpenAnimIndex(ship->shiptype)))
         {
-            cat_madAnimationStartNumber(ship,cat_salvageCloseAnimIndex(ship->shiptype));   // CAT-TODO(stage 3): the exe passes a third argument, 2
+            madAnimationStart(ship,cat_salvageCloseAnimIndex(ship->shiptype), 2);   // CAT: the exe's third argument, 2 (M2-R6 nis-fow-camera)
         }
     }
 }
@@ -2507,7 +2508,7 @@ udword cat_dockShipDocksAtShip(Ship *ship,Ship *dockwith,DockType purpose)
         case CAT_DOCKSTATE_APPROACH:
             if ((purpose == CAT_DOCK_SUPPORT_INSTANT) || (purpose == CAT_DOCK_STAY_INSTANT))
             {
-                univRemoveShipFromOutside(ship);
+                univRemoveShipFromOutside(ship, TRUE);  // CAT: the exe's 1: the FOW cube goes (cat_dockShipDocksAtShip 0x00465972, 0x00465b20, 0x00465e9b)
                 dockPutShipInside(ship,dockwith);
                 if ((dockwith->shiptype != dRKO) && (ship->header.catFlags18 & CAT_SHIPFLAG_Mimic))
                 {
@@ -2593,7 +2594,7 @@ udword cat_dockShipDocksAtShip(Ship *ship,Ship *dockwith,DockType purpose)
                     sdword index = ship->dockvars.catDockPointIndex;
                     DockStaticInfo *dockstaticinfo = dockwith->staticinfo->dockStaticInfo;
 
-                    univRemoveShipFromOutside(ship);
+                    univRemoveShipFromOutside(ship, TRUE);  // CAT: the exe's 1: the FOW cube goes (cat_dockShipDocksAtShip 0x00465972, 0x00465b20, 0x00465e9b)
                     if (purpose == CAT_DOCK_RETIRE)
                     {
                         speechEventQueue(NULL,0x2001040,ship->shiptype,-1,0,ship->playerowner->playerIndex,-1,5.0f,-1);
@@ -2644,7 +2645,7 @@ udword cat_dockShipDocksAtShip(Ship *ship,Ship *dockwith,DockType purpose)
                     // CAT-FIX: the exe reads madBindings->nCurrentAnim without a NULL test [audit: M2-R5 layout-dock: marked]
                     if ((ship->madBindings != NULL) && (ship->madBindings->nCurrentAnim != cat_salvageOpenAnimIndex(ship->shiptype)))
                     {
-                        cat_madAnimationStartNumber(ship,cat_salvageOpenAnimIndex(ship->shiptype));   // CAT-TODO(stage 3): the exe passes a third argument, 0
+                        madAnimationStart(ship,cat_salvageOpenAnimIndex(ship->shiptype), 0);   // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
                         madAnimationPause(ship,TRUE);
                     }
                 }
@@ -2784,7 +2785,7 @@ udword cat_dockShipDocksAtShip(Ship *ship,Ship *dockwith,DockType purpose)
                         // CAT-FIX: the exe reads madBindings->nCurrentAnim without a NULL test [audit: M2-R5 layout-dock: marked]
                         if ((ship->madBindings != NULL) && (ship->madBindings->nCurrentAnim != cat_salvageCloseAnimIndex(ship->shiptype)))
                         {
-                            cat_madAnimationStartNumber(ship,cat_salvageCloseAnimIndex(ship->shiptype));   // CAT-TODO(stage 3): the exe passes a third argument, 2
+                            madAnimationStart(ship,cat_salvageCloseAnimIndex(ship->shiptype), 2);   // CAT: the exe's third argument, 2 (M2-R6 nis-fow-camera)
                         }
                     }
                 }
@@ -2800,7 +2801,7 @@ udword cat_dockShipDocksAtShip(Ship *ship,Ship *dockwith,DockType purpose)
                 SlipgateSpec *gate = (SlipgateSpec *)dockwith->ShipSpecifics;
                 Ship *partner = gate->partner;
 
-                univRemoveShipFromOutside(ship);
+                univRemoveShipFromOutside(ship, TRUE);  // CAT: the exe's 1: the FOW cube goes (cat_dockShipDocksAtShip 0x00465972, 0x00465b20, 0x00465e9b)
                 dockPutShipInside(ship,partner);
                 ship->dockvars.dockship = partner;
                 ship->dockvars.dockstate = CAT_DOCKSTATE_LAUNCH;
@@ -3007,7 +3008,8 @@ void dockPutShipOutside(Ship *ship,Ship *creator,vector *createat,udword heading
     vecCrossProduct(right,heading,up);   // should not have to normalize because heading, up are unit vectors and angle between them is 90 degrees.
     matCreateMatFromVecs(&ship->rotatable.rotinfo.coordsys,&up,&right,&heading);
 
-    // CAT-TODO(M2-R6 FOW): cat_univShipFOWActivate(ship) 0x00547c40 (the ship's fog-of-war cube comes back)
+    // CAT (M2-R6 nis-fow-camera): the ship's fog-of-war cube comes back (dockPutShipOutside 0x00463350: cat_univShipFOWActivate 0x00542240)
+    cat_univShipFOWActivate(ship);
 
     // the support modules: turned about the launch point's axis by the parity of the point's index within its type
     {
@@ -3236,6 +3238,10 @@ static bool32 catDockSelfTestShipAlive(Ship *ship)
     return (catDockSelfTestInsideHostOf(ship) != NULL);
 }
 
+// HWI-TEST (M2-R6 nis-fow-camera): the first tick a harvesting Worker was seen holding the paused end of its jack
+//      animation (number 0, mode 0: madAnimationUpdate pauses it on the last frame); -1 never
+static sdword catDockSelfTestJackPausedTick = -1;
+
 static void catDockSelfTestLogShip(const char *tag, Ship *ship)
 {
     Ship *host = ship->dockvars.dockship;
@@ -3245,10 +3251,19 @@ static void catDockSelfTestLogShip(const char *tag, Ship *ship)
     {
         Resource *resource = ship->command->collect.resource;
 
-        dbgMessagef("docktest: %s tick=%u %s#%u harvesting resource=%s value=%d rcstate=%d/%d effect=%d", tag, (unsigned)universe.univUpdateCounter,
+        madanim *mad = ship->madBindings;
+        bool32 atEnd = (mad != NULL) && (mad->nCurrentAnim != MAD_NoAnimation) &&
+                       (mad->time >= mad->header->anim[cat_madAnimIndexOfNumber(ship, mad->nCurrentAnim)].endTime);
+
+        if ((mad != NULL) && (mad->nCurrentAnim == 0) && mad->bPaused && atEnd && (catDockSelfTestJackPausedTick < 0))
+        {
+            catDockSelfTestJackPausedTick = (sdword)universe.univUpdateCounter;
+        }
+        dbgMessagef("docktest: %s tick=%u %s#%u harvesting resource=%s value=%d rcstate=%d/%d effect=%d mad=%d/%d/%d", tag, (unsigned)universe.univUpdateCounter,
                     ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber,
                     (resource == NULL) ? "none" : ((resource->header.objtype == OBJ_AsteroidType) ? "asteroid" : "other"),
-                    (resource != NULL) ? (int)resource->resourcevalue : -1, (int)ship->rcstate1, (int)ship->rcstate2, (int)(ship->rceffect != NULL));
+                    (resource != NULL) ? (int)resource->resourcevalue : -1, (int)ship->rcstate1, (int)ship->rcstate2, (int)(ship->rceffect != NULL),
+                    (mad != NULL) ? (int)mad->nCurrentAnim : -2, (mad != NULL) ? (int)mad->bPaused : -2, (int)atEnd);
     }
     dbgMessagef("docktest: %s tick=%u %s#%u state=%d host=%s inside=%d outside=%d order=%d hold=%d pos=(%.0f %.0f %.0f) hostpos=(%.0f %.0f %.0f)",
                 tag, (unsigned)universe.univUpdateCounter, ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber,
@@ -3763,8 +3778,8 @@ void catDockSelfTestTick(void)
         {
             catDockSelfTestLogShip("B", catDockSelfTestHarvester);
         }
-        dbgMessagef("docktest: done fighters=%d outside=%d corvettes=%d carrierleg=%d processorleg=%d RUs=%d result=%s", (int)catDockSelfTestNumFighters, (int)outsideCount,
+        dbgMessagef("docktest: done fighters=%d outside=%d corvettes=%d carrierleg=%d processorleg=%d RUs=%d jackPausedTick=%d result=%s", (int)catDockSelfTestNumFighters, (int)outsideCount,
                     (int)catDockSelfTestNumCorvettes, (int)catDockSelfTestNumCarrierFighters, (int)(catDockSelfTestProcDepositor != NULL),
-                    (int)player->resourceUnits, catDockSelfTestPass ? "PASS" : "FAIL");
+                    (int)player->resourceUnits, (int)catDockSelfTestJackPausedTick, catDockSelfTestPass ? "PASS" : "FAIL");
     }
 }

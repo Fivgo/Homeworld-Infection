@@ -162,70 +162,88 @@ typedef struct tagcamerapath
 //also needed later: camera and light motion paths
 typedef spaceobjpath lightpath;
 
+// CAT: Cataclysm's event opcodes (the dispatch table nisEventDispatch 0x0088888c, 75 entries; the codes the
+//      exe's *Set callbacks store, e.g. nisDamageLevelSet 0x004d4770 stores 0x40): six new events are inserted
+//      (Repair after Attack, CameraClipNear / CameraClipFar after CameraFOV, OpenSlipgate / CloseSlipgate after
+//      SMPTEOff) and nine appended after MinimumLOD, so every code from HaltAttack on moves
 typedef enum
 {
-    NEO_DeathDamage,
+    NEO_DeathDamage,                            // 0x00
     NEO_DeathProjectile,
     NEO_DeathBeam,
     NEO_DeathCollision,
-    NEO_Attack,
-    NEO_HaltAttack,
+    NEO_Attack,                                 // 0x04
+    NEO_Repair,                                 // 0x05 CAT: new (cat_nisRepair 0x004cf370)
+    NEO_HaltAttack,                             // 0x06
     NEO_Fire,
     NEO_Show,
     NEO_Hide,
-    NEO_Invincible,
+    NEO_Invincible,                             // 0x0a
     NEO_Vincible,
     NEO_SoundEvent,
     NEO_SpeechEvent,
     NEO_DisableDefaultSpeech,
     NEO_EnableDefaultSpeech,
-    NEO_CustomEffect,
+    NEO_CustomEffect,                           // 0x10
     NEO_CustomGunEffect,
     NEO_GunShoot,
     NEO_RemainAtEnd,
-    NEO_FleetSpeechEvent,
+    NEO_FleetSpeechEvent,                       // 0x14
     NEO_CameraFOV,
-    NEO_CameraCut,
+    NEO_CameraClipNear,                         // 0x16 CAT: new (cat_nisCameraClipNear 0x004d0110)
+    NEO_CameraClipFar,                          // 0x17 CAT: new (cat_nisCameraClipFar 0x004d0140)
+    NEO_CameraCut,                              // 0x18
     NEO_BlackScreenStart,
     NEO_BlackScreenEnd,
-    NEO_TextCard,
+    NEO_TextCard,                               // 0x1b
     NEO_TextScroll,
     NEO_ScissorOut,
     NEO_Focus,
     NEO_FocusAtEnd,
-    NEO_StartMusic,
+    NEO_StartMusic,                             // 0x20
     NEO_StopMusic,
     NEO_BlackFadeSet,
     NEO_BlackFadeTo,
     NEO_ColorScheme,
-    NEO_MeshAnimationStart,
+    NEO_MeshAnimationStart,                     // 0x25
     NEO_MeshAnimationStop,
     NEO_MeshAnimationPause,
     NEO_MeshAnimationSeek,
     NEO_BlendCameraEndPoint,
-    NEO_MusicVolume,
+    NEO_MusicVolume,                            // 0x2a
     NEO_SpeechVolume,
     NEO_SFXVolume,
     NEO_TrailMove,
     NEO_TrailZeroLength,
     NEO_UniversePauseToggle,
-    NEO_UniverseHideToggle,
+    NEO_UniverseHideToggle,                     // 0x30
     NEO_NewEnvironment,
     NEO_LinkEnvironment,
     NEO_AnimaticSpeechEvent,
-    NEO_SMPTEOn,
+    NEO_SMPTEOn,                                // 0x34
     NEO_SMPTEOff,
-    NEO_StaticOn,
+    NEO_OpenSlipgate,                           // 0x36 CAT: new (cat_nisOpenSlipgate 0x004d00b0)
+    NEO_CloseSlipgate,                          // 0x37 CAT: new (cat_nisCloseSlipgate 0x004d00d0)
+    NEO_StaticOn,                               // 0x38
     NEO_StaticOff,
-    NEO_HideDerelict,
+    NEO_HideDerelict,                           // 0x3a
     NEO_ShowDerelict,
-    NEO_StartNewNIS,
+    NEO_StartNewNIS,                            // 0x3c
     NEO_Attributes,
     NEO_AttackKasSelection,
     NEO_KeepMovingAtEnd,
-    NEO_DamageLevel,
+    NEO_DamageLevel,                            // 0x40
     NEO_MinimumLOD,
-    NEO_LastNEO
+    NEO_LightAmbient,                           // 0x42 CAT: new (cat_nisLightAmbient 0x004cf920)
+    NEO_LightDiffuse,                           // 0x43 CAT: new (cat_nisLightDiffuse 0x004cf970)
+    NEO_GlobalAmbient,                          // 0x44 CAT: new (cat_nisGlobalAmbient 0x004cf9c0)
+    NEO_NumberLights,                           // 0x45 CAT: new (cat_nisNumberLights 0x004cfa10)
+    NEO_Mimic,                                  // 0x46 CAT: new (cat_nisMimic 0x004d5fa0)
+    NEO_Fog,                                    // 0x47 CAT: new (cat_nisFog 0x004d08f0)
+    NEO_Ebolts,                                 // 0x48 CAT: new (cat_nisEbolts 0x004d0850)
+    NEO_BeastEffect,                            // 0x49 CAT: new (cat_nisBeastEffect 0x004d08b0)
+    NEO_Subtitle,                               // 0x4a CAT: new (cat_nisSubtitle 0x004cf740)
+    NEO_LastNEO                                 // 0x4b
 }
 nisopcode;
 
@@ -236,9 +254,14 @@ typedef struct
     nisopcode code;                             //what event it is
     sdword shipID;                              //index of the object this event works on, not always a ship
     sdword initialID;                           //index of event in the .script file for correctly time-sorting events
-    smemsize param[2];                            //parameters, event-specific
+    // CAT: six parameters (the exe's event is 0x28 bytes: the *Set callbacks realloc count * 0x28 and the fog event
+    //      cat_nisFogSet 0x004d3490 writes +0x10..+0x24); HW1 had two
+    smemsize param[6];                            //parameters, event-specific
 }
 nisevent;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(nisevent) == 0x28, "nisevent is 0x28 bytes in cataclysm.exe (nisAttackSet 0x004d10f0)");
+#endif
 
 //parameters for a SMPTE time counter
 typedef struct
@@ -425,6 +448,17 @@ typedef struct tagcamerapath_disk
 typedef spaceobjpath_disk lightpath_disk;
 
 
+// CAT: the exe's NIS layouts (nisStart 0x004cd2b0: nisplaying 0x54 with objectmotion 0x24 and cameramotion 0x1c
+//      blocks behind it; nisLoad 0x004d4a00 reads a 0x84-byte header and 0x38-byte object paths)
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(nisheader) == 0x84, "nisheader is 0x84 bytes in cataclysm.exe (nisLoad 0x004d4a00)");
+_Static_assert(sizeof(spaceobjpath) == 0x38, "spaceobjpath is 0x38 bytes in cataclysm.exe");
+_Static_assert(sizeof(objectmotion) == 0x24, "objectmotion is 0x24 bytes in cataclysm.exe (nisUpdate 0x004ce780)");
+_Static_assert(sizeof(cameramotion) == 0x1C, "cameramotion is 0x1C bytes in cataclysm.exe");
+_Static_assert(sizeof(nisplaying) == 0x54, "nisplaying is 0x54 bytes in cataclysm.exe (nisStart 0x004cd2b0)");
+_Static_assert(offsetof(nisplaying, iCurrentEvent) == 0x50, "nisplaying.iCurrentEvent at 0x50");
+#endif
+
 /*=============================================================================
     Data:
 =============================================================================*/
@@ -465,6 +499,18 @@ extern nisevent* nisEventList;
 extern int nisEventSortCB(void const* p1, void const* p2);
 
 extern nisSMPTE *nisSMPTECounter;
+
+// CAT: the NIS's own copies of an sMothership's hyperspace modules (nisNewObjectCreate 0x004cccb0 makes them,
+//      nisStop 0x004cdd60 deletes them): 0x00a4ca38, count 0x00a4cb80
+#define CAT_NIS_MAX_MODULE_SHIPS    30          // 0x00a4ca38..0x00a4caaf (the ShipType[30] of nisNewObjectCreate)
+extern Ship *catNisModuleShips[CAT_NIS_MAX_MODULE_SHIPS];
+extern sdword catNisNumModuleShips;
+// CAT: the byte the fadeSet event's second parameter sets (nisBlackFadeSet 0x004d0770 -> 0x00a4cb4c; nisStart /
+//      nisStop clear it)
+extern ubyte catNisBlackFadeFlag;
+// CAT: set by singlePlayerGameUpdate 0x005197d0 when the NIS is followed by a hyperspace / animatic: the letterbox
+//      stays at the NIS's end (nisUpdateTask 0x004cc600 clears it instead of nisFullyScissored; 0x00a4cacc)
+extern bool32 catNisKeepScissored;
 extern nisstatic *nisStatic[NIS_NumberStatics + NIS_NumberExtraStatics];
 
 /*=============================================================================
@@ -513,6 +559,11 @@ void nisTaskPauseOrResume(void);
 void nisObjectDied(SpaceObj *obj);
 
 void nisScissorBarsReset(void);
+
+// HWI-TEST (M2-R6 nis-fow-camera), port diagnostic: /catNisParseTest <listfile> (harness mode nisparse), the parse
+//      self-test of every NIS and NIS script of the install (NIS.c catNisRunParseSelfTest)
+extern char catNisParseTestList[];
+void catNisRunParseSelfTest(void);
 
 #if NIS_TEST
 void nisTest(vector *position, matrix *mat);

@@ -101,4 +101,10 @@ void lightSetNumLights(udword numLights);
 
 void lightGetPosition(sdword lightIndex, hvector* position);
 
+// CAT (M2-R6 nis-fow-camera): the NIS light events and the NIS light-source ships set the two lights directly
+void cat_lightSetPosition(sdword lightIndex, real32 *position);    // 0x0055f2a0
+void cat_lightSetAmbient(sdword lightIndex, real32 *rgb);          // 0x0055f2e0
+void cat_lightSetDiffuse(sdword lightIndex, real32 *rgb);          // 0x0055f320
+void cat_lightSetGlobalAmbient(real32 *rgb);                       // 0x0055f360
+
 #endif

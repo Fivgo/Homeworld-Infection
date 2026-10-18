@@ -438,9 +438,10 @@ void pingListDraw(Camera *camera, hmatrix *modelView, hmatrix *projection, recta
         {
             pingSize = (thisPing->size - thisPing->minSize) * pingMod / thisPing->pingDuration + thisPing->minSize;
             selCircleComputeGeneral(modelView, projection, &thisPing->centre, max(thisPing->size,thisPing->minSize), &x, &y, &radius);
-            // CAT-TODO(M2-R6 FOW): the exe draws a ping other than an anomaly ping only where the fog of war does not
-            //      hide its centre (pingListDraw 0x004e8850 at 0x004e8985: cat_selPositionHiddenByFOW 0x00509400)
-            if (radius > 0.0f)
+            // CAT (M2-R6 nis-fow-camera): the exe draws a ping other than an anomaly ping only where the fog of war does
+            //      not hide its centre (pingListDraw 0x004e8850 at 0x004e8985: cat_selPositionHiddenByFOW 0x00509400)
+            if ((radius > 0.0f) &&
+                ((thisPing->TOMask == PTOM_Anomaly) || !cat_selPositionHiddenByFOW(&thisPing->centre, FALSE)))
             {
                 radius = max(radius, thisPing->minScreenSize);
                 radius *= pingSize / max(thisPing->size,thisPing->minSize);

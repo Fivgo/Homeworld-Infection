@@ -225,7 +225,7 @@ static void leechFreeLatchPoint(LeechSpec *spec)
 // the mesh animation: 0 opens the mouth to latch, 1 closes it (the exe's madAnimationStart(ship, n, 0 / 2))
 static void leechCloseBody(Ship *ship, LeechSpec *spec)
 {
-    cat_madAnimationStartNumber(ship, 1);       // CAT-TODO(stage 3): the exe passes a third argument, 2
+    madAnimationStart(ship, 1, 2);       // CAT: the exe's third argument, 2 (M2-R6 nis-fow-camera)
     spec->bodyOpen = 0;
 }
 
@@ -458,7 +458,7 @@ static bool32 cat_leechProcess(Ship *ship, SelectAnyCommand *targets, sbyte mode
                 if ((spec->bodyOpen != 1) && MoveReachedDestinationVariable(ship, &dest, 50.0f))
                 {
                     spec->bodyOpen = 1;
-                    cat_madAnimationStartNumber(ship, 0);   // CAT-TODO(stage 3): the exe passes a third argument, 0
+                    madAnimationStart(ship, 0, 0);   // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
                 }
                 if (!MoveReachedDestinationVariable(ship, &dest, point->mindist))
                 {
@@ -484,7 +484,7 @@ static bool32 cat_leechProcess(Ship *ship, SelectAnyCommand *targets, sbyte mode
             if ((spec->bodyOpen != 1) && MoveReachedDestinationVariable(ship, &dest, 50.0f))
             {
                 spec->bodyOpen = 1;
-                cat_madAnimationStartNumber(ship, 0);       // CAT-TODO(stage 3): the exe passes a third argument, 0
+                madAnimationStart(ship, 0, 0);       // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
             }
             if (!MoveReachedDestinationVariable(ship, &dest, 2.0f))
             {
@@ -623,7 +623,7 @@ static bool32 cat_leechProcess(Ship *ship, SelectAnyCommand *targets, sbyte mode
             if (spec->bodyOpen)
             {
                 spec->bodyOpen = 0;
-                cat_madAnimationStartNumber(ship, 1);       // CAT-TODO(stage 3): the exe passes a third argument, 2
+                madAnimationStart(ship, 1, 2);       // CAT: the exe's third argument, 2 (M2-R6 nis-fow-camera)
             }
             leechFreeLatchPoint(spec);
             bitClear(ship->header.flags, SOF_CatDocking);

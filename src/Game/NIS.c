@@ -14,9 +14,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "Animatic.h"
 #include "Attack.h"
+#include "avi.h"
 //#include "bink.h"
 #include "BTG.h"
+#include "Clamp.h"
+#include "CommandLayer.h"
 #include "CommandWrap.h"
 #include "Debug.h"
 #include "Eval.h"
@@ -30,15 +34,20 @@
 #include "mainrgn.h"
 #include "Memory.h"
 #include "MEX.h"
+#include "Mimic.h"
 #include "mouse.h"
 #include "Randy.h"
 #include "Region.h"
 #include "render.h"
 #include "Select.h"
+#include "Sensors.h"
 #include "ShipDefs.h"
+#include "SinglePlayer.h"
+#include "Slipgate.h"
 #include "SoundEvent.h"
 #include "SoundEventDefs.h"
 #include "StringSupport.h"
+#include "Subtitle.h"
 #include "Tracking.h"
 #include "Universe.h"
 #include "UnivUpdate.h"
@@ -130,6 +139,21 @@ void nisAttackKasSelection(nisplaying *NIS, nisevent *event);
 void nisKeepMovingAtEnd(nisplaying *NIS, nisevent *event);
 void nisMinimumLOD(nisplaying *NIS, nisevent *event);
 void nisDamageLevel(nisplaying *NIS, nisevent *event);
+void cat_nisRepair(nisplaying *NIS, nisevent *event);
+void cat_nisCameraClipNear(nisplaying *NIS, nisevent *event);
+void cat_nisCameraClipFar(nisplaying *NIS, nisevent *event);
+void cat_nisOpenSlipgate(nisplaying *NIS, nisevent *event);
+void cat_nisCloseSlipgate(nisplaying *NIS, nisevent *event);
+void cat_nisLightAmbient(nisplaying *NIS, nisevent *event);
+void cat_nisLightDiffuse(nisplaying *NIS, nisevent *event);
+void cat_nisGlobalAmbient(nisplaying *NIS, nisevent *event);
+void cat_nisNumberLights(nisplaying *NIS, nisevent *event);
+void cat_nisMimic(nisplaying *NIS, nisevent *event);
+void cat_nisFog(nisplaying *NIS, nisevent *event);
+void cat_nisEbolts(nisplaying *NIS, nisevent *event);
+void cat_nisBeastEffect(nisplaying *NIS, nisevent *event);
+void cat_nisSubtitle(nisplaying *NIS, nisevent *event);
+// CAT: the exe's dispatch table (nisEventDispatch 0x0088888c, 75 entries, Cataclysm's opcodes: NIS.h)
 niseventdispatch nisEventDispatch[] =
 {
     /*NEO_DeathDamage,          */ nisDeathAnything,
@@ -137,6 +161,7 @@ niseventdispatch nisEventDispatch[] =
     /*NEO_DeathBeam,            */ nisDeathAnything,
     /*NEO_DeathCollision,       */ NULL,
     /*NEO_Attack,               */ nisAttack,
+    /*NEO_Repair,               */ cat_nisRepair,           // CAT: 0x004cf370
     /*NEO_HaltAttack,           */ nisHaltAttack,
     /*NEO_Fire,                 */ nisFire,
     /*NEO_Show                  */ nisObjectShow,
@@ -153,6 +178,8 @@ niseventdispatch nisEventDispatch[] =
     /*NEO_RemainAtEnd,          */ nisRemainAtEnd,
     /*NEO_FleetSpeechEvent,     */ nisFleetSpeechEvent,
     /*NEO_CameraFOV,            */ nisCameraFOV,
+    /*NEO_CameraClipNear,       */ cat_nisCameraClipNear,   // CAT: 0x004d0110
+    /*NEO_CameraClipFar,        */ cat_nisCameraClipFar,    // CAT: 0x004d0140
     /*NEO_CameraCut,            */ nisCameraCut,
     /*NEO_BlackScreenStart,     */ NULL,
     /*NEO_BlackScreenEnd,       */ NULL,
@@ -183,6 +210,8 @@ niseventdispatch nisEventDispatch[] =
     /*NEO_AnimaticSpeechEvent,  */ nisAnimaticSpeechEvent,
     /*NEO_SMPTEOn,              */ nisSMPTEOn,
     /*NEO_SMPTEOff,             */ nisSMPTEOff,
+    /*NEO_OpenSlipgate,         */ cat_nisOpenSlipgate,     // CAT: 0x004d00b0
+    /*NEO_CloseSlipgate,        */ cat_nisCloseSlipgate,    // CAT: 0x004d00d0
     /*NEO_StaticOn,             */ nisStaticOn,
     /*NEO_StaticOff,            */ nisStaticOff,
     /*NEO_HideDerelict          */ nisHideDerelict,
@@ -193,6 +222,15 @@ niseventdispatch nisEventDispatch[] =
     /*NEO_KeepMovingAtEnd       */ nisKeepMovingAtEnd,
     /*NEO_DamageLevel           */ nisDamageLevel,
     /*NEO_MinimumLOD,           */ nisMinimumLOD,
+    /*NEO_LightAmbient,         */ cat_nisLightAmbient,     // CAT: 0x004cf920
+    /*NEO_LightDiffuse,         */ cat_nisLightDiffuse,     // CAT: 0x004cf970
+    /*NEO_GlobalAmbient,        */ cat_nisGlobalAmbient,    // CAT: 0x004cf9c0
+    /*NEO_NumberLights,         */ cat_nisNumberLights,     // CAT: 0x004cfa10
+    /*NEO_Mimic,                */ cat_nisMimic,            // CAT: 0x004d5fa0
+    /*NEO_Fog,                  */ cat_nisFog,              // CAT: 0x004d08f0
+    /*NEO_Ebolts,               */ cat_nisEbolts,           // CAT: 0x004d0850
+    /*NEO_BeastEffect,          */ cat_nisBeastEffect,      // CAT: 0x004d08b0
+    /*NEO_Subtitle,             */ cat_nisSubtitle,         // CAT: 0x004cf740
     /*NEO_LastNEO               */ NULL,
 };
 
@@ -213,6 +251,12 @@ bool32 nisTaskToResume = FALSE;                   //task to be resumed at end of
 nisplaying *thisNisPlaying = NULL;
 nisheader *thisNisHeader = NULL;
 nisDoneCB thisNisDoneCB = NULL;
+
+// CAT: NIS.h (the hyperspace module copies 0x00a4ca38 / 0x00a4cb80, the fadeSet flag 0x00a4cb4c, 0x00a4cacc)
+Ship *catNisModuleShips[CAT_NIS_MAX_MODULE_SHIPS];
+sdword catNisNumModuleShips = 0;
+ubyte catNisBlackFadeFlag = 0;
+bool32 catNisKeepScissored = FALSE;
 
 //information for NIS text cards
 nistextcard nisTextCardList[NIS_NumberTextCards];
@@ -479,8 +523,16 @@ DEFINE_TASK(nisUpdateTask)
                 nisFullyScissored = TRUE;               //window is fully scissored
                 nisScissorFadeIn = nisScissorFadeTime = 0.0f;//don't do any more fading
                 nisScissorFade = 0.0f;
+                // CAT: a KAS letterbox that is coming in is finished here (nisUpdateTask 0x004cc600:
+                //      cat_kasWideScreenActive / cat_kasWideScreenInFinish 0x004973d0, the KAS letterbox).
+                //      CAT-TODO(stage 6 KAS): the two calls come with the KAS letterbox (kasfWideScreenIn and its state)
             }
             nisScissorFadeTime += UNIVERSE_UPDATE_PERIOD;
+            // CAT: the debug frame-step flag is cleared while the letterbox comes in (0x00a6ed74, UnivUpdate.c)
+            if (catUnivFrameStep)
+            {
+                catUnivFrameStep = FALSE;
+            }
         }
 
         if (thisNisPlaying)
@@ -506,7 +558,16 @@ DEFINE_TASK(nisUpdateTask)
                         thisNisDoneCB();
                         thisNisDoneCB = NULL;
                     }
-                    nisFullyScissored = FALSE;
+                    // CAT: the letterbox stays when the single-player game asked for it (0x00a4cacc: the NIS
+                    //      leads into a hyperspace jump or an animatic; nisUpdateTask 0x004cc600)
+                    if (catNisKeepScissored)
+                    {
+                        catNisKeepScissored = FALSE;
+                    }
+                    else
+                    {
+                        nisFullyScissored = FALSE;
+                    }
                 }
             }
 
@@ -579,6 +640,9 @@ void nisStartup(void)
 {
     nisTaskHandle = taskStart(nisUpdateTask, UNIVERSE_UPDATE_PERIOD, 0);
     taskPause(nisTaskHandle);
+    // CAT: back to the normal game speed (nisStartup 0x004cc8f0 ends with cat_taskTimeCompressionReset; the exe's
+    //      taskStart takes the task's name "NisUpdateTask" as a fourth argument, GoK's Task.c has none)
+    cat_taskTimeCompressionReset();
 }
 
 /*-----------------------------------------------------------------------------
@@ -759,9 +823,13 @@ void nisObjectEulerToMatrix(matrix *coordsys, vector *rotVector)
 Ship *nisNewObjectCreate(nisplaying *NIS, sdword index, nisheader *header, spaceobjpath *path, nisplaying *newHeader, vector *position)
 {
     vector startVector, xyzTemp, xyz;
-    matrix tempCoordsys;
+    matrix tempCoordsys, rotation, oldCoordsys;
     Ship *newShip = NULL;
-    ShipRace race;
+    Ship *module, *playerModule;
+    CatClampedList *playerModules;
+    DockStaticPoint *dockPoint;
+    ShipType moduleTypes[CAT_NIS_MAX_MODULE_SHIPS];
+    sdword nModules, moduleIndex = 0;
 
     startVector.x = path->curve[0][0];
     startVector.y = path->curve[1][0];
@@ -769,27 +837,88 @@ Ship *nisNewObjectCreate(nisplaying *NIS, sdword index, nisheader *header, space
     vecAdd(startVector, startVector, *position);
     switch (header->objectPath[index].race)
     {
-        case R1:                                            //any ship type
-        case R2:
-        case P1:
-        case P2:
-        case P3:
-        case Traders:
-            race = path->race;
-            /*
-            if (!(bitTest(GetShipStaticInfo(path->type,path->race)->common.infoFlags, IF_InfoLoaded)))
-            {
-                if (path->race == R1)       // try other race
-                    race = R2;
-                else if (path->race == R2)
-                    race = R1;
-            }
-            */
-            newShip = univAddShip(path->type, race,                                                //2 is flag to indicate no animation doctoring should occur
-                 &startVector, &universe.players[((path->race == universe.players[0].race)) ? 0 : 1],2);//universe.curPlayerPtr);
+        // CAT: the seven Cataclysm races are ship races (Sect, Beast, Kushan, Taiidan, P1, Traders, Derelict;
+        //      nisNewObjectCreate 0x004cccb0 cases 0..6)
+        case RACE_Sect:
+        case RACE_Beast:
+        case RACE_Kushan:
+        case RACE_Taiidan:
+        case RACE_P1:
+        case RACE_Traders:
+        case RACE_Derelict:
+            // CAT: univCreateShip(type, race, pos, player, 0, 0, 1): created as a placed ship (HW1 passed 2, the
+            //      NIS flag, which the exe no longer passes) and with the 7th argument, so an sMothership gets no
+            //      module ships outside mission 1 (the NIS makes its own below)
+            newShip = cat_univAddShipModules(path->type, path->race,
+                 &startVector, &universe.players[((path->race == universe.players[0].race)) ? 0 : 1], 0, TRUE);
             newShip->targetable.health = REALlyBig;                   //by default, ships are invincible
             univAddObjToRenderList((SpaceObj *)newShip);
             newShip->header.flags |= SOF_DontApplyPhysics | SOF_Selectable | SOF_Targetable;
+            if (path->type == sMothership)
+            {
+                // CAT: an NIS sMothership carries the modules the player's mothership took into hyperspace
+                //      (cat_spGetHyperspaceModuleTypes 0x0051c0c0); each is the player's, clamped to it, invincible,
+                //      and kept in catNisModuleShips for nisStop. The support module (sMothershipSupport) takes the
+                //      dock point the player's own support module holds and is turned round when the point's parity
+                //      differs (0x004cce56..0x004ccfb0); in mission 4 the docking bay is left out
+                cat_spGetHyperspaceModuleTypes(&nModules, moduleTypes);
+                while (nModules > 0)
+                {
+                    nModules--;
+                    if ((singlePlayerGameInfo.currentMission == 4) && (moduleTypes[nModules] == sMothershipDockingBay))
+                    {
+                        continue;
+                    }
+                    module = univAddShip(moduleTypes[nModules], RACE_Sect, &startVector, &universe.players[0], 0);
+                    catNisModuleShips[catNisNumModuleShips] = module;
+                    module->targetable.health = REALlyBig;
+                    univAddObjToRenderList((SpaceObj *)module);
+                    module->header.flags |= SOF_Selectable;
+                    module->header.flags |= SOF_Targetable;
+                    if ((moduleTypes[nModules] == sMothershipSupport) && (universe.curPlayerPtr->PlayerMothership != NULL) &&
+                        (universe.curPlayerPtr->PlayerMothership->guidance.clampInfo != NULL) &&
+                        ((playerModules = universe.curPlayerPtr->PlayerMothership->guidance.clampInfo->clampedObjs) != NULL))
+                    {
+                        while (moduleIndex < playerModules->numShips)
+                        {
+                            playerModule = playerModules->ShipPtr[moduleIndex];
+                            moduleIndex++;
+                            if (playerModule->shiptype == sMothershipSupport)
+                            {
+                                if (playerModule->dockvars.catDockPointIndex != -1)
+                                {
+                                    dockPoint = &newShip->staticinfo->dockStaticInfo->dockstaticpoints[playerModule->dockvars.catDockPointIndex];
+                                    dockReserveDockPoint(module, newShip, (sbyte)playerModule->dockvars.catDockPointIndex);
+                                    matMultiplyMatByVec(&xyz, &newShip->rotatable.rotinfo.coordsys, &dockPoint->position);
+                                    vecAdd(module->obj.posinfo.position, xyz, newShip->obj.posinfo.position);
+                                    if (((ubyte)module->dockvars.catDockPointIndex -
+                                         newShip->staticinfo->dockStaticInfo->firstOfType[dockPoint->type]) & 1)
+                                    {
+                                        matMakeRotAboutX(&rotation, (real32)cos(PI), (real32)sin(PI));
+                                        oldCoordsys = module->rotatable.rotinfo.coordsys;
+                                        matMultiplyMatByMat(&module->rotatable.rotinfo.coordsys, &oldCoordsys, &rotation);
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    clampObjToObj((SpaceObjRotImpTargGuidance *)catNisModuleShips[catNisNumModuleShips],
+                                  (SpaceObjRotImpTargGuidance *)newShip);
+                    catNisNumModuleShips++;
+                }
+                if (singlePlayerGameInfo.currentMission == 1)
+                {
+                    // CAT: in mission 1 also a docking bay that counts against the unit caps
+                    module = univAddShip(sMothershipDockingBay, RACE_Sect, &startVector, &universe.players[0], 0);
+                    unitCapEnable();
+                    unitCapCreateShip(module, &universe.players[0]);
+                    unitCapDisable();
+                    univAddObjToRenderList((SpaceObj *)module);
+                    module->header.flags |= SOF_DontApplyPhysics | SOF_Selectable | SOF_Targetable;
+                    clampObjToObj((SpaceObjRotImpTargGuidance *)module, (SpaceObjRotImpTargGuidance *)newShip);
+                }
+            }
             break;
         case NSR_Asteroid:
             newShip = (Ship *)univAddAsteroid(path->type, &startVector);
@@ -818,8 +947,9 @@ Ship *nisNewObjectCreate(nisplaying *NIS, sdword index, nisheader *header, space
             newShip->header.objtype = -1;
             break;
         case NSR_Generic:
-            newShip = (Ship *)univAddDerelictByStatInfo(NUM_DERELICTTYPES, header->genericObject[path->type]->staticInfo, &startVector);
-            newShip->targetable.health = REALlyBig;
+            // CAT: Cataclysm cannot create a generic NIS object any more (the case calls an empty stub and leaves
+            //      the object pointer undefined, 0x004ccd0c); CAT-FIX: no object (NULL) instead of an undefined one
+            newShip = NULL;
             break;
         case NSR_Missile:
             newShip = (Ship *)univAddMissile(path->type);   //type is really the race
@@ -830,6 +960,10 @@ Ship *nisNewObjectCreate(nisplaying *NIS, sdword index, nisheader *header, space
 #if NIS_ERROR_CHECKING
             dbgFatalf(DBG_Loc, "Undefined ship race for NIS spaceobj %d: %d.", index, path->race);
 #endif
+    }
+    if (newShip == NULL)
+    {                                                       // CAT-FIX: see NSR_Generic / NSR_Nebula (the exe faults)
+        return NULL;
     }
     newShip->header.flags |= SOF_NISShip;
     if (path->nSamples == NIS_OneKeyframe)
@@ -851,6 +985,10 @@ Ship *nisNewObjectCreate(nisplaying *NIS, sdword index, nisheader *header, space
         matMultiplyMatByMat(&newShip->rotatable.rotinfo.coordsys, &NIS->nisMatrix, &tempCoordsys);
 
         univUpdateObjRotInfo((SpaceObjRot *)newShip);
+        if (newShip->header.objtype == OBJ_ShipType)
+        {                                                   // CAT: the ship's clamped parts follow (0x004cd23f)
+            cat_clampUpdateAttachedObjects((SpaceObjRotImpTargGuidance *)newShip);
+        }
 
         newHeader->objectsInMotion[index].curve[0] = NULL;//no motion path needed
     }
@@ -917,11 +1055,19 @@ nisplaying *nisStart(nisheader *header, vector *position, matrix *coordSystem)
     nisevent *event;
     splinecurve *curve;
 
+    // CAT: the sensors manager's viewport draws again (catSmHideViewport 0x00a5b228 cleared; nisStart 0x004cd2b0)
+    catSmHideViewport = FALSE;
+
     // disable unit cap counting during NIS sequence
     unitCapDisable();
 
     //clear any possibly persistant game controls
     mrNISStarting();
+
+    // CAT: the NIS lens flare source joins the lens flares and the fog layer goes off (cat_rndLensFlareNISSourceAdd
+    //      0x0057cac0, cat_rndFogLayerOff; nisStart 0x004cd2b0)
+    cat_rndLensFlareNISSourceAdd();
+    cat_rndFogLayerOff();
 
     //allocate and initialize the header
     size = sizeof(nisplaying) + header->nObjectPaths * sizeof(objectmotion) +
@@ -985,6 +1131,8 @@ nisplaying *nisStart(nisheader *header, vector *position, matrix *coordSystem)
         nisCamera = newHeader->camerasInMotion[0].cam;
         nisIsRunning = TRUE;
     }
+    // CAT: the exe then calls an rgl.dll hook when the RGL device is in use (0x00b3a6d8: (*0x00b3a610)()); GoK's GL
+    //      backend has no such device ("Decisions" 28)
 #if NIS_RENDERLIST_DISABLE
     universe.dontUpdateRenderList = TRUE;                   //don't let automatic NIS updating go on
 #endif
@@ -1036,6 +1184,7 @@ nisplaying *nisStart(nisheader *header, vector *position, matrix *coordSystem)
             real32 breakRadius;
             GrowSelection *triggerShips;
 
+            // CAT-TODO(stage 6 KAS): the exe looks the selection up by cat_kasHashString("NisTriggerShips") (nisStart 0x004cd2b0); this tree's KAS still names selections by string [audit: M2-R6 nis-fow-camera]
             triggerShips = kasGetGrowSelectionPtrIfExists("NisTriggerShips");
             if (triggerShips != NULL)
             {
@@ -1043,7 +1192,6 @@ nisplaying *nisStart(nisheader *header, vector *position, matrix *coordSystem)
                 //such that it is looking past the trigger ships at the start point of the NIS
                 nisFocusPointCompute(&breakPoint, (MaxSelection *)triggerShips->selection);
                 breakRadius = nisFocusMaxRadius(&breakPoint, (MaxSelection *)triggerShips->selection);
-                dbgAssertOrIgnore(breakRadius >= 0.0f && breakRadius < 14000);//make sure it's a reasonable size
                 if (header->iLookyObject >= 0)
                 {                                           //if some ship is the designated looky ship
                     path = &header->objectPath[header->iLookyObject];
@@ -1131,6 +1279,7 @@ nisplaying *nisStart(nisheader *header, vector *position, matrix *coordSystem)
     if (!nisNewNISStarted)
     {
         nisBlackFade = nisBlackFadeDest = 0.0f;                 //no fade is the default
+        catNisBlackFadeFlag = 0;                                // CAT: 0x00a4cb4c (nisStart 0x004cd2b0)
         nisTextScrollDistance = 0.0f;
         nisPreviousBackground = nisPreviousLighting = NULL;
 
@@ -1178,6 +1327,18 @@ void nisStop(nisplaying *NIS)
     real32 currentSFXVolume, currentSpeechVolume, currentMusicVolume;
 
     dbgAssertOrIgnore(NIS != NULL);
+    // CAT: the NIS lens flare source and fog layer go, the effects stop over half a second (nisStop 0x004cdd60)
+    cat_rndLensFlareNISSourceRemove();
+    cat_rndFogLayerTextureUnload();
+    cat_rndFogLayerOff();
+    cat_rndFogLayerFadeTo(0.0f, 0, 0, 0.0f, 0.0f);
+    soundEventStopSFX(0.5f);
+    // CAT: the NIS's module copies are deleted, the last made first (0x004cdd94)
+    for (; catNisNumModuleShips > 0; catNisNumModuleShips--)
+    {
+        univReallyDeleteThisShipRightNow(catNisModuleShips[catNisNumModuleShips - 1]);
+        catNisModuleShips[catNisNumModuleShips - 1] = NULL;
+    }
     for (index = 0; index < NIS->nObjects; index++)
     {                                                       //for each ship
 
@@ -1189,12 +1350,13 @@ void nisStop(nisplaying *NIS)
         {
             switch (NIS->header->objectPath[index].race)
             {
-                case R1:                                    //any ship type
-                case R2:
-                case P1:
-                case P2:
-                case P3:
-                case Traders:
+                case RACE_Sect:                             // CAT: the seven Cataclysm ship races (nisStop 0x004cdd60)
+                case RACE_Beast:
+                case RACE_Kushan:
+                case RACE_Taiidan:
+                case RACE_P1:
+                case RACE_Traders:
+                case RACE_Derelict:
                     ship = (Ship *)NIS->objectsInMotion[index].spaceobj;
 
                     ship->header.flags &= ~(SOF_DontApplyPhysics);
@@ -1211,6 +1373,18 @@ void nisStop(nisplaying *NIS)
                     unitCapEnable();
                     unitCapCreateShip(ship,ship->playerowner);
                     unitCapDisable();
+                    if ((ship->shiptype == sMothership) || (ship->shiptype == bMothership))
+                    {
+                        // CAT: a mothership's clamped modules apply physics again too (0x004cdea0). CAT-FIX: the
+                        //      exe reads the clamp info and its list without testing them
+                        if ((ship->guidance.clampInfo != NULL) && (ship->guidance.clampInfo->clampedObjs != NULL))
+                        {
+                            for (j = 0; j < ship->guidance.clampInfo->clampedObjs->numShips; j++)
+                            {
+                                ship->guidance.clampInfo->clampedObjs->ShipPtr[j]->header.flags &= ~SOF_DontApplyPhysics;
+                            }
+                        }
+                    }
                     break;
                 case NSR_Asteroid:
                 case NSR_DustCloud:
@@ -1252,12 +1426,13 @@ void nisStop(nisplaying *NIS)
         {
             switch (NIS->header->objectPath[index].race)
             {
-                case R1:                                    //any ship type
-                case R2:
-                case P1:
-                case P2:
-                case P3:
-                case Traders:
+                case RACE_Sect:                             // CAT: the seven Cataclysm ship races
+                case RACE_Beast:
+                case RACE_Kushan:
+                case RACE_Taiidan:
+                case RACE_P1:
+                case RACE_Traders:
+                case RACE_Derelict:
                     univReallyDeleteThisShipRightNow((Ship *)NIS->objectsInMotion[index].spaceobj);
                     break;
                 case NSR_Asteroid:
@@ -1277,6 +1452,7 @@ void nisStop(nisplaying *NIS)
 #endif
                     }
                     memFree(NIS->objectsInMotion[index].spaceobj);
+                    NIS->objectsInMotion[index].spaceobj = NULL;    // CAT: the exe clears the pointer (0x004cdf4d)
                     break;
                 case NSR_Generic:
                     univReallyDeleteThisDerelictRightNow((Derelict *)NIS->objectsInMotion[index].spaceobj);
@@ -1347,10 +1523,8 @@ void nisStop(nisplaying *NIS)
 
     if (nisMusicPlaying)
     {                                                       //if any music is playing
-        if (universe.totaltimeelapsed - nisUnivStartTime < NIS->timeElapsed * NIS_PlayedProperlyMargin)
-        {                                                   //if it was fast forwarded
-            soundEventStopMusic(0.0f);                      //stop it
-        }
+        // CAT: the NIS's music always stops at its end (nisStop 0x004cdd60 has no fast-forward test)
+        soundEventStopMusic(0.0f);                          //stop it
         nisMusicPlaying = FALSE;
     }
 
@@ -1361,6 +1535,10 @@ void nisStop(nisplaying *NIS)
     memFree(NIS);
 
     nisTextCardIndex = 0;
+
+    // CAT: the subtitles are updated once more and cleared (subTitlesUpdate, subReset; nisStop 0x004cdd60)
+    subTitlesUpdate();
+    subReset();
 
     //reset any possibly persistent game controls
     mrNISStopping();
@@ -1424,6 +1602,9 @@ void nisStop(nisplaying *NIS)
     //nisStatic = NULL;
     memset(nisStatic, 0, sizeof(nisStatic));
 
+    // CAT: the main-region camera is the default camera again (mrCamera = &defaultCamera 0x00ba1e00, nisStop
+    //      0x004ce281)
+    mrCamera = &defaultCamera;
 }
 
 /*-----------------------------------------------------------------------------
@@ -1701,6 +1882,9 @@ void nisCamPathUpdate(nisplaying *NIS, cameramotion *camPath, real32 timeElapsed
 #if NIS_VERBOSE_LEVEL >= 4
         dbgMessagef("Camera: (%.2f, %.2f, %.2f) angles (%.2f, %.2f, %.2f), (%.2f, %.2f, %.2f).", camPath->cam->eyeposition.x, camPath->cam->eyeposition.y, camPath->cam->eyeposition.z, rot.x, rot.y, rot.z, xyz.x, xyz.y, xyz.z);
 #endif//NIS_VERBOSE_LEVEL
+    // CAT: the render lists follow the moved camera at once (nisCamPathUpdate 0x004ce600)
+    univUpdateRenderList();
+    univUpdateMinorRenderList();
 }
 
 /*-----------------------------------------------------------------------------
@@ -1720,12 +1904,12 @@ real32 nisUpdate(nisplaying *NIS, real32 timeElapsed)
     sdword index, j;
     nisevent *event;
 
-#if 0   /* Bink-specific */
-    if (!binkDonePlaying)
+    // CAT: the NIS waits while a movie plays (nisUpdate 0x004ce780 tests binkDonePlaying 0x008b6d94; GoK plays
+    //      movies with its avi player, whose aviIsPlaying is the movie-on flag, as SpeechEvent.c's Bink term)
+    if (aviIsPlaying)
     {
         return 0.0000001f;
     }
-#endif
 
 #if NIS_CAMERA_RELEASE
     if (keyIsStuck(NIS_CAMERA_RELEASE))
@@ -1820,10 +2004,44 @@ real32 nisUpdate(nisplaying *NIS, real32 timeElapsed)
         xyzTemp.y = xyz.x;
         xyzTemp.z = xyz.y;
         matMultiplyMatByVec(&xyz, &NIS->nisMatrix, &xyzTemp);//multiply NIS world matrix
-        path->spaceobj->obj.posinfo.position.x = nisPos.x + xyz.x;
-        path->spaceobj->obj.posinfo.position.y = nisPos.y + xyz.y;
-        path->spaceobj->obj.posinfo.position.z = nisPos.z + xyz.z;
+        if (path->spaceobj->header.objtype == OBJ_ShipType)
+        {                                                   // CAT: a ship moves through cat_univSetShipPosition
+            vecAdd(tempVect, nisPos, xyz);
+            cat_univSetShipPosition((Ship *)path->spaceobj, &tempVect);
+        }
+        else
+        {
+            path->spaceobj->obj.posinfo.position.x = nisPos.x + xyz.x;
+            path->spaceobj->obj.posinfo.position.y = nisPos.y + xyz.y;
+            path->spaceobj->obj.posinfo.position.z = nisPos.z + xyz.z;
+        }
         path->spaceobj->rotatable.rotinfo.coordsys = coordsys;        //set new object coordinate system
+        if (path->spaceobj->header.objtype == OBJ_ShipType)
+        {
+            hvector lightPos;
+            Ship *nisShip = (Ship *)path->spaceobj;
+
+            // CAT: its clamped parts follow, and the NIS light / lens flare source ships move the two lights and
+            //      the NIS lens flare (nisUpdate 0x004ce780: cat_clampUpdateAttachedObjects, cat_lightSetPosition,
+            //      cat_rndLensFlareNISSourceSetPosition with w = 0)
+            cat_clampUpdateAttachedObjects((SpaceObjRotImpTargGuidance *)nisShip);
+            lightPos.x = nisShip->obj.posinfo.position.x;
+            lightPos.y = nisShip->obj.posinfo.position.y;
+            lightPos.z = nisShip->obj.posinfo.position.z;
+            lightPos.w = 0.0f;
+            if (nisShip->shiptype == nisLightSource1)
+            {
+                cat_lightSetPosition(0, (real32 *)&lightPos);
+            }
+            else if (nisShip->shiptype == nisLightSource2)
+            {
+                cat_lightSetPosition(1, (real32 *)&lightPos);
+            }
+            else if (nisShip->shiptype == nisLensflareSource1)
+            {
+                cat_rndLensFlareNISSourceSetPosition(0, (vector *)&lightPos);
+            }
+        }
 
         //get velocity of ship
         vecSub(tempVect, path->spaceobj->obj.posinfo.position, lastPos);
@@ -2041,7 +2259,7 @@ void nisDeleteTheseCurves(objectmotion *path)
 sdword nisFindObjectByName(nisheader *header, char *name)
 {
     sdword index, instance = 0;
-    udword race = R1;
+    udword race = RACE_Sect;
 //    ShipType type;
     char *pSlash = NULL, *pType = NULL;
     char raceString[32];
@@ -2061,13 +2279,13 @@ sdword nisFindObjectByName(nisheader *header, char *name)
         race = StrToNisRace(raceString);
         if (bitTest(header->flags, NHF_RacesSwapped))
         {
-            if (race == R1)
+            if (race == RACE_Sect)
             {
-                race = R2;
+                race = RACE_Beast;
             }
-            else if (race == R2)
+            else if (race == RACE_Beast)
             {
-                race = R1;
+                race = RACE_Sect;
             }
         }
         dbgAssertOrIgnore(race != -1);
@@ -2096,12 +2314,13 @@ sdword nisFindObjectByName(nisheader *header, char *name)
         {                                                   //if instance and race match
             switch (race)
             {
-                case R1:                                    //any ship type
-                case R2:
-                case P1:
-                case P2:
-                case P3:
-                case Traders:
+                case RACE_Sect:                             // CAT: the seven Cataclysm ship races
+                case RACE_Beast:                            //      (nisFindObjectByName 0x004ced60 cases 0..6)
+                case RACE_Kushan:
+                case RACE_Taiidan:
+                case RACE_P1:
+                case RACE_Traders:
+                case RACE_Derelict:
                     pType = ShipTypeToStr(path->type);
                     break;
                 case NSR_Asteroid:
@@ -2308,6 +2527,11 @@ void nisAttack(nisplaying *NIS, nisevent *event)
     selectone.ShipPtr[0] = goodShip;
     attack.numTargets = 1;
     attack.TargetPtr[0] = (SpaceObjRotImpTarg *)badShip;
+    if (goodShip->shiptype == bMothership)
+    {                                                       // CAT: the Beast mothership "attacks" with its special
+        clSpecial(&universe.mainCommandLayer,&selectone,(SpecialCommand *)&attack);   // (nisAttack 0x004cf2c0)
+        return;
+    }
     if (goodShip->playerowner == badShip->playerowner)
     {
         clAttack(&universe.mainCommandLayer,&selectone,&attack);
@@ -2316,6 +2540,30 @@ void nisAttack(nisplaying *NIS, nisevent *event)
     {
         clPassiveAttack(&universe.mainCommandLayer,&selectone,&attack);
     }
+}
+/*-----------------------------------------------------------------------------
+    Name        : cat_nisRepair
+    Description : CAT (M2-R6 nis-fow-camera): NIS event: the current ship repairs the object of param[0]
+                  (cat_nisRepair 0x004cf370): a live Worker through cat_clSpecialTarget, any other ship through
+                  clSpecial
+----------------------------------------------------------------------------*/
+void cat_nisRepair(nisplaying *NIS, nisevent *event)
+{
+    SelectCommand selectone;
+    SpecialCommand target;
+
+    selectone.ShipPtr[0] = (Ship *)NIS->objectsInMotion[event->shipID].spaceobj;
+    target.TargetPtr[0] = (SpaceObjRotImpTarg *)NIS->objectsInMotion[event->param[0]].spaceobj;
+    selectone.numShips = 1;
+    selectone.timeLastStatus = 0.0f;
+    target.numTargets = 1;
+    target.timeLastStatus = 0.0f;
+    if (cat_shipIsLiveWorker(selectone.ShipPtr[0]))
+    {
+        cat_clSpecialTarget(&universe.mainCommandLayer, &selectone, &target, FALSE);
+        return;
+    }
+    clSpecial(&universe.mainCommandLayer, &selectone, &target);
 }
 void nisHaltAttack(nisplaying *NIS, nisevent *event)
 {
@@ -2365,6 +2613,21 @@ void nisObjectShow(nisplaying *NIS, nisevent *event)
         if (!univSpaceObjInRenderList(obj))
         {                                                   //if object not in render list
             univAddObjToRenderList(obj);                    //add it to render list
+            // CAT: a ship's clamped parts join the render list with it (nisObjectShow 0x004cf470)
+            if ((obj->header.objtype == OBJ_ShipType) && (((Ship *)obj)->guidance.clampInfo != NULL) &&
+                (((Ship *)obj)->guidance.clampInfo->clampedObjs != NULL))
+            {
+                CatClampedList *parts = ((Ship *)obj)->guidance.clampInfo->clampedObjs;
+                sdword i;
+
+                for (i = 0; i < parts->numShips; i++)
+                {
+                    if (!univSpaceObjInRenderList((SpaceObj *)parts->ShipPtr[i]))
+                    {
+                        univAddObjToRenderList((SpaceObj *)parts->ShipPtr[i]);
+                    }
+                }
+            }
         }
 #if NIS_VERBOSE_LEVEL >= 1
         else
@@ -2374,6 +2637,21 @@ void nisObjectShow(nisplaying *NIS, nisevent *event)
 #endif
         bitClear(obj->header.flags, SOF_Hide);                     //make sure it stays in render list
         //bitSet(obj->header.flags, SOF_ForceVisible);
+        if ((obj->header.objtype == OBJ_ShipType) && (((Ship *)obj)->guidance.clampInfo != NULL) &&
+            (((Ship *)obj)->guidance.clampInfo->clampedObjs != NULL))
+        {                                                   // CAT: and are unhidden with it
+            CatClampedList *parts = ((Ship *)obj)->guidance.clampInfo->clampedObjs;
+            sdword i;
+
+            for (i = 0; i < parts->numShips; i++)
+            {
+                bitClear(parts->ShipPtr[i]->header.flags, SOF_Hide);
+            }
+        }
+        if ((obj->header.objtype == OBJ_ShipType) && (((Ship *)obj)->shiptype == nisLensflareSource1))
+        {                                                   // CAT: the NIS lens flare source shows its flare
+            cat_rndLensFlareNISSourceEnable(0, TRUE);
+        }
     }
 }
 void nisObjectHide(nisplaying *NIS, nisevent *event)
@@ -2406,6 +2684,26 @@ void nisObjectHide(nisplaying *NIS, nisevent *event)
 #endif
         bitSet(obj->header.flags, SOF_Hide);                       //make sure it stays out of render list
         //bitClear(obj->header.flags, SOF_ForceVisible);
+        if (obj->header.objtype == OBJ_ShipType)
+        {
+            // CAT: a ship's clamped parts are hidden with it (they stay in the render list), the NIS lens flare
+            //      source hides its flare and the ship's sounds stop (nisObjectHide 0x004cf5d0)
+            if ((((Ship *)obj)->guidance.clampInfo != NULL) && (((Ship *)obj)->guidance.clampInfo->clampedObjs != NULL))
+            {
+                CatClampedList *parts = ((Ship *)obj)->guidance.clampInfo->clampedObjs;
+                sdword i;
+
+                for (i = 0; i < parts->numShips; i++)
+                {
+                    bitSet(parts->ShipPtr[i]->header.flags, SOF_Hide);
+                }
+            }
+            if (((Ship *)obj)->shiptype == nisLensflareSource1)
+            {
+                cat_rndLensFlareNISSourceEnable(0, FALSE);
+            }
+            soundEventShipRemove((Ship *)obj);
+        }
     }
 }
 void nisInvincible(nisplaying *NIS, nisevent *event)
@@ -2425,6 +2723,33 @@ void nisSoundEvent(nisplaying *NIS, nisevent *event)
     }
     soundEvent(NIS->objectsInMotion[event->shipID].spaceobj, event->param[0]);
 }
+/*-----------------------------------------------------------------------------
+    Name        : cat_nisSubtitle
+    Description : CAT (M2-R6 nis-fow-camera): NIS event: show one of the NIS subtitle strings for param[1]
+                  milliseconds (cat_nisSubtitle 0x004cf740: index 0 strNIS01, 2 strNISLET1, 3..11 strNIS02,
+                  strNIS04..strNIS11; index 1 (strNIS01a) and anything above 11 show nothing; the text goes to
+                  subtitle region 0x70 prefixed with the "#r3#tf" colour codes)
+----------------------------------------------------------------------------*/
+void cat_nisSubtitle(nisplaying *NIS, nisevent *event)
+{
+    static const sdword subtitleString[12] = { strNIS01, -1, strNISLET1, strNIS02, strNIS04, strNIS05, strNIS06,
+                                               strNIS07, strNIS08, strNIS09, strNIS10, strNIS11 };
+    char text[0x7f8];
+    char *string;
+
+    // CAT-FIX: an index above 11 reads an undefined local in the exe; here it shows nothing
+    if ((sdword)event->param[0] < 0 || (sdword)event->param[0] > 11 || subtitleString[event->param[0]] < 0)
+    {
+        return;
+    }
+    string = strGetString(subtitleString[event->param[0]]);
+    if (string == NULL)
+    {
+        return;
+    }
+    snprintf(text, 0x7f7, "#r%x#t%x%s", 3, 0xf, string);
+    subTitleAdd(0x70, 0, text, strlen(text), (real32)(sdword)event->param[1] * 0.001f);
+}
 void nisSpeechEvent(nisplaying *NIS, nisevent *event)
 {
     sdword actor;
@@ -2442,8 +2767,9 @@ void nisSpeechEvent(nisplaying *NIS, nisevent *event)
         return;
     }
     //speechEvent(NIS->objectsInMotion[event->shipID].spaceobj, event->param[0], event->param[1]);
+    // CAT: the variation word is the ship's type (nisSpeechEvent 0x004cf840 passes obj+0x2B0), not the event's
     speechEventQueue(NIS->objectsInMotion[event->shipID].spaceobj,
-                     event->param[0], event->param[1] & (~NIS_ActorMask),
+                     event->param[0], ((Ship *)NIS->objectsInMotion[event->shipID].spaceobj)->shiptype,
                      SOUND_EVENT_DEFAULT, actor,
                      universe.curPlayerIndex, SOUND_EVENT_DEFAULT,
                      (real32)SOUND_EVENT_DEFAULT, SOUND_EVENT_DEFAULT);
@@ -2459,7 +2785,48 @@ void nisFleetSpeechEvent(nisplaying *NIS, nisevent *event)
 
 void nisAnimaticSpeechEvent(nisplaying *NIS, nisevent *event)
 {
-    speechEventFleet(event->param[0], event->param[1], universe.curPlayerIndex);
+    // CAT: an animatic line has no timeout (nisAnimaticSpeechEvent 0x004cf8f0 passes 0.0, the fleet macro 5.0)
+    speechEventQueue(NULL, event->param[0], event->param[1], -1, 0, universe.curPlayerIndex, -1, 0.0f, -1);
+}
+/*-----------------------------------------------------------------------------
+    Name        : cat_nisLightAmbient / cat_nisLightDiffuse / cat_nisGlobalAmbient / cat_nisNumberLights
+    Description : CAT (M2-R6 nis-fow-camera): NIS light events (0x004cf920 / 0x004cf970: light param[0]'s ambient or
+                  diffuse colour from the 0..255 components param[1..3]; 0x004cf9c0: the global ambient from
+                  param[0..2]; 0x004cfa10: the number of lights)
+----------------------------------------------------------------------------*/
+void cat_nisLightAmbient(nisplaying *NIS, nisevent *event)
+{
+    real32 rgb[4];
+
+    rgb[0] = (real32)(sdword)event->param[1] * (1.0f / 255.0f);
+    rgb[3] = 1.0f;
+    rgb[1] = (real32)(sdword)event->param[2] * (1.0f / 255.0f);
+    rgb[2] = (real32)(sdword)event->param[3] * (1.0f / 255.0f);
+    cat_lightSetAmbient((sdword)event->param[0], rgb);
+}
+void cat_nisLightDiffuse(nisplaying *NIS, nisevent *event)
+{
+    real32 rgb[4];
+
+    rgb[0] = (real32)(sdword)event->param[1] * (1.0f / 255.0f);
+    rgb[3] = 1.0f;
+    rgb[1] = (real32)(sdword)event->param[2] * (1.0f / 255.0f);
+    rgb[2] = (real32)(sdword)event->param[3] * (1.0f / 255.0f);
+    cat_lightSetDiffuse((sdword)event->param[0], rgb);
+}
+void cat_nisGlobalAmbient(nisplaying *NIS, nisevent *event)
+{
+    real32 rgb[4];
+
+    rgb[3] = 1.0f;
+    rgb[0] = (real32)(sdword)event->param[0] * (1.0f / 255.0f);
+    rgb[1] = (real32)(sdword)event->param[1] * (1.0f / 255.0f);
+    rgb[2] = (real32)(sdword)event->param[2] * (1.0f / 255.0f);
+    cat_lightSetGlobalAmbient(rgb);
+}
+void cat_nisNumberLights(nisplaying *NIS, nisevent *event)
+{
+    lightSetNumLights((udword)event->param[0]);
 }
 void nisSMPTEOn(nisplaying *NIS, nisevent *event)
 {
@@ -2666,6 +3033,8 @@ void nisRemainAtEnd(nisplaying *NIS, nisevent *event)
 
         if (singlePlayerGame)
         {
+            // CAT: the exe passes the label's hash (cat_kasHashString; nisRemainAtEnd 0x004d0050).
+            //      CAT-TODO(stage 6 KAS): this tree's KAS still names teams by string (CAT_HW1_MISSION_SCRIPTS 0)
             kasAddShipToTeam(ship,str);
         }
 
@@ -2674,11 +3043,41 @@ void nisRemainAtEnd(nisplaying *NIS, nisevent *event)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_nisOpenSlipgate / cat_nisCloseSlipgate
+    Description : CAT (M2-R6 nis-fow-camera): NIS events: open or close the current object, a slipgate
+                  (0x004d00b0 / 0x004d00d0)
+----------------------------------------------------------------------------*/
+void cat_nisOpenSlipgate(nisplaying *NIS, nisevent *event)
+{
+    cat_slipgateOpen((Ship *)NIS->objectsInMotion[event->shipID].spaceobj);
+}
+void cat_nisCloseSlipgate(nisplaying *NIS, nisevent *event)
+{
+    cat_slipgateClose((Ship *)NIS->objectsInMotion[event->shipID].spaceobj);
+}
 void nisCameraFOV(nisplaying *NIS, nisevent *event)
 {
     real32 FOV = SdwordToReal32(event->param[0]);
 
     nisCamera->fieldofview = FOV;
+}
+/*-----------------------------------------------------------------------------
+    Name        : cat_nisCameraClipNear / cat_nisCameraClipFar
+    Description : CAT (M2-R6 nis-fow-camera): NIS events: the NIS camera's near / far clip plane, 0 = the default
+                  CAMERA_CLIP_NEAR / CAMERA_CLIP_FAR (0x004d0110 / 0x004d0140)
+----------------------------------------------------------------------------*/
+void cat_nisCameraClipNear(nisplaying *NIS, nisevent *event)
+{
+    real32 clip = SdwordToReal32(event->param[0]);
+
+    nisCamera->clipPlaneNear = (clip != 0.0f) ? clip : CAMERA_CLIP_NEAR;
+}
+void cat_nisCameraClipFar(nisplaying *NIS, nisevent *event)
+{
+    real32 clip = SdwordToReal32(event->param[0]);
+
+    nisCamera->clipPlaneFar = (clip != 0.0f) ? clip : CAMERA_CLIP_FAR;
 }
 void nisCameraCut(nisplaying *NIS, nisevent *event)
 {
@@ -2919,6 +3318,7 @@ void nisBlackFadeSet(nisplaying *NIS, nisevent *event)
     dbgMessagef("Setting fade level to %.2f", SdwordToReal32(event->param[0]));
 #endif
     nisBlackFade = nisBlackFadeDest = SdwordToReal32(event->param[0]);
+    catNisBlackFadeFlag = (ubyte)event->param[1];           // CAT: the second parameter (nisBlackFadeSet 0x004d0770)
 }
 void nisBlackFadeTo(nisplaying *NIS, nisevent *event)
 {
@@ -2961,7 +3361,46 @@ void nisMeshAnimationStart(nisplaying *NIS, nisevent *event)
         //!!! store current animation info somewhere and delete it when we're done
         madAnimationStop(goodShip);                         //stop any animations currently playing
     }
-    madAnimationStart(goodShip, animIndex);                 //start the animation playing
+    madAnimationStart(goodShip, animIndex, MAD_ModePauseAtEnd);     //start the animation playing (CAT: the exe's third argument 0, nisMeshAnimationStart 0x004d083f)
+}
+/*-----------------------------------------------------------------------------
+    Name        : cat_nisEbolts / cat_nisBeastEffect / cat_nisFog
+    Description : CAT (M2-R6 nis-fow-camera): NIS events. Ebolts (0x004d0850): param[0] set starts the Beast-stun
+                  electric bolts on the current ship for 2.5 s (the stun state 1, spin -1), clear stops them.
+                  BeastEffect (0x004d08b0): param[0] set starts the infection, which converts the ship in 4 s, clear
+                  stops it. Fog (0x004d08f0): the fog layer on or off (param[0]) and its fade to colours param[1] /
+                  param[2] with time param[3], speed param[5] and density param[4]
+----------------------------------------------------------------------------*/
+void cat_nisEbolts(nisplaying *NIS, nisevent *event)
+{
+    Ship *ship = (Ship *)NIS->objectsInMotion[event->shipID].spaceobj;
+
+    if (event->param[0] != 0)
+    {
+        ship->catBeastStunStart = universe.totaltimeelapsed;
+        ship->catBeastSpin = -1.0f;
+        ship->catBeastStunState = 1;
+        ship->catBeastStunEnd = ship->catBeastStunStart + 2.5f;
+        return;
+    }
+    ship->catBeastStunState = 0;
+}
+void cat_nisBeastEffect(nisplaying *NIS, nisevent *event)
+{
+    Ship *ship = (Ship *)NIS->objectsInMotion[event->shipID].spaceobj;
+
+    if (event->param[0] != 0)
+    {
+        ship->catBeastConvertTime = universe.totaltimeelapsed + 4.0f;
+        return;
+    }
+    ship->catBeastConvertTime = 0.0f;
+}
+void cat_nisFog(nisplaying *NIS, nisevent *event)
+{
+    catRndFogOn = (bool8)event->param[0];
+    cat_rndFogLayerFadeTo(SdwordToReal32(event->param[3]), (color)event->param[1], (color)event->param[2],
+                          SdwordToReal32(event->param[5]), SdwordToReal32(event->param[4]));
 }
 void nisMeshAnimationStop(nisplaying *NIS, nisevent *event)
 {
@@ -3236,13 +3675,14 @@ void nisNewEnvironment(nisplaying *NIS, nisevent *event)
     {
         return;
     }
+    // CAT: memStringDupe (the exe has no non-volatile pool variant; nisNewEnvironment 0x004d0e30)
     if (nisPreviousBackground == NULL)
     {
-        nisPreviousBackground = memStringDupeNV(btgLastBackground);
+        nisPreviousBackground = memStringDupe(btgLastBackground);
     }
     if (nisPreviousLighting == NULL)
     {
-        nisPreviousLighting = memStringDupeNV(lightCurrentLighting);
+        nisPreviousLighting = memStringDupe(lightCurrentLighting);
     }
 #ifdef _WIN32
     sprintf(path, "BTG\\%s.btg", env->name);                //load the background
@@ -3372,6 +3812,12 @@ void nisAttackSet(char *directory,char *field,void *dataToFillIn)
     sdword enemy = nisFindObjectByName(nisCurrentHeader, field);
     event->param[0] = enemy;
 }
+void cat_nisRepairSet(char *directory,char *field,void *dataToFillIn)
+{                                                           // CAT: "repair <object>" (cat_nisRepairSet 0x004d11a0)
+    nisevent *event = nisNewEvent(NEO_Repair);
+    sdword target = nisFindObjectByName(nisCurrentHeader, field);
+    event->param[0] = target;
+}
 void nisHaltAttackSet(char *directory,char *field,void *dataToFillIn)
 {
     nisNewEvent(NEO_HaltAttack);
@@ -3401,10 +3847,8 @@ void nisCurrentTimeSet(char *directory,char *field,void *dataToFillIn)
         nScanned = sscanf(field, "FRAME %f", &nisCurrentTime);
 #if NIS_ERROR_CHECKING
         dbgAssertOrIgnore(nScanned == 1);
-        if ((nisCurrentTime < 0.0f) || (nisCurrentTime / NIS_FrameRate >= nisCurrentHeader->length))
-        {
-            dbgFatalf(DBG_Loc, "tried to set time to frame %.0f which is outside nis of length %.0f frames.", nisCurrentTime, nisCurrentHeader->length * NIS_FrameRate);
-        }
+        // CAT: no range check: the exe's nisCurrentTimeSet 0x004d1380 has none, and the install's nislet01.script
+        //      keys events at frame 3209, the NIS's own length (HW1's debug check stopped the parse there)
 #endif
         nisCurrentTime /= NIS_FrameRate;                    //convert from frames to seconds
     }
@@ -3412,11 +3856,7 @@ void nisCurrentTimeSet(char *directory,char *field,void *dataToFillIn)
     {
         nScanned = sscanf(field, "%f", &nisCurrentTime);
 #if NIS_ERROR_CHECKING
-        dbgAssertOrIgnore(nScanned == 1);
-        if ((nisCurrentTime < 0.0f) || (nisCurrentTime >= nisCurrentHeader->length))
-        {
-            dbgFatalf(DBG_Loc, "tried to set time to time %.0f which is outside nis of length %.0f seconds.", nisCurrentTime, nisCurrentHeader->length);
-        }
+        dbgAssertOrIgnore(nScanned == 1);                   // CAT: no range check (see above)
 #endif
     }
 }
@@ -3597,28 +4037,46 @@ void nisRemainAtEndSet(char *directory,char *field,void *dataToFillIn)
 
 void nisCameraFOVSet(char *directory,char *field,void *dataToFillIn)
 {
-    nisevent *event = nisNewEvent(NEO_CameraFOV);
-    int param = event->param[0];
-    scanf(field, "%d", &param);
-    event->param[0] = param;
+    // CAT: an event of no object whose parameter is the field of view as a float (nisCameraFOVSet 0x004d2290:
+    //      sscanf "%f"); GoK's version read "%d" with scanf (from stdin) into an object event
+    nisevent *event = nisNewEventNoObject(NEO_CameraFOV);
+    real32 fov = 0.0f;
+    sscanf(field, "%f", &fov);
+    event->param[0] = Real32ToSdword(fov);
+}
+void cat_nisCameraClipNearSet(char *directory,char *field,void *dataToFillIn)
+{                                                           // CAT: "cameraClipNear <f>" (0x004d2330)
+    nisevent *event = nisNewEventNoObject(NEO_CameraClipNear);
+    real32 clip = 0.0f;
+    sscanf(field, "%f", &clip);
+    event->param[0] = Real32ToSdword(clip);
+}
+void cat_nisCameraClipFarSet(char *directory,char *field,void *dataToFillIn)
+{                                                           // CAT: "cameraClipFar <f>" (0x004d23d0)
+    nisevent *event = nisNewEventNoObject(NEO_CameraClipFar);
+    real32 clip = 0.0f;
+    sscanf(field, "%f", &clip);
+    event->param[0] = Real32ToSdword(clip);
 }
 void nisRaceSwap(char *directory,char *field,void *dataToFillIn)
 {
     sdword index;
 
-    if (universe.curPlayerPtr->race == R1)
-    {                                                       //player is already race 1
+    // CAT: Cataclysm swaps unless the player is race 2, the Kushan (nisRaceSwap 0x004d2470); the swapped races are
+    //      the Sect and the Beast
+    if (universe.curPlayerPtr->race == RACE_Kushan)
+    {
         return;
     }
     for (index = 0; index < nisCurrentHeader->nObjectPaths; index++)
     {                                                       //swap race of all obj paths
-        if (nisCurrentHeader->objectPath[index].race == R1)
+        if (nisCurrentHeader->objectPath[index].race == RACE_Sect)
         {
-            nisCurrentHeader->objectPath[index].race = R2;
+            nisCurrentHeader->objectPath[index].race = RACE_Beast;
         }
-        else if(nisCurrentHeader->objectPath[index].race == R2)
+        else if(nisCurrentHeader->objectPath[index].race == RACE_Beast)
         {
-            nisCurrentHeader->objectPath[index].race = R1;
+            nisCurrentHeader->objectPath[index].race = RACE_Sect;
         }
     }
     bitSet(nisCurrentHeader->flags, NHF_RacesSwapped);      //and remember that we swapped it
@@ -4009,6 +4467,17 @@ void nisFadeSetSet(char *directory,char *field,void *dataToFillIn)
     }
 #endif
     event->param[0] = Real32ToSdword(level);
+    // CAT: an optional ", <n>" second parameter (nisFadeSetSet 0x004d2fa0; nisBlackFadeSet keeps its low byte)
+    {
+        char *comma = strchr(field, ',');
+        sdword flag = 0;
+
+        if (comma != NULL)
+        {
+            sscanf(comma + 1, "%d", &flag);
+        }
+        event->param[1] = flag;
+    }
 }
 void nisFadeToSet(char *directory,char *field,void *dataToFillIn)
 {
@@ -4308,7 +4777,7 @@ void nisNewNISSet(char *directory, char *field, void *dataToFillIn)
 #endif
     strcat(fileName, nisName);
     dbgAssertOrIgnore(fileExists(fileName, 0));
-    event->param[0] = (memsize)memStringDupeNV(fileName);
+    event->param[0] = (memsize)memStringDupe(fileName);    // CAT: memStringDupe (nisNewNISSet 0x004d4380)
 #ifdef _WIN32
     strcpy(fileName, "nis\\");
 #else
@@ -4316,7 +4785,7 @@ void nisNewNISSet(char *directory, char *field, void *dataToFillIn)
 #endif
     strcat(fileName, scriptName);
     dbgAssertOrIgnore(fileExists(fileName, 0));
-    event->param[1] = (memsize)memStringDupeNV(fileName);
+    event->param[1] = (memsize)memStringDupe(fileName);
 }
 void nisAttributesSet(char *directory, char *field, void *dataToFillIn)
 {
@@ -4332,6 +4801,8 @@ void nisAttackKasSelectionSet(char *directory, char *field, void *dataToFillIn)
     nisevent *event = nisNewEvent(NEO_AttackKasSelection);
     GrowSelection *selection;
 
+    // CAT: the exe looks the selection up by the label's hash (cat_kasHashString; nisAttackKasSelectionSet
+    //      0x004d45a0). CAT-TODO(stage 6 KAS): this tree's KAS still names selections by string
     selection = kasGetGrowSelectionPtrIfExists(field);      //get a named selection
     dbgAssertOrIgnore(selection != NULL);
     dbgAssertOrIgnore(selection->selection->numShips > 0);          //verify there are ships in it
@@ -4370,6 +4841,141 @@ void nisDamageLevelSet(char *directory, char *field, void *dataToFillIn)
     event->param[0] = Real32ToSdword(percentage);
 }
 
+void cat_nisOpenSlipgateSet(char *directory, char *field, void *dataToFillIn)
+{                                                           // CAT: "openSlipgate" (0x004d2190)
+    nisNewEvent(NEO_OpenSlipgate);
+}
+void cat_nisCloseSlipgateSet(char *directory, char *field, void *dataToFillIn)
+{                                                           // CAT: "closeSlipgate" (0x004d2210)
+    nisNewEvent(NEO_CloseSlipgate);
+}
+/*-----------------------------------------------------------------------------
+    Name        : cat_nisLightAmbientSet / cat_nisLightDiffuseSet
+    Description : CAT (M2-R6 nis-fow-camera): "lightAmbient r,g,b" / "lightDiffuse r,g,b" of the current object,
+                  an nisLightSource1 (light 0) or nisLightSource2 (light 1) ship (0x004d1690 / 0x004d1790); for any
+                  other object the light index stays unset, as in the exe
+----------------------------------------------------------------------------*/
+static void catNisLightColourSet(nisopcode opcode, char *field)
+{
+    nisevent *event = nisNewEvent(opcode);
+    sdword red = 0, green = 0, blue = 0;
+    ShipType type;
+
+    sscanf(field, "%d,%d,%d", &red, &green, &blue);
+    type = (ShipType)nisCurrentHeader->objectPath[nisCurrentObject].type;
+    if (type == nisLightSource1)
+    {
+        event->param[0] = 0;
+    }
+    else if (type == nisLightSource2)
+    {
+        event->param[0] = 1;
+    }
+    event->param[1] = red;
+    event->param[2] = green;
+    event->param[3] = blue;
+}
+void cat_nisLightAmbientSet(char *directory, char *field, void *dataToFillIn)
+{
+    catNisLightColourSet(NEO_LightAmbient, field);
+}
+void cat_nisLightDiffuseSet(char *directory, char *field, void *dataToFillIn)
+{
+    catNisLightColourSet(NEO_LightDiffuse, field);
+}
+void cat_nisGlobalAmbientSet(char *directory, char *field, void *dataToFillIn)
+{                                                           // CAT: "globalAmbient r,g,b" (0x004d1890)
+    nisevent *event = nisNewEventNoObject(NEO_GlobalAmbient);
+    sdword red = 0, green = 0, blue = 0;
+
+    sscanf(field, "%d,%d,%d", &red, &green, &blue);
+    event->param[0] = red;
+    event->param[1] = green;
+    event->param[2] = blue;
+}
+void cat_nisNumberLightsSet(char *directory, char *field, void *dataToFillIn)
+{                                                           // CAT: "numberLights <n>" (0x004d1960)
+    nisevent *event = nisNewEventNoObject(NEO_NumberLights);
+    sdword number = 0;
+
+    sscanf(field, "%d", &number);
+    event->param[0] = number;
+}
+void cat_nisMimicSet(char *directory, char *field, void *dataToFillIn)
+{                                                           // CAT: "mimic <ship type>" (0x004d1a10)
+    nisevent *event = nisNewEvent(NEO_Mimic);
+    char typeName[256];
+    ShipType type;
+
+    typeName[0] = 0;
+    sscanf(field, "%s", typeName);
+    type = StrToShipType(typeName);
+    if ((udword)type > (udword)nisLensflareSource1)
+    {
+        dbgFatalf(DBG_Loc, "Invalid ship type for NIS mimicing! (%s=%d)", typeName, type);
+    }
+    event->param[0] = type;
+}
+/*-----------------------------------------------------------------------------
+    Name        : cat_nisFogSet
+    Description : CAT (M2-R6 nis-fow-camera): "fog <on> <time> <r1> <g1> <b1> <r2> <g2> <b2> <speed> <density>"
+                  (cat_nisFogSet 0x004d3490: sscanf "%d %f %d %d %d %d %d %d %f %f"; the two colours opaque, the
+                  last value times 10,000,000)
+----------------------------------------------------------------------------*/
+void cat_nisFogSet(char *directory, char *field, void *dataToFillIn)
+{
+    nisevent *event = nisNewEventNoObject(NEO_Fog);
+    sdword on = 0, r1 = 0, g1 = 0, b1 = 0, r2 = 0, g2 = 0, b2 = 0;
+    real32 time = 0.0f, speed = 0.0f, density = 0.0f;
+
+    sscanf(field, "%d %f %d %d %d %d %d %d %f %f", &on, &time, &r1, &g1, &b1, &r2, &g2, &b2, &speed, &density);
+    event->param[1] = colRGB(r1, g1, b1);
+    event->param[2] = colRGB(r2, g2, b2);
+    event->param[0] = on;
+    event->param[5] = Real32ToSdword(speed);
+    event->param[4] = Real32ToSdword((real32)((double)density * 10000000.0));
+    event->param[3] = Real32ToSdword(time);
+}
+void cat_nisEboltsSet(char *directory, char *field, void *dataToFillIn)
+{                                                           // CAT: "ebolts <0|1>" (0x004d3330)
+    nisevent *event = nisNewEvent(NEO_Ebolts);
+    sdword on = 0;
+
+    sscanf(field, "%d", &on);
+    event->param[0] = on;
+}
+void cat_nisBeastEffectSet(char *directory, char *field, void *dataToFillIn)
+{                                                           // CAT: "beastEffect <0|1>" (0x004d33e0)
+    nisevent *event = nisNewEvent(NEO_BeastEffect);
+    sdword on = 0;
+
+    sscanf(field, "%d", &on);
+    event->param[0] = on;
+}
+/*-----------------------------------------------------------------------------
+    Name        : cat_nisSubtitleSet
+    Description : CAT (M2-R6 nis-fow-camera): "subtitle <index expression> <milliseconds>" (cat_nisSubtitleSet
+                  0x004d1cc0: the index is evaluated like a speech event's number)
+----------------------------------------------------------------------------*/
+void cat_nisSubtitleSet(char *directory, char *field, void *dataToFillIn)
+{
+    nisevent *event = nisNewEventNoObject(NEO_Subtitle);
+    char *nextString;
+    char indexString[256];
+    ERR_TYPE exprError;
+    sdword duration = 0;
+
+    event->param[0] = event->param[1] = 0;
+    nextString = nisSeparateExpression(field, indexString);
+    event->param[0] = (udword)(sdword)evalEvaluate(indexString, &exprError);
+    if (*nextString)
+    {
+        sscanf(nextString + 1, "%d", &duration);
+        event->param[1] = duration;
+    }
+}
+
+// CAT: the exe's 81-row table (0x00888a60), HW1's rows in their places plus the Cataclysm commands
 scriptEntry nisScriptTable[] =
 {
     { "with",           nisCurrentObjectSet, NULL},
@@ -4379,6 +4985,7 @@ scriptEntry nisScriptTable[] =
     { "deathProjectile",nisDeathProjectileSet, NULL},
     { "deathBeam",      nisDeathBeamSet, NULL},
     { "attack",         nisAttackSet, NULL},
+    { "repair",         cat_nisRepairSet, NULL},                        // CAT
     { "haltAttack",     nisHaltAttackSet, NULL},
     { "fire",           nisFireSet, NULL},
     { "hide",           nisCurrentObjectHide, NULL},
@@ -4393,6 +5000,8 @@ scriptEntry nisScriptTable[] =
     { "stopMusic",      nisMusicStopSet, NULL},
     { "remainAtEnd",    nisRemainAtEndSet, NULL},
     { "cameraFOV",      nisCameraFOVSet, NULL},
+    { "cameraClipNear", cat_nisCameraClipNearSet, NULL},                // CAT
+    { "cameraClipFar",  cat_nisCameraClipFarSet, NULL},                 // CAT
     { "swapRaces",      nisRaceSwap, NULL},
     { "cameraCut",      nisCameraCutSet, NULL},
 //    { "startBlackScreen",nisBlackScreenSet, NULL},
@@ -4432,6 +5041,8 @@ scriptEntry nisScriptTable[] =
     { "midPointLookAt", nisLookyObjectSet, NULL},
     { "SMPTEOn",        nisSMPTEOnSet, NULL},
     { "SMPTEOff",       nisSMPTEOffSet, NULL},
+    { "openSlipgate",   cat_nisOpenSlipgateSet, NULL},                  // CAT
+    { "closeSlipgate",  cat_nisCloseSlipgateSet, NULL},                 // CAT
     { "staticOn",       nisStaticOnSet, NULL},
     { "staticOff",      nisStaticOffSet, NULL},
     { "hideDerelict",   nisHideDerelictSet, NULL},
@@ -4442,6 +5053,15 @@ scriptEntry nisScriptTable[] =
     { "keepMovingAtEnd",nisKeepMovingAtEndSet, NULL},
     { "numberLODs",     nisMinimumLODSet, NULL},
     { "health",         nisDamageLevelSet, NULL},
+    { "lightAmbient",   cat_nisLightAmbientSet, NULL},                  // CAT
+    { "lightDiffuse",   cat_nisLightDiffuseSet, NULL},                  // CAT
+    { "globalAmbient",  cat_nisGlobalAmbientSet, NULL},                 // CAT
+    { "numberLights",   cat_nisNumberLightsSet, NULL},                  // CAT
+    { "mimic",          cat_nisMimicSet, NULL},                         // CAT
+    { "fog",            cat_nisFogSet, NULL},                           // CAT
+    { "ebolts",         cat_nisEboltsSet, NULL},                        // CAT
+    { "beastEffect",    cat_nisBeastEffectSet, NULL},                   // CAT
+    { "subtitle",       cat_nisSubtitleSet, NULL},                      // CAT
     { NULL, NULL, 0 }
 };
 
@@ -4844,12 +5464,13 @@ nisheader *nisLoad(char *fileName, char *scriptName)
         objPath->instance = instanceID;
         switch (objPath->race)
         {
-            case R1:                                            //any ship type
-            case R2:
-            case P1:
-            case P2:
-            case P3:
-            case Traders:
+            case RACE_Sect:                                     // CAT: the seven Cataclysm ship races
+            case RACE_Beast:                                    //      (nisLoad 0x004d4a00 cases 0..6)
+            case RACE_Kushan:
+            case RACE_Taiidan:
+            case RACE_P1:
+            case RACE_Traders:
+            case RACE_Derelict:
                 if (!strcasecmp(string, "Missile"))
                 {                                               //if they're creating a missile
                     type = objPath->race;
@@ -5447,3 +6068,328 @@ void nisStaticDraw(nisstatic *snow)
     rndTextureEnable(FALSE);
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_nisMimic
+    Description : CAT (M2-R6 nis-fow-camera): NIS event: the current ship, a Mimic, takes the guise of ship type
+                  param[0], or drops it for sMimic (cat_nisMimic 0x004d5fa0; the exe also looks the type's static
+                  info up and discards it)
+----------------------------------------------------------------------------*/
+void cat_nisMimic(nisplaying *NIS, nisevent *event)
+{
+    ShipType type = (ShipType)event->param[0];
+    Ship *ship = (Ship *)NIS->objectsInMotion[event->shipID].spaceobj;
+
+    if (type == sMimic)
+    {
+        cat_mimicUnmimic(ship, FALSE);
+        return;
+    }
+    cat_mimicBecomeShipType(ship, type, 1);
+}
+
+/*=============================================================================
+    HWI-TEST (M2-R6 nis-fow-camera), port diagnostic, not in the exe: /catNisParseTest <listfile> (harness mode
+    nisparse). listfile names every file of the install's nis\ and movies\ directories that the NIS code reads (the
+    cataclysm.big TOC: 14 .nis, their 14 .script files, 18 animatic scripts). Once the start-up is done the test
+      1. loads each .nis with the .script of the same name through nisLoad (the 64-bit loader, the Cataclysm script
+         table, the Cataclysm event layout) and checks the header (identifier, version 0x101), that it has objects and
+         a camera, that every object's type resolved, that every event has an opcode below NEO_LastNEO with a
+         dispatch function, that every object event names an object and that the object parameters of attack /
+         repair resolve; it counts the events per opcode and the script keywords the exe's table does not know (the
+         exe ignores them, e.g. motionCueScale); then nisDelete;
+      2. loads each animatic script (a .script with no .nis) through animLoadNISScript and checks its events alike;
+      3. logs "nisparsetest:" lines and "nisparsetest: done ... result=PASS|FAIL", and the engine quits.
+=============================================================================*/
+char catNisParseTestList[PATH_MAX] = "";
+
+#define CAT_NIS_TEST_MAX_FILES      128
+#define CAT_NIS_TEST_MAX_UNKNOWN    32
+
+static sdword catNisTestOpcodeCount[NEO_LastNEO];
+static char catNisTestUnknown[CAT_NIS_TEST_MAX_UNKNOWN][32];
+static sdword catNisTestUnknownCount[CAT_NIS_TEST_MAX_UNKNOWN];
+static sdword catNisTestNumUnknown = 0;
+
+static void catNisTestNoteUnknownKeyword(char *word)
+{
+    sdword index;
+
+    for (index = 0; index < catNisTestNumUnknown; index++)
+    {
+        if (strcmp(catNisTestUnknown[index], word) == 0)
+        {
+            catNisTestUnknownCount[index]++;
+            return;
+        }
+    }
+    if (catNisTestNumUnknown < CAT_NIS_TEST_MAX_UNKNOWN)
+    {
+        strncpy(catNisTestUnknown[catNisTestNumUnknown], word, 31);
+        catNisTestUnknown[catNisTestNumUnknown][31] = 0;
+        catNisTestUnknownCount[catNisTestNumUnknown] = 1;
+        catNisTestNumUnknown++;
+    }
+}
+
+//the first word of every script line the exe's parser hands to the table (StatScript.c parseLine: the keyword runs
+//to the first white space or '='); returns the number of lines whose keyword the table has
+static sdword catNisTestScanKeywords(char *scriptName, sdword *nUnknown)
+{
+    filehandle fh;
+    char line[512], word[64];
+    char *c;
+    sdword length, nKnown = 0;
+    scriptEntry *entry;
+
+    *nUnknown = 0;
+    fh = fileOpen(scriptName, FF_TextMode);
+    while (fileLineRead(fh, line, sizeof(line)) != FR_EndOfFile)
+    {
+        for (c = line; *c == ' ' || *c == '\t'; c++)
+        {
+            ;
+        }
+        if (*c == 0 || *c == ';' || *c == '#' || (c[0] == '/' && c[1] == '/'))
+        {
+            continue;
+        }
+        for (length = 0; c[length] != 0 && c[length] != ' ' && c[length] != '\t' && c[length] != '=' && length < 63; length++)
+        {
+            word[length] = c[length];
+        }
+        word[length] = 0;
+        for (entry = nisScriptTable; entry->name != NULL; entry++)
+        {
+            if (strcmp(entry->name, word) == 0)
+            {
+                break;
+            }
+        }
+        if (entry->name != NULL)
+        {
+            nKnown++;
+        }
+        else if (strcmp(word, "{") != 0)
+        {
+            (*nUnknown)++;
+            catNisTestNoteUnknownKeyword(word);
+        }
+    }
+    fileClose(fh);
+    return nKnown;
+}
+
+//checks the events of a loaded header; returns the number of faults
+static sdword catNisTestCheckEvents(char *name, nisheader *header, bool32 bHasObjects, sdword *nCatEvents)
+{
+    sdword index, nFaults = 0;
+    nisevent *event;
+
+    *nCatEvents = 0;
+    for (index = 0, event = header->events; index < header->nEvents; index++, event++)
+    {
+        if (event->code < 0 || event->code >= NEO_LastNEO || nisEventDispatch[event->code] == NULL)
+        {
+            dbgMessagef("nisparsetest: FAIL %s event %d at %.2f: opcode %d has no dispatch", name, index, event->time, event->code);
+            nFaults++;
+            continue;
+        }
+        catNisTestOpcodeCount[event->code]++;
+        if (event->code == NEO_Repair || event->code == NEO_CameraClipNear || event->code == NEO_CameraClipFar ||
+            event->code == NEO_OpenSlipgate || event->code == NEO_CloseSlipgate || event->code >= NEO_LightAmbient)
+        {
+            (*nCatEvents)++;
+        }
+        //an animatic has no objects: its events carry the current object of the parse, -1 (the exe's
+        //nisAnimaticSpeechEventSet 0x004d1f60 stores it too) and are dispatched with no NIS
+        if (bHasObjects && (event->shipID < 0 || event->shipID >= header->nObjectPaths))
+        {
+            dbgMessagef("nisparsetest: FAIL %s event %d at %.2f (opcode %d): object %d", name, index, event->time, event->code, event->shipID);
+            nFaults++;
+        }
+        if ((event->code == NEO_Attack || event->code == NEO_Repair) &&
+            ((sdword)event->param[0] < 0 || (sdword)event->param[0] >= header->nObjectPaths))
+        {
+            dbgMessagef("nisparsetest: FAIL %s event %d at %.2f (opcode %d): target %d", name, index, event->time, event->code, (sdword)event->param[0]);
+            nFaults++;
+        }
+    }
+    return nFaults;
+}
+
+void catNisRunParseSelfTest(void)
+{
+    FILE *list;
+    char line[PATH_MAX];
+    char *names[CAT_NIS_TEST_MAX_FILES];
+    bool32 used[CAT_NIS_TEST_MAX_FILES];
+    char scriptName[PATH_MAX];
+    sdword nNames = 0, index, j, length, nKnown, nUnknown, nCatEvents, nFaults;
+    sdword nNIS = 0, nNISScripts = 0, nAnimatics = 0, nObjects = 0, nEvents = 0, nCatTotal = 0, nUnknownTotal = 0;
+    sdword nFailed = 0, nTypeFaults;
+    nisheader *header;
+    char *end;
+
+    memset(catNisTestOpcodeCount, 0, sizeof(catNisTestOpcodeCount));
+    list = fopen(catNisParseTestList, "rt");
+    if (list == NULL)
+    {
+        dbgMessagef("nisparsetest: cannot open list file %s", catNisParseTestList);
+        dbgMessagef("nisparsetest: done nis=0 scripts=0 animatics=0 result=FAIL");
+        return;
+    }
+    while (fgets(line, sizeof(line), list) != NULL && nNames < CAT_NIS_TEST_MAX_FILES)
+    {
+        for (end = line + strlen(line); end > line && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' '); end--)
+        {
+            end[-1] = 0;
+        }
+        if (line[0] == 0)
+        {
+            continue;
+        }
+        names[nNames] = memStringDupe(line);
+        used[nNames] = FALSE;
+        nNames++;
+    }
+    fclose(list);
+    dbgMessagef("nisparsetest: start, %d files listed in %s", nNames, catNisParseTestList);
+
+    //1. every NIS with its script
+    for (index = 0; index < nNames; index++)
+    {
+        length = strlen(names[index]);
+        if (length < 5 || strcasecmp(names[index] + length - 4, ".nis") != 0)
+        {
+            continue;
+        }
+        used[index] = TRUE;
+        strcpy(scriptName, names[index]);
+        strcpy(scriptName + length - 4, ".script");
+        for (j = 0; j < nNames; j++)
+        {
+            if (strcasecmp(names[j], scriptName) == 0)
+            {
+                used[j] = TRUE;
+                strcpy(scriptName, names[j]);
+                break;
+            }
+        }
+        nNIS++;
+        nFaults = 0;
+        if (j == nNames)
+        {
+            dbgMessagef("nisparsetest: FAIL %s has no script", names[index]);
+            nFailed++;
+            continue;
+        }
+        nNISScripts++;
+        nKnown = catNisTestScanKeywords(scriptName, &nUnknown);
+        header = nisLoad(names[index], scriptName);
+        if (header == NULL || strcmp(header->identifier, NIS_Identifier) != 0 || header->version != NIS_VersionNumber)
+        {
+            dbgMessagef("nisparsetest: FAIL %s: bad header", names[index]);
+            nFailed++;
+            continue;
+        }
+        if (header->nObjectPaths <= 0 || header->nCameraPaths <= 0)
+        {
+            dbgMessagef("nisparsetest: FAIL %s: %d objects, %d cameras", names[index], header->nObjectPaths, header->nCameraPaths);
+            nFaults++;
+        }
+        for (j = 0, nTypeFaults = 0; j < header->nObjectPaths; j++)
+        {
+            if (header->objectPath[j].type == ShipType_Uninitialized)
+            {
+                dbgMessagef("nisparsetest: FAIL %s object %d (race %d, instance %d): type not resolved", names[index], j, header->objectPath[j].race, header->objectPath[j].instance);
+                nTypeFaults++;
+            }
+        }
+        nFaults += nTypeFaults;
+        nFaults += catNisTestCheckEvents(names[index], header, TRUE, &nCatEvents);
+        dbgMessagef("nisparsetest: nis %s script %s length=%.2f objects=%d cameras=%d events=%d cataclysmEvents=%d scriptLines=%d unknownKeywordLines=%d faults=%d",
+                    names[index], scriptName, header->length, header->nObjectPaths, header->nCameraPaths,
+                    header->nEvents, nCatEvents, nKnown, nUnknown, nFaults);
+        nObjects += header->nObjectPaths;
+        nEvents += header->nEvents;
+        nCatTotal += nCatEvents;
+        nUnknownTotal += nUnknown;
+        if (nFaults > 0)
+        {
+            nFailed++;
+        }
+        //the team names of remainAtEnd are freed when the event plays; nothing plays here
+        for (j = 0; j < header->nEvents; j++)
+        {
+            if (header->events[j].code == NEO_RemainAtEnd && header->events[j].param[0] != 0)
+            {
+                memFree((void *)header->events[j].param[0]);
+                header->events[j].param[0] = 0;
+            }
+        }
+        nisDelete(header);
+    }
+
+    //2. every other script: the animatic scripts
+    for (index = 0; index < nNames; index++)
+    {
+        length = strlen(names[index]);
+        if (used[index] || length < 8 || strcasecmp(names[index] + length - 7, ".script") != 0)
+        {
+            continue;
+        }
+        used[index] = TRUE;
+        nAnimatics++;
+        nKnown = catNisTestScanKeywords(names[index], &nUnknown);
+        header = (nisheader *)animLoadNISScriptForTest(names[index]);
+        if (header == NULL)
+        {
+            dbgMessagef("nisparsetest: FAIL %s: not loaded", names[index]);
+            nFailed++;
+            continue;
+        }
+        nFaults = catNisTestCheckEvents(names[index], header, FALSE, &nCatEvents);
+        if (header->nEvents == 0)
+        {
+            dbgMessagef("nisparsetest: FAIL %s: no events", names[index]);
+            nFaults++;
+        }
+        dbgMessagef("nisparsetest: animatic %s events=%d cataclysmEvents=%d scriptLines=%d unknownKeywordLines=%d faults=%d",
+                    names[index], header->nEvents, nCatEvents, nKnown, nUnknown, nFaults);
+        nEvents += header->nEvents;
+        nCatTotal += nCatEvents;
+        nUnknownTotal += nUnknown;
+        if (nFaults > 0)
+        {
+            nFailed++;
+        }
+        if (header->events != NULL)
+        {
+            memFree(header->events);
+        }
+        memFree(header);
+    }
+
+    for (index = 0; index < NEO_LastNEO; index++)
+    {
+        if (catNisTestOpcodeCount[index] > 0)
+        {
+            dbgMessagef("nisparsetest: opcode 0x%02x events=%d", index, catNisTestOpcodeCount[index]);
+        }
+    }
+    for (index = 0; index < catNisTestNumUnknown; index++)
+    {
+        dbgMessagef("nisparsetest: keyword not in the exe's table (ignored, as by the exe): '%s' x%d", catNisTestUnknown[index], catNisTestUnknownCount[index]);
+    }
+    for (index = 0; index < nNames; index++)
+    {
+        if (!used[index])
+        {
+            dbgMessagef("nisparsetest: listed but not an NIS file or script: %s", names[index]);
+        }
+        memFree(names[index]);
+    }
+    dbgMessagef("nisparsetest: done nis=%d nisScripts=%d animatics=%d objects=%d events=%d cataclysmEvents=%d unknownKeywordLines=%d failed=%d result=%s",
+                nNIS, nNISScripts, nAnimatics, nObjects, nEvents, nCatTotal, nUnknownTotal, nFailed,
+                (nFailed == 0 && nNIS > 0 && nAnimatics > 0) ? "PASS" : "FAIL");
+}

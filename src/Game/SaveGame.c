@@ -7,6 +7,8 @@
 =============================================================================*/
 
 #include "SaveGame.h"
+#include "FOW.h"
+#include "RepairDroid.h"
 
 #include <string.h>
 
@@ -1997,6 +1999,16 @@ void FixShip(Ship *ship)
     {
         shipstaticinfo->custshipheader.CustShip_Fix(ship);
     }
+    // CAT (M2-R6 nis-fow-camera): the repair droids are made anew after a load (FixShip 0x00500950: droidCreateArray
+    //      for a Sect type with nRepairDroids, else NULL; the saved pointer is stale)
+    if ((shipstaticinfo->nRepairDroids == 0) || (ship->shiprace != RACE_Sect))
+    {
+        ship->catRepairDroids = NULL;
+    }
+    else
+    {
+        ship->catRepairDroids = droidCreateArray(ship, (sdword)shipstaticinfo->nRepairDroids);
+    }
 }
 
 void SaveAsteroid(Asteroid *asteroid)
@@ -3691,6 +3703,93 @@ void Prefix_PlayerResearchInfo(PlayerResearchInfo *researchinfo)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_saveSavePlayerFOW / cat_saveLoadPlayerFOW
+    Description : CAT (M2-R6 nis-fow-camera): the local player's fog-of-war grid in the save (cat_saveSavePlayerFOW
+                  0x004ff6b0 in SaveUniverse's player loop after the research info, cat_saveLoadPlayerFOW 0x004ff7e0 in
+                  LoadUniverse's): two BASIC chunks, the grid (sub-type 0x2000, the exe's 0x20-byte struct: the cell
+                  pointer, nx, ny, nz, origin, cell size) and its cells (0x3000, 0x20 bytes each). Loading selects the
+                  grid and rebuilds the boundary with every cell dirty (cat_fowBoundaryCreate(TRUE)).
+                  CAT-TODO(stage 5 recorder): the exe skips the save while a game recording starts (0x00a578f8) and on load clears the local player's grid instead while one plays back (0x00a75194)
+----------------------------------------------------------------------------*/
+typedef struct CatFOWGridSave
+{
+    udword cells;           // the exe's pointer (unused on load)
+    sdword nx, ny, nz;
+    vector origin;
+    real32 cellSize;
+} CatFOWGridSave;
+_Static_assert(sizeof(CatFOWGridSave) == 0x20, "the saved FOW grid is the exe's 0x20-byte struct");
+
+static void SaveThisChunkOfType(TypeOfSaveChunk type, sdword size, void *contents)
+{
+    SaveChunk *chunk = CreateChunk(type, size, contents);
+
+    SaveThisChunk(chunk);
+    memFree(chunk);
+}
+
+void cat_saveSavePlayerFOW(Player *player)
+{
+    CatFOWGrid *grid = (CatFOWGrid *)player->catFOWGrid;
+    CatFOWGridSave header;
+    sdword size;
+
+    if (player->playerIndex != curPlayer)
+    {
+        return;
+    }
+    memset(&header, 0, sizeof(header));
+    if (grid != NULL)
+    {
+        header.nx = grid->nx;
+        header.ny = grid->ny;
+        header.nz = grid->nz;
+        header.origin = grid->origin;
+        header.cellSize = grid->cellSize;
+    }
+    SaveThisChunkOfType(BASIC_STRUCTURE | SAVE_CAT_FOWGRID, sizeof(header), &header);
+    // CAT-FIX: the exe reads the cells through the grid unchecked (the local player always has one there)
+    size = (grid != NULL) ? cat_fowGridSize(grid->nx, grid->ny, grid->nz) : 0;
+    SaveThisChunkOfType(BASIC_STRUCTURE | SAVE_CAT_FOWCELLS, size, (grid != NULL) ? grid->cells : NULL);
+}
+
+void cat_saveLoadPlayerFOW(Player *player)
+{
+    SaveChunk *chunk;
+    CatFOWGridSave header;
+    CatFOWGrid *grid;
+    sdword size;
+
+    if (player->playerIndex != curPlayer)
+    {
+        return;
+    }
+    chunk = LoadNextChunk();
+    VerifyChunk(chunk, BASIC_STRUCTURE | SAVE_CAT_FOWGRID, sizeof(CatFOWGridSave));
+    memcpy(&header, chunkContents(chunk), sizeof(header));
+    memFree(chunk);
+    grid = memAlloc(sizeof(CatFOWGrid), "fowGrid", NonVolatile);
+    grid->nx = header.nx;
+    grid->ny = header.ny;
+    grid->nz = header.nz;
+    grid->origin = header.origin;
+    grid->cellSize = header.cellSize;
+    player->catFOWGrid = grid;
+
+    chunk = LoadNextChunk();
+    size = cat_fowGridSize(grid->nx, grid->ny, grid->nz);
+    VerifyChunk(chunk, BASIC_STRUCTURE | SAVE_CAT_FOWCELLS, size);
+    grid->cells = memAlloc((size > 0) ? size : (sdword)sizeof(CatFOWCell), "fowCells", NonVolatile);
+    if (size > 0)
+    {
+        memcpy(grid->cells, chunkContents(chunk), size);
+    }
+    memFree(chunk);
+    fowSelect(universe.curPlayerPtr->catFOWGrid);
+    cat_fowBoundaryCreate(TRUE);
+}
+
 void Save_PlayerResearchInfo(PlayerResearchInfo *researchinfo)
 {
     SaveLinkedListOfResearchTopics(&researchinfo->listoftopics);
@@ -4032,6 +4131,7 @@ void SaveUniverse(void)
     for (i=0;i<universe.numPlayers;i++)
     {
         Save_PlayerResearchInfo(&universe.players[i].researchinfo);
+        cat_saveSavePlayerFOW(&universe.players[i]);       // CAT: SaveUniverse 0x005034c0 (M2-R6 nis-fow-camera)
     }
 
     memFree(chunk);
@@ -4107,6 +4207,10 @@ void LoadUniverse(void)
     {
         universe.players[i].PlayerMothership = SpaceObjRegistryGetShip((sdword)universe.players[i].PlayerMothership);
         Load_PlayerResearchInfo(&universe.players[i],&universe.players[i].researchinfo);
+        // CAT (M2-R6 nis-fow-camera): the saved pointer is stale; the local player's grid is read back (LoadUniverse
+        //      0x00503910: cat_saveLoadPlayerFOW 0x004ff7e0)
+        universe.players[i].catFOWGrid = NULL;
+        cat_saveLoadPlayerFOW(&universe.players[i]);
     }
 
     memset(&universe.players[MAX_MULTIPLAYER_PLAYERS],0,sizeof(Player));

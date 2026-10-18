@@ -224,8 +224,8 @@ Resource *rescollectFindNearestResource(Ship *ship,struct CommandToDo *command)
             command->collect.resourceVolumeSize = COLLECTRESOURCE_ZONE;
         }
         bitClear(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatResourcing);
-        // CAT-TODO(M2-R6 FOW): the exe passes univFindNearestResource 0x00549c50 a fourth argument, 0 here
-        resource = univFindNearestResource(ship,command->collect.resourceVolumeSize,&command->collect.resourceVolumePosition);
+        // CAT: the exe passes univFindNearestResource 0x00549c50 a fourth argument, 0 here (0x004f124b)
+        resource = univFindNearestResource(ship,command->collect.resourceVolumeSize,&command->collect.resourceVolumePosition,FALSE);
         if (resource != NULL)
         {
             return resource;

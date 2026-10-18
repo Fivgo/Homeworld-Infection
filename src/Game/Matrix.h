@@ -189,6 +189,7 @@ void hmatMakeHMatFromMat(hmatrix *result, matrix *mat);
 void hmatMakeHMatFromMatAndVec(hmatrix *result, matrix *mat, vector *pos);
 void hmatCreateHMatFromHVecs(hmatrix *result, hvector *col1, hvector *col2, hvector *col3, hvector *col4);
 void hmatMultiplyHMatByHMat(hmatrix *result, hmatrix *first, hmatrix *second);
+void cat_hmatMultiplyHMatByVec(vector *result, hmatrix *matrix, vector *vec);     // CAT: 0x004acdf0 (M2-R6 nis-fow-camera)
 void hmatMultiplyHMatByHVec(hvector *result, hmatrix *matrix, hvector *vector);
 void hmatMultiplyHVecByHMat(hvector *result, hvector *vector, hmatrix *matrix);
 void hmatTranspose(hmatrix *matrix);

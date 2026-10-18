@@ -130,7 +130,7 @@ typedef struct Player
     udword AllianceProposalsTimeout;    /*+0x64F8 timeout counter for proposals to expire! */
     sdword initialShipCost;             /*+0x64FC total ship cost at game start (gameStatsCalcShipCostTotals 0x0053f500) */
     // CAT: the player's fog-of-war grid (cat_playerGetFOWGrid 0x00480d10; created by cat_fowCreatePlayerGrids 0x004a38c0,
-    //      destroyed in universeReset 0x0053df80); NULL until stage 3 ports the FOW
+    //      destroyed in universeReset 0x0053df80; FOW.c, M2-R6 nis-fow-camera): a CatFOWGrid of the local player only
     void *catFOWGrid;                   /*+0x6500*/
     // CAT: the upgrade state the player's research gives its ships (cat_playerUpdateUpgradesFromResearch 0x00514140,
     //      cat_playerUpgradesReset 0x00514100): the armour level cap (0: none, 1: TECH_ARMOUR2, 2: TECH_ARMOUR3), which
@@ -146,13 +146,15 @@ typedef struct
     CommandLayer mainCommandLayer;      // everything goes through main command layer
     CameraCommand mainCameraCommand;    // camera command (focus stack)
 
-    LinkedList RenderList;      // Linked list of all objects (SpaeceObj's to be rendered)
-    LinkedList MinorRenderList;
-    bool32 dontUpdateRenderList;
+    LinkedList RenderList;      // Linked list of all objects (SpaeceObj's to be rendered)   +0xA0 in cataclysm.exe
+    LinkedList MinorRenderList;                                                         //  +0xAC
     // CAT (M2-R4 rest-oracle): universe+0xB8 (CET: unknown1): set by smSensorsBegin 0x0050cdb0, cleared by
     //      smSensorsCloseForGood 0x0050ba90 and univUpdateReset 0x0054acd0; universeUpdateTask 0x0053e460 skips
-    //      univUpdateRenderList while it is set. Name chosen here.
-    bool32 catSensorsHoldRenderList;
+    //      univUpdateRenderList while it is set.
+    // CAT (M2-R6 nis-fow-camera): this is HW1's dontUpdateRenderList itself: with the exe's 0x5C-byte Camera the
+    //      CameraCommand is 0x94 bytes (ccMode at universe+0x98, RenderList at +0xA0), so there is no separate word
+    //      for it (the M2-R4 layout kept HW1's field at +0xB4 and named +0xB8 catSensorsHoldRenderList)
+    bool32 dontUpdateRenderList;
 
     real32 phystimeelapsed;             /*+0x0BC*/
     real32 totaltimeelapsed;            /*+0x0C0*/
@@ -256,7 +258,9 @@ _Static_assert(offsetof(Player, catArmourLevelCap) == 0x6504, "Player.catArmourL
 _Static_assert(offsetof(Player, catWeaponAvailable) == 0x6508, "Player.catWeaponAvailable at 0x6508");
 _Static_assert(offsetof(Player, catUpgradeBits) == 0x652C, "Player.catUpgradeBits at 0x652C");
 _Static_assert(sizeof(Universe) == 0x3D9BC, "Universe is 0x3D9BC bytes in cataclysm.exe");
-_Static_assert(offsetof(Universe, catSensorsHoldRenderList) == 0xB8, "universe+0xB8");
+_Static_assert(offsetof(Universe, dontUpdateRenderList) == 0xB8, "universe+0xB8");
+_Static_assert(offsetof(Universe, mainCameraCommand.ccMode) == 0x98, "universe.mainCameraCommand.ccMode at 0x98 (cat_ccIsPilotingShip 0x0042c2e0)");
+_Static_assert(offsetof(Universe, RenderList) == 0xA0, "universe.RenderList at 0xA0 (ccFocusOnFleet 0x0042e580)");
 _Static_assert(offsetof(Universe, phystimeelapsed) == 0xBC, "universe.phystimeelapsed at 0xBC");
 _Static_assert(offsetof(Universe, totaltimeelapsed) == 0xC0, "universe.totaltimeelapsed at 0xC0");
 _Static_assert(offsetof(Universe, effectList) == 0xE4, "universe.effectList at 0xE4");
@@ -391,7 +395,7 @@ void cat_univMothershipModuleTypesGet(CatModuleTypeList *modules);        // CAT
 void cat_univBeastMothershipModuleTypesGet(CatModuleTypeList *modules);   // CAT: 0x0053f840
 Ship *cat_univFindNearestShip(SpaceObj *from, bool32 (*filter)(Ship *ship));   // CAT: 0x0053f590
 bool32 cat_playerHasCompletedShip(ShipType type, Player *player);                 // CAT: 0x0053f620
-void *cat_playerGetFOWGrid(Player *player);                                       // CAT: 0x00480d10 (the FOW itself is stage 3)
+void *cat_playerGetFOWGrid(Player *player);                                       // CAT: 0x00480d10 (FOW.c holds the grids)
 void unitCapDeleteShip(Ship *ship, Player *player);
 bool32 unitCapCanCreateShip(ShipType ship, shipsinprogress *factory, shipavailable *cmShipsAvail);
 void unitCapInitialize(Player *player);

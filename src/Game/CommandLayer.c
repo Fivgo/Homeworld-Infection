@@ -9,6 +9,7 @@
 // =============================================================================
 
 #include "CommandLayer.h"
+#include "FOW.h"
 
 #include "AIPlayer.h"
 #include "AIShip.h"
@@ -1015,6 +1016,38 @@ bool32 processAttackToDo(CommandToDo *attacktodo)
 
 
     dbgAssertOrIgnore(numShips > 0);
+
+    // CAT (M2-R6 nis-fow-camera): the attack needs a target its player can see (processAttackToDo 0x00441c10,
+    //      0x00441c34..0x00441ce7): a crystal ship counts, else cat_fowCanPlayerSeeShip(owner, target, 1) 0x0047e810 (the
+    //      loop rereads the target count). With none seen a multiplayer game halts the ships (clWrapHalt) and goes on;
+    //      a single-player one treats the order as having no target left, unless the leader is SU-exempt
+    //      (SPECIAL_2_CatExempt20). CAT-TODO(stage 5 recorder): the exe also halts while a game is recorded (0x00a7519c && 0x00a75190)
+    if (numShipsToAttack > 0)
+    {
+        Player *owner = selection->ShipPtr[0]->playerowner;
+        bool32 seen = FALSE;
+
+        for (i = 0; (i < attack->numTargets) && !seen; i++)
+        {
+            target = attack->TargetPtr[i];
+            if (((target->header.objtype == OBJ_ShipType) && cat_shipIsCrystal((Ship *)target)) ||
+                cat_fowCanPlayerSeeShip(owner, (Ship *)target, TRUE))
+            {
+                seen = TRUE;
+            }
+        }
+        if (!seen)
+        {
+            if (multiPlayerGame)
+            {
+                clWrapHalt(&universe.mainCommandLayer, selection);
+            }
+            else if (!bitTest(selection->ShipPtr[0]->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20))
+            {
+                numShipsToAttack = 0;
+            }
+        }
+    }
 
     if (numShipsToAttack == 0)
     {                                                               // don't do holding pattern for swarmers (don't want them to go into delta formation)
@@ -7169,8 +7202,9 @@ Resource *cat_clHarvestNearestResource(CommandLayer *comlayer,SelectCommand *sel
     ShipPtr dockwith;
 
     (void)comlayer;
-    // CAT-TODO(M2-R6 FOW): univFindNearestResource's fourth argument (fog of war: 1 for a player without an AI)
-    resource = univFindNearestResource(ship,0.0f,NULL);
+    // CAT (M2-R6 nis-fow-camera): univFindNearestResource's fourth argument: the fog of war for a player without an AI
+    //      (0x004497a0)
+    resource = univFindNearestResource(ship,0.0f,NULL,(ship->playerowner->aiPlayer == NULL));
     if (resource == NULL)
     {
         if (!fromUI)
@@ -10884,5 +10918,9 @@ void catCommandSelfTestTick(void)
                     (int)catCmdTestResearchStarted, (int)(player->researchinfo.researchlabs[0].labstatus != LS_RESEARCHITEM),
                     (int)((catCmdTestMimic != NULL) && cat_shipIsMimicking(catCmdTestMimic)),
                     (int)catCmdTestPointOrdered, (int)catCmdTestPointAimed, catCommandSelfTestPass ? "PASS" : "FAIL");
+        // HWI-TEST (M2-R6 nis-fow-camera): the scripted mimics are stealth types (catTypeFlags 0x20000), so the stealth
+        //      detection runs in this test; logged, not judged
+        dbgMessagef("commandtest: fow grid=%s stealthUpdates=%u", (player->catFOWGrid != NULL) ? "set" : "NULL",
+                    (unsigned)catStealthDetectionUpdates);
     }
 }

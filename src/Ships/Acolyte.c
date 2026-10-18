@@ -239,8 +239,8 @@ void AcolyteHouseKeep(Ship *ship)                                               
                 {
                     return;
                 }
-                // CAT-TODO(stage 3): the exe passes a third argument, 2
-                cat_madAnimationStartNumber(ship, 1);
+                // CAT: the exe's third argument, 2 (AcolyteHouseKeep 0x005ad935; M2-R6 nis-fow-camera)
+                madAnimationStart(ship, 1, MAD_ModeBackToPrevious);
                 spec->wingsState = 1;
                 spec->wingsOpen = 0;
                 spec->wingsPending = 0;
@@ -260,8 +260,8 @@ void AcolyteHouseKeep(Ship *ship)                                               
             {
                 return;
             }
-            // CAT-TODO(stage 3): the exe passes a third argument, 0
-            cat_madAnimationStartNumber(ship, 0);
+            // CAT: the exe's third argument, 0 (AcolyteHouseKeep 0x005ad871; M2-R6 nis-fow-camera)
+            madAnimationStart(ship, 0, MAD_ModePauseAtEnd);
             spec->wingsState = 0;
             spec->wingsOpen = 1;
             spec->wingsPending = 0;

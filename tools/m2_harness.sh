@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -26,7 +26,8 @@
 #                    docs/m2-r4-rest-oracle.md): the headless Mission01 oracle run: single player starts at once (as sp),
 #                    no animatic, the task clock advances one universe tick per frame (so the run does not depend on the
 #                    wall clock), no /debugScreenshots next-level loop; "oracle: mission tick N" lines every 256 ticks,
-#                    quits after <ticks> ticks with "oracle: mission run done"; needs --timeout of several minutes under
+#                    quits after <ticks> ticks with "oracle: mission run done" (M2-R6 nis-fow-camera: then, on stdout only,
+#                    "oracle: mission fow players=.. curPlayer=.. gridN=set|NULL stealthUpdates=.. repairbots=.. droidUpdates=.."); needs --timeout of several minutes under
 #                    ASan (about 10 ticks/s)
 #                    dock: /catDockTest <ticks> (M2-R5 layout-dock, docs/m2-r5-layout-dock.md): the headless Mission01
 #                    run of the mission mode with the scripted dock self-test (Dock.c catDockSelfTestTick): at tick 16 the
@@ -34,18 +35,25 @@
 #                    (purpose 3), another harvests; M2-R6 managers: two more acolytes dock at an sCarrier (the carrier
 #                    leg), a fourth Worker deposits at the sProcessor (the processor leg), and the ACVs are judged; once
 #                    every fighter and ACV is inside its host (at the latest at 80% of the ticks) they are checked and
-#                    launched (purpose 2); at the end they are checked outside; "docktest:"
+#                    launched (purpose 2); at the end they are checked outside; M2-R6 nis-fow-camera: the harvest lines
+#                    log the Worker's mesh animation (mad=number/paused/at end) and the done line jackPausedTick= (the
+#                    first tick it held the paused end of its jack animation); "docktest:"
 #                    log lines, "docktest: done
 #                    ... result=PASS|FAIL"; quits after <ticks> ticks (needs --timeout of several minutes under ASan)
 #                    command: /catCommandTest <ticks> (M2-R5 command-tactics, docs/m2-r5-command-tactics.md): the
 #                    headless Mission01 run of the mission mode with the scripted command self-test (CommandLayer.c
 #                    catCommandSelfTestTick): at tick 16 a scripted fleet gets the link, mimic, research, point and
 #                    force-field wall and sphere orders, the linked ACV is unlinked again, the end states are checked at
-#                    the end; "commandtest:" log lines, "commandtest: done ... result=PASS|FAIL"; quits after <ticks>
+#                    the end; "commandtest:" log lines, "commandtest: done ... result=PASS|FAIL" (M2-R6 nis-fow-camera:
+#                    then "commandtest: fow grid=... stealthUpdates=N", the mimics' stealth detection); quits after <ticks>
 #                    ticks (needs --timeout of several minutes under ASan)
 #                    render: /catRenderTest <frames> (M2-R5 render, docs/m2-r5-render.md): the headless Mission01 run of
 #                    the mission mode drawn through the Cataclysm object-list renderer; at tick 16 the lens flare
-#                    option goes on, the NIS light source is shown ahead of the camera and a fog line is set; at the end
+#                    option goes on, the NIS light source is shown ahead of the camera and a fog line is set; M2-R6
+#                    nis-fow-camera: the repair-droid option goes on and a ship with droids (a scripted player sProcessor
+#                    while Mission01's Sect fleet is in the hyperspace ether) is damaged to half health with upgrade
+#                    0x200000 and focused, so its droids launch, weld and are drawn ("rendertest: droids" line, "counts
+#                    droids=N droidUpdates=N", droids > 0 is part of PASS); at the end
 #                    "rendertest: counts" lines (objects, sorted objects, trails, lens flares, fog layers, ...) and
 #                    "rendertest: done ... result=PASS|FAIL"; quits after <frames> ticks (one tick a frame)
 #                    sound: /catSoundTest (M2-R5 sound, docs/m2-r5-sound.md): after the start-up, one stream of each audio
@@ -110,6 +118,13 @@
 #                    (the research list must show the held technology, the launch list the docked acolyte, which Launch
 #                    One then launches); "buildtest:" log lines, "buildtest: done ... result=PASS|FAIL" after the
 #                    screens; quits after <ticks> ticks (two runs must give byte-identical run.hwo streams)
+#                    nisparse: /catNisParseTest <run>/nis.list (M2-R6 nis-fow-camera, docs/m2-r6-nis-fow-camera.md): after the
+#                    start-up, every .nis of the install (the cataclysm.big TOC: nis\*.nis) is loaded with the .script of
+#                    the same name through nisLoad and the Cataclysm script table, and every animatic script
+#                    (movies\*.script) through animLoadNISScript; the headers, object types, event opcodes and
+#                    object references are checked, the events counted per opcode and the script keywords the exe's
+#                    table does not know listed; "nisparsetest:" log lines, "nisparsetest: done ... result=PASS|FAIL";
+#                    quits. (The NIS playback measurement of the motion-interpolation producer is mode nis.)
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
 #   --mission-ticks N mission mode: universe ticks to run (default 3000)
 #   --dock-ticks N   dock mode: universe ticks to run (default 5000; about 30 s under ASan on the virtual clock)
@@ -277,6 +292,18 @@ if [[ "$mode" == fescreens ]]; then
 	done | sort -t$'\t' -k2,2 -k1,1 > "$out/fescreens.list"
 	args+=(/catFeScreensTest "$out/fescreens.list")
 fi
+if [[ "$mode" == nisparse ]]; then
+	# every nis\*.nis and nis\*.script and every movies\*.script of the install (the cataclysm.big TOC; update.big has
+	# none), or of an /ignoreBigfiles data tree; the engine pairs each .nis with the .script of the same name
+	if [[ -e "$data/cataclysm.big" ]]; then
+		python3 "$root/tools/bigfile.py" list "$data/cataclysm.big" | awk -F'\t' 'NR > 1 {print $5}' \
+			| grep -i -E '^(nis\\[^\\]*\.(nis|script)|movies\\[^\\]*\.script)$' | sort > "$out/nis.list"
+	else
+		(cd "$data" && find -L . -maxdepth 2 -type f \( -ipath './nis/*.nis' -o -ipath './nis/*.script' -o -ipath './movies/*.script' \)) \
+			| sed 's|^\./||; s|/|\\|g' | sort > "$out/nis.list"
+	fi
+	args+=(/catNisParseTest "$out/nis.list")
+fi
 if [[ "$mode" == etg ]]; then
 	# every etg\*.script and etg\*.ebg of the install (the cataclysm.big TOC; update.big has none), or of an
 	# /ignoreBigfiles data tree; the engine loads the exe's 8 scripts first, then the rest of the list
@@ -353,6 +380,7 @@ grep -q "stringstest: done" "$L" && milestone="strings self-test done"
 grep -q "keystest: done" "$L" && milestone="keys self-test done"
 grep -q "consoletest: done" "$L" && milestone="console self-test done"
 grep -q "buildtest: done" "$L" && milestone="build self-test done"
+grep -q "nisparsetest: done" "$L" && milestone="nisparse self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately (the misaligned-access reports on the packed front-end structs, GoK 64-bit artefacts
@@ -396,6 +424,7 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == strings ]] && echo "stringstest: $(grep -h 'stringstest: ' "$L" | grep -v 'stringstest: FAIL' | sed 's/^.*stringstest: //' | paste -sd';'); FAIL lines: $(grep -c 'stringstest: FAIL' "$L")"
 	[[ "$mode" == console ]] && echo "consoletest: $(grep -h 'consoletest: ' "$L" | grep -v 'consoletest: FAIL' | sed 's/^.*consoletest: //' | paste -sd';'); FAIL lines: $(grep -c 'consoletest: FAIL' "$L")"
 	[[ "$mode" == build ]] && echo "buildtest: $(grep -h 'buildtest: orders\|buildtest: queued\|buildtest: appeared\|buildtest: attached\|buildtest: finished\|buildtest: job\|buildtest: done' "$L" | sed 's/^.*buildtest: //' | paste -sd';'); FAIL lines: $(grep -c 'buildtest: FAIL' "$L")"
+	[[ "$mode" == nisparse ]] && echo "nisparsetest: $(grep -c . "$out/nis.list" 2>/dev/null) files listed; $(grep -h 'nisparsetest: done' "$L" | sed 's/^.*nisparsetest: //' | head -n 1); FAIL lines: $(grep -c 'nisparsetest: FAIL' "$L"); ignored keywords: $(grep -h 'nisparsetest: keyword' "$L" | sed "s/^.*: '//; s/' / /" | paste -sd',')"
 	[[ "$mode" == keys ]] && echo "keystest: $(grep -h 'keystest: ' "$L" | grep -v 'keystest: FAIL' | sed 's/^.*keystest: //' | paste -sd';'); FAIL lines: $(grep -c 'keystest: FAIL' "$L")"
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"

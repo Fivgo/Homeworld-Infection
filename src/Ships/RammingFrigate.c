@@ -10,6 +10,8 @@
 //      cat_univPointInUniverse 0x005c1f70 sits in this block of the exe; it was ported to UnivUpdate.c by M2-R4.
 
 #include "RammingFrigate.h"
+#include "FOW.h"
+#include "NIS.h"
 #include "Console.h"
 
 #include "ACV.h"
@@ -156,7 +158,7 @@ void cat_rammingFrigateRelease(Ship *ship, ubyte newstate)                      
     if ((spec->state == RAM_Push) && (newstate != RAM_Push))
     {
         unClampObj((SpaceObjRotImpTargGuidance *)ship);
-        cat_madAnimationStartNumber(ship, 1);       // CAT-TODO(stage 3): the exe passes a third argument, 0
+        madAnimationStart(ship, 1, 0);       // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
         cat_timerStartGameTime(&spec->cooldownTimer, ramstat->ramWaitAfterPushTime);
     }
     if (newstate == RAM_Idle)
@@ -172,7 +174,7 @@ void cat_rammingFrigateRelease(Ship *ship, ubyte newstate)                      
     // leaving the ram for anything but the push plays animation 4 (also "leaving" it for itself, as the exe does)
     if ((spec->state == RAM_Ram) && (newstate != RAM_Push))
     {
-        cat_madAnimationStartNumber(ship, 4);       // CAT-TODO(stage 3): the exe passes a third argument, 0
+        madAnimationStart(ship, 4, 0);       // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
     }
     if ((newstate == RAM_Push) && (spec->state != RAM_Push))
     {
@@ -561,7 +563,7 @@ void RammingFrigateHouseKeep(Ship *ship)                                        
                     {
                         spec->unknown10 = 0;
                         cat_rammingFrigateRelease(ship, RAM_Ram);
-                        cat_madAnimationStartNumber(ship, 2);   // CAT-TODO(stage 3): the exe passes a third argument, 0
+                        madAnimationStart(ship, 2, 0);   // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
                     }
                 }
             }
@@ -659,8 +661,17 @@ checkcollision:
     {
         cat_rammingFrigateCheckCollision(ship, target);
     }
-    // CAT-TODO(stage 3 FOW): a target the player cannot see (cat_fowCanPlayerSeeShip(owner, target, 1)) cancels the
-    //      special order (clWrapSpecial with no targets); without the fog of war every target is seen
+    // CAT (M2-R6 nis-fow-camera): a target the player cannot see (cat_fowCanPlayerSeeShip(owner, target, 1)
+    //      0x0047e810) cancels the special order (clWrapSpecial with no targets, RammingFrigateHouseKeep 0x005c0090)
+    if (!cat_fowCanPlayerSeeShip(ship->playerowner, target, TRUE))
+    {
+        SelectCommand selectone;
+
+        selectone.numShips = 1;
+        selectone.timeLastStatus = 0.0f;
+        selectone.ShipPtr[0] = ship;
+        clWrapSpecial(&universe.mainCommandLayer, &selectone, NULL);
+    }
 }
 
 bool32 RammingFrigateMoveCommand(Ship *ship)                                                // 0x005c0970
@@ -943,8 +954,12 @@ static void cat_rammingFrigateLatchTarget(Ship *rammer, Ship *target)           
             goto giveup;
         }
     }
-    // CAT-TODO(stage 3): in single player the exe also gives up while the wide-screen letterbox is fully in
-    //      (0x00a4cb58, set by nisUpdateTask)
+    // CAT: in single player the exe also gives up while the NIS scissors are fully in (nisFullyScissored 0x00a4cb58,
+    //      set by nisUpdateTask; 0x005c121b in cat_rammingFrigateLatchTarget; M2-R6 nis-fow-camera)
+    if (singlePlayerGame && (nisFullyScissored == TRUE))
+    {
+        goto giveup;
+    }
     dir.x = target->obj.posinfo.position.x - rammer->obj.posinfo.position.x;
     dir.y = target->obj.posinfo.position.y - rammer->obj.posinfo.position.y;
     dir.z = target->obj.posinfo.position.z - rammer->obj.posinfo.position.z;
@@ -974,7 +989,7 @@ static void cat_rammingFrigateLatchTarget(Ship *rammer, Ship *target)           
             spec->pushDirection.x = dest->rotatable.rotinfo.coordsys.m13;
             spec->pushDirection.y = dest->rotatable.rotinfo.coordsys.m23;
             spec->pushDirection.z = dest->rotatable.rotinfo.coordsys.m33;
-            cat_madAnimationStartNumber(rammer, 0);     // CAT-TODO(stage 3): the exe passes a third argument, 0
+            madAnimationStart(rammer, 0, 0);     // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
             cat_rammingFrigateHitEffect(rammer);
             soundEventPlay(rammer, 0x81c, NULL);
             if (battleCanChatterAtThisTime(0x42, rammer))

@@ -24,4 +24,7 @@ bool32 animBinkPlay(sdword a, sdword b);
 
 void animAviDecode(sdword frame);
 
+// CAT (M2-R6 nis-fow-camera): exported for the NIS parse self-test (NIS.c catNisRunParseSelfTest)
+void *animLoadNISScriptForTest(char *scriptname);
+
 #endif

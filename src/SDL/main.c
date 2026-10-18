@@ -379,6 +379,14 @@ bool32 CatEtgParseTestSet(char *string)
     return TRUE;
 }
 
+// CAT (M2-R6 nis-fow-camera): port diagnostic: /catNisParseTest <listfile> (NIS.c catNisRunParseSelfTest)
+bool32 CatNisParseTestSet(char *string)
+{
+    strncpy(catNisParseTestList, string, PATH_MAX - 1);
+    catNisParseTestList[PATH_MAX - 1] = '\0';
+    return TRUE;
+}
+
 // CAT: port diagnostic: /catEtgEffectTest <ticks> (ETG.c catEtgRunEffectSelfTest, after the parse test)
 bool32 CatEtgEffectTestSet(char *string)
 {
@@ -1047,6 +1055,8 @@ commandoption commandOptions[] =
     // CAT: port diagnostics, not Cataclysm options (ETG.c catEtgRunParseSelfTest, catEtgRunEffectSelfTest)
     entryFnParam("/catEtgParseTest",    CatEtgParseTestSet, " <listfile> - start the effects module and load every etg script and effect named in listfile, then exit."),
     entryFnParam("/catEtgEffectTest",   CatEtgEffectTestSet, " <ticks> - with /catEtgParseTest: create a sample of the effects and run them for <ticks> universe ticks."),
+    // CAT: port diagnostic, not a Cataclysm option (NIS.c catNisRunParseSelfTest, M2-R6 nis-fow-camera)
+    entryFnParam("/catNisParseTest",    CatNisParseTestSet, " <listfile> - load every NIS with its script and every animatic script named in listfile, check them, then exit."),
     entryFnParam("/catDockTest",        CatDockTestSet, " <ticks> - headless Mission01 run: dock, deposit, harvest and launch orders with no input, exit after <ticks> ticks."),
     entryFnParam("/catBuildTest",       CatBuildTestSet, " <ticks> - headless Mission01 run: the construction manager builds a docking bay module, a destroyer (both built externally) and an acolyte at a scripted mothership with no input, logs buildtest lines, exit after <ticks> ticks."),
     entryFnParam("/catCommandTest",     CatCommandTestSet, " <ticks> - headless Mission01 run: link, unlink, mimic, research, point orders and force-field formations with no input, exit after <ticks> ticks."),

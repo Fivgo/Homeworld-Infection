@@ -8,8 +8,12 @@
 // =============================================================================
 
 #include "CameraCommand.h"
+#include "FOW.h"
 
 #include "Alliance.h"
+#include "glinc.h"
+#include "Matrix.h"
+#include "Mimic.h"
 #include "NIS.h"
 #include "mainrgn.h"
 #include "Cloak.h"
@@ -20,8 +24,12 @@
 #include "SinglePlayer.h"
 #include "StatScript.h"
 #include "Tutor.h"
+#include "Task.h"
 #include "Tweak.h"
+#include "Randy.h"
+#include "render.h"
 #include "Universe.h"
+#include "UnivUpdate.h"
 
 
 #define DEBUG_CAMERACOMMAND     0
@@ -150,7 +158,10 @@ vector   Vect, LookAt;
 
    for(i=0; i<pFocus->numShips; i++)
    {
-      if(pFocus->ShipPtr[i]->header.objtype == OBJ_ShipType && allianceIsShipAlly(pFocus->ShipPtr[i], pPlayer))
+      // CAT: a focus ship counts when the camera may focus on it (the test of cat_ccShipIsLegalToFocusOn 0x0042cd40,
+      //      inlined in ccFocusIsLegalToFocusOn 0x0042cdd0: any once the player is dead; a ship or mine of an ally,
+      //      one the player sees through the fog of war, or any while the NIS scissors or the console are up)
+      if(cat_ccShipIsLegalToFocusOn(pFocus->ShipPtr[i]))
       {
          vecSub(Vect, LookAt, pFocus->ShipPtr[i]->obj.posinfo.position);
          if( vecMagnitudeSquared(Vect) < MaxCamDistSquared )
@@ -200,10 +211,8 @@ bool32 cat_ccShipIsLegalToFocusOn(Ship *ship)
         {
             return TRUE;
         }
-        // cat_fowCanPlayerSeeShip(player, ship, FALSE) 0x0047e810 without a grid (no grid exists before the FOW port):
-        //      a human player, or a ship not fully cloaked, is seen. CAT-TODO(M2-R6 FOW): the grid branch, and the
-        //      stealth detection call (0x0053f9f0) that also lets an AI player see a cloaked ship
-        sees = (player->aiPlayer == NULL) || !cat_shipIsCloakedFully(ship);
+        // CAT (M2-R6 nis-fow-camera): cat_fowCanPlayerSeeShip 0x0047e810 with the player's grid
+        sees = cat_fowCanPlayerSeeShip(player, ship, FALSE);
         if (sees)
         {
             return TRUE;
@@ -282,10 +291,11 @@ udword numShipsFocusOn = curentry->focus.numShips;
 udword i;
 Ship *ship;
 real32 minx,maxx,miny,maxy,minz,maxz, radius, closezoom, minimumZoom;
-vector   position;
-double   MaxDist, Rad, LookCamLen, LookObjLen, invLookCam, invLookObj;
-double   ObjZ, ObjRad, NewDist;
-DVect LookToObj, LookToCam, nLookToObj, nLookToCam;
+real32 invLookCam, newDist, maxDist;
+vector   position, lookToCam;
+double   Rad, LookObjLen, invLookObj;
+double   ObjZ, ObjRad;
+DVect LookToObj;
 
 
    closezoom = curentry->remembercam.closestZoom;
@@ -298,9 +308,9 @@ DVect LookToObj, LookToCam, nLookToObj, nLookToCam;
         return FOCUS_NO_SHIPS;
     }
 
+    // CAT: the bounding box of the focus ships' collision centres (NewSetFocusPoint 0x0042cf60 reads them directly)
     ship = curentry->focus.ShipPtr[0];
-
-   ccGetShipCollCenter(ship, &position, &radius);
+    position = ship->impactable.collInfo.collPosition;
 
     minx = maxx = position.x;
     miny = maxy = position.y;
@@ -309,7 +319,7 @@ DVect LookToObj, LookToCam, nLookToObj, nLookToCam;
     for (i=1;i<numShipsFocusOn;i++)
     {
         ship = curentry->focus.ShipPtr[i];
-      ccGetShipCollCenter(ship, &position, &radius);
+        position = ship->impactable.collInfo.collPosition;
 
         if (position.x < minx) minx = position.x;
         else if (position.x > maxx) maxx = position.x;
@@ -325,73 +335,75 @@ DVect LookToObj, LookToCam, nLookToObj, nLookToCam;
     curentry->remembercam.lookatpoint.y = (miny + maxy) * 0.5f;
     curentry->remembercam.lookatpoint.z = (minz + maxz) * 0.5f;
 
-   vecSub(LookToCam, curentry->remembercam.eyeposition, curentry->remembercam.lookatpoint);
-   LookCamLen = sqrt(vecMagnitudeSquared(LookToCam));
-   invLookCam = 1.0 / LookCamLen;
-   vecScalarMultiply(nLookToCam, LookToCam, invLookCam);
+   // CAT: the eye direction is normalised in single precision (0x0042d0b4: 1.0 / sqrt as a float)
+   vecSub(lookToCam, curentry->remembercam.eyeposition, curentry->remembercam.lookatpoint);
+   invLookCam = (real32)(1.0 / sqrt(lookToCam.x * lookToCam.x + lookToCam.y * lookToCam.y + lookToCam.z * lookToCam.z));
 
-   vecNegate(nLookToCam);
-
-    MaxDist = 0.0;
+    maxDist = 0.0f;
     for(i=0; i<numShipsFocusOn; i++)
     {
         ship = curentry->focus.ShipPtr[i];
-        ccGetShipCollCenter(ship, &position, &radius);
+        position = ship->impactable.collInfo.collPosition;
+        radius = ship->staticinfo->common.staticCollInfo.collspheresize;
 
         vecSub(LookToObj, curentry->remembercam.lookatpoint, position);
         LookObjLen = sqrt(vecMagnitudeSquared(LookToObj));
         if (LookObjLen > 0.0)
         {
             invLookObj = 1.0 / LookObjLen;
-            vecScalarMultiply(nLookToObj, LookToObj, invLookObj);
-
-            Rad = vecDotProduct(nLookToObj, nLookToCam);
+            Rad = invLookObj * LookToObj.x * (double)-(lookToCam.x * invLookCam) +
+                  invLookObj * LookToObj.y * -((double)invLookCam * (double)lookToCam.y) +
+                  invLookObj * LookToObj.z * -((double)invLookCam * (double)lookToCam.z);
 
             ObjZ = Rad * LookObjLen;
             ObjRad = sqrt(1.0 - (Rad*Rad)) * LookObjLen;
         }
         else
         {
-            Rad = ObjZ = ObjRad = 0.0;
+            ObjZ = ObjRad = 0.0;
         }
 
+        // CAT: a ship that mimics another zooms to the radius of what it mimics (cat_mimicGetCameraRadius); a
+        //      minimum zoom distance of at least 0.1 replaces the collision radius
         if (ship->header.objtype == OBJ_ShipType)
         {
-            minimumZoom = ship->staticinfo->minimumZoomDistance;
+            if (ship->header.catFlags18 & CAT_SHIPFLAG_Mimic)
+            {
+                minimumZoom = cat_mimicGetCameraRadius(ship);
+            }
+            else
+            {
+                minimumZoom = ship->staticinfo->minimumZoomDistance;
+            }
+            if (minimumZoom >= 0.1f)
+            {
+                radius = minimumZoom * (real32)INV_TAN_FOVConstant;
+            }
         }
         else if (ship->header.objtype == OBJ_DerelictType)
         {
             DerelictStaticInfo* derelictstaticinfo = (DerelictStaticInfo*)ship->staticinfo;
             minimumZoom = derelictstaticinfo->minimumZoomDistance;
-        }
-        else
-        {
-            minimumZoom = 0.0f;
-        }
-        if (minimumZoom < 0.10f)
-        {
-            ObjRad += radius;
-        }
-        else
-        {
-            ObjRad += minimumZoom * INV_TAN_FOVConstant;
+            if (minimumZoom >= 0.1f)
+            {
+                radius = minimumZoom * (real32)INV_TAN_FOVConstant;
+            }
         }
 
-        NewDist = ObjRad * TAN_FOVConstant;
+        // CAT: summed and scaled as floats (0x0042d297)
+        newDist = (radius + (real32)ObjRad) * (real32)TAN_FOVConstant;
 
-        if(NewDist < closezoom)
-            NewDist = closezoom;
+        if(newDist < closezoom)
+            newDist = closezoom;
 
-        NewDist += ObjZ;
-
-        if (NewDist > MaxDist)
+        if (newDist + (real32)ObjZ > maxDist)
         {
-            MaxDist = NewDist;
+            maxDist = newDist + (real32)ObjZ;
         }
     }
 
    if(targetDistance)
-      *targetDistance = MaxDist;
+      *targetDistance = maxDist;
 
    useSlowWheelZoomIn = FALSE;
    return 0;
@@ -668,9 +680,11 @@ void CameraChase(CameraCommand *cameracommand,real32 zoomfactor)
     Camera *desired = &currentCameraStackEntry(cameracommand)->remembercam;
     vector targetvelocity;
     bool32 dontUseVelocityPredInChase = FALSE;
-    long  Frames, IndZoom, IndAng;
+    bool32 snap = FALSE;
+    long  Frames, IndAng;
     vector deLookVector;
-    
+    real32 savedPosBase = camTrackPosBase;
+
     static float angSpeed = 0.0f, decSpeed = 0.0f;
     static float xSpeed = 0.0f, ySpeed = 0.0f, zSpeed = 0.0f;
     static float eyeXSpeed = 0.0f, eyeYSpeed = 0.0f, eyeZSpeed = 0.0f;
@@ -681,20 +695,21 @@ void CameraChase(CameraCommand *cameracommand,real32 zoomfactor)
         cameracommand->dontUseVelocityPredInChase = FALSE;
     }
 
-    if (pilotView)
+    // CAT: piloting a ship is the chase view from its pilot offset (cat_ccChaseCamFromShip 0x0042cc80; the exe has
+    //      no pilotView switch, and HW1's cameraSetEyePositionBasedOnShip with its per-type tables is gone); with no
+    //      single-ship focus the pilot mode ends (CameraChase 0x0042d510)
+    if (cameracommand->ccMode & CCMODE_PILOT_SHIP)
     {
-        if (cameracommand->ccMode & CCMODE_PILOT_SHIP)
+        FocusCommand *focus = &cameracommand->currentCameraStack->focus;
+        if (focus->numShips == 1)
         {
-            FocusCommand *focus = &cameracommand->currentCameraStack->focus;
-            if (focus->numShips == 1)
-            {
-                cameraSetEyePositionBasedOnShip(&cameracommand->actualcamera,focus->ShipPtr[0]);
-                return;
-            }
+            cat_ccChaseCamFromShip(&cameracommand->actualcamera,focus->ShipPtr[0]);
+            return;
         }
-
-        vecSet(cameracommand->actualcamera.upvector,0.0f,0.0f,1.0f);
+        bitClear(cameracommand->ccMode, CCMODE_PILOT_SHIP);
     }
+
+    vecSet(cameracommand->actualcamera.upvector,0.0f,0.0f,1.0f);
 
    if(cameracommand->transition == CAMERA_FOCUSORIENT ||
       cameracommand->transition == CAMERA_FOCUSMOVE ||
@@ -705,7 +720,6 @@ void CameraChase(CameraCommand *cameracommand,real32 zoomfactor)
       if(Frames > 64)
          Frames = 64;
 
-      IndZoom = (cameracommand->UserControlled & CAM_USER_ZOOMED) >> 1;
       IndAng = (cameracommand->UserControlled & CAM_USER_MOVED);
 
       if (!dontUseVelocityPredInChase)
@@ -715,8 +729,34 @@ void CameraChase(CameraCommand *cameracommand,real32 zoomfactor)
          vecAddTo(cameracommand->actualcamera.eyeposition, targetvelocity);
       }
 
+      // CAT: after a scripted focus or zoom (Camera.catSnapToFocus) one pass puts the camera on the focus at once:
+      //      the trackers restart from the target with the position tracking's log base 0 (which lands each value on
+      //      its target) and the scripted distance, if any, becomes the focus distance (0x0042d670)
+      if (cameracommand->actualcamera.catSnapToFocus == TRUE)
+      {
+         snap = TRUE;
+         cameracommand->actualcamera.catSnapToFocus = FALSE;
+         Frames = 1;
+      }
+
       while(Frames)
       {
+         if (snap)
+         {
+            cameracommand->actualcamera.lookatpoint = desired->lookatpoint;
+            xSpeed = ySpeed = zSpeed = 0.0f;
+            camTrackPosBase = 0.0f;
+            cameracommand->actualcamera.angle = desired->angle;
+            angSpeed = 0.0f;
+            cameracommand->actualcamera.declination = desired->declination;
+            decSpeed = 0.0f;
+            if (cameracommand->actualcamera.catScriptedDistance > 0.0f)
+            {
+               desired->distance = cameracommand->actualcamera.catScriptedDistance;
+               cameracommand->actualcamera.catScriptedDistance = 0.0f;
+               cameracommand->zoomInCloseAsPossible = FALSE;
+            }
+         }
          EvalCubicAngle(&cameracommand->actualcamera.angle, &angSpeed, desired->angle, camTrackAngSpeed[IndAng]);
          EvalCubic(&cameracommand->actualcamera.declination, &decSpeed, desired->declination, camTrackAngSpeed[IndAng]);
 
@@ -729,6 +769,12 @@ void CameraChase(CameraCommand *cameracommand,real32 zoomfactor)
          vecMultiplyByScalar(deLookVector, desired->distance);
          vecAddTo(deLookVector, desired->lookatpoint);
 
+         if (snap)
+         {
+            cameracommand->actualcamera.eyeposition = deLookVector;
+            eyeXSpeed = eyeYSpeed = eyeZSpeed = 0.0f;
+            camTrackPosBase = 0.0f;
+         }
          CubicLogUnsigned(&cameracommand->actualcamera.eyeposition.x, &eyeXSpeed, deLookVector.x, camTrackPosThreshold, camTrackPosSpeed, camTrackPosBase);
          CubicLogUnsigned(&cameracommand->actualcamera.eyeposition.y, &eyeYSpeed, deLookVector.y, camTrackPosThreshold, camTrackPosSpeed, camTrackPosBase);
          CubicLogUnsigned(&cameracommand->actualcamera.eyeposition.z, &eyeZSpeed, deLookVector.z, camTrackPosThreshold, camTrackPosSpeed, camTrackPosBase);
@@ -742,6 +788,13 @@ void CameraChase(CameraCommand *cameracommand,real32 zoomfactor)
          ;
       else if (!(cameracommand->ccMode & CCMODE_FOCUS_CHANGES_NOTHING))
          cameraSetEyePosition(&cameracommand->actualcamera);
+
+      if (snap)
+      {                                                     // CAT: the render lists follow the jump at once
+         univUpdateRenderList();
+         univUpdateMinorRenderList();
+         camTrackPosBase = savedPosBase;
+      }
    }
     else if (cameracommand->transition == CAMERA_SET)
     {
@@ -751,6 +804,7 @@ void CameraChase(CameraCommand *cameracommand,real32 zoomfactor)
         cameracommand->actualcamera.angle = desired->angle;
         cameracommand->actualcamera.declination = desired->declination;
         cameracommand->actualcamera.eyeposition = desired->eyeposition;
+        cat_mcResetRequest(&catMotionCueState);             // CAT: the motion cues restart around the new view
     }
 }
 
@@ -949,21 +1003,27 @@ void ccFocusOnPlayersMothership(CameraCommand *cameracommand,uword playerindex)
 
     entry = currentCameraStackEntry(cameracommand);
 
-    if (spFindCameraAttitude(&entry->remembercam.eyeposition))
+    // CAT: only a multiplayer game asks the level for a camera attitude; in single player mission 2 the camera
+    //      starts on the other side of the mothership (ccFocusOnPlayersMothership 0x0042dc30)
+    if (!singlePlayerGame && spFindCameraAttitude(&entry->remembercam.eyeposition))
     {
         vecSub(distVector, entry->remembercam.eyeposition, entry->remembercam.lookatpoint);
         GetDistanceAngleDeclination(&entry->remembercam, &distVector);
         distance = entry->remembercam.distance;
         angle = entry->remembercam.angle;
         declination = entry->remembercam.declination;
-        if (!singlePlayerGame)
-        {
-            angle += GetObjAngle((SpaceObjRot *)mothership);
-        }
+        angle += GetObjAngle((SpaceObjRot *)mothership);
     }
     else
     {
-        angle = GetObjAngle((SpaceObjRot *)mothership) + CAMERA_MOTHERSHIPFOCUS_ANGLE;
+        if (singlePlayerGame && (singlePlayerGameInfo.currentMission == 2))
+        {
+            angle = GetObjAngle((SpaceObjRot *)mothership) - CAMERA_MOTHERSHIPFOCUS_ANGLE;
+        }
+        else
+        {
+            angle = GetObjAngle((SpaceObjRot *)mothership) + CAMERA_MOTHERSHIPFOCUS_ANGLE;
+        }
         distance = CAMERA_MOTHERSHIPFOCUS_DISTANCE;
         declination = CAMERA_MOTHERSHIPFOCUS_DECLINATION;
     }
@@ -1056,8 +1116,7 @@ void ccFocusGeneral(CameraCommand *cameracommand,FocusCommand *focuscom, bool32 
         return;
     }
 
-//Check for Proximity Sensor(s) in focus selection
-    proxInFocusSelection(focuscom);
+    // CAT: no proximity-sensor pass (proxInFocusSelection is an empty stub in the exe: ccFocusGeneral 0x0042deb0)
 
     oldentry = currentCameraStackEntry(cameracommand);
 
@@ -1123,7 +1182,7 @@ void ccFocusGeneral(CameraCommand *cameracommand,FocusCommand *focuscom, bool32 
 
     cameracommand->action = CAMACTION_FOCUS;
     cameracommand->transition = CAMERA_FOCUSORIENT;
-    cameracommand->transTimeStamp = taskTimeElapsed;
+    cameracommand->transTimeStamp = cat_taskRealTimeElapsed;     // CAT: the unscaled task clock (0x0042e0a8)
     cameracommand->zoomInCloseAsPossible = bCloseUp;
    cameracommand->UserControlled = 0;
     cameracommand->lockCameraTimeStamp = 0.0f;
@@ -1211,7 +1270,7 @@ void ccFocusFar(CameraCommand *cameracommand,FocusCommand *focuscom, Camera *cur
 
     cameracommand->action = CAMACTION_FOCUSFAR;
     cameracommand->transition = CAMERA_FOCUSORIENT;
-    cameracommand->transTimeStamp = taskTimeElapsed;
+    cameracommand->transTimeStamp = cat_taskRealTimeElapsed;     // CAT: the unscaled task clock (ccFocusFar 0x0042e230)
     cameracommand->zoomInCloseAsPossible = FALSE;
    cameracommand->UserControlled = 0;
     cameracommand->lockCameraTimeStamp = 0.0f;
@@ -1265,7 +1324,10 @@ void ccCopyCamera(CameraCommand *cameracommand,Camera *cameraToCopy)
 
     vecSub(distvec, cameraToCopy->eyeposition, cameraToCopy->lookatpoint);
 
-    GetDistanceAngleDeclination(cameraToCopy,&distvec);
+    // CAT: GetDistanceAngleDeclination inlined without its clamp of the cosine (ccCopyCamera 0x0042e310)
+    cameraToCopy->distance = (real32)sqrt(distvec.x * distvec.x + distvec.y * distvec.y + distvec.z * distvec.z);
+    cameraToCopy->angle = (real32)atan2(distvec.y, distvec.x);
+    cameraToCopy->declination = (PI/2.0f) - (real32)acos(-distvec.z / cameraToCopy->distance);
 //    if (cameraToCopy->distance < 1000.0f)
 //    {
 //        cameraToCopy->distance = 1000.0f;
@@ -1314,10 +1376,7 @@ void ccCancelFocus(CameraCommand *cameracommand)
         entry = (CameraStackEntry *)listGetStructOfNode(node);
     }
 
-    if (entry == cameracommand->dontFocusOnMe)
-    {
-        return;
-    }
+    // CAT: no return at the base entry: the exe focuses whatever entry the walk stopped at (ccCancelFocus 0x0042e3d0)
 
     cameracommand->ViewEntireMissphere = FALSE;
 
@@ -1333,7 +1392,7 @@ void ccCancelFocus(CameraCommand *cameracommand)
 
     cameracommand->action = CAMACTION_CANCELFOCUS;
     cameracommand->transition = CAMERA_FOCUSORIENT;
-    cameracommand->transTimeStamp = taskTimeElapsed;
+    cameracommand->transTimeStamp = cat_taskRealTimeElapsed;     // CAT: the unscaled task clock
     cameracommand->zoomInCloseAsPossible = FALSE;
     cameracommand->UserControlled = 0;
     cameracommand->lockCameraTimeStamp = 0.0f;
@@ -1393,7 +1452,7 @@ void ccForwardFocus(CameraCommand *cameracommand)
 
     cameracommand->action = CAMACTION_FORWARDFOCUS;
     cameracommand->transition = CAMERA_FOCUSORIENT;
-    cameracommand->transTimeStamp = taskTimeElapsed;
+    cameracommand->transTimeStamp = cat_taskRealTimeElapsed;     // CAT: the unscaled task clock (ccForwardFocus 0x0042e4c0)
     cameracommand->zoomInCloseAsPossible = TRUE;
     cameracommand->UserControlled = 0;
     cameracommand->lockCameraTimeStamp = 0.0f;
@@ -1476,13 +1535,20 @@ bool32 ccFocusOnFleet(CameraCommand *cameracommand)
 
 void ccFocusOnFleetSmooth(CameraCommand *cameracommand)
 {
+    // CAT: a toggle, as ccViewToggleMissionSphere: a second press cancels the fleet focus (ccFocusOnFleetSmooth
+    //      0x0042e6d0); UserControlled is left as it is
+    if (cameracommand->ViewEntireMissphere)
+    {
+        ccCancelFocus(cameracommand);
+        return;
+    }
     if (ccFocusOnFleet(cameracommand))
     {
+        cameracommand->ViewEntireMissphere = TRUE;
         cameracommand->action = CAMACTION_VIEWMISSPHERE;
         cameracommand->transition = CAMERA_FOCUSORIENT;
-        cameracommand->transTimeStamp = taskTimeElapsed;
+        cameracommand->transTimeStamp = cat_taskRealTimeElapsed;
         cameracommand->zoomInCloseAsPossible = FALSE;
-        cameracommand->UserControlled = 0;
         cameracommand->lockCameraTimeStamp = 0.0f;
     }
 }
@@ -1811,4 +1877,402 @@ bool32 cat_ccIsPilotingShip(void)
 bool32 cat_ccIsPilotingThisShip(Ship *ship)
 {
     return (cat_ccIsPilotingShip() && universe.mainCameraCommand.currentCameraStack->focus.ShipPtr[0] == ship);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_ccChaseCamFromShip                            0x0042cc80
+    Description : CAT (M2-R6 nis-fow-camera): the pilot's view of a ship: the eye at the ship's pilot offset (its
+                  static pilotViewOffsetX/Y/Z, from the .shp) in the ship's frame, looking along its heading, the
+                  ship's up vector up
+----------------------------------------------------------------------------*/
+void cat_ccChaseCamFromShip(Camera *camera, Ship *ship)
+{
+    vector offset, worldOffset;
+
+    offset.x = ship->staticinfo->pilotViewOffsetX;
+    offset.y = ship->staticinfo->pilotViewOffsetY;
+    offset.z = ship->staticinfo->pilotViewOffsetZ;
+    matMultiplyMatByVec(&worldOffset, &ship->rotatable.rotinfo.coordsys, &offset);
+    vecAdd(camera->eyeposition, ship->obj.posinfo.position, worldOffset);
+    camera->lookatpoint.x = ship->rotatable.rotinfo.coordsys.m13 + camera->eyeposition.x;
+    camera->lookatpoint.y = ship->rotatable.rotinfo.coordsys.m23 + camera->eyeposition.y;
+    camera->lookatpoint.z = ship->rotatable.rotinfo.coordsys.m33 + camera->eyeposition.z;
+    camera->upvector.x = ship->rotatable.rotinfo.coordsys.m11;
+    camera->upvector.y = ship->rotatable.rotinfo.coordsys.m21;
+    camera->upvector.z = ship->rotatable.rotinfo.coordsys.m31;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_ccFocusCloseScripted / cat_ccFocusScripted    0x0042e140 / 0x0042e160
+    Description : CAT (M2-R6 nis-fow-camera): a script's focus (close or normal): ccFocusGeneral, then the actual
+                  camera snaps to it on the next chase (Camera.catSnapToFocus)
+----------------------------------------------------------------------------*/
+void cat_ccFocusCloseScripted(CameraCommand *cameracommand, FocusCommand *focuscom)
+{
+    ccFocusGeneral(cameracommand, focuscom, TRUE);
+    cameracommand->actualcamera.catSnapToFocus = TRUE;
+}
+
+void cat_ccFocusScripted(CameraCommand *cameracommand, FocusCommand *focuscom)
+{
+    ccFocusGeneral(cameracommand, focuscom, FALSE);
+    cameracommand->actualcamera.catSnapToFocus = TRUE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_ccSetDistanceScripted                         0x0042e180
+    Description : CAT (M2-R6 nis-fow-camera): a script's camera distance: the focus and actual distances, the snap
+                  and the scripted distance the snap applies
+----------------------------------------------------------------------------*/
+void cat_ccSetDistanceScripted(CameraCommand *cameracommand, real32 distance)
+{
+    cameracommand->currentCameraStack->remembercam.distance = distance;
+    cameracommand->actualcamera.distance = distance;
+    cameracommand->actualcamera.catSnapToFocus = TRUE;
+    cameracommand->actualcamera.catScriptedDistance = distance;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_ccZoomScripted                                0x0042e1a0
+    Description : CAT (M2-R6 nis-fow-camera): a script's zoom: the distance a fraction of the way from the minimum
+                  zoom to the actual distance (nothing when the camera is at or inside the minimum)
+----------------------------------------------------------------------------*/
+void cat_ccZoomScripted(CameraCommand *cameracommand, real32 fraction)
+{
+    real32 minZoom = cameraMinimumZoom(&cameracommand->actualcamera);
+    real32 range = cameracommand->actualcamera.distance - minZoom;
+
+    if (range > 0.0f)
+    {
+        range = range * fraction + minZoom;
+        cameracommand->currentCameraStack->remembercam.distance = range;
+        cameracommand->actualcamera.catSnapToFocus = TRUE;
+        cameracommand->actualcamera.distance = range;
+        cameracommand->actualcamera.catScriptedDistance = range;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_ccSetDistance                                 0x0042e210
+    Description : CAT (M2-R6 nis-fow-camera): the focus and actual camera distances, without a snap
+----------------------------------------------------------------------------*/
+void cat_ccSetDistance(CameraCommand *cameracommand, real32 distance)
+{
+    cameracommand->currentCameraStack->remembercam.distance = distance;
+    cameracommand->actualcamera.distance = distance;
+}
+
+/*=============================================================================
+    CAT (M2-R6 nis-fow-camera): the motion cues (cat_mc*, 0x0042c090..0x0042cc80; the state is the global
+    0x00c49400). Every caller (universeReset, utyNewGameStart, smSensorsCloseForGood, kasfSetMotionCues, with
+    catMotionCues on) sets mode 1 and asks for a reset; the main view draws them each frame (cat_mcRender from
+    cat_rndRenderObjectList). The reset scatters the points with random stream 0.
+=============================================================================*/
+CatMotionCues catMotionCueState;
+
+void cat_mcSetMode(CatMotionCues *cues, sdword mode)
+{
+    cues->mode = mode;
+    cues->fade = 1.0f;
+}
+
+void cat_mcResetRequest(CatMotionCues *cues)
+{
+    cues->resetRequest = TRUE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mcpReset                                      0x0042c0c0
+    Description : scatter the cue points at random (stream 0) in the box around the camera's eye; mode 0 also
+                  transforms them to the screen
+----------------------------------------------------------------------------*/
+void cat_mcpReset(Camera *camera, CatMotionCues *cues)
+{
+    sdword index;
+    real32 width;
+    CatMotionCuePoint *point;
+
+    cues->velocity.x = cues->velocity.y = cues->velocity.z = 0.0f;
+    hmatMultiplyHMatByHMat(&cues->transform, &rndProjectionMatrix, &rndCameraMatrix);
+    cues->speed = 0.0f;
+    cues->updated = FALSE;
+    if (camera == NULL)
+    {
+        cues->lookatpoint.x = cues->lookatpoint.y = cues->lookatpoint.z = 0.0f;
+    }
+    else
+    {
+        cues->lookatpoint = camera->lookatpoint;
+    }
+    if (cues->mode == 0)
+    {
+        cues->boxMin[0] = cues->boxMin[1] = cues->boxMin[2] = -15000.0f;
+        cues->boxMax[0] = cues->boxMax[1] = cues->boxMax[2] = 15000.0f;
+        cues->numPoints = CAT_MC_MAX_POINTS;
+    }
+    else
+    {
+        cues->boxMin[0] = cues->boxMin[1] = cues->boxMin[2] = -4500.0f;
+        cues->boxMax[0] = cues->boxMax[1] = cues->boxMax[2] = 4500.0f;
+        cues->numPoints = 100;
+    }
+    if (cues->numPoints > CAT_MC_MAX_POINTS)
+    {
+        cues->numPoints = CAT_MC_MAX_POINTS;
+    }
+    if (camera == NULL)
+    {                                                       // CAT-FIX: the exe reads the eye through NULL here
+        cues->numPoints = 0;
+    }
+    for (index = 0, point = cues->points; index < cues->numPoints; index++, point++)
+    {
+        // each coordinate: (rand % round(width)) - width / 2 around the eye (the exe rounds by the 1.5 * 2^52 trick)
+        width = cues->boxMax[0] - cues->boxMin[0];
+        point->position.x = (real32)(ranRandom(RANDOM_STREAM_0) % (udword)lrint((double)width)) - width * 0.5f;
+        width = cues->boxMax[1] - cues->boxMin[1];
+        point->position.y = (real32)(ranRandom(RANDOM_STREAM_0) % (udword)lrint((double)width)) - width * 0.5f;
+        width = cues->boxMax[2] - cues->boxMin[2];
+        point->position.z = (real32)(ranRandom(RANDOM_STREAM_0) % (udword)lrint((double)width)) - width * 0.5f;
+        point->position.x += camera->eyeposition.x;
+        point->position.y += camera->eyeposition.y;
+        point->position.z += camera->eyeposition.z;
+        if (cues->mode == 0)
+        {
+            cat_hmatMultiplyHMatByVec(&point->screen, &cues->transform, &point->position);
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mcFocusAverageVelocity                        0x0042c340
+    Description : the mean velocity of the main camera's focus ships; FALSE when there is no focus, a focus object is
+                  not a ship, a ship (outside the pilot view of a one-ship focus) has a command other than a move, or
+                  any ship moves slower than 130 (|vx| + |vy| + |vz|)
+----------------------------------------------------------------------------*/
+bool32 cat_mcFocusAverageVelocity(vector *velocity)
+{
+    CameraStackEntry *entry = universe.mainCameraCommand.currentCameraStack;
+    sdword index;
+    Ship *ship;
+
+    velocity->x = velocity->y = velocity->z = 0.0f;
+    if (entry->focus.numShips == 0)
+    {
+        return FALSE;
+    }
+    for (index = 0; index < entry->focus.numShips; index++)
+    {
+        ship = entry->focus.ShipPtr[index];
+        if (ship->header.objtype != OBJ_ShipType)
+        {
+            return FALSE;
+        }
+        if ((!(universe.mainCameraCommand.ccMode & CCMODE_PILOT_SHIP) || (entry->focus.numShips != 1)) &&
+            (ship->command != NULL) && (ship->command->ordertype.order != COMMAND_MOVE))
+        {
+            return FALSE;
+        }
+        if (ABS(ship->obj.posinfo.velocity.x) + ABS(ship->obj.posinfo.velocity.y) + ABS(ship->obj.posinfo.velocity.z) < 130.0f)
+        {
+            return FALSE;
+        }
+        velocity->x += ship->obj.posinfo.velocity.x;
+        velocity->y += ship->obj.posinfo.velocity.y;
+        velocity->z += ship->obj.posinfo.velocity.z;
+    }
+    velocity->x /= (real32)entry->focus.numShips;
+    velocity->y /= (real32)entry->focus.numShips;
+    velocity->z /= (real32)entry->focus.numShips;
+    return TRUE;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mcNormalScalar                                0x0042c450
+    Description : once a frame (mode 1): the streak vector follows the focus's mean velocity (per second, times the
+                  fade, times -0.1 * 0.2: the dust drifts against the motion) with EvalCubic; zero while the camera's
+                  last focus change is less than 0.35 s old (transTimeStamp) or the focus is not moving
+----------------------------------------------------------------------------*/
+void cat_mcNormalScalar(Camera *camera, CatMotionCues *cues)
+{
+    static float velSpeed[3] = { 0.0f, 0.0f, 0.0f };        // 0x008dfbc0
+    real32 scale, step;
+    vector target, mean;
+
+    if ((camera == NULL) || cues->updated)
+    {
+        return;
+    }
+    cues->updated = TRUE;
+    if (cues->mode == 0)
+    {
+        return;
+    }
+    if (universe.phystimeelapsed == 0.0f)
+    {
+        scale = 1.0f;
+    }
+    else
+    {
+        scale = 1.0f / universe.phystimeelapsed;
+    }
+    scale = scale * cues->fade * 0.2f;
+    if ((cat_taskRealTimeElapsed - universe.mainCameraCommand.transTimeStamp < (real32)0.35) ||
+        !cat_mcFocusAverageVelocity(&mean))
+    {
+        target.x = target.y = target.z = 0.0f;
+    }
+    else
+    {
+        target.x = mean.x * (real32)-0.1;
+        target.y = mean.y * (real32)-0.1;
+        target.z = mean.z * (real32)-0.1;
+    }
+    step = universe.phystimeelapsed * 0.8f;
+    if (step > 0.9f)
+    {
+        step = 0.9f;
+    }
+    EvalCubic(&cues->velocity.x, &velSpeed[0], target.x * scale, step);
+    EvalCubic(&cues->velocity.y, &velSpeed[1], target.y * scale, step);
+    EvalCubic(&cues->velocity.z, &velSpeed[2], target.z * scale, step);
+    cues->velocity.x = target.x * scale;
+    cues->velocity.y = target.y * scale;
+    cues->velocity.z = target.z * scale;
+    cues->lookatpoint = camera->lookatpoint;
+    cues->speed = fsqrt(cues->velocity.z * cues->velocity.z + cues->velocity.y * cues->velocity.y +
+                        cues->velocity.x * cues->velocity.x);
+}
+
+//wraps a coordinate into [eye + min, eye + max] (the exe's floor arithmetic)
+static real32 catMcWrap(real32 value, real32 low, real32 high)
+{
+    if (value > high)
+    {
+        return value - (real32)floor((double)((value - low) / (high - low))) * (high - low);
+    }
+    if (value < low)
+    {
+        return (real32)(floor((double)((high - value) / (high - low))) * (double)(high - low) + (double)value);
+    }
+    return value;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mcRender                                      0x0042c630
+    Description : the main view's motion cues: the requested reset, the streak update, the points wrapped into the
+                  box around the eye, then drawn blended (mode 0: cat_mcDrawCues; mode 1, once the streak is at least
+                  0.5 long: for each point a line from p + 2v (transparent) to p + v and from p + v to p (transparent),
+                  grey 0.7, alpha min(speed * 0.03, 0.9))
+----------------------------------------------------------------------------*/
+void cat_mcRender(Camera *camera, CatMotionCues *cues)
+{
+    sdword index, oldTexture, oldLighting;
+    real32 alpha;
+    CatMotionCuePoint *point;
+
+    if (cues->resetRequest)
+    {
+        cat_mcpReset(camera, cues);
+        cues->resetRequest = FALSE;
+    }
+    cat_mcNormalScalar(camera, cues);
+    if (camera == NULL)
+    {
+        return;
+    }
+    cues->updated = FALSE;
+    for (index = 0, point = cues->points; index < cues->numPoints; index++, point++)
+    {
+        point->position.x = catMcWrap(point->position.x, cues->boxMin[0] + camera->eyeposition.x, cues->boxMax[0] + camera->eyeposition.x);
+        point->position.y = catMcWrap(point->position.y, cues->boxMin[1] + camera->eyeposition.y, cues->boxMax[1] + camera->eyeposition.y);
+        point->position.z = catMcWrap(point->position.z, cues->boxMin[2] + camera->eyeposition.z, cues->boxMax[2] + camera->eyeposition.z);
+    }
+    oldTexture = rndTextureEnable(FALSE);
+    oldLighting = rndLightingEnable(FALSE);
+    glPushAttrib(GL_BLEND);                                 // as the exe (0xBE2 passed as the attribute mask)
+    glEnable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    if (cues->mode == 0)
+    {
+        cat_mcDrawCues(cues);
+    }
+    else if (cues->speed >= 0.5f)
+    {
+        alpha = cues->speed * 0.03f;
+        if (alpha > 0.9f)
+        {
+            alpha = 0.9f;
+        }
+        glBegin(GL_LINES);
+        for (index = 0, point = cues->points; index < cues->numPoints; index++, point++)
+        {
+            glColor4f(0.7f, 0.7f, 0.7f, 0.0f);
+            glVertex3f(cues->velocity.x + cues->velocity.x + point->position.x, cues->velocity.y + cues->velocity.y + point->position.y,
+                       cues->velocity.z + cues->velocity.z + point->position.z);
+            glColor4f(0.7f, 0.7f, 0.7f, alpha);
+            glVertex3f(point->position.x + cues->velocity.x, point->position.y + cues->velocity.y, point->position.z + cues->velocity.z);
+            glColor4f(0.7f, 0.7f, 0.7f, alpha);
+            glVertex3f(point->position.x + cues->velocity.x, point->position.y + cues->velocity.y, point->position.z + cues->velocity.z);
+            glColor4f(0.7f, 0.7f, 0.7f, 0.0f);
+            glVertex3f(point->position.x, point->position.y, point->position.z);
+        }
+        glEnd();
+    }
+    glPopAttrib();
+    rndTextureEnable(oldTexture);
+    rndLightingEnable(oldLighting);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_mcDrawCues                                    0x0042ca10
+    Description : mode 0: each point transformed to the screen (the projection and camera matrices, scaled by
+                  0.0001) and drawn with identity matrices as two lines along its motion since the last frame (times
+                  the fade): from s + 2d (transparent) to s + d and from s + d to s (transparent), alpha (|dx| + |dy|)
+                  times 60
+----------------------------------------------------------------------------*/
+void cat_mcDrawCues(CatMotionCues *cues)
+{
+    sdword index;
+    vector screen, delta;
+    real32 alpha;
+    CatMotionCuePoint *point;
+
+    if (cues->fade == 0.0f)
+    {
+        return;
+    }
+    hmatMultiplyHMatByHMat(&cues->transform, &rndProjectionMatrix, &rndCameraMatrix);
+    glMatrixMode(GL_PROJECTION);
+    glPushMatrix();
+    glLoadIdentity();
+    glMatrixMode(GL_MODELVIEW);
+    glPushMatrix();
+    glLoadIdentity();
+    glBegin(GL_LINES);
+    for (index = 0, point = cues->points; index < cues->numPoints; index++, point++)
+    {
+        cat_hmatMultiplyHMatByVec(&screen, &cues->transform, &point->position);
+        screen.x *= 0.0001f;
+        screen.y *= 0.0001f;
+        screen.z *= 0.0001f;
+        delta.x = (point->screen.x - screen.x) * cues->fade;
+        delta.y = (point->screen.y - screen.y) * cues->fade;
+        delta.z = (point->screen.z - screen.z) * cues->fade;
+        point->screen = screen;
+        alpha = (real32)((double)(ABS(delta.y) + ABS(delta.x)) * 60.0);
+        glColor4f(0.7f, 0.7f, 0.7f, 0.0f);
+        glVertex3f(delta.x + delta.x + screen.x, delta.y + delta.y + screen.y, delta.z + delta.z + screen.z);
+        glColor4f(0.7f, 0.7f, 0.7f, alpha);
+        glVertex3f(delta.x + screen.x, delta.y + screen.y, delta.z + screen.z);
+        glColor4f(0.7f, 0.7f, 0.7f, alpha);
+        glVertex3f(delta.x + screen.x, delta.y + screen.y, delta.z + screen.z);
+        glColor4f(0.7f, 0.7f, 0.7f, 0.0f);
+        glVertex3f(screen.x, screen.y, screen.z);
+    }
+    glEnd();
+    glMatrixMode(GL_PROJECTION);
+    glPopMatrix();
+    glMatrixMode(GL_MODELVIEW);
+    glPopMatrix();
 }

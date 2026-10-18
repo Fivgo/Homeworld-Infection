@@ -10,6 +10,7 @@
 //      cat_acvLinkState moved here from ShipSelect.c (its declaration stays in ShipSelect.h).
 
 #include "ACV.h"
+#include "FOW.h"
 
 #include "AIShip.h"
 #include "Battle.h"
@@ -555,8 +556,18 @@ void ACVHouseKeep(Ship *ship)                                                   
             cat_acvLinkedAttack(ship);
             spec->attackPending = FALSE;
         }
-        // CAT-TODO(stage 3 FOW): a target the player cannot see (cat_fowCanPlayerSeeShip(owner, target, 1)
-        //      0x0047f480) cancels the order (clWrapSpecial with no targets); fog of war is stage 3, every ship is seen
+        // CAT (M2-R6 nis-fow-camera): a target the player cannot see (cat_fowCanPlayerSeeShip(owner, target, 1)
+        //      0x0047e810) cancels the order (clWrapSpecial with no targets, ACVHouseKeep 0x005ae8c0)
+        if (!cat_fowCanPlayerSeeShip(ship->playerowner, target, TRUE))
+        {
+            SelectCommand selectone;
+
+            selectone.numShips = 1;
+            selectone.timeLastStatus = 0.0f;
+            selectone.ShipPtr[0] = ship;
+            clWrapSpecial(&universe.mainCommandLayer, &selectone, NULL);
+            return;
+        }
         distsq = (ship->obj.posinfo.position.x - target->obj.posinfo.position.x) *
                  (ship->obj.posinfo.position.x - target->obj.posinfo.position.x) +
                  (ship->obj.posinfo.position.y - target->obj.posinfo.position.y) *

@@ -50,8 +50,19 @@ typedef struct Camera
     real32 clipPlaneFar;
     real32 closestZoom;
     real32 farthestZoom;
-    bool8 ignoreZoom;
+    bool8 ignoreZoom;                                       // +0x54
+    // CAT: the exe's Camera is 0x5C bytes (cameraInit 0x0042b7d0 clears +0x55 and +0x58; nisStart allocates 0x5C;
+    //      ccInit's stack entry is 0x78): the scripted camera calls (cat_ccFocusScripted 0x0042e160 etc.) set the
+    //      snap byte, and the next CameraChase 0x0042d510 puts the actual camera on the focus at once (and takes the
+    //      scripted distance, cat_ccSetDistanceScripted 0x0042e180 / cat_ccZoomScripted 0x0042e1a0, if one is set).
+    //      Names chosen here.
+    bool8 catSnapToFocus;                                   // +0x55
+    real32 catScriptedDistance;                             // +0x58
 } Camera;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(sizeof(Camera) == 0x5C, "Camera is 0x5C bytes in cataclysm.exe (nisStart 0x004cd2b0 allocates 0x5C)");
+_Static_assert(offsetof(Camera, catScriptedDistance) == 0x58, "Camera +0x58 (cameraInit 0x0042b7d0)");
+#endif
 
 /*=============================================================================
     Functions:
@@ -76,7 +87,6 @@ udword cameraChecksum(Camera *cam);
 
 struct Ship;
 
-void cameraSetEyePositionBasedOnShip(Camera *camera,struct Ship *ship);
 
 /*=============================================================================
     Public tweakable constants:
@@ -88,6 +98,7 @@ extern real32 CAMERA_KEY_ZOOM_IN;
 extern real32 CAMERA_KEY_ZOOM_OUT;
 extern real32 CAMERA_AUTO_ZOOM_IN;
 extern real32 CAMERA_AUTO_ZOOM_OUT;
+extern real32 CAMERA_CLIP_NEAR;          // CAT (M2-R6 nis-fow-camera): read by cat_nisCameraClipNear 0x004d0110
 extern real32 CAMERA_CLIP_FAR;
 extern real32 CAMERA_CLIP_FAR_PLANET;
 

@@ -3189,6 +3189,34 @@ typedef struct CatNearestVertex                         // the exe's 0x18-byte r
     vector position;                                    // +0x0C its object-space position
 } CatNearestVertex;
 
+//CAT (M2-R6 nis-fow-camera): cat_meshObjectNearestVertex 0x004b4ef0: the index of the object's vertex nearest to an
+//object-space point (the first of equals), -1 for an object without vertices; the distances in the exe's x87 double
+//(the repair droids land with it, droidUpdateArray 0x005c32f0)
+sdword cat_meshObjectNearestVertex(polygonobject *object, vector *point)
+{
+    real32 best = 1e21f;
+    double dx, dy, dz, distSq;
+    sdword index, nearest = 0;
+
+    if (object->nVertices == 0)
+    {
+        return -1;
+    }
+    for (index = 0; index < object->nVertices; index++)
+    {
+        dx = (double)object->pVertexList[index].x - (double)point->x;
+        dy = (double)object->pVertexList[index].y - (double)point->y;
+        dz = (double)object->pVertexList[index].z - (double)point->z;
+        distSq = (dz * dz + dy * dy) + dx * dx;
+        if (distSq < (double)best)
+        {
+            nearest = index;
+            best = (real32)distSq;
+        }
+    }
+    return nearest;
+}
+
 //cat_meshObjectNearestVertexToHit 0x004b4f80: brings the hit point into object space (the inverse rotation of the
 //object-to-world matrix times hit - translation) and keeps the object's vertex nearest to it in the record
 static void cat_meshObjectNearestVertexToHit(vector *hit, hmatrix *objectToWorld, polygonobject *object, sdword index,

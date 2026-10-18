@@ -534,3 +534,17 @@ void matCopyAndScale(matrix *out, matrix *in, real32 scale)
     scaleMatrix.m11 *= scale; scaleMatrix.m22 *= scale; scaleMatrix.m33 *= scale;
     matMultiplyMatByMat(out, in, &scaleMatrix);
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_hmatMultiplyHMatByVec
+    Description : CAT (M2-R6 nis-fow-camera): a 3-vector through a 4x4 matrix as a point (w = 1), no divide
+                  (cat_hmatMultiplyHMatByVec 0x004acdf0; the motion cues)
+    Inputs      : matrix, vec
+    Outputs     : result (x, y, z only)
+----------------------------------------------------------------------------*/
+void cat_hmatMultiplyHMatByVec(vector *result, hmatrix *matrix, vector *vec)
+{
+    result->x = matrix->m11 * vec->x + matrix->m12 * vec->y + matrix->m13 * vec->z + matrix->m14;
+    result->y = matrix->m22 * vec->y + matrix->m21 * vec->x + matrix->m23 * vec->z + matrix->m24;
+    result->z = matrix->m32 * vec->y + matrix->m31 * vec->x + matrix->m33 * vec->z + matrix->m34;
+}

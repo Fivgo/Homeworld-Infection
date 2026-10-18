@@ -803,8 +803,8 @@ void cat_salvageDetach(Ship *salvager)                                      // 0
             anim = cat_salvageCloseAnimIndex(salvager->shiptype);
             if ((anim != -1) && (salvager->madBindings->nCurrentAnim != anim))
             {
-                // CAT-TODO(stage 3): the exe passes madAnimationStart 0x004b6b90 a third argument, 2 (MeshAnim.c)
-                madAnimationStart(salvager, anim);
+                // CAT: the exe passes madAnimationStart 0x004b6b90 a third argument, 2 (cat_salvageDetach 0x004f89e6; M2-R6 nis-fow-camera)
+                madAnimationStart(salvager, anim, MAD_ModeBackToPrevious);
             }
         }
         target = info->target;
@@ -1279,8 +1279,8 @@ bool32 cat_salvageSpecialTarget(Ship *ship, void *custom)                  // 0x
                 anim = cat_salvageOpenAnimIndex(ship->shiptype);
                 if ((anim != -1) && (ship->madBindings->nCurrentAnim != anim))
                 {
-                    // CAT-TODO(stage 3): the exe passes madAnimationStart 0x004b6b90 a third argument, 0 (MeshAnim.c)
-                    madAnimationStart(ship, anim);
+                    // CAT: the exe passes madAnimationStart 0x004b6b90 a third argument, 0 (cat_salvageSpecialTarget 0x004fae56; M2-R6 nis-fow-camera)
+                    madAnimationStart(ship, anim, MAD_ModePauseAtEnd);
                     madAnimationPause(ship, TRUE);
                 }
                 info->state = CAT_SALVAGE_LINK;

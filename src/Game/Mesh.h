@@ -435,6 +435,7 @@ void cat_meshApplyBulletHit(vector *hit, real32 radiusSquared, struct Ship *ship
                             void (*callback)(vertexinfo *, struct CatVertexState *, void *), void *data);  // 0x004b52d0
 //CAT (M2-R5 render): where a line meets a ship's mesh (Mesh.c)
 sdword cat_meshLineIntersect(struct Ship *ship, sdword level, vector *start, vector *end, vector *hit);  // 0x004b5910
+sdword cat_meshObjectNearestVertex(polygonobject *object, vector *point);                      // 0x004b4ef0 (M2-R6 nis-fow-camera)
 void meshObjectRender(polygonobject *object, materialentry *materials, sdword iColorScheme);
 void meshObjectRenderTex(polygonobject *object, materialentry *material);
 

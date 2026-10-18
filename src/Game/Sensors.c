@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "Sensors.h"
+#include "FOW.h"
 #include "KeyBindings.h"
 #include "ShipPrint.h"
 #include "InfoOverlay.h"
@@ -2318,8 +2319,9 @@ void smSensorsCloseForGood(void)
     MP_HyperSpaceFlag = FALSE;
     btgSetColourMultiplier(0, 1.0f);                        //make sure we always come out of the SM with the BTG in good order
     if (catMotionCues)
-    {
-        // CAT-TODO(M2-R6 NIS/camera): cat_mcSetMode(&cues 0x00c49400, 1) and cat_mcResetRequest(&cues) (the cat_mc* port)
+    {                                                       // CAT: the motion cues restart (smSensorsCloseForGood 0x0050ba90)
+        cat_mcSetMode(&catMotionCueState, 1);
+        cat_mcResetRequest(&catMotionCueState);
     }
 }
 
@@ -2935,8 +2937,7 @@ void smPan(char *name, featom *atom)
     decorative asteroids, the mines, the crates, the resources, the ships (points, meshes for the SM_Mesh types,
     class icons, slipgate paths), the compass (world plane, horizon ticks), the pings and the hot-key numbers. The
     fog of war hides what the player's grid has not seen: cat_selPositionHiddenByFOW (Select.c) is the exe's inlined
-    test; no grid exists before the FOW port (CAT-TODO(M2-R6 FOW) in Select.c [audit: said stage 3 FOW]), so with the mode on (the default 2)
-    every grid-tested point is hidden, as the exe would with a NULL grid.
+    test; the local player's grid (FOW.c, M2-R6 nis-fow-camera) answers it, and fowRender draws its boundary.
 =============================================================================*/
 // the exe's GL -> screen conversion rounds to the nearest pixel (the 1.5 * 2^52 constant 0x0072a458), as PiePlate.c
 #define catSmScreenX(x)         (MAIN_WindowWidth / 2 + (sdword)lrint((double)((x) * (real32)MAIN_WindowWidth * 0.5f)))
@@ -3727,8 +3728,9 @@ void cat_smViewportRenderScene(hmatrix *modelView, hmatrix *projection)
     rndTextureEnable(FALSE);
     cat_smUniverseBoundsDraw();
     if (universe.curPlayerPtr->catFOWGrid != NULL)
-    {
-        // CAT-TODO(stage 3 FOW): fowSelect(grid); fowRender(&smCamera) (0x0047f810: the explored cells)
+    {                                                       // CAT: the explored cells' boundary (fowRender 0x0047f810, M2-R6 nis-fow-camera)
+        fowSelect(universe.curPlayerPtr->catFOWGrid);
+        fowRender();
     }
     if (catSmViewDecorativeAsteroids)
     {

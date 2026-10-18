@@ -75,6 +75,7 @@ void univRotateObjRoll(SpaceObjRot *robj,real32 rot);
 
 Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built,struct Ship *creator);   // CAT: the exe's 6th argument (M2-R6 managers)
 Ship *univAddShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built);
+Ship *cat_univAddShipModules(ShipType shiptype,ShipRace shiprace,vector *shippos,struct Player *playerowner,sdword built,bool32 noSMothershipModules);   // CAT: univCreateShip's 7th argument (M2-R6 nis-fow-camera)
 Asteroid *univAddAsteroid(AsteroidType asteroidtype,vector *astpos);
 DustCloud *univAddDustCloud(DustCloudType dustcloudtype,vector *cloudpos);
 GasCloud *univAddGasCloud(GasCloudType gascloudtype,vector *cloudpos);
@@ -100,7 +101,8 @@ void MakeNewAsteroidStaticInfo(Asteroid *asteroid);
 void MakeNewDustCloudStaticInfo(DustCloud *dustcloud);
 
 void univDeleteEffect(Effect *effect);
-void univRemoveShipFromOutside(Ship *ship);
+void univRemoveShipFromOutside(Ship *ship, bool32 fowDeactivate);      // CAT: the exe's 2nd argument (M2-R6 nis-fow-camera)
+extern udword catStealthDetectionUpdates;                            // HWI-TEST (M2-R6 nis-fow-camera)
 void univDeleteWipeInsideShipOutOfExistence(Ship *ship);
 void univDeleteDeadShip(Ship *ship, sdword deathBy);// deletes ship, but lets part of it hang around for explosion
 void univWipeShipOutOfExistence(Ship *ship);                // totally deletes ship, frees memory
@@ -114,7 +116,7 @@ void univUnhideJustAboutEverything(void);
 void univHideJustAboutEverything(void);
 
 void univGetResourceStatistics(sdword *resourceValue,sdword *numHarvestableResources,sdword *numAsteroid0s);
-Resource *univFindNearestResource(Ship *ship,real32 volumeRadius,vector *volumePosition);
+Resource *univFindNearestResource(Ship *ship,real32 volumeRadius,vector *volumePosition,bool32 fogOfWar);   // CAT: the exe's 4th argument (M2-R6 nis-fow-camera)
 void cat_univClampResourceTimer(Missile *missile);     // CAT: 0x00547530 (M2-R5 dock)
 
 void univRemoveObjFromRenderList(SpaceObj *spaceobj);

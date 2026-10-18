@@ -182,7 +182,7 @@ void CarrierHouseKeep(Ship *ship)
         {
             if ((spec->doorState == 1) && cat_madAnimationFinished(ship))
             {
-                cat_madAnimationStartNumber(ship, 0);   // CAT-TODO(stage 3): the exe passes a third argument, 0
+                madAnimationStart(ship, 0, 0);   // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
                 spec->doorState = 0;
             }
             spec->doorTimer = -1.0f;
@@ -199,7 +199,7 @@ void CarrierHouseKeep(Ship *ship)
             }
             else if (universe.totaltimeelapsed >= spec->doorTimer)
             {
-                cat_madAnimationStartNumber(ship, 1);   // CAT-TODO(stage 3): the exe passes a third argument, 0
+                madAnimationStart(ship, 1, 0);   // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
                 spec->doorState = 1;
                 spec->doorTimer = -1.0f;
             }
@@ -265,7 +265,7 @@ bool32 cat_carrierDoorAnimUpdate(Ship *ship, sdword dockstate)
     }
     if ((spec->doorState == 1) && cat_madAnimationFinished(ship))
     {
-        cat_madAnimationStartNumber(ship, 0);   // CAT-TODO(stage 3): the exe passes a third argument, 0
+        madAnimationStart(ship, 0, 0);   // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
         spec->doorState = 0;
         spec->doorTimer = -1.0f;
     }

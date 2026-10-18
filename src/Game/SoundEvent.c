@@ -2513,8 +2513,8 @@ void soundEventShipRemove(Ship *ship)
     Description : CAT: the sound event each mesh animation of the first 60 ship types plays when it starts
                   (cat_madAnimSoundTableInit 0x004b64c0, from soundEventInit; table .bss 0x00c32660, 60 x 6, -1 none):
                   the doors and jacks of the Acolytes, Mimic, Leech, Ramming frigate, Hives, sCarrier, Workers and
-                  Sentinels. Its reader is madAnimationUpdate 0x004b6ce0 (cat_madAnimSoundEvent below), which the
-                  mesh-animation port brings (MeshAnim.c, CAT-TODO(M2-R6 mesh animation)).
+                  Sentinels. Its reader is madAnimationUpdate 0x004b6ce0 (cat_madAnimSoundEvent below; MeshAnim.c
+                  since M2-R6 nis-fow-camera).
 ----------------------------------------------------------------------------*/
 #define CAT_MAD_SOUND_TYPES     60
 #define CAT_MAD_SOUND_ANIMS     6

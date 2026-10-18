@@ -20,6 +20,7 @@
 #include "Memory.h"
 #include "MeshAnim.h"
 #include "NIS.h"
+#include "SoundEvent.h"     // CAT: cat_madAnimSoundEvent (the animation sounds)
 #include "SpaceObj.h"
 #include "Types.h"
 #include "UnivUpdate.h"     // CAT: cat_univMeshBindingsLinkParents
@@ -374,6 +375,11 @@ bool32 madAnimBindingUpdate(udword flags, hmatrix *startMatrix, hmatrix *matrixD
     }
 #endif
     dbgAssertOrIgnore(anim != NULL);
+    // CAT (M2-R6 nis-fow-camera): no animation, no update (madAnimBindingUpdate 0x004b6720)
+    if (anim->nCurrentAnim == MAD_NoAnimation)
+    {
+        return(FALSE);
+    }
     curve = &anim->curves[ID * 6];                          //pointer to spline curves for this object
     if (curve->currentPoint == BS_NoPoint)
     {                                                       //if this object not animating
@@ -383,11 +389,13 @@ bool32 madAnimBindingUpdate(udword flags, hmatrix *startMatrix, hmatrix *matrixD
     timeElapsed = anim->timeElapsed;
     header = anim->header;                                  //pointer to animation data
     path = &header->objPath[ID];                            //pointer to motion path
-    animation = &header->anim[anim->nCurrentAnim];          //pointer to animation header
+    // CAT: nCurrentAnim is the animation number (madstatic.animIndexes) and the mode word, not the header's
+    //      MAF_Loop, says whether it loops (0x004b6720)
+    animation = &header->anim[cat_madAnimIndexOfNumber(ship, anim->nCurrentAnim)];
 
     if (curve[0].timeElapsed + timeElapsed > animation->endTime)
     {                                                       //if we'll go past the end
-        if (bitTest(animation->flags, MAF_Loop))
+        if (bitTest(anim->flags, MAD_ModeLoop))
         {                                                   //if this is a looping animation
             timeElapsed = (real32)fmod((double)(curve[0].timeElapsed + timeElapsed - animation->endTime), (double)(animation->endTime - animation->startTime));
 
@@ -553,42 +561,106 @@ void madAnimBindingsDupe(Ship *ship, ShipStaticInfo *staticInfo,bool32 LoadingGa
             }
         }
 
+        // CAT (M2-R6 nis-fow-camera): the current animation becomes the previous one (madAnimBindingsDupe 0x004b6a10)
+        ship->madBindings->catPreviousAnim = ship->madBindings->nCurrentAnim;
         ship->madBindings->nCurrentAnim = MAD_NoAnimation;      //start off by doing no animation
         ship->madBindings->bPaused = FALSE;
     }
     // CAT: the animation bindings get their parent links too (madAnimBindingsDupe 0x004b6a10 ends with
-    //      cat_univMeshBindingsLinkParents 0x00541ae0). The rest of the Cataclysm madanim changes are M2-R4 #4's.
+    //      cat_univMeshBindingsLinkParents 0x00541ae0).
     cat_univMeshBindingsLinkParents(staticInfo, bindings);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_madAnimClear
+    Description : CAT (M2-R6 nis-fow-camera): a new ship's madanim before the bindings are made (cat_madAnimClear
+                  0x004b69d0, univCreateShip): everything 0 but the current and previous animations (none)
+----------------------------------------------------------------------------*/
+void cat_madAnimClear(madanim *anim)
+{
+    anim->header = NULL;
+    anim->totalSize = 0;
+    anim->flags = 0;
+    anim->nCurrentAnim = MAD_NoAnimation;
+    anim->catPreviousAnim = MAD_NoAnimation;
+    anim->bPaused = FALSE;
+    anim->catBindingSwapPending = 0;
+    anim->startTime = 0.0f;
+    anim->time = 0.0f;
+    anim->timeElapsed = 0.0f;
+    anim->curves = NULL;
+    anim->saveBindings = NULL;
+    anim->bindings.frequencyCounter = 0;                    // the exe's +0x30, +0x34
+    anim->bindings.postCallback = NULL;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_madAnimIndexOfNumber
+    Description : CAT: the header index of an animation number: madstatic.animIndexes when the .shp numbers its
+                  animations (animsByNumber), else the number itself (madAnimationStart, madAnimationUpdate and
+                  madAnimBindingUpdate inline it)
+----------------------------------------------------------------------------*/
+sdword cat_madAnimIndexOfNumber(Ship *ship, sdword number)
+{
+    madstatic *mstatic = ship->staticinfo->madStatic;
+
+    if (mstatic->animsByNumber)
+    {
+        // CAT-FIX: the exe reads animIndexes[number] unchecked
+        return ((number >= 0) && (number < mstatic->numAnims)) ? mstatic->animIndexes[number] : -1;
+    }
+    return number;
 }
 
 /*-----------------------------------------------------------------------------
     Name        : madAnimationStart
     Description : Start an animation playing for a given ship
     Inputs      : ship - ship to play the animation for
-                  animNumber - index of the animation
-                  rate - rate of the animation 1.0 is normal animation speed.
-                  -1 plays animation in reverse.
+                  animNumber - the animation number (CAT: mapped through madstatic.animIndexes when the .shp numbers
+                      its animations)
+                  mode - CAT: the exe's third argument, kept in madanim.flags (MAD_ModeLoop, MAD_ModeBackToPrevious;
+                      0 pauses on the last frame)
     Outputs     : sets time, rate and splinecurves up for an animation.
     Return      : void
 ----------------------------------------------------------------------------*/
-void madAnimationStart(Ship *ship, sdword animNumber)
+// CAT (M2-R6 nis-fow-camera): madAnimationStart 0x004b6b90: a playing animation becomes the previous one (a paused
+//      one is unpaused first); the bindings swap waits for the next madAnimationUpdate (+0x18); the participation
+//      bit is the animation NUMBER's (the exe takes it before the lookup); a curve with no keyframe at the start time
+//      starts past its last point (no fatal); the mode is stored last.
+void madAnimationStart(Ship *ship, sdword animNumber, sdword mode)
 {
     madanim *anim = ship->madBindings;
-    madheader *header = anim->header;
-    shipbindings *bindings = &anim->bindings;
-    sdword index, j, startPoint;
+    madheader *header;
+    sdword index, j, startPoint, animIndex;
     splinecurve *curve;
     madanimation *animation;
-    udword animBit = (1 << animNumber);
+    udword animBit = (1u << (animNumber & 31));
 
-    //if the ship has gun bindings, swap the animation bindings with the gun bindings
-    anim->saveBindings = ship->bindings;
-    ship->bindings = bindings;
+    // CAT-FIX: the exe assumes a ship with mesh animations and a valid number (its callers ensure it)
+    if ((anim == NULL) || ((animIndex = cat_madAnimIndexOfNumber(ship, animNumber)) < 0) ||
+        (animIndex >= anim->header->nAnimations))
+    {
+        return;
+    }
+    header = anim->header;
 
-    dbgAssertOrIgnore(animNumber < header->nAnimations);
+    if (anim->nCurrentAnim == MAD_NoAnimation)
+    {
+        anim->catPreviousAnim = MAD_NoAnimation;
+    }
+    else
+    {
+        if (anim->bPaused)
+        {
+            madAnimationPause(ship, FALSE);
+        }
+        anim->catPreviousAnim = anim->nCurrentAnim;
+        anim->nCurrentAnim = MAD_NoAnimation;
+    }
+    anim->catBindingSwapPending = 1;
     anim->nCurrentAnim = animNumber;
 
-    animation = &header->anim[animNumber];
+    animation = &header->anim[animIndex];
     anim->startTime = anim->time = animation->startTime;
     anim->timeElapsed = 0.0f;
 
@@ -607,20 +679,16 @@ void madAnimationStart(Ship *ship, sdword animNumber)
         {
             if (curve->times[startPoint] == anim->time)
             {
-                goto foundTime;
+                break;
             }
         }
-#if MAD_ERROR_CHECKING
-    dbgFatalf(DBG_Loc, "madAnimationStart: Object #%d ('%s') has no keyframe at frame %.0f",
-              index, header->objPath[index].name, anim->time / header->framesPerSecond);
-#endif
-foundTime:
         for (j = 0; j < 6; j++, curve++)
         {
             curve->timeElapsed = anim->time;
             curve->currentPoint = startPoint;
         }
     }
+    anim->flags = (udword)mode;
 #if MAD_VERBOSE_LEVEL >= 2
     dbgMessagef("madAnimationStart: started animation #%d('%s') on ship 0x%x", animNumber, animation->name, ship);
 #endif
@@ -634,41 +702,66 @@ foundTime:
     Outputs     :
     Return      : TRUE if the animation ends
 ----------------------------------------------------------------------------*/
+// CAT (M2-R6 nis-fow-camera): madAnimationUpdate 0x004b6ce0: the deferred binding swap first (the gun bindings are
+//      saved once); at the animation's first frame the type's animation sound (cat_madAnimSoundEvent: the first 60
+//      types, animations 0-5); at the end the mode decides: loop (bit 0), pause on the last frame and stay current
+//      (0: madAnimationPause(ship, TRUE), TRUE returned), or end as madAnimationStop (bit 1). The header's MAF_Loop
+//      is not read.
 bool32 madAnimationUpdate(Ship *ship, real32 timeElapsed)
 {
     madanim *anim = ship->madBindings;
     madheader *header = anim->header;
-    madanimation *animation = &header->anim[anim->nCurrentAnim];
+    madanimation *animation;
+    sdword number, index, sound;
 
     dbgAssertOrIgnore(anim != NULL);
-    dbgAssertOrIgnore(anim->nCurrentAnim != MAD_NoAnimation);
+
+    if (anim->catBindingSwapPending != -1)
+    {
+        anim->catBindingSwapPending = -1;
+        if (anim->saveBindings == NULL)
+        {
+            anim->saveBindings = ship->bindings;
+        }
+        ship->bindings = &anim->bindings;
+    }
+    number = anim->nCurrentAnim;
+    index = cat_madAnimIndexOfNumber(ship, number);
+    dbgAssertOrIgnore(index != MAD_NoAnimation);
+    animation = &header->anim[index];
 
     if (anim->bPaused)
     {                                                       //if paused
         return(FALSE);                                      //just chillin'
     }
 
+    if ((anim->time == animation->startTime) && ((sound = cat_madAnimSoundEvent(ship->shiptype, number)) != SOUND_NOTINITED))
+    {
+        soundEventPlay(ship, sound, NULL);
+    }
+
     if (anim->time + timeElapsed > animation->endTime)
     {                                                       //if we'll go past the end
-        if (bitTest(animation->flags, MAF_Loop))
+        if (bitTest(anim->flags, MAD_ModeLoop))
         {                                                   //if this is a looping animation
             do
             {
                 anim->time = anim->time + timeElapsed - animation->endTime + animation->startTime;
             }
             while (anim->time + timeElapsed > animation->endTime);
-            dbgAssertOrIgnore(anim->time + timeElapsed <= animation->endTime);   //wrap around to start
+            anim->timeElapsed += timeElapsed;
+            return(FALSE);
         }
-        else
-        {                                                   //else it's a non-looping animation; clamp at the end
-            madAnimationStop(ship);
+        if (!bitTest(anim->flags, MAD_ModeBackToPrevious))
+        {                                                   // CAT: pause on the last frame
+            anim->time = animation->endTime;
+            madAnimationPause(ship, TRUE);
             return(TRUE);
         }
+        madAnimationStop(ship);
+        return(TRUE);
     }
-    else
-    {
-        anim->time += timeElapsed;
-    }
+    anim->time += timeElapsed;
     anim->timeElapsed += timeElapsed;
     return(FALSE);
 }
@@ -679,56 +772,20 @@ bool32 madAnimationUpdate(Ship *ship, real32 timeElapsed)
                   the animation (cat_madAnimationFinished 0x004b7090)
     Inputs      : ship - a ship with mesh animation bindings
     Return      : TRUE when the animation is over
-    Notes       : the exe keeps the animation *number* in nCurrentAnim and finds its header entry through
-                  madstatic.animIndexes; this tree's madAnimationStart still stores the header index (MeshAnim.c,
-                  stage 3), so the header entry is nCurrentAnim itself here.
+    Notes       : the exe maps nCurrentAnim (the number) through madstatic.animIndexes unconditionally (its callers'
+                  types number their animations); CAT-FIX: cat_madAnimIndexOfNumber uses the number itself otherwise
 ----------------------------------------------------------------------------*/
 bool32 cat_madAnimationFinished(Ship *ship)
 {
     madanim *anim = ship->madBindings;
 
     if ((anim->nCurrentAnim != MAD_NoAnimation) &&
-        (anim->time < anim->header->anim[anim->nCurrentAnim].endTime) &&
+        (anim->time < anim->header->anim[cat_madAnimIndexOfNumber(ship, anim->nCurrentAnim)].endTime) &&
         (!anim->bPaused))
     {
         return FALSE;
     }
     return TRUE;
-}
-
-/*-----------------------------------------------------------------------------
-    Name        : cat_madAnimationStartNumber
-    Description : CAT (M2-R4 ships-b): starts a mesh animation by its Cataclysm animation *number*, which
-                  madAnimationStart 0x004b6b90 looks up in madstatic.animIndexes itself; this tree's madAnimationStart
-                  takes the header index, so the lookup is done here (as Carrier.c did for the sCarrier door).
-                  CAT-TODO(M2-R6 mesh animation, MeshAnim.c / MadLinkIn.c): the exe's third argument is not passed
-                  on. It is a mode word at madanim +0x08 (bit 0 loop, bit 1 go back to the previous animation; else
-                  the animation pauses on its last frame and stays current, madAnimationUpdate 0x004b6ce0), in the
-                  exe's madanim with the previous animation at +0x10 and the binding swap deferred to the next update
-                  (+0x18); with madAnimBindingsDupe 0x004b6a10, madAnimationStop 0x004b6e70 and the per-type
-                  animation sounds 0x00c32660 (the table is in SoundEvent.c since M2-R5 sound: madAnimationUpdate
-                  plays cat_madAnimSoundEvent(shiptype, number) at an animation's first frame) that is the
-                  mesh-animation port, which changes when gun bindings swap
-                  back (simulation side), so M2-R5 render left it (docs/m2-r5-render.md).
-    Inputs      : ship - a ship with mesh animation bindings, number - the animation number
-----------------------------------------------------------------------------*/
-void cat_madAnimationStartNumber(Ship *ship, sdword number)
-{
-    madstatic *mstatic = ship->staticinfo->madStatic;
-    sdword index = number;
-
-    if (mstatic == NULL)
-    {
-        return;
-    }
-    if (mstatic->animsByNumber)
-    {
-        index = (number < mstatic->numAnims) ? mstatic->animIndexes[number] : -1;
-    }
-    if ((index >= 0) && (index < mstatic->header->nAnimations))
-    {
-        madAnimationStart(ship, index);
-    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -738,14 +795,27 @@ void cat_madAnimationStartNumber(Ship *ship, sdword number)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT (M2-R6 nis-fow-camera): madAnimationStop 0x004b6e70: unpause first; the saved gun bindings come back only if
+//      they were swapped out (and are forgotten); the animation becomes the previous one
 void madAnimationStop(Ship *ship)
 {
-    dbgAssertOrIgnore(ship->madBindings != NULL);
-    ship->bindings = ship->madBindings->saveBindings;       //restore the saved gun bindings, if any
+    madanim *anim = ship->madBindings;
+
+    dbgAssertOrIgnore(anim != NULL);
+    if (anim->bPaused)
+    {
+        madAnimationPause(ship, FALSE);
+    }
+    if (anim->saveBindings != NULL)
+    {
+        ship->bindings = anim->saveBindings;                //restore the saved gun bindings
+        anim->saveBindings = NULL;
+    }
 #if MAD_VERBOSE_LEVEL >= 2
-    dbgMessagef("madAnimationStop: stopped animation #%d('%s') on ship 0x%x", ship->madBindings->nCurrentAnim, ship->madBindings->header->anim[ship->madBindings->nCurrentAnim].name, ship);
+    dbgMessagef("madAnimationStop: stopped animation #%d on ship 0x%x", anim->nCurrentAnim, ship);
 #endif
-    ship->madBindings->nCurrentAnim = MAD_NoAnimation;
+    anim->catPreviousAnim = anim->nCurrentAnim;
+    anim->nCurrentAnim = MAD_NoAnimation;
 }
 
 /*-----------------------------------------------------------------------------

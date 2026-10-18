@@ -3284,7 +3284,13 @@ void utyNewGameStart(char *name, featom *atom)
         }
 #endif
 
-    // CAT-TODO(M2-R6 NIS/camera): with the motion cues on (catMotionCues 0x008b8844) utyNewGameStart 0x005ab180 ends with cat_mcSetMode(&cues 0x00c49400, 1) and cat_mcResetRequest(&cues) (the cat_mc* port)
+    // CAT (M2-R6 nis-fow-camera): with the motion cues on (catMotionCues 0x008b8844) utyNewGameStart 0x005ab180 ends
+    //      with cat_mcSetMode(&cues 0x00c49400, 1) and cat_mcResetRequest(&cues)
+    if (catMotionCues)
+    {
+        cat_mcSetMode(&catMotionCueState, 1);
+        cat_mcResetRequest(&catMotionCueState);
+    }
 }
 
 /*-----------------------------------------------------------------------------
@@ -4680,6 +4686,15 @@ DONE_INTROS:
             catFeScreensRunSelfTest();
             feScreenStart(ghMainRegion, "Main_game_screen");
         }
+        utyGameQuit(NULL, NULL);
+        return(NULL);
+    }
+
+    // CAT: /catNisParseTest (port diagnostic, M2-R6 nis-fow-camera): every NIS with its script and every animatic
+    //      script of the install loaded and checked; then quit
+    if (catNisParseTestList[0] != '\0')
+    {
+        catNisRunParseSelfTest();
         utyGameQuit(NULL, NULL);
         return(NULL);
     }

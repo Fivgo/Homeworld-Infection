@@ -13,6 +13,7 @@
 #endif
 #include <stdlib.h>
 #include "Vector.h"
+#include "FOW.h"
 #include "FontReg.h"
 #include "utility.h"
 #include "Debug.h"
@@ -207,7 +208,8 @@ void selShutdown(void)
 ----------------------------------------------------------------------------*/
 // CAT (M2-R5 hud): the fog-of-war mode (exe 0x008b8848, default 2; cat_selPositionHiddenByFOW 0x00509400 and
 //      cat_selShipSelectableInFOW 0x0050d3a0 read it: 0 off, 1 the unexplored cells hide, 2 also the cells outside
-//      the grid). Name chosen here; the option that sets it comes with the FOW port (M2-R6)
+//      the grid). Name chosen here; the exe has no writer of it (M2-R6 nis-fow-camera: no store to 0x008b8848 in the
+//      r6 decompile), so it stays 2
 sdword catFowMode = 2;
 
 /*-----------------------------------------------------------------------------
@@ -217,17 +219,23 @@ sdword catFowMode = 2;
 ----------------------------------------------------------------------------*/
 bool32 cat_selPositionHiddenByFOW(vector *position, bool32 visited)
 {
-    (void)position;
-    (void)visited;
     if (catFowMode != 0)
     {
         if (universe.curPlayerPtr->catFOWGrid == NULL)
         {
             return TRUE;
         }
-        // CAT-TODO(M2-R6 FOW): with a grid, fowSelect(grid); outside the grid (fowIsValidW) hidden only in mode 2,
-        //      else hidden where fowGetUsageCountW (visited: fowGetVisitedW) < 1. The fow* module and the players'
-        //      grids (cat_fowCreatePlayerGrids at levelInit) come with the FOW port, so no grid exists before it
+        // CAT (M2-R6 nis-fow-camera): the player's grid selected; outside the grid hidden only in mode 2, inside
+        //      hidden where the live count (visited: the visited flag) is below 1
+        fowSelect(universe.curPlayerPtr->catFOWGrid);
+        if (!fowIsValidW(position->x, position->y, position->z))
+        {
+            return (catFowMode > 1);
+        }
+        if ((visited ? fowGetVisitedW(*position) : fowGetUsageCountW(*position)) < 1)
+        {
+            return TRUE;
+        }
     }
     return FALSE;
 }
@@ -244,12 +252,27 @@ bool32 cat_selShipSelectableInFOW(Ship *ship)
 
     if (catFowMode != 0)
     {
+        // CAT (M2-R6 nis-fow-camera): with the player's grid selected, unselectable outside the grid in mode 2 and
+        //      inside where the live count is below 1; with no grid, unselectable
         if (universe.curPlayerPtr->catFOWGrid == NULL)
         {
             selectable = FALSE;
         }
-        // CAT-TODO(M2-R6 FOW): with a grid, fowSelect(grid); outside the grid unselectable in mode 2, inside
-        //      unselectable where fowGetUsageCountW(ship position) < 1 (see cat_selPositionHiddenByFOW)
+        else
+        {
+            fowSelect(universe.curPlayerPtr->catFOWGrid);
+            if (!fowIsValidW(ship->obj.posinfo.position.x, ship->obj.posinfo.position.y, ship->obj.posinfo.position.z))
+            {
+                if (catFowMode >= 2)
+                {
+                    selectable = FALSE;
+                }
+            }
+            else if (fowGetUsageCountW(ship->obj.posinfo.position) < 1)
+            {
+                selectable = FALSE;
+            }
+        }
     }
     if (!singlePlayerGame)
     {

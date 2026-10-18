@@ -74,17 +74,10 @@ static bool32 workerBeamFactorsSet = FALSE;     // 0x00a78d40
 static real32 workerBeamMinFactor;              // 0x008c6b44
 static real32 workerBeamMaxFactor;              // 0x008c6b40
 
-// does the exe's animation number play now (this tree's madanim keeps the header index; MeshAnim.c)
+// does the exe's animation number play now (madanim.nCurrentAnim holds the number since M2-R6 nis-fow-camera)
 static bool32 workerAnimIs(Ship *ship, sdword number)
 {
-    madstatic *mstatic = ship->staticinfo->madStatic;
-    sdword index = number;
-
-    if ((number >= 0) && (mstatic != NULL) && mstatic->animsByNumber)
-    {
-        index = (number < mstatic->numAnims) ? mstatic->animIndexes[number] : -1;
-    }
-    return (ship->madBindings->nCurrentAnim == index);
+    return (ship->madBindings->nCurrentAnim == number);
 }
 
 // the exe's madanim +0x14 (set while an animation holds at its end)
@@ -493,7 +486,7 @@ static void workerJackOut(Ship *worker)
         {
             return;
         }
-        cat_madAnimationStartNumber(worker, 0);      // CAT-TODO(stage 3): the exe passes a third argument, 0
+        madAnimationStart(worker, 0, 0);      // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
     }
     spec->jackRetractTime = universe.totaltimeelapsed + wstat->jackRetractTime;
 }
@@ -562,7 +555,7 @@ static bool32 cat_workerRepairTarget(Ship *worker, SelectCommand *targets)      
             }
             else if (workerAnimIs(worker, -1) || workerAnimPaused(worker))
             {
-                cat_madAnimationStartNumber(worker, 0);  // CAT-TODO(stage 3): the exe passes a third argument, 0
+                madAnimationStart(worker, 0, 0);  // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
                 spec->jackRetractTime = universe.totaltimeelapsed + wstat->jackRetractTime;
             }
             return FALSE;
@@ -772,7 +765,7 @@ dostate:
             {
                 if (workerAnimIs(ship, -1) || workerAnimPaused(ship))
                 {
-                    cat_madAnimationStartNumber(ship, 0);   // CAT-TODO(stage 3): the exe passes a third argument, 0
+                    madAnimationStart(ship, 0, 0);   // CAT: the exe's third argument, 0 (M2-R6 nis-fow-camera)
                     ((WorkerSpec *)ship->ShipSpecifics)->jackRetractTime = universe.totaltimeelapsed + wstat->jackRetractTime;
                 }
                 return;
@@ -942,7 +935,7 @@ void WorkerHouseKeep(Ship *ship)                                                
     // fold the jack back once its time is up
     if ((spec->jackRetractTime < universe.totaltimeelapsed) && !workerAnimIs(ship, 1) && workerAnimPaused(ship))
     {
-        cat_madAnimationStartNumber(ship, 1);       // CAT-TODO(stage 3): the exe passes a third argument, 2
+        madAnimationStart(ship, 1, 2);       // CAT: the exe's third argument, 2 (M2-R6 nis-fow-camera)
         spec->jackRetractTime = WORKER_NEVER;
     }
     cat_salvageHouseKeep(ship);

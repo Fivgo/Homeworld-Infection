@@ -14,6 +14,7 @@
 #include "CommandLayer.h"
 #include "Debug.h"
 #include "FastMath.h"
+#include "FOW.h"
 #include "File.h"
 #include "Globals.h"
 #include "KAS.h"
@@ -228,6 +229,8 @@ static void scriptSetUword2CB(char *directory,char *field,void *dataToFillIn)
     ((uword *)dataToFillIn)[1] = (uword)fillin[1];
 }
 
+#define CAT_UNIVERSE_SIZE_MARGIN    5000.0f     // CAT: 0x0072a618 (M2-R6 nis-fow-camera)
+
 static void SetSMMissionTweaks(char *directory,char *filename)
 {
     // set to defaults in case .level file doesn't define them
@@ -240,6 +243,13 @@ static void SetSMMissionTweaks(char *directory,char *filename)
     SongNumber = -1;
 
     scriptSet(directory,filename,SMMissionTweaks);
+
+    // CAT (M2-R6 nis-fow-camera): the universe box grows by 5000 on each axis before the sensors parameters
+    //      (levelInit 0x004a3a10 and levelStartNext 0x004a3c80 inline this function: 0x0072a618 = 5000.0); the
+    //      fog-of-war grid covers the grown box
+    smUniverseSizeX += CAT_UNIVERSE_SIZE_MARGIN;
+    smUniverseSizeY += CAT_UNIVERSE_SIZE_MARGIN;
+    smUniverseSizeZ += CAT_UNIVERSE_SIZE_MARGIN;
 
     // later, put properly into sensors.c
     smUpdateParameters();
@@ -2333,6 +2343,69 @@ void TryToFindMothershipsForPlayers(void)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_fowCreatePlayerGrids
+    Description : CAT (M2-R6 nis-fow-camera): the local player (curPlayer, 0x00a43cae) gets a fog-of-war grid over
+                  the universe box (+-smUniverseSize), and the ships it already has light their cubes
+                  (cat_fowCreatePlayerGrids 0x004a38c0; levelInit and singlePlayerLoadNewLevel call it). The other
+                  players get none: a player without a grid sees every ship that is not fully cloaked and undetected
+                  (cat_fowCanPlayerSeeShip). If the grid cannot be made, the grids made so far (the local player's,
+                  and in the exe's loop any computer player's) are destroyed again.
+    Return      : FALSE if a grid could not be made
+----------------------------------------------------------------------------*/
+bool32 cat_fowCreatePlayerGrids(void)
+{
+    void *previous = fowSelect(NULL);
+    vector boxMin, boxMax;
+    sdword index, back;
+    Node *node;
+    Ship *ship;
+
+    for (index = 0; index < universe.numPlayers; index++)
+    {
+        if (index == curPlayer)
+        {
+            // CAT-FIX: the exe makes a new grid without freeing the one a previous level made (singlePlayerLoadNewLevel
+            //      0x0051ac80 calls this again mid-game); the old one is destroyed first here
+            if (universe.players[index].catFOWGrid != NULL)
+            {
+                fowDestroy(universe.players[index].catFOWGrid);
+                universe.players[index].catFOWGrid = NULL;
+            }
+            boxMin.x = -smUniverseSizeX;
+            boxMax.x = smUniverseSizeX;
+            boxMin.y = -smUniverseSizeY;
+            boxMax.y = smUniverseSizeY;
+            boxMin.z = -smUniverseSizeZ;
+            boxMax.z = smUniverseSizeZ;
+            universe.players[index].catFOWGrid = fowCreate(&boxMin, &boxMax);
+            if (universe.players[index].catFOWGrid == NULL)
+            {
+                for (back = index - 1; back >= 0; back--)
+                {
+                    if ((back == curPlayer) || (universe.players[back].aiPlayer != NULL))
+                    {
+                        fowDestroy(universe.players[back].catFOWGrid);
+                        universe.players[back].catFOWGrid = NULL;
+                    }
+                }
+                fowSelect(previous);
+                return FALSE;
+            }
+        }
+    }
+    fowSelect(universe.curPlayerPtr->catFOWGrid);
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if (ship->playerowner == universe.curPlayerPtr)
+        {
+            cat_univShipFOWActivate(ship);
+        }
+    }
+    return TRUE;
+}
+
 void levelInit(char *directory,char *pickedMission)
 {
     udword i;
@@ -2352,6 +2425,7 @@ void levelInit(char *directory,char *pickedMission)
         singlePlayerSetMissionAttributes(directory,pickedMission);
     }
     SetSMMissionTweaks(directory,pickedMission);
+    cat_fowCreatePlayerGrids();                             // CAT: the local player's fog-of-war grid (levelInit 0x004a3a10)
     scriptSetStruct(directory,pickedMission,MissionScriptTable,NULL);
     TryToFindMothershipsForPlayers();
 

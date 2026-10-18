@@ -280,5 +280,6 @@ extern real32 HYPERSPACEGATE_WAYPOINTDIST;
 extern real32 SINGLEPLAYER_MISSION14_SPHERE_OVERRIDE;
 
 bool32 cat_spWarpToLevelEnabled(void);      // CAT: 0x0051bd90 (M2-R4 rest-oracle)
+void cat_spGetHyperspaceModuleTypes(sdword *count, ShipType *types);     // CAT: 0x0051c0c0 (M2-R6 nis-fow-camera)
 
 #endif

@@ -413,6 +413,7 @@ sdword cat_shipStealthTargetState(Ship *ship, struct Player *player);   // CAT: 
 bool32 cat_shipIsAcolyte(Ship *ship);
 void cat_shipStealthDetectedSet(Ship *ship, sdword playerIndex, bool32 detected, bool32 silent);
 void cat_shipStealthInit(Ship *ship);                                // CAT: 0x0053fce0 (M2-R4 ships-b)
+void cat_shipStealthDetectionUpdate(Ship *ship);                    // CAT: 0x0053fd90 (M2-R6 nis-fow-camera)
 bool32 cat_shipIsMimicking(Ship *ship);
 ShipType cat_mimicGetApparentShipType(Ship *ship);
 real32 cat_mimicGetSelectRadius(Ship *ship);

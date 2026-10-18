@@ -94,6 +94,8 @@ typedef struct
 #define SAVE_CAT_MISC9                  0x00009000  // cat_saveGameMiscChunks 0x005ba170: 0x24 bytes from 0x00a762e8
 #define SAVE_CAT_MISCA                  0x0000a000  //   0x24 bytes from 0x00a77ab0
 #define SAVE_CAT_MISCB                  0x0000b000  //   0x17A0 bytes from 0x00a76310
+#define SAVE_CAT_FOWGRID                0x00002000  // cat_saveSavePlayerFOW 0x004ff6b0: the local player's CatFOWGrid (0x20 bytes, ILP32)
+#define SAVE_CAT_FOWCELLS               0x00003000  //   then its cells (cat_fowGridSize bytes)
 
 // contents sizes in the exe's saves
 #define SAVE_CAT32_STATEBLOCK           0x9C        // BASIC_STRUCTURE (sub-type 0) right after the pre-game block: 39 dwords from 0x00c32c00
@@ -131,6 +133,8 @@ _Static_assert(sizeof(ClampInfo) == SAVE_CAT32_CLAMPINFO, "ClampInfo chunk is 0x
     dbgAssertOrIgnore(c);                       \
     dbgAssertOrIgnore((c)->type == (t));
 
+void cat_saveSavePlayerFOW(struct Player *player);     // CAT: 0x004ff6b0 (M2-R6 nis-fow-camera)
+void cat_saveLoadPlayerFOW(struct Player *player);     // CAT: 0x004ff7e0
 bool32 SaveGame(char *filename);
 void LoadGame(char *filename);
 void PreLoadGame(char *filename);

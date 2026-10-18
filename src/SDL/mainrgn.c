@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "mainrgn.h"
+#include "FOW.h"
 
 #include <float.h>
 #include <math.h>
@@ -576,13 +577,12 @@ Ship *cat_uiFindNearestSpecialTarget(Ship *ship, sdword kind)
     real32 distance, nearestDistance = 1e21f;
     bool32 take;
 
-    if ((universe.curPlayerPtr->catFOWGrid == NULL) && FALSE)
+    // CAT: the exe returns NULL when the player has no fog-of-war grid (Player+0x6500; cat_fowCreatePlayerGrids gives
+    //      the local player one at levelInit) [M2-R6 nis-fow-camera]
+    if (universe.curPlayerPtr->catFOWGrid == NULL)
     {
         return NULL;
     }
-    // CAT: the exe returns NULL when the player has no fog-of-war grid (Player+0x6500); every player has one there
-    //      (cat_fowCreatePlayerGrids at levelInit). CAT-TODO(M2-R6 FOW): until the FOW port creates them the test is
-    //      left to cat_selPositionHiddenByFOW below
     for (node = universe.ShipList.head; node != NULL; node = node->next)
     {
         other = (Ship *)listGetStructOfNode(node);
@@ -1812,13 +1812,14 @@ void cat_mrEnterSlipgate(void)
     vecDivideByScalar(centre, (real32)selSelected.numShips, distance);
     if (!singlePlayerGame || (singlePlayerGameInfo.currentMission != 15))
     {
-        // CAT-TODO(M2-R6 FOW): the exe selects the player's grid (fowSelect) and takes the slipgates whose cell was
-        //      visited (fowGetVisitedW == 1); until the FOW port that is cat_selPositionHiddenByFOW's answer
+        // CAT (M2-R6 nis-fow-camera): the player's grid selected (fowSelect, 0x00566674), the slipgates whose cell was
+        //      visited (fowGetVisitedW == 1; no grid: none)
+        fowSelect(universe.curPlayerPtr->catFOWGrid);
         for (node = universe.ShipList.head; node != NULL; node = node->next)
         {
             ship = (Ship *)listGetStructOfNode(node);
             if (bitTest(ship->staticinfo->catTypeFlags, 0x4000) &&
-                !cat_selPositionHiddenByFOW(&ship->obj.posinfo.position, TRUE))
+                (fowGetVisitedW(ship->obj.posinfo.position) == 1))
             {
                 distance = cat_vecDistance(&centre, &ship->obj.posinfo.position);
                 if (distance < nearestDistance)

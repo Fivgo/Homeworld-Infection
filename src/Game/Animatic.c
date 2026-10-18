@@ -44,6 +44,7 @@ static nisheader* animScriptHeader = NULL;
 static sdword animCurrentEvent;
 
 static real32 g_timeElapsed;
+static real32 g_realTimeElapsed;    // CAT: universe.realtimeelapsed while an animatic plays (0x008df930)
 
 real32 animPreviousSFXVolume, animPreviousSpeechVolume, animPreviousMusicVolume;
 
@@ -339,7 +340,9 @@ void animAviDecode(sdword frame)
 
     header = animScriptHeader;
 
-    framerate = 15.0f;
+    // CAT: the movie's own frame rate (the exe's decode callback 0x004217d0 divides by Bink's rate 0x00a70f1c;
+    //      Cataclysm's animatics are 30 fps), and the real time follows the total time (0x00b62ac4)
+    framerate = aviFrameRate;
     timeElapsed = (real32)frame / framerate;
 
     event = &animScriptHeader->events[animCurrentEvent];
@@ -353,6 +356,7 @@ void animAviDecode(sdword frame)
     }
 
     universe.totaltimeelapsed = timeElapsed;
+    universe.realtimeelapsed = timeElapsed;
     subTitlesUpdate();
 }
 
@@ -366,6 +370,7 @@ void animAviDecode(sdword frame)
 void animAviEnd(void)
 {
     universe.totaltimeelapsed = g_timeElapsed;
+    universe.realtimeelapsed = g_realTimeElapsed;           // CAT: restored too (animBinkPlay 0x00421860)
     soundEventStopMusic(0.0f);
 
     mouseCursorShow();
@@ -620,6 +625,12 @@ nisheader* animLoadNISScript(char* scriptname)
 
 
 
+// CAT (M2-R6 nis-fow-camera): HWI-TEST hook, not in the exe: the NIS parse self-test loads every animatic script
+void *animLoadNISScriptForTest(char *scriptname)
+{
+    return animLoadNISScript(scriptname);
+}
+
 /*-----------------------------------------------------------------------------
     Name        : animStartup
     Description : reads animatics.lst from the Movies directory
@@ -850,7 +861,9 @@ bool32 animAviPlay(sdword a, sdword b)
     mouseCursorHide();
 
     g_timeElapsed = universe.totaltimeelapsed;
-    universe.totaltimeelapsed = 0.0f;
+    g_realTimeElapsed = universe.realtimeelapsed;          // CAT: the real time is saved and zeroed too
+    universe.totaltimeelapsed = 0.0f;                       //      (animBinkPlay 0x00421860)
+    universe.realtimeelapsed = 0.0f;
 
     soundEventGetVolume(&animPreviousSFXVolume, &animPreviousSpeechVolume, &animPreviousMusicVolume);
     rval = aviPlay(filename);

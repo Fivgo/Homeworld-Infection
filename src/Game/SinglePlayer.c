@@ -1,4 +1,5 @@
 #include "SinglePlayer.h"
+#include "FOW.h"
 
 #include <ctype.h>
 #include <math.h>
@@ -1172,7 +1173,7 @@ void InstantlyHyperspaceOut(Ship *ship,Ship *mothership)
     ship->shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_GONE;
     if ((ship->header.flags & SOF_Hyperspace) == 0)        // extra safety for hyperspacing ships already hyperspacing
     {
-        univRemoveShipFromOutside(ship);
+        univRemoveShipFromOutside(ship, FALSE);             // CAT: the exe's 0: the FOW cube stays (the inlined copies 0x005189bf, 0x00518be9, 0x00519ce9, 0x0051ade4, 0x0051bd17)
         // ... into the hyperspace ether
         AddShipToHyperspace(ship);
     }
@@ -1285,7 +1286,7 @@ bool32 UpdateHyperspacingShip(Ship *ship,bool32 midLevel)
         shipSinglePlayerGameInfo->shipHyperspaceState = SHIPHYPERSPACE_GONE;
         if ((ship->header.flags & SOF_Hyperspace) == 0)        // extra safety for hyperspacing ships already hyperspacing
         {
-            univRemoveShipFromOutside(ship);
+            univRemoveShipFromOutside(ship, TRUE);          // CAT: the cube goes (UpdateHyperspacingShip 0x00517e90)
 
             if ((!midLevel) && (ship->playerowner != universe.curPlayerPtr))
             {
@@ -1433,6 +1434,7 @@ void PutShipOutsideAt(Ship *ship,vector *createat,vector *createvelocity,real32 
     listAddNode(&universe.ImpactableList,&(ship->impactable.impactablelink),ship);
     bitClear(ship->header.flags, SOF_Hide);
     ship->obj.posinfo.position = *createat;
+    cat_univShipFOWActivate(ship);                          // CAT: the cube comes back (PutShipOutsideAt 0x005180a0, M2-R6 nis-fow-camera)
     ship->obj.posinfo.velocity = *createvelocity;
     ship->rotatable.rotinfo.coordsys = defaultshipmatrix;
 
@@ -1445,6 +1447,33 @@ void PutShipOutsideAt(Ship *ship,vector *createat,vector *createvelocity,real32 
         if (ship->trail[i])
         {
             trailZeroLength(ship->trail[i]);
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_spGetHyperspaceModuleTypes
+    Description : CAT (M2-R6 nis-fow-camera): the types of the module ships in the hyperspace ether that are clamped
+                  to an sMothership (cat_spGetHyperspaceModuleTypes 0x0051c0c0; the NIS start, nisNewObjectCreate
+                  0x004cccb0, gives an NIS sMothership the modules the player's mothership took into hyperspace)
+    Inputs      : types - room for every ship in the ether (the exe's caller passes 30)
+    Outputs     : count - number of types written
+----------------------------------------------------------------------------*/
+void cat_spGetHyperspaceModuleTypes(sdword *count, ShipType *types)
+{
+    Node *node;
+    Ship *ship;
+    SpaceObjRotImpTarg *host;
+
+    *count = 0;
+    for (node = singlePlayerGameInfo.ShipsInHyperspace.head; node != NULL; node = node->next)
+    {
+        ship = ((InsideShip *)listGetStructOfNode(node))->ship;
+        if ((ship->guidance.clampInfo != NULL) && ((host = ship->guidance.clampInfo->host) != NULL) &&
+            (host->header.objtype == OBJ_ShipType) && (((Ship *)host)->shiptype == sMothership))
+        {
+            types[*count] = ship->shiptype;
+            (*count)++;
         }
     }
 }
@@ -2834,6 +2863,9 @@ abortload:
     }
 
     bobInitProperties();
+    // CAT (M2-R6 nis-fow-camera): the local player's fog-of-war grid is made again for the new level
+    //      (singlePlayerLoadNewLevel 0x0051ac80 at 0x0051b1f4, after bobResetProperties)
+    cat_fowCreatePlayerGrids();
     // CAT (M2-R4 combat): the blast lists start empty on a new level (singlePlayerLoadNewLevel 0x0051a.., after
     //      bobResetProperties and cat_fowCreatePlayerGrids; the rest of Cataclysm's next-level flow is stage 6's)
     cat_blastInit();

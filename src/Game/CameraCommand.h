@@ -69,6 +69,47 @@ typedef struct
     udword ccMode;
     CameraStackEntry *dontFocusOnMe;
 } CameraCommand;
+#if defined(__i386__) || defined(_M_IX86)
+// CAT: with the exe's 0x5C-byte Camera (Camera.h): CameraStackEntry 0x78 (ccInit 0x0042db30 allocates 0x78) and
+//      CameraCommand 0x94 (ccMode at +0x8C, dontFocusOnMe at +0x90)
+_Static_assert(sizeof(CameraStackEntry) == 0x78, "CameraStackEntry is 0x78 bytes in cataclysm.exe");
+_Static_assert(sizeof(CameraCommand) == 0x94, "CameraCommand is 0x94 bytes in cataclysm.exe");
+_Static_assert(offsetof(CameraCommand, ccMode) == 0x8C, "CameraCommand.ccMode at +0x8C");
+#endif
+
+// CAT (M2-R6 nis-fow-camera): the camera's motion cues, Cataclysm's drifting space dust (the global 0x00c49400, drawn
+//      by cat_mcRender 0x0042c630 from the main view when catMotionCues 0x008b8844 is on). Mode 0: 1500 points in
+//      a +-15000 box drawn as screen-space streaks (cat_mcDrawCues); mode 1 (every caller sets it): 100 points in a
+//      +-4500 box drawn as world-space streaks along the focus's mean velocity. Layout from the exe's offsets; names
+//      chosen here.
+#define CAT_MC_MAX_POINTS   1500
+typedef struct
+{
+    vector position;                    // +0x00 world position (wrapped into the box around the eye)
+    vector screen;                      // +0x0C transformed position (mode 0)
+} CatMotionCuePoint;
+typedef struct
+{
+    real32 boxMin[3];                   // +0x00
+    real32 boxMax[3];                   // +0x0C
+    vector lookatpoint;                 // +0x18 the camera's look-at point at the last update
+    vector velocity;                    // +0x24 the smoothed streak vector (EvalCubic)
+    real32 speed;                       // +0x30 its length
+    hmatrix transform;                  // +0x34 rndProjectionMatrix * rndCameraMatrix
+    sdword mode;                        // +0x74 0 or 1 (cat_mcSetMode)
+    bool32 updated;                     // +0x78 cat_mcNormalScalar ran this frame
+    bool8 resetRequest;                 // +0x7C cat_mcResetRequest
+    CatMotionCuePoint points[CAT_MC_MAX_POINTS];   // +0x80
+    sdword numPoints;                   // +0x8D20
+    real32 fade;                        // +0x8D24 1.0 after cat_mcSetMode
+} CatMotionCues;
+#if defined(__i386__) || defined(_M_IX86)
+_Static_assert(offsetof(CatMotionCues, mode) == 0x74, "CatMotionCues.mode at +0x74 (cat_mcSetMode 0x0042c090)");
+_Static_assert(offsetof(CatMotionCues, points) == 0x80, "CatMotionCues points at +0x80 (cat_mcpReset 0x0042c0c0)");
+_Static_assert(offsetof(CatMotionCues, numPoints) == 0x8D20, "CatMotionCues.numPoints at +0x8D20");
+_Static_assert(offsetof(CatMotionCues, fade) == 0x8D24, "CatMotionCues.fade at +0x8D24");
+#endif
+extern CatMotionCues catMotionCueState;                                         // CAT: 0x00c49400
 
 /*=============================================================================
     Macros:
@@ -144,5 +185,20 @@ void ccGetShipCollCenter(Ship *ship, vector *pos, real32 *rad);
 sdword ccFocusCullRadiusMean(FocusCommand *selection, real32 radiusSqr, vector *centre);
 sdword ccFocusCullRadiusGeneral(FocusCommand *out, FocusCommand *in, real32 radiusSqr, vector *centre);
 bool32 cat_ccShipIsLegalToFocusOn(Ship *ship);                                  // CAT: 0x0042cd40 (M2-R6)
+
+// CAT (M2-R6 nis-fow-camera): the pilot's chase view, the scripted focus / zoom calls and the motion cues
+void cat_ccChaseCamFromShip(Camera *camera, Ship *ship);                        // 0x0042cc80
+void cat_ccFocusCloseScripted(CameraCommand *cameracommand, FocusCommand *focuscom);   // 0x0042e140
+void cat_ccFocusScripted(CameraCommand *cameracommand, FocusCommand *focuscom);        // 0x0042e160
+void cat_ccSetDistanceScripted(CameraCommand *cameracommand, real32 distance);         // 0x0042e180
+void cat_ccZoomScripted(CameraCommand *cameracommand, real32 fraction);                // 0x0042e1a0
+void cat_ccSetDistance(CameraCommand *cameracommand, real32 distance);                 // 0x0042e210
+void cat_mcSetMode(CatMotionCues *cues, sdword mode);                                  // 0x0042c090
+void cat_mcResetRequest(CatMotionCues *cues);                                          // 0x0042c0b0
+void cat_mcpReset(Camera *camera, CatMotionCues *cues);                                // 0x0042c0c0
+bool32 cat_mcFocusAverageVelocity(vector *velocity);                                   // 0x0042c340
+void cat_mcNormalScalar(Camera *camera, CatMotionCues *cues);                          // 0x0042c450
+void cat_mcRender(Camera *camera, CatMotionCues *cues);                                // 0x0042c630
+void cat_mcDrawCues(CatMotionCues *cues);                                              // 0x0042ca10
 
 #endif

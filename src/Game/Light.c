@@ -462,3 +462,59 @@ void lightGetPosition(sdword lightIndex, hvector* position)
     position->z = linfo->position[2];
     position->w = linfo->position[3];
 }
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_lightSetPosition / cat_lightSetAmbient / cat_lightSetDiffuse / cat_lightSetGlobalAmbient
+    Description : CAT (M2-R6 nis-fow-camera): set one property of light 0 (the current light, if any) or light 1
+                  (cat_lightSetPosition 0x0055f2a0: the four position words; cat_lightSetAmbient 0x0055f2e0 /
+                  cat_lightSetDiffuse 0x0055f320: three components and alpha 1; cat_lightSetGlobalAmbient
+                  0x0055f360: the global ambient, alpha 1). Used by the NIS (nisUpdate 0x004ce780 moves the lights
+                  with the nisLightSource ships; the lightAmbient / lightDiffuse / globalAmbient events)
+    Inputs      : lightIndex - 0 or 1; position (4 words) or rgb (3 components)
+----------------------------------------------------------------------------*/
+void cat_lightSetPosition(sdword lightIndex, real32 *position)
+{
+    lightinfo *light = (lightIndex != 0) ? &currentLight1 : currentLight;
+
+    if (light != NULL)
+    {
+        light->position[0] = position[0];
+        light->position[1] = position[1];
+        light->position[2] = position[2];
+        light->position[3] = position[3];
+    }
+}
+
+void cat_lightSetAmbient(sdword lightIndex, real32 *rgb)
+{
+    lightinfo *light = (lightIndex != 0) ? &currentLight1 : currentLight;
+
+    if (light != NULL)
+    {
+        light->ambient[0] = rgb[0];
+        light->ambient[1] = rgb[1];
+        light->ambient[2] = rgb[2];
+        light->ambient[3] = 1.0f;
+    }
+}
+
+void cat_lightSetDiffuse(sdword lightIndex, real32 *rgb)
+{
+    lightinfo *light = (lightIndex != 0) ? &currentLight1 : currentLight;
+
+    if (light != NULL)
+    {
+        light->diffuse[0] = rgb[0];
+        light->diffuse[1] = rgb[1];
+        light->diffuse[2] = rgb[2];
+        light->diffuse[3] = 1.0f;
+    }
+}
+
+void cat_lightSetGlobalAmbient(real32 *rgb)
+{
+    lightAmbient[0] = rgb[0];
+    lightAmbient[1] = rgb[1];
+    lightAmbient[2] = rgb[2];
+    lightAmbient[3] = 1.0f;
+}

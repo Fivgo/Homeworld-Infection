@@ -203,6 +203,7 @@ typedef struct CatRndCounts                 // port diagnostic (the render self-
 {
     udword frames, listed, sorted, ships, objects, clouds, bullets, effects, trails;
     udword lensFlares, lensFlareElements, fogLayers, fieldSegments, bolts, blasts, edgeEffects, warped;
+    udword droids;                          // M2-R6 nis-fow-camera: repair droids drawn (cat_droidRenderArray)
 } CatRndCounts;
 extern CatRndCounts catRndCounts;
 struct Ship;

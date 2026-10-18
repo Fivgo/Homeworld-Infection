@@ -6,6 +6,7 @@
 // =============================================================================
 
 #include "Alliance.h"
+#include "FOW.h"
 #include "ShipSelect.h"     // CAT: cat_shipIsCrystal
 
 #include "CommandDefs.h"
@@ -248,14 +249,17 @@ void allianceSetAlliance(udword AllianceType, uword playerone, uword playertwo)
     Ship  *ship;
 
     // CAT: every ship with a fog-of-war grid comes off the grid first and goes back on at the end (allianceSetAlliance
-    //      0x00420a20: cat_playerGetFOWGrid, cat_shipAffectsFOW, cat_univShipFOWDeactivate/Activate). CAT-TODO(stage 3
-    //      FOW): the grid is NULL for every player until stage 3 creates it, so the loop bodies never run
+    //      0x00420a20: cat_playerGetFOWGrid, cat_shipAffectsFOW, cat_univShipFOWDeactivate/Activate; M2-R6
+    //      nis-fow-camera)
     for (node = universe.ShipList.head; node != NULL; node = node->next)
     {
         ship = (Ship *)listGetStructOfNode(node);
         if (cat_playerGetFOWGrid(ship->playerowner) != NULL)
         {
-            // CAT-TODO(stage 3 FOW): if (cat_shipAffectsFOW(ship)) cat_univShipFOWDeactivate(ship);
+            if (cat_shipAffectsFOW(ship))
+            {
+                cat_univShipFOWDeactivate(ship);
+            }
         }
     }
     universe.collUpdateAllBlobs = TRUE;                     //alliances mean the blobs have to be re-created from scratch
@@ -434,7 +438,10 @@ void allianceSetAlliance(udword AllianceType, uword playerone, uword playertwo)
         ship = (Ship *)listGetStructOfNode(node);
         if (cat_playerGetFOWGrid(ship->playerowner) != NULL)
         {
-            // CAT-TODO(stage 3 FOW): if (cat_shipAffectsFOW(ship)) cat_univShipFOWActivate(ship);
+            if (cat_shipAffectsFOW(ship))
+            {
+                cat_univShipFOWActivate(ship);
+            }
         }
     }
 }
