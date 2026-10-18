@@ -772,7 +772,8 @@ void missileShoot(Ship *ship,Gun *gun,SpaceObjRotImpTarg *target)
     }
 
     missile->missileID.missileNumber = universe.missileNumber;
-    if (multiPlayerGame) IDToPtrTableAdd(&MissileIDToPtr,universe.missileNumber,(SpaceObj *)missile);
+    // CAT: also in a recorded multiplayer game (missileShoot 0x0048aac0: multiPlayerGame || (0x00a7519c && 0x00a75190))
+    if (catNetworkGame()) IDToPtrTableAdd(&MissileIDToPtr,universe.missileNumber,(SpaceObj *)missile);
     universe.missileNumber++;
 
     // now fill in missile->obj.posinfo

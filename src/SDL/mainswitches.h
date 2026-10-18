@@ -48,7 +48,13 @@ extern bool32 recordPackets;
 extern bool32 playPackets;
 extern bool32 recordplayPacketsInGame;
 extern bool32 recordFakeSendPackets;
-#define MAX_RECORDPACKETFILENAME_STRLEN 50
+extern bool32 recordedGameActive;           // CAT: 0x00a7519c (M2-R6 oracle-mode-a; main.c)
+extern bool32 recordedGameMultiplayer;      // CAT: 0x00a75190
+extern bool32 recordedGamePlayback;         // CAT: 0x00a751a0
+// CAT: the exe's "network game" test of the simulation: a multiplayer game, or a recorded multiplayer game being
+//      recorded or played back (multiPlayerGame || (0x00a7519c && 0x00a75190); univCreateShip 0x00542320 ff.)
+#define catNetworkGame()    (multiPlayerGame || (recordedGameActive && recordedGameMultiplayer))
+#define MAX_RECORDPACKETFILENAME_STRLEN 64  // CAT: the exe's two name buffers are 0x40 bytes (0x00b39f00, 0x00b39f40)
 extern char recordPacketFileName[MAX_RECORDPACKETFILENAME_STRLEN];
 extern char recordPacketSaveFileName[MAX_RECORDPACKETFILENAME_STRLEN];
 

@@ -515,6 +515,11 @@ void netReceivedSyncFromNonCaptain(void *checksums,udword frame,udword playerInd
 
 #endif
 
+// CAT (M2-R6 oracle-mode-a): the 4th word of every sync checksum (0x00ab7658), 0 outside a multiplayer game (also in the
+//      oracle01 recording: its packets' headers carry 0, NetSyncChecksums.catExtra)
+// CAT-TODO(stage 5 LAN): gameStart 0x005a9290 sets 0x00ab7658 in a multiplayer game; this tree leaves it 0 until LAN play is ported
+udword catSyncExtra = 0;
+
 void recPackInGameStartCB(char *filename)
 {
     if (recordPackets)
@@ -826,6 +831,7 @@ void netcheckFillInChecksum(HWPacketHeader *packet)
     if (lastchecksumCalculated < 0)
     {
         packet->checksums.randcheck = 0;        // indicates all checksums should be ignored
+        packet->checksums.catExtra = catSyncExtra;  // CAT: netcheckFillInChecksum 0x004cc2f0
         return;
     }
 
@@ -922,6 +928,7 @@ void netcheckShow(HWPacketHeader *packet)
     netsyncchecksums[storehere].randcheck = randcheck;
     netsyncchecksums[storehere].univcheck = univcheck;
     netsyncchecksums[storehere].blobcheck = blobcheck;
+    netsyncchecksums[storehere].catExtra = catSyncExtra;   // CAT: 0x00ab7658 (netcheckShow 0x004cc400)
 
     netsyncchecksumsValid[storehere] = CHECKSUMVALID_VALID;
     lastchecksumCalculated = (sdword)storehere;

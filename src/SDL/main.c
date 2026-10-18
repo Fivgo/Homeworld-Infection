@@ -244,6 +244,16 @@ bool32 recordPackets = FALSE;
 bool32 playPackets = FALSE;
 bool32 recordplayPacketsInGame = FALSE;
 bool32 recordFakeSendPackets = FALSE;
+// CAT (M2-R6 oracle-mode-a): the recorded-game state words of Cataclysm (cleared by globalsInit 0x0048a060):
+//      0x00a7519c is set while a game is recorded (recPackInGameStartCBSafeToStart 0x004cbbb0) or played back
+//      (LoadRecordedGame 0x00487cf0); 0x00a75190 then says the recording is a multiplayer one (set by the record start
+//      in a multiplayer game, and by the playback when a player's name is not the computer's "<name> <n>"), and the
+//      simulation's network paths test both (univCreateShip, univAddMissile, missileShoot, processCollectResource,
+//      processAttackToDo, the construction manager); 0x00a751a0 is set by the playback only (CheckPlayerWin
+//      0x005485e0 then decides no winner). Names chosen here.
+bool32 recordedGameActive = FALSE;          // 0x00a7519c
+bool32 recordedGameMultiplayer = FALSE;     // 0x00a75190
+bool32 recordedGamePlayback = FALSE;        // 0x00a751a0
 char recordPacketFileName[MAX_RECORDPACKETFILENAME_STRLEN];
 char recordPacketSaveFileName[MAX_RECORDPACKETFILENAME_STRLEN];
 
@@ -521,6 +531,17 @@ bool32 OracleSelfTestPerturbSet(char *string)
 bool32 OracleMissionSet(char *string)
 {
     oracleSetMission(string);
+    return TRUE;
+}
+
+bool32 OracleReplaySet(char *string)
+{
+    oracleSetReplay(string);
+    // HWI (M2-R6 oracle-mode-a): a replay is a headless data run with no sound and no speech (/noSound /noSpeech exist
+    //      only with SE_DEBUG): the mixer thread ends an ambience sound on the wall clock and SoundEvent.c then draws
+    //      RANDOM_SOUND_GAME_THREAD (stream 11), which made the stream's rng_all differ run to run from about tick 476
+    enableSFX = FALSE;
+    enableSpeech = FALSE;
     return TRUE;
 }
 #endif
@@ -1126,6 +1147,7 @@ commandoption commandOptions[] =
     entryFnParam("/oracleSelfTest", OracleSelfTestSet, " <ticks> - run the oracle's scripted lockstep start for <ticks> universe ticks, then exit."),
     entryFnParam("/oracleSelfTestPerturb", OracleSelfTestPerturbSet, " <tick> - oracle self-test or mission run: draw one extra gamerand() at <tick>."),
     entryFnParam("/oracleMission",  OracleMissionSet, " <ticks> - headless oracle run: start single player at once, no animatic, one universe tick per frame, exit after <ticks> ticks."),
+    entryFnParam("/oracleReplay",   OracleReplaySet, " <name> - oracle mode A: replay SavedGames/RecordedGames/<name> (+ .pkts) as LoadRecordedGame does, one universe tick per frame, exit at the end of the packets."),
 #endif
 
     END_COMMAND_OPTION,

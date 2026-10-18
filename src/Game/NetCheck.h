@@ -53,6 +53,7 @@ ubyte *recPackPlayGetNextPacket(udword *sizeofPacket);
 void recPackPlayInit(void);
 void recPackPlayClose(void);
 void recPackPlayInGameInit(void);
+extern udword catSyncExtra;                 // CAT: 0x00ab7658 (M2-R6 oracle-mode-a)
 void recPackInGameStartCB(char *filename);
 void recPackInGameStartCBSafeToStart(void);
 void recPackInGameStopCB(void);

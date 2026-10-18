@@ -876,10 +876,58 @@ void gpSaveGame(char *name, featom *atom)
     GeneralMessageBox(strGetString(strErrorInSaveGameName),strGetString(strAtLeast2Chars));
 }
 
-void gpLoadTheRecordedGame(char *name, featom *atom)
+/*-----------------------------------------------------------------------------
+    Name        : gpLoadRecordedGameGivenName
+    Description : CAT (M2-R6 oracle-mode-a): the body of the front end's "LoadRecordedGame" callback
+                  (LoadRecordedGame, code at 0x00487cf0, not a Ghidra function: read from the disassembly) once the
+                  names are set (recordPacketSaveFileName = the saved game, recordPacketFileName = it + ".pkts"):
+                  VerifySaveFile 0x004fdf40 (a message box on failure), feScreenDisappear 0x00475200,
+                  recPackPlayInGameInit 0x004cc010, utyLoadMultiPlayerGameGivenFilename 0x005aaa50, then the
+                  recorded-game words: 0x00a7519c and 0x00a751a0 set, 0x00a75190 cleared, or set when one of players
+                  1 .. numPlayers-1 is not named "<computer name> <n>" (format 0x008812d8 "%s %i" against the
+                  0x12-byte names from 0x00c39652). Also used by the oracle's replay mode (OracleDump.c).
+    Inputs      :
+    Outputs     :
+    Return      : TRUE if the game was loaded
+----------------------------------------------------------------------------*/
+bool32 gpLoadRecordedGameGivenName(void)
 {
     sdword verifysavename;
+    sdword i;
+    char computerName[MAX_PERSONAL_NAME_LEN + 32];
 
+    if ((verifysavename = VerifySaveFile(recordPacketSaveFileName)) != VERIFYSAVEFILE_OK)
+    {
+        if (verifysavename == VERIFYSAVEFILE_BADVERSION)
+            GeneralMessageBox(strGetString(strErrorInvalidSaveGameFileVersion),NULL);
+        else
+            GeneralMessageBox(strGetString(strErrorInvalidSaveGameFile),NULL);
+        return FALSE;
+    }
+
+    feScreenDisappear(NULL, NULL);
+
+    recPackPlayInGameInit();                    // CAT: recPackPlayInGameInit 0x004cc010 (NetCheck.c)
+
+    utyLoadMultiPlayerGameGivenFilename(recordPacketSaveFileName);  // CAT: 0x005aaa50
+
+    // CAT: the recorded-game words (LoadRecordedGame 0x00487e4d .. 0x00487ede)
+    recordedGameActive = TRUE;
+    recordedGamePlayback = TRUE;
+    recordedGameMultiplayer = FALSE;
+    for (i = 1; i < universe.numPlayers; i++)
+    {
+        snprintf(computerName, sizeof(computerName), "%s %i", strGetString(strComputerName), (int)i);
+        if (strcmp(playerNames[i], computerName) != 0)
+        {
+            recordedGameMultiplayer = TRUE;
+        }
+    }
+    return TRUE;
+}
+
+void gpLoadTheRecordedGame(char *name, featom *atom)
+{
     if (!gpGetGameName(name,atom,recordPacketSaveFileName))
     {
         return;
@@ -888,20 +936,7 @@ void gpLoadTheRecordedGame(char *name, featom *atom)
     strcpy(recordPacketFileName,recordPacketSaveFileName);
     strcat(recordPacketFileName,PKTS_EXTENSION);
 
-    if ((verifysavename = VerifySaveFile(recordPacketSaveFileName)) != VERIFYSAVEFILE_OK)
-    {
-        if (verifysavename == VERIFYSAVEFILE_BADVERSION)
-            GeneralMessageBox(strGetString(strErrorInvalidSaveGameFileVersion),NULL);
-        else
-            GeneralMessageBox(strGetString(strErrorInvalidSaveGameFile),NULL);
-        return;
-    }
-
-    feScreenDisappear(NULL, NULL);
-
-    recPackPlayInGameInit();
-
-    utyLoadMultiPlayerGameGivenFilename(recordPacketSaveFileName);
+    gpLoadRecordedGameGivenName();
 }
 
 void gpSaveTheRecordedGame(char *name, featom *atom)

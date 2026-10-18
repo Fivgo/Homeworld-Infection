@@ -70,6 +70,8 @@ void cat_nomadMoonBeamEffect(vector *moon, real32 frac, vector *emitter, vector 
 void cat_bigGunBulletTrack(Bullet *bullet);
 void cat_bigGunBulletUntrack(Bullet *bullet);
 void cat_bigGunBulletRebuildList(void);
+void cat_saveUniverseList5e288(void);           // CAT: 0x005169f0 (M2-R6 oracle-mode-a)
+void cat_loadUniverseList5e288(void);           // CAT: 0x00516a10
 bool32 cat_bigGunBulletsInFlight(void);
 
 #endif

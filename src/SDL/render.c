@@ -6405,6 +6405,52 @@ void cat_rndFogLayerTextureUnload(void)                                         
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_rndStateBlockGet / cat_rndStateBlockSet
+    Description : CAT (M2-R6 oracle-mode-a): the 39 dwords at 0x00c32c00 a save holds (SaveGame 0x004fdaf0 writes
+                  them after clearing +0x00, +0x84 and +0x88; LoadGame 0x004fe0e0 reads them back). Of these this tree
+                  keeps the fog layer's words (+0x14 .. +0x4c, the variables above); the others are the renderer's
+                  per-object scratch words (the object being drawn, its effect parameters), rewritten every frame
+                  before they are read, so they are written as 0 and ignored on load.
+----------------------------------------------------------------------------*/
+void cat_rndStateBlockGet(udword *block)
+{
+    block[0x14 / 4] = (udword)catRndFogOn;
+    block[0x18 / 4] = (udword)catRndFogColor[0];
+    block[0x1C / 4] = (udword)catRndFogColor[1];
+    block[0x20 / 4] = Real32ToSdword(catRndFogSpeed);
+    block[0x24 / 4] = Real32ToSdword(catRndFogDensity);
+    block[0x28 / 4] = (udword)catRndFogToColor[0];
+    block[0x2C / 4] = (udword)catRndFogToColor[1];
+    block[0x30 / 4] = Real32ToSdword(catRndFogToSpeed);
+    block[0x34 / 4] = Real32ToSdword(catRndFogToDensity);
+    block[0x38 / 4] = (udword)catRndFogFromColor[0];
+    block[0x3C / 4] = (udword)catRndFogFromColor[1];
+    block[0x40 / 4] = Real32ToSdword(catRndFogFromSpeed);
+    block[0x44 / 4] = Real32ToSdword(catRndFogFromDensity);
+    block[0x48 / 4] = Real32ToSdword(catRndFogFadeStart);
+    block[0x4C / 4] = Real32ToSdword(catRndFogFadeEnd);
+}
+
+void cat_rndStateBlockSet(const udword *block)
+{
+    catRndFogOn = (bool8)block[0x14 / 4];
+    catRndFogColor[0] = (color)block[0x18 / 4];
+    catRndFogColor[1] = (color)block[0x1C / 4];
+    catRndFogSpeed = SdwordToReal32((sdword)block[0x20 / 4]);
+    catRndFogDensity = SdwordToReal32((sdword)block[0x24 / 4]);
+    catRndFogToColor[0] = (color)block[0x28 / 4];
+    catRndFogToColor[1] = (color)block[0x2C / 4];
+    catRndFogToSpeed = SdwordToReal32((sdword)block[0x30 / 4]);
+    catRndFogToDensity = SdwordToReal32((sdword)block[0x34 / 4]);
+    catRndFogFromColor[0] = (color)block[0x38 / 4];
+    catRndFogFromColor[1] = (color)block[0x3C / 4];
+    catRndFogFromSpeed = SdwordToReal32((sdword)block[0x40 / 4]);
+    catRndFogFromDensity = SdwordToReal32((sdword)block[0x44 / 4]);
+    catRndFogFadeStart = SdwordToReal32((sdword)block[0x48 / 4]);
+    catRndFogFadeEnd = SdwordToReal32((sdword)block[0x4C / 4]);
+}
+
 void cat_rndFogLayerTextureLoad(void)                                                     // 0x0057b7d0
 {
     if (catRndFogTexture == 0)

@@ -4770,6 +4770,11 @@ DONE_INTROS:
     {
         utySinglePlayerGameStart("", NULL);
     }
+    // HWI-ORACLE (M2-R6 oracle-mode-a): /oracleReplay <name> loads the recorded game as the front end does
+    else if (oracleReplayRequested())
+    {
+        oracleStartReplay();
+    }
 #endif
 
     return(NULL);                                           //success, return no error

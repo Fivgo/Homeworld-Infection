@@ -268,6 +268,7 @@ extern char spMissionsFile[];
 
 extern real32 spFleetModifier;
 extern real32 spDifficultyHealthModifier;     // CAT: 0x00894194 (cat_univSetShipMaxHealth 0x0053c4a0)
+extern real32 spDifficultyHealthLoadFactor;   // CAT: 0x008941a4 (FixShip 0x00500950)
 
 extern real32 spHyperspaceDelay;
 extern bool32   spHoldHyperspaceWindow;

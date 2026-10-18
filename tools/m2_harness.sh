@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle|replay
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -146,6 +146,24 @@
 #                    read back through utyOptionsList; the in-game Video screen carries the control; the console rows
 #                    objInterpolate / nisInterpolate set each flag alone; "toggletest:" log lines, "toggletest: done ...
 #                    result=PASS|FAIL"; quits. Pass "-- /noInterp" or "-- /noNISInterp" to see the switches' start flags
+#                    replay: /oracleReplay <name> /oracleDump <run>/run.hwo (M2-R6 oracle-mode-a, docs/m2-r6-oracle-mode-a.md,
+#                    oracle mode A): the recorded game --recording NAME (default oracle01: the user's reference recording)
+#                    and NAME.pkts are copied from original/game/SavedGames/RecordedGames into the harness data dir's
+#                    SavedGames/RecordedGames (where a real install keeps its recordings; refreshed when the copy differs,
+#                    never written in original/game) and linked into the run's settings dir, where this engine reads saved
+#                    games (/settingspath) and its relative paths (the cwd); once the start-up has put up the main screen
+#                    the engine loads it as the front end's LoadRecordedGame does (VerifySaveFile, feScreenDisappear,
+#                    recPackPlayInGameInit, utyLoadMultiPlayerGameGivenFilename, the recorded-game words), plays the
+#                    packets on the lockstep branch with the virtual clock (one universe tick per frame, as mission), writes
+#                    the stream (mode playback, 16 Hz) and quits at the end of the packets: "oracle: replay started ...",
+#                    "oracle: replay tick N" every 128 packets, "oracle: replay done ticks=.. packets=.. ships=..
+#                    randSyncErr=.. univSyncErr=.. blobSyncErr=.. pktSyncErr=.." and rc 0; the loader's own line
+#                    "savecat32: loaded ..." counts the converted chunks. /oracleReplay turns sound and speech off
+#                    (main.c OracleReplaySet): the sound stream RANDOM_SOUND_GAME_THREAD (11) is drawn when the mixer
+#                    thread ends an ambience sound (SoundEvent.c soundover), on the wall clock even on SDL's dummy
+#                    driver, which made rng_all differ run to run from about tick 476. Needs --timeout of several
+#                    minutes under ASan
+#   --recording NAME replay mode: the recorded game to replay (default oracle01)
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
 #   --mission-ticks N mission mode: universe ticks to run (default 3000)
 #   --dock-ticks N   dock mode: universe ticks to run (default 5000; about 30 s under ASan on the virtual clock)
@@ -230,7 +248,7 @@ shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
 oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600; uticks=400
 conticks=400; bticks=7000
-motticks=224; nisspec=n06:26:36; vfps=144
+motticks=224; nisspec=n06:26:36; vfps=144; recording=oracle01
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -251,6 +269,7 @@ while [[ $# -gt 0 ]]; do
 		--motion-ticks) motticks=$2; shift ;;
 		--nis) nisspec=$2; shift ;;
 		--fps) vfps=$2; shift ;;
+		--recording) recording=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
 		--) shift; extra=("$@"); break ;;
@@ -298,6 +317,17 @@ elif [[ "$mode" == build ]]; then
 	args+=(/catBuildTest "$bticks" /oracleDump "$out/run.hwo")
 elif [[ "$mode" == motion ]]; then
 	args+=(/catMotionFps "$vfps" /catMotionTest "$motticks" /catMotionDump "$out/motion.dump")
+elif [[ "$mode" == replay ]]; then
+	# M2-R6 oracle-mode-a: the recording into the data dir's SavedGames/RecordedGames (as a real install keeps it),
+	# then linked into the run's settings dir, where the engine looks (saved games: /settingspath; the packets: the cwd)
+	src="$GAME/SavedGames/RecordedGames"
+	[[ -f "$src/$recording" && -f "$src/$recording.pkts" ]] || { echo "m2_harness: no recording $src/$recording(.pkts)" >&2; exit 1; }
+	mkdir -p "$DATA/SavedGames/RecordedGames" "$out/settings/SavedGames/RecordedGames"
+	for f in "$recording" "$recording.pkts"; do
+		cmp -s "$src/$f" "$DATA/SavedGames/RecordedGames/$f" || cp -f -- "$src/$f" "$DATA/SavedGames/RecordedGames/$f"
+		ln -sf -- "$DATA/SavedGames/RecordedGames/$f" "$out/settings/SavedGames/RecordedGames/$f"
+	done
+	args+=(/oracleReplay "$recording" /oracleDump "$out/run.hwo")
 elif [[ "$mode" == nis ]]; then
 	# /noSpeech: the NIS's speech subtitles start and end with the audio thread's progress through the speech (wall
 	# clock, even on SDL's dummy driver), which made about 40 frame CRCs of n06's window differ run to run
@@ -401,6 +431,9 @@ grep -q "meshtest: self-test done" "$L" && milestone="mesh self-test done"
 grep -q "texturetest: self-test done" "$L" && milestone="texture self-test done"
 grep -q "oracle: self-test done" "$L" && milestone="oracle self-test done"
 grep -q "oracle: mission run done" "$L" && milestone="oracle mission run done"
+grep -q "oracle: replay started" "$L" && milestone="replay loaded"
+grep -q "oracle: replay tick" "$L" && milestone="replay running"
+grep -q "oracle: replay done" "$L" && milestone="oracle replay done"
 grep -q "etgtest: self-test done" "$L" && milestone="etg parse self-test done"
 grep -q "etgtest: effect self-test done" "$L" && milestone="etg effect self-test done"
 grep -q "docktest: done" "$L" && milestone="dock self-test done"
@@ -448,7 +481,8 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	echo "file loads: $nload; ASan errors: $asan_n; LeakSanitizer at exit: ${leak_sum:-no unsuppressed leak}"
 	echo "ship statics: $(grep -c 'shipstatic: loaded' "$L") loaded, $(grep -c 'shipstatic: .* not found' "$L") not found (disabled), $(grep -c 'shipstatic: other' "$L") other .shp; $(grep -h 'shipstatic: self-test done' "$L" | sed 's/^.*shipstatic: //' | head -n 1)"
 	[[ "$mode" == meshes ]] && echo "meshes: $(grep -c . "$out/meshes.list" 2>/dev/null) listed, $(grep -c 'meshtest: loaded' "$L") .geo/.peo loaded, $(grep -c 'meshtest: mad loaded' "$L") .mad loaded, $(grep 'meshtest: .*loaded' "$L" | grep -c -v ' bad=0$') with bad=; $(grep -h 'meshtest: self-test done' "$L" | sed 's/^.*meshtest: //' | head -n 1)"
-	[[ -f "$out/run.hwo" ]] && echo "oracle: $(grep -h 'oracle: self-test done\|oracle: mission run done' "$L" | sed 's/^.*oracle: //' | head -n 1); run.hwo $(stat -c %s "$out/run.hwo") bytes, sha256 $(sha256sum "$out/run.hwo" | cut -c1-16)"
+	[[ -f "$out/run.hwo" ]] && echo "oracle: $(grep -h 'oracle: self-test done\|oracle: mission run done\|oracle: replay done' "$L" | sed 's/^.*oracle: //' | head -n 1); run.hwo $(stat -c %s "$out/run.hwo") bytes, sha256 $(sha256sum "$out/run.hwo" | cut -c1-16)"
+	[[ "$mode" == replay ]] && echo "replay: $(grep -h 'oracle: replay started\|savecat32: loaded\|oracle: replay load failed' "$L" | sed 's/^.*\(oracle\|savecat32\): //' | paste -sd';'); last tick line: $(grep -h 'oracle: replay tick' "$L" | tail -n 1 | sed 's/^.*oracle: //')"
 	[[ "$mode" == mission ]] && echo "mission: last tick line: $(grep -h 'oracle: mission tick' "$L" | tail -n 1 | sed 's/^.*oracle: //'); ships loaded $(grep -c 'shipstatic: loaded' "$L")"
 	[[ "$mode" == textures ]] && echo "textures: $(grep -h 'texturetest: listing lookups\|texturetest: self-test done' "$L" | sed 's/^.*texturetest: //' | paste -sd';')"
 	[[ "$mode" == dock ]] && echo "docktest: $(grep -h 'docktest: orders\|docktest: clDock\|docktest: A inside\|docktest: done' "$L" | sed 's/^.*docktest: //' | paste -sd';'); FAIL lines: $(grep -c 'docktest: FAIL' "$L")"

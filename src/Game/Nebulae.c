@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "Nebulae.h"
+#include "SaveCat32.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -2596,6 +2597,12 @@ void nebLoad_Nebula(void)
     neb_frame_counter = LoadInfoNumber();
 
     numNebulae = LoadInfoNumber();
+
+    // CAT-TODO(stage 6 level load): convert the exe's nebula chunk and tendril chunks (nebLoad_Nebula 0x004cb7f0) when a cataclysm.exe save holds nebulae; the skirmish recording has none
+    if (saveCat32Loading && (numNebulae != 0))
+    {
+        dbgFatalf(DBG_Loc, "Cataclysm save: %d nebulae (their 32-bit chunks are not converted yet)", (int)numNebulae);
+    }
 
     for (nebIndex = 0; nebIndex < numNebulae; nebIndex++)
     {

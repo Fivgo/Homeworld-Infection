@@ -136,5 +136,9 @@ sdword cat_mimicItemCount(ubyte player, bool32 added);                          
 CatMimicItem *cat_mimicItemGet(ubyte player, udword unused, sdword index);          // 0x005ba020
 char *cat_mimicItemName(ubyte player, udword unused, sdword index);                 // 0x005ba050
 void cat_mimicItemAdd(ubyte player, ShipType type);                                 // 0x005ba0d0
+void cat_saveGameMiscChunks(void);                                                  // 0x005ba170 (M2-R6 oracle-mode-a)
+void cat_loadGameMiscChunks(void);                                                  // 0x005ba1e0
+void cat_spSaveMiscInfo(void);                                                      // 0x005b9df0
+void cat_spLoadMiscInfo(void);                                                      // 0x005b9e90
 
 #endif

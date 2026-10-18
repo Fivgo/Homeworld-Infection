@@ -7,6 +7,7 @@
 // =============================================================================
 
 #include "ConsMgr.h"
+#include "SaveCat32.h"
 
 #include "Battle.h"
 #include "CommandLayer.h"
@@ -1200,8 +1201,8 @@ void cat_cmBuildJobFinished(shipinprogress *progress, Ship *factory)
     }
     if (progress->info->externalBuild == 1)
     {
-        // CAT-TODO(stage 5 recorder): the exe also skips this while a game is recorded (0x00a7519c && 0x00a75190)
-        if ((progress->catExternalShipStarted == 1) && !multiPlayerGame)
+        // CAT: not in a network game, recorded multiplayer games included (0x00a7519c && 0x00a75190)
+        if ((progress->catExternalShipStarted == 1) && !catNetworkGame())
         {
             if (progress->catExternalShip != NULL)
             {
@@ -1946,8 +1947,8 @@ void cmCancelJobs(char *string, featom *atom)
         {
             cmShipsAvailable[index].nJobs = 0;
             canceled = TRUE;
-            // CAT-TODO(stage 5 recorder): the exe also sends it while a game is recorded (0x00a7519c && 0x00a75190)
-            if (multiPlayerGame && (cmShipsAvailable[index].info != NULL))
+            // CAT: also in a recorded multiplayer game (0x00a7519c && 0x00a75190)
+            if (catNetworkGame() && (cmShipsAvailable[index].info != NULL))
             {
                 clWrapDeterministicBuild(CMD_CANCEL, &universe.mainCommandLayer, 0, cmShipsAvailable[index].type,
                                          cmShipsAvailable[index].info->shiprace, universe.curPlayerIndex,
@@ -2040,8 +2041,8 @@ void cmPauseJobs(char *string, featom *atom)
             if (progress->nJobs>0) changed = TRUE;
 
             command = progress->paused ? CMD_PAUSE : CMD_UNPAUSE;
-            // CAT-TODO(stage 5 recorder): the exe also sends it while a game is recorded (0x00a7519c && 0x00a75190)
-            if (multiPlayerGame && (progress->info != NULL))
+            // CAT: also in a recorded multiplayer game (0x00a7519c && 0x00a75190)
+            if (catNetworkGame() && (progress->info != NULL))
             {
                 clWrapDeterministicBuild(command, &universe.mainCommandLayer, 0, progress->info->shiptype,
                                          progress->info->shiprace, universe.curPlayerIndex, curshipsInProgress->ship);
@@ -2319,8 +2320,8 @@ bool32 cmIncrement(shipsinprogress *factory, uword index)
             {
                 progress->nJobsTotal++;
                 progress->nJobs++;
-                // CAT-TODO(stage 5 recorder): the exe also sends it while a game is recorded (0x00a7519c && 0x00a75190)
-                if (multiPlayerGame)
+                // CAT: also in a recorded multiplayer game (0x00a7519c && 0x00a75190)
+                if (catNetworkGame())
                 {
                     clWrapDeterministicBuild(CMD_START, &universe.mainCommandLayer, 1, progress->info->shiptype,
                                              universe.curPlayerPtr->race, universe.curPlayerIndex, factory->ship);
@@ -2356,8 +2357,8 @@ bool32 cmDecrement(shipsinprogress *factory, uword index)
         {
             progress->nJobs--;
             progress->nJobsTotal--;
-            // CAT-TODO(stage 5 recorder): the exe also sends it while a game is recorded (0x00a7519c && 0x00a75190)
-            if (multiPlayerGame)
+            // CAT: also in a recorded multiplayer game (0x00a7519c && 0x00a75190)
+            if (catNetworkGame())
             {
                 clWrapDeterministicBuild(CMD_START, &universe.mainCommandLayer, 0x4001, progress->info->shiptype,
                                          universe.curPlayerPtr->race, universe.curPlayerIndex, factory->ship);
@@ -3734,8 +3735,8 @@ void cmBuildJobsAdd(shipsinprogress *factory, ShipStaticInfo *info, sdword nJobs
     prevJobsTotal = progress->nJobsTotal;
     progress->nJobsTotal += nJobs;
 
-    // CAT-TODO(stage 5 recorder): the exe also sends it while a game is recorded (0x00a7519c && 0x00a75190)
-    if (multiPlayerGame)
+    // CAT: also in a recorded multiplayer game (0x00a7519c && 0x00a75190)
+    if (catNetworkGame())
     {
         //xxx
         clWrapDeterministicBuild(CMD_START, &universe.mainCommandLayer,
@@ -4417,6 +4418,7 @@ shipsinprogress *Load_shipsinprogress(void)
     sdword i;
 
     chunk = LoadNextChunk();
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(shipsinprogress));    // CAT (M2-R6 oracle-mode-a): the exe's 0x1B48
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_SHIPSINPROGRESS,sizeof(shipsinprogress));
     sinprogress = memAlloc(sizeof(shipsinprogress),"sinprogress",NonVolatile);
     memcpy(sinprogress,chunkContents(chunk),sizeof(shipsinprogress));
@@ -4461,6 +4463,8 @@ void LoadConsMgr(void)
         sdword size = sizeof(CarrierInfo) * cmNumCarriers;
 
         chunk = LoadNextChunk();
+        // CAT (M2-R6 oracle-mode-a): the exe's entries are a ship ID and a player index, 4 bytes each (LoadConsMgr 0x004598a0)
+        chunk = saveCat32ChunkArray(chunk, NULL, 0, 0, NULL, 2 * cmNumCarriers);
         VerifyChunk(chunk,BASIC_STRUCTURE,size);
 
         cmCarriers = memAlloc(size, "cmCarriers", NonVolatile);
@@ -4673,11 +4677,11 @@ void cat_cmExternalBuildAttach(Ship *ship)
     Node *node;
     cmDetermProgress_t *dprog;
 
-    // CAT-TODO(stage 5 recorder): the exe treats a recorded game (0x00a7519c && 0x00a75190) as a multiplayer one here
+    // CAT: a recorded multiplayer game (0x00a7519c && 0x00a75190) counts as a multiplayer one here (0x00455b49 ff.)
     if (!playPackets && (ship->playerowner == universe.curPlayerPtr) && (ship->playerowner->aiPlayer == NULL))
     {
         progress = catCmFactoryEntry(ship->catCreator, ship->shiptype);
-        if (!multiPlayerGame)
+        if (!catNetworkGame())
         {
             if (progress != NULL)       // CAT-FIX: the exe writes through the entry at address 0 when the creator is no factory
             {
@@ -4687,7 +4691,7 @@ void cat_cmExternalBuildAttach(Ship *ship)
             return;
         }
     }
-    else if (!multiPlayerGame)
+    else if (!catNetworkGame())
     {
         return;
     }
@@ -4735,8 +4739,8 @@ void cat_cmExternalBuildShipDied(Ship *ship)
             progress->timeStart = 0;
             progress->nJobsTotal--;
             progress->nJobs--;
-            // CAT-TODO(stage 5 recorder): not while a game is recorded (0x00a7519c && 0x00a75190)
-            if (!multiPlayerGame)
+            // CAT: not in a recorded multiplayer game either (0x00a7519c && 0x00a75190)
+            if (!catNetworkGame())
             {
                 progress->catExternalShipStarted = FALSE;
                 progress->catExternalShipAttached = FALSE;
@@ -4745,7 +4749,7 @@ void cat_cmExternalBuildShipDied(Ship *ship)
             cmDirtyShipInfo();
         }
     }
-    if (!multiPlayerGame)
+    if (!catNetworkGame())
     {
         return;
     }
@@ -4819,13 +4823,13 @@ void cat_cmCancelJobsOfDeadFactory(Ship *creator)
         }
         if (progress->nJobsTotal != 0)
         {
-            // CAT-TODO(stage 5 recorder): not while a game is recorded (0x00a7519c && 0x00a75190)
-            if (!multiPlayerGame)
+            // CAT: not in a recorded multiplayer game either (0x00a7519c && 0x00a75190)
+            if (!catNetworkGame())
             {
                 universe.curPlayerPtr->resourceUnits += (sdword)progress->costSoFar;
             }
             if (progress->info->externalBuild && (progress->info->shiptype != sMothershipDockingBay) &&
-                (progress->catExternalShipStarted == 1) && !multiPlayerGame)
+                (progress->catExternalShipStarted == 1) && !catNetworkGame())
             {
                 if (progress->catExternalShip != NULL)
                 {
@@ -4846,7 +4850,7 @@ void cat_cmCancelJobsOfDeadFactory(Ship *creator)
         progress->catExternalShip = NULL;
         progress->costSoFar = 0;
         cancelled = TRUE;
-        if (multiPlayerGame && (progress->info != NULL))
+        if (catNetworkGame() && (progress->info != NULL))
         {
             clWrapDeterministicBuild(CMD_CANCEL, &universe.mainCommandLayer, 0, progress->info->shiptype,
                                      progress->info->shiprace, universe.curPlayerIndex, creator);

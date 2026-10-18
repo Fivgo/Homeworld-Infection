@@ -63,7 +63,7 @@
 #define HWO_TV_CHECKSUMS    0x0020u         /* univcheck/nships/statcheck computed by the game's own functions */
 
 /* 'P' flags */
-#define HWO_PF_EXTRA        0x0001u         /* extra = Cataclysm's 4th sync-entry field (GOG only) */
+#define HWO_PF_EXTRA        0x0001u         /* extra = Cataclysm's 4th sync-entry field (GOG; hwi-engine since M2-R6 oracle-mode-a) */
 
 /* 'E' event codes */
 #define HWO_EV_GAME_NEW         1           /* gameStart(NULL) returned (GOG H7 / hwi-engine gameStart end); a 'T' follows */

@@ -109,7 +109,10 @@ typedef struct
 #define SAVE_CAT32_PLAYER               0x6530      // Player stride inside the Universe chunk (PreLoadGame loop)
 #define SAVE_CAT32_SHIP                 0x63C       // SaveShip 0x004ffd70: + sizeofShipSpecifics - 4 (+0x7C precise selection, + MAD)
 #define SAVE_CAT32_BLOB                 0x100       // SaveBlob 0x004fe7d0, BASIC | SAVE_BLOB
-#define SAVE_CAT32_SPGAMEINFO           0x54        // SaveSinglePlayerGame 0x0051bee0, SinglePlayerGameInfo
+#define SAVE_CAT32_SPGAMEINFO           0x54        // SaveSinglePlayerGame 0x0051bee0, SinglePlayerGameInfo (a BASIC chunk of sub-type 0)
+#define SAVE_CAT32_SHIPSPGAMEINFO       0x48        // SaveShip 0x004ffd70: BASIC | SAVE_SHIPSINGLEPLAYERGAMEINFO is the ship's
+                                                    //   ShipSinglePlayerGameInfo (M2-R6 oracle-mode-a: every ship of the
+                                                    //   skirmish recording has one)
 #define SAVE_CAT32_SHIPSTATICINFO       0x458       // a dynamic ShipStaticInfo (BASIC | SAVE_STATICINFO)
 #define SAVE_CAT32_CLAMPINFO            0x38        // SaveClampInfo (inlined in 0x00501050)
 #define SAVE_CAT32_RANSTREAM            0x14        // ranSave 0x004efb50, 27 chunks
@@ -133,6 +136,10 @@ _Static_assert(sizeof(ClampInfo) == SAVE_CAT32_CLAMPINFO, "ClampInfo chunk is 0x
     dbgAssertOrIgnore(c);                       \
     dbgAssertOrIgnore((c)->type == (t));
 
+void cat_saveStateBlock(void);                         // CAT: the 0x9C block of SaveGame 0x004fdaf0 (M2-R6 oracle-mode-a)
+void cat_loadStateBlock(void);                         // CAT: LoadGame 0x004fe0e0
+void cat_saveGamePreGameTable(void);                   // CAT: 0x004fda00
+void cat_loadGamePreGameTable(void);                   // CAT: LoadGame 0x004fe0e0
 void cat_saveSavePlayerFOW(struct Player *player);     // CAT: 0x004ff6b0 (M2-R6 nis-fow-camera)
 void cat_saveLoadPlayerFOW(struct Player *player);     // CAT: 0x004ff7e0
 bool32 SaveGame(char *filename);

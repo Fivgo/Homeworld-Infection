@@ -9,6 +9,15 @@
 #include "SaveGame.h"
 #include "FOW.h"
 #include "RepairDroid.h"
+#include "SaveCat32.h"      // CAT (M2-R6 oracle-mode-a): reading cataclysm.exe's 0x10ad0027 saves
+#include "Blast.h"
+#include "Mimic.h"
+#include "NIS.h"
+#include "render.h"
+#include "ShipNames.h"
+#include "Task.h"
+#include "Salvage.h"
+#include "BeastWeapon.h"
 
 #include <string.h>
 
@@ -612,7 +621,7 @@ sdword saveCatChunkSize32(TypeOfSaveChunk type)
         case INFO_CHUNK:                                        return (sdword)sizeof(InfoChunkContents);
         case BASIC_STRUCTURE|SAVE_UNIVERSE:                     return SAVE_CAT32_UNIVERSE;
         case BASIC_STRUCTURE|SAVE_BLOB:                         return SAVE_CAT32_BLOB;
-        case BASIC_STRUCTURE|SAVE_SHIPSINGLEPLAYERGAMEINFO:     return SAVE_CAT32_SPGAMEINFO;
+        case BASIC_STRUCTURE|SAVE_SHIPSINGLEPLAYERGAMEINFO:     return SAVE_CAT32_SHIPSPGAMEINFO;   // CAT: the ship's 0x48 (M2-R6)
         case BASIC_STRUCTURE|SAVE_CAT_PREGAMETABLE:             return SAVE_CAT32_PREGAMETABLE;
         case BASIC_STRUCTURE|SAVE_CAT_MISC9:                    return SAVE_CAT32_MISC9;
         case BASIC_STRUCTURE|SAVE_CAT_MISCA:                    return SAVE_CAT32_MISCA;
@@ -623,22 +632,22 @@ sdword saveCatChunkSize32(TypeOfSaveChunk type)
 
 /*-----------------------------------------------------------------------------
     Name        : saveCatLoadHook
-    Description : CAT: the plug-in point for GOG Cataclysm saves (version 0x10ad0027). Cataclysm's saves are raw dumps
-                  of its ILP32 structs (Ship 0x63C, Universe 0x3D9BC with 8 Players of 0x6530, ...), which this 64-bit
-                  tree cannot read field by field until the layout is fixed against real saves (the user's two saves
-                  from the M0 play-test; tools/formats/savegame_probe.py). Until then this walks the container only:
-                  every chunk header to EOF, checking the fixed-size chunk types against saveCatChunkSize32 and the
-                  ship chunks (VARIABLE_STRUCTURE | SAVE_SPACEOBJ | OBJ_ShipType) against the 0x63C minimum, logs
-                  the result and refuses the file. A loader for the 32-bit layout replaces the refusal.
+    Description : CAT (M2-R6 oracle-mode-a): a GOG Cataclysm save (version 0x10ad0027; PreLoadGame 0x004fdfc0 and
+                  VerifySaveFile 0x004fdf40 accept only this number). The container is walked first: every chunk
+                  header to EOF, the fixed-size chunk types against saveCatChunkSize32 and the ship chunks
+                  (VARIABLE_STRUCTURE | SAVE_SPACEOBJ | OBJ_ShipType) against the 0x63C minimum. A sound container is
+                  accepted: PreLoadGame / LoadGame then read it in the exe's order, converting each ILP32 struct
+                  chunk field by field (saveCat32Loading, SaveCat32.c). The file is left positioned after the version.
     Inputs      : savefile positioned just after the version
     Outputs     : one log line
-    Return      : VERIFYSAVEFILE_BADVERSION (not loadable yet)
+    Return      : VERIFYSAVEFILE_OK, or VERIFYSAVEFILE_BADVERSION for a broken container
 ----------------------------------------------------------------------------*/
 sdword saveCatLoadHook(void)
 {
     FILE *fp = fileStream(savefile);
     SaveChunk header;
     sdword chunks = 0, checked = 0, wrong = 0, ships = 0, expect;
+    long start = ftell(fp);
 
     while (fread(&header, sizeof(SaveChunk), 1, fp) == 1)
     {
@@ -671,10 +680,10 @@ sdword saveCatLoadHook(void)
             break;
         }
     }
-    dbgMessagef("Cataclysm save (version 0x%x): %d chunks, %d fixed-size and %d ship chunks checked, %d wrong; "
-                "the 32-bit save layout is not ported yet (saveCatLoadHook, docs/m2-r3-closeout-headers.md)",
+    fseek(fp, start, SEEK_SET);
+    dbgMessagef("Cataclysm save (version 0x%x): %d chunks, %d fixed-size and %d ship chunks checked, %d wrong",
                 SAVE_VERSION_NUMBER_CATACLYSM, chunks, checked, ships, wrong);
-    return VERIFYSAVEFILE_BADVERSION;
+    return (wrong == 0 && chunks > 0) ? VERIFYSAVEFILE_OK : VERIFYSAVEFILE_BADVERSION;
 }
 
 void SavePreGameInfo(void)
@@ -695,6 +704,8 @@ void SavePreGameInfo(void)
     if (singlePlayerGame)
     {
         SaveMissionNumber();
+        // CAT: the difficulty's health factor follows the mission number (SaveGame 0x004fdaf0: 0x00894194)
+        SaveInfoNumber(Real32ToSdword(spDifficultyHealthModifier));
     }
     else
     {
@@ -705,6 +716,43 @@ void SavePreGameInfo(void)
     {
         universeSaveEverythingNeeded();
     }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : saveCat32LoadCaptainGameInfo
+    Description : CAT (M2-R6 oracle-mode-a): the exe's tpGameCreated chunk (0x2B0 bytes; PreLoadGame 0x004fdfc0
+                  copies 0xac dwords to 0x00886028). Its first 0xC8 bytes are HW1's CaptainGameInfo up to numPlayers
+                  (Name and Password as Windows' 2-byte wchar_t, the resource settings as 4-byte longs), converted
+                  field by field; Cataclysm inserted 0x48 bytes there (the exe reads +0xC8 .. +0xF8 in lgStartGame,
+                  mgCreateGameNow, titanRequestReceivedCB, gameStart; meaning not established), so the rest is not
+                  HW1's playerInfo[] and is left zero here, with a log line when it is not zero in the file.
+                  CAT-TODO(stage 5 multiplayer): the exe's 0x2B0 layout after +0xC8 (the 0x48 new bytes and playerInfo), for LAN interop and for a recorded multiplayer game
+----------------------------------------------------------------------------*/
+static void saveCat32LoadCaptainGameInfo(void)
+{
+    SaveChunk *chunk = LoadNextChunk();
+    ubyte head[0x268];      // the tree's ILP32 CaptainGameInfo: the first 0xC8 bytes from the file, playerInfo zero
+    const ubyte *src = (const ubyte *)chunkContents(chunk);
+    sdword i, nonzero = 0;
+
+    VerifyChunk(chunk,BASIC_STRUCTURE,SAVE_CAT32_CAPTAINGAMEINFO);
+    memset(head, 0, sizeof(head));
+    memcpy(head, src, 0xC8);
+    for (i = 0xC8; i < chunk->contentsSize; i++)
+    {
+        nonzero += (src[i] != 0);
+    }
+    if (nonzero != 0)
+    {
+        dbgMessagef("Cataclysm save: tpGameCreated has %d non-zero bytes after +0xC8 (not converted)", nonzero);
+    }
+    memset(&tpGameCreated, 0, sizeof(tpGameCreated));
+#if SAVECAT32_LP64
+    saveCat32Convert(&saveCat32Layout_CaptainGameInfo, head, &tpGameCreated);
+#else
+    memcpy(&tpGameCreated, head, sizeof(head));
+#endif
+    memFree(chunk);
 }
 
 void LoadPreGameInfo(void)
@@ -727,18 +775,37 @@ void LoadPreGameInfo(void)
     LoadStructureOfSizeToAddress(&playerNames[0][0],MAX_MULTIPLAYER_PLAYERS*MAX_PERSONAL_NAME_LEN);
     for (i=0;i<MAX_MULTIPLAYER_PLAYERS;i++)
     {
-        universe.players[i].race = LoadInfoNumber();
+        // CAT: the race is read as 0 or 1 (PreLoadGame 0x004fdfc0: neg / sbb / neg of the number)
+        universe.players[i].race = (LoadInfoNumber() != 0) ? 1 : 0;
         teColorSchemes[i].textureColor.base = LoadInfoNumber();
         teColorSchemes[i].textureColor.detail = LoadInfoNumber();
     }
 
     if (sp)
     {
-        LoadMissionNumber();
+        if (saveCat32Loading)
+        {
+            // CAT: the exe's mission number is Cataclysm's (PreLoadGame 0x004fdfc0 stores it in 0x00c0a5c0 as it is).
+            //      CAT-TODO(stage 6 single player): map Cataclysm's mission number to this tree's MissionEnum (LoadMissionNumber maps HW1's 1..16) when single-player saves are loaded
+            (void)LoadInfoNumber();
+        }
+        else
+        {
+            LoadMissionNumber();
+        }
+        // CAT: then the difficulty's health factor (PreLoadGame 0x004fdfc0 -> 0x00894194)
+        spDifficultyHealthModifier = SdwordToReal32(LoadInfoNumber());
     }
     else
     {
-        LoadStructureOfSizeToAddress(&tpGameCreated,sizeof(tpGameCreated));
+        if (saveCat32Loading)
+        {
+            saveCat32LoadCaptainGameInfo();
+        }
+        else
+        {
+            LoadStructureOfSizeToAddress(&tpGameCreated,sizeof(tpGameCreated));
+        }
     }
 
     if (tutorial != TUTORIAL_ONLY)
@@ -746,12 +813,8 @@ void LoadPreGameInfo(void)
         universeLoadEverythingNeeded();
     }
 
-    if ((!sp)&&
-        (!bitTest(tpGameCreated.flag,MG_HarvestinEnabled)))
-    {
-        rmEnableShip(R1, ResourceCollector, FALSE);
-        rmEnableShip(R2, ResourceCollector, FALSE);
-    }
+    // CAT: no harvesting switch: PreLoadGame 0x004fdfc0 ends here (HW1 disabled the resource collectors of a
+    //      multiplayer game without harvesting)
 }
 
 /*-----------------------------------------------------------------------------
@@ -764,6 +827,7 @@ void LoadPreGameInfo(void)
 bool32 SaveGame(char *filename)
 {
     sdword i;
+    Node *node;
 
     savefile = fileOpen(filename, FF_WriteMode | FF_ReturnNULLOnFail | FF_UserSettingsPath);
     if (savefile == (filehandle)NULL)
@@ -775,13 +839,22 @@ bool32 SaveGame(char *filename)
     SaveVersionInfo();
     SavePreGameInfo();
 
+    // CAT: SaveGame 0x004fdaf0 stops every ship's damage effects before the registries are made
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        dmgStopEffect((Ship *)listGetStructOfNode(node), 3);
+    }
+
     SpaceObjRegistryInit();
     BlobRegistryInit();
+
+    cat_saveStateBlock();                       // CAT: the renderer's 0x9C-byte state block (0x00c32c00)
 
     RegisterAllSpaceObjs();
     RegisterAllBlobs();
     SaveAllSpaceObjs();
     SaveAllBlobs();
+    cat_saveGamePreGameTable();                 // CAT: the task clocks and the song (0x004fda00)
     SaveUniverse();
     SaveIDToPtrTable(&ShipIDToPtr);
     SaveIDToPtrTable(&ResourceIDToPtr);
@@ -792,8 +865,8 @@ bool32 SaveGame(char *filename)
     aiplayerSave();
 
     SaveSinglePlayerGame();
-    // CAT (M2-R5 hud): the overlay's mission timer (cat_missionTimerSave 0x004acbb0, after cat_saveGameMiscChunks in
-    //      SaveGame; CAT-TODO(M2-R6 save game): the misc chunks are not ported)
+    cat_saveGameMiscChunks();                   // CAT: the mimic disguise tables (0x005ba170, Mimic.c)
+    // CAT (M2-R5 hud): the overlay's mission timer (cat_missionTimerSave 0x004acbb0, after cat_saveGameMiscChunks)
     cat_missionTimerSave();
 
     if (singlePlayerGame)
@@ -892,6 +965,10 @@ void PreLoadGame(char *filename)
         dbgFatalf(DBG_Loc,"Error %d loading game %s",verify,filename);
         return;
     }
+    if (saveGameVersionNumber == SAVE_VERSION_NUMBER_CATACLYSM)
+    {
+        saveCat32Begin();                       // CAT (M2-R6 oracle-mode-a): the exe's ILP32 structs follow
+    }
     LoadPreGameInfo();
 }
 
@@ -905,14 +982,27 @@ void PreLoadGame(char *filename)
 void LoadGame(char *filename)
 {
     sdword i;
+    Node *node;
+    ShipType shiptype;
+    ShipStaticInfo *shipstatic;
 
     dbgAssertOrIgnore(savefile);
+
+    // CAT: LoadGame 0x004fe0e0 first stops the damage effects of the ships still in the universe
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        dmgStopEffect((Ship *)listGetStructOfNode(node), 3);
+    }
 
     SpaceObjRegistryInit();
     BlobRegistryInit();
 
+    cat_loadStateBlock();                       // CAT: the renderer's state block (0x00c32c00, 39 dwords)
+    cat_rndFogLayerTextureLoad();               // CAT: LoadGame 0x004fe0e0 (render.c)
+
     LoadAllSpaceObjs();
     LoadAllBlobs();
+    cat_loadGamePreGameTable();                 // CAT: the task clocks and the song (the 0x00892660 table)
     LoadUniverse();
     LoadIDToPtrTable(&ShipIDToPtr);
     LoadIDToPtrTable(&ResourceIDToPtr);
@@ -923,6 +1013,7 @@ void LoadGame(char *filename)
     aiplayerLoad();
 
     LoadSinglePlayerGame();
+    cat_loadGameMiscChunks();                   // CAT: the mimic disguise tables (0x005ba1e0, Mimic.c)
     // CAT (M2-R5 hud): the overlay's mission timer (cat_missionTimerLoad 0x004acbc0, after cat_loadGameMiscChunks)
     cat_missionTimerLoad();
 
@@ -959,11 +1050,83 @@ void LoadGame(char *filename)
 
     FixAllSpaceObjs();
     FixAllBlobs();
+    cat_loadShipRecordTableFix();               // CAT: the ship names' ships (0x0050f8e0, ShipNames.c)
 
     listInit(&universe.effectList);
 
     fileClose(savefile);
     savefile = 0;
+
+    // CAT-TODO(stage 6 single player): a single-player load ends with cat_kasAutoSaveOnLoad(filename) (LoadGame 0x004fe0e0) before the registries close
+    // CAT: then every loaded Somtaaw ship type gets its maximum health again (LoadGame 0x004fe0e0: infoFlags
+    //      IF_InfoLoaded at static +0x30, cat_univSetShipMaxHealth, FirstShipTypeOfRace[0] .. LastShipTypeOfRace[0])
+    for (shiptype = FirstShipTypeOfRace[RACE_Sect]; shiptype <= LastShipTypeOfRace[RACE_Sect]; shiptype++)
+    {
+        shipstatic = GetShipStaticInfo(shiptype, RACE_Sect);
+        if (bitTest(shipstatic->common.infoFlags, IF_InfoLoaded))
+        {
+            cat_univSetShipMaxHealth(shipstatic);
+        }
+    }
+
+    saveCat32End(filename);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_saveStateBlock / cat_loadStateBlock
+    Description : CAT (M2-R6 oracle-mode-a): the BASIC chunk of 0x9C bytes right after the registries (SaveGame
+                  0x004fdaf0 / LoadGame 0x004fe0e0): 39 dwords from 0x00c32c00, the renderer's per-object state
+                  (the object being drawn and its effect words, cleared first: +0x00, +0x84, +0x88) and the fog layer
+                  (+0x14 .. +0x4c, render.c cat_rndStateBlockGet / Set). Plain words in both layouts.
+----------------------------------------------------------------------------*/
+void cat_saveStateBlock(void)
+{
+    udword block[SAVE_CAT32_STATEBLOCK / sizeof(udword)];
+
+    memset(block, 0, sizeof(block));
+    cat_rndStateBlockGet(block);
+    SaveStructureOfSize(block, SAVE_CAT32_STATEBLOCK);
+}
+
+void cat_loadStateBlock(void)
+{
+    udword block[SAVE_CAT32_STATEBLOCK / sizeof(udword)];
+
+    LoadStructureOfSizeToAddress(block, SAVE_CAT32_STATEBLOCK);
+    cat_rndStateBlockSet(block);
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_saveGamePreGameTable / cat_loadGamePreGameTable
+    Description : CAT (M2-R6 oracle-mode-a): the BASIC | 0x4000 chunk after the blobs (cat_saveGamePreGameTable
+                  0x004fda00; LoadGame 0x004fe0e0 scatters it back): the {address, size} table at 0x00892660, three
+                  dwords: taskTimeElapsed (0x00a6b204), cat_taskRealTimeElapsed (0x00a6b20c) and SongNumber
+                  (0x00883960). A load restores the task clocks the game had when it was saved.
+----------------------------------------------------------------------------*/
+void cat_saveGamePreGameTable(void)
+{
+    udword table[SAVE_CAT32_PREGAMETABLE / sizeof(udword)];
+    SaveChunk *chunk;
+
+    table[0] = Real32ToSdword(taskTimeElapsed);
+    table[1] = Real32ToSdword(cat_taskRealTimeElapsed);
+    table[2] = (udword)SongNumber;
+    chunk = CreateChunk(BASIC_STRUCTURE|SAVE_CAT_PREGAMETABLE, SAVE_CAT32_PREGAMETABLE, table);
+    SaveThisChunk(chunk);
+    memFree(chunk);
+}
+
+void cat_loadGamePreGameTable(void)
+{
+    SaveChunk *chunk = LoadNextChunk();
+    udword table[SAVE_CAT32_PREGAMETABLE / sizeof(udword)];
+
+    VerifyChunk(chunk, BASIC_STRUCTURE|SAVE_CAT_PREGAMETABLE, SAVE_CAT32_PREGAMETABLE);
+    memcpy(table, chunkContents(chunk), sizeof(table));
+    memFree(chunk);
+    taskTimeElapsed = SdwordToReal32((sdword)table[0]);
+    cat_taskRealTimeElapsed = SdwordToReal32((sdword)table[1]);
+    SongNumber = (sdword)table[2];
 }
 
 /*=============================================================================
@@ -1161,6 +1324,7 @@ blob *LoadBlob(void)
     blob *lblob;
 
     chunk = LoadNextChunk();
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(blob));       // CAT (M2-R6 oracle-mode-a): the exe's 0x100
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_BLOB,sizeof(blob));
 
     lblob = memAlloc(sizeof(blob),"loadblob",0);
@@ -1278,6 +1442,8 @@ AttackTargets *LoadAttackTargets(void)
     sdword size;
 
     chunk = LoadNextChunk();
+    // CAT (M2-R6 oracle-mode-a): the exe's count + 4-byte IDs (LoadShip 0x00500490)
+    chunk = saveCat32ChunkArray(chunk, NULL, 4, (udword)offsetof(AttackTargets, TargetPtr), NULL, saveCat32ChunkCount(chunk, 0));
     VerifyChunkNoSize(chunk,BASIC_STRUCTURE|SAVE_ATTACKTARGETS);
 
     originalAttackTargets = (AttackTargets *)chunkContents(chunk);
@@ -1329,6 +1495,8 @@ void LoadGunInfo(Ship *ship)
     sdword i;
 
     chunk = LoadNextChunk();
+    // CAT (M2-R6 oracle-mode-a): the exe's count + 0x88-byte guns (LoadShip 0x00500490)
+    chunk = saveCat32ChunkArray(chunk, NULL, 4, (udword)offsetof(GunInfo, guns), SAVECAT32_LAYOUT(Gun), saveCat32ChunkCount(chunk, 0));
     VerifyChunkNoSize(chunk,BASIC_STRUCTURE|SAVE_GUNINFO);
 
     originalGunInfo = (GunInfo *)chunkContents(chunk);
@@ -1408,6 +1576,7 @@ void LoadShipSinglePlayerGameInfo(Ship *ship)
     SaveChunk *chunk;
 
     chunk = LoadNextChunk();
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(ShipSinglePlayerGameInfo));   // CAT (M2-R6 oracle-mode-a)
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_SHIPSINGLEPLAYERGAMEINFO,sizeof(ShipSinglePlayerGameInfo));
 
     originalShipSinglePlayerInfo = (ShipSinglePlayerGameInfo *)chunkContents(chunk);
@@ -1561,6 +1730,7 @@ void LoadShipsInsideMe(Ship *ship)
     ShipsInsideMe *shipsInsideMe;
 
     chunk = LoadNextChunk();
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(ShipsInsideMe));  // CAT (M2-R6 oracle-mode-a)
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_SHIPSINSIDEME,sizeof(ShipsInsideMe));
 
     shipsInsideMe = memAlloc(sizeof(ShipsInsideMe),"ShipsInsideMe",NonVolatile);
@@ -1634,22 +1804,48 @@ void SaveClampInfo(ClampInfo *clampInfo)
 
     SaveThisChunk(chunk);
 
+    // CAT: a host's clamped-object list follows as a selection (SaveShip 0x004ffd70 / LoadSpaceObj's derelict case)
+    if (clampInfo->clampedObjs != NULL)
+    {
+        SaveSelection((SpaceObjSelection *)clampInfo->clampedObjs);
+    }
+
     memFree(chunk);
 }
 
 ClampInfo *LoadClampInfo(void)
 {
-    ClampInfo *clampInfo = LoadStructureOfSize(sizeof(ClampInfo));
-    // CAT: the saved pointer to the host's clamped-object list is stale; the exe saves that list as a separate
-    //      selection chunk (SaveClampInfo inlined in 0x00501050), which this tree does not write yet (save layout
-    //      waits for the user's saves, docs/m2-r3-closeout-headers.md "save-deltamap")
+    SaveChunk *chunk = LoadNextChunk();
+    ClampInfo *clampInfo;
+    SpaceObjSelection *selection;
+
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(ClampInfo));    // CAT (M2-R6 oracle-mode-a)
+    VerifyChunk(chunk,BASIC_STRUCTURE,sizeof(ClampInfo));
+    clampInfo = memAlloc(sizeof(ClampInfo),"loadedstructure",0);
+    memcpy(clampInfo,chunkContents(chunk),sizeof(ClampInfo));
+    memFree(chunk);
+    // CAT: a clamp without a host (ID -1) is a host whose clamped-object list follows as a selection, read into a
+    //      fresh 1000-entry list (LoadShip 0x00500490: memAlloc(0xFA8), LoadSelection); FixClampInfo resolves its IDs.
+    //      Otherwise the saved list pointer is stale.
     clampInfo->clampedObjs = NULL;
+    if ((sdword)(size_t)clampInfo->host == -1)
+    {
+        clampInfo->clampedObjs = memAlloc(sizeof(CatClampedList),"clampedObjs",NonVolatile);
+        selection = LoadSelection();
+        memcpy(clampInfo->clampedObjs, selection, sizeofSelectCommand(selection->numSpaceObjs));
+        memFree(selection);
+    }
     return clampInfo;
 }
 
 void FixClampInfo(ClampInfo *clampInfo)
 {
-    clampInfo->host = SpaceObjRegistryGetTarget((sdword)clampInfo->host);
+    clampInfo->host = SpaceObjRegistryGetTarget((sdword)(size_t)clampInfo->host);
+    // CAT: the host's list (FixShip 0x00500950: FixSelection of +0x34 when the host is NULL)
+    if ((clampInfo->host == NULL) && (clampInfo->clampedObjs != NULL))
+    {
+        FixSelection((SpaceObjSelection *)clampInfo->clampedObjs);
+    }
 }
 
 void SaveShip(Ship *ship)
@@ -1666,6 +1862,7 @@ void SaveShip(Ship *ship)
     {
         sizeship += sizespec - sizeof(udword);
     }
+    sizeship = (sizeship + 7) & ~(udword)7;     // CAT-FIX: the blocks behind the ship start 8-aligned, as univCreateShip makes them
     totalsize = sizeship;
     if (shipstaticinfo->common.staticCollInfo.preciseSelection != 0xff)
     {
@@ -1677,6 +1874,8 @@ void SaveShip(Ship *ship)
         //madoffset = totalsize;
         totalsize += ship->madBindings->totalSize;
     }
+
+    ship->catDissolveEffect = NULL;             // CAT: SaveShip 0x004ffd70 first clears +0x594 on the ship itself
 
     chunk = CreateChunk(VARIABLE_STRUCTURE|SAVE_SPACEOBJ|OBJ_ShipType,totalsize,ship);
 
@@ -1692,9 +1891,17 @@ void SaveShip(Ship *ship)
     savecontents->gettingrocked = NULL;
     savecontents->recentAttacker = (Ship*)SpaceObjRegistryGetID((SpaceObj *)ship->recentAttacker);
     savecontents->firingAtUs = (Ship*)SpaceObjRegistryGetID((SpaceObj *)ship->firingAtUs);
+    // CAT: the Beast infection's ship and owner, the salvage depot and big gun, the creator and the queued attack
+    //      target are saved as IDs too (SaveShip 0x004ffd70: +0x4E8, +0x4EC, +0x3EC, +0x608, +0x4AC, +0x4B0)
+    savecontents->catBeastInfector = (Ship*)SpaceObjRegistryGetID((SpaceObj *)ship->catBeastInfector);
+    savecontents->catBeastInfectorOwner = (Player*)SavePlayerToPlayerIndex(ship->catBeastInfectorOwner);
+    savecontents->catSalvageDepot = (Ship*)SpaceObjRegistryGetID((SpaceObj *)ship->catSalvageDepot);
+    savecontents->catSalvageBigGun = (Ship*)SpaceObjRegistryGetID((SpaceObj *)ship->catSalvageBigGun);
+    savecontents->catCreator = (Ship*)SpaceObjRegistryGetID((SpaceObj *)ship->catCreator);
+    savecontents->catQueuedAttackTarget = (Ship*)SpaceObjRegistryGetID((SpaceObj *)ship->catQueuedAttackTarget);
 
     // ship->flightmanInfo saved in chunk if non-NULL
-    savecontents->formationcommand = (CommandToDo *)ConvertPointerInListToNum(&universe.mainCommandLayer.todolist,savecontents->formationcommand);
+    // CAT: formationcommand is saved as it is (SaveShip 0x004ffd70 converts only the command at +0x370)
     savecontents->command = (CommandToDo *)ConvertPointerInListToNum(&universe.mainCommandLayer.todolist,savecontents->command);
 
     //ship->attackvars.multipleAttackTarget saved in chunk if non-NULL
@@ -1827,6 +2034,7 @@ Ship *LoadShip(SaveChunk *chunk)
     ShipStaticInfo *shipstaticinfo;
 
     VerifyChunkNoSize(chunk,VARIABLE_STRUCTURE|SAVE_SPACEOBJ|OBJ_ShipType);
+    chunk = saveCat32ChunkShip(chunk);         // CAT (M2-R6 oracle-mode-a): the exe's Ship + specifics + blocks
 
     ship = memAlloc(chunk->contentsSize,"Ship",NonVolatile);
     memcpy(ship,chunkContents(chunk),chunk->contentsSize);
@@ -1834,6 +2042,7 @@ Ship *LoadShip(SaveChunk *chunk)
     if (ship->header.flags & SOF_StaticInfoIsDynamic)
     {
         SaveChunk *statchunk = LoadNextChunk();
+        statchunk = saveCat32ChunkStruct(statchunk, SAVECAT32_LAYOUT(ShipStaticInfo));
         VerifyChunk(statchunk,BASIC_STRUCTURE|SAVE_STATICINFO,sizeof(ShipStaticInfo));
 
         ship->staticinfo = shipstaticinfo = memAlloc(sizeof(ShipStaticInfo),"shipstatic",NonVolatile);
@@ -1851,6 +2060,7 @@ Ship *LoadShip(SaveChunk *chunk)
     {
         sizeship += sizespec - sizeof(udword);
     }
+    sizeship = (sizeship + 7) & ~(udword)7;     // CAT-FIX: the blocks behind the ship start 8-aligned, as univCreateShip makes them
     totalsize = sizeship;
     if (shipstaticinfo->common.staticCollInfo.preciseSelection != 0xff)
     {
@@ -1898,7 +2108,7 @@ Ship *LoadShip(SaveChunk *chunk)
     if (ship->damageLights != NULL)
     {
         dbgAssertOrIgnore(ship->nDamageLights > 0);
-        ship->damageLights = LoadStructureOfSize(ship->nDamageLights*sizeof(DamageLightStatic));
+        ship->damageLights = LoadStructureOfSize(ship->nDamageLights*sizeof(DamageLightStatic));  // plain words in both layouts
     }
 
     if (ship->gunInfo != NULL)
@@ -1937,6 +2147,7 @@ Ship *LoadShip(SaveChunk *chunk)
     {
         shipstaticinfo->custshipheader.CustShip_Load(ship);
     }
+    ship->catDissolveEffect = NULL;             // CAT: LoadShip 0x00500490 clears +0x594 (a stale effect pointer)
 //done:
     return ship;
 }
@@ -1945,34 +2156,49 @@ void FixShip(Ship *ship)
 {
     ShipStaticInfo *shipstaticinfo = ship->staticinfo;
 
-    ship->obj.collMyBlob = BlobRegistryGetBlob((sdword)ship->obj.collMyBlob);
+    ship->obj.collMyBlob = BlobRegistryGetBlob((sdword)(size_t)ship->obj.collMyBlob);
 
     ship->playerowner = SavePlayerIndexToPlayer(ship->playerowner);
 
-    ship->shipOrDerelict.dockingship = SpaceObjRegistryGetShip((sdword)ship->shipOrDerelict.dockingship);
+    ship->shipOrDerelict.dockingship = SpaceObjRegistryGetShip((sdword)(size_t)ship->shipOrDerelict.dockingship);
 
-    ship->rowGetOutOfWay = SpaceObjRegistryGetShip((sdword)ship->rowGetOutOfWay);
-    ship->recentAttacker = SpaceObjRegistryGetShip((sdword)ship->recentAttacker);
-    ship->firingAtUs = SpaceObjRegistryGetShip((sdword)ship->firingAtUs);
+    ship->rowGetOutOfWay = SpaceObjRegistryGetShip((sdword)(size_t)ship->rowGetOutOfWay);
+    ship->recentAttacker = SpaceObjRegistryGetShip((sdword)(size_t)ship->recentAttacker);
+    ship->firingAtUs = SpaceObjRegistryGetShip((sdword)(size_t)ship->firingAtUs);
 
-    ship->formationcommand = ConvertNumToPointerInList(&universe.mainCommandLayer.todolist,(sdword)ship->formationcommand);
-    ship->command = ConvertNumToPointerInList(&universe.mainCommandLayer.todolist,(sdword)ship->command);
+    // CAT: the Beast infection's ship and owner, and the bindings of the type it turns into (FixShip 0x00500950)
+    ship->catBeastInfector = (Ship *)SpaceObjRegistryGetObj((sdword)(size_t)ship->catBeastInfector);
+    ship->catBeastInfectorOwner = SavePlayerIndexToPlayer(ship->catBeastInfectorOwner);
+    if (ship->catBeastBindings != NULL)
+    {
+        ship->catBeastBindings = cat_univMeshBindingsDupeNoGuns(GetShipStaticInfo(cat_beastGetAttackStaticInfo(ship)->convertTo, RACE_Beast));
+    }
+
+    // CAT: formationcommand is left as saved (FixShip 0x00500950 fixes only the command)
+    ship->command = ConvertNumToPointerInList(&universe.mainCommandLayer.todolist,(sdword)(size_t)ship->command);
 
     if (ship->guidance.clampInfo)
     {
         FixClampInfo(ship->guidance.clampInfo);
     }
 
-
     if (ship->attackvars.multipleAttackTargets)
     {
         FixAttackTargets(ship->attackvars.multipleAttackTargets);
     }
-    ship->attackvars.attacktarget = SpaceObjRegistryGetTarget((sdword)ship->attackvars.attacktarget);
-    ship->attackvars.myLeaderIs = SpaceObjRegistryGetShip((sdword)ship->attackvars.myLeaderIs);
-    ship->attackvars.myWingmanIs = SpaceObjRegistryGetShip((sdword)ship->attackvars.myWingmanIs);
+    ship->attackvars.attacktarget = SpaceObjRegistryGetTarget((sdword)(size_t)ship->attackvars.attacktarget);
+    ship->attackvars.myLeaderIs = SpaceObjRegistryGetShip((sdword)(size_t)ship->attackvars.myLeaderIs);
+    ship->attackvars.myWingmanIs = SpaceObjRegistryGetShip((sdword)(size_t)ship->attackvars.myWingmanIs);
 
-    ship->dockvars.dockship = SpaceObjRegistryGetShip((sdword)ship->dockvars.dockship);
+    ship->dockvars.dockship = SpaceObjRegistryGetShip((sdword)(size_t)ship->dockvars.dockship);
+
+    // CAT: the salvage depot (and the bindings of the type a delivered ship becomes) and the big gun
+    ship->catSalvageDepot = (Ship *)SpaceObjRegistryGetObj((sdword)(size_t)ship->catSalvageDepot);
+    if (ship->catSalvageConvertBindings != NULL)
+    {
+        ship->catSalvageConvertBindings = cat_univMeshBindingsDupeNoGuns(GetShipStaticInfo(cat_salvageConvertType(ship, ship->catSalvageDepot), RACE_Sect));
+    }
+    ship->catSalvageBigGun = (Ship *)SpaceObjRegistryGetObj((sdword)(size_t)ship->catSalvageBigGun);
 
     if (ship->dockInfo != NULL)
     {
@@ -1989,11 +2215,15 @@ void FixShip(Ship *ship)
         Fix_madBindings(ship);
     }
 
+    // CAT: the creator and the queued attack target (FixShip 0x00500950: +0x4AC, +0x4B0)
+    ship->catCreator = (Ship *)SpaceObjRegistryGetObj((sdword)(size_t)ship->catCreator);
+    ship->catQueuedAttackTarget = (Ship *)SpaceObjRegistryGetObj((sdword)(size_t)ship->catQueuedAttackTarget);
+
     Fix_ShipXHarvestsResourceY(ship);
 
     ship->tractorbeam_playerowner = SavePlayerIndexToPlayer(ship->tractorbeam_playerowner);
 
-    ship->newDockWithTransfer = SpaceObjRegistryGetShip((sdword)ship->newDockWithTransfer);
+    ship->newDockWithTransfer = SpaceObjRegistryGetShip((sdword)(size_t)ship->newDockWithTransfer);
 
     if (shipstaticinfo->custshipheader.CustShip_Fix != NULL)
     {
@@ -2009,6 +2239,13 @@ void FixShip(Ship *ship)
     {
         ship->catRepairDroids = droidCreateArray(ship, (sdword)shipstaticinfo->nRepairDroids);
     }
+    // CAT: then the static's maximum health is set again, and a single-player Somtaaw ship's health takes the
+    //      difficulty's factor (FixShip 0x00500950: cat_univSetShipMaxHealth, static race +0x1E4 == 0, 0x008941a4)
+    cat_univSetShipMaxHealth(shipstaticinfo);
+    if (singlePlayerGame && (shipstaticinfo->shiprace == RACE_Sect))
+    {
+        ship->targetable.health *= spDifficultyHealthLoadFactor;
+    }
 }
 
 void SaveAsteroid(Asteroid *asteroid)
@@ -2023,6 +2260,8 @@ void SaveAsteroid(Asteroid *asteroid)
     savecontents->obj.collMyBlob = (blob*)BlobRegistryGetIDNoBlobOkay(asteroid->obj.collMyBlob);
 
     savecontents->resource.resourceVolume = (ResourceVolume *)ConvertPointerInListToNum(&universe.ResourceVolumeList,asteroid->resource.resourceVolume);
+    // CAT: the mimic posing as this asteroid is saved as its ID (FixAllSpaceObjs 0x004ff3e0 resolves +0x1A4)
+    savecontents->catMimicShip = (Ship *)(size_t)SpaceObjRegistryGetID((SpaceObj *)asteroid->catMimicShip);
 
     SaveThisChunk(chunk);
     memFree(chunk);
@@ -2040,6 +2279,7 @@ Asteroid *LoadAsteroid(SaveChunk *chunk)
 {
     Asteroid *asteroid;
 
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(Asteroid));  // CAT (M2-R6 oracle-mode-a): the exe's 0x1B4
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_SPACEOBJ|OBJ_AsteroidType,sizeof(Asteroid));
 
     asteroid = memAlloc(sizeof(Asteroid),"Asteroid",NonVolatile);
@@ -2051,6 +2291,7 @@ Asteroid *LoadAsteroid(SaveChunk *chunk)
     if (asteroid->header.flags & SOF_StaticInfoIsDynamic)
     {
         SaveChunk *statchunk = LoadNextChunk();
+        statchunk = saveCat32ChunkStruct(statchunk, SAVECAT32_LAYOUT(AsteroidStaticInfo));
         VerifyChunk(statchunk,BASIC_STRUCTURE|SAVE_STATICINFO,sizeof(AsteroidStaticInfo));
 
         asteroid->staticinfo = memAlloc(sizeof(AsteroidStaticInfo),"aststatic",NonVolatile);
@@ -2073,6 +2314,8 @@ void FixAsteroid(Asteroid *asteroid)
 {
     asteroid->obj.collMyBlob = BlobRegistryGetBlob((sdword)asteroid->obj.collMyBlob);
     asteroid->resource.resourceVolume = ConvertNumToPointerInList(&universe.ResourceVolumeList,(sdword)asteroid->resource.resourceVolume);
+    // CAT: the mimic posing as it, from its ID (FixAllSpaceObjs 0x004ff3e0: +0x1A4, -1 NULL)
+    asteroid->catMimicShip = (Ship *)SpaceObjRegistryGetObj((sdword)(size_t)asteroid->catMimicShip);
 }
 
 void SaveCloudSystem(DustCloud *dustcloud)
@@ -2104,6 +2347,7 @@ void LoadCloudSystem(DustCloud *dustcloud)
     SaveChunk *chunk;
 
     chunk = LoadNextChunk();
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(cloudSystem));    // CAT (M2-R6 oracle-mode-a)
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_CLOUDSYSTEM,sizeof(cloudSystem));
 
     stub = memAlloc(sizeof(cloudSystem),"cloud system", NonVolatile);
@@ -2151,6 +2395,7 @@ DustCloud *LoadDustCloud(SaveChunk *chunk)
 {
     DustCloud *dustcloud;
 
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(DustCloud)); // CAT (M2-R6 oracle-mode-a)
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_SPACEOBJ|OBJ_DustType,sizeof(DustCloud));
 
     dustcloud = memAlloc(sizeof(DustCloud),"DustCloud",NonVolatile);
@@ -2162,6 +2407,7 @@ DustCloud *LoadDustCloud(SaveChunk *chunk)
     if (dustcloud->header.flags & SOF_StaticInfoIsDynamic)
     {
         SaveChunk *statchunk = LoadNextChunk();
+        statchunk = saveCat32ChunkStruct(statchunk, SAVECAT32_LAYOUT(DustCloudStaticInfo));
         VerifyChunk(statchunk,BASIC_STRUCTURE|SAVE_STATICINFO,sizeof(DustCloudStaticInfo));
 
         dustcloud->staticinfo = memAlloc(sizeof(DustCloudStaticInfo),"dcloudstatic",NonVolatile);
@@ -2219,6 +2465,7 @@ Nebula *LoadNebula(SaveChunk *chunk)
 {
     Nebula *nebula;
 
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(Nebula));    // CAT (M2-R6 oracle-mode-a)
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_SPACEOBJ|OBJ_NebulaType,sizeof(Nebula));
 
     nebula = memAlloc(sizeof(Nebula),"Nebula",NonVolatile);
@@ -2279,6 +2526,7 @@ Bullet *LoadBullet(SaveChunk *chunk)
 {
     Bullet *bullet;
 
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(Bullet));    // CAT (M2-R6 oracle-mode-a): the exe's 0x164
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_SPACEOBJ|OBJ_BulletType,sizeof(Bullet));
 
     bullet = memAlloc(sizeof(Bullet),"Bullet",0);
@@ -2341,6 +2589,7 @@ Derelict *LoadDerelict(SaveChunk *chunk)
 {
     Derelict *derelict;
 
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(Derelict));  // CAT (M2-R6 oracle-mode-a): the exe's 0x294
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_SPACEOBJ|OBJ_DerelictType,sizeof(Derelict));
 
     derelict = memAlloc(sizeof(Derelict),"Derelict",NonVolatile);
@@ -2415,6 +2664,7 @@ Missile *LoadMissile(SaveChunk *chunk)
 {
     Missile *missile;
 
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(Missile));   // CAT (M2-R6 oracle-mode-a): the exe's 0x258
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_SPACEOBJ|OBJ_MissileType,sizeof(Missile));
 
     missile = memAlloc(sizeof(Missile),"Missile",0);
@@ -3043,6 +3293,8 @@ MilitarySlot *LoadMilitarySlot(void)
     sdword size;
 
     chunk = LoadNextChunk();
+    // CAT (M2-R6 oracle-mode-a): the exe's two words + 4-byte subslot ship IDs (LoadMilitaryParade 0x005021d0)
+    chunk = saveCat32ChunkArray(chunk, NULL, 8, (udword)offsetof(MilitarySlot, subslots), NULL, saveCat32ChunkCount(chunk, 4));
     VerifyChunkNoSize(chunk,VARIABLE_STRUCTURE|SAVE_MILITARYSLOT);
     size = sizeofMilitarySlot(((MilitarySlot *)chunkContents(chunk))->numSubslots);
 
@@ -3068,6 +3320,7 @@ MilitaryParadeCommand *LoadMilitaryParade(void)
     sdword i;
 
     chunk = LoadNextChunk();
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(MilitaryParadeCommand));  // CAT (M2-R6 oracle-mode-a): 0x104
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_MILITARYPARADE,sizeof(MilitaryParadeCommand));
 
     newmilparade = memAlloc(sizeof(MilitaryParadeCommand),"milparadecom",0);
@@ -3213,6 +3466,7 @@ void Load_CommandToDo(LinkedList *list)
     CommandToDo *command;
 
     chunk = LoadNextChunk();
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(CommandToDo));    // CAT (M2-R6 oracle-mode-a): the exe's 0x330
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_COMMANDTODO,sizeof(CommandToDo));
 
     loadedcommand = (CommandToDo *)chunkContents(chunk);
@@ -3407,6 +3661,10 @@ void Load_CameraStackEntry(LinkedList *list)
     sdword i;
 
     chunk = LoadNextChunk();
+    // CAT (M2-R6 oracle-mode-a): the exe's entry is 0x74 bytes up to the focus ships, their count at +0x6C
+    //      (Load_CameraStackEntry 0x00502910), then a 4-byte ID per ship
+    chunk = saveCat32ChunkArray(chunk, SAVECAT32_LAYOUT(CameraStackEntry), 0x74, (udword)offsetof(CameraStackEntry, focus.ShipPtr),
+                                NULL, saveCat32ChunkCount(chunk, 0x6C));
     VerifyChunkNoSize(chunk,BASIC_STRUCTURE|SAVE_CAMERASTACKENTRY);
 
     loadedcse = (CameraStackEntry *)chunkContents(chunk);
@@ -3526,6 +3784,7 @@ void Load_CameraCommand(CameraCommand *cameracommand)
     sdword i;
 
     chunk = LoadNextChunk();
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(CameraCommand));  // CAT (M2-R6 oracle-mode-a): the exe's 0x94
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_CAMERACOMMAND,sizeof(CameraCommand));
 
     loadcc = (CameraCommand *)chunkContents(chunk);
@@ -3677,6 +3936,7 @@ void LoadLinkedListOfResearchTopics(LinkedList *list)
     for (i=0;i<num;i++)
     {
         chunk = LoadNextChunk();
+        chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(ResearchTopic));  // CAT (M2-R6 oracle-mode-a): the exe's 0x18
         VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_RESEARCHTOPIC,sizeof(ResearchTopic));
         newtopic = (ResearchTopic *)memAlloc(sizeof(ResearchTopic),"ResearchTopic",NonVolatile);
         memcpy(newtopic,chunkContents(chunk),sizeof(ResearchTopic));
@@ -3710,7 +3970,9 @@ void Prefix_PlayerResearchInfo(PlayerResearchInfo *researchinfo)
                   LoadUniverse's): two BASIC chunks, the grid (sub-type 0x2000, the exe's 0x20-byte struct: the cell
                   pointer, nx, ny, nz, origin, cell size) and its cells (0x3000, 0x20 bytes each). Loading selects the
                   grid and rebuilds the boundary with every cell dirty (cat_fowBoundaryCreate(TRUE)).
-                  CAT-TODO(stage 5 recorder): the exe skips the save while a game recording starts (0x00a578f8) and on load clears the local player's grid instead while one plays back (0x00a75194)
+                  While a recorded game plays back (0x00a75194, recordplayPacketsInGame) the load reads nothing and clears
+                  the local player's grid instead (M2-R6 oracle-mode-a).
+                  CAT-TODO(stage 5 recorder): the exe skips the save while a game recording starts (0x00a578f8)
 ----------------------------------------------------------------------------*/
 typedef struct CatFOWGridSave
 {
@@ -3760,6 +4022,12 @@ void cat_saveLoadPlayerFOW(Player *player)
     CatFOWGridSave header;
     CatFOWGrid *grid;
     sdword size;
+
+    if (recordplayPacketsInGame)
+    {                                           // CAT: a playback starts without the grid (0x004ff7e0: 0x00a75194 set)
+        universe.curPlayerPtr->catFOWGrid = NULL;
+        return;
+    }
 
     if (player->playerIndex != curPlayer)
     {
@@ -3815,6 +4083,9 @@ void Load_PlayerResearchInfo(Player *player,PlayerResearchInfo *researchinfo)
             researchinfo->researchlabs[i].topic = NULL;
         }
     }
+    // CAT: then the player's upgrades from the loaded research (Load_PlayerResearchInfo 0x00502f20 ends with
+    //      cat_playerUpdateUpgradesFromResearch 0x00514140)
+    cat_playerUpdateUpgradesFromResearch(player);
 }
 
 void SaveMineFormationInfo(MineFormationInfo *mineFormationInfo)
@@ -3840,6 +4111,7 @@ MineFormationInfo *LoadMineFormationInfo(void)
     MineFormationInfo *mineFormationInfo;
 
     chunk = LoadNextChunk();
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(MineFormationInfo));  // CAT (M2-R6 oracle-mode-a): the exe's 0x4C
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_MINEFORMATIONINFO,sizeof(MineFormationInfo));
 
     mineFormationInfo = memAlloc(sizeof(MineFormationInfo),"MineFormationInfo",NonVolatile);
@@ -4022,6 +4294,10 @@ AttackAtom *LoadAttackAtom(void)
     sdword numShips;
 
     chunk = LoadNextChunk();
+    // CAT (M2-R6 oracle-mode-a): the exe's atom is 0x24 bytes up to the attackers, their count at +0x1C
+    //      (LoadRetreatAtom 0x00503380), then a 4-byte ID per ship
+    chunk = saveCat32ChunkArray(chunk, SAVECAT32_LAYOUT(AttackAtom), 0x24, (udword)offsetof(AttackAtom, attackerList.ShipPtr),
+                                NULL, saveCat32ChunkCount(chunk, 0x1C));
     VerifyChunkNoSize(chunk,BASIC_STRUCTURE|SAVE_ATTACKATOM);
     loadedAttackAtom = (AttackAtom *)chunkContents(chunk);
 
@@ -4068,7 +4344,21 @@ void SaveResourceVolumeCB(void *stuff)
 
 void LoadResourceVolumeCB(LinkedList *list)
 {
-    ResourceVolume *resvol = LoadStructureOfSize(sizeof(ResourceVolume));
+    ResourceVolume *resvol;
+    SaveChunk *chunk;
+
+    if (saveCat32Loading)
+    {                                           // CAT (M2-R6 oracle-mode-a): the exe's 0x98-byte volume
+        chunk = saveCat32ChunkStruct(LoadNextChunk(), SAVECAT32_LAYOUT(ResourceVolume));
+        VerifyChunk(chunk,BASIC_STRUCTURE,sizeof(ResourceVolume));
+        resvol = memAlloc(sizeof(ResourceVolume),"loadedstructure",0);
+        memcpy(resvol,chunkContents(chunk),sizeof(ResourceVolume));
+        memFree(chunk);
+    }
+    else
+    {
+        resvol = LoadStructureOfSize(sizeof(ResourceVolume));
+    }
 
     listAddNode(list,&resvol->link,resvol);
 }
@@ -4095,6 +4385,8 @@ void SaveUniverse(void)
         savecontents->world[i] = (Derelict*)SpaceObjRegistryGetID((SpaceObj *)savecontents->world[i]);
     }
 
+    cat_saveShipRecordTablePreFix();            // CAT: the ship names' IDs (SaveUniverse 0x005034c0, 0x0050f870)
+
     SaveThisChunk(chunk);
 
     Save_CommandLayer(&universe.mainCommandLayer);
@@ -4114,25 +4406,32 @@ void SaveUniverse(void)
     SaveMineFormationList(&universe.MineFormationList);
 
     // Delete Lists assumed to be empty, because SaveUniverse is never called in the middle of a univupdate
+    // CAT-TODO(stage 5 recorder): SaveUniverse 0x005034c0 here deletes the dead ships, resources, derelicts and missiles (univDeleteDeadShips .. univDeleteDeadMissiles, plural forms the tree does not have) instead of asserting the lists empty
     dbgAssertOrIgnore(universe.DeleteMissileList.num == 0);
     dbgAssertOrIgnore(universe.DeleteResourceList.num == 0);
     dbgAssertOrIgnore(universe.DeleteDerelictList.num == 0);
     dbgAssertOrIgnore(universe.DeleteShipList.num == 0);
 
     // CAT: one tactics list: the attack memory at universe+0x180 (SaveUniverse 0x005034c0 saves its count and each
-    //      atom with SaveRetreatAtom, 0x24 + 4n bytes = HW1's AttackAtom); HW1's RetreatList is gone. CAT-TODO(save
-    //      hook): cat_saveUniverseList5e288 and cat_saveShipRecordTable follow it in the exe
+    //      atom with SaveRetreatAtom, 0x24 + 4n bytes = HW1's AttackAtom); HW1's RetreatList is gone. Then the blast
+    //      list and the ship-name table (cat_saveUniverseList5e288 0x005169f0, cat_saveShipRecordTable)
     SaveAttackMemory(&universe.AttackMemory);
+    cat_saveUniverseList5e288();
+    cat_saveShipRecordTable();
 
     SaveLinkedListOfStuff(&universe.ResourceVolumeList,SaveResourceVolumeCB);
 
     SaveGrowSelection(&universe.HousekeepShipList);
+    SaveGrowSelection(&universe.catSelection1A0);   // CAT: the second grow selection (SaveUniverse 0x005034c0)
 
     for (i=0;i<universe.numPlayers;i++)
     {
         Save_PlayerResearchInfo(&universe.players[i].researchinfo);
         cat_saveSavePlayerFOW(&universe.players[i]);       // CAT: SaveUniverse 0x005034c0 (M2-R6 nis-fow-camera)
     }
+
+    cat_saveShipCounters();                     // CAT: the ship counters and the frame-step switch 0x00a6ed74
+    SaveInfoNumber(catUnivFrameStep);           //      (SaveUniverse 0x005034c0)
 
     memFree(chunk);
 }
@@ -4163,6 +4462,7 @@ void LoadUniverse(void)
     }
 
     chunk = LoadNextChunk();
+    chunk = saveCat32ChunkStruct(chunk, SAVECAT32_LAYOUT(Universe));    // CAT (M2-R6 oracle-mode-a): the exe's 0x3D9BC
     VerifyChunk(chunk,BASIC_STRUCTURE|SAVE_UNIVERSE,sizeof(Universe));
 
     memcpy(&universe,chunkContents(chunk),chunk->contentsSize);
@@ -4194,10 +4494,17 @@ void LoadUniverse(void)
     FillOutCollBlobList(&universe.collBlobList);
 
     LoadAttackMemory(&universe.AttackMemory);   // CAT: the one tactics list (see SaveUniverse)
+    // CAT: then the blast list, the bullet effects to make again and the ship-name table (LoadUniverse 0x00503910:
+    //      cat_loadUniverseList5e288 0x00516a10, cat_univRequestBulletEffectsRecreate 0x0054d240,
+    //      cat_loadShipRecordTable 0x0050f8c0)
+    cat_loadUniverseList5e288();
+    cat_univRequestBulletEffectsRecreate();
+    cat_loadShipRecordTable();
 
     LoadLinkedListOfStuff(&universe.ResourceVolumeList,LoadResourceVolumeCB);
 
     LoadGrowSelectionAndFix(&universe.HousekeepShipList);
+    LoadGrowSelectionAndFix(&universe.catSelection1A0);     // CAT: the second grow selection (LoadUniverse 0x00503910)
 
     universe.star3dinfo = star3dInit(NUM_STARS, universe.radius - 1.0f, universe.radius);
 
@@ -4220,5 +4527,8 @@ void LoadUniverse(void)
     {
         universe.world[i] = (Derelict *)SpaceObjRegistryGetObj((sdword)universe.world[i]);
     }
+
+    cat_loadShipCounters();                     // CAT: the ship counters and the frame-step switch 0x00a6ed74
+    catUnivFrameStep = (bool32)LoadInfoNumber();    //  (LoadUniverse 0x00503910)
 }
 

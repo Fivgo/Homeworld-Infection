@@ -931,7 +931,10 @@ void gcStartup(void)
         textentrypos.x1     = gcScreenHandle->atoms[1].x+gcScreenHandle->atoms[1].width;
         textentrypos.y1     = gcScreenHandle->atoms[1].y+gcScreenHandle->atoms[1].height;
 
-        chatdrawregion = regChildAlloc(ghMainRegion, (sdword)&chatdrawatom, chatdrawatom.x, chatdrawatom.y,
+        // CAT-FIX (M2-R6 oracle-mode-a): the atom's address as the region's user ID needs all 64 bits (GoK's (sdword)
+        //      cast truncated it, and the region's draw function crashed reading the atom when a recorded game played
+        //      back, the first game since the port with the in-game chat up; gcStartup 0x00487020)
+        chatdrawregion = regChildAlloc(ghMainRegion, (smemsize)&chatdrawatom, chatdrawatom.x, chatdrawatom.y,
                                        chatdrawatom.width, chatdrawatom.height, 0, 0);
         chatdrawatom.region = (void*)chatdrawregion;
         regDrawFunctionSet(chatdrawregion, feUserRegionDraw);

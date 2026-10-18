@@ -97,4 +97,6 @@ void cat_gameStatsDraw(void);                                                   
 void cat_gameStatsBegin(void);                                                              // 0x00489e90
 bool32 cat_gameStatsIsActive(void);                                                         // 0x0048a050
 
+bool32 gpLoadRecordedGameGivenName(void);      // CAT: LoadRecordedGame 0x00487cf0 after the names (M2-R6 oracle-mode-a)
+
 #endif

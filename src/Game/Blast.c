@@ -38,6 +38,8 @@
 
 #include "glinc.h"
 #include "render.h"
+#include "SaveGame.h"
+#include "SaveCat32.h"
 
 // the six templates (0x00893da0, read from cataclysm.exe)
 static const CatBlast cat_blastTemplates[CAT_NUM_BLAST_TYPES] =
@@ -686,4 +688,54 @@ void cat_dreadnoughtChargeEffect(vector *pos, real32 frac)                      
 void cat_nomadMoonBeamEffect(vector *moon, real32 frac, vector *emitter, vector *point)     // 0x00516bb0
 {
     cat_chargeLightning(emitter, moon, frac, CAT_NOMAD_BEAM_RADIUS, point);
+}
+
+/*-----------------------------------------------------------------------------
+    CAT (M2-R6 oracle-mode-a): the blast list in a save (cat_saveUniverseList5e288 0x005169f0 /
+    cat_loadUniverseList5e288 0x00516a10, in SaveUniverse / LoadUniverse after the retreat list). Each blast is saved
+    with its list node as one BASIC chunk (0x74 bytes in the exe: a 0x10-byte Node, then the 0x64-byte blast). The load
+    resets and re-inits the blast module, reads the list (the blast's +0x54 word cleared), asks every blast to spawn
+    its effect once more and collects the big-gun shells in flight again.
+-----------------------------------------------------------------------------*/
+#define CAT_BLASTNODE32     0x74
+
+static void cat_blastSaveCB(void *stuff)                                // 0x005169b0
+{
+    SaveStructureOfSize(stuff, sizeof(CatBlastNode));
+}
+
+static void cat_blastLoadCB(LinkedList *list)                           // 0x005169c0
+{
+    CatBlastNode *node;
+    SaveChunk *chunk;
+
+    if (saveCat32Loading)
+    {
+        chunk = LoadNextChunk();
+        VerifyChunk(chunk, BASIC_STRUCTURE, CAT_BLASTNODE32);
+        node = memAlloc(sizeof(CatBlastNode), "CatBlast", 0);
+        memset(&node->link, 0, sizeof(node->link));
+        memcpy(&node->blast, (ubyte *)chunkContents(chunk) + 0x10, sizeof(CatBlast));
+        memFree(chunk);
+    }
+    else
+    {
+        node = LoadStructureOfSize(sizeof(CatBlastNode));
+    }
+    listAddNode(list, &node->link, node);
+    node->blast.unknown54 = 0;
+}
+
+void cat_saveUniverseList5e288(void)                                    // 0x005169f0
+{
+    SaveLinkedListOfStuff(&cat_blastList, cat_blastSaveCB);
+}
+
+void cat_loadUniverseList5e288(void)                                    // 0x00516a10
+{
+    cat_blastReset();
+    cat_blastInit();
+    LoadLinkedListOfStuff(&cat_blastList, cat_blastLoadCB);
+    cat_blastRequestEffects();
+    cat_bigGunBulletRebuildList();
 }

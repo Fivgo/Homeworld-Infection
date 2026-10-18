@@ -5005,6 +5005,9 @@ processtextures:
                         if (playPackets)
                         {
                             universePlaybackNoPacket = TRUE;
+#if HWI_ORACLE
+                            oracleReplayEnd();          // HWI-ORACLE: a replay run ends with its packets (M2-R6)
+#endif
                         }
                     }
                     else

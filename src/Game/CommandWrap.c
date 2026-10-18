@@ -692,18 +692,13 @@ void cat_clWrapExternalBuildUpdate(CommandLayer *comlayer,uword playerIndex,Ship
     CAT: the wraps of Cataclysm's orders (link, unlink, Leech, module slots, Beast system, point, Mimic, upgrade,
     special target). Like the HW1 wraps they flash the ships (when no AI is ordering) and order directly in a
     single-player game; a network or recorded game sends the order instead: clSendMisc with the exe's misc command
-    numbers 5-10 (the receiving side of those numbers is stage 5's: CAT-TODO(stage 5)), and for the point, Mimic,
+    numbers 5-10 (received by clProcessSyncPacket since M2-R6 oracle-mode-a), and for the point, Mimic,
     upgrade and special-target orders the exe's own packets (cat_clSendPointOrderPacket 0x00452120,
     cat_clSendMimicPacket 0x00452200, cat_clSendUpgradeShipsPacket 0x004522e0, cat_clSendSpecialTarget 0x00451fc0,
     cat_clSendSpecialTargetFlagged 0x00452040), which are not ported (CAT-TODO(stage 5)): such a game does nothing
     there yet. Only the Leech and special-target wraps test universePause (with opPauseOrders).
 ----------------------------------------------------------------------------*/
-#define CAT_MISCCOMMAND_LINK            5
-#define CAT_MISCCOMMAND_UNLINK          6
-#define CAT_MISCCOMMAND_LEECHACTION     7
-#define CAT_MISCCOMMAND_UNLEECH         8
-#define CAT_MISCCOMMAND_MODULESLOT      9
-#define CAT_MISCCOMMAND_BEASTSYSTEM     10
+// CAT: the misc command numbers are in CommandNetwork.h (CAT_MISCCOMMAND_*; M2-R6 oracle-mode-a)
 
 // CAT: new (cat_clWrapLink 0x00453940)
 void cat_clWrapLink(CommandLayer *comlayer,SelectCommand *selectcom)

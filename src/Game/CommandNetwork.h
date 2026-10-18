@@ -163,6 +163,23 @@ where Commands is a bunch of commands, one after the other, as defined above.
 #define MISCCOMMAND_TACTICS             2
 #define MISCCOMMAND_KAMIKAZE            3
 #define MISCCOMMAND_PARADE              4
+// CAT (M2-R6 oracle-mode-a): Cataclysm's misc commands and command types (clProcessSyncPacket 0x00450910)
+#define CAT_MISCCOMMAND_LINK                5
+#define CAT_MISCCOMMAND_UNLINK              6
+#define CAT_MISCCOMMAND_LEECHACTION         7
+#define CAT_MISCCOMMAND_UNLEECH             8
+#define CAT_MISCCOMMAND_MODULESLOT          9
+#define CAT_MISCCOMMAND_BEASTSYSTEM         10
+#define CAT_MISCCOMMAND_EXTERNALBUILDTIMER  11
+#define CAT_COMMANDTYPE_EXTERNALBUILDUPDATE 20
+#define CAT_COMMANDTYPE_POINTORDER          21
+#define CAT_COMMANDTYPE_MIMIC               22
+#define CAT_COMMANDTYPE_RESEARCH            23
+#define CAT_COMMANDTYPE_UPGRADE             24
+#define CAT_COMMANDTYPE_SPECIALTARGET       25      // cat_clSpecialTarget(..., 1)
+#define CAT_COMMANDTYPE_SPECIALTARGET0      26      // cat_clSpecialTarget(..., 0)
+#define CAT_COMMANDTYPE_NOTHING27           27
+#define CAT_NETMOVE_MAX_POINTS              20      // the move packet's path: (0x104 - 0x14) / 12 points
 #define PACKETTYPE_COMMAND              0xcccc
 #define PACKETTYPE_SYNC                 0x5555
 #define PACKETTYPE_REQUESTEDSYNC        0xe555
@@ -215,6 +232,10 @@ typedef struct
     uword randcheck;    // random # generated, but if == 0, indicates all checksums should be ignored
     real32 univcheck;   // universe checksum
     udword blobcheck;   // blob checksum
+    udword catExtra;    // CAT (M2-R6 oracle-mode-a): a copy of 0x00ab7658 (netcheckShow 0x004cc400 stores it in its
+                        //      16-byte ring entry, netcheckFillInChecksum 0x004cc2f0 sends it; not compared): the
+                        //      Cataclysm packet header is 0x1C bytes, numberOfCommands at +0x18 (clProcessSyncPacket
+                        //      0x00450910), so the recorded packets parse as the exe parses them
 } NetSyncChecksums;
 #endif
 
@@ -230,6 +251,10 @@ typedef struct
     uword numberOfCommands;
     // Commands go here
 } HWPacketHeader;
+#if SYNC_CHECK
+_Static_assert(sizeof(HWPacketHeader) == 0x1C, "Cataclysm's sync packet header is 0x1C bytes (clProcessSyncPacket 0x00450910)");
+_Static_assert(offsetof(HWPacketHeader, numberOfCommands) == 0x18, "numberOfCommands at +0x18 (0x0045098c)");
+#endif
 
 typedef struct
 {

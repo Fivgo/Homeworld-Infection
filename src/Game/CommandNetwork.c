@@ -664,6 +664,7 @@ bool32 packetBroadcastSync(ubyte *packet,udword sizeofPacket)
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+// CAT-TODO(stage 5 recorder): clSendMove, clSendMpHyperspace and clSendFormation still build HW1's bodies (one point, no path type, no force-field level); since M2-R6 oracle-mode-a clProcessSyncPacket reads Cataclysm's (0x106 + 2n with the path, and the level), so a packet these send would be misread until their send side is ported (clSendMove 0x0044f0a0 ff.)
 void clSendMove(CommandLayer *comlayer,SelectCommand *selectcom,vector from,vector to)
 {
     udword sizeofPacket;
@@ -1491,12 +1492,109 @@ void clSendProtect(CommandLayer *comlayer,SelectCommand *selectcom,ProtectComman
     Outputs     :
     Return      :
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    CAT (M2-R6 oracle-mode-a): the receive side of Cataclysm's sync packets, as clProcessSyncPacket 0x00450910
+    parses them (its jump table at 0x004510f4). The packet header is 0x1C bytes (NetSyncChecksums carries the 4th
+    word), the commands follow, each a uword (type in the low byte, the sending player in the high byte) and a body
+    whose layout the readers below take from the exe's offsets (memcpy reads: the bodies are only 2-byte aligned).
+    Bodies, from the command word's end:
+      1 move / 15 multiplayer hyperspace: +0 path type, +4 from, +0x10 number of points, +0x14 the points (the
+        hyperspace's destination is the first), +0x104 the selection (0x106 + 2n)
+      2 attack / 9 special / 25, 26 special target (flag 1 / 0): the targets (count, 4-byte target IDs), then the
+        selection
+      3 formation: +0 type, +2 force-field level, +4 selection;  4 dock: +0 dock-with ship ID, +2 purpose, +4 selection
+      5 create ship / 8 build ship: type, race, player, creator ID (8)
+      6 collect: resource ID, selection;  7 protect: the ships to protect (a selection), then the selection
+      10 misc: +0 data (dword), +4 the misc command, +6 the selection (10 + 2n): 0 halt, 1 scuttle, 2 tactics,
+        3 kamikaze, 4 parade, 5 link, 6 unlink, 7 Leech action, 8 unleech, 9 module slot (the data's bits name the
+        module type and the slot count, tables 0x0072a6d0 / 0x0072a708), 10 Beast system (a one-ship selection),
+        11 start the external-build timer
+      11 autolaunch (4), 12 launch multiple (launcher ID, selection that may hold ships inside), 13 alliance (8),
+      14 RU transfer (8), 16 nothing (no body), 17 player dropped (8), 18 deterministic build (12), 19 research (4)
+      20 external-build update: +0 player, +4 progress, +8 mode, +0xC creator ID, +0xE ship ID (16)
+      21 point order: +0 the point, +0xC selection;  22 Mimic: +0 mode, +4 type, +8 player, +0xC index, +0x10 selection
+      23 Cataclysm research: +0 player, +4 lab, +8 tech, +0xC mode (16);  24 upgrade: +0 cancel, +4 selection
+      27 nothing (8)
+----------------------------------------------------------------------------*/
+static uword clPktU16(const ubyte *p)
+{
+    uword v;
+    memcpy(&v, p, sizeof(v));
+    return v;
+}
+
+static udword clPktU32(const ubyte *p)
+{
+    udword v;
+    memcpy(&v, p, sizeof(v));
+    return v;
+}
+
+static vector clPktVector(const ubyte *p)
+{
+    vector v;
+    memcpy(&v, p, sizeof(v));
+    return v;
+}
+
+static ShipID clPktShipID(const ubyte *p)
+{
+    ShipID id;
+    id.shipNumber = clPktU16(p);
+    return id;
+}
+
+static udword clPktSizeofNetSelection(const ubyte *p)
+{
+    return 2 + 2 * (udword)clPktU16(p);
+}
+
+static udword clPktSizeofNetTargets(const ubyte *p)
+{
+    return 2 + 4 * (udword)clPktU16(p);
+}
+
+// a NetSelection / NetAttackSelection copied out of the packet, so the converters read aligned data
+static SelectCommand *clPktSelection(const ubyte *p, bool32 considerInsideShips, uword from)
+{
+    udword size = clPktSizeofNetSelection(p);
+    NetSelection *copy = memAlloc((sdword)(size < sizeof(NetSelection) ? sizeof(NetSelection) : size), "netselcopy", Pyrophoric);
+    SelectCommand *selectcom;
+
+    memcpy(copy, p, size);
+    selectcom = convertNetSelectionToSelectCommand(copy, considerInsideShips, from);
+    memFree(copy);
+    return selectcom;
+}
+
+static AttackCommand *clPktTargets(const ubyte *p)
+{
+    udword size = clPktSizeofNetTargets(p);
+    NetAttackSelection *copy = memAlloc((sdword)(size < sizeof(NetAttackSelection) ? sizeof(NetAttackSelection) : size), "nettgtcopy", Pyrophoric);
+    AttackCommand *attackcom;
+
+    memcpy(copy, p, size);
+    attackcom = convertNetAttackSelectionToAttackCommand(copy);
+    memFree(copy);
+    return attackcom;
+}
+
+// the misc command 9's data bits: the module type (0x0072a6d0: 7 {type, bit} pairs) and the slot count (0x0072a708: 3 pairs)
+static const sdword clPktModuleTypeBits[7][2] = { {0x13, 0x01}, {0x15, 0x02}, {0x16, 0x04}, {0x17, 0x08}, {0x18, 0x10}, {0x1A, 0x20}, {0x1F, 0x40} };
+static const sdword clPktModuleCountBits[3][2] = { {0, 0x80}, {1, 0x100}, {2, 0x200} };
+
 void clProcessSyncPacket(CommandLayer *comlayer,ubyte *packet,udword sizeofPacket)
 {
-    ubyte *curpacket;
+    const ubyte *body;
     udword numberOfCommandsLeft;
     uword commandType;
     uword from;
+    SelectCommand *selectcom;
+    SelectCommand *selectcom2;
+    AttackCommand *targets;
+    udword n, k, data;
+    sdword moduleType, moduleCount;
+    vector point;
 
     dbgAssertOrIgnore(((HWPacketHeader *)packet)->type == PACKETTYPE_SYNC);
 
@@ -1526,263 +1624,247 @@ void clProcessSyncPacket(CommandLayer *comlayer,ubyte *packet,udword sizeofPacke
     }
 #endif
 
-    numberOfCommandsLeft = (udword)((HWPacketHeader *)packet)->numberOfCommands;
+    numberOfCommandsLeft = (udword)((HWPacketHeader *)packet)->numberOfCommands;   // CAT: +0x18
 
-    curpacket = packet + sizeof(HWPacketHeader);
+    body = packet + sizeof(HWPacketHeader);                                     // CAT: +0x1C
 
     while (numberOfCommandsLeft > 0)
     {
-        commandType = ((HWCommandHeader *)curpacket)->commandType;
+        commandType = clPktU16(body);
         from = (commandType >> 8) & 255;
         commandType &= 255;
-        curpacket += sizeof(HWCommandHeader);
+        body += sizeof(HWCommandHeader);
 
         switch (commandType)
         {
             case COMMANDTYPE_MOVE:
-            {
-                NetMoveCommand *movecom = (NetMoveCommand *)curpacket;
-                SelectCommand *moveselection = convertNetSelectionToSelectCommand(&movecom->selection,FALSE,from);
-                // CAT-TODO(stage 5): the exe's move packet carries the waypoint path (clProcessSyncPacket 0x00450b40);
-                //      this tree's HW1 packet is a one-point path
-                clMove(comlayer,moveselection,CAT_MOVEPATH_ONCE,movecom->from,1,&movecom->to);
-                memFree(moveselection);
-                curpacket += sizeofNetMoveCommand(movecom->selection.numShips);
-            }
-            break;
+                selectcom = clPktSelection(body + 0x104, FALSE, from);
+                n = clPktU32(body + 0x10);
+                {
+                    vector points[CAT_NETMOVE_MAX_POINTS];
+                    memset(points, 0, sizeof(points));
+                    memcpy(points, body + 0x14, sizeof(vector) * ((n < CAT_NETMOVE_MAX_POINTS) ? n : CAT_NETMOVE_MAX_POINTS));
+                    clMove(comlayer, selectcom, (sdword)clPktU32(body), clPktVector(body + 4), (sdword)n, points);
+                }
+                memFree(selectcom);
+                body += 0x106 + 2 * (udword)clPktU16(body + 0x104);
+                break;
 
             case COMMANDTYPE_MP_HYPERSPACE:
-            {
-                NetMoveCommand *movecom = (NetMoveCommand *)curpacket;
-                SelectCommand *moveselection = convertNetSelectionToSelectCommand(&movecom->selection,FALSE,from);
-                clMpHyperspace(comlayer,moveselection,movecom->from,movecom->to);
-                memFree(moveselection);
-                curpacket += sizeofNetMoveCommand(movecom->selection.numShips);
-            }
-            break;
+                selectcom = clPktSelection(body + 0x104, FALSE, from);
+                clMpHyperspace(comlayer, selectcom, clPktVector(body + 4), clPktVector(body + 0x14));
+                memFree(selectcom);
+                body += 0x106 + 2 * (udword)clPktU16(body + 0x104);
+                break;
 
             case COMMANDTYPE_ATTACK:
-            {
-                NetAttackSelection *netattackselection = (NetAttackSelection *)curpacket;
-                NetSelection *netselection = (NetSelection *)(curpacket + sizeofNetAttackSelection(netattackselection->numTargets));
-                AttackCommand *attackattack = convertNetAttackSelectionToAttackCommand(netattackselection);
-                SelectCommand *attackselection = convertNetSelectionToSelectCommand(netselection,FALSE,from);
-                clAttack(comlayer,attackselection,attackattack);
-                memFree(attackattack);
-                memFree(attackselection);
-                curpacket += sizeofNetAttackCommand(netattackselection->numTargets,netselection->numShips);
-            }
-            break;
+                n = clPktSizeofNetTargets(body);
+                targets = clPktTargets(body);
+                selectcom = clPktSelection(body + n, FALSE, from);
+                clAttack(comlayer, selectcom, targets);
+                memFree(targets);
+                memFree(selectcom);
+                body += n + clPktSizeofNetSelection(body + n);
+                break;
 
             case COMMANDTYPE_SPECIAL:
-            {
-                NetTargetsSelection *nettargetsselection = (NetTargetsSelection *)curpacket;
-                sdword nettargetsselectionNumShips = nettargetsselection->numTargets;
-                NetSelection *netselection = (NetSelection *)(curpacket + sizeofNetTargetsSelection(nettargetsselectionNumShips));
-                SelectCommand *selectcom = convertNetSelectionToSelectCommand(netselection,FALSE,from);
-                SpecialCommand *targetcom;
-                if (nettargetsselectionNumShips > 0)
+            case CAT_COMMANDTYPE_SPECIALTARGET:
+            case CAT_COMMANDTYPE_SPECIALTARGET0:
+                n = clPktSizeofNetTargets(body);
+                selectcom = clPktSelection(body + n, FALSE, from);
+                targets = (clPktU16(body) != 0) ? clPktTargets(body) : NULL;
+                if (commandType == COMMANDTYPE_SPECIAL)
                 {
-                    targetcom = convertNetAttackSelectionToAttackCommand(nettargetsselection);
+                    clSpecial(comlayer, selectcom, targets);
                 }
                 else
                 {
-                    targetcom = NULL;
+                    cat_clSpecialTarget(comlayer, selectcom, targets, (commandType == CAT_COMMANDTYPE_SPECIALTARGET));
                 }
-                clSpecial(comlayer,selectcom,targetcom);
                 memFree(selectcom);
-                if (targetcom != NULL) memFree(targetcom);
-                curpacket += sizeofNetSpecialCommand(nettargetsselectionNumShips,netselection->numShips);
-            }
-            break;
+                if (targets != NULL) memFree(targets);
+                body += n + clPktSizeofNetSelection(body + n);
+                break;
 
             case COMMANDTYPE_FORMATION:
-            {
-                NetFormationCommand *formationcom = (NetFormationCommand *)curpacket;
-                SelectCommand *formselection = convertNetSelectionToSelectCommand(&formationcom->selection,FALSE,from);
-                clFormation(comlayer,formselection,(TypeOfFormation)formationcom->typeOfFormation,0);   // CAT-TODO(stage 5): the exe's packet carries the level (clProcessSyncPacket 0x00450c0c)
-                memFree(formselection);
-                curpacket += sizeofNetFormationCommand(formationcom->selection.numShips);
-            }
-            break;
+                selectcom = clPktSelection(body + 4, FALSE, from);
+                clFormation(comlayer, selectcom, (TypeOfFormation)clPktU16(body), (sdword)clPktU16(body + 2));
+                memFree(selectcom);
+                body += 4 + clPktSizeofNetSelection(body + 4);
+                break;
 
             case COMMANDTYPE_DOCK:
-            {
-                NetDockCommand *dockcom = (NetDockCommand *)curpacket;
-                SelectCommand *dockselection = convertNetSelectionToSelectCommand(&dockcom->selection,FALSE,from);
-                clDock(comlayer,dockselection,(DockType)dockcom->dockType,ShipIDtoShip(dockcom->dockwithID,FALSE));
-                memFree(dockselection);
-                curpacket += sizeofNetDockCommand(dockcom->selection.numShips);
-            }
-            break;
-
-            case COMMANDTYPE_LAUNCHMULTIPLE:
-            {
-                NetLaunchMultipleCommand *launchcom = (NetLaunchMultipleCommand *)curpacket;
-                SelectCommand *launchselection = convertNetSelectionToSelectCommand(&launchcom->selection,TRUE,from);
-                clLaunchMultipleShips(comlayer,launchselection,ShipIDtoShip(launchcom->launchfromID,FALSE));
-                memFree(launchselection);
-                curpacket += sizeofNetLaunchMultipleCommand(launchcom->selection.numShips);
-            }
-            break;
-
-            case COMMANDTYPE_MISC:
-            {
-                NetMiscCommand *misccom = (NetMiscCommand *)curpacket;
-                SelectCommand *miscselection = convertNetSelectionToSelectCommand(&misccom->selection,FALSE,from);
-                switch (misccom->miscCommand)
-                {
-                    case MISCCOMMAND_HALT:
-                        clHalt(comlayer,miscselection);
-                        break;
-
-                    case MISCCOMMAND_SCUTTLE:
-                        clScuttle(comlayer,miscselection);
-                        break;
-
-                    case MISCCOMMAND_TACTICS:
-                        clSetTactics(comlayer,miscselection,(TacticsType)misccom->miscData);
-                        break;
-
-                    case MISCCOMMAND_KAMIKAZE:
-                        clSetKamikaze(comlayer,miscselection);
-                        break;
-
-                    case MISCCOMMAND_PARADE:
-                        clSetMilitaryParade(comlayer,miscselection);
-                        break;
-                    default:
-                        dbgAssertOrIgnore(FALSE);
-                        break;
-                }
-                memFree(miscselection);
-                curpacket += sizeofNetMiscCommand(misccom->selection.numShips);
-            }
-            break;
-#ifdef GOD_LIKE_SYNC_CHECKING
-            case COMMANDTYPE_GODSYNC:
-                // This is a special SYNC debug feature such that when this command is recieved the game will halt
-                {
-                    GodSyncCommand *gp=(GodSyncCommand *)curpacket;
-                    switch(((GodSyncCommand *)curpacket)->type)
-                    {
-                        case GOD_COMMAND_HALTONSYNC:
-                            if(syncDumpOn)
-                            {
-                                syncDebugDump("syncDump.txt",universe.univUpdateCounter,TRUE);
-                                dbgNonFatal(DBG_Loc,"SYNC Error Detected crash to debuger?");
-                            }
-                            break;
-                        case GOD_COMMAND_GOD_HALTONSYNC:
-                            if(syncDumpOn)
-                            {
-                                netReceivedSyncFromNonCaptain(&gp->godChecksum,gp->frame,gp->from);
-                            }
-                            break;
-                    }
-                    curpacket += sizeof(GodSyncCommand);
-                }
-            break;
-#endif
-            case COMMANDTYPE_AUTOLAUNCH:
-            {
-                NetAutolaunchCommand *launchcom = (NetAutolaunchCommand *)curpacket;
-                clAutoLaunch((udword)launchcom->OnOff,(udword)launchcom->playerIndex);
-                curpacket += sizeofNetAutolaunchCommand;
-            }
-            break;
-
-            case COMMANDTYPE_ALLIANCEINFO:
-            {
-                NetAllianceCommand *alliancecom = (NetAllianceCommand *)curpacket;
-                clSetAlliance(alliancecom->AllianceMsgType, alliancecom->CurAlliance, alliancecom->NewAlliance);
-                curpacket += sizeofNetAllianceCommand;
-            }
-            break;
-
-            case COMMANDTYPE_PLAYERDROPPED:
-            {
-                NetPlayerDroppedCommand *droppedcom = (NetPlayerDroppedCommand *)curpacket;
-                clPlayerDropped(droppedcom->playerDroppedMask,droppedcom->verify);
-                curpacket += sizeofNetPlayerDroppedCommand;
-            }
-            break;
+                selectcom = clPktSelection(body + 4, FALSE, from);
+                clDock(comlayer, selectcom, (DockType)clPktU16(body + 2), ShipIDtoShip(clPktShipID(body), FALSE));
+                memFree(selectcom);
+                body += 4 + clPktSizeofNetSelection(body + 4);
+                break;
 
             case COMMANDTYPE_CREATESHIP:
-            {
-                NetCreateShipCommand *createcom = (NetCreateShipCommand *)curpacket;
-                clCreateShip(comlayer,(ShipType)createcom->shipType,(ShipRace)createcom->shipRace,createcom->playerIndex,ShipIDtoShip(createcom->creatorID,FALSE));
-                curpacket += sizeofNetCreateShipCommand;
-            }
-            break;
-
-            case COMMANDTYPE_DETERMINISTICBUILD:
-            {
-                NetDeterministicBuildCommand* buildcom = (NetDeterministicBuildCommand*)curpacket;
-                clDeterministicBuild(buildcom->subCommand, comlayer,
-                                     buildcom->numShips,
-                                     (ShipType)buildcom->shipType,
-                                     (ShipRace)buildcom->shipRace,
-                                     buildcom->playerIndex,
-                                     ShipIDtoShip(buildcom->creatorID, FALSE));
-                curpacket += sizeofNetDeterministicBuildCommand;
-            }
-            break;
+                clCreateShip(comlayer, (ShipType)clPktU16(body), (ShipRace)clPktU16(body + 2), clPktU16(body + 4),
+                             ShipIDtoShip(clPktShipID(body + 6), FALSE));
+                body += 8;
+                break;
 
             case COMMANDTYPE_BUILDSHIP:
-            {
-                NetCreateShipCommand *createcom = (NetCreateShipCommand *)curpacket;
-                clBuildShip(comlayer,(ShipType)createcom->shipType,(ShipRace)createcom->shipRace,createcom->playerIndex,ShipIDtoShip(createcom->creatorID,FALSE));
-                curpacket += sizeofNetCreateShipCommand;
-            }
-            break;
+                clBuildShip(comlayer, (ShipType)clPktU16(body), (ShipRace)clPktU16(body + 2), clPktU16(body + 4),
+                            ShipIDtoShip(clPktShipID(body + 6), FALSE));
+                body += 8;
+                break;
 
             case COMMANDTYPE_COLLECTRESOURCE:
-            {
-                NetCollectResourceCommand *collectcom = (NetCollectResourceCommand *)curpacket;
-                SelectCommand *collectselection = convertNetSelectionToSelectCommand(&collectcom->selection,FALSE,from);
-                clCollectResource(comlayer,collectselection,ResourceIDtoResourcePtr(collectcom->resourceID));
-                memFree(collectselection);
-                curpacket += sizeofNetCollectResourceCommand(collectcom->selection.numShips);
-            }
-            break;
+                {
+                    ResourceID resourceID;
+                    resourceID.resourceNumber = clPktU16(body);
+                    selectcom = clPktSelection(body + 2, FALSE, from);
+                    clCollectResource(comlayer, selectcom, ResourceIDtoResourcePtr(resourceID));
+                    memFree(selectcom);
+                    body += 2 + clPktSizeofNetSelection(body + 2);
+                }
+                break;
 
             case COMMANDTYPE_PROTECT:
-            {
-                NetProtectSelection *netprotectselection = (NetProtectSelection *)curpacket;
-                NetSelection *netselection = (NetSelection *)(curpacket + sizeofNetProtectSelection(netprotectselection->numShips));
-                ProtectCommand *protectprotect = convertNetSelectionToSelectCommand(netprotectselection,FALSE,from);
-                SelectCommand *protectselection = convertNetSelectionToSelectCommand(netselection,FALSE,from);
-                clProtect(comlayer,protectselection,protectprotect);
-                memFree(protectprotect);
-                memFree(protectselection);
-                curpacket += sizeofNetProtectCommand(netprotectselection->numShips,netselection->numShips);
-            }
-            break;
+                n = clPktSizeofNetSelection(body);
+                selectcom2 = clPktSelection(body, FALSE, from);         // the ships to protect
+                selectcom = clPktSelection(body + n, FALSE, from);
+                clProtect(comlayer, selectcom, (ProtectCommand *)selectcom2);
+                memFree(selectcom2);
+                memFree(selectcom);
+                body += n + clPktSizeofNetSelection(body + n);
+                break;
+
+            case COMMANDTYPE_MISC:
+                data = clPktU32(body);
+                selectcom = clPktSelection(body + 6, FALSE, from);
+                switch (clPktU16(body + 4))
+                {
+                    case MISCCOMMAND_HALT:      clHalt(comlayer, selectcom); break;
+                    case MISCCOMMAND_SCUTTLE:   clScuttle(comlayer, selectcom); break;
+                    case MISCCOMMAND_TACTICS:   clSetTactics(comlayer, selectcom, (TacticsType)data); break;
+                    case MISCCOMMAND_KAMIKAZE:  clSetKamikaze(comlayer, selectcom); break;
+                    case MISCCOMMAND_PARADE:    clSetMilitaryParade(comlayer, selectcom); break;
+                    case CAT_MISCCOMMAND_LINK:          cat_clLink(comlayer, selectcom); break;
+                    case CAT_MISCCOMMAND_UNLINK:        cat_clUnlink(comlayer, selectcom); break;
+                    case CAT_MISCCOMMAND_LEECHACTION:   cat_clSetLeechAction(comlayer, selectcom, (ubyte)data); break;
+                    case CAT_MISCCOMMAND_UNLEECH:       cat_clUnleech(comlayer, selectcom); break;
+                    case CAT_MISCCOMMAND_MODULESLOT:
+                        moduleType = 0;
+                        moduleCount = -1;
+                        for (k = 0; k < 7; k++)
+                        {
+                            if (clPktModuleTypeBits[k][1] & data) moduleType = clPktModuleTypeBits[k][0];
+                        }
+                        for (k = 0; k < 3; k++)
+                        {
+                            if (clPktModuleCountBits[k][1] & data) moduleCount = clPktModuleCountBits[k][0];
+                        }
+                        cat_clSetModuleSlot(comlayer, selectcom, moduleType, moduleCount);
+                        break;
+                    case CAT_MISCCOMMAND_BEASTSYSTEM:
+                        if (selectcom->numShips == 1)
+                        {
+                            cat_clSetBeastSystem(comlayer, selectcom->ShipPtr[0], (sdword)data);
+                        }
+                        break;
+                    case CAT_MISCCOMMAND_EXTERNALBUILDTIMER:
+                        cat_clStartExternalBuildTimer(comlayer, selectcom);
+                        break;
+                    default:
+                        break;                  // CAT: the exe ignores other numbers (jump table bound 0xb)
+                }
+                memFree(selectcom);
+                body += 10 + 2 * (udword)clPktU16(body + 6);
+                break;
+
+            case COMMANDTYPE_AUTOLAUNCH:
+                clAutoLaunch((udword)clPktU16(body), (udword)clPktU16(body + 2));
+                body += 4;
+                break;
+
+            case COMMANDTYPE_LAUNCHMULTIPLE:
+                selectcom = clPktSelection(body + 2, TRUE, from);
+                clLaunchMultipleShips(comlayer, selectcom, ShipIDtoShip(clPktShipID(body), FALSE));
+                memFree(selectcom);
+                body += 2 + clPktSizeofNetSelection(body + 2);
+                break;
+
+            case COMMANDTYPE_ALLIANCEINFO:
+                clSetAlliance(clPktU32(body), clPktU16(body + 4), clPktU16(body + 6));
+                body += 8;
+                break;
 
             case COMMANDTYPE_RUTRANSFER:
-            {
-                NetRUTransferferCommand *rucommand = (NetRUTransferferCommand *)curpacket;
-                clRUTransfer(comlayer,rucommand->to,rucommand->from,rucommand->resourceUnits,rucommand->flags);
-                curpacket+=sizeof(NetRUTransferferCommand);
-            }
-            break;
+                clRUTransfer(comlayer, (sdword)body[0], (sdword)body[1], (sdword)clPktU32(body + 4), body[2]);
+                body += 8;
+                break;
+
+            case COMMANDTYPE_PLAYERDROPPED:
+                clPlayerDropped(clPktU32(body), clPktU32(body + 4));
+                body += 8;
+                break;
+
+            case COMMANDTYPE_DETERMINISTICBUILD:
+                clDeterministicBuild((udword)body[0], comlayer, (sdword)clPktU16(body + 2), (ShipType)clPktU16(body + 4),
+                                     (ShipRace)clPktU16(body + 6), clPktU16(body + 8), ShipIDtoShip(clPktShipID(body + 10), FALSE));
+                body += 12;
+                break;
 
             case COMMANDTYPE_RESEARCHINFO:
-            {
-                NetResearchCommand *researchcommand = (NetResearchCommand *)curpacket;
-                clSetResearch((udword)researchcommand->ResearchMsgType, (udword)researchcommand->playerindex, (udword)researchcommand->labnum, (udword)researchcommand->tech);
-                curpacket+=sizeofNetResearchCommand;
-            }
-            break;
+                clSetResearch((udword)body[0], (udword)body[1], (udword)body[2], (udword)body[3]);
+                body += 4;
+                break;
+
+            case CAT_COMMANDTYPE_EXTERNALBUILDUPDATE:
+                {
+                    real32 progress;
+                    data = clPktU32(body + 4);
+                    memcpy(&progress, &data, sizeof(progress));
+                    cat_clExternalBuildUpdate(comlayer, clPktU16(body), ShipIDtoShip(clPktShipID(body + 0xC), FALSE),
+                                              ShipIDtoShip(clPktShipID(body + 0xE), FALSE), progress, (sdword)clPktU32(body + 8));
+                }
+                body += 16;
+                break;
+
+            case CAT_COMMANDTYPE_POINTORDER:
+                selectcom = clPktSelection(body + 0xC, FALSE, from);
+                point = clPktVector(body);
+                cat_clPointOrder(comlayer, selectcom, &point);
+                memFree(selectcom);
+                body += 0xC + clPktSizeofNetSelection(body + 0xC);
+                break;
+
+            case CAT_COMMANDTYPE_MIMIC:
+                selectcom = clPktSelection(body + 0x10, FALSE, from);
+                cat_clMimic(comlayer, selectcom, clPktU32(body), clPktU32(body + 4), clPktU32(body + 8), clPktU32(body + 0xC));
+                memFree(selectcom);
+                body += 0x10 + clPktSizeofNetSelection(body + 0x10);
+                break;
+
+            case CAT_COMMANDTYPE_RESEARCH:
+                cat_clResearch(comlayer, clPktU16(body), clPktU32(body + 4), clPktU32(body + 8), clPktU32(body + 0xC));
+                body += 16;
+                break;
+
+            case CAT_COMMANDTYPE_UPGRADE:
+                selectcom = clPktSelection(body + 4, FALSE, from);
+                cat_clUpgradeShips(comlayer, selectcom, (bool32)clPktU32(body));
+                memFree(selectcom);
+                body += 4 + clPktSizeofNetSelection(body + 4);
+                break;
+
+            case CAT_COMMANDTYPE_NOTHING27:
+                body += 8;                          // CAT: an empty handler in the exe (0x00450dd5 calls a nullsub)
+                break;
 
             default:
-                dbgAssertOrIgnore(FALSE);
+                // CAT: 16 and unknown numbers: the exe goes on with the next command word (16 has no handler and no
+                //      body in Cataclysm; HW1's GODSYNC is gone)
                 break;
         }
 
         numberOfCommandsLeft--;
     }
+    (void)sizeofPacket;
 }
 
 #define LastSyncPktsQ_NUMBER 1024

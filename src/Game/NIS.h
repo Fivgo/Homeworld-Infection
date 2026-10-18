@@ -487,6 +487,8 @@ extern real32 nisScissorFadeOut;                //duration of fade in/out
 extern real32 nisScissorFadeTime;               //current fade time
 extern real32 nisCameraCutTime;
 extern real32 nisBlackFade;                     //the current fade level (0 = normal, 1 = fully faded out)
+extern real32 nisBlackFadeDest;                 //what we're fading to (CAT: saved by SaveSinglePlayerGame 0x0051bee0)
+extern real32 nisBlackFadeRate;                 //at what speed
 
 extern bool8 nisUniversePause;
 extern bool8 nisUniverseHidden;

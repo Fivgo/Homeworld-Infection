@@ -16,6 +16,8 @@
 #include "NIS.h"
 #include "Randy.h"
 #include "SaveGame.h"
+#include "SaveCat32.h"
+#include "TitanInterfaceC.h"
 #include "SinglePlayer.h"
 #include "Stats.h"
 #include "Tweak.h"
@@ -1836,6 +1838,123 @@ void aiplayerSave(void)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : aiplayerCat32Load
+    Description : CAT (M2-R6 oracle-mode-a): the AI part of a cataclysm.exe save (aiplayerLoad 0x00412400). The
+                  chunks are read in the exe's order: the current AI player's index, the AI variables
+                  (aivarLoad 0x004206d0: three numbers and 0x34-byte entries), the KAS variables (cat_kasVarLoad
+                  0x00491be0: three numbers and 0xC-byte entries), then per player that had an AI player
+                  (LoadThisAIPlayer 0x00412190): the 0x1D18-byte AIPlayer, its grow selection, the 0x91 pairs of
+                  enemy-ship grow selections, the three request lists (0x20-byte entries) and three waiting-team lists
+                  (0x4C), two grow selections, up to five optional selections (AIPlayer +0x1CB0, +0x1CC0 .. +0x1CCC),
+                  the max selection (+0xCF8), one more optional selection (+0x1CA8), and the teams (aitLoad
+                  0x00418180: two numbers, per team a 0x280-byte AITeam, a grow selection, the move list and, when
+                  +0x50 is set, 1 + 64 numbers). Cataclysm's AIPlayer (0x1D18 bytes, its skirmish AI cat_ais*) is
+                  stage 4's: the chunks are read and set aside, and each such player gets this tree's AI player as a
+                  new game makes it (aiplayerInit at the game's difficulty). A recorded game's playback never runs
+                  the computer players (aiplayerUpdateAll skips them while playPackets is set); everything they did
+                  is in the packets.
+                  CAT-TODO(stage 4 AI): convert the exe's AIPlayer / AITeam / move chunks into the Cataclysm AI's structs once they are ported (aiplayerLoad 0x00412400, LoadThisAIPlayer 0x00412190, aitLoad 0x00418180, FixThisAIPlayer 0x00412020)
+----------------------------------------------------------------------------*/
+static void aiplayerCat32SkipChunks(sdword n)
+{
+    sdword i;
+
+    for (i = 0; i < n; i++)
+    {
+        memFree(LoadNextChunk());
+    }
+}
+
+static udword aiplayerCat32Word(SaveChunk *chunk, udword offset)
+{
+    udword v = 0;
+
+    if ((udword)chunk->contentsSize >= offset + 4)
+    {
+        memcpy(&v, (ubyte *)chunkContents(chunk) + offset, 4);
+    }
+    return v;
+}
+
+static void aiplayerCat32Load(void)
+{
+    static const udword optionalSelections[] = { 0x1CB0, 0x1CC0, 0x1CC4, 0x1CC8, 0x1CCC };
+    SaveChunk *aichunk, *teamchunk;
+    sdword i, k, n, numTeams, numMoves;
+    AIPlayer *aiplayer;
+
+    (void)LoadInfoNumber();                     // the current AI player (aiplayerLoad then clears aiCurrentAIPlayer)
+    (void)LoadInfoNumber();                     // aivarLoad: the table size,
+    n = LoadInfoNumber();                       //            the number of variables,
+    (void)LoadInfoNumber();                     //            and a third number
+    aiplayerCat32SkipChunks(n);                 //            0x34 bytes each
+    n = LoadInfoNumber();                       // cat_kasVarLoad: the count read,
+    k = LoadInfoNumber();                       //                 the table size,
+    (void)LoadInfoNumber();                     //                 a third number
+    if (k != 0)
+    {
+        aiplayerCat32SkipChunks(n);             //                 0xC bytes each
+    }
+
+    for (i=0;i<universe.numPlayers;i++)
+    {
+        if (universe.players[i].aiPlayer == NULL)
+        {
+            continue;
+        }
+        aichunk = LoadNextChunk();              // LoadThisAIPlayer 0x00412190
+        dbgAssertOrIgnore(aichunk->contentsSize == 0x1D18);
+        aiplayerCat32SkipChunks(1 + 2 * TOTAL_NUM_SHIPS);   // the grow selection, the 0x91 pairs
+        for (k = 0; k < 6; k++)
+        {                                       // the request lists and the waiting-team lists: one chunk each
+            n = LoadInfoNumber();
+            aiplayerCat32SkipChunks(n);
+        }
+        aiplayerCat32SkipChunks(2);             // +0xBA4, +0xBAC
+        for (k = 0; k < (sdword)(sizeof(optionalSelections) / sizeof(optionalSelections[0])); k++)
+        {
+            if (aiplayerCat32Word(aichunk, optionalSelections[k]) != 0)
+            {
+                aiplayerCat32SkipChunks(1);
+            }
+        }
+        aiplayerCat32SkipChunks(1);             // the max selection at +0xCF8
+        if (aiplayerCat32Word(aichunk, 0x1CA8) != 0)
+        {
+            aiplayerCat32SkipChunks(1);
+        }
+        (void)LoadInfoNumber();                 // aitLoad 0x00418180: the team table size,
+        numTeams = LoadInfoNumber();            //                     the number of teams
+        for (k = 0; k < numTeams; k++)
+        {
+            teamchunk = LoadNextChunk();        // the 0x280-byte team
+            aiplayerCat32SkipChunks(1);         // its grow selection
+            numMoves = LoadInfoNumber();
+            if (numMoves != 0)
+            {
+                // LoadMoveCB 0x00417fe0: a 0x170-byte move, then whatever its type's load callback (the table at
+                // 0x0074dfec) reads: not walked here
+                dbgFatalf(DBG_Loc, "Cataclysm save: an AI team with %d moves (the exe's move chunks are stage 4's)", numMoves);
+            }
+            if (aiplayerCat32Word(teamchunk, 0x50) != 0)
+            {
+                (void)LoadInfoNumber();
+                for (n = 0; n < 64; n++)
+                {
+                    (void)LoadInfoNumber();
+                }
+            }
+            memFree(teamchunk);
+        }
+        memFree(aichunk);
+
+        aiplayer = aiplayerInit(&universe.players[i], (AIPlayerLevel)tpGameCreated.aiplayerDifficultyLevel);
+        universe.players[i].aiPlayer = aiplayer;
+    }
+    aiCurrentAIPlayer = NULL;                   // aiplayerLoad 0x00412400 ends with it cleared
+}
+
 void aiplayerLoad(void)
 {
     // Load Global Variables
@@ -1843,6 +1962,12 @@ void aiplayerLoad(void)
     sdword number;
     sdword i;
     AIPlayer *aiplayer;
+
+    if (saveCat32Loading)
+    {
+        aiplayerCat32Load();                    // CAT (M2-R6 oracle-mode-a)
+        return;
+    }
 
     number = LoadInfoNumber();
 

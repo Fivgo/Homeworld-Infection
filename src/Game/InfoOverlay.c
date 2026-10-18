@@ -75,7 +75,12 @@
 #include "utility.h"
 
 void smCullAndFocusSelecting(void);                 // Sensors.c (no prototype in Sensors.h)
-extern sdword mouseCursorEnemyType;                 // mouse.c (selShipUnderMouse sets it)
+// CAT (M2-R6 oracle-mode-a): the tooltip's object kind is the exe's 0x008ba740, which selShipUnderMouse 0x00506550
+//      sets to -1 (enemy ship), -2 (resource), -4 (allied ship), -5 (derelict) or the own ship's type: this tree's
+//      mouseCursorOverShipType (mouse.c, MC_*). The tooltip read mouseCursorEnemyType (0x008ba744, the ship type
+//      only), so a resource under the cursor kept the kind of the last ship and was drawn as an enemy ship; the
+//      replay of the skirmish recording crashed on the asteroid's "player" (tick 3501)
+extern sdword mouseCursorOverShipType;              // mouse.c
 
 /*=============================================================================
     Data:
@@ -251,7 +256,6 @@ static real32 catMoSupportBlinkTime = 0.0f;         // 0x00a4b968
 // CAT (M2-R6 startup-keys): 0x00a6ed74 is the Pause key's flag (UnivUpdate.c catUnivFrameStep; it was named after
 //      cat_kasWideScreenIn here): the overlay prints "paused" while it is set and hides the objectives pointer
 #define catMoWideScreen             catUnivFrameStep
-static bool32 catMoRecordingEnded = FALSE;          // 0x00a6c5c8 (the recorded game ran out; CAT-TODO(stage 5 recorder))
 
 // CAT: the layout constants (exe data 0x0072ab88..)
 #define CAT_MO_LIST_WIDTH           150     // 0x0072ace4
@@ -1224,14 +1228,14 @@ void cat_moTooltipDraw(void)
     {
         return;
     }
-    if (!catMoOptions()->tooltips.show || mouseCursorEnemyType == -3)
+    if (!catMoOptions()->tooltips.show || mouseCursorOverShipType == -3)
     {
         fontMakeCurrent(font);
         return;
     }
     x = CAT_MO_TOOLTIP_DX + mouseCursorXPosition;
     y = CAT_MO_TOOLTIP_DY + mouseCursorYPosition;
-    if (mouseCursorEnemyType == -2)
+    if (mouseCursorOverShipType == -2)
     {   // a resource, cloud or missile
         outline = catMoTipObjOutline; textColour = catMoTipObjText; box = catMoTipObjBox;
         text[0] = '\0';
@@ -1276,7 +1280,7 @@ void cat_moTooltipDraw(void)
             strcpy(text, strGetString(strMO_Tooltip_Resource));
         }
     }
-    else if (mouseCursorEnemyType == -1 && !bitTest(obj->header.flags, SOF_Hide))
+    else if (mouseCursorOverShipType == -1 && !bitTest(obj->header.flags, SOF_Hide))
     {   // an enemy ship, as the player sees it
         outline = catMoTipEnemyOutline; textColour = catMoTipEnemyText; box = catMoTipEnemyBox;
         if (!bitTest(ship->header.catFlags18, CAT_SHIPFLAG_Mimic))
@@ -1311,7 +1315,7 @@ void cat_moTooltipDraw(void)
             sprintf(text, "%s", ShipTypeToNiceStr(cat_mimicGetApparentShipType(ship)));
         }
     }
-    else if (mouseCursorEnemyType == -4)
+    else if (mouseCursorOverShipType == -4)
     {   // an allied ship
         if (!singlePlayerGame)
         {
@@ -2550,7 +2554,7 @@ void cat_moRender(void)
     {
         text = "End of Recording";
     }
-    if (playPackets && catMoRecordingEnded && catMoMode == 0)
+    if (playPackets && universePlaybackNoPacket && catMoMode == 0)     // CAT: 0x00a6c5c8, the recorded game ran out (Universe.c)
     {
         oldFont = fontMakeCurrent(catMoPausedFont);
         fontPrint((MAIN_WindowWidth - fontWidth(text)) / 2,

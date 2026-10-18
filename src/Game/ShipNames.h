@@ -38,6 +38,10 @@ void cat_shipNamesAssign(Ship *ship);                                       // 0
 sdword cat_shipNamesCountFree(ShipType type);                               // 0x0050f540
 void cat_shipNamesRename(Ship *ship, sdword freeIndex);                     // 0x0050f570
 char *cat_shipNamesGetFreeName(ShipType type, sdword freeIndex);            // 0x0050f600
+void cat_saveShipRecordTablePreFix(void);                                   // 0x0050f870 (M2-R6 oracle-mode-a)
+void cat_saveShipRecordTable(void);
+void cat_loadShipRecordTable(void);                                         // 0x0050f8c0
+void cat_loadShipRecordTableFix(void);                                      // 0x0050f8e0
 void cat_shipNamesRelease(Ship *ship);                                      // 0x0050f660
 char *cat_shipNamesGetName(Ship *ship);                                     // 0x0050f810
 

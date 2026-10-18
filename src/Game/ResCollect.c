@@ -1111,9 +1111,9 @@ bool32 processCollectResource(struct CommandToDo *collecttodo)
     resource = rescollectFindNearestResource(ship,collecttodo);
     if (resource == NULL)
     {
-        // CAT-TODO(stage 5 recorder): the exe also ends the order here (TRUE) when its globals 0x00a7519c and 0x00a75190
-        //      are both set (not named in this tree yet)
-        if (multiPlayerGame)
+        // CAT: a network game, recorded multiplayer games included, ends the order here (processCollectResource
+        //      0x004f2130: multiPlayerGame || (0x00a7519c && 0x00a75190))
+        if (catNetworkGame())
         {
             return TRUE;
         }

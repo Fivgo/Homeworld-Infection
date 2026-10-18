@@ -1021,7 +1021,7 @@ bool32 processAttackToDo(CommandToDo *attacktodo)
     //      0x00441c34..0x00441ce7): a crystal ship counts, else cat_fowCanPlayerSeeShip(owner, target, 1) 0x0047e810 (the
     //      loop rereads the target count). With none seen a multiplayer game halts the ships (clWrapHalt) and goes on;
     //      a single-player one treats the order as having no target left, unless the leader is SU-exempt
-    //      (SPECIAL_2_CatExempt20). CAT-TODO(stage 5 recorder): the exe also halts while a game is recorded (0x00a7519c && 0x00a75190)
+    //      (SPECIAL_2_CatExempt20). A recorded multiplayer game halts too (0x00a7519c && 0x00a75190)
     if (numShipsToAttack > 0)
     {
         Player *owner = selection->ShipPtr[0]->playerowner;
@@ -1038,7 +1038,7 @@ bool32 processAttackToDo(CommandToDo *attacktodo)
         }
         if (!seen)
         {
-            if (multiPlayerGame)
+            if (catNetworkGame())
             {
                 clWrapHalt(&universe.mainCommandLayer, selection);
             }

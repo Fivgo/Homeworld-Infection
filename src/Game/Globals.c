@@ -184,9 +184,11 @@ void globalsResetFunc(bool32 firstTime)
         recordplayPacketsInGame = FALSE;
         recordFakeSendPackets = FALSE;
 
+        // CAT: globalsInit 0x0048a060 also clears the recorded-game state words (0x00a7519c, 0x00a751a0; main.c)
+        recordedGameActive = FALSE;
+        recordedGamePlayback = FALSE;
+
         smGhostMode = FALSE;
-        // CAT-TODO(stage 3 recorder): globalsInit 0x0048a060 also clears two recorder globals after
-        //      recordFakeSendPackets (0x00a7519c, 0x00a751a0), unidentified until the recorder is ported
     }
     else
     {

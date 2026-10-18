@@ -48,6 +48,8 @@
 #include "LinkedList.h"
 #include "MultiplayerGame.h"
 #include "NetCheck.h"
+#include "GamePick.h"      // HWI-ORACLE: gpLoadRecordedGameGivenName (the replay)
+#include "mainswitches.h"
 #include "Randy.h"
 #include "SpaceObj.h"
 #include "Stats.h"
@@ -61,6 +63,11 @@
 =============================================================================*/
 
 #define ORACLE_SELFTEST_DEFAULT_FILE    "oracle-selftest.hwo"
+#ifdef _WIN32
+#define ORACLE_PATH_SEP                 '\\'
+#else
+#define ORACLE_PATH_SEP                 '/'                 // GamePick.c's RecordedGamesPath on this platform
+#endif
 #define ORACLE_SELFTEST_PLAYERS         2
 #define ORACLE_SELFTEST_START_RU        10      // gameStart's default startingResources branch
 
@@ -76,6 +83,12 @@ static sdword oracleSelfTestPerturbTick = -1;       // >= 1: draw one extra game
 static bool32 oracleInSelfTest = FALSE;
 static sdword oracleMissionTicks = 0;               // > 0: /oracleMission given (M2-R4 rest-oracle)
 static bool32 oracleMissionDone = FALSE;
+static char oracleReplayName[MAX_RECORDPACKETFILENAME_STRLEN] = "";     // /oracleReplay <name> (M2-R6 oracle-mode-a)
+static bool32 oracleReplayDone = FALSE;
+static udword oracleReplayPackets = 0;              // sync packets processed by the replay
+
+static void oracleEmitEvent(uint16_t code, const char *text);
+static void oracleClose(void);
 
 /*=============================================================================
     Command line:
@@ -132,6 +145,91 @@ bool32 oracleMissionRequested(void)
     return (oracleMissionTicks > 0);
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : oracleSetReplay / oracleReplayRequested / oracleStartReplay / oracleReplayPacket / oracleReplayEnd
+    Description : HWI-ORACLE (M2-R6 oracle-mode-a, docs/m2-checksum-oracle.md 4.3 and 5.2 "stage 3: mode A"):
+                  /oracleReplay <name> replays the recorded game SavedGames/RecordedGames/<name> (+ .pkts) the way the
+                  front end's "LoadRecordedGame" does (GamePick.c gpLoadRecordedGameGivenName), once the start-up has
+                  put up the main screen; the task clock runs one universe tick per frame (the virtual clock, as the
+                  mission run), so the stream depends on the packets alone. When the lockstep finds no packet left
+                  (universeUpdateTask's NO_PACKET while playPackets) the run writes the playback-end event, prints
+                  "oracle: replay done" and quits with rc 0.
+----------------------------------------------------------------------------*/
+void oracleSetReplay(char *string)
+{
+    oracleSetVirtualClock();
+    strncpy(oracleReplayName, string, sizeof(oracleReplayName) - 1);
+    oracleReplayName[sizeof(oracleReplayName) - 1] = '\0';
+}
+
+bool32 oracleReplayRequested(void)
+{
+    return (oracleReplayName[0] != '\0');
+}
+
+void oracleStartReplay(void)
+{
+    char text[HWO_EVENT_TEXT_MAX];
+
+    // CAT: LoadRecordedGame 0x00487cf0 names the save 0x00b39f40 = the recorded-games folder + the name, and the
+    //      packets 0x00b39f00 = that + ".pkts" (0x008812b0)
+    snprintf(recordPacketSaveFileName, sizeof(recordPacketSaveFileName), "SavedGames%cRecordedGames%c%s",
+             ORACLE_PATH_SEP, ORACLE_PATH_SEP, oracleReplayName);
+    snprintf(recordPacketFileName, sizeof(recordPacketFileName), "%s%s", recordPacketSaveFileName, PKTS_EXTENSION);
+    fprintf(stdout, "oracle: replay '%s' (packets '%s')\n", recordPacketSaveFileName, recordPacketFileName);
+    fflush(stdout);
+    if (!gpLoadRecordedGameGivenName())
+    {
+        fprintf(stdout, "oracle: replay load failed (VerifySaveFile refused '%s')\n", recordPacketSaveFileName);
+        fflush(stdout);
+        utyGameQuit(NULL, NULL);
+        return;
+    }
+    snprintf(text, sizeof(text), "%s players=%u ships=%u tick=%u multiplayer=%d", oracleReplayName,
+             (unsigned)universe.numPlayers, (unsigned)universe.ShipList.num, (unsigned)universe.univUpdateCounter,
+             (int)recordedGameMultiplayer);
+    oracleEmitEvent(HWO_EV_PLAYBACK_START, text);
+    fprintf(stdout, "oracle: replay started %s\n", text);
+    fflush(stdout);
+}
+
+// one sync packet of the replay was processed (netcheckShow's oracleEmitPacket): progress lines every 128 packets
+static void oracleReplayPacket(void)
+{
+    oracleReplayPackets++;
+    if ((oracleReplayPackets % 128) == 0)
+    {
+        fprintf(stdout, "oracle: replay tick %u packets=%u records=%u\n", (unsigned)universe.univUpdateCounter,
+                (unsigned)oracleReplayPackets, (unsigned)oracleRecords);
+        fflush(stdout);
+    }
+}
+
+void oracleReplayEnd(void)
+{
+    char text[HWO_EVENT_TEXT_MAX];
+
+    if (!oracleReplayRequested() || oracleReplayDone)
+    {
+        return;
+    }
+    oracleReplayDone = TRUE;
+#if SYNC_CHECK
+    snprintf(text, sizeof(text), "ticks=%u packets=%u ships=%u randSyncErr=%u univSyncErr=%u blobSyncErr=%u pktSyncErr=%u",
+             (unsigned)universe.univUpdateCounter, (unsigned)oracleReplayPackets, (unsigned)universe.ShipList.num,
+             (unsigned)randSyncErr, (unsigned)univSyncErr, (unsigned)blobSyncErr, (unsigned)pktSyncErr);
+#else
+    snprintf(text, sizeof(text), "ticks=%u packets=%u ships=%u", (unsigned)universe.univUpdateCounter,
+             (unsigned)oracleReplayPackets, (unsigned)universe.ShipList.num);
+#endif
+    oracleEmitEvent(HWO_EV_PLAYBACK_END, text);
+    fprintf(stdout, "oracle: replay done %s records=%u file=%s\n", text, (unsigned)oracleRecords, oracleFileName);
+    fflush(stdout);
+    oracleClose();
+    oracleFailed = TRUE;                            // the stream is complete: nothing may reopen (and truncate) it
+    utyGameQuit(NULL, NULL);
+}
+
 // one universe tick of task time per frame: the universe task (period UNIVERSE_UPDATE_PERIOD) runs exactly once per
 // render frame, so every per-frame draw of a random stream (trails, particles, effects, sound) and the task clock
 // (taskTimeElapsed) are functions of the tick count alone, and two runs produce the same stream byte for byte
@@ -139,7 +237,7 @@ udword oracleVirtualFrameTicks(void)
 {
     udword ticks;
 
-    if (oracleMissionTicks <= 0)
+    if ((oracleMissionTicks <= 0) && !oracleReplayRequested())
     {
         return 0;
     }
@@ -458,6 +556,7 @@ static void oracleFillTick(HwoTick *t)
 
         t->ships_health = hwoFnvU32(hwoFnvU16(t->ships_health, id), oracleFloatBits(ship->targetable.health));
 
+
         t->ships_n++;
     }
 
@@ -627,9 +726,13 @@ void oracleEmitPacket(void *packet, uword packetnum, uword randcheck, real32 uni
     rec.randcheck = randcheck;
     rec.univcheck = oracleFloatBits(univcheck);
     rec.blobcheck = blobcheck;
-    rec.extra = 0;                                  // Cataclysm's 4th sync field is not ported (LAN wire format kept)
+    rec.extra = catSyncExtra;                       // CAT (M2-R6 oracle-mode-a): the 4th sync field (0x00ab7658)
+    if (oracleReplayRequested())
+    {
+        oracleReplayPacket();
+    }
     rec.ncommands = ((HWPacketHeader *)packet)->numberOfCommands;
-    rec.flags = 0;
+    rec.flags = HWO_PF_EXTRA;
 #if SYNC_CHECK
     rec.randSyncErr = randSyncErr;
     rec.univSyncErr = univSyncErr;

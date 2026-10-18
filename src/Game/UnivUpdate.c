@@ -87,7 +87,7 @@
     kasfGetShipCountSalvaged/Beastified and kasfGetNumberShipsPlayerKilled/Lost read them, the salvage depot
     (M2-R4 #3) and ApplyDamageToTarget's attacker argument (M2-R4 combat) count into them, univupdateInit 0x0054af40 and
     univUpdateReset 0x0054acd0 clear them, SaveUniverse/LoadUniverse save them (cat_saveShipCounters 0x00540130,
-    cat_loadShipCounters 0x005401d0; CAT-TODO(saves): not wired into this tree's save format yet).
+    cat_loadShipCounters 0x005401d0, below; M2-R6 oracle-mode-a).
 -----------------------------------------------------------------------------*/
 sdword catShipsSalvaged[MAX_MULTIPLAYER_PLAYERS][TOTAL_NUM_SHIPS];      // 0x00a6c5d0, 0x488 dwords
 sdword catShipsBeastified[MAX_MULTIPLAYER_PLAYERS][TOTAL_NUM_SHIPS];    // 0x00a6d9a8, 0x488 dwords
@@ -105,6 +105,48 @@ sdword catUnivFrameStepsLeft = 0;
 bool32 catMultiplayerAutoSave = FALSE;
 real32 catMultiplayerAutoSaveTime = 0.0f;
 sdword catMultiplayerAutoSaveNumber = 0;
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_saveShipCounters / cat_loadShipCounters
+    Description : CAT (M2-R6 oracle-mode-a): the four counter tables as BASIC chunks of sub-types 0x8000 (salvaged),
+                  0x7000 (beastified), 0x6000 (killed by class), 0x5000 (lost by class), then the next protected-speed
+                  time as an INFO number (cat_saveShipCounters 0x00540130 / cat_loadShipCounters 0x005401d0, at the
+                  end of SaveUniverse / LoadUniverse). Plain dwords in both layouts; the load also clears 0x00b3a870
+                  (the multiplayer autosave's next time).
+----------------------------------------------------------------------------*/
+static void cat_saveCounterChunk(TypeOfSaveChunk type, void *table, sdword size)
+{
+    SaveChunk *chunk = CreateChunk(BASIC_STRUCTURE|type, size, table);
+    SaveThisChunk(chunk);
+    memFree(chunk);
+}
+
+static void cat_loadCounterChunk(void *table, sdword size)
+{
+    SaveChunk *chunk = LoadNextChunk();
+    dbgAssertOrIgnore(chunk->contentsSize == size);
+    memcpy(table, chunkContents(chunk), (chunk->contentsSize < size) ? chunk->contentsSize : size);
+    memFree(chunk);
+}
+
+void cat_saveShipCounters(void)                                                 // 0x00540130
+{
+    cat_saveCounterChunk(0x8000, catShipsSalvaged, sizeof(catShipsSalvaged));
+    cat_saveCounterChunk(0x7000, catShipsBeastified, sizeof(catShipsBeastified));
+    cat_saveCounterChunk(0x6000, catShipsKilledByClass, sizeof(catShipsKilledByClass));
+    cat_saveCounterChunk(0x5000, catShipsLostByClass, sizeof(catShipsLostByClass));
+    SaveInfoNumber(Real32ToSdword(catProtectedSpeedLimitTime));
+}
+
+void cat_loadShipCounters(void)                                                 // 0x005401d0
+{
+    cat_loadCounterChunk(catShipsSalvaged, sizeof(catShipsSalvaged));
+    cat_loadCounterChunk(catShipsBeastified, sizeof(catShipsBeastified));
+    cat_loadCounterChunk(catShipsKilledByClass, sizeof(catShipsKilledByClass));
+    cat_loadCounterChunk(catShipsLostByClass, sizeof(catShipsLostByClass));
+    catProtectedSpeedLimitTime = SdwordToReal32(LoadInfoNumber());
+    catMultiplayerAutoSaveTime = 0.0f;                                          // 0x00b3a870
+}
 #ifdef _WIN32
 #define TMP_SAVEDGAMES_PATH_SEP "\\"
 #else
@@ -702,6 +744,10 @@ Asteroid *univAddAsteroid(AsteroidType asteroidtype,vector *astpos)
     dbgAssertOrIgnore(asteroidtype < NUM_ASTEROIDTYPES);
 
     newAsteroid = memAlloc(sizeof(Asteroid),"Asteroid",NonVolatile);
+    // CAT-FIX (M2-R6 oracle-mode-a): no mimic poses as a new asteroid. univAddAsteroid 0x00540a30 leaves +0x1A4 as the
+    //      heap had it (memAlloc does not clear); univFindNearestResource reads it, and the replay of the skirmish
+    //      recording crashed on a reused block's garbage there (asteroid 1552, tick 7313)
+    newAsteroid->catMimicShip = NULL;
 
     newAsteroid->resource.resourceID.resourceNumber = universe.resourceNumber;
     IDToPtrTableAdd(&ResourceIDToPtr,universe.resourceNumber,(SpaceObj *)newAsteroid);
@@ -885,10 +931,9 @@ Missile *univAddMissile(ShipRace race)
     missile->damage = 48.0f;                                //from the.shp file
 
     missile->missileID.missileNumber = universe.missileNumber;
-    // CAT-TODO(stage 3/5 recorder): the exe also adds the ID while a game is being recorded in multiplayer
-    //      (univAddMissile 0x00540c70: multiPlayerGame || (0x00a7519c && 0x00a75190), the two flags set by
-    //      recPackInGameStartCBSafeToStart 0x004cbbb0)
-    if (multiPlayerGame) IDToPtrTableAdd(&MissileIDToPtr,universe.missileNumber,(SpaceObj *)missile);
+    // CAT: the ID table also while a recorded multiplayer game is recorded or played back (univAddMissile
+    //      0x00540c70: multiPlayerGame || (0x00a7519c && 0x00a75190))
+    if (catNetworkGame()) IDToPtrTableAdd(&MissileIDToPtr,universe.missileNumber,(SpaceObj *)missile);
     universe.missileNumber++;
 
     //position, velocity and coordsys left blank
@@ -2225,13 +2270,12 @@ Ship *univCreateShip(ShipType shiptype,ShipRace shiprace,vector *shippos,struct 
     // CAT (M2-R4 ships-b): after the stealth state the exe resets the dissolve state (0x00542c1b:
     //      cat_shipDissolveInit 0x00460220), and in multiplayer a derelict-race ship that is no crystal and is
     //      targetable is a KAS derelict, helpless for good (0x00542c00..0x00542c5a: catFlags18 bit 4,
-    //      cat_shipSetHelpless(ship, 1e21)). CAT-TODO(stage 3/5 recorder): the exe also takes this path while a game
-    //      is recorded (0x00a7519c && 0x00a75190)
+    //      cat_shipSetHelpless(ship, 1e21)); a recorded multiplayer game too (0x00a7519c && 0x00a75190)
     cat_shipDissolveInit(newship);
     // CAT (M2-R5 hud): a local named ship (carrier, mothership) gets the first free name of its type
     //      (cat_shipNamesAssign 0x0050f320, call at 0x00542c21)
     cat_shipNamesAssign(newship);
-    if (multiPlayerGame && (shiptype >= DERELICT_FIRST_SHIP) && (shiptype <= DERELICT_LAST_SHIP) &&
+    if (catNetworkGame() && (shiptype >= DERELICT_FIRST_SHIP) && (shiptype <= DERELICT_LAST_SHIP) &&
         !cat_shipIsCrystal(newship) && !cat_shipIsUntargetable(newship))
     {
         bitSet(newship->header.catFlags18, CAT_SHIPFLAG_KasDerelict);
@@ -5387,7 +5431,11 @@ void CheckPlayerWin(void)
     if (gatherStats|showStatsFight|showStatsFancyFight)
         return;     // just gathering stats, don't want to do the player win thing
 
-    // CAT-TODO(stage 3/5 recorder): the exe also returns while the second recorder global 0x00a751a0 is set
+    // CAT: no winner while a recorded game plays back (CheckPlayerWin 0x005485e0 returns while 0x00a751a0 is set)
+    if (recordedGamePlayback)
+    {
+        return;
+    }
 
     // CAT: the test is multiPlayerGame (CheckPlayerWin 0x005485e0; HW1 tested !singlePlayerGame). A game that is
     //      neither multiplayer nor single player (a skirmish against the computer) therefore ends only when no player

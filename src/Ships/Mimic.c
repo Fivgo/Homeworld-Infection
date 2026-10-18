@@ -12,7 +12,7 @@
 //      cat_mimicAppearsAsResource and cat_mimicAppearsAsDerelict moved here from ShipSelect.c (their declarations
 //      stay in ShipSelect.h); cat_shipGetRamDamageScale moved here from Collision.c (it was a static stand-in).
 //      The mimic menu tables (cat_mimicInitDisguiseTables 0x005b9c60 .. cat_mimicItemAdd 0x005ba0d0) are at the end
-//      (M2-R6 mainrgn-popup); CAT-TODO(the user's saves): their save chunks (cat_saveGameMiscChunks 0x005ba170).
+//      (M2-R6 mainrgn-popup); their save chunks too (cat_saveGameMiscChunks 0x005ba170, M2-R6 oracle-mode-a).
 
 #include "Mimic.h"
 #include "Console.h"
@@ -1100,6 +1100,8 @@ static CatMimicItem catMimicItems[CAT_MIMIC_ITEM_PLAYERS][CAT_MIMIC_ITEM_MAX];  
 static sdword catMimicItemCountAll[CAT_MIMIC_ITEM_PLAYERS + 1];                     // 0x00a77ab0: rows listed
 static sdword catMimicItemCountBase[CAT_MIMIC_ITEM_PLAYERS + 1];                    // 0x00a762e8: rows of the base set
 static ubyte catMimicCurrentPlayer = 0;                                             // 0x00a77ad4
+_Static_assert(sizeof(CatMimicItem) * CAT_MIMIC_ITEM_PLAYERS * CAT_MIMIC_ITEM_MAX == SAVE_CAT32_MISCB, "the rows chunk is 0x17A0 bytes");
+_Static_assert(sizeof(sdword) * (CAT_MIMIC_ITEM_PLAYERS + 1) >= SAVE_CAT32_MISCA, "the counts chunks are 0x24 bytes");
 // CAT: the exe's 0x00a77ab0 has 9 words before 0x00a77ad4 (the current player byte), so its count of player 9 reads
 //      that byte; player 9 never lists rows here (nothing builds or opens it: the player list stops at 8)
 
@@ -1255,4 +1257,91 @@ void cat_mimicItemAdd(ubyte player, ShipType type)                              
         catMimicItems[player][catMimicItemCountAll[player]].type = type;
         catMimicItemCountAll[player]++;
     }
+}
+
+/*-----------------------------------------------------------------------------
+    CAT (M2-R6 oracle-mode-a): the disguise tables in a save (closes the "M2-R6 save game" and "the user's saves"
+    CAT-TODOs). cat_saveGameMiscChunks 0x005ba170 / cat_loadGameMiscChunks 0x005ba1e0 write and read three BASIC
+    chunks after SaveSinglePlayerGame: the rows (sub-type 0xB000, 0x17A0 bytes: 9 players x 0x54 rows of two
+    words), the listed counts (0xA000, 0x24: players 0..8) and the base counts (0x9000, 0x24). The rows are plain
+    words in both layouts. cat_spSaveMiscInfo 0x005b9df0 / cat_spLoadMiscInfo 0x005b9e90 (SaveSinglePlayerGame /
+    LoadSinglePlayerGame) write the same tables as INFO numbers first: per player of the game its two counts and its
+    0x54 rows' types, then the objects player's first three rows' asteroid sizes, its two counts and the current
+    player byte (the INFO copy is then overwritten by the chunks, as in the exe).
+-----------------------------------------------------------------------------*/
+void cat_saveGameMiscChunks(void)                                                   // 0x005ba170
+{
+    SaveChunk *chunk;
+
+    chunk = CreateChunk(BASIC_STRUCTURE|SAVE_CAT_MISCB, SAVE_CAT32_MISCB, catMimicItems);
+    SaveThisChunk(chunk);
+    memFree(chunk);
+    chunk = CreateChunk(BASIC_STRUCTURE|SAVE_CAT_MISCA, SAVE_CAT32_MISCA, catMimicItemCountAll);
+    SaveThisChunk(chunk);
+    memFree(chunk);
+    chunk = CreateChunk(BASIC_STRUCTURE|SAVE_CAT_MISC9, SAVE_CAT32_MISC9, catMimicItemCountBase);
+    SaveThisChunk(chunk);
+    memFree(chunk);
+}
+
+void cat_loadGameMiscChunks(void)                                                   // 0x005ba1e0
+{
+    SaveChunk *chunk;
+
+    chunk = LoadNextChunk();
+    VerifyChunk(chunk, BASIC_STRUCTURE|SAVE_CAT_MISCB, SAVE_CAT32_MISCB);
+    memcpy(catMimicItems, chunkContents(chunk), SAVE_CAT32_MISCB);
+    memFree(chunk);
+    chunk = LoadNextChunk();
+    VerifyChunk(chunk, BASIC_STRUCTURE|SAVE_CAT_MISCA, SAVE_CAT32_MISCA);
+    memcpy(catMimicItemCountAll, chunkContents(chunk), SAVE_CAT32_MISCA);
+    memFree(chunk);
+    chunk = LoadNextChunk();
+    VerifyChunk(chunk, BASIC_STRUCTURE|SAVE_CAT_MISC9, SAVE_CAT32_MISC9);
+    memcpy(catMimicItemCountBase, chunkContents(chunk), SAVE_CAT32_MISC9);
+    memFree(chunk);
+}
+
+void cat_spSaveMiscInfo(void)                                                       // 0x005b9df0
+{
+    sdword player, index;
+
+    for (player = 0; player < universe.numPlayers; player++)
+    {
+        SaveInfoNumber(catMimicItemCountAll[player]);
+        SaveInfoNumber(catMimicItemCountBase[player]);
+        for (index = 0; index < CAT_MIMIC_ITEM_MAX; index++)
+        {
+            SaveInfoNumber((sdword)catMimicItems[player][index].type);
+        }
+    }
+    for (index = 0; index < 3; index++)
+    {
+        SaveInfoNumber((sdword)catMimicItems[CAT_MIMIC_PLAYER_OBJECTS][index].index);
+    }
+    SaveInfoNumber(catMimicItemCountAll[CAT_MIMIC_PLAYER_OBJECTS]);
+    SaveInfoNumber(catMimicItemCountBase[CAT_MIMIC_PLAYER_OBJECTS]);
+    SaveInfoNumber((sdword)catMimicCurrentPlayer);
+}
+
+void cat_spLoadMiscInfo(void)                                                       // 0x005b9e90
+{
+    sdword player, index;
+
+    for (player = 0; player < universe.numPlayers; player++)
+    {
+        catMimicItemCountAll[player] = LoadInfoNumber();
+        catMimicItemCountBase[player] = LoadInfoNumber();
+        for (index = 0; index < CAT_MIMIC_ITEM_MAX; index++)
+        {
+            catMimicItems[player][index].type = (udword)LoadInfoNumber();
+        }
+    }
+    for (index = 0; index < 3; index++)
+    {
+        catMimicItems[CAT_MIMIC_PLAYER_OBJECTS][index].index = (udword)LoadInfoNumber();
+    }
+    catMimicItemCountAll[CAT_MIMIC_PLAYER_OBJECTS] = LoadInfoNumber();
+    catMimicItemCountBase[CAT_MIMIC_PLAYER_OBJECTS] = LoadInfoNumber();
+    catMimicCurrentPlayer = (ubyte)LoadInfoNumber();
 }

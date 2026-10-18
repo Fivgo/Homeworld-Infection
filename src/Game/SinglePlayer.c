@@ -31,6 +31,8 @@
 #include "LaunchMgr.h"
 #include "LevelLoad.h"
 #include "LinkedList.h"
+#include "SaveCat32.h"
+#include "Mimic.h"         // CAT: cat_spSaveMiscInfo / cat_spLoadMiscInfo (M2-R6 oracle-mode-a)
 #include "mainrgn.h"
 #include "Memory.h"
 #include "Mothership.h"
@@ -158,6 +160,10 @@ real32 spFleetModifier = 0.0f;
 //      cat_univSetShipMaxHealth 0x0053c4a0). The difficulty screen (cat_spGameDifficulty 0x0051c140) and its save are
 //      not ported yet (stage 6 single player), so the factor stays 1.0 (difficulty 2, the exe's default 0x008941a0)
 real32 spDifficultyHealthModifier = 1.0f;
+// CAT (M2-R6 oracle-mode-a): the factor FixShip 0x00500950 multiplies a loaded single-player Somtaaw ship's health by
+//      (0x008941a4, 1.0 in the exe image; kasLoad 0x00491450 sets it to the difficulty factor over the saved one).
+//      CAT-TODO(stage 6 single player): kasLoad's assignment comes with the KAS save port
+real32 spDifficultyHealthLoadFactor = 1.0f;
 real32 spFleetStr      = 0.0f;
 
 real32 BaseFleetStrengthForLevel    [NUMBER_SINGLEPLAYER_MISSIONS+1];
@@ -4115,18 +4121,82 @@ void SaveSinglePlayerGame(void)
 
     SaveLinkedListOfInsideShips(&singlePlayerGameInfo.ShipsInHyperspace);
     SaveGrowSelection(&singlePlayerGameInfo.ShipsToHyperspace);
+
+    // CAT: SaveSinglePlayerGame 0x0051bee0 goes on with ten numbers: the lockout flags (0x00a6adb0), the NIS letterbox
+    //      and black fade (0x00a4cb38 .. 0x00a4cb58), the sensors manager's mine display (0x00a5b1ac), then the mimic
+    //      tables (cat_spSaveMiscInfo 0x005b9df0) and the big gun's single-player switch (0x00894108)
+    SaveInfoNumber((sdword)spLockoutFlags);
+    SaveInfoNumber(Real32ToSdword(nisScissorFadeIn));
+    SaveInfoNumber(Real32ToSdword(nisScissorFadeOut));
+    SaveInfoNumber(Real32ToSdword(nisScissorFade));
+    SaveInfoNumber(Real32ToSdword(nisBlackFade));
+    SaveInfoNumber((sdword)catNisBlackFadeFlag);
+    SaveInfoNumber(Real32ToSdword(nisBlackFadeDest));
+    SaveInfoNumber(Real32ToSdword(nisBlackFadeRate));
+    SaveInfoNumber((sdword)nisFullyScissored);
+    SaveInfoNumber((sdword)catSmShowMines);
+    cat_spSaveMiscInfo();
+    SaveInfoNumber((sdword)catSpBigGunAllowed);
 }
 
 void LoadSinglePlayerGame(void)
 {
+    SaveChunk *chunk;
+
     singlePlayerGameLoadNewLevelFlag = FALSE;
 
-    LoadStructureOfSizeToAddress(&singlePlayerGameInfo,sizeof(SinglePlayerGameInfo));
+    if (saveCat32Loading)
+    {                                           // CAT (M2-R6 oracle-mode-a): the exe's 0x54-byte struct
+        chunk = saveCat32ChunkStruct(LoadNextChunk(), SAVECAT32_LAYOUT(SinglePlayerGameInfo));
+        VerifyChunk(chunk,BASIC_STRUCTURE,sizeof(SinglePlayerGameInfo));
+        memcpy(&singlePlayerGameInfo,chunkContents(chunk),sizeof(SinglePlayerGameInfo));
+        memFree(chunk);
+    }
+    else
+    {
+        LoadStructureOfSizeToAddress(&singlePlayerGameInfo,sizeof(SinglePlayerGameInfo));
+    }
 
     LoadLinkedListOfInsideShips(&singlePlayerGameInfo.ShipsInHyperspace);
     FixLinkedListOfInsideShips(&singlePlayerGameInfo.ShipsInHyperspace);
 
     LoadGrowSelectionAndFix(&singlePlayerGameInfo.ShipsToHyperspace);
+
+    // CAT: the numbers SaveSinglePlayerGame wrote (LoadSinglePlayerGame 0x0051bf90): the lockout comes back as the
+    //      exe restores it (selection cleared and ship totals redrawn for SPLOCKOUT_DESELECT, the sensors disabled when
+    //      any flag is set, the main region and the cursor for SPLOCKOUT_MR, the mouse for SPLOCKOUT_MOUSE), then the
+    //      NIS state, which nisTaskResume picks up, the mine display, the mimic tables and the big gun's switch
+    spLockoutFlags = (udword)LoadInfoNumber();
+    if (spLockoutFlags & SPLOCKOUT_DESELECT)
+    {
+        selSelected.numShips = 0;
+        ioUpdateShipTotals();
+    }
+    if (spLockoutFlags != 0)
+    {
+        smSensorsDisable = TRUE;
+    }
+    if (spLockoutFlags & SPLOCKOUT_MR)
+    {
+        mrDisable();
+        mouseCursorHide();
+    }
+    if (spLockoutFlags & SPLOCKOUT_MOUSE)
+    {
+        mouseDisable();
+    }
+    nisScissorFadeIn = SdwordToReal32(LoadInfoNumber());
+    nisScissorFadeOut = SdwordToReal32(LoadInfoNumber());
+    nisScissorFade = SdwordToReal32(LoadInfoNumber());
+    nisBlackFade = SdwordToReal32(LoadInfoNumber());
+    catNisBlackFadeFlag = (ubyte)LoadInfoNumber();
+    nisBlackFadeDest = SdwordToReal32(LoadInfoNumber());
+    nisBlackFadeRate = SdwordToReal32(LoadInfoNumber());
+    nisFullyScissored = (bool32)LoadInfoNumber();
+    nisTaskResume();
+    catSmShowMines = (bool32)LoadInfoNumber();
+    cat_spLoadMiscInfo();
+    catSpBigGunAllowed = (bool32)LoadInfoNumber();
 }
 
 

@@ -222,6 +222,8 @@ sdword cat_univGetNumberShipsPlayerKilled(sdword playerIndex, sdword shipClass);
 sdword cat_univGetNumberShipsPlayerLost(sdword playerIndex, sdword shipClass);                  // 0x00540110
 extern bool32 catMultiplayerAutoSave;                                                           // 0x00a74dac (/SaveMPGames)
 extern bool32 catUnivFrameStep;                                                                 // 0x00a6ed74
+void cat_saveShipCounters(void);                                                            // CAT: 0x00540130 (M2-R6 oracle-mode-a)
+void cat_loadShipCounters(void);                                                            // CAT: 0x005401d0
 extern sdword catUnivFrameStepsLeft;                                                            // 0x00a6ed78
 void cat_univRemoveBulletReferencesFromShips(Bullet *bullet);                                   // 0x0054b1a0
 void univFreeBulletContents(Bullet *bullet);

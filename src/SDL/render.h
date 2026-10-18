@@ -234,6 +234,8 @@ void cat_rndFogLayerUpdate(void);                                           // 0
 void cat_rndFogLayerRender(void);                                           // 0x0057d2c0
 void cat_rndFogLayerTextureUnload(void);                                    // 0x0057b7b0
 void cat_rndFogLayerTextureLoad(void);                                      // 0x0057b7d0
+void cat_rndStateBlockGet(udword *block);                                   // CAT: the save's 0x00c32c00 block (M2-R6)
+void cat_rndStateBlockSet(const udword *block);
 void cat_scriptSetFogCB(char *directory, char *field, void *dataToFillIn);  // 0x0057cb70
 void cat_rndFogLayerOff(void);                                              // 0x0057cd20
 void cat_rndFogLayerFadeTo(real32 time, color c1, color c2, real32 speed, real32 density);   // 0x0057cd40

@@ -39,6 +39,11 @@ void oracleRunSelfTest(void);
 // task clock by exactly one universe tick per frame (utyTasksDispatch) and quits after <ticks> universe ticks
 void oracleSetMission(char *string);            // /oracleMission <ticks>
 bool32 oracleMissionRequested(void);
+// the replay of a recorded game (M2-R6 oracle-mode-a): /oracleReplay <name>
+void oracleSetReplay(char *string);             // /oracleReplay <name>
+bool32 oracleReplayRequested(void);
+void oracleStartReplay(void);                   // end of utyGameSystemsInit: LoadRecordedGame's sequence
+void oracleReplayEnd(void);                     // universeUpdateTask: no packet left while playPackets
 udword oracleVirtualFrameTicks(void);          // task ticks per frame in a mission run, 0 = real time
 udword oracleVirtualFrameStep(void);           // HWI-FEATURE(motion-interp): this frame's task ticks (N frames per tick in a motion run)
 real32 oracleVirtualSubTick(void);             // HWI-FEATURE(motion-interp): the leftover fraction of a task tick

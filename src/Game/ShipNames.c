@@ -9,8 +9,8 @@
 
 // CAT: new file (M2-R5 hud). The bodies follow the r6 decompile (addresses on each function). The names show in the
 //      overlay's tooltip (cat_moTooltipDraw) and the popup menu's selection items. The four save / load record-table
-//      functions (cat_saveShipRecordTablePreFix 0x0050f870 .. cat_loadShipRecordTableFix 0x0050f8e0) wait for the
-//      save chunks (CAT-TODO(the user's saves): the exe saves the 0x2BC0-byte table with its ship IDs).
+//      functions (cat_saveShipRecordTablePreFix 0x0050f870 .. cat_loadShipRecordTableFix 0x0050f8e0) are at the end
+//      (M2-R6 oracle-mode-a: the exe saves the 0x2BC0-byte table with its ship IDs).
 
 #include "ShipNames.h"
 
@@ -23,6 +23,9 @@
 #include "ObjTypes.h"
 #include "StatScript.h"
 #include "Universe.h"
+#include "SaveGame.h"
+#include "SaveCat32.h"
+#include "Memory.h"
 
 static CatShipName catShipNames[MAX_SHIP_NAMES];    // 0x00a5b640
 static sdword catShipNameCount = 0;                 // 0x00a5e200
@@ -277,4 +280,65 @@ char *cat_shipNamesGetName(Ship *ship)
         }
     }
     return catShipNames[index].name;
+}
+
+/*-----------------------------------------------------------------------------
+    CAT (M2-R6 oracle-mode-a): the name table in a save. SaveUniverse 0x005034c0 first stores each record's ship as
+    its registry ID (cat_saveShipRecordTablePreFix 0x0050f870), then cat_saveShipRecordTable writes the count (INFO)
+    and the 100 records as one BASIC chunk of 0x2BC0 bytes; LoadUniverse 0x00503910 reads them back
+    (cat_loadShipRecordTable 0x0050f8c0) and LoadGame 0x004fe0e0, after FixAllSpaceObjs, turns the IDs into ships again
+    (cat_loadShipRecordTableFix 0x0050f8e0). The exe's record is 0x70 bytes (a 4-byte pointer, then the ID, type and
+    name); this tree's is the same with an 8-byte pointer, so a 32-bit table is converted record by record.
+-----------------------------------------------------------------------------*/
+#define CAT_SHIPNAME_RECORD32   0x70
+
+void cat_saveShipRecordTablePreFix(void)                                    // 0x0050f870
+{
+    sdword i;
+
+    for (i = 0; i < MAX_SHIP_NAMES; i++)
+    {
+        catShipNames[i].shipID = SpaceObjRegistryGetID((SpaceObj *)catShipNames[i].ship);
+    }
+}
+
+void cat_saveShipRecordTable(void)
+{
+    SaveInfoNumber(catShipNameCount);
+    SaveStructureOfSize(catShipNames, sizeof(catShipNames));
+}
+
+void cat_loadShipRecordTable(void)                                          // 0x0050f8c0
+{
+    SaveChunk *chunk;
+    const ubyte *src;
+    sdword i;
+
+    catShipNameCount = LoadInfoNumber();
+    if (!saveCat32Loading)
+    {
+        LoadStructureOfSizeToAddress(catShipNames, sizeof(catShipNames));
+        return;
+    }
+    chunk = LoadNextChunk();
+    VerifyChunk(chunk, BASIC_STRUCTURE, CAT_SHIPNAME_RECORD32 * MAX_SHIP_NAMES);
+    src = (const ubyte *)chunkContents(chunk);
+    for (i = 0; i < MAX_SHIP_NAMES; i++)
+    {
+        catShipNames[i].ship = NULL;            // the exe's stale pointer; the fix-up below sets it from the ID
+        memcpy(&catShipNames[i].shipID, src + CAT_SHIPNAME_RECORD32 * i + 4, sizeof(sdword));
+        memcpy(&catShipNames[i].type, src + CAT_SHIPNAME_RECORD32 * i + 8, sizeof(sdword));
+        memcpy(catShipNames[i].name, src + CAT_SHIPNAME_RECORD32 * i + 0xC, SHIP_NAME_LENGTH);
+    }
+    memFree(chunk);
+}
+
+void cat_loadShipRecordTableFix(void)                                       // 0x0050f8e0
+{
+    sdword i;
+
+    for (i = 0; i < MAX_SHIP_NAMES; i++)
+    {
+        catShipNames[i].ship = (Ship *)SpaceObjRegistryGetObj(catShipNames[i].shipID);
+    }
 }
