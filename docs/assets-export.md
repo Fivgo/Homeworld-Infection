@@ -235,3 +235,47 @@ Validation (LOD 0; every check passes; the tool exits 1 on any failure):
 
 The Beast's upper and lower struts overlap by about 10 units where they meet, and their outer edges line up with
 the hull's half-width. That fits the 7-degree turn of the lower struts.
+
+## Texture-atlas iteration (`tools/assets/atlas_ships.py`, `split_atlas.py`, `validate_atlas.py`)
+
+Added 2026-10-17. A second, derived export for repainting and upscaling in Blender: per ship piece (LOD 0) and per
+assembled hull, all textures are packed into one `lit` and one `glow` (self-illuminated) atlas, and the OBJ has just
+those two materials. It is written to `original/assets-export-atlas/` (gitignored game data, user README inside);
+`original/assets-export/` is only read, never changed. Run from the repository root (a worktree uses the main
+checkout's `original/`):
+
+```
+python3 tools/assets/atlas_ships.py            # all pieces + the three hulls (about 3 s; skips up-to-date ones)
+python3 tools/assets/atlas_ships.py --piece race_sect/scarrier --force   # one piece; race/<hull>_assembled for a hull
+python3 tools/assets/validate_atlas.py         # checks below (about 15 s), writes validation.json there
+python3 tools/assets/split_atlas.py [--dry-run]   # painted atlases -> separate textures (return path)
+```
+
+* **Geometry:** `v`, `vn` and `f` are copied unchanged and in order (only `vt` indices on face corners change); each
+  run of faces gets `g <original material>` (hulls: `g <part>__<sub-object>__<label>__<material>`). Per original
+  material the JSON keeps texture, slot, Ka/Kd/Ks, `_2sided`/`_smooth`/glow flags and UV range.
+* **Baked repeats:** 15 % of LOD 0 faces tile their texture (GL_REPEAT, the loader never sets a wrap mode). Per
+  material u0 = floor(min u), Nu = ceil(max u) - u0 (same for v; overshoots of at most 0.02 past a whole number are
+  clamped first, moving 1,815 corners by at most 2.2 texels); the slot holds Nu x Nv copies and u' = (u - u0) / Nu.
+  One slot per (lit|glow, texture, Nu, Nv). Over 16 periods per axis or 1024 px per slot side stays out of the atlas
+  as its own material on the original PNG: 3 materials (`srm_tail_smooth` in `brammingfrigate` and
+  `srammingfrigate`, 3 x 20; `rko0_engtopbot` in `drko`, 20 x 1). 21 colour-only materials are kept as they are;
+  the 8 pieces without any texture get no atlas.
+* **Packing:** max-rects (best short side fit), power-of-two sides, 8 px edge-replicated gutter, lit and glow packed
+  separately; mask atlases (`_lit_teambase` etc.) share the layout, slots without a mask are black. Result: 150
+  pieces (116 with glow), lit 64 x 64 to 2048 x 1024, glow 32 x 32 to 1024 x 512, 264 mask atlases, 2,766 slots,
+  24 MB. All three hulls fit one whole-hull atlas within 4096 (lit 1024 x 512 to 2048 x 1024); a hull that does not
+  fit falls back to its parts' piece atlases (tested with `--hull-max 512`).
+* **Return:** `split_atlas.py` reads `original/assets-return-atlas/<race>/<ship>/lod0/<stem>_<lit|glow>.png` (+ masks),
+  derives the factor from the width (same rational factor on both axes, every slot on whole pixels, else refused),
+  keeps the first period of a baked repeat and warns when the others differ (mean > 3/255), and writes the original
+  texture paths under `original/assets-return/`. Textures in several slots (111: lit and glow, tiled and untiled,
+  piece and hull) take the slot marked `primary` (fewest periods, lit, piece atlas first) and warn on differences. It
+  refuses to write into either export and keeps files in `assets-return/` it did not write (`.split_atlas_ledger.json`)
+  unless `--overwrite`.
+* **Validation (all pass):** (a) splitting the unpainted atlases at 1x gives back all 4,515 textures and masks pixel
+  for pixel, and at 2x (nearest-neighbour) their exact 2x upscales; (b) 153 OBJs, 42,294 faces: v/vn lines, face
+  v/vn indices and per-face material/group identical; (c) all 126,375 atlased corners inside 0..1; (d) 4,350 random
+  corners land on the same texel with the same colour (7 ties on degenerate faces lying exactly on a texel edge);
+  (e) every slot + gutter equals the tiled source, space outside slots is empty. A headless Blender 5.2 import of
+  three atlas OBJs loads two materials, both images and the original materials as vertex groups.
