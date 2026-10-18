@@ -217,6 +217,7 @@ bool32 cat_univBeastInfectionUpdate(Ship *ship);                                
 void cat_univShipSalvagedCountInc(sdword a, sdword b);                                          // 0x005400d0
 sdword cat_univGetNumberShipsPlayerKilled(sdword playerIndex, sdword shipClass);                // 0x005400f0
 sdword cat_univGetNumberShipsPlayerLost(sdword playerIndex, sdword shipClass);                  // 0x00540110
+extern bool32 catMultiplayerAutoSave;                                                           // 0x00a74dac (/SaveMPGames)
 extern bool32 catUnivFrameStep;                                                                 // 0x00a6ed74
 extern sdword catUnivFrameStepsLeft;                                                            // 0x00a6ed78
 void cat_univRemoveBulletReferencesFromShips(Bullet *bullet);                                   // 0x0054b1a0

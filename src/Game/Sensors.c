@@ -7,6 +7,7 @@
 =============================================================================*/
 
 #include "Sensors.h"
+#include "KeyBindings.h"
 #include "ShipPrint.h"
 #include "InfoOverlay.h"
 
@@ -3083,21 +3084,21 @@ void smViewportRender(featom *atom, regionhandle region)
     {                                               //don't move the eye point if zooming
         uicDragX = uicDragY = 0;
         // CAT (M2-R5 hud): the main overlay's four scroll buttons pan as the keys do (cat_moButton1..4Clicked
-        //      0x004aaf70.., smViewportRender); CAT-TODO(M2-R6 key bindings): the keys are the bound commands
-        //      0x41..0x44 (kbCommandKeyIsHit) in the exe
-        if (keyIsHit(ARRLEFT) || cat_moButton1Clicked())
+        //      0x004aaf70.., smViewportRender); the keys are the bound commands Pan_Sensors_Left .. Down 0x41..0x44
+        //      (kbCommandKeyIsHit; M2-R6 startup-keys)
+        if (kbCommandKeyIsHit(CAT_KB_PanSensorsLeft) || cat_moButton1Clicked())
         {                                                       //pan the camera with the cursor keys
             uicDragX -= smCursorPanX * frameTicks / (udword)taskFrequency;
         }
-        if (keyIsHit(ARRRIGHT) || cat_moButton2Clicked())
+        if (kbCommandKeyIsHit(CAT_KB_PanSensorsRight) || cat_moButton2Clicked())
         {
             uicDragX += smCursorPanX * frameTicks / (udword)taskFrequency;
         }
-        if (keyIsHit(ARRUP) || cat_moButton3Clicked())
+        if (kbCommandKeyIsHit(CAT_KB_PanSensorsUp) || cat_moButton3Clicked())
         {
             uicDragY -= smCursorPanY * frameTicks / (udword)taskFrequency;
         }
-        if (keyIsHit(ARRDOWN) || cat_moButton4Clicked())
+        if (kbCommandKeyIsHit(CAT_KB_PanSensorsDown) || cat_moButton4Clicked())
         {
             uicDragY += smCursorPanY * frameTicks / (udword)taskFrequency;
         }

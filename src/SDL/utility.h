@@ -94,6 +94,7 @@ typedef enum
     SS2_Tutorial,
     SS2_ToggleKeys,
     SS2_SoundEngine,
+    SS2_CatConsole,             // CAT (M2-R6 startup-keys): the developer console (0x00ab7656: gameStart sets it); name chosen
 
     SS2_SystemStarted,
 
@@ -186,6 +187,7 @@ void utyClipMouse(sdword clip);
 void utyNewGameStart(char *name, featom *atom);
 void utyGameQuit(char *name, featom *atom);
 void utyGameQuitToMain(char *name, featom *atom);
+void cat_utyGameQuitToMainOrStats(char *name, featom *atom);          // CAT: 0x005ab5b0 (M2-R6 startup-keys)
 void cat_utyMultiplayerQuitNotify(void);                         // CAT: 0x005aa0f0
 
 //load/save options from disk

@@ -110,8 +110,9 @@ sdword catMultiplayerAutoSaveNumber = 0;
 
 // CAT: the deferred-update ship list (see cat_univShipDeferredUpdate below)
 static void catDeferredShipListReset(void);
-// CAT (M2-R5 layout-dock): the exe's debug switch 0x00a751c0 (re-apply every ship's upgrades each tick; a console
-//      toggle, stage 3). Name chosen here.
+// CAT (M2-R5 layout-dock): the exe's debug switch 0x00a751c0 (re-apply every ship's upgrades each tick). Name chosen
+//      here. [M2-R6 startup-keys: no code of the exe writes it (its only access is this reader in
+//      cat_univShipDeferredUpdate +0x2d3) and the console's command table (Console.c) has no row for it: it stays 0]
 static bool32 catDebugReapplyUpgrades = FALSE;
 
 static void catShipCountersReset(void)
@@ -8787,8 +8788,8 @@ void cat_univShipDeferredUpdate(Ship *ship)
     }
     // CAT (M2-R5 layout-dock): the end of an upgrade (cat_univShipDeferredUpdate 0x005447b0, 0x00544a4e: catUpgrading
     //      with its end time at Ship+0x5A0 passed: the ship is enabled again, its upgrades applied and the "upgrade
-    //      complete" speech 0x2000895 queued for the owner), then the debug re-upgrade switch (0x00a751c0: a console
-    //      toggle, stage 3; file static here)
+    //      complete" speech 0x2000895 queued for the owner), then the debug re-upgrade switch (0x00a751c0: no writer in the
+    //      exe; file static here)
     if (ship->catUpgrading && (ship->catUpgradeEnd < universe.totaltimeelapsed))
     {
         ship->catUpgrading = FALSE;
@@ -9084,9 +9085,9 @@ bool32 univUpdate(real32 phystimeelapsed)
             }
             else
             {
-                // CAT-TODO(stage 3): the exe goes to the game stats screen when there is one
-                //      (cat_utyGameQuitToMainOrStats 0x005ab5b0, spMainScreen(1))
-                utyGameQuitToMain(NULL,NULL);
+                // CAT: the exe goes to the game stats screen outside a single-player game
+                //      (cat_utyGameQuitToMainOrStats 0x005ab5b0, utility.c; M2-R6 startup-keys)
+                cat_utyGameQuitToMainOrStats(NULL,NULL);
                 return TRUE;
             }
         }

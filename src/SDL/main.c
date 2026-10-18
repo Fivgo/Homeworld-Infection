@@ -65,6 +65,9 @@
 #include "ETG.h"            // CAT: /catEtgParseTest, /catEtgEffectTest (port diagnostics)
 #include "Mesh.h"           // CAT: /catMeshLoadTest (port diagnostic)
 #include "Dock.h"           // CAT: /catDockTest (port diagnostic, M2-R5 dock)
+#include "KeyBindings.h"    // CAT: /catKeysTest (port diagnostic, M2-R6 startup-keys)
+#include "Console.h"        // CAT: the developer console's keys, /catConsoleTest (M2-R6 startup-keys)
+#include "UnivUpdate.h"     // CAT: catMultiplayerAutoSave (/SaveMPGames)
 #include "texreg.h"         // CAT: /catTexturesTest (port diagnostic)
 #include "OracleDump.h"     // HWI-ORACLE: /oracleDump, /oracleSelfTest
 
@@ -109,7 +112,7 @@ bool32 mainNoPerspective = FALSE;
 bool32 systemActive = FALSE;              //active flag for the program
 
 #ifndef __APPLE__
-static char windowTitle[] = "HomeworldSDL";//name of window
+static char windowTitle[] = "Emergence";   // CAT: the exe's window class and title (0x008b85b8 / 0x008b85c4; GoK "HomeworldSDL")
 #endif
 
 //error strings
@@ -173,10 +176,10 @@ sdword showBackgrounds = TRUE;
 bool32 showBorder = TRUE;
 sdword enableTextures = TRUE;
 sdword enableSmoothing = TRUE;
-sdword enableCPV = FALSE;   // CAT: per-vertex colour (0x00c52378, .bss; set by Homeworld.cfg "enableCPV", /noCPV, the video options)
-sdword enableLensFlare = FALSE;     // CAT (M2-R5 render): lens flares (0x00c52380, .bss; Homeworld.cfg "enableLensFlare",
+sdword enableCPV = FALSE;   // CAT: per-vertex colour (0x00c52378, .bss; set by Cataclysm.cfg "enableCPV", /noCPV, the video options)
+sdword enableLensFlare = FALSE;     // CAT (M2-R5 render): lens flares (0x00c52380, .bss; Cataclysm.cfg "enableLensFlare",
                                     //      the video options; cat_rndLensFlaresRender 0x0057bec0)
-sdword enableRepairbots = FALSE;    // CAT (M2-R5 render): the repair droids (0x00c52374, .bss; Homeworld.cfg
+sdword enableRepairbots = FALSE;    // CAT (M2-R5 render): the repair droids (0x00c52374, .bss; Cataclysm.cfg
                                     //      "enableRepairbots"; cat_rndRenderObjectList 0x00579727)
 sdword enableStipple = FALSE;
 sdword enableTrails = TRUE;
@@ -419,6 +422,14 @@ bool32 CatUiTestSet(char *string)
     return TRUE;
 }
 
+// CAT: port diagnostic: /catConsoleTest <ticks> (Console.c catConsoleSelfTestTick: the developer console's command
+//      table on the headless Mission01 run, M2-R6 startup-keys)
+bool32 CatConsoleTestSet(char *string)
+{
+    catConsoleSelfTestSet(string);
+    return TRUE;
+}
+
 // CAT: port diagnostic: /catFeScreensTest <listfile> (FEFlow.c catFeScreensRunSelfTest: push and pop every screen of
 //      the install's .fib files, M2-R6 frontend)
 bool32 CatFeScreensTestSet(char *string)
@@ -607,6 +618,24 @@ bool32 AutoDemoWaitSet(char *string)
 }
 #endif
 
+// CAT (M2-R6 startup-keys): the exe's command-line setters that GoK's table lacks
+//      cat_mainPrependPathSet 0x0055f3d0 (/prepath: filePrependPathSet and its flag FilePathPrepended): GoK renamed
+//      HW1's /prepath to /bigoverride (fileOverrideBigPathSet); /prepath sets the same path
+static bool32 cat_mainPrependPathSet(char *string)
+{
+    return fileOverrideBigPathSet(string);
+}
+
+//      cat_mainLoadMPGameSet 0x0055f500 (/LoadMPGame <file>): "savedGames\multiplayer\" + the file, loaded by the
+//      next multiplayer gameStart (utility.c). HWI: GoK's multiplayer saves directory
+char catMainLoadMPGamePath[0x100] = "";                     // 0x00b3a020
+
+static bool32 cat_mainLoadMPGameSet(char *string)
+{
+    snprintf(catMainLoadMPGamePath, sizeof(catMainLoadMPGamePath), "%s%s", "SavedGames/MultiPlayer/", string);
+    return TRUE;
+}
+
 bool32 EnablePacketPlay(char *string)
 {
     transferCaptaincyDisabled = TRUE;
@@ -762,6 +791,8 @@ commandoption commandOptions[] =
     entryComment("SYSTEM OPTIONS"), //-----------------------------------------------------
     entryFnParam("/heap",           HeapSizeSet,                        " <n> - Sets size of global memory heap to [n]."),
     entryFnParam("/bigoverride",    fileOverrideBigPathSet,             " <path> - Sets path to search for opening files."),
+    // CAT: the exe's name of that switch (row 0x008b88e8, cat_mainPrependPathSet 0x0055f3d0)
+    entryFnParam("/prepath",        cat_mainPrependPathSet,             " <path> - Sets path to search for opening files."),
     entryFnParam("/CDpath",         fileCDROMPathSet,                   " <path> - Sets path to CD-ROM in case of ambiguity."),
     entryFnParam("/settingspath",   fileUserSettingsPathSet,            " <path> - Sets the path to store settings, saved games, and screenshots (defaults to ~/.homeworld)."),
 #if MAIN_MOUSE_FREE
@@ -855,6 +886,10 @@ commandoption commandOptions[] =
     entryVr("/noretreat",           noRetreat, TRUE,                    " - disables the 'retreat' feature of tactics"),
 #endif
     entryVrHidden("/disableAVI",    enableAVI,FALSE,                    " - don't display intro sequences."),
+    // CAT: the exe's multiplayer save switches (rows 0x008b8d38 / 0x008b8d50: the autosave switch 0x00a74dac of
+    //      univUpdate, UnivUpdate.c; the file of cat_mainLoadMPGameSet 0x0055f500)
+    entryVr("/SaveMPGames",         catMultiplayerAutoSave, TRUE,       " - periodically save multiplayer games"),
+    entryFnParam("/LoadMPGame",     cat_mainLoadMPGameSet,              "..."),
 
 #if RND_VISUALIZATION
     entryComment("VISUALIZATION"),  //-----------------------------------------------------
@@ -884,11 +919,7 @@ commandoption commandOptions[] =
 #if UNIV_SHIP_LOADFREE_LOG
     entryVr("/loadFreeLog",         univLoadFreeLog, TRUE,              " - enable logging of what was loaded and freed between missions."),
 #endif
-#ifdef HW_BUILD_FOR_DEBUGGING
-    entryVr("/NoBind",              bkDisableKeyRemap, TRUE,            " - disable key bindings so that debug keys work."),
-#else
-    entryVrHidden("/NoBind",        bkDisableKeyRemap, TRUE,            " - disable key bindings so that debug keys work."),
-#endif
+    // CAT: no /NoBind (the exe's table 0x008b8870 has none; HW1's key remap, bkDisableKeyRemap, is gone with its tables)
 
 #ifdef HW_BUILD_FOR_DEBUGGING
     entryComment("COMPUTER PLAYER AND STATS"),//-----------------------------------------------------
@@ -997,6 +1028,9 @@ commandoption commandOptions[] =
     //      catStringsRunSelfTest; M2-R6 frontend)
     entryFnParam("/catFeScreensTest",   CatFeScreensTestSet, " <listfile> - push, draw and pop every screen of the .fib files named in listfile (archive<TAB>name lines), then exit."),
     entryVr("/catStringsTest",      catStringsSelfTest, TRUE, " - resolve every string id of the language script against the script file, then exit."),
+    // CAT: port diagnostic, not a Cataclysm option (KeyBindings.c catKeysRunSelfTest, M2-R6 startup-keys)
+    entryFnParam("/catConsoleTest",     CatConsoleTestSet, " <ticks> - headless Mission01 run: the developer console opened, every row of its command table shown, set and run, typed lines, TAB and the history, its config file, logs consoletest lines and quits."),
+    entryVr("/catKeysTest",         catKeysSelfTest, TRUE, " - load, save, reload and reset the key bindings from the install's default_keys.cfg, then exit."),
     entryFnParam("/catUiTest",          CatUiTestSet, " <ticks> - headless Mission01 run: the player's fleet selected, the popup menu opened, every cat_ui* command run once, the game-stats screen shown, logs uitest lines and quits."),
     entryFnParam("/catRenderTest",      CatRenderTestSet, " <frames> - headless Mission01 run through the Cataclysm object-list renderer with a lens flare source and a fog layer, logs the render counts, exit after <frames> ticks."),
     // CAT: port diagnostic, not a Cataclysm option (SpeechEvent.c catSoundRunSelfTest, M2-R5 sound) [audit: own comment]
@@ -1252,7 +1286,8 @@ void IntroActivateMe()
 
     keyClearAll();
     keyBufferClear();
-    mrTacticalOverlayState(utyCapsLockToggleState());
+    // CAT (M2-R6 startup-keys): no caps-lock sync of the tactical overlay (the exe's activation in WindowProc 0x00561f10
+    //      has none; HW1's mrTacticalOverlayState is gone, Toggle_Tactical_Display toggles it: KeyBindings.c)
 
 #if 0	/* More bink... */
     if (!binkDonePlaying)
@@ -1350,7 +1385,8 @@ void ActivateMe()
         utyToggleKeyStatesSave();
     }
     */
-    mrTacticalOverlayState(utyCapsLockToggleState());
+    // CAT (M2-R6 startup-keys): no caps-lock sync of the tactical overlay (the exe's activation in WindowProc 0x00561f10
+    //      has none; HW1's mrTacticalOverlayState is gone, Toggle_Tactical_Display toggles it: KeyBindings.c)
 
 #if 0	/* Bink stuff... */
     if (!binkDonePlaying)
@@ -1556,13 +1592,18 @@ void mainShutdownRGL(void)
 ----------------------------------------------------------------------------*/
 void mainResetRender(void)
 {
-    cat_overlayIconsDiscardGL();                            // CAT: mainResetRender 0x00560420 / mainOpenRender 0x00560470
     rndResetGLState();
     feRenderEverything = TRUE;
     frReset();
     ferReset();
     mouseReset();
     feReset();
+    // CAT: mainResetRender 0x00560420 (also inlined in mainOpenRender 0x00560470): then the overlay icons' textures, the
+    //      lens flares' and the fog layer's go (each loads again when it is next drawn) [M2-R6 startup-keys: the order
+    //      and the two unloads; the icons were first here]
+    cat_overlayIconsDiscardGL();
+    cat_rndLensFlareTextureUnload();
+    cat_rndFogLayerTextureUnload();
     if (!reinitInProgress)
     {
         trReload();
@@ -1706,9 +1747,9 @@ void mainRestoreRender(void)
 bool32 mainShutdownRenderer(void)
 {
     dbgMessage("mainShutdownRenderer");
-    cat_overlayIconsDiscardGL();                            // CAT: mainShutdownRenderer 0x00561260
 
-    mainCloseRender();
+    mainCloseRender();      // CAT: mainShutdownRenderer 0x00561260 inlines it; the overlay icons, lens-flare and fog
+                            //      textures go in its mainResetRender (M2-R6 startup-keys: the icons were first here)
     mainShutdownGL();
     mainFreeLibraries();
 
@@ -1939,6 +1980,10 @@ void HandleEvent(SDL_Event const* pEvent) {
             {
                 keyPressDown(keyLanguageTranslate(pEvent->key.keysym.scancode));
             }
+            // CAT: the exe's WM_KEYDOWN gives every key down (and repeat) to the developer console too, untranslated
+            //      (WindowProc 0x00561f10 -> cat_consoleKeyPress 0x0045a700, which returns while it is closed); HWI:
+            //      as the exe's virtual-key code (Key.c catKeyVkFromKey)
+            cat_consoleKeyPress(catKeyVkFromKey(pEvent->key.keysym.scancode));
             return;
 
         case SDL_USEREVENT:

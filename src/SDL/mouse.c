@@ -1330,7 +1330,7 @@ void mouseSetCursorSetting(void)
         mouseCursorType = objectives;
         return;
     }
-    // CAT-TODO(M2-R6 key bindings): kbCommandKeyIsHit of the commands; catMrKbHeld tests their default keys
+    // CAT: the band-box key commands held (kbCommandKeyIsHit through catMrKbHeld; M2-R6 startup-keys: the loaded bindings)
     if (catMrKbHeld(CAT_KB_BandboxForceAttack))
     {
         if (!playPackets)

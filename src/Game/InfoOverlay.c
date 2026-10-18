@@ -38,6 +38,8 @@
 #include "glinc.h"
 #include "Key.h"
 #include "KeyBindings.h"
+#include "UnivUpdate.h"
+#include "Console.h"
 #include "main.h"
 #include "mainrgn.h"
 #include "mainswitches.h"
@@ -246,7 +248,9 @@ static sdword catMoBottomTop = 0;                   // 0x00a4b8b8: top of the bo
 static sdword catMoBottomY = 0;                     // 0x00a4b888: the bottom panel's current top (slides)
 static bool32 catMoBottomShown = FALSE;             // 0x00a4b884: the mouse brought the HW taskbar in
 static real32 catMoSupportBlinkTime = 0.0f;         // 0x00a4b968
-static bool32 catMoWideScreen = FALSE;              // 0x00a6ed74 (cat_kasWideScreenIn; CAT-TODO(stage 6 KAS))
+// CAT (M2-R6 startup-keys): 0x00a6ed74 is the Pause key's flag (UnivUpdate.c catUnivFrameStep; it was named after
+//      cat_kasWideScreenIn here): the overlay prints "paused" while it is set and hides the objectives pointer
+#define catMoWideScreen             catUnivFrameStep
 static bool32 catMoRecordingEnded = FALSE;          // 0x00a6c5c8 (the recorded game ran out; CAT-TODO(stage 5 recorder))
 
 // CAT: the layout constants (exe data 0x0072ab88..)
@@ -328,14 +332,14 @@ static color catMoTipEnemyOutline = 0xffa0a0a0, catMoTipEnemyText = 0xff0000ff, 
 static color catMoTipAllyOutline = 0xffa0a0a0, catMoTipAllyText = 0xffffc000, catMoTipAllyBox = 0x64000000;      // 0x0072ac28 ..
 static color catMoTipOwnOutline = 0xffa0a0a0, catMoTipOwnText = 0xff00ff00, catMoTipOwnBox = 0x644b644b;         // 0x0072ac34 ..
 
-// CAT-TODO(M2-R6 key bindings / console): the overlay asks for Cataclysm key commands held (kbCommandKeyIsHit
-//      0x0054ec60 with the exe's ids: 0x41..0x44 the camera buttons, 0x62 the ship-info key, 100..102 the debug key
-//      lists) and tests the developer console (0x00a2dcd4); until those ports no such key is held and the console is
-//      closed. [M2-R6 mainrgn-popup: the commands run through the key-command table (cat_kbCommandExecute 0x0054eb10,
+// CAT: the overlay asks for Cataclysm key commands held (kbCommandKeyIsHit 0x0054ec60 with the exe's ids: 0x41..0x44
+//      the camera buttons, 0x62 the ship-info key, 100..102 the debug key lists) and tests the developer console
+//      (0x00a2dcd4). [M2-R6 startup-keys: the loaded bindings (KeyBindings.c) and the console (Console.c)]
+//      [M2-R6 mainrgn-popup: the commands run through the key-command table (cat_kbCommandExecute 0x0054eb10,
 //      KeyBindings.c) and the popup menu is PopupMenu.c's]
-#define CAT_KB_HELD(command)        FALSE
+#define CAT_KB_HELD(command)        kbCommandKeyIsHit(command)
 #define CAT_KB_EXECUTE(sensors, command)    cat_kbCommandExecute((sensors) != 0, (command))
-#define CAT_CONSOLE_OPEN()          FALSE
+#define CAT_CONSOLE_OPEN()          cat_consoleIsOpen()
 #define CAT_POPUP_MENU_OPEN()       cat_popupMenuIsOpen()   // CAT (M2-R6 mainrgn-popup): PopupMenu.c
 
 /*=============================================================================
@@ -2021,20 +2025,227 @@ void cat_moResearchDraw(sdword top, sdword bottom)
 }
 
 /*-----------------------------------------------------------------------------
-    Name        : cat_moDebugKeysDraw                               0x004aa2a0
-    Description : With a debug-keys command key held, the lists of key bindings (cat_moDebugKeyLineDraw 0x004aa0a0).
-                  CAT-TODO(M2-R6 key bindings): the lists print the exe's command names and bindings
-                  (cat_kbCommandNameGet, cat_kbBindingGet, cat_kbBindingToString, cat_moDebugKeyGet / Value), which
-                  come with the key bindings; until then the keys (100..102) are never held and the "DEBUG KEYS ON"
-                  line's test (an empty stub in the exe) is false
+    Name        : cat_ioMessageScrollUp / cat_ioMessageScrollDown   0x004aca90 / 0x004acad0
+    Description : CAT (M2-R6 startup-keys): the game messages' scroll keys (PageDown_GameChat / PageUp_GameChat), the
+                  scroll buttons' code of cat_ioClick: an older line / back towards the newest (all lines shown again).
 ----------------------------------------------------------------------------*/
+void cat_ioMessageScrollUp(void)
+{
+    if (!catIoMessageUpShown)
+    {
+        return;
+    }
+    soundEventPlay(NULL, 0x121, NULL);
+    catIoMessageLast++;
+    if (catIoMessageLast >= catIoMessageCount)
+    {
+        catIoMessageLast = catIoMessageCount - 1;
+    }
+}
+
+void cat_ioMessageScrollDown(void)
+{
+    sdword index;
+
+    if (!catIoMessageDownShown)
+    {
+        return;
+    }
+    soundEventPlay(NULL, 0x122, NULL);
+    if (catIoMessagesShown == 5)
+    {
+        catIoMessageLast--;
+        if (catIoMessageLast < 0)
+        {
+            catIoMessageLast = 0;
+        }
+    }
+    catIoMessagesShown = catIoMessageCount + 1;
+    if (catIoMessagesShown > 5)
+    {
+        catIoMessagesShown = 5;
+    }
+    for (index = 0; index < catIoMessageCount; index++)
+    {
+        catIoMessages[index].shownTime = 0;
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_moPrintBoxesToggle                            0x004acb90
+    Description : CAT (M2-R6 startup-keys): Change_Overlay_Backdrops_Toggle: the print option keys switch the
+                  elements' backdrops instead of the elements (and back).
+----------------------------------------------------------------------------*/
+void cat_moPrintBoxesToggle(void)
+{
+    catMoPrintBoxes = !catMoPrintBoxes;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_ioMultipleSelectRelease                       0x004ac4e0
+    Description : CAT (M2-R6 startup-keys): Multiple_Select released: when ship types were picked in the overlay's
+                  lists while it was held, only the selected ships of the picked types stay selected (the own ships by
+                  their list: active, disabled, disabled exempt); the picks are cleared.
+----------------------------------------------------------------------------*/
+void cat_ioMultipleSelectRelease(void)
+{
+    sdword index;
+    bool32 picked = FALSE;
+    Ship *ship;
+
+    for (index = 0; index < TOTAL_NUM_SHIPS; index++)
+    {
+        if ((catIoShips[index].pressed == 1) || (catIoDisabled[index].pressed == 1) ||
+            (catIoDisabledExempt[index].pressed == 1))
+        {
+            picked = TRUE;
+        }
+    }
+    if (picked)
+    {
+        index = 0;
+        while (index < selSelected.numShips)
+        {
+            ship = selSelected.ShipPtr[index];
+            if (((ship->shipOrDerelict.catDisabled == 0) && !catIoShips[ship->shiptype].pressed) ||
+                ((ship->shipOrDerelict.catDisabled == 1) &&
+                 (bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatExempt20) ?
+                      !catIoDisabledExempt[ship->shiptype].pressed : !catIoDisabled[ship->shiptype].pressed)))
+            {
+                selSelectionRemoveSingleShip(&selSelected, ship);
+                index = 0;
+                continue;
+            }
+            index++;
+        }
+        ioUpdateShipTotals();
+    }
+    for (index = 0; index < TOTAL_NUM_SHIPS; index++)
+    {
+        catIoShips[index].pressed = FALSE;
+        catIoDisabled[index].pressed = FALSE;
+        catIoDisabledExempt[index].pressed = FALSE;
+    }
+}
+
+// the debug-key lists (0x0072add0 .. 0x0072aebc): per list up to five runs of commands {count, first[5], last[5]}
+typedef struct
+{
+    sdword count;
+    sdword first[5];
+    sdword last[5];
+} CatMoDebugKeyList;
+static const CatMoDebugKeyList catMoDebugKeyLists[5] =
+{
+    { 3, {   1,  44,  49, 0, 0 }, {  16,  48,  58, 0, 0 } },     // 0x0072add0: actions, tactics, formations
+    { 1, {  17,   0,   0, 0, 0 }, {  43,   0,   0, 0, 0 } },     // 0x0072ae00: special actions
+    { 3, {  59,  72,  79, 0, 0 }, {  71,  78,  85, 0, 0 } },     // 0x0072ae30: camera, selecting, views
+    { 2, {  86, 139,   0, 0, 0 }, { 107, 150,   0, 0, 0 } },     // 0x0072ae60: misc, sensors view
+    { 1, { 108,   0,   0, 0, 0 }, { 138,   0,   0, 0, 0 } },     // 0x0072ae90: groupings
+};
+static const color catMoDebugKeysOnColour = 0xff0000ff;        // 0x0072acc0
+static const color catMoDebugKeysBack = 0xd2050505;           // 0x0072acc4
+static const color catMoDebugKeyNameColour = 0xffd2d2d2;      // 0x0072acc8
+static const color catMoDebugKeyNoneColour = 0xff0000ff;      // 0x0072accc
+static const color catMoDebugKeyGroupColour = 0xffffffff;     // 0x0072acd0
+static const color catMoDebugKeyBindingColours[3] = { 0xff00ff00, 0xff00ffff, 0xffff0000 };   // 0x0072acd4..
+#define CAT_MO_DEBUG_KEYS_TOP       10                          // 0x0072ad74 (also the left column's x)
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_moDebugKeyLineDraw                            0x004aa0a0
+    Description : CAT (M2-R6 startup-keys): one column of the debug-key lists: per run its group header, then each
+                  command's name, ":  " and its keys (each binding in its colour, " , " between them; "NONE").
+----------------------------------------------------------------------------*/
+static void cat_moDebugKeyLineDraw(const CatMoDebugKeyList *list, sdword x0)
+{
+    sdword run, command, x, y = CAT_MO_DEBUG_KEYS_TOP, index;
+    CatKbCommandBindings bindings;
+    char text[0x100];
+
+    for (run = 0; run < list->count; run++)
+    {
+        command = list->first[run];
+        if (run != 0)
+        {
+            y += fontHeight("") * 2;
+        }
+        fontPrintf(x0, y, catMoDebugKeyGroupColour, cat_moDebugKeyValue(cat_moDebugKeyGet(command)));
+        y += 2 + fontHeight("");
+        for (; command <= list->last[run]; command++)
+        {
+            fontPrintf(x0, y, catMoDebugKeyNameColour, cat_kbCommandNameGet(command));
+            x = x0 + fontWidth(cat_kbCommandNameGet(command));
+            fontPrintf(x, y, catMoDebugKeyNameColour, ":  ");
+            x += fontWidth(":  ");
+            cat_kbBindingGet(command, &bindings);
+            if (bindings.count == 0)
+            {
+                fontPrintf(x, y, catMoDebugKeyNoneColour, "%s", strGetString(strNoKeyBound));
+            }
+            else
+            {
+                for (index = 0; index < bindings.count; index++)
+                {
+                    cat_kbBindingToString(&bindings.binding[index], text, TRUE);
+                    fontPrintf(x, y, catMoDebugKeyBindingColours[index], "%s", text);
+                    x += fontWidth(text);
+                    if (index + 1 < bindings.count)
+                    {
+                        fontPrint(x, y, catMoDebugKeyNameColour, " , ");
+                        x += fontWidth(" , ");
+                    }
+                }
+            }
+            y += fontHeight("");
+        }
+    }
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_moDebugKeysDraw                               0x004aa2a0
+    Description : With a Show_Keys key held (commands 100..102, the install binds End, SHIFT+End, SHIFT+CTRL+End),
+                  the screen darkened and the lists of key bindings drawn (cat_moDebugKeyLineDraw); the "DEBUG KEYS
+                  ON" line's test is an empty stub in the exe (never drawn).
+----------------------------------------------------------------------------*/
+static void catMoDebugKeysBackground(void)
+{
+    rectangle rect;
+
+    rect.x0 = 0;
+    rect.y0 = 0;
+    rect.x1 = MAIN_WindowWidth - 1;
+    rect.y1 = MAIN_WindowHeight - 1;
+    glEnable(GL_BLEND);                                     // (0x00b3a47c / 0x00b3a4b0 with GL_BLEND)
+    rndAdditiveBlends(FALSE);
+    primRectTranslucent2(&rect, catMoDebugKeysBack);
+    rndAdditiveBlends(FALSE);
+    glDisable(GL_BLEND);
+}
+
 void cat_moDebugKeysDraw(void)
 {
     fonthandle font = fontMakeCurrent(catMoDebugKeysFont);
 
-    if (CAT_KB_HELD(100) || CAT_KB_HELD(0x65) || CAT_KB_HELD(0x66))
+    if (FALSE)
+    {                                                       // nullsubReturnFalse 0x006fe9a0
+        fontPrintf(MAIN_WindowWidth - fontWidth("DEBUG KEYS ON") - 4, 2, catMoDebugKeysOnColour, "DEBUG KEYS ON");
+    }
+    if (CAT_KB_HELD(CAT_KB_ShowKeys1))
     {
-        ;
+        catMoDebugKeysBackground();
+        cat_moDebugKeyLineDraw(&catMoDebugKeyLists[0], CAT_MO_DEBUG_KEYS_TOP);
+        cat_moDebugKeyLineDraw(&catMoDebugKeyLists[1], MAIN_WindowWidth / 2);
+    }
+    else if (CAT_KB_HELD(CAT_KB_ShowKeys2))
+    {
+        catMoDebugKeysBackground();
+        cat_moDebugKeyLineDraw(&catMoDebugKeyLists[2], CAT_MO_DEBUG_KEYS_TOP);
+        cat_moDebugKeyLineDraw(&catMoDebugKeyLists[3], MAIN_WindowWidth / 2);
+    }
+    else if (CAT_KB_HELD(CAT_KB_ShowKeys3))
+    {
+        catMoDebugKeysBackground();
+        cat_moDebugKeyLineDraw(&catMoDebugKeyLists[4], CAT_MO_DEBUG_KEYS_TOP);
     }
     fontMakeCurrent(font);
 }

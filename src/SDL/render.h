@@ -183,6 +183,9 @@ void rndDrawScissorBars(bool32 scissorEnabled);
 extern bool8  catRndEdgeEffect;
 extern bool8  catRndFadeFlag;
 extern ubyte  catRndFadeMode;
+extern sdword catRndConsoleStyle;           // CAT: 0x00878168, the console's "constyle" (the build-in fade mode)
+extern bool8  catRndDrawTrails;             // CAT: 0x00878171, the console's "TRAILS"
+extern bool8  catRndDrawBTG;                // CAT: 0x0087816e, the console's "BTG"
 extern bool8  catRndFadeFlip;
 extern real32 catRndFadeT;
 extern bool8  catRndBeastStun;

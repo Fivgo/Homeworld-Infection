@@ -52,7 +52,7 @@
 #define DIS_Size                    "Size"
 #define DIS_Font                    "Font"
 #define DIS_PaneBase                "Pane"
-#define DIS_FileName                "Homeworld.cfg"
+#define DIS_FileName                "Cataclysm.cfg"     // CAT: the exe's options file (0x008b6f80); the Win32 debug window is not built (debugwnd.c)
 #define DIS_StringLength            64
 
 /*=============================================================================

@@ -220,6 +220,14 @@ udword keyBufferedKeyGet(bool32 *bShift);
 void keyBufferAdd(udword key, bool32 bShift);
 void keyBufferClear(void);
 
+// CAT (M2-R6 startup-keys): the key names (cat_keyNameStringsInit 0x0049b1b0) and the exe's virtual-key ids (Key.c)
+extern sdword catKeyNameStrings[256];                    // 0x00a44004: a string id per virtual-key code
+void cat_keyNameStringsInit(void);
+udword catKeyVkFromKey(keyindex key);                   // HWI: this tree's key index -> virtual-key code (0: none)
+keyindex catKeyFromVk(udword vk);                       // HWI: virtual-key code -> this tree's key index (0: none)
+bool32 catKeyVkIsHit(udword vk);                        // HWI: the exe's keyScanCode[vk].keypressed
+udword leftModSide(udword key);
+
 udword keyGermanToEnglish(udword virtkey);
 udword keyFrenchToEnglish(udword virtkey);
 udword keySpanishToEnglish(udword virtkey);

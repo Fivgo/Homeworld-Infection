@@ -111,6 +111,7 @@ extern real32 cat_taskRealTimeDelta;            // 0x00bb3274 (name chosen here)
 extern real32 cat_taskRealTimeElapsed;          // 0x00bb3270: unscaled task seconds since start (the build timers' clock)
 sdword cat_taskTimeCompressionMaxIndex(void);
 ubyte  cat_taskTimeCompressionDefaultIndex(void);
+void   cat_taskTimeCompressionIndexSet(ubyte index);  // HWI accessor (the key Toggle_Game_Speed)
 void   cat_taskTimeCompressionApply(void);
 void   cat_taskTimeCompressionPrint(void);
 void   cat_taskTimeCompressionReset(void);

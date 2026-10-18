@@ -116,6 +116,7 @@ extern sdword mainWindowDepth;
 
 extern bool32 mainNoPerspective;
 extern bool32 systemActive;
+extern char catMainLoadMPGamePath[];                    // CAT: 0x00b3a020, /LoadMPGame (cat_mainLoadMPGameSet 0x0055f500)
 
 /*=============================================================================
     Functions:

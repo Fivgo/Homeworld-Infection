@@ -6,6 +6,7 @@
 // =============================================================================
 
 #include "Camera.h"
+#include "KeyBindings.h"
 
 #include "FastMath.h"
 #include "Key.h"
@@ -385,13 +386,13 @@ sdword cameraControl(Camera *camera, bool32 EnforceShipDistances)
         UserAction |= CAM_USER_ZOOMED;
     }
 
-    if (zoomOutNow)//keyIsHit(NUMMINUSKEY) || keyIsHit(MINUSKEY))
+    if (kbCommandKeyIsHit(CAT_KB_ZoomOut))   // CAT: the exe polls its Zoom_Out key command (cameraControl 0x0042bab0; HW1 zoomOutNow, set by mrKeyPress)
     {
         cameraZoom(camera,(CAMERA_KEY_ZOOM_OUT - 1.0f) * CAMERA_MOUSE_SENS + 1.0f, EnforceShipDistances);
         UserAction |= CAM_USER_ZOOMED;
     }
 
-    if (zoomInNow)//keyIsHit(NUMPLUSKEY) || keyIsHit(PLUSKEY))
+    if (kbCommandKeyIsHit(CAT_KB_ZoomIn))    // CAT: the Zoom_In key command (cameraControl 0x0042bab0; HW1 zoomInNow)
     {
         cameraZoom(camera,1.0f - (1.0f - CAMERA_KEY_ZOOM_IN) * CAMERA_MOUSE_SENS, EnforceShipDistances);
         UserAction |= CAM_USER_ZOOMED;

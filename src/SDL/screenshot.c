@@ -26,6 +26,7 @@
 #include "glinc.h"
 #include "File.h"
 #include "main.h"
+#include "CommandWrap.h"      // CAT: clCommandMessage (the screenshot message)
 
 #ifdef _WIN32
 	#define sleep(x) _sleep((x) * 1000)
@@ -39,44 +40,30 @@ static void _ssAppendScreenshotFilename(char* savePath);
 // =============================================================================
 
 
+// CAT: ssSaveScreenshot 0x0057ef80 names a shot "shota%03d.jpg", the first of 000..199 not there yet, else
+//      "shot200.jpg" (GoK: "shot_<date>_<time>_<zone>.jpg"). HWI: in the user settings path's ScreenShots/ (GoK's
+//      directory; the exe: %HW_Data%\screenshots\ or screenshots\ in the current directory)
 static void _ssAppendScreenshotFilename(char* savePath)
 {
     FILE        *imageFile;
     char         imagePath[PATH_MAX + 1],
-                 imageName[256];
-                 
-    time_t       now;
-    struct tm    timeStruct;
-    
-    unsigned int attempts          =  0,
-                 sleep_time_secs   =  1,
-                 max_attempts_secs = 10;
+                 imageName[32];
+    sdword       index;
 
-    while (1) {
-        time(&now);
-        timeStruct = *localtime(&now);
-        
-        strftime(imageName, sizeof(imageName), "shot_%Y%m%d_%H%M%S_%Z.jpg", &timeStruct);
-
-        strcpy(imagePath, savePath);
-        strcat(imagePath, imageName);
-        
-        // unable to open filename so presumably good name to use
-        if ((imageFile = fopen(imagePath, "r")) == NULL) {
-            break;
+    for (index = 0; index < 200; index++)
+    {
+        sprintf(imageName, "shota%03d.jpg", (int)index);
+        snprintf(imagePath, sizeof(imagePath), "%s%s", savePath, imageName);
+        if ((imageFile = fopen(imagePath, "rt")) == NULL)
+        {
+            break;                                          // not there yet: this name
         }
-        
         fclose(imageFile);
-        attempts++;
-        sleep(sleep_time_secs);    // rapid screenshots possibly: wait and try again
-
-        // don't try for more than the allowed time
-        if (attempts > max_attempts_secs / sleep_time_secs) {
-            strcpy(imageName, "most_recent_screenshot.jpg");
-            break;
-        }
     }
-
+    if (index == 200)
+    {
+        strcpy(imageName, "shot200.jpg");
+    }
     strcat(savePath, imageName);
 }
 
@@ -120,12 +107,20 @@ static void _ssSaveScreenshot(ubyte* buf, const char* targetFilename)
     free(pTempLine);
 
     stbi_write_jpg(fname, MAIN_WindowWidthActual, MAIN_WindowHeightActual, 3, buf, 100);
+
+    if (!targetFilename)
+    {                                                       // CAT: the exe's message (ssSaveScreenshot 0x0057ef80;
+        char message[PATH_MAX + 32];                        //      GoK's named debug shots stay silent)
+
+        snprintf(message, sizeof(message), "Screenshot Saved: %s", fname);
+        clCommandMessage(message, 0xffffffff);
+    }
 }
 
 
-// CAT-TODO(M2-R6 HUD messages): Cataclysm's ssSaveScreenshot 0x0057ef80 (called by rndRenderTask with the pixels read
-//      back) names the file hot<n>.jpg under HW_Data\screenshots\ and then shows "Screenshot Saved: %s" through
-//      clCommandMessage; GoK's screenshot code (this file) keeps its own names and paths and shows no message.
+// CAT: Cataclysm's ssSaveScreenshot 0x0057ef80 (called by rndRenderTask with the pixels read back) is this file's
+//      _ssSaveScreenshot with the exe's file names and its "Screenshot Saved: %s" message (M2-R6 startup-keys); GoK's
+//      read-back (glReadPixels) and JPEG writer (stb, decision 28's backend) stay.
 void ssTakeScreenshot(const char* filename)
 {
     ubyte* screenshot_buffer =

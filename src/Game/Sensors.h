@@ -219,6 +219,7 @@ extern color smCurrentWorldPlaneColor;
 extern sdword smTickTextIndex;
 
 extern bool32 smFleetIntel;
+void smSensorsSkip(char *name, featom *atom);          // 0x0050cc60 (CAT: the Skip_Sensors / Escape keys, KeyBindings.c)
 
 extern ubyte smShipTypeRenderFlags[TOTAL_NUM_SHIPS];
 

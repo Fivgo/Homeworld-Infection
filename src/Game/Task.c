@@ -547,6 +547,12 @@ ubyte cat_taskTimeCompressionDefaultIndex(void)
     return cat_timeCompressionDefaultIndex;
 }
 
+// HWI accessor (M2-R6 startup-keys): the exe's Toggle_Game_Speed key (0x00550720) writes the index directly
+void cat_taskTimeCompressionIndexSet(ubyte index)
+{
+    cat_timeCompressionIndex = index;
+}
+
 // 0x0052a370: the factor from the table, and the tutorial hears about it
 void cat_taskTimeCompressionApply(void)
 {

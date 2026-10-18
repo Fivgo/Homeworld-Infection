@@ -121,4 +121,10 @@ void catHudSelfTestSet(char *string);
 bool32 catHudSelfTestRequested(void);
 void catHudSelfTestTick(void);
 
+// CAT (M2-R6 startup-keys): the overlay code the key commands call (KeyBindings.c)
+void cat_ioMessageScrollUp(void);                                       // 0x004aca90
+void cat_ioMessageScrollDown(void);                                     // 0x004acad0
+void cat_moPrintBoxesToggle(void);                                      // 0x004acb90
+void cat_ioMultipleSelectRelease(void);                                 // 0x004ac4e0
+
 #endif

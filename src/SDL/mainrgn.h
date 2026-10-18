@@ -150,7 +150,6 @@ void mrDisable(void);
 void mrNULL(void);
 void mrSelectHold(Camera *camera, sdword sensors);      // CAT: 0x0056a1e0
 void mrShipDied(Ship *ship);
-void mrTacticalOverlayState(bool32 bTactical);
 
 void bigmessageDisplay(char *msg,sdword position);
 void bigmessageErase(sdword position);
@@ -169,19 +168,9 @@ void mrNISStopping(void);
 =============================================================================*/
 #define CAT_MR_MAX_WAYPOINTS            20          // 0x00b39bc0 .. 0x00b39cb0: the waypoints of a path
 
-// Cataclysm's key commands the main region names (the rows of the exe's command table 0x008b6310, numbered by the
-//      install's default_keys.cfg order); the others are KeyBindings.c's
-#define CAT_KB_Move                     0x01
-#define CAT_KB_ShipSpecial              0x07
-#define CAT_KB_Escape                   0x5A
-#define CAT_KB_BandboxGuard             0x4A
-#define CAT_KB_BandboxAttack            0x4B
-#define CAT_KB_BandboxForceAttack       0x4C
-#define CAT_KB_BandboxFocus             0x4D
-#define CAT_KB_MultipleSelect           0x4E
-#define CAT_KB_NextMusicTrack           0x60
-#define CAT_KB_PrevMusicTrack           0x61
-#define CAT_KB_SkipSensors              0x6B
+// Cataclysm's key commands the main region names: KeyBindings.h (CAT_KB_*, the rows of the exe's command table
+//      0x008b6310)
+#include "KeyBindings.h"
 
 // the band box's colour by its modifier (cat_mrSelectRectDraw 0x0056ac00: 0x0072bdec .. 0x0072be00)
 #define CAT_MR_BAND_GUARD               0xfffa0000
@@ -191,8 +180,9 @@ void mrNISStopping(void);
 #define CAT_MR_BAND_SPECIAL             0xff64644b
 #define CAT_MR_BAND_SELECT              0xffffffff
 
-// the developer console is open (0x00a2dcd4, cat_consoleOpen): CAT-TODO(M2-R6 console): the console port
-#define CAT_MR_CONSOLE_OPEN()           FALSE
+// the developer console is open (0x00a2dcd4, cat_consoleOpen; M2-R6 startup-keys: Console.c)
+#include "Console.h"
+#define CAT_MR_CONSOLE_OPEN()           cat_consoleIsOpen()
 
 extern bool32 catMrSelecting;                   // 0x00a75284
 extern sdword catMrRightMode;                   // 0x00a75288

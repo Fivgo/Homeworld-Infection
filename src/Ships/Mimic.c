@@ -15,6 +15,7 @@
 //      (M2-R6 mainrgn-popup); CAT-TODO(the user's saves): their save chunks (cat_saveGameMiscChunks 0x005ba170).
 
 #include "Mimic.h"
+#include "Console.h"
 
 #include <math.h>
 
@@ -36,7 +37,7 @@
 #include "Universe.h"
 
 #define MIMIC_FADE_STEP             0.05f       // 0x0072a654: per housekeep
-#define MIMIC_RADIUS_SCALE          1.2f        // 0x0087813c
+#define MIMIC_RADIUS_SCALE          catConsoleMorphStartScale   // 0x0087813c: 1.2, the console's "morphStartScale" (Console.c)
 #define MIMIC_ASTEROID_RADIUS_SCALE 1.1f        // 0x0072af7c
 #define MIMIC_DELAY_RATE            9.313225746154785e-08f      // 0x0072a64c
 #define MIMIC_DELAY_EXP             -0.004999999888241291f      // 0x0072a648

@@ -74,7 +74,7 @@ extern sdword opDeviceIndex;
 extern sdword opCPUDiff;
 extern sdword opCPUAttack;
 
-// Homeworld.cfg configurable values
+// Cataclysm.cfg configurable values (CAT: the exe's options file; HW1 Homeworld.cfg)
 
 // CAT (M2-R6 frontend): Cataclysm's own option words and callbacks (Options.c)
 struct tagfeatom;

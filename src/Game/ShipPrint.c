@@ -12,6 +12,7 @@
 //      (catShipPrintRight / catShipPrintBottom), the second prints over the translucent box the first one sized.
 
 #include "ShipPrint.h"
+#include "Console.h"
 
 #include <stdio.h>
 
@@ -129,11 +130,11 @@ static sdword catShipExperienceLevelStrings[] =
     strExperienceLevel0, strExperienceLevel1, strExperienceLevel2, strExperienceLevel3, strExperienceLevel4
 };
 
-// CAT-TODO(M2-R6 key bindings / console): the panel's help and its dragging need Cataclysm's key command 0x62 held
-//      (kbCommandKeyIsHit(0x62) 0x0054ec60: the exe's command table is HW1's plus Cataclysm's, ported with the key
-//      bindings) and the developer console closed (0x00a2dcd4, cat_consoleOpen); until then the key is never held
-#define CAT_KB_SHIP_INFO_HELD()     FALSE
-#define CAT_CONSOLE_OPEN()          FALSE
+// CAT: the panel's help and its dragging need Cataclysm's key command 0x62 held (Toggle_Overlay_Options,
+//      kbCommandKeyIsHit(0x62) 0x0054ec60) and the developer console closed (0x00a2dcd4) [M2-R6 startup-keys: the loaded
+//      bindings (KeyBindings.c) and the console (Console.c)]
+#define CAT_KB_SHIP_INFO_HELD()     kbCommandKeyIsHit(CAT_KB_ToggleOverlayOptions)
+#define CAT_CONSOLE_OPEN()          cat_consoleIsOpen()
 
 /*-----------------------------------------------------------------------------
     Name        : cat_shipPrintLine                                 0x0050f910

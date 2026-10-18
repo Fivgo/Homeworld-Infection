@@ -48,6 +48,7 @@
 #include "InfoOverlay.h"
 #include "Key.h"
 #include "KeyBindings.h"
+#include "Console.h"
 #include "LaunchMgr.h"
 #include "LevelLoad.h"
 #include "Light.h"
@@ -150,7 +151,8 @@ extern bool32 debugScreenshots;
 
 #define CD_VALIDATION_ENABLED  0            // toggle checking CD is in drive and anti-piracy checks
 
-#define UTY_CONFIG_FILENAME  "Homeworld.cfg"
+#define CAT_MUSIC_CREDITS    0x29                // CAT: Cataclysm's credits track (HW1 RollCredits 28; SpeechEvent.c's CAT_MUSIC_NIS_VOLUME)
+#define UTY_CONFIG_FILENAME  "Cataclysm.cfg"      // CAT: the exe's options file (string 0x008b6f80, utyOptionsFileRead 0x005a83a0 / utyOptionsFileWrite 0x005a84f0; HW1 "Homeworld.cfg")
 
 extern SDL_Window *sdlwindow;
 extern int MAIN_WindowWidth, MAIN_WindowHeight, MAIN_WindowDepth;
@@ -315,6 +317,13 @@ void utySensorsBlobsToggle(char* name, featom* atom);
 void utyInstantTransitionToggle(char *name, featom *atom);
 void utyInstantTransitionBitmapToggle(char* name, featom* atom);
 void utySensorsBlobsBitmapToggle(char* name, featom* atom);
+void cat_utyDynamicCPVToggle(char* name, featom* atom);                 // CAT: 0x005a8cb0
+void cat_utyDynamicCPVBitmapToggle(char* name, featom* atom);           // CAT: 0x005a8d40
+void cat_utyLensFlareToggle(char* name, featom* atom);                  // CAT: 0x005a8db0
+void cat_utyLensFlareBitmapToggle(char* name, featom* atom);            // CAT: 0x005a8e10
+void cat_utyRepairbotsToggle(char* name, featom* atom);                 // CAT: 0x005a8e60
+void cat_utyRepairbotsBitmapToggle(char* name, featom* atom);           // CAT: 0x005a8ec0
+void cat_utyGameQuitToMainOrStats(char *name, featom *atom);            // CAT: 0x005ab5b0
 void utyBulletBitmapToggle(char* name, featom* atom);
 void utyBulletToggle(char* name, featom* atom);
 void utyMuzzleBitmapToggle(char* name, featom* atom);
@@ -470,37 +479,14 @@ fecallback utyCallbacks[] =
     {utyMultiplayerGameStart,   "FE_Multiplayer_Game"},
     {utyShowCredits,            "FE_SHOWCREDITS"},
     {utyGameQuit,               "QuitGame"},
-    {utyGameQuitToMain,         "QuitToMain"},
+    {cat_utyGameQuitToMainOrStats, "QuitToMain"},           // CAT: 0x005ab5b0 (HW1 utyGameQuitToMain)
     {utyInGameCancel,           "IG_Cancel"},
 //    {utyInGameLoad,             "IG_LoadGame"},
 //    {utyInGameSave,             "IG_SaveGame"},
 //    {utySaveRecordedGame,       "IG_SaveRecordedGame"},
-    // CAT: no CSM_Dock callback (the exe's table names CSM_Hyperspace only); mrDockingOrders 0x00567750 is the
-    //      slipgate order now
-    {mrDeltaFormation,          "CSM_DeltaFormation"},
-    {mrBroadFormation,          "CSM_BroadFormation"},
-    {mrXFormation,              "CSM_XFormation"},
-    {mrClawFormation,           "CSM_ClawFormation"},
-    {mrWallFormation,           "CSM_WallFormation"},
-    {mrSphereFormation,         "CSM_SphereFormation"},
-    {mrCustomFormation,         "CSM_PicketFormation"},
-    // CAT: no CSM_Harvest either: mrHarvestResources 0x00563cc0 takes the resource where the menu passed its name
-    {mrBuildShips,              "CSM_Build"},
-    {mrTradeStuff,              "CSM_Trade"},
-    {mrMoveShips,               "CSM_Move"},
-    {mrInfo,                    "CSM_Info"},
-    {mrCancel,                  "CSM_Cancel"},
-    {mrScuttle,                 "CSM_Scuttle"},
-    {mrRetire,                  "CSM_Retire"},
-    {mrHyperspace,              "CSM_Hyperspace"},
-    {mrLaunch,                  "CSM_Launch"},
-    {mrResearch,                "CSM_Research"},
-    {mrEvasiveTactics,          "CSM_Evasive"},
-    {mrNeutralTactics,          "CSM_Neutral"},
-    {mrAgressiveTactics,        "CSM_Agressive"},
-    {mrFormAlliance,            "PLM_FormAlliance"},
-    {mrBreakAlliance,           "PLM_BreakAlliance"},
-    {mrTransferRUS,             "PLM_TransferRUS"},
+    // CAT (M2-R6 startup-keys): no CSM_* / PLM_* rows (HW1's right-click menu; the exe's table 0x008c0f80 goes from
+    //      IG_Cancel to VO_Filter: Cataclysm's right click is the popup menu, PopupMenu.c; "CSM_Hyperspace" is the
+    //      task bar's own string, tbSetupHyperspace)
     {utyFilterToggle,           "VO_Filter"},               //options screen controls
     {utyMagFilterToggle,        "VO_MagFilter"},
     {utyFilterBitmapToggle,     "VO_BitmapFilter"},
@@ -528,6 +514,13 @@ fecallback utyCallbacks[] =
     {utyLanguageToggle,         "VO_Language"},
     {utySensorsBlobsToggle,     "VO_SensorsBlobs"},
     {utySensorsBlobsBitmapToggle,"VO_BitmapSensorsBlobs"},
+    // CAT (M2-R6 startup-keys): Cataclysm's video options (rows 0x008c10e8 .. 0x008c1110)
+    {cat_utyDynamicCPVToggle,   "VO_DynamicCPV"},
+    {cat_utyDynamicCPVBitmapToggle, "VO_BitmapDynamicCPV"},
+    {cat_utyLensFlareToggle,    "VO_LensFlare"},
+    {cat_utyLensFlareBitmapToggle, "VO_BitmapLensFlare"},
+    {cat_utyRepairbotsToggle,   "VO_Repairbots"},
+    {cat_utyRepairbotsBitmapToggle, "VO_BitmapRepairbots"},
     {smSensorsBegin,            "SensorsManager"},
     {tbSensorsBegin,            "TB_SensorsManager"},
     {utyPickColors,             "NewGameSelectColour"},
@@ -673,60 +666,53 @@ color versionColor = colWhite;
 // 2) remember to remove the setting of the default value, by removing
 //    the equivalent entry from Tweaks[] (defined in Tweak.c)
 
-// some crude formatting within the .cfg's scriptEntry context
-char filecfgblankspace = '\0';
+// CAT: the exe keeps two multiplayer words of tpGameCreated in the file as dwords: "MPGameFlags" is the dword at
+//      0x008860ea (CaptainGameInfo's pad2 word and its flag word above it) and "MultiPlayerGameSetting" the dword at
+//      0x008860d4 (numComputers, startingFleet, bountySize, startingResources). HWI: this tree's LP64 CaptainGameInfo
+//      has other offsets, so the two words are staged here and copied in after a read / out before a write.
+static udword catUtyMPGameFlags = 0;                // 0x008860ea
+static udword catUtyMPGameSetting = 0;              // 0x008860d4
+// CAT: the difficulty word of the options table's last row (0x008941a0, 2 in .data); written by the single-player
+//      difficulty screen. CAT-TODO(stage 6 single player): its readers (cat_spGetDifficultyModifiers) and its setter (SP_GameDifficulty) come with the single-player port
+udword catSpDifficultySetting = 2;                  // 0x008941a0
 
 scriptEntry utyOptionsList[] =
 {
-  {"\n[init options]\n",    scriptSetStringCB, &filecfgblankspace},
-
-    {"HomeworldDataPath",   scriptSetStringCB, &fileHomeworldDataPath},
-    {"screenWidth",         scriptSetUdwordCB, &MAIN_WindowWidth},
-    {"screenHeight",        scriptSetUdwordCB, &MAIN_WindowHeight},
-    {"screenDepth",         scriptSetUdwordCB, &MAIN_WindowDepth},
-/* Does this need to be in here? Useful but possibly may cause problems */
-    {"fullScreen",          scriptSetUdwordCB, &fullScreen},
-
-
-  {"\n[old reg data - to be deprecated]\n", scriptSetStringCB, &filecfgblankspace},
-
-
-    {"deviceCRC",       scriptSetUdwordCB, &opDeviceCRC},
-    {"deviceIndex",     scriptSetUdwordCB, &opDeviceIndex},
-
-
-  {"\n[graphics options]\n", scriptSetStringCB, &filecfgblankspace},
-
-
+    // CAT: the exe's options table utyOptionsList 0x008c1478 .. 0x008c18e0, row for row in its order and with its
+    //      names (Cataclysm.cfg has no sections: utyOptionsFileWrite 0x005a84f0 writes every row as "%s    %d" or
+    //      "%s    %s"). The HW1 / GoK rows the exe does not have follow the exe's rows.
     {"effectsLevel",            scriptSetUdwordCB, &opEffectsVal},
-    {"noLOD",                   scriptSetUdwordCB, &opNoLODVal},
+    {"speakerSetting",          scriptSetUdwordCB, &opSpeakerSetting},
+    {"brightnessVal",           scriptSetUdwordCB, &opBrightnessVal},
     {"detailThreshold",         scriptSetUdwordCB, &opDetailThresholdVal},
+    {"noLOD",                   scriptSetUdwordCB, &opNoLODVal},
     {"enableSmoothing",         scriptSetUdwordCB, &enableSmoothing},
-    {"enableCPV",               scriptSetUdwordCB, &enableCPV},        // CAT: options table row 0x008c14c0 (after enableSmoothing)
-    {"enableLensFlare",         scriptSetUdwordCB, &enableLensFlare},  // CAT (M2-R5 render): row 0x008c14cc
-    {"enableRepairbots",        scriptSetUdwordCB, &enableRepairbots}, // CAT (M2-R5 render): row 0x008c14d8
+    {"enableCPV",               scriptSetUdwordCB, &enableCPV},        // 0x008c14c0
+    {"enableLensFlare",         scriptSetUdwordCB, &enableLensFlare},  // 0x008c14cc (M2-R5 render)
+    {"enableRepairbots",        scriptSetUdwordCB, &enableRepairbots}, // 0x008c14d8 (M2-R5 render)
     {"showBackgrounds",         scriptSetUdwordCB, &showBackgrounds},
     {"texLinearFiltering",      scriptSetUdwordCB, &texLinearFiltering},
     {"enableStipple",           scriptSetUdwordCB, &enableStipple},
     {"enableTrails",            scriptSetUdwordCB, &enableTrails},
-    {"noPalMB",                 scriptSetUdwordCB, &opNoPalMB},
-    {"etgDamageEffectsEnabled", scriptSetUdwordCB, &etgDamageEffectsEnabled},
-    {"etgHitEffectsEnabled",    scriptSetUdwordCB, &etgHitEffectsEnabled},
-    {"etgFireEffectsEnabled",   scriptSetUdwordCB, &etgFireEffectsEnabled},
-    {"etgBulletEffectsEnabled", scriptSetUdwordCB, &etgBulletEffectsEnabled},
-    {"etgHistoryScalar",        scriptSetUdwordCB, &etgHistoryScalar},
-    {"InfoOverlay",             scriptSetUdwordCB, &opInfoOverlayVar},
+    {"language",                scriptSetUdwordCB, &strCurLanguage},
     {"fuzzyBlobs",              scriptSetUdwordCB, &smFuzzyBlobs},
+    {"PlayerBaseColor",         scriptSetUdwordCB, &utyBaseColor},
+    {"PlayerStripeColor",       scriptSetUdwordCB, &utyStripeColor},
+    {"ColorsPicked",            scriptSetUdwordCB, &cpColorsPicked},
+    {"PlayerRace",              scriptSetUdwordCB, &whichRaceSelected},
     {"InstantTransition",       scriptSetUdwordCB, &smInstantTransition},
-    {"brightnessVal",           scriptSetUdwordCB, &opBrightnessVal},
-
-
-  {"\n[sound options]\n", scriptSetStringCB, &filecfgblankspace},
-
-
-    {"MusicVolume",             scriptSetUdwordCB, &opMusicVol},
-    {"SpeechVolume",            scriptSetUdwordCB, &opSpeechVol},
-    {"SFXVolume",               scriptSetUdwordCB, &opSFXVol},
+    {"PrevColor0.base",         scriptSetUdwordCB, &colPreviousColors[0].base},
+    {"PrevColor0.detail",       scriptSetUdwordCB, &colPreviousColors[0].detail},  // CAT: HW1 "PrevColor0.stripe"
+    {"PrevColor1.base",         scriptSetUdwordCB, &colPreviousColors[1].base},
+    {"PrevColor1.detail",       scriptSetUdwordCB, &colPreviousColors[1].detail},
+    {"PrevColor2.base",         scriptSetUdwordCB, &colPreviousColors[2].base},
+    {"PrevColor2.detail",       scriptSetUdwordCB, &colPreviousColors[2].detail},
+    {"PrevColor3.base",         scriptSetUdwordCB, &colPreviousColors[3].base},
+    {"PrevColor3.detail",       scriptSetUdwordCB, &colPreviousColors[3].detail},
+    {"PrevColor4.base",         scriptSetUdwordCB, &colPreviousColors[4].base},
+    {"PrevColor4.detail",       scriptSetUdwordCB, &colPreviousColors[4].detail},
+    {"PlayerName",              scriptSetStringCB, &utyName},
+    {"PlayerPwd",               scriptSetStringCB, &utyPassword},      // CAT: HW1 "PlayerPassword"
     {"Equalizer0",              scriptSetUdwordCB, &opEqualizerSettings[0]},
     {"Equalizer1",              scriptSetUdwordCB, &opEqualizerSettings[1]},
     {"Equalizer2",              scriptSetUdwordCB, &opEqualizerSettings[2]},
@@ -735,94 +721,34 @@ scriptEntry utyOptionsList[] =
     {"Equalizer5",              scriptSetUdwordCB, &opEqualizerSettings[5]},
     {"Equalizer6",              scriptSetUdwordCB, &opEqualizerSettings[6]},
     {"Equalizer7",              scriptSetUdwordCB, &opEqualizerSettings[7]},
-    {"Voice0",                  scriptSetUdwordCB, &opVoice0On},
-    {"Voice1",                  scriptSetUdwordCB, &opVoice1On},
-    {"Voice2",                  scriptSetUdwordCB, &opVoice2On},
+    {"MusicVolume",             scriptSetUdwordCB, &opMusicVol},
+    {"SFXVolume",               scriptSetUdwordCB, &opSFXVol},
+    {"SpeechVolume",            scriptSetUdwordCB, &opSpeechVol},
     {"VoiceCommands",           scriptSetUdwordCB, &opVoiceComm},
     {"VoiceStatus",             scriptSetUdwordCB, &opVoiceStat},
     {"VoiceChatter",            scriptSetUdwordCB, &opVoiceChat},
-    {"speakerSetting",          scriptSetUdwordCB, &opSpeakerSetting},
+    {"opMouseSens",             scriptSetUdwordCB, &opMouseSens},
+    {"InfoOverlay",             scriptSetUdwordCB, &opInfoOverlayVar},
+    {"opBattleChatter",         scriptSetUdwordCB, &opBattleChatter},
+    {"spCurrentSelected",       scriptSetUdwordCB, &spCurrentSelected},  // CAT: HW1 "MultiPlayerLastMapID"
+    {"etgDamageEffectsEnabled", scriptSetUdwordCB, &etgDamageEffectsEnabled},
+    {"etgHitEffectsEnabled",    scriptSetUdwordCB, &etgHitEffectsEnabled},
+    {"etgFireEffectsEnabled",   scriptSetUdwordCB, &etgFireEffectsEnabled},
+    {"etgBulletEffectsEnabled", scriptSetUdwordCB, &etgBulletEffectsEnabled},
+    {"etgHistoryScalar",        scriptSetUdwordCB, &etgHistoryScalar},
     {"NumChannels",             scriptSetUdwordCB, &opNumChannels},
     {"AutoChannel",             scriptSetUdwordCB, &opAutoChannel},
     {"SoundQuality",            scriptSetUdwordCB, &opSoundQuality},
-    {"opBattleChatter",         scriptSetUdwordCB, &opBattleChatter},
-
-
-  {"\n[input options]\n", scriptSetStringCB, &filecfgblankspace},
-
-
-    {"NEXT_FORMATION",          scriptSetUdwordCB, &kbKeySavedKeys[kbNEXT_FORMATION]},
-    {"BUILD_MANAGER",           scriptSetUdwordCB, &kbKeySavedKeys[kbBUILD_MANAGER]},
-    {"PREVIOUS_FOCUS",          scriptSetUdwordCB, &kbKeySavedKeys[kbPREVIOUS_FOCUS]},
-    {"NEXT_FOCUS",              scriptSetUdwordCB, &kbKeySavedKeys[kbNEXT_FOCUS]},
-    {"DOCK",                    scriptSetUdwordCB, &kbKeySavedKeys[kbDOCK]},
-    {"SELECT_ALL_VISIBLE",      scriptSetUdwordCB, &kbKeySavedKeys[kbSELECT_ALL_VISIBLE]},
-    {"FOCUS",                   scriptSetUdwordCB, &kbKeySavedKeys[kbFOCUS]},
-    {"RESEARCH_MANAGER",        scriptSetUdwordCB, &kbKeySavedKeys[kbRESEARCH_MANAGER]},
-    {"HARVEST",                 scriptSetUdwordCB, &kbKeySavedKeys[kbHARVEST]},
-    {"MOVE",                    scriptSetUdwordCB, &kbKeySavedKeys[kbMOVE]},
-    {"NEXT_TACTIC",             scriptSetUdwordCB, &kbKeySavedKeys[kbNEXT_TACTIC]},
-    {"PREVIOUS_TACTIC",         scriptSetUdwordCB, &kbKeySavedKeys[kbPREVIOUS_TACTIC]},
-    {"SCUTTLE",                 scriptSetUdwordCB, &kbKeySavedKeys[kbSCUTTLE]},
-    {"SHIP_SPECIAL",            scriptSetUdwordCB, &kbKeySavedKeys[kbSHIP_SPECIAL]},
-    {"TACTICAL_OVERLAY",        scriptSetUdwordCB, &kbKeySavedKeys[kbTACTICAL_OVERLAY]},
-    {"MOTHERSHIP",              scriptSetUdwordCB, &kbKeySavedKeys[kbMOTHERSHIP]},
-    {"KAMIKAZE",                scriptSetUdwordCB, &kbKeySavedKeys[kbKAMIKAZE]},
-    {"CANCEL_ORDERS",           scriptSetUdwordCB, &kbKeySavedKeys[kbCANCEL_ORDERS]},
-    {"LAUNCH_MANAGER",          scriptSetUdwordCB, &kbKeySavedKeys[kbLAUNCH_MANAGER]},
-    {"opMouseSens",             scriptSetUdwordCB, &opMouseSens},
-
-
-  {"\n[player preferences]\n", scriptSetStringCB, &filecfgblankspace},
-
-
-    {"language",                scriptSetUdwordCB, &strCurLanguage},
-    {"PlayerBaseColor",         scriptSetUdwordCB, &utyBaseColor},
-    {"PlayerStripeColor",       scriptSetUdwordCB, &utyStripeColor},
-    {"ColorsPicked",            scriptSetUdwordCB, &cpColorsPicked},
-    {"PlayerRace",              scriptSetUdwordCB, &whichRaceSelected},
-    {"PrevColor0.base",         scriptSetUdwordCB, &colPreviousColors[0].base},
-    {"PrevColor0.stripe",       scriptSetUdwordCB, &colPreviousColors[0].detail},
-    {"PrevColor1.base",         scriptSetUdwordCB, &colPreviousColors[1].base},
-    {"PrevColor1.stripe",       scriptSetUdwordCB, &colPreviousColors[1].detail},
-    {"PrevColor2.base",         scriptSetUdwordCB, &colPreviousColors[2].base},
-    {"PrevColor2.stripe",       scriptSetUdwordCB, &colPreviousColors[2].detail},
-    {"PrevColor3.base",         scriptSetUdwordCB, &colPreviousColors[3].base},
-    {"PrevColor3.stripe",       scriptSetUdwordCB, &colPreviousColors[3].detail},
-    {"PrevColor4.base",         scriptSetUdwordCB, &colPreviousColors[4].base},
-    {"PrevColor4.stripe",       scriptSetUdwordCB, &colPreviousColors[4].detail},
-
-
-  {"\n[single player]\n", scriptSetStringCB, &filecfgblankspace},
-
-
-    // single player
+    {"FirewallDetect",          scriptSetUdwordCB, &firewallButton},
     {"TutorialNeeded",          scriptSetUdwordCB, &needtutorial},
-
-
-  {"\n[multiplayer options]\n", scriptSetStringCB, &filecfgblankspace},
-
-
-   // multiplayer
-    {"PlayerName",                     scriptSetStringCB, &utyName},
-    {"PlayerPassword",                 scriptSetStringCB, &utyPassword},
-    {"MultiPlayerLastMapID",           scriptSetUdwordCB, &spCurrentSelected},
-    {"MultiPlayerGameFlags",           scriptSetUwordCB,  &tpGameCreated.flag},
-    {"MultiPlayerNumComputerPlayers",  scriptSetUbyteCB,  &tpGameCreated.numComputers},
-    {"MultiPlayerComputerDifficulty",  scriptSetUbyteCB,  &tpGameCreated.aiplayerDifficultyLevel},
-    {"MultiPlayerComputerHatesHumans", scriptSetUbyteCB,  &tpGameCreated.aiplayerBigotry},
-    {"ResourceInjectionInterval",      scriptSetUdwordCB, &tpGameCreated.resourceInjectionInterval},
-    {"ResourceInjectionAmount",        scriptSetUdwordCB, &tpGameCreated.resourceInjectionsAmount},
-    {"ResourceLumpSumTime",            scriptSetUdwordCB, &tpGameCreated.resourceLumpSumTime},
-    {"ResourceLumpSumAmount",          scriptSetUdwordCB, &tpGameCreated.resourceLumpSumAmount},
-    {"FirewallDetect",                 scriptSetUdwordCB, &firewallButton},
-
-
-  {"\n[cataclysm options]\n", scriptSetStringCB, &filecfgblankspace},
-
-    // CAT (M2-R6 frontend): the exe's rows of Cataclysm's options (its options table 0x008c1790 .. 0x008c18c8, in its
-    //      order and with its names; Options.c and the words' owners). [audit: the CAT-TODO put on one line]
-    // CAT-TODO(M2-R6 start-up): the rest of the options table at the exe's (0x008c1478 .. 0x008c18d4: its other names, order and rows; no GoK sections) with the options-file port; DifficultySetting (0x008c18d4, 0x008941a0) comes with stage 6's difficulty screen
+    {"MPGameFlags",             scriptSetUdwordCB, &catUtyMPGameFlags},             // 0x008860ea (staged)
+    {"MultiPlayerGameSetting",  scriptSetUdwordCB, &catUtyMPGameSetting},           // 0x008860d4 (staged)
+    {"ResInjInterval",          scriptSetUdwordCB, &tpGameCreated.resourceInjectionInterval},
+    {"ResInjAmmount",           scriptSetUdwordCB, &tpGameCreated.resourceInjectionsAmount},
+    {"ResLumpSumTime",          scriptSetUdwordCB, &tpGameCreated.resourceLumpSumTime},
+    {"ResLumpSumAmmount",       scriptSetUdwordCB, &tpGameCreated.resourceLumpSumAmount},
+    // CAT (M2-R6 frontend): the exe's rows of Cataclysm's options (0x008c1790 .. 0x008c18c8; Options.c and the
+    //      words' owners)
     {"LargePopupMenuFonts",            scriptSetUdwordCB, &catPmLargeFont},
     {"Homeworld_CSA",                  scriptSetUdwordCB, &catMrHomeworldCSA},
     {"RightClick_CSA",                 scriptSetUdwordCB, &catMrRightClickCSA},
@@ -850,11 +776,20 @@ scriptEntry utyOptionsList[] =
     {"GameFramerateOption",            scriptSetUdwordCB, &catOpGameFramerate},
     {"DetailQuality",                  scriptSetUdwordCB, &catLodDetail},
     {"SetTextureRequirements",         scriptSetUdwordCB, &catOpTextureRequirementsSet},
+    {"DifficultySetting",              scriptSetUdwordCB, &catSpDifficultySetting},     // 0x008c18d4 -> 0x008941a0
 
-
-  {"\n[New HWSDL Options]\n", scriptSetStringCB, &filecfgblankspace},
-
-
+    // HWI: the rows the exe keeps in the registry instead (its regOptionsList 0x008c0e58: deviceCRC, deviceIndex,
+    //      screenWidth / Height / Depth; SDL has no registry, so GoK keeps them in the options file), then GoK's own
+    //      rows (its data path, the window mode and its "New HWSDL Options": PlayIntros is the switch the harness's
+    //      options file sets to 0). No exe counterpart, so they follow the exe's rows. HW1's "noPalMB", "Voice0..2" and
+    //      key rows (kbKeySavedKeys) are gone: the exe has no such rows (Cataclysm's key bindings live in keys.cfg).
+    {"deviceCRC",                      scriptSetUdwordCB, &opDeviceCRC},
+    {"deviceIndex",                    scriptSetUdwordCB, &opDeviceIndex},
+    {"screenWidth",                    scriptSetUdwordCB, &MAIN_WindowWidth},
+    {"screenHeight",                   scriptSetUdwordCB, &MAIN_WindowHeight},
+    {"screenDepth",                    scriptSetUdwordCB, &MAIN_WindowDepth},
+    {"HomeworldDataPath",              scriptSetStringCB, &fileHomeworldDataPath},
+    {"fullScreen",                     scriptSetUdwordCB, &fullScreen},
     {"CollectResourcesAtEndOfMission", scriptSetBool,     &spCollectResourcesAtEndOfMission},
     {"PauseOrders",                    scriptSetUdwordCB, &opPauseOrders},
     {"PlayIntros",                     scriptSetUdwordCB, &aviPlayIntros},
@@ -937,8 +872,31 @@ void versionNumDraw(featom *atom, regionhandle region)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : catUtyOptionsStagedWordsSet / catUtyOptionsStagedWordsGet
+    Description : HWI: copy the two staged multiplayer dwords of the options file into tpGameCreated after a read
+                    and out of it before a write (see catUtyMPGameFlags: the exe reads and writes them in place)
+----------------------------------------------------------------------------*/
+static void catUtyOptionsStagedWordsSet(void)
+{
+    tpGameCreated.pad2 = (unsigned short)(catUtyMPGameFlags & 0xffff);
+    tpGameCreated.flag = (unsigned short)(catUtyMPGameFlags >> 16);
+    tpGameCreated.numComputers = (unsigned char)(catUtyMPGameSetting & 0xff);
+    tpGameCreated.startingFleet = (unsigned char)((catUtyMPGameSetting >> 8) & 0xff);
+    tpGameCreated.bountySize = (unsigned char)((catUtyMPGameSetting >> 16) & 0xff);
+    tpGameCreated.startingResources = (unsigned char)(catUtyMPGameSetting >> 24);
+}
+
+static void catUtyOptionsStagedWordsGet(void)
+{
+    catUtyMPGameFlags = (udword)tpGameCreated.pad2 | ((udword)tpGameCreated.flag << 16);
+    catUtyMPGameSetting = (udword)tpGameCreated.numComputers | ((udword)tpGameCreated.startingFleet << 8) |
+                          ((udword)tpGameCreated.bountySize << 16) | ((udword)tpGameCreated.startingResources << 24);
+}
+
+/*-----------------------------------------------------------------------------
     Name        : utyOptionsFileRead
-    Description : Read a set of options from the Homeworld.ini file
+    Description : Read a set of options from the options file (CAT: Cataclysm.cfg, 0x005a83a0). HWI: GoK reads it
+                    from $HOME/CONFIGDIR (the exe: the current directory, the install)
     Inputs      : void
     Outputs     : reads in the switches listed in utyOptionsList array
     Return      :
@@ -962,16 +920,19 @@ void utyOptionsFileRead(void)
         ch_buf[0] = '\0';
     }
     scriptSetFileSystem(ch_buf, UTY_CONFIG_FILENAME, utyOptionsList);
+    catUtyOptionsStagedWordsSet();
 
     //call any functions that need to acknowledge a change due to loading
     cameraSensitivitySet(opMouseSens);
     battleChatterFrequencySet(opBattleChatter);
-
+    // CAT: the exe then reads its registry rows (regOptionsList 0x008c0e58 under SOFTWARE\Sierra On-Line\Cataclysm);
+    //      SDL has no registry: GoK keeps those rows in this file (utyOptionsList's HWI rows)
 }
 
 /*-----------------------------------------------------------------------------
     Name        : utyOptionsFileWrite
-    Description : Write a set of options from the Homeworld.ini file
+    Description : Write a set of options to the options file (CAT: Cataclysm.cfg, 0x005a84f0). HWI: GoK writes it
+                    to the user settings path (the exe: the current directory, the install)
     Inputs      : void
     Outputs     : writes out the switches listed in utyOptionsList array
     Return      :
@@ -982,6 +943,7 @@ void utyOptionsFileWrite(void)
     FILE *f = fileStream(cfgFile);
 
     sdword index;
+    catUtyOptionsStagedWordsGet();
     for (index = 0; utyOptionsList[index].name != NULL; index++)
     {
         if (utyOptionsList[index].setVarCB == scriptSetUbyteCB) {
@@ -993,8 +955,8 @@ void utyOptionsFileWrite(void)
                 *((uword *)utyOptionsList[index].dataPtr));
         }
         else if (utyOptionsList[index].setVarCB == scriptSetUdwordCB) {
-            fprintf(f, "%s    %u\n", utyOptionsList[index].name,
-                *((udword *)utyOptionsList[index].dataPtr));
+            fprintf(f, "%s    %d\n", utyOptionsList[index].name,         // CAT: the exe's "%s    %d" (0x008c2e7c)
+                *((sdword *)utyOptionsList[index].dataPtr));
         }
         else if (utyOptionsList[index].setVarCB == scriptSetStringCB) {
             fprintf(f, "%s    %s\n", utyOptionsList[index].name,
@@ -1037,6 +999,7 @@ char *catUtyOptionsFileReadBack(void)
         directory[0] = '\0';
     }
     scriptSetFileSystem(directory, UTY_CONFIG_FILENAME, utyOptionsList);
+    catUtyOptionsStagedWordsSet();
     return path;
 }
 
@@ -1457,6 +1420,98 @@ void utySensorsBlobsBitmapToggle(char* name, featom* atom)
     }
 }
 
+/*-----------------------------------------------------------------------------
+    CAT (M2-R6 startup-keys): Cataclysm's three video-option toggles and their bitmap twins (0x005a8cb0 .. 0x005a8ec0),
+    as the HW1 pairs: the dynamic CPV (enableCPV 0x00c52378; with the low-memory switch 0x00c5236c set it stays off and
+    its button is disabled), the lens flares (enableLensFlare 0x00c52380), the repair droids (enableRepairbots
+    0x00c52374); the text toggles mark the custom effects (0x00c30a60, opCustomEffectsToggled).
+----------------------------------------------------------------------------*/
+void cat_utyDynamicCPVToggle(char* name, featom* atom)
+{
+    if (FEFIRSTCALL(atom))
+    {
+        if (catMeshStateDisabled)
+        {
+            enableCPV = FALSE;
+            bitSet(((regionhandle)atom->region)->status, RSF_RegionDisabled);
+        }
+        feToggleButtonSet(name, enableCPV);
+    }
+    else if (!catMeshStateDisabled)
+    {
+        enableCPV = FECHECKED(atom) ? TRUE : FALSE;
+        feToggleButtonSet("VO_BitmapDynamicCPV", enableCPV);
+    }
+    utySetCustomEffects();
+}
+void cat_utyDynamicCPVBitmapToggle(char* name, featom* atom)
+{
+    if (FEFIRSTCALL(atom))
+    {
+        if (catMeshStateDisabled)
+        {
+            enableCPV = FALSE;
+            bitSet(((regionhandle)atom->region)->status, RSF_RegionDisabled);
+        }
+        feToggleButtonSet(name, enableCPV);
+    }
+    else if (!catMeshStateDisabled)
+    {
+        enableCPV = FECHECKED(atom) ? TRUE : FALSE;
+        feToggleButtonSet("VO_DynamicCPV", enableCPV);
+    }
+}
+void cat_utyLensFlareToggle(char* name, featom* atom)
+{
+    if (FEFIRSTCALL(atom))
+    {
+        feToggleButtonSet(name, enableLensFlare);
+    }
+    else
+    {
+        enableLensFlare = FECHECKED(atom) ? TRUE : FALSE;
+        feToggleButtonSet("VO_BitmapLensFlare", enableLensFlare);
+    }
+    utySetCustomEffects();
+}
+void cat_utyLensFlareBitmapToggle(char* name, featom* atom)
+{
+    if (FEFIRSTCALL(atom))
+    {
+        feToggleButtonSet(name, enableLensFlare);
+    }
+    else
+    {
+        enableLensFlare = FECHECKED(atom) ? TRUE : FALSE;
+        feToggleButtonSet("VO_LensFlare", enableLensFlare);
+    }
+}
+void cat_utyRepairbotsToggle(char* name, featom* atom)
+{
+    if (FEFIRSTCALL(atom))
+    {
+        feToggleButtonSet(name, enableRepairbots);
+    }
+    else
+    {
+        enableRepairbots = FECHECKED(atom) ? TRUE : FALSE;
+        feToggleButtonSet("VO_BitmapRepairbots", enableRepairbots);
+    }
+    utySetCustomEffects();
+}
+void cat_utyRepairbotsBitmapToggle(char* name, featom* atom)
+{
+    if (FEFIRSTCALL(atom))
+    {
+        feToggleButtonSet(name, enableRepairbots);
+    }
+    else
+    {
+        enableRepairbots = FECHECKED(atom) ? TRUE : FALSE;
+        feToggleButtonSet("VO_Repairbots", enableRepairbots);
+    }
+}
+
 void utyLanguageToggle(char* name, featom* atom)
 {
     sdword index;
@@ -1596,6 +1651,18 @@ void gameStart(char *loadfilename)
         }
     }
 #endif
+    // CAT (M2-R6 startup-keys): gameStart 0x005a9290 first clears every player's support-unit budget (Player +0xC /
+    //      +0x10), and a multiplayer game loads the /LoadMPGame file when the command line named one (0x00b3a020,
+    //      cat_mainLoadMPGameSet, main.c)
+    for (i = 0; i < MAX_MULTIPLAYER_PLAYERS; i++)
+    {
+        universe.players[i].supportUnitsMax = 0;
+        universe.players[i].supportUnitsUsed = 0;
+    }
+    if (multiPlayerGame && (catMainLoadMPGamePath[0] != '\0'))
+    {
+        loadfilename = catMainLoadMPGamePath;
+    }
     soundEventStopTrack(SOUND_FRONTEND_TRACK, 1.0f);                          //stop it
 
     if (loadfilename != NULL)
@@ -2062,6 +2129,9 @@ void gameStart(char *loadfilename)
     subReset();
     subTexturesReset();
 
+    cat_consoleStartup();                                   // CAT: the developer console (gameStart 0x005a9290: after
+    utySet2(SS2_CatConsole);                                //      subTexturesReset; Console.c)
+
     trRegistryRefresh();                                    //refresh registry - load in all textures
     if (hrAbortLoadingGame)
     {
@@ -2318,7 +2388,7 @@ void utyMultiplayerGameStart(char *name, featom *atom)
 ----------------------------------------------------------------------------*/
 void utyShowCredits(char *name, featom *atom)
 {
-    soundEventPlayMusic(RollCredits);
+    soundEventPlayMusic(CAT_MUSIC_CREDITS);                 // CAT: utyShowCredits 0x005aa160 (HW1 RollCredits 28)
     psModeBegin("Credits\\", PMF_Credits | PMF_LanguageSpecific | PMF_MusicTrack);
     psScreenStart("Credits-button.cred");
 }
@@ -3196,6 +3266,26 @@ void utyGameQuit(char *name, featom *atom)
     Outputs     : Calls utyCloseOK
     Return      : void
 ----------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------
+    Name        : cat_utyGameQuitToMainOrStats                      0x005ab5b0
+    Description : CAT (M2-R6 startup-keys): "QuitToMain" (and univUpdate's end of a game): outside a single-player
+                  game the game-stats screen begins (the screens gone, the music stopped, the game no longer running;
+                  cat_gameStatsBegin, GamePick.c), in one it is utyGameQuitToMain (the exe inlines it).
+----------------------------------------------------------------------------*/
+void cat_utyGameQuitToMainOrStats(char *name, featom *atom)
+{
+    if (!singlePlayerGame)
+    {
+        feAllScreensDelete();
+        soundEventStopMusic(1.0f);
+        soundEventPause(TRUE);
+        gameIsRunning = FALSE;
+        cat_gameStatsBegin();
+        return;
+    }
+    utyGameQuitToMain(name, atom);
+}
+
 void utyGameQuitToMain(char *name, featom *atom)
 {
     bool32 networkgame = multiPlayerGame;
@@ -3224,7 +3314,7 @@ void utyGameQuitToMain(char *name, featom *atom)
 #else
     if (utyCreditsSequence)
     {
-        soundEventPlayMusic(RollCredits);
+        soundEventPlayMusic(CAT_MUSIC_CREDITS);             // CAT: utyGameQuitToMain 0x005ab6b0 (HW1 RollCredits 28)
         psModeBegin("Credits\\", PMF_Credits | PMF_LanguageSpecific | PMF_MusicTrack);
         psScreenStart("Credits-GameEnd.cred");
         utyCreditsSequence = FALSE;
@@ -4394,9 +4484,11 @@ DONE_INTROS:
     // CAT (M2-R5 hud): the overlay icons (OverlayIcons\OverlayIcons.script), after prim3dStartup as utyGameSystemsInit
     //      0x005abe70
     cat_overlayIconsStartup();
+    // CAT (M2-R6 startup-keys): the key bindings (keys.cfg, made from default_keys.cfg: cat_kbLoadKeyBindings
+    //      0x0054da10), between the icons and the names as utyGameSystemsInit 0x005abe70
+    cat_kbLoadKeyBindings();
     // CAT (M2-R5 hud): then the carrier and mothership names (shipnames.script, cat_shipNamesInit 0x0050efd0) and the
-    //      game stats screen's fonts and timer (cat_gameStatsStartup 0x00489e50); CAT-TODO(M2-R6 key bindings):
-    //      cat_kbLoadKeyBindings comes between the icons and the names in the exe
+    //      game stats screen's fonts and timer (cat_gameStatsStartup 0x00489e50)
     cat_shipNamesInit();
     cat_gameStatsStartup();
     // CAT (M2-R6 frontend): HW1's key-binding start-up runs here (utyGameSystemsInit 0x005abe70: after
@@ -4527,6 +4619,15 @@ DONE_INTROS:
             catFeScreensRunSelfTest();
             feScreenStart(ghMainRegion, "Main_game_screen");
         }
+        utyGameQuit(NULL, NULL);
+        return(NULL);
+    }
+
+    // CAT: /catKeysTest (port diagnostic, M2-R6 startup-keys): the install's default_keys.cfg loaded, saved, reloaded
+    //      and reset through the Cataclysm key-binding code; then quit
+    if (catKeysSelfTest)
+    {
+        catKeysRunSelfTest();
         utyGameQuit(NULL, NULL);
         return(NULL);
     }
@@ -4817,6 +4918,11 @@ char *utyGameSystemsShutdown(void)
     {
         tbShutdown();                                            //shut down the task bar
         utyClear(SSA_TaskBar);
+    }
+    if (utyTest2(SS2_CatConsole))
+    {                                                            // CAT: the developer console (utyGameSystemsShutdown
+        cat_consoleShutdown();                                   //      0x005ac710: before the construction manager)
+        utyClear2(SS2_CatConsole);
     }
     if (utyTest(SSA_ConstructionManager))
     {

@@ -23,6 +23,7 @@
 #include "render.h"         // CAT: catRenderSelfTestTick (the render self-test, M2-R5 render)
 #include "InfoOverlay.h"    // CAT: catHudSelfTestTick (the HUD self-test, M2-R5 hud)
 #include "PopupMenu.h"      // CAT: catUiSelfTestTick (the ui self-test, M2-R6 mainrgn-popup)
+#include "Console.h"        // CAT: catConsoleSelfTestTick (the console self-test, M2-R6 startup-keys)
 #include "OracleDump.h"
 
 #if HWI_ORACLE
@@ -510,6 +511,11 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     if (catUiSelfTestRequested() && (universe.univUpdateCounter != before))
     {
         catUiSelfTestTick();
+    }
+    // CAT (M2-R6 startup-keys): the developer console's self-test the same way (Console.c catConsoleSelfTestTick)
+    if (catConsoleSelfTestRequested() && (universe.univUpdateCounter != before))
+    {
+        catConsoleSelfTestTick();
     }
 
     if ((oracleFileName[0] != '\0' || oracleInSelfTest) && universe.univUpdateCounter != before)

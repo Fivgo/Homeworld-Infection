@@ -144,6 +144,9 @@ extern color HorseRaceDropoutColor;
 
 vector g_RndPosition;
 
+//CAT (M2-R6 startup-keys): the window's title is the exe's "Emergence" (WinMain 0x005631f0: CreateWindowExA with the
+//     class and title 0x008b85b8 / 0x008b85c4; GoK "HomeworldSDL")
+#define CAT_RND_WINDOW_TITLE        "Emergence"
 bool32 rndTakeScreenshot = FALSE;
 
 extern bool32 enableMSAA;
@@ -941,7 +944,7 @@ bool32 setupPixelFormat()
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-    if (!(sdlwindow=SDL_CreateWindow("HomeworldSDL", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+    if (!(sdlwindow=SDL_CreateWindow(CAT_RND_WINDOW_TITLE, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
         MAIN_WindowWidth, MAIN_WindowHeight, flags)))
         return FALSE;
 
@@ -1001,7 +1004,7 @@ bool32 setupPixelFormat()
 	    SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, MSAA );
 	}
 
-	while (!(sdlwindow=SDL_CreateWindow("HomeworldSDL", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+	while (!(sdlwindow=SDL_CreateWindow(CAT_RND_WINDOW_TITLE, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 		MAIN_WindowWidth, MAIN_WindowHeight, flags)))
 	{
         if (MSAA < 2)
@@ -1009,7 +1012,7 @@ bool32 setupPixelFormat()
             SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 0 );
             SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, 0 );
 
-            if (!(sdlwindow=SDL_CreateWindow("HomeworldSDL", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+            if (!(sdlwindow=SDL_CreateWindow(CAT_RND_WINDOW_TITLE, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
                 MAIN_WindowWidth, MAIN_WindowHeight, flags)))
             {
             fprintf (stderr, "Couldn't set video mode: %s\n", SDL_GetError ());
@@ -1344,8 +1347,8 @@ void rndBackgroundRender(real32 radius, Camera* camera, bool32 bDrawStars)
                     rndNear(camera->clipPlaneNear), camera->clipPlaneFar);
     glMatrixMode(GL_MODELVIEW);
 
-    if (showBackgrounds && gameIsRunning)
-    {
+    if (showBackgrounds && gameIsRunning && catRndDrawBTG)
+    {                                                       // CAT: and the console's "BTG" switch (0x0087816e)
         btgRender();
     }
 
@@ -2474,10 +2477,13 @@ bool32 catRndMimicOn = FALSE;               // 0x00c32c98: MimicSpec.mode == MIM
 //     cat_rndSetupFadeFlag fades a NULL object in over 1.5 s from it
 real32 catRndShipViewSelectTime = 0.0f;
 
-//CAT: the exe's build-in fade mode (0x00878168: 1 in .data, no writer) and its console switches (0x00878171 trails
-//     pass, 0x008bab28 reset of the wireframe hacks after a ship: both 1 in .data, no writer)
-#define CAT_RND_FADE_MODE_BUILD     CAT_RND_FADE_CLIP
-static const bool8 catRndDrawTrails = TRUE;
+//CAT: the exe's build-in fade mode (0x00878168: 1 in .data, the console's "constyle" row writes it) and its console
+//     switches (0x00878171 trails pass, "TRAILS"; 0x0087816e the backgrounds, "BTG"; 0x008bab28 reset of the wireframe
+//     hacks after a ship: 1 in .data, no writer) [M2-R6 startup-keys: the console's rows (Console.c) write the three]
+sdword catRndConsoleStyle = CAT_RND_FADE_CLIP;
+#define CAT_RND_FADE_MODE_BUILD     ((ubyte)catRndConsoleStyle)
+bool8 catRndDrawTrails = TRUE;
+bool8 catRndDrawBTG = TRUE;
 static const bool32 catRndResetHacksAfterShip = TRUE;
 //CAT: the exe's renderer tests RGL (0x00b3a6d8: the rgl.dll device is in use) and RGLtype (0x00b3a700: SWtype 0,
 //     GLIDEtype 1, D3Dtype 2, GLtype 3). This tree draws with OpenGL only (as GoK), i.e. RGL FALSE and GLtype; the
@@ -6610,7 +6616,7 @@ void cat_rndFogLayerRender(void)                                                
     of /oracleMission (one universe tick a frame, no input) renders through the Cataclysm object-list renderer; at
     tick 16 it closes the sensors manager the headless start opens (the player has no ships before the mission
     script runs, so the camera has no focus) and focuses the camera on the first 20 ships, switches the lens flare
-    option on (Homeworld.cfg "enableLensFlare", off in the harness's config), shows the NIS light source ahead of
+    option on (Cataclysm.cfg "enableLensFlare", off in the harness's config), shows the NIS light source ahead of
     the camera (cat_rndLensFlareNISSource*, as an NIS does) and sets a fog line (cat_scriptSetFogCB, as a mission's
     "Fog" line; Mission01's is all zeros); at the end it logs the
     renderer's counts: "rendertest: done ... result=PASS|FAIL" (PASS: objects, sorted objects, lens flares and fog

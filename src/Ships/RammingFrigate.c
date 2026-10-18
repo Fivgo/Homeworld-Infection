@@ -10,6 +10,7 @@
 //      cat_univPointInUniverse 0x005c1f70 sits in this block of the exe; it was ported to UnivUpdate.c by M2-R4.
 
 #include "RammingFrigate.h"
+#include "Console.h"
 
 #include "ACV.h"
 #include "AIShip.h"
@@ -76,7 +77,7 @@ RammingFrigateStatics RammingFrigateStaticBeast;    // 0x00a7a6e0: bRammingFriga
 #define RAM_PUSH_MINDOT             0.2f        // 0x008c5e2c
 #define RAM_PUSH_ROT                400.0f      // 0x008c5e30
 #define RAM_SPEED_MULT_RAMMING      0.6f        // 0x008c5e34
-#define RAM_TURN_ACCURACY           0.99f       // 0x00878148
+#define RAM_TURN_ACCURACY           catConsoleRammingAngle  // 0x00878148: 0.99, the console's "rammingangle" (Console.c)
 #define RAM_CHASE                   99999.0f    // 0x0072bfe0
 
 // sMothership or bMothership (the exe's cat_shipIsMothership 0x005298c0, linked with the tactics code)
@@ -242,7 +243,7 @@ void RammingFrigateInit(Ship *ship)                                             
 {
     RammingFrigateSpec *spec = (RammingFrigateSpec *)ship->ShipSpecifics;
 
-    spec->unknown10 = 300;                      // 0x00878144
+    spec->unknown10 = catConsoleRammingTime;    // 0x00878144: 300, the console's "rammingtime" (Console.c)
     spec->state = RAM_Idle;
     spec->target = NULL;
     spec->pushEffect = NULL;

@@ -1485,14 +1485,14 @@ void opRestoreSavedSettings(void)
     opAutodockFuelCheck = opSaveAutodockFuelCheck;
     opAutodockHealthVal = opSaveAutodockHealthVal;
     opAutodockFuelVal = opSaveAutodockFuelVal;
-    // CAT-TODO(M2-R6 key bindings): the exe ends with cat_kbReloadKeyBindings(FALSE) (0x004d7f80); the callers' kbRestoreSavedSettings stands in
+    cat_kbReloadKeyBindings(FALSE);         // CAT: opRestoreSavedSettings 0x004d7f80 ends with the bindings from keys.cfg again
 }
 
 void opOptionsCancelHelper(char* name, featom* atom, char* linkName)
 {
     opRestoreSavedSettings();
     opOptionsEndHelper(linkName);
-    kbRestoreSavedSettings();               // CAT-TODO(M2-R6 key bindings): the exe calls cat_kbReloadKeyBindings(FALSE) (opOptionsCancel 0x004d8370)
+    cat_kbReloadKeyBindings(FALSE);         // CAT: opOptionsCancel 0x004d8370 / opInGameOptionsCancel 0x004d83a0 (HW1 kbRestoreSavedSettings)
 }
 
 void opOptionsCancel(char* name, featom* atom)
@@ -1783,7 +1783,7 @@ void opOptionsSaveSettings(void)
     opSaveAutodockHealthVal = opAutodockHealthVal;
     opSaveAutodockFuelVal = opAutodockFuelVal;
 
-    kbSaveSettings();                                       // CAT-TODO(M2-R6 key bindings): the exe calls cat_kbSaveKeyBindings here (0x004d8d00)
+    cat_kbSaveKeyBindings();                                // CAT: keys.cfg written (opOptionsSaveSettings 0x004d8d00; HW1 kbSaveSettings)
 
     // save settings to .cfg file
     utyOptionsFileWrite();

@@ -69,7 +69,7 @@ extern bool32 autoSaveDebug;
 
 extern bool32 determCompPlayer;
 
-extern bool32 bkDisableKeyRemap;
+// CAT (M2-R6 startup-keys): no bkDisableKeyRemap (HW1's /NoBind and key remap are gone)
 
 extern bool32 debugPacketRecord;
 
