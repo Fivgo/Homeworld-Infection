@@ -14,6 +14,7 @@
 #include <time.h>
 #include "CRC32.h"
 #include "Randy.h"
+#include "MotionInterp.h"   // HWI-FEATURE(motion-interp): miForget
 #endif
 
 #ifdef _MSC_VER
@@ -1526,6 +1527,7 @@ void memFree(void *pointer)
 
     memInitCheck();
     dbgAssertOrIgnore(pointer != NULL);
+    miForget(pointer);      // HWI-FEATURE(motion-interp): a freed object leaves the interpolation side table
     cookie = (memcookie *)pointer;
     cookie--;                                               //get pointer to cookie structure
 

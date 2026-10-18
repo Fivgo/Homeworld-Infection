@@ -534,6 +534,12 @@ void nisDelete(nisheader *header);
 nisplaying *nisStart(nisheader *header, vector *position, matrix *coordSystem);
 void nisCamPathUpdate(nisplaying *NIS, cameramotion *camPath, real32 timeElapsed);
 real32 nisUpdate(nisplaying *NIS, real32 timeElapsed);
+// HWI-FEATURE(motion-interp): render-time evaluation (NIS.c, MotionInterp.c); nothing of the NIS is written
+bool32 nisRenderObjectAt(nisplaying *NIS, objectmotion *path, real32 dt, vector *position, matrix *coordsys);   // HWI-FEATURE(motion-interp)
+bool32 nisRenderCameraAt(nisplaying *NIS, cameramotion *camPath, real32 dt, Camera *cam);   // HWI-FEATURE(motion-interp)
+bool32 nisRenderCameraFlyAt(real32 dt, Camera *cam);                    // HWI-FEATURE(motion-interp)
+extern splinecurve *nisCameraCurve[9];                                  // HWI-FEATURE(motion-interp): read by the render-time fly-in
+extern bool32 nisPaused;                                                // HWI-FEATURE(motion-interp)
 void nisObjectEulerToMatrix(matrix *coordsys, vector *rotVector);
 void nisShipEulerToMatrix(matrix *coordsys, vector *rotVector);
 void nisStop(nisplaying *NIS);

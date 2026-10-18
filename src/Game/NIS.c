@@ -1887,6 +1887,113 @@ void nisCamPathUpdate(nisplaying *NIS, cameramotion *camPath, real32 timeElapsed
     univUpdateMinorRenderList();
 }
 
+/*=============================================================================
+    HWI-FEATURE(motion-interp): render-time evaluation of an NIS (not in the
+    exe; docs/features/motion-interpolation.md items 1-2, MotionInterp.c). The
+    transforms nisUpdate / nisCamPathUpdate / nisCameraFlyCompute would compute
+    if the NIS were advanced by dt now, computed with bsCurveEvalAtBeforeJump
+    (bsCurveEvalAt, which does not advance the curves, with the jumps of the
+    next tick - camera cuts, re-placed objects - left to that tick) into the
+    caller's variables. Nothing of the NIS or of its objects is written:
+    nisUpdate stays the only tick-time writer.
+=============================================================================*/
+// an NIS-driven object's position and coordinate system dt after its curves' current time (nisUpdate's arithmetic);
+// FALSE for an object nisUpdate does not move
+bool32 nisRenderObjectAt(nisplaying *NIS, objectmotion *path, real32 dt, vector *position, matrix *coordsys)   // HWI-FEATURE(motion-interp)
+{                                                                       // HWI-FEATURE(motion-interp)
+    vector xyz, xyzTemp, rot;                                           // HWI-FEATURE(motion-interp)
+    matrix tempCoordsys;                                                // HWI-FEATURE(motion-interp)
+                                                                        // HWI-FEATURE(motion-interp)
+    if (bitTest(path->flags, OMF_CurvesDeleted) || path->curve[0] == NULL || path->spaceobj == NULL)   // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        return FALSE;                                                   // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    xyz.x = bsCurveEvalAtBeforeJump(path->curve[0], path->curve[0]->timeElapsed + dt);   // HWI-FEATURE(motion-interp)
+    if (xyz.x == REALlyBig)                                             // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        return FALSE;                                                   // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    xyz.y = bsCurveEvalAtBeforeJump(path->curve[1], path->curve[1]->timeElapsed + dt);   // HWI-FEATURE(motion-interp)
+    xyz.z = bsCurveEvalAtBeforeJump(path->curve[2], path->curve[2]->timeElapsed + dt);   // HWI-FEATURE(motion-interp)
+    rot.x = bsCurveEvalAtBeforeJump(path->curve[3], path->curve[3]->timeElapsed + dt);   // HWI-FEATURE(motion-interp)
+    rot.y = bsCurveEvalAtBeforeJump(path->curve[4], path->curve[4]->timeElapsed + dt);   // HWI-FEATURE(motion-interp)
+    rot.z = bsCurveEvalAtBeforeJump(path->curve[5], path->curve[5]->timeElapsed + dt);   // HWI-FEATURE(motion-interp)
+    nisShipEulerToMatrix(&tempCoordsys, &rot);                          // HWI-FEATURE(motion-interp)
+    matMultiplyMatByMat(coordsys, &NIS->nisMatrix, &tempCoordsys);      // HWI-FEATURE(motion-interp)
+    xyzTemp.x = -xyz.z;                                                 // HWI-FEATURE(motion-interp): UZI mode 33
+    xyzTemp.y = xyz.x;                                                  // HWI-FEATURE(motion-interp)
+    xyzTemp.z = xyz.y;                                                  // HWI-FEATURE(motion-interp)
+    matMultiplyMatByVec(&xyz, &NIS->nisMatrix, &xyzTemp);               // HWI-FEATURE(motion-interp)
+    vecAdd(*position, NIS->nisPosition, xyz);                           // HWI-FEATURE(motion-interp)
+    return TRUE;                                                        // HWI-FEATURE(motion-interp)
+}                                                                       // HWI-FEATURE(motion-interp)
+
+// the NIS camera's eye, look-at point and up vector dt after its curves' current time (nisCamPathUpdate's arithmetic)
+bool32 nisRenderCameraAt(nisplaying *NIS, cameramotion *camPath, real32 dt, Camera *cam)   // HWI-FEATURE(motion-interp)
+{                                                                       // HWI-FEATURE(motion-interp)
+    vector xyz, xyzTemp, rot;                                           // HWI-FEATURE(motion-interp)
+    matrix coordsys, tempCoordsys;                                      // HWI-FEATURE(motion-interp)
+                                                                        // HWI-FEATURE(motion-interp)
+    if (camPath->curve[0] == NULL)                                      // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        return FALSE;                                                   // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    xyz.x = bsCurveEvalAtBeforeJump(camPath->curve[0], camPath->curve[0]->timeElapsed + dt);   // HWI-FEATURE(motion-interp)
+    if (xyz.x == REALlyBig)                                             // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        return FALSE;                                                   // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    xyz.y = bsCurveEvalAtBeforeJump(camPath->curve[1], camPath->curve[1]->timeElapsed + dt);   // HWI-FEATURE(motion-interp)
+    xyz.z = bsCurveEvalAtBeforeJump(camPath->curve[2], camPath->curve[2]->timeElapsed + dt);   // HWI-FEATURE(motion-interp)
+    rot.x = bsCurveEvalAtBeforeJump(camPath->curve[3], camPath->curve[3]->timeElapsed + dt);   // HWI-FEATURE(motion-interp)
+    rot.y = bsCurveEvalAtBeforeJump(camPath->curve[4], camPath->curve[4]->timeElapsed + dt);   // HWI-FEATURE(motion-interp)
+    rot.z = bsCurveEvalAtBeforeJump(camPath->curve[5], camPath->curve[5]->timeElapsed + dt);   // HWI-FEATURE(motion-interp)
+    xyzTemp.x = -xyz.z;                                                 // HWI-FEATURE(motion-interp): UZI mode 33
+    xyzTemp.y = xyz.x;                                                  // HWI-FEATURE(motion-interp)
+    xyzTemp.z = xyz.y;                                                  // HWI-FEATURE(motion-interp)
+    matMultiplyMatByVec(&xyz, &NIS->nisMatrix, &xyzTemp);               // HWI-FEATURE(motion-interp)
+    cam->eyeposition.x = NIS->nisPosition.x + xyz.x;                    // HWI-FEATURE(motion-interp)
+    cam->eyeposition.y = NIS->nisPosition.y + xyz.y;                    // HWI-FEATURE(motion-interp)
+    cam->eyeposition.z = NIS->nisPosition.z + xyz.z;                    // HWI-FEATURE(motion-interp)
+    nisShipEulerToMatrix(&tempCoordsys, &rot);                          // HWI-FEATURE(motion-interp)
+    matMultiplyMatByMat(&coordsys, &NIS->nisMatrix, &tempCoordsys);     // HWI-FEATURE(motion-interp)
+    matGetVectFromMatrixCol2(xyz, coordsys);                            // HWI-FEATURE(motion-interp)
+    vecMultiplyByScalar(xyz, NIS_LookScalar);                           // HWI-FEATURE(motion-interp)
+    matGetVectFromMatrixCol1(cam->upvector, coordsys);                  // HWI-FEATURE(motion-interp)
+    vecAdd(cam->lookatpoint, xyz, cam->eyeposition);                    // HWI-FEATURE(motion-interp)
+    return TRUE;                                                        // HWI-FEATURE(motion-interp)
+}                                                                       // HWI-FEATURE(motion-interp)
+
+// the camera fly-in of an NIS that starts with a camera blend (nisCameraCutTime != 0), dt after its curves' current
+// time (nisCameraFlyCompute's arithmetic)
+bool32 nisRenderCameraFlyAt(real32 dt, Camera *cam)                     // HWI-FEATURE(motion-interp)
+{                                                                       // HWI-FEATURE(motion-interp)
+    vector eye, look, up;                                               // HWI-FEATURE(motion-interp)
+    sdword j;                                                           // HWI-FEATURE(motion-interp)
+    real32 v[9];                                                        // HWI-FEATURE(motion-interp)
+                                                                        // HWI-FEATURE(motion-interp)
+    for (j = 0; j < 9; j++)                                             // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        if (nisCameraCurve[j] == NULL)                                  // HWI-FEATURE(motion-interp)
+        {                                                               // HWI-FEATURE(motion-interp)
+            return FALSE;                                               // HWI-FEATURE(motion-interp)
+        }                                                               // HWI-FEATURE(motion-interp)
+        v[j] = bsCurveEvalAtBeforeJump(nisCameraCurve[j], nisCameraCurve[j]->timeElapsed + dt);   // HWI-FEATURE(motion-interp)
+        if (v[j] == REALlyBig)                                          // HWI-FEATURE(motion-interp)
+        {                                                               // HWI-FEATURE(motion-interp)
+            return FALSE;                                               // HWI-FEATURE(motion-interp)
+        }                                                               // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    eye.x = v[0]; eye.y = v[1]; eye.z = v[2];                           // HWI-FEATURE(motion-interp)
+    look.x = v[3]; look.y = v[4]; look.z = v[5];                        // HWI-FEATURE(motion-interp)
+    up.x = v[6]; up.y = v[7]; up.z = v[8];                              // HWI-FEATURE(motion-interp)
+    vecNormalize(&up);                                                  // HWI-FEATURE(motion-interp)
+    cam->eyeposition = eye;                                             // HWI-FEATURE(motion-interp)
+    cam->lookatpoint = look;                                            // HWI-FEATURE(motion-interp)
+    cam->upvector = up;                                                 // HWI-FEATURE(motion-interp)
+    return TRUE;                                                        // HWI-FEATURE(motion-interp)
+}                                                                       // HWI-FEATURE(motion-interp)
+
 /*-----------------------------------------------------------------------------
     Name        : nisUpdate
     Description : Update an NIS for a given time interval

@@ -40,6 +40,8 @@ void oracleRunSelfTest(void);
 void oracleSetMission(char *string);            // /oracleMission <ticks>
 bool32 oracleMissionRequested(void);
 udword oracleVirtualFrameTicks(void);          // task ticks per frame in a mission run, 0 = real time
+udword oracleVirtualFrameStep(void);           // HWI-FEATURE(motion-interp): this frame's task ticks (N frames per tick in a motion run)
+real32 oracleVirtualSubTick(void);             // HWI-FEATURE(motion-interp): the leftover fraction of a task tick
 
 // emit points; each is a no-op unless /oracleDump or /oracleSelfTest is given
 bool32 oracleUnivUpdate(real32 phystimeelapsed);    // univUpdate + a 'T' record when the tick counter moved (H1)

@@ -39,6 +39,8 @@
 #include "mouse.h"
 #include "MultiplayerGame.h"
 #include "NIS.h"
+#include "MotionTest.h"     // HWI-FEATURE(motion-interp): the motion / nis measurement switches
+#include "MotionInterp.h"   // HWI-FEATURE(motion-interp): /noInterp, /noNISInterp
 #include "ObjTypes.h"
 #include "Options.h"
 #include "OverlayIcons.h"
@@ -425,6 +427,42 @@ bool32 CatRenderTestSet(char *string)
     catRenderSelfTestSet(string);
     return TRUE;
 }
+
+// HWI-FEATURE(motion-interp) measurement: /catMotionTest <ticks>, /catNisMotionTest <nis>[:<from>:<to>], /catMotionDump
+//      <file>, /catMotionFps <fps> (MotionTest.c: the motion and nis harness modes, docs/m2-r6-motion-interp.md)
+// HWI-FEATURE(motion-interp): /noInterp turns both interpolation flags off (MotionInterp.c); after the options file
+//      (utyOptionsFileRead runs before ProcessCommandLine), so the switch wins for the run; nothing is written back
+bool32 NoInterpSet(char *string)                    // HWI-FEATURE(motion-interp)
+{                                                   // HWI-FEATURE(motion-interp)
+    objInterpolate = FALSE;                         // HWI-FEATURE(motion-interp)
+    nisInterpolate = FALSE;                         // HWI-FEATURE(motion-interp)
+    return TRUE;                                    // HWI-FEATURE(motion-interp)
+}                                                   // HWI-FEATURE(motion-interp)
+bool32 CatMotionTestSet(char *string)               // HWI-FEATURE(motion-interp)
+{                                                   // HWI-FEATURE(motion-interp)
+    catMotionTestSet(string);                       // HWI-FEATURE(motion-interp)
+    return TRUE;                                    // HWI-FEATURE(motion-interp)
+}                                                   // HWI-FEATURE(motion-interp)
+bool32 CatNisMotionTestSet(char *string)            // HWI-FEATURE(motion-interp)
+{                                                   // HWI-FEATURE(motion-interp)
+    catNisMotionTestSet(string);                    // HWI-FEATURE(motion-interp)
+    return TRUE;                                    // HWI-FEATURE(motion-interp)
+}                                                   // HWI-FEATURE(motion-interp)
+bool32 CatMotionDumpSet(char *string)               // HWI-FEATURE(motion-interp)
+{                                                   // HWI-FEATURE(motion-interp)
+    catMotionTestDumpSet(string);                   // HWI-FEATURE(motion-interp)
+    return TRUE;                                    // HWI-FEATURE(motion-interp)
+}                                                   // HWI-FEATURE(motion-interp)
+bool32 CatMotionShotSet(char *string)               // HWI-FEATURE(motion-interp)
+{                                                   // HWI-FEATURE(motion-interp)
+    catMotionTestShotSet(string);                   // HWI-FEATURE(motion-interp)
+    return TRUE;                                    // HWI-FEATURE(motion-interp)
+}                                                   // HWI-FEATURE(motion-interp)
+bool32 CatMotionFpsSet(char *string)                // HWI-FEATURE(motion-interp)
+{                                                   // HWI-FEATURE(motion-interp)
+    catMotionTestFpsSet(string);                    // HWI-FEATURE(motion-interp)
+    return TRUE;                                    // HWI-FEATURE(motion-interp)
+}                                                   // HWI-FEATURE(motion-interp)
 
 // CAT: port diagnostic: /catHudTest <frames> (InfoOverlay.c catHudSelfTestTick: the HUD self-test on the headless
 //      Mission01 run, M2-R5 hud)
@@ -1069,6 +1107,14 @@ commandoption commandOptions[] =
     entryFnParam("/catConsoleTest",     CatConsoleTestSet, " <ticks> - headless Mission01 run: the developer console opened, every row of its command table shown, set and run, typed lines, TAB and the history, its config file, logs consoletest lines and quits."),
     entryVr("/catKeysTest",         catKeysSelfTest, TRUE, " - load, save, reload and reset the key bindings from the install's default_keys.cfg, then exit."),
     entryFnParam("/catUiTest",          CatUiTestSet, " <ticks> - headless Mission01 run: the player's fleet selected, the popup menu opened, every cat_ui* command run once, the game-stats screen shown, logs uitest lines and quits."),
+    entryFn("/noInterp",                NoInterpSet, " - render-time motion interpolation off (objects, camera and NIS; the Smooth motion option)."),   // HWI-FEATURE(motion-interp)
+    entryVr("/noNISInterp",             nisInterpolate, FALSE, " - render-time interpolation of NIS cutscenes off (gameplay interpolation stays)."),   // HWI-FEATURE(motion-interp)
+    entryFnParam("/catMotionTest",      CatMotionTestSet, " <ticks> - headless Mission01 run at the virtual frame rate (/catMotionFps, default 144): a focused, a crossing, a receding and a resting ship, per-frame screen positions to /catMotionDump, exit after <ticks> ticks."),   // HWI-FEATURE(motion-interp)
+    entryFnParam("/catNisMotionTest",   CatNisMotionTestSet, " <nis>[:<from>:<to>] - headless Mission01 start, then nis\\<nis>.nis plays at the virtual frame rate; the frames between NIS times <from> and <to> go to /catMotionDump, then exit."),   // HWI-FEATURE(motion-interp)
+    entryVr("/catToggleTest",           catToggleSelfTest, TRUE, " - the Smooth motion checkbox clicked, cancelled and accepted, its options-file rows read back, its console rows set, then exit."),   // HWI-FEATURE(motion-interp)
+    entryFnParam("/catMotionDump",      CatMotionDumpSet, " <file> - the per-frame dump of /catMotionTest and /catNisMotionTest."),   // HWI-FEATURE(motion-interp)
+    entryFnParam("/catMotionShot",      CatMotionShotSet, " <frame> - /catMotionTest, /catNisMotionTest: save that frame of the window as <dump>.<frame>.ppm."),   // HWI-FEATURE(motion-interp)
+    entryFnParam("/catMotionFps",       CatMotionFpsSet, " <fps> - the virtual frame rate of /catMotionTest and /catNisMotionTest (default 144)."),   // HWI-FEATURE(motion-interp)
     entryFnParam("/catRenderTest",      CatRenderTestSet, " <frames> - headless Mission01 run through the Cataclysm object-list renderer with a lens flare source and a fog layer, logs the render counts, exit after <frames> ticks."),
     // CAT: port diagnostic, not a Cataclysm option (SpeechEvent.c catSoundRunSelfTest, M2-R5 sound) [audit: own comment]
     entryVr("/catSoundTest",        catSoundSelfTest, TRUE, " - decode a stream of Music4Cat.wxd, SectSpeech.vce and BeastSpeech.vce into the audio device, look up the 88 battle-chatter events, then exit."),

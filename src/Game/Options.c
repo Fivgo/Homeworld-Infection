@@ -40,6 +40,7 @@
 #include "texreg.h"
 #include "UIControls.h"
 #include "utility.h"
+#include "MotionInterp.h"    // HWI-FEATURE(motion-interp): the Smooth motion checkbox
 
 #ifdef _MSC_VER
     #define strcasecmp _stricmp
@@ -422,6 +423,8 @@ sdword opSaveBrightnessVal;
 sdword opBrightnessVal = 30;
 sdword opNoLODVal = 0;
 sdword opSaveNoLODVal;
+static bool32 opSaveObjInterpolate = TRUE;          // HWI-FEATURE(motion-interp): the Cancel copies of the two flags
+static bool32 opSaveNisInterpolate = TRUE;          // HWI-FEATURE(motion-interp)
 
 sdword opSaveMAIN_WindowWidth;
 sdword opSaveMAIN_WindowHeight;
@@ -1465,6 +1468,8 @@ void opRestoreSavedSettings(void)
     opBrightnessVal = opSaveBrightnessVal;
     shGammaSet(opBrightnessVal);
     opNoLODVal = opSaveNoLODVal;
+    objInterpolate = opSaveObjInterpolate;          // HWI-FEATURE(motion-interp): the Smooth motion checkbox's flags
+    nisInterpolate = opSaveNisInterpolate;          // HWI-FEATURE(motion-interp)
     opNumEffects = opSaveNumEffects;
     etgHistoryScalar = opNumEffects + etgHistoryScalarMin;
     for (i = 0; catOpSavedWords[i] != NULL; i++)
@@ -1761,6 +1766,8 @@ void opOptionsSaveSettings(void)
     opBrightnessVal = shGammaGet();
     opSaveBrightnessVal = opBrightnessVal;
     opSaveNoLODVal = opNoLODVal;
+    opSaveObjInterpolate = objInterpolate;          // HWI-FEATURE(motion-interp): the Smooth motion checkbox's flags
+    opSaveNisInterpolate = nisInterpolate;          // HWI-FEATURE(motion-interp)
     opSaveNumEffects = opNumEffects;
 
     opSaveMAIN_WindowWidth  = MAIN_WindowWidth;
@@ -2444,6 +2451,104 @@ void opNoLOD(char* name, featom* atom)
         opDetailDisable();
     }
 }
+
+/*-----------------------------------------------------------------------------
+    HWI-FEATURE(motion-interp): not in the exe. The "Smooth motion" checkbox of
+    Options -> Video (the front end's Video_Options and the in-game Video
+    screen): it drives both interpolation flags (MotionInterp.c); Accept saves
+    them with the other options (Cataclysm.cfg rows objInterpolate /
+    nisInterpolate, utility.c), Cancel restores them. The install's .fib
+    screens have no such control and an edited .fib would be game data, so the
+    control is added in code when the screens are loaded
+    (opSmoothMotionAtomsAdd, called by feScreensImageLoad): a copy of the
+    screen's own "full detail" checkbox (OP_NoLOD) and of its label, moved to
+    free space and renamed OP_SmoothMotion / "SMOOTH MOTION".
+----------------------------------------------------------------------------*/
+void opSmoothMotion(char* name, featom* atom)                           // HWI-FEATURE(motion-interp)
+{                                                                       // HWI-FEATURE(motion-interp)
+    if (FEFIRSTCALL(atom))                                              // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        feToggleButtonSet(name, miSmoothMotionGet());                   // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    else                                                                // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        miSmoothMotionSet(FECHECKED(atom) ? TRUE : FALSE);              // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+}                                                                       // HWI-FEATURE(motion-interp)
+
+#define OP_SMOOTH_BLOCKS    32                                          // HWI-FEATURE(motion-interp)
+static featom *opSmoothMotionBlocks[OP_SMOOTH_BLOCKS];                  // HWI-FEATURE(motion-interp): kept, never freed
+static sdword opSmoothMotionNumBlocks = 0;                              // HWI-FEATURE(motion-interp)
+static char opSmoothMotionName[] = "OP_SmoothMotion";                   // HWI-FEATURE(motion-interp)
+static char opSmoothMotionText[] = "SMOOTH MOTION";                     // HWI-FEATURE(motion-interp)
+
+// the checkbox and its label behind the screen's atoms, at (dx, dy) from the OP_NoLOD checkbox and its "FULL DETAIL"
+// label in the file's 640x480 coordinates (the loaded positions carry the same centring, so the offsets move them)
+static void opSmoothMotionAddToScreen(fescreen *screen, sword boxDx, sword boxDy, sword labelDx, sword labelDy)   // HWI-FEATURE(motion-interp)
+{                                                                       // HWI-FEATURE(motion-interp)
+    featom *atoms, *box = NULL, *label = NULL;                          // HWI-FEATURE(motion-interp)
+    sdword i, n = screen->nAtoms;                                       // HWI-FEATURE(motion-interp)
+                                                                        // HWI-FEATURE(motion-interp)
+    for (i = 0; i < n; i++)                                             // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        if (screen->atoms[i].name != NULL && strcmp(screen->atoms[i].name, opSmoothMotionName) == 0)   // HWI-FEATURE(motion-interp)
+        {                                                               // HWI-FEATURE(motion-interp)
+            return;                                                     // HWI-FEATURE(motion-interp): already there
+        }                                                               // HWI-FEATURE(motion-interp)
+        if (screen->atoms[i].type == FA_CheckBox && screen->atoms[i].name != NULL &&   // HWI-FEATURE(motion-interp)
+            strcmp(screen->atoms[i].name, "OP_NoLOD") == 0)             // HWI-FEATURE(motion-interp)
+        {                                                               // HWI-FEATURE(motion-interp)
+            box = &screen->atoms[i];                                    // HWI-FEATURE(motion-interp)
+        }                                                               // HWI-FEATURE(motion-interp)
+        if (screen->atoms[i].type == FA_StaticText && screen->atoms[i].pData != NULL &&   // HWI-FEATURE(motion-interp)
+            strcmp((char *)screen->atoms[i].pData, "FULL DETAIL") == 0) // HWI-FEATURE(motion-interp)
+        {                                                               // HWI-FEATURE(motion-interp)
+            label = &screen->atoms[i];                                  // HWI-FEATURE(motion-interp)
+        }                                                               // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    if (box == NULL || label == NULL || opSmoothMotionNumBlocks >= OP_SMOOTH_BLOCKS ||   // HWI-FEATURE(motion-interp)
+        (atoms = malloc((n + 2) * sizeof(featom))) == NULL)             // HWI-FEATURE(motion-interp): not the game's pools
+    {                                                                   // HWI-FEATURE(motion-interp)
+        return;                                                         // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    memcpy(atoms, screen->atoms, n * sizeof(featom));                   // HWI-FEATURE(motion-interp)
+    atoms[n] = *box;                                                    // HWI-FEATURE(motion-interp)
+    atoms[n].name = opSmoothMotionName;                                 // HWI-FEATURE(motion-interp)
+    atoms[n].status = 0;                                                // HWI-FEATURE(motion-interp)
+    atoms[n].region = NULL;                                             // HWI-FEATURE(motion-interp)
+    atoms[n].x += boxDx; atoms[n].loadedX += boxDx;                     // HWI-FEATURE(motion-interp)
+    atoms[n].y += boxDy; atoms[n].loadedY += boxDy;                     // HWI-FEATURE(motion-interp)
+    atoms[n + 1] = *label;                                              // HWI-FEATURE(motion-interp)
+    atoms[n + 1].pData = (ubyte *)opSmoothMotionText;                   // HWI-FEATURE(motion-interp)
+    atoms[n + 1].region = NULL;                                         // HWI-FEATURE(motion-interp)
+    atoms[n + 1].x += labelDx; atoms[n + 1].loadedX += labelDx;         // HWI-FEATURE(motion-interp)
+    atoms[n + 1].y += labelDy; atoms[n + 1].loadedY += labelDy;         // HWI-FEATURE(motion-interp)
+    atoms[n + 1].width += 24; atoms[n + 1].loadedWidth += 24;           // HWI-FEATURE(motion-interp): the longer text
+    screen->atoms = atoms;                                              // HWI-FEATURE(motion-interp)
+    screen->nAtoms = (uword)(n + 2);                                    // HWI-FEATURE(motion-interp)
+    opSmoothMotionBlocks[opSmoothMotionNumBlocks++] = atoms;            // HWI-FEATURE(motion-interp)
+}                                                                       // HWI-FEATURE(motion-interp)
+
+// called for every loaded .fib (FEFlow.c feScreensImageLoad): the front end's Video_Options (front_end.fib: box at
+// 500,268, label at 500,250, under the tab buttons) and the in-game Video screen (in_game_esc_menu.fib: box at 379,316,
+// label at 373,298, under "NUMBER OF EFFECTS")
+void opSmoothMotionAtomsAdd(fibfileheader *header)                      // HWI-FEATURE(motion-interp)
+{                                                                       // HWI-FEATURE(motion-interp)
+    fescreen *screen = (fescreen *)((ubyte *)header + FIB_ScreensOffset);   // HWI-FEATURE(motion-interp)
+    sdword i;                                                           // HWI-FEATURE(motion-interp)
+                                                                        // HWI-FEATURE(motion-interp)
+    for (i = 0; i < header->nScreens; i++, screen++)                    // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        if (strcmp(screen->name, "Video_Options") == 0)                 // HWI-FEATURE(motion-interp): OP_NoLOD 244,303; FULL DETAIL 232,293
+        {                                                               // HWI-FEATURE(motion-interp)
+            opSmoothMotionAddToScreen(screen, 500 - 244, 268 - 303, 500 - 232, 250 - 293);   // HWI-FEATURE(motion-interp)
+        }                                                               // HWI-FEATURE(motion-interp)
+        else if (strcmp(screen->name, "Video") == 0)                    // HWI-FEATURE(motion-interp): OP_NoLOD 294,227; FULL DETAIL 294,215
+        {                                                               // HWI-FEATURE(motion-interp)
+            opSmoothMotionAddToScreen(screen, 379 - 294, 316 - 227, 373 - 294, 298 - 215);   // HWI-FEATURE(motion-interp)
+        }                                                               // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+}                                                                       // HWI-FEATURE(motion-interp)
 
 void opDetailThreshold(char* name, featom* atom)
 {

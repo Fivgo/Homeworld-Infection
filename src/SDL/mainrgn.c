@@ -45,6 +45,8 @@
 #include "Memory.h"
 #include "MeshAnim.h"
 #include "mouse.h"
+#include "MotionTest.h"     // HWI-FEATURE(motion-interp): the measurement frame sample
+#include "MotionInterp.h"   // HWI-FEATURE(motion-interp): miRenderCamera
 #include "NetCheck.h"
 #include "NIS.h"
 #include "avi.h"            // CAT: aviIsPlaying (the Bink player's binkDonePlaying, mrRegionProcess)
@@ -5512,7 +5514,8 @@ void mrRegionDraw(regionhandle reg)
     {
         mrCamera = &defaultCamera;
     }
-    rndMainViewRender(mrCamera);
+    rndMainViewRender(miRenderCamera(mrCamera));            // HWI-FEATURE(motion-interp): the NIS camera at the render time
+    catMotionTestFrameSample(miRenderCamera(mrCamera));     // HWI-FEATURE(motion-interp) measurement: the drawn frame's positions
 
     if (feStack[feStackIndex].screen == NULL)
         mouseCursorTextDraw();

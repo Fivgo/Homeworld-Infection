@@ -31,6 +31,7 @@
 #include "utility.h"
 #include "BigFile.h"          // CAT: /catFeScreensTest (port diagnostic)
 #include "Region.h"
+#include "Options.h"          // HWI-FEATURE(motion-interp): opSmoothMotionAtomsAdd
 #include <limits.h>
 #include <ctype.h>
 
@@ -2089,6 +2090,7 @@ fibfileheader *feScreensImageLoad(void *image, sdword length, char *fileName)
         feScreenEntryAdd(screen);
     }
 
+    opSmoothMotionAtomsAdd(header);     // HWI-FEATURE(motion-interp): the Smooth motion checkbox on the Video screens (Options.c)
 //    return(header->nScreens);
     return(header);
 }

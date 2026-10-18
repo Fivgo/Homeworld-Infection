@@ -275,6 +275,132 @@ real32 bsCurveUpdate(splinecurve *curve, real32 timeElapsed)
 }
 
 /*-----------------------------------------------------------------------------
+    HWI-FEATURE(motion-interp): not in the exe. Non-advancing evaluation for the
+    render-time NIS (MotionInterp.c / NIS.c). bsCurveUpdate (0x00423040) stays
+    the tick-time path; these read the curve and write nothing (bsCurveUpdate's
+    static caches are pure functions of their inputs and are not touched).
+----------------------------------------------------------------------------*/
+#define BS_JUMP_KEY_LENGTH      0.03433333337306976f    // HWI-FEATURE(motion-interp): bsCurveUpdate's short-key limit
+
+// the Hermite / tension-continuity-bias value of key segment cp at a time (bsCurveUpdate's arithmetic); the time is
+// not limited to the segment, so a time past its end extrapolates it
+static real32 bsSegmentValue(splinecurve *curve, sdword currentPoint, real32 time)    // HWI-FEATURE(motion-interp)
+{                                                                       // HWI-FEATURE(motion-interp)
+    hvector hermite;                                                    // HWI-FEATURE(motion-interp)
+    real32 keyLength, scaledTime, value;                                // HWI-FEATURE(motion-interp)
+    real32 dd0a, dd0b, ds1a, ds1b, adj0, adj1, delta;                   // HWI-FEATURE(motion-interp)
+    tcb *key0, *key1;                                                   // HWI-FEATURE(motion-interp)
+                                                                        // HWI-FEATURE(motion-interp)
+    keyLength = curve->times[currentPoint + 1] - curve->times[currentPoint];    // HWI-FEATURE(motion-interp)
+    scaledTime = (time - curve->times[currentPoint]) / (keyLength);     // HWI-FEATURE(motion-interp)
+    bsHermiteCompute(scaledTime, &hermite);                             // HWI-FEATURE(motion-interp)
+    key0 = &curve->params[currentPoint];                                // HWI-FEATURE(motion-interp)
+    key1 = &curve->params[currentPoint + 1];                            // HWI-FEATURE(motion-interp)
+    adj0 = keyLength / ( curve->times[currentPoint + 1] - curve->times[currentPoint - 1] );    // HWI-FEATURE(motion-interp)
+    adj1 = keyLength / ( curve->times[currentPoint + 2] - curve->times[currentPoint] );        // HWI-FEATURE(motion-interp)
+    dd0a = ( 1.0f - key0->tension ) * ( 1.0f + key0->continuity ) * ( 1.0f + key0->bias );    // HWI-FEATURE(motion-interp)
+    dd0b = ( 1.0f - key0->tension ) * ( 1.0f - key0->continuity ) * ( 1.0f - key0->bias );    // HWI-FEATURE(motion-interp)
+    ds1a = ( 1.0f - key1->tension ) * ( 1.0f - key1->continuity ) * ( 1.0f + key1->bias );    // HWI-FEATURE(motion-interp)
+    ds1b = ( 1.0f - key1->tension ) * ( 1.0f + key1->continuity ) * ( 1.0f - key1->bias );    // HWI-FEATURE(motion-interp)
+    delta = curve->points[currentPoint + 1] - curve->points[currentPoint];  // HWI-FEATURE(motion-interp)
+    value = hermite.x * curve->points[currentPoint] +                   // HWI-FEATURE(motion-interp)
+            hermite.y * curve->points[currentPoint + 1] +               // HWI-FEATURE(motion-interp)
+            hermite.z * (adj0 * (dd0a * (curve->points[currentPoint] - curve->points[currentPoint - 1])   // HWI-FEATURE(motion-interp)
+               + dd0b * delta)) +                                       // HWI-FEATURE(motion-interp)
+            hermite.w * (adj1 * ( ds1a * delta + ds1b *                 // HWI-FEATURE(motion-interp)
+               ( curve->points[currentPoint + 2] - curve->points[currentPoint + 1])));    // HWI-FEATURE(motion-interp)
+#ifdef HW_PTR_64                                                        // HWI-FEATURE(motion-interp): as bsCurveUpdate
+    if (isnan(value))                                                   // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        return (0);                                                     // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+#endif                                                                  // HWI-FEATURE(motion-interp)
+    return(value);                                                      // HWI-FEATURE(motion-interp)
+}                                                                       // HWI-FEATURE(motion-interp)
+
+/*-----------------------------------------------------------------------------
+    Name        : bsCurveEvalAt
+    Description : HWI-FEATURE(motion-interp): the value of a curve at an
+                  absolute curve time at or after its current time, without
+                  advancing it: the same keys, the same pinning of a short key
+                  with tension and the same arithmetic as bsCurveUpdate.
+    Inputs      : curve - curve to evaluate (not modified)
+                  time - absolute curve time; earlier than curve->timeElapsed is
+                    treated as curve->timeElapsed
+    Outputs     :
+    Return      : the value bsCurveUpdate would return at that time
+----------------------------------------------------------------------------*/
+real32 bsCurveEvalAt(splinecurve *curve, real32 time)                   // HWI-FEATURE(motion-interp)
+{                                                                       // HWI-FEATURE(motion-interp)
+    real32 keyLength;                                                   // HWI-FEATURE(motion-interp)
+    sdword currentPoint = curve->currentPoint;                          // HWI-FEATURE(motion-interp)
+                                                                        // HWI-FEATURE(motion-interp)
+    if (time < curve->timeElapsed)                                      // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        time = curve->timeElapsed;                                      // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    if (currentPoint == curve->nPoints - 1)                             // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        return(curve->points[currentPoint]);                            // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    while (time > curve->times[currentPoint + 1])                       // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        currentPoint++;                                                 // HWI-FEATURE(motion-interp)
+        if (currentPoint >= curve->nPoints - 1)                         // HWI-FEATURE(motion-interp)
+        {                                                               // HWI-FEATURE(motion-interp)
+            return(curve->points[curve->nPoints - 1]);                  // HWI-FEATURE(motion-interp)
+        }                                                               // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    keyLength = curve->times[currentPoint + 1] - curve->times[currentPoint];    // HWI-FEATURE(motion-interp)
+    if ((keyLength <= BS_JUMP_KEY_LENGTH) && (curve->params[currentPoint].tension != 0.0f) &&    // HWI-FEATURE(motion-interp)
+        (curve->params[currentPoint + 1].tension != 0.0f))              // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        time = curve->times[currentPoint + 1];                          // HWI-FEATURE(motion-interp): the pinned time
+    }                                                                   // HWI-FEATURE(motion-interp)
+    return bsSegmentValue(curve, currentPoint, time);                   // HWI-FEATURE(motion-interp)
+}                                                                       // HWI-FEATURE(motion-interp)
+
+/*-----------------------------------------------------------------------------
+    Name        : bsCurveEvalAtBeforeJump
+    Description : HWI-FEATURE(motion-interp): bsCurveEvalAt, except that a jump
+                  (a key shorter than a 30 fps frame, the NIS camera cuts and
+                  object re-placements) starting after the curve's current time
+                  and at or before the given time is not taken: the segment
+                  before it is continued past its end instead (held at its end
+                  when it is short itself or the continuation would exceed half
+                  of it), so the jump still shows at the tick that takes it, as
+                  without interpolation, and the frames before it keep moving.
+    Inputs      : curve - curve to evaluate (not modified)
+                  time - absolute curve time (at most a tick past its current time)
+    Outputs     :
+    Return      : the value
+----------------------------------------------------------------------------*/
+real32 bsCurveEvalAtBeforeJump(splinecurve *curve, real32 time)         // HWI-FEATURE(motion-interp)
+{                                                                       // HWI-FEATURE(motion-interp)
+    sdword k;                                                           // HWI-FEATURE(motion-interp)
+    real32 segment;                                                     // HWI-FEATURE(motion-interp)
+                                                                        // HWI-FEATURE(motion-interp)
+    for (k = curve->currentPoint; k < curve->nPoints - 2 && curve->times[k] < time; k++)   // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        if (curve->times[k] < curve->timeElapsed || (curve->times[k + 1] - curve->times[k]) > BS_JUMP_KEY_LENGTH)   // HWI-FEATURE(motion-interp)
+        {                                                               // HWI-FEATURE(motion-interp)
+            continue;                                                   // HWI-FEATURE(motion-interp): no jump ahead here
+        }                                                               // HWI-FEATURE(motion-interp)
+        if (k < 2)                                                      // HWI-FEATURE(motion-interp): no segment before it
+        {                                                               // HWI-FEATURE(motion-interp)
+            return bsCurveEvalAt(curve, curve->times[k]);               // HWI-FEATURE(motion-interp)
+        }                                                               // HWI-FEATURE(motion-interp)
+        segment = curve->times[k] - curve->times[k - 1];                // HWI-FEATURE(motion-interp)
+        if (segment <= BS_JUMP_KEY_LENGTH || (time - curve->times[k]) > 0.5f * segment)   // HWI-FEATURE(motion-interp)
+        {                                                               // HWI-FEATURE(motion-interp)
+            return bsSegmentValue(curve, k - 1, curve->times[k]);       // HWI-FEATURE(motion-interp): held at its end
+        }                                                               // HWI-FEATURE(motion-interp)
+        return bsSegmentValue(curve, k - 1, time);                      // HWI-FEATURE(motion-interp): continued
+    }                                                                   // HWI-FEATURE(motion-interp)
+    return bsCurveEvalAt(curve, time);                                  // HWI-FEATURE(motion-interp)
+}                                                                       // HWI-FEATURE(motion-interp)
+
+/*-----------------------------------------------------------------------------
     Name        : bsCurveDelete
     Description : Delete a spline and all it's lists, if applicable
     Inputs      : curve - curve to delete

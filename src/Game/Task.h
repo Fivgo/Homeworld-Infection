@@ -222,4 +222,11 @@ void taskSavePauseStatus(void);
 //execute all pending tasks
 sdword taskExecuteAllPending(sdword ticks);
 
+// HWI-FEATURE(motion-interp): render-time motion interpolation (MotionInterp.c, docs/m2-r6-motion-interp.md): the
+//      fraction of a task's period elapsed since its last call, for the frame being drawn (the leftover ticks, this
+//      pass's ticks when the task has not run yet in it, and the sub-tick remainder of the clock), negative if the
+//      task is paused or gone; taskSubTick is that remainder, set by utyTasksDispatch
+extern real32 taskSubTick;                                              // HWI-FEATURE(motion-interp)
+real32 taskPeriodFraction(taskhandle handle);                           // HWI-FEATURE(motion-interp)
+
 #endif

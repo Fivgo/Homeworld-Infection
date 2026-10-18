@@ -1,8 +1,9 @@
 # Feature: render-time motion interpolation (gameplay and cutscenes), with an in-game toggle
 
 Requested by the user 2026-10-17 after the first play-test: fast camera pans in in-game cutscenes look jittery.
-Status: APPROVED, to be implemented in M2-R6 right after the NIS port (producer 5), as its own commit. The toggle is a
-hard requirement: the user wants A/B comparisons.
+Status: IMPLEMENTED (M2-R6 motion-interp, 2026-10-18; report: [docs/m2-r6-motion-interp.md](../m2-r6-motion-interp.md),
+which is the "docs/m2-r6-nis.md" item 5 asks for). Approved 2026-10-17 for M2-R6 right after the NIS port, as its own
+commit. The toggle is a hard requirement: the user wants A/B comparisons.
 
 ## The user's observation (second play-test, 2026-10-17)
 Whatever the camera focuses on moves smoothly; every other ship and asteroid looks a frame behind, and the effect grows
@@ -63,4 +64,4 @@ lock on the focus cancels the focus's angular motion and nobody else's, which is
    drops from ~8 of 9 to 0 with interpolation on.
 5. **Guard-rails.** Interpolation off must reproduce the pre-feature frames exactly (byte-identical oracle stream in
    both settings; per-frame dump identical with the toggle off). No change to `nisUpdate` semantics, timing, or the KAS
-   runtime. Document in `docs/m2-r6-nis.md`.
+   runtime. Document in `docs/m2-r6-nis.md` (written as docs/m2-r6-motion-interp.md).

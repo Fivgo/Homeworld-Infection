@@ -5,7 +5,7 @@
 #   tools/m2_harness.sh --setup                 (re)create the harness data dir if missing (--force: rebuild it)
 #   tools/m2_harness.sh <label> [options] [-- extra engine args]
 # Options:
-#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse
+#   --mode sp|fe|statics|meshes|textures|oracle|etg|mission|dock|command|render|sound|hud|ui|fescreens|strings|keys|console|build|nisparse|motion|nis|toggle
 #                    sp (default): /debugScreenshots, which starts single player at once (GoK SDL/utility.c, no input);
 #                    fe: plain start, idles in the front end until the timeout;
 #                    statics: /catShipStaticsTest, loads the .shp of all 145 ship types once at start-up (one
@@ -125,6 +125,27 @@
 #                    object references are checked, the events counted per opcode and the script keywords the exe's
 #                    table does not know listed; "nisparsetest:" log lines, "nisparsetest: done ... result=PASS|FAIL";
 #                    quits. (The NIS playback measurement of the motion-interpolation producer is mode nis.)
+#                    motion: /catMotionTest <ticks> /catMotionDump <run>/motion.dump (M2-R6 motion-interp,
+#                    docs/m2-r6-motion-interp.md; HWI-FEATURE(motion-interp) measurement): the headless Mission01 run with
+#                    the virtual clock at --fps render frames a second (default 144: 9 frames a universe tick); at tick 16
+#                    four scripted sProcessors appear far from Mission01's ships: A (the camera's focus, 300 u/s), B
+#                    (crossing the view left to right in 6 s), C (receding along the line of sight below the centre) and D
+#                    (at rest); from tick 64 to <ticks> (--motion-ticks, default 224) every rendered frame writes one dump
+#                    line: the camera pose given to the main view's renderer, each ship's screen position (pixels), depth
+#                    and on-screen flag as drawn, and a CRC-32 of the frame read back before the flip; "motiontest:" log
+#                    lines, "motiontest: done ... result=PASS|FAIL"; quits. tools/nis_smoothness.py reads the dump
+#                    nis: /catNisMotionTest <nis> /catMotionDump <run>/nis.dump (M2-R6 motion-interp): the same headless
+#                    start, then at tick 16 the install's nis\<nis>.nis (--nis NAME[:FROM:TO], default n06:26:36) plays
+#                    at the origin at --fps; the frames between NIS times FROM and TO are dumped (the camera pose and every
+#                    NIS-driven object's screen position, as motion; with /noSpeech, since the speech subtitles follow
+#                    the audio thread's wall clock); "motiontest:" lines; quits after TO
+#                    toggle: /catToggleTest (M2-R6 motion-interp): after the start-up, in the front end (no input): the
+#                    Smooth motion checkbox on Video_Options shows the flags at its first call and a click (its callback
+#                    with the toggled state) sets both; Cancel's opRestoreSavedSettings puts them back; Accept's
+#                    opOptionsSaveSettings writes Cataclysm.cfg with objInterpolate / nisInterpolate 0, then 1, each
+#                    read back through utyOptionsList; the in-game Video screen carries the control; the console rows
+#                    objInterpolate / nisInterpolate set each flag alone; "toggletest:" log lines, "toggletest: done ...
+#                    result=PASS|FAIL"; quits. Pass "-- /noInterp" or "-- /noNISInterp" to see the switches' start flags
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
 #   --mission-ticks N mission mode: universe ticks to run (default 3000)
 #   --dock-ticks N   dock mode: universe ticks to run (default 5000; about 30 s under ASan on the virtual clock)
@@ -135,6 +156,9 @@
 #   --console-ticks N console mode: the mission run's tick limit (default 400; the test quits once the console is gone)
 #   --build-ticks N  build mode: universe ticks to run (default 7000; the jobs end near tick 5,000)
 #   --etg-ticks N    etg mode: ticks of the effect self-test (default 128; 0 = parse test only)
+#   --motion-ticks N motion mode: the run's last universe tick (default 224: a 160-tick window from tick 64)
+#   --nis SPEC       nis mode: NAME[:FROM:TO] (default n06:26:36: nis\n06.nis, NIS times 26 s to 36 s)
+#   --fps N          motion / nis mode: the virtual frame rate (default 144)
 #   --perturb T      oracle or mission mode: one extra gamerand() before tick T (/oracleSelfTestPerturb; tests the compare tool)
 #   --hwo            any other mode: also write the oracle stream to <run>/run.hwo (/oracleDump)
 #   --timeout N      seconds (default 60)
@@ -206,6 +230,7 @@ shift
 mode=sp; tmo=60; drv=offscreen; data="$DATA"; bin="$root/build/debug/hwi-engine"; extra=()
 oticks=512; perturb=""; hwo=0; etgticks=128; mticks=3000; dticks=5000; cticks=3000; rframes=600; hframes=600; uticks=400
 conticks=400; bticks=7000
+motticks=224; nisspec=n06:26:36; vfps=144
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--mode) mode=$2; shift ;;
@@ -223,6 +248,9 @@ while [[ $# -gt 0 ]]; do
 		--console-ticks) conticks=$2; shift ;;
 		--build-ticks) bticks=$2; shift ;;
 		--etg-ticks) etgticks=$2; shift ;;
+		--motion-ticks) motticks=$2; shift ;;
+		--nis) nisspec=$2; shift ;;
+		--fps) vfps=$2; shift ;;
 		--perturb) perturb=$2; shift ;;
 		--hwo) hwo=1 ;;
 		--) shift; extra=("$@"); break ;;
@@ -247,6 +275,7 @@ grep -q -a "/logFileLoads" "$bin" || args=(/window /nodebugInt /settingspath "$o
 [[ "$mode" == sound ]] && args+=(/catSoundTest)
 [[ "$mode" == strings ]] && args+=(/catStringsTest)
 [[ "$mode" == keys ]] && args+=(/catKeysTest)
+[[ "$mode" == toggle ]] && args+=(/catToggleTest)
 if [[ "$mode" == oracle ]]; then
 	args+=(/oracleSelfTest "$oticks" /oracleDump "$out/run.hwo")
 	[[ -n "$perturb" ]] && args+=(/oracleSelfTestPerturb "$perturb")
@@ -267,6 +296,12 @@ elif [[ "$mode" == console ]]; then
 	args+=(/catConsoleTest "$conticks")
 elif [[ "$mode" == build ]]; then
 	args+=(/catBuildTest "$bticks" /oracleDump "$out/run.hwo")
+elif [[ "$mode" == motion ]]; then
+	args+=(/catMotionFps "$vfps" /catMotionTest "$motticks" /catMotionDump "$out/motion.dump")
+elif [[ "$mode" == nis ]]; then
+	# /noSpeech: the NIS's speech subtitles start and end with the audio thread's progress through the speech (wall
+	# clock, even on SDL's dummy driver), which made about 40 frame CRCs of n06's window differ run to run
+	args+=(/noSpeech /catMotionFps "$vfps" /catNisMotionTest "$nisspec" /catMotionDump "$out/nis.dump")
 elif [[ $hwo -eq 1 ]]; then
 	args+=(/oracleDump "$out/run.hwo")
 fi
@@ -381,6 +416,8 @@ grep -q "keystest: done" "$L" && milestone="keys self-test done"
 grep -q "consoletest: done" "$L" && milestone="console self-test done"
 grep -q "buildtest: done" "$L" && milestone="build self-test done"
 grep -q "nisparsetest: done" "$L" && milestone="nisparse self-test done"
+grep -q "motiontest: done" "$L" && milestone="motion self-test done"
+grep -q "toggletest: done" "$L" && milestone="toggle self-test done"
 
 # first stop: the first fatal error / failed assertion / ASan report. UBSan runtime errors do not stop the engine; the
 # first one is reported separately (the misaligned-access reports on the packed front-end structs, GoK 64-bit artefacts
@@ -425,6 +462,8 @@ nload=$(wc -l 2>/dev/null < "$out/FileLoads.log" || echo 0)   # [audit: 2>/dev/n
 	[[ "$mode" == console ]] && echo "consoletest: $(grep -h 'consoletest: ' "$L" | grep -v 'consoletest: FAIL' | sed 's/^.*consoletest: //' | paste -sd';'); FAIL lines: $(grep -c 'consoletest: FAIL' "$L")"
 	[[ "$mode" == build ]] && echo "buildtest: $(grep -h 'buildtest: orders\|buildtest: queued\|buildtest: appeared\|buildtest: attached\|buildtest: finished\|buildtest: job\|buildtest: done' "$L" | sed 's/^.*buildtest: //' | paste -sd';'); FAIL lines: $(grep -c 'buildtest: FAIL' "$L")"
 	[[ "$mode" == nisparse ]] && echo "nisparsetest: $(grep -c . "$out/nis.list" 2>/dev/null) files listed; $(grep -h 'nisparsetest: done' "$L" | sed 's/^.*nisparsetest: //' | head -n 1); FAIL lines: $(grep -c 'nisparsetest: FAIL' "$L"); ignored keywords: $(grep -h 'nisparsetest: keyword' "$L" | sed "s/^.*: '//; s/' / /" | paste -sd',')"
+	[[ "$mode" == motion || "$mode" == nis ]] && echo "motiontest: $(grep -h 'motiontest: ' "$L" | sed 's/^.*motiontest: //' | paste -sd';'); dump $(ls "$out"/*.dump 2>/dev/null | head -n 1 | xargs -r -I{} sh -c 'echo "$(basename {}) $(grep -c "^F " {}) frames, sha256 $(sha256sum {} | cut -c1-16)"')"
+	[[ "$mode" == toggle ]] && echo "toggletest: $(grep -h 'toggletest: ' "$L" | grep -v 'toggletest: FAIL' | sed 's/^.*toggletest: //' | paste -sd';'); FAIL lines: $(grep -c 'toggletest: FAIL' "$L")"
 	[[ "$mode" == keys ]] && echo "keystest: $(grep -h 'keystest: ' "$L" | grep -v 'keystest: FAIL' | sed 's/^.*keystest: //' | paste -sd';'); FAIL lines: $(grep -c 'keystest: FAIL' "$L")"
 	[[ "$mode" == sound ]] && echo "soundtest: $(grep -h 'soundtest: ' "$L" | sed 's/^.*soundtest: //' | paste -sd';'); UBSan reports in fquant.c/fqcodec.c: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c 'fquant\.c\|fqcodec\.c'); PATCH reports: $(cat "$L" "$out"/ubsan.* 2>/dev/null | grep 'runtime error' | grep -c "struct PATCH")"
 	[[ "$mode" == etg ]] && echo "etg: $(grep -c . "$out/etg.list" 2>/dev/null) listed; $(grep -h 'etgtest: etgStartup done\|etgtest: self-test done\|etgtest: created\|etgtest: effect self-test done' "$L" | sed 's/^.*etgtest: //' | paste -sd';')"

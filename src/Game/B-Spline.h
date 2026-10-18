@@ -73,6 +73,8 @@ splinecurve *bsCurveStart(sdword nPoints, real32 *points, real32 *times, tcb *pa
 void bsCurveStartPrealloced(splinecurve *curve, sdword nPoints, real32 *values, real32 *times, tcb *params);
 void bsCurveRestart(splinecurve *curve);
 real32 bsCurveUpdate(splinecurve *curve, real32 timeElapsed);
+real32 bsCurveEvalAt(splinecurve *curve, real32 time);     // HWI-FEATURE(motion-interp): non-advancing evaluation
+real32 bsCurveEvalAtBeforeJump(splinecurve *curve, real32 time);  // HWI-FEATURE(motion-interp): the same, jumps left to the tick
 void bsCurveDelete(splinecurve *curve);
 
 #endif

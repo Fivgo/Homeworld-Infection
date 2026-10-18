@@ -73,6 +73,7 @@
 #include "PopupMenu.h"
 #include "Blast.h"
 #include "utility.h"
+#include "MotionInterp.h"   // HWI-FEATURE(motion-interp): miCaptureTick
 
 
 #define DEBUG_COLLISIONS 0
@@ -9517,6 +9518,8 @@ bool32 univUpdate(real32 phystimeelapsed)
         }
         catUnivFrameStepsLeft--;
     }
+
+    miCaptureTick();        // HWI-FEATURE(motion-interp): the previous transforms of every object (a side table; reads only)
 
     // CAT: multiplayer autosave every 200 s into SavedGames\multiplayer\AS0..AS10 (0x0054c41b; the switch
     //      0x00a74dac has no setter in the code, presumably a command-line option, so it is off here)

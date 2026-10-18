@@ -38,6 +38,7 @@
 #include "render.h"
 #include "Universe.h"
 #include "utility.h"
+#include "MotionInterp.h"   // HWI-FEATURE(motion-interp): the objInterpolate / nisInterpolate rows
 
 #define CAT_CON_PROMPT              "]"                 // 0x0075501c
 #define CAT_CON_CURSOR              "|"                 // 0x00755044
@@ -101,6 +102,11 @@ static void cat_consoleAllTech(sdword type, void *data, void *value, char **repl
 static void cat_consoleUpgradeShips(sdword type, void *data, void *value, char **reply);
 static void cat_consoleExperienceShips(sdword type, void *data, void *value, char **reply);
 
+// HWI-FEATURE(motion-interp): rows added by this tree have ids from here on; cat_consoleConfigFileSave leaves them out,
+//      so the console's config file keeps the exe's format (the options file keeps their values)
+#define CAT_CON_HWI_ROW_ID      0x1000                  // HWI-FEATURE(motion-interp)
+#define CAT_CON_HWI_ROWS        2                       // HWI-FEATURE(motion-interp): objInterpolate, nisInterpolate (both settable)
+
 CatConsoleCommand catConsoleCommandTable[] =       // 0x008783c8
 {
     { 8,  0, &catConLoadConfigName,         "loadConfig",           cat_consoleLoadConfig },
@@ -132,6 +138,8 @@ CatConsoleCommand catConsoleCommandTable[] =       // 0x008783c8
     { 0, 39, &catRndDrawTrails,             "TRAILS",               NULL },
     { 5, 41, NULL,                          "upgradeships",         cat_consoleUpgradeShips },
     { 5, 45, NULL,                          "experienceships",      cat_consoleExperienceShips },
+    { 5, CAT_CON_HWI_ROW_ID + 0, &objInterpolate, "objInterpolate", NULL },     // HWI-FEATURE(motion-interp): not in the exe's table
+    { 5, CAT_CON_HWI_ROW_ID + 1, &nisInterpolate, "nisInterpolate", NULL },     // HWI-FEATURE(motion-interp)
     { -1, -1, NULL, NULL, NULL }
 };
 
@@ -959,6 +967,10 @@ void cat_consoleConfigFileSave(char *name)
     }
     for (row = catConsoleCommandTable; row->type != -1; row++)
     {
+        if (row->id >= CAT_CON_HWI_ROW_ID)              // HWI-FEATURE(motion-interp): not the exe's rows
+        {                                               // HWI-FEATURE(motion-interp)
+            continue;                                   // HWI-FEATURE(motion-interp)
+        }                                               // HWI-FEATURE(motion-interp)
         word = (uword)row->type;
         fwrite(&word, 2, 1, f);
         dword = (udword)row->id;
@@ -1472,7 +1484,7 @@ void catConsoleSelfTestTick(void)
         catConTestStep = 4;
         catConTestClosed = (catConScreen == NULL) && (catConScrollPos == 0) && !(singlePlayerGame && universePause);
         pass = (catConTestSelected > 0) && catConTestOpened && catConTestClosed && (catConTestFailures == 0) &&
-               (catConTestShown == 29) && (catConTestSet == 22) && (catConTestFrames > 0);
+               (catConTestShown == 29 + CAT_CON_HWI_ROWS) && (catConTestSet == 22 + CAT_CON_HWI_ROWS) && (catConTestFrames > 0);   // HWI-FEATURE(motion-interp): + the HWI rows
         dbgMessagef("consoletest: done selected=%d frames=%d shown=%d set=%d commands=%d keys=%d closed=%d failures=%d "
                     "result=%s", catConTestSelected, catConTestFrames, catConTestShown, catConTestSet, catConTestCommands,
                     catConTestKeys, catConTestClosed, catConTestFailures, pass ? "PASS" : "FAIL");

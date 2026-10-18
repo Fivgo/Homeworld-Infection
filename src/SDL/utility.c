@@ -115,6 +115,8 @@
 #include "PopupMenu.h"
 #include "LOD.h"
 #include "ShipSelect.h"
+#include "MotionInterp.h"   // HWI-FEATURE(motion-interp): universeTaskHandle
+#include "MotionTest.h"     // HWI-FEATURE(motion-interp): /catToggleTest
 
 #ifdef _WIN32
     #include <windows.h>
@@ -607,6 +609,7 @@ fecallback utyCallbacks[] =
     {opAutodockHealthValue,     "OP_Autodock_Health_Value"},
     {opAutodockFuelValue,       "OP_Autodock_Fuel_Value"},
     {opNoLOD,                   "OP_NoLOD"},
+    {opSmoothMotion,            "OP_SmoothMotion"},     // HWI-FEATURE(motion-interp): the Smooth motion checkbox (Options.c)
     {kbListWindowCB,            "OP_KeyBindingsList"},
     // CAT: no OP_KeyBindingsPoolList row (the exe has none: HW1's key-pool list window, kbPoolListWindowCB)
     {utyYesDropPlayer,          "UTY_DropPlayer"},
@@ -797,6 +800,10 @@ scriptEntry utyOptionsList[] =
     {"PlayIntros",                     scriptSetUdwordCB, &aviPlayIntros},
     {"ShipRecoil",                     scriptSetUdwordCB, &opShipRecoil},
     {"ShipsAlwaysUseOwnerColors",      scriptSetBool,     &utyShipsAlwaysUseOwnerColors},
+    // HWI-FEATURE(motion-interp): render-time motion interpolation (MotionInterp.c), 0 | 1, both 1 by default; the
+    //      Smooth motion checkbox writes both, a hand edit can set them one by one
+    {"objInterpolate",                 scriptSetUdwordCB, &objInterpolate},     // HWI-FEATURE(motion-interp)
+    {"nisInterpolate",                 scriptSetUdwordCB, &nisInterpolate},     // HWI-FEATURE(motion-interp)
     {"TimeCompressionFactor",          scriptSetUbyteCB,  &turboTimeCompressionFactor},
 
     END_SCRIPT_ENTRY
@@ -4405,7 +4412,7 @@ DONE_INTROS:
     universeInit();
     utySet(SSA_Universe);
 
-    taskStart(universeUpdateTask, UNIVERSE_UPDATE_PERIOD, 0);
+    universeTaskHandle = taskStart(universeUpdateTask, UNIVERSE_UPDATE_PERIOD, 0);  // HWI-FEATURE(motion-interp): the handle kept (MotionInterp.c's alpha)
 
     autodownloadmapStartup();
     KeepAliveStartup();
@@ -4698,6 +4705,15 @@ DONE_INTROS:
         utyGameQuit(NULL, NULL);
         return(NULL);
     }
+
+    // HWI-FEATURE(motion-interp): /catToggleTest: the Smooth motion checkbox, its options-file rows and console rows
+    //      (MotionTest.c); then quit
+    if (catToggleSelfTest)                                  // HWI-FEATURE(motion-interp)
+    {                                                       // HWI-FEATURE(motion-interp)
+        catToggleRunSelfTest();                             // HWI-FEATURE(motion-interp)
+        utyGameQuit(NULL, NULL);                            // HWI-FEATURE(motion-interp)
+        return(NULL);                                       // HWI-FEATURE(motion-interp)
+    }                                                       // HWI-FEATURE(motion-interp)
 
     // CAT: /catKeysTest (port diagnostic, M2-R6 startup-keys): the install's default_keys.cfg loaded, saved, reloaded
     //      and reset through the Cataclysm key-binding code; then quit
@@ -5198,7 +5214,8 @@ void utyTasksDispatch(void)
     // instead of by the wall clock, so the run is a function of the frame count alone (OracleDump.c)
     if (oracleVirtualFrameTicks() != 0)
     {
-        utyNFrameTicks = oracleVirtualFrameTicks();
+        utyNFrameTicks = oracleVirtualFrameStep();  // HWI-FEATURE(motion-interp): N frames a tick in a motion run (else oracleVirtualFrameTicks())
+        taskSubTick = oracleVirtualSubTick();       // HWI-FEATURE(motion-interp): the virtual clock's leftover
         taskExecuteAllPending(utyNFrameTicks);
         utyTimerLast = SDL_GetTicks();
         return;
@@ -5208,6 +5225,7 @@ void utyTasksDispatch(void)
     difference = timer - utyTimerLast;                      //get difference of this frame to last frame
     utyNFrameTicks = (udword)(difference / utyTimerDivisor);
     remainder = difference % utyTimerDivisor;               //get remainder of the division
+    taskSubTick = (real32)remainder / (real32)utyTimerDivisor;  // HWI-FEATURE(motion-interp): the milliseconds kept for the next frame
     taskExecuteAllPending(utyNFrameTicks);                  //execute tasks for the correct number of ticks
     utyTimerLast = timer - remainder;                       //save timer for differencing next frame
 }

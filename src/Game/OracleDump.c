@@ -27,6 +27,7 @@
 #include "Console.h"        // CAT: catConsoleSelfTestTick (the console self-test, M2-R6 startup-keys)
 #include "OracleDump.h"
 #include "RepairDroid.h"     // HWI-TEST: catDroidUpdates (M2-R6 nis-fow-camera)
+#include "MotionTest.h"      // HWI-FEATURE(motion-interp): the motion / nis measurement modes
 
 #if HWI_ORACLE
 
@@ -145,6 +146,35 @@ udword oracleVirtualFrameTicks(void)
     ticks = (udword)(UNIVERSE_UPDATE_PERIOD * taskFrequency);
     return (ticks == 0) ? 1 : ticks;
 }
+
+// HWI-FEATURE(motion-interp) measurement: a motion run (MotionTest.c, /catMotionTest, /catNisMotionTest) steps the
+//      virtual clock in N render frames per universe tick (144 fps: 9) instead of one: each frame advances 1/N of a
+//      universe tick's task ticks, the whole ticks go to the task manager and the remainder (a fraction of a task tick,
+//      oracleVirtualSubTick) is kept for the next frame. With N 0 or 1 (every other run) this returns
+//      oracleVirtualFrameTicks() and keeps nothing, so the mission run is unchanged.
+static udword oracleVirtualAcc = 0;                 // HWI-FEATURE(motion-interp): leftover, in 1/N task ticks
+static real32 oracleVirtualSub = 0.0f;              // HWI-FEATURE(motion-interp): the same as a fraction of a task tick
+udword oracleVirtualFrameStep(void)                 // HWI-FEATURE(motion-interp)
+{                                                   // HWI-FEATURE(motion-interp)
+    udword ticks = oracleVirtualFrameTicks();       // HWI-FEATURE(motion-interp)
+    udword n = catMotionTestFramesPerTick();        // HWI-FEATURE(motion-interp)
+    udword step;                                    // HWI-FEATURE(motion-interp)
+                                                    // HWI-FEATURE(motion-interp)
+    if (ticks == 0 || n <= 1)                       // HWI-FEATURE(motion-interp)
+    {                                               // HWI-FEATURE(motion-interp)
+        oracleVirtualSub = 0.0f;                    // HWI-FEATURE(motion-interp)
+        return ticks;                               // HWI-FEATURE(motion-interp)
+    }                                               // HWI-FEATURE(motion-interp)
+    oracleVirtualAcc += ticks;                      // HWI-FEATURE(motion-interp)
+    step = oracleVirtualAcc / n;                    // HWI-FEATURE(motion-interp)
+    oracleVirtualAcc -= step * n;                   // HWI-FEATURE(motion-interp)
+    oracleVirtualSub = (real32)oracleVirtualAcc / (real32)n;    // HWI-FEATURE(motion-interp)
+    return step;                                    // HWI-FEATURE(motion-interp)
+}                                                   // HWI-FEATURE(motion-interp)
+real32 oracleVirtualSubTick(void)                   // HWI-FEATURE(motion-interp)
+{                                                   // HWI-FEATURE(motion-interp)
+    return oracleVirtualSub;                        // HWI-FEATURE(motion-interp)
+}                                                   // HWI-FEATURE(motion-interp)
 
 /*=============================================================================
     Writer:
@@ -524,6 +554,12 @@ bool32 oracleUnivUpdate(real32 phystimeelapsed)
     {
         catBuildSelfTestTick();
     }
+
+    // HWI-FEATURE(motion-interp) measurement: the motion / nis modes' scripted ships and NIS (MotionTest.c)
+    if (catMotionTestRequested() && (universe.univUpdateCounter != before))     // HWI-FEATURE(motion-interp)
+    {                                                                           // HWI-FEATURE(motion-interp)
+        catMotionTestTick();                                                    // HWI-FEATURE(motion-interp)
+    }                                                                           // HWI-FEATURE(motion-interp)
 
     if ((oracleFileName[0] != '\0' || oracleInSelfTest) && universe.univUpdateCounter != before)
     {

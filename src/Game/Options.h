@@ -109,6 +109,11 @@ void cat_opSoundFXTest(char *name, struct tagfeatom *atom);
 void cat_opSetAllDefaults(sdword lowEnd);
 void cat_opCataclysmFramerate(char *name, struct tagfeatom *atom);
 void catOptionsRunSelfTest(void);                  // HWI: port diagnostic, /catFeScreensTest's options round trip
+struct tagfibfileheader;                                                   // HWI-FEATURE(motion-interp)
+void opSmoothMotion(char *name, struct tagfeatom *atom);                   // HWI-FEATURE(motion-interp): the checkbox
+void opOptionsSaveSettings(void);                                          // HWI-FEATURE(motion-interp): declared for /catToggleTest
+void opRestoreSavedSettings(void);                                         // HWI-FEATURE(motion-interp): declared for /catToggleTest
+void opSmoothMotionAtomsAdd(struct tagfibfileheader *header);              // HWI-FEATURE(motion-interp): added to the screens
 
 extern udword opPauseOrders;
 extern udword opShipRecoil;

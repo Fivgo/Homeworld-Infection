@@ -43,6 +43,8 @@
 #include "Memory.h"
 #include "Mesh.h"
 #include "mouse.h"
+#include "MotionTest.h"     // HWI-FEATURE(motion-interp): the measurement frame end
+#include "MotionInterp.h"   // HWI-FEATURE(motion-interp): miRenderBegin / miRenderEnd
 #include "NavLights.h"
 #include "Nebulae.h"
 #include "NetCheck.h"
@@ -5001,7 +5003,9 @@ DEFINE_TASK(rndRenderTask)
         primErrorMessagePrint();
         //default rendering scheme is primitives on. any
         //functions which want it off should set it back on when done
+        miRenderBegin();                                    // HWI-FEATURE(motion-interp): the render transforms in
         regFunctionsDraw();                                 //render all regions
+        miRenderEnd();                                      // HWI-FEATURE(motion-interp): the simulation's back, bit for bit
         primErrorMessagePrint();
         rndFrameCount++;                                    //update frame count
         //draw partial scissor window, if applicable
@@ -5179,6 +5183,8 @@ DEFINE_TASK(rndRenderTask)
         }
 #endif
 #endif
+        catMotionTestFrameEnd();                            // HWI-FEATURE(motion-interp) measurement: the frame's dump line + CRC
+
         //demo-specific update code
         if (demDemoPlaying && gameIsRunning)
         {                                                   //if a demo is playing and we're in the actual game

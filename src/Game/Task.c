@@ -408,6 +408,41 @@ sdword taskExecuteAllPending(sdword ticks)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : taskPeriodFraction
+    Description : HWI-FEATURE(motion-interp): not in the exe. How far the given
+                  task is into its period at this moment, for render-time
+                  motion interpolation (MotionInterp.c): the ticks it has
+                  accumulated since its last call, plus this pass's ticks when it
+                  has not run yet in the pass being executed, plus the sub-tick
+                  remainder the clock kept (taskSubTick, scaled like the ticks by
+                  the time compression), over its ticks per call.
+    Inputs      : handle - a task handle (the universe task, the NIS task)
+    Outputs     :
+    Return      : the fraction (may exceed 1 when a call is due later in this
+                  pass), or -1 if the task is paused or does not exist
+    Note        : reads only; nothing here changes the task manager's state.
+----------------------------------------------------------------------------*/
+real32 taskSubTick = 0.0f;                                              // HWI-FEATURE(motion-interp)
+real32 taskPeriodFraction(taskhandle handle)                            // HWI-FEATURE(motion-interp)
+{                                                                       // HWI-FEATURE(motion-interp)
+    taskdata *task;                                                     // HWI-FEATURE(motion-interp)
+    real32 ticks;                                                       // HWI-FEATURE(motion-interp)
+                                                                        // HWI-FEATURE(motion-interp)
+    if (!taskModuleInit || handle < 0 || handle >= taskMaxTask || (task = taskData[handle]) == NULL ||   // HWI-FEATURE(motion-interp)
+        bitTest(task->flags, TF_Paused) || task->ticksPerCall == 0)    // HWI-FEATURE(motion-interp)
+    {                                                                   // HWI-FEATURE(motion-interp)
+        return -1.0f;                                                   // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    ticks = (real32)task->ticks;                                        // HWI-FEATURE(motion-interp)
+    if (taskCurrentTask >= 0 && handle > taskCurrentTask)               // HWI-FEATURE(motion-interp): not run yet in this pass
+    {                                                                   // HWI-FEATURE(motion-interp)
+        ticks += (real32)tTicks;                                        // HWI-FEATURE(motion-interp)
+    }                                                                   // HWI-FEATURE(motion-interp)
+    ticks += taskSubTick * cat_timeCompressionFactor;                   // HWI-FEATURE(motion-interp)
+    return ticks / (real32)task->ticksPerCall;                          // HWI-FEATURE(motion-interp)
+}                                                                       // HWI-FEATURE(motion-interp)
+
+/*-----------------------------------------------------------------------------
     Name        : taskPause
     Description : Pauses selected task.
     Inputs      : handle - handle of task
