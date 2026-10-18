@@ -38,7 +38,7 @@ Name and classify every function, so the decompilation knows what each piece is.
 - Proof tool: CI matrix; a frame-time log over the soak.
 
 ### Later: additional features
-Reserved for the user's list once the recreation is stable. **First approved feature (2026-10-17): render-time motion interpolation (gameplay and cutscenes) with an in-game toggle, see docs/features/motion-interpolation.md; implemented in M2-R6 after the NIS port.** **Second target (2026-10-17): 4K at up to 144 fps on a modern system, docs/features/high-refresh-4k.md.** Other candidates raised so far: UI scaling above 640x480 (the front end is fixed-size art), frame pacing investigation, modern resolutions by default.
+Reserved for the user's list once the recreation is stable. **First approved feature (2026-10-17): render-time motion interpolation (gameplay and cutscenes) with an in-game toggle, see docs/features/motion-interpolation.md; implemented in M2-R6 after the NIS port.** **Second target (2026-10-17): 4K at up to 144 fps on a modern system, docs/features/high-refresh-4k.md.** **Third (2026-10-17): "always full detail": pin every object to LOD 0 and lift the effects cap, a setting defaulting on (a maxed four-player fleet is ~47k ship vertices at LOD 0, far under any modern budget; CET's high-detail mode is the precedent); keep the LOD data for weak hardware.** Other candidates raised so far: UI scaling above 640x480 (the front end is fixed-size art), frame pacing investigation, modern resolutions by default.
 
 ## M2 approach: recommendation
 
