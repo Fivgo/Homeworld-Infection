@@ -3516,7 +3516,7 @@ udword aiuUnitCapCanBuildShip(AIPlayer *aiplayer, ShipType shiptype, sdword numS
     Outputs     : Finds a target to have it's ass kicked
     Return      : Whether the target is visible or not
 ----------------------------------------------------------------------------*/
-bool32 aiuFindArmadaTarget(vector *dest_target, SelectCommand **sel_target, SelectCommand *team_sel)
+bool32 aiuFindArmadaTarget(vector *dest_target, MaxSelection *sel_target, SelectCommand *team_sel)
 {
     aiblob *blob, *best_blob = NULL, *mothership_blob = NULL;
     udword i/*, best_num_ships*/;
@@ -3589,26 +3589,28 @@ bool32 aiuFindArmadaTarget(vector *dest_target, SelectCommand **sel_target, Sele
     if (best_primary_value_strength_ratio*1.5 > mothership_value_strength_ratio)
     {
         *dest_target  = best_blob->centre;
-        *sel_target   = selectMemDupSelection(best_blob->blobShips, "blbshps", 0);
-        MakeTargetsOnlyEnemyShips((SelectAnyCommand *)*sel_target, aiCurrentAIPlayer->player);
+        // CAT: copied into the AIPlayer's own selection (cat_selSelectionCopy at 0x0041e9d4; M2-R7 ai-player-skirmish)
+        cat_selSelectionCopy(sel_target, (MaxSelection *)best_blob->blobShips);
+        MakeTargetsOnlyEnemyShips((SelectAnyCommand *)sel_target, aiCurrentAIPlayer->player);
         return best_blob->visibility;
     }
     // CAT: the mothership fallback needs a live mothership and its blob, and targets the mothership alone (HW1's
     //      "postfinal" ships within 9000 are gone): aiuFindArmadaTarget 0x0041e860 from 0x0041e9fa.
-    // CAT-TODO(M2-R7 AI player): aiuFindArmadaTarget fills the MaxSelection the exe keeps in AIPlayer (ArmadaType at +0xCF4: numTeams byte, targets +0xCF8, visibility +0x1CA0, recon_team +0x1CA4; aiaArmada 0x00401120) where this tree allocates one: embed it with the AIPlayer layout and its save chunk (aiaArmada, aiaShipDied and aimProcessArmada already test numShips as the exe does, M2-R7 ai-orders-moves)
+    //      The selection is the one the exe keeps in AIPlayer (ArmadaType at +0xCF4: targets +0xCF8; M2-R7
+    //      ai-player-skirmish embedded it).
     else if ((aiCurrentAIPlayer->primaryEnemyPlayer->PlayerMothership != NULL) &&
              (!bitTest(aiCurrentAIPlayer->primaryEnemyPlayer->PlayerMothership->header.flags, SOF_Dead)) &&
              (mothership_blob != NULL))
     {
         *dest_target = mothership_blob->centre;
-        aiuNewSelection(*sel_target, 1, "armadams");
-        selSelectionAddSingleShip((MaxSelection *)*sel_target, aiCurrentAIPlayer->primaryEnemyPlayer->PlayerMothership);
+        sel_target->numShips = 1;
+        sel_target->ShipPtr[0] = aiCurrentAIPlayer->primaryEnemyPlayer->PlayerMothership;
         return mothership_blob->visibility;
     }
     else
     {
         aiplayerLog((aiIndex,"Error - couldn't find primary enemy player's mothership"));
-        *sel_target = NULL;
+        sel_target->numShips = 0;
         return FALSE;
     }
 }

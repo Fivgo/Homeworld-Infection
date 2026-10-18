@@ -20,10 +20,26 @@
                          first tick a check holds is logged ("aitest: <check>
                          tick=N ...")
                 every 256 an "aitest: status" line (teams, moves, ships)
-              "aitest: done ... result=PASS|FAIL" once every check has held (or
-              at ticks-2), then the mission run's own quit. The checks are one
-              table so that later AI ports (build / research / harvest, M2-R7
-              producer 3) add rows rather than code paths.
+              "aitest: done ... result=PASS|FAIL" at ticks-2 (the skirmish leg
+              plays on to the end of the run), then the mission run's own quit. The checks are one
+              table so that later AI ports add rows rather than code paths.
+              M2-R7 ai-player-skirmish adds the build and harvest rows of the
+              single-player fleet manager and a second leg, the skirmish AI:
+                once every single-player row has held, the single-player AI is
+                         stopped (mrNoAI, fleet control off), the game is made
+                         a one-human one-computer skirmish with research and
+                         harvesting on (tpGameCreated), the skirmish AI is reset
+                         (cat_aisReset, as gameStart does), player 1's unit cap
+                         is lifted 200 above its units in use (the scripted
+                         fleet is far over the level's cap), every ship static
+                         of its race is loaded (as a skirmish's level load
+                         does), its Workers are halted, and from then on the test runs the
+                         multiplayer branch of aiplayerPlay 0x004112f0 for player
+                         1 on aiplayerUpdateAll's schedule (cat_aisPlay); the
+                         skirmish rows hold when it has queued a build (a
+                         COMMAND_BUILDING_SHIP of clBuildShip 0x0044aaa0 or an
+                         external construction), started research and sent a
+                         Worker harvesting
 
     Created 2026-10-18 for Homeworld-Infection (M2-R7 ai-orders-moves).
     This tree is REULA-licensed, see src/COPYING.REULA.
@@ -37,13 +53,16 @@
 
 #include "AIMoves.h"
 #include "AIPlayer.h"
+#include "AISkirmish.h"
 #include "AITeam.h"
 #include "CommandDefs.h"
 #include "CommandLayer.h"
 #include "Debug.h"
 #include "LevelLoad.h"
+#include "MultiplayerGame.h"
 #include "ObjTypes.h"
 #include "OracleDump.h"
+#include "ResearchAPI.h"
 #include "ShipSelect.h"
 #include "SinglePlayer.h"
 #include "StatScript.h"
@@ -54,6 +73,7 @@
 #define CAT_AITEST_ORDER_TICK       16
 #define CAT_AITEST_RUS              30000
 #define CAT_AITEST_SPACING          400.0f
+#define CAT_AITEST_SKIRMISH_SU      200
 
 static sdword catAiTestTicks = 0;
 static bool32 catAiTestOrdered = FALSE;
@@ -62,6 +82,12 @@ static Ship *catAiTestFactory = NULL;
 static sdword catAiTestFleetShips = 0;
 static sdword catAiTestSlot = 0;
 static vector catAiTestBase;
+static sdword catAiTestSkirmishTick = -1;   // the tick the skirmish leg began (-1 before)
+static uword catAiTestSkirmishShipNumber;   // ship numbers above it were created in the skirmish leg
+static CommandToDo *catAiTestBuildsBefore[64];
+static sdword catAiTestNumBuildsBefore = 0;
+
+extern bool32 mrNoAI;
 
 /*-----------------------------------------------------------------------------
     The scripted fleet, per race of player 1, large enough that the get-ships
@@ -70,8 +96,8 @@ static vector catAiTestBase;
     orders, corvettes and frigates for the defence orders, the resourcers and
     the Processor that make the defense manager's roving teams worth having
     (aidCountDefendableShips), recon ships for the recon orders. The ships the
-    AI asks to build are not delivered: building is the fleet manager's
-    (aifProcessShipBuildRequests, M2-R7 producer 3)
+    AI asks for beyond them the fleet manager builds (aifBuildRequestedShips:
+    clBuildShip's delayed build, the "build" row)
 -----------------------------------------------------------------------------*/
 typedef struct
 {
@@ -264,6 +290,111 @@ static bool32 catAiTestAttackCommanded(AIPlayer *ai, char *d, size_t s)  { retur
 static bool32 catAiTestDefenceCommanded(AIPlayer *ai, char *d, size_t s) { return catAiTestGroupCommanded(ai, CAT_AITEST_DEFENCE, d, s); }
 static bool32 catAiTestReconCommanded(AIPlayer *ai, char *d, size_t s)   { return catAiTestGroupCommanded(ai, CAT_AITEST_RECON, d, s); }
 
+// a build of player 1: a delayed build command (clBuildShip 0x0044aaa0, COMMAND_BUILDING_SHIP in the main command
+//      layer's to-do list) or a ship under external construction (SPECIAL_2_CatBeingBuilt); skirmish TRUE counts only
+//      the ones the skirmish leg made
+static bool32 catAiTestBuildQueued(AIPlayer *ai, bool32 skirmish, char *detail, size_t size)
+{
+    Node *node;
+    CommandToDo *command;
+    Ship *ship;
+    sdword i;
+    bool32 before;
+
+    for (node = universe.mainCommandLayer.todolist.head; node != NULL; node = node->next)
+    {
+        command = (CommandToDo *)listGetStructOfNode(node);
+        if ((command->ordertype.order != COMMAND_BUILDING_SHIP) ||
+            (command->buildingship.playerIndex != (udword)ai->player->playerIndex))
+        {
+            continue;
+        }
+        before = FALSE;
+        for (i = 0; skirmish && (i < catAiTestNumBuildsBefore); i++)
+        {
+            before |= (catAiTestBuildsBefore[i] == command);
+        }
+        if (!before)
+        {
+            snprintf(detail, size, "command %s at frame %u RUs=%d", ShipTypeToStr(command->buildingship.shipType),
+                     (unsigned)command->buildingship.frameAtWhichToCreate, (int)ai->player->resourceUnits);
+            return TRUE;
+        }
+    }
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if ((ship->playerowner == ai->player) && bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt) &&
+            (!skirmish || (ship->shipID.shipNumber > catAiTestSkirmishShipNumber)))
+        {
+            snprintf(detail, size, "external %s#%u RUs=%d", ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber,
+                     (int)ai->player->resourceUnits);
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+// a Worker of player 1 under a harvest order (clWrapCollectResource)
+static bool32 catAiTestHarvesting(AIPlayer *ai, char *detail, size_t size)
+{
+    Node *node;
+    Ship *ship;
+
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if ((ship->playerowner == ai->player) && ((ship->shiptype == sWorker) || (ship->shiptype == bWorker)) &&
+            (ship->command != NULL) && (ship->command->ordertype.order == COMMAND_COLLECT_RESOURCES))
+        {
+            snprintf(detail, size, "ship=%s#%u RUs=%d", ShipTypeToStr(ship->shiptype), (unsigned)ship->shipID.shipNumber,
+                     (int)ai->player->resourceUnits);
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+static bool32 catAiTestBuild(AIPlayer *ai, char *d, size_t s)    { return catAiTestBuildQueued(ai, FALSE, d, s); }
+static bool32 catAiTestHarvest(AIPlayer *ai, char *d, size_t s)  { return (catAiTestSkirmishTick < 0) && catAiTestHarvesting(ai, d, s); }
+
+static bool32 catAiTestSkirmishPlayed(AIPlayer *ai, char *detail, size_t size)
+{
+    if ((catAiTestSkirmishTick < 0) || (aisLastPlayTime[ai->player->playerIndex] <= 0.0f))
+    {
+        return FALSE;
+    }
+    snprintf(detail, size, "time=%.2f fighters=%d medium=%d workers=%d mothership=%d enemymothership=%d",
+             aisLastPlayTime[ai->player->playerIndex], (int)aisTeams[AIS_TEAM_Fighter].totalteamsize,
+             (int)aisTeams[AIS_TEAM_MediumCombat].totalteamsize, (int)aisTeams[AIS_TEAM_Worker].totalteamsize,
+             (int)aisTeams[AIS_TEAM_Mothership].totalteamsize, (int)aisTeams[AIS_TEAM_MothershipEnemy].totalteamsize);
+    return TRUE;
+}
+
+static bool32 catAiTestSkirmishBuild(AIPlayer *ai, char *d, size_t s)
+{
+    return (catAiTestSkirmishTick >= 0) && catAiTestBuildQueued(ai, TRUE, d, s);
+}
+
+static bool32 catAiTestSkirmishResearch(AIPlayer *ai, char *detail, size_t size)
+{
+    ResearchTopic *topic;
+
+    if ((catAiTestSkirmishTick < 0) || !rmResearchingAnything(ai->player))
+    {
+        return FALSE;
+    }
+    topic = (ResearchTopic *)listGetStructOfNode(ai->player->researchinfo.listoftopics.head);
+    snprintf(detail, size, "tech=%s(%d) timeleft=%.1f", TechTypeToString(topic->techresearch), (int)topic->techresearch,
+             topic->timeleft);
+    return TRUE;
+}
+
+static bool32 catAiTestSkirmishHarvest(AIPlayer *ai, char *d, size_t s)
+{
+    return (catAiTestSkirmishTick >= 0) && catAiTestHarvesting(ai, d, s);
+}
+
 static CatAiTestCheck catAiTestChecks[] =
 {
     { "teams",            catAiTestTeams,             -1, "" },
@@ -276,9 +407,18 @@ static CatAiTestCheck catAiTestChecks[] =
     { "attackcommand",    catAiTestAttackCommanded,   -1, "" },
     { "defencecommand",   catAiTestDefenceCommanded,  -1, "" },
     { "reconcommand",     catAiTestReconCommanded,    -1, "" },
-    // M2-R7 producer 3 adds its rows here (build, research, harvest)
+    // M2-R7 ai-player-skirmish: the single-player fleet manager builds and harvests (aifBuildRequestedShips,
+    // airResourceManager) ...
+    { "build",            catAiTestBuild,             -1, "" },
+    { "harvest",          catAiTestHarvest,           -1, "" },
+    // ... then the skirmish leg (cat_aisPlay 0x00433d50) plays, builds, researches and harvests
+    { "skirmishplay",     catAiTestSkirmishPlayed,    -1, "" },
+    { "skirmishbuild",    catAiTestSkirmishBuild,     -1, "" },
+    { "skirmishresearch", catAiTestSkirmishResearch,  -1, "" },
+    { "skirmishharvest",  catAiTestSkirmishHarvest,   -1, "" },
 };
 #define CAT_AITEST_NUM_CHECKS   ((sdword)(sizeof(catAiTestChecks) / sizeof(catAiTestChecks[0])))
+#define CAT_AITEST_SP_CHECKS    12      // the rows before "skirmishplay": the single-player leg
 
 /*-----------------------------------------------------------------------------
     Setup
@@ -424,6 +564,95 @@ static void catAiTestSetup(sdword tick)
 }
 
 /*-----------------------------------------------------------------------------
+    The skirmish leg
+-----------------------------------------------------------------------------*/
+// the switch: the single-player AI stops, the game becomes a skirmish of one human and one computer with research and
+//      harvesting on, the skirmish AI starts afresh (gameStart's cat_aisReset), player 1's Workers stop (so a harvest
+//      order is the skirmish AI's) and the builds already queued are remembered (so a build is the skirmish AI's)
+static void catAiTestSkirmishStart(sdword tick, AIPlayer *ai)
+{
+    MaxSelection workers;
+    Node *node;
+    Ship *ship;
+    CommandToDo *command;
+    sdword type;
+
+    catAiTestSkirmishTick = tick;
+    mrNoAI = TRUE;                                          // aiplayerUpdateAll runs no aiplayerPlay any more
+    singlePlayerGameInfo.giveComputerFleetControl = FALSE;
+    tpGameCreated.numPlayers = 1;                           // the computers follow the humans (cat_aisSetupAlliances)
+    tpGameCreated.numComputers = 1;
+    tpGameCreated.aiplayerBigotry = 0;
+    tpGameCreated.flag |= (MG_ResearchEnabled | MG_HarvestinEnabled);
+    cat_aisReset();
+    // the scripted fleet is far above the unit cap the level gives player 1 (aisRequestShip 0x00431510 builds nothing
+    //      at or over it): the test lifts the cap CAT_AITEST_SKIRMISH_SU above the units in use
+    ai->player->supportUnitsMax = ai->player->supportUnitsUsed + CAT_AITEST_SKIRMISH_SU;
+
+    // a skirmish loads every ship of the computer player's race; the level loaded only its own (the skirmish AI builds
+    //      across the race, e.g. bRammingFrigate)
+    for (type = 0; type < TOTAL_STD_SHIPS; type++)
+    {
+        if (cat_ShipTypeToRace((udword)type) == (udword)ai->player->race)
+        {
+            catAiTestLoadStatic((ShipType)type);
+        }
+    }
+
+    catAiTestSkirmishShipNumber = 0;
+    workers.numShips = 0;
+    for (node = universe.ShipList.head; node != NULL; node = node->next)
+    {
+        ship = (Ship *)listGetStructOfNode(node);
+        if (ship->shipID.shipNumber > catAiTestSkirmishShipNumber)
+        {
+            catAiTestSkirmishShipNumber = ship->shipID.shipNumber;
+        }
+        if ((ship->playerowner == ai->player) && ((ship->shiptype == sWorker) || (ship->shiptype == bWorker)) &&
+            (workers.numShips < COMMAND_MAX_SHIPS))
+        {
+            workers.ShipPtr[workers.numShips++] = ship;
+        }
+    }
+    if (workers.numShips > 0)
+    {
+        clHalt(&universe.mainCommandLayer, (SelectCommand *)&workers);
+    }
+    catAiTestNumBuildsBefore = 0;
+    for (node = universe.mainCommandLayer.todolist.head; node != NULL; node = node->next)
+    {
+        command = (CommandToDo *)listGetStructOfNode(node);
+        if ((command->ordertype.order == COMMAND_BUILDING_SHIP) &&
+            (command->buildingship.playerIndex == (udword)ai->player->playerIndex) && (catAiTestNumBuildsBefore < 64))
+        {
+            catAiTestBuildsBefore[catAiTestNumBuildsBefore++] = command;
+        }
+    }
+    dbgMessagef("aitest: skirmish tick=%d RUs=%d SU=%d/%d workershalted=%d buildsqueued=%d researching=%d lastship=%u",
+                (int)tick, (int)ai->player->resourceUnits, (int)ai->player->supportUnitsUsed,
+                (int)ai->player->supportUnitsMax, (int)workers.numShips, (int)catAiTestNumBuildsBefore,
+                (int)rmResearchingAnything(ai->player), (unsigned)catAiTestSkirmishShipNumber);
+}
+
+// the multiplayer branch of aiplayerPlay 0x004112f0 for player 1 on aiplayerUpdateAll's schedule (0x00411240)
+static void catAiTestSkirmishPlay(AIPlayer *ai)
+{
+    AIPlayer *current = aiCurrentAIPlayer;
+
+    if (!UNIVERSE_WOODPECKER(ai->aiplayerUpdateRate, ai->player->playerIndex & ai->aiplayerUpdateRate) ||
+        (ai->player->playerState == PLAYER_DEAD))
+    {
+        return;
+    }
+    aiCurrentAIPlayer = ai;
+    universe.aiplayerProcessing = TRUE;
+    cat_aisPlay();
+    ai->aiplayerFrameCount++;
+    universe.aiplayerProcessing = FALSE;
+    aiCurrentAIPlayer = current;                            // the single-player KAS update sets it again each tick
+}
+
+/*-----------------------------------------------------------------------------
     Engine interface
 -----------------------------------------------------------------------------*/
 void catAiSelfTestSet(char *string)
@@ -509,7 +738,7 @@ void catAiSelfTestTick(void)
     sdword tick = (sdword)universe.univUpdateCounter;
     Player *player = &universe.players[1];
     AIPlayer *ai = player->aiPlayer;
-    sdword c, held = 0;
+    sdword c, spheld;
 
     if (catAiTestDone)
     {
@@ -531,6 +760,11 @@ void catAiSelfTestTick(void)
         return;
     }
 
+    if (catAiTestSkirmishTick >= 0)
+    {
+        catAiTestSkirmishPlay(ai);
+    }
+
     for (c = 0; c < CAT_AITEST_NUM_CHECKS; c++)
     {
         if (catAiTestChecks[c].firstTick < 0)
@@ -541,9 +775,19 @@ void catAiSelfTestTick(void)
                 dbgMessagef("aitest: %s tick=%d %s", catAiTestChecks[c].name, (int)tick, catAiTestChecks[c].detail);
             }
         }
-        if (catAiTestChecks[c].firstTick >= 0)
+    }
+
+    // the skirmish leg once the single-player rows have held (at half the run at the latest)
+    if (catAiTestSkirmishTick < 0)
+    {
+        for (c = 0, spheld = 0; c < CAT_AITEST_SP_CHECKS; c++)
         {
-            held++;
+            spheld += (catAiTestChecks[c].firstTick >= 0);
+        }
+        if ((spheld == CAT_AITEST_SP_CHECKS) || (tick >= catAiTestTicks / 2))
+        {
+            catAiTestStatus(tick, ai);
+            catAiTestSkirmishStart(tick, ai);
         }
     }
 
@@ -551,7 +795,9 @@ void catAiSelfTestTick(void)
     {
         catAiTestStatus(tick, ai);
     }
-    if ((held == CAT_AITEST_NUM_CHECKS) || (tick >= catAiTestTicks - 2))
+    // the skirmish AI plays on to the end of the run (its attacks, scouts, leeches and mothership moves run under the
+    //      sanitizers too; --ai-ticks sets how long)
+    if (tick >= catAiTestTicks - 2)
     {
         catAiTestStatus(tick, ai);
         catAiTestFinish(tick);

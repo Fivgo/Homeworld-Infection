@@ -22,7 +22,6 @@ sdword NumberOfEasilyAccesibleRUs(Player *player);
 sdword NumRUDockPointsOnThisShip(Ship *ship);
 
 void airAddNewShip(Ship *ship);
-void airProcessSpecialTeams(void);
 
 #endif
 

@@ -7,12 +7,14 @@
 // =============================================================================
 
 #include "AIPlayer.h"
+#include "AISkirmish.h"
 
 #include "AIAttackMan.h"
 #include "AIDefenseMan.h"
 #include "AIFleetMan.h"
 #include "AIResourceMan.h"
 #include "File.h"
+#include "KASVar.h"
 #include "NIS.h"
 #include "Randy.h"
 #include "SaveGame.h"
@@ -678,6 +680,7 @@ void aiplayerStartup(udword num_players, udword num_human_players, udword num_co
         logfileClear(filePathPrepend(AIPLAYER_LOG_FILE_NAME,FF_UserSettingsPath));
     }
     aivarStartup();
+    cat_kasVarStoreInit();                  // CAT: aiplayerStartup 0x00410fa0
 
     if (!determCompPlayer)
         ranRandomize(RANDOM_AI_PLAYER);     // randomize the AIPlayer random number stream
@@ -691,6 +694,7 @@ void aiplayerShutdown(void)
 {
     // ONLY close global module stuff such as log files here
     aivarShutdown();
+    cat_kasVarDestroyAll();                 // CAT: aiplayerShutdown 0x00411000
 }
 
 void aiplayerDebugLog(uword playerIndex, char *format, ...)
@@ -805,14 +809,21 @@ void aiplayerClose(AIPlayer *aiplayer)
     memFree(aiplayer);
 }
 
+// CAT: inlined in aiplayerUpdateAll 0x00411240 (no aiplayerPlay in the exe): in a multiplayer game the computer
+//      player runs Cataclysm's skirmish AI (cat_aisPlay 0x00433d50, AISkirmish.c) whether or not an NIS plays; in
+//      single player HW1's fleet command as before
 void aiplayerPlay(AIPlayer *aiplayer)
 {
-//    if (!singlePlayerGame)
-        aiCurrentAIPlayer = aiplayer;
+    aiCurrentAIPlayer = aiplayer;
 
     universe.aiplayerProcessing = TRUE;
 
-    if (!nisIsRunning)
+    if (!singlePlayerGame)
+    {
+        cat_aisPlay();                                      // CAT: 0x0041133d
+        aiplayer->aiplayerFrameCount++;
+    }
+    else if (!nisIsRunning)
     {
         statsSetOverkillfactor(AIPLAYER_OVERKILL_FACTOR);
         aifFleetCommand();
@@ -836,7 +847,9 @@ void aiplayerUpdateAll(void)
     {
         if (singlePlayerGame)
         {
-            if (singlePlayerGameInfo.hyperspaceState != NO_HYPERSPACE)
+            // CAT: the computer player also runs while the ships arrive (aiplayerUpdateAll 0x00411260)
+            if ((singlePlayerGameInfo.hyperspaceState != NO_HYPERSPACE) &&
+                (singlePlayerGameInfo.hyperspaceState != HYPERSPACE_SHIPSARRIVING))
             {
                 return;
             }
@@ -1215,7 +1228,8 @@ shipdiedstuff:
     {
         ship = (Ship *)listGetStructOfNode(shipnode);
 
-        if (ship->playerowner == player)
+        // CAT: not for the human player of a single-player game (aiplayerPlayerDied 0x0041180a)
+        if ((ship->playerowner == player) && (!singlePlayerGame || (player->playerIndex != 0)))
         {
             aiplayerShipDied(ship);
         }
@@ -1265,8 +1279,10 @@ void BuildShipList(AIPlayer *aiplayer)
     {
         ship = (Ship *)listGetStructOfNode(shipnode);
 
+        // CAT: a ship still being built is left out (inlined in aiplayerGameStart, the test at 0x004118bf: specialFlags2 0x8)
         if (((ship->header.flags & SOF_NISShip) == 0) &&
-            (ship->playerowner == aiplayer->player) && ShipNotOnTeam(aiplayer, ship))
+            (ship->playerowner == aiplayer->player) && ShipNotOnTeam(aiplayer, ship) &&
+            !bitTest(ship->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
         {
             growSelectAddShip(&aiplayer->newships, ship);
             ThisAIPlayerShipCreatedCB(aiplayer,ship);
@@ -1596,17 +1612,48 @@ void SaveTeamWaitingCB(void *stuff)
     memFree(chunk);
 }
 
+// CAT (M2-R7 ai-player-skirmish): a cataclysm.exe save's 0x20-byte entry is converted to this build's struct first
+//      (SaveCat32.c; LoadRequestShipsCB 0x00411c50 reads a structure of 0x20 bytes)
 void LoadRequestShipsCB(LinkedList *list)
 {
-    RequestShips *requestShips = LoadStructureOfSize(sizeof(RequestShips));
+    RequestShips *requestShips;
+    SaveChunk *chunk;
+
+    if (saveCat32Loading)
+    {
+        chunk = saveCat32ChunkStruct(LoadNextChunk(), SAVECAT32_LAYOUT(RequestShips));
+        VerifyChunk(chunk,BASIC_STRUCTURE,sizeof(RequestShips));
+        requestShips = memAlloc(sizeof(RequestShips),"loadedstructure",0);
+        memcpy(requestShips,chunkContents(chunk),sizeof(RequestShips));
+        memFree(chunk);
+    }
+    else
+    {
+        requestShips = LoadStructureOfSize(sizeof(RequestShips));
+    }
     requestShips->creator = SpaceObjRegistryGetShip((sdword)requestShips->creator);
 
     listAddNode(list,&requestShips->node,requestShips);
 }
 
+// CAT (M2-R7 ai-player-skirmish): as above, the exe's 0x4C-byte entry (LoadTeamWaitingCB 0x00411c80)
 void LoadTeamWaitingCB(LinkedList *list)
 {
-    TeamWaitingForTheseShips *teamWaiting = LoadStructureOfSize(sizeof(TeamWaitingForTheseShips));
+    TeamWaitingForTheseShips *teamWaiting;
+    SaveChunk *chunk;
+
+    if (saveCat32Loading)
+    {
+        chunk = saveCat32ChunkStruct(LoadNextChunk(), SAVECAT32_LAYOUT(TeamWaitingForTheseShips));
+        VerifyChunk(chunk,BASIC_STRUCTURE,sizeof(TeamWaitingForTheseShips));
+        teamWaiting = memAlloc(sizeof(TeamWaitingForTheseShips),"loadedstructure",0);
+        memcpy(teamWaiting,chunkContents(chunk),sizeof(TeamWaitingForTheseShips));
+        memFree(chunk);
+    }
+    else
+    {
+        teamWaiting = LoadStructureOfSize(sizeof(TeamWaitingForTheseShips));
+    }
 
     listAddNode(list,&teamWaiting->node,teamWaiting);
 }
@@ -1683,7 +1730,7 @@ void SaveThisAIPlayer(AIPlayer *aiplayer)
     if (aiplayer->aidDefenseTargets)        SaveSelection((SpaceObjSelection *)aiplayer->aidDefenseTargets);
     if (aiplayer->aidInvadingShips)         SaveSelection((SpaceObjSelection *)aiplayer->aidInvadingShips);
     if (aiplayer->aidDistressShips)         SaveSelection((SpaceObjSelection *)aiplayer->aidDistressShips);
-    if (aiplayer->aiaArmada.targets)        SaveSelection((SpaceObjSelection *)aiplayer->aiaArmada.targets);
+    SaveSelection((SpaceObjSelection *)&aiplayer->aiaArmada.targets);   // CAT: embedded, always saved (0x00411ff0)
     if (aiplayer->Targets)                  SaveSelection((SpaceObjSelection *)aiplayer->Targets);
 
     // Save all team stuff
@@ -1739,12 +1786,20 @@ AIPlayer *LoadThisAIPlayer(void)
     AIPlayer *aiplayer;
     udword i;
 
-    chunk = LoadNextChunk();
+    // CAT (M2-R7 ai-player-skirmish): a cataclysm.exe save's 0x1D18-byte AIPlayer is converted field by field first
+    //      (no-op for this tree's own saves)
+    chunk = saveCat32ChunkStruct(LoadNextChunk(), SAVECAT32_LAYOUT(AIPlayer));
     VerifyChunk(chunk,BASIC_STRUCTURE|AIPLAYER,sizeof(AIPlayer));
 
     aiplayer = memAlloc(sizeof(AIPlayer),"AIPlayer",0);
     memcpy(aiplayer,chunkContents(chunk),sizeof(AIPlayer));
     memFree(chunk);
+    if (saveCat32Loading)
+    {
+        // CAT-FIX: the exe saves the resource manager's request with its creator pointer unconverted (SaveThisAIPlayer
+        //      0x00411cd0) and loads it as it is; a pointer of the saving process is cleared here
+        aiplayer->ResourceManRequestShips.creator = NULL;
+    }
 
     LoadGrowSelectionAndFix(&aiplayer->newships);
 
@@ -1773,7 +1828,7 @@ AIPlayer *LoadThisAIPlayer(void)
     if (aiplayer->aidDefenseTargets)        aiplayer->aidDefenseTargets        = (SelectCommand *)LoadSelectionAndFix();
     if (aiplayer->aidInvadingShips)         aiplayer->aidInvadingShips         = (SelectCommand *)LoadSelectionAndFix();
     if (aiplayer->aidDistressShips)         aiplayer->aidDistressShips         = (SelectCommand *)LoadSelectionAndFix();
-    if (aiplayer->aiaArmada.targets)        aiplayer->aiaArmada.targets        = (SelectCommand *)LoadSelectionAndFix();
+    LoadMaxSelectionAndFix(&aiplayer->aiaArmada.targets);               // CAT: embedded (LoadThisAIPlayer 0x00412302)
     if (aiplayer->Targets)                  aiplayer->Targets                  = (SelectCommand *)LoadSelectionAndFix();
 
     // Load all team stuff
@@ -1823,6 +1878,7 @@ void aiplayerSave(void)
     SaveInfoNumber(AIPlayerToNumber(aiCurrentAIPlayer));
 
     aivarSave();
+    cat_kasVarSave();                       // CAT: aiplayerSave 0x00412380
 
     // Save each instance of aiplayer structure
 
@@ -1838,123 +1894,6 @@ void aiplayerSave(void)
     }
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : aiplayerCat32Load
-    Description : CAT (M2-R6 oracle-mode-a): the AI part of a cataclysm.exe save (aiplayerLoad 0x00412400). The
-                  chunks are read in the exe's order: the current AI player's index, the AI variables
-                  (aivarLoad 0x004206d0: three numbers and 0x34-byte entries), the KAS variables (cat_kasVarLoad
-                  0x00491be0: three numbers and 0xC-byte entries), then per player that had an AI player
-                  (LoadThisAIPlayer 0x00412190): the 0x1D18-byte AIPlayer, its grow selection, the 0x91 pairs of
-                  enemy-ship grow selections, the three request lists (0x20-byte entries) and three waiting-team lists
-                  (0x4C), two grow selections, up to five optional selections (AIPlayer +0x1CB0, +0x1CC0 .. +0x1CCC),
-                  the max selection (+0xCF8), one more optional selection (+0x1CA8), and the teams (aitLoad
-                  0x00418180: two numbers, per team a 0x280-byte AITeam, a grow selection, the move list and, when
-                  +0x50 is set, 1 + 64 numbers). Cataclysm's AIPlayer (0x1D18 bytes, its skirmish AI cat_ais*) is
-                  stage 4's: the chunks are read and set aside, and each such player gets this tree's AI player as a
-                  new game makes it (aiplayerInit at the game's difficulty). A recorded game's playback never runs
-                  the computer players (aiplayerUpdateAll skips them while playPackets is set); everything they did
-                  is in the packets.
-                  CAT-TODO(stage 4 AI): convert the exe's AIPlayer / AITeam / move chunks into the Cataclysm AI's structs once they are ported (aiplayerLoad 0x00412400, LoadThisAIPlayer 0x00412190, aitLoad 0x00418180, FixThisAIPlayer 0x00412020)
-----------------------------------------------------------------------------*/
-static void aiplayerCat32SkipChunks(sdword n)
-{
-    sdword i;
-
-    for (i = 0; i < n; i++)
-    {
-        memFree(LoadNextChunk());
-    }
-}
-
-static udword aiplayerCat32Word(SaveChunk *chunk, udword offset)
-{
-    udword v = 0;
-
-    if ((udword)chunk->contentsSize >= offset + 4)
-    {
-        memcpy(&v, (ubyte *)chunkContents(chunk) + offset, 4);
-    }
-    return v;
-}
-
-static void aiplayerCat32Load(void)
-{
-    static const udword optionalSelections[] = { 0x1CB0, 0x1CC0, 0x1CC4, 0x1CC8, 0x1CCC };
-    SaveChunk *aichunk, *teamchunk;
-    sdword i, k, n, numTeams, numMoves;
-    AIPlayer *aiplayer;
-
-    (void)LoadInfoNumber();                     // the current AI player (aiplayerLoad then clears aiCurrentAIPlayer)
-    (void)LoadInfoNumber();                     // aivarLoad: the table size,
-    n = LoadInfoNumber();                       //            the number of variables,
-    (void)LoadInfoNumber();                     //            and a third number
-    aiplayerCat32SkipChunks(n);                 //            0x34 bytes each
-    n = LoadInfoNumber();                       // cat_kasVarLoad: the count read,
-    k = LoadInfoNumber();                       //                 the table size,
-    (void)LoadInfoNumber();                     //                 a third number
-    if (k != 0)
-    {
-        aiplayerCat32SkipChunks(n);             //                 0xC bytes each
-    }
-
-    for (i=0;i<universe.numPlayers;i++)
-    {
-        if (universe.players[i].aiPlayer == NULL)
-        {
-            continue;
-        }
-        aichunk = LoadNextChunk();              // LoadThisAIPlayer 0x00412190
-        dbgAssertOrIgnore(aichunk->contentsSize == 0x1D18);
-        aiplayerCat32SkipChunks(1 + 2 * TOTAL_NUM_SHIPS);   // the grow selection, the 0x91 pairs
-        for (k = 0; k < 6; k++)
-        {                                       // the request lists and the waiting-team lists: one chunk each
-            n = LoadInfoNumber();
-            aiplayerCat32SkipChunks(n);
-        }
-        aiplayerCat32SkipChunks(2);             // +0xBA4, +0xBAC
-        for (k = 0; k < (sdword)(sizeof(optionalSelections) / sizeof(optionalSelections[0])); k++)
-        {
-            if (aiplayerCat32Word(aichunk, optionalSelections[k]) != 0)
-            {
-                aiplayerCat32SkipChunks(1);
-            }
-        }
-        aiplayerCat32SkipChunks(1);             // the max selection at +0xCF8
-        if (aiplayerCat32Word(aichunk, 0x1CA8) != 0)
-        {
-            aiplayerCat32SkipChunks(1);
-        }
-        (void)LoadInfoNumber();                 // aitLoad 0x00418180: the team table size,
-        numTeams = LoadInfoNumber();            //                     the number of teams
-        for (k = 0; k < numTeams; k++)
-        {
-            teamchunk = LoadNextChunk();        // the 0x280-byte team
-            aiplayerCat32SkipChunks(1);         // its grow selection
-            numMoves = LoadInfoNumber();
-            if (numMoves != 0)
-            {
-                // LoadMoveCB 0x00417fe0: a 0x170-byte move, then whatever its type's load callback (the table at
-                // 0x0074dfec) reads: not walked here
-                dbgFatalf(DBG_Loc, "Cataclysm save: an AI team with %d moves (the exe's move chunks are stage 4's)", numMoves);
-            }
-            if (aiplayerCat32Word(teamchunk, 0x50) != 0)
-            {
-                (void)LoadInfoNumber();
-                for (n = 0; n < 64; n++)
-                {
-                    (void)LoadInfoNumber();
-                }
-            }
-            memFree(teamchunk);
-        }
-        memFree(aichunk);
-
-        aiplayer = aiplayerInit(&universe.players[i], (AIPlayerLevel)tpGameCreated.aiplayerDifficultyLevel);
-        universe.players[i].aiPlayer = aiplayer;
-    }
-    aiCurrentAIPlayer = NULL;                   // aiplayerLoad 0x00412400 ends with it cleared
-}
-
 void aiplayerLoad(void)
 {
     // Load Global Variables
@@ -1963,15 +1902,10 @@ void aiplayerLoad(void)
     sdword i;
     AIPlayer *aiplayer;
 
-    if (saveCat32Loading)
-    {
-        aiplayerCat32Load();                    // CAT (M2-R6 oracle-mode-a)
-        return;
-    }
-
     number = LoadInfoNumber();
 
     aivarLoad();
+    cat_kasVarLoad();                       // CAT: aiplayerLoad 0x00412400
 
     // Load each instance of aiplayer structure
 

@@ -2037,6 +2037,25 @@ void cat_selSelectionAddShip(MaxSelection *dest, Ship *ship)
 }
 
 /*-----------------------------------------------------------------------------
+    Name        : selNumShipsInSelection
+    Description : CAT (0x005118d0, M2-R7 ai-player-skirmish): the number of ships of a type in a selection (its one
+                  caller is the skirmish AI's aisFleetUpdate 0x00431750; the name is CET's)
+-----------------------------------------------------------------------------*/
+sdword selNumShipsInSelection(MaxSelection *selection, ShipType type)
+{
+    sdword i, count = 0;
+
+    for (i = 0; i < selection->numShips; i++)
+    {
+        if (selection->ShipPtr[i]->shiptype == type)
+        {
+            count++;
+        }
+    }
+    return count;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : cat_selSelectionCopy
     Description : CAT (0x005139b0): copies at most 255 ship pointers, but takes src's count, as the exe does
 ----------------------------------------------------------------------------*/

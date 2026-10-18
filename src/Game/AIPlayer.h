@@ -49,10 +49,13 @@ typedef struct ShipTypesBeingBuilt
     ubyte NumShipsOfType[TOTAL_NUM_SHIPS];
 } ShipTypesBeingBuilt;
 
+// CAT: the exe keeps the armada's targets in the AIPlayer itself, a MaxSelection at +0xCF8 that aiuFindArmadaTarget
+//      0x0041e860 fills (cat_selSelectionCopy) and LoadThisAIPlayer 0x00412190 loads with LoadMaxSelectionAndFix; HW1
+//      allocated it (0x14 bytes in HW1, 0xFB4 in cataclysm.exe)
 typedef struct ArmadaType
 {
     ubyte          numTeams;        //how many teams are needed to go for an armada run
-    SelectCommand *targets;
+    MaxSelection   targets;         // CAT: embedded (HW1: SelectCommand *)
     sdword         visibility;
     struct AITeam *recon_team;
 } ArmadaType;
@@ -115,6 +118,9 @@ typedef struct AIPlayer
     sdword NumRControllersBeingBuilt;
     sdword NumASFBeingBuilt;
     sdword NumResearchShipsBeingBuilt;
+    sdword catNumSupportModulesBeingBuilt;      // CAT: +0x950 the support modules ordered (BuildShip 0x00404470 counts
+                                                //      s/bMothershipSupport and sCarrierSupport here; airAddNewShip
+                                                //      0x00412950 takes them off; name chosen here)
 
     ShipPtr ScriptCreator;                      // construction ship for Script controlled ships
     ShipPtr AICreator;                          // construction ship for AI controlled ships
@@ -136,7 +142,10 @@ typedef struct AIPlayer
     udword TechnologyDeficit;
     ubyte ResourcersToBuild;
     ubyte ResearchersToBuild;
-    ubyte ResearchDelay;            //delay for research depending on difficulty level
+    ubyte catSupportModuleRequested;    // CAT: +0xB8E a support module is requested (cat_aifRequestSupportModule
+                                        //      0x00405210 sets it, aifBuildRequestedShips 0x004045b0 / airAddNewShip
+                                        //      0x00412950 clear it; name chosen here)
+    ubyte ResearchDelay;            //delay for research depending on difficulty level (CAT: +0xB8F)
 
     bool32 firstTurn;
     bool32 recalculateAllies;
@@ -154,6 +163,8 @@ typedef struct AIPlayer
     sdword airNumRControllers;
     sdword airNumASF;
     sdword airNumResearchShips;
+    sdword catAirNumSupportModules;             // CAT: +0xBC8 the support modules built (airAddNewShip 0x00412950,
+                                                //      airShipDied 0x00412590; name chosen here)
     udword numSupportTeams;
     struct AITeam *supportTeam[AIPLAYER_NUM_SUPPORTTEAMS];
 
@@ -193,6 +204,42 @@ typedef struct AIPlayer
     sdword teamsUsed;
 
 } AIPlayer;
+
+// CAT: cataclysm.exe's AIPlayer is 0x1D18 bytes (aiplayerInit 0x00411010 allocates and clears 0x746 dwords; the save
+//      chunk SaveThisAIPlayer 0x00411cd0 is 0x1D18); the offsets are the ones its AI code reads
+#if defined(__i386__)
+_Static_assert(sizeof(AIPlayer) == 0x1D18, "AIPlayer is 0x1D18 bytes in cataclysm.exe");
+_Static_assert(__builtin_offsetof(AIPlayer, newships) == 0x24, "AIPlayer.newships at +0x24");
+_Static_assert(__builtin_offsetof(AIPlayer, primaryEnemyShipsIAmAwareOf) == 0x4B4, "AIPlayer.primaryEnemyShipsIAmAwareOf at +0x4B4");
+_Static_assert(__builtin_offsetof(AIPlayer, NumRUDockPoints) == 0x93C, "AIPlayer.NumRUDockPoints at +0x93C");
+_Static_assert(__builtin_offsetof(AIPlayer, catNumSupportModulesBeingBuilt) == 0x950, "AIPlayer support modules ordered at +0x950");
+_Static_assert(__builtin_offsetof(AIPlayer, ScriptCreator) == 0x954, "AIPlayer.ScriptCreator at +0x954");
+_Static_assert(__builtin_offsetof(AIPlayer, NumRUsSpentOnResourceman) == 0x95C, "AIPlayer.NumRUsSpentOnResourceman at +0x95C");
+_Static_assert(__builtin_offsetof(AIPlayer, AttackManRequestShipsQ) == 0x98C, "AIPlayer.AttackManRequestShipsQ at +0x98C");
+_Static_assert(__builtin_offsetof(AIPlayer, AttackManShipsBeingBuilt) == 0x9D4, "AIPlayer.AttackManShipsBeingBuilt at +0x9D4");
+_Static_assert(__builtin_offsetof(AIPlayer, TechnologyDeficit) == 0xB88, "AIPlayer.TechnologyDeficit at +0xB88");
+_Static_assert(__builtin_offsetof(AIPlayer, ResourcersToBuild) == 0xB8C, "AIPlayer.ResourcersToBuild at +0xB8C");
+_Static_assert(__builtin_offsetof(AIPlayer, catSupportModuleRequested) == 0xB8E, "AIPlayer support module request at +0xB8E");
+_Static_assert(__builtin_offsetof(AIPlayer, ResearchDelay) == 0xB8F, "AIPlayer.ResearchDelay at +0xB8F");
+_Static_assert(__builtin_offsetof(AIPlayer, firstTurn) == 0xB90, "AIPlayer.firstTurn at +0xB90");
+_Static_assert(__builtin_offsetof(AIPlayer, aifHyperSavings) == 0xB98, "AIPlayer.aifHyperSavings at +0xB98");
+_Static_assert(__builtin_offsetof(AIPlayer, airResourceReserves) == 0xBA4, "AIPlayer.airResourceReserves at +0xBA4");
+_Static_assert(__builtin_offsetof(AIPlayer, airEasilyAccesibleRUsInWorld) == 0xBB4, "AIPlayer.airEasilyAccesibleRUsInWorld at +0xBB4");
+_Static_assert(__builtin_offsetof(AIPlayer, catAirNumSupportModules) == 0xBC8, "AIPlayer support modules built at +0xBC8");
+_Static_assert(__builtin_offsetof(AIPlayer, numSupportTeams) == 0xBCC, "AIPlayer.numSupportTeams at +0xBCC");
+_Static_assert(__builtin_offsetof(AIPlayer, harassTeam) == 0xC00, "AIPlayer.harassTeam at +0xC00");
+_Static_assert(__builtin_offsetof(AIPlayer, attackTeam) == 0xC1C, "AIPlayer.attackTeam at +0xC1C");
+_Static_assert(__builtin_offsetof(AIPlayer, numLeaders) == 0xCF0, "AIPlayer.numLeaders at +0xCF0");
+_Static_assert(__builtin_offsetof(AIPlayer, aiaArmada) == 0xCF4, "AIPlayer.aiaArmada at +0xCF4");
+_Static_assert(__builtin_offsetof(AIPlayer, aiaArmada.targets) == 0xCF8, "AIPlayer.aiaArmada.targets at +0xCF8");
+_Static_assert(__builtin_offsetof(AIPlayer, aiaArmada.visibility) == 0x1CA0, "AIPlayer.aiaArmada.visibility at +0x1CA0");
+_Static_assert(__builtin_offsetof(AIPlayer, Targets) == 0x1CA8, "AIPlayer.Targets at +0x1CA8");
+_Static_assert(__builtin_offsetof(AIPlayer, shipsattackingmothership) == 0x1CB0, "AIPlayer.shipsattackingmothership at +0x1CB0");
+_Static_assert(__builtin_offsetof(AIPlayer, aidProximitySensors) == 0x1CC0, "AIPlayer.aidProximitySensors at +0x1CC0");
+_Static_assert(__builtin_offsetof(AIPlayer, numGuardTeams) == 0x1CD8, "AIPlayer.numGuardTeams at +0x1CD8");
+_Static_assert(__builtin_offsetof(AIPlayer, teams) == 0x1D0C, "AIPlayer.teams at +0x1D0C");
+_Static_assert(__builtin_offsetof(AIPlayer, teamsUsed) == 0x1D14, "AIPlayer.teamsUsed at +0x1D14");
+#endif
 
 /*=============================================================================
     Global Variables:

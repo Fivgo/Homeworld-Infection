@@ -351,13 +351,20 @@ typedef struct
 //
 //  teams
 //
-#define MSG_QUEUE_MAX_MSGS 32
+// CAT: Cataclysm's queue holds 64 messages by pointer (the kas2c missions pass their message constants and compare
+//      them by address) and keeps a count rather than HW1's ring head: a received message is replaced by the last one
+//      (aitMsgSend 0x00417e10, aitMsgReceived 0x00417e60, cat_aitMsgQueueRemoveAt 0x00417ec0); it lives in the team
+//      (AITeam +0x7C, 0x204 bytes) and msgQueue points at it once a message arrived
+#define MSG_QUEUE_MAX_MSGS 64
 typedef struct {
-    sdword          head;
+    sdword          head;                             // CAT: the number of messages queued
     char            *msgs[MSG_QUEUE_MAX_MSGS];
     struct AITeam   *msgSenders[MSG_QUEUE_MAX_MSGS];  // team that sent the corresponding msg above
                                                       // NOTE:  if a team dies, the message will be deleted from this queue
 } MsgQueue;
+#if defined(__i386__)
+_Static_assert(sizeof(MsgQueue) == 0x204, "an AITeam's message queue is 0x204 bytes in cataclysm.exe");
+#endif
 
 typedef enum {
     AttackTeam,
@@ -371,6 +378,7 @@ typedef enum {
 typedef struct AITeam {
     TeamType          teamType;
     udword            teamFlags;
+    udword            catUnknown08;     // CAT: +0x08, not set by aitCreate 0x00416810 nor read by the AI code read in M2-R7
     udword            TeamFeatures;
     ubyte             teamDelay;
     udword            newships;
@@ -398,7 +406,14 @@ typedef struct AITeam {
     sdword              kasOrigShipsCount; // original size of team (in mission layout file)
     TacticsType         kasTactics;  // current tactics setting, passed to certain moves
     TypeOfFormation     kasFormation; // current formation setting, passed to certain moves
+
+    // CAT: the message queue's storage (AITeam +0x7C in cataclysm.exe)
+    MsgQueue            catMsgQueue;
 } AITeam;
+// CAT: cataclysm.exe's AITeam is 0x280 bytes with the same fields up to +0x54 (+0x08 inserted) and its message queue at
+//      +0x7C; its KAS identity is a label hash at +0x58 and the FSM and state names as pointers (+0x5C, +0x60) where
+//      this tree keeps HW1's three 48-byte names for HW1's KAS (stage 6 replaces it with the kas2c missions), so the
+//      layout is not pinned: the mode-A loader converts a team chunk by the exe's offsets (aitCat32LoadTeam in AITeam.c)
 
 // all move processing functions look like this:
 // (returning 1 when we this move has completed
@@ -540,7 +555,6 @@ bool32 aitTeamIsntDefendingMothership(AITeam *team, SelectCommand *enemyships);
 bool32 aitTeamIsFinishedMoving(AITeam *team, vector destination, real32 range);
 bool32 aitTeamIsDoingSpecialOp(AITeam *team);
 bool32 aitCheckIfOtherDefTeamAnsweringSignalNeedsHelp(AITeam *team, SelectCommand *ships);
-bool32 aitTeamIsInRange(AITeam *team, ShipPtr ship, real32 time);
 bool32 aitTeamIsInMothershipRange(AITeam *team);
 
 void aitRecallGuardTeam(AITeam *team);
@@ -591,6 +605,8 @@ void aitSetAmIBeingWatched(AITeam *team, SelectCommand *sel);
 sdword aitMsgReceived(AITeam *teamp, char *msg);
 void aitMsgSend(AITeam *fromTeamp, AITeam *teamp, char *msg);
 void aitMsgQueueFree(AITeam *teamp);
+char *cat_aitMsgQueueRemoveAt(AITeam *teamp, udword index);      // CAT: 0x00417ec0
+void cat_aitMsgQueueFlush(AITeam *team);                         // CAT: 0x00417f20
 
 void aitSave(struct AIPlayer *aiplayer);
 void aitLoad(struct AIPlayer *aiplayer);

@@ -2412,7 +2412,7 @@ sdword aimProcessArmada(AITeam *team)
 
         // CAT: the armada has targets while its selection holds ships (aimProcessArmada 0x0040a910 tests the numShips of
         //      the selection the exe keeps in AIPlayer; aiaShipDied leaves an emptied one in place)
-        if ((aiCurrentAIPlayer->aiaArmada.targets) && (aiCurrentAIPlayer->aiaArmada.targets->numShips > 0))
+        if (aiCurrentAIPlayer->aiaArmada.targets.numShips > 0)
         {
             selSelectionCopy((MaxAnySelection *)&hyperspace, (MaxAnySelection *)team->shipList.selection);
             makeSelectionHyperspaceCapable((SelectCommand *)&hyperspace);
@@ -2423,12 +2423,12 @@ sdword aimProcessArmada(AITeam *team)
                 (aiCurrentAIPlayer->aifHyperSavings > 0))
             {
                 aiplayerLog((aiIndex, "%x, Armada: Creating Hyperspace Flank Attack", team));
-                newMove = aimCreateFlankAttackNoAdd(team, selectMemDupSelection(aiCurrentAIPlayer->aiaArmada.targets, "duppfah", 0), TRUE, /*SAME_FORMATION, */TRUE, TRUE);
+                newMove = aimCreateFlankAttackNoAdd(team, selectMemDupSelection((SelectCommand *)&aiCurrentAIPlayer->aiaArmada.targets, "duppfah", 0), TRUE, /*SAME_FORMATION, */TRUE, TRUE);
             }
             else
             {
                 aiplayerLog((aiIndex, "%x, Armada: Creating Normal Flank Attack", team));
-                newMove = aimCreateFlankAttackNoAdd(team, selectMemDupSelection(aiCurrentAIPlayer->aiaArmada.targets, "duppfan", 0), FALSE, /*SAME_FORMATION, */TRUE, TRUE);
+                newMove = aimCreateFlankAttackNoAdd(team, selectMemDupSelection((SelectCommand *)&aiCurrentAIPlayer->aiaArmada.targets, "duppfan", 0), FALSE, /*SAME_FORMATION, */TRUE, TRUE);
             }
 
             newMove->events = thisMove->events;
@@ -2439,9 +2439,9 @@ sdword aimProcessArmada(AITeam *team)
     else
     {
          //later must flesh this one out!!!
-        if ((aiCurrentAIPlayer->aiaArmada.targets) && (aiCurrentAIPlayer->aiaArmada.targets->numShips > 0))     // CAT: as above
+        if (aiCurrentAIPlayer->aiaArmada.targets.numShips > 0)     // CAT: as above
         {
-            aiplayerLog((aiIndex, "%x, Armada: Still targets %i left, redoing processing", team, aiCurrentAIPlayer->aiaArmada.targets->numShips));
+            aiplayerLog((aiIndex, "%x, Armada: Still targets %i left, redoing processing", team, aiCurrentAIPlayer->aiaArmada.targets.numShips));
             thisMove->processing = FALSE;
         }
     }

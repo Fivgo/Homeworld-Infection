@@ -16,6 +16,7 @@
 #include <SDL2/SDL_syswm.h>
 
 #include "AIPlayer.h"
+#include "AISkirmish.h"
 #include "Animatic.h"
 #include "AutoDownloadMap.h"
 #include "AutoLOD.h"
@@ -1716,8 +1717,10 @@ void gameStart(char *loadfilename)
         else
         {
             aiplayerChangeBigotry(tpGameCreated.aiplayerBigotry);
+            // CAT: gameStart 0x005a9371 passes the exe's numPlayers word (0x00a43cac), tpGameCreated.numPlayers (the
+            //      word at 0x008860ee, the human players: cat_aisSetupAlliances takes it as the first computer's index)
+            //      and tpGameCreated.numComputers (the byte at 0x008860d4); this tree's arguments are the same three
             aiplayerStartup(numPlayers, tpGameCreated.numPlayers, tpGameCreated.numComputers);
-            // CAT-TODO(stage 4 AI): gameStart 0x005a9290 passes the third argument as the dword at 0x008860d4 & 0xff (= numComputers) and the second as the high word of 0x008860ec; equal here, to be checked with the cat_ais* team code
         }
 
 
@@ -2232,7 +2235,9 @@ abortloading:
             }
         }
     }
-    // CAT-TODO(stage 4 AI): cat_aisReset 0x00433d30 (the 8 cat_aisPlay times at 0x008dfc44 and the flag 0x00a2d9b8 cleared; gameStart 0x005a9290)
+    // CAT: the skirmish AI's 8 play timers and its alliance flag cleared (gameStart 0x005a9ef4 calls cat_aisReset
+    //      0x00433d30 after the ships' upgrades)
+    cat_aisReset();
     // CAT-TODO(stage 5 LAN): a multiplayer game sums the eight colour schemes' first words into 0x00ab7658, the fourth word of netcheckShow's ring that netcheckFillInChecksum sends (gameStart 0x005a9290)
 
     // HWI: GoK's joystick camera (not in the exe; GoK's SDL input layer stays, decision 28)

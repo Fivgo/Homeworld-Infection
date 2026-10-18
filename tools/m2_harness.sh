@@ -171,8 +171,15 @@
 #                    as the missions' KAS call does); every tick the table of checks in src/Game/AISelfTest.c runs on the
 #                    AI's own structures: teams formed (attack, guard and recon teams), attack / defence / recon orders
 #                    (a move of that kind in a team's move list), moves issued (a team with ships past its get-ships
-#                    move) and commands given (a team ship with a command-layer order); "aitest: <check> tick=N ..."
-#                    the first tick each holds, "aitest: status" every 256 ticks, "aitest: done ... result=PASS|FAIL";
+#                    move) and commands given (a team ship with a command-layer order), a build queued (a
+#                    COMMAND_BUILDING_SHIP of player 1 or an external construction) and a Worker harvesting; once those
+#                    hold the skirmish leg starts (M2-R7 ai-player-skirmish, docs/m2-r7-ai-player-skirmish.md): the
+#                    single-player AI stops, the game becomes a one-human one-computer skirmish with research and
+#                    harvesting on, every static of player 1's race is loaded, its unit cap lifted 200 above use, its
+#                    Workers halted, and the test runs the skirmish AI (cat_aisPlay) on aiplayerUpdateAll's schedule;
+#                    the skirmish rows hold on its first play, a new build, research started and a Worker it sent
+#                    harvesting; "aitest: <check> tick=N ..." the first tick each holds, "aitest: skirmish tick=N ..."
+#                    at the switch, "aitest: status" every 256 ticks, "aitest: done ... result=PASS|FAIL" at ticks-2;
 #                    quits after <ticks> ticks (two runs must give byte-identical run.hwo streams)
 #   --recording NAME replay mode: the recorded game to replay (default oracle01)
 #   --oracle-ticks N oracle mode: universe ticks to run (default 512)
@@ -184,7 +191,7 @@
 #   --ui-ticks N     ui mode: the mission run's tick limit (default 400; the test quits by itself at tick 48 + 8 frames)
 #   --console-ticks N console mode: the mission run's tick limit (default 400; the test quits once the console is gone)
 #   --build-ticks N  build mode: universe ticks to run (default 7000; the jobs end near tick 5,000)
-#   --ai-ticks N     ai mode: universe ticks to run (default 400: the checks hold by tick 65, one AI update (16 ticks) a stage; docs/m2-r7-ai-orders-moves.md)
+#   --ai-ticks N     ai mode: universe ticks to run (default 400: the single-player checks hold by tick 65, the skirmish ones by 177; the skirmish AI plays to the end; docs/m2-r7-ai-player-skirmish.md)
 #   --etg-ticks N    etg mode: ticks of the effect self-test (default 128; 0 = parse test only)
 #   --motion-ticks N motion mode: the run's last universe tick (default 224: a 160-tick window from tick 64)
 #   --nis SPEC       nis mode: NAME[:FROM:TO] (default n06:26:36: nis\n06.nis, NIS times 26 s to 36 s)

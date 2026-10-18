@@ -18,8 +18,6 @@ void aifClose(void);
 
 void aifTeamDied(AIPlayer *aiplayer, AITeam *team, bool32 removeAllReferencesToTeam);
 
-bool32 aifShipDied(AIPlayer *aiplayer, ShipPtr ship);
-
 void aifResourceManRequestsShipsCB(ShipType shiptype, sdword number, sdword priority);
 void aifAttackManRequestsShipsCB(ShipType shiptype, sdword number, sdword priority);
 void aifDefenseManRequestsShipsCB(ShipType shiptype, sdword number, sdword priority);
@@ -27,5 +25,7 @@ void aifDefenseManRequestsShipsCB(ShipType shiptype, sdword number, sdword prior
 void aifTeamRequestsShipsCB(ShipType shiptype, sdword number, AITeam *team, char *doneSetVar, sdword priority);
 
 void aifHyperspaceInit(AIPlayer *aiplayer);
+
+bool32 cat_aifRequestSupportModule(void);         // CAT: 0x00405210
 
 #endif

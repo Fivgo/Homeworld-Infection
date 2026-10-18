@@ -6,6 +6,7 @@
 // =============================================================================
 
 #include "AITeam.h"
+#include "SaveCat32.h"
 
 #include "AIFeatures.h"
 #include "AIFleetMan.h"
@@ -55,7 +56,8 @@ AITeam *aitCreate(TeamType teamType)
     team->kasStateName[0]       = 0;
     team->kasFSMWatchFunction   = NULL;
     team->kasStateWatchFunction = NULL;
-    team->kasTactics            = Neutral;
+    // CAT: a multiplayer game's teams default to aggressive tactics (aitCreate 0x004168d6)
+    team->kasTactics            = singlePlayerGame ? Neutral : Aggressive;
     team->kasFormation          = NO_FORMATION;
 
     // keep track of all allocations
@@ -213,7 +215,8 @@ void aitSpecialDefenseCoopTeamDiedCB(AITeam *team)
 
     if (team->cooperatingTeam)
     {
-        if (aitTeamShipTypeIs(CloakGenerator, team))
+        // CAT: either race's cloak generator (aitSpecialDefenseCoopTeamDiedCB 0x00416a10: 0x3f / 0x4d)
+        if (aitTeamShipTypeIs(kCloakGenerator, team) || aitTeamShipTypeIs(tCloakGenerator, team))
         {
             bitSet(team->cooperatingTeam->teamFlags, TEAM_CloakCoop);
             team->cooperatingTeam->cooperatingTeam = team;
@@ -330,7 +333,7 @@ void aitDestroy(struct AIPlayer *aiplayer, AITeam *team, bool32 removeAllReferen
 
     aitDeleteAllTeamMoves(team);
 
-    aitMsgQueueFree(team);
+    aitMsgQueueFree(team);              // CAT: the queue is the team's own (aitDestroy 0x00416c5e clears the pointer)
 
     if (team->TeamDiedCB)
         team->TeamDiedCB(team);
@@ -630,12 +633,14 @@ void aitSetTeamSpecialFlags(AITeam *team)
     }
 
     if ((!bitTest(team->teamFlags, TEAM_CloakFighters)) &&
-        (team->shipList.selection->ShipPtr[(team->shipList.selection->numShips-1)]->shiptype == CloakedFighter))
+        (team->shipList.selection->ShipPtr[(team->shipList.selection->numShips-1)]->shiptype == bCloakedFighter))
     {
         bitSet(team->teamFlags, TEAM_CloakFighters);
     }
+    // CAT: either race's cloak generator (inlined in aitAddShip 0x00416fc8: 0x3f / 0x4d)
     else if ((!bitTest(team->teamFlags, TEAM_CloakGenerator)) &&
-             (team->shipList.selection->ShipPtr[(team->shipList.selection->numShips-1)]->shiptype == CloakGenerator))
+             ((team->shipList.selection->ShipPtr[(team->shipList.selection->numShips-1)]->shiptype == kCloakGenerator) ||
+              (team->shipList.selection->ShipPtr[(team->shipList.selection->numShips-1)]->shiptype == tCloakGenerator)))
     {
         bitSet(team->teamFlags, TEAM_CloakGenerator);
     }
@@ -700,150 +705,9 @@ void aitProcessSpecialTeamCloakedFighters(AITeam *team, AITeamMove *curMove)
 }
 
 
-/*-----------------------------------------------------------------------------
-    Name        : aitProcessSpecialTeamCloakGenerator
-    Description : Cloaks the cloak generator when appropriate
-    Inputs      : team, curCoopMove - the move of the team the cloak generator is cloaking
-    Outputs     : Stuff
-    Return      : void
-----------------------------------------------------------------------------*/
-void aitProcessSpecialTeamCloakGenerator(AITeam *team, AITeamMove *curCoopMove)
-{
-    switch (curCoopMove->type)
-    {
-        case MOVE_MOVETEAM:
-        case MOVE_MOVETEAMINDEX:
-            //if the ship is moving near the mothership, conserve energy
-            //and not cloak
-            if (aiuPointWithinSphereOfInfluence(curCoopMove->params.move.destination))
-            {
-                break;
-            }
-        case MOVE_SHIPRECON:
-        case MOVE_CONTROLRESOURCES:
-        case MOVE_ATTACK:
-        case MOVE_ADVANCEDATTACK:
-            //later - before doing this, ensure the cloak generator is near
-            //a capital ship to cloak, otherwise we're wasting energy
-            aiuWrapSpecial(team->shipList.selection, NULL);
-
-            bitClear(team->teamFlags, TEAM_CloakGenerator);
-            bitSet(team->teamFlags, TEAM_CloakedGenerator);
-            break;
-        default:
-            break;
-    }
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : aitProcessSpecialTeamCloakingGenerator
-    Description : decloaks the cloak generator when appropriate
-    Inputs      : team, curCoopMove - the move of the team the cloak generator is cloaking
-    Outputs     : Stuff
-    Return      : void
-----------------------------------------------------------------------------*/
-void aitProcessSpecialTeamCloakingGenerator(AITeam *team, AITeamMove *curCoopMove)
-{
-    switch (curCoopMove->type)
-    {
-        case MOVE_MOVETEAM:
-        case MOVE_MOVETEAMINDEX:
-            //if the ship is moving near the mothership, conserve energy
-            //and not cloak
-            if (!aiuPointWithinSphereOfInfluence(curCoopMove->params.move.destination))
-            {
-                break;
-            }
-        case MOVE_TEMPGUARD:
-            aiuWrapSpecial(team->shipList.selection, NULL);
-
-            bitClear(team->teamFlags, TEAM_CloakedGenerator);
-            bitSet(team->teamFlags,  TEAM_CloakGenerator);
-            break;
-        default:
-            break;
-    }
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : aitOptimizeGravwellGenerator
-    Description : Makes sure the Gravwell generator team is guarding the right kind of team and adds some events
-    Inputs      : team - the gravwell generator team
-    Outputs     : Adds some events to the team move structure
-    Return      : void
-----------------------------------------------------------------------------*/
-void aitOptimizeGravWellGenerator(AITeam *team)
-{
-    AITeamMove *guardMove;
-    AITeam *coopTeam = team->cooperatingTeam;
-
-    //set the guard move event to turn on wheneven an enemy fighter is nearby
-    //and off when there isn't or when goodguy fighter is nearby (within range)
-
-    if (!team->shipList.selection->numShips)
-    {
-        return;
-    }
-
-    if (coopTeam->shipList.selection->numShips)
-    {
-        if (!(aitTeamShipClassIs(CLASS_Frigate, coopTeam) || aitTeamShipClassIs(CLASS_Carrier, coopTeam) ||
-              aitTeamShipClassIs(CLASS_Destroyer, coopTeam) || aitTeamShipClassIs(CLASS_HeavyCruiser, coopTeam)))
-        {
-//            dbgAssertOrIgnore(TRUE);
-            //find a new team to guard
-        }
-    }
-    else
-    {
-        //I dunno...  let's see how things work out...
-    }
-
-
-    guardMove = aitFindMoveOfType(team, MOVE_GUARDCOOPTEAM);
-
-    dbgAssertOrIgnore(guardMove!=NULL);
-
-    aieHandlerSetEnemyNearby(guardMove,
-                             (((GravWellGeneratorStatics *) ((ShipStaticInfo *)(team->shipList.selection->ShipPtr[0]->staticinfo))->custstatinfo)->GravWellRadius)*0.8,
-                             FALSE, aihGravWellEnemyNearbyHandler);
-    bitSet(team->teamFlags, TEAM_SpecialOptimal);
-
-}
-
-
-/*-----------------------------------------------------------------------------
-    Name        : aitOptimizeCloakGenerator
-    Description : Makes sure the Cloak generator team is guarding the right kind of team and adds some events
-    Inputs      : team - the cloak generator team
-    Outputs     : Adds some events to the team move structure
-    Return      : void
-----------------------------------------------------------------------------*/
-void aitOptimizeCloakGenerator(AITeam *team)
-{
-//    AITeamMove *guardMove;
-    AITeam *coopTeam = team->cooperatingTeam;
-
-    //make sure the team's cooperating team is slow
-    //set the guard move event to turn on wheneven an enemy fighter is nearby
-    //and off when there isn't or when goodguy fighter is nearby (within range)
-
-    if (!(aitTeamShipClassIs(CLASS_Frigate, coopTeam) || aitTeamShipTypeIs(ResourceCollector, coopTeam)))
-    {
-        dbgAssertOrIgnore(TRUE);
-        //find a new team to guard
-    }
-
-//    guardMove = aitFindMoveOfType(MOVE_GUARDSHIPS);
-//    aieHandlerSetEnemyNearby(guardMove,
-//                             (((GravWellGeneratorStatics *) ((ShipStaticInfo *)(team->shipList.selection->ShipPtr[0]->staticinfo))->custstatinfo)->GravWellRadius)*0.8,
-//                             FALSE, aihGravWellEnemyNearbyHandler);
-
-}
-
-
+// CAT: no cloak generator processing (aitProcessSpecialTeamCloakGenerator / CloakingGenerator) and no
+//      aitOptimizeGravWellGenerator / aitOptimizeCloakGenerator: cataclysm.exe has none of them (its aitExecute
+//      0x00417bf0 handles the cloaking fighters only); M2-R7 ai-player-skirmish removed them
 
 /*-----------------------------------------------------------------------------
     Name        : aitProcessSpecialTeam
@@ -854,6 +718,8 @@ void aitOptimizeCloakGenerator(AITeam *team)
 ----------------------------------------------------------------------------*/
 void aitProcessSpecialTeam(AITeam *team, AITeamMove *curMove)
 {
+    // CAT: the cloaking fighters only (inlined in aitExecute 0x00417bf0); HW1's cloak generator and cloak cooperation
+    //      branches are gone
     if ((aiuTeamFeatureEnabled(team, AIT_CLOAKING)) &&
         (bitTest(team->teamFlags, TEAM_CloakFighters)))
     {
@@ -864,63 +730,6 @@ void aitProcessSpecialTeam(AITeam *team, AITeamMove *curMove)
     {
         aitProcessSpecialTeamCloakedFighters(team, curMove);
     }
-
-    //later pull all this crap out completely
-    else if ((aiuTeamFeatureEnabled(team, AIT_CLOAKING)) &&
-             (bitTest(team->teamFlags, TEAM_CloakGenerator)))
-    {
-//        if (!bitTest(team->teamFlags, TEAM_SpecialOptimal))
-//        {
-//            aitOptimizeCloakGenerator(team);
-//        }
-        if (team->cooperatingTeam)
-        {
-            aitProcessSpecialTeamCloakGenerator(team, team->cooperatingTeam->curMove);
-        }
-    }
-    else if ((aiuTeamFeatureEnabled(team, AIT_CLOAKING)) &&
-             (bitTest(team->teamFlags, TEAM_CloakedGenerator)))
-    {
-        if (team->cooperatingTeam)
-        {
-            aitProcessSpecialTeamCloakingGenerator(team, team->cooperatingTeam->curMove);
-        }
-    }
-    else if ((aiuTeamFeatureEnabled(team, AIT_CLOAKING)) &&
-             (bitTest(team->teamFlags, TEAM_CloakCoop)))
-    {
-        if (team->cooperatingTeam)
-        {
-            if (bitTest(team->cooperatingTeam->teamFlags, TEAM_CloakGenerator))
-            {
-                aitProcessSpecialTeamCloakGenerator(team->cooperatingTeam, team->curMove);
-            }
-            else if (bitTest(team->cooperatingTeam->teamFlags, TEAM_CloakedGenerator))
-            {
-                aitProcessSpecialTeamCloakingGenerator(team->cooperatingTeam, team->curMove);
-            }
-            else
-            {
-                dbgAssertOrIgnore(TRUE);
-            }
-        }
-    }
-
-/*    else if ((aiuTeamFeatureEnabled(team, AIT_GRAVWELL)) &&
-             (bitTest(team->teamFlags, TEAM_GravWellGenerator)))
-    {
-        if (!bitTest(team->teamFlags, TEAM_SpecialOptimal))
-        {
-            aitOptimizeGravWellGenerator(team);
-        }
-//        aitProcessSpecialTeamGravWellGenerator(team, curMove);
-    }
-    else if ((aiuTeamFeatureEnabled(team, AIT_GRAVWELL)) &&
-             (bitTest(team->teamFlags, TEAM_GravWellGenerating)))
-    {
-//        aitProcessSpecialTeamGravWellGenerating(team, curMove);
-    }
- */
 }
 
 
@@ -1281,50 +1090,16 @@ bool32 aitAnyTeamOfPlayerAttackingThisShip(struct AIPlayer *aiplayer,Ship *ship)
 }
 
 
-/*-----------------------------------------------------------------------------
-    Name        : aitTeamIsInRange
-    Description : Returns True if the team can make it to the ship within "time"
-    Inputs      : team - the team
-                  ship - the ship to check if the team is in range
-                  time - how much time determine's "in range"
-    Outputs     :
-    Return      : True if the team is in range
-----------------------------------------------------------------------------*/
-bool32 aitTeamIsInRange(AITeam *team, ShipPtr ship, real32 time)
-{
-    real32 timesq = time*time, distsq, teamvelsq;
-
-    if (!team->shipList.selection->numShips)
-    {
-        return FALSE;
-    }
-
-    if (!aitTeamHomogenous(team))
-    {
-        teamvelsq = aiuFindSlowestShipMaxSpeed(team->shipList.selection);
-    }
-    else
-    {
-        teamvelsq = tacticsGetShipsMaxVelocity(team->shipList.selection->ShipPtr[0]);
-    }
-
-    distsq     = aiuFindDistanceSquared(team->shipList.selection->ShipPtr[0]->obj.posinfo.position, ship->obj.posinfo.position);
-    teamvelsq *= teamvelsq;
-
-    if ((teamvelsq * timesq) > distsq)
-    {
-        return TRUE;
-    }
-    else
-    {
-        return FALSE;
-    }
-}
+// CAT: no aitTeamIsInRange: inlined in aitTeamIsInMothershipRange 0x00417470 (its only caller), see there
 
 
 /*-----------------------------------------------------------------------------
     Name        : aitTeamIsInMothershipRange
     Description : Returns True if the ship is within a certain range of the mothership
+                  CAT (0x00417470): HW1's aitTeamIsInRange inlined: the team's speed (its first ship's maximum
+                  velocity times its Cataclysm speed multiplier, or the slowest ship's of a mixed team) for 40 s
+                  when the player's mothership is of the mothership class, else 30 s; the squared range is
+                  evaluated unrounded on the x87 and stored as a float before the compare
     Inputs      : team - the team to check
     Outputs     :
     Return      : TRUE if the team is in range
@@ -1332,20 +1107,33 @@ bool32 aitTeamIsInRange(AITeam *team, ShipPtr ship, real32 time)
 bool32 aitTeamIsInMothershipRange(AITeam *team)
 {
     ShipPtr mothership = team->aiplayerowner->player->PlayerMothership;
+    double velocity;
+    real32 rangesq;
 
     if (!mothership)
     {
         return FALSE;
     }
+    if (!team->shipList.selection->numShips)
+    {
+        return FALSE;
+    }
 
-    if (mothership->shiptype == Mothership)
+    if (!aitTeamHomogenous(team))
     {
-        return aitTeamIsInRange(team, mothership, 40.0);
+        velocity = (double)aiuFindSlowestShipMaxSpeed(team->shipList.selection);
     }
-    else //it must be a carrier
+    else
     {
-        return aitTeamIsInRange(team, mothership, 30.0);
+        velocity = (double)tacticsGetShipsMaxVelocity(team->shipList.selection->ShipPtr[0]) *
+                   (double)cat_shipGetSpeedMultiplier(team->shipList.selection->ShipPtr[0]);
     }
+
+    rangesq = (real32)(velocity * velocity *
+                       ((((ShipStaticInfo *)mothership->staticinfo)->shipclass != CLASS_Mothership) ? 900.0 : 1600.0));
+
+    return (aiuFindDistanceSquared(team->shipList.selection->ShipPtr[0]->obj.posinfo.position,
+                                   mothership->obj.posinfo.position) < rangesq);
 }
 
 
@@ -1623,7 +1411,8 @@ AITeam *aitFindMostValuable(udword valueness)
     {
         if (aiCurrentAIPlayer->teams[i])
         {
-            for (j=0;(valueArray[j])&&(j<10);j++)
+            // CAT: the bound before the read (aitFindMostValuable 0x00417920; HW1 read valueArray[10] once full)
+            for (j=0;(j<10)&&(valueArray[j]);j++)
             {
                 //insertion sort
                 if (valueArray[j]->teamValue < aiCurrentAIPlayer->teams[i]->teamValue)
@@ -1673,7 +1462,8 @@ bool32 aitTeamIsntCoopWithAnotherTeam_Cloak(AITeam *testteam)
 
         if (team->cooperatingTeam == testteam)
         {
-            if (aitTeamShipTypeIs(CloakGenerator, team))
+            // CAT: either race's cloak generator (inlined in aitFindCloakGeneratorCoopTeam 0x00417a20)
+            if (aitTeamShipTypeIs(kCloakGenerator, team) || aitTeamShipTypeIs(tCloakGenerator, team))
             {
                 return FALSE;
             }
@@ -1701,9 +1491,11 @@ bool32 aitTeamIsntCoopWithAnotherTeam_GravWell(AITeam *testteam)
 
         if ((team) && (team->cooperatingTeam == testteam))
         {
+            // CAT: either race's grav well generator (0x00417990: 0x40 / 0x4f)
             if (aitTeamShipClassIs(CLASS_Fighter, team) ||
                 aitTeamShipClassIs(CLASS_Corvette, team) ||
-                aitTeamShipTypeIs(GravWellGenerator, team))
+                aitTeamShipTypeIs(kGravWellGenerator, team) ||
+                aitTeamShipTypeIs(tGravWellGenerator, team))
             {
                 return FALSE;
             }
@@ -1733,11 +1525,12 @@ AITeam *aitFindCloakGeneratorCoopTeam(void)
     {
         team = aiCurrentAIPlayer->attackTeam[i];
 
+        // CAT: neither race's grav well or cloak generator (aitFindCloakGeneratorCoopTeam 0x00417a20)
         if (team &&
             team->shipList.selection->numShips &&
             aitTeamShipClassIs(CLASS_Frigate, team) &&
-            (!aitTeamShipTypeIs(GravWellGenerator, team) &&
-             !aitTeamShipTypeIs(CloakGenerator, team)) &&
+            (!aitTeamShipTypeIs(kGravWellGenerator, team) && !aitTeamShipTypeIs(tGravWellGenerator, team) &&
+             !aitTeamShipTypeIs(kCloakGenerator, team) && !aitTeamShipTypeIs(tCloakGenerator, team)) &&
             (aitTeamIsntCoopWithAnotherTeam_Cloak(team)))
         {
             frigTeam = aiCurrentAIPlayer->attackTeam[i];
@@ -1776,14 +1569,15 @@ AITeam *aitFindGravWellGeneratorCoopTeam(void)
     {
         team = aiCurrentAIPlayer->attackTeam[i];
 
+        // CAT: neither race's grav well or cloak generator, and no test for another cooperating team
+        //      (aitFindGravWellGeneratorCoopTeam 0x00417b20 does not call aitTeamIsntCoopWithAnotherTeam_GravWell)
         if (team &&
             team->shipList.selection->numShips &&
             (aitTeamShipClassIs(CLASS_Frigate, team) ||
              aitTeamShipClassIs(CLASS_Destroyer, team) ||
              aitTeamShipClassIs(CLASS_HeavyCruiser, team)) &&
-            (!aitTeamShipTypeIs(GravWellGenerator, team) &&
-             !aitTeamShipTypeIs(CloakGenerator, team)) &&
-            (aitTeamIsntCoopWithAnotherTeam_GravWell(team)))
+            (!aitTeamShipTypeIs(kGravWellGenerator, team) && !aitTeamShipTypeIs(tGravWellGenerator, team) &&
+             !aitTeamShipTypeIs(kCloakGenerator, team) && !aitTeamShipTypeIs(tCloakGenerator, team)))
         {
             capTeam = team;
             break;
@@ -1808,11 +1602,14 @@ AITeam *aitFindGoodCoopTeam(ShipType type)
 {
     switch (type)
     {
-        case CloakGenerator:
+        // CAT: either race's generators (aitFindGoodCoopTeam 0x00417ba0)
+        case kCloakGenerator:
+        case tCloakGenerator:
             //frigate class team (resource controller as well)
             return aitFindCloakGeneratorCoopTeam();
             break;
-        case GravWellGenerator:
+        case kGravWellGenerator:
+        case tGravWellGenerator:
             //frigate or larger team with no fighters guarding
             return aitFindGravWellGeneratorCoopTeam();
             break;
@@ -1945,44 +1742,27 @@ void aitExecute(void)
 //
 //  sends a message to a team
 //
-//  it will be stored in a FIFO queue until
-//  explicitly received with aitMsgReceived()
-//
-//  (really old msgs will be forgotten)
+//  CAT: aitMsgSend 0x00417e10: the message is queued by pointer (no copy, no test for an empty message) in the team's
+//       own queue; 64 messages wrap the count to 0
 //
 void aitMsgSend(AITeam *fromTeamp, AITeam *teamp, char *msg)
 {
     MsgQueue *msgQP;
-    sdword mlen;
-
-    if (!msg) return;
-    mlen = strlen(msg);
-    if (!mlen) return;
 
     if (!teamp->msgQueue)
     {
-        // create new queue
-        teamp->msgQueue = memAlloc(sizeof(MsgQueue), "msgqueue", 0);
-        memset(teamp->msgQueue,0,sizeof(MsgQueue));        // initialize all to 0, including msgSenders
-        //memset(teamp->msgQueue->msgs, 0, sizeof(char *) * MSG_QUEUE_MAX_MSGS);
-        //teamp->msgQueue->head = 0;
+        teamp->msgQueue = &teamp->catMsgQueue;
+        memset(teamp->msgQueue, 0, sizeof(MsgQueue));
     }
 
     msgQP = teamp->msgQueue;
-
-    if (msgQP->msgs[msgQP->head])
-        memFree(msgQP->msgs[msgQP->head]);
-    msgQP->msgs[msgQP->head] = memAlloc(mlen+1, "msgqmsg",0);
-
     msgQP->msgSenders[msgQP->head] = fromTeamp;
-    strcpy(msgQP->msgs[msgQP->head], msg);
-
+    msgQP->msgs[msgQP->head] = msg;
     ++msgQP->head;
 
     if (msgQP->head == MSG_QUEUE_MAX_MSGS)
     {
-        msgQP->head = 0;        // Darren, fix later properly
-        aiplayerLog((aiIndex,"\nWarning: MsgQueue Overflow"));
+        msgQP->head = 0;
     }
 }
 
@@ -1990,6 +1770,9 @@ void aitMsgSend(AITeam *fromTeamp, AITeam *teamp, char *msg)
 //  returns 1 if msg is in the received msgs queue
 //  (msg will be removed from queue).
 //  returns 0 otherwise.
+//
+//  CAT: aitMsgReceived 0x00417e60: the message is matched by address among the queued ones and replaced by the last
+//       one; the sender is not recorded (HW1 set msgSender)
 //
 sdword aitMsgReceived(AITeam *teamp, char *msg)
 {
@@ -2000,35 +1783,71 @@ sdword aitMsgReceived(AITeam *teamp, char *msg)
     if (!msgQP || !msg)
         return 0;
 
-    for (i = 0; i < MSG_QUEUE_MAX_MSGS; ++i)
-        if (msgQP->msgs[i] && !strcmp(msgQP->msgs[i], msg))
+    for (i = 0; i < msgQP->head; ++i)
+    {
+        if (msgQP->msgs[i] == msg)
         {
-            memFree(msgQP->msgs[i]);
-            msgQP->msgs[i] = NULL;
-            teamp->msgSender = msgQP->msgSenders[i];
-            msgQP->msgSenders[i] = NULL;
+            if (msgQP->head - 1 > 0)
+            {
+                msgQP->msgs[i] = msgQP->msgs[msgQP->head - 1];
+                msgQP->msgSenders[i] = msgQP->msgSenders[msgQP->head - 1];
+            }
+            if (msgQP->head > 0)
+            {
+                msgQP->head--;
+            }
             return 1;
         }
+    }
 
     return 0;
 }
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_aitMsgQueueRemoveAt
+    Description : CAT (0x00417ec0): takes the index-th queued message out (the last one moves into its place) and
+                  returns it, NULL when the team, its queue or the message is missing (the kas2c missions' readers)
+----------------------------------------------------------------------------*/
+char *cat_aitMsgQueueRemoveAt(AITeam *teamp, udword index)
+{
+    MsgQueue *msgQP;
+    char *msg;
+
+    if ((teamp == NULL) || ((msgQP = teamp->msgQueue) == NULL) || ((udword)msgQP->head <= index))
+    {
+        return NULL;
+    }
+    msg = msgQP->msgs[index];
+    if (msgQP->head - 1 > 0)
+    {
+        msgQP->msgs[index] = msgQP->msgs[msgQP->head - 1];
+        msgQP->msgSenders[index] = msgQP->msgSenders[msgQP->head - 1];
+    }
+    if (msgQP->head > 0)
+    {
+        msgQP->head--;
+    }
+    return msg;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : cat_aitMsgQueueFlush
+    Description : CAT (0x00417f20): forgets the queue (its storage is the team's; the contents stay)
+----------------------------------------------------------------------------*/
+void cat_aitMsgQueueFlush(AITeam *team)
+{
+    if (team->msgQueue != NULL)
+    {
+        team->msgQueue = NULL;
+    }
+}
+
 //
-//  free up the entire msg queue (and all msgs)
+//  CAT: the queue is the team's own storage; aitDestroy 0x00416c5e only forgets it (as cat_aitMsgQueueFlush)
 //
 void aitMsgQueueFree(AITeam *teamp)
 {
-    sdword i;
-
-    if (!teamp->msgQueue)
-        return;
-
-    for (i = 0; i < MSG_QUEUE_MAX_MSGS; ++i)
-        if (teamp->msgQueue->msgs[i])
-            memFree(teamp->msgQueue->msgs[i]);
-
-    memFree(teamp->msgQueue);
-    teamp->msgQueue = NULL;
+    cat_aitMsgQueueFlush(teamp);
 }
 
 /*=============================================================================
@@ -2160,7 +1979,9 @@ void LoadMoveCB(LinkedList *list)
     SaveChunk *chunk;
     SaveMoveTypeFuncTable *movetypefunctable;
 
-    chunk = LoadNextChunk();
+    // CAT (M2-R7 ai-player-skirmish): a cataclysm.exe save's 0x170-byte move is converted field by field first (no-op
+    //      for this tree's own saves); the move type ids are the exe's (M2-R7 ai-orders-moves)
+    chunk = saveCat32ChunkStruct(LoadNextChunk(), SAVECAT32_LAYOUT(AITeamMove));
     VerifyChunk(chunk,BASIC_STRUCTURE|AITEAMMOVE,sizeof(AITeamMove));
     move = memAlloc(sizeof(AITeamMove), "loadedmove", 0);
     memcpy(move,chunkContents(chunk),sizeof(AITeamMove));
@@ -2179,6 +2000,9 @@ void LoadMoveCB(LinkedList *list)
     listAddNode(list,&move->listNode,move);
 }
 
+// CAT: SaveThisAITeam 0x00418040 saves the count and the 64 message words; the exe's words are pointers into its own
+//      image (the kas2c message constants), which mean nothing to another process.
+// CAT-TODO(stage 6 KAS): save and restore a queued message as its kas2c message id once the kas2c missions are ported; until then the message words are saved as 0 and a loaded queue keeps its count with no messages
 void SaveMsgQueue(MsgQueue *msgQueue)
 {
     sdword i;
@@ -2187,32 +2011,22 @@ void SaveMsgQueue(MsgQueue *msgQueue)
 
     for (i=0;i<MSG_QUEUE_MAX_MSGS;i++)
     {
-        if (msgQueue->msgs[i])
-        {
-            Save_String(msgQueue->msgs[i]);
-        }
-        else
-        {
-            Save_String("");
-        }
+        SaveInfoNumber(0);
     }
 }
 
-MsgQueue *LoadMsgQueue(void)
+// CAT: aitLoad 0x00418180: the queue is the team's own, the senders cleared
+MsgQueue *LoadMsgQueue(AITeam *team)
 {
     sdword i;
-    MsgQueue *msgQueue = memAlloc(sizeof(MsgQueue),"msgqueue",0);
+    MsgQueue *msgQueue = &team->catMsgQueue;
 
     msgQueue->head = LoadInfoNumber();
 
     for (i=0;i<MSG_QUEUE_MAX_MSGS;i++)
     {
-        msgQueue->msgs[i] = Load_String();
-        if (msgQueue->msgs[i][0] == 0)
-        {
-            memFree(msgQueue->msgs[i]);
-            msgQueue->msgs[i] = NULL;
-        }
+        (void)LoadInfoNumber();
+        msgQueue->msgs[i] = NULL;
         msgQueue->msgSenders[i] = NULL;
     }
 
@@ -2265,7 +2079,7 @@ AITeam *LoadThisAITeam(void)
     LoadGrowSelectionAndFix(&team->shipList);
     LoadLinkedListOfStuff(&team->moves,LoadMoveCB);
 
-    if (team->msgQueue) team->msgQueue = LoadMsgQueue();
+    if (team->msgQueue) team->msgQueue = LoadMsgQueue(team);
 
     return team;
 }
@@ -2302,6 +2116,67 @@ void aitSave(struct AIPlayer *aiplayer)
     }
 }
 
+// the dword at offset off of a cataclysm.exe chunk
+static sdword aitCat32Word(const ubyte *contents, udword off)
+{
+    sdword v;
+
+    memcpy(&v, contents + off, 4);
+    return v;
+}
+
+/*-----------------------------------------------------------------------------
+    Name        : aitCat32LoadTeam
+    Description : CAT (M2-R7 ai-player-skirmish): a team of a cataclysm.exe save (aitLoad 0x00418180: a 0x280-byte
+                  chunk, the grow selection, the moves, the message queue when +0x50 is set), converted by the exe's
+                  offsets (this tree's AITeam keeps HW1's KAS names, so its layout is not the exe's, AITeam.h): the
+                  numbers the exe saved for the owner, the current move, the cooperating team and its callback and
+                  the message sender are put where FixThisAITeam reads them back.
+                  CAT-TODO(stage 6 KAS): the exe's KAS identity (+0x58 label hash, +0x5C / +0x60 FSM and state name pointers, +0x64 / +0x68 the watch functions as kas2c function offsets) comes with the kas2c missions; the team is loaded with empty names and no watch functions
+----------------------------------------------------------------------------*/
+static AITeam *aitCat32LoadTeam(void)
+{
+    SaveChunk *chunk;
+    const ubyte *c;
+    AITeam *team;
+
+    chunk = LoadNextChunk();
+    VerifyChunk(chunk,BASIC_STRUCTURE|AITEAM,0x280);
+    c = (const ubyte *)chunkContents(chunk);
+
+    team = memAlloc(sizeof(AITeam), "aiteam", 0);
+    memset(team, 0, sizeof(AITeam));
+    team->teamType              = (TeamType)aitCat32Word(c, 0x00);
+    team->teamFlags             = (udword)aitCat32Word(c, 0x04);
+    team->catUnknown08          = (udword)aitCat32Word(c, 0x08);
+    team->TeamFeatures          = (udword)aitCat32Word(c, 0x0C);
+    team->teamDelay             = c[0x10];
+    team->newships              = (udword)aitCat32Word(c, 0x14);
+    team->aiplayerowner         = (struct AIPlayer *)(size_t)aitCat32Word(c, 0x18);    // the AIPlayer's number
+    team->teamStrength          = (udword)aitCat32Word(c, 0x24);
+    team->teamValue             = (udword)aitCat32Word(c, 0x28);
+    team->teamDifficultyLevel   = c[0x2C];
+    team->curMove               = (struct AITeamMove *)(size_t)aitCat32Word(c, 0x3C);  // its position in the moves
+    team->cooperatingTeam       = (struct AITeam *)(size_t)aitCat32Word(c, 0x48);      // a team index
+    team->cooperatingTeamDiedCB = (void *)(size_t)aitCat32Word(c, 0x4C);               // 0, 1 or 2
+    team->msgQueue              = (aitCat32Word(c, 0x50) != 0) ? &team->catMsgQueue : NULL;
+    team->msgSender             = (struct AITeam *)(size_t)aitCat32Word(c, 0x54);      // a team index
+    team->kasFSMWatchFunction   = (KASWatchFunction)(size_t)(sdword)-1;                // NULL after the fix
+    team->kasStateWatchFunction = (KASWatchFunction)(size_t)(sdword)-1;
+    team->kasOrigShipsType      = (ShipType)aitCat32Word(c, 0x6C);
+    team->kasOrigShipsCount     = aitCat32Word(c, 0x70);
+    team->kasTactics            = (TacticsType)aitCat32Word(c, 0x74);
+    team->kasFormation          = (TypeOfFormation)aitCat32Word(c, 0x78);
+    memFree(chunk);
+
+    LoadGrowSelectionAndFix(&team->shipList);
+    LoadLinkedListOfStuff(&team->moves,LoadMoveCB);
+
+    if (team->msgQueue) team->msgQueue = LoadMsgQueue(team);
+
+    return team;
+}
+
 void aitLoad(struct AIPlayer *aiplayer)
 {
     sdword i;
@@ -2313,7 +2188,7 @@ void aitLoad(struct AIPlayer *aiplayer)
 
     for (i=0;i<aiplayer->teamsUsed;i++)
     {
-        aiplayer->teams[i] = LoadThisAITeam();
+        aiplayer->teams[i] = saveCat32Loading ? aitCat32LoadTeam() : LoadThisAITeam();
     }
 }
 

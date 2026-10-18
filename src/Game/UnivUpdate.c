@@ -8872,7 +8872,23 @@ Ship *cat_univConvertShip(Ship *ship, ShipType newType, Player *newOwner)
         {
             if ((newOwner->aiPlayer != NULL) && (newship->shiptype != bProcessor))
             {
-                // CAT-TODO(stage 4 AI): a computer player's new ship is sent to dock, 1 in 10 (random stream 6) with dock type 7, else 0 (clWrapDock with universe.aiplayerProcessing set; 0x00543e3b), and the function returns
+                // CAT: a computer player docks its converted ship: retired (dock purpose 7) when stream 6 draws
+                //      1..9 of 1..100, else to the support dock (purpose 0), with universe.aiplayerProcessing set
+                //      for the order (cat_univConvertShip 0x00543ce8..0x00543d5c; M2-R7 ai-player-skirmish)
+                SelectCommand selectone;
+
+                selectone.numShips = 1;
+                selectone.ShipPtr[0] = newship;
+                universe.aiplayerProcessing = TRUE;
+                if ((ranRandom(RANDOM_AI_PLAYER) % 100 + 1) < 10)
+                {
+                    clWrapDock(&universe.mainCommandLayer, &selectone, CAT_DOCK_RETIRE, NULL);
+                }
+                else
+                {
+                    clWrapDock(&universe.mainCommandLayer, &selectone, CAT_DOCK_SUPPORT, NULL);
+                }
+                universe.aiplayerProcessing = FALSE;
                 return newship;
             }
             // CAT (M2-R6 managers): a bProcessor acquires the technologies of what it converted (cat_rmAcquireShipTechs

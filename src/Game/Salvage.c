@@ -1924,8 +1924,9 @@ static void cat_salvageDepotProcessCrystal(Ship *depot, sdword slot)
         case 2:
             // CAT-TODO(stage 6): the KAS variable G_CrystalsHarvested is incremented (cat_kasHashString,
             //      cat_kasVarFind: the Cataclysm KAS variables come with the kas2c missions)
-            // CAT-TODO(stage 4): so is the depot owner's crystal count in the AI player block (0x00b62d58 + player *
-            //      0x7f8)
+            // CAT: and the depot owner's crystal count in its game statistics (0x004f99a5: universe +0x358 is
+            //      gameStats.playerStats[index].catStat28, the stats screen's row 3; M2-R7 ai-player-skirmish)
+            universe.gameStats.playerStats[depot->playerowner->playerIndex].catStat28++;
             crystalspec->noBlast = TRUE;
             crystalspec->processing = FALSE;
             cat_salvageFreePoint(crystal, depot);

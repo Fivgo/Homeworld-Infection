@@ -215,7 +215,7 @@ void   rmInitializeResearchStruct(struct Player *player, bool32 candoresearch, s
 void   rmAllTechRequiredforTech(sdword *out, struct Player *player, TechnologyType tech);
 sdword rmTechRequiredForShip(struct Player *player, ShipType type);
 sdword cat_rmTechRequiredForShipUpgrade(struct Player *player, ShipType type);   // CAT: 0x004f30e0
-void   cat_rmAIResearchTech(struct Player *player, TechnologyType tech);         // CAT: 0x004f3320
+bool32 cat_rmAIResearchTech(struct Player *player, TechnologyType tech);         // CAT: 0x004f3320
 bool32 rmResearchTechForShip(struct Player *player, ShipType type);
 
 void rmInitializeResearchStatics(struct Player *player);

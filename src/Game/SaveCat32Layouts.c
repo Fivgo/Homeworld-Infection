@@ -19,7 +19,9 @@
 
 // union members that disagree (converted member by member in declaration order, the later write wins):
 //   (*(CaptainGameInfo *)0).playerInfo[0].address.AddrPart: the members map some 32-bit bytes to different 64-bit offsets (the 64-bit views overlap); converted member by member in declaration order, the later member's write wins: IP, etherAddr; first: 32-bit 0x0: IP says (0, 'ZEXT'), etherAddr says (0, 'COPY')
+//   (*(AITeamMove *)0).params: the members map some 32-bit bytes to different 64-bit offsets (the 64-bit views overlap); converted member by member in declaration order, the later member's write wins: guardShips, defmoship, tempguard, getShips, formation, move, movesplit, intercept, moveTo, patrolmove, activepatrol, activerecon, shiprecon, countShips, attack, advatt, flankatt, moveatt, harass, fancyGetShips, dock, reinforce, support, rescontrol, resvolume, capture, minevolume, varSet, varInc, varDec, varWait, varDestroy, kamikaze; first: 32-bit 0x14: guardShips says (40, 'PTR'), tempguard says (40, 'COPY'); 32-bit 0x18: getShips says (48, 'COPY'), move says (44, 'COPY'); 32-bit 0x14: guardShips says (40, 'PTR'), intercept says (40, 'SEXT'); 32-bit 0x1c: getShips says (56, 'PTR'), intercept says (52, 'COPY')
 //   (*(P1StandardCorvetteSpec *)0): the members map some 32-bit bytes to different 64-bit offsets (the 64-bit views overlap); converted member by member in declaration order, the later member's write wins: mimic, struct P1StandardCorvetteSpec::(anonymou; first: 32-bit 0x44: mimic says (80, 'COPY'), struct P1StandardCorvetteSpec: says (68, 'COPY')
+//   AITeamMove: 64-bit bytes 0x28-0x2b are written twice (a union whose 64-bit views overlap)
 //   elem_common_playerInfo_0_716f9833: 64-bit bytes 0x0-0x5 are written twice (a union whose 64-bit views overlap)
 //   spec_MCVSpec: 64-bit bytes 0x0-0x17 are written twice (a union whose 64-bit views overlap)
 //   spec_P1StandardCorvetteSpec: 64-bit bytes 0x48-0x4b are written twice (a union whose 64-bit views overlap)
@@ -33,15 +35,139 @@ static const SaveCat32Layout saveCat32Layout_elem_P1Mothership_slots_0_b2708604;
 static const SaveCat32Layout saveCat32Layout_elem_Processor_beams_0_8a5d63b6;
 static const SaveCat32Layout saveCat32Layout_elem_Processor_slots_0_b2708604;
 static const SaveCat32Layout saveCat32Layout_elem_Sentinel_links_0_b1037990;
+static const SaveCat32Layout saveCat32Layout_elem_common_enemyShipsIAmAwareOf_0_647279cc;
 static const SaveCat32Layout saveCat32Layout_elem_common_engineNozzleOffset_0_05b36135;
 static const SaveCat32Layout saveCat32Layout_elem_common_playerInfo_0_716f9833;
 static const SaveCat32Layout saveCat32Layout_elem_common_playerStats_0_ac6f2363;
 static const SaveCat32Layout saveCat32Layout_elem_common_players_0_49575e25;
 static const SaveCat32Layout saveCat32Layout_elem_common_points_0_05b36135;
+static const SaveCat32Layout saveCat32Layout_elem_common_primaryEnemyShipsIAmAwareOf_0_647279cc;
 static const SaveCat32Layout saveCat32Layout_elem_common_progress_0_45b20bae;
 static const SaveCat32Layout saveCat32Layout_elem_common_rectpos_0_05b36135;
 static const SaveCat32Layout saveCat32Layout_elem_common_researchlabs_0_cdfa53ad;
 static const SaveCat32Layout saveCat32Layout_elem_common_subslots_0_c8b88d40;
+
+static const SaveCat32Op ops_elem_common_enemyShipsIAmAwareOf_0_647279cc[] = {
+    { SC32_COPY, 0x0, 0x0, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x4, 0x8, 4, 1, 4, 8, NULL },
+};
+static const SaveCat32Layout saveCat32Layout_elem_common_enemyShipsIAmAwareOf_0_647279cc = { "elem_common_enemyShipsIAmAwareOf_0_647279cc", 0x8, 0x10, 2, ops_elem_common_enemyShipsIAmAwareOf_0_647279cc };
+
+static const SaveCat32Op ops_elem_common_primaryEnemyShipsIAmAwareOf_0_647279cc[] = {
+    { SC32_COPY, 0x0, 0x0, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x4, 0x8, 4, 1, 4, 8, NULL },
+};
+static const SaveCat32Layout saveCat32Layout_elem_common_primaryEnemyShipsIAmAwareOf_0_647279cc = { "elem_common_primaryEnemyShipsIAmAwareOf_0_647279cc", 0x8, 0x10, 2, ops_elem_common_primaryEnemyShipsIAmAwareOf_0_647279cc };
+
+static const SaveCat32Op ops_AIPlayer[] = {
+    { SC32_PTR, 0x0, 0x0, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x4, 0x8, 0x1c, 1, 0, 0, NULL },
+    { SC32_PTR, 0x20, 0x28, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x24, 0x30, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x28, 0x38, 4, 1, 4, 8, NULL },
+    { SC32_ARRAY, 0x2c, 0x40, 0, 145, 0x8, 0x10, &saveCat32Layout_elem_common_enemyShipsIAmAwareOf_0_647279cc },
+    { SC32_ARRAY, 0x4b4, 0x950, 0, 145, 0x8, 0x10, &saveCat32Layout_elem_common_primaryEnemyShipsIAmAwareOf_0_647279cc },
+    { SC32_COPY, 0x93c, 0x1260, 0x18, 1, 0, 0, NULL },
+    { SC32_SEXT, 0x954, 0x1278, 4, 1, 4, 8, NULL },
+    { SC32_SEXT, 0x958, 0x1280, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x95c, 0x1288, 0x10, 1, 0, 0, NULL },
+    { SC32_PTR, 0x96c, 0x1298, 4, 4, 4, 8, NULL },
+    { SC32_SEXT, 0x97c, 0x12b8, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x980, 0x12c0, 0x8, 1, 0, 0, NULL },
+    { SC32_SEXT, 0x988, 0x12c8, 4, 1, 4, 8, NULL },
+    { SC32_PTR, 0x98c, 0x12d0, 4, 2, 4, 8, NULL },
+    { SC32_COPY, 0x994, 0x12e0, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x998, 0x12e8, 4, 2, 4, 8, NULL },
+    { SC32_COPY, 0x9a0, 0x12f8, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x9a4, 0x1300, 4, 2, 4, 8, NULL },
+    { SC32_COPY, 0x9ac, 0x1310, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x9b0, 0x1318, 4, 2, 4, 8, NULL },
+    { SC32_COPY, 0x9b8, 0x1328, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x9bc, 0x1330, 4, 2, 4, 8, NULL },
+    { SC32_COPY, 0x9c4, 0x1340, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x9c8, 0x1348, 4, 2, 4, 8, NULL },
+    { SC32_COPY, 0x9d0, 0x1358, 0x4, 1, 0, 0, NULL },
+    { SC32_COPY, 0x9d4, 0x1360, 0x1b3, 1, 0, 0, NULL },
+    { SC32_COPY, 0xb88, 0x1514, 0x20, 1, 0, 0, NULL },
+    { SC32_PTR, 0xba8, 0x1538, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0xbac, 0x1540, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0xbb0, 0x1548, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0xbb4, 0x1550, 0x1c, 1, 0, 0, NULL },
+    { SC32_PTR, 0xbd0, 0x1570, 4, 18, 4, 8, NULL },
+    { SC32_COPY, 0xc18, 0x1600, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0xc1c, 0x1608, 4, 24, 4, 8, NULL },
+    { SC32_COPY, 0xc7c, 0x16c8, 0x75, 1, 0, 0, NULL },
+    { SC32_COPY, 0xcf4, 0x1740, 0x1, 1, 0, 0, NULL },
+    { SC32_COPY, 0xcf8, 0x1748, 0x8, 1, 0, 0, NULL },
+    { SC32_SEXT, 0xd00, 0x1750, 4, 1000, 4, 8, NULL },
+    { SC32_COPY, 0x1ca0, 0x3690, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x1ca4, 0x3698, 4, 2, 4, 8, NULL },
+    { SC32_COPY, 0x1cac, 0x36a8, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x1cb0, 0x36b0, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x1cb4, 0x36b8, 0xc, 1, 0, 0, NULL },
+    { SC32_PTR, 0x1cc0, 0x36c8, 4, 4, 4, 8, NULL },
+    { SC32_COPY, 0x1cd0, 0x36e8, 0xc, 1, 0, 0, NULL },
+    { SC32_PTR, 0x1cdc, 0x36f8, 4, 13, 4, 8, NULL },
+    { SC32_COPY, 0x1d10, 0x3760, 0x8, 1, 0, 0, NULL },
+};
+const SaveCat32Layout saveCat32Layout_AIPlayer = { "AIPlayer", 0x1d18, 0x3768, 49, ops_AIPlayer };
+_Static_assert(sizeof(AIPlayer) == 0x3768, "AIPlayer: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+
+static const SaveCat32Op ops_AITeamMove[] = {
+    { SC32_PTR, 0x0, 0x0, 4, 4, 4, 8, NULL },
+    { SC32_COPY, 0x10, 0x20, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x14, 0x28, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x14, 0x28, 0x4, 1, 0, 0, NULL },
+    { SC32_SEXT, 0x14, 0x28, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x18, 0x30, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x1c, 0x38, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x20, 0x40, 0x4, 1, 0, 0, NULL },
+    { SC32_COPY, 0x18, 0x2c, 0xc, 1, 0, 0, NULL },
+    { SC32_PTR, 0x18, 0x30, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x1c, 0x34, 0x14, 1, 0, 0, NULL },
+    { SC32_COPY, 0x24, 0x38, 0x14, 1, 0, 0, NULL },
+    { SC32_COPY, 0x1c, 0x38, 0x4, 1, 0, 0, NULL },
+    { SC32_COPY, 0x18, 0x30, 0x1, 1, 0, 0, NULL },
+    { SC32_SEXT, 0x18, 0x30, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x20, 0x3c, 0x8, 1, 0, 0, NULL },
+    { SC32_COPY, 0x24, 0x44, 0xa8, 1, 0, 0, NULL },
+    { SC32_PTR, 0x30, 0x48, 4, 2, 4, 8, NULL },
+    { SC32_COPY, 0x38, 0x58, 0x1, 1, 0, 0, NULL },
+    { SC32_COPY, 0x14, 0x28, 0x34, 1, 0, 0, NULL },
+    { SC32_COPY, 0xcc, 0xf0, 0x2, 1, 0, 0, NULL },
+    { SC32_SEXT, 0xd0, 0xf8, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0xd4, 0x100, 0x6, 1, 0, 0, NULL },
+    { SC32_SEXT, 0xdc, 0x108, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0xe0, 0x110, 0x6, 1, 0, 0, NULL },
+    { SC32_SEXT, 0xe8, 0x118, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0xec, 0x120, 0x2, 1, 0, 0, NULL },
+    { SC32_SEXT, 0xf0, 0x128, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0xf4, 0x130, 0x2, 1, 0, 0, NULL },
+    { SC32_SEXT, 0xf8, 0x138, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0xfc, 0x140, 0x7, 1, 0, 0, NULL },
+    { SC32_SEXT, 0x104, 0x148, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x108, 0x150, 0x7, 1, 0, 0, NULL },
+    { SC32_SEXT, 0x110, 0x158, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x114, 0x160, 0xa, 1, 0, 0, NULL },
+    { SC32_SEXT, 0x120, 0x170, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x124, 0x178, 0xa, 1, 0, 0, NULL },
+    { SC32_SEXT, 0x130, 0x188, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x134, 0x190, 0x2, 1, 0, 0, NULL },
+    { SC32_SEXT, 0x138, 0x198, 4, 1, 4, 8, NULL },
+    { SC32_SEXT, 0x13c, 0x1a0, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x140, 0x1a8, 0x2, 1, 0, 0, NULL },
+    { SC32_COPY, 0x144, 0x1ac, 0x8, 1, 0, 0, NULL },
+    { SC32_PTR, 0x14c, 0x1b8, 4, 1, 4, 8, NULL },
+    { SC32_SEXT, 0x150, 0x1c0, 4, 1, 4, 8, NULL },
+    { SC32_SEXT, 0x154, 0x1c8, 4, 1, 4, 8, NULL },
+    { SC32_SEXT, 0x158, 0x1d0, 4, 1, 4, 8, NULL },
+    { SC32_SEXT, 0x15c, 0x1d8, 4, 1, 4, 8, NULL },
+    { SC32_SEXT, 0x160, 0x1e0, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x164, 0x1e8, 0x3, 1, 0, 0, NULL },
+    { SC32_COPY, 0x168, 0x1ec, 0x8, 1, 0, 0, NULL },
+};
+const SaveCat32Layout saveCat32Layout_AITeamMove = { "AITeamMove", 0x170, 0x1f8, 51, ops_AITeamMove };
+_Static_assert(sizeof(AITeamMove) == 0x1f8, "AITeamMove: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
 
 static const SaveCat32Op ops_elem_common_rectpos_0_05b36135[] = {
     { SC32_COPY, 0x0, 0x0, 0xc, 1, 0, 0, NULL },
@@ -402,6 +528,15 @@ static const SaveCat32Op ops_PlayerResearchInfo[] = {
 const SaveCat32Layout saveCat32Layout_PlayerResearchInfo = { "PlayerResearchInfo", 0x6250, 0x6290, 5, ops_PlayerResearchInfo };
 _Static_assert(sizeof(PlayerResearchInfo) == 0x6290, "PlayerResearchInfo: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
 
+static const SaveCat32Op ops_RequestShips[] = {
+    { SC32_PTR, 0x0, 0x0, 4, 4, 4, 8, NULL },
+    { SC32_SEXT, 0x10, 0x20, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x14, 0x28, 0x8, 1, 0, 0, NULL },
+    { SC32_SEXT, 0x1c, 0x30, 4, 1, 4, 8, NULL },
+};
+const SaveCat32Layout saveCat32Layout_RequestShips = { "RequestShips", 0x20, 0x38, 4, ops_RequestShips };
+_Static_assert(sizeof(RequestShips) == 0x38, "RequestShips: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+
 static const SaveCat32Op ops_ResearchTopic[] = {
     { SC32_PTR, 0x0, 0x0, 4, 4, 4, 8, NULL },
     { SC32_COPY, 0x10, 0x20, 0x8, 1, 0, 0, NULL },
@@ -549,6 +684,16 @@ static const SaveCat32Op ops_SinglePlayerGameInfo[] = {
 };
 const SaveCat32Layout saveCat32Layout_SinglePlayerGameInfo = { "SinglePlayerGameInfo", 0x54, 0x70, 7, ops_SinglePlayerGameInfo };
 _Static_assert(sizeof(SinglePlayerGameInfo) == 0x70, "SinglePlayerGameInfo: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
+
+static const SaveCat32Op ops_TeamWaitingForTheseShips[] = {
+    { SC32_PTR, 0x0, 0x0, 4, 4, 4, 8, NULL },
+    { SC32_SEXT, 0x10, 0x20, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x14, 0x28, 0x4, 1, 0, 0, NULL },
+    { SC32_PTR, 0x18, 0x30, 4, 1, 4, 8, NULL },
+    { SC32_COPY, 0x1c, 0x38, 0x30, 1, 0, 0, NULL },
+};
+const SaveCat32Layout saveCat32Layout_TeamWaitingForTheseShips = { "TeamWaitingForTheseShips", 0x4c, 0x68, 5, ops_TeamWaitingForTheseShips };
+_Static_assert(sizeof(TeamWaitingForTheseShips) == 0x68, "TeamWaitingForTheseShips: regenerate src/Game/SaveCat32Layouts.c (tools/m2_save32_gen.py)");
 
 static const SaveCat32Op ops_elem_common_playerStats_0_ac6f2363[] = {
     { SC32_COPY, 0x0, 0x0, 0x7f8, 1, 0, 0, NULL },

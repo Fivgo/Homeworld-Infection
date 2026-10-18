@@ -180,8 +180,11 @@ void cat_dockDepositResourceUnits(Player *player,sdword resourceUnits)
     if (resourceUnits > 0)
     {
         player->resourceUnits += resourceUnits;
-        // CAT-TODO(stage 4): the exe also adds them to the player's two AI resource counters (universe.aiplayerEnemy
-        //      + playerIndex * 0x7F8, +0x4E and +0x52; the Cataclysm AIPlayer layout is the AI stage's)
+        // CAT: and to the player's game statistics, collected then total (0x00463294 / 0x004632aa: universe +0x33C and
+        //      +0x338 are gameStats.playerStats[index] +0xC and +0x8; M2-R7 ai-player-skirmish, the stage-4 tag that
+        //      read them as AI counters)
+        universe.gameStats.playerStats[player->playerIndex].totalResourceUnitsCollected += resourceUnits;
+        universe.gameStats.playerStats[player->playerIndex].totalResourceUnits += resourceUnits;
         universe.gameStats.totalResourceUnitsCollected += resourceUnits;
         if ((singlePlayerGame) && (player->playerIndex == 0))
         {

@@ -340,6 +340,7 @@ SelectCommand *selectMemDupSelection(SelectCommand *selection, char *str, udword
     CAT: Cataclysm-only selection functions (exe ShipSelect.c block 0x00511870-0x00514210)
 =============================================================================*/
 void cat_selSelectionAddShip(MaxSelection *dest, Ship *ship);
+sdword selNumShipsInSelection(MaxSelection *selection, ShipType type);    // CAT: 0x005118d0 (M2-R7)
 void cat_selSelectionCopy(MaxSelection *dest, MaxSelection *src);
 void cat_growSelectNullShip(GrowSelection *grow, Ship *ship);
 void cat_selMakeShipsScuttleable(SelectCommand *selection, bool32 check);

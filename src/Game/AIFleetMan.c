@@ -63,100 +63,8 @@ void aifClose(void)
     // Nothing ??
 }
 
-/*-----------------------------------------------------------------------------
-    Name        : aifShipDied
-    Description : Removes a dead ship from the Fleet Command's internal structures
-    Inputs      : aiplayer, ship - the ship that died
-    Outputs     :
-    Return      : TRUE if the ship was found and removed
-----------------------------------------------------------------------------*/
-bool32 aifShipDied(AIPlayer *aiplayer,ShipPtr ship)
-{
-    bool32 return_value = FALSE;
-
-    if (ship->playerowner == aiplayer->player &&
-        (ship->shiptype == Carrier || ship->shiptype == Mothership))
-    {
-        RequestShips *request;
-        Node *tempnode;
-
-        //could be a creator ship
-        if (ship == aiplayer->AICreator)
-        {
-            aiplayer->AICreator = NULL;
-            return_value = TRUE;
-        }
-        else if (ship == aiplayer->ScriptCreator)
-        {
-            aiplayer->ScriptCreator = NULL;
-            return_value = TRUE;
-        }
-
-        //now go through all the requests to make sure
-        //this ship isn't referred to as a creator
-
-        //check the resource requests
-        if (aiplayer->ResourceManRequestShips.creator == ship)
-        {
-            aiplayer->ResourceManRequestShips.creator = NULL;
-            return_value = TRUE;
-        }
-
-        //check the attack requests
-        if (aiplayer->AttackManRequestShipsQ.head != NULL)
-        {
-            tempnode = aiplayer->AttackManRequestShipsQ.head;
-
-            while (tempnode != NULL)
-            {
-                request = (RequestShips *)listGetStructOfNode(tempnode);
-
-                if (request->creator == ship)
-                {
-                    request->creator = NULL;
-                    return_value     = TRUE;
-                }
-                tempnode = tempnode->next;
-            }
-        }
-        //check the defense requests
-        if (aiplayer->DefenseManRequestShipsQ.head != NULL)
-        {
-            tempnode = aiplayer->DefenseManRequestShipsQ.head;
-
-            while (tempnode != NULL)
-            {
-                request = (RequestShips *)listGetStructOfNode(tempnode);
-
-                if (request->creator == ship)
-                {
-                    request->creator = NULL;
-                    return_value     = TRUE;
-                }
-                tempnode = tempnode->next;
-            }
-        }
-        //check the script requests
-        if (aiplayer->ScriptManRequestShipsQ.head != NULL)
-        {
-            tempnode = aiplayer->ScriptManRequestShipsQ.head;
-
-            while (tempnode != NULL)
-            {
-                request = (RequestShips *)listGetStructOfNode(tempnode);
-
-                if (request->creator == ship)
-                {
-                    request->creator = NULL;
-                    return_value     = TRUE;
-                }
-                tempnode = tempnode->next;
-            }
-        }
-    }
-
-    return return_value;
-}
+// CAT: no aifShipDied: cataclysm.exe has none and nothing calls it (aiplayerShipDied 0x00411970 does not; HW1's body
+//      tested the HW1 Carrier / Mothership types; M2-R7 ai-player-skirmish removed it)
 
 void BuildShip(ShipStaticInfo *shipstatic,Player *player,sdword *incRUs,sdword *decRUs, ShipPtr creator)
 {
@@ -229,64 +137,121 @@ void BuildShip(ShipStaticInfo *shipstatic,Player *player,sdword *incRUs,sdword *
 	}
 #endif
 
-    if (shipstatic->shiptype == ResourceCollector)
+    // CAT: in a multiplayer game nothing is ordered once the support units are used up (BuildShip 0x00404470; the
+    //      unsigned compare of the exe)
+    if (!singlePlayerGame && (shipstatic->supportUnits != 0) &&
+        ((udword)player->supportUnitsUsed >= (udword)player->supportUnitsMax))
     {
-        aiCurrentAIPlayer->NumRCollectorsBeingBuilt++;
+        return;
     }
-    // CAT: no HW1 ResourceController (M2-R4 ships-b)
-    else if (shipstatic->shiptype == AdvanceSupportFrigate)
+
+    // CAT: Cataclysm's resource and support ships are counted by type (BuildShip 0x00404498: the Workers and the
+    //      Taiidan collector, the processors in HW1's resource-controller count, the advance support frigates, the
+    //      support modules in their own count)
+    switch (shipstatic->shiptype)
     {
-        aiCurrentAIPlayer->NumASFBeingBuilt++;
+        case sWorker:
+        case bWorker:
+        case tResourceCollector:
+            aiCurrentAIPlayer->NumRCollectorsBeingBuilt++;
+            break;
+        case kAdvanceSupportFrigate:
+        case tAdvanceSupportFrigate:
+            aiCurrentAIPlayer->NumASFBeingBuilt++;
+            break;
+        case sProcessor:
+        case bProcessor:
+            aiCurrentAIPlayer->NumRControllersBeingBuilt++;
+            break;
+        case sCarrierSupport:
+        case sMothershipSupport:
+        case bMothershipSupport:
+            aiCurrentAIPlayer->catNumSupportModulesBeingBuilt++;
+            break;
+        default:
+            break;
     }
-    // CAT: no HW1 ResearchShip (M2-R4 ships-b)
 
     if (!creator)
     {
         creator = player->PlayerMothership;
     }
+    if (creator == NULL)
+    {
+        return;                                 // CAT: no mothership, no order (0x004044f3)
+    }
 
-    clWrapBuildShip(&universe.mainCommandLayer, shipstatic->shiptype, creator->shiprace, player->playerIndex, creator);
+    // CAT: an external ship is created at the creator (0x00404516)
+    if (shipstatic->externalBuild)
+    {
+        clWrapCreateShip(&universe.mainCommandLayer, shipstatic->shiptype, creator->shiprace, player->playerIndex, creator);
+    }
+    else
+    {
+        clWrapBuildShip(&universe.mainCommandLayer, shipstatic->shiptype, creator->shiprace, player->playerIndex, creator);
+    }
 
     *incRUs += shipstatic->buildCost;
     *decRUs -= shipstatic->buildCost;
 }
 
-ShipStaticInfo *GetSubstituteShipStatic(ShipRace race)
-{
-    ShipStaticInfo *shipstatic = NULL;
-
-    switch (race)
-    {
-        // CAT-TODO(stage 4 AI): the HW1 substitute for R1/R2 was the dropped LightInterceptor (M2-R4 ships-b)
-
-        case P1:
-            shipstatic = GetShipStaticInfo(P1Fighter,race);
-            break;
-        // CAT: no HW1 P2 swarmer substitute (M2-R4 ships-b)
-
-        default:
-            dbgAssertOrIgnore(FALSE);
-    }
-
-    if (shipstatic)
-    {
-        if (!bitTest(shipstatic->common.infoFlags, IF_InfoLoaded))
-        {
-            shipstatic = NULL;
-        }
-    }
-
-    return shipstatic;
-}
+// CAT: no GetSubstituteShipStatic: cataclysm.exe has no such function and nothing calls it (HW1's substitute for the
+//      R1/R2 races was the dropped LightInterceptor; M2-R7 ai-player-skirmish removed it and its stage-4 tag)
 
 /*-----------------------------------------------------------------------------
     Name        : aifBuildRequestedShips
     Description : Decides which build request to process depending on
                   which is more important - attack, defense, or resources
+                  CAT (0x004045b0): no orders without a live mothership; an external ship (not a Beast's, not a
+                  module) waits for the Sect docking bay module; the resource manager's support module request is
+                  the race's own (an sMothershipSupport asked for a non-mothership becomes an sCarrierSupport and is
+                  dropped, a bMothershipSupport asked for a non-bMothership is dropped) and every drop or failed
+                  support-module build clears the request flag (+0xB8E); the resource ships wait for their cost;
+                  the defense manager's budget overflow is compared unrounded (the exe keeps it on the x87)
     Inputs      :
     Outputs     :
     Return      : returns the chosen request
 ----------------------------------------------------------------------------*/
+
+// a request's ship static and cost, or the request dropped (num_ships -1): the race and research tests of the
+//      script, attack and defense requests (0x00404621..0x004047d7)
+static ShipStaticInfo *aifRequestStatic(RequestShips *request, Player *player, ShipRace race, sdword *numships,
+                                        sdword *totalcost)
+{
+    ShipStaticInfo *shipstatic;
+
+    if ((request == NULL) || (request->num_ships <= 0))
+    {
+        return NULL;
+    }
+    if (RacesAllowedForGivenShip[request->shiptype] & RaceToRaceBits(race))
+    {
+        shipstatic = GetShipStaticInfo(request->shiptype, (ShipRace)cat_ShipTypeToRace((udword)request->shiptype));
+        if ((shipstatic != NULL) && bitTest(shipstatic->common.infoFlags, IF_InfoLoaded) &&
+            (!shipstatic->externalBuild || (race == RACE_Beast) || (shipstatic->shipclass == CLASS_Component) ||
+             cat_playerHasCompletedShip(sMothershipDockingBay, player)))
+        {
+            *numships = request->num_ships;
+            *totalcost = request->num_ships * shipstatic->buildCost;
+            return shipstatic;
+        }
+    }
+    aiplayerLog((player->playerIndex,"Warning could not build shiprace %d shiptype %d",race,request->shiptype));
+    request->num_ships = -1;
+    return NULL;
+}
+
+// a failed support-module build of the resource manager clears its request flag (0x00404be4)
+static void aifSupportModuleNotBuilt(RequestShips *resourcerequest, sdword resourcenumships)
+{
+    if ((resourcenumships > 0) &&
+        ((resourcerequest->shiptype == sMothershipSupport) || (resourcerequest->shiptype == sCarrierSupport) ||
+         (resourcerequest->shiptype == bMothershipSupport)))
+    {
+        aiCurrentAIPlayer->catSupportModuleRequested = FALSE;
+    }
+}
+
 void aifBuildRequestedShips(RequestShips *scriptrequest,RequestShips *attrequest,RequestShips *defrequest,RequestShips *resourcerequest)
 {
     ShipStaticInfo *scriptshipstatic = NULL;
@@ -310,88 +275,39 @@ void aifBuildRequestedShips(RequestShips *scriptrequest,RequestShips *attrequest
     sdword i;
     sdword RUsLeft = player->resourceUnits;
     ShipRace race;
+    ShipType type;
 
-    if (playerMothership == NULL)
+    if ((playerMothership == NULL) || bitTest(playerMothership->header.flags, SOF_Dead))
     {
         return;     // can't build anything, return
     }
 
     race = playerMothership->shiprace;
 
-    if ((scriptrequest != NULL) && (scriptrequest->num_ships > 0))
-    {
-        if ((RacesAllowedForGivenShip[scriptrequest->shiptype] & RaceToRaceBits(race)))
-        {
-            scriptshipstatic = GetShipStaticInfo(scriptrequest->shiptype,race);
-            if (!bitTest(scriptshipstatic->common.infoFlags, IF_InfoLoaded))
-            {
-                scriptshipstatic = NULL;
-            }
-        }
-        if (scriptshipstatic)
-        {
-            scriptnumships = (sdword)scriptrequest->num_ships;
-            scripttotalcost = scriptnumships * scriptshipstatic->buildCost;
-        }
-        else
-        {
-            aiplayerLog((player->playerIndex,"Warning Script could not build shiprace %d shiptype %d",race,scriptrequest->shiptype));
-            scriptrequest->num_ships = -1;
-        }
-    }
-
-    if ((attrequest != NULL) && (attrequest->num_ships > 0))
-    {
-        if ((RacesAllowedForGivenShip[attrequest->shiptype] & RaceToRaceBits(race)))
-        {
-            attshipstatic = GetShipStaticInfo(attrequest->shiptype,race);
-            if (!bitTest(attshipstatic->common.infoFlags, IF_InfoLoaded))
-            {
-                attshipstatic = NULL;
-            }
-        }
-        if (attshipstatic)
-        {
-            attnumships = (sdword)attrequest->num_ships;
-            atttotalcost = attnumships * attshipstatic->buildCost;
-        }
-        else
-        {
-            aiplayerLog((player->playerIndex,"Warning Attack could not build shiprace %d shiptype %d",race,attrequest->shiptype));
-            attrequest->num_ships = -1;
-        }
-    }
-
-    if ((defrequest != NULL) && (defrequest->num_ships > 0))
-    {
-        if ((RacesAllowedForGivenShip[defrequest->shiptype] & RaceToRaceBits(race)))
-        {
-            defshipstatic = GetShipStaticInfo(defrequest->shiptype,race);
-            if (!bitTest(defshipstatic->common.infoFlags, IF_InfoLoaded))
-            {
-                defshipstatic = NULL;
-            }
-        }
-        if (defshipstatic)
-        {
-            defnumships = (sdword)defrequest->num_ships;
-            deftotalcost = defnumships * defshipstatic->buildCost;
-        }
-        else
-        {
-            aiplayerLog((player->playerIndex,"Warning Defense could not build shiprace %d shiptype %d",race,defrequest->shiptype));
-            defrequest->num_ships = -1;
-        }
-    }
+    scriptshipstatic = aifRequestStatic(scriptrequest, player, race, &scriptnumships, &scripttotalcost);
+    attshipstatic = aifRequestStatic(attrequest, player, race, &attnumships, &atttotalcost);
+    defshipstatic = aifRequestStatic(defrequest, player, race, &defnumships, &deftotalcost);
 
     if ((resourcerequest != NULL) && (resourcerequest->num_ships > 0))
     {
-        if ((RacesAllowedForGivenShip[resourcerequest->shiptype] & RaceToRaceBits(race)))
+        type = resourcerequest->shiptype;
+        if (RacesAllowedForGivenShip[type] & RaceToRaceBits(race))
         {
-            resourceshipstatic = GetShipStaticInfo(resourcerequest->shiptype,race);
-            if (!bitTest(resourceshipstatic->common.infoFlags, IF_InfoLoaded))
+            if ((type == sMothershipSupport) && (playerMothership->shiptype != sMothership))
+            {
+                resourcerequest->shiptype = sCarrierSupport;        // and dropped below, as the exe (0x00404827)
+            }
+            else if ((type == bMothershipSupport) && (playerMothership->shiptype != bMothership))
             {
                 resourceshipstatic = NULL;
+            }
+            else
+            {
+                resourceshipstatic = GetShipStaticInfo(type, (ShipRace)cat_ShipTypeToRace((udword)type));
+                if ((resourceshipstatic != NULL) && !bitTest(resourceshipstatic->common.infoFlags, IF_InfoLoaded))
+                {
+                    resourceshipstatic = NULL;
+                }
             }
         }
         if (resourceshipstatic)
@@ -403,6 +319,7 @@ void aifBuildRequestedShips(RequestShips *scriptrequest,RequestShips *attrequest
         {
             aiplayerLog((player->playerIndex,"Warning Resource could not build shiprace %d shiptype %d",race,resourcerequest->shiptype));
             resourcerequest->num_ships = -1;
+            aiCurrentAIPlayer->catSupportModuleRequested = FALSE;
         }
     }
 
@@ -436,8 +353,6 @@ void aifBuildRequestedShips(RequestShips *scriptrequest,RequestShips *attrequest
             BuildShip(defshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnDefman,&RUsLeft,defrequest->creator);
             defrequest->num_ships--;
         }
-
-        dbgAssertOrIgnore(RUsLeft >= 0);
     }
     else
     {
@@ -446,13 +361,12 @@ void aifBuildRequestedShips(RequestShips *scriptrequest,RequestShips *attrequest
         real32 totalRUsSpent = (real32) (aiCurrentAIPlayer->NumRUsSpentOnAttman +
                                   aiCurrentAIPlayer->NumRUsSpentOnDefman +
                                   aiCurrentAIPlayer->NumRUsSpentOnResourceman);
-        real32 attmanbudgetratio = ((real32)aiCurrentAIPlayer->NumRUsSpentOnAttman) / totalRUsSpent;
-        real32 defmanbudgetratio = ((real32)aiCurrentAIPlayer->NumRUsSpentOnDefman) / totalRUsSpent;
-        real32 resourcemanbudgetratio = ((real32)aiCurrentAIPlayer->NumRUsSpentOnResourceman) / totalRUsSpent;
 
-        real32 attmanbudgetoverflow = attmanbudgetratio / ATTMAN_BUILDPRIORITY_RATIO;
-        real32 defmanbudgetoverflow = defmanbudgetratio / DEFMAN_BUILDPRIORITY_RATIO;
-        real32 resourcemanbudgetoverflow = resourcemanbudgetratio / RESMAN_BUILDPRIORITY_RATIO;
+        // CAT: the x87 evaluates each overflow at 53 bits; the attack and resource ones are stored as floats, the
+        //      defense one stays on the stack (0x00404a19..0x00404a47)
+        real32 attmanbudgetoverflow = (real32)(((double)aiCurrentAIPlayer->NumRUsSpentOnAttman / (double)totalRUsSpent) / (double)ATTMAN_BUILDPRIORITY_RATIO);
+        double defmanbudgetoverflow = ((double)aiCurrentAIPlayer->NumRUsSpentOnDefman / (double)totalRUsSpent) / (double)DEFMAN_BUILDPRIORITY_RATIO;
+        real32 resourcemanbudgetoverflow = (real32)(((double)aiCurrentAIPlayer->NumRUsSpentOnResourceman / (double)totalRUsSpent) / (double)RESMAN_BUILDPRIORITY_RATIO);
 
         if ((resourcenumships) && (resourcerequest->priority & REQUESTSHIPS_HIPRI))
         {
@@ -466,106 +380,63 @@ void aifBuildRequestedShips(RequestShips *scriptrequest,RequestShips *attrequest
 
         if ((defnumships) && (defrequest->priority & REQUESTSHIPS_HIPRI))
         {
-            defmanbudgetoverflow = -1.0f;
+            defmanbudgetoverflow = -1.0;
         }
 
         if (attnumships == 0) attmanbudgetoverflow = REALlyBig;
-        if (defnumships == 0) defmanbudgetoverflow = REALlyBig;
+        if (defnumships == 0) defmanbudgetoverflow = (double)REALlyBig;
         if (resourcenumships == 0) resourcemanbudgetoverflow = REALlyBig;
-
-//#define buildscriptships  
-//#define buildattships     
-//#define builddefships     
-//#define buildresships     
 
         if (scriptnumships)
         {
-			for (i=0;(i<scriptnumships) && (RUsLeft >= scriptshipstatic->buildCost);i++)                              \
-			{                                                                                                   \
-				BuildShip(scriptshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnScriptman,&RUsLeft,scriptrequest->creator);\
-				scriptrequest->num_ships--;                                                                        \
-			}
-//            buildscriptships
+            for (i=0;(i<scriptnumships) && (RUsLeft >= scriptshipstatic->buildCost);i++)
+            {
+                BuildShip(scriptshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnScriptman,&RUsLeft,scriptrequest->creator);
+                scriptrequest->num_ships--;
+            }
             return;
         }
 
-        if (attmanbudgetoverflow <= defmanbudgetoverflow)
+        // CAT: the x87 compares treat an unordered pair (the 0 / 0 overflows before any RUs were spent) as "<=", so
+        //      each "a <= b" of HW1 is "!(a > b)" here (0x00404b13, 0x00404b24, 0x00404b33, 0x00404cae, 0x00404cc1)
+        if (!((double)attmanbudgetoverflow > defmanbudgetoverflow))
         {
             // attackman goes before defenseman
-            if (attmanbudgetoverflow <= resourcemanbudgetoverflow)
+            if (!(attmanbudgetoverflow > resourcemanbudgetoverflow))
             {
-                if (defmanbudgetoverflow <= resourcemanbudgetoverflow)
+                for (i=0;(i<attnumships) && (RUsLeft >= attshipstatic->buildCost);i++)
                 {
-//                    buildattships
-					for (i=0;(i<attnumships) && (RUsLeft >= attshipstatic->buildCost);i++)                              \
-					{                                                                                                   \
-						BuildShip(attshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnAttman,&RUsLeft,attrequest->creator); \
-						attrequest->num_ships--;                                                                        \
-					}
-//                    builddefships
-//                    buildresships
+                    BuildShip(attshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnAttman,&RUsLeft,attrequest->creator);
+                    attrequest->num_ships--;
                 }
-                else
-                {
-//                    buildattships
-					for (i=0;(i<attnumships) && (RUsLeft >= attshipstatic->buildCost);i++)                              \
-					{                                                                                                   \
-						BuildShip(attshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnAttman,&RUsLeft,attrequest->creator); \
-						attrequest->num_ships--;                                                                        \
-					}
-//                    buildresships
-//                    builddefships
-                }
-            }
-            else
-            {
-				for (i=0;(i<resourcenumships) && (RUsLeft >= resourceshipstatic->buildCost);i++)                    \
-				{                                                                                                   \
-					BuildShip(resourceshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnResourceman,&RUsLeft,resourcerequest->creator);\
-				}
-//                buildresships
-//                buildattships
-//                builddefships
+                aifSupportModuleNotBuilt(resourcerequest, resourcenumships);
+                return;
             }
         }
         else
         {
             // defenseman goes before attackman
-            if (defmanbudgetoverflow <= resourcemanbudgetoverflow)
+            if (!(defmanbudgetoverflow > (double)resourcemanbudgetoverflow))
             {
-                if (attmanbudgetoverflow <= resourcemanbudgetoverflow)
+                for (i=0;(i<defnumships) && (RUsLeft >= defshipstatic->buildCost);i++)
                 {
-					for (i=0;(i<defnumships) && (RUsLeft >= defshipstatic->buildCost);i++)                              \
-					{                                                                                                   \
-						BuildShip(defshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnDefman,&RUsLeft,defrequest->creator); \
-						defrequest->num_ships--;                                                                        \
-					}
-//                    builddefships
-//                    buildattships
-//                    buildresships
+                    BuildShip(defshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnDefman,&RUsLeft,defrequest->creator);
+                    defrequest->num_ships--;
                 }
-                else
-                {
-					for (i=0;(i<defnumships) && (RUsLeft >= defshipstatic->buildCost);i++)                              \
-					{                                                                                                   \
-						BuildShip(defshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnDefman,&RUsLeft,defrequest->creator); \
-						defrequest->num_ships--;                                                                        \
-					}
-//                    builddefships
-//                    buildresships
-//                    buildattships
-                }
+                aifSupportModuleNotBuilt(resourcerequest, resourcenumships);
+                return;
             }
-            else
-            {
-				for (i=0;(i<resourcenumships) && (RUsLeft >= resourceshipstatic->buildCost);i++)                    \
-				{                                                                                                   \
-					BuildShip(resourceshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnResourceman,&RUsLeft,resourcerequest->creator);\
-				}
-//                buildresships
-//                builddefships
-//                buildattships
-            }
+        }
+
+        // the resource manager goes first: CAT: only while its ship is affordable (0x00404c1a, 0x00404d7a)
+        if (RUsLeft < resourceshipstatic->buildCost)
+        {
+            aifSupportModuleNotBuilt(resourcerequest, resourcenumships);
+            return;
+        }
+        for (i=0;(i<resourcenumships) && (RUsLeft >= resourceshipstatic->buildCost);i++)
+        {
+            BuildShip(resourceshipstatic,player,&aiCurrentAIPlayer->NumRUsSpentOnResourceman,&RUsLeft,resourcerequest->creator);
         }
     }
 
@@ -752,6 +623,7 @@ void aifTeamDied(AIPlayer *aiplayer,AITeam *team, bool32 removeAllReferencesToTe
     }
 
     // remove any messages from team that may still be queued up
+    // CAT: the messages are the missions' constants, not copies: cleared, not freed (aifTeamDied 0x00405100)
     for (i = 0; i < aiCurrentAIPlayer->teamsUsed; ++i)
     {
         msgQP = aiCurrentAIPlayer->teams[i]->msgQueue;
@@ -759,8 +631,6 @@ void aifTeamDied(AIPlayer *aiplayer,AITeam *team, bool32 removeAllReferencesToTe
         for (j = 0; j < MSG_QUEUE_MAX_MSGS; ++j)
             if (msgQP->msgSenders[j] == team)
             {
-                if (msgQP->msgs[j])
-                    memFree(msgQP->msgs[j]);
                 msgQP->msgs[j] = NULL;
                 msgQP->msgSenders[j] = NULL;
             }
@@ -810,22 +680,136 @@ bool32 checkAddToTeam(LinkedList *TeamWaitingQ,Ship *ship)
 
 
 /*-----------------------------------------------------------------------------
+    Name        : cat_aifRequestSupportModule
+    Description : CAT (0x00405210): in a multiplayer game the computer player asks its resource manager for a
+                  support module of its mothership's kind (sMothershipSupport for an sMothership, else
+                  sCarrierSupport; bMothershipSupport for a bMothership only) while below the unit cap and not
+                  already asked; with none built yet and its research missing, the research is started instead
+    Inputs      :
+    Outputs     :
+    Return      : TRUE when the request was made
+----------------------------------------------------------------------------*/
+bool32 cat_aifRequestSupportModule(void)
+{
+    Player *player;
+    Ship *mothership;
+    ShipType type;
+
+    if (singlePlayerGame)
+    {
+        return FALSE;
+    }
+    player = aiCurrentAIPlayer->player;
+    mothership = player->PlayerMothership;
+    if ((mothership == NULL) || aiCurrentAIPlayer->catSupportModuleRequested)
+    {
+        return FALSE;
+    }
+    if (player->race == RACE_Sect)
+    {
+        type = (mothership->shiptype == sMothership) ? sMothershipSupport : sCarrierSupport;
+    }
+    else if ((player->race == RACE_Beast) && (mothership->shiptype == bMothership))
+    {
+        type = bMothershipSupport;
+    }
+    else
+    {
+        return FALSE;
+    }
+    if (player->shiptotals[type] >= cdLimitCaps[type])
+    {
+        return FALSE;
+    }
+    if ((player->shiptotals[type] == 0) && rmTechRequiredForShip(player, type))
+    {
+        rmResearchTechForShip(aiCurrentAIPlayer->player, type);
+        return FALSE;
+    }
+    aiCurrentAIPlayer->ResourceManRequestShips.shiptype = type;
+    aiCurrentAIPlayer->ResourceManRequestShips.num_ships = 1;
+    aiCurrentAIPlayer->ResourceManRequestShips.priority = REQUESTSHIPS_HIPRI;
+    aiCurrentAIPlayer->ResourceManRequestShips.creator = aiCurrentAIPlayer->AICreator;
+    aiCurrentAIPlayer->catSupportModuleRequested = TRUE;
+    return TRUE;
+}
+
+// a request a multiplayer computer player can act on now: a Beast ship its research has enabled, a module or a ship
+//      its factory can build, with its research done (else started, outside the research delay); an external ship
+//      (not a module) found here holds back the other queues (aifProcessShipBuildRequests 0x00405370..0x00405466,
+//      the same at each queue)
+static RequestShips *aifCatRequestUsable(RequestShips *request, Player *player, ubyte research_delay, bool32 *external)
+{
+    ShipStaticInfo *shipstatic;
+
+    if ((player->race == RACE_Beast) && !cat_playerShipTypeEnabled(player, request->shiptype))
+    {
+        return NULL;
+    }
+    shipstatic = GetShipStaticInfo(request->shiptype, (ShipRace)cat_ShipTypeToRace((udword)request->shiptype));
+    if ((shipstatic->shipclass != CLASS_Component) && !cmCanBuildShipType(player->PlayerMothership, request->shiptype, FALSE))
+    {
+        return NULL;
+    }
+    if (rmTechRequiredForShip(player, request->shiptype))
+    {
+        if (!research_delay)
+        {
+            rmResearchTechForShip(player, request->shiptype);
+        }
+        return NULL;
+    }
+    if (cat_rmTechRequiredForShipUpgrade(player, request->shiptype) && !research_delay)
+    {
+        rmResearchTechForShip(player, request->shiptype);
+    }
+    if ((shipstatic->shipclass != CLASS_Component) && shipstatic->externalBuild)
+    {
+        *external = TRUE;
+    }
+    return request;
+}
+
+// the first request of a queue (single player) or the first one usable (multiplayer)
+static RequestShips *aifCatQueueRequest(LinkedList *queue, Player *player, ubyte research_delay, bool32 *external)
+{
+    RequestShips *request = NULL;
+    Node *node;
+
+    for (node = queue->head; (node != NULL) && (request == NULL); node = node->next)
+    {
+        request = (RequestShips *)listGetStructOfNode(node);
+        if (!singlePlayerGame)
+        {
+            request = aifCatRequestUsable(request, player, research_delay, external);
+        }
+    }
+    return request;
+}
+
+/*-----------------------------------------------------------------------------
     Name        : aifProcessShipBuildRequests
     Description : Goes through the attack, defense, resource and script ship build queues
+                  CAT (0x004052f0): a single-player computer player takes each queue's first request as it is; a
+                  multiplayer one asks for a support module (outside the research delay) and takes from each queue
+                  the first request it can act on (aifCatRequestUsable), an external ship in one queue holding back
+                  the queues after it, then researches its mothership / carrier upgrade (Sect) or Infection (Beast)
+                  in a free lab; HW1's research of later queue entries and its technology deficit are gone (the
+                  deficit is only cleared)
     Inputs      :
     Outputs     :
     Return      : void
 ----------------------------------------------------------------------------*/
 void aifProcessShipBuildRequests(void)
 {
-    RequestShips *attrequest = NULL,*defrequest = NULL,*resourcerequest = NULL,*scriptrequest = NULL, *temprequest = NULL;
+    RequestShips *attrequest = NULL,*defrequest = NULL,*resourcerequest = NULL,*scriptrequest = NULL;
     sdword olddefnumships    = 0;
     sdword oldattnumships    = 0;
     sdword oldscriptnumships = 0;
     Player *player = aiCurrentAIPlayer->player;
     ubyte research_delay;
-    Node *tempnode;
-    udword tech;        //amount of technology that needs to be researched
+    bool32 external = FALSE;
+    sdword labnum;
 
     if (aiCurrentAIPlayer->ResearchDelay)
     {
@@ -839,129 +823,64 @@ void aifProcessShipBuildRequests(void)
 
     aiCurrentAIPlayer->TechnologyDeficit = 0;
 
+    if (!research_delay)
+    {
+        cat_aifRequestSupportModule();
+    }
+
     if (aiCurrentAIPlayer->ResourceManRequestShips.num_ships > 0)
     {
         resourcerequest = &aiCurrentAIPlayer->ResourceManRequestShips;
-
-        tech = rmTechRequiredForShip(player, resourcerequest->shiptype);
-        if (tech)
+        if (!singlePlayerGame)
         {
-            aiCurrentAIPlayer->TechnologyDeficit += tech;
-            if ((!research_delay) && (rmResearchTechForShip(player, resourcerequest->shiptype)))
-            {
-                aiplayerLog((player->playerIndex, "Researching %s for Resource", ShipTypeToStr(resourcerequest->shiptype)));
-            }
-            resourcerequest = NULL;
+            resourcerequest = aifCatRequestUsable(resourcerequest, player, research_delay, &external);
         }
     }
 
-    if (aiCurrentAIPlayer->AttackManRequestShipsQ.head != NULL)
+    if ((aiCurrentAIPlayer->AttackManRequestShipsQ.head != NULL) && !external)
     {
-        tempnode   = aiCurrentAIPlayer->AttackManRequestShipsQ.head;
-        attrequest = (RequestShips *)listGetStructOfNode(tempnode);
-
-        tech = rmTechRequiredForShip(player, attrequest->shiptype);
-        if (tech)
-        {
-            aiCurrentAIPlayer->TechnologyDeficit += tech;
-            if ((!research_delay) && (rmResearchTechForShip(player, attrequest->shiptype)))
-                aiplayerLog((player->playerIndex, "Researching %s for Offense", ShipTypeToStr(attrequest->shiptype)));
-
-            //temporary
-            attrequest = NULL;
-
-/*            tempnode = tempnode->next;
-
-            while (tempnode)
-            {
-                attrequest = (RequestShips *)listGetStructOfNode(tempnode);
-
-                if ((attrequest) && (!rmTechRequiredForShip(player, attrequest->shiptype)))
-                {
-                    break;
-                }
-                tempnode = tempnode->next;
-            }
-            if (!tempnode)
-            {
-                attrequest = NULL;
-            }
-*/        }
-
+        attrequest = aifCatQueueRequest(&aiCurrentAIPlayer->AttackManRequestShipsQ, player, research_delay, &external);
         if (attrequest)
         {
             oldattnumships = attrequest->num_ships;
-            dbgAssertOrIgnore(oldattnumships > 0);
         }
     }
 
-    if (aiCurrentAIPlayer->DefenseManRequestShipsQ.head != NULL)
+    if ((aiCurrentAIPlayer->DefenseManRequestShipsQ.head != NULL) && !external)
     {
-        tempnode   = aiCurrentAIPlayer->DefenseManRequestShipsQ.head;
-        defrequest = (RequestShips *)listGetStructOfNode(tempnode);
-
-        tech = rmTechRequiredForShip(player, defrequest->shiptype);
-        if (tech)
-        {
-            aiCurrentAIPlayer->TechnologyDeficit += tech;
-            if ((!research_delay) && (rmResearchTechForShip(player, defrequest->shiptype)))
-                 aiplayerLog((player->playerIndex, "Researching %s for Defense", ShipTypeToStr(defrequest->shiptype)));
-            //temporary
-            defrequest = NULL;
-/*            tempnode = tempnode->next;
-
-            while (tempnode)
-            {
-                defrequest = (RequestShips *)listGetStructOfNode(tempnode);
-
-                //go through list of defense requests to find something we can build
-                //will this screw up priorities?
-                if ((defrequest) && (!rmTechRequiredForShip(player, defrequest->shiptype)))
-                {
-                    break;
-                }
-                tempnode = tempnode->next;
-            }
-            if (!tempnode)
-            {
-                defrequest = NULL;
-            }
-*/        }
-
+        defrequest = aifCatQueueRequest(&aiCurrentAIPlayer->DefenseManRequestShipsQ, player, research_delay, &external);
         if (defrequest)
         {
             olddefnumships = defrequest->num_ships;
-            dbgAssertOrIgnore(olddefnumships > 0);
         }
     }
 
     //it is assumed that any ship requested by the script is researched
     //therefore no research is done for the script system and no checking is done either
-    if (aiCurrentAIPlayer->ScriptManRequestShipsQ.head != NULL)
+    if ((aiCurrentAIPlayer->ScriptManRequestShipsQ.head != NULL) && !external)
     {
         scriptrequest     = (RequestShips *)listGetStructOfNode(aiCurrentAIPlayer->ScriptManRequestShipsQ.head);
         oldscriptnumships = scriptrequest->num_ships;
-        dbgAssertOrIgnore(oldscriptnumships > 0);
     }
 
-    //go through the queues to find more stuff to research if needed
-    if (rmFindFreeLab(player, TECH_NONE) != -1)     // CAT: any lab (aifProcessShipBuildRequests passes -1)
+    // CAT: a multiplayer computer player researches its mothership's (then its carrier's) upgrade, or Infection for
+    //      the Beast (0x00405701)
+    if (!singlePlayerGame && ((labnum = rmFindFreeLab(player, TECH_NONE)) != -1))
     {
-        tempnode = aiCurrentAIPlayer->AttackManRequestShipsQ.head;
-
-        while (tempnode != NULL)
+        if (player->race == RACE_Sect)
         {
-            temprequest = (RequestShips *)listGetStructOfNode(tempnode);
-
-            if (rmTechRequiredForShip(player, temprequest->shiptype))
+            if (cat_rmTechRequiredForShipUpgrade(player, sMothership))
             {
-                if ((!research_delay) && (rmResearchTechForShip(player, temprequest->shiptype)))
-                {
-                    aiplayerLog((player->playerIndex, "Researching %s later in Attack queue", ShipTypeToStr(temprequest->shiptype)));
-                    break;
-                }
+                rmResearchTechForShip(player, sMothership);
             }
-            tempnode = tempnode->next;
+            else if (cat_rmTechRequiredForShipUpgrade(player, sCarrier))
+            {
+                rmResearchTechForShip(player, sCarrier);
+            }
+        }
+        else if ((player->race == RACE_Beast) && !cat_rmTechSetHas(player->researchinfo.HasTechnology, TECH_INFECT))
+        {
+            clWrapResearch(0, player->playerIndex, (udword)labnum, TECH_INFECT);
         }
     }
 
@@ -970,10 +889,8 @@ void aifProcessShipBuildRequests(void)
     if (scriptrequest != NULL)
     {
         // check and see if we built any ships, and if we should remove from Q
-//        dbgAssertOrIgnore(scriptrequest->num_ships >= 0);
         if (oldscriptnumships != scriptrequest->num_ships)
         {
-            dbgAssertOrIgnore((oldscriptnumships - scriptrequest->num_ships) > 0);
             aiCurrentAIPlayer->ScriptManShipsBeingBuilt.NumShipsOfType[scriptrequest->shiptype] += (ubyte)(oldscriptnumships - scriptrequest->num_ships);
         }
 
@@ -987,10 +904,8 @@ void aifProcessShipBuildRequests(void)
     if (attrequest != NULL)
     {
         // check and see if we built any ships, and if we should remove from Q
-//        dbgAssertOrIgnore(attrequest->num_ships >= 0);
         if (oldattnumships != attrequest->num_ships)
         {
-            dbgAssertOrIgnore((oldattnumships - attrequest->num_ships) > 0);
             aiCurrentAIPlayer->AttackManShipsBeingBuilt.NumShipsOfType[attrequest->shiptype] += (ubyte)(oldattnumships - attrequest->num_ships);
         }
 
@@ -1004,10 +919,8 @@ void aifProcessShipBuildRequests(void)
     if (defrequest != NULL)
     {
         // check and see if we built any ships, and if we should remove from Q
-//        dbgAssertOrIgnore(defrequest->num_ships >= 0);
         if (olddefnumships != defrequest->num_ships)
         {
-            dbgAssertOrIgnore((olddefnumships - defrequest->num_ships) > 0);
             aiCurrentAIPlayer->DefenseManShipsBeingBuilt.NumShipsOfType[defrequest->shiptype] += (ubyte)(olddefnumships - defrequest->num_ships);
         }
 
@@ -1063,11 +976,16 @@ void aifAssignNewShips(void)
             growSelectRemoveShip(newships,ship);
             continue;       // check same index again because we removed a ship from selection we are scanning
         }
+        // CAT: the resource manager takes Cataclysm's motherships, carriers and modules by class (aifAssignNewShips
+        //      0x00405997: classes Resource, NonCombat, Mothership, Carrier and Component) and the Kushan and Taiidan
+        //      advance support frigates
         else if ((ship->staticinfo->shipclass == CLASS_Resource) ||
             (ship->staticinfo->shipclass == CLASS_NonCombat) ||
-            (ship->shiptype == AdvanceSupportFrigate) ||
-            (ship->shiptype == Mothership) ||
-            (ship->shiptype == Carrier))
+            (ship->staticinfo->shipclass == CLASS_Mothership) ||
+            (ship->staticinfo->shipclass == CLASS_Carrier) ||
+            (ship->staticinfo->shipclass == CLASS_Component) ||
+            (ship->shiptype == kAdvanceSupportFrigate) ||
+            (ship->shiptype == tAdvanceSupportFrigate))
         {
             growSelectRemoveShip(newships,ship);
             airAddNewShip(ship);

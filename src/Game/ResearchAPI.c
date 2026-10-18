@@ -1027,8 +1027,9 @@ sdword cat_rmTechRequiredForShipUpgrade(Player *player, ShipType type)
     return cat_rmCountTechRequired(player, player->researchinfo.catShipUpgradeTechs[type]);
 }
 
-// CAT: 0x004f3320: a computer player researches tech if it may and does not have it
-void cat_rmAIResearchTech(Player *player, TechnologyType tech)
+// CAT: 0x004f3320: a computer player researches tech if it may and does not have it; TRUE when the research was ordered
+//      (the exe returns 1 / 0 in eax, which airDumbResearchRequests 0x004131f2 tests; M2-R7 ai-player-skirmish)
+bool32 cat_rmAIResearchTech(Player *player, TechnologyType tech)
 {
     sdword labnum;
 
@@ -1039,8 +1040,10 @@ void cat_rmAIResearchTech(Player *player, TechnologyType tech)
         if (labnum != -1)
         {
             clWrapResearch(FALSE, player->playerIndex, labnum, tech);
+            return TRUE;
         }
     }
+    return FALSE;
 }
 
 // CAT: the research pass of rmResearchTechForShip 0x004f3380 over one need set: closure of need minus what the player

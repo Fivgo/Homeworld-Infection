@@ -125,6 +125,10 @@ extern const SaveCat32Layout saveCat32Layout_ResearchTopic;
 extern const SaveCat32Layout saveCat32Layout_AttackAtom;
 extern const SaveCat32Layout saveCat32Layout_DustCloudStaticInfo;
 extern const SaveCat32Layout saveCat32Layout_cloudSystem;
+extern const SaveCat32Layout saveCat32Layout_AIPlayer;                      // M2-R7 ai-player-skirmish
+extern const SaveCat32Layout saveCat32Layout_RequestShips;
+extern const SaveCat32Layout saveCat32Layout_TeamWaitingForTheseShips;
+extern const SaveCat32Layout saveCat32Layout_AITeamMove;
 extern const SaveCat32SpecLayout saveCat32SpecLayouts[];
 #endif
 

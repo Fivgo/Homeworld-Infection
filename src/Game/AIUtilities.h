@@ -345,7 +345,7 @@ udword aiuUnitCapCanBuildShip(struct AIPlayer *aiplayer, ShipType shiptype, sdwo
 /*-----------------------------------------------------------------------------
     Armada Functions:
 -----------------------------------------------------------------------------*/
-bool32 aiuFindArmadaTarget(vector *dest, SelectCommand **sel_target, SelectCommand *team_ships);
+bool32 aiuFindArmadaTarget(vector *dest, MaxSelection *sel_target, SelectCommand *team_ships);    // CAT: the AIPlayer's selection (0x0041e860)
 
 /*-----------------------------------------------------------------------------
     Wrap Functions:

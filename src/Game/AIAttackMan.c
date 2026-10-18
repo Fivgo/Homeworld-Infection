@@ -164,24 +164,24 @@ void aiaArmada(void)
     // CAT: aiaArmada 0x00401120: with more armada teams than the level needs, a target is found whenever the armada
     //      has none left (the exe tests the numShips of its target selection, so an emptied one is refound), and a
     //      recon team is sent once to targets that are not visible while no recon team is out; HW1 re-sent the recon
-    //      team on every new target and kept an emptied target selection. The exe fills a selection buffer it keeps
-    //      in AIPlayer (+0xCF8); the tree keeps HW1's allocated selection (see aiuFindArmadaTarget)
+    //      team on every new target and kept an emptied target selection. The exe fills the selection it keeps in
+    //      AIPlayer (+0xCF8, M2-R7 ai-player-skirmish: embedded here too)
     if (num_armada <= aiCurrentAIPlayer->aiaArmada.numTeams)
     {
         return;
     }
 
-    if ((aiCurrentAIPlayer->aiaArmada.targets == NULL) || (aiCurrentAIPlayer->aiaArmada.targets->numShips == 0))
+    if (aiCurrentAIPlayer->aiaArmada.targets.numShips == 0)
     {
-        aiumemFree(aiCurrentAIPlayer->aiaArmada.targets);
+        aiCurrentAIPlayer->aiaArmada.targets.numShips = 0;
         aiCurrentAIPlayer->aiaArmada.visibility = aiuFindArmadaTarget(&dest_target, &aiCurrentAIPlayer->aiaArmada.targets,
                                                                       NULL/*team->shipList.selection*/);
     }
 
-    if ((aiCurrentAIPlayer->aiaArmada.targets != NULL) && (aiCurrentAIPlayer->aiaArmada.targets->numShips > 0) &&
+    if ((aiCurrentAIPlayer->aiaArmada.targets.numShips > 0) &&
         (!aiCurrentAIPlayer->aiaArmada.visibility) && (aiCurrentAIPlayer->aiaArmada.recon_team == NULL))
     {
-        aiCurrentAIPlayer->aiaArmada.recon_team = aiaSendRecon(aiCurrentAIPlayer->aiaArmada.targets);
+        aiCurrentAIPlayer->aiaArmada.recon_team = aiaSendRecon((SelectCommand *)&aiCurrentAIPlayer->aiaArmada.targets);
     }
 }
 
@@ -906,8 +906,8 @@ bool32 aiaShipDied(struct AIPlayer *aiplayer, ShipPtr ship)
 {
     // CAT: the ship leaves the armada's targets, which stay allocated when empty (aiaShipDied 0x00401fa0 keeps them in
     //      AIPlayer and aiaArmada refinds a target for an empty selection)
-    if ((aiplayer->aiaArmada.targets) && (aiplayer->aiaArmada.targets->numShips > 0) &&
-        (clRemoveShipFromSelection(aiplayer->aiaArmada.targets, ship)))
+    if ((aiplayer->aiaArmada.targets.numShips > 0) &&
+        (clRemoveShipFromSelection((SelectCommand *)&aiplayer->aiaArmada.targets, ship)))
     {
         aiplayerLog((aiplayer->player->playerIndex, "Ship removed from Armada Targets"));
     }
@@ -988,7 +988,7 @@ void aiaInit(struct AIPlayer *aiplayer)
     aiplayerLog((aiplayer->player->playerIndex, "Attack Probability GravWell             = %i\n", aiplayer->aiaAttackProbability[GRAVWELL]));
 
     aiplayer->aiaArmada.numTeams   = AIA_NUM_ARMADA_TEAMS[aiplayer->aiplayerDifficultyLevel];
-    aiplayer->aiaArmada.targets    = NULL;
+    aiplayer->aiaArmada.targets.numShips = 0;   // CAT: the embedded selection (aiaInit 0x00402381)
     aiplayer->aiaArmada.recon_team = NULL;
 
     aiplayer->Targets = NULL;
@@ -1089,6 +1089,6 @@ void aiaClose(struct AIPlayer *aiplayer)
         }
     }
 
-    aiumemFree(aiplayer->aiaArmada.targets);
+    // CAT: the armada's targets are part of the AIPlayer (aiaClose 0x00402780 frees only Targets)
     aiumemFree(aiplayer->Targets);
 }

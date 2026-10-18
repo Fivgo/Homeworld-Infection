@@ -121,14 +121,14 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "messages queued from the dead team are cleared without memFree (HW1 frees msgQP->msgs[j])",
-  "note": "waiting-queue removal inlined as three list walks; team-type dispatch as HW1",
+  "note": "waiting-queue removal inlined as three list walks; team-type dispatch as HW1 [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported: the team's queued messages are flushed (cat_aitMsgQueueFlush), nothing freed",
   "sample": "MODIFIED/high"
  },
  "0x00405850": {
   "class": "MODIFIED",
   "confidence": "medium",
-  "change": "no HW1 test on the dropped type(s) ResourceController (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "change": "the ship class test: Resource, NonCombat, Mothership, Carrier and Component classes and k/tAdvanceSupportFrigate go to the resource manager (0x00405997)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
   "sample": "port-R4"
  },
  "0x00405a70": {
@@ -604,7 +604,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "also destroys all KAS variables (cat_kasVarDestroyAll) after aivarShutdown",
-  "note": "",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported (cat_kasVarDestroyAll after aivarShutdown)",
   "sample": "MODIFIED/low"
  },
  "0x00411ac0": {
@@ -639,14 +639,14 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "SpaceObjRegistryGetShip folded into SpaceObjRegistryGetObj; Ghidra types the RequestShips node as Node; audit reclassification",
+  "note": "SpaceObjRegistryGetShip folded into SpaceObjRegistryGetObj; Ghidra types the RequestShips node as Node; audit reclassification [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): same; a cataclysm.exe save's 0x20-byte chunk is converted by the SaveCat32 RequestShips layout first (load path only, no exe delta)",
   "sample": "audit-R2"
  },
  "0x00412190": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "aiaArmada.targets is now an embedded MaxSelection loaded with LoadMaxSelectionAndFix (HW1: conditional LoadSelectionAndFix of a SelectCommand pointer); enum: TOTAL_NUM_SHIPS 145 in the aware-of loop",
-  "note": "SpaceObjRegistryGetShip folded into GetObj (not a delta); audit reclassification checked by hand",
+  "note": "SpaceObjRegistryGetShip folded into GetObj (not a delta); audit reclassification checked by hand [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported: the 0x1D18-byte chunk converted by the SaveCat32 AIPlayer layout (cataclysm.exe saves); the armada targets loaded with LoadMaxSelectionAndFix (0x00412302)",
   "sample": "audit-R2"
  },
  "0x00412330": {
@@ -660,14 +660,14 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "enum: 2 RU dock points for kCarrier/tCarrier (0x3e/0x4c); Mothership no longer listed",
-  "note": "HW1 Carrier or Mothership",
+  "note": "HW1 Carrier or Mothership [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported (k/tCarrier 2)",
   "sample": "reread-R2"
  },
  "0x00412590": {
   "class": "MODIFIED",
   "confidence": "medium",
-  "change": "no HW1 test on the dropped type(s) ResourceController / ResearchShip (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "change": "Cataclysm types: s/bWorker, tResourceCollector (collectors), s/bProcessor (controllers), k/tAdvanceSupportFrigate, sCarrierSupport, s/bMothershipSupport (support modules)",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
   "sample": "port-R4"
  },
  "0x00412690": {
@@ -680,8 +680,8 @@
  "0x00412950": {
   "class": "MODIFIED",
   "confidence": "medium",
-  "change": "no HW1 test on the dropped type(s) ResourceController / ResearchShip (the type ids do not exist in Cataclysm); r6 switches on 0xc, 0x12, 0x2f, 0x35, 0x3e, 0x4c (carriers/motherships) and 0xd, 0x1a, 0x39 (support modules) (partial read): stage 4 AI",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "change": "the exe's switch over Cataclysm types: s/b/k/tCarrier and s/bMothership (active mothership), the support modules, the collectors, s/bProcessor, k/tAdvanceSupportFrigate, k/tProximitySensor; HW1's per-type helpers folded into one support-team helper",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported",
   "sample": "port-R4"
  },
  "0x00413bd0": {
@@ -793,7 +793,7 @@
   "class": "MODIFIED",
   "confidence": "low",
   "change": "ship-type exclusion tests four Cataclysm type ids (0x3f,0x40,0x4d,0x4f) where HW1 tests GravWellGenerator and CloakGenerator",
-  "note": "AIPlayer struct offsets differ, so the Ghidra field names are wrong; the type list is the visible change",
+  "note": "AIPlayer struct offsets differ, so the Ghidra field names are wrong; the type list is the visible change [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported; the inlined aitTeamIsntCoopWithAnotherTeam_Cloak tests k/tCloakGenerator",
   "sample": "IDENTICAL/medium"
  },
  "0x00418340": {
@@ -16347,7 +16347,7 @@
   "class": "MODIFIED",
   "confidence": "high",
   "change": "(not reviewed in full) a new game calls cat_mimicInitDisguiseTables",
-  "note": "[review: M2-R6 mainrgn-popup] only that call checked and added",
+  "note": "[review: M2-R6 mainrgn-popup] only that call checked and added [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): M2-R7 ai-player-skirmish: a new game also resets the skirmish AI (cat_aisReset 0x00433d30, 0x005a9ef4)",
   "sample": "port-R6-mainrgn-popup"
  },
  "0x005aa5e0": {
@@ -18838,7 +18838,7 @@
  "_notes_r2": [
   "Tool fixes in `tools/delta_map.py` (M2-R2), for the systemic misses the R1 audit found:",
   "",
-  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` → `SpaceObjRegistryGetObj`, `aimInterceptShipDied` → `aimCaptureShipDied`, `aimAdvancedAttackClose` → `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
+  "- **Linker-folded callees.** `ICF_FOLDED` lists HW1 functions whose release code is identical to another's, so the linker kept one copy: `SpaceObjRegistryGetShip`/`GetTarget` \u2192 `SpaceObjRegistryGetObj`, `aimInterceptShipDied` \u2192 `aimCaptureShipDied`, `aimAdvancedAttackClose` \u2192 `aimCloseKamikaze`. A call to the folded name now matches the surviving one (`calls_folded` in the features). The tool also prints candidate folds it finds in the data, but does not apply them: the 4 it lists are inlined or reworked callees, not folds.",
   "- **Callee interface changes.** A bound callee whose Cataclysm prototype has real parameter names and another parameter count than its HW1 definition (`timTimer*`, `clCommandMessage`, `spMainScreen`, `hsStaticInit`...), or that the binary map extended with `cat_argN` arguments counted from caller stack cleanup (`clFormation`, `RemoveShipsFromDoingStuff`, `ApplyDamageToTarget`, `tutSetPointerTargetAIVolume`...), makes each caller MODIFIED. Over-declared prototypes are skipped when every call site passes register or stack garbage in the extra slots (`feCurrentScreenDelete(unaff_EDI, unaff_ESI)`), and under-declared ones when the callee reads `in_EAX`/`in_stack_` (`kniTransGrowVertexLists`). `param_N` prototypes are not used, because a double or a by-value struct splits into several slots (`rgluLookAt` 9 -> 12); so `trTextureRegister`'s real 4th argument is still caught only by hand review.",
   "- **One-parameter ETG/particle callables** that take a pointer to their argument slot are MODIFIED (the old rule needed two or more HW1 parameters).",
   "- **KAS hash keys.** A function that calls `kasfScopeName` in HW1 and tests the `0x80000000` hash bit in Cataclysm is MODIFIED.",
@@ -18857,8 +18857,8 @@
  "0x00412400": {
   "class": "MODIFIED",
   "confidence": "high",
-  "change": "adds calls cat_kasVarLoad",
-  "note": "[review: M2-R6 oracle-mode-a] aiplayerLoad: the exe chunk walk ported for a cataclysm.exe save (aiplayerCat32Load: aivar, kasvar, AIPlayer 0x1D18, 1 + 2 x 145 selections, 6 lists, 2 selections, the optional selections at 0x1CB0 / 0x1CC0..0x1CCC, the max selection, 0x1CA8, the teams), then aiplayerInit at the saved difficulty; the AI state itself is CAT-TODO(stage 4 AI)"
+  "change": "adds calls cat_kasVarLoad after aivarLoad",
+  "note": "[review: M2-R6 oracle-mode-a] aiplayerLoad: the exe chunk walk ported for a cataclysm.exe save (aiplayerCat32Load: aivar, kasvar, AIPlayer 0x1D18, 1 + 2 x 145 selections, 6 lists, 2 selections, the optional selections at 0x1CB0 / 0x1CC0..0x1CCC, the max selection, 0x1CA8, the teams), then aiplayerInit at the saved difficulty; the AI state itself is CAT-TODO(stage 4 AI) [review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported: one load path for this tree's and cataclysm.exe's saves (M2-R6's aiplayerCat32Load chunk walk and its stage-4 tag removed); oracle01's chunks read to the same position as the walk did"
  },
  "0x00425c90": {
   "class": "IDENTICAL",
@@ -20748,5 +20748,208 @@
   "change": "converts 12 handler slots (no fuelLow / fuelHigh), as aieHandlersClear",
   "note": "[review: M2-R7 ai-orders-moves audit] compared with the exe body (decompile: 12 aieNumToHandler calls): found modified (was IDENTICAL); the producer ported it without a review entry",
   "sample": "audit-R7-ai-orders-moves"
+ },
+ "0x00410fa0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "creates the KAS variable store (cat_kasVarStoreInit) after aivarStartup; utyGameSystemsInit passes the exe's arguments (numPlayers, tpGameCreated.numPlayers, tpGameCreated.numComputers)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
+ },
+ "0x00411180": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "same; HW1's aifClose is the empty function the exe calls (nullsub)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): unchanged: same order of closes and frees"
+ },
+ "0x00411240": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a single-player computer player also runs while the ships arrive (HYPERSPACE_SHIPSARRIVING); aiplayerPlay inlined: in multiplayer the skirmish AI cat_aisPlay 0x00433d50 runs (whether or not an NIS plays) instead of aifFleetCommand, which stays single player only; the playback skip kept",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported (skirmish AI in the new AISkirmish.c)"
+ },
+ "0x00411410": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the dead player's ships are handed to no computer player when it is the human player 0 of a single-player game (0x0041180a)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
+ },
+ "0x00411850": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "BuildShipList inlined: a ship still under external construction (specialFlags2 0x8, SPECIAL_2_CatBeingBuilt) is not taken (0x004118bf)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00411cd0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the armada targets are an embedded MaxSelection, always saved (0x00411ff0; HW1 saved the pointer's selection when set)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00411c80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): same; a cataclysm.exe save's chunk is converted by the SaveCat32 TeamWaitingForTheseShips layout first (load path only, no exe delta)"
+ },
+ "0x00412380": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_kasVarSave after aivarSave",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
+ },
+ "0x00404470": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "multiplayer support-unit gate (support units used + pending against the cap); per-type counters including the support modules; a NULL creator returns; an external-build static goes to clWrapCreateShip (external construction) instead of clWrapBuildShip",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
+ },
+ "0x004045b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a dead mothership builds nothing; external non-Beast, non-Component ships need a docking bay; the resource request is mapped to (or dropped for) the support module; overflow tests on the unrounded double and NaN-safe compares; the resource request first only when affordable",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
+ },
+ "0x004052f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "multiplayer request checks (aifCatRequestUsable / aifCatQueueRequest: unbuildable or held-back external requests); cat_aifRequestSupportModule on the research delay; a multiplayer computer player researches its mothership's then carrier's upgrade, or Infection for the Beast (0x00405701)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
+ },
+ "0x004124b0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "also clears the support-module count (+0xBC8, 0x004124ff) and the support-module request flag (+0xB8E, 0x00412511)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x004126f0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "collector counter first; a multiplayer game without harvesting retires the collector (clWrapDock CAT_DOCK_RETIRE 7, 0x0041275b); tactics Aggressive else Evasive; univFindNearestResource with the exe's arguments",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
+ },
+ "0x00412cb0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a dead mothership cannot build; the static by the type's own race (cat_ShipTypeToRace); the no-harvest test on the Resource class (HW1: the ResourceCollector type)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00412d40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "no support teams returns; the support-frigate teams are the Kushan kAdvanceSupportFrigate / Taiidan tAdvanceSupportFrigate ones by race (HW1: the AdvanceSupportFrigate type); HW1's unused per-support division gone",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00412e10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the collector type by race (airCatCollectorType: sWorker, bWorker, tResourceCollector; none for other races)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00413070": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "Sect only (an sMothership): research modules requested at random (stream 0: docking bay first, then special / weapons / armour), sensors and repair upgrades; HW1's research-ship requests gone",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
+ },
+ "0x00413240": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "research requests only in multiplayer with research on; collectors with harvesting on (or single player) by race; one processor (Sect with a docking bay, Beast); a multiplayer carrier near the support-unit cap (0x00413929)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
+ },
+ "0x00416810": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a multiplayer game's team tactics default to Aggressive (0x004168d6; single player Neutral as HW1)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00416b90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the message queue is the team's own: flushed, not freed (0x00416c5e)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00416f40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the inlined special-flag test: bCloakedFighter, k/tCloakGenerator (0x00416fc8: 0x3f / 0x4d)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00416a10": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "either race's cloak generator (k/tCloakGenerator 0x3f / 0x4d)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00417990": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "either race's grav well generator (k/tGravWellGenerator 0x40 / 0x4f)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00417b20": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "excludes either race's grav well and cloak generators; no aitTeamIsntCoopWithAnotherTeam_GravWell test",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00417ba0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "switch cases k/tCloakGenerator and k/tGravWellGenerator",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00417bf0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the inlined aitProcessSpecialTeam handles the cloaking fighters only (HW1's cloak generator / cloak cooperation branches gone)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00417470": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "range from the velocity times the speed multiplier, 900 or 1600 by CLASS_Mothership, computed in double then float; strict dist < rangesq; aitTeamIsInRange gone (inlined)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
+ },
+ "0x00417e10": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "the queue holds 64 message pointers and a count; a send stores the pointer (no copy, no sender)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported (with cat_aitMsgQueueRemoveAt / cat_aitMsgQueueFlush)"
+ },
+ "0x00417e60": {
+  "class": "REWRITTEN",
+  "confidence": "high",
+  "change": "a receive compares the message pointer and moves the last entry into the freed slot (no string compare, no free)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): ported"
+ },
+ "0x004178e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the loop tests the bound before reading valueArray[j] (HW1 read valueArray[10] once full)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported"
+ },
+ "0x00418040": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the message queue is saved as its count and 64 zero numbers (the exe's pointers are not saved)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported; the KAS message identity is CAT-TODO(stage 6 KAS)"
+ },
+ "0x00418180": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the message queue loads as 1 + 64 numbers into the team's own queue; a cataclysm.exe save's 0x280-byte team read by the exe's offsets (aitCat32LoadTeam)",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): found modified (was IDENTICAL); ported; the KAS identity of a loaded team is CAT-TODO(stage 6 KAS)"
+ },
+ "0x00417fe0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "note": "[review: M2-R7 ai-player-skirmish] compared with the exe body (decompile, disassembly where the decompile was unclear): same; a cataclysm.exe save's 0x170-byte move is converted by the SaveCat32 AITeamMove layout first (load path only, no exe delta)"
+ },
+ "0x00402780": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the armada targets are not freed (the exe keeps them embedded in AIPlayer +0xCF8); only Targets (+0x1CA8) is freed",
+  "note": "recon / harass / attack team loops as HW1 [review: audit M2-R7 ai-player-skirmish] compared with the exe body (decompile): the producer embedded the armada targets and dropped their free in this body without a review entry; the exe frees only +0x1CA8 (memFree, cleared)",
+  "sample": "audit-R7-ai-player-skirmish"
  }
 }
