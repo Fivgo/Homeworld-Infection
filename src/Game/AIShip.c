@@ -23,6 +23,7 @@
 #include "FormationDefs.h"
 #include "FastMath.h"
 #include "Physics.h"
+#include "SinglePlayer.h"   // CAT: ShipSinglePlayerGameInfo.hyperspaceEffect (aishipFlyToPointAvoidingObjsFunc)
 #include "ProfileTimers.h"
 #include "Randy.h"
 #include "Ships.h"
@@ -298,11 +299,15 @@ void aishipPrecalcInfo(ShipStaticInfo *shipstatinfo)
         default:
             switch (shipstatinfo->shiptype)
             {
-                // CAT: no HW1 SensorArray, CryoTray, P2Mothership, P3Megaship or ResourceController cases (M2-R4 ships-b)
-                case P1Mothership:
-                case FloatingCity:
-                case ResearchStation:
-                case Ghostship:
+                // CAT: no HW1 SensorArray, CryoTray, P2Mothership, P3Megaship or ResourceController cases (M2-R4 ships-b);
+                //      the exe's types 0x60, 0x62, 0x65, 0x68, 0x6d, 0x82 (aishipPrecalcInfo 0x00413bd0; dRKO and
+                //      dBeastMothership are Cataclysm's)
+                case p1Mothership:
+                case trFloatingCity:
+                case trResearchStation:
+                case trGhostship:
+                case dRKO:
+                case dBeastMothership:
                     shipstatinfo->shipOrDerelict.sinbank = MASSIVESHIP_BANK;
                     shipstatinfo->shipOrDerelict.pitchturn = MASSIVESHIP_TURNPITCH;
                     shipstatinfo->shipOrDerelict.pitchdescend = MASSIVESHIP_DESCENDPITCH;
@@ -739,23 +744,32 @@ void rowSignalShipToGetOutOfWayOfMe(Ship *ship,Ship *me,vector *meToShip,vector 
 
     // calculate outOfWayPoint;
 
-    if ((me->shiprace == R1) && (me->shiptype == Mothership))
-    {
-        // special case solution for R1 Mothership
-        // under no circumstances do we want ships going up or down to avoid the R1 Mothership!
+    // CAT: no HW1 special case for the R1 Mothership (rowSignalShipToGetOutOfWayOfMe 0x00414400 has none: every ship
+    //      parts by its rowAvoidBy distance)
+    vector meDirOfTravelNorm = *meDirOfTravel;
+    vector meToShipNorm;
+    real32 avoidby = rowAvoidBy[me->shiptype];
 
-        vector meToShipNorm = *meToShip;
-        vector meDirOfTravelNorm = *meDirOfTravel;
+    if (avoidby == 0.0f) avoidby = me->staticinfo->common.staticCollInfo.avoidcollspheresize*AVOID_ROW_SHIP_BY_SCALE + AVOID_ROW_SHIP_BY_ADD;
+
+    vecNormalize(&meDirOfTravelNorm);
+
+    if ((meDirOfTravelNorm.z > ROW_GOING_MOSTLY_UPDOWN_ANGLE) || (meDirOfTravelNorm.z < -ROW_GOING_MOSTLY_UPDOWN_ANGLE))
+    {
+        // ship we are trying to avoid is going mainly up/down, so we should move on x-y plane.
         vector directionOfParting;
         vector up = { 0.0f, 0.0f, 1.0f };
         vector test;
+
+        meToShipNorm = *meToShip;
+        meDirOfTravelNorm = *meDirOfTravel;
 
         meToShipNorm.z = 0.0f;
         meDirOfTravelNorm.z = 0.0f;
         vecNormalize(&meToShipNorm);
         vecNormalize(&meDirOfTravelNorm);
 
-        // find direction ships should part in (should be on x-y plane and perpendicular to direction of movement of mothership)
+        // find direction ships should part in (should be on x-y plane and perpendicular to direction of movement of me)
         vecCrossProduct(directionOfParting,meDirOfTravelNorm,up);
 
         // now find out if we should go in directionOfParting or -directionOfParting
@@ -765,59 +779,21 @@ void rowSignalShipToGetOutOfWayOfMe(Ship *ship,Ship *me,vector *meToShip,vector 
             vecNegate(directionOfParting);
         }
 
-        vecScalarMultiply(delta,directionOfParting,AVOID_ROW_R1MOTHERSHIP_BY);
+        vecScalarMultiply(delta,directionOfParting,avoidby);
     }
     else
     {
-        vector meDirOfTravelNorm = *meDirOfTravel;
-        vector meToShipNorm;
-        real32 avoidby = rowAvoidBy[me->shiptype];
+        // move up or down to get out of way
 
-        if (avoidby == 0.0f) avoidby = me->staticinfo->common.staticCollInfo.avoidcollspheresize*AVOID_ROW_SHIP_BY_SCALE + AVOID_ROW_SHIP_BY_ADD;
-
-        vecNormalize(&meDirOfTravelNorm);
-
-        if ((meDirOfTravelNorm.z > ROW_GOING_MOSTLY_UPDOWN_ANGLE) || (meDirOfTravelNorm.z < -ROW_GOING_MOSTLY_UPDOWN_ANGLE))
+        if ((-meToShip->z) > (avoidby*ROW_GO_DOWN_INSTEAD_OF_UP_RATIO)) // if me is above ship by this let's go down
         {
-            // ship we are trying to avoid is going mainly up/down, so we should move on x-y plane.
-            vector directionOfParting;
-            vector up = { 0.0f, 0.0f, 1.0f };
-            vector test;
-
-            meToShipNorm = *meToShip;
-            meDirOfTravelNorm = *meDirOfTravel;
-
-            meToShipNorm.z = 0.0f;
-            meDirOfTravelNorm.z = 0.0f;
-            vecNormalize(&meToShipNorm);
-            vecNormalize(&meDirOfTravelNorm);
-
-            // find direction ships should part in (should be on x-y plane and perpendicular to direction of movement of me)
-            vecCrossProduct(directionOfParting,meDirOfTravelNorm,up);
-
-            // now find out if we should go in directionOfParting or -directionOfParting
-            vecCrossProduct(test,meDirOfTravelNorm,meToShipNorm);
-            if (test.z > 0.0f)
-            {
-                vecNegate(directionOfParting);
-            }
-
-            vecScalarMultiply(delta,directionOfParting,avoidby);
+            // go down
+            vecSet(delta,0.0f,0.0f,-avoidby);
         }
         else
         {
-            // move up or down to get out of way
-
-            if ((-meToShip->z) > (avoidby*ROW_GO_DOWN_INSTEAD_OF_UP_RATIO)) // if me is above ship by this let's go down
-            {
-                // go down
-                vecSet(delta,0.0f,0.0f,-avoidby);
-            }
-            else
-            {
-                // go up
-                vecSet(delta,0.0f,0.0f,avoidby);
-            }
+            // go up
+            vecSet(delta,0.0f,0.0f,avoidby);
         }
     }
 
@@ -908,8 +884,6 @@ udword aishipFlyToPointAvoidingObjsFunc(Ship *ship,vector *destination,udword ai
 
     real32 useAVOID_OBJ_SCALE_FACTOR = AVOID_OBJ_SCALE_FACTOR;
 
-    SpaceObjRotImpTarg *takeOutInMyWay = NULL;
-
     if (ship->dontapplyforceever)
     {
         return 0;     // no point wasting our time
@@ -918,6 +892,14 @@ udword aishipFlyToPointAvoidingObjsFunc(Ship *ship,vector *destination,udword ai
     if (ship->staticinfo->common.immobile)
     {
         return 0;     // no point wasting our time
+    }
+
+    // CAT: in single player a ship whose hyperspace effect plays is not flown (aishipFlyToPointAvoidingObjsFunc
+    //      0x00414610 at 0x0041468d: shipSinglePlayerGameInfo +0x4C4, its hyperspaceEffect +0x1C)
+    if (singlePlayerGame && (ship->shipSinglePlayerGameInfo != NULL) &&
+        (ship->shipSinglePlayerGameInfo->hyperspaceEffect != NULL))
+    {
+        return 0;
     }
 
     PTSTART(2);
@@ -1052,11 +1034,16 @@ startflying:
                 limitvel = ship->catProtectedSpeedLimit;
             }
 
-            if ((limitvel == 0.0f) && cat_shipFormationCommand(ship) && (ship == shipcommand->selection->ShipPtr[0]))   // CAT: no Ship.formationcommand
+            // CAT: no Ship.formationcommand: the formation is the command with COMMAND_MASK_FORMATION, and a docking
+            //      command never sets the leader's speed (0x004149e2: order != COMMAND_DOCK); the force-field sphere
+            //      (FORCEFIELD_SPHERE_FORMATION 10) is treated as the sphere (0x00414a19)
+            if ((limitvel == 0.0f) && (shipcommand != NULL) && (shipcommand->ordertype.order != COMMAND_DOCK) &&
+                cat_shipFormationCommand(ship) && (ship == shipcommand->selection->ShipPtr[0]))
             {
                 // ship is leader of formation, it may potentially travel slower so other ships can maintain formation
 
-                if ((shipcommand->formation.formationtype != SPHERE_FORMATION) ||
+                if (((shipcommand->formation.formationtype != SPHERE_FORMATION) &&
+                     (shipcommand->formation.formationtype != FORCEFIELD_SPHERE_FORMATION)) ||
                     (!((shipcommand->ordertype.attributes & COMMAND_MASK_PROTECTING) || (shipcommand->formation.enders)))
                    )
                 {
@@ -1080,7 +1067,10 @@ startflying:
             }
             else
             {
-                real32 velMult = tacticsGetShipsMaxVelocity(ship);
+                // CAT: the top speed carries the speed multiplier (cat_shipGetSpeedMultiplier 0x00514940;
+                //      0x00414ab2), as in physUpdateObjPosVelShip
+                real32 velMult = cat_shipGetSpeedMultiplier(ship);
+                velMult = tacticsGetShipsMaxVelocity(ship) * velMult;
                 vecCapVector(&targetVec,velMult);
             }
 
@@ -1124,12 +1114,26 @@ startflying:
             shipsavoidingstuff++;
 #endif
 
-            shipcollsize = shipstaticinfo->common.staticCollInfo.avoidcollspheresize;
+            // CAT: a mimic avoids with its disguise's radius (cat_mimicGetAvoidRadius 0x005b9550 when CAT_SHIPFLAG_Mimic
+            //      is set; 0x00414b28)
+            if (ship->header.catFlags18 & CAT_SHIPFLAG_Mimic)
+            {
+                shipcollsize = cat_mimicGetAvoidRadius(ship);
+            }
+            else
+            {
+                shipcollsize = shipstaticinfo->common.staticCollInfo.avoidcollspheresize;
+            }
             shipcollpad = shipstaticinfo->common.staticCollInfo.avoidcollspherepad;
 
             rowEnabled = FALSE;
 
-            if (shipstaticinfo->common.rightOfWay > 0)    // if ship has any right of way
+            // CAT: a fighter or corvette docking at a dock point (COMMAND_DOCK with dockvars.catDockPointIndex != -1)
+            //      uses no right of way (0x00414b59)
+            if (((shipcommand == NULL) || (shipcommand->ordertype.order != COMMAND_DOCK) ||
+                 (ship->dockvars.catDockPointIndex == -1) ||
+                 ((shipstaticinfo->shipclass != CLASS_Fighter) && (shipstaticinfo->shipclass != CLASS_Corvette))) &&
+                (shipstaticinfo->common.rightOfWay > 0))    // if ship has any right of way
             {
                 shiprowcollpad = shipcollsize * AVOID_OBJ_ROW_PADDING_SCALE;
                 rowEnabled = TRUE;
@@ -1144,28 +1148,31 @@ startflying:
                 goto noavoid;
             }
 
-            // CAT: a linking Acolyte or Mimic (the link order, 11) avoids nothing once its partner is among the blob's
-            //      small targets: it flies into the partner's hull (aishipFlyToPointAvoidingObjsFunc 0x00414cb9)
-            if (((ship->shiptype == sAcolyte) || (ship->shiptype == bAcolyte) || (ship->shiptype == sMimic)) &&
-                (shipcommand != NULL) && (shipcommand->ordertype.order == COMMAND_CAT_LINK))
-            {
-                Ship *partner = ((CatLinkInfo *)((ubyte *)ship->ShipSpecifics + 0x18))->partner;    // Ship+0x650
-                sdword k;
-
-                for (k = 0; k < thisBlob->blobSmallTargets->numTargets; k++)
-                {
-                    if (thisBlob->blobSmallTargets->TargetPtr[k] == (TargetPtr)partner)
-                    {
-                        goto noavoid;
-                    }
-                }
-            }
-
-            pass = 0;
+            // CAT: a ship whose original collision sphere is under 500 skips the small-target pass and avoids only the
+            //      big targets (0x00414c8a: ShipStaticInfo +0x48 against the float 500.0 at 0x0072a4ac)
+            pass = (shipstaticinfo->common.staticCollInfo.originalCollSphereSize < 500.0f) ? 1 : 0;
 
 passagain:
             if (pass == 0)
             {
+                // CAT: a linking Acolyte or Mimic (the link order, 11) skips the small-target pass once its partner is
+                //      among the blob's small targets: it flies into the partner's hull (aishipFlyToPointAvoidingObjsFunc
+                //      0x00414cb9; the big-target pass still runs: the exe jumps to the pass counter, 0x00415916)
+                if (((ship->shiptype == sAcolyte) || (ship->shiptype == bAcolyte) || (ship->shiptype == sMimic)) &&
+                    (shipcommand != NULL) && (shipcommand->ordertype.order == COMMAND_CAT_LINK))
+                {
+                    Ship *partner = ((CatLinkInfo *)((ubyte *)ship->ShipSpecifics + 0x18))->partner;    // Ship+0x650
+                    sdword k;
+
+                    for (k = 0; k < thisBlob->blobSmallTargets->numTargets; k++)
+                    {
+                        if (thisBlob->blobSmallTargets->TargetPtr[k] == (TargetPtr)partner)
+                        {
+                            goto nextpass;
+                        }
+                    }
+                }
+
                 targetsAvoid = thisBlob->blobSmallTargets;
                 dbgAssertOrIgnore(targetsAvoid);
                 numTargets = targetsAvoid->numTargets;
@@ -1228,6 +1235,36 @@ passagain:
                     goto nextpass;
                 }
 
+                // CAT: a ship does not avoid the ship it keeps at Ship+0x608 (catSalvageBigGun: a towed big gun's
+                //      dBigGun, a Worker's repair target) nor a component clamped to that ship, and the other way round;
+                //      in single player a trFloatingCity does not avoid a dSlipgateNode nor a dEcclesiam the sMothership
+                //      (aishipFlyToPointAvoidingObjsFunc 0x00414e0e .. 0x00414ea0)
+                if (avoidobj->header.objtype == OBJ_ShipType)
+                {
+                    Ship *avoidShip = (Ship *)avoidobj;
+
+                    if ((ship->catSalvageBigGun != NULL) &&
+                        ((ship->catSalvageBigGun == avoidShip) ||
+                         ((avoidShip->staticinfo->shipclass == CLASS_Component) && (avoidShip->guidance.clampInfo != NULL) &&
+                          ((void *)avoidShip->guidance.clampInfo->host == (void *)ship->catSalvageBigGun))))
+                    {
+                        goto nextnode;
+                    }
+                    if ((avoidShip->catSalvageBigGun != NULL) &&
+                        ((avoidShip->catSalvageBigGun == ship) ||
+                         ((shipstaticinfo->shipclass == CLASS_Component) && (ship->guidance.clampInfo != NULL) &&
+                          ((void *)ship->guidance.clampInfo->host == (void *)avoidShip->catSalvageBigGun))))
+                    {
+                        goto nextnode;
+                    }
+                    if (singlePlayerGame &&
+                        (((avoidShip->shiptype == dSlipgateNode) && (ship->shiptype == trFloatingCity)) ||
+                         ((avoidShip->shiptype == sMothership) && (ship->shiptype == dEcclesiam))))
+                    {
+                        goto nextnode;
+                    }
+                }
+
                 // use more trivial rejections?
 
                 avoidcollpad = avoidobj->obj.staticinfo->staticCollInfo.avoidcollspherepad;
@@ -1268,6 +1305,10 @@ passagain:
                 if (shipstaticinfo->common.rightOfWay > avoidobj->obj.staticinfo->rightOfWay)
                 {
                     // We have right of way:
+                    // CAT: only an allied ship is asked to get out of the way; an enemy ship is avoided only with
+                    //      SPECIAL_2_DontPlowThroughEnemyShips; any other object with a lower right of way is not avoided
+                    //      (HW1's potshot at an asteroid in the way, attackSimple, and the Asteroid3 bonus are gone:
+                    //      aishipFlyToPointAvoidingObjsFunc 0x00414ff0 .. 0x004151d0)
                     bool32 dontBotherAvoiding = TRUE;
 
                     if (avoidobj->header.flags & SOF_Hide)
@@ -1316,51 +1357,6 @@ passagain:
                             }
                         }
                     }
-                    else if (avoidobj->header.objtype == OBJ_AsteroidType)
-                    {
-                        Asteroid* asteroid = (Asteroid*)avoidobj;
-                        bool32 takingItOut = FALSE;
-
-                        // later tell ship to blow up asteroid in way?
-                        if (isCapitalShipStatic(shipstaticinfo) && (ship->shiptype != Carrier) && (ship->shiptype != Mothership))
-                        {
-                            if ((shipcommand == NULL) ||
-                                   ((shipcommand->ordertype.order != COMMAND_ATTACK) &&
-                                   ((shipcommand->ordertype.attributes & (COMMAND_MASK_ATTACKING_AND_MOVING|COMMAND_MASK_PASSIVE_ATTACKING)) == 0))
-                                )
-                            {
-                                // ship isn't devoting its guns to anywhere else, so let's take a potshot at the asteroid in our way:
-                                if (ship->gunInfo && (ship->gunInfo->numGuns > 0) && (asteroid->header.flags & SOF_Targetable))
-                                {
-                                    vector meToShip;
-                                    vector meDirOfTravel;
-
-                                    GetDirectionOfTravel(ship,&meDirOfTravel);
-
-                                    vecSub(meToShip,asteroid->impactable.collInfo.collPosition,ship->impactable.collInfo.collPosition);
-
-                                    if ((!takeOutInMyWay) && (vecDotProduct(meToShip,meDirOfTravel) > 0.0f))
-                                    {
-                                        takingItOut = TRUE;
-                                        takeOutInMyWay = (SpaceObjRotImpTarg *)avoidobj;
-                                    }
-                                }
-                            }
-                        }
-
-                        if (!takingItOut)
-                        {
-                            // perhaps we should be avoiding it if we're not taking it out?
-                            sbyte asteroidrow = asteroid->staticinfo->common.rightOfWay;
-                            if (asteroid->asteroidtype == Asteroid3)
-                                asteroidrow++;      // give +1 row to asteroid3 since it's pretty big
-
-                            if (shipstaticinfo->common.rightOfWay <= asteroidrow)
-                            {
-                                dontBotherAvoiding = FALSE;     // we should avoid it after all
-                            }
-                        }
-                    }
 
                     if (dontBotherAvoiding)
                     {
@@ -1402,11 +1398,20 @@ norowcheck:
                     goto nextnode;  // cannot collide with itself
                 }
 
-                avoidcollsize = avoidobj->obj.staticinfo->staticCollInfo.avoidcollspheresize;
-
                 if (avoidobj->header.objtype == OBJ_ShipType)
                 {
                     Ship* avoidShip = (Ship*)avoidobj;
+
+                    // CAT: a mimic is avoided with its disguise's radius (cat_mimicGetAvoidRadius 0x005b9550; 0x004152b5)
+                    if (avoidShip->header.catFlags18 & CAT_SHIPFLAG_Mimic)
+                    {
+                        avoidcollsize = cat_mimicGetAvoidRadius(avoidShip);
+                    }
+                    else
+                    {
+                        avoidcollsize = avoidobj->obj.staticinfo->staticCollInfo.avoidcollspheresize;
+                    }
+
                     if (shipcommand)
                     {
                         if (avoidShip->command == shipcommand)
@@ -1421,15 +1426,15 @@ norowcheck:
 
                         if ( (shipcommand->ordertype.order == COMMAND_MILITARY_PARADE) && (shipcommand->militaryParade->aroundShip == avoidShip))
                         {
-                            if (avoidShip->shiptype == Mothership)
+                            // CAT: the parade's host pads with the mothership scale when it is of CLASS_Mothership (no
+                            //      HW1 race variant), and the ship's own pad is left as it is (0x00415305 .. 0x00415339)
+                            if (avoidShip->staticinfo->shipclass == CLASS_Mothership)
                             {
-                                avoidcollpad = avoidcollsize * ((avoidShip->shiprace == R2) ? AVOID_OBJ_R2MSHIP_MILPARADE_PADDING_SCALE : AVOID_OBJ_MSHIP_MILPARADE_PADDING_SCALE);
-                                shipcollpad = shipcollsize * AVOID_OBJ_FORMATION_PADDING_SCALE;
+                                avoidcollpad = avoidcollsize * AVOID_OBJ_MSHIP_MILPARADE_PADDING_SCALE;
                             }
                             else
                             {
                                 avoidcollpad = avoidcollsize * AVOID_OBJ_FORMATION_PADDING_SCALE;
-                                shipcollpad = shipcollsize * AVOID_OBJ_FORMATION_PADDING_SCALE;
                             }
                        getmaxdist:
                             maxdistconsider = avoidcollpad + shipcollpad;
@@ -1457,14 +1462,19 @@ norowcheck:
                     }
 
                 }
+                else
+                {
+                    avoidcollsize = avoidobj->obj.staticinfo->staticCollInfo.avoidcollspheresize;
+                }
 
                 // CAT (M2-R4 combat): a salvager (SPECIAL_CatSalvager) does not avoid its target once inside the
                 //      target's cone (the Cataclysm salvager block's noAvoid), nor a salvager with the same target
                 //      (aishipFlyToPointAvoidingObjsFunc 0x00414610 at 0x004153c5..); HW1's salvage-state exception
-                //      is gone with HW1's salvage code
+                //      is gone with HW1's salvage code. M2-R7: the target is compared as a pointer, as the exe does
+                //      (0x004153f5 cmp ecx,esi): a salvager without a target (NULL) took the member address of NULL
                 if (ship->shipOrDerelict.specialFlags & SPECIAL_CatSalvager) {
                     CatSalvagerInfo *salvager = cat_salvageGetSalvagerInfo(ship);
-                    if (&salvager->target->impactable == avoidobj) {
+                    if ((void *)salvager->target == (void *)avoidobj) {
                         if (salvager->noAvoid) {
                             goto nextnode;
                         }
@@ -1479,7 +1489,9 @@ norowcheck:
                     }
                 }
 
+                // CAT: the exe also tests the clamp info for NULL (0x0041545a)
                 if ((avoidobj->header.flags & SOF_Clamped) &&
+                    (((SpaceObjRotImpTargGuidance*)avoidobj)->clampInfo != NULL) &&
                     ((SpaceObjRotImpTargGuidance*)avoidobj)->clampInfo->host == &ship->targetable) {
                     goto nextnode;
                 }
@@ -1505,16 +1517,13 @@ norowcheck:
                     }
                 }
 
-                if (bitTest(avoidobj->header.flags,SOF_Cloaked))    //add cloakfield owner check here!
-                {           //if object being considered is cloaked
-                    if(avoidobj->header.objtype == OBJ_ShipType)
-                    {
-                        if(!proximityCanPlayerSeeShip(ship->playerowner,(Ship *)avoidobj))
-                        {
-                            goto nextnode;      //don't avoid it, but ignore it
-                        }
-                    }
-                    else
+                // CAT: a fully cloaked object is ignored unless it is a ship the player has detected
+                //      (cat_shipIsCloakedFully 0x00436110, cat_shipDetectedByPlayer = sub_53F9F0 0x0053f9f0;
+                //      0x004154c2); HW1 asked the proximity sensors (proximityCanPlayerSeeShip)
+                if (cat_shipIsCloakedFully((Ship *)avoidobj))
+                {
+                    if ((avoidobj->header.objtype != OBJ_ShipType) ||
+                        !cat_shipDetectedByPlayer((Ship *)avoidobj, ship->playerowner->playerIndex))
                     {
                         goto nextnode;      //don't avoid it, but ignore it
                     }
@@ -1525,13 +1534,13 @@ norowcheck:
                     goto nextnode; // don't avoid asteroids you're harvesting
                 }
 
+                // CAT: the squared distance is tested before the square root (0x00415516 .. 0x00415543)
                 repulsemag2 = vecMagnitudeSquared(repulse);
-                repulsedist = fsqrt(repulsemag2);
-
-                if (repulsedist > maxdistconsider)
+                if (repulsemag2 > (maxdistconsider*maxdistconsider))
                 {
                     goto nextnode;
                 }
+                repulsedist = fsqrt(repulsemag2);
 
 #ifdef HW_BUILD_FOR_DEBUGGING
                 considered++;
@@ -1561,15 +1570,7 @@ norowcheck:
 
                 aishipStatsDistanceToCollision(distanceToCollision);
 
-                if (avoidobj->header.objtype == OBJ_ShipType)
-                {
-                    Ship* avoidShip = (Ship*)avoidobj;
-                    if ((avoidShip->shiptype == Mothership) && (avoidShip->shiprace == R1))
-                    {
-                        repulse.z = 0.0f;
-                        vecNormalize(&repulse);
-                    }
-                }
+                // CAT: no HW1 R1-mothership flattening of the repulsion (the exe scales the normal at once, 0x00415600)
 
                 distanceToCollision *= useAVOID_OBJ_SCALE_FACTOR;
                 vecDivideByScalar(repulse,distanceToCollision,temp);
@@ -1662,7 +1663,8 @@ skipobscurecheck:;
                 if (testExactOpposite < 0)
                 {
                     real32 targetVecMag2 = vecMagnitudeSquared(targetVec);
-                    if (targetVecMag2 >= (20.0f*20.0f))     // must be at least 20m away before we consider passing on right (avoid jitter)
+                    // CAT: at least 30 m away (the float 900.0 at 0x0072a4cc, 0x00415813), where HW1 had 20 m
+                    if (targetVecMag2 >= (30.0f*30.0f))     // must be at least 30m away before we consider passing on right (avoid jitter)
                     {
                         if ((testExactOpposite*testExactOpposite) >= (targetVecMag2 * USE_PASS_RIGHT_ANGLE))
                         {
@@ -1765,8 +1767,7 @@ noavoid:
                 }
             }
 
-            if (takeOutInMyWay)
-                attackSimple(ship,takeOutInMyWay);
+            // CAT: no HW1 attackSimple on an asteroid in the way (the exe never takes it out)
 
             aitrackVelocityVector(ship,&desiredVel);
 
@@ -1919,7 +1920,9 @@ bool32 aishipGuideMissile(Missile *missile)
     else
     {
         aishipFlyMissileToTarget(missile,target);
-        if(missile->target->header.flags & SOF_Cloaked)
+        // CAT: a fully cloaked target is lost (cat_shipIsCloakedFully 0x00436110; aishipGuideMissile 0x00415e60), where
+        //      HW1 tested SOF_Cloaked alone
+        if (cat_shipIsCloakedFully((Ship *)missile->target))
         {
             missile->target = NULL;
         }
@@ -1989,7 +1992,8 @@ bool32 aishipFlyMineToTarget(Missile *mine,SpaceObjRotImpTarg *target)
     }
     else if(mine->target != NULL)
     {
-        if(mine->target->header.flags & SOF_Cloaked || mine->target->header.flags &SOF_Disabled)
+        // CAT: a fully cloaked target is lost (cat_shipIsCloakedFully 0x00436110; aishipFlyMineToTarget 0x00415fa0)
+        if (cat_shipIsCloakedFully((Ship *)mine->target) || (mine->target->header.flags & SOF_Disabled))
         {
             mine->target = NULL;
             return FALSE;
@@ -2217,21 +2221,46 @@ Ship *aishipmineaquiretarget(Missile *mine)
 
         //ship = (Ship *)listGetStructOfNode(shipnode);
 
+        // CAT: outside single player a derelict-race ship is no target, nor a ship a mission marked with
+        //      CAT_SHIPFLAG_KasMines (aishipmineaquiretarget 0x004162c0)
+        if ((!singlePlayerGame) && (ship->shiprace == RACE_Derelict))
+        {
+            goto nextnode;
+        }
         if ( (ship->playerowner == mine->playerowner) ||
              (allianceIsShipAlly(ship,mine->playerowner)) )
         {   //don't target are ships....
             goto nextnode;
         }
-        if(ship->header.flags & SOF_Cloaked)
+        if (ship->header.catFlags18 & CAT_SHIPFLAG_KasMines)
         {
-            if(!proximityCanPlayerSeeShip(mine->playerowner,ship))
+            goto nextnode;
+        }
+        // CAT: a fully cloaked ship is a target only once the mine's player has detected it (and then without the
+        //      tests below); a Leech only when detected, a mimic not while it appears allied to the mine's player
+        //      (cat_shipIsCloakedFully 0x00436110, cat_shipDetectedByPlayer = sub_53F9F0 0x0053f9f0,
+        //      cat_mimicAppearsAlliedTo; 0x00416340 .. 0x004163b6); HW1 asked the proximity sensors
+        if (cat_shipIsCloakedFully(ship))
+        {
+            if (!cat_shipDetectedByPlayer(ship, mine->playerowner->playerIndex))
             {
                 goto nextnode;
             }
         }
-        if(ship->header.flags & SOF_Disabled)
+        else
         {
-            goto nextnode;
+            if(ship->header.flags & SOF_Disabled)
+            {
+                goto nextnode;
+            }
+            if ((ship->shiptype == sLeech) && !cat_shipDetectedByPlayer(ship, mine->playerowner->playerIndex))
+            {
+                goto nextnode;
+            }
+            if ((ship->header.catFlags18 & CAT_SHIPFLAG_Mimic) && cat_mimicAppearsAlliedTo(ship, mine->playerowner))
+            {
+                goto nextnode;
+            }
         }
         //here we decide not to attack allies as well :)
 
@@ -2356,6 +2385,7 @@ bool32 aishipGuideMine(Missile *mine)
             dest_faker.impactable.collInfo.collPosition = mine->formation_position;
             vecSet(dest_faker.obj.posinfo.velocity, 0.0f,0.0f,0.0f);
             dest_faker.header.flags = 0;
+            dest_faker.staticinfo = NULL;      // CAT: the exe clears it too (aishipGuideMine 0x00416410)
             aishipFlyMineToTarget(mine,&dest_faker);
         }
         else
@@ -2391,7 +2421,9 @@ bool32 aishipGuideMine(Missile *mine)
             if(!aishipFlyMineToTarget(mine,mine->target))
             {
                 //lost target, so reform wall
-                mine->mineAIState = MINE_WALL_FORMATION;
+                // CAT: as for no target: a mine without a formation stops and searches (aishipGuideMine 0x00416410
+                //      at 0x00416783: the state is 4 with formationinfo, else 2), where HW1 always reformed the wall
+                mine->mineAIState = (mine->formationinfo == NULL) ? MINE_SEARCH_AND_STOP : MINE_WALL_FORMATION;
             }
         }
         break;

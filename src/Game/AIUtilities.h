@@ -24,9 +24,16 @@ bool32 ShipAlreadyHyperspaceOut(Ship *ship);      // don't include singleplayer.
 #define sizeof_aiblob_array(x)          sizeof(aiblob_array) + ((x) - 1) * sizeof(aiblob *)
 #define sizeof_Path(x)                  sizeof(Path) + ((x) - 1) * sizeof(vector)
 #define aiuShipIsHidden(x)              bitTest((x)->header.flags, SOF_Hide)
-#define aiuShipIsntSelectable(x)        (bitTest((x)->header.flags, SOF_Hide|SOF_Disabled|SOF_Crazy) || ShipAlreadyHyperspaceOut(x))
+// CAT (M2-R7 oracle-rung-aiship): a ship the computer player cannot order is disabled or crazy (not merely hidden), has
+//      hyperspaced out or is still being built externally (aiuFilterSelectableShips 0x0041abe0, aiuWrapDock 0x0041ef70,
+//      kasfDockSupportWith 0x004945a0: flags & 0xa00000, ShipAlreadyHyperspaceOut, specialFlags2 & 0x8)
+#define aiuShipIsntSelectable(x)        (bitTest((x)->header.flags, SOF_Disabled|SOF_Crazy) || ShipAlreadyHyperspaceOut(x) || \
+                                         bitTest((x)->shipOrDerelict.specialFlags2, SPECIAL_2_CatBeingBuilt))
+// CAT (M2-R7 oracle-rung-aiship): a target is hidden or in hyperspace, or not targetable by the player
+//      (cat_shipIsTargetableBy 0x0052a080; aiuWrapAttack 0x0041ed9a, aiuWrapSpecial 0x0041f2e0, aiuFindCaptureTarget
+//      0x0041cb50: flags & 0x2008000), where HW1 asked the proximity sensors about a cloaked ship
 #define aiuShipIsntTargetable(x,player) (bitTest((x)->header.flags, SOF_Hide|SOF_Hyperspace) || \
-                                         ((bitTest((x)->header.flags, SOF_Cloaked) && (!proximityCanPlayerSeeShip((player), (x))))))
+                                         (!cat_shipIsTargetableBy((player), (x))))
 
 #define aiuShipIsWorthCapturing(x)      ((!isShipOfClass(x, CLASS_Fighter)) && (!isShipOfClass(x, CLASS_Corvette)))
 
@@ -357,6 +364,7 @@ bool32 aiuWrapDock(SelectCommand *ships, DockType docktype, ShipPtr dockwith);
 bool32 aiuWrapFormation(SelectCommand *ships, TypeOfFormation formation);
 bool32 aiuWrapProtect(SelectCommand *ships, SelectCommand *shipstoguard);
 bool32 aiuWrapSpecial(SelectCommand *ships, SelectCommand *targets);
+bool32 cat_aiuWrapCapture(SelectCommand *ships, bool32 dontIssue, bool32 flag);      // CAT: 0x0041f3d0 (M2-R7)
 bool32 aiuWrapCollectResource(SelectCommand *ships, ResourcePtr resource);
 bool32 aiuWrapSetTactics(SelectCommand *ships, TacticsType tactics);
 bool32 aiuWrapHalt(SelectCommand *ships);

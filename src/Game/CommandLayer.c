@@ -7839,10 +7839,20 @@ void cat_clStartExternalBuildTimer(CommandLayer *comlayer,SelectCommand *selectc
 static void clExternalBuildAdvance(Ship *ship,real32 progress)
 {
     real32 maxhealth = ship->staticinfo->health.maxhealth;     // exe statinfo+0xA4
+    double health;
 
-    ship->targetable.health += (progress - ship->catBuildProgress) * maxhealth;
+    // CAT: one x87 expression with a single rounding (cat_clExternalBuildUpdate 0x0044dfc0, modes 2 and 0 alike:
+    //      fld dword [progress]; fsub dword [ship+0x3e8]; fmul dword [statinfo+0xa4]; fadd dword [ship+0x170];
+    //      fst dword [ship+0x170]; fcomp dword [statinfo+0xa4]). Every operand is a float (dword) load; the
+    //      intermediates stay on the FPU at the 53-bit precision of the game's control word 0x027f (every tick of
+    //      oracle01-rec.hwo) and are rounded to float once, at the fst; the clamp compares the UNROUNDED sum (fcomp
+    //      on st0 after the fst). Each double step rounds to 53 bits as the x87 does at that precision (the values
+    //      stay far from the double exponent limits), so this is the exe's result bit for bit (the oracle01 replay's
+    //      tick-136 health of ship 47: 0x43160001, where float steps gave 0x43160000)
+    health = ((double)progress - (double)ship->catBuildProgress) * (double)maxhealth + (double)ship->targetable.health;
     ship->catBuildProgress = progress;
-    if (ship->targetable.health > maxhealth)
+    ship->targetable.health = (real32)health;
+    if (health > (double)maxhealth)
     {
         ship->targetable.health = maxhealth;
     }

@@ -1840,6 +1840,9 @@ _Static_assert(SPECIAL_2_CatBeingBuilt == 0x8 && SPECIAL_2_CatBeingSalvaged == 0
 // CAT (M2-R5 command-tactics): clScuttle 0x0044a150 does not scuttle a ship with this bit whose infection timer
 //      (catBeastConvertTime, Ship+0x4E4) runs; no setter was located (a register-valued store). Name chosen here.
 #define CAT_SHIPFLAG_Bit7                           BIT7
+// CAT (M2-R7 oracle-rung-aiship): set by the mission function kasfShipsEffectedByMines 0x0049a080 to its argument's
+//      low bit; aishipmineaquiretarget 0x004162c0 never picks a ship with it. Name chosen here.
+#define CAT_SHIPFLAG_KasMines                       BIT5
 
 
 // CAT (M2-R3 selection): Ship.catUpgradeFlags bits the selection code tests (names chosen here from their users)

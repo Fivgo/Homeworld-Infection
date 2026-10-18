@@ -1637,7 +1637,10 @@ sdword aimProcessAdvancedAttack(AITeam *team)
 /*            if ((aiuShipIsFighter(moveTargets->ShipPtr[0])) && (!aiuShipIsFighter(teamShips->ShipPtr[0])))
             {
 */                thisMove->params.advatt.target_ship = NULL;
-                target = /*(AttackCommand *)*/selectMemDupSelection(moveTargets, "duppaa", 0);
+                // CAT (M2-R7 oracle-rung-aiship): the move's own target list goes to aiuAttack, whose duplicate replaces
+                //      it, and the original is freed (aimProcessAdvancedAttack 0x00408ca0); HW1's postfinal passed a
+                //      duplicate and got it back
+                target = moveTargets;
 /*            }
             else if ((moveTargets->numShips < AIM_SQUADRON_NUM_SHIPS) ||
                      (teamShips->numShips < AIM_SQUADRON_NUM_SHIPS))
@@ -1658,6 +1661,7 @@ sdword aimProcessAdvancedAttack(AITeam *team)
 */
 
             thisMove->params.advatt.targets = aiuAttack(team, target);
+            memFree(target);
             thisMove->processing = TRUE;
 
             //postfinal - removed because targets now part of the advatt structure
@@ -1826,7 +1830,11 @@ sdword aimProcessDock(AITeam *team)
 
         // CAT (M2-R5 dock): aimProcessDock 0x00409350 turns the move flags into Cataclysm's dock purpose: 1 (stay) or
         //      0 (support), plus 8 for an instant dock (9 / 8); the host only when the AtShip flag names one. HW1's
-        //      health-based refuel/repair choice is gone. CAT-TODO(stage 4 AI): the rest of the body
+        //      health-based refuel/repair choice is gone (the exe still sums the health at 0x004093a1 and discards it).
+        //      M2-R7 oracle-rung-aiship: the rest of the body compared with the exe and kept: the "dockdup" copy, the
+        //      processing flag (move +0x164), TEAM_DOCKING (team +4 bit 0x4000) set and cleared, and the wait loop that
+        //      drops a ship with no host that is not hidden (SOF_Hide 0x8000), or a stay-till-launch ship
+        //      (specialFlags 0x1000) waiting for a soft launch (ShipIsWaitingForSoftLaunch)
         (void)maxHealth; (void)actualHealth;
         dockType = (dockMoveFlags & dockmoveFlags_Stay) ? CAT_DOCK_STAY : CAT_DOCK_SUPPORT;
         if (dockMoveFlags & dockmoveFlags_Instantaneously)

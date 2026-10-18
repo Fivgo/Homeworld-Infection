@@ -24,6 +24,7 @@
 #include "ConsMgr.h"
 #include "Debug.h"
 #include "Demo.h"
+#include "FastMath.h"     // HWI-EXPERIMENT: /oracleTableFsqrt (M2-R7 oracle-rung-aiship)
 #include "FEReg.h"
 #include "File.h"
 #include "FontReg.h"
@@ -1147,6 +1148,7 @@ commandoption commandOptions[] =
     entryFnParam("/oracleSelfTest", OracleSelfTestSet, " <ticks> - run the oracle's scripted lockstep start for <ticks> universe ticks, then exit."),
     entryFnParam("/oracleSelfTestPerturb", OracleSelfTestPerturbSet, " <tick> - oracle self-test or mission run: draw one extra gamerand() at <tick>."),
     entryFnParam("/oracleMission",  OracleMissionSet, " <ticks> - headless oracle run: start single player at once, no animatic, one universe tick per frame, exit after <ticks> ticks."),
+    entryVr("/oracleTableFsqrt",    catFsqrtTable, TRUE, " - HWI-EXPERIMENT: fsqrt and fmathSqrt use the exe's table square root (fsqrt 0x00472860) instead of sqrtf (the default, decision 23)."),
     entryFnParam("/oracleReplay",   OracleReplaySet, " <name> - oracle mode A: replay SavedGames/RecordedGames/<name> (+ .pkts) as LoadRecordedGame does, one universe tick per frame, exit at the end of the packets."),
 #endif
 

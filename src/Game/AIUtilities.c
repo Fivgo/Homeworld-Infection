@@ -22,11 +22,51 @@
 #include "Ships.h"
 #include "Stats.h"
 #include "Tactics.h"
+#include "Leech.h"          // CAT: cat_leechIsLeeching (aiuWrapAttack 0x0041ed00)
+#include "Mimic.h"
+
+#include <string.h>
 
 
 
 //later put this into the scripts
 #define AIU_MOTHERSHIP_VALUE    5500
+
+/*-----------------------------------------------------------------------------
+    CAT (M2-R7 oracle-rung-aiship): the exe converts a rating to an integer with the double-magic sequence
+    fadd qword [0x0072a458] (6755399441055744.0 = 1.5 * 2^52); fstp qword; mov the low dword (aiuRateShip 0x0041acdd,
+    aiuRateBlobs 0x0041fd90): the value rounded to the nearest integer, ties to even (the FPU's default rounding), where
+    HW1's (udword) cast truncated
+----------------------------------------------------------------------------*/
+static udword cat_aiuRoundToUdword(double value)
+{
+    double biased = value + 6755399441055744.0;
+    uint64_t bits;
+
+    memcpy(&bits, &biased, sizeof(bits));
+    return (udword)bits;
+}
+
+/*-----------------------------------------------------------------------------
+    CAT (M2-R7 oracle-rung-aiship): the exe drops a target that is hidden, in hyperspace or not targetable by the
+    computer player from the target list in place, moving the last target into its slot (aiuWrapAttack 0x0041ed83,
+    aiuWrapSpecial 0x0041f2e0; the test is aiuShipIsntTargetable's). Returns the number of targets left
+----------------------------------------------------------------------------*/
+static sdword cat_aiuRemoveUntargetableTargets(SelectCommand *targets)
+{
+    sdword i;
+
+    for (i = 0; i < targets->numShips; i++)
+    {
+        if (aiuShipIsntTargetable(targets->ShipPtr[i], aiCurrentAIPlayer->player))
+        {
+            targets->ShipPtr[i] = targets->ShipPtr[targets->numShips - 1];
+            targets->numShips--;
+            i--;
+        }
+    }
+    return targets->numShips;
+}
 
 
 /*=============================================================================
@@ -422,7 +462,11 @@ bool32 aiuRescueShip(ShipPtr ship, struct AITeam *team)
             formation = AIU_RESCUE_BOTHMULTIPLE_FORMATION;
         }
 
-        newMove         = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection(enemyShips, "dupresc", 0), formation, Aggressive,TRUE, TRUE);
+        // CAT: a single-player script team attacks with its own tactics (AITeam +0x74, the tree's kasTactics), every
+        //      other team aggressively (aiuRescueShip 0x0041a700; the same choice recurs in the exe's AI moves)
+        newMove         = aimCreateAdvancedAttackNoAdd(team, selectMemDupSelection(enemyShips, "dupresc", 0), formation,
+                                                       (singlePlayerGame && (team->teamType == ScriptTeam)) ? team->kasTactics : Aggressive,
+                                                       TRUE, TRUE);
         newMove->events = thisMove->events;
         if (aiuAttackFeatureEnabled(AIA_KAMIKAZE))
         {
@@ -680,18 +724,23 @@ bool32 aiuShipIsFighter(Ship *ship)
 ----------------------------------------------------------------------------*/
 bool32 aiuShipNotGoodAgainstFighters(Ship *ship)
 {
+    // CAT: both Taiidan and Kushan variants and the Beast's ion array frigate and heavy cruiser
+    //      (aiuShipNotGoodAgainstFighters 0x0041aa90: types 0x2c 0x2e 0x42 0x45 0x49 0x50 0x53 0x5a)
     switch (ship->shiptype)
     {
-        case IonCannonFrigate:
-        case StandardDestroyer:
-        case HeavyCruiser:
+        case bIonArrayFrigate:
+        case bHeavyCruiser:
+        case kHeavyCruiser:
+        case kIonCannonFrigate:
+        case kStandardDestroyer:
+        case tHeavyCruiser:
+        case tIonCannonFrigate:
+        case tStandardDestroyer:
             return TRUE;
             break;
-            
         default:
             break;
     }
-
     return FALSE;
 }
 
@@ -841,10 +890,13 @@ bool32 aiuIsShipDangerous(Ship *ship)
         case CLASS_HeavyCruiser:
         case CLASS_Carrier:
         case CLASS_Destroyer:
+        case CLASS_MonsterShip:     // CAT: Cataclysm's monster and micro classes are dangerous (aiuIsShipDangerous 0x0041ac40)
+        case CLASS_Micro:
             return TRUE;
             break;
         case CLASS_Frigate:
-            if ((shipstatic->shiptype == DFGFrigate))
+            // CAT: both DFG frigates (0x2d bDFGFrigate, 0x4e tDFGFrigate; 0x0041ac40)
+            if ((shipstatic->shiptype == bDFGFrigate) || (shipstatic->shiptype == tDFGFrigate))
             {
                 return FALSE;
             }
@@ -899,27 +951,30 @@ bool32 aiuIsShipPrimaryEnemy(Ship *ship)
 ----------------------------------------------------------------------------*/
 void aiuRateShip(udword *strength, udword *value, ShipPtr ship)
 {
-    if (ship->shiptype == FloatingCity)
+    // CAT: only Sect and Beast ships have a strength, their kill rating rounded to the nearest integer; a ship of
+    //      class Mothership or a trFloatingCity is worth AIU_MOTHERSHIP_VALUE, any other ship of another race 1
+    //      (aiuRateShip 0x0041acb0), where HW1 tested the FloatingCity and Mothership types
+    if ((ship->shiprace == RACE_Sect) || (ship->shiprace == RACE_Beast))
     {
-        //may need to put in a value for this at some point
-        // if the trader ship ever battles with the computer player
-        *strength = 0;
+        *strength = cat_aiuRoundToUdword((double)statsGetOverallKillRating(ship->staticinfo));
     }
     else
     {
-        *strength = (udword)(statsGetOverallKillRating(ship->staticinfo));
+        *strength = 0;
     }
-
-    if ((ship->shiptype == Mothership) ||
-        (ship->shiptype == FloatingCity))
+    if ((ship->staticinfo->shipclass == CLASS_Mothership) ||
+        (ship->shiptype == trFloatingCity))
     {
         *value = AIU_MOTHERSHIP_VALUE;
     }
-    else
+    else if ((ship->shiprace == RACE_Sect) || (ship->shiprace == RACE_Beast))
     {
         *value = ship->staticinfo->buildCost;
     }
-
+    else
+    {
+        *value = 1;
+    }
 /*    switch (ship->shiptype)
     {
         case Mothership:
@@ -987,7 +1042,10 @@ SelectCommand *aiuEnemyShipsInMothershipBlob(void)
 
     for (i = 0; i < myMothershipBlob->blobShips->numShips; i++)
     {
-        if (!allianceArePlayersAllied(myMothershipBlob->blobShips->ShipPtr[i]->playerowner, aiCurrentAIPlayer->player))
+        // CAT: the crystals do not count (aiuEnemyShipsInMothershipBlob 0x0041ad40: types 0x7e, 0x7f)
+        if ((!allianceArePlayersAllied(myMothershipBlob->blobShips->ShipPtr[i]->playerowner, aiCurrentAIPlayer->player)) &&
+            (myMothershipBlob->blobShips->ShipPtr[i]->shiptype != dCrystal0) &&
+            (myMothershipBlob->blobShips->ShipPtr[i]->shiptype != dCrystal1))
         {
             selSelectionAddSingleShip(&tempsel, myMothershipBlob->blobShips->ShipPtr[i]);
         }
@@ -1024,13 +1082,15 @@ void aiuMakeShipsOnlyDangerousToMothership(SelectCommand *ships)
                 dangerous = TRUE;
                 break;
             case CLASS_Frigate:
-                if ((ships->ShipPtr[i]->shiptype != AdvanceSupportFrigate))
+                // CAT: neither support frigate (aiuMakeShipsOnlyDangerousToMothership 0x0041ae00: 0x3c, 0x4a)
+                if ((ships->ShipPtr[i]->shiptype != kAdvanceSupportFrigate) &&
+                    (ships->ShipPtr[i]->shiptype != tAdvanceSupportFrigate))
                 {
                     dangerous = TRUE;
                 }
                 break;
             case CLASS_Corvette:
-                if (ships->ShipPtr[i]->shiptype == MinelayerCorvette)
+                if (ships->ShipPtr[i]->shiptype == tMinelayerCorvette)
                 {
                     dangerous = TRUE;
                 }
@@ -1040,7 +1100,8 @@ void aiuMakeShipsOnlyDangerousToMothership(SelectCommand *ships)
                 }
                 break;
             case CLASS_Fighter:
-                if ((ships->ShipPtr[i]->shiptype == AttackBomber) &&
+                // CAT: both attack bombers (0x3d, 0x4b)
+                if (((ships->ShipPtr[i]->shiptype == kAttackBomber) || (ships->ShipPtr[i]->shiptype == tAttackBomber)) &&
                     (ships->numShips > 5))
                 {
                     dangerous = TRUE;
@@ -1201,6 +1262,7 @@ vector aiuFindEnemyMothershipCoords(Player *player)
 }
 
 
+// CAT-TODO(M2-R7 AI orders): aiuShipsCloseToEnemyMothership has no cataclysm.exe counterpart and its callers (AIAttackMan.c aiaProcessHarassTeams, the P2 swarm move in AIMoves.c) are absent from the export: remove it with them, or port the exe's inline test if one is found
 /*-----------------------------------------------------------------------------
     Name        : aiuShipsCloseToEnemyMothership
     Description : Returns TRUE if the ships are close to an enemy mothership
@@ -1399,10 +1461,15 @@ SelectCommand *aiuFindUnarmedUndefendedEnemyShips(void)
                 blobship       = blobShipsPtr->ShipPtr[j];
                 blob_shipclass = blobship->staticinfo->shipclass;
 
+                // CAT: neither salvage corvette nor the crystals and slipgates protect a blob
+                //      (aiuFindUnarmedUndefendedEnemyShips 0x0041b690: 0x48 0x59 0x7e 0x7f 0x70 0x71 0x72)
                 if ((!allianceArePlayersAllied(blobship->playerowner, aiCurrentAIPlayer->player)) &&
                     (blob_shipclass != CLASS_Resource) &&
                     (blob_shipclass != CLASS_NonCombat) &&
-                    (blobship->shiptype != SalCapCorvette))
+                    (blobship->shiptype != kSalCapCorvette) && (blobship->shiptype != tSalCapCorvette) &&
+                    (blobship->shiptype != dCrystal0) && (blobship->shiptype != dCrystal1) &&
+                    (blobship->shiptype != dSlipgateSmall) && (blobship->shiptype != dSlipgateMedium) &&
+                    (blobship->shiptype != dSlipgateLarge))
                 {
                     //reject this blob
                     protection_found = TRUE;
@@ -1458,11 +1525,13 @@ SelectCommand *aiuFindUnarmedEnemyShips(void)
                 blobship       = blobsel->ShipPtr[j];
                 blob_shipclass = blobship->staticinfo->shipclass;
 
+                // CAT: both races' support frigates and salvage corvettes, neither grav well generator
+                //      (aiuFindUnarmedEnemyShips 0x0041b7d0: 0x3c 0x4a 0x48 0x59; not 0x40 0x4f)
                 if ((!allianceArePlayersAllied(blobship->playerowner, aiCurrentAIPlayer->player)) &&
                     ((blob_shipclass == CLASS_Resource) || (blob_shipclass == CLASS_NonCombat) ||
-                     (blobship->shiptype == AdvanceSupportFrigate) ||
-                     (blobship->shiptype == SalCapCorvette)) &&
-                    (blobship->shiptype != GravWellGenerator))
+                     (blobship->shiptype == kAdvanceSupportFrigate) || (blobship->shiptype == tAdvanceSupportFrigate) ||
+                     (blobship->shiptype == kSalCapCorvette) || (blobship->shiptype == tSalCapCorvette)) &&
+                    (blobship->shiptype != kGravWellGenerator) && (blobship->shiptype != tGravWellGenerator))
                 {
                     selSelectionAddSingleShip(&temp_sel, blobship);
                 }
@@ -1514,9 +1583,11 @@ SelectCommand *aiuFindFighterVulnerableEnemyShips(void)
 
                 if ((!allianceArePlayersAllied(blobship->playerowner, aiCurrentAIPlayer->player)) &&
                     (isCapitalShip(blobship)) &&
-                    (blobship->shiptype != DFGFrigate) &&
-                    (blobship->shiptype != GravWellGenerator) &&
-                    (blobship->shiptype != Mothership))
+                    // CAT: no DFG frigate, grav well generator or mothership of either race
+                    //      (aiuFindFighterVulnerableEnemyShips 0x0041b900: 0x4e 0x2d 0x40 0x4f 0x12 0x35)
+                    (blobship->shiptype != tDFGFrigate) && (blobship->shiptype != bDFGFrigate) &&
+                    (blobship->shiptype != kGravWellGenerator) && (blobship->shiptype != tGravWellGenerator) &&
+                    (blobship->shiptype != sMothership) && (blobship->shiptype != bMothership))
                 {
                     selSelectionAddSingleShip(&temp_sel, blobship);
                 }
@@ -1634,8 +1705,9 @@ bool32 aiuDestinationNotNearOtherMothership(vector destination, real32 radiussq)
         ship = (Ship *)listGetStructOfNode(node);
 
         //if the ship is a mothership class but doesn't belong to the CPU
-        if (((ship->shiptype == Mothership) ||
-             (ship->shiptype == Carrier)) &&
+        // CAT: the class, not HW1's two types (aiuDestinationNotNearOtherMothership 0x0041bb80: CLASS_Mothership, CLASS_Carrier)
+        if (((ship->staticinfo->shipclass == CLASS_Mothership) ||
+             (ship->staticinfo->shipclass == CLASS_Carrier)) &&
             (ship->playerowner != aiCurrentAIPlayer->player))    //allianceArePlayersAllied?
         {
             // if the destination is near the destination of the ship,
@@ -1668,7 +1740,9 @@ real32 aiuFindSlowestShipMaxSpeed(SelectCommand *ships)
 
     for (i=0;i<ships->numShips;i++)
     {
-        tempmaxspeed = tacticsGetShipsMaxVelocity(ships->ShipPtr[i]);
+        // CAT: the top speed carries the speed multiplier (cat_shipGetSpeedMultiplier 0x00514940; aiuFindSlowestShipMaxSpeed 0x0041bcf0)
+        tempmaxspeed = cat_shipGetSpeedMultiplier(ships->ShipPtr[i]);
+        tempmaxspeed = tacticsGetShipsMaxVelocity(ships->ShipPtr[i]) * tempmaxspeed;
 
         if (tempmaxspeed < slowestmaxspeed)
         {
@@ -1733,9 +1807,10 @@ bool32 aiuShipIsVulnerableGoodGuy(ShipPtr ship)
     //since it is used as an attack craft in the game,
     //it's left out
     if ((ship->playerowner == aiCurrentAIPlayer->player) &&
+        // CAT: both races' support frigates and salvage corvettes (aiuFindClosestVulnerableGoodGuyShips 0x0041be90 inlines this)
         ((shipclass == CLASS_Resource) ||
-         (shiptype  == AdvanceSupportFrigate) ||
-         (shiptype  == SalCapCorvette)))
+         (shiptype  == kAdvanceSupportFrigate) || (shiptype == tAdvanceSupportFrigate) ||
+         (shiptype  == kSalCapCorvette) || (shiptype == tSalCapCorvette)))
     {
         return TRUE;
     }
@@ -1755,7 +1830,7 @@ bool32 aiuShipIsLargeVulnerableGoodGuy(ShipPtr ship)
     ShipType shiptype = ship->shiptype;
 
     if ((ship->playerowner == aiCurrentAIPlayer->player) &&
-        ((shiptype == AdvanceSupportFrigate)))
+        ((shiptype == kAdvanceSupportFrigate) || (shiptype == tAdvanceSupportFrigate)))     // CAT: both (0x0041be90)
     {
         return TRUE;
     }
@@ -2133,7 +2208,7 @@ ShipPtr aiuFindHarassTarget(SelectCommand *teamShips)
     enemyMothership = aiuFindEnemyMothership(aiCurrentAIPlayer->player);
     if (target1 &&
         !(enemyMothership &&
-          (target1->shiptype == ResourceCollector) &&
+          (target1->staticinfo->shipclass == CLASS_Resource) &&     // CAT: the class (aiuFindHarassTarget 0x0041c620)
           (aiuFindDistanceSquared(target1->obj.posinfo.position, enemyMothership->obj.posinfo.position) < 4500)))
     {
         target1_dist  = aiuFindDistanceSquared(target1->obj.posinfo.position, teamPos);
@@ -2141,7 +2216,7 @@ ShipPtr aiuFindHarassTarget(SelectCommand *teamShips)
     }
     if (target2 &&
         !(enemyMothership &&
-          (target2->shiptype == ResourceCollector) &&
+          (target2->staticinfo->shipclass == CLASS_Resource) &&     // CAT: the class (aiuFindHarassTarget 0x0041c620)
           (aiuFindDistanceSquared(target2->obj.posinfo.position, enemyMothership->obj.posinfo.position) < 4500)))
     {
         target2_dist  = aiuFindDistanceSquared(target2->obj.posinfo.position, teamPos);
@@ -2149,7 +2224,7 @@ ShipPtr aiuFindHarassTarget(SelectCommand *teamShips)
     }
     if (target3 &&
         !(enemyMothership &&
-          (target3->shiptype == ResourceCollector) &&
+          (target3->staticinfo->shipclass == CLASS_Resource) &&     // CAT: the class (aiuFindHarassTarget 0x0041c620)
           (aiuFindDistanceSquared(target3->obj.posinfo.position, enemyMothership->obj.posinfo.position) < 4500)))
     {
         target3_dist  = aiuFindDistanceSquared(target3->obj.posinfo.position, teamPos);
@@ -2181,6 +2256,8 @@ ShipPtr aiuFindHarassTarget(SelectCommand *teamShips)
 ShipPtr aiuFindClosestEnemyShipWorthCapturing(aiblob *blob)
 {
     real32 distsq, closestblobdistsq = REALlyBig, closestshipdistsq = REALlyBig;
+    // CAT-FIX: aiuFindClosestEnemyShipWorthCapturing 0x0041c990 leaves its result uninitialised when no enemy blob holds
+    //          a ship worth capturing (it returns a stack value); NULL here
     ShipPtr closestshipworth = NULL, ship = NULL;
     SelectCommand *blobSelection;
     udword i, j;
@@ -2234,6 +2311,8 @@ SelectCommand *aiuFindCaptureTarget(SelectCommand *capturingShips)
     real32 pridistsq, closestPriDistSq = REALlyBig, nondistsq, closestNonDistSq = REALlyBig;
     aiblob *dablob;
 
+    // CAT: no mothership exclusion (aiuFindCaptureTarget 0x0041cb50 rates every type by its first ship's class and
+    //      build cost), and the visibility test asks cat_shipIsTargetableBy (aiuShipIsntTargetable)
     dablob = (aiblob *)aiuFindShipsAIBlob(capturingShips, FALSE);
 
     dbgAssertOrIgnore(dablob != NULL);
@@ -2248,7 +2327,6 @@ SelectCommand *aiuFindCaptureTarget(SelectCommand *capturingShips)
         //find the highest cost sighted primary enemy ships by shiptype
         if ((enemySelection->numShips) &&
             (aiuShipIsWorthCapturing(enemySelection->ShipPtr[0])) &&
-            (i!=Mothership) &&
             (enemySelection->ShipPtr[0]->staticinfo->buildCost > highestPriCost))
         {
             highestPriCost          = enemySelection->ShipPtr[0]->staticinfo->buildCost;
@@ -2261,7 +2339,6 @@ SelectCommand *aiuFindCaptureTarget(SelectCommand *capturingShips)
         if ((aiCurrentAIPlayer->enemyPlayerCount > 1) &&
             (enemySelection->numShips) &&
             (aiuShipIsWorthCapturing(enemySelection->ShipPtr[0])) &&
-            (i!=Mothership) &&
             (enemySelection->ShipPtr[0]->staticinfo->buildCost > highestNonCost))
         {
             highestNonCost          = enemySelection->ShipPtr[0]->staticinfo->buildCost;
@@ -2601,11 +2678,12 @@ bool32 aiuFindDecloakedShipInSphereOfInfluence(void)
                 //find a ship in the blob that has actually crossed into the sphere
                 //that is cloak capable and uncloaked, or a ship that is in the process
                 //of decloaking
+                // CAT: any enemy ship inside the sphere that is not fully cloaked (cat_shipIsCloakedFully 0x00436110;
+                //      aiuFindDecloakedShipInSphereOfInfluence 0x0041d160), where HW1 asked for the cloaking types or a
+                //      decloaking ship
                 if ((!allianceArePlayersAllied(ship->playerowner, aiCurrentAIPlayer->player)) &&
                     (aiuFindDistanceSquared(ship->obj.posinfo.position, center) < radiussq) &&
-                    ((ship->shiptype == CloakedFighter) ||
-                     (ship->shiptype == CloakGenerator) ||
-                     (bitTest(ship->header.flags, SOF_DeCloaking))))
+                    (!cat_shipIsCloakedFully(ship)))
                 {
                     return TRUE;
                 }
@@ -2899,7 +2977,7 @@ bool32 aiuShipIsResourcingOrSomething(ShipPtr ship)
     return ((ship->rcstate1) ||
             (ship->rcstate2) ||
             (ship->dockvars.dockship) ||
-            (bitTest(ship->shipOrDerelict.specialFlags, SPECIAL_Resourcing)));
+            (ship->shipOrDerelict.catResourcing));     // CAT: Ship.catResourcing +0x1D8 (aiuShipIsResourcingOrSomething 0x0041dd50), HW1's SPECIAL_Resourcing
 }
 
 
@@ -2922,6 +3000,12 @@ Resource *aiuFindBestResource(Resource **biggestResource, ShipPtr ship, Resource
 
     for (i=0; i < resources->numResources;i++)
     {
+        // CAT: a resource with the killer-collision attribute is never chosen (aiuFindBestResource 0x0041ddd7: attribute
+        //      dword +0x38 & 0x200)
+        if (resources->ResourcePtr[i]->obj.attributes & CAT_ATTRIBUTES_KillerCollision)
+        {
+            continue;
+        }
         if ((distsq = aiuFindDistanceSquared(resources->ResourcePtr[i]->obj.posinfo.position, shippos)) < shortest_distsq)
         {
             shortest_distsq = distsq;
@@ -3267,7 +3351,8 @@ real32 aiuFindMinimumGunRangeSquared(SelectCommand *ships)
             minrange = ship->staticinfo->bulletRangeSquared[ship->tacticstype];
 
             //reduce the minrange even more
-            if (ship->shiptype == MissileDestroyer)
+            // CAT: tMissileDestroyer, sDreadnought and sDestroyer (aiuFindMinimumGunRangeSquared 0x0041e2d0: 0x55 0x0a 0x19)
+            if ((ship->shiptype == tMissileDestroyer) || (ship->shiptype == sDreadnought) || (ship->shiptype == sDestroyer))
             {
                 minrange *= frandyrandombetween(RANDOM_AI_PLAYER, 0.10f, 0.25f);
             }
@@ -3326,9 +3411,11 @@ bool32 aiuShipsInGunRangeOfTargets(SelectCommand *selection)
     {
         ship = selection->ShipPtr[i];
 
-        if(ship->shiptype == CloakGenerator ||
-           ship->shiptype == GravWellGenerator ||
-           ship->shiptype == DFGFrigate)
+        // CAT: both races' cloak and grav well generators and DFG frigates
+        //      (aiuShipsInGunRangeOfTargets 0x0041e3a0: 0x3f 0x4d 0x40 0x4f 0x4e 0x2d)
+        if(ship->shiptype == kCloakGenerator || ship->shiptype == tCloakGenerator ||
+           ship->shiptype == kGravWellGenerator || ship->shiptype == tGravWellGenerator ||
+           ship->shiptype == tDFGFrigate || ship->shiptype == bDFGFrigate)
             continue;
         command = getShipAndItsCommand(&universe.mainCommandLayer,ship);
 
@@ -3438,7 +3525,9 @@ udword aiuUnitCapCanBuildShip(AIPlayer *aiplayer, ShipType shiptype, sdword numS
     shipclass   = requeststat->shipclass;
 
     // go through the CPU's own build queues
-    for (i=0;i<STD_LAST_SHIP;i++,shipcount=0)
+    // CAT: over the player's race's ship types, FirstShipTypeOfRace to LastShipTypeOfRace (the last one excluded, as the
+    //      exe's loop ends there: aiuUnitCapCanBuildShip 0x0041e500), where HW1 went over every standard type
+    for (i=FirstShipTypeOfRace[aiplayer->player->race];i<LastShipTypeOfRace[aiplayer->player->race];i++,shipcount=0)
     {
         tempstat = GetShipStaticInfo(i, aiplayer->player->race);
 
@@ -3461,7 +3550,6 @@ udword aiuUnitCapCanBuildShip(AIPlayer *aiplayer, ShipType shiptype, sdword numS
                 typetotal += shipcount;
             }
         }
-
     }
 
     // go through all the request ships queues
@@ -3478,11 +3566,9 @@ udword aiuUnitCapCanBuildShip(AIPlayer *aiplayer, ShipType shiptype, sdword numS
     for (i=0;i<aiplayer->newships.selection->numShips;i++)
     {
         shiptotal++;
-
         if (aiplayer->newships.selection->ShipPtr[i]->staticinfo->shipclass == shipclass)
         {
             classtotal++;
-
             if (aiplayer->newships.selection->ShipPtr[i]->shiptype == shiptype)
             {
                 typetotal++;
@@ -3499,23 +3585,28 @@ udword aiuUnitCapCanBuildShip(AIPlayer *aiplayer, ShipType shiptype, sdword numS
     shiptotal += aiplayer->NumASFBeingBuilt;
     shiptotal += aiplayer->NumResearchShipsBeingBuilt;
 
+    // CAT: the resource collectors are the Workers and the Taiidan collector, the controllers the Processors, the
+    //      support frigates both races' (aiuUnitCapCanBuildShip 0x0041e71c switch: 0x0e 0x31 0x58 / 0x10 0x33 / 0x3c 0x4a); the
+    //      HW1 ResourceController and ResearchShip cases are gone with those types
     switch (shiptype)
     {
-        case ResourceCollector:
+        case sWorker:
+        case bWorker:
+        case tResourceCollector:
             typetotal  += aiplayer->NumRCollectorsBeingBuilt;
             classtotal += aiplayer->NumRCollectorsBeingBuilt;
             classtotal += aiplayer->NumRControllersBeingBuilt;
             break;
+        case sProcessor:
+        case bProcessor:
             typetotal  += aiplayer->NumRControllersBeingBuilt;
             classtotal += aiplayer->NumRControllersBeingBuilt;
             classtotal += aiplayer->NumRCollectorsBeingBuilt;
             break;
-        case AdvanceSupportFrigate:
+        case kAdvanceSupportFrigate:
+        case tAdvanceSupportFrigate:
             typetotal  += aiplayer->NumASFBeingBuilt;
             classtotal += aiplayer->NumASFBeingBuilt;
-            break;
-            typetotal  += aiplayer->NumResearchShipsBeingBuilt;
-            classtotal += aiplayer->NumResearchShipsBeingBuilt;
             break;
         default:
             switch (shipclass)
@@ -3560,17 +3651,23 @@ udword aiuUnitCapCanBuildShip(AIPlayer *aiplayer, ShipType shiptype, sdword numS
             }
         }
     }
-    if (cdClassCaps[shipclass] - (player->classtotals[shipclass]+classtotal) < numShips)
+
+    // CAT: a class cap of -1 is no cap, as for the type caps (0x0041e7bf: cdClassCaps 0x00b3aba0 compared with -1)
+    if (cdClassCaps[shipclass] != -1)
     {
-        if (cdClassCaps[shipclass] - (player->classtotals[shipclass]+classtotal) < 0)
+        if (cdClassCaps[shipclass] - (player->classtotals[shipclass]+classtotal) < numShips)
         {
-            return 0;
-        }
-        else
-        {
-            return (cdClassCaps[shipclass] - (player->classtotals[shipclass]+classtotal));
+            if (cdClassCaps[shipclass] - (player->classtotals[shipclass]+classtotal) < 0)
+            {
+                return 0;
+            }
+            else
+            {
+                return (cdClassCaps[shipclass] - (player->classtotals[shipclass]+classtotal));
+            }
         }
     }
+
     return numShips;
 }
 
@@ -3695,22 +3792,15 @@ bool32 aiuFindArmadaTarget(vector *dest_target, SelectCommand **sel_target, Sele
         MakeTargetsOnlyEnemyShips((SelectAnyCommand *)*sel_target, aiCurrentAIPlayer->player);
         return best_blob->visibility;
     }
-    else if (aiCurrentAIPlayer->primaryEnemyPlayer->PlayerMothership)
+    // CAT: the mothership fallback needs a live mothership and its blob, and targets the mothership alone (HW1's
+    //      "postfinal" ships within 9000 are gone): aiuFindArmadaTarget 0x0041e860 from 0x0041e9fa.
+    // CAT-TODO(M2-R7 AI orders): aiuFindArmadaTarget fills a selection buffer its caller owns (aiaArmada 0x00401120 passes one in AIPlayer; numShips 0 when nothing is found) where this tree allocates it: port with aiaArmada
+    else if ((aiCurrentAIPlayer->primaryEnemyPlayer->PlayerMothership != NULL) &&
+             (!bitTest(aiCurrentAIPlayer->primaryEnemyPlayer->PlayerMothership->header.flags, SOF_Dead)) &&
+             (mothership_blob != NULL))
     {
-        if (mothership_blob == NULL)
-        {
-            aiplayerLog((aiIndex,"Error - mothership blob is NULL... "));
-            *sel_target = NULL;
-            return FALSE;       // safety
-        }
-
-		*dest_target = mothership_blob->centre;
-
-		// postfinal: instead of just returning the enemy Mothership
-		//			  return all the ships in the mothership blob
-//        *sel_target  = (SelectCommand *)memAlloc(sizeofSelectCommand(temp.numShips), "temp", 0);
-//        (*sel_target)->numShips  = 0;
-		*sel_target = aiuFindNearbyEnemyShips(aiCurrentAIPlayer->primaryEnemyPlayer->PlayerMothership, 9000);
+        *dest_target = mothership_blob->centre;
+        aiuNewSelection(*sel_target, 1, "armadams");
         selSelectionAddSingleShip((MaxSelection *)*sel_target, aiCurrentAIPlayer->primaryEnemyPlayer->PlayerMothership);
         return mothership_blob->visibility;
     }
@@ -3742,85 +3832,9 @@ void aiuSetAttackSingleTarget(SelectCommand *attackers, SelectCommand *target)
 }
 
 
-/*-----------------------------------------------------------------------------
-    Name        : aiuFindPriorityTargets
-    Description : Postfinal: Filters "targets" depending on the contents of "attackers"
-    Inputs      : attackers, targets
-    Outputs     : modifies the targets selection
-    Return      : void
-----------------------------------------------------------------------------*/
-void aiuFindPriorityTarget(SelectCommand *attackers, SelectCommand *targets)
-{
-    MaxSelection tempsel;	//temporary selection
-	bool32 capship = FALSE;
-	
-	// split depending on the attacker type to select specific targets
-	switch (attackers->ShipPtr[0]->shiptype)
-	{
-		// anti-capital ship
-		case AttackBomber:
-		case IonCannonFrigate:
-		case MinelayerCorvette:
-		case HeavyCruiser:
-		case StandardDestroyer:
-		case SalCapCorvette:
-			capship = TRUE;
-			// these ships try to take out AdvanceSupport frigates first 9 out of 10 times
-			if (randyrandom(RANDOM_AI_PLAYER, 10) &&
-				selSelectionCopyByType(&tempsel, (MaxSelection *)targets, AdvanceSupportFrigate))     // CAT: no HW1 RepairCorvette (M2-R4 ships-b)
-			{
-				selSelectionCopy((MaxAnySelection *)targets, (MaxAnySelection *)&tempsel);
-				break;
-			}
-
-			// no break - the above ships fall through and try to eliminate SalCaps as well
-		
-		// anti-corvette
-		case MissileDestroyer:
-		case StandardFrigate:
-			// try to take out SalCaps  9 out of 10 times
-			if (randyrandom(RANDOM_AI_PLAYER, 10) &&
-				(selSelectionCopyByType(&tempsel, (MaxSelection *)targets, SalCapCorvette) >= 3))
-			{
-				selSelectionCopy((MaxAnySelection *)targets, (MaxAnySelection *)&tempsel);
-				break;
-			}
-			
-			// anti-capital ships break out here
-			if (capship)
-			{
-				break;
-			}
-		
-		// anti-fighter
-		case CloakedFighter:
-		case HeavyCorvette:
-		case HeavyDefender:
-		case HeavyInterceptor:
-		case MultiGunCorvette:
-			// take out any defenders in the group first  9 out of 10 times
-			if (randyrandom(RANDOM_AI_PLAYER, 10) &&
-				(selSelectionCopyByType(&tempsel, (MaxSelection *)targets, HeavyDefender) >= 6))
-			{
-				selSelectionCopy((MaxAnySelection *)targets, (MaxAnySelection *)&tempsel);
-				break;
-			}
-		
-		// minor firepower ships
-		case AdvanceSupportFrigate:
-		case Carrier:
-		
-		default:
-			// guarantee attacking mothership 1 out of 4 times.
-			if (!randyrandom(RANDOM_AI_PLAYER, 4) &&
-				selSelectionCopyByType(&tempsel, (MaxSelection *)targets, Mothership))
-			{
-				selSelectionCopy((MaxAnySelection *)targets, (MaxAnySelection *)&tempsel);
-				break;
-			}
-			break;
-	}
-}
+// CAT (M2-R7 oracle-rung-aiship): no aiuFindPriorityTarget (HW1 1.05 "postfinal"): cataclysm.exe has no such function
+//      and its aiuAttack 0x0041ea60 attacks the targets as given (aiuSetAttackHomogenous); the HW1 body drew from
+//      stream 6 on every homogenous attack
 
 /*-----------------------------------------------------------------------------
     Name        : aiuSetAttackHomogenous
@@ -3834,14 +3848,12 @@ void aiuSetAttackHomogenous(SelectCommand *attackers, SelectCommand *targets)
 {
 //    SelectCommand *att_target;
 
+    // CAT: no aiuFindPriorityTarget (cataclysm.exe has none: aiuAttack 0x0041ebf3 inlines this as "one target: attack;
+    //      then attack", without HW1's random target preference on stream 6)
     if (targets->numShips == 1)
     {
         aiuSetAttackSingleTarget(attackers, targets);
     }
-    else
-    {
-		aiuFindPriorityTarget(attackers, targets);
-	}
     aiuWrapAttack(attackers, targets);
 }
 
@@ -3939,10 +3951,10 @@ SelectCommand *aiuAttack(AITeam *team, SelectCommand *targets)
     }
 
   finish:
-	//postfinal: AttTargets now gets changed, don't return this, return the original targets instead
-//    return (SelectCommand *)AttTargets;
-	aiumemFree(AttTargets);
-	return targets;
+    // CAT: the duplicate is returned and kept (aiuAttack 0x0041ea60 returns it, aimProcessAdvancedAttack 0x00408ca0 stores
+    //      it and frees the original): aiuWrapAttack drops the untargetable targets from it in place. HW1's postfinal
+    //      freed the duplicate and returned the original
+    return AttTargets;
 }
 
 
@@ -4027,8 +4039,8 @@ void aiuSwarmDock(SelectCommand *ships, SelectCommand *pods)
 
             vecSub(diff,dockat->obj.posinfo.position,ship->obj.posinfo.position);
             dist = fsqrt(vecMagnitudeSquared(diff));
-            // CAT (M2-R5 dock): no HW1 busyness term (DockInfo has none in the exe). CAT-TODO(stage 4 AI): the exe's
-            //      aiuSendShipsToDockWithPods counterpart, if any (HW1's fuel pods do not exist in Cataclysm)
+            // CAT (M2-R5 dock): no HW1 busyness term (DockInfo has none in the exe).
+            // CAT-TODO(M2-R7 AI orders): aiuSwarmDock, aiuFindSwarmerTarget and aiuFindSwarmTargets have no cataclysm.exe counterpart (the export has none of them and no aimProcessSwarm* move; HW1's fuel pods are gone): remove them with their callers, the P2 swarm moves in AIMoves.c
 
             if (dist < mindist)
             {
@@ -4061,25 +4073,48 @@ void aiuSwarmDock(SelectCommand *ships, SelectCommand *pods)
 bool32 aiuWrapAttack(SelectCommand *attackers, SelectCommand *targets)
 {
     MaxSelection filtered;
+    MaxSelection leeches;
+    bool32 issued = FALSE;
+    sdword i;
 
     filtered.numShips = 0;
-
+    // CAT: aiuWrapAttack 0x0041ed00: the untargetable targets are dropped from the list in place (where HW1 refused the
+    //      whole attack when one target was untargetable), and every sLeech of the attackers is taken out of the attack:
+    //      those not already leeching get a special-target order on the targets (cat_leechIsLeeching 0x005b7ce0,
+    //      clWrapSpecial), the rest attack
     if (aiuFilterSelectableShips(attackers, &filtered) &&
-        !aiuShipsArentTargetable(targets))
+        (cat_aiuRemoveUntargetableTargets(targets) != 0))
     {
-#ifdef HW_BUILD_FOR_DEBUGGING
-        //dbgAssertOrIgnore(AreAllShipsAttackCapable((SelectCommand *)&filtered));
-
-        if (attackers->ShipPtr[0]->playerowner == targets->ShipPtr[0]->playerowner)
+        leeches.numShips = 0;
+        for (i = 0; i < attackers->numShips; i++)
         {
-            aiplayerLog((aiIndex, "Heap Big Warning!  CPU attacking itself!"));
+            if (attackers->ShipPtr[i]->shiptype == sLeech)
+            {
+                clRemoveShipFromSelection((SelectCommand *)&filtered, attackers->ShipPtr[i]);
+                if (!cat_leechIsLeeching(attackers->ShipPtr[i]))
+                {
+                    leeches.ShipPtr[leeches.numShips++] = attackers->ShipPtr[i];
+                }
+            }
         }
+        if (leeches.numShips > 0)
+        {
+            clWrapSpecial(&universe.mainCommandLayer, (SelectCommand *)&leeches, (SpecialCommand *)targets);
+            issued = TRUE;
+        }
+        if (filtered.numShips > 0)
+        {
+#ifdef HW_BUILD_FOR_DEBUGGING
+            if (attackers->ShipPtr[0]->playerowner == targets->ShipPtr[0]->playerowner)
+            {
+                aiplayerLog((aiIndex, "Heap Big Warning!  CPU attacking itself!"));
+            }
 #endif
-
-        clWrapAttack(&universe.mainCommandLayer,(SelectCommand *)&filtered, (AttackCommand *)targets);
-        return TRUE;
+            clWrapAttack(&universe.mainCommandLayer,(SelectCommand *)&filtered, (AttackCommand *)targets);
+            return TRUE;
+        }
     }
-    return FALSE;
+    return issued;
 }
 
 
@@ -4091,7 +4126,9 @@ bool32 aiuWrapMove(SelectCommand *ships, vector destination)
 
     if (aiuFilterSelectableShips(ships, &filtered))
     {
-        // CAT: a one-point path from the first ship (aiuWrapMove 0x0041eea0)
+        // CAT: the ships are made mobile first (MakeShipsMobile, aiuWrapMove 0x0041ef17), then a one-point path from the
+        //      first ship (aiuWrapMove 0x0041eea0)
+        MakeShipsMobile((SelectCommand *)&filtered, FALSE);
         clWrapMove(&universe.mainCommandLayer,(SelectCommand *)&filtered,CAT_MOVEPATH_ONCE,ships->ShipPtr[0]->obj.posinfo.position,1,&destination);
         return TRUE;
     }
@@ -4174,12 +4211,33 @@ bool32 aiuWrapSpecial(SelectCommand *ships, SelectCommand *targets)
     MaxSelection filtered;
 
     filtered.numShips = 0;
-
+    // CAT: the untargetable targets are dropped from the list in place, and the order goes only when targets are left
+    //      (aiuWrapSpecial 0x0041f2e0); HW1 refused it when one target was untargetable
     if (aiuFilterSelectableShips(ships, &filtered) &&
-        ((!targets) || (!aiuShipsArentTargetable(targets))))
+        ((!targets) || (cat_aiuRemoveUntargetableTargets(targets) != 0)))
     {
         clWrapSpecial(&universe.mainCommandLayer,(SelectCommand *)&filtered, (SpecialCommand *)targets);
+        return TRUE;
+    }
+    return FALSE;
+}
 
+/*-----------------------------------------------------------------------------
+    Name        : cat_aiuWrapCapture
+    Description : CAT: new (0x0041f3d0): the computer player's capture order, a special-target order with no targets for
+                  the selectable ships of the selection (cat_clWrapSpecialTarget 0x00453130 with flag), unless dontIssue
+    Inputs      : ships, dontIssue, flag
+    Outputs     :
+    Return      : TRUE if the order was given
+----------------------------------------------------------------------------*/
+bool32 cat_aiuWrapCapture(SelectCommand *ships, bool32 dontIssue, bool32 flag)
+{
+    MaxSelection filtered;
+
+    filtered.numShips = 0;
+    if (aiuFilterSelectableShips(ships, &filtered) && (!dontIssue))
+    {
+        cat_clWrapSpecialTarget(&universe.mainCommandLayer, (SelectCommand *)&filtered, NULL, flag);
         return TRUE;
     }
     return FALSE;
@@ -4344,10 +4402,11 @@ bool32 aiuFindCloakersInEnemyShipsIAmAwareOf(bool32 Red_Alert)
 
     //now check for yellow alert status
     if ((!bitTest(aiCurrentAIPlayer->AlertStatus, ALERT_CLOAK_YELLOW)) &&
-        ((aiCurrentAIPlayer->enemyShipsIAmAwareOf[CloakedFighter].selection->numShips) ||
-         (aiCurrentAIPlayer->enemyShipsIAmAwareOf[CloakGenerator].selection->numShips) ||
-         (aiCurrentAIPlayer->primaryEnemyShipsIAmAwareOf[CloakedFighter].selection->numShips) ||
-         (aiCurrentAIPlayer->primaryEnemyShipsIAmAwareOf[CloakGenerator].selection->numShips)))
+        // CAT: the two cloak generators, no cloaked fighter (aiuFindCloakersInEnemyShipsIAmAwareOf 0x0041f770: 0x3f, 0x4d)
+        ((aiCurrentAIPlayer->enemyShipsIAmAwareOf[kCloakGenerator].selection->numShips) ||
+         (aiCurrentAIPlayer->enemyShipsIAmAwareOf[tCloakGenerator].selection->numShips) ||
+         (aiCurrentAIPlayer->primaryEnemyShipsIAmAwareOf[kCloakGenerator].selection->numShips) ||
+         (aiCurrentAIPlayer->primaryEnemyShipsIAmAwareOf[tCloakGenerator].selection->numShips)))
     {
         bitSet(aiCurrentAIPlayer->AlertStatus, ALERT_CLOAK_YELLOW);
         change = TRUE;
@@ -4404,7 +4463,13 @@ void aiuUpdateKnowledgeOfEnemyShips(AIPlayer *aiplayer)
             for (j=0;j<blobShips->numShips;j++)
             {
                 ship = blobShips->ShipPtr[j];
-
+                // CAT: the crystals and slipgates are not remembered (aiuUpdateKnowledgeOfEnemyShips 0x0041f810: 0x7e 0x7f
+                //      0x70 0x71 0x72)
+                if ((ship->shiptype == dCrystal0) || (ship->shiptype == dCrystal1) || (ship->shiptype == dSlipgateSmall) ||
+                    (ship->shiptype == dSlipgateMedium) || (ship->shiptype == dSlipgateLarge))
+                {
+                    continue;
+                }
                 if (ship->playerowner == aiplayer->primaryEnemyPlayer)
                 {
                     growSelectAddShipNoDuplication(&aiplayer->primaryEnemyShipsIAmAwareOf[ship->shiptype], ship);
@@ -4451,8 +4516,14 @@ void aiuFillInArrays(blob_array *goodGuy_blob_array, blob_array *enemy_blob_arra
             ship = tempShips->ShipPtr[i];
 
             //as soon as an enemy ship is found, stick the blob into the blob array, don't do this more than once per blob
+            // CAT: an enemy ship counts when it is not fully cloaked, the computer player has detected it, it is
+            //      targetable and not a crystal (aiuFillInArrays 0x0041f900: cat_shipIsCloakedFully, sub_53F9F0 =
+            //      cat_shipDetectedByPlayer, cat_shipIsUntargetable; types 0x7e, 0x7f); HW1 asked the proximity sensors
             if ((!enemyFound) && (ship->playerowner != player) &&
-                (!(bitTest(ship->header.flags, SOF_Cloaked) && (!proximityCanPlayerSeeShip(aiCurrentAIPlayer->player, ship)))))
+                (!cat_shipIsCloakedFully(ship)) &&
+                cat_shipDetectedByPlayer(ship, aiCurrentAIPlayer->player->playerIndex) &&
+                (!cat_shipIsUntargetable(ship)) &&
+                (ship->shiptype != dCrystal0) && (ship->shiptype != dCrystal1))
             {
                 enemy_blob_array->blob[enemy_blob_array->numBlobs] = tempBlob;
                 enemy_blob_array->numBlobs++;
@@ -4520,6 +4591,10 @@ void aiuFillInAIBlobArrays(blob_array *goodGuy_blob_array, blob_array *enemy_blo
             blob_to_aiblob(enemy_blob_array->blob[i], aiuEnemyBlobs->blob[j]);
             aiuEnemyBlobs->blob[j]->blobShips = tempShips;
             j++;
+        }
+        else
+        {
+            memFree(tempShips);     // CAT: the exe frees an emptied selection (aiuFillInAIBlobArrays 0x0041fc3f)
         }
     }
     aiuEnemyBlobs->numBlobs = j;
@@ -4597,7 +4672,8 @@ void aiuRateBlobs(Player *player)
             if ((shipplayer->PlayerMothership) &&
                 (ship == shipplayer->PlayerMothership))
             {
-                tempvalue  = (udword)(AIU_PLAYERMOTHERSHIP_FACTOR * (real32)tempvalue);
+                // CAT: rounded to the nearest (the double-magic sequence of aiuRateBlobs 0x0041fd90), HW1 truncated a float
+                tempvalue  = cat_aiuRoundToUdword((double)tempvalue * AIU_PLAYERMOTHERSHIP_FACTOR);
                 mothership = TRUE;
             }
 
@@ -4606,7 +4682,7 @@ void aiuRateBlobs(Player *player)
                 goodGuystrength += tempstrength;
                 goodGuyvalue    += tempvalue;
 
-                if (ship->shiptype == ResourceCollector)
+                if (ship->staticinfo->shipclass == CLASS_Resource)     // CAT: the class (aiuRateBlobs 0x0041fd90), HW1's ResourceCollector
                 {
                     goodGuyResourcers++;
                 }
@@ -4666,7 +4742,8 @@ void aiuRateBlobs(Player *player)
             if ((shipplayer->PlayerMothership) &&
                 (ship == shipplayer->PlayerMothership))
             {
-                tempvalue  = (udword)(AIU_PLAYERMOTHERSHIP_FACTOR * (real32)tempvalue);
+                // CAT: rounded to the nearest (the double-magic sequence of aiuRateBlobs 0x0041fd90), HW1 truncated a float
+                tempvalue  = cat_aiuRoundToUdword((double)tempvalue * AIU_PLAYERMOTHERSHIP_FACTOR);
                 mothership = TRUE;
             }
 
@@ -4679,7 +4756,7 @@ void aiuRateBlobs(Player *player)
                 goodGuyvalue    += tempvalue;
                 tempblob->visibility = TRUE;
 
-                if (ship->shiptype == ResourceCollector)
+                if (ship->staticinfo->shipclass == CLASS_Resource)     // CAT: the class (aiuRateBlobs 0x0041fd90), HW1's ResourceCollector
                 {
                     goodGuyResourcers++;
                 }

@@ -266,9 +266,9 @@
  },
  "0x00409350": {
   "class": "MODIFIED",
-  "confidence": "medium",
+  "confidence": "high",
   "change": "the dock purpose from the move flags: (flags & 2 stay) ? 1 : 0, +8 when flags & 4 (instant); the host only with flags & 1; no HW1 health-based refuel/repair choice; the wait loop drops ships without a host that are not hidden, or staying ships waiting for a soft launch (0x00409350)",
-  "note": "[review: M2-R5 layout-dock audit] compared with 0x00409350: the dock-type part is the exe's (ported, AIMoves.c); the rest of the body is a CAT-TODO(stage 4 AI)",
+  "note": "[review: M2-R5 layout-dock audit] compared with 0x00409350: the dock-type part is the exe's (ported, AIMoves.c); the rest of the body is a CAT-TODO(stage 4 AI) | [review: M2-R7 oracle-rung-aiship] the rest of the body compared and kept (dockdup, processing, TEAM_DOCKING, the wait loop); the stage-4 CAT-TODO closed",
   "sample": "audit-R5-layout-dock-sync"
  },
  "0x00409c50": {
@@ -686,37 +686,37 @@
  },
  "0x00413bd0": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "no HW1 test on the dropped type(s) SensorArray, CryoTray, P2Mothership, P3Megaship, ResourceController cases (the type ids do not exist in Cataclysm); r6 switches on 0x60, 0x62, 0x65, 0x68, 0x6d, 0x82 (partial read): stage 4 AI",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "confidence": "high",
+  "change": "enum: the massive-ship default cases are p1Mothership, trFloatingCity, trResearchStation, trGhostship, dRKO, dBeastMothership (0x60 0x62 0x65 0x68 0x6d 0x82); HW1 SensorArray/CryoTray/P2Mothership/P3Megaship/ResourceController gone",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun | [review: M2-R7 oracle-rung-aiship] whole body read: the class cases 1/2, 3, 4, 5, 6 as HW1; the default type switch ported: p1Mothership, trFloatingCity, trResearchStation, trGhostship, dRKO, dBeastMothership (AIShip.c)",
   "sample": "port-R4"
  },
  "0x00413ee0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "vecSub(collPosition - position) as three float subtractions",
+  "note": "vecSub(collPosition - position) as three float subtractions | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
   "sample": "IDENTICAL/medium"
  },
  "0x00413f90": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "three",
+  "note": "three | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
   "sample": "reread-R2"
  },
  "0x00414100": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
   "sample": "reread-R2"
  },
  "0x00414610": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "adds calls cat_mimicGetAvoidRadius, cat_salvageGetSalvagerInfo, cat_shipGetSpeedMultiplier, cat_shipIsCloakedFully, sub_53F9F0; drops calls to attackSimple, proximityCanPlayerSeeShip (absent from Cataclysm); adds strings \"\\nWarning: ship %s %s flying with no ...\"; fields +attack, needFix, next, objlink (+3) -HaveMoved, Master, ShipSpecifics, TargetPtr (+44); globals +singlePlayerGame; constants 19, 21 not in body; loops 2 -> 5",
-  "note": "[review: M2-R5 layout-dock] the SPECIAL_2_CatNoAvoidance (specialFlags2 0x40) skip of the exe added (0x00413e40) | [review: M2-R5 command-tactics] the escort speed limit (0x004149c6), the linking Acolyte/Mimic skip (0x00414cb9) and the force-field sphere Sentinel exceptions (0x0041546c) ported; open: the small-target pass skip on static+0x48 < 500 (0x00414c8a) and the Ship+0x608 / mission-type exceptions (0x00414e0e)",
+  "note": "[review: M2-R5 layout-dock] the SPECIAL_2_CatNoAvoidance (specialFlags2 0x40) skip of the exe added (0x00413e40) | [review: M2-R5 command-tactics] the escort speed limit (0x004149c6), the linking Acolyte/Mimic skip (0x00414cb9) and the force-field sphere Sentinel exceptions (0x0041546c) ported; open: the small-target pass skip on static+0x48 < 500 (0x00414c8a) and the Ship+0x608 / mission-type exceptions (0x00414e0e) | [review: M2-R7 oracle-rung-aiship] whole body read and ported (AIShip.c): single-player hyperspace-effect skip (0x0041468d), formation leader speed not for COMMAND_DOCK and for FORCEFIELD_SPHERE_FORMATION (0x004149e2), speed multiplier in the cap (0x00414ab2), mimic avoid radius for both ships (0x00414b28, 0x004152b5), no right of way for a docking fighter/corvette at a dock point (0x00414b59), the small-target pass skipped below originalCollSphereSize 500 (0x00414c8a), the link exception skips only the small pass, the Ship+0x608 / clamped-component / single-player FloatingCity-SlipgateNode and Ecclesiam-Mothership exceptions (0x00414e0e), no asteroid potshot (attackSimple) or Asteroid3 row bonus, parade padding by CLASS_Mothership without the R2 variant and without changing the ship pad, clamp info NULL test, cloak test cat_shipIsCloakedFully + cat_shipDetectedByPlayer, squared range test before the sqrt, no R1-mothership repulse flattening, pass-on-right from 30 m (900.0 at 0x0072a4cc); the salvager target compared as a pointer (the UBSan member-access-within-null at AIShip.c:1467 fixed faithfully)",
   "sample": "audit-R5-layout-dock-sync"
  },
  "0x00416b80": {
@@ -800,196 +800,196 @@
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
   "sample": "reread-R2"
  },
  "0x00419a40": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "aitrackIsZeroRotation/aitrackIsZeroVelocity inlined (STILL_ROT_*/STILL_VELOCITY_* bounds)",
+  "note": "aitrackIsZeroRotation/aitrackIsZeroVelocity inlined (STILL_ROT_*/STILL_VELOCITY_* bounds) | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
   "sample": "REWRITTEN/high"
  },
  "0x00419cd0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same; SOF_Crazy is 0x200000 in Cataclysm (HW1 0x01000000), header-level SOF renumbering",
+  "note": "same; SOF_Crazy is 0x200000 in Cataclysm (HW1 0x01000000), header-level SOF renumbering | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
   "sample": "reread-R2"
  },
  "0x00419d00": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same; SOF_Crazy renumbered (Ghidra mislabels rotspeed as collInfo)",
+  "note": "same; SOF_Crazy renumbered (Ghidra mislabels rotspeed as collInfo) | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
   "sample": "reread-R2"
  },
  "0x00419d30": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same; SOF_Crazy renumbered",
+  "note": "same; SOF_Crazy renumbered | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
   "sample": "reread-R2"
  },
  "0x0041a2c0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
   "sample": "reread-R2"
  },
  "0x0041a530": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
   "sample": "reread-R2"
  },
  "0x0041aa70": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
   "sample": "reread-R2"
  },
  "0x0041aa90": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "enum: kushan/taiidan IonCannonFrigate, StandardDestroyer, HeavyCruiser plus the Beast bIonArrayFrigate and bHeavyCruiser (8 cases, HW1 3)",
-  "note": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] ported: the 8 exe types (AIUtilities.c)",
   "sample": "reread-R2"
  },
  "0x0041ab60": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "aiuShipIsHidden inlined as a flags test (0x8000 in Cataclysm; SOF renumbered)",
+  "note": "aiuShipIsHidden inlined as a flags test (0x8000 in Cataclysm; SOF renumbered) | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
   "sample": "reread-R2"
  },
  "0x0041ac40": {
   "class": "MODIFIED",
   "confidence": "high",
   "change": "enum and classes: Cataclysm-only CLASS_MonsterShip (9) and CLASS_Micro (11) count as dangerous; frigate exception is bDFGFrigate/tDFGFrigate (no ResourceController); the RepairCorvette and DefenseFighter exceptions are gone (corvettes and fighters always dangerous)",
-  "note": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] ported: CLASS_MonsterShip and CLASS_Micro dangerous, both DFG frigates excepted (AIUtilities.c)",
   "sample": "reread-R2"
  },
  "0x0041acb0": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "no HW1 test on the dropped type(s) CryoTray hack (value 1000) and the DDDFrigate/DefenseFighter/LightCorvette/LightInterceptor/RepairCorvette cases (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "confidence": "high",
+  "change": "strength = rounded kill rating for Sect/Beast ships, else 0; value 5500 for CLASS_Mothership or trFloatingCity, buildCost for Sect/Beast, 1 for other races",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun | [review: M2-R7 oracle-rung-aiship] whole body read and ported: strength only for Sect/Beast, rounded to nearest by the 1.5*2^52 double sequence; value AIU_MOTHERSHIP_VALUE for CLASS_Mothership or trFloatingCity, buildCost for Sect/Beast, else 1 (AIUtilities.c)",
   "sample": "port-R4"
  },
  "0x0041ae00": {
   "class": "MODIFIED",
-  "confidence": "medium",
-  "change": "no HW1 test on the dropped type(s) ResourceController (the type ids do not exist in Cataclysm); r6 body has no ship-type test (partial read)",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "confidence": "high",
+  "change": "enum: frigates except k/tAdvanceSupportFrigate; corvettes tMinelayerCorvette or n>3; fighters k/tAttackBomber with n>=6",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun | [review: M2-R7 oracle-rung-aiship] whole body read and ported: both support frigates removed, tMinelayerCorvette or more than 3 corvettes kept, both attack bombers with 6 or more ships kept (AIUtilities.c)",
   "sample": "port-R4"
  },
  "0x0041b020": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "struct returned through the hidden pointer",
+  "note": "struct returned through the hidden pointer | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
   "sample": "reread-R2"
  },
  "0x0041b420": {
   "class": "IDENTICAL",
-  "confidence": "medium",
+  "confidence": "high",
   "change": "",
-  "note": "aiuFindEnemyMothership inlined; switch body not fully compared",
+  "note": "aiuFindEnemyMothership inlined; switch body not fully compared | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
   "sample": "IDENTICAL/medium"
  },
  "0x0041b7d0": {
   "class": "MODIFIED",
-  "confidence": "medium",
+  "confidence": "high",
   "change": "no HW1 test on the dropped type(s) ResourceController (the type ids do not exist in Cataclysm); r6 tests 0x3c kAdvanceSupportFrigate, 0x40 / 0x4f both GravWellGenerators (partial read): stage 4 AI",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun | [review: M2-R7 oracle-rung-aiship] whole body read and ported: both races' support frigates and salvage corvettes, no grav well generator of either race",
   "sample": "port-R4"
  },
  "0x0041b900": {
   "class": "MODIFIED",
-  "confidence": "medium",
+  "confidence": "high",
   "change": "no HW1 test on the dropped type(s) DefenseFighter (the type ids do not exist in Cataclysm); r6 tests only != 0x4e tDFGFrigate besides the class tests (partial read)",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun | [review: M2-R7 oracle-rung-aiship] whole body read and ported: capital ships except both DFG frigates, both grav well generators and both motherships",
   "sample": "port-R4"
  },
  "0x0041dd50": {
-  "class": "IDENTICAL",
+  "class": "MODIFIED",
   "confidence": "high",
-  "change": "",
-  "note": "same",
+  "change": "the resourcing mark is Ship+0x1D8 (catResourcing)",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] found modified: Ship.catResourcing (+0x1D8) replaces SPECIAL_Resourcing; ported",
   "sample": "reread-R2"
  },
  "0x0041e500": {
   "class": "MODIFIED",
-  "confidence": "medium",
+  "confidence": "high",
   "change": "no HW1 test on the dropped type(s) ResourceController / ResearchShip cases (the type ids do not exist in Cataclysm); r6 compares only against the requested type (partial read): stage 4 AI",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun | [review: M2-R7 oracle-rung-aiship] whole body read and ported: the race range FirstShipTypeOfRace..LastShipTypeOfRace (last excluded), Workers/tResourceCollector and Processors and both support frigates in the being-built switch, the class cap only when not -1 (AIUtilities.c)",
   "sample": "port-R4"
  },
  "0x0041f800": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
   "sample": "reread-R2"
  },
  "0x0041fd90": {
   "class": "MODIFIED",
-  "confidence": "medium",
+  "confidence": "high",
   "change": "no HW1 test on the dropped type(s) Drone (two tests) (the type ids do not exist in Cataclysm); r6 tests only 0x62 kCarrier besides the class (partial read): stage 4 AI",
-  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun",
+  "note": "class and change were set directly in delta_map.json (reviewed flag unset) by an earlier round; carried into the review file by the M2-R4 rest-oracle classify rerun | [review: M2-R7 oracle-rung-aiship] whole body read and ported: aiuRateShip inlined (Cataclysm rules), the mothership value rounded to nearest (1.5x), resourcers by CLASS_Resource",
   "sample": "port-R4"
  },
  "0x00420510": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "AIVAR_LABEL_MAX_LENGTH 0x2f",
+  "note": "AIVAR_LABEL_MAX_LENGTH 0x2f | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (aivarFind / aivarLabelSet inlined; 0x34-byte AIVar)",
   "sample": "reread-R2"
  },
  "0x00420560": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (aivarFind / aivarLabelSet inlined; 0x34-byte AIVar)",
   "sample": "reread-R2"
  },
  "0x004205f0": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (aivarFind / aivarLabelSet inlined; 0x34-byte AIVar)",
   "sample": "reread-R2"
  },
  "0x00420600": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (aivarFind / aivarLabelSet inlined; 0x34-byte AIVar)",
   "sample": "reread-R2"
  },
  "0x00420610": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (aivarFind / aivarLabelSet inlined; 0x34-byte AIVar)",
   "sample": "reread-R2"
  },
  "0x00420620": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (aivarFind / aivarLabelSet inlined; 0x34-byte AIVar)",
   "sample": "reread-R2"
  },
  "0x00420650": {
   "class": "IDENTICAL",
   "confidence": "high",
   "change": "",
-  "note": "same",
+  "note": "same | [review: M2-R7 oracle-rung-aiship] compared with the exe: identical (aivarFind / aivarLabelSet inlined; 0x34-byte AIVar)",
   "sample": "reread-R2"
  },
  "0x00420a20": {
@@ -19495,5 +19495,740 @@
   "confidence": "medium",
   "change": "",
   "note": "[review: M2-R6 startup-keys] compared: identical"
+ },
+ "0x00413b70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00413cf0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00413e10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00413f10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00414090": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00414130": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00414280": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00415b60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00415c80": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00416120": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers GetDirectionOfTravel / rowShipCanGetOutOfWayOfMe agree; x87 evaluation order aside)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00414400": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops HW1's R1 Mothership branch (AVOID_ROW_R1MOTHERSHIP_BY): every ship parts by rowAvoidBy[type] or the size formula",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: no HW1 R1-Mothership special case (every ship parts by rowAvoidBy); ported (AIShip.c)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00415e60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_shipIsCloakedFully; fields +collInfo, collPosition, force, formationLink (+6) -haveCheckedForLoss, isMoving, missileID, missileNumber (+5)",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read: identical but the target test is cat_shipIsCloakedFully (ported, AIShip.c)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00415fa0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_shipIsCloakedFully; fields +belongto, force, formationLink, next (+4) -FORCE_DROPPED, MINE_RANGESQR, MINE_RANGESQR_FORCED, collMyBlob (+7)",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read: identical but the target test is cat_shipIsCloakedFully || SOF_Disabled (ported, AIShip.c); bobAddObjToSpecificBlob is collAddSpaceObjToSpecificBlob",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x004162c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_mimicAppearsAlliedTo, cat_shipIsCloakedFully, sub_53F9F0; drops calls to proximityCanPlayerSeeShip (absent from Cataclysm); fields +belongto, formation_position, objtype, prev (+3) -FORCE_DROPPED, blobShips, collMyBlob, flags (+6); globals +singlePlayerGame",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read and ported (AIShip.c): no derelict-race ship outside single player, no ship with catFlags18 bit 5 (CAT_SHIPFLAG_KasMines, kasfShipsEffectedByMines 0x0049a080), a fully cloaked ship only once detected, a Leech only when detected, a mimic not while it appears allied (cat_mimicAppearsAlliedTo); the equal-mass tie on stream 10 as HW1",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00416410": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a mine that loses its target while flying at it stops and searches when it has no formation (MINE_SEARCH_AND_STOP), else reforms the wall",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: a mine whose fly-to-target fails goes to MINE_SEARCH_AND_STOP without a formation (0x00416783: state 4 with formationinfo else 2), where HW1 always reformed the wall; the fake target clears staticinfo; ported (AIShip.c)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x004183f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00418800": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00418a30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00419200": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00419460": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x004196c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x004197b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00419bc0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00419d50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00419df0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (x87 evaluation, fptan and the table fsqrt aside: docs/m2-r7-oracle-rung-aiship.md)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00418de0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "a zero desired heading counts as reached (returns TRUE before the pitch test)",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: a zero desired heading returns TRUE at once (0x00418e34, the double 0.0 at 0x0072a4e8); ported (AITrack.c)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00419a00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical to HW1; GoK's gun-gimbal reset (gunResetGimbleGuns, off with /vanilla) removed from the tree to match (0x00419a00)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00419b60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical to HW1; GoK's gun-gimbal reset (gunResetGimbleGuns, off with /vanilla) removed from the tree to match (0x00419b60)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00419c70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical to HW1; GoK's gun-gimbal reset (gunResetGimbleGuns, off with /vanilla) removed from the tree to match (0x00419c70)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x004202d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (aivarFind / aivarLabelSet inlined; 0x34-byte AIVar)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x004203a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (aivarFind / aivarLabelSet inlined; 0x34-byte AIVar)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00420420": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (aivarFind / aivarLabelSet inlined; 0x34-byte AIVar)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x004205c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (aivarFind / aivarLabelSet inlined; 0x34-byte AIVar)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00420670": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (aivarFind / aivarLabelSet inlined; 0x34-byte AIVar)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x004206d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (aivarFind / aivarLabelSet inlined; 0x34-byte AIVar)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00419ed0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041a130": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041a2f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041a480": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041a4f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041a560": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041a6b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041a8c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041a9a0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041a9f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041aa30": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041ab00": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041ab90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041aeb0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041b090": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041b0d0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041b170": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041ba10": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041baa0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041bd60": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041c520": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041c5f0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041cf90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041d300": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041d540": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041d780": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041da20": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041dc50": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041de70": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041df90": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041e050": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041e0c0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041e190": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041f6e0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x004201b0": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00420220": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical (inlined helpers agree)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041c990": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: identical, except that the exe returns an uninitialised local when no ship is found; the tree keeps NULL (CAT-FIX comment)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041c120": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read: identical; the auto MODIFIED was aiuGetClosestShip and aiuFindNearbyDangerousEnemyShips inlined",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041c320": {
+  "class": "IDENTICAL",
+  "confidence": "high",
+  "change": "",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read: identical; the auto MODIFIED was aiuGetClosestShip and aiuFindNearbyDangerousEnemyShips inlined",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041a700": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the rescue attack uses the team's tactics for a single-player ScriptTeam (team +0x74), else Aggressive",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: a single-player script team rescues with its own tactics (AITeam +0x74 = kasTactics), others Aggressive; aiuFindAttackingShips inlined; ported (AIUtilities.c)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041ad40": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "skips the crystals (dCrystal0, dCrystal1)",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: dCrystal0/dCrystal1 skipped (0x7e/0x7f); ported",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041b690": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "enum: kSalCap/tSalCap, dCrystal0/1 and the three slipgates do not count as protection",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: neither salvage corvette, crystal or slipgate protects a blob (0x48 0x59 0x7e 0x7f 0x70 0x71 0x72); ported",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041bb80": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the other-mothership test is by class (Mothership, Carrier)",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: the mothership test is by class (CLASS_Mothership, CLASS_Carrier), not HW1's two types; ported",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041bcf0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_shipGetSpeedMultiplier",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read and ported: the top speed times cat_shipGetSpeedMultiplier",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041be90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "enum: the vulnerable types are both races' support frigates and salvage corvettes (plus class Resource)",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified (via the inlined aiuShipIsVulnerableGoodGuy / LargeVulnerable): both races' support frigates and salvage corvettes; ported",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041c620": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the resourcer exclusion is by class Resource",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: the near-mothership exclusion tests CLASS_Resource, not HW1's ResourceCollector; ported",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041cb50": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_shipIsTargetableBy; constants 19, 58 not in body; loops 5 -> 7",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read and ported: no mothership exclusion; the visibility test is !(SOF_Hide|SOF_Hyperspace) && cat_shipIsTargetableBy (aiuShipIsntTargetable) && the blob's visibility (HW1 index-0 quirk kept as the exe has it)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041d160": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_shipIsCloakedFully; fields +enemyShipsIAmAwareOf, selection -ShipPtr, blob, blobShips, centre (+7)",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read and ported: any visible enemy ship inside the sphere that is not fully cloaked",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041dd90": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "skips resources with attribute 0x200 (CAT_ATTRIBUTES_KillerCollision)",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: a resource with the killer-collision attribute (0x200) is skipped; ported",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041e2d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "enum: tMissileDestroyer, sDreadnought, sDestroyer get the 0.10-0.25 factor",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: the low-range factor for tMissileDestroyer, sDreadnought, sDestroyer; ported",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041e3a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "enum: skips k/tCloakGenerator, k/tGravWellGenerator, t/bDFGFrigate",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: both races' cloak and grav well generators and both DFG frigates skipped; ported",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041e860": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_selSelectionCopy; drops calls aiuFindNearbyEnemyShips, selSelectionAddSingleShip, selectMemDupSelection; fields +flags, x, y, z -blob, blobShips, centre, mothership (+4); constants 0x157c, 0x2328 not in body",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read and ported: the mothership fallback needs a live mothership and its blob and targets the mothership alone (no HW1 postfinal ships within 9000); the exe fills a caller-owned buffer (aiaArmada 0x00401120): CAT-TODO(M2-R7 AI orders)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041ea60": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "params 2 -> 3 (prototype); calls with a changed parameter count: MakeShipsAttackCapable 2->3",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read and ported: returns its duplicate (aimProcessAdvancedAttack 0x00408ca0 frees the original), homogenous attack = (one target: attack) + attack, no aiuFindPriorityTarget (absent from the exe, its stream-6 draws gone)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041ed00": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_leechIsLeeching, cat_shipIsTargetableBy, clRemoveTargetFromSelection, clWrapSpecial; fields +TargetPtr, numTargets -ShipPtr, flags, playerIndex, visibleToWho",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read and ported: untargetable targets dropped in place, every sLeech taken out of the attack and, if not leeching, given clWrapSpecial on the targets",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041eea0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls MakeShipsMobile; fields +salvageNumTagged, x, y, z",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read and ported: MakeShipsMobile(filtered, 0) before clWrapMove",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041f2e0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_shipIsTargetableBy; body 1.8x smaller than predicted",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read and ported: untargetable targets dropped in place; no order when none are left",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041ef70": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the selectable filter (ships and host) is Cataclysm's: disabled/crazy, hyperspaced out or being built externally",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: the host test is the exe's selectable filter (no SOF_Hide test, specialFlags2 CatBeingBuilt); via aiuShipIsntSelectable (AIUtilities.h)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041abe0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "filters disabled/crazy, hyperspaced-out and externally-being-built ships (no SOF_Hide test)",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: no SOF_Hide test, specialFlags2 & 0x8 (CatBeingBuilt) excluded; via aiuShipIsntSelectable (AIUtilities.h)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041f1d0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the inlined selectable filter is Cataclysm's (no SOF_Hide test, being-built excluded)",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: the tree body is HW1's; the inlined selectable filter is Cataclysm's (aiuFilterSelectableShips)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041f480": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the inlined selectable filter is Cataclysm's (no SOF_Hide test, being-built excluded)",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: the tree body is HW1's; the inlined selectable filter is Cataclysm's (aiuFilterSelectableShips)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041f520": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the inlined selectable filter is Cataclysm's (no SOF_Hide test, being-built excluded)",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: the tree body is HW1's; the inlined selectable filter is Cataclysm's (aiuFilterSelectableShips)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041f5c0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the inlined selectable filter is Cataclysm's (no SOF_Hide test, being-built excluded)",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: the tree body is HW1's; the inlined selectable filter is Cataclysm's (aiuFilterSelectableShips)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041f650": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "the inlined selectable filter is Cataclysm's (no SOF_Hide test, being-built excluded)",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared with the exe: the tree body is HW1's; the inlined selectable filter is Cataclysm's (aiuFilterSelectableShips)",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041f130": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "calls with a changed parameter count: clWrapFormation 3->4",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared: clWrapFormation level 0 (ported earlier) and the Cataclysm selectable filter",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041f0a0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "calls with a changed parameter count: clWrapFormation 3->4",
+  "note": "[review: M2-R7 oracle-rung-aiship] compared: clWrapFormation level 0 (ported earlier); the HW1 ShipPtr[0] filter quirk kept as the exe has it",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041f770": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "enum: k/tCloakGenerator (0x3f, 0x4d), no cloaked fighter",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: the yellow alert asks for kCloakGenerator / tCloakGenerator only (no cloaked fighter); ported",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041f810": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "skips dCrystal0/1 and the three slipgates",
+  "note": "[review: M2-R7 oracle-rung-aiship] found modified: crystals and slipgates are not remembered; ported",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041f900": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls cat_shipIsCloakedFully, cat_shipIsUntargetable, sub_53F9F0; drops calls to proximityCanPlayerSeeShip (absent from Cataclysm)",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read and ported: an enemy ship counts when not fully cloaked, detected by the computer player, targetable and not a crystal",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x0041faf0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "adds calls memFree",
+  "note": "[review: M2-R7 oracle-rung-aiship] whole body read and ported: the emptied enemy selection is freed",
+  "sample": "port-R7-oracle-rung-aiship"
+ },
+ "0x00408ca0": {
+  "class": "MODIFIED",
+  "confidence": "high",
+  "change": "drops calls selectMemDupSelection; drops strings \"duppaa\"; body 2.0x smaller than predicted",
+  "note": "[review: M2-R7 oracle-rung-aiship] ported the aiuAttack ownership: the move's target list goes in, the returned duplicate replaces it and the original is freed (0x00408ca0)",
+  "sample": "port-R7-oracle-rung-aiship"
  }
 }

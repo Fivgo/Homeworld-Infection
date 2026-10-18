@@ -12,8 +12,13 @@
 
 #include <math.h>
 
-#define fsqrt(x)     (real32)sqrtf((real32)(x))
-#define fmathSqrt(x) (real32)sqrtf((real32)(x))
+// HWI-EXPERIMENT (M2-R7 oracle-rung-aiship): /oracleTableFsqrt switches both to the exe's table square root
+//      (fsqrt 0x00472860, HW1's (real32)fmathSqrtDouble((real32)(x)); FastMath.c) for the oracle's one fsqrt experiment
+//      per round; the default is sqrtf (decision 23, the user's: never switch the default)
+extern bool32 catFsqrtTable;
+double catFmathSqrtDouble(double f);
+#define fsqrt(x)     (catFsqrtTable ? (real32)catFmathSqrtDouble((real32)(x)) : (real32)sqrtf((real32)(x)))
+#define fmathSqrt(x) (catFsqrtTable ? (real32)catFmathSqrtDouble((real32)(x)) : (real32)sqrtf((real32)(x)))
 #define fmathSqrtDouble sqrt
 
 // pi

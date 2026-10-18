@@ -486,7 +486,12 @@ bool32 aitrackHeadingFunc(SpaceObjRotImpTargGuidance *ship,vector *desiredHeadin
             return TRUE;
         }
     }
-
+    // CAT: a zero desired heading counts as reached (aitrackHeadingFunc 0x00418e34: each component compared with the
+    //      double 0.0 at 0x0072a4e8)
+    if ((desiredHeading->x == 0.0f) && (desiredHeading->y == 0.0f) && (desiredHeading->z == 0.0f))
+    {
+        return TRUE;
+    }
     if (ship->nonstatvars.rotstrength[ROT_PITCHUP] == 0)
     {
         desiredHeading->z = 0.0f;
@@ -1145,16 +1150,11 @@ bool32 aitrackZeroVelocity(Ship *ship)
 ----------------------------------------------------------------------------*/
 bool32 aitrackSteadyShipDriftOnly(Ship *ship)
 {
-    bool32 zerovel = aitrackZeroVelocity(ship);
-    bool32 gunswerereset = !vanillaGunsMode && gunResetGimbleGuns(ship);
-
-    if (zerovel)
+    // CAT: no gun-gimbal reset (GoK's, off with /vanilla): cataclysm.exe's aitrackSteadyShipDriftOnly 0x00419a00 zeroes the
+    //      velocity once aitrackZeroVelocity says so and returns TRUE
+    if (aitrackZeroVelocity(ship))
     {
         aitrackForceZeroVelocity(ship);
-        if (!vanillaGunsMode)
-        {
-            return gunswerereset;
-        }
         return TRUE;
     }
     else
@@ -1186,15 +1186,11 @@ bool32 aitrackSteadyShipAnywhere(Ship *ship)
 {
     bool32 stabilized = aitrackZeroRotationAnywhere(ship);
     bool32 zerovel = aitrackZeroVelocity(ship);
-    bool32 gunswerereset = !vanillaGunsMode && stabilized && gunResetGimbleGuns(ship);
 
+    // CAT: no gun-gimbal reset (GoK's, off with /vanilla; aitrackSteadyShipAnywhere 0x00419b60)
     if (stabilized && zerovel)
     {
         aitrackForceSteadyShip(ship);
-        if (!vanillaGunsMode)
-        {
-            return gunswerereset;
-        }
         return TRUE;
     }
     else
@@ -1226,15 +1222,11 @@ bool32 aitrackSteadyShip(Ship *ship)
 {
     bool32 stabilized = aitrackStabilizeShip(ship);
     bool32 zerovel = aitrackZeroVelocity(ship);
-    bool32 gunswerereset = !vanillaGunsMode && stabilized && gunResetGimbleGuns(ship);
 
+    // CAT: no gun-gimbal reset (GoK's, off with /vanilla; aitrackSteadyShip 0x00419c70)
     if (stabilized && zerovel)
     {
         aitrackForceSteadyShip(ship);
-        if (!vanillaGunsMode)
-        {
-            return gunswerereset;
-        }
         return TRUE;
     }
     else
